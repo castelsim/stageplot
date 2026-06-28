@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pagina non trovata — Stage Plot</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root { --ink:#17212f; --muted:#5b6675; --accent:#b45309; --dark:#101820; }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; min-height:100vh; display:grid; place-items:center;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      color:var(--ink); background:#fff; line-height:1.55; padding:24px;
+    }
+    .box { max-width:440px; text-align:center; }
+    .mark {
+      display:inline-grid; place-items:center; width:48px; height:48px; border-radius:12px;
+      background:var(--dark); color:#fff; font-weight:800; margin-bottom:20px;
+    }
+    h1 { font-size:clamp(28px,6vw,40px); margin:0 0 10px; letter-spacing:-.02em; }
+    p { color:var(--muted); margin:0 0 24px; font-size:17px; }
+    .actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+    a.btn {
+      display:inline-flex; align-items:center; min-height:44px; padding:11px 18px;
+      border:1px solid #e1e6ed; border-radius:9px; text-decoration:none; color:var(--ink);
+      font-weight:600;
+    }
+    a.btn.primary { background:var(--dark); border-color:var(--dark); color:#fff; }
+    a.btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <span class="mark">SP</span>
+    <h1>Pagina non trovata</h1>
+    <p>La pagina che cercavi non esiste o è stata spostata.</p>
+    <div class="actions">
+      <a class="btn primary" href="/">Apri il tool gratuito</a>
+      <a class="btn" href="/consulenza/">Consulenza</a>
+    </div>
+  </div>
+</body>
+</html>
