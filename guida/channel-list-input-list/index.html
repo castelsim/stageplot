@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Channel list e input list: cosa sono e come si fanno | StagePlot</title>
+  <meta name="description" content="Channel list e input list: cosa sono, che differenza c'è, come si numerano e si compilano. Con esempio di channel list pronto e tool gratuito.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/channel-list-input-list/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Channel list e input list: cosa sono e come si fanno">
+  <meta property="og:description" content="Differenza, come si numerano e si compilano. Con esempio di channel list pronto.">
+  <meta property="og:url" content="https://stageplot.it/guida/channel-list-input-list/">
+  <meta property="og:image" content="https://stageplot.it/preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Channel list e input list: cosa sono e come si fanno">
+  <meta name="twitter:description" content="Differenza, come si numerano e si compilano. Con esempio pronto.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Channel list e input list","item":"https://stageplot.it/guida/channel-list-input-list/"}
+      ]},
+      {"@type":"Article","headline":"Channel list e input list: cosa sono e come si fanno","inLanguage":"it","datePublished":"2026-06-28","dateModified":"2026-06-28","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/channel-list-input-list/","author":{"@type":"Person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/favicon.svg"}}},
+      {"@type":"HowTo","name":"Come compilare una channel list","inLanguage":"it","description":"Come compilare una channel list per uno spettacolo dal vivo.","step":[
+        {"@type":"HowToStep","position":1,"name":"Elenca le sorgenti","text":"Elenca ogni sorgente audio sul palco: voci, strumenti, microfoni, DI."},
+        {"@type":"HowToStep","position":2,"name":"Numera i canali","text":"Numera i canali in ordine, di solito partendo dalla batteria e da sinistra verso destra."},
+        {"@type":"HowToStep","position":3,"name":"Indica microfono o DI","text":"Per ogni canale indica come si riprende: microfono (modello) o DI box."},
+        {"@type":"HowToStep","position":4,"name":"Aggiungi note","text":"Segnala phantom 48V, stand, e collega la numerazione allo stage plot."}
+      ]},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Channel list e input list sono la stessa cosa?","acceptedAnswer":{"@type":"Answer","text":"Sì, di norma indicano entrambe l'elenco numerato dei segnali in ingresso al mixer. La output list riguarda invece le uscite (monitor, mandate)."}},
+        {"@type":"Question","name":"Da dove si inizia a numerare?","acceptedAnswer":{"@type":"Answer","text":"Di solito dalla batteria e poi da sinistra verso destra guardando il palco dal pubblico, così il fonico ritrova facilmente le sorgenti."}},
+        {"@type":"Question","name":"Devo indicare i modelli di microfono?","acceptedAnswer":{"@type":"Answer","text":"È utile ma non obbligatorio: indica almeno il tipo (dinamico, condensatore, DI) e dove serve il phantom 48V."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Channel list e input list
+    </nav>
+
+    <h1>Channel list e input list</h1>
+    <p class="lead">Cosa sono, che differenza c'è e come si compila una channel list ordinata, pronta per il fonico.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 28/06/2026</p>
+
+    <h2>Cosa sono</h2>
+    <p>La <strong>channel list</strong> (o <strong>input list</strong>) è l'elenco numerato dei canali audio che entrano nel mixer durante uno spettacolo: una riga per ogni voce, strumento o microfono. È il documento che il fonico usa per costruire il <em>patch</em> e preparare il banco prima del soundcheck. Va consegnata insieme allo <a href="/guida/cos-e-uno-stage-plot/">stage plot</a>, di cui è il complemento naturale.</p>
+
+    <h2>Channel list, input list e output list: la differenza</h2>
+    <p>I termini <strong>channel list</strong> e <strong>input list</strong> si usano spesso come sinonimi: entrambi indicano i segnali in <em>ingresso</em> al mixer. La <strong>output list</strong> invece elenca le <em>uscite</em>: monitor, mandate, registrazione. In un documento completo trovi prima gli input (numerati) e poi gli output.</p>
+
+    <h2>Come si compila, passo per passo</h2>
+    <ol class="steps">
+      <li><strong>Elenca le sorgenti</strong>Tutte le voci, gli strumenti e i microfoni presenti sul palco.</li>
+      <li><strong>Numera i canali</strong>In ordine logico: di solito si parte dalla batteria e si procede da sinistra verso destra, come si guarda il palco dal pubblico.</li>
+      <li><strong>Indica microfono o DI</strong>Per ogni canale specifica come si riprende il segnale: microfono (con il modello se rilevante) oppure DI box per gli strumenti elettrici.</li>
+      <li><strong>Aggiungi le note</strong>Phantom 48V dove serve, tipo di stand, e tieni la numerazione coerente con lo stage plot.</li>
+    </ol>
+
+    <h2>Esempio di channel list</h2>
+    <p>Una channel list semplice per una band pop/rock può iniziare così:</p>
+    <table class="ch-table">
+      <caption>Esempio: channel list di una band (estratto)</caption>
+      <thead><tr><th>#</th><th>Sorgente</th><th>Ripresa</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Kick</td><td>Microfono dinamico</td><td>Stand corto</td></tr>
+        <tr><td>2</td><td>Snare top</td><td>Microfono dinamico</td><td>Clip</td></tr>
+        <tr><td>3</td><td>Hi-hat</td><td>Microfono a condensatore</td><td>Phantom 48V</td></tr>
+        <tr><td>4</td><td>Overhead L</td><td>Condensatore</td><td>Phantom 48V</td></tr>
+        <tr><td>5</td><td>Basso</td><td>DI box</td><td>—</td></tr>
+        <tr><td>6</td><td>Chitarra</td><td>Microfono su ampli</td><td>—</td></tr>
+        <tr><td>7</td><td>Tastiere L/R</td><td>2× DI box</td><td>Stereo</td></tr>
+        <tr><td>8</td><td>Voce lead</td><td>Microfono dinamico</td><td>Stand alto</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p>Con <a href="/">StagePlot</a> la channel list si genera in automatico dagli strumenti che inserisci nel palco: la disposizione e la numerazione restano coerenti senza compilarla a mano.</p>
+    </div>
+
+    <div class="cta-box">
+      <h2>Genera la tua channel list</h2>
+      <p>Inserisci gli strumenti sul palco e StagePlot crea la channel list. Gratis, nel browser.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+        <a class="btn consul" href="/consulenza/">Fatti revisionare da un fonico</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Channel list e input list sono la stessa cosa?</summary><p>Sì, di norma indicano entrambe l'elenco numerato dei segnali in ingresso al mixer. La output list riguarda invece le uscite (monitor, mandate).</p></details>
+      <details><summary>Da dove si inizia a numerare?</summary><p>Di solito dalla batteria e poi da sinistra verso destra guardando il palco dal pubblico, così il fonico ritrova facilmente le sorgenti.</p></details>
+      <details><summary>Devo indicare i modelli di microfono?</summary><p>È utile ma non obbligatorio: indica almeno il tipo (dinamico, condensatore, DI) e dove serve il phantom 48V.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/come-fare-uno-stage-plot/"><strong>Come fare uno stage plot</strong><span>La guida pratica passo per passo</span></a>
+        <a href="/guida/cos-e-uno-stage-plot/"><strong>Cos'è uno stage plot</strong><span>Definizione, componenti ed esempi</span></a>
+        <a href="/guida/rider-tecnico/"><strong>Rider tecnico</strong><span>Cos'è e come si prepara</span></a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/">Tool gratuito</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
