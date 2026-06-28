@@ -1,0 +1,26 @@
+# StagePlot
+
+> StagePlot (stageplot.it) è una web app gratuita per creare stage plot in scala, channel list / input list e rider tecnico per spettacoli dal vivo. Funziona nel browser, è local-first (i dati restano sul dispositivo) e non richiede registrazione. Creata da Simone Castellan, sound engineer per spettacoli dal vivo.
+
+## Cos'è uno stage plot
+Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disposizione di musicisti, strumenti, amplificatori, monitor, microfoni e prese di corrente. Serve a service audio, fonici, teatri e festival per preparare un evento dal vivo. Spesso è accompagnato da una channel list (o input list), che elenca i canali audio in ingresso al mixer, e da un rider tecnico.
+
+## Funzioni principali
+- Palco modulare a pedane, in scala reale (1:N)
+- Generatori di organico per band, orchestra, coro e banda
+- Channel list e input list generate automaticamente
+- Libreria di icone realistiche di strumenti e attrezzature
+- Export in PDF e PNG in scala, area di stampa dedicata
+- Condivisione del progetto tramite link (il destinatario apre il progetto già caricato)
+- Salvataggio locale automatico; salvataggio cloud opzionale con login Google
+
+## Pagine
+- [Tool gratuito](https://stageplot.it/): l'editor di stage plot online
+- [Consulenza tecnica](https://stageplot.it/consulenza/): un sound engineer revisiona e completa il tuo stage plot, input list ed email tecnica in PDF (da 29 €)
+- [Privacy policy](https://stageplot.it/privacy/)
+
+## A chi serve
+Musicisti, band, orchestre, cori, direttori di palco, fonici, service audio, teatri, festival, scuole di musica e conservatori.
+
+## Contatti
+Simone Castellan — castellansimone@gmail.com — https://simonecastellan.com

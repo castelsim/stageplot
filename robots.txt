@@ -1,4 +1,29 @@
+# StagePlot — stageplot.it
+# Tutti i crawler sono benvenuti, inclusi i motori di ricerca AI.
+
 User-agent: *
+Allow: /
+
+# Crawler AI esplicitamente consentiti (citabilità su ChatGPT, Claude, Perplexity, Gemini, ecc.)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
 Allow: /
 
 Sitemap: https://stageplot.it/sitemap.xml
