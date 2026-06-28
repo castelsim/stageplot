@@ -1,0 +1,21 @@
+{
+  "name": "StagePlot — Stage Plot Creator",
+  "short_name": "StagePlot",
+  "description": "Crea stage plot in scala, channel list e rider tecnico per spettacoli dal vivo. Gratis, senza registrazione.",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "lang": "it",
+  "categories": ["productivity", "music", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
