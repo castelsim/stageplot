@@ -257,9 +257,9 @@
   .rot-handle .rh-knob{fill:#fff;stroke:#2563eb;stroke-width:2.5}
   .rot-handle .rh-ico{fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round}
   .rot-handle .rh-hit{fill:transparent}
-  body.stage-edit #eventoSec,body.stage-edit #selProps,body.stage-edit #groupProps,body.stage-edit #noSel,body.stage-edit #chanlist,body.stage-edit #mActions{display:none!important}
+  body.stage-edit #eventoSec,body.stage-edit #selProps,body.stage-edit #groupProps,body.stage-edit #noSel,body.stage-edit #mActions{display:none!important}
   body.stage-edit #bStageShape{background:#2563eb;color:#fff;border-color:#2563eb}
-  body.evento-edit #selProps,body.evento-edit #groupProps,body.evento-edit #noSel,body.evento-edit #chanlist,body.evento-edit #mActions,body.evento-edit #stageEditPanel{display:none!important}
+  body.evento-edit #selProps,body.evento-edit #groupProps,body.evento-edit #noSel,body.evento-edit #mActions,body.evento-edit #stageEditPanel{display:none!important}
   body.evento-edit #bEvento{background:#2563eb;color:#fff;border-color:#2563eb}
   .grid line{stroke:#eceef0;stroke-width:1}
   .grid line.m{stroke:#dde0e3}
@@ -344,28 +344,6 @@
   .menu-pop button .tag{align-self:start;border:1px solid #e5e7eb;border-radius:999px;padding:2px 7px;
     font-size:10px;color:#6b7280;font-weight:700;background:#f9fafb;white-space:nowrap}
   .menu-pop .sep{height:1px;background:#eef0f2;margin:4px 6px}
-  /* channel list (input/output) nel pannello destro */
-  #props .clhead{display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px}
-  #props .clhead:first-child{margin-top:2px}
-  #props .clhead h3{margin:0}
-  #props .clhead .btn{padding:4px 9px;font-size:11px}
-  /* sezioni collassabili input/output */
-  .clsec-head{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;-webkit-user-select:none;
-    border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;margin:8px 0 0;
-    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#374151;background:#f8fafc}
-  .clsec-head:hover{background:#eceef1}
-  .clsec-head.open{background:#1f2937;border-color:#1f2937;color:#fff}
-  .clsec-head .cl-caret{font-size:10px;color:#9ca3af;transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 10px}
-  .clsec-head.open .cl-caret{transform:rotate(90deg);color:#cbd5e1}
-  .clsec-head .cl-lbl{flex:1}
-  .clsec-head .cl-count{font-size:10px;font-weight:700;color:#aab0b8;background:#fff;
-    border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
-  .clsec-head.open .cl-count{background:#374151;color:#cbd5e1}
-  .clsec-head .btn{padding:3px 8px;font-size:11px;margin-left:2px}
-  .clsec-head.open .btn{background:#374151;border-color:#4b5563;color:#e5e7eb}
-  .clsec-head.open .btn:hover{background:#4b5563}
-  .clsec-body{display:none;padding:8px 0 4px}
-  .clsec-body.open{display:block}
   /* pannello planimetria */
   #venuePanel{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:11px 12px;margin-bottom:10px}
   #venuePanel h3{margin:0 0 8px;color:#15803d}
@@ -396,22 +374,6 @@
   body.dark #frameBox{background:#0c1e3a;border-color:#1e3a8a}
   body.dark #frameBox h3{color:#60a5fa}
   body.dark #frameBox label{color:#cdd9ee}
-  .clrow{display:grid;grid-template-columns:22px 1fr 86px 72px 36px 18px;gap:4px;align-items:center;margin-bottom:6px}
-  .clrow .n{font-size:11px;color:#9ca3af;text-align:center;border-radius:4px}
-  .clrow .n.grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-  .clrow .n.grip:hover{background:#eef0f2;color:#6b7280}
-  .clrow .n.grip:active{cursor:grabbing}
-  .clrow.dragging{opacity:.55;background:#eef2ff;border-radius:6px}
-  #props .clrow input{padding:4px 6px;font-size:12px}
-  .clrow .src,.clrow .mic,.clrow .stand,.clrow .notes{min-width:0}
-  .clrow .notes{grid-column:2 / 6}
-  .clrow .p48{display:flex;align-items:center;justify-content:center;font-size:10px;color:#6b7280;border:1px solid #e5e7eb;border-radius:7px;height:26px}
-  .clrow .p48 input{width:auto;margin:0}
-  .clrow .del{border:none;background:none;color:#cbd0d6;cursor:pointer;font-size:15px;line-height:1;padding:0}
-  .clrow .del:hover{color:#b91c1c}
-  .clactions{display:flex;gap:6px;margin:5px 0 4px}
-  .clactions .btn{padding:5px 9px;font-size:11.5px}
-  .clempty{font-size:11.5px;color:#b6bbc2;margin:2px 0 4px}
   /* ===== FAB + drawer mobile ===== */
   .fab{display:none}
   #mobBackdrop{display:none;position:fixed;inset:0;background:rgba(17,24,39,.42);z-index:55}
@@ -429,7 +391,6 @@
   /* azioni nel pannello-hub quando NON c'è selezione: aggiungi + menu */
   #mActions{display:none}
   #mBar{display:none}                 /* barra ↶↷⤢: solo mobile (desktop ha l'header) */
-  #bChanDone{display:none}            /* "Fatto" channel list: solo mobile in modalità chan */
   .mact-add{display:block;width:100%;border:none;background:#1f2937;color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
   .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
   .mact-grid button{border:1px solid #e5e7eb;background:#f1f3f4;border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:#1f2937}
@@ -446,10 +407,6 @@
     #mBar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px}
     #props #eventoSec{display:none}                 /* di norma nascosto: si apre dal bottone Evento */
     body.evento-edit #props #eventoSec{display:block}
-    #props #chanlist{display:none}                  /* di norma nascosta: si apre dal bottone Channel list */
-    body.chan-edit #props #chanlist{display:block}
-    body.chan-edit #mActions,body.chan-edit #selProps,body.chan-edit #groupProps,body.chan-edit #noSel{display:none!important}
-    body.chan-edit #bChanDone{display:block}
     #mActions{display:block;margin-bottom:14px}
     body.m-has-sel #mActions,body.m-has-sel #props #noSel{display:none}
     /* CATALOGO = bottom sheet (overlay) aperto da "Aggiungi elemento" */
@@ -630,7 +587,6 @@
     <div class="mact-grid">
       <button data-act="palco">▦ Palco</button>
       <button data-act="evento">Evento</button>
-      <button data-act="chan">Channel list</button>
       <button data-act="venue">Planimetria</button>
       <button data-act="frame">Area stampa</button>
       <button data-act="save">💾 Salva</button>
@@ -845,9 +801,6 @@
     <div class="hint" style="font-size:11px;color:#9ca3af;margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
   </div>
   <div class="sec" id="noSel" style="font-size:12.5px;color:#9ca3af">
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn" id="bResume" hidden>↩ Riprendi ultima sessione</button>
-    </div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.8"></div>
   </div>
   <!-- pannello versioni -->
@@ -887,33 +840,10 @@
     <button class="btn" id="frameVers"     style="width:100%;margin-top:6px;font-size:12px">📚 Versioni salvate</button>
     <button class="btn" id="frameShare"    style="width:100%;margin-top:6px;font-size:12px">🔗 Condividi / QR</button>
   </div>
-  <div class="sec" id="chanlist" style="border-top:1px solid #e5e7eb;padding-top:6px;margin-top:8px">
-    <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
-      <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
-      <span class="cl-count" id="inCount">0</span>
-      <button class="btn" id="inAuto" title="Genera i canali dai mic/DI presenti sul palco">Auto</button>
-    </div>
-    <div class="clsec-body" id="inBody">
-      <div id="inRows"></div>
-      <div class="clactions"><button class="btn" id="inAdd">+ canale</button><button class="btn" id="inClear">Svuota</button></div>
-    </div>
-    <div class="clsec-head" id="outHead" title="Espandi/chiudi Monitor / Output">
-      <span class="cl-caret">▶</span><span class="cl-lbl">Monitor / Output</span>
-      <span class="cl-count" id="outCount">0</span>
-      <button class="btn" id="outAuto" title="Genera i mix dai monitor presenti sul palco">Auto</button>
-    </div>
-    <div class="clsec-body" id="outBody">
-      <div id="outRows"></div>
-      <div class="clactions"><button class="btn" id="outAdd">+ mix</button><button class="btn" id="outClear">Svuota</button></div>
-    </div>
-    <button class="btn primary" id="bChanDone" style="width:100%;margin-top:12px">Fatto</button>
-  </div>
-  <datalist id="inSrcList"></datalist>
-  <datalist id="outSrcList"></datalist>
 </aside>
 
 <button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
-<button class="fab props" id="fabProps" title="Proprietà e channel list" aria-label="Apri pannello">≡</button>
+<button class="fab props" id="fabProps" title="Proprietà" aria-label="Apri pannello">≡</button>
 <div id="mobBackdrop"></div>
 
 
@@ -2789,8 +2719,7 @@ function normalizeState(s){
     corners.forEach(function(p){ bb.w=Math.max(bb.w,p[0]); bb.d=Math.max(bb.d,p[1]); });
   });
   s.stage.w=bb.w; s.stage.d=bb.d;
-  s.inputs=(s.inputs||[]).map(normalizeChannelRow);
-  s.outputs=(s.outputs||[]).map(normalizeChannelRow);
+  s.inputs=[]; s.outputs=[];   /* channel list rimossa dalla versione free (modulo input patch/monitor riservato alle consulenze) */
   if(s.venue){ s.venue=normalizeVenue(s.venue); }   /* retrocompat: venue opzionale */
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
@@ -4074,7 +4003,6 @@ function closeMobileDrawers(){
       if(a==="add"){ openCatalog(); return; }
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
-      if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
       if(a==="save") document.getElementById("bHdrPdf").click();
@@ -4627,7 +4555,6 @@ document.getElementById("blkFlat").addEventListener("change", function(){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
-document.getElementById("bChanDone").addEventListener("click", toggleChan);
 document.getElementById("bAddBlock").addEventListener("click", addStageBlock);
 document.getElementById("bAddSemi").addEventListener("click", addSemicircle);
 document.getElementById("bDelBlock").addEventListener("click", delSelBlock);
@@ -5795,7 +5722,7 @@ function linkChannelsToItems(){
   });
 }
 function autoInputs(){
-  if(state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
+  state.inputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
   state.items.forEach(function(it){
@@ -5821,7 +5748,7 @@ function autoInputs(){
   state.inputs=rows; save(); renderChannels();
 }
 function autoOutputs(){
-  if(state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
+  state.outputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
   var rows=[];
   state.items.forEach(function(it){
     if(OUT_SET[it.type]!=null){
@@ -5831,29 +5758,6 @@ function autoOutputs(){
   });
   state.outputs=rows; save(); renderChannels();
 }
-document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
-document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
-document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
-document.getElementById("outClear").addEventListener("click", function(){ if(state.outputs.length && confirm("Svuotare la output list?")){ state.outputs=[]; save(); renderChannels(); } });
-document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation(); autoInputs(); ensureClOpen("in"); });
-document.getElementById("outAuto").addEventListener("click", function(e){ e.stopPropagation(); autoOutputs(); ensureClOpen("out"); });
-/* toggle a scomparsa Input patch / Monitor-Output */
-function clToggle(kind){
-  var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body");
-  var open=head.classList.toggle("open"); body.classList.toggle("open", open);
-}
-function ensureClOpen(kind){
-  var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body");
-  head.classList.add("open"); body.classList.add("open");
-}
-document.getElementById("inHead").addEventListener("click", function(e){
-  if(e.target.closest(".btn")) return;   /* click sui pulsanti interni non fa toggle */
-  clToggle("in");
-});
-document.getElementById("outHead").addEventListener("click", function(e){
-  if(e.target.closest(".btn")) return;
-  clToggle("out");
-});
 
 /* ============ PLANIMETRIA / VENUE ============ */
 var venueCalibMode=0, venueCalibPts=[];
@@ -6927,11 +6831,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
-    /* --- PAG 2: channel list --- */
-    if(state.inputs.length || state.outputs.length){
-      doc.addPage(paperKey, L.orient);
-      pdfChannelPage(doc, L, paperKey);
-    }
+    /* PAG 2 channel list rimossa dalla versione free */
     return doc;
       });
   });
@@ -7172,17 +7072,10 @@ function gallery(){
 }
 
 /* ============ AVVIO ============ */
-/* Nuovo progetto a OGNI apertura: non ripristiniamo automaticamente la sessione
-   precedente, ma se ne esiste una salvata offriamo "Riprendi ultima sessione".
-   Per inviare/conservare un progetto usare "Condividi" (link auto-caricante). */
+/* Nuovo progetto a OGNI apertura: non si ripristina automaticamente la sessione
+   precedente. Per inviare/conservare un progetto usare "Condividi" (link auto-caricante)
+   o il salvataggio su cloud. */
 var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
-var savedSession=null;
-try{ var _raw=localStorage.getItem(LS_KEY); if(_raw){ var _ps=JSON.parse(_raw); if(_ps && _ps.items && _ps.items.length) savedSession=_raw; } }catch(e){}
-document.getElementById("bResume").addEventListener("click", function(){
-  if(!savedSession) return;
-  applyHistory(savedSession); fit(); resetHistory();
-  this.hidden=true;
-});
 if(location.search.indexOf("demo=1")>-1) demo();
 if(location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */
   var c={}; ORCH_DEF.forEach(function(s){ c[s.id]=s.def; });
@@ -7244,7 +7137,6 @@ else if(location.search.indexOf("json=1")>-1){   /* QA: anteprima del JSON di pr
     esc(JSON.stringify(buildProjectJson(),null,2))+'</pre>';
 }
 else { window.addEventListener("resize", render); fit();
-  if(savedSession && !sharedLoaded) document.getElementById("bResume").hidden=false;   /* offri il ripristino solo all'avvio normale */
 }
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
 </script>
