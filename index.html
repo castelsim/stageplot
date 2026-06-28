@@ -602,8 +602,8 @@
     <option value="obj">Oggetti</option>
   </select>
   <div style="display:flex;gap:4px">
-    <button class="btn" id="bHdrPdf" title="Salva / esporta">📄 Save as</button>
-    <button class="btn" id="bHdrImport" title="Apri progetto (.json)">📂 Open recent</button>
+    <button class="btn" id="bHdrPdf" title="Salva / esporta">📄 Salva / Esporta</button>
+    <button class="btn" id="bHdrImport" title="Apri progetto (.json)">📂 Apri progetto</button>
   </div>
   <!-- stW/stD nascosti: rimossi dall'header ma usati dal JS per aggiornare le dimensioni del palco -->
   <input type="number" id="stW" hidden>
@@ -2695,21 +2695,35 @@ function uid(){ return "i"+(nextId++); }
 /* replacer per serializzare lo state SENZA il file immagine della planimetria (richiesto al ricaricamento) */
 function stateReplacer(k,v){ return (k==='_dataUrl'||k==='_imgW'||k==='_imgH')?undefined:v; }
 function stateToJSON(){ return JSON.stringify(state, stateReplacer); }
+/* Cache in-memoria delle immagini planimetria (per nome): gli snapshot di cronologia NON contengono il base64
+   (evita il blow-up di memoria con 120 snapshot da più MB ciascuno). Dopo un undo/redo l'immagine viene
+   ri-agganciata da qui, così lo sfondo non sparisce. */
+var venueImgCache={};
+function cacheVenueImg(v){ if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH}; }
+function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl && venueImgCache[v.name]){ var c=venueImgCache[v.name]; v._dataUrl=c._dataUrl; v._imgW=c._imgW; v._imgH=c._imgH; } return s; }
 function save(){
   try{
     localStorage.setItem(LS_KEY, stateToJSON());
   }catch(e){}
   recordHistory();
 }
+/* Salvataggio per input ad alta frequenza (digitazione testo): persiste subito in localStorage (niente perdita
+   al reload) ma RINVIA lo snapshot di cronologia (il costoso JSON.stringify completo) → un solo snapshot per
+   "parola" invece di uno per carattere. */
+var _saveSoonT=null;
+function saveSoon(){
+  try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  clearTimeout(_saveSoonT); _saveSoonT=setTimeout(recordHistory, 500);
+}
 /* ===== Undo / Redo ===== */
 var undoStack=[], redoStack=[], lastSnap=null;
 function recordHistory(){
-  var s=JSON.stringify(state);
+  var s=stateToJSON();
   if(s===lastSnap) return;
   if(lastSnap!=null){ undoStack.push(lastSnap); if(undoStack.length>120) undoStack.shift(); }
   lastSnap=s; redoStack.length=0;
 }
-function resetHistory(){ lastSnap=JSON.stringify(state); undoStack.length=0; redoStack.length=0; }
+function resetHistory(){ lastSnap=stateToJSON(); undoStack.length=0; redoStack.length=0; }
 function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); return isFinite(n)?n:0; }
 function syncNextId(){
   nextId=1;
@@ -2723,7 +2737,7 @@ function ensureItemIds(){
   syncNextId();
 }
 function applyHistory(json){
-  state=normalizeState(JSON.parse(json)); ensureItemIds(); lastSnap=JSON.stringify(state); sel=null; selSet={};
+  state=reattachVenueImg(normalizeState(JSON.parse(json))); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
   render(); renderChannels();
@@ -2734,11 +2748,12 @@ function redo(){ if(!redoStack.length) return; undoStack.push(lastSnap); applyHi
 function importProject(json){
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
-  undoStack.push(JSON.stringify(state)); if(undoStack.length>120) undoStack.shift(); redoStack.length=0;   /* importazione annullabile con Ctrl+Z */
+  undoStack.push(stateToJSON()); if(undoStack.length>120) undoStack.shift(); redoStack.length=0;   /* importazione annullabile con Ctrl+Z */
   state=normalizeState(s);
   state.items=sanitizeItems(state.items||[]);
+  cacheVenueImg(state.venue);   /* l'import può portare con sé una planimetria (.json completo): mettila in cache */
   ensureItemIds();
-  lastSnap=JSON.stringify(state); sel=null; selSet={};
+  lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
   render(); renderChannels(); fit();
@@ -3154,6 +3169,17 @@ function render(){
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
 }
+/* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
+   (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
+   Fallback al render() completo se il nodo non è in DOM (es. cambio di selezione). */
+function itemNode(id){ return svg.querySelector('.item[data-id="'+id+'"]'); }
+function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); renderProps(); } else render(); }
+function redrawItemNode(it){
+  var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
+  var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=itemMarkup(it);   /* parsing in namespace SVG (come svg.innerHTML) */
+  var nw=tmp.firstElementChild;
+  if(nw){ n.parentNode.replaceChild(nw, n); renderProps(); } else render();
+}
 
 /* ============ PANNELLO PROPRIETÀ ============ */
 function getSel(){ return state.items.find(function(i){ return i.id===sel; }) || null; }
@@ -3339,8 +3365,9 @@ function explodeComposite(){
   render(); save();
 }
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
-document.getElementById("pLabel").addEventListener("input", function(){ mutSel(function(it){ it.label=document.getElementById("pLabel").value; }); });
-document.getElementById("pLabel2").addEventListener("input", function(){ mutSel(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
+function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
+document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
+document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; mutSel(function(it){ it.lblSize=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
@@ -3654,8 +3681,8 @@ function setEventInputs(){
   ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
   ["luogo","luogoEv"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
 }
-["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); save(); }); });
-["luogo","luogoEv"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); save(); }); });
+["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
+["luogo","luogoEv"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
 document.getElementById("mD").addEventListener("change", function(){ applyStageDepth(this.value); });
 document.getElementById("mMenuBtn").addEventListener("click", function(){ closeMobileDrawers(); try{ document.getElementById("props").scrollTo({top:0,behavior:"smooth"}); }catch(e){} });
@@ -4251,7 +4278,7 @@ svg.addEventListener("pointermove", function(e){
     sp=svgPoint(e); var rit=state.items.find(function(i){ return i.id===drag.id; });
     if(rit){ var ang=Math.atan2(sp.y-drag.cy, sp.x-drag.cx)*180/Math.PI + 90;   /* maniglia in alto = local up */
       if(!e.shiftKey) ang=Math.round(ang/5)*5;   /* snap 5°, libero con shift */
-      rit.rot=Math.round(((ang%360)+360)%360); drag.moved=true; render(); }
+      rit.rot=Math.round(((ang%360)+360)%360); drag.moved=true; rotateItemNode(rit); }   /* aggiornamento parziale: solo questo elemento, non l'intera scena */
   } else if(drag.mode==="itemresize"){
     sp=svgPoint(e); var rzit=state.items.find(function(i){ return i.id===drag.id; });
     if(rzit){
@@ -4279,7 +4306,7 @@ svg.addEventListener("pointermove", function(e){
         if(ed.indexOf("b")>=0){var rbe=rzit.y+nd/2,rdt=rD-rbe;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y+=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:rD,x2:rW+40,y2:rD,cls:'snap-guide'});}}
         if(ed.indexOf("t")>=0){var rte=rzit.y-nd/2,rdt=-rte;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y-=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:0,x2:rW+40,y2:0,cls:'snap-guide'});}}
       }
-      drag.moved=true; render(); renderSnapGuides(rsg);   /* guide DOPO render() perché itemresize chiama render() ogni frame */
+      drag.moved=true; redrawItemNode(rzit); renderSnapGuides(rsg);   /* aggiornamento parziale: rigenera solo il nodo ridimensionato, poi le guide di snap */
     }
   } else if(drag.mode==="block"){
     sp=svgPoint(e); var bdx=sp.x-drag.sp0.x, bdy=sp.y-drag.sp0.y; drag.moved=true;
@@ -4377,7 +4404,11 @@ svg.addEventListener("pointerup", function(e){
     var r=drag.rect;
     if(r && (r.w>8||r.h>8)){
       selSet={}; sel=null;
-      state.items.forEach(function(it){ if(it.x>=r.x&&it.x<=r.x+r.w&&it.y>=r.y&&it.y<=r.y+r.h){ selSet[it.id]=true; sel=it.id; } });
+      /* selezione per INTERSEZIONE dell'ingombro (AABB) col rettangolo, non per solo centro: basta sfiorare l'elemento */
+      state.items.forEach(function(it){
+        var hw=(it.w||0)/2, hd=(it.d||0)/2;
+        if(it.x-hw<=r.x+r.w && it.x+hw>=r.x && it.y-hd<=r.y+r.h && it.y+hd>=r.y){ selSet[it.id]=true; sel=it.id; }
+      });
     }
     if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     render();
@@ -5629,15 +5660,15 @@ function chanRow(kind, row, i){
   var src=document.createElement("input"); src.className="src"; src.value=row.src||"";
   src.placeholder = kind==="in" ? "sorgente" : "mix/destinazione";
   src.setAttribute("list", kind==="in" ? "inSrcList" : "outSrcList");
-  src.addEventListener("input", function(){ row.src=src.value; save(); });
+  src.addEventListener("input", function(){ row.src=src.value; saveSoon(); });
   d.appendChild(src);
   var mic=document.createElement("input"); mic.className="mic"; mic.value=row.mic||"";
   mic.placeholder = kind==="in" ? "mic/DI" : "tipo";
-  mic.addEventListener("input", function(){ row.mic=mic.value; save(); });
+  mic.addEventListener("input", function(){ row.mic=mic.value; saveSoon(); });
   d.appendChild(mic);
   var stand=document.createElement("input"); stand.className="stand"; stand.value=row.stand||"";
   stand.placeholder = kind==="in" ? "stand" : "patch";
-  stand.addEventListener("input", function(){ row.stand=stand.value; save(); });
+  stand.addEventListener("input", function(){ row.stand=stand.value; saveSoon(); });
   d.appendChild(stand);
   var p48=document.createElement("label"); p48.className="p48"; p48.title=kind==="in" ? "Richiede phantom +48V" : "Non usato per output";
   var p48box=document.createElement("input"); p48box.type="checkbox"; p48box.checked=!!row.p48; p48box.disabled=kind!=="in";
@@ -5649,7 +5680,7 @@ function chanRow(kind, row, i){
   d.appendChild(del);
   var notes=document.createElement("input"); notes.className="notes"; notes.value=row.notes||"";
   notes.placeholder = kind==="in" ? "note, insert, FX, patch, posizione" : "note monitor, mix content, amplificazione";
-  notes.addEventListener("input", function(){ row.notes=notes.value; save(); });
+  notes.addEventListener("input", function(){ row.notes=notes.value; saveSoon(); });
   d.appendChild(notes);
   return d;
 }
@@ -5993,6 +6024,7 @@ function venueLoadFile(file){
     img.onload=function(){
       state.venue._imgW=img.naturalWidth; state.venue._imgH=img.naturalHeight;
       if(!state.venue.calibration){ state.venue.w=img.naturalWidth; state.venue.h=img.naturalHeight; }
+      cacheVenueImg(state.venue);   /* per il re-attach dopo undo/redo (gli snapshot non contengono il base64) */
       save(); renderVenuePanel(); render();
     };
     img.src=String(rd.result);
@@ -6350,7 +6382,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   function io(m,err){ var el=document.getElementById("ioStatus"); el.textContent=m||""; el.style.color=err?"#dc2626":"#16a34a"; }
   document.getElementById("saveJson").addEventListener("click", function(){
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
-    var data=stateToJSON();
+    var data=JSON.stringify(state);   /* export su file: include anche la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
       window.showSaveFilePicker({ suggestedName:name, types:[{description:"Progetto Stage Plot", accept:{"application/json":[".json"]}}] })
         .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); }); })
@@ -7237,6 +7269,15 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       <details><summary>Devo registrarmi o installare qualcosa?</summary><p>No. StagePlot funziona nel browser e salva il lavoro sul tuo dispositivo. Il login con Google è opzionale e serve solo a salvare i progetti online.</p></details>
       <details><summary>Posso esportare lo stage plot in PDF?</summary><p>Sì: puoi esportare in PDF e PNG in scala reale, con un'area di stampa dedicata, pronti da inviare al service o da stampare.</p></details>
     </div>
+
+    <h3>Approfondisci nella guida</h3>
+    <ul>
+      <li><a href="/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a></li>
+      <li><a href="/guida/come-fare-uno-stage-plot/">Come fare uno stage plot, passo per passo</a></li>
+      <li><a href="/guida/channel-list-input-list/">Channel list e input list</a></li>
+      <li><a href="/guida/rider-tecnico/">Rider tecnico</a></li>
+      <li><a href="/guida/esempi-stage-plot/">Esempi di stage plot (band, orchestra, coro)</a></li>
+    </ul>
 
     <div class="learn-cta">
       <button type="button" class="primary" id="bLearnStart">Apri l'editor e inizia</button>
