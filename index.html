@@ -3143,20 +3143,41 @@ function sortedItems(){
     .sort(function(a,b){ return (effZ(a.it)-effZ(b.it)) || (a.i-b.i); })
     .map(function(o){ return o.it; });
 }
+/* markup del solo "palco" (pavimento + quote + etichette zone): rigenerabile da solo durante l'edit del palco */
+function stageLayerMarkup(){
+  var W=state.stage.w, D=state.stage.d;
+  return stageFloorMarkup()+stageDimsMarkup()
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
+}
+function overlayLayerMarkup(){ return stageBlocksOverlay()+frameMarkup(); }
+/* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
+   planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
+   trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
 function sceneMarkup(){
   recalcStageBBox();
-  var W=state.stage.w, D=state.stage.d;
-  var s = (state.venue&&state.venue.enabled!==false ? venueMarkup() : '');   /* layer 0: planimetria */
+  var venue = (state.venue&&state.venue.enabled!==false ? venueMarkup() : '');   /* layer 0: planimetria */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
-  if(venueCalibMode>0) return s;
-  s += stageFloorMarkup();
-  s += stageDimsMarkup();
-  s += '<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>';
-  s += '<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
-  sortedItems().forEach(function(it){ s += itemMarkup(it); });
-  s += stageBlocksOverlay();
-  s += frameMarkup();   /* overlay cornice di stampa (solo in modalità area-stampa) */
-  return s;
+  if(venueCalibMode>0) return '<g id="layVenue">'+venue+'</g>';
+  var items=''; sortedItems().forEach(function(it){ items += itemMarkup(it); });
+  return '<g id="layVenue">'+venue+'</g>'+
+         '<g id="layStage">'+stageLayerMarkup()+'</g>'+
+         '<g id="layItems">'+items+'</g>'+
+         '<g id="layOverlay">'+overlayLayerMarkup()+'</g>';
+}
+/* sostituisce il contenuto di un nodo SVG in modo robusto (non si affida a <g>.innerHTML, meno universale di <svg>.innerHTML) */
+function setSvgInner(el, markup){
+  var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=markup;
+  while(el.firstChild) el.removeChild(el.firstChild);
+  while(tmp.firstChild) el.appendChild(tmp.firstChild);
+}
+/* aggiornamento PARZIALE durante l'edit del palco: rigenera solo i layer palco e overlay, lasciando intatti gli elementi */
+function redrawStageLayers(){
+  recalcStageBBox();
+  var ls=document.getElementById("layStage"), lo=document.getElementById("layOverlay");
+  if(!ls || !lo){ render(); return; }
+  setSvgInner(ls, stageLayerMarkup());
+  setSvgInner(lo, overlayLayerMarkup());
 }
 function render(){
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
@@ -4317,7 +4338,7 @@ svg.addEventListener("pointermove", function(e){
       var bmag=bgrid?{sdx:0,sdy:0,guides:[]}:blockMagneticSnap(drag.bi,bpx,bpy);
       r.x=bpx+bmag.sdx; r.y=bpy+bmag.sdy;
       if(drag.pts0){ var pdx=r.x-drag.x0, pdy=r.y-drag.y0; r.pts=drag.pts0.map(function(p){ return [p[0]+pdx,p[1]+pdy]; }); }   /* quadrilatero: trascina con sé tutti gli angoli */
-      recalcStageBBox(); render(); renderSnapGuides(bmag.guides);
+      recalcStageBBox(); redrawStageLayers(); renderSnapGuides(bmag.guides);   /* parziale: solo i layer palco/overlay, elementi intatti */
     }
   } else if(drag.mode==="blkcorner"){
     sp=svgPoint(e); var r=stageBlocks()[drag.bi]; drag.moved=true;
@@ -4325,7 +4346,7 @@ svg.addEventListener("pointermove", function(e){
       var cgrid=e.metaKey||e.ctrlKey;
       var px=cgrid?snap(sp.x):Math.round(sp.x), py=cgrid?snap(sp.y):Math.round(sp.y);
       r.pts[drag.ci]=[px,py]; syncBlockBBox(r);
-      recalcStageBBox(); render();
+      recalcStageBBox(); redrawStageLayers();   /* parziale: solo i layer palco/overlay */
     }
   } else if(drag.mode==="blkresize"){
     sp=svgPoint(e); var r=stageBlocks()[drag.bi]; drag.moved=true;
@@ -4364,7 +4385,7 @@ svg.addEventListener("pointermove", function(e){
           if(brBestGuide) brrsg=[brBestGuide];
         }
       }
-      recalcStageBBox(); renderStagePanel(); render(); renderSnapGuides(brrsg);
+      recalcStageBBox(); renderStagePanel(); redrawStageLayers(); renderSnapGuides(brrsg);   /* parziale: solo i layer palco/overlay */
     }
   } else if(drag.mode==="marquee" || drag.mode==="newblk"){
     sp=svgPoint(e);
