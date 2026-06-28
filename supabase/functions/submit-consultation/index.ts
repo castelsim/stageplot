@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   if (action === "prepare-upload") {
     const v = validateUploadRequest((payload as { files?: unknown })?.files);
     if (!v.ok) return json({ error: v.error }, 400);
-    const uploads = [];
+    const uploads: { path: string; signedUrl: string }[] = [];
     for (const f of v.value) {
       const path = `${crypto.randomUUID()}/${f.name}`;
       const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
@@ -44,8 +44,9 @@ Deno.serve(async (req) => {
     // Lega il pagamento se presente
     let paid = false, amount: number | null = null, product: string | null = null, paidAt: string | null = null;
     if (b.stripe_session_id) {
-      const { data: pay } = await supabase.from("consultation_payments")
+      const { data: pay, error: payErr } = await supabase.from("consultation_payments")
         .select("*").eq("stripe_session_id", b.stripe_session_id).maybeSingle();
+      if (payErr) console.error("lookup pagamento fallito:", payErr.message);
       if (pay) { paid = true; amount = pay.amount; product = pay.product; paidAt = pay.paid_at; }
     }
 
@@ -60,7 +61,8 @@ Deno.serve(async (req) => {
     // Link firmati per gli allegati (7 giorni)
     const attachmentUrls: string[] = [];
     for (const p of (b.attachments ?? [])) {
-      const { data: sig } = await supabase.storage.from(BUCKET).createSignedUrl(p, 60 * 60 * 24 * 7);
+      const { data: sig, error: sigErr } = await supabase.storage.from(BUCKET).createSignedUrl(p, 60 * 60 * 24 * 7);
+      if (sigErr) console.error("signed url allegato fallito:", sigErr.message);
       if (sig?.signedUrl) attachmentUrls.push(sig.signedUrl);
     }
 
