@@ -26,6 +26,13 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Rider tecnico](https://stageplot.it/guida/rider-tecnico/): cos'è, cosa contiene e come si prepara
 - [Esempi di stage plot](https://stageplot.it/guida/esempi-stage-plot/): band, orchestra, coro e jazz
 
+## Stage plot per formazione
+- [Stage plot per band](https://stageplot.it/stage-plot/band/)
+- [Stage plot per orchestra](https://stageplot.it/stage-plot/orchestra/)
+- [Stage plot per coro](https://stageplot.it/stage-plot/coro/)
+- [Stage plot per chiesa e worship](https://stageplot.it/stage-plot/chiesa/)
+- [Stage plot per festival](https://stageplot.it/stage-plot/festival/)
+
 ## A chi serve
 Musicisti, band, orchestre, cori, direttori di palco, fonici, service audio, teatri, festival, scuole di musica e conservatori.
 
