@@ -198,7 +198,6 @@
     <div class="mact-grid">
       <button data-act="palco">▦ Palco</button>
       <button data-act="evento">Evento</button>
-      <button data-act="chan">Channel list</button>
       <button data-act="venue">Planimetria</button>
       <button data-act="frame">Area stampa</button>
       <button data-act="save">💾 Salva</button>
@@ -413,9 +412,6 @@
     <div class="hint" style="font-size:11px;color:#9ca3af;margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
   </div>
   <div class="sec" id="noSel" style="font-size:12.5px;color:#9ca3af">
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn" id="bResume" hidden>↩ Riprendi ultima sessione</button>
-    </div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.8"></div>
   </div>
   <!-- pannello versioni -->
@@ -455,33 +451,10 @@
     <button class="btn" id="frameVers"     style="width:100%;margin-top:6px;font-size:12px">📚 Versioni salvate</button>
     <button class="btn" id="frameShare"    style="width:100%;margin-top:6px;font-size:12px">🔗 Condividi / QR</button>
   </div>
-  <div class="sec" id="chanlist" style="border-top:1px solid #e5e7eb;padding-top:6px;margin-top:8px">
-    <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
-      <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
-      <span class="cl-count" id="inCount">0</span>
-      <button class="btn" id="inAuto" title="Genera i canali dai mic/DI presenti sul palco">Auto</button>
-    </div>
-    <div class="clsec-body" id="inBody">
-      <div id="inRows"></div>
-      <div class="clactions"><button class="btn" id="inAdd">+ canale</button><button class="btn" id="inClear">Svuota</button></div>
-    </div>
-    <div class="clsec-head" id="outHead" title="Espandi/chiudi Monitor / Output">
-      <span class="cl-caret">▶</span><span class="cl-lbl">Monitor / Output</span>
-      <span class="cl-count" id="outCount">0</span>
-      <button class="btn" id="outAuto" title="Genera i mix dai monitor presenti sul palco">Auto</button>
-    </div>
-    <div class="clsec-body" id="outBody">
-      <div id="outRows"></div>
-      <div class="clactions"><button class="btn" id="outAdd">+ mix</button><button class="btn" id="outClear">Svuota</button></div>
-    </div>
-    <button class="btn primary" id="bChanDone" style="width:100%;margin-top:12px">Fatto</button>
-  </div>
-  <datalist id="inSrcList"></datalist>
-  <datalist id="outSrcList"></datalist>
 </aside>
 
 <button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
-<button class="fab props" id="fabProps" title="Proprietà e channel list" aria-label="Apri pannello">≡</button>
+<button class="fab props" id="fabProps" title="Proprietà" aria-label="Apri pannello">≡</button>
 <div id="mobBackdrop"></div>
 
 
@@ -2357,8 +2330,7 @@ function normalizeState(s){
     corners.forEach(function(p){ bb.w=Math.max(bb.w,p[0]); bb.d=Math.max(bb.d,p[1]); });
   });
   s.stage.w=bb.w; s.stage.d=bb.d;
-  s.inputs=(s.inputs||[]).map(normalizeChannelRow);
-  s.outputs=(s.outputs||[]).map(normalizeChannelRow);
+  s.inputs=[]; s.outputs=[];   /* channel list rimossa dalla versione free (modulo input patch/monitor riservato alle consulenze) */
   if(s.venue){ s.venue=normalizeVenue(s.venue); }   /* retrocompat: venue opzionale */
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
@@ -3642,7 +3614,6 @@ function closeMobileDrawers(){
       if(a==="add"){ openCatalog(); return; }
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
-      if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
       if(a==="save") document.getElementById("bHdrPdf").click();
@@ -4195,7 +4166,6 @@ document.getElementById("blkFlat").addEventListener("change", function(){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
-document.getElementById("bChanDone").addEventListener("click", toggleChan);
 document.getElementById("bAddBlock").addEventListener("click", addStageBlock);
 document.getElementById("bAddSemi").addEventListener("click", addSemicircle);
 document.getElementById("bDelBlock").addEventListener("click", delSelBlock);
@@ -5363,7 +5333,7 @@ function linkChannelsToItems(){
   });
 }
 function autoInputs(){
-  if(state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
+  state.inputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
   state.items.forEach(function(it){
@@ -5389,7 +5359,7 @@ function autoInputs(){
   state.inputs=rows; save(); renderChannels();
 }
 function autoOutputs(){
-  if(state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
+  state.outputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
   var rows=[];
   state.items.forEach(function(it){
     if(OUT_SET[it.type]!=null){
@@ -5399,29 +5369,6 @@ function autoOutputs(){
   });
   state.outputs=rows; save(); renderChannels();
 }
-document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
-document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
-document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
-document.getElementById("outClear").addEventListener("click", function(){ if(state.outputs.length && confirm("Svuotare la output list?")){ state.outputs=[]; save(); renderChannels(); } });
-document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation(); autoInputs(); ensureClOpen("in"); });
-document.getElementById("outAuto").addEventListener("click", function(e){ e.stopPropagation(); autoOutputs(); ensureClOpen("out"); });
-/* toggle a scomparsa Input patch / Monitor-Output */
-function clToggle(kind){
-  var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body");
-  var open=head.classList.toggle("open"); body.classList.toggle("open", open);
-}
-function ensureClOpen(kind){
-  var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body");
-  head.classList.add("open"); body.classList.add("open");
-}
-document.getElementById("inHead").addEventListener("click", function(e){
-  if(e.target.closest(".btn")) return;   /* click sui pulsanti interni non fa toggle */
-  clToggle("in");
-});
-document.getElementById("outHead").addEventListener("click", function(e){
-  if(e.target.closest(".btn")) return;
-  clToggle("out");
-});
 
 /* ============ PLANIMETRIA / VENUE ============ */
 var venueCalibMode=0, venueCalibPts=[];
@@ -6495,11 +6442,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
-    /* --- PAG 2: channel list --- */
-    if(state.inputs.length || state.outputs.length){
-      doc.addPage(paperKey, L.orient);
-      pdfChannelPage(doc, L, paperKey);
-    }
+    /* PAG 2 channel list rimossa dalla versione free */
     return doc;
       });
   });
@@ -6740,17 +6683,10 @@ function gallery(){
 }
 
 /* ============ AVVIO ============ */
-/* Nuovo progetto a OGNI apertura: non ripristiniamo automaticamente la sessione
-   precedente, ma se ne esiste una salvata offriamo "Riprendi ultima sessione".
-   Per inviare/conservare un progetto usare "Condividi" (link auto-caricante). */
+/* Nuovo progetto a OGNI apertura: non si ripristina automaticamente la sessione
+   precedente. Per inviare/conservare un progetto usare "Condividi" (link auto-caricante)
+   o il salvataggio su cloud. */
 var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
-var savedSession=null;
-try{ var _raw=localStorage.getItem(LS_KEY); if(_raw){ var _ps=JSON.parse(_raw); if(_ps && _ps.items && _ps.items.length) savedSession=_raw; } }catch(e){}
-document.getElementById("bResume").addEventListener("click", function(){
-  if(!savedSession) return;
-  applyHistory(savedSession); fit(); resetHistory();
-  this.hidden=true;
-});
 if(location.search.indexOf("demo=1")>-1) demo();
 if(location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */
   var c={}; ORCH_DEF.forEach(function(s){ c[s.id]=s.def; });
@@ -6812,7 +6748,6 @@ else if(location.search.indexOf("json=1")>-1){   /* QA: anteprima del JSON di pr
     esc(JSON.stringify(buildProjectJson(),null,2))+'</pre>';
 }
 else { window.addEventListener("resize", render); fit();
-  if(savedSession && !sharedLoaded) document.getElementById("bResume").hidden=false;   /* offri il ripristino solo all'avvio normale */
 }
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
 </script>
