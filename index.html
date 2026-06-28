@@ -3787,9 +3787,9 @@ function miniSvg(k, over){
     });
     return b;
   }
-  function makeActionBtn(nome, dim, iconType, action){
+  function makeActionBtn(nome, dim, iconType, action, iconHtml){
     var b=document.createElement("button");
-    b.innerHTML = miniSvg(iconType||"vln1x2")+'<span>'+esc(nome)+(dim?'<small>'+esc(dim)+'</small>':'')+'</span>';
+    b.innerHTML = (iconHtml||miniSvg(iconType||"vln1x2"))+'<span>'+esc(nome)+(dim?'<small>'+esc(dim)+'</small>':'')+'</span>';
     b.addEventListener("click", function(){ closeMobileDrawers(); action(); });   /* mobile: chiudi il catalogo, poi mostra il modale/azione */
     return b;
   }
@@ -3829,6 +3829,12 @@ function miniSvg(k, over){
       g.head.innerHTML='<span class="caret">▸</span><span>'+esc(sub)+'</span><span class="count">'+g.count+'</span>';
       g.body.appendChild(btn); n++; }
     if(c==="Pedane e strutture"){
+      /* — accesso rapido: pannello palco e planimetria (azioni, non elementi droppabili) — */
+      var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
+      body.appendChild(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit)); n++;
+      body.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON)); n++;
+      entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit});
+      entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON});
       /* — Pedane e gradoni — */
       [["2×1 m",200,100]].forEach(function(p){
         var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
@@ -3912,7 +3918,7 @@ function miniSvg(k, over){
     var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>'; return; }
     matched.forEach(function(e){
-      results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action) : makeBtn(e.k, e.nome, e.over, e.dim));
+      results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
     });
   });
 })();
