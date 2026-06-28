@@ -424,6 +424,8 @@
   #shareUrlRow input{flex:1;min-width:0}
   #shareUrlButtons{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 </style>
+<!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
@@ -444,6 +446,7 @@
   <input type="text" id="luogo" class="hdr-evt" placeholder="Luogo" title="Luogo dell'evento" style="width:130px">
   <button class="btn" id="bStageShape" hidden>▦ Palco</button>
   <span style="flex:1"></span>
+  <button class="btn" id="bCloud" title="Accedi e salva i tuoi progetti online">☁ Cloud</button>
   <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Fatti revisionare e validare lo stage plot da un sound engineer" style="background:#b45309;border-color:#b45309;color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">✓ Fatti revisionare</a>
   <button class="btn" id="bTheme" title="Tema chiaro / scuro" style="padding:7px 11px">🌙</button>
   <button class="btn" id="bUndo" title="Annulla (⌘Z)" style="padding:7px 11px">↶</button>
@@ -491,6 +494,7 @@
       <button data-act="save">💾 Salva</button>
       <button data-act="pdf">📄 Esporta PDF</button>
       <button data-act="import">📂 Importa</button>
+      <button data-act="cloud">☁ Cloud (salva online)</button>
       <button data-act="theme">Tema chiaro/scuro</button>
       <button data-act="new" class="danger">Nuovo</button>
       <a href="/consulenza/" target="_blank" rel="noopener" style="grid-column:1/-1;background:#b45309;color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:10px;border-radius:8px">✓ Fatti revisionare lo stage plot</a>
@@ -3887,6 +3891,7 @@ function closeMobileDrawers(){
       else if(a==="pdf") proxy("bPdf");
       else if(a==="import") document.getElementById("bHdrImport").click();
       else if(a==="share") proxy("bShare");
+      else if(a==="cloud") proxy("bCloud");
       else if(a==="theme") proxy("bTheme");
       else if(a==="new") proxy("bNew");
     });
@@ -7049,5 +7054,184 @@ else { window.addEventListener("resize", render); fit();
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
 </script>
 <div id="printContainer"></div>
+
+<!-- ===================== CLOUD (Supabase: login Google opzionale + salvataggio online) ===================== -->
+<div id="cloudModal" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px">
+  <div style="background:#fff;color:#17212f;max-width:460px;width:100%;max-height:88vh;overflow:auto;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #eef0f3">
+      <strong style="font-size:17px">☁ I tuoi progetti</strong>
+      <button id="cloudClose" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#5b6675">×</button>
+    </div>
+    <div id="cloudBody" style="padding:18px"></div>
+  </div>
+</div>
+<div id="cloudToast" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:#17212f;color:#fff;padding:10px 16px;border-radius:9px;font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
+
+<script>
+/* ===== Stage Plot — integrazione Supabase (login Google + salvataggio online dei progetti) =====
+   Local-first invariato: localStorage, share-link e export NON sono toccati.
+   Il cloud è un extra opzionale. */
+(function(){
+  var SUPABASE_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
+
+  var sb=null, cloudUser=null, cloudCurrentId=null, cloudProjects=[];
+  var modalEl=document.getElementById("cloudModal");
+  var bodyEl=document.getElementById("cloudBody");
+  var toastEl=document.getElementById("cloudToast");
+  var toastT=null;
+
+  function toast(msg, isErr){
+    if(!toastEl) return;
+    toastEl.textContent=msg; toastEl.style.background=isErr?"#b91c1c":"#17212f"; toastEl.hidden=false;
+    if(toastT) clearTimeout(toastT);
+    toastT=setTimeout(function(){ toastEl.hidden=true; }, 3200);
+  }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function fmtDate(s){ try{ var d=new Date(s); return d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+  function projTitle(){ return (state.titolo||state.luogo||"").trim() || "Senza titolo"; }
+
+  function modalOpen(){ return modalEl && modalEl.style.display!=="none"; }
+  function openModal(){ if(!modalEl) return; modalEl.style.display="flex"; renderModal(); if(cloudUser) loadProjects(); }
+  function closeModal(){ if(modalEl) modalEl.style.display="none"; }
+
+  function renderModal(){
+    if(!bodyEl) return;
+    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:#5b6675">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool e salvare i progetti come file .json.</p>'; return; }
+    if(!cloudUser){
+      bodyEl.innerHTML=
+        '<p style="margin:0 0 14px;color:#5b6675;line-height:1.5">Accedi per salvare i tuoi stage plot online e ritrovarli da qualsiasi dispositivo. Il login è facoltativo: il tool funziona anche senza.</p>'+
+        '<button id="cloudSignin" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid #dadce0;border-radius:9px;background:#fff;color:#3c4043;font-weight:600;font-size:15px;cursor:pointer">'+
+          '<svg width="18" height="18" viewBox="0 0 48 48" style="width:18px;height:18px;flex:none"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'+
+          'Accedi con Google</button>'+
+        '<p style="margin:13px 0 0;font-size:12px;color:#8b95a3;text-align:center;line-height:1.5">Accedendo accetti la <a href="/privacy/" target="_blank" rel="noopener" style="color:#8b95a3;text-decoration:underline">Privacy Policy</a>.</p>';
+      var b=document.getElementById("cloudSignin"); if(b) b.addEventListener("click", signIn);
+      return;
+    }
+    var rows="";
+    if(cloudProjects.length){
+      rows=cloudProjects.map(function(p){
+        var cur = p.id===cloudCurrentId;
+        return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #eef0f3">'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+(cur?' <span style="color:#16a34a;font-weight:500">• aperto</span>':'')+'</div>'+
+            '<div style="font-size:12px;color:#8b95a3">'+esc(fmtDate(p.updated_at))+'</div>'+
+          '</div>'+
+          '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
+          '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" style="border:none;background:none;cursor:pointer;font-size:16px;color:#b91c1c">🗑</button>'+
+        '</div>';
+      }).join("");
+    } else {
+      rows='<p style="color:#8b95a3;margin:10px 0 0">Nessun progetto salvato online. Premi "Salva online" per iniziare.</p>';
+    }
+    bodyEl.innerHTML=
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px">'+
+        '<span style="color:#5b6675;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Connesso come <strong>'+esc(cloudUser.email||"")+'</strong></span>'+
+        '<button id="cloudSignout" style="border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
+      '</div>'+
+      '<button id="cloudSave" style="width:100%;padding:12px;border:none;border-radius:9px;background:#0e7490;color:#fff;font-weight:700;font-size:15px;cursor:pointer">☁ Salva online — "'+esc(projTitle())+'"</button>'+
+      '<div style="margin-top:18px">'+rows+'</div>'+
+      '<div style="margin-top:18px;padding-top:14px;border-top:1px solid #eef0f3">'+
+        '<a href="/consulenza/" target="_blank" rel="noopener" style="color:#b45309;font-weight:600;text-decoration:none;font-size:14px">✓ Vuoi che un fonico validi il tuo stage plot? Fatti revisionare →</a>'+
+      '</div>';
+    document.getElementById("cloudSignout").addEventListener("click", signOut);
+    document.getElementById("cloudSave").addEventListener("click", saveProject);
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });
+  }
+
+  function signIn(){
+    if(!sb) return;
+    try{ sessionStorage.setItem("cloudReopen","1"); }catch(e){}
+    sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } })
+      .then(function(r){ if(r && r.error){ toast("Accesso non riuscito: "+r.error.message, true); } });
+  }
+  function signOut(){
+    if(!sb) return;
+    sb.auth.signOut().then(function(){ cloudCurrentId=null; toast("Disconnesso."); });
+  }
+
+  function saveProject(){
+    if(!sb){ toast("Cloud non disponibile.", true); return; }
+    if(!cloudUser){ toast("Accedi per salvare online."); signIn(); return; }
+    var payload={ user_id:cloudUser.id, title:projTitle(), data:JSON.parse(stateToJSON()), schema_version:1 };
+    var q;
+    if(cloudCurrentId){
+      q=sb.from("stageplot_projects").update({ title:payload.title, data:payload.data }).eq("id", cloudCurrentId).select().single();
+    } else {
+      q=sb.from("stageplot_projects").insert(payload).select().single();
+    }
+    q.then(function(r){
+      if(r.error){ toast("Salvataggio non riuscito: "+r.error.message, true); return; }
+      if(r.data && r.data.id) cloudCurrentId=r.data.id;
+      toast("✓ Salvato online.");
+      loadProjects();
+    });
+  }
+
+  function loadProjects(){
+    if(!sb || !cloudUser) return;
+    sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at",null).order("updated_at",{ascending:false})
+      .then(function(r){
+        if(r.error){ toast("Impossibile leggere i progetti: "+r.error.message, true); return; }
+        cloudProjects=r.data||[];
+        if(modalOpen()) renderModal();
+      });
+  }
+
+  function openProject(id){
+    if(!sb) return;
+    sb.from("stageplot_projects").select("data,title").eq("id",id).single().then(function(r){
+      if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
+      try{ importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; toast("✓ Progetto aperto."); closeModal(); }
+      catch(e){ toast("Il progetto salvato non è valido.", true); }
+    });
+  }
+
+  function delProject(id){
+    if(!sb) return;
+    if(typeof window.confirm==="function" && !window.confirm("Eliminare questo progetto salvato online?")) return;
+    sb.from("stageplot_projects").delete().eq("id",id).then(function(r){
+      if(r.error){ toast("Eliminazione non riuscita: "+r.error.message, true); return; }
+      if(cloudCurrentId===id) cloudCurrentId=null;
+      toast("Progetto eliminato."); loadProjects();
+    });
+  }
+
+  function updateBtn(){
+    var b=document.getElementById("bCloud"); if(!b) return;
+    b.textContent = cloudUser ? "☁ Cloud ●" : "☁ Cloud";
+    b.style.color = cloudUser ? "#16a34a" : "";
+    b.title = cloudUser ? ("Connesso come "+(cloudUser.email||"")) : "Accedi e salva i tuoi progetti online";
+  }
+
+  function init(){
+    var bCloud=document.getElementById("bCloud");
+    if(bCloud) bCloud.addEventListener("click", openModal);
+    if(document.getElementById("cloudClose")) document.getElementById("cloudClose").addEventListener("click", closeModal);
+    if(modalEl) modalEl.addEventListener("click", function(e){ if(e.target===modalEl) closeModal(); });
+    document.addEventListener("keydown", function(e){ if(modalOpen() && e.key==="Escape") closeModal(); });
+
+    if(!window.supabase || !window.supabase.createClient){ updateBtn(); return; }   /* CDN non caricato: il tool resta pienamente usabile */
+    sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
+
+    sb.auth.getSession().then(function(r){
+      cloudUser=(r && r.data && r.data.session)?r.data.session.user:null;
+      updateBtn();
+      var reopen=false; try{ reopen=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}
+      if(reopen && cloudUser){ try{ sessionStorage.removeItem("cloudReopen"); }catch(e){} openModal(); }
+    });
+    sb.auth.onAuthStateChange(function(ev, session){
+      cloudUser=session?session.user:null;
+      updateBtn();
+      if(modalOpen()) renderModal();
+      if(cloudUser && modalOpen()) loadProjects();
+    });
+  }
+
+  if(document.readyState!=="loading") init();
+  else document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
 </body>
 </html>
