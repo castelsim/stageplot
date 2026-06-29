@@ -7,7 +7,7 @@ export type Brief = {
   name: string; email: string;
   event_type?: string; date_place?: string; lineup?: string;
   materials?: string; notes?: string; honeypot?: string;
-  attachments?: string[]; stripe_session_id?: string;
+  attachments?: string[]; stripe_session_id?: string; project_id?: string;
 };
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -30,7 +30,7 @@ export function validateBrief(input: unknown):
       name, email,
       event_type: str("event_type"), date_place: str("date_place"),
       lineup: str("lineup"), materials: str("materials"), notes: str("notes"),
-      attachments, stripe_session_id: str("stripe_session_id"),
+      attachments, stripe_session_id: str("stripe_session_id"), project_id: str("project_id"),
     },
   };
 }

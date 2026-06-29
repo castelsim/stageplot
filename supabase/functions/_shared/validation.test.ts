@@ -30,3 +30,9 @@ Deno.test("validateUploadRequest: accetta pdf e immagini", () => {
   const r = validateUploadRequest([{ name: "rider.pdf", type: "application/pdf" }]);
   assertEquals(r.ok, true);
 });
+
+Deno.test("validateBrief: accetta project_id", () => {
+  const r = validateBrief({ name: "Mario", email: "m@x.it", project_id: "abc-123" });
+  if (!r.ok) throw new Error("atteso ok");
+  if (r.value.project_id !== "abc-123") throw new Error("project_id non propagato");
+});
