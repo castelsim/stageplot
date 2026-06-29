@@ -624,8 +624,13 @@
           <label>Note (facoltativo)
             <textarea name="notes" placeholder="Scadenze, richieste particolari"></textarea>
           </label>
+          <label>Allegati (foto del palco, vecchi rider, input list — facoltativi)
+            <input type="file" name="files" id="filesInput" multiple accept="image/*,application/pdf">
+          </label>
+          <input type="text" name="company" id="hpField" tabindex="-1" autocomplete="off"
+                 style="position:absolute;left:-9999px" aria-hidden="true">
           <div class="form-actions">
-            <button class="btn primary" type="submit">Invia via email</button>
+            <button class="btn primary" type="submit">Invia richiesta</button>
             <button class="btn" type="button" id="copyBtn">Copia i dati</button>
           </div>
           <p class="form-msg" id="formMsg" role="status"></p>
@@ -680,9 +685,14 @@
   </footer>
 
   <script>
+    const SB_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";
+    const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
+    const FN = (p) => `${SB_URL}/functions/v1/${p}`;
     const form = document.querySelector("#briefForm");
     const copyBtn = document.querySelector("#copyBtn");
     const msg = document.querySelector("#formMsg");
+    const filesInput = document.querySelector("#filesInput");
+    const submitBtn = form.querySelector('button[type="submit"]');
     const EMAIL = "castellansimone@gmail.com";
 
     function buildBody() {
@@ -701,13 +711,49 @@
       ].join("\n");
     }
 
-    form.addEventListener("submit", (e) => {
+    async function uploadFiles(files) {
+      if (!files.length) return [];
+      const prep = await fetch(FN("submit-consultation?action=prepare-upload"), {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ files: files.map((f) => ({ name: f.name, type: f.type })) }),
+      });
+      if (!prep.ok) throw new Error("upload non disponibile");
+      const { uploads } = await prep.json();
+      for (let i = 0; i < files.length; i++) {
+        const put = await fetch(uploads[i].signedUrl, { method: "PUT", body: files[i] });
+        if (!put.ok) throw new Error("caricamento allegato fallito");
+      }
+      return uploads.map((u) => u.path);
+    }
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const body = buildBody();
-      window.location.href = "mailto:" + EMAIL +
-        "?subject=" + encodeURIComponent("Richiesta consulenza Stage Plot") +
-        "&body=" + encodeURIComponent(body);
-      msg.textContent = "Si apre la tua email con i dati già pronti. Premi invio per spedire.";
+      submitBtn.disabled = true;
+      msg.textContent = "Invio in corso…";
+      try {
+        const paths = await uploadFiles([...filesInput.files]);
+        const d = new FormData(form);
+        const body = {
+          name: d.get("name"), email: d.get("email"),
+          event_type: d.get("eventType"), date_place: d.get("datePlace"),
+          lineup: d.get("lineup"), materials: d.get("materials"), notes: d.get("notes"),
+          honeypot: d.get("company"), attachments: paths,
+          stripe_session_id: new URLSearchParams(location.search).get("session_id") || undefined,
+        };
+        const res = await fetch(FN("submit-consultation?action=submit"), {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || "errore");
+        form.reset();
+        msg.textContent = "Richiesta ricevuta. Ti rispondo entro 24 ore.";
+      } catch (err) {
+        msg.textContent = "Invio non riuscito. Riprova o usa “Copia i dati” e scrivimi a castellansimone@gmail.com.";
+      } finally {
+        submitBtn.disabled = false;
+      }
     });
 
     copyBtn.addEventListener("click", async () => {
