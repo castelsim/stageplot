@@ -4354,10 +4354,22 @@ svg.addEventListener("pointermove", function(e){
   } else if(drag.mode==="blkcorner"){
     sp=svgPoint(e); var r=stageBlocks()[drag.bi]; drag.moved=true;
     if(r && hasPts(r)){
-      var cgrid=e.metaKey||e.ctrlKey;
-      var px=cgrid?snap(sp.x):Math.round(sp.x), py=cgrid?snap(sp.y):Math.round(sp.y);
-      r.pts[drag.ci]=[px,py]; syncBlockBBox(r);
-      recalcStageBBox(); redrawStageLayers();   /* parziale: solo i layer palco/overlay */
+      var bkFree=e.metaKey||e.ctrlKey;        /* Command/Ctrl = libero (niente snap), come per gli elementi */
+      var bkx=Math.round(sp.x), bky=Math.round(sp.y), bkg=[];
+      if(!bkFree){
+        var bkT=SNAP_T, bkPad=40;
+        var adjN=r.pts[(drag.ci+1)%4], adjP=r.pts[(drag.ci+3)%4];      /* vertici adiacenti dello stesso blocco */
+        var candX=[adjP[0],adjN[0]], candY=[adjP[1],adjN[1]];          /* #4 raddrizza: lati orizz/vert coi propri adiacenti */
+        stageBlocks().forEach(function(b,bbi){ if(bbi===drag.bi) return;   /* #1 aggancio agli angoli degli altri blocchi */
+          blockCorners(b).forEach(function(p){ candX.push(p[0]); candY.push(p[1]); });
+        });
+        var snX=null,snXd=bkT+1; candX.forEach(function(v){ var d=Math.abs(bkx-v); if(d<snXd){snXd=d;snX=v;} });
+        var snY=null,snYd=bkT+1; candY.forEach(function(v){ var d=Math.abs(bky-v); if(d<snYd){snYd=d;snY=v;} });
+        if(snX!=null){ bkx=snX; bkg.push({x1:snX,y1:-bkPad,x2:snX,y2:state.stage.d+bkPad,cls:'snap-guide'}); }
+        if(snY!=null){ bky=snY; bkg.push({x1:-bkPad,y1:snY,x2:state.stage.w+bkPad,y2:snY,cls:'snap-guide'}); }
+      }
+      r.pts[drag.ci]=[bkx,bky]; syncBlockBBox(r);
+      recalcStageBBox(); redrawStageLayers(); renderSnapGuides(bkg);   /* parziale: solo i layer palco/overlay */
     }
   } else if(drag.mode==="blkresize"){
     sp=svgPoint(e); var r=stageBlocks()[drag.bi]; drag.moved=true;
@@ -4417,7 +4429,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && (drag.mode==="frame"||drag.mode==="frameresize")){ if(drag.moved){ save(); } renderFramePanel(); render(); drag=null; return; }
   if(drag && drag.mode==="block"){ if(drag.moved){ normalizeStageBBox(); save(); } renderStagePanel(); render(); svg.classList.remove("dragging"); drag=null; ensureVisible(); return; }
   if(drag && drag.mode==="blkresize"){ if(drag.moved){ normalizeStageBBox(); save(); } renderStagePanel(); render(); drag=null; ensureVisible(); return; }
-  if(drag && drag.mode==="blkcorner"){ if(drag.moved){ var cr=stageBlocks()[drag.bi]; if(cr) syncBlockBBox(cr); normalizeStageBBox(); save(); } renderStagePanel(); render(); drag=null; ensureVisible(); return; }
+  if(drag && drag.mode==="blkcorner"){ if(drag.moved){ var cr=stageBlocks()[drag.bi]; if(cr) syncBlockBBox(cr); normalizeStageBBox(); save(); } renderSnapGuides([]); renderStagePanel(); render(); drag=null; ensureVisible(); return; }
   if(drag && drag.mode==="newblk"){     /* fine Alt+trascina: crea il nuovo blocco se abbastanza grande */
     if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     var nr=drag.rect;
@@ -4517,13 +4529,15 @@ function fitVbW(){
   var W=(b.x1-b.x0)+2*m, D=(b.y1-b.y0)+2*m;
   return (W/D>ar)? W : D*ar;
 }
-function fit(){
-  var b=contentBounds(), mob=isMobile(), m=fitMargin();
-  var W=(b.x1-b.x0)+2*m, D=(b.y1-b.y0)+2*m, ar=svg.clientWidth/svg.clientHeight;
-  if(W/D>ar){ var h=W/ar; vb={x:b.x0-m, y: b.y0-m, w:W, h:h}; }
-  else { vb={x:b.x0-m-(D*ar-W)/2, y:b.y0-m, w:D*ar, h:D}; }
+function fitTo(x0,y0,x1,y1){
+  var m=fitMargin();
+  var W=(x1-x0)+2*m, D=(y1-y0)+2*m, ar=svg.clientWidth/svg.clientHeight;
+  if(W/D>ar){ var h=W/ar; vb={x:x0-m, y:y0-m, w:W, h:h}; }
+  else { vb={x:x0-m-(D*ar-W)/2, y:y0-m, w:D*ar, h:D}; }
   render();
 }
+function fit(){ var b=contentBounds(); fitTo(b.x0,b.y0,b.x1,b.y1); }
+function fitStage(){ recalcStageBBox(); fitTo(0,0,state.stage.w,state.stage.d); }   /* "a": adatta la vista al solo palco */
 function ensureVisible(){}
 /* ===== Modifica palco (forma a blocchi) ===== */
 function renderStagePanel(){
@@ -4685,6 +4699,7 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="c"||e.key==="C")){ e.preventDefault(); copySel(); return; }   /* Cmd/Ctrl+C copia */
   if((e.metaKey||e.ctrlKey) && (e.key==="v"||e.key==="V")){ e.preventDefault(); pasteClip(); return; }  /* Cmd/Ctrl+V incolla */
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
+  if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fitStage(); return; }   /* "a" → adatta la vista al palco */
   var it=getSel(), step = e.shiftKey?25:5;
   if(e.key==="Escape"){ exitHubModes(); clearSelection(); render(); }
   if(!it) return;
