@@ -503,6 +503,7 @@
     ]
   }
   </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -589,7 +590,7 @@
     <section id="intake">
       <div class="head">
         <h2>I dati del tuo evento</h2>
-        <p>Bastano due minuti: risposta entro 24 ore. Niente account, i dati restano sul tuo dispositivo.</p>
+        <p>Bastano due minuti: risposta entro 24 ore.</p>
       </div>
       <div class="form-wrap">
         <div class="paid" id="paySuccess" hidden>Pagamento ricevuto, grazie.<span>Lasci i dati qui sotto e ricevi conferma entro 24 ore, con le eventuali domande.</span></div>
@@ -623,6 +624,11 @@
           </label>
           <label>Note (facoltativo)
             <textarea name="notes" placeholder="Scadenze, richieste particolari"></textarea>
+          </label>
+          <label>Il tuo stage plot
+            <span id="projAuth"><button type="button" id="projSignin" class="btn">Accedi con Google per scegliere un progetto</button></span>
+            <select name="project_id" id="projSelect" style="display:none"></select>
+            <small id="projHint" style="color:var(--muted)">Selezionando un progetto, il fonico potrà vederlo sempre aggiornato.</small>
           </label>
           <label>Allegati (foto del palco, vecchi rider, input list — facoltativi)
             <input type="file" name="files" id="filesInput" multiple accept="image/png,image/jpeg,image/webp,image/heic,application/pdf">
@@ -740,6 +746,7 @@
           lineup: d.get("lineup"), materials: d.get("materials"), notes: d.get("notes"),
           honeypot: d.get("company"), attachments: paths,
           stripe_session_id: new URLSearchParams(location.search).get("session_id") || undefined,
+          project_id: (document.getElementById("projSelect")||{}).value || undefined,
         };
         const res = await fetch(FN("submit-consultation?action=submit"), {
           method: "POST",
@@ -773,6 +780,31 @@
       const intake = document.querySelector("#intake");
       if (intake) intake.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+  </script>
+  <script>
+(function(){
+  if(!window.supabase || !window.supabase.createClient) return;
+  var SB_URL="https://vsodplqkuvnsdiikvmjb.supabase.co";
+  var SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
+  var sb=window.supabase.createClient(SB_URL, SB_ANON, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
+  var authEl=document.getElementById("projAuth");
+  var sel=document.getElementById("projSelect");
+  var signinBtn=document.getElementById("projSignin");
+  if(signinBtn) signinBtn.addEventListener("click", function(){
+    sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } });
+  });
+  function loadProjects(){
+    sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at",null).order("updated_at",{ascending:false})
+      .then(function(r){
+        if(r.error || !r.data){ return; }
+        sel.innerHTML='<option value="">— Nessun progetto (allego a parte) —</option>'+
+          r.data.map(function(p){ return '<option value="'+p.id+'">'+(p.title||"Senza titolo").replace(/[<>&]/g,"")+'</option>'; }).join("");
+        authEl.style.display="none"; sel.style.display="";
+      });
+  }
+  sb.auth.getSession().then(function(r){ if(r&&r.data&&r.data.session){ loadProjects(); } });
+  sb.auth.onAuthStateChange(function(ev, session){ if(session){ loadProjects(); } });
+})();
   </script>
 </body>
 </html>
