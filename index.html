@@ -2616,6 +2616,7 @@ var DEFAULT_LABELS = {
 
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
+var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[] };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
@@ -2667,6 +2668,22 @@ function stateToJSON(){ return JSON.stringify(state, stateReplacer); }
 var venueImgCache={};
 function cacheVenueImg(v){ if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH}; }
 function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl && venueImgCache[v.name]){ var c=venueImgCache[v.name]; v._dataUrl=c._dataUrl; v._imgW=c._imgW; v._imgH=c._imgH; } return s; }
+/* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
+   digitazione), ma in una chiave separata scritta SOLO quando la planimetria cambia. Così sopravvive a reload e
+   login senza riscrivere MB ad ogni carattere. */
+function persistVenueImg(){
+  var v=state.venue;
+  try{
+    if(v && v._dataUrl){ localStorage.setItem(LS_KEY_VENUE, JSON.stringify({name:v.name, _dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH})); }
+    else { localStorage.removeItem(LS_KEY_VENUE); }
+  }catch(e){ if(e && e.name==="QuotaExceededError" && window.__toast) window.__toast("Planimetria troppo pesante per il salvataggio offline; verrà salvata nel cloud.", true); }
+}
+function loadVenueImg(){
+  try{ var raw=localStorage.getItem(LS_KEY_VENUE); if(!raw) return;
+    var v=JSON.parse(raw); if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH};
+  }catch(e){}
+}
+function clearVenueImg(){ try{ localStorage.removeItem(LS_KEY_VENUE); }catch(e){} }
 function save(){
   try{
     localStorage.setItem(LS_KEY, stateToJSON());
@@ -2726,6 +2743,7 @@ function importProject(json){
   state=normalizeState(s);
   state.items=sanitizeItems(state.items||[]);
   cacheVenueImg(state.venue);   /* l'import può portare con sé una planimetria (.json completo): mettila in cache */
+  persistVenueImg();            /* e nella chiave dedicata: sopravvive a un reload dopo l'apertura da cloud/file */
   ensureItemIds();
   lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
@@ -2775,6 +2793,7 @@ function load(){
       ensureItemIds();
     }
   }catch(e){}
+  loadVenueImg(); reattachVenueImg(state);   /* ripristina l'immagine planimetria dalla chiave dedicata */
 }
 /* ===== LZString (compressToEncodedURIComponent / decompress) — per il link di condivisione ===== */
 var LZString=(function(){var f=String.fromCharCode;var keyStrUriSafe="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";var baseReverseDic={};function getBaseValue(alphabet,character){if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i}}return baseReverseDic[alphabet][character]}var LZString={compressToEncodedURIComponent:function(input){if(input==null)return"";return LZString._compress(input,6,function(a){return keyStrUriSafe.charAt(a)})},decompressFromEncodedURIComponent:function(input){if(input==null)return"";if(input=="")return null;input=input.replace(/ /g,"+");return LZString._decompress(input.length,32,function(index){return getBaseValue(keyStrUriSafe,input.charAt(index))})},_compress:function(uncompressed,bitsPerChar,getCharFromInt){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break}else context_data_position++}return context_data.join("")},_decompress:function(length,resetValue,getNextValue){var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};for(i=0;i<3;i+=1){dictionary[i]=i}bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(next=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 2:return""}dictionary[3]=c;w=c;result.push(c);while(true){if(data.index>length){return""}bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(c=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[c]){entry=dictionary[c]}else{if(c===dictSize){entry=w+w.charAt(0)}else{return null}}result.push(entry);dictionary[dictSize++]=w+entry.charAt(0);enlargeIn--;w=entry;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}}}};return LZString})();
@@ -6007,13 +6026,21 @@ function venueLoadFile(file){
   rd.onload=function(){
     if(!state.venue) state.venue=venueDefault();
     state.venue.name=file.name;
-    state.venue._dataUrl=String(rd.result);
     /* dimensioni immagine → w/h iniziale in cm (1px=1cm, utente calibra dopo) */
     var img=new Image();
     img.onload=function(){
-      state.venue._imgW=img.naturalWidth; state.venue._imgH=img.naturalHeight;
-      if(!state.venue.calibration){ state.venue.w=img.naturalWidth; state.venue.h=img.naturalHeight; }
+      /* downscale a ~2000px lato lungo + ricompressione JPEG: tiene l'immagine salvabile (quota localStorage, payload cloud) */
+      var MAXS=2000, iw=img.naturalWidth, ih=img.naturalHeight, durl=String(rd.result);
+      if(Math.max(iw,ih)>MAXS){
+        var sc=MAXS/Math.max(iw,ih), cw=Math.round(iw*sc), ch=Math.round(ih*sc);
+        var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+        cv.getContext("2d").drawImage(img,0,0,cw,ch);
+        try{ durl=cv.toDataURL("image/jpeg",0.85); iw=cw; ih=ch; }catch(e){}
+      }
+      state.venue._dataUrl=durl; state.venue._imgW=iw; state.venue._imgH=ih;
+      if(!state.venue.calibration){ state.venue.w=iw; state.venue.h=ih; }
       cacheVenueImg(state.venue);   /* per il re-attach dopo undo/redo (gli snapshot non contengono il base64) */
+      persistVenueImg();            /* salva l'immagine nella chiave dedicata (sopravvive a reload e login) */
       save(); renderVenuePanel(); render();
     };
     img.src=String(rd.result);
@@ -6082,7 +6109,7 @@ document.getElementById("venueCalibApply").addEventListener("click", venueCalibA
 document.getElementById("venueCalibCancel").addEventListener("click", venueCalibCancel);
 document.getElementById("venueBtnDel").addEventListener("click", function(){
   if(!confirm("Rimuovere la planimetria?")) return;
-  state.venue=null; venueCalibCancel(); save(); renderVenuePanel(); render();
+  state.venue=null; clearVenueImg(); venueCalibCancel(); save(); renderVenuePanel(); render();
 });
 
 /* nota: il bottone mobile [data-act='venue'] è già gestito dal click handler di #mActions (toggleVenueEdit) */
@@ -7221,6 +7248,10 @@ function gallery(){
   window.__startSession=startSession;
 })();
 var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
+/* Ritorno dal login Google (redirect): ripristina il lavoro pre-login da localStorage (planimetria inclusa).
+   L'avvio normale resta "nuovo progetto a ogni apertura" — qui solo se si sta tornando dall'OAuth. */
+var _resumeLogin=false; try{ _resumeLogin=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}
+if(!sharedLoaded && _resumeLogin) load();
 if(location.search.indexOf("demo=1")>-1) demo();
 if(location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */
   var c={}; ORCH_DEF.forEach(function(s){ c[s.id]=s.def; });
@@ -7378,6 +7409,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(toastT) clearTimeout(toastT);
     toastT=setTimeout(function(){ toastEl.hidden=true; }, 3200);
   }
+  try{ window.__toast=toast; }catch(e){}   /* esposto al main scope per l'avviso quota planimetria */
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
   function fmtDate(s){ try{ var d=new Date(s); return d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
   function projTitle(){ return (state.titolo||state.luogo||"").trim() || "Senza titolo"; }
@@ -7432,6 +7464,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   function signIn(){
     if(!sb) return;
     try{ sessionStorage.setItem("cloudReopen","1"); }catch(e){}
+    try{ if(typeof save==="function") save(); }catch(e){}   /* persiste il lavoro corrente: ritrovato al ritorno dal login */
     sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } })
       .then(function(r){ if(r && r.error){ toast("Accesso non riuscito: "+r.error.message, true); } });
   }
@@ -7443,7 +7476,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   function saveProject(){
     if(!sb){ toast("Cloud non disponibile.", true); return; }
     if(!cloudUser){ toast("Accedi per salvare online."); signIn(); return; }
-    var payload={ user_id:cloudUser.id, title:projTitle(), data:JSON.parse(stateToJSON()), schema_version:1 };
+    var payload={ user_id:cloudUser.id, title:projTitle(), data:JSON.parse(JSON.stringify(state)), schema_version:1 };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
     var q;
     if(cloudCurrentId){
       q=sb.from("stageplot_projects").update({ title:payload.title, data:payload.data }).eq("id", cloudCurrentId).select().single();
