@@ -573,12 +573,12 @@ body.viewmode main { position: fixed; inset: 44px 0 0 0; }
   <button class="btn" id="bUndo" title="Annulla (⌘Z)" style="padding:7px 11px">↶</button>
   <button class="btn" id="bRedo" title="Ripeti (⇧⌘Z)" style="padding:7px 11px">↷</button>
   <button class="btn" id="bFit" title="Adatta lo zoom al palco">⤢ Adatta</button>
-  <select id="snapSel" title="Modalità snap posizione" style="font-size:13px;padding:3px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#fff;cursor:pointer;height:32px">
-    <option value="0">Libero</option>
-    <option value="25" selected>25 cm</option>
-    <option value="50">50 cm</option>
-    <option value="100">1 metro</option>
-    <option value="obj">Oggetti</option>
+  <select id="snapSel" title="Aggancio: come si posizionano gli elementi quando li sposti — su una griglia regolare o liberi" style="font-size:13px;padding:3px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#fff;cursor:pointer;height:32px">
+    <option value="0">Libero (senza griglia)</option>
+    <option value="25" selected>Griglia 25 cm</option>
+    <option value="50">Griglia 50 cm</option>
+    <option value="100">Griglia 1 m</option>
+    <option value="obj">Aggancia agli oggetti</option>
   </select>
   <div style="display:flex;gap:4px">
     <button class="btn" id="bHdrPdf" title="Salva / esporta">📄 Salva / Esporta</button>
@@ -875,6 +875,7 @@ body.viewmode main { position: fixed; inset: 44px 0 0 0; }
 
 <footer style="justify-content:center">
   <span id="scaleInfo" hidden></span>
+  <span id="savedInfo" style="font-size:11.5px;color:#9ca3af">✓ Salvato automaticamente sul tuo dispositivo&nbsp;&nbsp;·&nbsp;&nbsp;</span>
   <span style="font-size:11px;opacity:.7">Designed and built by <a href="https://simonecastellan.com" target="_blank" rel="noopener">Simone Castellan</a></span>
 </footer>
 
