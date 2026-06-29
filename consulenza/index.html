@@ -513,6 +513,7 @@
       <a href="#faq">FAQ</a>
       <a href="/guida/">Guida</a>
       <a href="/">Tool gratuito</a>
+      <span id="authBadge" style="font-size:14px;color:var(--muted)"></span>
     </nav>
     <a class="btn primary" href="#offerte">Vedi le offerte</a>
   </header>
@@ -543,7 +544,7 @@
     <section id="offerte">
       <div class="head">
         <h2>Scegli la revisione</h2>
-        <p>Un pagamento, il tuo materiale, i documenti validati. Senza abbonamento, senza account.</p>
+        <p>Un pagamento, il tuo materiale, i documenti validati. Senza abbonamento. Accesso con Google, lo stesso del tool.</p>
       </div>
       <div class="grid">
         <article class="card">
@@ -556,7 +557,7 @@
             <li>Un giro di correzione</li>
             <li>Email tecnica inclusa</li>
           </ul>
-          <a class="btn primary" href="https://buy.stripe.com/28EcN5f073Jpg20dJY7ok06">Acquista</a>
+          <button class="btn primary" type="button" data-product="pro-review">Acquista</button>
         </article>
         <article class="card featured">
           <span class="tag">Completo</span>
@@ -568,7 +569,7 @@
             <li>Il tuo materiale, integrato e validato</li>
             <li>Consegna in 3-5 giorni</li>
           </ul>
-          <a class="btn primary" href="https://buy.stripe.com/9B6dR93hpa7Ng20fS67ok05">Acquista</a>
+          <button class="btn primary" type="button" data-product="production-pack">Acquista</button>
         </article>
       </div>
       <p class="reassure">Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Fattura su richiesta. Rimborso se il risultato non &egrave; utilizzabile &mdash; vedi <a href="#faq">FAQ</a>.</p>
@@ -577,7 +578,7 @@
     <section id="come-funziona" class="dark-band">
       <div class="head">
         <h2>Come funziona</h2>
-        <p>Tre passaggi, senza account. Dalla bozza al PDF validato in 24-72 ore.</p>
+        <p>Tre passaggi, accesso con Google. Dalla bozza al PDF validato in 24-72 ore.</p>
       </div>
       <div class="steps">
         <div class="step"><div class="n">1</div><strong>Crei la bozza</strong><span>Col tool gratuito disegni il palco in scala. Oppure invii quello che hai gi&agrave;: foto, vecchi rider, input list.</span></div>
@@ -588,58 +589,31 @@
 
     <section id="intake">
       <div class="head">
-        <h2>I dati del tuo evento</h2>
-        <p>Bastano due minuti: risposta entro 24 ore.</p>
+        <h2>Quasi fatto</h2>
+        <p>Scegli il progetto da far revisionare, poi vai al pagamento sicuro.</p>
       </div>
       <div class="form-wrap">
-        <div class="paid" id="paySuccess" hidden>Pagamento ricevuto, grazie.<span>Lasci i dati qui sotto e ricevi conferma entro 24 ore, con le eventuali domande.</span></div>
-        <form id="briefForm">
-          <label>Nome
-            <input name="name" autocomplete="name" placeholder="Nome e cognome" required>
+        <div class="paid" id="thanks" hidden>Grazie, pagamento ricevuto.<span>Ti contatto entro 24 ore. Tieni il progetto aggiornato: lo rivediamo insieme dal vivo.</span></div>
+
+        <div id="pickerLogin" hidden>
+          <p>Per la consulenza serve l'accesso (lo stesso del tool gratuito).</p>
+          <button class="btn primary" type="button" id="loginBtn">Accedi con Google</button>
+        </div>
+
+        <div id="pickerProjects" hidden>
+          <label>Per quale progetto?
+            <select id="projPick"></select>
           </label>
-          <label>Email
-            <input name="email" type="email" autocomplete="email" placeholder="latua@email.it" required>
-          </label>
-          <label>Tipo di evento
-            <select name="eventType" required>
-              <option value="" disabled selected>Seleziona&hellip;</option>
-              <option>Band / concerto</option>
-              <option>Coro</option>
-              <option>Orchestra</option>
-              <option>Orchestra + band</option>
-              <option>Scuola / saggio</option>
-              <option>Evento aziendale</option>
-              <option>Altro</option>
-            </select>
-          </label>
-          <label>Data e luogo
-            <input name="datePlace" placeholder="Es. 12/09/2026, Teatro Comunale, Treviso">
-          </label>
-          <label>Organico
-            <textarea name="lineup" placeholder="Quante persone, strumenti, voci, coro o orchestra"></textarea>
-          </label>
-          <label>Cosa hai gi&agrave; (facoltativo)
-            <textarea name="materials" placeholder="Link dal tool gratuito, foto del palco, vecchi rider o input list"></textarea>
-          </label>
-          <label>Note (facoltativo)
-            <textarea name="notes" placeholder="Scadenze, richieste particolari"></textarea>
-          </label>
-          <label>Il tuo stage plot
-            <span id="projAuth"><button type="button" id="projSignin" class="btn">Accedi con Google per scegliere un progetto</button></span>
-            <select name="project_id" id="projSelect" style="display:none"></select>
-            <small id="projHint" style="color:var(--muted)">Selezionando un progetto, il fonico potrà vederlo sempre aggiornato.</small>
-          </label>
-          <label>Allegati (foto del palco, vecchi rider, input list — facoltativi)
-            <input type="file" name="files" id="filesInput" multiple accept="image/png,image/jpeg,image/webp,image/heic,application/pdf">
-          </label>
-          <input type="text" name="company" id="hpField" tabindex="-1" autocomplete="off"
-                 style="position:absolute;left:-9999px" aria-hidden="true">
           <div class="form-actions">
-            <button class="btn primary" type="submit">Invia richiesta</button>
-            <button class="btn" type="button" id="copyBtn">Copia i dati</button>
+            <button class="btn primary" type="button" id="payBtn">Vai al pagamento</button>
           </div>
-          <p class="form-msg" id="formMsg" role="status"></p>
-        </form>
+          <p class="form-msg" id="pickMsg" role="status"></p>
+        </div>
+
+        <div id="pickerEmpty" hidden>
+          <p>Non hai ancora un progetto salvato. Crealo col tool gratuito (bastano due minuti), poi torna qui.</p>
+          <a class="btn primary" href="/">Apri il tool gratuito</a>
+        </div>
       </div>
     </section>
 
@@ -689,122 +663,103 @@
     </div>
   </footer>
 
+  <script src=”https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js”></script>
   <script>
-    const SB_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";
-    const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
-    const FN = (p) => `${SB_URL}/functions/v1/${p}`;
-    const form = document.querySelector("#briefForm");
-    const copyBtn = document.querySelector("#copyBtn");
-    const msg = document.querySelector("#formMsg");
-    const filesInput = document.querySelector("#filesInput");
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const EMAIL = "castellansimone@gmail.com";
+  (function(){
+    var SB_URL=”https://vsodplqkuvnsdiikvmjb.supabase.co”;
+    var SB_ANON=”eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc”;
+    var FN=function(p){ return SB_URL+”/functions/v1/”+p; };
+    var PAY={ “pro-review”:”https://buy.stripe.com/28EcN5f073Jpg20dJY7ok06”,
+              “production-pack”:”https://buy.stripe.com/9B6dR93hpa7Ng20fS67ok05” };
+    if(!window.supabase||!window.supabase.createClient) return;
+    var sb=window.supabase.createClient(SB_URL, SB_ANON, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:”pkce” } });
 
-    function buildBody() {
-      const d = new FormData(form);
-      const g = (k) => (d.get(k) || "").toString().trim() || "—";
-      return [
-        "Dati evento — Consulenza Stage Plot",
-        "",
-        "Nome: " + g("name"),
-        "Email: " + g("email"),
-        "Tipo evento: " + g("eventType"),
-        "Data e luogo: " + g("datePlace"),
-        "Organico: " + g("lineup"),
-        "Materiali: " + g("materials"),
-        "Note: " + g("notes")
-      ].join("\n");
+    var badge=document.getElementById(“authBadge”);
+    var sLogin=document.getElementById(“pickerLogin”);
+    var sProjects=document.getElementById(“pickerProjects”);
+    var sEmpty=document.getElementById(“pickerEmpty”);
+    var sel=document.getElementById(“projPick”);
+    var pickMsg=document.getElementById(“pickMsg”);
+    var intake=document.getElementById(“intake”);
+    var currentProduct=null;
+
+    function escHtml(s){ return String(s==null?””:s).replace(/[&<>”]/g,function(c){return {“&”:”&amp;”,”<”:”&lt;”,”>”:”&gt;”,'”':”&quot;”}[c];}); }
+    function show(el){ if(el) el.hidden=false; }
+    function hide(el){ if(el) el.hidden=true; }
+    function resetPickers(){ hide(sLogin); hide(sProjects); hide(sEmpty); }
+
+    function startLogin(){
+      try{ sessionStorage.setItem(“pendingProduct”, currentProduct||””); }catch(e){}
+      sb.auth.signInWithOAuth({ provider:”google”, options:{ redirectTo: location.origin+location.pathname } });
     }
 
-    async function uploadFiles(files) {
-      if (!files.length) return [];
-      const prep = await fetch(FN("submit-consultation?action=prepare-upload"), {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ files: files.map((f) => ({ name: f.name, type: f.type })) }),
+    function openPicker(product){
+      currentProduct=product;
+      resetPickers();
+      if(intake) intake.scrollIntoView({behavior:”smooth”, block:”start”});
+      sb.auth.getSession().then(function(res){
+        var session=res&&res.data?res.data.session:null;
+        if(!session){ show(sLogin); return; }
+        sb.from(“stageplot_projects”).select(“id,title,updated_at”).is(“deleted_at”,null)
+          .order(“updated_at”,{ascending:false}).then(function(r){
+            if(r.error){ show(sLogin); return; }
+            if(!r.data||!r.data.length){ show(sEmpty); return; }
+            sel.innerHTML=r.data.map(function(p){ return '<option value=”'+p.id+'”>'+escHtml(p.title||”Senza titolo”)+'</option>'; }).join(“”);
+            show(sProjects);
+          });
       });
-      if (!prep.ok) throw new Error("upload non disponibile");
-      const { uploads } = await prep.json();
-      for (let i = 0; i < files.length; i++) {
-        const put = await fetch(uploads[i].signedUrl, { method: "PUT", headers: { "Content-Type": files[i].type }, body: files[i] });
-        if (!put.ok) throw new Error("caricamento allegato fallito");
-      }
-      return uploads.map((u) => u.path);
     }
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      submitBtn.disabled = true;
-      msg.textContent = "Invio in corso…";
-      try {
-        const paths = await uploadFiles([...filesInput.files]);
-        const d = new FormData(form);
-        const body = {
-          name: d.get("name"), email: d.get("email"),
-          event_type: d.get("eventType"), date_place: d.get("datePlace"),
-          lineup: d.get("lineup"), materials: d.get("materials"), notes: d.get("notes"),
-          honeypot: d.get("company"), attachments: paths,
-          stripe_session_id: new URLSearchParams(location.search).get("session_id") || undefined,
-          project_id: (document.getElementById("projSelect")||{}).value || undefined,
-        };
-        const res = await fetch(FN("submit-consultation?action=submit"), {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error((await res.json()).error || "errore");
-        form.reset();
-        msg.textContent = "Richiesta ricevuta. Ti rispondo entro 24 ore.";
-      } catch (err) {
-        msg.textContent = "Invio non riuscito. Riprova o usa “Copia i dati” e scrivimi a castellansimone@gmail.com.";
-      } finally {
-        submitBtn.disabled = false;
+    function pay(){
+      var pid=sel.value; if(!pid){ pickMsg.textContent=”Seleziona un progetto.”; return; }
+      pickMsg.textContent=”Preparo il pagamento…”;
+      sb.auth.getSession().then(function(res){
+        var session=res&&res.data?res.data.session:null;
+        if(!session){ show(sLogin); return; }
+        fetch(FN(“create-consultation”),{
+          method:”POST”,
+          headers:{ “Authorization”:”Bearer “+session.access_token, “Content-Type”:”application/json” },
+          body:JSON.stringify({ project_id:pid, product:currentProduct })
+        }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+          .then(function(o){
+            if(!o.ok||!o.j.request_id){ pickMsg.textContent=”Errore. Riprova o scrivimi a castellansimone@gmail.com.”; return; }
+            var url=PAY[currentProduct]+”?client_reference_id=”+encodeURIComponent(o.j.request_id)
+              +”&prefilled_email=”+encodeURIComponent(session.user.email||””);
+            location.href=url;
+          })
+          .catch(function(){ pickMsg.textContent=”Errore di rete. Riprova.”; });
+      });
+    }
+
+    // Bottoni “Acquista”
+    [].forEach.call(document.querySelectorAll(“[data-product]”), function(btn){
+      btn.addEventListener(“click”, function(){ openPicker(btn.getAttribute(“data-product”)); });
+    });
+    var payBtn=document.getElementById(“payBtn”); if(payBtn) payBtn.addEventListener(“click”, pay);
+    var loginBtn=document.getElementById(“loginBtn”); if(loginBtn) loginBtn.addEventListener(“click”, startLogin);
+
+    // Badge login + ripresa dopo OAuth
+    function refreshBadge(){
+      sb.auth.getSession().then(function(res){
+        var session=res&&res.data?res.data.session:null;
+        if(badge) badge.textContent = session ? (“Ciao, “+((session.user.user_metadata&&(session.user.user_metadata.name||session.user.user_metadata.full_name))||session.user.email)) : “”;
+      });
+    }
+    sb.auth.onAuthStateChange(function(ev, session){
+      refreshBadge();
+      if(session){
+        var pend=null; try{ pend=sessionStorage.getItem(“pendingProduct”); }catch(e){}
+        if(pend){ try{ sessionStorage.removeItem(“pendingProduct”); }catch(e){} openPicker(pend); }
       }
     });
+    refreshBadge();
 
-    copyBtn.addEventListener("click", async () => {
-      const body = buildBody();
-      try {
-        await navigator.clipboard.writeText(body);
-        msg.textContent = "Dati copiati. Incollali in un'email a " + EMAIL;
-      } catch (err) {
-        msg.textContent = "Copia non riuscita: scrivimi a " + EMAIL;
-      }
-    });
-
-    // Ritorno da Stripe dopo il pagamento: conferma e porta al modulo
-    if (new URLSearchParams(location.search).has("session_id")) {
-      const paid = document.querySelector("#paySuccess");
-      if (paid) paid.hidden = false;
-      const intake = document.querySelector("#intake");
-      if (intake) intake.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Ritorno da Stripe: pagina “grazie”
+    if(new URLSearchParams(location.search).has(“session_id”)){
+      var t=document.getElementById(“thanks”); if(t) t.hidden=false;
+      if(intake) intake.scrollIntoView({behavior:”smooth”, block:”start”});
     }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script>
-(function(){
-  if(!window.supabase || !window.supabase.createClient) return;
-  var SB_URL="https://vsodplqkuvnsdiikvmjb.supabase.co";
-  var SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
-  var sb=window.supabase.createClient(SB_URL, SB_ANON, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
-  var authEl=document.getElementById("projAuth");
-  var sel=document.getElementById("projSelect");
-  var signinBtn=document.getElementById("projSignin");
-  if(signinBtn) signinBtn.addEventListener("click", function(){
-    sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } });
-  });
-  function escHtml(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
-  function loadProjects(){
-    sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at",null).order("updated_at",{ascending:false})
-      .then(function(r){
-        if(r.error || !r.data){ return; }
-        sel.innerHTML='<option value="">— Nessun progetto (allego a parte) —</option>'+
-          r.data.map(function(p){ return '<option value="'+p.id+'">'+escHtml(p.title||"Senza titolo")+'</option>'; }).join("");
-        authEl.style.display="none"; sel.style.display="";
-      });
-  }
-  sb.auth.onAuthStateChange(function(ev, session){ if(session){ loadProjects(); } });
-})();
+  })();
   </script>
 </body>
 </html>
