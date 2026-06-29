@@ -200,6 +200,14 @@
   #catalog .sub-body button span{color:#0e7490}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:#5aa0ab}
   main{grid-area:main;position:relative;background:#fafafa;overflow:hidden}
+  /* Onboarding contestuale: invito sul palco vuoto + hint primo trascinamento */
+  #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;gap:10px;color:#9aa3b0;font-size:15px;line-height:1.3;z-index:4;text-align:left}
+  #emptyHint[hidden]{display:none}
+  #emptyHint .eh-step{white-space:nowrap}
+  #emptyHint .eh-step b{display:inline-block;width:1.5em;color:#2563eb;font-weight:700}
+  #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
+  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
+  body.dark #emptyHint{color:#6b7280}
   #svg.drop-target{outline:3px dashed #2563eb;outline-offset:-6px;background:#eff5ff}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -575,7 +583,7 @@
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></main>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><span class="eh-step"><b>①</b> Apri una categoria a sinistra</span><span class="eh-step"><b>②</b> Clicca un elemento</span><span class="eh-step"><b>③</b> Trascinalo dove vuoi sul palco</span></div></main>
 
 <aside id="props">
   <div id="mBar">
@@ -3118,6 +3126,7 @@ function render(){
   var ppm = svg.clientWidth / vb.w * 100;
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
+  var eh=document.getElementById("emptyHint"); if(eh) eh.hidden = state.items.length>0;   /* onboarding: invito sul palco vuoto */
 }
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
@@ -3980,7 +3989,20 @@ function addItem(type, over){
   addCascade=(addCascade+25)%150;
   state.items.push(it); selectOne(it.id); render(); save(); ensureVisible();
   closeMobileDrawers();   /* su mobile: chiudi il catalogo per vedere il palco */
+  showDragHintOnce();   /* onboarding: la prima volta spiega come spostare/ruotare */
   return it;
+}
+/* onboarding: mostra UNA sola volta (flag localStorage) come si manipola un elemento appena aggiunto */
+function showDragHintOnce(){
+  if(localStorage.getItem("sp_dragHint")) return;
+  localStorage.setItem("sp_dragHint","1");
+  var m=document.querySelector("main"); if(!m) return;
+  var t=document.createElement("div"); t.id="dragHint";
+  var s=document.createElement("span"); s.textContent="Trascinalo per spostarlo · maniglia in alto per ruotarlo · pannello a destra per nome, copia, elimina";
+  var x=document.createElement("button"); x.type="button"; x.setAttribute("aria-label","Chiudi"); x.textContent="✕";
+  x.addEventListener("click", function(){ if(t.parentNode) t.remove(); });
+  t.appendChild(s); t.appendChild(x); m.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.remove(); }, 9000);
 }
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }

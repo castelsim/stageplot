@@ -67,6 +67,14 @@
   #catalog .sub-body button span{color:#0e7490}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:#5aa0ab}
   main{grid-area:main;position:relative;background:#fafafa;overflow:hidden}
+  /* Onboarding contestuale: invito sul palco vuoto + hint primo trascinamento */
+  #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;gap:10px;color:#9aa3b0;font-size:15px;line-height:1.3;z-index:4;text-align:left}
+  #emptyHint[hidden]{display:none}
+  #emptyHint .eh-step{white-space:nowrap}
+  #emptyHint .eh-step b{display:inline-block;width:1.5em;color:#2563eb;font-weight:700}
+  #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
+  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
+  body.dark #emptyHint{color:#6b7280}
   #svg.drop-target{outline:3px dashed #2563eb;outline-offset:-6px;background:#eff5ff}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
