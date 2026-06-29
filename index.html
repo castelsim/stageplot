@@ -7124,7 +7124,7 @@ function gallery(){
 /* ---- Modalità sola-lettura (?view=TOKEN) vs. flusso normale ---- */
 (function(){
   var vt = new URLSearchParams(location.search).get("view");
-  if(!vt){ load(); return; }   /* flusso normale: carica da localStorage */
+  if(!vt) return;   /* flusso normale invariato: prosegue sotto con loadFromHash (nessun ripristino automatico) */
   document.body.classList.add("viewmode");
   var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
   fetch("https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
