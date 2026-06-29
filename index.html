@@ -528,11 +528,25 @@
   body.dark .learn-card .learn-faq details{border-color:#2b3445}
   body.dark .learn-card .learn-cta a,body.dark .learn-card .learn-cta button{background:#222b38;border-color:#2b3445;color:#e5e7eb}
   body.dark .learn-card .learn-cta .primary{background:#2563eb;border-color:#2563eb}
+/* Modalità sola-lettura (link "vivo" della consulenza): /?view={token} */
+body.viewmode #mTop,
+body.viewmode #catalog,
+body.viewmode #props,
+body.viewmode #emptyHint { display: none !important; }
+body.viewmode #svg { pointer-events: none; }
+body.viewmode #viewBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
+}
+body.viewmode main { position: fixed; inset: 44px 0 0 0; }
+#viewBar { display: none; }
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+<div id="viewBar"><strong>Sola lettura</strong><span id="viewMeta"></span></div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -7107,6 +7121,23 @@ function gallery(){
 /* Nuovo progetto a OGNI apertura: non si ripristina automaticamente la sessione
    precedente. Per inviare/conservare un progetto usare "Condividi" (link auto-caricante)
    o il salvataggio su cloud. */
+/* ---- Modalità sola-lettura (?view=TOKEN) vs. flusso normale ---- */
+(function(){
+  var vt = new URLSearchParams(location.search).get("view");
+  if(!vt){ load(); return; }   /* flusso normale: carica da localStorage */
+  document.body.classList.add("viewmode");
+  var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
+  fetch("https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.error){ var m=document.getElementById("viewMeta"); if(m) m.textContent="— progetto non disponibile"; return; }
+      importProject(JSON.stringify(d.data));
+      var m=document.getElementById("viewMeta");
+      if(m && d.updated_at){ try{ m.textContent="— "+(d.title||"")+" · ultima modifica "+new Date(d.updated_at).toLocaleString("it-IT"); }catch(e){} }
+      fit();
+    })
+    .catch(function(){ var m=document.getElementById("viewMeta"); if(m) m.textContent="— errore di caricamento"; });
+})();
 var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
 if(location.search.indexOf("demo=1")>-1) demo();
 if(location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */

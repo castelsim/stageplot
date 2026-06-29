@@ -395,3 +395,16 @@
   body.dark .learn-card .learn-faq details{border-color:#2b3445}
   body.dark .learn-card .learn-cta a,body.dark .learn-card .learn-cta button{background:#222b38;border-color:#2b3445;color:#e5e7eb}
   body.dark .learn-card .learn-cta .primary{background:#2563eb;border-color:#2563eb}
+/* Modalità sola-lettura (link "vivo" della consulenza): /?view={token} */
+body.viewmode #mTop,
+body.viewmode #catalog,
+body.viewmode #props,
+body.viewmode #emptyHint { display: none !important; }
+body.viewmode #svg { pointer-events: none; }
+body.viewmode #viewBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
+}
+body.viewmode main { position: fixed; inset: 44px 0 0 0; }
+#viewBar { display: none; }
