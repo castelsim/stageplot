@@ -136,6 +136,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+<div id="viewBar"><strong>Sola lettura</strong><span id="viewMeta"></span></div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -6710,6 +6711,23 @@ function gallery(){
 /* Nuovo progetto a OGNI apertura: non si ripristina automaticamente la sessione
    precedente. Per inviare/conservare un progetto usare "Condividi" (link auto-caricante)
    o il salvataggio su cloud. */
+/* ---- Modalità sola-lettura (?view=TOKEN) vs. flusso normale ---- */
+(function(){
+  var vt = new URLSearchParams(location.search).get("view");
+  if(!vt){ load(); return; }   /* flusso normale: carica da localStorage */
+  document.body.classList.add("viewmode");
+  var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
+  fetch("https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.error){ var m=document.getElementById("viewMeta"); if(m) m.textContent="— progetto non disponibile"; return; }
+      importProject(JSON.stringify(d.data));
+      var m=document.getElementById("viewMeta");
+      if(m && d.updated_at){ try{ m.textContent="— "+(d.title||"")+" · ultima modifica "+new Date(d.updated_at).toLocaleString("it-IT"); }catch(e){} }
+      fit();
+    })
+    .catch(function(){ var m=document.getElementById("viewMeta"); if(m) m.textContent="— errore di caricamento"; });
+})();
 var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
 if(location.search.indexOf("demo=1")>-1) demo();
 if(location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */
