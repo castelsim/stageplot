@@ -2711,7 +2711,7 @@ function applyHistory(json){
 }
 function applyRemoteState(json){
   try{
-    state=normalizeState(JSON.parse(json)); state.items=sanitizeItems(state.items||[]);
+    state=reattachVenueImg(normalizeState(JSON.parse(json))); state.items=sanitizeItems(state.items||[]);
     cacheVenueImg(state.venue); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
     setEventInputs(); render(); renderChannels(); fit();
   }catch(e){ /* stato remoto non valido: ignora */ }
