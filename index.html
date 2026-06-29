@@ -535,14 +535,19 @@ body.viewmode #catalog,
 body.viewmode #props,
 body.viewmode #emptyHint { display: none !important; }
 body.viewmode #svg { pointer-events: none; }
+/* Viewer (read-only): barra in ALTO, canvas sotto, toolbar nascosta */
 body.viewmode #viewBar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 50;
   display: flex; align-items: center; gap: 12px;
   padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
-body.livesession #viewBar { display:flex; }
-body.livesession main { position: fixed; inset: 44px 0 0 0; }
+/* Editor (sessione live): il tool resta usabile (toolbar visibile), barra in BASSO per non coprirla */
+body.livesession:not(.viewmode) #viewBar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; background: #0e7490; color: #fff; font-size: 14px;
+}
 #viewBar #viewSave { margin-left:8px; border:1px solid #fff; background:transparent; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; }
 #viewBar { display: none; }
 </style>
