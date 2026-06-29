@@ -6,7 +6,7 @@ function esc(s: string | undefined): string {
 
 export function buildEmailHtml(
   b: Brief,
-  opts: { paid: boolean; attachmentUrls: string[] },
+  opts: { paid: boolean; attachmentUrls: string[]; viewUrl?: string },
 ): { subject: string; html: string } {
   const subject = `Nuova richiesta consulenza — ${b.name}`;
   const stato = opts.paid ? "Pagato" : "Non pagato";
@@ -20,7 +20,10 @@ export function buildEmailHtml(
     ? "<p><strong>Allegati:</strong></p><ul>" +
       opts.attachmentUrls.map((u) => `<li><a href="${u}">${u}</a></li>`).join("") + "</ul>"
     : "<p><strong>Allegati:</strong> nessuno</p>";
-  const html = `<h2>Richiesta consulenza Stage Plot</h2><p><strong>Stato pagamento:</strong> ${stato}</p>${body}${links}`;
+  const view = opts.viewUrl
+    ? `<p><strong>Stage plot (sempre aggiornato):</strong> <a href="${opts.viewUrl}">${opts.viewUrl}</a></p>`
+    : "";
+  const html = `<h2>Richiesta consulenza Stage Plot</h2><p><strong>Stato pagamento:</strong> ${stato}</p>${body}${view}${links}`;
   return { subject, html };
 }
 

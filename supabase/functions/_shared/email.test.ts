@@ -20,3 +20,9 @@ Deno.test("buildEmailHtml: senza pagamento mostra 'Non pagato'", () => {
   const { html } = buildEmailHtml({ name: "Mario", email: "m@x.it" }, { paid: false, attachmentUrls: [] });
   assert(html.includes("Non pagato"));
 });
+
+Deno.test("buildEmailHtml: include il link vivo se viewUrl presente", () => {
+  const { html } = buildEmailHtml({ name: "Mario", email: "m@x.it" },
+    { paid: true, attachmentUrls: [], viewUrl: "https://stageplot.it/?view=tok123" });
+  assertStringIncludes(html, "https://stageplot.it/?view=tok123");
+});
