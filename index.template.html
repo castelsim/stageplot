@@ -2269,6 +2269,7 @@ function recordHistory(){
   if(s===lastSnap) return;
   if(lastSnap!=null){ undoStack.push(lastSnap); if(undoStack.length>120) undoStack.shift(); }
   lastSnap=s; redoStack.length=0;
+  if(window.__rtBroadcast) window.__rtBroadcast(s);   /* Fase 3: sessione live, solo editor */
 }
 function resetHistory(){ lastSnap=stateToJSON(); undoStack.length=0; redoStack.length=0; }
 function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); return isFinite(n)?n:0; }
@@ -2288,6 +2289,13 @@ function applyHistory(json){
   setEventInputs();
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
   render(); renderChannels();
+}
+function applyRemoteState(json){
+  try{
+    state=normalizeState(JSON.parse(json)); state.items=sanitizeItems(state.items||[]);
+    cacheVenueImg(state.venue); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
+    setEventInputs(); render(); renderChannels(); fit();
+  }catch(e){ /* stato remoto non valido: ignora */ }
 }
 function undo(){ if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); }
 function redo(){ if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); }
@@ -6712,22 +6720,58 @@ function gallery(){
 /* Nuovo progetto a OGNI apertura: non si ripristina automaticamente la sessione
    precedente. Per inviare/conservare un progetto usare "Condividi" (link auto-caricante)
    o il salvataggio su cloud. */
-/* ---- Modalità sola-lettura (?view=TOKEN) vs. flusso normale ---- */
+/* ---- Sessione live (?view=TOKEN): ruolo + Realtime (Fase 3) ---- */
 (function(){
   var vt = new URLSearchParams(location.search).get("view");
-  if(!vt) return;   /* flusso normale invariato: prosegue sotto con loadFromHash (nessun ripristino automatico) */
-  document.body.classList.add("viewmode");
-  var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
-  fetch("https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
-    .then(function(r){ return r.json(); })
+  if(!vt) return;   /* flusso normale invariato */
+  var SB_URL="https://vsodplqkuvnsdiikvmjb.supabase.co";
+  var SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
+  var ADMIN_ID="4b899cba-3cc2-4b26-9ef0-c3e915929277";
+
+  fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
+    .then(function(r){return r.json();})
     .then(function(d){
-      if(d.error){ var m=document.getElementById("viewMeta"); if(m) m.textContent="— progetto non disponibile"; return; }
-      importProject(JSON.stringify(d.data));
-      var m=document.getElementById("viewMeta");
-      if(m && d.updated_at){ try{ m.textContent="— "+(d.title||"")+" · ultima modifica "+new Date(d.updated_at).toLocaleString("it-IT"); }catch(e){} }
-      fit();
+      if(d.error){ document.body.classList.add("viewmode"); showBar("viewer","— progetto non disponibile"); return; }
+      whenSupabase(function(){
+        var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});
+        sb.auth.getSession().then(function(res){
+          var user=res&&res.data&&res.data.session?res.data.session.user:null;
+          var isEditor = !!(user && user.id===ADMIN_ID);
+          startSession(sb, vt, d, isEditor);
+        });
+      });
     })
-    .catch(function(){ var m=document.getElementById("viewMeta"); if(m) m.textContent="— errore di caricamento"; });
+    .catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— errore di caricamento"); });
+
+  function startSession(sb, token, d, isEditor){
+    if(!isEditor){ document.body.classList.add("viewmode"); }
+    importProject(JSON.stringify(d.data));
+    var ch=sb.channel("consulenza:"+token, {config:{broadcast:{self:false}, presence:{key:isEditor?"editor":"viewer"}}});
+    if(isEditor){
+      window.__rtBroadcast=function(s){ ch.send({type:"broadcast", event:"state", payload:{json:s}}); };
+    } else {
+      ch.on("broadcast", {event:"state"}, function(m){ if(m.payload&&m.payload.json) applyRemoteState(m.payload.json); });
+    }
+    ch.on("presence", {event:"sync"}, function(){ updatePresence(ch, isEditor); });
+    ch.subscribe(function(status){
+      if(status==="SUBSCRIBED"){
+        ch.track({role:isEditor?"editor":"viewer", at:Date.now()});
+        if(isEditor && window.__rtBroadcast) window.__rtBroadcast(stateToJSON());
+      }
+    });
+    showBar(isEditor?"editor":"viewer", "");
+    if(isEditor) setupAutosave(sb, token);
+    window.__role=isEditor?"editor":"viewer";
+  }
+
+  function whenSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var t=setInterval(function(){ if(window.supabase&&window.supabase.createClient){ clearInterval(t); cb(); } },80); }
+
+  /* STUB Task 2 — implementazioni complete nel Task 3 */
+  function showBar(role, meta){ var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex"; }
+  function updatePresence(ch, isEditor){ /* stub */ }
+  function setupAutosave(sb, token){ /* stub */ }
+
+  window.__startSession=startSession;
 })();
 var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
 if(location.search.indexOf("demo=1")>-1) demo();
