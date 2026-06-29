@@ -577,7 +577,7 @@ body.livesession:not(.viewmode) #viewBar {
   <span style="flex:1"></span>
   <button class="btn" id="bLearn" title="Cos'è uno stage plot e come si crea" aria-haspopup="dialog" style="padding:7px 11px">❔ Guida</button>
   <button class="btn" id="bCloud" title="Accedi e salva i tuoi progetti online">☁ Cloud</button>
-  <!-- CTA Consulenza (header desktop) rimossa temporaneamente finché la pagina /consulenza/ non è pronta — ripristinare poi -->
+  <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="background:#b45309;border-color:#b45309;color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Consulenza</a>
   <button class="btn" id="bTheme" title="Tema chiaro / scuro" style="padding:7px 11px">🌙</button>
   <button class="btn" id="bUndo" title="Annulla (⌘Z)" style="padding:7px 11px">↶</button>
   <button class="btn" id="bRedo" title="Ripeti (⇧⌘Z)" style="padding:7px 11px">↷</button>
@@ -626,7 +626,7 @@ body.livesession:not(.viewmode) #viewBar {
       <button data-act="cloud">☁ Cloud (salva online)</button>
       <button data-act="theme">Tema chiaro/scuro</button>
       <button data-act="new" class="danger">Nuovo</button>
-      <!-- CTA Consulenza (menu mobile) rimossa temporaneamente finché la pagina /consulenza/ non è pronta — ripristinare poi -->
+      <a href="/consulenza/" target="_blank" rel="noopener" style="grid-column:1/-1;background:#b45309;color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:10px;border-radius:8px">Consulenza</a>
     </div>
   </div>
   <div class="sec" id="stageEditPanel" hidden style="background:#eff5ff;border:1px solid #cfe0fb;border-radius:10px;padding:11px 12px;margin-bottom:14px">
@@ -7244,7 +7244,7 @@ function gallery(){
     var sv=document.getElementById("viewSave");
     var t=null, lastSent=null;
     function doSave(){
-      var data; try{ data=JSON.parse(stateToJSON()); }catch(e){ return; }
+      var data; try{ data=JSON.parse(JSON.stringify(state)); }catch(e){ return; }   /* serializzazione COMPLETA: include la planimetria (_dataUrl), coerente col cloud-save */
       var snap=JSON.stringify(data); if(snap===lastSent) return; lastSent=snap;
       var m=document.getElementById("viewMeta"); if(m) m.textContent="salvataggio…";
       sb.auth.getSession().then(function(res){
@@ -7468,8 +7468,8 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         '<button id="cloudSignout" style="border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
       '<button id="cloudSave" style="width:100%;padding:12px;border:none;border-radius:9px;background:#0e7490;color:#fff;font-weight:700;font-size:15px;cursor:pointer">☁ Salva online — "'+esc(projTitle())+'"</button>'+
-      '<div style="margin-top:18px">'+rows+'</div>';
-      /* CTA Consulenza (modale cloud) rimossa temporaneamente finché la pagina /consulenza/ non è pronta — ripristinare poi */
+      '<div style="margin-top:18px">'+rows+'</div>'+
+      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:16px;color:#b45309;font-weight:600;text-decoration:none;font-size:14px">✓ Vuoi che un fonico validi il tuo stage plot? Vai alla consulenza →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     document.getElementById("cloudSave").addEventListener("click", saveProject);
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
