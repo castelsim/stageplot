@@ -48,11 +48,16 @@ Deno.serve(async (req) => {
     }
 
     // Flusso minimale: la richiesta è pre-creata, legata via client_reference_id.
+    // Guard UUID: un client_reference_id malformato non deve generare un cast error
+    // Postgres (500 → loop di retry Stripe che disabilita l'endpoint).
     const requestId = s.client_reference_id ?? null;
-    if (requestId) {
+    if (requestId && /^[0-9a-fA-F-]{36}$/.test(requestId)) {
+      // .eq("paid", false): idempotenza — su redelivery di Stripe la riga è già
+      // paid=true, l'update matcha 0 righe (reqRow null) e la mail NON viene re-inviata.
       const { data: reqRow, error: refErr } = await supabase.from("consultation_requests")
         .update({ paid: true, paid_at: new Date().toISOString(), amount })
         .eq("id", requestId)
+        .eq("paid", false)
         .select("name,email,product,amount,share_token")
         .maybeSingle();
       if (refErr) {
