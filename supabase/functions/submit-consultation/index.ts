@@ -50,11 +50,14 @@ Deno.serve(async (req) => {
       if (pay) { paid = true; amount = pay.amount; product = pay.product; paidAt = pay.paid_at; }
     }
 
+    const shareToken = b.project_id ? crypto.randomUUID() : null;
+
     const { data: row, error } = await supabase.from("consultation_requests").insert({
       name: b.name, email: b.email, event_type: b.event_type, date_place: b.date_place,
       lineup: b.lineup, materials: b.materials, notes: b.notes,
       attachments: b.attachments ?? [], stripe_session_id: b.stripe_session_id ?? null,
       paid, paid_at: paidAt, amount, product,
+      project_id: b.project_id ?? null, share_token: shareToken,
     }).select("id").single();
     if (error) return json({ error: error.message }, 500);
 
@@ -66,9 +69,11 @@ Deno.serve(async (req) => {
       if (sig?.signedUrl) attachmentUrls.push(sig.signedUrl);
     }
 
+    const viewUrl = shareToken ? `https://stageplot.it/?view=${shareToken}` : undefined;
+
     // Email (non blocca: se fallisce, la riga è già salvata)
     try {
-      const { subject, html } = buildEmailHtml(b, { paid, attachmentUrls });
+      const { subject, html } = buildEmailHtml(b, { paid, attachmentUrls, viewUrl });
       await sendEmail({
         apiKey: Deno.env.get("RESEND_API_KEY")!,
         to: Deno.env.get("NOTIFY_EMAIL")!, subject, html,
