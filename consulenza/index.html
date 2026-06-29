@@ -721,7 +721,7 @@
       if (!prep.ok) throw new Error("upload non disponibile");
       const { uploads } = await prep.json();
       for (let i = 0; i < files.length; i++) {
-        const put = await fetch(uploads[i].signedUrl, { method: "PUT", body: files[i] });
+        const put = await fetch(uploads[i].signedUrl, { method: "PUT", headers: { "Content-Type": files[i].type }, body: files[i] });
         if (!put.ok) throw new Error("caricamento allegato fallito");
       }
       return uploads.map((u) => u.path);
