@@ -541,13 +541,16 @@ body.viewmode #viewBar {
   padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
+body.livesession #viewBar { display:flex; }
+body.livesession main { position: fixed; inset: 44px 0 0 0; }
+#viewBar #viewSave { margin-left:8px; border:1px solid #fff; background:transparent; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; }
 #viewBar { display: none; }
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-<div id="viewBar"><strong>Sola lettura</strong><span id="viewMeta"></span></div>
+<div id="viewBar"><strong id="viewRole">Sola lettura</strong><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button></div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -7177,10 +7180,38 @@ function gallery(){
 
   function whenSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var t=setInterval(function(){ if(window.supabase&&window.supabase.createClient){ clearInterval(t); cb(); } },80); }
 
-  /* STUB Task 2 — implementazioni complete nel Task 3 */
-  function showBar(role, meta){ var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex"; }
-  function updatePresence(ch, isEditor){ /* stub */ }
-  function setupAutosave(sb, token){ /* stub */ }
+  function showBar(role, meta){
+    document.body.classList.add("livesession");
+    var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
+    var rl=document.getElementById("viewRole"); if(rl) rl.textContent = role==="editor" ? "Sessione live · consulente" : "Sola lettura · in diretta";
+    var m=document.getElementById("viewMeta"); if(m) m.textContent = meta||"";
+    var sv=document.getElementById("viewSave"); if(sv) sv.hidden = role!=="editor";
+  }
+  function updatePresence(ch, isEditor){
+    var st=ch.presenceState(); var roles=[]; Object.keys(st).forEach(function(k){ (st[k]||[]).forEach(function(p){ roles.push(p.role); }); });
+    var other = isEditor ? (roles.indexOf("viewer")>-1?"cliente connesso":"cliente non connesso")
+                         : (roles.indexOf("editor")>-1?"consulente connesso":"consulente non connesso");
+    var el=document.getElementById("viewPresence"); if(el) el.textContent="● "+other;
+  }
+  function setupAutosave(sb, token){
+    var sv=document.getElementById("viewSave");
+    var t=null, lastSent=null;
+    function doSave(){
+      var data; try{ data=JSON.parse(stateToJSON()); }catch(e){ return; }
+      var snap=JSON.stringify(data); if(snap===lastSent) return; lastSent=snap;
+      var m=document.getElementById("viewMeta"); if(m) m.textContent="salvataggio…";
+      sb.auth.getSession().then(function(res){
+        var jwt=res&&res.data&&res.data.session?res.data.session.access_token:"";
+        fetch("https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/save-shared-project?token="+encodeURIComponent(token),{
+          method:"POST", headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"}, body:JSON.stringify({data:data})
+        }).then(function(r){return r.json();}).then(function(j){ if(m) m.textContent=j.ok?"salvato":"non salvato"; })
+          .catch(function(){ if(m) m.textContent="non salvato"; });
+      });
+    }
+    var prev=window.__rtBroadcast;
+    window.__rtBroadcast=function(s){ if(prev) prev(s); clearTimeout(t); t=setTimeout(doSave, 10000); };
+    if(sv) sv.addEventListener("click", function(){ clearTimeout(t); doSave(); });
+  }
 
   window.__startSession=startSession;
 })();
