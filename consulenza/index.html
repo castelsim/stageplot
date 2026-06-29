@@ -503,7 +503,6 @@
     ]
   }
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -781,6 +780,7 @@
       if (intake) intake.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
 (function(){
   if(!window.supabase || !window.supabase.createClient) return;
@@ -793,16 +793,16 @@
   if(signinBtn) signinBtn.addEventListener("click", function(){
     sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } });
   });
+  function escHtml(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function loadProjects(){
     sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at",null).order("updated_at",{ascending:false})
       .then(function(r){
         if(r.error || !r.data){ return; }
         sel.innerHTML='<option value="">— Nessun progetto (allego a parte) —</option>'+
-          r.data.map(function(p){ return '<option value="'+p.id+'">'+(p.title||"Senza titolo").replace(/[<>&]/g,"")+'</option>'; }).join("");
+          r.data.map(function(p){ return '<option value="'+p.id+'">'+escHtml(p.title||"Senza titolo")+'</option>'; }).join("");
         authEl.style.display="none"; sel.style.display="";
       });
   }
-  sb.auth.getSession().then(function(r){ if(r&&r.data&&r.data.session){ loadProjects(); } });
   sb.auth.onAuthStateChange(function(ev, session){ if(session){ loadProjects(); } });
 })();
   </script>
