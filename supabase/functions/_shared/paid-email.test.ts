@@ -6,7 +6,7 @@ Deno.test("buildPaidEmail: contatto, importo e link vivo", () => {
     name: "Mario Rossi", email: "mario@x.it", product: "pro-review",
     amount: 2900, viewUrl: "https://stageplot.it/?view=tok123",
   });
-  assertStringIncludes(subject, "Stage Plot Pro Review");
+  assertStringIncludes(subject, "Consulenza Tecnica");
   assertStringIncludes(subject, "Mario Rossi");
   assertStringIncludes(html, "mario@x.it");
   assertStringIncludes(html, "29.00 €");
