@@ -824,27 +824,31 @@
   </div>
   <!-- pannello cornice di stampa -->
   <div id="framePanel" hidden>
-    <div id="frameBox">
-      <h3>Area di stampa</h3>
-      <p class="hint" style="font-size:11.5px;color:#6b7280;margin:0 0 8px">Definisce cosa esporta il PDF. Trascina/ridimensiona il rettangolo sul palco, o usa i valori (in metri).</p>
-      <div class="frame-row">
-        <div><label>Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
-        <div><label>Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
+    <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px">📄 Scarica PDF in scala</button>
+    <p class="hint" style="font-size:11.5px;color:#6b7280;margin:6px 0 12px">Esporta tutto il palco, pronto da stampare o inviare al service.</p>
+    <details id="frameAdvanced" style="margin-bottom:14px">
+      <summary style="cursor:pointer;font-size:12px;color:#374151;font-weight:600;padding:6px 0;user-select:none">⚙ Area di stampa — avanzato</summary>
+      <div id="frameBox" style="margin-top:6px">
+        <p class="hint" style="font-size:11.5px;color:#6b7280;margin:0 0 8px">Per esportare solo una parte: trascina/ridimensiona il rettangolo sul palco, o usa i valori (in metri).</p>
+        <div class="frame-row">
+          <div><label>Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
+          <div><label>Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
+        </div>
+        <div class="frame-row">
+          <div><label>X (m)</label><input type="number" id="frameX" step="0.1"></div>
+          <div><label>Y (m)</label><input type="number" id="frameY" step="0.1"></div>
+        </div>
+        <div class="frame-row" style="margin-top:10px">
+          <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
+          <button class="btn" id="frameAll" style="flex:1;font-size:12px">Tutto + planimetria</button>
+        </div>
+        <button class="btn" id="frameCenter" style="width:100%;margin-top:6px;font-size:12px">⊕ Centra palco nell'area</button>
+        <button class="btn danger" id="frameClear" style="width:100%;margin-top:6px;font-size:12px">Reimposta (usa il palco)</button>
       </div>
-      <div class="frame-row">
-        <div><label>X (m)</label><input type="number" id="frameX" step="0.1"></div>
-        <div><label>Y (m)</label><input type="number" id="frameY" step="0.1"></div>
-      </div>
-      <div class="frame-row" style="margin-top:10px">
-        <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
-        <button class="btn" id="frameAll" style="flex:1;font-size:12px">Tutto + planimetria</button>
-      </div>
-      <button class="btn" id="frameCenter" style="width:100%;margin-top:6px;font-size:12px">⊕ Centra palco nell'area</button>
-      <button class="btn danger" id="frameClear" style="width:100%;margin-top:6px;font-size:12px">Reimposta (usa il palco)</button>
-    </div>
-    <button class="btn primary" id="frameSavePdf" style="width:100%;margin-top:0">📄 Salva PDF in scala →</button>
-    <button class="btn" id="frameSavePng" style="width:100%;margin-top:6px;font-size:12px">📷 Scarica PNG 4000px</button>
-    <button class="btn" id="frameSaveJson" style="width:100%;margin-top:6px;font-size:12px">💾 Salva progetto .json</button>
+    </details>
+    <p class="hint" style="font-size:11px;color:#9ca3af;margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em">Altri formati</p>
+    <button class="btn" id="frameSavePng" style="width:100%;margin-top:0;font-size:12px">📷 Scarica immagine (PNG)</button>
+    <button class="btn" id="frameSaveJson" style="width:100%;margin-top:6px;font-size:12px">💾 Salva progetto (per modificarlo dopo)</button>
     <button class="btn" id="frameVers"     style="width:100%;margin-top:6px;font-size:12px">📚 Versioni salvate</button>
     <button class="btn" id="frameShare"    style="width:100%;margin-top:6px;font-size:12px">🔗 Condividi / QR</button>
   </div>
