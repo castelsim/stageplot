@@ -7488,9 +7488,48 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     sb.auth.signOut().then(function(){ cloudCurrentId=null; toast("Disconnesso."); });
   }
 
+  /* Titolo obbligatorio al salvataggio online: senza nome il progetto non è riconoscibile nel selettore consulenza. */
+  function askProjectName(then){
+    var ov=document.getElementById("nameModal");
+    if(!ov){
+      ov=document.createElement("div");
+      ov.id="nameModal";
+      ov.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
+      ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(15,23,42,.3)">'+
+        '<h3 style="margin:0 0 6px;font-size:18px">Dai un nome al progetto</h3>'+
+        '<p style="margin:0 0 12px;color:#5b6675;font-size:14px;line-height:1.5">Serve per ritrovarlo e per inviarlo alla Consulenza Tecnica. Es. Concerto Verona, Matrimonio Rossi, Orchestra Estate, Teatro Comunale.</p>'+
+        '<input id="nameInput" type="text" placeholder="Titolo del progetto" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:11px 12px;font-size:15px;box-sizing:border-box">'+
+        '<div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">'+
+          '<button id="nameCancel" type="button" style="border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:9px 14px;cursor:pointer">Annulla</button>'+
+          '<button id="nameSave" type="button" style="border:none;background:#0e7490;color:#fff;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer">Salva</button>'+
+        '</div></div>';
+      document.body.appendChild(ov);
+    }
+    var inp=ov.querySelector("#nameInput");
+    inp.value=(state.luogo||"").trim();
+    inp.style.borderColor="#cbd5e1";
+    ov.style.display="flex";
+    setTimeout(function(){ inp.focus(); inp.select(); }, 30);
+    function close(){ ov.style.display="none"; }
+    function commit(){
+      var v=inp.value.trim();
+      if(!v){ inp.style.borderColor="#dc2626"; inp.focus(); return; }
+      state.titolo=v;
+      ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=v; });
+      if(typeof setEventInputs==="function") setEventInputs();
+      if(typeof saveSoon==="function") saveSoon();
+      close();
+      if(then) then();
+    }
+    ov.querySelector("#nameCancel").onclick=close;
+    ov.querySelector("#nameSave").onclick=commit;
+    inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
+  }
+
   function saveProject(){
     if(!sb){ toast("Cloud non disponibile.", true); return; }
     if(!cloudUser){ toast("Accedi per salvare online."); signIn(); return; }
+    if(!(state.titolo||"").trim()){ askProjectName(saveProject); return; }
     var payload={ user_id:cloudUser.id, title:projTitle(), data:JSON.parse(JSON.stringify(state)), schema_version:1 };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
     var q;
     if(cloudCurrentId){
