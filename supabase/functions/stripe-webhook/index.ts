@@ -1,6 +1,8 @@
 // supabase/functions/stripe-webhook/index.ts
 import Stripe from "https://esm.sh/stripe@16?target=deno";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildPaidEmail } from "../_shared/paid-email.ts";
+import { sendEmail } from "../_shared/email.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", { apiVersion: "2024-06-20" });
 
@@ -43,6 +45,32 @@ Deno.serve(async (req) => {
     if (updErr) {
       console.error("update richiesta fallito:", updErr);
       return new Response("db error", { status: 500 });
+    }
+
+    // Flusso minimale: la richiesta è pre-creata, legata via client_reference_id.
+    const requestId = s.client_reference_id ?? null;
+    if (requestId) {
+      const { data: reqRow, error: refErr } = await supabase.from("consultation_requests")
+        .update({ paid: true, paid_at: new Date().toISOString(), amount })
+        .eq("id", requestId)
+        .select("name,email,product,amount,share_token")
+        .maybeSingle();
+      if (refErr) {
+        console.error("update richiesta (client_reference_id) fallito:", refErr);
+        return new Response("db error", { status: 500 });
+      }
+      if (reqRow?.share_token) {
+        try {
+          const { subject, html } = buildPaidEmail({
+            name: reqRow.name, email: reqRow.email, product: reqRow.product,
+            amount: reqRow.amount, viewUrl: `https://stageplot.it/?view=${reqRow.share_token}`,
+          });
+          await sendEmail({
+            apiKey: Deno.env.get("RESEND_API_KEY")!,
+            to: Deno.env.get("NOTIFY_EMAIL")!, subject, html,
+          });
+        } catch (e) { console.error("mail pagamento fallita:", e); }
+      }
     }
   }
 
