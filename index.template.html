@@ -186,7 +186,7 @@
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></main>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><span class="eh-step"><b>①</b> Apri una categoria a sinistra</span><span class="eh-step"><b>②</b> Clicca un elemento</span><span class="eh-step"><b>③</b> Trascinalo dove vuoi sul palco</span></div></main>
 
 <aside id="props">
   <div id="mBar">
@@ -2729,6 +2729,7 @@ function render(){
   var ppm = svg.clientWidth / vb.w * 100;
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
+  var eh=document.getElementById("emptyHint"); if(eh) eh.hidden = state.items.length>0;   /* onboarding: invito sul palco vuoto */
 }
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
@@ -3591,7 +3592,20 @@ function addItem(type, over){
   addCascade=(addCascade+25)%150;
   state.items.push(it); selectOne(it.id); render(); save(); ensureVisible();
   closeMobileDrawers();   /* su mobile: chiudi il catalogo per vedere il palco */
+  showDragHintOnce();   /* onboarding: la prima volta spiega come spostare/ruotare */
   return it;
+}
+/* onboarding: mostra UNA sola volta (flag localStorage) come si manipola un elemento appena aggiunto */
+function showDragHintOnce(){
+  if(localStorage.getItem("sp_dragHint")) return;
+  localStorage.setItem("sp_dragHint","1");
+  var m=document.querySelector("main"); if(!m) return;
+  var t=document.createElement("div"); t.id="dragHint";
+  var s=document.createElement("span"); s.textContent="Trascinalo per spostarlo · maniglia in alto per ruotarlo · pannello a destra per nome, copia, elimina";
+  var x=document.createElement("button"); x.type="button"; x.setAttribute("aria-label","Chiudi"); x.textContent="✕";
+  x.addEventListener("click", function(){ if(t.parentNode) t.remove(); });
+  t.appendChild(s); t.appendChild(x); m.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.remove(); }, 9000);
 }
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
