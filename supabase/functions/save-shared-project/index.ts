@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   const token = new URL(req.url).searchParams.get("token");
   if (!token) return json({ error: "token mancante" }, 400);
   const body = await req.json().catch(() => null) as { data?: unknown } | null;
-  if (!body || typeof body.data !== "object") return json({ error: "data mancante" }, 400);
+  if (!body || body.data === null || typeof body.data !== "object") return json({ error: "data mancante" }, 400);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
   // 1) Verifica che il chiamante sia l'admin (dal JWT)
   const authHeader = req.headers.get("Authorization") ?? "";
-  const jwt = authHeader.replace("Bearer ", "");
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
   const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
   if (userErr || !userData?.user || userData.user.id !== ADMIN_ID) {
     return json({ error: "non autorizzato" }, 403);
