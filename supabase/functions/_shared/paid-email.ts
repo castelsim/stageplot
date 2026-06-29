@@ -3,8 +3,8 @@ function esc(s: string | null | undefined): string {
 }
 
 const PRODUCT_LABEL: Record<string, string> = {
-  "pro-review": "Stage Plot Pro Review",
-  "production-pack": "Production Pack",
+  "pro-review": "Consulenza Tecnica",
+  "production-pack": "Produzione Tecnica Completa",
 };
 
 export function buildPaidEmail(a: {
