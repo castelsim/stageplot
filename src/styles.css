@@ -265,6 +265,18 @@
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
   .pa-card:hover:not(.sel){border-color:var(--accent-soft);background:var(--accent-tint)}
+  /* dialogo di conferma azioni distruttive (sopra ogni altro modale, anche il Cloud z-index 200) */
+  #confirmModal{z-index:300}
+  .cfm-card{background:var(--surface);color:var(--text);border-radius:var(--r-xl);box-shadow:var(--elev-4);
+    width:380px;max-width:calc(100vw - 32px);padding:24px 22px 18px;text-align:center;font-family:var(--font-ui)}
+  .cfm-ico{width:52px;height:52px;border-radius:var(--r-pill);background:var(--danger-bg);color:var(--danger);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 13px}
+  .cfm-ico svg{width:26px;height:26px}
+  .cfm-card h4{font-size:16px;font-weight:700;margin:0 0 5px;line-height:1.25}
+  .cfm-card p{font-size:13px;color:var(--text-2);line-height:1.5;margin:0 0 18px}
+  .cfm-row{display:flex;gap:8px;justify-content:center}
+  .cfm-row .btn{padding:9px 20px}
+  body.dark .cfm-ico{background:#3a1d1f;color:#fca5a5}
   /* menu formazioni (Organico) */
   header{position:relative}
   .menu-pop{position:absolute;top:46px;background:var(--surface);border:1px solid var(--border);border-radius:10px;
