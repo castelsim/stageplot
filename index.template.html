@@ -249,7 +249,7 @@
         <span><label>X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
         <span><label>Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
       </div>
-      <p class="hint" style="font-size:11px;color:#6b7280;margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
+      <p class="hint" id="blkHint" style="font-size:11px;color:#6b7280;margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza (torna rettangolo)</button>
       <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
     </div>
@@ -2452,6 +2452,14 @@ function blockCorners(r){
   if(hasPts(r)) return r.pts.map(function(p){ return [p[0],p[1]]; });
   return [[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.d],[r.x,r.y+r.d]];
 }
+/* indici degli spigoli del bbox (TL=0, TR=1, BR=2, BL=3) che giacciono sul lato DRITTO del semicerchio.
+   Sono i due "veri" angoli della forma: le maniglie d'angolo del semicerchio stanno qui. */
+function semiCornerIdx(flat){
+  if(flat==="bottom") return [3,2];   /* lato dritto in basso */
+  if(flat==="left")   return [0,3];   /* lato dritto a sinistra */
+  if(flat==="right")  return [1,2];   /* lato dritto a destra */
+  return [0,1];                       /* top: lato dritto in alto */
+}
 /* ricalcola x,y,w,d come bounding box dei 4 angoli (tiene allineato il resto del codice basato sul bbox) */
 function syncBlockBBox(r){
   if(!hasPts(r)) return;
@@ -2632,8 +2640,15 @@ function stageBlocksOverlay(){
                '<rect class="blk-edge ns" data-edge="b" data-block="'+i+'" x="'+r.x+'" y="'+(r.y+r.d-T/2)+'" width="'+r.w+'" height="'+T+'"/>'+
                '<rect class="blk-edge ns" data-edge="t" data-block="'+i+'" x="'+r.x+'" y="'+(r.y-T/2)+'" width="'+r.w+'" height="'+T+'"/>';
       }
-      /* maniglie agli angoli: trascina un angolo per deformare il blocco in un quadrilatero libero (non per i semicerchi) */
-      if(r.shape!=="semi"){
+      /* maniglie agli angoli */
+      if(r.shape==="semi"){
+        /* semicerchio: solo i 2 estremi del lato dritto → resize 2D, la curva resta pulita */
+        var scc=blockCorners(r);
+        semiCornerIdx(r.flat).forEach(function(ci){
+          edges+='<circle class="blk-corner" data-corner="'+ci+'" data-block="'+i+'" cx="'+scc[ci][0]+'" cy="'+scc[ci][1]+'" r="11"/>';
+        });
+      } else {
+        /* rettangolo: 4 angoli per deformare il blocco in un quadrilatero libero */
         blockCorners(r).forEach(function(p,ci){
           edges+='<circle class="blk-corner" data-corner="'+ci+'" data-block="'+i+'" cx="'+p[0]+'" cy="'+p[1]+'" r="11"/>';
         });
@@ -3776,11 +3791,16 @@ svg.addEventListener("pointerdown", function(e){
   }
   if(stageEdit){                            /* modalità forma palco: trascina i blocchi / i lati per ridimensionare */
     var corner = e.target.closest ? e.target.closest(".blk-corner") : null;
-    if(corner){                             /* trascina un ANGOLO per deformare il blocco in un quadrilatero libero */
+    if(corner){                             /* trascina un ANGOLO */
       var ci=+corner.getAttribute("data-block"), cci=+corner.getAttribute("data-corner"); selBlock=ci; renderStagePanel();
       var cr=stageBlocks()[ci];
-      if(!hasPts(cr)) cr.pts=blockCorners(cr);   /* prima deformazione: inizializza i 4 angoli dal rettangolo */
-      drag={mode:"blkcorner", bi:ci, ci:cci, moved:false};
+      if(cr && cr.shape==="semi"){          /* semicerchio: resize 2D ancorato allo spigolo opposto (curva intatta) */
+        var scc2=blockCorners(cr), anc=scc2[(cci+2)%4];
+        drag={mode:"blksemicorner", bi:ci, ci:cci, ax:anc[0], ay:anc[1], moved:false};
+      } else {                              /* rettangolo: deforma in un quadrilatero libero */
+        if(!hasPts(cr)) cr.pts=blockCorners(cr);   /* prima deformazione: inizializza i 4 angoli dal rettangolo */
+        drag={mode:"blkcorner", bi:ci, ci:cci, moved:false};
+      }
       render(); svg.setPointerCapture(e.pointerId); return;
     }
     var edge = e.target.closest ? e.target.closest(".blk-edge") : null;
@@ -3968,6 +3988,16 @@ svg.addEventListener("pointermove", function(e){
       r.pts[drag.ci]=[bkx,bky]; syncBlockBBox(r);
       recalcStageBBox(); redrawStageLayers(); renderSnapGuides(bkg);   /* parziale: solo i layer palco/overlay */
     }
+  } else if(drag.mode==="blksemicorner"){
+    sp=svgPoint(e); var r=stageBlocks()[drag.bi]; drag.moved=true;
+    if(r){
+      var MIN=100, cx=placeCoord(sp.x,e), cy=placeCoord(sp.y,e);
+      if(Math.abs(cx-drag.ax)<MIN) cx=drag.ax+(cx<drag.ax?-MIN:MIN);   /* non sotto il minimo */
+      if(Math.abs(cy-drag.ay)<MIN) cy=drag.ay+(cy<drag.ay?-MIN:MIN);
+      r.x=Math.round(Math.min(cx,drag.ax)); r.y=Math.round(Math.min(cy,drag.ay));
+      r.w=Math.round(Math.abs(cx-drag.ax)); r.d=Math.round(Math.abs(cy-drag.ay));
+      recalcStageBBox(); redrawStageLayers(); renderSnapGuides([]);
+    }
   } else if(drag.mode==="blkresize"){
     sp=svgPoint(e); var r=stageBlocks()[drag.bi]; drag.moved=true;
     if(r){ var MIN=100, brgrid=e.metaKey||e.ctrlKey;
@@ -4025,6 +4055,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="venue"){ if(drag.moved){ save(); render(); } drag=null; return; }
   if(drag && (drag.mode==="frame"||drag.mode==="frameresize")){ if(drag.moved){ save(); } renderFramePanel(); render(); drag=null; return; }
   if(drag && drag.mode==="block"){ if(drag.moved){ normalizeStageBBox(); save(); } renderStagePanel(); render(); svg.classList.remove("dragging"); drag=null; ensureVisible(); return; }
+  if(drag && drag.mode==="blksemicorner"){ if(drag.moved){ normalizeStageBBox(); save(); } renderSnapGuides([]); renderStagePanel(); render(); drag=null; ensureVisible(); return; }
   if(drag && drag.mode==="blkresize"){ if(drag.moved){ normalizeStageBBox(); save(); } renderStagePanel(); render(); drag=null; ensureVisible(); return; }
   if(drag && drag.mode==="blkcorner"){ if(drag.moved){ var cr=stageBlocks()[drag.bi]; if(cr) syncBlockBBox(cr); normalizeStageBBox(); save(); } renderSnapGuides([]); renderStagePanel(); render(); drag=null; ensureVisible(); return; }
   if(drag && drag.mode==="newblk"){     /* fine Alt+trascina: crea il nuovo blocco se abbastanza grande */
@@ -4166,6 +4197,9 @@ function renderStagePanel(){
   var fw=document.getElementById("blkFlatWrap"), isSemi=(r.shape==="semi");
   fw.style.display=isSemi?"":"none";
   if(isSemi) document.getElementById("blkFlat").value=r.flat||"top";
+  document.getElementById("blkHint").innerHTML = isSemi
+    ? 'Trascina gli <b>angoli</b> del lato dritto per ridimensionare il semicerchio (la curva resta intatta).'
+    : 'Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).';
   renderVenuePanel();
 }
 function exitHubModes(except){
