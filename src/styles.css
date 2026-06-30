@@ -78,6 +78,8 @@
   .snapchev{color:var(--text-3);font-size:11px;pointer-events:none;margin-left:-2px}
   /* Sezione 4: controlli nativi (slider/checkbox/radio) col teal del brand */
   input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+  /* Sezione 5: divisori tra gruppi della toolbar */
+  .tbdiv{width:1px;height:20px;background:var(--border);flex:0 0 auto;align-self:center}
   .btn:hover{background:var(--n-200)}
   .btn.primary{background:var(--accent);color:#fff}
   .btn.primary:hover{background:var(--accent-strong)}
