@@ -648,6 +648,9 @@
   .learn-card .learn-faq summary::-webkit-details-marker{display:none}
   .learn-card .learn-faq summary::after{content:"+";float:right;color:var(--accent);font-weight:700}
   .learn-card .learn-faq details[open] summary::after{content:"–"}
+  /* link-contenuto in teal (il blu è riservato al "monitor") */
+  .learn-card p a,.learn-card li a,.learn-card .learn-faq a{color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+  body.dark .learn-card p a,body.dark .learn-card li a,body.dark .learn-card .learn-faq a{color:var(--accent-bright)}
   .learn-card .learn-cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:24px}
   .learn-card .learn-cta .primary{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-md);padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid var(--accent);background:var(--accent);color:#fff}
   .learn-card .learn-cta .primary:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
