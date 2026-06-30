@@ -76,6 +76,8 @@
   .snapwrap select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--text);
     font:600 13px var(--font-ui);cursor:pointer;outline:none;padding:0}
   .snapchev{color:var(--text-3);font-size:11px;pointer-events:none;margin-left:-2px}
+  /* Sezione 4: controlli nativi (slider/checkbox/radio) col teal del brand */
+  input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
   .btn:hover{background:var(--n-200)}
   .btn.primary{background:var(--accent);color:#fff}
   .btn.primary:hover{background:var(--accent-strong)}
