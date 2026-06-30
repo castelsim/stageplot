@@ -7023,21 +7023,35 @@ function exportPng(){
   img.onerror=function(){ URL.revokeObjectURL(url); showToast("PNG export fallito","err"); };
   img.src=url;
 }
-/* Miniatura JPEG del render reale per l'anteprima nella pagina consulenza.
-   Riusa il percorso di exportPng: appiattisce il CSS in attributi (in uno shadow root),
-   altrimenti l'SVG con <style> non si carica come immagine e la rasterizzazione fallisce. */
+/* Miniatura JPEG per l'anteprima in consulenza: SOLO il palco (perimetro/moduli),
+   ritagliato ai suoi bordi, con gli elementi sopra, SENZA etichette (niente nomi degli
+   elementi, niente FONDO PALCO/PUBBLICO, niente quote). Riusa il flatten di exportPng
+   (l'SVG col <style> non si carica come immagine altrimenti). */
 function genThumbnail(){
   return new Promise(function(resolve, reject){
     try {
-      var A=printArea(), maxDim=520, sc=maxDim/Math.max(A.w,A.h);
-      var pxW=Math.max(1,Math.round(A.w*sc)), pxH=Math.max(1,Math.round(A.h*sc));
-      var svgStr=stageSceneSvg().replace(/^<svg /,'<svg width="'+pxW+'" height="'+pxH+'" ');
+      recalcStageBBox();
+      var W=state.stage.w, D=state.stage.d;
+      if(!W || !D){ reject(new Error("palco vuoto")); return; }
+      var pad=Math.max(W,D)*0.03 + 6;
+      var vbx=-pad, vby=-pad, vbw=W+2*pad, vbh=D+2*pad;
+      var maxDim=560, sc=maxDim/Math.max(vbw,vbh);
+      var pxW=Math.max(1,Math.round(vbw*sc)), pxH=Math.max(1,Math.round(vbh*sc));
+      var keep=sel, keepSet=selSet; sel=null; selSet={};
+      var items=''; sortedItems().forEach(function(it){ items+=itemMarkup(it); });
+      sel=keep; selSet=keepSet;
+      var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");
+      var svgStr='<svg xmlns="http://www.w3.org/2000/svg" width="'+pxW+'" height="'+pxH+'" viewBox="'+vbx+' '+vby+' '+vbw+' '+vbh+'">'+
+        '<style>'+css+'</style>'+DEFS+
+        '<rect x="'+vbx+'" y="'+vby+'" width="'+vbw+'" height="'+vbh+'" fill="#ffffff"/>'+
+        stageFloorMarkup()+items+'</svg>';
       var host=document.createElement("div");
       host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
       document.body.appendChild(host);
       var root=host.attachShadow ? host.attachShadow({mode:"open"}) : host;
       root.innerHTML=svgStr;
       var svgEl=root.querySelector("svg");
+      Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(n){ if(n.parentNode) n.parentNode.removeChild(n); });   /* via i nomi degli elementi */
       flattenTextStyles(svgEl); flattenGradients(svgEl); flattenCssToAttrs(svgEl);
       var flat=new XMLSerializer().serializeToString(svgEl);
       host.remove();
