@@ -303,7 +303,7 @@
   /* azioni nel pannello-hub quando NON c'è selezione: aggiungi + menu */
   #mActions{display:none}
   #mBar{display:none}                 /* barra ↶↷⤢: solo mobile (desktop ha l'header) */
-  .mact-add{display:block;width:100%;border:none;background:#1f2937;color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+  .mact-add{display:block;width:100%;border:none;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
   .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
   .mact-grid button{border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
   .mact-grid button.danger{color:var(--danger)}
@@ -331,19 +331,31 @@
     .mcard{width:auto !important;max-width:94vw;max-height:88vh}
   }
   /* ===== TEMA SCURO ===== (chrome scuro, foglio palco resta chiaro) */
-  body.dark{background:#11151c;color:#e5e7eb}
+  /* Il dark è un RE-TEMA: ridefinisce i token theme-aware, così ogni componente
+     tokenizzato diventa scuro senza patch. Gli override espliciti qui sotto restano
+     dove un valore NON passa da un token theme-aware (testi su neutri fissi, pannelli
+     feedback con tinte proprie, input/bottoni con superfici dedicate). */
+  body.dark{
+    --bg:#11151c;--surface:#161b24;--surface-raised:#1b2230;
+    --border:#283142;--border-strong:#2b3445;
+    --text:#e5e7eb;--text-2:#94a3b8;--text-3:#6b7280;
+    --canvas-bg:#0b0e13;--sheet:#fff;
+    --focus-ring:rgba(34,192,214,.32);   /* glow accent-bright per il focus su scuro */
+    background:var(--bg);color:var(--text)}
+  /* opzione "foglio attenuato" per chi lavora in sala buia (opt-in via classe) */
+  body.dark.sheet-dim{--sheet:#f3f4f6}
   body.dark header{background:#161b24;border-bottom-color:#283142}
   body.dark .hdr-stage{background:#1b2230;border-color:#2b3445}
   body.dark .hdr-stage .lab,body.dark .hdr-stage label,body.dark .hdr-stage label i{color:#94a3b8}
   body.dark .hdr-stage input,body.dark .hdr-stage select,body.dark header input[type=text],body.dark header select{background:#0f141b;border-color:#2b3445;color:#e5e7eb}
   body.dark .btn{background:#222b38;color:#e5e7eb}
   body.dark .btn:hover{background:#2c3848}
-  body.dark .btn.primary{background:#2563eb;color:#fff}
+  /* primario in dark: usa var(--accent) (teal), non più blu — "blu = solo monitor" */
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}
   body.dark #catalog{background:#161b24;border-right-color:#283142}
   body.dark #catalog .cat-head{background:#1b2230;border-color:#2b3445;color:#cbd5e1}
   body.dark #catalog .cat-head:hover{background:#222b38}
-  body.dark #catalog .cat-head.open{background:#2563eb;border-color:#2563eb;color:#fff}
+  /* categoria aperta in dark: var(--accent) teal (cade dal base, non più blu) */
   body.dark #catalog .cat-head .count{background:#0f141b;color:#9aa6b6}
   body.dark #catalog .cat-head.open .count{background:#1e40af;color:#dbe4ff}
   body.dark #catalog h4{color:#5eb8c7;border-left-color:#2b6c78}
@@ -373,7 +385,6 @@
   body.dark #mTop{background:#161b24;border-color:#283142}
   body.dark #mTitle,body.dark .mtop-r2 input,body.dark .mtop-r2 select{background:#0f141b;border-color:#2b3445;color:#e5e7eb}
   body.dark .mtbtn,body.dark .mact-grid button{background:#222b38;border-color:#2b3445;color:#e5e7eb}
-  body.dark .mact-add{background:#2563eb}
   body.dark #catalog,body.dark #props{background:#161b24}
   body.dark main{background:#0b0e13}
   /* print */
