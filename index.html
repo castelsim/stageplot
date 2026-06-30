@@ -300,7 +300,7 @@
   .rotrow .btn{flex:0 0 auto}
   .rotslide{flex:1;position:relative;display:flex;align-items:center}
   .rotslide input[type=range]{width:100%;margin:0}
-  .rotslide::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2px;height:13px;background:#9aa3af;border-radius:1px;pointer-events:none}
+  .rotslide::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2px;height:13px;background:var(--text-3);border-radius:1px;pointer-events:none}
   footer{grid-area:foot;display:flex;align-items:center;gap:18px;padding:0 14px;border-top:1px solid var(--border);
     font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden}
   /* SVG — palco */
@@ -482,6 +482,9 @@
   .exp-close{margin-left:auto;width:30px;height:30px;border:none;background:var(--n-100);border-radius:999px;color:var(--text-2);
     cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
   body.dark .exp-close{background:#222b38;color:#e5e7eb}
+  /* Inspector header (A): pallino + nome elemento (sobrio) */
+  #selNome{display:flex;align-items:center;gap:7px}
+  #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
   /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
   .eh-mob{display:none}
   @media (max-width:880px){ .eh-desk{display:none} .eh-mob{display:block} }
@@ -867,13 +870,7 @@ body.livesession:not(.viewmode) #viewBar {
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
     <label style="display:flex;justify-content:space-between;align-items:baseline">Rotazione <span id="pRotVal" style="color:#374151;font-weight:600">0°</span></label>
     <div class="rotrow">
-      <span class="rotslide"><input type="range" id="pRot" min="-180" max="180" step="5"></span>
-    </div>
-    <div style="display:flex;gap:4px;margin-top:4px">
-      <button class="btn" id="pRotP0"  style="flex:1;font-size:11px;padding:4px 2px">0°</button>
-      <button class="btn" id="pRotP90" style="flex:1;font-size:11px;padding:4px 2px">90°</button>
-      <button class="btn" id="pRotP180" style="flex:1;font-size:11px;padding:4px 2px">180°</button>
-      <button class="btn" id="pRotP270" style="flex:1;font-size:11px;padding:4px 2px">270°</button>
+      <span class="rotslide"><input type="range" id="pRot" min="-180" max="180" step="1"></span>
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
@@ -3384,7 +3381,9 @@ function renderProps(){
     document.getElementById("pLblPosBot").className = "btn" + (above ? "" : " primary");
   }
   document.getElementById("pLabel").placeholder = (POSTAZ[it.type] && (t.cat==="Legni" || t.cat==="Ottoni")) ? "es. Clarinetto / Sax" : "";
-  var rNorm=((it.rot||0)%360+360)%360; if(rNorm>180) rNorm-=360;   /* normalizza a -180..180 per lo slider */
+  var rr=it.rot||0, rNorm;
+  if(rr>=-180 && rr<=180){ rNorm=rr; }   /* già nel range: preserva i due estremi (-180 resta a sinistra, non salta a 180) */
+  else { rNorm=((rr%360)+360)%360; if(rNorm>180) rNorm-=360; }
   document.getElementById("pRot").value = rNorm;
   document.getElementById("pRotVal").textContent = rNorm+"°";
   document.getElementById("pDims").style.display = t.resizable ? "flex" : "none";
@@ -3518,21 +3517,18 @@ document.getElementById("pPanca").addEventListener("change", function(){ var v=d
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
+var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
   var it=getSel(); if(!it) return;
-  var v=+document.getElementById("pRot").value||0; it.rot=v;
-  document.getElementById("pRotVal").textContent = v+"°";
+  var raw=+document.getElementById("pRot").value||0, v=raw, cards=[-180,-135,-90,-45,0,45,90,135,180];
+  for(var i=0;i<cards.length;i++){ if(Math.abs(raw-cards[i])<=ROT_SNAP){ v=cards[i]; break; } }
+  if(v!==raw) document.getElementById("pRot").value=v;   /* aggancia anche il thumb */
+  it.rot=v;
+  document.getElementById("pRotVal").textContent = v+"°";   /* con segno: 0 al centro, ±180 agli estremi */
   render(); if(doSave) save();
 }
 document.getElementById("pRot").addEventListener("input", function(){ applyRot(false); });
 document.getElementById("pRot").addEventListener("change", function(){ applyRot(true); });
-[0,90,180,270].forEach(function(deg){
-  document.getElementById("pRotP"+deg).addEventListener("click", function(){
-    mutSel(function(it){ it.rot=deg; });
-    document.getElementById("pRot").value=deg>180?deg-360:deg;
-    document.getElementById("pRotVal").textContent=deg+"°";
-  });
-});
 document.getElementById("pSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSedia").checked; }); });
 document.getElementById("pLeggioCfg").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pLeggioCfg").checked; }); });
 document.getElementById("pDoppia").addEventListener("change", function(){ mutSel(function(it){

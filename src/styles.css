@@ -167,7 +167,7 @@
   .rotrow .btn{flex:0 0 auto}
   .rotslide{flex:1;position:relative;display:flex;align-items:center}
   .rotslide input[type=range]{width:100%;margin:0}
-  .rotslide::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2px;height:13px;background:#9aa3af;border-radius:1px;pointer-events:none}
+  .rotslide::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2px;height:13px;background:var(--text-3);border-radius:1px;pointer-events:none}
   footer{grid-area:foot;display:flex;align-items:center;gap:18px;padding:0 14px;border-top:1px solid var(--border);
     font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden}
   /* SVG — palco */
@@ -349,6 +349,9 @@
   .exp-close{margin-left:auto;width:30px;height:30px;border:none;background:var(--n-100);border-radius:999px;color:var(--text-2);
     cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
   body.dark .exp-close{background:#222b38;color:#e5e7eb}
+  /* Inspector header (A): pallino + nome elemento (sobrio) */
+  #selNome{display:flex;align-items:center;gap:7px}
+  #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
   /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
   .eh-mob{display:none}
   @media (max-width:880px){ .eh-desk{display:none} .eh-mob{display:block} }
