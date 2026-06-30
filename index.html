@@ -211,6 +211,8 @@
   .snapchev{color:var(--text-3);font-size:11px;pointer-events:none;margin-left:-2px}
   /* Sezione 4: controlli nativi (slider/checkbox/radio) col teal del brand */
   input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+  /* Sezione 5: divisori tra gruppi della toolbar */
+  .tbdiv{width:1px;height:20px;background:var(--border);flex:0 0 auto;align-self:center}
   .btn:hover{background:var(--n-200)}
   .btn.primary{background:var(--accent);color:#fff}
   .btn.primary:hover{background:var(--accent-strong)}
@@ -647,6 +649,7 @@ body.livesession:not(.viewmode) #viewBar {
 </div>
 <header>
   <h1 class="brand">STAGE PLOT<span class="sr-only"> — crea stage plot in scala online e gratis · channel list e rider tecnico su consulenza</span></h1>
+  <span class="tbdiv"></span>
   <input type="text" id="titolo" class="hdr-evt" placeholder="Titolo" title="Titolo dell'evento (diventa l'oggetto della mail in condivisione)" style="width:150px">
   <input type="text" id="luogo" class="hdr-evt" placeholder="Luogo" title="Luogo dell'evento" style="width:130px">
   <button class="btn" id="bStageShape" hidden>▦ Palco</button>
@@ -654,6 +657,7 @@ body.livesession:not(.viewmode) #viewBar {
   <button class="btn" id="bLearn" title="Cos'è uno stage plot e come si crea" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg>Guida</button>
   <button class="btn" id="bCloud" title="Accedi e salva i tuoi progetti online"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>Cloud</button>
   <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Consulenza</a>
+  <span class="tbdiv"></span>
   <button class="tbar-ico" id="bTheme" title="Tema chiaro / scuro" aria-label="Tema chiaro/scuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
   <button class="tbar-ico" id="bUndo" title="Annulla (⌘Z)" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
   <button class="tbar-ico" id="bRedo" title="Ripeti (⇧⌘Z)" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
@@ -669,6 +673,7 @@ body.livesession:not(.viewmode) #viewBar {
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
+  <span class="tbdiv"></span>
   <div style="display:flex;gap:4px">
     <button class="btn" id="bHdrPdf" title="Salva / esporta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Salva / Esporta</button>
     <button class="btn" id="bHdrImport" title="Apri progetto (.json)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Apri progetto</button>
