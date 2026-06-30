@@ -427,6 +427,9 @@
   .menu-pop button .tag{align-self:start;border:1px solid var(--border);border-radius:999px;padding:2px 7px;
     font-size:10px;color:var(--text-2);font-weight:700;background:var(--surface-raised);white-space:nowrap}
   .menu-pop .sep{height:1px;background:var(--border);margin:4px 6px}
+  /* pannello "Modifica palco": tinta accent in light, surface in dark (era #eff5ff fisso → chiaro in dark) */
+  #stageEditPanel{background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:10px;padding:11px 12px;margin-bottom:14px;color:var(--text)}
+  body.dark #stageEditPanel{background:var(--surface-raised);border-color:var(--border)}
   /* pannello planimetria */
   #venuePanel{background:var(--success-bg);border:1px solid var(--success-border);border-radius:10px;padding:11px 12px;margin-bottom:10px}
   #venuePanel h3{margin:0 0 8px;color:var(--success)}
@@ -777,17 +780,17 @@ body.livesession:not(.viewmode) #viewBar {
     </div>
     <a href="/consulenza/" target="_blank" rel="noopener" class="mact-consul">Consulenza tecnica →</a>
   </div>
-  <div class="sec" id="stageEditPanel" hidden style="background:#eff5ff;border:1px solid #cfe0fb;border-radius:10px;padding:11px 12px;margin-bottom:14px">
+  <div class="sec" id="stageEditPanel" hidden>
     <h3 style="margin-bottom:6px">Palco</h3>
-    <div class="hint" style="font-size:12px;color:#374151;margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
+    <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
     <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco è un insieme di blocchi/pedane. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock" style="flex:1">＋ Blocco</button>
       <button class="btn" id="bAddSemi" style="flex:1">＋ Semicerchio</button>
     </div>
     <div id="blkList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
-    <div id="blkProps" hidden style="border-top:1px solid #cfe0fb;margin-top:11px;padding-top:9px">
-      <label id="blkTitle" style="font-weight:600;color:#1f2937">Blocco</label>
+    <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
+      <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
       <div class="row">
         <span><label>Largh. (m)</label><input type="number" id="blkW" min="0.1" step="0.1"></span>
         <span><label>Prof. (m)</label><input type="number" id="blkD" min="0.1" step="0.1"></span>
@@ -802,12 +805,12 @@ body.livesession:not(.viewmode) #viewBar {
         <span><label>X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
         <span><label>Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
       </div>
-      <p class="hint" id="blkHint" style="font-size:11px;color:#6b7280;margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
+      <p class="hint" id="blkHint" style="font-size:11px;color:var(--text-2);margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza (torna rettangolo)</button>
       <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
     </div>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
-    <div style="border-top:1px solid #cfe0fb;margin-top:14px;padding-top:12px">
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
       <!-- pannello planimetria (embedded nel pannello palco) -->
       <div id="venuePanel">
         <h3 style="margin:0 0 8px;color:#15803d">Planimetria</h3>
