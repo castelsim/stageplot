@@ -7530,19 +7530,29 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(!sb){ toast("Cloud non disponibile.", true); return; }
     if(!cloudUser){ toast("Accedi per salvare online."); signIn(); return; }
     if(!(state.titolo||"").trim()){ askProjectName(saveProject); return; }
-    var payload={ user_id:cloudUser.id, title:projTitle(), data:JSON.parse(JSON.stringify(state)), schema_version:1 };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
-    var q;
-    if(cloudCurrentId){
-      q=sb.from("stageplot_projects").update({ title:payload.title, data:payload.data }).eq("id", cloudCurrentId).select().single();
-    } else {
-      q=sb.from("stageplot_projects").insert(payload).select().single();
+    function doSave(thumb){
+      var fields={ title:projTitle(), data:JSON.parse(JSON.stringify(state)) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
+      if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
+      var q;
+      if(cloudCurrentId){
+        q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId).select().single();
+      } else {
+        q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:1, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
+      }
+      q.then(function(r){
+        if(r.error){ toast("Salvataggio non riuscito: "+r.error.message, true); return; }
+        if(r.data && r.data.id) cloudCurrentId=r.data.id;
+        toast("✓ Salvato online.");
+        loadProjects();
+      });
     }
-    q.then(function(r){
-      if(r.error){ toast("Salvataggio non riuscito: "+r.error.message, true); return; }
-      if(r.data && r.data.id) cloudCurrentId=r.data.id;
-      toast("✓ Salvato online.");
-      loadProjects();
-    });
+    /* genera la miniatura del rendering vero (non blocca il salvataggio se fallisce) */
+    var saved=false;
+    try {
+      svgToDataUrl(stageSceneSvg(), 480, 384, "image/jpeg")
+        .then(function(t){ if(!saved){ saved=true; doSave(t); } })
+        .catch(function(){ if(!saved){ saved=true; doSave(null); } });
+    } catch(e){ if(!saved){ saved=true; doSave(null); } }
   }
 
   function loadProjects(){

@@ -170,7 +170,20 @@
       aspect-ratio: 1 / .82;
     }
     .shot img { width: 58%; height: auto; display: block; }
-    #heroPreview img { width: 100%; border-radius: 12px; }
+
+    .hero-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .hero-q { display: block; font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 6px; }
+    #heroProject {
+      width: 100%; border: 1px solid var(--line); border-radius: 9px;
+      padding: 11px 12px; font: inherit; font-size: 15px; background: #fff; color: var(--ink);
+    }
+    #heroProject:focus { border-color: var(--accent); outline: none; }
+    #heroPreview { width: 100%; height: 100%; display: grid; place-items: center; padding: 12px; }
+    #heroPreview img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+    .hero-caption {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      color: var(--muted); font-size: 14px;
+    }
 
     /* HEADINGS */
     .head { max-width: var(--maxw); margin: 0 auto 28px; }
@@ -489,10 +502,17 @@
             <a class="btn" href="/">Apri il Tool gratuito</a>
           </div>
         </div>
-        <figure class="shot" id="heroArt" aria-label="StagePlot">
-          <img id="heroLogo" src="/favicon-orchestra.svg" alt="StagePlot — il tuo palco in scala">
-          <div id="heroPreview" hidden></div>
-        </figure>
+        <div class="hero-right">
+          <div id="heroPicker" hidden>
+            <span class="hero-q">Per quale progetto vuoi la Consulenza Tecnica?</span>
+            <select id="heroProject"></select>
+          </div>
+          <figure class="shot" id="heroArt" aria-label="Anteprima Stage Plot">
+            <img id="heroLogo" src="/favicon-orchestra.svg" alt="StagePlot — il tuo palco in scala">
+            <div id="heroPreview" hidden></div>
+          </figure>
+          <div id="heroCaption" class="hero-caption" hidden></div>
+        </div>
       </div>
     </section>
 
@@ -666,6 +686,13 @@
     var odMsg = document.getElementById("odMsg");
     var currentProduct = null;
 
+    var heroPicker = document.getElementById("heroPicker");
+    var heroProject = document.getElementById("heroProject");
+    var heroLogo = document.getElementById("heroLogo");
+    var heroPreview = document.getElementById("heroPreview");
+    var heroCaption = document.getElementById("heroCaption");
+    var heroProjectId = null;
+
     function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
 
     function renderAuth(session){
@@ -715,7 +742,7 @@
         var session = res && res.data ? res.data.session : null;
         if (!session) { startLogin(product); return; }
         fillDrawer(product);
-        loadProjects();
+        loadProjects().then(function(ok){ if (ok && heroProjectId) odProject.value = heroProjectId; });
         openDrawer();
       });
     }
@@ -740,20 +767,58 @@
       });
     }
 
-    // Architettura anteprima Hero per utente loggato (NON implementata: solo predisposizione).
-    // Quando si vorra mostrare l'ultimo progetto: fetch del piu recente e render leggero nel container.
-    function loadHeroPreview(){
-      sb.from("stageplot_projects").select("id,title,data,updated_at").is("deleted_at", null)
-        .order("updated_at", { ascending: false }).limit(1).then(function(r){
-          if (r.error || !r.data || !r.data.length) return;
-          renderHeroPreview(r.data[0]);
+    // ---- Hero: selettore progetto + anteprima schematica ----
+    function showLogoState(){ heroLogo.hidden = false; heroPreview.hidden = true; heroPreview.innerHTML = ""; }
+    function showPreviewState(){ heroLogo.hidden = true; heroPreview.hidden = false; }
+
+    function setupHero(session){
+      if (!session) {
+        heroProjectId = null;
+        heroPicker.hidden = true;
+        showLogoState();
+        heroCaption.hidden = false;
+        heroCaption.innerHTML = '<span>Accedi per scegliere il tuo progetto e vederlo qui.</span> <button class="btn small" type="button" id="heroLoginBtn">Accedi con Google</button>';
+        var hb = document.getElementById("heroLoginBtn");
+        if (hb) hb.addEventListener("click", function(){ startLogin(null); });
+        return;
+      }
+      sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at", null)
+        .order("updated_at", { ascending: false }).then(function(r){
+          if (r.error || !r.data || !r.data.length) {
+            heroProjectId = null;
+            heroPicker.hidden = true;
+            showLogoState();
+            heroCaption.hidden = false;
+            heroCaption.innerHTML = '<span>Non hai ancora uno Stage Plot.</span> <a class="btn small" href="/">Crealo nel tool gratuito</a>';
+            return;
+          }
+          heroProject.innerHTML = r.data.map(function(p){ return '<option value="' + p.id + '">' + esc(p.title || "Senza titolo") + "</option>"; }).join("");
+          heroProjectId = r.data[0].id;
+          heroProject.value = heroProjectId;
+          heroPicker.hidden = false;
+          heroCaption.hidden = true;
+          loadAndRenderPreview(heroProjectId);
         });
     }
-    function renderHeroPreview(project){
-      /* STUB: qui andra un mini-render SVG leggero dei footprint da project.data.items.
-         Per ora si lascia il logo (nessun cambiamento visivo). */
-      void project;
+
+    function loadAndRenderPreview(id){
+      showLogoState();
+      sb.from("stageplot_projects").select("thumbnail").eq("id", id).is("deleted_at", null).maybeSingle()
+        .then(function(r){
+          if (r.error || !r.data || !r.data.thumbnail) { showLogoState(); return; }
+          var img = document.createElement("img");
+          img.alt = "Anteprima del tuo Stage Plot";
+          img.src = r.data.thumbnail;
+          heroPreview.innerHTML = "";
+          heroPreview.appendChild(img);
+          showPreviewState();
+        }, function(){ showLogoState(); });
     }
+
+    if (heroProject) heroProject.addEventListener("change", function(){
+      heroProjectId = heroProject.value;
+      loadAndRenderPreview(heroProjectId);
+    });
 
     // Bottoni pacchetto
     [].forEach.call(document.querySelectorAll("[data-product]"), function(btn){
@@ -770,12 +835,12 @@
     sb.auth.getSession().then(function(res){
       var session = res && res.data ? res.data.session : null;
       renderAuth(session);
-      if (session) loadHeroPreview();
+      setupHero(session);
     });
     sb.auth.onAuthStateChange(function(ev, session){
       renderAuth(session);
+      setupHero(session);
       if (session) {
-        loadHeroPreview();
         var pend = null;
         try { pend = sessionStorage.getItem("pendingProduct"); } catch(e){}
         if (pend) { try { sessionStorage.removeItem("pendingProduct"); } catch(e){} startPurchase(pend); }
