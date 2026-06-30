@@ -63,7 +63,10 @@
   .tbar-ico:disabled{color:var(--text-3);background:transparent;cursor:not-allowed}
   body.dark .tbar-ico:hover{background:#222b38}
   .btn{background:var(--n-100);border:none;border-radius:var(--r-md);padding:7px 14px;font-size:var(--t-body);font-weight:600;
-    color:var(--text);cursor:pointer;white-space:nowrap;transition:background var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+    color:var(--text);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;
+    transition:background var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+  .btn svg{width:16px;height:16px;flex:0 0 auto}   /* icona-prefisso nei bottoni testo */
+  [hidden]{display:none!important}   /* il display:inline-flex dei .btn non deve scoprire gli [hidden] */
   .btn:hover{background:var(--n-200)}
   .btn.primary{background:var(--accent);color:#fff}
   .btn.primary:hover{background:var(--accent-strong)}
