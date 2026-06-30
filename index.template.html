@@ -257,7 +257,7 @@
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
       <!-- pannello planimetria (embedded nel pannello palco) -->
       <div id="venuePanel">
-        <h3 style="margin:0 0 8px;color:#15803d">Planimetria</h3>
+        <h3 style="margin:0 0 8px">Planimetria</h3>
         <div id="venueReload" hidden>
           <b id="venueReloadName"></b>
           <button class="btn" id="venueBtnReload" style="width:100%;margin-top:4px">Ricarica immagine…</button>
@@ -275,20 +275,20 @@
           <label>Rotazione <span id="venueRotVal">0°</span></label>
           <div style="display:flex;gap:6px;align-items:center">
             <input type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
-            <input type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid #d1fae5;border-radius:7px;padding:4px 6px;font-size:13px">
+            <input type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
           </div>
         </div>
         <div class="venue-row" style="margin-top:10px">
           <button class="btn" id="venueBtnCalib">📐 Calibra scala</button>
           <button class="btn" id="venueBtnLock">🔒 Blocca</button>
         </div>
-        <div id="venueCalibHint" hidden style="font-size:11.5px;color:#15803d;background:#dcfce7;border-radius:7px;padding:6px 8px;margin-top:6px">
+        <div id="venueCalibHint" hidden>
           Clicca il <b>1° punto</b> sulla planimetria
         </div>
         <div id="venueCalibInput" hidden style="margin-top:8px">
           <label style="margin:0 0 4px">Distanza reale tra i 2 punti (m):</label>
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10" style="flex:1;border:1px solid #d1fae5;border-radius:7px;padding:5px 7px;font-size:13px">
+            <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10" style="flex:1;border:1px solid var(--border);border-radius:7px;padding:5px 7px;font-size:13px;background:var(--surface);color:var(--text)">
             <button class="btn primary" id="venueCalibApply" style="flex:1">Applica</button>
             <button class="btn" id="venueCalibCancel">✕</button>
           </div>
@@ -297,11 +297,11 @@
       </div>
     </div>
   </div>
-  <div class="sec" id="eventoSec" hidden style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px 11px;margin-bottom:14px">
+  <div class="sec" id="eventoSec" hidden>
     <h3 style="margin-bottom:6px">Evento</h3>
     <label>Titolo</label><input type="text" id="titoloEv" placeholder="Es. Concerto in villa">
     <label>Luogo</label><input type="text" id="luogoEv" placeholder="Es. Teatro Comunale, Vicenza">
-    <div class="hint" style="font-size:11px;color:#9ca3af;margin-top:5px">Titolo e luogo compaiono nell'intestazione dell'export.</div>
+    <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:5px">Titolo e luogo compaiono nell'intestazione dell'export.</div>
     <button class="btn primary" id="bEventoDone" style="width:100%;margin-top:10px">Fatto</button>
   </div>
   <div class="sec" id="selProps" hidden>
