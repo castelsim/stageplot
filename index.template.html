@@ -160,8 +160,8 @@
   <button class="btn" id="bCloud" title="Accedi e salva i tuoi progetti online">☁ Cloud</button>
   <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Consulenza</a>
   <button class="btn" id="bTheme" title="Tema chiaro / scuro" style="padding:7px 11px">🌙</button>
-  <button class="btn" id="bUndo" title="Annulla (⌘Z)" style="padding:7px 11px">↶</button>
-  <button class="btn" id="bRedo" title="Ripeti (⇧⌘Z)" style="padding:7px 11px">↷</button>
+  <button class="tbar-ico" id="bUndo" title="Annulla (⌘Z)" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+  <button class="tbar-ico" id="bRedo" title="Ripeti (⇧⌘Z)" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
   <button class="btn" id="bFit" title="Adatta lo zoom al palco">⤢ Adatta</button>
   <select id="snapSel" title="Aggancio: come si posizionano gli elementi quando li sposti — su una griglia regolare o liberi" style="font-size:13px;padding:3px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#fff;cursor:pointer;height:32px">
     <option value="0">Libero (senza griglia)</option>
@@ -191,8 +191,8 @@
 
 <aside id="props">
   <div id="mBar">
-    <button class="mtbtn" id="mUndo" aria-label="Annulla">↶</button>
-    <button class="mtbtn" id="mRedo" aria-label="Ripeti">↷</button>
+    <button class="mtbtn" id="mUndo" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+    <button class="mtbtn" id="mRedo" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
   </div>
   <div id="mActions">
     <button class="mact-add" data-act="add">＋ Aggiungi elemento</button>
