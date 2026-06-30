@@ -327,10 +327,24 @@
   /* azioni nel pannello-hub quando NON c'è selezione: aggiungi + menu */
   #mActions{display:none}
   #mBar{display:none}                 /* barra ↶↷⤢: solo mobile (desktop ha l'header) */
-  .mact-add{display:block;width:100%;border:none;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+  .mact-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+  .mact-add svg{width:20px;height:20px}
   .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-  .mact-grid button{border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
+  .mact-grid button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
+  .mact-grid button svg{width:18px;height:18px;flex:0 0 auto}
   .mact-grid button.danger{color:var(--danger)}
+  /* mobile: "Altro" (apre i secondari) + CTA consulenza */
+  .mact-more{display:block;width:100%;border:1px solid var(--border);background:transparent;color:var(--text-2);border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer}
+  .mact-more:hover{background:var(--n-100)}
+  body.dark .mact-more:hover{background:#222b38}
+  #mMore{margin-top:8px}
+  .mact-consul{display:block;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:11px;border-radius:10px;margin-top:10px}
+  /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
+  .eh-mob{display:none}
+  @media (max-width:880px){ .eh-desk{display:none} .eh-mob{display:block} }
+  /* mobile #mBar: bottone con etichetta (es. Adatta) accanto alle icone */
+  .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
+  .mtbtn-wide svg{width:18px;height:18px}
   @media (max-width:880px){
     header,footer{display:none}
     body{display:block;height:100%}

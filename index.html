@@ -460,10 +460,24 @@
   /* azioni nel pannello-hub quando NON c'è selezione: aggiungi + menu */
   #mActions{display:none}
   #mBar{display:none}                 /* barra ↶↷⤢: solo mobile (desktop ha l'header) */
-  .mact-add{display:block;width:100%;border:none;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+  .mact-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+  .mact-add svg{width:20px;height:20px}
   .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-  .mact-grid button{border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
+  .mact-grid button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
+  .mact-grid button svg{width:18px;height:18px;flex:0 0 auto}
   .mact-grid button.danger{color:var(--danger)}
+  /* mobile: "Altro" (apre i secondari) + CTA consulenza */
+  .mact-more{display:block;width:100%;border:1px solid var(--border);background:transparent;color:var(--text-2);border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer}
+  .mact-more:hover{background:var(--n-100)}
+  body.dark .mact-more:hover{background:#222b38}
+  #mMore{margin-top:8px}
+  .mact-consul{display:block;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:11px;border-radius:10px;margin-top:10px}
+  /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
+  .eh-mob{display:none}
+  @media (max-width:880px){ .eh-desk{display:none} .eh-mob{display:block} }
+  /* mobile #mBar: bottone con etichetta (es. Adatta) accanto alle icone */
+  .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
+  .mtbtn-wide svg{width:18px;height:18px}
   @media (max-width:880px){
     header,footer{display:none}
     body{display:block;height:100%}
@@ -691,28 +705,35 @@ body.livesession:not(.viewmode) #viewBar {
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><span class="eh-step"><b>①</b> Apri una categoria a sinistra</span><span class="eh-step"><b>②</b> Clicca un elemento</span><span class="eh-step"><b>③</b> Trascinalo dove vuoi sul palco</span></div></main>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><span class="eh-step eh-desk"><b>①</b> Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>②</b> Clicca un elemento</span><span class="eh-step eh-desk"><b>③</b> Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>①</b> Tocca “Aggiungi elemento”</span><span class="eh-step eh-mob"><b>②</b> Scegli dal catalogo</span><span class="eh-step eh-mob"><b>③</b> Trascinalo dove vuoi sul palco</span></div></main>
 
 <aside id="props">
   <div id="mBar">
+    <button class="mtbtn mtbtn-wide" id="mFit" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><path d="M21 3l-7 7M3 21l7-7"/></svg>Adatta</button>
+    <span style="flex:1"></span>
     <button class="mtbtn" id="mUndo" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
     <button class="mtbtn" id="mRedo" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
   </div>
   <div id="mActions">
-    <button class="mact-add" data-act="add">＋ Aggiungi elemento</button>
+    <button class="mact-add" data-act="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Aggiungi elemento</button>
     <div class="mact-grid">
-      <button data-act="palco">▦ Palco</button>
-      <button data-act="evento">Evento</button>
-      <button data-act="venue">Planimetria</button>
-      <button data-act="frame">Area stampa</button>
-      <button data-act="save">💾 Salva</button>
-      <button data-act="pdf">📄 Esporta PDF</button>
-      <button data-act="import">📂 Importa</button>
-      <button data-act="cloud">☁ Cloud (salva online)</button>
-      <button data-act="theme">Tema chiaro/scuro</button>
-      <button data-act="new" class="danger">Nuovo</button>
-      <a href="/consulenza/" target="_blank" rel="noopener" style="grid-column:1/-1;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:10px;border-radius:8px">Consulenza</a>
+      <button data-act="pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta PDF</button>
+      <button data-act="cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>Cloud</button>
     </div>
+    <button type="button" class="mact-more" id="mMoreToggle">Altro…</button>
+    <div id="mMore" hidden>
+      <div class="mact-grid">
+        <button data-act="palco">Palco</button>
+        <button data-act="evento">Evento</button>
+        <button data-act="venue">Planimetria</button>
+        <button data-act="frame">Area stampa</button>
+        <button data-act="save">Salva (locale)</button>
+        <button data-act="import">Importa</button>
+        <button data-act="theme">Tema chiaro/scuro</button>
+        <button data-act="new" class="danger">Nuovo</button>
+      </div>
+    </div>
+    <a href="/consulenza/" target="_blank" rel="noopener" class="mact-consul">Consulenza</a>
   </div>
   <div class="sec" id="stageEditPanel" hidden style="background:#eff5ff;border:1px solid #cfe0fb;border-radius:10px;padding:11px 12px;margin-bottom:14px">
     <h3 style="margin-bottom:6px">Palco</h3>
@@ -4163,8 +4184,10 @@ function closeMobileDrawers(){
   /* barra hub: ↶ ↷ ⤢ (sempre visibile in basso) */
   document.getElementById("mUndo").addEventListener("click", undo);
   document.getElementById("mRedo").addEventListener("click", redo);
+  (function(){ var f=document.getElementById("mFit"); if(f) f.addEventListener("click", function(){ document.getElementById("bFit").click(); }); })();
   /* azioni nel pannello-hub (nessuna selezione): Aggiungi elemento + voci di menu */
   function proxy(id){ var b=document.getElementById(id); if(b) b.click(); }
+  (function(){ var t=document.getElementById("mMoreToggle"); if(t) t.addEventListener("click", function(){ var m=document.getElementById("mMore"); if(m){ if(m.hasAttribute("hidden")) m.removeAttribute("hidden"); else m.setAttribute("hidden",""); } }); })();
   Array.prototype.forEach.call(document.querySelectorAll("#mActions button"), function(b){
     b.addEventListener("click", function(){
       var a=b.getAttribute("data-act"); if(!a) return;
