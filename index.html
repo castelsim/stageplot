@@ -4144,7 +4144,7 @@ function miniSvg(k, over){
   // tutte le categorie chiuse di default (nessuna .open)
 
   /* — Metro e Testo libero: fuori dalle categorie, sotto Video — */
-  var extraSep=document.createElement("div"); extraSep.style.cssText="height:1px;background:#e5e7eb;margin:10px 6px 8px";
+  var extraSep=document.createElement("div"); extraSep.style.cssText="height:1px;background:var(--border);margin:10px 6px 8px";
   el.insertBefore(extraSep, results);
   ["metro","testo"].forEach(function(k){
     var b=makeBtn(k, TYPES[k].nome); el.insertBefore(b, results); entries.push({k:k,nome:TYPES[k].nome});
