@@ -227,7 +227,7 @@
   <div class="sec" id="stageEditPanel" hidden style="background:#eff5ff;border:1px solid #cfe0fb;border-radius:10px;padding:11px 12px;margin-bottom:14px">
     <h3 style="margin-bottom:6px">Palco</h3>
     <div class="hint" style="font-size:12px;color:#374151;margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
-    <div class="hint" style="font-size:11.5px;color:#5b6675;margin-bottom:8px">Il palco è un insieme di blocchi/pedane. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
+    <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco è un insieme di blocchi/pedane. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock" style="flex:1">＋ Blocco</button>
       <button class="btn" id="bAddSemi" style="flex:1">＋ Semicerchio</button>
@@ -7057,10 +7057,11 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
 <!-- ===================== CLOUD (Supabase: login Google opzionale + salvataggio online) ===================== -->
 <div id="cloudModal" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px">
-  <div style="background:#fff;color:#17212f;max-width:460px;width:100%;max-height:88vh;overflow:auto;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #eef0f3">
-      <strong style="font-size:17px">☁ I tuoi progetti</strong>
-      <button id="cloudClose" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#5b6675">×</button>
+  <div style="background:var(--surface);color:var(--text);max-width:440px;width:100%;max-height:88vh;overflow:auto;border-radius:var(--r-xl);box-shadow:var(--elev-4);font-family:var(--font-ui)">
+    <div style="display:flex;align-items:center;gap:9px;padding:15px 18px;border-bottom:1px solid var(--border)">
+      <span style="color:var(--accent);display:inline-flex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg></span>
+      <strong style="font-size:16px;font-weight:700">I tuoi progetti</strong>
+      <button id="cloudClose" aria-label="Chiudi" style="margin-left:auto;border:none;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--text-2)">✕</button>
     </div>
     <div id="cloudBody" style="padding:18px"></div>
   </div>
@@ -7098,14 +7099,14 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function renderModal(){
     if(!bodyEl) return;
-    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:#5b6675">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool e salvare i progetti come file .json.</p>'; return; }
+    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:var(--text-2)">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool e salvare i progetti come file .json.</p>'; return; }
     if(!cloudUser){
       bodyEl.innerHTML=
-        '<p style="margin:0 0 14px;color:#5b6675;line-height:1.5">Accedi per salvare i tuoi stage plot online e ritrovarli da qualsiasi dispositivo. Il login è facoltativo: il tool funziona anche senza.</p>'+
+        '<p style="margin:0 0 14px;color:var(--text-2);line-height:1.5">Accedi per salvare i tuoi stage plot online e ritrovarli da qualsiasi dispositivo. Il login è facoltativo: il tool funziona anche senza.</p>'+
         '<button id="cloudSignin" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid #dadce0;border-radius:9px;background:#fff;color:#3c4043;font-weight:600;font-size:15px;cursor:pointer">'+
           '<svg width="18" height="18" viewBox="0 0 48 48" style="width:18px;height:18px;flex:none"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'+
           'Accedi con Google</button>'+
-        '<p style="margin:13px 0 0;font-size:12px;color:#8b95a3;text-align:center;line-height:1.5">Accedendo accetti la <a href="/privacy/" target="_blank" rel="noopener" style="color:#8b95a3;text-decoration:underline">Privacy Policy</a>.</p>';
+        '<p style="margin:13px 0 0;font-size:12px;color:var(--text-3);text-align:center;line-height:1.5">Accedendo accetti la <a href="/privacy/" target="_blank" rel="noopener" style="color:var(--text-3);text-decoration:underline">Privacy Policy</a>.</p>';
       var b=document.getElementById("cloudSignin"); if(b) b.addEventListener("click", signIn);
       return;
     }
@@ -7113,26 +7114,26 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(cloudProjects.length){
       rows=cloudProjects.map(function(p){
         var cur = p.id===cloudCurrentId;
-        return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #eef0f3">'+
+        return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
           '<div style="flex:1;min-width:0">'+
-            '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+(cur?' <span style="color:#16a34a;font-weight:500">• aperto</span>':'')+'</div>'+
-            '<div style="font-size:12px;color:#8b95a3">'+esc(fmtDate(p.updated_at))+'</div>'+
+            '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
+            '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
-          '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
-          '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" style="border:none;background:none;cursor:pointer;font-size:16px;color:#b91c1c">🗑</button>'+
+          '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
+          '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
     } else {
-      rows='<p style="color:#8b95a3;margin:10px 0 0">Nessun progetto salvato online. Premi "Salva online" per iniziare.</p>';
+      rows='<p style="color:var(--text-3);margin:10px 0 0">Nessun progetto salvato online. Premi "Salva online" per iniziare.</p>';
     }
     bodyEl.innerHTML=
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px">'+
-        '<span style="color:#5b6675;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Connesso come <strong>'+esc(cloudUser.email||"")+'</strong></span>'+
-        '<button id="cloudSignout" style="border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
+        '<span style="color:var(--text-2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Connesso come <strong style="color:var(--text)">'+esc(cloudUser.email||"")+'</strong></span>'+
+        '<button id="cloudSignout" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
-      '<button id="cloudSave" style="width:100%;padding:12px;border:none;border-radius:9px;background:#0e7490;color:#fff;font-weight:700;font-size:15px;cursor:pointer">☁ Salva online — "'+esc(projTitle())+'"</button>'+
+      '<button id="cloudSave" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:none;border-radius:var(--r-md);background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva online — &quot;'+esc(projTitle())+'&quot;</button>'+
       '<div style="margin-top:18px">'+rows+'</div>'+
-      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:16px;padding:10px;text-align:center;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px">Consulenza</a>';
+      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:14px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     document.getElementById("cloudSave").addEventListener("click", saveProject);
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
@@ -7160,7 +7161,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       ov.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
       ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(15,23,42,.3)">'+
         '<h3 style="margin:0 0 6px;font-size:18px">Dai un nome al progetto</h3>'+
-        '<p style="margin:0 0 12px;color:#5b6675;font-size:14px;line-height:1.5">Serve per ritrovarlo e per inviarlo alla Consulenza Tecnica. Es. Concerto Verona, Matrimonio Rossi, Orchestra Estate, Teatro Comunale.</p>'+
+        '<p style="margin:0 0 12px;color:var(--text-2);font-size:14px;line-height:1.5">Serve per ritrovarlo e per inviarlo alla Consulenza Tecnica. Es. Concerto Verona, Matrimonio Rossi, Orchestra Estate, Teatro Comunale.</p>'+
         '<input id="nameInput" type="text" placeholder="Titolo del progetto" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:11px 12px;font-size:15px;box-sizing:border-box">'+
         '<div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">'+
           '<button id="nameCancel" type="button" style="border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:9px 14px;cursor:pointer">Annulla</button>'+
