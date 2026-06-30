@@ -442,7 +442,9 @@
   </div>
   <!-- pannello cornice di stampa -->
   <div id="framePanel" hidden>
-    <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px">📄 Scarica PDF in scala</button>
+    <div class="exp-card">
+    <div class="exp-head"><h4>Esporta</h4><button type="button" class="exp-close" id="expClose" aria-label="Chiudi">✕</button></div>
+    <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Scarica PDF in scala</button>
     <p class="hint" style="font-size:11.5px;color:#6b7280;margin:6px 0 12px">Esporta tutto il palco, pronto da stampare o inviare al service.</p>
     <details id="frameAdvanced" style="margin-bottom:14px">
       <summary style="cursor:pointer;font-size:12px;color:#374151;font-weight:600;padding:6px 0;user-select:none">⚙ Area di stampa — avanzato</summary>
@@ -465,10 +467,9 @@
       </div>
     </details>
     <p class="hint" style="font-size:11px;color:#9ca3af;margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em">Altri formati</p>
-    <button class="btn" id="frameSavePng" style="width:100%;margin-top:0;font-size:12px">📷 Scarica immagine (PNG)</button>
-    <button class="btn" id="frameSaveJson" style="width:100%;margin-top:6px;font-size:12px">💾 Salva progetto (per modificarlo dopo)</button>
-    <button class="btn" id="frameVers"     style="width:100%;margin-top:6px;font-size:12px">📚 Versioni salvate</button>
-    <button class="btn" id="frameShare"    style="width:100%;margin-top:6px;font-size:12px">🔗 Condividi / QR</button>
+    <button class="btn" id="frameSavePng" style="width:100%;margin-top:0;font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Scarica immagine (PNG)</button>
+    <button class="btn" id="frameSaveJson" style="width:100%;margin-top:6px;font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva progetto (per modificarlo dopo)</button>
+    </div>
   </div>
 </aside>
 
@@ -5534,7 +5535,9 @@ function fmtMnum(cm){ return (cm/100).toFixed(2).replace(/\.?0+$/,""); }
 function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; saveAsOpen=true; ensurePrintFrame(); renderFramePanel(); render(); } }
 function renderFramePanel(){
   var p=document.getElementById("framePanel"); if(!p) return;
-  p.hidden=!(saveAsOpen||frameEdit); if(!(saveAsOpen||frameEdit)) return;
+  p.hidden=!(saveAsOpen||frameEdit);
+  document.body.classList.toggle("export-menu", saveAsOpen && !frameEdit);   /* modale centrato solo nel menu, non durante editing/PDF */
+  if(!(saveAsOpen||frameEdit)) return;
   if(frameEdit){
     var f=state.printFrame||frameStageRect();
     document.getElementById("frameW").value=fmtMnum(f.w);
@@ -5983,14 +5986,20 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     renderFramePanel(); render();
   });
   document.getElementById("frameSaveJson").addEventListener("click", function(){ document.getElementById("saveJson").click(); });
-  document.getElementById("frameVers").addEventListener("click", toggleVersionEdit);
+  (function(){ var fv=document.getElementById("frameVers"); if(fv) fv.addEventListener("click", toggleVersionEdit); })();
+  /* Export come modale: chiusura con X e click sullo sfondo */
+  (function(){
+    function closeExp(){ saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); }
+    var xc=document.getElementById("expClose"); if(xc) xc.addEventListener("click", closeExp);
+    var fp=document.getElementById("framePanel"); if(fp) fp.addEventListener("click", function(e){ if(e.target===fp) closeExp(); });
+  })();
   document.getElementById("versSave").addEventListener("click", function(){
     var n=document.getElementById("versName").value.trim();
     if(!n){ document.getElementById("versName").focus(); return; }
     saveVersion(n);
     document.getElementById("versName").value="";
   });
-  document.getElementById("frameShare").addEventListener("click", function(){ openShare(); });
+  (function(){ var fs=document.getElementById("frameShare"); if(fs) fs.addEventListener("click", function(){ openShare(); }); })();
   document.getElementById("bHdrImport").addEventListener("click", function(){ document.getElementById("importJson").click(); });
   document.getElementById("shareTabLink").addEventListener("click", function(){ openShare(); });
   document.getElementById("shareTabPdf").addEventListener("click", function(){ modal.hidden=true; document.getElementById("bPdf").click(); });
