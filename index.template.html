@@ -5724,18 +5724,71 @@ document.getElementById("venueBtnCalib").addEventListener("click", venueCalibSta
 document.getElementById("venueCalibApply").addEventListener("click", venueCalibApply);
 document.getElementById("venueCalibCancel").addEventListener("click", venueCalibCancel);
 document.getElementById("venueBtnDel").addEventListener("click", function(){
-  if(!confirm("Rimuovere la planimetria?")) return;
-  state.venue=null; clearVenueImg(); venueCalibCancel(); save(); renderVenuePanel(); render();
+  confirmDialog({
+    icon:"trash", title:"Rimuovere la planimetria?",
+    message:"L'immagine di sfondo e la sua calibrazione verranno eliminate dallo stage plot.",
+    confirmText:"Rimuovi"
+  }).then(function(ok){
+    if(!ok) return;
+    state.venue=null; clearVenueImg(); venueCalibCancel(); save(); renderVenuePanel(); render();
+  });
 });
 
 /* nota: il bottone mobile [data-act='venue'] è già gestito dal click handler di #mActions (toggleVenueEdit) */
 
+/* ============ Dialogo di conferma riusabile (azioni distruttive) ============ */
+var CFM_ICON={
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>'
+};
+function confirmDialog(opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    var m=document.getElementById("confirmModal");
+    if(!m){ resolve(window.confirm(opts.message||opts.title||"")); return; }
+    document.getElementById("cfmIco").innerHTML = CFM_ICON[opts.icon] || CFM_ICON.warn;
+    document.getElementById("cfmTitle").textContent = opts.title || "Sei sicuro?";
+    var msg=document.getElementById("cfmMsg");
+    msg.textContent = opts.message || ""; msg.hidden = !opts.message;
+    var okb=document.getElementById("cfmOk"), cancb=document.getElementById("cfmCancel");
+    okb.textContent = opts.confirmText || "Conferma";
+    cancb.textContent = opts.cancelText || "Annulla";
+    m.hidden=false;
+    var prev=document.activeElement;
+    function done(val){
+      m.hidden=true;
+      okb.removeEventListener("click",onOk);
+      cancb.removeEventListener("click",onCancel);
+      m.removeEventListener("mousedown",onBack);
+      document.removeEventListener("keydown",onKey,true);
+      try{ if(prev&&prev.focus) prev.focus(); }catch(e){}
+      resolve(val);
+    }
+    function onOk(){ done(true); }
+    function onCancel(){ done(false); }
+    function onBack(e){ if(e.target===m) done(false); }
+    function onKey(e){ if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); done(false); } }
+    okb.addEventListener("click",onOk);
+    cancb.addEventListener("click",onCancel);
+    m.addEventListener("mousedown",onBack);
+    document.addEventListener("keydown",onKey,true);
+    cancb.focus();   /* default sicuro: Annulla (protegge da Invio accidentale su azioni distruttive) */
+  });
+}
+window.confirmDialog=confirmDialog;
+
 /* ============ FILE: nuovo / json / png ============ */
 document.getElementById("bNew").addEventListener("click", function(){
-  if(!confirm("Nuovo stage plot? Quello attuale verrà cancellato (usa prima \"Salva / Esporta\" se vuoi conservarlo).")) return;
-  state={titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]};
-  stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
-  setEventInputs(); renderChannels();
+  confirmDialog({
+    icon:"warn", title:"Nuovo stage plot?",
+    message:"Quello attuale verrà cancellato. Salva o esporta prima se vuoi conservarlo.",
+    confirmText:"Cancella e ricomincia"
+  }).then(function(ok){
+    if(!ok) return;
+    state={titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]};
+    stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
+    setEventInputs(); renderChannels();
+  });
 });
 /* ============ JSON DI PROGETTO formato 3 — pronto per render 3D ============
    items arricchiti (z, h, components relativi, render{}), librerie assets/materials,
@@ -7061,6 +7114,19 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 </div>
 <div id="cloudToast" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:#17212f;color:#fff;padding:10px 16px;border-radius:9px;font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
 
+<!-- ===================== DIALOGO DI CONFERMA (azioni distruttive) ===================== -->
+<div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="cfmTitle" hidden>
+  <div class="cfm-card">
+    <span class="cfm-ico" id="cfmIco" aria-hidden="true"></span>
+    <h4 id="cfmTitle"></h4>
+    <p id="cfmMsg"></p>
+    <div class="cfm-row">
+      <button type="button" class="btn" id="cfmCancel">Annulla</button>
+      <button type="button" class="btn danger-solid" id="cfmOk">Conferma</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===== Stage Plot — integrazione Supabase (login Google + salvataggio online dei progetti) =====
    Local-first invariato: localStorage, share-link e export NON sono toccati.
@@ -7233,12 +7299,20 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function delProject(id){
     if(!sb) return;
-    if(typeof window.confirm==="function" && !window.confirm("Eliminare questo progetto salvato online?")) return;
-    sb.from("stageplot_projects").delete().eq("id",id).then(function(r){
-      if(r.error){ toast("Eliminazione non riuscita: "+r.error.message, true); return; }
-      if(cloudCurrentId===id) cloudCurrentId=null;
-      toast("Progetto eliminato."); loadProjects();
-    });
+    var go=function(){
+      sb.from("stageplot_projects").delete().eq("id",id).then(function(r){
+        if(r.error){ toast("Eliminazione non riuscita: "+r.error.message, true); return; }
+        if(cloudCurrentId===id) cloudCurrentId=null;
+        toast("Progetto eliminato."); loadProjects();
+      });
+    };
+    if(typeof window.confirmDialog==="function"){
+      window.confirmDialog({ icon:"trash", title:"Eliminare questo progetto?",
+        message:"Il progetto salvato online verrà rimosso definitivamente. L'azione non è reversibile.",
+        confirmText:"Elimina" }).then(function(ok){ if(ok) go(); });
+    } else if(typeof window.confirm!=="function" || window.confirm("Eliminare questo progetto salvato online?")){
+      go();
+    }
   }
 
   function updateBtn(){
