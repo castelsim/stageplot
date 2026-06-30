@@ -350,7 +350,10 @@
   body.dark .hdr-stage input,body.dark .hdr-stage select,body.dark header input[type=text],body.dark header select{background:#0f141b;border-color:#2b3445;color:#e5e7eb}
   body.dark .btn{background:#222b38;color:#e5e7eb}
   body.dark .btn:hover{background:#2c3848}
-  /* primario in dark: usa var(--accent) (teal), non più blu — "blu = solo monitor" */
+  /* le varianti vanno ri-dichiarate in dark: `body.dark .btn` (0,2,1) batte `.btn.primary` (0,2,0) */
+  body.dark .btn.primary{background:var(--accent)}                 /* teal, non grigio */
+  body.dark .btn.primary:hover{background:var(--accent-strong)}
+  body.dark .btn.danger-solid{background:var(--danger);color:#fff}
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}
   body.dark #catalog{background:#161b24;border-right-color:#283142}
   body.dark #catalog .cat-head{background:#1b2230;border-color:#2b3445;color:#cbd5e1}
