@@ -262,13 +262,15 @@
   #catalog .sub-body button small{color:var(--accent)}
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
   /* Onboarding contestuale: invito sul palco vuoto + hint primo trascinamento */
-  #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;gap:10px;color:#9aa3b0;font-size:15px;line-height:1.3;z-index:4;text-align:left}
+  #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;color:var(--text-2);line-height:1.3;z-index:4}
   #emptyHint[hidden]{display:none}
-  #emptyHint .eh-step{white-space:nowrap}
-  #emptyHint .eh-step b{display:inline-block;width:1.5em;color:var(--accent);font-weight:700}
+  #emptyHint .eh-head{font-size:17px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+  #emptyHint .eh-sub{font-size:13px;color:var(--text-3);margin-bottom:14px}
+  #emptyHint .eh-steps{display:flex;flex-direction:column;gap:11px;text-align:left}
+  #emptyHint .eh-step{display:flex;align-items:center;gap:11px;font-size:14px;color:var(--text-2);white-space:nowrap}
+  #emptyHint .eh-step b{flex:0 0 auto;width:24px;height:24px;border-radius:999px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
   #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
-  body.dark #emptyHint{color:var(--text-2)}
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -498,8 +500,8 @@
   #selNome{display:flex;align-items:center;gap:7px}
   #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
   /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
-  .eh-mob{display:none}
-  @media (max-width:880px){ .eh-desk{display:none} .eh-mob{display:block} }
+  #emptyHint .eh-mob{display:none}
+  @media (max-width:880px){ #emptyHint .eh-desk{display:none} #emptyHint .eh-mob{display:flex} }
   /* mobile #mBar: bottone con etichetta (es. Adatta) accanto alle icone */
   .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
   .mtbtn-wide svg{width:18px;height:18px}
@@ -742,7 +744,7 @@ body.livesession:not(.viewmode) #viewBar {
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><span class="eh-step eh-desk"><b>①</b> Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>②</b> Clicca un elemento</span><span class="eh-step eh-desk"><b>③</b> Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>①</b> Tocca “Aggiungi elemento”</span><span class="eh-step eh-mob"><b>②</b> Scegli dal catalogo</span><span class="eh-step eh-mob"><b>③</b> Trascinalo dove vuoi sul palco</span></div></main>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub">Bastano tre passi per iniziare</div><div class="eh-steps"><span class="eh-step eh-desk"><b>1</b>Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>2</b>Clicca un elemento</span><span class="eh-step eh-desk"><b>3</b>Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>1</b>Tocca “Aggiungi elemento”</span><span class="eh-step eh-mob"><b>2</b>Scegli dal catalogo</span><span class="eh-step eh-mob"><b>3</b>Trascinalo dove vuoi sul palco</span></div></div></main>
 
 <aside id="props">
   <div id="mBar">
