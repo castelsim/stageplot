@@ -7023,6 +7023,41 @@ function exportPng(){
   img.onerror=function(){ URL.revokeObjectURL(url); showToast("PNG export fallito","err"); };
   img.src=url;
 }
+/* Miniatura JPEG del render reale per l'anteprima nella pagina consulenza.
+   Riusa il percorso di exportPng: appiattisce il CSS in attributi (in uno shadow root),
+   altrimenti l'SVG con <style> non si carica come immagine e la rasterizzazione fallisce. */
+function genThumbnail(){
+  return new Promise(function(resolve, reject){
+    try {
+      var A=printArea(), maxDim=520, sc=maxDim/Math.max(A.w,A.h);
+      var pxW=Math.max(1,Math.round(A.w*sc)), pxH=Math.max(1,Math.round(A.h*sc));
+      var svgStr=stageSceneSvg().replace(/^<svg /,'<svg width="'+pxW+'" height="'+pxH+'" ');
+      var host=document.createElement("div");
+      host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
+      document.body.appendChild(host);
+      var root=host.attachShadow ? host.attachShadow({mode:"open"}) : host;
+      root.innerHTML=svgStr;
+      var svgEl=root.querySelector("svg");
+      flattenTextStyles(svgEl); flattenGradients(svgEl); flattenCssToAttrs(svgEl);
+      var flat=new XMLSerializer().serializeToString(svgEl);
+      host.remove();
+      var blob=new Blob([flat],{type:'image/svg+xml'});
+      var url=URL.createObjectURL(blob);
+      var img=new Image();
+      img.onload=function(){
+        URL.revokeObjectURL(url);
+        try{
+          var c=document.createElement("canvas"); c.width=pxW; c.height=pxH;
+          var ctx=c.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,pxW,pxH);
+          ctx.drawImage(img,0,0,pxW,pxH);
+          resolve(c.toDataURL("image/jpeg",0.82));
+        }catch(e){ reject(e); }
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error("thumb fallito")); };
+      img.src=url;
+    } catch(e){ reject(e); }
+  });
+}
 function pdfChannelPage(doc, L, paperKey){
   var M=L.M, x=M, y=M+8, pw=L.pw, colW=(pw-2*M);
   var dateStr=(state.luogo? state.luogo+"  ·  ":"")+new Date().toLocaleDateString("it-IT");
@@ -7549,7 +7584,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     /* genera la miniatura del rendering vero (non blocca il salvataggio se fallisce) */
     var saved=false;
     try {
-      svgToDataUrl(stageSceneSvg(), 480, 384, "image/jpeg")
+      genThumbnail()
         .then(function(t){ if(!saved){ saved=true; doSave(t); } })
         .catch(function(){ if(!saved){ saved=true; doSave(null); } });
     } catch(e){ if(!saved){ saved=true; doSave(null); } }
