@@ -1,3 +1,38 @@
+  /* =========================================================================
+     DESIGN SYSTEM — TOKEN (fonte di verità unica). Vedi STAGEPLOT_DESIGN_SYSTEM.md
+     Regola: nessun hex grezzo fuori da qui (e dalle classi oggetto-palco/canvas).
+     ========================================================================= */
+  :root{
+    /* neutri (cool gray) */
+    --n-50:#f9fafb;--n-100:#f3f4f6;--n-200:#e5e7eb;--n-300:#d1d5db;--n-400:#9ca3af;
+    --n-500:#6b7280;--n-600:#4b5563;--n-700:#374151;--n-800:#1f2937;--n-900:#111827;
+    /* accent brand (teal, uno solo) */
+    --accent-tint:#e6f4f6;--accent-soft:#bfe3ea;--accent:#0e7490;--accent-strong:#0a5a72;--accent-bright:#22c0d6;
+    /* semantica canvas (invariata) */
+    --canvas-monitor:#2563eb;--canvas-power:#dc2626;--canvas-tech:#b45309;--canvas-ink:#1f2937;
+    /* feedback */
+    --success:#15803d;--success-bg:#f0fdf4;--success-border:#bbf7d0;
+    --warning:#b45309;--warning-bg:#fffbeb;--warning-border:#fde68a;
+    --danger:#b91c1c;--danger-solid:#dc2626;--danger-bg:#fee2e2;
+    /* superfici & overlay (chrome) */
+    --bg:var(--n-50);--surface:#fff;--surface-raised:var(--n-100);--border:var(--n-200);--border-strong:var(--n-300);
+    --text:var(--n-800);--text-2:var(--n-500);--text-3:var(--n-400);--text-on-accent:#fff;
+    --canvas-bg:#fafafa;--sheet:#fff;
+    --select:var(--accent);--select-fill:rgba(14,116,144,.05);--focus-ring:rgba(14,116,144,.32);
+    --guide:var(--accent);--guide-center:#f59e0b;--axis:#cbd5e1;--grid-line:#eceef0;--grid-major:#dde0e3;
+    /* tipografia */
+    --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --t-micro:10px;--t-caption:11px;--t-label:12px;--t-body:13px;--t-title:15px;--t-heading:18px;--t-display:24px;
+    --lh-tight:1.25;--lh-snug:1.4;--lh-normal:1.5;--lh-relaxed:1.6;
+    /* spazio / raggi / ombre / motion / z */
+    --s-05:2px;--s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--s-8:32px;
+    --r-sm:6px;--r-md:8px;--r-lg:12px;--r-xl:16px;--r-pill:999px;
+    --elev-0:none;--elev-1:0 1px 2px rgba(16,24,40,.08),0 1px 1px rgba(16,24,40,.04);
+    --elev-2:0 4px 12px rgba(16,24,40,.12);--elev-3:0 12px 32px rgba(16,24,40,.18);--elev-4:0 24px 64px rgba(16,24,40,.26);
+    --dur-fast:120ms;--dur-base:160ms;--dur-modal:200ms;--dur-sheet:260ms;--ease:cubic-bezier(.2,0,.2,1);
+    --z-canvas:1;--z-chrome:10;--z-menu:40;--z-overlaybar:50;--z-modal:50;--z-sheet:60;--z-learn:70;--z-toast:80;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   html{overflow:hidden}
