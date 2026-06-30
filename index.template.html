@@ -3453,6 +3453,12 @@ function miniSvg(k, over){
     return b;
   }
 
+  /* mobile: intestazione sticky del bottom-sheet (titolo + chiudi) */
+  var mHead=document.createElement("div"); mHead.className="cat-sheet-head";
+  mHead.innerHTML='<span class="cat-sheet-title">Aggiungi elemento</span><button type="button" class="cat-sheet-close" aria-label="Chiudi">✕</button>';
+  el.appendChild(mHead);
+  mHead.querySelector(".cat-sheet-close").addEventListener("click", closeMobileDrawers);
+
   // campo di ricerca + contenitori (accordion / risultati)
   var search=document.createElement("input");
   search.type="search"; search.id="catSearch"; search.placeholder="Cerca elemento…";

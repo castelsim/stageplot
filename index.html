@@ -478,6 +478,17 @@
   /* mobile #mBar: bottone con etichetta (es. Adatta) accanto alle icone */
   .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
   .mtbtn-wide svg{width:18px;height:18px}
+  /* bottom-sheet catalogo: intestazione sticky (titolo + chiudi), solo mobile */
+  #catalog .cat-sheet-head{display:none}
+  @media (max-width:880px){
+    #catalog .cat-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;
+      background:var(--surface);padding:2px 2px 10px;margin-bottom:4px;z-index:3}
+    .cat-sheet-title{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap}
+    #catalog .cat-sheet-close{width:32px;height:32px;min-width:0;flex:0 0 auto;padding:0;margin:0;border:none;
+      background:var(--n-100);border-radius:999px;color:var(--text-2);font-size:14px;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center}
+    body.dark #catalog .cat-sheet-close{background:#222b38;color:#e5e7eb}
+  }
   @media (max-width:880px){
     header,footer{display:none}
     body{display:block;height:100%}
@@ -3963,6 +3974,12 @@ function miniSvg(k, over){
     b.addEventListener("click", function(){ closeMobileDrawers(); action(); });   /* mobile: chiudi il catalogo, poi mostra il modale/azione */
     return b;
   }
+
+  /* mobile: intestazione sticky del bottom-sheet (titolo + chiudi) */
+  var mHead=document.createElement("div"); mHead.className="cat-sheet-head";
+  mHead.innerHTML='<span class="cat-sheet-title">Aggiungi elemento</span><button type="button" class="cat-sheet-close" aria-label="Chiudi">✕</button>';
+  el.appendChild(mHead);
+  mHead.querySelector(".cat-sheet-close").addEventListener("click", closeMobileDrawers);
 
   // campo di ricerca + contenitori (accordion / risultati)
   var search=document.createElement("input");
