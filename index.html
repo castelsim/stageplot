@@ -357,7 +357,7 @@
   /* modale organico orchestra */
   .modal{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;justify-content:center;z-index:50}
   .modal[hidden]{display:none}
-  .mcard{background:var(--surface);border-radius:14px;padding:18px 20px;width:600px;max-height:88vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.18)}
+  .mcard{background:var(--surface);border-radius:var(--r-xl);padding:18px 20px;width:600px;max-height:88vh;overflow:auto;box-shadow:var(--elev-4)}
   .mcard h2{font-size:16px;margin-bottom:4px}
   .mcard .hint{font-size:12px;color:var(--text-2);margin-bottom:12px}
   .ogrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 22px}
@@ -370,14 +370,14 @@
   .mcard label{display:block;font-size:12px;color:var(--text-2);margin:9px 0 3px;font-weight:600}
   .mcard select{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface)}
   .mcard .mstatus{font-size:12.5px}
-  .mcard .mstatus.ok{color:#15803d}  .mcard .mstatus.err{color:#b91c1c}  .mcard .mstatus.warn{color:#b45309}
+  .mcard .mstatus.ok{color:var(--success)}  .mcard .mstatus.err{color:var(--danger)}  .mcard .mstatus.warn{color:var(--warning)}
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
   .pa-card:hover:not(.sel){border-color:var(--accent-soft);background:var(--accent-tint)}
   /* menu formazioni (Organico) */
   header{position:relative}
   .menu-pop{position:absolute;top:46px;background:var(--surface);border:1px solid var(--border);border-radius:10px;
-    box-shadow:0 8px 28px rgba(0,0,0,.16);padding:8px;z-index:40;width:min(430px,calc(100vw - 20px));max-height:calc(100vh - 82px);
+    box-shadow:var(--elev-2);padding:8px;z-index:40;width:min(430px,calc(100vw - 20px));max-height:calc(100vh - 82px);
     overflow-y:auto}
   .menu-pop[hidden]{display:none}
   .menu-pop .org-group{font-size:10px;text-transform:uppercase;letter-spacing:.75px;color:var(--text-2);font-weight:800;
@@ -390,15 +390,15 @@
     font-size:10px;color:var(--text-2);font-weight:700;background:#f9fafb;white-space:nowrap}
   .menu-pop .sep{height:1px;background:#eef0f2;margin:4px 6px}
   /* pannello planimetria */
-  #venuePanel{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:11px 12px;margin-bottom:10px}
-  #venuePanel h3{margin:0 0 8px;color:#15803d}
+  #venuePanel{background:var(--success-bg);border:1px solid var(--success-border);border-radius:10px;padding:11px 12px;margin-bottom:10px}
+  #venuePanel h3{margin:0 0 8px;color:var(--success)}
   #venuePanel label{font-size:12px;color:var(--n-700);display:block;margin:8px 0 2px}
   #venuePanel input[type=range]{width:100%;padding:0;margin:2px 0}
   #venuePanel input[type=number]{width:72px;border:1px solid #d1fae5;border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface)}
   .venue-row{display:flex;align-items:center;gap:6px;margin:5px 0}
   .venue-row .btn{flex:1;font-size:12px;padding:5px 8px}
-  #venueReload{background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:7px 9px;font-size:12px;margin-bottom:8px}
-  #venueReload b{display:block;font-size:11px;color:#92400e;margin-bottom:4px;word-break:break-all}
+  #venueReload{background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:8px;padding:7px 9px;font-size:12px;margin-bottom:8px}
+  #venueReload b{display:block;font-size:11px;color:var(--warning);margin-bottom:4px;word-break:break-all}
   body.venue-calib #svg{cursor:crosshair}
   .venue-calib-dot{fill:#ef4444;stroke:#fff;stroke-width:2}
   .venue-calib-line{stroke:#ef4444;stroke-width:2;stroke-dasharray:8 4;fill:none}
@@ -439,7 +439,7 @@
   .mact-add{display:block;width:100%;border:none;background:#1f2937;color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
   .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
   .mact-grid button{border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
-  .mact-grid button.danger{color:#b91c1c}
+  .mact-grid button.danger{color:var(--danger)}
   @media (max-width:880px){
     header,footer{display:none}
     body{display:block;height:100%}
@@ -517,12 +517,12 @@
     #printContainer svg{width:100%;height:auto}
   }
   /* versioni panel */
-  #versBox{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:11px 12px;margin-bottom:12px}
-  #versBox h3{margin:0 0 8px;color:#166534}
-  #versBox input[type=text]{width:100%;border:1px solid #bbf7d0;border-radius:7px;padding:5px 7px;font-size:13px;background:var(--surface);box-sizing:border-box}
-  .ver-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #dcfce7;font-size:12px}
+  #versBox{background:var(--success-bg);border:1px solid var(--success-border);border-radius:10px;padding:11px 12px;margin-bottom:12px}
+  #versBox h3{margin:0 0 8px;color:var(--success)}
+  #versBox input[type=text]{width:100%;border:1px solid var(--success-border);border-radius:7px;padding:5px 7px;font-size:13px;background:var(--surface);box-sizing:border-box}
+  .ver-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--success-border);font-size:12px}
   .ver-row:last-child{border:none}
-  .ver-name{flex:1;font-weight:600;color:#166534;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ver-name{flex:1;font-weight:600;color:var(--success);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ver-date{color:var(--text-2);font-size:11px;flex-shrink:0}
   body.dark #versBox{background:#052e16;border-color:#14532d}
   body.dark #versBox h3{color:#4ade80}
@@ -539,7 +539,7 @@
   /* ===== Pannello informativo SEO "Cos'è uno stage plot" (overlay, non tocca il grid) ===== */
   #learn{position:fixed;inset:0;z-index:70;background:rgba(17,24,39,.55);display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px 16px}
   #learn.open{display:block}
-  .learn-card{max-width:760px;margin:0 auto;background:var(--surface);color:var(--text);border-radius:16px;padding:30px clamp(20px,4vw,44px) 40px;box-shadow:0 24px 70px rgba(0,0,0,.34);line-height:1.6}
+  .learn-card{max-width:760px;margin:0 auto;background:var(--surface);color:var(--text);border-radius:16px;padding:30px clamp(20px,4vw,44px) 40px;box-shadow:var(--elev-4);line-height:1.6}
   .learn-card .learn-close{float:right;border:none;background:var(--n-100);border-radius:999px;width:34px;height:34px;font-size:17px;cursor:pointer;color:var(--n-700)}
   .learn-card .learn-close:hover{background:#e6e8ea}
   .learn-card .learn-kicker{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--accent)}
@@ -558,7 +558,7 @@
   .learn-card .learn-cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
   .learn-card .learn-cta a,.learn-card .learn-cta button{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid var(--border);background:var(--n-100);color:var(--text)}
   .learn-card .learn-cta .primary{background:#1f2937;border-color:var(--text);color:#fff}
-  .learn-card .learn-cta .consul{background:#b45309;border-color:#b45309;color:#fff}
+  .learn-card .learn-cta .consul{background:var(--accent);border-color:var(--accent);color:#fff}
   body.dark .learn-card{background:#161b24;color:#e5e7eb}
   body.dark .learn-card p,body.dark .learn-card ul,body.dark .learn-card ol{color:#cbd5e1}
   body.dark .learn-card .learn-close{background:#222b38;color:#e5e7eb}
@@ -614,7 +614,7 @@ body.livesession:not(.viewmode) #viewBar {
   <span style="flex:1"></span>
   <button class="btn" id="bLearn" title="Cos'è uno stage plot e come si crea" aria-haspopup="dialog" style="padding:7px 11px">❔ Guida</button>
   <button class="btn" id="bCloud" title="Accedi e salva i tuoi progetti online">☁ Cloud</button>
-  <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="background:#b45309;border-color:#b45309;color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Consulenza</a>
+  <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Consulenza</a>
   <button class="btn" id="bTheme" title="Tema chiaro / scuro" style="padding:7px 11px">🌙</button>
   <button class="btn" id="bUndo" title="Annulla (⌘Z)" style="padding:7px 11px">↶</button>
   <button class="btn" id="bRedo" title="Ripeti (⇧⌘Z)" style="padding:7px 11px">↷</button>
@@ -663,7 +663,7 @@ body.livesession:not(.viewmode) #viewBar {
       <button data-act="cloud">☁ Cloud (salva online)</button>
       <button data-act="theme">Tema chiaro/scuro</button>
       <button data-act="new" class="danger">Nuovo</button>
-      <a href="/consulenza/" target="_blank" rel="noopener" style="grid-column:1/-1;background:#b45309;color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:10px;border-radius:8px">Consulenza</a>
+      <a href="/consulenza/" target="_blank" rel="noopener" style="grid-column:1/-1;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;text-align:center;padding:10px;border-radius:8px">Consulenza</a>
     </div>
   </div>
   <div class="sec" id="stageEditPanel" hidden style="background:#eff5ff;border:1px solid #cfe0fb;border-radius:10px;padding:11px 12px;margin-bottom:14px">
@@ -7555,7 +7555,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       '</div>'+
       '<button id="cloudSave" style="width:100%;padding:12px;border:none;border-radius:9px;background:#0e7490;color:#fff;font-weight:700;font-size:15px;cursor:pointer">☁ Salva online — "'+esc(projTitle())+'"</button>'+
       '<div style="margin-top:18px">'+rows+'</div>'+
-      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:16px;padding:10px;text-align:center;background:#b45309;color:#fff;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px">Consulenza</a>';
+      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:16px;padding:10px;text-align:center;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px">Consulenza</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     document.getElementById("cloudSave").addEventListener("click", saveProject);
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
