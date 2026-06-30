@@ -7766,25 +7766,25 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       ov=document.createElement("div");
       ov.id="nameModal";
       ov.style.cssText="position:fixed;inset:0;z-index:300;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
-      ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(15,23,42,.3)">'+
+      ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:380px;width:100%;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)">'+
         '<h3 style="margin:0 0 6px;font-size:18px">Dai un nome al progetto</h3>'+
         '<p style="margin:0 0 12px;color:var(--text-2);font-size:14px;line-height:1.5">Serve per ritrovarlo e per inviarlo alla Consulenza Tecnica. Es. Concerto Verona, Matrimonio Rossi, Orchestra Estate, Teatro Comunale.</p>'+
-        '<input id="nameInput" type="text" placeholder="Titolo del progetto" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:11px 12px;font-size:15px;box-sizing:border-box">'+
+        '<input id="nameInput" type="text" placeholder="Titolo del progetto" style="width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:11px 12px;font-size:15px;box-sizing:border-box;background:var(--surface);color:var(--text)">'+
         '<div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">'+
-          '<button id="nameCancel" type="button" style="border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:9px 14px;cursor:pointer">Annulla</button>'+
-          '<button id="nameSave" type="button" style="border:none;background:#0e7490;color:#fff;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer">Salva</button>'+
+          '<button id="nameCancel" type="button" class="btn">Annulla</button>'+
+          '<button id="nameSave" type="button" class="btn primary">Salva</button>'+
         '</div></div>';
       document.body.appendChild(ov);
     }
     var inp=ov.querySelector("#nameInput");
     inp.value=(state.luogo||"").trim();
-    inp.style.borderColor="#cbd5e1";
+    inp.style.borderColor="var(--border)";
     ov.style.display="flex";
     setTimeout(function(){ inp.focus(); inp.select(); }, 30);
     function close(){ ov.style.display="none"; }
     function commit(){
       var v=inp.value.trim();
-      if(!v){ inp.style.borderColor="#dc2626"; inp.focus(); return; }
+      if(!v){ inp.style.borderColor="var(--danger-solid)"; inp.focus(); return; }
       state.titolo=v;
       ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=v; });
       if(typeof setEventInputs==="function") setEventInputs();
