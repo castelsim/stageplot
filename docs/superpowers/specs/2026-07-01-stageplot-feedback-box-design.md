@@ -52,8 +52,9 @@ Tool (index.template.html)
 
 Nessun accesso diretto client → tabella, coerente con consulenza/share.
 
-## 5. Componente UI (nel tool, basso a destra)
+## 5. Componente UI (nel tool)
 
+- **Collocazione**: su **desktop** pannello collassabile ancorato in **basso a destra** (sfrutta l'area libera accanto al palco, non copre palco né toolbar). Su **mobile** *non* è un pulsante flottante: la voce **"Cosa manca?"** vive dentro il menu **"Altro…"** già presente, e da lì apre lo stesso pannello a tutta larghezza (scelta per non affollare i controlli mobile).
 - Pannello collassabile, **theme-aware** con i token del design system (accent teal, dark mode ok — vedi `STAGEPLOT_DESIGN_SYSTEM.md`).
 - Elementi:
   - **textarea** con contatore, vincolo 5–1000 caratteri;
@@ -80,7 +81,7 @@ Nessun accesso diretto client → tabella, coerente con consulenza/share.
 | `user_id` | uuid | null se anonimo; FK `auth.users(id)` on delete set null |
 | `user_email` | text | null se anonimo |
 | `project_id` | uuid | null; FK `stageplot_projects(id)` on delete set null |
-| `app_version` | text | versione del tool |
+| `app_version` | text | versione del tool (iniettata da `build.mjs`, formato `YYYY.MM.DD`) |
 | `page_url` | text | URL della pagina |
 | `user_agent` | text | browser/OS/device derivabili da qui (niente colonne separate) |
 | `viewport` | text | es. `1440x900` |
@@ -120,7 +121,7 @@ Convenzioni identiche alle funzioni esistenti (`Deno.serve`, `corsHeaders`, help
 
 ## 8. Email + prompt Claude
 
-- **A:** email admin (env var, la stessa già usata per le consulenze).
+- **A:** email admin = `castellansimone@gmail.com` (via env var, come per le consulenze).
 - **Oggetto:** `[StagePlot feedback] {chip|generico} — {primi ~50 char del messaggio}`.
 - **Corpo** (via `buildEmailHtml` o testo): messaggio originale · contesto tecnico leggibile · **blocco monospace col prompt Claude già compilato**, pronto da copiare.
 
@@ -150,7 +151,7 @@ Non modificare codice senza prima spiegare il piano.
 ## 9. Privacy / GDPR (minimo necessario a questo blocco)
 
 - **Minimizzazione:** nessuno snapshot progetto se non su opt-in esplicito; contesto tecnico limitato a dati non identificativi; IP mai in chiaro (solo hash per rate-limit).
-- **Trasparenza:** micro-nota sotto il box, es. *"Inviando accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot."* Link alla privacy policy esistente (`/privacy`).
+- **Trasparenza:** micro-nota sotto il box (testo definitivo): *"Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot."* Link alla privacy policy esistente (`/privacy`).
 - L'uso dei progetti cloud per il **dataset AI** è materia del blocco dataset, non di qui: qui il progetto completo viaggia **solo** se l'utente spunta l'allegato, e per l'unico scopo di riprodurre il problema segnalato.
 
 ## 10. Error handling
@@ -176,7 +177,7 @@ Unit test in stile `_shared/*.test.ts` (Deno):
 ## 12. Rischi e questioni aperte
 
 - **[DA VERIFICARE]** header IP su Supabase Edge Functions (`x-forwarded-for`).
-- **[DA VERIFICARE]** dove leggere `app_version` nel tool (costante di versione esistente).
+- **Deciso:** `app_version` iniettata da `build.mjs` al build (formato `YYYY.MM.DD`); se nel tool esiste già una costante di versione, si riusa quella.
 - **[DA VERIFICARE]** formato esatto dello snapshot progetto (`.stageplot` JSON) da riusare per `project_snapshot`.
 - Il box vive dentro il monolite `index.template.html`: attenzione a inserirlo nel template e rigenerare `index.html` via `build.mjs` (non editare `index.html` a mano).
 - Env var nuove: salt rate-limit, indirizzo email admin (se non già presente).
