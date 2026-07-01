@@ -761,5 +761,6 @@ git commit -m "feat(feedback): voce 'Cosa manca?' nel menu Altro (mobile)"
 ## Note di rilascio / deploy
 
 - **Migration + funzione + secret** (Task 1) e **deploy Edge Function** (Task 4) richiedono progetto Supabase linkato (`supabase link`) e vanno eseguiti una volta.
+- ⚠️ **`submit-feedback` va deployata con `verify_jwt=false`** → `supabase functions deploy submit-feedback --no-verify-jwt`. Il box invia **senza** header di auth (stesso pattern di `get-shared-project`), quindi col default `verify_jwt=true` ogni invio anonimo prenderebbe **401** dal gateway *prima* di raggiungere la funzione. (Rilevato dalla review finale del branch.)
 - Il frontend va in produzione col normale flusso GitHub Pages (merge del branch → `stageplot.it`). Verificare CORS: `_shared/cors.ts` deve consentire l'origine di `stageplot.it` (già così per le altre funzioni).
 - **Fuori scope** (blocchi successivi, non in questo piano): PostHog, Sentry, dashboard admin, dataset AI, evento `feedback_submitted`.
