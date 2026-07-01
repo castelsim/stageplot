@@ -735,7 +735,7 @@ body.livesession:not(.viewmode) #viewBar {
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-<div id="viewBar"><strong id="viewRole">Sola lettura</strong><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button></div>
+<div id="viewBar"><strong id="viewRole">Sola lettura</strong><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -7566,6 +7566,7 @@ function gallery(){
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.error){ document.body.classList.add("viewmode"); showBar("viewer","— progetto non disponibile"); return; }
+      if(d.kind==="project"){ startSharedProject(vt, d); return; }   /* condivisione generica: read-only statico + copia */
       whenSupabase(function(){
         var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});
         sb.auth.getSession().then(function(res){
@@ -7598,6 +7599,32 @@ function gallery(){
     window.__role=isEditor?"editor":"viewer";
   }
 
+  function startSharedProject(token, d){
+    document.body.classList.add("viewmode");
+    importProject(JSON.stringify(d.data));
+    showBar("viewer", "");
+    var role=document.getElementById("viewRole"); if(role) role.textContent="Sola lettura · Crea una copia per modificare";
+    var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
+    var cp=document.getElementById("viewCopy"); if(!cp) return;
+    cp.hidden=false;
+    cp.addEventListener("click", function(){
+      var C=window.__cloud;
+      if(C && C.user()){
+        C.setCurrentId(null);
+        try{ state.titolo="Copia di "+(d.title||"progetto"); }catch(e){}
+        C.save(function(id){
+          if(!id) return;
+          document.body.classList.remove("viewmode");
+          try{ history.replaceState(null,"",location.pathname); }catch(e){}
+          var bar=document.getElementById("viewBar"); if(bar) bar.style.display="none";
+          if(window.__toast) window.__toast("✓ Copia creata nel tuo account.");
+        });
+      } else {
+        try{ sessionStorage.setItem("copyFromToken", token); }catch(e){}
+        if(C && C.signIn) C.signIn();
+      }
+    });
+  }
   function whenSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var t=setInterval(function(){ if(window.supabase&&window.supabase.createClient){ clearInterval(t); cb(); } },80); }
 
   function showBar(role, meta){
