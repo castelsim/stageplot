@@ -7172,6 +7172,9 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
 
   var sb=null, cloudUser=null, cloudCurrentId=null, cloudProjects=[];
+  window.getFeedbackContext = function(){
+    return { user_id: cloudUser?cloudUser.id:null, user_email: cloudUser?cloudUser.email:null, project_id: cloudCurrentId||null };
+  };
   var modalEl=document.getElementById("cloudModal");
   var bodyEl=document.getElementById("cloudBody");
   var toastEl=document.getElementById("cloudToast");
@@ -7474,7 +7477,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       selected_object_type: sel?sel.type:null };
   }
 
-  function collectAndSend(userId, userEmail){
+  function collectAndSend(userId, userEmail, projectId){
     var body={
       message: msg.value.trim(), hint: hint, honeypot: hp.value,
       tech_context: techContext(),
@@ -7482,35 +7485,30 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
       project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
       user_id: userId||null, user_email: userEmail||null,
-      project_id: (window.cloudCurrentId||null)
+      project_id: (projectId||null)
     };
     fetch(SUBMIT_URL,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) })
       .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status,j:j}; }); })
       .then(function(res){
         send.disabled=false;
         if(res.status===200 && res.j.ok){
-          result.style.display="block"; result.style.color="#2dd4bf"; result.textContent="Ricevuto, grazie!";
+          result.style.display="block"; result.style.color="var(--accent)"; result.textContent="Ricevuto, grazie!";
           msg.value=""; count.textContent="0"; setTimeout(closeBox,1400);
         } else {
-          result.style.display="block"; result.style.color="#f87171";
+          result.style.display="block"; result.style.color="var(--danger)";
           result.textContent=res.status===429 ? "Hai inviato troppi feedback, riprova più tardi." : "Non è stato possibile inviare, riprova.";
         }
       })
-      .catch(function(){ send.disabled=false; result.style.display="block"; result.style.color="#f87171";
+      .catch(function(){ send.disabled=false; result.style.display="block"; result.style.color="var(--danger)";
         result.textContent="Non è stato possibile inviare, riprova."; });
   }
 
   send.addEventListener("click", function(){
     var m=msg.value.trim();
-    if(m.length<5){ result.style.display="block"; result.style.color="#f87171"; result.textContent="Scrivi almeno 5 caratteri."; return; }
+    if(m.length<5){ result.style.display="block"; result.style.color="var(--danger)"; result.textContent="Scrivi almeno 5 caratteri."; return; }
     send.disabled=true; result.style.display="none";
-    // prova ad agganciare l'utente loggato, altrimenti invio anonimo
-    if(typeof whenSupabase==="function" && window.sb && sb.auth){
-      sb.auth.getSession().then(function(r){
-        var u=r&&r.data&&r.data.session&&r.data.session.user;
-        collectAndSend(u?u.id:null, u?u.email:null);
-      }).catch(function(){ collectAndSend(null,null); });
-    } else { collectAndSend(null,null); }
+    var ctx = (typeof window.getFeedbackContext==="function") ? window.getFeedbackContext() : {user_id:null,user_email:null,project_id:null};
+    collectAndSend(ctx.user_id, ctx.user_email, ctx.project_id);
   });
 })();
 </script>
