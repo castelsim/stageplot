@@ -1,0 +1,42 @@
+export type FeedbackMeta = {
+  app_version?: string; page_url?: string; user_agent?: string; viewport?: string; language?: string;
+};
+export type FeedbackInput = {
+  message: string;
+  hint: string | null;
+  tech_context: Record<string, unknown>;
+  meta: FeedbackMeta;
+  project_snapshot: unknown | null;
+  user_id: string | null;
+  user_email: string | null;
+  project_id: string | null;
+};
+export type ValidationResult =
+  | { ok: true; value: FeedbackInput }
+  | { ok: false; error: string };
+
+const HINTS = ["bug", "missing", "idea"];
+
+export function validateFeedback(payload: unknown): ValidationResult {
+  const p = (payload ?? {}) as Record<string, unknown>;
+  if (typeof p.honeypot === "string" && p.honeypot.trim() !== "") {
+    return { ok: false, error: "spam" };
+  }
+  const message = typeof p.message === "string" ? p.message.trim() : "";
+  if (message.length < 5) return { ok: false, error: "messaggio troppo corto" };
+  if (message.length > 1000) return { ok: false, error: "messaggio troppo lungo" };
+  const hint = typeof p.hint === "string" && HINTS.includes(p.hint) ? p.hint : null;
+  const obj = (x: unknown) => (x && typeof x === "object") ? x as Record<string, unknown> : {};
+  return {
+    ok: true,
+    value: {
+      message, hint,
+      tech_context: obj(p.tech_context),
+      meta: obj(p.meta) as FeedbackMeta,
+      project_snapshot: p.project_snapshot ?? null,
+      user_id: typeof p.user_id === "string" ? p.user_id : null,
+      user_email: typeof p.user_email === "string" ? p.user_email : null,
+      project_id: typeof p.project_id === "string" ? p.project_id : null,
+    },
+  };
+}
