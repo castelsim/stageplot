@@ -670,7 +670,7 @@
       <p class="hint" style="font-size:13px;color:var(--text-2);margin:0 0 14px;line-height:1.45">Chiunque abbia il link può vederlo in sola lettura.</p>
       <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch">
         <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
-        <button class="btn primary" id="shareNative" hidden>Condividi…</button>
+        <button class="btn" id="shareNative" hidden>Condividi…</button>
         <button class="btn primary" id="shareCopy">Copia</button>
       </div>
       <div id="shareUrlButtons" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
@@ -2738,7 +2738,7 @@ function itemMarkup(it){
   s += '</g>';
   return s;
 }
-function esc(x){ return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function esc(x){ return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function fmtM(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; }
 /* ordine di sovrapposizione: z per tipo, con override manuale it.z (Porta sopra/sotto); stabile sull'ordine d'inserimento */
 function effZ(it){ return it.z!=null ? it.z : ((TYPES[it.type] && TYPES[it.type].z) || 2); }
