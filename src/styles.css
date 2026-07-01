@@ -595,3 +595,7 @@ body.livesession:not(.viewmode) #viewBar {
   border:none;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.35)}
 #fbTrigger.hide{display:none}
 @media (max-width:760px){ #fbTrigger{display:none} #fbBox{right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0} }
+
+/* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover */
+.cloudShareRow{color:var(--text-3);transition:color var(--dur-fast) var(--ease)}
+.cloudShareRow:hover{color:var(--accent)}

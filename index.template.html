@@ -6062,6 +6062,17 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
   }
   function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; }
+  var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
+  function showForProject(id){
+    shareTargetId = id;
+    window.__cloud.ensureShareTokenFor(id, function(tok){
+      if(!tok){ fillShareModal(buildShareUrl()); return; }   /* fallback offline */
+      fillShareModal(location.origin+location.pathname+"?view="+encodeURIComponent(tok));
+      showUnshare(true);
+    });
+  }
+  /* Aperto dal modulo cloud (icona Condividi per riga) con un progetto già salvato. */
+  window.__shareUi = { showForProject: function(id){ modal.hidden=false; status("Preparazione link…"); showUnshare(false); showForProject(id); } };
   function openShare(){
     var C=window.__cloud;
     modal.hidden=false;
@@ -6069,15 +6080,12 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       status("Preparazione link…"); showUnshare(false);
       C.save(function(id){
         if(!id){ status(""); return; }
-        C.ensureShareToken(function(tok){
-          if(!tok){ fillShareModal(buildShareUrl()); return; }   /* fallback offline */
-          fillShareModal(location.origin+location.pathname+"?view="+encodeURIComponent(tok));
-          showUnshare(true);
-        });
+        showForProject(id);
       });
       return;
     }
     /* non loggato / offline: link hash storico, invariato */
+    shareTargetId = null;
     showUnshare(false);
     fillShareModal(buildShareUrl());
   }
@@ -6118,8 +6126,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   }
   document.getElementById("shareCopy").addEventListener("click", copy);
   (function(){ var ub=document.getElementById("shareUnshare"); if(ub) ub.addEventListener("click", function(){
-    var C=window.__cloud; if(!C) return;
-    C.clearShareToken(function(ok){
+    var C=window.__cloud; if(!C || !shareTargetId) return;
+    C.clearShareTokenFor(shareTargetId, function(ok){
       if(ok){ status("Condivisione revocata."); urlEl.value=""; showUnshare(false);
         var q=document.getElementById('shareQrImg'); if(q){ q.style.display='none'; q.src=''; } }
       else status("Revoca non riuscita.");
@@ -7276,6 +7284,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
           '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
+          '<button class="cloudShareRow" data-id="'+p.id+'" title="Condividi con un link" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
           '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
@@ -7288,14 +7297,13 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         '<button id="cloudSignout" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
       '<button id="cloudSave" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:none;border-radius:var(--r-md);background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva online — &quot;'+esc(projTitle())+'&quot;</button>'+
-      '<button id="cloudShare" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;margin-top:8px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-weight:600;font-size:13px;cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi con un link</button>'+
       '<div style="margin-top:18px">'+rows+'</div>'+
       '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:14px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     document.getElementById("cloudSave").addEventListener("click", saveProject);
-    (function(){ var csh=document.getElementById("cloudShare"); if(csh) csh.addEventListener("click", function(){ closeModal(); var b=document.getElementById("bShare"); if(b) b.click(); }); })();
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudShareRow"), function(b){ b.addEventListener("click", function(){ shareRow(b.getAttribute("data-id")); }); });
   }
 
   function signIn(){
@@ -7436,18 +7444,24 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   }
 
   /* Interfaccia cloud per gli altri IIFE (openShare, ?view=), che hanno scope separati. */
-  function ensureShareToken(cb){
-    if(!sb || !cloudCurrentId){ cb(null); return; }
-    sb.from("stageplot_projects").select("share_token").eq("id", cloudCurrentId).single().then(function(r){
+  function ensureShareTokenFor(id, cb){
+    if(!sb || !id){ cb(null); return; }
+    sb.from("stageplot_projects").select("share_token").eq("id", id).single().then(function(r){
       if(r.error){ cb(null); return; }
       if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
       var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
-      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", cloudCurrentId).then(function(u){ cb(u.error?null:tok); });
+      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", id).then(function(u){ cb(u.error?null:tok); });
     });
   }
-  function clearShareToken(cb){
-    if(!sb || !cloudCurrentId){ if(cb) cb(false); return; }
-    sb.from("stageplot_projects").update({ share_token:null }).eq("id", cloudCurrentId).then(function(u){ if(cb) cb(!u.error); });
+  function clearShareTokenFor(id, cb){
+    if(!sb || !id){ if(cb) cb(false); return; }
+    sb.from("stageplot_projects").update({ share_token:null }).eq("id", id).then(function(u){ if(cb) cb(!u.error); });
+  }
+  /* Condividi una riga della lista: se è il progetto aperto, salva prima (link aggiornato); poi apre la finestra Condividi. */
+  function shareRow(id){
+    function go(){ closeModal(); if(window.__shareUi) window.__shareUi.showForProject(id); }
+    if(id===cloudCurrentId){ saveProject(function(){ go(); }); }
+    else { go(); }
   }
   window.__cloud = {
     user: function(){ return cloudUser; },
@@ -7455,8 +7469,8 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     setCurrentId: function(v){ cloudCurrentId=v; },
     signIn: signIn,
     save: saveProject,
-    ensureShareToken: ensureShareToken,
-    clearShareToken: clearShareToken
+    ensureShareTokenFor: ensureShareTokenFor,
+    clearShareTokenFor: clearShareTokenFor
   };
 
   function init(){
