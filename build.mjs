@@ -41,7 +41,8 @@ const built = build();
 
 if (check) {
   const current = readFileSync(r("index.html"), "utf8");
-  if (current !== built) {
+  const stripVer = (s) => s.replace(/window\.__APP_VERSION__="[^"]*"/g, 'window.__APP_VERSION__="__VER__"');
+  if (stripVer(current) !== stripVer(built)) {
     console.error("✗ index.html NON allineato ai sorgenti. Esegui: node build.mjs");
     process.exit(1);
   }
