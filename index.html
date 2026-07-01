@@ -8048,6 +8048,10 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var hint=null;
 
   window.openFeedbackBox=function(){
+    hint=null;
+    Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){ c.classList.remove("on"); });
+    attach.checked=false;
+    result.style.display="none";
     box.classList.add("open"); trigger.classList.add("hide");
     // mostra "allega progetto" solo se c'è un progetto con oggetti
     attachRow.style.display=(window.state&&state.items&&state.items.length)?"flex":"none";
