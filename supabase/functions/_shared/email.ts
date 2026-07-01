@@ -34,7 +34,7 @@ export async function sendEmail(args: {
     method: "POST",
     headers: { "Authorization": `Bearer ${args.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Stage Plot <onboarding@resend.dev>",
+      from: "StagePlot <feedback@stageplot.it>",
       to: [args.to], subject: args.subject, html: args.html,
     }),
   });
