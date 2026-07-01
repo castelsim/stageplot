@@ -7288,10 +7288,12 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         '<button id="cloudSignout" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
       '<button id="cloudSave" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:none;border-radius:var(--r-md);background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva online — &quot;'+esc(projTitle())+'&quot;</button>'+
+      '<button id="cloudShare" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;margin-top:8px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-weight:600;font-size:13px;cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi con un link</button>'+
       '<div style="margin-top:18px">'+rows+'</div>'+
       '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:14px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     document.getElementById("cloudSave").addEventListener("click", saveProject);
+    (function(){ var csh=document.getElementById("cloudShare"); if(csh) csh.addEventListener("click", function(){ closeModal(); var b=document.getElementById("bShare"); if(b) b.click(); }); })();
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });
   }
