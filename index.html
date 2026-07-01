@@ -700,6 +700,36 @@ body.livesession:not(.viewmode) #viewBar {
 }
 #viewBar #viewSave { margin-left:8px; border:1px solid #fff; background:transparent; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; }
 #viewBar { display: none; }
+/* ===== Box feedback "Cosa manca?" ===== */
+#fbBox{position:fixed;right:22px;bottom:22px;width:326px;z-index:900;
+  background:var(--panel,#161d2b);border:1px solid var(--border,#2c3a4f);border-radius:14px;
+  box-shadow:0 18px 44px rgba(0,0,0,.4);color:var(--text,#e2e8f0);overflow:hidden;display:none}
+#fbBox.open{display:block}
+#fbBox .fb-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0}
+#fbBox .fb-head strong{font-size:16px}
+#fbBox .fb-body{padding:12px 16px 16px}
+#fbBox textarea{width:100%;height:72px;resize:none;background:var(--bg,#0e1420);
+  border:1px solid var(--border,#2c3a4f);border-radius:9px;color:inherit;padding:9px 11px;
+  font-size:13px;font-family:inherit;box-sizing:border-box}
+#fbBox .fb-count{font-size:11px;color:var(--muted,#64748b);text-align:right;margin:4px 2px 0}
+#fbBox .fb-chips{display:flex;gap:7px;margin:8px 0 12px}
+#fbBox .fb-chip{flex:1;text-align:center;font-size:12px;font-weight:600;padding:6px 0;border-radius:8px;
+  background:var(--bg,#0e1420);border:1px solid var(--border,#2c3a4f);color:var(--muted,#94a3b8);cursor:pointer}
+#fbBox .fb-chip.on{background:#2dd4bf;border-color:#2dd4bf;color:#06251f}
+#fbBox .fb-attach{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted,#94a3b8);margin-bottom:12px}
+#fbBox .fb-send{width:100%;background:#2dd4bf;color:#06251f;border:none;border-radius:9px;padding:10px 0;
+  font-size:14px;font-weight:700;cursor:pointer}
+#fbBox .fb-send:disabled{opacity:.5;cursor:default}
+#fbBox .fb-note{margin:11px 2px 0;font-size:10.5px;line-height:1.4;color:var(--muted,#64748b)}
+#fbBox .fb-note a{color:inherit;text-decoration:underline}
+#fbBox .fb-msg{font-size:12.5px;margin:10px 2px 0}
+#fbBox .fb-close{background:none;border:none;color:var(--muted,#64748b);font-size:20px;cursor:pointer;line-height:1}
+/* Trigger pill desktop */
+#fbTrigger{position:fixed;right:22px;bottom:22px;z-index:899;display:flex;align-items:center;gap:7px;
+  background:#2dd4bf;color:#06251f;padding:10px 15px;border-radius:999px;font-weight:700;font-size:13px;
+  border:none;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+#fbTrigger.hide{display:none}
+@media (max-width:760px){ #fbTrigger{display:none} #fbBox{right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0} }
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -7979,6 +8009,106 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var cb=document.getElementById("bLearnClose"); if(cb) cb.addEventListener("click",close);
   var sb=document.getElementById("bLearnStart"); if(sb) sb.addEventListener("click",close);
   panel.addEventListener("click",function(e){ if(e.target===panel) close(); });
+})();
+</script>
+<button id="fbTrigger" type="button">💬 Cosa manca?</button>
+<div id="fbBox" role="dialog" aria-label="Cosa manca?">
+  <div class="fb-head"><strong>Cosa manca?</strong><button class="fb-close" id="fbClose" aria-label="Chiudi">×</button></div>
+  <div class="fb-body">
+    <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
+    <div class="fb-count"><span id="fbCount">0</span>/1000</div>
+    <div class="fb-chips">
+      <button type="button" class="fb-chip" data-hint="bug">Bug</button>
+      <button type="button" class="fb-chip" data-hint="missing">Manca qualcosa</button>
+      <button type="button" class="fb-chip" data-hint="idea">Idea</button>
+    </div>
+    <label class="fb-attach" id="fbAttachRow" style="display:none">
+      <input type="checkbox" id="fbAttach"> Allega il mio progetto</label>
+    <!-- honeypot anti-bot: nascosto agli umani -->
+    <input type="text" id="fbHp" tabindex="-1" autocomplete="off"
+      style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
+    <button class="fb-send" id="fbSend">Invia</button>
+    <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy">Privacy</a></p>
+    <p class="fb-msg" id="fbResult" style="display:none"></p>
+  </div>
+</div>
+<script>
+(function(){
+  var SUBMIT_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/submit-feedback";
+  var box=document.getElementById("fbBox"), trigger=document.getElementById("fbTrigger"),
+      msg=document.getElementById("fbMsg"), count=document.getElementById("fbCount"),
+      send=document.getElementById("fbSend"), result=document.getElementById("fbResult"),
+      attachRow=document.getElementById("fbAttachRow"), attach=document.getElementById("fbAttach"),
+      hp=document.getElementById("fbHp"), close=document.getElementById("fbClose");
+  var hint=null;
+
+  window.openFeedbackBox=function(){
+    box.classList.add("open"); trigger.classList.add("hide");
+    // mostra "allega progetto" solo se c'è un progetto con oggetti
+    attachRow.style.display=(window.state&&state.items&&state.items.length)?"flex":"none";
+    setTimeout(function(){ msg.focus(); },50);
+  };
+  function closeBox(){ box.classList.remove("open"); trigger.classList.remove("hide"); }
+
+  trigger.addEventListener("click", window.openFeedbackBox);
+  close.addEventListener("click", closeBox);
+  msg.addEventListener("input", function(){ count.textContent=msg.value.length; });
+  Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){
+    c.addEventListener("click", function(){
+      if(hint===c.dataset.hint){ hint=null; c.classList.remove("on"); return; }
+      hint=c.dataset.hint;
+      Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(x){ x.classList.toggle("on", x===c); });
+    });
+  });
+
+  function techContext(){
+    var s=window.state||{items:[],stage:{},inputs:[],outputs:[]};
+    var types={}; (s.items||[]).forEach(function(i){ types[i.type]=(types[i.type]||0)+1; });
+    var sel=(typeof getSel==="function" && getSel()) || null;
+    return { stage_w:(s.stage||{}).w, stage_d:(s.stage||{}).d,
+      total_objects:(s.items||[]).length, object_types:types,
+      inputs_count:(s.inputs||[]).length, outputs_count:(s.outputs||[]).length,
+      selected_object_type: sel?sel.type:null };
+  }
+
+  function collectAndSend(userId, userEmail){
+    var body={
+      message: msg.value.trim(), hint: hint, honeypot: hp.value,
+      tech_context: techContext(),
+      meta:{ app_version: window.__APP_VERSION__||null, page_url: location.href,
+        user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
+      project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
+      user_id: userId||null, user_email: userEmail||null,
+      project_id: (window.cloudCurrentId||null)
+    };
+    fetch(SUBMIT_URL,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) })
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status,j:j}; }); })
+      .then(function(res){
+        send.disabled=false;
+        if(res.status===200 && res.j.ok){
+          result.style.display="block"; result.style.color="#2dd4bf"; result.textContent="Ricevuto, grazie!";
+          msg.value=""; count.textContent="0"; setTimeout(closeBox,1400);
+        } else {
+          result.style.display="block"; result.style.color="#f87171";
+          result.textContent=res.status===429 ? "Hai inviato troppi feedback, riprova più tardi." : "Non è stato possibile inviare, riprova.";
+        }
+      })
+      .catch(function(){ send.disabled=false; result.style.display="block"; result.style.color="#f87171";
+        result.textContent="Non è stato possibile inviare, riprova."; });
+  }
+
+  send.addEventListener("click", function(){
+    var m=msg.value.trim();
+    if(m.length<5){ result.style.display="block"; result.style.color="#f87171"; result.textContent="Scrivi almeno 5 caratteri."; return; }
+    send.disabled=true; result.style.display="none";
+    // prova ad agganciare l'utente loggato, altrimenti invio anonimo
+    if(typeof whenSupabase==="function" && window.sb && sb.auth){
+      sb.auth.getSession().then(function(r){
+        var u=r&&r.data&&r.data.session&&r.data.session.user;
+        collectAndSend(u?u.id:null, u?u.email:null);
+      }).catch(function(){ collectAndSend(null,null); });
+    } else { collectAndSend(null,null); }
+  });
 })();
 </script>
 </body>

@@ -565,3 +565,33 @@ body.livesession:not(.viewmode) #viewBar {
 }
 #viewBar #viewSave { margin-left:8px; border:1px solid #fff; background:transparent; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; }
 #viewBar { display: none; }
+/* ===== Box feedback "Cosa manca?" ===== */
+#fbBox{position:fixed;right:22px;bottom:22px;width:326px;z-index:900;
+  background:var(--panel,#161d2b);border:1px solid var(--border,#2c3a4f);border-radius:14px;
+  box-shadow:0 18px 44px rgba(0,0,0,.4);color:var(--text,#e2e8f0);overflow:hidden;display:none}
+#fbBox.open{display:block}
+#fbBox .fb-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0}
+#fbBox .fb-head strong{font-size:16px}
+#fbBox .fb-body{padding:12px 16px 16px}
+#fbBox textarea{width:100%;height:72px;resize:none;background:var(--bg,#0e1420);
+  border:1px solid var(--border,#2c3a4f);border-radius:9px;color:inherit;padding:9px 11px;
+  font-size:13px;font-family:inherit;box-sizing:border-box}
+#fbBox .fb-count{font-size:11px;color:var(--muted,#64748b);text-align:right;margin:4px 2px 0}
+#fbBox .fb-chips{display:flex;gap:7px;margin:8px 0 12px}
+#fbBox .fb-chip{flex:1;text-align:center;font-size:12px;font-weight:600;padding:6px 0;border-radius:8px;
+  background:var(--bg,#0e1420);border:1px solid var(--border,#2c3a4f);color:var(--muted,#94a3b8);cursor:pointer}
+#fbBox .fb-chip.on{background:#2dd4bf;border-color:#2dd4bf;color:#06251f}
+#fbBox .fb-attach{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted,#94a3b8);margin-bottom:12px}
+#fbBox .fb-send{width:100%;background:#2dd4bf;color:#06251f;border:none;border-radius:9px;padding:10px 0;
+  font-size:14px;font-weight:700;cursor:pointer}
+#fbBox .fb-send:disabled{opacity:.5;cursor:default}
+#fbBox .fb-note{margin:11px 2px 0;font-size:10.5px;line-height:1.4;color:var(--muted,#64748b)}
+#fbBox .fb-note a{color:inherit;text-decoration:underline}
+#fbBox .fb-msg{font-size:12.5px;margin:10px 2px 0}
+#fbBox .fb-close{background:none;border:none;color:var(--muted,#64748b);font-size:20px;cursor:pointer;line-height:1}
+/* Trigger pill desktop */
+#fbTrigger{position:fixed;right:22px;bottom:22px;z-index:899;display:flex;align-items:center;gap:7px;
+  background:#2dd4bf;color:#06251f;padding:10px 15px;border-radius:999px;font-weight:700;font-size:13px;
+  border:none;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+#fbTrigger.hide{display:none}
+@media (max-width:760px){ #fbTrigger{display:none} #fbBox{right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0} }
