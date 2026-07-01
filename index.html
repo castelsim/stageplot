@@ -7887,10 +7887,10 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
   }
 
-  function saveProject(){
+  function saveProject(onSaved){
     if(!sb){ toast("Cloud non disponibile.", true); return; }
     if(!cloudUser){ toast("Accedi per salvare online."); signIn(); return; }
-    if(!(state.titolo||"").trim()){ askProjectName(saveProject); return; }
+    if(!(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
     function doSave(thumb){
       var fields={ title:projTitle(), data:JSON.parse(JSON.stringify(state)) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
@@ -7905,6 +7905,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         if(r.data && r.data.id) cloudCurrentId=r.data.id;
         toast("✓ Salvato online.");
         loadProjects();
+        if(typeof onSaved==="function") onSaved(cloudCurrentId);
       });
     }
     /* genera la miniatura del rendering vero (non blocca il salvataggio se fallisce) */
@@ -7959,6 +7960,30 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     b.style.color = cloudUser ? "#16a34a" : "";
     b.title = cloudUser ? ("Connesso come "+(cloudUser.email||"")) : "Accedi e salva i tuoi progetti online";
   }
+
+  /* Interfaccia cloud per gli altri IIFE (openShare, ?view=), che hanno scope separati. */
+  function ensureShareToken(cb){
+    if(!sb || !cloudCurrentId){ cb(null); return; }
+    sb.from("stageplot_projects").select("share_token").eq("id", cloudCurrentId).single().then(function(r){
+      if(r.error){ cb(null); return; }
+      if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
+      var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
+      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", cloudCurrentId).then(function(u){ cb(u.error?null:tok); });
+    });
+  }
+  function clearShareToken(cb){
+    if(!sb || !cloudCurrentId){ if(cb) cb(false); return; }
+    sb.from("stageplot_projects").update({ share_token:null }).eq("id", cloudCurrentId).then(function(u){ if(cb) cb(!u.error); });
+  }
+  window.__cloud = {
+    user: function(){ return cloudUser; },
+    currentId: function(){ return cloudCurrentId; },
+    setCurrentId: function(v){ cloudCurrentId=v; },
+    signIn: signIn,
+    save: saveProject,
+    ensureShareToken: ensureShareToken,
+    clearShareToken: clearShareToken
+  };
 
   function init(){
     var bCloud=document.getElementById("bCloud");
