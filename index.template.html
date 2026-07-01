@@ -680,6 +680,7 @@
         <button class="btn" id="shareEmail">Email</button>
         <button class="btn" id="shareWa">WhatsApp</button>
       </div>
+      <button class="btn" id="shareUnshare" hidden style="margin-top:6px">Smetti di condividere</button>
       <div id="shareStatus" style="font-size:12px;color:#16a34a;min-height:14px;margin-top:4px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
@@ -6042,8 +6043,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   function status(m){ document.getElementById("shareStatus").textContent=m||""; }
   function shareText(){ var t=state.titolo||"", l=state.luogo||"";
     return (t||l) ? (t+(t&&l?" · ":"")+l) : "Stage plot"; }   /* oggetto mail = titolo · luogo */
-  function openShare(){
-    var url=buildShareUrl(); urlEl.value=url; status("");
+  function fillShareModal(url){
+    urlEl.value=url; status("");
     document.getElementById("shareNative").hidden = !navigator.share;
     /* QR — nascosto se URL > 1000 chars (QR troppo denso a 200px) */
     var qrImg=document.getElementById('shareQrImg');
@@ -6058,7 +6059,27 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       qrImg.style.display='block';
       qrImg.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&ecc=L&data='+encodeURIComponent(url);
     }
-    modal.hidden=false; setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
+    setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
+  }
+  function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; }
+  function openShare(){
+    var C=window.__cloud;
+    modal.hidden=false;
+    if(C && C.user()){
+      status("Preparazione link…"); showUnshare(false);
+      C.save(function(id){
+        if(!id){ status(""); return; }
+        C.ensureShareToken(function(tok){
+          if(!tok){ fillShareModal(buildShareUrl()); return; }   /* fallback offline */
+          fillShareModal(location.origin+location.pathname+"?view="+encodeURIComponent(tok));
+          showUnshare(true);
+        });
+      });
+      return;
+    }
+    /* non loggato / offline: link hash storico, invariato */
+    showUnshare(false);
+    fillShareModal(buildShareUrl());
   }
   document.getElementById("bShare").addEventListener("click", openShare);
   document.getElementById("shareClose").addEventListener("click", function(){ modal.hidden=true; });
@@ -6096,6 +6117,14 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     else { urlEl.select(); document.execCommand("copy"); done(); }
   }
   document.getElementById("shareCopy").addEventListener("click", copy);
+  (function(){ var ub=document.getElementById("shareUnshare"); if(ub) ub.addEventListener("click", function(){
+    var C=window.__cloud; if(!C) return;
+    C.clearShareToken(function(ok){
+      if(ok){ status("Condivisione revocata."); urlEl.value=""; showUnshare(false);
+        var q=document.getElementById('shareQrImg'); if(q){ q.style.display='none'; q.src=''; } }
+      else status("Revoca non riuscita.");
+    });
+  }); })();
   document.getElementById("shareEmail").addEventListener("click", function(){
     var a=document.createElement('a');
     a.href="mailto:?subject="+encodeURIComponent(shareText())+"&body="+encodeURIComponent(shareText()+"\n\n"+urlEl.value);
