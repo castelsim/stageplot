@@ -221,6 +221,7 @@
         <button data-act="save">Salva (locale)</button>
         <button data-act="import">Importa</button>
         <button data-act="theme">Tema chiaro/scuro</button>
+        <button data-act="feedback">Cosa manca?</button>
         <button data-act="new" class="danger">Nuovo</button>
       </div>
     </div>
@@ -3708,6 +3709,7 @@ function closeMobileDrawers(){
       else if(a==="share") proxy("bShare");
       else if(a==="cloud") proxy("bCloud");
       else if(a==="theme") proxy("bTheme");
+      else if(a==="feedback"){ if(typeof window.openFeedbackBox==="function") window.openFeedbackBox(); }
       else if(a==="new") proxy("bNew");
     });
   });
