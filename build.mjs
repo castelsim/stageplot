@@ -30,6 +30,9 @@ function build() {
     const content = readFileSync(r(file), "utf8");
     out = out.replace(marker, () => content); // replacer fn: nessun carattere speciale ($&, $1) interpretato
   }
+  const version = new Date().toISOString().slice(0, 10).replace(/-/g, "."); // YYYY.MM.DD
+  if (!out.includes("/*__APP_VERSION__*/")) throw new Error("Marcatore mancante: /*__APP_VERSION__*/");
+  out = out.replaceAll("/*__APP_VERSION__*/", version);
   return out;
 }
 
