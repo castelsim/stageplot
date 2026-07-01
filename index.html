@@ -7973,6 +7973,19 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     } catch(e){ if(!saved){ saved=true; doSave(null); } }
   }
 
+  function completeCopyFromToken(token){
+    fetch(SUPABASE_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(token))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d || d.error || !d.data){ toast("Impossibile completare la copia.", true); return; }
+        try{ importProject(JSON.stringify(d.data)); }catch(e){ toast("Copia non valida.", true); return; }
+        cloudCurrentId=null;
+        try{ state.titolo="Copia di "+(d.title||"progetto"); }catch(e){}
+        saveProject(function(){ toast("✓ Copia creata nel tuo account."); try{ history.replaceState(null,"",location.pathname); }catch(e){} });
+      })
+      .catch(function(){ toast("Impossibile completare la copia.", true); });
+  }
+
   function loadProjects(){
     if(!sb || !cloudUser) return;
     sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at",null).order("updated_at",{ascending:false})
@@ -8054,6 +8067,12 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     sb.auth.getSession().then(function(r){
       cloudUser=(r && r.data && r.data.session)?r.data.session.user:null;
       updateBtn();
+      var copyTok=null; try{ copyTok=sessionStorage.getItem("copyFromToken"); }catch(e){}
+      if(copyTok && cloudUser){
+        try{ sessionStorage.removeItem("copyFromToken"); sessionStorage.removeItem("cloudReopen"); }catch(e){}
+        completeCopyFromToken(copyTok);
+        return;
+      }
       var reopen=false; try{ reopen=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}
       if(reopen && cloudUser){ try{ sessionStorage.removeItem("cloudReopen"); }catch(e){} openModal(); }
     });
