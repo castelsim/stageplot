@@ -731,15 +731,23 @@ body.livesession:not(.viewmode) #viewBar {
 #fbTrigger.hide{display:none}
 @media (max-width:760px){ #fbTrigger{display:none} #fbBox{right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0} }
 
-/* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover */
+/* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover; teal + pallino "acceso" quando il progetto è già condiviso */
 .cloudShareRow{color:var(--text-3);transition:color var(--dur-fast) var(--ease)}
 .cloudShareRow:hover{color:var(--accent)}
+.cloudShareRow.is-shared{color:var(--accent)}
+.cloudShareRow.is-shared::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:1.5px solid var(--surface)}
+
+/* Barra "sola lettura" del destinatario: brand + badge + CTA teal */
+#viewBar .vb-brand{font-weight:800;color:var(--text);letter-spacing:.01em}
+#viewBar .vb-badge{font-size:11px;color:var(--text-2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+#viewBar #viewCopy{background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 15px;font-weight:700;font-size:13px;cursor:pointer}
+#viewBar #viewCopy:hover{background:var(--accent-strong)}
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-<div id="viewBar"><strong id="viewRole">Sola lettura</strong><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewBar"><span class="vb-brand">StagePlot</span><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -1261,28 +1269,31 @@ body.livesession:not(.viewmode) #viewBar {
 
 <div class="modal" id="shareModal" hidden>
   <div class="mcard" style="width:480px;max-width:94vw">
-    <h2>Condividi</h2>
+    <h2>Condividi progetto</h2>
     <!-- elementi tenuti per backward compat JS -->
     <div id="shareTabs" hidden style="display:none">
       <button class="btn primary" id="shareTabLink">🔗 Link del progetto</button>
       <button class="btn" id="shareTabPdf">📄 PDF in scala</button>
     </div>
     <div id="shareLinkBox">
-      <p class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 6px">Link del progetto — condividilo o scansiona il QR.</p>
-      <img id="shareQrImg" width="200" height="200" alt="QR" src="" onerror="this.style.display='none';document.getElementById('shareQrErr').style.display='block'">
-      <div id="shareQrErr" style="display:none;font-size:11px;color:var(--text-2);text-align:center;padding:8px 0">QR non disponibile offline</div>
-      <div id="shareQrWarn" style="display:none;font-size:12px;color:var(--text-2);text-align:center;padding:8px 0">Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b></div>
-      <div id="shareUrlRow">
-        <input type="text" id="shareUrl" readonly onclick="this.select()" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text)">
+      <p class="hint" style="font-size:13px;color:var(--text-2);margin:0 0 14px;line-height:1.45">Chiunque abbia il link può vederlo in sola lettura.</p>
+      <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch">
+        <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn primary" id="shareNative" hidden>Condividi…</button>
-        <button class="btn" id="shareCopy">Copia</button>
+        <button class="btn primary" id="shareCopy">Copia</button>
       </div>
-      <div id="shareUrlButtons">
+      <div id="shareUrlButtons" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="btn" id="shareEmail">Email</button>
         <button class="btn" id="shareWa">WhatsApp</button>
+        <button class="btn" id="shareShowQr" type="button">Mostra QR</button>
       </div>
-      <button class="btn" id="shareUnshare" hidden style="margin-top:6px">Smetti di condividere</button>
-      <div id="shareStatus" style="font-size:12px;color:#16a34a;min-height:14px;margin-top:4px"></div>
+      <div id="shareQrWrap" style="display:none;margin-top:14px;text-align:center">
+        <img id="shareQrImg" width="160" height="160" alt="QR" src="" style="border-radius:8px;background:#fff;padding:6px" onerror="this.style.display='none';document.getElementById('shareQrErr').style.display='block'">
+        <div id="shareQrErr" style="display:none;font-size:11px;color:var(--text-2);padding:8px 0">QR non disponibile offline</div>
+        <div id="shareQrWarn" style="display:none;font-size:12px;color:var(--text-2);padding:8px 0">Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b></div>
+      </div>
+      <div style="margin-top:16px"><span id="shareUnshare" hidden style="color:var(--text-3);font-size:12px;text-decoration:underline;cursor:pointer">Smetti di condividere</span></div>
+      <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
     <button id="saveJson" hidden></button>
@@ -6647,23 +6658,27 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   function fillShareModal(url){
     urlEl.value=url; status("");
     document.getElementById("shareNative").hidden = !navigator.share;
-    /* QR — nascosto se URL > 1000 chars (QR troppo denso a 200px) */
+    /* QR nascosto di default: si apre col pulsante "Mostra QR" (link-first) */
     var qrImg=document.getElementById('shareQrImg');
     var qrErr=document.getElementById('shareQrErr');
     var qrWarn=document.getElementById('shareQrWarn');
-    qrErr.style.display='none';
+    var wrap=document.getElementById('shareQrWrap');
+    var showBtn=document.getElementById('shareShowQr');
+    qrErr.style.display='none'; qrWarn.style.display='none';
+    if(wrap) wrap.style.display='none';
+    if(showBtn) showBtn.textContent='Mostra QR';
     if(url.length > 1000){
-      qrImg.style.display='none'; qrImg.src='';
-      qrWarn.style.display='block';
+      qrImg.style.display='none'; qrImg.src=''; qrTooBig=true;
     } else {
-      qrWarn.style.display='none';
       qrImg.style.display='block';
-      qrImg.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&ecc=L&data='+encodeURIComponent(url);
+      qrImg.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=6&ecc=L&data='+encodeURIComponent(url);
+      qrTooBig=false;
     }
     setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
   }
   function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
+  var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
   function showForProject(id){
     shareTargetId = id;
     window.__cloud.ensureShareTokenFor(id, function(tok){
@@ -6726,6 +6741,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     else { urlEl.select(); document.execCommand("copy"); done(); }
   }
   document.getElementById("shareCopy").addEventListener("click", copy);
+  (function(){ var qb=document.getElementById("shareShowQr"); if(qb) qb.addEventListener("click", function(){
+    var wrap=document.getElementById("shareQrWrap"); if(!wrap) return;
+    var open=(wrap.style.display==="none"||!wrap.style.display);
+    wrap.style.display=open?"block":"none";
+    qb.textContent=open?"Nascondi QR":"Mostra QR";
+    if(open && qrTooBig){ document.getElementById("shareQrWarn").style.display="block"; }
+  }); })();
   (function(){ var ub=document.getElementById("shareUnshare"); if(ub) ub.addEventListener("click", function(){
     var C=window.__cloud; if(!C || !shareTargetId) return;
     C.clearShareTokenFor(shareTargetId, function(ok){
@@ -7615,7 +7637,8 @@ function gallery(){
     document.body.classList.add("viewmode");
     importProject(JSON.stringify(d.data));
     showBar("viewer", "");
-    var role=document.getElementById("viewRole"); if(role) role.textContent="Sola lettura · Crea una copia per modificare";
+    var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
+    var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;
     var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
     var cp=document.getElementById("viewCopy"); if(!cp) return;
     cp.hidden=false;
@@ -7885,7 +7908,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
           '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
-          '<button class="cloudShareRow" data-id="'+p.id+'" title="Condividi con un link" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
+          '<button class="cloudShareRow'+(p.share_token?' is-shared':'')+'" data-id="'+p.id+'" title="'+(p.share_token?'Condiviso · clicca per gestire':'Condividi con un link')+'" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md);position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
           '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
@@ -8002,7 +8025,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function loadProjects(){
     if(!sb || !cloudUser) return;
-    sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at",null).order("updated_at",{ascending:false})
+    sb.from("stageplot_projects").select("id,title,updated_at,share_token").is("deleted_at",null).order("updated_at",{ascending:false})
       .then(function(r){
         if(r.error){ toast("Impossibile leggere i progetti: "+r.error.message, true); return; }
         cloudProjects=r.data||[];

@@ -596,6 +596,14 @@ body.livesession:not(.viewmode) #viewBar {
 #fbTrigger.hide{display:none}
 @media (max-width:760px){ #fbTrigger{display:none} #fbBox{right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0} }
 
-/* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover */
+/* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover; teal + pallino "acceso" quando il progetto è già condiviso */
 .cloudShareRow{color:var(--text-3);transition:color var(--dur-fast) var(--ease)}
 .cloudShareRow:hover{color:var(--accent)}
+.cloudShareRow.is-shared{color:var(--accent)}
+.cloudShareRow.is-shared::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:1.5px solid var(--surface)}
+
+/* Barra "sola lettura" del destinatario: brand + badge + CTA teal */
+#viewBar .vb-brand{font-weight:800;color:var(--text);letter-spacing:.01em}
+#viewBar .vb-badge{font-size:11px;color:var(--text-2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+#viewBar #viewCopy{background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 15px;font-weight:700;font-size:13px;cursor:pointer}
+#viewBar #viewCopy:hover{background:var(--accent-strong)}
