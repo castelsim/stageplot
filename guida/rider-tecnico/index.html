@@ -2,6 +2,8 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rider tecnico: cos'è, cosa contiene e come si prepara | StagePlot</title>
   <meta name="description" content="Rider tecnico: cos'è, cosa deve contenere (stage plot, channel list, note) e come prepararlo. Differenza con l'hospitality rider, con esempio.">
