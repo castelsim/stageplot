@@ -5770,11 +5770,35 @@ function linkChannelsToItems(){
     arr.forEach(function(r){ if(r.linked_item_id) return; var it=findItem(r.src); if(it) r.linked_item_id=it.id; });
   });
 }
+/* M3 — ordine "a banchi" della input list (standard live: batteria/kick prima, poi basso,
+   chitarre, tastiere, fiati, archi, voci, playback). Numero più basso = più in alto in lista.
+   La categoria (TYPES[t].cat) dà il gruppo grosso; dentro "Ritmica" si distingue per keyword. */
+function clBank(type){
+  var t=TYPES[type]||{}, cat=t.cat||"", n=String(type).toLowerCase();
+  if(cat==="Ritmica"){
+    if(/batter|drum|kick|grancass|rullant|\btom|hihat|hi-hat|overhead|edrums/.test(n)) return 10;   /* batteria (kick primo) */
+    if(/piatt|cajon|conga|bongo|timbal|percuss|tamtam|campan|glocken|vibrafono|marimba|xilofono|timpani/.test(n)) return 15; /* altre percussioni */
+    if(/bass/.test(n)) return 20;
+    if(/gt|chitarr|comboamp|stack|leslie|ampli/.test(n)) return 30;
+    if(/keys|piano|tastier|grancoda|mezzacoda|verticale|celesta|stagepiano|doppiatastiera|organ/.test(n)) return 40;
+    if(/dj|laptop|playback/.test(n)) return 85;
+    return 45;   /* altro backline */
+  }
+  if(cat==="Ottoni"||cat==="Legni") return 50;   /* fiati */
+  if(cat==="Archi") return 60;
+  if(cat==="Microfoni"||cat==="Persone") return 70;   /* voci */
+  if(cat==="Tecnica") return 80;   /* DI, playback, tecnica */
+  return 90;
+}
 function autoInputs(){
   if(state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
-  state.items.forEach(function(it){
+  /* M3: ordina gli strumenti per banco (stabile: parità → ordine di inserimento) prima di numerare i canali */
+  var ordered = state.items.map(function(it,idx){ return {it:it, idx:idx}; })
+    .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type)) || (a.idx-b.idx); })
+    .map(function(o){ return o.it; });
+  ordered.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
     if(it.type==="coppiast"){
       rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"KM184"),it,"mic_L"));
