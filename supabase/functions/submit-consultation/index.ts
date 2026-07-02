@@ -20,6 +20,14 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Richiede un utente autenticato (Google): evita che la anon key pubblica possa
+  // generare signed upload URL o inserire richieste senza login (abuso storage / spam).
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+  if (userErr || !userData?.user) return json({ error: "non autenticato" }, 401);
+
   const action = new URL(req.url).searchParams.get("action");
   const payload = await req.json().catch(() => null);
 
@@ -30,7 +38,7 @@ Deno.serve(async (req) => {
     for (const f of v.value) {
       const path = `${crypto.randomUUID()}/${f.name}`;
       const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
-      if (error) return json({ error: error.message }, 500);
+      if (error) { console.error("signed upload url:", error.message); return json({ error: "errore interno" }, 500); }
       uploads.push({ path, signedUrl: data.signedUrl });
     }
     return json({ uploads });
@@ -59,7 +67,7 @@ Deno.serve(async (req) => {
       paid, paid_at: paidAt, amount, product,
       project_id: b.project_id ?? null, share_token: shareToken,
     }).select("id").single();
-    if (error) return json({ error: error.message }, 500);
+    if (error) { console.error("insert consultation:", error.message); return json({ error: "errore interno" }, 500); }
 
     // Link firmati per gli allegati (7 giorni)
     const attachmentUrls: string[] = [];

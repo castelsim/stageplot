@@ -2,9 +2,10 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
+<script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.01";</script>
+<script>window.__APP_VERSION__="2026.07.02";</script>
 <!-- Stage Plot · © 2026 Simone Castellan · simonecastellan.com · uso libero, paternità riservata -->
 <meta name="author" content="Simone Castellan">
 <meta name="description" content="Crea stage plot gratis online: editor in scala, organici per band, orchestra e coro, export PDF e condivisione via link. Senza registrazione. Channel list e rider tecnico su consulenza.">
@@ -6111,14 +6112,22 @@ function autoOutputs(){
 var venueCalibMode=0, venueCalibPts=[];
 /* default vuoto; non serializzare _dataUrl nel JSON */
 function venueDefault(){ return {enabled:true,locked:false,name:"",x:0,y:0,w:5000,h:3500,rot:0,opacity:40,calibration:null}; }
-function normalizeVenue(v){ if(!v) return null; return Object.assign(venueDefault(), v); }
+/* Sicurezza: _dataUrl finisce grezzo in <image href> (SVG via innerHTML). Un progetto di terzi
+   (link ?view=, apri/copia da cloud) potrebbe iniettare un valore arbitrario → attribute injection/XSS.
+   Whitelist stretta: solo i raster prodotti da FileReader/canvas (png/jpeg/webp/gif base64); qualsiasi
+   altra cosa viene scartata. Il charset base64 non contiene " < > quindi è safe in attributo. */
+function safeVenueDataUrl(u){
+  return (typeof u==="string" && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(u)) ? u : "";
+}
+function normalizeVenue(v){ if(!v) return null; var o=Object.assign(venueDefault(), v); if(o._dataUrl!=null) o._dataUrl=safeVenueDataUrl(o._dataUrl); return o; }
 
 function venueMarkup(){
-  var v=state.venue; if(!v||!v._dataUrl) return '';
+  var v=state.venue; if(!v) return '';
+  var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return '';   /* seconda barriera: rivalida al render */
   var op=((v.opacity||40)/100).toFixed(2);
   var hw=v.w/2, hh=v.h/2;
   var pe=v.locked?'none':'auto';
-  var s='<image href="'+v._dataUrl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+v.w+'" height="'+v.h+'"';
+  var s='<image href="'+durl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+v.w+'" height="'+v.h+'"';
   s+=' opacity="'+op+'" pointer-events="'+pe+'"';
   s+=' transform="translate('+v.x+','+v.y+') rotate('+((v.rot||0))+')"';
   if(!v.locked) s+=' class="venue-img" data-venue="1"';
