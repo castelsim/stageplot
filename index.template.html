@@ -7105,7 +7105,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     <div id="cloudBody" style="padding:18px"></div>
   </div>
 </div>
-<div id="cloudToast" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:#17212f;color:#fff;padding:10px 16px;border-radius:9px;font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
+<div id="cloudToast" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:var(--n-900);color:#fff;padding:10px 16px;border-radius:var(--r-md);font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
 
 <!-- ===================== DIALOGO DI CONFERMA (azioni distruttive) ===================== -->
 <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="cfmTitle" hidden>
@@ -7139,7 +7139,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function toast(msg, isErr){
     if(!toastEl) return;
-    toastEl.textContent=msg; toastEl.style.background=isErr?"#b91c1c":"#17212f"; toastEl.hidden=false;
+    toastEl.textContent=msg; toastEl.style.background=isErr?"var(--danger)":"var(--n-900)"; toastEl.hidden=false;
     if(toastT) clearTimeout(toastT);
     toastT=setTimeout(function(){ toastEl.hidden=true; }, 3200);
   }

@@ -4,9 +4,11 @@
 > Documento **canonico**: precede l'implementazione. Niente codice di prodotto qui dentro,
 > solo principi, token e specifiche.
 >
-> **Stato:** proposta per approvazione · v1.0 · 2026-06-30
+> **Stato:** implementato e live · v1.1 · 2026-07-02 (v1.0 approvata e implementata il 30-06)
 > **Direzione approvata:** *Codifica + elevazione* (stesso DNA dell'app, più rigore) ·
 > personalità *Strumento tecnico, accent teal* · light di default, dark di prima classe.
+> **v1.1 (UI/UX standardization A′):** menu File, chip stato documento, autosave online,
+> dock mobile, menu "?" — vedi §24 e `docs/UIUX_AUDIT_2026-07-02.md`.
 
 ---
 
@@ -344,14 +346,17 @@ altezza base ~34px (`padding:8px 14px`).
 
 ---
 
-## 12. Toolbar (header)
+## 12. Toolbar (header) — aggiornato v1.1
 
 - **Altezza:** 52px. `overflow-x` controllato (mai wrap su 2 righe).
-- **Gruppi** separati da divider `1px var(--border)` (h ~20px): identità → titolo evento →
-  parametri palco → cronologia (undo/redo) → zoom → vista (griglia/quote/tema) → azioni → account.
-- **Parametri-palco** in un `group` con sfondo `--surface-raised`, label `caption`, input `tabular-nums`.
-- **Azioni:** Condividi/Esporta = secondary; **Salva = unico Primary teal**, sempre a destra.
-- **Overflow:** sotto soglia di larghezza, i gruppi meno usati collassano in un menu `···`.
+- **Gruppi** separati da divider `1px var(--border)` (h ~20px):
+  identità (brand + **menu File**) → **nome progetto + chip stato** → vista
+  (aiuto "?" · tema · undo/redo · adatta · griglia) → azioni → account (avatar).
+- **Modello salvataggio = autosave** (v1.1): niente bottone Salva. Lo stato vive nel
+  **chip di stato documento** (§24.2); salvataggi espliciti (versione, download) nel menu File.
+- **Azioni:** **Condividi = unico Primary teal**, sempre a destra (contiene anche Scarica PDF);
+  Consulenza = variante `tint` (visibile, non primary); Esporta e file-ops nel **menu File** (§24.1).
+- **Overflow:** la coda lunga vive già nel menu File; niente `···` separato.
 - **Icon-button** 31–34px (vedi §9).
 
 ---
@@ -517,4 +522,60 @@ Mockup ad alta fedeltà prodotti in fase di design (HTML autoconsistenti, in
 - Non ridisegna gli **oggetti del palco** (strumenti, persone, sedie, leggii, orchestra): restano i reali.
 - Non introduce un **web font**: resta lo system stack.
 - Non aggiunge framework/bundler: resta local-first single-file.
-- Non è ancora implementato: **l'implementazione parte solo dopo l'approvazione** di questo documento e dei mockup.
+
+---
+
+## 24. File, stato documento e account (v1.1 — UI/UX standardization A′)
+
+Decisioni: `docs/UIUX_AUDIT_2026-07-02.md` §9 · spec `docs/superpowers/specs/2026-07-02-uiux-standardization-design.md`.
+
+### 24.1 Menu dropdown (File, "?", futuri)
+
+- Contenitore `.hdrmenu`: `position:fixed` sotto il trigger, min-width 236–256px, `--surface`,
+  bordo `--border`, `--r-md`, **`--elev-2`**, padding 5px, `z-index:60`.
+- Item `.mi`: 13px/500, padding 7×10, `--r-sm`, icona Lucide 16px in `--text-2`;
+  hover `--accent-tint` (dark `#222b38`); scorciatoia a destra in `--font-mono` 11px `--text-3`.
+- Separatori `hr` 1px `--border`. Chiusura: click fuori, Esc, click su voce.
+- **Menu File** (ordine canonico): Nuovo · Apri file… · I miei progetti · — · Rinomina ·
+  Crea una copia · Scarica file progetto · — · Esporta PDF… · Esporta PNG · — ·
+  Salva versione (⌘S) · Versioni… · Condividi…
+- **Menu "?"**: Cos'è uno stage plot — guida · Cosa manca? Scrivici. (Il feedback NON ha
+  più un fab flottante.)
+
+### 24.2 Chip stato documento
+
+- Pill 11px/600 accanto al nome progetto (`.doc-chip`); varianti:
+  neutro "Salvato sul dispositivo" (✓) · neutro "Salvataggio…" · verde "Salvato online · HH:MM"
+  (icona cloud, `--success*`; dark `#0f2d1a/#166534/#4ade80`) · ambra **cliccabile**
+  "Solo su questo dispositivo — Accedi" e "Non salvato online — riprovo" (icona triangolo,
+  regola ambra §13; dark `rgba(245,158,11,…)/#fbbf24`).
+- È l'**unica** fonte di verità visiva sullo stato: sostituisce il testo statico del footer.
+- Autosave: locale a ogni modifica; online con debounce ~10s se loggati; ⌘S = salva versione.
+- All'avvio il tool **ripristina** l'ultimo lavoro dal dispositivo (il chip deve dire il vero);
+  il foglio pulito è File → Nuovo.
+
+### 24.3 Account
+
+- `.avatar-btn`: pill 30px; sloggato = "Accedi" (secondary); loggato = cerchio `--accent`
+  con iniziali email. Click → modale "I tuoi progetti" (account, lista, Esci).
+
+### 24.4 Dock mobile (≤880px)
+
+- `#mDock` fisso in basso, 52px + safe-area, `--surface` + bordo top; 4 voci:
+  **Aggiungi** (accent) · Esporta · Condividi · Menu; icona 20px + label 9.5px/600; target ≥44px.
+- **Auto-hide durante il drag** sul palco: `body:has(#svg.dragging) #mDock` → translateY(120%).
+- Il menu ⋯ è un bottom-sheet a **un solo livello** (gruppi Progetto / Palco / App);
+  l'hub proprietà appare solo con selezione o pannelli (46vh sopra il dock).
+- FAB rimossi (catalogo = "Aggiungi"; feedback = menu "?").
+
+### 24.5 Naming canonico (cross-device, verbatim)
+
+Nuovo · Apri file… · I miei progetti · Rinomina · Crea una copia · Scarica file progetto ·
+Esporta PDF… · Esporta PNG · Salva versione · Versioni… · Condividi… — identici su desktop
+e mobile. Vietati sinonimi per piattaforma ("Importa", "Salva (locale)", "Cloud").
+
+### 24.6 Eccezione documentata
+
+Il bottone "Accedi con Google" nella modale account usa i grigi brand Google
+(`#dadce0`, `#3c4043`): eccezione consapevole alla regola d'oro §0, per riconoscibilità
+del pulsante OAuth secondo le linee guida Google.
