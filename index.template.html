@@ -180,15 +180,14 @@
 </div>
 <header>
   <h1 class="brand">STAGE PLOT<span class="sr-only"> — crea stage plot in scala online e gratis · channel list e rider tecnico su consulenza</span></h1>
+  <button class="btn ghost" id="fileBtn" aria-haspopup="menu" aria-expanded="false">File <span class="chev">▾</span></button>
   <span class="tbdiv"></span>
-  <input type="text" id="titolo" class="hdr-evt" placeholder="Titolo" title="Titolo dell'evento (diventa l'oggetto della mail in condivisione)" style="width:150px">
-  <input type="text" id="luogo" class="hdr-evt" placeholder="Luogo" title="Luogo dell'evento" style="width:130px">
+  <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
+  <input type="text" id="luogo" hidden>
+  <span class="doc-chip" id="docState" role="status" hidden></span>
   <button class="btn" id="bStageShape" hidden>▦ Palco</button>
   <span style="flex:1"></span>
-  <button class="btn" id="bLearn" title="Cos'è uno stage plot e come si crea" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg>Guida</button>
-  <button class="btn" id="bCloud" title="Accedi e salva i tuoi progetti online"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>Cloud</button>
-  <a class="btn" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;text-decoration:none;display:inline-flex;align-items:center">Consulenza</a>
-  <span class="tbdiv"></span>
+  <button class="tbar-ico" id="helpBtn" title="Guida e feedback" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg></button>
   <button class="tbar-ico" id="bTheme" title="Tema chiaro / scuro" aria-label="Tema chiaro/scuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
   <button class="tbar-ico" id="bUndo" title="Annulla (⌘Z)" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
   <button class="tbar-ico" id="bRedo" title="Ripeti (⇧⌘Z)" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
@@ -205,19 +204,24 @@
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
   <span class="tbdiv"></span>
-  <div style="display:flex;gap:4px">
+  <div style="display:flex;gap:8px;align-items:center">
     <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
-    <button class="btn" id="bHdrPdf" title="Salva / esporta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Salva / Esporta</button>
-    <button class="btn" id="bHdrImport" title="Apri progetto (.json)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Apri progetto</button>
+    <a class="btn tint" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="text-decoration:none">Consulenza</a>
+    <button class="btn primary" id="bShareHdr" title="Condividi con un link (contiene anche Scarica PDF)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
+    <button class="avatar-btn" id="accountBtn" title="Accedi per salvare online">Accedi</button>
   </div>
   <!-- stW/stD nascosti: rimossi dall'header ma usati dal JS per aggiornare le dimensioni del palco -->
   <input type="number" id="stW" hidden>
   <input type="number" id="stD" hidden>
-  <!-- proxy nascosti: usati da mActions mobile e backward compat -->
+  <!-- proxy nascosti: handler bindati per id, cliccati dai menu File/"?" e dal mobile (pattern mActions) -->
+  <button class="btn" id="bLearn" hidden aria-haspopup="dialog">Guida</button>
+  <button class="btn" id="bCloud" hidden>Cloud</button>
+  <button class="btn" id="bHdrPdf" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta</button>
+  <button class="btn" id="bHdrImport" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Apri</button>
   <button class="btn btn-icon" id="bVenue" title="Planimetria" hidden>🗺</button>
   <button class="btn" id="bPdf" hidden>Salva PDF</button>
   <button class="btn primary" id="bAi" hidden title="Descrivi il palco a ChatGPT e ricevi il link già pronto" style="display:none;align-items:center;gap:6px">🤖 Crea con AI</button>
-  <button class="btn primary" id="bShare" title="Salva/esporta il progetto in JSON o scarica il PDF" hidden>💾 Salva</button>
+  <button class="btn primary" id="bShare" hidden>Condividi</button>
   <button class="btn danger" id="bNew" hidden>Nuovo</button>
 </header>
 
@@ -534,7 +538,6 @@
 
 <footer style="justify-content:center">
   <span id="scaleInfo" hidden></span>
-  <span id="savedInfo" style="font-size:11.5px;color:var(--text-3)">✓ Salvato automaticamente sul tuo dispositivo&nbsp;&nbsp;·&nbsp;&nbsp;</span>
   <span style="font-size:11px;opacity:.7">Designed and built by <a href="https://simonecastellan.com" target="_blank" rel="noopener">Simone Castellan</a></span>
 </footer>
 
@@ -5794,6 +5797,9 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     fillShareModal(buildShareUrl());
   }
   document.getElementById("bShare").addEventListener("click", openShare);
+  /* header A′: Condividi visibile + account (avatar) → modal account/progetti */
+  (function(){ var b=document.getElementById("bShareHdr"); if(b) b.addEventListener("click", openShare); })();
+  (function(){ var a=document.getElementById("accountBtn"); if(a) a.addEventListener("click", function(){ document.getElementById("bCloud").click(); }); })();
   document.getElementById("shareClose").addEventListener("click", function(){ modal.hidden=true; });
   /* — pulsanti header: Save as / Importa — */
   document.getElementById("bHdrPdf").addEventListener("click", function(){
