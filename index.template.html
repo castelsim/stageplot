@@ -6327,7 +6327,11 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
-    /* PAG 2 channel list rimossa dalla versione free */
+    /* PAG 2+ channel list: solo in consulenza e se ci sono canali (audit/roadmap 1B) */
+    if(window.__consultMode && (state.inputs.length || state.outputs.length)){
+      doc.addPage(paperKey, L.orient);
+      pdfChannelPage(doc, L, paperKey);
+    }
     return doc;
       });
   });
