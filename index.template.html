@@ -164,7 +164,7 @@
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
 </head>
 <body>
-<div id="viewBar"><span class="vb-brand">StagePlot</span><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewBar"><span class="vb-brand">StagePlot</span><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -498,7 +498,7 @@
   </div>
   <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
   <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
-    <label style="display:block;font-size:11px;color:var(--text-2,#374151);margin:0 0 10px">Contatto tecnico (rider)
+    <label class="cl-contact" style="display:block;font-size:11px;color:var(--text-2,#374151);margin:0 0 10px">Contatto tecnico (rider)
       <input type="text" id="clContact" placeholder="FOH / tecnico + telefono o email" style="width:100%;margin-top:3px;padding:5px 8px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111">
     </label>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
@@ -3907,6 +3907,11 @@ document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
 (function(){ var c=document.getElementById("clContact"); if(c) c.addEventListener("input", function(){ state.techContact=c.value; saveSoon(); }); })();   /* M5: contatto tecnico rider */
+/* 1C: toggle vista cliente Stage plot / Channel list (sola lettura in sessione live) */
+(function(){ var p=document.getElementById("vtPlot"), c=document.getElementById("vtChan"); if(!p||!c) return;
+  p.addEventListener("click", function(){ document.body.classList.remove("cl-view"); p.classList.add("vt-on"); c.classList.remove("vt-on"); });
+  c.addEventListener("click", function(){ document.body.classList.add("cl-view"); c.classList.add("vt-on"); p.classList.remove("vt-on"); if(typeof renderChannels==="function") renderChannels(); });
+})();
 document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
 document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
 document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
@@ -4974,9 +4979,10 @@ var OUT_TYPES = ["wedge","side fill","drum fill","IEM","personal mixer","console
 function chanRow(kind, row, i){
   var arr = kind==="in" ? state.inputs : state.outputs;
   var d=document.createElement("div"); d.className="clrow clrow-"+kind; d.__row=row;
+  var ro=document.body.classList.contains("consult-viewer");   /* 1C: cliente = sola lettura, niente drag */
   var n=document.createElement("span"); n.className="n grip"; n.textContent=(i+1);
-  n.title="Trascina per riordinare"; d.appendChild(n);
-  attachReorder(n, d, kind);
+  n.title = ro ? "" : "Trascina per riordinare"; d.appendChild(n);
+  if(!ro) attachReorder(n, d, kind);
   var src=document.createElement("input"); src.className="src"; src.value=row.src||"";
   src.placeholder = kind==="in" ? "sorgente" : "mix / destinazione";
   src.setAttribute("list", kind==="in" ? "inSrcList" : "outSrcList");
@@ -5021,6 +5027,9 @@ function chanRow(kind, row, i){
   notes.placeholder = kind==="in" ? "note, insert, FX, patch" : "note monitor, contenuto del mix";
   notes.addEventListener("input", function(){ row.notes=notes.value; saveSoon(); });
   d.appendChild(notes);
+  if(document.body.classList.contains("consult-viewer")){   /* 1C: cliente = sola lettura */
+    [].slice.call(d.querySelectorAll("input,select")).forEach(function(el){ el.disabled=true; });
+  }
   return d;
 }
 /* ===== Conteggio accessori (sedie / leggii / sgabelli) ===== */
@@ -6716,7 +6725,7 @@ function gallery(){
     .catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— errore di caricamento"); });
 
   function startSession(sb, token, d, isEditor){
-    if(!isEditor){ document.body.classList.add("viewmode"); }
+    if(!isEditor){ document.body.classList.add("viewmode"); window.__consultMode=true; document.body.classList.add("consult-viewer"); }   /* 1C: il cliente vede la channel list live (read-only) — preserva i dati */
     if(isEditor){ window.__consultMode=true; document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
     importProject(JSON.stringify(d.data));
     var ch=sb.channel("consulenza:"+token, {config:{broadcast:{self:false}, presence:{key:isEditor?"editor":"viewer"}}});
