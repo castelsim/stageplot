@@ -18,7 +18,8 @@ Libreria **preliminare e standalone** di icone SVG in scala reale, vista dall'al
 
 1. **Scopo**: upgrade grafico del tool → compatibilità nativa con le convenzioni esistenti.
 2. **Lotto 1**: mix ~20 upgrade band/live (elementi oggi geometrici più usati) + ~20 gap orchestra/coro.
-3. **Processo**: approccio "campione → serie". Prima 5 icone-sonda × 3 trattamenti stilistici su tavola di confronto in Chrome; Simone sceglie il trattamento; poi serie completa. L'ipotesi "ibrido per famiglia" (realistico per strumenti, tecnico per service) è testata nel campione.
+3. **Processo**: approccio "campione → serie". Prima **5 icone campione realistiche** sulla stessa pagina di confronto con arpa/archi/LIB_ICONS esistenti, aperte in Chrome; **solo dopo approvazione visiva** si produce la serie completa.
+3-bis. **Standard qualitativo (chiarimento Simone, 02/07/2026)**: le icone sono **veri disegni SVG vettoriali realistici**, standard minimo = le migliori LIB_ICONS esistenti (archi, arpa, chitarre, pianoforte): multi-path, proporzioni realistiche, materiali leggibili, vista dall'alto, scala reale. Le 21 esistenti **non si rifanno** se già sopra standard: sono il riferimento estetico, tecnico e strutturale. Si migliorano solo gli elementi oggi troppo geometrici o poveri. **Output non accettabili**: icone outline generiche, stile Font Awesome, simboli minimalisti, disegni non in scala, SVG decorativi ma non tecnici, oggetti belli ma inutilizzabili nello stage plot, SVG senza dimensioni reali documentate.
 4. **Atomi + composizioni**: si disegnano i pezzi singoli; set e postazioni nascono per composizione (coerente col meccanismo "Dividi in elementi" del tool).
 5. **Posizione**: libreria in `COWORK/STAGE PLOT/icon-prototype/` — **fuori dalla repo pubblicata** (tutto ciò che entra nella repo finisce online su GitHub Pages). Nella repo va solo questa spec.
 6. **Coro**: dall'alto uomo/donna/bambino sono indistinguibili → un corista generico + variante taglia bambino; distinzione affidata a etichetta/colore.
@@ -82,7 +83,7 @@ Regola misure: prima `TYPES`/RICERCA.md (già verificate), poi fonte organologic
 
 ## Design system (`ICON_DESIGN_GUIDELINES_STAGEPLOT.md`)
 
-- **3 trattamenti**: `hero-realistic` (stile LIB_ICONS pieno), `technical-real` (realistico semplificato, campiture piatte + 1 gradiente max), `symbol-tech` (tecnico migliorato, stroke+campiture). La tavola campione decide quale/i e la regola d'assegnazione per famiglia.
+- **Un solo standard**: realistico livello LIB_ICONS per tutti gli oggetti (multi-path, materiali, gradienti dove servono). La densità di dettaglio scala con l'oggetto (un DI box realistico resta una scatola con connettori: realismo ≠ decorazione). Nessun trattamento "outline/symbol": vietato dal chiarimento qualità.
 - **Unità**: 1 unità = 1 cm. `viewBox="0 0 W D"` con W×D = ingombro reale. Vista dall'alto, **fronte palco in basso** (lato pubblico = basso). Ancoraggio = centro geometrico del viewBox (il renderer del tool ri-centra, come `libIcon`).
 - **Struttura file**: SVG puro standalone; `<defs><style>` embedded con classi namespaced `nomefile_cls-N` (pattern LIB_ICONS); gruppi semantici commentati; **vietati**: bitmap, `<filter>`, font esterni, script. Gradienti ammessi solo se l'icona resta leggibile in B/N (regola svg2pdf); ombre esterne: no; riflessi tipo `rimlight`: ammessi.
 - **Palette materiali** campionata dalle 21 esistenti: legno strumento (#865227→#4f3017), ottone, argento/nichel, pelle tamburo, bronzo piatti, rame timpani, nero hardware (#1b1b1b), tela speaker, grigio metallo (#494d54). Tabella canonica nelle guidelines.
@@ -110,9 +111,9 @@ Le 10 sezioni richieste: sintesi; icone create; mancanti (da TAXONOMY.md); prior
 
 ## Processo operativo
 
-1. Piano d'implementazione (skill writing-plans).
-2. **Tavola campione**: 5 sonde — cassa 22" (rotonda materica), wedge (angolato tecnico), asta giraffa (lineare sottile), persona (organica), timpano (rame orchestrale) — × 3 trattamenti, su pagina di confronto con riga di riferimento LIB_ICONS (violino, tromba). Apertura in Chrome → **scelta di Simone**.
-3. Serie ~40 nel trattamento scelto, a batch per categoria, verifica visiva per batch in Chrome.
+1. Piano d'implementazione (skill writing-plans), preceduto da **anatomia delle LIB_ICONS migliori** (estrazione di arpa/violino/tromba: struttura path, palette, uso gradienti) per copiarne la logica di qualità.
+2. **Tavola campione (fase obbligatoria)**: 5 icone realistiche — cassa 22" (rotonda materica), wedge (angolato tecnico), asta giraffa (lineare sottile), persona (organica), timpano (rame orchestrale) — sulla stessa pagina, affiancate ad arpa/archi/tromba esistenti su fondo chiaro/scuro + B/N. Apertura in Chrome → **approvazione visiva di Simone. Nessuna serie prima del suo OK.**
+3. Serie ~40 allo standard approvato, a batch per categoria, verifica visiva per batch in Chrome.
 4. Preview completa + TAXONOMY + guidelines definitive + report.
 5. Revisione finale in Chrome (checklist sotto).
 
