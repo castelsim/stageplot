@@ -2654,6 +2654,23 @@ function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl &&
    non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
    ritorno sulla home ci si ritrova il progetto altrui come proprio, e l'autosave ne creerebbe una copia cloud). */
 function foreignDoc(){ return !!window.__consultMode || document.body.classList.contains("viewmode"); }
+/* UNICO punto di scrittura del documento locale (stato + aggancio al progetto cloud). La chiave _cloudid
+   fa sopravvivere l'associazione online TRA le sessioni: senza, ogni riapertura creerebbe un duplicato
+   "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
+   modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
+function persistLocalState(){
+  if(foreignDoc()) return;
+  try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  try{
+    var C=window.__cloud;
+    if(C && C.currentId){
+      var id=C.currentId();
+      if(id){ localStorage.setItem(LS_KEY+"_cloudid", id); window.__bootCloudId=id; }
+      else { localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }
+    }
+  }catch(e){}
+}
+window.persistLocalState=persistLocalState;
 /* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
    digitazione), ma in una chiave separata scritta SOLO quando la planimetria cambia. Così sopravvive a reload e
    login senza riscrivere MB ad ogni carattere. */
@@ -2672,9 +2689,7 @@ function loadVenueImg(){
 }
 function clearVenueImg(){ try{ localStorage.removeItem(LS_KEY_VENUE); }catch(e){} }
 function save(){
-  if(!foreignDoc()){
-    try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
-  }
+  persistLocalState();
   recordHistory();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
@@ -2683,7 +2698,7 @@ function save(){
    "parola" invece di uno per carattere. */
 var _saveSoonT=null;
 function saveSoon(){
-  if(!foreignDoc()){ try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){} }
+  persistLocalState();
   clearTimeout(_saveSoonT); _saveSoonT=setTimeout(recordHistory, 500);
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
@@ -2763,7 +2778,7 @@ function ensureItemIds(){
 function applyHistory(json){
   state=reattachVenueImg(normalizeState(JSON.parse(json))); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
-  try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  persistLocalState();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels();
 }
@@ -2781,6 +2796,7 @@ function importProject(json){
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
   undoStack.push(stateToJSON()); if(undoStack.length>120) undoStack.shift(); redoStack.length=0;   /* importazione annullabile con Ctrl+Z */
+  try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* ciò che arriva da fuori è un documento NUOVO: senza lo stacco, l'autosave sovrascriverebbe il progetto cloud aperto prima. I flussi che devono agganciare (apri da cloud) risettano l'id subito dopo. */
   state=normalizeState(s);
   state.items=sanitizeItems(state.items||[]);
   cacheVenueImg(state.venue);   /* l'import può portare con sé una planimetria (.json completo): mettila in cache */
@@ -2788,7 +2804,7 @@ function importProject(json){
   ensureItemIds();
   lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
-  try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  persistLocalState();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels(); fit();
 }
@@ -2837,6 +2853,7 @@ function load(){
       ensureItemIds();
     }
   }catch(e){}
+  try{ window.__bootCloudId = localStorage.getItem(LS_KEY+"_cloudid") || null; }catch(e){}   /* riaggancia il documento al suo progetto cloud (il modulo cloud lo adotta all'avvio) */
   loadVenueImg(); reattachVenueImg(state);   /* ripristina l'immagine planimetria dalla chiave dedicata */
 }
 /* ===== LZString (compressToEncodedURIComponent / decompress) — per il link di condivisione ===== */
@@ -6374,6 +6391,7 @@ document.getElementById("bNew").addEventListener("click", function(){
   }).then(function(ok){
     if(!ok) return;
     state={titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]};
+    try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* foglio nuovo = progetto nuovo: senza lo stacco, l'autosave sovrascriverebbe il progetto aperto col foglio vuoto */
     stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
     setEventInputs(); renderChannels();
   });
@@ -7664,6 +7682,7 @@ function gallery(){
         C.save(function(id){
           if(!id) return;
           document.body.classList.remove("viewmode");
+          try{ if(window.persistLocalState) window.persistLocalState(); }catch(e){}   /* la copia diventa il documento locale (senza, un reload riporterebbe il progetto precedente) */
           try{ history.replaceState(null,"",location.pathname); }catch(e){}
           var bar=document.getElementById("viewBar"); if(bar) bar.style.display="none";
           if(window.__toast) window.__toast("✓ Copia creata nel tuo account.");
@@ -7876,7 +7895,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var SUPABASE_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
 
-  var sb=null, cloudUser=null, cloudCurrentId=null, cloudProjects=[];
+  var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[];   /* adotta l'aggancio persistito dal boot (load()) */
   window.getFeedbackContext = function(){
     return { user_id: cloudUser?cloudUser.id:null, user_email: cloudUser?cloudUser.email:null, project_id: cloudCurrentId||null };
   };
@@ -8009,8 +8028,16 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:1, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
       }
       q.then(function(r){
-        if(r.error){ if(!silent) toast("Salvataggio non riuscito: "+r.error.message, true); if(silent && typeof onSaved==="function") onSaved(null); return; }
+        if(r.error){
+          if(cloudCurrentId && r.error.code==="PGRST116"){   /* la riga agganciata non esiste più (cancellata o di un altro account): stacca e salva come progetto nuovo */
+            cloudCurrentId=null;
+            try{ localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }catch(e){}
+            doSave(thumb); return;
+          }
+          if(!silent) toast("Salvataggio non riuscito: "+r.error.message, true); if(silent && typeof onSaved==="function") onSaved(null); return;
+        }
         if(r.data && r.data.id) cloudCurrentId=r.data.id;
+        persistLocalState();   /* riallinea stato+aggancio persistiti (copre anche insert appena nati) */
         if(!silent){ toast("✓ Salvato online."); loadProjects(); }
         if(typeof onSaved==="function") onSaved(cloudCurrentId);
       }, function(){ if(silent && typeof onSaved==="function") onSaved(null); });
@@ -8029,8 +8056,8 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       .then(function(r){ return r.json(); })
       .then(function(d){
         if(!d || d.error || !d.data){ toast("Impossibile completare la copia.", true); return; }
+        cloudCurrentId=null;   /* PRIMA dell'import: il persist dentro importProject non deve agganciare la copia al vecchio progetto */
         try{ importProject(JSON.stringify(d.data)); }catch(e){ toast("Copia non valida.", true); return; }
-        cloudCurrentId=null;
         try{ state.titolo="Copia di "+(d.title||"progetto"); }catch(e){}
         saveProject(function(){ toast("✓ Copia creata nel tuo account."); try{ history.replaceState(null,"",location.pathname); }catch(e){} });
       })
@@ -8051,7 +8078,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(!sb) return;
     sb.from("stageplot_projects").select("data,title").eq("id",id).single().then(function(r){
       if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
-      try{ importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; toast("✓ Progetto aperto."); closeModal(); }
+      try{ importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; persistLocalState(); toast("✓ Progetto aperto."); closeModal(); }
       catch(e){ toast("Il progetto salvato non è valido.", true); }
     });
   }
@@ -8137,6 +8164,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     });
     sb.auth.onAuthStateChange(function(ev, session){
       cloudUser=session?session.user:null;
+      if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       updateBtn();
       if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
       if(modalOpen()) renderModal();
