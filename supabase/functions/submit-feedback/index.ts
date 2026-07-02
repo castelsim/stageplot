@@ -33,6 +33,16 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Identità dal JWT verificato, non dal client (audit S5): l'endpoint è pubblico
+  // (verify_jwt=false, accetta feedback anche da anonimi), ma se arriva un Bearer valido
+  // ne ricaviamo l'utente reale. Un payload con user_id/user_email arbitrari viene ignorato.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  if (jwt && jwt !== Deno.env.get("SUPABASE_ANON_KEY")) {
+    const { data: u } = await supabase.auth.getUser(jwt);
+    if (u?.user) { f.user_id = u.user.id; f.user_email = u.user.email ?? null; }
+  }
+
   // Rate-limit per IP hashato (best-effort: se manca IP o salt, si salta)
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
   const salt = Deno.env.get("FEEDBACK_IP_SALT") || "";
