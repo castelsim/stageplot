@@ -85,6 +85,37 @@
   .btn.primary:hover{background:var(--accent-strong)}
   .btn.danger{background:var(--danger-bg);color:var(--danger)}
   .btn.danger-solid{background:var(--danger);color:#fff}
+  /* ===== Header A′ (UI/UX standardization 02/07): File, nome progetto, chip stato, tint, avatar ===== */
+  .btn.ghost{background:transparent}
+  .btn.ghost:hover{background:var(--n-100)}
+  body.dark .btn.ghost{background:transparent}
+  body.dark .btn.ghost:hover{background:#222b38}
+  .btn .chev{color:var(--text-3);font-size:10px}
+  .btn.tint{background:var(--accent-tint);color:var(--accent-strong)}
+  .btn.tint:hover{background:#d7edf1}
+  body.dark .btn.tint{background:#13202a;color:#5eb8c7}
+  body.dark .btn.tint:hover{background:#17262f}
+  header input.hdr-name{flex:0 0 auto;border:1px solid transparent;border-radius:8px;padding:6px 9px;font-size:14px;font-weight:600;
+    color:var(--text);background:transparent;width:200px;min-width:90px;max-width:240px}
+  header input.hdr-name:hover{border-color:var(--border)}
+  header input.hdr-name:focus{outline:none;border-color:var(--accent);box-shadow:none}
+  header input.hdr-name::placeholder{color:var(--text-3);font-weight:400}
+  body.dark header input.hdr-name{background:transparent;border-color:transparent}
+  body.dark header input.hdr-name:hover{border-color:var(--border)}
+  body.dark header input.hdr-name:focus{border-color:var(--accent)}
+  .avatar-btn{width:auto;min-width:32px;height:30px;border:1px solid var(--border);border-radius:999px;
+    background:var(--n-100);color:var(--text);font:600 12px var(--font-ui);padding:0 10px;cursor:pointer;flex:0 0 auto}
+  .avatar-btn.logged{width:30px;min-width:30px;padding:0;background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  body.dark .avatar-btn{background:#222b38;border-color:#2b3445;color:#e5e7eb}
+  body.dark .avatar-btn.logged{background:var(--accent);border-color:var(--accent);color:#fff}
+  .doc-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:999px;
+    padding:3px 9px;white-space:nowrap;border:1px solid var(--border);color:var(--text-2);background:var(--surface-raised);flex:0 0 auto;cursor:default}
+  .doc-chip svg{width:12px;height:12px}
+  .doc-chip.on{color:var(--success);background:var(--success-bg);border-color:var(--success-border)}
+  .doc-chip.warn{color:var(--warning);background:var(--warning-bg);border-color:var(--warning-border);cursor:pointer}
+  body.dark .doc-chip{background:#222b38;border-color:#2b3445;color:#94a3b8}
+  body.dark .doc-chip.on{color:#4ade80;background:#0f2d1a;border-color:#166534}
+  body.dark .doc-chip.warn{color:#fbbf24;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.30)}
   .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   #catalog{grid-area:cat;overflow-y:auto;border-right:1px solid var(--border);padding:10px 9px}
   #catalog .cat-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--n-100);
@@ -570,10 +601,12 @@ body.livesession:not(.viewmode) #viewBar {
 #bChanList { display: none; }
 body.consult-editor #bChanList { display: inline-flex; align-items: center; gap: 6px; }
 /* La schermata del consulente è un ambiente di lavoro: via i comandi "consumer" */
-body.consult-editor #bLearn,
-body.consult-editor #bCloud,
+body.consult-editor #fileBtn,
+body.consult-editor #helpBtn,
 body.consult-editor #bConsulenza,
-body.consult-editor #bHdrImport,
+body.consult-editor #bShareHdr,
+body.consult-editor #accountBtn,
+body.consult-editor #docState,
 body.consult-editor #fbTrigger { display: none !important; }
 /* Pannello channel list (consulenza 1B): nascosto di default, si apre come modalità col pulsante Channel list */
 #props #chanlist { display: none; }
