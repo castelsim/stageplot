@@ -2,8 +2,8 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <!-- CSP difesa in profondità (audit S3): jsdelivr per supabase-js, supabase.co per il fetch della richiesta; il checkout Stripe è una navigazione top-level. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://buy.stripe.com">
+  <!-- CSP difesa in profondità (audit S3/S4): supabase-js self-hosted (/vendor/), supabase.co per il fetch della richiesta; il checkout Stripe è una navigazione top-level. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://buy.stripe.com">
   <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Consulenza Tecnica stage plot — documentazione pronta per il service | StagePlot</title>
@@ -682,7 +682,7 @@
     <p class="od-msg" id="odMsg" role="status"></p>
   </aside>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4) -->
   <script>
   (function(){
     var SB_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";

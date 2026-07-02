@@ -5,9 +5,10 @@
 <!-- CSP difesa in profondità (audit S3). GitHub Pages non permette header HTTP, quindi via meta.
      script/style 'unsafe-inline': il tool è single-file con JS/CSS inline (hash impraticabili).
      Il valore chiave è connect-src: anche se un XSS futuro passasse, non può esfiltrare la sessione
-     verso domini esterni. Origini reali: jsdelivr (supabase-js), *.supabase.co (REST/auth/storage + wss realtime),
-     api.qrserver.com (QR condivisione). frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+     verso domini esterni. supabase-js è self-hosted (/vendor/, audit S4): niente CDN in script-src.
+     Origini reali: *.supabase.co (REST/auth/storage + wss realtime), api.qrserver.com (QR condivisione).
+     frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
@@ -22,8 +23,7 @@
 <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://vsodplqkuvnsdiikvmjb.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://vsodplqkuvnsdiikvmjb.supabase.co">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="it_IT">
@@ -142,7 +142,7 @@
 <style>
 /*__STAGEPLOT_STYLES__*/</style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
 </head>
 <body>
 <div id="viewBar"><span class="vb-brand">StagePlot</span><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span id="viewMeta"></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
