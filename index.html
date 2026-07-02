@@ -2650,10 +2650,15 @@ function stateToJSON(){ return JSON.stringify(state, stateReplacer); }
 var venueImgCache={};
 function cacheVenueImg(v){ if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH}; }
 function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl && venueImgCache[v.name]){ var c=venueImgCache[v.name]; v._dataUrl=c._dataUrl; v._imgW=c._imgW; v._imgH=c._imgH; } return s; }
+/* In viewer condiviso e sessione consulenza (?view=) lo stato mostrato è il documento di QUALCUN ALTRO:
+   non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
+   ritorno sulla home ci si ritrova il progetto altrui come proprio, e l'autosave ne creerebbe una copia cloud). */
+function foreignDoc(){ return !!window.__consultMode || document.body.classList.contains("viewmode"); }
 /* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
    digitazione), ma in una chiave separata scritta SOLO quando la planimetria cambia. Così sopravvive a reload e
    login senza riscrivere MB ad ogni carattere. */
 function persistVenueImg(){
+  if(foreignDoc()) return;
   var v=state.venue;
   try{
     if(v && v._dataUrl){ localStorage.setItem(LS_KEY_VENUE, JSON.stringify({name:v.name, _dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH})); }
@@ -2667,9 +2672,9 @@ function loadVenueImg(){
 }
 function clearVenueImg(){ try{ localStorage.removeItem(LS_KEY_VENUE); }catch(e){} }
 function save(){
-  try{
-    localStorage.setItem(LS_KEY, stateToJSON());
-  }catch(e){}
+  if(!foreignDoc()){
+    try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  }
   recordHistory();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
@@ -2678,7 +2683,7 @@ function save(){
    "parola" invece di uno per carattere. */
 var _saveSoonT=null;
 function saveSoon(){
-  try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  if(!foreignDoc()){ try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){} }
   clearTimeout(_saveSoonT); _saveSoonT=setTimeout(recordHistory, 500);
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
