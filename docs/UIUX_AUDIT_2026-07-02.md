@@ -243,6 +243,14 @@ Mockup: `.superpowers/brainstorm/2026-07-02-uiux-standardization/content/` (`opz
 5. Sequenza: **diretta** (la tappa quick-wins è decaduta: aggiungeva bottoni poi rimossi).
 
 Spec di design: `docs/superpowers/specs/2026-07-02-uiux-standardization-design.md`.
+Piano: `docs/superpowers/plans/2026-07-02-uiux-standardization.md`.
+
+**STATO: IMPLEMENTATO (02/07/2026)** — Task 1-6 completati e verificati a runtime (desktop
+light/dark, mobile ≤880px, gate consulenza). Scoperta in corso d'opera: il boot NON ripristinava
+da localStorage ("nuovo progetto a ogni apertura", il footer "salvato automaticamente" era
+fuorviante) → attivato il **ripristino all'avvio** (gate su `#p=` e `?view=`); il foglio pulito
+ora è File → Nuovo. Correzione all'audit §1.1: "ripristino all'avvio" era dato per esistente,
+non lo era.
 
 ## Criterio di successo (dalla direttiva)
 
