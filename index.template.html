@@ -1957,7 +1957,7 @@ function normalizeState(s){
     corners.forEach(function(p){ bb.w=Math.max(bb.w,p[0]); bb.d=Math.max(bb.d,p[1]); });
   });
   s.stage.w=bb.w; s.stage.d=bb.d;
-  s.inputs=[]; s.outputs=[];   /* channel list rimossa dalla versione free (modulo input patch/monitor riservato alle consulenze) */
+  if(!window.__consultMode){ s.inputs=[]; s.outputs=[]; }   /* channel list riservata alla consulenza: preservata solo in modalità editor (audit/roadmap 1B) */
   if(s.venue){ s.venue=normalizeVenue(s.venue); }   /* retrocompat: venue opzionale */
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
@@ -6606,6 +6606,7 @@ function gallery(){
 
   function startSession(sb, token, d, isEditor){
     if(!isEditor){ document.body.classList.add("viewmode"); }
+    if(isEditor){ window.__consultMode=true; document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
     importProject(JSON.stringify(d.data));
     var ch=sb.channel("consulenza:"+token, {config:{broadcast:{self:false}, presence:{key:isEditor?"editor":"viewer"}}});
     if(isEditor){
