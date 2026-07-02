@@ -595,7 +595,11 @@ body.chan-edit #mActions { display: none !important; }
 .clsec-head.open .btn:hover{background:#4b5563}
 .clsec-body{display:none;padding:8px 0 4px}
 .clsec-body.open{display:block}
-.clrow{display:grid;grid-template-columns:22px 1fr 86px 72px 36px 18px;gap:4px;align-items:center;margin-bottom:6px}
+.clrow{display:grid;gap:4px;align-items:center;margin-bottom:6px}
+.clrow-in{grid-template-columns:20px 1fr 64px 50px 26px 58px 16px}   /* grip src mic stand 48v forn. del */
+.clrow-out{grid-template-columns:20px 1fr 92px 1fr 58px 16px}        /* grip dest tipo chi forn. del */
+.clrow .cltype,.clrow .clby{padding:3px 4px;font-size:11px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;min-width:0;color:#374151}
+.clrow .who{min-width:0}
 .clrow .n{font-size:11px;color:#9ca3af;text-align:center;border-radius:4px}
 .clrow .n.grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .clrow .n.grip:hover{background:#eef0f2;color:#6b7280}
@@ -603,7 +607,7 @@ body.chan-edit #mActions { display: none !important; }
 .clrow.dragging{opacity:.55;background:#eef2ff;border-radius:6px}
 #props .clrow input{padding:4px 6px;font-size:12px}
 .clrow .src,.clrow .mic,.clrow .stand,.clrow .notes{min-width:0}
-.clrow .notes{grid-column:2 / 6}
+.clrow .notes{grid-column:2 / -1}
 .clrow .p48{display:flex;align-items:center;justify-content:center;font-size:10px;color:#6b7280;border:1px solid var(--border,#e5e7eb);border-radius:7px;height:26px}
 .clrow .p48 input{width:auto;margin:0}
 .clrow .del{border:none;background:none;color:#cbd0d6;cursor:pointer;font-size:15px;line-height:1;padding:0}
@@ -611,6 +615,14 @@ body.chan-edit #mActions { display: none !important; }
 .clactions{display:flex;gap:6px;margin:5px 0 4px}
 .clactions .btn{padding:5px 9px;font-size:11.5px}
 .clempty{font-size:11.5px;color:#b6bbc2;margin:2px 0 4px}
+/* Modalità channel list = pannello LARGO come una tabella professionale (M1/M2), solo desktop.
+   Nasconde il catalogo (non serve al consulente qui) e allarga #props; colonne generose = niente troncamenti. */
+@media (min-width:881px){
+  body.chan-edit{ grid-template-columns:0 1fr min(720px,52vw); }
+  body.chan-edit #catalog{ display:none; }
+  body.chan-edit .clrow-in{ grid-template-columns:26px minmax(120px,1.2fr) 118px 92px 40px 104px 22px; }
+  body.chan-edit .clrow-out{ grid-template-columns:26px minmax(140px,1.4fr) 132px minmax(120px,1.2fr) 104px 22px; }
+}
 /* ===== Box feedback "Cosa manca?" ===== */
 #fbBox{position:fixed;right:22px;bottom:22px;width:326px;z-index:900;
   background:var(--surface);border:1px solid var(--border);border-radius:14px;

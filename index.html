@@ -756,7 +756,11 @@ body.chan-edit #mActions { display: none !important; }
 .clsec-head.open .btn:hover{background:#4b5563}
 .clsec-body{display:none;padding:8px 0 4px}
 .clsec-body.open{display:block}
-.clrow{display:grid;grid-template-columns:22px 1fr 86px 72px 36px 18px;gap:4px;align-items:center;margin-bottom:6px}
+.clrow{display:grid;gap:4px;align-items:center;margin-bottom:6px}
+.clrow-in{grid-template-columns:20px 1fr 64px 50px 26px 58px 16px}   /* grip src mic stand 48v forn. del */
+.clrow-out{grid-template-columns:20px 1fr 92px 1fr 58px 16px}        /* grip dest tipo chi forn. del */
+.clrow .cltype,.clrow .clby{padding:3px 4px;font-size:11px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;min-width:0;color:#374151}
+.clrow .who{min-width:0}
 .clrow .n{font-size:11px;color:#9ca3af;text-align:center;border-radius:4px}
 .clrow .n.grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .clrow .n.grip:hover{background:#eef0f2;color:#6b7280}
@@ -764,7 +768,7 @@ body.chan-edit #mActions { display: none !important; }
 .clrow.dragging{opacity:.55;background:#eef2ff;border-radius:6px}
 #props .clrow input{padding:4px 6px;font-size:12px}
 .clrow .src,.clrow .mic,.clrow .stand,.clrow .notes{min-width:0}
-.clrow .notes{grid-column:2 / 6}
+.clrow .notes{grid-column:2 / -1}
 .clrow .p48{display:flex;align-items:center;justify-content:center;font-size:10px;color:#6b7280;border:1px solid var(--border,#e5e7eb);border-radius:7px;height:26px}
 .clrow .p48 input{width:auto;margin:0}
 .clrow .del{border:none;background:none;color:#cbd0d6;cursor:pointer;font-size:15px;line-height:1;padding:0}
@@ -772,6 +776,14 @@ body.chan-edit #mActions { display: none !important; }
 .clactions{display:flex;gap:6px;margin:5px 0 4px}
 .clactions .btn{padding:5px 9px;font-size:11.5px}
 .clempty{font-size:11.5px;color:#b6bbc2;margin:2px 0 4px}
+/* Modalità channel list = pannello LARGO come una tabella professionale (M1/M2), solo desktop.
+   Nasconde il catalogo (non serve al consulente qui) e allarga #props; colonne generose = niente troncamenti. */
+@media (min-width:881px){
+  body.chan-edit{ grid-template-columns:0 1fr min(720px,52vw); }
+  body.chan-edit #catalog{ display:none; }
+  body.chan-edit .clrow-in{ grid-template-columns:26px minmax(120px,1.2fr) 118px 92px 40px 104px 22px; }
+  body.chan-edit .clrow-out{ grid-template-columns:26px minmax(140px,1.4fr) 132px minmax(120px,1.2fr) 104px 22px; }
+}
 /* ===== Box feedback "Cosa manca?" ===== */
 #fbBox{position:fixed;right:22px;bottom:22px;width:326px;z-index:900;
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
@@ -2609,7 +2621,9 @@ function importProject(json){
 }
 function normalizeChannelRow(r){
   r=r||{};
-  var out={src:r.src||"", mic:r.mic||"", stand:r.stand||"", p48:!!r.p48, notes:r.notes||""};
+  /* by = "Provided By" (band/service) M1; type/who = monitor dedicato (M2). Retrocompat: default "". */
+  var out={src:r.src||"", mic:r.mic||"", stand:r.stand||"", p48:!!r.p48, notes:r.notes||"",
+           by:r.by||"", type:r.type||"", who:r.who||""};
   if(r.linked_item_id) out.linked_item_id=r.linked_item_id;            /* aggancio all'oggetto 3D */
   if(r.linked_component_id) out.linked_component_id=r.linked_component_id;
   return out;
@@ -5440,7 +5454,7 @@ function ch(src,mic,stand,p48,notes){
   var info=micInfo(mic);
   return {src:src, mic:mic, stand:stand!=null?stand:info.stand, p48:p48!=null?!!p48:info.p48, notes:notes||""};
 }
-function outch(src,type,dest,notes){ return {src:src, mic:type, stand:dest||"", p48:false, notes:notes||""}; }
+function outch(src,type,dest,notes){ return {src:src, type:type||"", mic:"", stand:"", p48:false, notes:notes||"", who:"", by:""}; }   /* M2: il tipo va in .type (monitor dedicato) */
 function labelPrefix(it, src){
   var base=(it.label||"").trim(), def=(TYPES[it.type].defLabel||"").trim();
   if(!base || base===def || base===src) return src;
@@ -5612,35 +5626,57 @@ function attachReorder(handle, rowEl, kind){
     handle.addEventListener("pointercancel", onUp);
   });
 }
+/* Riga channel list. Input e output hanno schemi DEDICATI (roadmap 1B pro M1/M2):
+   input = sorgente · mic/DI · stand · 48V · forn.  |  output = destinazione · tipo(select) · chi · forn. */
+var OUT_TYPES = ["wedge","side fill","drum fill","IEM","personal mixer","console mon","XLR"];
 function chanRow(kind, row, i){
   var arr = kind==="in" ? state.inputs : state.outputs;
-  var d=document.createElement("div"); d.className="clrow"; d.__row=row;
+  var d=document.createElement("div"); d.className="clrow clrow-"+kind; d.__row=row;
   var n=document.createElement("span"); n.className="n grip"; n.textContent=(i+1);
   n.title="Trascina per riordinare"; d.appendChild(n);
   attachReorder(n, d, kind);
   var src=document.createElement("input"); src.className="src"; src.value=row.src||"";
-  src.placeholder = kind==="in" ? "sorgente" : "mix/destinazione";
+  src.placeholder = kind==="in" ? "sorgente" : "mix / destinazione";
   src.setAttribute("list", kind==="in" ? "inSrcList" : "outSrcList");
   src.addEventListener("input", function(){ row.src=src.value; saveSoon(); });
   d.appendChild(src);
-  var mic=document.createElement("input"); mic.className="mic"; mic.value=row.mic||"";
-  mic.placeholder = kind==="in" ? "mic/DI" : "tipo";
-  mic.addEventListener("input", function(){ row.mic=mic.value; saveSoon(); });
-  d.appendChild(mic);
-  var stand=document.createElement("input"); stand.className="stand"; stand.value=row.stand||"";
-  stand.placeholder = kind==="in" ? "stand" : "patch";
-  stand.addEventListener("input", function(){ row.stand=stand.value; saveSoon(); });
-  d.appendChild(stand);
-  var p48=document.createElement("label"); p48.className="p48"; p48.title=kind==="in" ? "Richiede phantom +48V" : "Non usato per output";
-  var p48box=document.createElement("input"); p48box.type="checkbox"; p48box.checked=!!row.p48; p48box.disabled=kind!=="in";
-  p48box.addEventListener("change", function(){ row.p48=p48box.checked; save(); });
-  p48.appendChild(p48box); d.appendChild(p48);
+  if(kind==="in"){
+    var mic=document.createElement("input"); mic.className="mic"; mic.value=row.mic||"";
+    mic.placeholder="mic/DI";
+    mic.addEventListener("input", function(){ row.mic=mic.value; saveSoon(); });
+    d.appendChild(mic);
+    var stand=document.createElement("input"); stand.className="stand"; stand.value=row.stand||"";
+    stand.placeholder="stand";
+    stand.addEventListener("input", function(){ row.stand=stand.value; saveSoon(); });
+    d.appendChild(stand);
+    var p48=document.createElement("label"); p48.className="p48"; p48.title="Richiede phantom +48V";
+    var p48box=document.createElement("input"); p48box.type="checkbox"; p48box.checked=!!row.p48;
+    p48box.addEventListener("change", function(){ row.p48=p48box.checked; save(); });
+    p48.appendChild(p48box); d.appendChild(p48);
+  } else {
+    var cur = row.type || row.mic || "";   /* retrocompat: il tipo stava in mic */
+    row.type = cur;
+    var type=document.createElement("select"); type.className="cltype"; type.title="Tipo di monitor";
+    var opts = OUT_TYPES.slice(); if(cur && opts.indexOf(cur)<0) opts.unshift(cur);
+    var ph=document.createElement("option"); ph.value=""; ph.textContent="tipo…"; if(!cur)ph.selected=true; type.appendChild(ph);
+    opts.forEach(function(t){ var o=document.createElement("option"); o.value=t; o.textContent=t; if(t===cur)o.selected=true; type.appendChild(o); });
+    type.addEventListener("change", function(){ row.type=type.value; saveSoon(); });
+    d.appendChild(type);
+    var who=document.createElement("input"); who.className="who"; who.value=row.who||"";
+    who.placeholder="chi (performer/posizione)";
+    who.addEventListener("input", function(){ row.who=who.value; saveSoon(); });
+    d.appendChild(who);
+  }
+  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da";
+  ["","Band","Service"].forEach(function(t){ var o=document.createElement("option"); o.value=t; o.textContent=t||"forn."; if(t===(row.by||""))o.selected=true; by.appendChild(o); });
+  by.addEventListener("change", function(){ row.by=by.value; saveSoon(); });
+  d.appendChild(by);
   var del=document.createElement("button"); del.className="del"; del.type="button"; del.innerHTML="&times;";
   del.title="Elimina riga";
   del.addEventListener("click", function(){ arr.splice(i,1); save(); renderChannels(); });
   d.appendChild(del);
   var notes=document.createElement("input"); notes.className="notes"; notes.value=row.notes||"";
-  notes.placeholder = kind==="in" ? "note, insert, FX, patch, posizione" : "note monitor, mix content, amplificazione";
+  notes.placeholder = kind==="in" ? "note, insert, FX, patch" : "note monitor, contenuto del mix";
   notes.addEventListener("input", function(){ row.notes=notes.value; saveSoon(); });
   d.appendChild(notes);
   return d;
@@ -7132,15 +7168,18 @@ function pdfChannelPage(doc, L, paperKey){
   doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120);
   doc.text(dateStr, pw-M, y, {align:"right"});
   y+=8;
-  var cols=[ {t:"CH",w:10}, {t:"SORGENTE / MIX",w:70}, {t:"MIC / TIPO",w:38}, {t:"STAND / PATCH",w:42}, {t:"48V",w:12}, {t:"NOTE",w:0} ];
-  cols[cols.length-1].w = colW - cols.reduce(function(a,c){return a+c.w;},0);
   function fitText(v,w){ var s=String(v==null?"":v); if(!s) return s; var lines=doc.splitTextToSize(s, w-2); return lines.length>1 ? (lines[0].replace(/\s+\S*$/,"")+"…") : lines[0]; }
-  function colHeader(){   /* intestazioni di colonna (ripetute a ogni pagina) */
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
-    var cx=x; cols.forEach(function(c){ doc.text(c.t, c.t==="48V"?cx+c.w/2:cx, y, c.t==="48V"?{align:"center"}:undefined); cx+=c.w; });
-    y+=4; doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(17,24,39);
-  }
-  function section(title, rows){
+  /* Colonne DEDICATE (M1 Provided By + M2 monitor): input e output hanno schemi diversi. c=centrato. */
+  function section(title, rows, kind){
+    var cols = kind==="in"
+      ? [ {t:"CH",w:9,c:1,k:function(r,i){return i+1;}}, {t:"SORGENTE",w:62,k:function(r){return r.src;}}, {t:"MIC / DI",w:34,k:function(r){return r.mic;}}, {t:"STAND",w:28,k:function(r){return r.stand;}}, {t:"48V",w:11,c:1,k:function(r){return r.p48?"sì":"";}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ]
+      : [ {t:"MIX",w:9,c:1,k:function(r,i){return i+1;}}, {t:"DESTINAZIONE",w:58,k:function(r){return r.src;}}, {t:"TIPO",w:34,k:function(r){return r.type||r.mic;}}, {t:"CHI",w:50,k:function(r){return r.who;}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ];
+    cols[cols.length-1].w = colW - cols.reduce(function(a,c){return a+c.w;},0);
+    function colHeader(){
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+      var cx=x; cols.forEach(function(c){ doc.text(c.t, c.c?cx+c.w/2:cx, y, c.c?{align:"center"}:undefined); cx+=c.w; });
+      y+=4; doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(17,24,39);
+    }
     if(y>L.ph-22){ doc.addPage(paperKey,L.orient); y=M+10; }
     doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(17,24,39);
     doc.text(title, x, y); y+=2; doc.setDrawColor(17,24,39); doc.setLineWidth(0.4); doc.line(x,y,pw-M,y); y+=4.5;
@@ -7149,15 +7188,13 @@ function pdfChannelPage(doc, L, paperKey){
       if(y>L.ph-10){ doc.addPage(paperKey,L.orient); y=M+10; colHeader(); }
       if(i%2===1){ doc.setFillColor(244,245,247); doc.rect(x-1.5, y-3.4, colW+3, 5.4, "F"); }
       var cx2=x;
-      function cell(v,c,al){ var s=fitText(v, c.w); doc.text(s, al==="c"?cx2+c.w/2:cx2, y, al==="c"?{align:"center"}:undefined); cx2+=c.w; }
-      cell(i+1, cols[0]); cell(r.src, cols[1]); cell(r.mic, cols[2]); cell(r.stand, cols[3]);
-      cell(r.p48?"sì":"", cols[4], "c"); cell(r.notes, cols[5]);
+      cols.forEach(function(c){ var s=fitText(c.k(r,i), c.w); doc.text(s, c.c?cx2+c.w/2:cx2, y, c.c?{align:"center"}:undefined); cx2+=c.w; });
       y+=5.4;
     });
     y+=4;
   }
-  if(state.inputs.length) section("INPUT PATCH", state.inputs);
-  if(state.outputs.length) section("MONITOR / OUTPUT", state.outputs);
+  if(state.inputs.length) section("INPUT PATCH", state.inputs, "in");
+  if(state.outputs.length) section("MONITOR / OUTPUT", state.outputs, "out");
 }
 (function(){
   var modal=document.getElementById("pdfModal"), paper=document.getElementById("pdfPaper"),
