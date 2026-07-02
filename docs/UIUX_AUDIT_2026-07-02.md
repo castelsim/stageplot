@@ -252,6 +252,24 @@ fuorviante) → attivato il **ripristino all'avvio** (gate su `#p=` e `?view=`);
 ora è File → Nuovo. Correzione all'audit §1.1: "ripristino all'avvio" era dato per esistente,
 non lo era.
 
+**E2E LIVE (02/07/2026 sera, `9f1e6a8` deployato)** — tutto verde su stageplot.it: header A′,
+menu File e "?", autosave online reale (chip + rename in "I miei progetti"), ⌘S→versione,
+boot restore, viewer `?view=` con barra sola-lettura, `/termini/` 200, mobile (dock, sheet a
+un livello, chip). L'e2e ha però scoperto due difetti del modello V2, corretti in giornata:
+
+1. **Il viewer/consulenza inquinava il documento locale** (`a3fb5af` + `6bd9efd`): aprire un
+   link `?view=` scriveva lo stato altrui in localStorage — col ripristino all'avvio, al ritorno
+   sulla home il progetto del link diventava il documento dell'utente (e l'autosave ne avrebbe
+   creato una copia cloud). Latente da sempre, emerso con A′. Ora tutte le scritture passano da
+   `persistLocalState()` (guard `foreignDoc()`), incluse quelle dirette di `importProject`/
+   `applyHistory` che il primo fix non copriva.
+2. **L'aggancio al progetto cloud non sopravviveva al reload** (`6bd9efd`): `cloudCurrentId`
+   viveva solo in memoria → a ogni riapertura il primo autosave avrebbe creato un duplicato
+   "Senza titolo"; e File→Nuovo / Apri file… non staccavano l'id → l'autosave avrebbe
+   sovrascritto il progetto aperto col foglio vuoto/importato. Ora l'aggancio persiste in
+   `stageplot_v1_cloudid` (scritto insieme allo stato, adottato al boot, staccato da Nuovo/
+   import, sganciato su PGRST116 se la riga non esiste più).
+
 ## Criterio di successo (dalla direttiva)
 
 Un utente inesperto apre StagePlot e capisce **senza istruzioni**: dove si salva (bottone
