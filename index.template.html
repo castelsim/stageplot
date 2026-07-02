@@ -1920,6 +1920,7 @@ function save(){
     localStorage.setItem(LS_KEY, stateToJSON());
   }catch(e){}
   recordHistory();
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
 /* Salvataggio per input ad alta frequenza (digitazione testo): persiste subito in localStorage (niente perdita
    al reload) ma RINVIA lo snapshot di cronologia (il costoso JSON.stringify completo) → un solo snapshot per
@@ -1928,7 +1929,59 @@ var _saveSoonT=null;
 function saveSoon(){
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
   clearTimeout(_saveSoonT); _saveSoonT=setTimeout(recordHistory, 500);
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
+/* ===== Stato documento + autosave online (V2, modello Docs — UI/UX A′) =====
+   Loggato: ogni salvataggio locale arma un upsert cloud con debounce 10s (stesso ritmo
+   dell'autosave consulenza). Non loggato: chip ambra cliccabile → login. */
+var CHIP_SVG={
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>'
+};
+function setDocState(mode){
+  var el=document.getElementById("docState"), elM=document.getElementById("docStateM");
+  var cls="doc-chip", html="";
+  if(mode==="online"){ cls+=" on"; var d=new Date(); html=CHIP_SVG.cloud+"Salvato online · "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+  else if(mode==="saving"){ html="Salvataggio…"; }
+  else if(mode==="offline-warn"){ cls+=" warn"; html=CHIP_SVG.warn+"Solo su questo dispositivo — Accedi"; }
+  else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Non salvato online — riprovo"; }
+  else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; }
+  [el,elM].forEach(function(c){ if(!c) return; c.className=cls+(c.id==="docStateM"?" doc-chip-m":""); c.innerHTML=html; c.hidden=false; });
+}
+window.setDocState=setDocState;
+var _cloudAsT=null;
+function cloudAutosaveNow(){
+  var C=window.__cloud;
+  if(!C || !C.user()){ setDocState("offline-warn"); return; }
+  setDocState("saving");
+  C.save(function(id){ setDocState(id ? "online" : "error"); }, true);
+}
+function scheduleCloudAutosave(){
+  if(window.__consultMode || document.body.classList.contains("viewmode")) return;  /* la consulenza ha il suo autosave */
+  var C=window.__cloud;
+  if(!C || !C.user()){ setDocState("offline-warn"); return; }
+  clearTimeout(_cloudAsT); _cloudAsT=setTimeout(cloudAutosaveNow, 10000);
+}
+function flushCloudAutosave(){
+  if(window.__consultMode || document.body.classList.contains("viewmode")) return;
+  clearTimeout(_cloudAsT); cloudAutosaveNow();
+}
+window.scheduleCloudAutosave=scheduleCloudAutosave; window.flushCloudAutosave=flushCloudAutosave;
+function renderAccountBtn(){
+  var b=document.getElementById("accountBtn"); if(!b) return;
+  var C=window.__cloud, u=C&&C.user();
+  if(u){ var em=(u.email||"?"); b.textContent=em.slice(0,2).toUpperCase(); b.classList.add("logged"); b.title=em; setDocState(C.currentId()?"online":"local"); }
+  else { b.textContent="Accedi"; b.classList.remove("logged"); b.title="Accedi per salvare online"; setDocState("offline-warn"); }
+}
+window.renderAccountBtn=renderAccountBtn;
+(function(){
+  var el=document.getElementById("docState");
+  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn")) document.getElementById("bCloud").click(); });
+  var elM=document.getElementById("docStateM");
+  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn")) document.getElementById("bCloud").click(); });
+  try{ setDocState("local"); }catch(e){}   /* stato iniziale; l'auth callback lo aggiorna appena il modulo cloud parte */
+})();
 /* ===== Undo / Redo ===== */
 var undoStack=[], redoStack=[], lastSnap=null;
 function recordHistory(){
@@ -1955,6 +2008,7 @@ function applyHistory(json){
   state=reattachVenueImg(normalizeState(JSON.parse(json))); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels();
 }
 function applyRemoteState(json){
@@ -1979,6 +2033,7 @@ function importProject(json){
   lastSnap=stateToJSON(); sel=null; selSet={};
   setEventInputs();
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels(); fit();
 }
 function normalizeChannelRow(r){
@@ -7103,18 +7158,17 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         '</div>';
       }).join("");
     } else {
-      rows='<p style="color:var(--text-3);margin:10px 0 0">Nessun progetto salvato online. Premi "Salva online" per iniziare.</p>';
+      rows='<p style="color:var(--text-3);margin:10px 0 0">Nessun progetto salvato online. Con l’accesso attivo, il progetto su cui lavori si salva online da solo.</p>';
     }
     bodyEl.innerHTML=
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">'+
         '<span style="color:var(--text-2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Connesso come <strong style="color:var(--text)">'+esc(cloudUser.email||"")+'</strong></span>'+
         '<button id="cloudSignout" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
-      '<button id="cloudSave" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:none;border-radius:var(--r-md);background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva online — &quot;'+esc(projTitle())+'&quot;</button>'+
-      '<div style="margin-top:18px">'+rows+'</div>'+
+      '<p style="color:var(--text-3);font-size:12px;margin:0 0 8px">I tuoi progetti si salvano online automaticamente mentre lavori (V. stato accanto al nome del progetto).</p>'+
+      '<div style="margin-top:10px">'+rows+'</div>'+
       '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:14px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
-    document.getElementById("cloudSave").addEventListener("click", saveProject);
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudShareRow"), function(b){ b.addEventListener("click", function(){ shareRow(b.getAttribute("data-id")); }); });
@@ -7170,10 +7224,11 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
   }
 
-  function saveProject(onSaved){
-    if(!sb){ toast("Cloud non disponibile.", true); return; }
-    if(!cloudUser){ toast("Accedi per salvare online."); signIn(); return; }
-    if(!(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
+  function saveProject(onSaved, silent){
+    /* silent=true → autosave (V2): niente toast, niente prompt nome (default "Senza titolo"), esito via onSaved(id|null) */
+    if(!sb){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else toast("Cloud non disponibile.", true); return; }
+    if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
+    if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
     function doSave(thumb){
       var fields={ title:projTitle(), data:JSON.parse(JSON.stringify(state)) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
@@ -7184,12 +7239,11 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:1, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
       }
       q.then(function(r){
-        if(r.error){ toast("Salvataggio non riuscito: "+r.error.message, true); return; }
+        if(r.error){ if(!silent) toast("Salvataggio non riuscito: "+r.error.message, true); if(silent && typeof onSaved==="function") onSaved(null); return; }
         if(r.data && r.data.id) cloudCurrentId=r.data.id;
-        toast("✓ Salvato online.");
-        loadProjects();
+        if(!silent){ toast("✓ Salvato online."); loadProjects(); }
         if(typeof onSaved==="function") onSaved(cloudCurrentId);
-      });
+      }, function(){ if(silent && typeof onSaved==="function") onSaved(null); });
     }
     /* genera la miniatura del rendering vero (non blocca il salvataggio se fallisce) */
     var saved=false;
@@ -7314,6 +7368,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     sb.auth.onAuthStateChange(function(ev, session){
       cloudUser=session?session.user:null;
       updateBtn();
+      if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
       if(modalOpen()) renderModal();
       if(cloudUser && modalOpen()) loadProjects();
     });
