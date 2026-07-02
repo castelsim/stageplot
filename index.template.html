@@ -13,6 +13,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
 <script>window.__APP_VERSION__="/*__APP_VERSION__*/";</script>
+<script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
+  Log in console + un avviso discreto (throttled), rassicurando che il lavoro è salvato in locale.
+  Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
+(function(){
+  var last=0;
+  function notify(kind, msg){
+    try{ console.error("[stageplot]", kind, msg); }catch(e){}
+    var now=Date.now(); if(now-last<8000) return; last=now;   /* max 1 avviso ogni 8s */
+    try{ if(window.__toast) window.__toast("Si è verificato un problema imprevisto. Il tuo lavoro resta salvato su questo dispositivo; se qualcosa non risponde, ricarica la pagina.", true); }catch(e){}
+  }
+  window.addEventListener("error", function(e){
+    if(!e||!e.message||e.message==="Script error.") return;                              /* cross-origin opaco */
+    var t=e.target; if(t&&(t.tagName==="IMG"||t.tagName==="SCRIPT"||t.tagName==="LINK")) return;  /* risorsa non caricata: non blocca l'app */
+    notify("error", e.message+(e.filename?(" @ "+e.filename+":"+e.lineno):""));
+  });
+  window.addEventListener("unhandledrejection", function(e){
+    var r=e&&e.reason; notify("unhandledrejection", (r&&(r.message||(""+r)))||"promise rejection");
+  });
+})();</script>
 <!-- Stage Plot · © 2026 Simone Castellan · simonecastellan.com · uso libero, paternità riservata -->
 <meta name="author" content="Simone Castellan">
 <meta name="description" content="Crea stage plot gratis online: editor in scala, organici per band, orchestra e coro, export PDF e condivisione via link. Senza registrazione. Channel list e rider tecnico su consulenza.">
