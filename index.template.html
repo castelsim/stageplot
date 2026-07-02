@@ -206,6 +206,7 @@
   </span>
   <span class="tbdiv"></span>
   <div style="display:flex;gap:4px">
+    <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
     <button class="btn" id="bHdrPdf" title="Salva / esporta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Salva / Esporta</button>
     <button class="btn" id="bHdrImport" title="Apri progetto (.json)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Apri progetto</button>
   </div>
@@ -242,6 +243,7 @@
       <div class="mact-grid">
         <button data-act="palco">Palco</button>
         <button data-act="evento">Evento</button>
+        <button data-act="chan">Channel list</button>
         <button data-act="venue">Planimetria</button>
         <button data-act="frame">Area stampa</button>
         <button data-act="save">Salva (locale)</button>
@@ -494,6 +496,30 @@
     <button class="btn" id="frameSaveJson" style="width:100%;margin-top:6px;font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva progetto (per modificarlo dopo)</button>
     </div>
   </div>
+  <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
+  <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
+    <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
+      <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
+      <span class="cl-count" id="inCount">0</span>
+      <button class="btn" id="inAuto" title="Genera i canali dai mic/DI presenti sul palco">Auto</button>
+    </div>
+    <div class="clsec-body" id="inBody">
+      <div id="inRows"></div>
+      <div class="clactions"><button class="btn" id="inAdd">+ canale</button><button class="btn" id="inClear">Svuota</button></div>
+    </div>
+    <div class="clsec-head" id="outHead" title="Espandi/chiudi Monitor / Output">
+      <span class="cl-caret">▶</span><span class="cl-lbl">Monitor / Output</span>
+      <span class="cl-count" id="outCount">0</span>
+      <button class="btn" id="outAuto" title="Genera i mix dai monitor presenti sul palco">Auto</button>
+    </div>
+    <div class="clsec-body" id="outBody">
+      <div id="outRows"></div>
+      <div class="clactions"><button class="btn" id="outAdd">+ mix</button><button class="btn" id="outClear">Svuota</button></div>
+    </div>
+    <button class="btn primary" id="bChanDone" style="width:100%;margin-top:12px">Fatto</button>
+  </div>
+  <datalist id="inSrcList"></datalist>
+  <datalist id="outSrcList"></datalist>
 </aside>
 
 <button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
@@ -3284,6 +3310,7 @@ function closeMobileDrawers(){
       if(a==="add"){ openCatalog(); return; }
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
+      if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
       if(a==="save") document.getElementById("bHdrPdf").click();
@@ -3870,12 +3897,25 @@ document.getElementById("blkFlat").addEventListener("change", function(){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
+/* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
+document.getElementById("bChanDone").addEventListener("click", toggleChan);
+document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
+document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
+document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
+document.getElementById("outClear").addEventListener("click", function(){ if(state.outputs.length && confirm("Svuotare la output list?")){ state.outputs=[]; save(); renderChannels(); } });
+document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation(); autoInputs(); ensureClOpen("in"); });
+document.getElementById("outAuto").addEventListener("click", function(e){ e.stopPropagation(); autoOutputs(); ensureClOpen("out"); });
+function clToggle(kind){ var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body"); var open=head.classList.toggle("open"); body.classList.toggle("open", open); }
+function ensureClOpen(kind){ var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body"); head.classList.add("open"); body.classList.add("open"); }
+document.getElementById("inHead").addEventListener("click", function(e){ if(e.target.closest(".btn")) return; clToggle("in"); });
+document.getElementById("outHead").addEventListener("click", function(e){ if(e.target.closest(".btn")) return; clToggle("out"); });
 document.getElementById("bAddBlock").addEventListener("click", addStageBlock);
 document.getElementById("bAddSemi").addEventListener("click", addSemicircle);
 document.getElementById("bDelBlock").addEventListener("click", delSelBlock);
 document.getElementById("bUndo").addEventListener("click", undo);
 document.getElementById("bRedo").addEventListener("click", redo);
 document.getElementById("bFit").addEventListener("click", fit);
+(function(){ var b=document.getElementById("bChanList"); if(b) b.addEventListener("click", toggleChan); })();   /* 1B: apre il pannello channel list (visibile solo in consult-editor) */
 document.getElementById("bVenue").addEventListener("click", toggleVenueEdit);
 /* tema chiaro/scuro persistente */
 function applyTheme(dark){
@@ -5040,7 +5080,7 @@ function linkChannelsToItems(){
   });
 }
 function autoInputs(){
-  state.inputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
+  if(state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
   state.items.forEach(function(it){
@@ -5066,7 +5106,7 @@ function autoInputs(){
   state.inputs=rows; save(); renderChannels();
 }
 function autoOutputs(){
-  state.outputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
+  if(state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   state.items.forEach(function(it){
     if(OUT_SET[it.type]!=null){

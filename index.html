@@ -726,6 +726,52 @@ body.livesession:not(.viewmode) #viewBar {
 }
 #viewBar #viewSave { margin-left:8px; border:1px solid #fff; background:transparent; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; }
 #viewBar { display: none; }
+/* ===== Editor consulenza (audit/roadmap 1B) ===== */
+/* Il pulsante Channel list è riservato al consulente (modalità editor ?view=) */
+#bChanList { display: none; }
+body.consult-editor #bChanList { display: inline-flex; align-items: center; gap: 6px; }
+/* La schermata del consulente è un ambiente di lavoro: via i comandi "consumer" */
+body.consult-editor #bLearn,
+body.consult-editor #bCloud,
+body.consult-editor #bConsulenza,
+body.consult-editor #bHdrImport,
+body.consult-editor #fbTrigger { display: none !important; }
+/* Pannello channel list (consulenza 1B): nascosto di default, si apre come modalità col pulsante Channel list */
+#props #chanlist { display: none; }
+body.chan-edit #props #chanlist { display: block; }
+body.chan-edit #selProps,
+body.chan-edit #groupProps,
+body.chan-edit #noSel,
+body.chan-edit #mActions { display: none !important; }
+.clsec-head{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;-webkit-user-select:none;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:7px 10px;margin:8px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-2,#374151);background:var(--surface-2,#f8fafc)}
+.clsec-head:hover{background:var(--surface-3,#eceef1)}
+.clsec-head.open{background:#1f2937;border-color:#1f2937;color:#fff}
+.clsec-head .cl-caret{font-size:10px;color:#9ca3af;transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 10px}
+.clsec-head.open .cl-caret{transform:rotate(90deg);color:#cbd5e1}
+.clsec-head .cl-lbl{flex:1}
+.clsec-head .cl-count{font-size:10px;font-weight:700;color:#aab0b8;background:#fff;border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
+.clsec-head.open .cl-count{background:#374151;color:#cbd5e1}
+.clsec-head .btn{padding:3px 8px;font-size:11px;margin-left:2px}
+.clsec-head.open .btn{background:#374151;border-color:#4b5563;color:#e5e7eb}
+.clsec-head.open .btn:hover{background:#4b5563}
+.clsec-body{display:none;padding:8px 0 4px}
+.clsec-body.open{display:block}
+.clrow{display:grid;grid-template-columns:22px 1fr 86px 72px 36px 18px;gap:4px;align-items:center;margin-bottom:6px}
+.clrow .n{font-size:11px;color:#9ca3af;text-align:center;border-radius:4px}
+.clrow .n.grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.clrow .n.grip:hover{background:#eef0f2;color:#6b7280}
+.clrow .n.grip:active{cursor:grabbing}
+.clrow.dragging{opacity:.55;background:#eef2ff;border-radius:6px}
+#props .clrow input{padding:4px 6px;font-size:12px}
+.clrow .src,.clrow .mic,.clrow .stand,.clrow .notes{min-width:0}
+.clrow .notes{grid-column:2 / 6}
+.clrow .p48{display:flex;align-items:center;justify-content:center;font-size:10px;color:#6b7280;border:1px solid var(--border,#e5e7eb);border-radius:7px;height:26px}
+.clrow .p48 input{width:auto;margin:0}
+.clrow .del{border:none;background:none;color:#cbd0d6;cursor:pointer;font-size:15px;line-height:1;padding:0}
+.clrow .del:hover{color:#b91c1c}
+.clactions{display:flex;gap:6px;margin:5px 0 4px}
+.clactions .btn{padding:5px 9px;font-size:11.5px}
+.clempty{font-size:11.5px;color:#b6bbc2;margin:2px 0 4px}
 /* ===== Box feedback "Cosa manca?" ===== */
 #fbBox{position:fixed;right:22px;bottom:22px;width:326px;z-index:900;
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
@@ -815,6 +861,7 @@ body.livesession:not(.viewmode) #viewBar {
   </span>
   <span class="tbdiv"></span>
   <div style="display:flex;gap:4px">
+    <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
     <button class="btn" id="bHdrPdf" title="Salva / esporta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Salva / Esporta</button>
     <button class="btn" id="bHdrImport" title="Apri progetto (.json)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Apri progetto</button>
   </div>
@@ -851,6 +898,7 @@ body.livesession:not(.viewmode) #viewBar {
       <div class="mact-grid">
         <button data-act="palco">Palco</button>
         <button data-act="evento">Evento</button>
+        <button data-act="chan">Channel list</button>
         <button data-act="venue">Planimetria</button>
         <button data-act="frame">Area stampa</button>
         <button data-act="save">Salva (locale)</button>
@@ -1103,6 +1151,30 @@ body.livesession:not(.viewmode) #viewBar {
     <button class="btn" id="frameSaveJson" style="width:100%;margin-top:6px;font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva progetto (per modificarlo dopo)</button>
     </div>
   </div>
+  <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
+  <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
+    <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
+      <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
+      <span class="cl-count" id="inCount">0</span>
+      <button class="btn" id="inAuto" title="Genera i canali dai mic/DI presenti sul palco">Auto</button>
+    </div>
+    <div class="clsec-body" id="inBody">
+      <div id="inRows"></div>
+      <div class="clactions"><button class="btn" id="inAdd">+ canale</button><button class="btn" id="inClear">Svuota</button></div>
+    </div>
+    <div class="clsec-head" id="outHead" title="Espandi/chiudi Monitor / Output">
+      <span class="cl-caret">▶</span><span class="cl-lbl">Monitor / Output</span>
+      <span class="cl-count" id="outCount">0</span>
+      <button class="btn" id="outAuto" title="Genera i mix dai monitor presenti sul palco">Auto</button>
+    </div>
+    <div class="clsec-body" id="outBody">
+      <div id="outRows"></div>
+      <div class="clactions"><button class="btn" id="outAdd">+ mix</button><button class="btn" id="outClear">Svuota</button></div>
+    </div>
+    <button class="btn primary" id="bChanDone" style="width:100%;margin-top:12px">Fatto</button>
+  </div>
+  <datalist id="inSrcList"></datalist>
+  <datalist id="outSrcList"></datalist>
 </aside>
 
 <button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
@@ -3893,6 +3965,7 @@ function closeMobileDrawers(){
       if(a==="add"){ openCatalog(); return; }
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
+      if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
       if(a==="save") document.getElementById("bHdrPdf").click();
@@ -4479,12 +4552,25 @@ document.getElementById("blkFlat").addEventListener("change", function(){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
+/* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
+document.getElementById("bChanDone").addEventListener("click", toggleChan);
+document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
+document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
+document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
+document.getElementById("outClear").addEventListener("click", function(){ if(state.outputs.length && confirm("Svuotare la output list?")){ state.outputs=[]; save(); renderChannels(); } });
+document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation(); autoInputs(); ensureClOpen("in"); });
+document.getElementById("outAuto").addEventListener("click", function(e){ e.stopPropagation(); autoOutputs(); ensureClOpen("out"); });
+function clToggle(kind){ var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body"); var open=head.classList.toggle("open"); body.classList.toggle("open", open); }
+function ensureClOpen(kind){ var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body"); head.classList.add("open"); body.classList.add("open"); }
+document.getElementById("inHead").addEventListener("click", function(e){ if(e.target.closest(".btn")) return; clToggle("in"); });
+document.getElementById("outHead").addEventListener("click", function(e){ if(e.target.closest(".btn")) return; clToggle("out"); });
 document.getElementById("bAddBlock").addEventListener("click", addStageBlock);
 document.getElementById("bAddSemi").addEventListener("click", addSemicircle);
 document.getElementById("bDelBlock").addEventListener("click", delSelBlock);
 document.getElementById("bUndo").addEventListener("click", undo);
 document.getElementById("bRedo").addEventListener("click", redo);
 document.getElementById("bFit").addEventListener("click", fit);
+(function(){ var b=document.getElementById("bChanList"); if(b) b.addEventListener("click", toggleChan); })();   /* 1B: apre il pannello channel list (visibile solo in consult-editor) */
 document.getElementById("bVenue").addEventListener("click", toggleVenueEdit);
 /* tema chiaro/scuro persistente */
 function applyTheme(dark){
@@ -5649,7 +5735,7 @@ function linkChannelsToItems(){
   });
 }
 function autoInputs(){
-  state.inputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
+  if(state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
   state.items.forEach(function(it){
@@ -5675,7 +5761,7 @@ function autoInputs(){
   state.inputs=rows; save(); renderChannels();
 }
 function autoOutputs(){
-  state.outputs=[]; return;   /* channel list rimossa dalla versione free (modulo riservato alle consulenze) */
+  if(state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   state.items.forEach(function(it){
     if(OUT_SET[it.type]!=null){
