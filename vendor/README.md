@@ -23,6 +23,28 @@ shasum -a 256 vendor/supabase.min.js   # aggiorna l'hash qui sopra
 
 Dopo l'aggiornamento: `node build.mjs` e ritestare login + salvataggio cloud nel browser.
 
+## qrcode.min.js
+
+Generazione **locale** del QR nella modale Condividi (prima era `api.qrserver.com`: l'URL di
+condivisione — token incluso — veniva inviato a un servizio terzo). Caricata **on-demand** alla
+prima apertura della modale da `loadQrLib()`.
+
+- **Pacchetto:** `qrcode-generator` (Kazuhiko Arase, MIT)
+- **Versione:** 1.4.4
+- **Fonte:** https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js
+- **Scaricato:** 2026-07-02 (rimossa la riga `sourceMappingURL` finale: puntava a jsdelivr)
+- **SHA-256:** `d58d7bd2bec6b3fb587b15b3c98c762e23ec0063da38633334f6aece37206ed6`
+
+### Come aggiornare
+
+```
+curl -sL "https://cdn.jsdelivr.net/npm/qrcode-generator@1.<NUOVA>/qrcode.min.js" -o vendor/qrcode.min.js
+# rimuovere l'eventuale riga sourceMappingURL, poi:
+shasum -a 256 vendor/qrcode.min.js   # aggiorna l'hash qui sopra
+```
+
+Dopo: ritestare "Condividi → Mostra QR" nel browser (con e senza login).
+
 ## pdf.min.js
 
 Librerie per l'export PDF, **estratte dal monolite** (erano inline in `index.html`, ~449 KB parsati

@@ -6,9 +6,10 @@
      script/style 'unsafe-inline': il tool è single-file con JS/CSS inline (hash impraticabili).
      Il valore chiave è connect-src: anche se un XSS futuro passasse, non può esfiltrare la sessione
      verso domini esterni. supabase-js è self-hosted (/vendor/, audit S4): niente CDN in script-src.
-     Origini reali: *.supabase.co (REST/auth/storage + wss realtime), api.qrserver.com (QR condivisione).
+     Origini reali: solo *.supabase.co (REST/auth/storage + wss realtime). Il QR di condivisione è
+     generato in locale (vendor/qrcode.min.js): nessun dominio esterno in img-src.
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
@@ -5865,6 +5866,21 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
 (function(){
   var modal=document.getElementById("shareModal"), urlEl=document.getElementById("shareUrl");
   function status(m){ document.getElementById("shareStatus").textContent=m||""; }
+  /* Lazy-load della libreria QR (self-hosted in /vendor/, come pdf.min.js): il QR è generato
+     in locale, l'URL col token di condivisione non lascia mai il browser. Promise cachata;
+     su errore si azzera per consentire un nuovo tentativo. */
+  var __qrLibPromise=null;
+  function loadQrLib(){
+    if(window.qrcode) return Promise.resolve();
+    if(__qrLibPromise) return __qrLibPromise;
+    __qrLibPromise=new Promise(function(res,rej){
+      var s=document.createElement("script"); s.src="/vendor/qrcode.min.js"; s.async=true;
+      s.onload=function(){ window.qrcode ? res() : rej(new Error("qrcode non disponibile dopo il caricamento")); };
+      s.onerror=function(){ __qrLibPromise=null; rej(new Error("Impossibile caricare la libreria QR")); };
+      document.head.appendChild(s);
+    });
+    return __qrLibPromise;
+  }
   function shareText(){ var t=state.titolo||"", l=state.luogo||"";
     return (t||l) ? (t+(t&&l?" · ":"")+l) : "Stage plot"; }   /* oggetto mail = titolo · luogo */
   function fillShareModal(url){
@@ -5882,15 +5898,21 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     if(url.length > 1000){
       qrImg.style.display='none'; qrImg.src=''; qrTooBig=true;
     } else {
-      qrImg.style.display='block';
-      qrImg.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=6&ecc=L&data='+encodeURIComponent(url);
       qrTooBig=false;
+      var mySeq = ++qrSeq;   /* se la modale viene ricompilata prima che la lib arrivi, vince l'URL più recente */
+      loadQrLib().then(function(){
+        if(mySeq!==qrSeq) return;
+        var qr=window.qrcode(0,'L'); qr.addData(url); qr.make();
+        qrImg.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr.createSvgTag({cellSize:4,margin:4,scalable:true}));
+        qrImg.style.display='block';
+      }).catch(function(){ if(mySeq===qrSeq){ qrImg.style.display='none'; qrErr.style.display='block'; } });
     }
     setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
   }
   function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
+  var qrSeq = 0;              /* progressivo delle richieste QR (guardia anti-race) */
   function showForProject(id){
     shareTargetId = id;
     window.__cloud.ensureShareTokenFor(id, function(tok){
