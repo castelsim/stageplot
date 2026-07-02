@@ -623,6 +623,27 @@ body.chan-edit #mActions { display: none !important; }
   body.chan-edit .clrow-in{ grid-template-columns:26px minmax(120px,1.2fr) 118px 92px 40px 104px 22px; }
   body.chan-edit .clrow-out{ grid-template-columns:26px minmax(140px,1.4fr) 132px minmax(120px,1.2fr) 104px 22px; }
 }
+/* ===== 1C — il cliente vede la channel list live (toggle, sola lettura) ===== */
+#viewToggle{ display:none; }
+body.consult-viewer #viewToggle{ display:inline-flex; gap:4px; margin-left:12px; }
+#viewToggle button{ border:1px solid rgba(255,255,255,.45); background:transparent; color:#fff; border-radius:6px; padding:3px 10px; cursor:pointer; font:inherit; font-size:13px; }
+#viewToggle button.vt-on{ background:#fff; color:#111827; border-color:#fff; }
+/* toggle su "Channel list": nascondi il canvas, mostra la channel list a piena pagina */
+body.viewmode.consult-viewer.cl-view main{ display:none; }
+body.viewmode.consult-viewer.cl-view #props{ display:block !important; position:fixed; inset:44px 0 0 0; overflow-y:auto; padding:16px 16px 40px; z-index:20; background:var(--surface); }
+body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:900px; margin:0 auto; border:0; padding-top:0; }
+/* sola lettura: sezioni sempre aperte, controlli editor nascosti */
+body.consult-viewer .clsec-body{ display:block !important; }
+body.consult-viewer .clsec-head{ cursor:default; }
+body.consult-viewer #chanlist .clsec-head .btn,
+body.consult-viewer #chanlist .clactions,
+body.consult-viewer #chanlist #bChanDone,
+body.consult-viewer #chanlist .del,
+body.consult-viewer .cl-contact,
+body.consult-viewer #fbTrigger{ display:none !important; }
+body.consult-viewer .grip{ cursor:default; }
+body.consult-viewer .clrow-in{ grid-template-columns:22px 1fr 92px 72px 34px 84px; }
+body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 /* ===== Box feedback "Cosa manca?" ===== */
 #fbBox{position:fixed;right:22px;bottom:22px;width:326px;z-index:900;
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
