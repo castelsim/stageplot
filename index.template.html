@@ -520,6 +520,8 @@
   </div>
   <datalist id="inSrcList"></datalist>
   <datalist id="outSrcList"></datalist>
+  <datalist id="micList"></datalist>
+  <datalist id="standList"></datalist>
 </aside>
 
 <button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
@@ -4714,6 +4716,9 @@ var FORM_TITLES = {
 /* mic/DI suggeriti per tipo (auto input list); valore = etichetta mic. multi = più canali per un solo elemento */
 /* MIC/DI di default per OGNI elemento che produce suono (pulsante "Auto" da palco).
    Singolo canale qui in IN_SRC; elementi stereo/multipli in IN_MULTI. Convenzioni live PA. */
+/* M4 — suggerimenti (datalist) per mic/DI e stand: modelli comuni nel live sound. Solo hint, campo resta libero. */
+var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","e906","e609","MD421","e604","e904","D6","Beta 52A","e602","Beta 91A","SM81","KM184","C451","DPA 4099","DPA 4066","C414","U87","TLM 103","DI","DI stereo","Radial J48"];
+var STAND_SUGGEST = ["tall boom","short boom","tall straight","short straight","clip","round base","table","a terra","—"];
 var IN_SRC = {
   /* voci e microfoni */
   astamic:"SM58", giraffa:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58",
@@ -4975,11 +4980,11 @@ function chanRow(kind, row, i){
   d.appendChild(src);
   if(kind==="in"){
     var mic=document.createElement("input"); mic.className="mic"; mic.value=row.mic||"";
-    mic.placeholder="mic/DI";
+    mic.placeholder="mic/DI"; mic.setAttribute("list","micList");   /* M4: suggerimenti modelli */
     mic.addEventListener("input", function(){ row.mic=mic.value; saveSoon(); });
     d.appendChild(mic);
     var stand=document.createElement("input"); stand.className="stand"; stand.value=row.stand||"";
-    stand.placeholder="stand";
+    stand.placeholder="stand"; stand.setAttribute("list","standList");   /* M4: suggerimenti stand */
     stand.addEventListener("input", function(){ row.stand=stand.value; saveSoon(); });
     d.appendChild(stand);
     var p48=document.createElement("label"); p48.className="p48"; p48.title="Richiede phantom +48V";
@@ -5070,6 +5075,9 @@ function updateChanDatalists(){
   function fillList(el, opts){ el.innerHTML=""; opts.forEach(function(o){ var op=document.createElement("option"); op.value=o; el.appendChild(op); }); }
   fillList(inL, inOpts);
   fillList(outL, outOpts);
+  var micL=document.getElementById("micList"), standL=document.getElementById("standList");   /* M4: suggerimenti mic/stand */
+  if(micL) fillList(micL, MIC_SUGGEST);
+  if(standL) fillList(standL, STAND_SUGGEST);
 }
 function renderChannels(){
   var inR=document.getElementById("inRows"), outR=document.getElementById("outRows");
