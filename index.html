@@ -7205,7 +7205,7 @@ function pdfChannelPage(doc, L, paperKey){
   doc.text(dateStr, pw-M, y, {align:"right"});
   y+=5.5;
   doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(80,80,80);
-  doc.text("CHANNEL LIST · INPUT / MONITOR", x, y);
+  doc.text("CHANNEL LIST · "+state.inputs.length+" input / "+state.outputs.length+" monitor", x, y);   /* M7: conteggio canali */
   if(state.luogo){ doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120); doc.text(oneLine(state.luogo, pw*0.4), pw-M, y, {align:"right"}); }
   y+=4;
   if(state.techContact){ doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(90,90,90); doc.text(oneLine("Contatto tecnico: "+state.techContact, pw-2*M), x, y); y+=4; }
