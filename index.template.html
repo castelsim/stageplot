@@ -7500,7 +7500,9 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     signIn: signIn,
     save: saveProject,
     ensureShareTokenFor: ensureShareTokenFor,
-    clearShareTokenFor: clearShareTokenFor
+    clearShareTokenFor: clearShareTokenFor,
+    /* token di sessione fresco per l'Authorization header (audit S5: identità del feedback lato server) */
+    accessToken: function(){ return sb ? sb.auth.getSession().then(function(r){ return (r&&r.data&&r.data.session)?r.data.session.access_token:null; }).catch(function(){ return null; }) : Promise.resolve(null); }
   };
 
   function init(){
@@ -7629,17 +7631,22 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       selected_object_type: sel?sel.type:null };
   }
 
-  function collectAndSend(userId, userEmail, projectId){
+  function collectAndSend(projectId){
+    /* Niente user_id/user_email nel body: l'identità la ricava il server dal JWT (audit S5). */
     var body={
       message: msg.value.trim(), hint: hint, honeypot: hp.value,
       tech_context: techContext(),
       meta:{ app_version: window.__APP_VERSION__||null, page_url: location.href,
         user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
       project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
-      user_id: userId||null, user_email: userEmail||null,
       project_id: (projectId||null)
     };
-    fetch(SUBMIT_URL,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) })
+    var tokP = (window.__cloud && window.__cloud.accessToken) ? window.__cloud.accessToken() : Promise.resolve(null);
+    tokP.then(function(tok){
+      var headers={"Content-Type":"application/json"};
+      if(tok) headers["Authorization"]="Bearer "+tok;   /* utente loggato: il server identifica dal token */
+      return fetch(SUBMIT_URL,{ method:"POST", headers:headers, body:JSON.stringify(body) });
+    })
       .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status,j:j}; }); })
       .then(function(res){
         send.disabled=false;
@@ -7659,8 +7666,8 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     var m=msg.value.trim();
     if(m.length<5){ result.style.display="block"; result.style.color="var(--danger)"; result.textContent="Scrivi almeno 5 caratteri."; return; }
     send.disabled=true; result.style.display="none";
-    var ctx = (typeof window.getFeedbackContext==="function") ? window.getFeedbackContext() : {user_id:null,user_email:null,project_id:null};
-    collectAndSend(ctx.user_id, ctx.user_email, ctx.project_id);
+    var ctx = (typeof window.getFeedbackContext==="function") ? window.getFeedbackContext() : {project_id:null};
+    collectAndSend(ctx.project_id);
   });
 })();
 </script>

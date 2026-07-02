@@ -48,8 +48,10 @@ export function validateFeedback(payload: unknown): ValidationResult {
       project_snapshot: (p.project_snapshot != null && jsonSize(p.project_snapshot) <= MAX_SNAPSHOT_BYTES)
         ? p.project_snapshot
         : null,
-      user_id: typeof p.user_id === "string" ? p.user_id : null,
-      user_email: typeof p.user_email === "string" ? p.user_email : null,
+      // Identità NON dal client (audit S5): l'endpoint è pubblico, un client potrebbe
+      // spoofare user_id/user_email. Vengono derivati dal JWT verificato in index.ts.
+      user_id: null,
+      user_email: null,
       project_id: typeof p.project_id === "string" ? p.project_id : null,
     },
   };

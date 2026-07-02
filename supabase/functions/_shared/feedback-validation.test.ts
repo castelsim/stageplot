@@ -55,3 +55,16 @@ Deno.test("tech_context troppo grande viene azzerato", () => {
   assertEquals(r.ok, true);
   if (r.ok) assertEquals(Object.keys(r.value.tech_context).length, 0);
 });
+
+Deno.test("identità dal payload ignorata (audit S5: no spoofing)", () => {
+  const r = validateFeedback({
+    message: "messaggio vero",
+    user_id: "attacker-controlled-id",
+    user_email: "vittima@esempio.it",
+  });
+  assertEquals(r.ok, true);
+  if (r.ok) {
+    assertEquals(r.value.user_id, null);
+    assertEquals(r.value.user_email, null);
+  }
+});
