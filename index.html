@@ -1165,6 +1165,9 @@ body.chan-edit #mActions { display: none !important; }
   </div>
   <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
   <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
+    <label style="display:block;font-size:11px;color:var(--text-2,#374151);margin:0 0 10px">Contatto tecnico (rider)
+      <input type="text" id="clContact" placeholder="FOH / tecnico + telefono o email" style="width:100%;margin-top:3px;padding:5px 8px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111">
+    </label>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
       <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
       <span class="cl-count" id="inCount">0</span>
@@ -2632,7 +2635,7 @@ function normalizeChannelRow(r){
 }
 function normalizeState(s){
   s.items=s.items||[];
-  s.titolo=s.titolo||""; s.luogo=s.luogo||"";
+  s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.stage=s.stage||{w:1200,d:800};
   if(!s.stage.blocks || !s.stage.blocks.length) s.stage.blocks=[{x:0,y:0,w:s.stage.w||1200,d:s.stage.d||800}];
   s.stage.blocks=s.stage.blocks.map(function(r){
@@ -4570,6 +4573,7 @@ document.getElementById("bStageDone").addEventListener("click", toggleStageEdit)
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
+(function(){ var c=document.getElementById("clContact"); if(c) c.addEventListener("input", function(){ state.techContact=c.value; saveSoon(); }); })();   /* M5: contatto tecnico rider */
 document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
 document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
 document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
@@ -5749,6 +5753,7 @@ function updateChanDatalists(){
 function renderChannels(){
   var inR=document.getElementById("inRows"), outR=document.getElementById("outRows");
   if(!inR) return;
+  var cc=document.getElementById("clContact"); if(cc && cc.value!==(state.techContact||"")) cc.value=state.techContact||"";   /* M5 */
   updateChanDatalists();
   /* aggiorna badge conteggio negli header a scomparsa */
   var inC=document.getElementById("inCount"), outC=document.getElementById("outCount");
@@ -7191,15 +7196,20 @@ function genThumbnail(){
 }
 function pdfChannelPage(doc, L, paperKey){
   var M=L.M, x=M, y=M+8, pw=L.pw, colW=(pw-2*M);
-  var dateStr=(state.luogo? state.luogo+"  ·  ":"")+new Date().toLocaleDateString("it-IT");
-  var titleStr=(state.titolo||"Stage plot")+" — Channel list";
-  var dateW=Math.min(80, pw*0.35), titleW=pw-2*M-dateW-4;
-  doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
-  var titL=doc.splitTextToSize(titleStr, titleW);
-  doc.text(titL.length>1 ? titL[0].replace(/\s+\S*$/,"")+"…" : titleStr, x, y);
+  /* Intestazione rider (M5): artista/evento in grande, data, sottotitolo, luogo, contatto tecnico. */
+  function oneLine(s,w){ var l=doc.splitTextToSize(String(s||""), w); return l.length>1 ? l[0].replace(/\s+\S*$/,"")+"…" : (l[0]||""); }
+  var dateStr=new Date().toLocaleDateString("it-IT");
+  doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(17,24,39);
+  doc.text(oneLine(state.titolo||"Stage plot", pw-2*M-55), x, y);
   doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120);
   doc.text(dateStr, pw-M, y, {align:"right"});
-  y+=8;
+  y+=5.5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(80,80,80);
+  doc.text("CHANNEL LIST · INPUT / MONITOR", x, y);
+  if(state.luogo){ doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120); doc.text(oneLine(state.luogo, pw*0.4), pw-M, y, {align:"right"}); }
+  y+=4;
+  if(state.techContact){ doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(90,90,90); doc.text(oneLine("Contatto tecnico: "+state.techContact, pw-2*M), x, y); y+=4; }
+  doc.setDrawColor(17,24,39); doc.setLineWidth(0.5); doc.line(x,y,pw-M,y); y+=6;
   function fitText(v,w){ var s=String(v==null?"":v); if(!s) return s; var lines=doc.splitTextToSize(s, w-2); return lines.length>1 ? (lines[0].replace(/\s+\S*$/,"")+"…") : lines[0]; }
   /* Colonne DEDICATE (M1 Provided By + M2 monitor): input e output hanno schemi diversi. c=centrato. */
   function section(title, rows, kind){
