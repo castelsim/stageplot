@@ -33,3 +33,25 @@ Deno.test("hint valido preservato", () => {
   assertEquals(r.ok, true);
   if (r.ok) assertEquals(r.value.hint, "bug");
 });
+
+Deno.test("project_snapshot troppo grande viene scartato (il messaggio passa)", () => {
+  const big = { blob: "x".repeat(1_100_000) }; // > 1 MB serializzato
+  const r = validateFeedback({ message: "messaggio vero", project_snapshot: big });
+  assertEquals(r.ok, true);
+  if (r.ok) assertEquals(r.value.project_snapshot, null);
+});
+
+Deno.test("project_snapshot piccolo viene preservato", () => {
+  const snap = { a: 1 };
+  const r = validateFeedback({ message: "messaggio vero", project_snapshot: snap });
+  assertEquals(r.ok, true);
+  if (r.ok) assertEquals(r.value.project_snapshot, snap);
+});
+
+Deno.test("tech_context troppo grande viene azzerato", () => {
+  const big: Record<string, string> = {};
+  for (let i = 0; i < 5000; i++) big["k" + i] = "vvvvvvvvvv";
+  const r = validateFeedback({ message: "messaggio vero", tech_context: big });
+  assertEquals(r.ok, true);
+  if (r.ok) assertEquals(Object.keys(r.value.tech_context).length, 0);
+});

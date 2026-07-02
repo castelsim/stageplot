@@ -17,6 +17,18 @@ export type ValidationResult =
 
 const HINTS = ["bug", "missing", "idea"];
 
+// Cap anti-abuso su un endpoint pubblico non autenticato: oltre il limite il campo
+// viene scartato (il messaggio dell'utente passa comunque). Il rate-limit resta la difesa primaria.
+const MAX_SNAPSHOT_BYTES = 1_048_576; // 1 MB
+const MAX_TECH_BYTES = 32_768; // 32 KB (tech_context = solo metadati/contatori)
+function jsonSize(v: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(v)).length;
+  } catch {
+    return Infinity;
+  }
+}
+
 export function validateFeedback(payload: unknown): ValidationResult {
   const p = (payload ?? {}) as Record<string, unknown>;
   if (typeof p.honeypot === "string" && p.honeypot.trim() !== "") {
@@ -31,9 +43,11 @@ export function validateFeedback(payload: unknown): ValidationResult {
     ok: true,
     value: {
       message, hint,
-      tech_context: obj(p.tech_context),
+      tech_context: jsonSize(obj(p.tech_context)) > MAX_TECH_BYTES ? {} : obj(p.tech_context),
       meta: obj(p.meta) as FeedbackMeta,
-      project_snapshot: p.project_snapshot ?? null,
+      project_snapshot: (p.project_snapshot != null && jsonSize(p.project_snapshot) <= MAX_SNAPSHOT_BYTES)
+        ? p.project_snapshot
+        : null,
       user_id: typeof p.user_id === "string" ? p.user_id : null,
       user_email: typeof p.user_email === "string" ? p.user_email : null,
       project_id: typeof p.project_id === "string" ? p.project_id : null,

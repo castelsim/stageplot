@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     user_agent: f.meta.user_agent ?? null, viewport: f.meta.viewport ?? null, language: f.meta.language ?? null,
     tech_context: f.tech_context, project_snapshot: f.project_snapshot,
   }).select("id").single();
-  if (error) return json({ error: error.message }, 500);
+  if (error) { console.error("insert feedback:", error.message); return json({ error: "errore interno" }, 500); }
 
   // Email best-effort col prompt Claude (se fallisce, la riga è già salvata)
   try {
