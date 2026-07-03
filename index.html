@@ -7954,6 +7954,11 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[];   /* adotta l'aggancio persistito dal boot (load()) */
   /* ---- Analytics minimi (spec 2026-07-03): spedizione centralizzata ---- */
   var loginTracked=false;
+  /* SIGNED_IN scatta anche al ripristino della sessione (non solo al login vero): senza questi due
+     flag ogni visita di un utente loggato conterebbe come login_success. Login vero = SIGNED_IN
+     senza sessione preesistente al boot, oppure ritorno dal redirect OAuth (?code=). */
+  var hadSessionAtBoot=false;
+  var oauthReturn=/[?&#](code|access_token)=/.test(location.href);
   function analyticsSessionId(){
     var s=null;
     try{
@@ -8235,6 +8240,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
     sb.auth.getSession().then(function(r){
       cloudUser=(r && r.data && r.data.session)?r.data.session.user:null;
+      if(!oauthReturn) hadSessionAtBoot=!!cloudUser;
       updateBtn();
       var copyTok=null; try{ copyTok=sessionStorage.getItem("copyFromToken"); }catch(e){}
       if(copyTok && cloudUser){
@@ -8248,7 +8254,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     });
     sb.auth.onAuthStateChange(function(ev, session){
       cloudUser=session?session.user:null;
-      if(ev==="SIGNED_IN" && cloudUser && !loginTracked){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
+      if(ev==="SIGNED_IN" && cloudUser && !loginTracked && !hadSessionAtBoot){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       updateBtn();
