@@ -227,7 +227,10 @@
   #props .row{display:flex;gap:6px}
   #props .row>*{flex:1}
   #props .chk{display:block;font-size:12.5px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
-  #props .chk input{width:auto;margin-right:7px;vertical-align:-1px}
+  #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:var(--n-300)}   /* v2.1: switch a misura fissa, niente stile-input (vince su #props input) */
+  #props .chk input:checked{background:var(--accent)}
+  body.dark #props .chk input{background:var(--border-strong)}
+  body.dark #props .chk input:checked{background:var(--accent)}
   #props .chk input:disabled{opacity:.4} #props .chk:has(input:disabled){color:var(--text-3)}
   #props .cnt-row{display:flex;align-items:center;gap:8px;margin:6px 0}
   #props .cnt-row .cnt-lab{flex:1;font-size:12.5px;color:var(--n-700)}
@@ -814,3 +817,41 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #viewBar .vb-badge{font-size:11px;color:var(--text-2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;white-space:nowrap}
 #viewBar #viewCopy{background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 15px;font-weight:700;font-size:13px;cursor:pointer}
 #viewBar #viewCopy:hover{background:var(--accent-strong)}
+
+  /* ═══════ DS v2.1 — componenti stile configuratore (03/07/2026) ═══════ */
+  /* Switch: tutti i checkbox diventano interruttori (CSS-only, il JS legge sempre .checked) */
+  input[type="checkbox"]{appearance:none;-webkit-appearance:none;width:36px;height:20px;flex:0 0 auto;
+    border-radius:999px;background:var(--n-300);position:relative;cursor:pointer;outline:none;
+    transition:background var(--dur-fast) var(--ease);vertical-align:middle}
+  input[type="checkbox"]::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(38,33,24,.25);
+    transition:left var(--dur-fast) var(--ease)}
+  input[type="checkbox"]:checked{background:var(--accent)}
+  input[type="checkbox"]:checked::after{left:18px}
+  input[type="checkbox"]:focus-visible{box-shadow:0 0 0 3px var(--focus-ring)}
+  body.dark input[type="checkbox"]{background:var(--border-strong)}
+  body.dark input[type="checkbox"]:checked{background:var(--accent)}
+  /* Riga opzione: etichetta a sinistra, controllo a destra, separatore tratteggiato */
+  #props .chk{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;
+    gap:10px;margin:0;padding:8px 0;border-bottom:1px dashed var(--border)}
+  #props .chk:last-of-type{border-bottom:none}
+  /* Slider con nome a fianco e valore */
+  input[type="range"]{accent-color:var(--accent)}
+  .sldrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:8px 0;
+    border-bottom:1px dashed var(--border)}
+  .sldrow label{flex:0 0 auto;color:var(--text-2)}
+  .sldrow input[type="range"]{flex:1;min-width:0}
+  .sldrow output{min-width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  /* Chips: scelte esclusive 2-4 opzioni */
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chips button{border:1px solid var(--border);background:var(--surface);color:var(--text);
+    border-radius:var(--r-md);padding:6px 12px;font-size:12.5px;cursor:pointer;flex:1;white-space:nowrap}
+  .chips button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .chips button:hover:not(.on){background:var(--surface-raised)}
+  /* Azioni di pannello: full-width; "Dividi" & co. = primario pieno */
+  #props .btn,#grpProps .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+  #pDivide,#pGtrSplit,#pCompSplit,#pSplit,#grpUngroup{background:var(--accent);border:1px solid var(--accent);
+    color:#fff;font-weight:600}
+  #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
+  /* Selezione canvas: outline piena, staccata (il rect è espanso via JS) */
+  .item.selected .selbox{stroke:var(--accent);stroke-width:2;stroke-dasharray:none;fill:none}
