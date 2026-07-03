@@ -7832,16 +7832,5 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   });
 })();
 </script>
-<script>
-/* A/B accent — SOLO localhost, per confronto visivo (04/07). Rimuovere dopo la scelta. */
-if(location.hostname==="localhost"){(function(){
-  var GREEN={"--accent":"#0d9488","--accent-strong":"#0b7a70","--accent-bright":"#14b8a6","--accent-tint":"#e4f2f0","--accent-soft":"#b9dcd7","--select-fill":"rgba(13,148,136,.05)","--focus-ring":"rgba(13,148,136,.32)"};
-  var on=false, b=document.createElement("button");
-  b.textContent="Accent: BLU brand"; b.style.cssText="position:fixed;left:10px;bottom:10px;z-index:99;padding:6px 12px;border-radius:8px;border:1px solid #999;background:#fff;color:#222;font:600 12px sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)";
-  b.onclick=function(){ on=!on;
-    for(var k in GREEN) document.documentElement.style.setProperty(k, on?GREEN[k]:"");
-    b.textContent = on?"Accent: VERDE prototipo":"Accent: BLU brand"; };
-  document.body.appendChild(b);
-})();}
-</script></body>
+</body>
 </html>
