@@ -122,6 +122,8 @@
   body.dark .doc-chip{background:#222b38;border-color:#314046;color:#96a5a1}
   body.dark .doc-chip.on{color:#4ade80;background:#0f2d1a;border-color:#166534}
   body.dark .doc-chip.warn{color:#fbbf24;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.30)}
+  .doc-chip.warn.subtle{color:var(--n-700);background:var(--n-100);border-color:var(--n-300)}   /* v2.2: 'Solo su questo dispositivo' non è un allarme */
+  body.dark .doc-chip.warn.subtle{color:#9fb0b5;background:rgba(255,255,255,.04);border-color:#314046}
   .hdrmenu{position:fixed;z-index:60;min-width:238px;background:var(--surface);border:1px solid var(--border);
     border-radius:var(--r-md);box-shadow:var(--elev-2);padding:5px}
   .hdrmenu .mi{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;background:none;
@@ -137,7 +139,7 @@
   #catalog{grid-area:cat;overflow-y:auto;border-right:1px solid var(--border);padding:10px 9px}
   #catalog .cat-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);
     border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:6px;cursor:pointer;
-    font-size:11.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--n-700);font-weight:700}
+    font-size:13px;color:var(--n-700);font-weight:600}   /* v2.2: sentence-case arioso, come le card del prototipo */
   #catalog .cat-head:first-child{margin-top:0}
   #catalog .cat-head:hover{background:var(--n-200)}
   #catalog .cat-head.open{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -230,6 +232,7 @@
   #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:var(--n-300)}   /* v2.1: switch a misura fissa, niente stile-input (vince su #props input) */
   #props .chk input:checked{background:var(--accent)}
   body.dark #props .chk input{background:var(--border-strong)}
+  #props input[type=range],body.dark #props input[type=range]{border:none;padding:0;background:transparent;box-shadow:none}   /* v2.2: slider nativo puro come il prototipo — senza scatola, il cursore arriva a inizio/fine corsa */
   body.dark #props .chk input:checked{background:var(--accent)}
   #props .chk input:disabled{opacity:.4} #props .chk:has(input:disabled){color:var(--text-3)}
   #props .cnt-row{display:flex;align-items:center;gap:8px;margin:6px 0}

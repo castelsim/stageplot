@@ -2061,7 +2061,7 @@ function setDocState(mode){
   var cls="doc-chip", html="", htmlM="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
-  else if(mode==="offline-warn"){ cls+=" warn"; html=CHIP_SVG.warn+"Solo su questo dispositivo — Accedi"; htmlM=CHIP_SVG.warn+"Non salvato"; }
+  else if(mode==="offline-warn"){ cls+=" warn subtle"; html=CHIP_SVG.warn+"Solo su questo dispositivo — Accedi"; htmlM=CHIP_SVG.warn+"Non salvato"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Non salvato online — riprovo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
