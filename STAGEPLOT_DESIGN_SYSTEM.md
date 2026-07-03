@@ -4,7 +4,12 @@
 > Documento **canonico**: precede l'implementazione. Niente codice di prodotto qui dentro,
 > solo principi, token e specifiche.
 >
-> **Stato:** implementato e live · v1.1 · 2026-07-02 (v1.0 approvata e implementata il 30-06)
+> **Stato:** v2.0 "warm" su branch `ui-warm-v2` (implementata su tool+consulenza, in attesa merge) · 2026-07-03
+> — v1.1 live fino al merge · v1.0 approvata e implementata il 30-06
+> **v2.0 in sintesi (variante C approvata da Simone sul confronto A/B/C):** neutri cool-gray → **warm stone/avorio**;
+> dark blu-notte → **verde carbone**; canvas-bg e griglia caldi; ombre warm; **accent brand INVARIATO** (#0e7490);
+> componenti nuovi dal prototipo configuratore: **Switch** (36×20, pallino 16, bg `--border`→`--accent` quando on)
+> e **Stepper** (−/+ 24×24 `--r-sm`, valore centrale bold) — specifiche in §12 componenti.
 > **Direzione approvata:** *Codifica + elevazione* (stesso DNA dell'app, più rigore) ·
 > personalità *Strumento tecnico, accent teal* · light di default, dark di prima classe.
 > **v1.1 (UI/UX standardization A′):** menu File, chip stato documento, autosave online,
@@ -76,19 +81,23 @@ Non si **clona** nessuna di queste interfacce: se ne estraggono i *principi*.
 
 Blocco di riferimento (sintassi CSS custom properties; i valori sono la fonte di verità).
 
-### 2.1 Colore — neutri (cool gray)
+### 2.1 Colore — neutri (warm stone/avorio — v2.0)
+
+> **v2.0 (03/07/2026, decisione Simone):** neutri scaldati (avorio/sabbia) al posto dei cool gray.
+> Motivo: fanno risaltare i materiali delle icone realistiche (legni, ottoni, rame, pelli) e danno
+> al prodotto un carattere più "carta tecnica". L'accent brand NON cambia (variante C del confronto).
 
 ```
---n-50:#f9fafb;  /* app background          */
---n-100:#f3f4f6; /* superfici sollevate     */
---n-200:#e5e7eb; /* bordo standard          */
---n-300:#d1d5db; /* bordo forte / input     */
---n-400:#9ca3af; /* placeholder / icona muta*/
---n-500:#6b7280; /* testo secondario        */
---n-600:#4b5563; /* testo terziario         */
---n-700:#374151; /* testo enfasi            */
---n-800:#1f2937; /* INK — testo primario    */
---n-900:#111827; /* near-black              */
+--n-50:#f5f4f0;  /* app background          */
+--n-100:#edebe4; /* superfici sollevate     */
+--n-200:#ddd9cd; /* bordo standard          */
+--n-300:#c8c3b4; /* bordo forte / input     */
+--n-400:#a29c8e; /* placeholder / icona muta*/
+--n-500:#746e60; /* testo secondario        */
+--n-600:#59544a; /* testo terziario         */
+--n-700:#423e36; /* testo enfasi            */
+--n-800:#292620; /* INK — testo primario    */
+--n-900:#1a1815; /* near-black              */
 ```
 
 ### 2.2 Colore — accent brand (teal, uno solo)
@@ -125,23 +134,26 @@ Blocco di riferimento (sintassi CSS custom properties; i valori sono la fonte di
 --surface-raised:var(--n-100); --border:var(--n-200); --border-strong:var(--n-300);
 --text:var(--n-800); --text-2:var(--n-500); --text-3:var(--n-400); --text-on-accent:#fff;
 
---canvas-bg:#fafafa;  --sheet:#ffffff;
+--canvas-bg:#edebe4;  --sheet:#ffffff;   /* v2.0: cornice canvas calda, foglio sempre bianco */
 --select:var(--accent);            --select-fill:rgba(14,116,144,.05);
 --focus-ring:rgba(14,116,144,.32);
---guide:var(--accent);             --guide-center:#f59e0b;  --axis:#cbd5e1;
---grid-line:#eceef0;  --grid-major:#dde0e3;
+--guide:var(--accent);             --guide-center:#f59e0b;  --axis:#c8c3b4;
+--grid-line:#e9e6db;  --grid-major:#dbd6c8;   /* v2.0: griglia sabbia */
 ```
 
-### 2.6 Tema dark (override su `body.dark`)
+Ombre (`--elev-*`): base warm `rgba(38,33,24,…)` (v2.0; prima `rgba(16,24,40,…)`).
+
+### 2.6 Tema dark (override su `body.dark`) — v2.0 "verde carbone"
 
 ```
---bg:#11151c; --surface:#161b24; --surface-raised:#1b2230;
---border:#283142; --border-strong:#2b3445;
---text:#e5e7eb; --text-2:#94a3b8; --text-3:#6b7280;
---canvas-bg:#0b0e13; --sheet:#ffffff; /* opz. "foglio attenuato": #f3f4f6 */
+--bg:#12181b; --surface:#1b2327; --surface-raised:#20292e;
+--border:#2c3a3f; --border-strong:#314046;
+--text:#e5e7eb; --text-2:#96a5a1; --text-3:#6b7280;
+--canvas-bg:#0e1214; --sheet:#ffffff; /* opz. "foglio attenuato": #f3f4f6 */
 --accent:var(--accent-bright);  --select:var(--accent-bright);
 --focus-ring:rgba(34,192,214,.32);
 ```
+v2.0: la dark passa dal blu-notte al **verde carbone** (coerente coi neutri warm della light).
 Nel dark: **il chrome diventa scuro, il foglio resta chiaro.** L'accent UI passa al teal-bright
 per contrasto; la semantica del canvas (monitor/power/tech) non cambia.
 
