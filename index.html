@@ -413,7 +413,7 @@
   /* SVG — palco */
   .stage-floor{fill:#fff;stroke:#1f2937;stroke-width:3}
   .stage-fill{fill:#fff;stroke:none}
-  .stage-edge{fill:none;stroke:#1f2937;stroke-width:6;stroke-linejoin:round;stroke-linecap:round}
+  .stage-edge{fill:none;stroke:#4a4438;stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round}   /* panel-refine: perimetro più morbido (era #1f2937 w6) */
   .stageblk{fill:var(--select-fill);stroke:var(--accent);stroke-width:2;stroke-dasharray:7 5;cursor:move}
   .stageblk.sel{fill:var(--select-fill);stroke-dasharray:none;stroke-width:3}
   .stageblk-lbl{fill:var(--accent);font-size:15px;font-weight:700;pointer-events:none}
@@ -998,7 +998,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     gap:10px;margin:0;padding:8px 0;border-bottom:1px dashed var(--border)}
   #props .chk:last-of-type{border-bottom:none}
   /* Slider con nome a fianco e valore */
-  input[type="range"]{accent-color:var(--accent)}
+  input[type="range"]{accent-color:#3b82f6}   /* panel-refine: cursori azzurri (preferenza Simone, come il default del prototipo) */
   .sldrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
   .sldrow label{flex:0 0 auto;color:var(--text-2)}
@@ -1017,6 +1017,21 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
   /* Selezione canvas: outline piena, staccata (il rect è espanso via JS) */
   .item.selected .selbox{stroke:var(--accent);stroke-width:2;stroke-dasharray:none;fill:none}
+
+  /* ═══ Panel refine (04/07): configuratore in alto per i COMP, stepper compatti, respiro ═══ */
+  #props{padding:16px}
+  #props .chk{padding:9px 0}
+  #props .cnt-row{margin:8px 0}
+  #props .btn.cnt-b{width:26px;height:26px;min-width:26px;padding:0;margin-top:0;
+    display:inline-flex;align-items:center;justify-content:center;border-radius:7px;font-size:15px}
+  #props .chips{flex-wrap:nowrap}
+  #props .chips button{flex:1 1 0;padding:6px 4px;font-size:11.5px;white-space:nowrap;min-width:0}
+  #selProps{display:flex;flex-direction:column}
+  #selProps > *{flex:0 0 auto}
+  #selProps.comp-first h3{order:-2}
+  .comp-dim{color:var(--accent);font-weight:600;font-size:12.5px;margin:0 0 8px}
+  #selProps.comp-first #pComp{order:-1;border-top:none;margin-top:2px;padding-top:0;
+    border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:10px}
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
@@ -1233,7 +1248,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
-    <div class="sldrow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="1"><output id="pRotVal">0°</output></div>
+    <div class="sldrow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>
@@ -3260,7 +3275,7 @@ function stageRectEdges(){
    - semi-cerchi → stroke doppio clippato nella forma (clipping dimezza lo spessore visibile a SW)
 */
 function stageFloorMarkup(){
-  var b=stageBlocks(), SW=6;
+  var b=stageBlocks(), SW=3.5;   /* panel-refine: perimetro più sottile (era 6) */
   var clip='<defs><clipPath id="stageClip">'+b.map(function(r){ return blockShapeSvg(r,""); }).join('')+'</clipPath></defs>';
   var fills=b.map(function(r){ return blockShapeSvg(r,"stage-fill"); }).join('');
   var grid='<g clip-path="url(#stageClip)">'+gridMarkup()+'</g>';
@@ -3268,7 +3283,7 @@ function stageFloorMarkup(){
     /* forme miste (rettangoli + semicerchi + quadrilateri liberi): bordo spesso disegnato DIETRO i
        riempimenti opachi. I riempimenti coprono la parte interna del bordo e le giunzioni tra blocchi →
        resta visibile solo il perimetro esterno: i blocchi appaiono fusi in un'unica forma. */
-    var sw2=SW*2, attr=' fill="none" stroke="#1f2937" stroke-width="'+sw2+'" stroke-linejoin="round" stroke-linecap="round"';
+    var sw2=SW*2, attr=' fill="none" stroke="#4a4438" stroke-width="'+sw2+'" stroke-linejoin="round" stroke-linecap="round"';
     var border=b.map(function(r){
       if(r.shape==="semi") return '<path'+attr+' d="'+semiPath(r)+'"/>';
       if(hasPts(r)) return '<polygon'+attr+' points="'+ptsAttr(r.pts)+'"/>';
@@ -3280,7 +3295,7 @@ function stageFloorMarkup(){
   var ins=SW/2;
   var border=stageRectEdges().map(function(e){
     var dx=-e.nx*ins, dy=-e.ny*ins;
-    return '<line stroke="#1f2937" stroke-width="'+SW+'" stroke-linecap="square"'+
+    return '<line stroke="#4a4438" stroke-width="'+SW+'" stroke-linecap="square"'+
       ' x1="'+(e.x1+dx)+'" y1="'+(e.y1+dy)+'" x2="'+(e.x2+dx)+'" y2="'+(e.y2+dy)+'"/>';
   }).join('');
   return clip+fills+grid+border;
@@ -3624,6 +3639,7 @@ function renderProps(){
     document.getElementById("pTastLeg2").checked = it.leggio2===true;
   }
   var pc=document.getElementById("pComp"), comp=COMP[it.type];
+  document.getElementById("selProps").classList.toggle("comp-first", !!comp);   /* configuratore in alto per i configurabili */
   pc.style.display = comp ? "block" : "none";
   if(comp){
     if(comp.name){ document.getElementById("selNome").textContent = comp.name(it); setPeekName(comp.name(it)); }
@@ -3634,6 +3650,10 @@ function renderProps(){
 function buildCompCtl(comp, it){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
   var p=parts(it);
+  var dimEl=document.createElement("div"); dimEl.className="comp-dim";        /* ingombro reale, come nel prototipo */
+  var nPz = comp.explode ? comp.explode(it).length : 0;
+  dimEl.textContent="Ingombro: "+it.w+"\u00d7"+it.d+" cm"+(nPz?" \u00b7 "+nPz+" elementi":"");
+  box.appendChild(dimEl);
   if(comp.presets){                                  /* DS v2.1: chips preset (scelte esclusive) */
     var pr=document.createElement("div"); pr.className="chips"; pr.style.margin="2px 0 10px";
     comp.presets.forEach(function(ps){
@@ -8684,5 +8704,16 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   });
 })();
 </script>
-</body>
+<script>
+/* A/B accent — SOLO localhost, per confronto visivo (04/07). Rimuovere dopo la scelta. */
+if(location.hostname==="localhost"){(function(){
+  var GREEN={"--accent":"#0d9488","--accent-strong":"#0b7a70","--accent-bright":"#14b8a6","--accent-tint":"#e4f2f0","--accent-soft":"#b9dcd7","--select-fill":"rgba(13,148,136,.05)","--focus-ring":"rgba(13,148,136,.32)"};
+  var on=false, b=document.createElement("button");
+  b.textContent="Accent: BLU brand"; b.style.cssText="position:fixed;left:10px;bottom:10px;z-index:99;padding:6px 12px;border-radius:8px;border:1px solid #999;background:#fff;color:#222;font:600 12px sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)";
+  b.onclick=function(){ on=!on;
+    for(var k in GREEN) document.documentElement.style.setProperty(k, on?GREEN[k]:"");
+    b.textContent = on?"Accent: VERDE prototipo":"Accent: BLU brand"; };
+  document.body.appendChild(b);
+})();}
+</script></body>
 </html>
