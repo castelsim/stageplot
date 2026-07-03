@@ -376,10 +376,7 @@
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
-    <label style="display:flex;justify-content:space-between;align-items:baseline">Rotazione <span id="pRotVal" style="color:var(--text);font-weight:600">0°</span></label>
-    <div class="rotrow">
-      <span class="rotslide"><input type="range" id="pRot" min="-180" max="180" step="1"></span>
-    </div>
+    <div class="sldrow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="1"><output id="pRotVal">0°</output></div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>
@@ -850,16 +847,25 @@
     <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
       <div style="flex:1 1 280px;min-width:260px">
         <label>Formato foglio</label>
-        <select id="pdfPaper">
+        <select id="pdfPaper" hidden>
           <option value="a4">A4 (29,7×21 cm)</option>
           <option value="a3">A3 (42×29,7 cm)</option>
           <option value="a2">A2 (59,4×42 cm)</option>
         </select>
+        <div class="chips" data-chips="pdfPaper" style="margin:4px 0 10px">
+          <button type="button" data-v="a4" class="on">A4</button>
+          <button type="button" data-v="a3">A3</button>
+          <button type="button" data-v="a2">A2</button>
+        </div>
         <label>Orientamento</label>
-        <select id="pdfOrient">
+        <select id="pdfOrient" hidden>
           <option value="landscape">Orizzontale</option>
           <option value="portrait">Verticale</option>
         </select>
+        <div class="chips" data-chips="pdfOrient" style="margin:4px 0 10px">
+          <button type="button" data-v="landscape" class="on">Orizzontale</button>
+          <button type="button" data-v="portrait">Verticale</button>
+        </div>
         <label>Scala</label>
         <select id="pdfScale">
           <option value="auto">Automatica (consigliata)</option>
@@ -2478,7 +2484,7 @@ function itemMarkup(it){
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
-  s += '<rect class="selbox" x="'+(-bw)+'" y="'+(-bh)+'" width="'+(2*bw)+'" height="'+(2*bh)+'" rx="6"/>';
+  s += '<rect class="selbox" x="'+(-bw-5)+'" y="'+(-bh-5)+'" width="'+(2*bw+10)+'" height="'+(2*bh+10)+'" rx="8"/>';   /* DS v2.1: outline staccata 5 cm dall'oggetto */
   s += t.draw(it);
   if(KEYS_BENCH[it.type] && it.panca!==false){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
@@ -2810,6 +2816,16 @@ function applyRot(doSave){
 }
 document.getElementById("pRot").addEventListener("input", function(){ applyRot(false); });
 document.getElementById("pRot").addEventListener("change", function(){ applyRot(true); });
+/* DS v2.1 — chips che pilotano una select nascosta (value + change: la logica esistente non cambia) */
+document.querySelectorAll(".chips[data-chips]").forEach(function(box){
+  var sel=document.getElementById(box.dataset.chips); if(!sel) return;
+  function sync(){ box.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.v===sel.value); }); }
+  box.addEventListener("click", function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    sel.value=b.dataset.v; sel.dispatchEvent(new Event("change",{bubbles:true})); sync();
+  });
+  sel.addEventListener("change", sync); sync();
+});
 document.getElementById("pSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSedia").checked; }); });
 document.getElementById("pLeggioCfg").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pLeggioCfg").checked; }); });
 document.getElementById("pDoppia").addEventListener("change", function(){ mutSel(function(it){
