@@ -1922,6 +1922,21 @@ function maybeLoginNudge(){
   try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per averlo salvato online."); }catch(e){}
 }
 window.maybeLoginNudge=maybeLoginNudge;
+/* Analytics minimi (spec 2026-07-03): 6 eventi, fire-and-forget, zero terzi, zero identificatori
+   persistenti per gli anonimi. Gli eventi si accodano finché il modulo cloud non ha risolto l'auth
+   iniziale (così app_open dei loggati porta lo user_id), poi __flushEvents li spedisce.
+   Mai in viewer/consulenza (?view=/export=): i numeri restano quelli del tool. */
+var __evtQ=[]; window.__evtQ=__evtQ;
+var __activatedSent=false;
+function track(event, props){
+  try{
+    if(/[?&](view|export)=/.test(location.search) || foreignDoc()) return;
+    __evtQ.push({ event:event, props:props||{} });
+    if(window.__flushEvents) window.__flushEvents();
+  }catch(e){}
+}
+window.track=track;
+track("app_open");
 /* UNICO punto di scrittura del documento locale (stato + aggancio al progetto cloud). La chiave _cloudid
    fa sopravvivere l'associazione online TRA le sessioni: senza, ogni riapertura creerebbe un duplicato
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
@@ -1929,6 +1944,8 @@ window.maybeLoginNudge=maybeLoginNudge;
 function persistLocalState(){
   if(foreignDoc()) return;
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  /* attivazione (quality gate): 3° elemento raggiunto, una volta per sessione */
+  try{ if(!__activatedSent && state.items && state.items.length>=3){ __activatedSent=true; track("project_activated"); } }catch(e){}
   try{
     var C=window.__cloud;
     if(C && C.currentId){
@@ -6073,14 +6090,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var data=JSON.stringify(state);   /* export su file: include anche la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
       window.showSaveFilePicker({ suggestedName:name, types:[{description:"Progetto Stage Plot", accept:{"application/json":[".json"]}}] })
-        .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); maybeLoginNudge(); }); })
+        .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); track("export",{format:"stageplot"}); maybeLoginNudge(); }); })
         .catch(function(e){ if(e && e.name==="AbortError"){ io("Salvataggio annullato."); return; }
-          var url=URL.createObjectURL(new Blob([data],{type:"application/json"})); dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000); io("✓ Progetto salvato: "+name); maybeLoginNudge(); });
+          var url=URL.createObjectURL(new Blob([data],{type:"application/json"})); dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000); io("✓ Progetto salvato: "+name); track("export",{format:"stageplot"}); maybeLoginNudge(); });
       return;
     }
     var url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
     dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
     io("✓ Progetto salvato: "+name);
+    track("export",{format:"stageplot"});
     maybeLoginNudge();
   });
   document.getElementById("importJson").addEventListener("click", function(){ document.getElementById("importFile").click(); });
@@ -6660,7 +6678,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
                      : how==="share"  ? "✓ PDF pronto — scegli Mail (o un'app) per inviarlo."
                      : how==="abort"  ? "Condivisione annullata (PDF non inviato)."
                      : "✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
-    if(how!=="abort") setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
+    if(how!=="abort"){ track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400); }
   }).catch(function(e){
     if(e && e.name==="AbortError"){ info.className="mstatus"; info.textContent="Salvataggio annullato."; return; }
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e);
@@ -6695,6 +6713,7 @@ function exportPng(){
     ctx.drawImage(img,0,0,pxW,pxH);
     var a=document.createElement("a");
     a.download=(state.nome||"stage-plot")+".png"; a.href=c.toDataURL("image/png"); a.click();
+    track("export",{format:"png"});
     maybeLoginNudge();
   };
   img.onerror=function(){ URL.revokeObjectURL(url); showToast("PNG export fallito","err"); };
@@ -7190,6 +7209,31 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
 
   var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[];   /* adotta l'aggancio persistito dal boot (load()) */
+  /* ---- Analytics minimi (spec 2026-07-03): spedizione centralizzata ---- */
+  var loginTracked=false;
+  function analyticsSessionId(){
+    var s=null;
+    try{
+      s=sessionStorage.getItem("sp_sid");
+      if(!s){ s=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2); sessionStorage.setItem("sp_sid", s); }
+    }catch(e){ s="ephemeral"; }
+    return s;
+  }
+  window.__sendEvent=function(row){
+    try{
+      if(/[?&](view|export)=/.test(location.search)) return;   /* mai in viewer/consulenza */
+      var props=row.props||{};
+      props.logged=!!cloudUser;
+      props.mobile=(typeof isMobile==="function")?isMobile():false;
+      props.app_version=window.__APP_VERSION__||"";
+      var rec={ event:row.event, session_id:analyticsSessionId(), user_id:cloudUser?cloudUser.id:null, props:props };
+      if(sb && cloudUser){ sb.from("analytics_events").insert(rec).then(function(){},function(){}); }
+      else fetch(SUPABASE_URL+"/rest/v1/analytics_events",{ method:"POST", keepalive:true,
+        headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON_KEY, "Authorization":"Bearer "+SUPABASE_ANON_KEY, "Prefer":"return=minimal" },
+        body: JSON.stringify(rec) }).catch(function(){});
+    }catch(e){}
+  };
+  window.__flushEvents=function(){ try{ var q=window.__evtQ||[]; while(q.length) window.__sendEvent(q.shift()); }catch(e){} };
   window.getFeedbackContext = function(){
     return { user_id: cloudUser?cloudUser.id:null, user_email: cloudUser?cloudUser.email:null, project_id: cloudCurrentId||null };
   };
@@ -7315,6 +7359,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     function doSave(thumb){
       var fields={ title:projTitle(), data:JSON.parse(JSON.stringify(state)) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
+      var wasInsert=!cloudCurrentId;
       var q;
       if(cloudCurrentId){
         q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId).select().single();
@@ -7331,6 +7376,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
           if(!silent) toast("Salvataggio non riuscito: "+r.error.message, true); if(silent && typeof onSaved==="function") onSaved(null); return;
         }
         if(r.data && r.data.id) cloudCurrentId=r.data.id;
+        if(wasInsert) window.__sendEvent({event:"cloud_first_save",props:{}});
         persistLocalState();   /* riallinea stato+aggancio persistiti (copre anche insert appena nati) */
         if(!silent){ toast("✓ Salvato online."); loadProjects(); }
         if(typeof onSaved==="function") onSaved(cloudCurrentId);
@@ -7409,7 +7455,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       if(r.error){ cb(null); return; }
       if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
       var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
-      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", id).then(function(u){ cb(u.error?null:tok); });
+      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", id).then(function(u){ if(!u.error) window.__sendEvent({event:"share_created",props:{}}); cb(u.error?null:tok); });
     });
   }
   function clearShareTokenFor(id, cb){
@@ -7441,7 +7487,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(modalEl) modalEl.addEventListener("click", function(e){ if(e.target===modalEl) closeModal(); });
     document.addEventListener("keydown", function(e){ if(modalOpen() && e.key==="Escape") closeModal(); });
 
-    if(!window.supabase || !window.supabase.createClient){ updateBtn(); return; }   /* CDN non caricato: il tool resta pienamente usabile */
+    if(!window.supabase || !window.supabase.createClient){ updateBtn(); window.__flushEvents(); return; }   /* CDN non caricato: il tool resta pienamente usabile */
     sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
 
     sb.auth.getSession().then(function(r){
@@ -7455,9 +7501,12 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       }
       var reopen=false; try{ reopen=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}
       if(reopen && cloudUser){ try{ sessionStorage.removeItem("cloudReopen"); }catch(e){} openModal(); }
+      window.__flushEvents();   /* auth iniziale risolta: gli eventi in coda partono con lo user_id giusto */
     });
     sb.auth.onAuthStateChange(function(ev, session){
       cloudUser=session?session.user:null;
+      if(ev==="SIGNED_IN" && cloudUser && !loginTracked){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
+      window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       updateBtn();
       if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
