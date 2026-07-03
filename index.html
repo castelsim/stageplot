@@ -13,16 +13,16 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.02";</script>
+<script>window.__APP_VERSION__="2026.07.03";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
-  Log in console + un avviso discreto (throttled), rassicurando che il lavoro è salvato in locale.
+  Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
 (function(){
   var last=0;
   function notify(kind, msg){
     try{ console.error("[stageplot]", kind, msg); }catch(e){}
     var now=Date.now(); if(now-last<8000) return; last=now;   /* max 1 avviso ogni 8s */
-    try{ if(window.__toast) window.__toast("Si è verificato un problema imprevisto. Il tuo lavoro resta salvato su questo dispositivo; se qualcosa non risponde, ricarica la pagina.", true); }catch(e){}
+    try{ if(window.__toast) window.__toast("Si è verificato un problema imprevisto. Il tuo lavoro non è andato perso; se qualcosa non risponde, ricarica la pagina.", true); }catch(e){}
   }
   window.addEventListener("error", function(e){
     if(!e||!e.message||e.message==="Script error.") return;                              /* cross-origin opaco */
@@ -2655,6 +2655,16 @@ function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl &&
    non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
    ritorno sulla home ci si ritrova il progetto altrui come proprio, e l'autosave ne creerebbe una copia cloud). */
 function foreignDoc(){ return !!window.__consultMode || document.body.classList.contains("viewmode"); }
+/* Nudge cloud-only (spec 2026-07-03): al primo export riuscito della sessione, se anonimo, ricorda
+   che il progetto vive solo su questo dispositivo. Una volta sola, mai in viewer/consulenza. */
+var loginNudgeShown=false;
+function maybeLoginNudge(){
+  if(loginNudgeShown || foreignDoc()) return;
+  if(window.__cloud && window.__cloud.user && window.__cloud.user()) return;
+  loginNudgeShown=true;
+  try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per averlo salvato online."); }catch(e){}
+}
+window.maybeLoginNudge=maybeLoginNudge;
 /* UNICO punto di scrittura del documento locale (stato + aggancio al progetto cloud). La chiave _cloudid
    fa sopravvivere l'associazione online TRA le sessioni: senza, ogni riapertura creerebbe un duplicato
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
@@ -6711,6 +6721,9 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var d=new Date();
     saveVersion("Versione "+d.getDate()+"/"+(d.getMonth()+1)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"));
     if(window.flushCloudAutosave) window.flushCloudAutosave();
+    /* cloud-only (spec 2026-07-03): da anonimo la versione è solo locale — dirlo, senza bloccare */
+    if(!(window.__cloud && window.__cloud.user && window.__cloud.user()) && window.__toast)
+      window.__toast("Versione salvata su questo dispositivo. Accedi per avere il progetto salvato online.");
   }
   window.fileSaveVersion=fileSaveVersion;
   function fileMakeCopy(){
@@ -6803,14 +6816,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var data=JSON.stringify(state);   /* export su file: include anche la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
       window.showSaveFilePicker({ suggestedName:name, types:[{description:"Progetto Stage Plot", accept:{"application/json":[".json"]}}] })
-        .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); }); })
+        .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); maybeLoginNudge(); }); })
         .catch(function(e){ if(e && e.name==="AbortError"){ io("Salvataggio annullato."); return; }
-          var url=URL.createObjectURL(new Blob([data],{type:"application/json"})); dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000); io("✓ Progetto salvato: "+name); });
+          var url=URL.createObjectURL(new Blob([data],{type:"application/json"})); dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000); io("✓ Progetto salvato: "+name); maybeLoginNudge(); });
       return;
     }
     var url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
     dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
     io("✓ Progetto salvato: "+name);
+    maybeLoginNudge();
   });
   document.getElementById("importJson").addEventListener("click", function(){ document.getElementById("importFile").click(); });
   document.getElementById("importFile").addEventListener("change", function(e){
@@ -7389,7 +7403,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
                      : how==="share"  ? "✓ PDF pronto — scegli Mail (o un'app) per inviarlo."
                      : how==="abort"  ? "Condivisione annullata (PDF non inviato)."
                      : "✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
-    if(how!=="abort") setTimeout(function(){ document.getElementById("pdfModal").hidden=true; }, 1400);
+    if(how!=="abort") setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
   }).catch(function(e){
     if(e && e.name==="AbortError"){ info.className="mstatus"; info.textContent="Salvataggio annullato."; return; }
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e);
@@ -7424,6 +7438,7 @@ function exportPng(){
     ctx.drawImage(img,0,0,pxW,pxH);
     var a=document.createElement("a");
     a.download=(state.nome||"stage-plot")+".png"; a.href=c.toDataURL("image/png"); a.click();
+    maybeLoginNudge();
   };
   img.onerror=function(){ URL.revokeObjectURL(url); showToast("PNG export fallito","err"); };
   img.src=url;
