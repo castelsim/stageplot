@@ -541,6 +541,20 @@ Mockup ad alta fedeltà prodotti in fase di design (HTML autoconsistenti, in
 
 ---
 
+## 25. Passata "eleganza" (v2.2 — confronto col prototipo, 04/07)
+
+Chiusura del gap percepito tool vs prototipo configuratore (metodo: compare.html side-by-side desktop, feedback puntuali di Simone):
+
+- **Slider = nativi puri.** NIENTE `accent-color` custom e NIENTE scatola: regola dedicata `#props input[type=range]{border:none;padding:0;background:transparent}` (la globale `#props input{width:100%;border;padding}` li trasformava in box bordati col track rientrato → il cursore non arrivava mai visivamente a inizio/fine corsa). Stesso gotcha degli switch v2.1: ogni input speciale dentro #props DEVE avere il suo reset.
+- **Selezione canvas aderente**: selbox a +3 cm (era +5) con `rx=10` — segue l'elemento con precisione, angoli morbidi.
+- **Perimetro palco morbido a schermo**: rettangolo singolo senza punti custom → rect unico `rx=10`, stroke 3 warm `#5c564a`; nel PDF resta tecnico (`_pdfMode`: #1f2937, w6, spigoli vivi).
+- **Titolo pannello grande**: `#props h3` 16px/700 sentence-case (era 11px uppercase micro).
+- **Catalogo arioso**: `.cat-head` 13px/600 sentence-case su `--surface` (era 11.5px UPPERCASE letter-spacing).
+- **Badge stato "Solo su questo dispositivo" declassato**: `.doc-chip.warn.subtle` neutro warm; il giallo warning resta SOLO per gli errori veri (salvataggio fallito).
+- Griglia canvas tenue (`--grid-line #edeadf`, major #ded9cb), colonne 220/310, ingombro compositi in testa al pannello, preset chips su una riga.
+
+Regola generale emersa: **il prototipo vince quando il browser fa da solo** — meno stile custom sugli input nativi, radius 8-10 omogenei, niente uppercase gridato.
+
 ## 24. File, stato documento e account (v1.1 — UI/UX standardization A′)
 
 Decisioni: `docs/UIUX_AUDIT_2026-07-02.md` §9 · spec `docs/superpowers/specs/2026-07-02-uiux-standardization-design.md`.
