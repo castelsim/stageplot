@@ -8,8 +8,10 @@
 > — v1.1 live fino al merge · v1.0 approvata e implementata il 30-06
 > **v2.0 in sintesi (variante C approvata da Simone sul confronto A/B/C):** neutri cool-gray → **warm stone/avorio**;
 > dark blu-notte → **verde carbone**; canvas-bg e griglia caldi; ombre warm; **accent brand INVARIATO** (#0e7490);
-> componenti nuovi dal prototipo configuratore: **Switch** (36×20, pallino 16, bg `--border`→`--accent` quando on)
-> e **Stepper** (−/+ 24×24 `--r-sm`, valore centrale bold) — specifiche in §12 componenti.
+> componenti nuovi dal prototipo configuratore (v2.1, live sul tool): **Switch** globale (36×20, checkbox CSS-only),
+> **righe opzione** (`#props .chk`: etichetta sx / controllo dx / separatore tratteggiato), **Chips** (`.chips` per scelte esclusive 2-4,
+> pilotano select nascoste), **slider in riga** (`.sldrow`: nome — range — valore), **Stepper** `.stpr` (−/+ con valore),
+> azioni pannello full-width con UN primario pieno (Dividi & co.), **selezione canvas a outline staccata** (rect +5 cm, rx 8, stroke pieno).
 > **Direzione approvata:** *Codifica + elevazione* (stesso DNA dell'app, più rigore) ·
 > personalità *Strumento tecnico, accent teal* · light di default, dark di prima classe.
 > **v1.1 (UI/UX standardization A′):** menu File, chip stato documento, autosave online,
