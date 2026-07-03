@@ -187,6 +187,8 @@
   svg.dragging{cursor:grabbing}
   body.space-pan svg,body.space-pan svg *{cursor:grab !important}
   #props{grid-area:props;border-left:1px solid var(--border);padding:12px;overflow-y:auto}
+  #propsGrab{display:none}   /* maniglia riduci-pannello: solo mobile, pannello espanso */
+  #mPeek{display:none}       /* barra peek: solo mobile con elemento selezionato (no attr [hidden] per non incrociare display:none!important) */
   .snap-guide{stroke:var(--guide);stroke-width:1.2px;stroke-dasharray:8 5;opacity:.75;pointer-events:none}
   .snap-guide.center{stroke:var(--guide-center)}
   #props h3{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-2);margin:0 0 8px}
@@ -387,7 +389,11 @@
   .mtop-r1{display:flex;align-items:center;gap:7px}
   #mTitle{flex:1;min-width:0;border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:15px;font-weight:600;color:var(--text)}
   #mTitle:focus{outline:none;border-color:var(--accent)}
-  .mtbtn{flex:0 0 auto;width:40px;height:38px;border:1px solid var(--border);border-radius:9px;background:var(--n-100);font-size:18px;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;justify-content:center}
+  .mtbtn{flex:0 0 auto;width:34px;height:34px;border:none;border-radius:9px;background:none;font-size:16px;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;transition:background .12s var(--ease)}
+  .mtbtn svg{width:19px;height:19px}
+  .mtbtn:active{background:var(--n-100)}
+  .avatar-btn-m{height:36px;min-width:36px;font-size:13px}
+  .avatar-btn-m.logged{width:36px;min-width:36px}
   .mtop-r2{display:flex;align-items:center;gap:9px;margin-top:7px}
   .mtop-r2 .mlab{font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text-3)}
   .mtop-r2 label{display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--text-2)}
@@ -440,8 +446,33 @@
     /* PANNELLO-HUB: nascosto di default (canvas pieno); appare con selezione o pannelli (palco/evento/channel list) */
     #props{display:none;position:fixed;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));top:auto;width:auto;max-width:none;height:46vh;z-index:30;
       background:var(--surface);border:none;border-top:1px solid var(--border);transform:none;overflow-y:auto;padding:10px 14px 22px;box-shadow:0 -4px 16px rgba(0,0,0,.08)}
-    body.m-has-sel #props,body.stage-edit #props,body.evento-edit #props,body.chan-edit #props{display:block}
-    body.m-has-sel main,body.stage-edit main,body.evento-edit main,body.chan-edit main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    /* pannelli aperti esplicitamente (palco/evento/channel list) + selezione ESPANSA = pannello pieno */
+    body.stage-edit #props,body.evento-edit #props,body.chan-edit #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.chan-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    /* selezione COLLASSATA (default) = solo barra peek: canvas quasi pieno */
+    body.m-has-sel:not(.props-expanded) main{bottom:calc(52px + 53px + env(safe-area-inset-bottom,0px))}
+    /* barra peek: nome + azioni rapide + espandi */
+    #mPeek{display:none;position:fixed;left:0;right:0;top:auto;bottom:calc(53px + env(safe-area-inset-bottom,0px));z-index:31;height:52px;
+      align-items:center;gap:6px;padding:7px 10px 7px 14px;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+    body.m-has-sel:not(.props-expanded) #mPeek{display:flex}
+    #mPeek .mpk-dot{width:9px;height:9px;border-radius:999px;background:var(--accent);flex:0 0 auto}
+    #mPeek .mpk-name{flex:1;min-width:0;text-align:left;border:none;background:none;font:600 14.5px var(--font-ui);color:var(--text);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:0}
+    #mPeek button:not(.mpk-name){flex:0 0 auto;width:38px;height:38px;border:none;background:none;border-radius:9px;color:var(--text-2);
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s var(--ease)}
+    #mPeek button:active{background:var(--n-100)}
+    #mPeek .mpk-del{color:var(--danger)}
+    #mPeek .mpk-exp{color:var(--accent)}
+    #mPeek svg{width:19px;height:19px}
+    body.m-multi #mPeek .mpk-rot,body.m-multi #mPeek .mpk-dup,body.m-multi #mPeek .mpk-del{display:none}
+    body.dark #mPeek{background:#161b24;border-top-color:#283142}
+    body.dark #mPeek .mpk-name{color:#e5e7eb} body.dark #mPeek button:not(.mpk-name){color:#cbd5e1}
+    body.dark #mPeek button:active{background:#222b38}
+    /* maniglia per ridurre il pannello espanso a peek */
+    #propsGrab{display:none}
+    body.m-has-sel.props-expanded #propsGrab{display:block;position:sticky;top:0;width:100%;height:24px;margin:0 0 12px;border:none;background:var(--surface);cursor:pointer;z-index:2}
+    body.m-has-sel.props-expanded #propsGrab::before{content:"";display:block;width:40px;height:4px;border-radius:3px;background:var(--border-strong);margin:8px auto 0}
+    body.dark #propsGrab{background:#161b24}
     #props #eventoSec{display:none}                 /* di norma nascosto: si apre dal bottone Evento */
     body.evento-edit #props #eventoSec{display:block}
     /* dock azioni primarie */
@@ -462,7 +493,7 @@
     #mActions::before{content:"";display:block;width:38px;height:4px;border-radius:3px;background:var(--border-strong);margin:0 auto 12px}
     .doc-chip-m{font-size:10px;padding:3px 7px;max-width:34vw;overflow:hidden;text-overflow:ellipsis}
     #fabCat,#fabProps{display:none!important}
-    body.viewmode #mDock,body.viewmode #mActions{display:none!important}
+    body.viewmode #mDock,body.viewmode #mActions,body.viewmode #mPeek{display:none!important}
     /* CATALOGO = bottom sheet (overlay) aperto da "Aggiungi" */
     #catalog{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;height:auto;max-height:80vh;display:block;
       z-index:60;background:var(--surface);border:none;border-radius:16px 16px 0 0;transform:translateY(103%);transition:transform .26s ease;
@@ -529,7 +560,9 @@
   body.dark #mobBackdrop{background:rgba(0,0,0,.6)}
   body.dark #mTop{background:#161b24;border-color:#283142}
   body.dark #mTitle,body.dark .mtop-r2 input,body.dark .mtop-r2 select{background:#0f141b;border-color:#2b3445;color:#e5e7eb}
-  body.dark .mtbtn,body.dark .mact-grid button{background:#222b38;border-color:#2b3445;color:#e5e7eb}
+  body.dark .mact-grid button{background:#222b38;border-color:#2b3445;color:#e5e7eb}
+  body.dark .mtbtn{color:#cbd5e1}
+  body.dark .mtbtn:active{background:#222b38}
   body.dark #catalog,body.dark #props{background:#161b24}
   body.dark main{background:#0b0e13}
   /* print */
