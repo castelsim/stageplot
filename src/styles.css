@@ -37,6 +37,11 @@
   html,body{height:100%}
   html{overflow:hidden;overscroll-behavior:none}   /* niente pull-to-refresh su mobile (trascinare la maniglia non ricarica la pagina) */
   body{overscroll-behavior:none}
+  /* iOS Safari: niente double-tap-zoom sui controlli. touch-action:manipulation = standard CSS
+     (consente tap/pan/pinch, disattiva solo il double-tap-zoom). Solo sui controlli interattivi:
+     il canvas (#svg) resta touch-action:none, i pannelli scrollano normalmente. No-op su desktop. */
+  button, a, select, summary, label, [role="button"],
+  #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
     grid-template-rows:52px 1fr 26px;grid-template-columns:250px 1fr 360px;
