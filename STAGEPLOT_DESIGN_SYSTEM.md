@@ -4,7 +4,9 @@
 > Documento **canonico**: precede l'implementazione. Niente codice di prodotto qui dentro,
 > solo principi, token e specifiche.
 >
-> **Stato:** v2.0 "warm" su branch `ui-warm-v2` (implementata su tool+consulenza, in attesa merge) · 2026-07-03
+> **Stato:** v2.2 LIVE · 2026-07-04 — v2.0 warm + v2.1 componenti + v2.2: **accent teal-VERDE #0d9488** (A/B vinto sul blu),
+> pannello: configuratore in alto per i COMP con riga ingombro, preset chips su una riga, stepper 26px, colonne 220/310,
+> perimetro palco 3.5 warm morbido, slider AZZURRI #3b82f6 (deroga deliberata: colore dei cursori di regolazione), rotazione step 5°.
 > — v1.1 live fino al merge · v1.0 approvata e implementata il 30-06
 > **v2.0 in sintesi (variante C approvata da Simone sul confronto A/B/C):** neutri cool-gray → **warm stone/avorio**;
 > dark blu-notte → **verde carbone**; canvas-bg e griglia caldi; ombre warm; **accent brand INVARIATO** (#0e7490);
@@ -105,11 +107,11 @@ Blocco di riferimento (sintassi CSS custom properties; i valori sono la fonte di
 ### 2.2 Colore — accent brand (teal, uno solo)
 
 ```
---accent-tint:#e6f4f6;   /* bg selezione / hover soft */
---accent-soft:#bfe3ea;   /* bordo selezionato         */
---accent:#0e7490;        /* BRAND — azione/selezione  */
---accent-strong:#0a5a72; /* hover / active            */
---accent-bright:#22c0d6; /* accent su superfici dark  */
+--accent-tint:#e4f2f0;   /* bg selezione / hover soft */
+--accent-soft:#b9dcd7;   /* bordo selezionato         */
+--accent:#0d9488;        /* BRAND v2.2 — teal-verde (04/07, scelta Simone dopo A/B col blu #0e7490) */
+--accent-strong:#0b7a70; /* hover / active            */
+--accent-bright:#14b8a6; /* accent su superfici dark  */
 ```
 
 ### 2.3 Colore — semantica canvas (invariata, continuità)

@@ -169,7 +169,7 @@
     --n-50:#f5f4f0;--n-100:#edebe4;--n-200:#ddd9cd;--n-300:#c8c3b4;--n-400:#a29c8e;
     --n-500:#746e60;--n-600:#59544a;--n-700:#423e36;--n-800:#292620;--n-900:#1a1815;
     /* accent brand (teal, uno solo) */
-    --accent-tint:#e6f4f6;--accent-soft:#bfe3ea;--accent:#0e7490;--accent-strong:#0a5a72;--accent-bright:#22c0d6;
+    --accent-tint:#e4f2f0;--accent-soft:#b9dcd7;--accent:#0d9488;--accent-strong:#0b7a70;--accent-bright:#14b8a6;
     /* semantica canvas (invariata) */
     --canvas-monitor:#2563eb;--canvas-power:#dc2626;--canvas-tech:#b45309;--canvas-ink:#1f2937;
     /* feedback */
@@ -180,7 +180,7 @@
     --bg:var(--n-50);--surface:#fff;--surface-raised:var(--n-100);--border:var(--n-200);--border-strong:var(--n-300);
     --text:var(--n-800);--text-2:var(--n-500);--text-3:var(--n-400);--text-on-accent:#fff;
     --canvas-bg:#edebe4;--sheet:#fff;
-    --select:var(--accent);--select-fill:rgba(14,116,144,.05);--focus-ring:rgba(14,116,144,.32);
+    --select:var(--accent);--select-fill:rgba(13,148,136,.05);--focus-ring:rgba(13,148,136,.32);
     --guide:var(--accent);--guide-center:#f59e0b;--axis:#c8c3b4;--grid-line:#e9e6db;--grid-major:#dbd6c8;
     /* tipografia */
     --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -206,7 +206,7 @@
   #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
-    grid-template-rows:52px 1fr 26px;grid-template-columns:250px 1fr 360px;
+    grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr 310px;   /* panel-refine: colonne compatte come il prototipo (erano 250/360) */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
   header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px}
@@ -375,9 +375,9 @@
   .pg-cells{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:210px}
   .pg-cells button{aspect-ratio:1/1;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
   .pg-cells button::before{content:"";width:9px;height:9px;border-radius:999px;background:var(--border-strong)}
-  .pg-cells button.on{border-color:var(--accent);background:rgba(14,116,144,.10)}
+  .pg-cells button.on{border-color:var(--accent);background:rgba(13,148,136,.10)}
   .pg-cells button.on::before{background:var(--accent)}
-  .pg-cells button:active{background:rgba(14,116,144,.16)}
+  .pg-cells button:active{background:rgba(13,148,136,.16)}
   body.dark .pg-cells button{background:#141a1d;border-color:#314046}
   .pg-hint{font-size:10.5px;color:var(--text-3);margin-top:6px}
   .snap-guide{stroke:var(--guide);stroke-width:1.2px;stroke-dasharray:8 5;opacity:.75;pointer-events:none}
@@ -388,14 +388,14 @@
   #props input,#props select{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px}
   #props .row{display:flex;gap:6px}
   #props .row>*{flex:1}
-  #props .chk{display:block;font-size:12.5px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
+  #props .chk{display:block;font-size:13px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
   #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:var(--n-300)}   /* v2.1: switch a misura fissa, niente stile-input (vince su #props input) */
   #props .chk input:checked{background:var(--accent)}
   body.dark #props .chk input{background:var(--border-strong)}
   body.dark #props .chk input:checked{background:var(--accent)}
   #props .chk input:disabled{opacity:.4} #props .chk:has(input:disabled){color:var(--text-3)}
   #props .cnt-row{display:flex;align-items:center;gap:8px;margin:6px 0}
-  #props .cnt-row .cnt-lab{flex:1;font-size:12.5px;color:var(--n-700)}
+  #props .cnt-row .cnt-lab{flex:1;font-size:13px;color:var(--n-700)}
   #props .cnt-b{padding:1px 11px;font-weight:700;line-height:1.4;min-width:30px}
   #props .cnt-v{min-width:20px;text-align:center;font-weight:600;font-size:13px}
   #props .comp-sel{font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--n-700);max-width:58%}
@@ -718,7 +718,7 @@
     --border:#2c3a3f;--border-strong:#314046;
     --text:#e5e7eb;--text-2:#96a5a1;--text-3:#6b7280;
     --canvas-bg:#0e1214;--sheet:#fff;
-    --focus-ring:rgba(34,192,214,.32);   /* glow accent-bright per il focus su scuro */
+    --focus-ring:rgba(20,184,166,.32);   /* glow accent-bright per il focus su scuro */
     background:var(--bg);color:var(--text)}
   /* opzione "foglio attenuato" per chi lavora in sala buia (opt-in via classe) */
   body.dark.sheet-dim{--sheet:#f3f4f6}
@@ -741,7 +741,7 @@
   body.dark #catalog .cat-head.open .count{background:#1e40af;color:#dbe4ff}
   body.dark #catalog h4{color:#5eb8c7;border-left-color:#2b6c78}
   body.dark #catalog .sub-head{background:#13202a;border-color:#234852;color:#5eb8c7}
-  body.dark #catalog .sub-head.open{background:#0e7490;border-color:#0e7490;color:#fff}
+  body.dark #catalog .sub-head.open{background:#0d9488;border-color:#0d9488;color:#fff}
   body.dark #catalog button{background:#20292e;border-color:#314046;color:#e5e7eb}
   body.dark #catalog button:hover{background:#222b38;border-color:#3a4658}
   body.dark #catalog .sub-body{background:#141a23;border-left-color:#2b4a4e}
@@ -983,11 +983,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* ═══════ DS v2.1 — componenti stile configuratore (03/07/2026) ═══════ */
   /* Switch: tutti i checkbox diventano interruttori (CSS-only, il JS legge sempre .checked) */
   input[type="checkbox"]{appearance:none;-webkit-appearance:none;width:36px;height:20px;flex:0 0 auto;
-    border-radius:999px;background:var(--n-300);position:relative;cursor:pointer;outline:none;
-    transition:background var(--dur-fast) var(--ease);vertical-align:middle}
+    border-radius:999px;background:#c9c5bb;position:relative;cursor:pointer;outline:none;
+    transition:background .15s var(--ease);vertical-align:middle}
   input[type="checkbox"]::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;
     border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(38,33,24,.25);
-    transition:left var(--dur-fast) var(--ease)}
+    transition:left .15s var(--ease)}
   input[type="checkbox"]:checked{background:var(--accent)}
   input[type="checkbox"]:checked::after{left:18px}
   input[type="checkbox"]:focus-visible{box-shadow:0 0 0 3px var(--focus-ring)}
@@ -8704,16 +8704,5 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   });
 })();
 </script>
-<script>
-/* A/B accent — SOLO localhost, per confronto visivo (04/07). Rimuovere dopo la scelta. */
-if(location.hostname==="localhost"){(function(){
-  var GREEN={"--accent":"#0d9488","--accent-strong":"#0b7a70","--accent-bright":"#14b8a6","--accent-tint":"#e4f2f0","--accent-soft":"#b9dcd7","--select-fill":"rgba(13,148,136,.05)","--focus-ring":"rgba(13,148,136,.32)"};
-  var on=false, b=document.createElement("button");
-  b.textContent="Accent: BLU brand"; b.style.cssText="position:fixed;left:10px;bottom:10px;z-index:99;padding:6px 12px;border-radius:8px;border:1px solid #999;background:#fff;color:#222;font:600 12px sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)";
-  b.onclick=function(){ on=!on;
-    for(var k in GREEN) document.documentElement.style.setProperty(k, on?GREEN[k]:"");
-    b.textContent = on?"Accent: VERDE prototipo":"Accent: BLU brand"; };
-  document.body.appendChild(b);
-})();}
-</script></body>
+</body>
 </html>
