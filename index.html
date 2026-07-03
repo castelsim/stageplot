@@ -11,7 +11,7 @@
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
 <script>window.__APP_VERSION__="2026.07.03";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
@@ -199,6 +199,11 @@
   html,body{height:100%}
   html{overflow:hidden;overscroll-behavior:none}   /* niente pull-to-refresh su mobile (trascinare la maniglia non ricarica la pagina) */
   body{overscroll-behavior:none}
+  /* iOS Safari: niente double-tap-zoom sui controlli. touch-action:manipulation = standard CSS
+     (consente tap/pan/pinch, disattiva solo il double-tap-zoom). Solo sui controlli interattivi:
+     il canvas (#svg) resta touch-action:none, i pannelli scrollano normalmente. No-op su desktop. */
+  button, a, select, summary, label, [role="button"],
+  #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
     grid-template-rows:52px 1fr 26px;grid-template-columns:250px 1fr 360px;
