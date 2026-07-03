@@ -391,7 +391,7 @@
   #props .row{display:flex;gap:6px}
   #props .row>*{flex:1}
   #props .chk{display:block;font-size:13px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
-  #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:var(--n-300)}   /* v2.1: switch a misura fissa, niente stile-input (vince su #props input) */
+  #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:#c9c5bb;border-radius:999px}   /* v2.2: pillola piena come il prototipo — senza radius esplicito vinceva #props input{border-radius:8px} (id>attr) */
   #props .chk input:checked{background:var(--accent)}
   body.dark #props .chk input{background:var(--border-strong)}
   #props input[type=range],body.dark #props input[type=range]{border:none;padding:0;background:transparent;box-shadow:none}   /* v2.2: slider nativo puro come il prototipo — senza scatola, il cursore arriva a inizio/fine corsa */
