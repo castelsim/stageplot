@@ -262,27 +262,35 @@
   <div class="sec" id="stageEditPanel" hidden>
     <h3 style="margin-bottom:6px">Palco</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
-    <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco è un insieme di blocchi/pedane. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
+    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco è un insieme di blocchi/pedane. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
+    <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi una pedana, regola misura e altezza con i tasti + / −, poi scegli dove metterla sul palco.</div>
     <div class="row" style="gap:8px">
-      <button class="btn" id="bAddBlock" style="flex:1">＋ Blocco</button>
+      <button class="btn" id="bAddBlock" style="flex:1">＋ Pedana</button>
       <button class="btn" id="bAddSemi" style="flex:1">＋ Semicerchio</button>
     </div>
     <div id="blkList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
       <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
-      <div class="row">
-        <span><label>Largh. (m)</label><input type="number" id="blkW" min="0.1" step="0.1"></span>
-        <span><label>Prof. (m)</label><input type="number" id="blkD" min="0.1" step="0.1"></span>
-      </div>
-      <div class="row">
-        <span><label>Altezza (cm)</label><input type="number" id="blkH" min="0" max="300" step="10"></span>
-        <span id="blkFlatWrap" style="display:none"><label>Lato curvo</label>
+      <div class="stpr-grid">
+        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">＋</button></div></div>
+        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">＋</button></div></div>
+        <div class="stpr-f"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">＋</button></div></div>
+        <div class="stpr-f" id="blkFlatWrap" style="display:none"><label>Lato curvo</label>
           <select id="blkFlat"><option value="top">verso pubblico</option><option value="bottom">verso fondo</option><option value="left">verso destra</option><option value="right">verso sinistra</option></select>
-        </span>
+        </div>
       </div>
-      <div class="row">
+      <div class="row" id="blkXYRow">
         <span><label>X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
         <span><label>Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
+      </div>
+      <div id="blkPosGrid" hidden>
+        <label class="pg-lab">Posizione sul palco</label>
+        <div class="pg-cells">
+          <button type="button" data-pos="0,0" aria-label="fondo sinistra"></button><button type="button" data-pos="1,0" aria-label="fondo centro"></button><button type="button" data-pos="2,0" aria-label="fondo destra"></button>
+          <button type="button" data-pos="0,1" aria-label="centro sinistra"></button><button type="button" data-pos="1,1" aria-label="centro"></button><button type="button" data-pos="2,1" aria-label="centro destra"></button>
+          <button type="button" data-pos="0,2" aria-label="fronte sinistra"></button><button type="button" data-pos="1,2" aria-label="fronte centro"></button><button type="button" data-pos="2,2" aria-label="fronte destra"></button>
+        </div>
+        <div class="pg-hint">fondo palco in alto · pubblico in basso</div>
       </div>
       <p class="hint" id="blkHint" style="font-size:11px;color:var(--text-2);margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza (torna rettangolo)</button>
@@ -3990,7 +3998,7 @@ function renderStagePanel(){
   var list=document.getElementById("blkList"); list.innerHTML="";
   b.forEach(function(r,i){
     var btn=document.createElement("button"); btn.type="button";
-    btn.className="blkchip"+(selBlock===i?" sel":""); btn.textContent="Blocco "+(i+1);
+    btn.className="blkchip"+(selBlock===i?" sel":""); btn.textContent = i===0 ? "Palco base" : "Pedana "+i;
     btn.addEventListener("click", function(){ selBlock=i; renderStagePanel(); render(); });
     list.appendChild(btn);
   });
@@ -3998,7 +4006,7 @@ function renderStagePanel(){
   if(selBlock==null || !b[selBlock]){ bp.hidden=true; return; }
   bp.hidden=false;
   var r=b[selBlock];
-  document.getElementById("blkTitle").textContent = "Blocco "+(selBlock+1)+(r.shape==="semi"?" (semicerchio)":(hasPts(r)?" (deformato)":""));
+  document.getElementById("blkTitle").textContent = (selBlock===0 ? "Palco base" : "Pedana "+selBlock)+(r.shape==="semi"?" (semicerchio)":(hasPts(r)?" (deformato)":""));
   document.getElementById("bDelBlock").style.display = b.length>1 ? "" : "none";   /* serve almeno un blocco */
   document.getElementById("bResetBlock").style.display = hasPts(r) ? "" : "none";   /* visibile solo se il blocco è un quadrilatero deformato */
   document.getElementById("blkW").value=r.w/100; document.getElementById("blkD").value=r.d/100;
@@ -4010,6 +4018,20 @@ function renderStagePanel(){
   document.getElementById("blkHint").innerHTML = isSemi
     ? 'Trascina gli <b>angoli</b> del lato dritto per ridimensionare il semicerchio (la curva resta intatta).'
     : 'Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).';
+  /* D1 mobile: griglia posizione solo per le pedane (non il palco base); evidenzia la cella corrente */
+  var pg=document.getElementById("blkPosGrid");
+  if(pg){
+    var showGrid = isMobile() && selBlock>0;
+    pg.hidden = !showGrid;
+    if(showGrid){
+      var base0=b[0], bx0=base0.x||0, by0=base0.y||0, bw0=base0.w||1, bd0=base0.d||1;
+      var col = (r.w>=bw0) ? 1 : (r.x <= bx0+(bw0-r.w)*0.25 ? 0 : (r.x >= bx0+(bw0-r.w)*0.75 ? 2 : 1));
+      var row = (r.d>=bd0) ? 1 : (r.y <= by0+(bd0-r.d)*0.25 ? 0 : (r.y >= by0+(bd0-r.d)*0.75 ? 2 : 1));
+      Array.prototype.forEach.call(pg.querySelectorAll("button[data-pos]"), function(cell){
+        var p=cell.getAttribute("data-pos").split(","); cell.classList.toggle("on", (+p[0]===col && +p[1]===row));
+      });
+    }
+  }
   renderVenuePanel();
 }
 function exitHubModes(except){
@@ -4026,7 +4048,13 @@ function renderChanPanel(){ document.body.classList.toggle("chan-edit", chanEdit
 function toggleChan(){ chanEdit=!chanEdit; if(chanEdit){ exitHubModes("chan"); clearSelection(); } renderChanPanel(); render(); }
 function addStageBlock(){
   var bb=stageBlocks(); recalcStageBBox();
-  var base=bb[0], r={x:Math.round(state.stage.w), y:0, w:300, d:base?base.d:300};   /* a destra dell'ingombro */
+  var base=bb[0], r;
+  if(isMobile()){   /* mobile D1: pedana 2×1 al centro del palco (niente trascinamento), poi si sposta con la griglia */
+    var bw=200, bd=100, bx=(base?base.x:0), by=(base?base.y:0), Bw=(base?base.w:state.stage.w), Bd=(base?base.d:state.stage.d);
+    r={x:Math.round(Math.max(0,bx+(Bw-bw)/2)), y:Math.round(Math.max(0,by+(Bd-bd)/2)), w:bw, d:bd};
+  } else {
+    r={x:Math.round(state.stage.w), y:0, w:300, d:base?base.d:300};   /* desktop: a destra dell'ingombro, da trascinare */
+  }
   state.stage.blocks.push(r); selBlock=state.stage.blocks.length-1;
   recalcStageBBox(); renderStagePanel(); render(); save();
 }
@@ -4090,6 +4118,30 @@ document.getElementById("blkFlat").addEventListener("change", function(){
   var b=stageBlocks(); if(selBlock==null||!b[selBlock]) return;
   b[selBlock].flat=this.value; render(); save();
 });
+/* D1: stepper +/− dei campi blocco (L/P step 0.5m · H step 10cm) → dispatch change = riusa gli handler esistenti */
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest(".stpr-b"); if(!b) return;
+  var id=b.getAttribute("data-stp"), dir=parseInt(b.getAttribute("data-dir"),10)||1;
+  var inp=document.getElementById(id); if(!inp) return;
+  var step = (id==="blkH") ? 10 : 0.5;
+  var v=(parseFloat(inp.value)||0) + dir*step;
+  var mn=parseFloat(inp.getAttribute("min")); if(!isNaN(mn)) v=Math.max(mn,v);
+  var mx=parseFloat(inp.getAttribute("max")); if(!isNaN(mx)) v=Math.min(mx,v);
+  inp.value=Math.round(v*100)/100; inp.dispatchEvent(new Event("change",{bubbles:true}));
+});
+/* D1: griglia 3×3 → posiziona la pedana selezionata rispetto al palco base (niente trascinamento) */
+(function(){ var g=document.getElementById("blkPosGrid"); if(!g) return;
+  g.addEventListener("click", function(e){
+    var cell=e.target.closest("button[data-pos]"); if(!cell) return;
+    var p=cell.getAttribute("data-pos").split(","), col=+p[0], row=+p[1];
+    var bl=stageBlocks(); if(selBlock==null || selBlock<=0 || !bl[selBlock]) return;
+    var base=bl[0], r=bl[selBlock], bx=base.x||0, by=base.y||0, bw=base.w||0, bd=base.d||0;
+    var nx = col===0 ? bx : (col===2 ? bx+bw-r.w : bx+(bw-r.w)/2);
+    var ny = row===0 ? by : (row===2 ? by+bd-r.d : by+(bd-r.d)/2);
+    r.x=Math.round(Math.max(0,nx)); r.y=Math.round(Math.max(0,ny));
+    normalizeStageBBox(); renderStagePanel(); render(); save();
+  });
+})();
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
