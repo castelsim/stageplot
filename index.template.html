@@ -258,7 +258,7 @@
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub">Bastano tre passi per iniziare</div><div class="eh-steps"><span class="eh-step eh-desk"><b>1</b>Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>2</b>Clicca un elemento</span><span class="eh-step eh-desk"><b>3</b>Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>1</b>Tocca “Aggiungi” qui sotto</span><span class="eh-step eh-mob"><b>2</b>Scegli dal catalogo</span><span class="eh-step eh-mob"><b>3</b>Trascinalo dove vuoi sul palco</span></div></div></main>
 
 <aside id="props">
-  <button type="button" id="propsGrab" aria-label="Riduci pannello specifiche"></button>
+  <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
   <div class="sec" id="stageEditPanel" hidden>
     <h3 style="margin-bottom:6px">Palco</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
@@ -2924,11 +2924,11 @@ function splitSediaLeggio(){
 document.getElementById("pDivide").addEventListener("click", splitElement);
 document.getElementById("pSplit").addEventListener("click", splitDouble);
 document.getElementById("pCompSplit").addEventListener("click", explodeComposite);
-document.getElementById("pDup").addEventListener("click", duplicateSel);
+document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
 document.getElementById("pDel").addEventListener("click", deleteSel);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });
-document.getElementById("grpDup").addEventListener("click", duplicateSel);
+document.getElementById("grpDup").addEventListener("click", function(){ duplicateSel(); });
 document.getElementById("grpDel").addEventListener("click", deleteSel);
 document.getElementById("grpGroup").addEventListener("click", groupSel);
 document.getElementById("grpUngroup").addEventListener("click", ungroupSel);
@@ -2978,8 +2978,11 @@ function duplicateSel(noOffset){
     itemsOnRiser(it).forEach(function(o){ if(set.indexOf(o)===-1) set.push(o); }); } });
   var hasRiser=set.some(function(it){ return TYPES[it.type] && TYPES[it.type].riser; });
   var gmap={}, idmap={};   /* le copie di un blocco formano un NUOVO blocco (non si fondono con l'originale) */
+  /* offset della copia: su mobile ampio (larghezza elemento + margine) così la duplicazione è VISIBILMENTE staccata dall'originale */
+  var offX=40, offY=40;
+  if(!noOffset && isMobile()){ offX=Math.round((its[0].w||60)+40); offY=40; }
   var copies=set.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid();
-    if(!noOffset){ c.x+=40; c.y+=40; }   /* offset solo per duplica con Ctrl+D; ALT+drag parte dalla posizione originale */
+    if(!noOffset){ c.x+=offX; c.y+=offY; }   /* offset solo per duplica con Ctrl+D; ALT+drag parte dalla posizione originale */
     bumpItemLabels(c);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]="g"+uid(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
@@ -3551,8 +3554,8 @@ svg.addEventListener("pointerdown", function(e){
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
   if(lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
-    if(dcId){ selectOne(dcId); render(); var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } }
-    else { toggleStageEdit(); }
+    if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
+    else if(!isMobile()){ toggleStageEdit(); }   /* mobile: doppio-tap sul vuoto non entra in modifica palco */
     return;
   }
   lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId};
@@ -3967,7 +3970,7 @@ function fitVbW(){
 function fitTo(x0,y0,x1,y1){
   var m=fitMargin();
   var W=(x1-x0)+2*m, D=(y1-y0)+2*m, ar=svg.clientWidth/svg.clientHeight;
-  if(W/D>ar){ var h=W/ar; vb={x:x0-m, y:y0-m, w:W, h:h}; }
+  if(W/D>ar){ var h=W/ar; vb={x:x0-m, y:y0-m-(h-D)/2, w:W, h:h}; }   /* centra in verticale lo spazio in eccesso (mobile: palco largo su viewport alta) */
   else { vb={x:x0-m-(D*ar-W)/2, y:y0-m, w:D*ar, h:D}; }
   render();
 }

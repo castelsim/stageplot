@@ -35,7 +35,8 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  html{overflow:hidden}
+  html{overflow:hidden;overscroll-behavior:none}   /* niente pull-to-refresh su mobile (trascinare la maniglia non ricarica la pagina) */
+  body{overscroll-behavior:none}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
     grid-template-rows:52px 1fr 26px;grid-template-columns:250px 1fr 360px;
@@ -423,7 +424,7 @@
   #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
   /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
   #emptyHint .eh-mob{display:none}
-  @media (max-width:880px){ #emptyHint .eh-desk{display:none} #emptyHint .eh-mob{display:flex} }
+  @media (max-width:880px){ #emptyHint{display:none!important} }   /* onboarding testuale nascosto su mobile (scelta PO 03/07) */
   .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
   .mtbtn-wide svg{width:18px;height:18px}
   /* bottom-sheet catalogo: intestazione sticky (titolo + chiudi), solo mobile */
@@ -470,8 +471,12 @@
     body.dark #mPeek button:active{background:#222b38}
     /* maniglia per ridurre il pannello espanso a peek */
     #propsGrab{display:none}
-    body.m-has-sel.props-expanded #propsGrab{display:block;position:sticky;top:0;width:100%;height:24px;margin:0 0 12px;border:none;background:var(--surface);cursor:pointer;z-index:2}
-    body.m-has-sel.props-expanded #propsGrab::before{content:"";display:block;width:40px;height:4px;border-radius:3px;background:var(--border-strong);margin:8px auto 0}
+    body.m-has-sel.props-expanded #propsGrab{display:flex;align-items:center;justify-content:center;gap:6px;position:sticky;top:0;width:100%;height:40px;margin:0 0 8px;
+      border:none;border-bottom:1px solid var(--border);background:var(--surface);color:var(--text-2);font:600 13px var(--font-ui);cursor:pointer;z-index:2}
+    body.m-has-sel.props-expanded #propsGrab svg{width:20px;height:20px}
+    body.m-has-sel.props-expanded #propsGrab:active{background:var(--n-100)}
+    body.dark #propsGrab{background:#161b24;border-bottom-color:#283142;color:#cbd5e1}
+    body.dark #propsGrab:active{background:#222b38}
     body.dark #propsGrab{background:#161b24}
     #props #eventoSec{display:none}                 /* di norma nascosto: si apre dal bottone Evento */
     body.evento-edit #props #eventoSec{display:block}
