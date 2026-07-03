@@ -245,7 +245,7 @@
     font:600 13px var(--font-ui);cursor:pointer;outline:none;padding:0}
   .snapchev{color:var(--text-3);font-size:11px;pointer-events:none;margin-left:-2px}
   /* Sezione 4: controlli nativi (slider/checkbox/radio) col teal del brand */
-  input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+  input[type=checkbox],input[type=radio]{accent-color:var(--accent)}   /* range: default browser, uniforme come il prototipo */
   /* Sezione 5: divisori tra gruppi della toolbar */
   .tbdiv{width:1px;height:20px;background:var(--border);flex:0 0 auto;align-self:center}
   .btn:hover{background:var(--n-200)}
@@ -297,7 +297,7 @@
   #fbTrigger{display:none !important}
   .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   #catalog{grid-area:cat;overflow-y:auto;border-right:1px solid var(--border);padding:10px 9px}
-  #catalog .cat-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--n-100);
+  #catalog .cat-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);
     border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:6px;cursor:pointer;
     font-size:11.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--n-700);font-weight:700}
   #catalog .cat-head:first-child{margin-top:0}
@@ -382,7 +382,7 @@
   .pg-hint{font-size:10.5px;color:var(--text-3);margin-top:6px}
   .snap-guide{stroke:var(--guide);stroke-width:1.2px;stroke-dasharray:8 5;opacity:.75;pointer-events:none}
   .snap-guide.center{stroke:var(--guide-center)}
-  #props h3{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-2);margin:0 0 8px}
+  #props h3{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text);margin:0 0 6px}
   #props .sec{margin-bottom:18px}
   #props label{display:block;font-size:12px;color:var(--text-2);margin:8px 0 3px}
   #props input,#props select{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px}
@@ -998,7 +998,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     gap:10px;margin:0;padding:8px 0;border-bottom:1px dashed var(--border)}
   #props .chk:last-of-type{border-bottom:none}
   /* Slider con nome a fianco e valore */
-  input[type="range"]{accent-color:#3b82f6}   /* panel-refine: cursori azzurri (preferenza Simone, come il default del prototipo) */
   .sldrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
   .sldrow label{flex:0 0 auto;color:var(--text-2)}
@@ -3275,7 +3274,18 @@ function stageRectEdges(){
    - semi-cerchi → stroke doppio clippato nella forma (clipping dimezza lo spessore visibile a SW)
 */
 function stageFloorMarkup(){
-  var b=stageBlocks(), SW=3.5;   /* panel-refine: perimetro più sottile (era 6) */
+  /* schermo: perimetro morbido ed elegante · PDF (_pdfMode): tratto tecnico pieno come da rider */
+  var b=stageBlocks(), SW=_pdfMode?6:3, EDGE=_pdfMode?"#1f2937":"#5c564a";
+  /* palco semplice (1 rettangolo, caso comune): tutto arrotondato e omogeneo */
+  if(!_pdfMode && b.length===1 && b[0].shape!=="semi" && !hasPts(b[0])){
+    var r0=b[0], RX=10, core=' x="'+r0.x+'" y="'+r0.y+'" width="'+r0.w+'" height="'+r0.d+'" rx="'+RX+'"';
+    var clip0='<defs><clipPath id="stageClip"><rect'+core+'/></clipPath></defs>';
+    var fill0='<rect class="stage-fill"'+core+'/>';
+    var grid0='<g clip-path="url(#stageClip)">'+gridMarkup()+'</g>';
+    var bord0='<rect fill="none" stroke="'+EDGE+'" stroke-width="'+SW+'" rx="'+(RX-SW/2)+'"'+
+      ' x="'+(r0.x+SW/2)+'" y="'+(r0.y+SW/2)+'" width="'+(r0.w-SW)+'" height="'+(r0.d-SW)+'"/>';
+    return clip0+fill0+grid0+bord0;
+  }
   var clip='<defs><clipPath id="stageClip">'+b.map(function(r){ return blockShapeSvg(r,""); }).join('')+'</clipPath></defs>';
   var fills=b.map(function(r){ return blockShapeSvg(r,"stage-fill"); }).join('');
   var grid='<g clip-path="url(#stageClip)">'+gridMarkup()+'</g>';
@@ -3283,7 +3293,7 @@ function stageFloorMarkup(){
     /* forme miste (rettangoli + semicerchi + quadrilateri liberi): bordo spesso disegnato DIETRO i
        riempimenti opachi. I riempimenti coprono la parte interna del bordo e le giunzioni tra blocchi →
        resta visibile solo il perimetro esterno: i blocchi appaiono fusi in un'unica forma. */
-    var sw2=SW*2, attr=' fill="none" stroke="#4a4438" stroke-width="'+sw2+'" stroke-linejoin="round" stroke-linecap="round"';
+    var sw2=SW*2, attr=' fill="none" stroke="'+EDGE+'" stroke-width="'+sw2+'" stroke-linejoin="round" stroke-linecap="round"';
     var border=b.map(function(r){
       if(r.shape==="semi") return '<path'+attr+' d="'+semiPath(r)+'"/>';
       if(hasPts(r)) return '<polygon'+attr+' points="'+ptsAttr(r.pts)+'"/>';
@@ -3295,7 +3305,7 @@ function stageFloorMarkup(){
   var ins=SW/2;
   var border=stageRectEdges().map(function(e){
     var dx=-e.nx*ins, dy=-e.ny*ins;
-    return '<line stroke="#4a4438" stroke-width="'+SW+'" stroke-linecap="square"'+
+    return '<line stroke="'+EDGE+'" stroke-width="'+SW+'" stroke-linecap="square"'+
       ' x1="'+(e.x1+dx)+'" y1="'+(e.y1+dy)+'" x2="'+(e.x2+dx)+'" y2="'+(e.y2+dy)+'"/>';
   }).join('');
   return clip+fills+grid+border;
@@ -3392,7 +3402,7 @@ function itemMarkup(it){
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
-  s += '<rect class="selbox" x="'+(-bw-5)+'" y="'+(-bh-5)+'" width="'+(2*bw+10)+'" height="'+(2*bh+10)+'" rx="8"/>';   /* DS v2.1: outline staccata 5 cm dall'oggetto */
+  s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo */
   s += t.draw(it);
   if(KEYS_BENCH[it.type] && it.panca!==false){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */

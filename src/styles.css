@@ -83,7 +83,7 @@
     font:600 13px var(--font-ui);cursor:pointer;outline:none;padding:0}
   .snapchev{color:var(--text-3);font-size:11px;pointer-events:none;margin-left:-2px}
   /* Sezione 4: controlli nativi (slider/checkbox/radio) col teal del brand */
-  input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+  input[type=checkbox],input[type=radio]{accent-color:var(--accent)}   /* range: default browser, uniforme come il prototipo */
   /* Sezione 5: divisori tra gruppi della toolbar */
   .tbdiv{width:1px;height:20px;background:var(--border);flex:0 0 auto;align-self:center}
   .btn:hover{background:var(--n-200)}
@@ -135,7 +135,7 @@
   #fbTrigger{display:none !important}
   .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   #catalog{grid-area:cat;overflow-y:auto;border-right:1px solid var(--border);padding:10px 9px}
-  #catalog .cat-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--n-100);
+  #catalog .cat-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);
     border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:6px;cursor:pointer;
     font-size:11.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--n-700);font-weight:700}
   #catalog .cat-head:first-child{margin-top:0}
@@ -220,7 +220,7 @@
   .pg-hint{font-size:10.5px;color:var(--text-3);margin-top:6px}
   .snap-guide{stroke:var(--guide);stroke-width:1.2px;stroke-dasharray:8 5;opacity:.75;pointer-events:none}
   .snap-guide.center{stroke:var(--guide-center)}
-  #props h3{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-2);margin:0 0 8px}
+  #props h3{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text);margin:0 0 6px}
   #props .sec{margin-bottom:18px}
   #props label{display:block;font-size:12px;color:var(--text-2);margin:8px 0 3px}
   #props input,#props select{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px}
@@ -836,7 +836,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     gap:10px;margin:0;padding:8px 0;border-bottom:1px dashed var(--border)}
   #props .chk:last-of-type{border-bottom:none}
   /* Slider con nome a fianco e valore */
-  input[type="range"]{accent-color:#3b82f6}   /* panel-refine: cursori azzurri (preferenza Simone, come il default del prototipo) */
   .sldrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
   .sldrow label{flex:0 0 auto;color:var(--text-2)}
