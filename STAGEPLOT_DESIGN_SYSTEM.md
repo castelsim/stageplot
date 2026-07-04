@@ -555,6 +555,13 @@ Chiusura del gap percepito tool vs prototipo configuratore (metodo: compare.html
 
 Regola generale emersa: **il prototipo vince quando il browser fa da solo** — meno stile custom sugli input nativi, radius 8-10 omogenei, niente uppercase gridato.
 
+Estensioni della stessa passata (04/07, feedback live di Simone):
+- **Scelte esclusive = chips orizzontali, MAI tendine**: renderer `choice` dei compositi (Disposizione/Scuola timpani), "Lato quota" delle pedane, "Lato curvo" del semicerchio palco (pattern `.chips[data-chips]` + select nascosta + evento `chips-sync` per riallineare senza salvare).
+- **Stepper del pannello palco** come quelli dei compositi: bottoni staccati 26px rx7 + input col bordo leggero; frecce native dei number nascoste ovunque.
+- **Niente preset preconfigurati** su batteria e timpani (decisione Simone 04/07): il campo `presets` dei COMP resta supportato dal renderer ma non va usato.
+- **Switch**: regola dedicata con `border-radius:999px` esplicito dentro #props (la generica `#props input{border-radius:8px}` vince per specificità id>attr).
+- Config palco: "Pedana"→"Blocco"; "Blocco palco" e "Planimetria" aprono viste esclusive del pannello (stagePanelView).
+
 ## 24. File, stato documento e account (v1.1 — UI/UX standardization A′)
 
 Decisioni: `docs/UIUX_AUDIT_2026-07-02.md` §9 · spec `docs/superpowers/specs/2026-07-02-uiux-standardization-design.md`.
