@@ -1291,8 +1291,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     </div>
     <div id="zoneSec" hidden>
       <h3 style="margin:0 0 8px">Zone di cablaggio</h3>
-      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:9px">Ogni zona raggruppa gli elementi che contiene: 1 sub-stagebox + 1 power drop. Serve a organizzare cablaggio e potenza.</div>
-      <button class="btn primary" id="bAddZone" style="width:100%">＋ Aggiungi zona</button>
+      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:9px">Suggerite in automatico dagli oggetti sul palco (1 sub-stagebox + 1 power drop per zona). Puoi modificarle, aggiungerne o rigenerarle.</div>
+      <button class="btn primary" id="bSuggestZones" style="width:100%">✨ Suggerisci zone</button>
+      <button class="btn" id="bAddZone" style="width:100%;margin-top:6px">＋ Aggiungi zona</button>
       <div id="zoneList" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
       <div id="zoneProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
         <label>Etichetta</label><input type="text" id="zLabel" maxlength="12" placeholder="A / SX / Backline">
@@ -2847,20 +2848,21 @@ var TYPES = {
 var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Luci","Video"];
 
 /* ===== POTENZA ELETTRICA (Fase A: assorbimenti) ===== */
-/* W nominali al muro. Solo i tipi che si alimentano; tutto il resto = 0 (non compare).
-   Le casse passive (line array, sub, wedge) restano 0: la potenza vive sugli amp rack. */
+/* Assorbimento AC TIPICO al muro durante lo show (non la targa/uscita): base onesta per la
+   previsione. Valori da ricerca: docs/idee/RICERCA_ASSORBIMENTI_ZONE_2026-07-04.md §2.
+   Casse passive (array, sub, wedge, fill) = 0: la potenza vive sugli amp rack (no doppio conteggio). */
 var WATT = {
-  comboamp:300, stack:450, bassamp:500, keysamp:200, leslie:300, edrums:80, djset:400,
-  stagepiano:60, doppiatastiera:120, celesta:40,
-  dm3:60, dm7c:120, dm7:150, csr3:280, csr5:350, csr10:600,
+  comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
+  stagepiano:50, doppiatastiera:100, celesta:40,
+  dm3:45, dm7c:110, dm7:150, csr3:280, csr5:350, csr10:600,
   sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
   q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
   amprack:2500,
-  consolaluci:100, dimmerluci:3600, testamobile:400, parluci:120, sagomatore:750,
-  followspot:1200, strobo:900, fumomachine:1000, hazer:800, proiettore:400, camera:30,
-  torrefaro:1500
+  consolaluci:100, dimmerluci:3600, testamobile:350, parluci:150, sagomatore:400,
+  followspot:1200, strobo:800, fumomachine:1500, hazer:1000, proiettore:500, camera:30,
+  torrefaro:1000
 };
-var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W per m² (superficie reale) */
+var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
 function wattOf(it){
   if(!it) return 0;
@@ -5460,6 +5462,7 @@ document.addEventListener("click", function(e){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
+document.getElementById("bSuggestZones").addEventListener("click", suggestZonesClick);
 document.getElementById("bAddZone").addEventListener("click", addZone);
 document.getElementById("bDelZone").addEventListener("click", delZone);
 document.getElementById("bZoneDone").addEventListener("click", toggleZoneEdit);
@@ -6841,10 +6844,61 @@ function toggleVenueEdit(){
 
 /* ===== Zone di cablaggio ===== */
 function toggleZoneEdit(){
-  if(stageEdit && stagePanelView!=="zone"){ stagePanelView="zone"; selBlock=null; venueAutoLock(); renderStagePanel(); render(); return; }   /* passa alle zone da un'altra vista */
-  if(!stageEdit){ stageEdit=true; stagePanelView="zone"; selBlock=null; exitHubModes("palco"); clearSelection(); }
+  if(stageEdit && stagePanelView!=="zone"){ stagePanelView="zone"; selBlock=null; venueAutoLock(); maybeAutoZones(); renderStagePanel(); render(); return; }   /* passa alle zone da un'altra vista */
+  if(!stageEdit){ stageEdit=true; stagePanelView="zone"; selBlock=null; exitHubModes("palco"); clearSelection(); maybeAutoZones(); }
   else { stageEdit=false; selZone=null; venueAutoLock(); }
   renderStagePanel(); render(); }
+/* ── Zone AUTOMATICHE: suggerimento dagli oggetti (clustering di prossimità) ── */
+var ZONE_IGNORE={metro:1, testo:1};
+function suggestZones(){
+  var pts=(state.items||[]).filter(function(it){ return !ZONE_IGNORE[it.type]; })
+    .map(function(it){ return {it:it, x:it.x, y:it.y}; });
+  if(pts.length<2) return [];
+  var T=220, parent=pts.map(function(_,i){return i;});
+  function find(i){ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; }
+  for(var i=0;i<pts.length;i++) for(var j=i+1;j<pts.length;j++){
+    if(Math.hypot(pts[i].x-pts[j].x, pts[i].y-pts[j].y)<=T) parent[find(i)]=find(j);
+  }
+  var groups={}; pts.forEach(function(p,i){ var r=find(i); (groups[r]=groups[r]||[]).push(p); });
+  var clusters=Object.keys(groups).map(function(k){ return groups[k]; });
+  function centroid(c){ var sx=0,sy=0; c.forEach(function(p){sx+=p.x;sy+=p.y;}); return [sx/c.length, sy/c.length]; }
+  while(clusters.length>5){                          /* cap a 5: fondi i due cluster più vicini */
+    var best=Infinity, bi=0, bj=1;
+    for(var a=0;a<clusters.length;a++) for(var b=a+1;b<clusters.length;b++){
+      var ca=centroid(clusters[a]), cb=centroid(clusters[b]), d=Math.hypot(ca[0]-cb[0], ca[1]-cb[1]);
+      if(d<best){ best=d; bi=a; bj=b; }
+    }
+    clusters[bi]=clusters[bi].concat(clusters[bj]); clusters.splice(bj,1);
+  }
+  var PAD=60, W=state.stage.w, D=state.stage.d, colors=["#0d9488","#3b82f6","#d97706","#7c3aed","#dc2626"], used={};
+  return clusters.map(function(c,idx){
+    var xs=c.map(function(p){return p.x;}), ys=c.map(function(p){return p.y;});
+    var x0=Math.max(0,Math.min.apply(null,xs)-PAD), y0=Math.max(0,Math.min.apply(null,ys)-PAD);
+    var x1=Math.min(W,Math.max.apply(null,xs)+PAD), y1=Math.min(D,Math.max.apply(null,ys)+PAD);
+    var cx=centroid(c)[0];
+    var hasDrums=c.some(function(p){ return /batt|drum|kick|snare|\btom|hihat|crash|ride|floor|timp/.test(String(p.it.type)); });
+    var base = hasDrums ? "Batteria" : (cx < W/3 ? "SX" : cx > 2*W/3 ? "DX" : "CS");
+    var lbl=base, k=2; while(used[lbl]){ lbl=base+" "+k; k++; } used[lbl]=1;
+    return {id:"z"+Date.now()+"_"+idx, label:lbl, x:Math.round(x0), y:Math.round(y0), w:Math.max(30,Math.round(x1-x0)), d:Math.max(30,Math.round(y1-y0)), color:colors[idx%colors.length]};
+  });
+}
+function applySuggestedZones(){
+  var zs=suggestZones();
+  if(!zs.length){ return; }
+  state.zones=zs; selZone=zs[0].id; save(); renderZonePanel(); redrawStageLayers();
+}
+function maybeAutoZones(){   /* alla prima apertura senza zone: suggerimento automatico */
+  if(state.zones.length) return;
+  if((state.items||[]).filter(function(it){return !ZONE_IGNORE[it.type];}).length>=2){
+    var zs=suggestZones(); if(zs.length){ state.zones=zs; selZone=zs[0].id; save(); }
+  }
+}
+function suggestZonesClick(){
+  if(state.zones.length){
+    confirmDialog({icon:"warn", title:"Rigenerare le zone?", message:"Le zone attuali verranno sostituite dal suggerimento automatico in base agli oggetti sul palco.", confirmText:"Rigenera"})
+      .then(function(ok){ if(ok) applySuggestedZones(); });
+  } else applySuggestedZones();
+}
 function addZone(){
   var W=state.stage.w, D=state.stage.d, w=Math.min(400,Math.round(W*0.4)), d=Math.min(300,Math.round(D*0.4));
   var z={id:"z"+Date.now(), label:String.fromCharCode(65+(state.zones.length%26)), x:Math.round((W-w)/2), y:Math.round((D-d)/2), w:w, d:d, color:"#0d9488"};
