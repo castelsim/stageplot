@@ -1167,7 +1167,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
 </div>
-<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub">Bastano tre passi per iniziare</div><div class="eh-steps"><span class="eh-step eh-desk"><b>1</b>Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>2</b>Clicca un elemento</span><span class="eh-step eh-desk"><b>3</b>Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>1</b>Tocca “Aggiungi” qui sotto</span><span class="eh-step eh-mob"><b>2</b>Scegli dal catalogo</span><span class="eh-step eh-mob"><b>3</b>Trascinalo dove vuoi sul palco</span></div></div></main>
+<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub"><span class="eh-desk">Apri una categoria a sinistra e trascina gli elementi sul palco</span><span class="eh-mob">Tocca “Aggiungi” qui sotto e scegli dal catalogo</span></div></div></main>
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
@@ -3670,7 +3670,11 @@ function render(){
   var ppm = svg.clientWidth / vb.w * 100;
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
-  var eh=document.getElementById("emptyHint"); if(eh) eh.hidden = state.items.length>0;   /* onboarding: invito sul palco vuoto */
+  var eh=document.getElementById("emptyHint");
+  if(eh){
+    if(state.items.length>0){ eh.hidden=true; try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
+    else eh.hidden = !!localStorage.getItem("sp_onboarded");   /* l'invito appare solo finché non hai mai piazzato nulla */
+  }
 }
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
@@ -4685,7 +4689,11 @@ svg.addEventListener("pointerdown", function(e){
   if(lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
     if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
-    else if(!isMobile()){ toggleStageEdit(); }   /* mobile: doppio-tap sul vuoto non entra in modifica palco */
+    else if(!isMobile()){
+      var venueHit = e.target && e.target.getAttribute && e.target.getAttribute("data-venue");
+      if(venueHit){ if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit(); }   /* doppio click sulla planimetria → le sue opzioni */
+      else toggleStageEdit();
+    }   /* mobile: doppio-tap sul vuoto non entra in modifica palco */
     return;
   }
   lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId};
