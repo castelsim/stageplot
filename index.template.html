@@ -5931,8 +5931,15 @@ document.getElementById("bNew").addEventListener("click", function(){
     try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* foglio nuovo = progetto nuovo: senza lo stacco, l'autosave sovrascriverebbe il progetto aperto col foglio vuoto */
     stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
     setEventInputs(); renderChannels();
+    resetCatalogView();   /* foglio nuovo = catalogo in stato di partenza */
   });
 });
+function resetCatalogView(){
+  document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open").forEach(function(el){ el.classList.remove("open"); });
+  var q=document.getElementById("catSearch");
+  if(q && q.value){ q.value=""; q.dispatchEvent(new Event("input",{bubbles:true})); }
+  var c=document.getElementById("catalog"); if(c) c.scrollTop=0;
+}
 /* ============ JSON DI PROGETTO formato 3 — pronto per render 3D ============
    items arricchiti (z, h, components relativi, render{}), librerie assets/materials,
    regole di render e validazione. Le coordinate dei components sono RELATIVE al
