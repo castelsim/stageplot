@@ -2060,23 +2060,38 @@ var TIMP_MODELS={ t51:{icon:"timp51",d:57,lbl:'20\u2033'}, t58:{icon:"timp58",d:
   t66:{icon:"timp66",d:73,lbl:'26\u2033'}, t74:{icon:"timp74",d:81,lbl:'29\u2033'}, t81:{icon:"timp81",d:88,lbl:'32\u2033'} };
 /* set standard per numero (dall'acuto al grave) e slot ad arco (posizioni dei set approvati in libreria) */
 var TIMP_SETS={ 1:["t74"], 2:["t74","t81"], 3:["t66","t74","t81"], 4:["t58","t66","t74","t81"], 5:["t51","t58","t66","t74","t81"] };
-var TIMP_ARC={ 1:[[0,0,0]],
-  2:[[40.5,46.5,8],[111,44,-8]],
-  3:[[36.5,52.5,14],[114.5,44.5,0],[186,44,-10]],
-  4:[[32.5,66.5,20],[99.5,50.5,8],[175.5,42.5,-4],[256,44,-14]],
-  5:[[0,86,26],[58,64,14],[126,50,4],[202,44,-6],[284,46,-16]] };
+var TIMP_R_ARC={1:85, 2:85, 3:90, 4:100, 5:110};   /* raggio dell'arco dei centri, per numero */
 /* orient: "americano" = grave alla sinistra del musicista (in pianta a destra, musicista a nord);
-   "tedesco" = specchiato. layout: "arco" | "linea". Sgabello del timpanista a nord (p.stool!==false). */
+   "tedesco" = specchiato. layout: "arco" (semicerchio ATTORNO allo sgabello, pedali verso il musicista) | "linea".
+   Sgabello del timpanista dentro l'arco (p.stool!==false). */
 function timpSlots(pp){
-  var n=Math.max(1,Math.min(5,pp.count||2)), keys=TIMP_SETS[n], arc=TIMP_ARC[n], out=[], x=0, i;
-  for(i=0;i<n;i++){ var m=TIMP_MODELS[keys[i]], r=m.d/2;
-    if(pp.layout==="linea"){ out.push({icon:m.icon,lbl:m.lbl,r:r,x:x+r,y:0,rot:0}); x+=m.d+4; }
-    else out.push({icon:m.icon,lbl:m.lbl,r:r,x:arc[i][0],y:arc[i][1],rot:arc[i][2]}); }
-  if(pp.orient==="tedesco"){ var mx=0; out.forEach(function(t){ mx=Math.max(mx,t.x); });
-    out.forEach(function(t){ t.x=mx-t.x; t.rot=-t.rot; }); }
-  if(pp.stool!==false){ var sx=0, topy=1e9;
+  var n=Math.max(1,Math.min(5,pp.count||2)), gap=3, out=[], i;
+  var ms=TIMP_SETS[n].map(function(k){ return TIMP_MODELS[k]; });
+  if(pp.layout==="linea"){
+    var x=0, sx=0, topy=1e9;
+    ms.forEach(function(m){ var r=m.d/2; out.push({icon:m.icon,lbl:m.lbl,r:r,x:x+r,y:0,rot:0}); x+=m.d+4; });
     out.forEach(function(t){ sx+=t.x; topy=Math.min(topy,t.y-t.r); });
-    out.push({icon:"sgabellobatt",r:20,x:sx/n,y:topy-24,rot:0,stool:true}); }
+    if(pp.stool!==false) out.push({icon:"sgabellobatt",r:20,x:Math.round(sx/n*10)/10,y:topy-24,rot:0,stool:true});
+  } else {
+    /* arco: centri su una circonferenza, concavità verso il musicista (a nord), timpani tangenti+gap */
+    var R=TIMP_R_ARC[n], dth=[], span=0;
+    for(i=0;i<n-1;i++){ var corda=ms[i].d/2+ms[i+1].d/2+gap; dth.push(2*Math.asin(corda/2/R)); span+=dth[i]; }
+    var th=-span/2, ths=[th];
+    for(i=0;i<n-1;i++){ th+=dth[i]; ths.push(th); }
+    for(i=0;i<n;i++){ var r=ms[i].d/2;
+      out.push({icon:ms[i].icon,lbl:ms[i].lbl,r:r,
+        x:Math.round(R*Math.sin(ths[i])*10)/10, y:Math.round(R*Math.cos(ths[i])*10)/10,
+        rot:Math.round(-ths[i]*180/Math.PI)});   /* pedale verso il musicista */
+    }
+    if(pp.stool!==false){
+      var inner=1e9;   /* bordo interno dei timpani frontali: lo sgabello ci si accosta */
+      for(i=0;i<n;i++){ if(Math.abs(ths[i])<1.05) inner=Math.min(inner,(R-ms[i].d/2)*Math.cos(ths[i])); }
+      if(inner===1e9) inner=R-ms[0].d/2;
+      out.push({icon:"sgabellobatt",r:20,x:0,y:Math.round((inner-24)*10)/10,rot:0,stool:true});
+    }
+  }
+  if(pp.orient==="tedesco"){ var mn=1e9,mx=-1e9; out.forEach(function(t){ mn=Math.min(mn,t.x); mx=Math.max(mx,t.x); });
+    out.forEach(function(t){ t.x=Math.round((mn+mx-t.x)*10)/10; t.rot=-t.rot; }); }
   return out;
 }
 function timpBBox(L){ var minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
