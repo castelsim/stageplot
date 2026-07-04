@@ -3784,7 +3784,7 @@ svg.addEventListener("pointerdown", function(e){
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
   var dcG = e.target.closest ? e.target.closest(".item") : null;
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
-  if(lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
+  if(venueCalibMode===0 && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
     if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
@@ -3798,16 +3798,9 @@ svg.addEventListener("pointerdown", function(e){
   var sp = svgPoint(e);
   /* modalità calibrazione planimetria: raccoglie due punti */
   if(venueCalibMode>0 && venueCalibMode<=2){
-    venueCalibPts.push({x:sp.x,y:sp.y});
-    if(venueCalibMode===1){
-      venueCalibMode=2;
-      venueCalibBanner("Ora clicca il <b>2° capo</b> della misura");
-    } else {
-      venueCalibMode=3;
-      venueCalibBanner(null);
-      venueLensRemove();
-    }
-    render(); if(venueCalibMode===3) venueCalibShowPop(); svg.setPointerCapture(e.pointerId); return;
+    /* trascina = sposti la vista (cerchi il punto); click fermo = pianti il capo della misura */
+    drag={mode:"calibnav", px:e.clientX, py:e.clientY, vx:vb.x, vy:vb.y, moved:false};
+    svg.setPointerCapture(e.pointerId); return;
   }
   /* drag planimetria (solo in modalità palco, sbloccata, non calib) */
   if(stageEdit && state.venue && !state.venue.locked && state.venue._dataUrl && venueCalibMode===0){
@@ -4090,7 +4083,11 @@ svg.addEventListener("pointermove", function(e){
     var x=Math.min(sp.x,drag.x0), y=Math.min(sp.y,drag.y0), w=Math.abs(sp.x-drag.x0), h=Math.abs(sp.y-drag.y0);
     drag.el.setAttribute("x",x); drag.el.setAttribute("y",y); drag.el.setAttribute("width",w); drag.el.setAttribute("height",h);
     drag.rect={x:x,y:y,w:w,h:h};
-  } else if(drag.mode==="pan"){
+  } else if(drag.mode==="pan" || drag.mode==="calibnav"){
+    if(drag.mode==="calibnav" && !drag.moved){
+      if(Math.hypot(e.clientX-drag.px, e.clientY-drag.py)<=4) return;   /* sotto soglia: potenziale click */
+      drag.moved=true; svg.classList.add("dragging");
+    }
     var kx=vb.w/svg.clientWidth, ky=vb.h/svg.clientHeight;
     vb.x = drag.vx-(e.clientX-drag.px)*kx;
     vb.y = drag.vy-(e.clientY-drag.py)*ky;
@@ -4100,6 +4097,17 @@ svg.addEventListener("pointermove", function(e){
 svg.addEventListener("pointerup", function(e){
   delete pointers[e.pointerId];
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
+  if(drag && drag.mode==="calibnav"){
+    var wasMoved=drag.moved; drag=null; svg.classList.remove("dragging");
+    if(!wasMoved && venueCalibMode>0 && venueCalibMode<=2){
+      var spc=svgPoint(e);
+      venueCalibPts.push({x:spc.x, y:spc.y});
+      if(venueCalibMode===1){ venueCalibMode=2; venueCalibBanner("Ora clicca il <b>2° capo</b> della misura"); }
+      else { venueCalibMode=3; venueCalibBanner(null); venueLensRemove(); }
+      render(); if(venueCalibMode===3) venueCalibShowPop();
+    }
+    return;
+  }
   if(drag && drag.mode==="venue"){ if(drag.moved){ save(); render(); } drag=null; return; }
   if(drag && (drag.mode==="frame"||drag.mode==="frameresize")){ if(drag.moved){ save(); } renderFramePanel(); render(); drag=null; return; }
   if(drag && drag.mode==="block"){ if(drag.moved){ normalizeStageBBox(); save(); } renderStagePanel(); render(); svg.classList.remove("dragging"); drag=null; ensureVisible(); return; }
@@ -5927,7 +5935,7 @@ function venueCalibBanner(html){
 }
 function venueCalibStart(){
   venueCalibMode=1; venueCalibPts=[]; document.body.classList.add("venue-calib");
-  venueCalibBanner("Clicca i <b>2 capi</b> di una misura che conosci — es. il fronte del palco");
+  venueCalibBanner("Trascina e zooma per trovare il punto · poi clicca i <b>2 capi</b> di una misura che conosci");
   document.getElementById("venueCalibPop").hidden=true;
   render();
 }
