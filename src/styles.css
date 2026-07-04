@@ -913,3 +913,18 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   [data-zcolor]{display:flex;gap:6px}
   [data-zcolor] button{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer}
   [data-zcolor] button.on{border-color:var(--text)}
+
+  /* ===== Cablaggio automatico (canvas + pannello) ===== */
+  .cbl-audio{fill:none;stroke:#0d9488;stroke-width:3;stroke-linecap:round;opacity:.9}
+  .cbl-power{fill:none;stroke:#d97706;stroke-width:3;stroke-linecap:round;opacity:.9}
+  .cbl-box{fill:#0d9488;stroke:#0b7a70;stroke-width:1}
+  .cbl-drop{fill:#d97706;stroke:#b45309;stroke-width:1}
+  .cbl-hlbl{font:700 9px system-ui,sans-serif}
+  .cbl-hlbl.a{fill:#0b7a70} .cbl-hlbl.p{fill:#b45309}
+  .cbl-ja{fill:#0d9488} .cbl-jp{fill:#d97706}
+  .cbl-jlbl{font:700 10px system-ui,sans-serif}
+  .cbl-jlbl.a{fill:#0b7a70} .cbl-jlbl.p{fill:#b45309}
+  .cbl-row{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+  .cbl-row b{flex:1}
+  .cbl-dot{flex:0 0 auto;width:9px;height:9px;border-radius:3px}
+  .cbl-row .cbl-a{color:#0b7a70;font-weight:600} .cbl-row .cbl-p{color:#b45309;font-weight:600}

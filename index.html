@@ -1075,6 +1075,21 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   [data-zcolor]{display:flex;gap:6px}
   [data-zcolor] button{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer}
   [data-zcolor] button.on{border-color:var(--text)}
+
+  /* ===== Cablaggio automatico (canvas + pannello) ===== */
+  .cbl-audio{fill:none;stroke:#0d9488;stroke-width:3;stroke-linecap:round;opacity:.9}
+  .cbl-power{fill:none;stroke:#d97706;stroke-width:3;stroke-linecap:round;opacity:.9}
+  .cbl-box{fill:#0d9488;stroke:#0b7a70;stroke-width:1}
+  .cbl-drop{fill:#d97706;stroke:#b45309;stroke-width:1}
+  .cbl-hlbl{font:700 9px system-ui,sans-serif}
+  .cbl-hlbl.a{fill:#0b7a70} .cbl-hlbl.p{fill:#b45309}
+  .cbl-ja{fill:#0d9488} .cbl-jp{fill:#d97706}
+  .cbl-jlbl{font:700 10px system-ui,sans-serif}
+  .cbl-jlbl.a{fill:#0b7a70} .cbl-jlbl.p{fill:#b45309}
+  .cbl-row{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+  .cbl-row b{flex:1}
+  .cbl-dot{flex:0 0 auto;width:9px;height:9px;border-radius:3px}
+  .cbl-row .cbl-a{color:#0b7a70;font-weight:600} .cbl-row .cbl-p{color:#b45309;font-weight:600}
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
@@ -1309,6 +1324,14 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <button class="btn danger" id="bDelZone" style="width:100%;margin-top:9px;font-size:12px">Elimina zona</button>
       </div>
       <button class="btn primary" id="bZoneDone" style="width:100%;margin-top:11px">Fatto</button>
+    </div>
+    <div id="cablingSec" hidden>
+      <h3 style="margin:0 0 8px">Cablaggio automatico</h3>
+      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:9px">Generato dalle zone: ogni zona ha un <b>sub-stagebox</b> (audio) e un <b>power drop</b> (elettrico), con dorsale verso FOH e distro. La tabella completa è nel PDF della consulenza.</div>
+      <div class="comp-dim" id="cablingSum" style="margin-bottom:8px">—</div>
+      <div id="cablingList" style="display:flex;flex-direction:column;gap:5px"></div>
+      <button class="btn" id="bCablingZones" style="width:100%;margin-top:10px;font-size:12px">✨ Rigenera zone</button>
+      <button class="btn primary" id="bCablingDone" style="width:100%;margin-top:8px">Fatto</button>
     </div>
   </div>
   <div class="sec" id="eventoSec" hidden>
@@ -3430,7 +3453,7 @@ function zoneOf(it){
 }
 function zoneWattW(zid){ return (state.items||[]).reduce(function(a,it){ return a + (zoneOf(it)===zid ? wattOf(it) : 0); },0); }
 function zonesRegionsMarkup(){
-  if(!zoneEdit) return '';   /* le zone sono un ausilio di cablaggio: visibili solo mentre le modifichi, non sul palco esportato */
+  if(!zoneEdit && !cablingView) return '';   /* zone visibili solo mentre modifichi zone o cablaggio, non sul palco esportato */
   return (state.zones||[]).map(function(z){
     return '<g class="zone-reg">'
       +'<rect x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.d+'" rx="10" fill="'+z.color+'" fill-opacity="0.05" stroke="'+z.color+'" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="12 8"/>'
@@ -3753,7 +3776,7 @@ function stageLayerMarkup(){
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
     +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
 }
-function overlayLayerMarkup(){ return stageBlocksOverlay()+zonesOverlay()+frameMarkup(); }
+function overlayLayerMarkup(){ return stageBlocksOverlay()+zonesOverlay()+cablingMarkup()+frameMarkup(); }
 function zonesOverlay(){
   if(!zoneEdit) return '';
   return (state.zones||[]).map(function(z){
@@ -4579,9 +4602,12 @@ function miniSvg(k, over){
       body.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON)); n++;
       var ZONE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/></svg>';
       body.appendChild(makeActionBtn("Zona di cablaggio","raggruppa e calcola i kW", null, toggleZoneEdit, ZONE_ICON)); n++;
+      var CABLE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M7 25c0-8 6-8 6-14M25 25c0-8-6-8-6-14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="9" y="5" width="8" height="5" rx="1.5" fill="currentColor"/><rect x="15" y="5" width="8" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+      body.appendChild(makeActionBtn("Cablaggio automatico","audio + elettrico per zona", null, toggleCablingView, CABLE_ICON)); n++;
       entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit});
       entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON});
       entries.push({nome:"Zona di cablaggio", dim:"raggruppa e calcola i kW", action:toggleZoneEdit, iconHtml:ZONE_ICON});
+      entries.push({nome:"Cablaggio automatico", dim:"audio + elettrico per zona", action:toggleCablingView, iconHtml:CABLE_ICON});
       /* — Pedane e gradoni — */
       [["2×1 m",200,100]].forEach(function(p){
         var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
@@ -5298,12 +5324,15 @@ function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
   document.body.classList.toggle("stage-edit", stageEdit);
   if(panel) panel.hidden=!stageEdit;
-  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec"), _zs=document.getElementById("zoneSec");
+  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec"), _zs=document.getElementById("zoneSec"), _cs=document.getElementById("cablingSec");
   if(_bs) _bs.hidden = stagePanelView!=="palco";
   if(_vs) _vs.hidden = stagePanelView!=="planimetria";
   if(_zs) _zs.hidden = stagePanelView!=="zone";
+  if(_cs) _cs.hidden = stagePanelView!=="cablaggio";
   zoneEdit = stageEdit && stagePanelView==="zone";
+  cablingView = stageEdit && stagePanelView==="cablaggio";
   if(stagePanelView==="zone"){ renderZonePanel(); return; }
+  if(stagePanelView==="cablaggio"){ renderCablingPanel(); return; }
   if(!stageEdit) return;
   recalcStageBBox();
   var b=stageBlocks();
@@ -5464,6 +5493,8 @@ document.getElementById("bStageShape").addEventListener("click", toggleStageEdit
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
 document.getElementById("bSuggestZones").addEventListener("click", suggestZonesClick);
+document.getElementById("bCablingDone").addEventListener("click", toggleCablingView);
+document.getElementById("bCablingZones").addEventListener("click", function(){ suggestZonesClick(); });
 document.getElementById("bAddZone").addEventListener("click", addZone);
 document.getElementById("bDelZone").addEventListener("click", delZone);
 document.getElementById("bZoneDone").addEventListener("click", toggleZoneEdit);
@@ -6926,6 +6957,54 @@ function renderZonePanel(){
   }
 }
 
+/* ===== CABLAGGIO AUTOMATICO (audio + elettrico) — approccio B: hub per zona + dorsali ===== */
+var cablingView=false;
+function itemChannels(it){ if(IN_MULTI[it.type]) return IN_MULTI[it.type].length; if(IN_SRC[it.type]!=null) return 1; return 0; }
+function zoneChannels(zid){ return (state.items||[]).reduce(function(a,it){ return a + (zoneOf(it)===zid ? itemChannels(it) : 0); },0); }
+var AUDIO_MAIN={stagebox:1, splitrack:1, substg:1, monmix:1, foh:1};
+var POWER_MAIN={distro125:1, distro63:1, distro32:1, quadroelettrico:1, corrente:1, gen60:1, gen20:1};
+function firstOfTypes(set){ return (state.items||[]).filter(function(it){ return set[it.type]; })[0]||null; }
+function mainAudioHub(){ var it=firstOfTypes(AUDIO_MAIN); return it?{x:it.x,y:it.y,name:(TYPES[it.type]&&TYPES[it.type].nome)||"Stagebox",real:true}:{x:Math.round(state.stage.w*0.12), y:state.stage.d-18, name:"FOH / Split", real:false}; }
+function mainPowerHub(){ var it=firstOfTypes(POWER_MAIN); return it?{x:it.x,y:it.y,name:(TYPES[it.type]&&TYPES[it.type].nome)||"Distro",real:true}:{x:Math.round(state.stage.w*0.88), y:state.stage.d-18, name:"Distro / Rete", real:false}; }
+function ampsFor(w){ return Math.max(1, Math.ceil((w/230)*1.1)); }   /* corrente monofase indicativa @230V + 10% */
+function cablingMarkup(){
+  if(!cablingView) return '';
+  var aHub=mainAudioHub(), pHub=mainPowerHub(), s='';
+  (state.zones||[]).forEach(function(z){
+    var cx=z.x+z.w/2, hy=z.y+z.d-20, bx=cx-18, drx=cx+3, nch=zoneChannels(z.id), kw=zoneWattW(z.id);
+    if(nch>0) s+='<path class="cbl-audio" d="M'+(bx+7)+','+(hy+7)+' Q'+((bx+7+aHub.x)/2)+','+Math.max(hy+34,aHub.y-10)+' '+aHub.x+','+aHub.y+'"/>';
+    if(kw>0)  s+='<path class="cbl-power" d="M'+(drx+7)+','+(hy+7)+' Q'+((drx+7+pHub.x)/2)+','+Math.max(hy+34,pHub.y-10)+' '+pHub.x+','+pHub.y+'"/>';
+    if(nch>0){ s+='<rect class="cbl-box" x="'+bx+'" y="'+hy+'" width="15" height="13" rx="2"/>';
+      s+='<text class="cbl-hlbl a" x="'+(bx+7)+'" y="'+(hy-3)+'" text-anchor="middle">'+esc(z.label)+' · '+nch+'ch</text>'; }
+    if(kw>0){ s+='<rect class="cbl-drop" x="'+drx+'" y="'+hy+'" width="15" height="13" rx="2"/>';
+      s+='<text class="cbl-hlbl p" x="'+(drx+7)+'" y="'+(hy+25)+'" text-anchor="middle">'+(kw/1000).toFixed(1).replace(".",",")+' kW</text>'; }
+  });
+  /* junction principali (se non sono oggetti reali, disegna il marcatore) */
+  if(!aHub.real){ s+='<circle class="cbl-ja" cx="'+aHub.x+'" cy="'+aHub.y+'" r="9"/><text class="cbl-jlbl a" x="'+aHub.x+'" y="'+(aHub.y-13)+'" text-anchor="middle">'+esc(aHub.name)+'</text>'; }
+  if(!pHub.real){ s+='<circle class="cbl-jp" cx="'+pHub.x+'" cy="'+pHub.y+'" r="9"/><text class="cbl-jlbl p" x="'+pHub.x+'" y="'+(pHub.y-13)+'" text-anchor="middle">'+esc(pHub.name)+'</text>'; }
+  return s;
+}
+function toggleCablingView(){
+  if(stageEdit && stagePanelView!=="cablaggio"){ stagePanelView="cablaggio"; selBlock=null; selZone=null; venueAutoLock(); maybeAutoZones(); renderStagePanel(); render(); return; }
+  if(!stageEdit){ stageEdit=true; stagePanelView="cablaggio"; selBlock=null; selZone=null; exitHubModes("palco"); clearSelection(); maybeAutoZones(); }
+  else { stageEdit=false; venueAutoLock(); }
+  renderStagePanel(); render(); }
+function renderCablingPanel(){
+  var el=document.getElementById("cablingList"); if(!el) return;
+  el.innerHTML="";
+  if(!state.zones.length){ el.innerHTML='<div class="hint" style="font-size:11.5px;color:var(--text-2)">Aggiungi oggetti sul palco: le zone e il cablaggio si generano da soli.</div>'; return; }
+  var totCh=0, totKw=0;
+  state.zones.forEach(function(z){
+    var nch=zoneChannels(z.id), kw=zoneWattW(z.id); totCh+=nch; totKw+=kw;
+    var row=document.createElement("div"); row.className="cbl-row";
+    row.innerHTML='<span class="cbl-dot" style="background:'+z.color+'"></span><b>'+esc(z.label)+'</b>'
+      +'<span class="cbl-a">🎚 '+nch+' ch</span><span class="cbl-p">⚡ '+(kw/1000).toFixed(1).replace(".",",")+' kW</span>';
+    el.appendChild(row);
+  });
+  var sum=document.getElementById("cablingSum");
+  if(sum) sum.textContent = state.zones.length+" zone · "+totCh+" canali · "+(totKw/1000).toFixed(1).replace(".",",")+" kW";
+}
+
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
 var frameEdit=false;
 var saveAsOpen=false;
@@ -8256,6 +8335,10 @@ function buildPdfDoc(paperKey, N, orient, header){
       doc.addPage(paperKey, L.orient);
       pdfPowerPage(doc, L, paperKey);
     }
+    if(window.__consultMode && (state.zones||[]).length){
+      var totCh=(state.zones||[]).reduce(function(a,z){return a+zoneChannels(z.id);},0);
+      if(totCh>0){ doc.addPage(paperKey, L.orient); pdfCablingPage(doc, L, paperKey); }
+    }
     return doc;
       });
   });
@@ -8478,6 +8561,40 @@ function pdfPowerPage(doc, L, paperKey){
   doc.setFont("helvetica","bold"); doc.setFontSize(9);
   doc.setTextColor(lack?200:17, lack?60:24, lack?60:39);
   doc.text(sugg, x, y);
+}
+function pdfCablingPage(doc, L, paperKey){
+  var M=L.M, x=M, y=M+8, pw=L.pw, colW=pw-2*M;
+  var dateStr=new Date().toLocaleDateString("it-IT");
+  doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(17,24,39);
+  doc.text(String(state.titolo||"Stage plot"), x, y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120); doc.text(dateStr, pw-M, y, {align:"right"}); y+=5.5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(80,80,80);
+  doc.text("CABLAGGIO PER ZONA — audio + elettrico", x, y); y+=4;
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+  doc.text("Audio: un sub-stagebox per zona → multicore allo stagebox principale → FOH. Elettrico: un power drop per zona → distro → rete/generatore. Corrente indicativa monofase @230V.", x, y); y+=4;
+  doc.setDrawColor(17,24,39); doc.setLineWidth(0.5); doc.line(x,y,pw-M,y); y+=6;
+  var cW=[colW*0.20, colW*0.16, colW*0.28, colW*0.18];
+  function kw(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
+  function rowc(a,b,c,d,e,bold){ if(y>L.ph-16){ doc.addPage(paperKey,L.orient); y=M+10; }
+    doc.setFont("helvetica",bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(17,24,39);
+    doc.text(String(a), x, y); doc.text(String(b), x+cW[0], y, {align:"center"});
+    doc.text(String(c), x+cW[0]+cW[1], y); doc.text(String(d), x+cW[0]+cW[1]+cW[2], y);
+    doc.text(String(e), pw-M, y, {align:"right"}); y+=5.4; }
+  doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+  doc.text("ZONA", x, y); doc.text("CANALI", x+cW[0], y, {align:"center"});
+  doc.text("AUDIO", x+cW[0]+cW[1], y); doc.text("ELETTRICO", x+cW[0]+cW[1]+cW[2], y);
+  doc.text("CORRENTE", pw-M, y, {align:"right"}); y+=4;
+  var totCh=0, totKw=0;
+  (state.zones||[]).forEach(function(z){
+    var nch=zoneChannels(z.id), w=zoneWattW(z.id); totCh+=nch; totKw+=w;
+    rowc(z.label||"(zona)", nch||"—", nch>0?("sub-stagebox "+nch+"ch"):"—", w>0?kw(w):"—", w>0?("~"+ampsFor(w)+" A"):"—");
+  });
+  y+=1; doc.setDrawColor(17,24,39); doc.setLineWidth(0.4); doc.line(x,y-3,pw-M,y-3);
+  rowc("TOTALE", totCh, "", kw(totKw), "~"+ampsFor(totKw)+" A", true);
+  y+=3;
+  var aHub=mainAudioHub(), pHub=mainPowerHub();
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(90,90,90);
+  doc.text("Stagebox principale: "+aHub.name+"   ·   Distribuzione: "+pHub.name, x, y);
 }
 (function(){
   var modal=document.getElementById("pdfModal"), paper=document.getElementById("pdfPaper"),
