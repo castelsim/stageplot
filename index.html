@@ -3430,6 +3430,7 @@ function zoneOf(it){
 }
 function zoneWattW(zid){ return (state.items||[]).reduce(function(a,it){ return a + (zoneOf(it)===zid ? wattOf(it) : 0); },0); }
 function zonesRegionsMarkup(){
+  if(!zoneEdit) return '';   /* le zone sono un ausilio di cablaggio: visibili solo mentre le modifichi, non sul palco esportato */
   return (state.zones||[]).map(function(z){
     return '<g class="zone-reg">'
       +'<rect x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.d+'" rx="10" fill="'+z.color+'" fill-opacity="0.05" stroke="'+z.color+'" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="12 8"/>'
