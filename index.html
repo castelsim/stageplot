@@ -13,7 +13,7 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.03";</script>
+<script>window.__APP_VERSION__="2026.07.04";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1134,6 +1134,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
   <div class="sec" id="stageEditPanel" hidden>
+    <div id="stageBlocksSec">
     <h3 style="margin-bottom:6px">Palco</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
     <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco è un insieme di blocchi. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
@@ -1171,8 +1172,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
     </div>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
-    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
-      <!-- pannello planimetria (embedded nel pannello palco) -->
+    </div>
+    <div id="venueSec" hidden>
+      <!-- pannello planimetria (vista esclusiva: o blocchi o planimetria) -->
       <div id="venuePanel">
         <h3 style="margin:0 0 8px">Planimetria</h3>
         <div id="venueReload" hidden>
@@ -1211,6 +1213,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
           </div>
         </div>
         <button class="btn danger" id="venueBtnDel" style="width:100%;margin-top:10px;font-size:12px">Rimuovi planimetria</button>
+        <button class="btn primary" id="venueBtnDone" style="width:100%;margin-top:11px">Fatto</button>
       </div>
     </div>
   </div>
@@ -2801,6 +2804,7 @@ var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[] };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
+var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
 var chanEdit=false;                   /* modalità "Channel list" (mobile: si apre dal bottone) */
 var sel = null, selSet = {}, nextId = 1, addCascade = 0;
@@ -4563,7 +4567,9 @@ svg.addEventListener("pointerdown", function(e){
   /* Option/Alt + trascina = disegna un nuovo blocco del palco (non sopra un elemento) */
   if(e.altKey && !dcG && !(e.target.closest && e.target.closest(".rot-handle"))){
     e.preventDefault();
-    if(!stageEdit){ stageEdit=true; selBlock=null; exitHubModes("palco"); clearSelection(); renderStagePanel(); render(); }
+    if(!stageEdit){ stageEdit=true; selBlock=null; exitHubModes("palco"); clearSelection(); }
+    if(stagePanelView!=="palco"){ stagePanelView="palco"; }
+    renderStagePanel(); render();
     drag={mode:"newblk", x0:sp.x, y0:sp.y};
     var pr=document.createElementNS("http://www.w3.org/2000/svg","rect");
     pr.setAttribute("id","newblk-preview"); pr.setAttribute("fill","rgba(37,99,235,.18)");
@@ -4954,6 +4960,9 @@ function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
   document.body.classList.toggle("stage-edit", stageEdit);
   if(panel) panel.hidden=!stageEdit;
+  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec");
+  if(_bs) _bs.hidden = stagePanelView!=="palco";
+  if(_vs) _vs.hidden = stagePanelView!=="planimetria";
   if(!stageEdit) return;
   recalcStageBBox();
   var b=stageBlocks();
@@ -5005,7 +5014,9 @@ function exitHubModes(except){
   if(except!=="frame"&&except!=="save" && (frameEdit||saveAsOpen)){ frameEdit=false; saveAsOpen=false; renderFramePanel(); }
   if(except!=="vers" && versEdit){ versEdit=false; renderVersionPanel(); }
 }
-function toggleStageEdit(){ stageEdit=!stageEdit; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } renderStagePanel(); render(); }
+function toggleStageEdit(){
+  if(stageEdit && stagePanelView!=="palco"){ stagePanelView="palco"; selBlock=0; renderStagePanel(); render(); return; }   /* aperto sulla planimetria: passa ai blocchi */
+  stageEdit=!stageEdit; stagePanelView="palco"; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } renderStagePanel(); render(); }
 function renderEventoPanel(){ document.body.classList.toggle("evento-edit", eventoEdit); document.getElementById("eventoSec").hidden=!eventoEdit; }
 function toggleEvento(){ eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
 function renderChanPanel(){ document.body.classList.toggle("chan-edit", chanEdit); }
@@ -5036,6 +5047,7 @@ function addCatalogBlock(w,d,shape){
     : {x:Math.round(state.stage.w), y:0, w:w, d:d};   /* a destra dell'ingombro, da trascinare */
   state.stage.blocks.push(r); selBlock=state.stage.blocks.length-1;
   if(!stageEdit){ stageEdit=true; exitHubModes("palco"); clearSelection(); }
+  stagePanelView="palco";
   recalcStageBBox(); renderStagePanel(); render(); save();
   closeMobileDrawers();
 }
@@ -5108,6 +5120,7 @@ document.addEventListener("click", function(e){
 })();
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
+document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
@@ -6447,7 +6460,11 @@ function renderVenuePanel(){
   document.getElementById("venueBtnCalib").style.display = hasImg?"":"none";
   document.getElementById("venueBtnDel").style.display = v?"":"none";
 }
-function toggleVenueEdit(){ if(!stageEdit){ stageEdit=true; selBlock=stageEdit?0:null; exitHubModes("palco"); clearSelection(); renderStagePanel(); render(); } }
+function toggleVenueEdit(){
+  if(stageEdit && stagePanelView!=="planimetria"){ stagePanelView="planimetria"; selBlock=null; renderStagePanel(); render(); return; }   /* aperto sui blocchi: passa alla planimetria */
+  if(!stageEdit){ stageEdit=true; stagePanelView="planimetria"; selBlock=null; exitHubModes("palco"); clearSelection(); }
+  else { stageEdit=false; selBlock=null; }
+  renderStagePanel(); render(); }
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
 var frameEdit=false;
