@@ -4690,8 +4690,8 @@ svg.addEventListener("pointerdown", function(e){
     lastDown=null;
     if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
-      var venueHit = e.target && e.target.getAttribute && e.target.getAttribute("data-venue");
-      if(venueHit){ if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit(); }   /* doppio click sulla planimetria → le sue opzioni */
+      var _sp2=svgPoint(e), _onStage=(state.stage.blocks||[]).some(function(b){ return _sp2.x>=b.x&&_sp2.x<=b.x+b.w&&_sp2.y>=b.y&&_sp2.y<=b.y+b.d; });
+      if(!_onStage && venueHitTest(_sp2)){ if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit(); }   /* doppio click sulla planimetria fuori dal palco (anche bloccata) → le sue opzioni */
       else toggleStageEdit();
     }   /* mobile: doppio-tap sul vuoto non entra in modifica palco */
     return;
@@ -5170,15 +5170,16 @@ function renderStagePanel(){
   renderVenuePanel();
 }
 function exitHubModes(except){
-  if(except!=="palco" && stageEdit){ stageEdit=false; selBlock=null; renderStagePanel(); }
+  if(except!=="palco" && stageEdit){ stageEdit=false; selBlock=null; venueAutoLock(); renderStagePanel(); }
   if(except!=="evento" && eventoEdit){ eventoEdit=false; renderEventoPanel(); }
   if(except!=="chan" && chanEdit){ chanEdit=false; renderChanPanel(); }
   if(except!=="frame"&&except!=="save" && (frameEdit||saveAsOpen)){ frameEdit=false; saveAsOpen=false; renderFramePanel(); }
   if(except!=="vers" && versEdit){ versEdit=false; renderVersionPanel(); }
 }
+function venueAutoLock(){ if(state.venue && state.venue.calibration && !state.venue.locked){ state.venue.locked=true; save(); } }   /* fuori dall'edit la planimetria calibrata torna bloccata */
 function toggleStageEdit(){
   if(stageEdit && stagePanelView!=="palco"){ stagePanelView="palco"; selBlock=0; renderStagePanel(); render(); return; }   /* aperto sulla planimetria: passa ai blocchi */
-  stageEdit=!stageEdit; stagePanelView="palco"; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } renderStagePanel(); render(); }
+  stageEdit=!stageEdit; stagePanelView="palco"; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } else venueAutoLock(); renderStagePanel(); render(); }
 function renderEventoPanel(){ document.body.classList.toggle("evento-edit", eventoEdit); document.getElementById("eventoSec").hidden=!eventoEdit; }
 function toggleEvento(){ eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
 function renderChanPanel(){ document.body.classList.toggle("chan-edit", chanEdit); }
@@ -6580,6 +6581,13 @@ function safeVenueDataUrl(u){
 }
 function normalizeVenue(v){ if(!v) return null; var o=Object.assign(venueDefault(), v); if(o._dataUrl!=null) o._dataUrl=safeVenueDataUrl(o._dataUrl); return o; }
 
+/* il punto (mondo) cade sulla planimetria? — hit-test geometrico, indipendente da pointer-events/lock */
+function venueHitTest(sp){
+  var v=state.venue; if(!v || v.enabled===false || !v._dataUrl) return false;
+  var a=-(v.rot||0)*Math.PI/180, dx=sp.x-v.x, dy=sp.y-v.y;
+  var px=dx*Math.cos(a)-dy*Math.sin(a), py=dx*Math.sin(a)+dy*Math.cos(a);
+  return Math.abs(px)<=v.w/2 && Math.abs(py)<=v.h/2;
+}
 function venueMarkup(){
   var v=state.venue; if(!v) return '';
   var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return '';   /* seconda barriera: rivalida al render */
@@ -6642,7 +6650,7 @@ function renderVenuePanel(){
 function toggleVenueEdit(){
   if(stageEdit && stagePanelView!=="planimetria"){ stagePanelView="planimetria"; selBlock=null; renderStagePanel(); render(); return; }   /* aperto sui blocchi: passa alla planimetria */
   if(!stageEdit){ stageEdit=true; stagePanelView="planimetria"; selBlock=null; exitHubModes("palco"); clearSelection(); }
-  else { stageEdit=false; selBlock=null; }
+  else { stageEdit=false; selBlock=null; venueAutoLock(); }
   renderStagePanel(); render(); }
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
@@ -6890,6 +6898,7 @@ function venueCalibApply(){
   state.venue.w=state.venue.w*scale;
   state.venue.h=state.venue.h*scale;
   state.venue.calibration={p1:p1,p2:p2,realCm:realCm};
+  state.venue.locked=true;   /* calibrata = solidale col palco; si sblocca solo per scelta esplicita */
   venueCalibCancel(); save(); renderVenuePanel(); render();
 }
 
