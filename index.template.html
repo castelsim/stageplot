@@ -419,6 +419,9 @@
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
     <div class="sldrow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
+    <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
+      <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
+    </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>
@@ -1907,6 +1910,40 @@ var TYPES = {
     draw:function(it){ return drawLibFit("ledwallmod",it,300,12); }}
 };
 var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Luci","Video"];
+
+/* ===== POTENZA ELETTRICA (Fase A: assorbimenti) ===== */
+/* W nominali al muro. Solo i tipi che si alimentano; tutto il resto = 0 (non compare).
+   Le casse passive (line array, sub, wedge) restano 0: la potenza vive sugli amp rack. */
+var WATT = {
+  comboamp:300, stack:450, bassamp:500, keysamp:200, leslie:300, edrums:80, djset:400,
+  stagepiano:60, doppiatastiera:120, celesta:40,
+  dm3:60, dm7c:120, dm7:150, csr3:280, csr5:350, csr10:600,
+  sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
+  q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
+  amprack:2500,
+  consolaluci:100, dimmerluci:3600, testamobile:400, parluci:120, sagomatore:750,
+  followspot:1200, strobo:900, fumomachine:1000, hazer:800, proiettore:400, camera:30,
+  torrefaro:1500
+};
+var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W per m² (superficie reale) */
+var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
+function wattOf(it){
+  if(!it) return 0;
+  if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
+  if(WATT_BY_AREA[it.type]!=null) return Math.round((it.w/100)*(it.d/100)*WATT_BY_AREA[it.type]);
+  return WATT[it.type]||0;
+}
+function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
+function powerTotalW(){ return (state.items||[]).reduce(function(a,it){ return a+wattOf(it); },0); }
+function genCapacityW(){ return (state.items||[]).reduce(function(a,it){ return a + (GEN_KVA[it.type]?GEN_KVA[it.type]*800:0); },0); }
+function suggestGen(w){
+  var kw=w/1000;
+  if(kw<=0) return "";
+  if(kw<15) return "allaccio di rete (no generatore)";
+  var sizes=[20,40,60,100,125,150,200,250,320];
+  for(var i=0;i<sizes.length;i++){ if(sizes[i]*0.8>=kw) return "generatore "+sizes[i]+" kVA"; }
+  return "≥2 generatori / cabina";
+}
 /* distanza interna di default (e minima) per le postazioni doppie: la più stretta disponibile.
    Gli strumenti larghi (contrabbasso, violoncello) hanno un minimo maggiore per non sovrapporsi. */
 var DEFAULT_SEP = 65;
@@ -2861,6 +2898,9 @@ function renderProps(){
   var t = TYPES[it.type];
   document.getElementById("selNome").textContent = t.nome;
   setPeekName(t.nome);
+  var pwWrap=document.getElementById("pWattWrap");
+  if(pwWrap){ var powered=hasWatt(it.type); pwWrap.style.display = powered ? "block" : "none";
+    if(powered) document.getElementById("pWatt").value = wattOf(it); }
   document.getElementById("pLabel").value = it.label||"";
   var isDbl2 = it.doppia===true || !!DOUBLE_TYPES[it.type];
   document.getElementById("pLabel2Wrap").style.display = isDbl2 ? "block" : "none";
@@ -3049,6 +3089,9 @@ function applyRot(doSave){
 }
 document.getElementById("pRot").addEventListener("input", function(){ applyRot(false); });
 document.getElementById("pRot").addEventListener("change", function(){ applyRot(true); });
+document.getElementById("pWatt").addEventListener("change", function(){
+  var v=parseInt(this.value,10); mutSel(function(it){ it.watt = isFinite(v)&&v>=0 ? v : null; });
+});
 /* DS v2.1 — chips che pilotano una select nascosta (value + change: la logica esistente non cambia) */
 document.querySelectorAll(".chips[data-chips]").forEach(function(box){
   var sel=document.getElementById(box.dataset.chips); if(!sel) return;
@@ -5585,6 +5628,8 @@ function renderAccessoriCount(){
   if(c.leggii)    parts.push("Leggii: <b>"+c.leggii+"</b>");
   if(c.sgabelli)  parts.push("Sgabelli: <b>"+c.sgabelli+"</b>");
   if(c.hearbacks) parts.push("Hearback: <b>"+c.hearbacks+"</b>");
+  var pw=powerTotalW();
+  if(pw>0) parts.push('<span class="stat-pw" title="Potenza elettrica stimata (nominale)">⚡ '+(pw/1000).toFixed(1).replace(".",",")+" kW</span>");
   el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : "";
 }
 /* ===== Datalist src per Input patch / Output list ===== */
