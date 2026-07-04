@@ -904,3 +904,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   main.venue-dropping::after{content:"Rilascia qui la planimetria";position:absolute;inset:14px;border:2.5px dashed var(--accent);border-radius:14px;background:rgba(13,148,136,.07);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--accent);z-index:40;pointer-events:none}
 
   .stat-pw{color:var(--accent);font-weight:600}
+
+  /* ===== Zone di cablaggio (Fase A) ===== */
+  .zone-tag{font:600 15px/1 system-ui,sans-serif}
+  .zone-hit{fill:transparent;stroke:transparent;cursor:move}
+  body.stage-edit .zone-hit{pointer-events:auto}
+  .zone-edge{fill:transparent}
+  .zone-edge.ew{cursor:ew-resize} .zone-edge.ns{cursor:ns-resize}
+  [data-zcolor]{display:flex;gap:6px}
+  [data-zcolor] button{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer}
+  [data-zcolor] button.on{border-color:var(--text)}
