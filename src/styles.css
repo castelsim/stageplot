@@ -398,8 +398,8 @@
   body.dark #venueReload b{color:#fbbf24}
   body.dark #venueCalibHint{color:#86efac;background:rgba(34,197,94,.12)}
   body.venue-calib #svg{cursor:crosshair}
-  .venue-calib-dot{fill:#ef4444;stroke:#fff;stroke-width:2}
-  .venue-calib-line{stroke:#ef4444;stroke-width:2;stroke-dasharray:8 4;fill:none}
+  .venue-calib-dot{fill:#3b82f6;stroke:#fff;stroke-width:2}
+  .venue-calib-line{stroke:#3b82f6;stroke-width:2;stroke-dasharray:8 4;fill:none}
   body.dark #venuePanel{background:#0f2d1a;border-color:#166534}
   body.dark #venuePanel h3{color:#4ade80}
   body.dark #venuePanel label{color:#d1fae5}
@@ -874,3 +874,29 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .comp-dim{color:var(--accent);font-weight:600;font-size:12.5px;margin:0 0 8px}
   #selProps.comp-first #pComp{order:-1;border-top:none;margin-top:2px;padding-top:0;
     border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:10px}
+
+  /* ═══ Planimetria: checklist a passi + calibrazione col righello (UX A+B, 04/07/2026) ═══ */
+  .vstep{display:flex;gap:9px;align-items:flex-start;padding:9px;border:1.5px solid transparent;border-radius:10px;margin-bottom:7px}
+  .vstep .vdot{flex:0 0 auto;width:20px;height:20px;border-radius:999px;background:var(--n-300);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .vstep .vbody{flex:1;min-width:0}
+  .vstep .vbody>b{display:block;font-size:13px;color:var(--text)}
+  .vstep .vbody>small{display:block;color:var(--text-2);font-size:11.5px;margin-top:1px}
+  .vstep.pending{opacity:.5}
+  .vstep.pending .btn{display:none}
+  .vstep.active{border-color:var(--accent);background:var(--surface)}
+  .vstep.active .vdot{background:var(--accent)}
+  .vstep.done .vdot{background:var(--accent)}
+  .vstep.done .vdot::before{content:"✓"}
+  .vstep.done .vdot{font-size:0}
+  .vstep.done .vdot::before{font-size:11px}
+  .vstep.done{background:var(--accent-tint)}
+  body.dark .vstep.done{background:rgba(20,184,166,.08)}
+  body.dark .vstep.active{background:#1b2327}
+  main{position:relative}
+  #venueCalibBanner{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--n-800);color:#fff;border-radius:999px;padding:8px 16px;font-size:13px;box-shadow:0 8px 24px rgba(38,33,24,.28);z-index:30;white-space:nowrap;pointer-events:none}
+  #venueCalibBanner b{color:#7dd3c8}
+  #venueCalibPop{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px rgba(38,33,24,.22);z-index:31;width:240px}
+  #venueCalibPop label{font-size:12px;color:var(--text-2);display:block;margin:0 0 5px}
+  #venueCalibPop input{width:64px;text-align:center;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:14px;background:var(--surface);color:var(--text)}
+  body.dark #venueCalibPop{background:#1b2327;border-color:#314046}
+  .venue-calib-elastic{stroke:#3b82f6;stroke-dasharray:6 4;fill:none}
