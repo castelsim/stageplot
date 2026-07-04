@@ -902,3 +902,5 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .venue-calib-elastic{stroke:#3b82f6;stroke-dasharray:6 4;fill:none}
   /* drop della planimetria sul foglio (UX C) */
   main.venue-dropping::after{content:"Rilascia qui la planimetria";position:absolute;inset:14px;border:2.5px dashed var(--accent);border-radius:14px;background:rgba(13,148,136,.07);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--accent);z-index:40;pointer-events:none}
+
+  .stat-pw{color:var(--accent);font-weight:600}
