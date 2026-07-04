@@ -201,13 +201,14 @@
   .mob-hint{display:none}
   .stpr-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
   .stpr-f label{display:block;font-size:12px;color:var(--text-2);margin:0 0 3px}
-  .stpr{display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
-  .stpr input{flex:1;min-width:0;width:100%;border:none;border-radius:0;text-align:center;padding:6px 2px;font-size:14px;background:transparent;color:var(--text)}
-  .stpr input:focus{outline:none;box-shadow:none}
-  .stpr-b{flex:0 0 auto;width:34px;height:36px;border:none;background:var(--n-100);color:var(--text);font-size:17px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .stpr{display:flex;align-items:center;gap:5px}   /* v2.2: stepper come la batteria — bottoni staccati, niente boxone */
+  .stpr input{flex:1;min-width:0;width:100%;border:1px solid var(--border);border-radius:7px;text-align:center;padding:4px 2px;font-size:13px;background:var(--surface);color:var(--text)}
+  .stpr-b{flex:0 0 auto;width:26px;height:26px;border:1px solid var(--border);border-radius:7px;background:var(--n-100);color:var(--text);font-size:15px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
   .stpr-b:active{background:var(--border)}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}   /* v2.2: mai frecce native */
+  input[type=number]{-moz-appearance:textfield}
   .stpr-f select{width:100%}
-  body.dark .stpr{border-color:#314046;background:#141a1d}
+  body.dark .stpr input{border-color:#314046;background:#141a1d}
   body.dark .stpr input{color:#e5e7eb}
   body.dark .stpr-b{background:#222b38;color:#e5e7eb}
   #blkPosGrid{margin-top:12px}
@@ -516,7 +517,8 @@
     .desk-hint{display:none} .mob-hint{display:block}
     #props #blkXYRow{display:none} #blkHint{display:none} #stageDragHint{display:none}
     .stpr-grid{grid-template-columns:1fr}
-    .stpr-b{width:46px;height:44px;font-size:21px}
+    .stpr-b{width:44px;height:44px;font-size:20px}
+    .stpr input{font-size:16px}   /* niente zoom iOS al focus */
     .stpr input{padding:9px 2px;font-size:15px}
     .pg-cells{max-width:none}
     #props #eventoSec{display:none}                 /* di norma nascosto: si apre dal bottone Evento */
