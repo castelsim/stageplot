@@ -3670,14 +3670,8 @@ function miniSvg(k, over){
       var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
       body.appendChild(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit)); n++;
       body.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON)); n++;
-      var ZONE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/></svg>';
-      body.appendChild(makeActionBtn("Zona di cablaggio","raggruppa e calcola i kW", null, toggleZoneEdit, ZONE_ICON)); n++;
-      var CABLE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M7 25c0-8 6-8 6-14M25 25c0-8-6-8-6-14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="9" y="5" width="8" height="5" rx="1.5" fill="currentColor"/><rect x="15" y="5" width="8" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
-      body.appendChild(makeActionBtn("Cablaggio automatico","audio + elettrico per zona", null, toggleCablingView, CABLE_ICON)); n++;
       entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit});
       entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON});
-      entries.push({nome:"Zona di cablaggio", dim:"raggruppa e calcola i kW", action:toggleZoneEdit, iconHtml:ZONE_ICON});
-      entries.push({nome:"Cablaggio automatico", dim:"audio + elettrico per zona", action:toggleCablingView, iconHtml:CABLE_ICON});
       /* — Pedane e gradoni — */
       [["2×1 m",200,100]].forEach(function(p){
         var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
@@ -3711,6 +3705,17 @@ function miniSvg(k, over){
       entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce coro"});
       body.appendChild(makeBtn("corista","Donna", corD, "voce coro")); n++;
       entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce coro"});
+    }
+    if(c==="Cablaggio e segnale" || c==="Elettrico"){
+      /* azioni cablaggio: zona (raggruppa) + cablaggio automatico (audio+elettrico). Presenti in entrambe le categorie */
+      var ZONE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/></svg>';
+      var CABLE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M7 25c0-8 6-8 6-14M25 25c0-8-6-8-6-14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="9" y="5" width="8" height="5" rx="1.5" fill="currentColor"/><rect x="15" y="5" width="8" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+      body.appendChild(makeActionBtn("Zona di cablaggio","raggruppa e calcola i kW", null, toggleZoneEdit, ZONE_ICON)); n++;
+      body.appendChild(makeActionBtn("Cablaggio automatico","audio + elettrico per zona", null, toggleCablingView, CABLE_ICON)); n++;
+      if(c==="Cablaggio e segnale"){   /* entries per la ricerca una sola volta */
+        entries.push({nome:"Zona di cablaggio", dim:"raggruppa e calcola i kW", action:toggleZoneEdit, iconHtml:ZONE_ICON});
+        entries.push({nome:"Cablaggio automatico", dim:"audio + elettrico per zona", action:toggleCablingView, iconHtml:CABLE_ICON});
+      }
     }
     cats[c].forEach(function(k){
       if(c==="Palco e strutture") return;   /* categoria gestita interamente sopra (sottosezioni) */
