@@ -900,3 +900,5 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #venueCalibPop input{width:64px;text-align:center;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:14px;background:var(--surface);color:var(--text)}
   body.dark #venueCalibPop{background:#1b2327;border-color:#314046}
   .venue-calib-elastic{stroke:#3b82f6;stroke-dasharray:6 4;fill:none}
+  /* drop della planimetria sul foglio (UX C) */
+  main.venue-dropping::after{content:"Rilascia qui la planimetria";position:absolute;inset:14px;border:2.5px dashed var(--accent);border-radius:14px;background:rgba(13,148,136,.07);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--accent);z-index:40;pointer-events:none}

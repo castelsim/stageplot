@@ -1062,6 +1062,8 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #venueCalibPop input{width:64px;text-align:center;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:14px;background:var(--surface);color:var(--text)}
   body.dark #venueCalibPop{background:#1b2327;border-color:#314046}
   .venue-calib-elastic{stroke:#3b82f6;stroke-dasharray:6 4;fill:none}
+  /* drop della planimetria sul foglio (UX C) */
+  main.venue-dropping::after{content:"Rilascia qui la planimetria";position:absolute;inset:14px;border:2.5px dashed var(--accent);border-radius:14px;background:rgba(13,148,136,.07);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--accent);z-index:40;pointer-events:none}
 </style>
 <!-- Supabase JS SDK (login Google opzionale + salvataggio online dei progetti) -->
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
@@ -1240,6 +1242,14 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
             <b>Metti in scala</b>
             <small id="vstep2sub">Traccia sulla mappa una misura che conosci</small>
             <button class="btn primary" id="venueBtnCalib" style="width:100%;margin-top:7px">📐 Inizia la calibrazione</button>
+            <div id="vstep2alt" hidden style="margin-top:8px">
+              <small style="display:block;color:var(--text-2);font-size:11.5px">…oppure, se conosci la larghezza reale dell'immagine:</small>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
+                <input type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
+                <span style="font-size:12px;color:var(--text-2);flex:0 0 auto">m</span>
+                <button class="btn" id="venueRealWApply" style="flex:0 0 auto">Applica</button>
+              </div>
+            </div>
             <div id="venueCalibHint" hidden></div>
           </div>
         </div>
@@ -6656,6 +6666,9 @@ function renderVenuePanel(){
   }
   var bc=document.getElementById("venueBtnCalib");
   if(bc){ bc.textContent = cal ? "📐 Ricalibra" : "📐 Inizia la calibrazione"; bc.classList.toggle("primary", hasImg && !cal); }
+  var alt=document.getElementById("vstep2alt");
+  if(alt){ alt.hidden = !hasImg || cal;
+    if(hasImg && !cal){ var rw=document.getElementById("venueRealW"); if(rw && !rw.value) rw.value=(v.w/100).toFixed(1); } }
   document.getElementById("venueReload").hidden = !(v&&v.name&&!v._dataUrl);
   if(v&&v.name&&!v._dataUrl) document.getElementById("venueReloadName").textContent=v.name;
   document.getElementById("venueOpacity").value = v?v.opacity:40;
@@ -6927,6 +6940,36 @@ function venueCalibApply(){
   venueCalibCancel(); save(); renderVenuePanel(); render();
 }
 
+/* scala rapida: larghezza reale dell'immagine in metri (alternativa alla calibrazione a 2 punti) */
+document.getElementById("venueRealWApply").addEventListener("click", function(){
+  var v=state.venue; if(!v||!v._dataUrl) return;
+  var m=+document.getElementById("venueRealW").value;
+  if(!(m>0)) return;
+  var k=(m*100)/v.w;
+  v.w=v.w*k; v.h=v.h*k;   /* x,y sono il centro: la scala avviene attorno al centro */
+  v.calibration={realW:m*100};
+  v.locked=true;
+  if(venueCalibMode>0) venueCalibCancel();
+  save(); renderVenuePanel(); render();
+});
+/* drag & drop della planimetria direttamente sul foglio */
+(function(){
+  var mainEl=document.querySelector("main"); if(!mainEl) return;
+  var depth=0;
+  function hasFiles(e){ return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types||[], "Files")>=0; }
+  mainEl.addEventListener("dragenter", function(e){ if(!hasFiles(e)) return; e.preventDefault(); depth++; mainEl.classList.add("venue-dropping"); });
+  mainEl.addEventListener("dragover", function(e){ if(!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect="copy"; });
+  mainEl.addEventListener("dragleave", function(e){ if(!hasFiles(e)) return; depth=Math.max(0,depth-1); if(depth===0) mainEl.classList.remove("venue-dropping"); });
+  mainEl.addEventListener("drop", function(e){
+    if(!hasFiles(e)) return;
+    e.preventDefault(); depth=0; mainEl.classList.remove("venue-dropping");
+    var f=e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f && /^image\//.test(f.type)){
+      venueLoadFile(f);
+      if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit();   /* apre il pannello coi passi */
+    }
+  });
+})();
 /* listener pannello venue */
 document.getElementById("svg").addEventListener("pointermove", venueLensUpdate);
 document.getElementById("venueCalibDist").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); venueCalibApply(); } });
