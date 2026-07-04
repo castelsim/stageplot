@@ -2111,8 +2111,9 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[] };
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[] };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
+var zoneEdit=false, selZone=null;     /* modalità "Zone di cablaggio" e zona selezionata */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
 var chanEdit=false;                   /* modalità "Channel list" (mobile: si apre dal bottone) */
@@ -2405,6 +2406,13 @@ function normalizeState(s){
   s.stage.w=bb.w; s.stage.d=bb.d;
   if(!window.__consultMode){ s.inputs=[]; s.outputs=[]; }   /* channel list riservata alla consulenza: preservata solo in modalità editor (audit/roadmap 1B) */
   if(s.venue){ s.venue=normalizeVenue(s.venue); }   /* retrocompat: venue opzionale */
+  s.zones = Array.isArray(s.zones) ? s.zones.map(function(z,i){ return {
+    id: z.id||("z"+(i+1)+"_"+Math.random().toString(36).slice(2,6)),
+    label: String(z.label||"").slice(0,12),
+    x:Math.max(0,Math.round(z.x||0)), y:Math.max(0,Math.round(z.y||0)),
+    w:Math.max(30,Math.round(z.w||200)), d:Math.max(30,Math.round(z.d||200)),
+    color: /^#[0-9a-fA-F]{6}$/.test(z.color||"") ? z.color : "#0d9488"
+  }; }) : [];   /* retrocompat: zone opzionali */
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -2476,6 +2484,22 @@ function gridMarkup(){
 }
 /* ===== Palco a blocchi: il palco è l'unione di rettangoli/semicerchi (passerelle, ali, fronte curvo, L) ===== */
 function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y:0,w:state.stage.w,d:state.stage.d}]; }
+/* ===== ZONE DI CABLAGGIO (annotazione: raggruppa elementi per potenza/patch) ===== */
+function zoneOf(it){
+  if(!it || !state.zones) return null;
+  var cx=it.x, cy=it.y, hit=null;
+  state.zones.forEach(function(z){ if(cx>=z.x && cx<=z.x+z.w && cy>=z.y && cy<=z.y+z.d) hit=z.id; });
+  return hit;   /* ultima zona che contiene il centro dell'elemento */
+}
+function zoneWattW(zid){ return (state.items||[]).reduce(function(a,it){ return a + (zoneOf(it)===zid ? wattOf(it) : 0); },0); }
+function zonesRegionsMarkup(){
+  return (state.zones||[]).map(function(z){
+    return '<g class="zone-reg">'
+      +'<rect x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.d+'" rx="10" fill="'+z.color+'" fill-opacity="0.05" stroke="'+z.color+'" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="12 8"/>'
+      +'<text class="zone-tag" x="'+(z.x+8)+'" y="'+(z.y+20)+'" fill="'+z.color+'">'+esc(z.label||"")+'</text>'
+      +'</g>';
+  }).join("");
+}
 function isSingleRect(){ var b=stageBlocks(); return b.length===1 && b[0].shape!=="semi" && !(b[0].pts&&b[0].pts.length===4); }
 function stageHeightNote(){ var h=stageBlocks()[0].h||0; return h?" · h "+h+" cm":""; }
 /* angoli del blocco: r.pts (quadrilatero libero) se presente, altrimenti i 4 spigoli del rettangolo.
@@ -2787,11 +2811,24 @@ function sortedItems(){
 /* markup del solo "palco" (pavimento + quote + etichette zone): rigenerabile da solo durante l'edit del palco */
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
-  return stageFloorMarkup()+stageDimsMarkup()
+  return stageFloorMarkup()+stageDimsMarkup()+zonesRegionsMarkup()
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
     +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
 }
-function overlayLayerMarkup(){ return stageBlocksOverlay()+frameMarkup(); }
+function overlayLayerMarkup(){ return stageBlocksOverlay()+zonesOverlay()+frameMarkup(); }
+function zonesOverlay(){
+  if(!zoneEdit) return '';
+  return (state.zones||[]).map(function(z){
+    var sel=(selZone===z.id), s='<rect class="zone-hit" data-zone="'+z.id+'" x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.d+'" rx="10"/>';
+    if(sel){ var T=16;
+      s+='<rect class="zone-edge ew" data-zedge="r" data-zone="'+z.id+'" x="'+(z.x+z.w-T/2)+'" y="'+z.y+'" width="'+T+'" height="'+z.d+'"/>'
+        +'<rect class="zone-edge ew" data-zedge="l" data-zone="'+z.id+'" x="'+(z.x-T/2)+'" y="'+z.y+'" width="'+T+'" height="'+z.d+'"/>'
+        +'<rect class="zone-edge ns" data-zedge="b" data-zone="'+z.id+'" x="'+z.x+'" y="'+(z.y+z.d-T/2)+'" width="'+z.w+'" height="'+T+'"/>'
+        +'<rect class="zone-edge ns" data-zedge="t" data-zone="'+z.id+'" x="'+z.x+'" y="'+(z.y-T/2)+'" width="'+z.w+'" height="'+T+'"/>';
+    }
+    return s;
+  }).join("");
+}
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
