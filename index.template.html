@@ -367,7 +367,14 @@
     </div>
     <div id="pDimSideWrap" style="display:none">
       <label>Lato quota</label>
-      <select id="pDimSide">
+      <div class="chips" data-chips="pDimSide">
+        <button type="button" data-v="auto">Auto</button>
+        <button type="button" data-v="top">Sopra</button>
+        <button type="button" data-v="bottom">Sotto</button>
+        <button type="button" data-v="left">Sx</button>
+        <button type="button" data-v="right">Dx</button>
+      </div>
+      <select id="pDimSide" hidden>
         <option value="auto">Automatico (lato visibile)</option>
         <option value="top">Sopra</option>
         <option value="bottom">Sotto</option>
@@ -2728,7 +2735,7 @@ function renderProps(){
     if(t.riser) document.getElementById("pH").value = it.h;
   }
   document.getElementById("pDimSideWrap").style.display = t.riser ? "block" : "none";
-  if(t.riser) document.getElementById("pDimSide").value = it.dimSide || "auto";
+  if(t.riser){ var _qs=document.getElementById("pDimSide"); _qs.value = it.dimSide || "auto"; _qs.dispatchEvent(new Event("chips-sync")); }   /* riallinea le chips senza passare da change (che salverebbe) */
   var isKeys=!!KEYS_BENCH[it.type];
   document.getElementById("pKeysWrap").style.display = isKeys ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
@@ -2891,7 +2898,7 @@ document.querySelectorAll(".chips[data-chips]").forEach(function(box){
     var b=e.target.closest("button"); if(!b) return;
     sel.value=b.dataset.v; sel.dispatchEvent(new Event("change",{bubbles:true})); sync();
   });
-  sel.addEventListener("change", sync); sync();
+  sel.addEventListener("change", sync); sel.addEventListener("chips-sync", sync); sync();
 });
 document.getElementById("pSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSedia").checked; }); });
 document.getElementById("pLeggioCfg").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pLeggioCfg").checked; }); });
