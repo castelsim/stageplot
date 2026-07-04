@@ -1069,9 +1069,8 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
   /* ===== Zone di cablaggio (Fase A) ===== */
   .zone-tag{font:600 15px/1 system-ui,sans-serif}
-  .zone-hit{fill:transparent;stroke:transparent;cursor:move}
-  body.stage-edit .zone-hit{pointer-events:auto}
-  .zone-edge{fill:transparent}
+  .zone-hit{fill:transparent;stroke:transparent;cursor:move;pointer-events:all}   /* all: in SVG il fill trasparente riceve comunque i click (auto/visiblePainted no) */
+  .zone-edge{fill:transparent;pointer-events:all}
   .zone-edge.ew{cursor:ew-resize} .zone-edge.ns{cursor:ns-resize}
   [data-zcolor]{display:flex;gap:6px}
   [data-zcolor] button{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer}
@@ -1289,6 +1288,26 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         </div>
         <button class="btn primary" id="venueBtnDone" style="width:100%;margin-top:11px">Fatto</button>
       </div>
+    </div>
+    <div id="zoneSec" hidden>
+      <h3 style="margin:0 0 8px">Zone di cablaggio</h3>
+      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:9px">Ogni zona raggruppa gli elementi che contiene: 1 sub-stagebox + 1 power drop. Serve a organizzare cablaggio e potenza.</div>
+      <button class="btn primary" id="bAddZone" style="width:100%">＋ Aggiungi zona</button>
+      <div id="zoneList" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
+      <div id="zoneProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
+        <label>Etichetta</label><input type="text" id="zLabel" maxlength="12" placeholder="A / SX / Backline">
+        <label style="margin-top:8px">Colore</label>
+        <div class="chips" data-zcolor style="margin-top:4px">
+          <button type="button" data-c="#0d9488" style="background:#0d9488" aria-label="teal"></button>
+          <button type="button" data-c="#3b82f6" style="background:#3b82f6" aria-label="blu"></button>
+          <button type="button" data-c="#d97706" style="background:#d97706" aria-label="ambra"></button>
+          <button type="button" data-c="#7c3aed" style="background:#7c3aed" aria-label="viola"></button>
+          <button type="button" data-c="#dc2626" style="background:#dc2626" aria-label="rosso"></button>
+        </div>
+        <div class="comp-dim" id="zoneReadout" style="margin-top:10px">—</div>
+        <button class="btn danger" id="bDelZone" style="width:100%;margin-top:9px;font-size:12px">Elimina zona</button>
+      </div>
+      <button class="btn primary" id="bZoneDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
   </div>
   <div class="sec" id="eventoSec" hidden>
@@ -4555,8 +4574,11 @@ function miniSvg(k, over){
       var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
       body.appendChild(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit)); n++;
       body.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON)); n++;
+      var ZONE_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/></svg>';
+      body.appendChild(makeActionBtn("Zona di cablaggio","raggruppa e calcola i kW", null, toggleZoneEdit, ZONE_ICON)); n++;
       entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit});
       entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON});
+      entries.push({nome:"Zona di cablaggio", dim:"raggruppa e calcola i kW", action:toggleZoneEdit, iconHtml:ZONE_ICON});
       /* — Pedane e gradoni — */
       [["2×1 m",200,100]].forEach(function(p){
         var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
@@ -4828,6 +4850,16 @@ svg.addEventListener("pointerdown", function(e){
     var venEl=e.target.closest ? e.target.closest("[data-venue]") : null;
     if(venEl){ drag={mode:"venue", sp0:{x:sp.x,y:sp.y}, x0:state.venue.x, y0:state.venue.y, moved:false};
       svg.setPointerCapture(e.pointerId); return; }
+  }
+  /* zone di cablaggio: trascina/ridimensiona la zona (in modalità zone) */
+  if(zoneEdit){
+    var ze=e.target && e.target.getAttribute && e.target.getAttribute("data-zedge");
+    var zid=e.target && e.target.getAttribute && e.target.getAttribute("data-zone");
+    if(zid){ selZone=zid; var zz=state.zones.filter(function(x){return x.id===zid;})[0];
+      if(zz){ drag = ze ? {mode:"zoneresize", zid:zid, edge:ze, x0:zz.x,y0:zz.y,w0:zz.w,d0:zz.d, sx:sp.x, sy:sp.y, moved:false}
+                        : {mode:"zone", zid:zid, ox:sp.x-zz.x, oy:sp.y-zz.y, moved:false};
+        renderZonePanel(); svg.setPointerCapture(e.pointerId); return; }   /* niente redrawStageLayers qui: rimuoverebbe l'e.target e interromperebbe il gesto */
+    }
   }
   /* cornice di stampa: ridimensiona dalle maniglie o sposta dal corpo */
   if(frameEdit && state.printFrame){
@@ -5113,11 +5145,25 @@ svg.addEventListener("pointermove", function(e){
     vb.x = drag.vx-(e.clientX-drag.px)*kx;
     vb.y = drag.vy-(e.clientY-drag.py)*ky;
     svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+  } else if(drag.mode==="zone"){
+    sp=svgPoint(e);
+    var z=state.zones.filter(function(x){return x.id===drag.zid;})[0];
+    if(z){ z.x=Math.round(sp.x-drag.ox); z.y=Math.round(sp.y-drag.oy); drag.moved=true; redrawStageLayers(); }
+  } else if(drag.mode==="zoneresize"){
+    sp=svgPoint(e);
+    var z2=state.zones.filter(function(x){return x.id===drag.zid;})[0];
+    if(z2){ var zdx=sp.x-drag.sx, zdy=sp.y-drag.sy;
+      if(drag.edge==="r") z2.w=Math.max(30,Math.round(drag.w0+zdx));
+      if(drag.edge==="l"){ z2.x=Math.round(drag.x0+zdx); z2.w=Math.max(30,Math.round(drag.w0-zdx)); }
+      if(drag.edge==="b") z2.d=Math.max(30,Math.round(drag.d0+zdy));
+      if(drag.edge==="t"){ z2.y=Math.round(drag.y0+zdy); z2.d=Math.max(30,Math.round(drag.d0-zdy)); }
+      drag.moved=true; redrawStageLayers(); }
   }
 });
 svg.addEventListener("pointerup", function(e){
   delete pointers[e.pointerId];
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
+  if(drag && (drag.mode==="zone"||drag.mode==="zoneresize")){ if(drag.moved){ save(); } renderZonePanel(); redrawStageLayers(); drag=null; return; }
   if(drag && drag.mode==="calibnav"){
     var wasMoved=drag.moved; drag=null; svg.classList.remove("dragging");
     if(!wasMoved && venueCalibMode>0 && venueCalibMode<=2){
@@ -5249,9 +5295,12 @@ function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
   document.body.classList.toggle("stage-edit", stageEdit);
   if(panel) panel.hidden=!stageEdit;
-  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec");
+  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec"), _zs=document.getElementById("zoneSec");
   if(_bs) _bs.hidden = stagePanelView!=="palco";
   if(_vs) _vs.hidden = stagePanelView!=="planimetria";
+  if(_zs) _zs.hidden = stagePanelView!=="zone";
+  zoneEdit = stageEdit && stagePanelView==="zone";
+  if(stagePanelView==="zone"){ renderZonePanel(); return; }
   if(!stageEdit) return;
   recalcStageBBox();
   var b=stageBlocks();
@@ -5411,6 +5460,11 @@ document.addEventListener("click", function(e){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
+document.getElementById("bAddZone").addEventListener("click", addZone);
+document.getElementById("bDelZone").addEventListener("click", delZone);
+document.getElementById("bZoneDone").addEventListener("click", toggleZoneEdit);
+document.getElementById("zLabel").addEventListener("input", function(){ var z=state.zones.filter(function(x){return x.id===selZone;})[0]; if(z){ z.label=this.value.slice(0,12); save(); renderZonePanel(); redrawStageLayers(); } });
+document.querySelector('[data-zcolor]').addEventListener("click", function(e){ var b=e.target.closest("button"); if(!b) return; var z=state.zones.filter(function(x){return x.id===selZone;})[0]; if(z){ z.color=b.dataset.c; save(); renderZonePanel(); redrawStageLayers(); } });
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
@@ -6784,6 +6838,38 @@ function toggleVenueEdit(){
   if(!stageEdit){ stageEdit=true; stagePanelView="planimetria"; selBlock=null; exitHubModes("palco"); clearSelection(); }
   else { stageEdit=false; selBlock=null; venueAutoLock(); }
   renderStagePanel(); render(); }
+
+/* ===== Zone di cablaggio ===== */
+function toggleZoneEdit(){
+  if(stageEdit && stagePanelView!=="zone"){ stagePanelView="zone"; selBlock=null; venueAutoLock(); renderStagePanel(); render(); return; }   /* passa alle zone da un'altra vista */
+  if(!stageEdit){ stageEdit=true; stagePanelView="zone"; selBlock=null; exitHubModes("palco"); clearSelection(); }
+  else { stageEdit=false; selZone=null; venueAutoLock(); }
+  renderStagePanel(); render(); }
+function addZone(){
+  var W=state.stage.w, D=state.stage.d, w=Math.min(400,Math.round(W*0.4)), d=Math.min(300,Math.round(D*0.4));
+  var z={id:"z"+Date.now(), label:String.fromCharCode(65+(state.zones.length%26)), x:Math.round((W-w)/2), y:Math.round((D-d)/2), w:w, d:d, color:"#0d9488"};
+  state.zones.push(z); selZone=z.id; save(); renderZonePanel(); redrawStageLayers();
+}
+function delZone(){ state.zones=state.zones.filter(function(z){return z.id!==selZone;}); selZone=null; save(); renderZonePanel(); redrawStageLayers(); }
+function renderZonePanel(){
+  var list=document.getElementById("zoneList"); if(!list) return;
+  list.innerHTML="";
+  state.zones.forEach(function(z){
+    var b=document.createElement("button"); b.type="button"; b.className="blkchip"+(selZone===z.id?" sel":"");
+    b.textContent=(z.label||"—")+" · "+(zoneWattW(z.id)/1000).toFixed(1).replace(".",",")+" kW";
+    b.style.borderColor=z.color;
+    b.addEventListener("click", function(){ selZone=z.id; renderZonePanel(); redrawStageLayers(); });
+    list.appendChild(b);
+  });
+  var zp=document.getElementById("zoneProps"), z=state.zones.filter(function(x){return x.id===selZone;})[0];
+  zp.hidden=!z;
+  if(z){
+    document.getElementById("zLabel").value=z.label||"";
+    document.querySelectorAll('[data-zcolor] button').forEach(function(btn){ btn.classList.toggle("on", btn.dataset.c===z.color); });
+    var n=(state.items||[]).filter(function(it){return zoneOf(it)===z.id;}).length;
+    document.getElementById("zoneReadout").textContent=n+" element"+(n===1?"o":"i")+" · "+(zoneWattW(z.id)/1000).toFixed(1).replace(".",",")+" kW";
+  }
+}
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
 var frameEdit=false;
