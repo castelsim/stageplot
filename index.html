@@ -8197,6 +8197,10 @@ function buildPdfDoc(paperKey, N, orient, header){
       doc.addPage(paperKey, L.orient);
       pdfChannelPage(doc, L, paperKey);
     }
+    if(window.__consultMode && powerTotalW()>0){
+      doc.addPage(paperKey, L.orient);
+      pdfPowerPage(doc, L, paperKey);
+    }
     return doc;
       });
   });
@@ -8351,9 +8355,16 @@ function pdfChannelPage(doc, L, paperKey){
   doc.setDrawColor(17,24,39); doc.setLineWidth(0.5); doc.line(x,y,pw-M,y); y+=6;
   function fitText(v,w){ var s=String(v==null?"":v); if(!s) return s; var lines=doc.splitTextToSize(s, w-2); return lines.length>1 ? (lines[0].replace(/\s+\S*$/,"")+"…") : lines[0]; }
   /* Colonne DEDICATE (M1 Provided By + M2 monitor): input e output hanno schemi diversi. c=centrato. */
+  var hasZones=(state.zones||[]).length>0;
+  function zoneLabelForRow(r){
+    if(!r.linked_item_id) return "";
+    var it=(state.items||[]).filter(function(x){return x.id===r.linked_item_id;})[0]; if(!it) return "";
+    var z=(state.zones||[]).filter(function(x){return x.id===zoneOf(it);})[0];
+    return z ? (z.label||"") : "";
+  }
   function section(title, rows, kind){
     var cols = kind==="in"
-      ? [ {t:"CH",w:9,c:1,k:function(r,i){return i+1;}}, {t:"SORGENTE",w:62,k:function(r){return r.src;}}, {t:"MIC / DI",w:34,k:function(r){return r.mic;}}, {t:"STAND",w:28,k:function(r){return r.stand;}}, {t:"48V",w:11,c:1,k:function(r){return r.p48?"sì":"";}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ]
+      ? [ {t:"CH",w:9,c:1,k:function(r,i){return i+1;}}, {t:"SORGENTE",w:hasZones?54:62,k:function(r){return r.src;}}, {t:"MIC / DI",w:hasZones?32:34,k:function(r){return r.mic;}}, {t:"STAND",w:hasZones?24:28,k:function(r){return r.stand;}}, {t:"48V",w:10,c:1,k:function(r){return r.p48?"sì":"";}} ].concat(hasZones?[{t:"ZONA",w:13,c:1,k:function(r){return zoneLabelForRow(r);}}]:[]).concat([ {t:"FORN.",w:hasZones?18:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ])
       : [ {t:"MIX",w:9,c:1,k:function(r,i){return i+1;}}, {t:"DESTINAZIONE",w:58,k:function(r){return r.src;}}, {t:"TIPO",w:34,k:function(r){return r.type||r.mic;}}, {t:"CHI",w:50,k:function(r){return r.who;}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ];
     cols[cols.length-1].w = colW - cols.reduce(function(a,c){return a+c.w;},0);
     function colHeader(){
@@ -8374,8 +8385,44 @@ function pdfChannelPage(doc, L, paperKey){
     });
     y+=4;
   }
+  if(hasZones) linkChannelsToItems();   /* aggancia le righe agli oggetti per derivare la zona */
   if(state.inputs.length) section("INPUT PATCH", state.inputs, "in");
   if(state.outputs.length) section("MONITOR / OUTPUT", state.outputs, "out");
+}
+function pdfPowerPage(doc, L, paperKey){
+  var M=L.M, x=M, y=M+8, pw=L.pw, colW=pw-2*M;
+  var dateStr=new Date().toLocaleDateString("it-IT");
+  doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(17,24,39);
+  doc.text(String(state.titolo||"Stage plot"), x, y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120); doc.text(dateStr, pw-M, y, {align:"right"}); y+=5.5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(80,80,80);
+  doc.text("PIANO ELETTRICO — valori nominali", x, y); y+=4;
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+  doc.text("Stima indicativa. Non sostituisce il progetto di un tecnico abilitato. Le casse passive sono alimentate dagli amp rack.", x, y); y+=4;
+  doc.setDrawColor(17,24,39); doc.setLineWidth(0.5); doc.line(x,y,pw-M,y); y+=6;
+  var cW=[colW*0.24, colW*0.56];
+  function kw(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
+  function row(a,b,c,bold){ if(y>L.ph-16){ doc.addPage(paperKey,L.orient); y=M+10; }
+    doc.setFont("helvetica",bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(17,24,39);
+    doc.text(String(a), x, y); if(b) doc.text(String(b), x+cW[0], y); doc.text(String(c), pw-M, y, {align:"right"}); y+=5.4; }
+  doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+  doc.text("ZONA", x, y); doc.text("CARICHI ALIMENTATI", x+cW[0], y); doc.text("POTENZA", pw-M, y, {align:"right"}); y+=4;
+  function labelsIn(zid){ var seen={},out=[]; (state.items||[]).forEach(function(it){ if(zoneOf(it)===zid && wattOf(it)>0){ var nm=(TYPES[it.type]&&TYPES[it.type].nome)||it.type; if(!seen[nm]){seen[nm]=1; out.push(nm);} } }); return out.join(", ")||"—"; }
+  var groups=(state.zones||[]).map(function(z){ return {label:z.label||"(zona)", zid:z.id}; });
+  groups.push({label:"Fuori zona", zid:null});
+  groups.forEach(function(g){ var w=zoneWattW(g.zid); if(w<=0 && g.zid!==null) return;
+    var lab=doc.splitTextToSize(labelsIn(g.zid), cW[1]-2);
+    row(g.label, lab[0]+(lab.length>1?"…":""), kw(w)); });
+  y+=1; doc.setDrawColor(17,24,39); doc.setLineWidth(0.4); doc.line(x,y-3,pw-M,y-3);
+  var tot=powerTotalW();
+  row("TOTALE","", kw(tot), true);
+  row("+ margine 25%","", kw(tot*1.25));
+  var cap=genCapacityW(), lack=(cap>0 && cap<tot*1.25);
+  var sugg = cap>0 ? ("generatori sul palco: "+kw(cap)+" — "+(lack?"INSUFFICIENTI":"capienti")) : ("suggerito: "+suggestGen(tot*1.25));
+  if(y>L.ph-16){ doc.addPage(paperKey,L.orient); y=M+10; }
+  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.setTextColor(lack?200:17, lack?60:24, lack?60:39);
+  doc.text(sugg, x, y);
 }
 (function(){
   var modal=document.getElementById("pdfModal"), paper=document.getElementById("pdfPaper"),
