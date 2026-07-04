@@ -255,7 +255,17 @@
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub">Bastano tre passi per iniziare</div><div class="eh-steps"><span class="eh-step eh-desk"><b>1</b>Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>2</b>Clicca un elemento</span><span class="eh-step eh-desk"><b>3</b>Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>1</b>Tocca “Aggiungi” qui sotto</span><span class="eh-step eh-mob"><b>2</b>Scegli dal catalogo</span><span class="eh-step eh-mob"><b>3</b>Trascinalo dove vuoi sul palco</span></div></div></main>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="venueCalibBanner" hidden></div>
+<div id="venueCalibPop" hidden>
+  <label>Distanza reale tra i 2 punti (m)</label>
+  <div style="display:flex;gap:6px;align-items:center">
+    <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10">
+    <button class="btn primary" id="venueCalibApply">Applica</button>
+    <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
+  </div>
+</div>
+<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub">Bastano tre passi per iniziare</div><div class="eh-steps"><span class="eh-step eh-desk"><b>1</b>Apri una categoria a sinistra</span><span class="eh-step eh-desk"><b>2</b>Clicca un elemento</span><span class="eh-step eh-desk"><b>3</b>Trascinalo dove vuoi sul palco</span><span class="eh-step eh-mob"><b>1</b>Tocca “Aggiungi” qui sotto</span><span class="eh-step eh-mob"><b>2</b>Scegli dal catalogo</span><span class="eh-step eh-mob"><b>3</b>Trascinalo dove vuoi sul palco</span></div></div></main>
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
@@ -308,43 +318,51 @@
     <div id="venueSec" hidden>
       <!-- pannello planimetria (vista esclusiva: o blocchi o planimetria) -->
       <div id="venuePanel">
-        <h3 style="margin:0 0 8px">Planimetria</h3>
-        <div id="venueReload" hidden>
-          <b id="venueReloadName"></b>
-          <button class="btn" id="venueBtnReload" style="width:100%;margin-top:4px">Ricarica immagine…</button>
-        </div>
-        <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-        <div class="venue-row">
-          <button class="btn" id="venueBtnImport" style="flex:2">📥 Importa immagine</button>
-          <button class="btn" id="venueBtnVis" style="flex:1">👁 Nascondi</button>
-        </div>
-        <div id="venueOpacityRow">
-          <label>Opacità <span id="venueOpacityVal">40%</span></label>
-          <input type="range" id="venueOpacity" min="5" max="100" step="5" value="40">
-        </div>
-        <div id="venueRotRow">
-          <label>Rotazione <span id="venueRotVal">0°</span></label>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
-            <input type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
+        <h3 style="margin:0 0 10px">Planimetria</h3>
+        <div class="vstep" id="vstep1">
+          <span class="vdot">1</span>
+          <div class="vbody">
+            <b>Importa l'immagine</b>
+            <small id="vstep1sub">La pianta del luogo (PNG o JPG)</small>
+            <div id="venueReload" hidden>
+              <b id="venueReloadName"></b>
+              <button class="btn" id="venueBtnReload" style="width:100%;margin-top:4px">Ricarica immagine…</button>
+            </div>
+            <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+            <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Importa immagine</button>
           </div>
         </div>
-        <div class="venue-row" style="margin-top:10px">
-          <button class="btn" id="venueBtnCalib">📐 Calibra scala</button>
-          <button class="btn" id="venueBtnLock">🔒 Blocca</button>
-        </div>
-        <div id="venueCalibHint" hidden>
-          Clicca il <b>1° punto</b> sulla planimetria
-        </div>
-        <div id="venueCalibInput" hidden style="margin-top:8px">
-          <label style="margin:0 0 4px">Distanza reale tra i 2 punti (m):</label>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10" style="flex:1;border:1px solid var(--border);border-radius:7px;padding:5px 7px;font-size:13px;background:var(--surface);color:var(--text)">
-            <button class="btn primary" id="venueCalibApply" style="flex:1">Applica</button>
-            <button class="btn" id="venueCalibCancel">✕</button>
+        <div class="vstep" id="vstep2">
+          <span class="vdot">2</span>
+          <div class="vbody">
+            <b>Metti in scala</b>
+            <small id="vstep2sub">Traccia sulla mappa una misura che conosci</small>
+            <button class="btn primary" id="venueBtnCalib" style="width:100%;margin-top:7px">📐 Inizia la calibrazione</button>
+            <div id="venueCalibHint" hidden></div>
           </div>
         </div>
-        <button class="btn danger" id="venueBtnDel" style="width:100%;margin-top:10px;font-size:12px">Rimuovi planimetria</button>
+        <div class="vstep" id="vstep3">
+          <span class="vdot">3</span>
+          <div class="vbody">
+            <b>Rifinisci</b>
+            <div id="venueOpacityRow" style="margin-top:6px">
+              <label>Opacità <span id="venueOpacityVal">40%</span></label>
+              <input type="range" id="venueOpacity" min="5" max="100" step="5" value="40">
+            </div>
+            <div id="venueRotRow">
+              <label>Rotazione <span id="venueRotVal">0°</span></label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
+                <input type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
+              </div>
+            </div>
+            <div class="venue-row" style="margin-top:8px">
+              <button class="btn" id="venueBtnVis" style="flex:1">👁 Nascondi</button>
+              <button class="btn" id="venueBtnLock" style="flex:1">🔒 Blocca</button>
+            </div>
+            <button class="btn danger" id="venueBtnDel" style="width:100%;margin-top:8px;font-size:12px">Rimuovi planimetria</button>
+          </div>
+        </div>
         <button class="btn primary" id="venueBtnDone" style="width:100%;margin-top:11px">Fatto</button>
       </div>
     </div>
@@ -3775,13 +3793,13 @@ svg.addEventListener("pointerdown", function(e){
     venueCalibPts.push({x:sp.x,y:sp.y});
     if(venueCalibMode===1){
       venueCalibMode=2;
-      document.getElementById("venueCalibHint").innerHTML="Clicca il <b>2° punto</b> sulla planimetria";
+      venueCalibBanner("Ora clicca il <b>2° capo</b> della misura");
     } else {
       venueCalibMode=3;
-      document.getElementById("venueCalibHint").hidden=true;
-      document.getElementById("venueCalibInput").hidden=false;
+      venueCalibBanner(null);
+      venueLensRemove();
     }
-    render(); svg.setPointerCapture(e.pointerId); return;
+    render(); if(venueCalibMode===3) venueCalibShowPop(); svg.setPointerCapture(e.pointerId); return;
   }
   /* drag planimetria (solo in modalità palco, sbloccata, non calib) */
   if(stageEdit && state.venue && !state.venue.locked && state.venue._dataUrl && venueCalibMode===0){
@@ -5677,6 +5695,24 @@ function renderVenuePanel(){
   var vp=document.getElementById("venuePanel"); if(!vp) return;
   var v=state.venue;
   var hasImg=!!(v&&v._dataUrl);
+  var cal=!!(v&&v.calibration);
+  function stepState(id, st){ var el=document.getElementById(id); if(el){ el.classList.remove("done","active","pending"); el.classList.add(st); } }
+  stepState("vstep1", hasImg?"done":"active");
+  stepState("vstep2", !hasImg?"pending":(cal?"done":"active"));
+  stepState("vstep3", hasImg?"active":"pending");
+  var s1=document.getElementById("vstep1sub");
+  if(s1) s1.textContent = hasImg ? (v.name||"immagine caricata") : "La pianta del luogo (PNG o JPG)";
+  var bi=document.getElementById("venueBtnImport");
+  if(bi){ bi.textContent = hasImg ? "Sostituisci immagine…" : "📥 Importa immagine"; bi.classList.toggle("primary", !hasImg); }
+  var s2=document.getElementById("vstep2sub");
+  if(s2){
+    if(!hasImg) s2.textContent="Prima importa l'immagine";
+    else if(cal){ var mpp=v.calibration.realCm && v.calibration.p1 ? null : null;
+      s2.textContent="In scala ✓ — se serve puoi ricalibrare"; }
+    else s2.textContent="Traccia sulla mappa una misura che conosci";
+  }
+  var bc=document.getElementById("venueBtnCalib");
+  if(bc){ bc.textContent = cal ? "📐 Ricalibra" : "📐 Inizia la calibrazione"; bc.classList.toggle("primary", hasImg && !cal); }
   document.getElementById("venueReload").hidden = !(v&&v.name&&!v._dataUrl);
   if(v&&v.name&&!v._dataUrl) document.getElementById("venueReloadName").textContent=v.name;
   document.getElementById("venueOpacity").value = v?v.opacity:40;
@@ -5853,6 +5889,7 @@ function venueLoadFile(file){
       cacheVenueImg(state.venue);   /* per il re-attach dopo undo/redo (gli snapshot non contengono il base64) */
       persistVenueImg();            /* salva l'immagine nella chiave dedicata (sopravvive a reload e login) */
       save(); renderVenuePanel(); render();
+      if(!state.venue.calibration) venueCalibStart();   /* UX B: appena importata, si parte subito con la scala */
     };
     img.src=String(rd.result);
   };
@@ -5868,18 +5905,65 @@ function venueSetRot(v){
   save(); render();
 }
 
+function venueCalibBanner(html){
+  var el=document.getElementById("venueCalibBanner");
+  if(html){ el.innerHTML=html; el.hidden=false; } else el.hidden=true;
+}
 function venueCalibStart(){
   venueCalibMode=1; venueCalibPts=[]; document.body.classList.add("venue-calib");
-  document.getElementById("venueCalibHint").hidden=false;
-  document.getElementById("venueCalibHint").innerHTML="Clicca il <b>1° punto</b> sulla planimetria";
-  document.getElementById("venueCalibInput").hidden=true;
+  venueCalibBanner("Clicca i <b>2 capi</b> di una misura che conosci — es. il fronte del palco");
+  document.getElementById("venueCalibPop").hidden=true;
   render();
 }
 function venueCalibCancel(){
   venueCalibMode=0; venueCalibPts=[]; document.body.classList.remove("venue-calib");
-  document.getElementById("venueCalibHint").hidden=true;
-  document.getElementById("venueCalibInput").hidden=true;
+  venueCalibBanner(null);
+  document.getElementById("venueCalibPop").hidden=true;
+  venueLensRemove();
   render();
+}
+function venueLensRemove(){ var g=document.getElementById("venueLens"); if(g&&g.parentNode) g.parentNode.removeChild(g); }
+/* lente d'ingrandimento + linea elastica durante la calibrazione (UX B) */
+function venueLensUpdate(e){
+  if(venueCalibMode<1||venueCalibMode>2){ venueLensRemove(); return; }
+  var v=state.venue; if(!v||!v._dataUrl) return;
+  var svg=document.getElementById("svg"), sp=svgPoint(e);
+  var ctm=svg.getScreenCTM(), ppu=ctm?Math.abs(ctm.a)||1:1;
+  var R=56/ppu, K=2.2, off=(56+38)/ppu;
+  var lx=sp.x, ly=sp.y + ((e.clientY<210) ? off : -off);   /* vicino al bordo alto: lente sotto il cursore */
+  var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return;
+  var g=document.getElementById("venueLens");
+  if(!g){ g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.setAttribute("id","venueLens"); svg.appendChild(g); }
+  var hw=v.w/2, hh=v.h/2;
+  var img='<image href="'+durl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+v.w+'" height="'+v.h+'" transform="translate('+v.x+','+v.y+') rotate('+(v.rot||0)+')"/>';
+  var out='';
+  if(venueCalibMode===2 && venueCalibPts.length===1){
+    out+='<line class="venue-calib-elastic" x1="'+venueCalibPts[0].x+'" y1="'+venueCalibPts[0].y+'" x2="'+sp.x+'" y2="'+sp.y+'" stroke-width="'+(2/ppu)+'"/>';
+  }
+  out+='<clipPath id="venueLensClip"><circle cx="'+lx+'" cy="'+ly+'" r="'+R+'"/></clipPath>';
+  out+='<circle cx="'+lx+'" cy="'+ly+'" r="'+(R+2.5/ppu)+'" fill="#fff" stroke="#3b82f6" stroke-width="'+(3/ppu)+'"/>';
+  out+='<g clip-path="url(#venueLensClip)">';
+  out+='<rect x="'+(lx-R)+'" y="'+(ly-R)+'" width="'+(2*R)+'" height="'+(2*R)+'" fill="#fff"/>';
+  out+='<g transform="translate('+(lx-K*sp.x)+','+(ly-K*sp.y)+') scale('+K+')">'+img;
+  if(venueCalibPts.length===1) out+='<circle cx="'+venueCalibPts[0].x+'" cy="'+venueCalibPts[0].y+'" r="'+(4/ppu)+'" fill="#3b82f6"/>';
+  out+='</g></g>';
+  out+='<line x1="'+(lx-7/ppu)+'" y1="'+ly+'" x2="'+(lx+7/ppu)+'" y2="'+ly+'" stroke="#3b82f6" stroke-width="'+(1.6/ppu)+'"/>';
+  out+='<line x1="'+lx+'" y1="'+(ly-7/ppu)+'" x2="'+lx+'" y2="'+(ly+7/ppu)+'" stroke="#3b82f6" stroke-width="'+(1.6/ppu)+'"/>';
+  g.innerHTML=out;
+}
+/* popover distanza posizionato sul punto medio della linea appena tracciata */
+function venueCalibShowPop(){
+  var pop=document.getElementById("venueCalibPop"), main=document.querySelector("main");
+  if(venueCalibPts.length<2||!pop||!main) return;
+  var svg=document.getElementById("svg"), ctm=svg.getScreenCTM(); if(!ctm) return;
+  var pt=svg.createSVGPoint();
+  pt.x=(venueCalibPts[0].x+venueCalibPts[1].x)/2; pt.y=(venueCalibPts[0].y+venueCalibPts[1].y)/2;
+  var sc=pt.matrixTransform(ctm), mr=main.getBoundingClientRect();
+  pop.hidden=false;
+  var x=Math.max(8, Math.min(mr.width-pop.offsetWidth-8, sc.x-mr.left-pop.offsetWidth/2));
+  var y=Math.max(8, Math.min(mr.height-pop.offsetHeight-8, sc.y-mr.top+16));
+  pop.style.left=x+"px"; pop.style.top=y+"px";
+  var f=document.getElementById("venueCalibDist"); f.focus(); f.select();
 }
 function venueCalibApply(){
   if(venueCalibPts.length<2||!state.venue) return;
@@ -5900,6 +5984,8 @@ function venueCalibApply(){
 }
 
 /* listener pannello venue */
+document.getElementById("svg").addEventListener("pointermove", venueLensUpdate);
+document.getElementById("venueCalibDist").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); venueCalibApply(); } });
 document.getElementById("venueBtnImport").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
 document.getElementById("venueFile").addEventListener("change", function(e){ venueLoadFile(e.target.files&&e.target.files[0]); e.target.value=""; });
 document.getElementById("venueBtnReload").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
