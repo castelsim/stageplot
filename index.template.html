@@ -416,7 +416,7 @@
     <label>Etichetta</label><input type="text" id="pLabel">
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pSbChWrap" style="display:none">
-      <label>Modello stage box</label><select id="pSbHw"></select>
+      <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbChRow"><label>Canali (input disponibili)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
     </div>
@@ -2978,8 +2978,8 @@ function sortedItems(){
 /* markup del solo "palco" (pavimento + quote + etichette zone): rigenerabile da solo durante l'edit del palco */
 /* ===== LIBRERIA HARDWARE AUDIO — database indipendente dal motore =====
    Estendibile: per aggiungere un modello basta una riga qui, senza toccare l'algoritmo.
-   Campi engine-critici: proto[] (protocollo), in (ingressi mic/line), out (uscite). v=specifiche verificate.
-   [DA VERIFICARE] i modelli con v:false (I/O e protocollo indicativi — Simone, controlla). */
+   Campi engine-critici: proto[] (protocollo), in (ingressi mic/line), out (uscite).
+   Specifiche verificate sui datasheet dei produttori (07/2026); modulari (DX32/Stage32) = capacità max. */
 var AUDIO_PROTO = { dante:"Dante", aes50:"AES50", dsnake:"dSNAKE", gigaace:"gigaACE", optocore:"Optocore", madi:"MADI", avb:"AVB" };
 var STAGEBOX_DB = {
   /* Yamaha — Dante, preamplificatori remoti */
@@ -2991,27 +2991,26 @@ var STAGEBOX_DB = {
   /* Allen & Heath */
   "dx168":{brand:"Allen & Heath", model:"DX168", proto:["gigaace"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
   "gx4816":{brand:"Allen & Heath", model:"GX4816", proto:["gigaace"], in:48, out:16, pre:true, casc:true, power:"AC", v:true},
-  "dx32":{brand:"Allen & Heath", model:"DX32", proto:["gigaace"], in:32, out:16, pre:true, casc:true, power:"AC", v:false},
+  "dx32":{brand:"Allen & Heath", model:"DX32 (modulare)", proto:["gigaace"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
   "ar2412":{brand:"Allen & Heath", model:"AR2412", proto:["dsnake"], in:24, out:12, pre:true, casc:true, power:"AC", v:true},
   "ab168":{brand:"Allen & Heath", model:"AB168", proto:["dsnake"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
   /* Midas — AES50 */
   "dl16":{brand:"Midas", model:"DL16", proto:["aes50"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
   "dl32":{brand:"Midas", model:"DL32", proto:["aes50"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
   "dl151":{brand:"Midas", model:"DL151", proto:["aes50"], in:24, out:0, pre:true, casc:true, power:"AC", v:true},
-  "dl153":{brand:"Midas", model:"DL153", proto:["aes50"], in:24, out:24, pre:true, casc:true, power:"AC", v:false},
-  "dl251":{brand:"Midas", model:"DL251", proto:["aes50"], in:48, out:16, pre:true, casc:true, power:"AC", v:false},
+  "dl153":{brand:"Midas", model:"DL153", proto:["aes50"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
+  "dl251":{brand:"Midas", model:"DL251", proto:["aes50"], in:48, out:16, pre:true, casc:true, power:"AC", v:true},
   /* DiGiCo */
-  "sdrack":{brand:"DiGiCo", model:"SD-Rack", proto:["optocore","madi"], in:56, out:56, pre:true, casc:true, power:"AC", v:false},
-  "drack":{brand:"DiGiCo", model:"D-Rack", proto:["madi"], in:32, out:8, pre:true, casc:true, power:"AC", v:false},
-  "mqrack":{brand:"DiGiCo", model:"MQ-Rack", proto:["madi"], in:48, out:24, pre:true, casc:true, power:"AC", v:false},
-  /* Avid — AVB */
+  "sdrack":{brand:"DiGiCo", model:"SD-Rack", proto:["optocore","madi"], in:56, out:56, pre:true, casc:true, power:"AC", v:true},
+  "drack":{brand:"DiGiCo", model:"D-Rack", proto:["madi"], in:32, out:8, pre:true, casc:true, power:"AC", v:true},
+  /* Avid — AVB (VENUE) */
   "stage16":{brand:"Avid", model:"Stage 16", proto:["avb"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
-  "stage32":{brand:"Avid", model:"Stage 32", proto:["avb"], in:32, out:16, pre:true, casc:true, power:"AC", v:false},
-  "stage64":{brand:"Avid", model:"Stage 64", proto:["avb"], in:64, out:32, pre:true, casc:true, power:"AC", v:false},
-  /* Soundcraft */
-  "scmini":{brand:"Soundcraft", model:"Mini Stagebox 32", proto:["madi"], in:32, out:16, pre:true, casc:true, power:"AC", v:false},
-  "sccompact":{brand:"Soundcraft", model:"Compact Stagebox 32", proto:["madi"], in:32, out:16, pre:true, casc:true, power:"AC", v:false},
-  "scvi":{brand:"Soundcraft", model:"Vi Stagebox 64", proto:["madi"], in:64, out:32, pre:true, casc:true, power:"AC", v:false}
+  "stage32":{brand:"Avid", model:"Stage 32 (modulare)", proto:["avb"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
+  "stage64":{brand:"Avid", model:"Stage 64", proto:["avb"], in:64, out:32, pre:true, casc:true, power:"AC", v:true},
+  /* Soundcraft — MADI (Cat5/fibra) */
+  "scmini16":{brand:"Soundcraft", model:"Mini Stagebox 16", proto:["madi"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
+  "scmini32":{brand:"Soundcraft", model:"Mini Stagebox 32", proto:["madi"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
+  "scvi":{brand:"Soundcraft", model:"Vi Stagebox 64", proto:["madi"], in:64, out:32, pre:true, casc:true, power:"AC", v:true}
 };
 var MIXER_DB = {
   "dm3":{brand:"Yamaha", model:"DM3", proto:["dante"], v:true},
@@ -3019,10 +3018,10 @@ var MIXER_DB = {
   "ql5":{brand:"Yamaha", model:"QL5", proto:["dante"], v:true},
   "sq5":{brand:"Allen & Heath", model:"SQ5", proto:["gigaace","dsnake"], v:true},
   "sq6":{brand:"Allen & Heath", model:"SQ6", proto:["gigaace","dsnake"], v:true},
-  "dlive":{brand:"Allen & Heath", model:"dLive S", proto:["gigaace"], v:false},
+  "dlive":{brand:"Allen & Heath", model:"dLive S", proto:["gigaace"], v:true},
   "m32":{brand:"Midas", model:"M32", proto:["aes50"], v:true},
   "x32":{brand:"Behringer", model:"X32", proto:["aes50"], v:true},
-  "sd12":{brand:"DiGiCo", model:"SD12", proto:["optocore","madi"], v:false},
+  "sd12":{brand:"DiGiCo", model:"SD12", proto:["optocore","madi"], v:true},
   "s6l":{brand:"Avid", model:"S6L", proto:["avb"], v:true}
 };
 function hwLabel(id, db){ var m=db[id]; return m ? (m.brand+" "+m.model) : ""; }
@@ -3342,7 +3341,12 @@ function renderProps(){
   var sbw=document.getElementById("pSbChWrap");
   if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
     if(isBox){ cabFillSbHw();
-      document.getElementById("pSbHw").value = it.hw||"";
+      var hwSel=document.getElementById("pSbHw");
+      if(it.hw && ![].some.call(hwSel.options,function(o){ return o.value===it.hw; })){   /* modello non compatibile col mixer: mostralo comunque, marcato */
+        var op=document.createElement("option"); op.value=it.hw; op.textContent=hwLabel(it.hw,STAGEBOX_DB)+" — non compatibile"; hwSel.appendChild(op); }
+      hwSel.value = it.hw||"";
+      var mx=(state.cab&&state.cab.mixer);
+      document.getElementById("pSbHwHint").textContent = (mx&&MIXER_DB[mx]) ? "· compatibili "+hwProtoNames(MIXER_DB[mx].proto) : "";
       document.getElementById("pSbChRow").style.display = it.hw ? "none" : "block";
       if(!it.hw){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
         if(![].some.call(sbSel.options,function(o){ return o.value===cap; })){ var op=document.createElement("option"); op.value=cap; op.textContent=cap; sbSel.appendChild(op); }
@@ -6256,11 +6260,15 @@ function toggleCabLayer(){
   if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } __cabRes=null; save(); render(); } });
 })();
 function cabFillSbHw(){
-  var sel=document.getElementById("pSbHw"); if(!sel || sel._filled) return; sel._filled=true;
-  var byBrand={}; Object.keys(STAGEBOX_DB).forEach(function(id){ var b=STAGEBOX_DB[id]; (byBrand[b.brand]=byBrand[b.brand]||[]).push({id:id,m:b}); });
+  var sel=document.getElementById("pSbHw"); if(!sel) return;
+  var mixer=(state.cab&&state.cab.mixer)||"";
+  if(sel._mixer===mixer && sel._filled) return;   /* ricostruisci solo quando cambia il mixer */
+  sel._filled=true; sel._mixer=mixer;
+  var filtered = mixer && MIXER_DB[mixer];   /* mixer scelto → mostra solo le stage box compatibili per protocollo */
+  var byBrand={}; Object.keys(STAGEBOX_DB).forEach(function(id){ if(filtered && !hwCompatible(mixer,id)) return; var b=STAGEBOX_DB[id]; (byBrand[b.brand]=byBrand[b.brand]||[]).push({id:id,m:b}); });
   var h='<option value="">Generico (scegli i canali)</option>';
   Object.keys(byBrand).forEach(function(br){ h+='<optgroup label="'+esc(br)+'">';
-    byBrand[br].forEach(function(o){ h+='<option value="'+o.id+'">'+esc(o.m.model)+' ('+o.m.in+' in'+(o.m.v===false?" · ?":"")+')</option>'; }); h+='</optgroup>'; });
+    byBrand[br].forEach(function(o){ h+='<option value="'+o.id+'">'+esc(o.m.model)+' ('+o.m.in+' in)</option>'; }); h+='</optgroup>'; });
   sel.innerHTML=h;
 }
 /* modale di attivazione: scelta mixer + punto principale di connessione */
