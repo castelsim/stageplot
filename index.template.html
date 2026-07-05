@@ -591,17 +591,20 @@
         <div id="cabSummary" style="margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)"></div>
       </div>
     </div>
-  </div>
-  <!-- Input / Patch list (auto, derivata dal motore di cablaggio) -->
-  <div id="patchPanel">
-    <div class="patch-head">
-      <h3 style="margin:0">Input list</h3>
-      <button class="btn" id="patchClose" title="Chiudi">Chiudi</button>
+    <!-- Input / Patch list (auto, derivata dal motore): sezione a tendina con cestino, come il cablaggio -->
+    <div id="patchSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="cab-sechead" id="patchSecHead">
+        <span class="caret" id="patchCaret">▾</span>
+        <span class="cab-sectitle"><b>Input list</b></span>
+        <button type="button" class="cab-trash" id="patchTrash" title="Rimuovi l'input list" aria-label="Rimuovi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>
+      <div id="patchBody" style="margin-top:8px">
+        <div id="patchSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
+        <div id="patchRows"></div>
+        <button class="btn primary" id="patchPdf" style="width:100%;margin-top:10px">Esporta input list (PDF)</button>
+        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Si genera dagli elementi audio sul palco e dalle stage box del <b>Cablaggio audio</b>. Per rinominare un canale, rinomina l'elemento sul palco.</div>
+      </div>
     </div>
-    <div id="patchSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:4px 0 8px"></div>
-    <div id="patchRows"></div>
-    <button class="btn primary" id="patchPdf" style="width:100%;margin-top:10px">Esporta input list (PDF)</button>
-    <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">La lista si genera dagli elementi audio sul palco e dalle stage box del <b>Cablaggio audio</b>. Per rinominare un canale, rinomina l'elemento sul palco.</div>
   </div>
   <!-- pannello versioni -->
   <div id="versPanel" hidden>
@@ -3304,10 +3307,6 @@ function getSel(){ return state.items.find(function(i){ return i.id===sel; }) ||
 function renderProps(){
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
-  if(document.body.classList.contains("patch-view")){   /* Input/Patch list a destra: esci se selezioni un elemento, altrimenti mostra la tabella */
-    if(n>0){ document.body.classList.remove("patch-view"); }
-    else { renderPatchPanel(); return; }
-  }
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
@@ -6324,9 +6323,16 @@ function patchList(){
   R.unassigned.forEach(function(s){ n++; rows.push({n:n, name:s.name, mic:s.mic, p48:!!micInfo(s.mic).p48, patch:"—", box:null}); });
   return {rows:rows, R:R};
 }
+var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
 function renderPatchPanel(){
-  var host=document.getElementById("patchRows"); if(!host) return;
-  var pl=patchList(), R=pl.R, sum=document.getElementById("patchSummary");
+  var sec=document.getElementById("patchSec"); if(!sec) return;
+  sec.style.display = patchActive ? "block" : "none";   /* sezione presente SOLO se attivata dal catalogo */
+  if(!patchActive) return;
+  document.getElementById("patchBody").style.display = patchOpen ? "block" : "none";
+  document.getElementById("patchCaret").textContent = patchOpen ? "▾" : "▸";
+  if(!patchOpen) return;
+  var host=document.getElementById("patchRows"), sum=document.getElementById("patchSummary");
+  var pl=patchList(), R=pl.R;
   if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun ingresso audio: aggiungi microfoni, DI o strumenti sul palco.</div>'; sum.textContent=""; return; }
   var ph=pl.rows.filter(function(r){ return r.p48; }).length, di=pl.rows.filter(function(r){ return String(r.mic).indexOf("DI")>-1; }).length;
   sum.innerHTML='<b>'+pl.rows.length+'</b> ingressi · '+ph+' con 48V · '+di+' DI<br>Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw&&STAGEBOX_DB[b.hw]?" "+STAGEBOX_DB[b.hw].model:"")+(b.auto?" (auto)":""); }).join(", ")+'</b>';
@@ -6339,20 +6345,21 @@ function renderPatchPanel(){
   });
   host.innerHTML=h;
 }
-function togglePatchView(){
-  var on=!document.body.classList.contains("patch-view");
-  if(on){ closeMobileDrawers(); clearSelection(); stageEdit=false; document.body.classList.add("patch-view"); }
-  else document.body.classList.remove("patch-view");
+function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
+  patchActive=!patchActive;
+  if(patchActive){ patchOpen=true; closeMobileDrawers(); clearSelection(); }
   render();
 }
 (function(){
-  var c=document.getElementById("patchClose"); if(!c) return;
-  c.addEventListener("click", function(){ document.body.classList.remove("patch-view"); render(); });
+  var head=document.getElementById("patchSecHead"); if(!head) return;
+  head.addEventListener("click", function(e){ if(e.target.closest("#patchTrash")) return; patchOpen=!patchOpen; renderPatchPanel(); });   /* menu a tendina */
+  document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); patchActive=false; render(); });   /* cestino: rimuove l'input list */
   document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
 })();
 function renderAccessoriCount(){
   renderLayerToggles();
   renderCabPanel();
+  renderPatchPanel();
   var el=document.getElementById("accessoriCount"); if(!el) return;
   if(!state.items.length){ el.innerHTML=""; return; }
   var c=countAccessori();
