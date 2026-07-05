@@ -415,8 +415,11 @@
     <h3 id="selNome">Elemento</h3>
     <label>Etichetta</label><input type="text" id="pLabel">
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
-    <div id="pSbChWrap" style="display:none"><label>Canali (input disponibili)</label>
-      <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
+    <div id="pSbChWrap" style="display:none">
+      <label>Modello stage box</label><select id="pSbHw"></select>
+      <div id="pSbChRow"><label>Canali (input disponibili)</label>
+        <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
+    </div>
     <label style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
     <div id="pLblPosWrap" style="display:none;margin-top:6px">
@@ -545,14 +548,42 @@
     <div id="cabSec" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <label class="chk"><input type="checkbox" id="tgCab"> <span><b>Cablaggio audio</b> (calcolato)</span></label>
       <div id="cabCtrls" style="display:none;margin-top:6px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px">Opacità
+        <label class="cabfld">Mixer FOH<select id="cabMixer"></select></label>
+        <div id="cabCompat" style="font-size:10.5px;margin-top:2px"></div>
+        <label class="cabfld">Punto principale di connessione<select id="cabHome">
+          <option value="">— nessuno —</option>
+          <option value="foh">FOH mixer</option>
+          <option value="monitor">Monitor mixer</option>
+          <option value="stagerack">Stage rack / I/O rack</option>
+          <option value="right">Uscita palco DX</option>
+          <option value="left">Uscita palco SX</option>
+          <option value="custom">Personalizzato (trascina il nodo)</option>
+        </select></label>
+        <label class="cabfld">Margine cavo<select id="cabMarginSel"><option value="30">+30%</option><option value="20">+20%</option></select></label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:8px">Opacità
           <input type="range" id="cabOpacity" min="15" max="100" step="5" style="flex:1"><span id="cabOpacityVal" style="min-width:32px;text-align:right"></span></label>
+        <div style="display:flex;flex-wrap:wrap;gap:1px 14px;margin-top:5px">
+          <label class="chk"><input type="checkbox" id="cabShowLabels"> Etichette</label>
+          <label class="chk"><input type="checkbox" id="cabShowChannels"> Canali</label>
+          <label class="chk"><input type="checkbox" id="cabShowLengths"> Lunghezze</label>
+        </div>
         <label class="chk"><input type="checkbox" id="cabAuto"> Aggiornamento automatico</label>
         <label class="chk"><input type="checkbox" id="cabSolo"> Solo layer audio</label>
+        <label class="chk"><input type="checkbox" id="cabLocked"> Blocca layer (sblocca per modificare)</label>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
           <button class="btn" id="cabRecalc" style="flex:1">Ricalcola</button>
-          <button class="btn" id="cabReport" style="flex:1">Report PDF</button>
+          <button class="btn" id="cabReset" style="flex:1">Reset manuale</button>
         </div>
+        <div id="cabSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Cavo selezionato</div>
+          <label class="cabfld" style="margin-top:0">Etichetta<input type="text" id="cabSelLabel" placeholder="es. Voce lead"></label>
+          <div class="row" style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn" id="cabSelDelete" style="flex:1">Elimina cavo</button>
+            <button class="btn" id="cabSelResetPath" style="flex:1">Reset percorso</button>
+          </div>
+          <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i pallini vuoti per piegare il cavo; doppio-click su un punto per toglierlo.</div>
+        </div>
+        <button class="btn primary" id="cabReport" style="width:100%;margin-top:8px">Report PDF</button>
         <div id="cabSummary" style="margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)"></div>
       </div>
     </div>
@@ -705,6 +736,27 @@
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
       <button class="btn" id="orchWarnReview">Rivedi organico</button>
       <button class="btn primary" id="orchWarnContinue">Continua</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="cabModal" hidden>
+  <div class="mcard">
+    <h2>Cablaggio audio</h2>
+    <p class="hint">Da dove parte il sistema e con quale mixer? Il motore proporrà stage box, canali e lunghezze. Puoi cambiare tutto dopo.</p>
+    <label class="cabfld">Mixer FOH (opzionale)<select id="cabModalMixer"></select></label>
+    <label class="cabfld">Punto principale di connessione<select id="cabModalHome">
+      <option value="">— decido dopo —</option>
+      <option value="stagerack">Stage rack / I/O rack</option>
+      <option value="foh">FOH mixer</option>
+      <option value="monitor">Monitor mixer</option>
+      <option value="right">Uscita palco DX</option>
+      <option value="left">Uscita palco SX</option>
+      <option value="custom">Personalizzato (poi trascina il nodo)</option>
+    </select></label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn" id="cabModalCancel">Annulla</button>
+      <button class="btn primary" id="cabModalGo">Genera cablaggio</button>
     </div>
   </div>
 </div>
@@ -3010,9 +3062,9 @@ function cabHomePoint(){
   if(h.kind==="custom"){ p.x=h.x; p.y=h.y; }
   else if(h.kind==="right"){ p.x=W-30; p.y=D-40; }
   else if(h.kind==="left"){ p.x=30; p.y=D-40; }
-  else if(h.kind==="foh"){ p.x=W/2; p.y=D+90; }         /* in sala, oltre il pubblico */
+  else if(h.kind==="foh"){ p.x=W/2; p.y=D+120; }        /* in sala, oltre il pubblico */
   else if(h.kind==="monitor"){ p.x=W-60; p.y=D-30; }    /* bordo palco lato monitor */
-  else { p.x=W/2; p.y=D+30; }                            /* stage rack: dietro/lato */
+  else { p.x=W/2; p.y=D+72; }                            /* stage rack: appena oltre l'etichetta PUBBLICO */
   p.x=Math.round(p.x); p.y=Math.round(p.y); return p;
 }
 /* clustering di prossimità dei gruppi-sorgente (per proporre drop box 8ch per sezione) */
@@ -3109,7 +3161,7 @@ function cabResult(force){
   if(force || state.cab.auto || !__cabRes) __cabRes=audioCablingEngine();
   return __cabRes;
 }
-var selCab=null;   /* chiave del cavo selezionato per l'editing manuale */
+var selCab=null, lastWp=null;   /* cavo selezionato + doppio-click su waypoint (elimina) */
 function cabMidpoint(pts){   /* punto a metà lunghezza della polilinea (per l'etichetta) */
   var total=polyLen(pts), half=total/2, acc=0;
   for(var i=1;i<pts.length;i++){ var seg=Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
@@ -3149,7 +3201,9 @@ function cablingMarkup(){
     if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · 8ch</text></g>';
     s+='<g class="cab-badge"><rect x="'+(b.x-26)+'" y="'+(b.y-(b.auto?42:40))+'" width="52" height="15" rx="7"/><text x="'+b.x+'" y="'+(b.y-(b.auto?31:29))+'" text-anchor="middle">'+esc(b.letter)+' — '+b.used+'/'+b.cap+'</text></g>';
   });
-  if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text></g>'; }
+  if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
+    if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
+    s+='</g>'; }
   R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
   s+='</g>';
   return s;
@@ -3286,10 +3340,13 @@ function renderProps(){
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
   document.getElementById("pLabel").value = it.label||"";
   var sbw=document.getElementById("pSbChWrap");
-  if(sbw){ sbw.style.display = cabIsBox(it) ? "block" : "none";
-    if(cabIsBox(it)){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
-      if(![].some.call(sbSel.options,function(o){ return o.value===cap; })){ var op=document.createElement("option"); op.value=cap; op.textContent=cap; sbSel.appendChild(op); }
-      sbSel.value=cap; } }
+  if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
+    if(isBox){ cabFillSbHw();
+      document.getElementById("pSbHw").value = it.hw||"";
+      document.getElementById("pSbChRow").style.display = it.hw ? "none" : "block";
+      if(!it.hw){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
+        if(![].some.call(sbSel.options,function(o){ return o.value===cap; })){ var op=document.createElement("option"); op.value=cap; op.textContent=cap; sbSel.appendChild(op); }
+        sbSel.value=cap; } } }
   var isDbl2 = it.doppia===true || !!DOUBLE_TYPES[it.type];
   document.getElementById("pLabel2Wrap").style.display = isDbl2 ? "block" : "none";
   document.getElementById("pLabel2").value = it.label2||"";
@@ -4261,7 +4318,8 @@ svg.addEventListener("pointerdown", function(e){
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
   var dcG = e.target.closest ? e.target.closest(".item") : null;
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
-  if(venueCalibMode===0 && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
+  var _onCabEl = state.cab && state.cab.on && !state.cab.locked && e.target.closest && e.target.closest(".cab-hit,.cab-wp,.cab-mid,.cab-homehit");
+  if(venueCalibMode===0 && !_onCabEl && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
     if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
@@ -4273,6 +4331,24 @@ svg.addEventListener("pointerdown", function(e){
   }
   lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId};
   var sp = svgPoint(e);
+  /* ── editing cavi audio (patch Max/MSP): agisce solo se clicchi un elemento del cavo ── */
+  if(state.cab && state.cab.on && !state.cab.locked && e.target.closest){
+    var chome=e.target.closest(".cab-homehit");
+    if(chome){ drag={mode:"cabhome", moved:false}; svg.setPointerCapture(e.pointerId); return; }
+    var cwp=e.target.closest(".cab-wp");
+    if(cwp){ var wkey=cwp.getAttribute("data-cab"), wi=+cwp.getAttribute("data-wp");
+      if(lastWp && lastWp.key===wkey && lastWp.wi===wi && Date.now()-lastWp.t<400){   /* doppio click = elimina waypoint */
+        var mm=state.cab.manual[wkey]; if(mm&&mm.pts){ mm.pts.splice(wi,1); if(!mm.pts.length) delete mm.pts; }
+        lastWp=null; __cabRes=null; save(); render(); renderCabPanel(); return; }
+      lastWp={key:wkey, wi:wi, t:Date.now()};
+      selCab=wkey; drag={mode:"cabwp", key:wkey, wi:wi, moved:false}; svg.setPointerCapture(e.pointerId); return; }
+    var cmid=e.target.closest(".cab-mid");
+    if(cmid){ var mkey=cmid.getAttribute("data-cab"), seg=+cmid.getAttribute("data-seg");
+      var m=cabManual(mkey); m.pts=m.pts||[]; m.pts.splice(seg, 0, [Math.round(sp.x), Math.round(sp.y)]);
+      selCab=mkey; drag={mode:"cabwp", key:mkey, wi:seg, moved:true}; __cabRes=null; save(); render(); svg.setPointerCapture(e.pointerId); return; }
+    var chit=e.target.closest(".cab-hit");
+    if(chit){ selCab=chit.getAttribute("data-cab"); render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+  }
   /* modalità calibrazione planimetria: raccoglie due punti */
   if(venueCalibMode>0 && venueCalibMode<=2){
     /* trascina = sposti la vista (cerchi il punto); click fermo = pianti il capo della misura */
@@ -4364,6 +4440,7 @@ svg.addEventListener("pointerdown", function(e){
     return;
   }
   var g = e.target.closest ? e.target.closest(".item") : null;
+  if(selCab){ selCab=null; }   /* click su elemento o sfondo (non su un cavo) → deseleziona il cavo */
   if(g){
     exitHubModes();   /* selezionando un elemento esci da Evento/Channel list */
     var id = g.getAttribute("data-id");
@@ -4416,6 +4493,15 @@ svg.addEventListener("pointermove", function(e){
   }
   if(!drag) return;
   var sp;
+  if(drag.mode==="cabwp"){   /* trascina un waypoint del cavo: la lunghezza si ricalcola sul nuovo tracciato */
+    sp=svgPoint(e); var mw=state.cab.manual[drag.key];
+    if(mw && mw.pts && mw.pts[drag.wi]){ mw.pts[drag.wi]=[Math.round(sp.x), Math.round(sp.y)]; drag.moved=true; __cabRes=null; redrawStageLayers(); }
+    return;
+  }
+  if(drag.mode==="cabhome"){   /* trascina il punto principale di connessione (diventa personalizzato) */
+    sp=svgPoint(e); state.cab.home={kind:"custom", x:Math.round(sp.x), y:Math.round(sp.y)}; drag.moved=true; __cabRes=null; redrawStageLayers();
+    return;
+  }
   if(drag.mode==="venue"){
     sp=svgPoint(e); var vdx=sp.x-drag.sp0.x, vdy=sp.y-drag.sp0.y; drag.moved=true;
     state.venue.x=Math.round(drag.x0+vdx); state.venue.y=Math.round(drag.y0+vdy);
@@ -4597,6 +4683,8 @@ svg.addEventListener("pointermove", function(e){
 svg.addEventListener("pointerup", function(e){
   delete pointers[e.pointerId];
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
+  if(drag && drag.mode==="cabwp"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
+  if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && (drag.mode==="zone"||drag.mode==="zoneresize")){ if(drag.moved){ save(); } renderZonePanel(); redrawStageLayers(); drag=null; return; }
   if(drag && drag.mode==="calibnav"){
     var wasMoved=drag.moved; drag=null; svg.classList.remove("dragging");
@@ -6079,23 +6167,53 @@ function renderLayerToggles(){
   document.getElementById("tgLayerAudio").checked = !!state.layerAudio;
   document.getElementById("tgLayerPower").checked = !!state.layerPower;
 }
+function cabFillMixerOptions(){
+  var sel=document.getElementById("cabMixer"); if(!sel || sel._filled) return; sel._filled=true;
+  var html='<option value="">— nessuno —</option>';
+  Object.keys(MIXER_DB).forEach(function(id){ var m=MIXER_DB[id]; html+='<option value="'+id+'">'+esc(m.brand+" "+m.model)+(m.v===false?" ?":"")+'</option>'; });
+  sel.innerHTML=html;
+}
 function renderCabPanel(){
   var tg=document.getElementById("tgCab"); if(!tg) return;
   var on=!!(state.cab && state.cab.on);
   tg.checked=on;
   document.getElementById("cabCtrls").style.display = on ? "block" : "none";
   document.body.classList.toggle("cab-solo", on && !!window.__cabSolo);
-  if(!on) return;
+  if(!on){ selCab=null; return; }
+  cabFillMixerOptions();
+  document.getElementById("cabMixer").value = state.cab.mixer||"";
+  document.getElementById("cabHome").value = state.cab.home ? state.cab.home.kind : "";
+  document.getElementById("cabMarginSel").value = String(state.cab.margin||30);
   document.getElementById("cabOpacity").value = state.cab.opacity;
   document.getElementById("cabOpacityVal").textContent = state.cab.opacity+"%";
+  document.getElementById("cabShowLabels").checked = state.cab.showLabels!==false;
+  document.getElementById("cabShowChannels").checked = state.cab.showChannels!==false;
+  document.getElementById("cabShowLengths").checked = state.cab.showLengths!==false;
   document.getElementById("cabAuto").checked = state.cab.auto!==false;
   document.getElementById("cabSolo").checked = !!window.__cabSolo;
-  var R=cabResult(), s="";
-  if(!R.totIn){
-    s='<span style="color:var(--text-3)">Nessuna sorgente audio sul palco: aggiungi mic, DI o strumenti.</span>';
-  } else {
+  document.getElementById("cabLocked").checked = !!state.cab.locked;
+  /* compatibilità mixer selezionato */
+  var cmp=document.getElementById("cabCompat"), mid=state.cab.mixer;
+  if(mid && MIXER_DB[mid]){ cmp.style.display="block"; cmp.style.color="var(--text-3)";
+    cmp.textContent="Protocollo: "+hwProtoNames(MIXER_DB[mid].proto)+(MIXER_DB[mid].v===false?" · specifiche da verificare":""); }
+  else cmp.style.display="none";
+  var R=cabResult();
+  /* editor cavo selezionato */
+  var selBox=document.getElementById("cabSel");
+  var sl = selCab ? R.links.filter(function(l){ return l.key===selCab; })[0] : null;
+  if(sl && !state.cab.locked){ selBox.style.display="block";
+    var ov=state.cab.manual[selCab]||{};
+    document.getElementById("cabSelLabel").value = (ov.label!=null)?ov.label:sl.label;
+    document.getElementById("cabSelDelete").textContent = sl.deleted ? "Ripristina cavo" : "Elimina cavo";
+  } else selBox.style.display="none";
+  /* riepilogo */
+  var s="";
+  if(!R.totIn){ s='<span style="color:var(--text-3)">Nessuna sorgente audio sul palco: aggiungi mic, DI o strumenti.</span>'; }
+  else {
+    if(R.mixer && MIXER_DB[R.mixer]) s+='Mixer: <b>'+esc(hwLabel(R.mixer,MIXER_DB))+'</b><br>';
+    if(R.home) s+='Punto principale: <b>'+esc(R.home.name)+'</b><br>';
     s+='Input audio totali: <b>'+R.totIn+'</b> / '+R.capTot+' disponibili<br>';
-    s+='Stagebox: <b>'+R.boxes.map(function(b){ return b.letter+" ("+b.used+"/"+b.cap+(b.auto?" auto":"")+")"; }).join(", ")+'</b><br>';
+    s+='Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw?" "+hwLabel(b.hw,STAGEBOX_DB):"")+" ("+b.used+"/"+b.cap+(b.auto?" auto":"")+")"; }).join(", ")+'</b><br>';
     var cuts=Object.keys(R.cables).sort(function(a,b){ return parseFloat(a)-parseFloat(b); });
     if(cuts.length) s+='Cavi XLR: <b>'+cuts.map(function(c){ return R.cables[c]+"× "+c; }).join(", ")+'</b><br>';
     if(R.diMono||R.diStereo) s+='DI da prevedere: <b>'+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":"")+'</b><br>';
@@ -6108,20 +6226,62 @@ function renderCabPanel(){
   document.getElementById("cabSummary").innerHTML=s;
 }
 function toggleCabLayer(){
-  state.cab.on=!state.cab.on;
-  if(state.cab.on) __cabRes=null;   /* riparti da un calcolo fresco */
-  save(); render();
+  if(!state.cab.on){ cabActivateFlow(); return; }   /* prima attivazione → modale mixer + punto principale */
+  state.cab.on=false; selCab=null; save(); render();
 }
 (function(){
   var tg=document.getElementById("tgCab"); if(!tg) return;
-  tg.addEventListener("change", function(){ state.cab.on=this.checked; if(this.checked) __cabRes=null; save(); render(); });
+  tg.addEventListener("change", function(){ if(this.checked && !state.cab.on){ this.checked=false; cabActivateFlow(); return; } state.cab.on=this.checked; if(this.checked) __cabRes=null; else selCab=null; save(); render(); });
+  document.getElementById("cabMixer").addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
+  document.getElementById("cabHome").addEventListener("change", function(){
+    var k=this.value; if(!k){ state.cab.home=null; } else if(k==="custom"){ state.cab.home={kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)}; } else { state.cab.home={kind:k, x:0, y:0}; }
+    __cabRes=null; save(); render(); });
+  document.getElementById("cabMarginSel").addEventListener("change", function(){ state.cab.margin=(+this.value===20?20:30); __cabRes=null; save(); render(); });
   document.getElementById("cabOpacity").addEventListener("input", function(){ state.cab.opacity=+this.value; save(); render(); });
+  document.getElementById("cabShowLabels").addEventListener("change", function(){ state.cab.showLabels=this.checked; save(); render(); });
+  document.getElementById("cabShowChannels").addEventListener("change", function(){ state.cab.showChannels=this.checked; save(); render(); });
+  document.getElementById("cabShowLengths").addEventListener("change", function(){ state.cab.showLengths=this.checked; save(); render(); });
   document.getElementById("cabAuto").addEventListener("change", function(){ state.cab.auto=this.checked; if(this.checked) __cabRes=null; save(); render(); });
   document.getElementById("cabSolo").addEventListener("change", function(){ window.__cabSolo=this.checked; render(); });
+  document.getElementById("cabLocked").addEventListener("change", function(){ state.cab.locked=this.checked; if(this.checked) selCab=null; save(); render(); });
   document.getElementById("cabRecalc").addEventListener("click", function(){ cabResult(true); render(); });
+  document.getElementById("cabReset").addEventListener("click", function(){ if(Object.keys(state.cab.manual||{}).length && !confirm("Azzerare tutte le modifiche manuali ai cavi (percorsi, etichette, eliminazioni)?")) return; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });
   document.getElementById("cabReport").addEventListener("click", function(){ cabReportPdf(); });
+  document.getElementById("cabSelLabel").addEventListener("input", function(){ if(!selCab) return; cabManual(selCab).label=this.value; __cabRes=null; save(); render(); });
+  document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
+  document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; __cabRes=null; save(); render(); });
   var sb=document.getElementById("pSbCh");
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; __cabRes=null; save(); render(); } });
+  var hw=document.getElementById("pSbHw");
+  if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } __cabRes=null; save(); render(); } });
+})();
+function cabFillSbHw(){
+  var sel=document.getElementById("pSbHw"); if(!sel || sel._filled) return; sel._filled=true;
+  var byBrand={}; Object.keys(STAGEBOX_DB).forEach(function(id){ var b=STAGEBOX_DB[id]; (byBrand[b.brand]=byBrand[b.brand]||[]).push({id:id,m:b}); });
+  var h='<option value="">Generico (scegli i canali)</option>';
+  Object.keys(byBrand).forEach(function(br){ h+='<optgroup label="'+esc(br)+'">';
+    byBrand[br].forEach(function(o){ h+='<option value="'+o.id+'">'+esc(o.m.model)+' ('+o.m.in+' in'+(o.m.v===false?" · ?":"")+')</option>'; }); h+='</optgroup>'; });
+  sel.innerHTML=h;
+}
+/* modale di attivazione: scelta mixer + punto principale di connessione */
+function cabActivateFlow(){
+  var m=document.getElementById("cabModal"); if(!m){ state.cab.on=true; __cabRes=null; save(); render(); return; }
+  var msel=document.getElementById("cabModalMixer");
+  if(!msel._filled){ msel._filled=true; var h='<option value="">— nessuno —</option>';
+    Object.keys(MIXER_DB).forEach(function(id){ var mm=MIXER_DB[id]; h+='<option value="'+id+'">'+esc(mm.brand+" "+mm.model)+'</option>'; }); msel.innerHTML=h; }
+  msel.value=state.cab.mixer||"";
+  document.getElementById("cabModalHome").value = state.cab.home?state.cab.home.kind:"";
+  m.hidden=false;
+}
+(function(){
+  var go=document.getElementById("cabModalGo"); if(!go) return;
+  document.getElementById("cabModalCancel").addEventListener("click", function(){ document.getElementById("cabModal").hidden=true; });
+  go.addEventListener("click", function(){
+    state.cab.mixer=document.getElementById("cabModalMixer").value;
+    var k=document.getElementById("cabModalHome").value;
+    state.cab.home = !k ? null : (k==="custom" ? {kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)} : {kind:k, x:0, y:0});
+    state.cab.on=true; __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
+  });
 })();
 function renderAccessoriCount(){
   renderLayerToggles();
@@ -7591,17 +7751,24 @@ function cabReportPdf(){
     y=22;
     if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Riepilogo", 12, true, "#0d9488", 6);
+    if(R.mixer && MIXER_DB[R.mixer]) line("Mixer FOH: "+hwLabel(R.mixer,MIXER_DB)+" ("+hwProtoNames(MIXER_DB[R.mixer].proto)+")", 10, false, null, 5);
+    if(R.home) line("Punto principale di connessione: "+R.home.name, 10, false, null, 5);
     line("Input audio totali: "+R.totIn+" / "+R.capTot+" canali disponibili", 10, false, null, 5);
-    line("Stagebox: "+R.boxes.map(function(b){ return b.letter+" — "+b.name+" ("+b.used+"/"+b.cap+" ch"+(b.auto?", proposta automatica":"")+")"; }).join(" · "), 10, false, null, 5);
+    R.boxes.forEach(function(b){
+      var hw=b.hw&&STAGEBOX_DB[b.hw];
+      line("Stage box "+b.letter+": "+(hw?hwLabel(b.hw,STAGEBOX_DB)+" — "+hwProtoNames(hw.proto):b.name)+"  ("+b.used+"/"+b.cap+" ch"+(b.auto?", proposta 8ch":"")+")", 9.5, false, null, 4.8);
+    });
     var cuts=Object.keys(R.cables).sort(function(a,b){ return parseFloat(a)-parseFloat(b); });
     if(cuts.length) line("Cavi XLR: "+cuts.map(function(c){ return R.cables[c]+" × "+c; }).join(", "), 10, false, null, 5);
     if(R.diMono||R.diStereo) line("DI da prevedere: "+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":""), 10, false, null, 5);
+    if(R.snakes && R.snakes.length) line("Digital snake (home-run al punto principale): "+R.snakes.map(function(k){ return k.box.letter+" "+k.lenM.toFixed(0)+" m"; }).join(", "), 10, false, null, 5);
     y+=4;
     line("Dettaglio collegamenti", 12, true, "#0d9488", 6);
-    R.links.forEach(function(l){
-      line(l.s.name+"  →  Box "+l.box.letter+" ch "+l.ch+"  →  "+(l.cut?"XLR "+l.cut+" m":"oltre 50 m!")+"   ("+l.s.mic+", dist. "+l.distM.toFixed(1)+" m)", 9, false, l.cut?null:"#dc2626", 4.6);
+    R.links.forEach(function(l){ if(l.deleted) return;
+      line((l.s.name||l.label)+"  ->  Box "+l.box.letter+" ch "+l.ch+"  ->  "+(l.cut?"XLR "+l.cut+" m":"oltre 50 m!")+"   ("+l.s.mic+(l.manual?", percorso manuale":"")+", "+l.lenM.toFixed(1)+" m)", 9, false, l.cut?null:"#dc2626", 4.6);
     });
-    R.unassigned.forEach(function(u){ line(u.name+"  →  SENZA DESTINAZIONE (canali esauriti)", 9, true, "#dc2626", 4.6); });
+    R.links.filter(function(l){ return l.deleted; }).forEach(function(l){ line(l.s.name+"  ->  cavo rimosso manualmente", 9, false, "#9ca3af", 4.6); });
+    R.unassigned.forEach(function(u){ line(u.name+"  ->  SENZA DESTINAZIONE (canali esauriti)", 9, true, "#dc2626", 4.6); });
     y+=4;
     line("Criticità", 12, true, "#0d9488", 6);
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
