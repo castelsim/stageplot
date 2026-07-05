@@ -308,6 +308,11 @@
   .cab-editable .cab-wp{pointer-events:all;cursor:grab}
   .cab-mid{fill:#0d9488;opacity:.35;pointer-events:none}
   .cab-editable .cab-mid{pointer-events:all;cursor:copy;opacity:.5}
+  .cab-homehit{fill:transparent;pointer-events:none}
+  .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
+  .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
+  .cabfld select,.cabfld input{width:100%;margin-top:2px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--n-800)}
+  body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
   body.cab-solo #layItems{opacity:.28}
   body.dark .cab-lbl{stroke:#0e1214}
   body.dark .cab-line{stroke:#2dd4bf}
