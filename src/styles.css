@@ -296,6 +296,18 @@
   .grid line.m{stroke:var(--grid-major)}
   .cl{stroke:var(--axis);stroke-width:1.5;stroke-dasharray:22 16}
   .zone-lbl{fill:var(--text-3);font-size:16px;letter-spacing:2px}
+  /* Cablaggio audio calcolato (layer tecnico) */
+  .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round}
+  .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px}
+  .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
+  .cab-ghost text{fill:#0f766e;font-size:10px;font-weight:700}
+  .cab-badge rect{fill:#0d9488}
+  .cab-badge text{fill:#fff;font-size:9px;font-weight:700}
+  .cab-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3}
+  body.cab-solo #layItems{opacity:.28}
+  body.dark .cab-lbl{stroke:#0e1214}
+  body.dark .cab-line{stroke:#2dd4bf}
+  body.dark .cab-lbl,body.dark .cab-ghost text{fill:#5eead4}
   .dim-lbl{fill:var(--text-2);font-size:15px;font-weight:700}
   .dim-edge{fill:var(--n-600);font-size:14px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
   .dim-h{fill:var(--canvas-tech);font-size:13px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
