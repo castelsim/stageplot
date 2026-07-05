@@ -3792,9 +3792,10 @@ function miniSvg(k, over){
     var b=document.createElement("button");
     var shownDim = dim || TYPES[k].dim;
     b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small>'+esc(shownDim)+'</small>':'')+'</span>';
-    b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); });
+    b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); catCompactSoon(); });
     b.draggable=true;   /* desktop: trascina sul palco per posizionarlo dove vuoi */
     b.addEventListener("dragstart", function(e){
+      catIdleCancel();   /* mai richiudere il catalogo a metà drag: Chrome abortirebbe il trascinamento */
       var payload=JSON.stringify({sp:1, k:k, over:over||null});
       e.dataTransfer.setData("text/sp-item", payload);
       e.dataTransfer.setData("text/plain", payload);   /* fallback Safari */
@@ -4548,6 +4549,7 @@ svg.addEventListener("drop", function(e){
   var p=svgPoint(e), over=data.over?JSON.parse(JSON.stringify(data.over)):{};
   over.x=placeCoord(p.x,e); over.y=placeCoord(p.y,e);
   addItem(data.k, over);
+  catCompactSoon();   /* elemento scelto via drag&drop: il catalogo si ricompatta dopo 10 s di inutilizzo */
 });
 /* il doppio-click è gestito manualmente nel pointerdown (vedi lastDown): il dblclick nativo
    non scatta perché render() ricrea il bersaglio del primo click. */
@@ -6695,7 +6697,27 @@ document.getElementById("bNew").addEventListener("click", function(){
     resetCatalogView();   /* foglio nuovo = catalogo in stato di partenza */
   });
 });
+/* Auto-ricompattamento del catalogo: 10 s dopo aver SCELTO un elemento, se il catalogo non viene
+   più toccato (click, ricerca, o anche solo passaggio del mouse), le categorie aperte si richiudono.
+   Finché stai solo sfogliando senza scegliere, non si chiude nulla. */
+var catIdleT=null;
+function catCompactSoon(){
+  if(catIdleT) clearTimeout(catIdleT);
+  catIdleT=setTimeout(function(){ catIdleT=null;
+    document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open")
+      .forEach(function(el){ el.classList.remove("open"); });
+  }, 10000);
+}
+function catIdleCancel(){ if(catIdleT){ clearTimeout(catIdleT); catIdleT=null; } }
+(function(){
+  var c=document.getElementById("catalog"); if(!c) return;
+  /* qualsiasi attività sul catalogo fa ripartire il conto alla rovescia (solo se già armato) */
+  ["pointerdown","pointermove","input"].forEach(function(ev){
+    c.addEventListener(ev, function(){ if(catIdleT) catCompactSoon(); }, {passive:true});
+  });
+})();
 function resetCatalogView(){
+  catIdleCancel();
   document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open").forEach(function(el){ el.classList.remove("open"); });
   var q=document.getElementById("catSearch");
   if(q && q.value){ q.value=""; q.dispatchEvent(new Event("input",{bubbles:true})); }
