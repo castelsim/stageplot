@@ -588,6 +588,17 @@
       </div>
     </div>
   </div>
+  <!-- Input / Patch list (auto, derivata dal motore di cablaggio) -->
+  <div id="patchPanel">
+    <div class="patch-head">
+      <h3 style="margin:0">Input list</h3>
+      <button class="btn" id="patchClose" title="Chiudi">Chiudi</button>
+    </div>
+    <div id="patchSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:4px 0 8px"></div>
+    <div id="patchRows"></div>
+    <button class="btn primary" id="patchPdf" style="width:100%;margin-top:10px">Esporta input list (PDF)</button>
+    <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">La lista si genera dagli elementi audio sul palco e dalle stage box del <b>Cablaggio audio</b>. Per rinominare un canale, rinomina l'elemento sul palco.</div>
+  </div>
   <!-- pannello versioni -->
   <div id="versPanel" hidden>
     <div id="versBox">
@@ -3289,6 +3300,10 @@ function getSel(){ return state.items.find(function(i){ return i.id===sel; }) ||
 function renderProps(){
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
+  if(document.body.classList.contains("patch-view")){   /* Input/Patch list a destra: esci se selezioni un elemento, altrimenti mostra la tabella */
+    if(n>0){ document.body.classList.remove("patch-view"); }
+    else { renderPatchPanel(); return; }
+  }
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
@@ -4095,6 +4110,9 @@ function miniSvg(k, over){
       var CAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 25 Q 14 20 16 13 T 27 7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="25" r="2.6" fill="currentColor"/><rect x="23" y="4" width="7" height="6" rx="1.5" fill="currentColor"/></svg>';
       body.appendChild(makeActionBtn("Cablaggio audio","cavi calcolati sorgente → stagebox", null, toggleCabLayer, CAB_ICON)); n++;
       entries.push({nome:"Cablaggio audio", dim:"cavi calcolati sorgente → stagebox", action:toggleCabLayer, iconHtml:CAB_ICON});
+      var PATCH_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      body.appendChild(makeActionBtn("Input list","lista canali automatica → mixer", null, togglePatchView, PATCH_ICON)); n++;
+      entries.push({nome:"Input list", dim:"lista canali automatica → mixer", action:togglePatchView, iconHtml:PATCH_ICON});
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
         var nome="Stage box "+v[0], over={ch:v[0]};
         body.appendChild(makeBtn("stagebox", nome, over, v[1])); n++;
@@ -6291,6 +6309,40 @@ function cabActivateFlow(){
     state.cab.on=true; __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
   });
 })();
+/* ===== INPUT / PATCH LIST automatica — derivata dal motore di cablaggio (fonte unica) ===== */
+function patchList(){
+  var R=cabResult(true), rows=[], n=0;
+  R.links.forEach(function(l){ if(l.deleted) return; n++;
+    rows.push({n:n, name:l.s.name, mic:l.s.mic, p48:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter}); });
+  R.unassigned.forEach(function(s){ n++; rows.push({n:n, name:s.name, mic:s.mic, p48:!!micInfo(s.mic).p48, patch:"—", box:null}); });
+  return {rows:rows, R:R};
+}
+function renderPatchPanel(){
+  var host=document.getElementById("patchRows"); if(!host) return;
+  var pl=patchList(), R=pl.R, sum=document.getElementById("patchSummary");
+  if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun ingresso audio: aggiungi microfoni, DI o strumenti sul palco.</div>'; sum.textContent=""; return; }
+  var ph=pl.rows.filter(function(r){ return r.p48; }).length, di=pl.rows.filter(function(r){ return String(r.mic).indexOf("DI")>-1; }).length;
+  sum.innerHTML='<b>'+pl.rows.length+'</b> ingressi · '+ph+' con 48V · '+di+' DI<br>Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw&&STAGEBOX_DB[b.hw]?" "+STAGEBOX_DB[b.hw].model:"")+(b.auto?" (auto)":""); }).join(", ")+'</b>';
+  var h='<div class="patch-row patch-hd"><span>#</span><span>Sorgente</span><span>Mic/DI</span><span>Patch</span></div>';
+  pl.rows.forEach(function(r){
+    h+='<div class="patch-row'+(r.box?'':' unassigned')+'"><span class="pn">'+r.n+'</span>'
+      +'<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
+      +'<span class="pmic">'+esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')+'</span>'
+      +'<span class="ppatch">'+esc(r.patch)+'</span></div>';
+  });
+  host.innerHTML=h;
+}
+function togglePatchView(){
+  var on=!document.body.classList.contains("patch-view");
+  if(on){ closeMobileDrawers(); clearSelection(); stageEdit=false; document.body.classList.add("patch-view"); }
+  else document.body.classList.remove("patch-view");
+  render();
+}
+(function(){
+  var c=document.getElementById("patchClose"); if(!c) return;
+  c.addEventListener("click", function(){ document.body.classList.remove("patch-view"); render(); });
+  document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
+})();
 function renderAccessoriCount(){
   renderLayerToggles();
   renderCabPanel();
@@ -7783,6 +7835,28 @@ function cabReportPdf(){
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
     if(window.__cabPdfTest){ window.__cabPdfTest={name:fileName()+"-cablaggio-audio.pdf", pages:doc.getNumberOfPages()}; return; }   /* hook di test: niente download */
     doc.save(fileName()+"-cablaggio-audio.pdf");
+  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+/* Input list PDF: tabella numerata #/sorgente/mic·DI/patch (stessa fonte del pannello) */
+function patchListPdf(){
+  var pl=patchList(); if(!pl.rows.length){ alert("Nessun ingresso audio sul palco."); return; }
+  var R=pl.R;
+  loadJsPDF().then(function(){
+    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    var M=16, y=22, cols=[M, M+14, M+98, M+150];
+    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
+    doc.text("Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  "), M, y); y+=8;
+    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
+    trow("#","SORGENTE","MIC / DI","PATCH", true, "#0d9488");
+    doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
+    pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.box?"#111827":"#dc2626"); });
+    if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
+    doc.save(fileName()+"-input-list.pdf");
   }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 function svg2pdfFn(){ var s=window.svg2pdf; if(typeof s==="function") return s; if(s && typeof s.svg2pdf==="function") return s.svg2pdf; return null; }
