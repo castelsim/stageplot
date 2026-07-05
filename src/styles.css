@@ -285,18 +285,36 @@
   .grid line.m{stroke:var(--grid-major)}
   .cl{stroke:var(--axis);stroke-width:1.5;stroke-dasharray:22 16}
   .zone-lbl{fill:var(--text-3);font-size:16px;letter-spacing:2px}
-  /* Cablaggio audio calcolato (layer tecnico) */
-  .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round}
-  .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px}
+  /* Cablaggio audio calcolato (layer tecnico) — colore layer AUDIO = teal (architettura colori per layer) */
+  .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+  .cab-line.cab-manual{stroke:#0e7490}
+  .cab-line.sel{stroke:#0f766e;stroke-width:3.6}
+  .cab-del{fill:none;stroke:#9ca3af;stroke-width:1.6;stroke-dasharray:3 5;pointer-events:none}
+  .cab-snake{stroke:#0d9488;stroke-width:2;stroke-dasharray:9 5;opacity:.45;fill:none;pointer-events:none}
+  .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
+  .cab-ghost{pointer-events:none}
   .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
   .cab-ghost text{fill:#0f766e;font-size:10px;font-weight:700}
+  .cab-badge{pointer-events:none}
   .cab-badge rect{fill:#0d9488}
   .cab-badge text{fill:#fff;font-size:9px;font-weight:700}
-  .cab-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3}
+  .cab-home{pointer-events:none}
+  .cab-home rect{fill:#0f766e;stroke:#0a5952;stroke-width:1.5}
+  .cab-home text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
+  .cab-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
+  .cab-hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:none}
+  .cab-editable .cab-hit{pointer-events:stroke;cursor:pointer}
+  .cab-wp{fill:#fff;stroke:#0d9488;stroke-width:2.5;pointer-events:none}
+  .cab-editable .cab-wp{pointer-events:all;cursor:grab}
+  .cab-mid{fill:#0d9488;opacity:.35;pointer-events:none}
+  .cab-editable .cab-mid{pointer-events:all;cursor:copy;opacity:.5}
   body.cab-solo #layItems{opacity:.28}
   body.dark .cab-lbl{stroke:#0e1214}
   body.dark .cab-line{stroke:#2dd4bf}
+  body.dark .cab-line.cab-manual{stroke:#22d3ee}
+  body.dark .cab-snake{stroke:#2dd4bf}
   body.dark .cab-lbl,body.dark .cab-ghost text{fill:#5eead4}
+  body.dark .cab-home rect{fill:#0d9488;stroke:#0a5952}
   .dim-lbl{fill:var(--text-2);font-size:15px;font-weight:700}
   .dim-edge{fill:var(--n-600);font-size:14px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
   .dim-h{fill:var(--canvas-tech);font-size:13px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
