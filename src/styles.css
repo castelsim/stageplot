@@ -142,12 +142,17 @@
     font-size:13px;color:var(--n-700);font-weight:600}   /* v2.2: sentence-case arioso, come le card del prototipo */
   #catalog .cat-head:first-child{margin-top:0}
   #catalog .cat-head:hover{background:var(--n-200)}
-  #catalog .cat-head.open{background:var(--accent);border-color:var(--accent);color:#fff}
-  #catalog .cat-head .caret{font-size:11px;color:var(--text-3);transition:transform .15s ease;display:inline-block;width:10px}
-  #catalog .cat-head.open .caret{transform:rotate(90deg);color:#cbd5e1}
+  #catalog .cat-head.open{background:var(--cat-accent,var(--accent));border-color:var(--cat-accent,var(--accent));color:#fff}
+  #catalog .cat-head .caret{font-size:11px;color:var(--text-3);transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 auto}
+  #catalog .cat-head.open .caret{transform:rotate(90deg);color:rgba(255,255,255,.75)}
+  #catalog .cat-head .cat-dot{flex:0 0 auto;width:9px;height:9px;border-radius:3px;background:var(--cat-accent,var(--accent))}
+  #catalog .cat-head.open .cat-dot{background:#fff}
+  #catalog .cat-head .cat-name{display:flex;flex-direction:column;line-height:1.18;min-width:0}
+  #catalog .cat-head .cat-sub{font-weight:400;font-size:10.5px;color:var(--text-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #catalog .cat-head.open .cat-sub{color:rgba(255,255,255,.8)}
   #catalog .cat-head .count{margin-left:auto;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0;
-    background:var(--surface);border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
-  #catalog .cat-head.open .count{background:var(--accent-strong);color:var(--accent-tint)}
+    background:var(--surface);border-radius:999px;padding:1px 8px;min-width:20px;text-align:center;flex:0 0 auto}
+  #catalog .cat-head.open .count{background:rgba(255,255,255,.22);color:#fff}
   #catalog .cat-body{display:none;padding:7px 3px 10px}
   #catalog .cat-body.open{display:block}
   #catSearch{width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;margin-bottom:8px}
