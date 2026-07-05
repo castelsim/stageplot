@@ -304,12 +304,17 @@
     font-size:13px;color:var(--n-700);font-weight:600}   /* v2.2: sentence-case arioso, come le card del prototipo */
   #catalog .cat-head:first-child{margin-top:0}
   #catalog .cat-head:hover{background:var(--n-200)}
-  #catalog .cat-head.open{background:var(--accent);border-color:var(--accent);color:#fff}
-  #catalog .cat-head .caret{font-size:11px;color:var(--text-3);transition:transform .15s ease;display:inline-block;width:10px}
-  #catalog .cat-head.open .caret{transform:rotate(90deg);color:#cbd5e1}
+  #catalog .cat-head.open{background:var(--cat-accent,var(--accent));border-color:var(--cat-accent,var(--accent));color:#fff}
+  #catalog .cat-head .caret{font-size:11px;color:var(--text-3);transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 auto}
+  #catalog .cat-head.open .caret{transform:rotate(90deg);color:rgba(255,255,255,.75)}
+  #catalog .cat-head .cat-dot{flex:0 0 auto;width:9px;height:9px;border-radius:3px;background:var(--cat-accent,var(--accent))}
+  #catalog .cat-head.open .cat-dot{background:#fff}
+  #catalog .cat-head .cat-name{display:flex;flex-direction:column;line-height:1.18;min-width:0}
+  #catalog .cat-head .cat-sub{font-weight:400;font-size:10.5px;color:var(--text-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #catalog .cat-head.open .cat-sub{color:rgba(255,255,255,.8)}
   #catalog .cat-head .count{margin-left:auto;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0;
-    background:var(--surface);border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
-  #catalog .cat-head.open .count{background:var(--accent-strong);color:var(--accent-tint)}
+    background:var(--surface);border-radius:999px;padding:1px 8px;min-width:20px;text-align:center;flex:0 0 auto}
+  #catalog .cat-head.open .count{background:rgba(255,255,255,.22);color:#fff}
   #catalog .cat-body{display:none;padding:7px 3px 10px}
   #catalog .cat-body.open{display:block}
   #catSearch{width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;margin-bottom:8px}
@@ -2890,6 +2895,27 @@ var TYPES = {
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
 var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Luci","Video","Dispositivi"];
+/* Macro-aree: colore + sottotitolo in linguaggio comune per categoria (UX categorie, direzione A). */
+var CAT_AREA={
+  strumenti:"#d97706", audio:"#0d9488", luci:"#7c3aed", tecnica:"#3b5b8c"
+};
+var CAT_META={
+  "Palco e strutture":     {area:"tecnica",   sub:"pedane, truss, transenne, scenografia"},
+  "Batteria e percussioni":{area:"strumenti", sub:"batteria, percussioni, mallets"},
+  "Band e backline":       {area:"strumenti", sub:"chitarre, bassi, ampli, tastiere"},
+  "Orchestra":             {area:"strumenti", sub:"archi, fiati, arpa"},
+  "Persone e voci":        {area:"strumenti", sub:"cantanti, coristi, direttore"},
+  "Microfoni e DI":        {area:"audio",     sub:"aste, microfoni, DI"},
+  "Monitor da palco":      {area:"audio",     sub:"wedge, side/drum fill, in-ear"},
+  "Cablaggio e segnale":   {area:"audio",     sub:"stagebox, splitter, Zone Audio"},
+  "Regia e console":       {area:"audio",     sub:"mixer, FOH, postazioni regia"},
+  "PA e diffusione":       {area:"audio",     sub:"line array, sub, fill"},
+  "Elettrico":             {area:"tecnica",   sub:"generatori, distro, Zone Alimentazione"},
+  "Luci":                  {area:"luci",      sub:"teste mobili, PAR, dimmer, fumo"},
+  "Video":                 {area:"luci",      sub:"schermi, LED wall, camere"},
+  "Dispositivi":           {area:"tecnica",   sub:"iPad, tablet, laptop, rack"}
+};
+function catColor(c){ var m=CAT_META[c]; return (m && CAT_AREA[m.area]) || "#0d9488"; }
 
 /* ===== POTENZA ELETTRICA (Fase A: assorbimenti) ===== */
 /* Assorbimento AC TIPICO al muro durante lo show (non la targa/uscita): base onesta per la
@@ -4730,7 +4756,11 @@ function miniSvg(k, over){
         addBtn(TYPES[k].nome);
       }
     });
-    head.innerHTML='<span class="caret">▸</span><span>'+esc(c)+'</span><span class="count">'+n+'</span>';
+    var _meta=CAT_META[c]||{}, _col=catColor(c);
+    head.style.setProperty("--cat-accent", _col);
+    head.innerHTML='<span class="caret">▸</span><span class="cat-dot"></span>'
+      +'<span class="cat-name">'+esc(c)+(_meta.sub?'<small class="cat-sub">'+esc(_meta.sub)+'</small>':'')+'</span>'
+      +'<span class="count">'+n+'</span>';
     head.addEventListener("click", function(){
       var willOpen = !body.classList.contains("open");
       sections.forEach(function(s){ s.head.classList.remove("open"); s.body.classList.remove("open"); });
