@@ -545,9 +545,13 @@
       <label class="chk" id="tgAudioRow"><input type="checkbox" id="tgLayerAudio"> Mostra Zone Audio</label>
       <label class="chk" id="tgPowerRow"><input type="checkbox" id="tgLayerPower"> Mostra Zone Alimentazione</label>
     </div>
-    <div id="cabSec" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
-      <label class="chk"><input type="checkbox" id="tgCab"> <span><b>Cablaggio audio</b> (calcolato)</span></label>
-      <div id="cabCtrls" style="display:none;margin-top:6px">
+    <div id="cabSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="cab-sechead" id="cabSecHead">
+        <span class="caret" id="cabCaret">▾</span>
+        <span class="cab-sectitle"><b>Cablaggio audio</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
+        <button type="button" class="cab-trash" id="cabTrash" title="Rimuovi il cablaggio audio" aria-label="Rimuovi il cablaggio audio"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>
+      <div id="cabCtrls" style="display:none;margin-top:8px">
         <label class="cabfld">Mixer FOH<select id="cabMixer"></select></label>
         <div id="cabCompat" style="font-size:10.5px;margin-top:2px"></div>
         <label class="cabfld">Punto principale di connessione<select id="cabHome">
@@ -6195,13 +6199,15 @@ function cabFillMixerOptions(){
   Object.keys(MIXER_DB).forEach(function(id){ var m=MIXER_DB[id]; html+='<option value="'+id+'">'+esc(m.brand+" "+m.model)+(m.v===false?" ?":"")+'</option>'; });
   sel.innerHTML=html;
 }
+var cabOpen=true;   /* menu a tendina del pannello Cablaggio audio (aperto di default all'attivazione) */
 function renderCabPanel(){
-  var tg=document.getElementById("tgCab"); if(!tg) return;
+  var sec=document.getElementById("cabSec"); if(!sec) return;
   var on=!!(state.cab && state.cab.on);
-  tg.checked=on;
-  document.getElementById("cabCtrls").style.display = on ? "block" : "none";
+  sec.style.display = on ? "block" : "none";   /* la sezione esiste SOLO se attivata dal catalogo */
   document.body.classList.toggle("cab-solo", on && !!window.__cabSolo);
   if(!on){ selCab=null; return; }
+  document.getElementById("cabCtrls").style.display = cabOpen ? "block" : "none";
+  document.getElementById("cabCaret").textContent = cabOpen ? "▾" : "▸";
   cabFillMixerOptions();
   document.getElementById("cabMixer").value = state.cab.mixer||"";
   document.getElementById("cabHome").value = state.cab.home ? state.cab.home.kind : "";
@@ -6252,8 +6258,9 @@ function toggleCabLayer(){
   state.cab.on=false; selCab=null; save(); render();
 }
 (function(){
-  var tg=document.getElementById("tgCab"); if(!tg) return;
-  tg.addEventListener("change", function(){ if(this.checked && !state.cab.on){ this.checked=false; cabActivateFlow(); return; } state.cab.on=this.checked; if(this.checked) __cabRes=null; else selCab=null; save(); render(); });
+  var head=document.getElementById("cabSecHead"); if(!head) return;
+  head.addEventListener("click", function(e){ if(e.target.closest("#cabTrash")) return; cabOpen=!cabOpen; renderCabPanel(); });   /* menu a tendina */
+  document.getElementById("cabTrash").addEventListener("click", function(e){ e.stopPropagation(); state.cab.on=false; selCab=null; save(); render(); });   /* cestino: rimuove il cablaggio audio */
   document.getElementById("cabMixer").addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
   document.getElementById("cabHome").addEventListener("change", function(){
     var k=this.value; if(!k){ state.cab.home=null; } else if(k==="custom"){ state.cab.home={kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)}; } else { state.cab.home={kind:k, x:0, y:0}; }
@@ -6306,7 +6313,7 @@ function cabActivateFlow(){
     state.cab.mixer=document.getElementById("cabModalMixer").value;
     var k=document.getElementById("cabModalHome").value;
     state.cab.home = !k ? null : (k==="custom" ? {kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)} : {kind:k, x:0, y:0});
-    state.cab.on=true; __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
+    state.cab.on=true; cabOpen=true; __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
   });
 })();
 /* ===== INPUT / PATCH LIST automatica — derivata dal motore di cablaggio (fonte unica) ===== */
