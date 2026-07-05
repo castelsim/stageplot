@@ -13,7 +13,7 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.04";</script>
+<script>window.__APP_VERSION__="2026.07.05";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -430,6 +430,7 @@
   body.dark .blkchip{background:#0f141c;border-color:#2c3a3f;color:#cbd5e1}
   body.stage-edit .item{opacity:.35;pointer-events:none}
   .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:2}
+  .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:2.5}   /* metro: maniglie tonde agli estremi della linea */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
   .rot-handle{cursor:grab}
@@ -3808,9 +3809,16 @@ function itemMarkup(it){
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
   if(!stageEdit && t.resizable && selSet[it.id] && selIds().length===1){
-    var H=9, hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
+    var H=9, hpts;
+    if(it.type==="metro"){
+      /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
+      hpts=[["l",-it.w/2,0],["r",it.w/2,0]];
+    } else {
+      hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
+    }
     hpts.forEach(function(p){
-      s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
+      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+it.id+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="7"/>';
+      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
     });
   }
   s += '</g>';

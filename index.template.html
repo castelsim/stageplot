@@ -2872,9 +2872,16 @@ function itemMarkup(it){
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
   if(!stageEdit && t.resizable && selSet[it.id] && selIds().length===1){
-    var H=9, hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
+    var H=9, hpts;
+    if(it.type==="metro"){
+      /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
+      hpts=[["l",-it.w/2,0],["r",it.w/2,0]];
+    } else {
+      hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
+    }
     hpts.forEach(function(p){
-      s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
+      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+it.id+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="7"/>';
+      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
     });
   }
   s += '</g>';

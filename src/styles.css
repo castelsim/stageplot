@@ -268,6 +268,7 @@
   body.dark .blkchip{background:#0f141c;border-color:#2c3a3f;color:#cbd5e1}
   body.stage-edit .item{opacity:.35;pointer-events:none}
   .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:2}
+  .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:2.5}   /* metro: maniglie tonde agli estremi della linea */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
   .rot-handle{cursor:grab}
