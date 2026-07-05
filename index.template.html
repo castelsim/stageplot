@@ -3784,60 +3784,6 @@ function miniSvg(k, over){
   var ext=Math.max(it.w,it.d)+26;
   return '<svg class="mini" viewBox="'+(-ext/2)+' '+(-ext/2)+' '+ext+' '+ext+'" width="32" height="32" aria-hidden="true">'+t.draw(it)+'</svg>';
 }
-/* ===== Catalogo, blocco B: "Usati di recente" + "Ti serve anche…?" ===== */
-var RECENT_KEY="stageplot_recent";
-var catLastPlaced=null;
-/* compagni tipici da proporre dopo aver piazzato un elemento (chiavi TYPES reali) */
-var SUGGEST={
-  batteria:["sgabello","wedge","coppiast"], drumshield:["sgabello","wedge"],
-  gtstand:["comboamp","pedaliera","dimono"], gtacustica:["dimono","astamic","wedge"],
-  bassstand:["bassamp","dimono","wedge"], comboamp:["astamic","wedge"], stack:["astamic","wedge"],
-  bassamp:["dimono","wedge"], keysamp:["distereo","wedge"],
-  stagepiano:["keysamp","distereo","wedge"], doppiatastiera:["keysamp","distereo","wedge"],
-  grancoda:["coppiast","distereo","wedge"], mezzacoda:["coppiast","distereo","wedge"],
-  cantante:["astamic","wedge","wireless"], corista:["astamic","wedge"], direttore:["podio","wedge"],
-  stagebox:["mcorereel","splitrack","substg"], substg:["mcorereel","stagebox"]
-};
-function catRecentClean(o){ if(!o) return null; var c; try{ c=JSON.parse(JSON.stringify(o)); }catch(e){ return null; }
-  ["x","y","rot","label","label2","vsec"].forEach(function(p){ delete c[p]; });
-  return Object.keys(c).length? c : null; }
-function catRecentLoad(){ try{ return JSON.parse(localStorage.getItem(RECENT_KEY))||[]; }catch(e){ return []; } }
-function noteRecent(k, over, nome){
-  if(!TYPES[k] || TYPES[k].catalog===false) return;
-  var co=catRecentClean(over), sig=k+"|"+JSON.stringify(co);
-  var arr=catRecentLoad().filter(function(r){ return (r.k+"|"+JSON.stringify(r.over))!==sig; });
-  arr.unshift({k:k, over:co, nome:nome||TYPES[k].nome});
-  try{ localStorage.setItem(RECENT_KEY, JSON.stringify(arr.slice(0,8))); }catch(e){}
-  catLastPlaced=k; renderRecentStrip(); renderSuggestStrip(k);
-}
-function catChip(k, over, nome){
-  var b=document.createElement("button"); b.className="cat-chip"; b.type="button";
-  var label=nome||TYPES[k].nome; b.title="Aggiungi "+label;
-  b.innerHTML=miniSvg(k, over)+'<span>'+esc(label)+'</span>';
-  b.addEventListener("click", function(){ closeMobileDrawers(); var ov=over?JSON.parse(JSON.stringify(over)):undefined; addItem(k, ov); noteRecent(k, ov, nome); });
-  return b;
-}
-function renderRecentStrip(){
-  var host=document.getElementById("catRecent"); if(!host) return;
-  var arr=catRecentLoad();
-  if(!arr.length){ host.style.display="none"; host.innerHTML=""; return; }
-  host.style.display="block";
-  host.innerHTML='<div class="cat-strip-title">Usati di recente</div>';
-  var row=document.createElement("div"); row.className="cat-chips";
-  arr.forEach(function(r){ if(TYPES[r.k] && TYPES[r.k].catalog!==false) row.appendChild(catChip(r.k, r.over, r.nome)); });
-  host.appendChild(row);
-}
-function renderSuggestStrip(fromK){
-  var host=document.getElementById("catSuggest"); if(!host) return;
-  var list=(fromK && SUGGEST[fromK])||[];
-  list=list.filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; });
-  if(!list.length){ host.style.display="none"; host.innerHTML=""; return; }
-  host.style.display="block";
-  host.innerHTML='<div class="cat-strip-title">Ti serve anche…?</div>';
-  var row=document.createElement("div"); row.className="cat-chips";
-  list.forEach(function(k){ row.appendChild(catChip(k, undefined, TYPES[k].nome)); });
-  host.appendChild(row);
-}
 (function buildCatalog(){
   var el = document.getElementById("catalog"), cats={};
   CAT_ORDER.forEach(function(c){ cats[c]=[]; });
@@ -3846,7 +3792,7 @@ function renderSuggestStrip(fromK){
     var b=document.createElement("button");
     var shownDim = dim || TYPES[k].dim;
     b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small>'+esc(shownDim)+'</small>':'')+'</span>';
-    b.addEventListener("click", function(){ var ov=over?JSON.parse(JSON.stringify(over)):undefined; addItem(k, ov); noteRecent(k, ov, nome); });
+    b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); });
     b.draggable=true;   /* desktop: trascina sul palco per posizionarlo dove vuoi */
     b.addEventListener("dragstart", function(e){
       var payload=JSON.stringify({sp:1, k:k, over:over||null});
@@ -3874,9 +3820,6 @@ function renderSuggestStrip(fromK){
   search.type="search"; search.id="catSearch"; search.placeholder="Cerca elemento…";
   search.setAttribute("aria-label","Cerca elemento nel catalogo");
   el.appendChild(search);
-  var recentBox=document.createElement("div"); recentBox.id="catRecent"; recentBox.className="cat-strip"; el.appendChild(recentBox);
-  var suggestBox=document.createElement("div"); suggestBox.id="catSuggest"; suggestBox.className="cat-strip"; el.appendChild(suggestBox);
-  renderRecentStrip();
   var wrap=document.createElement("div"); wrap.id="catWrap"; el.appendChild(wrap);
   var results=document.createElement("div"); results.id="catResults"; el.appendChild(results);
 
@@ -4011,10 +3954,8 @@ function renderSuggestStrip(fromK){
   search.addEventListener("input", function(){
     var q=this.value.trim().toLowerCase();
     results.innerHTML="";
-    if(!q){ wrap.style.display=""; results.style.display="none"; renderRecentStrip(); renderSuggestStrip(catLastPlaced); return; }
+    if(!q){ wrap.style.display=""; results.style.display="none"; return; }
     wrap.style.display="none"; results.style.display="block";
-    var _rc=document.getElementById("catRecent"), _sg=document.getElementById("catSuggest");
-    if(_rc) _rc.style.display="none"; if(_sg) _sg.style.display="none";
     var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>'; return; }
     matched.forEach(function(e){
@@ -4606,7 +4547,7 @@ svg.addEventListener("drop", function(e){
   e.preventDefault(); svg.classList.remove("drop-target");
   var p=svgPoint(e), over=data.over?JSON.parse(JSON.stringify(data.over)):{};
   over.x=placeCoord(p.x,e); over.y=placeCoord(p.y,e);
-  addItem(data.k, over); noteRecent(data.k, over, null);
+  addItem(data.k, over);
 });
 /* il doppio-click è gestito manualmente nel pointerdown (vedi lastDown): il dblclick nativo
    non scatta perché render() ricrea il bersaglio del primo click. */
@@ -6758,7 +6699,6 @@ function resetCatalogView(){
   document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open").forEach(function(el){ el.classList.remove("open"); });
   var q=document.getElementById("catSearch");
   if(q && q.value){ q.value=""; q.dispatchEvent(new Event("input",{bubbles:true})); }
-  catLastPlaced=null; if(typeof renderSuggestStrip==="function"){ renderSuggestStrip(null); renderRecentStrip(); }
   var c=document.getElementById("catalog"); if(c) c.scrollTop=0;
 }
 /* ============ JSON DI PROGETTO formato 3 — pronto per render 3D ============
