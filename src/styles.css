@@ -155,17 +155,6 @@
   #catSearch:focus{outline:none;border-color:var(--accent)}
   #catResults{display:none}
   #catResults .nores{font-size:12px;color:var(--text-3);padding:8px 4px}
-  /* blocco B: strisce "Usati di recente" / "Ti serve anche…?" */
-  .cat-strip{display:none;margin:0 0 9px}
-  .cat-strip .cat-strip-title{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);font-weight:700;margin:0 2px 5px}
-  #catSuggest .cat-strip-title{color:var(--accent)}
-  .cat-chips{display:flex;flex-wrap:wrap;gap:5px}
-  .cat-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;background:var(--surface);
-    border:1px solid var(--border);border-radius:8px;padding:4px 8px 4px 5px;font-size:11.5px;font-weight:600;color:var(--n-700);cursor:pointer}
-  .cat-chip .mini{width:18px;height:18px;flex:0 0 auto}
-  .cat-chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .cat-chip:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
-  #catSuggest .cat-chip{border-color:var(--accent-soft)}
   #catalog h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);font-weight:700;
     margin:13px 2px 7px;padding-left:9px;border-left:3px solid var(--accent-soft)}
   #catalog button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);
@@ -616,10 +605,6 @@
   body.dark #catalog .sub-body button{border-color:#314046}
   body.dark #catalog .sub-body button span{color:#5eb8c7}
   body.dark #catSearch{background:#141a1d;border-color:#314046;color:#e5e7eb}
-  body.dark .cat-chip{background:#20292e;border-color:#314046;color:#e5e7eb}
-  body.dark .cat-chip:hover{background:#222b38;border-color:#3a4658}
-  body.dark #catSuggest .cat-strip-title{color:#5eb8c7}
-  body.dark #catSuggest .cat-chip{border-color:#2b6c78}
   body.dark main{background:#0e1214}
   /* quote/etichette nei margini: bianche su sfondo scuro (alone scuro per leggerle anche sopra il foglio chiaro) */
   body.dark .dim-edge,body.dark .dim-tot,body.dark .dim-lbl{fill:#fff;stroke:#0e1214}
