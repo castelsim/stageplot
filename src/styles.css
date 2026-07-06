@@ -44,7 +44,7 @@
   #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
-    grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr 310px;   /* panel-refine: colonne compatte come il prototipo (erano 250/360) */
+    grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
   header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px}
@@ -200,6 +200,14 @@
   svg.dragging{cursor:grabbing}
   body.space-pan svg,body.space-pan svg *{cursor:grab !important}
   #props{grid-area:props;border-left:1px solid var(--border);padding:12px;overflow-y:auto}
+  /* Maniglia di ridimensionamento della colonna destra (solo desktop). position:fixed sulla cucitura
+     canvas↔props → nessun clip da overflow di #props; drag aggiorna --rail, doppio click = reset. */
+  #railHandle{position:fixed;top:52px;bottom:26px;right:calc(var(--rail,310px) - 4px);width:8px;z-index:30;
+    cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none}
+  #railHandle::before{content:"";width:2px;height:32px;border-radius:2px;background:var(--border);transition:background .12s,height .12s}
+  #railHandle:hover::before,#railHandle.dragging::before{background:var(--accent);height:54px}
+  body.dark #railHandle::before{background:var(--border-strong)}
+  @media(max-width:880px){#railHandle{display:none}}   /* mobile: #props è un drawer, niente maniglia */
   #propsGrab{display:none}   /* maniglia riduci-pannello: solo mobile, pannello espanso */
   #mPeek{display:none}       /* barra peek: solo mobile con elemento selezionato (no attr [hidden] per non incrociare display:none!important) */
   /* ── Modifica palco D1: stepper +/− e griglia posizione 3×3 ── */
