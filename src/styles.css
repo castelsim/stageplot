@@ -360,7 +360,10 @@
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
   /* Input / Patch list (sezione a tendina nel pannello idle) */
   #patchRows{border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .patch-row{display:grid;grid-template-columns:24px 1fr 70px 42px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
+  /* col. 2 e 3 flessibili (minmax 0 = si restringono con ellipsis quando stretto, e crescono allargando la
+     colonna destra fino a mostrare tutto il contenuto); # e ultima (patch/uscita/Q-L, contenuto corto)
+     a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
+  .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
   .patch-row:last-child{border-bottom:none}
   .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
   .patch-row .pn{color:var(--text-3);font-weight:700}
