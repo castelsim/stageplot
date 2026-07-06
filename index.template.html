@@ -540,11 +540,15 @@
     <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
   </div>
   <div class="sec" id="noSel" style="font-size:12.5px;color:var(--text-3)">
-    <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
-    <div id="layerToggles" style="margin-top:10px;display:none;flex-direction:column;gap:2px;border-top:1px solid var(--border);padding-top:8px">
-      <label class="chk" id="tgAudioRow"><input type="checkbox" id="tgLayerAudio"> Mostra Zone Audio</label>
-      <label class="chk" id="tgPowerRow"><input type="checkbox" id="tgLayerPower"> Mostra Zone Alimentazione</label>
+    <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
+    <div id="layerSec" style="display:none">
+      <div class="cab-sechead" id="layerSecHead">
+        <span class="caret" id="layerCaret">▾</span>
+        <span class="cab-sectitle"><b>Layer</b> <span id="layerCount" style="color:var(--text-3);font-weight:400"></span></span>
+      </div>
+      <div id="layerBody" style="margin-top:6px"><div id="layerRows"></div></div>
     </div>
+    <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
     <div id="cabSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <div class="cab-sechead" id="cabSecHead">
         <span class="caret" id="cabCaret">▾</span>
@@ -2290,7 +2294,7 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,locked:false,manual:{}} };
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,locked:false,manual:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var zoneEdit=false, selZone=null;     /* modalità "Zone di cablaggio" e zona selezionata */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
@@ -2614,6 +2618,7 @@ function normalizeState(s){
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
+    showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false,
     locked:!!cb.locked, manual:man };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
@@ -3240,7 +3245,7 @@ function cabLinkLabel(l){
   return parts.join(' · ');
 }
 function cablingMarkup(){
-  if(!state.cab || !state.cab.on) return '';
+  if(!state.cab || !state.cab.on || state.cab.showInputs===false) return '';   /* occhio del Layer Manager */
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
   var edit=!state.cab.locked;
@@ -6229,15 +6234,52 @@ function countAccessori(){
   });
   return {sedie:sedie, leggii:leggii, sgabelli:sgabelli, hearbacks:hearbacks};
 }
-function renderLayerToggles(){
-  var lt=document.getElementById("layerToggles"); if(!lt) return;
-  var hasA=(state.zones||[]).some(function(z){return z.kind==="audio";}), hasP=(state.zones||[]).some(function(z){return z.kind==="power";});
-  document.getElementById("tgAudioRow").style.display = hasA?"":"none";
-  document.getElementById("tgPowerRow").style.display = hasP?"":"none";
-  lt.style.display = (hasA||hasP)?"flex":"none";
-  document.getElementById("tgLayerAudio").checked = !!state.layerAudio;
-  document.getElementById("tgLayerPower").checked = !!state.layerPower;
+/* ===== LAYER MANAGER — governa visibilità/opacità/blocco/rimozione dei layer tecnici =====
+   Registro estensibile = fonte unica (colori formalizzati). Compare a destra solo se ≥1 layer attivo. */
+var LAYER_COLORS = { audioIn:"#0d9488", monitor:"#06b6d4", elettrico:"#d97706", rete:"#4f46e5", luci:"#db2777", video:"#16a34a", zoneAudio:"#3b82f6", zonePower:"#d97706" };
+var _LM_EYE='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+var _LM_EYEOFF='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M1 1l22 22"/></svg>';
+var _LM_LOCK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+var _LM_TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>';
+function layerRegistry(){
+  var zA=(state.zones||[]).some(function(z){return z.kind==="audio";});
+  var zP=(state.zones||[]).some(function(z){return z.kind==="power";});
+  return [
+    { id:"zaudio", name:"Zone Audio", color:LAYER_COLORS.zoneAudio, active:zA,
+      visible:!!state.layerAudio, setVisible:function(v){ state.layerAudio=v; save(); render(); } },
+    { id:"zpower", name:"Zone Alimentazione", color:LAYER_COLORS.zonePower, active:zP,
+      visible:!!state.layerPower, setVisible:function(v){ state.layerPower=v; save(); render(); } },
+    { id:"cabin", name:"Cablaggio audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
+      visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
+      opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; save(); render(); },
+      lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
+      removable:true, remove:function(){ state.cab.on=false; selCab=null; save(); render(); } }
+    /* [Parte A] qui andrà "Monitor / ritorni": color LAYER_COLORS.monitor, visible=state.cab.showReturns */
+  ];
 }
+var layerOpen=true;
+function renderLayerManager(){
+  var sec=document.getElementById("layerSec"); if(!sec) return;
+  var LS=layerRegistry().filter(function(L){ return L.active; });
+  sec.style.display = LS.length ? "block" : "none";
+  if(!LS.length) return;
+  document.getElementById("layerCount").textContent = "· "+LS.length;
+  document.getElementById("layerBody").style.display = layerOpen ? "block" : "none";
+  document.getElementById("layerCaret").textContent = layerOpen ? "▾" : "▸";
+  if(!layerOpen) return;
+  var rows=document.getElementById("layerRows"); rows.innerHTML="";
+  LS.forEach(function(L){
+    var row=document.createElement("div"); row.className="layer-row";
+    row.innerHTML='<span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
+    var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
+    eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); row.appendChild(eye);
+    if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); row.appendChild(lk); }
+    if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title="Rimuovi il layer"; tr.innerHTML=_LM_TRASH; tr.addEventListener("click", function(){ L.remove(); }); row.appendChild(tr); }
+    rows.appendChild(row);
+    if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=5; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità"; op.addEventListener("input", function(){ L.setOpacity(+this.value); }); rows.appendChild(op); }
+  });
+}
+(function(){ var h=document.getElementById("layerSecHead"); if(h) h.addEventListener("click", function(){ layerOpen=!layerOpen; renderLayerManager(); }); })();
 function cabFillMixerOptions(){
   var sel=document.getElementById("cabMixer"); if(!sel || sel._filled) return; sel._filled=true;
   var html='<option value="">— nessuno —</option>';
@@ -6403,7 +6445,7 @@ function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la se
   document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
 })();
 function renderAccessoriCount(){
-  renderLayerToggles();
+  renderLayerManager();
   renderCabPanel();
   renderPatchPanel();
   var el=document.getElementById("accessoriCount"); if(!el) return;
@@ -6418,11 +6460,6 @@ function renderAccessoriCount(){
   if(pw>0) parts.push('<span class="stat-pw" title="Potenza elettrica stimata (nominale)">⚡ '+(pw/1000).toFixed(1).replace(".",",")+" kW</span>");
   el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : "";
 }
-(function(){
-  var a=document.getElementById("tgLayerAudio"), p=document.getElementById("tgLayerPower");
-  if(a) a.addEventListener("change", function(){ state.layerAudio=this.checked; save(); render(); });
-  if(p) p.addEventListener("change", function(){ state.layerPower=this.checked; save(); render(); });
-})();
 /* ===== Datalist src per Input patch / Output list ===== */
 function updateChanDatalists(){
   var inL=document.getElementById("inSrcList"), outL=document.getElementById("outSrcList");
