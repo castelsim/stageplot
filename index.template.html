@@ -3184,6 +3184,15 @@ function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
 var MON_STEREO = { iem:1, iemant:1, hearback:1 };   /* mix stereo (2 uscite) */
 function cabMargin(){ return ((state.cab&&+state.cab.margin===20)?20:30)/100; }
 function polyLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); } return d; }
+/* ── Routing ORTOGONALE dei cavi (mai diagonali): percorso a L, run lungo l'asse dominante + gomito vicino al bersaglio ── */
+function orthCorner(a,b){ return (Math.abs(b[1]-a[1])>=Math.abs(b[0]-a[0])) ? [a[0],b[1]] : [b[0],a[1]]; }
+function orthExpand(pts){ if(!pts||pts.length<2) return pts||[]; var out=[pts[0].slice()];
+  for(var i=1;i<pts.length;i++){ var c=orthCorner(pts[i-1],pts[i]), last=out[out.length-1];
+    if(c[0]!==last[0]||c[1]!==last[1]) out.push(c); last=out[out.length-1];
+    if(pts[i][0]!==last[0]||pts[i][1]!==last[1]) out.push([pts[i][0],pts[i][1]]); }
+  return out; }
+function orthLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]); } return d; }   /* lunghezza Manhattan */
+function orthPathD(pts){ var ep=orthExpand(pts); if(ep.length<2) return ''; return 'M '+ep.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L '); }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
@@ -3254,14 +3263,14 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
       var pts=[[s.it.x,s.it.y]].concat((ov.pts||[])).concat([[b.x,b.y]]);
-      var lenM=polyLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
+      var lenM=orthLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
       links.push({s:s, box:b, ch:b.used, key:s.key, pts:pts, lenM:lenM, cut:cut,
                   label:(ov.label!=null?ov.label:(b.letter+b.used)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
   });
   /* digital snake: home-run da ogni box usata al punto principale */
   var snakes=[];
-  if(home){ boxes.forEach(function(b){ if(!b.used) return; snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:Math.hypot(home.x-b.x, home.y-b.y)/100}); }); }
+  if(home){ boxes.forEach(function(b){ if(!b.used) return; snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); }); }
   /* ── MONITOR / OUTPUT: mix per etichetta → uscita su box vicina → cavi di ritorno ── */
   var sinks=state.items.map(function(it,idx){ return {it:it,idx:idx}; })
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type))||(a.idx-b.idx); })
@@ -3281,7 +3290,7 @@ function audioCablingEngine(){
   var returnLinks=[];
   mixes.forEach(function(m){ if(!m.box) return;
     m.sinks.forEach(function(sk){ var pts=[[m.box.x,m.box.y],[sk.x,sk.y]];
-      var lenM=polyLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
+      var lenM=orthLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
       returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut}); }); });
   var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
   var mixChTot=mixes.reduce(function(a,m){ return a+m.ch; },0);
@@ -3358,19 +3367,19 @@ function cablingMarkup(){
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
   if(showIn){
-    R.snakes.forEach(function(k){ s+='<line class="cab-snake" x1="'+k.x1+'" y1="'+k.y1+'" x2="'+k.x2+'" y2="'+k.y2+'"/>'; });
+    R.snakes.forEach(function(k){ s+='<path class="cab-snake" d="'+orthPathD([[k.x1,k.y1],[k.x2,k.y2]])+'"/>'; });
     R.links.forEach(function(l){
-      var d='M '+l.pts.map(function(p){ return p[0]+' '+p[1]; }).join(' L ');
+      var d=orthPathD(l.pts);
       if(l.deleted){ s+='<path class="cab-del" d="'+d+'"/>'; if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
       s+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
       if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
       var lbl=cabLinkLabel(l);
-      if(lbl){ var mid=cabMidpoint(l.pts); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+      if(lbl){ var mid=cabMidpoint(orthExpand(l.pts)); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
     });
     if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
       if(sl){
         for(var i=1;i<sl.pts.length-1;i++){ var p=sl.pts[i]; s+='<circle class="cab-wp" data-cab="'+selCab+'" data-wp="'+(i-1)+'" cx="'+p[0]+'" cy="'+p[1]+'" r="8"/>'; }
-        for(var j=1;j<sl.pts.length;j++){ var a=sl.pts[j-1], b=sl.pts[j]; s+='<circle class="cab-mid" data-cab="'+selCab+'" data-seg="'+(j-1)+'" cx="'+((a[0]+b[0])/2)+'" cy="'+((a[1]+b[1])/2)+'" r="6"/>'; }
+        for(var j=1;j<sl.pts.length;j++){ var a=sl.pts[j-1], b=sl.pts[j], mc=orthCorner(a,b); s+='<circle class="cab-mid" data-cab="'+selCab+'" data-seg="'+(j-1)+'" cx="'+mc[0]+'" cy="'+mc[1]+'" r="6"/>'; }
       }
     }
     if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
@@ -3381,10 +3390,10 @@ function cablingMarkup(){
   /* ── lato RITORNI / monitor (ciano) ── */
   if(showRet){
     R.returnLinks.forEach(function(l){
-      s+='<path class="cab-return" d="M '+l.pts[0][0]+' '+l.pts[0][1]+' L '+l.pts[1][0]+' '+l.pts[1][1]+'"/>';
-      if(state.cab.showLabels){ var mx=(l.pts[0][0]+l.pts[1][0])/2, my=(l.pts[0][1]+l.pts[1][1])/2;
+      s+='<path class="cab-return" d="'+orthPathD(l.pts)+'"/>';
+      if(state.cab.showLabels){ var mid=cabMidpoint(orthExpand(l.pts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
-        s+='<text class="cab-lbl cab-lbl-ret" x="'+mx.toFixed(1)+'" y="'+(my-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
+        s+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
     });
   }
   /* ── stage box + badge in/out (infrastruttura condivisa) ── */
@@ -3428,14 +3437,14 @@ function elecMarkup(){
   var op=(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
   var s='<g class="elec-layer" style="opacity:'+op+'">';
   R.feeds.forEach(function(f){
-    s+='<line class="elec-feed" x1="'+f.x1+'" y1="'+f.y1+'" x2="'+f.x2+'" y2="'+f.y2+'"/>';
-    if(sl){ var mx=(f.x1+f.x2)/2, my=(f.y1+f.y2)/2;
-      s+='<text class="elec-lbl elec-lbl-feed" x="'+mx.toFixed(1)+'" y="'+(my-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
+    s+='<path class="elec-feed" d="'+orthPathD([[f.x1,f.y1],[f.x2,f.y2]])+'"/>';
+    if(sl){ var mid=cabMidpoint(orthExpand([[f.x1,f.y1],[f.x2,f.y2]]));
+      s+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
   });
   R.loadLinks.forEach(function(l){
-    s+='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="M '+l.pts[0][0]+' '+l.pts[0][1]+' L '+l.pts[1][0]+' '+l.pts[1][1]+'"/>';
-    if(sl){ var mx=(l.pts[0][0]+l.pts[1][0])/2, my=(l.pts[0][1]+l.pts[1][1])/2;
-      s+='<text class="elec-lbl" x="'+mx.toFixed(1)+'" y="'+(my-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
+    s+='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="'+orthPathD(l.pts)+'"/>';
+    if(sl){ var mid=cabMidpoint(orthExpand(l.pts));
+      s+='<text class="elec-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
   });
   R.distros.forEach(function(d){
     if(d.auto) s+='<g class="elec-ghost"><rect x="'+(d.x-34)+'" y="'+(d.y-22)+'" width="68" height="44" rx="7"/><text x="'+d.x+'" y="'+(d.y+4)+'" text-anchor="middle">'+esc(d.name)+'</text></g>';
@@ -3480,13 +3489,13 @@ function electricEngine(){
     }
     if(!dd){ unassigned.push(l); return; }
     dd.phLoad[ph]+=l.a; dd.loadW+=l.w; dd.nLoads=(dd.nLoads||0)+1;
-    var pts=[[dd.x,dd.y],[l.it.x,l.it.y]], lenM=polyLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);
+    var pts=[[dd.x,dd.y],[l.it.x,l.it.y]], lenM=orthLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);
     loadLinks.push({load:l, distro:dd, phase:ph, pts:pts, lenM:lenM, cut:cut, cee:l.a>16});
   });
   /* 4. cavi di alimentazione distro→sorgente, sezione per corrente */
   var feeds=[];
   if(supply) distros.forEach(function(d){ if(d.loadW<=0) return;
-    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:Math.hypot(supply.x-d.x, supply.y-d.y)/100}); });
+    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:orthLen([[d.x,d.y],[supply.x,supply.y]])/100}); });
   /* 5. riepiloghi + criticità */
   var capW=distros.reduce(function(s,d){ return s+d.a*ELEC_VOLT*d.ph; },0);
   distros.forEach(function(d){
