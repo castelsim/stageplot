@@ -350,6 +350,28 @@
   body.dark .patch-row{border-color:#2c3a3f}
   body.dark .patch-row.patch-hd{background:#20292e;color:#9aa6b6}
   body.dark #patchRows{border-color:#314046}
+  /* Cablaggio elettrico (layer ambra) */
+  .elec-line{fill:none;stroke:#d97706;stroke-width:2.2;stroke-linecap:round;pointer-events:none}
+  .elec-line.elec-cee{stroke:#b45309;stroke-width:3}
+  .elec-feed{stroke:#b45309;stroke-width:3.4;stroke-dasharray:10 5;fill:none;pointer-events:none}
+  .elec-lbl{fill:#b45309;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
+  .elec-lbl-feed{fill:#92400e}
+  .elec-ghost{pointer-events:none}
+  .elec-ghost rect{fill:rgba(217,119,6,.10);stroke:#d97706;stroke-width:1.6;stroke-dasharray:5 4}
+  .elec-ghost text{fill:#b45309;font-size:10px;font-weight:700}
+  .elec-badge{pointer-events:none}
+  .elec-badge rect{fill:#b45309}
+  .elec-badge text{fill:#fff;font-size:9px;font-weight:700}
+  .elec-supply{pointer-events:none}
+  .elec-supply rect{fill:#92400e;stroke:#7c2d12;stroke-width:1.5}
+  .elec-supply text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
+  .elec-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
+  .elec-supplyhit{fill:transparent;pointer-events:all;cursor:grab}
+  body.dark .elec-line{stroke:#f59e0b}
+  body.dark .elec-feed,body.dark .elec-line.elec-cee{stroke:#fbbf24}
+  body.dark .elec-lbl{stroke:#0e1214;fill:#fcd34d}
+  body.dark .elec-lbl-feed{fill:#fbbf24}
+  body.dark .elec-ghost text{fill:#fcd34d}
   body.cab-solo #layItems{opacity:.28}
   body.dark .cab-lbl{stroke:#0e1214}
   body.dark .cab-line{stroke:#2dd4bf}

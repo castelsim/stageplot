@@ -512,6 +512,28 @@
   body.dark .patch-row{border-color:#2c3a3f}
   body.dark .patch-row.patch-hd{background:#20292e;color:#9aa6b6}
   body.dark #patchRows{border-color:#314046}
+  /* Cablaggio elettrico (layer ambra) */
+  .elec-line{fill:none;stroke:#d97706;stroke-width:2.2;stroke-linecap:round;pointer-events:none}
+  .elec-line.elec-cee{stroke:#b45309;stroke-width:3}
+  .elec-feed{stroke:#b45309;stroke-width:3.4;stroke-dasharray:10 5;fill:none;pointer-events:none}
+  .elec-lbl{fill:#b45309;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
+  .elec-lbl-feed{fill:#92400e}
+  .elec-ghost{pointer-events:none}
+  .elec-ghost rect{fill:rgba(217,119,6,.10);stroke:#d97706;stroke-width:1.6;stroke-dasharray:5 4}
+  .elec-ghost text{fill:#b45309;font-size:10px;font-weight:700}
+  .elec-badge{pointer-events:none}
+  .elec-badge rect{fill:#b45309}
+  .elec-badge text{fill:#fff;font-size:9px;font-weight:700}
+  .elec-supply{pointer-events:none}
+  .elec-supply rect{fill:#92400e;stroke:#7c2d12;stroke-width:1.5}
+  .elec-supply text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
+  .elec-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
+  .elec-supplyhit{fill:transparent;pointer-events:all;cursor:grab}
+  body.dark .elec-line{stroke:#f59e0b}
+  body.dark .elec-feed,body.dark .elec-line.elec-cee{stroke:#fbbf24}
+  body.dark .elec-lbl{stroke:#0e1214;fill:#fcd34d}
+  body.dark .elec-lbl-feed{fill:#fbbf24}
+  body.dark .elec-ghost text{fill:#fcd34d}
   body.cab-solo #layItems{opacity:.28}
   body.dark .cab-lbl{stroke:#0e1214}
   body.dark .cab-line{stroke:#2dd4bf}
@@ -1605,6 +1627,37 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <div id="cabSummary" style="margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)"></div>
       </div>
     </div>
+    <!-- Cablaggio elettrico (calcolato): sezione a tendina con cestino -->
+    <div id="elecSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="cab-sechead" id="elecSecHead">
+        <span class="caret" id="elecCaret">▾</span>
+        <span class="cab-sectitle"><b>Cablaggio elettrico</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
+        <button type="button" class="cab-trash" id="elecTrash" title="Rimuovi il cablaggio elettrico" aria-label="Rimuovi il cablaggio elettrico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>
+      <div id="elecCtrls" style="display:none;margin-top:8px">
+        <label class="cabfld" id="elecSupplyRow">Alimentazione<select id="elecSupply">
+          <option value="">— nessuna —</option>
+          <option value="rete">Allaccio rete / quadro generale</option>
+          <option value="right">Alimentazione lato DX</option>
+          <option value="left">Alimentazione lato SX</option>
+          <option value="custom">Personalizzata (trascina il nodo)</option>
+        </select></label>
+        <div id="elecGenNote" style="font-size:10.5px;color:var(--text-3);margin-top:2px;display:none"></div>
+        <label class="chk"><input type="checkbox" id="elecPhase3"> Trifase (bilancia L1/L2/L3)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:8px">Opacità
+          <input type="range" id="elecOpacity" min="15" max="100" step="5" style="flex:1"><span id="elecOpacityVal" style="min-width:32px;text-align:right"></span></label>
+        <div style="display:flex;flex-wrap:wrap;gap:1px 14px;margin-top:5px">
+          <label class="chk"><input type="checkbox" id="elecShowLabels"> Etichette</label>
+          <label class="chk"><input type="checkbox" id="elecShowLengths"> Lunghezze</label>
+        </div>
+        <label class="chk"><input type="checkbox" id="elecAuto"> Aggiornamento automatico</label>
+        <div class="row" style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn" id="elecRecalc" style="flex:1">Ricalcola</button>
+        </div>
+        <button class="btn primary" id="elecReport" style="width:100%;margin-top:8px">Piano elettrico (PDF)</button>
+        <div id="elecSummary" style="margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)"></div>
+      </div>
+    </div>
     <!-- Input / Patch list (auto, derivata dal motore): sezione a tendina con cestino, come il cablaggio -->
     <div id="patchSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <div class="cab-sechead" id="patchSecHead">
@@ -1631,6 +1684,20 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <div id="monRows"></div>
         <button class="btn primary" id="monPdf" style="width:100%;margin-top:10px">Esporta monitor list (PDF)</button>
         <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">I mix si raggruppano per <b>etichetta</b> dei monitor (es. "MIX 1"). IEM/hearback = stereo.</div>
+      </div>
+    </div>
+    <!-- Lista carichi (auto, dal motore elettrico): sezione a tendina con cestino -->
+    <div id="loadSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="cab-sechead" id="loadSecHead">
+        <span class="caret" id="loadCaret">▾</span>
+        <span class="cab-sectitle"><b>Lista carichi</b></span>
+        <button type="button" class="cab-trash" id="loadTrash" title="Rimuovi la lista carichi" aria-label="Rimuovi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>
+      <div id="loadBody" style="margin-top:8px">
+        <div id="loadSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
+        <div id="loadRows"></div>
+        <button class="btn primary" id="loadPdf" style="width:100%;margin-top:10px">Esporta lista carichi (PDF)</button>
+        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Potenza reale (assorbimento) di ogni elemento → distro e fase assegnati dal motore elettrico.</div>
       </div>
     </div>
   </div>
@@ -3318,7 +3385,8 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,locked:false,manual:{}} };
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,locked:false,manual:{}},
+  elec:{on:false,visible:true,opacity:70,auto:true,supply:null,phase3:true,showLabels:true,showLengths:true} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var zoneEdit=false, selZone=null;     /* modalità "Zone di cablaggio" e zona selezionata */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
@@ -3644,6 +3712,10 @@ function normalizeState(s){
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false,
     locked:!!cb.locked, manual:man };
+  var eb=s.elec||{};   /* cablaggio elettrico calcolato */
+  s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
+    supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
+    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -4358,13 +4430,121 @@ function cablingMarkup(){
   return s;
 }
 function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+
+/* ===== CABLAGGIO ELETTRICO — motore (carichi → distro → alimentazione, bilanciamento fasi) =====
+   Stesso principio del cablaggio audio: dati (WATT reali) → calcolo → layer → report. */
+var ELEC_VOLT=230;
+var ELEC_DISTRO = { distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"} };
+var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"],[250,"70 mm²"]];
+function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
+function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
+function elecSection(a){ for(var i=0;i<ELEC_SECTIONS.length;i++){ if(a<=ELEC_SECTIONS[i][0]) return ELEC_SECTIONS[i][1]; } return "95 mm²"; }
+function elecMargin(){ return 0.2; }
+function elecKW(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
+function elecSupplyPoint(){
+  var sp=state.elec&&state.elec.supply, W=state.stage.w, D=state.stage.d;
+  var gen=(state.items||[]).filter(elecIsGen)[0];
+  if(gen) return {kind:"gen", name:"Generatore "+GEN_KVA[gen.type]+" kVA", x:gen.x, y:gen.y, kva:GEN_KVA[gen.type]};   /* generatore sul palco = sorgente (vince) */
+  if(!sp) return null;
+  var nm={rete:"Allaccio rete / quadro gen.", right:"Alimentazione DX", left:"Alimentazione SX", custom:"Alimentazione", gen:"Generatore"};
+  var p={kind:sp.kind, name:nm[sp.kind]||"Alimentazione"};
+  if(sp.kind==="custom"){ p.x=sp.x; p.y=sp.y; }
+  else if(sp.kind==="right"){ p.x=W-30; p.y=D-40; }
+  else if(sp.kind==="left"){ p.x=30; p.y=D-40; }
+  else { p.x=W/2; p.y=D+108; }   /* rete: sotto, non sovrapposta all'home audio */
+  p.x=Math.round(p.x); p.y=Math.round(p.y); return p;
+}
+function elecMarkup(){
+  if(!state.elec || !state.elec.on || state.elec.visible===false) return '';
+  var R=elecResult(); if(!R) return '';
+  var op=(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
+  var s='<g class="elec-layer" style="opacity:'+op+'">';
+  R.feeds.forEach(function(f){
+    s+='<line class="elec-feed" x1="'+f.x1+'" y1="'+f.y1+'" x2="'+f.x2+'" y2="'+f.y2+'"/>';
+    if(sl){ var mx=(f.x1+f.x2)/2, my=(f.y1+f.y2)/2;
+      s+='<text class="elec-lbl elec-lbl-feed" x="'+mx.toFixed(1)+'" y="'+(my-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
+  });
+  R.loadLinks.forEach(function(l){
+    s+='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="M '+l.pts[0][0]+' '+l.pts[0][1]+' L '+l.pts[1][0]+' '+l.pts[1][1]+'"/>';
+    if(sl){ var mx=(l.pts[0][0]+l.pts[1][0])/2, my=(l.pts[0][1]+l.pts[1][1])/2;
+      s+='<text class="elec-lbl" x="'+mx.toFixed(1)+'" y="'+(my-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
+  });
+  R.distros.forEach(function(d){
+    if(d.auto) s+='<g class="elec-ghost"><rect x="'+(d.x-34)+'" y="'+(d.y-22)+'" width="68" height="44" rx="7"/><text x="'+d.x+'" y="'+(d.y+4)+'" text-anchor="middle">'+esc(d.name)+'</text></g>';
+    var mxA=Math.max.apply(null,d.phLoad.slice(0,d.ph)), bt=d.letter+' · '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW · '+mxA.toFixed(0)+'/'+d.a+'A', bw=Math.max(58,8+bt.length*4.6);
+    s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-(d.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-(d.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
+  });
+  if(R.supply){ var h=R.supply; s+='<g class="elec-supply"><rect x="'+(h.x-46)+'" y="'+(h.y-13)+'" width="92" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
+    +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-48)+'" y="'+(h.y-15)+'" width="96" height="30" rx="6"/></g>'; }
+  R.unassigned.forEach(function(u){ s+='<circle class="elec-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
+  s+='</g>';
+  return s;
+}
+function electricEngine(){
+  var ph3=state.elec.phase3!==false, issues=[];
+  /* 1. carichi = elementi con WATT (esclusi distro e generatori), grandi prima per bilanciare */
+  var loads=(state.items||[]).filter(function(it){ return !elecIsDistro(it) && !elecIsGen(it) && wattOf(it)>0; })
+    .map(function(it){ return {it:it, w:wattOf(it), a:wattOf(it)/ELEC_VOLT}; })
+    .sort(function(a,b){ return b.w-a.w; });
+  var totW=loads.reduce(function(s,l){ return s+l.w; },0), totA=totW/ELEC_VOLT;
+  /* 2. distro piazzati, o proposta automatica a gruppi */
+  var distros=(state.items||[]).filter(elecIsDistro).map(function(it){ var d=ELEC_DISTRO[it.type];
+    return {it:it, x:it.x, y:it.y, a:d.a, ph:ph3?d.ph:1, name:(it.label||d.name), phLoad:[0,0,0], loadW:0, auto:false}; });
+  if(!distros.length && loads.length){
+    cabClusters(loads.map(function(l){ return {it:l.it, list:[l]}; }), 600).forEach(function(c){
+      var clusterA=c.groups.reduce(function(s,g){ return s+g.list[0].a; },0);
+      var mdl = clusterA>63?"distro125":(clusterA>32?"distro63":"distro32"), dd=ELEC_DISTRO[mdl];
+      distros.push({it:null, x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-80))), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl});
+    });
+    issues.push({lvl:"info", msg:"Nessun quadro/distro sul palco: proposti "+distros.length+" distro vicino ai carichi. Trascina un distro reale dal catalogo per fissarlo."});
+  }
+  distros.forEach(function(d,i){ d.letter="Q"+(i+1); });
+  var supply=elecSupplyPoint();
+  /* 3. assegnazione carichi al distro più vicino, sulla fase meno carica */
+  var loadLinks=[], unassigned=[];
+  function d2(x,y,d){ return Math.pow(x-d.x,2)+Math.pow(y-d.y,2); }
+  loads.forEach(function(l){
+    var cand=distros.slice().sort(function(a,b){ return d2(l.it.x,l.it.y,a)-d2(l.it.x,l.it.y,b); });
+    var dd=null, ph=0;
+    for(var k=0;k<cand.length;k++){ var D=cand[k], minPh=0;
+      for(var p=1;p<D.ph;p++){ if(D.phLoad[p]<D.phLoad[minPh]) minPh=p; }
+      if(D.phLoad[minPh]+l.a <= D.a){ dd=D; ph=minPh; break; }
+    }
+    if(!dd){ unassigned.push(l); return; }
+    dd.phLoad[ph]+=l.a; dd.loadW+=l.w; dd.nLoads=(dd.nLoads||0)+1;
+    var pts=[[dd.x,dd.y],[l.it.x,l.it.y]], lenM=polyLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);
+    loadLinks.push({load:l, distro:dd, phase:ph, pts:pts, lenM:lenM, cut:cut, cee:l.a>16});
+  });
+  /* 4. cavi di alimentazione distro→sorgente, sezione per corrente */
+  var feeds=[];
+  if(supply) distros.forEach(function(d){ if(d.loadW<=0) return;
+    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:Math.hypot(supply.x-d.x, supply.y-d.y)/100}); });
+  /* 5. riepiloghi + criticità */
+  var capW=distros.reduce(function(s,d){ return s+d.a*ELEC_VOLT*d.ph; },0);
+  distros.forEach(function(d){
+    var mx=Math.max.apply(null,d.phLoad.slice(0,d.ph)), mn=Math.min.apply(null,d.phLoad.slice(0,d.ph));
+    if(mx>d.a) issues.push({lvl:"err", msg:"Distro "+d.letter+" sovraccarico: "+mx.toFixed(0)+" A su una fase (max "+d.a+" A)."});
+    else if(mx>0.85*d.a) issues.push({lvl:"warn", msg:"Distro "+d.letter+" quasi al limite ("+mx.toFixed(0)+"/"+d.a+" A su una fase)."});
+    /* sbilanciamento: solo se abbastanza carichi da poter bilanciare e squilibrio davvero grosso */
+    if(d.ph>1 && (d.nLoads||0)>=3 && mx>8 && (mx-mn)>0.5*mx) issues.push({lvl:"warn", msg:"Fasi sbilanciate sul distro "+d.letter+" (L1/L2/L3 = "+d.phLoad.slice(0,3).map(function(x){return x.toFixed(0);}).join("/")+" A): ridistribuisci i carichi."});
+  });
+  unassigned.forEach(function(l){ issues.push({lvl:"err", msg:"Carico senza distro: "+(l.it.label||TYPES[l.it.type].nome)+" ("+elecKW(l.w)+")."}); });
+  loadLinks.forEach(function(l){ if(l.cee) issues.push({lvl:"warn", msg:"«"+(l.load.it.label||TYPES[l.load.it.type].nome)+"» "+l.load.a.toFixed(0)+" A: serve una linea dedicata (CEE), non una Schuko."}); });
+  loadLinks.forEach(function(l){ if(l.lenM>25) issues.push({lvl:"warn", msg:"Carico lontano dal distro ("+(l.load.it.label||TYPES[l.load.it.type].nome)+", "+l.lenM.toFixed(0)+" m): valuta la caduta di tensione / sezione maggiore."}); });
+  if(supply && supply.kva && totW>supply.kva*1000*0.9) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: carico "+elecKW(totW)+" (> 90% della resa)."});
+  if(!distros.length && loads.length) issues.push({lvl:"err", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
+  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, unassigned:unassigned, supply:supply,
+          totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
+}
+var __elecRes=null;
+function elecResult(force){ if(force || state.elec.auto || !__elecRes) __elecRes=electricEngine(); return __elecRes; }
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()+zonesRegionsMarkup()
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
     +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+stageBlocksOverlay()+zonesOverlay()+frameMarkup(); }
+function overlayLayerMarkup(){ return cablingMarkup()+elecMarkup()+stageBlocksOverlay()+zonesOverlay()+frameMarkup(); }
 function zonesOverlay(){
   if(!zoneEdit) return '';
   return (state.zones||[]).map(function(z){
@@ -5263,6 +5443,11 @@ function miniSvg(k, over){
       var ZPOWER_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><path d="M17 11l-4 6h3l-1 4 4-6h-3z" fill="currentColor"/></svg>';
       body.appendChild(makeActionBtn("Zone Alimentazione","dove servono punti corrente", null, function(){ toggleZoneLayer("power"); }, ZPOWER_ICON)); n++;
       entries.push({nome:"Zone Alimentazione", dim:"dove servono punti corrente", action:function(){ toggleZoneLayer("power"); }, iconHtml:ZPOWER_ICON});
+      var ECAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M16 4l-4 7h3l-2 6 8-9h-4l3-4z" fill="currentColor"/><path d="M5 27h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      body.appendChild(makeActionBtn("Cablaggio elettrico","distro, fasi, carichi calcolati", null, toggleElecLayer, ECAB_ICON)); n++;
+      entries.push({nome:"Cablaggio elettrico", dim:"distro, fasi, carichi calcolati", action:toggleElecLayer, iconHtml:ECAB_ICON});
+      body.appendChild(makeActionBtn("Lista carichi","potenza per carico → distro/fase", null, toggleLoadView, ECAB_ICON)); n++;
+      entries.push({nome:"Lista carichi", dim:"potenza per carico → distro/fase", action:toggleLoadView, iconHtml:ECAB_ICON});
     }
     cats[c].forEach(function(k){
       if(c==="Palco e strutture") return;   /* categoria gestita interamente sopra (sottosezioni) */
@@ -5494,6 +5679,10 @@ svg.addEventListener("pointerdown", function(e){
   lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId};
   var sp = svgPoint(e);
   /* ── editing cavi audio (patch Max/MSP): agisce solo se clicchi un elemento del cavo ── */
+  if(state.elec && state.elec.on && state.elec.visible!==false && e.target.closest){
+    var esh=e.target.closest(".elec-supplyhit");
+    if(esh){ drag={mode:"elecsupply", moved:false}; svg.setPointerCapture(e.pointerId); return; }
+  }
   if(state.cab && state.cab.on && !state.cab.locked && e.target.closest){
     var chome=e.target.closest(".cab-homehit");
     if(chome){ drag={mode:"cabhome", moved:false}; svg.setPointerCapture(e.pointerId); return; }
@@ -5662,6 +5851,10 @@ svg.addEventListener("pointermove", function(e){
   }
   if(drag.mode==="cabhome"){   /* trascina il punto principale di connessione (diventa personalizzato) */
     sp=svgPoint(e); state.cab.home={kind:"custom", x:Math.round(sp.x), y:Math.round(sp.y)}; drag.moved=true; __cabRes=null; redrawStageLayers();
+    return;
+  }
+  if(drag.mode==="elecsupply"){   /* trascina l'alimentazione elettrica (diventa personalizzata) */
+    sp=svgPoint(e); state.elec.supply={kind:"custom", x:Math.round(sp.x), y:Math.round(sp.y)}; drag.moved=true; __elecRes=null; redrawStageLayers();
     return;
   }
   if(drag.mode==="venue"){
@@ -5847,6 +6040,7 @@ svg.addEventListener("pointerup", function(e){
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
   if(drag && drag.mode==="cabwp"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
+  if(drag && drag.mode==="elecsupply"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
   if(drag && (drag.mode==="zone"||drag.mode==="zoneresize")){ if(drag.moved){ save(); } renderZonePanel(); redrawStageLayers(); drag=null; return; }
   if(drag && drag.mode==="calibnav"){
     var wasMoved=drag.moved; drag=null; svg.classList.remove("dragging");
@@ -7342,7 +7536,11 @@ function layerRegistry(){
       removable:true, remove:function(){ state.cab.on=false; selCab=null; save(); render(); } },
     { id:"cabout", name:"Monitor / ritorni", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
-      visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } }
+      visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } },
+    { id:"elec", name:"Cablaggio elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
+      visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
+      opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; save(); render(); },
+      removable:true, remove:function(){ state.elec.on=false; save(); render(); } }
   ];
 }
 var layerOpen=true;
@@ -7574,10 +7772,97 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
   document.getElementById("monTrash").addEventListener("click", function(e){ e.stopPropagation(); monActive=false; render(); });
   document.getElementById("monPdf").addEventListener("click", function(){ monitorListPdf(); });
 })();
+/* ===== LISTA CARICHI automatica — derivata dal motore elettrico ===== */
+function loadList(){
+  var R=elecResult(true), rows=[], n=0;
+  R.loadLinks.forEach(function(l){ n++;
+    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true}); });
+  R.unassigned.forEach(function(l){ n++;
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false}); });
+  return {rows:rows, R:R};
+}
+var loadActive=false, loadOpen=true;
+function renderLoadPanel(){
+  var sec=document.getElementById("loadSec"); if(!sec) return;
+  sec.style.display = loadActive ? "block" : "none";
+  if(!loadActive) return;
+  document.getElementById("loadBody").style.display = loadOpen ? "block" : "none";
+  document.getElementById("loadCaret").textContent = loadOpen ? "▾" : "▸";
+  if(!loadOpen) return;
+  var host=document.getElementById("loadRows"), sum=document.getElementById("loadSummary");
+  var pl=loadList(), R=pl.R;
+  if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun carico elettrico sul palco.</div>'; sum.textContent=""; return; }
+  sum.innerHTML='<b>'+pl.rows.length+'</b> carichi · <b>'+elecKW(R.totW)+'</b> · '+R.totA.toFixed(0)+' A<br>Distro: <b>'+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join(", ")+'</b>';
+  var h='<div class="patch-row loadrow patch-hd"><span>#</span><span>Carico</span><span>Pot.</span><span>Q/L</span></div>';
+  pl.rows.forEach(function(r){
+    h+='<div class="patch-row loadrow'+(r.ok?'':' unassigned')+'"><span class="pn">'+r.n+'</span>'
+      +'<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
+      +'<span class="pmic">'+(r.w>=1000?(r.w/1000).toFixed(1).replace(".",",")+"kW":r.w+"W")+' <b class="p48b">'+r.a.toFixed(1)+'A</b></span>'
+      +'<span class="ppatch">'+esc(r.ok?r.distro+"·"+r.phase:"—")+'</span></div>';
+  });
+  host.innerHTML=h;
+}
+function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ loadOpen=true; closeMobileDrawers(); clearSelection(); } render(); }
+(function(){
+  var head=document.getElementById("loadSecHead"); if(!head) return;
+  head.addEventListener("click", function(e){ if(e.target.closest("#loadTrash")) return; loadOpen=!loadOpen; renderLoadPanel(); });
+  document.getElementById("loadTrash").addEventListener("click", function(e){ e.stopPropagation(); loadActive=false; render(); });
+  document.getElementById("loadPdf").addEventListener("click", function(){ loadListPdf(); });
+})();
+/* ===== Pannello CABLAGGIO ELETTRICO ===== */
+var elecOpen=true;
+function renderElecPanel(){
+  var sec=document.getElementById("elecSec"); if(!sec) return;
+  var on=!!(state.elec && state.elec.on);
+  sec.style.display = on ? "block" : "none";
+  if(!on) return;
+  document.getElementById("elecCtrls").style.display = elecOpen ? "block" : "none";
+  document.getElementById("elecCaret").textContent = elecOpen ? "▾" : "▸";
+  var gen=(state.items||[]).filter(elecIsGen)[0], gn=document.getElementById("elecGenNote");
+  document.getElementById("elecSupplyRow").style.display = gen ? "none" : "block";   /* col generatore l'alimentazione è fissa */
+  if(gen){ gn.style.display="block"; gn.textContent="Generatore "+GEN_KVA[gen.type]+" kVA sul palco: usato come sorgente."; } else gn.style.display="none";
+  document.getElementById("elecSupply").value = state.elec.supply ? state.elec.supply.kind : "";
+  document.getElementById("elecPhase3").checked = state.elec.phase3!==false;
+  document.getElementById("elecOpacity").value = state.elec.opacity;
+  document.getElementById("elecOpacityVal").textContent = state.elec.opacity+"%";
+  document.getElementById("elecShowLabels").checked = state.elec.showLabels!==false;
+  document.getElementById("elecShowLengths").checked = state.elec.showLengths!==false;
+  document.getElementById("elecAuto").checked = state.elec.auto!==false;
+  var R=elecResult(), s="";
+  if(!R.loads.length){ s='<span style="color:var(--text-3)">Nessun carico elettrico sul palco: aggiungi ampli, luci, rack…</span>'; }
+  else {
+    s+='Potenza totale: <b>'+elecKW(R.totW)+'</b> · '+R.totA.toFixed(0)+' A<br>';
+    if(R.supply) s+='Alimentazione: <b>'+esc(R.supply.name)+'</b>'+(R.supply.kva?' ('+R.supply.kva+' kVA)':'')+'<br>';
+    s+='Distro: <b>'+R.distros.map(function(d){ return d.letter+' '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW/'+d.a+'A'+(d.auto?' auto':''); }).join(", ")+'</b><br>';
+    if(R.feeds.length) s+='Linee di alimentazione: <b>'+R.feeds.map(function(f){ return f.distro.letter+' '+f.section; }).join(", ")+'</b><br>';
+    if(R.issues.length){ s+='<div style="margin-top:5px">'+R.issues.map(function(i){ var col=i.lvl==="err"?"var(--danger,#dc2626)":(i.lvl==="warn"?"#b45309":"var(--text-3)"); return '<div style="color:'+col+'">• '+esc(i.msg)+'</div>'; }).join("")+'</div>'; }
+    else s+='<span style="color:var(--accent)">Nessuna criticità.</span>';
+  }
+  document.getElementById("elecSummary").innerHTML=s;
+}
+function toggleElecLayer(){
+  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; elecOpen=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); return; }
+  state.elec.on=false; save(); render();
+}
+(function(){
+  var head=document.getElementById("elecSecHead"); if(!head) return;
+  head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; elecOpen=!elecOpen; renderElecPanel(); });
+  document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; save(); render(); });
+  document.getElementById("elecSupply").addEventListener("change", function(){ var k=this.value; state.elec.supply = !k ? null : (k==="custom"?{kind:"custom",x:Math.round(state.stage.w/2),y:Math.round(state.stage.d+40)}:{kind:k,x:0,y:0}); __elecRes=null; save(); render(); });
+  document.getElementById("elecPhase3").addEventListener("change", function(){ state.elec.phase3=this.checked; __elecRes=null; save(); render(); });
+  document.getElementById("elecOpacity").addEventListener("input", function(){ state.elec.opacity=+this.value; save(); render(); });
+  document.getElementById("elecShowLabels").addEventListener("change", function(){ state.elec.showLabels=this.checked; save(); render(); });
+  document.getElementById("elecShowLengths").addEventListener("change", function(){ state.elec.showLengths=this.checked; save(); render(); });
+  document.getElementById("elecAuto").addEventListener("change", function(){ state.elec.auto=this.checked; if(this.checked) __elecRes=null; save(); render(); });
+  document.getElementById("elecRecalc").addEventListener("click", function(){ elecResult(true); render(); });
+  document.getElementById("elecReport").addEventListener("click", function(){ elecReportPdf(); });
+})();
 function renderAccessoriCount(){
   renderLayerManager();
   renderCabPanel();
+  renderElecPanel();
   renderMonitorPanel();
+  renderLoadPanel();
   renderPatchPanel();
   var el=document.getElementById("accessoriCount"); if(!el) return;
   if(!state.items.length){ el.innerHTML=""; return; }
@@ -9105,6 +9390,54 @@ function monitorListPdf(){
     pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.nMon+"×", r.patch, false, r.box?"#111827":"#dc2626"); });
     if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-monitor-list.pdf");
+  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+function loadListPdf(){
+  var pl=loadList(); if(!pl.rows.length){ alert("Nessun carico elettrico sul palco."); return; }
+  var R=pl.R;
+  loadJsPDF().then(function(){
+    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    var M=16, y=22, cols=[M, M+14, M+92, M+124, M+150];
+    doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista carichi", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    doc.text("Totale: "+elecKW(R.totW)+" · "+R.totA.toFixed(0)+" A   ·   Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  "), M, y); y+=8;
+    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    trow("#","CARICO","W","A","DISTRO/FASE", true, "#b45309");
+    doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
+    pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, r.ok?"#111827":"#dc2626"); });
+    if(window.__loadPdfTest){ window.__loadPdfTest={name:fileName()+"-lista-carichi.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
+    doc.save(fileName()+"-lista-carichi.pdf");
+  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+function elecReportPdf(){
+  var R=elecResult(true); if(!R.loads.length){ alert("Nessun carico elettrico sul palco."); return; }
+  loadJsPDF().then(function(){
+    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    var W=210, M=16, y=0;
+    function line(txt, size, bold, color, dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
+    doc.setFillColor("#d97706"); doc.rect(0,0,W,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Piano elettrico", M, 9);
+    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    y=22;
+    if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
+    line("Riepilogo", 12, true, "#b45309", 6);
+    line("Potenza totale: "+elecKW(R.totW)+"  ·  "+R.totA.toFixed(0)+" A  ("+(R.phase3?"trifase":"monofase")+")", 10, false, null, 5);
+    if(R.supply) line("Alimentazione: "+R.supply.name+(R.supply.kva?" ("+R.supply.kva+" kVA)":""), 10, false, null, 5);
+    R.distros.forEach(function(d){ line("Distro "+d.letter+": "+d.name+"  "+(d.loadW/1000).toFixed(1).replace(".",",")+" kW / "+d.a+" A"+(d.auto?" (proposto)":"")+"   ·   L1/L2/L3 = "+d.phLoad.slice(0,d.ph).map(function(x){return x.toFixed(0);}).join("/")+" A", 9.5, false, null, 4.8); });
+    if(R.feeds.length) line("Linee di alimentazione: "+R.feeds.map(function(f){ return f.distro.letter+" "+f.a+"A "+f.section; }).join("  ·  "), 10, false, null, 5);
+    y+=4;
+    line("Dettaglio carichi", 12, true, "#b45309", 6);
+    R.loadLinks.forEach(function(l){ line((l.load.it.label||TYPES[l.load.it.type].nome)+"  ->  Distro "+l.distro.letter+" L"+(l.phase+1)+"   ("+l.load.w+" W · "+l.load.a.toFixed(1)+" A"+(l.cee?" · CEE":"")+")", 9, false, null, 4.6); });
+    R.unassigned.forEach(function(l){ line((l.it.label||TYPES[l.it.type].nome)+"  ->  SENZA DISTRO ("+l.w+" W)", 9, true, "#dc2626", 4.6); });
+    y+=4;
+    line("Criticità", 12, true, "#b45309", 6);
+    if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
+    else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
+    if(window.__elecPdfTest){ window.__elecPdfTest={name:fileName()+"-piano-elettrico.pdf", pages:doc.getNumberOfPages()}; return; }
+    doc.save(fileName()+"-piano-elettrico.pdf");
   }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 function svg2pdfFn(){ var s=window.svg2pdf; if(typeof s==="function") return s; if(s && typeof s.svg2pdf==="function") return s.svg2pdf; return null; }
