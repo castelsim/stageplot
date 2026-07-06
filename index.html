@@ -206,7 +206,7 @@
   #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
-    grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr 310px;   /* panel-refine: colonne compatte come il prototipo (erano 250/360) */
+    grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
   header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px}
@@ -362,6 +362,14 @@
   svg.dragging{cursor:grabbing}
   body.space-pan svg,body.space-pan svg *{cursor:grab !important}
   #props{grid-area:props;border-left:1px solid var(--border);padding:12px;overflow-y:auto}
+  /* Maniglia di ridimensionamento della colonna destra (solo desktop). position:fixed sulla cucitura
+     canvas↔props → nessun clip da overflow di #props; drag aggiorna --rail, doppio click = reset. */
+  #railHandle{position:fixed;top:52px;bottom:26px;right:calc(var(--rail,310px) - 4px);width:8px;z-index:30;
+    cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none}
+  #railHandle::before{content:"";width:2px;height:32px;border-radius:2px;background:var(--border);transition:background .12s,height .12s}
+  #railHandle:hover::before,#railHandle.dragging::before{background:var(--accent);height:54px}
+  body.dark #railHandle::before{background:var(--border-strong)}
+  @media(max-width:880px){#railHandle{display:none}}   /* mobile: #props è un drawer, niente maniglia */
   #propsGrab{display:none}   /* maniglia riduci-pannello: solo mobile, pannello espanso */
   #mPeek{display:none}       /* barra peek: solo mobile con elemento selezionato (no attr [hidden] per non incrociare display:none!important) */
   /* ── Modifica palco D1: stepper +/− e griglia posizione 3×3 ── */
@@ -1787,6 +1795,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 <button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
 <button class="fab props" id="fabProps" title="Proprietà" aria-label="Apri pannello">≡</button>
 <div id="mobBackdrop"></div>
+<div id="railHandle" title="Trascina per allargare il pannello · doppio click per reimpostare" aria-hidden="true"></div>
 <!-- Mobile A′: dock azioni primarie (sempre visibile ≤880px) + menu a un livello -->
 <nav id="mDock" aria-label="Azioni principali">
   <button data-dock="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Aggiungi</button>
@@ -8007,6 +8016,37 @@ function techAccordionOpen(which){
   if(which==="audit")auditOpen=true; else if(which==="cab")cabOpen=true; else if(which==="elec")elecOpen=true;
   else if(which==="patch")patchOpen=true; else if(which==="mon")monOpen=true; else if(which==="load")loadOpen=true;
 }
+/* Maniglia di ridimensionamento della colonna destra (solo desktop). Trascina la cucitura canvas↔props:
+   la larghezza vive in --rail, viene persistita e ri-clampata sulla finestra; doppio click = reset;
+   al rilascio si ri-adatta il palco così l'indicatore "Adatta" resta onesto. Inerte su mobile (grid off). */
+(function(){
+  var handle=document.getElementById("railHandle"); if(!handle) return;
+  var DEF=310, MIN=280, MAXHARD=560;
+  function railMax(){ return Math.max(MIN, Math.min(MAXHARD, window.innerWidth-220-340)); }   /* il canvas resta ≥340px */
+  function savedPref(){ try{ var s=parseInt(localStorage.getItem("sp_rail"),10); if(isFinite(s)&&s>0) return s; }catch(e){} return DEF; }
+  function currentRail(){ var v=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--rail"),10); return isFinite(v)&&v>0?v:DEF; }
+  function applyRail(px){ px=Math.round(Math.max(MIN, Math.min(railMax(), px))); document.documentElement.style.setProperty("--rail", px+"px"); return px; }
+  function setRail(px){ px=applyRail(px); try{ localStorage.setItem("sp_rail", px); }catch(e){} return px; }   /* preferenza dell'utente */
+  function refit(){ var b=document.getElementById("bFit"); if(b) b.click(); }
+  applyRail(savedPref());   /* ripristina la larghezza salvata (clampata alla finestra), senza sovrascrivere la preferenza */
+  var dragging=false, startX=0, startRail=0;
+  handle.addEventListener("pointerdown", function(e){
+    if(window.matchMedia("(max-width:880px)").matches) return;   /* solo desktop */
+    dragging=true; startX=e.clientX; startRail=currentRail(); handle.classList.add("dragging");
+    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+    document.body.style.cursor="col-resize"; e.preventDefault();
+  });
+  handle.addEventListener("pointermove", function(e){ if(dragging) applyRail(startRail-(e.clientX-startX)); });   /* trascina a sinistra = più largo */
+  function endDrag(e){
+    if(!dragging) return; dragging=false; handle.classList.remove("dragging");
+    try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
+    document.body.style.cursor=""; setRail(currentRail()); refit();
+  }
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
+  handle.addEventListener("dblclick", function(){ setRail(DEF); refit(); });
+  window.addEventListener("resize", function(){ applyRail(savedPref()); });   /* re-clampa sulla finestra, la preferenza resta */
+})();
 function renderAccessoriCount(){
   renderLayerManager();
   renderAuditPanel();
