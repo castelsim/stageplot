@@ -1185,21 +1185,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
   .stat-pw{color:var(--accent);font-weight:600}
 
-  /* ===== Zone di cablaggio (Fase A) ===== */
-  .zone-tag{font:600 15px/1 system-ui,sans-serif}
-  .zone-sub{font:600 11px/1 system-ui,sans-serif;opacity:.9}
-  .zone-reg.over rect{stroke-dasharray:6 4 !important}
-  .blkchip.over{background:rgba(220,38,38,.08)}
-  .comp-dim.over{color:#dc2626}
-  #zoneProps textarea,#zoneProps input[type=text],#zoneProps input[type=number]{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)}
-  body.dark #zoneProps input{background:#141a1d;border-color:#314046}
-  .zone-hit{fill:transparent;stroke:transparent;cursor:move;pointer-events:all}   /* all: in SVG il fill trasparente riceve comunque i click (auto/visiblePainted no) */
-  .zone-edge{fill:transparent;pointer-events:all}
-  .zone-edge.ew{cursor:ew-resize} .zone-edge.ns{cursor:ns-resize}
-  [data-zcolor]{display:flex;gap:6px}
-  [data-zcolor] button{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer}
-  [data-zcolor] button.on{border-color:var(--text)}
-
   /* ===== Cablaggio automatico (canvas + pannello) ===== */
   .cbl-audio{fill:none;stroke:#0d9488;stroke-width:3;stroke-linecap:round;opacity:.9}
   .cbl-power{fill:none;stroke:#d97706;stroke-width:3;stroke-linecap:round;opacity:.9}
@@ -1426,37 +1411,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <button class="btn primary" id="venueBtnDone" style="width:100%;margin-top:11px">Fatto</button>
       </div>
     </div>
-    <div id="zoneSec" hidden>
-      <h3 id="zoneSecTitle" style="margin:0 0 8px">Zone Audio</h3>
-      <div class="hint" id="zoneSecHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:9px">Aree dove servono ingressi audio per il service.</div>
-      <button class="btn primary" id="bSuggestZones" style="width:100%">✨ Suggerisci zone</button>
-      <button class="btn" id="bAddZone" style="width:100%;margin-top:6px">＋ Aggiungi zona</button>
-      <div id="zoneList" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
-      <div id="zoneProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
-        <label>Nome zona</label><input type="text" id="zLabel" maxlength="24" placeholder="Es. Drum / Archi / Regia palco">
-        <div id="zAudioFields" hidden>
-          <label style="margin-top:8px">Canali disponibili</label><input type="number" id="zChannels" min="0" step="1" inputmode="numeric" placeholder="Es. 16">
-          <label style="margin-top:8px">Stagebox / ciabatta audio</label><input type="text" id="zBox" maxlength="40" placeholder="Es. stagebox 16">
-        </div>
-        <div id="zPowerFields" hidden>
-          <label style="margin-top:8px">Tipo alimentazione</label><input type="text" id="zSupply" maxlength="40" placeholder="Es. 230V Schuko / 16A / 32A 3F">
-          <label style="margin-top:8px">Numero prese</label><input type="number" id="zOutlets" min="0" step="1" inputmode="numeric" placeholder="Es. 4">
-          <label style="margin-top:8px">Potenza disponibile (W)</label><input type="number" id="zWatts" min="0" step="100" inputmode="numeric" placeholder="Es. 3600">
-        </div>
-        <label style="margin-top:8px">Note tecniche</label><input type="text" id="zNotes" maxlength="200" placeholder="Es. alimentazione per iPad / leggii">
-        <label style="margin-top:8px">Colore</label>
-        <div class="chips" data-zcolor style="margin-top:4px">
-          <button type="button" data-c="#3b82f6" style="background:#3b82f6" aria-label="blu"></button>
-          <button type="button" data-c="#0d9488" style="background:#0d9488" aria-label="teal"></button>
-          <button type="button" data-c="#d97706" style="background:#d97706" aria-label="ambra"></button>
-          <button type="button" data-c="#7c3aed" style="background:#7c3aed" aria-label="viola"></button>
-          <button type="button" data-c="#dc2626" style="background:#dc2626" aria-label="rosso"></button>
-        </div>
-        <div class="comp-dim" id="zoneReadout" style="margin-top:10px">—</div>
-        <button class="btn danger" id="bDelZone" style="width:100%;margin-top:9px;font-size:12px">Elimina zona</button>
-      </div>
-      <button class="btn primary" id="bZoneDone" style="width:100%;margin-top:11px">Fatto</button>
-    </div>
   </div>
   <div class="sec" id="eventoSec" hidden>
     <h3 style="margin-bottom:6px">Evento</h3>
@@ -1615,7 +1569,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <div id="auditMetrics" style="font-size:11px;color:var(--text-3);margin:6px 0 8px"></div>
         <div id="auditFindings"></div>
         <div class="row" style="display:flex;gap:6px;margin-top:10px">
-          <button class="btn" id="auditAi" style="flex:1">Chiedi all'AI</button>
           <button class="btn primary" id="auditPdf" style="flex:1">Report PDF</button>
         </div>
       </div>
@@ -3430,7 +3383,6 @@ var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,locked:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,supply:null,phase3:true,showLabels:true,showLengths:true} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
-var zoneEdit=false, selZone=null;     /* modalità "Zone di cablaggio" e zona selezionata */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
 var chanEdit=false;                   /* modalità "Channel list" (mobile: si apre dal bottone) */
@@ -3830,43 +3782,8 @@ function gridMarkup(){
 /* ===== Palco a blocchi: il palco è l'unione di rettangoli/semicerchi (passerelle, ali, fronte curvo, L) ===== */
 function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y:0,w:state.stage.w,d:state.stage.d}]; }
 /* ===== ZONE DI CABLAGGIO (annotazione: raggruppa elementi per potenza/patch) ===== */
-/* zona (di un dato tipo) che contiene il centro dell'elemento */
-function zoneOf(it, kind){
-  if(!it || !state.zones) return null;
-  var cx=it.x, cy=it.y, hit=null;
-  state.zones.forEach(function(z){ if((!kind||z.kind===kind) && cx>=z.x && cx<=z.x+z.w && cy>=z.y && cy<=z.y+z.d) hit=z.id; });
-  return hit;
-}
-function itemsInZone(z){ return (state.items||[]).filter(function(it){ return it.x>=z.x && it.x<=z.x+z.w && it.y>=z.y && it.y<=z.y+z.d; }); }
-function zoneReqWatts(z){ return itemsInZone(z).reduce(function(a,it){ return a+wattOf(it); },0); }        /* potenza richiesta dagli oggetti nella zona */
-function zoneReqChannels(z){ return itemsInZone(z).reduce(function(a,it){ return a+itemChannels(it); },0); }/* canali richiesti dagli oggetti nella zona */
-function zoneById(zid){ return (state.zones||[]).filter(function(z){return z.id===zid;})[0]||null; }
-function zoneWattW(zid){ var z=zoneById(zid); return z?zoneReqWatts(z):0; }   /* compat: potenza richiesta nella zona */
-/* un layer è visibile se attivo dal toggle, oppure mentre stai modificando quel tipo di zona */
-function zoneLayerVisible(kind){ return (kind==="power"?state.layerPower:state.layerAudio) || (zoneEdit && zoneEditKind===kind); }
-function zoneSpec(z){   /* etichetta sintetica + stato (ok/over) */
-  if(z.kind==="power"){
-    var reqW=zoneReqWatts(z), av=z.watts||0, over=(av>0 && reqW>av);
-    var t=[]; if(z.supply) t.push(z.supply); if(z.outlets) t.push(z.outlets+(z.outlets===1?" presa":" prese"));
-    if(av>0) t.push((reqW/1000).toFixed(1).replace(".",",")+"/"+(av/1000).toFixed(1).replace(".",",")+" kW");
-    else if(reqW>0) t.push((reqW/1000).toFixed(1).replace(".",",")+" kW");
-    return {text:t.join(" · "), over:over};
-  }
-  var reqC=zoneReqChannels(z), avC=z.channels||0, overC=(avC>0 && reqC>avC);
-  var a=[]; if(z.box) a.push(z.box);
-  if(avC>0) a.push(reqC+"/"+avC+" ch"); else if(reqC>0) a.push(reqC+" ch");
-  return {text:a.join(" · "), over:overC};
-}
-function zonesRegionsMarkup(){
-  return (state.zones||[]).filter(function(z){ return zoneLayerVisible(z.kind); }).map(function(z){
-    var sp=zoneSpec(z), sub=sp.text, warn=sp.over;
-    return '<g class="zone-reg'+(warn?' over':'')+'">'
-      +'<rect x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.d+'" rx="10" fill="'+z.color+'" fill-opacity="0.06" stroke="'+(warn?'#dc2626':z.color)+'" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="'+(z.kind==="power"?"4 4":"12 8")+'"/>'
-      +'<text class="zone-tag" x="'+(z.x+8)+'" y="'+(z.y+20)+'" fill="'+(warn?'#dc2626':z.color)+'">'+(z.kind==="power"?"⚡ ":"🎙 ")+esc(z.label||"")+'</text>'
-      +(sub?'<text class="zone-sub" x="'+(z.x+8)+'" y="'+(z.y+33)+'" fill="'+(warn?'#dc2626':z.color)+'">'+esc(sub)+'</text>':'')
-      +'</g>';
-  }).join("");
-}
+/* [Zone Audio / Zone Alimentazione rimossi 06/07/2026 — superati dai motori audio/elettrico.
+   Restano solo i campi di stato inerti (zones/layerAudio/layerPower) per compatibilità coi progetti salvati.] */
 function isSingleRect(){ var b=stageBlocks(); return b.length===1 && b[0].shape!=="semi" && !(b[0].pts&&b[0].pts.length===4); }
 function stageHeightNote(){ var h=stageBlocks()[0].h||0; return h?" · h "+h+" cm":""; }
 /* angoli del blocco: r.pts (quadrilatero libero) se presente, altrimenti i 4 spigoli del rettangolo.
@@ -4613,7 +4530,11 @@ function auditEngine(){
   (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
   /* punteggio di prontezza (pesato per gravità) */
   var errs=f.filter(function(x){return x.lvl==="err";}).length, warns=f.filter(function(x){return x.lvl==="warn";}).length;
-  var score = items.length ? Math.max(0, 100 - errs*14 - warns*6) : 0;
+  /* i findings vengono deduplicati per messaggio: senza questo, 44 sorgenti identiche non instradate
+     collassano a 1 e il piano rotto sembra "Da rivedere". Penalità scalata sulla MAGNITUDINE reale
+     (elementi senza destinazione da entrambi i motori), capata così pochi non affondano ma molti sì. */
+  var unrouted=(Rc.unassigned||[]).length+(Re.unassigned||[]).length;
+  var score = items.length ? Math.max(0, 100 - errs*14 - warns*6 - Math.min(45, unrouted*3)) : 0;
   var grade = !items.length ? "Vuoto" : (score>=90?"Pronto" : (score>=65?"Da rivedere" : "Incompleto"));
   return {findings:f, errs:errs, warns:warns, score:score, grade:grade, totCableM:totCableM,
           audioSrc:audioSrc, monitors:monitors, loadsN:loadsN, totW:Re.totW||0, mixer:Rc.mixer||""};
@@ -4630,24 +4551,11 @@ function auditFixAddDistro(){
 function auditFixSetRete(){ state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); }
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
-  return stageFloorMarkup()+stageDimsMarkup()+zonesRegionsMarkup()
+  return stageFloorMarkup()+stageDimsMarkup()
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
     +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+elecMarkup()+stageBlocksOverlay()+zonesOverlay()+frameMarkup(); }
-function zonesOverlay(){
-  if(!zoneEdit) return '';
-  return (state.zones||[]).map(function(z){
-    var sel=(selZone===z.id), s='<rect class="zone-hit" data-zone="'+z.id+'" x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.d+'" rx="10"/>';
-    if(sel){ var T=16;
-      s+='<rect class="zone-edge ew" data-zedge="r" data-zone="'+z.id+'" x="'+(z.x+z.w-T/2)+'" y="'+z.y+'" width="'+T+'" height="'+z.d+'"/>'
-        +'<rect class="zone-edge ew" data-zedge="l" data-zone="'+z.id+'" x="'+(z.x-T/2)+'" y="'+z.y+'" width="'+T+'" height="'+z.d+'"/>'
-        +'<rect class="zone-edge ns" data-zedge="b" data-zone="'+z.id+'" x="'+z.x+'" y="'+(z.y+z.d-T/2)+'" width="'+z.w+'" height="'+T+'"/>'
-        +'<rect class="zone-edge ns" data-zedge="t" data-zone="'+z.id+'" x="'+z.x+'" y="'+(z.y-T/2)+'" width="'+z.w+'" height="'+T+'"/>';
-    }
-    return s;
-  }).join("");
-}
+function overlayLayerMarkup(){ return cablingMarkup()+elecMarkup()+stageBlocksOverlay()+frameMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -5519,11 +5427,8 @@ function miniSvg(k, over){
       var CAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 25 Q 14 20 16 13 T 27 7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="25" r="2.6" fill="currentColor"/><rect x="23" y="4" width="7" height="6" rx="1.5" fill="currentColor"/></svg>';
       var PATCH_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M8 22l4-12 3 8 2-5 3 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5 26h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var ZAUDIO_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><circle cx="16" cy="16" r="3.4" fill="currentColor"/></svg>';
       var ECAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M16 4l-4 7h3l-2 6 8-9h-4l3-4z" fill="currentColor"/><path d="M5 27h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var ZPOWER_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><path d="M17 11l-4 6h3l-1 4 4-6h-3z" fill="currentColor"/></svg>';
-      var zAudio=function(){ toggleZoneLayer("audio"); }, zPower=function(){ toggleZoneLayer("power"); };
       var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       var hd=document.createElement("h4"); hd.textContent="Diagnostica"; body.appendChild(hd);
       body.appendChild(makeActionBtn("Audit progetto","analisi automatica + punteggio",null,toggleAuditView,AUDIT_ICON)); n++;
@@ -5531,13 +5436,11 @@ function miniSvg(k, over){
       var ha=document.createElement("h4"); ha.textContent="Audio"; body.appendChild(ha);
       [["Cablaggio audio","cavi calcolati sorgente → stagebox",toggleCabLayer,CAB_ICON],
        ["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
-       ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON],
-       ["Zone Audio","dove servono ingressi audio",zAudio,ZAUDIO_ICON]].forEach(function(a){
+       ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON]].forEach(function(a){
         body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
       var he=document.createElement("h4"); he.textContent="Elettrico"; body.appendChild(he);
       [["Cablaggio elettrico","distro, fasi, carichi calcolati",toggleElecLayer,ECAB_ICON],
-       ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON],
-       ["Zone Alimentazione","dove servono punti corrente",zPower,ZPOWER_ICON]].forEach(function(a){
+       ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
         body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
     }
     cats[c].forEach(function(k){
@@ -5811,16 +5714,6 @@ svg.addEventListener("pointerdown", function(e){
     var venEl=e.target.closest ? e.target.closest("[data-venue]") : null;
     if(venEl){ drag={mode:"venue", sp0:{x:sp.x,y:sp.y}, x0:state.venue.x, y0:state.venue.y, moved:false};
       svg.setPointerCapture(e.pointerId); return; }
-  }
-  /* zone di cablaggio: trascina/ridimensiona la zona (in modalità zone) */
-  if(zoneEdit){
-    var ze=e.target && e.target.getAttribute && e.target.getAttribute("data-zedge");
-    var zid=e.target && e.target.getAttribute && e.target.getAttribute("data-zone");
-    if(zid){ selZone=zid; var zz=state.zones.filter(function(x){return x.id===zid;})[0];
-      if(zz){ drag = ze ? {mode:"zoneresize", zid:zid, edge:ze, x0:zz.x,y0:zz.y,w0:zz.w,d0:zz.d, sx:sp.x, sy:sp.y, moved:false}
-                        : {mode:"zone", zid:zid, ox:sp.x-zz.x, oy:sp.y-zz.y, moved:false};
-        renderZonePanel(); svg.setPointerCapture(e.pointerId); return; }   /* niente redrawStageLayers qui: rimuoverebbe l'e.target e interromperebbe il gesto */
-    }
   }
   /* cornice di stampa: ridimensiona dalle maniglie o sposta dal corpo */
   if(frameEdit && state.printFrame){
@@ -6120,19 +6013,6 @@ svg.addEventListener("pointermove", function(e){
     vb.x = drag.vx-(e.clientX-drag.px)*kx;
     vb.y = drag.vy-(e.clientY-drag.py)*ky;
     svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
-  } else if(drag.mode==="zone"){
-    sp=svgPoint(e);
-    var z=state.zones.filter(function(x){return x.id===drag.zid;})[0];
-    if(z){ z.x=Math.round(sp.x-drag.ox); z.y=Math.round(sp.y-drag.oy); drag.moved=true; redrawStageLayers(); }
-  } else if(drag.mode==="zoneresize"){
-    sp=svgPoint(e);
-    var z2=state.zones.filter(function(x){return x.id===drag.zid;})[0];
-    if(z2){ var zdx=sp.x-drag.sx, zdy=sp.y-drag.sy;
-      if(drag.edge==="r") z2.w=Math.max(30,Math.round(drag.w0+zdx));
-      if(drag.edge==="l"){ z2.x=Math.round(drag.x0+zdx); z2.w=Math.max(30,Math.round(drag.w0-zdx)); }
-      if(drag.edge==="b") z2.d=Math.max(30,Math.round(drag.d0+zdy));
-      if(drag.edge==="t"){ z2.y=Math.round(drag.y0+zdy); z2.d=Math.max(30,Math.round(drag.d0-zdy)); }
-      drag.moved=true; redrawStageLayers(); }
   }
 });
 svg.addEventListener("pointerup", function(e){
@@ -6141,7 +6021,6 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="cabwp"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="elecsupply"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
-  if(drag && (drag.mode==="zone"||drag.mode==="zoneresize")){ if(drag.moved){ save(); } renderZonePanel(); redrawStageLayers(); drag=null; return; }
   if(drag && drag.mode==="calibnav"){
     var wasMoved=drag.moved; drag=null; svg.classList.remove("dragging");
     if(!wasMoved && venueCalibMode>0 && venueCalibMode<=2){
@@ -6274,12 +6153,9 @@ function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
   document.body.classList.toggle("stage-edit", stageEdit);
   if(panel) panel.hidden=!stageEdit;
-  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec"), _zs=document.getElementById("zoneSec");
+  var _bs=document.getElementById("stageBlocksSec"), _vs=document.getElementById("venueSec");
   if(_bs) _bs.hidden = stagePanelView!=="palco";
   if(_vs) _vs.hidden = stagePanelView!=="planimetria";
-  if(_zs) _zs.hidden = stagePanelView!=="zone";
-  zoneEdit = stageEdit && stagePanelView==="zone";
-  if(stagePanelView==="zone"){ renderZonePanel(); return; }
   if(!stageEdit) return;
   recalcStageBBox();
   var b=stageBlocks();
@@ -6439,20 +6315,6 @@ document.addEventListener("click", function(e){
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
-document.getElementById("bSuggestZones").addEventListener("click", suggestZonesClick);
-document.getElementById("bAddZone").addEventListener("click", addZone);
-document.getElementById("bDelZone").addEventListener("click", delZone);
-document.getElementById("bZoneDone").addEventListener("click", function(){ toggleZoneLayer(zoneEditKind||"audio"); });
-function selZoneObj(){ return state.zones.filter(function(x){return x.id===selZone;})[0]||null; }
-function zField(id, apply){ var el=document.getElementById(id); if(!el) return; el.addEventListener("input", function(){ var z=selZoneObj(); if(z){ apply(z, this.value); save(); renderZonePanel(); redrawStageLayers(); } }); }
-zField("zLabel", function(z,v){ z.label=String(v).slice(0,24); });
-zField("zNotes", function(z,v){ z.notes=String(v).slice(0,200); });
-zField("zChannels", function(z,v){ z.channels=Math.max(0, parseInt(v,10)||0); });
-zField("zBox", function(z,v){ z.box=String(v).slice(0,40); });
-zField("zSupply", function(z,v){ z.supply=String(v).slice(0,40); });
-zField("zOutlets", function(z,v){ z.outlets=Math.max(0, parseInt(v,10)||0); });
-zField("zWatts", function(z,v){ z.watts=Math.max(0, parseInt(v,10)||0); });
-document.querySelector('[data-zcolor]').addEventListener("click", function(e){ var b=e.target.closest("button"); if(!b) return; var z=selZoneObj(); if(z){ z.color=b.dataset.c; save(); renderZonePanel(); redrawStageLayers(); } });
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
@@ -7616,19 +7478,13 @@ function countAccessori(){
 }
 /* ===== LAYER MANAGER — governa visibilità/opacità/blocco/rimozione dei layer tecnici =====
    Registro estensibile = fonte unica (colori formalizzati). Compare a destra solo se ≥1 layer attivo. */
-var LAYER_COLORS = { audioIn:"#0d9488", monitor:"#06b6d4", elettrico:"#d97706", rete:"#4f46e5", luci:"#db2777", video:"#16a34a", zoneAudio:"#3b82f6", zonePower:"#d97706" };
+var LAYER_COLORS = { audioIn:"#0d9488", monitor:"#06b6d4", elettrico:"#d97706", rete:"#4f46e5", luci:"#db2777", video:"#16a34a" };
 var _LM_EYE='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 var _LM_EYEOFF='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M1 1l22 22"/></svg>';
 var _LM_LOCK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 var _LM_TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>';
 function layerRegistry(){
-  var zA=(state.zones||[]).some(function(z){return z.kind==="audio";});
-  var zP=(state.zones||[]).some(function(z){return z.kind==="power";});
   return [
-    { id:"zaudio", name:"Zone Audio", color:LAYER_COLORS.zoneAudio, active:zA,
-      visible:!!state.layerAudio, setVisible:function(v){ state.layerAudio=v; save(); render(); } },
-    { id:"zpower", name:"Zone Alimentazione", color:LAYER_COLORS.zonePower, active:zP,
-      visible:!!state.layerPower, setVisible:function(v){ state.layerPower=v; save(); render(); } },
     { id:"cabin", name:"Cablaggio audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; save(); render(); },
@@ -7991,23 +7847,10 @@ function renderAuditPanel(){
   });
 }
 function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
-function auditAskAi(){
-  var A=auditEngine();
-  var L=["Sei un sound engineer esperto di live. Ecco il mio stage plot e l'analisi automatica di StagePlot. Dammi un parere professionale sintetico e 3-5 suggerimenti concreti e prioritari.",""];
-  L.push("PROGETTO: "+(state.titolo||"senza titolo")+(state.luogo?" @ "+state.luogo:""));
-  L.push("Elementi: "+state.items.length+" · Ingressi audio: "+A.audioSrc+" · Mix monitor: "+A.monitors+" · Potenza: "+(A.totW/1000).toFixed(1)+" kW · Cavo stimato: "+A.totCableM.toFixed(0)+" m"+(A.mixer&&MIXER_DB[A.mixer]?" · Mixer: "+hwLabel(A.mixer,MIXER_DB):""));
-  L.push("Prontezza StagePlot: "+A.score+"/100 ("+A.grade+")","","CRITICITÀ RILEVATE:");
-  A.findings.filter(function(x){return x.lvl==="err"||x.lvl==="warn";}).forEach(function(x){ L.push("- ["+x.lvl+"] ("+x.cat+") "+x.msg); });
-  if(A.errs+A.warns===0) L.push("- nessuna (progetto pulito)");
-  var p=L.join("\n"), enc=encodeURIComponent(p);
-  try{ if(navigator.clipboard) navigator.clipboard.writeText(p); }catch(e){}
-  window.open(enc.length<7000 ? "https://chatgpt.com/?q="+enc : "https://chatgpt.com/", "_blank", "noopener");
-}
 (function(){
   var head=document.getElementById("auditSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#auditTrash")) return; if(auditOpen) auditOpen=false; else techAccordionOpen("audit"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("auditTrash").addEventListener("click", function(e){ e.stopPropagation(); auditActive=false; render(); });
-  document.getElementById("auditAi").addEventListener("click", function(){ auditAskAi(); });
   document.getElementById("auditPdf").addEventListener("click", function(){ auditReportPdf(); });
 })();
 /* Progressive disclosure: un solo pannello tecnico espanso per volta (accordion) → niente colonna infinita */
@@ -8268,124 +8111,10 @@ function toggleVenueEdit(){
   renderStagePanel(); render(); }
 
 /* ===== Zone di cablaggio ===== */
-var zoneEditKind=null;   /* "audio" | "power" mentre modifichi un layer */
-function toggleZoneLayer(kind){
-  if(stageEdit && stagePanelView==="zone" && zoneEditKind===kind){ stageEdit=false; selZone=null; venueAutoLock(); renderStagePanel(); render(); return; }   /* già su questo tool: esci */
-  if(stageEdit && stagePanelView==="zone"){ zoneEditKind=kind; selZone=null; }   /* cambia tipo di layer */
-  else if(stageEdit){ stagePanelView="zone"; zoneEditKind=kind; selBlock=null; selZone=null; venueAutoLock(); }
-  else { stageEdit=true; stagePanelView="zone"; zoneEditKind=kind; selBlock=null; selZone=null; exitHubModes("palco"); clearSelection(); }
-  if(kind==="power") state.layerPower=true; else state.layerAudio=true;   /* aprire il tool accende il layer */
-  maybeAutoZones();
-  renderStagePanel(); render(); }
-/* ── Zone suggerite dagli oggetti (clustering di prossimità), del tipo corrente ── */
-var ZONE_IGNORE={metro:1, testo:1};
-function niceUp(v, step, min){ var n=Math.max(min, Math.ceil(v/step)*step); return n; }
-function suggestZones(kind){
-  var pts=(state.items||[]).filter(function(it){ return !ZONE_IGNORE[it.type]; })
-    .map(function(it){ return {it:it, x:it.x, y:it.y}; });
-  if(pts.length<2) return [];
-  var T=220, parent=pts.map(function(_,i){return i;});
-  function find(i){ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; }
-  for(var i=0;i<pts.length;i++) for(var j=i+1;j<pts.length;j++){
-    if(Math.hypot(pts[i].x-pts[j].x, pts[i].y-pts[j].y)<=T) parent[find(i)]=find(j);
-  }
-  var groups={}; pts.forEach(function(p,i){ var r=find(i); (groups[r]=groups[r]||[]).push(p); });
-  var clusters=Object.keys(groups).map(function(k){ return groups[k]; });
-  function centroid(c){ var sx=0,sy=0; c.forEach(function(p){sx+=p.x;sy+=p.y;}); return [sx/c.length, sy/c.length]; }
-  while(clusters.length>5){                          /* cap a 5: fondi i due cluster più vicini */
-    var best=Infinity, bi=0, bj=1;
-    for(var a=0;a<clusters.length;a++) for(var b=a+1;b<clusters.length;b++){
-      var ca=centroid(clusters[a]), cb=centroid(clusters[b]), d=Math.hypot(ca[0]-cb[0], ca[1]-cb[1]);
-      if(d<best){ best=d; bi=a; bj=b; }
-    }
-    clusters[bi]=clusters[bi].concat(clusters[bj]); clusters.splice(bj,1);
-  }
-  var PAD=60, W=state.stage.w, D=state.stage.d, col=(kind==="power"?"#d97706":"#3b82f6"), used={};
-  return clusters.map(function(c,idx){
-    var xs=c.map(function(p){return p.x;}), ys=c.map(function(p){return p.y;});
-    var x0=Math.max(0,Math.min.apply(null,xs)-PAD), y0=Math.max(0,Math.min.apply(null,ys)-PAD);
-    var x1=Math.min(W,Math.max.apply(null,xs)+PAD), y1=Math.min(D,Math.max.apply(null,ys)+PAD);
-    var cx=centroid(c)[0];
-    var hasDrums=c.some(function(p){ return /batt|drum|kick|snare|\btom|hihat|crash|ride|floor|timp/.test(String(p.it.type)); });
-    var base = hasDrums ? "Batteria" : (cx < W/3 ? "SX" : cx > 2*W/3 ? "DX" : "CS");
-    var lbl=base, k=2; while(used[lbl]){ lbl=base+" "+k; k++; } used[lbl]=1;
-    var z={id:"z"+Date.now()+"_"+idx+"_"+kind, kind:kind, label:lbl, x:Math.round(x0), y:Math.round(y0), w:Math.max(30,Math.round(x1-x0)), d:Math.max(30,Math.round(y1-y0)), color:col, notes:"", channels:0, box:"", supply:"", outlets:0, watts:0};
-    var reqC=c.reduce(function(a,p){return a+itemChannels(p.it);},0), reqW=c.reduce(function(a,p){return a+wattOf(p.it);},0);
-    if(kind==="audio"){ z.channels = reqC>0 ? niceUp(reqC,8,8) : 8; z.box = "stagebox "+z.channels; }
-    else { z.watts = reqW>0 ? niceUp(reqW,1500,1500) : 1500; z.supply="230V"; z.outlets = Math.max(2, Math.ceil(reqW/1500)*2); }
-    return z;
-  });
-}
-function applySuggestedZones(){
-  var kind=zoneEditKind||"audio", zs=suggestZones(kind);
-  if(!zs.length){ return; }
-  state.zones=state.zones.filter(function(z){return z.kind!==kind;}).concat(zs); selZone=zs[0].id; save(); renderZonePanel(); redrawStageLayers();
-}
-function maybeAutoZones(){   /* alla prima apertura di un tool senza zone di quel tipo: suggerimento automatico */
-  var kind=zoneEditKind||"audio";
-  if(state.zones.some(function(z){return z.kind===kind;})) return;
-  if((state.items||[]).filter(function(it){return !ZONE_IGNORE[it.type];}).length>=2){
-    var zs=suggestZones(kind); if(zs.length){ state.zones=state.zones.concat(zs); selZone=zs[0].id; save(); }
-  }
-}
-function suggestZonesClick(){
-  var kind=zoneEditKind||"audio", has=state.zones.some(function(z){return z.kind===kind;});
-  if(has){
-    confirmDialog({icon:"warn", title:"Rigenerare le zone?", message:"Le zone di questo tipo verranno sostituite dal suggerimento automatico in base agli oggetti sul palco.", confirmText:"Rigenera"})
-      .then(function(ok){ if(ok) applySuggestedZones(); });
-  } else applySuggestedZones();
-}
-function addZone(){
-  var kind=zoneEditKind||"audio", W=state.stage.w, D=state.stage.d, w=Math.min(400,Math.round(W*0.4)), d=Math.min(300,Math.round(D*0.4));
-  var same=state.zones.filter(function(z){return z.kind===kind;}).length;
-  var z={id:"z"+Date.now(), kind:kind, label:(kind==="power"?"Alim ":"Audio ")+String.fromCharCode(65+(same%26)),
-    x:Math.round((W-w)/2), y:Math.round((D-d)/2), w:w, d:d, color:(kind==="power"?"#d97706":"#3b82f6"),
-    notes:"", channels:(kind==="audio"?8:0), box:"", supply:(kind==="power"?"230V Schuko":""), outlets:(kind==="power"?2:0), watts:(kind==="power"?1500:0)};
-  state.zones.push(z); selZone=z.id; save(); renderZonePanel(); redrawStageLayers();
-}
-function delZone(){ state.zones=state.zones.filter(function(z){return z.id!==selZone;}); selZone=null; save(); renderZonePanel(); redrawStageLayers(); }
-function renderZonePanel(){
-  var list=document.getElementById("zoneList"); if(!list) return;
-  var kind=zoneEditKind||"audio";
-  document.getElementById("zoneSecTitle").textContent = kind==="power"?"Zone Alimentazione":"Zone Audio";
-  document.getElementById("zoneSecHint").textContent = kind==="power"
-    ? "Aree dove serve corrente: indica tipo di alimentazione, n. prese e potenza disponibile per il service."
-    : "Aree dove servono ingressi audio: indica canali disponibili e stagebox/ciabatta per il service.";
-  list.innerHTML="";
-  var zs=state.zones.filter(function(z){return z.kind===kind;});
-  if(!zs.length) list.innerHTML='<div class="hint" style="font-size:11.5px;color:var(--text-2)">Nessuna zona. Usa "＋ Aggiungi zona" o "Suggerisci zone".</div>';
-  zs.forEach(function(z){
-    var sp=zoneSpec(z), b=document.createElement("button"); b.type="button"; b.className="blkchip"+(selZone===z.id?" sel":"")+(sp.over?" over":"");
-    b.textContent=(z.label||"—")+(sp.text?" · "+sp.text:""); b.style.borderColor=(sp.over?"#dc2626":z.color);
-    b.addEventListener("click", function(){ selZone=z.id; renderZonePanel(); redrawStageLayers(); });
-    list.appendChild(b);
-  });
-  var zp=document.getElementById("zoneProps"), z=state.zones.filter(function(x){return x.id===selZone && x.kind===kind;})[0];
-  zp.hidden=!z;
-  document.getElementById("zAudioFields").hidden = !(z && kind==="audio");
-  document.getElementById("zPowerFields").hidden = !(z && kind==="power");
-  if(z){
-    document.getElementById("zLabel").value=z.label||"";
-    document.querySelectorAll('[data-zcolor] button').forEach(function(btn){ btn.classList.toggle("on", btn.dataset.c===z.color); });
-    document.getElementById("zNotes").value=z.notes||"";
-    if(kind==="audio"){ document.getElementById("zChannels").value=z.channels||""; document.getElementById("zBox").value=z.box||""; }
-    else { document.getElementById("zSupply").value=z.supply||""; document.getElementById("zOutlets").value=z.outlets||""; document.getElementById("zWatts").value=z.watts||""; }
-    var sp2=zoneSpec(z), ro=document.getElementById("zoneReadout");
-    ro.className="comp-dim"+(sp2.over?" over":"");
-    ro.textContent = kind==="audio"
-      ? (zoneReqChannels(z)+" canali richiesti / "+(z.channels||0)+" disponibili"+(sp2.over?" — stagebox insufficiente":""))
-      : ((zoneReqWatts(z)/1000).toFixed(1).replace(".",",")+" kW richiesti / "+((z.watts||0)/1000).toFixed(1).replace(".",",")+" kW disponibili"+(sp2.over?" — zona sovraccarica":""));
-  }
-}
-
-/* helper riusati dal PDF: canali per oggetto/zona, riferimenti stagebox/distro principali, corrente */
+/* [strumento Zone rimosso 06/07/2026 — toggleZoneLayer/suggestZones/addZone/delZone/renderZonePanel
+   e i suggerimenti automatici. Superati dai motori audio/elettrico.] */
+/* helper del motore/PDF: canali per oggetto, corrente monofase indicativa */
 function itemChannels(it){ if(IN_MULTI[it.type]) return IN_MULTI[it.type].length; if(IN_SRC[it.type]!=null) return 1; return 0; }
-function zoneChannels(zid){ var z=zoneById(zid); return z?zoneReqChannels(z):0; }
-var AUDIO_MAIN={stagebox:1, splitrack:1, substg:1, monmix:1, foh:1};
-var POWER_MAIN={distro125:1, distro63:1, distro32:1, quadroelettrico:1, corrente:1, gen60:1, gen20:1};
-function firstOfTypes(set){ return (state.items||[]).filter(function(it){ return set[it.type]; })[0]||null; }
-function mainAudioName(){ var it=firstOfTypes(AUDIO_MAIN); return it?((TYPES[it.type]&&TYPES[it.type].nome)||"Stagebox"):"Stagebox / FOH"; }
-function mainPowerName(){ var it=firstOfTypes(POWER_MAIN); return it?((TYPES[it.type]&&TYPES[it.type].nome)||"Distro"):"Distro / Rete"; }
 function ampsFor(w){ return Math.max(1, Math.ceil((w/230)*1.1)); }   /* corrente monofase indicativa @230V + 10% */
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
@@ -9910,16 +9639,12 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
-    var scope=window.__pdfScope||"full";   /* "plot" | "audio" | "power" | "full" */
-    var wantAudio=(scope==="full"||scope==="audio"), wantPower=(scope==="full"||scope==="power");
-    var hasAudioZ=(state.zones||[]).some(function(z){return z.kind==="audio";}), hasPowerZ=(state.zones||[]).some(function(z){return z.kind==="power";});
+    var scope=window.__pdfScope||"full";   /* "plot" | "full" */
     /* PAG 2+ channel list: solo in consulenza e se ci sono canali (audit/roadmap 1B) */
-    if(window.__consultMode && scope!=="power" && (state.inputs.length || state.outputs.length)){
+    if(window.__consultMode && (state.inputs.length || state.outputs.length)){
       doc.addPage(paperKey, L.orient);
       pdfChannelPage(doc, L, paperKey);
     }
-    if(wantAudio && hasAudioZ){ doc.addPage(paperKey, L.orient); pdfAudioZonesPage(doc, L, paperKey); }
-    if(wantPower && hasPowerZ){ doc.addPage(paperKey, L.orient); pdfPowerZonesPage(doc, L, paperKey); }
     /* Tech pack: pagine dei layer MOTORE attivi nel progetto (solo scope completo). Le funzioni
        report, se ricevono un doc, aggiungono una pagina A4 verticale e disegnano senza salvare. */
     if(scope==="full"){
@@ -10084,16 +9809,9 @@ function pdfChannelPage(doc, L, paperKey){
   doc.setDrawColor(17,24,39); doc.setLineWidth(0.5); doc.line(x,y,pw-M,y); y+=6;
   function fitText(v,w){ var s=String(v==null?"":v); if(!s) return s; var lines=doc.splitTextToSize(s, w-2); return lines.length>1 ? (lines[0].replace(/\s+\S*$/,"")+"…") : lines[0]; }
   /* Colonne DEDICATE (M1 Provided By + M2 monitor): input e output hanno schemi diversi. c=centrato. */
-  var hasZones=(state.zones||[]).length>0;
-  function zoneLabelForRow(r){
-    if(!r.linked_item_id) return "";
-    var it=(state.items||[]).filter(function(x){return x.id===r.linked_item_id;})[0]; if(!it) return "";
-    var z=(state.zones||[]).filter(function(x){return x.id===zoneOf(it);})[0];
-    return z ? (z.label||"") : "";
-  }
   function section(title, rows, kind){
     var cols = kind==="in"
-      ? [ {t:"CH",w:9,c:1,k:function(r,i){return i+1;}}, {t:"SORGENTE",w:hasZones?54:62,k:function(r){return r.src;}}, {t:"MIC / DI",w:hasZones?32:34,k:function(r){return r.mic;}}, {t:"STAND",w:hasZones?24:28,k:function(r){return r.stand;}}, {t:"48V",w:10,c:1,k:function(r){return r.p48?"sì":"";}} ].concat(hasZones?[{t:"ZONA",w:13,c:1,k:function(r){return zoneLabelForRow(r);}}]:[]).concat([ {t:"FORN.",w:hasZones?18:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ])
+      ? [ {t:"CH",w:9,c:1,k:function(r,i){return i+1;}}, {t:"SORGENTE",w:62,k:function(r){return r.src;}}, {t:"MIC / DI",w:34,k:function(r){return r.mic;}}, {t:"STAND",w:28,k:function(r){return r.stand;}}, {t:"48V",w:10,c:1,k:function(r){return r.p48?"sì":"";}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ]
       : [ {t:"MIX",w:9,c:1,k:function(r,i){return i+1;}}, {t:"DESTINAZIONE",w:58,k:function(r){return r.src;}}, {t:"TIPO",w:34,k:function(r){return r.type||r.mic;}}, {t:"CHI",w:50,k:function(r){return r.who;}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ];
     cols[cols.length-1].w = colW - cols.reduce(function(a,c){return a+c.w;},0);
     function colHeader(){
@@ -10114,59 +9832,8 @@ function pdfChannelPage(doc, L, paperKey){
     });
     y+=4;
   }
-  if(hasZones) linkChannelsToItems();   /* aggancia le righe agli oggetti per derivare la zona */
   if(state.inputs.length) section("INPUT PATCH", state.inputs, "in");
   if(state.outputs.length) section("MONITOR / OUTPUT", state.outputs, "out");
-}
-function pdfZonesHeader(doc, L, title, subtitle){
-  var M=L.M, x=M, y=M+8, pw=L.pw;
-  var dateStr=new Date().toLocaleDateString("it-IT");
-  doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(17,24,39);
-  doc.text(String(state.titolo||"Stage plot"), x, y);
-  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120); doc.text(dateStr, pw-M, y, {align:"right"}); y+=5.5;
-  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(80,80,80); doc.text(title, x, y); y+=4;
-  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120); doc.text(subtitle, x, y); y+=4;
-  doc.setDrawColor(17,24,39); doc.setLineWidth(0.5); doc.line(x,y,pw-M,y); y+=6;
-  return y;
-}
-function pdfAudioZonesPage(doc, L, paperKey){
-  var M=L.M, x=M, pw=L.pw, colW=pw-2*M;
-  var y=pdfZonesHeader(doc, L, "ZONE AUDIO — punti audio richiesti", "Dove servono ingressi audio per il service. Canali richiesti = ingressi degli oggetti nella zona; disponibili = capacità stagebox/ciabatta.");
-  var cW=[colW*0.26, colW*0.20, colW*0.24];
-  function rowa(a,b,c,d,bold,warn){ if(y>L.ph-16){ doc.addPage(paperKey,L.orient); y=M+10; }
-    doc.setFont("helvetica",bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(warn?200:17, warn?60:24, warn?60:39);
-    doc.text(String(a), x, y); doc.text(String(b), x+cW[0], y, {align:"center"}); doc.text(String(c), x+cW[0]+cW[1], y); doc.text(String(d), x+cW[0]+cW[1]+cW[2], y); y+=5.4; }
-  doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
-  doc.text("ZONA", x, y); doc.text("CANALI (rich/disp)", x+cW[0], y, {align:"center"}); doc.text("STAGEBOX / CIABATTA", x+cW[0]+cW[1], y); doc.text("NOTE", x+cW[0]+cW[1]+cW[2], y); y+=4;
-  var totReq=0, totAv=0;
-  (state.zones||[]).filter(function(z){return z.kind==="audio";}).forEach(function(z){
-    var req=zoneReqChannels(z), av=z.channels||0, over=(av>0&&req>av); totReq+=req; totAv+=av;
-    rowa(z.label||"(zona)", req+" / "+(av||"—"), z.box||"—", (z.notes||"")+(over?"  ⚠ insufficiente":""), false, over);
-  });
-  y+=1; doc.setDrawColor(17,24,39); doc.setLineWidth(0.4); doc.line(x,y-3,pw-M,y-3);
-  rowa("TOTALE", totReq+" / "+totAv, "Riferimento: "+mainAudioName(), "", true, (totAv>0&&totReq>totAv));
-}
-function pdfPowerZonesPage(doc, L, paperKey){
-  var M=L.M, x=M, pw=L.pw, colW=pw-2*M;
-  var y=pdfZonesHeader(doc, L, "ZONE ALIMENTAZIONE — punti corrente richiesti", "Valori nominali, non sostituiscono il progetto di un tecnico abilitato. Potenza richiesta = assorbimento degli oggetti; disponibile = capacità dichiarata. Corrente ~ monofase @230V.");
-  function kw(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
-  var cW=[colW*0.20, colW*0.20, colW*0.10, colW*0.24];
-  function rowp(a,b,c,d,e,bold,warn){ if(y>L.ph-16){ doc.addPage(paperKey,L.orient); y=M+10; }
-    doc.setFont("helvetica",bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(warn?200:17, warn?60:24, warn?60:39);
-    doc.text(String(a), x, y); doc.text(String(b), x+cW[0], y); doc.text(String(c), x+cW[0]+cW[1], y, {align:"center"}); doc.text(String(d), x+cW[0]+cW[1]+cW[2], y); doc.text(String(e), pw-M, y, {align:"right"}); y+=5.4; }
-  doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
-  doc.text("ZONA", x, y); doc.text("ALIMENTAZIONE", x+cW[0], y); doc.text("PRESE", x+cW[0]+cW[1], y, {align:"center"}); doc.text("POTENZA (rich/disp)", x+cW[0]+cW[1]+cW[2], y); doc.text("CORRENTE", pw-M, y, {align:"right"}); y+=4;
-  var totReq=0, totAv=0;
-  (state.zones||[]).filter(function(z){return z.kind==="power";}).forEach(function(z){
-    var req=zoneReqWatts(z), av=z.watts||0, over=(av>0&&req>av); totReq+=req; totAv+=av;
-    rowp(z.label||"(zona)", z.supply||"—", z.outlets||"—", kw(req)+" / "+(av?kw(av):"—"), "~"+ampsFor(req)+" A", false, over);
-  });
-  y+=1; doc.setDrawColor(17,24,39); doc.setLineWidth(0.4); doc.line(x,y-3,pw-M,y-3);
-  rowp("TOTALE", "", "", kw(totReq)+" / "+(totAv?kw(totAv):"—"), "~"+ampsFor(totReq)+" A", true, (totAv>0&&totReq>totAv));
-  y+=3;
-  var cap=genCapacityW(), lack=(cap>0 && cap<totReq*1.25);
-  var sugg = cap>0 ? ("generatori sul palco: "+kw(cap)+" — "+(lack?"INSUFFICIENTI":"capienti")) : ("con margine 25% ("+kw(totReq*1.25)+"): "+suggestGen(totReq*1.25)+" · rif. "+mainPowerName());
-  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(lack?200:17, lack?60:24, lack?60:39); doc.text(sugg, x, y);
 }
 (function(){
   var modal=document.getElementById("pdfModal"), paper=document.getElementById("pdfPaper"),
@@ -10188,8 +9855,6 @@ function pdfPowerZonesPage(doc, L, paperKey){
   function pdfComputeTechPages(){
     var pages=[];
     if(state.items.length) pages.push("Audit");
-    if((state.zones||[]).some(function(z){return z.kind==="audio";})) pages.push("Zone Audio");
-    if((state.zones||[]).some(function(z){return z.kind==="power";})) pages.push("Zone Alimentazione");
     if(state.cab && state.cab.on){ var Rc=cabResult(true); if(Rc.totIn){ pages.push("Input list"); if(Rc.mixes && Rc.mixes.length) pages.push("Monitor list"); pages.push("Cablaggio audio"); } }
     if(state.elec && state.elec.on){ var Re=elecResult(true); if(Re.loads.length) pages.push("Piano elettrico","Lista carichi"); }
     return pages;

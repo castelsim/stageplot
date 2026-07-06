@@ -1023,21 +1023,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
   .stat-pw{color:var(--accent);font-weight:600}
 
-  /* ===== Zone di cablaggio (Fase A) ===== */
-  .zone-tag{font:600 15px/1 system-ui,sans-serif}
-  .zone-sub{font:600 11px/1 system-ui,sans-serif;opacity:.9}
-  .zone-reg.over rect{stroke-dasharray:6 4 !important}
-  .blkchip.over{background:rgba(220,38,38,.08)}
-  .comp-dim.over{color:#dc2626}
-  #zoneProps textarea,#zoneProps input[type=text],#zoneProps input[type=number]{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)}
-  body.dark #zoneProps input{background:#141a1d;border-color:#314046}
-  .zone-hit{fill:transparent;stroke:transparent;cursor:move;pointer-events:all}   /* all: in SVG il fill trasparente riceve comunque i click (auto/visiblePainted no) */
-  .zone-edge{fill:transparent;pointer-events:all}
-  .zone-edge.ew{cursor:ew-resize} .zone-edge.ns{cursor:ns-resize}
-  [data-zcolor]{display:flex;gap:6px}
-  [data-zcolor] button{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer}
-  [data-zcolor] button.on{border-color:var(--text)}
-
   /* ===== Cablaggio automatico (canvas + pannello) ===== */
   .cbl-audio{fill:none;stroke:#0d9488;stroke-width:3;stroke-linecap:round;opacity:.9}
   .cbl-power{fill:none;stroke:#d97706;stroke-width:3;stroke-linecap:round;opacity:.9}
