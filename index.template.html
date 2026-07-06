@@ -1069,6 +1069,7 @@
   <div class="mcard" style="width:820px;max-width:94vw">
     <h2>Salva PDF in scala</h2>
     <p class="hint" style="margin-bottom:10px">Planimetria del palco in <b>scala reale</b>. Stampa a <b>100% / dimensioni reali</b> (non "adatta alla pagina").</p>
+    <div id="pdfTechNote" style="font-size:12px;color:var(--accent);margin:-4px 0 10px;display:none"></div>
     <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
       <div style="flex:1 1 280px;min-width:260px">
         <label>Formato foglio</label>
@@ -8281,11 +8282,11 @@ function loadJsPDF(){
   return __pdfLibsPromise;
 }
 /* ===== Report tecnico cablaggio audio (Fase 7) — PDF testuale: riepilogo, collegamenti, criticità ===== */
-function cabReportPdf(){
+function cabReportPdf(shared){
   var R=cabResult(true);
-  if(!R.totIn){ alert("Nessuna sorgente audio sul palco: il report sarebbe vuoto."); return; }
-  loadJsPDF().then(function(){
-    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+  if(!R.totIn){ if(!shared) alert("Nessuna sorgente audio sul palco: il report sarebbe vuoto."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
     function line(txt, size, bold, color, dy){
       if(y>282){ doc.addPage(); y=16; }
@@ -8323,16 +8324,19 @@ function cabReportPdf(){
     line("Criticità", 12, true, "#0d9488", 6);
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
+    if(shared) return;
     if(window.__cabPdfTest){ window.__cabPdfTest={name:fileName()+"-cablaggio-audio.pdf", pages:doc.getNumberOfPages()}; return; }   /* hook di test: niente download */
     doc.save(fileName()+"-cablaggio-audio.pdf");
-  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 /* Input list PDF: tabella numerata #/sorgente/mic·DI/patch (stessa fonte del pannello) */
-function patchListPdf(){
-  var pl=patchList(); if(!pl.rows.length){ alert("Nessun ingresso audio sul palco."); return; }
+function patchListPdf(shared){
+  var pl=patchList(); if(!pl.rows.length){ if(!shared) alert("Nessun ingresso audio sul palco."); return; }
   var R=pl.R;
-  loadJsPDF().then(function(){
-    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
     var M=16, y=22, cols=[M, M+14, M+98, M+150];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
@@ -8345,15 +8349,18 @@ function patchListPdf(){
     trow("#","SORGENTE","MIC / DI","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.box?"#111827":"#dc2626"); });
+    if(shared) return;
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-input-list.pdf");
-  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
-function monitorListPdf(){
-  var pl=monitorList(); if(!pl.rows.length){ alert("Nessun monitor sul palco."); return; }
+function monitorListPdf(shared){
+  var pl=monitorList(); if(!pl.rows.length){ if(!shared) alert("Nessun monitor sul palco."); return; }
   var R=pl.R;
-  loadJsPDF().then(function(){
-    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
     var M=16, y=22, cols=[M, M+14, M+70, M+120, M+160];
     doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Monitor list", M, 9);
@@ -8365,15 +8372,18 @@ function monitorListPdf(){
     trow("#","MIX","TIPO","MONITOR","USCITA", true, "#0891b2");
     doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.nMon+"×", r.patch, false, r.box?"#111827":"#dc2626"); });
+    if(shared) return;
     if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-monitor-list.pdf");
-  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
-function loadListPdf(){
-  var pl=loadList(); if(!pl.rows.length){ alert("Nessun carico elettrico sul palco."); return; }
+function loadListPdf(shared){
+  var pl=loadList(); if(!pl.rows.length){ if(!shared) alert("Nessun carico elettrico sul palco."); return; }
   var R=pl.R;
-  loadJsPDF().then(function(){
-    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
     var M=16, y=22, cols=[M, M+14, M+92, M+124, M+150];
     doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista carichi", M, 9);
@@ -8385,14 +8395,17 @@ function loadListPdf(){
     trow("#","CARICO","W","A","DISTRO/FASE", true, "#b45309");
     doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, r.ok?"#111827":"#dc2626"); });
+    if(shared) return;
     if(window.__loadPdfTest){ window.__loadPdfTest={name:fileName()+"-lista-carichi.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-lista-carichi.pdf");
-  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
-function elecReportPdf(){
-  var R=elecResult(true); if(!R.loads.length){ alert("Nessun carico elettrico sul palco."); return; }
-  loadJsPDF().then(function(){
-    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+function elecReportPdf(shared){
+  var R=elecResult(true); if(!R.loads.length){ if(!shared) alert("Nessun carico elettrico sul palco."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
     function line(txt, size, bold, color, dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
     doc.setFillColor("#d97706"); doc.rect(0,0,W,14,"F");
@@ -8413,9 +8426,12 @@ function elecReportPdf(){
     line("Criticità", 12, true, "#b45309", 6);
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
+    if(shared) return;
     if(window.__elecPdfTest){ window.__elecPdfTest={name:fileName()+"-piano-elettrico.pdf", pages:doc.getNumberOfPages()}; return; }
     doc.save(fileName()+"-piano-elettrico.pdf");
-  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 function svg2pdfFn(){ var s=window.svg2pdf; if(typeof s==="function") return s; if(s && typeof s.svg2pdf==="function") return s.svg2pdf; return null; }
 function loadSvg2Pdf(){ return loadJsPDF().then(function(){ return new Promise(function(res,rej){ svg2pdfFn() ? res() : rej(new Error("svg2pdf non disponibile")); }); }); }
@@ -8662,6 +8678,14 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     if(wantAudio && hasAudioZ){ doc.addPage(paperKey, L.orient); pdfAudioZonesPage(doc, L, paperKey); }
     if(wantPower && hasPowerZ){ doc.addPage(paperKey, L.orient); pdfPowerZonesPage(doc, L, paperKey); }
+    /* Tech pack: pagine dei layer MOTORE attivi nel progetto (solo scope completo). Le funzioni
+       report, se ricevono un doc, aggiungono una pagina A4 verticale e disegnano senza salvare. */
+    if(scope==="full"){
+      if(state.cab && state.cab.on){ var Rc=cabResult(true);
+        if(Rc.totIn){ patchListPdf(doc); if(Rc.mixes && Rc.mixes.length) monitorListPdf(doc); cabReportPdf(doc); } }
+      if(state.elec && state.elec.on){ var Re=elecResult(true);
+        if(Re.loads.length){ elecReportPdf(doc); loadListPdf(doc); } }
+    }
     return doc;
       });
   });
@@ -8917,7 +8941,15 @@ function pdfPowerZonesPage(doc, L, paperKey){
     }
     try{ document.getElementById("pdfPreview").innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value); }catch(e){}
   }
-  window.openPdfExportModal=function(){ modal.hidden=false; refresh(); };
+  window.openPdfExportModal=function(){ modal.hidden=false; refresh();
+    var pages=[];
+    if((state.zones||[]).some(function(z){return z.kind==="audio";})) pages.push("Zone Audio");
+    if((state.zones||[]).some(function(z){return z.kind==="power";})) pages.push("Zone Alimentazione");
+    if(state.cab && state.cab.on){ var Rc=cabResult(true); if(Rc.totIn){ pages.push("Input list"); if(Rc.mixes && Rc.mixes.length) pages.push("Monitor list"); pages.push("Cablaggio audio"); } }
+    if(state.elec && state.elec.on){ var Re=elecResult(true); if(Re.loads.length) pages.push("Piano elettrico","Lista carichi"); }
+    var el=document.getElementById("pdfTechNote");
+    if(el){ el.style.display=pages.length?"block":"none"; el.innerHTML=pages.length?('Include anche le pagine dei layer attivi: <b>'+pages.map(esc).join(", ")+'</b>.'):''; }
+  };
   document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
   document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; });
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
