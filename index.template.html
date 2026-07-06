@@ -809,21 +809,15 @@
 
 <div class="modal" id="cabModal" hidden>
   <div class="mcard">
-    <h2>Cablaggio audio</h2>
-    <p class="hint">Da dove parte il sistema e con quale mixer? Il motore proporrà stage box, canali e lunghezze. Puoi cambiare tutto dopo.</p>
-    <label class="cabfld">Mixer FOH (opzionale)<select id="cabModalMixer"></select></label>
-    <label class="cabfld">Punto principale di connessione<select id="cabModalHome">
-      <option value="">— decido dopo —</option>
-      <option value="stagerack">Stage rack / I/O rack</option>
-      <option value="foh">FOH mixer</option>
-      <option value="monitor">Monitor mixer</option>
-      <option value="right">Uscita palco DX</option>
-      <option value="left">Uscita palco SX</option>
-      <option value="custom">Personalizzato (poi trascina il nodo)</option>
-    </select></label>
+    <h2>Aggiungi stage box</h2>
+    <p class="hint" id="cabWizNeed">Sul palco ci sono ingressi audio ma nessuna stage box.</p>
+    <p class="hint" style="margin-top:2px">Aggiungi le stage box che hai davvero: le posiziono io vicino ai gruppi di strumenti.</p>
+    <div id="cabWizRows" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+    <button class="btn" id="cabWizAdd" style="width:100%;margin-top:8px">+ Aggiungi stage box</button>
+    <div class="comp-dim" id="cabWizCover" style="margin-top:10px">—</div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-      <button class="btn" id="cabModalCancel">Annulla</button>
-      <button class="btn primary" id="cabModalGo">Genera cablaggio</button>
+      <button class="btn" id="cabWizSkip">Salta</button>
+      <button class="btn primary" id="cabWizGo">Posiziona sul palco</button>
     </div>
   </div>
 </div>
@@ -6585,24 +6579,82 @@ function cabFillSbHw(){
     byBrand[br].forEach(function(o){ h+='<option value="'+o.id+'">'+esc(o.m.model)+' ('+o.m.in+' in)</option>'; }); h+='</optgroup>'; });
   sel.innerHTML=h;
 }
-/* modale di attivazione: scelta mixer + punto principale di connessione */
+/* ── Attivazione cablaggio: approccio GENERICO. Niente più gate "che mixer / che stage box": si accende
+   subito. Se ci sono ingressi audio ma nessuna stage box, apre un wizard che chiede QUANTE box (e di che
+   taglia) e le posiziona da solo vicino ai gruppi di strumenti. Mixer e punto principale restano opzionali
+   nel pannello (rifinitura pro), non sono più un ostacolo iniziale. ── */
+function cabPlanNeeds(){   /* ingressi + gruppi per elemento + cluster di prossimità (riuso della logica del motore) */
+  var sources=[];
+  state.items.map(function(it,idx){ return {it:it,idx:idx}; })
+    .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type)) || (a.idx-b.idx); })
+    .forEach(function(o){ var it=o.it; if(cabIsBox(it)) return;
+      cabItemInputs(it).forEach(function(inp,ii){ sources.push({it:it, key:it.id+"#"+ii}); }); });
+  var groups=[], byItem={};
+  sources.forEach(function(s){ var k=s.it.id; if(!byItem[k]){ byItem[k]={it:s.it, list:[]}; groups.push(byItem[k]); } byItem[k].list.push(s); });
+  return {totIn:sources.length, groups:groups, clusters:cabClusters(groups, 320)};
+}
+var CAB_STD_SIZES=[8,16,24,32,48];
+function cabStdSize(n){ for(var i=0;i<CAB_STD_SIZES.length;i++){ if(CAB_STD_SIZES[i]>=n) return CAB_STD_SIZES[i]; } return 48; }
+function cabSuggestBoxes(needs){   /* default = una box per cluster, arrotondata alla taglia standard che copre il gruppo */
+  var sizes=(needs.clusters||[]).map(function(c){ return cabStdSize(c.n); });
+  if(!sizes.length && needs.totIn>0) sizes=[cabStdSize(needs.totIn)];
+  return sizes;
+}
 function cabActivateFlow(){
-  var m=document.getElementById("cabModal"); if(!m){ state.cab.on=true; __cabRes=null; save(); render(); return; }
-  var msel=document.getElementById("cabModalMixer");
-  if(!msel._filled){ msel._filled=true; var h='<option value="">— nessuno —</option>';
-    Object.keys(MIXER_DB).forEach(function(id){ var mm=MIXER_DB[id]; h+='<option value="'+id+'">'+esc(mm.brand+" "+mm.model)+'</option>'; }); msel.innerHTML=h; }
-  msel.value=state.cab.mixer||"";
-  document.getElementById("cabModalHome").value = state.cab.home?state.cab.home.kind:"";
-  m.hidden=false;
+  state.cab.on=true; techAccordionOpen("cab"); __cabRes=null;
+  var needs=cabPlanNeeds();
+  if(needs.totIn>0 && !state.items.some(cabIsBox)){ save(); render(); openCabBoxWizard(needs); return; }   /* servono box → wizard */
+  save(); render();
+}
+var __cabWizSizes=[];
+function openCabBoxWizard(needs){
+  var m=document.getElementById("cabModal"); if(!m) return;
+  __cabWizSizes = cabSuggestBoxes(needs).slice(); if(!__cabWizSizes.length) __cabWizSizes=[8];
+  m._needs=needs;
+  document.getElementById("cabWizNeed").textContent =
+    "Servono ~"+needs.totIn+" canali su "+needs.clusters.length+" grupp"+(needs.clusters.length===1?"o":"i")+" di strumenti. Metti le stage box che hai:";
+  renderCabWizRows(); m.hidden=false;
+}
+function renderCabWizRows(){
+  var host=document.getElementById("cabWizRows"); if(!host) return; host.innerHTML="";
+  __cabWizSizes.forEach(function(sz, i){
+    var row=document.createElement("div"); row.className="cabwiz-row";
+    var lab=document.createElement("span"); lab.className="cabwiz-n"; lab.textContent=(i+1)+".";
+    var sel=document.createElement("select");
+    CAB_STD_SIZES.forEach(function(s){ var o=document.createElement("option"); o.value=s; o.textContent=s+" canali"; if(s===sz) o.selected=true; sel.appendChild(o); });
+    sel.addEventListener("change", function(){ __cabWizSizes[i]=+this.value; cabWizCover(); });
+    var del=document.createElement("button"); del.type="button"; del.className="cabwiz-del"; del.textContent="✕"; del.title="Togli questa stage box";
+    del.addEventListener("click", function(){ __cabWizSizes.splice(i,1); renderCabWizRows(); });
+    row.appendChild(lab); row.appendChild(sel); row.appendChild(del); host.appendChild(row);
+  });
+  cabWizCover();
+}
+function cabWizCover(){
+  var m=document.getElementById("cabModal"), needs=m&&m._needs; if(!needs) return;
+  var cap=__cabWizSizes.reduce(function(a,s){ return a+s; },0), ok=cap>=needs.totIn;
+  var ro=document.getElementById("cabWizCover"); ro.className="comp-dim"+(ok?"":" over");
+  ro.textContent="Copertura: "+cap+" / "+needs.totIn+" canali"+(ok?" ✓":" — mancano "+(needs.totIn-cap));
+  var go=document.getElementById("cabWizGo"); if(go) go.disabled=!__cabWizSizes.length;
+}
+function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: box grandi ai gruppi più fitti */
+  var clusters=(needs.clusters||[]).slice().sort(function(a,b){ return b.n-a.n; });
+  if(!clusters.length) clusters=[{cx:Math.round(state.stage.w/2), cy:Math.round(state.stage.d/2), n:0}];
+  var per={};
+  sizes.slice().sort(function(a,b){ return b-a; }).forEach(function(sz, idx){
+    var ci=idx % clusters.length, c=clusters[ci]; var k=per[ci]||0; per[ci]=k+1;
+    var x=Math.round(Math.min(state.stage.w-40, Math.max(40, c.cx + k*70)));
+    var y=Math.round(Math.min(state.stage.d-40, Math.max(40, c.cy - 90)));
+    addItem("stagebox", {ch:sz, x:x, y:y});
+  });
+  __cabRes=null; clearSelection(); techAccordionOpen("cab"); save(); render();
 }
 (function(){
-  var go=document.getElementById("cabModalGo"); if(!go) return;
-  document.getElementById("cabModalCancel").addEventListener("click", function(){ document.getElementById("cabModal").hidden=true; });
-  go.addEventListener("click", function(){
-    state.cab.mixer=document.getElementById("cabModalMixer").value;
-    var k=document.getElementById("cabModalHome").value;
-    state.cab.home = !k ? null : (k==="custom" ? {kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)} : {kind:k, x:0, y:0});
-    state.cab.on=true; techAccordionOpen("cab"); __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
+  var add=document.getElementById("cabWizAdd"); if(!add) return;
+  add.addEventListener("click", function(){ __cabWizSizes.push(8); renderCabWizRows(); });
+  document.getElementById("cabWizSkip").addEventListener("click", function(){ document.getElementById("cabModal").hidden=true; render(); });   /* cablaggio resta ON: il motore propone box virtuali */
+  document.getElementById("cabWizGo").addEventListener("click", function(){
+    var m=document.getElementById("cabModal"), needs=m._needs||cabPlanNeeds(); m.hidden=true;
+    if(__cabWizSizes.length) cabPlaceBoxes(__cabWizSizes.slice(), needs);
   });
 })();
 /* ===== INPUT / PATCH LIST automatica — derivata dal motore di cablaggio (fonte unica) ===== */
@@ -6677,9 +6729,25 @@ function renderMonitorPanel(){
   });
   host.innerHTML=h;
 }
+function monHasSinks(){ return state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }); }
+/* Proattivo: attivare "Monitor list" = "penso servano monitor" → se ci sono musicisti ma nessun monitor,
+   propone un wedge per gruppo di strumenti, DAVANTI al gruppo (verso il pubblico), con mix distinti. */
+function monProposeWedges(){
+  var needs=cabPlanNeeds(); if(!needs.clusters.length) return 0;
+  needs.clusters.slice().sort(function(a,b){ return b.n-a.n; }).forEach(function(c, i){
+    var x=Math.round(Math.min(state.stage.w-40, Math.max(40, c.cx)));
+    var y=Math.round(Math.min(state.stage.d-30, Math.max(60, c.cy + 90)));   /* davanti al gruppo, rivolto verso il palco */
+    addItem("wedge", {x:x, y:y, label:"MIX "+(i+1)});
+  });
+  return needs.clusters.length;
+}
 function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disattiva la monitor list */
   monActive=!monActive;
-  if(monActive){ techAccordionOpen("mon"); closeMobileDrawers(); clearSelection(); }
+  if(monActive){
+    techAccordionOpen("mon"); closeMobileDrawers();
+    if(cabPlanNeeds().totIn>0 && !monHasSinks()) monProposeWedges();   /* nessun monitor + ci sono musicisti → proponi posizioni */
+    clearSelection();
+  }
   render();
 }
 (function(){
