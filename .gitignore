@@ -1,3 +1,6 @@
 
 # scratch subagent-driven-development
 .superpowers/
+
+# Documenti interni (strategia, audit, idee, spec): restano in locale, fuori dal repo pubblico
+docs/
