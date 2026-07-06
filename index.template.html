@@ -609,6 +609,20 @@
         <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Si genera dagli elementi audio sul palco e dalle stage box del <b>Cablaggio audio</b>. Per rinominare un canale, rinomina l'elemento sul palco.</div>
       </div>
     </div>
+    <!-- Monitor list (auto, dai monitor sul palco): sezione a tendina con cestino -->
+    <div id="monSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="cab-sechead" id="monSecHead">
+        <span class="caret" id="monCaret">▾</span>
+        <span class="cab-sectitle"><b>Monitor list</b></span>
+        <button type="button" class="cab-trash" id="monTrash" title="Rimuovi la monitor list" aria-label="Rimuovi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>
+      <div id="monBody" style="margin-top:8px">
+        <div id="monSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
+        <div id="monRows"></div>
+        <button class="btn primary" id="monPdf" style="width:100%;margin-top:10px">Esporta monitor list (PDF)</button>
+        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">I mix si raggruppano per <b>etichetta</b> dei monitor (es. "MIX 1"). IEM/hearback = stereo.</div>
+      </div>
+    </div>
   </div>
   <!-- pannello versioni -->
   <div id="versPanel" hidden>
@@ -3113,6 +3127,11 @@ function cabBoxCap(it){
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(1, STAGEBOX_DB[it.hw].in||8);
   var def=(it.type==="stagebox")?16:8; return Math.min(64,Math.max(1,Math.round(it.ch||def)));
 }
+function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
+  if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(0, STAGEBOX_DB[it.hw].out||0);
+  return it.type==="stagebox" ? 8 : 4;
+}
+var MON_STEREO = { iem:1, iemant:1, hearback:1 };   /* mix stereo (2 uscite) */
 function cabMargin(){ return ((state.cab&&+state.cab.margin===20)?20:30)/100; }
 function polyLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); } return d; }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
@@ -3160,13 +3179,13 @@ function audioCablingEngine(){
   sources.forEach(function(s){ var k=s.it.id; if(!byItem[k]){ byItem[k]={it:s.it, list:[]}; groups.push(byItem[k]); } byItem[k].list.push(s); });
   /* 4-6. stage box: piazzate (capacità dal modello hw), oppure proposta drop box 8ch a gruppi */
   var boxes=state.items.filter(cabIsBox).map(function(it){
-    return {x:it.x, y:it.y, cap:cabBoxCap(it), used:0, auto:false, id:it.id, hw:it.hw||null, name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
+    return {x:it.x, y:it.y, cap:cabBoxCap(it), used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null, name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
   if(!boxes.length && totIn){
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
       var nb=Math.max(1, Math.ceil(c.n/8));
       for(var i=0;i<nb;i++){
         var ox=(nb===1)?0:(i-(nb-1)/2)*70;
-        boxes.push({x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx+ox))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-90))), cap:8, used:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch"});
+        boxes.push({x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx+ox))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-90))), cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch"});
       }
     });
     issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
@@ -3193,6 +3212,32 @@ function audioCablingEngine(){
   /* digital snake: home-run da ogni box usata al punto principale */
   var snakes=[];
   if(home){ boxes.forEach(function(b){ if(!b.used) return; snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:Math.hypot(home.x-b.x, home.y-b.y)/100}); }); }
+  /* ── MONITOR / OUTPUT: mix per etichetta → uscita su box vicina → cavi di ritorno ── */
+  var sinks=state.items.map(function(it,idx){ return {it:it,idx:idx}; })
+    .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type))||(a.idx-b.idx); })
+    .filter(function(o){ return OUT_SET[o.it.type]!=null && o.it.type!=="monmix"; }).map(function(o){ return o.it; });
+  var mixMap={}, mixes=[];
+  sinks.forEach(function(it){ var lbl=(it.label||"").trim(), key=lbl?("L:"+lbl.toUpperCase()):("I:"+it.id);
+    if(!mixMap[key]){ mixMap[key]={name:lbl, sinks:[], stereo:false}; mixes.push(mixMap[key]); }
+    mixMap[key].sinks.push(it); if(MON_STEREO[it.type]) mixMap[key].stereo=true; });
+  mixes.forEach(function(m,i){ m.n=i+1; if(!m.name) m.name="MIX "+m.n; m.ch=m.stereo?2:1; });
+  mixes.forEach(function(m){
+    var cx=m.sinks.reduce(function(a,s){return a+s.x;},0)/m.sinks.length, cy=m.sinks.reduce(function(a,s){return a+s.y;},0)/m.sinks.length;
+    var cand=boxes.slice().sort(function(a,b){ return d2(cx,cy,a)-d2(cx,cy,b); });
+    var b=cand.filter(function(bb){ return (bb.outCap-bb.usedOut)>=m.ch; })[0]||null;
+    if(!b){ m.box=null; return; }
+    m.box=b; m.outCh=b.usedOut+1; b.usedOut+=m.ch;
+  });
+  var returnLinks=[];
+  mixes.forEach(function(m){ if(!m.box) return;
+    m.sinks.forEach(function(sk){ var pts=[[m.box.x,m.box.y],[sk.x,sk.y]];
+      var lenM=polyLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
+      returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut}); }); });
+  var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
+  var mixChTot=mixes.reduce(function(a,m){ return a+m.ch; },0);
+  var returnCables={}; returnLinks.forEach(function(l){ var k=l.cut?l.cut+" m":">50 m"; returnCables[k]=(returnCables[k]||0)+1; });
+  var monConsole=state.items.filter(function(it){ return it.type==="monmix"; })[0]||null;
+  var hasWlrack=state.items.some(function(it){ return it.type==="wlrack"; });
   /* riepiloghi */
   var capTot=boxes.reduce(function(a,b){ return a+b.cap; },0);
   var cables={}; links.forEach(function(l){ if(l.deleted) return; var k=l.cut?l.cut+" m":">50 m"; cables[k]=(cables[k]||0)+1; });
@@ -3213,6 +3258,14 @@ function audioCablingEngine(){
     if(ls.length){ var near=Math.hypot(g.it.x-ls[0].box.x, g.it.y-ls[0].box.y)/100;
       if(near>8) issues.push({lvl:"warn", msg:"Nessuna stage box vicino a «"+(g.it.label||TYPES[g.it.type].nome)+"» ("+near.toFixed(0)+" m): "+g.list.length+" canali — conviene una sub-snake/drop box."}); }
   });
+  /* criticità monitor */
+  if(mixChTot>capOutTot && boxes.length) issues.push({lvl:"err", msg:"Uscite monitor insufficienti ("+mixChTot+" richieste / "+capOutTot+" disponibili): serve una box con più uscite."});
+  mixes.forEach(function(m){ if(!m.box) issues.push({lvl:"err", msg:"Monitor senza uscita: "+m.name+" (uscite esaurite)."}); });
+  mixes.forEach(function(m){ if(!m.box) return;
+    var far=m.sinks.some(function(sk){ return Math.hypot(sk.x-m.box.x, sk.y-m.box.y)/100>8; });
+    if(far) issues.push({lvl:"warn", msg:"Monitor lontano dalla box ("+m.name+"): valuta un return locale / sub-snake."});
+    if(m.stereo && !hasWlrack) issues.push({lvl:"info", msg:"Mix in-ear "+m.name+": prevedi un rack wireless / distributore IEM."});
+  });
   /* compatibilità hardware mixer ↔ stage box piazzate */
   if(mixer && MIXER_DB[mixer]){
     boxes.forEach(function(b){ if(b.auto||!b.hw) return;
@@ -3221,6 +3274,7 @@ function audioCablingEngine(){
     });
   }
   return {sources:sources, boxes:boxes, links:links, unassigned:unassigned, snakes:snakes, home:home, cables:cables,
+          mixes:mixes, returnLinks:returnLinks, returnCables:returnCables, capOutTot:capOutTot, mixChTot:mixChTot, monConsole:monConsole,
           totIn:totIn, capTot:capTot, diMono:diMono, diStereo:diStereo, mixer:mixer, issues:issues};
 }
 /* cache: con aggiornamento automatico ON si ricalcola a ogni redraw; OFF = congelato finché non premi Ricalcola */
@@ -3245,34 +3299,51 @@ function cabLinkLabel(l){
   return parts.join(' · ');
 }
 function cablingMarkup(){
-  if(!state.cab || !state.cab.on || state.cab.showInputs===false) return '';   /* occhio del Layer Manager */
+  if(!state.cab || !state.cab.on) return '';
+  var showIn=state.cab.showInputs!==false, showRet=state.cab.showReturns!==false;   /* occhi del Layer Manager */
+  if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
-  var edit=!state.cab.locked;
+  var edit=!state.cab.locked && showIn;   /* editing solo sui cavi ingresso, e solo se il layer ingressi è visibile */
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
-  R.snakes.forEach(function(k){ s+='<line class="cab-snake" x1="'+k.x1+'" y1="'+k.y1+'" x2="'+k.x2+'" y2="'+k.y2+'"/>'; });
-  R.links.forEach(function(l){
-    var d='M '+l.pts.map(function(p){ return p[0]+' '+p[1]; }).join(' L ');
-    if(l.deleted){ s+='<path class="cab-del" d="'+d+'"/>'; if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
-    s+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
-    if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
-    var lbl=cabLinkLabel(l);
-    if(lbl){ var mid=cabMidpoint(l.pts); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
-  });
-  if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
-    if(sl){
-      for(var i=1;i<sl.pts.length-1;i++){ var p=sl.pts[i]; s+='<circle class="cab-wp" data-cab="'+selCab+'" data-wp="'+(i-1)+'" cx="'+p[0]+'" cy="'+p[1]+'" r="8"/>'; }
-      for(var j=1;j<sl.pts.length;j++){ var a=sl.pts[j-1], b=sl.pts[j]; s+='<circle class="cab-mid" data-cab="'+selCab+'" data-seg="'+(j-1)+'" cx="'+((a[0]+b[0])/2)+'" cy="'+((a[1]+b[1])/2)+'" r="6"/>'; }
+  /* ── lato INGRESSI (teal) ── */
+  if(showIn){
+    R.snakes.forEach(function(k){ s+='<line class="cab-snake" x1="'+k.x1+'" y1="'+k.y1+'" x2="'+k.x2+'" y2="'+k.y2+'"/>'; });
+    R.links.forEach(function(l){
+      var d='M '+l.pts.map(function(p){ return p[0]+' '+p[1]; }).join(' L ');
+      if(l.deleted){ s+='<path class="cab-del" d="'+d+'"/>'; if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
+      s+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
+      if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
+      var lbl=cabLinkLabel(l);
+      if(lbl){ var mid=cabMidpoint(l.pts); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+    });
+    if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
+      if(sl){
+        for(var i=1;i<sl.pts.length-1;i++){ var p=sl.pts[i]; s+='<circle class="cab-wp" data-cab="'+selCab+'" data-wp="'+(i-1)+'" cx="'+p[0]+'" cy="'+p[1]+'" r="8"/>'; }
+        for(var j=1;j<sl.pts.length;j++){ var a=sl.pts[j-1], b=sl.pts[j]; s+='<circle class="cab-mid" data-cab="'+selCab+'" data-seg="'+(j-1)+'" cx="'+((a[0]+b[0])/2)+'" cy="'+((a[1]+b[1])/2)+'" r="6"/>'; }
+      }
     }
+    if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
+      if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
+      s+='</g>'; }
+    R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
   }
+  /* ── lato RITORNI / monitor (ciano) ── */
+  if(showRet){
+    R.returnLinks.forEach(function(l){
+      s+='<path class="cab-return" d="M '+l.pts[0][0]+' '+l.pts[0][1]+' L '+l.pts[1][0]+' '+l.pts[1][1]+'"/>';
+      if(state.cab.showLabels){ var mx=(l.pts[0][0]+l.pts[1][0])/2, my=(l.pts[0][1]+l.pts[1][1])/2;
+        var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
+        s+='<text class="cab-lbl cab-lbl-ret" x="'+mx.toFixed(1)+'" y="'+(my-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
+    });
+  }
+  /* ── stage box + badge in/out (infrastruttura condivisa) ── */
+  var hasRet=R.returnLinks.length>0;
   R.boxes.forEach(function(b){
     if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · 8ch</text></g>';
-    s+='<g class="cab-badge"><rect x="'+(b.x-26)+'" y="'+(b.y-(b.auto?42:40))+'" width="52" height="15" rx="7"/><text x="'+b.x+'" y="'+(b.y-(b.auto?31:29))+'" text-anchor="middle">'+esc(b.letter)+' — '+b.used+'/'+b.cap+'</text></g>';
+    var bw=hasRet?76:52, bt=hasRet ? (b.letter+' '+b.used+'/'+b.cap+' · '+b.usedOut+'/'+b.outCap) : (b.letter+' — '+b.used+'/'+b.cap);
+    s+='<g class="cab-badge"><rect x="'+(b.x-bw/2)+'" y="'+(b.y-(b.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+b.x+'" y="'+(b.y-(b.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
-  if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
-    if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
-    s+='</g>'; }
-  R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
   s+='</g>';
   return s;
 }
@@ -4156,6 +4227,11 @@ function miniSvg(k, over){
       entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce coro"});
       body.appendChild(makeBtn("corista","Donna", corD, "voce coro")); n++;
       entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce coro"});
+    }
+    if(c==="Monitor da palco"){
+      var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      body.appendChild(makeActionBtn("Monitor list","mix e ritorni automatici", null, toggleMonitorView, MON_ICON)); n++;
+      entries.push({nome:"Monitor list", dim:"mix e ritorni automatici", action:toggleMonitorView, iconHtml:MON_ICON});
     }
     if(c==="Cablaggio e segnale"){
       var ZAUDIO_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><circle cx="16" cy="16" r="3.4" fill="currentColor"/></svg>';
@@ -6253,8 +6329,10 @@ function layerRegistry(){
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; save(); render(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
-      removable:true, remove:function(){ state.cab.on=false; selCab=null; save(); render(); } }
-    /* [Parte A] qui andrà "Monitor / ritorni": color LAYER_COLORS.monitor, visible=state.cab.showReturns */
+      removable:true, remove:function(){ state.cab.on=false; selCab=null; save(); render(); } },
+    { id:"cabout", name:"Monitor / ritorni", color:LAYER_COLORS.monitor,
+      active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
+      visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } }
   ];
 }
 var layerOpen=true;
@@ -6444,9 +6522,52 @@ function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la se
   document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); patchActive=false; render(); });   /* cestino: rimuove l'input list */
   document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
 })();
+/* ===== MONITOR LIST automatica — derivata dal motore (lato output) ===== */
+function monitorList(){
+  var R=cabResult(true), rows=[];
+  R.mixes.forEach(function(m){
+    var patch = m.box ? (m.box.letter+"O"+m.outCh+(m.ch===2?"–"+(m.outCh+1):"")) : "—";
+    rows.push({n:m.n, mix:m.name, tipo:OUT_SET[m.sinks[0].type]||"monitor", stereo:m.ch===2, nMon:m.sinks.length, patch:patch, box:m.box});
+  });
+  return {rows:rows, R:R};
+}
+var monActive=false, monOpen=true;
+function renderMonitorPanel(){
+  var sec=document.getElementById("monSec"); if(!sec) return;
+  sec.style.display = monActive ? "block" : "none";
+  if(!monActive) return;
+  document.getElementById("monBody").style.display = monOpen ? "block" : "none";
+  document.getElementById("monCaret").textContent = monOpen ? "▾" : "▸";
+  if(!monOpen) return;
+  var host=document.getElementById("monRows"), sum=document.getElementById("monSummary");
+  var pl=monitorList(), R=pl.R;
+  if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun monitor sul palco: aggiungi wedge, side/drum fill o IEM.</div>'; sum.textContent=""; return; }
+  var wl=pl.rows.filter(function(r){ return !r.stereo; }).length, ie=pl.rows.filter(function(r){ return r.stereo; }).length;
+  sum.innerHTML='<b>'+pl.rows.length+'</b> mix · '+wl+' wedge/fill · '+ie+' in-ear<br>Uscite usate: <b>'+R.mixChTot+' / '+R.capOutTot+'</b>';
+  var h='<div class="patch-row patch-hd"><span>#</span><span>Mix</span><span>Tipo</span><span>Uscita</span></div>';
+  pl.rows.forEach(function(r){
+    h+='<div class="patch-row'+(r.box?'':' unassigned')+'"><span class="pn">'+r.n+'</span>'
+      +'<span class="psrc" title="'+esc(r.mix)+'">'+esc(r.mix)+'</span>'
+      +'<span class="pmic">'+esc(r.tipo)+(r.stereo?' <b class="p48b">ST</b>':'')+'</span>'
+      +'<span class="ppatch">'+esc(r.patch)+'</span></div>';
+  });
+  host.innerHTML=h;
+}
+function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disattiva la monitor list */
+  monActive=!monActive;
+  if(monActive){ monOpen=true; closeMobileDrawers(); clearSelection(); }
+  render();
+}
+(function(){
+  var head=document.getElementById("monSecHead"); if(!head) return;
+  head.addEventListener("click", function(e){ if(e.target.closest("#monTrash")) return; monOpen=!monOpen; renderMonitorPanel(); });
+  document.getElementById("monTrash").addEventListener("click", function(e){ e.stopPropagation(); monActive=false; render(); });
+  document.getElementById("monPdf").addEventListener("click", function(){ monitorListPdf(); });
+})();
 function renderAccessoriCount(){
   renderLayerManager();
   renderCabPanel();
+  renderMonitorPanel();
   renderPatchPanel();
   var el=document.getElementById("accessoriCount"); if(!el) return;
   if(!state.items.length){ el.innerHTML=""; return; }
@@ -7954,6 +8075,26 @@ function patchListPdf(){
     pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.box?"#111827":"#dc2626"); });
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-input-list.pdf");
+  }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+function monitorListPdf(){
+  var pl=monitorList(); if(!pl.rows.length){ alert("Nessun monitor sul palco."); return; }
+  var R=pl.R;
+  loadJsPDF().then(function(){
+    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    var M=16, y=22, cols=[M, M+14, M+70, M+120, M+160];
+    doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Monitor list", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    doc.text("Uscite usate: "+R.mixChTot+" / "+R.capOutTot+"   ·   Stage box: "+R.boxes.map(function(b){ return b.letter+" (out "+b.usedOut+"/"+b.outCap+")"; }).join("  ·  "), M, y); y+=8;
+    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    trow("#","MIX","TIPO","MONITOR","USCITA", true, "#0891b2");
+    doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
+    pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.nMon+"×", r.patch, false, r.box?"#111827":"#dc2626"); });
+    if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
+    doc.save(fileName()+"-monitor-list.pdf");
   }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 function svg2pdfFn(){ var s=window.svg2pdf; if(typeof s==="function") return s; if(s && typeof s.svg2pdf==="function") return s.svg2pdf; return null; }

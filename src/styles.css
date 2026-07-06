@@ -288,6 +288,12 @@
   /* Cablaggio audio calcolato (layer tecnico) — colore layer AUDIO = teal (architettura colori per layer) */
   .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
   .cab-line.cab-manual{stroke:#0e7490}
+  .cab-return{fill:none;stroke:#06b6d4;stroke-width:2;stroke-linecap:round;stroke-dasharray:1 5;pointer-events:none}
+  .cab-lbl-ret{fill:#0e7490}
+  body.dark .cab-return{stroke:#22d3ee}
+  body.dark .cab-lbl-ret{fill:#67e8f9}
+  #monRows .ppatch{color:#0891b2}
+  body.dark #monRows .ppatch{color:#22d3ee}
   .cab-line.sel{stroke:#0f766e;stroke-width:3.6}
   .cab-del{fill:none;stroke:#9ca3af;stroke-width:1.6;stroke-dasharray:3 5;pointer-events:none}
   .cab-snake{stroke:#0d9488;stroke-width:2;stroke-dasharray:9 5;opacity:.45;fill:none;pointer-events:none}
