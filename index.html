@@ -499,6 +499,16 @@
   .cab-trash{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;padding:3px 4px;border-radius:6px;display:flex;align-items:center}
   .cab-trash:hover{color:var(--danger,#dc2626);background:var(--n-100)}
   body.dark .cab-trash:hover{background:#2a1416}
+  /* Audit azionabile: criticità + fix a un click */
+  .audit-find{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:11.5px;line-height:1.4}
+  .audit-find-txt{flex:1 1 auto;min-width:0}
+  .audit-find-txt b{color:var(--text-2)}
+  .audit-hint{color:var(--text-3);margin-left:14px}
+  .audit-fix{flex:0 0 auto;align-self:center;border:1px solid var(--accent);background:var(--surface);color:var(--accent);
+    font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;line-height:1.3}
+  .audit-fix:hover{background:var(--accent);color:#fff}
+  body.dark .audit-fix{background:#141a1d}
+  body.dark .audit-fix:hover{background:var(--accent);color:#fff}
   .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
   .cabfld select,.cabfld input{width:100%;margin-top:2px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--n-800)}
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
@@ -4575,15 +4585,15 @@ function elecResult(force){ if(force || state.elec.auto || !__elecRes) __elecRes
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
 function auditEngine(){
   var items=state.items||[], Rc=cabResult(true), Re=elecResult(true), f=[];
-  function add(lvl,msg,cat,fix){ f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||""}); }
+  function add(lvl,msg,cat,fix,act){ f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null}); }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
   var realBox=items.some(cabIsBox), realDistro=items.some(elecIsDistro);
-  /* completezza / impostazione */
+  /* completezza / impostazione — con azione a un click (audit azionabile) */
   if(!items.length) add("info","Palco vuoto: aggiungi strumenti, microfoni ed elementi.","Progetto");
-  if(audioSrc>0 && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.");
-  if(loadsN>0 && !realDistro) add("warn","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.");
-  if(loadsN>0 && !Re.supply) add("warn","Alimentazione non definita.","Elettrico","Scegli allaccio rete o metti un generatore sul palco.");
-  if(audioSrc>0 && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.");
+  if(audioSrc>0 && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.",{label:"Aggiungi stage box",run:auditFixAddBox});
+  if(loadsN>0 && !realDistro) add("warn","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro});
+  if(loadsN>0 && !Re.supply) add("warn","Alimentazione non definita.","Elettrico","Scegli allaccio rete o metti un generatore sul palco.",{label:"Allaccia rete",run:auditFixSetRete});
+  if(audioSrc>0 && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge});
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
@@ -4599,6 +4609,16 @@ function auditEngine(){
   return {findings:f, errs:errs, warns:warns, score:score, grade:grade, totCableM:totCableM,
           audioSrc:audioSrc, monitors:monitors, loadsN:loadsN, totW:Re.totW||0, mixer:Rc.mixer||""};
 }
+/* Audit azionabile: ogni criticità strutturale ha una fix a un click. Le fix aggiungono l'elemento
+   mancante e lo lasciano SELEZIONATO (l'utente lo posiziona subito, come per il drag dal catalogo);
+   l'avviso sparisce dall'audit alla deselezione. Le fix "di impostazione" (rete) restano nell'audit. */
+function auditFixAddBox(){ state.cab.on=true; __cabRes=null; addItem("stagebox"); }
+function auditFixAddWedge(){ addItem("wedge"); }
+function auditFixAddDistro(){
+  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; }
+  __elecRes=null; addItem("distro63");
+}
+function auditFixSetRete(){ state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); }
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()+zonesRegionsMarkup()
@@ -7703,7 +7723,7 @@ function toggleCabLayer(){
 }
 (function(){
   var head=document.getElementById("cabSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#cabTrash")) return; cabOpen=!cabOpen; renderCabPanel(); });   /* menu a tendina */
+  head.addEventListener("click", function(e){ if(e.target.closest("#cabTrash")) return; if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("cabTrash").addEventListener("click", function(e){ e.stopPropagation(); state.cab.on=false; selCab=null; save(); render(); });   /* cestino: rimuove il cablaggio audio */
   document.getElementById("cabMixer").addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
   document.getElementById("cabHome").addEventListener("change", function(){
@@ -7757,7 +7777,7 @@ function cabActivateFlow(){
     state.cab.mixer=document.getElementById("cabModalMixer").value;
     var k=document.getElementById("cabModalHome").value;
     state.cab.home = !k ? null : (k==="custom" ? {kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)} : {kind:k, x:0, y:0});
-    state.cab.on=true; cabOpen=true; __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
+    state.cab.on=true; techAccordionOpen("cab"); __cabRes=null; document.getElementById("cabModal").hidden=true; save(); render();
   });
 })();
 /* ===== INPUT / PATCH LIST automatica — derivata dal motore di cablaggio (fonte unica) ===== */
@@ -7792,12 +7812,12 @@ function renderPatchPanel(){
 }
 function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
   patchActive=!patchActive;
-  if(patchActive){ patchOpen=true; closeMobileDrawers(); clearSelection(); }
+  if(patchActive){ techAccordionOpen("patch"); closeMobileDrawers(); clearSelection(); }
   render();
 }
 (function(){
   var head=document.getElementById("patchSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#patchTrash")) return; patchOpen=!patchOpen; renderPatchPanel(); });   /* menu a tendina */
+  head.addEventListener("click", function(e){ if(e.target.closest("#patchTrash")) return; if(patchOpen) patchOpen=false; else techAccordionOpen("patch"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); patchActive=false; render(); });   /* cestino: rimuove l'input list */
   document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
 })();
@@ -7834,12 +7854,12 @@ function renderMonitorPanel(){
 }
 function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disattiva la monitor list */
   monActive=!monActive;
-  if(monActive){ monOpen=true; closeMobileDrawers(); clearSelection(); }
+  if(monActive){ techAccordionOpen("mon"); closeMobileDrawers(); clearSelection(); }
   render();
 }
 (function(){
   var head=document.getElementById("monSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#monTrash")) return; monOpen=!monOpen; renderMonitorPanel(); });
+  head.addEventListener("click", function(e){ if(e.target.closest("#monTrash")) return; if(monOpen) monOpen=false; else techAccordionOpen("mon"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("monTrash").addEventListener("click", function(e){ e.stopPropagation(); monActive=false; render(); });
   document.getElementById("monPdf").addEventListener("click", function(){ monitorListPdf(); });
 })();
@@ -7873,10 +7893,10 @@ function renderLoadPanel(){
   });
   host.innerHTML=h;
 }
-function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ loadOpen=true; closeMobileDrawers(); clearSelection(); } render(); }
+function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordionOpen("load"); closeMobileDrawers(); clearSelection(); } render(); }
 (function(){
   var head=document.getElementById("loadSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#loadTrash")) return; loadOpen=!loadOpen; renderLoadPanel(); });
+  head.addEventListener("click", function(e){ if(e.target.closest("#loadTrash")) return; if(loadOpen) loadOpen=false; else techAccordionOpen("load"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("loadTrash").addEventListener("click", function(e){ e.stopPropagation(); loadActive=false; render(); });
   document.getElementById("loadPdf").addEventListener("click", function(){ loadListPdf(); });
 })();
@@ -7912,12 +7932,12 @@ function renderElecPanel(){
   document.getElementById("elecSummary").innerHTML=s;
 }
 function toggleElecLayer(){
-  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; elecOpen=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); return; }
+  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); return; }
   state.elec.on=false; save(); render();
 }
 (function(){
   var head=document.getElementById("elecSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; elecOpen=!elecOpen; renderElecPanel(); });
+  head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; save(); render(); });
   document.getElementById("elecSupply").addEventListener("change", function(){ var k=this.value; state.elec.supply = !k ? null : (k==="custom"?{kind:"custom",x:Math.round(state.stage.w/2),y:Math.round(state.stage.d+40)}:{kind:k,x:0,y:0}); __elecRes=null; save(); render(); });
   document.getElementById("elecPhase3").addEventListener("change", function(){ state.elec.phase3=this.checked; __elecRes=null; save(); render(); });
@@ -7945,13 +7965,23 @@ function renderAuditPanel(){
     +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:11.5px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+'</div></div></div>';
   document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m';
   var host=document.getElementById("auditFindings");
+  host.innerHTML="";
   var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"; });
   if(!probs.length){ host.innerHTML='<div style="color:var(--accent);font-size:12px">✓ Nessuna criticità: il rider sembra pronto.</div>'; return; }
   probs.sort(function(a,b){ return (a.lvl==="err"?0:1)-(b.lvl==="err"?0:1); });
-  host.innerHTML = probs.map(function(x){ var c=x.lvl==="err"?"var(--danger,#dc2626)":"#b45309";
-    return '<div style="margin-bottom:6px;font-size:11.5px;line-height:1.4"><span style="color:'+c+'">●</span> <b style="color:var(--text-2)">'+esc(x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div style="color:var(--text-3);margin-left:14px">↳ '+esc(x.fix)+'</div>':'')+'</div>'; }).join("");
+  probs.forEach(function(x){
+    var c=x.lvl==="err"?"var(--danger,#dc2626)":"#b45309";
+    var row=document.createElement("div"); row.className="audit-find";
+    row.innerHTML='<div class="audit-find-txt"><span style="color:'+c+'">●</span> <b>'+esc(x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
+    if(x.act && typeof x.act.run==="function"){
+      var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=x.act.label;
+      b.addEventListener("click", function(){ x.act.run(); });   /* la fix persiste e ridisegna da sé */
+      row.appendChild(b);
+    }
+    host.appendChild(row);
+  });
 }
-function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ auditOpen=true; closeMobileDrawers(); clearSelection(); } render(); }
+function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
 function auditAskAi(){
   var A=auditEngine();
   var L=["Sei un sound engineer esperto di live. Ecco il mio stage plot e l'analisi automatica di StagePlot. Dammi un parere professionale sintetico e 3-5 suggerimenti concreti e prioritari.",""];
@@ -7966,11 +7996,17 @@ function auditAskAi(){
 }
 (function(){
   var head=document.getElementById("auditSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#auditTrash")) return; auditOpen=!auditOpen; renderAuditPanel(); });
+  head.addEventListener("click", function(e){ if(e.target.closest("#auditTrash")) return; if(auditOpen) auditOpen=false; else techAccordionOpen("audit"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("auditTrash").addEventListener("click", function(e){ e.stopPropagation(); auditActive=false; render(); });
   document.getElementById("auditAi").addEventListener("click", function(){ auditAskAi(); });
   document.getElementById("auditPdf").addEventListener("click", function(){ auditReportPdf(); });
 })();
+/* Progressive disclosure: un solo pannello tecnico espanso per volta (accordion) → niente colonna infinita */
+function techAccordionOpen(which){
+  auditOpen=cabOpen=elecOpen=patchOpen=monOpen=loadOpen=false;
+  if(which==="audit")auditOpen=true; else if(which==="cab")cabOpen=true; else if(which==="elec")elecOpen=true;
+  else if(which==="patch")patchOpen=true; else if(which==="mon")monOpen=true; else if(which==="load")loadOpen=true;
+}
 function renderAccessoriCount(){
   renderLayerManager();
   renderAuditPanel();
