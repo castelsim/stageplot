@@ -138,8 +138,8 @@
   .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   #catalog{grid-area:cat;overflow-y:auto;border-right:1px solid var(--border);padding:10px 9px}
   #catalog .cat-head{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:var(--surface);
-    border:1px solid var(--border);border-radius:10px;padding:10px 11px;margin-top:6px;cursor:pointer;
-    font-size:12px;color:var(--n-700);font-weight:600}   /* nome su una riga, omogeneo per tutte le categorie */
+    border:1px solid var(--border);border-radius:9px;padding:6px 11px;margin-top:4px;cursor:pointer;
+    font-size:12px;color:var(--n-700);font-weight:600}   /* compatto: tutte le categorie visibili senza scroll */
   #catalog .cat-head:first-child{margin-top:0}
   #catalog .cat-head:hover{background:var(--n-200)}
   #catalog .cat-head.open{background:var(--accent);border-color:var(--accent);color:#fff}

@@ -300,8 +300,8 @@
   .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   #catalog{grid-area:cat;overflow-y:auto;border-right:1px solid var(--border);padding:10px 9px}
   #catalog .cat-head{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:var(--surface);
-    border:1px solid var(--border);border-radius:10px;padding:10px 11px;margin-top:6px;cursor:pointer;
-    font-size:12px;color:var(--n-700);font-weight:600}   /* nome su una riga, omogeneo per tutte le categorie */
+    border:1px solid var(--border);border-radius:9px;padding:6px 11px;margin-top:4px;cursor:pointer;
+    font-size:12px;color:var(--n-700);font-weight:600}   /* compatto: tutte le categorie visibili senza scroll */
   #catalog .cat-head:first-child{margin-top:0}
   #catalog .cat-head:hover{background:var(--n-200)}
   #catalog .cat-head.open{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -3168,7 +3168,7 @@ var TYPES = {
   rack4u:   {nome:"Rack 4U", dim:"48×55", cat:"Dispositivi", w:48,d:55, defLabel:"Rack 4U",
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
-var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Luci","Video","Dispositivi","Sicurezza e site","Rigging e strutture"];
+var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Layer tecnici","Luci","Video","Dispositivi","Sicurezza e site","Rigging e strutture"];
 
 /* ===== POTENZA ELETTRICA (Fase A: assorbimenti) ===== */
 /* Assorbimento AC TIPICO al muro durante lo show (non la targa/uscita): base onesta per la
@@ -5429,36 +5429,33 @@ function miniSvg(k, over){
       body.appendChild(makeBtn("corista","Donna", corD, "voce coro")); n++;
       entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce coro"});
     }
-    if(c==="Monitor da palco"){
-      var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      body.appendChild(makeActionBtn("Monitor list","mix e ritorni automatici", null, toggleMonitorView, MON_ICON)); n++;
-      entries.push({nome:"Monitor list", dim:"mix e ritorni automatici", action:toggleMonitorView, iconHtml:MON_ICON});
-    }
-    if(c==="Cablaggio e segnale"){
-      var ZAUDIO_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><circle cx="16" cy="16" r="3.4" fill="currentColor"/></svg>';
-      body.appendChild(makeActionBtn("Zone Audio","dove servono ingressi audio", null, function(){ toggleZoneLayer("audio"); }, ZAUDIO_ICON)); n++;
-      entries.push({nome:"Zone Audio", dim:"dove servono ingressi audio", action:function(){ toggleZoneLayer("audio"); }, iconHtml:ZAUDIO_ICON});
-      var CAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 25 Q 14 20 16 13 T 27 7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="25" r="2.6" fill="currentColor"/><rect x="23" y="4" width="7" height="6" rx="1.5" fill="currentColor"/></svg>';
-      body.appendChild(makeActionBtn("Cablaggio audio","cavi calcolati sorgente → stagebox", null, toggleCabLayer, CAB_ICON)); n++;
-      entries.push({nome:"Cablaggio audio", dim:"cavi calcolati sorgente → stagebox", action:toggleCabLayer, iconHtml:CAB_ICON});
-      var PATCH_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      body.appendChild(makeActionBtn("Input list","lista canali automatica → mixer", null, togglePatchView, PATCH_ICON)); n++;
-      entries.push({nome:"Input list", dim:"lista canali automatica → mixer", action:togglePatchView, iconHtml:PATCH_ICON});
+    if(c==="Cablaggio e segnale"){   /* i LAYER audio sono nella categoria "Layer tecnici"; qui restano gli elementi (stage box) */
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
         var nome="Stage box "+v[0], over={ch:v[0]};
         body.appendChild(makeBtn("stagebox", nome, over, v[1])); n++;
         entries.push({k:"stagebox", nome:nome, over:over, dim:v[1]});
       });
     }
-    if(c==="Elettrico"){
-      var ZPOWER_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><path d="M17 11l-4 6h3l-1 4 4-6h-3z" fill="currentColor"/></svg>';
-      body.appendChild(makeActionBtn("Zone Alimentazione","dove servono punti corrente", null, function(){ toggleZoneLayer("power"); }, ZPOWER_ICON)); n++;
-      entries.push({nome:"Zone Alimentazione", dim:"dove servono punti corrente", action:function(){ toggleZoneLayer("power"); }, iconHtml:ZPOWER_ICON});
+    if(c==="Layer tecnici"){   /* tutte le viste/motore tecniche in un unico posto, ordinate */
+      var CAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 25 Q 14 20 16 13 T 27 7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="25" r="2.6" fill="currentColor"/><rect x="23" y="4" width="7" height="6" rx="1.5" fill="currentColor"/></svg>';
+      var PATCH_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M8 22l4-12 3 8 2-5 3 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5 26h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      var ZAUDIO_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><circle cx="16" cy="16" r="3.4" fill="currentColor"/></svg>';
       var ECAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M16 4l-4 7h3l-2 6 8-9h-4l3-4z" fill="currentColor"/><path d="M5 27h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      body.appendChild(makeActionBtn("Cablaggio elettrico","distro, fasi, carichi calcolati", null, toggleElecLayer, ECAB_ICON)); n++;
-      entries.push({nome:"Cablaggio elettrico", dim:"distro, fasi, carichi calcolati", action:toggleElecLayer, iconHtml:ECAB_ICON});
-      body.appendChild(makeActionBtn("Lista carichi","potenza per carico → distro/fase", null, toggleLoadView, ECAB_ICON)); n++;
-      entries.push({nome:"Lista carichi", dim:"potenza per carico → distro/fase", action:toggleLoadView, iconHtml:ECAB_ICON});
+      var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      var ZPOWER_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5" y="7" width="22" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3"/><path d="M17 11l-4 6h3l-1 4 4-6h-3z" fill="currentColor"/></svg>';
+      var zAudio=function(){ toggleZoneLayer("audio"); }, zPower=function(){ toggleZoneLayer("power"); };
+      var ha=document.createElement("h4"); ha.textContent="Audio"; body.appendChild(ha);
+      [["Cablaggio audio","cavi calcolati sorgente → stagebox",toggleCabLayer,CAB_ICON],
+       ["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
+       ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON],
+       ["Zone Audio","dove servono ingressi audio",zAudio,ZAUDIO_ICON]].forEach(function(a){
+        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
+      var he=document.createElement("h4"); he.textContent="Elettrico"; body.appendChild(he);
+      [["Cablaggio elettrico","distro, fasi, carichi calcolati",toggleElecLayer,ECAB_ICON],
+       ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON],
+       ["Zone Alimentazione","dove servono punti corrente",zPower,ZPOWER_ICON]].forEach(function(a){
+        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
     }
     cats[c].forEach(function(k){
       if(c==="Palco e strutture") return;   /* categoria gestita interamente sopra (sottosezioni) */
@@ -8586,7 +8583,7 @@ function catCompactSoon(){
   catIdleT=setTimeout(function(){ catIdleT=null;
     document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open")
       .forEach(function(el){ el.classList.remove("open"); });
-  }, 10000);
+  }, 2000);   /* 2s dopo l'ultima attività sul catalogo (l'attività azzera il timer, così l'aggiunta multipla resta aperta) */
 }
 function catIdleCancel(){ if(catIdleT){ clearTimeout(catIdleT); catIdleT=null; } }
 (function(){
