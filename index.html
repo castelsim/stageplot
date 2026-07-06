@@ -522,7 +522,10 @@
   body.dark .cabfld select,body.dark .cabfld input{background:#141a1d;border-color:#314046;color:#e5e7eb}
   /* Input / Patch list (sezione a tendina nel pannello idle) */
   #patchRows{border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .patch-row{display:grid;grid-template-columns:24px 1fr 70px 42px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
+  /* col. 2 e 3 flessibili (minmax 0 = si restringono con ellipsis quando stretto, e crescono allargando la
+     colonna destra fino a mostrare tutto il contenuto); # e ultima (patch/uscita/Q-L, contenuto corto)
+     a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
+  .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
   .patch-row:last-child{border-bottom:none}
   .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
   .patch-row .pn{color:var(--text-3);font-weight:700}
@@ -5365,7 +5368,7 @@ function miniSvg(k, over){
         sh.addEventListener("click", function(){
           var willOpen = !sb.classList.contains("open");
           subList.forEach(function(s){ s.head.classList.remove("open"); s.body.classList.remove("open"); });
-          if(willOpen){ sb.classList.add("open"); sh.classList.add("open"); }
+          if(willOpen){ sb.classList.add("open"); sh.classList.add("open"); catCompactSoon(); }   /* 2s di inutilizzo → richiude */
         });
         subList.push(group); subMap[sub]=group;
         body.appendChild(sh); body.appendChild(sb);
@@ -5430,18 +5433,16 @@ function miniSvg(k, over){
       var ECAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M16 4l-4 7h3l-2 6 8-9h-4l3-4z" fill="currentColor"/><path d="M5 27h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      var hd=document.createElement("h4"); hd.textContent="Diagnostica"; body.appendChild(hd);
-      body.appendChild(makeActionBtn("Audit progetto","analisi automatica + punteggio",null,toggleAuditView,AUDIT_ICON)); n++;
+      /* sottocategorie = menu a tendina uniformi (come tutte le altre categorie), via addToGroup */
+      addToGroup("Diagnostica", makeActionBtn("Audit progetto","analisi automatica + punteggio",null,toggleAuditView,AUDIT_ICON));
       entries.push({nome:"Audit progetto",dim:"analisi automatica + punteggio",action:toggleAuditView,iconHtml:AUDIT_ICON});
-      var ha=document.createElement("h4"); ha.textContent="Audio"; body.appendChild(ha);
       [["Cablaggio audio","cavi calcolati sorgente → stagebox",toggleCabLayer,CAB_ICON],
        ["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
        ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON]].forEach(function(a){
-        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
-      var he=document.createElement("h4"); he.textContent="Elettrico"; body.appendChild(he);
+        addToGroup("Audio", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
       [["Cablaggio elettrico","distro, fasi, carichi calcolati",toggleElecLayer,ECAB_ICON],
        ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
-        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
+        addToGroup("Elettrico", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
     }
     cats[c].forEach(function(k){
       if(c==="Palco e strutture") return;   /* categoria gestita interamente sopra (sottosezioni) */
@@ -5472,7 +5473,8 @@ function miniSvg(k, over){
       var willOpen = !body.classList.contains("open");
       /* chiude tutte le categorie E le loro sottocategorie: riaprendo una categoria i sottomenù ripartono chiusi */
       wrap.querySelectorAll(".cat-head.open,.cat-body.open,.sub-head.open,.sub-body.open").forEach(function(el){ el.classList.remove("open"); });
-      if(willOpen){ body.classList.add("open"); head.classList.add("open"); }
+      if(willOpen){ body.classList.add("open"); head.classList.add("open"); catCompactSoon(); }   /* 2s di inutilizzo → torna al default (chiuso) */
+      else catIdleCancel();
     });
     sections.push({head:head, body:body});
     wrap.appendChild(head); wrap.appendChild(body);
