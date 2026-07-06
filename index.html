@@ -2101,7 +2101,8 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <div class="mcard" style="width:820px;max-width:94vw">
     <h2>Salva PDF in scala</h2>
     <p class="hint" style="margin-bottom:10px">Planimetria del palco in <b>scala reale</b>. Stampa a <b>100% / dimensioni reali</b> (non "adatta alla pagina").</p>
-    <div id="pdfTechNote" style="font-size:12px;color:var(--accent);margin:-4px 0 10px;display:none"></div>
+    <div id="pdfTechNote" style="font-size:12px;color:var(--accent);margin:-4px 0 6px;display:none"></div>
+    <label class="chk" id="pdfTechRow" style="display:none;font-size:12.5px;margin-bottom:10px"><input type="checkbox" id="pdfIncludeTech" checked> Includi le pagine tecniche dei layer attivi</label>
     <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
       <div style="flex:1 1 280px;min-width:260px">
         <label>Formato foglio</label>
@@ -9764,6 +9765,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
                      : how==="share"  ? "✓ PDF pronto — scegli Mail (o un'app) per inviarlo."
                      : how==="abort"  ? "Condivisione annullata (PDF non inviato)."
                      : "✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
+    window.__pdfScope="full";   /* riporta al default: altri flussi (Condividi) esportano il documento completo */
     if(how!=="abort"){ track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400); }
   }).catch(function(e){
     if(e && e.name==="AbortError"){ info.className="mstatus"; info.textContent="Salvataggio annullato."; return; }
@@ -9973,17 +9975,34 @@ function pdfPowerZonesPage(doc, L, paperKey){
     }
     try{ document.getElementById("pdfPreview").innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value); }catch(e){}
   }
-  window.openPdfExportModal=function(){ modal.hidden=false; refresh();
+  function pdfComputeTechPages(){
     var pages=[];
     if((state.zones||[]).some(function(z){return z.kind==="audio";})) pages.push("Zone Audio");
     if((state.zones||[]).some(function(z){return z.kind==="power";})) pages.push("Zone Alimentazione");
     if(state.cab && state.cab.on){ var Rc=cabResult(true); if(Rc.totIn){ pages.push("Input list"); if(Rc.mixes && Rc.mixes.length) pages.push("Monitor list"); pages.push("Cablaggio audio"); } }
     if(state.elec && state.elec.on){ var Re=elecResult(true); if(Re.loads.length) pages.push("Piano elettrico","Lista carichi"); }
-    var el=document.getElementById("pdfTechNote");
-    if(el){ el.style.display=pages.length?"block":"none"; el.innerHTML=pages.length?('Include anche le pagine dei layer attivi: <b>'+pages.map(esc).join(", ")+'</b>.'):''; }
+    return pages;
+  }
+  var _pdfTechPages=[];
+  function pdfUpdateTechNote(){
+    var el=document.getElementById("pdfTechNote"), row=document.getElementById("pdfTechRow"), cb=document.getElementById("pdfIncludeTech");
+    var has=_pdfTechPages.length>0;
+    if(row) row.style.display=has?"flex":"none";
+    if(!has){ if(el) el.style.display="none"; window.__pdfScope="full"; return; }
+    var inc = cb ? cb.checked : true;
+    window.__pdfScope = inc ? "full" : "plot";   /* "plot" = solo palco (no zone né pagine motore) */
+    if(el){ el.style.display="block";
+      el.innerHTML = inc ? ('Include anche le pagine dei layer attivi: <b>'+_pdfTechPages.map(esc).join(", ")+'</b>.')
+                         : 'Verrà esportato <b>solo il palco</b> (1 pagina).'; }
+  }
+  window.openPdfExportModal=function(){ modal.hidden=false; refresh();
+    _pdfTechPages=pdfComputeTechPages();
+    var cb=document.getElementById("pdfIncludeTech"); if(cb) cb.checked=true;   /* default: includi le pagine tecniche */
+    pdfUpdateTechNote();
   };
   document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
-  document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; });
+  var _pdfInc=document.getElementById("pdfIncludeTech"); if(_pdfInc) _pdfInc.addEventListener("change", pdfUpdateTechNote);
+  document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; window.__pdfScope="full"; });
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
   paper.addEventListener("change", refresh); scl.addEventListener("change", refresh);
