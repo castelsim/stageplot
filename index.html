@@ -317,6 +317,10 @@
   #catSearch:focus{outline:none;border-color:var(--accent)}
   #catResults{display:none}
   #catResults .nores{font-size:12px;color:var(--text-3);padding:8px 4px}
+  /* azioni tecniche nascoste (ricerca "json"): backup/migrazione/supporto */
+  .json-tools{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
+  .json-tools .json-act{width:100%;justify-content:center;gap:7px;font-size:12.5px}
+  .json-tools .json-note{font-size:10.5px;color:var(--text-3);margin-top:3px;text-align:center}
   #catalog h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);font-weight:700;
     margin:13px 2px 7px;padding-left:9px;border-left:3px solid var(--accent-soft)}
   #catalog button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);
@@ -5555,6 +5559,15 @@ function miniSvg(k, over){
     results.innerHTML="";
     if(!q){ wrap.style.display=""; results.style.display="none"; return; }
     wrap.style.display="none"; results.style.display="block";
+    if(q==="json"){   /* escape-hatch tecnica: solo con "json" ESATTO. Non è una categoria né un elemento del palco. */
+      results.innerHTML='<div class="json-tools">'
+        +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
+        +'<button type="button" class="btn json-act" data-j="imp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><path d="M12 3v12"/></svg>Importa JSON</button>'
+        +'<div class="json-note">Funzione tecnica per backup, migrazione o supporto.</div></div>';
+      results.querySelector('[data-j="exp"]').addEventListener("click", function(){ document.getElementById("saveJson").click(); });
+      results.querySelector('[data-j="imp"]').addEventListener("click", function(){ document.getElementById("bHdrImport").click(); });
+      return;
+    }
     var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>'; return; }
     matched.forEach(function(e){

@@ -155,6 +155,10 @@
   #catSearch:focus{outline:none;border-color:var(--accent)}
   #catResults{display:none}
   #catResults .nores{font-size:12px;color:var(--text-3);padding:8px 4px}
+  /* azioni tecniche nascoste (ricerca "json"): backup/migrazione/supporto */
+  .json-tools{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
+  .json-tools .json-act{width:100%;justify-content:center;gap:7px;font-size:12.5px}
+  .json-tools .json-note{font-size:10.5px;color:var(--text-3);margin-top:3px;text-align:center}
   #catalog h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);font-weight:700;
     margin:13px 2px 7px;padding-left:9px;border-left:3px solid var(--accent-soft)}
   #catalog button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);

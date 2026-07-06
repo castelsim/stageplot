@@ -4523,6 +4523,15 @@ function miniSvg(k, over){
     results.innerHTML="";
     if(!q){ wrap.style.display=""; results.style.display="none"; return; }
     wrap.style.display="none"; results.style.display="block";
+    if(q==="json"){   /* escape-hatch tecnica: solo con "json" ESATTO. Non è una categoria né un elemento del palco. */
+      results.innerHTML='<div class="json-tools">'
+        +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
+        +'<button type="button" class="btn json-act" data-j="imp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><path d="M12 3v12"/></svg>Importa JSON</button>'
+        +'<div class="json-note">Funzione tecnica per backup, migrazione o supporto.</div></div>';
+      results.querySelector('[data-j="exp"]').addEventListener("click", function(){ document.getElementById("saveJson").click(); });
+      results.querySelector('[data-j="imp"]').addEventListener("click", function(){ document.getElementById("bHdrImport").click(); });
+      return;
+    }
     var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>'; return; }
     matched.forEach(function(e){
