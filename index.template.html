@@ -2116,7 +2116,7 @@ var TYPES = {
   rack4u:   {nome:"Rack 4U", dim:"48×55", cat:"Dispositivi", w:48,d:55, defLabel:"Rack 4U",
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
-var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Layer tecnici","Luci","Video","Dispositivi","Sicurezza e site","Rigging e strutture"];
+var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Luci","Video","Dispositivi","Sicurezza e site","Rigging e strutture","Layer tecnici"];
 
 /* ===== POTENZA ELETTRICA (Fase A: assorbimenti) ===== */
 /* Assorbimento AC TIPICO al muro durante lo show (non la targa/uscita): base onesta per la
@@ -6661,11 +6661,26 @@ function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: bo
 function patchList(){
   var R=cabResult(true), rows=[], n=0;
   R.links.forEach(function(l){ if(l.deleted) return; n++;
-    rows.push({n:n, name:l.s.name, mic:l.s.mic, p48:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter}); });
-  R.unassigned.forEach(function(s){ n++; rows.push({n:n, name:s.name, mic:s.mic, p48:!!micInfo(s.mic).p48, patch:"—", box:null}); });
+    rows.push({n:n, name:l.s.name, mic:l.s.mic, p48:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter, itemId:l.s.it.id}); });
+  R.unassigned.forEach(function(s){ n++; rows.push({n:n, name:s.name, mic:s.mic, p48:!!micInfo(s.mic).p48, patch:"—", box:null, itemId:s.it.id}); });
   return {rows:rows, R:R};
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
+/* Liste tecniche MODIFICABILI: click su una riga = seleziona l'elemento sul palco (per spostarlo),
+   cestino = lo elimina. Riusate da Input list (sorgente) e Monitor list (wedge del mix). */
+var _ROW_TRASH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
+function selectMany(ids){ ids=(ids||[]).filter(Boolean); sel=ids[0]||null; selSet={}; ids.forEach(function(id){ selSet[id]=true; }); }
+function listDeleteItems(ids){ var set={}; (ids||[]).forEach(function(id){ set[id]=true; }); state.items=state.items.filter(function(i){ return !set[i.id]; }); clearSelection(); __cabRes=null; __elecRes=null; save(); render(); }
+function makeListRow(cells, ids, sels, delTitle){   /* cells = array di HTML per # · nome · tipo · patch; ids = elementi da selezionare/cancellare */
+  var row=document.createElement("div"); row.className="patch-row editable"+(sels?" rowsel":"");
+  row.innerHTML=cells.join("");
+  var del=document.createElement("button"); del.type="button"; del.className="rowdel"; del.title=delTitle||"Elimina dal palco"; del.innerHTML=_ROW_TRASH;
+  if(ids && ids.length){
+    row.addEventListener("click", function(e){ if(e.target.closest(".rowdel")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });
+    del.addEventListener("click", function(e){ e.stopPropagation(); listDeleteItems(ids); });
+  } else { del.disabled=true; }
+  row.appendChild(del); return row;
+}
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
   sec.style.display = patchActive ? "block" : "none";   /* sezione presente SOLO se attivata dal catalogo */
@@ -6678,14 +6693,19 @@ function renderPatchPanel(){
   if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun ingresso audio: aggiungi microfoni, DI o strumenti sul palco.</div>'; sum.textContent=""; return; }
   var ph=pl.rows.filter(function(r){ return r.p48; }).length, di=pl.rows.filter(function(r){ return String(r.mic).indexOf("DI")>-1; }).length;
   sum.innerHTML='<b>'+pl.rows.length+'</b> ingressi · '+ph+' con 48V · '+di+' DI<br>Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw&&STAGEBOX_DB[b.hw]?" "+STAGEBOX_DB[b.hw].model:"")+(b.auto?" (auto)":""); }).join(", ")+'</b>';
-  var h='<div class="patch-row patch-hd"><span>#</span><span>Sorgente</span><span>Mic/DI</span><span>Patch</span></div>';
+  host.innerHTML="";
+  var hd=document.createElement("div"); hd.className="patch-row patch-hd editable";
+  hd.innerHTML='<span>#</span><span>Sorgente</span><span>Mic/DI</span><span>Patch</span><span></span>';
+  host.appendChild(hd);
   pl.rows.forEach(function(r){
-    h+='<div class="patch-row'+(r.box?'':' unassigned')+'"><span class="pn">'+r.n+'</span>'
-      +'<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
-      +'<span class="pmic">'+esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')+'</span>'
-      +'<span class="ppatch">'+esc(r.patch)+'</span></div>';
+    var cells=['<span class="pn">'+r.n+'</span>',
+      '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
+      '<span class="pmic">'+esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')+'</span>',
+      '<span class="ppatch">'+esc(r.patch)+'</span>'];
+    var row=makeListRow(cells, r.itemId?[r.itemId]:null, r.itemId&&selSet[r.itemId], "Elimina questa sorgente dal palco");
+    if(!r.box) row.classList.add("unassigned");
+    host.appendChild(row);
   });
-  host.innerHTML=h;
 }
 function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
   patchActive=!patchActive;
@@ -6703,7 +6723,7 @@ function monitorList(){
   var R=cabResult(true), rows=[];
   R.mixes.forEach(function(m){
     var patch = m.box ? (m.box.letter+"O"+m.outCh+(m.ch===2?"–"+(m.outCh+1):"")) : "—";
-    rows.push({n:m.n, mix:m.name, tipo:OUT_SET[m.sinks[0].type]||"monitor", stereo:m.ch===2, nMon:m.sinks.length, patch:patch, box:m.box});
+    rows.push({n:m.n, mix:m.name, tipo:OUT_SET[m.sinks[0].type]||"monitor", stereo:m.ch===2, nMon:m.sinks.length, patch:patch, box:m.box, sinkIds:m.sinks.map(function(sk){ return sk.id; })});
   });
   return {rows:rows, R:R};
 }
@@ -6720,14 +6740,20 @@ function renderMonitorPanel(){
   if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun monitor sul palco: aggiungi wedge, side/drum fill o IEM.</div>'; sum.textContent=""; return; }
   var wl=pl.rows.filter(function(r){ return !r.stereo; }).length, ie=pl.rows.filter(function(r){ return r.stereo; }).length;
   sum.innerHTML='<b>'+pl.rows.length+'</b> mix · '+wl+' wedge/fill · '+ie+' in-ear<br>Uscite usate: <b>'+R.mixChTot+' / '+R.capOutTot+'</b>';
-  var h='<div class="patch-row patch-hd"><span>#</span><span>Mix</span><span>Tipo</span><span>Uscita</span></div>';
+  host.innerHTML="";
+  var hd=document.createElement("div"); hd.className="patch-row patch-hd editable";
+  hd.innerHTML='<span>#</span><span>Mix</span><span>Tipo</span><span>Uscita</span><span></span>';
+  host.appendChild(hd);
   pl.rows.forEach(function(r){
-    h+='<div class="patch-row'+(r.box?'':' unassigned')+'"><span class="pn">'+r.n+'</span>'
-      +'<span class="psrc" title="'+esc(r.mix)+'">'+esc(r.mix)+'</span>'
-      +'<span class="pmic">'+esc(r.tipo)+(r.stereo?' <b class="p48b">ST</b>':'')+'</span>'
-      +'<span class="ppatch">'+esc(r.patch)+'</span></div>';
+    var cells=['<span class="pn">'+r.n+'</span>',
+      '<span class="psrc" title="'+esc(r.mix)+'">'+esc(r.mix)+'</span>',
+      '<span class="pmic">'+esc(r.tipo)+(r.stereo?' <b class="p48b">ST</b>':'')+'</span>',
+      '<span class="ppatch">'+esc(r.patch)+'</span>'];
+    var seld = r.sinkIds && r.sinkIds.some(function(id){ return selSet[id]; });
+    var row=makeListRow(cells, r.sinkIds, seld, "Elimina questo monitor dal palco");
+    if(!r.box) row.classList.add("unassigned");
+    host.appendChild(row);
   });
-  host.innerHTML=h;
 }
 function monHasSinks(){ return state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }); }
 /* Proattivo: attivare "Monitor list" = "penso servano monitor" → se ci sono musicisti ma nessun monitor,
@@ -7517,21 +7543,21 @@ document.getElementById("bNew").addEventListener("click", function(){
 /* Auto-ricompattamento del catalogo: 10 s dopo aver SCELTO un elemento, se il catalogo non viene
    più toccato (click, ricerca, o anche solo passaggio del mouse), le categorie aperte si richiudono.
    Finché stai solo sfogliando senza scegliere, non si chiude nulla. */
-var catIdleT=null;
+var catIdleT=null, catHover=false;
 function catCompactSoon(){
+  if(catHover) return;   /* mano SOPRA la colonna → non richiudere: resta aperto finché non esci */
   if(catIdleT) clearTimeout(catIdleT);
   catIdleT=setTimeout(function(){ catIdleT=null;
     document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open")
       .forEach(function(el){ el.classList.remove("open"); });
-  }, 2000);   /* 2s dopo l'ultima attività sul catalogo (l'attività azzera il timer, così l'aggiunta multipla resta aperta) */
+  }, 2000);   /* 2s dopo essere usciti dalla colonna (o dopo aver scelto, se il mouse non è più sopra) */
 }
 function catIdleCancel(){ if(catIdleT){ clearTimeout(catIdleT); catIdleT=null; } }
 (function(){
   var c=document.getElementById("catalog"); if(!c) return;
-  /* qualsiasi attività sul catalogo fa ripartire il conto alla rovescia (solo se già armato) */
-  ["pointerdown","pointermove","input"].forEach(function(ev){
-    c.addEventListener(ev, function(){ if(catIdleT) catCompactSoon(); }, {passive:true});
-  });
+  /* mano sopra = resta aperto; appena esci parte il conto alla rovescia (se c'è qualcosa di aperto) */
+  c.addEventListener("pointerenter", function(){ catHover=true; catIdleCancel(); });
+  c.addEventListener("pointerleave", function(){ catHover=false; if(c.querySelector(".cat-head.open, .sub-head.open")) catCompactSoon(); });
 })();
 function resetCatalogView(){
   catIdleCancel();

@@ -373,6 +373,15 @@
      colonna destra fino a mostrare tutto il contenuto); # e ultima (patch/uscita/Q-L, contenuto corto)
      a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
   .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
+  /* liste modificabili (Input/Monitor): 5ª colonna per il cestino; riga cliccabile = seleziona sul palco */
+  .patch-row.editable{grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px 24px}
+  .patch-row.editable:not(.patch-hd){cursor:pointer}
+  .patch-row.editable:not(.patch-hd):hover{background:var(--accent-tint)}
+  .patch-row.rowsel{background:var(--accent-tint)}
+  .rowdel{border:none;background:none;color:var(--text-3);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;opacity:.4;border-radius:5px}
+  .patch-row.editable:hover .rowdel{opacity:1}
+  .rowdel:hover{color:var(--danger,#dc2626);background:var(--n-100)}
+  body.dark .rowdel:hover{background:#2a1416}
   .patch-row:last-child{border-bottom:none}
   .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
   .patch-row .pn{color:var(--text-3);font-weight:700}
