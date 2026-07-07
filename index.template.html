@@ -3154,6 +3154,62 @@ function orthExpand(pts){ if(!pts||pts.length<2) return pts||[]; var out=[pts[0]
   return out; }
 function orthLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]); } return d; }   /* lunghezza Manhattan */
 function orthPathD(pts){ var ep=orthExpand(pts); if(ep.length<2) return ''; return 'M '+ep.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L '); }
+/* ── Pilastro 2 / Fase A: routing ortogonale che EVITA pedane ed elementi ingombranti
+   (grafo di visibilità ortogonale + A*, approccio libavoid/ELK). I mic/DI piccoli si attraversano. ── */
+function obstacleRects(){
+  var M=16, rects=[];
+  (state.items||[]).forEach(function(it){
+    var t=TYPES[it.type]; if(!t) return;
+    if(cabIsBox(it)||elecIsDistro(it)||elecIsGen(it)) return;   /* box/distro/generatore = nodi, non ostacoli */
+    var w=it.w||t.w||40, d=it.d||t.d||40;
+    if(!t.riser && w*d<3200) return;                            /* solo ingombranti (>~57×57) + pedane */
+    rects.push({id:it.id, x0:it.x-w/2-M, y0:it.y-d/2-M, x1:it.x+w/2+M, y1:it.y+d/2+M});
+  });
+  return rects;
+}
+function _segHits(p,q,rects){ var x0=Math.min(p[0],q[0]),x1=Math.max(p[0],q[0]),y0=Math.min(p[1],q[1]),y1=Math.max(p[1],q[1]);
+  for(var i=0;i<rects.length;i++){ var r=rects[i]; if(x0<r.x1 && x1>r.x0 && y0<r.y1 && y1>r.y0) return true; } return false; }
+function _uniqNums(arr){ arr.sort(function(a,b){return a-b;}); var o=[]; for(var i=0;i<arr.length;i++){ if(!o.length||Math.abs(arr[i]-o[o.length-1])>0.5) o.push(arr[i]); } return o; }
+function orthRoute(a,b,rects){   /* percorso ortogonale a→b che aggira i rects; prima le 2 L veloci, poi A* */
+  if(!rects||!rects.length) return [a,b];
+  var c1=[a[0],b[1]], c2=[b[0],a[1]];
+  if(!_segHits(a,c1,rects)&&!_segHits(c1,b,rects)) return [a,c1,b];
+  if(!_segHits(a,c2,rects)&&!_segHits(c2,b,rects)) return [a,c2,b];
+  return _astarOrth(a,b,rects) || [a,orthCorner(a,b),b];
+}
+function _astarOrth(a,b,rects){
+  var xs=[a[0],b[0]], ys=[a[1],b[1]];
+  rects.forEach(function(r){ xs.push(r.x0-2,r.x1+2); ys.push(r.y0-2,r.y1+2); });
+  xs=_uniqNums(xs); ys=_uniqNums(ys);
+  if(xs.length*ys.length>700) return null;   /* cap di sicurezza */
+  function idx(v,arr){ for(var i=0;i<arr.length;i++) if(Math.abs(arr[i]-v)<0.5) return i; return 0; }
+  var si=idx(a[0],xs), sj=idx(a[1],ys), ti=idx(b[0],xs), tj=idx(b[1],ys), K=function(i,j){return i+","+j;};
+  var dist={}, prev={}, done={}; dist[K(si,sj)]=0; var pq=[[0,si,sj]];
+  while(pq.length){
+    var mi=0; for(var k=1;k<pq.length;k++) if(pq[k][0]<pq[mi][0]) mi=k;
+    var c=pq.splice(mi,1)[0], ci=c[1], cj=c[2], ck=K(ci,cj);
+    if(done[ck]) continue; done[ck]=1; if(ci===ti&&cj===tj) break;
+    var dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    for(var di=0;di<4;di++){ var ni=ci+dirs[di][0], nj=cj+dirs[di][1];
+      if(ni<0||nj<0||ni>=xs.length||nj>=ys.length) continue;
+      var P=[xs[ci],ys[cj]], Q=[xs[ni],ys[nj]];
+      if(_segHits(P,Q,rects)) continue;
+      var nd=dist[ck]+Math.abs(Q[0]-P[0])+Math.abs(Q[1]-P[1]), nk=K(ni,nj);
+      if(dist[nk]==null||nd<dist[nk]){ dist[nk]=nd; prev[nk]=ck; pq.push([nd,ni,nj]); }
+    }
+  }
+  var tk=K(ti,tj); if(dist[tk]==null) return null;
+  var path=[], cur=tk; while(cur!=null){ var pp=cur.split(","); path.unshift([xs[+pp[0]],ys[+pp[1]]]); cur=prev[cur]; }
+  return path;
+}
+function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo, escludendo gli ostacoli-estremo */
+  if(!allObs||!allObs.length||!pts||pts.length<2) return pts;
+  var rects=exclude ? allObs.filter(function(r){ return !exclude[r.id]; }) : allObs;
+  if(!rects.length) return pts;
+  var out=[pts[0]];
+  for(var i=1;i<pts.length;i++){ var seg=orthRoute(pts[i-1],pts[i],rects); for(var j=1;j<seg.length;j++) out.push(seg[j]); }
+  return out;
+}
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
@@ -3325,17 +3381,19 @@ function cablingMarkup(){
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
   var edit=!state.cab.locked && showIn;   /* editing solo sui cavi ingresso, e solo se il layer ingressi è visibile */
+  var OBS=obstacleRects();   /* Pilastro 2: i cavi aggirano pedane ed elementi ingombranti */
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
   if(showIn){
-    R.snakes.forEach(function(k){ s+='<path class="cab-snake" d="'+orthPathD([[k.x1,k.y1],[k.x2,k.y2]])+'"/>'; });
+    R.snakes.forEach(function(k){ var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1; s+='<path class="cab-snake" d="'+orthPathD(cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex))+'"/>'; });
     R.links.forEach(function(l){
-      var d=orthPathD(l.pts);
+      var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
+      var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
       if(l.deleted){ s+='<path class="cab-del" d="'+d+'"/>'; if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
       s+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
       if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
       var lbl=cabLinkLabel(l);
-      if(lbl){ var mid=cabMidpoint(orthExpand(l.pts)); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+      if(lbl){ var mid=cabMidpoint(orthExpand(dpts)); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
     });
     if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
       if(sl){
@@ -3351,8 +3409,10 @@ function cablingMarkup(){
   /* ── lato RITORNI / monitor (ciano) ── */
   if(showRet){
     R.returnLinks.forEach(function(l){
-      s+='<path class="cab-return" d="'+orthPathD(l.pts)+'"/>';
-      if(state.cab.showLabels){ var mid=cabMidpoint(orthExpand(l.pts));
+      var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
+      var dpts=cabRoutePts(l.pts, OBS, ex);
+      s+='<path class="cab-return" d="'+orthPathD(dpts)+'"/>';
+      if(state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
         s+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
     });
@@ -3397,14 +3457,19 @@ function elecMarkup(){
   var R=elecResult(); if(!R) return '';
   var op=(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
   var s='<g class="elec-layer" style="opacity:'+op+'">';
+  var OBS=obstacleRects();   /* Pilastro 2: anche i cavi elettrici aggirano pedane/elementi */
   R.feeds.forEach(function(f){
-    s+='<path class="elec-feed" d="'+orthPathD([[f.x1,f.y1],[f.x2,f.y2]])+'"/>';
-    if(sl){ var mid=cabMidpoint(orthExpand([[f.x1,f.y1],[f.x2,f.y2]]));
+    var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
+    var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex);
+    s+='<path class="elec-feed" d="'+orthPathD(dpts)+'"/>';
+    if(sl){ var mid=cabMidpoint(orthExpand(dpts));
       s+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
   });
   R.loadLinks.forEach(function(l){
-    s+='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="'+orthPathD(l.pts)+'"/>';
-    if(sl){ var mid=cabMidpoint(orthExpand(l.pts));
+    var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
+    var dpts=cabRoutePts(l.pts, OBS, ex);
+    s+='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="'+orthPathD(dpts)+'"/>';
+    if(sl){ var mid=cabMidpoint(orthExpand(dpts));
       s+='<text class="elec-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
   });
   R.distros.forEach(function(d){
