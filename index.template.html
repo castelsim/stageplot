@@ -4074,7 +4074,20 @@ function grpDistApply(){
 }
 document.getElementById("grpDistN").addEventListener("input", grpDistApply);
 document.getElementById("grpDistEq").addEventListener("input", grpDistApply);
-function rotateSel(deg){ var its=selItems(); if(!its.length) return; its.forEach(function(it){ it.rot=((it.rot||0)+deg)%360; }); render(); save(); }
+/* Rotazione RIGIDA di gruppo (R): selezione multipla = un blocco → ruota attorno al centro del blocco
+   (gli elementi orbitano + girano su sé stessi), non ciascuno sul proprio centro. */
+function selBBoxCenter(its){ var mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+  its.forEach(function(it){ mnx=Math.min(mnx,it.x-it.w/2); mny=Math.min(mny,it.y-it.d/2); mxx=Math.max(mxx,it.x+it.w/2); mxy=Math.max(mxy,it.y+it.d/2); });
+  return [(mnx+mxx)/2, (mny+mxy)/2]; }
+function rotatePointAround(px,py,cx,cy,deg){ var r=deg*Math.PI/180, c=Math.cos(r), s=Math.sin(r), dx=px-cx, dy=py-cy; return [cx+dx*c-dy*s, cy+dx*s+dy*c]; }
+function rotateGroupBy(its, deg, pivot){
+  its.forEach(function(it){ var np=rotatePointAround(it.x,it.y,pivot[0],pivot[1],deg);
+    it.x=Math.round(np[0]); it.y=Math.round(np[1]); it.rot=Math.round((((it.rot||0)+deg)%360+360)%360); });
+}
+function rotateSel(deg){ var its=selItems(); if(!its.length) return;
+  if(its.length>1) rotateGroupBy(its, deg, selBBoxCenter(its));   /* blocco: rigido attorno al centro */
+  else its.forEach(function(it){ it.rot=((it.rot||0)+deg)%360; });
+  render(); save(); }
 /* etichetta del duplicato: incrementa il numero finale o ne aggiunge uno, evitando collisioni.
    extra = etichette già riservate in questa stessa duplicazione (per non collidere tra label e label2). */
 function bumpLabel(label, extra){
@@ -4774,12 +4787,10 @@ svg.addEventListener("pointerdown", function(e){
     if(feB){ drag={mode:"frame", sp0:{x:sp.x,y:sp.y}, f0:Object.assign({},state.printFrame), moved:false};
       svg.setPointerCapture(e.pointerId); return; }
   }
-  /* Option/Alt + trascina = disegna un nuovo blocco del palco (non sopra un elemento) */
-  if(e.altKey && !dcG && !(e.target.closest && e.target.closest(".rot-handle"))){
+  /* Alt+trascina = disegna un nuovo blocco del palco, MA solo se sei già in "Blocco palco" (stage-edit):
+     i blocchi si creano solo attivando l'elemento Blocco palco dal catalogo, non per caso in editing normale. */
+  if(e.altKey && stageEdit && stagePanelView==="palco" && !dcG && !(e.target.closest && e.target.closest(".rot-handle"))){
     e.preventDefault();
-    if(!stageEdit){ stageEdit=true; selBlock=null; exitHubModes("palco"); clearSelection(); }
-    if(stagePanelView!=="palco"){ stagePanelView="palco"; }
-    renderStagePanel(); render();
     drag={mode:"newblk", x0:sp.x, y0:sp.y};
     var pr=document.createElementNS("http://www.w3.org/2000/svg","rect");
     pr.setAttribute("id","newblk-preview"); pr.setAttribute("fill","rgba(37,99,235,.18)");
@@ -4829,7 +4840,14 @@ svg.addEventListener("pointerdown", function(e){
   }
   var rh = e.target.closest ? e.target.closest(".rot-handle") : null;
   if(rh){                                   /* maniglia di rotazione: trascina per ruotare attorno al centro */
-    var rid=rh.getAttribute("data-id"); selectOne(rid); var rit=getSel();
+    var rid=rh.getAttribute("data-id");
+    if(selIds().length>1 && selSet[rid]){   /* R: maniglia di un membro di una selezione multipla → ruota il BLOCCO rigido */
+      var gits=selItems(), gpiv=selBBoxCenter(gits), gsp=svgPoint(e);
+      drag={mode:"grouprot", pivot:gpiv, base:gits.map(function(it){ return {id:it.id, x:it.x, y:it.y, rot:it.rot||0}; }),
+            a0:Math.atan2(gsp.y-gpiv[1], gsp.x-gpiv[0]), moved:false};
+      svg.setPointerCapture(e.pointerId); return;
+    }
+    selectOne(rid); var rit=getSel();
     if(rit){ drag={mode:"rotate", id:rid, cx:rit.x, cy:rit.y, moved:false}; render(); svg.setPointerCapture(e.pointerId); }
     return;
   }
@@ -4940,6 +4958,14 @@ svg.addEventListener("pointermove", function(e){
     if(rit){ var ang=Math.atan2(sp.y-drag.cy, sp.x-drag.cx)*180/Math.PI + 90;   /* maniglia in alto = local up */
       if(!e.shiftKey) ang=Math.round(ang/5)*5;   /* snap 5°, libero con shift */
       rit.rot=Math.round(((ang%360)+360)%360); drag.moved=true; rotateItemNode(rit); }   /* aggiornamento parziale: solo questo elemento, non l'intera scena */
+  } else if(drag.mode==="grouprot"){   /* R: rotazione rigida del blocco attorno al suo centro */
+    sp=svgPoint(e);
+    var gdeg=(Math.atan2(sp.y-drag.pivot[1], sp.x-drag.pivot[0]) - drag.a0)*180/Math.PI;
+    if(!e.shiftKey) gdeg=Math.round(gdeg/5)*5;   /* snap 5°, libero con shift */
+    drag.base.forEach(function(b){ var it=state.items.find(function(x){ return x.id===b.id; }); if(!it) return;
+      var np=rotatePointAround(b.x, b.y, drag.pivot[0], drag.pivot[1], gdeg);
+      it.x=Math.round(np[0]); it.y=Math.round(np[1]); it.rot=Math.round((((b.rot+gdeg)%360)+360)%360); });
+    drag.moved=true; render();
   } else if(drag.mode==="itemresize"){
     sp=svgPoint(e); var rzit=state.items.find(function(i){ return i.id===drag.id; });
     if(rzit){
@@ -5100,6 +5126,7 @@ svg.addEventListener("pointerup", function(e){
     drag=null; return;
   }
   if(drag && drag.mode==="rotate"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="item" && drag.moved){ renderSnapGuides([]); render(); save(); ensureVisible(); }
   else if(drag && drag.mode==="marquee"){
