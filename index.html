@@ -1287,7 +1287,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
-  <button class="btn" id="bNames" title="Nomi degli strumenti — Auto: nascosti quando il palco è rimpicciolito (anti-confusione); Sempre / Mai per forzare"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M9 5v14M7 19h4"/><path d="M14 12h6M17 12v7M15 19h4"/></svg><span id="bNamesTxt">Nomi: auto</span></button>
+  <!-- bottone "Nomi" rimosso dall'header: la visibilità e l'abbreviazione del nome sono ora per-elemento (pannello dettagli a destra). Il nascondere a scala minima resta automatico e silenzioso. -->
   <span class="tbdiv"></span>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
@@ -1464,6 +1464,18 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <h3 id="selNome">Elemento</h3>
     <label>Etichetta</label><input type="text" id="pLabel">
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
+    <div id="pLblModeWrap" style="margin-top:8px">
+      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Nome sul palco</label>
+      <div style="display:flex;gap:4px">
+        <button class="btn" id="pLblFull" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra il nome completo">Intero</button>
+        <button class="btn" id="pLblAbbr" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra una sigla breve (il PDF resta col nome completo)">Sigla</button>
+        <button class="btn" id="pLblHidden" style="flex:1;font-size:12px;padding:5px 2px" title="Nascondi il nome per questo elemento">Nascosto</button>
+      </div>
+      <div id="pAbbrWrap" style="display:none;margin-top:6px">
+        <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
+      </div>
+      <button class="btn" id="pLblApplyType" style="width:100%;margin-top:6px;font-size:11px;padding:4px 2px" title="Applica questa modalità nome a tutti gli elementi dello stesso tipo">Applica agli elementi dello stesso tipo</button>
+    </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbChRow"><label>Canali (input disponibili)</label>
@@ -3836,7 +3848,7 @@ function sanitizeItems(arr){
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
     return it;
   }).filter(Boolean);
@@ -4131,21 +4143,24 @@ function itemMarkup(it){
     else { rdx=(it.w/2)+roff; ranc='middle'; rtr=' transform="rotate(90 '+rdx+' 0)"'; }                       /* ruotata, lato dx */
     s += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
-  var fsz0 = (it.lblSize==null) ? 14 : it.lblSize;   /* 0 = etichetta nascosta */
+  var _hid = (it.labelMode==='hidden');
+  var fsz0 = _hid ? 0 : ((it.lblSize==null) ? 14 : it.lblSize);   /* 0 = nascosta; 'hidden' = nome nascosto per questo elemento */
   if(!t.innerLabel && fsz0>0){
     var fsz = fsz0;                             /* dimensione etichetta regolabile (cm reali) */
     var fst = ' style="font-size:'+fsz+'px"';
     /* postazioni con sedia: etichetta sopra allo schienale di default (ruota con l'elemento) */
     var lblAbove = !!POSTAZ[it.type] && optSedia(it) && it.lblAbove !== false;
-    var ly  = lblAbove ? -52.5 - fsz*0.35 : it.d/2 + fsz*0.55 + 5;
+    var benchExtra = (KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* piano/tastiere con sgabello: nome sotto lo sgabello, non sopra */
+    var ly  = lblAbove ? -52.5 - fsz*0.35 : it.d/2 + fsz*0.55 + 5 + benchExtra;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
+    var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fsz*1.4);      /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
-      if(it.label)  s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'"'+fst+'>'+esc(it.label)+'</text>';
-      if(it.label2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'"'+fst+'>'+esc(it.label2)+'</text>';
-    } else if(it.label){
-      s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(it.label)+'</text>';
+      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'"'+fst+'>'+esc(_t2)+'</text>';
+    } else if(_t1){
+      s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
     }
   }
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
@@ -4846,6 +4861,12 @@ function renderProps(){
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
   document.getElementById("pLblSizeVal").textContent = lblv;
+  var _lm = it.labelMode||"full";   /* modalità nome per-elemento */
+  document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
+  document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
+  document.getElementById("pLblHidden").className = "btn"+(_lm==="hidden"?" primary":"");
+  document.getElementById("pAbbrWrap").style.display = (_lm==="abbr") ? "block" : "none";
+  var _ab=document.getElementById("pAbbr"); _ab.value=it.abbr||""; _ab.placeholder=abbrOf({type:it.type,label:it.label})||"sigla";
   var hasChair = !!POSTAZ[it.type] && optSedia(it);
   document.getElementById("pLblPosWrap").style.display = hasChair ? "block" : "none";
   if(hasChair){
@@ -5003,6 +5024,52 @@ function explodeComposite(){
   selSet={}; made.forEach(function(n){ selSet[n.id]=true; }); sel=made[made.length-1].id;
   render(); save();
 }
+/* Leggibilità nomi (per-elemento): SIGLE PROFESSIONALI di settore (per keyword nel nome dello strumento; la più specifica prima) */
+var ABBR_PRO=[
+  ["amplificatore","Amp"],["testata","Head"],["cabinet","Cab"],["combo","Amp"],["ampli","Amp"],   /* backline PRIMA: i nomi ampli contengono spesso lo strumento (es. "combo chitarra") */
+  ["chitarra acustica","AGtr"],["chitarra elettrica","Gtr"],["chitarra","Gtr"],["chitarrista","Gtr"],
+  ["contrabbasso","Cb"],["basso","Bass"],["bassista","Bass"],   /* contrabbasso prima di basso */
+  ["sax alto","ASax"],["sax tenore","TSax"],["sax baritono","BSax"],["sax soprano","SSax"],["sax","Sax"],
+  ["tromba","Tpt"],["trombone","Tbn"],["corno","Cor"],["tuba","Tuba"],["ottavino","Picc"],["flauto","Fl"],["oboe","Ob"],["clarinetto","Cl"],["fagotto","Fg"],
+  ["violoncello","Vc"],["violino","Vln"],["viola","Vla"],["arpa","Arp"],
+  ["organo a canne","Org"],["organo hammond","Hmd"],["organo","Org"],["clavicembalo","Cemb"],["pianoforte","Pno"],["stage piano","Pno"],["piano","Pno"],["tastiera","Keys"],["synth","Synth"],["celesta","Cel"],["fisarmonica","Fis"],["controller","Keys"],["spd","Pad"],
+  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["congas","Cga"],["conga","Cga"],["bongo","Bng"],["cajon","Caj"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],["percussion","Perc"],
+  ["cantante","Vox"],["voce","Vox"],["corista","Coro"],["coro","Coro"],
+  ["personal mixer","PM"],["monitoraggio","PM"],["aviom","PM"],["hearback","PM"],
+  ["side fill","SF"],["sidefill","SF"],["drum fill","DF"],["drumfill","DF"],["in-ear","IEM"],["in ear","IEM"],["iem","IEM"],["cuffie","IEM"],["monitor","Mon"],["wedge","Mon"],["spia","Mon"],
+  ["asta microfono","Mic"],["radiomicrofono","RF"],["radiomic","RF"],["overhead","OH"],["microfono","Mic"],["talkback","TB"],["asta","Mic"],
+  ["line array","PA"],["subwoofer","Sub"],["diffusore","PA"],
+  ["direct box","DI"],["stage box","SB"],["stagebox","SB"],
+  ["leggio","Leg"],["praticabile","Prat"],["pedana","Ped"]
+];
+function _deacc(s){ s=(s||"").toLowerCase(); return s.normalize?s.normalize("NFD").replace(/[̀-ͯ]/g,""):s; }
+function proAbbrName(name){ name=_deacc(name); for(var i=0;i<ABBR_PRO.length;i++){ if(name.indexOf(ABBR_PRO[i][0])>=0) return ABBR_PRO[i][1]; } return null; }
+/* fallback quando nessuna sigla di settore corrisponde: iniziali / troncamento, tenendo il numero finale */
+function autoAbbr(s){
+  s=(s||"").trim(); if(!s) return "";
+  var m=s.match(/^(.*?)[\s]*([0-9]+)$/), num=m?m[2]:"", base=(m?m[1]:s).trim();
+  var words=base.split(/[\s\-_/]+/).filter(Boolean), core;
+  if(words.length>=2){ core=words.slice(0,3).map(function(w){return w[0];}).join("").toUpperCase(); }
+  else if(num){ core=(base[0]||"").toUpperCase(); }
+  else { core=(base.length<=5)?base:(base.slice(0,4)); }
+  return core+num;
+}
+/* sigla di un elemento: custom > sigla di settore (dal tipo/nome, + eventuale numero) > iniziali */
+function abbrOf(it){
+  if(it.abbr) return it.abbr;
+  var pro=proAbbrName(((TYPES[it.type]&&TYPES[it.type].nome)||"")+" "+(it.label||""));
+  var num=(String(it.label||"").match(/(\d+)\s*$/)||[])[1]||"";
+  if(pro) return num ? (pro+" "+num) : pro;
+  return autoAbbr(it.label);
+}
+/* testo dell'etichetta da disegnare in base alla modalità per-elemento (full/abbr/hidden) */
+function lblText(raw, it, isPrimary){
+  if(!raw) return "";
+  var mode=it.labelMode||"full";
+  if(mode==="hidden") return "";
+  if(mode==="abbr") return isPrimary ? abbrOf(it) : (proAbbrName(raw)||autoAbbr(raw));
+  return raw;
+}
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
@@ -5010,6 +5077,12 @@ document.getElementById("pLabel2").addEventListener("input", function(){ mutSelS
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; mutSel(function(it){ it.lblSize=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
+function _setLblMode(m){ mutSel(function(it){ if(m==="full") delete it.labelMode; else it.labelMode=m; }); renderProps(); }
+document.getElementById("pLblFull").addEventListener("click", function(){ _setLblMode("full"); });
+document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLblMode("abbr"); });
+document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
+document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
+document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"full"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="full") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
@@ -5086,12 +5159,7 @@ document.getElementById("pTastLeg1").addEventListener("change", function(){
 });
 document.getElementById("pTastLeg2").addEventListener("change", function(){ mutSel(function(it){ it.leggio2=document.getElementById("pTastLeg2").checked; }); });
 document.getElementById("snapSel").addEventListener("change", function(){ snapMode=this.value; });
-(function(){ var b=document.getElementById("bNames"), t=document.getElementById("bNamesTxt"); if(!b) return;
-  var LBL={auto:"Nomi: auto", on:"Nomi: sì", off:"Nomi: no"}, ORDER=["auto","on","off"];
-  function paint(){ t.textContent=LBL[state.namesMode||"auto"]; }
-  b.addEventListener("click", function(){ var m=state.namesMode||"auto"; state.namesMode=ORDER[(ORDER.indexOf(m)+1)%3]; paint(); save(); render(); });
-  paint();   /* stato iniziale (anche dopo caricamento progetto) */
-})();
+/* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
 /* Dividi una postazione doppia (×2 del generatore o doppia-da-flag) in 2 postazioni singole */
 var SINGLE_OF_KIND={vln1:"vlnpost", vln2:"vlnpost", vla:"violapost", vc:"violoncello", cb:"contrabbasso"};
@@ -5844,6 +5912,7 @@ function svgPoint(e){
 var drag=null, pointers={}, pinch=null, lastDown=null, spacebarPan=false;
 svg.addEventListener("pointerdown", function(e){
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
+  collapseCats();   /* interazione col palco: richiude le categorie del catalogo (richiesta Simone) */
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
     if(drag && drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     drag=null; svg.classList.remove("dragging"); lastDown=null;
@@ -6602,7 +6671,7 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fitStage(); return; }   /* "a" → adatta la vista al palco */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); render(); }
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); collapseCats(); render(); }
   if(!it) return;
   if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); deleteSel(); }
   else if(e.key==="r"){ rotateSel(15); }
@@ -8942,9 +9011,12 @@ document.getElementById("bNew").addEventListener("click", function(){
    no-op tengono innocui i vecchi call site. */
 function catCompactSoon(){}
 function catIdleCancel(){}
+function collapseCats(){   /* chiude solo le categorie/sottocategorie aperte (non tocca ricerca/scroll) */
+  document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open").forEach(function(el){ el.classList.remove("open"); });
+}
 function resetCatalogView(){
   catIdleCancel();
-  document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open").forEach(function(el){ el.classList.remove("open"); });
+  collapseCats();
   var q=document.getElementById("catSearch");
   if(q && q.value){ q.value=""; q.dispatchEvent(new Event("input",{bubbles:true})); }
   var c=document.getElementById("catalog"); if(c) c.scrollTop=0;
