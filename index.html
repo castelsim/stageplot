@@ -1849,7 +1849,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <footer style="justify-content:center">
   <span id="scaleInfo" hidden></span>
-  <span style="font-size:11px;opacity:.7">Designed and built by <a href="https://simonecastellan.com" target="_blank" rel="noopener">Simone Castellan</a></span>
 </footer>
 
 <div class="modal" id="orchModal" hidden>
@@ -3318,7 +3317,7 @@ function drumSlots(p){
   if(p.crash>=1) put("crash",-66-dx*0.6,-53,-12);
   if(p.crash>=2) put("crash",88+dx*0.5,-50,10);
   if(p.ride) put("ride",58+dx*0.4,-47);
-  if(p.stool!==false) put("stool",0,-56);
+  if(p.stool!==false) put("stool",0,-100);   /* sgabello/batterista più indietro: footprint realistico (~1,5 m di profondità, drums→batterista) */
   return L;
 }
 function drumBBox(L){
