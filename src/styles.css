@@ -322,10 +322,14 @@
   .cab-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
   .cab-hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:none}
   .cab-editable .cab-hit{pointer-events:stroke;cursor:pointer}
+  .cab-editable .cab-hit:hover{stroke:rgba(13,148,136,.22)}   /* Fase B: hover evidenzia il cavo (banda teal soffusa, stile Max MSP) */
   .cab-wp{fill:#fff;stroke:#0d9488;stroke-width:2.5;pointer-events:none}
   .cab-editable .cab-wp{pointer-events:all;cursor:grab}
   .cab-mid{fill:#0d9488;opacity:.35;pointer-events:none}
   .cab-editable .cab-mid{pointer-events:all;cursor:copy;opacity:.5}
+  .cab-endpt{fill:#fff;stroke:#0d9488;stroke-width:3.4;pointer-events:none}   /* Fase B: estremo-box, trascinabile per riconnettere */
+  .cab-editable .cab-endpt{pointer-events:all;cursor:grab}
+  .cab-editable .cab-endpt:hover{stroke:#0f766e;stroke-width:4.2}
   .cab-homehit{fill:transparent;pointer-events:none}
   .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
   /* Layer Manager */
