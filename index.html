@@ -5408,7 +5408,10 @@ function duplicateItem(it, dx, dy){
 }
 function deleteSel(){
   if(!selIds().length) return;
+  var vsecs={};   /* sezioni violino toccate dall'eliminazione → rinumerare dopo, così i posti scalano */
+  state.items.forEach(function(i){ if(selSet[i.id] && i.type==="vlnpost" && i.vsec!=null) vsecs[i.vsec]=true; });
   state.items = state.items.filter(function(i){ return !selSet[i.id]; });
+  Object.keys(vsecs).forEach(function(s){ renumberViolins(+s); });
   clearSelection(); render(); save();
 }
 
