@@ -5125,10 +5125,9 @@ document.getElementById("pDoppia").addEventListener("change", function(){ mutSel
     if(it.doppia){ it.sep=Math.max(minSepOf(it), it.sep||minSepOf(it)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
     else { it.w=P.s[0]; it.d=P.s[1]; }
   }
-  if(it.vsec){ renumberViolins(it.vsec); }   /* violini: rinumerazione a cascata — rendere doppia una postazione fa scalare i posti dei violini successivi (e toglierla li riporta indietro) */
-  else if(it.doppia){
-    if(autoNumbered(it.type) && !it.label2){ var b=instrBase(it.type), mm=(it.label||"").match(/(\d+)\s*$/); it.label2=b+" "+(mm?(+mm[1]+1):(instrSeats(it.type)+1)); }
-  } else { it.label2=""; }
+  if(it.vsec){ renumberViolins(it.vsec); }   /* violini: cascata dedicata (sezione romana) — rendere doppia scala i posti dei successivi, toglierla li riporta indietro */
+  else if(autoNumbered(it.type)){ renumberInstr(instrBase(it.type)); }   /* altri strumenti: stessa cascata per base (doppia = 2 posti) */
+  else if(!it.doppia){ it.label2=""; }
   renderProps();
 }); });
 /* slider distanza: aggiornamento live su "input" (senza salvare ad ogni tacca), salva una volta su "change" */
@@ -5408,10 +5407,15 @@ function duplicateItem(it, dx, dy){
 }
 function deleteSel(){
   if(!selIds().length) return;
-  var vsecs={};   /* sezioni violino toccate dall'eliminazione → rinumerare dopo, così i posti scalano */
-  state.items.forEach(function(i){ if(selSet[i.id] && i.type==="vlnpost" && i.vsec!=null) vsecs[i.vsec]=true; });
+  var vsecs={}, bases={};   /* sezioni violino + basi strumento toccate dall'eliminazione → rinumerare dopo, così i posti scalano */
+  state.items.forEach(function(i){
+    if(!selSet[i.id]) return;
+    if(i.type==="vlnpost" && i.vsec!=null) vsecs[i.vsec]=true;
+    else if(i.type && autoNumbered(i.type)) bases[instrBase(i.type)]=true;
+  });
   state.items = state.items.filter(function(i){ return !selSet[i.id]; });
   Object.keys(vsecs).forEach(function(s){ renumberViolins(+s); });
+  Object.keys(bases).forEach(function(b){ renumberInstr(b); });
   clearSelection(); render(); save();
 }
 
@@ -5862,6 +5866,26 @@ function renumberViolins(sec){
       pos+=2;
     } else {
       if(auto.test(x.label||"")) x.label="Violino "+sec+" "+pos;
+      x.label2="";
+      pos+=1;
+    }
+  });
+}
+/* rinumerazione a cascata generica: stessa logica dei violini ma per ogni altra "base" strumento (Fl 1, Fl 2, Sax A 1…).
+   Una postazione doppia occupa 2 numeri e i successivi scalano; l'eliminazione richiude i buchi.
+   I violini (vlnpost, base "Vln") restano gestiti da renumberViolins (sezione romana). Tocca solo le etichette AUTO. */
+function renumberInstr(base){
+  if(!base || base==="Vln") return;   /* "Vln" = vlnpost → gestito da renumberViolins */
+  var pos=1, esc=base.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), auto=new RegExp("^"+esc+"\\s+\\d+$");
+  (state.items||[]).forEach(function(x){
+    if(x.type==="vlnpost" || !x.type || !autoNumbered(x.type) || instrBase(x.type)!==base) return;
+    var dbl = x.doppia===true || !!DOUBLE_TYPES[x.type];
+    if(dbl){
+      if(auto.test(x.label||"")) x.label=base+" "+pos;
+      if(!x.label2 || auto.test(x.label2||"")) x.label2=base+" "+(pos+1);
+      pos+=2;
+    } else {
+      if(auto.test(x.label||"")) x.label=base+" "+pos;
       x.label2="";
       pos+=1;
     }
