@@ -6758,20 +6758,60 @@ function renderMonitorPanel(){
 function monHasSinks(){ return state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }); }
 /* Proattivo: attivare "Monitor list" = "penso servano monitor" → se ci sono musicisti ma nessun monitor,
    propone un wedge per gruppo di strumenti, DAVANTI al gruppo (verso il pubblico), con mix distinti. */
-function monProposeWedges(){
-  var needs=cabPlanNeeds(); if(!needs.clusters.length) return 0;
-  needs.clusters.slice().sort(function(a,b){ return b.n-a.n; }).forEach(function(c, i){
-    var x=Math.round(Math.min(state.stage.w-40, Math.max(40, c.cx)));
-    var y=Math.round(Math.min(state.stage.d-30, Math.max(60, c.cy + 90)));   /* davanti al gruppo, rivolto verso il palco */
-    addItem("wedge", {x:x, y:y, label:"MIX "+(i+1)});
+/* ── Pilastro 1: POSTAZIONI MUSICISTI (non sorgenti audio). Base per monitor + personal mixer. ── */
+function performerKind(it){
+  if(it.type==="batteria"||it.type==="edrums") return "batteria";
+  if(VOCE[it.type]) return "voce";
+  if(KEYS_BENCH[it.type]||TASTIERE[it.type]) return "tastiere";
+  return "strumento";
+}
+function isPerformer(it){   /* un elemento SUONATO da una persona (non ampli/DI/rack/casse) */
+  if(!it) return false; var t=TYPES[it.type]; if(!t) return false;
+  if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||t.gtr) return true;
+  if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales") return true;
+  return t.cat==="Orchestra";
+}
+function performerSpots(){
+  return (state.items||[]).filter(isPerformer).map(function(it){
+    return { id:it.id, x:it.x, y:it.y, rot:(it.rot||0), kind:performerKind(it), label:(it.label||TYPES[it.type].nome) };
   });
-  return needs.clusters.length;
+}
+function performerCovered(spot){   /* ha già un monitor vicino (wedge/side/drum/IEM entro ~200cm) → non proporne un altro */
+  return state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix" && Math.hypot(it.x-spot.x, it.y-spot.y)<200; });
+}
+function monUncovered(){ return performerSpots().filter(function(s){ return !performerCovered(s); }); }
+/* raggruppa musicisti molto vicini (<150cm) in un mix condiviso */
+function performerGroups(spots){
+  var SHARE=150, gs=[];
+  spots.forEach(function(s){
+    var g=null; gs.forEach(function(G){ if(Math.hypot(G.cx-s.x, G.cy-s.y)<SHARE) g=G; });
+    if(g){ g.spots.push(s); g.cx=(g.cx*(g.spots.length-1)+s.x)/g.spots.length; g.cy=(g.cy*(g.spots.length-1)+s.y)/g.spots.length; }
+    else gs.push({cx:s.x, cy:s.y, spots:[s]});
+  });
+  return gs;
+}
+/* Monitor v2: un monitor per gruppo di musicisti, DAVANTI a loro (verso il pubblico), rivolto al musicista.
+   Batteria → drum-fill di lato; musicisti in IEM → nessun wedge. */
+function monProposeWedges(){
+  var spots=monUncovered();   /* solo i musicisti senza un monitor vicino (IEM incluso = già coperto) */
+  if(!spots.length) return 0;
+  var groups=performerGroups(spots), n=0;
+  groups.sort(function(a,b){ return a.cx-b.cx; }).forEach(function(g, i){
+    var drummer=g.spots.some(function(s){ return s.kind==="batteria"; });
+    var x, y, type;
+    if(drummer){ type="drumfill"; x=Math.round(g.cx+80); y=Math.round(g.cy); }   /* drum-fill accanto al kit */
+    else { type="wedge"; x=Math.round(g.cx); y=Math.round(g.cy+90); }             /* wedge davanti, verso il pubblico */
+    x=Math.min(state.stage.w-40, Math.max(40, x)); y=Math.min(state.stage.d-30, Math.max(60, y));
+    addItem(type, {x:Math.round(x), y:Math.round(y), label:"MIX "+(i+1)});   /* orientamento default: etichetta leggibile (il rot 180 la capovolgeva) */
+    n++;
+  });
+  return n;
 }
 function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disattiva la monitor list */
   monActive=!monActive;
   if(monActive){
     techAccordionOpen("mon"); closeMobileDrawers();
-    if(cabPlanNeeds().totIn>0 && !monHasSinks()) monProposeWedges();   /* nessun monitor + ci sono musicisti → proponi posizioni */
+    if(monUncovered().length>0) monProposeWedges();   /* proponi monitor per i musicisti scoperti (anche se altri ne hanno già) */
     clearSelection();
   }
   render();
