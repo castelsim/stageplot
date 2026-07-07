@@ -1049,7 +1049,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .vstep.done{background:var(--accent-tint)}
   body.dark .vstep.done{background:rgba(20,184,166,.08)}
   body.dark .vstep.active{background:#1b2327}
-  main{position:relative}
+  /* NB: niente "main{position:relative}" qui — main è già relative nella regola base, e ridichiararlo DOPO
+     la media query mobile sovrascriveva "main{position:fixed}" collassando il palco su mobile (bug 04→07/07).
+     Il banner qui sotto resta ancorato: anche position:fixed è containing block per gli absolute. */
   #venueCalibBanner{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--n-800);color:#fff;border-radius:999px;padding:8px 16px;font-size:13px;box-shadow:0 8px 24px rgba(38,33,24,.28);z-index:30;white-space:nowrap;pointer-events:none}
   #venueCalibBanner b{color:#7dd3c8}
   #venueCalibPop{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px rgba(38,33,24,.22);z-index:31;width:240px}
