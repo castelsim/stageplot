@@ -4047,9 +4047,9 @@ document.getElementById("pDoppia").addEventListener("change", function(){ mutSel
     if(it.doppia){ it.sep=Math.max(minSepOf(it), it.sep||minSepOf(it)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
     else { it.w=P.s[0]; it.d=P.s[1]; }
   }
-  if(it.doppia){
-    if(it.vsec){ if(!it.label2){ var m=(it.label||"").match(/(\d+)\s*$/); it.label2="Violino "+it.vsec+" "+(m?(+m[1]+1):(vlnSeats(it.vsec)+1)); } }
-    else if(autoNumbered(it.type) && !it.label2){ var b=instrBase(it.type), mm=(it.label||"").match(/(\d+)\s*$/); it.label2=b+" "+(mm?(+mm[1]+1):(instrSeats(it.type)+1)); }
+  if(it.vsec){ renumberViolins(it.vsec); }   /* violini: rinumerazione a cascata — rendere doppia una postazione fa scalare i posti dei violini successivi (e toglierla li riporta indietro) */
+  else if(it.doppia){
+    if(autoNumbered(it.type) && !it.label2){ var b=instrBase(it.type), mm=(it.label||"").match(/(\d+)\s*$/); it.label2=b+" "+(mm?(+mm[1]+1):(instrSeats(it.type)+1)); }
   } else { it.label2=""; }
   renderProps();
 }); });
@@ -4769,6 +4769,23 @@ function showDragHintOnce(){
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
 function addViolin(sec){ var base=vlnSeats(sec); addItem("vlnpost",{vsec:sec, label:"Violino "+sec+" "+(base+1)}); }
+/* rinumera in ordine i violini di una sezione: ogni doppio occupa 2 posti, i successivi scalano.
+   Rinumera solo le etichette AUTO ("Violino S P"); un'etichetta personalizzata dal tecnico resta intatta. */
+function renumberViolins(sec){
+  var pos=1, auto=/^Violino\s+\d+(?:\s+\d+)*\s*$/;
+  (state.items||[]).forEach(function(x){
+    if(x.type!=="vlnpost" || x.vsec!==sec) return;
+    if(x.doppia){
+      if(auto.test(x.label||"")) x.label="Violino "+sec+" "+pos;
+      x.label2="Violino "+sec+" "+(pos+1);
+      pos+=2;
+    } else {
+      if(auto.test(x.label||"")) x.label="Violino "+sec+" "+pos;
+      x.label2="";
+      pos+=1;
+    }
+  });
+}
 /* ===== Drawer mobile (catalogo / pannello) ===== */
 function isMobile(){ return window.matchMedia("(max-width:880px)").matches; }
 function closeMobileDrawers(){
