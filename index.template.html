@@ -10291,5 +10291,16 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   });
 })();
 </script>
+<script>
+/* PWA offline (audit A2): registra il service worker (sw.js — cache della shell +
+   aggiornamento in background a ogni visita online). Dopo il load per non pesare
+   sull'avvio; il catch vuoto è voluto: la registrazione è best-effort, senza SW
+   l'app funziona come prima. */
+if ("serviceWorker" in navigator) {
+  addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  });
+}
+</script>
 </body>
 </html>
