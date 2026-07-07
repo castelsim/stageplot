@@ -9830,6 +9830,7 @@ function cabReportPdf(shared){
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
     if(shared) return;
+    pdfCredit(doc);
     if(window.__cabPdfTest){ window.__cabPdfTest={name:fileName()+"-cablaggio-audio.pdf", pages:doc.getNumberOfPages()}; return; }   /* hook di test: niente download */
     doc.save(fileName()+"-cablaggio-audio.pdf");
   };
@@ -9855,6 +9856,7 @@ function patchListPdf(shared){
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.box?"#111827":"#dc2626"); });
     if(shared) return;
+    pdfCredit(doc);
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-input-list.pdf");
   };
@@ -9878,6 +9880,7 @@ function monitorListPdf(shared){
     doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.name, r.patch, false, r.box?"#111827":"#dc2626"); });
     if(shared) return;
+    pdfCredit(doc);
     if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-monitor-list.pdf");
   };
@@ -9901,6 +9904,7 @@ function loadListPdf(shared){
     doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, r.ok?"#111827":"#dc2626"); });
     if(shared) return;
+    pdfCredit(doc);
     if(window.__loadPdfTest){ window.__loadPdfTest={name:fileName()+"-lista-carichi.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-lista-carichi.pdf");
   };
@@ -9932,6 +9936,7 @@ function elecReportPdf(shared){
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
     if(shared) return;
+    pdfCredit(doc);
     if(window.__elecPdfTest){ window.__elecPdfTest={name:fileName()+"-piano-elettrico.pdf", pages:doc.getNumberOfPages()}; return; }
     doc.save(fileName()+"-piano-elettrico.pdf");
   };
@@ -9961,6 +9966,7 @@ function auditReportPdf(shared){
         line((x.lvl==="err"?"X  ":"•  ")+"["+x.cat+"] "+x.msg, 9, x.lvl==="err", c, x.fix?4.4:5.2);
         if(x.fix) line("      -> "+x.fix, 8.5, false, "#6b7280", 5.4); }); }
     if(shared) return;
+    pdfCredit(doc);
     if(window.__auditPdfTest){ window.__auditPdfTest={name:fileName()+"-audit.pdf", pages:doc.getNumberOfPages()}; return; }
     doc.save(fileName()+"-audit.pdf");
   };
@@ -10140,6 +10146,20 @@ function pdfScaleBar(doc, x, y, N){
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(17,24,39);
   doc.text("0", x, y+4); doc.text(bm+" m", x+len, y+4, {align:"right"});
 }
+/* Credito "Creato con stageplot.it" su OGNI pagina del doc (attribuzione, non copyright: il
+   contenuto del rider è dell'utente). Variante A: angolo basso-destra, fuori dal cartiglio,
+   6.5pt grigio chiaro — sparisce alla fotocopia b/n senza sporcare. Passata unica a doc
+   completo, così copre anche le pagine aggiunte dai report (multi-pagina incluse). */
+function pdfCredit(doc){
+  var n=doc.getNumberOfPages();
+  for(var i=1;i<=n;i++){
+    doc.setPage(i);
+    var ps=doc.internal.pageSize, pw=ps.getWidth(), ph=ps.getHeight();
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(156,163,175);
+    doc.text("Creato con stageplot.it", pw-10, ph-2.8, {align:"right"});
+  }
+  doc.setPage(n);
+}
 /* anteprima del foglio (SVG, mm) — rispecchia il layout del PDF: planimetria + quote + cartiglio */
 function pdfPreviewSvg(paperKey, N, orient, header){
   var scW=90, baseL=pdfLayout(paperKey, orient, 22);
@@ -10173,6 +10193,7 @@ function pdfPreviewSvg(paperKey, N, orient, header){
     '<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+12.5)+'" font-size="3.6" fill="#4b5563">'+esc(sub.join("  ·  "))+'</text>'+
     headerSvg+
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
+    '<text x="'+(L.pw-10)+'" y="'+(L.ph-2.8)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
     '</svg>';
 }
 /* costruisce il jsPDF doc (Promise) — separato da save per poterlo testare */
@@ -10218,6 +10239,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(state.elec && state.elec.on){ var Re=elecResult(true);
         if(Re.loads.length){ elecReportPdf(doc); loadListPdf(doc); } }
     }
+    pdfCredit(doc);
     return doc;
       });
   });
