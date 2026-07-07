@@ -5912,7 +5912,6 @@ function svgPoint(e){
 var drag=null, pointers={}, pinch=null, lastDown=null, spacebarPan=false;
 svg.addEventListener("pointerdown", function(e){
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
-  collapseCats();   /* interazione col palco: richiude le categorie del catalogo (richiesta Simone) */
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
     if(drag && drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     drag=null; svg.classList.remove("dragging"); lastDown=null;
@@ -6053,6 +6052,7 @@ svg.addEventListener("pointerdown", function(e){
     return;
   }
   var g = e.target.closest ? e.target.closest(".item") : null;
+  if(!g) collapseCats();   /* click a VUOTO sul palco (qui tutti gli handle hanno gia' fatto return) → richiude le categorie; selezionare un elemento NON le chiude */
   if(selCab){ selCab=null; }   /* click su elemento o sfondo (non su un cavo) → deseleziona il cavo */
   if(g){
     exitHubModes();   /* selezionando un elemento esci da Evento/Channel list */
