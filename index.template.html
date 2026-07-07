@@ -3977,10 +3977,13 @@ function autoAbbr(s){
   return core+num;
 }
 /* sigla di un elemento: custom > sigla di settore (dal tipo/nome, + eventuale numero) > iniziali */
+function toRoman(n){ n=+n; if(!n||n>39) return String(n||""); var map=[[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]], r=""; for(var i=0;i<map.length;i++){ while(n>=map[i][0]){ r+=map[i][1]; n-=map[i][0]; } } return r; }
 function abbrOf(it){
   if(it.abbr) return it.abbr;
   var pro=proAbbrName(((TYPES[it.type]&&TYPES[it.type].nome)||"")+" "+(it.label||""));
-  var num=(String(it.label||"").match(/(\d+)\s*$/)||[])[1]||"";
+  var mm=String(it.label||"").match(/((?:\d+[\s.\-]*)+)$/);   /* numeri finali (es. "Violino 1 3" = sezione+posto) */
+  var num="";
+  if(mm){ var parts=mm[1].trim().split(/[\s.\-]+/).filter(Boolean); if(parts.length>=2) parts[0]=toRoman(parts[0]); num=parts.join("."); }   /* 2+ numeri: sezione in romano (Vln I.3); 1 numero: arabo (Vla 1) */
   if(pro) return num ? (pro+" "+num) : pro;
   return autoAbbr(it.label);
 }
@@ -3989,7 +3992,7 @@ function lblText(raw, it, isPrimary){
   if(!raw) return "";
   var mode=it.labelMode||"full";
   if(mode==="hidden") return "";
-  if(mode==="abbr") return isPrimary ? abbrOf(it) : (proAbbrName(raw)||autoAbbr(raw));
+  if(mode==="abbr") return isPrimary ? abbrOf(it) : abbrOf({type:it.type, label:raw});   /* il 2° strumento della postazione a 2 usa la stessa logica (sigla + numero) */
   return raw;
 }
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
