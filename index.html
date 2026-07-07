@@ -3457,7 +3457,7 @@ var DEFAULT_LABELS = {
   pedana:"PED", scala:"Scala", rampa:"Rampa", parapetto:"Parap.", fondale:"Backdrop", quinta:"Quinta", truss:"Truss", transenna:"Transenna",
   tappeto:"Tappeto", tavolo:"Tavolo", sedia:"Sedia", sediabianca:"Sedia", sedialeggio:"Sedia+leggio", leggio:"Leggio", podio:"Podio", pedanacoro:"Coro riser",
   sgabello:"Sgab.", ventilatore:"Fan", metro:"", testo:"Testo",
-  corno:"Corno", tromba:"Tba", trombone:"Tbn", tuba:"Tuba",
+  corno:"Corno", tromba:"Tr", trombone:"Tbn", tuba:"Tuba",
   flauto:"Fl", oboe:"Ob", clarinetto:"Cl", fagotto:"Fg", saxalto:"Sax A", saxtenore:"Sax T", saxbaritono:"Sax Bar",
   batteria:"Drums", edrums:"E-drums", drumshield:"Shield", rullante:"Snare", percussioni:"Perc.", cajon:"Cajon", timbales:"Timbales",
   timpani:"Timpani", timpani3:"Timp x3", timpani2:"Timp x2", grancassa:"Gran cassa", piatto:"Piatto", piatticoppia:"Piatti", campane:"Chimes",
@@ -3465,7 +3465,7 @@ var DEFAULT_LABELS = {
   tamtam:"Tam-tam", glockenspiel:"Glock.", xilofono:"Xylo", vibrafono:"Vibes", marimba:"Marimba",
   comboamp:"Gtr amp", stack:"Gtr stack", bassamp:"Bass amp", keysamp:"Keys amp", leslie:"Leslie",
   grancoda:"Grand", mezzacoda:"Baby grand", pianoverticale:"Upright", stagepiano:"Keys", doppiatastiera:"2 Keys", celesta:"Celesta", panchetta:"Panca",
-  gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"M°",
+  gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"Direttore",
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
   astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Speaker", cantante:"Voce", corista:"Coro",
@@ -3747,8 +3747,69 @@ function normalizeChannelRow(r){
   if(r.linked_component_id) out.linked_component_id=r.linked_component_id;
   return out;
 }
+/* ── Migrazione etichette (07/2026): le etichette AUTO nascevano con basi abbreviate ("Cor 1", "Vla 2", "Tba 1");
+   ora nascono col nome pieno professionale. Al load aggiorniamo le vecchie etichette auto (numerate o esatte);
+   i nomi personalizzati non corrispondono al pattern e restano intatti. Coppie [vecchia base, nuova base] per tipo. */
+var LABEL_MIGRATE = {
+  violapost:[["Vla","Viola"]],
+  violoncello:[["Cello","Violoncello"],["Vc","Violoncello"]],
+  contrabbasso:[["Contra","Contrabbasso"],["Cb","Contrabbasso"]],
+  corno:[["Cor","Corno"]],
+  tromba:[["Tr","Tromba"],["Tba","Tromba"]],
+  trombone:[["Trb","Trombone"],["Tbn","Trombone"]],
+  flauto:[["Fl","Flauto"]],
+  oboe:[["Ob","Oboe"]],
+  clarinetto:[["Cl","Clarinetto"]],
+  fagotto:[["Fag","Fagotto"],["Fg","Fagotto"]],
+  saxalto:[["Sax A","Sax alto"]],
+  saxtenore:[["Sax T","Sax tenore"]],
+  saxbaritono:[["Sax B","Sax baritono"],["Sax Bar","Sax baritono"]],
+  gtacustica:[["Chit. ac.","Chitarra acustica"]],
+  comboamp:[["Combo","Ampli chitarra"]],
+  stack:[["Stack","Stack chitarra"]],
+  bassamp:[["Ampli b.","Ampli basso"]],
+  keysamp:[["Ampli k.","Ampli tastiere"]],
+  pianoverticale:[["Piano vert.","Piano verticale"]],
+  vln1x2:[["Vln I","Violini I"]],
+  vln2x2:[["Vln II","Violini II"]],
+  violax2:[["Vla","Viole"]],
+  cellix2:[["Cello","Violoncelli"],["Vc","Violoncelli"]],
+  cbx2:[["Contra","Contrabbassi"],["Cb","Contrabbassi"]],
+  arpa:[["Arpa da concerto","Arpa"]],
+  organoconsole:[["Organo a canne","Organo"]],
+  controllermidi:[["Controller MIDI 49","Controller MIDI"]],
+  djset:[["DJ set su tavolo","DJ set"]],
+  panchetta:[["Panchetta piano","Panchetta"]],
+  spdsx:[["SPD-SX (pad)","SPD-SX"]],
+  rullante:[["Rullante su stand","Rullante"]],
+  percussioni:[["Congas + bongos","Percussioni"]],
+  grancassa:[["Gran cassa sinfonica","Gran cassa"]],
+  kickdrum:[["Cassa (kick)","Cassa"]],
+  piatto:[["Piatto sospeso","Piatto"]],
+  piatticoppia:[["Piatti a due","Piatti"]],
+  campane:[["Campane tubolari","Campane"]],
+  tamtam:[["Tam-tam (gong)","Tam-tam"]],
+  marimba:[["Marimba 5 ottave","Marimba"]],
+  timpani:[["Timpani (set 4)","Timpani"]],
+  timpani3:[["Timpani ×3","Timpani"]],
+  timpani2:[["Timpani ×2","Timpani"]],
+  direttore:[["Direttore 1","Direttore"],["M°","Direttore"]]
+};
+function migrateLabels(it){
+  var mig=LABEL_MIGRATE[it.type]; if(!mig) return;
+  ["label","label2"].forEach(function(k){
+    var v=it[k]; if(!v) return;
+    for(var i=0;i<mig.length;i++){
+      if(v===mig[i][0]){ it[k]=mig[i][1]; return; }
+      var esc=mig[i][0].replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      var m=v.match(new RegExp("^"+esc+"\\s+(\\d+)$"));
+      if(m){ it[k]=mig[i][1]+" "+m[1]; return; }
+    }
+  });
+}
 function normalizeState(s){
   s.items=s.items||[];
+  s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
@@ -4159,8 +4220,9 @@ function itemMarkup(it){
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fsz*1.4);      /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
-      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
-      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'"'+fst+'>'+esc(_t2)+'</text>';
+      var tilt=12;                              /* le sedute della doppia convergono di ±12°: l'etichetta segue lo schienale */
+      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(-tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+tilt+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
     }
@@ -5028,14 +5090,16 @@ function explodeComposite(){
 }
 /* Leggibilità nomi (per-elemento): SIGLE PROFESSIONALI di settore (per keyword nel nome dello strumento; la più specifica prima) */
 var ABBR_PRO=[
+  ["ampli chitarra","Gtr Amp"],["ampli basso","Bass Amp"],["ampli tastiere","Keys Amp"],["ampli keys","Keys Amp"],["stack","Gtr Amp"],   /* ampli specifici prima del generico: la sigla distingue di chi è l'ampli */
   ["amplificatore","Amp"],["testata","Head"],["cabinet","Cab"],["combo","Amp"],["ampli","Amp"],   /* backline PRIMA: i nomi ampli contengono spesso lo strumento (es. "combo chitarra") */
   ["chitarra acustica","AGtr"],["chitarra elettrica","Gtr"],["chitarra","Gtr"],["chitarrista","Gtr"],
-  ["contrabbasso","Cb"],["basso","Bass"],["bassista","Bass"],   /* contrabbasso prima di basso */
+  ["contrabbasso","Cb"],["contrabbassi","Cb"],["basso","Bass"],["bassista","Bass"],   /* contrabbasso prima di basso */
   ["sax alto","ASax"],["sax tenore","TSax"],["sax baritono","BSax"],["sax soprano","SSax"],["sax","Sax"],
   ["tromba","Tpt"],["trombone","Tbn"],["corno","Cor"],["tuba","Tuba"],["ottavino","Picc"],["flauto","Fl"],["oboe","Ob"],["clarinetto","Cl"],["fagotto","Fg"],
-  ["violoncello","Vc"],["violino","Vln"],["viola","Vla"],["arpa","Arp"],
+  ["violoncello","Vc"],["violoncelli","Vc"],["violino","Vln"],["violini","Vln"],["viola","Vla"],["viole","Vla"],["archi","Archi"],["arpa","Arp"],   /* plurali = leggii di sezione del generatore */
+  ["direttore","M°"],["leslie","Leslie"],["pedaliera","Pedal"],["dj","DJ"],["panchetta","Panca"],["sgabello","Sgab"],["shield","Shield"],
   ["organo a canne","Org"],["organo hammond","Hmd"],["organo","Org"],["clavicembalo","Cemb"],["pianoforte","Pno"],["stage piano","Pno"],["piano","Pno"],["tastiera","Keys"],["synth","Synth"],["celesta","Cel"],["fisarmonica","Fis"],["controller","Keys"],["spd","Pad"],
-  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["congas","Cga"],["conga","Cga"],["bongo","Bng"],["cajon","Caj"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],["percussion","Perc"],
+  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["cassa","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["percussion","Perc"],["congas","Cga"],["conga","Cga"],["bongo","Bng"],["cajon","Caj"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],
   ["cantante","Vox"],["voce","Vox"],["corista","Coro"],["coro","Coro"],
   ["personal mixer","PM"],["monitoraggio","PM"],["aviom","PM"],["hearback","PM"],
   ["side fill","SF"],["sidefill","SF"],["drum fill","DF"],["drumfill","DF"],["in-ear","IEM"],["in ear","IEM"],["iem","IEM"],["cuffie","IEM"],["monitor","Mon"],["wedge","Mon"],["spia","Mon"],
@@ -5061,9 +5125,14 @@ function toRoman(n){ n=+n; if(!n||n>39) return String(n||""); var map=[[10,"X"],
 function abbrOf(it){
   if(it.abbr) return it.abbr;
   var pro=proAbbrName(((TYPES[it.type]&&TYPES[it.type].nome)||"")+" "+(it.label||""));
-  var mm=String(it.label||"").match(/((?:\d+[\s.\-]*)+)$/);   /* numeri finali (es. "Violino 1 3" = sezione+posto) */
+  var l=String(it.label||"");
+  /* numeri finali: arabi ("Violino 1 3" = sezione+posto) e/o romani già nel nome ("Violini I 2" = leggio di sezione).
+     I romani richiedono un separatore prima (così "DI" non diventa "DI I"); i soli arabi anche attaccati (fallback). */
+  var mm=l.match(/(?:^|[\s.\-])((?:(?:\d+|[IVX]+)[\s.\-]*)+)$/) || l.match(/((?:\d+[\s.\-]*)+)$/);
   var num="";
-  if(mm){ var parts=mm[1].trim().split(/[\s.\-]+/).filter(Boolean); if(parts.length>=2) parts[0]=toRoman(parts[0]); num=parts.join("."); }   /* 2+ numeri: sezione in romano (Vln I.3); 1 numero: arabo (Vla 1) */
+  if(mm){ var parts=mm[1].trim().split(/[\s.\-]+/).filter(Boolean);
+    if(parts.length>=2 && /^\d+$/.test(parts[0])) parts[0]=toRoman(parts[0]);   /* 2+ numeri: sezione in romano (Vln I.3); 1 numero: arabo (Vla 1) */
+    num=parts.join("."); }
   if(pro) return num ? (pro+" "+num) : pro;
   return autoAbbr(it.label);
 }
@@ -5797,19 +5866,26 @@ function findFreeSpot(x,y,w,d){
 /* strumenti/persone con nome progressivo automatico (Flauto 1, Tromba 2, …) */
 function autoNumbered(type){ var t=TYPES[type]; if(!t) return false;
   if(type==="corista") return false;   /* i coristi nascono senza etichetta */
-  if(t.gtr || POSTAZ[type] || VOCE[type] || t.dir) return true;
+  if(type==="direttore") return false;   /* il direttore non si numera: etichetta "Direttore" (sigla M°) */
+  if(t.gtr || POSTAZ[type] || VOCE[type]) return true;
   return ["Orchestra","Batteria e percussioni","Band e backline","Persone e voci"].indexOf(t.cat)>=0;
 }
-/* nomi abbreviati per la numerazione (es. nelle postazioni a 2) */
-var INSTR_ABBR = {
-  vlnpost:"Vln", violapost:"Vla", violoncello:"Cello", contrabbasso:"Contra",
-  vln1x2:"Vln I", vln2x2:"Vln II", violax2:"Vla", cellix2:"Cello", cbx2:"Contra", archi2leggio:"Archi",
-  corno:"Cor", tromba:"Tr", trombone:"Trb", tuba:"Tuba",
-  flauto:"Fl", oboe:"Ob", clarinetto:"Cl", fagotto:"Fag", saxalto:"Sax A", saxtenore:"Sax T", saxbaritono:"Sax B",
-  gtstand:"Chitarra", gtacustica:"Chit. ac.", bassstand:"Basso", comboamp:"Combo", stack:"Stack", bassamp:"Ampli b.", keysamp:"Ampli k.",
-  stagepiano:"Stage piano", grancoda:"Piano", mezzacoda:"Piano", pianoverticale:"Piano vert.", doppiatastiera:"Tastiere"
+/* nome PIENO per la numerazione progressiva: l'etichetta intera è professionale ("Corno 1", non "Cor 1").
+   Fallback = TYPES[type].nome; qui SOLO i tipi il cui nome-catalogo (descrittivo) non va bene come etichetta da palco.
+   La SIGLA è un'altra cosa: la calcola abbrOf/ABBR_PRO quando il nome è in modalità "Sigla". */
+var INSTR_BASE = {
+  /* leggii ×2 del generatore organico: nome di sezione (un nome per leggio) */
+  vln1x2:"Violini I", vln2x2:"Violini II", violax2:"Viole", cellix2:"Violoncelli", cbx2:"Contrabbassi", archi2leggio:"Archi",
+  arpa:"Arpa",
+  gtstand:"Chitarra", bassstand:"Basso",
+  comboamp:"Ampli chitarra", stack:"Stack chitarra", bassamp:"Ampli basso", keysamp:"Ampli tastiere",
+  stagepiano:"Stage piano", grancoda:"Piano", mezzacoda:"Piano", doppiatastiera:"Tastiere",
+  organoconsole:"Organo", controllermidi:"Controller MIDI", djset:"DJ set", panchetta:"Panchetta",
+  rullante:"Rullante", percussioni:"Percussioni", grancassa:"Gran cassa", kickdrum:"Cassa",
+  piatto:"Piatto", piatticoppia:"Piatti", campane:"Campane", tamtam:"Tam-tam",
+  marimba:"Marimba", timpani3:"Timpani", timpani2:"Timpani", spdsx:"SPD-SX"
 };
-function instrBase(type){ return INSTR_ABBR[type] || (TYPES[type]&&TYPES[type].nome) || ""; }
+function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].nome) || ""; }
 /* "posti" già usati per quello strumento (una postazione a 2 conta 2) */
 function instrSeats(type){ var base=instrBase(type), n=0;
   state.items.forEach(function(x){ if(x.type && autoNumbered(x.type) && instrBase(x.type)===base) n += ((x.doppia||DOUBLE_TYPES[x.type])?2:1); });
@@ -5877,11 +5953,11 @@ function renumberViolins(sec){
    Una postazione doppia occupa 2 numeri e i successivi scalano; l'eliminazione richiude i buchi.
    I violini (vlnpost, base "Vln") restano gestiti da renumberViolins (sezione romana). Tocca solo le etichette AUTO. */
 function renumberInstr(base){
-  if(!base || base==="Vln") return;   /* "Vln" = vlnpost → gestito da renumberViolins */
+  if(!base || base==="Violino") return;   /* base dei vlnpost → gestiti da renumberViolins (sezione+posto) */
   var pos=1, esc=base.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), auto=new RegExp("^"+esc+"\\s+\\d+$");
   (state.items||[]).forEach(function(x){
     if(x.type==="vlnpost" || !x.type || !autoNumbered(x.type) || instrBase(x.type)!==base) return;
-    var dbl = x.doppia===true || !!DOUBLE_TYPES[x.type];
+    var dbl = x.doppia===true;   /* solo la doppia da flag ha 2 nomi; i leggii ×2 del generatore hanno UN nome per leggio */
     if(dbl){
       if(auto.test(x.label||"")) x.label=base+" "+pos;
       if(!x.label2 || auto.test(x.label2||"")) x.label2=base+" "+(pos+1);
@@ -6800,7 +6876,7 @@ function presetCounts(id){
 var STR_R0=290, STR_DR=150;
 function layoutStrings(counts, out){
   var secs=[["v1","Violini I","vlnpost","Violino 1"],["v2","Violini II","vlnpost","Violino 2"],
-            ["vle","Viole","violapost","Vla"],["vc","Violoncelli","violoncello","Vc"]];
+            ["vle","Viole","violapost","Viola"],["vc","Violoncelli","violoncello","Violoncello"]];
   var sizes=secs.map(function(s){ return counts[s[0]]||0; });
   var total=sizes.reduce(function(a,b){ return a+b; },0);
   if(!total) return STR_R0;
@@ -6837,7 +6913,7 @@ function layoutStrings(counts, out){
     for(var j=0;j<nb;j++){
       var a=a0+j*P, x=R*Math.sin(a), y=-R*Math.cos(a);
       out.push({type:"contrabbasso", x:Math.round(x), y:Math.round(y),
-        rot:Math.round(a*180/Math.PI), label:"Cb "+(j+1)});
+        rot:Math.round(a*180/Math.PI), label:"Contrabbasso "+(j+1)});
     }
     outerRows=rows+1;
   }
@@ -6871,7 +6947,7 @@ function buildOrchestraOut(counts){
     seats.forEach(function(s){
       var x=s.x-tot/2;
       out.push({type:s.g.type, x:x, y:y, rot:rotTo(x,y),
-        label: (DEFAULT_LABELS[s.g.type]||s.g.nome)+(s.n>1?" "+(s.i+1):"")});
+        label: (autoNumbered(s.g.type)?instrBase(s.g.type):(DEFAULT_LABELS[s.g.type]||s.g.nome))+(s.n>1?" "+(s.i+1):"")});   /* stesso nome pieno del catalogo (Corno 1, non Cor 1) */
     });
   });
 
@@ -6886,7 +6962,7 @@ function buildOrchestraOut(counts){
     out.push({type:"pedana", x:0, y:backY, w:Math.max(500,totW+150), d:maxD+90, h:20, label:""});  /* riser percussioni */
     backs.forEach(function(b){
       var w=TYPES[b.type].w;
-      out.push({type:b.type, x:cx+w/2, y:backY, rot:0, label:b.nome, parts:b.parts});
+      out.push({type:b.type, x:cx+w/2, y:backY, rot:0, label:(autoNumbered(b.type)?instrBase(b.type):b.nome), parts:b.parts});   /* "Timpani", non "Timpani (set 4)" */
       cx+=w+70;
     });
   }
@@ -6897,7 +6973,7 @@ function buildOrchestraOut(counts){
     for(var i=0;i<n;i++){
       var r=windBase*sec.spot.f+i*130, a=rad(sec.spot.a);
       var x=r*Math.sin(a), y=-r*Math.cos(a);
-      out.push({type:sec.type, x:x, y:y, rot:rotTo(x,y), label:sec.nome+(n>1?" "+(i+1):"")});
+      out.push({type:sec.type, x:x, y:y, rot:rotTo(x,y), label:(autoNumbered(sec.type)?instrBase(sec.type):sec.nome)+(n>1?" "+(i+1):"")});
     }
   });
 
@@ -6910,10 +6986,10 @@ function buildStringOrganicoOut(counts, opts){
   opts=opts||{};
   var out=[];
   var sections=[
-    {id:"v1", double:"vln1x2", single:"vlnpost", singleLabel:"Vln I"},
-    {id:"v2", double:"vln2x2", single:"vlnpost", singleLabel:"Vln II"},
-    {id:"vle",double:"violax2", single:"violapost", singleLabel:"Vla"},
-    {id:"vc", double:"cellix2", single:"violoncello", singleLabel:"Vc"}
+    {id:"v1", double:"vln1x2", single:"vlnpost", singleLabel:"Violini I"},
+    {id:"v2", double:"vln2x2", single:"vlnpost", singleLabel:"Violini II"},
+    {id:"vle",double:"violax2", single:"violapost", singleLabel:"Viole"},
+    {id:"vc", double:"cellix2", single:"violoncello", singleLabel:"Violoncelli"}
   ];
   function desksFor(sec){
     var n=counts[sec.id]||0, desks=[], pairs=Math.floor(n/2), idx=0;
@@ -6947,8 +7023,8 @@ function buildStringOrganicoOut(counts, opts){
   var cbN=counts.cb||0;
   if(cbN){
     var cbDesks=[], cbPairs=Math.floor(cbN/2), ci=0;
-    for(var c=0;c<cbPairs;c++){ ci++; cbDesks.push({type:"cbx2", label:"Cb "+ci}); }
-    if(cbN%2){ ci++; cbDesks.push({type:"contrabbasso", label:"Cb "+ci}); }
+    for(var c=0;c<cbPairs;c++){ ci++; cbDesks.push({type:"cbx2", label:"Contrabbassi "+ci}); }
+    if(cbN%2){ ci++; cbDesks.push({type:"contrabbasso", label:"Contrabbassi "+ci}); }
     var cbR=R0+DR*rows+90, cbP=2*Math.asin(Math.min(0.5, 110/cbR));
     var baseA=(totalDesks?((Math.max(3,totalDesks)-1)/2)*P*0.34:0.28);
     cbDesks.forEach(function(d,i){
