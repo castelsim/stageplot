@@ -470,6 +470,10 @@
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   .lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
+  /* Anti-confusione (K): nascondi i NOMI degli strumenti (non le quote .sub) quando il palco è
+     rimpicciolito o l'utente li spegne; il selezionato e quello sotto il mouse restano leggibili */
+  svg.names-hidden .item .lbl:not(.sub){display:none}
+  svg.names-hidden .item.selected .lbl,svg.names-hidden .item:hover .lbl{display:inline}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
   .hit{fill:rgba(0,0,0,0);stroke:none}
   .selbox{fill:none;stroke:none;pointer-events:none}
