@@ -1574,6 +1574,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <button class="btn" id="grpRotR">⟳ 15</button>
     </div>
     <div class="row">
+      <button class="btn" id="grpLineDist" title="Mette gli elementi selezionati in linea orizzontale, equidistanti, tra il più a sinistra e il più a destra" style="flex:1">⇿ Allinea in linea (equidistanti)</button>
+    </div>
+    <div class="row">
       <button class="btn" id="grpGroup">▣ Unisci in blocco</button>
       <button class="btn" id="grpUngroup">⤢ Dividi blocco</button>
     </div>
@@ -4740,6 +4743,7 @@ function renderProps(){
     document.getElementById("grpNome").textContent = n+" elementi selezionati";
     setPeekName(n+" elementi");
     var its=selItems();
+    if(!its.length){ grp.hidden=true; document.getElementById("noSel").hidden=false; clearSelection(); return; }   /* selezione stale (id non più in scena) → niente crash */
     /* --- opzioni multiple (sedia/leggio) applicate a tutti --- */
     var allSedia=its.every(supportsSedia), allLeggio=its.every(supportsLeggio);
     document.getElementById("grpOpts").style.display = (allSedia||allLeggio) ? "block" : "none";
@@ -5126,6 +5130,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
 document.getElementById("pDel").addEventListener("click", deleteSel);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });
+document.getElementById("grpLineDist").addEventListener("click", distributeSelInLine);
 document.getElementById("grpDup").addEventListener("click", function(){ duplicateSel(); });
 document.getElementById("grpDel").addEventListener("click", deleteSel);
 document.getElementById("grpGroup").addEventListener("click", groupSel);
@@ -5161,6 +5166,16 @@ function rotateSel(deg){ var its=selItems(); if(!its.length) return;
   if(its.length>1) rotateGroupBy(its, deg, selBBoxCenter(its));   /* blocco: rigido attorno al centro */
   else its.forEach(function(it){ it.rot=((it.rot||0)+deg)%360; });
   render(); save(); }
+/* O: allinea gli elementi selezionati in LINEA orizzontale, equidistanti tra l'estremo sx e dx.
+   I due estremi restano fermi; i centri intermedi vengono spaziati uniformemente; Y comune (media). */
+function distributeSelInLine(){
+  var its=selItems(); if(its.length<2) return;
+  its.sort(function(a,b){ return a.x-b.x; });
+  var lineY=Math.round(its.reduce(function(s,it){ return s+it.y; },0)/its.length);
+  var x0=its[0].x, x1=its[its.length-1].x, step=(x1-x0)/(its.length-1);
+  its.forEach(function(it,i){ it.x=Math.round(x0+step*i); it.y=lineY; });
+  render(); save();
+}
 /* etichetta del duplicato: incrementa il numero finale o ne aggiunge uno, evitando collisioni.
    extra = etichette già riservate in questa stessa duplicazione (per non collidere tra label e label2). */
 function bumpLabel(label, extra){
