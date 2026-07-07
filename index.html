@@ -5446,8 +5446,9 @@ function miniSvg(k, over){
       var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       /* sottocategorie = menu a tendina uniformi (come tutte le altre categorie), via addToGroup */
+      /* Diagnostica / Audit progetto NASCOSTO temporaneamente (06/07, scelta Simone: prima lavoriamo sui layer, l'audit torna dopo)
       addToGroup("Diagnostica", makeActionBtn("Audit progetto","analisi automatica + punteggio",null,toggleAuditView,AUDIT_ICON));
-      entries.push({nome:"Audit progetto",dim:"analisi automatica + punteggio",action:toggleAuditView,iconHtml:AUDIT_ICON});
+      entries.push({nome:"Audit progetto",dim:"analisi automatica + punteggio",action:toggleAuditView,iconHtml:AUDIT_ICON}); */
       [["Cablaggio audio","cavi calcolati sorgente → stagebox",toggleCabLayer,CAB_ICON],
        ["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
        ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON]].forEach(function(a){
@@ -7719,10 +7720,12 @@ function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: bo
 })();
 /* ===== INPUT / PATCH LIST automatica — derivata dal motore di cablaggio (fonte unica) ===== */
 function patchList(){
-  var R=cabResult(true), rows=[], n=0;
-  R.links.forEach(function(l){ if(l.deleted) return; n++;
-    rows.push({n:n, name:l.s.name, mic:l.s.mic, p48:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter, itemId:l.s.it.id}); });
-  R.unassigned.forEach(function(s){ n++; rows.push({n:n, name:s.name, mic:s.mic, p48:!!micInfo(s.mic).p48, patch:"—", box:null, itemId:s.it.id}); });
+  var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
+  function off(key){ return !!(man[key]&&man[key].micOff); }
+  R.links.forEach(function(l){ if(l.deleted) return; n++; var o=off(l.s.key);
+    rows.push({n:n, name:l.s.name, mic:o?"":l.s.mic, p48:o?false:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter, itemId:l.s.it.id, key:l.s.key, micOff:o}); });
+  R.unassigned.forEach(function(s){ n++; var o=off(s.key);
+    rows.push({n:n, name:s.name, mic:o?"":s.mic, p48:o?false:!!micInfo(s.mic).p48, patch:"—", box:null, itemId:s.it.id, key:s.key, micOff:o}); });
   return {rows:rows, R:R};
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
@@ -7731,13 +7734,15 @@ var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + 
 var _ROW_TRASH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
 function selectMany(ids){ ids=(ids||[]).filter(Boolean); sel=ids[0]||null; selSet={}; ids.forEach(function(id){ selSet[id]=true; }); }
 function listDeleteItems(ids){ var set={}; (ids||[]).forEach(function(id){ set[id]=true; }); state.items=state.items.filter(function(i){ return !set[i.id]; }); clearSelection(); __cabRes=null; __elecRes=null; save(); render(); }
-function makeListRow(cells, ids, sels, delTitle){   /* cells = array di HTML per # · nome · tipo · patch; ids = elementi da selezionare/cancellare */
+/* Input list: togliere il microfono NON elimina la sorgente — resta come canale senza mic (per-canale, key it.id#idx). Reversibile. */
+function cabMicToggle(key){ var m=cabManual(key); m.micOff=!m.micOff; __cabRes=null; save(); render(); }
+function makeListRow(cells, ids, sels, delTitle, onDelete){   /* cells = HTML per riga; ids = elementi da selezionare; onDelete = azione cestino (default: elimina gli ids) */
   var row=document.createElement("div"); row.className="patch-row editable"+(sels?" rowsel":"");
   row.innerHTML=cells.join("");
   var del=document.createElement("button"); del.type="button"; del.className="rowdel"; del.title=delTitle||"Elimina dal palco"; del.innerHTML=_ROW_TRASH;
   if(ids && ids.length){
-    row.addEventListener("click", function(e){ if(e.target.closest(".rowdel")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });
-    del.addEventListener("click", function(e){ e.stopPropagation(); listDeleteItems(ids); });
+    row.addEventListener("click", function(e){ if(e.target.closest(".rowdel")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });   /* sync: seleziona sul palco + pannello proprietà */
+    del.addEventListener("click", function(e){ e.stopPropagation(); if(onDelete) onDelete(); else listDeleteItems(ids); });
   } else { del.disabled=true; }
   row.appendChild(del); return row;
 }
@@ -7758,12 +7763,17 @@ function renderPatchPanel(){
   hd.innerHTML='<span>#</span><span>Sorgente</span><span>Mic/DI</span><span>Patch</span><span></span>';
   host.appendChild(hd);
   pl.rows.forEach(function(r){
+    var micCell = r.mic ? (esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')) : '<span style="color:var(--text-3)">— no mic</span>';
     var cells=['<span class="pn">'+r.n+'</span>',
       '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
-      '<span class="pmic">'+esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')+'</span>',
+      '<span class="pmic">'+micCell+'</span>',
       '<span class="ppatch">'+esc(r.patch)+'</span>'];
-    var row=makeListRow(cells, r.itemId?[r.itemId]:null, r.itemId&&selSet[r.itemId], "Elimina questa sorgente dal palco");
+    var key=r.key;   /* il cestino toglie SOLO il mic (la sorgente resta); riclick lo rimette */
+    var row=makeListRow(cells, r.itemId?[r.itemId]:null, r.itemId&&selSet[r.itemId],
+      r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
+      function(){ cabMicToggle(key); });
     if(!r.box) row.classList.add("unassigned");
+    if(r.micOff) row.classList.add("micoff");
     host.appendChild(row);
   });
 }
@@ -7779,11 +7789,12 @@ function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la se
   document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
 })();
 /* ===== MONITOR LIST automatica — derivata dal motore (lato output) ===== */
-function monitorList(){
-  var R=cabResult(true), rows=[];
+function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga distinta (4 monitor → 4 righe, anche se duplicati) */
+  var R=cabResult(true), rows=[], n=0;
   R.mixes.forEach(function(m){
     var patch = m.box ? (m.box.letter+"O"+m.outCh+(m.ch===2?"–"+(m.outCh+1):"")) : "—";
-    rows.push({n:m.n, mix:m.name, tipo:OUT_SET[m.sinks[0].type]||"monitor", stereo:m.ch===2, nMon:m.sinks.length, patch:patch, box:m.box, sinkIds:m.sinks.map(function(sk){ return sk.id; })});
+    m.sinks.forEach(function(sk){ n++;
+      rows.push({n:n, name:(sk.label||m.name), mix:m.name, tipo:OUT_SET[sk.type]||"monitor", stereo:m.ch===2, patch:patch, box:m.box, sinkId:sk.id}); });
   });
   return {rows:rows, R:R};
 }
@@ -7798,19 +7809,17 @@ function renderMonitorPanel(){
   var host=document.getElementById("monRows"), sum=document.getElementById("monSummary");
   var pl=monitorList(), R=pl.R;
   if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun monitor sul palco: aggiungi wedge, side/drum fill o IEM.</div>'; sum.textContent=""; return; }
-  var wl=pl.rows.filter(function(r){ return !r.stereo; }).length, ie=pl.rows.filter(function(r){ return r.stereo; }).length;
-  sum.innerHTML='<b>'+pl.rows.length+'</b> mix · '+wl+' wedge/fill · '+ie+' in-ear<br>Uscite usate: <b>'+R.mixChTot+' / '+R.capOutTot+'</b>';
+  sum.innerHTML='<b>'+pl.rows.length+'</b> monitor · '+R.mixes.length+' mix<br>Uscite usate: <b>'+R.mixChTot+' / '+R.capOutTot+'</b>';
   host.innerHTML="";
   var hd=document.createElement("div"); hd.className="patch-row patch-hd editable";
-  hd.innerHTML='<span>#</span><span>Mix</span><span>Tipo</span><span>Uscita</span><span></span>';
+  hd.innerHTML='<span>#</span><span>Monitor</span><span>Tipo</span><span>Uscita</span><span></span>';
   host.appendChild(hd);
   pl.rows.forEach(function(r){
     var cells=['<span class="pn">'+r.n+'</span>',
-      '<span class="psrc" title="'+esc(r.mix)+'">'+esc(r.mix)+'</span>',
+      '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
       '<span class="pmic">'+esc(r.tipo)+(r.stereo?' <b class="p48b">ST</b>':'')+'</span>',
       '<span class="ppatch">'+esc(r.patch)+'</span>'];
-    var seld = r.sinkIds && r.sinkIds.some(function(id){ return selSet[id]; });
-    var row=makeListRow(cells, r.sinkIds, seld, "Elimina questo monitor dal palco");
+    var row=makeListRow(cells, [r.sinkId], selSet[r.sinkId], "Elimina questo monitor dal palco");
     if(!r.box) row.classList.add("unassigned");
     host.appendChild(row);
   });
@@ -9467,7 +9476,7 @@ function monitorListPdf(shared){
     function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
     trow("#","MIX","TIPO","MONITOR","USCITA", true, "#0891b2");
     doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.nMon+"×", r.patch, false, r.box?"#111827":"#dc2626"); });
+    pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.name, r.patch, false, r.box?"#111827":"#dc2626"); });
     if(shared) return;
     if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
     doc.save(fileName()+"-monitor-list.pdf");
