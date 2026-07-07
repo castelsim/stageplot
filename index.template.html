@@ -209,6 +209,7 @@
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
+  <button class="btn" id="bNames" title="Nomi degli strumenti — Auto: nascosti quando il palco è rimpicciolito (anti-confusione); Sempre / Mai per forzare"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M9 5v14M7 19h4"/><path d="M14 12h6M17 12v7M15 19h4"/></svg><span id="bNamesTxt">Nomi: auto</span></button>
   <span class="tbdiv"></span>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
@@ -2620,6 +2621,7 @@ function normalizeChannelRow(r){
 function normalizeState(s){
   s.items=s.items||[];
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
+  s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
   if(!s.stage.blocks || !s.stage.blocks.length) s.stage.blocks=[{x:0,y:0,w:s.stage.w||1200,d:s.stage.d||800}];
   s.stage.blocks=s.stage.blocks.map(function(r){
@@ -3629,6 +3631,9 @@ function render(){
   renderVenuePanel();
   renderFramePanel();
   var ppm = svg.clientWidth / vb.w * 100;
+  var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
+  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
+  var _nt=document.getElementById("bNamesTxt"); if(_nt) _nt.textContent=({auto:"Nomi: auto",on:"Nomi: sì",off:"Nomi: no"})[nMode];
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
   var eh=document.getElementById("emptyHint");
@@ -3962,6 +3967,12 @@ document.getElementById("pTastLeg1").addEventListener("change", function(){
 });
 document.getElementById("pTastLeg2").addEventListener("change", function(){ mutSel(function(it){ it.leggio2=document.getElementById("pTastLeg2").checked; }); });
 document.getElementById("snapSel").addEventListener("change", function(){ snapMode=this.value; });
+(function(){ var b=document.getElementById("bNames"), t=document.getElementById("bNamesTxt"); if(!b) return;
+  var LBL={auto:"Nomi: auto", on:"Nomi: sì", off:"Nomi: no"}, ORDER=["auto","on","off"];
+  function paint(){ t.textContent=LBL[state.namesMode||"auto"]; }
+  b.addEventListener("click", function(){ var m=state.namesMode||"auto"; state.namesMode=ORDER[(ORDER.indexOf(m)+1)%3]; paint(); save(); render(); });
+  paint();   /* stato iniziale (anche dopo caricamento progetto) */
+})();
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
 /* Dividi una postazione doppia (×2 del generatore o doppia-da-flag) in 2 postazioni singole */
 var SINGLE_OF_KIND={vln1:"vlnpost", vln2:"vlnpost", vla:"violapost", vc:"violoncello", cb:"contrabbasso"};
@@ -8906,7 +8917,8 @@ function buildPdfDoc(paperKey, N, orient, header){
     /* Tech pack: pagine dei layer MOTORE attivi nel progetto (solo scope completo). Le funzioni
        report, se ricevono un doc, aggiungono una pagina A4 verticale e disegnano senza salvare. */
     if(scope==="full"){
-      if(state.items.length) auditReportPdf(doc);   /* pagina di sintesi: prontezza + criticità */
+      /* Audit NASCOSTO temporaneamente (07/07): niente pagina audit nel tech pack. Ripristina insieme al catalogo.
+      if(state.items.length) auditReportPdf(doc); */
       if(state.cab && state.cab.on){ var Rc=cabResult(true);
         if(Rc.totIn){ patchListPdf(doc); if(Rc.mixes && Rc.mixes.length) monitorListPdf(doc); cabReportPdf(doc); } }
       if(state.elec && state.elec.on){ var Re=elecResult(true);
@@ -9112,7 +9124,7 @@ function pdfChannelPage(doc, L, paperKey){
   }
   function pdfComputeTechPages(){
     var pages=[];
-    if(state.items.length) pages.push("Audit");
+    /* Audit nascosto (07/07): non elencato tra le pagine tecniche del tech pack */
     if(state.cab && state.cab.on){ var Rc=cabResult(true); if(Rc.totIn){ pages.push("Input list"); if(Rc.mixes && Rc.mixes.length) pages.push("Monitor list"); pages.push("Cablaggio audio"); } }
     if(state.elec && state.elec.on){ var Re=elecResult(true); if(Re.loads.length) pages.push("Piano elettrico","Lista carichi"); }
     return pages;
