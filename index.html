@@ -3213,7 +3213,35 @@ var TYPES = {
   rack4u:   {nome:"Rack 4U", dim:"48×55", cat:"Dispositivi", w:48,d:55, defLabel:"Rack 4U",
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
-var CAT_ORDER = ["Palco e strutture","Batteria e percussioni","Band e backline","Orchestra","Persone e voci","Microfoni e DI","Monitor da palco","Cablaggio e segnale","Regia e console","PA e diffusione","Elettrico","Luci","Video","Dispositivi","Sicurezza e site","Rigging e strutture","Layer tecnici"];
+/* CAT_ORDER = macro-categorie per la trovabilità (L, 07/07): da 17 a 10, strumenti in UN posto.
+   La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
+var CAT_ORDER = ["Strumenti","Voci e persone","Backline e ampli","Microfoni, DI e monitor","Audio","Elettrico","Luci e video","Palco, rigging e sicurezza","Dispositivi","Layer tecnici"];
+function catOf(k){   /* categoria (nuova macro) di un tipo, dai suoi cat/sub originali */
+  var t=TYPES[k]; if(!t) return "Dispositivi"; var oc=t.cat, os=t.sub||"";
+  switch(oc){
+    case "Batteria e percussioni": case "Orchestra": return "Strumenti";
+    case "Band e backline": return os==="Ampli" ? "Backline e ampli" : "Strumenti";
+    case "Persone e voci": return "Voci e persone";
+    case "Microfoni e DI": case "Monitor da palco": return "Microfoni, DI e monitor";
+    case "Cablaggio e segnale": case "Regia e console": case "PA e diffusione": return "Audio";
+    case "Luci": case "Video": return "Luci e video";
+    case "Palco e strutture": case "Rigging e strutture": case "Sicurezza e site": return "Palco, rigging e sicurezza";
+    default: return oc;   /* Elettrico, Dispositivi, Layer tecnici */
+  }
+}
+function subOf(k){   /* sottocategoria (nuova) di un tipo */
+  var t=TYPES[k], oc=t.cat, os=t.sub||"";
+  if(oc==="Batteria e percussioni"){ if(os==="Mallets") return "Mallets"; if(os==="Percussioni"||k==="tavolopercussioni") return "Percussioni"; return "Batteria"; }
+  if(oc==="Orchestra") return os;
+  if(oc==="Band e backline"){ if(os==="Ampli") return ""; if(k==="organohammond"||k==="controllermidi") return "Tastiere e piani"; return os; }
+  if(oc==="Monitor da palco") return "Monitor";
+  if(oc==="Cablaggio e segnale") return "Stagebox e cablaggio";
+  if(oc==="Luci") return "Luci";
+  if(oc==="Video") return "Video";
+  if(oc==="Rigging e strutture") return "Rigging";
+  if(oc==="Sicurezza e site") return "Sicurezza";
+  return os;   /* Microfoni(Aste/DI), Regia(brand), PA(sub), Elettrico(sub), Dispositivi; Palco = gestito dal blocco speciale */
+}
 
 /* ===== POTENZA ELETTRICA (Fase A: assorbimenti) ===== */
 /* Assorbimento AC TIPICO al muro durante lo show (non la targa/uscita): base onesta per la
@@ -5468,7 +5496,7 @@ function miniSvg(k, over){
 (function buildCatalog(){
   var el = document.getElementById("catalog"), cats={};
   CAT_ORDER.forEach(function(c){ cats[c]=[]; });
-  Object.keys(TYPES).forEach(function(k){ if(TYPES[k].catalog!==false) cats[TYPES[k].cat].push(k); });
+  Object.keys(TYPES).forEach(function(k){ if(TYPES[k].catalog!==false){ var nc=catOf(k); if(cats[nc]) cats[nc].push(k); } });
   function makeBtn(k, nome, over, dim){
     var b=document.createElement("button");
     var shownDim = dim || TYPES[k].dim;
@@ -5531,7 +5559,7 @@ function miniSvg(k, over){
     function addToGroup(sub, btn){ var g=rhythmGroup(sub); g.count++;
       g.head.innerHTML='<span class="caret">▸</span><span>'+esc(sub)+'</span><span class="count">'+g.count+'</span>';
       g.body.appendChild(btn); n++; }
-    if(c==="Palco e strutture"){
+    if(c==="Palco, rigging e sicurezza"){
       /* — accesso rapido: pannello palco e planimetria (azioni, non elementi droppabili) — */
       var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
       body.appendChild(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit)); n++;
@@ -5556,13 +5584,13 @@ function miniSvg(k, over){
         });
       });
     }
-    if(c==="Orchestra"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
+    if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
       addToGroup("Archi", makeActionBtn("Violino I", "postazione · nome progressivo", "vlnpost", function(){ addViolin(1); }));
       addToGroup("Archi", makeActionBtn("Violino II", "postazione · nome progressivo", "vlnpost", function(){ addViolin(2); }));
       entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }});
       entries.push({nome:"Violino II", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(2); }});
     }
-    if(c==="Persone e voci"){
+    if(c==="Voci e persone"){
       var dirPov={leggio:true};
       body.appendChild(makeBtn("direttore","Direttore", dirPov, "con leggio")); n++;
       entries.push({k:"direttore", nome:"Direttore", over:dirPov, dim:"con leggio"});
@@ -5572,10 +5600,10 @@ function miniSvg(k, over){
       body.appendChild(makeBtn("corista","Donna", corD, "voce coro")); n++;
       entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce coro"});
     }
-    if(c==="Cablaggio e segnale"){   /* i LAYER audio sono nella categoria "Layer tecnici"; qui restano gli elementi (stage box) */
+    if(c==="Audio"){   /* varianti stage box (i LAYER audio calcolati sono in "Layer tecnici") */
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
         var nome="Stage box "+v[0], over={ch:v[0]};
-        body.appendChild(makeBtn("stagebox", nome, over, v[1])); n++;
+        addToGroup("Stagebox e cablaggio", makeBtn("stagebox", nome, over, v[1]));
         entries.push({k:"stagebox", nome:nome, over:over, dim:v[1]});
       });
     }
@@ -5601,13 +5629,13 @@ function miniSvg(k, over){
         addToGroup("Elettrico", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
     }
     cats[c].forEach(function(k){
-      if(c==="Palco e strutture") return;   /* categoria gestita interamente sopra (sottosezioni) */
+      if(TYPES[k].cat==="Palco e strutture") return;   /* gli elementi palco/pedane li gestisce il blocco speciale sopra (Rigging/Sicurezza passano di qui) */
       if(k==="pedana") return;
       if(k==="stagebox") return;  /* gestita sopra come varianti 8/16/24 canali */
       if(k==="vlnpost") return;   /* violini gestiti sopra (Violino I / II con nome progressivo) */
       if(k==="direttore") return; /* gestito sopra */
-      if(c==="Persone e voci" && (k==="cantante"||k==="corista")) return; /* gestiti sopra come varianti uomo/donna */
-      var sub=TYPES[k].sub||null;
+      if(k==="cantante"||k==="corista") return; /* gestiti sopra come varianti uomo/donna */
+      var sub=subOf(k)||null;
       var target=body, group=null;
       if(sub){ group=rhythmGroup(sub); target=group.body; }   /* ogni sottocategoria = menu a scomparsa, uniforme in tutte le categorie */
       function addBtn(nome, over, dim){
