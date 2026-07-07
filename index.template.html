@@ -1098,7 +1098,13 @@
           <option value="200">1:200</option>
           <option value="250">1:250</option>
           <option value="500">1:500</option>
+          <option value="custom">Personalizzata…</option>
         </select>
+        <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <span style="font-size:13px;color:var(--text-2)">1:</span>
+          <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:90px" inputmode="numeric">
+          <span style="font-size:11.5px;color:var(--text-3)">(10–500)</span>
+        </div>
         <label>Intestazione (facoltativa)</label>
         <input type="text" id="pdfHeader" placeholder="Es. Tecnico: Simone Castellan · +39 …" maxlength="120">
         <div class="mstatus" id="pdfInfo" style="font-size:12.5px;min-height:18px;margin-top:10px"></div>
@@ -5460,6 +5466,7 @@ document.addEventListener("keydown", function(e){
   var legM=document.getElementById("legniModal"); if(!legM.hidden && e.key==="Escape"){ legM.hidden=true; return; }
   var ottM=document.getElementById("ottoniModal"); if(!ottM.hidden && e.key==="Escape"){ ottM.hidden=true; return; }
   if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.fileSaveVersion) fileSaveVersion(); return; }
+  if((e.metaKey||e.ctrlKey) && (e.key==="p"||e.key==="P")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.openPdfExportModal) window.openPdfExportModal(); return; }   /* U1: Cmd/Ctrl+P apre la finestra di export PDF dell'app (non la stampa del browser) */
   if((e.metaKey||e.ctrlKey) && (e.key==="z"||e.key==="Z")){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
   if((e.metaKey||e.ctrlKey) && (e.key==="y"||e.key==="Y")){ e.preventDefault(); redo(); return; }
   /* spacebar → modalità pan temporanea (come Figma/Photoshop) */
@@ -8471,6 +8478,11 @@ function autoScale(paperKey, orient){
 function resolveScale(paperKey, scaleSel, orient){
   return scaleSel==="auto" ? autoScale(paperKey, orient) : parseInt(scaleSel,10);
 }
+/* M-scala: valore di scala effettivo — se "Personalizzata", legge l'input 1:N (10–500) */
+function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) return "auto";
+  if(s.value==="custom"){ var c=document.getElementById("pdfScaleCustom"); return String(Math.max(10, Math.min(500, parseInt(c&&c.value,10)||75))); }
+  return s.value;
+}
 /* SVG dell'area di stampa: palco + griglia + elementi + quote dimensionali.
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
@@ -9000,26 +9012,15 @@ function exportPdf(paperKey, scaleSel, orient, header){
   var aTxt=printArea().custom?"L'area di stampa":"Il palco";
   if(!N){ info.className="mstatus err"; info.textContent=aTxt+" non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+" "+oTxt+". Prova un foglio più grande, l'altro orientamento o riduci l'area."; return; }
   /* se a 1:N il disegno sfora il foglio NON è più un errore: si stampa la parte centrale che ci sta, in scala (vedi pdfStageBox) */
-  var name=fileName()+".pdf";
-  /* chiedi SUBITO dove salvare (mentre c'è il gesto utente): su desktop con browser compatibili apre il selettore di sistema */
-  var pick = (typeof window.showSaveFilePicker==="function" && !isMobile())
-    ? window.showSaveFilePicker({ suggestedName:name, types:[{description:"PDF", accept:{"application/pdf":[".pdf"]}}] })
-        .catch(function(e){ if(e && e.name==="AbortError") throw e; return null; })   /* non supportato/negato → fallback download */
-    : Promise.resolve(null);
   info.className="mstatus"; info.textContent="Genero il PDF…";
-  pick.then(function(handle){
-    return buildPdfDoc(paperKey, N, orient, header).then(function(doc){ return deliverPdf(doc, handle); });
-  }).then(function(how){
-    info.className="mstatus ok";
-    info.textContent = how==="saved"  ? "✓ PDF salvato sul dispositivo."
-                     : how==="share"  ? "✓ PDF pronto — scegli Mail (o un'app) per inviarlo."
-                     : how==="abort"  ? "Condivisione annullata (PDF non inviato)."
-                     : "✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
-    window.__pdfScope="full";   /* riporta al default: altri flussi (Condividi) esportano il documento completo */
-    if(how!=="abort"){ track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400); }
+  /* U2/U3: download AUTOMATICO del browser, niente più selettore "salva con nome" (la finestra extra) */
+  buildPdfDoc(paperKey, N, orient, header).then(function(doc){
+    doc.save(fileName()+".pdf");
+    info.className="mstatus ok"; info.textContent="✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
+    window.__pdfScope="full";   /* riporta al default */
+    track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
   }).catch(function(e){
-    if(e && e.name==="AbortError"){ info.className="mstatus"; info.textContent="Salvataggio annullato."; return; }
-    info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e);
+    info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
   });
 }
 function exportPng(){
@@ -9155,7 +9156,8 @@ function pdfChannelPage(doc, L, paperKey){
       scl=document.getElementById("pdfScale"), orient=document.getElementById("pdfOrient"), header=document.getElementById("pdfHeader");
   function refresh(){
     var info=document.getElementById("pdfInfo");
-    var N=resolveScale(paper.value, scl.value, orient.value);
+    document.getElementById("pdfScaleCustomRow").hidden = scl.value!=="custom";   /* M-scala: input custom visibile solo se "Personalizzata" */
+    var N=resolveScale(paper.value, pdfScaleValue(), orient.value);
     var oTxt=orient.value==="portrait"?"verticale":"orizzontale";
     if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500 su "+paper.value.toUpperCase()+" "+oTxt+" — prova un foglio più grande o l'altro orientamento."; }
     else {
@@ -9197,8 +9199,9 @@ function pdfChannelPage(doc, L, paperKey){
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
   paper.addEventListener("change", refresh); scl.addEventListener("change", refresh);
+  document.getElementById("pdfScaleCustom").addEventListener("input", refresh);   /* M-scala: aggiorna la preview mentre digiti la scala custom */
   orient.addEventListener("change", refresh); header.addEventListener("input", refresh);
-  document.getElementById("pdfGo").addEventListener("click", function(){ exportPdf(paper.value, scl.value, orient.value, header.value); });
+  document.getElementById("pdfGo").addEventListener("click", function(){ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); });
 })();
 /* ============ AREA DI STAMPA — step 1 del flusso PDF ============ */
 (function(){
