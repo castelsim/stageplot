@@ -3432,7 +3432,9 @@ function electricEngine(){
     cabClusters(loads.map(function(l){ return {it:l.it, list:[l]}; }), 600).forEach(function(c){
       var clusterA=c.groups.reduce(function(s,g){ return s+g.list[0].a; },0);
       var mdl = clusterA>63?"distro125":(clusterA>32?"distro63":"distro32"), dd=ELEC_DISTRO[mdl];
-      distros.push({it:null, x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-80))), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl});
+      /* distro A LATO (bordo più vicino al gruppo di carichi), non in mezzo alla scena; y all'altezza dei carichi */
+      var side = c.cx < state.stage.w/2 ? 50 : state.stage.w-50;
+      distros.push({it:null, x:side, y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy))), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl});
     });
     issues.push({lvl:"info", msg:"Nessun quadro/distro sul palco: proposti "+distros.length+" distro vicino ai carichi. Trascina un distro reale dal catalogo per fissarlo."});
   }
