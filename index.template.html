@@ -6664,10 +6664,11 @@ function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: bo
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
   function off(key){ return !!(man[key]&&man[key].micOff); }
-  R.links.forEach(function(l){ if(l.deleted) return; n++; var o=off(l.s.key);
-    rows.push({n:n, name:l.s.name, mic:o?"":l.s.mic, p48:o?false:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter, itemId:l.s.it.id, key:l.s.key, micOff:o}); });
-  R.unassigned.forEach(function(s){ n++; var o=off(s.key);
-    rows.push({n:n, name:s.name, mic:o?"":s.mic, p48:o?false:!!micInfo(s.mic).p48, patch:"—", box:null, itemId:s.it.id, key:s.key, micOff:o}); });
+  function micOf(key, def){ var mm=man[key]; if(mm&&mm.micOff) return ""; return (mm&&mm.mic)?mm.mic:def; }   /* override manuale del mic, altrimenti il suggerito */
+  function row(name, defMic, key, patch, box, itemId){ var o=off(key), mic=micOf(key, defMic);
+    return {n:++n, name:name, mic:mic, p48:(o||!mic)?false:!!micInfo(mic).p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
+  R.links.forEach(function(l){ if(l.deleted) return; rows.push(row(l.s.name, l.s.mic, l.s.key, l.box.letter+l.ch, l.box.letter, l.s.it.id)); });
+  R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
   applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
   return {rows:rows, R:R};
 }
@@ -6678,7 +6679,9 @@ var _ROW_TRASH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stro
 function selectMany(ids){ ids=(ids||[]).filter(Boolean); sel=ids[0]||null; selSet={}; ids.forEach(function(id){ selSet[id]=true; }); }
 function listDeleteItems(ids){ var set={}; (ids||[]).forEach(function(id){ set[id]=true; }); state.items=state.items.filter(function(i){ return !set[i.id]; }); clearSelection(); __cabRes=null; __elecRes=null; save(); render(); }
 /* Input list: togliere il microfono NON elimina la sorgente — resta come canale senza mic (per-canale, key it.id#idx). Reversibile. */
-function cabMicToggle(key){ var m=cabManual(key); m.micOff=!m.micOff; __cabRes=null; save(); render(); }
+function cabMicToggle(key){ var m=cabManual(key); m.micOff=!m.micOff; if(m.micOff) delete m.mic; __cabRes=null; save(); render(); }
+/* Input list: cambia il microfono/tipo di un canale (testo libero: "SM58", "DI", "Line"…). Vuoto = togli il mic. */
+function cabSetMic(key, v){ var m=cabManual(key); v=String(v||"").trim(); if(v){ m.mic=v.slice(0,24); m.micOff=false; } else { delete m.mic; m.micOff=true; } __cabRes=null; save(); render(); }
 /* Riordino manuale delle liste: ordine salvato come sequenza di chiavi; # rinumerato per posizione. */
 function _listMove(cur, id, dir, apply){
   var i=cur.indexOf(id), j=i+dir; if(i<0||j<0||j>=cur.length) return;
@@ -6749,6 +6752,9 @@ function renderPatchPanel(){
       function(){ cabMicToggle(key); },
       function(dir){ cabMoveInput(key, dir); },
       function(v){ cabRenameItem(iid, v); });
+    var micEl=row.querySelector(".pmic");   /* click sulla cella MIC/DI = cambia mic/tipo inline (testo: SM58, DI, Line…) */
+    if(micEl){ micEl.classList.add("editable-cell"); micEl.title="Click per cambiare microfono/tipo (es. SM58, DI, Line)";
+      micEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(micEl, r.mic||"", function(v){ cabSetMic(key, v); }); }); }
     if(!r.box) row.classList.add("unassigned");
     if(r.micOff) row.classList.add("micoff");
     host.appendChild(row);
