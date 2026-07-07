@@ -374,14 +374,21 @@
      a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
   .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
   /* liste modificabili (Input/Monitor): 5ª colonna per il cestino; riga cliccabile = seleziona sul palco */
-  .patch-row.editable{grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px 24px}
+  .patch-row.editable{grid-template-columns:22px minmax(0,1.4fr) minmax(0,1fr) 40px 54px}
   .patch-row.editable:not(.patch-hd){cursor:pointer}
   .patch-row.editable:not(.patch-hd):hover{background:var(--accent-tint)}
   .patch-row.rowsel{background:var(--accent-tint)}
-  .rowdel{border:none;background:none;color:var(--text-3);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;opacity:.4;border-radius:5px}
-  .patch-row.editable:hover .rowdel{opacity:1}
+  .patch-row.micoff .pmic{font-style:italic}
+  .psrc.renamable{cursor:text}
+  .rowacts{display:flex;align-items:center;justify-content:flex-end;gap:0}
+  .rowmv,.rowdel{border:none;background:none;color:var(--text-3);cursor:pointer;padding:0 2px;display:flex;align-items:center;justify-content:center;opacity:.32;border-radius:4px;line-height:1}
+  .rowmv{font-size:9px} .rowdel{font-size:13px}
+  .patch-row.editable:hover .rowmv,.patch-row.editable:hover .rowdel{opacity:.9}
+  .rowmv:hover{color:var(--accent);background:var(--n-100)}
   .rowdel:hover{color:var(--danger,#dc2626);background:var(--n-100)}
-  body.dark .rowdel:hover{background:#2a1416}
+  body.dark .rowmv:hover,body.dark .rowdel:hover{background:#2a1416}
+  .rowedit{width:100%;font-size:11px;padding:1px 4px;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--text);font-family:inherit}
+  body.dark .rowedit{background:#141a1d;color:#e5e7eb}
   .patch-row:last-child{border-bottom:none}
   .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
   .patch-row .pn{color:var(--text-3);font-weight:700}

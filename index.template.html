@@ -2660,7 +2660,9 @@ function normalizeState(s){
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false,
-    locked:!!cb.locked, manual:man };
+    locked:!!cb.locked, manual:man,
+    order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
+    monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
   s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
@@ -6666,6 +6668,7 @@ function patchList(){
     rows.push({n:n, name:l.s.name, mic:o?"":l.s.mic, p48:o?false:!!micInfo(l.s.mic).p48, patch:l.box.letter+l.ch, box:l.box.letter, itemId:l.s.it.id, key:l.s.key, micOff:o}); });
   R.unassigned.forEach(function(s){ n++; var o=off(s.key);
     rows.push({n:n, name:s.name, mic:o?"":s.mic, p48:o?false:!!micInfo(s.mic).p48, patch:"—", box:null, itemId:s.it.id, key:s.key, micOff:o}); });
+  applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
   return {rows:rows, R:R};
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
@@ -6676,15 +6679,47 @@ function selectMany(ids){ ids=(ids||[]).filter(Boolean); sel=ids[0]||null; selSe
 function listDeleteItems(ids){ var set={}; (ids||[]).forEach(function(id){ set[id]=true; }); state.items=state.items.filter(function(i){ return !set[i.id]; }); clearSelection(); __cabRes=null; __elecRes=null; save(); render(); }
 /* Input list: togliere il microfono NON elimina la sorgente — resta come canale senza mic (per-canale, key it.id#idx). Reversibile. */
 function cabMicToggle(key){ var m=cabManual(key); m.micOff=!m.micOff; __cabRes=null; save(); render(); }
-function makeListRow(cells, ids, sels, delTitle, onDelete){   /* cells = HTML per riga; ids = elementi da selezionare; onDelete = azione cestino (default: elimina gli ids) */
+/* Riordino manuale delle liste: ordine salvato come sequenza di chiavi; # rinumerato per posizione. */
+function _listMove(cur, id, dir, apply){
+  var i=cur.indexOf(id), j=i+dir; if(i<0||j<0||j>=cur.length) return;
+  cur.splice(i,1); cur.splice(j,0,id); apply(cur); __cabRes=null; save(); render();
+}
+function cabMoveInput(key, dir){ _listMove(patchList().rows.map(function(r){return r.key;}), key, dir, function(o){ state.cab.order=o; }); }
+function cabMoveMonitor(id, dir){ _listMove(monitorList().rows.map(function(r){return r.sinkId;}), id, dir, function(o){ state.cab.monOrder=o; }); }
+function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return i.id===id;}); if(it){ it.label=String(v).slice(0,40); __cabRes=null; save(); render(); } }
+/* applica un ordine manuale (array di chiavi) a righe con campo `keyf`; le chiavi ignote restano in coda nell'ordine di default */
+function applyListOrder(rows, order, keyf){
+  if(!order || !order.length) return rows;
+  var pos={}; order.forEach(function(k,i){ pos[k]=i; });
+  rows.sort(function(a,b){ var pa=(keyf(a) in pos)?pos[keyf(a)]:1e9, pb=(keyf(b) in pos)?pos[keyf(b)]:1e9; return pa-pb; });
+  rows.forEach(function(r,i){ r.n=i+1; });   /* rinumerazione coerente 1..N per posizione */
+  return rows;
+}
+/* rinomina inline: doppio click su un campo → input; Invio/blur conferma, Esc annulla */
+function startInlineRename(el, cur, cb){
+  var inp=document.createElement("input"); inp.type="text"; inp.value=cur; inp.className="rowedit"; inp.maxLength=40;
+  el.textContent=""; el.appendChild(inp); inp.focus(); inp.select();
+  var closed=false;
+  function done(commit){ if(closed) return; closed=true; var v=inp.value.trim(); if(commit && v && v!==cur){ cb(v); } else { render(); } }
+  inp.addEventListener("click", function(e){ e.stopPropagation(); });
+  inp.addEventListener("blur", function(){ done(true); });
+  inp.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); done(true); } else if(e.key==="Escape"){ e.preventDefault(); done(false); } });
+}
+function _rowBtn(html, title, cls, fn){ var b=document.createElement("button"); b.type="button"; b.className=cls; b.title=title; b.innerHTML=html; b.addEventListener("click", function(e){ e.stopPropagation(); fn(); }); return b; }
+/* cells = HTML per riga; ids = elementi da selezionare; onDelete = azione cestino; onMove(dir) = su/giù; onRename(v) = rinomina (doppio click sul nome) */
+function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename){
   var row=document.createElement("div"); row.className="patch-row editable"+(sels?" rowsel":"");
   row.innerHTML=cells.join("");
-  var del=document.createElement("button"); del.type="button"; del.className="rowdel"; del.title=delTitle||"Elimina dal palco"; del.innerHTML=_ROW_TRASH;
+  if(onRename){ var nameEl=row.querySelector(".psrc"); if(nameEl){ nameEl.classList.add("renamable"); nameEl.title="Click per rinominare";
+    nameEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); }); } }   /* click sul nome = rinomina; sul resto = seleziona */
+  var acts=document.createElement("div"); acts.className="rowacts";
+  if(onMove){ acts.appendChild(_rowBtn("▲","Sposta su","rowmv",function(){ onMove(-1); }));
+              acts.appendChild(_rowBtn("▼","Sposta giù","rowmv",function(){ onMove(1); })); }
+  acts.appendChild(_rowBtn(_ROW_TRASH, delTitle||"Elimina dal palco", "rowdel", function(){ if(onDelete) onDelete(); else listDeleteItems(ids); }));
   if(ids && ids.length){
-    row.addEventListener("click", function(e){ if(e.target.closest(".rowdel")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });   /* sync: seleziona sul palco + pannello proprietà */
-    del.addEventListener("click", function(e){ e.stopPropagation(); if(onDelete) onDelete(); else listDeleteItems(ids); });
-  } else { del.disabled=true; }
-  row.appendChild(del); return row;
+    row.addEventListener("click", function(e){ if(e.target.closest(".rowacts")||e.target.closest(".rowedit")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });   /* sync: seleziona sul palco + pannello proprietà */
+  }
+  row.appendChild(acts); return row;
 }
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
@@ -6708,10 +6743,12 @@ function renderPatchPanel(){
       '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
       '<span class="pmic">'+micCell+'</span>',
       '<span class="ppatch">'+esc(r.patch)+'</span>'];
-    var key=r.key;   /* il cestino toglie SOLO il mic (la sorgente resta); riclick lo rimette */
-    var row=makeListRow(cells, r.itemId?[r.itemId]:null, r.itemId&&selSet[r.itemId],
+    var key=r.key, iid=r.itemId;   /* cestino = toglie SOLO il mic; ▲▼ = riordino; doppio click sul nome = rinomina */
+    var row=makeListRow(cells, iid?[iid]:null, iid&&selSet[iid],
       r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
-      function(){ cabMicToggle(key); });
+      function(){ cabMicToggle(key); },
+      function(dir){ cabMoveInput(key, dir); },
+      function(v){ cabRenameItem(iid, v); });
     if(!r.box) row.classList.add("unassigned");
     if(r.micOff) row.classList.add("micoff");
     host.appendChild(row);
@@ -6736,6 +6773,7 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
     m.sinks.forEach(function(sk){ n++;
       rows.push({n:n, name:(sk.label||m.name), mix:m.name, tipo:OUT_SET[sk.type]||"monitor", stereo:m.ch===2, patch:patch, box:m.box, sinkId:sk.id}); });
   });
+  applyListOrder(rows, state.cab&&state.cab.monOrder, function(r){ return r.sinkId; });
   return {rows:rows, R:R};
 }
 var monActive=false, monOpen=true;
@@ -6759,7 +6797,11 @@ function renderMonitorPanel(){
       '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
       '<span class="pmic">'+esc(r.tipo)+(r.stereo?' <b class="p48b">ST</b>':'')+'</span>',
       '<span class="ppatch">'+esc(r.patch)+'</span>'];
-    var row=makeListRow(cells, [r.sinkId], selSet[r.sinkId], "Elimina questo monitor dal palco");
+    var sid=r.sinkId;   /* cestino = elimina il monitor; ▲▼ = riordino; doppio click sul nome = rinomina */
+    var row=makeListRow(cells, [sid], selSet[sid], "Elimina questo monitor dal palco",
+      null,
+      function(dir){ cabMoveMonitor(sid, dir); },
+      function(v){ cabRenameItem(sid, v); });
     if(!r.box) row.classList.add("unassigned");
     host.appendChild(row);
   });
