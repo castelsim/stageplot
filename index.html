@@ -2923,7 +2923,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("grancassa_sinf",it,110,60); }},
   piatto:   {nome:"Piatto sospeso", dim:"Ø45", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:55,d:55,
              draw:function(){ return cym(0,0,23)+lin(0,8,0,22,'ic thin')+lin(-7,-4,-19,-11,'ic thin')+lin(7,-4,19,-11,'ic thin'); }},
-  piatticoppia:{nome:"Piatti a coppia", dim:"Ø50", cat:"Batteria e percussioni", sub:"Percussioni", w:62,d:48,
+  piatticoppia:{nome:"Piatti a due", dim:"Ø50", cat:"Batteria e percussioni", sub:"Percussioni", w:62,d:48,
              draw:function(it){ return drawLibFit("piatti_a_due",it,50,50); }},
   campane:  {nome:"Campane tubolari", dim:"~100×35", cat:"Batteria e percussioni", sub:"Percussioni", w:105,d:40,
              draw:function(it){ return drawLibFit("campanetubolari",it,150,60); }},
@@ -8836,7 +8836,10 @@ document.getElementById("bNew").addEventListener("click", function(){
     confirmText:"Cancella e ricomincia"
   }).then(function(ok){
     if(!ok) return;
-    state={titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]};
+    /* normalizeState: senza, lo stato nuovo non ha cab/elec/namesMode/… → layerRegistry (state.cab.on)
+       crasha al primo render, fit() aborta prima di setEventInputs (titolo non resettato) e drag/render
+       restano rotti. Normalizzando, il foglio nuovo è completo e coerente. */
+    state=normalizeState({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
     try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* foglio nuovo = progetto nuovo: senza lo stacco, l'autosave sovrascriverebbe il progetto aperto col foglio vuoto */
     stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
     setEventInputs(); renderChannels();
