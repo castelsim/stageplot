@@ -2331,14 +2331,14 @@ function gtrHead(kind){ var y=kind==="bass"?-52:kind==="ac"?-45:-44, h=kind==="b
 function ampCombo(){ return bar(0,0,64,26,'ic fMon',3)+bar(0,3,24,6,'ic fill',3)+kn(-15,-8.5,6,6); }
 function gtrLegY(it,kind){ return it.sedia ? 38 : (kind==="bass"?60:56); }
 /* offset della postazione seduta (scala reale) — ricalca le proporzioni del progetto condiviso */
-var GTR_GX=52, GTR_GY=-20;   /* strumento: di fianco e al LIVELLO della sedia (non più avanti) */
+var GTR_GX=0, GTR_GY=-2;   /* strumento CENTRATO tra sedia e leggio (come gli archi), tenuto dal musicista seduto */
 function guitarDraw(it,kind){
   it=it||{}; var s='';
   if(it.ampli) s+='<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';   /* ampli staccato dietro, angolato (come nel link) */
   if(it.sedia){
     s+=chairSvg(0);                                                              /* sedia (origine) */
-    s+='<g transform="translate('+GTR_GX+','+GTR_GY+')">'+gtrHead(kind)+gtrGlyph(kind)+'</g>';   /* strumento di fianco, al livello della sedia, SCALA REALE */
-    if(it.leggio) s+='<g transform="translate(0,38)">'+leggioGlyph(0)+'</g>';     /* leggio davanti alla sedia (distanza orchestra) */
+    s+='<g transform="translate('+GTR_GX+','+GTR_GY+')">'+gtrHead(kind)+gtrGlyph(kind)+'</g>';   /* strumento CENTRATO tra sedia e leggio, SCALA REALE */
+    if(it.leggio) s+='<g transform="translate(0,60)">'+leggioGlyph(0)+'</g>';     /* leggio davanti allo strumento (non coperto dal corpo) */
   } else {
     s+=gtrHead(kind)+gtrGlyph(kind);                                             /* in piedi: chitarra su stand */
     if(it.leggio) s+='<g transform="translate(0,'+gtrLegY(it,kind)+')">'+leggioGlyph(0)+'</g>';
@@ -2347,7 +2347,7 @@ function guitarDraw(it,kind){
   return s;
 }
 function gtrSize(it,t){ var d=t.d, w=t.w;
-  if(it.sedia){ w=Math.max(w,2*(GTR_GX+t.w/2)); d=Math.max(d,it.leggio?120:104); }   /* sedia + strumento di fianco a scala reale */
+  if(it.sedia){ w=Math.max(w,2*(GTR_GX+t.w/2)); d=Math.max(d,it.leggio?138:104); }   /* sedia + strumento centrato + leggio davanti */
   else if(it.leggio) d+=44;
   if(it.ampli) w=Math.max(w,80);     /* ampli dietro: NON allunga la profondità → il nome resta vicino */
   if(it.pedaliera) d=Math.max(d, (it.sedia?150:130));   /* pedaliera davanti, ai piedi */
