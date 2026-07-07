@@ -9,13 +9,13 @@
 #      favicon, sitemap.xml, robots.txt.
 #   3. Verifica che il backend NON sia piu servito, es. https://stageplot.it/supabase/functions/stripe-webhook/index.ts
 #      deve dare 404.
-#   4. Per aggiornamenti automatici a ogni push, decommenta il blocco "push:" qui sotto.
+#   4. FATTO (2026-07-07): push trigger attivo — ogni push su main pubblica via questo workflow.
 name: Deploy Pages (solo statici)
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
 
 permissions:
   contents: read
