@@ -1,0 +1,63 @@
+# Deploy StagePlot su GitHub Pages pubblicando SOLO gli asset statici pubblici,
+# escludendo il backend (supabase/), i sorgenti di build (src/, build.mjs,
+# index.template.html) e la documentazione interna (docs/, AGENTS.md, ...).
+#
+# COME ATTIVARLO — finché non lo fai, il deploy attuale "da branch" resta INVARIATO:
+#   1. Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
+#   2. Lancia questo workflow a mano (tab Actions -> "Deploy Pages (solo statici)" -> Run workflow)
+#      e verifica che stageplot.it funzioni ancora: tool, /privacy/, /consulenza/, /guida/, /termini/,
+#      favicon, sitemap.xml, robots.txt.
+#   3. Verifica che il backend NON sia piu servito, es. https://stageplot.it/supabase/functions/stripe-webhook/index.ts
+#      deve dare 404.
+#   4. Per aggiornamenti automatici a ogni push, decommenta il blocco "push:" qui sotto.
+name: Deploy Pages (solo statici)
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verifica che index.html sia allineato ai sorgenti
+        run: node build.mjs --check
+      - name: Prepara la cartella pubblica (solo asset statici)
+        run: |
+          mkdir -p _site
+          rsync -a --delete \
+            --exclude='_site' \
+            --exclude='.git' --exclude='.github' \
+            --exclude='.claude' --exclude='.superpowers' \
+            --exclude='supabase' --exclude='docs' --exclude='src' \
+            --exclude='build.mjs' --exclude='index.template.html' \
+            --exclude='AGENTS.md' --exclude='STAGEPLOT_DESIGN_SYSTEM.md' \
+            --exclude='.gitignore' --exclude='README.md' \
+            --exclude='node_modules' --exclude='.DS_Store' --exclude='*.tar.gz' \
+            ./ ./_site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
