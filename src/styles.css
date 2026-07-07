@@ -380,6 +380,9 @@
   .patch-row.rowsel{background:var(--accent-tint)}
   .patch-row.micoff .pmic{font-style:italic}
   .psrc.renamable{cursor:text}
+  .pmic.editable-cell{cursor:text;border-radius:4px}
+  .pmic.editable-cell:hover{background:var(--n-100)}
+  body.dark .pmic.editable-cell:hover{background:#20292e}
   .rowacts{display:flex;align-items:center;justify-content:flex-end;gap:0}
   .rowmv,.rowdel{border:none;background:none;color:var(--text-3);cursor:pointer;padding:0 2px;display:flex;align-items:center;justify-content:center;opacity:.32;border-radius:4px;line-height:1}
   .rowmv{font-size:9px} .rowdel{font-size:13px}
