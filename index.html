@@ -4913,6 +4913,41 @@ function cablingMarkup(){
   return s;
 }
 function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+/* ── Shift+trascina un elemento SOPRA un cavo (stile Max: inserire un oggetto nel patch cord) ──
+   Rilasci con Shift una stage box/sub-snake su un cavo audio → quello strumento si ricollega alla
+   box rilasciata; un distro/ciabatta su una linea elettrica → il carico si ricollega al distro. */
+function distToPoly(sp, P){ var best=1e9;
+  for(var i=0;i<P.length-1;i++){ var a=P[i], b=P[i+1];
+    var vx=b[0]-a[0], vy=b[1]-a[1], L2=vx*vx+vy*vy||1;
+    var t=Math.max(0, Math.min(1, ((sp.x-a[0])*vx+(sp.y-a[1])*vy)/L2));
+    var dx=sp.x-(a[0]+t*vx), dy=sp.y-(a[1]+t*vy);
+    var d=dx*dx+dy*dy; if(d<best) best=d;
+  }
+  return Math.sqrt(best);
+}
+function cabTryInsertAt(sp, it){
+  if(!it || !sp) return false;
+  var TH=26, OBS=obstacleRects();   /* tolleranza dal cavo in cm */
+  if(cabIsBox(it) && state.cab && state.cab.on){
+    var R=cabResult(), best=null, bd=TH;
+    (R.links||[]).forEach(function(l){ if(l.deleted || (l.box && l.box.id===it.id)) return;
+      var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
+      var d=distToPoly(sp, orthExpand(cabRoutePts(l.pts, OBS, ex)));
+      if(d<bd){ bd=d; best=l; } });
+    if(best){ cabItemInputs(best.s.it).forEach(function(_,ii){ cabManual(best.s.it.id+"#"+ii).box=it.id; });   /* tutto lo strumento passa alla box inserita */
+      __cabRes=null; save(); return true; }
+  }
+  if(elecIsDistro(it) && state.elec && state.elec.on){
+    var Re=elecResult(), bestE=null, bdE=TH;
+    (Re.loadLinks||[]).forEach(function(l){ if(l.distro && l.distro.it && l.distro.it.id===it.id) return;
+      var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
+      var d=distToPoly(sp, orthExpand(cabRoutePts(l.pts, OBS, ex)));
+      if(d<bdE){ bdE=d; bestE=l; } });
+    if(bestE){ state.elec.manual=state.elec.manual||{}; state.elec.manual[bestE.load.it.id]=it.id;
+      __elecRes=null; save(); return true; }
+  }
+  return false;
+}
 /* Manual-first: "Proponi collegamenti" materializza la proposta del motore come override ESPLICITI
    (simulazione in modalità auto → scrive man[key].box solo verso box/distro REALI). Così la proposta
    diventa collegamenti dell'utente: visibili, modificabili, cancellabili uno a uno. */
@@ -5137,6 +5172,9 @@ function stageLayerMarkup(){
    e vista condivisa `?view=`. NON nel PDF-plot (che esclude di proposito l'overlay cablaggio per un
    plot pulito; il cablaggio ha i suoi report dedicati). La legenda segue i cavi: dove non ci sono, non c'è. */
 function cableLegendMarkup(){
+  /* legenda solo dove servono le etichette complete: PDF/PNG statici, viewer condiviso o modalità
+     "etichette sempre" — sul canvas quotidiano è rumore (richiesta Simone 08/07, screenshot) */
+  if(!(window.__cabStatic || (state.cab && state.cab.labelMode==="always") || document.body.classList.contains("viewmode"))) return '';
   var rows=[];
   if(state.cab && state.cab.on && state.cab.showInputs!==false) rows.push(["cab-line","Audio — ingressi"]);
   if(state.cab && state.cab.on && state.cab.showInputs!==false && state.cab.looms!==false && window.__loomN) rows.push(["cab-loom","Fascio / sub-snake",'style="stroke-width:7px;stroke-opacity:.4"']);
@@ -7108,7 +7146,9 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
-  if(drag && drag.mode==="item" && drag.moved){ renderSnapGuides([]); render(); save(); ensureVisible(); }
+  if(drag && drag.mode==="item" && drag.moved){
+    if(e.shiftKey && selIds().length===1) cabTryInsertAt(svgPoint(e), getSel());   /* Shift al rilascio sopra un cavo = inserisci nel percorso (stile Max) */
+    renderSnapGuides([]); render(); save(); ensureVisible(); }
   else if(drag && drag.mode==="marquee"){
     var r=drag.rect;
     if(r && (r.w>8||r.h>8)){
