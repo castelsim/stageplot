@@ -468,8 +468,11 @@
   .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
   .cab-line.cab-manual{stroke:#0e7490}
   .cab-return{fill:none;stroke:#06b6d4;stroke-width:2;stroke-linecap:round;stroke-dasharray:1 5;pointer-events:none}
+  .cab-return.cab-manual{stroke:#0891b2}
+  .cab-return.sel{stroke:#0891b2;stroke-width:3.4;stroke-dasharray:none}   /* #17: ritorno selezionato, colore monitor */
   .cab-lbl-ret{fill:#0e7490}
   body.dark .cab-return{stroke:#22d3ee}
+  body.dark .cab-return.sel{stroke:#67e8f9}
   body.dark .cab-lbl-ret{fill:#67e8f9}
   #monRows .ppatch{color:#0891b2}
   body.dark #monRows .ppatch{color:#22d3ee}
@@ -484,6 +487,8 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  .cab-seg-ret{stroke:#0891b2}   /* #17: lato piegabile del ritorno, colore monitor */
+  body.dark .cab-seg-ret{stroke:#67e8f9}
   /* linee elettriche interattive — parità Max con l'audio */
   .elec-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
   .elec-line.sel{stroke-width:3.4}
@@ -580,6 +585,9 @@
   .cab-editable .cab-endpt{pointer-events:all;cursor:grab}
   .cab-editable .cab-endpt:hover{stroke:#0f766e;stroke-width:4.2}
   .cab-editable .cab-endpt-hit:hover{stroke:none}
+  .cab-endpt-ret{stroke:#06b6d4}   /* #17: estremo box del ritorno, colore monitor */
+  .cab-editable .cab-endpt-ret:hover{stroke:#0891b2}
+  body.dark .cab-endpt-ret{stroke:#22d3ee}
   .cab-homehit{fill:transparent;pointer-events:none}
   .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
   /* Layer Manager */
@@ -4711,9 +4719,11 @@ function audioCablingEngine(){
   });
   var returnLinks=[];
   mixes.forEach(function(m){ if(!m.box) return;
-    m.sinks.forEach(function(sk){ var pts=[[m.box.x,m.box.y], portAnchor(sk,"mon")];   /* il ritorno arriva al pallino monitor */
+    m.sinks.forEach(function(sk){ var key="ret:"+m.key+":"+sk.id, ov=man[key]||{};   /* #17: i ritorni editabili come gli input */
+      if(ov.deleted) return;   /* ritorno eliminato a mano (si ricrea ritrascinando la porta ciano) */
+      var pts=[[m.box.x,m.box.y]].concat((ov.pts||[])).concat([portAnchor(sk,"mon")]);   /* box → (waypoint manuali) → pallino monitor */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m di slack anche sul ritorno */
-      returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut}); }); });
+      returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut, key:key, manual:!!(ov.pts&&ov.pts.length)}); }); });
   var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
   var mixChTot=mixes.reduce(function(a,m){ return a+m.ch; },0);
   var returnCables={}; returnLinks.forEach(function(l){ var k=l.cut?l.cut+" m":">50 m"; returnCables[k]=(returnCables[k]||0)+1; });
@@ -4853,12 +4863,13 @@ function cablingMarkup(){
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
-  var edit=!state.cab.locked && showIn && !window.__cabStatic;   /* editing solo sui cavi ingresso, layer visibile e NON in render statico (PDF/PNG) */
+  var edit=!state.cab.locked && showIn && !window.__cabStatic;   /* editing sui cavi ingresso, layer visibile e NON in render statico (PDF/PNG) */
+  var editRet=!state.cab.locked && showRet && !window.__cabStatic;   /* #17: stessi gesti sui cavi di ritorno (monitor) */
   /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
      statico e nel viewer condiviso (chi legge non può fare hover consapevole). In hover: bolla assist. */
   var LBL = window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var OBS=obstacleRects();   /* Pilastro 2: i cavi aggirano pedane ed elementi ingombranti */
-  var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
+  var s='<g class="cab-layer'+((edit||editRet)?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
   if(showIn){
     /* L5: la tratta box→FOH di una box digitale è resa da netMarkup (rete) — niente doppia linea.
@@ -4918,13 +4929,29 @@ function cablingMarkup(){
   if(showRet){
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex);
-      var ri='<path class="cab-return" d="'+orthPathD(dpts)+'"/>';
-      if(LBL && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
+      var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
+      var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
+      if(editRet) ri+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
+      if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
         ri+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc((l.sink&&l.sink.id||'')+(l.box&&l.box.id?' '+l.box.id:''))+'">'+ri+'</g>';
     });
+    /* editing del ritorno selezionato: lati piegabili + estremo lato box (riconnetti ad altra box). Il capo monitor è fisso. */
+    if(editRet && selCab){ var rl=R.returnLinks.filter(function(l){ return l.key===selCab; })[0];
+      if(rl){ var exr={}; if(rl.box&&rl.box.id) exr[rl.box.id]=1; if(rl.sink&&rl.sink.id) exr[rl.sink.id]=1;
+        var polyR=orthExpand(cabRoutePts(rl.pts, OBS, exr));
+        for(var pj=0;pj<polyR.length-1;pj++){ var Ar=polyR[pj], Br=polyR[pj+1];
+          if(Ar[0]===Br[0] && Ar[1]===Br[1]) continue;
+          var orir=(Ar[1]===Br[1])?"h":"v";
+          s+='<line class="cab-seg cab-seg-ret" x1="'+Ar[0]+'" y1="'+Ar[1]+'" x2="'+Br[0]+'" y2="'+Br[1]+'"/>';
+          s+='<line class="cab-seg-hit" data-cab="'+selCab+'" data-seg="'+pj+'" data-ori="'+orir+'" x1="'+Ar[0]+'" y1="'+Ar[1]+'" x2="'+Br[0]+'" y2="'+Br[1]+'"/>';
+        }
+        var bxEnd=polyR[0];
+        s+='<circle class="cab-endpt cab-endpt-ret" data-cab="'+selCab+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="8"/>'
+          +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="17"/>';
+      }
+    }
   }
   /* ── stage box + badge in/out (infrastruttura condivisa) ── */
   var hasRet=R.returnLinks.length>0;
@@ -6873,8 +6900,8 @@ svg.addEventListener("pointerdown", function(e){
     var cseg=e.target.closest(".cab-seg-hit");
     if(cseg){ e.preventDefault(); var segkey=cseg.getAttribute("data-cab"), si=+cseg.getAttribute("data-seg"), sori=cseg.getAttribute("data-ori");
       selCab=segkey;
-      var Rs=cabResult(); var ls=Rs.links.filter(function(k){ return k.key===segkey; })[0];
-      if(ls){ var exs={}; if(ls.s&&ls.s.it) exs[ls.s.it.id]=1; if(ls.box&&ls.box.id) exs[ls.box.id]=1;
+      var Rs=cabResult(); var ls=Rs.links.filter(function(k){ return k.key===segkey; })[0] || (Rs.returnLinks||[]).filter(function(k){ return k.key===segkey; })[0];
+      if(ls){ var exs={}; if(ls.s&&ls.s.it) exs[ls.s.it.id]=1; if(ls.sink&&ls.sink.id) exs[ls.sink.id]=1; if(ls.box&&ls.box.id) exs[ls.box.id]=1;
         var fp0=orthExpand(cabRoutePts(ls.pts, obstacleRects(), exs));
         drag={mode:"cabseg", key:segkey, si:si, ori:sori, fp0:fp0, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }
     }
@@ -7285,7 +7312,14 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabreconnect"){   /* rilascio del capo: su una box = riconnetti, nel vuoto = scollega (come in Max) */
     var rp=svgPoint(e), tb=(state.items||[]).filter(cabIsBox).filter(function(it){ return Math.abs(rp.x-it.x)<=it.w/2+10 && Math.abs(rp.y-it.y)<=it.d/2+10; })[0];
-    if(tb){ cabManual(drag.key).box=tb.id; __cabRes=null; save(); }
+    var isRet = drag.key.indexOf("ret:")===0;
+    if(isRet){   /* #17: il ritorno monitor cambia box scrivendo sull'override del MIX (m.key) */
+      if(tb){ var mk=drag.key.slice(4, drag.key.lastIndexOf(":")); cabManual("mix:"+mk).box=tb.id; __cabRes=null; save(); }
+      else if(drag.moved){
+        var rlr=(cabResult().returnLinks||[]).filter(function(l){ return l.key===drag.key; })[0];
+        if(!rlr || Math.hypot(rp.x-rlr.pts[0][0], rp.y-rlr.pts[0][1])>60){ cabManual(drag.key).deleted=true; selCab=null; __cabRes=null; save(); }
+      }
+    } else if(tb){ cabManual(drag.key).box=tb.id; __cabRes=null; save(); }
     else if(drag.moved){
       var rl=(cabResult().links||[]).filter(function(l){ return l.key===drag.key; })[0];
       var farEnough = !rl || !rl.box || Math.hypot(rp.x-(drag.end==="src"?rl.pts[0][0]:rl.box.x), rp.y-(drag.end==="src"?rl.pts[0][1]:rl.box.y))>60;   /* micro-rilascio ≠ scollega */
@@ -7308,7 +7342,9 @@ svg.addEventListener("pointerup", function(e){
         if(pb){
           if(!state.cab.on){ state.cab.on=true; }   /* il gesto ATTIVA il layer; niente pannello (tolto) */
           if(drag.kind==="audio"){ cabItemInputs(pit).forEach(function(_,ii){ cabManual(pit.id+"#"+ii).box=pb.id; }); }
-          else { var plbl=(pit.label||"").trim(); cabManual("mix:"+(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id))).box=pb.id; }
+          else { var plbl=(pit.label||"").trim(), mkey=(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id));
+            cabManual("mix:"+mkey).box=pb.id;
+            var rk="ret:"+mkey+":"+pit.id; if(state.cab.manual[rk]) delete state.cab.manual[rk].deleted; }   /* #17: ritrascinare la porta ravviva un ritorno eliminato */
           __cabRes=null; save();
         }
       } else if(drag.kind==="pow"){
@@ -8926,15 +8962,19 @@ function renderCabPanel(){
   var sec=document.getElementById("cabSec"); if(!sec) return;
   var on=!!(state.cab && state.cab.on);
   var R = on ? cabResult() : null;
-  var sl = (on && selCab && R) ? R.links.filter(function(l){ return l.key===selCab; })[0] : null;
+  var sl = (on && selCab && R) ? (R.links.filter(function(l){ return l.key===selCab; })[0] || (R.returnLinks||[]).filter(function(l){ return l.key===selCab; })[0]) : null;
+  var isRet = !!sl && selCab.indexOf("ret:")===0;   /* ritorno monitor selezionato */
   var showSel = on && !!sl && !state.cab.locked;   /* SOLO il box "Cavo selezionato", al click su un cavo */
   sec.style.display = showSel ? "block" : "none";
   if(!on){ selCab=null; return; }
   var selBox=document.getElementById("cabSel");
   if(showSel){ selBox.style.display="block";
-    var ov=state.cab.manual[selCab]||{};
-    document.getElementById("cabSelLabel").value = (ov.label!=null)?ov.label:sl.label;
-    document.getElementById("cabSelDelete").textContent = sl.deleted ? "Ripristina cavo" : "Elimina cavo";
+    var lblEl=document.getElementById("cabSelLabel"), lblRow=lblEl.closest("label");
+    if(lblRow) lblRow.style.display = isRet ? "none" : "";   /* i ritorni non hanno etichetta editabile (M#) */
+    if(isRet){ document.getElementById("cabSelDelete").textContent="Elimina ritorno"; }
+    else { var ov=state.cab.manual[selCab]||{};
+      lblEl.value = (ov.label!=null)?ov.label:sl.label;
+      document.getElementById("cabSelDelete").textContent = sl.deleted ? "Ripristina cavo" : "Elimina cavo"; }
   } else selBox.style.display="none";
 }
 function toggleCabLayer(){
