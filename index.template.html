@@ -1593,7 +1593,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("njersey",it,100,50); }},
   ambulanza: {nome:"Ambulanza", dim:"210×590", cat:"Sicurezza e site", w:210,d:590,
              draw:function(it){ return drawLibFit("ambulanza",it,210,590); }},
-  pma: {nome:"PMA tenda sanitaria", dim:"500×400", cat:"Sicurezza e site", w:500,d:400,
+  pma: {nome:"Tenda medica", dim:"PMA · 500×400", cat:"Sicurezza e site", w:500,d:400,
              draw:function(it){ return drawLibFit("pma",it,500,400); }},
   wcchim: {nome:"Bagno chimico", dim:"110×110", cat:"Sicurezza e site", w:110,d:110,
              draw:function(it){ return drawLibFit("wcchim",it,110,110); }},
@@ -1601,7 +1601,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("wcpmr",it,160,160); }},
   metaldet: {nome:"Metal detector", dim:"85×60", cat:"Sicurezza e site", w:85,d:60,
              draw:function(it){ return drawLibFit("metaldet",it,85,60); }},
-  tornello: {nome:"Tornello a tripode", dim:"50×50", cat:"Sicurezza e site", w:50,d:50,
+  tornello: {nome:"Tornello", dim:"a tripode · 50×50", cat:"Sicurezza e site", w:50,d:50,
              draw:function(it){ return drawLibFit("tornello",it,50,50); }},
   estcarr: {nome:"Estintore carrellato", dim:"40×70", cat:"Sicurezza e site", w:40,d:70,
              draw:function(it){ return drawLibFit("estcarr",it,40,70); }},
@@ -1619,7 +1619,7 @@ var TYPES = {
              draw:function(it){ return trussTop(it,'x'); }},
   trusstri: {nome:"Truss triangolare", dim:"29×200", cat:"Rigging e strutture", w:29,d:200, resizable:true,
              draw:function(it){ return trussTop(it,'zig'); }},
-  trussladder: {nome:"Truss bi-tubo (ladder)", dim:"29×200", cat:"Rigging e strutture", w:29,d:200, resizable:true,
+  trussladder: {nome:"Truss ladder", dim:"bi-tubo 29×200", cat:"Rigging e strutture", w:29,d:200, resizable:true,
              draw:function(it){ return trussTop(it,'ladder'); }},
   cornerL29: {nome:"Corner L 29", dim:"29×29", cat:"Rigging e strutture", w:29,d:29,
              draw:function(it){ return drawLibFit("cornerL29",it,29,29); }},
@@ -1677,7 +1677,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("clavicembalo",it,95,240); }},
   organohammond: {nome:"Organo Hammond", dim:"125×65", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:65,
              draw:function(it){ return drawLibFit("organohammond",it,125,65); }},
-  controllermidi: {nome:"Controller MIDI 49", dim:"82×26", cat:"Band e backline", sub:"Tastiere e piani", w:82,d:26,
+  controllermidi: {nome:"Controller MIDI", dim:"49 tasti", cat:"Band e backline", sub:"Tastiere e piani", w:82,d:26,
              draw:function(it){ return drawLibFit("controllermidi",it,82,26); }},
   sub18: {nome:"Sub 18\" (palco)", dim:"60×70", cat:"Monitor da palco", w:60,d:70,
              draw:function(it){ return drawLibFit("sub18",it,60,70); }},
@@ -1685,7 +1685,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("cuffie",it,22,20); }},
   astacuffie: {nome:"Asta cuffie", dim:"24×30", cat:"Monitor da palco", w:24,d:30,
              draw:function(it){ return drawLibFit("astacuffie",it,24,30); }},
-  micchoir: {nome:"Mic coro overhead", dim:"40×100", cat:"Microfoni e DI", sub:"Aste e microfoni", w:40,d:100,
+  micchoir: {nome:"Mic coro", dim:"overhead", cat:"Microfoni e DI", sub:"Aste e microfoni", w:40,d:100,
              draw:function(it){ return drawLibFit("micchoir",it,40,100); }},
   talkback: {nome:"Talkback", dim:"25×38", cat:"Microfoni e DI", sub:"Aste e microfoni", w:25,d:38,
              draw:function(it){ return drawLibFit("talkback",it,25,38); }},
@@ -1709,11 +1709,11 @@ var TYPES = {
              draw:function(it){ var s=bar(0,0,it.w,8,'ic fGrey',2);
                for(var x=-it.w/2+18;x<it.w/2;x+=36) s+=lin(x,-12,x,12,'ic thin');
                return s; }},
-  fondale:  {nome:"Fondale / backdrop", dim:"600×20", cat:"Palco e strutture", w:600,d:20, resizable:true, z:1,
+  fondale:  {nome:"Fondale", dim:"backdrop 600×20", cat:"Palco e strutture", w:600,d:20, resizable:true, z:1,
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+
                '<path class="ic thin" fill="none" d="M '+(-it.w/2+16)+',0 C '+(-it.w/2+60)+',-10 '+(-it.w/2+100)+',10 '+(-it.w/2+144)+',0" />'+
                '<text class="lbl sub" y="28">BACKDROP</text>'; }},
-  quinta:   {nome:"Quinta / laterale", dim:"120×20", cat:"Palco e strutture", w:120,d:20, resizable:true, z:1,
+  quinta:   {nome:"Quinta", dim:"laterale 120×20", cat:"Palco e strutture", w:120,d:20, resizable:true, z:1,
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+lin(-it.w/2+12,0,it.w/2-12,0,'sil'); }},
   truss:    {nome:"Truss a terra", dim:"200×30", cat:"Palco e strutture", w:200,d:30, resizable:true, z:1,
              draw:function(it){ return trussTop(it,'x'); }},
@@ -1735,7 +1735,7 @@ var TYPES = {
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
                bar(0,-38,52,13,'ic fBlack',2)+circ(0,-27,2.5,'ic fill'); }},
-  pedanacoro:{nome:"Pedana coro 3 gradoni", dim:"4×1,2 m", cat:"Palco e strutture", w:400,d:120, resizable:true, z:1,
+  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", w:400,d:120, resizable:true, z:1,
              draw:function(it){ var s=bar(0,0,it.w,it.d,'ic fFloor',2), n=3, step=it.d/n;
                for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*step,it.w/2,-it.d/2+i*step,'ic'); }
                return s; }},
@@ -1792,7 +1792,7 @@ var TYPES = {
              draw:function(){ var s='<polyline class="plex" points="-125,52 -125,-22 -62,-52 62,-52 125,-22 125,52"/>';
                [[-125,-22],[-62,-52],[62,-52],[125,-22]].forEach(function(p){ s+=circ(p[0],p[1],2.5,'ic fill'); });
                return s; }},
-  rullante: {nome:"Rullante su stand", dim:"Ø36", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:46,d:46,
+  rullante: {nome:"Rullante", dim:"su stand · Ø36", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:46,d:46,
              draw:function(){ return drum(0,0,18)+circ(0,21,2.5,'ic fill')+circ(-18,-11,2.5,'ic fill')+circ(18,-11,2.5,'ic fill'); }},
   percussioni:{nome:"Congas + bongos", dim:"165×75", cat:"Batteria e percussioni", sub:"Percussioni", w:165,d:75,
              draw:function(it){ return drawLibFit("congascoppia",it,75,45); }},
@@ -1846,7 +1846,7 @@ var TYPES = {
              draw:function(it){ var r=Math.max(6,Math.min(it.w,it.d)/2-4); return drum(0,0,r); }},
   hihat:    {nome:"Hi-hat", dim:"Ø singolo", cat:"Batteria e percussioni", sub:"Percussioni", catalog:false, resizable:true, w:46,d:46,
              draw:function(it){ var r=Math.max(7,Math.min(it.w,it.d)/2-4); return cym(0,0,r)+sring(0,0,r*0.65,'lathe'); }},
-  grancassa:{nome:"Gran cassa sinfonica", dim:"Ø100", cat:"Batteria e percussioni", sub:"Percussioni", w:110,d:55,
+  grancassa:{nome:"Gran cassa", dim:"sinfonica · Ø100", cat:"Batteria e percussioni", sub:"Percussioni", w:110,d:55,
              draw:function(it){ return drawLibFit("grancassa_sinf",it,110,60); }},
   piatto:   {nome:"Piatto sospeso", dim:"Ø45", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:55,d:55,
              draw:function(){ return cym(0,0,23)+lin(0,8,0,22,'ic thin')+lin(-7,-4,-19,-11,'ic thin')+lin(7,-4,19,-11,'ic thin'); }},
@@ -1854,7 +1854,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("piatti_a_due",it,50,50); }},
   campane:  {nome:"Campane tubolari", dim:"~100×35", cat:"Batteria e percussioni", sub:"Percussioni", w:105,d:40,
              draw:function(it){ return drawLibFit("campanetubolari",it,150,60); }},
-  tamtam:   {nome:"Tam-tam (gong)", dim:"Ø95", cat:"Batteria e percussioni", sub:"Percussioni", w:115,d:45,
+  tamtam:   {nome:"Tam-tam", dim:"gong · Ø95", cat:"Batteria e percussioni", sub:"Percussioni", w:115,d:45,
              draw:function(it){ return drawLibFit("tam_tam",it,110,45); }},
   glockenspiel:{nome:"Glockenspiel", dim:"62×42", cat:"Batteria e percussioni", sub:"Mallets", w:65,d:48,
              draw:function(it){ return drawLibFit("glockenspiel",it,75,55); }},
@@ -1862,14 +1862,14 @@ var TYPES = {
              draw:function(it){ return drawLibFit("xilofono",it,145,75); }},
   vibrafono:{nome:"Vibrafono", dim:"152×90", cat:"Batteria e percussioni", sub:"Mallets", w:155,d:95,
              draw:function(it){ return drawLibFit("vibrafono",it,150,80); }},
-  marimba:  {nome:"Marimba 5 ottave", dim:"250×100", cat:"Batteria e percussioni", sub:"Mallets", w:255,d:105,
+  marimba:  {nome:"Marimba", dim:"5 ottave · 250×100", cat:"Batteria e percussioni", sub:"Mallets", w:255,d:105,
              draw:function(it){ return drawLibFit("marimba",it,250,90); }},
   /* --- ritmica: ampli e backline --- */
   comboamp: {nome:"Combo chitarra", dim:"64×26", cat:"Band e backline", sub:"Ampli", w:66,d:28,
              draw:function(it){ return drawLibFit("comboamp",it,66,27); }},
-  stack:    {nome:"Stack testata + 4×12", dim:"77×37", cat:"Band e backline", sub:"Ampli", w:78,d:38,
+  stack:    {nome:"Stack chitarra", dim:"testata + 4×12", cat:"Band e backline", sub:"Ampli", w:78,d:38,
              draw:function(it){ return drawLibFit("stack4x12",it,76,36); }},
-  bassamp:  {nome:"Ampli basso 8×10", dim:"66×41", cat:"Band e backline", sub:"Ampli", w:68,d:43,
+  bassamp:  {nome:"Ampli basso", dim:"8×10", cat:"Band e backline", sub:"Ampli", w:68,d:43,
              draw:function(it){ return drawLibFit("bassamp",it,60,46); }},
   keysamp:  {nome:"Ampli keys", dim:"55×36", cat:"Band e backline", sub:"Ampli", w:57,d:38,
              draw:function(){ return bar(0,0,55,36,'ic fMon',3)+bar(0,3,40,22,'ic thin fGrey',2)+kn(-12,-11,4,8); }},
@@ -1882,7 +1882,7 @@ var TYPES = {
              draw:function(it){ return pianoCoda(it); }},
   pianoverticale:{nome:"Piano verticale", dim:"150×62", cat:"Band e backline", sub:"Tastiere e piani", w:152,d:64,
              draw:function(it){ return drawLibFit("pianoverticale",it,150,62); }},
-  stagepiano:{nome:"Stage piano 88 tasti", dim:"135×38", cat:"Band e backline", sub:"Tastiere e piani", w:138,d:42,
+  stagepiano:{nome:"Stage piano", dim:"88 tasti", cat:"Band e backline", sub:"Tastiere e piani", w:138,d:42,
              draw:function(it){ return drawLibFit("stagepiano",it,135,40); }},
   doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78,
              draw:function(it){ return drawLibFit("doppiatastiera",it,105,50); }},
@@ -1931,7 +1931,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("astadritta",it,30,42); }},
   giraffa:  {nome:"Asta giraffa", dim:"~60", cat:"Microfoni e DI", sub:"Aste e microfoni", w:62,d:62,
              draw:function(it){ return drawLibFit("asta_giraffa",it,55,80); }},
-  astabassa:{nome:"Asta microfono bassa", dim:"~45", cat:"Microfoni e DI", sub:"Aste e microfoni", w:50,d:42,
+  astabassa:{nome:"Asta bassa", dim:"microfono ~45", cat:"Microfoni e DI", sub:"Aste e microfoni", w:50,d:42,
              draw:function(it){ return drawLibFit("astabassa",it,25,45); }},
   coppiast:{nome:"Coppia stereo", dim:"barra 70", cat:"Microfoni e DI", sub:"Aste e microfoni", w:78,d:38, defLabel:"ST L/R",
              draw:function(){ return lin(-32,0,32,0,'ic')+lin(0,0,0,24,'ic thin')+circ(0,24,3,'ic fill')+
@@ -1973,7 +1973,7 @@ var TYPES = {
                lin(-18,-10,-28,-22,'ic mon')+circ(-28,-22,2.5,'mon fill')+
                lin(18,-10,28,-22,'ic mon')+circ(28,-22,2.5,'mon fill')+
                bar(-12,4,12,8,'sil',1)+circ(13,4,5,'sil')+circ(13,4,1.6,'mon fill'); }},
-  hearback: {nome:"Hearback / personal mixer", dim:"13×24 cm", cat:"Monitor da palco", w:15,d:26, defLabel:"HEARBACK",
+  hearback: {nome:"Personal mixer", dim:"hearback", cat:"Monitor da palco", w:15,d:26, defLabel:"HEARBACK",
              draw:function(){
                /* sola unità personal mixer 13×24 cm (scala reale), senza asta */
                var s='<rect class="ic mon fMon" x="-6.5" y="-12" width="13" height="24" rx="2.5"/>';   /* unità 13×24 */
@@ -2015,12 +2015,12 @@ var TYPES = {
                circ(-11,0,5,'ic thin fBlack')+circ(11,0,5,'ic thin fBlack')+
                circ(-16,-9,1.8,'tec fill')+circ(-9,-9,1.8,'tec fill')+circ(4,-9,1.8,'dotS')+circ(12,-9,1.8,'dotS')+
                lin(-11,12,-18,20,'sil')+lin(11,12,18,20,'sil'); }},
-  schermo:  {nome:"Schermo / LED wall", dim:"400×30", cat:"Video", w:400,d:30, resizable:true, z:1, defLabel:"SCREEN",
+  schermo:  {nome:"LED wall", dim:"schermo 400×30", cat:"Video", w:400,d:30, resizable:true, z:1, defLabel:"SCREEN",
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+bar(0,0,it.w-18,Math.max(8,it.d-10),'ic thin fGrey',1); }},
   proiettore:{nome:"Proiettore", dim:"45×35", cat:"Video", w:48,d:38, defLabel:"PJ",
              draw:function(){ return bar(0,0,44,32,'ic fGrey',4)+circ(11,0,8,'ic thin fBlack')+
                '<path class="ic dash" d="M 23,-7 L 62,-22 M 23,7 L 62,22"/>'; }},
-  camera:   {nome:"Camera su treppiede", dim:"70×70", cat:"Video", w:72,d:72, defLabel:"CAM",
+  camera:   {nome:"Camera", dim:"su treppiede", cat:"Video", w:72,d:72, defLabel:"CAM",
              draw:function(){ return bar(0,-10,34,20,'ic fBlack',3)+bar(25,-10,16,12,'ic fGrey',2)+
                lin(0,2,-22,28,'ic thin')+lin(0,2,22,28,'ic thin')+lin(0,2,0,32,'ic thin')+circ(0,2,3,'ic fill'); }},
   /* ===== Luci ===== */
@@ -2092,7 +2092,7 @@ var TYPES = {
     draw:function(it){ return drawLibFit("amprack",it,60,80); }},
   delaytower: {nome:"Delay tower", dim:"220×220", cat:"PA e diffusione", sub:"Torri", w:220,d:220,
     draw:function(it){ return drawLibFit("delaytower",it,220,220); }},
-  substg: {nome:"Sub-stagebox di zona", dim:"48×35", cat:"Cablaggio e segnale", w:48,d:35,
+  substg: {nome:"Sub-stagebox", dim:"di zona", cat:"Cablaggio e segnale", w:48,d:35,
     draw:function(it){ return drawLibFit("substg",it,48,35); }},
   splitrack: {nome:"Splitter rack", dim:"60×70", cat:"Cablaggio e segnale", w:60,d:70,
     draw:function(it){ return drawLibFit("splitrack",it,60,70); }},
@@ -2102,7 +2102,7 @@ var TYPES = {
     draw:function(it){ return drawLibFit("catdrum",it,32,32); }},
   wlrack: {nome:"Wireless rack + antenne", dim:"55×45", cat:"Cablaggio e segnale", w:55,d:45,
     draw:function(it){ return drawLibFit("wlrack",it,55,45); }},
-  distro125: {nome:"Quadro generale 125A", dim:"60×45", cat:"Elettrico", sub:"Distribuzione", w:60,d:45,
+  distro125: {nome:"Quadro 125A", dim:"generale 60×45", cat:"Elettrico", sub:"Distribuzione", w:60,d:45,
     draw:function(it){ return drawLibFit("distro125",it,60,45); }},
   distro63: {nome:"Distro 63A", dim:"60×40", cat:"Elettrico", sub:"Distribuzione", w:60,d:40,
     draw:function(it){ return drawLibFit("distro63",it,60,40); }},
