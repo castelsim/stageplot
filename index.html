@@ -4752,7 +4752,8 @@ function cabLoomRegions(polys){
 }
 function cabLoomMarkup(polys){
   if(state.cab.looms===false || polys.length<2) return '';
-  var regs=cabLoomRegions(polys); if(!regs.length) return '';
+  var regs=cabLoomRegions(polys); window.__loomN=regs.length;   /* letto dalla legenda (stesso passaggio di render) */
+  if(!regs.length) return '';
   var s='<g class="cab-loomlayer">';
   regs.forEach(function(r){
     var w=Math.min(8+2.5*r.n, 20);   /* fascia più larga con più cavi */
@@ -4766,6 +4767,7 @@ function cabLoomMarkup(polys){
   return s+'</g>';
 }
 function cablingMarkup(){
+  window.__loomN=0;   /* azzera PRIMA degli early-return: la legenda non deve leggere un conteggio stantio */
   if(!state.cab || !state.cab.on) return '';
   var showIn=state.cab.showInputs!==false, showRet=state.cab.showReturns!==false;   /* occhi del Layer Manager */
   if(!showIn && !showRet) return '';
@@ -5032,6 +5034,7 @@ function stageLayerMarkup(){
 function cableLegendMarkup(){
   var rows=[];
   if(state.cab && state.cab.on && state.cab.showInputs!==false) rows.push(["cab-line","Audio — ingressi"]);
+  if(state.cab && state.cab.on && state.cab.showInputs!==false && state.cab.looms!==false && window.__loomN) rows.push(["cab-loom","Fascio / sub-snake",'style="stroke-width:7px;stroke-opacity:.4"']);
   if(state.cab && state.cab.on && state.cab.showReturns!==false){
     var R=cabResult(); if(R && R.returnLinks && R.returnLinks.length) rows.push(["cab-return","Ritorni / monitor"]);
   }
@@ -5040,7 +5043,7 @@ function cableLegendMarkup(){
   var D=state.stage.d, lh=13, pad=6, h=rows.length*lh+pad*2, w=124, x=6, y=D-6-h;
   var s='<g class="cab-legend"><rect class="cab-legend-bg" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="6"/>';
   rows.forEach(function(r,i){ var cy=y+pad+i*lh+lh/2;
-    s+='<line class="'+r[0]+'" x1="'+(x+8)+'" y1="'+cy+'" x2="'+(x+30)+'" y2="'+cy+'"/>';
+    s+='<line class="'+r[0]+'" '+(r[2]||'')+' x1="'+(x+8)+'" y1="'+cy+'" x2="'+(x+30)+'" y2="'+cy+'"/>';
     s+='<text class="cab-legend-t" x="'+(x+37)+'" y="'+(cy+3.2)+'">'+esc(r[1])+'</text>'; });
   return s+'</g>';
 }
@@ -8195,6 +8198,12 @@ var _LM_LOCK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke
 var _LM_TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>';
 function layerRegistry(){
   return [
+    /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico.
+       Niente cestino: l'immagine è importata dall'utente (rimozione solo dal pannello Planimetria). */
+    { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
+      visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
+      opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; save(); render(); },
+      lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); } },
     { id:"cabin", name:"Cablaggio audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; save(); render(); },
