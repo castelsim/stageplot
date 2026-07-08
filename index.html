@@ -481,6 +481,11 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* Porte stile Max — pallini di collegamento sull'elemento selezionato */
+  .port-dot{stroke:#fff;stroke-width:2;pointer-events:none}
+  .port-hit{fill:transparent;pointer-events:all;cursor:crosshair}
+  .port-ghost{stroke-width:2.6;stroke-dasharray:7 5;fill:none;stroke-linecap:round;pointer-events:none}
+  body.dark .port-dot{stroke:#0e1214}
   /* L5 · layer rete/dati — colore layer RETE = indigo; tratteggio "dati" distinto da multicore/elettrico */
   .net-line{fill:none;stroke:#4f46e5;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:10 4 2 4;pointer-events:none}
   .net-lbl{fill:#4f46e5;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
@@ -3959,6 +3964,7 @@ function normalizeState(s){
     if(Array.isArray(m.pts)) o.pts=m.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
     if(m.label!=null) o.label=String(m.label).slice(0,40);
     if(m.deleted) o.deleted=true;
+    if(typeof m.box==="string" && m.box) o.box=m.box.slice(0,60);   /* riconnessione/porte: la box scelta a mano DEVE sopravvivere al reload */
     if(Object.keys(o).length) man[String(k).slice(0,60)]=o; }); }
   s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round(cb.opacity==null?70:cb.opacity))), auto:cb.auto!==false,
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
@@ -3969,9 +3975,11 @@ function normalizeState(s){
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
+  var eman={};   /* porte: carico → distro scelto a mano */
+  if(eb.manual && typeof eb.manual==="object"){ Object.keys(eb.manual).forEach(function(k){ var v=eb.manual[k]; if(typeof v==="string" && v) eman[String(k).slice(0,60)]=v.slice(0,60); }); }
   s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
-    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false };
+    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, manual:eman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -4628,13 +4636,16 @@ function audioCablingEngine(){
     .filter(function(o){ return OUT_SET[o.it.type]!=null && o.it.type!=="monmix"; }).map(function(o){ return o.it; });
   var mixMap={}, mixes=[];
   sinks.forEach(function(it){ var lbl=(it.label||"").trim(), key=lbl?("L:"+lbl.toUpperCase()):("I:"+it.id);
-    if(!mixMap[key]){ mixMap[key]={name:lbl, sinks:[], stereo:false}; mixes.push(mixMap[key]); }
+    if(!mixMap[key]){ mixMap[key]={name:lbl, sinks:[], stereo:false, key:key}; mixes.push(mixMap[key]); }
     mixMap[key].sinks.push(it); if(MON_STEREO[it.type]) mixMap[key].stereo=true; });
   mixes.forEach(function(m,i){ m.n=i+1; if(!m.name) m.name="MIX "+m.n; m.ch=m.stereo?2:1; });
   mixes.forEach(function(m){
     var cx=m.sinks.reduce(function(a,s){return a+s.x;},0)/m.sinks.length, cy=m.sinks.reduce(function(a,s){return a+s.y;},0)/m.sinks.length;
     var cand=boxes.slice().sort(function(a,b){ return d2(cx,cy,a)-d2(cx,cy,b); });
-    var b=cand.filter(function(bb){ return (bb.outCap-bb.usedOut)>=m.ch; })[0]||null;
+    /* porte stile Max: se l'utente ha collegato il monitor a una box precisa, usa QUELLA (se ha uscite) */
+    var ovm=man["mix:"+m.key]||{};
+    var forcedM=ovm.box ? cand.filter(function(bb){ return bb.id===ovm.box && (bb.outCap-bb.usedOut)>=m.ch; })[0] : null;
+    var b=forcedM || cand.filter(function(bb){ return (bb.outCap-bb.usedOut)>=m.ch; })[0]||null;
     if(!b){ m.box=null; return; }
     m.box=b; m.outCh=b.usedOut+1; b.usedOut+=m.ch;
   });
@@ -4944,8 +4955,12 @@ function electricEngine(){
   /* 3. assegnazione carichi al distro più vicino, sulla fase meno carica */
   var loadLinks=[], unassigned=[];
   function d2(x,y,d){ return Math.pow(x-d.x,2)+Math.pow(y-d.y,2); }
+  var eman=(state.elec&&state.elec.manual)||{};
   loads.forEach(function(l){
     var cand=distros.slice().sort(function(a,b){ return d2(l.it.x,l.it.y,a)-d2(l.it.x,l.it.y,b); });
+    /* porte stile Max: distro scelto a mano dall'utente → provato per primo (se ha margine) */
+    var ovd=eman[l.it.id];
+    if(ovd){ var F=null, rest=[]; cand.forEach(function(D){ if(D.it && D.it.id===ovd) F=D; else rest.push(D); }); if(F) cand=[F].concat(rest); }
     var dd=null, ph=0;
     for(var k=0;k<cand.length;k++){ var D=cand[k], minPh=0;
       for(var p=1;p<D.ph;p++){ if(D.phLoad[p]<D.phLoad[minPh]) minPh=p; }
@@ -5115,7 +5130,41 @@ function netMarkup(){
   });
   return s+'</g>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup(); }
+/* ===== PORTE STILE MAX (08/07, richiesta Simone) — pallini di collegamento sull'elemento selezionato =====
+   Come gli inlet/outlet di Max: selezioni un elemento e sotto compaiono le porte disponibili, colorate
+   per layer (teal=uscita audio, ciano=monitor, ambra=alimentazione), con bolla assist in hover.
+   Trascini dal pallino e rilasci su una stage box / distro REALE → override manuale nel motore.
+   Il GESTO ATTIVA IL LAYER se spento (direzione Simone: il collegamento è il fatto di attivazione).
+   Solo desktop, solo elemento singolo selezionato, mai nel render statico (PDF/PNG). */
+function portDefs(it){
+  var out=[];
+  if(!it || cabIsBox(it) || elecIsDistro(it) || elecIsGen(it)) return out;
+  var nIn=cabItemInputs(it).length;
+  if(nIn>0){
+    var tip="Audio · "+nIn+" ch";
+    if(state.cab && state.cab.on){ var R=cabResult(); var l0=(R.links||[]).filter(function(l){ return l.s.it.id===it.id && !l.deleted; })[0];
+      tip+= (l0&&l0.box) ? (" → box "+l0.box.letter) : " → trascina su una stage box"; }
+    else tip+=" → trascina su una stage box";
+    out.push({kind:"audio", color:LAYER_COLORS.audioIn, tip:tip});
+  }
+  if(OUT_SET[it.type]!=null && it.type!=="monmix") out.push({kind:"mon", color:LAYER_COLORS.monitor, tip:"Monitor · ritorno dalla stage box"});
+  if(wattOf(it)>0) out.push({kind:"pow", color:LAYER_COLORS.elettrico, tip:"Alimentazione · "+elecKW(wattOf(it))+" → trascina su un distro"});
+  return out;
+}
+function portsMarkup(){
+  if(window.__cabStatic || isMobile()) return '';
+  if(!sel || Object.keys(selSet||{}).length>1) return '';
+  var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0]; if(!it) return '';
+  var defs=portDefs(it); if(!defs.length) return '';
+  var n=defs.length, cy=it.y+(it.d||40)/2+16, s='<g class="ports">';
+  defs.forEach(function(p,i){
+    var cx=it.x+(i-(n-1)/2)*26;
+    s+='<circle class="port-dot" style="fill:'+p.color+'" cx="'+cx+'" cy="'+cy+'" r="6"/>'
+      +'<circle class="port-hit" data-port="'+p.kind+'" data-item="'+esc(it.id)+'" data-x="'+cx+'" data-y="'+cy+'" cx="'+cx+'" cy="'+cy+'" r="13"><title>'+esc(p.tip)+'</title></circle>';
+  });
+  return s+'</g>';
+}
+function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -6423,7 +6472,8 @@ svg.addEventListener("pointerdown", function(e){
   var dcG = e.target.closest ? e.target.closest(".item") : null;
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
   var _onCabEl = state.cab && state.cab.on && !state.cab.locked && e.target.closest && e.target.closest(".cab-hit,.cab-seg-hit,.cab-endpt,.cab-homehit");
-  if(venueCalibMode===0 && !_onCabEl && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
+  var _onPort = e.target.closest ? e.target.closest(".port-hit") : null;   /* porte stile Max: mai doppio-click */
+  if(venueCalibMode===0 && !_onCabEl && !_onPort && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
     if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
@@ -6456,6 +6506,20 @@ svg.addEventListener("pointerdown", function(e){
     if(cendp){ selCab=cendp.getAttribute("data-cab"); drag={mode:"cabreconnect", key:selCab, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }   /* Fase B: trascina l'estremo per riconnettere a un'altra box */
     var chit=e.target.closest(".cab-hit");
     if(chit){ selCab=chit.getAttribute("data-cab"); render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+  }
+  /* ── PORTE stile Max: trascina dal pallino dell'elemento selezionato verso una box/distro ── */
+  if(_onPort){
+    var pit=(state.items||[]).filter(function(x){ return x.id===_onPort.getAttribute("data-item"); })[0];
+    if(pit){
+      var pk=_onPort.getAttribute("data-port");
+      drag={mode:"port", kind:pk, it:pit, x0:+_onPort.getAttribute("data-x"), y0:+_onPort.getAttribute("data-y"), moved:false};
+      var gl=document.createElementNS("http://www.w3.org/2000/svg","line");
+      gl.setAttribute("class","port-ghost");
+      gl.setAttribute("style","stroke:"+({audio:LAYER_COLORS.audioIn, mon:LAYER_COLORS.monitor, pow:LAYER_COLORS.elettrico}[pk]||"#888"));
+      gl.setAttribute("x1",drag.x0); gl.setAttribute("y1",drag.y0); gl.setAttribute("x2",drag.x0); gl.setAttribute("y2",drag.y0);
+      svg.appendChild(gl); drag.el=gl;
+      svg.setPointerCapture(e.pointerId); return;
+    }
   }
   /* modalità calibrazione planimetria: raccoglie due punti */
   if(venueCalibMode>0 && venueCalibMode<=2){
@@ -6607,6 +6671,11 @@ svg.addEventListener("pointermove", function(e){
   }
   if(drag.mode==="cabhome"){   /* trascina il punto principale di connessione (diventa personalizzato) */
     sp=svgPoint(e); state.cab.home={kind:"custom", x:Math.round(sp.x), y:Math.round(sp.y)}; drag.moved=true; __cabRes=null; redrawStageLayers();
+    return;
+  }
+  if(drag.mode==="port"){   /* porta: il cavo fantasma segue il cursore */
+    sp=svgPoint(e); drag.moved=true;
+    drag.el.setAttribute("x2",sp.x); drag.el.setAttribute("y2",sp.y);
     return;
   }
   if(drag.mode==="elecsupply"){   /* trascina l'alimentazione elettrica (diventa personalizzata) */
@@ -6795,6 +6864,30 @@ svg.addEventListener("pointerup", function(e){
     var rp=svgPoint(e), tb=(state.items||[]).filter(cabIsBox).filter(function(it){ return Math.abs(rp.x-it.x)<=it.w/2+10 && Math.abs(rp.y-it.y)<=it.d/2+10; })[0];
     if(tb){ cabManual(drag.key).box=tb.id; __cabRes=null; save(); }   /* box scelta a mano */
     render(); renderCabPanel(); drag=null; return;
+  }
+  if(drag && drag.mode==="port"){   /* rilascio della porta: collega alla box/distro sotto il puntatore */
+    if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
+    var pp=svgPoint(e), pit=drag.it;
+    var hitAt=function(pred){ return (state.items||[]).filter(pred).filter(function(t){ return Math.abs(pp.x-t.x)<=(t.w||40)/2+14 && Math.abs(pp.y-t.y)<=(t.d||40)/2+14; })[0]; };
+    if(drag.moved){
+      if(drag.kind==="audio" || drag.kind==="mon"){
+        var pb=hitAt(cabIsBox);
+        if(pb){
+          if(!state.cab.on){ state.cab.on=true; techAccordionOpen("cab"); }   /* il gesto ATTIVA il layer (direzione Simone) */
+          if(drag.kind==="audio"){ cabItemInputs(pit).forEach(function(_,ii){ cabManual(pit.id+"#"+ii).box=pb.id; }); }
+          else { var plbl=(pit.label||"").trim(); cabManual("mix:"+(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id))).box=pb.id; }
+          __cabRes=null; save();
+        }
+      } else if(drag.kind==="pow"){
+        var pd=hitAt(elecIsDistro);
+        if(pd){
+          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; techAccordionOpen("elec"); }
+          state.elec.manual=state.elec.manual||{}; state.elec.manual[pit.id]=pd.id;
+          __elecRes=null; save();
+        }
+      }
+    }
+    render(); renderAccessoriCount(); drag=null; return;
   }
   if(drag && drag.mode==="elecsupply"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
   if(drag && drag.mode==="calibnav"){
