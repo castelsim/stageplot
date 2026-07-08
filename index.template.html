@@ -3542,7 +3542,7 @@ function cablingMarkup(){
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
-  var edit=!state.cab.locked && showIn;   /* editing solo sui cavi ingresso, e solo se il layer ingressi è visibile */
+  var edit=!state.cab.locked && showIn && !window.__cabStatic;   /* editing solo sui cavi ingresso, layer visibile e NON in render statico (PDF/PNG) */
   var OBS=obstacleRects();   /* Pilastro 2: i cavi aggirano pedane ed elementi ingombranti */
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
@@ -8864,11 +8864,16 @@ function stageSceneSvg(cropVb){
   var W=state.stage.w, D=state.stage.d;
   var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="-42">FONDO PALCO</text>'+
             '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+(D+38)+'">PUBBLICO</text>';
+  /* cablaggio nel PDF (08/07): l'overlay cavi/elettrico + legenda, in modo STATICO (niente maniglie di
+     editing) e senza cavo selezionato. Si auto-esclude se i layer non sono attivi. */
+  var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;
+  var cabling=''; try{ cabling=cablingMarkup()+elecMarkup()+cableLegendMarkup(); }catch(_e){ cabling=''; }
+  selCab=_keepCab; window.__cabStatic=_keepStatic;
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+css+'</style>'+DEFS+
     '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
     venue+
-    stageFloorMarkup()+dims+zones+items+'</svg>';
+    stageFloorMarkup()+dims+zones+items+cabling+'</svg>';
 }
 function svgToDataUrl(svgStr, pxW, pxH, type){
   /* iOS Safari rasterizza l'SVG SOLO se il root ha width/height espliciti (non basta il viewBox) */
