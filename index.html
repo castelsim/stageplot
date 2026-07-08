@@ -8849,7 +8849,7 @@ function renderLayerManager(){
     row.addEventListener("click", function(ev){
       if(ev.target.closest(".layer-ico") || ev.target.closest(".layer-opacity")) return;
       if(L.id==="cabin" || L.id==="cabout" || L.id==="net"){ if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); }
-      else if(L.id==="elec"){ if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); }
+      /* elec: nessun pannello "per adesso" (Simone) — il layer si gestisce da qui e sul palco */
     });
     var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
     eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); row.appendChild(eye);
@@ -9362,11 +9362,7 @@ function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordion
 var elecOpen=false;   /* Inspector B: parte chiuso, si apre da Progetto o col gesto porta */
 function renderElecPanel(){
   var sec=document.getElementById("elecSec"); if(!sec) return;
-  var on=!!(state.elec && state.elec.on);
-  sec.style.display = (on && elecOpen) ? "block" : "none";   /* Inspector B: visibile solo quando aperto da Progetto */
-  if(!on) return;
-  document.getElementById("elecCtrls").style.display = elecOpen ? "block" : "none";
-  document.getElementById("elecCaret").textContent = elecOpen ? "▾" : "▸";
+  sec.style.display="none";   /* Simone 08/07: pannello elettrico nascosto "per adesso" — layer gestito dal Layer manager + collegamenti sul palco */
 }
 function toggleElecLayer(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); __elecRes=null; save(); render(); return; }
@@ -9480,13 +9476,26 @@ function renderInspectorB(){
     var xlr=tallyRow((R.links||[]).filter(function(l){ return !l.deleted; }).concat(R.returnLinks||[]));
     var elc=Re ? tallyRow(Re.loadLinks||[]) : "";
     var pw=powerTotalW();
+    function ir(k,v){ return '<div class="insp-row"><b>'+esc(k)+'</b><small>'+esc(String(v))+'</small></div>'; }
+    /* conteggi infrastruttura (Simone 08/07: righe omogenee nello STATO + ciabatte/prese/quadri) */
+    function nType(){ var set={}; for(var i=0;i<arguments.length;i++) set[arguments[i]]=1;
+      return (state.items||[]).filter(function(it){ return set[it.type]; }).length; }
+    var c=countAccessori();
+    var nCiab=nType("ciabatta"), nPrese=nType("corrente"), nQuadri=nType("quadro","distro32","distro63","distro125");
     var s='<div class="insp-hd">Stato</div>';
-    s+='<div class="insp-row"><b>Ingressi</b><small>'+conn+' / '+(R.capTot||"—")+'</small></div>';
-    if(boxesTxt) s+='<div class="insp-row"><b>Stage box</b><small>'+esc(boxesTxt)+'</small></div>';
-    if(xlr) s+='<div class="insp-row"><b>Cavi XLR</b><small>'+xlr+'</small></div>';
-    if(elc) s+='<div class="insp-row"><b>Cavi elettrici</b><small>'+elc+'</small></div>';
-    /* Peso·rack TOLTO dall'inspector (Simone 08/07: dato da pre-produzione, non da disegno) — resta nell'audit e nel cartiglio PDF */
-    if(pw>0) s+='<div class="insp-row"><b>Potenza</b><small>'+(pw/1000).toFixed(1).replace(".",",")+' kW</small></div>';
+    s+=ir("Ingressi", conn+" / "+(R.capTot||"—"));
+    if(boxesTxt) s+=ir("Stage box", boxesTxt);
+    if(xlr) s+=ir("Cavi XLR", xlr);
+    if(elc) s+=ir("Cavi elettrici", elc);
+    if(pw>0) s+=ir("Potenza", (pw/1000).toFixed(1).replace(".",",")+" kW");
+    /* Peso·rack resta nell'audit/cartiglio (dato di pre-produzione, non di disegno) */
+    if(nCiab)   s+=ir("Ciabatte", nCiab+" · "+(nCiab*6)+" prese");   /* ciabatta standard = 6 attacchi */
+    if(nPrese)  s+=ir("Prese 220 V", nPrese);
+    if(nQuadri) s+=ir("Quadri / distro", nQuadri);
+    if(c.sedie)     s+=ir("Sedie", c.sedie);
+    if(c.leggii)    s+=ir("Leggii", c.leggii);
+    if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
+    if(c.hearbacks) s+=ir("Hearback", c.hearbacks);
     st.innerHTML=s; st.style.display="block";
   }
   /* PROGETTO rimosso dall'inspector (Simone 08/07 sera, screenshot): tutto resta raggiungibile —
@@ -9503,16 +9512,8 @@ function renderAccessoriCount(){
   renderMonitorPanel();
   renderLoadPanel();
   renderPatchPanel();
-  var el=document.getElementById("accessoriCount"); if(!el) return;
-  if(!state.items.length){ el.innerHTML=""; return; }
-  var c=countAccessori();
-  var parts=[];
-  if(c.sedie)     parts.push("Sedie: <b>"+c.sedie+"</b>");
-  if(c.leggii)    parts.push("Leggii: <b>"+c.leggii+"</b>");
-  if(c.sgabelli)  parts.push("Sgabelli: <b>"+c.sgabelli+"</b>");
-  if(c.hearbacks) parts.push("Hearback: <b>"+c.hearbacks+"</b>");
-  /* ⚡/⚖/▭ tolti da qui: ora vivono nella sezione STATO dell'inspector (niente doppioni) */
-  el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : "";
+  /* Sedie/Leggii/Sgabelli/Hearback ora sono righe omogenee nello STATO (renderInspectorB): qui niente. */
+  var el=document.getElementById("accessoriCount"); if(el) el.innerHTML="";
 }
 /* ===== Datalist src per Input patch / Output list ===== */
 function updateChanDatalists(){
