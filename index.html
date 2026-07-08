@@ -4551,6 +4551,21 @@ function audioCablingEngine(){
                   label:(ov.label!=null?ov.label:(b.letter+b.used)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
   });
+  /* Fan-out (08/07): i cavi che convergono su una stessa box entrano su punti DISTINTI (a ventaglio
+     nei connettori), non tutti sul centro → si contano invece di accavallarsi in un'unica linea.
+     Solo cavi AUTO (i manuali li controlla l'utente). Offset perpendicolare alla direzione d'ingresso. */
+  boxes.forEach(function(b){
+    var bl=links.filter(function(l){ return !l.deleted && !l.manual && l.box===b; });
+    if(bl.length<2) return;
+    var span=Math.min(bl.length*9, 46);   /* larghezza totale del ventaglio (cap) */
+    bl.sort(function(a,c){ return a.ch-c.ch; }).forEach(function(l,i){
+      var off=Math.round((i-(bl.length-1)/2)*span/Math.max(1,bl.length-1));
+      var prev=l.pts[l.pts.length-2]||[b.x,b.y];
+      var vert=Math.abs(prev[1]-b.y)>=Math.abs(prev[0]-b.x);   /* ingresso più verticale? offset in x, altrimenti in y */
+      l.pts[l.pts.length-1]= vert ? [b.x+off, b.y] : [b.x, b.y+off];
+      l.lenM=orthLen(l.pts)/100*(1+cabMargin()); l.cut=cabCut(l.lenM);
+    });
+  });
   /* digital snake: home-run da ogni box usata al punto principale */
   var snakes=[];
   if(home){ boxes.forEach(function(b){ if(!b.used) return; snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); }); }
