@@ -4592,6 +4592,10 @@ function _astarOrth(a,b,rects){
   return path;
 }
 function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo, escludendo gli ostacoli-estremo */
+  /* Simone 08/07: NIENTE snodi automatici — il cavo è la L ortogonale diretta tra i punti,
+     le pieghe le mette SOLO l'utente (trascina i lati / waypoint). L'aggiramento ostacoli A*
+     resta qui sotto, disattivato: per riattivarlo basta togliere questo return. */
+  return pts;
   if(!allObs||!allObs.length||!pts||pts.length<2) return pts;
   var rects=exclude ? allObs.filter(function(r){ return !exclude[r.id]; }) : allObs;
   if(!rects.length) return pts;
