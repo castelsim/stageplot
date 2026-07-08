@@ -2754,6 +2754,16 @@ function migrateLabels(it){
 function normalizeState(s){
   s.items=s.items||[];
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
+  /* Backfill difensivo w/d (08/07): un item senza w/d (progetto vecchio/importato) fa calcolare
+     geometrie NaN alle draw che dipendono da it.w/it.sep (es. doppiatastiera) → svg2pdf lancia e
+     il PDF cade in raster. Garantiamo w/d (+ sep per le doppie, parts/size per le composte). */
+  s.items.forEach(function(it){ var t=TYPES[it.type]; if(!t) return;
+    if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=minSepType(it.type);
+      if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
+    if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
+      if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
+    if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
+  });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
