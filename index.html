@@ -467,7 +467,7 @@
   /* Cablaggio audio calcolato (layer tecnico) — colore layer AUDIO = teal (architettura colori per layer) */
   .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
   .cab-line.cab-manual{stroke:#0e7490}
-  .cab-return{fill:none;stroke:#06b6d4;stroke-width:2;stroke-linecap:round;stroke-dasharray:1 5;pointer-events:none}
+  .cab-return{fill:none;stroke:#06b6d4;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}   /* #23: piena come il microfonico, colore monitor */
   .cab-return.cab-manual{stroke:#0891b2}
   .cab-return.sel{stroke:#0891b2;stroke-width:3.4;stroke-dasharray:none}   /* #17: ritorno selezionato, colore monitor */
   .cab-lbl-ret{fill:#0e7490}
@@ -4865,15 +4865,16 @@ function cablingMarkup(){
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
+  var retOp=(state.cab.retOpacity==null?100:state.cab.retOpacity)/100;   /* #23: opacità indipendente dei ritorni monitor */
   var edit=!state.cab.locked && showIn && !window.__cabStatic;   /* editing sui cavi ingresso, layer visibile e NON in render statico (PDF/PNG) */
   var editRet=!state.cab.locked && showRet && !window.__cabStatic;   /* #17: stessi gesti sui cavi di ritorno (monitor) */
   /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
      statico e nel viewer condiviso (chi legge non può fare hover consapevole). In hover: bolla assist. */
   var LBL = window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var OBS=obstacleRects();   /* Pilastro 2: i cavi aggirano pedane ed elementi ingombranti */
-  var s='<g class="cab-layer'+((edit||editRet)?' cab-editable':'')+'" style="opacity:'+op+'">';
+  var s='<g class="cab-layer'+((edit||editRet)?' cab-editable':'')+'">';
   /* ── lato INGRESSI (teal) ── */
-  if(showIn){
+  if(showIn){ s+='<g class="cab-inlayer" style="opacity:'+op+'">';
     /* L5: la tratta box→FOH di una box digitale è resa da netMarkup (rete) — niente doppia linea.
        Se il layer rete è nascosto, torna la rappresentazione generica a multicore. */
     var netBox={};
@@ -4926,9 +4927,10 @@ function cablingMarkup(){
       if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
       s+='</g>'; }
     R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
+    s+='</g>';
   }
   /* ── lato RITORNI / monitor (ciano) ── */
-  if(showRet){
+  if(showRet){ s+='<g class="cab-retlayer" style="opacity:'+retOp+'">';
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
@@ -4954,6 +4956,7 @@ function cablingMarkup(){
           +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="17"/>';
       }
     }
+    s+='</g>';
   }
   /* ── stage box + badge in/out (infrastruttura condivisa) ── */
   var hasRet=R.returnLinks.length>0;
@@ -8918,12 +8921,13 @@ function layerRegistry(){
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       /* fluido: niente redraw dell'overlay (routing A* a ogni tick!) — si tocca solo lo style del gruppo */
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; var o=(v/100).toString();
-        ["cab-layer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
+        ["cab-inlayer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
       removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },   /* cestino = ricominciare DA ZERO */
     { id:"cabout", name:"Monitoraggio", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
-      visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } },
+      visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); },
+      opacity:state.cab.retOpacity==null?100:state.cab.retOpacity, setOpacity:function(v){ state.cab.retOpacity=v; var g=svg.querySelector(".cab-retlayer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); } },
     { id:"net", name:"Rete / dati", color:LAYER_COLORS.rete,
       active:!!state.cab.on && netEngine().runs.length>0,
       visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },
@@ -8966,22 +8970,8 @@ function cabFillMixerOptions(){
 var cabOpen=false;   /* legacy: pannello tolto */
 function renderCabPanel(){
   var sec=document.getElementById("cabSec"); if(!sec) return;
-  var on=!!(state.cab && state.cab.on);
-  var R = on ? cabResult() : null;
-  var sl = (on && selCab && R) ? (R.links.filter(function(l){ return l.key===selCab; })[0] || (R.returnLinks||[]).filter(function(l){ return l.key===selCab; })[0]) : null;
-  var isRet = !!sl && selCab.indexOf("ret:")===0;   /* ritorno monitor selezionato */
-  var showSel = on && !!sl && !state.cab.locked;   /* SOLO il box "Cavo selezionato", al click su un cavo */
-  sec.style.display = showSel ? "block" : "none";
-  if(!on){ selCab=null; return; }
-  var selBox=document.getElementById("cabSel");
-  if(showSel){ selBox.style.display="block";
-    var lblEl=document.getElementById("cabSelLabel"), lblRow=lblEl.closest("label");
-    if(lblRow) lblRow.style.display = isRet ? "none" : "";   /* i ritorni non hanno etichetta editabile (M#) */
-    if(isRet){ document.getElementById("cabSelDelete").textContent="Elimina ritorno"; }
-    else { var ov=state.cab.manual[selCab]||{};
-      lblEl.value = (ov.label!=null)?ov.label:sl.label;
-      document.getElementById("cabSelDelete").textContent = sl.deleted ? "Ripristina cavo" : "Elimina cavo"; }
-  } else selBox.style.display="none";
+  sec.style.display="none";   /* Simone 09/07 (#24): niente box "Cavo selezionato" — Backspace elimina, trascini lati/estremi per piegare/riconnettere */
+  if(!(state.cab && state.cab.on)) selCab=null;
 }
 function toggleCabLayer(){
   if(!state.cab.on){ cabActivateFlow(); return; }   /* prima attivazione → modale mixer + punto principale */

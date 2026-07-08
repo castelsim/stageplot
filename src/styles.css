@@ -303,7 +303,7 @@
   /* Cablaggio audio calcolato (layer tecnico) — colore layer AUDIO = teal (architettura colori per layer) */
   .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
   .cab-line.cab-manual{stroke:#0e7490}
-  .cab-return{fill:none;stroke:#06b6d4;stroke-width:2;stroke-linecap:round;stroke-dasharray:1 5;pointer-events:none}
+  .cab-return{fill:none;stroke:#06b6d4;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}   /* #23: piena come il microfonico, colore monitor */
   .cab-return.cab-manual{stroke:#0891b2}
   .cab-return.sel{stroke:#0891b2;stroke-width:3.4;stroke-dasharray:none}   /* #17: ritorno selezionato, colore monitor */
   .cab-lbl-ret{fill:#0e7490}
