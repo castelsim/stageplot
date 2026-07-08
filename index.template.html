@@ -3873,6 +3873,10 @@ function auditEngine(){
   if(loadsN>0 && !realDistro) add("warn","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro});
   if(loadsN>0 && !Re.supply) add("warn","Alimentazione non definita.","Elettrico","Scegli allaccio rete o metti un generatore sul palco.",{label:"Allaccia rete",run:auditFixSetRete});
   if(audioSrc>0 && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge});
+  /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
+     (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
+  if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del rider.","Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
+  if(state.cab.on && !state.cab.mixer) add("warn","Mixer FOH non specificato nel cablaggio audio.","Rider","In un rider professionale la console va dichiarata (guida compatibilità stage box e protocolli).",{label:"Scegli mixer",run:auditFixOpenCabMixer});
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
@@ -3890,7 +3894,8 @@ function auditEngine(){
   var score = items.length ? Math.max(0, 100 - errs*14 - warns*6 - Math.min(45, unrouted*3)) : 0;
   var grade = !items.length ? "Vuoto" : (score>=90?"Pronto" : (score>=65?"Da rivedere" : "Incompleto"));
   return {findings:f, errs:errs, warns:warns, score:score, grade:grade, totCableM:totCableM,
-          audioSrc:audioSrc, monitors:monitors, loadsN:loadsN, totW:Re.totW||0, mixer:Rc.mixer||""};
+          audioSrc:audioSrc, monitors:monitors, loadsN:loadsN, totW:Re.totW||0, mixer:Rc.mixer||"",
+          weightKg:totalWeightKg(), rackU:totalRackU()};   /* L6: logistica (L2) aggregata nel quadro unico */
 }
 /* Audit azionabile: ogni criticità strutturale ha una fix a un click. Le fix aggiungono l'elemento
    mancante e lo lasciano SELEZIONATO (l'utente lo posiziona subito, come per il drag dal catalogo);
@@ -3902,6 +3907,9 @@ function auditFixAddDistro(){
   __elecRes=null; addItem("distro63");
 }
 function auditFixSetRete(){ state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); }
+function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el && el.offsetParent===null) el=document.getElementById("mTitle");
+  if(el){ try{ el.focus(); el.select(); }catch(e){} } }
+function auditFixOpenCabMixer(){ techAccordionOpen("cab"); renderAccessoriCount(); var el=document.getElementById("cabMixer"); if(el) el.focus(); }
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()
@@ -7658,7 +7666,8 @@ function renderAuditPanel(){
     '<div style="display:flex;align-items:center;gap:12px">'
     +'<div style="width:52px;height:52px;border-radius:50%;border:3px solid '+col+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:'+col+'">'+A.score+'</div>'
     +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:11.5px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+'</div></div></div>';
-  document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m';
+  document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
+    +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
   var host=document.getElementById("auditFindings");
   host.innerHTML="";
   var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"; });
@@ -9230,7 +9239,8 @@ function auditReportPdf(shared){
     y=24;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Prontezza: "+A.score+"/100  —  "+A.grade, 15, true, col, 8);
-    line(A.errs+" errori · "+A.warns+" avvisi    ·    "+A.audioSrc+" ingressi · "+A.monitors+" mix monitor · "+(A.totW/1000).toFixed(1).replace(".",",")+" kW · cavo ~"+A.totCableM.toFixed(0)+" m", 9.5, false, "#555555", 9);
+    line(A.errs+" errori · "+A.warns+" avvisi    ·    "+A.audioSrc+" ingressi · "+A.monitors+" mix monitor · "+(A.totW/1000).toFixed(1).replace(".",",")+" kW · cavo ~"+A.totCableM.toFixed(0)+" m"
+      +(A.weightKg>0?" · peso ~"+fmtKg(A.weightKg):"")+(A.rackU>0?" · rack "+A.rackU+" U":""), 9.5, false, "#555555", 9);
     line("Criticità e suggerimenti", 12, true, col, 6);
     var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"; });
     if(!probs.length) line("Nessuna criticità rilevata: il rider sembra pronto.", 10, false, "#0d9488", 5);
