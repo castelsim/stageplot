@@ -317,6 +317,9 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* C3 · declutter stile Max: i cavi non collegati all'elemento in hover sfumano */
+  .cabgrp{transition:opacity .16s ease}
+  .cabgrp.dim{opacity:.12}
   /* Porte stile Max — pallini di collegamento sull'elemento selezionato */
   .port-dot{stroke:#fff;stroke-width:2;pointer-events:none}
   .port-hit{fill:transparent;pointer-events:all;cursor:crosshair}

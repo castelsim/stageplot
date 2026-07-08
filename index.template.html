@@ -3667,7 +3667,7 @@ function cabLoomMarkup(polys){
   if(state.cab.looms===false || polys.length<2) return '';
   var regs=cabLoomRegions(polys); window.__loomN=regs.length;   /* letto dalla legenda (stesso passaggio di render) */
   if(!regs.length) return '';
-  var s='<g class="cab-loomlayer">';
+  var s='<g class="cab-loomlayer cabgrp" data-own="">';   /* C3: i fasci (aggregato) sfumano con qualunque hover */
   regs.forEach(function(r){
     var w=Math.min(8+2.5*r.n, 20);   /* fascia più larga con più cavi */
     var x1,y1,x2,y2; if(r.ori==='h'){ x1=r.a; x2=r.b; y1=y2=r.pos; } else { x1=x2=r.pos; y1=r.a; y2=r.b; }
@@ -3698,22 +3698,26 @@ function cablingMarkup(){
     R.snakes.forEach(function(k){ if(k.box && k.box.id && netBox[k.box.id]) return;
       var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
       var dpts=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex);
-      s+='<path class="cab-snake" d="'+orthPathD(dpts)+'"/>';
+      var sk='<path class="cab-snake" d="'+orthPathD(dpts)+'"/>';
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
-        s+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
+        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
+      s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[];   /* C1: percorsi raccolti per il calcolo dei fasci */
     R.links.forEach(function(l){
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
-      if(l.deleted){ linkS+='<path class="cab-del" d="'+d+'"/>'; if(edit) linkS+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
+      var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
+      if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
+        linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
       var ep=orthExpand(dpts); loomPolys.push({key:l.key, poly:ep});
-      linkS+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
-      if(edit) linkS+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
+      li+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
+      if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
       var lbl=cabLinkLabel(l);
-      if(lbl){ var mid=cabMidpoint(ep); linkS+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+      if(lbl){ var mid=cabMidpoint(ep); li+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+      linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>';
     });
     s+=cabLoomMarkup(loomPolys)+linkS;   /* fascia loom SOTTO i cavi (ordine di pittura SVG) */
     if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
@@ -3740,10 +3744,11 @@ function cablingMarkup(){
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex);
-      s+='<path class="cab-return" d="'+orthPathD(dpts)+'"/>';
+      var ri='<path class="cab-return" d="'+orthPathD(dpts)+'"/>';
       if(state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
-        s+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
+        ri+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
+      s+='<g class="cabgrp" data-own="'+esc((l.sink&&l.sink.id||'')+(l.box&&l.box.id?' '+l.box.id:''))+'">'+ri+'</g>';
     });
   }
   /* ── stage box + badge in/out (infrastruttura condivisa) ── */
@@ -3826,16 +3831,18 @@ function elecMarkup(){
   R.feeds.forEach(function(f){
     var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
     var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex);
-    s+='<path class="elec-feed" d="'+orthPathD(dpts)+'"/>';
+    var fi='<path class="elec-feed" d="'+orthPathD(dpts)+'"/>';
     if(sl){ var mid=cabMidpoint(orthExpand(dpts));
-      s+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
+      fi+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
+    s+='<g class="cabgrp" data-own="'+esc(f.distro&&f.distro.it&&f.distro.it.id||'')+'">'+fi+'</g>';
   });
   R.loadLinks.forEach(function(l){
     var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
     var dpts=cabRoutePts(l.pts, OBS, ex);
-    s+='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="'+orthPathD(dpts)+'"/>';
+    var li='<path class="elec-line'+(l.cee?' elec-cee':'')+'" d="'+orthPathD(dpts)+'"/>';
     if(sl){ var mid=cabMidpoint(orthExpand(dpts));
-      s+='<text class="elec-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
+      li+='<text class="elec-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
+    s+='<g class="cabgrp" data-own="'+esc((l.load&&l.load.it&&l.load.it.id||'')+(l.distro&&l.distro.it?' '+l.distro.it.id:''))+'">'+li+'</g>';
   });
   R.distros.forEach(function(d){
     if(d.auto) s+='<g class="elec-ghost"><rect x="'+(d.x-34)+'" y="'+(d.y-22)+'" width="68" height="44" rx="7"/><text x="'+d.x+'" y="'+(d.y+4)+'" text-anchor="middle">'+esc(d.name)+'</text></g>';
@@ -4042,12 +4049,13 @@ function netMarkup(){
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
   var s='<g class="net-layer" style="opacity:'+op+'">';
   N.runs.forEach(function(r){
-    s+='<path class="net-line" d="'+orthPathD(r.pts)+'"/>';
+    var ni='<path class="net-line" d="'+orthPathD(r.pts)+'"/>';
     if(state.cab.showLabels!==false){
       var mid=cabMidpoint(r.pts);
       var lb=AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
-      s+='<text class="net-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-5).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>';
+      ni+='<text class="net-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-5).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>';
     }
+    s+='<g class="cabgrp" data-own="'+esc(r.box&&r.box.id||'')+'">'+ni+'</g>';
   });
   return s+'</g>';
 }
@@ -5374,6 +5382,23 @@ function svgPoint(e){
   return p.matrixTransform(svg.getScreenCTM().inverse());
 }
 var drag=null, pointers={}, pinch=null, lastDown=null, spacebarPan=false;
+/* ── C3 · declutter stile Max: passi il mouse su un elemento → i cavi NON collegati a lui sfumano ──
+   Zero re-render: i cavi sono in <g class="cabgrp" data-own="id id"> e si toggla solo la classe .dim.
+   Se l'elemento in hover non possiede alcun cavo, niente fade (nessun effetto a vuoto). */
+function cabFocus(id){
+  var gs=svg.querySelectorAll(".cabgrp"); if(!gs.length) return;
+  if(!id){ gs.forEach(function(g){ g.classList.remove("dim"); }); return; }
+  var pad=" "+id+" ", any=false;
+  gs.forEach(function(g){ if((" "+(g.getAttribute("data-own")||"")+" ").indexOf(pad)>=0) any=true; });
+  if(!any){ gs.forEach(function(g){ g.classList.remove("dim"); }); return; }
+  gs.forEach(function(g){ g.classList.toggle("dim", (" "+(g.getAttribute("data-own")||"")+" ").indexOf(pad)<0); });
+}
+svg.addEventListener("pointerover", function(e){
+  if(isMobile() || drag) return;
+  var g=e.target.closest ? e.target.closest(".item") : null;
+  cabFocus(g ? g.getAttribute("data-id") : null);
+});
+svg.addEventListener("pointerleave", function(){ cabFocus(null); });
 svg.addEventListener("pointerdown", function(e){
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
