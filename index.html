@@ -1363,8 +1363,8 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <button class="mi" data-file="pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Esporta PDF…</button>
   <button class="mi" data-file="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Esporta PNG</button>
   <hr>
-  <button class="mi" data-file="version"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>Salva versione<span class="kbd">⌘S</span></button>
-  <button class="mi" data-file="versions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><polyline points="12 7 12 12 15 14"/></svg>Versioni…</button>
+  <button class="mi" data-file="version"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>Punto di ripristino<span class="kbd">⌘S</span></button>
+  <button class="mi" data-file="versions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><polyline points="12 7 12 12 15 14"/></svg>Ripristina versione…</button>
   <button class="mi" data-file="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi…</button>
 </div>
 <div class="hdrmenu" id="helpMenu" hidden role="menu">
@@ -1701,6 +1701,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <label class="chk"><input type="checkbox" id="cabAuto"> Aggiornamento automatico</label>
         <label class="chk"><input type="checkbox" id="cabSolo"> Solo layer audio</label>
         <label class="chk"><input type="checkbox" id="cabLocked"> Blocca layer (sblocca per modificare)</label>
+        <button class="btn" id="cabPropose" style="width:100%;margin-top:6px" title="Il motore propone i collegamenti mancanti verso le stage box reali — diventano collegamenti tuoi, modificabili uno a uno">Proponi collegamenti</button>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
           <button class="btn" id="cabRecalc" style="flex:1">Ricalcola</button>
           <button class="btn" id="cabAlign" style="flex:1" title="Riordina i cavi sulla griglia e raddrizza i percorsi">Allinea</button>
@@ -1744,6 +1745,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         </div>
         <label class="chk"><input type="checkbox" id="elecAuto"> Aggiornamento automatico</label>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn" id="elecPropose" style="flex:1" title="Il motore propone i collegamenti mancanti verso i distro reali — diventano collegamenti tuoi">Proponi collegamenti</button>
           <button class="btn" id="elecRecalc" style="flex:1">Ricalcola</button>
         </div>
         <button class="btn primary" id="elecReport" style="width:100%;margin-top:8px">Piano elettrico (PDF)</button>
@@ -1796,7 +1798,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <!-- pannello versioni -->
   <div id="versPanel" hidden>
     <div id="versBox">
-      <h3>Versioni salvate</h3>
+      <h3>Punti di ripristino</h3>
       <div style="display:flex;gap:6px;margin-bottom:10px">
         <input type="text" id="versName" placeholder="Nome (es. prova suono)…">
         <button class="btn primary" id="versSave" style="white-space:nowrap;font-size:12px;flex-shrink:0">Salva</button>
@@ -3573,8 +3575,8 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
-  elec:{on:false,visible:true,opacity:70,auto:true,supply:null,phase3:true,showLabels:true,showLengths:true} };
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
+  elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
@@ -3967,6 +3969,8 @@ function normalizeState(s){
     if(typeof m.box==="string" && m.box) o.box=m.box.slice(0,60);   /* riconnessione/porte: la box scelta a mano DEVE sopravvivere al reload */
     if(Object.keys(o).length) man[String(k).slice(0,60)]=o; }); }
   s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round(cb.opacity==null?70:cb.opacity))), auto:cb.auto!==false,
+    /* manual-first (08/07): i documenti che avevano GIÀ il cablaggio attivo restano "auto" (niente rider svuotati); i nuovi nascono "manual" */
+    mode:(cb.mode==="auto"||cb.mode==="manual")?cb.mode:(cb.on?"auto":"manual"),
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
@@ -3978,6 +3982,7 @@ function normalizeState(s){
   var eman={};   /* porte: carico → distro scelto a mano */
   if(eb.manual && typeof eb.manual==="object"){ Object.keys(eb.manual).forEach(function(k){ var v=eb.manual[k]; if(typeof v==="string" && v) eman[String(k).slice(0,60)]=v.slice(0,60); }); }
   s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
+    mode:(eb.mode==="auto"||eb.mode==="manual")?eb.mode:(eb.on?"auto":"manual"),
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
     phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, manual:eman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
@@ -4568,6 +4573,12 @@ function cabClusters(groups, thr){
 }
 function audioCablingEngine(){
   var man=(state.cab&&state.cab.manual)||{};
+  /* MANUAL-FIRST (Simone 08/07: "non è possibile fare il cablaggio in modo automatico"):
+     i cavi esistono SOLO dove l'utente li ha tirati (porte/riconnessione = ov.box). Il motore resta
+     per canali, lunghezze, verifiche e report sui collegamenti disegnati. "Proponi collegamenti"
+     materializza la proposta come override espliciti. I documenti che avevano già il cablaggio
+     attivo restano in modalità "auto" (migrazione in normalizeState — niente rider svuotati). */
+  var manualMode=(state.cab && state.cab.mode!=="auto");
   /* 1-2. sorgenti, in ordine di banco (come la channel list), con chiave stabile it.id#idx */
   var sources=[];
   state.items.map(function(it,idx){ return {it:it,idx:idx}; })
@@ -4581,7 +4592,7 @@ function audioCablingEngine(){
   /* 4-6. stage box: piazzate (capacità dal modello hw), oppure proposta drop box 8ch a gruppi */
   var boxes=state.items.filter(cabIsBox).map(function(it){
     return {x:it.x, y:it.y, cap:cabBoxCap(it), used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null, name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
-  if(!boxes.length && totIn){
+  if(!manualMode && !boxes.length && totIn){
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
       var nb=Math.max(1, Math.ceil(c.n/8));
       for(var i=0;i<nb;i++){
@@ -4594,16 +4605,17 @@ function audioCablingEngine(){
   boxes.forEach(function(b,i){ b.letter=String.fromCharCode(65+i); });
   var home=cabHomePoint();
   /* 7-10. assegnazione: canali di un elemento insieme sulla box più vicina con capacità; poi spill */
-  var links=[], unassigned=[];
+  var links=[], unassigned=[], pending=[];
   function d2(x,y,b){ return Math.pow(x-b.x,2)+Math.pow(y-b.y,2); }
   groups.forEach(function(g){
     var cand=boxes.slice().sort(function(a,b){ return d2(g.it.x,g.it.y,a)-d2(g.it.x,g.it.y,b); });
     var whole=cand.filter(function(b){ return b.cap-b.used>=g.list.length; })[0]||null;
     g.list.forEach(function(s){
       var ov=man[s.key]||{};
+      if(manualMode && !ov.box && !ov.deleted){ pending.push(s); return; }   /* manual-first: non ancora collegata (non è un errore) */
       /* Fase B riconnessione: se l'utente ha trascinato l'estremo su una stage box precisa, usa QUELLA (se ha posto) */
       var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box && bb.cap-bb.used>=1; })[0] : null;
-      var b= forced || whole || cand.filter(function(bb){ return bb.cap-bb.used>=1; })[0] || null;
+      var b= manualMode ? forced : (forced || whole || cand.filter(function(bb){ return bb.cap-bb.used>=1; })[0] || null);
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
       var pts=[[s.it.x,s.it.y]].concat((ov.pts||[])).concat([[b.x,b.y]]);
@@ -4645,8 +4657,8 @@ function audioCablingEngine(){
     /* porte stile Max: se l'utente ha collegato il monitor a una box precisa, usa QUELLA (se ha uscite) */
     var ovm=man["mix:"+m.key]||{};
     var forcedM=ovm.box ? cand.filter(function(bb){ return bb.id===ovm.box && (bb.outCap-bb.usedOut)>=m.ch; })[0] : null;
-    var b=forcedM || cand.filter(function(bb){ return (bb.outCap-bb.usedOut)>=m.ch; })[0]||null;
-    if(!b){ m.box=null; return; }
+    var b= manualMode ? forcedM : (forcedM || cand.filter(function(bb){ return (bb.outCap-bb.usedOut)>=m.ch; })[0]||null);
+    if(!b){ m.box=null; m.pending=manualMode && !ovm.box; return; }   /* manual-first: mix non ancora collegato ≠ errore */
     m.box=b; m.outCh=b.usedOut+1; b.usedOut+=m.ch;
   });
   var returnLinks=[];
@@ -4681,7 +4693,10 @@ function audioCablingEngine(){
   });
   /* criticità monitor */
   if(mixChTot>capOutTot && boxes.length) issues.push({lvl:"err", msg:"Uscite monitor insufficienti ("+mixChTot+" richieste / "+capOutTot+" disponibili): serve una box con più uscite."});
-  mixes.forEach(function(m){ if(!m.box) issues.push({lvl:"err", msg:"Monitor senza uscita: "+m.name+" (uscite esaurite)."}); });
+  mixes.forEach(function(m){ if(!m.box && !m.pending) issues.push({lvl:"err", msg:"Monitor senza uscita: "+m.name+" (uscite esaurite)."}); });
+  var mixPend=mixes.filter(function(m){ return m.pending; }).length;
+  if(pending.length) issues.push({lvl:"info", msg:pending.length+" ingressi da collegare: seleziona lo strumento e trascina dal pallino teal a una stage box."});
+  if(mixPend) issues.push({lvl:"info", msg:mixPend+" mix monitor da collegare (pallino ciano → stage box)."});
   mixes.forEach(function(m){ if(!m.box) return;
     var far=m.sinks.some(function(sk){ return Math.hypot(sk.x-m.box.x, sk.y-m.box.y)/100>8; });
     if(far) issues.push({lvl:"warn", msg:"Monitor lontano dalla box ("+m.name+"): valuta un return locale / sub-snake."});
@@ -4696,7 +4711,7 @@ function audioCablingEngine(){
   }
   return {sources:sources, boxes:boxes, links:links, unassigned:unassigned, snakes:snakes, home:home, cables:cables,
           mixes:mixes, returnLinks:returnLinks, returnCables:returnCables, capOutTot:capOutTot, mixChTot:mixChTot, monConsole:monConsole,
-          totIn:totIn, capTot:capTot, diMono:diMono, diStereo:diStereo, mixer:mixer, issues:issues};
+          totIn:totIn, capTot:capTot, diMono:diMono, diStereo:diStereo, mixer:mixer, issues:issues, pending:pending};
 }
 /* cache: con aggiornamento automatico ON si ricalcola a ogni redraw; OFF = congelato finché non premi Ricalcola */
 var __cabRes=null;
@@ -4860,6 +4875,27 @@ function cablingMarkup(){
   return s;
 }
 function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+/* Manual-first: "Proponi collegamenti" materializza la proposta del motore come override ESPLICITI
+   (simulazione in modalità auto → scrive man[key].box solo verso box/distro REALI). Così la proposta
+   diventa collegamenti dell'utente: visibili, modificabili, cancellabili uno a uno. */
+function cabProposeAll(){
+  if(!state.items.filter(cabIsBox).length){ alert("Metti prima una stage box sul palco (catalogo → Audio)."); return; }
+  var m0=state.cab.mode; state.cab.mode="auto"; var R2=audioCablingEngine(); state.cab.mode=m0;
+  var wrote=0;
+  (R2.links||[]).forEach(function(l){ if(l.deleted || !l.box || l.box.auto) return;
+    var mm=cabManual(l.s.key); if(!mm.box){ mm.box=l.box.id; wrote++; } });
+  (R2.mixes||[]).forEach(function(m){ if(!m.box || m.box.auto || !m.key) return;
+    var mk=cabManual("mix:"+m.key); if(!mk.box){ mk.box=m.box.id; wrote++; } });
+  if(wrote){ __cabRes=null; save(); render(); renderCabPanel(); }
+}
+function elecProposeAll(){
+  if(!state.items.filter(elecIsDistro).length){ alert("Metti prima un quadro/distro sul palco (catalogo → Elettrico)."); return; }
+  var m0=state.elec.mode; state.elec.mode="auto"; var R2=electricEngine(); state.elec.mode=m0;
+  var wrote=0; state.elec.manual=state.elec.manual||{};
+  (R2.loadLinks||[]).forEach(function(l){ if(!l.distro || !l.distro.it) return;
+    if(!state.elec.manual[l.load.it.id]){ state.elec.manual[l.load.it.id]=l.distro.it.id; wrote++; } });
+  if(wrote){ __elecRes=null; save(); render(); renderElecPanel(); }
+}
 /* Align stile Max (08/07): riordina TUTTI i cavi manuali — snap dei corner alla griglia + pulizia
    (fonde i collineari, toglie i micro-jog). Diverso da "Reset manuale" (che butta il routing): qui il
    percorso che hai disegnato resta, solo più pulito e allineato. Passo = griglia attiva o 25 cm. */
@@ -4932,6 +4968,7 @@ function elecMarkup(){
 }
 function electricEngine(){
   var ph3=state.elec.phase3!==false, issues=[];
+  var manualModeE=(state.elec && state.elec.mode!=="auto");   /* manual-first: cavi solo dove l'utente li ha tirati (pallino ambra) */
   /* 1. carichi = elementi con WATT (esclusi distro e generatori), grandi prima per bilanciare */
   var loads=(state.items||[]).filter(function(it){ return !elecIsDistro(it) && !elecIsGen(it) && wattOf(it)>0; })
     .map(function(it){ return {it:it, w:wattOf(it), a:wattOf(it)/ELEC_VOLT}; })
@@ -4940,7 +4977,7 @@ function electricEngine(){
   /* 2. distro piazzati, o proposta automatica a gruppi */
   var distros=(state.items||[]).filter(elecIsDistro).map(function(it){ var d=ELEC_DISTRO[it.type];
     return {it:it, x:it.x, y:it.y, a:d.a, ph:ph3?d.ph:1, name:(it.label||d.name), phLoad:[0,0,0], loadW:0, auto:false}; });
-  if(!distros.length && loads.length){
+  if(!manualModeE && !distros.length && loads.length){
     cabClusters(loads.map(function(l){ return {it:l.it, list:[l]}; }), 600).forEach(function(c){
       var clusterA=c.groups.reduce(function(s,g){ return s+g.list[0].a; },0);
       var mdl = clusterA>63?"distro125":(clusterA>32?"distro63":"distro32"), dd=ELEC_DISTRO[mdl];
@@ -4955,12 +4992,13 @@ function electricEngine(){
   /* 3. assegnazione carichi al distro più vicino, sulla fase meno carica */
   var loadLinks=[], unassigned=[];
   function d2(x,y,d){ return Math.pow(x-d.x,2)+Math.pow(y-d.y,2); }
-  var eman=(state.elec&&state.elec.manual)||{};
+  var eman=(state.elec&&state.elec.manual)||{}, pendingE=[];
   loads.forEach(function(l){
-    var cand=distros.slice().sort(function(a,b){ return d2(l.it.x,l.it.y,a)-d2(l.it.x,l.it.y,b); });
-    /* porte stile Max: distro scelto a mano dall'utente → provato per primo (se ha margine) */
     var ovd=eman[l.it.id];
-    if(ovd){ var F=null, rest=[]; cand.forEach(function(D){ if(D.it && D.it.id===ovd) F=D; else rest.push(D); }); if(F) cand=[F].concat(rest); }
+    if(manualModeE && !ovd){ pendingE.push(l); return; }   /* manual-first: carico non ancora collegato (non è un errore) */
+    var cand=distros.slice().sort(function(a,b){ return d2(l.it.x,l.it.y,a)-d2(l.it.x,l.it.y,b); });
+    /* porte stile Max: distro scelto a mano dall'utente → provato per primo; in manual-first è l'UNICO candidato */
+    if(ovd){ var F=null, rest=[]; cand.forEach(function(D){ if(D.it && D.it.id===ovd) F=D; else rest.push(D); }); cand = manualModeE ? (F?[F]:[]) : (F?[F].concat(rest):cand); }
     var dd=null, ph=0;
     for(var k=0;k<cand.length;k++){ var D=cand[k], minPh=0;
       for(var p=1;p<D.ph;p++){ if(D.phLoad[p]<D.phLoad[minPh]) minPh=p; }
@@ -4989,7 +5027,8 @@ function electricEngine(){
   loadLinks.forEach(function(l){ if(l.lenM>25) issues.push({lvl:"warn", msg:"Carico lontano dal distro ("+(l.load.it.label||TYPES[l.load.it.type].nome)+", "+l.lenM.toFixed(0)+" m): valuta la caduta di tensione / sezione maggiore."}); });
   if(supply && supply.kva && totW>supply.kva*1000*0.9) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: carico "+elecKW(totW)+" (> 90% della resa)."});
   if(!distros.length && loads.length) issues.push({lvl:"err", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
-  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, unassigned:unassigned, supply:supply,
+  if(pendingE.length) issues.push({lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
+  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, unassigned:unassigned, pending:pendingE, supply:supply,
           totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
 }
 var __elecRes=null;
@@ -6148,13 +6187,14 @@ function miniSvg(k, over){
       /* Diagnostica / Audit progetto NASCOSTO temporaneamente (06/07, scelta Simone: prima lavoriamo sui layer, l'audit torna dopo)
       addToGroup("Diagnostica", makeActionBtn("Audit progetto","analisi automatica + punteggio",null,toggleAuditView,AUDIT_ICON));
       entries.push({nome:"Audit progetto",dim:"analisi automatica + punteggio",action:toggleAuditView,iconHtml:AUDIT_ICON}); */
-      [["Cablaggio audio","cavi calcolati sorgente → stagebox",toggleCabLayer,CAB_ICON],
-       ["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
+      /* Simone 08/07: "Cablaggio audio" e "Cablaggio elettrico" TOLTI dal catalogo — i layer si
+         attivano tirando un cavo dalle PORTE dell'elemento selezionato (stile Max). Le voci restano
+         nel codice (toggleCabLayer/toggleElecLayer) per pannelli, cestini e retrocompatibilità. */
+      [["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
        ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON],
        ["Monitoraggio digitale","personal mixer tra i musicisti",openPmWizard,PM_ICON]].forEach(function(a){
         addToGroup("Audio", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
-      [["Cablaggio elettrico","distro, fasi, carichi calcolati",toggleElecLayer,ECAB_ICON],
-       ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
+      [["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
         addToGroup("Elettrico", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
     }
     cats[c].forEach(function(k){
@@ -6586,6 +6626,14 @@ svg.addEventListener("pointerdown", function(e){
   var rsh = e.target.closest ? e.target.closest(".rs-handle") : null;
   if(rsh){                                  /* maniglia di ridimensionamento: trascina lato/angolo */
     var rsid=rsh.getAttribute("data-id"); selectOne(rsid); var rsit=getSel();
+    if(rsit && rsit.type==="metro"){
+      /* metro: capi LIBERI — trascini un capo (punto A o B) dove vuoi, l'altro resta inchiodato.
+         Dal capo fisso + cursore si ricavano lunghezza, angolo e centro. */
+      var mr=(rsit.rot||0)*Math.PI/180, msgn=(rsh.getAttribute("data-edge")==="l")?-1:1;
+      drag={mode:"metroend", id:rsid, sgn:msgn,
+            fix:[rsit.x - msgn*Math.cos(mr)*rsit.w/2, rsit.y - msgn*Math.sin(mr)*rsit.w/2], moved:false};
+      render(); svg.setPointerCapture(e.pointerId); return;
+    }
     if(rsit){ var sp3=svgPoint(e);
       drag={mode:"itemresize", id:rsid, edge:rsh.getAttribute("data-edge"),
             x0:rsit.x, y0:rsit.y, w0:rsit.w, d0:rsit.d, rot:(rsit.rot||0)*Math.PI/180, sp0:{x:sp3.x,y:sp3.y}, moved:false};
@@ -6759,6 +6807,21 @@ svg.addEventListener("pointermove", function(e){
       }
       drag.moved=true; redrawItemNode(rzit); renderSnapGuides(rsg);   /* aggiornamento parziale: rigenera solo il nodo ridimensionato, poi le guide di snap */
     }
+  } else if(drag.mode==="metroend"){        /* metro: il capo trascinato segue il cursore, l'altro resta fermo */
+    sp=svgPoint(e); var mit=state.items.find(function(i){ return i.id===drag.id; });
+    if(mit){
+      var mgrid=(e.metaKey||e.ctrlKey)||(snapMode!=="0"&&snapMode!=="obj");
+      var mpx=sp.x, mpy=sp.y; if(mgrid){ mpx=snap(mpx); mpy=snap(mpy); }
+      var mdx=mpx-drag.fix[0], mdy=mpy-drag.fix[1], mlen=Math.hypot(mdx,mdy);
+      if(mlen>=20){
+        mit.w=Math.round(mlen);
+        mit.x=Math.round((mpx+drag.fix[0])/2); mit.y=Math.round((mpy+drag.fix[1])/2);
+        var mang=Math.atan2(mdy,mdx)*180/Math.PI; if(drag.sgn<0) mang+=180;
+        mang=((mang%360)+360)%360; if(mang>180) mang-=360;
+        mit.rot=Math.round(mang);
+        drag.moved=true; redrawItemNode(mit);
+      }
+    }
   } else if(drag.mode==="block"){
     sp=svgPoint(e); var bdx=sp.x-drag.sp0.x, bdy=sp.y-drag.sp0.y; drag.moved=true;
     var r=stageBlocks()[drag.bi]; if(r){
@@ -6921,6 +6984,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="rotate"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="item" && drag.moved){ renderSnapGuides([]); render(); save(); ensureVisible(); }
   else if(drag && drag.mode==="marquee"){
     var r=drag.rect;
@@ -8491,6 +8555,7 @@ function toggleCabLayer(){
   document.getElementById("cabSolo").addEventListener("change", function(){ window.__cabSolo=this.checked; render(); });
   document.getElementById("cabLocked").addEventListener("change", function(){ state.cab.locked=this.checked; if(this.checked) selCab=null; save(); render(); });
   document.getElementById("cabRecalc").addEventListener("click", function(){ cabResult(true); render(); });
+  document.getElementById("cabPropose").addEventListener("click", cabProposeAll);
   document.getElementById("cabAlign").addEventListener("click", function(){ cabAlign(); });
   document.getElementById("cabReset").addEventListener("click", function(){ if(Object.keys(state.cab.manual||{}).length && !confirm("Azzerare tutte le modifiche manuali ai cavi (percorsi, etichette, eliminazioni)?")) return; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });
   document.getElementById("cabReport").addEventListener("click", function(){ cabReportPdf(); });
@@ -8601,6 +8666,7 @@ function patchList(){
     return {n:++n, name:name, mic:mic, p48:(o||!mic)?false:!!micInfo(mic).p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   R.links.forEach(function(l){ if(l.deleted) return; rows.push(row(l.s.name, l.s.mic, l.s.key, l.box.letter+l.ch, l.box.letter, l.s.it.id)); });
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
+  (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */
   applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
   return {rows:rows, R:R};
 }
@@ -8839,7 +8905,8 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
   monActive=!monActive;
   if(monActive){
     techAccordionOpen("mon"); closeMobileDrawers();
-    if(monUncovered().length>0) monProposeWedges();   /* proponi monitor per i musicisti scoperti (anche se altri ne hanno già) */
+    /* Simone 08/07: la Monitor list fa SOLO la lista — niente wedge piazzati in automatico.
+       monProposeWedges resta disponibile per un eventuale bottone esplicito nel pannello. */
     clearSelection();
   }
   render();
@@ -8857,6 +8924,8 @@ function loadList(){
     rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true}); });
   R.unassigned.forEach(function(l){ n++;
     rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false}); });
+  (R.pending||[]).forEach(function(l){ n++;   /* manual-first: la lista carichi è completa anche senza cavi */
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:true}); });
   return {rows:rows, R:R};
 }
 var loadActive=false, loadOpen=true;
@@ -8933,6 +9002,7 @@ function toggleElecLayer(){
   document.getElementById("elecShowLengths").addEventListener("change", function(){ state.elec.showLengths=this.checked; save(); render(); });
   document.getElementById("elecAuto").addEventListener("change", function(){ state.elec.auto=this.checked; if(this.checked) __elecRes=null; save(); render(); });
   document.getElementById("elecRecalc").addEventListener("click", function(){ elecResult(true); render(); });
+  document.getElementById("elecPropose").addEventListener("click", elecProposeAll);
   document.getElementById("elecReport").addEventListener("click", function(){ elecReportPdf(); });
 })();
 /* ===== Pannello AUDIT / DIAGNOSTICA ===== */
