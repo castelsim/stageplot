@@ -332,6 +332,9 @@
   .elec-editable .elec-endpt{pointer-events:all;cursor:grab}
   body.dark .elec-seg{stroke:#fbbf24}
   body.dark .elec-endpt{stroke:#fbbf24;fill:#0e1214}
+  .patch-row[data-rk]{cursor:grab}
+  .patch-row.rowdragging{opacity:.45}
+  .patch-row.rowdrop{box-shadow:inset 0 2px 0 0 var(--accent)}
   .cat-more{display:block;width:calc(100% - 12px);margin:4px 6px 6px;padding:7px 0;font-size:12px;font-weight:600;color:var(--accent);background:none;border:0;cursor:pointer;text-align:left}
   .cat-more:hover{text-decoration:underline}
   .cat-rest{display:none}

@@ -7891,9 +7891,26 @@ function startInlineRename(el, cur, cb){
 }
 function _rowBtn(html, title, cls, fn){ var b=document.createElement("button"); b.type="button"; b.className=cls; b.title=title; b.innerHTML=html; b.addEventListener("click", function(e){ e.stopPropagation(); fn(); }); return b; }
 /* cells = HTML per riga; ids = elementi da selezionare; onDelete = azione cestino; onMove(dir) = su/giù; onRename(v) = rinomina (doppio click sul nome) */
-function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename){
+/* drag-to-reorder delle liste tecniche (Simone 08/07): prendi la riga e trascinala.
+   Le frecce ▲▼ restano come alternativa. */
+var _dragRK=null;
+function enableRowDrag(host, keysFn, setOrder){
+  [].forEach.call(host.querySelectorAll(".patch-row[data-rk]"), function(row){
+    row.addEventListener("dragstart", function(e){ _dragRK=row.dataset.rk; row.classList.add("rowdragging"); e.dataTransfer.effectAllowed="move"; try{ e.dataTransfer.setData("text/plain", _dragRK); }catch(_){} });
+    row.addEventListener("dragend", function(){ _dragRK=null; [].forEach.call(host.querySelectorAll(".rowdragging,.rowdrop"), function(el){ el.classList.remove("rowdragging","rowdrop"); }); });
+    row.addEventListener("dragover", function(e){ if(_dragRK==null || row.dataset.rk===_dragRK) return; e.preventDefault(); e.dataTransfer.dropEffect="move"; row.classList.add("rowdrop"); });
+    row.addEventListener("dragleave", function(){ row.classList.remove("rowdrop"); });
+    row.addEventListener("drop", function(e){ e.preventDefault(); var tgt=row.dataset.rk; if(_dragRK==null || _dragRK===tgt){ _dragRK=null; return; }
+      var keys=keysFn().slice(), from=keys.indexOf(_dragRK); if(from<0){ _dragRK=null; return; }
+      keys.splice(from,1); var ti=keys.indexOf(tgt); if(ti<0) ti=keys.length; keys.splice(ti,0,_dragRK);   /* inserisci PRIMA del target */
+      setOrder(keys); _dragRK=null; save(); render();
+    });
+  });
+}
+function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dragKey){
   var row=document.createElement("div"); row.className="patch-row editable"+(sels?" rowsel":"");
   row.innerHTML=cells.join("");
+  if(dragKey!=null){ row.dataset.rk=dragKey; row.setAttribute("draggable","true"); }   /* riordino rapido a trascinamento */
   if(onRename){ var nameEl=row.querySelector(".psrc"); if(nameEl){ nameEl.classList.add("renamable"); nameEl.title="Click per rinominare";
     nameEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); }); } }   /* click sul nome = rinomina; sul resto = seleziona */
   var acts=document.createElement("div"); acts.className="rowacts";
@@ -7932,7 +7949,7 @@ function renderPatchPanel(){
       r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
       function(){ cabMicToggle(key); },
       function(dir){ cabMoveInput(key, dir); },
-      function(v){ cabRenameItem(iid, v); });
+      function(v){ cabRenameItem(iid, v); }, key);   /* key = riordino a trascinamento */
     var micEl=row.querySelector(".pmic");   /* click sulla cella MIC/DI = cambia mic/tipo inline (testo: SM58, DI, Line…) */
     if(micEl){ micEl.classList.add("editable-cell"); micEl.title="Click per cambiare microfono/tipo (es. SM58, DI, Line)";
       micEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(micEl, r.mic||"", function(v){ cabSetMic(key, v); }); }); }
@@ -7940,6 +7957,7 @@ function renderPatchPanel(){
     if(r.micOff) row.classList.add("micoff");
     host.appendChild(row);
   });
+  enableRowDrag(host, function(){ return patchList().rows.map(function(r){ return r.key; }); }, function(o){ state.cab.order=o; });
 }
 function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
   patchActive=!patchActive;
@@ -7993,10 +8011,11 @@ function renderMonitorPanel(){
     var row=makeListRow(cells, [sid], selSet[sid], "Elimina questo monitor dal palco",
       null,
       function(dir){ cabMoveMonitor(sid, dir); },
-      function(v){ cabRenameItem(sid, v); });
+      function(v){ cabRenameItem(sid, v); }, sid);   /* sid = riordino a trascinamento */
     if(!r.box) row.classList.add("unassigned");
     host.appendChild(row);
   });
+  enableRowDrag(host, function(){ return monitorList().rows.map(function(r){ return r.sinkId; }); }, function(o){ state.cab.monOrder=o; });
 }
 function monHasSinks(){ return state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }); }
 /* Proattivo: attivare "Monitor list" = "penso servano monitor" → se ci sono musicisti ma nessun monitor,
