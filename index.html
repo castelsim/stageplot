@@ -481,6 +481,9 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* L5 · layer rete/dati — colore layer RETE = indigo; tratteggio "dati" distinto da multicore/elettrico */
+  .net-line{fill:none;stroke:#4f46e5;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:10 4 2 4;pointer-events:none}
+  .net-lbl{fill:#4f46e5;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
   .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
@@ -626,6 +629,8 @@
   body.dark .cab-snake{stroke:#2dd4bf}
   body.dark .cab-loom{stroke:#2dd4bf}
   body.dark .cab-loom-lbl{fill:#5eead4}
+  body.dark .net-line{stroke:#818cf8}
+  body.dark .net-lbl{fill:#a5b4fc;stroke:#0e1214}
   body.dark .cab-lbl,body.dark .cab-ghost text{fill:#5eead4}
   body.dark .cab-home rect{fill:#0d9488;stroke:#0a5952}
   .dim-lbl{fill:var(--text-2);font-size:15px;font-weight:700}
@@ -3563,7 +3568,7 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,looms:true,locked:false,manual:{}},
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,supply:null,phase3:true,showLabels:true,showLengths:true} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
@@ -3959,7 +3964,7 @@ function normalizeState(s){
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
-    showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, looms:cb.looms!==false,
+    showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
     locked:!!cb.locked, manual:man,
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
@@ -4778,7 +4783,12 @@ function cablingMarkup(){
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
   if(showIn){
-    R.snakes.forEach(function(k){ var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
+    /* L5: la tratta box→FOH di una box digitale è resa da netMarkup (rete) — niente doppia linea.
+       Se il layer rete è nascosto, torna la rappresentazione generica a multicore. */
+    var netBox={};
+    if(state.cab.showNet!==false){ netEngine().runs.forEach(function(r){ if(r.box&&r.box.id) netBox[r.box.id]=1; }); }
+    R.snakes.forEach(function(k){ if(k.box && k.box.id && netBox[k.box.id]) return;
+      var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
       var dpts=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex);
       s+='<path class="cab-snake" d="'+orthPathD(dpts)+'"/>';
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
@@ -4994,6 +5004,7 @@ function auditEngine(){
   /* aggrega criticità dei motori (err/warn, dedup) con la loro categoria d'origine */
   var seen={};
   (Rc.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Audio"); } });
+  ((netEngine()||{}).issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Rete"); } });   /* L5 */
   (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
   /* punteggio di prontezza (pesato per gravità) */
   var errs=f.filter(function(x){return x.lvl==="err";}).length, warns=f.filter(function(x){return x.lvl==="warn";}).length;
@@ -5035,6 +5046,7 @@ function cableLegendMarkup(){
   var rows=[];
   if(state.cab && state.cab.on && state.cab.showInputs!==false) rows.push(["cab-line","Audio — ingressi"]);
   if(state.cab && state.cab.on && state.cab.showInputs!==false && state.cab.looms!==false && window.__loomN) rows.push(["cab-loom","Fascio / sub-snake",'style="stroke-width:7px;stroke-opacity:.4"']);
+  if(state.cab && state.cab.on && state.cab.showNet!==false && netEngine().runs.length) rows.push(["net-line","Rete / digital snake"]);
   if(state.cab && state.cab.on && state.cab.showReturns!==false){
     var R=cabResult(); if(R && R.returnLinks && R.returnLinks.length) rows.push(["cab-return","Ritorni / monitor"]);
   }
@@ -5047,7 +5059,63 @@ function cableLegendMarkup(){
     s+='<text class="cab-legend-t" x="'+(x+37)+'" y="'+(cy+3.2)+'">'+esc(r[1])+'</text>'; });
   return s+'</g>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+elecMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup(); }
+/* ===== L5 · LAYER RETE/DATI — motore (stesso principio: dati → calcolo → layer → report) =====
+   Derivato al 100%: mixer (MIXER_DB) + stage box REALI con hw digitale (STAGEBOX_DB) + geometria
+   delle snake home-run. La tratta box→FOH di una box digitale È una tratta di RETE (Cat/fibra),
+   non un multicore analogico: qui la si rappresenta e verifica come tale. Zero stato nuovo
+   (solo visibilità state.cab.showNet). Limiti per protocollo [best-effort da specifiche costruttori]. */
+var NET_PROTO_SPEC = {
+  dante:   {media:"Cat6 STP",   maxCat:90,  fiber:true,  redundant:true,  switchable:true},
+  avb:     {media:"Cat6 STP",   maxCat:90,  fiber:true,  redundant:true,  switchable:true},
+  aes50:   {media:"Cat5e STP",  maxCat:100, fiber:false, redundant:false, switchable:false},
+  dsnake:  {media:"Cat5e STP",  maxCat:120, fiber:false, redundant:false, switchable:false},
+  gigaace: {media:"Cat6A",      maxCat:100, fiber:true,  redundant:false, switchable:false},
+  optocore:{media:"fibra",      maxCat:0,   fiber:true,  redundant:true,  switchable:false, fiberOnly:true},
+  madi:    {media:"coassiale",  maxCat:100, fiber:true,  redundant:false, switchable:false}
+};
+function netEngine(){
+  if(!state.cab || !state.cab.on) return {runs:[], issues:[]};
+  var R=cabResult(); if(!R) return {runs:[], issues:[]};
+  var mx=R.mixer && MIXER_DB[R.mixer]; if(!mx) return {runs:[], issues:[]};
+  var runs=[], issues=[], OBS=obstacleRects(), mgn=1+(state.cab.margin||30)/100;
+  (R.snakes||[]).forEach(function(k){
+    var b=k.box; if(!b || !b.hw || !STAGEBOX_DB[b.hw]) return;   /* solo box reali con hardware digitale */
+    var common=mx.proto.filter(function(p){ return STAGEBOX_DB[b.hw].proto.indexOf(p)>=0; });
+    var proto=common[0]||STAGEBOX_DB[b.hw].proto[0];   /* se incompatibile il cab già segnala: qui il proto della box */
+    var spec=NET_PROTO_SPEC[proto]; if(!spec) return;
+    var ex={}; if(b.id) ex[b.id]=1;
+    var pts=orthExpand(cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex));
+    var lenM=polyLen(pts)/100*mgn;
+    var medium=spec.fiberOnly ? "fibra" : (lenM<=spec.maxCat ? spec.media : (spec.fiber?"fibra":spec.media));
+    if(!spec.fiberOnly && lenM>spec.maxCat){
+      if(spec.fiber) issues.push({lvl:"warn", msg:"Tratta "+AUDIO_PROTO[proto]+" box "+b.letter+" di "+lenM.toFixed(0)+" m: oltre il limite rame ("+spec.maxCat+" m) — prevista in fibra."});
+      else issues.push({lvl:"err", msg:"Tratta "+AUDIO_PROTO[proto]+" box "+b.letter+" di "+lenM.toFixed(0)+" m: oltre il limite del protocollo ("+spec.maxCat+" m su "+spec.media+")."});
+    }
+    runs.push({box:b, proto:proto, spec:spec, lenM:lenM, medium:medium, pts:pts});
+  });
+  /* topologia */
+  if(runs.filter(function(r){ return r.spec.switchable; }).length>=2)
+    issues.push({lvl:"warn", msg:"Più box "+runs.filter(function(r){return r.spec.switchable;}).map(function(r){return AUDIO_PROTO[r.proto];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join("/")+" in rete: prevedi uno switch gigabit dedicato (QoS/DSCP attivo) al punto principale."});
+  if(runs.some(function(r){ return r.spec.redundant; }))
+    issues.push({lvl:"info", msg:"Protocollo con ridondanza: prevedi rete primaria + secondaria (doppio cavo e porte dedicate)."});
+  return {runs:runs, issues:issues};
+}
+function netMarkup(){
+  if(!state.cab || !state.cab.on || state.cab.showNet===false) return '';
+  var N=netEngine(); if(!N.runs.length) return '';
+  var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
+  var s='<g class="net-layer" style="opacity:'+op+'">';
+  N.runs.forEach(function(r){
+    s+='<path class="net-line" d="'+orthPathD(r.pts)+'"/>';
+    if(state.cab.showLabels!==false){
+      var mid=cabMidpoint(r.pts);
+      var lb=AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
+      s+='<text class="net-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-5).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>';
+    }
+  });
+  return s+'</g>';
+}
+function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -8212,6 +8280,9 @@ function layerRegistry(){
     { id:"cabout", name:"Monitor / ritorni", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } },
+    { id:"net", name:"Rete / dati", color:LAYER_COLORS.rete,
+      active:!!state.cab.on && netEngine().runs.length>0,
+      visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },
     { id:"elec", name:"Cablaggio elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; save(); render(); },
@@ -8291,11 +8362,14 @@ function renderCabPanel(){
     if(R.home) s+='Punto principale: <b>'+esc(R.home.name)+'</b><br>';
     s+='Input audio totali: <b>'+R.totIn+'</b> / '+R.capTot+' disponibili<br>';
     s+='Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw?" "+hwLabel(b.hw,STAGEBOX_DB):"")+" ("+b.used+"/"+b.cap+(b.auto?" auto":"")+")"; }).join(", ")+'</b><br>';
+    var N=netEngine();
+    if(N.runs.length) s+='Rete: <b>'+N.runs.map(function(r){ return r.box.letter+" "+AUDIO_PROTO[r.proto]+" · "+r.medium+" · "+r.lenM.toFixed(0)+" m"; }).join(", ")+'</b><br>';
     var cuts=Object.keys(R.cables).sort(function(a,b){ return parseFloat(a)-parseFloat(b); });
     if(cuts.length) s+='Cavi XLR: <b>'+cuts.map(function(c){ return R.cables[c]+"× "+c; }).join(", ")+'</b><br>';
     if(R.diMono||R.diStereo) s+='DI da prevedere: <b>'+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":"")+'</b><br>';
-    if(R.issues.length){
-      s+='<div style="margin-top:5px">'+R.issues.map(function(i){
+    var allIssues=R.issues.concat(N.issues);   /* L5: criticità di rete insieme a quelle audio */
+    if(allIssues.length){
+      s+='<div style="margin-top:5px">'+allIssues.map(function(i){
         var col=i.lvl==="err"?"var(--danger,#dc2626)":(i.lvl==="warn"?"#b45309":"var(--text-3)");
         return '<div style="color:'+col+'">• '+esc(i.msg)+'</div>'; }).join("")+'</div>';
     } else s+='<span style="color:var(--accent)">Nessuna criticità.</span>';
@@ -10140,7 +10214,7 @@ function stageSceneSvg(cropVb){
   /* cablaggio nel PDF (08/07): l'overlay cavi/elettrico + legenda, in modo STATICO (niente maniglie di
      editing) e senza cavo selezionato. Si auto-esclude se i layer non sono attivi. */
   var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;
-  var cabling=''; try{ cabling=cablingMarkup()+elecMarkup()+cableLegendMarkup(); }catch(_e){ cabling=''; }
+  var cabling=''; try{ cabling=cablingMarkup()+netMarkup()+elecMarkup()+cableLegendMarkup(); }catch(_e){ cabling=''; }
   selCab=_keepCab; window.__cabStatic=_keepStatic;
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+css+'</style>'+DEFS+
@@ -10217,6 +10291,15 @@ function cabReportPdf(shared){
     if(cuts.length) line("Cavi XLR: "+cuts.map(function(c){ return R.cables[c]+" × "+c; }).join(", "), 10, false, null, 5);
     if(R.diMono||R.diStereo) line("DI da prevedere: "+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":""), 10, false, null, 5);
     if(R.snakes && R.snakes.length) line("Digital snake (home-run al punto principale): "+R.snakes.map(function(k){ return k.box.letter+" "+k.lenM.toFixed(0)+" m"; }).join(", "), 10, false, null, 5);
+    /* L5 — sezione rete/dati: tratte digitali con protocollo, mezzo e lunghezza sul percorso reale */
+    var N=netEngine();
+    if(N.runs.length){
+      y+=4; line("Rete / dati", 12, true, "#4f46e5", 6);
+      N.runs.forEach(function(r){
+        line("Box "+r.box.letter+" -> "+(R.home?R.home.name:"FOH")+":  "+AUDIO_PROTO[r.proto]+" · "+r.medium+" · "+r.lenM.toFixed(0)+" m  ("+r.box.used+" ch"+(r.spec.redundant?", ridondanza consigliata":"")+")", 9.5, false, null, 4.8);
+      });
+      N.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
+    }
     y+=4;
     line("Dettaglio collegamenti", 12, true, "#0d9488", 6);
     R.links.forEach(function(l){ if(l.deleted) return;
