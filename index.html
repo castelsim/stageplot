@@ -1704,7 +1704,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
     <!-- Layer: sempre visibili, niente tendina (Simone 08/07: una volta attivati restano nell'inspector) -->
     <div id="layerSec" style="display:none">
-      <div class="insp-hd" style="margin-top:0">Layer</div>
+      <div class="insp-hd" style="margin-top:0">Cablaggio</div>
       <div id="layerBody"><div id="layerRows"></div></div>
     </div>
     <!-- Inspector B "lista piatta" (scelta Simone 08/07): STATO + PROGETTO a righe chiave-valore -->
@@ -8845,20 +8845,20 @@ function layerRegistry(){
       /* opacità LIVE senza render(): un render pieno ricostruirebbe lo slider a metà trascinamento (bug segnalato da Simone) */
       opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); } },
-    { id:"cabin", name:"Cablaggio microfoni", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
+    { id:"cabin", name:"Microfonico", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       /* fluido: niente redraw dell'overlay (routing A* a ogni tick!) — si tocca solo lo style del gruppo */
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; var o=(v/100).toString();
         ["cab-layer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
       removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },   /* cestino = ricominciare DA ZERO */
-    { id:"cabout", name:"Cablaggio monitor", color:LAYER_COLORS.monitor,
+    { id:"cabout", name:"Monitoraggio", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } },
     { id:"net", name:"Rete / dati", color:LAYER_COLORS.rete,
       active:!!state.cab.on && netEngine().runs.length>0,
       visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },
-    { id:"elec", name:"Cablaggio elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
+    { id:"elec", name:"Elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } }   /* cestino = da zero */
