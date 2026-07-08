@@ -404,6 +404,10 @@
       <div id="pSbChRow"><label>Canali (input disponibili)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
     </div>
+    <div id="pMikeWrap" style="display:none">
+      <label>Microfonazione</label>
+      <select id="pMike"></select>
+    </div>
     <div id="pPreseWrap" style="display:none">
       <label>Ingressi (prese)</label>
       <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
@@ -2113,7 +2117,7 @@ var TYPES = {
    La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
 /* Semplificazione 08/07: nomi corti (una riga), gigante spezzato (Palco e pedane / Allestimento),
    Monitor separato dai Microfoni. "Allestimento" = rigging+strutture+sicurezza+site, in coda. */
-var CAT_ORDER = ["Strumenti","Voci","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento","Liste tecniche"];
+var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento","Liste tecniche"];
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,wireless:1,dimono:1,distereo:1,
@@ -2129,7 +2133,7 @@ function catOf(k){   /* categoria (nuova macro) di un tipo, dai suoi cat/sub ori
   switch(oc){
     case "Batteria e percussioni": case "Orchestra": return "Strumenti";
     case "Band e backline": return os==="Ampli" ? "Backline" : "Strumenti";
-    case "Persone e voci": return "Voci";
+    case "Persone e voci": return "Persone";
     case "Microfoni e DI": return "Microfoni e DI";
     case "Monitor da palco": return "Monitor";
     case "Cablaggio e segnale": case "Regia e console": case "PA e diffusione": return "Audio";
@@ -3417,7 +3421,7 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
-  if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
+  if(IN_MULTI[it.type]) return inMultiList(it).map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
   if(IN_SRC[it.type]!=null) return [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
   return [];
 }
@@ -4368,6 +4372,11 @@ function renderProps(){
       if(!it.hw){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
         if(![].some.call(sbSel.options,function(o){ return o.value===cap; })){ var op=document.createElement("option"); op.value=cap; op.textContent=cap; sbSel.appendChild(op); }
         sbSel.value=cap; } } }
+  var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
+  if(mkw){ var mk=MIKING[it.type]; mkw.style.display=mk?"block":"none";
+    if(mk){ var msel=document.getElementById("pMike");
+      msel.innerHTML=mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("");
+      msel.value=it.miking||mk.def; } }
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
@@ -5203,7 +5212,7 @@ function miniSvg(k, over){
       entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }});
       entries.push({nome:"Violino II", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(2); }});
     }
-    if(c==="Voci"){
+    if(c==="Persone"){
       var dirPov={leggio:true};
       body.appendChild(makeBtn("direttore","Direttore", dirPov, "con leggio")); n++;
       entries.push({k:"direttore", nome:"Direttore", over:dirPov, dim:"con leggio"});
@@ -7375,6 +7384,24 @@ var IN_MULTI = {
   clavicembalo: [["Clavicembalo L","KM184"],["Clavicembalo R","KM184"]]
 };
 var DRUM_KIT = IN_MULTI.batteria;
+/* MICROFONAZIONE per elemento (Simone 08/07): l'utente sceglie COME si microfona una sezione,
+   e quella scelta decide i canali (non un conteggio fisso). Prima famiglia: archi a sezione. */
+var ARCHI_SEC = {vln1x2:"Vln I", vln2x2:"Vln II", violax2:"Vla", cellix2:"Vc", cbx2:"Cb", archi2leggio:"Archi"};
+var MIKING = {};
+Object.keys(ARCHI_SEC).forEach(function(t){
+  var sec=ARCHI_SEC[t];
+  MIKING[t]={
+    options:[["archetto","Archetto (DPA)"],["pan1","1 panoramico"],["pan2","2 panoramici (stereo)"]],
+    def:"archetto",
+    chans:function(m){
+      if(m==="pan1") return [[sec+" pan","KM184"]];
+      if(m==="pan2") return [[sec+" pan L","KM184"],[sec+" pan R","KM184"]];
+      return IN_MULTI[t];   /* archetto = i 2 DPA per leggio (default) */
+    }
+  };
+});
+/* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
+function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def); return IN_MULTI[it.type]; }
 var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", iemant:"IEM", hearback:"personal mixer", monmix:"console mon" };
 
 /* ---- Channel list realistiche per formazione (contesto LIVE PA, monitor misto wedge+IEM) ---- */
@@ -7751,6 +7778,8 @@ function toggleCabLayer(){
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
   var sb=document.getElementById("pSbCh");
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; __cabRes=null; save(); render(); } });
+  var mke=document.getElementById("pMike");
+  if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
   var hw=document.getElementById("pSbHw");
   if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } __cabRes=null; save(); render(); } });
 })();
@@ -8419,7 +8448,7 @@ function autoInputs(){
       return;
     }
     if(IN_MULTI[it.type]){
-      IN_MULTI[it.type].forEach(function(k){
+      inMultiList(it).forEach(function(k){
         rows.push(linkTo(rowFromMic(labelPrefix(it,k[0]), k[1], k[2], k[3], k[4]),it));
       });
       return;
@@ -8537,7 +8566,7 @@ function toggleVenueEdit(){
 /* [strumento Zone rimosso 06/07/2026 — toggleZoneLayer/suggestZones/addZone/delZone/renderZonePanel
    e i suggerimenti automatici. Superati dai motori audio/elettrico.] */
 /* helper del motore/PDF: canali per oggetto, corrente monofase indicativa */
-function itemChannels(it){ if(IN_MULTI[it.type]) return IN_MULTI[it.type].length; if(IN_SRC[it.type]!=null) return 1; return 0; }
+function itemChannels(it){ if(IN_MULTI[it.type]) return inMultiList(it).length; if(IN_SRC[it.type]!=null) return 1; return 0; }
 function ampsFor(w){ return Math.max(1, Math.ceil((w/230)*1.1)); }   /* corrente monofase indicativa @230V + 10% */
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
