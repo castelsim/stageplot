@@ -484,6 +484,14 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* Inspector B "lista piatta" — righe chiave-valore (scelta Simone 08/07) */
+  .insp-hd{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-3);margin:14px 0 2px}
+  .insp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
+  .insp-row b{font-weight:600;color:var(--text)}
+  .insp-row small{color:var(--text-3);font-size:12px;text-align:right}
+  .insp-row.link{cursor:pointer}
+  .insp-row.link:hover b{color:var(--accent)}
+  #inspMixer{max-width:150px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:11.5px;background:var(--surface);color:var(--text)}
   /* Bolla assist stile Max sul cavo in hover (probing) */
   .cab-tip{position:fixed;z-index:70;background:#111827;color:#f9fafb;font-size:11.5px;font-weight:600;letter-spacing:.2px;padding:5px 10px;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.28);pointer-events:none;white-space:nowrap}
   body.dark .cab-tip{background:#f3f4f6;color:#111827}
@@ -1676,6 +1684,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       </div>
       <div id="layerBody" style="margin-top:6px"><div id="layerRows"></div></div>
     </div>
+    <!-- Inspector B "lista piatta" (scelta Simone 08/07): STATO + PROGETTO a righe chiave-valore -->
+    <div id="statoSec" style="display:none"></div>
+    <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
     <!-- Audit / diagnostica: analisi automatica del progetto (AI deterministica) -->
     <div id="auditSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
@@ -8649,11 +8660,11 @@ function cabFillMixerOptions(){
   Object.keys(MIXER_DB).forEach(function(id){ var m=MIXER_DB[id]; html+='<option value="'+id+'">'+esc(m.brand+" "+m.model)+(m.v===false?" ?":"")+'</option>'; });
   sel.innerHTML=html;
 }
-var cabOpen=true;   /* menu a tendina del pannello Cablaggio audio (aperto di default all'attivazione) */
+var cabOpen=false;   /* Inspector B: il pannellone parte CHIUSO — si apre da Progetto o col gesto porta */
 function renderCabPanel(){
   var sec=document.getElementById("cabSec"); if(!sec) return;
   var on=!!(state.cab && state.cab.on);
-  sec.style.display = on ? "block" : "none";   /* la sezione esiste SOLO se attivata dal catalogo */
+  sec.style.display = (on && cabOpen) ? "block" : "none";   /* Inspector B: il pannellone si vede SOLO quando lo apri da Progetto */
   document.body.classList.toggle("cab-solo", on && !!window.__cabSolo);
   if(!on){ selCab=null; return; }
   document.getElementById("cabCtrls").style.display = cabOpen ? "block" : "none";
@@ -9140,11 +9151,11 @@ function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordion
   document.getElementById("loadPdf").addEventListener("click", function(){ loadListPdf(); });
 })();
 /* ===== Pannello CABLAGGIO ELETTRICO ===== */
-var elecOpen=true;
+var elecOpen=false;   /* Inspector B: parte chiuso, si apre da Progetto o col gesto porta */
 function renderElecPanel(){
   var sec=document.getElementById("elecSec"); if(!sec) return;
   var on=!!(state.elec && state.elec.on);
-  sec.style.display = on ? "block" : "none";
+  sec.style.display = (on && elecOpen) ? "block" : "none";   /* Inspector B: visibile solo quando aperto da Progetto */
   if(!on) return;
   document.getElementById("elecCtrls").style.display = elecOpen ? "block" : "none";
   document.getElementById("elecCaret").textContent = elecOpen ? "▾" : "▸";
@@ -9266,8 +9277,67 @@ function techAccordionOpen(which){
   handle.addEventListener("dblclick", function(){ setRail(DEF); refit(); });
   window.addEventListener("resize", function(){ applyRail(savedPref()); });   /* re-clampa sulla finestra, la preferenza resta */
 })();
+/* ===== Inspector B "lista piatta" (scelta Simone 08/07, mockup inspector-vuoto.html) =====
+   Con nulla selezionato: LAYER (esistente) + STATO (righe chiave-valore) + PROGETTO (hub verso
+   mixer/report/liste/pannelli). I pannelli tecnici grandi restano ma NASCOSTI finché non li apri
+   da qui: la colonna quotidiana è pulita. */
+function renderInspectorB(){
+  var st=document.getElementById("statoSec"), pg=document.getElementById("progSec");
+  if(!st || !pg) return;
+  var hasItems=(state.items||[]).length>0;
+  /* — STATO — */
+  if(!hasItems){ st.style.display="none"; }
+  else {
+    var R=cabResult();
+    var conn=(R.links||[]).filter(function(l){ return !l.deleted; }).length;
+    var boxesTxt=(R.boxes||[]).filter(function(b){ return !b.auto; }).map(function(b){ return b.letter+(b.hw?" · "+hwLabel(b.hw,STAGEBOX_DB):""); }).join(", ");
+    var Re=(state.elec && state.elec.on) ? elecResult() : null;
+    var totC=(R.links||[]).filter(function(l){ return !l.deleted; }).reduce(function(a,l){ return a+l.lenM; },0)
+      +(R.returnLinks||[]).reduce(function(a,l){ return a+l.lenM; },0)
+      +((Re&&Re.loadLinks)||[]).reduce(function(a,l){ return a+l.lenM; },0);
+    var pw=powerTotalW(), wt=totalWeightKg(), ru=totalRackU();
+    var s='<div class="insp-hd">Stato</div>';
+    s+='<div class="insp-row"><b>Ingressi</b><small>'+conn+' / '+(R.capTot||"—")+'</small></div>';
+    if(boxesTxt) s+='<div class="insp-row"><b>Stage box</b><small>'+esc(boxesTxt)+'</small></div>';
+    if(totC>0) s+='<div class="insp-row"><b>Cavo totale</b><small>~'+totC.toFixed(0)+' m</small></div>';
+    if(wt>0) s+='<div class="insp-row"><b>Peso · rack</b><small>'+fmtKg(wt)+(ru>0?' · '+ru+' U':'')+'</small></div>';
+    if(pw>0) s+='<div class="insp-row"><b>Potenza</b><small>'+(pw/1000).toFixed(1).replace(".",",")+' kW</small></div>';
+    st.innerHTML=s; st.style.display="block";
+  }
+  /* — PROGETTO — */
+  var r='<div class="insp-hd">Progetto</div>';
+  if(state.cab && state.cab.on){
+    r+='<div class="insp-row"><b>Mixer FOH</b><select id="inspMixer"></select></div>'
+      +'<div class="insp-row link" data-go="cab"><b>Cablaggio audio</b><small>→</small></div>'
+      +'<div class="insp-row link" data-go="cabreport"><b>Report cablaggio (PDF)</b><small>→</small></div>';
+  }
+  if(state.elec && state.elec.on) r+='<div class="insp-row link" data-go="elec"><b>Cablaggio elettrico</b><small>→</small></div>';
+  r+='<div class="insp-row link" data-go="patch"><b>Input list</b><small>→</small></div>'
+    +'<div class="insp-row link" data-go="mon"><b>Monitor list</b><small>→</small></div>'
+    +'<div class="insp-row link" data-go="load"><b>Lista carichi</b><small>→</small></div>';
+  pg.innerHTML=r;
+  var ms=document.getElementById("inspMixer");
+  if(ms){
+    var html='<option value="">— nessuno —</option>';
+    Object.keys(MIXER_DB).forEach(function(id){ var m=MIXER_DB[id]; html+='<option value="'+id+'"'+(state.cab.mixer===id?' selected':'')+'>'+esc(m.brand+" "+m.model)+(m.v===false?" ?":"")+'</option>'; });
+    ms.innerHTML=html;
+    ms.addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
+  }
+  Array.prototype.forEach.call(pg.querySelectorAll(".insp-row.link"), function(row){
+    row.addEventListener("click", function(){
+      var go=row.getAttribute("data-go");
+      if(go==="cab"){ techAccordionOpen("cab"); renderAccessoriCount(); }
+      else if(go==="elec"){ techAccordionOpen("elec"); renderAccessoriCount(); }
+      else if(go==="cabreport"){ cabReportPdf(); }
+      else if(go==="patch"){ if(!patchActive) togglePatchView(); else { techAccordionOpen("patch"); renderAccessoriCount(); } }
+      else if(go==="mon"){ if(!monActive) toggleMonitorView(); else { techAccordionOpen("mon"); renderAccessoriCount(); } }
+      else if(go==="load"){ if(!loadActive) toggleLoadView(); else { techAccordionOpen("load"); renderAccessoriCount(); } }
+    });
+  });
+}
 function renderAccessoriCount(){
   renderLayerManager();
+  renderInspectorB();
   renderAuditPanel();
   renderCabPanel();
   renderElecPanel();
@@ -9282,12 +9352,7 @@ function renderAccessoriCount(){
   if(c.leggii)    parts.push("Leggii: <b>"+c.leggii+"</b>");
   if(c.sgabelli)  parts.push("Sgabelli: <b>"+c.sgabelli+"</b>");
   if(c.hearbacks) parts.push("Hearback: <b>"+c.hearbacks+"</b>");
-  var pw=powerTotalW();
-  if(pw>0) parts.push('<span class="stat-pw" title="Potenza elettrica stimata (nominale)">⚡ '+(pw/1000).toFixed(1).replace(".",",")+" kW</span>");
-  var wt=totalWeightKg();
-  if(wt>0) parts.push('<span class="stat-wt" title="Peso di trasporto stimato dell\'hardware (logistica)">⚖ '+fmtKg(wt)+'</span>');
-  var ru=totalRackU();
-  if(ru>0) parts.push('<span class="stat-ru" title="Unità rack stimate dell\'hardware">▭ '+ru+' U</span>');
+  /* ⚡/⚖/▭ tolti da qui: ora vivono nella sezione STATO dell'inspector (niente doppioni) */
   el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : "";
 }
 /* ===== Datalist src per Input patch / Output list ===== */
