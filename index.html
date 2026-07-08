@@ -1567,6 +1567,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div id="pSbChRow"><label>Canali (input disponibili)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
     </div>
+    <div id="pPreseWrap" style="display:none">
+      <label>Ingressi (prese)</label>
+      <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
+    </div>
     <label style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
     <div id="pLblPosWrap" style="display:none;margin-top:6px">
@@ -3175,7 +3179,7 @@ var TYPES = {
                '<path class="ic thin" fill="none" d="M 8,0 C 26,-22 42,-10 32,10 C 22,30 46,28 50,8"/>'; }},
   corrente: {nome:"Corrente 220V", dim:"simbolo", cat:"Elettrico", sub:"Distribuzione", w:30,d:30, defLabel:"220V",
              draw:function(){ return bar(0,0,27,27,'ic pow',5)+'<path class="pow fill" d="M 3,-11 L -7,2 L -1,2 L -3,11 L 7,-2 L 1,-2 Z"/>'; }},
-  ciabatta: {nome:"Ciabatta", dim:"simbolo", cat:"Elettrico", sub:"Distribuzione", w:44,d:17,
+  ciabatta: {nome:"Multipresa (ciabatta)", dim:"multipresa", cat:"Elettrico", sub:"Distribuzione", w:44,d:17, defLabel:"MULTIPRESA",
              draw:function(it){ return drawLibFit("ciabattamulti",it,45,12); }},
   quadro:   {nome:"Quadro elettrico", dim:"80×60", cat:"Elettrico", sub:"Distribuzione", w:82,d:62, defLabel:"POWER",
              draw:function(){ return bar(0,0,78,58,'ic pow',4)+bar(0,-10,56,12,'ic thin',2)+
@@ -3951,6 +3955,7 @@ function normalizeState(s){
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
+    if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
@@ -5544,6 +5549,9 @@ function renderProps(){
       if(!it.hw){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
         if(![].some.call(sbSel.options,function(o){ return o.value===cap; })){ var op=document.createElement("option"); op.value=cap; op.textContent=cap; sbSel.appendChild(op); }
         sbSel.value=cap; } } }
+  var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
+  if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
+    if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
   var isDbl2 = it.doppia===true || !!DOUBLE_TYPES[it.type];
   document.getElementById("pLabel2Wrap").style.display = isDbl2 ? "block" : "none";
   document.getElementById("pLabel2").value = it.label2||"";
@@ -5772,6 +5780,9 @@ function lblText(raw, it, isPrimary){
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
+(function(){ function setPrese(d){ var it=getSel(); if(!it||it.type!=="ciabatta") return; it.prese=Math.max(1,Math.min(12,(it.prese||6)+d)); document.getElementById("pPreseVal").textContent=it.prese; save(); }
+  var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
+  if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; mutSel(function(it){ it.lblSize=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
@@ -9489,7 +9500,8 @@ function renderInspectorB(){
     if(elc) s+=ir("Cavi elettrici", elc);
     if(pw>0) s+=ir("Potenza", (pw/1000).toFixed(1).replace(".",",")+" kW");
     /* Peso·rack resta nell'audit/cartiglio (dato di pre-produzione, non di disegno) */
-    if(nCiab)   s+=ir("Ciabatte", nCiab+" · "+(nCiab*6)+" prese");   /* ciabatta standard = 6 attacchi */
+    if(nCiab){ var preseTot=(state.items||[]).filter(function(it){ return it.type==="ciabatta"; }).reduce(function(a,it){ return a+(it.prese||6); },0);
+      s+=ir("Multiprese", nCiab+" · "+preseTot+" ingressi"); }
     if(nPrese)  s+=ir("Prese 220 V", nPrese);
     if(nQuadri) s+=ir("Quadri / distro", nQuadri);
     if(c.sedie)     s+=ir("Sedie", c.sedie);
