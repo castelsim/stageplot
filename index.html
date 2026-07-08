@@ -2844,12 +2844,12 @@ var TYPES = {
              draw:function(it){ return drawLibFit("ballast500",it,80,80); }},
   ballast1000: {nome:"Zavorra 1000 kg", dim:"100×100", cat:"Rigging e strutture", w:100,d:100,
              draw:function(it){ return drawLibFit("ballast1000",it,100,100); }},
-  roof86: {nome:"Copertura 8×6 m", dim:"800×600", cat:"Rigging e strutture", w:800,d:600,
-             draw:function(it){ return drawLibFit("roof86",it,800,600); }},
-  roof108: {nome:"Copertura 10×8 m", dim:"1000×800", cat:"Rigging e strutture", w:1000,d:800,
-             draw:function(it){ return drawLibFit("roof108",it,1000,800); }},
-  roof1210: {nome:"Copertura 12×10 m", dim:"1200×1000", cat:"Rigging e strutture", w:1200,d:1000,
-             draw:function(it){ return drawLibFit("roof1210",it,1200,1000); }},
+  roof86: {nome:"Copertura 8×6 m", dim:"800×600", cat:"Rigging e strutture", w:800,d:600, resizable:true,
+             draw:function(it){ return drawLibStretch("roof86",it,800,600); }},
+  roof108: {nome:"Copertura 10×8 m", dim:"1000×800", cat:"Rigging e strutture", w:1000,d:800, resizable:true,
+             draw:function(it){ return drawLibStretch("roof108",it,1000,800); }},
+  roof1210: {nome:"Copertura 12×10 m", dim:"1200×1000", cat:"Rigging e strutture", w:1200,d:1000, resizable:true,
+             draw:function(it){ return drawLibStretch("roof1210",it,1200,1000); }},
   motorctl: {nome:"Controller motori", dim:"60×50", cat:"Rigging e strutture", w:60,d:50,
              draw:function(it){ return drawLibFit("motorctl",it,60,50); }},
   catwalk: {nome:"Passerella / catwalk", dim:"200×100", cat:"Rigging e strutture", w:200,d:100,
@@ -3501,6 +3501,9 @@ function trussTop(it, kind){
 }
 function drawLibFit(key,it,bw,bd){ var k=Math.min((it&&it.w||bw)/bw,(it&&it.d||bd)/bd); k=Math.round(k*1000)/1000;
   return (k===1)?libIcon(key):'<g transform="scale('+k+')">'+libIcon(key)+'</g>'; }
+/* come drawLibFit ma con stiramento LIBERO su w e d (coperture: pianta vista dall'alto, deformabile) */
+function drawLibStretch(key,it,bw,bd){ var sx=((it&&it.w||bw)/bw).toFixed(4), sy=((it&&it.d||bd)/bd).toFixed(4);
+  return (sx==1&&sy==1)?libIcon(key):'<g transform="scale('+sx+' '+sy+')">'+libIcon(key)+'</g>'; }
 var DRUM_PARTS={ kick:{icon:"cassa22",w:66,d:62}, snare:{icon:"rullante14",w:46,d:46},
   tom:{icon:"tom12",w:30,d:34}, floor:{icon:"floortom16",w:46,d:46}, hihat:{icon:"hihat_kit",w:36,d:52},
   crash:{icon:"crash16",w:44,d:44}, ride:{icon:"ride20",w:54,d:54}, stool:{icon:"sgabellobatt",w:40,d:40} };
