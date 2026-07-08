@@ -540,9 +540,11 @@
   .cab-editable .cab-wp{pointer-events:all;cursor:grab}
   .cab-mid{fill:#0d9488;opacity:.35;pointer-events:none}
   .cab-editable .cab-mid{pointer-events:all;cursor:copy;opacity:.5}
-  .cab-endpt{fill:#fff;stroke:#0d9488;stroke-width:3.4;pointer-events:none}   /* Fase B: estremo-box, trascinabile per riconnettere */
+  .cab-endpt{fill:#fff;stroke:#0d9488;stroke-width:3.4;pointer-events:none}   /* Fase B: estremo del cavo, trascinabile per riconnettere */
+  .cab-endpt-hit{fill:transparent;stroke:none}   /* area di presa larga sopra la maniglia visibile */
   .cab-editable .cab-endpt{pointer-events:all;cursor:grab}
   .cab-editable .cab-endpt:hover{stroke:#0f766e;stroke-width:4.2}
+  .cab-editable .cab-endpt-hit:hover{stroke:none}
   .cab-homehit{fill:transparent;pointer-events:none}
   .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
   /* Layer Manager */
@@ -4634,7 +4636,7 @@ function audioCablingEngine(){
       var b= manualMode ? forced : (forced || whole || cand.filter(function(bb){ return bb.cap-bb.used>=1; })[0] || null);
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
-      var pts=[[s.it.x,s.it.y]].concat((ov.pts||[])).concat([[b.x,b.y]]);
+      var pts=[portAnchor(s.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);   /* il cavo parte dal pallino audio dell'elemento */
       var lenM=orthLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
       links.push({s:s, box:b, ch:b.used, key:s.key, pts:pts, lenM:lenM, cut:cut,
                   label:(ov.label!=null?ov.label:(b.letter+b.used)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
@@ -4679,7 +4681,7 @@ function audioCablingEngine(){
   });
   var returnLinks=[];
   mixes.forEach(function(m){ if(!m.box) return;
-    m.sinks.forEach(function(sk){ var pts=[[m.box.x,m.box.y],[sk.x,sk.y]];
+    m.sinks.forEach(function(sk){ var pts=[[m.box.x,m.box.y], portAnchor(sk,"mon")];   /* il ritorno arriva al pallino monitor */
       var lenM=orthLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
       returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut}); }); });
   var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
@@ -4865,7 +4867,9 @@ function cablingMarkup(){
           s+='<line class="cab-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
           s+='<line class="cab-seg-hit" data-cab="'+selCab+'" data-seg="'+pi+'" data-ori="'+ori+'" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
         }
-        if(sl.box){ s+='<circle class="cab-endpt" data-cab="'+selCab+'" cx="'+sl.box.x+'" cy="'+sl.box.y+'" r="9"/>'; }   /* estremo-box trascinabile → riconnetti a un'altra stage box */
+        if(sl.box){ var pe=poly[poly.length-1];   /* estremità REALE del cavo (punto d'ingresso col fan-out), non il centro box: si prende dove finisce il cavo */
+          s+='<circle class="cab-endpt" data-cab="'+selCab+'" cx="'+pe[0].toFixed(1)+'" cy="'+pe[1].toFixed(1)+'" r="8"/>'
+            +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" cx="'+pe[0].toFixed(1)+'" cy="'+pe[1].toFixed(1)+'" r="17"/>'; }   /* trascina → riconnetti a un'altra stage box */
       }
     }
     if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
@@ -5029,7 +5033,7 @@ function electricEngine(){
     }
     if(!dd){ unassigned.push(l); return; }
     dd.phLoad[ph]+=l.a; dd.loadW+=l.w; dd.nLoads=(dd.nLoads||0)+1;
-    var pts=[[dd.x,dd.y],[l.it.x,l.it.y]], lenM=orthLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);
+    var pts=[[dd.x,dd.y], portAnchor(l.it,"pow")], lenM=orthLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);   /* la linea arriva al pallino ambra */
     loadLinks.push({load:l, distro:dd, phase:ph, pts:pts, lenM:lenM, cut:cut, cee:l.a>16});
   });
   /* 4. cavi di alimentazione distro→sorgente, sezione per corrente */
@@ -5199,6 +5203,21 @@ function netMarkup(){
    Trascini dal pallino e rilasci su una stage box / distro REALE → override manuale nel motore.
    Il GESTO ATTIVA IL LAYER se spento (direzione Simone: il collegamento è il fatto di attivazione).
    Solo desktop, solo elemento singolo selezionato, mai nel render statico (PDF/PNG). */
+/* Kinds e ancore delle porte, PURE (niente motore: usate anche DAI motori per far partire i cavi
+   dal pallino — richiesta Simone: "il cavo deve partire dal punto che abbiamo messo nell'elemento") */
+function portKinds(it){
+  var ks=[];
+  if(!it || cabIsBox(it) || elecIsDistro(it) || elecIsGen(it)) return ks;
+  if(cabItemInputs(it).length>0) ks.push("audio");
+  if(OUT_SET[it.type]!=null && it.type!=="monmix") ks.push("mon");
+  if(wattOf(it)>0) ks.push("pow");
+  return ks;
+}
+function portAnchor(it, kind){
+  var ks=portKinds(it), i=ks.indexOf(kind);
+  if(i<0) return [it.x, it.y];
+  return [Math.round(it.x+(i-(ks.length-1)/2)*26), Math.round(it.y+(it.d||40)/2+16)];
+}
 function portDefs(it){
   var out=[];
   if(!it || cabIsBox(it) || elecIsDistro(it) || elecIsGen(it)) return out;
@@ -5219,9 +5238,9 @@ function portsMarkup(){
   if(!sel || Object.keys(selSet||{}).length>1) return '';
   var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0]; if(!it) return '';
   var defs=portDefs(it); if(!defs.length) return '';
-  var n=defs.length, cy=it.y+(it.d||40)/2+16, s='<g class="ports">';
-  defs.forEach(function(p,i){
-    var cx=it.x+(i-(n-1)/2)*26;
+  var s='<g class="ports">';
+  defs.forEach(function(p){
+    var a=portAnchor(it, p.kind), cx=a[0], cy=a[1];   /* stessa ancora usata dai motori: il cavo parte DA QUI */
     s+='<circle class="port-dot" style="fill:'+p.color+'" cx="'+cx+'" cy="'+cy+'" r="6"/>'
       +'<circle class="port-hit" data-port="'+p.kind+'" data-item="'+esc(it.id)+'" data-x="'+cx+'" data-y="'+cy+'" cx="'+cx+'" cy="'+cy+'" r="13"><title>'+esc(p.tip)+'</title></circle>';
   });
@@ -7369,12 +7388,23 @@ document.addEventListener("keydown", function(e){
     if((e.key==="Backspace"||e.key==="Delete") && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ e.preventDefault(); delSelBlock(); return; }
   }
   if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ if(e.key==="Escape"){ e.target.blur(); clearSelection(); render(); } return; }
+  /* cavo selezionato: Backspace/Canc lo toglie (richiesta Simone). In manual-first = SCOLLEGA
+     (la sorgente torna "da collegare"); in auto = eliminato col fantasma ripristinabile. */
+  if(selCab && (e.key==="Backspace"||e.key==="Delete")){
+    e.preventDefault();
+    var cm=cabManual(selCab);
+    if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts;
+      if(!Object.keys(cm).length) delete state.cab.manual[selCab]; }
+    else cm.deleted=true;
+    selCab=null; __cabRes=null; save(); render(); renderCabPanel();
+    return;
+  }
   if((e.metaKey||e.ctrlKey) && (e.key==="c"||e.key==="C")){ e.preventDefault(); copySel(); return; }   /* Cmd/Ctrl+C copia */
   if((e.metaKey||e.ctrlKey) && (e.key==="v"||e.key==="V")){ e.preventDefault(); pasteClip(); return; }  /* Cmd/Ctrl+V incolla */
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fitStage(); return; }   /* "a" → adatta la vista al palco */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); collapseCats(); render(); }
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; collapseCats(); render(); }
   if(!it) return;
   if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); deleteSel(); }
   else if(e.key==="r"){ rotateSel(15); }
