@@ -9312,12 +9312,12 @@ function renderInspectorB(){
     var totC=(R.links||[]).filter(function(l){ return !l.deleted; }).reduce(function(a,l){ return a+l.lenM; },0)
       +(R.returnLinks||[]).reduce(function(a,l){ return a+l.lenM; },0)
       +((Re&&Re.loadLinks)||[]).reduce(function(a,l){ return a+l.lenM; },0);
-    var pw=powerTotalW(), wt=totalWeightKg(), ru=totalRackU();
+    var pw=powerTotalW();
     var s='<div class="insp-hd">Stato</div>';
     s+='<div class="insp-row"><b>Ingressi</b><small>'+conn+' / '+(R.capTot||"—")+'</small></div>';
     if(boxesTxt) s+='<div class="insp-row"><b>Stage box</b><small>'+esc(boxesTxt)+'</small></div>';
     if(totC>0) s+='<div class="insp-row"><b>Cavo totale</b><small>~'+totC.toFixed(0)+' m</small></div>';
-    if(wt>0) s+='<div class="insp-row"><b>Peso · rack</b><small>'+fmtKg(wt)+(ru>0?' · '+ru+' U':'')+'</small></div>';
+    /* Peso·rack TOLTO dall'inspector (Simone 08/07: dato da pre-produzione, non da disegno) — resta nell'audit e nel cartiglio PDF */
     if(pw>0) s+='<div class="insp-row"><b>Potenza</b><small>'+(pw/1000).toFixed(1).replace(".",",")+' kW</small></div>';
     st.innerHTML=s; st.style.display="block";
   }
