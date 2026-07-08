@@ -498,18 +498,30 @@
   body.dark .cab-legend-bg{fill:#1a1f24;opacity:.85;stroke:#374151}
   body.dark .cab-legend-t{fill:#d1d5db}
   /* Quick-add palette (doppio click sul vuoto → digiti il nome, stile Max) */
-  .quick-add{position:fixed;z-index:60;width:256px;background:var(--panel,#fff);border:1px solid var(--line,#e5e7eb);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.18);overflow:hidden}
-  .qa-input{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line,#e5e7eb);padding:11px 13px;font-size:14px;background:transparent;color:var(--text,#111827);outline:none}
-  .qa-list{list-style:none;margin:0;padding:4px;max-height:270px;overflow-y:auto}
-  .qa-item{display:flex;flex-direction:column;gap:1px;padding:7px 9px;border-radius:8px;cursor:pointer;line-height:1.2}
-  .qa-item span{font-size:13.5px;color:var(--text,#111827)}
-  .qa-item small{font-size:11px;color:var(--text-3,#9ca3af)}
-  .qa-item.sel,.qa-item:hover{background:rgba(13,148,136,.12)}
-  .qa-item.sel span{color:#0f766e;font-weight:600}
+  /* Quick-add — variante B "minimal chic" (scelta Simone 08/07): niente icone, nome + categoria a
+     pillola, selezione con barretta teal, completamento fantasma nell'input */
+  .quick-add{position:fixed;z-index:60;width:272px;background:var(--panel,#fff);border:1px solid #e7e2da;border-radius:13px;box-shadow:0 14px 40px rgba(31,41,55,.16);overflow:hidden}
+  .qa-inpwrap{position:relative;border-bottom:1px solid #f0ebe4}
+  .qa-ghost{position:absolute;inset:0;padding:12px 14px;font-size:14.5px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
+  .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:12px 14px;font-size:14.5px;background:transparent;color:var(--text,#111827);outline:none}
+  .qa-list{list-style:none;margin:0;padding:5px 6px;max-height:270px;overflow-y:auto}
+  .qa-item{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8.5px 10px 8.5px 13px;border-radius:9px;cursor:pointer}
+  .qa-name{font-size:13.5px;font-weight:500;color:var(--text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qa-pill{flex:none;font-size:9.5px;font-weight:600;letter-spacing:.3px;color:#8d867b;background:#f3efe9;padding:3px 8px;border-radius:99px}
+  .qa-item:hover{background:rgba(13,148,136,.06)}
+  .qa-item.sel{background:rgba(13,148,136,.09)}
+  .qa-item.sel::before{content:"";position:absolute;left:3px;top:7px;bottom:7px;width:3px;border-radius:3px;background:#0d9488}
+  .qa-item.sel .qa-name{color:#0f766e;font-weight:600}
+  .qa-item.sel .qa-pill{background:rgba(13,148,136,.13);color:#0f766e}
   body.dark .quick-add{background:#141a1f;border-color:#2a3138}
-  body.dark .qa-input{border-bottom-color:#2a3138}
-  body.dark .qa-item.sel,body.dark .qa-item:hover{background:rgba(45,212,191,.15)}
-  body.dark .qa-item.sel span{color:#5eead4}
+  body.dark .qa-inpwrap{border-bottom-color:#2a3138}
+  body.dark .qa-ghost{color:#4b5563}
+  body.dark .qa-pill{background:#1f262c;color:#8b949e}
+  body.dark .qa-item:hover{background:rgba(45,212,191,.08)}
+  body.dark .qa-item.sel{background:rgba(45,212,191,.13)}
+  body.dark .qa-item.sel::before{background:#2dd4bf}
+  body.dark .qa-item.sel .qa-name{color:#5eead4}
+  body.dark .qa-item.sel .qa-pill{background:rgba(45,212,191,.16);color:#5eead4}
   .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-ghost{pointer-events:none}
   .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
@@ -6362,23 +6374,34 @@ function openQuickAdd(sp, cx, cy){
   closeQuickAdd();
   _qaSp={x:Math.round(sp.x), y:Math.round(sp.y)};
   var box=document.createElement("div"); box.id="quickAdd"; box.className="quick-add";
-  box.style.left=Math.max(8, Math.min(cx, window.innerWidth-268))+"px";
+  box.style.left=Math.max(8, Math.min(cx, window.innerWidth-288))+"px";
   box.style.top=Math.max(8, Math.min(cy, window.innerHeight-336))+"px";
+  /* variante B "minimal chic" (scelta Simone 08/07): input con completamento fantasma del primo
+     match (ghost grigio sotto l'input trasparente, stesse metriche → il testo digitato lo copre) */
+  var wrap=document.createElement("div"); wrap.className="qa-inpwrap";
+  var ghost=document.createElement("div"); ghost.className="qa-ghost";
   var inp=document.createElement("input"); inp.type="text"; inp.className="qa-input";
   inp.placeholder="Aggiungi elemento…"; inp.setAttribute("aria-label","Cerca un elemento da aggiungere");
+  wrap.appendChild(ghost); wrap.appendChild(inp);
   var list=document.createElement("ul"); list.className="qa-list";
-  box.appendChild(inp); box.appendChild(list); document.body.appendChild(box);
+  box.appendChild(wrap); box.appendChild(list); document.body.appendChild(box);
   var opts=Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; });
   function draw(q){
-    q=(q||"").trim().toLowerCase(); list.innerHTML="";
+    q=(q||"").trim().toLowerCase(); list.innerHTML=""; ghost.textContent="";
     if(!q) return;
-    opts.filter(function(t){ var n=(TYPES[t].nome||"").toLowerCase(); return n.indexOf(q)>-1 || t.toLowerCase().indexOf(q)>-1; })
+    /* ranking: prima chi inizia con la query, poi le categorie musicali (un fonico che digita "ba"
+       vuole Basso/Batteria prima di Bagno chimico), infine alfabetico */
+    function catW(t){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(TYPES[t].cat||"")?1:0; }
+    var matches=opts.filter(function(t){ var n=(TYPES[t].nome||"").toLowerCase(); return n.indexOf(q)>-1 || t.toLowerCase().indexOf(q)>-1; })
       .sort(function(a,b){ var na=(TYPES[a].nome||"").toLowerCase(), nb=(TYPES[b].nome||"").toLowerCase();
-        return ((na.indexOf(q)===0?0:1)-(nb.indexOf(q)===0?0:1)) || na.localeCompare(nb); })
-      .slice(0,8).forEach(function(t,i){
+        return ((na.indexOf(q)===0?0:1)-(nb.indexOf(q)===0?0:1)) || (catW(a)-catW(b)) || na.localeCompare(nb); })
+      .slice(0,8);
+    if(matches.length){ var tn=TYPES[matches[0]].nome||"";
+      if(tn.toLowerCase().indexOf(q)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length); }
+    matches.forEach(function(t,i){
         var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-type",t);
-        var nm=document.createElement("span"); nm.textContent=TYPES[t].nome;
-        var sm=document.createElement("small"); sm.textContent=TYPES[t].cat||"";
+        var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=TYPES[t].nome;
+        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=(TYPES[t].cat||"").split(/,| e /)[0];
         li.appendChild(nm); li.appendChild(sm);
         li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(t); });
         list.appendChild(li); });

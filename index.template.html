@@ -5241,23 +5241,34 @@ function openQuickAdd(sp, cx, cy){
   closeQuickAdd();
   _qaSp={x:Math.round(sp.x), y:Math.round(sp.y)};
   var box=document.createElement("div"); box.id="quickAdd"; box.className="quick-add";
-  box.style.left=Math.max(8, Math.min(cx, window.innerWidth-268))+"px";
+  box.style.left=Math.max(8, Math.min(cx, window.innerWidth-288))+"px";
   box.style.top=Math.max(8, Math.min(cy, window.innerHeight-336))+"px";
+  /* variante B "minimal chic" (scelta Simone 08/07): input con completamento fantasma del primo
+     match (ghost grigio sotto l'input trasparente, stesse metriche → il testo digitato lo copre) */
+  var wrap=document.createElement("div"); wrap.className="qa-inpwrap";
+  var ghost=document.createElement("div"); ghost.className="qa-ghost";
   var inp=document.createElement("input"); inp.type="text"; inp.className="qa-input";
   inp.placeholder="Aggiungi elemento…"; inp.setAttribute("aria-label","Cerca un elemento da aggiungere");
+  wrap.appendChild(ghost); wrap.appendChild(inp);
   var list=document.createElement("ul"); list.className="qa-list";
-  box.appendChild(inp); box.appendChild(list); document.body.appendChild(box);
+  box.appendChild(wrap); box.appendChild(list); document.body.appendChild(box);
   var opts=Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; });
   function draw(q){
-    q=(q||"").trim().toLowerCase(); list.innerHTML="";
+    q=(q||"").trim().toLowerCase(); list.innerHTML=""; ghost.textContent="";
     if(!q) return;
-    opts.filter(function(t){ var n=(TYPES[t].nome||"").toLowerCase(); return n.indexOf(q)>-1 || t.toLowerCase().indexOf(q)>-1; })
+    /* ranking: prima chi inizia con la query, poi le categorie musicali (un fonico che digita "ba"
+       vuole Basso/Batteria prima di Bagno chimico), infine alfabetico */
+    function catW(t){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(TYPES[t].cat||"")?1:0; }
+    var matches=opts.filter(function(t){ var n=(TYPES[t].nome||"").toLowerCase(); return n.indexOf(q)>-1 || t.toLowerCase().indexOf(q)>-1; })
       .sort(function(a,b){ var na=(TYPES[a].nome||"").toLowerCase(), nb=(TYPES[b].nome||"").toLowerCase();
-        return ((na.indexOf(q)===0?0:1)-(nb.indexOf(q)===0?0:1)) || na.localeCompare(nb); })
-      .slice(0,8).forEach(function(t,i){
+        return ((na.indexOf(q)===0?0:1)-(nb.indexOf(q)===0?0:1)) || (catW(a)-catW(b)) || na.localeCompare(nb); })
+      .slice(0,8);
+    if(matches.length){ var tn=TYPES[matches[0]].nome||"";
+      if(tn.toLowerCase().indexOf(q)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length); }
+    matches.forEach(function(t,i){
         var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-type",t);
-        var nm=document.createElement("span"); nm.textContent=TYPES[t].nome;
-        var sm=document.createElement("small"); sm.textContent=TYPES[t].cat||"";
+        var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=TYPES[t].nome;
+        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=(TYPES[t].cat||"").split(/,| e /)[0];
         li.appendChild(nm); li.appendChild(sm);
         li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(t); });
         list.appendChild(li); });
