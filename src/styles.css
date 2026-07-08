@@ -304,8 +304,11 @@
   .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
   .cab-line.cab-manual{stroke:#0e7490}
   .cab-return{fill:none;stroke:#06b6d4;stroke-width:2;stroke-linecap:round;stroke-dasharray:1 5;pointer-events:none}
+  .cab-return.cab-manual{stroke:#0891b2}
+  .cab-return.sel{stroke:#0891b2;stroke-width:3.4;stroke-dasharray:none}   /* #17: ritorno selezionato, colore monitor */
   .cab-lbl-ret{fill:#0e7490}
   body.dark .cab-return{stroke:#22d3ee}
+  body.dark .cab-return.sel{stroke:#67e8f9}
   body.dark .cab-lbl-ret{fill:#67e8f9}
   #monRows .ppatch{color:#0891b2}
   body.dark #monRows .ppatch{color:#22d3ee}
@@ -320,6 +323,8 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  .cab-seg-ret{stroke:#0891b2}   /* #17: lato piegabile del ritorno, colore monitor */
+  body.dark .cab-seg-ret{stroke:#67e8f9}
   /* linee elettriche interattive — parità Max con l'audio */
   .elec-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
   .elec-line.sel{stroke-width:3.4}
@@ -416,6 +421,9 @@
   .cab-editable .cab-endpt{pointer-events:all;cursor:grab}
   .cab-editable .cab-endpt:hover{stroke:#0f766e;stroke-width:4.2}
   .cab-editable .cab-endpt-hit:hover{stroke:none}
+  .cab-endpt-ret{stroke:#06b6d4}   /* #17: estremo box del ritorno, colore monitor */
+  .cab-editable .cab-endpt-ret:hover{stroke:#0891b2}
+  body.dark .cab-endpt-ret{stroke:#22d3ee}
   .cab-homehit{fill:transparent;pointer-events:none}
   .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
   /* Layer Manager */
