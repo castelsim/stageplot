@@ -3833,7 +3833,7 @@ function cabTryInsertAt(sp, it){
    (simulazione in modalità auto → scrive man[key].box solo verso box/distro REALI). Così la proposta
    diventa collegamenti dell'utente: visibili, modificabili, cancellabili uno a uno. */
 function cabProposeAll(){
-  if(!state.items.filter(cabIsBox).length){ alert("Metti prima una stage box sul palco (catalogo → Audio)."); return; }
+  if(!state.items.filter(cabIsBox).length){ if(window.__toast) __toast("Metti prima una stage box sul palco (catalogo → Audio)."); return; }
   var m0=state.cab.mode; state.cab.mode="auto"; var R2=audioCablingEngine(); state.cab.mode=m0;
   var wrote=0;
   (R2.links||[]).forEach(function(l){ if(l.deleted || !l.box || l.box.auto) return;
@@ -3857,7 +3857,7 @@ function elecAlign(){
   if(changed){ __elecRes=null; save(); render(); renderElecPanel(); }
 }
 function elecProposeAll(){
-  if(!state.items.filter(elecIsDistro).length){ alert("Metti prima un quadro/distro sul palco (catalogo → Elettrico)."); return; }
+  if(!state.items.filter(elecIsDistro).length){ if(window.__toast) __toast("Metti prima una ciabatta o un quadro sul palco (catalogo → Elettrico)."); return; }
   var m0=state.elec.mode; state.elec.mode="auto"; var R2=electricEngine(); state.elec.mode=m0;
   var wrote=0; state.elec.manual=state.elec.manual||{};
   (R2.loadLinks||[]).forEach(function(l){ if(!l.distro || !l.distro.it) return;
@@ -7673,7 +7673,7 @@ function layerRegistry(){
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; var o=(v/100).toString();
         ["cab-layer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
-      removable:true, remove:function(){ state.cab.on=false; selCab=null; save(); render(); } },
+      removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },   /* cestino = ricominciare DA ZERO */
     { id:"cabout", name:"Monitor / ritorni", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } },
@@ -7683,7 +7683,7 @@ function layerRegistry(){
     { id:"elec", name:"Cablaggio elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
-      removable:true, remove:function(){ state.elec.on=false; save(); render(); } }
+      removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } }   /* cestino = da zero */
   ];
 }
 var layerOpen=true;
@@ -7785,7 +7785,7 @@ function toggleCabLayer(){
 (function(){
   var head=document.getElementById("cabSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#cabTrash")) return; if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("cabTrash").addEventListener("click", function(e){ e.stopPropagation(); state.cab.on=false; selCab=null; save(); render(); });   /* cestino: rimuove il cablaggio audio */
+  document.getElementById("cabTrash").addEventListener("click", function(e){ e.stopPropagation(); state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });   /* cestino = ricominciare DA ZERO (Simone 08/07): via anche tutti i collegamenti */
   document.getElementById("cabMixer").addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
   document.getElementById("cabHome").addEventListener("change", function(){
     var k=this.value; if(!k){ state.cab.home=null; } else if(k==="custom"){ state.cab.home={kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)}; } else { state.cab.home={kind:k, x:0, y:0}; }
@@ -8248,7 +8248,7 @@ function toggleElecLayer(){
 (function(){
   var head=document.getElementById("elecSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; save(); render(); });
+  document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); });   /* cestino = da zero: via collegamenti e uplink */
   document.getElementById("elecSupply").addEventListener("change", function(){ var k=this.value; state.elec.supply = !k ? null : (k==="custom"?{kind:"custom",x:Math.round(state.stage.w/2),y:Math.round(state.stage.d+40)}:{kind:k,x:0,y:0}); __elecRes=null; save(); render(); });
   document.getElementById("elecPhase3").addEventListener("change", function(){ state.elec.phase3=this.checked; __elecRes=null; save(); render(); });
   document.getElementById("elecOpacity").addEventListener("input", function(){ state.elec.opacity=+this.value; save(); render(); });
