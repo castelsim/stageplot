@@ -317,6 +317,9 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* L5 · layer rete/dati — colore layer RETE = indigo; tratteggio "dati" distinto da multicore/elettrico */
+  .net-line{fill:none;stroke:#4f46e5;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:10 4 2 4;pointer-events:none}
+  .net-lbl{fill:#4f46e5;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
   .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
@@ -462,6 +465,8 @@
   body.dark .cab-snake{stroke:#2dd4bf}
   body.dark .cab-loom{stroke:#2dd4bf}
   body.dark .cab-loom-lbl{fill:#5eead4}
+  body.dark .net-line{stroke:#818cf8}
+  body.dark .net-lbl{fill:#a5b4fc;stroke:#0e1214}
   body.dark .cab-lbl,body.dark .cab-ghost text{fill:#5eead4}
   body.dark .cab-home rect{fill:#0d9488;stroke:#0a5952}
   .dim-lbl{fill:var(--text-2);font-size:15px;font-weight:700}
