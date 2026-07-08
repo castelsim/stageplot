@@ -578,6 +578,7 @@
           <label class="chk"><input type="checkbox" id="cabShowLabels"> Etichette</label>
           <label class="chk"><input type="checkbox" id="cabShowChannels"> Canali</label>
           <label class="chk"><input type="checkbox" id="cabShowLengths"> Lunghezze</label>
+          <label class="chk" title="Evidenzia i cavi che corrono insieme come fascio (sub-snake)"><input type="checkbox" id="cabLooms"> Fasci</label>
         </div>
         <label class="chk"><input type="checkbox" id="cabAuto"> Aggiornamento automatico</label>
         <label class="chk"><input type="checkbox" id="cabSolo"> Solo layer audio</label>
@@ -2454,7 +2455,7 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,locked:false,manual:{}},
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,looms:true,locked:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,supply:null,phase3:true,showLabels:true,showLengths:true} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
@@ -2850,7 +2851,7 @@ function normalizeState(s){
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
-    showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false,
+    showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, looms:cb.looms!==false,
     locked:!!cb.locked, manual:man,
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
@@ -3594,6 +3595,68 @@ function cabLinkLabel(l){
   if(state.cab.showLengths) parts.push(l.cut?l.cut+' m':'>50 m');
   return parts.join(' · ');
 }
+/* ── C1 · Bundling in fasci (sub-snake/loom), stile Max for Live (08/07) ──
+   In Max i patch cord che corrono insieme si leggono come un fascio; sul palco è la sub-snake/loom.
+   Derivato dai percorsi già instradati (zero stato nuovo): per orientamento, i segmenti paralleli
+   entro un corridoio di LOOM_GAP cm si raggruppano; dove ≥2 cavi DISTINTI condividono la tratta per
+   almeno LOOM_MIN cm compare la fascia sotto i cavi + etichetta "sub-snake ×N". Toggle: state.cab.looms. */
+var LOOM_GAP=40, LOOM_MIN=80;   /* corridoio 40 cm; tratta condivisa minima 80 cm (una coppia stereo si fascia già sotto il metro) */
+function cabLoomRegions(polys){
+  var segs={h:[],v:[]};
+  polys.forEach(function(c){ var P=c.poly;
+    for(var i=0;i<P.length-1;i++){ var A=P[i], B=P[i+1];
+      if(A[1]===B[1] && A[0]!==B[0]) segs.h.push({pos:A[1], a:Math.min(A[0],B[0]), b:Math.max(A[0],B[0]), key:c.key});
+      else if(A[0]===B[0] && A[1]!==B[1]) segs.v.push({pos:A[0], a:Math.min(A[1],B[1]), b:Math.max(A[1],B[1]), key:c.key});
+    }
+  });
+  var out=[];
+  ["h","v"].forEach(function(ori){
+    var S=segs[ori]; if(S.length<2) return;
+    S.sort(function(x,y){ return x.pos-y.pos; });
+    /* cluster per corridoio: segmenti consecutivi a distanza ≤ LOOM_GAP */
+    var clusters=[], cur=[S[0]];
+    for(var i=1;i<S.length;i++){ if(S[i].pos-cur[cur.length-1].pos<=LOOM_GAP) cur.push(S[i]); else { clusters.push(cur); cur=[S[i]]; } }
+    clusters.push(cur);
+    clusters.forEach(function(cl){
+      if(cl.length<2) return;
+      /* sweep sull'asse lungo: tratte coperte da ≥2 cavi distinti (aperture prima delle chiusure) */
+      var ev=[];
+      cl.forEach(function(sg,gi){ ev.push([sg.a,1,gi]); ev.push([sg.b,-1,gi]); });
+      ev.sort(function(x,y){ return x[0]-y[0] || y[1]-x[1]; });
+      var act={}, start=null, maxN=0;
+      function distinct(){ var ks={}, n=0; for(var gi in act){ var k=cl[gi].key; if(!ks[k]){ ks[k]=1; n++; } } return n; }
+      ev.forEach(function(e){
+        if(e[1]>0) act[e[2]]=1; else delete act[e[2]];
+        var n=distinct();
+        if(n>=2){ if(start==null){ start=e[0]; maxN=n; } else if(n>maxN) maxN=n; }
+        else if(start!=null){
+          if(e[0]-start>=LOOM_MIN){
+            var mid=(start+e[0])/2, pos=0, np=0;
+            cl.forEach(function(sg){ if(sg.a<mid && sg.b>mid){ pos+=sg.pos; np++; } });
+            out.push({ori:ori, pos:np?pos/np:cl[0].pos, a:start, b:e[0], n:maxN});
+          }
+          start=null;
+        }
+      });
+    });
+  });
+  return out;
+}
+function cabLoomMarkup(polys){
+  if(state.cab.looms===false || polys.length<2) return '';
+  var regs=cabLoomRegions(polys); if(!regs.length) return '';
+  var s='<g class="cab-loomlayer">';
+  regs.forEach(function(r){
+    var w=Math.min(8+2.5*r.n, 20);   /* fascia più larga con più cavi */
+    var x1,y1,x2,y2; if(r.ori==='h'){ x1=r.a; x2=r.b; y1=y2=r.pos; } else { x1=x2=r.pos; y1=r.a; y2=r.b; }
+    s+='<path class="cab-loom" style="stroke-width:'+w.toFixed(1)+'px" d="M '+x1.toFixed(1)+' '+y1.toFixed(1)+' L '+x2.toFixed(1)+' '+y2.toFixed(1)+'"/>';
+    if(state.cab.showLabels!==false){
+      var mx=(x1+x2)/2, my=(y1+y2)/2, tr=(r.ori==='v')?' transform="rotate(-90 '+mx.toFixed(1)+' '+my.toFixed(1)+')"':'';
+      s+='<text class="cab-lbl cab-loom-lbl" x="'+mx.toFixed(1)+'" y="'+(my-(w/2+3)).toFixed(1)+'"'+tr+' text-anchor="middle">sub-snake ×'+r.n+'</text>';
+    }
+  });
+  return s+'</g>';
+}
 function cablingMarkup(){
   if(!state.cab || !state.cab.on) return '';
   var showIn=state.cab.showInputs!==false, showRet=state.cab.showReturns!==false;   /* occhi del Layer Manager */
@@ -3613,15 +3676,18 @@ function cablingMarkup(){
       if(state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
         s+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
     });
+    var linkS='', loomPolys=[];   /* C1: percorsi raccolti per il calcolo dei fasci */
     R.links.forEach(function(l){
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
-      if(l.deleted){ s+='<path class="cab-del" d="'+d+'"/>'; if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
-      s+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
-      if(edit) s+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
+      if(l.deleted){ linkS+='<path class="cab-del" d="'+d+'"/>'; if(edit) linkS+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>'; return; }
+      var ep=orthExpand(dpts); loomPolys.push({key:l.key, poly:ep});
+      linkS+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
+      if(edit) linkS+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
       var lbl=cabLinkLabel(l);
-      if(lbl){ var mid=cabMidpoint(orthExpand(dpts)); s+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+      if(lbl){ var mid=cabMidpoint(ep); linkS+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
     });
+    s+=cabLoomMarkup(loomPolys)+linkS;   /* fascia loom SOTTO i cavi (ordine di pittura SVG) */
     if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
       if(sl){
         /* editing Max: ogni LATO dritto è trascinabile in perpendicolare (angoli impliciti) */
@@ -7074,6 +7140,7 @@ function renderCabPanel(){
   document.getElementById("cabShowLabels").checked = state.cab.showLabels!==false;
   document.getElementById("cabShowChannels").checked = state.cab.showChannels!==false;
   document.getElementById("cabShowLengths").checked = state.cab.showLengths!==false;
+  document.getElementById("cabLooms").checked = state.cab.looms!==false;
   document.getElementById("cabAuto").checked = state.cab.auto!==false;
   document.getElementById("cabSolo").checked = !!window.__cabSolo;
   document.getElementById("cabLocked").checked = !!state.cab.locked;
@@ -7127,6 +7194,7 @@ function toggleCabLayer(){
   document.getElementById("cabShowLabels").addEventListener("change", function(){ state.cab.showLabels=this.checked; save(); render(); });
   document.getElementById("cabShowChannels").addEventListener("change", function(){ state.cab.showChannels=this.checked; save(); render(); });
   document.getElementById("cabShowLengths").addEventListener("change", function(){ state.cab.showLengths=this.checked; save(); render(); });
+  document.getElementById("cabLooms").addEventListener("change", function(){ state.cab.looms=this.checked; save(); render(); });
   document.getElementById("cabAuto").addEventListener("change", function(){ state.cab.auto=this.checked; if(this.checked) __cabRes=null; save(); render(); });
   document.getElementById("cabSolo").addEventListener("change", function(){ window.__cabSolo=this.checked; render(); });
   document.getElementById("cabLocked").addEventListener("change", function(){ state.cab.locked=this.checked; if(this.checked) selCab=null; save(); render(); });
