@@ -6367,6 +6367,7 @@ function miniSvg(k, over){
       results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
     });
   });
+  window.__catEntries=entries;   /* stesso indice per la ricerca rapida (quick-add): include Violino I/II, varianti stagebox, pedane… */
 })();
 /* ===== Anti-sovrapposizione ===== */
 function itemsCollide(x,y,w,d,gap,ignoreId){
@@ -6468,28 +6469,37 @@ function openQuickAdd(sp, cx, cy){
   wrap.appendChild(ghost); wrap.appendChild(inp);
   var list=document.createElement("ul"); list.className="qa-list";
   box.appendChild(wrap); box.appendChild(list); document.body.appendChild(box);
-  var opts=Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; });
+  /* cerca sull'INDICE DEL CATALOGO (window.__catEntries): copre anche Violino I/II, varianti
+     stagebox/pedane, Uomo/Donna… — non solo i TYPES (fix richiesta Simone: "violino non trova
+     Violino I e II"). Fallback ai TYPES se l'indice non c'è ancora. */
+  var opts=(window.__catEntries && window.__catEntries.length) ? window.__catEntries
+    : Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; });
+  var _m=[];   /* match correnti (per pick da tastiera/click) */
+  function entCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
   function draw(q){
-    q=(q||"").trim().toLowerCase(); list.innerHTML=""; ghost.textContent="";
+    q=(q||"").trim().toLowerCase(); list.innerHTML=""; ghost.textContent=""; _m=[];
     if(!q) return;
     /* ranking: prima chi inizia con la query, poi le categorie musicali (un fonico che digita "ba"
        vuole Basso/Batteria prima di Bagno chimico), infine alfabetico */
-    function catW(t){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(TYPES[t].cat||"")?1:0; }
-    var matches=opts.filter(function(t){ var n=(TYPES[t].nome||"").toLowerCase(); return n.indexOf(q)>-1 || t.toLowerCase().indexOf(q)>-1; })
-      .sort(function(a,b){ var na=(TYPES[a].nome||"").toLowerCase(), nb=(TYPES[b].nome||"").toLowerCase();
+    function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(entCat(e))?1:0; }
+    _m=opts.filter(function(e){ var n=(e.nome||"").toLowerCase(); return n.indexOf(q)>-1 || (e.k && e.k.toLowerCase().indexOf(q)>-1); })
+      .sort(function(a,b){ var na=(a.nome||"").toLowerCase(), nb=(b.nome||"").toLowerCase();
         return ((na.indexOf(q)===0?0:1)-(nb.indexOf(q)===0?0:1)) || (catW(a)-catW(b)) || na.localeCompare(nb); })
       .slice(0,8);
-    if(matches.length){ var tn=TYPES[matches[0]].nome||"";
+    if(_m.length){ var tn=_m[0].nome||"";
       if(tn.toLowerCase().indexOf(q)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length); }
-    matches.forEach(function(t,i){
-        var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-type",t);
-        var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=TYPES[t].nome;
-        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=(TYPES[t].cat||"").split(/,| e /)[0];
+    _m.forEach(function(e,i){
+        var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-i",i);
+        var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=e.nome;
+        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=entCat(e).split(/,| e |·/)[0].trim();
         li.appendChild(nm); li.appendChild(sm);
-        li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(t); });
+        li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(e); });
         list.appendChild(li); });
   }
-  function pick(t){ var sp2=_qaSp; closeQuickAdd(); if(sp2) addItem(t, {x:sp2.x, y:sp2.y}); }
+  function pick(e){ var sp2=_qaSp; closeQuickAdd(); if(!sp2 || !e) return;
+    if(e.action){ e.action(); }   /* voci speciali (Violino I/II, liste…): azione propria, posizione automatica */
+    else if(e.k){ var over=e.over?JSON.parse(JSON.stringify(e.over)):{}; over.x=sp2.x; over.y=sp2.y; addItem(e.k, over); }
+  }
   function moveSel(d){ var items=list.querySelectorAll(".qa-item"); if(!items.length) return;
     var ci=0; items.forEach(function(el,i){ if(el.classList.contains("sel")) ci=i; });
     items[ci].classList.remove("sel"); var ni=(ci+d+items.length)%items.length; items[ni].classList.add("sel"); items[ni].scrollIntoView({block:"nearest"}); }
@@ -6498,7 +6508,7 @@ function openQuickAdd(sp, cx, cy){
     if(ev.key==="Escape"){ ev.preventDefault(); closeQuickAdd(); }
     else if(ev.key==="ArrowDown"){ ev.preventDefault(); moveSel(1); }
     else if(ev.key==="ArrowUp"){ ev.preventDefault(); moveSel(-1); }
-    else if(ev.key==="Enter"){ ev.preventDefault(); var s=list.querySelector(".qa-item.sel"); if(s) pick(s.getAttribute("data-type")); }
+    else if(ev.key==="Enter"){ ev.preventDefault(); var s=list.querySelector(".qa-item.sel"); if(s) pick(_m[+s.getAttribute("data-i")]); }
   });
   inp.addEventListener("blur", function(){ setTimeout(closeQuickAdd, 140); });   /* click fuori → chiudi (il mousedown sulle voci fa in tempo) */
   setTimeout(function(){ inp.focus(); }, 0);
