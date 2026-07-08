@@ -7486,6 +7486,9 @@ document.addEventListener("keydown", function(e){
   var legM=document.getElementById("legniModal"); if(!legM.hidden && e.key==="Escape"){ legM.hidden=true; return; }
   var ottM=document.getElementById("ottoniModal"); if(!ottM.hidden && e.key==="Escape"){ ottM.hidden=true; return; }
   if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.fileSaveVersion) fileSaveVersion(); return; }
+  /* ⌘N = nuovo progetto (richiesta Simone). NB: Chrome spesso NON consegna ⌘N alla pagina (finestra
+     nuova riservata) — per questo vale anche ⌥⌘N, sempre consegnato. e.code copre l'Alt su Mac. */
+  if((e.metaKey||e.ctrlKey) && !e.shiftKey && (e.key==="n"||e.key==="N"||e.code==="KeyN")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.proxyClick) proxyClick("bNew"); return; }
   if((e.metaKey||e.ctrlKey) && (e.key==="p"||e.key==="P")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.openPdfExportModal) window.openPdfExportModal(); return; }   /* U1: Cmd/Ctrl+P apre la finestra di export PDF dell'app (non la stampa del browser) */
   if((e.metaKey||e.ctrlKey) && (e.key==="z"||e.key==="Z")){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
   if((e.metaKey||e.ctrlKey) && (e.key==="y"||e.key==="Y")){ e.preventDefault(); redo(); return; }
