@@ -584,6 +584,7 @@
         <label class="chk"><input type="checkbox" id="cabLocked"> Blocca layer (sblocca per modificare)</label>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
           <button class="btn" id="cabRecalc" style="flex:1">Ricalcola</button>
+          <button class="btn" id="cabAlign" style="flex:1" title="Riordina i cavi sulla griglia e raddrizza i percorsi">Allinea</button>
           <button class="btn" id="cabReset" style="flex:1">Reset manuale</button>
         </div>
         <div id="cabSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
@@ -3605,6 +3606,21 @@ function cablingMarkup(){
   return s;
 }
 function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+/* Align stile Max (08/07): riordina TUTTI i cavi manuali — snap dei corner alla griglia + pulizia
+   (fonde i collineari, toglie i micro-jog). Diverso da "Reset manuale" (che butta il routing): qui il
+   percorso che hai disegnato resta, solo più pulito e allineato. Passo = griglia attiva o 25 cm. */
+function cabAlign(){
+  var R=cabResult(); if(!R) return;
+  var step=snapVal()||25, man=state.cab.manual||{}, changed=false;
+  R.links.forEach(function(l){ var m=man[l.key]; if(!m||!m.pts||!m.pts.length||!l.box) return;
+    var full=[l.pts[0]].concat(m.pts).concat([[l.box.x,l.box.y]]);
+    var snapped=full.map(function(p,i){ return (i===0||i===full.length-1) ? p.slice() : [Math.round(p[0]/step)*step, Math.round(p[1]/step)*step]; });
+    var poly=cabCleanPoly(snapped), interior=poly.slice(1,-1);
+    if(interior.length) m.pts=interior; else delete m.pts;
+    changed=true;
+  });
+  if(changed){ __cabRes=null; save(); render(); renderCabPanel(); }
+}
 
 /* ===== CABLAGGIO ELETTRICO — motore (carichi → distro → alimentazione, bilanciamento fasi) =====
    Stesso principio del cablaggio audio: dati (WATT reali) → calcolo → layer → report. */
@@ -5274,6 +5290,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="cabseg"){   /* editing Max: trascina il LATO in perpendicolare; gli angoli si formano da soli */
     sp=svgPoint(e);
     var val=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
+    var gstep=snapVal(); if(gstep>0) val=Math.round(val/gstep)*gstep;   /* Align: snap del lato alla griglia (come Max) */
     var WP=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, val));
     var ms=cabManual(drag.key); ms.pts=WP.slice(1,-1); drag.moved=true; __cabRes=null; redrawStageLayers();
     return;
@@ -7057,6 +7074,7 @@ function toggleCabLayer(){
   document.getElementById("cabSolo").addEventListener("change", function(){ window.__cabSolo=this.checked; render(); });
   document.getElementById("cabLocked").addEventListener("change", function(){ state.cab.locked=this.checked; if(this.checked) selCab=null; save(); render(); });
   document.getElementById("cabRecalc").addEventListener("click", function(){ cabResult(true); render(); });
+  document.getElementById("cabAlign").addEventListener("click", function(){ cabAlign(); });
   document.getElementById("cabReset").addEventListener("click", function(){ if(Object.keys(state.cab.manual||{}).length && !confirm("Azzerare tutte le modifiche manuali ai cavi (percorsi, etichette, eliminazioni)?")) return; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });
   document.getElementById("cabReport").addEventListener("click", function(){ cabReportPdf(); });
   document.getElementById("cabSelLabel").addEventListener("input", function(){ if(!selCab) return; cabManual(selCab).label=this.value; __cabRes=null; save(); render(); });
