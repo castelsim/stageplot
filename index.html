@@ -15,7 +15,7 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.07";</script>
+<script>window.__APP_VERSION__="2026.07.08";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -473,6 +473,11 @@
   .cab-line.sel{stroke:#0f766e;stroke-width:3.6}
   .cab-del{fill:none;stroke:#9ca3af;stroke-width:1.6;stroke-dasharray:3 5;pointer-events:none}
   .cab-snake{stroke:#0d9488;stroke-width:2;stroke-dasharray:9 5;opacity:.45;fill:none;pointer-events:none}
+  .cab-legend{pointer-events:none}
+  .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
+  .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
+  body.dark .cab-legend-bg{fill:#1a1f24;opacity:.85;stroke:#374151}
+  body.dark .cab-legend-t{fill:#d1d5db}
   .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-ghost{pointer-events:none}
   .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
@@ -3277,7 +3282,13 @@ var WATT = {
   consolaluci:100, dimmerluci:3600, testamobile:350, parluci:150, sagomatore:400,
   followspot:1200, strobo:800, fumomachine:1500, hazer:1000, proiettore:500, camera:30,
   torrefaro:1000,
-  ipad:12, tablet:10, notebook:65, macbook:60, rack2u:150, rack4u:300
+  ipad:12, tablet:10, notebook:65, macbook:60, rack2u:150, rack4u:300,
+  /* PA e monitor: assorbimento di programma (RMS medio, non picco) dei diffusori ATTIVI/amplificati.
+     Prima erano a 0 → il piano elettrico sottostimava i carichi più pesanti (L1, 08/07). Se il sistema
+     è passivo, la potenza sta nell'amp rack (amprack:2500), non qui: valori come default sensato. */
+  arraylarge:1000, arraymid:700, sub218:1500, delaytower:1200, frontfill:300,
+  wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60,
+  ledwallmod:250
 };
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
@@ -4793,7 +4804,27 @@ function stageLayerMarkup(){
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
     +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+elecMarkup()+stageBlocksOverlay()+frameMarkup(); }
+/* Legenda dei colori dei cavi (C2, 08/07): i cavi sono già color-coded (audio-in teal, monitor ciano
+   tratteggiato, elettrico ambra) ma chi guarda il palco non ha la chiave. Mostra solo i layer attivi,
+   in coordinate palco (angolo basso-sinistra). Vive nell'overlay → compare dove ci sono i cavi: canvas
+   e vista condivisa `?view=`. NON nel PDF-plot (che esclude di proposito l'overlay cablaggio per un
+   plot pulito; il cablaggio ha i suoi report dedicati). La legenda segue i cavi: dove non ci sono, non c'è. */
+function cableLegendMarkup(){
+  var rows=[];
+  if(state.cab && state.cab.on && state.cab.showInputs!==false) rows.push(["cab-line","Audio — ingressi"]);
+  if(state.cab && state.cab.on && state.cab.showReturns!==false){
+    var R=cabResult(); if(R && R.returnLinks && R.returnLinks.length) rows.push(["cab-return","Ritorni / monitor"]);
+  }
+  if(state.elec && state.elec.on && state.elec.visible!==false){ var Re=elecResult && elecResult(); if(!Re || (Re.loads&&Re.loads.length)) rows.push(["elec-line","Elettrico"]); }
+  if(!rows.length) return '';
+  var D=state.stage.d, lh=13, pad=6, h=rows.length*lh+pad*2, w=124, x=6, y=D-6-h;
+  var s='<g class="cab-legend"><rect class="cab-legend-bg" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="6"/>';
+  rows.forEach(function(r,i){ var cy=y+pad+i*lh+lh/2;
+    s+='<line class="'+r[0]+'" x1="'+(x+8)+'" y1="'+cy+'" x2="'+(x+30)+'" y2="'+cy+'"/>';
+    s+='<text class="cab-legend-t" x="'+(x+37)+'" y="'+(cy+3.2)+'">'+esc(r[1])+'</text>'; });
+  return s+'</g>';
+}
+function overlayLayerMarkup(){ return cablingMarkup()+elecMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
