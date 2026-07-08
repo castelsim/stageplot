@@ -6505,9 +6505,15 @@ function findFreeSpot(x,y,w,d){
   return {x:x,y:y};
 }
 /* strumenti/persone con nome progressivo automatico (Flauto 1, Tromba 2, …) */
+/* hardware numerato + cascata (Simone 08/07 sera): monitor, DI, multiprese, distro, aste →
+   Wedge 1/2, DI 1/2, Multipresa 1/2… con re-flow quando ne cancelli uno. */
+var NUMBERED_HW = { wedge:1, sidefill:1, drumfill:1, iem:1, sub18:1,
+  dimono:1, distereo:1, ciabatta:1, distro63:1, distro32:1, distro125:1, quadro:1,
+  astamic:1, giraffa:1, astabassa:1 };
 function autoNumbered(type){ var t=TYPES[type]; if(!t) return false;
   if(type==="corista") return false;   /* i coristi nascono senza etichetta */
   if(type==="direttore") return false;   /* il direttore non si numera: etichetta "Direttore" (sigla M°) */
+  if(NUMBERED_HW[type]) return true;
   if(t.gtr || POSTAZ[type] || VOCE[type]) return true;
   return ["Orchestra","Batteria e percussioni","Band e backline","Persone e voci"].indexOf(t.cat)>=0;
 }
@@ -6524,7 +6530,12 @@ var INSTR_BASE = {
   organoconsole:"Organo", controllermidi:"Controller MIDI", djset:"DJ set", panchetta:"Panchetta",
   rullante:"Rullante", percussioni:"Percussioni", grancassa:"Gran cassa", kickdrum:"Cassa",
   piatto:"Piatto", piatticoppia:"Piatti", campane:"Campane", tamtam:"Tam-tam",
-  marimba:"Marimba", timpani3:"Timpani", timpani2:"Timpani", spdsx:"SPD-SX"
+  marimba:"Marimba", timpani3:"Timpani", timpani2:"Timpani", spdsx:"SPD-SX",
+  /* hardware numerato */
+  wedge:"Wedge", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", sub18:"Sub",
+  dimono:"DI", distereo:"DI stereo", ciabatta:"Multipresa",
+  distro63:"Distro", distro32:"Distro", distro125:"Quadro", quadro:"Quadro",
+  astamic:"Asta", giraffa:"Giraffa", astabassa:"Asta bassa"
 };
 function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].nome) || ""; }
 /* "posti" già usati per quello strumento (una postazione a 2 conta 2) */
