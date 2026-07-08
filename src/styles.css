@@ -319,6 +319,19 @@
   .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
   body.dark .cab-legend-bg{fill:#1a1f24;opacity:.85;stroke:#374151}
   body.dark .cab-legend-t{fill:#d1d5db}
+  /* Quick-add palette (doppio click sul vuoto → digiti il nome, stile Max) */
+  .quick-add{position:fixed;z-index:60;width:256px;background:var(--panel,#fff);border:1px solid var(--line,#e5e7eb);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.18);overflow:hidden}
+  .qa-input{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line,#e5e7eb);padding:11px 13px;font-size:14px;background:transparent;color:var(--text,#111827);outline:none}
+  .qa-list{list-style:none;margin:0;padding:4px;max-height:270px;overflow-y:auto}
+  .qa-item{display:flex;flex-direction:column;gap:1px;padding:7px 9px;border-radius:8px;cursor:pointer;line-height:1.2}
+  .qa-item span{font-size:13.5px;color:var(--text,#111827)}
+  .qa-item small{font-size:11px;color:var(--text-3,#9ca3af)}
+  .qa-item.sel,.qa-item:hover{background:rgba(13,148,136,.12)}
+  .qa-item.sel span{color:#0f766e;font-weight:600}
+  body.dark .quick-add{background:#141a1f;border-color:#2a3138}
+  body.dark .qa-input{border-bottom-color:#2a3138}
+  body.dark .qa-item.sel,body.dark .qa-item:hover{background:rgba(45,212,191,.15)}
+  body.dark .qa-item.sel span{color:#5eead4}
   .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-ghost{pointer-events:none}
   .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
