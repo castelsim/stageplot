@@ -401,8 +401,10 @@
     </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
-      <div id="pSbChRow"><label>Canali (input disponibili)</label>
+      <div id="pSbChRow"><label>Ingressi (input)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
+      <div id="pSbOutRow"><label>Uscite (per i monitor)</label>
+        <select id="pSbOut"><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option></select></div>
     </div>
     <div id="pMikeWrap" style="display:none">
       <label>Microfonazione</label>
@@ -3320,7 +3322,7 @@ function cabBoxCap(it){
 }
 function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(0, STAGEBOX_DB[it.hw].out||0);
-  return it.type==="stagebox" ? 8 : 4;
+  var defo=(it.type==="stagebox")?8:4; return Math.min(64,Math.max(0,Math.round(it.outCh==null?defo:it.outCh)));   /* #9/#13: uscite selezionabili per le generiche */
 }
 var MON_STEREO = { iem:1, iemant:1, hearback:1 };   /* mix stereo (2 uscite) */
 /* Simone 08/07: niente più margine %. La lunghezza di un cavo d'ingresso = percorso orizzontale
@@ -4388,9 +4390,13 @@ function renderProps(){
       var mx=(state.cab&&state.cab.mixer);
       document.getElementById("pSbHwHint").textContent = (mx&&MIXER_DB[mx]) ? "· compatibili "+hwProtoNames(MIXER_DB[mx].proto) : "";
       document.getElementById("pSbChRow").style.display = it.hw ? "none" : "block";
+      document.getElementById("pSbOutRow").style.display = it.hw ? "none" : "block";   /* #9/#13: uscite solo per le generiche (i modelli hanno in/out fissi) */
       if(!it.hw){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
         if(![].some.call(sbSel.options,function(o){ return o.value===cap; })){ var op=document.createElement("option"); op.value=cap; op.textContent=cap; sbSel.appendChild(op); }
-        sbSel.value=cap; } } }
+        sbSel.value=cap;
+        var soSel=document.getElementById("pSbOut"), capo=String(cabBoxCapOut(it));
+        if(![].some.call(soSel.options,function(o){ return o.value===capo; })){ var op2=document.createElement("option"); op2.value=capo; op2.textContent=capo; soSel.appendChild(op2); }
+        soSel.value=capo; } } }
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
   if(mkw){ var mk=MIKING[it.type]; mkw.style.display=mk?"block":"none";
     if(mk){ var msel=document.getElementById("pMike");
@@ -7810,6 +7816,8 @@ function toggleCabLayer(){
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
   var sb=document.getElementById("pSbCh");
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; __cabRes=null; save(); render(); } });
+  var sbo=document.getElementById("pSbOut");
+  if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
   var hw=document.getElementById("pSbHw");
