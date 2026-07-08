@@ -557,23 +557,11 @@
         </div>
       </div>
     </div>
-    <div id="cabSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
-      <div class="cab-sechead" id="cabSecHead">
-        <span class="caret" id="cabCaret">▾</span>
-        <span class="cab-sectitle"><b>Cablaggio audio</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
-        <button type="button" class="cab-trash" id="cabTrash" title="Rimuovi il cablaggio audio" aria-label="Rimuovi il cablaggio audio"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
-      </div>
-      <!-- Simone 08/07: pannello ridotto all'essenziale. Mixer/Punto di connessione/Margine/toggle/
-           Opacità/Blocca/Proponi/Ricalcola/Reset/Riepilogo tolti (opacità+lucchetto nel Layer manager,
-           etichette in hover, criticità nell'Audit, lunghezza cavo = percorso + 2 m mic su asta). -->
-      <div id="cabCtrls" style="display:none;margin-top:8px">
-        <div class="row" style="display:flex;gap:6px">
-          <button class="btn" id="cabAlign" style="flex:1 1 0;min-width:0" title="Riordina i cavi sulla griglia e raddrizza i percorsi">Allinea</button>
-        </div>
-        <button class="btn primary" id="cabReport" style="width:100%;margin-top:8px">Report PDF</button>
-      </div>
-      <!-- box "Cavo selezionato": indipendente dal pannello, compare appena selezioni un cavo -->
-      <div id="cabSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
+    <!-- Simone 08/07 sera: pannello "Cablaggio audio (calcolato)" TOLTO (header/Allinea/Report PDF).
+         Tirando un cavo appaiono solo i LAYER; i PDF si scelgono dalla finestra Export PDF (pagine
+         tecniche). Resta SOLO il box "Cavo selezionato", che compare quando CLICCHI un cavo. -->
+    <div id="cabSec" style="display:none;margin-top:10px">
+      <div id="cabSel" style="display:none;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Cavo selezionato</div>
         <label class="cabfld" style="margin-top:0">Etichetta<input type="text" id="cabSelLabel" placeholder="es. Voce lead"></label>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
@@ -583,22 +571,9 @@
         <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare il cavo; l'estremo su un'altra stage box per riconnettere.</div>
       </div>
     </div>
-    <!-- Cablaggio elettrico (calcolato): sezione a tendina con cestino -->
-    <div id="elecSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
-      <div class="cab-sechead" id="elecSecHead">
-        <span class="caret" id="elecCaret">▾</span>
-        <span class="cab-sectitle"><b>Cablaggio elettrico</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
-        <button type="button" class="cab-trash" id="elecTrash" title="Rimuovi il cablaggio elettrico" aria-label="Rimuovi il cablaggio elettrico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
-      </div>
-      <!-- Simone 08/07: stessa scrematura dell'audio — solo Allinea + Piano elettrico PDF; il box
-           "Linea selezionata" (elimina/reset percorso) compare quando selezioni una linea. -->
-      <div id="elecCtrls" style="display:none;margin-top:8px">
-        <div class="row" style="display:flex;gap:6px">
-          <button class="btn" id="elecAlign" style="flex:1 1 0;min-width:0" title="Riordina le linee sulla griglia e raddrizza i percorsi">Allinea</button>
-        </div>
-        <button class="btn primary" id="elecReport" style="width:100%;margin-top:8px">Piano elettrico (PDF)</button>
-      </div>
-      <div id="elecSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
+    <!-- Cablaggio elettrico: pannello TOLTO come l'audio; resta solo "Linea selezionata" al click. -->
+    <div id="elecSec" style="display:none;margin-top:10px">
+      <div id="elecSel" style="display:none;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Linea selezionata</div>
         <div class="row" style="display:flex;gap:6px">
           <button class="btn" id="elecSelDelete" style="flex:1">Elimina linea</button>
@@ -6139,7 +6114,7 @@ svg.addEventListener("pointerup", function(e){
       if(drag.kind==="audio" || drag.kind==="mon"){
         var pb=hitAt(cabIsBox);
         if(pb){
-          if(!state.cab.on){ state.cab.on=true; techAccordionOpen("cab"); }   /* il gesto ATTIVA il layer (direzione Simone) */
+          if(!state.cab.on){ state.cab.on=true; }   /* il gesto ATTIVA il layer; niente pannello (tolto) */
           if(drag.kind==="audio"){ cabItemInputs(pit).forEach(function(_,ii){ cabManual(pit.id+"#"+ii).box=pb.id; }); }
           else { var plbl=(pit.label||"").trim(); cabManual("mix:"+(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id))).box=pb.id; }
           __cabRes=null; save();
@@ -6147,7 +6122,7 @@ svg.addEventListener("pointerup", function(e){
       } else if(drag.kind==="pow"){
         var pd=hitAt(elecIsDistro);
         if(pd){
-          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); }   /* niente supply automatica: il quadro lo disegna l'utente */
+          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; }   /* attiva il layer; niente pannello */
           state.elec.manual=state.elec.manual||{}; state.elec.manual[pit.id]={distro:pd.id};
           __elecRes=null; save();
         }
@@ -6155,7 +6130,7 @@ svg.addEventListener("pointerup", function(e){
         /* tier 2: ciabatta → quadro (solo manuale) */
         var pq=hitAt(function(t){ return elecIsDistro(t) && t.id!==pit.id; });
         if(pq){
-          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); }
+          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; }
           state.elec.uplinks=state.elec.uplinks||{}; var uu=state.elec.uplinks[pit.id]||(state.elec.uplinks[pit.id]={}); uu.to=pq.id;
           __elecRes=null; save();
         }
@@ -7717,12 +7692,8 @@ function renderLayerManager(){
   LS.forEach(function(L){
     var row=document.createElement("div"); row.className="layer-row";
     row.innerHTML='<span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
-    /* click sul NOME del layer = apre/chiude il suo pannello impostazioni (via Progetto dall'inspector) */
-    row.addEventListener("click", function(ev){
-      if(ev.target.closest(".layer-ico") || ev.target.closest(".layer-opacity")) return;
-      if(L.id==="cabin" || L.id==="cabout" || L.id==="net"){ if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); }
-      else if(L.id==="elec"){ if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); }
-    });
+    /* Simone 08/07 sera: il click sul nome layer NON apre più pannelli (tolti). I layer si gestiscono
+       da qui (occhio/lucchetto/opacità/cestino) e sul palco; i PDF dalla finestra Export PDF. */
     var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
     eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); row.appendChild(eye);
     if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); row.appendChild(lk); }
@@ -7740,17 +7711,15 @@ function cabFillMixerOptions(){
   Object.keys(MIXER_DB).forEach(function(id){ var m=MIXER_DB[id]; html+='<option value="'+id+'">'+esc(m.brand+" "+m.model)+(m.v===false?" ?":"")+'</option>'; });
   sel.innerHTML=html;
 }
-var cabOpen=false;   /* Inspector B: il pannellone parte CHIUSO — si apre da Progetto o col gesto porta */
+var cabOpen=false;   /* legacy: pannello tolto */
 function renderCabPanel(){
   var sec=document.getElementById("cabSec"); if(!sec) return;
   var on=!!(state.cab && state.cab.on);
   var R = on ? cabResult() : null;
   var sl = (on && selCab && R) ? R.links.filter(function(l){ return l.key===selCab; })[0] : null;
-  var showSel = !!sl && !state.cab.locked;   /* il box "Cavo selezionato" compare anche a pannello chiuso */
-  sec.style.display = (on && (cabOpen || showSel)) ? "block" : "none";
+  var showSel = on && !!sl && !state.cab.locked;   /* SOLO il box "Cavo selezionato", al click su un cavo */
+  sec.style.display = showSel ? "block" : "none";
   if(!on){ selCab=null; return; }
-  document.getElementById("cabCtrls").style.display = cabOpen ? "block" : "none";
-  document.getElementById("cabCaret").textContent = cabOpen ? "▾" : "▸";
   var selBox=document.getElementById("cabSel");
   if(showSel){ selBox.style.display="block";
     var ov=state.cab.manual[selCab]||{};
@@ -7763,11 +7732,7 @@ function toggleCabLayer(){
   state.cab.on=false; selCab=null; save(); render();
 }
 (function(){
-  var head=document.getElementById("cabSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#cabTrash")) return; if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("cabTrash").addEventListener("click", function(e){ e.stopPropagation(); state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });   /* cestino = ricominciare DA ZERO (Simone 08/07): via anche tutti i collegamenti */
-  document.getElementById("cabAlign").addEventListener("click", function(){ cabAlign(); });
-  document.getElementById("cabReport").addEventListener("click", function(){ cabReportPdf(); });
+  /* pannello Cablaggio audio tolto: restano solo gli handler del box "Cavo selezionato" */
   document.getElementById("cabSelLabel").addEventListener("input", function(){ if(!selCab) return; cabManual(selCab).label=this.value; __cabRes=null; save(); render(); });
   document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
@@ -8179,23 +8144,17 @@ var elecOpen=false;   /* Inspector B: parte chiuso, si apre da Progetto o col ge
 function renderElecPanel(){
   var sec=document.getElementById("elecSec"); if(!sec) return;
   var on=!!(state.elec && state.elec.on);
-  var showSel = on && !!selElec;   /* box "Linea selezionata" anche a pannello chiuso */
-  sec.style.display = (on && (elecOpen || showSel)) ? "block" : "none";
+  var showSel = on && !!selElec;   /* SOLO il box "Linea selezionata", al click su una linea */
+  sec.style.display = showSel ? "block" : "none";
   if(!on){ selElec=null; return; }
-  document.getElementById("elecCtrls").style.display = elecOpen ? "block" : "none";
-  document.getElementById("elecCaret").textContent = elecOpen ? "▾" : "▸";
   document.getElementById("elecSel").style.display = showSel ? "block" : "none";
 }
 function toggleElecLayer(){
-  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); __elecRes=null; save(); render(); return; }
+  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; __elecRes=null; save(); render(); return; }
   state.elec.on=false; save(); render();
 }
 (function(){
-  var head=document.getElementById("elecSecHead"); if(!head) return;
-  head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); });   /* cestino = da zero: via collegamenti e uplink */
-  document.getElementById("elecAlign").addEventListener("click", elecAlign);
-  document.getElementById("elecReport").addEventListener("click", function(){ elecReportPdf(); });
+  /* pannello Cablaggio elettrico tolto: restano solo gli handler del box "Linea selezionata" */
   document.getElementById("elecSelDelete").addEventListener("click", function(){ if(!selElec) return;
     if(selElec.indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[selElec.slice(3)]; }
     else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[selElec]; }
