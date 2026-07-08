@@ -3511,7 +3511,14 @@ function cablingMarkup(){
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
   if(showIn){
-    R.snakes.forEach(function(k){ var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1; s+='<path class="cab-snake" d="'+orthPathD(cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex))+'"/>'; });
+    R.snakes.forEach(function(k){ var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
+      var dpts=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex);
+      s+='<path class="cab-snake" d="'+orthPathD(dpts)+'"/>';
+      /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
+         pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
+      if(state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
+        s+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
+    });
     R.links.forEach(function(l){
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
