@@ -3280,7 +3280,7 @@ var TYPES = {
    La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
 /* Semplificazione 08/07: nomi corti (una riga), gigante spezzato (Palco e pedane / Allestimento),
    Monitor separato dai Microfoni. "Allestimento" = rigging+strutture+sicurezza+site, in coda. */
-var CAT_ORDER = ["Strumenti","Voci","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento","Layer tecnici"];
+var CAT_ORDER = ["Strumenti","Voci","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento","Liste tecniche"];
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,wireless:1,dimono:1,distereo:1,
@@ -6384,7 +6384,7 @@ function miniSvg(k, over){
         entries.push({k:"stagebox", nome:nome, over:over, dim:v[1]});
       });
     }
-    if(c==="Layer tecnici"){   /* tutte le viste/motore tecniche in un unico posto, ordinate */
+    if(c==="Liste tecniche"){   /* le liste (input/monitor/carichi) direttamente, senza sottocategorie */
       var CAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 25 Q 14 20 16 13 T 27 7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="25" r="2.6" fill="currentColor"/><rect x="23" y="4" width="7" height="6" rx="1.5" fill="currentColor"/></svg>';
       var PATCH_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M8 22l4-12 3 8 2-5 3 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5 26h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
@@ -6401,10 +6401,8 @@ function miniSvg(k, over){
          nel codice (toggleCabLayer/toggleElecLayer) per pannelli, cestini e retrocompatibilità. */
       [["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
        ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON],
-       ["Monitoraggio digitale","personal mixer tra i musicisti",openPmWizard,PM_ICON]].forEach(function(a){
-        addToGroup("Audio", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
-      [["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
-        addToGroup("Elettrico", makeActionBtn(a[0],a[1],null,a[2],a[3])); entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });
+       ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
+        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });   /* dirette, niente sub-head */
     }
     cats[c].forEach(function(k){
       if(TYPES[k].cat==="Palco e strutture" && c==="Palco e pedane") return;   /* i palco/pedane li fa il blocco speciale; truss/transenna passano di qui (in Rigging e sicurezza) */
@@ -6430,7 +6428,7 @@ function miniSvg(k, over){
     });
     /* Task 4: sposta i bottoni NON essenziali sotto "Mostra tutti (+N)" (le sottocat rimaste vuote spariscono).
        I bottoni direttamente su body (azioni Voci/Palco) restano sempre visibili. */
-    if(c!=="Layer tecnici"){
+    if(c!=="Liste tecniche"){
       var rest=document.createElement("div"); rest.className="cat-rest"; var restN=0;
       subList.forEach(function(g){
         [].filter.call(g.body.children,function(el){ return el.tagName==="BUTTON"; }).forEach(function(b){
@@ -8840,14 +8838,14 @@ function layerRegistry(){
       /* opacità LIVE senza render(): un render pieno ricostruirebbe lo slider a metà trascinamento (bug segnalato da Simone) */
       opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); } },
-    { id:"cabin", name:"Cablaggio audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
+    { id:"cabin", name:"Cablaggio microfoni", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       /* fluido: niente redraw dell'overlay (routing A* a ogni tick!) — si tocca solo lo style del gruppo */
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; var o=(v/100).toString();
         ["cab-layer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
       removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },   /* cestino = ricominciare DA ZERO */
-    { id:"cabout", name:"Monitor / ritorni", color:LAYER_COLORS.monitor,
+    { id:"cabout", name:"Cablaggio monitor", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); } },
     { id:"net", name:"Rete / dati", color:LAYER_COLORS.rete,
