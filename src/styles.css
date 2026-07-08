@@ -376,9 +376,11 @@
   .cab-editable .cab-wp{pointer-events:all;cursor:grab}
   .cab-mid{fill:#0d9488;opacity:.35;pointer-events:none}
   .cab-editable .cab-mid{pointer-events:all;cursor:copy;opacity:.5}
-  .cab-endpt{fill:#fff;stroke:#0d9488;stroke-width:3.4;pointer-events:none}   /* Fase B: estremo-box, trascinabile per riconnettere */
+  .cab-endpt{fill:#fff;stroke:#0d9488;stroke-width:3.4;pointer-events:none}   /* Fase B: estremo del cavo, trascinabile per riconnettere */
+  .cab-endpt-hit{fill:transparent;stroke:none}   /* area di presa larga sopra la maniglia visibile */
   .cab-editable .cab-endpt{pointer-events:all;cursor:grab}
   .cab-editable .cab-endpt:hover{stroke:#0f766e;stroke-width:4.2}
+  .cab-editable .cab-endpt-hit:hover{stroke:none}
   .cab-homehit{fill:transparent;pointer-events:none}
   .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
   /* Layer Manager */
