@@ -8622,11 +8622,12 @@ function layerRegistry(){
        Niente cestino: l'immagine è importata dall'utente (rimozione solo dal pannello Planimetria). */
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
-      opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; save(); render(); },
+      /* opacità LIVE senza render(): un render pieno ricostruirebbe lo slider a metà trascinamento (bug segnalato da Simone) */
+      opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); } },
     { id:"cabin", name:"Cablaggio audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
-      opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; save(); render(); },
+      opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; redrawStageLayers(); saveSoon(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
       removable:true, remove:function(){ state.cab.on=false; selCab=null; save(); render(); } },
     { id:"cabout", name:"Monitor / ritorni", color:LAYER_COLORS.monitor,
@@ -8637,7 +8638,7 @@ function layerRegistry(){
       visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },
     { id:"elec", name:"Cablaggio elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
-      opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; save(); render(); },
+      opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; redrawStageLayers(); saveSoon(); },
       removable:true, remove:function(){ state.elec.on=false; save(); render(); } }
   ];
 }
@@ -8660,7 +8661,10 @@ function renderLayerManager(){
     if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); row.appendChild(lk); }
     if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title="Rimuovi il layer"; tr.innerHTML=_LM_TRASH; tr.addEventListener("click", function(){ L.remove(); }); row.appendChild(tr); }
     rows.appendChild(row);
-    if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=5; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità"; op.addEventListener("input", function(){ L.setOpacity(+this.value); }); rows.appendChild(op); }
+    if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=5; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità";
+      op.addEventListener("input", function(){ L.setOpacity(+this.value); });          /* live, leggero: lo slider resta vivo */
+      op.addEventListener("change", function(){ save(); render(); });                  /* rilascio: salvataggio e sync completo */
+      rows.appendChild(op); }
   });
 }
 (function(){ var h=document.getElementById("layerSecHead"); if(h) h.addEventListener("click", function(){ layerOpen=!layerOpen; renderLayerManager(); }); })();
