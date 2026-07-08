@@ -609,30 +609,15 @@
         <span class="cab-sectitle"><b>Cablaggio elettrico</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
         <button type="button" class="cab-trash" id="elecTrash" title="Rimuovi il cablaggio elettrico" aria-label="Rimuovi il cablaggio elettrico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
+      <!-- Simone 08/07: pannello ridotto alle sole azioni. Alimentazione/Trifase/Opacità/Etichette/
+           Lunghezze/Aggiornamento tolte: superate dal modello manuale a 2 livelli (opacità nel Layer
+           manager, etichette in hover, il quadro è un elemento piazzato). Criticità nell'Audit. -->
       <div id="elecCtrls" style="display:none;margin-top:8px">
-        <label class="cabfld" id="elecSupplyRow">Alimentazione<select id="elecSupply">
-          <option value="">— nessuna —</option>
-          <option value="rete">Allaccio rete / quadro generale</option>
-          <option value="right">Alimentazione lato DX</option>
-          <option value="left">Alimentazione lato SX</option>
-          <option value="custom">Personalizzata (trascina il nodo)</option>
-        </select></label>
-        <div id="elecGenNote" style="font-size:10.5px;color:var(--text-3);margin-top:2px;display:none"></div>
-        <label class="chk"><input type="checkbox" id="elecPhase3"> Trifase (bilancia L1/L2/L3)</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:8px">Opacità
-          <input type="range" id="elecOpacity" min="15" max="100" step="5" style="flex:1"><span id="elecOpacityVal" style="min-width:32px;text-align:right"></span></label>
-        <div style="display:flex;flex-wrap:wrap;gap:1px 14px;margin-top:5px">
-          <label class="chk"><input type="checkbox" id="elecShowLabels"> Etichette</label>
-          <label class="chk"><input type="checkbox" id="elecShowLengths"> Lunghezze</label>
-        </div>
-        <label class="chk"><input type="checkbox" id="elecAuto"> Aggiornamento automatico</label>
-        <div class="row" style="display:flex;gap:6px;margin-top:6px">
-          <button class="btn" id="elecPropose" style="flex:1" title="Il motore propone i collegamenti mancanti verso i distro reali — diventano collegamenti tuoi">Proponi collegamenti</button>
-          <button class="btn" id="elecAlign" style="flex:1" title="Riordina le linee sulla griglia e raddrizza i percorsi">Allinea</button>
-          <button class="btn" id="elecRecalc" style="flex:1">Ricalcola</button>
+        <div class="row" style="display:flex;gap:6px">
+          <button class="btn" id="elecPropose" style="flex:1 1 0;min-width:0" title="Il motore propone i collegamenti mancanti verso i distro reali — diventano collegamenti tuoi">Proponi collegamenti</button>
+          <button class="btn" id="elecAlign" style="flex:1 1 0;min-width:0" title="Riordina le linee sulla griglia e raddrizza i percorsi">Allinea</button>
         </div>
         <button class="btn primary" id="elecReport" style="width:100%;margin-top:8px">Piano elettrico (PDF)</button>
-        <div id="elecSummary" style="margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)"></div>
       </div>
     </div>
     <!-- Input / Patch list (auto, derivata dal motore): sezione a tendina con cestino, come il cablaggio -->
@@ -4083,7 +4068,8 @@ function auditEngine(){
   if(!items.length) add("info","Palco vuoto: aggiungi strumenti, microfoni ed elementi.","Progetto");
   if(audioSrc>0 && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.",{label:"Aggiungi stage box",run:auditFixAddBox});
   if(loadsN>0 && !realDistro) add("warn","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro});
-  if(loadsN>0 && !Re.supply) add("warn","Alimentazione non definita.","Elettrico","Scegli allaccio rete o metti un generatore sul palco.",{label:"Allaccia rete",run:auditFixSetRete});
+  /* "Alimentazione non definita" rimosso: nel modello a 2 livelli il quadro è un elemento piazzato,
+     il "da collegare al quadro" lo segnala già il motore sui carichi scoperti. */
   if(audioSrc>0 && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge});
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
@@ -4119,7 +4105,6 @@ function auditFixAddDistro(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; }
   __elecRes=null; addItem("distro63");
 }
-function auditFixSetRete(){ state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); }
 function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el && el.offsetParent===null) el=document.getElementById("mTitle");
   if(el){ try{ el.focus(); el.select(); }catch(e){} } }
 function auditFixOpenCabMixer(){ techAccordionOpen("cab"); renderAccessoriCount(); var el=document.getElementById("cabMixer"); if(el) el.focus(); }
@@ -8219,43 +8204,15 @@ function renderElecPanel(){
   if(!on) return;
   document.getElementById("elecCtrls").style.display = elecOpen ? "block" : "none";
   document.getElementById("elecCaret").textContent = elecOpen ? "▾" : "▸";
-  var gen=(state.items||[]).filter(elecIsGen)[0], gn=document.getElementById("elecGenNote");
-  document.getElementById("elecSupplyRow").style.display = gen ? "none" : "block";   /* col generatore l'alimentazione è fissa */
-  if(gen){ gn.style.display="block"; gn.textContent="Generatore "+GEN_KVA[gen.type]+" kVA sul palco: usato come sorgente."; } else gn.style.display="none";
-  document.getElementById("elecSupply").value = state.elec.supply ? state.elec.supply.kind : "";
-  document.getElementById("elecPhase3").checked = state.elec.phase3!==false;
-  document.getElementById("elecOpacity").value = state.elec.opacity;
-  document.getElementById("elecOpacityVal").textContent = state.elec.opacity+"%";
-  document.getElementById("elecShowLabels").checked = state.elec.labelMode==="always";
-  document.getElementById("elecShowLengths").checked = state.elec.showLengths!==false;
-  document.getElementById("elecAuto").checked = state.elec.auto!==false;
-  var R=elecResult(), s="";
-  if(!R.loads.length){ s='<span style="color:var(--text-3)">Nessun carico elettrico sul palco: aggiungi ampli, luci, rack…</span>'; }
-  else {
-    s+='Potenza totale: <b>'+elecKW(R.totW)+'</b> · '+R.totA.toFixed(0)+' A<br>';
-    if(R.supply) s+='Alimentazione: <b>'+esc(R.supply.name)+'</b>'+(R.supply.kva?' ('+R.supply.kva+' kVA)':'')+'<br>';
-    s+='Distro: <b>'+R.distros.map(function(d){ return d.letter+' '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW/'+d.a+'A'+(d.auto?' auto':''); }).join(", ")+'</b><br>';
-    if(R.feeds.length) s+='Linee di alimentazione: <b>'+R.feeds.map(function(f){ return f.distro.letter+' '+f.section; }).join(", ")+'</b><br>';
-    if(R.issues.length){ s+='<div style="margin-top:5px">'+R.issues.map(function(i){ var col=i.lvl==="err"?"var(--danger,#dc2626)":(i.lvl==="warn"?"#b45309":"var(--text-3)"); return '<div style="color:'+col+'">• '+esc(i.msg)+'</div>'; }).join("")+'</div>'; }
-    else s+='<span style="color:var(--accent)">Nessuna criticità.</span>';
-  }
-  document.getElementById("elecSummary").innerHTML=s;
 }
 function toggleElecLayer(){
-  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); return; }
+  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); __elecRes=null; save(); render(); return; }
   state.elec.on=false; save(); render();
 }
 (function(){
   var head=document.getElementById("elecSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); });   /* cestino = da zero: via collegamenti e uplink */
-  document.getElementById("elecSupply").addEventListener("change", function(){ var k=this.value; state.elec.supply = !k ? null : (k==="custom"?{kind:"custom",x:Math.round(state.stage.w/2),y:Math.round(state.stage.d+40)}:{kind:k,x:0,y:0}); __elecRes=null; save(); render(); });
-  document.getElementById("elecPhase3").addEventListener("change", function(){ state.elec.phase3=this.checked; __elecRes=null; save(); render(); });
-  document.getElementById("elecOpacity").addEventListener("input", function(){ state.elec.opacity=+this.value; save(); render(); });
-  document.getElementById("elecShowLabels").addEventListener("change", function(){ state.elec.labelMode=this.checked?"always":"hover"; save(); render(); });   /* parità audio: etichette sempre vs hover */
-  document.getElementById("elecShowLengths").addEventListener("change", function(){ state.elec.showLengths=this.checked; save(); render(); });
-  document.getElementById("elecAuto").addEventListener("change", function(){ state.elec.auto=this.checked; if(this.checked) __elecRes=null; save(); render(); });
-  document.getElementById("elecRecalc").addEventListener("click", function(){ elecResult(true); render(); });
   document.getElementById("elecPropose").addEventListener("click", elecProposeAll);
   document.getElementById("elecAlign").addEventListener("click", elecAlign);
   document.getElementById("elecReport").addEventListener("click", function(){ elecReportPdf(); });
