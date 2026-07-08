@@ -320,6 +320,14 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* Inspector B "lista piatta" — righe chiave-valore (scelta Simone 08/07) */
+  .insp-hd{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-3);margin:14px 0 2px}
+  .insp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
+  .insp-row b{font-weight:600;color:var(--text)}
+  .insp-row small{color:var(--text-3);font-size:12px;text-align:right}
+  .insp-row.link{cursor:pointer}
+  .insp-row.link:hover b{color:var(--accent)}
+  #inspMixer{max-width:150px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:11.5px;background:var(--surface);color:var(--text)}
   /* Bolla assist stile Max sul cavo in hover (probing) */
   .cab-tip{position:fixed;z-index:70;background:#111827;color:#f9fafb;font-size:11.5px;font-weight:600;letter-spacing:.2px;padding:5px 10px;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.28);pointer-events:none;white-space:nowrap}
   body.dark .cab-tip{background:#f3f4f6;color:#111827}
