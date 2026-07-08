@@ -7512,6 +7512,12 @@ function renderLayerManager(){
   LS.forEach(function(L){
     var row=document.createElement("div"); row.className="layer-row";
     row.innerHTML='<span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
+    /* click sul NOME del layer = apre/chiude il suo pannello impostazioni (via Progetto dall'inspector) */
+    row.addEventListener("click", function(ev){
+      if(ev.target.closest(".layer-ico") || ev.target.closest(".layer-opacity")) return;
+      if(L.id==="cabin" || L.id==="cabout" || L.id==="net"){ if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); }
+      else if(L.id==="elec"){ if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); }
+    });
     var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
     eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); row.appendChild(eye);
     if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); row.appendChild(lk); }
@@ -8178,36 +8184,10 @@ function renderInspectorB(){
     if(pw>0) s+='<div class="insp-row"><b>Potenza</b><small>'+(pw/1000).toFixed(1).replace(".",",")+' kW</small></div>';
     st.innerHTML=s; st.style.display="block";
   }
-  /* — PROGETTO — */
-  var r='<div class="insp-hd">Progetto</div>';
-  if(state.cab && state.cab.on){
-    r+='<div class="insp-row"><b>Mixer FOH</b><select id="inspMixer"></select></div>'
-      +'<div class="insp-row link" data-go="cab"><b>Cablaggio audio</b><small>→</small></div>'
-      +'<div class="insp-row link" data-go="cabreport"><b>Report cablaggio (PDF)</b><small>→</small></div>';
-  }
-  if(state.elec && state.elec.on) r+='<div class="insp-row link" data-go="elec"><b>Cablaggio elettrico</b><small>→</small></div>';
-  r+='<div class="insp-row link" data-go="patch"><b>Input list</b><small>→</small></div>'
-    +'<div class="insp-row link" data-go="mon"><b>Monitor list</b><small>→</small></div>'
-    +'<div class="insp-row link" data-go="load"><b>Lista carichi</b><small>→</small></div>';
-  pg.innerHTML=r;
-  var ms=document.getElementById("inspMixer");
-  if(ms){
-    var html='<option value="">— nessuno —</option>';
-    Object.keys(MIXER_DB).forEach(function(id){ var m=MIXER_DB[id]; html+='<option value="'+id+'"'+(state.cab.mixer===id?' selected':'')+'>'+esc(m.brand+" "+m.model)+(m.v===false?" ?":"")+'</option>'; });
-    ms.innerHTML=html;
-    ms.addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
-  }
-  Array.prototype.forEach.call(pg.querySelectorAll(".insp-row.link"), function(row){
-    row.addEventListener("click", function(){
-      var go=row.getAttribute("data-go");
-      if(go==="cab"){ techAccordionOpen("cab"); renderAccessoriCount(); }
-      else if(go==="elec"){ techAccordionOpen("elec"); renderAccessoriCount(); }
-      else if(go==="cabreport"){ cabReportPdf(); }
-      else if(go==="patch"){ if(!patchActive) togglePatchView(); else { techAccordionOpen("patch"); renderAccessoriCount(); } }
-      else if(go==="mon"){ if(!monActive) toggleMonitorView(); else { techAccordionOpen("mon"); renderAccessoriCount(); } }
-      else if(go==="load"){ if(!loadActive) toggleLoadView(); else { techAccordionOpen("load"); renderAccessoriCount(); } }
-    });
-  });
+  /* PROGETTO rimosso dall'inspector (Simone 08/07 sera, screenshot): tutto resta raggiungibile —
+     Input/Monitor/Carichi dal catalogo sinistro, mixer+report dentro il pannello cablaggio, e i
+     pannelli si aprono/chiudono col CLICK SUL NOME DEL LAYER nel Layer manager. */
+  pg.innerHTML="";
 }
 function renderAccessoriCount(){
   renderLayerManager();
