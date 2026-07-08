@@ -2202,8 +2202,8 @@ var WATT = {
      Prima erano a 0 → il piano elettrico sottostimava i carichi più pesanti (L1, 08/07). Se il sistema
      è passivo, la potenza sta nell'amp rack (amprack:2500), non qui: valori come default sensato. */
   arraylarge:1000, arraymid:700, sub218:1500, delaytower:1200, frontfill:300,
-  wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60,
-  ledwallmod:250
+  wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60
+  /* NB: ledwallmod/schermo NON qui — hanno potenza area-based in WATT_BY_AREA (wattOf la usa prima). */
 };
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
@@ -2214,6 +2214,21 @@ function wattOf(it){
   return WATT[it.type]||0;
 }
 function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
+/* L3 (08/07) — guardia copertura metadata tecnici. Diagnostico (non runtime), richiamabile da console:
+   elenca gli elementi "tecnici" a cui manca un metadato atteso, così buchi silenziosi (come i WATT di
+   PA/monitor prima del 08/07) non ricompaiono aggiungendo nuovi elementi. Usa hasWatt() = WATT +
+   WATT_BY_AREA, per non falsare (ledwallmod/schermo sono coperti da WATT_BY_AREA, non sono buchi). */
+function techGapCheck(){
+  var wattCats={"PA e diffusione":1,"Luci":1,"Video":1,"Regia e console":1};   /* Monitor esclusi: molti passivi/personali legittimamente 0 W */
+  var srcCats={"Band e backline":1,"Orchestra":1};                              /* Batteria: coperta dal kit (IN_MULTI) */
+  var noWatt=[], noSrc=[];
+  Object.keys(TYPES).forEach(function(t){ var c=TYPES[t].cat;
+    if(wattCats[c] && !hasWatt(t) && !(typeof GEN_KVA!=="undefined"&&GEN_KVA[t]) && !(typeof ELEC_DISTRO!=="undefined"&&ELEC_DISTRO[t])) noWatt.push(t);
+    if(srcCats[c] && !IN_SRC[t] && !IN_MULTI[t] && !OUT_SET[t]) noSrc.push(t);
+  });
+  return {senzaPotenza:noWatt, senzaSorgente:noSrc};
+}
+if(typeof window!=="undefined") window.techGapCheck=techGapCheck;
 function powerTotalW(){ return (state.items||[]).reduce(function(a,it){ return a+wattOf(it); },0); }
 function genCapacityW(){ return (state.items||[]).reduce(function(a,it){ return a + (GEN_KVA[it.type]?GEN_KVA[it.type]*800:0); },0); }
 function suggestGen(w){
@@ -6553,7 +6568,10 @@ var IN_MULTI = {
   vln2x2: [["Vln II 1","DPA 4099"],["Vln II 2","DPA 4099"]],
   violax2: [["Vla 1","DPA 4099"],["Vla 2","DPA 4099"]],
   cellix2: [["Vc 1","DPA 4099"],["Vc 2","DPA 4099"]],
-  cbx2: [["Cb 1","DPA 4099"],["Cb 2","DPA 4099"]]
+  cbx2: [["Cb 1","DPA 4099"],["Cb 2","DPA 4099"]],
+  /* L3 (08/07): strumenti reali che prima non generavano canale (gap del lint metadata). */
+  organohammond: [["Hammond L","DI"],["Hammond R","DI"]],
+  clavicembalo: [["Clavicembalo L","KM184"],["Clavicembalo R","KM184"]]
 };
 var DRUM_KIT = IN_MULTI.batteria;
 var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", iemant:"IEM", hearback:"personal mixer", monmix:"console mon" };
