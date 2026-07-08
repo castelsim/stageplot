@@ -3478,10 +3478,7 @@ function drawLibStretch(key,it,bw,bd){ var sx=((it&&it.w||bw)/bw).toFixed(4), sy
   return (sx==1&&sy==1)?libIcon(key):'<g transform="scale('+sx+' '+sy+')">'+libIcon(key)+'</g>'; }
 var DRUM_PARTS={ kick:{icon:"cassa22",w:66,d:62}, snare:{icon:"rullante14",w:46,d:46},
   tom:{icon:"tom12",w:30,d:34}, floor:{icon:"floortom16",w:46,d:46}, hihat:{icon:"hihat_kit",w:36,d:52},
-  crash:{icon:"crash16",w:44,d:44}, ride:{icon:"ride20",w:54,d:54}, stool:{icon:"sgabellobatt",w:40,d:40},
-  pad:{icon:"__epad",w:48,d:36} };
-/* pad elettronico (multipad tipo SPD): disegnato inline, niente asset dedicato */
-function epadGlyph(){ return bar(0,0,48,36,"ic fGrey",5)+bar(-11,-8,17,12,"ic thin",2)+bar(11,-8,17,12,"ic thin",2)+bar(-11,9,17,12,"ic thin",2)+bar(11,9,17,12,"ic thin",2); }
+  crash:{icon:"crash16",w:44,d:44}, ride:{icon:"ride20",w:54,d:54}, stool:{icon:"sgabellobatt",w:40,d:40} };
 function drumSlots(p){
   var L=[], dx=p.kick2?42:0;
   function put(k,x,y,r){ L.push({k:k,x:x,y:y,rot:r||0}); }
@@ -3495,7 +3492,6 @@ function drumSlots(p){
   if(p.crash>=1) put("crash",-66-dx*0.6,-53,-12);
   if(p.crash>=2) put("crash",88+dx*0.5,-50,10);
   if(p.ride) put("ride",58+dx*0.4,-47);
-  if(p.epad) put("pad",112+dx*0.5,22);   /* multipad elettronico a destra del kit (uscita stereo → DI) */
   if(p.stool!==false) put("stool",0,-100);   /* sgabello/batterista più indietro: footprint realistico (~1,5 m di profondità, drums→batterista) */
   return L;
 }
@@ -3513,16 +3509,15 @@ function drawBatteria(it){
   if(it.w!==W||it.d!==D){ it.w=W; it.d=D; }
   L.forEach(function(sl){
     var tx=Math.round((sl.x-B.cx)*10)/10, ty=Math.round((sl.y-B.cy)*10)/10;
-    var g=(sl.k==="pad")?epadGlyph():libIcon(DRUM_PARTS[sl.k].icon);
-    s+='<g transform="translate('+tx+' '+ty+')'+(sl.rot?' rotate('+sl.rot+')':'')+'">'+g+'</g>';
+    s+='<g transform="translate('+tx+' '+ty+')'+(sl.rot?' rotate('+sl.rot+')':'')+'">'+libIcon(DRUM_PARTS[sl.k].icon)+'</g>';
   });
   return s;
 }
 function sizeBatteria(it){ var B=drumBBox(drumSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }
 function explodeBatteria(it){
   var p=parts(it), L=drumSlots(p), B=drumBBox(L), base=it.label?it.label+" ":"", out=[], nTom=0, nCr=0;
-  var map={kick:"kickR",snare:"snareR",tom:"tomR",floor:"floorR",hihat:"hihatKR",crash:"crashR",ride:"rideR",stool:"stoolR",pad:"edrums"};
-  var lab={kick:"Kick",snare:"Snare",tom:"Tom",floor:"Floor",hihat:"HH",crash:"Crash",ride:"Ride",stool:"",pad:"E-pad"};
+  var map={kick:"kickR",snare:"snareR",tom:"tomR",floor:"floorR",hihat:"hihatKR",crash:"crashR",ride:"rideR",stool:"stoolR"};
+  var lab={kick:"Kick",snare:"Snare",tom:"Tom",floor:"Floor",hihat:"HH",crash:"Crash",ride:"Ride",stool:""};
   L.forEach(function(sl){
     var nm=lab[sl.k];
     if(sl.k==="tom"){ nTom++; if(p.toms>1) nm+=" "+nTom; }
@@ -3555,14 +3550,13 @@ function explodeTimpani(it){
   return out;
 }
 var COMP = {
-  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,stool:true,epad:false},
+  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,stool:true},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
                {key:"hihat",label:"Hi-hat",type:"toggle"},
                {key:"crash",label:"Crash",type:"count",min:0,max:2},
                {key:"ride",label:"Ride",type:"toggle"},
                {key:"kick2",label:"Doppia cassa",type:"toggle"},
-               {key:"epad",label:"Pad elettronico (stereo → DI)",type:"toggle"},
                {key:"stool",label:"Sgabello",type:"toggle"} ],
     draw:drawBatteria, size:sizeBatteria, explode:explodeBatteria },
 };
@@ -4593,7 +4587,7 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
-  if(IN_MULTI[it.type]) return inMultiList(it).map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
+  if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
   if(IN_SRC[it.type]!=null) return [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
   return [];
 }
@@ -8551,23 +8545,6 @@ var IN_MULTI = {
   clavicembalo: [["Clavicembalo L","KM184"],["Clavicembalo R","KM184"]]
 };
 var DRUM_KIT = IN_MULTI.batteria;
-/* Batteria: lista canali DINAMICA dai pezzi reali del kit (parts) — il conteggio microfoni
-   è quello vero e il pad elettronico aggiunge 2 canali DI stereo (Simone 08/07). */
-function batteriaChannels(it){
-  var p=parts(it), out=[];
-  out.push(["Kick","D6"]);
-  if(p.kick2) out.push(["Kick 2","D6"]);
-  out.push(["Rullante top","SM57"]);
-  out.push(["Rullante btm","e904"]);
-  if(p.hihat) out.push(["Hi-Hat","SM81"]);
-  var nt=Math.max(0,p.toms|0); for(var i=1;i<=nt;i++) out.push([nt>1?("Tom "+i):"Tom","e904"]);
-  if(p.floor) out.push(["Tom floor","e904"]);
-  out.push(["Overhead L","KM184"]); out.push(["Overhead R","KM184"]);
-  if(p.epad){ out.push(["Pad L","DI"]); out.push(["Pad R","DI"]); }
-  return out;
-}
-/* sorgente canali di un elemento multi-input: batteria è dinamica, gli altri fissi in IN_MULTI */
-function inMultiList(it){ return it.type==="batteria" ? batteriaChannels(it) : IN_MULTI[it.type]; }
 var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", iemant:"IEM", hearback:"personal mixer", monmix:"console mon" };
 
 /* ---- Channel list realistiche per formazione (contesto LIVE PA, monitor misto wedge+IEM) ---- */
@@ -9612,7 +9589,7 @@ function autoInputs(){
       return;
     }
     if(IN_MULTI[it.type]){
-      inMultiList(it).forEach(function(k){
+      IN_MULTI[it.type].forEach(function(k){
         rows.push(linkTo(rowFromMic(labelPrefix(it,k[0]), k[1], k[2], k[3], k[4]),it));
       });
       return;
@@ -9730,7 +9707,7 @@ function toggleVenueEdit(){
 /* [strumento Zone rimosso 06/07/2026 — toggleZoneLayer/suggestZones/addZone/delZone/renderZonePanel
    e i suggerimenti automatici. Superati dai motori audio/elettrico.] */
 /* helper del motore/PDF: canali per oggetto, corrente monofase indicativa */
-function itemChannels(it){ if(IN_MULTI[it.type]) return inMultiList(it).length; if(IN_SRC[it.type]!=null) return 1; return 0; }
+function itemChannels(it){ if(IN_MULTI[it.type]) return IN_MULTI[it.type].length; if(IN_SRC[it.type]!=null) return 1; return 0; }
 function ampsFor(w){ return Math.max(1, Math.ceil((w/230)*1.1)); }   /* corrente monofase indicativa @230V + 10% */
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
