@@ -1679,12 +1679,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   </div>
   <div class="sec" id="noSel" style="font-size:12.5px;color:var(--text-3)">
     <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
+    <!-- Layer: sempre visibili, niente tendina (Simone 08/07: una volta attivati restano nell'inspector) -->
     <div id="layerSec" style="display:none">
-      <div class="cab-sechead" id="layerSecHead">
-        <span class="caret" id="layerCaret">▾</span>
-        <span class="cab-sectitle"><b>Layer</b> <span id="layerCount" style="color:var(--text-3);font-weight:400"></span></span>
-      </div>
-      <div id="layerBody" style="margin-top:6px"><div id="layerRows"></div></div>
+      <div class="insp-hd" style="margin-top:0">Layer</div>
+      <div id="layerBody"><div id="layerRows"></div></div>
     </div>
     <!-- Inspector B "lista piatta" (scelta Simone 08/07): STATO + PROGETTO a righe chiave-valore -->
     <div id="statoSec" style="display:none"></div>
@@ -8655,10 +8653,7 @@ function renderLayerManager(){
   var LS=layerRegistry().filter(function(L){ return L.active; });
   sec.style.display = LS.length ? "block" : "none";
   if(!LS.length) return;
-  document.getElementById("layerCount").textContent = "· "+LS.length;
-  document.getElementById("layerBody").style.display = layerOpen ? "block" : "none";
-  document.getElementById("layerCaret").textContent = layerOpen ? "▾" : "▸";
-  if(!layerOpen) return;
+  /* niente accordion (Simone 08/07): i layer attivi sono sempre in vista */
   var rows=document.getElementById("layerRows"); rows.innerHTML="";
   LS.forEach(function(L){
     var row=document.createElement("div"); row.className="layer-row";
@@ -8680,7 +8675,6 @@ function renderLayerManager(){
       rows.appendChild(op); }
   });
 }
-(function(){ var h=document.getElementById("layerSecHead"); if(h) h.addEventListener("click", function(){ layerOpen=!layerOpen; renderLayerManager(); }); })();
 function cabFillMixerOptions(){
   var sel=document.getElementById("cabMixer"); if(!sel || sel._filled) return; sel._filled=true;
   var html='<option value="">— nessuno —</option>';
