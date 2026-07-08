@@ -1726,47 +1726,24 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <span class="cab-sectitle"><b>Cablaggio audio</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
         <button type="button" class="cab-trash" id="cabTrash" title="Rimuovi il cablaggio audio" aria-label="Rimuovi il cablaggio audio"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
+      <!-- Simone 08/07: pannello ridotto all'essenziale. Mixer/Punto di connessione/Margine/toggle/
+           Opacità/Blocca/Proponi/Ricalcola/Reset/Riepilogo tolti (opacità+lucchetto nel Layer manager,
+           etichette in hover, criticità nell'Audit, lunghezza cavo = percorso + 2 m mic su asta). -->
       <div id="cabCtrls" style="display:none;margin-top:8px">
-        <label class="cabfld">Mixer FOH<select id="cabMixer"></select></label>
-        <div id="cabCompat" style="font-size:10.5px;margin-top:2px"></div>
-        <label class="cabfld">Punto principale di connessione<select id="cabHome">
-          <option value="">— nessuno —</option>
-          <option value="foh">FOH mixer</option>
-          <option value="monitor">Monitor mixer</option>
-          <option value="stagerack">Stage rack / I/O rack</option>
-          <option value="right">Uscita palco DX</option>
-          <option value="left">Uscita palco SX</option>
-          <option value="custom">Personalizzato (trascina il nodo)</option>
-        </select></label>
-        <label class="cabfld">Margine cavo<select id="cabMarginSel"><option value="30">+30%</option><option value="20">+20%</option></select></label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:8px">Opacità
-          <input type="range" id="cabOpacity" min="15" max="100" step="5" style="flex:1"><span id="cabOpacityVal" style="min-width:32px;text-align:right"></span></label>
-        <div style="display:flex;flex-wrap:wrap;gap:1px 14px;margin-top:5px">
-          <label class="chk"><input type="checkbox" id="cabShowLabels"> Etichette</label>
-          <label class="chk"><input type="checkbox" id="cabShowChannels"> Canali</label>
-          <label class="chk"><input type="checkbox" id="cabShowLengths"> Lunghezze</label>
-          <label class="chk" title="Evidenzia i cavi che corrono insieme come fascio (sub-snake)"><input type="checkbox" id="cabLooms"> Fasci</label>
-        </div>
-        <label class="chk"><input type="checkbox" id="cabAuto"> Aggiornamento automatico</label>
-        <label class="chk"><input type="checkbox" id="cabSolo"> Solo layer audio</label>
-        <label class="chk"><input type="checkbox" id="cabLocked"> Blocca layer (sblocca per modificare)</label>
-        <button class="btn" id="cabPropose" style="width:100%;margin-top:6px" title="Il motore propone i collegamenti mancanti verso le stage box reali — diventano collegamenti tuoi, modificabili uno a uno">Proponi collegamenti</button>
-        <div class="row" style="display:flex;gap:6px;margin-top:6px">
-          <button class="btn" id="cabRecalc" style="flex:1">Ricalcola</button>
-          <button class="btn" id="cabAlign" style="flex:1" title="Riordina i cavi sulla griglia e raddrizza i percorsi">Allinea</button>
-          <button class="btn" id="cabReset" style="flex:1">Reset manuale</button>
-        </div>
-        <div id="cabSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
-          <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Cavo selezionato</div>
-          <label class="cabfld" style="margin-top:0">Etichetta<input type="text" id="cabSelLabel" placeholder="es. Voce lead"></label>
-          <div class="row" style="display:flex;gap:6px;margin-top:6px">
-            <button class="btn" id="cabSelDelete" style="flex:1">Elimina cavo</button>
-            <button class="btn" id="cabSelResetPath" style="flex:1">Reset percorso</button>
-          </div>
-          <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i pallini vuoti per piegare il cavo; doppio-click su un punto per toglierlo.</div>
+        <div class="row" style="display:flex;gap:6px">
+          <button class="btn" id="cabAlign" style="flex:1 1 0;min-width:0" title="Riordina i cavi sulla griglia e raddrizza i percorsi">Allinea</button>
         </div>
         <button class="btn primary" id="cabReport" style="width:100%;margin-top:8px">Report PDF</button>
-        <div id="cabSummary" style="margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--text-2)"></div>
+      </div>
+      <!-- box "Cavo selezionato": indipendente dal pannello, compare appena selezioni un cavo -->
+      <div id="cabSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Cavo selezionato</div>
+        <label class="cabfld" style="margin-top:0">Etichetta<input type="text" id="cabSelLabel" placeholder="es. Voce lead"></label>
+        <div class="row" style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn" id="cabSelDelete" style="flex:1">Elimina cavo</button>
+          <button class="btn" id="cabSelResetPath" style="flex:1">Reset percorso</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare il cavo; l'estremo su un'altra stage box per riconnettere.</div>
       </div>
     </div>
     <!-- Cablaggio elettrico (calcolato): sezione a tendina con cestino -->
@@ -1776,15 +1753,21 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <span class="cab-sectitle"><b>Cablaggio elettrico</b> <span style="color:var(--text-3);font-weight:400">(calcolato)</span></span>
         <button type="button" class="cab-trash" id="elecTrash" title="Rimuovi il cablaggio elettrico" aria-label="Rimuovi il cablaggio elettrico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
-      <!-- Simone 08/07: pannello ridotto alle sole azioni. Alimentazione/Trifase/Opacità/Etichette/
-           Lunghezze/Aggiornamento tolte: superate dal modello manuale a 2 livelli (opacità nel Layer
-           manager, etichette in hover, il quadro è un elemento piazzato). Criticità nell'Audit. -->
+      <!-- Simone 08/07: stessa scrematura dell'audio — solo Allinea + Piano elettrico PDF; il box
+           "Linea selezionata" (elimina/reset percorso) compare quando selezioni una linea. -->
       <div id="elecCtrls" style="display:none;margin-top:8px">
         <div class="row" style="display:flex;gap:6px">
-          <button class="btn" id="elecPropose" style="flex:1 1 0;min-width:0" title="Il motore propone i collegamenti mancanti verso i distro reali — diventano collegamenti tuoi">Proponi collegamenti</button>
           <button class="btn" id="elecAlign" style="flex:1 1 0;min-width:0" title="Riordina le linee sulla griglia e raddrizza i percorsi">Allinea</button>
         </div>
         <button class="btn primary" id="elecReport" style="width:100%;margin-top:8px">Piano elettrico (PDF)</button>
+      </div>
+      <div id="elecSel" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Linea selezionata</div>
+        <div class="row" style="display:flex;gap:6px">
+          <button class="btn" id="elecSelDelete" style="flex:1">Elimina linea</button>
+          <button class="btn" id="elecSelResetPath" style="flex:1">Reset percorso</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare; l'estremo su un altro distro per riconnettere.</div>
       </div>
     </div>
     <!-- Input / Patch list (auto, derivata dal motore): sezione a tendina con cestino, come il cablaggio -->
@@ -4506,7 +4489,10 @@ function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
   return it.type==="stagebox" ? 8 : 4;
 }
 var MON_STEREO = { iem:1, iemant:1, hearback:1 };   /* mix stereo (2 uscite) */
-function cabMargin(){ return ((state.cab&&+state.cab.margin===20)?20:30)/100; }
+/* Simone 08/07: niente più margine %. La lunghezza di un cavo d'ingresso = percorso orizzontale
+   + MIC_REACH (arrivare al microfono su asta / risalire l'asta). I ritorni/snake restano al percorso. */
+var MIC_REACH=2;   /* metri */
+function cabMargin(){ return 0; }   /* legacy, non più usato per il calcolo */
 function polyLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); } return d; }
 /* ── Routing ORTOGONALE dei cavi (mai diagonali): percorso a L, run lungo l'asse dominante + gomito vicino al bersaglio ── */
 function orthCorner(a,b){ return (Math.abs(b[1]-a[1])>=Math.abs(b[0]-a[0])) ? [a[0],b[1]] : [b[0],a[1]]; }
@@ -4677,7 +4663,7 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
       var pts=[portAnchor(s.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);   /* il cavo parte dal pallino audio dell'elemento */
-      var lenM=orthLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
+      var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
       links.push({s:s, box:b, ch:b.used, key:s.key, pts:pts, lenM:lenM, cut:cut,
                   label:(ov.label!=null?ov.label:(b.letter+b.used)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
@@ -4694,7 +4680,7 @@ function audioCablingEngine(){
       var prev=l.pts[l.pts.length-2]||[b.x,b.y];
       var vert=Math.abs(prev[1]-b.y)>=Math.abs(prev[0]-b.x);   /* ingresso più verticale? offset in x, altrimenti in y */
       l.pts[l.pts.length-1]= vert ? [b.x+off, b.y] : [b.x, b.y+off];
-      l.lenM=orthLen(l.pts)/100*(1+cabMargin()); l.cut=cabCut(l.lenM);
+      l.lenM=orthLen(l.pts)/100+MIC_REACH; l.cut=cabCut(l.lenM);
     });
   });
   /* digital snake: home-run da ogni box usata al punto principale */
@@ -4722,7 +4708,7 @@ function audioCablingEngine(){
   var returnLinks=[];
   mixes.forEach(function(m){ if(!m.box) return;
     m.sinks.forEach(function(sk){ var pts=[[m.box.x,m.box.y], portAnchor(sk,"mon")];   /* il ritorno arriva al pallino monitor */
-      var lenM=orthLen(pts)/100*(1+cabMargin()), cut=cabCut(lenM);
+      var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m di slack anche sul ritorno */
       returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut}); }); });
   var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
   var mixChTot=mixes.reduce(function(a,m){ return a+m.ch; },0);
@@ -5242,7 +5228,7 @@ function auditEngine(){
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
   if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del rider.","Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
-  if(state.cab.on && !state.cab.mixer) add("warn","Mixer FOH non specificato nel cablaggio audio.","Rider","In un rider professionale la console va dichiarata (guida compatibilità stage box e protocolli).",{label:"Scegli mixer",run:auditFixOpenCabMixer});
+  /* "Mixer FOH non specificato" rimosso: il mixer è un dato opzionale (per ora fuori dal pannello) */
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
@@ -8860,7 +8846,7 @@ function renderLayerManager(){
     row.addEventListener("click", function(ev){
       if(ev.target.closest(".layer-ico") || ev.target.closest(".layer-opacity")) return;
       if(L.id==="cabin" || L.id==="cabout" || L.id==="net"){ if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); }
-      /* elec: nessun pannello "per adesso" (Simone) — il layer si gestisce da qui e sul palco */
+      else if(L.id==="elec"){ if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); }
     });
     var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
     eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); row.appendChild(eye);
@@ -8883,59 +8869,19 @@ var cabOpen=false;   /* Inspector B: il pannellone parte CHIUSO — si apre da P
 function renderCabPanel(){
   var sec=document.getElementById("cabSec"); if(!sec) return;
   var on=!!(state.cab && state.cab.on);
-  sec.style.display = (on && cabOpen) ? "block" : "none";   /* Inspector B: il pannellone si vede SOLO quando lo apri da Progetto */
-  document.body.classList.toggle("cab-solo", on && !!window.__cabSolo);
+  var R = on ? cabResult() : null;
+  var sl = (on && selCab && R) ? R.links.filter(function(l){ return l.key===selCab; })[0] : null;
+  var showSel = !!sl && !state.cab.locked;   /* il box "Cavo selezionato" compare anche a pannello chiuso */
+  sec.style.display = (on && (cabOpen || showSel)) ? "block" : "none";
   if(!on){ selCab=null; return; }
   document.getElementById("cabCtrls").style.display = cabOpen ? "block" : "none";
   document.getElementById("cabCaret").textContent = cabOpen ? "▾" : "▸";
-  cabFillMixerOptions();
-  document.getElementById("cabMixer").value = state.cab.mixer||"";
-  document.getElementById("cabHome").value = state.cab.home ? state.cab.home.kind : "";
-  document.getElementById("cabMarginSel").value = String(state.cab.margin||30);
-  document.getElementById("cabOpacity").value = state.cab.opacity;
-  document.getElementById("cabOpacityVal").textContent = state.cab.opacity+"%";
-  document.getElementById("cabShowLabels").checked = state.cab.labelMode==="always";
-  document.getElementById("cabShowChannels").checked = state.cab.showChannels!==false;
-  document.getElementById("cabShowLengths").checked = state.cab.showLengths!==false;
-  document.getElementById("cabLooms").checked = state.cab.looms!==false;
-  document.getElementById("cabAuto").checked = state.cab.auto!==false;
-  document.getElementById("cabSolo").checked = !!window.__cabSolo;
-  document.getElementById("cabLocked").checked = !!state.cab.locked;
-  /* compatibilità mixer selezionato */
-  var cmp=document.getElementById("cabCompat"), mid=state.cab.mixer;
-  if(mid && MIXER_DB[mid]){ cmp.style.display="block"; cmp.style.color="var(--text-3)";
-    cmp.textContent="Protocollo: "+hwProtoNames(MIXER_DB[mid].proto)+(MIXER_DB[mid].v===false?" · specifiche da verificare":""); }
-  else cmp.style.display="none";
-  var R=cabResult();
-  /* editor cavo selezionato */
   var selBox=document.getElementById("cabSel");
-  var sl = selCab ? R.links.filter(function(l){ return l.key===selCab; })[0] : null;
-  if(sl && !state.cab.locked){ selBox.style.display="block";
+  if(showSel){ selBox.style.display="block";
     var ov=state.cab.manual[selCab]||{};
     document.getElementById("cabSelLabel").value = (ov.label!=null)?ov.label:sl.label;
     document.getElementById("cabSelDelete").textContent = sl.deleted ? "Ripristina cavo" : "Elimina cavo";
   } else selBox.style.display="none";
-  /* riepilogo */
-  var s="";
-  if(!R.totIn){ s='<span style="color:var(--text-3)">Nessuna sorgente audio sul palco: aggiungi mic, DI o strumenti.</span>'; }
-  else {
-    if(R.mixer && MIXER_DB[R.mixer]) s+='Mixer: <b>'+esc(hwLabel(R.mixer,MIXER_DB))+'</b><br>';
-    if(R.home) s+='Punto principale: <b>'+esc(R.home.name)+'</b><br>';
-    s+='Input audio totali: <b>'+R.totIn+'</b> / '+R.capTot+' disponibili<br>';
-    s+='Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw?" "+hwLabel(b.hw,STAGEBOX_DB):"")+" ("+b.used+"/"+b.cap+(b.auto?" auto":"")+")"; }).join(", ")+'</b><br>';
-    var N=netEngine();
-    if(N.runs.length) s+='Rete: <b>'+N.runs.map(function(r){ return r.box.letter+" "+AUDIO_PROTO[r.proto]+" · "+r.medium+" · "+r.lenM.toFixed(0)+" m"; }).join(", ")+'</b><br>';
-    var cuts=Object.keys(R.cables).sort(function(a,b){ return parseFloat(a)-parseFloat(b); });
-    if(cuts.length) s+='Cavi XLR: <b>'+cuts.map(function(c){ return R.cables[c]+"× "+c; }).join(", ")+'</b><br>';
-    if(R.diMono||R.diStereo) s+='DI da prevedere: <b>'+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":"")+'</b><br>';
-    var allIssues=R.issues.concat(N.issues);   /* L5: criticità di rete insieme a quelle audio */
-    if(allIssues.length){
-      s+='<div style="margin-top:5px">'+allIssues.map(function(i){
-        var col=i.lvl==="err"?"var(--danger,#dc2626)":(i.lvl==="warn"?"#b45309":"var(--text-3)");
-        return '<div style="color:'+col+'">• '+esc(i.msg)+'</div>'; }).join("")+'</div>';
-    } else s+='<span style="color:var(--accent)">Nessuna criticità.</span>';
-  }
-  document.getElementById("cabSummary").innerHTML=s;
 }
 function toggleCabLayer(){
   if(!state.cab.on){ cabActivateFlow(); return; }   /* prima attivazione → modale mixer + punto principale */
@@ -8945,23 +8891,7 @@ function toggleCabLayer(){
   var head=document.getElementById("cabSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#cabTrash")) return; if(cabOpen) cabOpen=false; else techAccordionOpen("cab"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("cabTrash").addEventListener("click", function(e){ e.stopPropagation(); state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });   /* cestino = ricominciare DA ZERO (Simone 08/07): via anche tutti i collegamenti */
-  document.getElementById("cabMixer").addEventListener("change", function(){ state.cab.mixer=this.value; __cabRes=null; save(); render(); });
-  document.getElementById("cabHome").addEventListener("change", function(){
-    var k=this.value; if(!k){ state.cab.home=null; } else if(k==="custom"){ state.cab.home={kind:"custom", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+30)}; } else { state.cab.home={kind:k, x:0, y:0}; }
-    __cabRes=null; save(); render(); });
-  document.getElementById("cabMarginSel").addEventListener("change", function(){ state.cab.margin=(+this.value===20?20:30); __cabRes=null; save(); render(); });
-  document.getElementById("cabOpacity").addEventListener("input", function(){ state.cab.opacity=+this.value; save(); render(); });
-  document.getElementById("cabShowLabels").addEventListener("change", function(){ state.cab.labelMode=this.checked?"always":"hover"; save(); render(); });   /* etichette sempre visibili vs hover (stile Max) */
-  document.getElementById("cabShowChannels").addEventListener("change", function(){ state.cab.showChannels=this.checked; save(); render(); });
-  document.getElementById("cabShowLengths").addEventListener("change", function(){ state.cab.showLengths=this.checked; save(); render(); });
-  document.getElementById("cabLooms").addEventListener("change", function(){ state.cab.looms=this.checked; save(); render(); });
-  document.getElementById("cabAuto").addEventListener("change", function(){ state.cab.auto=this.checked; if(this.checked) __cabRes=null; save(); render(); });
-  document.getElementById("cabSolo").addEventListener("change", function(){ window.__cabSolo=this.checked; render(); });
-  document.getElementById("cabLocked").addEventListener("change", function(){ state.cab.locked=this.checked; if(this.checked) selCab=null; save(); render(); });
-  document.getElementById("cabRecalc").addEventListener("click", function(){ cabResult(true); render(); });
-  document.getElementById("cabPropose").addEventListener("click", cabProposeAll);
   document.getElementById("cabAlign").addEventListener("click", function(){ cabAlign(); });
-  document.getElementById("cabReset").addEventListener("click", function(){ if(Object.keys(state.cab.manual||{}).length && !confirm("Azzerare tutte le modifiche manuali ai cavi (percorsi, etichette, eliminazioni)?")) return; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); });
   document.getElementById("cabReport").addEventListener("click", function(){ cabReportPdf(); });
   document.getElementById("cabSelLabel").addEventListener("input", function(){ if(!selCab) return; cabManual(selCab).label=this.value; __cabRes=null; save(); render(); });
   document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
@@ -9373,7 +9303,13 @@ function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordion
 var elecOpen=false;   /* Inspector B: parte chiuso, si apre da Progetto o col gesto porta */
 function renderElecPanel(){
   var sec=document.getElementById("elecSec"); if(!sec) return;
-  sec.style.display="none";   /* Simone 08/07: pannello elettrico nascosto "per adesso" — layer gestito dal Layer manager + collegamenti sul palco */
+  var on=!!(state.elec && state.elec.on);
+  var showSel = on && !!selElec;   /* box "Linea selezionata" anche a pannello chiuso */
+  sec.style.display = (on && (elecOpen || showSel)) ? "block" : "none";
+  if(!on){ selElec=null; return; }
+  document.getElementById("elecCtrls").style.display = elecOpen ? "block" : "none";
+  document.getElementById("elecCaret").textContent = elecOpen ? "▾" : "▸";
+  document.getElementById("elecSel").style.display = showSel ? "block" : "none";
 }
 function toggleElecLayer(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); __elecRes=null; save(); render(); return; }
@@ -9383,9 +9319,17 @@ function toggleElecLayer(){
   var head=document.getElementById("elecSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#elecTrash")) return; if(elecOpen) elecOpen=false; else techAccordionOpen("elec"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("elecTrash").addEventListener("click", function(e){ e.stopPropagation(); state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); });   /* cestino = da zero: via collegamenti e uplink */
-  document.getElementById("elecPropose").addEventListener("click", elecProposeAll);
   document.getElementById("elecAlign").addEventListener("click", elecAlign);
   document.getElementById("elecReport").addEventListener("click", function(){ elecReportPdf(); });
+  document.getElementById("elecSelDelete").addEventListener("click", function(){ if(!selElec) return;
+    if(selElec.indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[selElec.slice(3)]; }
+    else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[selElec]; }
+    else { state.elec.manual=state.elec.manual||{}; state.elec.manual[selElec]={deleted:true}; }
+    selElec=null; __elecRes=null; save(); render(); });
+  document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
+    if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
+    else { var m=state.elec.manual&&state.elec.manual[selElec]; if(m) delete m.pts; }
+    __elecRes=null; save(); render(); });
 })();
 /* ===== Pannello AUDIT / DIAGNOSTICA ===== */
 var auditActive=false, auditOpen=true;
