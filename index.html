@@ -3626,7 +3626,7 @@ var DEFAULT_LABELS = {
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
-  elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{}} };
+  elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
@@ -4039,11 +4039,16 @@ function normalizeState(s){
       if(v.deleted) o.deleted=true;
     }
     if(Object.keys(o).length) eman[String(k).slice(0,60)]=o; }); }
+  var eups={};   /* tier 2 (Simone): ciabatta/distro → quadro, SOLO manuale */
+  if(eb.uplinks && typeof eb.uplinks==="object"){ Object.keys(eb.uplinks).forEach(function(k){ var v=eb.uplinks[k]||{}; var o={};
+    if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,60);
+    if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
+    if(Object.keys(o).length) eups[String(k).slice(0,60)]=o; }); }
   s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
     mode:(eb.mode==="auto"||eb.mode==="manual")?eb.mode:(eb.on?"auto":"manual"),
     labelMode:(eb.labelMode==="always")?"always":"hover",   /* parità con l'audio: canvas pulito, info in hover */
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
-    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, manual:eman };
+    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, manual:eman, uplinks:eups };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -5003,8 +5008,9 @@ function cabProposeAll(){
 /* Allinea elettrico (parità con cabAlign): snap dei corner manuali alla griglia + pulizia collineari */
 function elecAlign(){
   var R=elecResult(); if(!R) return;
-  var step=snapVal()||25, man=state.elec.manual||{}, changed=false;
-  (R.loadLinks||[]).forEach(function(l){ var m=man[l.key]; if(!m || !m.pts || !m.pts.length) return;
+  var step=snapVal()||25, man=state.elec.manual||{}, ups=state.elec.uplinks||{}, changed=false;
+  (R.loadLinks||[]).concat((R.uplinks||[]).map(function(u){ return Object.assign({}, u, {_up:1}); })).forEach(function(l){
+    var m=l._up ? ups[l.key.slice(3)] : man[l.key]; if(!m || !m.pts || !m.pts.length) return;
     var full=[l.pts[0]].concat(m.pts).concat([l.pts[l.pts.length-1]]);
     var snapped=full.map(function(p,i){ return (i===0||i===full.length-1) ? p.slice() : [Math.round(p[0]/step)*step, Math.round(p[1]/step)*step]; });
     var poly=cabCleanPoly(snapped), interior=poly.slice(1,-1);
@@ -5079,6 +5085,16 @@ function elecMarkup(){
       fi+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
     s+='<g class="cabgrp" data-own="'+esc(f.distro&&f.distro.it&&f.distro.it.id||'')+'">'+fi+'</g>';
   });
+  /* tier 2: uplink ciabatta → quadro (disegnati dall'utente, selezionabili come le linee) */
+  (R.uplinks||[]).forEach(function(u){
+    var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
+    var dpts=cabRoutePts(u.pts, OBS, ex), d=orthPathD(dpts);
+    var ui='<path class="elec-feed'+(selElec===u.key?' sel':'')+'" d="'+d+'"/>';
+    if(editE) ui+='<path class="elec-hit" data-el="'+esc(u.key)+'" d="'+d+'"/>';
+    if(LBLE || selElec===u.key){ var midU=cabMidpoint(orthExpand(dpts));
+      ui+='<text class="elec-lbl elec-lbl-feed" x="'+midU[0].toFixed(1)+'" y="'+(midU[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(u.from.letter+' → '+u.to.letter+' · '+u.a.toFixed(0)+' A · '+u.section+(sg!==false?' · '+u.lenM.toFixed(0)+' m':''))+'</text>'; }
+    s+='<g class="cabgrp" data-own="'+esc((u.from.it?u.from.it.id:'')+(u.to.it?' '+u.to.it.id:''))+'">'+ui+'</g>';
+  });
   R.loadLinks.forEach(function(l){
     var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
     var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
@@ -5090,9 +5106,10 @@ function elecMarkup(){
   });
   /* linea selezionata: lati trascinabili + maniglie ai due capi (parità con l'audio) */
   if(editE && selElec){
-    var slk=R.loadLinks.filter(function(l){ return l.key===selElec; })[0];
+    var slk=(R.loadLinks||[]).concat(R.uplinks||[]).filter(function(l){ return l.key===selElec; })[0];
     if(slk){
       var exs={}; if(slk.load&&slk.load.it) exs[slk.load.it.id]=1; if(slk.distro&&slk.distro.it) exs[slk.distro.it.id]=1;
+      if(slk.from&&slk.from.it) exs[slk.from.it.id]=1; if(slk.to&&slk.to.it) exs[slk.to.it.id]=1;
       var polyE=orthExpand(cabRoutePts(slk.pts, OBS, exs));
       for(var pi=0;pi<polyE.length-1;pi++){ var A=polyE[pi], B=polyE[pi+1];
         if(A[0]===B[0] && A[1]===B[1]) continue;
@@ -5175,9 +5192,27 @@ function electricEngine(){
       l.lenM=orthLen(l.pts)/100*(1+elecMargin()); l.cut=cabCut(l.lenM);
     });
   });
-  /* 4. cavi di alimentazione distro→sorgente, sezione per corrente */
+  /* 3b. TIER 2 (Simone 08/07): ciabatta/distro → quadro, SOLO manuale (pallino ambra sulla ciabatta).
+     Il carico della ciabatta risale sul quadro (fase meno carica) con verifica di sovraccarico. */
+  var ups=(state.elec&&state.elec.uplinks)||{}, uplinks=[], upPend=0;
+  distros.forEach(function(d){
+    if(!d.it) return;
+    var u=ups[d.it.id];
+    if(!u || !u.to){ if(manualModeE && d.loadW>0) upPend++; return; }
+    var T=distros.filter(function(x){ return x.it && x.it.id===u.to; })[0];
+    if(!T || T===d){ upPend++; return; }
+    var amps=d.loadW/ELEC_VOLT, mp=0;
+    for(var p2=1;p2<T.ph;p2++){ if(T.phLoad[p2]<T.phLoad[mp]) mp=p2; }
+    T.phLoad[mp]+=amps; T.loadW+=d.loadW;
+    if(T.phLoad[mp]>T.a) issues.push({lvl:"err", msg:"Quadro "+T.letter+" sovraccarico con la linea da "+d.letter+" ("+T.phLoad[mp].toFixed(0)+"/"+T.a+" A)."});
+    var upts=[[d.x,d.y]].concat(u.pts||[]).concat([[T.x,T.y]]);
+    uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(u.pts&&u.pts.length)});
+  });
+  if(manualModeE && upPend>0) issues.push({lvl:"info", msg:upPend+" ciabatte/distro da collegare al quadro: pallino ambra sulla ciabatta → trascina sul quadro."});
+  /* 4. cavi di alimentazione distro→sorgente: SOLO in modalità auto (in manual niente automatismi) */
   var feeds=[];
-  if(supply) distros.forEach(function(d){ if(d.loadW<=0) return;
+  if(!manualModeE && supply) distros.forEach(function(d){ if(d.loadW<=0) return;
+    if(d.it && ups[d.it.id] && ups[d.it.id].to) return;   /* ha già un uplink disegnato dall'utente */
     feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:orthLen([[d.x,d.y],[supply.x,supply.y]])/100}); });
   /* 5. riepiloghi + criticità */
   var capW=distros.reduce(function(s,d){ return s+d.a*ELEC_VOLT*d.ph; },0);
@@ -5194,7 +5229,7 @@ function electricEngine(){
   if(supply && supply.kva && totW>supply.kva*1000*0.9) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: carico "+elecKW(totW)+" (> 90% della resa)."});
   if(!distros.length && loads.length) issues.push({lvl:"err", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
   if(pendingE.length) issues.push({lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
-  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, unassigned:unassigned, pending:pendingE, supply:supply,
+  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply,
           totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
 }
 var __elecRes=null;
@@ -5350,7 +5385,9 @@ function netMarkup(){
    dal pallino — richiesta Simone: "il cavo deve partire dal punto che abbiamo messo nell'elemento") */
 function portKinds(it){
   var ks=[];
-  if(!it || cabIsBox(it) || elecIsDistro(it) || elecIsGen(it)) return ks;
+  if(!it) return ks;
+  if(elecIsDistro(it)){ ks.push("powup"); return ks; }   /* ciabatta/quadro: porta verso MONTE (→ quadro) */
+  if(cabIsBox(it) || elecIsGen(it)) return ks;
   if(cabItemInputs(it).length>0) ks.push("audio");
   if(OUT_SET[it.type]!=null && it.type!=="monmix") ks.push("mon");
   if(wattOf(it)>0) ks.push("pow");
@@ -5363,7 +5400,12 @@ function portAnchor(it, kind){
 }
 function portDefs(it){
   var out=[];
-  if(!it || cabIsBox(it) || elecIsDistro(it) || elecIsGen(it)) return out;
+  if(!it) return out;
+  if(elecIsDistro(it)){
+    var upTo=(state.elec && state.elec.uplinks && state.elec.uplinks[it.id] && state.elec.uplinks[it.id].to) || null;
+    return [{kind:"powup", color:LAYER_COLORS.elettrico, tip:"Alimentazione · "+(upTo?"collegata al quadro":"trascina su un quadro/distro a monte")}];
+  }
+  if(cabIsBox(it) || elecIsGen(it)) return out;
   var nIn=cabItemInputs(it).length;
   if(nIn>0){
     var tip="Audio · "+nIn+" ch";
@@ -6725,10 +6767,11 @@ function cabHoverTip(e){
     txt = l.deleted ? (l.s.name+" · cavo rimosso") :
       (l.label||"")+" · "+(l.s.name||"")+(l.s.mic?" · "+l.s.mic:"")+" · "+(l.cut?("XLR "+l.cut+" m"):"oltre 50 m");
   } else {
-    var kE=ehit.getAttribute("data-el");
-    var lE=(elecResult().loadLinks||[]).filter(function(x){ return x.key===kE; })[0];
+    var kE=ehit.getAttribute("data-el"), RlT=elecResult();
+    var lE=((RlT.loadLinks||[]).concat(RlT.uplinks||[])).filter(function(x){ return x.key===kE; })[0];
     if(!lE){ if(__cabTip){ __cabTip.remove(); __cabTip=null; } return; }
-    txt=(lE.load.it.label||TYPES[lE.load.it.type].nome)+" → "+lE.distro.letter+" · L"+(lE.phase+1)+" · "+elecKW(lE.load.w)+" · "+(lE.cut?lE.cut+" m":"oltre 50 m")+(lE.cee?" · CEE":"");
+    txt = lE.from ? (lE.from.letter+" → "+lE.to.letter+" · "+lE.a.toFixed(0)+" A · "+lE.section+" · "+lE.lenM.toFixed(0)+" m")
+      : (lE.load.it.label||TYPES[lE.load.it.type].nome)+" → "+lE.distro.letter+" · L"+(lE.phase+1)+" · "+elecKW(lE.load.w)+" · "+(lE.cut?lE.cut+" m":"oltre 50 m")+(lE.cee?" · CEE":"");
   }
   if(!__cabTip){ __cabTip=document.createElement("div"); __cabTip.className="cab-tip"; document.body.appendChild(__cabTip); }
   __cabTip.textContent=txt;
@@ -6787,8 +6830,9 @@ svg.addEventListener("pointerdown", function(e){
     var eseg=e.target.closest(".elec-seg-hit");
     if(eseg){ e.preventDefault(); var ekey=eseg.getAttribute("data-el"), esi=+eseg.getAttribute("data-seg"), eori=eseg.getAttribute("data-ori");
       selElec=ekey;
-      var Rl=elecResult(); var le=(Rl.loadLinks||[]).filter(function(k){ return k.key===ekey; })[0];
+      var Rl=elecResult(); var le=((Rl.loadLinks||[]).concat(Rl.uplinks||[])).filter(function(k){ return k.key===ekey; })[0];
       if(le){ var exe={}; if(le.load&&le.load.it) exe[le.load.it.id]=1; if(le.distro&&le.distro.it) exe[le.distro.it.id]=1;
+        if(le.from&&le.from.it) exe[le.from.it.id]=1; if(le.to&&le.to.it) exe[le.to.it.id]=1;
         var fp0e=orthExpand(cabRoutePts(le.pts, obstacleRects(), exe));
         drag={mode:"elecseg", key:ekey, si:esi, ori:eori, fp0:fp0e, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }
     }
@@ -7008,7 +7052,9 @@ svg.addEventListener("pointermove", function(e){
     var valE=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
     var gstepE=snapVal(); if(gstepE>0) valE=Math.round(valE/gstepE)*gstepE;
     var WPE=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valE));
-    var msE=elecManual(drag.key); msE.pts=WPE.slice(1,-1); drag.moved=true; __elecRes=null; redrawStageLayers();
+    if(drag.key.indexOf("up:")===0){ state.elec.uplinks=state.elec.uplinks||{}; var ue=state.elec.uplinks[drag.key.slice(3)]||(state.elec.uplinks[drag.key.slice(3)]={}); ue.pts=WPE.slice(1,-1); }
+    else { var msE=elecManual(drag.key); msE.pts=WPE.slice(1,-1); }
+    drag.moved=true; __elecRes=null; redrawStageLayers();
     return;
   }
   if(drag.mode==="elecreconnect"){   /* feedback: il capo segue il cursore */
@@ -7244,8 +7290,16 @@ svg.addEventListener("pointerup", function(e){
       } else if(drag.kind==="pow"){
         var pd=hitAt(elecIsDistro);
         if(pd){
-          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; techAccordionOpen("elec"); }
+          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); }   /* niente supply automatica: il quadro lo disegna l'utente */
           state.elec.manual=state.elec.manual||{}; state.elec.manual[pit.id]={distro:pd.id};
+          __elecRes=null; save();
+        }
+      } else if(drag.kind==="powup"){
+        /* tier 2: ciabatta → quadro (solo manuale) */
+        var pq=hitAt(function(t){ return elecIsDistro(t) && t.id!==pit.id; });
+        if(pq){
+          if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; techAccordionOpen("elec"); }
+          state.elec.uplinks=state.elec.uplinks||{}; var uu=state.elec.uplinks[pit.id]||(state.elec.uplinks[pit.id]={}); uu.to=pq.id;
           __elecRes=null; save();
         }
       }
@@ -7254,13 +7308,20 @@ svg.addEventListener("pointerup", function(e){
   }
   if(drag && drag.mode==="elecseg"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
   if(drag && drag.mode==="elecreconnect"){   /* rilascio: su un distro = riconnetti, nel vuoto = scollega */
-    var rpE=svgPoint(e), td=(state.items||[]).filter(elecIsDistro).filter(function(it){ return Math.abs(rpE.x-it.x)<=(it.w||40)/2+14 && Math.abs(rpE.y-it.y)<=(it.d||40)/2+14; })[0];
-    if(td){ var mE=elecManual(drag.key); mE.distro=td.id; delete mE.deleted; __elecRes=null; save(); }
+    var rpE=svgPoint(e), isUp=drag.key.indexOf("up:")===0, upId=isUp?drag.key.slice(3):null;
+    var td=(state.items||[]).filter(function(it){ return elecIsDistro(it) && (!isUp || it.id!==upId); })
+      .filter(function(it){ return Math.abs(rpE.x-it.x)<=(it.w||40)/2+14 && Math.abs(rpE.y-it.y)<=(it.d||40)/2+14; })[0];
+    var Rl2=((elecResult().loadLinks||[]).concat(elecResult().uplinks||[])).filter(function(l){ return l.key===drag.key; })[0];
+    if(td){
+      if(isUp){ state.elec.uplinks=state.elec.uplinks||{}; var uu2=state.elec.uplinks[upId]||(state.elec.uplinks[upId]={}); uu2.to=td.id; }
+      else { var mE=elecManual(drag.key); mE.distro=td.id; delete mE.deleted; }
+      __elecRes=null; save();
+    }
     else if(drag.moved){
-      var Rl2=(elecResult().loadLinks||[]).filter(function(l){ return l.key===drag.key; })[0];
       var refP=Rl2 ? (drag.end==="load" ? Rl2.pts[Rl2.pts.length-1] : Rl2.pts[0]) : null;
       if(!refP || Math.hypot(rpE.x-refP[0], rpE.y-refP[1])>60){   /* micro-rilascio ≠ scollega */
-        if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[drag.key]; }
+        if(isUp){ if(state.elec.uplinks) delete state.elec.uplinks[upId]; }
+        else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[drag.key]; }
         else { state.elec.manual=state.elec.manual||{}; state.elec.manual[drag.key]={deleted:true}; }
         selElec=null; __elecRes=null; save();
       }
@@ -7650,7 +7711,8 @@ document.addEventListener("keydown", function(e){
   }
   if(selElec && (e.key==="Backspace"||e.key==="Delete")){   /* linea elettrica: scollega (parità con l'audio) */
     e.preventDefault();
-    if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[selElec]; }
+    if(selElec.indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[selElec.slice(3)]; }
+    else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[selElec]; }
     else { state.elec.manual=state.elec.manual||{}; state.elec.manual[selElec]={deleted:true}; }
     selElec=null; __elecRes=null; save(); render(); renderElecPanel();
     return;
