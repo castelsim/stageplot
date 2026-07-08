@@ -2006,6 +2006,9 @@ var TYPES = {
                '<path class="pow fill" d="M 5,-2 L -7,14 L 0,14 L -4,28 L 12,8 L 3,8 Z"/>'; }},
   foh:      {nome:"Postazione FOH", dim:"zona 2×1,2 m", cat:"Regia e console", sub:"Postazioni regia", w:200,d:120, resizable:true, z:1, defLabel:"FOH", innerLabel:true,
              draw:function(it){ return drawLibFit("postazionefoh",it,200,120); }},
+  mixer:    {nome:"Console / mixer", dim:"generica", cat:"Regia e console", sub:"Postazioni regia", w:120,d:70, resizable:true, ess:true, defLabel:"MIXER",
+             draw:function(it){ return bar(0,0,it.w,it.d,'ic fGrey',4)+bar(0,-8,it.w-16,it.d-24,'ic thin',1)
+               +lin(-it.w/2+16,it.d/2-11,it.w/2-16,it.d/2-11,'ic thin')+lin(-it.w/2+16,it.d/2-19,it.w/2-16,it.d/2-19,'ic thin'); }},
   monmix:   {nome:"Mixer monitor", dim:"~90×60", cat:"Cablaggio e segnale", w:95,d:70, defLabel:"MON MIX",
              draw:function(it){ return drawLibFit("mixermonitor",it,95,65); }},
   laptop:   {nome:"Mac portatile", dim:"38×28", cat:"Regia e console", sub:"Postazioni regia", w:44,d:34, defLabel:"MAC",
