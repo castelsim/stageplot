@@ -309,6 +309,11 @@
   .cab-line.sel{stroke:#0f766e;stroke-width:3.6}
   .cab-del{fill:none;stroke:#9ca3af;stroke-width:1.6;stroke-dasharray:3 5;pointer-events:none}
   .cab-snake{stroke:#0d9488;stroke-width:2;stroke-dasharray:9 5;opacity:.45;fill:none;pointer-events:none}
+  .cab-legend{pointer-events:none}
+  .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
+  .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
+  body.dark .cab-legend-bg{fill:#1a1f24;opacity:.85;stroke:#374151}
+  body.dark .cab-legend-t{fill:#d1d5db}
   .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-ghost{pointer-events:none}
   .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
