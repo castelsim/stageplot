@@ -11749,6 +11749,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
           '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
+          '<button class="cloudDup" data-id="'+p.id+'" title="Duplica" aria-label="Duplica" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'+
           '<button class="cloudShareRow'+(p.share_token?' is-shared':'')+'" data-id="'+p.id+'" title="'+(p.share_token?'Condiviso · clicca per gestire':'Condividi con un link')+'" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md);position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
           '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
@@ -11767,6 +11768,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDup"), function(b){ b.addEventListener("click", function(){ dupProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudShareRow"), function(b){ b.addEventListener("click", function(){ shareRow(b.getAttribute("data-id")); }); });
   }
 
@@ -11892,6 +11894,19 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     });
   }
 
+  /* Duplica (richiesta Simone 08/07): copia integrale del progetto con titolo " — copia" */
+  function dupProject(id){
+    if(!sb || !cloudUser) return;
+    sb.from("stageplot_projects").select("data,title").eq("id",id).single().then(function(r){
+      if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
+      var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
+      sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:1, title:t, data:r.data.data }).then(function(w){
+        if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
+        toast("Copia creata: "+t);
+        loadProjects();
+      });
+    });
+  }
   function delProject(id){
     if(!sb) return;
     var go=function(){
