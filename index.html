@@ -484,6 +484,9 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* Bolla assist stile Max sul cavo in hover (probing) */
+  .cab-tip{position:fixed;z-index:70;background:#111827;color:#f9fafb;font-size:11.5px;font-weight:600;letter-spacing:.2px;padding:5px 10px;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.28);pointer-events:none;white-space:nowrap}
+  body.dark .cab-tip{background:#f3f4f6;color:#111827}
   /* C3 · declutter stile Max: i cavi non collegati all'elemento in hover sfumano */
   .cabgrp{transition:opacity .16s ease}
   .cabgrp.dim{opacity:.12}
@@ -3596,7 +3599,7 @@ var DEFAULT_LABELS = {
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
@@ -3992,6 +3995,7 @@ function normalizeState(s){
   s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round(cb.opacity==null?70:cb.opacity))), auto:cb.auto!==false,
     /* manual-first (08/07): i documenti che avevano GIÀ il cablaggio attivo restano "auto" (niente rider svuotati); i nuovi nascono "manual" */
     mode:(cb.mode==="auto"||cb.mode==="manual")?cb.mode:(cb.on?"auto":"manual"),
+    labelMode:(cb.labelMode==="always")?"always":"hover",   /* stile Max: canvas pulito, info in hover; nel PDF/viewer etichette SEMPRE */
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
@@ -4749,7 +4753,7 @@ function cabMidpoint(pts){   /* punto a metà lunghezza della polilinea (per l'e
   return pts[pts.length-1];
 }
 function cabLinkLabel(l){
-  if(!state.cab.showLabels) return '';
+  /* solo il CONTENUTO dell'etichetta: la visibilità la decide il chiamante (labelMode hover/always) */
   var parts=[];
   if(state.cab.showChannels) parts.push(l.label);
   if(state.cab.showLengths) parts.push(l.cut?l.cut+' m':'>50 m');
@@ -4806,12 +4810,13 @@ function cabLoomMarkup(polys){
   if(state.cab.looms===false || polys.length<2) return '';
   var regs=cabLoomRegions(polys); window.__loomN=regs.length;   /* letto dalla legenda (stesso passaggio di render) */
   if(!regs.length) return '';
+  var LBL=window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="cab-loomlayer cabgrp" data-own="">';   /* C3: i fasci (aggregato) sfumano con qualunque hover */
   regs.forEach(function(r){
     var w=Math.min(8+2.5*r.n, 20);   /* fascia più larga con più cavi */
     var x1,y1,x2,y2; if(r.ori==='h'){ x1=r.a; x2=r.b; y1=y2=r.pos; } else { x1=x2=r.pos; y1=r.a; y2=r.b; }
     s+='<path class="cab-loom" style="stroke-width:'+w.toFixed(1)+'px" d="M '+x1.toFixed(1)+' '+y1.toFixed(1)+' L '+x2.toFixed(1)+' '+y2.toFixed(1)+'"/>';
-    if(state.cab.showLabels!==false){
+    if(LBL && state.cab.showLabels!==false){
       var mx=(x1+x2)/2, my=(y1+y2)/2, tr=(r.ori==='v')?' transform="rotate(-90 '+mx.toFixed(1)+' '+my.toFixed(1)+')"':'';
       s+='<text class="cab-lbl cab-loom-lbl" x="'+mx.toFixed(1)+'" y="'+(my-(w/2+3)).toFixed(1)+'"'+tr+' text-anchor="middle">sub-snake ×'+r.n+'</text>';
     }
@@ -4826,6 +4831,9 @@ function cablingMarkup(){
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
   var edit=!state.cab.locked && showIn && !window.__cabStatic;   /* editing solo sui cavi ingresso, layer visibile e NON in render statico (PDF/PNG) */
+  /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
+     statico e nel viewer condiviso (chi legge non può fare hover consapevole). In hover: bolla assist. */
+  var LBL = window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var OBS=obstacleRects();   /* Pilastro 2: i cavi aggirano pedane ed elementi ingombranti */
   var s='<g class="cab-layer'+(edit?' cab-editable':'')+'" style="opacity:'+op+'">';
   /* ── lato INGRESSI (teal) ── */
@@ -4840,7 +4848,7 @@ function cablingMarkup(){
       var sk='<path class="cab-snake" d="'+orthPathD(dpts)+'"/>';
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
-      if(state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
+      if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
         sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
@@ -4854,7 +4862,7 @@ function cablingMarkup(){
       var ep=orthExpand(dpts); loomPolys.push({key:l.key, poly:ep});
       li+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
       if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
-      var lbl=cabLinkLabel(l);
+      var lbl=(LBL || selCab===l.key) ? cabLinkLabel(l) : '';   /* il cavo selezionato mostra la sua etichetta anche in modalità hover */
       if(lbl){ var mid=cabMidpoint(ep); li+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
       linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>';
     });
@@ -4870,9 +4878,12 @@ function cablingMarkup(){
           s+='<line class="cab-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
           s+='<line class="cab-seg-hit" data-cab="'+selCab+'" data-seg="'+pi+'" data-ori="'+ori+'" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
         }
-        if(sl.box){ var pe=poly[poly.length-1];   /* estremità REALE del cavo (punto d'ingresso col fan-out), non il centro box: si prende dove finisce il cavo */
-          s+='<circle class="cab-endpt" data-cab="'+selCab+'" cx="'+pe[0].toFixed(1)+'" cy="'+pe[1].toFixed(1)+'" r="8"/>'
-            +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" cx="'+pe[0].toFixed(1)+'" cy="'+pe[1].toFixed(1)+'" r="17"/>'; }   /* trascina → riconnetti a un'altra stage box */
+        /* DOPPIO ESTREMO stile Max: maniglia su ENTRAMBI i capi del cavo selezionato.
+           Rilascio su una stage box = riconnetti; rilascio nel vuoto = scollega (come in Max). */
+        [["src", poly[0]], ["box", poly[poly.length-1]]].forEach(function(ec){
+          s+='<circle class="cab-endpt" data-cab="'+selCab+'" data-end="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="8"/>'
+            +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" data-end="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="17"/>';
+        });
       }
     }
     if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
@@ -4886,7 +4897,7 @@ function cablingMarkup(){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex);
       var ri='<path class="cab-return" d="'+orthPathD(dpts)+'"/>';
-      if(state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
+      if(LBL && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
         ri+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc((l.sink&&l.sink.id||'')+(l.box&&l.box.id?' '+l.box.id:''))+'">'+ri+'</g>';
@@ -5188,10 +5199,11 @@ function netMarkup(){
   if(!state.cab || !state.cab.on || state.cab.showNet===false) return '';
   var N=netEngine(); if(!N.runs.length) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
+  var LBL=window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="net-layer" style="opacity:'+op+'">';
   N.runs.forEach(function(r){
     var ni='<path class="net-line" d="'+orthPathD(r.pts)+'"/>';
-    if(state.cab.showLabels!==false){
+    if(LBL && state.cab.showLabels!==false){
       var mid=cabMidpoint(r.pts);
       var lb=AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
       ni+='<text class="net-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-5).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>';
@@ -6560,12 +6572,29 @@ function cabFocus(id){
   if(!any){ gs.forEach(function(g){ g.classList.remove("dim"); }); return; }
   gs.forEach(function(g){ g.classList.toggle("dim", (" "+(g.getAttribute("data-own")||"")+" ").indexOf(pad)<0); });
 }
+/* Bolla assist stile Max ("probing"): passi sul cavo e vedi cosa ci passa dentro.
+   Con labelMode "hover" (default) è l'unico posto dove vive l'informazione sul canvas. */
+var __cabTip=null;
+function cabHoverTip(e){
+  var hit=e.target.closest ? e.target.closest(".cab-hit") : null;
+  if(!hit){ if(__cabTip){ __cabTip.remove(); __cabTip=null; } return; }
+  var key=hit.getAttribute("data-cab");
+  var l=(cabResult().links||[]).filter(function(x){ return x.key===key; })[0];
+  if(!l){ if(__cabTip){ __cabTip.remove(); __cabTip=null; } return; }
+  var txt = l.deleted ? (l.s.name+" · cavo rimosso") :
+    (l.label||"")+" · "+(l.s.name||"")+(l.s.mic?" · "+l.s.mic:"")+" · "+(l.cut?("XLR "+l.cut+" m"):"oltre 50 m");
+  if(!__cabTip){ __cabTip=document.createElement("div"); __cabTip.className="cab-tip"; document.body.appendChild(__cabTip); }
+  __cabTip.textContent=txt;
+  __cabTip.style.left=Math.min(e.clientX+14, window.innerWidth-260)+"px";
+  __cabTip.style.top=Math.max(8, e.clientY-34)+"px";
+}
 svg.addEventListener("pointerover", function(e){
   if(isMobile() || drag) return;
   var g=e.target.closest ? e.target.closest(".item") : null;
   cabFocus(g ? g.getAttribute("data-id") : null);
+  cabHoverTip(e);
 });
-svg.addEventListener("pointerleave", function(){ cabFocus(null); });
+svg.addEventListener("pointerleave", function(){ cabFocus(null); if(__cabTip){ __cabTip.remove(); __cabTip=null; } });
 svg.addEventListener("pointerdown", function(e){
   /* niente selezione-testo blu durante i drag: il canvas è user-select:none (CSS), e qui si pulisce
      anche una selezione eventualmente già iniziata fuori dal canvas (segnalazione Simone con foto) */
@@ -6620,7 +6649,9 @@ svg.addEventListener("pointerdown", function(e){
         drag={mode:"cabseg", key:segkey, si:si, ori:sori, fp0:fp0, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }
     }
     var cendp=e.target.closest(".cab-endpt");
-    if(cendp){ e.preventDefault(); selCab=cendp.getAttribute("data-cab"); drag={mode:"cabreconnect", key:selCab, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }   /* Fase B: trascina l'estremo per riconnettere a un'altra box */
+    if(cendp){ e.preventDefault(); selCab=cendp.getAttribute("data-cab");
+      drag={mode:"cabreconnect", key:selCab, end:cendp.getAttribute("data-end")||"box", moved:false};
+      svg.setPointerCapture(e.pointerId); render(); return; }   /* trascina un capo: su una box = riconnetti, nel vuoto = scollega */
     var chit=e.target.closest(".cab-hit");
     if(chit){ selCab=chit.getAttribute("data-cab"); render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
@@ -6802,6 +6833,11 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="port"){   /* porta: il cavo fantasma segue il cursore */
     sp=svgPoint(e); drag.moved=true;
     drag.el.setAttribute("x2",sp.x); drag.el.setAttribute("y2",sp.y);
+    return;
+  }
+  if(drag.mode==="cabreconnect"){   /* feedback: le maniglie del capo trascinato seguono il cursore */
+    sp=svgPoint(e); drag.moved=true;
+    svg.querySelectorAll('.cab-endpt[data-end="'+drag.end+'"]').forEach(function(c){ c.setAttribute("cx",sp.x); c.setAttribute("cy",sp.y); });
     return;
   }
   if(drag.mode==="elecsupply"){   /* trascina l'alimentazione elettrica (diventa personalizzata) */
@@ -7001,9 +7037,19 @@ svg.addEventListener("pointerup", function(e){
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
   if(drag && drag.mode==="cabseg"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
-  if(drag && drag.mode==="cabreconnect"){   /* Fase B: rilascio dell'estremo → riconnetti alla stage box sotto il puntatore */
+  if(drag && drag.mode==="cabreconnect"){   /* rilascio del capo: su una box = riconnetti, nel vuoto = scollega (come in Max) */
     var rp=svgPoint(e), tb=(state.items||[]).filter(cabIsBox).filter(function(it){ return Math.abs(rp.x-it.x)<=it.w/2+10 && Math.abs(rp.y-it.y)<=it.d/2+10; })[0];
-    if(tb){ cabManual(drag.key).box=tb.id; __cabRes=null; save(); }   /* box scelta a mano */
+    if(tb){ cabManual(drag.key).box=tb.id; __cabRes=null; save(); }
+    else if(drag.moved){
+      var rl=(cabResult().links||[]).filter(function(l){ return l.key===drag.key; })[0];
+      var farEnough = !rl || !rl.box || Math.hypot(rp.x-(drag.end==="src"?rl.pts[0][0]:rl.box.x), rp.y-(drag.end==="src"?rl.pts[0][1]:rl.box.y))>60;   /* micro-rilascio ≠ scollega */
+      if(farEnough){
+        var cm=cabManual(drag.key);
+        if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts; if(!Object.keys(cm).length) delete state.cab.manual[drag.key]; }
+        else cm.deleted=true;
+        selCab=null; __cabRes=null; save();
+      }
+    }
     render(); renderCabPanel(); drag=null; return;
   }
   if(drag && drag.mode==="port"){   /* rilascio della porta: collega alla box/distro sotto il puntatore */
@@ -8579,7 +8625,7 @@ function renderCabPanel(){
   document.getElementById("cabMarginSel").value = String(state.cab.margin||30);
   document.getElementById("cabOpacity").value = state.cab.opacity;
   document.getElementById("cabOpacityVal").textContent = state.cab.opacity+"%";
-  document.getElementById("cabShowLabels").checked = state.cab.showLabels!==false;
+  document.getElementById("cabShowLabels").checked = state.cab.labelMode==="always";
   document.getElementById("cabShowChannels").checked = state.cab.showChannels!==false;
   document.getElementById("cabShowLengths").checked = state.cab.showLengths!==false;
   document.getElementById("cabLooms").checked = state.cab.looms!==false;
@@ -8636,7 +8682,7 @@ function toggleCabLayer(){
     __cabRes=null; save(); render(); });
   document.getElementById("cabMarginSel").addEventListener("change", function(){ state.cab.margin=(+this.value===20?20:30); __cabRes=null; save(); render(); });
   document.getElementById("cabOpacity").addEventListener("input", function(){ state.cab.opacity=+this.value; save(); render(); });
-  document.getElementById("cabShowLabels").addEventListener("change", function(){ state.cab.showLabels=this.checked; save(); render(); });
+  document.getElementById("cabShowLabels").addEventListener("change", function(){ state.cab.labelMode=this.checked?"always":"hover"; save(); render(); });   /* etichette sempre visibili vs hover (stile Max) */
   document.getElementById("cabShowChannels").addEventListener("change", function(){ state.cab.showChannels=this.checked; save(); render(); });
   document.getElementById("cabShowLengths").addEventListener("change", function(){ state.cab.showLengths=this.checked; save(); render(); });
   document.getElementById("cabLooms").addEventListener("change", function(){ state.cab.looms=this.checked; save(); render(); });
