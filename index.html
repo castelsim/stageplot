@@ -9749,12 +9749,15 @@ function confirmDialog(opts){
     function onOk(){ done(true); }
     function onCancel(){ done(false); }
     function onBack(e){ if(e.target===m) done(false); }
-    function onKey(e){ if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); done(false); } }
+    function onKey(e){
+      if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); done(false); }
+      else if(e.key==="Enter"){ e.preventDefault(); e.stopPropagation(); done(true); }   /* Invio = conferma (richiesta Simone 08/07): semantica standard dei dialoghi */
+    }
     okb.addEventListener("click",onOk);
     cancb.addEventListener("click",onCancel);
     m.addEventListener("mousedown",onBack);
     document.addEventListener("keydown",onKey,true);
-    cancb.focus();   /* default sicuro: Annulla (protegge da Invio accidentale su azioni distruttive) */
+    cancb.focus();   /* focus su Annulla (il click parte da lì) — ma Invio CONFERMA sempre via onKey */
   });
 }
 window.confirmDialog=confirmDialog;
