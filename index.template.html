@@ -8174,11 +8174,7 @@ function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordion
 var elecOpen=false;   /* Inspector B: parte chiuso, si apre da Progetto o col gesto porta */
 function renderElecPanel(){
   var sec=document.getElementById("elecSec"); if(!sec) return;
-  var on=!!(state.elec && state.elec.on);
-  var showSel = on && !!selElec;   /* SOLO il box "Linea selezionata", al click su una linea */
-  sec.style.display = showSel ? "block" : "none";
-  if(!on){ selElec=null; return; }
-  document.getElementById("elecSel").style.display = showSel ? "block" : "none";
+  sec.style.display="none";   /* Simone 08/07: niente box "Linea selezionata" sull'elettrico (elimina = Backspace) */
 }
 function toggleElecLayer(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; __elecRes=null; save(); render(); return; }
