@@ -5429,6 +5429,9 @@ svg.addEventListener("pointerover", function(e){
 });
 svg.addEventListener("pointerleave", function(){ cabFocus(null); });
 svg.addEventListener("pointerdown", function(e){
+  /* niente selezione-testo blu durante i drag: il canvas è user-select:none (CSS), e qui si pulisce
+     anche una selezione eventualmente già iniziata fuori dal canvas (segnalazione Simone con foto) */
+  try{ var _gs=window.getSelection(); if(_gs && !_gs.isCollapsed) _gs.removeAllRanges(); }catch(_){}
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
     if(drag && drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
@@ -5469,9 +5472,9 @@ svg.addEventListener("pointerdown", function(e){
   }
   if(state.cab && state.cab.on && !state.cab.locked && e.target.closest){
     var chome=e.target.closest(".cab-homehit");
-    if(chome){ drag={mode:"cabhome", moved:false}; svg.setPointerCapture(e.pointerId); return; }
+    if(chome){ e.preventDefault(); drag={mode:"cabhome", moved:false}; svg.setPointerCapture(e.pointerId); return; }
     var cseg=e.target.closest(".cab-seg-hit");
-    if(cseg){ var segkey=cseg.getAttribute("data-cab"), si=+cseg.getAttribute("data-seg"), sori=cseg.getAttribute("data-ori");
+    if(cseg){ e.preventDefault(); var segkey=cseg.getAttribute("data-cab"), si=+cseg.getAttribute("data-seg"), sori=cseg.getAttribute("data-ori");
       selCab=segkey;
       var Rs=cabResult(); var ls=Rs.links.filter(function(k){ return k.key===segkey; })[0];
       if(ls){ var exs={}; if(ls.s&&ls.s.it) exs[ls.s.it.id]=1; if(ls.box&&ls.box.id) exs[ls.box.id]=1;
@@ -5479,7 +5482,7 @@ svg.addEventListener("pointerdown", function(e){
         drag={mode:"cabseg", key:segkey, si:si, ori:sori, fp0:fp0, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }
     }
     var cendp=e.target.closest(".cab-endpt");
-    if(cendp){ selCab=cendp.getAttribute("data-cab"); drag={mode:"cabreconnect", key:selCab, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }   /* Fase B: trascina l'estremo per riconnettere a un'altra box */
+    if(cendp){ e.preventDefault(); selCab=cendp.getAttribute("data-cab"); drag={mode:"cabreconnect", key:selCab, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }   /* Fase B: trascina l'estremo per riconnettere a un'altra box */
     var chit=e.target.closest(".cab-hit");
     if(chit){ selCab=chit.getAttribute("data-cab"); render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
@@ -5487,6 +5490,7 @@ svg.addEventListener("pointerdown", function(e){
   if(_onPort){
     var pit=(state.items||[]).filter(function(x){ return x.id===_onPort.getAttribute("data-item"); })[0];
     if(pit){
+      e.preventDefault();
       var pk=_onPort.getAttribute("data-port");
       drag={mode:"port", kind:pk, it:pit, x0:+_onPort.getAttribute("data-x"), y0:+_onPort.getAttribute("data-y"), moved:false};
       var gl=document.createElementNS("http://www.w3.org/2000/svg","line");

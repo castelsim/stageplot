@@ -197,6 +197,9 @@
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
   svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  /* il canvas è una superficie di disegno: la selezione-testo nativa (scritte blu durante i drag
+     dei cavi) è sempre e solo rumore */
+  #svg, #svg text{-webkit-user-select:none;user-select:none}
   svg.dragging{cursor:grabbing}
   body.space-pan svg,body.space-pan svg *{cursor:grab !important}
   #props{grid-area:props;border-left:1px solid var(--border);padding:12px;overflow-y:auto}
