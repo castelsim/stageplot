@@ -9309,14 +9309,18 @@ function renderInspectorB(){
     var conn=(R.links||[]).filter(function(l){ return !l.deleted; }).length;
     var boxesTxt=(R.boxes||[]).filter(function(b){ return !b.auto; }).map(function(b){ return b.letter+(b.hw?" · "+hwLabel(b.hw,STAGEBOX_DB):""); }).join(", ");
     var Re=(state.elec && state.elec.on) ? elecResult() : null;
-    var totC=(R.links||[]).filter(function(l){ return !l.deleted; }).reduce(function(a,l){ return a+l.lenM; },0)
-      +(R.returnLinks||[]).reduce(function(a,l){ return a+l.lenM; },0)
-      +((Re&&Re.loadLinks)||[]).reduce(function(a,l){ return a+l.lenM; },0);
+    /* lista cavi per taglio (Simone 08/07: "quanti cavi da quanti metri" batte il totale) */
+    function tallyRow(links){ var t={}; links.forEach(function(l){ var k=l.cut?String(l.cut):">50"; t[k]=(t[k]||0)+1; });
+      var cuts=Object.keys(t).sort(function(a,b){ return (a===">50"?999:+a)-(b===">50"?999:+b); });
+      return cuts.map(function(c){ return t[c]+"× "+(c===">50"?"oltre 50 m":c+" m"); }).join(" · "); }
+    var xlr=tallyRow((R.links||[]).filter(function(l){ return !l.deleted; }).concat(R.returnLinks||[]));
+    var elc=Re ? tallyRow(Re.loadLinks||[]) : "";
     var pw=powerTotalW();
     var s='<div class="insp-hd">Stato</div>';
     s+='<div class="insp-row"><b>Ingressi</b><small>'+conn+' / '+(R.capTot||"—")+'</small></div>';
     if(boxesTxt) s+='<div class="insp-row"><b>Stage box</b><small>'+esc(boxesTxt)+'</small></div>';
-    if(totC>0) s+='<div class="insp-row"><b>Cavo totale</b><small>~'+totC.toFixed(0)+' m</small></div>';
+    if(xlr) s+='<div class="insp-row"><b>Cavi XLR</b><small>'+xlr+'</small></div>';
+    if(elc) s+='<div class="insp-row"><b>Cavi elettrici</b><small>'+elc+'</small></div>';
     /* Peso·rack TOLTO dall'inspector (Simone 08/07: dato da pre-produzione, non da disegno) — resta nell'audit e nel cartiglio PDF */
     if(pw>0) s+='<div class="insp-row"><b>Potenza</b><small>'+(pw/1000).toFixed(1).replace(".",",")+' kW</small></div>';
     st.innerHTML=s; st.style.display="block";
