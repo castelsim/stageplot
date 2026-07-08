@@ -320,6 +320,18 @@
   .cab-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
   .cab-seg-hit[data-ori="h"]{cursor:ns-resize}
   .cab-seg-hit[data-ori="v"]{cursor:ew-resize}
+  /* linee elettriche interattive — parità Max con l'audio */
+  .elec-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
+  .elec-line.sel{stroke-width:3.4}
+  .elec-seg{stroke:#b45309;stroke-width:3.4;fill:none;pointer-events:none;opacity:.9;stroke-linecap:round}
+  .elec-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
+  .elec-seg-hit[data-ori="h"]{cursor:ns-resize}
+  .elec-seg-hit[data-ori="v"]{cursor:ew-resize}
+  .elec-endpt{fill:#fff;stroke:#d97706;stroke-width:3.4;pointer-events:none}
+  .elec-endpt-hit{fill:transparent;stroke:none}
+  .elec-editable .elec-endpt{pointer-events:all;cursor:grab}
+  body.dark .elec-seg{stroke:#fbbf24}
+  body.dark .elec-endpt{stroke:#fbbf24;fill:#0e1214}
   .layer-row{cursor:pointer}
   .layer-row:hover .layer-name{color:var(--accent)}
   /* Inspector B "lista piatta" — righe chiave-valore (scelta Simone 08/07) */
