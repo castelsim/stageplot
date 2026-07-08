@@ -2230,6 +2230,38 @@ function techGapCheck(){
   return {senzaPotenza:noWatt, senzaSorgente:noSrc};
 }
 if(typeof window!=="undefined") window.techGapCheck=techGapCheck;
+/* L2 — Logistica (08/07): peso di trasporto stimato (kg) e unità rack dell'HARDWARE tecnico
+   (non sedie/aste/persone). Alimenta i totali camion/peso/rack del tech pack. Valori indicativi,
+   sovrascrivibili per-elemento con it.kg. */
+var WEIGHT = {
+  /* backline */
+  comboamp:25, stack:45, bassamp:40, keysamp:20, leslie:68,
+  grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
+  /* batteria e percussioni */
+  batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
+  glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6,
+  /* PA */
+  arraylarge:34, arraymid:22, sub218:85, delaytower:90, frontfill:12,
+  /* monitor */
+  wedge:22, sidefill:45, drumfill:30, sub18:45, iemant:12, hearback:2,
+  /* regia/console */
+  dm3:5, dm7c:10, dm7:13, csr3:15, csr5:20, csr10:30, sq5:8, sq6:9, sq7:10, avantis:14,
+  dlives5:20, dlives7:24, q338:25, hd96:35, foh:25, monmix:22, laptop:2, audiointerface:2,
+  /* elettrico */
+  distro125:40, distro63:25, distro32:15, quadro:30, gen20:500, gen60:1400, ciabatta:1,
+  /* cablaggio/dispositivi */
+  stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
+  /* luci */
+  consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30,
+  strobo:8, fumomachine:15, hazer:12, torrefaro:60,
+  /* video */
+  ledwallmod:8, schermo:40, proiettore:15, camera:5
+};
+var RACK_U = { rack2u:2, rack4u:4, amprack:12, iemant:6, splitter:4 };
+function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg); return WEIGHT[it.type]||0; }
+function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return a+weightOf(it); },0); }
+function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
+function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t" : Math.round(kg)+" kg"; }
 function powerTotalW(){ return (state.items||[]).reduce(function(a,it){ return a+wattOf(it); },0); }
 function genCapacityW(){ return (state.items||[]).reduce(function(a,it){ return a + (GEN_KVA[it.type]?GEN_KVA[it.type]*800:0); },0); }
 function suggestGen(w){
@@ -7638,6 +7670,10 @@ function renderAccessoriCount(){
   if(c.hearbacks) parts.push("Hearback: <b>"+c.hearbacks+"</b>");
   var pw=powerTotalW();
   if(pw>0) parts.push('<span class="stat-pw" title="Potenza elettrica stimata (nominale)">⚡ '+(pw/1000).toFixed(1).replace(".",",")+" kW</span>");
+  var wt=totalWeightKg();
+  if(wt>0) parts.push('<span class="stat-wt" title="Peso di trasporto stimato dell\'hardware (logistica)">⚖ '+fmtKg(wt)+'</span>');
+  var ru=totalRackU();
+  if(ru>0) parts.push('<span class="stat-ru" title="Unità rack stimate dell\'hardware">▭ '+ru+' U</span>');
   el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : "";
 }
 /* ===== Datalist src per Input patch / Output list ===== */
@@ -9293,6 +9329,8 @@ function pdfCartiglio(doc, L, N, header){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT"));
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
+  var _wt=totalWeightKg(); if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
+  var _ru=totalRackU(); if(_ru>0) sub.push(_ru+" U rack");
   var subStr=sub.join("  ·  ");
   var subL=doc.splitTextToSize(subStr, titleW);
   doc.text(subL.length>1 ? subL[0].replace(/\s+\S*$/,"")+"…" : subStr, M, y+14);
@@ -9340,6 +9378,7 @@ function pdfPreviewSvg(paperKey, N, orient, header){
   var cy=L.ph-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
+  var _pwt=totalWeightKg(); if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=totalRackU(); if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var labels = A.custom ? '' :
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
