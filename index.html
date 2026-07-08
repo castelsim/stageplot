@@ -5101,7 +5101,10 @@ function elecMarkup(){
   }
   R.distros.forEach(function(d){
     if(d.auto) s+='<g class="elec-ghost"><rect x="'+(d.x-34)+'" y="'+(d.y-22)+'" width="68" height="44" rx="7"/><text x="'+d.x+'" y="'+(d.y+4)+'" text-anchor="middle">'+esc(d.name)+'</text></g>';
-    var mxA=Math.max.apply(null,d.phLoad.slice(0,d.ph)), bt=d.letter+' · '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW · '+mxA.toFixed(0)+'/'+d.a+'A', bw=Math.max(58,8+bt.length*4.6);
+    var isCiab=d.it && d.it.type==="ciabatta";   /* multipresa: mostra prese occupate/disponibili, non kW/A */
+    var bt=isCiab ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||6)+' prese')
+                  : (d.letter+' · '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW · '+Math.max.apply(null,d.phLoad.slice(0,d.ph)).toFixed(0)+'/'+d.a+'A');
+    var bw=Math.max(58,8+bt.length*4.6);
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-(d.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-(d.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
   if(R.supply){ var h=R.supply; s+='<g class="elec-supply"><rect x="'+(h.x-46)+'" y="'+(h.y-13)+'" width="92" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
@@ -6344,8 +6347,8 @@ function miniSvg(k, over){
       var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
       body.appendChild(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit)); n++;
       body.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON)); n++;
-      entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit});
-      entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON});
+      entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit, noQuick:true});
+      entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
       /* — Pedane e gradoni — */
       [["2×1 m",200,100]].forEach(function(p){
         var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
@@ -6393,7 +6396,7 @@ function miniSvg(k, over){
       var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M8 22l4-12 3 8 2-5 3 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5 26h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var PM_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="7" y="5" width="18" height="22" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="20" cy="12" r="2" fill="currentColor"/><path d="M10 20h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       var ECAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M16 4l-4 7h3l-2 6 8-9h-4l3-4z" fill="currentColor"/><path d="M5 27h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M17 10l-5 8h4l-1 5 6-9h-4l1-4z" fill="currentColor"/></svg>';   /* lista + fulmine: distinta dalla lista ingressi */
       var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       /* sottocategorie = menu a tendina uniformi (come tutte le altre categorie), via addToGroup */
       /* Diagnostica / Audit progetto NASCOSTO temporaneamente (06/07, scelta Simone: prima lavoriamo sui layer, l'audit torna dopo)
@@ -6402,10 +6405,10 @@ function miniSvg(k, over){
       /* Simone 08/07: "Cablaggio audio" e "Cablaggio elettrico" TOLTI dal catalogo — i layer si
          attivano tirando un cavo dalle PORTE dell'elemento selezionato (stile Max). Le voci restano
          nel codice (toggleCabLayer/toggleElecLayer) per pannelli, cestini e retrocompatibilità. */
-      [["Input list","lista canali automatica → mixer",togglePatchView,PATCH_ICON],
-       ["Monitor list","mix e ritorni automatici",toggleMonitorView,MON_ICON],
-       ["Lista carichi","potenza per carico → distro/fase",toggleLoadView,LOAD_ICON]].forEach(function(a){
-        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3]}); });   /* dirette, niente sub-head */
+      [["Lista ingressi","canali microfoni → mixer",togglePatchView,PATCH_ICON],
+       ["Lista monitor","mix e ritorni",toggleMonitorView,MON_ICON],
+       ["Lista carichi","potenza per carico → distro",toggleLoadView,LOAD_ICON]].forEach(function(a){
+        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3],noQuick:true}); });   /* dirette, niente sub-head; noQuick = fuori dalla ricerca rapida (non sono elementi) */
     }
     cats[c].forEach(function(k){
       if(TYPES[k].cat==="Palco e strutture" && c==="Palco e pedane") return;   /* i palco/pedane li fa il blocco speciale; truss/transenna passano di qui (in Rigging e sicurezza) */
@@ -6605,8 +6608,9 @@ function openQuickAdd(sp, cx, cy){
   /* cerca sull'INDICE DEL CATALOGO (window.__catEntries): copre anche Violino I/II, varianti
      stagebox/pedane, Uomo/Donna… — non solo i TYPES (fix richiesta Simone: "violino non trova
      Violino I e II"). Fallback ai TYPES se l'indice non c'è ancora. */
-  var opts=(window.__catEntries && window.__catEntries.length) ? window.__catEntries
-    : Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; });
+  var opts=((window.__catEntries && window.__catEntries.length) ? window.__catEntries
+    : Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
+    .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
   var _m=[];   /* match correnti (per pick da tastiera/click) */
   function entCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
   function draw(q){
@@ -9084,8 +9088,7 @@ function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dra
   if(onRename){ var nameEl=row.querySelector(".psrc"); if(nameEl){ nameEl.classList.add("renamable"); nameEl.title="Click per rinominare";
     nameEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); }); } }   /* click sul nome = rinomina; sul resto = seleziona */
   var acts=document.createElement("div"); acts.className="rowacts";
-  if(onMove){ acts.appendChild(_rowBtn("▲","Sposta su","rowmv",function(){ onMove(-1); }));
-              acts.appendChild(_rowBtn("▼","Sposta giù","rowmv",function(){ onMove(1); })); }
+  /* ▲▼ tolte (Simone 08/07): le righe si riordinano trascinandole (enableRowDrag) */
   acts.appendChild(_rowBtn(_ROW_TRASH, delTitle||"Elimina dal palco", "rowdel", function(){ if(onDelete) onDelete(); else listDeleteItems(ids); }));
   if(ids && ids.length){
     row.addEventListener("click", function(e){ if(e.target.closest(".rowacts")||e.target.closest(".rowedit")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });   /* sync: seleziona sul palco + pannello proprietà */
@@ -9476,8 +9479,9 @@ function renderInspectorB(){
     if(elc) s+=ir("Cavi elettrici", elc);
     if(pw>0) s+=ir("Potenza", (pw/1000).toFixed(1).replace(".",",")+" kW");
     /* Peso·rack resta nell'audit/cartiglio (dato di pre-produzione, non di disegno) */
-    if(nCiab){ var preseTot=(state.items||[]).filter(function(it){ return it.type==="ciabatta"; }).reduce(function(a,it){ return a+(it.prese||6); },0);
-      s+=ir("Multiprese", nCiab+" · "+preseTot+" ingressi"); }
+    if(nCiab){ var pt={}; (state.items||[]).filter(function(it){ return it.type==="ciabatta"; }).forEach(function(it){ var p=it.prese||6; pt[p]=(pt[p]||0)+1; });
+      var pparts=Object.keys(pt).sort(function(a,b){ return a-b; }).map(function(p){ return pt[p]+"× "+p+" prese"; });
+      s+=ir("Multiprese", pparts.join(" · ")); }   /* come i cavi: quante multiprese per numero di prese */
     if(nPrese)  s+=ir("Prese 220 V", nPrese);
     if(nQuadri) s+=ir("Quadri / distro", nQuadri);
     if(c.sedie)     s+=ir("Sedie", c.sedie);
