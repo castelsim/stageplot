@@ -17,6 +17,7 @@
 var CACHE = "stageplot-v1";
 var PRECACHE = [
   "/",
+  "/icons.js",                 /* libreria icone estratta dal monolite (caricata async) — serve offline */
   "/vendor/pdf.min.js",
   "/vendor/supabase.min.js",
   "/vendor/qrcode.min.js",
