@@ -516,8 +516,8 @@
   .cat-more:hover{text-decoration:underline}
   .cat-rest{display:none}
   .cat-rest.open{display:block}
-  .layer-row{cursor:pointer}
-  .layer-row:hover .layer-name{color:var(--accent)}
+  .layer-row.expandable{cursor:pointer}
+  .layer-row.expandable:hover .layer-name{color:var(--accent)}
   /* Inspector B "lista piatta" — righe chiave-valore (scelta Simone 08/07) */
   .insp-hd{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-3);margin:14px 0 2px}
   .insp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
@@ -615,6 +615,11 @@
   .layer-ico.on{color:var(--accent)}
   .layer-ico.layer-trash:hover{color:var(--danger,#dc2626)}
   .layer-opacity{width:100%;margin:2px 0 6px}
+  .layer-row.sel{background:var(--accent-tint);border-radius:6px}
+  .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);margin:8px 0 2px;padding-left:2px}
+  .layer-group-label:first-child{margin-top:2px}
+  .layer-group{border-left:2px solid var(--accent-soft);margin-left:3px;padding-left:8px}
+  .layer-divider{height:1px;background:var(--border);margin:9px 0 7px}
   body.dark .layer-ico:hover{background:#222b38}
   .cab-sechead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
   .cab-sechead .caret{font-size:11px;color:var(--text-3);width:10px;flex:0 0 auto}
@@ -2020,7 +2025,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <div class="modal" id="pmModal" hidden>
   <div class="mcard">
-    <h2>Monitoraggio digitale</h2>
+    <h2>Monitor personali</h2>
     <p class="hint" id="pmNeed"></p>
     <label class="cabfld">Quanti personal mixer hai?<input type="number" id="pmCount" min="1" max="32" step="1" inputmode="numeric"></label>
     <p class="hint" style="margin-top:6px">Li metto io <b>in mezzo ai musicisti</b>: un mixerino ogni 1-2 musicisti vicini (stesso ascolto).</p>
