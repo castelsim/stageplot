@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-/* Build StagePlot: assembla i moduli sorgente in un singolo index.html (deploy single-file).
+/* Build StagePlot: assembla i moduli sorgente negli artefatti di deploy.
  *
- * Perché single-file: il tool è local-first (funziona offline, condivisibile come un file,
- * deploy = un file su GitHub Pages). Lo sviluppo però è modulare (src/), così agenti diversi
- * lavorano su file diversi senza conflitti. Questo script ricompone il single-file.
+ * Output:
+ *   index.html  → shell leggera (HTML + CSS + versione + <script defer src="/app.js"> + <script async src="/icons.js">)
+ *   app.js      → tutto il JS dell'app (i blocchi <script data-app> del template, concatenati) — caricato DEFER
+ *   (icons.js e' un asset statico a se', non generato qui: libreria icone caricata ASYNC)
  *
- * Uso:  node build.mjs        → genera index.html da index.template.html + src/*
- *       node build.mjs --check → verifica che index.html sia allineato ai sorgenti (CI/pre-merge)
+ * Perche': local-first + deploy semplice su GitHub Pages, ma per l'LCP la shell HTML deve restare piccola e
+ * dipingere PRIMA di eseguire ~1,4 MB di JS. Lo sviluppo resta modulare (template + src/), lo script ricompone.
  *
- * Modularizzazione incrementale: per ora estrae il CSS. I prossimi moduli (JS canvas/objects/
- * data/export, asset) si aggiungono qui con nuovi marcatori, senza cambiare il workflow.
+ * Uso:  node build.mjs        → genera index.html + app.js da index.template.html + src/*
+ *       node build.mjs --check → verifica che index.html e app.js siano allineati ai sorgenti (CI/pre-merge)
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -33,21 +34,35 @@ function build() {
   const version = new Date().toISOString().slice(0, 10).replace(/-/g, "."); // YYYY.MM.DD
   if (!out.includes("/*__APP_VERSION__*/")) throw new Error("Marcatore mancante: /*__APP_VERSION__*/");
   out = out.replaceAll("/*__APP_VERSION__*/", version);
-  return out;
+
+  /* Estrai i blocchi <script data-app> nel bundle app.js (defer). Sono NON contigui nel template
+     (in mezzo c'e' HTML: pannello SEO, feedback box) → il PRIMO diventa <script defer src="/app.js">,
+     gli altri spariscono, l'HTML in mezzo resta. Ordine di concatenazione = ordine nel documento. */
+  const appParts = [];
+  out = out.replace(/<script data-app>([\s\S]*?)<\/script>/g, (m, code) => {
+    appParts.push(code);
+    return appParts.length === 1 ? '<script defer src="/app.js"></script>' : "";
+  });
+  if (appParts.length === 0) throw new Error("Nessun blocco <script data-app> nel template (marcatura persa?)");
+  const appjs = appParts.join("\n;\n");
+  return { html: out, appjs };
 }
 
 const check = process.argv.includes("--check");
-const built = build();
+const { html, appjs } = build();
+const stripVer = (s) => s.replace(/window\.__APP_VERSION__="[^"]*"/g, 'window.__APP_VERSION__="__VER__"');
 
 if (check) {
-  const current = readFileSync(r("index.html"), "utf8");
-  const stripVer = (s) => s.replace(/window\.__APP_VERSION__="[^"]*"/g, 'window.__APP_VERSION__="__VER__"');
-  if (stripVer(current) !== stripVer(built)) {
-    console.error("✗ index.html NON allineato ai sorgenti. Esegui: node build.mjs");
+  const curHtml = readFileSync(r("index.html"), "utf8");
+  let curApp = "__MISSING__";
+  try { curApp = readFileSync(r("app.js"), "utf8"); } catch (e) { /* app.js mancante → disallineato */ }
+  if (stripVer(curHtml) !== stripVer(html) || stripVer(curApp) !== stripVer(appjs)) {
+    console.error("✗ index.html/app.js NON allineati ai sorgenti. Esegui: node build.mjs");
     process.exit(1);
   }
-  console.log("✓ index.html allineato ai sorgenti.");
+  console.log("✓ index.html + app.js allineati ai sorgenti.");
 } else {
-  writeFileSync(r("index.html"), built);
-  console.log("✓ index.html generato dai sorgenti.");
+  writeFileSync(r("index.html"), html);
+  writeFileSync(r("app.js"), appjs);
+  console.log("✓ index.html + app.js generati dai sorgenti.");
 }

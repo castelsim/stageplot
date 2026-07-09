@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import vm from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const html = readFileSync(join(root, "index.html"), "utf8");
+const appjs = readFileSync(join(root, "app.js"), "utf8");   /* l'app e' nel bundle defer app.js (build.mjs) */
 
 /* ---- sandbox: carica gli <script> inline reali con uno stub DOM che ingoia tutto ---- */
 function loadApp() {
@@ -37,8 +37,7 @@ function loadApp() {
   ctx.window = new Proxy(ctx, { get: (t, k) => (k in t ? t[k] : U), set: (t, k, v) => { t[k] = v; return true; } });
   ctx.self = ctx.window; ctx.globalThis = ctx;
   vm.createContext(ctx);
-  const blocks = html.match(/<script>([\s\S]*?)<\/script>/g).map((s) => s.replace(/^<script>/, "").replace(/<\/script>$/, ""));
-  for (const code of blocks) { try { vm.runInContext(code, ctx, { timeout: 20000 }); } catch (e) { /* alcuni blocchi di boot toccano DOM: ok, i motori sono già definiti */ } }
+  try { vm.runInContext(appjs, ctx, { timeout: 20000 }); } catch (e) { /* il boot tocca il DOM (stub): ok, i motori sono gia' definiti (function-hoisting) */ }
   if (typeof ctx.TYPES !== "object" || typeof ctx.audioCablingEngine !== "function") {
     throw new Error("Sandbox non caricato: TYPES/motori mancanti (index.html cambiato struttura?)");
   }
