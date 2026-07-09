@@ -750,6 +750,13 @@
       odMsg.textContent = "";
     }
 
+    /* Etichetta leggibile del progetto: titolo + data ultimo salvataggio → distingue i "Senza titolo" (C3 audit UX). */
+    function projLabel(p){
+      var t = esc(p.title || "Senza titolo"), d = p.updated_at ? new Date(p.updated_at) : null;
+      if (!d || isNaN(d)) return t;
+      var M = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"], pad = function(n){ return (n < 10 ? "0" : "") + n; };
+      return t + " · " + d.getDate() + " " + M[d.getMonth()] + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
     function loadProjects(){
       return sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at", null)
         .order("updated_at", { ascending: false }).then(function(r){
@@ -757,7 +764,7 @@
             odProject.hidden = true; odEmpty.hidden = false; return false;
           }
           odEmpty.hidden = true; odProject.hidden = false;
-          odProject.innerHTML = r.data.map(function(p){ return '<option value="' + p.id + '">' + esc(p.title || "Senza titolo") + "</option>"; }).join("");
+          odProject.innerHTML = r.data.map(function(p){ return '<option value="' + p.id + '">' + projLabel(p) + "</option>"; }).join("");
           return true;
         });
     }
@@ -820,7 +827,7 @@
             heroCaption.innerHTML = '<span>Non hai ancora uno Stage Plot.</span> <a class="btn small" href="/">Crealo nel tool gratuito</a>';
             return;
           }
-          heroProject.innerHTML = r.data.map(function(p){ return '<option value="' + p.id + '">' + esc(p.title || "Senza titolo") + "</option>"; }).join("");
+          heroProject.innerHTML = r.data.map(function(p){ return '<option value="' + p.id + '">' + projLabel(p) + "</option>"; }).join("");
           heroProjectId = r.data[0].id;
           heroProject.value = heroProjectId;
           heroPicker.hidden = false;
