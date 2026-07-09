@@ -7605,6 +7605,13 @@ svg.addEventListener("pointerup", function(e){
           state.elec.uplinks=state.elec.uplinks||{}; var uu=state.elec.uplinks[pit.id]||(state.elec.uplinks[pit.id]={}); uu.to=pq.id;
           __elecRes=null; save();
         }
+      } else if(drag.kind==="dig"){
+        var pn=hitAt(function(t){ return MON_DIG_NODE[t.type] && t.id!==pit.id; });   /* hub o altro mixerino */
+        if(pn){
+          if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }   /* il gesto attiva il layer */
+          mondManual(pit.id).to=pn.id;
+          __mondRes=null; save();
+        }
       }
     }
     render(); renderAccessoriCount(); drag=null; return;
