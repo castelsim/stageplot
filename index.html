@@ -554,6 +554,13 @@
   .qa-item.sel .qa-name{color:#0f766e;font-weight:600}
   .qa-item.sel .qa-pill{background:rgba(13,148,136,.13);color:#0f766e}
   body.dark .quick-add{background:#141a1f;border-color:#2a3138}
+  /* menu contestuale sul cavo (tasto destro) */
+  .cab-ctx{position:fixed;z-index:200;background:var(--panel,#fff);border:1px solid #e7e2da;border-radius:10px;box-shadow:0 12px 34px rgba(31,41,55,.18);padding:4px;min-width:158px;display:flex;flex-direction:column;gap:1px}
+  .cab-ctx-i{appearance:none;background:none;border:0;text-align:left;padding:7px 11px;border-radius:6px;font-size:12.5px;color:var(--text);cursor:pointer;font-family:inherit}
+  .cab-ctx-i:hover{background:var(--accent-tint)}
+  .cab-ctx-i.danger{color:#dc2626}
+  .cab-ctx-i.danger:hover{background:rgba(220,38,38,.1)}
+  body.dark .cab-ctx{background:#141a1f;border-color:#2a3138}
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
@@ -4840,7 +4847,34 @@ function cabResult(force){
   if(force || state.cab.auto || !__cabRes) __cabRes=audioCablingEngine();
   return __cabRes;
 }
-var selCab=null, lastWp=null;   /* cavo selezionato + doppio-click su waypoint (elimina) */
+var selCab=null, lastWp=null;   /* cavo selezionato (primario, per l'editing) + doppio-click su waypoint (elimina) */
+var selCabSet={};   /* selezione MULTIPLA di cavi (Shift-click): key → true; Backspace li elimina insieme */
+function cabIsSel(key){ return selCab===key || !!selCabSet[key]; }
+/* elimina un cavo per key: i ritorni con flag deleted; gli input disconnettono (manual) o ghost (auto) */
+function cabDeleteKey(key){ var cm=cabManual(key);
+  if(String(key).indexOf("ret:")===0){ cm.deleted=true; return; }
+  if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts; if(!Object.keys(cm).length) delete state.cab.manual[key]; }
+  else cm.deleted=true; }
+function cabResetPathKey(key){ var cm=state.cab.manual[key]; if(cm) delete cm.pts; }   /* solo le pieghe: il cavo resta collegato (raddrizza) */
+/* menu contestuale (tasto destro) sul cavo — Max style: Elimina / Reset percorso (ridà le azioni dopo la rimozione del box #24) */
+function closeCabMenu(){ var m=document.getElementById("cabCtxMenu"); if(m) m.remove(); document.removeEventListener("pointerdown", _cabMenuDismiss, true); }
+function _cabMenuDismiss(e){ var m=document.getElementById("cabCtxMenu"); if(m && !m.contains(e.target)) closeCabMenu(); }
+function showCabMenu(cx, cy, key){
+  closeCabMenu();
+  var m=document.createElement("div"); m.id="cabCtxMenu"; m.className="cab-ctx";
+  function add(label, danger, fn){ var b=document.createElement("button"); b.className="cab-ctx-i"+(danger?" danger":""); b.textContent=label;
+    b.addEventListener("click", function(ev){ ev.stopPropagation(); fn(); __cabRes=null; save(); render(); closeCabMenu(); }); m.appendChild(b); }
+  var multi=Object.keys(selCabSet).length>1;
+  if(multi){ add("Elimina "+Object.keys(selCabSet).length+" cavi", true, function(){ Object.keys(selCabSet).forEach(cabDeleteKey); selCabSet={}; selCab=null; }); }
+  else { var del=state.cab.manual[key] && state.cab.manual[key].deleted;
+    add(del?"Ripristina cavo":"Elimina cavo", !del, function(){ if(del){ cabManual(key).deleted=false; } else { cabDeleteKey(key); } selCab=null; selCabSet={}; });
+    add("Reset percorso", false, function(){ cabResetPathKey(key); }); }
+  document.body.appendChild(m);
+  var r=m.getBoundingClientRect();
+  m.style.left=Math.min(cx, window.innerWidth-r.width-6)+"px";
+  m.style.top=Math.min(cy, window.innerHeight-r.height-6)+"px";
+  setTimeout(function(){ document.addEventListener("pointerdown", _cabMenuDismiss, true); }, 0);
+}
 function cabMidpoint(pts){   /* punto a metà lunghezza della polilinea (per l'etichetta) */
   var total=polyLen(pts), half=total/2, acc=0;
   for(var i=1;i<pts.length;i++){ var seg=Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
@@ -4962,7 +4996,7 @@ function cablingMarkup(){
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
         linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
       var ep=orthExpand(dpts); loomPolys.push({key:l.key, poly:ep});
-      li+='<path class="cab-line'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
+      li+='<path class="cab-line'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
       var lbl=(LBL || selCab===l.key) ? cabLinkLabel(l) : '';   /* il cavo selezionato mostra la sua etichetta anche in modalità hover */
       if(lbl){ var mid=cabMidpoint(ep); li+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
@@ -4999,7 +5033,7 @@ function cablingMarkup(){
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
-      var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(selCab===l.key?' sel':'')+'" d="'+d+'"/>';
+      var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(editRet) ri+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
@@ -6922,6 +6956,14 @@ svg.addEventListener("pointerover", function(e){
   cabHoverTip(e);
 });
 svg.addEventListener("pointerleave", function(){ cabFocus(null); if(__cabTip){ __cabTip.remove(); __cabTip=null; } });
+svg.addEventListener("contextmenu", function(e){   /* tasto destro sul cavo → menu Elimina / Reset percorso */
+  var hit=e.target.closest && e.target.closest(".cab-hit");
+  if(hit && state.cab && state.cab.on && !state.cab.locked){ e.preventDefault();
+    var key=hit.getAttribute("data-cab");
+    if(!selCabSet[key]){ selCab=key; selCabSet={}; selCabSet[key]=true; render(); }   /* se non è già in una selezione multipla, seleziona questo */
+    showCabMenu(e.clientX, e.clientY, key);
+  }
+});
 svg.addEventListener("pointerdown", function(e){
   /* niente selezione-testo blu durante i drag: il canvas è user-select:none (CSS), e qui si pulisce
      anche una selezione eventualmente già iniziata fuori dal canvas (segnalazione Simone con foto) */
@@ -6996,7 +7038,10 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"cabreconnect", key:selCab, end:cendp.getAttribute("data-end")||"box", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }   /* trascina un capo: su una box = riconnetti, nel vuoto = scollega */
     var chit=e.target.closest(".cab-hit");
-    if(chit){ selCab=chit.getAttribute("data-cab"); render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+    if(chit){ var ck=chit.getAttribute("data-cab");
+      if(e.shiftKey){ if(selCabSet[ck]) delete selCabSet[ck]; else selCabSet[ck]=true; selCab=selCabSet[ck]?ck:(Object.keys(selCabSet)[0]||null); }   /* Shift = aggiungi/togli dalla selezione multipla */
+      else { selCab=ck; selCabSet={}; selCabSet[ck]=true; }
+      render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   /* ── PORTE stile Max: trascina dal pallino dell'elemento selezionato verso una box/distro ── */
   if(_onPort){
@@ -7846,13 +7891,11 @@ document.addEventListener("keydown", function(e){
   if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ if(e.key==="Escape"){ e.target.blur(); clearSelection(); render(); } return; }
   /* cavo selezionato: Backspace/Canc lo toglie (richiesta Simone). In manual-first = SCOLLEGA
      (la sorgente torna "da collegare"); in auto = eliminato col fantasma ripristinabile. */
-  if(selCab && (e.key==="Backspace"||e.key==="Delete")){
+  if((selCab || Object.keys(selCabSet).length) && (e.key==="Backspace"||e.key==="Delete")){
     e.preventDefault();
-    var cm=cabManual(selCab);
-    if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts;
-      if(!Object.keys(cm).length) delete state.cab.manual[selCab]; }
-    else cm.deleted=true;
-    selCab=null; __cabRes=null; save(); render(); renderCabPanel();
+    var kk=Object.keys(selCabSet).length ? Object.keys(selCabSet) : (selCab?[selCab]:[]);
+    kk.forEach(cabDeleteKey);
+    selCab=null; selCabSet={}; __cabRes=null; save(); render(); renderCabPanel();
     return;
   }
   if(selElec && (e.key==="Backspace"||e.key==="Delete")){   /* linea elettrica: scollega (parità con l'audio) */
@@ -7868,7 +7911,7 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fitStage(); return; }   /* "a" → adatta la vista al palco */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selElec=null; collapseCats(); render(); }
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; closeCabMenu(); collapseCats(); render(); }
   if(!it) return;
   if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); deleteSel(); }
   else if(e.key==="r"){ rotateSel(15); }
