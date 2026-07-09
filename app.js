@@ -2907,7 +2907,7 @@ function elecMarkup(){
   if(!state.elec || !state.elec.on || state.elec.visible===false) return '';
   var R=elecResult(); if(!R) return '';
   var op=(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
-  var editE=!window.__cabStatic;   /* parità Max: selezione/lati/estremi come l'audio */
+  var editE=!window.__cabStatic && !state.elec.locked;   /* parità Max; niente editing se il layer Elettrico è bloccato (lucchetto) */
   var LBLE=window.__cabStatic || state.elec.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="elec-layer'+(editE?' elec-editable':'')+'" style="opacity:'+op+'">';
   var OBS=obstacleRects();   /* Pilastro 2: anche i cavi elettrici aggirano pedane/elementi */
@@ -4788,7 +4788,7 @@ svg.addEventListener("pointerdown", function(e){
   lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId};
   var sp = svgPoint(e);
   /* ── editing cavi audio (patch Max/MSP): agisce solo se clicchi un elemento del cavo ── */
-  if(state.elec && state.elec.on && state.elec.visible!==false && e.target.closest){
+  if(state.elec && state.elec.on && state.elec.visible!==false && !state.elec.locked && e.target.closest){
     var esh=e.target.closest(".elec-supplyhit");
     if(esh){ drag={mode:"elecsupply", moved:false}; svg.setPointerCapture(e.pointerId); return; }
     /* ── linee elettriche: parità Max con l'audio (lati, estremi, selezione) ── */
@@ -6929,7 +6929,7 @@ function layerRegistry(){
         ["cab-inlayer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
       removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },   /* cestino = ricominciare DA ZERO */
-    { id:"cabout", name:"Monitor palco", group:"Audio", color:LAYER_COLORS.monitor,
+    { id:"cabout", name:"Monitor", group:"Audio", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); },
       opacity:state.cab.retOpacity==null?100:state.cab.retOpacity, setOpacity:function(v){ state.cab.retOpacity=v; var g=svg.querySelector(".cab-retlayer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); } },
@@ -6945,6 +6945,7 @@ function layerRegistry(){
     { id:"elec", name:"Elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
+      lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
       removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico.
        Niente cestino: l'immagine è importata dall'utente (rimozione solo dal pannello Planimetria). */
