@@ -8752,6 +8752,11 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
   MIKING[t]={ options:[["close","Ravvicinato (clip)"],["pan","Panoramico (sezione)"]], def:"close",
     chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
 });
+/* Archi SINGOLI (violino/viola/violoncello/contrabbasso solisti): archetto (DPA) oppure panoramico=0 canali (overhead) */
+["vlnpost","violapost","violoncello","contrabbasso"].forEach(function(t){
+  MIKING[t]={ options:[["archetto","Archetto (DPA)"],["pan","Panoramico (sezione)"]], def:"archetto",
+    chans:function(m){ return m==="pan" ? [] : [["","DPA 4099"]]; } };
+});
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
 function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def); return IN_MULTI[it.type]; }
 var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", iemant:"IEM", hearback:"personal mixer", monmix:"console mon" };
