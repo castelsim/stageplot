@@ -8892,7 +8892,7 @@ function toggleVenueEdit(){
 /* [strumento Zone rimosso 06/07/2026 — toggleZoneLayer/suggestZones/addZone/delZone/renderZonePanel
    e i suggerimenti automatici. Superati dai motori audio/elettrico.] */
 /* helper del motore/PDF: canali per oggetto, corrente monofase indicativa */
-function itemChannels(it){ if(MIKING[it.type]) return MIKING[it.type].chans(it.miking||MIKING[it.type].def).length; if(IN_MULTI[it.type]) return inMultiList(it).length; if(IN_SRC[it.type]!=null) return 1; return 0; }
+function itemChannels(it){ return cabItemInputs(it).length; }   /* fonte unica: coerente con zona/miczone/distereo/MIKING (test motori) */
 function ampsFor(w){ return Math.max(1, Math.ceil((w/230)*1.1)); }   /* corrente monofase indicativa @230V + 10% */
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
