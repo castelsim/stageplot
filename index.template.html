@@ -3423,7 +3423,8 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
-  if(IN_MULTI[it.type]) return inMultiList(it).map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
+  if(MIKING[it.type]) return MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
+  if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
   if(IN_SRC[it.type]!=null) return [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
   return [];
 }
@@ -7369,7 +7370,7 @@ var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","
 var STAND_SUGGEST = ["tall boom","short boom","tall straight","short straight","clip","round base","table","a terra","—"];
 var IN_SRC = {
   /* voci e microfoni */
-  astamic:"SM58", giraffa:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58",
+  astamic:"SM58", giraffa:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184",
   /* archi (mic a clip) */
   vlnpost:"DPA 4099", violapost:"DPA 4099", violoncello:"DPA 4099", contrabbasso:"DPA 4099", archi2leggio:"DPA 4099", arpa:"DPA 4099",
   /* legni (mic a clip) */
@@ -7436,6 +7437,17 @@ Object.keys(ARCHI_SEC).forEach(function(t){
       return IN_MULTI[t];   /* archetto = i 2 DPA per leggio (default) */
     }
   };
+});
+/* Cori e fiati a SEZIONE (elementi singoli): "Panoramico" = 0 canali individuali — la sezione la
+   riprendi con Mic coro / overhead (sorgenti a sé). Approccio A scelto da Simone (09/07). */
+MIKING.corista = { options:[["indiv","SM58 (per corista)"],["pan","Panoramici (overhead)"]], def:"indiv",
+  chans:function(m){ return m==="pan" ? [] : [["","SM58"]]; } };
+var WIND_MIC = {flauto:"DPA 4099",oboe:"DPA 4099",clarinetto:"DPA 4099",fagotto:"DPA 4099",
+  saxalto:"DPA 4099",saxtenore:"DPA 4099",saxbaritono:"DPA 4099",
+  corno:"MD421",tromba:"e906",trombone:"MD421",tuba:"MD421"};
+Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
+  MIKING[t]={ options:[["close","Ravvicinato (clip)"],["pan","Panoramico (sezione)"]], def:"close",
+    chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
 });
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
 function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def); return IN_MULTI[it.type]; }
@@ -8477,6 +8489,12 @@ function autoInputs(){
       rows.push(linkTo(rowFromMic(labelPrefix(it,"R"),"KM184"),it,"mic_R"));
       return;
     }
+    if(MIKING[it.type]){   /* microfonazione scelta (archi/cori/fiati): panoramico può dare 0 canali */
+      MIKING[it.type].chans(it.miking||MIKING[it.type].def).forEach(function(k){
+        rows.push(linkTo(rowFromMic(k[0]?labelPrefix(it,k[0]):(it.label||t.nome), k[1]),it));
+      });
+      return;
+    }
     if(IN_MULTI[it.type]){
       inMultiList(it).forEach(function(k){
         rows.push(linkTo(rowFromMic(labelPrefix(it,k[0]), k[1], k[2], k[3], k[4]),it));
@@ -8596,7 +8614,7 @@ function toggleVenueEdit(){
 /* [strumento Zone rimosso 06/07/2026 — toggleZoneLayer/suggestZones/addZone/delZone/renderZonePanel
    e i suggerimenti automatici. Superati dai motori audio/elettrico.] */
 /* helper del motore/PDF: canali per oggetto, corrente monofase indicativa */
-function itemChannels(it){ if(IN_MULTI[it.type]) return inMultiList(it).length; if(IN_SRC[it.type]!=null) return 1; return 0; }
+function itemChannels(it){ if(MIKING[it.type]) return MIKING[it.type].chans(it.miking||MIKING[it.type].def).length; if(IN_MULTI[it.type]) return inMultiList(it).length; if(IN_SRC[it.type]!=null) return 1; return 0; }
 function ampsFor(w){ return Math.max(1, Math.ceil((w/230)*1.1)); }   /* corrente monofase indicativa @230V + 10% */
 
 /* ===== Cornice di stampa (area esportata nel PDF) ===== */
