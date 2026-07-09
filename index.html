@@ -9723,6 +9723,8 @@ function autoInputs(){
     .map(function(o){ return o.it; });
   ordered.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
+    if(it.type!=="miczone" && itemInMicZone(it)) return;   /* coperto da una zona panoramica */
+    if(it.type==="miczone"){ rows.push(linkTo(rowFromMic(micZoneLabel(it), micZoneMic(it)),it)); return; }
     if(it.type==="coppiast"){
       rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"KM184"),it,"mic_L"));
       rows.push(linkTo(rowFromMic(labelPrefix(it,"R"),"KM184"),it,"mic_R"));
