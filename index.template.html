@@ -3451,6 +3451,8 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
+  if(it.type!=="miczone" && itemInMicZone(it)) return [];        /* coperto da una zona panoramica → 0 canali */
+  if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
   if(MIKING[it.type]) return MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
   if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
