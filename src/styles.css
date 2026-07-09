@@ -527,6 +527,21 @@
   .elec-supplyhit{fill:transparent;pointer-events:all;cursor:grab}
   body.dark .elec-line{stroke:#f59e0b}
   body.dark .elec-feed,body.dark .elec-line.elec-cee{stroke:#fbbf24}
+  /* monitoraggio digitale (fuchsia) */
+  .mond-line{fill:none;stroke:#c026d3;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;stroke-dasharray:9 4}
+  .mond-line.sel{stroke:#a21caf;stroke-width:3.4;stroke-dasharray:none}
+  .mond-lbl{fill:#a21caf;font-size:11px;font-weight:600;pointer-events:none}
+  .mond-hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:none}
+  .mond-editable .mond-hit{pointer-events:stroke;cursor:pointer}
+  .mond-editable .mond-hit:hover{stroke:rgba(192,38,211,.2)}
+  .mond-seg{stroke:#a21caf;stroke-width:3.4;fill:none;pointer-events:none;opacity:.9;stroke-linecap:round}
+  .mond-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
+  .mond-seg-hit[data-ori="h"]{cursor:ns-resize}
+  .mond-seg-hit[data-ori="v"]{cursor:ew-resize}
+  .mond-endpt{fill:#fff;stroke:#c026d3;stroke-width:3.4;pointer-events:none}
+  .mond-endpt-hit{fill:transparent;stroke:none}
+  .mond-editable .mond-endpt{pointer-events:all;cursor:grab}
+  body.dark .mond-line{stroke:#e879f9} body.dark .mond-lbl{fill:#f0abfc}
   body.dark .elec-lbl{stroke:#0e1214;fill:#fcd34d}
   body.dark .elec-lbl-feed{fill:#fbbf24}
   body.dark .elec-ghost text{fill:#fcd34d}
