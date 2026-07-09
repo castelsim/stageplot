@@ -1588,6 +1588,15 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <label>Microfonazione</label>
       <select id="pMike"></select>
     </div>
+    <div id="pZoneWrap" style="display:none">
+      <label>Opacità area</label>
+      <input type="range" id="pZoneOp" min="0" max="60" step="1">
+      <label style="margin-top:8px">Microfono <small id="pZoneMicHint" style="color:var(--text-3);font-weight:400"></small></label>
+      <input type="text" id="pZoneMic" placeholder="es. KM184">
+      <label style="margin-top:8px">Etichetta</label>
+      <input type="text" id="pZoneLabel" placeholder="Zona panoramica">
+      <div id="pZoneCount" style="font-size:11px;color:var(--text-2);margin-top:6px"></div>
+    </div>
     <div id="pPreseWrap" style="display:none">
       <label>Ingressi (prese)</label>
       <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
@@ -5620,6 +5629,15 @@ function renderProps(){
     if(mk){ var msel=document.getElementById("pMike");
       msel.innerHTML=mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("");
       msel.value=it.miking||mk.def; } }
+  var zw=document.getElementById("pZoneWrap");   /* zona microfono panoramico */
+  if(zw){ var isZone=it.type==="miczone"; zw.style.display=isZone?"block":"none";
+    if(isZone){
+      document.getElementById("pZoneOp").value = (it.opacity==null?18:it.opacity);
+      var zmic=document.getElementById("pZoneMic"); zmic.value=it.mic||""; zmic.placeholder=micZoneMic(it);
+      document.getElementById("pZoneMicHint").textContent = it.mic ? "(manuale)" : "· inferito";
+      var zlbl=document.getElementById("pZoneLabel"); zlbl.value=it.label||""; zlbl.placeholder=micZoneLabel(it);
+      document.getElementById("pZoneCount").textContent = micZoneSources(it).length + " sorgenti coperte";
+    } }
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
@@ -9036,6 +9054,13 @@ function toggleCabLayer(){
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
+  var zop=document.getElementById("pZoneOp");   /* zona: opacità live (come gli slider layer) */
+  if(zop) zop.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ it.opacity=+this.value;
+    var n=itemNode(it.id), r=n&&n.querySelector("rect"); if(r) r.setAttribute("fill-opacity",(it.opacity/100).toFixed(2)); saveSoon(); } });
+  var zmicI=document.getElementById("pZoneMic");
+  if(zmicI) zmicI.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ var v=this.value.trim(); if(v) it.mic=v.slice(0,24); else delete it.mic; __cabRes=null; save(); render(); } });
+  var zlblI=document.getElementById("pZoneLabel");
+  if(zlblI) zlblI.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ var v=this.value.trim(); if(v) it.label=v.slice(0,40); else delete it.label; __cabRes=null; save(); render(); } });
   var hw=document.getElementById("pSbHw");
   if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } __cabRes=null; save(); render(); } });
 })();
