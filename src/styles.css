@@ -452,9 +452,10 @@
   .layer-ico.layer-trash:hover{color:var(--danger,#dc2626)}
   .layer-opacity{width:100%;margin:2px 0 6px}
   .layer-row.sel{background:var(--accent-tint);border-radius:6px}
-  .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);margin:8px 0 2px;padding-left:2px}
+  .layer-ctrl{display:flex;align-items:center;gap:8px;padding:3px 4px 8px 22px}   /* barra controlli sotto la riga aperta */
+  .layer-ctrl .layer-opacity{flex:1 1 auto;width:auto;margin:0}
+  .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
-  .layer-group{border-left:2px solid var(--accent-soft);margin-left:3px;padding-left:8px}
   .layer-divider{height:1px;background:var(--border);margin:9px 0 7px}
   body.dark .layer-ico:hover{background:#222b38}
   .cab-sechead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
