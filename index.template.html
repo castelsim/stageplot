@@ -8065,45 +8065,39 @@ function layerRegistry(){
 }
 var layerOpen=true;
 var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider opacita'). Clic sulla riga fa toggle. */
-/* Riga PULITA di default: dot + nome + occhio (mostra/nascondi). Al clic sulla riga si "apre" e compare
-   SOTTO una barra con opacita' + lucchetto + cestino (solo quelli che il layer possiede). Meno
-   affollamento quando i layer sono tanti; l'occhio resta sempre in vista e allineato. */
+/* Riga UNICA con tutto inline (richiesta Simone): dot + nome + slider opacita' + occhio + lucchetto +
+   cestino. Le 3 icone (occhio/lucchetto/cestino) stanno in una griglia a slot fissi → sempre allineate
+   (slot vuoto dove il layer non ha quel controllo); lo slider compare solo se il layer ha opacita'. */
 function renderLayerRow(L, container){
-  var actionable = (L.opacity!=null) || L.lockable || L.removable;   /* apribile solo se ha controlli extra */
-  var sel = actionable && selLayer===L.id;
-  var row=document.createElement("div"); row.className="layer-row"+(actionable?" expandable":"")+(sel?" sel":"");
+  var row=document.createElement("div"); row.className="layer-row";
   row.innerHTML='<span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
-  if(actionable) row.addEventListener("click", function(){ selLayer = (selLayer===L.id ? null : L.id); renderLayerManager(); });
-  /* solo l'occhio sulla riga: e' l'azione primaria (mostra/nascondi), sempre visibile e incolonnata */
+  var ctrl=document.createElement("div"); ctrl.className="layer-controls";
+  if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità";
+    op.addEventListener("input", function(){ L.setOpacity(+this.value); });          /* live, leggero */
+    op.addEventListener("change", function(){ save(); render(); });                  /* rilascio: salva + sync */
+    ctrl.appendChild(op); }
+  var icons=document.createElement("div"); icons.className="layer-icons";
   var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
-  eye.addEventListener("click", function(e){ e.stopPropagation(); L.setVisible(!L.visible); }); row.appendChild(eye);
+  eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); icons.appendChild(eye);
+  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); icons.appendChild(lk); }
+  else icons.appendChild(document.createElement("span"));   /* slot vuoto → occhio/cestino restano incolonnati */
+  if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title="Rimuovi il layer"; tr.innerHTML=_LM_TRASH; tr.addEventListener("click", function(){ L.remove(); }); icons.appendChild(tr); }
+  else icons.appendChild(document.createElement("span"));
+  ctrl.appendChild(icons); row.appendChild(ctrl);
   container.appendChild(row);
-  if(sel){
-    var bar=document.createElement("div"); bar.className="layer-ctrl";
-    if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità";
-      op.addEventListener("input", function(){ L.setOpacity(+this.value); });          /* live, leggero */
-      op.addEventListener("change", function(){ save(); render(); });                  /* rilascio: salva + sync */
-      bar.appendChild(op); }
-    if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); bar.appendChild(lk); }
-    if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title="Rimuovi il layer"; tr.innerHTML=_LM_TRASH; tr.addEventListener("click", function(e){ e.stopPropagation(); L.remove(); }); bar.appendChild(tr); }
-    container.appendChild(bar);
-  }
 }
 function renderLayerManager(){
   var sec=document.getElementById("layerSec"); if(!sec) return;
   var LS=layerRegistry().filter(function(L){ return L.active; });
   sec.style.display = LS.length ? "block" : "none";
   if(!LS.length) return;
-  /* niente accordion sui layer (Simone 08/07): gli attivi sono sempre in vista. Un solo titolo = l'etichetta
-     di gruppo (oggi "Audio"); niente titolo di sezione "Cablaggio" (tolto — era un doppio header). Le righe
-     del gruppo stanno subito sotto l'etichetta; poi un divisore e le righe singole (Elettrico, Planimetria). */
+  /* Un solo header "Layer" in cima (Simone: "audio diventa layer"). Le righe restano raggruppate SOLO dal
+     divisore (audio sopra, impianti/sfondo sotto), senza etichetta di gruppo separata. */
   var rows=document.getElementById("layerRows"); rows.innerHTML="";
+  var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Layer"; rows.appendChild(hdr);
   var order=[], groups={}, singles=[];
   LS.forEach(function(L){ if(L.group){ if(!groups[L.group]){ groups[L.group]=[]; order.push(L.group); } groups[L.group].push(L); } else singles.push(L); });
-  order.forEach(function(g){
-    var lab=document.createElement("div"); lab.className="layer-group-label"; lab.textContent=g; rows.appendChild(lab);
-    groups[g].forEach(function(L){ renderLayerRow(L, rows); });
-  });
+  order.forEach(function(g){ groups[g].forEach(function(L){ renderLayerRow(L, rows); }); });
   if(order.length && singles.length){ var dv=document.createElement("div"); dv.className="layer-divider"; rows.appendChild(dv); }
   singles.forEach(function(L){ renderLayerRow(L, rows); });
 }
