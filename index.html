@@ -7127,6 +7127,21 @@ svg.addEventListener("pointerdown", function(e){
     var ehit=e.target.closest(".elec-hit");
     if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
+  if(state.mond && state.mond.on && !state.mond.locked && e.target.closest){
+    /* ── monitoraggio digitale: parità Max (lati, estremi, selezione) ── */
+    var mseg=e.target.closest(".mond-seg-hit");
+    if(mseg){ e.preventDefault(); var mkey=mseg.getAttribute("data-mond"), msi=+mseg.getAttribute("data-seg"), mori=mseg.getAttribute("data-ori");
+      selMond=mkey; var Rm=mondResult(); var ml=Rm.links.filter(function(k){ return k.key===mkey; })[0];
+      if(ml){ var exm={}; if(ml.from)exm[ml.from.id]=1; if(ml.to)exm[ml.to.id]=1;
+        var fp0m=orthExpand(cabRoutePts(ml.pts, obstacleRects(), exm));
+        drag={mode:"mondseg", key:mkey, si:msi, ori:mori, fp0:fp0m, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; } }
+    var mend=e.target.closest(".mond-endpt");
+    if(mend){ e.preventDefault(); selMond=mend.getAttribute("data-mond");
+      drag={mode:"mondreconnect", key:selMond, end:mend.getAttribute("data-mend")||"to", moved:false};
+      svg.setPointerCapture(e.pointerId); render(); return; }
+    var mhit=e.target.closest(".mond-hit");
+    if(mhit){ selMond=mhit.getAttribute("data-mond"); selCab=null; selElec=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+  }
   if(state.cab && state.cab.on && !state.cab.locked && e.target.closest){
     var chome=e.target.closest(".cab-homehit");
     if(chome){ e.preventDefault(); drag={mode:"cabhome", moved:false}; svg.setPointerCapture(e.pointerId); return; }
@@ -7354,6 +7369,19 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="elecreconnect"){   /* feedback: il capo segue il cursore */
     sp=svgPoint(e); drag.moved=true;
     svg.querySelectorAll('.elec-endpt[data-eend="'+drag.end+'"]').forEach(function(c){ c.setAttribute("cx",sp.x); c.setAttribute("cy",sp.y); });
+    return;
+  }
+  if(drag.mode==="mondseg"){   /* monitor digitale: trascina il LATO (come l'audio/elettrico) */
+    sp=svgPoint(e);
+    var valm=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
+    var gm=snapVal(); if(gm>0) valm=Math.round(valm/gm)*gm;
+    var WPm=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valm));
+    mondManual(drag.key).pts=WPm.slice(1,-1); drag.moved=true; __mondRes=null; redrawStageLayers();
+    return;
+  }
+  if(drag.mode==="mondreconnect"){
+    sp=svgPoint(e); drag.moved=true;
+    svg.querySelectorAll('.mond-endpt[data-mend="'+drag.end+'"]').forEach(function(c){ c.setAttribute("cx",sp.x); c.setAttribute("cy",sp.y); });
     return;
   }
   if(drag.mode==="elecsupply"){   /* trascina l'alimentazione elettrica (diventa personalizzata) */
@@ -7617,6 +7645,14 @@ svg.addEventListener("pointerup", function(e){
     render(); renderAccessoriCount(); drag=null; return;
   }
   if(drag && drag.mode==="elecseg"){ if(drag.moved){ save(); } __elecRes=null; render(); renderElecPanel(); drag=null; return; }
+  if(drag && drag.mode==="mondseg"){ if(drag.moved) save(); __mondRes=null; render(); drag=null; return; }
+  if(drag && drag.mode==="mondreconnect"){   /* estremo: su hub/mixerino = riconnetti, nel vuoto = scollega */
+    var rpM=svgPoint(e), tn=(state.items||[]).filter(function(t){ return MON_DIG_NODE[t.type] && t.id!==drag.key; })
+      .filter(function(t){ return Math.abs(rpM.x-t.x)<=(t.w||40)/2+12 && Math.abs(rpM.y-t.y)<=(t.d||40)/2+12; })[0];
+    if(drag.end==="to" && tn){ mondManual(drag.key).to=tn.id; __mondRes=null; save(); }
+    else if(drag.moved){ var cm=mondManual(drag.key); delete cm.to; delete cm.pts; if(!Object.keys(cm).length) delete state.mond.manual[drag.key]; selMond=null; __mondRes=null; save(); }
+    render(); drag=null; return;
+  }
   if(drag && drag.mode==="elecreconnect"){   /* rilascio: su un distro = riconnetti, nel vuoto = scollega */
     var rpE=svgPoint(e), isUp=drag.key.indexOf("up:")===0, upId=isUp?drag.key.slice(3):null;
     var td=(state.items||[]).filter(function(it){ return elecIsDistro(it) && (!isUp || it.id!==upId); })
@@ -8038,12 +8074,18 @@ document.addEventListener("keydown", function(e){
     selElec=null; __elecRes=null; save(); render(); renderElecPanel();
     return;
   }
+  if(selMond && (e.key==="Backspace"||e.key==="Delete")){   /* monitor digitale: scollega */
+    e.preventDefault();
+    var cmm=mondManual(selMond); delete cmm.to; delete cmm.pts; if(!Object.keys(cmm).length) delete state.mond.manual[selMond];
+    selMond=null; __mondRes=null; save(); render();
+    return;
+  }
   if((e.metaKey||e.ctrlKey) && (e.key==="c"||e.key==="C")){ e.preventDefault(); copySel(); return; }   /* Cmd/Ctrl+C copia */
   if((e.metaKey||e.ctrlKey) && (e.key==="v"||e.key==="V")){ e.preventDefault(); pasteClip(); return; }  /* Cmd/Ctrl+V incolla */
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fitStage(); return; }   /* "a" → adatta la vista al palco */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; closeCabMenu(); collapseCats(); render(); }
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; selMond=null; closeCabMenu(); collapseCats(); render(); }
   if(!it) return;
   if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); deleteSel(); }
   else if(e.key==="r"){ rotateSel(15); }
