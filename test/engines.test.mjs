@@ -142,5 +142,14 @@ t("ordine: gruppo Audio prima di Elettrico e Planimetria", () => {
   ok(ids.indexOf("mond") < ids.indexOf("elec"), "mond < elec"); ok(ids.indexOf("elec") < ids.indexOf("venue"), "elec < venue");
 });
 
+console.log("\nCatalogo — strumenti sempre visibili (niente 'Mostra tutti'):");
+t("ogni strumento (categoria Strumenti) è essenziale", () => {
+  ["oboe", "fagotto", "tuba", "saxbaritono", "timpani", "grancassa", "arpa", "celesta", "vibrafono", "marimba", "pianoverticale"]
+    .forEach((k) => { ok(A.catOf(k) === "Strumenti", k + " deve essere in Strumenti"); ok(A.isEss(k), k + " deve essere essenziale"); });
+});
+t("il filtro 'Mostra tutti' resta per gli accessori (non-Strumenti)", () => {
+  ok(!A.isEss("truss40"), "truss40 (Allestimento) NON essenziale"); ok(!A.isEss("gazebo33"), "gazebo (Allestimento) NON essenziale");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
