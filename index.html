@@ -691,6 +691,21 @@
   .elec-supplyhit{fill:transparent;pointer-events:all;cursor:grab}
   body.dark .elec-line{stroke:#f59e0b}
   body.dark .elec-feed,body.dark .elec-line.elec-cee{stroke:#fbbf24}
+  /* monitoraggio digitale (fuchsia) */
+  .mond-line{fill:none;stroke:#c026d3;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;stroke-dasharray:9 4}
+  .mond-line.sel{stroke:#a21caf;stroke-width:3.4;stroke-dasharray:none}
+  .mond-lbl{fill:#a21caf;font-size:11px;font-weight:600;pointer-events:none}
+  .mond-hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:none}
+  .mond-editable .mond-hit{pointer-events:stroke;cursor:pointer}
+  .mond-editable .mond-hit:hover{stroke:rgba(192,38,211,.2)}
+  .mond-seg{stroke:#a21caf;stroke-width:3.4;fill:none;pointer-events:none;opacity:.9;stroke-linecap:round}
+  .mond-seg-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
+  .mond-seg-hit[data-ori="h"]{cursor:ns-resize}
+  .mond-seg-hit[data-ori="v"]{cursor:ew-resize}
+  .mond-endpt{fill:#fff;stroke:#c026d3;stroke-width:3.4;pointer-events:none}
+  .mond-endpt-hit{fill:transparent;stroke:none}
+  .mond-editable .mond-endpt{pointer-events:all;cursor:grab}
+  body.dark .mond-line{stroke:#e879f9} body.dark .mond-lbl{fill:#f0abfc}
   body.dark .elec-lbl{stroke:#0e1214;fill:#fcd34d}
   body.dark .elec-lbl-feed{fill:#fbbf24}
   body.dark .elec-ghost text{fill:#fcd34d}
@@ -5275,6 +5290,35 @@ function elecMarkup(){
   s+='</g>';
   return s;
 }
+var selMond=null;   /* cavo monitor digitale selezionato (key = id del mixerino) */
+function monDigMarkup(){
+  if(!state.mond || !state.mond.on || state.mond.visible===false) return '';
+  var R=mondResult(); if(!R) return '';
+  var op=(state.mond.opacity==null?70:state.mond.opacity)/100;
+  var editM=!window.__cabStatic;
+  var LBLM=window.__cabStatic || document.body.classList.contains("viewmode");
+  var s='<g class="mond-layer'+(editM?' mond-editable':'')+'" style="opacity:'+op+'">';
+  var OBS=obstacleRects();
+  R.links.forEach(function(l){
+    var ex={}; if(l.from) ex[l.from.id]=1; if(l.to) ex[l.to.id]=1;
+    var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
+    var li='<path class="mond-line'+(selMond===l.key?' sel':'')+'" d="'+d+'"/>';
+    if(editM) li+='<path class="mond-hit" data-mond="'+esc(l.key)+'" d="'+d+'"/>';
+    if(LBLM || selMond===l.key){ var mid=cabMidpoint(orthExpand(dpts));
+      li+='<text class="mond-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('→ '+(l.to.label||(l.toIsHub?'HUB':'mix'))+(l.cut?' · '+l.cut+' m':''))+'</text>'; }
+    s+='<g class="cabgrp" data-own="'+esc(l.from.id+' '+l.to.id)+'">'+li+'</g>';
+  });
+  if(editM && selMond){ var slk=R.links.filter(function(l){ return l.key===selMond; })[0];
+    if(slk){ var exs={}; if(slk.from)exs[slk.from.id]=1; if(slk.to)exs[slk.to.id]=1;
+      var poly=orthExpand(cabRoutePts(slk.pts, OBS, exs));
+      for(var pi=0;pi<poly.length-1;pi++){ var A=poly[pi],B=poly[pi+1]; if(A[0]===B[0]&&A[1]===B[1]) continue; var ori=(A[1]===B[1])?"h":"v";
+        s+='<line class="mond-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
+        s+='<line class="mond-seg-hit" data-mond="'+esc(selMond)+'" data-seg="'+pi+'" data-ori="'+ori+'" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>'; }
+      [["from",poly[0]],["to",poly[poly.length-1]]].forEach(function(ec){
+        s+='<circle class="mond-endpt" data-mond="'+esc(selMond)+'" data-mend="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="8"/>'
+          +'<circle class="mond-endpt mond-endpt-hit" data-mond="'+esc(selMond)+'" data-mend="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="17"/>'; }); } }
+  s+='</g>'; return s;
+}
 function electricEngine(){
   var ph3=state.elec.phase3!==false, issues=[];
   var manualModeE=(state.elec && state.elec.mode!=="auto");   /* manual-first: cavi solo dove l'utente li ha tirati (pallino ambra) */
@@ -5609,7 +5653,7 @@ function portsMarkup(){
   });
   return s+'</g>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup(); }
+function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -9152,7 +9196,12 @@ function layerRegistry(){
     { id:"elec", name:"Elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
-      removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } }   /* cestino = da zero */
+      removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+    { id:"mond", name:"Monitoraggio digitale", color:"#c026d3", active:!!state.mond.on,
+      visible:state.mond.visible!==false, setVisible:function(v){ state.mond.visible=v; save(); render(); },
+      opacity:state.mond.opacity, setOpacity:function(v){ state.mond.opacity=v; var g=svg.querySelector(".mond-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
+      lockable:true, locked:!!state.mond.locked, setLocked:function(v){ state.mond.locked=v; if(v) selMond=null; save(); render(); },
+      removable:true, remove:function(){ state.mond.on=false; state.mond.manual={}; selMond=null; __mondRes=null; save(); render(); } }
   ];
 }
 var layerOpen=true;
@@ -11081,7 +11130,7 @@ function stageSceneSvg(cropVb){
   /* cablaggio nel PDF (08/07): l'overlay cavi/elettrico + legenda, in modo STATICO (niente maniglie di
      editing) e senza cavo selezionato. Si auto-esclude se i layer non sono attivi. */
   var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;
-  var cabling=''; try{ cabling=cablingMarkup()+netMarkup()+elecMarkup()+cableLegendMarkup(); }catch(_e){ cabling=''; }
+  var cabling=''; try{ cabling=cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup(); }catch(_e){ cabling=''; }
   selCab=_keepCab; window.__cabStatic=_keepStatic;
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+css+'</style>'+DEFS+
