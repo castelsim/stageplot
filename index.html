@@ -2862,6 +2862,11 @@ var TYPES = {
              draw:function(it){ return drawLibFit("astacuffie",it,24,30); }},
   micchoir: {nome:"Mic coro", dim:"overhead", cat:"Microfoni e DI", sub:"Aste e microfoni", w:40,d:100,
              draw:function(it){ return drawLibFit("micchoir",it,40,100); }},
+  micover: {nome:"Overhead sezione", dim:"stereo · fiati/archi/perc.", cat:"Microfoni e DI", sub:"Aste e microfoni", w:64,d:92,
+             draw:function(it){ var w=it.w,d=it.d, r=Math.min(w,d)*0.11;
+               return bar(0,-d/2+6,w*0.66,4,"ic fGrey",2)+
+                 lin(-w*0.22,-d/2+6,-w*0.22,d/2-r-4,"ic thin")+lin(w*0.22,-d/2+6,w*0.22,d/2-r-4,"ic thin")+
+                 circ(-w*0.22,d/2-r-2,r,"ic fGrey")+circ(w*0.22,d/2-r-2,r,"ic fGrey"); }},
   miczone: {nome:"Microfono panoramico (zona)", dim:"area di ripresa", cat:"Microfoni e DI", sub:"Aste e microfoni",
     w:220, d:150, resizable:true, ess:true, z:0, defLabel:"",
     draw:function(it){ var w=it.w, d=it.d, o=(it.opacity==null?18:it.opacity)/100;
@@ -8708,6 +8713,7 @@ var IN_MULTI = {
   marimba:  [["Marimba L","KM184"],["Marimba R","KM184"]],
   xilofono: [["Xilofono L","KM184"],["Xilofono R","KM184"]],
   coppiast: [["Stereo L","KM184"],["Stereo R","KM184"]],
+  micover: [["Overhead L","KM184"],["Overhead R","KM184"]],   /* overhead di sezione (fiati/archi/perc.) — stereo, cavo unico */
   archi2leggio: [["Arco 1","DPA 4099"],["Arco 2","DPA 4099"]],
   vln1x2: [["Vln I 1","DPA 4099"],["Vln I 2","DPA 4099"]],
   vln2x2: [["Vln II 1","DPA 4099"],["Vln II 2","DPA 4099"]],
