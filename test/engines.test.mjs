@@ -130,7 +130,12 @@ t("itemChannels coerente: batteria 8, corista 1, zona 1", () => {
 console.log("\nLayer Manager (nomi/gruppi):");
 t("nomi senza collisione (Monitor palco / Rete audio / Monitor personali)", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  eq(by.cabout.name, "Monitor palco"); eq(by.net.name, "Rete audio"); eq(by.mond.name, "Monitor personali");
+  eq(by.cabout.name, "Monitor"); eq(by.net.name, "Rete audio"); eq(by.mond.name, "Monitor personali");
+});
+t("Elettrico ora ha il lucchetto (lockable), come Microfonico/Monitor personali", () => {
+  const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  ok(by.elec.lockable, "elec lockable"); ok(by.cabin.lockable, "cabin lockable"); ok(by.mond.lockable, "mond lockable");
+  ok(!by.cabout.lockable && !by.cabout.removable, "Monitor (cabout) = faccia del cablaggio audio: niente lucchetto/cestino propri");
 });
 t("gruppo Audio sui 4 layer di segnale; elec/venue singoli", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
