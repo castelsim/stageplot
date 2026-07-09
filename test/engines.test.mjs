@@ -127,5 +127,20 @@ t("itemChannels coerente: batteria 8, corista 1, zona 1", () => {
   reset(); const z = add("miczone", 300, 300); eq(A.itemChannels(z), 1);
 });
 
+console.log("\nLayer Manager (nomi/gruppi):");
+t("nomi senza collisione (Monitor palco / Rete audio / Monitor personali)", () => {
+  const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  eq(by.cabout.name, "Monitor palco"); eq(by.net.name, "Rete audio"); eq(by.mond.name, "Monitor personali");
+});
+t("gruppo Audio sui 4 layer di segnale; elec/venue singoli", () => {
+  const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  eq(by.cabin.group, "Audio"); eq(by.cabout.group, "Audio"); eq(by.net.group, "Audio"); eq(by.mond.group, "Audio");
+  ok(!by.elec.group, "elec senza gruppo"); ok(!by.venue.group, "venue senza gruppo");
+});
+t("ordine: gruppo Audio prima di Elettrico e Planimetria", () => {
+  const ids = A.layerRegistry().map((L) => L.id);
+  ok(ids.indexOf("mond") < ids.indexOf("elec"), "mond < elec"); ok(ids.indexOf("elec") < ids.indexOf("venue"), "elec < venue");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
