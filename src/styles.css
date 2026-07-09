@@ -444,16 +444,16 @@
   /* Layer Manager */
   .layer-row{display:flex;align-items:center;gap:8px;padding:5px 2px}
   .layer-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
-  .layer-name{flex:1 1 auto;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .layer-name{flex:1 1 auto;min-width:0;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .layer-ico{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;padding:3px;border-radius:6px;display:flex;align-items:center}
   .layer-ico:hover{background:var(--n-100);color:var(--text)}
   .layer-ico.off{opacity:.5}
   .layer-ico.on{color:var(--accent)}
   .layer-ico.layer-trash:hover{color:var(--danger,#dc2626)}
-  .layer-opacity{width:100%;margin:2px 0 6px}
-  .layer-row.sel{background:var(--accent-tint);border-radius:6px}
-  .layer-ctrl{display:flex;align-items:center;gap:8px;padding:3px 4px 8px 22px}   /* barra controlli sotto la riga aperta */
-  .layer-ctrl .layer-opacity{flex:1 1 auto;width:auto;margin:0}
+  .layer-controls{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto}   /* tutto inline nella riga: slider + icone */
+  .layer-controls .layer-opacity{width:66px;flex:0 0 66px;margin:0}
+  .layer-icons{display:grid;grid-template-columns:repeat(3,20px);gap:3px;align-items:center;flex:0 0 auto}   /* occhio | lucchetto | cestino, slot fissi allineati */
+  .layer-icons .layer-ico{width:20px;height:20px;padding:2px;justify-content:center}
   .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
   .layer-divider{height:1px;background:var(--border);margin:9px 0 7px}
