@@ -3536,6 +3536,21 @@ function audioCablingEngine(){
   groups.forEach(function(g){
     var cand=boxes.slice().sort(function(a,b){ return d2(g.it.x,g.it.y,a)-d2(g.it.x,g.it.y,b); });
     var whole=cand.filter(function(b){ return b.cap-b.used>=g.list.length; })[0]||null;
+    if(g.list.length>=2){
+      /* CAVO UNICO (Simone 09/07): uno strumento multi-canale (batteria, ampli, coppie…) = UN cavo che porta
+         tutti i canali. Instrada UNA volta con chiave di gruppo "grp:id"; gli N link condividono cavo/box/percorso
+         (ch per-canale A1..A8), ma restano N righe nella channel list. */
+      var gk="grp:"+g.it.id, ov=man[gk]||{};
+      if(manualMode && !ov.box && !ov.deleted){ g.list.forEach(function(s){ pending.push(s); }); return; }
+      var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box; })[0] : null;   /* il gruppo va TUTTO su una box (satura → warning) */
+      var b= manualMode ? forced : (forced || whole || cand[0] || null);
+      if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
+      var pts=[portAnchor(g.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);
+      var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
+      g.list.forEach(function(s){ b.used++; links.push({s:s, box:b, ch:b.used, key:gk, pts:pts, lenM:lenM, cut:cut,
+        label:(b.letter+b.used), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
+      return;
+    }
     g.list.forEach(function(s){
       var ov=man[s.key]||{};
       if(manualMode && !ov.box && !ov.deleted){ pending.push(s); return; }   /* manual-first: non ancora collegata (non è un errore) */
@@ -3554,7 +3569,7 @@ function audioCablingEngine(){
      nei connettori), non tutti sul centro → si contano invece di accavallarsi in un'unica linea.
      Solo cavi AUTO (i manuali li controlla l'utente). Offset perpendicolare alla direzione d'ingresso. */
   boxes.forEach(function(b){
-    var bl=links.filter(function(l){ return !l.deleted && !l.manual && l.box===b; });
+    var bl=links.filter(function(l){ return !l.deleted && !l.manual && l.box===b && String(l.key).indexOf("grp:")!==0; });   /* i bundle condividono il cavo: niente ventaglio */
     if(bl.length<2) return;
     var span=Math.min(bl.length*9, 46);   /* larghezza totale del ventaglio (cap) */
     bl.sort(function(a,c){ return a.ch-c.ch; }).forEach(function(l,i){
@@ -3658,7 +3673,10 @@ function cabMidpoint(pts){   /* punto a metà lunghezza della polilinea (per l'e
 function cabLinkLabel(l){
   /* solo il CONTENUTO dell'etichetta: la visibilità la decide il chiamante (labelMode hover/always) */
   var parts=[];
-  if(state.cab.showChannels) parts.push(l.label);
+  if(l.bundleN>1){   /* cavo unico multi-canale: nome strumento + range canali sulla box */
+    if(state.cab.showChannels){ var nm=(l.s.it.label||(TYPES[l.s.it.type]&&TYPES[l.s.it.type].nome)||"");
+      parts.push(nm+" · "+l.box.letter+l.ch+"–"+(l.ch+l.bundleN-1)+" ("+l.bundleN+" ch)"); }
+  } else if(state.cab.showChannels){ parts.push(l.label); }
   if(state.cab.showLengths) parts.push(l.cut?l.cut+' m':'>50 m');
   return parts.join(' · ');
 }
@@ -3757,8 +3775,9 @@ function cablingMarkup(){
         sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
-    var linkS='', loomPolys=[];   /* C1: percorsi raccolti per il calcolo dei fasci */
+    var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
     R.links.forEach(function(l){
+      if(drawnKey[l.key]) return; drawnKey[l.key]=1;   /* CAVO UNICO: gli N canali di un bundle condividono la key → un solo cavo disegnato */
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
@@ -3837,6 +3856,9 @@ function cablingMarkup(){
   return s;
 }
 function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+/* collega un elemento a una box scrivendo l'override giusto: gruppo (cavo unico) se multi-canale, altrimenti per-canale */
+function cabItemRouteKey(it){ return cabItemInputs(it).length>=2 ? ("grp:"+it.id) : (it.id+"#0"); }
+function cabSetItemBox(it, boxId){ if(cabItemInputs(it).length) cabManual(cabItemRouteKey(it)).box=boxId; }
 /* ── Shift+trascina un elemento SOPRA un cavo (stile Max: inserire un oggetto nel patch cord) ──
    Rilasci con Shift una stage box/sub-snake su un cavo audio → quello strumento si ricollega alla
    box rilasciata; un distro/ciabatta su una linea elettrica → il carico si ricollega al distro. */
@@ -3858,7 +3880,7 @@ function cabTryInsertAt(sp, it){
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       var d=distToPoly(sp, orthExpand(cabRoutePts(l.pts, OBS, ex)));
       if(d<bd){ bd=d; best=l; } });
-    if(best){ cabItemInputs(best.s.it).forEach(function(_,ii){ cabManual(best.s.it.id+"#"+ii).box=it.id; });   /* tutto lo strumento passa alla box inserita */
+    if(best){ cabSetItemBox(best.s.it, it.id);   /* tutto lo strumento passa alla box inserita (cavo unico se multi-canale) */
       __cabRes=null; save(); return true; }
   }
   if(elecIsDistro(it) && state.elec && state.elec.on){
@@ -3880,7 +3902,7 @@ function cabProposeAll(){
   var m0=state.cab.mode; state.cab.mode="auto"; var R2=audioCablingEngine(); state.cab.mode=m0;
   var wrote=0;
   (R2.links||[]).forEach(function(l){ if(l.deleted || !l.box || l.box.auto) return;
-    var mm=cabManual(l.s.key); if(!mm.box){ mm.box=l.box.id; wrote++; } });
+    var mm=cabManual(l.key); if(!mm.box){ mm.box=l.box.id; wrote++; } });   /* l.key = grp:id per i bundle (cavo unico), s.key per i mono */
   (R2.mixes||[]).forEach(function(m){ if(!m.box || m.box.auto || !m.key) return;
     var mk=cabManual("mix:"+m.key); if(!mk.box){ mk.box=m.box.id; wrote++; } });
   if(wrote){ __cabRes=null; save(); render(); renderCabPanel(); }
@@ -6227,7 +6249,7 @@ svg.addEventListener("pointerup", function(e){
         var pb=hitAt(cabIsBox);
         if(pb){
           if(!state.cab.on){ state.cab.on=true; }   /* il gesto ATTIVA il layer; niente pannello (tolto) */
-          if(drag.kind==="audio"){ cabItemInputs(pit).forEach(function(_,ii){ cabManual(pit.id+"#"+ii).box=pb.id; }); }
+          if(drag.kind==="audio"){ cabSetItemBox(pit, pb.id); }
           else { var plbl=(pit.label||"").trim(), mkey=(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id));
             cabManual("mix:"+mkey).box=pb.id;
             var rk="ret:"+mkey+":"+pit.id; if(state.cab.manual[rk]) delete state.cab.manual[rk].deleted; }   /* #17: ritrascinare la porta ravviva un ritorno eliminato */
