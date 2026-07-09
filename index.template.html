@@ -3251,6 +3251,35 @@ function sortedItems(){
     .sort(function(a,b){ return (effZ(a.it)-effZ(b.it)) || (a.i-b.i); })
     .map(function(o){ return o.it; });
 }
+/* ===== MICROFONO PANORAMICO (ZONA) — helper geometrici + inferenza mic ===== */
+/* elemento (centro) dentro una zona? restituisce la PRIMA zona che lo contiene (ordine state.items) */
+function itemInMicZone(it){
+  for(var i=0;i<state.items.length;i++){ var z=state.items[i];
+    if(z.type!=="miczone" || z.id===it.id) continue;
+    if(it.x>=z.x-z.w/2 && it.x<=z.x+z.w/2 && it.y>=z.y-z.d/2 && it.y<=z.y+z.d/2) return z;
+  }
+  return null;
+}
+/* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
+function isAudioSource(it){ return it.type!=="miczone" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || it.type==="distereo"); }
+/* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
+function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone; }); }
+/* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
+var FAM_PAN = { "Archi":["KM184","archi"], "Legni":["KM184","legni"], "Ottoni":["KM184","ottoni"],
+  "Percussioni":["KM184","percussioni"], "Persone e voci":["KM184","coro"] };
+function famOf(it){ var t=TYPES[it.type]||{}; return t.sub || t.cat || ""; }
+function micZoneMic(zone){
+  if(zone.mic) return zone.mic;                       /* override manuale */
+  var s=micZoneSources(zone); if(!s.length) return "KM184";
+  var fam=famOf(s[0]), uniform=s.every(function(x){ return famOf(x)===fam; });
+  return (uniform && FAM_PAN[fam]) ? FAM_PAN[fam][0] : "KM184";
+}
+function micZoneLabel(zone){
+  if(zone.label) return zone.label;                   /* override manuale */
+  var s=micZoneSources(zone); if(!s.length) return "Zona panoramica";
+  var fam=famOf(s[0]), uniform=s.every(function(x){ return famOf(x)===fam; });
+  return "Zona " + ((uniform && FAM_PAN[fam]) ? FAM_PAN[fam][1] : "panoramica");
+}
 /* markup del solo "palco" (pavimento + quote + etichette zone): rigenerabile da solo durante l'edit del palco */
 /* ===== LIBRERIA HARDWARE AUDIO — database indipendente dal motore =====
    Estendibile: per aggiungere un modello basta una riga qui, senza toccare l'algoritmo.
