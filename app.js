@@ -5115,8 +5115,12 @@ svg.addEventListener("pointermove", function(e){
     if(!e.shiftKey) gdeg=Math.round(gdeg/5)*5;   /* snap 5°, libero con shift */
     drag.base.forEach(function(b){ var it=state.items.find(function(x){ return x.id===b.id; }); if(!it) return;
       var np=rotatePointAround(b.x, b.y, drag.pivot[0], drag.pivot[1], gdeg);
-      it.x=Math.round(np[0]); it.y=Math.round(np[1]); it.rot=Math.round((((b.rot+gdeg)%360)+360)%360); });
-    drag.moved=true; render();
+      it.x=Math.round(np[0]); it.y=Math.round(np[1]); it.rot=Math.round((((b.rot+gdeg)%360)+360)%360);
+      /* R-b1 (audit): aggiornamento parziale come item/rotate invece di render() pieno per frame →
+         niente scatti ruotando selezioni grandi (render pieno solo al rilascio, pointerup grouprot 6497). */
+      var g=svg.querySelector('[data-id="'+it.id+'"]');
+      if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); } });
+    drag.moved=true;
   } else if(drag.mode==="itemresize"){
     sp=svgPoint(e); var rzit=state.items.find(function(i){ return i.id===drag.id; });
     if(rzit){
