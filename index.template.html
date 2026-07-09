@@ -2458,7 +2458,8 @@ var DEFAULT_LABELS = {
 var LS_KEY = "stageplot_v1";
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
-  elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}} };
+  elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
+  mond:{on:false,visible:true,opacity:70,manual:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
@@ -2882,6 +2883,14 @@ function normalizeState(s){
     labelMode:(eb.labelMode==="always")?"always":"hover",   /* parità con l'audio: canvas pulito, info in hover */
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
     phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, manual:eman, uplinks:eups };
+  var mb=s.mond||{};   /* monitoraggio digitale: catene mixerino→hub (manual[id]={to,pts,deleted}) */
+  var mman={};
+  if(mb.manual && typeof mb.manual==="object"){ Object.keys(mb.manual).forEach(function(k){ var v=mb.manual[k]||{}, o={};
+    if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,60);
+    if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
+    if(v.deleted) o.deleted=true;
+    if(Object.keys(o).length) mman[String(k).slice(0,60)]=o; }); }
+  s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(mb.opacity==null?70:mb.opacity))), locked:!!mb.locked, manual:mman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -4181,6 +4190,41 @@ function electricEngine(){
 }
 var __elecRes=null;
 function elecResult(force){ if(force || state.elec.auto || !__elecRes) __elecRes=electricEngine(); return __elecRes; }
+
+/* ===== MONITORAGGIO DIGITALE — motore (mixerini → hub, catene star/daisy-chain) ===== */
+function mondManual(key){ state.mond.manual=state.mond.manual||{}; if(!state.mond.manual[key]) state.mond.manual[key]={}; return state.mond.manual[key]; }
+function monDigEngine(){
+  var man=(state.mond&&state.mond.manual)||{}, items=state.items||[], byId={};
+  items.forEach(function(it){ byId[it.id]=it; });
+  function isHub(it){ return it&&it.type==="mixhub"; }
+  function isMix(it){ return it&&it.type==="hearback"; }
+  var links=[], pending=[], issues=[];
+  items.filter(isMix).forEach(function(m){
+    var ov=man[m.id]||{};
+    if(!ov.to || ov.deleted){ pending.push(m); return; }
+    var to=byId[ov.to];
+    if(!to || (!isHub(to)&&!isMix(to)) || to.id===m.id){ pending.push(m); return; }
+    var pts=[portAnchor(m,"dig")].concat(ov.pts||[]).concat([portAnchor(to,"dig")]);
+    var lenM=orthLen(pts)/100, cut=cabCut(lenM);
+    links.push({from:m, to:to, toIsHub:isHub(to), key:m.id, pts:pts, lenM:lenM, cut:cut});
+  });
+  /* segui ogni catena: loop? raggiunge un hub? */
+  items.filter(isMix).forEach(function(m){
+    var o0=man[m.id]; if(!o0||!o0.to||o0.deleted) return;
+    var cur=m, seen={}, reached=false, guard=0;
+    while(cur && guard++<200){
+      if(seen[cur.id]){ issues.push({lvl:"err", msg:"Loop nella catena monitor: "+(m.label||"mixerino")}); reached=true; break; }
+      seen[cur.id]=1; var o=man[cur.id]; if(!o||!o.to||o.deleted) break;
+      var nx=byId[o.to]; if(!nx) break; if(isHub(nx)){ reached=true; break; } cur=nx;
+    }
+    if(!reached) issues.push({lvl:"warn", msg:"Catena monitor senza hub: "+(m.label||"mixerino")});
+  });
+  var hubs=items.filter(isHub);
+  if(!hubs.length && items.filter(isMix).length) issues.push({lvl:"info", msg:"Nessun hub monitoraggio: aggiungine uno dal catalogo (Monitor da palco)."});
+  return {links:links, pending:pending, hubs:hubs, issues:issues};
+}
+var __mondRes=null;
+function mondResult(){ if(!__mondRes) __mondRes=monDigEngine(); return __mondRes; }
 
 /* ===== AUDIT / DIAGNOSTICA — "AI" deterministica: aggrega le criticità dei motori + regole
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
