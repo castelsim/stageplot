@@ -132,10 +132,11 @@ t("nomi senza collisione (Monitor palco / Rete audio / Monitor personali)", () =
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
   eq(by.cabout.name, "Monitor"); eq(by.net.name, "Rete audio"); eq(by.mond.name, "Monitor personali");
 });
-t("Elettrico ora ha il lucchetto (lockable), come Microfonico/Monitor personali", () => {
+t("ogni layer ha lucchetto + cestino (uniforme, richiesta Simone)", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  ok(by.elec.lockable, "elec lockable"); ok(by.cabin.lockable, "cabin lockable"); ok(by.mond.lockable, "mond lockable");
-  ok(!by.cabout.lockable && !by.cabout.removable, "Monitor (cabout) = faccia del cablaggio audio: niente lucchetto/cestino propri");
+  ["cabin", "cabout", "net", "mond", "elec", "venue"].forEach((k) => {
+    ok(by[k] && by[k].lockable, k + " lockable"); ok(by[k] && by[k].removable, k + " removable");
+  });
 });
 t("gruppo Audio sui 4 layer di segnale; elec/venue singoli", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });

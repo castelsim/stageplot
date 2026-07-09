@@ -8040,28 +8040,33 @@ function layerRegistry(){
     { id:"cabout", name:"Monitor", group:"Audio", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); },
-      opacity:state.cab.retOpacity==null?100:state.cab.retOpacity, setOpacity:function(v){ state.cab.retOpacity=v; var g=svg.querySelector(".cab-retlayer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); } },
+      opacity:state.cab.retOpacity==null?100:state.cab.retOpacity, setOpacity:function(v){ state.cab.retOpacity=v; var g=svg.querySelector(".cab-retlayer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
+      /* Monitor e Rete audio sono facce del cablaggio audio: lock/cestino agiscono su TUTTO il gruppo (come Microfonico) */
+      lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
+      removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },
     { id:"net", name:"Rete audio", group:"Audio", color:LAYER_COLORS.rete,
       active:!!state.cab.on && netEngine().runs.length>0,
-      visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },
+      visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); },
+      lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
+      removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },
     { id:"mond", name:"Monitor personali", group:"Audio", color:"#c026d3", active:!!state.mond.on,
       visible:state.mond.visible!==false, setVisible:function(v){ state.mond.visible=v; save(); render(); },
       opacity:state.mond.opacity, setOpacity:function(v){ state.mond.opacity=v; var g=svg.querySelector(".mond-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.mond.locked, setLocked:function(v){ state.mond.locked=v; if(v) selMond=null; save(); render(); },
       removable:true, remove:function(){ state.mond.on=false; state.mond.manual={}; selMond=null; __mondRes=null; save(); render(); } },
-    /* Righe singole (sotto un divisore): impianto elettrico e planimetria di sfondo. */
+    /* Elettrico (motore proprio) e Planimetria (sfondo). */
     { id:"elec", name:"Elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
       removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
-    /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico.
-       Niente cestino: l'immagine è importata dall'utente (rimozione solo dal pannello Planimetria). */
+    /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico. */
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
       /* opacità LIVE senza render(): un render pieno ricostruirebbe lo slider a metà trascinamento (bug segnalato da Simone) */
       opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
-      lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); } }
+      lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); },
+      removable:true, remove:function(){ state.venue=null; clearVenueImg(); venueCalibCancel(); save(); render(); } }   /* cestino = rimuove l'immagine planimetria */
   ];
 }
 var layerOpen=true;
@@ -8092,15 +8097,10 @@ function renderLayerManager(){
   var LS=layerRegistry().filter(function(L){ return L.active; });
   sec.style.display = LS.length ? "block" : "none";
   if(!LS.length) return;
-  /* Un solo header "Layer" in cima (Simone: "audio diventa layer"). Le righe restano raggruppate SOLO dal
-     divisore (audio sopra, impianti/sfondo sotto), senza etichetta di gruppo separata. */
+  /* Un solo header "Layer" + lista PIATTA di tutti i layer attivi, in ordine (Simone: niente divisore). */
   var rows=document.getElementById("layerRows"); rows.innerHTML="";
   var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Layer"; rows.appendChild(hdr);
-  var order=[], groups={}, singles=[];
-  LS.forEach(function(L){ if(L.group){ if(!groups[L.group]){ groups[L.group]=[]; order.push(L.group); } groups[L.group].push(L); } else singles.push(L); });
-  order.forEach(function(g){ groups[g].forEach(function(L){ renderLayerRow(L, rows); }); });
-  if(order.length && singles.length){ var dv=document.createElement("div"); dv.className="layer-divider"; rows.appendChild(dv); }
-  singles.forEach(function(L){ renderLayerRow(L, rows); });
+  LS.forEach(function(L){ renderLayerRow(L, rows); });
 }
 function cabFillMixerOptions(){
   var sel=document.getElementById("cabMixer"); if(!sel || sel._filled) return; sel._filled=true;
