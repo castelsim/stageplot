@@ -268,7 +268,7 @@
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
 </div>
-<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub"><span class="eh-desk">Apri una categoria a sinistra e trascina gli elementi sul palco</span><span class="eh-mob">Tocca “Aggiungi” qui sotto e scegli dal catalogo</span></div></div></main>
+<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub"><span class="eh-desk">Apri una categoria a sinistra e trascina gli elementi sul palco</span><span class="eh-mob">Tocca “Aggiungi” qui sotto e scegli dal catalogo</span></div><div class="eh-tpl eh-desk"><span class="eh-tpl-lbl">oppure parti da un modello</span><div class="eh-tpl-row"><button type="button" class="eh-chip" data-form="band">Band</button><button type="button" class="eh-chip" data-form="acoustic">Acustica</button><button type="button" class="eh-chip" data-form="jazzcombo">Jazz combo</button><button type="button" class="eh-chip" data-form="coro">Coro</button><button type="button" class="eh-chip" data-form="camera">Orchestra</button><button type="button" class="eh-chip" data-form="bigband">Big band</button></div></div></div></main>
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
@@ -7251,6 +7251,20 @@ function placeOut(out, fitStage, clearFirst, force){
   clearSelection(); save();
   return true;
 }
+/* Template di partenza (onboarding): dall'hint palco-vuoto, piazza una formazione PRONTA (band/acustica/coro/…).
+   Riusa le formazioni esistenti (formationData/placeOut) con force=true → niente modale di review. */
+function startFromTemplate(f){
+  var qd = (typeof formationData==="function") ? formationData(f) : null;
+  if(!qd || !qd.out) return;
+  state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
+  placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
+  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+  var eh=document.getElementById("emptyHint"); if(eh) eh.hidden=true;
+  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+  render(); if(typeof fitStage==="function") fitStage(); render();
+}
+(function(){ var chips=document.querySelectorAll("#emptyHint .eh-chip");
+  for(var i=0;i<chips.length;i++){ chips[i].addEventListener("click", function(){ startFromTemplate(this.getAttribute("data-form")); }); } })();
 /* sposta il nuovo gruppo DIETRO gli elementi esistenti che gli stanno davanti; allarga il palco sul fondo se serve */
 function avoidGroupOverlap(news){
   var gap=45;
