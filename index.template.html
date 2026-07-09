@@ -3676,6 +3676,11 @@ function cabDeleteKey(key){ var cm=cabManual(key);
   if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts; if(!Object.keys(cm).length) delete state.cab.manual[key]; }
   else cm.deleted=true; }
 function cabResetPathKey(key){ var cm=state.cab.manual[key]; if(cm) delete cm.pts; }   /* solo le pieghe: il cavo resta collegato (raddrizza) */
+/* un polilinea (cavo, segmenti ortogonali) sfiora un rettangolo? bbox-overlap per segmento = esatto per AA */
+function polyHitsRect(poly, r){ var x1=r.x+r.w, y1=r.y+r.h;
+  for(var i=0;i<poly.length-1;i++){ var a=poly[i], b=poly[i+1];
+    if(Math.min(a[0],b[0])<=x1 && Math.max(a[0],b[0])>=r.x && Math.min(a[1],b[1])<=y1 && Math.max(a[1],b[1])>=r.y) return true; }
+  return false; }
 /* menu contestuale (tasto destro) sul cavo — Max style: Elimina / Reset percorso (ridà le azioni dopo la rimozione del box #24) */
 function closeCabMenu(){ var m=document.getElementById("cabCtxMenu"); if(m) m.remove(); document.removeEventListener("pointerdown", _cabMenuDismiss, true); }
 function _cabMenuDismiss(e){ var m=document.getElementById("cabCtxMenu"); if(m && !m.contains(e.target)) closeCabMenu(); }
@@ -5998,6 +6003,13 @@ svg.addEventListener("pointerdown", function(e){
     drag = {mode:"item", sp0:{x:sp.x,y:sp.y},
             items:moving.map(function(i){ return {id:i.id, x0:i.x, y0:i.y}; }), moved:false};
     render();
+  } else if(e.altKey && state.cab && state.cab.on){   /* Alt/Option+drag su sfondo, layer cavi attivo: marquee CAVI */
+    e.preventDefault(); selCabSet={};
+    drag = {mode:"cabmarquee", x0:sp.x, y0:sp.y};
+    var rc=document.createElementNS("http://www.w3.org/2000/svg","rect");
+    rc.setAttribute("id","marquee"); rc.setAttribute("fill","rgba(13,148,136,.08)");
+    rc.setAttribute("stroke","#0d9488"); rc.setAttribute("stroke-width","1.5"); rc.setAttribute("stroke-dasharray","8 5");
+    svg.appendChild(rc); drag.el=rc;
   } else if(e.shiftKey){                  /* shift-drag su sfondo: rettangolo di selezione */
     drag = {mode:"marquee", x0:sp.x, y0:sp.y};
     var r=document.createElementNS("http://www.w3.org/2000/svg","rect");
@@ -6240,7 +6252,7 @@ svg.addEventListener("pointermove", function(e){
       }
       recalcStageBBox(); renderStagePanel(); redrawStageLayers(); renderSnapGuides(brrsg);   /* parziale: solo i layer palco/overlay */
     }
-  } else if(drag.mode==="marquee" || drag.mode==="newblk"){
+  } else if(drag.mode==="marquee" || drag.mode==="newblk" || drag.mode==="cabmarquee"){
     sp=svgPoint(e);
     var x=Math.min(sp.x,drag.x0), y=Math.min(sp.y,drag.y0), w=Math.abs(sp.x-drag.x0), h=Math.abs(sp.y-drag.y0);
     drag.el.setAttribute("x",x); drag.el.setAttribute("y",y); drag.el.setAttribute("width",w); drag.el.setAttribute("height",h);
@@ -6384,6 +6396,19 @@ svg.addEventListener("pointerup", function(e){
         var hw=(it.w||0)/2, hd=(it.d||0)/2;
         if(it.x-hw<=r.x+r.w && it.x+hw>=r.x && it.y-hd<=r.y+r.h && it.y+hd>=r.y){ selSet[it.id]=true; sel=it.id; }
       });
+    }
+    if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
+    render();
+  }
+  else if(drag && drag.mode==="cabmarquee"){   /* marquee CAVI: seleziona i cavi che sfiorano il rettangolo */
+    var rr=drag.rect;
+    if(rr && (rr.w>6||rr.h>6)){
+      var Rm=cabResult(), OBS=obstacleRects();
+      function _addHits(links){ (links||[]).forEach(function(l){ if(l.deleted) return;
+        var ex={}; if(l.s&&l.s.it) ex[l.s.it.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
+        if(polyHitsRect(orthExpand(cabRoutePts(l.pts, OBS, ex)), rr)) selCabSet[l.key]=true; }); }
+      if(Rm){ if(state.cab.showInputs!==false) _addHits(Rm.links); if(state.cab.showReturns!==false) _addHits(Rm.returnLinks); }
+      selCab=Object.keys(selCabSet)[0]||null;
     }
     if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     render();
