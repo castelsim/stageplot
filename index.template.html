@@ -1980,6 +1980,10 @@ var TYPES = {
                s+=bar(0,-7.5,9,4,'sil',1);                                                             /* display */
                for(var r=0;r<3;r++)for(var c=0;c<2;c++){ s+=circ(-3+c*6,0+r*5.5,1.5,'mon fill'); }     /* manopole */
                return s; }},
+  mixhub: {nome:"Hub monitoraggio", dim:"distributore mixerini", cat:"Monitor da palco", w:60,d:34, defLabel:"HUB",
+             draw:function(it){ var w=it.w,d=it.d; var s=bar(0,0,w,d,"ic fGrey",4);
+               for(var i=0;i<5;i++){ var x=-w/2+9+i*((w-14)/4); s+=bar(x,d/2-6,7,6,"ic thin",1); }   /* fila di porte RJ45 sul fronte */
+               return s; }},
   /* --- tecnica --- */
   dimono:   {nome:"DI mono", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", w:28,d:28, defLabel:"DI",
              draw:function(it){ return drawLibFit("dibox",it,13,9); }},
@@ -2198,9 +2202,10 @@ var WATT = {
      Prima erano a 0 → il piano elettrico sottostimava i carichi più pesanti (L1, 08/07). Se il sistema
      è passivo, la potenza sta nell'amp rack (amprack:2500), non qui: valori come default sensato. */
   arraylarge:1000, arraymid:700, sub218:1500, delaytower:1200, frontfill:300,
-  wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60
+  wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60, mixhub:60
   /* NB: ledwallmod/schermo NON qui — hanno potenza area-based in WATT_BY_AREA (wattOf la usa prima). */
 };
+var MON_DIG_NODE = { hearback:1, mixhub:1 };   /* nodi del cablaggio digitale monitoraggio (mixerini + hub) */
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
 function wattOf(it){
@@ -4333,6 +4338,7 @@ function portKinds(it){
   if(cabItemInputs(it).length>0) ks.push("audio");
   if(OUT_SET[it.type]!=null && it.type!=="monmix") ks.push("mon");
   if(wattOf(it)>0) ks.push("pow");
+  if(MON_DIG_NODE[it.type]) ks.push("dig");
   return ks;
 }
 function portAnchor(it, kind){
@@ -4358,6 +4364,7 @@ function portDefs(it){
   }
   if(OUT_SET[it.type]!=null && it.type!=="monmix") out.push({kind:"mon", color:LAYER_COLORS.monitor, tip:"Monitor · ritorno dalla stage box"});
   if(wattOf(it)>0) out.push({kind:"pow", color:LAYER_COLORS.elettrico, tip:"Alimentazione · "+elecKW(wattOf(it))+" → trascina su un distro"});
+  if(MON_DIG_NODE[it.type]) out.push({kind:"dig", color:"#c026d3", tip:"Monitoraggio digitale · trascina su hub o altro mixerino"});
   return out;
 }
 function portsMarkup(){
@@ -5877,7 +5884,7 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"port", kind:pk, it:pit, x0:+_onPort.getAttribute("data-x"), y0:+_onPort.getAttribute("data-y"), moved:false};
       var gl=document.createElementNS("http://www.w3.org/2000/svg","line");
       gl.setAttribute("class","port-ghost");
-      gl.setAttribute("style","stroke:"+({audio:LAYER_COLORS.audioIn, mon:LAYER_COLORS.monitor, pow:LAYER_COLORS.elettrico}[pk]||"#888"));
+      gl.setAttribute("style","stroke:"+({audio:LAYER_COLORS.audioIn, mon:LAYER_COLORS.monitor, pow:LAYER_COLORS.elettrico, dig:"#c026d3"}[pk]||"#888"));
       gl.setAttribute("x1",drag.x0); gl.setAttribute("y1",drag.y0); gl.setAttribute("x2",drag.x0); gl.setAttribute("y2",drag.y0);
       svg.appendChild(gl); drag.el=gl;
       svg.setPointerCapture(e.pointerId); return;
