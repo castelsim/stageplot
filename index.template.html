@@ -1107,7 +1107,7 @@
 
 <!-- Librerie PDF (jsPDF 2.5.1 + svg2pdf.js 2.2.3) estratte in /vendor/pdf.min.js, caricate on-demand al primo export (audit P1): vedi loadJsPDF(). -->
 
-<script>
+<script data-app>
 "use strict";
 /* ============ GRADIENTI CONDIVISI (materiali realistici) ============ */
 var DEFS='<defs>'+
@@ -11076,7 +11076,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   </div>
 </div>
 
-<script>
+<script data-app>
 /* ===== Stage Plot — integrazione Supabase (login Google + salvataggio online dei progetti) =====
    Local-first invariato: localStorage, share-link e export NON sono toccati.
    Il cloud è un extra opzionale. */
@@ -11416,7 +11416,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   else document.addEventListener("DOMContentLoaded", init);
 })();
 </script>
-<script>
+<script data-app>
 /* Pannello informativo "Guida" (SEO + onboarding) — apertura/chiusura, isolato, nessun impatto sull'editor */
 (function(){
   var panel=document.getElementById("learn");
@@ -11477,7 +11477,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     <p class="fb-msg" id="fbResult" style="display:none"></p>
   </div>
 </div>
-<script>
+<script data-app>
 (function(){
   var SUBMIT_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/submit-feedback";
   var box=document.getElementById("fbBox"), trigger=document.getElementById("fbTrigger"),
