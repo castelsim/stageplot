@@ -1030,7 +1030,10 @@ var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,asta
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
   stagepiano:1,grancoda:1,doppiatastiera:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
-function isEss(k){ return !!(ESSENTIAL[k] || (TYPES[k]&&TYPES[k].ess)); }
+/* Gli STRUMENTI si vedono sempre tutti (niente "Mostra tutti" nella categoria Strumenti): sono il cuore
+   dello stage plot, nasconderne di standard (oboe, fagotto, tuba, timpani, arpa…) confondeva. Il filtro
+   essenziale-first resta per le categorie ad accessori (Audio/Luci/Elettrico/Palco/Allestimento/…). */
+function isEss(k){ return !!(ESSENTIAL[k] || (TYPES[k]&&TYPES[k].ess) || catOf(k)==="Strumenti"); }
 function catOf(k){   /* categoria (nuova macro) di un tipo, dai suoi cat/sub originali */
   var t=TYPES[k]; if(!t) return "Dispositivi"; var oc=t.cat, os=t.sub||"";
   switch(oc){
