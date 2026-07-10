@@ -205,5 +205,28 @@ t("round-trip salva→carica: _v consumato, items conservati", () => {
   ok(!("_v" in back), "_v consumato al load"); eq(back.items[0].id, "z");
 });
 
+console.log("\nBatteria — disposizione destrorsa + toggle mancino:");
+t("destrorsa di default: hi-hat a sinistra del batterista (x>0), floor a destra (x<0)", () => {
+  const S = A.drumSlots({ toms: 2, floor: true, hihat: true, crash: 1, ride: true, stool: true });
+  const by = {}; S.forEach((s) => { if (!by[s.k]) by[s.k] = s; });
+  ok(by.hihat.x > 0, "hi-hat a destra schermo = sinistra batterista (destrorso)");
+  ok(by.floor.x < 0, "floor-tom a sinistra schermo = destra batterista");
+  ok(Math.abs(by.snare.x) < 30, "rullante quasi centrato tra le gambe");
+});
+t("toggle mancino: specchia il kit sull'asse x", () => {
+  const base = { toms: 2, floor: true, hihat: true, ride: true, stool: true };
+  const R = A.drumSlots(Object.assign({}, base));
+  const Lf = A.drumSlots(Object.assign({ lefty: true }, base));
+  const rh = {}; R.forEach((s) => { if (!rh[s.k]) rh[s.k] = s; });
+  const lh = {}; Lf.forEach((s) => { if (!lh[s.k]) lh[s.k] = s; });
+  ok(rh.hihat.x > 0 && lh.hihat.x < 0, "hi-hat si specchia");
+  ok(rh.floor.x < 0 && lh.floor.x > 0, "floor si specchia");
+  eq(lh.hihat.x, -rh.hihat.x, "specchio esatto");
+});
+t("la batteria espone il controllo 'lefty' (default destrorso)", () => {
+  ok(A.COMP.batteria.controls.map((c) => c.key).indexOf("lefty") >= 0, "control lefty presente");
+  eq(A.COMP.batteria.defParts.lefty, false, "default = destrorso");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
