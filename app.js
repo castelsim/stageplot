@@ -7619,14 +7619,16 @@ function renderInspectorB(){
     var xlr=tallyRow((R.links||[]).filter(function(l){ return !l.deleted; }).concat(R.returnLinks||[]));
     var elc=Re ? tallyRow(Re.loadLinks||[]) : "";
     var pw=powerTotalW();
-    function ir(k,v){ return '<div class="insp-row"><b>'+esc(k)+'</b><small>'+esc(String(v))+'</small></div>'; }
+    function ir(k,v,cls){ return '<div class="insp-row'+(cls?" "+cls:"")+'"><b>'+esc(k)+'</b><small>'+esc(String(v))+'</small></div>'; }
     /* conteggi infrastruttura (Simone 08/07: righe omogenee nello STATO + ciabatte/prese/quadri) */
     function nType(){ var set={}; for(var i=0;i<arguments.length;i++) set[arguments[i]]=1;
       return (state.items||[]).filter(function(it){ return set[it.type]; }).length; }
     var c=countAccessori();
     var nCiab=nType("ciabatta"), nPrese=nType("corrente"), nQuadri=nType("quadro","distro32","distro63","distro125");
     var s='<div class="insp-hd">Stato</div>';
-    s+=ir("Ingressi", conn+" / "+(R.capTot||"—"));
+    /* Ingressi = i canali della channel list (il rider), non i cavi già routati; avvisa se superano lo stage box */
+    var _nCh=(state.inputs||[]).length, _cap=R.capTot||0, _over=(_cap>0 && _nCh>_cap);
+    s+=ir("Ingressi", _nCh+" / "+(_cap||"—")+(_over?"  ⚠ stage box insufficiente":""), _over?"insp-over":"");
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
     if(xlr) s+=ir("Cavi XLR", xlr);
     if(elc) s+=ir("Cavi elettrici", elc);

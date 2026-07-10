@@ -359,6 +359,7 @@
   .insp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
   .insp-row b{font-weight:600;color:var(--text)}
   .insp-row small{color:var(--text-3);font-size:12px;text-align:right}
+  .insp-row.insp-over small{color:var(--danger,#c0392b);font-weight:600}   /* Ingressi > capacità stage box: avviso al tecnico */
   .insp-row.link{cursor:pointer}
   .insp-row.link:hover b{color:var(--accent)}
   #inspMixer{max-width:150px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:11.5px;background:var(--surface);color:var(--text)}
