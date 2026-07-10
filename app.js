@@ -1223,17 +1223,22 @@ var DRUM_PARTS={ kick:{icon:"cassa22",w:66,d:62}, snare:{icon:"rullante14",w:46,
 function drumSlots(p){
   var L=[], dx=p.kick2?42:0;
   function put(k,x,y,r){ L.push({k:k,x:x,y:y,rot:r||0}); }
+  /* Disposizione DESTRORSA standard (vista dall'alto, batterista dietro): hi-hat + rullante sul lato
+     SINISTRO del batterista (= destra schermo, x>0), floor-tom + ride sul lato destro (x<0). Rullante
+     quasi centrato tra le gambe; floor all'altezza del rullante (non della grancassa); piatti raccolti.
+     Il flag p.lefty specchia l'intero kit sull'asse x per un batterista mancino. */
   if(p.kick2){ put("kick",-42,0); put("kick",42,0); } else put("kick",0,0);
-  put("snare",-45-dx*0.5,-23);
-  if(p.hihat) put("hihat",-78-dx*0.6,-22);
-  if(p.toms===1) put("tom",p.kick2?-42:-7,-27,6);
-  else if(p.toms===2){ put("tom",p.kick2?-49:-27,-27,8); put("tom",p.kick2?35:12,-27,-8); }
-  else if(p.toms>=3){ put("tom",-33,-28,10); put("tom",-4,-30,0); put("tom",25,-28,-10); }
-  if(p.floor) put("floor",63+dx*0.7,2);
-  if(p.crash>=1) put("crash",-66-dx*0.6,-53,-12);
-  if(p.crash>=2) put("crash",88+dx*0.5,-50,10);
-  if(p.ride) put("ride",58+dx*0.4,-47);
-  if(p.stool!==false) put("stool",0,-100);   /* sgabello/batterista più indietro: footprint realistico (~1,5 m di profondità, drums→batterista) */
+  put("snare",16+dx*0.4,-22);
+  if(p.hihat) put("hihat",74+dx*0.6,-20);
+  if(p.toms===1) put("tom",p.kick2?42:8,-30,-6);
+  else if(p.toms===2){ put("tom",p.kick2?49:20,-30,-6); put("tom",p.kick2?-35:-10,-31,6); }
+  else if(p.toms>=3){ put("tom",33,-28,-10); put("tom",4,-30,0); put("tom",-25,-28,10); }
+  if(p.floor) put("floor",-60-dx*0.7,-6);
+  if(p.crash>=1) put("crash",56+dx*0.6,-52,10);
+  if(p.crash>=2) put("crash",-82-dx*0.5,-48,-8);
+  if(p.ride) put("ride",-56-dx*0.4,-46);
+  if(p.stool!==false) put("stool",0,-98);   /* sgabello/batterista più indietro: footprint realistico (~1,5 m) */
+  if(p.lefty){ L.forEach(function(sl){ sl.x=-sl.x; sl.rot=-sl.rot; }); }   /* batterista mancino: specchia il kit */
   return L;
 }
 function drumBBox(L){
@@ -1291,14 +1296,15 @@ function explodeTimpani(it){
   return out;
 }
 var COMP = {
-  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,stool:true},
+  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,stool:true,lefty:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
                {key:"hihat",label:"Hi-hat",type:"toggle"},
                {key:"crash",label:"Crash",type:"count",min:0,max:2},
                {key:"ride",label:"Ride",type:"toggle"},
                {key:"kick2",label:"Doppia cassa",type:"toggle"},
-               {key:"stool",label:"Sgabello",type:"toggle"} ],
+               {key:"stool",label:"Sgabello",type:"toggle"},
+               {key:"lefty",label:"Mancino",type:"toggle"} ],
     draw:drawBatteria, size:sizeBatteria, explode:explodeBatteria },
 };
 (function(){
