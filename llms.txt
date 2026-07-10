@@ -23,7 +23,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Cos'è uno stage plot](https://stageplot.it/guida/cos-e-uno-stage-plot/): significato, componenti ed esempi
 - [Come fare uno stage plot](https://stageplot.it/guida/come-fare-uno-stage-plot/): guida pratica passo per passo
 - [Channel list e input list](https://stageplot.it/guida/channel-list-input-list/): cosa sono e come si compilano
-- [Rider tecnico](https://stageplot.it/guida/rider-tecnico/): cos'è, cosa contiene e come si prepara
+- [Rider tecnico (scheda tecnica)](https://stageplot.it/guida/rider-tecnico/): cos'è, cosa contiene e come si prepara. In italiano "rider tecnico" e "scheda tecnica" indicano lo stesso documento.
 - [Esempi di stage plot](https://stageplot.it/guida/esempi-stage-plot/): band, orchestra, coro e jazz
 
 ## Stage plot per formazione
