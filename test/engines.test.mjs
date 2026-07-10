@@ -157,5 +157,26 @@ t("il filtro 'Mostra tutti' resta per gli accessori (non-Strumenti)", () => {
   ok(!A.isEss("truss40"), "truss40 (Allestimento) NON essenziale"); ok(!A.isEss("gazebo33"), "gazebo (Allestimento) NON essenziale");
 });
 
+console.log("\nVersioning documento (schema_version + migrate, R-ORA-1):");
+t("migrate: blob senza _v = v1 (identità), non perde dati", () => {
+  const s = A.migrate({ items: [{ id: "a" }], titolo: "x", cab: { on: true } });
+  eq(s.titolo, "x"); eq(s.items.length, 1); eq(s.cab.on, true);
+  ok(!("_v" in s), "_v non deve restare nello state runtime");
+});
+t("migrate: _v alla versione corrente è identità e viene consumato", () => {
+  const s = A.migrate({ _v: A.SCHEMA_VERSION, items: [], elec: { on: true } });
+  ok(!("_v" in s), "_v rimosso al load"); eq(s.elec.on, true);
+});
+t("stateToJSON marca il documento con _v = SCHEMA_VERSION", () => {
+  reset();
+  const blob = JSON.parse(A.stateToJSON());
+  ok(blob._v === 1, "il blob salvato deve portare _v=1"); eq(blob._v, A.SCHEMA_VERSION);
+});
+t("round-trip salva→carica: _v consumato, items conservati", () => {
+  reset(); A.state.items = [{ id: "z", type: "voce", x: 10, y: 10 }];
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  ok(!("_v" in back), "_v consumato al load"); eq(back.items[0].id, "z");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

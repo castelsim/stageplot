@@ -2445,6 +2445,10 @@ var DEFAULT_LABELS = {
 
 /* ============ STATO ============ */
 var LS_KEY = "stageplot_v1";
+/* Versione di schema del documento (R-ORA-1): ogni blob `data` porta `_v`; migrate() (definita
+   sopra normalizeState) lo aggiorna al load. Oggi =1 → catena vuota (identità). Alzare + aggiungere
+   MIGRATIONS[n] quando la forma di `data` cambia, così ogni progetto vecchio si migra da solo. */
+var SCHEMA_VERSION = 1;
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
@@ -2493,7 +2497,7 @@ var svg = document.getElementById("svg");
 function uid(){ return "i"+(nextId++); }
 /* replacer per serializzare lo state SENZA il file immagine della planimetria (richiesto al ricaricamento) */
 function stateReplacer(k,v){ return (k==='_dataUrl'||k==='_imgW'||k==='_imgH')?undefined:v; }
-function stateToJSON(){ return JSON.stringify(state, stateReplacer); }
+function stateToJSON(){ return JSON.stringify(Object.assign({_v:SCHEMA_VERSION}, state), stateReplacer); }
 /* Cache in-memoria delle immagini planimetria (per nome): gli snapshot di cronologia NON contengono il base64
    (evita il blow-up di memoria con 120 snapshot da più MB ciascuno). Dopo un undo/redo l'immagine viene
    ri-agganciata da qui, così lo sfondo non sparisce. */
@@ -2776,7 +2780,21 @@ function migrateLabels(it){
     }
   });
 }
+/* Migrazione di versione del documento (R-ORA-1). Gira in cima a normalizeState, che è il collo di
+   bottiglia di OGNI load: localStorage (boot), cloud (openProject→importProject), import .json,
+   share/AI (#p=/#d=), undo/redo, realtime. Oggi SCHEMA_VERSION=1 → nessuno step, identità pura.
+   Quando la forma di `data` cambierà: alzare SCHEMA_VERSION e aggiungere uno step puro
+   MIGRATIONS[n] = function(s){ ...trasforma da v(n) a v(n+1)...; return s; }. */
+var MIGRATIONS = {};
+function migrate(s){
+  if(!s || typeof s!=="object") return s;
+  var v = (typeof s._v==="number") ? s._v : 1;
+  while(v < SCHEMA_VERSION && MIGRATIONS[v]){ s = MIGRATIONS[v](s) || s; v++; }
+  delete s._v;   /* la versione non vive nello state runtime: si re-inietta a ogni serializzazione */
+  return s;
+}
 function normalizeState(s){
+  s=migrate(s);
   s.items=s.items||[];
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
   /* Backfill difensivo w/d (08/07): un item senza w/d (progetto vecchio/importato) fa calcolare
@@ -10925,7 +10943,7 @@ function gallery(){
     var sv=document.getElementById("viewSave");
     var t=null, lastSent=null;
     function doSave(){
-      var data; try{ data=JSON.parse(JSON.stringify(state)); }catch(e){ return; }   /* serializzazione COMPLETA: include la planimetria (_dataUrl), coerente col cloud-save */
+      var data; try{ data=JSON.parse(JSON.stringify(state)); }catch(e){ return; } data._v=SCHEMA_VERSION;   /* serializzazione COMPLETA: include la planimetria (_dataUrl), coerente col cloud-save; +versione R-ORA-1 */
       var snap=JSON.stringify(data); if(snap===lastSent) return; lastSent=snap;
       var m=document.getElementById("viewMeta"); if(m) m.textContent="salvataggio…";
       sb.auth.getSession().then(function(res){
@@ -11264,14 +11282,14 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
     function doSave(thumb){
-      var fields={ title:projTitle(), data:JSON.parse(JSON.stringify(state)) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl) */
+      var fields={ title:projTitle(), data:Object.assign(JSON.parse(JSON.stringify(state)), {_v:SCHEMA_VERSION}) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl); +versione R-ORA-1 */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
       var wasInsert=!cloudCurrentId;
       var q;
       if(cloudCurrentId){
         q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId).select().single();
       } else {
-        q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:1, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
+        q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
       }
       q.then(function(r){
         if(r.error){
@@ -11336,7 +11354,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     sb.from("stageplot_projects").select("data,title").eq("id",id).single().then(function(r){
       if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
       var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
-      sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:1, title:t, data:r.data.data }).then(function(w){
+      sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:t, data:r.data.data }).then(function(w){
         if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
         toast("Copia creata: "+t);
         loadProjects();
