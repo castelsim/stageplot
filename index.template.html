@@ -2604,7 +2604,7 @@ function setDocState(mode){
   var cls="doc-chip", html="", htmlM="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
-  else if(mode==="offline-warn"){ cls+=" warn subtle"; html=CHIP_SVG.warn+"Solo su questo dispositivo — Accedi"; htmlM=CHIP_SVG.warn+"Non salvato"; }
+  else if(mode==="offline-warn"){ html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per il cloud"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Non salvato online — riprovo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
@@ -4530,6 +4530,11 @@ function render(){
     if(state.items.length>0){ eh.hidden=true; try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
     else eh.hidden = !!localStorage.getItem("sp_onboarded");   /* l'invito appare solo finché non hai mai piazzato nulla */
   }
+  /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
+  var _dcHide = (!state.items || !state.items.length) && !(window.__cloud && window.__cloud.user && window.__cloud.user());
+  var _ds=document.getElementById("docState"), _dsM=document.getElementById("docStateM");
+  if(_ds) _ds.style.display=_dcHide?"none":"";
+  if(_dsM) _dsM.style.display=_dcHide?"none":"";
 }
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
