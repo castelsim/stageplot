@@ -1221,23 +1221,27 @@ var DRUM_PARTS={ kick:{icon:"cassa22",w:66,d:62}, snare:{icon:"rullante14",w:46,
   tom:{icon:"tom12",w:30,d:34}, floor:{icon:"floortom16",w:46,d:46}, hihat:{icon:"hihat_kit",w:36,d:52},
   crash:{icon:"crash16",w:44,d:44}, ride:{icon:"ride20",w:54,d:54}, stool:{icon:"sgabellobatt",w:40,d:40} };
 function drumSlots(p){
-  var L=[], dx=p.kick2?42:0;
+  var L=[], k2=!!p.kick2;
   function put(k,x,y,r){ L.push({k:k,x:x,y:y,rot:r||0}); }
-  /* Disposizione DESTRORSA standard (vista dall'alto, batterista dietro): hi-hat + rullante sul lato
-     SINISTRO del batterista (= destra schermo, x>0), floor-tom + ride sul lato destro (x<0). Rullante
-     quasi centrato tra le gambe; floor all'altezza del rullante (non della grancassa); piatti raccolti.
+  /* Disposizione DESTRORSA da manuale (vista dall'alto: batterista in alto a y<0, pubblico verso y>0).
+     Hi-hat + rullante sul lato SINISTRO del batterista (= destra schermo, x>0), floor-tom + ride sul
+     lato destro (x<0). Regole (10/07, "una volta per tutte"): FUSTI mai sovrapposti (rullante di
+     fianco alla cassa, non dentro; floor alla profondità del rullante, non davanti); tom montati
+     SOPRA la cassa (unica sovrapposizione fisicamente reale); piatti agli angoli anteriori, al più
+     sfiorano il bordo cassa (tocco ≤ ~10 cm, piatto disegnato sopra); ride DAVANTI al floor, mai
+     dietro. Geometria protetta dal test anti-collisione in test/engines.test.mjs.
      Il flag p.lefty specchia l'intero kit sull'asse x per un batterista mancino. */
-  if(p.kick2){ put("kick",-42,0); put("kick",42,0); } else put("kick",0,0);
-  put("snare",16+dx*0.4,-22);
-  if(p.hihat) put("hihat",74+dx*0.6,-20);
-  if(p.toms===1) put("tom",p.kick2?42:8,-30,-6);
-  else if(p.toms===2){ put("tom",p.kick2?49:20,-30,-6); put("tom",p.kick2?-35:-10,-31,6); }
-  else if(p.toms>=3){ put("tom",33,-28,-10); put("tom",4,-30,0); put("tom",-25,-28,10); }
-  if(p.floor) put("floor",-60-dx*0.7,-6);
-  if(p.crash>=1) put("crash",56+dx*0.6,-52,10);
-  if(p.crash>=2) put("crash",-82-dx*0.5,-48,-8);
-  if(p.ride) put("ride",-56-dx*0.4,-46);
-  if(p.stool!==false) put("stool",0,-98);   /* sgabello/batterista più indietro: footprint realistico (~1,5 m) */
+  if(k2){ put("kick",-42,0); put("kick",42,0); } else put("kick",0,0);
+  put("snare", k2?0:58, k2?-56:-14);                    /* di fianco alla cassa (doppia cassa: centrato tra le casse, arretrato) */
+  if(p.hihat) put("hihat", k2?94:100, k2?-50:-22);      /* esterno al rullante */
+  if(p.toms===1) put("tom", k2?42:8, -30, k2?-6:-4);
+  else if(p.toms===2){ put("tom",k2?42:17,-30,-6); put("tom",k2?-42:-17,-31,6); }
+  else if(p.toms>=3){ put("tom",k2?42:17,-30,-6); put("tom",k2?-42:-17,-31,6); put("tom",k2?0:-47,k2?-14:-27,k2?0:10); }   /* 3° tom sospeso accanto (rack centrale se doppia cassa) */
+  if(p.floor) put("floor", k2?-104:(p.toms>=3?-85:-62), k2?-24:(p.toms>=3?-22:-18));   /* accanto alla gamba destra, profondità del rullante */
+  if(p.crash>=1) put("crash", k2?94:52, k2?31:33, 10);  /* angolo anteriore, lato hi-hat */
+  if(p.crash>=2) put("crash", k2?-146:-104, 28, -8);    /* 2° crash oltre il floor */
+  if(p.ride) put("ride", k2?-94:-52, 34);               /* davanti al floor, sopra l'angolo cassa */
+  if(p.stool!==false) put("stool", 0, k2?-104:-98);     /* sgabello/batterista dietro: footprint realistico */
   if(p.lefty){ L.forEach(function(sl){ sl.x=-sl.x; sl.rot=-sl.rot; }); }   /* batterista mancino: specchia il kit */
   return L;
 }
