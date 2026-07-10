@@ -2448,9 +2448,9 @@ var LS_KEY = "stageplot_v1";
 /* Versione di schema del documento (R-ORA-1): ogni blob `data` porta `_v`; migrate() (definita
    sopra normalizeState) lo aggiorna al load. Oggi =1 → catena vuota (identità). Alzare + aggiungere
    MIGRATIONS[n] quando la forma di `data` cambia, così ogni progetto vecchio si migra da solo. */
-var SCHEMA_VERSION = 1;
+var SCHEMA_VERSION = 2;
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,locked:false,manual:{}},
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,lockIn:false,lockOut:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
   mond:{on:false,visible:true,opacity:70,manual:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
@@ -2786,6 +2786,17 @@ function migrateLabels(it){
    Quando la forma di `data` cambierà: alzare SCHEMA_VERSION e aggiungere uno step puro
    MIGRATIONS[n] = function(s){ ...trasforma da v(n) a v(n+1)...; return s; }. */
 var MIGRATIONS = {};
+/* v1→v2: il lock del cablaggio audio si separa in due rami indipendenti (Input / Monitor).
+   I progetti vecchi hanno un unico `cab.locked` → lo propaghiamo a entrambi i rami. */
+MIGRATIONS[1] = function(s){
+  if(s.cab && typeof s.cab==="object"){
+    var L=!!s.cab.locked;
+    if(s.cab.lockIn==null) s.cab.lockIn=L;
+    if(s.cab.lockOut==null) s.cab.lockOut=L;
+    delete s.cab.locked;
+  }
+  return s;
+};
 function migrate(s){
   if(!s || typeof s!=="object") return s;
   var v = (typeof s._v==="number") ? s._v : 1;
@@ -2867,7 +2878,7 @@ function normalizeState(s){
     home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
-    locked:!!cb.locked, manual:man,
+    lockIn:!!cb.lockIn, lockOut:!!cb.lockOut, manual:man,
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
@@ -3810,8 +3821,8 @@ function cablingMarkup(){
   var R=cabResult(); if(!R) return '';
   var op=(state.cab.opacity==null?70:state.cab.opacity)/100;
   var retOp=(state.cab.retOpacity==null?100:state.cab.retOpacity)/100;   /* #23: opacità indipendente dei ritorni monitor */
-  var edit=!state.cab.locked && showIn && !window.__cabStatic;   /* editing sui cavi ingresso, layer visibile e NON in render statico (PDF/PNG) */
-  var editRet=!state.cab.locked && showRet && !window.__cabStatic;   /* #17: stessi gesti sui cavi di ritorno (monitor) */
+  var edit=!state.cab.lockIn && showIn && !window.__cabStatic;   /* editing cavi INGRESSO (layer Input): lock indipendente dal Monitor */
+  var editRet=!state.cab.lockOut && showRet && !window.__cabStatic;   /* #17: cavi di RITORNO (layer Monitor): lock indipendente dall'Input */
   /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
      statico e nel viewer condiviso (chi legge non può fare hover consapevole). In hover: bolla assist. */
   var LBL = window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
@@ -3914,6 +3925,10 @@ function cablingMarkup(){
   return s;
 }
 function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+/* Lock per RAMO (Input vs Monitor): la chiave "ret:…" identifica un cavo di ritorno (monitor),
+   tutto il resto è ingresso (input). Così bloccare l'Input non tocca l'editing del Monitor. */
+function cabKeyLocked(key){ return String(key).indexOf("ret:")===0 ? !!state.cab.lockOut : !!state.cab.lockIn; }
+function cabBothLocked(){ return !!state.cab.lockIn && !!state.cab.lockOut; }
 /* collega un elemento a una box scrivendo l'override giusto: gruppo (cavo unico) se multi-canale, altrimenti per-canale */
 function cabItemRouteKey(it){ return cabItemInputs(it).length>=2 ? ("grp:"+it.id) : (it.id+"#0"); }
 function cabSetItemBox(it, boxId){ if(cabItemInputs(it).length) cabManual(cabItemRouteKey(it)).box=boxId; }
@@ -5870,8 +5885,10 @@ svg.addEventListener("pointerover", function(e){
 svg.addEventListener("pointerleave", function(){ cabFocus(null); if(__cabTip){ __cabTip.remove(); __cabTip=null; } });
 svg.addEventListener("contextmenu", function(e){   /* tasto destro sul cavo → menu Elimina / Reset percorso */
   var hit=e.target.closest && e.target.closest(".cab-hit");
-  if(hit && state.cab && state.cab.on && !state.cab.locked){ e.preventDefault();
+  if(hit && state.cab && state.cab.on){
     var key=hit.getAttribute("data-cab");
+    if(cabKeyLocked(key)) return;   /* ramo (Input/Monitor) di questo cavo bloccato: niente menu */
+    e.preventDefault();
     if(!selCabSet[key]){ selCab=key; selCabSet={}; selCabSet[key]=true; render(); }   /* se non è già in una selezione multipla, seleziona questo */
     showCabMenu(e.clientX, e.clientY, key);
   }
@@ -5898,7 +5915,7 @@ svg.addEventListener("pointerdown", function(e){
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
   var dcG = e.target.closest ? e.target.closest(".item") : null;
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
-  var _onCabEl = state.cab && state.cab.on && !state.cab.locked && e.target.closest && e.target.closest(".cab-hit,.cab-seg-hit,.cab-endpt,.cab-homehit");
+  var _onCabEl = state.cab && state.cab.on && e.target.closest && e.target.closest(".cab-hit,.cab-seg-hit,.cab-endpt,.cab-homehit");
   var _onPort = e.target.closest ? e.target.closest(".port-hit") : null;   /* porte stile Max: mai doppio-click */
   if(venueCalibMode===0 && !_onCabEl && !_onPort && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
@@ -5949,11 +5966,11 @@ svg.addEventListener("pointerdown", function(e){
     var mhit=e.target.closest(".mond-hit");
     if(mhit){ selMond=mhit.getAttribute("data-mond"); selCab=null; selElec=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
-  if(state.cab && state.cab.on && !state.cab.locked && e.target.closest){
+  if(state.cab && state.cab.on && !cabBothLocked() && e.target.closest){
     var chome=e.target.closest(".cab-homehit");
     if(chome){ e.preventDefault(); drag={mode:"cabhome", moved:false}; svg.setPointerCapture(e.pointerId); return; }
     var cseg=e.target.closest(".cab-seg-hit");
-    if(cseg){ e.preventDefault(); var segkey=cseg.getAttribute("data-cab"), si=+cseg.getAttribute("data-seg"), sori=cseg.getAttribute("data-ori");
+    if(cseg && !cabKeyLocked(cseg.getAttribute("data-cab"))){ e.preventDefault(); var segkey=cseg.getAttribute("data-cab"), si=+cseg.getAttribute("data-seg"), sori=cseg.getAttribute("data-ori");
       selCab=segkey;
       var Rs=cabResult(); var ls=Rs.links.filter(function(k){ return k.key===segkey; })[0] || (Rs.returnLinks||[]).filter(function(k){ return k.key===segkey; })[0];
       if(ls){ var exs={}; if(ls.s&&ls.s.it) exs[ls.s.it.id]=1; if(ls.sink&&ls.sink.id) exs[ls.sink.id]=1; if(ls.box&&ls.box.id) exs[ls.box.id]=1;
@@ -5961,11 +5978,11 @@ svg.addEventListener("pointerdown", function(e){
         drag={mode:"cabseg", key:segkey, si:si, ori:sori, fp0:fp0, moved:false}; svg.setPointerCapture(e.pointerId); render(); return; }
     }
     var cendp=e.target.closest(".cab-endpt");
-    if(cendp){ e.preventDefault(); selCab=cendp.getAttribute("data-cab");
+    if(cendp && !cabKeyLocked(cendp.getAttribute("data-cab"))){ e.preventDefault(); selCab=cendp.getAttribute("data-cab");
       drag={mode:"cabreconnect", key:selCab, end:cendp.getAttribute("data-end")||"box", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }   /* trascina un capo: su una box = riconnetti, nel vuoto = scollega */
     var chit=e.target.closest(".cab-hit");
-    if(chit){ var ck=chit.getAttribute("data-cab");
+    if(chit && !cabKeyLocked(chit.getAttribute("data-cab"))){ var ck=chit.getAttribute("data-cab");
       if(e.shiftKey){ if(selCabSet[ck]) delete selCabSet[ck]; else selCabSet[ck]=true; selCab=selCabSet[ck]?ck:(Object.keys(selCabSet)[0]||null); }   /* Shift = aggiungi/togli dalla selezione multipla */
       else { selCab=ck; selCabSet={}; selCabSet[ck]=true; }
       render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
@@ -8048,32 +8065,30 @@ function layerRegistry(){
   return [
     /* Gruppo "Audio": le 4 facce del segnale (motore cablaggio + monitoraggio digitale).
        Nel pannello stanno sotto un unico header "Audio" (campo group). */
-    { id:"cabin", name:"Microfonico", group:"Audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
+    { id:"cabin", name:"Input", group:"Audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
       visible:state.cab.showInputs!==false, setVisible:function(v){ state.cab.showInputs=v; save(); render(); },
       /* fluido: niente redraw dell'overlay (routing A* a ogni tick!) — si tocca solo lo style del gruppo */
       opacity:state.cab.opacity, setOpacity:function(v){ state.cab.opacity=v; var o=(v/100).toString();
         ["cab-inlayer","net-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
-      lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
-      removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },   /* cestino = ricominciare DA ZERO */
+      lockable:true, locked:!!state.cab.lockIn, setLocked:function(v){ state.cab.lockIn=v; if(v) selCab=null; save(); render(); },
+      removable:true, remove:function(){ var m=state.cab.manual||{}; Object.keys(m).forEach(function(k){ if(String(k).indexOf("ret:")!==0) delete m[k]; }); selCab=null; __cabRes=null; save(); render(); } },   /* cestino Input = azzera SOLO gli aggiustamenti d'ingresso (tornano auto); non tocca i monitor */
     { id:"cabout", name:"Monitor", group:"Audio", color:LAYER_COLORS.monitor,
       active:!!state.cab.on && state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }),
       visible:state.cab.showReturns!==false, setVisible:function(v){ state.cab.showReturns=v; save(); render(); },
       opacity:state.cab.retOpacity==null?100:state.cab.retOpacity, setOpacity:function(v){ state.cab.retOpacity=v; var g=svg.querySelector(".cab-retlayer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
-      /* Monitor e Rete audio sono facce del cablaggio audio: lock/cestino agiscono su TUTTO il gruppo (come Microfonico) */
-      lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
-      removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },
+      /* Monitor = ramo RITORNI, indipendente dall'Input: lock e cestino separati (richiesta Simone 10/07) */
+      lockable:true, locked:!!state.cab.lockOut, setLocked:function(v){ state.cab.lockOut=v; if(v) selCab=null; save(); render(); },
+      removable:true, remove:function(){ var m=state.cab.manual||{}; Object.keys(m).forEach(function(k){ if(String(k).indexOf("ret:")===0) delete m[k]; }); selCab=null; __cabRes=null; save(); render(); } },   /* cestino Monitor = azzera SOLO i ritorni (ret:) */
     { id:"net", name:"Rete audio", group:"Audio", color:LAYER_COLORS.rete,
       active:!!state.cab.on && netEngine().runs.length>0,
-      visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); },
-      lockable:true, locked:!!state.cab.locked, setLocked:function(v){ state.cab.locked=v; if(v) selCab=null; save(); render(); },
-      removable:true, remove:function(){ state.cab.on=false; state.cab.manual={}; selCab=null; __cabRes=null; save(); render(); } },
-    { id:"mond", name:"Monitor personali", group:"Audio", color:"#c026d3", active:!!state.mond.on,
+      visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },   /* Rete audio = auto-derivata (netEngine): SOLO visibilità, niente lucchetto/cestino propri */
+    { id:"mond", name:"P.M.", group:"Audio", color:"#c026d3", active:!!state.mond.on,
       visible:state.mond.visible!==false, setVisible:function(v){ state.mond.visible=v; save(); render(); },
       opacity:state.mond.opacity, setOpacity:function(v){ state.mond.opacity=v; var g=svg.querySelector(".mond-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.mond.locked, setLocked:function(v){ state.mond.locked=v; if(v) selMond=null; save(); render(); },
       removable:true, remove:function(){ state.mond.on=false; state.mond.manual={}; selMond=null; __mondRes=null; save(); render(); } },
     /* Elettrico (motore proprio) e Planimetria (sfondo). */
-    { id:"elec", name:"Elettrico", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
+    { id:"elec", name:"Power", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },

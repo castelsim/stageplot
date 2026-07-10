@@ -128,15 +128,42 @@ t("itemChannels coerente: batteria 8, corista 1, zona 1", () => {
 });
 
 console.log("\nLayer Manager (nomi/gruppi):");
-t("nomi senza collisione (Monitor palco / Rete audio / Monitor personali)", () => {
+t("nomi layer (Input / Monitor / P.M. / Power; Rete audio invariato)", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  eq(by.cabout.name, "Monitor"); eq(by.net.name, "Rete audio"); eq(by.mond.name, "Monitor personali");
+  eq(by.cabin.name, "Input"); eq(by.cabout.name, "Monitor"); eq(by.net.name, "Rete audio");
+  eq(by.mond.name, "P.M."); eq(by.elec.name, "Power");
 });
-t("ogni layer ha lucchetto + cestino (uniforme, richiesta Simone)", () => {
+t("lucchetto+cestino su Input/Monitor/P.M./Power/Planimetria; Rete solo visibilità", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  ["cabin", "cabout", "net", "mond", "elec", "venue"].forEach((k) => {
+  ["cabin", "cabout", "mond", "elec", "venue"].forEach((k) => {
     ok(by[k] && by[k].lockable, k + " lockable"); ok(by[k] && by[k].removable, k + " removable");
   });
+  ok(!by.net.lockable, "Rete audio: niente lucchetto (auto-derivata)"); ok(!by.net.removable, "Rete audio: niente cestino");
+});
+t("Input e Monitor: lock indipendenti (state.cab.lockIn / lockOut)", () => {
+  reset();
+  let by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  by.cabin.setLocked(true);
+  ok(A.state.cab.lockIn === true, "lockIn settato dall'Input");
+  ok(!A.state.cab.lockOut, "il Monitor (lockOut) NON è toccato");
+  by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  ok(by.cabin.locked === true && by.cabout.locked === false, "Input bloccato, Monitor libero");
+});
+t("cestino Input azzera solo input; cestino Monitor solo i ritorni (ret:)", () => {
+  reset();
+  A.state.cab.manual = { "grp:x": { box: "b1" }, "id7#0": { box: "b2" }, "ret:m1:s1": { pts: [[0, 0]] } };
+  let by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  by.cabin.remove();
+  eq(Object.keys(A.state.cab.manual), ["ret:m1:s1"], "cestino Input: restano solo i ret:");
+  A.state.cab.manual = { "grp:x": { box: "b1" }, "ret:m1:s1": { pts: [[0, 0]] } };
+  by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
+  by.cabout.remove();
+  eq(Object.keys(A.state.cab.manual), ["grp:x"], "cestino Monitor: restano solo gli input");
+});
+t("migrate v1→v2: cab.locked unico → lockIn + lockOut", () => {
+  const s = A.migrate({ _v: 1, cab: { locked: true, on: true } });
+  ok(s.cab.lockIn === true && s.cab.lockOut === true, "locked propagato ai due rami");
+  ok(!("locked" in s.cab), "vecchio cab.locked rimosso");
 });
 t("gruppo Audio sui 4 layer di segnale; elec/venue singoli", () => {
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
@@ -170,7 +197,7 @@ t("migrate: _v alla versione corrente è identità e viene consumato", () => {
 t("stateToJSON marca il documento con _v = SCHEMA_VERSION", () => {
   reset();
   const blob = JSON.parse(A.stateToJSON());
-  ok(blob._v === 1, "il blob salvato deve portare _v=1"); eq(blob._v, A.SCHEMA_VERSION);
+  ok(typeof blob._v === "number" && blob._v >= 1, "il blob salvato deve portare la versione"); eq(blob._v, A.SCHEMA_VERSION);
 });
 t("round-trip salva→carica: _v consumato, items conservati", () => {
   reset(); A.state.items = [{ id: "z", type: "voce", x: 10, y: 10 }];
