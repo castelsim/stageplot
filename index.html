@@ -914,7 +914,16 @@
   #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
   /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
   #emptyHint .eh-mob{display:none}
-  @media (max-width:880px){ #emptyHint{display:none!important} }   /* onboarding testuale nascosto su mobile (scelta PO 03/07) */
+  /* onboarding mobile (ciclo #2, variante A): guida + template anche su smartphone — il nuovo utente
+     mobile deve sapere come iniziare (prima era spento del tutto: palco muto). */
+  @media (max-width:880px){
+    #emptyHint .eh-desk{display:none}            /* la guida "trascina dalla sidebar" non vale su mobile */
+    #emptyHint .eh-mob{display:block}            /* "Tocca + Aggiungi qui sotto e scegli dal catalogo" */
+    #emptyHint .eh-sub{margin-bottom:14px}
+    #emptyHint .eh-tpl{margin-top:12px}
+    #emptyHint .eh-tpl-row{max-width:300px}      /* i chip wrappano su più righe, raccolti */
+    #emptyHint .eh-chip{font-size:12.5px;padding:7px 13px}
+  }
   .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
   .mtbtn-wide svg{width:18px;height:18px}
   /* bottom-sheet catalogo: intestazione sticky (titolo + chiudi), solo mobile */
@@ -1485,7 +1494,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
 </div>
-<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub"><span class="eh-desk">Apri una categoria a sinistra e trascina gli elementi sul palco</span><span class="eh-mob">Tocca “Aggiungi” qui sotto e scegli dal catalogo</span></div><div class="eh-tpl eh-desk"><span class="eh-tpl-lbl">oppure parti da un modello</span><div class="eh-tpl-row"><button type="button" class="eh-chip" data-form="band">Band</button><button type="button" class="eh-chip" data-form="acoustic">Acustica</button><button type="button" class="eh-chip" data-form="jazzcombo">Jazz combo</button><button type="button" class="eh-chip" data-form="coro">Coro</button><button type="button" class="eh-chip" data-form="camera">Orchestra</button><button type="button" class="eh-chip" data-form="bigband">Big band</button></div></div></div></main>
+<div id="emptyHint" aria-hidden="true"><div class="eh-head">Il palco è vuoto</div><div class="eh-sub"><span class="eh-desk">Apri una categoria a sinistra e trascina gli elementi sul palco</span><span class="eh-mob">Tocca “Aggiungi” qui sotto e scegli dal catalogo</span></div><div class="eh-tpl"><span class="eh-tpl-lbl">oppure parti da un modello</span><div class="eh-tpl-row"><button type="button" class="eh-chip" data-form="band">Band</button><button type="button" class="eh-chip" data-form="acoustic">Acustica</button><button type="button" class="eh-chip" data-form="jazzcombo">Jazz combo</button><button type="button" class="eh-chip" data-form="coro">Coro</button><button type="button" class="eh-chip" data-form="camera">Orchestra</button><button type="button" class="eh-chip" data-form="bigband">Big band</button></div></div></div></main>
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
