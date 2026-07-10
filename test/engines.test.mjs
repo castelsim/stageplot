@@ -211,7 +211,34 @@ t("destrorsa di default: hi-hat a sinistra del batterista (x>0), floor a destra 
   const by = {}; S.forEach((s) => { if (!by[s.k]) by[s.k] = s; });
   ok(by.hihat.x > 0, "hi-hat a destra schermo = sinistra batterista (destrorso)");
   ok(by.floor.x < 0, "floor-tom a sinistra schermo = destra batterista");
-  ok(Math.abs(by.snare.x) < 30, "rullante quasi centrato tra le gambe");
+  ok(by.snare.x > 0 && by.snare.x < by.hihat.x, "rullante tra cassa e hi-hat, lato sinistro del batterista");
+});
+t("floor accanto al batterista (profondità del rullante), ride davanti al floor", () => {
+  const S = A.drumSlots({ toms: 2, floor: true, hihat: true, crash: 1, ride: true, stool: true });
+  const by = {}; S.forEach((s) => { if (!by[s.k]) by[s.k] = s; });
+  ok(Math.abs(by.floor.y - by.snare.y) <= 10, "floor alla profondità del rullante, non davanti alla cassa");
+  ok(by.ride.y > by.floor.y, "ride davanti al floor, mai dietro");
+});
+t("anti-collisione: fusti mai sovrapposti, piatti al più sfiorano la cassa (4 config)", () => {
+  const P = A.DRUM_PARTS, CYM = { hihat: 1, crash: 1, ride: 1 };
+  const cfgs = [
+    { toms: 2, floor: true, hihat: true, crash: 1, ride: true, stool: true },                 // default
+    { toms: 3, floor: true, hihat: true, crash: 2, ride: true, stool: true },                 // kit grande
+    { toms: 2, floor: true, hihat: true, crash: 2, ride: true, stool: true, kick2: true },    // doppia cassa
+    { toms: 3, floor: true, hihat: true, crash: 2, ride: true, stool: true, kick2: true },    // doppia cassa + 3 tom
+  ];
+  cfgs.forEach((cfg, ci) => {
+    const S = A.drumSlots(cfg);
+    for (let i = 0; i < S.length; i++) for (let j = i + 1; j < S.length; j++) {
+      const a = S[i], b = S[j];
+      if ((a.k === "tom" && b.k === "kick") || (a.k === "kick" && b.k === "tom")) continue; // tom montati sopra la cassa
+      const ox = (P[a.k].w + P[b.k].w) / 2 - Math.abs(a.x - b.x);
+      const oy = (P[a.k].d + P[b.k].d) / 2 - Math.abs(a.y - b.y);
+      const ov = ox > 0 && oy > 0 ? Math.min(ox, oy) : 0;
+      const lim = (CYM[a.k] && b.k === "kick") || (CYM[b.k] && a.k === "kick") ? 12 : 0;    // piatto sopra il bordo cassa: tocco ammesso
+      ok(ov <= lim, "cfg#" + ci + " " + a.k + "↔" + b.k + ": overlap " + Math.round(ov) + " cm (max " + lim + ")");
+    }
+  });
 });
 t("toggle mancino: specchia il kit sull'asse x", () => {
   const base = { toms: 2, floor: true, hihat: true, ride: true, stool: true };
