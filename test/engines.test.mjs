@@ -237,5 +237,15 @@ t("analyticsEnv distingue prod / localhost / other", () => {
   eq(A.analyticsEnv("castelsim.github.io"), "other");
 });
 
+console.log("\nPrimo PDF completo (C) — channel list instrument-driven:");
+t("autoInputs genera la input list dagli strumenti, senza attivare il cablaggio", () => {
+  reset();
+  add("batteria", 400, 400);       // kit → più canali (IN_MULTI)
+  A.state.inputs = [];             // lista vuota, come dopo un template
+  A.state.cab.on = false;
+  A.autoInputs();
+  ok(A.state.inputs.length >= 8, "batteria → ≥8 canali auto (ottenuti: " + A.state.inputs.length + ")");
+  eq(A.state.cab.on, false, "il cablaggio NON viene attivato (C: nessun cavo disegnato)");
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

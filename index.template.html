@@ -9724,7 +9724,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   document.getElementById("bHdrPdf").addEventListener("click", function(){
     var open=!(saveAsOpen||frameEdit);
     saveAsOpen=open; if(!open) frameEdit=false;
-    if(open){ exitHubModes("save"); clearSelection(); }
+    if(open){ exitHubModes("save"); clearSelection();
+      /* C (ciclo primo-PDF-completo): se la channel list è VUOTA, generala dagli strumenti sul palco
+         (instrument-driven, come "Auto" — NON attiva il cablaggio/cavi). Così il PDF non esce mai senza
+         input/monitor list. Una lista già compilata a mano non viene toccata (autoInputs esce se piena). */
+      try{ if(!state.inputs.length) autoInputs(); }catch(e){}
+      try{ if(!state.outputs.length) autoOutputs(); }catch(e){}
+    }
     renderFramePanel(); render();
   });
   /* frameSaveJson rimosso (A′): il download del progetto vive in File → Scarica file progetto */
