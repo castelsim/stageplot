@@ -228,5 +228,14 @@ t("la batteria espone il controllo 'lefty' (default destrorso)", () => {
   eq(A.COMP.batteria.defParts.lefty, false, "default = destrorso");
 });
 
+console.log("\nAnalytics — classificazione ambiente (env):");
+t("analyticsEnv distingue prod / localhost / other", () => {
+  eq(A.analyticsEnv("stageplot.it"), "prod");
+  eq(A.analyticsEnv("www.stageplot.it"), "prod");
+  eq(A.analyticsEnv("localhost"), "localhost");
+  eq(A.analyticsEnv("127.0.0.1"), "localhost");
+  eq(A.analyticsEnv("castelsim.github.io"), "other");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

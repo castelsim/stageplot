@@ -1422,6 +1422,8 @@ window.maybeLoginNudge=maybeLoginNudge;
    Mai in viewer/consulenza (?view=/export=): i numeri restano quelli del tool. */
 var __evtQ=[]; window.__evtQ=__evtQ;
 var __activatedSent=false;
+/* classifica l'origine dell'evento: separa il traffico reale (prod) dallo sviluppo (localhost) nei dati */
+function analyticsEnv(h){ h=(h!=null?h:location.hostname); return /(^|\.)stageplot\.it$/.test(h)?"prod":((h==="localhost"||h==="127.0.0.1"||h==="[::1]"||!h)?"localhost":"other"); }
 function track(event, props){
   try{
     if(/[?&](view|export)=/.test(location.search) || foreignDoc()) return;
@@ -4453,8 +4455,10 @@ function miniSvg(k, over){
     var b=makeBtn(k, TYPES[k].nome); el.insertBefore(b, results); entries.push({k:k,nome:TYPES[k].nome});
   });
 
+  var __noResTimer=null, __lastNoRes="";   /* search_no_results: 1 solo evento per query, quando l'utente si ferma */
   search.addEventListener("input", function(){
     var q=this.value.trim().toLowerCase();
+    clearTimeout(__noResTimer);
     results.innerHTML="";
     if(!q){ wrap.style.display=""; results.style.display="none"; return; }
     wrap.style.display="none"; results.style.display="block";
@@ -4468,7 +4472,9 @@ function miniSvg(k, over){
       return;
     }
     var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
-    if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>'; return; }
+    if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>';
+      if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
+      return; }
     matched.forEach(function(e){
       results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
     });
@@ -9976,6 +9982,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       props.logged=!!cloudUser;
       props.mobile=(typeof isMobile==="function")?isMobile():false;
       props.app_version=window.__APP_VERSION__||"";
+      props.env=analyticsEnv();   /* prod / localhost / other — per filtrare il rumore di sviluppo nelle metriche */
       var rec={ event:row.event, session_id:analyticsSessionId(), user_id:cloudUser?cloudUser.id:null, props:props };
       if(sb && cloudUser){ sb.from("analytics_events").insert(rec).then(function(){},function(){}); }
       else fetch(SUPABASE_URL+"/rest/v1/analytics_events",{ method:"POST", keepalive:true,
