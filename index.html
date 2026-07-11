@@ -857,6 +857,14 @@
   .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
   .wl-cta:hover{background:var(--accent-strong)}
   .wl-mob{display:none}
+  /* modelli di partenza nel welcome + picker "Nuovo da modello" (ciclo 9) */
+  .wl-mods-lbl{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 9px;display:flex;align-items:center;gap:8px}
+  .wl-mods-lbl::before,.wl-mods-lbl::after{content:"";height:1px;background:var(--border);flex:1}
+  .wl-mods{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+  .wl-mods button{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:var(--r-pill);cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast),color var(--dur-fast)}
+  .wl-mods button:hover{background:var(--accent-tint);border-color:var(--accent-soft);color:var(--accent)}
+  body.dark .wl-mods button{background:#141a1d;border-color:#2a3138}
+  body.dark .wl-mods button:hover{border-color:var(--accent);color:var(--accent-bright)}
   @media (max-width:880px){
     .wl-desk{display:none}
     .wl-mob{display:inline}
@@ -1512,6 +1520,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 <!-- Menu File / "?" (UI/UX A′): dropdown che cliccano i proxy nascosti dell'header -->
 <div class="hdrmenu" id="fileMenu" hidden role="menu">
   <button class="mi" data-file="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo</button>
+  <button class="mi" data-file="model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 10.5h16M10 5v14"/></svg>Nuovo da modello…</button>
   <button class="mi" data-file="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>I miei progetti…</button>
   <hr>
   <button class="mi" data-file="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva<span class="kbd">⌘S</span></button>
@@ -2300,11 +2309,23 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
         <div class="wl-step"><b>3</b><span><strong>Esporta il PDF</strong> con stage plot e channel list</span></div>
       </div>
+      <div class="wl-mods-lbl">oppure parti da un modello</div>
+      <div class="wl-mods" id="wlMods"></div>
       <div class="wl-foot">
         <label class="wl-skip"><input type="checkbox" id="wlSkip">Non mostrare più</label>
         <button type="button" class="wl-cta" id="wlGo">Progetta il tuo palco</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Picker "Nuovo da modello" (menu File): parti da una formazione pronta. -->
+<div class="modal" id="modelPicker" hidden>
+  <div class="mcard" style="width:420px;max-width:94vw">
+    <h2>Parti da un modello</h2>
+    <div class="hint">Il palco viene azzerato e riempito con la formazione scelta. Puoi poi modificarla liberamente.</div>
+    <div class="wl-mods" id="mpMods" style="margin:14px 0 4px"></div>
+    <div style="display:flex;margin-top:16px"><button class="btn" id="mpClose" style="margin-left:auto">Annulla</button></div>
   </div>
 </div>
 

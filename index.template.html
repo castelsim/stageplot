@@ -239,6 +239,7 @@
 <!-- Menu File / "?" (UI/UX A′): dropdown che cliccano i proxy nascosti dell'header -->
 <div class="hdrmenu" id="fileMenu" hidden role="menu">
   <button class="mi" data-file="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo</button>
+  <button class="mi" data-file="model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 10.5h16M10 5v14"/></svg>Nuovo da modello…</button>
   <button class="mi" data-file="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>I miei progetti…</button>
   <hr>
   <button class="mi" data-file="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva<span class="kbd">⌘S</span></button>
@@ -1027,11 +1028,23 @@
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
         <div class="wl-step"><b>3</b><span><strong>Esporta il PDF</strong> con stage plot e channel list</span></div>
       </div>
+      <div class="wl-mods-lbl">oppure parti da un modello</div>
+      <div class="wl-mods" id="wlMods"></div>
       <div class="wl-foot">
         <label class="wl-skip"><input type="checkbox" id="wlSkip">Non mostrare più</label>
         <button type="button" class="wl-cta" id="wlGo">Progetta il tuo palco</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Picker "Nuovo da modello" (menu File): parti da una formazione pronta. -->
+<div class="modal" id="modelPicker" hidden>
+  <div class="mcard" style="width:420px;max-width:94vw">
+    <h2>Parti da un modello</h2>
+    <div class="hint">Il palco viene azzerato e riempito con la formazione scelta. Puoi poi modificarla liberamente.</div>
+    <div class="wl-mods" id="mpMods" style="margin:14px 0 4px"></div>
+    <div style="display:flex;margin-top:16px"><button class="btn" id="mpClose" style="margin-left:auto">Annulla</button></div>
   </div>
 </div>
 
@@ -7790,6 +7803,22 @@ var FORM_TITLES = {
   jazzcombo:"Jazz quintet", bigband:"Big band 5/4/4 + ritmica"
 };
 
+/* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
+   Fonte unica per i chip del welcome e per il sottomenu "Nuovo da modello". */
+var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"]];
+/* Piazza una formazione PRONTA sul palco (band/acustica/coro/…), riusando le formazioni esistenti
+   con force=true → niente modale di review. Aggancia welcome-chips e menu "Nuovo da modello". */
+function startFromTemplate(f){
+  var qd = (typeof formationData==="function") ? formationData(f) : null;
+  if(!qd || !qd.out) return;
+  state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
+  placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
+  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
+  render(); if(typeof fitStage==="function") fitStage(); render();
+}
+
 /* (menu "Organico" e generatori organici rimossi dall'interfaccia su richiesta; formationData/buildOrchestraOut restano solo per le QA ?form=) */
 
 /* ============ CHANNEL LIST (input / output per i fonici) ============ */
@@ -9825,6 +9854,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   bindMenu("fileBtn","fileMenu"); bindMenu("helpBtn","helpMenu");
   (function(){
     var acts={ "new":function(){proxyClick("bNew");}, "open":function(){proxyClick("bHdrImport");},
+      "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
       "projects":function(){proxyClick("bCloud");}, "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "save":fileSaveCloud,
@@ -11198,6 +11228,28 @@ else { window.addEventListener("resize", render); fit();
   });
 }catch(_e){} })();
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
+/* Modelli di partenza (ciclo 9, decisione C): chip nel welcome + picker "Nuovo da modello" (menu File).
+   Fonte unica START_MODELS; il click piazza la formazione e chiude l'overlay di provenienza. */
+(function(){
+  function fillMods(host, after){
+    if(!host || typeof START_MODELS==="undefined") return;
+    host.innerHTML="";
+    START_MODELS.forEach(function(m){
+      var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
+      b.addEventListener("click", function(){ startFromTemplate(m[0]); if(after) after(); });
+      host.appendChild(b);
+    });
+  }
+  fillMods(document.getElementById("wlMods"), null);   /* nel welcome: startFromTemplate chiude già il welcome */
+  var mp=document.getElementById("modelPicker");
+  if(mp){
+    fillMods(document.getElementById("mpMods"), function(){ mp.hidden=true; });
+    var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
+    mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
+    document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });
+    window.openModelPicker=function(){ mp.hidden=false; };   /* aperto dalla voce File "Nuovo da modello…" */
+  }
+})();
 /* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
    Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
    Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded). */
