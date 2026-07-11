@@ -2621,6 +2621,9 @@ function saveSoon(){
   clearTimeout(_saveSoonT); _saveSoonT=setTimeout(recordHistory, 500);
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
 }
+/* registra SUBITO uno snapshot in sospeso nel debounce (digitazione): serve prima di undo/redo,
+   altrimenti un ⌘Z entro 500ms dall'ultimo tasto non annulla ciò che hai appena scritto (ciclo 5). */
+function flushHistorySoon(){ if(_saveSoonT){ clearTimeout(_saveSoonT); _saveSoonT=null; recordHistory(); } }
 /* ===== Stato documento + autosave online (V2, modello Docs — UI/UX A′) =====
    Loggato: ogni salvataggio locale arma un upsert cloud con debounce 10s (stesso ritmo
    dell'autosave consulenza). Non loggato: chip ambra cliccabile → login. */
@@ -2736,8 +2739,8 @@ function applyRemoteState(json){
     setEventInputs(); render(); renderChannels(); fit();
   }catch(e){ /* stato remoto non valido: ignora */ }
 }
-function undo(){ if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); }
-function redo(){ if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); }
+function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); }
+function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); }
 /* ===== Importa progetto da file .json (annullabile) ===== */
 function importProject(json){
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
