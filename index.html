@@ -347,16 +347,12 @@
   #catalog .sub-body button span{color:var(--accent)}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:var(--accent)}
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
-  /* Onboarding contestuale: invito sul palco vuoto + hint primo trascinamento */
+  /* palco vuoto: solo i chip dei modelli di partenza (le scritte guida le fa la finestra di benvenuto;
+     eventuale reintroduzione futura guidata dai dati d'uso) */
   #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;color:var(--text-2);line-height:1.3;z-index:4}
   #emptyHint[hidden]{display:none}
-  #emptyHint .eh-sub{font-size:13px;color:var(--text-3);margin-bottom:14px}
-  #emptyHint .eh-steps{display:flex;flex-direction:column;gap:11px;text-align:left}
-  #emptyHint .eh-step{display:flex;align-items:center;gap:11px;font-size:14px;color:var(--text-2);white-space:nowrap}
-  #emptyHint .eh-step b{flex:0 0 auto;width:24px;height:24px;border-radius:999px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
   /* template di partenza: chip cliccabili nell'hint vuoto (il contenitore ha pointer-events:none) */
-  #emptyHint .eh-tpl{margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
-  #emptyHint .eh-tpl-lbl{font-size:11.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em}
+  #emptyHint .eh-tpl{display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
   #emptyHint .eh-tpl-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:430px}
   #emptyHint .eh-chip{appearance:none;border:1px solid var(--border);background:var(--panel,#fff);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s,color .12s}
   #emptyHint .eh-chip:hover{background:var(--accent-tint);border-color:var(--accent-soft);color:var(--accent)}
@@ -939,16 +935,9 @@
   /* Inspector header (A): pallino + nome elemento (sobrio) */
   #selNome{display:flex;align-items:center;gap:7px}
   #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
-  /* onboarding: testo diverso desktop vs mobile (su mobile non c'è la sidebar) */
-  #emptyHint .eh-mob{display:none}
-  /* onboarding mobile (ciclo #2, variante A): guida + template anche su smartphone — il nuovo utente
-     mobile deve sapere come iniziare (prima era spento del tutto: palco muto). */
+  /* template anche su smartphone (ciclo #2): i chip wrappano su più righe, raccolti */
   @media (max-width:880px){
-    #emptyHint .eh-desk{display:none}            /* la guida "trascina dalla sidebar" non vale su mobile */
-    #emptyHint .eh-mob{display:block}            /* "Tocca + Aggiungi qui sotto e scegli dal catalogo" */
-    #emptyHint .eh-sub{margin-bottom:14px}
-    #emptyHint .eh-tpl{margin-top:12px}
-    #emptyHint .eh-tpl-row{max-width:300px}      /* i chip wrappano su più righe, raccolti */
+    #emptyHint .eh-tpl-row{max-width:300px}
     #emptyHint .eh-chip{font-size:12.5px;padding:7px 13px}
   }
   .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
@@ -1528,7 +1517,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
 </div>
-<div id="emptyHint" aria-hidden="true"><div class="eh-sub"><span class="eh-desk">Apri una categoria a sinistra e trascina gli elementi sul palco</span><span class="eh-mob">Tocca “Aggiungi” qui sotto e scegli dal catalogo</span></div><div class="eh-tpl"><span class="eh-tpl-lbl">oppure parti da un modello</span><div class="eh-tpl-row"><button type="button" class="eh-chip" data-form="band">Band</button><button type="button" class="eh-chip" data-form="acoustic">Acustica</button><button type="button" class="eh-chip" data-form="jazzcombo">Jazz combo</button><button type="button" class="eh-chip" data-form="coro">Coro</button><button type="button" class="eh-chip" data-form="camera">Orchestra</button><button type="button" class="eh-chip" data-form="bigband">Big band</button></div></div></div></main>
+<div id="emptyHint" aria-hidden="true"><div class="eh-tpl"><div class="eh-tpl-row"><button type="button" class="eh-chip" data-form="band">Band</button><button type="button" class="eh-chip" data-form="acoustic">Acustica</button><button type="button" class="eh-chip" data-form="jazzcombo">Jazz combo</button><button type="button" class="eh-chip" data-form="coro">Coro</button><button type="button" class="eh-chip" data-form="camera">Orchestra</button><button type="button" class="eh-chip" data-form="bigband">Big band</button></div></div></div></main>
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
