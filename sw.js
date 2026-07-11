@@ -59,7 +59,27 @@ self.addEventListener("fetch", function (e) {
         var fresh = fetch(req).then(function (res) {
           /* si cacha solo una risposta piena e sana (no opache, no errori, no 206) */
           if (res && res.ok && res.type === "basic" && res.status === 200) {
-            cache.put(key, res.clone());
+            /* toast "nuova versione" (UX-c1): se il refresh in background della shell scarica
+               una versione DIVERSA da quella appena servita dalla cache, avvisa le pagine aperte.
+               Confronto per header (ETag → Last-Modified → Content-Length): zero costo, niente body. */
+            /* key è la stringa "/" per le navigazioni, ma un Request per gli asset → si confronta il pathname */
+            var kPath = (typeof key === "string") ? key : new URL(key.url).pathname;
+            var isShell = (kPath === "/" || kPath === "/app.js" || kPath === "/icons.js");
+            var changed = false;
+            if (cached && isShell) {
+              var a = cached.headers.get("etag") || cached.headers.get("last-modified") || cached.headers.get("content-length");
+              var b = res.headers.get("etag") || res.headers.get("last-modified") || res.headers.get("content-length");
+              changed = !!(a && b && a !== b);
+            }
+            var putP = cache.put(key, res.clone());
+            if (changed) {
+              /* dopo il put: al click su "Ricarica" la cache è già aggiornata → basta 1 reload */
+              putP.then(function () {
+                return self.clients.matchAll({ type: "window" });
+              }).then(function (cs) {
+                cs.forEach(function (c) { c.postMessage({ type: "sp-updated" }); });
+              }).catch(function () {});
+            }
           }
           return res;
         });

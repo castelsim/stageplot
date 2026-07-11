@@ -185,6 +185,16 @@
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
   /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
+  /* toast "nuova versione" (SW): barra fissa in basso, sopra tutto, entrambi i temi */
+  #updToast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+    z-index:90;display:flex;align-items:center;gap:12px;background:var(--n-900);color:#f3f4f6;
+    font-size:13.5px;padding:10px 12px 10px 16px;border-radius:12px;box-shadow:var(--elev-3);
+    max-width:calc(100vw - 24px);white-space:nowrap}
+  #updToast span{overflow:hidden;text-overflow:ellipsis}
+  #updToast button{appearance:none;border:0;font:inherit;cursor:pointer}
+  #updToast #updGo{background:var(--accent);color:var(--text-on-accent);font-weight:700;padding:7px 14px;border-radius:8px;flex:none}
+  #updToast #updGo:hover{background:var(--accent-strong)}
+  #updToast #updX{background:none;color:#9aa3b0;font-size:14px;padding:4px 6px;line-height:1;flex:none}
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
   #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
