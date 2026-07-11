@@ -8822,8 +8822,12 @@ function renderInspectorB(){
     var c=countAccessori();
     var nCiab=nType("ciabatta"), nPrese=nType("corrente"), nQuadri=nType("quadro","distro32","distro63","distro125");
     var s='<div class="insp-hd">Stato</div>';
-    /* Ingressi = i canali della channel list (il rider), non i cavi già routati; avvisa se superano lo stage box */
-    var _nCh=(state.inputs||[]).length, _cap=R.capTot||0, _over=(_cap>0 && _nCh>_cap);
+    /* Ingressi = i canali della channel list (il rider), non i cavi già routati; avvisa se superano lo stage box.
+       Fonte: la lista instrument-driven (patchList) — state.inputs è la lista manuale della consulenza,
+       vuota per l'utente normale (bug ciclo 2: contatore fermo a 0 e avviso capacità mai scattato). */
+    var _nCh=0;
+    try{ _nCh = (window.__consultMode && (state.inputs||[]).length) ? state.inputs.length : patchList().rows.length; }catch(e){ _nCh=(state.inputs||[]).length; }
+    var _cap=R.capTot||0, _over=(_cap>0 && _nCh>_cap);
     s+=ir("Ingressi", _nCh+" / "+(_cap||"—")+(_over?"  ⚠ stage box insufficiente":""), _over?"insp-over":"");
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
     if(xlr) s+=ir("Cavi XLR", xlr);
