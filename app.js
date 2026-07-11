@@ -4856,7 +4856,13 @@ svg.addEventListener("pointerdown", function(e){
     lastDown=null;
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
-      if(dcIt && dcIt.type==="testo"){ inlineTextEdit(dcId); }   /* Testo libero: scrivi direttamente sul palco (anche mobile: doppio tap) */
+      if(dcIt && dcIt.type==="testo"){
+        /* Testo libero: scrivi direttamente sul palco (anche mobile: doppio tap).
+           preventDefault: senza, la default action del mousedown sposta il focus e chiude
+           la textarea appena aperta (bug trovato col mouse vero; gli eventi sintetici non lo mostrano). */
+        e.preventDefault();
+        inlineTextEdit(dcId);
+      }
       else if(isMobile()){ document.body.classList.add("props-expanded"); }
       else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
@@ -5676,7 +5682,12 @@ function inlineTextEdit(id){
     if(ev.key==="Enter" && (ev.metaKey||ev.ctrlKey)) fin(true);
     else if(ev.key==="Escape") fin(false);
   });
-  ta.addEventListener("blur", function(){ fin(true); });
+  var born=Date.now();
+  ta.addEventListener("blur", function(){
+    /* il mouseup/focus residuo del doppio click può soffiare il focus appena nati: riprendilo, non chiudere */
+    if(Date.now()-born<300 && !done){ setTimeout(function(){ if(!done) ta.focus(); }, 0); return; }
+    fin(true);
+  });
   ta.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
 }
 function toggleStageEdit(){
