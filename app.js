@@ -10049,6 +10049,17 @@ else if(location.search.indexOf("json=1")>-1){   /* QA: anteprima del JSON di pr
 }
 else { window.addEventListener("resize", render); fit();
 }
+/* A11y (ciclo 7): marca tutti i modali generici come dialoghi per gli screen reader (role+aria-modal).
+   confirmModal e welcome hanno già i propri role/aria-labelledby; qui si copre il resto in un colpo, DRY. */
+(function(){ try{
+  document.querySelectorAll(".modal").forEach(function(m){
+    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
+    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
+    if(!m.getAttribute("aria-label") && !m.getAttribute("aria-labelledby")){
+      var h=m.querySelector("h2,h3,h4"); if(h){ if(!h.id) h.id="mtitle-"+(m.id||Math.random().toString(36).slice(2)); m.setAttribute("aria-labelledby", h.id); }
+    }
+  });
+}catch(_e){} })();
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
 /* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
    Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
@@ -10093,7 +10104,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(window.setDocState) window.setDocState("conflict");
     if(confBar) return;
     confBar=document.createElement("div");
-    confBar.id="conflictBar";
+    confBar.id="conflictBar"; confBar.setAttribute("role","alertdialog"); confBar.setAttribute("aria-label","Conflitto di salvataggio: scegli come continuare");
     confBar.innerHTML='<span class="cb-msg">⚠️ <b>Questo progetto è stato modificato altrove</b> (altra scheda o dispositivo). Per non perdere nulla:</span>'
       +'<button type="button" id="cbLoad">Carica la versione più recente</button>'
       +'<button type="button" id="cbCopy">Continua qui come copia</button>';

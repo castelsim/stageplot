@@ -1447,7 +1447,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 <div id="mTop">
   <div class="mtop-r1">
     <input type="text" id="mTitle" placeholder="Senza titolo">
-    <span class="doc-chip doc-chip-m" id="docStateM" hidden></span>
+    <span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span>
     <button class="mtbtn" id="bLearnM" aria-label="Guida e feedback" title="Guida e feedback" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg></button>
     <button class="avatar-btn avatar-btn-m" id="accountBtnM" title="Accedi per salvare online">Accedi</button>
   </div>
@@ -2487,7 +2487,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="cloudBody" style="padding:18px"></div>
   </div>
 </div>
-<div id="cloudToast" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:var(--n-900);color:#fff;padding:10px 16px;border-radius:var(--r-md);font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
+<div id="cloudToast" role="status" aria-live="polite" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:var(--n-900);color:#fff;padding:10px 16px;border-radius:var(--r-md);font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
 
 <!-- ===================== DIALOGO DI CONFERMA (azioni distruttive) ===================== -->
 <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="cfmTitle" hidden>
@@ -2543,7 +2543,7 @@ if ("serviceWorker" in navigator) {
     if (!ev.data || ev.data.type !== "sp-updated" || updShown) return;
     updShown = true;
     var bar = document.createElement("div");
-    bar.id = "updToast";
+    bar.id = "updToast"; bar.setAttribute("role","status"); bar.setAttribute("aria-live","polite");
     bar.innerHTML = '<span>È pronta una nuova versione di StagePlot</span>'
       + '<button type="button" id="updGo">Ricarica</button>'
       + '<button type="button" id="updX" aria-label="Chiudi">✕</button>';
