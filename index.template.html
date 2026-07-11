@@ -11710,6 +11710,22 @@ if ("serviceWorker" in navigator) {
   addEventListener("load", function () {
     navigator.serviceWorker.register("/sw.js").catch(function () {});
   });
+  /* Toast "nuova versione" (UX-c1): il SW avvisa quando il refresh in background ha scaricato
+     una shell diversa da quella servita (SWR = il 1° load dopo un deploy è stantio).
+     Un solo avviso per sessione; "Ricarica" basta perché la cache è già aggiornata. */
+  var updShown = false;
+  navigator.serviceWorker.addEventListener("message", function (ev) {
+    if (!ev.data || ev.data.type !== "sp-updated" || updShown) return;
+    updShown = true;
+    var bar = document.createElement("div");
+    bar.id = "updToast";
+    bar.innerHTML = '<span>È pronta una nuova versione di StagePlot</span>'
+      + '<button type="button" id="updGo">Ricarica</button>'
+      + '<button type="button" id="updX" aria-label="Chiudi">✕</button>';
+    document.body.appendChild(bar);
+    document.getElementById("updGo").addEventListener("click", function () { location.reload(); });
+    document.getElementById("updX").addEventListener("click", function () { bar.remove(); });
+  });
 }
 </script>
 </body>
