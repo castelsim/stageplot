@@ -610,6 +610,11 @@
   svg.names-hidden .item .lbl:not(.sub){display:none}
   svg.names-hidden .item.selected .lbl,svg.names-hidden .item:hover .lbl{display:inline}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
+  /* Testo libero (box di testo): righe con wrapping; il fill (colore) è inline per-elemento.
+     Alone bianco leggero come le etichette per restare leggibile sopra la griglia; sempre visibile
+     anche con i nomi strumenti nascosti (è contenuto, non un'etichetta). */
+  .txtbox-line{font-weight:500;text-anchor:start;paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+  svg.names-hidden .item .txtbox-line{display:inline}
   .hit{fill:rgba(0,0,0,0);stroke:none}
   .selbox{fill:none;stroke:none;pointer-events:none}
   .item{cursor:move}

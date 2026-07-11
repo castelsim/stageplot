@@ -635,8 +635,8 @@ var TYPES = {
                  '<rect x="'+(-tw/2)+'" y="'+(y-fs*.85)+'" width="'+tw+'" height="'+(fs+8)+'" rx="5" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>'+
                  '<text class="lbl" y="'+y+'" style="font-size:'+fs+'px">'+esc(txt)+'</text>';
              }},
-  testo:    {nome:"Testo libero", cat:"Palco e strutture", w:10,d:10, z:3, defLabel:"Testo…",
-             draw:function(){ return ''; }},
+  testo:    {nome:"Testo libero", dim:"box di testo", cat:"Palco e strutture", w:200,d:70, resizable:true, z:3, innerLabel:true, defLabel:"Testo…",
+             draw:function(it){ return drawTextBox(it); }},
   /* --- ottoni (icone realistiche libreria + seduta chiara) --- */
   corno:    {nome:"Corno", dim:"postazione", cat:"Orchestra", sub:"Ottoni", w:95,d:105,
              draw:function(it){ return station(it, gCorno(), "wind", true); }},
@@ -1721,6 +1721,7 @@ function normalizeState(s){
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
+    if(it.type==="testo" && (+it.w||0)<=20){ it.w=200; it.d=70; }   /* 11/07: il testo libero è diventato un box (era un punto 10×10) */
     if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
@@ -1919,6 +1920,37 @@ function pointInPoly(px,py,pts){
     if(((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/((yj-yi)||1e-9)+xi)) inside=!inside;
   }
   return inside;
+}
+/* ---- Testo libero: box di testo con wrapping (doppio click per scrivere) ----
+   Il testo va a capo sulla larghezza del box (stima larghezza carattere ~ fsz*0.56 del font UI);
+   i \n dell'utente sono rispettati; una parola più larga del box viene spezzata. */
+function wrapTextLines(str, maxW, fsz){
+  var out=[], cw=fsz*0.56, maxChars=Math.max(1, Math.floor(maxW/cw));
+  String(str==null?"":str).split(/\n/).forEach(function(par){
+    var line="";
+    par.split(/[ \t]+/).forEach(function(word){
+      if(!word) return;
+      while(word.length>maxChars){                      /* parola oltre il box: spezzala */
+        if(line){ out.push(line); line=""; }
+        out.push(word.slice(0,maxChars)); word=word.slice(maxChars);
+      }
+      var test=line?line+" "+word:word;
+      if(test.length<=maxChars || !line) line=test;
+      else { out.push(line); line=word; }
+    });
+    out.push(line);
+  });
+  return out;
+}
+function drawTextBox(it){
+  var fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14), pad=8;
+  var lines=wrapTextLines(it.label||"", Math.max(20, it.w-pad*2), fsz);
+  var lh=fsz*1.25, x=-it.w/2+pad, y0=-it.d/2+pad+fsz*0.85;
+  var col=esc(it.txtColor||"#1f2937"), s='';
+  lines.forEach(function(ln,i){
+    if(ln) s+='<text class="txtbox-line" x="'+x+'" y="'+(y0+i*lh)+'" text-anchor="start" style="font-size:'+fsz+'px" fill="'+col+'">'+esc(ln)+'</text>';
+  });
+  return s;
 }
 function recalcStageBBox(){ var b=stageBlocks(), W=0, D=0; b.forEach(function(r){ blockCorners(r).forEach(function(p){ W=Math.max(W,p[0]); D=Math.max(D,p[1]); }); }); state.stage.w=W; state.stage.d=D; }
 function normalizeStageBBox(){
@@ -3481,6 +3513,14 @@ function renderProps(){
   if(pwWrap){ var powered=hasWatt(it.type); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
   document.getElementById("pLabel").value = it.label||"";
+  /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
+     lo slider diventa "Dimensione testo" e compare il colore. */
+  var isTxt = it.type==="testo";
+  document.getElementById("pLabelWrap").style.display = isTxt ? "none" : "block";
+  document.getElementById("pLblModeWrap").style.display = isTxt ? "none" : "block";
+  document.getElementById("pLblSizeName").textContent = isTxt ? "Dimensione testo" : "Dimensione etichetta";
+  document.getElementById("pTxtColorWrap").style.display = isTxt ? "block" : "none";
+  if(isTxt) document.getElementById("pTxtColor").value = it.txtColor || "#1f2937";
   var sbw=document.getElementById("pSbChWrap");
   if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
     if(isBox){ cabFillSbHw();
@@ -3748,6 +3788,7 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; mutSel(function(it){ it.lblSize=v; }); });
+document.getElementById("pTxtColor").addEventListener("input", function(){ var v=document.getElementById("pTxtColor").value; mutSelSoon(function(it){ it.txtColor=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
 function _setLblMode(m){ mutSel(function(it){ if(m==="full") delete it.labelMode; else it.labelMode=m; }); renderProps(); }
@@ -4815,7 +4856,7 @@ svg.addEventListener("pointerdown", function(e){
     lastDown=null;
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
-      if(dcIt && dcIt.type==="testo" && !isMobile()){ inlineTextEdit(dcId); }   /* Testo libero: scrivi direttamente sul palco */
+      if(dcIt && dcIt.type==="testo"){ inlineTextEdit(dcId); }   /* Testo libero: scrivi direttamente sul palco (anche mobile: doppio tap) */
       else if(isMobile()){ document.body.classList.add("props-expanded"); }
       else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
@@ -5605,36 +5646,38 @@ function exitHubModes(except){
   if(except!=="vers" && versEdit){ versEdit=false; renderVersionPanel(); }
 }
 function venueAutoLock(){ if(state.venue && state.venue.calibration && !state.venue.locked){ state.venue.locked=true; save(); } }   /* fuori dall'edit la planimetria calibrata torna bloccata */
-/* Testo libero: editing inline sul palco (doppio click sull'elemento → input sovrapposto al testo).
-   Enter/blur = conferma, Esc = annulla; vuoto → torna al placeholder "Testo…" (mai un elemento invisibile). */
+/* Testo libero: editing inline sul palco (doppio click sul box → textarea sovrapposta, multilinea).
+   Enter = a capo; click fuori (blur) o ⌘/Ctrl+Enter = conferma; Esc = annulla.
+   Vuoto → torna al placeholder "Testo…" (mai un box invisibile sul palco). */
 function inlineTextEdit(id){
   var it=(state.items||[]).find(function(i){ return i.id===id; }); if(!it) return;
   var g=svg.querySelector('.item[data-id="'+id+'"]'); if(!g) return;
-  var tn=g.querySelector("text.lbl");
-  var r=(tn||g).getBoundingClientRect();
-  var fs=Math.max(13, Math.min(42, Math.round((r.height||16)*0.9)));
-  var inp=document.createElement("input");
-  inp.type="text"; inp.value=it.label||"";
-  inp.style.cssText="position:fixed;left:"+Math.round(r.left-6)+"px;top:"+Math.round(r.top-4)+"px;"
-    +"width:"+Math.max(170,Math.round(r.width+50))+"px;font:"+fs+"px/1.2 var(--font-ui);padding:3px 7px;"
-    +"border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);"
-    +"z-index:60;box-shadow:var(--elev-2);outline:none";
-  if(tn) tn.style.opacity="0";                       /* niente doppione sotto l'input */
-  document.body.appendChild(inp);
-  inp.focus(); inp.select();
+  var r=g.getBoundingClientRect();
+  var scale=r.width/Math.max(+it.w||200,10);          /* px schermo per cm mondo (con rotazione è l'AABB: approssimazione accettata) */
+  var fs=Math.max(11, Math.max(6, it.lblSize==null?14:+it.lblSize||14)*scale);
+  var ta=document.createElement("textarea");
+  ta.value=it.label||"";
+  ta.style.cssText="position:fixed;left:"+Math.round(r.left)+"px;top:"+Math.round(r.top)+"px;"
+    +"width:"+Math.round(Math.max(150,r.width))+"px;height:"+Math.round(Math.max(56,r.height))+"px;"
+    +"font:500 "+fs+"px/1.25 var(--font-ui);padding:"+Math.max(4,Math.round(8*scale))+"px;"
+    +"border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:"+(it.txtColor||"#1f2937")+";"
+    +"z-index:60;box-shadow:var(--elev-2);outline:none;resize:none;overflow:auto;white-space:pre-wrap";
+  g.setAttribute("opacity","0");                      /* niente doppione sotto la textarea (render() lo ripristina) */
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
   var done=false;
   function fin(commit){
     if(done) return; done=true;
-    if(commit){ var v=inp.value.trim(); it.label = v || (TYPES.testo.defLabel||"Testo…"); save(); }
-    inp.remove(); render();
+    if(commit){ var v=ta.value.replace(/\s+$/,""); it.label = v || (TYPES.testo.defLabel||"Testo…"); save(); }
+    ta.remove(); render();
   }
-  inp.addEventListener("keydown", function(ev){
-    ev.stopPropagation();                            /* niente scorciatoie globali (Canc, frecce, ⌘S…) mentre scrivi */
-    if(ev.key==="Enter") fin(true);
+  ta.addEventListener("keydown", function(ev){
+    ev.stopPropagation();                             /* niente scorciatoie globali (Canc, frecce, ⌘S…) mentre scrivi */
+    if(ev.key==="Enter" && (ev.metaKey||ev.ctrlKey)) fin(true);
     else if(ev.key==="Escape") fin(false);
   });
-  inp.addEventListener("blur", function(){ fin(true); });
-  inp.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
+  ta.addEventListener("blur", function(){ fin(true); });
+  ta.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
 }
 function toggleStageEdit(){
   if(stageEdit && stagePanelView!=="palco"){ stagePanelView="palco"; selBlock=0; renderStagePanel(); render(); return; }   /* aperto sulla planimetria: passa ai blocchi */
