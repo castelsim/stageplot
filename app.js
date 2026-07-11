@@ -3406,11 +3406,8 @@ function render(){
   var _nt=document.getElementById("bNamesTxt"); if(_nt) _nt.textContent=({auto:"Nomi: auto",on:"Nomi: sì",off:"Nomi: no"})[nMode];
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
-  var eh=document.getElementById("emptyHint");
-  if(eh){
-    if(state.items.length>0){ eh.hidden=true; try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
-    else eh.hidden = !!localStorage.getItem("sp_onboarded");   /* l'invito appare solo finché non hai mai piazzato nulla */
-  }
+  /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
+  if(state.items.length>0){ try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
   /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
   var _dcHide = (!state.items || !state.items.length) && !(window.__cloud && window.__cloud.user && window.__cloud.user());
   var _ds=document.getElementById("docState"), _dsM=document.getElementById("docStateM");
@@ -6190,20 +6187,6 @@ function placeOut(out, fitStage, clearFirst, force){
   clearSelection(); save();
   return true;
 }
-/* Template di partenza (onboarding): dall'hint palco-vuoto, piazza una formazione PRONTA (band/acustica/coro/…).
-   Riusa le formazioni esistenti (formationData/placeOut) con force=true → niente modale di review. */
-function startFromTemplate(f){
-  var qd = (typeof formationData==="function") ? formationData(f) : null;
-  if(!qd || !qd.out) return;
-  state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
-  placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
-  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
-  var eh=document.getElementById("emptyHint"); if(eh) eh.hidden=true;
-  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
-  render(); if(typeof fitStage==="function") fitStage(); render();
-}
-(function(){ var chips=document.querySelectorAll("#emptyHint .eh-chip");
-  for(var i=0;i<chips.length;i++){ chips[i].addEventListener("click", function(){ startFromTemplate(this.getAttribute("data-form")); }); } })();
 /* sposta il nuovo gruppo DIETRO gli elementi esistenti che gli stanno davanti; allarga il palco sul fondo se serve */
 function avoidGroupOverlap(news){
   var gap=45;
