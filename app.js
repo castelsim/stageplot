@@ -1553,7 +1553,11 @@ window.setPeekName=setPeekName;
     var v=(parseFloat(r.value)||0)+45; if(v>180) v-=360;
     r.value=v; r.dispatchEvent(new Event("input",{bubbles:true}));
   });
-  var grab=document.getElementById("propsGrab"); if(grab) grab.addEventListener("click", function(){ document.body.classList.remove("props-expanded"); });
+  var grab=document.getElementById("propsGrab"); if(grab) grab.addEventListener("click", function(){
+    document.body.classList.remove("props-expanded");
+    /* drawer aperto da una lista tecnica (tech-open): chiudere = spegnere le viste, la classe si risincronizza al render */
+    try{ if(document.body.classList.contains("tech-open")){ patchActive=false; monActive=false; loadActive=false; render(); } }catch(_e){}
+  });
 })();
 (function(){
   var el=document.getElementById("docState");
@@ -3468,6 +3472,9 @@ function renderProps(){
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
+  /* mobile: le liste tecniche (ingressi/monitor/carichi) vivono nel drawer — visibile via body.tech-open,
+     sincronizzata qui a ogni render (ciclo 4: prima le viste si attivavano ma il drawer restava chiuso) */
+  try{ document.body.classList.toggle("tech-open", isMobile() && !!(patchActive||monActive||loadActive)); }catch(_e){}
   if(n>1){
     grp.hidden=false; document.getElementById("selProps").hidden=true; document.getElementById("noSel").hidden=true;
     document.getElementById("grpNome").textContent = n+" elementi selezionati";
@@ -7357,7 +7364,13 @@ function renderPatchPanel(){
 function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
   patchActive=!patchActive;
   if(patchActive){ techAccordionOpen("patch"); closeMobileDrawers(); clearSelection(); }
-  render();
+  render();   /* mobile: body.tech-open (sincronizzata in updateSelPanel) apre il drawer con la lista */
+  if(patchActive) techScrollTo("patchSec");
+}
+/* mobile: il drawer si apre su LAYER/STATO — porta la sezione attivata in vista (ciclo 4) */
+function techScrollTo(id){
+  if(!isMobile()) return;
+  setTimeout(function(){ var s=document.getElementById(id); if(s && s.scrollIntoView) s.scrollIntoView({block:"start"}); }, 60);
 }
 (function(){
   var head=document.getElementById("patchSecHead"); if(!head) return;
@@ -7512,6 +7525,7 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
     clearSelection();
   }
   render();
+  if(monActive) techScrollTo("monSec");
 }
 (function(){
   var head=document.getElementById("monSecHead"); if(!head) return;
@@ -7555,7 +7569,7 @@ function renderLoadPanel(){
   });
   host.innerHTML=h;
 }
-function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordionOpen("load"); closeMobileDrawers(); clearSelection(); } render(); }
+function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordionOpen("load"); closeMobileDrawers(); clearSelection(); } render(); if(loadActive) techScrollTo("loadSec"); }
 (function(){
   var head=document.getElementById("loadSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#loadTrash")) return; if(loadOpen) loadOpen=false; else techAccordionOpen("load"); renderAccessoriCount(); });   /* accordion */

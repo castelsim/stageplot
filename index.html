@@ -349,8 +349,9 @@
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
   /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
-  /* barra conflitto cloud (guardia di versione): fissa in basso, MAI sovrascrivere in silenzio */
-  #conflictBar{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  /* barra conflitto cloud (guardia di versione): fissa in basso, MAI sovrascrivere in silenzio.
+     Sta un gradino SOPRA l'updToast (possono coesistere); su mobile entrambe sopra il dock. */
+  #conflictBar{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
     z-index:92;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
     background:var(--warning-bg);color:var(--n-800);border:1px solid var(--warning-border);
     font-size:13px;padding:10px 14px;border-radius:12px;box-shadow:var(--elev-3);max-width:calc(100vw - 24px)}
@@ -372,6 +373,15 @@
   #updToast #updGo{background:var(--accent);color:var(--text-on-accent);font-weight:700;padding:7px 14px;border-radius:8px;flex:none}
   #updToast #updGo:hover{background:var(--accent-strong)}
   #updToast #updX{background:none;color:#9aa3b0;font-size:14px;padding:4px 6px;line-height:1;flex:none}
+  /* mobile: le barre bottom stanno SOPRA il dock (53px) e non si sovrappongono mai fra loro.
+     NB: questo blocco deve stare DOPO le regole base di #updToast/#conflictBar (stessa specificità). */
+  @media (max-width:880px){
+    #updToast{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+    #conflictBar{left:10px;right:10px;transform:none;max-width:none;
+      bottom:calc(132px + env(safe-area-inset-bottom,0px));
+      flex-direction:column;align-items:stretch;text-align:center}
+    #conflictBar button{width:100%}
+  }
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
   #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
@@ -977,8 +987,8 @@
     #props{display:none;position:fixed;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));top:auto;width:auto;max-width:none;height:46vh;z-index:30;
       background:var(--surface);border:none;border-top:1px solid var(--border);transform:none;overflow-y:auto;padding:10px 14px 22px;box-shadow:0 -4px 16px rgba(0,0,0,.08)}
     /* pannelli aperti esplicitamente (palco/evento/channel list) + selezione ESPANSA = pannello pieno */
-    body.stage-edit #props,body.evento-edit #props,body.chan-edit #props,body.m-has-sel.props-expanded #props{display:block}
-    body.stage-edit main,body.evento-edit main,body.chan-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    body.stage-edit #props,body.evento-edit #props,body.chan-edit #props,body.tech-open #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.chan-edit main,body.tech-open main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
     /* selezione COLLASSATA (default) = solo barra peek: canvas quasi pieno */
     body.m-has-sel:not(.props-expanded) main{bottom:calc(52px + 53px + env(safe-area-inset-bottom,0px))}
     /* barra peek: nome + azioni rapide + espandi */
@@ -1000,6 +1010,7 @@
     body.dark #mPeek button:active{background:#222b38}
     /* maniglia per ridurre il pannello espanso a peek */
     #propsGrab{display:none}
+    body.tech-open #propsGrab,
     body.m-has-sel.props-expanded #propsGrab{display:flex;align-items:center;justify-content:center;gap:6px;position:sticky;top:0;width:100%;height:40px;margin:0 0 8px;
       border:none;border-bottom:1px solid var(--border);background:var(--surface);color:var(--text-2);font:600 13px var(--font-ui);cursor:pointer;z-index:2}
     body.m-has-sel.props-expanded #propsGrab svg{width:20px;height:20px}
