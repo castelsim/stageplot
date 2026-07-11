@@ -349,6 +349,19 @@
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
   /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
+  /* barra conflitto cloud (guardia di versione): fissa in basso, MAI sovrascrivere in silenzio */
+  #conflictBar{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+    z-index:92;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+    background:var(--warning-bg);color:var(--n-800);border:1px solid var(--warning-border);
+    font-size:13px;padding:10px 14px;border-radius:12px;box-shadow:var(--elev-3);max-width:calc(100vw - 24px)}
+  #conflictBar .cb-msg b{color:var(--warning)}
+  #conflictBar button{appearance:none;font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;flex:none}
+  #conflictBar #cbLoad{background:var(--accent);border:1px solid var(--accent);color:var(--text-on-accent)}
+  #conflictBar #cbLoad:hover{background:var(--accent-strong)}
+  #conflictBar #cbCopy{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+  body.dark #conflictBar{background:#33270f;border-color:#5a4a1a;color:#e5e7eb}
+  body.dark #conflictBar .cb-msg b{color:#fbbf24}
+  body.dark #conflictBar #cbCopy{background:#222b38;border-color:#314046;color:#e5e7eb}
   /* toast "nuova versione" (SW): barra fissa in basso, sopra tutto, entrambi i temi */
   #updToast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
     z-index:90;display:flex;align-items:center;gap:12px;background:var(--n-900);color:#f3f4f6;

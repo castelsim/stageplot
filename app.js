@@ -1502,6 +1502,7 @@ function setDocState(mode){
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
   else if(mode==="offline-warn"){ html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per il cloud"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Non salvato online — riprovo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }
+  else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Modificato altrove — scegli come continuare"; htmlM=CHIP_SVG.warn+"Modificato altrove"; }
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
@@ -1511,8 +1512,9 @@ var _cloudAsT=null;
 function cloudAutosaveNow(){
   var C=window.__cloud;
   if(!C || !C.user()){ setDocState("offline-warn"); return; }
+  if(window.__cloudConflict){ setDocState("conflict"); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   setDocState("saving");
-  C.save(function(id){ setDocState(id ? "online" : "error"); }, true);
+  C.save(function(id){ setDocState(window.__cloudConflict ? "conflict" : (id ? "online" : "error")); }, true);
 }
 function scheduleCloudAutosave(){
   if(window.__consultMode || document.body.classList.contains("viewmode")) return;  /* la consulenza ha il suo autosave */
@@ -10054,6 +10056,45 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
 
   var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[];   /* adotta l'aggancio persistito dal boot (load()) */
+  /* ── Guardia di versione (decisione 11/07, opzione A): il save cloud è condizionale su updated_at.
+     cloudRev = updated_at dell'ultima lettura/scrittura del progetto agganciato; se il server ha una
+     rev diversa, NON si sovrascrive e si apre la barra di conflitto. Con la migration 0011 (trigger
+     touch su updated_at) la guardia è attiva; senza, updated_at non cambia mai → guardia inerte. */
+  var cloudRev=null; try{ cloudRev=localStorage.getItem(LS_KEY+"_cloudrev")||null; }catch(e){}
+  var cloudConflict=false, confBar=null;
+  function setRev(v){ cloudRev=v||null; try{ if(v) localStorage.setItem(LS_KEY+"_cloudrev", v); else localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(e){} }
+  function exitConflict(){ cloudConflict=false; window.__cloudConflict=false; if(confBar){ confBar.remove(); confBar=null; } }
+  function enterConflict(){
+    cloudConflict=true; window.__cloudConflict=true;
+    if(window.setDocState) window.setDocState("conflict");
+    if(confBar) return;
+    confBar=document.createElement("div");
+    confBar.id="conflictBar";
+    confBar.innerHTML='<span class="cb-msg">⚠️ <b>Questo progetto è stato modificato altrove</b> (altra scheda o dispositivo). Per non perdere nulla:</span>'
+      +'<button type="button" id="cbLoad">Carica la versione più recente</button>'
+      +'<button type="button" id="cbCopy">Continua qui come copia</button>';
+    document.body.appendChild(confBar);
+    confBar.querySelector("#cbLoad").addEventListener("click", function(){
+      /* rete di sicurezza: il lavoro locale finisce nella cronologia versioni prima di essere rimpiazzato */
+      try{ if(typeof saveVersion==="function") saveVersion("Prima dell'aggiornamento "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})); }catch(e){}
+      sb.from("stageplot_projects").select("data,title,updated_at").eq("id",cloudCurrentId).single().then(function(r){
+        if(r.error||!r.data){ toast("Caricamento non riuscito. Riprova.", true); return; }
+        try{
+          importProject(JSON.stringify(r.data.data));
+          setRev(r.data.updated_at); exitConflict(); persistLocalState();
+          if(window.setDocState) window.setDocState("online");
+          toast("✓ Caricata la versione più recente.");
+        }catch(e){ toast("Il progetto salvato non è valido.", true); }
+      });
+    });
+    confBar.querySelector("#cbCopy").addEventListener("click", function(){
+      cloudCurrentId=null; setRev(null);
+      try{ state.titolo=((state.titolo||"Senza titolo")+" (copia)").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
+      exitConflict(); persistLocalState();
+      saveProject(function(){ if(window.setDocState) window.setDocState("online"); }, true);   /* nasce subito il progetto-copia */
+      toast("Da qui in poi lavori su una copia separata.");
+    });
+  }
   /* ---- Analytics minimi (spec 2026-07-03): spedizione centralizzata ---- */
   var loginTracked=false;
   /* SIGNED_IN scatta anche al ripristino della sessione (non solo al login vero): senza questi due
@@ -10206,6 +10247,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function saveProject(onSaved, silent){
     /* silent=true → autosave (V2): niente toast, niente prompt nome (default "Senza titolo"), esito via onSaved(id|null) */
+    if(cloudConflict){ if(typeof onSaved==="function") onSaved(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
     if(!sb){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else toast("Cloud non disponibile.", true); return; }
     if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
@@ -10215,20 +10257,32 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       var wasInsert=!cloudCurrentId;
       var q;
       if(cloudCurrentId){
-        q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId).select().single();
+        q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId);
+        if(cloudRev) q=q.eq("updated_at", cloudRev);   /* guardia di versione: scrivi solo se nessun altro ha salvato nel frattempo */
+        q=q.select().single();
       } else {
         q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
       }
       q.then(function(r){
         if(r.error){
-          if(cloudCurrentId && r.error.code==="PGRST116"){   /* la riga agganciata non esiste più (cancellata o di un altro account): stacca e salva come progetto nuovo */
-            cloudCurrentId=null;
-            try{ localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }catch(e){}
-            doSave(thumb); return;
+          if(cloudCurrentId && r.error.code==="PGRST116"){
+            /* zero righe toccate: o la riga non esiste più, o esiste con un'ALTRA rev (qualcuno ha salvato altrove) */
+            sb.from("stageplot_projects").select("id,updated_at").eq("id",cloudCurrentId).maybeSingle().then(function(chk){
+              if(chk && chk.data && chk.data.id){
+                enterConflict();                         /* riga viva ma più avanti: MAI sovrascrivere in silenzio */
+                if(typeof onSaved==="function") onSaved(null);
+              } else {                                   /* la riga agganciata non esiste più: stacca e salva come progetto nuovo */
+                cloudCurrentId=null; setRev(null);
+                try{ localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }catch(e){}
+                doSave(thumb);
+              }
+            }, function(){ if(typeof onSaved==="function") onSaved(null); });
+            return;
           }
           if(!silent) toast("Salvataggio non riuscito: "+r.error.message, true); if(silent && typeof onSaved==="function") onSaved(null); return;
         }
         if(r.data && r.data.id) cloudCurrentId=r.data.id;
+        if(r.data && r.data.updated_at) setRev(r.data.updated_at);
         if(wasInsert) window.__sendEvent({event:"cloud_first_save",props:{}});
         persistLocalState();   /* riallinea stato+aggancio persistiti (copre anche insert appena nati) */
         if(!silent){ toast("✓ Salvato online."); loadProjects(); }
@@ -10269,9 +10323,9 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function openProject(id){
     if(!sb) return;
-    sb.from("stageplot_projects").select("data,title").eq("id",id).single().then(function(r){
+    sb.from("stageplot_projects").select("data,title,updated_at").eq("id",id).single().then(function(r){
       if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
-      try{ importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; persistLocalState(); toast("✓ Progetto aperto."); closeModal(); }
+      try{ exitConflict(); importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; setRev(r.data.updated_at); persistLocalState(); toast("✓ Progetto aperto."); closeModal(); }
       catch(e){ toast("Il progetto salvato non è valido.", true); }
     });
   }
@@ -10337,7 +10391,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   window.__cloud = {
     user: function(){ return cloudUser; },
     currentId: function(){ return cloudCurrentId; },
-    setCurrentId: function(v){ cloudCurrentId=v; },
+    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); exitConflict(); } },
     signIn: signIn,
     save: saveProject,
     ensureShareTokenFor: ensureShareTokenFor,
@@ -10368,6 +10422,16 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       }
       var reopen=false; try{ reopen=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}
       if(reopen && cloudUser){ try{ sessionStorage.removeItem("cloudReopen"); }catch(e){} openModal(); }
+      /* guardia di versione al boot: se il cloud è più avanti del locale (altro tab/dispositivo ha
+         salvato dopo di noi), apri il conflitto PRIMA che un edit qui sovrascriva quel lavoro */
+      if(cloudUser && cloudCurrentId){
+        sb.from("stageplot_projects").select("updated_at").eq("id",cloudCurrentId).maybeSingle().then(function(cr){
+          if(cr && cr.data && cr.data.updated_at){
+            if(cloudRev && cr.data.updated_at!==cloudRev) enterConflict();
+            else if(!cloudRev) setRev(cr.data.updated_at);   /* prima sessione con la guardia: adotta la rev del server */
+          }
+        }, function(){});
+      }
       window.__flushEvents();   /* auth iniziale risolta: gli eventi in coda partono con lo user_id giusto */
     });
     sb.auth.onAuthStateChange(function(ev, session){
