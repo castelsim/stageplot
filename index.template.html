@@ -6800,7 +6800,7 @@ function inlineTextEdit(id){
   ta.style.cssText="position:fixed;left:"+Math.round(r.left)+"px;top:"+Math.round(r.top)+"px;"
     +"width:"+Math.round(Math.max(150,r.width))+"px;height:"+Math.round(Math.max(56,r.height))+"px;"
     +"font:500 "+fs+"px/1.25 var(--font-ui);padding:"+Math.max(4,Math.round(8*scale))+"px;"
-    +"border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:"+(it.txtColor||"#1f2937")+";"
+    +"border:1.5px solid var(--accent);border-radius:6px;background:var(--sheet,#fff);color:"+(it.txtColor||"#1f2937")+";"
     +"z-index:60;box-shadow:var(--elev-2);outline:none;resize:none;overflow:auto;white-space:pre-wrap";
   g.setAttribute("opacity","0");                      /* niente doppione sotto la textarea (render() lo ripristina) */
   document.body.appendChild(ta);
