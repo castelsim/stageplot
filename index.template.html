@@ -7875,7 +7875,10 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
 });
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
 function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def); return IN_MULTI[it.type]; }
-var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", iemant:"IEM", hearback:"personal mixer", monmix:"console mon" };
+/* iemant (Rack TX in-ear) NON è un punto d'ascolto: è l'apparato che trasmette ai beltpack.
+   Tenerlo in OUT_SET creava un mix fantasma + 2 uscite fantasma nella monitor list e nel PDF
+   (ciclo 3, 11/07). I mix veri sono quelli dei beltpack `iem`. */
+var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", hearback:"personal mixer", monmix:"console mon" };
 
 /* ---- Channel list realistiche per formazione (contesto LIVE PA, monitor misto wedge+IEM) ---- */
 var MIC_DEFAULTS = {
