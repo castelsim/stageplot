@@ -10166,7 +10166,15 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   }
   try{ window.__toast=toast; }catch(e){}   /* esposto al main scope per l'avviso quota planimetria */
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
-  function fmtDate(s){ try{ var d=new Date(s); return d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+  function fmtDate(s){
+    try{
+      /* Postgres restituisce microsecondi a 6 cifre (…24.120026+00:00): Safari <16 dà "Invalid Date"
+         con >3 cifre frazionarie → tronca a millisecondi (ISO standard, parsabile ovunque). Ciclo 6. */
+      var d=new Date(String(s).replace(/\.(\d{3})\d+/, ".$1"));
+      if(isNaN(d)) return "";   /* "Invalid Date" non lancia: va intercettato a mano */
+      return d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
+    }catch(e){ return ""; }
+  }
   function projTitle(){ return (state.titolo||state.luogo||"").trim() || "Senza titolo"; }
 
   function modalOpen(){ return modalEl && modalEl.style.display!=="none"; }
