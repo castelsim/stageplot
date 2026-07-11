@@ -1337,11 +1337,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 .cloudShareRow.is-shared::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:1.5px solid var(--surface)}
 
 /* Barra "sola lettura" del destinatario: brand + badge + CTA teal */
-#viewBar .vb-brand{font-weight:800;color:var(--text);letter-spacing:.01em;text-decoration:none;display:inline-flex;align-items:baseline;gap:9px}
-#viewBar .vb-brand .vb-cta{font-weight:600;font-size:11.5px;color:var(--text-2);transition:color .12s}   /* CTA virale sottile (V1 audit UX): il viewer condiviso invita a creare il proprio */
-#viewBar .vb-brand:hover .vb-cta{color:var(--accent)}
-@media(max-width:560px){ #viewBar .vb-brand .vb-cta{display:none} }   /* su mobile la barra è stretta: solo il wordmark (resta linkato) */
-#viewBar .vb-badge{font-size:11px;color:var(--text-2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+/* Barra viewer scura (#111827): il brand è la vetrina virale → deve essere LEGGIBILE (bianco, non var(--text) scuro). Ciclo 10. */
+#viewBar .vb-brand{font-weight:800;color:#fff;letter-spacing:.01em;text-decoration:none;display:inline-flex;align-items:baseline;gap:9px}
+#viewBar .vb-brand .vb-cta{font-weight:600;font-size:11.5px;color:var(--accent-bright);transition:color .12s;white-space:nowrap}   /* CTA virale: il viewer condiviso invita a creare il proprio — teal chiaro, visibile su scuro */
+#viewBar .vb-brand:hover .vb-cta{color:#fff}
+@media(max-width:560px){ #viewBar .vb-brand .vb-cta::after{content:none} #viewBar .vb-brand .vb-cta{font-size:11px} #viewBar #viewMeta{display:none} }   /* mobile: il CTA RESTA (è la leva di trazione); a lasciar spazio si nasconde il titolo, non il CTA */
+#viewBar .vb-badge{font-size:11px;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:2px 9px;white-space:nowrap}
 #viewBar #viewCopy{background:var(--accent);color:#fff;border:none;border-radius:var(--r-md);padding:8px 15px;font-weight:700;font-size:13px;cursor:pointer}
 #viewBar #viewCopy:hover{background:var(--accent-strong)}
 
