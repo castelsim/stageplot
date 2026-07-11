@@ -1920,19 +1920,6 @@ function pointInPoly(px,py,pts){
   }
   return inside;
 }
-function polyArea(pts){ var a=0; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ a+=(pts[j][0]+pts[i][0])*(pts[j][1]-pts[i][1]); } return Math.abs(a/2); }
-/* area reale del palco (somma dei blocchi) in m²: rettangolo=w·d, semicerchio=π·w·d/4 (mezza ellisse), quadrilatero=shoelace.
-   Per blocchi adiacenti (uso normale, niente sovrapposizioni) è esatta. */
-function stageAreaSqM(){
-  var cm2=0;
-  stageBlocks().forEach(function(r){
-    if(r.shape==="semi") cm2+=Math.PI*r.w*r.d/4;
-    else if(hasPts(r)) cm2+=polyArea(r.pts);
-    else cm2+=r.w*r.d;
-  });
-  return cm2/10000;
-}
-function fmtArea(m2){ return m2.toLocaleString("it-IT",{maximumFractionDigits:1})+" m²"; }
 function recalcStageBBox(){ var b=stageBlocks(), W=0, D=0; b.forEach(function(r){ blockCorners(r).forEach(function(p){ W=Math.max(W,p[0]); D=Math.max(D,p[1]); }); }); state.stage.w=W; state.stage.d=D; }
 function normalizeStageBBox(){
   var b=stageBlocks(), minX=Infinity, minY=Infinity;
@@ -2046,7 +2033,7 @@ function stageFloorMarkup(){
 }
 /* quote modulari: per ogni blocco larghezza sopra, profondità a sinistra, altezza fuori; + ingombro totale del palco */
 function stageDimsMarkup(){
-  var b=stageBlocks(), W=state.stage.w, D=state.stage.d, s='', o1=16, o2=33;
+  var b=stageBlocks(), s='', o1=16, o2=33;
   /* un lato del blocco è "aperto" se subito fuori non c'è un altro blocco → la quota ci va lì (sempre esterna al palco) */
   function open(r,side){
     var eps=4, mx=r.x+r.w/2, my=r.y+r.d/2, px, py;
@@ -2071,8 +2058,6 @@ function stageDimsMarkup(){
       s += '<text class="dim-h" x="'+cx+'" y="'+(hu?r.y-o2:r.y+r.d+o2+6)+'" text-anchor="middle">h '+r.h+' cm</text>';
     }
   });
-  /* area totale del palco in m² (le misure dei lati sono già lungo i bordi) */
-  s += '<text class="dim-tot" x="'+(W/2)+'" y="-70" text-anchor="middle">PALCO '+fmtArea(stageAreaSqM())+'</text>';
   return s;
 }
 /* overlay interattivo dei blocchi (solo in modalità "Modifica palco"): ogni blocco è una pedana modulare */
@@ -9968,6 +9953,25 @@ else if(location.search.indexOf("json=1")>-1){   /* QA: anteprima del JSON di pr
 else { window.addEventListener("resize", render); fit();
 }
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
+/* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
+   Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
+   Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded). */
+(function(){
+  var wl=document.getElementById("welcome"); if(!wl) return;
+  var seen=null; try{ seen=localStorage.getItem("sp_welcome")||localStorage.getItem("sp_onboarded"); }catch(_e){}
+  if(seen || state.items.length>0 || foreignDoc() || location.hash.length>1 ||
+     /[?&](view|export|form|demo|orch|strings|inputaudit|pdfui|pdfgen|shapeqa|rotqa|icone|json)=/.test(location.search)) return;
+  function close(){
+    var sk=document.getElementById("wlSkip");
+    if(sk && sk.checked){ try{ localStorage.setItem("sp_welcome","1"); }catch(_e){} }
+    wl.hidden=true;
+  }
+  document.getElementById("wlGo").addEventListener("click", close);
+  wl.addEventListener("click", function(ev){ if(ev.target===wl) close(); });
+  document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !wl.hidden) close(); });
+  wl.hidden=false;
+  document.getElementById("wlGo").focus();
+})();
 
 ;
 

@@ -186,7 +186,6 @@
   /* Onboarding contestuale: invito sul palco vuoto + hint primo trascinamento */
   #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;color:var(--text-2);line-height:1.3;z-index:4}
   #emptyHint[hidden]{display:none}
-  #emptyHint .eh-head{font-size:17px;font-weight:700;color:var(--text);letter-spacing:-.01em}
   #emptyHint .eh-sub{font-size:13px;color:var(--text-3);margin-bottom:14px}
   #emptyHint .eh-steps{display:flex;flex-direction:column;gap:11px;text-align:left}
   #emptyHint .eh-step{display:flex;align-items:center;gap:11px;font-size:14px;color:var(--text-2);white-space:nowrap}
@@ -651,6 +650,33 @@
   .cfm-row{display:flex;gap:8px;justify-content:center}
   .cfm-row .btn{padding:9px 20px}
   body.dark .cfm-ico{background:#3a1d1f;color:#fca5a5}
+  /* finestra di benvenuto (prima apertura): card con testata brand tinta */
+  .wl-card{background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--elev-4);width:440px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto}
+  .wl-head{background:linear-gradient(135deg,var(--accent-tint),#f2faf8);padding:24px 28px 18px;border-bottom:1px solid var(--border)}
+  .wl-badge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.09em;color:var(--accent-strong);background:var(--surface);border:1px solid var(--accent-soft);border-radius:var(--r-pill);padding:3px 9px;margin-bottom:10px;text-transform:uppercase}
+  .wl-title{font-size:21px;font-weight:800;letter-spacing:-.01em;margin-bottom:2px;color:var(--text)}
+  .wl-title span{color:var(--accent)}
+  .wl-tag{font-size:13px;color:var(--text-2)}
+  .wl-body{padding:18px 28px}
+  .wl-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
+  .wl-step{display:flex;gap:11px;align-items:flex-start;font-size:13.5px;line-height:1.4;color:var(--text-2)}
+  .wl-step b{flex:0 0 auto;width:22px;height:22px;border-radius:7px;background:var(--surface-raised);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:750}
+  .wl-step strong{color:var(--text);font-weight:650}
+  .wl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .wl-skip{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-3);cursor:pointer;user-select:none}
+  .wl-skip input{accent-color:var(--accent);width:14px;height:14px;margin:0}
+  .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
+  .wl-cta:hover{background:var(--accent-strong)}
+  .wl-mob{display:none}
+  @media (max-width:880px){
+    .wl-desk{display:none}
+    .wl-mob{display:inline}
+    .wl-head{padding:20px 22px 15px}
+    .wl-body{padding:16px 22px}
+    .wl-foot{flex-direction:column-reverse;align-items:stretch}
+    .wl-cta{padding:12px;min-height:44px}
+    .wl-skip{justify-content:center;padding:4px 0}
+  }
   /* menu formazioni (Organico) */
   header{position:relative}
   .menu-pop{position:absolute;top:46px;background:var(--surface);border:1px solid var(--border);border-radius:10px;
@@ -906,6 +932,13 @@
   body.dark .mcard{background:#20292e;color:#e5e7eb}
   body.dark .mcard .hint,body.dark .mcard label{color:#96a5a1}
   body.dark .mcard input,body.dark .mcard select{background:#141a1d;border-color:#314046;color:#e5e7eb}
+  body.dark .wl-card{background:#20292e}
+  body.dark .wl-head{background:linear-gradient(135deg,#172a27,#1a2226);border-color:#314046}
+  body.dark .wl-badge{background:#141a1d;border-color:#2f4f49;color:#14b8a6}
+  body.dark .wl-title{color:#e5e7eb}
+  body.dark .wl-tag,body.dark .wl-step{color:#96a5a1}
+  body.dark .wl-step b{background:#2a3138;color:#e5e7eb}
+  body.dark .wl-step strong{color:#e5e7eb}
   body.dark #mobBackdrop{background:rgba(0,0,0,.6)}
   body.dark #mTop{background:#1b2327;border-color:#2c3a3f}
   body.dark #mTitle,body.dark .mtop-r2 input,body.dark .mtop-r2 select{background:#141a1d;border-color:#314046;color:#e5e7eb}
