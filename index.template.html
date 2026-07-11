@@ -4933,7 +4933,8 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
   var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
-document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; mutSel(function(it){ it.lblSize=v; }); });
+document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
+document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ render(); save(); } });
 document.getElementById("pTxtColor").addEventListener("input", function(){ var v=document.getElementById("pTxtColor").value; mutSelSoon(function(it){ it.txtColor=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
@@ -4956,7 +4957,9 @@ function applyRot(doSave){
   if(v!==raw) document.getElementById("pRot").value=v;   /* aggancia anche il thumb */
   it.rot=v;
   document.getElementById("pRotVal").textContent = v+"°";   /* con segno: 0 al centro, ±180 agli estremi */
-  render(); if(doSave) save();
+  /* perf (ciclo 8): mentre TRASCINI lo slider aggiorna solo il nodo (come il drag sul canvas),
+     render pieno + save solo al rilascio → niente scatti su palchi grandi (2700+ nodi = ~14ms/render). */
+  if(doSave){ render(); save(); } else rotateItemNode(it);
 }
 document.getElementById("pRot").addEventListener("input", function(){ applyRot(false); });
 document.getElementById("pRot").addEventListener("change", function(){ applyRot(true); });
