@@ -4317,13 +4317,7 @@ function miniSvg(k, over){
       g.head.innerHTML='<span class="caret">▸</span><span>'+esc(sub)+'</span><span class="count">'+g.count+'</span>';
       g.body.appendChild(btn); n++; }
     if(c==="Palco e pedane"){
-      /* — accesso rapido: pannello palco e planimetria (azioni, non elementi droppabili) — */
-      var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
-      body.appendChild(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit)); n++;
-      body.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON)); n++;
-      entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit, noQuick:true});
-      entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
-      /* — Pedane e gradoni — */
+      /* — Pedane e gradoni — (Blocco palco e Planimetria stanno fissi in fondo alla sidebar, con Metro e Testo) */
       [["2×1 m",200,100]].forEach(function(p){
         var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
         addToGroup("Pedane e gradoni", makeBtn("pedana",nome,over,p[0]));
@@ -4439,9 +4433,14 @@ function miniSvg(k, over){
   });
   // tutte le categorie chiuse di default (nessuna .open)
 
-  /* — Metro e Testo libero: fuori dalle categorie, sotto Video — */
+  /* — Sempre in vista, fuori dalle categorie: struttura (Blocco palco, Planimetria) + annotazioni (Metro, Testo) — */
   var extraSep=document.createElement("div"); extraSep.style.cssText="height:1px;background:var(--border);margin:10px 6px 8px";
   el.insertBefore(extraSep, results);
+  var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
+  el.insertBefore(makeActionBtn("Blocco palco","costruisci il palco","pedana", toggleStageEdit), results);
+  el.insertBefore(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON), results);
+  entries.push({nome:"Blocco palco", dim:"costruisci il palco", icon:"pedana", action:toggleStageEdit, noQuick:true});
+  entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
   ["metro","testo"].forEach(function(k){
     var b=makeBtn(k, TYPES[k].nome); el.insertBefore(b, results); entries.push({k:k,nome:TYPES[k].nome});
   });
@@ -4814,7 +4813,11 @@ svg.addEventListener("pointerdown", function(e){
   var _onPort = e.target.closest ? e.target.closest(".port-hit") : null;   /* porte stile Max: mai doppio-click */
   if(venueCalibMode===0 && !_onCabEl && !_onPort && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
-    if(dcId){ selectOne(dcId); render(); if(isMobile()){ document.body.classList.add("props-expanded"); } else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
+    if(dcId){ selectOne(dcId); render();
+      var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
+      if(dcIt && dcIt.type==="testo" && !isMobile()){ inlineTextEdit(dcId); }   /* Testo libero: scrivi direttamente sul palco */
+      else if(isMobile()){ document.body.classList.add("props-expanded"); }
+      else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
       var _sp2=svgPoint(e), _onStage=(state.stage.blocks||[]).some(function(b){ return _sp2.x>=b.x&&_sp2.x<=b.x+b.w&&_sp2.y>=b.y&&_sp2.y<=b.y+b.d; });
       if(!_onStage && venueHitTest(_sp2)){ if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit(); }   /* doppio click sulla planimetria fuori dal palco (anche bloccata) → le sue opzioni */
@@ -5602,6 +5605,37 @@ function exitHubModes(except){
   if(except!=="vers" && versEdit){ versEdit=false; renderVersionPanel(); }
 }
 function venueAutoLock(){ if(state.venue && state.venue.calibration && !state.venue.locked){ state.venue.locked=true; save(); } }   /* fuori dall'edit la planimetria calibrata torna bloccata */
+/* Testo libero: editing inline sul palco (doppio click sull'elemento → input sovrapposto al testo).
+   Enter/blur = conferma, Esc = annulla; vuoto → torna al placeholder "Testo…" (mai un elemento invisibile). */
+function inlineTextEdit(id){
+  var it=(state.items||[]).find(function(i){ return i.id===id; }); if(!it) return;
+  var g=svg.querySelector('.item[data-id="'+id+'"]'); if(!g) return;
+  var tn=g.querySelector("text.lbl");
+  var r=(tn||g).getBoundingClientRect();
+  var fs=Math.max(13, Math.min(42, Math.round((r.height||16)*0.9)));
+  var inp=document.createElement("input");
+  inp.type="text"; inp.value=it.label||"";
+  inp.style.cssText="position:fixed;left:"+Math.round(r.left-6)+"px;top:"+Math.round(r.top-4)+"px;"
+    +"width:"+Math.max(170,Math.round(r.width+50))+"px;font:"+fs+"px/1.2 var(--font-ui);padding:3px 7px;"
+    +"border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);"
+    +"z-index:60;box-shadow:var(--elev-2);outline:none";
+  if(tn) tn.style.opacity="0";                       /* niente doppione sotto l'input */
+  document.body.appendChild(inp);
+  inp.focus(); inp.select();
+  var done=false;
+  function fin(commit){
+    if(done) return; done=true;
+    if(commit){ var v=inp.value.trim(); it.label = v || (TYPES.testo.defLabel||"Testo…"); save(); }
+    inp.remove(); render();
+  }
+  inp.addEventListener("keydown", function(ev){
+    ev.stopPropagation();                            /* niente scorciatoie globali (Canc, frecce, ⌘S…) mentre scrivi */
+    if(ev.key==="Enter") fin(true);
+    else if(ev.key==="Escape") fin(false);
+  });
+  inp.addEventListener("blur", function(){ fin(true); });
+  inp.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
+}
 function toggleStageEdit(){
   if(stageEdit && stagePanelView!=="palco"){ stagePanelView="palco"; selBlock=0; renderStagePanel(); render(); return; }   /* aperto sulla planimetria: passa ai blocchi */
   stageEdit=!stageEdit; stagePanelView="palco"; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } else venueAutoLock(); renderStagePanel(); render(); }
