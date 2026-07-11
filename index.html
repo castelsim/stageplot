@@ -2308,7 +2308,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div class="wl-steps">
         <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Trascina</strong> gli elementi dal catalogo sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
-        <div class="wl-step"><b>3</b><span><strong>Esporta il PDF</strong> con stage plot e channel list</span></div>
+        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + lista ingressi, monitor e carichi</span></div>
       </div>
       <div class="wl-mods-lbl">oppure parti da un modello</div>
       <div class="wl-mods" id="wlMods"></div>
@@ -2370,8 +2370,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <div class="mcard" style="width:820px;max-width:94vw">
     <h2>Esporta PDF in scala</h2>
     <p class="hint" style="margin-bottom:10px">Planimetria del palco in <b>scala reale</b>. Stampa a <b>100% / dimensioni reali</b> (non "adatta alla pagina").</p>
-    <div id="pdfTechNote" style="font-size:12px;color:var(--accent);margin:-4px 0 6px;display:none"></div>
-    <label class="chk" id="pdfTechRow" style="display:none;font-size:12.5px;margin-bottom:10px"><input type="checkbox" id="pdfIncludeTech" checked> Includi le pagine tecniche dei layer attivi</label>
+    <div id="pdfTechBox" style="display:none;margin:2px 0 12px;border:1px solid var(--border);border-radius:10px;padding:11px 13px;background:var(--surface-raised)">
+      <div style="font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:8px">Pagine del rider tecnico</div>
+      <div id="pdfTechList" style="display:flex;flex-direction:column;gap:7px"></div>
+      <div id="pdfTechNote" style="font-size:11.5px;color:var(--text-2);margin-top:9px"></div>
+    </div>
+    <!-- compat: vecchio checkbox unico, nascosto (JS storico può leggerlo) -->
+    <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
     <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
       <div style="flex:1 1 280px;min-width:260px">
         <label>Formato foglio</label>

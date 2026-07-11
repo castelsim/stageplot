@@ -9555,22 +9555,21 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
-    var scope=window.__pdfScope||"full";   /* "plot" | "full" */
-    /* PAG 2+ channel list: solo in consulenza e se ci sono canali (audit/roadmap 1B) */
+    /* PAG 2+ channel list della CONSULENZA (lista manuale): invariato (audit/roadmap 1B) */
     if(window.__consultMode && (state.inputs.length || state.outputs.length)){
       doc.addPage(paperKey, L.orient);
       pdfChannelPage(doc, L, paperKey);
     }
-    /* Tech pack: pagine dei layer MOTORE attivi nel progetto (solo scope completo). Le funzioni
-       report, se ricevono un doc, aggiungono una pagina A4 verticale e disegnano senza salvare. */
-    if(scope==="full"){
-      /* Audit NASCOSTO temporaneamente (07/07): niente pagina audit nel tech pack. Ripristina insieme al catalogo.
-      if(state.items.length) auditReportPdf(doc); */
-      if(state.cab && state.cab.on){ var Rc=cabResult(true);
-        if(Rc.totIn){ patchListPdf(doc); if(Rc.mixes && Rc.mixes.length) monitorListPdf(doc); cabReportPdf(doc); } }
-      if(state.elec && state.elec.on){ var Re=elecResult(true);
-        if(Re.loads.length){ elecReportPdf(doc); loadListPdf(doc); } }
-    }
+    /* Rider tecnico (ciclo 11): pagine selezionate nell'export. Le LISTE seguono i dati (non i layer);
+       gli SCHEMI dei cavi richiedono il layer attivo. window.__pdfPages = Set delle chiavi spuntate.
+       In consulenza la channel list è già sopra → si evita di duplicare la lista ingressi. */
+    var pg=window.__pdfPages||null;
+    var want=function(k){ return pg ? !!pg[k] : false; };
+    if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
+    if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
+    if(want("loadlist")) loadListPdf(doc);
+    if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
+    if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
     pdfCredit(doc);
     return doc;
       });
@@ -9760,32 +9759,53 @@ function pdfChannelPage(doc, L, paperKey){
     }
     try{ document.getElementById("pdfPreview").innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value); }catch(e){}
   }
+  /* Pagine del RIDER TECNICO disponibili per QUESTO progetto (ciclo 11, proposta Simone):
+     le LISTE seguono i DATI (esistono appena metti sorgenti/monitor/carichi, senza dover attivare il layer);
+     le MAPPE dei cavi seguono i LAYER attivi (sono il lavoro di cablaggio). Ognuna è selezionabile. */
   function pdfComputeTechPages(){
     var pages=[];
-    /* Audit nascosto (07/07): non elencato tra le pagine tecniche del tech pack */
-    if(state.cab && state.cab.on){ var Rc=cabResult(true); if(Rc.totIn){ pages.push("Input list"); if(Rc.mixes && Rc.mixes.length) pages.push("Monitor list"); pages.push("Cablaggio audio"); } }
-    if(state.elec && state.elec.on){ var Re=elecResult(true); if(Re.loads.length) pages.push("Piano elettrico","Lista carichi"); }
+    var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
+    if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
+    if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
+    var Re=(typeof elecResult==="function")?elecResult(true):{loads:[]};
+    if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
+    if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
+    if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     return pages;
   }
   var _pdfTechPages=[];
+  function pdfSelectedPages(){   /* Set delle chiavi spuntate → letto da buildPdfDoc via window.__pdfPages */
+    var sel={};
+    document.querySelectorAll("#pdfTechList input[type=checkbox]").forEach(function(c){ if(c.checked) sel[c.getAttribute("data-page")]=true; });
+    return sel;
+  }
   function pdfUpdateTechNote(){
-    var el=document.getElementById("pdfTechNote"), row=document.getElementById("pdfTechRow"), cb=document.getElementById("pdfIncludeTech");
+    var box=document.getElementById("pdfTechBox"), note=document.getElementById("pdfTechNote");
     var has=_pdfTechPages.length>0;
-    if(row) row.style.display=has?"flex":"none";
-    if(!has){ if(el) el.style.display="none"; window.__pdfScope="full"; return; }
-    var inc = cb ? cb.checked : true;
-    window.__pdfScope = inc ? "full" : "plot";   /* "plot" = solo palco (no zone né pagine motore) */
-    if(el){ el.style.display="block";
-      el.innerHTML = inc ? ('Include anche le pagine dei layer attivi: <b>'+_pdfTechPages.map(esc).join(", ")+'</b>.')
-                         : 'Verrà esportato <b>solo il palco</b> (1 pagina).'; }
+    if(box) box.style.display=has?"block":"none";
+    window.__pdfPages = has ? pdfSelectedPages() : {};
+    window.__pdfScope = "full";
+    if(note){ var n=Object.keys(window.__pdfPages).length;
+      note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
+                           : "Verrà esportato solo il palco (1 pagina)."; }
+  }
+  function pdfRenderTechList(){
+    var host=document.getElementById("pdfTechList"); if(!host) return;
+    host.innerHTML="";
+    _pdfTechPages.forEach(function(p){
+      var lab=document.createElement("label"); lab.className="chk"; lab.style.cssText="font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer";
+      var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=true; cb.setAttribute("data-page",p.key);
+      cb.addEventListener("change", pdfUpdateTechNote);
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(p.label));
+      host.appendChild(lab);
+    });
   }
   window.openPdfExportModal=function(){ modal.hidden=false; refresh();
     _pdfTechPages=pdfComputeTechPages();
-    var cb=document.getElementById("pdfIncludeTech"); if(cb) cb.checked=true;   /* default: includi le pagine tecniche */
+    pdfRenderTechList();
     pdfUpdateTechNote();
   };
   document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
-  var _pdfInc=document.getElementById("pdfIncludeTech"); if(_pdfInc) _pdfInc.addEventListener("change", pdfUpdateTechNote);
   document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; window.__pdfScope="full"; });
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
