@@ -183,17 +183,8 @@
   #catalog .sub-body button span{color:var(--accent)}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:var(--accent)}
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
-  /* palco vuoto: solo i chip dei modelli di partenza (le scritte guida le fa la finestra di benvenuto;
+  /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
-  #emptyHint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;color:var(--text-2);line-height:1.3;z-index:4}
-  #emptyHint[hidden]{display:none}
-  /* template di partenza: chip cliccabili nell'hint vuoto (il contenitore ha pointer-events:none) */
-  #emptyHint .eh-tpl{display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
-  #emptyHint .eh-tpl-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:430px}
-  #emptyHint .eh-chip{appearance:none;border:1px solid var(--border);background:var(--panel,#fff);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s,color .12s}
-  #emptyHint .eh-chip:hover{background:var(--accent-tint);border-color:var(--accent-soft);color:var(--accent)}
-  body.dark #emptyHint .eh-chip{background:#141a1f;border-color:#2a3138}
-  body.dark #emptyHint .eh-chip:hover{border-color:var(--accent)}
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
   #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
@@ -771,11 +762,6 @@
   /* Inspector header (A): pallino + nome elemento (sobrio) */
   #selNome{display:flex;align-items:center;gap:7px}
   #selNome::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent);flex:0 0 auto}
-  /* template anche su smartphone (ciclo #2): i chip wrappano su più righe, raccolti */
-  @media (max-width:880px){
-    #emptyHint .eh-tpl-row{max-width:300px}
-    #emptyHint .eh-chip{font-size:12.5px;padding:7px 13px}
-  }
   .mtbtn-wide{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:600}
   .mtbtn-wide svg{width:18px;height:18px}
   /* bottom-sheet catalogo: intestazione sticky (titolo + chiudi), solo mobile */
@@ -1005,7 +991,6 @@ body.viewmode > header,
 body.viewmode #mTop,
 body.viewmode #catalog,
 body.viewmode #props,
-body.viewmode #emptyHint { display: none !important; }
 body.viewmode #svg { pointer-events: none; }
 /* Viewer (read-only): barra in ALTO, canvas sotto, toolbar nascosta */
 body.viewmode #viewBar {

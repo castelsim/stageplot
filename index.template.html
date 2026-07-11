@@ -268,7 +268,7 @@
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
 </div>
-<div id="emptyHint" aria-hidden="true"><div class="eh-tpl"><div class="eh-tpl-row"><button type="button" class="eh-chip" data-form="band">Band</button><button type="button" class="eh-chip" data-form="acoustic">Acustica</button><button type="button" class="eh-chip" data-form="jazzcombo">Jazz combo</button><button type="button" class="eh-chip" data-form="coro">Coro</button><button type="button" class="eh-chip" data-form="camera">Orchestra</button><button type="button" class="eh-chip" data-form="bigband">Big band</button></div></div></div></main>
+</main>
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
@@ -1019,7 +1019,7 @@
     </div>
     <div class="wl-body">
       <div class="wl-steps">
-        <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Trascina</strong> gli elementi dal catalogo sul palco, o parti da un modello</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo, o parti da un modello</span></span></div>
+        <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Trascina</strong> gli elementi dal catalogo sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
         <div class="wl-step"><b>3</b><span><strong>Esporta il PDF</strong> con stage plot e channel list</span></div>
       </div>
@@ -4536,11 +4536,8 @@ function render(){
   var _nt=document.getElementById("bNamesTxt"); if(_nt) _nt.textContent=({auto:"Nomi: auto",on:"Nomi: sì",off:"Nomi: no"})[nMode];
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
-  var eh=document.getElementById("emptyHint");
-  if(eh){
-    if(state.items.length>0){ eh.hidden=true; try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
-    else eh.hidden = !!localStorage.getItem("sp_onboarded");   /* l'invito appare solo finché non hai mai piazzato nulla */
-  }
+  /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
+  if(state.items.length>0){ try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
   /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
   var _dcHide = (!state.items || !state.items.length) && !(window.__cloud && window.__cloud.user && window.__cloud.user());
   var _ds=document.getElementById("docState"), _dsM=document.getElementById("docStateM");
@@ -7320,20 +7317,6 @@ function placeOut(out, fitStage, clearFirst, force){
   clearSelection(); save();
   return true;
 }
-/* Template di partenza (onboarding): dall'hint palco-vuoto, piazza una formazione PRONTA (band/acustica/coro/…).
-   Riusa le formazioni esistenti (formationData/placeOut) con force=true → niente modale di review. */
-function startFromTemplate(f){
-  var qd = (typeof formationData==="function") ? formationData(f) : null;
-  if(!qd || !qd.out) return;
-  state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
-  placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
-  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
-  var eh=document.getElementById("emptyHint"); if(eh) eh.hidden=true;
-  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
-  render(); if(typeof fitStage==="function") fitStage(); render();
-}
-(function(){ var chips=document.querySelectorAll("#emptyHint .eh-chip");
-  for(var i=0;i<chips.length;i++){ chips[i].addEventListener("click", function(){ startFromTemplate(this.getAttribute("data-form")); }); } })();
 /* sposta il nuovo gruppo DIETRO gli elementi esistenti che gli stanno davanti; allarga il palco sul fondo se serve */
 function avoidGroupOverlap(news){
   var gap=45;
