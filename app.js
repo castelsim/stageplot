@@ -6656,6 +6656,22 @@ var FORM_TITLES = {
   jazzcombo:"Jazz quintet", bigband:"Big band 5/4/4 + ritmica"
 };
 
+/* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
+   Fonte unica per i chip del welcome e per il sottomenu "Nuovo da modello". */
+var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"]];
+/* Piazza una formazione PRONTA sul palco (band/acustica/coro/…), riusando le formazioni esistenti
+   con force=true → niente modale di review. Aggancia welcome-chips e menu "Nuovo da modello". */
+function startFromTemplate(f){
+  var qd = (typeof formationData==="function") ? formationData(f) : null;
+  if(!qd || !qd.out) return;
+  state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
+  placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
+  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
+  render(); if(typeof fitStage==="function") fitStage(); render();
+}
+
 /* (menu "Organico" e generatori organici rimossi dall'interfaccia su richiesta; formationData/buildOrchestraOut restano solo per le QA ?form=) */
 
 /* ============ CHANNEL LIST (input / output per i fonici) ============ */
@@ -8691,6 +8707,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   bindMenu("fileBtn","fileMenu"); bindMenu("helpBtn","helpMenu");
   (function(){
     var acts={ "new":function(){proxyClick("bNew");}, "open":function(){proxyClick("bHdrImport");},
+      "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
       "projects":function(){proxyClick("bCloud");}, "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "save":fileSaveCloud,
@@ -10064,6 +10081,28 @@ else { window.addEventListener("resize", render); fit();
   });
 }catch(_e){} })();
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
+/* Modelli di partenza (ciclo 9, decisione C): chip nel welcome + picker "Nuovo da modello" (menu File).
+   Fonte unica START_MODELS; il click piazza la formazione e chiude l'overlay di provenienza. */
+(function(){
+  function fillMods(host, after){
+    if(!host || typeof START_MODELS==="undefined") return;
+    host.innerHTML="";
+    START_MODELS.forEach(function(m){
+      var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
+      b.addEventListener("click", function(){ startFromTemplate(m[0]); if(after) after(); });
+      host.appendChild(b);
+    });
+  }
+  fillMods(document.getElementById("wlMods"), null);   /* nel welcome: startFromTemplate chiude già il welcome */
+  var mp=document.getElementById("modelPicker");
+  if(mp){
+    fillMods(document.getElementById("mpMods"), function(){ mp.hidden=true; });
+    var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
+    mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
+    document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });
+    window.openModelPicker=function(){ mp.hidden=false; };   /* aperto dalla voce File "Nuovo da modello…" */
+  }
+})();
 /* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
    Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
    Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded). */
