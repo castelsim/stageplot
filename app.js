@@ -1504,31 +1504,50 @@ function setDocState(mode){
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
   else if(mode==="offline-warn"){ html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per il cloud"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
-  else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Non salvato online — riprovo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }
+  else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
   else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Modificato altrove — scegli come continuare"; htmlM=CHIP_SVG.warn+"Modificato altrove"; }
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
 }
 window.setDocState=setDocState;
-var _cloudAsT=null;
+var _cloudAsT=null, _cloudRetryT=null, _cloudRetryStep=0;
+var CLOUD_RETRY_MS=[5000,15000,45000,60000];   /* backoff dopo un errore; poi resta a 60s finché non riesce */
+/* ripianifica un tentativo dopo un errore di rete/server (ciclo 12, decisione A: retry automatico).
+   Se la sessione è caduta davvero (utente non più loggato) NON ritenta a vuoto → "Accedi per il cloud". */
+function scheduleCloudRetry(){
+  var C=window.__cloud;
+  if(!C || !C.user()){ setDocState("offline-warn"); _cloudRetryStep=0; clearTimeout(_cloudRetryT); _cloudRetryT=null; return; }
+  var delay=CLOUD_RETRY_MS[Math.min(_cloudRetryStep, CLOUD_RETRY_MS.length-1)];
+  _cloudRetryStep++;
+  clearTimeout(_cloudRetryT); _cloudRetryT=setTimeout(cloudAutosaveNow, delay);
+}
 function cloudAutosaveNow(){
   var C=window.__cloud;
-  if(!C || !C.user()){ setDocState("offline-warn"); return; }
+  clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* questo tentativo sostituisce l'eventuale retry pendente */
+  if(!C || !C.user()){ setDocState("offline-warn"); _cloudRetryStep=0; return; }
   if(window.__cloudConflict){ setDocState("conflict"); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   setDocState("saving");
-  C.save(function(id){ setDocState(window.__cloudConflict ? "conflict" : (id ? "online" : "error")); }, true);
+  C.save(function(id){
+    if(window.__cloudConflict){ setDocState("conflict"); return; }
+    if(id){ setDocState("online"); _cloudRetryStep=0; }        /* riuscito: azzera il backoff */
+    else { setDocState("error"); scheduleCloudRetry(); }       /* fallito: ritenta da solo (non è più una bugia) */
+  }, true);
 }
 function scheduleCloudAutosave(){
   if(window.__consultMode || document.body.classList.contains("viewmode")) return;  /* la consulenza ha il suo autosave */
   var C=window.__cloud;
   if(!C || !C.user()){ setDocState("offline-warn"); return; }
+  _cloudRetryStep=0; clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* una modifica dell'utente riparte da capo */
   clearTimeout(_cloudAsT); _cloudAsT=setTimeout(cloudAutosaveNow, 10000);
 }
 function flushCloudAutosave(){
   if(window.__consultMode || document.body.classList.contains("viewmode")) return;
   clearTimeout(_cloudAsT); cloudAutosaveNow();
 }
+/* ritenta SUBITO quando la rete torna o quando l'utente riapre la scheda — ma solo se c'è un salvataggio in sospeso */
+window.addEventListener("online", function(){ if(_cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } });
+document.addEventListener("visibilitychange", function(){ if(!document.hidden && _cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } });
 window.scheduleCloudAutosave=scheduleCloudAutosave; window.flushCloudAutosave=flushCloudAutosave;
 function renderAccountBtn(){
   var C=window.__cloud, u=C&&C.user(), em=u&&(u.email||"?");
