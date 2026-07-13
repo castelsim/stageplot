@@ -1214,6 +1214,30 @@ body.viewmode #viewBar {
   padding: 8px 14px; background: #111827; color: #fff; font-size: 14px;
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
+
+/* Blocco progetti: sola-lettura del progetto cloud bloccato. Superfici di editing NON interattive;
+   restano usabili header (esporta/condividi/File/duplica/sblocca), pan/zoom e la barra di blocco. */
+body.proj-ro #catalog,
+body.proj-ro #props,
+body.proj-ro #bUndo, body.proj-ro #bRedo,
+body.proj-ro #mUndo, body.proj-ro #mRedo { pointer-events: none; opacity: .55; }
+body.proj-ro .item,
+body.proj-ro .rot-handle,
+body.proj-ro .rs-handle,
+body.proj-ro .cab-seg-hit,
+body.proj-ro .cab-endpt-hit,
+body.proj-ro .venue-img { pointer-events: none !important; }
+#lockBar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 211;
+  display: flex; align-items: center; gap: 14px; background: #7c4a12; color: #fff; padding: 9px 15px;
+  border-radius: 999px; font: 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  box-shadow: 0 8px 26px rgba(0,0,0,.3); max-width: 92vw; }
+#lockBar[hidden] { display: none; }
+#lockBar svg { width: 15px; height: 15px; flex: 0 0 auto; }
+#lockBar .lb-msg { display: inline-flex; align-items: center; white-space: nowrap; }
+#lockBar b { font-weight: 700; }
+#lockBar #lockUnlock { border: 1px solid rgba(255,255,255,.55); background: rgba(255,255,255,.14); color: #fff;
+  border-radius: 7px; padding: 5px 13px; font-weight: 600; cursor: pointer; }
+#lockBar #lockUnlock:hover { background: rgba(255,255,255,.24); }
 /* Editor (sessione live): il tool resta usabile (toolbar visibile), barra in BASSO per non coprirla */
 body.livesession:not(.viewmode) #viewBar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
