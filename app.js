@@ -4715,19 +4715,19 @@ function openQuickAdd(sp, cx, cy){
 }
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
-function addViolin(sec){ var base=vlnSeats(sec); addItem("vlnpost",{vsec:sec, label:"Violino "+sec+" "+(base+1)}); }
+function addViolin(sec){ var base=vlnSeats(sec); addItem("vlnpost",{vsec:sec, label:"Violino "+toRoman(sec)+" "+(base+1)}); }
 /* rinumera in ordine i violini di una sezione: ogni doppio occupa 2 posti, i successivi scalano.
    Rinumera solo le etichette AUTO ("Violino S P"); un'etichetta personalizzata dal tecnico resta intatta. */
 function renumberViolins(sec){
-  var pos=1, auto=/^Violino\s+\d+(?:\s+\d+)*\s*$/;
+  var pos=1, auto=/^Violino\s+(?:\d+|[IVX]+)(?:\s+\d+)*\s*$/, R=toRoman(sec);   /* auto = "Violino I 3" o il vecchio "Violino 1 3" (migra a romano) */
   (state.items||[]).forEach(function(x){
     if(x.type!=="vlnpost" || x.vsec!==sec) return;
     if(x.doppia){
-      if(auto.test(x.label||"")) x.label="Violino "+sec+" "+pos;
-      x.label2="Violino "+sec+" "+(pos+1);
+      if(auto.test(x.label||"")) x.label="Violino "+R+" "+pos;
+      x.label2="Violino "+R+" "+(pos+1);
       pos+=2;
     } else {
-      if(auto.test(x.label||"")) x.label="Violino "+sec+" "+pos;
+      if(auto.test(x.label||"")) x.label="Violino "+R+" "+pos;
       x.label2="";
       pos+=1;
     }
@@ -6020,7 +6020,7 @@ function presetCounts(id){
    Restituisce il raggio esterno (per posizionare legni/ottoni dietro). */
 var STR_R0=290, STR_DR=150;
 function layoutStrings(counts, out){
-  var secs=[["v1","Violini I","vlnpost","Violino 1"],["v2","Violini II","vlnpost","Violino 2"],
+  var secs=[["v1","Violini I","vlnpost","Violino I"],["v2","Violini II","vlnpost","Violino II"],
             ["vle","Viole","violapost","Viola"],["vc","Violoncelli","violoncello","Violoncello"]];
   var sizes=secs.map(function(s){ return counts[s[0]]||0; });
   var total=sizes.reduce(function(a,b){ return a+b; },0);
@@ -6355,31 +6355,31 @@ function genOrchestra(counts, fitStage, clearFirst, force){
 function buildBandOut(){
   return [
     /* batteria su pedana, centro fondo */
-    {type:"pedana", x:0, y:-310, w:300, d:200, h:40, label:"Drum riser"},
+    {type:"pedana", x:0, y:-310, w:300, d:200, h:40, label:"Pedana batteria"},
     {type:"batteria", x:0, y:-310, label:""},
-    {type:"iem", x:150, y:-360, label:"IEM Drum"},      /* batterista in-ear */
+    {type:"iem", x:150, y:-360, label:"IEM batteria"},      /* batterista in-ear */
     /* lato DX palco (sx pubblico): basso + ampli basso */
-    {type:"bassamp", x:-490, y:-290, label:"Bass amp"},
+    {type:"bassamp", x:-490, y:-290, label:"Ampli basso"},
     {type:"astamic", x:-460, y:-95, label:"Basso"},
-    {type:"wedge", x:-460, y:5, rot:0, label:"MIX BASS"},
+    {type:"wedge", x:-460, y:5, rot:0, label:"Basso"},
     /* keys, lato DX interno */
-    {type:"stagepiano", x:-250, y:-150, rot:12, label:"Keys"},
-    {type:"wedge", x:-250, y:-42, rot:0, label:"MIX KEYS"},
+    {type:"stagepiano", x:-250, y:-150, rot:12, label:"Tastiere"},
+    {type:"wedge", x:-250, y:-42, rot:0, label:"Tastiere"},
     /* lato SX palco (dx pubblico): chitarra + ampli */
-    {type:"stack", x:490, y:-290, label:"GT amp"},
+    {type:"stack", x:490, y:-290, label:"Ampli chitarra"},
     {type:"astamic", x:450, y:-95, label:"Chitarra"},
-    {type:"wedge", x:450, y:5, rot:0, label:"MIX GT"},
+    {type:"wedge", x:450, y:5, rot:0, label:"Chitarra"},
     /* corista, lato SX interno */
     {type:"corista", x:220, y:-70, label:"Cori"},
-    {type:"wedge", x:220, y:32, rot:0, label:"MIX CORI"},
+    {type:"wedge", x:220, y:32, rot:0, label:"Cori"},
     /* voce lead, centro fronte: in-ear */
-    {type:"astamic", x:0, y:-70, label:"Voce lead"},
-    {type:"iem", x:48, y:-70, label:"IEM Lead"},
+    {type:"astamic", x:0, y:-70, label:"Voce"},
+    {type:"iem", x:48, y:-70, label:"IEM voce"},
     /* side fill + tecnica */
-    {type:"sidefill", x:-660, y:30, rot:35, label:"SIDE DX"},
-    {type:"sidefill", x:660, y:30, rot:-35, label:"SIDE SX"},
-    {type:"iemant", x:-590, y:-260, label:"TX IEM"},
-    {type:"stagebox", x:590, y:-260, label:"STAGEBOX"},
+    {type:"sidefill", x:-660, y:30, rot:35, label:"Side fill DX"},
+    {type:"sidefill", x:660, y:30, rot:-35, label:"Side fill SX"},
+    {type:"iemant", x:-590, y:-260, label:"TX in-ear"},
+    {type:"stagebox", x:590, y:-260, label:"Stage box"},
     {type:"corrente", x:-580, y:-340, label:""},
     {type:"corrente", x:580, y:-340, label:""}
   ];
@@ -6388,17 +6388,17 @@ function buildAcousticOut(){
   return [
     {type:"tappeto", x:0, y:-150, w:650, d:360, label:""},
     {type:"stagepiano", x:-260, y:-150, rot:18, label:"Piano"},
-    {type:"distereo", x:-330, y:-60, label:"DI Piano"},
-    {type:"gtacustica", x:140, y:-145, rot:-8, label:"Ac. guitar"},
-    {type:"dimono", x:205, y:-65, label:"DI Gtr"},
+    {type:"distereo", x:-330, y:-60, label:"DI piano"},
+    {type:"gtacustica", x:140, y:-145, rot:-8, label:"Chitarra acustica"},
+    {type:"dimono", x:205, y:-65, label:"DI chitarra"},
     {type:"cajon", x:330, y:-170, label:"Cajon"},
     {type:"astabassa", x:330, y:-95, rot:160, label:"Cajon"},
     {type:"astamic", x:0, y:-55, label:"Voce"},
-    {type:"coppiast", x:0, y:-225, label:"Amb L/R"},
-    {type:"wedge", x:0, y:42, label:"MIX VOX"},
-    {type:"wedge", x:-245, y:25, rot:15, label:"MIX PNO"},
-    {type:"wedge", x:210, y:30, rot:-15, label:"MIX GTR"},
-    {type:"stagebox", x:430, y:-70, label:"STAGEBOX"},
+    {type:"coppiast", x:0, y:-225, label:"Ambienti L/R"},
+    {type:"wedge", x:0, y:42, label:"Voce"},
+    {type:"wedge", x:-245, y:25, rot:15, label:"Piano"},
+    {type:"wedge", x:210, y:30, rot:-15, label:"Chitarra"},
+    {type:"stagebox", x:430, y:-70, label:"Stage box"},
     {type:"corrente", x:-390, y:-115, label:""},
     {type:"corrente", x:255, y:-85, label:""}
   ];
@@ -6417,15 +6417,15 @@ function buildCoroOut(){
     /* pianoforte d'accompagnamento, lato DX */
     {type:"grancoda", x:-380, y:-190, rot:35, label:"Piano"},
     {type:"panchetta", x:-300, y:-110, rot:35, label:""},
-    {type:"wedge", x:-330, y:-30, rot:20, label:"MIX DIR"},
+    {type:"wedge", x:-330, y:-30, rot:20, label:"Direttore"},
     /* solisti fronte palco */
-    {type:"astamic", x:-130, y:-55, label:"Solista"},
-    {type:"astamic", x:130, y:-55, label:"Solista"},
-    {type:"wedge", x:-130, y:45, rot:0, label:"MIX 1"},
-    {type:"wedge", x:130, y:45, rot:0, label:"MIX 2"},
+    {type:"astamic", x:-130, y:-55, label:"Solista 1"},
+    {type:"astamic", x:130, y:-55, label:"Solista 2"},
+    {type:"wedge", x:-130, y:45, rot:0, label:"Solista 1"},
+    {type:"wedge", x:130, y:45, rot:0, label:"Solista 2"},
     /* side fill */
-    {type:"sidefill", x:-600, y:10, rot:35, label:"SIDE DX"},
-    {type:"sidefill", x:600, y:10, rot:-35, label:"SIDE SX"}
+    {type:"sidefill", x:-600, y:10, rot:35, label:"Side fill DX"},
+    {type:"sidefill", x:600, y:10, rot:-35, label:"Side fill SX"}
   ];
 }
 function buildQuartettoOut(){
@@ -6434,8 +6434,8 @@ function buildQuartettoOut(){
     {type:"vlnpost", x:-150, y:-180, rot:-25, label:"Violino I"},
     {type:"vlnpost", x:-50, y:-245, rot:-10, label:"Violino II"},
     {type:"violapost", x:70, y:-245, rot:10, label:"Viola"},
-    {type:"violoncello", x:170, y:-170, rot:25, label:"Cello"},
-    {type:"coppiast", x:0, y:-60, rot:0, label:"ST L/R"},
+    {type:"violoncello", x:170, y:-170, rot:25, label:"Violoncello"},
+    {type:"coppiast", x:0, y:-60, rot:0, label:"Coppia L/R"},
     {type:"podio", x:0, y:20, label:"Direttore"}
   ];
 }
@@ -6444,22 +6444,22 @@ function buildBigBandOut(){
     {type:"pedana", x:0, y:-470, w:760, d:130, h:40, label:"Trombe"},
     {type:"pedana", x:0, y:-330, w:760, d:130, h:20, label:"Tromboni"},
     {type:"pedana", x:0, y:-190, w:980, d:120, h:0, label:"Sax"},
-    {type:"stagebox", x:540, y:-120, label:"STAGEBOX"},
+    {type:"stagebox", x:540, y:-120, label:"Stage box"},
     {type:"astamic", x:0, y:10, label:"Voce"},
-    {type:"wedge", x:0, y:105, label:"MIX VOX"},
+    {type:"wedge", x:0, y:105, label:"Voce"},
     {type:"batteria", x:520, y:-410, label:""},
-    {type:"bassamp", x:670, y:-240, label:"Bass amp"},
-    {type:"stack", x:-670, y:-240, label:"Guitar amp"},
+    {type:"bassamp", x:670, y:-240, label:"Ampli basso"},
+    {type:"stack", x:-670, y:-240, label:"Ampli chitarra"},
     {type:"stagepiano", x:-520, y:-80, rot:-15, label:"Piano"},
-    {type:"wedge", x:-500, y:35, label:"MIX RH"},
-    {type:"wedge", x:500, y:35, label:"MIX RH"}
+    {type:"wedge", x:-500, y:35, label:"Ritmica"},
+    {type:"wedge", x:500, y:35, label:"Ritmica"}
   ];
   [-360,-180,0,180,360].forEach(function(x,i){
     var types=["saxalto","saxtenore","saxbaritono","saxtenore","saxalto"];
     out.push({type:types[i], x:x, y:-190, rot:0, label:["A1","T1","Bari","T2","A2"][i]});
   });
   [-255,-85,85,255].forEach(function(x,i){ out.push({type:"trombone", x:x, y:-330, rot:0, label:"Tbn "+(i+1)}); });
-  [-255,-85,85,255].forEach(function(x,i){ out.push({type:"tromba", x:x, y:-470, rot:0, label:"Trp "+(i+1)}); });
+  [-255,-85,85,255].forEach(function(x,i){ out.push({type:"tromba", x:x, y:-470, rot:0, label:"Tr "+(i+1)}); });
   return out;
 }
 function buildJazzComboOut(){
@@ -6468,14 +6468,14 @@ function buildJazzComboOut(){
     {type:"batteria", x:300, y:-330, label:""},
     {type:"grancoda", x:-300, y:-265, rot:28, label:"Piano"},
     {type:"panchetta", x:-210, y:-155, rot:28, label:""},
-    {type:"contrabbasso", x:250, y:-120, rot:-20, label:"Upright"},
-    {type:"bassamp", x:410, y:-145, label:"Bass amp"},
+    {type:"contrabbasso", x:250, y:-120, rot:-20, label:"Contrabbasso"},
+    {type:"bassamp", x:410, y:-145, label:"Ampli basso"},
     {type:"saxalto", x:60, y:-90, rot:0, label:"Sax"},
     {type:"astamic", x:-100, y:-60, label:"Voce"},
-    {type:"wedge", x:-100, y:42, label:"MIX VOX"},
-    {type:"wedge", x:-300, y:12, rot:18, label:"MIX PNO"},
-    {type:"wedge", x:160, y:35, rot:-12, label:"MIX SAX"},
-    {type:"stagebox", x:455, y:-35, label:"STAGEBOX"},
+    {type:"wedge", x:-100, y:42, label:"Voce"},
+    {type:"wedge", x:-300, y:12, rot:18, label:"Piano"},
+    {type:"wedge", x:160, y:35, rot:-12, label:"Sax"},
+    {type:"stagebox", x:455, y:-35, label:"Stage box"},
     {type:"corrente", x:-455, y:-195, label:""},
     {type:"corrente", x:460, y:-150, label:""}
   ];
@@ -6483,16 +6483,16 @@ function buildJazzComboOut(){
 function buildOrchBandOut(){
   var out=buildOrchestraOut(presetCounts("camera"));
   var band=[
-    {type:"pedana", x:380, y:150, w:240, d:170, h:20, label:"Drum riser"},
+    {type:"pedana", x:380, y:150, w:240, d:170, h:20, label:"Pedana batteria"},
     {type:"batteria", x:380, y:150, label:""},
-    {type:"bassamp", x:-470, y:110, label:"Bass amp"},
-    {type:"stagepiano", x:-300, y:160, rot:15, label:"Keys"},
-    {type:"stack", x:470, y:110, label:"GT amp"},
-    {type:"astamic", x:0, y:120, label:"Voce lead"},
-    {type:"wedge", x:0, y:215, rot:0, label:"MIX LEAD"},
-    {type:"wedge", x:-250, y:225, rot:0, label:"MIX KEYS"},
-    {type:"sidefill", x:-700, y:200, rot:35, label:"SIDE DX"},
-    {type:"sidefill", x:700, y:200, rot:-35, label:"SIDE SX"}
+    {type:"bassamp", x:-470, y:110, label:"Ampli basso"},
+    {type:"stagepiano", x:-300, y:160, rot:15, label:"Tastiere"},
+    {type:"stack", x:470, y:110, label:"Ampli chitarra"},
+    {type:"astamic", x:0, y:120, label:"Voce"},
+    {type:"wedge", x:0, y:215, rot:0, label:"Voce"},
+    {type:"wedge", x:-250, y:225, rot:0, label:"Tastiere"},
+    {type:"sidefill", x:-700, y:200, rot:35, label:"Side fill DX"},
+    {type:"sidefill", x:700, y:200, rot:-35, label:"Side fill SX"}
   ];
   return out.concat(band);
 }
@@ -6680,10 +6680,10 @@ function windTotal(c){ var s=0; for(var k in c) s+=c[k]||0; return s; }
 })();
 
 var FORM_TITLES = {
-  band:"Pop/Rock band 5", acoustic:"Acoustic trio", coro:"Coro SATB + piano",
-  quartetto:"Quartetto archi", camera:"Orchestra da camera", sinfonica_ridotta:"Sinfonica ridotta",
-  sinfonica:"Sinfonica completa", orchband:"Orchestra da camera + band", orchcoro:"Orchestra + coro",
-  jazzcombo:"Jazz quintet", bigband:"Big band 5/4/4 + ritmica"
+  band:"Band pop/rock", acoustic:"Trio acustico", coro:"Coro e piano",
+  quartetto:"Quartetto d'archi", camera:"Orchestra da camera", sinfonica_ridotta:"Sinfonica ridotta",
+  sinfonica:"Sinfonica completa", orchband:"Orchestra e band", orchcoro:"Orchestra e coro",
+  jazzcombo:"Jazz combo", bigband:"Big band"
 };
 
 /* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
@@ -6839,14 +6839,14 @@ function bandInputs(){
     ch("Basso DI","DI"), ch("Basso ampli","MD421"),
     ch("Chitarra","SM57/e906"),
     ch("Tastiere L","DI"), ch("Tastiere R","DI"),
-    ch("Voce lead","Beta 58A"), ch("Cori","SM58")
+    ch("Voce","Beta 58A"), ch("Cori","SM58")
   ];
 }
 function bandOutputs(){
   return [
-    outch("Voce lead","IEM","beltpack", "mix personale"), outch("Batteria","IEM","beltpack", "click/cue se necessario"),
-    outch("Basso","wedge","DS bass"), outch("Chitarra","wedge","DS guitar"), outch("Tastiere","wedge","DS keys"), outch("Cori","wedge","DS BV"),
-    outch("Side fill L","side fill","lato DX palco"), outch("Side fill R","side fill","lato SX palco")
+    outch("Voce","IEM","beltpack", "mix personale"), outch("Batteria","IEM","beltpack", "click/cue se necessario"),
+    outch("Basso","wedge","lato basso"), outch("Chitarra","wedge","lato chitarra"), outch("Tastiere","wedge","lato tastiere"), outch("Cori","wedge","lato cori"),
+    outch("Side fill DX","side fill","lato DX palco"), outch("Side fill SX","side fill","lato SX palco")
   ];
 }
 function acousticInputs(){
