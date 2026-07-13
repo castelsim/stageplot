@@ -3546,6 +3546,9 @@ function renderProps(){
   var byWrap=document.getElementById("pByWrap");   /* backline: "Fornito da" solo per ampli/piani/tastiere/batteria (#3) */
   if(byWrap){ var isBk=(typeof isBackline==="function") && isBackline(it); byWrap.style.display = isBk ? "block" : "none";
     if(isBk){ var _pby=document.getElementById("pBy"); _pby.value = it.by||""; try{ _pby.dispatchEvent(new Event("chips-sync")); }catch(e){} } }
+  var rfWrap=document.getElementById("pRfWrap");   /* RF: frequenza + banda solo per radiomic/in-ear (#2) */
+  if(rfWrap){ var isRfEl=(typeof isRf==="function") && isRf(it); rfWrap.style.display = isRfEl ? "block" : "none";
+    if(isRfEl){ document.getElementById("pRf").value = it.rf||""; document.getElementById("pBand").value = it.band||""; } }
   document.getElementById("pLabel").value = it.label||"";
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
@@ -3834,6 +3837,8 @@ document.getElementById("pAbbr").addEventListener("input", function(){ var v=doc
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"full"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="full") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
 document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
+document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
+document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
@@ -9337,6 +9342,49 @@ function backlineListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* ===== Lista RF auto (discovery pro #2): radiomicrofoni e in-ear che usano una frequenza radio.
+   SOLO documentale (frequenza + banda per il rider) — NON coordinamento/intermod (c'è Wireless Workbench).
+   Il service legge quante frequenze servono e in che banda per pianificare. Layer opzionale. ===== */
+var RF_TYPES={ wireless:"Radiomic palmare", headset:"Headset (archetto)", iem:"IEM beltpack", iemant:"TX in-ear (rack)" };
+function isRf(it){ return !!(it && RF_TYPES[it.type]); }
+function rfList(){
+  var rows=[], bands={};
+  (state.items||[]).forEach(function(it){
+    if(!isRf(it)) return;
+    var t=TYPES[it.type];
+    var name=(it.label && it.label.trim()) ? it.label.trim() : (t?t.nome:it.type);
+    var band=(it.band||"").trim();
+    rows.push({ name:name, kind:RF_TYPES[it.type], rf:(it.rf||"").trim(), band:band });
+    if(band) bands[band]=(bands[band]||0)+1;
+  });
+  rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
+  return { rows:rows, count:rows.length, bands:bands };
+}
+function rfListPdf(shared){
+  var pl=rfList(); if(!pl.rows.length){ if(!shared) alert("Nessun radiomic o in-ear sul palco."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+78, M+120];
+    doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    var bandKeys=Object.keys(pl.bands);
+    var sommario = pl.count+" frequenz"+(pl.count===1?"a":"e")+" RF" + (bandKeys.length ? "   ·   "+bandKeys.map(function(b){ return b+": "+pl.bands[b]; }).join("  ·  ") : "");
+    doc.text(sommario, M, y); y+=6;
+    doc.setFontSize(8.5); doc.setTextColor("#9ca3af"); doc.text("Documentazione per il coordinamento frequenze (a cura del service).", M, y); y+=7;
+    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.6; }
+    trow("DISPOSITIVO","TIPO","FREQUENZA / BANDA", "", true, "#4338ca");
+    doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
+    pl.rows.forEach(function(r){ var fb=[r.rf, r.band].filter(Boolean).join(" · ")||"—"; trow(r.name, r.kind, fb, "", false, r.rf||r.band?"#111827":"#9ca3af"); });
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-lista-rf.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function elecReportPdf(shared){
   var R=elecResult(true); if(!R.loads.length){ if(!shared) alert("Nessun carico elettrico sul palco."); return; }
   var run=function(doc){
@@ -9667,6 +9715,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
     if(want("loadlist")) loadListPdf(doc);
     if(want("backline")) backlineListPdf(doc);
+    if(want("rf")) rfListPdf(doc);
     if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
     if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
     pdfCredit(doc);
@@ -9869,6 +9918,7 @@ function pdfChannelPage(doc, L, paperKey){
     var Re=(typeof elecResult==="function")?elecResult(true):{loads:[]};
     if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
     if((typeof backlineList==="function") && backlineList().count){ pages.push({key:"backline", label:"Backline (attrezzatura)"}); }
+    if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     return pages;
