@@ -8132,6 +8132,7 @@ document.getElementById("frameCenter").addEventListener("click", function(){
 });
 document.getElementById("frameSavePdf").addEventListener("click", function(){ ensurePrintFrame(); saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); openPdfExportModal(); });   /* niente activateFrameEdit: non lasciare il pannello Esporta orfano in basso a sx */
 document.getElementById("frameSavePng").addEventListener("click", function(){ ensurePrintFrame(); exportPng(); saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); });
+document.getElementById("frameSaveCsv").addEventListener("click", function(){ if(window.exportChannelCsv) window.exportChannelCsv(); });
 
 function venueLoadFile(file){
   if(!file) return;
@@ -8729,7 +8730,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
       "projects":function(){proxyClick("bCloud");}, "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
-      "png":function(){proxyClick("frameSavePng");}, "save":fileSaveCloud,
+      "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.exportChannelCsv) window.exportChannelCsv(); }, "save":fileSaveCloud,
       "share":function(){openShare();} };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
@@ -8919,6 +8920,37 @@ aiTemplatesBlock()
   });
 })();
 function dl(href,name){ var a=document.createElement("a"); a.href=href; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+
+/* ===== Export CSV delle liste tecniche (discovery pro #1) — il service importa in Excel/console
+   invece di ri-digitare il PDF a mano. Separatore ";" (Excel IT apre in colonne) + BOM UTF-8 (accenti). ===== */
+function csvCell(v){ v=(v==null?"":String(v)); return /[";\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function rowsToCsv(headers, rows){
+  var out=[headers.map(csvCell).join(";")];
+  rows.forEach(function(r){ out.push(r.map(csvCell).join(";")); });
+  return "﻿"+out.join("\r\n")+"\r\n";   /* BOM + CRLF: massima compatibilità Excel/console */
+}
+function downloadCsv(text, name){
+  var blob=new Blob([text], {type:"text/csv;charset=utf-8"});
+  var url=URL.createObjectURL(blob);
+  dl(url, name);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+/* Channel list (ingressi) in CSV: la lista instrument-driven, stessa fonte del PDF/pannello. */
+function channelListCsv(){
+  var pl=(typeof patchList==="function")?patchList():{rows:[]};
+  var rows=pl.rows.map(function(r){
+    var patch=(r.patch && r.patch!=="—") ? r.patch : "";   /* "—" è il placeholder visivo del pannello, non un dato: nel CSV va vuoto */
+    return [r.n, r.name, r.mic||"", r.p48?"48V":"", patch];
+  });
+  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Phantom","Patch"], rows), count: rows.length };
+}
+function exportChannelCsv(){
+  var r=channelListCsv();
+  if(!r.count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return; }
+  downloadCsv(r.csv, fileName()+"-channel-list.csv");
+  try{ if(window.__sendEvent) window.__sendEvent({event:"export_csv",props:{rows:r.count}}); }catch(e){}
+}
+window.exportChannelCsv=exportChannelCsv;
 
 /* tabella input/output a lato della planimetria (coord. SVG dell'export) */
 function channelTableSvg(x, top, w){
