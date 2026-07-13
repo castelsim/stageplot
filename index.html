@@ -1749,6 +1749,14 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
+    <div id="pByWrap" style="display:none"><label title="Chi porta questa attrezzatura: finisce nella Backline list del rider">Fornito da</label>
+      <div class="chips" data-chips="pBy">
+        <button type="button" data-v="">Non spec.</button>
+        <button type="button" data-v="Band">Band</button>
+        <button type="button" data-v="Service">Service</button>
+      </div>
+      <select id="pBy" hidden><option value="">Non specificato</option><option value="Band">Band</option><option value="Service">Service</option></select>
+    </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>

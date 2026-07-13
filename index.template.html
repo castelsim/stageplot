@@ -467,6 +467,14 @@
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
+    <div id="pByWrap" style="display:none"><label title="Chi porta questa attrezzatura: finisce nella Backline list del rider">Fornito da</label>
+      <div class="chips" data-chips="pBy">
+        <button type="button" data-v="">Non spec.</button>
+        <button type="button" data-v="Band">Band</button>
+        <button type="button" data-v="Service">Service</button>
+      </div>
+      <select id="pBy" hidden><option value="">Non specificato</option><option value="Band">Band</option><option value="Service">Service</option></select>
+    </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>
@@ -4697,6 +4705,9 @@ function renderProps(){
   var pwWrap=document.getElementById("pWattWrap");
   if(pwWrap){ var powered=hasWatt(it.type); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
+  var byWrap=document.getElementById("pByWrap");   /* backline: "Fornito da" solo per ampli/piani/tastiere/batteria (#3) */
+  if(byWrap){ var isBk=(typeof isBackline==="function") && isBackline(it); byWrap.style.display = isBk ? "block" : "none";
+    if(isBk){ var _pby=document.getElementById("pBy"); _pby.value = it.by||""; try{ _pby.dispatchEvent(new Event("chips-sync")); }catch(e){} } }
   document.getElementById("pLabel").value = it.label||"";
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
@@ -4984,6 +4995,7 @@ document.getElementById("pLblHidden").addEventListener("click", function(){ _set
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"full"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="full") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
+document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
@@ -10444,6 +10456,49 @@ function loadListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* ===== Backline list auto (discovery pro #3): l'attrezzatura fisica che qualcuno deve portare al palco
+   (ampli, piani, tastiere, chitarre, batteria…), con "chi la fornisce" per riga. Il service legge cosa
+   deve procurare (righe Service), la band cosa porta lei. Auto-derivata dagli elementi sul palco. ===== */
+var BACKLINE_EXTRA={ batteria:1, edrums:1, percussioni:1, timbales:1 };   /* strumenti-backline fuori dalla categoria "Band e backline" */
+function isBackline(it){ var t=TYPES[it.type]; if(!t) return false; return t.cat==="Band e backline" || !!BACKLINE_EXTRA[it.type]; }
+function backlineList(){
+  var groups={}, order=[];
+  (state.items||[]).forEach(function(it){
+    if(!isBackline(it)) return;
+    var t=TYPES[it.type];
+    var name=(it.label && it.label.trim()) ? it.label.trim() : (t?t.nome:it.type);   /* label custom (es. modello) o nome tipo */
+    var by=(it.by==="Band"||it.by==="Service")?it.by:"";
+    var k=name+"|"+by;
+    if(!groups[k]){ groups[k]={name:name, by:by, qty:0}; order.push(k); }
+    groups[k].qty++;
+  });
+  var rows=order.map(function(k){ return groups[k]; });
+  rows.sort(function(a,b){ return a.name.localeCompare(b.name,"it") || a.by.localeCompare(b.by); });
+  var byService=rows.filter(function(r){ return r.by==="Service"; }).reduce(function(s,r){ return s+r.qty; },0);
+  return { rows:rows, count:rows.length, totItems:rows.reduce(function(s,r){return s+r.qty;},0), byService:byService };
+}
+function backlineListPdf(shared){
+  var pl=backlineList(); if(!pl.rows.length){ if(!shared) alert("Nessun elemento backline sul palco."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+16, M+130];
+    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Backline", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    doc.text(pl.totItems+" element"+(pl.totItems===1?"o":"i")+" di backline"+(pl.byService?"   ·   "+pl.byService+" da fornire (Service)":""), M, y); y+=8;
+    function trow(a,b,c,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.6; }
+    trow("Q.tà","ATTREZZATURA","FORNITO DA", true, "#0b7a70");
+    doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
+    pl.rows.forEach(function(r){ trow(r.qty+"×", r.name, r.by||"—", false, r.by==="Service"?"#0b7a70":"#111827"); });
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-backline.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function elecReportPdf(shared){
   var R=elecResult(true); if(!R.loads.length){ if(!shared) alert("Nessun carico elettrico sul palco."); return; }
   var run=function(doc){
@@ -10773,6 +10828,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
     if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
     if(want("loadlist")) loadListPdf(doc);
+    if(want("backline")) backlineListPdf(doc);
     if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
     if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
     pdfCredit(doc);
@@ -10974,6 +11030,7 @@ function pdfChannelPage(doc, L, paperKey){
     if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
     var Re=(typeof elecResult==="function")?elecResult(true):{loads:[]};
     if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
+    if((typeof backlineList==="function") && backlineList().count){ pages.push({key:"backline", label:"Backline (attrezzatura)"}); }
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     return pages;
