@@ -1063,7 +1063,9 @@
     <div class="wl-mods" id="mpMods" style="margin:8px 0 4px"></div>
     <div class="wl-mods-lbl" style="margin-top:14px">Per tipo di sala</div>
     <div class="wl-mods" id="mpVenues" style="margin:8px 0 4px"></div>
-    <div class="hint" style="margin-top:10px">Le formazioni riempiono il palco; i tipi di sala lo dimensionano soltanto — poi ci metti tu la formazione.</div>
+    <div class="wl-mods-lbl" style="margin-top:14px">Venue famose · Italia</div>
+    <div class="wl-mods" id="mpFamous" style="margin:8px 0 4px"></div>
+    <div class="hint" style="margin-top:10px">Le formazioni riempiono il palco; i tipi di sala e le venue famose partono dallo spazio (dimensioni e forma reali) con una band già pronta — poi personalizzi.</div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="mpClose" style="margin-left:auto">Annulla</button></div>
   </div>
 </div>
@@ -7968,9 +7970,9 @@ function makeVenueBackdrop(name, house){
     }
   } else {   /* open = pubblico in piedi: barriera + folla a puntini */
     g.beginPath(); g.moveTo(hL,hTop); g.lineTo(hR,hTop); g.stroke();   /* barriera */
-    var dr=Math.max(1.2, cw*0.006);
-    for(var yy2=hTop+dr*4; yy2<hBot-dr*4; yy2+=dr*5){ for(var xx=hL+dr*3; xx<hR-dr*3; xx+=dr*5){
-      if((Math.round(xx)+Math.round(yy2))%2===0){ g.beginPath(); g.arc(xx,yy2,dr,0,6.28); g.fill(); } } }
+    var dr=Math.max(1.2, cw*0.007), step=dr*4.2, iy=0;
+    for(var yy2=hTop+dr*3; yy2<hBot-dr*3; yy2+=step, iy++){
+      for(var xx=hL+dr*3+(iy%2?step/2:0); xx<hR-dr*3; xx+=step){ g.beginPath(); g.arc(xx,yy2,dr,0,6.28); g.fill(); } }
   }
   /* FOH / regia al centro fondo pubblico */
   var fw=hW*0.13, fh=(hBot-hTop)*0.11, fx=hL+hW/2-fw/2, fy=hBot-fh;
@@ -7979,6 +7981,101 @@ function makeVenueBackdrop(name, house){
   g.fillText("FOH", fx+fw/2, fy+fh/2);
   var url=cvs.toDataURL("image/png");
   state.venue={enabled:true, locked:true, name:"Pianta — "+name, x:cx, y:cy, w:vw, h:vh, rot:0, opacity:34, calibration:null, _dataUrl:url, _imgW:cw, _imgH:chp};
+  if(typeof cacheVenueImg==="function") cacheVenueImg(state.venue);
+}
+
+/* ====== VENUE FAMOSE (Italia) — piante ORIGINALI da FATTI PUBBLICI (dimensioni/forma reali verificate, NON planimetrie copiate) ======
+   [chiave, etichetta, {shape, wv, dv, wv2, sw, sd, form, house}] · misure in cm.
+   Fonti: Arena di Verona 75,68×44,43 m (Wikipedia); Piazza San Marco 175×57→82 m; Piazza Maggiore 115×60 m; Circo Massimo ~600×140 m (area concerto); Forum Assago ~11.800. */
+var FAMOUS_VENUES = [
+  ["arena_verona",    "Arena di Verona",         {shape:"ellipse",  wv:4443, dv:6100, sw:2400, sd:1400, form:"band", house:"standing"}],
+  ["sanmarco",        "Piazza San Marco",        {shape:"trapezoid",wv:8200, wv2:5700, dv:15800, sw:2200, sd:1200, form:"band", house:"standing"}],
+  ["piazza_maggiore", "Piazza Maggiore, Bologna",{shape:"rect",     wv:6000, dv:10300, sw:2000, sd:1200, form:"band", house:"standing"}],
+  ["circo_massimo",   "Circo Massimo, Roma",     {shape:"rect",     wv:14000, dv:18000, sw:3200, sd:1800, form:"band", house:"standing"}],
+  ["forum_assago",    "Forum, Assago",           {shape:"arena",    wv:5200, dv:6200, sw:2000, sd:1300, form:"band", house:"seats"}]
+];
+function startFromFamousVenue(v){
+  var V=null; for(var i=0;i<FAMOUS_VENUES.length;i++){ if(FAMOUS_VENUES[i][0]===v){ V=FAMOUS_VENUES[i]; break; } }
+  if(!V) return;
+  var P=V[2];
+  detachCloudDoc();
+  state.items=[];
+  state.stage={ w:P.sw, d:P.sd, blocks:[{x:0,y:0,w:P.sw,d:P.sd,h:(P.h||60)}] };
+  if(typeof recalcStageBBox==="function") recalcStageBBox();
+  var qd = (typeof formationData==="function") ? formationData(P.form||"band") : null;
+  if(qd && qd.out){ placeOut(qd.out, false, false, true); }   /* band centrata sul palco, senza ridimensionarlo */
+  try{ drawVenuePlan(V[1], P); }catch(_e){}
+  if(typeof persistVenueImg==="function") persistVenueImg();
+  state.titolo=V[1]; state.luogo=V[1];
+  if(typeof clearSelection==="function") clearSelection();
+  save();
+  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
+  render();
+  if(typeof fitTo==="function" && state.venue){ fitTo(state.venue.x-state.venue.w/2, state.venue.y-state.venue.h/2, state.venue.w, state.venue.h); }
+  else if(typeof fitStage==="function"){ fitStage(); }
+  render();
+}
+/* Disegna la pianta di una venue con la sua FORMA reale (ellisse/trapezio/rettangolo/arena) come immagine di sfondo. */
+function drawVenuePlan(name, P){
+  var sw=P.sw, sd=P.sd, cx=sw/2, dv=P.dv, wv=P.wv, wv2=P.wv2||wv, shape=P.shape, house=P.house||"standing";
+  var rounded=(shape==="ellipse"||shape==="arena");
+  var cavea = rounded ? Math.round(Math.max(wv,(sd+dv))*0.13) : 0;
+  var backpad = rounded ? Math.round(sd*0.55) : Math.round(sd*0.15);
+  var Wmax = Math.max(sw, wv, wv2) + 2*cavea;
+  var top = -(backpad+cavea), bot = sd+dv+cavea;
+  var vw = Wmax + 40, vh = (bot-top);
+  var cyw = (top+bot)/2;
+  var sc = Math.min(0.16, 640/Math.max(vw,vh)); if(!(sc>0)) sc=0.12;
+  var cw=Math.max(90,Math.round(vw*sc)), chp=Math.max(90,Math.round(vh*sc));
+  var cvs=document.createElement("canvas"); cvs.width=cw; cvs.height=chp;
+  var g=cvs.getContext("2d"); if(!g) return;
+  var ox=cx-vw/2;
+  function X(wx){ return (wx-ox)*sc; }
+  function Y(wy){ return (wy-top)*sc; }
+  var ink="#7c8595", soft="#b9c0cb", faint="#d2d8e0";
+  g.lineJoin="round"; g.lineCap="round";
+  function rrPath(x,y,w,h,r){ r=Math.min(r,w/2,h/2); g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+  var ecy=(-backpad+sd+dv)/2, eSemiY=((sd+dv)+backpad)/2;
+  function outline(pad){ pad=pad||0;
+    if(shape==="ellipse"){ g.beginPath(); g.ellipse(X(cx),Y(ecy),Math.max(2,(wv/2-pad)*sc),Math.max(2,(eSemiY-pad)*sc),0,0,6.2832); return; }
+    if(shape==="arena"){ var ax0=X(cx-wv/2+pad),ax1=X(cx+wv/2-pad),ay0=Y(-backpad+pad),ay1=Y(sd+dv-pad); rrPath(ax0,ay0,ax1-ax0,ay1-ay0,(ax1-ax0)*0.3); return; }
+    if(shape==="trapezoid"){ var yA=Y(-backpad+pad),yB=Y(sd+dv-pad),wA=(wv-2*pad)/2,wB=(wv2-2*pad)/2;
+      g.beginPath(); g.moveTo(X(cx-wA),yA); g.lineTo(X(cx+wA),yA); g.lineTo(X(cx+wB),yB); g.lineTo(X(cx-wB),yB); g.closePath(); return; }
+    var rx0=X(cx-wv/2+pad),rx1=X(cx+wv/2-pad),ry0=Y(-backpad+pad),ry1=Y(sd+dv-pad); g.beginPath(); g.rect(rx0,ry0,rx1-rx0,ry1-ry0);
+  }
+  /* cavea / gradinate esterne (ellisse+arena) */
+  if(cavea>0){
+    g.strokeStyle=faint; g.lineWidth=Math.max(1,cw*0.004);
+    if(shape==="ellipse"){ g.beginPath(); g.ellipse(X(cx),Y(ecy),(wv/2+cavea)*sc,(eSemiY+cavea)*sc,0,0,6.2832); g.stroke(); }
+    else { var ux0=X(cx-wv/2-cavea),ux1=X(cx+wv/2+cavea),uy0=Y(-backpad-cavea),uy1=Y(sd+dv+cavea); rrPath(ux0,uy0,ux1-ux0,uy1-uy0,(ux1-ux0)*0.3); g.stroke(); }
+    outline(cavea*0.5); g.stroke();
+  }
+  /* perimetro dello spazio */
+  g.strokeStyle=ink; g.lineWidth=Math.max(1.6,cw*0.007); outline(0); g.stroke();
+  /* linea fronte palco */
+  g.strokeStyle=soft; g.lineWidth=Math.max(1,cw*0.005); g.beginPath(); g.moveTo(X(cx-sw/2),Y(sd)); g.lineTo(X(cx+sw/2),Y(sd)); g.stroke();
+  /* pubblico dentro il perimetro */
+  g.save(); outline(cavea>0?cavea*0.55:0); g.clip();
+  var ry0=Y(sd)+(Y(sd+dv)-Y(sd))*0.05, ry1=Y(sd+dv), rx0=X(cx-Math.max(wv,wv2)/2), rx1=X(cx+Math.max(wv,wv2)/2);
+  g.fillStyle=soft; g.strokeStyle=soft;
+  if(house==="seats"){
+    var rows=9, rg=(ry1-ry0)/(rows*1.5), sh=rg*0.62;
+    for(var r=0;r<rows;r++){ var yy=ry0+r*rg*1.5, seats=Math.max(6,Math.round((rx1-rx0)/(cw*0.02))), sxw=(rx1-rx0)/seats;
+      for(var s2=0;s2<seats;s2++){ rrPath(rx0+s2*sxw+sxw*0.16, yy, sxw*0.68, sh, sh*0.25); g.fill(); } }
+  } else {
+    var dr=Math.max(1.2,cw*0.007), step=dr*4.2, iy=0;
+    for(var yy2=ry0+dr*3; yy2<ry1-dr*2; yy2+=step, iy++){ var ix=0;
+      for(var xx2=rx0+dr*3+(iy%2?step/2:0); xx2<rx1-dr*3; xx2+=step, ix++){ g.beginPath(); g.arc(xx2,yy2,dr,0,6.2832); g.fill(); } }
+  }
+  g.restore();
+  /* FOH al centro fondo pubblico */
+  var fw=cw*0.11, fh=chp*0.04, fy=Y(sd+dv)-fh-Math.max(4,chp*0.02);
+  g.strokeStyle=ink; g.lineWidth=Math.max(1,cw*0.005); rrPath(X(cx)-fw/2,fy,fw,fh,fh*0.2); g.stroke();
+  g.fillStyle=ink; g.font="600 "+Math.max(6,Math.round(chp*0.018))+"px sans-serif"; g.textAlign="center"; g.textBaseline="middle"; g.fillText("FOH",X(cx),fy+fh/2);
+  var url=cvs.toDataURL("image/png");
+  state.venue={enabled:true, locked:true, name:"Pianta — "+name, x:cx, y:cyw, w:vw, h:vh, rot:0, opacity:32, calibration:null, _dataUrl:url, _imgW:cw, _imgH:chp};
   if(typeof cacheVenueImg==="function") cacheVenueImg(state.venue);
 }
 
@@ -11591,6 +11688,15 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
         b.addEventListener("click", function(){ startFromVenue(m[0]); mp.hidden=true; });
         vh.appendChild(b);
+      });
+    }
+    var fh=document.getElementById("mpFamous");   /* venue famose italiane (piante originali da fatti pubblici) */
+    if(fh && typeof FAMOUS_VENUES!=="undefined"){
+      fh.innerHTML="";
+      FAMOUS_VENUES.forEach(function(m){
+        var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
+        b.addEventListener("click", function(){ startFromFamousVenue(m[0]); mp.hidden=true; });
+        fh.appendChild(b);
       });
     }
     var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
