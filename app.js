@@ -8141,7 +8141,7 @@ document.getElementById("frameCenter").addEventListener("click", function(){
 });
 document.getElementById("frameSavePdf").addEventListener("click", function(){ ensurePrintFrame(); saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); openPdfExportModal(); });   /* niente activateFrameEdit: non lasciare il pannello Esporta orfano in basso a sx */
 document.getElementById("frameSavePng").addEventListener("click", function(){ ensurePrintFrame(); exportPng(); saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); });
-document.getElementById("frameSaveCsv").addEventListener("click", function(){ if(window.exportChannelCsv) window.exportChannelCsv(); });
+document.getElementById("frameSaveCsv").addEventListener("click", function(){ if(window.openCsvExport) window.openCsvExport(); });
 
 function venueLoadFile(file){
   if(!file) return;
@@ -8739,7 +8739,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
       "projects":function(){proxyClick("bCloud");}, "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
-      "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.exportChannelCsv) window.exportChannelCsv(); }, "save":fileSaveCloud,
+      "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
       "share":function(){openShare();} };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
@@ -8930,12 +8930,13 @@ aiTemplatesBlock()
 })();
 function dl(href,name){ var a=document.createElement("a"); a.href=href; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
 
-/* ===== Export CSV delle liste tecniche (discovery pro #1) — il service importa in Excel/console
-   invece di ri-digitare il PDF a mano. Separatore ";" (Excel IT apre in colonne) + BOM UTF-8 (accenti). ===== */
-function csvCell(v){ v=(v==null?"":String(v)); return /[";\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
-function rowsToCsv(headers, rows){
-  var out=[headers.map(csvCell).join(";")];
-  rows.forEach(function(r){ out.push(r.map(csvCell).join(";")); });
+/* ===== Export CSV della channel list (discovery pro #1 + preset #4) — il service importa in
+   Excel/console invece di ri-digitare il PDF a mano. Separatore scelto + BOM UTF-8 (accenti). ===== */
+function csvCell(v, sep){ v=(v==null?"":String(v)); return (v.indexOf(sep)>-1 || /["\n\r]/.test(v)) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function rowsToCsv(headers, rows, sep){
+  sep=sep||";";
+  var out=[]; if(headers) out.push(headers.map(function(c){ return csvCell(c,sep); }).join(sep));
+  rows.forEach(function(r){ out.push(r.map(function(c){ return csvCell(c,sep); }).join(sep)); });
   return "﻿"+out.join("\r\n")+"\r\n";   /* BOM + CRLF: massima compatibilità Excel/console */
 }
 function downloadCsv(text, name){
@@ -8944,22 +8945,47 @@ function downloadCsv(text, name){
   dl(url, name);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
 }
-/* Channel list (ingressi) in CSV: la lista instrument-driven, stessa fonte del PDF/pannello. */
-function channelListCsv(){
+/* Channel list (ingressi) in CSV, formato scelto. Fonte: la lista instrument-driven (stessa del PDF/pannello).
+   opts.format: "excel-it" (sep ;) | "intl" (sep ,) | "ah" (Allen & Heath Director, best-effort). */
+function channelListCsv(opts){
+  opts=opts||{};
   var pl=(typeof patchList==="function")?patchList():{rows:[]};
+  var count=pl.rows.length;
+  if(opts.format==="ah"){
+    /* Allen & Heath Director (dLive/Avantis/SQ): CSV a sezioni, separatore virgola.
+       Best-effort dalla documentazione (colonne Name/Color/Phantom); DA VERIFICARE sulla console. */
+    var ah=pl.rows.map(function(r){ return ["Yes", r.name, "", r.p48?"Yes":"No"]; });
+    var body=rowsToCsv(["Enabled","Name","Color","Phantom"], ah, ",").replace(/^﻿/,"");
+    return { csv:"﻿[Channels]\r\n"+body, count:count };
+  }
+  var sep = opts.format==="intl" ? "," : ";";
   var rows=pl.rows.map(function(r){
     var patch=(r.patch && r.patch!=="—") ? r.patch : "";   /* "—" è il placeholder visivo del pannello, non un dato: nel CSV va vuoto */
     return [r.n, r.name, r.mic||"", r.p48?"48V":"", patch];
   });
-  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Phantom","Patch"], rows), count: rows.length };
+  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Phantom","Patch"], rows, sep), count: count };
 }
-function exportChannelCsv(){
-  var r=channelListCsv();
-  if(!r.count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return; }
-  downloadCsv(r.csv, fileName()+"-channel-list.csv");
-  try{ if(window.__sendEvent) window.__sendEvent({event:"export_csv",props:{rows:r.count}}); }catch(e){}
+function exportChannelCsv(opts){
+  var r=channelListCsv(opts);
+  if(!r.count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return false; }
+  var suffix = (opts&&opts.format==="ah") ? "-channel-list-AH.csv" : "-channel-list.csv";
+  downloadCsv(r.csv, fileName()+suffix);
+  try{ if(window.__sendEvent) window.__sendEvent({event:"export_csv",props:{rows:r.count, format:(opts&&opts.format)||"excel-it"}}); }catch(e){}
+  return true;
 }
-window.exportChannelCsv=exportChannelCsv;
+/* apre il piccolo dialogo di scelta formato (voce menu / bottone pannello) */
+function openCsvExport(){
+  if(!channelListCsv().count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return; }
+  var m=document.getElementById("csvPicker"); if(m) m.hidden=false; else exportChannelCsv();
+}
+window.exportChannelCsv=exportChannelCsv; window.openCsvExport=openCsvExport;
+(function(){
+  var m=document.getElementById("csvPicker"); if(!m) return;
+  m.querySelectorAll(".csvfmt").forEach(function(b){ b.addEventListener("click", function(){ if(exportChannelCsv({format:b.getAttribute("data-fmt")})) m.hidden=true; }); });
+  var c=document.getElementById("csvClose"); if(c) c.addEventListener("click", function(){ m.hidden=true; });
+  m.addEventListener("click", function(e){ if(e.target===m) m.hidden=true; });
+  document.addEventListener("keydown", function(e){ if(!m.hidden && e.key==="Escape") m.hidden=true; });
+})();
 
 /* tabella input/output a lato della planimetria (coord. SVG dell'export) */
 function channelTableSvg(x, top, w){
