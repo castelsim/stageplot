@@ -6691,16 +6691,51 @@ var FORM_TITLES = {
 /* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
    Fonte unica per i chip del welcome e per il sottomenu "Nuovo da modello". */
 var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"]];
+/* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
+   NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
+function detachCloudDoc(){
+  try{ window.__bootCloudId=null; localStorage.removeItem(LS_KEY+"_cloudid"); if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(_e){}
+}
 /* Piazza una formazione PRONTA sul palco (band/acustica/coro/…), riusando le formazioni esistenti
    con force=true → niente modale di review. Aggancia welcome-chips e menu "Nuovo da modello". */
 function startFromTemplate(f){
   var qd = (typeof formationData==="function") ? formationData(f) : null;
   if(!qd || !qd.out) return;
+  detachCloudDoc();   /* "Nuovo da modello" = documento NUOVO: stacca dal progetto cloud aperto o l'autosave lo sovrascrive */
   state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
   placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
   var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
   try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
   var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
+  render(); if(typeof fitStage==="function") fitStage(); render();
+}
+
+/* Modelli "per tipo di sala": dimensionano il palco (dimensioni TIPICHE del tipo di luogo, non di un luogo
+   specifico → sempre veri) e lo lasciano vuoto; l'utente ci mette la formazione. Misure in cm (w×d×altezza).
+   [chiave, etichetta, {w,d,h}]. */
+var VENUE_MODELS = [
+  ["club",       "Club / locale",       {w:600,  d:400,  h:20}],
+  ["teatro",     "Teatro",              {w:1000, d:800,  h:100}],
+  ["chiesa",     "Chiesa",              {w:800,  d:500,  h:0}],
+  ["auditorium", "Auditorium",          {w:1200, d:800,  h:60}],
+  ["festival",   "Festival / open-air", {w:1400, d:1000, h:150}],
+  ["piazza",     "Piazza",              {w:1000, d:800,  h:100}]
+];
+/* Azzera il palco e lo ridimensiona sul tipo di sala scelto. Stesso "atterraggio" di startFromTemplate. */
+function startFromVenue(v){
+  var V=null; for(var i=0;i<VENUE_MODELS.length;i++){ if(VENUE_MODELS[i][0]===v){ V=VENUE_MODELS[i]; break; } }
+  if(!V) return;
+  detachCloudDoc();   /* documento NUOVO: non sovrascrivere il progetto cloud aperto */
+  var d=V[2];
+  state.items=[];
+  state.stage={ w:d.w, d:d.d, blocks:[{x:0,y:0,w:d.w,d:d.d,h:(d.h||0)}] };
+  if(typeof recalcStageBBox==="function") recalcStageBBox();
+  state.titolo=V[1];
+  if(typeof clearSelection==="function") clearSelection();
+  save();
+  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
   render(); if(typeof fitStage==="function") fitStage(); render();
 }
 
@@ -10306,6 +10341,15 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var mp=document.getElementById("modelPicker");
   if(mp){
     fillMods(document.getElementById("mpMods"), function(){ mp.hidden=true; });
+    var vh=document.getElementById("mpVenues");   /* modelli "per tipo di sala": dimensionano il palco vuoto */
+    if(vh && typeof VENUE_MODELS!=="undefined"){
+      vh.innerHTML="";
+      VENUE_MODELS.forEach(function(m){
+        var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
+        b.addEventListener("click", function(){ startFromVenue(m[0]); mp.hidden=true; });
+        vh.appendChild(b);
+      });
+    }
     var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
     mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
     document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });
