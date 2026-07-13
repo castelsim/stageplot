@@ -4547,6 +4547,12 @@ function miniSvg(k, over){
       results.querySelector('[data-j="imp"]').addEventListener("click", function(){ document.getElementById("bHdrImport").click(); });
       return;
     }
+    if(q==="render"){   /* funzione INTERNA nascosta: solo con "render" ESATTO. Non è un elemento del palco. */
+      var rb=document.createElement("button"); rb.type="button"; rb.className="btn"; rb.style.cssText="width:100%;justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;height:auto";
+      rb.innerHTML='<span style="font-weight:700">Genera prompt render 3D</span><span style="font-size:11.5px;color:var(--text-2);font-weight:400">Crea un prompt realistico basato sullo stage plot corrente</span>';
+      rb.addEventListener("click", function(){ if(window.__openRender) window.__openRender(); });
+      results.appendChild(rb); return;
+    }
     var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>';
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
@@ -6889,6 +6895,139 @@ function drawVenuePlan(name, P){
 }
 
 /* (menu "Organico" e generatori organici rimossi dall'interfaccia su richiesta; formationData/buildOrchestraOut restano solo per le QA ?form=) */
+
+/* ============ RENDER 3D — generatore di prompt (funzione INTERNA NASCOSTA, per contenuti promo StagePlot.it) ============
+   Trasforma lo stage plot corrente in un prompt in linguaggio naturale + blocco JSON tecnico, da incollare in un
+   generatore d'immagini. NON genera l'immagine e NON usa API. Accesso: solo digitando "render" nella ricerca.
+   Sistema coordinate: origine = fondo-DESTRA (stage right, vista musicista); x cresce verso STAGE LEFT; y verso il PUBBLICO. */
+var RENDER_OPTS = { format:"Verticale 4:5 — Instagram", type:"Render 3D fotorealistico",
+  scene:"Palco allestito prima dell'evento", camera:"Tre quarti sopraelevata", env:"Automatico", people:"Mostrare i musicisti" };
+/* elementi puramente tecnici/grafici da NON rappresentare in una foto reale (prese, ciabatte, metro, testi liberi) */
+var RENDER_SKIP = { corrente:1, ciabatta:1, metro:1, testo:1 };
+function renderVisible(it){ return !RENDER_SKIP[it.type]; }
+function renderName(it){ return (it.label&&it.label.trim()) || (typeof instrBase==="function"&&instrBase(it.type)) || (TYPES[it.type]&&TYPES[it.type].nome) || it.type; }
+function renderZoneOf(it){
+  var W=state.stage.w||1200, D=state.stage.d||800, fx=it.x/W, fy=it.y/D;
+  return {
+    lr: fx<-0.02?"oltre il lato destro del palco": fx>1.02?"oltre il lato sinistro del palco": fx<0.34?"stage right (lato destro palco)": fx>0.66?"stage left (lato sinistro palco)":"al centro",
+    fb: fy<-0.02?"dietro il fondo palco": fy>1.02?"davanti al fronte, verso il pubblico": fy<0.34?"sul fondo palco": fy>0.66?"sul fronte palco":"a metà profondità",
+    outside:(fx<-0.02||fx>1.02||fy<-0.02||fy>1.02) };
+}
+function renderSectionOf(it){
+  var ty=it.type, t=TYPES[ty]||{};
+  if(ty==="vlnpost") return it.vsec===2?"Violini II":"Violini I";
+  var M={violapost:"Viole",violoncello:"Violoncelli",contrabbasso:"Contrabbassi",flauto:"Flauti",oboe:"Oboi",clarinetto:"Clarinetti",fagotto:"Fagotti",corno:"Corni",tromba:"Trombe",trombone:"Tromboni",tuba:"Tuba",saxalto:"Sax",saxtenore:"Sax",saxbaritono:"Sax",corista:"Coro"};
+  return M[ty] || t.sub || t.cat || (typeof INSTR_BASE!=="undefined"&&INSTR_BASE[ty]) || t.nome || ty;
+}
+function renderExtract(){
+  var raw=(state.items||[]);
+  var els=raw.filter(renderVisible).map(function(it){ var z=renderZoneOf(it);
+    return { id:it.id, type:it.type, name:renderName(it), section:renderSectionOf(it),
+      family:(TYPES[it.type]&&TYPES[it.type].cat)||"", zone:z.fb+", "+z.lr, outside:z.outside,
+      x:Math.round(it.x), y:Math.round(it.y), w:it.w||0, d:it.d||0, rot:Math.round(it.rot||0)%360 }; });
+  return { stage:{widthCm:state.stage.w, depthCm:state.stage.d, audienceDirection:"front"}, els:els, title:state.titolo||"", anyOutside:els.some(function(e){return e.outside;}) };
+}
+function renderEnsemble(els){
+  var s={}; els.forEach(function(e){ s[e.section]=(s[e.section]||0)+1; });
+  var strings=(s["Violini I"]||0)+(s["Violini II"]||0)+(s["Viole"]||0)+(s["Violoncelli"]||0)+(s["Contrabbassi"]||0);
+  var winds=(s["Flauti"]||0)+(s["Oboi"]||0)+(s["Clarinetti"]||0)+(s["Fagotti"]||0)+(s["Corni"]||0)+(s["Trombe"]||0)+(s["Tromboni"]||0);
+  var backline=els.filter(function(e){return e.type==="batteria"||e.type==="bassamp"||e.type==="stack"||e.type==="comboamp"||e.type==="stagepiano";}).length;
+  var voices=els.filter(function(e){return e.type==="astamic"||e.type==="cantante"||e.type==="corista";}).length;
+  if(!els.length) return {key:"vuoto", label:"palco vuoto"};
+  if(strings>=6 && winds>=1) return {key:"orchestra", label:"orchestra"};
+  if(strings>=3) return {key:"archi", label:"ensemble d'archi"};
+  if((s["Coro"]||0)>=6) return {key:"coro", label:"coro"};
+  if(els.some(function(e){return e.type==="contrabbasso";}) && els.some(function(e){return e.type==="batteria";}) && backline<=2) return {key:"jazz", label:"combo jazz"};
+  if(backline>=2) return {key:"band", label:"band pop/rock"};
+  if(voices===1 && els.length<=5) return {key:"solista", label:"solista"};
+  return {key:"ensemble", label:"ensemble dal vivo"};
+}
+/* raggruppa gli elementi per sezione con conteggio, per una descrizione sintetica e non ripetitiva */
+function renderGroups(els){
+  var g={}, order=[];
+  els.forEach(function(e){ var k=e.section+" | "+e.zone; if(!g[k]){ g[k]={section:e.section,zone:e.zone,n:0}; order.push(k); } g[k].n++; });
+  return order.map(function(k){ return g[k]; });
+}
+function renderPrompt(o){
+  var d=renderExtract(); o=o||RENDER_OPTS;
+  if(!d.els.length) return null;
+  var ens=renderEnsemble(d.els);
+  var W=(d.stage.widthCm||0)/100, D=(d.stage.depthCm||0)/100;
+  var envTxt = o.env==="Automatico" ? (ens.key==="orchestra"||ens.key==="coro"||ens.key==="archi"?"sala da concerto / teatro":ens.key==="band"||ens.key==="jazz"?"club o palco da festival":"palco neutro professionale") : o.env;
+  var L=[];
+  L.push("Crea un'unica immagine finale: un "+o.type.toLowerCase()+" di un palco per concerto, basato ESATTAMENTE sui dati dello stage plot descritti sotto. Non è una scena di fantasia: è la ricostruzione fedele di un palco reale.");
+  L.push("");
+  L.push("RUOLO: agisci come technical art director e visualizzatore 3D specializzato in concerti, produzioni live, orchestra, backline e sistemi audio professionali.");
+  L.push("");
+  L.push("OBIETTIVO: "+o.type+", formato "+o.format+", scena \""+o.scene+"\", vista camera \""+o.camera+"\". Massimo realismo e credibilità tecnica. Formazione riconosciuta: "+ens.label+".");
+  L.push("");
+  L.push("PRIORITÀ OBBLIGATORIE:");
+  ["rispetta la disposizione generale e le posizioni relative","rispetta numero e tipologia esatti degli elementi (non aggiungerne né toglierne)","mantieni vicini gli elementi vicini nello stage plot","rispetta le gerarchie fondo/centro/fronte palco","proporzioni plausibili","non spostare gli elementi per rendere l'immagine più spettacolare","non aggiungere strumenti, musicisti o attrezzatura assenti","non mostrare testi, coordinate, griglia o interfaccia software","niente estetica fantasy/futuristica/videogioco","privilegia leggibilità e credibilità tecnica"].forEach(function(p,i){ L.push((i+1)+". "+p+"."); });
+  L.push("");
+  L.push("PALCO: larghezza ~"+(W?W.toFixed(1)+" m":"non definita")+", profondità ~"+(D?D.toFixed(1)+" m":"non definita")+". Il pubblico è di fronte al palco. Ambiente: "+envTxt+".");
+  if(!W||!D) L.push("Le dimensioni esatte del palco non sono definite: usa una pedana proporzionata alla disposizione indicata.");
+  if(d.anyOutside) L.push("NB: alcuni elementi sono collocati oltre il bordo del palco (in sala / ai lati): rappresentali comunque nella posizione indicata.");
+  L.push("");
+  L.push("DISPOSIZIONE (linguaggio naturale, per zona — prioritaria sui numeri):");
+  renderGroups(d.els).forEach(function(gr){
+    L.push("• "+(gr.n>1?gr.n+"× ":"")+gr.section+" — "+gr.zone+(gr.n>1?" (mantieni "+gr.n+" elementi, disposti coerentemente, es. in fila o ad arco)":"")+".");
+  });
+  L.push("");
+  L.push("STAGE LEFT / STAGE RIGHT sono riferiti al punto di vista del musicista rivolto verso il pubblico (stage right = alla sua destra). Non invertirli con la destra/sinistra dell'inquadratura.");
+  L.push("");
+  var camTxt = o.camera==="Automatica"||o.camera==="Tre quarti sopraelevata" ? "vista a tre quarti obliqua, leggermente sopraelevata di ~25–35°, focale equivalente 28–35 mm, palco interamente leggibile e prospettiva naturale" : o.camera;
+  L.push("CAMERA: "+camTxt+".");
+  var lite = /concerto/i.test(o.scene) ? "illuminazione live coerente e realistica, atmosfera credibile, il pubblico resta secondario rispetto alla leggibilità del palco; niente fumo pesante o fasci esagerati" : "luce tecnica da allestimento e ambientale realistica, alcuni proiettori accesi per valorizzare la scena; nessun pubblico in delirio, niente fumo pesante, niente fasci eccessivi";
+  L.push("ILLUMINAZIONE: "+lite+".");
+  L.push(o.people==="Mostrare i musicisti" ? "MUSICISTI: un musicista credibile per ogni postazione, strumento corretto, posture naturali, abbigliamento coerente; mani e strumenti anatomicamente corretti; scena "+(/concerto/i.test(o.scene)?"in esecuzione":"pronta / in soundcheck")+"." : o.people==="Mostrare solo gli strumenti e l'attrezzatura" ? "SENZA MUSICISTI: mostra solo strumenti e attrezzatura, palco pronto, nessuna persona." : "MUSICISTI: mostra le persone solo dove la postazione lo richiede.");
+  L.push("MATERIALI: metallo, legno, tessuti, plastiche, cavi, membrane, piatti, leggii, sedie e superfici del palco con riflessi controllati, ombre fisicamente plausibili e qualità da fotografia commerciale professionale.");
+  L.push("");
+  L.push("NEGATIVE PROMPT (da evitare assolutamente): strumenti duplicati o mancanti; musicisti aggiuntivi; sedie vuote non previste; mani deformi; strumenti fusi col corpo; microfoni sospesi nel vuoto; leggii deformati; cavi casuali in eccesso; amplificatori inventati; prospettiva incoerente; palco troppo piccolo; oggetti sovrapposti; testo/loghi/watermark; interfaccia software; griglia; quote; stile cartoon o fantasy; estetica da videogioco; luci esagerate; pubblico che nasconde il palco.");
+  L.push("");
+  L.push("=== DATI TECNICI DELLO STAGE PLOT (per la ricostruzione — non riprodurre come testo nell'immagine) ===");
+  var jel=d.els.map(function(e){ return {type:e.type, label:e.name, xCm:e.x, yCm:e.y, wCm:e.w, dCm:e.d, rotationDeg:e.rot, zone:e.zone}; });
+  L.push(JSON.stringify({ stage:d.stage, camera:{view:o.camera, aspectRatio:(o.format.match(/[0-9]+:[0-9]+/)||["4:5"])[0]}, ensemble:ens.key, elements:jel }, null, 1));
+  return L.join("\n");
+}
+/* ---- UI Render 3D: apertura da ricerca "render", opzioni → prompt, copia ---- */
+(function(){
+  var mp=document.getElementById("renderModal"); if(!mp) return;
+  var ids=["rndFormat","rndType","rndScene","rndCamera","rndEnv","rndPeople"], keys=["format","type","scene","camera","env","people"];
+  var _last="";
+  function readOpts(){ ids.forEach(function(id,i){ var el=document.getElementById(id); if(el) RENDER_OPTS[keys[i]]=el.value; }); }
+  function regen(){
+    readOpts();
+    var d=renderExtract(), warn=document.getElementById("rndWarn"), copy=document.getElementById("rndCopy");
+    if(!d.els.length){ _last=""; warn.style.display="block"; warn.textContent="Aggiungi almeno un elemento allo stage plot prima di generare il render."; copy.disabled=true; copy.style.opacity=.5; document.getElementById("rndText").value=""; return; }
+    copy.disabled=false; copy.style.opacity="";
+    var w=[];
+    if(d.anyOutside) w.push("Alcuni elementi sono fuori dall'area del palco: verranno inclusi comunque.");
+    /* sovrapposizioni: coppie di elementi (sorgenti) troppo vicine */
+    var FLOOR={tappeto:1,pedana:1,pedanacoro:1,miczone:1};   /* elementi-area: SONO fatti per stare sotto/attorno agli altri, non è una sovrapposizione ambigua */
+    var ov=0; for(var i=0;i<d.els.length;i++){ if(FLOOR[d.els[i].type]) continue; for(var j=i+1;j<d.els.length;j++){ var a=d.els[i],b=d.els[j]; if(FLOOR[b.type]) continue;
+      if(Math.abs(a.x-b.x)<(a.w+b.w)/4 && Math.abs(a.y-b.y)<(a.d+b.d)/4){ ov++; } } }
+    if(ov) w.push("Sono presenti elementi sovrapposti: il render potrebbe risultare ambiguo.");
+    warn.style.display=w.length?"block":"none"; warn.textContent=w.join(" ");
+    _last=renderPrompt(RENDER_OPTS)||"";
+    document.getElementById("rndText").value=_last;
+  }
+  window.__openRender=function(){
+    var q=document.getElementById("catSearch"); if(q){ q.value=""; q.dispatchEvent(new Event("input")); }   /* chiudi i risultati della ricerca */
+    mp.hidden=false; document.getElementById("rndPreview").style.display="none"; regen();
+  };
+  ids.forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener("change", regen); });
+  document.getElementById("rndRegen").addEventListener("click", regen);
+  document.getElementById("rndShow").addEventListener("click", function(){ var p=document.getElementById("rndPreview"); p.style.display = p.style.display==="none"?"block":"none"; });
+  document.getElementById("rndClose").addEventListener("click", function(){ mp.hidden=true; });
+  mp.addEventListener("click", function(e){ if(e.target===mp) mp.hidden=true; });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !mp.hidden) mp.hidden=true; });
+  document.getElementById("rndCopy").addEventListener("click", function(){
+    if(!_last) return;
+    function done(){ if(window.__toast) window.__toast("Prompt render copiato"); }
+    try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(_last).then(done, function(){ var t=document.getElementById("rndText"); t.style.display="";document.getElementById("rndPreview").style.display="block"; t.select(); document.execCommand("copy"); done(); }); }
+      else { document.getElementById("rndPreview").style.display="block"; var t=document.getElementById("rndText"); t.select(); document.execCommand("copy"); done(); } }catch(e){ document.getElementById("rndPreview").style.display="block"; }
+  });
+})();
 
 /* ============ CHANNEL LIST (input / output per i fonici) ============ */
 /* mic/DI suggeriti per tipo (auto input list); valore = etichetta mic. multi = più canali per un solo elemento */

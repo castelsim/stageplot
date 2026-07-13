@@ -2368,6 +2368,30 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   </div>
 </div>
 
+<!-- Render 3D: funzione INTERNA nascosta (accesso solo via ricerca "render"). Genera un prompt per immagini AI. -->
+<div class="modal" id="renderModal" hidden>
+  <div class="mcard" style="width:520px;max-width:94vw;max-height:90vh;overflow:auto">
+    <h2>Render 3D dello stage plot</h2>
+    <div class="hint">Genera un prompt dettagliato da incollare in un generatore d'immagini (ChatGPT, Midjourney, Gemini…). Non genera l'immagine.</div>
+    <div id="renderOpts" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px">
+      <label class="rnd-f">Formato<select id="rndFormat"><option>Verticale 4:5 — Instagram</option><option>Orizzontale 16:9</option><option>Quadrato 1:1</option><option>Verticale 9:16</option><option>Personalizzato</option></select></label>
+      <label class="rnd-f">Tipo di immagine<select id="rndType"><option>Render 3D fotorealistico</option><option>Visualizzazione tecnica realistica</option><option>Illustrazione editoriale</option><option>Vista isometrica</option><option>Vista dall'alto realistica</option></select></label>
+      <label class="rnd-f">Stato della scena<select id="rndScene"><option>Palco allestito prima dell'evento</option><option>Soundcheck</option><option>Concerto in corso</option><option>Palco vuoto con sola attrezzatura</option></select></label>
+      <label class="rnd-f">Vista camera<select id="rndCamera"><option>Tre quarti sopraelevata</option><option>Automatica</option><option>Frontale dal pubblico</option><option>Laterale palco</option><option>Dall'alto</option><option>Dal fondo palco verso il pubblico</option></select></label>
+      <label class="rnd-f">Ambiente<select id="rndEnv"><option>Automatico</option><option>Teatro</option><option>Palazzetto</option><option>Festival outdoor</option><option>Piazza</option><option>Club</option><option>Studio televisivo</option><option>Ambiente neutro</option></select></label>
+      <label class="rnd-f">Persone<select id="rndPeople"><option>Mostrare i musicisti</option><option>Mostrare solo gli strumenti e l'attrezzatura</option><option>Automatico</option></select></label>
+    </div>
+    <div id="rndWarn" class="hint" style="color:var(--warning);display:none;margin:8px 0 0"></div>
+    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;align-items:center">
+      <button class="btn primary" id="rndCopy" style="flex:1;min-width:130px">Copia prompt</button>
+      <button class="btn" id="rndShow">Mostra prompt</button>
+      <button class="btn" id="rndRegen">Rigenera</button>
+      <button class="btn" id="rndClose" style="margin-left:auto">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="printAreaModal" hidden>
   <div class="mcard" style="width:480px;max-width:94vw">
     <h2>Area di stampa</h2>
