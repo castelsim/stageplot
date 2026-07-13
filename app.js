@@ -8933,6 +8933,8 @@ function dl(href,name){ var a=document.createElement("a"); a.href=href; a.downlo
 /* ===== Export CSV della channel list (discovery pro #1 + preset #4) — il service importa in
    Excel/console invece di ri-digitare il PDF a mano. Separatore scelto + BOM UTF-8 (accenti). ===== */
 function csvCell(v, sep){ v=(v==null?"":String(v)); return (v.indexOf(sep)>-1 || /["\n\r]/.test(v)) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+/* nome canale per Allen & Heath: accenti rimossi, solo alfanumerici+spazio, max 8 caratteri (vincolo console) */
+function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
 function rowsToCsv(headers, rows, sep){
   sep=sep||";";
   var out=[]; if(headers) out.push(headers.map(function(c){ return csvCell(c,sep); }).join(sep));
@@ -8952,11 +8954,12 @@ function channelListCsv(opts){
   var pl=(typeof patchList==="function")?patchList():{rows:[]};
   var count=pl.rows.length;
   if(opts.format==="ah"){
-    /* Allen & Heath Director (dLive/Avantis/SQ): CSV a sezioni, separatore virgola.
-       Best-effort dalla documentazione (colonne Name/Color/Phantom); DA VERIFICARE sulla console. */
-    var ah=pl.rows.map(function(r){ return ["Yes", r.name, "", r.p48?"Yes":"No"]; });
-    var body=rowsToCsv(["Enabled","Name","Color","Phantom"], ah, ",").replace(/^﻿/,"");
-    return { csv:"﻿[Channels]\r\n"+body, count:count };
+    /* Allen & Heath Director (dLive/Avantis): colonne Director documentate, separatore virgola, NO BOM.
+       Nomi max 8 caratteri ALFANUMERICI senza accenti (vincolo A&H: äöüéß non ammessi, >8 char troncati);
+       "-" = cella ignorata all'import; valori yes/no minuscoli. Fonte: doc A&H + tool community dlive-midi-tools.
+       DA VERIFICARE sulla console prima dell'evento. */
+    var ah=pl.rows.map(function(r){ return ["yes", ahName(r.name), "-", "-", "-", "-", "-", r.p48?"yes":"no"]; });
+    return { csv: rowsToCsv(["Enabled","Name","Color","Source","Socket","Gain","Pad","Phantom"], ah, ",").replace(/^﻿/,""), count:count };
   }
   var sep = opts.format==="intl" ? "," : ";";
   var rows=pl.rows.map(function(r){
