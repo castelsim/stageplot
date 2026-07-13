@@ -2622,6 +2622,25 @@ function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl &&
    non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
    ritorno sulla home ci si ritrova il progetto altrui come proprio, e l'autosave ne creerebbe una copia cloud). */
 function foreignDoc(){ return !!window.__consultMode || document.body.classList.contains("viewmode"); }
+/* ===== BLOCCO PROGETTI: sola-lettura del progetto cloud bloccato (spec 13/07) =====
+   window.__projLocked = il progetto cloud APERTO è bloccato → editor sola-lettura.
+   Difesa in profondità: (1) guardie di persistenza (persist/autosave/save no-op), (2) CSS body.proj-ro
+   (superfici di editing non interattive), (3) guardia tastiera, (4) trigger DB (backstop non aggirabile). */
+window.__projLocked=false;
+function applyProjLock(locked){
+  window.__projLocked=!!locked;
+  document.body.classList.toggle("proj-ro", !!locked);
+  var bar=document.getElementById("lockBar");
+  if(locked){
+    if(!bar){ bar=document.createElement("div"); bar.id="lockBar"; bar.setAttribute("role","status");
+      bar.innerHTML='<span class="lb-msg"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>Progetto bloccato</b> — Sola lettura</span><button type="button" id="lockUnlock">Sblocca</button>';
+      document.body.appendChild(bar);
+      bar.querySelector("#lockUnlock").addEventListener("click", function(){ if(window.__cloud && window.__cloud.unlockCurrent) window.__cloud.unlockCurrent(); });
+    }
+    bar.hidden=false;
+  } else if(bar){ bar.hidden=true; }
+}
+window.applyProjLock=applyProjLock;
 /* Nudge cloud-only (spec 2026-07-03): al primo export riuscito della sessione, se anonimo, ricorda
    che il progetto vive solo su questo dispositivo. Una volta sola, mai in viewer/consulenza. */
 var loginNudgeShown=false;
@@ -2654,7 +2673,7 @@ track("app_open");
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
    modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
 function persistLocalState(){
-  if(foreignDoc()) return;
+  if(foreignDoc() || window.__projLocked) return;   /* progetto bloccato: nessuna scrittura (né locale né cloud) */
   try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
   /* attivazione (quality gate): 3° elemento raggiunto, una volta per sessione */
   try{ if(!__activatedSent && state.items && state.items.length>=3){ __activatedSent=true; track("project_activated"); } }catch(e){}
@@ -2737,6 +2756,7 @@ function scheduleCloudRetry(){
 function cloudAutosaveNow(){
   var C=window.__cloud;
   clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* questo tentativo sostituisce l'eventuale retry pendente */
+  if(window.__projLocked) return;   /* progetto bloccato: mai sovrascrivere il cloud */
   if(!C || !C.user()){ setDocState("offline-warn"); _cloudRetryStep=0; return; }
   if(window.__cloudConflict){ setDocState("conflict"); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   setDocState("saving");
@@ -2747,14 +2767,14 @@ function cloudAutosaveNow(){
   }, true);
 }
 function scheduleCloudAutosave(){
-  if(window.__consultMode || document.body.classList.contains("viewmode")) return;  /* la consulenza ha il suo autosave */
+  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked) return;  /* consulenza: autosave proprio · bloccato: read-only */
   var C=window.__cloud;
   if(!C || !C.user()){ setDocState("offline-warn"); return; }
   _cloudRetryStep=0; clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* una modifica dell'utente riparte da capo */
   clearTimeout(_cloudAsT); _cloudAsT=setTimeout(cloudAutosaveNow, 10000);
 }
 function flushCloudAutosave(){
-  if(window.__consultMode || document.body.classList.contains("viewmode")) return;
+  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked) return;
   clearTimeout(_cloudAsT); cloudAutosaveNow();
 }
 /* ritenta SUBITO quando la rete torna o quando l'utente riapre la scheda — ma solo se c'è un salvataggio in sospeso */
@@ -7110,6 +7130,11 @@ document.addEventListener("keydown", function(e){
   if(!strModal.hidden && e.key==="Escape"){ strModal.hidden=true; return; }
   var legM=document.getElementById("legniModal"); if(!legM.hidden && e.key==="Escape"){ legM.hidden=true; return; }
   var ottM=document.getElementById("ottoniModal"); if(!ottM.hidden && e.key==="Escape"){ ottM.hidden=true; return; }
+  if(window.__projLocked){   /* progetto bloccato: blocca le scorciatoie che modificano (elimina/incolla/undo/redo/duplica/sposta/salva versione) */
+    if(e.key!=="Escape" && (e.key==="Delete"||e.key==="Backspace"||/^Arrow/.test(e.key) || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|s|x)$/i.test(e.key)))){
+      e.preventDefault(); if(window.__toast) window.__toast("Il progetto è bloccato. Sbloccalo per modificarlo."); return;
+    }
+  }
   if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.fileSaveVersion) fileSaveVersion(); return; }
   /* ⌘N = nuovo progetto (richiesta Simone). NB: Chrome spesso NON consegna ⌘N alla pagina (finestra
      nuova riservata) — per questo vale anche ⌥⌘N, sempre consegnato. e.code copre l'Alt su Mac. */
@@ -12098,6 +12123,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
           '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
           '<button class="cloudDup" data-id="'+p.id+'" title="Duplica" aria-label="Duplica" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'+
           '<button class="cloudShareRow'+(p.share_token?' is-shared':'')+'" data-id="'+p.id+'" title="'+(p.share_token?'Condiviso · clicca per gestire':'Condividi con un link')+'" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md);position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
+          '<button class="cloudLock" data-id="'+p.id+'" data-locked="'+(p.is_locked?1:0)+'" title="'+(p.is_locked?"Progetto bloccato · clicca per sbloccare":"Blocca progetto")+'" aria-label="'+(p.is_locked?"Sblocca progetto":"Blocca progetto")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--warning)":"var(--text-2)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="'+(p.is_locked?"M7 11V7a5 5 0 0 1 10 0v4":"M7 11V7a5 5 0 0 1 9.9-1")+'"/></svg></button>'+
           '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
@@ -12117,6 +12143,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDup"), function(b){ b.addEventListener("click", function(){ dupProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudShareRow"), function(b){ b.addEventListener("click", function(){ shareRow(b.getAttribute("data-id")); }); });
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudLock"), function(b){ b.addEventListener("click", function(){ toggleLock(b.getAttribute("data-id"), b.getAttribute("data-locked")==="1"); }); });
   }
 
   function signIn(){
@@ -12171,6 +12198,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function saveProject(onSaved, silent){
     /* silent=true → autosave (V2): niente toast, niente prompt nome (default "Senza titolo"), esito via onSaved(id|null) */
+    if(window.__projLocked && cloudCurrentId){ if(typeof onSaved==="function") onSaved(cloudCurrentId); return; }   /* BLOCCO: mai riscrivere un progetto bloccato (backstop lato client) */
     if(cloudConflict){ if(typeof onSaved==="function") onSaved(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
     if(!sb){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else toast("Cloud non disponibile.", true); return; }
     if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
@@ -12237,19 +12265,26 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function loadProjects(){
     if(!sb || !cloudUser) return;
-    sb.from("stageplot_projects").select("id,title,updated_at,share_token").is("deleted_at",null).order("updated_at",{ascending:false})
+    sb.from("stageplot_projects").select("id,title,updated_at,share_token,is_locked").is("deleted_at",null).order("updated_at",{ascending:false})
       .then(function(r){
         if(r.error){ toast("Impossibile leggere i progetti: "+r.error.message, true); return; }
         cloudProjects=r.data||[];
+        if(cloudCurrentId){ var cur=cloudProjects.filter(function(x){ return x.id===cloudCurrentId; })[0];   /* boot/refresh: se il progetto agganciato è bloccato → sola-lettura */
+          if(window.applyProjLock) window.applyProjLock(!!(cur && cur.is_locked)); }
         if(modalOpen()) renderModal();
       });
   }
 
   function openProject(id){
     if(!sb) return;
-    sb.from("stageplot_projects").select("data,title,updated_at").eq("id",id).single().then(function(r){
+    sb.from("stageplot_projects").select("data,title,updated_at,is_locked").eq("id",id).single().then(function(r){
       if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
-      try{ exitConflict(); importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; setRev(r.data.updated_at); persistLocalState(); toast("✓ Progetto aperto."); closeModal(); }
+      try{
+        if(window.applyProjLock) window.applyProjLock(false);   /* azzera un eventuale blocco precedente PRIMA del persist del nuovo progetto */
+        exitConflict(); importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; setRev(r.data.updated_at); persistLocalState();
+        if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);   /* bloccato → editor sola-lettura */
+        toast(r.data.is_locked?"✓ Progetto aperto (bloccato · sola lettura).":"✓ Progetto aperto."); closeModal();
+      }
       catch(e){ toast("Il progetto salvato non è valido.", true); }
     });
   }
@@ -12276,15 +12311,43 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         toast("Progetto eliminato."); loadProjects();
       });
     };
+    var pj=cloudProjects.filter(function(x){ return x.id===id; })[0], locked=pj&&pj.is_locked;
     if(typeof window.confirmDialog==="function"){
-      window.confirmDialog({ icon:"trash", title:"Eliminare questo progetto?",
-        message:"Il progetto salvato online verrà rimosso definitivamente. L'azione non è reversibile.",
+      window.confirmDialog({ icon:"trash", title: locked?"Eliminare un progetto BLOCCATO?":"Eliminare questo progetto?",
+        message: locked ? "Questo progetto è bloccato e potrebbe essere una versione approvata. Eliminarlo definitivamente? L'azione non è reversibile."
+                        : "Il progetto salvato online verrà rimosso definitivamente. L'azione non è reversibile.",
         confirmText:"Elimina" }).then(function(ok){ if(ok) go(); });
-    } else if(typeof window.confirm!=="function" || window.confirm("Eliminare questo progetto salvato online?")){
+    } else if(typeof window.confirm!=="function" || window.confirm(locked?"Questo progetto è BLOCCATO. Eliminarlo definitivamente?":"Eliminare questo progetto salvato online?")){
       go();
     }
   }
 
+  /* Blocco/sblocco progetto. La protezione reale è nel trigger DB (0012) + nelle guardie client. */
+  function doLockUpdate(id, v){
+    sb.from("stageplot_projects").update({ is_locked:v }).eq("id", id).select("updated_at").single().then(function(r){
+      if(r.error || !r.data){ toast("Impossibile aggiornare il blocco. Riprova.", true); return; }
+      if(id===cloudCurrentId){ if(r.data.updated_at) setRev(r.data.updated_at); if(window.applyProjLock) window.applyProjLock(v); }
+      toast(v?"Progetto bloccato":"Progetto sbloccato"); loadProjects();
+    }, function(){ toast("Impossibile aggiornare il blocco. Riprova.", true); });
+  }
+  function toggleLock(id, currentlyLocked){
+    if(!sb || !cloudUser) return;
+    if(currentlyLocked){   /* SBLOCCA */
+      confirmOr("Sbloccare questo progetto?", "Le modifiche saranno nuovamente consentite.", "Sblocca", "warn", function(){ doLockUpdate(id, false); });
+      return;
+    }
+    /* BLOCCA: se è il progetto aperto, salva PRIMA (non perdere modifiche non salvate), poi blocca */
+    confirmOr("Bloccare questo progetto?", "Non potrà essere modificato finché non verrà sbloccato.", "Blocca", "warn", function(){
+      if(id===cloudCurrentId && !window.__projLocked){
+        saveProject(function(sid){ if(sid){ doLockUpdate(id, true); } else { toast("Impossibile salvare prima di bloccare. Riprova.", true); } }, true);
+      } else { doLockUpdate(id, true); }
+    });
+  }
+  function unlockCurrent(){ if(cloudCurrentId) toggleLock(cloudCurrentId, true); }
+  function confirmOr(title, msg, okTxt, icon, cb){
+    if(typeof window.confirmDialog==="function"){ window.confirmDialog({ icon:icon||"warn", title:title, message:msg, confirmText:okTxt }).then(function(ok){ if(ok) cb(); }); }
+    else if(typeof window.confirm!=="function" || window.confirm(title+" "+msg)){ cb(); }
+  }
   function updateBtn(){
     var b=document.getElementById("bCloud"); if(!b) return;
     b.textContent = cloudUser ? "☁ Cloud ●" : "☁ Cloud";
@@ -12315,9 +12378,10 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   window.__cloud = {
     user: function(){ return cloudUser; },
     currentId: function(){ return cloudCurrentId; },
-    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); exitConflict(); } },
+    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } },   /* documento staccato/nuovo: mai bloccato */
     signIn: signIn,
     save: saveProject,
+    unlockCurrent: unlockCurrent,   /* usato dalla barra "🔒 Progetto bloccato — Sblocca" */
     ensureShareTokenFor: ensureShareTokenFor,
     clearShareTokenFor: clearShareTokenFor,
     /* token di sessione fresco per l'Authorization header (audit S5: identità del feedback lato server) */
