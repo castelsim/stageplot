@@ -1757,6 +1757,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       </div>
       <select id="pBy" hidden><option value="">Non specificato</option><option value="Band">Band</option><option value="Service">Service</option></select>
     </div>
+    <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
+      <div class="row">
+        <span><input type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
+        <span><input type="text" id="pBand" placeholder="banda (UHF…)" list="rfBandList"></span>
+      </div>
+      <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
+    </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>
