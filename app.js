@@ -5939,7 +5939,7 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="c"||e.key==="C")){ e.preventDefault(); copySel(); return; }   /* Cmd/Ctrl+C copia */
   if((e.metaKey||e.ctrlKey) && (e.key==="v"||e.key==="V")){ e.preventDefault(); pasteClip(); return; }  /* Cmd/Ctrl+V incolla */
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
-  if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fitStage(); return; }   /* "a" → adatta la vista al palco */
+  if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fit(); return; }   /* "a" → adatta la vista al contenuto (palco + elementi, anche fuori palco), come il bottone Adatta */
   var it=getSel(), step = e.shiftKey?25:5;
   if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; selMond=null; closeCabMenu(); collapseCats(); render(); }
   if(!it) return;
