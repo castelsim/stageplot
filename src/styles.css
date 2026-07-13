@@ -1055,8 +1055,13 @@ body.viewmode main { position: fixed; inset: 44px 0 0 0; }
    restano usabili header (esporta/condividi/File/duplica/sblocca), pan/zoom e la barra di blocco. */
 body.proj-ro #catalog,
 body.proj-ro #props,
+body.proj-ro #titolo,
 body.proj-ro #bUndo, body.proj-ro #bRedo,
-body.proj-ro #mUndo, body.proj-ro #mRedo { pointer-events: none; opacity: .55; }
+body.proj-ro #mUndo, body.proj-ro #mRedo { pointer-events: none; }
+body.proj-ro #catalog,
+body.proj-ro #props,
+body.proj-ro #bUndo, body.proj-ro #bRedo,
+body.proj-ro #mUndo, body.proj-ro #mRedo { opacity: .55; }
 body.proj-ro .item,
 body.proj-ro .rot-handle,
 body.proj-ro .rs-handle,
