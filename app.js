@@ -6713,30 +6713,84 @@ function startFromTemplate(f){
 /* Modelli "per tipo di sala": dimensionano il palco (dimensioni TIPICHE del tipo di luogo, non di un luogo
    specifico → sempre veri) e lo lasciano vuoto; l'utente ci mette la formazione. Misure in cm (w×d×altezza).
    [chiave, etichetta, {w,d,h}]. */
+/* [chiave, etichetta, {form: formazione da piazzare, h: altezza palco cm, house: pubblico}] */
 var VENUE_MODELS = [
-  ["club",       "Club / locale",       {w:600,  d:400,  h:20}],
-  ["teatro",     "Teatro",              {w:1000, d:800,  h:100}],
-  ["chiesa",     "Chiesa",              {w:800,  d:500,  h:0}],
-  ["auditorium", "Auditorium",          {w:1200, d:800,  h:60}],
-  ["festival",   "Festival / open-air", {w:1400, d:1000, h:150}],
-  ["piazza",     "Piazza",              {w:1000, d:800,  h:100}]
+  ["club",       "Club / locale",       {form:"acoustic",  h:20,  house:"open"}],
+  ["teatro",     "Teatro",              {form:"camera",    h:100, house:"seats"}],
+  ["chiesa",     "Chiesa",              {form:"coro",      h:0,   house:"pews"}],
+  ["auditorium", "Auditorium",          {form:"jazzcombo", h:60,  house:"seats"}],
+  ["festival",   "Festival / open-air", {form:"band",      h:150, house:"open"}],
+  ["piazza",     "Piazza",              {form:"bigband",   h:100, house:"open"}]
 ];
-/* Azzera il palco e lo ridimensiona sul tipo di sala scelto. Stesso "atterraggio" di startFromTemplate. */
+/* Modello "per tipo di sala": esempio COMPLETO = formazione adatta piazzata (riusa le formazioni) +
+   altezza tipica della sala + una PIANTA di sfondo generata (mostra la funzione Planimetria). */
 function startFromVenue(v){
   var V=null; for(var i=0;i<VENUE_MODELS.length;i++){ if(VENUE_MODELS[i][0]===v){ V=VENUE_MODELS[i]; break; } }
   if(!V) return;
+  var P=V[2];
   detachCloudDoc();   /* documento NUOVO: non sovrascrivere il progetto cloud aperto */
-  var d=V[2];
-  state.items=[];
-  state.stage={ w:d.w, d:d.d, blocks:[{x:0,y:0,w:d.w,d:d.d,h:(d.h||0)}] };
-  if(typeof recalcStageBBox==="function") recalcStageBBox();
+  var qd = (typeof formationData==="function") ? formationData(P.form) : null;
+  if(qd && qd.out){ placeOut(qd.out, true, true, true); }   /* adatta il palco alla formazione + azzera + force */
+  else { state.items=[]; state.stage={w:1000,d:700,blocks:[{x:0,y:0,w:1000,d:700}]}; if(typeof recalcStageBBox==="function") recalcStageBBox(); }
+  if(state.stage.blocks && state.stage.blocks[0]) state.stage.blocks[0].h=(P.h||0);   /* altezza tipica della sala */
+  try{ makeVenueBackdrop(V[1], P.house); }catch(_e){}   /* pianta di sfondo (dimostra "Planimetria") */
+  if(typeof persistVenueImg==="function") persistVenueImg();
   state.titolo=V[1];
   if(typeof clearSelection==="function") clearSelection();
   save();
   var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
   try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
   var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
-  render(); if(typeof fitStage==="function") fitStage(); render();
+  render();
+  if(typeof fitTo==="function" && state.venue){ fitTo(state.venue.x-state.venue.w/2, state.venue.y-state.venue.h/2, state.venue.w, state.venue.h); }   /* inquadra sala + platea */
+  else if(typeof fitStage==="function"){ fitStage(); }
+  render();
+}
+/* Genera una PIANTA schematica (vista dall'alto) come immagine di sfondo: sala + fronte palco + pubblico + FOH.
+   Disegnata su canvas → PNG (l'app accetta solo raster, non SVG). Posizionata in coord. mondo dietro/attorno al palco. */
+function makeVenueBackdrop(name, house){
+  var W=state.stage.w, D=state.stage.d; if(!W || !D) return;
+  var mX=Math.round(W*0.16), mBack=Math.round(D*0.16), aud=Math.round(Math.max(D*0.85, 320));
+  var vw=W+2*mX, vh=mBack+D+aud, cx=Math.round(W/2), cy=Math.round((-mBack+D+aud)/2);
+  var sc=0.2, cw=Math.max(60,Math.round(vw*sc)), chp=Math.max(60,Math.round(vh*sc));
+  var cvs=document.createElement("canvas"); cvs.width=cw; cvs.height=chp;
+  var g=cvs.getContext("2d"); if(!g) return;
+  function X(wx){ return (wx+mX)*sc; }
+  function Y(wy){ return (wy+mBack)*sc; }
+  function rr(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+  var ink="#7c8595", soft="#b9c0cb";
+  g.lineJoin="round"; g.lineCap="round";
+  /* contorno sala */
+  g.strokeStyle=ink; g.lineWidth=Math.max(1.5, cw*0.006); rr(3,3,cw-6,chp-6,Math.min(cw,chp)*0.035); g.stroke();
+  /* fronte palco (apron) */
+  var yF=Y(D), xL=X(0), xR=X(W);
+  g.strokeStyle=soft; g.lineWidth=Math.max(1, cw*0.005);
+  g.beginPath(); g.moveTo(xL,yF); g.lineTo(xR,yF); g.stroke();
+  /* pubblico */
+  var hTop=yF+(chp-yF)*0.08, hBot=chp-Math.max(8,chp*0.03), hL=xL+(xR-xL)*0.05, hR=xR-(xR-xL)*0.05, hW=hR-hL;
+  g.strokeStyle=soft; g.fillStyle=soft; g.lineWidth=Math.max(1, cw*0.004);
+  if(house==="seats" || house==="pews"){
+    var rows=6, aisle=(house==="pews")?hW*0.10:hW*0.04, blocks=(house==="pews")?2:3;
+    var gap=aisle, blkW=(hW-gap*(blocks-1))/blocks, rowGap=(hBot-hTop)/(rows*1.6), seatH=rowGap*0.62;
+    for(var r=0;r<rows;r++){ var yy=hTop+r*rowGap*1.6;
+      for(var b=0;b<blocks;b++){ var bx=hL+b*(blkW+gap), seats=Math.max(3,Math.round(blkW/(Math.max(6,cw*0.02)))), sw=blkW/seats;
+        for(var s=0;s<seats;s++){ rr(bx+s*sw+sw*0.14, yy, sw*0.72, seatH, seatH*0.25); g.fill(); }
+      }
+    }
+  } else {   /* open = pubblico in piedi: barriera + folla a puntini */
+    g.beginPath(); g.moveTo(hL,hTop); g.lineTo(hR,hTop); g.stroke();   /* barriera */
+    var dr=Math.max(1.2, cw*0.006);
+    for(var yy2=hTop+dr*4; yy2<hBot-dr*4; yy2+=dr*5){ for(var xx=hL+dr*3; xx<hR-dr*3; xx+=dr*5){
+      if((Math.round(xx)+Math.round(yy2))%2===0){ g.beginPath(); g.arc(xx,yy2,dr,0,6.28); g.fill(); } } }
+  }
+  /* FOH / regia al centro fondo pubblico */
+  var fw=hW*0.13, fh=(hBot-hTop)*0.11, fx=hL+hW/2-fw/2, fy=hBot-fh;
+  g.strokeStyle=ink; g.lineWidth=Math.max(1, cw*0.005); rr(fx,fy,fw,fh,fh*0.18); g.stroke();
+  g.fillStyle=ink; g.font="600 "+Math.max(6,Math.round(chp*0.022))+"px sans-serif"; g.textAlign="center"; g.textBaseline="middle";
+  g.fillText("FOH", fx+fw/2, fy+fh/2);
+  var url=cvs.toDataURL("image/png");
+  state.venue={enabled:true, locked:true, name:"Pianta — "+name, x:cx, y:cy, w:vw, h:vh, rot:0, opacity:34, calibration:null, _dataUrl:url, _imgW:cw, _imgH:chp};
+  if(typeof cacheVenueImg==="function") cacheVenueImg(state.venue);
 }
 
 /* (menu "Organico" e generatori organici rimossi dall'interfaccia su richiesta; formationData/buildOrchestraOut restano solo per le QA ?form=) */
