@@ -5920,7 +5920,7 @@ document.addEventListener("keydown", function(e){
   if(!strModal.hidden && e.key==="Escape"){ strModal.hidden=true; return; }
   var legM=document.getElementById("legniModal"); if(!legM.hidden && e.key==="Escape"){ legM.hidden=true; return; }
   var ottM=document.getElementById("ottoniModal"); if(!ottM.hidden && e.key==="Escape"){ ottM.hidden=true; return; }
-  if(window.__projLocked){   /* progetto bloccato: blocca le scorciatoie che modificano (elimina/incolla/undo/redo/duplica/sposta/salva versione) */
+  if(window.__projLocked && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){   /* progetto bloccato: blocca le scorciatoie che modificano, MA non dentro i campi di testo (dialoghi permessi: Esporta PDF, ecc.) */
     if(e.key!=="Escape" && (e.key==="Delete"||e.key==="Backspace"||/^Arrow/.test(e.key) || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|s|x)$/i.test(e.key)))){
       e.preventDefault(); if(window.__toast) window.__toast("Il progetto è bloccato. Sbloccalo per modificarlo."); return;
     }
