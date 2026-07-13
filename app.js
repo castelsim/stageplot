@@ -10474,6 +10474,7 @@ function gallery(){
     if(!isEditor){ document.body.classList.add("viewmode"); window.__consultMode=true; document.body.classList.add("consult-viewer"); }   /* 1C: il cliente vede la channel list live (read-only) — preserva i dati */
     if(isEditor){ window.__consultMode=true; document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
     importProject(JSON.stringify(d.data));
+    if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
     var ch=sb.channel("consulenza:"+token, {config:{broadcast:{self:false}, presence:{key:isEditor?"editor":"viewer"}}});
     if(isEditor){
       window.__rtBroadcast=function(s){ ch.send({type:"broadcast", event:"state", payload:{json:s}}); };
@@ -10495,6 +10496,7 @@ function gallery(){
   function startSharedProject(token, d){
     document.body.classList.add("viewmode");
     importProject(JSON.stringify(d.data));
+    if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
     showBar("viewer", "");
     var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
     var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;
@@ -10698,6 +10700,18 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
      touch su updated_at) la guardia è attiva; senza, updated_at non cambia mai → guardia inerte. */
   var cloudRev=null; try{ cloudRev=localStorage.getItem(LS_KEY+"_cloudrev")||null; }catch(e){}
   var cloudConflict=false, confBar=null;
+  /* PERF planimetria (0013): l'immagine sta in una colonna dedicata `venue_image`, scritta SOLO quando cambia.
+     firma leggera dell'immagine corrente; se combacia con l'ultima scritta nel cloud, non la ri-carichiamo. */
+  var _lastCloudImgSig=null;
+  function venueImgSig(v){ return (v && v._dataUrl) ? ((v.name||"")+"|"+v._dataUrl.length) : ""; }
+  function venueImgField(){ var v=state.venue; return (v && v._dataUrl) ? JSON.stringify({name:v.name,_dataUrl:v._dataUrl,_imgW:v._imgW,_imgH:v._imgH}) : null; }
+  function applyVenueImage(raw){   /* applica `venue_image` (dal cloud) allo state + cache/persist locale per il reload */
+    if(!raw) return false;
+    try{ var vi=JSON.parse(raw); if(vi && vi._dataUrl){ state.venue=state.venue||{name:vi.name}; state.venue._dataUrl=vi._dataUrl; state.venue._imgW=vi._imgW; state.venue._imgH=vi._imgH;
+      if(typeof cacheVenueImg==="function") cacheVenueImg(state.venue); if(typeof persistVenueImg==="function") persistVenueImg(); return true; } }catch(e){}
+    return false;
+  }
+  window.__applyVenueImage=applyVenueImage;   /* usato dal viewer condiviso (IIFE separato) per mostrare la planimetria */
   function setRev(v){ cloudRev=v||null; try{ if(v) localStorage.setItem(LS_KEY+"_cloudrev", v); else localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(e){} }
   function exitConflict(){ cloudConflict=false; window.__cloudConflict=false; if(confBar){ confBar.remove(); confBar=null; } }
   function enterConflict(){
@@ -10713,10 +10727,11 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     confBar.querySelector("#cbLoad").addEventListener("click", function(){
       /* rete di sicurezza: il lavoro locale finisce nella cronologia versioni prima di essere rimpiazzato */
       try{ if(typeof saveVersion==="function") saveVersion("Prima dell'aggiornamento "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})); }catch(e){}
-      sb.from("stageplot_projects").select("data,title,updated_at").eq("id",cloudCurrentId).single().then(function(r){
+      sb.from("stageplot_projects").select("data,title,updated_at,venue_image").eq("id",cloudCurrentId).single().then(function(r){
         if(r.error||!r.data){ toast("Caricamento non riuscito. Riprova.", true); return; }
         try{
           importProject(JSON.stringify(r.data.data));
+          var gi=applyVenueImage(r.data.venue_image); _lastCloudImgSig = gi ? venueImgSig(state.venue) : ((state.venue && state.venue._dataUrl) ? "__migrate__" : "");
           setRev(r.data.updated_at); exitConflict(); persistLocalState();
           if(window.setDocState) window.setDocState("online");
           toast("✓ Caricata la versione più recente.");
@@ -10899,16 +10914,18 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
     function doSave(thumb){
-      var fields={ title:projTitle(), data:Object.assign(JSON.parse(JSON.stringify(state)), {_v:SCHEMA_VERSION}) };   /* serializzazione COMPLETA: include la planimetria (_dataUrl); +versione R-ORA-1 */
+      var fields={ title:projTitle(), data:JSON.parse(stateToJSON()) };   /* data LEGGERO: stateToJSON strippa l'immagine planimetria (ora in colonna venue_image) + include _v */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
       var wasInsert=!cloudCurrentId;
+      var _imgSig=venueImgSig(state.venue), _writeImg = wasInsert || (_imgSig!==_lastCloudImgSig);   /* planimetria: la ri-carichiamo SOLO se cambiata (perf: niente MB ad ogni autosave) */
+      if(_writeImg) fields.venue_image = venueImgField();
       var q;
       if(cloudCurrentId){
         q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId);
         if(cloudRev) q=q.eq("updated_at", cloudRev);   /* guardia di versione: scrivi solo se nessun altro ha salvato nel frattempo */
         q=q.select().single();
       } else {
-        q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:fields.title, data:fields.data, thumbnail:thumb||null }).select().single();
+        q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:fields.title, data:fields.data, thumbnail:thumb||null, venue_image:(_writeImg?fields.venue_image:null)||null }).select().single();
       }
       q.then(function(r){
         if(r.error){
@@ -10930,6 +10947,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         }
         if(r.data && r.data.id) cloudCurrentId=r.data.id;
         if(r.data && r.data.updated_at) setRev(r.data.updated_at);
+        if(_writeImg) _lastCloudImgSig=_imgSig;   /* immagine planimetria ora allineata nel cloud → non ri-caricarla finché non cambia */
         if(wasInsert) window.__sendEvent({event:"cloud_first_save",props:{}});
         persistLocalState();   /* riallinea stato+aggancio persistiti (copre anche insert appena nati) */
         if(!silent){ toast("✓ Salvato online."); loadProjects(); }
@@ -10952,6 +10970,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
         if(!d || d.error || !d.data){ toast("Impossibile completare la copia.", true); return; }
         cloudCurrentId=null;   /* PRIMA dell'import: il persist dentro importProject non deve agganciare la copia al vecchio progetto */
         try{ importProject(JSON.stringify(d.data)); }catch(e){ toast("Copia non valida.", true); return; }
+        applyVenueImage(d.venue_image);   /* la copia tiene la planimetria (colonna dedicata) */
         try{ state.titolo="Copia di "+(d.title||"progetto"); }catch(e){}
         saveProject(function(){ toast("✓ Copia creata nel tuo account."); try{ history.replaceState(null,"",location.pathname); }catch(e){} });
       })
@@ -10972,11 +10991,14 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
 
   function openProject(id){
     if(!sb) return;
-    sb.from("stageplot_projects").select("data,title,updated_at,is_locked").eq("id",id).single().then(function(r){
+    sb.from("stageplot_projects").select("data,title,updated_at,is_locked,venue_image").eq("id",id).single().then(function(r){
       if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
       try{
         if(window.applyProjLock) window.applyProjLock(false);   /* azzera un eventuale blocco precedente PRIMA del persist del nuovo progetto */
-        exitConflict(); importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; setRev(r.data.updated_at); persistLocalState();
+        exitConflict(); importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; setRev(r.data.updated_at);
+        var gotImg=applyVenueImage(r.data.venue_image);   /* immagine planimetria dalla colonna dedicata */
+        _lastCloudImgSig = gotImg ? venueImgSig(state.venue) : ((state.venue && state.venue._dataUrl) ? "__migrate__" : "");   /* immagine solo dentro `data` (progetto vecchio) → migra al prossimo salvataggio */
+        persistLocalState();
         if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);   /* bloccato → editor sola-lettura */
         toast(r.data.is_locked?"✓ Progetto aperto (bloccato · sola lettura).":"✓ Progetto aperto."); closeModal();
       }
@@ -10987,10 +11009,10 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   /* Duplica (richiesta Simone 08/07): copia integrale del progetto con titolo " — copia" */
   function dupProject(id){
     if(!sb || !cloudUser) return;
-    sb.from("stageplot_projects").select("data,title").eq("id",id).single().then(function(r){
+    sb.from("stageplot_projects").select("data,title,venue_image").eq("id",id).single().then(function(r){
       if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
       var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
-      sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:t, data:r.data.data }).then(function(w){
+      sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:t, data:r.data.data, venue_image:r.data.venue_image||null }).then(function(w){   /* la copia tiene la planimetria */
         if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
         toast("Copia creata: "+t);
         loadProjects();
@@ -11073,7 +11095,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   window.__cloud = {
     user: function(){ return cloudUser; },
     currentId: function(){ return cloudCurrentId; },
-    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } },   /* documento staccato/nuovo: mai bloccato */
+    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); _lastCloudImgSig=null; exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } },   /* documento staccato/nuovo: mai bloccato; reset firma immagine → riscritta al 1° salvataggio */
     signIn: signIn,
     save: saveProject,
     unlockCurrent: unlockCurrent,   /* usato dalla barra "🔒 Progetto bloccato — Sblocca" */
