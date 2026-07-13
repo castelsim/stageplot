@@ -39,9 +39,10 @@ Deno.serve(async (req) => {
   if (!projectId) return json({ error: "non trovato" }, 404);
 
   const { data: proj, error: projErr } = await supabase.from("stageplot_projects")
-    .select("data,title,updated_at").eq("id", projectId).maybeSingle();
+    .select("data,title,updated_at,venue_image").eq("id", projectId).maybeSingle();
   if (projErr) { console.error("lettura progetto fallita:", projErr.message); return json({ error: "errore" }, 500); }
   if (!proj) return json({ error: "progetto non trovato" }, 404);
 
-  return json({ data: proj.data, title: proj.title, updated_at: proj.updated_at, kind });
+  // venue_image (colonna dedicata, 0013): la planimetria non sta più dentro `data`; ritornala così il viewer la mostra.
+  return json({ data: proj.data, title: proj.title, updated_at: proj.updated_at, venue_image: proj.venue_image, kind });
 });
