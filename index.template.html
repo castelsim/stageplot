@@ -2549,6 +2549,8 @@ var sel = null, selSet = {}, nextId = 1, addCascade = 0;
 function selIds(){ return Object.keys(selSet); }
 function selItems(){ return state.items.filter(function(i){ return selSet[i.id]; }); }
 function selectOne(id){ sel=id; selSet={}; if(id) selSet[id]=true; }
+/* avviso "stage box insufficiente" azionabile: seleziona la box → il pannello mostra i controlli capacità */
+window.__fixStagebox=function(id){ try{ selectOne(id); render(); if(typeof isMobile==="function" && isMobile()) document.body.classList.add("props-expanded"); }catch(e){} };
 function clearSelection(){ sel=null; selSet={}; }
 /* gruppi (blocco unico): membri con stesso it.grp si selezionano e si muovono insieme */
 function groupMembers(id){ var it=state.items.find(function(i){ return i.id===id; });
@@ -8948,6 +8950,12 @@ function renderInspectorB(){
     try{ _nCh = (window.__consultMode && (state.inputs||[]).length) ? state.inputs.length : patchList().rows.length; }catch(e){ _nCh=(state.inputs||[]).length; }
     var _cap=R.capTot||0, _over=(_cap>0 && _nCh>_cap);
     s+=ir("Ingressi", _nCh+" / "+(_cap||"—")+(_over?"  ⚠ stage box insufficiente":""), _over?"insp-over":"");
+    if(_over){   /* avviso AZIONABILE (coerente col pattern audit): indica come risolvere e porta lì */
+      var _boxEl=(state.items||[]).find(function(it){ return typeof cabIsBox==="function" && cabIsBox(it); });
+      s+= _boxEl
+        ? '<div class="insp-fix" onclick="window.__fixStagebox(\''+_boxEl.id+'\')">Aumenta la capacità della stage box →</div>'
+        : '<div class="insp-fix insp-fix-static">Aggiungi una stage box più capiente (catalogo › Liste tecniche)</div>';
+    }
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
     if(xlr) s+=ir("Cavi XLR", xlr);
     if(elc) s+=ir("Cavi elettrici", elc);
