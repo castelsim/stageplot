@@ -7498,7 +7498,7 @@ function placeOut(out, fitStage, clearFirst, force){
             rot:Math.round((o.rot||0)/5)*5, w:z.w, d:z.d, label:o.label!=null?o.label:defaultLabel(o.type)};
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","hw","ch","outCh"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
@@ -7565,7 +7565,7 @@ function buildBandOut(){
     {type:"sidefill", x:-660, y:30, rot:35, label:"Side fill DX"},
     {type:"sidefill", x:660, y:30, rot:-35, label:"Side fill SX"},
     {type:"iemant", x:-590, y:-260, label:"TX in-ear"},
-    {type:"stagebox", x:590, y:-260, label:"Stage box"},
+    {type:"stagebox", x:590, y:-260, label:"Stage box", ch:24, outCh:12},   /* band ~17 canali → box da 24 */
     {type:"corrente", x:-580, y:-340, label:""},
     {type:"corrente", x:580, y:-340, label:""}
   ];
@@ -7578,7 +7578,7 @@ function buildAcousticOut(){
     {type:"gtacustica", x:140, y:-145, rot:-8, label:"Chitarra acustica"},
     {type:"dimono", x:205, y:-65, label:"DI chitarra"},
     {type:"cajon", x:330, y:-170, label:"Cajon"},
-    {type:"astabassa", x:330, y:-95, rot:160, label:"Cajon"},
+    {type:"astabassa", x:330, y:-118, rot:180, label:""},   /* mic del cajon: niente etichetta doppia */
     {type:"astamic", x:0, y:-55, label:"Voce"},
     {type:"coppiast", x:0, y:-225, label:"Ambienti L/R"},
     {type:"wedge", x:0, y:42, label:"Voce"},
@@ -7586,7 +7586,7 @@ function buildAcousticOut(){
     {type:"wedge", x:210, y:30, rot:-15, label:"Chitarra"},
     {type:"stagebox", x:430, y:-70, label:"Stage box"},
     {type:"corrente", x:-390, y:-115, label:""},
-    {type:"corrente", x:255, y:-85, label:""}
+    {type:"corrente", x:430, y:-190, label:""}   /* presa spostata al fondo, non più sopra il DI chitarra */
   ];
 }
 function buildCoroOut(){
@@ -7594,10 +7594,10 @@ function buildCoroOut(){
     /* gradoni del coro in fondo (4 file: S/C davanti, T/B dietro) */
     {type:"pedanacoro", x:0, y:-450, w:780, d:120, label:"Tenori / Bassi"},
     {type:"pedanacoro", x:0, y:-330, w:780, d:120, label:"Soprani / Contralti"},
-    /* microfoni d'insieme sospesi davanti al coro */
-    {type:"giraffa", x:-250, y:-240, rot:180, label:"Coro"},
-    {type:"giraffa", x:0, y:-240, rot:180, label:"Coro"},
-    {type:"giraffa", x:250, y:-240, rot:180, label:"Coro"},
+    /* microfoni d'insieme davanti al coro (etichette = canali Coro L/C/R; rot 0 = etichetta leggibile) */
+    {type:"giraffa", x:-250, y:-240, rot:0, label:"Coro L"},
+    {type:"giraffa", x:0, y:-240, rot:0, label:"Coro C"},
+    {type:"giraffa", x:250, y:-240, rot:0, label:"Coro R"},
     /* direttore davanti al coro */
     {type:"podio", x:0, y:-140, label:"Direttore"},
     /* pianoforte d'accompagnamento, lato DX */
@@ -7630,10 +7630,11 @@ function buildBigBandOut(){
     {type:"pedana", x:0, y:-470, w:760, d:130, h:40, label:"Trombe"},
     {type:"pedana", x:0, y:-330, w:760, d:130, h:20, label:"Tromboni"},
     {type:"pedana", x:0, y:-190, w:980, d:120, h:0, label:"Sax"},
-    {type:"stagebox", x:540, y:-120, label:"Stage box"},
+    {type:"stagebox", x:540, y:-120, label:"Stage box", ch:32, outCh:16},   /* big band ~27 canali → snake da 32 */
     {type:"astamic", x:0, y:10, label:"Voce"},
     {type:"wedge", x:0, y:105, label:"Voce"},
     {type:"batteria", x:520, y:-410, label:""},
+    {type:"wedge", x:410, y:-345, rot:-8, label:"Batteria"},
     {type:"bassamp", x:670, y:-240, label:"Ampli basso"},
     {type:"stack", x:-670, y:-240, label:"Ampli chitarra"},
     {type:"stagepiano", x:-520, y:-80, rot:-15, label:"Piano"},
@@ -7652,6 +7653,7 @@ function buildJazzComboOut(){
   return [
     {type:"tappeto", x:0, y:-210, w:860, d:500, label:""},
     {type:"batteria", x:300, y:-330, label:""},
+    {type:"wedge", x:150, y:-250, rot:-8, label:"Batteria"},
     {type:"grancoda", x:-300, y:-265, rot:28, label:"Piano"},
     {type:"panchetta", x:-210, y:-155, rot:28, label:""},
     {type:"contrabbasso", x:250, y:-120, rot:-20, label:"Contrabbasso"},
@@ -7687,7 +7689,7 @@ function buildOrchCoroOut(){
   var m=measureOrchestraOut(out), back=m.minY-30;
   out.push({type:"pedanacoro", x:0, y:back-75, w:820, d:150, label:"Coro — Soprani / Contralti"});
   out.push({type:"pedanacoro", x:0, y:back-225, w:820, d:150, label:"Coro — Tenori / Bassi"});
-  [-280,0,280].forEach(function(x){ out.push({type:"giraffa", x:x, y:back+25, rot:180, label:"Coro"}); });
+  [-280,0,280].forEach(function(x,i){ out.push({type:"giraffa", x:x, y:back+25, rot:0, label:["Coro L","Coro C","Coro R"][i]}); });
   return out;
 }
 
