@@ -10490,24 +10490,8 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var mp=document.getElementById("modelPicker");
   if(mp){
     fillMods(document.getElementById("mpMods"), function(){ mp.hidden=true; });
-    var vh=document.getElementById("mpVenues");   /* modelli "per tipo di sala": dimensionano il palco vuoto */
-    if(vh && typeof VENUE_MODELS!=="undefined"){
-      vh.innerHTML="";
-      VENUE_MODELS.forEach(function(m){
-        var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
-        b.addEventListener("click", function(){ startFromVenue(m[0]); mp.hidden=true; });
-        vh.appendChild(b);
-      });
-    }
-    var fh=document.getElementById("mpFamous");   /* venue famose italiane (piante originali da fatti pubblici) */
-    if(fh && typeof FAMOUS_VENUES!=="undefined"){
-      fh.innerHTML="";
-      FAMOUS_VENUES.forEach(function(m){
-        var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
-        b.addEventListener("click", function(){ startFromFamousVenue(m[0]); mp.hidden=true; });
-        fh.appendChild(b);
-      });
-    }
+    /* NB: modelli "per tipo di sala" e "venue famose" tolti dal picker su richiesta (13/07): resta solo "per formazione".
+       Le funzioni startFromVenue/startFromFamousVenue/makeVenueBackdrop/drawVenuePlan restano nel codice (dormienti) per riprendere l'argomento in futuro. */
     var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
     mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
     document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });

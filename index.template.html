@@ -1059,13 +1059,8 @@
 <div class="modal" id="modelPicker" hidden>
   <div class="mcard" style="width:440px;max-width:94vw">
     <h2>Parti da un modello</h2>
-    <div class="wl-mods-lbl" style="margin-top:2px">Per formazione</div>
-    <div class="wl-mods" id="mpMods" style="margin:8px 0 4px"></div>
-    <div class="wl-mods-lbl" style="margin-top:14px">Per tipo di sala</div>
-    <div class="wl-mods" id="mpVenues" style="margin:8px 0 4px"></div>
-    <div class="wl-mods-lbl" style="margin-top:14px">Venue famose · Italia</div>
-    <div class="wl-mods" id="mpFamous" style="margin:8px 0 4px"></div>
-    <div class="hint" style="margin-top:10px">Le formazioni riempiono il palco; i tipi di sala e le venue famose partono dallo spazio (dimensioni e forma reali) con una band già pronta — poi personalizzi.</div>
+    <div class="hint">Il palco viene azzerato e riempito con la formazione scelta. Puoi poi modificarla liberamente.</div>
+    <div class="wl-mods" id="mpMods" style="margin:14px 0 4px"></div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="mpClose" style="margin-left:auto">Annulla</button></div>
   </div>
 </div>
@@ -11681,24 +11676,8 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
   var mp=document.getElementById("modelPicker");
   if(mp){
     fillMods(document.getElementById("mpMods"), function(){ mp.hidden=true; });
-    var vh=document.getElementById("mpVenues");   /* modelli "per tipo di sala": dimensionano il palco vuoto */
-    if(vh && typeof VENUE_MODELS!=="undefined"){
-      vh.innerHTML="";
-      VENUE_MODELS.forEach(function(m){
-        var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
-        b.addEventListener("click", function(){ startFromVenue(m[0]); mp.hidden=true; });
-        vh.appendChild(b);
-      });
-    }
-    var fh=document.getElementById("mpFamous");   /* venue famose italiane (piante originali da fatti pubblici) */
-    if(fh && typeof FAMOUS_VENUES!=="undefined"){
-      fh.innerHTML="";
-      FAMOUS_VENUES.forEach(function(m){
-        var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
-        b.addEventListener("click", function(){ startFromFamousVenue(m[0]); mp.hidden=true; });
-        fh.appendChild(b);
-      });
-    }
+    /* NB: modelli "per tipo di sala" e "venue famose" tolti dal picker su richiesta (13/07): resta solo "per formazione".
+       Le funzioni startFromVenue/startFromFamousVenue/makeVenueBackdrop/drawVenuePlan restano nel codice (dormienti) per riprendere l'argomento in futuro. */
     var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
     mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
     document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });
