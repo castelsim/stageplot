@@ -562,9 +562,9 @@ var TYPES = {
                  circ(-w*0.22,d/2-r-2,r,"ic fGrey")+circ(w*0.22,d/2-r-2,r,"ic fGrey"); }},
   miczone: {nome:"Microfono panoramico (zona)", dim:"area di ripresa", cat:"Microfoni e DI", sub:"Aste e microfoni",
     w:220, d:150, resizable:true, ess:true, z:0, defLabel:"",
-    draw:function(it){ var w=it.w, d=it.d, o=(it.opacity==null?18:it.opacity)/100;
-      return '<rect x="'+(-w/2)+'" y="'+(-d/2)+'" width="'+w+'" height="'+d+'" rx="10" fill="#8b5cf6" fill-opacity="'+o.toFixed(2)+'" stroke="#8b5cf6" stroke-opacity="0.85" stroke-width="1.6" stroke-dasharray="6 5"/>'+
-        '<text x="'+(-w/2+9)+'" y="'+(-d/2+17)+'" fill="#7c3aed" font-size="11" font-weight="700">'+esc(micZoneLabel(it))+' · '+esc(micZoneMic(it))+'</text>'; }},
+    draw:function(it){ var pts=miczonePts(it), o=(it.opacity==null?18:it.opacity)/100, b=polyBBox(pts);
+      return '<polygon points="'+ptsAttr(pts)+'" fill="#8b5cf6" fill-opacity="'+o.toFixed(2)+'" stroke="#8b5cf6" stroke-opacity="0.85" stroke-width="1.6" stroke-dasharray="6 5" stroke-linejoin="round"/>'+
+        '<text x="'+(b.minX+9)+'" y="'+(b.minY+17)+'" fill="#7c3aed" font-size="11" font-weight="700">'+esc(micZoneLabel(it))+' · '+esc(micZoneMic(it))+'</text>'; }},
   talkback: {nome:"Talkback", dim:"25×38", cat:"Microfoni e DI", sub:"Aste e microfoni", w:25,d:38,
              draw:function(it){ return drawLibFit("talkback",it,25,38); }},
   flightcase: {nome:"Flight case", dim:"120×60", cat:"Dispositivi", w:120,d:60,
@@ -1903,8 +1903,12 @@ function sanitizeItems(arr){
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
+    /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
+    if(it.type==="miczone" && it.pts && it.pts.length>=3) miczoneSyncDims(it);
+    else if(it.type==="miczone") delete it.pts;
     return it;
   }).filter(Boolean);
 }
@@ -2036,6 +2040,27 @@ function semiPath(r){
   return "M "+(x+w)+","+y+" A "+w+","+(d/2)+" 0 0 0 "+(x+w)+","+(y+d)+" Z";                         /* right: bulge a sinistra */
 }
 function ptsAttr(pts){ return pts.map(function(p){ return p[0]+','+p[1]; }).join(' '); }
+/* ===== ZONE POLIGONALI (Fase 1) — geometria del poligono della zona microfono panoramico =====
+   it.pts = vertici RELATIVI al centro (it.x,it.y), in cm. it.w/it.d = bounding box del poligono (per la selezione). */
+function polyBBox(pts){ var xs=pts.map(function(p){return p[0];}), ys=pts.map(function(p){return p[1];});
+  var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs), minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys);
+  return {minX:minX,minY:minY,maxX:maxX,maxY:maxY,w:Math.max(1,maxX-minX),d:Math.max(1,maxY-minY)}; }
+function rectPts(w,d){ return [[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]]; }
+function miczonePts(z){ return (z.pts && z.pts.length>=3) ? z.pts : rectPts(z.w,z.d); }
+/* poligono della zona in coordinate MONDO assolute (considera rotazione) — per il point-in-polygon */
+function miczoneAbsPts(z){ var pts=miczonePts(z), a=(z.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return pts.map(function(p){ return [z.x + p[0]*c - p[1]*s, z.y + p[0]*s + p[1]*c]; }); }
+/* aggiorna w/d (bbox) dopo una modifica dei vertici — mantiene coerente il riquadro di selezione */
+function miczoneSyncDims(z){ if(z && z.pts && z.pts.length>=3){ var b=polyBBox(z.pts); z.w=Math.round(b.w); z.d=Math.round(b.d); } }
+/* ricentra: sposta il centro (x,y) sul baricentro del bbox e ri-porta i pts attorno all'origine (bbox center = 0).
+   Considera la rotazione. Da chiamare a FINE trascinamento vertice (non durante, per evitare jitter). */
+function miczoneRecenter(z){ if(!(z && z.pts && z.pts.length>=3)) return;
+  var b=polyBBox(z.pts), cx=(b.minX+b.maxX)/2, cy=(b.minY+b.maxY)/2;
+  if(cx===0 && cy===0){ z.w=Math.round(b.w); z.d=Math.round(b.d); return; }
+  var a=(z.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  z.x=Math.round(z.x + cx*c - cy*s); z.y=Math.round(z.y + cx*s + cy*c);
+  z.pts=z.pts.map(function(p){ return [Math.round(p[0]-cx), Math.round(p[1]-cy)]; });
+  z.w=Math.round(b.w); z.d=Math.round(b.d); }
 function blockShapeSvg(r, cls){
   if(r.shape==="semi") return '<path'+(cls?' class="'+cls+'"':'')+' d="'+semiPath(r)+'"/>';
   if(hasPts(r)) return '<polygon'+(cls?' class="'+cls+'"':'')+' points="'+ptsAttr(r.pts)+'"/>';
@@ -2246,8 +2271,27 @@ function itemMarkup(it){
          '<path class="rh-ico" d="M '+(-3.5)+' '+(ky-3)+' L '+(-3.5)+' '+(ky-0.2)+' L '+(-0.7)+' '+(ky-0.2)+'"/>'+
          '</g>';
   }
+  /* ZONA: rettangolo = 4 angoli di resize + "+" sui lati per iniziare a modellare; poligono = vertici trascinabili + "+" (Alt+click rimuove). */
+  if(!stageEdit && it.type==="miczone" && selSet[it.id] && selIds().length===1){
+    var mzp=miczonePts(it), mzPoly=!!(it.pts && it.pts.length>=3);
+    mzp.forEach(function(p,vi){                 /* midpoint di ogni lato: "+" per inserire un vertice */
+      var q=mzp[(vi+1)%mzp.length], mx=(p[0]+q[0])/2, my=(p[1]+q[1])/2;
+      s += '<circle class="mz-mid" data-id="'+it.id+'" data-mid="'+vi+'" cx="'+mx+'" cy="'+my+'" r="7"/>'+
+           '<line class="mz-plus" x1="'+(mx-3.5)+'" y1="'+my+'" x2="'+(mx+3.5)+'" y2="'+my+'"/>'+
+           '<line class="mz-plus" x1="'+mx+'" y1="'+(my-3.5)+'" x2="'+mx+'" y2="'+(my+3.5)+'"/>';
+    });
+    if(mzPoly){
+      mzp.forEach(function(p,vi){               /* vertici del poligono: pallini trascinabili */
+        s += '<circle class="mz-vtx" data-id="'+it.id+'" data-vtx="'+vi+'" cx="'+p[0]+'" cy="'+p[1]+'" r="7"/>';
+      });
+    } else {                                    /* rettangolo: angoli di ridimensionamento (uniforme), i lati restano ai "+" */
+      [["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]].forEach(function(p){
+        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-9)+'" y="'+(p[2]-9)+'" width="18" height="18" rx="2"/>';
+      });
+    }
+  }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
-  if(!stageEdit && t.resizable && selSet[it.id] && selIds().length===1){
+  if(!stageEdit && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
     var H=9, hpts;
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
@@ -2278,7 +2322,7 @@ function sortedItems(){
 function itemInMicZone(it){
   for(var i=0;i<state.items.length;i++){ var z=state.items[i];
     if(z.type!=="miczone" || z.id===it.id) continue;
-    if(it.x>=z.x-z.w/2 && it.x<=z.x+z.w/2 && it.y>=z.y-z.d/2 && it.y<=z.y+z.d/2) return z;
+    if(pointInPoly(it.x, it.y, miczoneAbsPts(z))) return z;   /* ZONA POLIGONALE: dentro il poligono, non più solo l'AABB */
   }
   return null;
 }
@@ -3610,6 +3654,7 @@ function renderProps(){
       document.getElementById("pZoneMicHint").textContent = it.mic ? "(manuale)" : "· inferito";
       var zlbl=document.getElementById("pZoneLabel"); zlbl.value=it.label||""; zlbl.placeholder=micZoneLabel(it);
       document.getElementById("pZoneCount").textContent = micZoneSources(it).length + " sorgenti coperte";
+      document.getElementById("pZoneRect").style.display = (it.pts && it.pts.length>=3) ? "" : "none";   /* torna a rettangolo solo se è un poligono custom */
     } }
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
@@ -3639,7 +3684,8 @@ function renderProps(){
   else { rNorm=((rr%360)+360)%360; if(rNorm>180) rNorm-=360; }
   document.getElementById("pRot").value = rNorm;
   document.getElementById("pRotVal").textContent = rNorm+"°";
-  document.getElementById("pDims").style.display = t.resizable ? "flex" : "none";
+  var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
+  document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
   document.getElementById("pHwrap").style.display = t.riser ? "" : "none";
   if(t.resizable){
     document.getElementById("pW").value = it.w;
@@ -5080,6 +5126,34 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"pan", px:e.clientX, py:e.clientY, vx:vb.x, vy:vb.y};
     svg.classList.add("dragging"); svg.setPointerCapture(e.pointerId); return;
   }
+  var mzv = e.target.closest ? e.target.closest(".mz-vtx") : null;
+  if(mzv){                                  /* ZONA: vertice — Alt+click rimuove (min 3), altrimenti trascina */
+    var mzid=mzv.getAttribute("data-id"), mvi=+mzv.getAttribute("data-vtx");
+    selectOne(mzid); var zit=getSel();
+    if(zit && zit.type==="miczone"){
+      if(!(zit.pts && zit.pts.length>=3)) zit.pts=miczonePts(zit).map(function(p){ return [p[0],p[1]]; });   /* materializza dal rettangolo */
+      if(e.altKey){                         /* rimuovi il vertice (mantieni almeno un triangolo) */
+        if(zit.pts.length>3){ zit.pts.splice(mvi,1); miczoneRecenter(zit); render(); save(); }
+        return;
+      }
+      drag={mode:"mzvtx", id:mzid, vi:mvi, moved:false};
+      render(); svg.setPointerCapture(e.pointerId);
+    }
+    return;
+  }
+  var mzm = e.target.closest ? e.target.closest(".mz-mid") : null;
+  if(mzm){                                  /* ZONA: midpoint — inserisci un vertice e trascinalo subito */
+    var mzid2=mzm.getAttribute("data-id"), mmi=+mzm.getAttribute("data-mid");
+    selectOne(mzid2); var zit2=getSel();
+    if(zit2 && zit2.type==="miczone"){
+      var pp=miczonePts(zit2).map(function(p){ return [p[0],p[1]]; });
+      var q=pp[(mmi+1)%pp.length], nv=[Math.round((pp[mmi][0]+q[0])/2), Math.round((pp[mmi][1]+q[1])/2)];
+      pp.splice(mmi+1,0,nv); zit2.pts=pp; miczoneSyncDims(zit2);
+      drag={mode:"mzvtx", id:mzid2, vi:mmi+1, moved:false};
+      render(); svg.setPointerCapture(e.pointerId);
+    }
+    return;
+  }
   var rsh = e.target.closest ? e.target.closest(".rs-handle") : null;
   if(rsh){                                  /* maniglia di ridimensionamento: trascina lato/angolo */
     var rsid=rsh.getAttribute("data-id"); selectOne(rsid); var rsit=getSel();
@@ -5280,6 +5354,16 @@ svg.addEventListener("pointermove", function(e){
       var g=svg.querySelector('[data-id="'+it.id+'"]');
       if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); } });
     drag.moved=true;
+  } else if(drag.mode==="mzvtx"){           /* ZONA: trascina un vertice del poligono (frame locale, considera la rotazione) */
+    sp=svgPoint(e); var zzit=state.items.find(function(i){ return i.id===drag.id; });
+    if(zzit && zzit.pts && zzit.pts[drag.vi]){
+      var zgrid=(e.metaKey||e.ctrlKey)||(snapMode!=="0"&&snapMode!=="obj");
+      var zpx=sp.x, zpy=sp.y; if(zgrid){ zpx=snap(zpx); zpy=snap(zpy); }
+      var za=(zzit.rot||0)*Math.PI/180, zdx=zpx-zzit.x, zdy=zpy-zzit.y;
+      var zlx=zdx*Math.cos(za)+zdy*Math.sin(za), zly=-zdx*Math.sin(za)+zdy*Math.cos(za);
+      zzit.pts[drag.vi]=[Math.round(zlx),Math.round(zly)]; miczoneSyncDims(zzit);
+      drag.moved=true; redrawItemNode(zzit);
+    }
   } else if(drag.mode==="itemresize"){
     sp=svgPoint(e); var rzit=state.items.find(function(i){ return i.id===drag.id; });
     if(rzit){
@@ -5549,6 +5633,7 @@ svg.addEventListener("pointerup", function(e){
   }
   if(drag && drag.mode==="rotate"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="mzvtx"){ var _zz=state.items.find(function(i){ return i.id===drag.id; }); if(_zz) miczoneRecenter(_zz); save(); ensureVisible(); render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="item" && drag.moved){
@@ -7547,7 +7632,9 @@ function toggleCabLayer(){
   if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
   var zop=document.getElementById("pZoneOp");   /* zona: opacità live (come gli slider layer) */
   if(zop) zop.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ it.opacity=+this.value;
-    var n=itemNode(it.id), r=n&&n.querySelector("rect"); if(r) r.setAttribute("fill-opacity",(it.opacity/100).toFixed(2)); saveSoon(); } });
+    var n=itemNode(it.id), r=n&&n.querySelector("polygon"); if(r) r.setAttribute("fill-opacity",(it.opacity/100).toFixed(2)); saveSoon(); } });
+  var zrect=document.getElementById("pZoneRect");   /* zona: torna a un rettangolo (elimina i vertici custom) → di nuovo ridimensionabile */
+  if(zrect) zrect.addEventListener("click", function(){ var it=getSel(); if(it&&it.type==="miczone"){ delete it.pts; __cabRes=null; save(); render(); renderProps(); } });
   var zmicI=document.getElementById("pZoneMic");
   if(zmicI) zmicI.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ var v=this.value.trim(); if(v) it.mic=v.slice(0,24); else delete it.mic; __cabRes=null; save(); render(); } });
   var zlblI=document.getElementById("pZoneLabel");
