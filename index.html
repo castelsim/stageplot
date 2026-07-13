@@ -2343,11 +2343,14 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <!-- Picker "Nuovo da modello" (menu File): parti da una formazione pronta. -->
 <div class="modal" id="modelPicker" hidden>
-  <div class="mcard" style="width:420px;max-width:94vw">
+  <div class="mcard" style="width:440px;max-width:94vw">
     <h2>Parti da un modello</h2>
-    <div class="hint">Il palco viene azzerato e riempito con la formazione scelta. Puoi poi modificarla liberamente.</div>
-    <div class="wl-mods" id="mpMods" style="margin:14px 0 4px"></div>
-    <div style="display:flex;margin-top:16px"><button class="btn" id="mpClose" style="margin-left:auto">Annulla</button></div>
+    <div class="wl-mods-lbl" style="margin-top:2px">Per formazione</div>
+    <div class="wl-mods" id="mpMods" style="margin:8px 0 4px"></div>
+    <div class="wl-mods-lbl" style="margin-top:14px">Per tipo di sala</div>
+    <div class="wl-mods" id="mpVenues" style="margin:8px 0 4px"></div>
+    <div class="hint" style="margin-top:10px">Le formazioni riempiono il palco; i tipi di sala lo dimensionano soltanto — poi ci metti tu la formazione.</div>
+    <div style="display:flex;margin-top:14px"><button class="btn" id="mpClose" style="margin-left:auto">Annulla</button></div>
   </div>
 </div>
 
