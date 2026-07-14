@@ -13531,15 +13531,29 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
       var v=inp.value.trim();
       if(!v){ inp.style.borderColor="var(--danger-solid)"; inp.focus(); return; }
       if(v===(pj.title||"")){ close(); return; }
-      sb.from("stageplot_projects").update({ title:v }).eq("id",id).select("updated_at").single().then(function(r){
-        if(r.error || !r.data){ toast("Rinomina non riuscita: "+((r.error&&r.error.message)||"riprova"), true); return; }
-        if(id===cloudCurrentId){ state.titolo=v;
-          ["titolo","titoloEv","mTitle"].forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=v; });
-          if(typeof setEventInputs==="function") setEventInputs();
-          if(r.data.updated_at) setRev(r.data.updated_at);
-        }
-        close(); toast("Rinominato: "+v); loadProjects();
-      }, function(){ toast("Rinomina non riuscita. Riprova.", true); });
+      var isCurrent=(id===cloudCurrentId);
+      /* Il nome vive in DUE posti: la colonna `title` (mostrata nella lista) E il blob `data.titolo`
+         (letto da importProject alla riapertura). Aggiornare solo la colonna faceva "tornare" il vecchio
+         nome riaprendo → qui aggiorno ENTRAMBI (e per il progetto aperto sincronizzo UI + stato locale). */
+      function persist(dataObj){
+        var upd={ title:v };
+        if(dataObj && typeof dataObj==="object"){ dataObj.titolo=v; upd.data=dataObj; }
+        sb.from("stageplot_projects").update(upd).eq("id",id).select("updated_at").single().then(function(r){
+          if(r.error || !r.data){ toast("Rinomina non riuscita: "+((r.error&&r.error.message)||"riprova"), true); return; }
+          if(isCurrent){ state.titolo=v;
+            ["titolo","titoloEv","mTitle"].forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=v; });
+            if(typeof setEventInputs==="function") setEventInputs();
+            if(typeof render==="function") render();
+            if(window.persistLocalState) try{ window.persistLocalState(); }catch(e){}
+            if(r.data.updated_at) setRev(r.data.updated_at);
+          }
+          close(); toast("Rinominato: "+v); loadProjects();
+        }, function(){ toast("Rinomina non riuscita. Riprova.", true); });
+      }
+      if(isCurrent){ state.titolo=v; persist(JSON.parse(stateToJSON())); }   /* blob dal vivo, col nuovo titolo */
+      else { sb.from("stageplot_projects").select("data").eq("id",id).single().then(function(r){
+               persist(r && r.data && r.data.data ? r.data.data : null);   /* patcha il blob dell'altro progetto */
+             }, function(){ persist(null); }); }
     }
     ov.querySelector("#renameCancel").onclick=close;
     ov.querySelector("#renameSave").onclick=commit;
