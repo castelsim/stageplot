@@ -1423,8 +1423,9 @@ function applyProjLock(locked){
   var bar=document.getElementById("lockBar");
   if(locked){
     if(!bar){ bar=document.createElement("div"); bar.id="lockBar"; bar.setAttribute("role","status");
-      bar.innerHTML='<span class="lb-msg"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>Progetto bloccato</b> — Sola lettura</span><button type="button" id="lockUnlock">Sblocca</button>';
+      bar.innerHTML='<span class="lb-msg"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>Progetto bloccato</b> — Sola lettura</span><button type="button" id="lockDup" title="Crea una copia editabile e continua a lavorarci">Duplica</button><button type="button" id="lockUnlock">Sblocca</button>';
       document.body.appendChild(bar);
+      bar.querySelector("#lockDup").addEventListener("click", function(){ if(window.__cloud && window.__cloud.dupOpenCurrent) window.__cloud.dupOpenCurrent(); });
       bar.querySelector("#lockUnlock").addEventListener("click", function(){ if(window.__cloud && window.__cloud.unlockCurrent) window.__cloud.unlockCurrent(); });
     }
     bar.hidden=false;
@@ -11153,6 +11154,15 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     });
   }
   function unlockCurrent(){ if(cloudCurrentId) toggleLock(cloudCurrentId, true); }
+  function dupOpenCurrent(){   /* barra "Progetto bloccato" → Duplica: crea una copia EDITABILE ("… — copia") e continua qui, senza toccare l'originale */
+    if(!sb || !cloudUser){ toast("Accedi per duplicare.", true); return; }
+    if(window.applyProjLock) window.applyProjLock(false);   /* la copia è editabile: sblocca l'editor + nascondi la barra */
+    cloudCurrentId=null; setRev(null); _lastCloudImgSig=null;   /* stacca dall'originale → il prossimo salvataggio è un progetto NUOVO (la planimetria viaggia: wasInsert) */
+    try{ localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }catch(e){}
+    try{ state.titolo=((state.titolo||"Senza titolo")+" — copia").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
+    exitConflict(); persistLocalState();
+    saveProject(function(id){ toast(id?("✓ Copia creata: "+state.titolo):"Copia non riuscita.", !id); }, true);   /* nasce subito il progetto-copia, agganciato ed editabile */
+  }
   function confirmOr(title, msg, okTxt, icon, cb){
     if(typeof window.confirmDialog==="function"){ window.confirmDialog({ icon:icon||"warn", title:title, message:msg, confirmText:okTxt }).then(function(ok){ if(ok) cb(); }); }
     else if(typeof window.confirm!=="function" || window.confirm(title+" "+msg)){ cb(); }
@@ -11191,6 +11201,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     signIn: signIn,
     save: saveProject,
     unlockCurrent: unlockCurrent,   /* usato dalla barra "🔒 Progetto bloccato — Sblocca" */
+    dupOpenCurrent: dupOpenCurrent,   /* usato dalla barra "Progetto bloccato — Duplica" */
     ensureShareTokenFor: ensureShareTokenFor,
     clearShareTokenFor: clearShareTokenFor,
     /* token di sessione fresco per l'Authorization header (audit S5: identità del feedback lato server) */
