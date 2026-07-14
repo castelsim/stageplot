@@ -3502,10 +3502,14 @@ function sceneMarkup(){
   if(venueCalibMode>0) return '<g id="layVenue">'+venue+'</g>';
   var items='', zones='';
   sortedItems().forEach(function(it){ if(it.type==="miczone") zones += itemMarkup(it); else items += itemMarkup(it); });
+  /* vis/opacità dei layer meta (Palco, Section Mic) INCORPORATE nel markup, come i layer normali:
+     render() è chiamato ovunque e un gruppo "nudo" perderebbe lo stato a ogni ridisegno (bug 14/07) */
+  var mzAttr=(micLayerUI.vis?'':' display="none"')+(micLayerUI.op<100?' style="opacity:'+(micLayerUI.op/100)+'"':'');
+  var stAttr=(stageLayerUI.vis?'':' display="none"')+(stageLayerUI.op<100?' style="opacity:'+(stageLayerUI.op/100)+'"':'');
   return '<g id="layVenue">'+venue+'</g>'+
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
-         '<g id="layMicZones">'+zones+'</g>'+
-         '<g id="layItems">'+items+'</g>'+
+         '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
+         '<g id="layItems"'+stAttr+'>'+items+'</g>'+
          '<g id="layOverlay">'+overlayLayerMarkup()+'</g>';
 }
 /* sostituisce il contenuto di un nodo SVG in modo robusto (non si affida a <g>.innerHTML, meno universale di <svg>.innerHTML) */
@@ -7580,17 +7584,21 @@ function layerRegistry(){
     ,{ id:"stage", name:"Palco", color:"#64748b",
       /* attivo solo quando c'è già almeno un altro layer tecnico attivo (resta invisibile al musicista base) */
       active:(!!(state.cab&&state.cab.on) || !!(state.elec&&state.elec.on) || !!(state.mond&&state.mond.on) || (state.items||[]).some(function(x){return x.type==="miczone";}) || !!(state.venue&&state.venue._dataUrl)),
-      visible:stageLayerUI.vis, setVisible:function(v){ stageLayerUI.vis=v; var g=document.getElementById("layItems"); if(g) g.style.display=v?"":"none"; save(); renderLayerManager(); },
-      opacity:stageLayerUI.op, setOpacity:function(v){ stageLayerUI.op=v; var g=document.getElementById("layItems"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
-      lockable:true, locked:stageLayerUI.lock, setLocked:function(v){ stageLayerUI.lock=v; document.body.classList.toggle("stage-lock",v); if(v){ sel=null; selSet={}; } save(); render(); }
+      /* stato runtime non persistito → niente save(); vis/op vivono nel markup (sceneMarkup), il DOM diretto serve solo alla fluidità dello slider */
+      visible:stageLayerUI.vis, setVisible:function(v){ stageLayerUI.vis=v; render(); },
+      opacity:stageLayerUI.op, setOpacity:function(v){ stageLayerUI.op=v; var g=document.getElementById("layItems"); if(g) g.style.opacity=(v/100).toString(); },
+      lockable:true, locked:stageLayerUI.lock, setLocked:function(v){ stageLayerUI.lock=v; document.body.classList.toggle("stage-lock",v); if(v){ sel=null; selSet={}; } render(); }
       /* niente removable → nessun cestino (il palco non si elimina da qui) */
     }
     ,{ id:"miczone", name:"Section Mic", color:"#7c3aed",
       active:(state.items||[]).some(function(x){return x.type==="miczone";}),
-      visible:micLayerUI.vis, setVisible:function(v){ micLayerUI.vis=v; var g=document.getElementById("layMicZones"); if(g) g.style.display=v?"":"none"; save(); renderLayerManager(); },
-      opacity:micLayerUI.op, setOpacity:function(v){ micLayerUI.op=v; var g=document.getElementById("layMicZones"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
-      lockable:true, locked:micLayerUI.lock, setLocked:function(v){ micLayerUI.lock=v; document.body.classList.toggle("miczone-lock",v); if(v){ sel=null; selSet={}; } save(); render(); },
-      removable:true, remove:function(){ if(!confirm("Eliminare tutte le zone di microfonazione?")) return; state.items=(state.items||[]).filter(function(x){return x.type!=="miczone";}); sel=null; selSet={}; __cabRes=null; save(); render(); } }
+      visible:micLayerUI.vis, setVisible:function(v){ micLayerUI.vis=v; render(); },
+      opacity:micLayerUI.op, setOpacity:function(v){ micLayerUI.op=v; var g=document.getElementById("layMicZones"); if(g) g.style.opacity=(v/100).toString(); },
+      lockable:true, locked:micLayerUI.lock, setLocked:function(v){ micLayerUI.lock=v; document.body.classList.toggle("miczone-lock",v); if(v){ sel=null; selSet={}; } render(); },
+      removable:true, remove:function(){ confirmDialog({ icon:"warn", title:"Eliminare le zone di microfonazione?",
+          message:"Tutte le zone panoramiche verranno rimosse dal palco. Le sorgenti coperte tornano canali singoli.",
+          confirmText:"Elimina le zone" }).then(function(ok){ if(!ok) return;
+          state.items=(state.items||[]).filter(function(x){return x.type!=="miczone";}); sel=null; selSet={}; __cabRes=null; save(); render(); }); } }
   ];
 }
 /* Stato runtime (non persistito) dei layer "meta" Palco e Section Mic: attenuano/nascondono/bloccano
