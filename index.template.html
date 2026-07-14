@@ -8038,6 +8038,7 @@ function startFromTemplate(f){
   var qd = (typeof formationData==="function") ? formationData(f) : null;
   if(!qd || !qd.out) return;
   detachCloudDoc();   /* "Nuovo da modello" = documento NUOVO: stacca dal progetto cloud aperto o l'autosave lo sovrascrive */
+  resetMetaLayersUI();   /* nuovo da modello: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
   state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
   placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
   var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
@@ -8788,8 +8789,22 @@ function layerRegistry(){
       opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); },
       removable:true, remove:function(){ state.venue=null; clearVenueImg(); venueCalibCancel(); save(); render(); } }   /* cestino = rimuove l'immagine planimetria */
+    ,{ id:"stage", name:"Palco", color:"#64748b",
+      /* attivo solo quando c'è già almeno un altro layer tecnico attivo (resta invisibile al musicista base) */
+      active:(!!(state.cab&&state.cab.on) || !!(state.elec&&state.elec.on) || !!(state.mond&&state.mond.on) || (state.items||[]).some(function(x){return x.type==="miczone";}) || !!(state.venue&&state.venue._dataUrl)),
+      visible:stageLayerUI.vis, setVisible:function(v){ stageLayerUI.vis=v; var g=document.getElementById("layItems"); if(g) g.style.display=v?"":"none"; save(); renderLayerManager(); },
+      opacity:stageLayerUI.op, setOpacity:function(v){ stageLayerUI.op=v; var g=document.getElementById("layItems"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
+      lockable:true, locked:stageLayerUI.lock, setLocked:function(v){ stageLayerUI.lock=v; document.body.classList.toggle("stage-lock",v); if(v){ sel=null; selSet={}; } save(); render(); }
+      /* niente removable → nessun cestino (il palco non si elimina da qui) */
+    }
   ];
 }
+/* Stato runtime (non persistito) dei layer "meta" Palco e Section Mic: attenuano/nascondono/bloccano
+   gli elementi del palco o le zone mentre si lavora sugli altri layer. Reset ai default a ogni apertura. */
+var stageLayerUI = {vis:true, op:100, lock:false};
+var micLayerUI   = {vis:true, op:100, lock:false};
+function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
+  document.body.classList.remove("stage-lock","miczone-lock"); }
 var layerOpen=true;
 var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider opacita'). Clic sulla riga fa toggle. */
 /* Riga UNICA con tutto inline (richiesta Simone): dot + nome + slider opacita' + occhio + lucchetto +
@@ -10045,6 +10060,7 @@ document.getElementById("bNew").addEventListener("click", function(){
        crasha al primo render, fit() aborta prima di setEventInputs (titolo non resettato) e drag/render
        restano rotti. Normalizzando, il foglio nuovo è completo e coerente. */
     state=normalizeState({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
+    resetMetaLayersUI();   /* foglio nuovo: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
     try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* foglio nuovo = progetto nuovo: senza lo stacco, l'autosave sovrascriverebbe il progetto aperto col foglio vuoto */
     stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
     setEventInputs(); renderChannels();
