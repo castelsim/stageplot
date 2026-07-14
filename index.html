@@ -11,7 +11,7 @@
      Origini reali: solo *.supabase.co (REST/auth/storage + wss realtime). Il QR di condivisione è
      generato in locale (vendor/qrcode.min.js): nessun dominio esterno in img-src.
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; frame-src 'self' blob:; base-uri 'self'; form-action 'self'">
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Creator Gratis — Editor Online in Scala | StagePlot</title>
@@ -2550,6 +2550,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <div class="mstatus" id="pdfInfo" style="font-size:12.5px;min-height:18px;margin-top:10px"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
           <button class="btn" id="pdfCancel">Annulla</button>
+          <button class="btn" id="pdfPreview2">Anteprima PDF</button>
           <button class="btn primary" id="pdfGo">Esporta PDF</button>
         </div>
       </div>
