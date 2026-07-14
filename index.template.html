@@ -490,6 +490,7 @@
       </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
+    <label class="chk" id="pMirWrap" style="display:none;margin-bottom:8px"><input type="checkbox" id="pMir"> Specchia (ribalta sinistra/destra)</label>
     <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
       <div class="row">
         <span><select id="pPmBrand"></select></span>
@@ -3546,7 +3547,7 @@ function itemMarkup(it){
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
   if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
-  s += t.draw(it);
+  s += it.mir ? '<g transform="scale(-1,1)">'+t.draw(it)+'</g>' : t.draw(it);   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(KEYS_BENCH[it.type] && it.panca!==false){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
     var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='';
@@ -5383,6 +5384,8 @@ function renderProps(){
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
+  var mirw=document.getElementById("pMirWrap");   /* Specchia: musicisti illustrati (icone direzionali, es. arpa) */
+  if(mirw){ var isMus=/^mus/.test(it.type); mirw.style.display=isMus?"block":"none"; if(isMus) document.getElementById("pMir").checked=!!it.mir; }
   var isDbl2 = it.doppia===true || !!DOUBLE_TYPES[it.type];
   document.getElementById("pLabel2Wrap").style.display = isDbl2 ? "block" : "none";
   document.getElementById("pLabel2").value = it.label2||"";
@@ -5631,6 +5634,7 @@ document.getElementById("pDimSide").addEventListener("change", function(){ var v
 document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
+document.getElementById("pMir").addEventListener("change", function(){ var v=this.checked; mutSelSoon(function(it){ if(v) it.mir=true; else delete it.mir; }); });   /* Specchia l'arte dell'icona */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
