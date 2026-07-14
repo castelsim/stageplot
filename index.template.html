@@ -4712,9 +4712,11 @@ function sceneMarkup(){
   var venue = (state.venue&&state.venue.enabled!==false ? venueMarkup() : '');   /* layer 0: planimetria */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
   if(venueCalibMode>0) return '<g id="layVenue">'+venue+'</g>';
-  var items=''; sortedItems().forEach(function(it){ items += itemMarkup(it); });
+  var items='', zones='';
+  sortedItems().forEach(function(it){ if(it.type==="miczone") zones += itemMarkup(it); else items += itemMarkup(it); });
   return '<g id="layVenue">'+venue+'</g>'+
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
+         '<g id="layMicZones">'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
          '<g id="layOverlay">'+overlayLayerMarkup()+'</g>';
 }
@@ -10797,7 +10799,8 @@ function stageSceneSvg(cropVb){
   var vb=cropVb || {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
   var keep=sel, keepSet=selSet; sel=null; selSet={};
   var sorted=sortedItems();
-  var items=''; sorted.forEach(function(it){ items+=itemMarkup(it); });
+  var items='', zoneItems='';
+  sorted.forEach(function(it){ if(it.type==="miczone") zoneItems+=itemMarkup(it); else items+=itemMarkup(it); });
   sel=keep; selSet=keepSet;
   var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
   var hasVenue = state.venue && state.venue.enabled!==false && state.venue._dataUrl;
@@ -10818,7 +10821,7 @@ function stageSceneSvg(cropVb){
     '<style>'+css+'</style>'+DEFS+
     '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
     venue+
-    stageFloorMarkup()+dims+zones+items+cabling+'</svg>';
+    stageFloorMarkup()+dims+zones+'<g id="layMicZones">'+zoneItems+'</g>'+items+cabling+'</svg>';
 }
 function svgToDataUrl(svgStr, pxW, pxH, type){
   /* iOS Safari rasterizza l'SVG SOLO se il root ha width/height espliciti (non basta il viewBox) */
