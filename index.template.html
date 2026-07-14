@@ -4125,8 +4125,8 @@ function audioCablingEngine(){
     var nDI=g.list.filter(function(s){ return String(s.mic).indexOf("DI")>-1; }).length;
     diStereo+=Math.floor(nDI/2); diMono+=nDI%2; });
   /* criticità */
-  if(totIn>capTot && boxes.length) issues.push({lvl:"err", msg:"Input richiesti ("+totIn+") superiori ai canali disponibili ("+capTot+"): serve un'altra stage box."});
-  boxes.forEach(function(b){ if(b.used>b.cap) issues.push({lvl:"err", msg:"Stage box "+b.letter+" satura ("+b.used+"/"+b.cap+" ch)."}); });
+  if(totIn>capTot && boxes.length) issues.push({lvl:"err", code:"cap", msg:"Input richiesti ("+totIn+") superiori ai canali disponibili ("+capTot+"): serve un'altra stage box."});
+  boxes.forEach(function(b){ if(b.used>b.cap) issues.push({lvl:"err", code:"cap", msg:"Stage box "+b.letter+" satura ("+b.used+"/"+b.cap+" ch)."}); });
   unassigned.forEach(function(s){ issues.push({lvl:"err", msg:"Sorgente senza destinazione: "+s.name+" (canali esauriti)."}); });
   links.forEach(function(l){ if(l.deleted) return;
     if(l.cut==null) issues.push({lvl:"err", msg:"Cavo oltre 50 m: "+l.s.name+" ("+l.lenM.toFixed(1)+" m)."});
@@ -4885,6 +4885,7 @@ function pmFillProps(it){
 
 /* ===== AUDIT / DIAGNOSTICA — "AI" deterministica: aggrega le criticità dei motori + regole
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
+var AUDIT_MON_NEAR=350;   /* T1 — soglia prossimità monitor (~3,5 m a 100 px/m); tarabile */
 function auditEngine(){
   var items=state.items||[], Rc=cabResult(true), Re=elecResult(true), f=[];
   function add(lvl,msg,cat,fix,act){ f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null}); }
@@ -4901,13 +4902,28 @@ function auditEngine(){
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
   if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del rider.","Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
   /* "Mixer FOH non specificato" rimosso: il mixer è un dato opzionale (per ora fuori dal pannello) */
+  /* T1 — controlli residui: la lista derivata previene già doppioni/numerazione/48V-default; qui gli errori che
+     l'utente può ancora introdurre nella channel list MANUALE (state.inputs) o dimenticando frequenze/monitor. */
+  var badP48=(state.inputs||[]).filter(function(r){ return r && r.p48 && r.src && String(r.src).trim() && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48; });
+  if(badP48.length) add("warn", badP48.length+(badP48.length===1?" canale ha":" canali hanno")+" il +48V su un mic/DI che non lo richiede (dinamico o wireless).","Audio","Il phantom è inutile e su alcuni radiomicrofoni può essere dannoso: rimuovilo.",{label:"Togli 48V",run:auditFix48V});
+  var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
+  if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
+  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf; }).length;
+  if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
+  var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
+  var hasPersonal=items.some(function(it){ return it.type==="iem"||it.type==="hearback"; });
+  if(monItems.length && !hasPersonal){   /* prossimità: saltata se il palco usa personal monitor/IEM (copertura personale) */
+    var uncovered=items.filter(isAudioSource).filter(function(s){ return !monItems.some(function(m){ return Math.hypot(s.x-m.x, s.y-m.y)<AUDIT_MON_NEAR; }); }).length;
+    if(uncovered) add("warn", uncovered+(uncovered===1?" postazione è lontana":" postazioni sono lontane")+" da ogni monitor (oltre ~"+(AUDIT_MON_NEAR/100).toFixed(1).replace(".",",")+" m).","Monitor","Verifica la copertura monitor: avvicina un wedge/side o usa gli IEM.",{label:"Aggiungi wedge",run:auditFixAddWedge});
+  }
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
     +(Re.loadLinks||[]).reduce(function(a,l){return a+l.lenM;},0);
   /* aggrega criticità dei motori (err/warn, dedup) con la loro categoria d'origine */
   var seen={};
-  (Rc.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Audio"); } });
+  (Rc.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1;
+    var capF = i.code==="cap"; add(i.lvl,i.msg,"Audio", capF?"Aggiungi una stage box (o un RIO con più canali) dal catalogo.":"", capF?{label:"Aggiungi stage box",run:auditFixAddBox}:null); } });
   ((netEngine()||{}).issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Rete"); } });   /* L5 */
   (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
   /* punteggio di prontezza (pesato per gravità) */
@@ -4934,6 +4950,8 @@ function auditFixAddDistro(){
 function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el && el.offsetParent===null) el=document.getElementById("mTitle");
   if(el){ try{ el.focus(); el.select(); }catch(e){} } }
 function auditFixOpenCabMixer(){ techAccordionOpen("cab"); renderAccessoriCount(); var el=document.getElementById("cabMixer"); if(el) el.focus(); }
+function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
+function auditFixOpenChan(){ var b=document.getElementById("bChanList")||document.getElementById("bChanListHdr"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()
