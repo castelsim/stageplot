@@ -507,5 +507,57 @@ t("generico (senza it.pm): zero vincoli nuovi, zero PSU contati", () => {
   eq(R.psuCount, 0, "PSU sul generico");
 });
 
+console.log("\nAudit T1 — controlli residui (auditEngine):");
+function auditMsgs() { return A.auditEngine().findings.map((f) => f.msg); }
+function hasMsg(re) { return auditMsgs().some((m) => re.test(m)); }
+function auditFind(re) { return A.auditEngine().findings.filter((f) => re.test(f.msg)); }
+
+t("48V forzato su mic dinamico (SM58) → avviso", () => {
+  reset(); add("astamic", 400, 400);
+  A.state.inputs = [{ src: "Voce", mic: "SM58", p48: true }];
+  ok(hasMsg(/48V/), "atteso avviso 48V; findings: " + auditMsgs().join(" | "));
+});
+t("48V su condensatore (KM184) → nessun avviso 48V", () => {
+  reset(); add("astamic", 400, 400);
+  A.state.inputs = [{ src: "Overhead", mic: "KM184", p48: true }];
+  ok(!hasMsg(/48V/), "48V atteso corretto (condensatore); findings: " + auditMsgs().join(" | "));
+});
+t("ingresso manuale con sorgente ma senza mic/DI → avviso", () => {
+  reset(); add("astamic", 400, 400);
+  A.state.inputs = [{ src: "Chitarra", mic: "" }];
+  ok(hasMsg(/senza mic/), "findings: " + auditMsgs().join(" | "));
+});
+t("radiomic (wireless) senza frequenza RF → avviso", () => {
+  reset(); add("wireless", 400, 400);
+  ok(hasMsg(/RF/), "findings: " + auditMsgs().join(" | "));
+});
+t("radiomic con frequenza RF → nessun avviso RF", () => {
+  reset(); const w = add("wireless", 400, 400); w.rf = "606.500"; A.__cabRes = null;
+  ok(!hasMsg(/senza frequenza RF/), "findings: " + auditMsgs().join(" | "));
+});
+t("capienza stage box superata → err con fix a un click", () => {
+  reset(); A.state.cab.on = true;
+  const b = add("stagebox", 600, 600); b.ch = 2; b.outCh = 2; A.__cabRes = null;
+  add("batteria", 300, 300); A.__cabRes = null;
+  const f = auditFind(/superiori ai canali|satura/);
+  ok(f.length > 0, "atteso errore capienza; findings: " + auditMsgs().join(" | "));
+  ok(f.some((x) => x.act), "atteso fix a un click sull'errore capienza");
+});
+t("monitor scoperto (wedge lontano, no IEM) → avviso", () => {
+  reset(); A.state.cab.on = true;
+  add("astamic", 200, 200); add("wedge", 1100, 700); A.__cabRes = null;
+  ok(hasMsg(/lontan[ae] da ogni monitor/), "findings: " + auditMsgs().join(" | "));
+});
+t("monitor vicino → nessun avviso scoperto", () => {
+  reset(); A.state.cab.on = true;
+  add("astamic", 400, 400); add("wedge", 430, 430); A.__cabRes = null;
+  ok(!hasMsg(/lontan[ae] da ogni monitor/), "findings: " + auditMsgs().join(" | "));
+});
+t("palco su IEM/personal monitor → check prossimità saltato", () => {
+  reset(); A.state.cab.on = true;
+  add("astamic", 200, 200); add("wedge", 1100, 700); add("iem", 1150, 700); A.__cabRes = null;
+  ok(!hasMsg(/lontan[ae] da ogni monitor/), "con IEM il check va saltato; findings: " + auditMsgs().join(" | "));
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
