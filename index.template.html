@@ -700,6 +700,17 @@
     <label class="cl-contact" style="display:block;font-size:11px;color:var(--text-2,#374151);margin:0 0 10px">Contatto tecnico (rider)
       <input type="text" id="clContact" placeholder="FOH / tecnico + telefono o email" style="width:100%;margin-top:3px;padding:5px 8px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111">
     </label>
+    <details class="cl-rider" style="margin:0 0 12px">
+      <summary style="font-size:11px;color:var(--text-2,#374151);cursor:pointer;font-weight:600">Rider tecnico — testo (opzionale)</summary>
+      <div style="margin-top:7px;display:grid;gap:7px">
+        <div style="font-size:10.5px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" style="width:74px;margin-left:6px;padding:3px 6px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111"></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+      </div>
+    </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
       <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
       <span class="cl-count" id="inCount">0</span>
@@ -3020,6 +3031,7 @@ function normalizeState(s){
     if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
+  s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
   if(!s.stage.blocks || !s.stage.blocks.length) s.stage.blocks=[{x:0,y:0,w:s.stage.w||1200,d:s.stage.d||800}];
@@ -7694,6 +7706,11 @@ document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
 (function(){ var c=document.getElementById("clContact"); if(c) c.addEventListener("input", function(){ state.techContact=c.value; saveSoon(); }); })();   /* M5: contatto tecnico rider */
+(function(){ function bind(id,key,num){ var el=document.getElementById(id); if(!el) return;   /* T2: testo editabile del rider (vuoto → default) */
+    el.addEventListener("input", function(){ state.rider=state.rider||{}; var v=el.value;
+      if(v==="" || v==null) delete state.rider[key]; else state.rider[key]=num?(Math.max(0,Math.min(300,parseInt(v,10)||0))):v; saveSoon(); }); }
+  bind("rdSedie","sedie",true); bind("rdSistema","sistema"); bind("rdLuci","luci"); bind("rdPersonale","personale"); bind("rdNote","note");
+})();
 /* 1C: toggle vista cliente Stage plot / Channel list (sola lettura in sessione live) */
 (function(){ var p=document.getElementById("vtPlot"), c=document.getElementById("vtChan"); if(!p||!c) return;
   p.addEventListener("click", function(){ document.body.classList.remove("cl-view"); p.classList.add("vt-on"); c.classList.remove("vt-on"); });
@@ -10107,6 +10124,12 @@ function renderChannels(){
   var inR=document.getElementById("inRows"), outR=document.getElementById("outRows");
   if(!inR) return;
   var cc=document.getElementById("clContact"); if(cc && cc.value!==(state.techContact||"")) cc.value=state.techContact||"";   /* M5 */
+  (function(){ var r=state.rider||{};   /* T2: popola i campi rider dallo state + placeholder = default */
+    function setv(id,key){ var el=document.getElementById(id); if(!el) return; var want=(r[key]!=null?String(r[key]):""); if(el.value!==want) el.value=want; }
+    setv("rdSedie","sedie"); setv("rdSistema","sistema"); setv("rdLuci","luci"); setv("rdPersonale","personale"); setv("rdNote","note");
+    var ph={rdSistema:RIDER_DEFAULTS.sistema, rdLuci:RIDER_DEFAULTS.luci, rdPersonale:RIDER_DEFAULTS.personale};
+    Object.keys(ph).forEach(function(id){ var el=document.getElementById(id); if(el && !el.getAttribute("placeholder")) el.setAttribute("placeholder","Standard: "+ph[id].slice(0,54)+"…"); });
+  })();
   updateChanDatalists();
   /* aggiorna badge conteggio negli header a scomparsa */
   var inC=document.getElementById("inCount"), outC=document.getElementById("outCount");
@@ -11600,6 +11623,36 @@ function patchListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* T2 — Rider tecnico PDF: pagina di testo con i numeri DERIVATI (microfoni/monitor/pedane/console) + le
+   sezioni editabili (sistema audio/luci/personale). Stessa forma delle altre pagine-lista (shared=doc). */
+function riderPdf(shared){
+  var d=riderData();
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, W=210, y=22;
+    doc.setFillColor("#4338ca"); doc.rect(0,0,W,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rider tecnico", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=8; }
+    function heading(t){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#4338ca"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
+    function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
+      lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
+    heading("MICROFONI"); body(d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):""));
+    heading("MONITOR"); body(riderMonitorText(d.monitor));
+    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":""));
+    if(d.console){ heading("CONSOLE"); body(d.console); }
+    heading("SISTEMA AUDIO"); body(d.sistema);
+    heading("LUCI"); body(d.luci);
+    heading("PERSONALE RICHIESTO AL SERVICE"); body(d.personale);
+    if(d.note){ heading("NOTE"); body(d.note); }
+    if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); doc.text("Riferimento tecnico: "+d.contatto, M, y); y+=5; }
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-rider.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function monitorListPdf(shared){
   var pl=monitorList(); if(!pl.rows.length){ if(!shared) alert("Nessun monitor sul palco."); return; }
   var R=pl.R;
@@ -12112,9 +12165,67 @@ function listPreviewHtml(key){
 /* T3 — liste disponibili nel link condiviso (solo quelle con dati). Riusa pdfListConfig → tabelle reali. */
 function availableViewerLists(){
   var order=["inputlist","monitorlist","loadlist","backline","rf"], cfg=pdfListConfig(), out=[];
+  if((state.items||[]).length) out.push({key:"rider", title:"Rider tecnico"});   /* T2: il rider (riepilogo derivato) apre il pacchetto */
   order.forEach(function(k){ var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
     if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
   return out;
+}
+function viewerHtmlFor(key){ return key==="rider" ? riderHtml() : listPreviewHtml(key); }   /* T2: rider = documento; le altre = tabelle */
+/* ===== T2 — Rider tecnico GENERATO dai dati (coerenza: i numeri non possono contraddire le liste). =====
+   I quantitativi (canali, monitor, pedane, console) sono DERIVATI; le preferenze non derivabili
+   (sistema audio/PA, luci, personale, sedie, note) sono testo editabile con default, in state.rider. */
+var RIDER_DEFAULTS = {
+  sistema: "Sistema line array professionale, montato e messo in fase, processato e finalizzato come da specifiche del costruttore, in grado di coprire in modo uniforme l'area di ascolto. Emissione delle basse frequenze il più possibile attenuata nella zona del palcoscenico, soprattutto presso la postazione del Direttore.",
+  luci: "Piazzato bianco diffuso per la corretta lettura delle parti musicali. Nessun movimento luce o colore sull'orchestra; illuminazione frontale non fastidiosa per la visione del direttore da parte dei musicisti.",
+  personale: "1 fonico di sala · 1 fonico di palco · 2 tecnici microfonisti · 1 responsabile impianto audio · 1 responsabile luci."
+};
+function riderData(){
+  var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixChTot:0,boxes:[]}, items=state.items||[], r=state.rider||{};
+  function cnt(t){ return items.filter(function(x){ return x.type===t; }).length; }
+  var pedane=items.filter(function(x){ return TYPES[x.type] && TYPES[x.type].riser; }).map(function(x){
+    var T=TYPES[x.type];
+    return { w:Math.round((x.w||T.w)/10)/10, d:Math.round((x.d||T.d)/10)/10, h:x.h||T.h||40 }; });   /* px→m (100px=1m, 1 decimale) */
+  var pick=function(k){ return (r[k]!=null && String(r[k]).trim()!=="") ? r[k] : RIDER_DEFAULTS[k]; };
+  return {
+    titolo: state.titolo||"", luogo: state.luogo||"",
+    inCh: Rc.totIn||0, outCh: Rc.mixChTot||0, boxes:(Rc.boxes||[]).map(function(b){ return b.letter; }),
+    monitor: { wedge:cnt("wedge"), side:cnt("sidefill"), drumfill:cnt("drumfill"), iem:cnt("iem"), personal:cnt("hearback") },
+    pedane: pedane,
+    console: (state.cab && state.cab.mixer && typeof MIXER_DB!=="undefined" && MIXER_DB[state.cab.mixer]) ? hwLabel(state.cab.mixer, MIXER_DB) : "",
+    contatto: state.techContact||"",
+    sistema: pick("sistema"), luci: pick("luci"), personale: pick("personale"),
+    sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
+    note: r.note||""
+  };
+}
+function riderMonitorText(m){
+  var a=[]; if(m.wedge)a.push(m.wedge+" wedge"); if(m.side)a.push(m.side+" side fill"); if(m.drumfill)a.push(m.drumfill+" drum fill");
+  if(m.iem)a.push(m.iem+" IEM"); if(m.personal)a.push(m.personal+" personal monitor");
+  return a.length ? a.join(" · ") : "—";
+}
+function riderPedaneText(pedane){
+  if(!pedane.length) return "—";
+  var g={}, order=[]; pedane.forEach(function(p){ var k=p.w+"×"+p.d+" m · h"+p.h+" cm"; if(g[k]==null){g[k]=0;order.push(k);} g[k]++; });
+  return order.map(function(k){ return g[k]+"× pedana "+k; }).join(" · ");
+}
+function riderHtml(){
+  var d=riderData();
+  function esct(x){ return esc(String(x==null?"":x)).replace(/\n/g,"<br>"); }
+  function sec(t,body,auto){ return '<div class="pdf-rider-sec"><div class="pdf-rider-h">'+esc(t)+(auto?' <span class="pdf-rider-auto">dai dati</span>':'')+'</div><div class="pdf-rider-b">'+body+'</div></div>'; }
+  var mic = d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):"");
+  return '<div class="pdf-list-sheet pdf-rider-sheet">'+
+    '<div class="pdf-list-hd" style="background:#4338ca">Rider tecnico<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
+    (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
+    sec("Microfoni", esc(mic), true)+
+    sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
+    sec("Stage e pedane", esc(riderPedaneText(d.pedane))+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":""), true)+
+    (d.console?sec("Console", esc(d.console), true):"")+
+    sec("Sistema audio", esct(d.sistema))+
+    sec("Luci", esct(d.luci))+
+    sec("Personale richiesto al service", esct(d.personale))+
+    (d.note?sec("Note", esct(d.note)):"")+
+    (d.contatto?'<div class="pdf-rider-contact">Riferimento tecnico: '+esc(d.contatto)+'</div>':"")+
+    '</div>';
 }
 /* T3 — barra tab del link condiviso normale: Stage plot + una tab per ogni lista con dati (tabelle reali). */
 function setupViewerTabs(){
@@ -12131,7 +12242,7 @@ function setupViewerTabs(){
     Array.prototype.forEach.call(tg.querySelectorAll("button"), function(x){ x.classList.toggle("vt-on", x===b); });
     var k=b.getAttribute("data-vt");
     if(k==="plot"){ document.body.classList.remove("lists-view"); }
-    else { host.innerHTML=listPreviewHtml(k)||'<div class="pdf-list-sheet"><div class="pdf-list-empty">Nessun dato</div></div>'; document.body.classList.add("lists-view"); host.scrollTop=0; }
+    else { host.innerHTML=viewerHtmlFor(k)||'<div class="pdf-list-sheet"><div class="pdf-list-empty">Nessun dato</div></div>'; document.body.classList.add("lists-view"); host.scrollTop=0; }
   }); }
 }
 /* costruisce il jsPDF doc (Promise) — separato da save per poterlo testare */
@@ -12188,6 +12299,7 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.addPage(paperKey, L.orient);
         pdfChannelPage(doc, L, paperKey);
       }
+      if(want("rider")) riderPdf(doc);   /* T2: il rider apre le pagine tecniche */
       if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
       if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
       if(want("loadlist")) loadListPdf(doc);
@@ -12393,7 +12505,7 @@ function pdfChannelPage(doc, L, paperKey){
     var p=pages[prevIdx];
     try{
       if(p.list){
-        var lh=(typeof listPreviewHtml==="function") ? listPreviewHtml(p.key) : null;
+        var lh=(typeof viewerHtmlFor==="function") ? viewerHtmlFor(p.key) : null;
         host.innerHTML = lh || '<div class="pdf-sheet-ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/></svg><div class="pdf-sheet-ph-t">'+esc(p.title)+'</div><div class="pdf-sheet-ph-s">Pagina di testo — nel PDF esportato</div></div>';
       }
       else host.innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
@@ -12426,6 +12538,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.cab && state.cab.on){ pages.push({key:"view-cabaudio", label:"Vista: Cablaggio audio"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
+    if((state.items||[]).length){ pages.push({key:"rider", label:"Rider tecnico"}); }   /* T2: rider generato dai dati */
     var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
     if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
     if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
