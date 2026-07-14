@@ -1221,6 +1221,12 @@ body.consult-viewer #viewToggle{ display:inline-flex; gap:4px; margin-left:12px;
 body.viewmode.consult-viewer.cl-view main{ display:none; }
 body.viewmode.consult-viewer.cl-view #props{ display:block !important; position:fixed; inset:44px 0 0 0; overflow-y:auto; padding:16px 16px 40px; z-index:20; background:var(--surface); }
 body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:900px; margin:0 auto; border:0; padding-top:0; }
+/* T3 — liste tecniche nel link condiviso normale: tab su una lista → nascondi il canvas, mostra le tabelle a piena pagina */
+#viewLists{ display:none; }
+body.viewmode.lists-view main{ display:none; }
+body.viewmode.lists-view #viewLists{ display:block; position:fixed; inset:44px 0 0 0; overflow-y:auto; padding:20px 16px 48px; z-index:20; background:var(--surface); }
+body.viewmode.lists-view #viewLists .pdf-list-sheet{ max-width:900px; margin:0 auto; }
+body.viewmode.lists-view #viewLists .pdf-list-tbl{ max-height:none; overflow:visible; }
 /* sola lettura: sezioni sempre aperte, controlli editor nascosti */
 body.consult-viewer .clsec-body{ display:block !important; }
 body.consult-viewer .clsec-head{ cursor:default; }

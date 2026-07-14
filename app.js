@@ -10871,6 +10871,31 @@ function listPreviewHtml(key){
     (cfg.sub?'<div class="pdf-list-sub">'+esc(cfg.sub(d)||"")+'</div>':'')+
     '<table class="pdf-list-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>';
 }
+/* T3 — liste disponibili nel link condiviso (solo quelle con dati). Riusa pdfListConfig → tabelle reali. */
+function availableViewerLists(){
+  var order=["inputlist","monitorlist","loadlist","backline","rf"], cfg=pdfListConfig(), out=[];
+  order.forEach(function(k){ var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
+    if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
+  return out;
+}
+/* T3 — barra tab del link condiviso normale: Stage plot + una tab per ogni lista con dati (tabelle reali). */
+function setupViewerTabs(){
+  var tg=document.getElementById("viewToggle"), host=document.getElementById("viewLists");
+  if(!tg || !host) return;
+  var lists=availableViewerLists();
+  if(!lists.length){ tg.style.display="none"; return; }   /* solo stage plot → toggle inutile, nascondi */
+  tg.style.display="";
+  var html='<button type="button" class="vt-on" data-vt="plot">Stage plot</button>';
+  lists.forEach(function(l){ html+='<button type="button" data-vt="'+l.key+'">'+esc(l.title)+'</button>'; });
+  tg.innerHTML=html;
+  if(!tg.__vtBound){ tg.__vtBound=true; tg.addEventListener("click", function(e){
+    var b=e.target.closest("button[data-vt]"); if(!b) return;
+    Array.prototype.forEach.call(tg.querySelectorAll("button"), function(x){ x.classList.toggle("vt-on", x===b); });
+    var k=b.getAttribute("data-vt");
+    if(k==="plot"){ document.body.classList.remove("lists-view"); }
+    else { host.innerHTML=listPreviewHtml(k)||'<div class="pdf-list-sheet"><div class="pdf-list-empty">Nessun dato</div></div>'; document.body.classList.add("lists-view"); host.scrollTop=0; }
+  }); }
+}
 /* costruisce il jsPDF doc (Promise) — separato da save per poterlo testare */
 function buildPdfDoc(paperKey, N, orient, header){
   var baseL=pdfLayout(paperKey, orient, 22);
@@ -11367,6 +11392,7 @@ function gallery(){
     document.body.classList.add("viewmode");
     importProject(JSON.stringify(d.data));
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
+    try{ setupViewerTabs(); }catch(e){}   /* T3: tab liste tecniche (Input/Monitor/Carichi/RF/Backline) nel link condiviso */
     showBar("viewer", "");
     var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
     var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;

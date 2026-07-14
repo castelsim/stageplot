@@ -559,5 +559,27 @@ t("palco su IEM/personal monitor → check prossimità saltato", () => {
   ok(!hasMsg(/lontan[ae] da ogni monitor/), "con IEM il check va saltato; findings: " + auditMsgs().join(" | "));
 });
 
+console.log("\nT3 — viste liste nel link condiviso (availableViewerLists):");
+t("stage vuoto → nessuna lista disponibile", () => {
+  reset(); eq(A.availableViewerLists().length, 0);
+});
+t("sorgente audio → Input list disponibile", () => {
+  reset(); A.state.cab.on = true; add("astamic", 400, 400); A.__cabRes = null;
+  ok(A.availableViewerLists().some((l) => l.key === "inputlist"), "atteso inputlist; got " + JSON.stringify(A.availableViewerLists()));
+});
+t("radiomic → Lista RF disponibile", () => {
+  reset(); A.state.cab.on = true; add("wireless", 400, 400); A.__cabRes = null;
+  ok(A.availableViewerLists().some((l) => l.key === "rf"), "atteso rf; got " + JSON.stringify(A.availableViewerLists()));
+});
+t("sorgente + wedge → Monitor list disponibile", () => {
+  reset(); A.state.cab.on = true; add("astamic", 300, 300); add("wedge", 350, 350); A.__cabRes = null;
+  ok(A.availableViewerLists().some((l) => l.key === "monitorlist"), "atteso monitorlist; got " + JSON.stringify(A.availableViewerLists()));
+});
+t("listPreviewHtml('inputlist') → tabella HTML con dati reali", () => {
+  reset(); A.state.cab.on = true; add("astamic", 400, 400); A.__cabRes = null;
+  const h = A.listPreviewHtml("inputlist");
+  ok(h && /pdf-list-tbl/.test(h) && /Input list/.test(h), "html: " + String(h).slice(0, 90));
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
