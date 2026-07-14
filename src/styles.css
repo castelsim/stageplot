@@ -676,6 +676,37 @@
   .mcard select{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface)}
   .mcard .mstatus{font-size:12.5px}
   .mcard .mstatus.ok{color:var(--success)}  .mcard .mstatus.err{color:var(--danger)}  .mcard .mstatus.warn{color:var(--warning)}
+  /* ===== Finestra Esporta PDF — compatta, anteprima integrata multipagina (Simone 14/07) ===== */
+  .pdf-export{width:880px;max-width:96vw;padding:20px 22px}
+  .pdf-exp-head{display:flex;align-items:baseline;gap:12px;margin:0 0 15px}
+  .pdf-exp-head h2{margin:0}
+  .pdf-exp-hint{font-size:12px;color:var(--text-3)}
+  .pdf-exp-grid{display:grid;grid-template-columns:210px 1fr;gap:22px;align-items:start}
+  .pdf-exp-side>label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin:12px 0 5px}
+  .pdf-exp-side>label:first-child{margin-top:0}
+  .pdf-exp-side .chips{margin:0}
+  .pdf-exp-side input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13.5px;background:var(--surface);color:var(--text)}
+  .pdf-side-h{font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:7px}
+  #pdfTechBox{margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+  #pdfTechList{display:flex;flex-direction:column;gap:6px}
+  #pdfTechList .chk{font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer}
+  #pdfTechNote{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.45}
+  .pdf-exp-main{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .pdf-sheet{background:var(--surface-raised);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:300px}
+  .pdf-sheet svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}
+  .pdf-sheet-ph{display:flex;flex-direction:column;align-items:center;gap:9px;color:var(--text-3);text-align:center;padding:30px}
+  .pdf-sheet-ph-t{font-size:14px;font-weight:700;color:var(--text-2)}
+  .pdf-sheet-ph-s{font-size:11.5px}
+  .pdf-nav{display:flex;align-items:center;justify-content:center;gap:14px}
+  .pdf-navbtn{border:1px solid var(--border);background:var(--surface);color:var(--text);width:34px;height:34px;border-radius:9px;font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  .pdf-navbtn:hover:not(:disabled){background:var(--surface-raised);border-color:var(--border-strong)}
+  .pdf-navbtn:disabled{opacity:.32;cursor:default}
+  .pdf-pagelbl{font-size:12.5px;font-weight:600;color:var(--text-2);min-width:160px;text-align:center}
+  .pdf-exp-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
+  .pdf-exp-foot .mstatus{flex:1;min-height:16px}
+  .pdf-exp-actions{display:flex;gap:8px;flex:0 0 auto}
+  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} }
+  body.dark .pdf-sheet{background:#161d22}
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
   .pa-card:hover:not(.sel){border-color:var(--accent-soft);background:var(--accent-tint)}

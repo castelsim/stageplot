@@ -10782,13 +10782,14 @@ function pdfCredit(doc){
   doc.setPage(n);
 }
 /* anteprima del foglio (SVG, mm) — rispecchia il layout del PDF: planimetria + quote + cartiglio */
-function pdfPreviewSvg(paperKey, N, orient, header){
+function pdfPreviewSvg(paperKey, N, orient, header, opts){
+  opts=opts||{};   /* opts.focus = clean|cabaudio|elec|sectionmic ; opts.pageLabel = titolo pagina-vista */
   var scW=90, baseL=pdfLayout(paperKey, orient, 22);
   var ch=cartHForHeader(header, baseL.pw-2*baseL.M-scW);
   var Ng = N || 500;
   var box=pdfStageBox(Ng, paperKey, orient, ch), L=box.L, A=box.A;
   var stMmW=box.mmW, stMmH=box.mmH, ix=box.ix, iy=box.iy;
-  var scene = stageSceneSvg(box.vb).replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
+  var scene = stageSceneSvg(box.vb, {focus:opts.focus||null}).replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   var cy=L.ph-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
@@ -10816,6 +10817,7 @@ function pdfPreviewSvg(paperKey, N, orient, header){
     headerSvg+
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
     '<text x="'+(L.pw-10)+'" y="'+(L.ph-2.8)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
+    (opts.pageLabel ? '<text x="'+L.M+'" y="8.5" font-size="6.4" font-weight="800" letter-spacing="0.4" fill="#111827">'+esc(opts.pageLabel)+'</text>' : '')+
     '</svg>';
 }
 /* costruisce il jsPDF doc (Promise) — separato da save per poterlo testare */
@@ -10922,50 +10924,6 @@ function exportPdf(paperKey, scaleSel, orient, header){
     track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
   }).catch(function(e){
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
-  });
-}
-/* ===== ANTEPRIMA PDF on-demand (Simone 14/07) — genera il PDF REALE completo (stesse pagine dell'export)
-   e lo mostra in overlay con <iframe> (desktop/Android); il link "Apri in una scheda" è il fallback per
-   iOS, che spesso non renderizza i PDF in iframe. Nessun costo durante l'interazione: parte al click. ===== */
-var __pdfPreviewUrl=null;
-function closePdfPreviewOverlay(){
-  var ov=document.getElementById("pdfPreviewOverlay"); if(ov) ov.style.display="none";
-  var fr=document.getElementById("pdfPreviewFrame"); if(fr) fr.src="about:blank";
-  if(__pdfPreviewUrl){ try{ URL.revokeObjectURL(__pdfPreviewUrl); }catch(e){} __pdfPreviewUrl=null; }
-}
-function showPdfPreviewOverlay(url){
-  var ov=document.getElementById("pdfPreviewOverlay");
-  if(!ov){
-    ov=document.createElement("div"); ov.id="pdfPreviewOverlay";
-    ov.style.cssText="position:fixed;inset:0;z-index:340;background:rgba(15,23,42,.7);display:flex;flex-direction:column;padding:14px;box-sizing:border-box";
-    ov.innerHTML=
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
-        '<strong style="font-size:15px;flex:1;color:#fff">Anteprima PDF</strong>'+
-        '<a id="pdfPreviewOpen" href="#" target="_blank" rel="noopener" class="btn">Apri in una scheda ↗</a>'+
-        '<button id="pdfPreviewClose" type="button" class="btn">Chiudi</button>'+
-      '</div>'+
-      '<iframe id="pdfPreviewFrame" title="Anteprima PDF" style="flex:1;width:100%;border:none;border-radius:10px;background:#fff"></iframe>';
-    document.body.appendChild(ov);
-    ov.querySelector("#pdfPreviewClose").addEventListener("click", closePdfPreviewOverlay);
-    ov.addEventListener("click", function(e){ if(e.target===ov) closePdfPreviewOverlay(); });
-    document.addEventListener("keydown", function(e){ if(e.key==="Escape" && ov.style.display!=="none") closePdfPreviewOverlay(); });
-  }
-  __pdfPreviewUrl=url;
-  ov.querySelector("#pdfPreviewFrame").src=url;
-  ov.querySelector("#pdfPreviewOpen").href=url;
-  ov.style.display="flex";
-}
-function previewPdf(paperKey, scaleSel, orient, header){
-  var info=document.getElementById("pdfInfo");
-  var N=resolveScale(paperKey, scaleSel, orient);
-  if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500: cambia foglio o orientamento."; return; }
-  info.className="mstatus"; info.textContent="Genero l'anteprima…";
-  buildPdfDoc(paperKey, N, orient, header).then(function(doc){
-    if(__pdfPreviewUrl){ try{ URL.revokeObjectURL(__pdfPreviewUrl); }catch(e){} }
-    showPdfPreviewOverlay(doc.output("bloburl"));
-    info.className="mstatus"; info.textContent="";
-  }).catch(function(e){
-    info.className="mstatus err"; info.textContent="Anteprima non riuscita: "+(e&&e.message||e);
   });
 }
 function exportPng(){
@@ -11099,6 +11057,34 @@ function pdfChannelPage(doc, L, paperKey){
 (function(){
   var modal=document.getElementById("pdfModal"), paper=document.getElementById("pdfPaper"),
       scl=document.getElementById("pdfScale"), orient=document.getElementById("pdfOrient"), header=document.getElementById("pdfHeader");
+  /* ANTEPRIMA MULTIPAGINA (Simone 14/07): l'anteprima integrata sfoglia tutte le pagine del PDF —
+     pag "Palco" (pulita) + una pagina per ogni VISTA selezionata (layer a fuoco 100% / palco in
+     trasparenza, stesso rendering del PDF via stageSceneSvg focus) + le liste testuali (placeholder). */
+  var prevIdx=0;
+  var VIEW_MAP={ "view-cabaudio":{focus:"cabaudio",title:"Cablaggio audio"}, "view-elec":{focus:"elec",title:"Elettrico"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"} };
+  function previewPages(){
+    var pages=[{focus:"clean", title:"Palco"}];
+    var sel=window.__pdfPages||{};
+    _pdfTechPages.forEach(function(p){ if(!sel[p.key]) return;
+      if(VIEW_MAP[p.key]) pages.push({focus:VIEW_MAP[p.key].focus, title:VIEW_MAP[p.key].title});
+      else pages.push({list:true, title:p.label.replace(/^Vista:\s*/,"")});
+    });
+    return pages;
+  }
+  function renderPreview(){
+    var host=document.getElementById("pdfPreview"); if(!host) return;
+    var N=resolveScale(paper.value, pdfScaleValue(), orient.value);
+    var pages=previewPages();
+    if(prevIdx>=pages.length) prevIdx=pages.length-1; if(prevIdx<0) prevIdx=0;
+    var p=pages[prevIdx];
+    try{
+      if(p.list) host.innerHTML='<div class="pdf-sheet-ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/></svg><div class="pdf-sheet-ph-t">'+esc(p.title)+'</div><div class="pdf-sheet-ph-s">Pagina di testo — nel PDF esportato</div></div>';
+      else host.innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
+    }catch(e){}
+    var lbl=document.getElementById("pdfPageLabel"); if(lbl) lbl.textContent="Pag "+(prevIdx+1)+"/"+pages.length+" · "+p.title;
+    var pv=document.getElementById("pdfPrev"), nx=document.getElementById("pdfNext");
+    if(pv) pv.disabled=prevIdx<=0; if(nx) nx.disabled=prevIdx>=pages.length-1;
+  }
   function refresh(){
     var info=document.getElementById("pdfInfo");
     document.getElementById("pdfScaleCustomRow").hidden = scl.value!=="custom";   /* M-scala: input custom visibile solo se "Personalizzata" */
@@ -11112,7 +11098,7 @@ function pdfChannelPage(doc, L, paperKey){
       info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
         (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala. Scegli <b>Automatica</b> o un foglio più grande per averlo tutto." : "");
     }
-    try{ document.getElementById("pdfPreview").innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value); }catch(e){}
+    renderPreview();
   }
   /* Pagine del RIDER TECNICO disponibili per QUESTO progetto (ciclo 11, proposta Simone):
      le LISTE seguono i DATI (esistono appena metti sorgenti/monitor/carichi, senza dover attivare il layer);
@@ -11150,6 +11136,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(note){ var n=Object.keys(window.__pdfPages).length;
       note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
                            : "Solo palco (1 pagina). Spunta qui sopra le pagine tecniche da allegare."; }
+    renderPreview();   /* le pagine spuntate compaiono subito nell'anteprima */
   }
   function pdfRenderTechList(){
     var host=document.getElementById("pdfTechList"); if(!host) return;
@@ -11162,9 +11149,10 @@ function pdfChannelPage(doc, L, paperKey){
       host.appendChild(lab);
     });
   }
-  window.openPdfExportModal=function(){ modal.hidden=false; refresh();
+  window.openPdfExportModal=function(){ modal.hidden=false; prevIdx=0;
     _pdfTechPages=pdfComputeTechPages();
     pdfRenderTechList();
+    refresh();
     pdfUpdateTechNote();
   };
   document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
@@ -11174,7 +11162,8 @@ function pdfChannelPage(doc, L, paperKey){
   paper.addEventListener("change", refresh); scl.addEventListener("change", refresh);
   document.getElementById("pdfScaleCustom").addEventListener("input", refresh);   /* M-scala: aggiorna la preview mentre digiti la scala custom */
   orient.addEventListener("change", refresh); header.addEventListener("input", refresh);
-  document.getElementById("pdfPreview2").addEventListener("click", function(){ previewPdf(paper.value, pdfScaleValue(), orient.value, header.value); });
+  document.getElementById("pdfPrev").addEventListener("click", function(){ prevIdx--; renderPreview(); });
+  document.getElementById("pdfNext").addEventListener("click", function(){ prevIdx++; renderPreview(); });
   document.getElementById("pdfGo").addEventListener("click", function(){ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); });
 })();
 /* ============ AREA DI STAMPA — step 1 del flusso PDF ============ */
