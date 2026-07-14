@@ -11445,25 +11445,43 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
-    /* PAG 2+ channel list della CONSULENZA (lista manuale): invariato (audit/roadmap 1B) */
-    if(window.__consultMode && (state.inputs.length || state.outputs.length)){
-      doc.addPage(paperKey, L.orient);
-      pdfChannelPage(doc, L, paperKey);
-    }
-    /* Rider tecnico (ciclo 11): pagine selezionate nell'export. Le LISTE seguono i dati (non i layer);
-       gli SCHEMI dei cavi richiedono il layer attivo. window.__pdfPages = Set delle chiavi spuntate.
-       In consulenza la channel list è già sopra → si evita di duplicare la lista ingressi. */
     var pg=window.__pdfPages||null;
     var want=function(k){ return pg ? !!pg[k] : false; };
-    if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
-    if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
-    if(want("loadlist")) loadListPdf(doc);
-    if(want("backline")) backlineListPdf(doc);
-    if(want("rf")) rfListPdf(doc);
-    if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
-    if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
-    pdfCredit(doc);
-    return doc;
+    /* Pagine-vista per layer: stesso box/scala della pag 1, ridisegnato col layer a fuoco (100%) e il
+       resto del palco sfumato. Titolo grande in alto. Sono asincrone (svg2pdf) → catena promise. */
+    var _views=[];
+    if(want("view-cabaudio")) _views.push(["cabaudio","CABLAGGIO AUDIO"]);
+    if(want("view-elec"))     _views.push(["elec","ELETTRICO"]);
+    if(want("view-sectionmic")) _views.push(["sectionmic","MICROFONAZIONE"]);
+    var _viewChain=Promise.resolve();
+    _views.forEach(function(v){
+      _viewChain=_viewChain.then(function(){
+        doc.addPage(paperKey, L.orient);
+        doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
+        doc.text(v[1], L.M, 11);
+        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0])
+          .catch(function(){ /* se svg2pdf fallisce, la pagina resta col solo titolo: non blocca l'export */ })
+          .then(function(){ pdfScaleBar(doc, ix, iy+stMmH+10, N); });
+      });
+    });
+    /* Dopo le pagine-vista: consulenza + liste testuali selezionate, poi credito. Tutto DENTRO la catena
+       così l'ordine finale è pag1 → viste → consulenza → liste. */
+    return _viewChain.then(function(){
+      /* PAG 2+ channel list della CONSULENZA (lista manuale): invariato (audit/roadmap 1B) */
+      if(window.__consultMode && (state.inputs.length || state.outputs.length)){
+        doc.addPage(paperKey, L.orient);
+        pdfChannelPage(doc, L, paperKey);
+      }
+      if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
+      if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
+      if(want("loadlist")) loadListPdf(doc);
+      if(want("backline")) backlineListPdf(doc);
+      if(want("rf")) rfListPdf(doc);
+      if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
+      if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
+      pdfCredit(doc);
+      return doc;
+    });
       });
   });
 }
@@ -11656,6 +11674,10 @@ function pdfChannelPage(doc, L, paperKey){
      le MAPPE dei cavi seguono i LAYER attivi (sono il lavoro di cablaggio). Ognuna è selezionabile. */
   function pdfComputeTechPages(){
     var pages=[];
+    /* Pagine-vista (disegno del palco col layer a fuoco) — prima delle liste testuali */
+    if(state.cab && state.cab.on){ pages.push({key:"view-cabaudio", label:"Vista: Cablaggio audio"}); }
+    if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
+    if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Section Mic"}); }
     var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
     if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
     if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
