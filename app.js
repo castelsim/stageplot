@@ -10417,14 +10417,14 @@ function pdfChannelPage(doc, L, paperKey){
     window.__pdfScope = "full";
     if(note){ var n=Object.keys(window.__pdfPages).length;
       note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
-                           : "Verrà esportato solo il palco (1 pagina)."; }
+                           : "Solo palco (1 pagina). Spunta qui sopra le pagine tecniche da allegare."; }
   }
   function pdfRenderTechList(){
     var host=document.getElementById("pdfTechList"); if(!host) return;
     host.innerHTML="";
     _pdfTechPages.forEach(function(p){
       var lab=document.createElement("label"); lab.className="chk"; lab.style.cssText="font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer";
-      var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=true; cb.setAttribute("data-page",p.key);
+      var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=false; cb.setAttribute("data-page",p.key);
       cb.addEventListener("change", pdfUpdateTechNote);
       lab.appendChild(cb); lab.appendChild(document.createTextNode(p.label));
       host.appendChild(lab);
