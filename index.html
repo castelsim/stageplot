@@ -1385,6 +1385,12 @@ body.consult-viewer #viewToggle{ display:inline-flex; gap:4px; margin-left:12px;
 body.viewmode.consult-viewer.cl-view main{ display:none; }
 body.viewmode.consult-viewer.cl-view #props{ display:block !important; position:fixed; inset:44px 0 0 0; overflow-y:auto; padding:16px 16px 40px; z-index:20; background:var(--surface); }
 body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:900px; margin:0 auto; border:0; padding-top:0; }
+/* T2 — foglio Rider tecnico (documento: sezioni derivate + testo editabile) */
+.pdf-rider-sheet .pdf-rider-sec{ padding:9px 14px; border-top:1px solid #eef1f4; }
+.pdf-rider-sheet .pdf-rider-h{ font-size:11px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:#4338ca; margin-bottom:3px; }
+.pdf-rider-sheet .pdf-rider-auto{ font-size:9.5px; font-weight:700; color:#0d9488; background:#e6fffb; border-radius:4px; padding:1px 5px; letter-spacing:0; text-transform:none; vertical-align:1px; }
+.pdf-rider-sheet .pdf-rider-b{ font-size:12.5px; color:#111827; line-height:1.5; }
+.pdf-rider-sheet .pdf-rider-contact{ padding:10px 14px; border-top:1px solid #eef1f4; font-size:11.5px; color:#374151; font-style:italic; }
 /* T3 — liste tecniche nel link condiviso normale: tab su una lista → nascondi il canvas, mostra le tabelle a piena pagina */
 #viewLists{ display:none; }
 body.viewmode.lists-view main{ display:none; }
@@ -2086,6 +2092,17 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <label class="cl-contact" style="display:block;font-size:11px;color:var(--text-2,#374151);margin:0 0 10px">Contatto tecnico (rider)
       <input type="text" id="clContact" placeholder="FOH / tecnico + telefono o email" style="width:100%;margin-top:3px;padding:5px 8px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111">
     </label>
+    <details class="cl-rider" style="margin:0 0 12px">
+      <summary style="font-size:11px;color:var(--text-2,#374151);cursor:pointer;font-weight:600">Rider tecnico — testo (opzionale)</summary>
+      <div style="margin-top:7px;display:grid;gap:7px">
+        <div style="font-size:10.5px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" style="width:74px;margin-left:6px;padding:3px 6px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111"></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+      </div>
+    </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
       <span class="cl-caret">▶</span><span class="cl-lbl">Input patch</span>
       <span class="cl-count" id="inCount">0</span>

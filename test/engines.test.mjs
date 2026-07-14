@@ -28,6 +28,7 @@ function loadApp() {
     matchMedia: () => ({ matches: false, addEventListener: () => {}, addListener: () => {} }),
     setTimeout: () => 0, clearTimeout: () => {}, setInterval: () => 0, clearInterval: () => {}, requestAnimationFrame: () => 0,
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => true,
+    Event: function () {}, CustomEvent: function () {},
     fetch: () => Promise.reject(new Error("no net")),
     location: { search: "", href: "http://localhost/", pathname: "/" },
     performance: { now: () => 0 }, atob: (s) => s, btoa: (s) => s,
@@ -579,6 +580,36 @@ t("listPreviewHtml('inputlist') → tabella HTML con dati reali", () => {
   reset(); A.state.cab.on = true; add("astamic", 400, 400); A.__cabRes = null;
   const h = A.listPreviewHtml("inputlist");
   ok(h && /pdf-list-tbl/.test(h) && /Input list/.test(h), "html: " + String(h).slice(0, 90));
+});
+
+console.log("\nT2 — rider tecnico generato dai dati:");
+t("riderData: canali derivati + testo default", () => {
+  reset(); A.state.cab.on = true; add("astamic", 300, 300); A.__cabRes = null;
+  const r = A.riderData();
+  ok(r.inCh >= 1, "inCh derivato; got " + r.inCh);
+  ok(/line array/i.test(r.sistema), "default sistema audio presente");
+});
+t("riderData: monitor e pedane derivati", () => {
+  reset(); A.state.cab.on = true; add("wedge", 300, 300); add("pedana", 500, 500); A.__cabRes = null;
+  const r = A.riderData();
+  eq(r.monitor.wedge, 1, "wedge contato");
+  eq(r.pedane.length, 1, "pedana rilevata");
+  ok(r.pedane[0].w > 0 && r.pedane[0].h > 0, "pedana con dimensioni: " + JSON.stringify(r.pedane[0]));
+});
+t("riderData: testo editabile (state.rider) vince sul default", () => {
+  reset(); A.state.rider = { sistema: "Mio impianto XYZ" };
+  const r = A.riderData();
+  ok(r.sistema === "Mio impianto XYZ", "override sistema");
+  eq(r.sedie, "", "sedie vuote di default");
+});
+t("riderData: sedie editabili", () => {
+  reset(); A.state.rider = { sedie: 40 };
+  eq(String(A.riderData().sedie), "40", "sedie dall'editabile");
+});
+t("riderHtml: documento con sezioni e numeri derivati", () => {
+  reset(); A.state.cab.on = true; add("astamic", 300, 300); add("wedge", 320, 320); A.__cabRes = null;
+  const h = A.riderHtml();
+  ok(/Rider tecnico/.test(h) && /Microfoni/.test(h) && /Monitor/.test(h), "html: " + String(h).slice(0, 120));
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
