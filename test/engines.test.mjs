@@ -88,6 +88,13 @@ t("micZoneLabel con label numerati: 'Violino I 1/2' -> 'Violini I'", () => {
   const z = add("miczone", 320, 300); z.w = 220; z.d = 150;
   eq(A.micZoneLabel(z), "Violini I");
 });
+t("ownMic: in zona 0 canali di default; con ownMic il mic singolo torna (zona resta 1 canale)", () => {
+  reset(); const v = add("vlnpost", 300, 300); const z = add("miczone", 300, 300); z.w = 220; z.d = 150;
+  eq(chans(v).length, 0, "default: coperto");
+  v.ownMic = true; A.__cabRes = null;
+  ok(chans(v).length >= 1, "ownMic: il mic singolo conta di nuovo");
+  eq(chans(z).length, 1, "la zona resta 1 canale");
+});
 t("zone: colori tutti diversi alla creazione (zcol dalla palette)", () => {
   reset(); const z1 = add("miczone", 200, 200); const z2 = add("miczone", 600, 200); const z3 = add("miczone", 1000, 200);
   if (!z1.zcol || !z2.zcol || !z3.zcol) throw new Error("zcol mancante");
