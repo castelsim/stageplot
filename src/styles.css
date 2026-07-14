@@ -482,7 +482,11 @@
   .layer-ico.layer-trash:hover{color:var(--danger,#dc2626)}
   .layer-controls{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto}   /* tutto inline nella riga: slider + icone */
   .layer-controls .layer-opacity{width:66px;flex:0 0 66px;margin:0}
-  .layer-icons{display:grid;grid-template-columns:repeat(3,20px);gap:3px;align-items:center;flex:0 0 auto}   /* occhio | lucchetto | cestino, slot fissi allineati */
+  .layer-icons{display:grid;grid-template-columns:repeat(4,20px);gap:3px;align-items:center;flex:0 0 auto}   /* S | occhio | lucchetto | cestino, slot fissi allineati */
+  .layer-ico.layer-solo{font-size:10.5px;font-weight:800;line-height:1;color:var(--text-3)}
+  .layer-ico.layer-solo.on{color:#b45309;background:#fde68a}   /* solo attivo = ambra da console */
+  .layer-ico.layer-solo.on:hover{background:#fcd34d;color:#92400e}
+  body.dark .layer-ico.layer-solo.on{color:#fbbf24;background:#78350f}
   .layer-icons .layer-ico{width:20px;height:20px;padding:2px;justify-content:center}
   .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
