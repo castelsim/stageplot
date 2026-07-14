@@ -8837,6 +8837,8 @@ function renderLayerRow(L, container){
 function renderLayerManager(){
   var sec=document.getElementById("layerSec"); if(!sec) return;
   var LS=layerRegistry().filter(function(L){ return L.active; });
+  /* il layer Palco resta sempre in cima alla lista (richiesta Simone) */
+  LS=LS.filter(function(L){ return L.id==="stage"; }).concat(LS.filter(function(L){ return L.id!=="stage"; }));
   sec.style.display = LS.length ? "block" : "none";
   if(!LS.length) return;
   /* Un solo header "Layer" + lista PIATTA di tutti i layer attivi, in ordine (Simone: niente divisore). */
