@@ -5895,6 +5895,7 @@ function instrSeats(type){ var base=instrBase(type), n=0;
   return n; }
 function nextInstrLabel(type){ return instrBase(type)+" "+(instrSeats(type)+1); }
 function addItem(type, over){
+  if(window.__projLocked) return null;   /* BLOCCO progetti: nessuna aggiunta di elementi (backstop di TUTTI i path: catalogo, quick-add, drag-drop, fix audit, auto-add cablaggio) */
   var t=TYPES[type];
   var it={ id:uid(), type:type, x:Math.round(vb.x+vb.w/2+addCascade), y:Math.round(vb.y+vb.h/2+addCascade),
            rot:0, w:t.w, d:t.d, label:defaultLabel(type) };
@@ -6183,6 +6184,10 @@ svg.addEventListener("pointerdown", function(e){
   var _onPort = e.target.closest ? e.target.closest(".port-hit") : null;   /* porte stile Max: mai doppio-click */
   if(venueCalibMode===0 && !_onCabEl && !_onPort && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
+    if(window.__projLocked){   /* progetto bloccato: doppio-click SOLA LETTURA — seleziona/mostra, mai quick-add / testo inline / modifica palco / planimetria */
+      if(dcId){ selectOne(dcId); render(); if(isMobile()) document.body.classList.add("props-expanded"); }
+      return;
+    }
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
       if(dcIt && dcIt.type==="testo"){
