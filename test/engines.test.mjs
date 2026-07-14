@@ -78,10 +78,20 @@ t("elemento dentro una zona -> 0 canali; la zona -> 1 canale inferito", () => {
   reset(); const v = add("vlnpost", 300, 300); const z = add("miczone", 300, 300); z.w = 220; z.d = 150;
   eq(chans(v).length, 0, "violino coperto"); eq(chans(z).length, 1, "zona"); eq(chans(z)[0].mic, "KM184", "mic zona");
 });
-t("micZoneLabel archi uniforme = 'Zona archi'; zona vuota = KM184 / 'Zona panoramica'", () => {
+t("micZoneLabel = sezione prevalente plurale (14/07): 'Violini'; zona vuota = KM184 / 'Zona panoramica'", () => {
   reset(); add("vlnpost", 300, 300); add("vlnpost", 340, 300); const z = add("miczone", 320, 300); z.w = 220; z.d = 150;
-  eq(A.micZoneLabel(z), "Zona archi"); const z2 = add("miczone", 1500, 1500); z2.w = 100; z2.d = 100;
+  eq(A.micZoneLabel(z), "Violini"); const z2 = add("miczone", 1500, 1500); z2.w = 100; z2.d = 100;
   eq(A.micZoneMic(z2), "KM184"); eq(A.micZoneLabel(z2), "Zona panoramica");
+});
+t("micZoneLabel con label numerati: 'Violino I 1/2' -> 'Violini I'", () => {
+  reset(); const a = add("vlnpost", 300, 300); a.label = "Violino I 1"; const b = add("vlnpost", 340, 300); b.label = "Violino I 2";
+  const z = add("miczone", 320, 300); z.w = 220; z.d = 150;
+  eq(A.micZoneLabel(z), "Violini I");
+});
+t("zone: colori tutti diversi alla creazione (zcol dalla palette)", () => {
+  reset(); const z1 = add("miczone", 200, 200); const z2 = add("miczone", 600, 200); const z3 = add("miczone", 1000, 200);
+  if (!z1.zcol || !z2.zcol || !z3.zcol) throw new Error("zcol mancante");
+  if (z1.zcol === z2.zcol || z2.zcol === z3.zcol || z1.zcol === z3.zcol) throw new Error("colori duplicati: " + [z1.zcol, z2.zcol, z3.zcol].join(","));
 });
 
 console.log("\nCavo unico (audioCablingEngine):");
