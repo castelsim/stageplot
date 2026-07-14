@@ -2457,18 +2457,18 @@ var PM_SYS = { ultranet:{name:"ULTRANET", cable:"CAT5e STP"}, anet16:{name:"A-Ne
 var PM_DB = {
   /* Behringer — ULTRANET */
   "p16m":  {brand:"Behringer", model:"Powerplay P16-M", role:"mixer", sys:"ultranet", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
-  "p16d":  {brand:"Behringer", model:"Powerplay P16-D", role:"hub", sys:"ultranet", ports:8, powerOverData:true, v:true},
+  "p16d":  {brand:"Behringer", model:"Powerplay P16-D", role:"hub", sys:"ultranet", ports:8, powerOverData:true, cascade:"port", v:true},   /* cascata via una delle 8 uscite (nessuna porta bus dedicata) → consuma una porta */
   /* Aviom — A-Net */
   "a16ii": {brand:"Aviom", model:"A-16II", role:"mixer", sys:"anet16", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
   "a320":  {brand:"Aviom", model:"A320", role:"mixer", sys:"anet16", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
   "a360":  {brand:"Aviom", model:"A360", role:"mixer", sys:"anetpro16e", daisy:false, hubOnly:true, powerOverData:true, psuLocal:true, v:true},   /* datasheet 14/07: 1×A-Net In (EtherCon), Power-over-A-Net dal distributore, PSU 24VDC opzionale, richiede distributore */
-  "d400":  {brand:"Aviom", model:"D400", role:"hub", sys:"anet16", ports:8, powerOverData:true, v:true},
-  "d800":  {brand:"Aviom", model:"D800", role:"hub", sys:"anet16", ports:8, powerOverData:true, v:true},
+  "d400":  {brand:"Aviom", model:"D400", role:"hub", sys:"anet16", ports:8, powerOverData:true, cascade:"dedicated", v:true},   /* A-Net Thru dedicata: la cascata non consuma le porte mixer */
+  "d800":  {brand:"Aviom", model:"D800", role:"hub", sys:"anet16", ports:8, powerOverData:true, cascade:"dedicated", v:true},
   /* Hear Technologies — HearBus */
   "hbocto":{brand:"Hear Technologies", model:"Hear Back OCTO Mixer", role:"mixer", sys:"hearbus", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
-  "octohub":{brand:"Hear Technologies", model:"Hear Back OCTO Hub", role:"hub", sys:"hearbus", ports:8, powerOverData:true, v:true},
+  "octohub":{brand:"Hear Technologies", model:"Hear Back OCTO Hub", role:"hub", sys:"hearbus", ports:8, powerOverData:true, cascade:"dedicated", v:true},   /* HearBus In/Out dedicati */
   "hbpro": {brand:"Hear Technologies", model:"Hear Back PRO Mixer", role:"mixer", sys:"hearbuspro", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},   /* datasheet 14/07: home-run al hub, PoE 36-52V dal hub via CAT6 (fino a ~150 m) */
-  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, v:true}   /* datasheet 14/07: 8 porte per Network Card (fino a 4 card = 32 mixer), hub concatenabili via HBUS In/Out, PoE 36-52V 15W */
+  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, cascade:"dedicated", v:true}   /* datasheet 14/07: 8 porte per Network Card (fino a 4 card = 32 mixer), hub concatenabili via HBUS In/Out, PoE 36-52V 15W */
 };
 function pmOf(it){ return (it && it.pm && PM_DB[it.pm]) || null; }
 function pmSysName(sys){ return (PM_SYS[sys]&&PM_SYS[sys].name)||sys||""; }
@@ -2483,6 +2483,16 @@ function pmLinkCheck(from, to){
   var pmM=pmOf(from), pmT=pmOf(to), toIsHub=(to.type==="mixhub");
   if(pmM && pmT && !pmSysCompatible(pmM.sys, pmT.sys))
     return {msg:pmSysName(pmM.sys)+" e "+pmSysName(pmT.sys)+" usano connettori simili ma NON sono compatibili."};
+  if(from.type==="mixhub"){   /* B3+: CASCATA hub→hub (HBUS / A-Net Thru / porta ULTRANET) */
+    if(!toIsHub) return {msg:"La cascata collega un hub a un altro hub (il collegamento ai mixerini parte dal loro pallino)."};
+    if(pmT && !pmT.cascade) return {msg:pmT.model+" non ha porte di cascata: non può alimentare un secondo hub."};
+    if(pmT && pmT.cascade==="port" && pmT.ports){   /* P16-D: la cascata occupa una delle uscite */
+      var alreadyC=!!(state.mond && state.mond.manual && state.mond.manual[from.id] && state.mond.manual[from.id].to===to.id);
+      var Rc=(state.mond&&state.mond.on)?mondResult():null, nc=(Rc&&Rc.hubLoad&&Rc.hubLoad[to.id])||0;
+      if(!alreadyC && nc>=pmT.ports) return {msg:"Tutte le "+pmT.ports+" porte di "+(to.label||pmT.model)+" sono occupate: la cascata userebbe una porta."};
+    }
+    return null;
+  }
   if(!toIsHub){
     if(pmM && pmM.daisy===false) return {msg:pmM.model+" va collegato direttamente a "+(pmM.hubOnly?"una porta alimentata del suo distributore":"un hub")+", non in serie."};
     if(pmT && pmT.role==="mixer" && pmT.daisy===false) return {msg:pmT.model+" non ha una porta Thru: non può ricevere un mixerino in serie."};
@@ -3291,11 +3301,13 @@ function monDigMarkup(){
     var li='<path class="mond-line'+(selMond===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editM) li+='<path class="mond-hit" data-mond="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLM || selMond===l.key){ var mid=cabMidpoint(orthExpand(dpts));
-      /* B2: label per sistema — "ULTRANET · CAT5e STP" dal modello; ⚡ = la tratta porta anche l'alimentazione (diretta a hub powered) */
+      /* B2: label per sistema — "ULTRANET · CAT5e STP" dal modello; ⚡ = la tratta porta anche l'alimentazione (diretta a hub powered).
+         B3+: la CASCATA hub↔hub non alimenta il hub a valle (ha la sua AC) → niente ⚡, dicitura "cascata". */
       var pmF=pmOf(l.from), pmH=pmOf(l.to);
       var sysTxt=pmF?(pmSysName(pmF.sys)+" · "+((PM_SYS[pmF.sys]||{}).cable||"")):"";
-      var powTxt=(l.toIsHub && pmF && pmH && pmF.powerOverData && pmH.powerOverData)?" ⚡":"";
-      li+='<text class="mond-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('→ '+(l.to.label||(l.toIsHub?'HUB':'mix'))+(l.cut?' · '+l.cut+' m':'')+(sysTxt?' · '+sysTxt:'')+powTxt)+'</text>'; }
+      var powTxt=(!l.isCasc && l.toIsHub && pmF && pmH && pmF.powerOverData && pmH.powerOverData)?" ⚡":"";
+      var headTxt=l.isCasc ? ('⇄ '+(l.to.label||'HUB')+' · cascata') : ('→ '+(l.to.label||(l.toIsHub?'HUB':'mix')));
+      li+='<text class="mond-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(headTxt+(l.cut?' · '+l.cut+' m':'')+(sysTxt?' · '+sysTxt:'')+powTxt)+'</text>'; }
     s+='<g class="cabgrp" data-own="'+esc(l.from.id+' '+l.to.id)+'">'+li+'</g>';
   });
   if(editM && selMond){ var slk=R.links.filter(function(l){ return l.key===selMond; })[0];
@@ -3480,11 +3492,35 @@ function monDigEngine(){
     if(dt) issues.push({lvl:"err", msg:"La porta Thru di "+(t.label||dt.model)+" è occupata da "+thruCount[tid]+" mixerini: una Thru accetta una sola discesa."});
   });
   pending.forEach(function(m){ power[m.id]="none"; });  /* non collegato */
+  /* ── CASCATA HUB↔HUB (B3+): manual[hubId].to = hub a MONTE (HBUS/A-Net Thru dedicati; il P16-D
+     consuma una delle sue uscite → conta in hubLoad PRIMA del check capacità). ── */
+  var cascLinks=[];
+  hubs.forEach(function(h){
+    var ov=man[h.id]||{};
+    if(!ov.to || ov.deleted) return;
+    var up=byId[ov.to];
+    if(!up || !isHub(up) || up.id===h.id) return;    /* per gli hub contano solo cascate verso ALTRI hub */
+    var pts=[portAnchor(h,"dig")].concat(ov.pts||[]).concat([portAnchor(up,"dig")]);
+    var lenM=orthLen(pts)/100, cut=cabCut(lenM);
+    cascLinks.push({from:h, to:up, toIsHub:true, isCasc:true, key:h.id, pts:pts, lenM:lenM, cut:cut});
+    var dh=pmOf(h), du=pmOf(up);
+    if(dh && du){
+      if(!pmSysCompatible(dh.sys, du.sys)) issues.push({lvl:"err", msg:pmSysName(dh.sys)+" e "+pmSysName(du.sys)+" non sono compatibili: cascata "+dh.model+" → "+du.model+" impossibile."});
+      else if(!du.cascade) issues.push({lvl:"err", msg:du.model+" non ha porte di cascata: non può alimentare un secondo hub."});
+      else if(du.cascade==="port") hubLoad[up.id]=(hubLoad[up.id]||0)+1;
+    }
+  });
+  hubs.forEach(function(h){ var cur=h, seen={}, g=0;   /* loop di cascata */
+    while(cur && g++<100){
+      if(seen[cur.id]){ issues.push({lvl:"err", msg:"Loop nella cascata hub: "+(h.label||"hub")+" — spezza l'anello."}); break; }
+      seen[cur.id]=1; var o=man[cur.id]; if(!o||!o.to||o.deleted) break;
+      var nx=byId[o.to]; if(!nx||!isHub(nx)) break; cur=nx;
+    } });
   hubs.forEach(function(h){
     var pmH=pmOf(h), cap=(pmH&&pmH.ports)||8, n=hubLoad[h.id]||0;
     if(n>cap) issues.push({lvl:"err", msg:"Tutte le "+cap+" porte di "+(h.label||(pmH&&pmH.model)||"hub")+" sono occupate ("+n+" collegati): aggiungi un secondo hub e distribuisci i mixerini."});
   });
-  return {links:links, pending:pending, hubs:hubs, issues:issues, hubLoad:hubLoad, psuCount:psuCount, power:power};
+  return {links:links.concat(cascLinks), pending:pending, hubs:hubs, issues:issues, hubLoad:hubLoad, psuCount:psuCount, power:power};
 }
 var __mondRes=null;
 function mondResult(){ if(!__mondRes) __mondRes=monDigEngine(); return __mondRes; }
@@ -3741,7 +3777,7 @@ function portDefs(it){
   if(MON_DIG_NODE[it.type]){   /* B3/B3+: porte per-modello — IN e THRU separati sui mixer daisy */
     var pmD=pmOf(it), pmTip="Monitor personali · trascina su hub o altro mixerino";
     if(pmD){ pmTip = pmD.role==="hub"
-        ? (pmSysName(pmD.sys)+" · uscite alimentate: trascina su un mixerino per collegarlo")
+        ? (pmSysName(pmD.sys)+" · trascina su un mixerino per collegarlo, o su un altro hub per la CASCATA"+(pmD.cascade==="dedicated"?" (bus dedicato)":pmD.cascade==="port"?" (usa una porta)":""))
         : ("IN · "+pmSysName(pmD.sys)+(pmD.daisy===false?" · SOLO verso il suo hub/distributore":" · verso hub o Thru a monte")); }
     out.push({kind:"dig", color:"#c026d3", tip:pmTip});
     if(pmD && pmD.role==="mixer" && pmD.daisy===true)
@@ -5884,7 +5920,16 @@ svg.addEventListener("pointerup", function(e){
         if(pn){
           /* B3+: dal HUB il gesto è inverso — il mixerino su cui rilasci si collega a QUESTO hub */
           var srcM = (pit.type==="mixhub") ? pn : pit, dstM = (pit.type==="mixhub") ? pit : pn;
-          if(srcM.type==="mixhub"){ /* hub→hub: nessuna semantica (le cascate fra hub arriveranno con HBUS) */ }
+          if(srcM.type==="mixhub"){
+            /* hub→hub = CASCATA (HBUS/A-Net Thru): il hub da cui trascini si collega A MONTE su quello dove rilasci */
+            var cascVeto=pmLinkCheck(pit, pn);
+            if(cascVeto){ showToast(cascVeto.msg, "err"); }
+            else {
+              if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }
+              mondManual(pit.id).to=pn.id;
+              __mondRes=null; save();
+            }
+          }
           else {
             var pmVeto=pmLinkCheck(srcM, dstM);   /* B2: i modelli vietano i collegamenti impossibili (protocollo/serie/porte) */
             if(pmVeto){ showToast(pmVeto.msg, "err"); }

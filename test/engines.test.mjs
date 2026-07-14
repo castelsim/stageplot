@@ -406,6 +406,40 @@ t("B3 pmAddHub: crea l'hub giusto per il sistema al baricentro dei liberi", () =
   const r = A.pmAutoConnect("hearbus");
   eq(r.done, 3, "tutti collegati al nuovo hub");
 });
+t("B3+ cascata OCTO↔OCTO (bus dedicato): 8 mixer + cascata = nessun errore, link presente", () => {
+  reset(); A.state.mond.on = true; A.state.mond.manual = {};
+  const h1 = add("mixhub", 900, 300); h1.pm = "octohub";
+  const h2 = add("mixhub", 1200, 300); h2.pm = "octohub";
+  for (let i = 0; i < 8; i++) { const m = add("hearback", 100 + i * 50, 300); m.pm = "hbocto"; A.state.mond.manual[m.id] = { to: h1.id }; }
+  A.state.mond.manual[h2.id] = { to: h1.id };   // cascata h2 ← h1
+  const R = A.monDigEngine();
+  ok(!R.issues.some((i) => i.lvl === "err"), "la cascata dedicata non deve consumare porte");
+  ok(R.links.some((l) => l.isCasc && l.from.id === h2.id && l.to.id === h1.id), "manca il link di cascata");
+  eq((R.hubLoad || {})[h1.id], 8, "8 porte usate dai mixer, cascata esclusa");
+});
+t("B3+ cascata P16-D (usa una porta): 8 mixer + cascata = err capacità 9/8", () => {
+  reset(); A.state.mond.on = true; A.state.mond.manual = {};
+  const h1 = add("mixhub", 900, 300); h1.pm = "p16d";
+  const h2 = add("mixhub", 1200, 300); h2.pm = "p16d";
+  for (let i = 0; i < 8; i++) { const m = add("hearback", 100 + i * 50, 300); m.pm = "p16m"; A.state.mond.manual[m.id] = { to: h1.id }; }
+  A.state.mond.manual[h2.id] = { to: h1.id };
+  const R = A.monDigEngine();
+  eq((R.hubLoad || {})[h1.id], 9, "la cascata ULTRANET consuma una porta");
+  ok(R.issues.some((i) => i.lvl === "err" && /porte/.test(i.msg)), "manca err capacità con cascata");
+});
+t("B3+ cascata cross-sistema e loop = err; pmLinkCheck hub→hub/hub→mixer", () => {
+  reset(); A.state.mond.on = true; A.state.mond.manual = {};
+  const ho = add("mixhub", 900, 300); ho.pm = "octohub";
+  const hp = add("mixhub", 1200, 300); hp.pm = "p16d";
+  ok(A.pmLinkCheck(ho, hp) !== null, "cascata OCTO→P16-D va bloccata (sistemi diversi)");
+  const m = add("hearback", 300, 300); m.pm = "hbocto";
+  ok(A.pmLinkCheck(ho, m) !== null, "hub→mixer via drop cascata va spiegato/bloccato");
+  const ho2 = add("mixhub", 600, 300); ho2.pm = "octohub";
+  ok(A.pmLinkCheck(ho, ho2) === null, "cascata OCTO→OCTO valida");
+  A.state.mond.manual[ho.id] = { to: ho2.id }; A.state.mond.manual[ho2.id] = { to: ho.id };   // anello
+  const R = A.monDigEngine();
+  ok(R.issues.some((i) => i.lvl === "err" && /Loop nella cascata/.test(i.msg)), "manca err loop cascata");
+});
 t("generico (senza it.pm): zero vincoli nuovi, zero PSU contati", () => {
   reset();
   const h = add("mixhub", 900, 300);
