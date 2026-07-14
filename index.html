@@ -1817,6 +1817,14 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
+    <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
+      <div class="row">
+        <span><select id="pPmBrand"></select></span>
+        <span><select id="pPmModel"></select></span>
+      </div>
+      <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
+      <div id="pPmState" style="font-size:11.5px;font-weight:600;margin-top:3px"></div>
+    </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>

@@ -2444,6 +2444,34 @@ function hwCompatible(mixerId, sbId){   /* protocollo condiviso mixer↔stagebox
   if(!m||!b) return true;
   return m.proto.some(function(p){ return b.proto.indexOf(p)>=0; });
 }
+/* ===== PERSONAL MONITOR — registro model-driven (B1, 14/07) =====
+   Stesso pattern dichiarativo di MIXER_DB/STAGEBOX_DB: il motore mond legge QUI i vincoli, zero
+   condizioni per-modello sparse. it.pm (opzionale) su hearback/mixhub = id di questo registro;
+   assente = generico (comportamento storico, progetti vecchi intatti).
+   Campi: role mixer|hub · sys (protocollo proprietario) · daisy (serie consentita) · hubOnly
+   (solo home-run al distributore) · powerOverData (la porta del hub alimenta) · psuLocal (accetta
+   alimentatore locale, per la serie) · ports (uscite mixer del hub) · v (validato datasheet). */
+var PM_SYS = { ultranet:{name:"ULTRANET", cable:"CAT5e STP"}, anet16:{name:"A-Net Pro16", cable:"CAT5e"},
+  anetpro16e:{name:"A-Net Pro16e", cable:"CAT5e"}, hearbus:{name:"HearBus", cable:"CAT5e/CAT6"},
+  hearbuspro:{name:"Hear Back PRO", cable:"CAT6 (PoE+)"} };
+var PM_DB = {
+  /* Behringer — ULTRANET */
+  "p16m":  {brand:"Behringer", model:"Powerplay P16-M", role:"mixer", sys:"ultranet", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
+  "p16d":  {brand:"Behringer", model:"Powerplay P16-D", role:"hub", sys:"ultranet", ports:8, powerOverData:true, v:true},
+  /* Aviom — A-Net */
+  "a16ii": {brand:"Aviom", model:"A-16II", role:"mixer", sys:"anet16", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
+  "a320":  {brand:"Aviom", model:"A320", role:"mixer", sys:"anet16", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
+  "a360":  {brand:"Aviom", model:"A360", role:"mixer", sys:"anetpro16e", daisy:false, hubOnly:false, powerOverData:true, psuLocal:true, v:false},
+  "d400":  {brand:"Aviom", model:"D400", role:"hub", sys:"anet16", ports:8, powerOverData:true, v:true},
+  "d800":  {brand:"Aviom", model:"D800", role:"hub", sys:"anet16", ports:8, powerOverData:true, v:true},
+  /* Hear Technologies — HearBus */
+  "hbocto":{brand:"Hear Technologies", model:"Hear Back OCTO Mixer", role:"mixer", sys:"hearbus", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
+  "octohub":{brand:"Hear Technologies", model:"Hear Back OCTO Hub", role:"hub", sys:"hearbus", ports:8, powerOverData:true, v:true},
+  "hbpro": {brand:"Hear Technologies", model:"Hear Back PRO Mixer", role:"mixer", sys:"hearbuspro", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:false},
+  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, v:false}
+};
+function pmOf(it){ return (it && it.pm && PM_DB[it.pm]) || null; }
+function pmSysName(sys){ return (PM_SYS[sys]&&PM_SYS[sys].name)||sys||""; }
 
 /* ===== CABLAGGIO AUDIO — motore tecnico v2 (dati → calcolo → layer → report) =====
    Legge sorgenti (IN_SRC/IN_MULTI), usa stage box piazzate (capacità dal modello hw) o propone
@@ -3329,10 +3357,74 @@ function monDigEngine(){
   });
   var hubs=items.filter(isHub);
   if(!hubs.length && items.filter(isMix).length) issues.push({lvl:"info", msg:"Nessun hub monitoraggio: aggiungine uno dal catalogo (Monitor da palco)."});
-  return {links:links, pending:pending, hubs:hubs, issues:issues};
+  /* ── vincoli MODEL-DRIVEN (B1): letti da PM_DB via it.pm; il generico (senza modello) non genera vincoli ── */
+  var hubLoad={}, psuCount=0, power={};   /* power: mixerId → data | psu | none */
+  links.forEach(function(l){
+    var pmM=pmOf(l.from), pmT=pmOf(l.to);
+    if(l.toIsHub){
+      hubLoad[l.to.id]=(hubLoad[l.to.id]||0)+1;
+      power[l.from.id]="data";                          /* diretto a hub: alimentato dal cavo dati */
+    } else {                                            /* mixer → mixer = collegamento in serie */
+      if(pmM && pmM.daisy===false){
+        issues.push({lvl:"err", msg:pmM.model+" non supporta il collegamento in serie: va collegato direttamente a "+(pmM.hubOnly?"una porta alimentata del suo hub/distributore":"un hub")+"."});
+        power[l.from.id]="invalid";
+      } else if(pmM && pmM.psuLocal===false){
+        issues.push({lvl:"err", msg:pmM.model+" non accetta alimentatore locale: serve una porta alimentata del distributore."});
+        power[l.from.id]="invalid";
+      } else {
+        power[l.from.id]="psu";                         /* la serie non porta alimentazione → PSU locale */
+        if(pmM){ psuCount++; issues.push({lvl:"warn", msg:(l.from.label||pmM.model)+": collegato in serie — serve l'alimentatore locale (dal cavo dati non arriva alimentazione)."}); }
+      }
+    }
+    if(pmM && pmT && pmM.sys!==pmT.sys){
+      issues.push({lvl:"err", msg:pmSysName(pmM.sys)+" e "+pmSysName(pmT.sys)+" usano connettori simili ma NON sono compatibili: "+pmM.model+" non può collegarsi a "+pmT.model+"."});
+    }
+  });
+  pending.forEach(function(m){ power[m.id]="none"; });  /* non collegato */
+  hubs.forEach(function(h){
+    var pmH=pmOf(h), cap=(pmH&&pmH.ports)||8, n=hubLoad[h.id]||0;
+    if(n>cap) issues.push({lvl:"err", msg:"Tutte le "+cap+" porte di "+(h.label||(pmH&&pmH.model)||"hub")+" sono occupate ("+n+" collegati): aggiungi un secondo hub e distribuisci i mixerini."});
+  });
+  return {links:links, pending:pending, hubs:hubs, issues:issues, hubLoad:hubLoad, psuCount:psuCount, power:power};
 }
 var __mondRes=null;
 function mondResult(){ if(!__mondRes) __mondRes=monDigEngine(); return __mondRes; }
+/* ── pannello "Personal monitor" (B1): marca+modello da PM_DB, stato collegamento/alimentazione ──
+   Vista minimale (§13 prompt Simone): 2 select + 1 riga sistema·cavo + 1 riga stato. */
+function pmFillProps(it){
+  var role=(it.type==="mixhub")?"hub":"mixer";
+  var bSel=document.getElementById("pPmBrand"), mSel=document.getElementById("pPmModel");
+  if(!bSel||!mSel) return;
+  var cur=pmOf(it), curBrand=cur?cur.brand:"";
+  var brands={}; Object.keys(PM_DB).forEach(function(k){ if(PM_DB[k].role===role) brands[PM_DB[k].brand]=1; });
+  var bh='<option value="">Generico</option>';
+  Object.keys(brands).sort().forEach(function(b){ bh+='<option value="'+esc(b)+'"'+(b===curBrand?' selected':'')+'>'+esc(b)+'</option>'; });
+  bSel.innerHTML=bh;
+  if(curBrand){
+    var mh='';
+    Object.keys(PM_DB).forEach(function(k){ var d=PM_DB[k]; if(d.role!==role||d.brand!==curBrand) return;
+      mh+='<option value="'+k+'"'+(it.pm===k?' selected':'')+'>'+esc(d.model)+(d.v===false?" ?":"")+'</option>'; });
+    mSel.innerHTML=mh; mSel.style.display="";
+  } else { mSel.innerHTML=""; mSel.style.display="none"; }
+  var info=document.getElementById("pPmInfo"), st=document.getElementById("pPmState");
+  if(cur){ var sys=PM_SYS[cur.sys]||{};
+    info.textContent=(sys.name||cur.sys)+" · "+(sys.cable||"")+(cur.role==="hub"?(" · "+(cur.ports||8)+" uscite alimentate"):"");
+  } else info.textContent="Generico: nessun vincolo di sistema applicato.";
+  /* stato dal motore: alimentazione del mixerino / porte del hub */
+  var R=(state.mond&&state.mond.on)?mondResult():null, msg="", col="var(--text-3)";
+  if(R){
+    if(role==="hub"){ var n=(R.hubLoad&&R.hubLoad[it.id])||0, cap=(cur&&cur.ports)||8;
+      msg="Porte: "+n+"/"+cap+(n>cap?" — capacità superata":""); col=n>cap?"#dc2626":"var(--text-2)";
+    } else {
+      var p=R.power?R.power[it.id]:null;
+      if(p==="data"){ msg="⚡ Alimentato dal cavo dati (dal hub)"; col="#16a34a"; }
+      else if(p==="psu"){ msg="In serie: serve l'alimentatore locale"; col="#b45309"; }
+      else if(p==="invalid"){ msg="Collegamento non valido per questo modello"; col="#dc2626"; }
+      else { msg="Non collegato: trascina il pallino magenta sul hub"; }
+    }
+  } else if(role==="mixer") msg="Attiva il layer P.M. trascinando il pallino magenta verso il hub.";
+  st.textContent=msg; st.style.color=col;
+}
 
 /* ===== AUDIT / DIAGNOSTICA — "AI" deterministica: aggrega le criticità dei motori + regole
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
@@ -3673,6 +3765,9 @@ function renderProps(){
   var rfWrap=document.getElementById("pRfWrap");   /* RF: frequenza + banda solo per radiomic/in-ear (#2) */
   if(rfWrap){ var isRfEl=(typeof isRf==="function") && isRf(it); rfWrap.style.display = isRfEl ? "block" : "none";
     if(isRfEl){ document.getElementById("pRf").value = it.rf||""; document.getElementById("pBand").value = it.band||""; } }
+  var pmWrap=document.getElementById("pPmWrap");   /* personal monitor model-driven (B1): marca/modello da PM_DB */
+  if(pmWrap){ var isPm=(it.type==="hearback"||it.type==="mixhub"); pmWrap.style.display = isPm ? "block" : "none";
+    if(isPm) pmFillProps(it); }
   document.getElementById("pLabel").value = it.label||"";
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
@@ -7774,6 +7869,17 @@ function toggleCabLayer(){
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
+  /* personal monitor (B1): la marca seleziona il primo modello; il modello scrive it.pm */
+  var pmB=document.getElementById("pPmBrand");
+  if(pmB) pmB.addEventListener("change", function(){ var it=getSel(); if(!it||(it.type!=="hearback"&&it.type!=="mixhub")) return;
+    var role=(it.type==="mixhub")?"hub":"mixer", v=this.value;
+    if(!v){ delete it.pm; }
+    else { var first=null; Object.keys(PM_DB).some(function(k){ if(PM_DB[k].role===role&&PM_DB[k].brand===v){ first=k; return true; } return false; }); if(first) it.pm=first; }
+    __mondRes=null; save(); render(); renderProps(); });
+  var pmMs=document.getElementById("pPmModel");
+  if(pmMs) pmMs.addEventListener("change", function(){ var it=getSel(); if(!it||(it.type!=="hearback"&&it.type!=="mixhub")) return;
+    if(this.value) it.pm=this.value; else delete it.pm;
+    __mondRes=null; save(); render(); renderProps(); });
   var zop=document.getElementById("pZoneOp");   /* zona: opacità live (come gli slider layer) */
   if(zop) zop.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ it.opacity=+this.value;
     var n=itemNode(it.id), r=n&&n.querySelector("polygon"); if(r) r.setAttribute("fill-opacity",(it.opacity/100).toFixed(2)); saveSoon(); } });
@@ -8365,6 +8471,16 @@ function renderInspectorB(){
     if(c.leggii)    s+=ir("Leggii", c.leggii);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
     if(c.hearbacks) s+=ir("Hearback", c.hearbacks);
+    /* distinta PERSONAL MONITOR model-driven (B1): modelli, porte hub, alimentatori locali */
+    if(state.mond && state.mond.on){
+      var Rm=mondResult(), pmCounts={}, pmHubs=[];
+      state.items.forEach(function(x){ var d=pmOf(x); if(!d) return;
+        if(d.role==="mixer") pmCounts[d.model]=(pmCounts[d.model]||0)+1;
+        else pmHubs.push({d:d, n:(Rm.hubLoad&&Rm.hubLoad[x.id])||0}); });
+      Object.keys(pmCounts).forEach(function(m){ s+=ir(esc(m), pmCounts[m]+"×"); });
+      pmHubs.forEach(function(h){ s+=ir(esc(h.d.model), h.n+"/"+(h.d.ports||8)+" porte"); });
+      if(Rm.psuCount) s+=ir("Alimentatori locali", Rm.psuCount+"×");
+    }
     st.innerHTML=s; st.style.display="block";
   }
   /* PROGETTO rimosso dall'inspector (Simone 08/07 sera, screenshot): tutto resta raggiungibile —
