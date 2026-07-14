@@ -589,9 +589,9 @@ t("musTromba = 1 canale e906 · musCorno = MD421", () => { reset(); eq(chans(add
 t("musBatteria = 8 canali (riusa IN_MULTI.batteria)", () => { reset(); eq(chans(add("musBatteria", 400, 400)).length, 8); });
 t("musPianoGranCoda = 2 canali KM184 · musBasso = 1 DI", () => { reset(); eq(chans(add("musPianoGranCoda", 400, 400)).length, 2); eq(chans(add("musBasso", 200, 400))[0].mic, "DI"); });
 t("musDirettore = 0 canali (non è una sorgente audio)", () => { reset(); eq(chans(add("musDirettore", 300, 300)).length, 0); });
-t("dimensioni in scala reale: musViolino1 60×61, musPianoGranCoda 155×274", () => {
-  eq([A.TYPES.musViolino1.w, A.TYPES.musViolino1.d], [60, 61]);
-  eq([A.TYPES.musPianoGranCoda.w, A.TYPES.musPianoGranCoda.d], [155, 274]);
+t("dimensioni calibrate dall'utente: musViolino1 80×81, musPianoGranCoda 135×238", () => {
+  eq([A.TYPES.musViolino1.w, A.TYPES.musViolino1.d], [80, 81]);
+  eq([A.TYPES.musPianoGranCoda.w, A.TYPES.musPianoGranCoda.d], [135, 238]);
 });
 
 console.log("\nSedie (peso per il rider):");
