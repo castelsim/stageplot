@@ -357,6 +357,55 @@ t("B2 pmLinkCheck: blocca protocolli misti, serie vietata, hub pieno; ok sui val
   const first = A.state.items.filter((x) => A.state.mond.manual[x.id] && A.state.mond.manual[x.id].to === h.id)[0];
   ok(A.pmLinkCheck(first, h) === null, "riconnessione sullo stesso hub non conta come porta nuova");
 });
+t("B3 pmSysCompatible: A360 (Pro16e) su D400 (Pro16) = famiglia A-Net OK; ULTRANET resta bloccato", () => {
+  reset(); A.state.mond.on = true;
+  const d4 = add("mixhub", 900, 300); d4.pm = "d400";
+  const a3 = add("hearback", 300, 300); a3.pm = "a360";
+  ok(A.pmLinkCheck(a3, d4) === null, "A360 → D400 deve essere valido (retrocompatibile)");
+  A.state.mond.manual = {}; A.state.mond.manual[a3.id] = { to: d4.id };
+  const R = A.monDigEngine();
+  ok(!R.issues.some((i) => /NON sono compatibili/.test(i.msg)), "niente err protocolli in famiglia A-Net");
+  const p16 = add("hearback", 400, 300); p16.pm = "p16m";
+  ok(A.pmLinkCheck(p16, d4) !== null, "ULTRANET → D400 resta bloccato");
+});
+t("B3 Thru singolo: due mixerini sullo stesso Thru = drop bloccato + err motore", () => {
+  reset(); A.state.mond.on = true;
+  const h = add("mixhub", 900, 300); h.pm = "p16d";
+  const m1 = add("hearback", 300, 300); m1.pm = "p16m";
+  const m2 = add("hearback", 400, 300); m2.pm = "p16m";
+  const m3 = add("hearback", 500, 300); m3.pm = "p16m";
+  A.state.mond.manual = {}; A.state.mond.manual[m1.id] = { to: h.id }; A.state.mond.manual[m2.id] = { to: m1.id };
+  ok(A.pmLinkCheck(m3, m1) !== null, "secondo mixer sullo stesso Thru va bloccato");
+  A.state.mond.manual[m3.id] = { to: m1.id };   // forzato (es. progetto vecchio)
+  const R = A.monDigEngine();
+  ok(R.issues.some((i) => i.lvl === "err" && /Thru/.test(i.msg) && /2 mixerini/.test(i.msg)), "manca err Thru multiplo");
+});
+t("B3 pmAutoConnect: stella fin dove c'è posto, poi catena per chi la supporta", () => {
+  reset(); A.state.mond.on = true; A.state.mond.manual = {};
+  const h = add("mixhub", 900, 300); h.pm = "p16d";
+  const ms = [];
+  for (let i = 0; i < 9; i++) { const m = add("hearback", 100 + i * 60, 300); m.pm = "p16m"; ms.push(m); }
+  const r = A.pmAutoConnect("ultranet");
+  eq(r.done, 9, "tutti collegati"); eq(r.left, 0); eq(r.needPsu, 1, "il nono in catena → 1 PSU");
+  const R = A.monDigEngine();
+  eq((R.hubLoad || {})[h.id], 8, "8 a stella sul hub");
+  ok(!R.issues.some((i) => i.lvl === "err"), "nessun errore dopo autoconnect");
+});
+t("B3 pmAutoConnect hub-only (OCTO): stella fino a 8, gli altri restano liberi (niente catena)", () => {
+  reset(); A.state.mond.on = true; A.state.mond.manual = {};
+  const h = add("mixhub", 900, 300); h.pm = "octohub";
+  for (let i = 0; i < 10; i++) { const m = add("hearback", 100 + i * 50, 300); m.pm = "hbocto"; }
+  const r = A.pmAutoConnect("hearbus");
+  eq(r.done, 8, "solo 8 collegati"); eq(r.left, 2, "2 senza posto"); eq(r.needPsu, 0, "nessuna catena OCTO");
+});
+t("B3 pmAddHub: crea l'hub giusto per il sistema al baricentro dei liberi", () => {
+  reset(); A.state.mond.on = true; A.state.mond.manual = {};
+  for (let i = 0; i < 3; i++) { const m = add("hearback", 200 + i * 100, 400); m.pm = "hbocto"; }
+  const h = A.pmAddHub("hearbus");
+  ok(h && h.pm === "octohub", "hub OCTO creato");
+  const r = A.pmAutoConnect("hearbus");
+  eq(r.done, 3, "tutti collegati al nuovo hub");
+});
 t("generico (senza it.pm): zero vincoli nuovi, zero PSU contati", () => {
   reset();
   const h = add("mixhub", 900, 300);
