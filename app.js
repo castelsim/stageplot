@@ -7585,6 +7585,12 @@ function layerRegistry(){
       lockable:true, locked:stageLayerUI.lock, setLocked:function(v){ stageLayerUI.lock=v; document.body.classList.toggle("stage-lock",v); if(v){ sel=null; selSet={}; } save(); render(); }
       /* niente removable → nessun cestino (il palco non si elimina da qui) */
     }
+    ,{ id:"miczone", name:"Section Mic", color:"#7c3aed",
+      active:(state.items||[]).some(function(x){return x.type==="miczone";}),
+      visible:micLayerUI.vis, setVisible:function(v){ micLayerUI.vis=v; var g=document.getElementById("layMicZones"); if(g) g.style.display=v?"":"none"; save(); renderLayerManager(); },
+      opacity:micLayerUI.op, setOpacity:function(v){ micLayerUI.op=v; var g=document.getElementById("layMicZones"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
+      lockable:true, locked:micLayerUI.lock, setLocked:function(v){ micLayerUI.lock=v; document.body.classList.toggle("miczone-lock",v); if(v){ sel=null; selSet={}; } save(); render(); },
+      removable:true, remove:function(){ if(!confirm("Eliminare tutte le zone di microfonazione?")) return; state.items=(state.items||[]).filter(function(x){return x.type!=="miczone";}); sel=null; selSet={}; __cabRes=null; save(); render(); } }
   ];
 }
 /* Stato runtime (non persistito) dei layer "meta" Palco e Section Mic: attenuano/nascondono/bloccano
