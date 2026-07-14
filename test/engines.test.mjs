@@ -54,6 +54,7 @@ function eq(got, exp, msg) { const g = JSON.stringify(got), e = JSON.stringify(e
 function ok(cond, msg) { if (!cond) throw new Error(msg || "condizione falsa"); }
 function reset() {
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
+  A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
   A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {};
   A.state.elec.on = false; A.state.elec.manual = {}; A.state.elec.uplinks = {};
   A.state.mond.on = false; A.state.mond.manual = {};
@@ -645,6 +646,34 @@ t("audit T4: con contatto Service → nessun nudge", () => {
   reset(); A.state.cab.on = true; add("astamic", 300, 300);
   A.state.contacts = [{ role: "Service locale", name: "Mas", contact: "333" }]; A.__cabRes = null;
   ok(!A.auditEngine().findings.some((f) => /Nessun contatto per il Service/.test(f.msg)), "nessun nudge col service presente");
+});
+
+console.log("\nT5 — stati di approvazione:");
+t("statusInfo: stato corretto, fallback bozza", () => { eq(A.statusInfo("approvato").label, "Approvato"); eq(A.statusInfo("xxx").k, "bozza"); });
+t("normalizeState: default bozza + approval normalizzato", () => {
+  const s = {}; A.normalizeState(s); eq(s.status, "bozza"); ok(s.approval && s.approval.by === "" && s.approval.at === "", "approval vuoto");
+  const s2 = { status: "zzz" }; A.normalizeState(s2); eq(s2.status, "bozza", "stato invalido → bozza");
+});
+t("setProjectStatus: approvato firma la data", () => {
+  reset(); A.state.approval = { by: "", at: "" }; A.setProjectStatus("approvato");
+  eq(A.state.status, "approvato"); ok(/^\d{4}-\d{2}-\d{2}$/.test(A.state.approval.at), "data firmata: " + A.state.approval.at);
+});
+t("setProjectStatus: stato non valido ignorato", () => { reset(); A.state.status = "bozza"; A.setProjectStatus("zzz"); eq(A.state.status, "bozza"); });
+t("riderData: espone stato + firma", () => {
+  reset(); A.state.status = "approvato"; A.state.approval = { by: "Veronica", at: "2026-07-14" };
+  const d = A.riderData(); eq(d.status, "approvato"); eq(d.approvedBy, "Veronica"); eq(d.approvedAt, "2026-07-14");
+});
+t("riderHtml: badge stato + firma quando approvato", () => {
+  reset(); A.state.status = "approvato"; A.state.approval = { by: "Veronica", at: "2026-07-14" };
+  const h = A.riderHtml(); ok(/APPROVATO/.test(h) && /Veronica/.test(h), "badge+firma nel rider");
+});
+t("audit T5: bozza con contenuto → nudge info", () => {
+  reset(); add("astamic", 300, 300); A.state.status = "bozza"; A.__cabRes = null;
+  ok(A.auditEngine().findings.some((f) => /Bozza/i.test(f.msg) && f.lvl === "info"), "atteso nudge bozza");
+});
+t("audit T5: approvato → nessun nudge bozza", () => {
+  reset(); add("astamic", 300, 300); A.state.status = "approvato"; A.__cabRes = null;
+  ok(!A.auditEngine().findings.some((f) => /ancora una «Bozza»/.test(f.msg)), "nessun nudge da approvato");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

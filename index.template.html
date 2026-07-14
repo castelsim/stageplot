@@ -169,7 +169,7 @@
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
 </head>
 <body>
-<div id="viewBar"><a class="vb-brand" href="/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewBar"><a class="vb-brand" href="/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
@@ -194,6 +194,8 @@
   <button class="btn ghost" id="fileBtn" aria-haspopup="menu" aria-expanded="false">File <span class="chev">▾</span></button>
   <span class="tbdiv"></span>
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
+  <select id="projStatus" class="hdr-status" title="Stato del progetto (bozza → in revisione → approvato)"></select>
+  <input type="text" id="projApprovedBy" class="hdr-approver" placeholder="firmato da…" title="Chi ha approvato il progetto" hidden>
   <input type="text" id="luogo" hidden>
   <span class="doc-chip" id="docState" role="status" hidden></span>
   <button class="btn" id="bStageShape" hidden>▦ Palco</button>
@@ -3038,6 +3040,8 @@ function normalizeState(s){
   s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
   if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
   if(s.contacts.length){ var _pc=primaryContactStr(s.contacts); if(_pc) s.techContact=_pc; }   /* tiene allineato il legacy field (rider header + pagina consulenza) */
+  s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
+  s.approval = (s.approval && typeof s.approval==="object") ? {by:String(s.approval.by||"").slice(0,80), at:String(s.approval.at||"").slice(0,10)} : {by:"",at:""};
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
   if(!s.stage.blocks || !s.stage.blocks.length) s.stage.blocks=[{x:0,y:0,w:s.stage.w||1200,d:s.stage.d||800}];
@@ -4938,6 +4942,8 @@ function auditEngine(){
   /* T4 — contatto del Service: la lezione di Asiago (il collo era «girami un numero del service») */
   if(audioSrc>0 && !(state.contacts||[]).some(function(c){ return /service/i.test(c.role||"") && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }))
     add("info","Nessun contatto per il Service locale nella rubrica del rider: serve per coordinare la data.","Contatti");
+  /* T5 — stato: un documento ancora in bozza non è pronto da inviare */
+  if(items.length && (state.status||"bozza")==="bozza") add("info","Il progetto è ancora una «Bozza»: portalo ad «Approvato» quando è pronto da inviare al service.","Stato");
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
@@ -5190,6 +5196,7 @@ function redrawStageLayers(){
 }
 function render(){
   pruneSolo();   /* niente solo fantasma su layer disattivati */
+  if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
   svg.innerHTML = sceneMarkup();
   renderProps();
@@ -7718,6 +7725,8 @@ document.getElementById("bChanDone").addEventListener("click", toggleChan);
     state.contacts=state.contacts||[]; state.contacts.push({role:"",name:"",contact:"",note:""}); saveSoon(); renderContacts();
     var host=document.getElementById("contactRows"), last=host&&host.lastChild&&host.lastChild.querySelector("input"); if(last) last.focus();
   }); })();   /* T4: la prima renderContacts avviene in renderChannels (all'apertura del pannello) — MAI eager qui: CONTACT_ROLES è definito più avanti nello script */
+(function(){ var s=document.getElementById("projStatus"); if(s) s.addEventListener("change", function(){ if(typeof setProjectStatus==="function") setProjectStatus(s.value); });   /* T5: cambio stato */
+  var by=document.getElementById("projApprovedBy"); if(by) by.addEventListener("input", function(){ state.approval=state.approval||{by:"",at:""}; state.approval.by=by.value.slice(0,80); saveSoon(); }); })();
 (function(){ function bind(id,key,num){ var el=document.getElementById(id); if(!el) return;   /* T2: testo editabile del rider (vuoto → default) */
     el.addEventListener("input", function(){ state.rider=state.rider||{}; var v=el.value;
       if(v==="" || v==null) delete state.rider[key]; else state.rider[key]=num?(Math.max(0,Math.min(300,parseInt(v,10)||0))):v; saveSoon(); }); }
@@ -11645,7 +11654,9 @@ function riderPdf(shared){
     doc.setFillColor("#4338ca"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rider tecnico", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
-    if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=8; }
+    if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=7; }
+    (function(){ var si=statusInfo(d.status); var sign=(d.status==="approvato" && (d.approvedBy||d.approvedAt)) ? "  ·  firmato"+(d.approvedBy?" da "+d.approvedBy:"")+(d.approvedAt?" il "+new Date(d.approvedAt).toLocaleDateString("it-IT"):"") : "";
+      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(si.color); doc.text(si.label.toUpperCase()+sign, M, y); y+=7; doc.setTextColor("#111827"); })();
     function heading(t){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#4338ca"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
     function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
       lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
@@ -12208,6 +12219,30 @@ function primaryContactStr(contacts){
   return [pri.name, pri.contact].filter(function(x){ return x&&x.trim(); }).join(" — ") || (pri.contact||"");
 }
 function syncTechContact(){ state.techContact = primaryContactStr(); }   /* allinea il legacy field (rider header + pagina consulenza) */
+/* ===== T5 — Stati di approvazione (il «va bene» di DESPAR → sign-off tracciato). Morbidi: il lock hard resta a parte. ===== */
+var PROJECT_STATUSES = [
+  {k:"bozza",     label:"Bozza",       color:"#6b7280"},
+  {k:"revisione", label:"In revisione",color:"#d97706"},
+  {k:"approvato", label:"Approvato",   color:"#0d9488"},
+  {k:"superato",  label:"Superato",    color:"#94a3b8"}
+];
+function statusInfo(k){ for(var i=0;i<PROJECT_STATUSES.length;i++) if(PROJECT_STATUSES[i].k===k) return PROJECT_STATUSES[i]; return PROJECT_STATUSES[0]; }
+function setProjectStatus(k){
+  if(["bozza","revisione","approvato","superato"].indexOf(k)<0) return;
+  state.status=k; state.approval=state.approval||{by:"",at:""};
+  if(k==="approvato"){ if(!state.approval.at) state.approval.at=new Date().toISOString().slice(0,10); }   /* firma la data all'approvazione; il nome lo mette l'utente */
+  saveSoon(); renderStatusUI(); render();
+}
+function renderStatusUI(){
+  if(typeof PROJECT_STATUSES==="undefined") return;   /* guardia anti-ordine (la lezione di T4) */
+  var sel=document.getElementById("projStatus"); if(!sel) return;
+  if(!sel.__filled){ sel.__filled=true; sel.innerHTML=PROJECT_STATUSES.map(function(s){ return '<option value="'+s.k+'">'+esc(s.label)+'</option>'; }).join(""); }
+  var st=state.status||"bozza", info=statusInfo(st);
+  if(sel.value!==st) sel.value=st;
+  sel.setAttribute("data-status", st); sel.style.color=info.color; sel.style.borderColor=info.color;
+  var by=document.getElementById("projApprovedBy");
+  if(by){ by.hidden = (st!=="approvato"); if(!by.hidden && by.value!==(state.approval&&state.approval.by||"")) by.value=(state.approval&&state.approval.by)||""; }
+}
 function riderData(){
   var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixChTot:0,boxes:[]}, items=state.items||[], r=state.rider||{};
   function cnt(t){ return items.filter(function(x){ return x.type===t; }).length; }
@@ -12223,6 +12258,7 @@ function riderData(){
     console: (state.cab && state.cab.mixer && typeof MIXER_DB!=="undefined" && MIXER_DB[state.cab.mixer]) ? hwLabel(state.cab.mixer, MIXER_DB) : "",
     contatti: (state.contacts||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); }),
     contatto: primaryContactStr(),
+    status: state.status||"bozza", approvedBy:(state.approval&&state.approval.by)||"", approvedAt:(state.approval&&state.approval.at)||"",
     sistema: pick("sistema"), luci: pick("luci"), personale: pick("personale"),
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
     note: r.note||""
@@ -12246,6 +12282,8 @@ function riderHtml(){
   return '<div class="pdf-list-sheet pdf-rider-sheet">'+
     '<div class="pdf-list-hd" style="background:#4338ca">Rider tecnico<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
     (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
+    '<div class="pdf-rider-status" style="background:'+statusInfo(d.status).color+'">'+esc(statusInfo(d.status).label.toUpperCase())+
+      (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
     sec("Microfoni", esc(mic), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
     sec("Stage e pedane", esc(riderPedaneText(d.pedane))+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":""), true)+
@@ -12804,6 +12842,7 @@ function gallery(){
     importProject(JSON.stringify(d.data));
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
     try{ setupViewerTabs(); }catch(e){}   /* T3: tab liste tecniche (Input/Monitor/Carichi/RF/Backline) nel link condiviso */
+    try{ var vs=document.getElementById("viewStatus"); if(vs){ var si=statusInfo(state.status); vs.hidden=false; vs.textContent=si.label; vs.style.background=si.color; vs.style.color="#fff"; } }catch(e){}   /* T5: badge stato nel link condiviso */
     showBar("viewer", "");
     var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
     var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;
