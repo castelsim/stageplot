@@ -1078,6 +1078,8 @@ body.proj-ro .cab-endpt-hit,
 body.proj-ro .venue-img { pointer-events: none !important; }
 /* Layer "Palco" bloccato: gli elementi del palco non intercettano il puntatore (ma cavi/zone sì) */
 body.stage-lock #layItems{ pointer-events:none; }
+/* Layer "Section Mic" bloccato: le zone non intercettano il puntatore */
+body.miczone-lock #layMicZones{ pointer-events:none; }
 #lockBar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 211;
   display: flex; align-items: center; gap: 14px; background: #7c4a12; color: #fff; padding: 9px 15px;
   border-radius: 999px; font: 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
