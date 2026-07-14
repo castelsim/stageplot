@@ -10813,16 +10813,26 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
 /* SVG dell'area di stampa: palco + griglia + elementi + quote dimensionali.
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
-function stageSceneSvg(cropVb){
+function stageSceneSvg(cropVb, opts){
+  opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabaudio | elec | sectionmic */
   recalcStageBBox();
   var A=printArea(), DM=A.custom?0:80;
   /* cropVb (opzionale): finestra ritagliata quando il disegno non entra nel foglio — si stampa solo la
      parte centrale che ci sta, sempre in scala. Senza cropVb = scena intera (area + margine quote). */
   var vb=cropVb || {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
   var keep=sel, keepSet=selSet; sel=null; selSet={};
-  var sorted=sortedItems();
-  var items='', zoneItems='';
-  sorted.forEach(function(it){ if(it.type==="miczone") zoneItems+=itemMarkup(it); else items+=itemMarkup(it); });
+  /* classifica ogni elemento per la vista a fuoco: quali restano a piena opacità (fg) e quali sfumano (bg) */
+  function isAudioTech(it){ return cabIsBox(it); }
+  function isElecTech(it){ return it.type==="corrente" || (typeof elecIsDistro==="function"&&elecIsDistro(it)) || (typeof elecIsGen==="function"&&elecIsGen(it)); }
+  var fgItems='', bgItems='', zoneItems='';
+  sortedItems().forEach(function(it){
+    if(it.type==="miczone"){ zoneItems+=itemMarkup(it); return; }
+    var m=itemMarkup(it);
+    if(!focus || focus==="clean"){ fgItems+=m; return; }
+    if(focus==="cabaudio" && isAudioTech(it)) fgItems+=m;
+    else if(focus==="elec" && isElecTech(it)) fgItems+=m;
+    else bgItems+=m;
+  });
   sel=keep; selSet=keepSet;
   var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
   var hasVenue = state.venue && state.venue.enabled!==false && state.venue._dataUrl;
@@ -10834,16 +10844,33 @@ function stageSceneSvg(cropVb){
   var W=state.stage.w, D=state.stage.d;
   var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="-42">FONDO PALCO</text>'+
             '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+(D+38)+'">PUBBLICO</text>';
-  /* cablaggio nel PDF (08/07): l'overlay cavi/elettrico + legenda, in modo STATICO (niente maniglie di
-     editing) e senza cavo selezionato. Si auto-esclude se i layer non sono attivi. */
+  /* overlay cablaggio (statico, senza maniglie di editing), filtrato per focus: audio (cavi+rete+P.M.+legenda)
+     ed elettrico separati, così ogni pagina-vista mostra SOLO il proprio layer a piena opacità */
   var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;
-  var cabling=''; try{ cabling=cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup(); }catch(_e){ cabling=''; }
+  var audioCab='', elecCab='';
+  try{
+    if(focus===null || focus==="cabaudio") audioCab=cablingMarkup()+netMarkup()+monDigMarkup()+cableLegendMarkup();
+    if(focus===null || focus==="elec") elecCab=elecMarkup();
+  }catch(_e){ audioCab=''; elecCab=''; }
   selCab=_keepCab; window.__cabStatic=_keepStatic;
+  /* composizione per vista */
+  var FADE="0.2";
+  var showZones = (focus===null || focus==="sectionmic");   /* le zone si vedono solo nella scena piena o nella loro pagina-vista */
+  var bgGroup = bgItems ? '<g style="opacity:'+FADE+'">'+bgItems+'</g>' : '';
+  /* zoneGroup nel ramo else è mostrato SOLO per focus===null (export PNG/legacy) → zone a resa naturale, nessuna opacità forzata */
+  var zoneGroup = showZones && zoneItems ? '<g id="layMicZones">'+zoneItems+'</g>' : '';
+  /* z-order: pavimento → zone(sfondo) → elementi sfumati → elementi a fuoco → overlay */
+  var body;
+  if(focus==="sectionmic"){
+    /* qui le zone sono il soggetto (piena resa), tutto il palco sfuma */
+    body = stageFloorMarkup()+dims+zones+'<g style="opacity:'+FADE+'">'+bgItems+fgItems+'</g>'+'<g id="layMicZones">'+zoneItems+'</g>';
+  } else {
+    body = stageFloorMarkup()+dims+zones+zoneGroup+bgGroup+fgItems+audioCab+elecCab;
+  }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+css+'</style>'+DEFS+
     '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
-    venue+
-    stageFloorMarkup()+dims+zones+'<g id="layMicZones">'+zoneItems+'</g>'+items+cabling+'</svg>';
+    venue+body+'</svg>';
 }
 function svgToDataUrl(svgStr, pxW, pxH, type){
   /* iOS Safari rasterizza l'SVG SOLO se il root ha width/height espliciti (non basta il viewBox) */
@@ -11279,13 +11306,13 @@ function svgComplexity(svgEl){
 /* disegna la planimetria come VETTORE puro nel PDF (qualità infinita). Style isolato in shadow DOM per non toccare la pagina.
    Se l'SVG è troppo complesso (icone persone ad alta fedeltà, archi numerosi) rigetta subito così buildPdfDoc
    cade nel catch raster — evita che svg2pdf blocchi il main thread fino a far crashare Chrome. */
-function drawStageVector(doc, ix, iy, wMm, hMm, cropVb){
+function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus){
   return loadSvg2Pdf().then(function(){
     var host=document.createElement("div");
     host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
     document.body.appendChild(host);
     var root=host.attachShadow ? host.attachShadow({mode:"open"}) : host;
-    root.innerHTML=stageSceneSvg(cropVb);
+    root.innerHTML=stageSceneSvg(cropVb, {focus:focus||null});
     var svgEl=root.querySelector("svg");
     flattenTextStyles(svgEl);
     flattenGradients(svgEl);
@@ -11401,13 +11428,13 @@ function buildPdfDoc(paperKey, N, orient, header){
     var jsPDF=window.jspdf.jsPDF;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
     /* --- PAG 1: planimetria in scala — sempre vettore (svg2pdf). Se sfora, ritaglia (box.vb) tenendo la scala --- */
-    return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb)
+    return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, "clean")
       .catch(function(e){
         /* svg2pdf ha lanciato un'eccezione (non dovrebbe succedere) → raster come ultima spiaggia */
         var pxW=Math.round(stMmW/25.4*300), pxH=Math.round(stMmH/25.4*300);
         var scale=Math.min(1, 4000/Math.max(pxW,pxH,1));
         pxW=Math.round(pxW*scale); pxH=Math.round(pxH*scale);
-        return svgToDataUrl(stageSceneSvg(box.vb), pxW, pxH, "image/png").then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
+        return svgToDataUrl(stageSceneSvg(box.vb, {focus:"clean"}), pxW, pxH, "image/png").then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
       })
       .then(function(){
     if(!A.custom && !box.cropped){
