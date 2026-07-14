@@ -3423,7 +3423,9 @@ function monDigEngine(){
     if(!ov.to || ov.deleted){ pending.push(m); return; }
     var to=byId[ov.to];
     if(!to || (!isHub(to)&&!isMix(to)) || to.id===m.id){ pending.push(m); return; }
-    var pts=[portAnchor(m,"dig")].concat(ov.pts||[]).concat([portAnchor(to,"dig")]);
+    var dtTo=pmOf(to);   /* B3+: in catena il cavo arriva al THRU del mixer a monte (se il modello lo ha) */
+    var toKind=(!isHub(to) && dtTo && dtTo.role==="mixer" && dtTo.daisy===true) ? "digthru" : "dig";
+    var pts=[portAnchor(m,"dig")].concat(ov.pts||[]).concat([portAnchor(to,toKind)]);
     var lenM=orthLen(pts)/100, cut=cabCut(lenM);
     links.push({from:m, to:to, toIsHub:isHub(to), key:m.id, pts:pts, lenM:lenM, cut:cut});
   });
@@ -3709,7 +3711,8 @@ function portKinds(it){
   if(cabItemInputs(it).length>0) ks.push("audio");
   if(OUT_SET[it.type]!=null && it.type!=="monmix") ks.push("mon");
   if(wattOf(it)>0) ks.push("pow");
-  if(MON_DIG_NODE[it.type]) ks.push("dig");
+  if(MON_DIG_NODE[it.type]){ ks.push("dig");
+    var pmK=pmOf(it); if(pmK && pmK.role==="mixer" && pmK.daisy===true) ks.push("digthru"); }   /* B3+: THRU separato per i mixer daisy */
   return ks;
 }
 function portAnchor(it, kind){
@@ -3735,12 +3738,14 @@ function portDefs(it){
   }
   if(OUT_SET[it.type]!=null && it.type!=="monmix") out.push({kind:"mon", color:LAYER_COLORS.monitor, tip:"Monitor · ritorno dalla stage box"});
   if(wattOf(it)>0) out.push({kind:"pow", color:LAYER_COLORS.elettrico, tip:"Alimentazione · "+elecKW(wattOf(it))+" → trascina su un distro"});
-  if(MON_DIG_NODE[it.type]){   /* B3: tip per-modello (il vincolo vero sta in pmLinkCheck al drop) */
+  if(MON_DIG_NODE[it.type]){   /* B3/B3+: porte per-modello — IN e THRU separati sui mixer daisy */
     var pmD=pmOf(it), pmTip="Monitor personali · trascina su hub o altro mixerino";
     if(pmD){ pmTip = pmD.role==="hub"
-        ? ("Monitor personali · "+pmSysName(pmD.sys)+" · uscite alimentate per i mixerini")
-        : ("Monitor personali · "+pmSysName(pmD.sys)+(pmD.daisy===false?" · SOLO verso il suo hub/distributore":" · verso hub o Thru di un altro mixerino")); }
+        ? (pmSysName(pmD.sys)+" · uscite alimentate: trascina su un mixerino per collegarlo")
+        : ("IN · "+pmSysName(pmD.sys)+(pmD.daisy===false?" · SOLO verso il suo hub/distributore":" · verso hub o Thru a monte")); }
     out.push({kind:"dig", color:"#c026d3", tip:pmTip});
+    if(pmD && pmD.role==="mixer" && pmD.daisy===true)
+      out.push({kind:"digthru", color:"#f0abfc", tip:"THRU · catena: trascina sull'ingresso del mixerino successivo (non porta alimentazione)"});
   }
   return out;
 }
@@ -5877,11 +5882,28 @@ svg.addEventListener("pointerup", function(e){
       } else if(drag.kind==="dig"){
         var pn=hitAt(function(t){ return MON_DIG_NODE[t.type] && t.id!==pit.id; });   /* hub o altro mixerino */
         if(pn){
-          var pmVeto=pmLinkCheck(pit, pn);   /* B2: i modelli vietano i collegamenti impossibili (protocollo/serie/porte) */
-          if(pmVeto){ showToast(pmVeto.msg, "err"); }
+          /* B3+: dal HUB il gesto è inverso — il mixerino su cui rilasci si collega a QUESTO hub */
+          var srcM = (pit.type==="mixhub") ? pn : pit, dstM = (pit.type==="mixhub") ? pit : pn;
+          if(srcM.type==="mixhub"){ /* hub→hub: nessuna semantica (le cascate fra hub arriveranno con HBUS) */ }
           else {
-            if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }   /* il gesto attiva il layer */
-            mondManual(pit.id).to=pn.id;
+            var pmVeto=pmLinkCheck(srcM, dstM);   /* B2: i modelli vietano i collegamenti impossibili (protocollo/serie/porte) */
+            if(pmVeto){ showToast(pmVeto.msg, "err"); }
+            else {
+              if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }   /* il gesto attiva il layer */
+              mondManual(srcM.id).to=dstM.id;
+              __mondRes=null; save();
+            }
+          }
+        }
+      } else if(drag.kind==="digthru"){
+        /* B3+: dal THRU di questo mixer → il mixerino su cui rilasci si collega al MIO Thru (catena) */
+        var pt2=hitAt(function(t){ return MON_DIG_NODE[t.type] && t.type!=="mixhub" && t.id!==pit.id; });
+        if(pt2){
+          var pmVetoT=pmLinkCheck(pt2, pit);
+          if(pmVetoT){ showToast(pmVetoT.msg, "err"); }
+          else {
+            if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }
+            mondManual(pt2.id).to=pit.id;
             __mondRes=null; save();
           }
         }
