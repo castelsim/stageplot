@@ -853,7 +853,7 @@ var TYPES = {
   musTuba: {nome:"Tuba musicista", dim:"88×126", cat:"Orchestra", sub:"Ottoni", w:88,d:126, defLabel:"Tuba", draw:function(it){ return drawLibFit("musTuba",it,88,126); }},
   musArpa: {nome:"Arpa musicista", dim:"162×171", cat:"Orchestra", sub:"Arpa e celesta", w:162,d:171, defLabel:"Arpa", draw:function(it){ return drawLibFit("musArpa",it,162,171); }},
   musTimpani: {nome:"Timpani musicista", dim:"184×119", cat:"Batteria e percussioni", sub:"Percussioni", w:184,d:119, defLabel:"Timp", draw:function(it){ return drawLibFit("musTimpani",it,184,119); }},
-  musPercussioni: {nome:"Percussioni musicista", dim:"177×132", cat:"Batteria e percussioni", sub:"Percussioni", w:177,d:132, defLabel:"Perc", draw:function(it){ return drawLibFit("musPercussioni",it,177,132); }},
+  musPercussioni: {nome:"Percussioni musicista", dim:"168×125", cat:"Batteria e percussioni", sub:"Percussioni", w:168,d:125, defLabel:"Perc", draw:function(it){ return drawLibFit("musPercussioni",it,168,125); }},
   musBatteria: {nome:"Batteria musicista", dim:"152×138", cat:"Batteria e percussioni", sub:"Batterie", w:152,d:138, defLabel:"Dr", draw:function(it){ return drawLibFit("musBatteria",it,152,138); }},
   musPianoGranCoda: {nome:"Piano gran coda musicista", dim:"135×238", cat:"Band e backline", sub:"Tastiere e piani", w:135,d:238, defLabel:"Pno", draw:function(it){ return drawLibFit("musPianoGranCoda",it,135,238); }},
   musPianoMezzaCoda: {nome:"Piano mezzacoda musicista", dim:"148×201", cat:"Band e backline", sub:"Tastiere e piani", w:148,d:201, defLabel:"Pno", draw:function(it){ return drawLibFit("musPianoMezzaCoda",it,148,201); }},
