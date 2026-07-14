@@ -284,5 +284,53 @@ t("autoInputs genera la input list dagli strumenti, senza attivare il cablaggio"
   ok(A.state.inputs.length >= 8, "batteria → ≥8 canali auto (ottenuti: " + A.state.inputs.length + ")");
   eq(A.state.cab.on, false, "il cablaggio NON viene attivato (C: nessun cavo disegnato)");
 });
+console.log("\nPersonal monitor model-driven (B1):");
+t("P16-M diretto a hub = alimentato dal cavo; in serie = warn + PSU contato", () => {
+  reset();
+  const h = add("mixhub", 900, 300); h.pm = "p16d";
+  const m1 = add("hearback", 300, 300); m1.pm = "p16m";
+  const m2 = add("hearback", 400, 300); m2.pm = "p16m";
+  A.state.mond.manual = {}; A.state.mond.manual[m1.id] = { to: h.id }; A.state.mond.manual[m2.id] = { to: m1.id };
+  const R = A.monDigEngine();
+  eq(R.power[m1.id], "data", "diretto a hub"); eq(R.power[m2.id], "psu", "in serie");
+  eq(R.psuCount, 1, "PSU locali");
+  ok(R.issues.some((i) => i.lvl === "warn" && /alimentatore locale/.test(i.msg)), "manca il warn PSU");
+});
+t("A320 in serie = err bloccante (hub-only, no PSU)", () => {
+  reset();
+  const m1 = add("hearback", 300, 300); m1.pm = "a320";
+  const m2 = add("hearback", 400, 300); m2.pm = "a320";
+  A.state.mond.manual = {}; A.state.mond.manual[m2.id] = { to: m1.id };
+  const R = A.monDigEngine();
+  ok(R.issues.some((i) => i.lvl === "err" && /serie/.test(i.msg)), "manca err serie A320");
+  eq(R.power[m2.id], "invalid");
+});
+t("protocolli diversi (A-Net su hub ULTRANET) = err compatibilità", () => {
+  reset();
+  const h = add("mixhub", 900, 300); h.pm = "p16d";
+  const m = add("hearback", 300, 300); m.pm = "a16ii";
+  A.state.mond.manual = {}; A.state.mond.manual[m.id] = { to: h.id };
+  const R = A.monDigEngine();
+  ok(R.issues.some((i) => i.lvl === "err" && /NON sono compatibili/.test(i.msg)), "manca err protocolli");
+});
+t("9 OCTO su un OCTO Hub (8 porte) = err capacità", () => {
+  reset();
+  const h = add("mixhub", 900, 300); h.pm = "octohub";
+  A.state.mond.manual = {};
+  for (let i = 0; i < 9; i++) { const mx = add("hearback", 100 + i * 60, 300); mx.pm = "hbocto"; A.state.mond.manual[mx.id] = { to: h.id }; }
+  const R = A.monDigEngine();
+  ok(R.issues.some((i) => i.lvl === "err" && /porte/.test(i.msg)), "manca err capacità");
+  eq(R.hubLoad[h.id], 9);
+});
+t("generico (senza it.pm): zero vincoli nuovi, zero PSU contati", () => {
+  reset();
+  const h = add("mixhub", 900, 300);
+  const m1 = add("hearback", 300, 300); const m2 = add("hearback", 400, 300);
+  A.state.mond.manual = {}; A.state.mond.manual[m1.id] = { to: h.id }; A.state.mond.manual[m2.id] = { to: m1.id };
+  const R = A.monDigEngine();
+  ok(!R.issues.some((i) => i.lvl === "err"), "err inatteso sul generico");
+  eq(R.psuCount, 0, "PSU sul generico");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
