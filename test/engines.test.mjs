@@ -583,6 +583,17 @@ t("listPreviewHtml('inputlist') → tabella HTML con dati reali", () => {
   ok(h && /pdf-list-tbl/.test(h) && /Input list/.test(h), "html: " + String(h).slice(0, 90));
 });
 
+console.log("\nMusicisti illustrati (icone top-down) — cablaggio tecnico:");
+t("musViolino1 = 1 canale DPA 4099 (come vlnpost)", () => { reset(); const v = add("musViolino1", 300, 300); eq(chans(v).length, 1); eq(chans(v)[0].mic, "DPA 4099"); });
+t("musTromba = 1 canale e906 · musCorno = MD421", () => { reset(); eq(chans(add("musTromba", 200, 200))[0].mic, "e906"); eq(chans(add("musCorno", 260, 200))[0].mic, "MD421"); });
+t("musBatteria = 8 canali (riusa IN_MULTI.batteria)", () => { reset(); eq(chans(add("musBatteria", 400, 400)).length, 8); });
+t("musPianoGranCoda = 2 canali KM184 · musBasso = 1 DI", () => { reset(); eq(chans(add("musPianoGranCoda", 400, 400)).length, 2); eq(chans(add("musBasso", 200, 400))[0].mic, "DI"); });
+t("musDirettore = 0 canali (non è una sorgente audio)", () => { reset(); eq(chans(add("musDirettore", 300, 300)).length, 0); });
+t("dimensioni in scala reale: musViolino1 60×61, musPianoGranCoda 155×274", () => {
+  eq([A.TYPES.musViolino1.w, A.TYPES.musViolino1.d], [60, 61]);
+  eq([A.TYPES.musPianoGranCoda.w, A.TYPES.musPianoGranCoda.d], [155, 274]);
+});
+
 console.log("\nT2 — rider tecnico generato dai dati:");
 t("riderData: canali derivati + testo default", () => {
   reset(); A.state.cab.on = true; add("astamic", 300, 300); A.__cabRes = null;
