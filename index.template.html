@@ -8848,15 +8848,21 @@ function layerShown(id){
   }
   return true;
 }
-/* elemento del palco pertinente a un layer in solo → resta a fuoco insieme al layer
-   (Simone: solo Power = cavi corrente + carichi; solo P.M. = mixerini + hub + cablaggi digitali) */
+/* elemento del palco pertinente a un layer → a fuoco insieme al layer. FONTE UNICA della
+   classificazione: la usano il SOLO sul canvas e le pagine-vista del PDF (stessa semantica ovunque).
+   (Simone: Power = cavi corrente + CARICHI; P.M. = mixerini + hub + cablaggi digitali) */
+function layerFgItem(id, it){
+  switch(id){
+    case "cabin": case "net": return !!(cabIsBox(it) || it.type==="mixer" || it.type==="foh");
+    case "cabout": return !!(OUT_SET[it.type]!=null || cabIsBox(it) || it.type==="mixer" || it.type==="foh");
+    case "mond":   return !!MON_DIG_NODE[it.type];
+    case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
+  }
+  return false;
+}
 function itemInSoloLayer(it){
   if(soloOn("stage")) return true;
-  if(soloOn("cabin")  && (cabIsBox(it) || it.type==="mixer" || it.type==="foh")) return true;
-  if(soloOn("cabout") && (OUT_SET[it.type]!=null || cabIsBox(it) || it.type==="mixer" || it.type==="foh")) return true;
-  if(soloOn("net")    && (cabIsBox(it) || it.type==="mixer" || it.type==="foh")) return true;
-  if(soloOn("mond")   && MON_DIG_NODE[it.type]) return true;
-  if(soloOn("elec")   && (it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0)) return true;
+  for(var id in layerSoloUI){ if(layerSoloUI[id] && layerFgItem(id, it)) return true; }
   return false;
 }
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
@@ -10888,16 +10894,17 @@ function stageSceneSvg(cropVb, opts){
      parte centrale che ci sta, sempre in scala. Senza cropVb = scena intera (area + margine quote). */
   var vb=cropVb || {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
   var keep=sel, keepSet=selSet; sel=null; selSet={};
-  /* classifica ogni elemento per la vista a fuoco: quali restano a piena opacità (fg) e quali sfumano (bg) */
-  function isAudioTech(it){ return cabIsBox(it); }
-  function isElecTech(it){ return it.type==="corrente" || (typeof elecIsDistro==="function"&&elecIsDistro(it)) || (typeof elecIsGen==="function"&&elecIsGen(it)); }
+  /* classifica ogni elemento per la vista a fuoco (fg) o sfumato (bg) — layerFgItem = STESSA
+     classificazione del SOLO sul canvas: la vista "cabaudio" include ritorni e P.M. → fg anche
+     monitor/mixerini; la vista "elec" include i CARICHI (wattOf>0), come chiesto da Simone */
+  function isAudioTech(it){ return layerFgItem("cabin",it) || layerFgItem("cabout",it) || layerFgItem("mond",it); }
   var fgItems='', bgItems='', zoneItems='';
   sortedItems().forEach(function(it){
     if(it.type==="miczone"){ zoneItems+=itemMarkup(it); return; }
     var m=itemMarkup(it);
     if(!focus || focus==="clean"){ fgItems+=m; return; }
     if(focus==="cabaudio" && isAudioTech(it)) fgItems+=m;
-    else if(focus==="elec" && isElecTech(it)) fgItems+=m;
+    else if(focus==="elec" && layerFgItem("elec",it)) fgItems+=m;
     else bgItems+=m;
   });
   sel=keep; selSet=keepSet;
