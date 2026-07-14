@@ -608,6 +608,10 @@ var TYPES = {
              draw:function(){ return bar(0,3,46,46,'ic fBlack',9)+bar(0,-22,46,9,'ic fill',4); }},
   sediabianca:{nome:"Sedia bianca", dim:"46×46", cat:"Palco e strutture", w:50,d:55, z:1.5,   /* sedia chiara come quella dei musicisti (seatLight) */
              draw:function(){ return bar(0,3,46,46,'ic soft',9)+bar(0,-22,46,9,'ic soft',4); }},
+  sediaorch:{nome:"Sedia orchestra", dim:"seduta 44×44 · 6 kg", cat:"Palco e strutture", w:44,d:48, z:1.5, defLabel:"Sedia",   /* seduta 440×440, alt. 480, 6 kg (peso nel rider via WEIGHT) */
+             draw:function(){ return bar(0,2,44,44,'ic fBlack',8)+bar(0,-20,44,8,'ic fill',4); }},
+  sediapubblico:{nome:"Sedia pubblico", dim:"50×53 · 3,5 kg", cat:"Palco e strutture", w:50,d:53, z:1.5, defLabel:"Sedia",   /* sedia impilabile pubblico 50×53, alt. 77/seduta 46, 3,5 kg */
+             draw:function(){ return bar(0,3,50,46,'ic fill',6)+bar(0,-20,50,9,'ic fill',4)+bar(0,3,42,38,'ic soft',5); }},
   sedialeggio:{nome:"Sedia + leggio", dim:"postazione", cat:"Palco e strutture", w:75,d:105,
              draw:function(){ return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+leggioGlyph(38); }},
   leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", catalog:false, w:50,d:35,
@@ -1158,6 +1162,8 @@ var WEIGHT = {
   /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6,
+  /* sedie (peso per il rider) */
+  sediaorch:6, sediapubblico:3.5, sediabianca:3.5,
   /* PA */
   arraylarge:34, arraymid:22, sub218:85, delaytower:90, frontfill:12,
   /* monitor */
@@ -10448,7 +10454,7 @@ function riderPdf(shared){
       lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
     heading("MICROFONI"); body(d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):""));
     heading("MONITOR"); body(riderMonitorText(d.monitor));
-    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":""));
+    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
     if(d.console){ heading("CONSOLE"); body(d.console); }
     heading("SISTEMA AUDIO"); body(d.sistema);
     heading("LUCI"); body(d.luci);
@@ -11047,6 +11053,7 @@ function riderData(){
     status: state.status||"bozza", approvedBy:(state.approval&&state.approval.by)||"", approvedAt:(state.approval&&state.approval.at)||"",
     sistema: pick("sistema"), luci: pick("luci"), personale: pick("personale"),
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
+    pesoKg: (typeof totalWeightKg==="function") ? totalWeightKg() : 0,
     note: r.note||""
   };
 }
@@ -11072,7 +11079,7 @@ function riderHtml(){
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
     sec("Microfoni", esc(mic), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
-    sec("Stage e pedane", esc(riderPedaneText(d.pedane))+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":""), true)+
+    sec("Stage e pedane", esc(riderPedaneText(d.pedane))+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+
     sec("Sistema audio", esct(d.sistema))+
     sec("Luci", esct(d.luci))+
