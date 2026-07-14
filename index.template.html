@@ -2302,6 +2302,7 @@ function subOf(k){   /* sottocategoria (nuova) di un tipo */
    Casse passive (array, sub, wedge, fill) = 0: la potenza vive sugli amp rack (no doppio conteggio). */
 var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
+  organohammond:250, spdsx:15, pedaliera:30,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
   stagepiano:50, doppiatastiera:100, celesta:40,
   dm3:45, dm7c:110, dm7:150, csr3:280, csr5:350, csr10:600,
   sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
@@ -2324,8 +2325,11 @@ var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi *
 function wattOf(it){
   if(!it) return 0;
   if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
-  if(WATT_BY_AREA[it.type]!=null) return Math.round((it.w/100)*(it.d/100)*WATT_BY_AREA[it.type]);
-  return WATT[it.type]||0;
+  var w = (WATT_BY_AREA[it.type]!=null) ? Math.round((it.w/100)*(it.d/100)*WATT_BY_AREA[it.type]) : (WATT[it.type]||0);
+  /* chitarra/basso su stand: ampli e pedaliera OPZIONALI (flag) sono carichi elettrici (audit 14/07) */
+  var g=(TYPES[it.type]||{}).gtr;
+  if(g){ if(it.ampli) w += (g==="bass") ? 400 : 150; if(it.pedaliera) w += 30; }
+  return w;
 }
 function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
 /* L3 (08/07) — guardia copertura metadata tecnici. Diagnostico (non runtime), richiamabile da console:
@@ -3951,10 +3955,19 @@ function cabItemInputs(it){
   if(it.type!=="miczone" && itemInMicZone(it) && !it.ownMic) return [];   /* coperto da una zona panoramica → 0 canali; it.ownMic=true (azione utente) = mantiene COMUNQUE il suo mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
-  if(MIKING[it.type]) return MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
-  if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
-  if(IN_SRC[it.type]!=null) return [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
-  return [];
+  var base;
+  if(MIKING[it.type]) base = MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
+  else if(IN_MULTI[it.type]) base = IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
+  else if(IN_SRC[it.type]!=null) base = [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
+  else return [];
+  /* postazione DOPPIA (flag): 2 musicisti su un leggio → i microfoni si raddoppiano (audit 14/07).
+     Le ×2 dedicate (DOUBLE_TYPES: vln1x2…) hanno GIÀ 2 canali nel loro IN_MULTI → non raddoppiare. */
+  if(it.doppia===true && POSTAZ[it.type] && !DOUBLE_TYPES[it.type] && base.length){
+    var l2 = it.label2 || ((it.label||TYPES[it.type].nome)+" 2");
+    var second = base.map(function(c,i){ return {name: (base.length>1 ? l2+" "+(i+1) : l2), mic:c.mic}; });
+    return base.concat(second);
+  }
+  return base;
 }
 /* punto principale di connessione (FOH / stage rack / lato palco / personalizzato) → coordinate sul palco */
 var HOME_LABELS={foh:"FOH mixer", monitor:"Monitor mixer", stagerack:"Stage rack / I/O rack", right:"Uscita palco DX", left:"Uscita palco SX", custom:"Punto personalizzato"};
@@ -8857,6 +8870,8 @@ var IN_SRC = {
   corno:"MD421", tromba:"e906", trombone:"MD421", tuba:"MD421",
   /* percussioni a microfono singolo */
   rullante:"SM57", grancassa:"D6", piatto:"KM184", piatticoppia:"KM184",
+  /* pezzi della batteria divisa (audit 14/07: dividere il kit conserva gli 8 mic — ricompone D6+SM57+3×e904+SM81+2×KM184) */
+  kickR:"D6", snareR:"SM57", tomR:"e904", floorR:"e904", hihatKR:"SM81", crashR:"KM184", rideR:"KM184",
   campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A",
   /* backline / tastiere a mic o DI singolo */
   comboamp:"SM57", stack:"SM57/e906", keysamp:"DI", celesta:"KM184",
@@ -8870,6 +8885,7 @@ var IN_MULTI = {
   batteria: [["Kick","D6"],["Rullante top","SM57"],["Rullante btm","e904"],["Hi-Hat","SM81"],
              ["Tom 1","e904"],["Tom floor","e904"],["Overhead L","KM184"],["Overhead R","KM184"]],
   edrums:   [["E-drums L","DI"],["E-drums R","DI"]],
+  spdsx:    [["Pad L","DI"],["Pad R","DI"]],   /* audit 14/07: SPD-SX = sampling pad con uscita stereo (Master L/R) via DI */
   bassamp:  [["Basso DI","DI"],["Basso ampli","MD421"]],
   timpani:  [["Timpani L","KM184"],["Timpani R","KM184"]],
   timpani3: [["Timpani L","KM184"],["Timpani R","KM184"]],

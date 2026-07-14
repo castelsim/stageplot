@@ -322,6 +322,32 @@ t("autoInputs genera la input list dagli strumenti, senza attivare il cablaggio"
   ok(A.state.inputs.length >= 8, "batteria → ≥8 canali auto (ottenuti: " + A.state.inputs.length + ")");
   eq(A.state.cab.on, false, "il cablaggio NON viene attivato (C: nessun cavo disegnato)");
 });
+console.log("\nAudit connessioni elementi (14/07):");
+t("strumenti elettronici assorbono corrente: Hammond 250W, pedaliera 30W, SPD-SX 15W+2 DI", () => {
+  reset();
+  eq(A.wattOf(add("organohammond", 300, 300)), 250);
+  reset(); eq(A.wattOf(add("pedaliera", 300, 300)), 30); reset(); eq(chans(add("pedaliera", 300, 300)).length, 0, "pedaliera non è sorgente audio");
+  reset(); const sp = add("spdsx", 300, 300); eq(A.wattOf(sp), 15); eq(chans(sp).length, 2, "SPD-SX stereo via DI");
+});
+t("postazione DOPPIA (flag) = 2 microfoni; singola = 1; ×2 dedicata resta 2", () => {
+  reset(); const v = add("vlnpost", 300, 300); eq(chans(v).length, 1, "singola");
+  v.doppia = true; v.label = "Violino I 1"; v.label2 = "Violino I 2"; A.__cabRes = null;
+  eq(chans(v).map((c) => c.name), ["Violino I 1", "Violino I 2"], "doppia = 2 nomi");
+  reset(); eq(chans(add("vln1x2", 300, 300)).length, 2, "×2 dedicata già 2");
+});
+t("ampli/pedaliera su chitarra/basso = carico elettrico", () => {
+  reset(); const g = add("gtstand", 300, 300); eq(A.wattOf(g), 0, "chitarra sola non consuma");
+  g.ampli = true; eq(A.wattOf(g), 150, "+ampli combo"); g.pedaliera = true; eq(A.wattOf(g), 180, "+pedaliera");
+  reset(); const b = add("bassstand", 300, 300); b.ampli = true; eq(A.wattOf(b), 400, "ampli basso");
+});
+t("batteria divisa nei pezzi conserva 8 microfoni", () => {
+  reset();
+  const parts = { kickR: "D6", snareR: "SM57", tomR: "e904", tomR2: "e904", floorR: "e904", hihatKR: "SM81", crashR: "KM184", rideR: "KM184" };
+  let tot = 0;
+  ["kickR", "snareR", "tomR", "tomR", "floorR", "hihatKR", "crashR", "rideR", "stoolR"].forEach((t2) => { reset(); tot += chans(add(t2, 200, 200)).length; });
+  eq(tot, 8, "somma dei mic dei pezzi = 8 (stoolR = sgabello, 0)");
+});
+
 console.log("\nPersonal monitor model-driven (B1):");
 t("P16-M diretto a hub = alimentato dal cavo; in serie = warn + PSU contato", () => {
   reset();
