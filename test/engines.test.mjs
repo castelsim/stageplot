@@ -594,6 +594,18 @@ t("dimensioni in scala reale: musViolino1 60×61, musPianoGranCoda 155×274", ()
   eq([A.TYPES.musPianoGranCoda.w, A.TYPES.musPianoGranCoda.d], [155, 274]);
 });
 
+console.log("\nSedie (peso per il rider):");
+t("sediaorch 44×48 · 6 kg · sediapubblico 50×53 · 3,5 kg", () => {
+  eq([A.TYPES.sediaorch.w, A.TYPES.sediaorch.d], [44, 48]);
+  eq([A.TYPES.sediapubblico.w, A.TYPES.sediapubblico.d], [50, 53]);
+  eq(A.weightOf({ type: "sediaorch" }), 6);
+  eq(A.weightOf({ type: "sediapubblico" }), 3.5);
+});
+t("riderData.pesoKg somma il peso delle sedie", () => {
+  reset(); add("sediaorch", 300, 300); add("sediaorch", 340, 300); add("sediapubblico", 500, 300);
+  eq(A.riderData().pesoKg, 6 + 6 + 3.5);
+});
+
 console.log("\nT2 — rider tecnico generato dai dati:");
 t("riderData: canali derivati + testo default", () => {
   reset(); A.state.cab.on = true; add("astamic", 300, 300); A.__cabRes = null;
