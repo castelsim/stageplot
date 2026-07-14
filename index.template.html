@@ -1792,8 +1792,10 @@ var TYPES = {
                  circ(-w*0.22,d/2-r-2,r,"ic fGrey")+circ(w*0.22,d/2-r-2,r,"ic fGrey"); }},
   miczone: {nome:"Microfono panoramico (zona)", dim:"area di ripresa", cat:"Microfoni e DI", sub:"Aste e microfoni",
     w:220, d:150, resizable:true, ess:true, z:0, defLabel:"",
-    draw:function(it){ var pts=miczonePts(it), o=(it.opacity==null?18:it.opacity)/100, b=polyBBox(pts), zc=micZoneColor(it);
+    draw:function(it){ var pts=miczonePts(it), o=(it.opacity==null?18:it.opacity)/100, b=polyBBox(pts), zc=micZoneColor(it), mp=micZoneMicPos(it);
       return '<polygon points="'+ptsAttr(pts)+'" fill="'+zc+'" fill-opacity="'+o.toFixed(2)+'" stroke="'+zc+'" stroke-opacity="0.85" stroke-width="1.6" stroke-dasharray="6 5" stroke-linejoin="round"/>'+
+        '<circle cx="'+mp[0]+'" cy="'+mp[1]+'" r="7" fill="'+zc+'" stroke="#fff" stroke-width="1.8"/>'+   /* posizione del microfono (trascinabile da selezionata) */
+        '<circle cx="'+mp[0]+'" cy="'+mp[1]+'" r="2.6" fill="#fff"/>'+
         '<text x="'+(b.minX+9)+'" y="'+(b.minY+17)+'" fill="'+zc+'" font-size="11" font-weight="700">'+esc(micZoneLabel(it))+' · '+esc(micZoneMic(it))+'</text>'; }},
   talkback: {nome:"Talkback", dim:"25×38", cat:"Microfoni e DI", sub:"Aste e microfoni", w:25,d:38,
              draw:function(it){ return drawLibFit("talkback",it,25,38); }},
@@ -3140,6 +3142,11 @@ function sanitizeItems(arr){
     /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
     if(it.type==="miczone" && it.pts && it.pts.length>=3) miczoneSyncDims(it);
     else if(it.type==="miczone") delete it.pts;
+    if(it.type==="miczone" && it.micPos!=null){   /* posizione mic: [x,y] numerici o via */
+      var mpv=it.micPos;
+      if(mpv && mpv.length===2 && isFinite(mpv[0]) && isFinite(mpv[1])) it.micPos=[Math.round(+mpv[0]), Math.round(+mpv[1])];
+      else delete it.micPos;
+    }
     return it;
   }).filter(Boolean);
   /* colori distinti per zona (14/07): i progetti esistenti ricevono un colore libero per ogni zona senza zcol */
@@ -3467,7 +3474,7 @@ function itemMarkup(it){
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
-  s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo */
+  if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
   s += t.draw(it);
   if(KEYS_BENCH[it.type] && it.panca!==false){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
@@ -3588,6 +3595,13 @@ function micZoneMic(zone){
   var s=micZoneSources(zone); if(!s.length) return "KM184";
   var fam=famOf(s[0]), uniform=s.every(function(x){ return famOf(x)===fam; });
   return (uniform && FAM_PAN[fam]) ? FAM_PAN[fam][0] : "KM184";
+}
+/* Posizione FISICA del microfono panoramico (Simone 14/07): pallino trascinabile, salvato su
+   z.micPos [x,y] relativo al centro zona. Default: davanti all'area, appena fuori dal bordo
+   (l'asta del panoramico sta davanti alla sezione, non in mezzo ai musicisti). */
+function micZoneMicPos(z){
+  return (z && z.micPos && z.micPos.length===2 && isFinite(z.micPos[0]) && isFinite(z.micPos[1]))
+    ? z.micPos : [0, Math.round((z&&z.d||150)/2-18)];   /* default: dentro il bordo DAVANTI (non sotto, dove vive la porta audio del canale) */
 }
 /* Area di PERTINENZA dalla selezione (Simone 14/07): convex hull dei footprint REALI (i 4 angoli
    ruotati di ogni elemento) + margine radiale → zona POLIGONALE aderente al gruppo, non un
@@ -5056,7 +5070,17 @@ function portsMarkup(){
   });
   return s+'</g>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup(); }
+/* hit del pallino microfono della zona selezionata: vive nell'OVERLAY (sopra gli strumenti che
+   coprono l'area — il loro .hit vincerebbe), come le porte; il pallino VISIVO sta nel draw della zona */
+function mzMicHitMarkup(){
+  if(window.__cabStatic || !sel || Object.keys(selSet||{}).length>1) return '';
+  var z=(state.items||[]).filter(function(x){ return x.id===sel && x.type==="miczone"; })[0];
+  if(!z) return '';
+  var mp=micZoneMicPos(z), a=(z.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
+  return '<circle class="mz-mic" data-id="'+z.id+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · trascina per spostarla</title></circle>';
+}
+function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -6745,6 +6769,14 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"pan", px:e.clientX, py:e.clientY, vx:vb.x, vy:vb.y};
     svg.classList.add("dragging"); svg.setPointerCapture(e.pointerId); return;
   }
+  var mzmic = e.target.closest ? e.target.closest(".mz-mic") : null;
+  if(mzmic){                                /* ZONA: pallino del microfono — trascina per riposizionarlo */
+    var mzmicId=mzmic.getAttribute("data-id");
+    selectOne(mzmicId);
+    drag={mode:"mzmic", id:mzmicId, moved:false};
+    render(); svg.setPointerCapture(e.pointerId);
+    return;
+  }
   var mzv = e.target.closest ? e.target.closest(".mz-vtx") : null;
   if(mzv){                                  /* ZONA: vertice — Alt+click rimuove (min 3), altrimenti trascina */
     var mzid=mzv.getAttribute("data-id"), mvi=+mzv.getAttribute("data-vtx");
@@ -6973,6 +7005,13 @@ svg.addEventListener("pointermove", function(e){
       var g=svg.querySelector('[data-id="'+it.id+'"]');
       if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); } });
     drag.moved=true;
+  } else if(drag.mode==="mzmic"){           /* ZONA: trascina il pallino del microfono (frame locale, considera la rotazione) */
+    sp=svgPoint(e); var zmit=state.items.find(function(i){ return i.id===drag.id; });
+    if(zmit){
+      var mza=(zmit.rot||0)*Math.PI/180, mzdx=sp.x-zmit.x, mzdy=sp.y-zmit.y;
+      zmit.micPos=[Math.round(mzdx*Math.cos(mza)+mzdy*Math.sin(mza)), Math.round(-mzdx*Math.sin(mza)+mzdy*Math.cos(mza))];
+      drag.moved=true; redrawItemNode(zmit);
+    }
   } else if(drag.mode==="mzvtx"){           /* ZONA: trascina un vertice del poligono (frame locale, considera la rotazione) */
     sp=svgPoint(e); var zzit=state.items.find(function(i){ return i.id===drag.id; });
     if(zzit && zzit.pts && zzit.pts[drag.vi]){
@@ -7287,6 +7326,7 @@ svg.addEventListener("pointerup", function(e){
   }
   if(drag && drag.mode==="rotate"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="mzmic"){ if(drag.moved) save(); render(); drag=null; return; }
   if(drag && drag.mode==="mzvtx"){ var _zz=state.items.find(function(i){ return i.id===drag.id; }); if(_zz) miczoneRecenter(_zz); save(); ensureVisible(); render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
