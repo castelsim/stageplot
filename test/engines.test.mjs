@@ -53,7 +53,7 @@ function t(name, fn) { try { fn(); pass++; console.log("  ✓ " + name); } catch
 function eq(got, exp, msg) { const g = JSON.stringify(got), e = JSON.stringify(exp); if (g !== e) throw new Error((msg || "") + " atteso " + e + ", ottenuto " + g); }
 function ok(cond, msg) { if (!cond) throw new Error(msg || "condizione falsa"); }
 function reset() {
-  A.state.items = []; A.state.inputs = []; A.state.outputs = [];
+  A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {};
   A.state.elec.on = false; A.state.elec.manual = {}; A.state.elec.uplinks = {};
   A.state.mond.on = false; A.state.mond.manual = {};
@@ -610,6 +610,41 @@ t("riderHtml: documento con sezioni e numeri derivati", () => {
   reset(); A.state.cab.on = true; add("astamic", 300, 300); add("wedge", 320, 320); A.__cabRes = null;
   const h = A.riderHtml();
   ok(/Rider tecnico/.test(h) && /Microfoni/.test(h) && /Monitor/.test(h), "html: " + String(h).slice(0, 120));
+});
+
+console.log("\nT4 — rubrica contatti/ruoli:");
+t("normContact: clamp lunghezze", () => {
+  const c = A.normContact({ role: "x".repeat(50), name: "y".repeat(70), contact: "z".repeat(90), note: "w".repeat(200) });
+  ok(c.role.length <= 40 && c.name.length <= 60 && c.contact.length <= 80 && c.note.length <= 120, "clamp: " + JSON.stringify([c.role.length, c.name.length, c.contact.length, c.note.length]));
+});
+t("primaryContactStr: preferisce ruolo tecnico/sala/FOH", () => {
+  const s = A.primaryContactStr([{ role: "Service locale", name: "Mas", contact: "333" }, { role: "Fonico di sala", name: "Marco", contact: "339" }]);
+  ok(/Marco/.test(s), "primario tecnico atteso; got " + s);
+});
+t("primaryContactStr: vuoto con arg → stringa vuota", () => { eq(A.primaryContactStr([]), ""); });
+t("normalizeState: migra techContact → rubrica", () => {
+  const s = { techContact: "Marco 339" }; A.normalizeState(s);
+  ok(Array.isArray(s.contacts) && s.contacts.length === 1 && /339/.test(s.contacts[0].contact), "migrato: " + JSON.stringify(s.contacts));
+});
+t("riderData: espone contatti + contatto primario derivato", () => {
+  reset(); A.state.contacts = [{ role: "Service locale", name: "Mas Servizi", contact: "333111" }];
+  const d = A.riderData();
+  eq(d.contatti.length, 1, "1 contatto");
+  ok(/Mas Servizi/.test(d.contatto) || /333111/.test(d.contatto), "contatto derivato: " + d.contatto);
+});
+t("riderHtml: sezione Contatti e ruoli quando presenti", () => {
+  reset(); A.state.contacts = [{ role: "Service locale", name: "Mas", contact: "333" }];
+  const h = A.riderHtml();
+  ok(/Contatti e ruoli/.test(h) && /Mas/.test(h), "sezione contatti nel rider");
+});
+t("audit T4: cablaggio senza contatto Service → nudge info", () => {
+  reset(); A.state.cab.on = true; add("astamic", 300, 300); A.state.contacts = []; A.__cabRes = null;
+  ok(A.auditEngine().findings.some((f) => /Service/i.test(f.msg) && f.lvl === "info"), "atteso nudge service");
+});
+t("audit T4: con contatto Service → nessun nudge", () => {
+  reset(); A.state.cab.on = true; add("astamic", 300, 300);
+  A.state.contacts = [{ role: "Service locale", name: "Mas", contact: "333" }]; A.__cabRes = null;
+  ok(!A.auditEngine().findings.some((f) => /Nessun contatto per il Service/.test(f.msg)), "nessun nudge col service presente");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

@@ -1783,6 +1783,9 @@ function normalizeState(s){
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
+  s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
+  if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
+  if(s.contacts.length){ var _pc=primaryContactStr(s.contacts); if(_pc) s.techContact=_pc; }   /* tiene allineato il legacy field (rider header + pagina consulenza) */
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
   s.stage=s.stage||{w:1200,d:800};
   if(!s.stage.blocks || !s.stage.blocks.length) s.stage.blocks=[{x:0,y:0,w:s.stage.w||1200,d:s.stage.d||800}];
@@ -3680,6 +3683,9 @@ function auditEngine(){
     var uncovered=items.filter(isAudioSource).filter(function(s){ return !monItems.some(function(m){ return Math.hypot(s.x-m.x, s.y-m.y)<AUDIT_MON_NEAR; }); }).length;
     if(uncovered) add("warn", uncovered+(uncovered===1?" postazione è lontana":" postazioni sono lontane")+" da ogni monitor (oltre ~"+(AUDIT_MON_NEAR/100).toFixed(1).replace(".",",")+" m).","Monitor","Verifica la copertura monitor: avvicina un wedge/side o usa gli IEM.",{label:"Aggiungi wedge",run:auditFixAddWedge});
   }
+  /* T4 — contatto del Service: la lezione di Asiago (il collo era «girami un numero del service») */
+  if(audioSrc>0 && !(state.contacts||[]).some(function(c){ return /service/i.test(c.role||"") && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }))
+    add("info","Nessun contatto per il Service locale nella rubrica del rider: serve per coordinare la data.","Contatti");
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
@@ -6456,7 +6462,10 @@ document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdi
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
 document.getElementById("bChanDone").addEventListener("click", toggleChan);
-(function(){ var c=document.getElementById("clContact"); if(c) c.addEventListener("input", function(){ state.techContact=c.value; saveSoon(); }); })();   /* M5: contatto tecnico rider */
+(function(){ var b=document.getElementById("contactAdd"); if(b) b.addEventListener("click", function(){   /* T4: aggiungi contatto alla rubrica */
+    state.contacts=state.contacts||[]; state.contacts.push({role:"",name:"",contact:"",note:""}); saveSoon(); renderContacts();
+    var host=document.getElementById("contactRows"), last=host&&host.lastChild&&host.lastChild.querySelector("input"); if(last) last.focus();
+  }); })();   /* T4: la prima renderContacts avviene in renderChannels (all'apertura del pannello) — MAI eager qui: CONTACT_ROLES è definito più avanti nello script */
 (function(){ function bind(id,key,num){ var el=document.getElementById(id); if(!el) return;   /* T2: testo editabile del rider (vuoto → default) */
     el.addEventListener("input", function(){ state.rider=state.rider||{}; var v=el.value;
       if(v==="" || v==null) delete state.rider[key]; else state.rider[key]=num?(Math.max(0,Math.min(300,parseInt(v,10)||0))):v; saveSoon(); }); }
@@ -8874,7 +8883,7 @@ function updateChanDatalists(){
 function renderChannels(){
   var inR=document.getElementById("inRows"), outR=document.getElementById("outRows");
   if(!inR) return;
-  var cc=document.getElementById("clContact"); if(cc && cc.value!==(state.techContact||"")) cc.value=state.techContact||"";   /* M5 */
+  if(typeof renderContacts==="function") renderContacts();   /* T4: rubrica contatti/ruoli (rimpiazza il sync del singolo campo M5) */
   (function(){ var r=state.rider||{};   /* T2: popola i campi rider dallo state + placeholder = default */
     function setv(id,key){ var el=document.getElementById(id); if(!el) return; var want=(r[key]!=null?String(r[key]):""); if(el.value!==want) el.value=want; }
     setv("rdSedie","sedie"); setv("rdSistema","sistema"); setv("rdLuci","luci"); setv("rdPersonale","personale"); setv("rdNote","note");
@@ -10396,7 +10405,11 @@ function riderPdf(shared){
     heading("LUCI"); body(d.luci);
     heading("PERSONALE RICHIESTO AL SERVICE"); body(d.personale);
     if(d.note){ heading("NOTE"); body(d.note); }
-    if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); doc.text("Riferimento tecnico: "+d.contatto, M, y); y+=5; }
+    if(d.contatti.length){ heading("CONTATTI E RUOLI"); d.contatti.forEach(function(c){
+        var head=[c.role||"—", c.name].filter(Boolean).join(" · ");
+        var ct=[c.contact, c.note].filter(Boolean).join(" · ");
+        body(head+(ct?" — "+ct:"")); }); }
+    else if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); doc.text("Riferimento tecnico: "+d.contatto, M, y); y+=5; }
     if(shared) return;
     pdfCredit(doc);
     doc.save(fileName()+"-rider.pdf");
@@ -10930,6 +10943,19 @@ var RIDER_DEFAULTS = {
   luci: "Piazzato bianco diffuso per la corretta lettura delle parti musicali. Nessun movimento luce o colore sull'orchestra; illuminazione frontale non fastidiosa per la visione del direttore da parte dei musicisti.",
   personale: "1 fonico di sala · 1 fonico di palco · 2 tecnici microfonisti · 1 responsabile impianto audio · 1 responsabile luci."
 };
+/* ===== T4 — Rubrica contatti/ruoli del progetto (i contatti critici vivono nel dato, non nelle email) ===== */
+var CONTACT_ROLES = ["Riferimento tecnico","Fonico di sala","Fonico di palco","Service locale","Stage manager","Produzione","Organizzatore","Luci","Backline"];
+function normContact(c){ c=c||{}; return {
+  role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
+  contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120) }; }
+function contactHasData(c){ return !!(c && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())||(c.role&&c.role.trim()))); }
+function primaryContactStr(contacts){
+  var cs=(contacts!=null?contacts:(state.contacts||[])).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
+  if(!cs.length) return contacts!=null ? "" : (state.techContact||"");   /* con arg esplicito NON ricadere sul legacy (usato in normalizeState) */
+  var pri=cs.filter(function(c){ return /tecnic|sala|foh/i.test(c.role||""); })[0] || cs[0];
+  return [pri.name, pri.contact].filter(function(x){ return x&&x.trim(); }).join(" — ") || (pri.contact||"");
+}
+function syncTechContact(){ state.techContact = primaryContactStr(); }   /* allinea il legacy field (rider header + pagina consulenza) */
 function riderData(){
   var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixChTot:0,boxes:[]}, items=state.items||[], r=state.rider||{};
   function cnt(t){ return items.filter(function(x){ return x.type===t; }).length; }
@@ -10943,7 +10969,8 @@ function riderData(){
     monitor: { wedge:cnt("wedge"), side:cnt("sidefill"), drumfill:cnt("drumfill"), iem:cnt("iem"), personal:cnt("hearback") },
     pedane: pedane,
     console: (state.cab && state.cab.mixer && typeof MIXER_DB!=="undefined" && MIXER_DB[state.cab.mixer]) ? hwLabel(state.cab.mixer, MIXER_DB) : "",
-    contatto: state.techContact||"",
+    contatti: (state.contacts||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); }),
+    contatto: primaryContactStr(),
     sistema: pick("sistema"), luci: pick("luci"), personale: pick("personale"),
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
     note: r.note||""
@@ -10975,8 +11002,38 @@ function riderHtml(){
     sec("Luci", esct(d.luci))+
     sec("Personale richiesto al service", esct(d.personale))+
     (d.note?sec("Note", esct(d.note)):"")+
-    (d.contatto?'<div class="pdf-rider-contact">Riferimento tecnico: '+esc(d.contatto)+'</div>':"")+
+    (d.contatti.length
+      ? sec("Contatti e ruoli", d.contatti.map(function(c){
+          var head=[c.role||"—", c.name||""].filter(function(x){return x&&String(x).trim();}).map(esc).join(" · ");
+          var ct=[c.contact||"", c.note||""].filter(function(x){return x&&String(x).trim();}).map(esc).join(" · ");
+          return '<div class="pdf-rider-crow"><b>'+head+'</b>'+(ct?' — '+ct:"")+'</div>'; }).join(""))
+      : (d.contatto?'<div class="pdf-rider-contact">Riferimento tecnico: '+esc(d.contatto)+'</div>':""))+
     '</div>';
+}
+/* T4 — editor della rubrica contatti/ruoli (pannello channel list). Sola lettura nel viewer. */
+function renderContacts(){
+  var host=document.getElementById("contactRows"); if(!host) return;
+  var dl=document.getElementById("roleList");
+  if(dl && !dl.__filled){ dl.__filled=true; dl.innerHTML=CONTACT_ROLES.map(function(r){ return '<option value="'+esc(r)+'"></option>'; }).join(""); }
+  var ro=document.body.classList.contains("consult-viewer") || !!window.__projLocked;
+  host.innerHTML="";
+  (state.contacts||[]).forEach(function(c,i){
+    var row=document.createElement("div"); row.style.cssText="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;margin-bottom:7px";
+    function inp(field, ph, span, list){ var el=document.createElement("input"); el.type="text"; el.value=c[field]||""; el.placeholder=ph;
+      el.style.cssText="min-width:0;padding:4px 7px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111"+(span?";grid-column:1 / span "+span:"");
+      if(list) el.setAttribute("list",list);
+      if(ro) el.readOnly=true; else el.addEventListener("input", function(){ var lim=field==="note"?120:(field==="contact"?80:(field==="name"?60:40)); state.contacts[i][field]=el.value.slice(0,lim); syncTechContact(); saveSoon(); });
+      return el; }
+    row.appendChild(inp("role","Ruolo (es. Service locale)",2,"roleList"));
+    var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Rimuovi contatto";
+    del.style.cssText="border:1px solid var(--border,#e5e7eb);background:#fff;border-radius:6px;cursor:pointer;color:#dc2626;font-size:16px;line-height:1;padding:0 9px";
+    if(ro) del.style.visibility="hidden"; else del.addEventListener("click", function(){ state.contacts.splice(i,1); syncTechContact(); saveSoon(); renderContacts(); });
+    row.appendChild(del);
+    row.appendChild(inp("name","Nome"));
+    row.appendChild(inp("contact","Telefono / email"));
+    row.appendChild(inp("note","Note (opzionale)",3));
+    host.appendChild(row);
+  });
 }
 /* T3 — barra tab del link condiviso normale: Stage plot + una tab per ogni lista con dati (tabelle reali). */
 function setupViewerTabs(){
