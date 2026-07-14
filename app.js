@@ -2604,7 +2604,7 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
-  if(it.type!=="miczone" && itemInMicZone(it)) return [];        /* coperto da una zona panoramica → 0 canali */
+  if(it.type!=="miczone" && itemInMicZone(it) && !it.ownMic) return [];   /* coperto da una zona panoramica → 0 canali; it.ownMic=true (azione utente) = mantiene COMUNQUE il suo mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
   if(MIKING[it.type]) return MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
@@ -3750,6 +3750,10 @@ function renderProps(){
     document.getElementById("grpLeggioWrap").style.display = allLeggio ? "block" : "none";
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
+    /* --- crea zona microfonazione dagli elementi selezionati (Simone 14/07) --- */
+    var zoneWrap=document.getElementById("grpZoneWrap");
+    if(zoneWrap){ var zsrc=its.filter(function(x){ return isAudioSource(x); });
+      zoneWrap.style.display = (zsrc.length && !its.some(function(x){ return x.type==="miczone"; })) ? "block" : "none"; }
     /* --- dimensione etichetta per tutti (normalizza) --- */
     document.getElementById("grpLblWrap").style.display="block";
     var cs=(its[0].lblSize==null?14:its[0].lblSize); document.getElementById("grpLblSize").value=cs; document.getElementById("grpLblSizeVal").textContent=cs;
@@ -3823,6 +3827,9 @@ function renderProps(){
     if(mk){ var msel=document.getElementById("pMike");
       msel.innerHTML=mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("");
       msel.value=it.miking||mk.def; } }
+  var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
+  if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
+    if(inZone) document.getElementById("pOwnMic").checked=!!it.ownMic; }
   var zw=document.getElementById("pZoneWrap");   /* zona microfono panoramico */
   if(zw){ var isZone=it.type==="miczone"; zw.style.display=isZone?"block":"none";
     if(isZone){
@@ -4246,6 +4253,20 @@ document.getElementById("grpDup").addEventListener("click", function(){ duplicat
 document.getElementById("grpDel").addEventListener("click", deleteSel);
 document.getElementById("grpGroup").addEventListener("click", groupSel);
 document.getElementById("grpUngroup").addEventListener("click", ungroupSel);
+/* crea una zona di microfonazione attorno alla selezione: bbox degli elementi (raggio max per i ruotati) + margine */
+document.getElementById("bGrpZone").addEventListener("click", function(){
+  var its=selItems().filter(function(x){ return x.type!=="miczone"; }); if(!its.length) return;
+  var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  its.forEach(function(x){ var r=Math.max((x.w||40)/2,(x.d||40)/2);
+    minX=Math.min(minX,x.x-r); maxX=Math.max(maxX,x.x+r); minY=Math.min(minY,x.y-r); maxY=Math.max(maxY,x.y+r); });
+  var pad=30;
+  var z=addItem("miczone",{x:Math.round((minX+maxX)/2), y:Math.round((minY+maxY)/2), w:Math.round(maxX-minX+2*pad), d:Math.round(maxY-minY+2*pad)});
+  if(!z) return;
+  var micV=(document.getElementById("grpZoneMic").value||"").trim(); if(micV) z.mic=micV.slice(0,24);
+  document.getElementById("grpZoneMic").value="";
+  __cabRes=null; save(); selectOne(z.id); render(); renderProps();
+  showToast("Zona creata: "+micZoneLabel(z)+" · "+micZoneMic(z));
+});
 document.getElementById("grpSedia").addEventListener("change", function(){ applyOptAll("sedia", document.getElementById("grpSedia").checked); });
 document.getElementById("grpLeggio").addEventListener("change", function(){ applyOptAll("leggio", document.getElementById("grpLeggio").checked); });
 document.getElementById("grpLblSize").addEventListener("input", function(){ var v=+document.getElementById("grpLblSize").value; document.getElementById("grpLblSizeVal").textContent=v; selItems().forEach(function(it){ it.lblSize=v; }); render(); save(); });
@@ -7770,7 +7791,7 @@ function layerRegistry(){
       lockable:true, locked:stageLayerUI.lock, setLocked:function(v){ stageLayerUI.lock=v; document.body.classList.toggle("stage-lock",v); if(v){ sel=null; selSet={}; } render(); }
       /* niente removable → nessun cestino (il palco non si elimina da qui) */
     }
-    ,{ id:"miczone", name:"Section Mic", color:"#7c3aed",
+    ,{ id:"miczone", name:"Mic zone", color:"#7c3aed",
       active:(state.items||[]).some(function(x){return x.type==="miczone";}),
       visible:micLayerUI.vis, setVisible:function(v){ micLayerUI.vis=v; render(); },
       opacity:micLayerUI.op, setOpacity:function(v){ micLayerUI.op=v; var g=document.getElementById("layMicZones"); if(g) g.style.opacity=(v/100).toString(); },
@@ -7900,6 +7921,10 @@ function toggleCabLayer(){
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; __cabRes=null; save(); render(); } });
   var sbo=document.getElementById("pSbOut");
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
+  var pom=document.getElementById("pOwnMic");   /* mic singolo anche in zona (opt-in) */
+  if(pom) pom.addEventListener("change", function(){ var it=getSel(); if(!it) return;
+    if(this.checked) it.ownMic=true; else delete it.ownMic;
+    __cabRes=null; save(); render(); renderProps(); });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
   /* personal monitor (B1): la marca seleziona il primo modello; il modello scrive it.pm */
@@ -8613,7 +8638,7 @@ function autoInputs(){
     .map(function(o){ return o.it; });
   ordered.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
-    if(it.type!=="miczone" && itemInMicZone(it)) return;   /* coperto da una zona panoramica */
+    if(it.type!=="miczone" && itemInMicZone(it) && !it.ownMic) return;   /* coperto da una zona panoramica (ownMic = mic singolo voluto dall'utente anche in zona) */
     if(it.type==="miczone"){ rows.push(linkTo(rowFromMic(micZoneLabel(it), micZoneMic(it)),it)); return; }
     if(it.type==="coppiast"){
       rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"KM184"),it,"mic_L"));
@@ -10782,7 +10807,7 @@ function pdfChannelPage(doc, L, paperKey){
     /* Pagine-vista (disegno del palco col layer a fuoco) — prima delle liste testuali */
     if(state.cab && state.cab.on){ pages.push({key:"view-cabaudio", label:"Vista: Cablaggio audio"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
-    if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Section Mic"}); }
+    if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
     if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
     if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
