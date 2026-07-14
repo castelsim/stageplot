@@ -95,6 +95,20 @@ t("ownMic: in zona 0 canali di default; con ownMic il mic singolo torna (zona re
   ok(chans(v).length >= 1, "ownMic: il mic singolo conta di nuovo");
   eq(chans(z).length, 1, "la zona resta 1 canale");
 });
+t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
+  reset();
+  const a = add("vlnpost", 300, 300); a.rot = 40;
+  const b = add("vlnpost", 420, 380); b.rot = 40;
+  const c = add("vlnpost", 540, 460); c.rot = 40;
+  const shape = A.miczoneShapeFromItems([a, b, c], 25);
+  ok(shape && shape.pts && shape.pts.length >= 4, "hull con vertici poligonali");
+  function area(pts){ let s2 = 0; for (let i = 0; i < pts.length; i++){ const p = pts[i], q = pts[(i + 1) % pts.length]; s2 += p[0] * q[1] - q[0] * p[1]; } return Math.abs(s2) / 2; }
+  const bb = A.polyBBox(shape.pts);
+  ok(area(shape.pts) < bb.w * bb.d * 0.75, "hull sensibilmente più aderente del rettangolo assiale (area " + Math.round(area(shape.pts)) + " vs bbox " + Math.round(bb.w * bb.d) + ")");
+  // i centri degli elementi restano DENTRO la zona creata
+  const z = add("miczone", shape.x, shape.y); z.pts = shape.pts; A.miczoneRecenter(z); A.__cabRes = null;
+  eq(A.micZoneSources(z).length, 3, "tutte le sorgenti coperte dall'hull");
+});
 t("zone: colori tutti diversi alla creazione (zcol dalla palette)", () => {
   reset(); const z1 = add("miczone", 200, 200); const z2 = add("miczone", 600, 200); const z3 = add("miczone", 1000, 200);
   if (!z1.zcol || !z2.zcol || !z3.zcol) throw new Error("zcol mancante");
