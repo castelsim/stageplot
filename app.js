@@ -8144,7 +8144,7 @@ function renderLayerRow(L, container){
   /* SOLO (stile console): mostra solo questo layer (+ i suoi elementi), il resto sfuma. Additivo, vince sull'occhio. */
   var so=document.createElement("button"); so.type="button"; so.className="layer-ico layer-solo"+(soloOn(L.id)?" on":"");
   so.title=soloOn(L.id)?"Togli il solo":"Solo — mostra solo questo layer"; so.textContent="S";
-  so.addEventListener("click", function(){ if(layerSoloUI[L.id]) delete layerSoloUI[L.id]; else layerSoloUI[L.id]=true; render(); });
+  so.addEventListener("click", function(){ var was=layerSoloUI[L.id]; layerSoloUI={}; if(!was) layerSoloUI[L.id]=true; render(); });   /* SOLO esclusivo (Simone 14/07): uno alla volta, come il solo exclusive di una console */
   icons.appendChild(so);
   var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); icons.appendChild(eye);
@@ -10924,6 +10924,50 @@ function exportPdf(paperKey, scaleSel, orient, header){
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
   });
 }
+/* ===== ANTEPRIMA PDF on-demand (Simone 14/07) — genera il PDF REALE completo (stesse pagine dell'export)
+   e lo mostra in overlay con <iframe> (desktop/Android); il link "Apri in una scheda" è il fallback per
+   iOS, che spesso non renderizza i PDF in iframe. Nessun costo durante l'interazione: parte al click. ===== */
+var __pdfPreviewUrl=null;
+function closePdfPreviewOverlay(){
+  var ov=document.getElementById("pdfPreviewOverlay"); if(ov) ov.style.display="none";
+  var fr=document.getElementById("pdfPreviewFrame"); if(fr) fr.src="about:blank";
+  if(__pdfPreviewUrl){ try{ URL.revokeObjectURL(__pdfPreviewUrl); }catch(e){} __pdfPreviewUrl=null; }
+}
+function showPdfPreviewOverlay(url){
+  var ov=document.getElementById("pdfPreviewOverlay");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="pdfPreviewOverlay";
+    ov.style.cssText="position:fixed;inset:0;z-index:340;background:rgba(15,23,42,.7);display:flex;flex-direction:column;padding:14px;box-sizing:border-box";
+    ov.innerHTML=
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+        '<strong style="font-size:15px;flex:1;color:#fff">Anteprima PDF</strong>'+
+        '<a id="pdfPreviewOpen" href="#" target="_blank" rel="noopener" class="btn">Apri in una scheda ↗</a>'+
+        '<button id="pdfPreviewClose" type="button" class="btn">Chiudi</button>'+
+      '</div>'+
+      '<iframe id="pdfPreviewFrame" title="Anteprima PDF" style="flex:1;width:100%;border:none;border-radius:10px;background:#fff"></iframe>';
+    document.body.appendChild(ov);
+    ov.querySelector("#pdfPreviewClose").addEventListener("click", closePdfPreviewOverlay);
+    ov.addEventListener("click", function(e){ if(e.target===ov) closePdfPreviewOverlay(); });
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape" && ov.style.display!=="none") closePdfPreviewOverlay(); });
+  }
+  __pdfPreviewUrl=url;
+  ov.querySelector("#pdfPreviewFrame").src=url;
+  ov.querySelector("#pdfPreviewOpen").href=url;
+  ov.style.display="flex";
+}
+function previewPdf(paperKey, scaleSel, orient, header){
+  var info=document.getElementById("pdfInfo");
+  var N=resolveScale(paperKey, scaleSel, orient);
+  if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500: cambia foglio o orientamento."; return; }
+  info.className="mstatus"; info.textContent="Genero l'anteprima…";
+  buildPdfDoc(paperKey, N, orient, header).then(function(doc){
+    if(__pdfPreviewUrl){ try{ URL.revokeObjectURL(__pdfPreviewUrl); }catch(e){} }
+    showPdfPreviewOverlay(doc.output("bloburl"));
+    info.className="mstatus"; info.textContent="";
+  }).catch(function(e){
+    info.className="mstatus err"; info.textContent="Anteprima non riuscita: "+(e&&e.message||e);
+  });
+}
 function exportPng(){
   var A=printArea();
   var PX=4000;
@@ -11130,6 +11174,7 @@ function pdfChannelPage(doc, L, paperKey){
   paper.addEventListener("change", refresh); scl.addEventListener("change", refresh);
   document.getElementById("pdfScaleCustom").addEventListener("input", refresh);   /* M-scala: aggiorna la preview mentre digiti la scala custom */
   orient.addEventListener("change", refresh); header.addEventListener("input", refresh);
+  document.getElementById("pdfPreview2").addEventListener("click", function(){ previewPdf(paper.value, pdfScaleValue(), orient.value, header.value); });
   document.getElementById("pdfGo").addEventListener("click", function(){ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); });
 })();
 /* ============ AREA DI STAMPA — step 1 del flusso PDF ============ */
