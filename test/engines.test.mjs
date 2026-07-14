@@ -322,6 +322,34 @@ t("9 OCTO su un OCTO Hub (8 porte) = err capacità", () => {
   ok(R.issues.some((i) => i.lvl === "err" && /porte/.test(i.msg)), "manca err capacità");
   eq(R.hubLoad[h.id], 9);
 });
+t("B2: il DESTINATARIO senza Thru (A320) non può ricevere un mixerino in serie", () => {
+  reset();
+  const m1 = add("hearback", 300, 300); m1.pm = "a320";     // A320 = niente Thru
+  const m2 = add("hearback", 400, 300); m2.pm = "a16ii";    // A-16II può fare daisy, ma non VERSO un A320
+  A.state.mond.manual = {}; A.state.mond.manual[m2.id] = { to: m1.id };
+  const R = A.monDigEngine();
+  ok(R.issues.some((i) => i.lvl === "err" && /Thru/.test(i.msg)), "manca err Thru sul destinatario");
+});
+t("B2 pmLinkCheck: blocca protocolli misti, serie vietata, hub pieno; ok sui validi", () => {
+  reset(); A.state.mond.on = true;
+  const h = add("mixhub", 900, 300); h.pm = "p16d";
+  const mB = add("hearback", 300, 300); mB.pm = "p16m";
+  const mA = add("hearback", 400, 300); mA.pm = "a16ii";
+  ok(A.pmLinkCheck(mB, h) === null, "P16-M → P16-D deve essere valido");
+  ok(A.pmLinkCheck(mA, h) !== null, "A-16II → P16-D va bloccato (protocolli)");
+  const m320 = add("hearback", 500, 300); m320.pm = "a320";
+  ok(A.pmLinkCheck(m320, mB) !== null, "A320 → mixer va bloccato (hub-only)");
+  ok(A.pmLinkCheck(mB, m320) !== null, "mixer → A320 va bloccato (niente Thru)");
+  // hub pieno: 8 collegati, il nono si blocca
+  A.state.mond.manual = {};
+  for (let i = 0; i < 8; i++) { const mx = add("hearback", 100 + i * 50, 500); mx.pm = "p16m"; A.state.mond.manual[mx.id] = { to: h.id }; }
+  A.__mondRes = null;
+  const m9 = add("hearback", 700, 500); m9.pm = "p16m";
+  ok(A.pmLinkCheck(m9, h) !== null, "nono mixer su hub da 8 va bloccato");
+  // ma la RICONNESSIONE di uno già collegato allo stesso hub resta valida
+  const first = A.state.items.filter((x) => A.state.mond.manual[x.id] && A.state.mond.manual[x.id].to === h.id)[0];
+  ok(A.pmLinkCheck(first, h) === null, "riconnessione sullo stesso hub non conta come porta nuova");
+});
 t("generico (senza it.pm): zero vincoli nuovi, zero PSU contati", () => {
   reset();
   const h = add("mixhub", 900, 300);
