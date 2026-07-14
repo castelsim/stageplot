@@ -10570,7 +10570,8 @@ function pdfChannelPage(doc, L, paperKey){
 /* ============ DEMO (?demo=1) ============ */
 function demo(){
   try{ window.__bootCloudId=null; localStorage.removeItem(LS_KEY+"_cloudid"); if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* ?demo=1 (QA): documento NUOVO — mai sovrascrivere il progetto cloud aperto */
-  state={titolo:"Demo — band + archi",luogo:"",stage:{w:1200,d:800},items:[],inputs:[],outputs:[]};
+  state=normalizeState({titolo:"Demo — band + archi",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});   /* normalizeState: senza, lo stato demo non ha cab/elec/zones/… e addItem/layerRegistry crashano (come per "Nuovo") */
+  resetMetaLayersUI();
   addItem("pedana",{x:600,y:170,w:300,d:200,h:60,label:"Drum riser"});
   addItem("batteria",{x:600,y:160,label:""});
   addItem("wedge",{x:600,y:320,label:"MIX 4"});
