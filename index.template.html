@@ -3589,6 +3589,34 @@ function micZoneMic(zone){
   var fam=famOf(s[0]), uniform=s.every(function(x){ return famOf(x)===fam; });
   return (uniform && FAM_PAN[fam]) ? FAM_PAN[fam][0] : "KM184";
 }
+/* Area di PERTINENZA dalla selezione (Simone 14/07): convex hull dei footprint REALI (i 4 angoli
+   ruotati di ogni elemento) + margine radiale → zona POLIGONALE aderente al gruppo, non un
+   rettangolo assiale che copre mezzo palco e cattura sezioni vicine. */
+function itemCorners(it){
+  var hw=(it.w||40)/2, hd=(it.d||40)/2, a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){ return [it.x+p[0]*c-p[1]*s, it.y+p[0]*s+p[1]*c]; });
+}
+function convexHull(pts){   /* Andrew monotone chain; i collineari cadono (cross<=0) */
+  pts=pts.slice().sort(function(a,b){ return a[0]-b[0] || a[1]-b[1]; });
+  if(pts.length<3) return pts;
+  function cr(o,a,b){ return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); }
+  var lo=[], up=[], i;
+  for(i=0;i<pts.length;i++){ while(lo.length>=2 && cr(lo[lo.length-2],lo[lo.length-1],pts[i])<=0) lo.pop(); lo.push(pts[i]); }
+  for(i=pts.length-1;i>=0;i--){ while(up.length>=2 && cr(up[up.length-2],up[up.length-1],pts[i])<=0) up.pop(); up.push(pts[i]); }
+  lo.pop(); up.pop();
+  return lo.concat(up);
+}
+function miczoneShapeFromItems(its, pad){
+  pad=pad==null?25:pad;
+  var all=[]; its.forEach(function(x){ itemCorners(x).forEach(function(p){ all.push(p); }); });
+  if(!all.length) return null;
+  var hull=convexHull(all);
+  if(hull.length<3) return null;
+  var cx=0, cy=0; hull.forEach(function(p){ cx+=p[0]; cy+=p[1]; }); cx/=hull.length; cy/=hull.length;
+  var pts=hull.map(function(p){ var dx=p[0]-cx, dy=p[1]-cy, L=Math.sqrt(dx*dx+dy*dy)||1;
+    return [Math.round(dx+dx/L*pad), Math.round(dy+dy/L*pad)]; });   /* relativi al centroide, con margine */
+  return {x:Math.round(cx), y:Math.round(cy), pts:pts};
+}
 /* Nome PRECISO di sezione (Simone 14/07): la zona prende la sezione prevalente delle sorgenti coperte
    ("Violini I", "Viole", …) invece della famiglia generica. Plurale italiano esplicito + fallback base. */
 var SECTION_PLURAL={ "Violino":"Violini","Violino I":"Violini I","Violino II":"Violini II","Viola":"Viole","Violoncello":"Violoncelli",
@@ -5633,14 +5661,21 @@ document.getElementById("grpDup").addEventListener("click", function(){ duplicat
 document.getElementById("grpDel").addEventListener("click", deleteSel);
 document.getElementById("grpGroup").addEventListener("click", groupSel);
 document.getElementById("grpUngroup").addEventListener("click", ungroupSel);
-/* crea una zona di microfonazione attorno alla selezione: bbox degli elementi (raggio max per i ruotati) + margine */
+/* crea una zona di microfonazione attorno alla selezione: HULL poligonale dei footprint reali
+   (angoli ruotati) + margine → area di pertinenza aderente (Simone 14/07); bbox solo come fallback */
 document.getElementById("bGrpZone").addEventListener("click", function(){
   var its=selItems().filter(function(x){ return x.type!=="miczone"; }); if(!its.length) return;
-  var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
-  its.forEach(function(x){ var r=Math.max((x.w||40)/2,(x.d||40)/2);
-    minX=Math.min(minX,x.x-r); maxX=Math.max(maxX,x.x+r); minY=Math.min(minY,x.y-r); maxY=Math.max(maxY,x.y+r); });
-  var pad=30;
-  var z=addItem("miczone",{x:Math.round((minX+maxX)/2), y:Math.round((minY+maxY)/2), w:Math.round(maxX-minX+2*pad), d:Math.round(maxY-minY+2*pad)});
+  var z, shape=miczoneShapeFromItems(its, 25);
+  if(shape){
+    z=addItem("miczone",{x:shape.x, y:shape.y, pts:shape.pts});
+    if(z){ miczoneRecenter(z); miczoneSyncDims(z); }
+  } else {
+    var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    its.forEach(function(x){ var r=Math.max((x.w||40)/2,(x.d||40)/2);
+      minX=Math.min(minX,x.x-r); maxX=Math.max(maxX,x.x+r); minY=Math.min(minY,x.y-r); maxY=Math.max(maxY,x.y+r); });
+    var pad=30;
+    z=addItem("miczone",{x:Math.round((minX+maxX)/2), y:Math.round((minY+maxY)/2), w:Math.round(maxX-minX+2*pad), d:Math.round(maxY-minY+2*pad)});
+  }
   if(!z) return;
   var micV=(document.getElementById("grpZoneMic").value||"").trim(); if(micV) z.mic=micV.slice(0,24);
   document.getElementById("grpZoneMic").value="";
