@@ -3786,7 +3786,7 @@ function portKinds(it){
   if(!it) return ks;
   if(elecIsDistro(it)){ ks.push("powup"); return ks; }   /* ciabatta/quadro: porta verso MONTE (→ quadro) */
   if(cabIsBox(it) || elecIsGen(it)) return ks;
-  if(cabItemInputs(it).length>0) ks.push("audio");
+  if(cabItemInputs(it).length>0 && it.type!=="miczone") ks.push("audio");   /* zona: la "porta" audio È il pallino mic */
   if(OUT_SET[it.type]!=null && it.type!=="monmix") ks.push("mon");
   if(wattOf(it)>0) ks.push("pow");
   if(MON_DIG_NODE[it.type]){ ks.push("dig");
@@ -3794,6 +3794,10 @@ function portKinds(it){
   return ks;
 }
 function portAnchor(it, kind){
+  if(it.type==="miczone" && kind==="audio"){   /* il cavo della zona parte dal PALLINO MIC (posizione fisica, Simone 14/07) */
+    var mp=micZoneMicPos(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+    return [Math.round(it.x+mp[0]*c-mp[1]*s), Math.round(it.y+mp[0]*s+mp[1]*c)];
+  }
   var ks=portKinds(it), i=ks.indexOf(kind);
   if(i<0) return [it.x, it.y];
   return [Math.round(it.x+(i-(ks.length-1)/2)*26), Math.round(it.y+(it.d||40)/2+16)];
@@ -3807,7 +3811,7 @@ function portDefs(it){
   }
   if(cabIsBox(it) || elecIsGen(it)) return out;
   var nIn=cabItemInputs(it).length;
-  if(nIn>0){
+  if(nIn>0 && it.type!=="miczone"){   /* zona: niente pallino porta — il cavo parte dal pallino MIC (mz-mic) */
     var tip="Audio · "+nIn+" ch";
     if(state.cab && state.cab.on){ var R=cabResult(); var l0=(R.links||[]).filter(function(l){ return l.s.it.id===it.id && !l.deleted; })[0];
       tip+= (l0&&l0.box) ? (" → box "+l0.box.letter) : " → trascina su una stage box"; }
@@ -3848,7 +3852,7 @@ function mzMicHitMarkup(){
   if(!z) return '';
   var mp=micZoneMicPos(z), a=(z.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
   var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
-  return '<circle class="mz-mic" data-id="'+z.id+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · trascina per spostarla</title></circle>';
+  return '<circle class="mz-mic" data-id="'+z.id+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
 }
 function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
@@ -6096,7 +6100,7 @@ svg.addEventListener("pointerup", function(e){
   }
   if(drag && drag.mode==="rotate"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
-  if(drag && drag.mode==="mzmic"){ if(drag.moved) save(); render(); drag=null; return; }
+  if(drag && drag.mode==="mzmic"){ if(drag.moved){ __cabRes=null; save(); } render(); drag=null; return; }   /* __cabRes=null: il cavo riparte dalla nuova posizione del mic */
   if(drag && drag.mode==="mzvtx"){ var _zz=state.items.find(function(i){ return i.id===drag.id; }); if(_zz) miczoneRecenter(_zz); save(); ensureVisible(); render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }

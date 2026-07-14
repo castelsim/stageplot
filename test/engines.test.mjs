@@ -109,6 +109,23 @@ t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << 
   const z = add("miczone", shape.x, shape.y); z.pts = shape.pts; A.miczoneRecenter(z); A.__cabRes = null;
   eq(A.micZoneSources(z).length, 3, "tutte le sorgenti coperte dall'hull");
 });
+t("zona: il cavo audio parte dal pallino mic (micPos), e lo segue quando si sposta", () => {
+  reset();
+  const v = add("vlnpost", 300, 300); const z = add("miczone", 300, 300); z.w = 220; z.d = 150;
+  const sb = add("stagebox", 800, 600);
+  A.state.cab.on = true; A.__cabRes = null;
+  const a1 = A.portAnchor(z, "audio");
+  eq(a1, [300, 300 + Math.round(150 / 2 - 18)], "default: dentro il bordo davanti");
+  z.micPos = [-60, 40]; A.__cabRes = null;
+  const a2 = A.portAnchor(z, "audio");
+  eq(a2, [240, 340], "l'ancora segue micPos");
+  z.rot = 90; A.__cabRes = null;
+  const a3 = A.portAnchor(z, "audio");
+  eq(a3, [300 - 40, 300 - 60], "l'ancora segue anche la rotazione della zona");
+  z.rot = 0;
+  ok(!A.portKinds(z).includes("audio"), "niente porta audio duplicata sulla zona (il mic È la porta)");
+  ok(A.cabResult(true).sources.some((s) => (s.it || s).type === "miczone"), "la zona resta sorgente del motore");
+});
 t("zone: colori tutti diversi alla creazione (zcol dalla palette)", () => {
   reset(); const z1 = add("miczone", 200, 200); const z2 = add("miczone", 600, 200); const z3 = add("miczone", 1000, 200);
   if (!z1.zcol || !z2.zcol || !z3.zcol) throw new Error("zcol mancante");
