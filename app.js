@@ -2453,7 +2453,7 @@ function hwCompatible(mixerId, sbId){   /* protocollo condiviso mixer↔stagebox
    alimentatore locale, per la serie) · ports (uscite mixer del hub) · v (validato datasheet). */
 var PM_SYS = { ultranet:{name:"ULTRANET", cable:"CAT5e STP"}, anet16:{name:"A-Net Pro16", cable:"CAT5e"},
   anetpro16e:{name:"A-Net Pro16e", cable:"CAT5e"}, hearbus:{name:"HearBus", cable:"CAT5e/CAT6"},
-  hearbuspro:{name:"Hear Back PRO", cable:"CAT6 (PoE+)"} };
+  hearbuspro:{name:"Hear Back PRO", cable:"CAT6 (PoE)"} };
 var PM_DB = {
   /* Behringer — ULTRANET */
   "p16m":  {brand:"Behringer", model:"Powerplay P16-M", role:"mixer", sys:"ultranet", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
@@ -2461,17 +2461,34 @@ var PM_DB = {
   /* Aviom — A-Net */
   "a16ii": {brand:"Aviom", model:"A-16II", role:"mixer", sys:"anet16", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
   "a320":  {brand:"Aviom", model:"A320", role:"mixer", sys:"anet16", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
-  "a360":  {brand:"Aviom", model:"A360", role:"mixer", sys:"anetpro16e", daisy:false, hubOnly:false, powerOverData:true, psuLocal:true, v:false},
+  "a360":  {brand:"Aviom", model:"A360", role:"mixer", sys:"anetpro16e", daisy:false, hubOnly:true, powerOverData:true, psuLocal:true, v:true},   /* datasheet 14/07: 1×A-Net In (EtherCon), Power-over-A-Net dal distributore, PSU 24VDC opzionale, richiede distributore */
   "d400":  {brand:"Aviom", model:"D400", role:"hub", sys:"anet16", ports:8, powerOverData:true, v:true},
   "d800":  {brand:"Aviom", model:"D800", role:"hub", sys:"anet16", ports:8, powerOverData:true, v:true},
   /* Hear Technologies — HearBus */
   "hbocto":{brand:"Hear Technologies", model:"Hear Back OCTO Mixer", role:"mixer", sys:"hearbus", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
   "octohub":{brand:"Hear Technologies", model:"Hear Back OCTO Hub", role:"hub", sys:"hearbus", ports:8, powerOverData:true, v:true},
-  "hbpro": {brand:"Hear Technologies", model:"Hear Back PRO Mixer", role:"mixer", sys:"hearbuspro", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:false},
-  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, v:false}
+  "hbpro": {brand:"Hear Technologies", model:"Hear Back PRO Mixer", role:"mixer", sys:"hearbuspro", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},   /* datasheet 14/07: home-run al hub, PoE 36-52V dal hub via CAT6 (fino a ~150 m) */
+  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, v:true}   /* datasheet 14/07: 8 porte per Network Card (fino a 4 card = 32 mixer), hub concatenabili via HBUS In/Out, PoE 36-52V 15W */
 };
 function pmOf(it){ return (it && it.pm && PM_DB[it.pm]) || null; }
 function pmSysName(sys){ return (PM_SYS[sys]&&PM_SYS[sys].name)||sys||""; }
+/* Validazione di un collegamento personal-monitor from→to al DROP (B2): null = ok, {msg} = bloccare.
+   Il generico (senza modello) resta permissivo come sempre. Stesse regole del motore: qui si
+   PREVIENE il collegamento invalido, il motore resta la fonte di verità sugli stati. */
+function pmLinkCheck(from, to){
+  var pmM=pmOf(from), pmT=pmOf(to), toIsHub=(to.type==="mixhub");
+  if(pmM && pmT && pmM.sys!==pmT.sys)
+    return {msg:pmSysName(pmM.sys)+" e "+pmSysName(pmT.sys)+" usano connettori simili ma NON sono compatibili."};
+  if(!toIsHub){
+    if(pmM && pmM.daisy===false) return {msg:pmM.model+" va collegato direttamente a "+(pmM.hubOnly?"una porta alimentata del suo distributore":"un hub")+", non in serie."};
+    if(pmT && pmT.role==="mixer" && pmT.daisy===false) return {msg:pmT.model+" non ha una porta Thru: non può ricevere un mixerino in serie."};
+  } else if(pmT && pmT.ports){
+    var already=!!(state.mond && state.mond.manual && state.mond.manual[from.id] && state.mond.manual[from.id].to===to.id);
+    var R=(state.mond&&state.mond.on)?mondResult():null, n=(R&&R.hubLoad&&R.hubLoad[to.id])||0;
+    if(!already && n>=pmT.ports) return {msg:"Tutte le "+pmT.ports+" porte di "+(to.label||pmT.model)+" sono occupate: aggiungi un secondo hub."};
+  }
+  return null;
+}
 
 /* ===== CABLAGGIO AUDIO — motore tecnico v2 (dati → calcolo → layer → report) =====
    Legge sorgenti (IN_SRC/IN_MULTI), usa stage box piazzate (capacità dal modello hw) o propone
@@ -3212,7 +3229,11 @@ function monDigMarkup(){
     var li='<path class="mond-line'+(selMond===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editM) li+='<path class="mond-hit" data-mond="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLM || selMond===l.key){ var mid=cabMidpoint(orthExpand(dpts));
-      li+='<text class="mond-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('→ '+(l.to.label||(l.toIsHub?'HUB':'mix'))+(l.cut?' · '+l.cut+' m':''))+'</text>'; }
+      /* B2: label per sistema — "ULTRANET · CAT5e STP" dal modello; ⚡ = la tratta porta anche l'alimentazione (diretta a hub powered) */
+      var pmF=pmOf(l.from), pmH=pmOf(l.to);
+      var sysTxt=pmF?(pmSysName(pmF.sys)+" · "+((PM_SYS[pmF.sys]||{}).cable||"")):"";
+      var powTxt=(l.toIsHub && pmF && pmH && pmF.powerOverData && pmH.powerOverData)?" ⚡":"";
+      li+='<text class="mond-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('→ '+(l.to.label||(l.toIsHub?'HUB':'mix'))+(l.cut?' · '+l.cut+' m':'')+(sysTxt?' · '+sysTxt:'')+powTxt)+'</text>'; }
     s+='<g class="cabgrp" data-own="'+esc(l.from.id+' '+l.to.id)+'">'+li+'</g>';
   });
   if(editM && selMond){ var slk=R.links.filter(function(l){ return l.key===selMond; })[0];
@@ -3370,6 +3391,9 @@ function monDigEngine(){
         power[l.from.id]="invalid";
       } else if(pmM && pmM.psuLocal===false){
         issues.push({lvl:"err", msg:pmM.model+" non accetta alimentatore locale: serve una porta alimentata del distributore."});
+        power[l.from.id]="invalid";
+      } else if(pmT && pmT.role==="mixer" && pmT.daisy===false){   /* B2: anche il DESTINATARIO deve avere il Thru */
+        issues.push({lvl:"err", msg:pmT.model+" non ha una porta Thru: non può ricevere un mixerino in serie."});
         power[l.from.id]="invalid";
       } else {
         power[l.from.id]="psu";                         /* la serie non porta alimentazione → PSU locale */
@@ -5723,9 +5747,13 @@ svg.addEventListener("pointerup", function(e){
       } else if(drag.kind==="dig"){
         var pn=hitAt(function(t){ return MON_DIG_NODE[t.type] && t.id!==pit.id; });   /* hub o altro mixerino */
         if(pn){
-          if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }   /* il gesto attiva il layer */
-          mondManual(pit.id).to=pn.id;
-          __mondRes=null; save();
+          var pmVeto=pmLinkCheck(pit, pn);   /* B2: i modelli vietano i collegamenti impossibili (protocollo/serie/porte) */
+          if(pmVeto){ showToast(pmVeto.msg, "err"); }
+          else {
+            if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }   /* il gesto attiva il layer */
+            mondManual(pit.id).to=pn.id;
+            __mondRes=null; save();
+          }
         }
       }
     }
@@ -5736,7 +5764,12 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="mondreconnect"){   /* estremo: su hub/mixerino = riconnetti, nel vuoto = scollega */
     var rpM=svgPoint(e), tn=(state.items||[]).filter(function(t){ return MON_DIG_NODE[t.type] && t.id!==drag.key; })
       .filter(function(t){ return Math.abs(rpM.x-t.x)<=(t.w||40)/2+12 && Math.abs(rpM.y-t.y)<=(t.d||40)/2+12; })[0];
-    if(drag.end==="to" && tn){ mondManual(drag.key).to=tn.id; __mondRes=null; save(); }
+    if(drag.end==="to" && tn){
+      var fromIt=(state.items||[]).filter(function(x){ return x.id===drag.key; })[0];
+      var pmVetoR=fromIt?pmLinkCheck(fromIt, tn):null;   /* B2: riconnessione vietata = il cavo resta dov'era */
+      if(pmVetoR){ showToast(pmVetoR.msg, "err"); }
+      else { mondManual(drag.key).to=tn.id; __mondRes=null; save(); }
+    }
     else if(drag.moved){ var cm=mondManual(drag.key); delete cm.to; delete cm.pts; if(!Object.keys(cm).length) delete state.mond.manual[drag.key]; selMond=null; __mondRes=null; save(); }
     render(); drag=null; return;
   }
@@ -10149,6 +10182,57 @@ function rfListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* ===== Lista PERSONAL MONITOR (B2) — distinta del sistema di monitoraggio personale:
+   modelli, hub con porte, cavi per sistema (con tagli), alimentatori locali, avvisi. Solo per
+   progetti con modelli PM_DB assegnati (il generico non ha dati di distinta affidabili). ===== */
+function pmListPdf(shared){
+  var mixers=state.items.filter(function(x){ var d=pmOf(x); return d&&d.role==="mixer"; });
+  var pmhubs=state.items.filter(function(x){ var d=pmOf(x); return d&&d.role==="hub"; });
+  if(!mixers.length && !pmhubs.length){ if(!shared) alert("Nessun personal monitor con modello sul palco."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22;
+    doc.setFillColor("#c026d3"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Personal monitor", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||9.5); doc.setFont("helvetica",bold?"bold":"normal"); doc.setTextColor(color||"#111827"); doc.text(String(txt),M,y); y+=(dy||5.4); }
+    var R=monDigEngine();   /* fresh: la distinta deve riflettere lo stato reale, non la cache */
+    var sys={}; mixers.concat(pmhubs).forEach(function(x){ var d=pmOf(x); if(d) sys[d.sys]=1; });
+    line("Sistema: "+Object.keys(sys).map(function(s2){ return pmSysName(s2)+" ("+((PM_SYS[s2]||{}).cable||"")+")"; }).join(" · "), 9.5, false, "#555555", 7);
+    line("MIXER PERSONALI", 10.5, true, "#a21caf", 6);
+    var counts={}; mixers.forEach(function(x){ var d=pmOf(x); counts[d.model]=(counts[d.model]||0)+1; });
+    Object.keys(counts).forEach(function(m){ line(counts[m]+" × "+m, 9.5, false, null, 5.2); });
+    y+=2;
+    if(pmhubs.length){ line("HUB / DISTRIBUTORI", 10.5, true, "#a21caf", 6);
+      pmhubs.forEach(function(h){ var d=pmOf(h), n=(R.hubLoad&&R.hubLoad[h.id])||0;
+        line("1 × "+d.model+" — "+n+"/"+(d.ports||8)+" porte usate"+((h.label&&h.label!==d.model)?(" ("+h.label+")"):""), 9.5, false, null, 5.2); });
+      y+=2; }
+    if(R.links && R.links.length){
+      var cav={}; R.links.forEach(function(l){ var d=pmOf(l.from); if(!d) return; var k=pmSysName(d.sys)+" — "+((PM_SYS[d.sys]||{}).cable||"");
+        cav[k]=cav[k]||{n:0,cuts:{}}; cav[k].n++; if(l.cut) cav[k].cuts[l.cut]=(cav[k].cuts[l.cut]||0)+1; });
+      var ck=Object.keys(cav);
+      if(ck.length){ line("CAVI", 10.5, true, "#a21caf", 6);
+        ck.forEach(function(k){ var c=cav[k], cuts=Object.keys(c.cuts).sort(function(a,b){return a-b;}).map(function(t){ return c.cuts[t]+"×"+t+" m"; }).join(", ");
+          line(c.n+" × "+k+(cuts?("  ("+cuts+")"):""), 9.5, false, null, 5.2); });
+        y+=2; }
+    }
+    if(R.psuCount){ line("ALIMENTATORI LOCALI", 10.5, true, "#a21caf", 6);
+      R.links.forEach(function(l){ if(l.toIsHub) return; var d=pmOf(l.from);
+        if(d && d.daisy!==false && d.psuLocal!==false) line("1 × alimentatore "+d.model+" ("+(l.from.label||"mixerino")+") — collegato in serie", 9.5, false, "#b45309", 5.2); });
+      y+=2; }
+    var shown=(R.issues||[]).filter(function(i){ return i.lvl==="err"||i.lvl==="warn"; });
+    if(shown.length){ line("AVVISI", 10.5, true, "#a21caf", 6);
+      shown.forEach(function(i){ line("• "+i.msg, 9, false, i.lvl==="err"?"#dc2626":"#b45309", 5); }); }
+    var pWithModel=(R.pending||[]).filter(function(m){ return pmOf(m); });
+    if(pWithModel.length) line(pWithModel.length+" mixerino/i con modello non ancora collegati al hub.", 9, false, "#9ca3af", 5);
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-personal-monitor.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function elecReportPdf(shared){
   var R=elecResult(true); if(!R.loads.length){ if(!shared) alert("Nessun carico elettrico sul palco."); return; }
   var run=function(doc){
@@ -10497,6 +10581,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("loadlist")) loadListPdf(doc);
       if(want("backline")) backlineListPdf(doc);
       if(want("rf")) rfListPdf(doc);
+      if(want("pmlist")) pmListPdf(doc);
       if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
       if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
       pdfCredit(doc);
@@ -10705,6 +10790,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
     if((typeof backlineList==="function") && backlineList().count){ pages.push({key:"backline", label:"Backline (attrezzatura)"}); }
     if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
+    if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     return pages;
