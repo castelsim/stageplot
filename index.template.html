@@ -2664,10 +2664,11 @@ function drawTimpani(it){
   L.forEach(function(t){
     var tx=Math.round((t.x-B.cx)*10)/10, ty=Math.round((t.y-B.cy)*10)/10;
     var pre='<g transform="translate('+tx+' '+ty+')'+(t.rot?' rotate('+t.rot+')':'')+'">';
-    if(t.seat){   /* posto del musicista: toggle indipendenti Musicista / Sgabello */
+    if(t.seat){   /* posto del musicista: toggle indipendenti Musicista / Sgabello.
+                     Lo sgabello sta INDIETRO (a nord, dietro il musicista), la persona più avanti verso i timpani (Simone). */
       var g='';
-      if(pp.stool!==false) g += libIcon("sgabellobatt");
-      if(pp.mus!==false)   g += libIcon("timpanistaPersona");
+      if(pp.stool!==false) g += '<g transform="translate(0,-28)">'+libIcon("sgabellobatt")+'</g>';
+      if(pp.mus!==false)   g += '<g transform="translate(0,8)">'+libIcon("timpanistaPersona")+'</g>';
       s += pre+g+'</g>';
     } else s += pre+libIcon(t.icon)+'</g>';
   });
