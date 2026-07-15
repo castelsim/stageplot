@@ -12628,7 +12628,50 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     if(id===cloudCurrentId){ saveProject(function(){ go(); }); }
     else { go(); }
   }
+  /* ===== Rubrica contatti account (spec 15/07) — CRUD minimale con cache di sessione.
+     Ogni cb riceve null su errore/non loggato: la UI mostra il toast e il pannello manuale resta intatto. ===== */
+  var rubCache=null;
+  function rubricaList(cb){
+    if(!sb || !cloudUser){ cb(null); return; }
+    if(rubCache){ cb(rubCache); return; }
+    sb.from("stageplot_contacts").select("id,role,name,contact,note,updated_at")
+      .order("updated_at",{ascending:false}).limit(200)
+      .then(function(r){ if(r.error){ cb(null); return; } rubCache=r.data||[]; cb(rubCache); }, function(){ cb(null); });
+  }
+  function rubricaUpsert(c, cb){
+    if(!sb || !cloudUser){ cb(null); return; }
+    var row={ user_id:cloudUser.id, role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
+              contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120), updated_at:new Date().toISOString() };
+    rubricaList(function(existing){
+      var dup=(existing||[]).find(function(x){ return contactKey(x)===contactKey(row); });
+      var q = dup ? sb.from("stageplot_contacts").update(row).eq("id",dup.id).select().single()
+                  : sb.from("stageplot_contacts").insert(row).select().single();
+      q.then(function(r){ if(r.error){ cb(null); return; } rubCache=null; cb(r.data); }, function(){ cb(null); });
+    });
+  }
+  function rubricaRemove(id, cb){
+    if(!sb || !cloudUser){ cb(null); return; }
+    sb.from("stageplot_contacts").delete().eq("id",id)
+      .then(function(r){ if(r.error){ cb(null); return; } rubCache=null; cb(true); }, function(){ cb(null); });
+  }
+  function rubricaTouch(id){   /* pick → sale in cima all'ordinamento "uso recente"; fire-and-forget */
+    if(!sb || !cloudUser || !id) return;
+    sb.from("stageplot_contacts").update({updated_at:new Date().toISOString()}).eq("id",id).then(function(){ rubCache=null; },function(){});
+  }
+  function rubricaImportCandidates(cb){   /* blob dei propri progetti → candidati dedupe, esclusi quelli già in rubrica */
+    if(!sb || !cloudUser){ cb(null); return; }
+    sb.from("stageplot_projects").select("data").is("deleted_at",null).limit(100).then(function(r){
+      if(r.error){ cb(null); return; }
+      var cand=contactsFromDocs((r.data||[]).map(function(p){ return p.data; }));
+      rubricaList(function(existing){
+        var have={}; (existing||[]).forEach(function(x){ have[contactKey(x)]=1; });
+        cb(cand.filter(function(c){ return !have[contactKey(c)]; }));
+      });
+    }, function(){ cb(null); });
+  }
   window.__cloud = {
+    rubrica: { list:rubricaList, upsert:rubricaUpsert, remove:rubricaRemove, touch:rubricaTouch,
+               importCandidates:rubricaImportCandidates, invalidate:function(){ rubCache=null; } },
     user: function(){ return cloudUser; },
     currentId: function(){ return cloudCurrentId; },
     setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); _lastCloudImgSig=null; exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } },   /* documento staccato/nuovo: mai bloccato; reset firma immagine → riscritta al 1° salvataggio */
