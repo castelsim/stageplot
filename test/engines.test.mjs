@@ -913,5 +913,17 @@ t("catalogo Fase 2: 11 twin nascoste; senza twin (chitarra classica, fisarmonica
   ["musChitClassica", "musFisarmonica", "musTromboneBasso"].forEach((k) => ok(A.TYPES[k].catalog !== false, k + " resta visibile"));
 });
 
+t("timpani = DRAW_LOOK: ha il toggle Aspetto ma NON è sostituito da look2Art (draw consapevole: schema + timpanista)", () => {
+  ok(A.hasLookToggle({ type: "timpani" }), "timpani ha il toggle Aspetto");
+  eq(A.look2Art({ type: "timpani" }), null, "timpani NON passa dalla sostituzione look2Art");
+  ok(A.DRAW_LOOK && A.DRAW_LOOK.timpani, "timpani è in DRAW_LOOK");
+  ok(!A.LOOK_ART.timpani, "timpani NON è più in LOOK_ART");
+});
+t("migrazione: musTimpani → timpani (schema configurabile + timpanista in mezzo)", () => {
+  const s = { _v: 2, items: [{ type: "musTimpani" }], inputs: [], outputs: [] };
+  A.normalizeState(s);
+  eq(s.items[0].type, "timpani");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
