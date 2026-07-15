@@ -2022,6 +2022,8 @@ var TYPES = {
              draw:function(it){ return drawLibFit("ride20",it,54,54); }},
   stoolR:   {nome:"Sgabello batteria", dim:"Ø38", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:40,d:40,
              draw:function(it){ return drawLibFit("sgabellobatt",it,40,40); }},
+  batteristaR:{nome:"Batterista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:65,d:81, defLabel:"Dr",
+             draw:function(it){ return libIcon("batteristaPersona"); }},   /* persona a misura reale (0 canali, non resizable): piazzabile su kit custom + output di "Dividi" quando Musicista ON */
   timpsingolo:{nome:"Timpano", dim:"Ø singolo", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:88,d:88,
              draw:function(it){ var r=Math.max(8,Math.min(it.w,it.d)/2-4); return tdrum(0,0,r)+circ(0,0,3,'ic fill'); }},
   kickdrum: {nome:"Cassa (kick)", dim:"Ø singolo", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:60,d:60,
@@ -2656,7 +2658,12 @@ function explodeBatteria(it){
   var map={kick:"kickR",snare:"snareR",tom:"tomR",floor:"floorR",hihat:"hihatKR",crash:"crashR",ride:"rideR",stool:"stoolR"};
   var lab={kick:"Kick",snare:"Snare",tom:"Tom",floor:"Floor",hihat:"HH",crash:"Crash",ride:"Ride",stool:""};
   L.forEach(function(sl){
-    if(sl.seat){ if(p.stool!==false) out.push({type:"stoolR", dx:sl.x-B.cx, dy:sl.y-B.cy, label:""}); return; }   /* la persona è solo visuale, non un pezzo scomposto */
+    if(sl.seat){   /* trono: sgabello (+18) e/o batterista (+36), stessi offset del draw; batterista sopra */
+      var sdx=sl.x-B.cx, sdy=sl.y-B.cy;
+      if(p.stool!==false) out.push({type:"stoolR", dx:sdx, dy:sdy+18, label:""});
+      if(p.mus!==false)   out.push({type:"batteristaR", dx:sdx, dy:sdy+36, label:base+"Batterista"});
+      return;
+    }
     var nm=lab[sl.k];
     if(sl.k==="tom"){ nTom++; if(p.toms>1) nm+=" "+nTom; }
     if(sl.k==="crash"){ nCr++; if(p.crash>1) nm+=" "+nCr; }
