@@ -4738,6 +4738,16 @@ document.getElementById("pDoppia").addEventListener("change", function(){ mutSel
   else if(!it.doppia){ it.label2=""; }
   renderProps();
 }); });
+/* Postazione a 2: crea una zona di microfonazione che copre entrambi i musicisti (Simone) */
+document.getElementById("pZoneOne").addEventListener("click", function(){
+  var it=getSel(); if(!it || it.type==="miczone") return;
+  var z, shape=miczoneShapeFromItems([it], 25);
+  if(shape){ z=addItem("miczone",{x:shape.x, y:shape.y, pts:shape.pts}); if(z){ miczoneRecenter(z); miczoneSyncDims(z); } }
+  else { z=addItem("miczone",{x:it.x, y:it.y, w:(it.w||40)+50, d:(it.d||40)+50}); }
+  if(!z) return;
+  __cabRes=null; save(); selectOne(z.id); render(); renderProps();
+  showToast("Zona creata: "+micZoneLabel(z)+" · "+micZoneMic(z));
+});
 /* slider distanza: aggiornamento live su "input" (senza salvare ad ogni tacca), salva una volta su "change" */
 function applySep(doSave){
   var it=getSel(), cfg=sepCfg(it); if(!cfg) return;
