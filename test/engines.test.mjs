@@ -814,9 +814,9 @@ t("migrazione v2→v3: musViolino1 → vlnpost, aspetto illustrato (default), di
   eq(s.items[0].label, "Vln I", "etichetta preservata");
 });
 t("migrazione: musViolino1→vlnpost vsec 1, musViolino2→vlnpost vsec 2 (Violino I/II postazione)", () => {
-  const s = { _v: 2, items: [{ type: "musViolino1", w: 80, d: 81 }, { type: "musViolino2", w: 81, d: 82 }, { type: "musBatteria" }], inputs: [], outputs: [] };
+  const s = { _v: 2, items: [{ type: "musViolino1", w: 80, d: 81 }, { type: "musViolino2", w: 81, d: 82 }, { type: "musChitClassica" }], inputs: [], outputs: [] };
   A.normalizeState(s);
-  eq(s.items.map((i) => i.type), ["vlnpost", "vlnpost", "musBatteria"]);
+  eq(s.items.map((i) => i.type), ["vlnpost", "vlnpost", "musChitClassica"]);
   eq(s.items[0].vsec, 1); eq(s.items[1].vsec, 2);
   eq([s.items[1].w, s.items[1].d], [A.TYPES.vlnpost.w, A.TYPES.vlnpost.d]);
 });
@@ -828,7 +828,7 @@ t("Violino II = vlnpost + vsec 2 con illustrazione dedicata (postArt=musViolino2
 });
 t("catalogo: le 16 mus* con twin sono nascoste (catalog:false); Fase 2 (Batteria) resta visibile", () => {
   ["musViolino1", "musViolino2", "musViola", "musVioloncello", "musContrabbasso", "musCorno", "musTromba", "musTrombone", "musTuba", "musFlauto", "musOboe", "musClarinetto", "musFagotto", "musSaxAlto", "musSaxTenore", "musSaxBaritono"].forEach((k) => ok(A.TYPES[k].catalog === false, k + " deve essere catalog:false"));
-  ok(A.TYPES.musBatteria.catalog !== false, "musBatteria (Fase 2) resta in catalogo");
+  ok(A.TYPES.musChitClassica.catalog !== false, "musChitClassica (senza twin) resta in catalogo");
 });
 
 t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B non Bass", () => {
@@ -883,6 +883,34 @@ t("ostacolo: in catalogo (Sicurezza e site), ridimensionabile, zero canali e zer
   reset(); const o = add("ostacolo", 400, 400); o.label = "PALO"; A.__cabRes = null;
   eq(A.cabItemInputs(o).length, 0, "nessun canale audio");
   ok(A.auditEngine().findings.every((f) => !/PALO/.test(f.msg)), "nessuna criticità generata dall'ostacolo");
+});
+
+console.log("\nUnifica icone Fase 2 — tipi funzionali (batteria/arpa/chitarre/piani/direttore) → illustrazione:");
+t("look2Art: batteria/direttore/chitarra default → illustrazione; schematico e non-mappati → null", () => {
+  eq(A.look2Art({ type: "batteria" }), "musBatteria");
+  eq(A.look2Art({ type: "direttore" }), "musDirettore");
+  eq(A.look2Art({ type: "gtstand" }), "musChitElettrica");
+  eq(A.look2Art({ type: "arpa" }), "musArpa");
+  eq(A.look2Art({ type: "batteria", look: "schematico" }), null);
+  eq(A.look2Art({ type: "astamic" }), null);
+});
+t("hasLookToggle: Fase 1 (vlnpost) e Fase 2 (batteria/direttore) sì; non mappati no", () => {
+  ok(A.hasLookToggle({ type: "vlnpost" })); ok(A.hasLookToggle({ type: "batteria" })); ok(A.hasLookToggle({ type: "direttore" }));
+  ok(!A.hasLookToggle({ type: "astamic" }));
+});
+t("look illustrato NON cambia i canali: batteria = 8 sia illustrata (default) che schematica", () => {
+  reset(); const a = add("batteria", 400, 400); const nA = chans(a).length;
+  reset(); const b = add("batteria", 400, 400); b.look = "schematico"; A.__cabRes = null; const nB = chans(b).length;
+  eq(nA, nB); eq(nA, 8);
+});
+t("migrazione Fase 2: musBatteria→batteria, musDirettore→direttore, musChitElettrica→gtstand; senza twin resta", () => {
+  const s = { _v: 2, items: [{ type: "musBatteria" }, { type: "musDirettore" }, { type: "musChitElettrica" }, { type: "musChitClassica" }, { type: "musFisarmonica" }], inputs: [], outputs: [] };
+  A.normalizeState(s);
+  eq(s.items.map((i) => i.type), ["batteria", "direttore", "gtstand", "musChitClassica", "musFisarmonica"]);
+});
+t("catalogo Fase 2: 11 twin nascoste; senza twin (chitarra classica, fisarmonica, trombone basso) restano", () => {
+  ["musArpa", "musTimpani", "musPercussioni", "musBatteria", "musPianoGranCoda", "musPianoMezzaCoda", "musTastiera", "musChitElettrica", "musChitAcustica", "musBasso", "musDirettore"].forEach((k) => ok(A.TYPES[k].catalog === false, k + " catalog:false"));
+  ["musChitClassica", "musFisarmonica", "musTromboneBasso"].forEach((k) => ok(A.TYPES[k].catalog !== false, k + " resta visibile"));
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
