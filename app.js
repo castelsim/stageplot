@@ -11296,6 +11296,30 @@ var RIDER_DEFAULTS = {
 };
 /* ===== T4 — Rubrica contatti/ruoli del progetto (i contatti critici vivono nel dato, non nelle email) ===== */
 var CONTACT_ROLES = ["Riferimento tecnico","Fonico di sala","Fonico di palco","Service locale","Stage manager","Produzione","Organizzatore","Luci","Backline"];
+/* ===== Rubrica contatti account (spec 15/07) — logica pura, testata in engines.test.mjs =====
+   contactKey: chiave di dedupe nome+contatto (case/spazi-insensitive). */
+function contactKey(c){ return String((c&&c.name)||"").trim().toLowerCase()+"|"+String((c&&c.contact)||"").trim().toLowerCase(); }
+function rubricaDedupe(list){
+  var seen={}, out=[];
+  (list||[]).forEach(function(c){ var k=contactKey(c); if(k==="|"||seen[k]) return; seen[k]=1; out.push(c); });
+  return out;
+}
+/* estrae i contatti dai blob progetto (doc {variants[]} o legacy piatto), troncati ai limiti del pannello */
+function contactsFromDocs(docs){
+  var found=[];
+  (docs||[]).forEach(function(d){
+    if(!d) return;
+    var states = Array.isArray(d.variants) ? d.variants.map(function(v){ return v&&v.state; }) : [d];
+    states.forEach(function(s){
+      (((s&&s.contacts))||[]).forEach(function(c){
+        if(!String((c&&c.name)||"").trim() && !String((c&&c.contact)||"").trim()) return;
+        found.push({ role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
+                     contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120) });
+      });
+    });
+  });
+  return rubricaDedupe(found);
+}
 function normContact(c){ c=c||{}; return {
   role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
   contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120) }; }

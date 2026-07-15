@@ -958,6 +958,31 @@ t("migrazione: musTimpani → timpani (schema configurabile + timpanista in mezz
   const s = { _v: 2, items: [{ type: "musTimpani" }], inputs: [], outputs: [] };
   A.normalizeState(s);
   eq(s.items[0].type, "timpani");
+console.log("\nRubrica contatti — logica pura (spec 15/07):");
+t("contactKey: normalizza maiuscole/spazi; vuoto = '|'", () => {
+  eq(A.contactKey({ name: " Mario Rossi ", contact: "333-0000000" }), "Mario Rossi|333-0000000");
+  eq(A.contactKey({}), "|");
+});
+t("rubricaDedupe: tiene la prima occorrenza, scarta chiavi vuote", () => {
+  const out = A.rubricaDedupe([
+    { name: "Marco", contact: "333", role: "Fonico di sala" },
+    { name: "marco", contact: "333", role: "DUPLICATO" },
+    { name: "", contact: "" },
+    { name: "Laura", contact: "334" },
+  ]);
+  eq(out.length, 2); eq(out[0].role, "Fonico di sala"); eq(out[1].name, "Laura");
+});
+t("contactsFromDocs: doc multi-variante + legacy piatto, tronca ai limiti, deduplica", () => {
+  const doc = { variants: [
+    { state: { contacts: [{ role: "Service locale", name: "Mas", contact: "045" }] } },
+    { state: { contacts: [{ role: "Service locale", name: "Mas", contact: "045" }, { name: "X".repeat(99), contact: "1" }] } },
+  ] };
+  const legacy = { contacts: [{ name: "Giulio", contact: "info@esempio.it" }] };
+  const out = A.contactsFromDocs([doc, legacy, null]);
+  eq(out.length, 3);
+  eq(out[0].name, "Mas");
+  eq(out[1].name.length, 60, "name troncato a 60");
+  eq(out[2].name, "Giulio");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
