@@ -11434,8 +11434,70 @@ function renderContacts(){
     row.appendChild(del);
     row.appendChild(inp("name","Nome"));
     row.appendChild(inp("contact","Telefono / email"));
+    /* Rubrica (spec 15/07): ★ salva questa riga nella rubrica account — solo loggati, riga non vuota */
+    var logged=!!(window.__cloud && window.__cloud.user && window.__cloud.user());
+    if(logged && !ro && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim()))){
+      var star=document.createElement("button"); star.type="button"; star.textContent="★"; star.title="Salva in rubrica";
+      star.style.cssText="border:1px solid var(--border,#e5e7eb);background:#fff;border-radius:6px;cursor:pointer;color:#0d9488;font-size:13px;line-height:1;padding:0 8px";
+      star.addEventListener("click", function(){
+        window.__cloud.rubrica.upsert(c, function(saved){
+          if(window.__toast) window.__toast(saved ? "Salvato in rubrica." : "Rubrica non raggiungibile.", !saved);
+          if(saved && typeof track==="function") track("rubrica_save");
+        });
+      });
+      row.appendChild(star);
+    } else { row.appendChild(document.createElement("span")); }
     row.appendChild(inp("note","Note (opzionale)",3));
     host.appendChild(row);
+  });
+  renderRubricaControls(ro);
+}
+/* Rubrica (spec 15/07): controlli visibili SOLO da loggati e fuori da viewer/locked.
+   Il pannello manuale non dipende mai dalla rubrica (Supabase giù → solo toast). */
+function renderRubricaControls(ro){
+  var btn=document.getElementById("contactFromRub"), manage=document.getElementById("contactRubManage"), pick=document.getElementById("rubPicker");
+  if(!btn || !manage || !pick) return;
+  var logged=!!(window.__cloud && window.__cloud.user && window.__cloud.user());
+  btn.style.display=(logged&&!ro)?"":"none"; manage.style.display=(logged&&!ro)?"":"none";
+  if(!logged||ro){ pick.hidden=true; return; }
+  if(!btn.__wired){ btn.__wired=true;
+    btn.addEventListener("click", function(){ if(pick.hidden) openRubPicker(); else pick.hidden=true; });
+    manage.addEventListener("click", function(e){ e.preventDefault(); if(window.__openRubricaModal) window.__openRubricaModal(); });
+  }
+}
+function openRubPicker(){
+  var pick=document.getElementById("rubPicker"); if(!pick) return;
+  pick.hidden=false;
+  pick.innerHTML='<div style="font-size:12px;color:var(--text-3,#6b7280)">Carico la rubrica…</div>';
+  window.__cloud.rubrica.list(function(rows){
+    if(rows==null){ pick.hidden=true; if(window.__toast) window.__toast("Rubrica non raggiungibile: riprova più tardi.", true); return; }
+    if(!rows.length){ pick.innerHTML='<div style="font-size:12px;color:var(--text-3,#6b7280)">Rubrica vuota — compila un contatto e usa ★, oppure «Gestisci rubrica…» per importare dai progetti.</div>'; return; }
+    var q=document.createElement("input"); q.type="text"; q.placeholder="Cerca nome o ruolo…";
+    q.style.cssText="width:100%;box-sizing:border-box;padding:4px 7px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;margin-bottom:5px";
+    var listHost=document.createElement("div");
+    function paint(){
+      var f=q.value.trim().toLowerCase();
+      listHost.innerHTML="";
+      rows.filter(function(c){ return !f || (c.name||"").toLowerCase().indexOf(f)>=0 || (c.role||"").toLowerCase().indexOf(f)>=0; })
+        .forEach(function(c){
+          var r=document.createElement("button"); r.type="button";
+          r.style.cssText="display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text,#111)";
+          r.innerHTML='<b>'+esc(c.name||"—")+'</b>'+(c.role?' · '+esc(c.role):'')+(c.contact?' <span style="color:var(--text-3,#6b7280)">'+esc(c.contact)+'</span>':'');
+          r.addEventListener("mouseenter", function(){ r.style.background="var(--surface-2,#f3f4f6)"; });
+          r.addEventListener("mouseleave", function(){ r.style.background="none"; });
+          r.addEventListener("click", function(){
+            state.contacts=state.contacts||[];
+            state.contacts.push({ role:c.role||"", name:c.name||"", contact:c.contact||"", note:c.note||"" });   /* snapshot: il rider storico non cambia */
+            window.__cloud.rubrica.touch(c.id); if(typeof track==="function") track("rubrica_pick");
+            pick.hidden=true;
+            syncTechContact(); saveSoon(); renderContacts();
+          });
+          listHost.appendChild(r);
+        });
+      if(!listHost.children.length) listHost.innerHTML='<div style="font-size:12px;color:var(--text-3,#6b7280);padding:4px 6px">Nessun contatto corrisponde.</div>';
+    }
+    q.addEventListener("input", paint);
+    pick.innerHTML=""; pick.appendChild(q); pick.appendChild(listHost); paint(); q.focus();
   });
 }
 /* T3 — barra tab del link condiviso normale: Stage plot + una tab per ogni lista con dati (tabelle reali). */
