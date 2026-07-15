@@ -886,17 +886,22 @@ t("ostacolo: in catalogo (Sicurezza e site), ridimensionabile, zero canali e zer
 });
 
 console.log("\nUnifica icone Fase 2 — tipi funzionali (batteria/arpa/chitarre/piani/direttore) → illustrazione:");
-t("look2Art: batteria/direttore/chitarra default → illustrazione; schematico e non-mappati → null", () => {
+t("look2Art: batteria/chitarra default → illustrazione; schematico e non-mappati → null", () => {
   eq(A.look2Art({ type: "batteria" }), "musBatteria");
-  eq(A.look2Art({ type: "direttore" }), "musDirettore");
   eq(A.look2Art({ type: "gtstand" }), "musChitElettrica");
   eq(A.look2Art({ type: "arpa" }), "musArpa");
   eq(A.look2Art({ type: "batteria", look: "schematico" }), null);
   eq(A.look2Art({ type: "astamic" }), null);
 });
-t("hasLookToggle: Fase 1 (vlnpost) e Fase 2 (batteria/direttore) sì; non mappati no", () => {
-  ok(A.hasLookToggle({ type: "vlnpost" })); ok(A.hasLookToggle({ type: "batteria" })); ok(A.hasLookToggle({ type: "direttore" }));
-  ok(!A.hasLookToggle({ type: "astamic" }));
+t("direttore: sempre illustrato — NON in LOOK_ART, niente toggle Aspetto", () => {
+  eq(A.look2Art({ type: "direttore" }), null);        /* fuori da LOOK_ART: nessuna sostituzione da render-interception */
+  ok(!A.hasLookToggle({ type: "direttore" }));        /* niente Aspetto: il draw disegna sempre l'illustrazione + podio/leggio */
+  eq(A.dirSize({ podio: false })[1], 114);            /* footprint base = illustrazione musDirettore (90×114) */
+  eq(A.dirSize({ podio: true })[0], 120);             /* col podio = piattaforma 120×120 */
+});
+t("hasLookToggle: Fase 1 (vlnpost) e Fase 2 (batteria) sì; direttore e non mappati no", () => {
+  ok(A.hasLookToggle({ type: "vlnpost" })); ok(A.hasLookToggle({ type: "batteria" }));
+  ok(!A.hasLookToggle({ type: "direttore" })); ok(!A.hasLookToggle({ type: "astamic" }));
 });
 t("look illustrato NON cambia i canali: batteria = 8 sia illustrata (default) che schematica", () => {
   reset(); const a = add("batteria", 400, 400); const nA = chans(a).length;
