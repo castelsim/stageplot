@@ -807,6 +807,21 @@ t("safeVenueDataUrl: whitelist raster; scarta svg/js/breakout (difesa in profond
   eq(A.safeVenueDataUrl(""), "");
   eq(A.safeVenueDataUrl(null), "");
 });
+t("B4 Aspetto globale: normalizeState default illustrato + preserva schematico", () => {
+  eq(A.normalizeState({ items: [], inputs: [], outputs: [] }).lookDefault, "illustrato");
+  eq(A.normalizeState({ items: [], inputs: [], outputs: [], lookDefault: "schematico" }).lookDefault, "schematico");
+});
+t("B4 Aspetto globale: nuovi elementi ereditano lookDefault, override esplicito regge", () => {
+  reset();
+  A.state.lookDefault = "illustrato";
+  var g1 = add("gtacustica", 300, 300);
+  ok(g1.look !== "schematico", "col default illustrato il nuovo elemento non è schematico");
+  ok(A.look2Art(g1) !== null, "illustrato → illustrazione presente");
+  A.state.lookDefault = "schematico";
+  var g2 = add("gtacustica", 500, 500);
+  eq(g2.look, "schematico", "col default schematico il nuovo elemento eredita schematico");
+  ok(A.look2Art(g2) === null, "schematico → nessuna illustrazione");
+});
 
 console.log("\nUnifica icone (Fase 1) — musicista↔postazione:");
 t("postArt: default illustrato → art; schematico → null; non mappato → null", () => {
