@@ -710,12 +710,12 @@ t("setProjectStatus: approvato firma la data", () => {
 });
 t("setProjectStatus: stato non valido ignorato", () => { reset(); A.state.status = "bozza"; A.setProjectStatus("zzz"); eq(A.state.status, "bozza"); });
 t("riderData: espone stato + firma", () => {
-  reset(); A.state.status = "approvato"; A.state.approval = { by: "Laura", at: "2026-07-14" };
-  const d = A.riderData(); eq(d.status, "approvato"); eq(d.approvedBy, "Laura"); eq(d.approvedAt, "2026-07-14");
+  reset(); A.state.status = "approvato"; A.state.approval = { by: "Anna", at: "2026-07-14" };
+  const d = A.riderData(); eq(d.status, "approvato"); eq(d.approvedBy, "Anna"); eq(d.approvedAt, "2026-07-14");
 });
 t("riderHtml: badge stato + firma quando approvato", () => {
-  reset(); A.state.status = "approvato"; A.state.approval = { by: "Laura", at: "2026-07-14" };
-  const h = A.riderHtml(); ok(/APPROVATO/.test(h) && /Laura/.test(h), "badge+firma nel rider");
+  reset(); A.state.status = "approvato"; A.state.approval = { by: "Anna", at: "2026-07-14" };
+  const h = A.riderHtml(); ok(/APPROVATO/.test(h) && /Anna/.test(h), "badge+firma nel rider");
 });
 t("audit T5: bozza con contenuto → nudge info", () => {
   reset(); add("astamic", 300, 300); A.state.status = "bozza"; A.__cabRes = null;
@@ -845,7 +845,7 @@ t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B
   eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
 });
 
-console.log("\nLAB caso 1 (caso 1) — L8 voci senza mic + B4 nomi canale duplicati:");
+console.log("\nAudit — voci senza mic (L8) + nomi canale duplicati (B4):");
 t("audit L8: cantante senza mic → avviso azionabile", () => {
   reset(); add("cantante", 400, 400); A.__cabRes = null;
   const f = A.auditEngine().findings.filter((x) => /senza microfono/.test(x.msg));
@@ -869,7 +869,7 @@ t("audit L8: il fix piazza un radiomic col nome del cantante e spegne l'avviso",
   ok(!hasMsg(/senza microfono/), "dopo il fix: " + auditMsgs().join(" | "));
 });
 t("audit B4: due canali con lo stesso nome → avviso doppione", () => {
-  reset(); const w1 = add("wireless", 300, 300); w1.label = "VOX LEAD DIRECTOR"; const w2 = add("wireless", 700, 300); w2.label = "VOX LEAD DIRECTOR"; A.__cabRes = null;
+  reset(); const w1 = add("wireless", 300, 300); w1.label = "VOX LEAD 1"; const w2 = add("wireless", 700, 300); w2.label = "VOX LEAD 1"; A.__cabRes = null;
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
 });
 t("audit B4: spare dichiarato nel nome → nessun avviso doppione", () => {
@@ -878,11 +878,11 @@ t("audit B4: spare dichiarato nel nome → nessun avviso doppione", () => {
 });
 t("audit B4: doppione nella lista manuale (state.inputs) → avviso", () => {
   reset(); add("astamic", 300, 300);
-  A.state.inputs = [{ src: "VOX LEAD DIRECTOR", mic: "935" }, { src: "VOX LEAD DIRECTOR", mic: "SM58" }];
+  A.state.inputs = [{ src: "VOX LEAD 1", mic: "935" }, { src: "VOX LEAD 1", mic: "SM58" }];
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
 });
 
-console.log("\nLAB caso F (caso F) — ostacolo di sito:");
+console.log("\nOstacolo di sito:");
 t("ostacolo: in catalogo (Sicurezza e site), ridimensionabile, zero canali e zero carico", () => {
   const t0 = A.TYPES.ostacolo;
   ok(t0 && t0.cat === "Sicurezza e site" && t0.resizable === true, "tipo presente e resizable");
@@ -990,7 +990,7 @@ t("migrazione: musTimpani → timpani (schema configurabile + timpanista in mezz
 
 console.log("\nRubrica contatti — logica pura (spec 15/07):");
 t("contactKey: normalizza maiuscole/spazi; vuoto = '|'", () => {
-  eq(A.contactKey({ name: " Mario Rossi ", contact: "333-0000000" }), "Mario Rossi|333-0000000");
+  eq(A.contactKey({ name: " Mario Rossi ", contact: "333-0000001" }), "mario rossi|333-0000001");
   eq(A.contactKey({}), "|");
 });
 t("rubricaDedupe: tiene la prima occorrenza, scarta chiavi vuote", () => {
@@ -998,21 +998,21 @@ t("rubricaDedupe: tiene la prima occorrenza, scarta chiavi vuote", () => {
     { name: "Marco", contact: "333", role: "Fonico di sala" },
     { name: "marco", contact: "333", role: "DUPLICATO" },
     { name: "", contact: "" },
-    { name: "Laura", contact: "334" },
+    { name: "Anna", contact: "334" },
   ]);
-  eq(out.length, 2); eq(out[0].role, "Fonico di sala"); eq(out[1].name, "Laura");
+  eq(out.length, 2); eq(out[0].role, "Fonico di sala"); eq(out[1].name, "Anna");
 });
 t("contactsFromDocs: doc multi-variante + legacy piatto, tronca ai limiti, deduplica", () => {
   const doc = { variants: [
-    { state: { contacts: [{ role: "Service locale", name: "Mas", contact: "045" }] } },
-    { state: { contacts: [{ role: "Service locale", name: "Mas", contact: "045" }, { name: "X".repeat(99), contact: "1" }] } },
+    { state: { contacts: [{ role: "Service locale", name: "Alfa", contact: "045" }] } },
+    { state: { contacts: [{ role: "Service locale", name: "Alfa", contact: "045" }, { name: "X".repeat(99), contact: "1" }] } },
   ] };
-  const legacy = { contacts: [{ name: "Giulio", contact: "info@esempio.it" }] };
+  const legacy = { contacts: [{ name: "Organizzatore", contact: "info@esempio.it" }] };
   const out = A.contactsFromDocs([doc, legacy, null]);
   eq(out.length, 3);
-  eq(out[0].name, "Mas");
+  eq(out[0].name, "Alfa");
   eq(out[1].name.length, 60, "name troncato a 60");
-  eq(out[2].name, "Giulio");
+  eq(out[2].name, "Organizzatore");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
