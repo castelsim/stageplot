@@ -12316,7 +12316,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   function venueImgField(){ var v=state.venue; return (v && v._dataUrl) ? JSON.stringify({name:v.name,_dataUrl:v._dataUrl,_imgW:v._imgW,_imgH:v._imgH}) : null; }
   function applyVenueImage(raw){   /* applica `venue_image` (dal cloud) allo state + cache/persist locale per il reload */
     if(!raw) return false;
-    try{ var vi=JSON.parse(raw); if(vi && vi._dataUrl){ state.venue=state.venue||{name:vi.name}; state.venue._dataUrl=vi._dataUrl; state.venue._imgW=vi._imgW; state.venue._imgH=vi._imgH;
+    try{ var vi=JSON.parse(raw); if(vi && vi._dataUrl){ var _du=safeVenueDataUrl(vi._dataUrl); if(!_du) return false;   /* difesa in profondità: sanitizza il _dataUrl dal cloud all'ingresso, come normalizeVenue (audit 15/07) */ state.venue=state.venue||{name:vi.name}; state.venue._dataUrl=_du; state.venue._imgW=vi._imgW; state.venue._imgH=vi._imgH;
       if(typeof cacheVenueImg==="function") cacheVenueImg(state.venue); if(typeof persistVenueImg==="function") persistVenueImg(); return true; } }catch(e){}
     return false;
   }
