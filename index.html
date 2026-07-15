@@ -2124,6 +2124,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div style="font-size:11px;color:var(--text-2,#374151);font-weight:600;margin-bottom:6px">Contatti e ruoli <span style="font-weight:400;color:var(--text-3,#6b7280)">(rider · chi fa cosa)</span></div>
       <div id="contactRows"></div>
       <button type="button" id="contactAdd" class="btn" style="font-size:12px;margin-top:5px">+ Contatto</button>
+      <button type="button" id="contactFromRub" class="btn" style="font-size:12px;margin-top:5px;display:none">+ Dalla rubrica</button>
+      <a href="#" id="contactRubManage" style="display:none;font-size:11px;color:var(--text-3,#6b7280);margin:4px 0 0 8px">Gestisci rubrica…</a>
+      <div id="rubPicker" hidden style="border:1px solid var(--border,#e5e7eb);border-radius:8px;background:#fff;margin-top:6px;padding:6px;max-height:220px;overflow:auto"></div>
     </div>
     <datalist id="roleList"></datalist>
     <details class="cl-rider" style="margin:0 0 12px">
