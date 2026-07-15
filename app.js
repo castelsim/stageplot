@@ -4828,6 +4828,7 @@ function splitVoce(){
 }
 /* è scomponibile in elementi? */
 function isDecomposable(it){ if(!it) return false; var t=TYPES[it.type]; if(!t) return false;
+  if(it.type==="corista") return false;   /* corista: niente "Dividi in elementi" (è solo una voce, Simone) */
   return !!COMP[it.type] || !!t.gtr || !!DOUBLE_TYPES[it.type] || it.doppia===true || !!POSTAZ[it.type] || !!VOCE[it.type] || it.type==="sedialeggio"; }
 /* dispatcher unico "Dividi in elementi" */
 function splitElement(){
