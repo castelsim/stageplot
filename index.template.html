@@ -1500,9 +1500,10 @@ function station(it, glyph, dblKind, realistic){
     var ad = (TYPES[art] && TYPES[art].d) ? TYPES[art].d : 80;
     var leg = (it.leggio!==false) ? '<g transform="translate(0,'+Math.round(ad*0.52)+')">'+leggioGlyph(0)+'</g>' : '';
     if(it.doppia){
-      var hx = it.sep ? it.sep/2 : 45;   /* 2 musicisti affiancati, ENTRAMBI verso il pubblico (non specchiati) */
-      return '<g transform="translate('+(-hx)+',0)">'+libIcon(art)+'</g>'+
-             '<g transform="translate('+hx+',0)">'+libIcon(art)+'</g>'+leg;
+      var hx = it.sep ? it.sep/2 : 45;   /* 2 musicisti affiancati, ENTRAMBI verso il pubblico (non specchiati), */
+      var conv = 12;                      /* leggermente convergenti verso il centro, come lo schematico */
+      return '<g transform="translate('+(-hx)+',0) rotate('+(-conv)+')">'+libIcon(art)+'</g>'+
+             '<g transform="translate('+hx+',0) rotate('+conv+')">'+libIcon(art)+'</g>'+leg;
     }
     return libIcon(art)+leg;
   }
@@ -2120,7 +2121,7 @@ var TYPES = {
              draw:function(it){ it=it||{}; return singer({mano:false, nomic:true, leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
-  musViolino2: {nome:"Violino II musicista", dim:"81×82", cat:"Orchestra", sub:"Archi", w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
+  musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
   musViola: {catalog:false, nome:"Viola musicista", dim:"84×81", cat:"Orchestra", sub:"Archi", w:84,d:81, defLabel:"Vla", draw:function(it){ return drawLibFit("musViola",it,84,81); }},
   musVioloncello: {catalog:false, nome:"Violoncello musicista", dim:"82×100", cat:"Orchestra", sub:"Archi", w:82,d:100, defLabel:"Vc", draw:function(it){ return drawLibFit("musVioloncello",it,82,100); }},
   musContrabbasso: {catalog:false, nome:"Contrabbasso musicista", dim:"70×107", cat:"Orchestra", sub:"Archi", w:70,d:107, defLabel:"Cb", draw:function(it){ return drawLibFit("musContrabbasso",it,70,107); }},
@@ -2133,7 +2134,7 @@ var TYPES = {
   musSaxBaritono: {catalog:false, nome:"Sax baritono musicista", dim:"61×89", cat:"Orchestra", sub:"Legni", w:61,d:89, defLabel:"Sax B", draw:function(it){ return drawLibFit("musSaxBaritono",it,61,89); }},
   musTromba: {catalog:false, nome:"Tromba musicista", dim:"61×90", cat:"Orchestra", sub:"Ottoni", w:61,d:90, defLabel:"Tr", draw:function(it){ return drawLibFit("musTromba",it,61,90); }},
   musTrombone: {catalog:false, nome:"Trombone musicista", dim:"61×114", cat:"Orchestra", sub:"Ottoni", w:61,d:114, defLabel:"Tbn", draw:function(it){ return drawLibFit("musTrombone",it,61,114); }},
-  musTromboneBasso: {nome:"Trombone basso musicista", dim:"61×114", cat:"Orchestra", sub:"Ottoni", w:61,d:114, defLabel:"Tbn B", draw:function(it){ return drawLibFit("musTromboneBasso",it,61,114); }},
+  musTromboneBasso: {nome:"Trombone basso", dim:"61×114", cat:"Orchestra", sub:"Ottoni", w:61,d:114, defLabel:"Tbn B", draw:function(it){ return drawLibFit("musTromboneBasso",it,61,114); }},
   musCorno: {catalog:false, nome:"Corno musicista", dim:"61×82", cat:"Orchestra", sub:"Ottoni", w:61,d:82, defLabel:"Cor", draw:function(it){ return drawLibFit("musCorno",it,61,82); }},
   musTuba: {catalog:false, nome:"Tuba musicista", dim:"70×101", cat:"Orchestra", sub:"Ottoni", w:70,d:101, defLabel:"Tuba", draw:function(it){ return drawLibFit("musTuba",it,70,101); }},
   musArpa: {nome:"Arpa musicista", dim:"162×171", cat:"Orchestra", sub:"Arpa e celesta", w:162,d:171, defLabel:"Arpa", draw:function(it){ return drawLibFit("musArpa",it,162,171); }},
@@ -5144,6 +5145,23 @@ function auditEngine(){
   if(badP48.length) add("warn", badP48.length+(badP48.length===1?" canale ha":" canali hanno")+" il +48V su un mic/DI che non lo richiede (dinamico o wireless).","Audio","Il phantom è inutile e su alcuni radiomicrofoni può essere dannoso: rimuovilo.",{label:"Togli 48V",run:auditFix48V});
   var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
+  /* LAB caso 1 (Disney Ristori, 15/07) — L8: il cantante non genera canali da solo → senza un mic voce
+     entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (l'evento reale aveva 11 canali voce).
+     Solo "cantante": il corista vive tipicamente nel mic di sezione/coro o in una zona. */
+  var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,podiosp:1};
+  var voxless=items.filter(function(it){ return it.type==="cantante" && !itemInMicZone(it)
+    && !items.some(function(m){ return AUDIT_VOICE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<150; }); });
+  if(voxless.length) add("warn", voxless.length+(voxless.length===1?" cantante è":" cantanti sono")+" senza microfono: la voce non entra nella channel list.","Audio","Ogni voce ha bisogno di un mic accanto (radiomic, asta o headset) oppure di una zona mic.",{label:"Aggiungi radiomic",run:function(){ auditFixAddVoiceMics(voxless); }});
+  /* LAB caso 1 — B4: due canali con lo STESSO nome = probabile doppione non dichiarato (il caso reale:
+     "VOX DIEGO DIRECTOR" microfonato due volte, ch56+ch65, senza nota). Lista manuale se presente,
+     altrimenti quella derivata dagli elementi. */
+  var chNames=[];
+  if((state.inputs||[]).some(function(r){ return r && r.src && String(r.src).trim(); }))
+    (state.inputs||[]).forEach(function(r){ var k=String((r&&r.src)||"").trim(); if(k) chNames.push(k); });
+  else items.forEach(function(it){ (cabItemInputs(it)||[]).forEach(function(ch){ var k=String(ch.name||"").trim(); if(k) chNames.push(k); }); });
+  var chCnt={}; chNames.forEach(function(k){ var lk=k.toLowerCase(); chCnt[lk]=(chCnt[lk]||0)+1; });
+  var dupCh=Object.keys(chCnt).filter(function(k){ return chCnt[k]>1; });
+  if(dupCh.length) add("warn", (dupCh.length===1?("Due canali si chiamano «"+dupCh[0]+"»"):(dupCh.length+" nomi di canale compaiono più volte ("+dupCh.slice(0,3).join(", ")+"…"+")"))+": patch ambiguo per il service.","Audio","Se è uno spare, dichiaralo nel nome (es. «VOX DIEGO spare»); se sono due sorgenti diverse, rinominane una.");
   var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf; }).length;
   if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
   var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
@@ -5184,6 +5202,13 @@ function auditEngine(){
    l'avviso sparisce dall'audit alla deselezione. Le fix "di impostazione" (rete) restano nell'audit. */
 function auditFixAddBox(){ state.cab.on=true; __cabRes=null; addItem("stagebox"); }
 function auditFixAddWedge(){ addItem("wedge"); }
+/* LAB caso 1 — L8: piazza un radiomic accanto a ogni cantante scoperto, col nome del cantante come canale */
+function auditFixAddVoiceMics(list){
+  (list||[]).forEach(function(v){ var it=state.items.find(function(i){ return i.id===v.id; }); if(!it) return;
+    var t=TYPES.wireless;
+    state.items.push({ id:uid(), type:"wireless", x:Math.min(state.stage.w-20, it.x+45), y:it.y, rot:0, w:t.w, d:t.d, label:(it.label||"Voce") }); });
+  __cabRes=null; save(); render();
+}
 function auditFixAddDistro(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; }
   __elecRes=null; addItem("distro63");
@@ -5741,9 +5766,9 @@ var ABBR_PRO=[
   ["ampli chitarra","Gtr Amp"],["ampli basso","Bass Amp"],["ampli tastiere","Keys Amp"],["ampli keys","Keys Amp"],["stack","Gtr Amp"],   /* ampli specifici prima del generico: la sigla distingue di chi è l'ampli */
   ["amplificatore","Amp"],["testata","Head"],["cabinet","Cab"],["combo","Amp"],["ampli","Amp"],   /* backline PRIMA: i nomi ampli contengono spesso lo strumento (es. "combo chitarra") */
   ["chitarra acustica","AGtr"],["chitarra elettrica","Gtr"],["chitarra","Gtr"],["chitarrista","Gtr"],
-  ["contrabbasso","Cb"],["contrabbassi","Cb"],["basso","Bass"],["bassista","Bass"],   /* contrabbasso prima di basso */
-  ["sax alto","ASax"],["sax tenore","TSax"],["sax baritono","BSax"],["sax soprano","SSax"],["sax","Sax"],
-  ["tromba","Tpt"],["trombone","Tbn"],["corno","Cor"],["tuba","Tuba"],["ottavino","Picc"],["flauto","Fl"],["oboe","Ob"],["clarinetto","Cl"],["fagotto","Fg"],
+  ["trombone basso","Tbn B"],["contrabbasso","Cb"],["contrabbassi","Cb"],["basso","Bass"],["bassista","Bass"],   /* "trombone basso" e "contrabbasso" prima di "basso" */
+  ["sax alto","Sax A"],["sax tenore","Sax T"],["sax baritono","Sax B"],["sax soprano","Sax S"],["sax","Sax"],   /* sigle italiane: Sax A/T/B (non ASax) */
+  ["tromba","Tr"],["trombone","Tbn"],["corno","Cor"],["tuba","Tuba"],["ottavino","Ott"],["flauto","Fl"],["oboe","Ob"],["clarinetto","Cl"],["fagotto","Fg"],   /* Tr (non Tpt), Ott (non Picc) — convenzione italiana */
   ["violoncello","Vc"],["violoncelli","Vc"],["violino","Vln"],["violini","Vln"],["viola","Vla"],["viole","Vla"],["archi","Archi"],["arpa","Arp"],   /* plurali = leggii di sezione del generatore */
   ["direttore","M°"],["leslie","Leslie"],["pedaliera","Pedal"],["dj","DJ"],["panchetta","Panca"],["sgabello","Sgab"],["shield","Shield"],
   ["organo a canne","Org"],["organo hammond","Hmd"],["organo","Org"],["clavicembalo","Cemb"],["pianoforte","Pno"],["stage piano","Pno"],["piano","Pno"],["tastiera","Keys"],["synth","Synth"],["celesta","Cel"],["fisarmonica","Fis"],["controller","Keys"],["spd","Pad"],

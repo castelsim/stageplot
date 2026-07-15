@@ -824,5 +824,50 @@ t("catalogo: le 15 mus* con twin sono nascoste (catalog:false); Vln II resta vis
   ok(A.TYPES.musBatteria.catalog !== false, "musBatteria (Fase 2) resta in catalogo");
 });
 
+t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B non Bass", () => {
+  const sig = (tp) => A.abbrOf({ type: tp, label: A.defaultLabel(tp) });
+  eq(sig("tromba"), "Tr");
+  eq(sig("saxalto"), "Sax A"); eq(sig("saxtenore"), "Sax T"); eq(sig("saxbaritono"), "Sax B");
+  eq(sig("musTromboneBasso"), "Tbn B", "trombone basso non deve matchare 'basso'→Bass");
+  eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
+});
+
+console.log("\nLAB caso 1 (Disney) — L8 voci senza mic + B4 nomi canale duplicati:");
+t("audit L8: cantante senza mic → avviso azionabile", () => {
+  reset(); add("cantante", 400, 400); A.__cabRes = null;
+  const f = A.auditEngine().findings.filter((x) => /senza microfono/.test(x.msg));
+  ok(f.length === 1 && f[0].act && /radiomic/i.test(f[0].act.label), "atteso avviso con fix; findings: " + auditMsgs().join(" | "));
+});
+t("audit L8: cantante con radiomic entro 1,5 m → nessun avviso", () => {
+  reset(); add("cantante", 400, 400); add("wireless", 440, 400); A.__cabRes = null;
+  ok(!hasMsg(/senza microfono/), "findings: " + auditMsgs().join(" | "));
+});
+t("audit L8: corista NON triggera l'avviso (vive nel mic di sezione)", () => {
+  reset(); add("corista", 400, 400); A.__cabRes = null;
+  ok(!hasMsg(/senza microfono/), "findings: " + auditMsgs().join(" | "));
+});
+t("audit L8: il fix piazza un radiomic col nome del cantante e spegne l'avviso", () => {
+  reset(); const c = add("cantante", 400, 400); c.label = "Vocalist 2"; A.__cabRes = null;
+  const f = A.auditEngine().findings.find((x) => /senza microfono/.test(x.msg));
+  try { f.act.run(); } catch (e) { /* render/save toccano il DOM stub */ }
+  A.__cabRes = null;
+  const w = A.state.items.find((i) => i.type === "wireless");
+  ok(w && w.label === "Vocalist 2", "radiomic col nome del cantante; items: " + A.state.items.map((i) => i.type).join(","));
+  ok(!hasMsg(/senza microfono/), "dopo il fix: " + auditMsgs().join(" | "));
+});
+t("audit B4: due canali con lo stesso nome → avviso doppione", () => {
+  reset(); const w1 = add("wireless", 300, 300); w1.label = "VOX DIEGO DIRECTOR"; const w2 = add("wireless", 700, 300); w2.label = "VOX DIEGO DIRECTOR"; A.__cabRes = null;
+  ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
+});
+t("audit B4: spare dichiarato nel nome → nessun avviso doppione", () => {
+  reset(); const w1 = add("wireless", 300, 300); w1.label = "VOX DIEGO"; const w2 = add("wireless", 700, 300); w2.label = "VOX DIEGO spare"; A.__cabRes = null;
+  ok(!hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
+});
+t("audit B4: doppione nella lista manuale (state.inputs) → avviso", () => {
+  reset(); add("astamic", 300, 300);
+  A.state.inputs = [{ src: "VOX DIEGO DIRECTOR", mic: "935" }, { src: "VOX DIEGO DIRECTOR", mic: "SM58" }];
+  ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
