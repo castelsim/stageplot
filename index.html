@@ -1805,6 +1805,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
+    <div id="pLookWrap" style="display:none;margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Aspetto</label>
+      <div style="display:flex;gap:4px">
+        <button class="btn" id="pLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Illustrazione del musicista, in scala reale">Illustrato</button>
+        <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Schema tecnico: sedia, strumento e leggio">Schematico</button>
+      </div>
+    </div>
     <div id="pLabelWrap"><label>Etichetta</label><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap" style="margin-top:8px">
@@ -1818,13 +1825,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
       <button class="btn" id="pLblApplyType" style="width:100%;margin-top:6px;font-size:11px;padding:4px 2px" title="Applica questa modalità nome a tutti gli elementi dello stesso tipo">Applica agli elementi dello stesso tipo</button>
-    </div>
-    <div id="pLookWrap" style="display:none;margin-top:8px">
-      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Aspetto</label>
-      <div style="display:flex;gap:4px">
-        <button class="btn" id="pLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Illustrazione del musicista, in scala reale">Illustrato</button>
-        <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Schema tecnico: sedia, strumento e leggio">Schematico</button>
-      </div>
     </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
@@ -1922,7 +1922,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
-        <label class="chk"><input type="checkbox" id="pSedia"> Sedia</label>
+        <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
         <label class="chk"><input type="checkbox" id="pLeggioCfg"> Leggio</label>
         <label class="chk"><input type="checkbox" id="pDoppia"> Postazione a 2 (2 strumenti + 1 leggio)</label>
       </div>
