@@ -898,6 +898,15 @@ t("look2Art: chitarra/arpa default â†’ illustrazione; schematico e non-mappati â
   eq(A.look2Art({ type: "gtstand", look: "schematico" }), null);
   eq(A.look2Art({ type: "astamic" }), null);
 });
+t("personal mixer digitale: piazzarlo attiva in automatico il layer P.M. (mond)", () => {
+  reset(); ok(A.state.mond.on === false, "layer P.M. spento all'inizio");
+  add("hearback", 400, 400);
+  ok(A.state.mond.on === true, "hearback (personal mixer) attiva il layer P.M.");
+  reset(); add("mixhub", 400, 400);
+  ok(A.state.mond.on === true, "anche l'hub monitoraggio attiva il layer");
+  reset(); add("wedge", 400, 400);
+  ok(A.state.mond.on === false, "un monitor NON digitale (wedge) non attiva il layer");
+});
 t("zona mic da postazione a 2: un solo item doppia genera una zona che lo copre", () => {
   reset();
   const v = add("vlnpost", 450, 340); v.vsec = 1; v.doppia = true; v.sep = 120; A.recalcItemDims(v);

@@ -5522,8 +5522,10 @@ function addItem(type, over){
   if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero */
     var fs=findFreeSpot(it.x, it.y, it.w, it.d); it.x=fs.x; it.y=fs.y;
   }
+  if(MON_DIG_NODE[type] && state.mond && !state.mond.on){ state.mond.on=true; state.mond.visible=true; __mondRes=null; }   /* personal mixer/hub digitale → attiva in automatico il layer P.M. (monitoraggio) */
   addCascade=(addCascade+25)%150;
   state.items.push(it); selectOne(it.id); render(); save(); ensureVisible();
+  if(MON_DIG_NODE[type] && typeof renderLayerManager==="function") renderLayerManager();   /* aggiorna il toggle del layer P.M. */
   closeMobileDrawers();   /* su mobile: chiudi il catalogo per vedere il palco */
   showDragHintOnce();   /* onboarding: la prima volta spiega come spostare/ruotare */
   return it;
