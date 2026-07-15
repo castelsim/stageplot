@@ -1263,7 +1263,7 @@ function postArt(it){
 /* Unifica icone FASE 2 (15/07): tipi funzionali NON-postazione (batteria=COMP, chitarre=gtr, arpa,
    direttore, piani, percussioni) → illustrazione musicista. Intercettati al render (t.draw), non in station(). */
 var LOOK_ART = {
-  arpa:"musArpa", percussioni:"musPercussioni", batteria:"musBatteria",
+  arpa:"musArpa", percussioni:"musPercussioni",
   grancoda:"musPianoGranCoda", mezzacoda:"musPianoMezzaCoda", stagepiano:"musTastiera",
   gtstand:"musChitElettrica", gtacustica:"musChitAcustica", bassstand:"musBasso"
 };
@@ -1348,7 +1348,7 @@ function drumSlots(p){
   if(p.crash>=1) put("crash", k2?94:52, k2?31:33, 10);  /* angolo anteriore, lato hi-hat */
   if(p.crash>=2) put("crash", k2?-146:-104, 28, -8);    /* 2° crash oltre il floor */
   if(p.ride) put("ride", k2?-94:-52, 34);               /* davanti al floor, sopra l'angolo cassa */
-  if(p.stool!==false) put("stool", 0, k2?-104:-98);     /* sgabello/batterista dietro: footprint realistico */
+  if(p.stool!==false || p.mus!==false) L.push({k:"stool", x:0, y:k2?-104:-98, rot:0, seat:true});   /* posto del batterista: persona e/o sgabello (deciso in drawBatteria); footprint realistico */
   if(p.lefty){ L.forEach(function(sl){ sl.x=-sl.x; sl.rot=-sl.rot; }); }   /* batterista mancino: specchia il kit */
   return L;
 }
@@ -1364,9 +1364,16 @@ function drawBatteria(it){
   /* riallinea w/d dei documenti vecchi al kit reale (idempotente) */
   var W=Math.round(B.w), D=Math.round(B.d);
   if(it.w!==W||it.d!==D){ it.w=W; it.d=D; }
+  var pp=parts(it);
   L.forEach(function(sl){
     var tx=Math.round((sl.x-B.cx)*10)/10, ty=Math.round((sl.y-B.cy)*10)/10;
-    s+='<g transform="translate('+tx+' '+ty+')'+(sl.rot?' rotate('+sl.rot+')':'')+'">'+libIcon(DRUM_PARTS[sl.k].icon)+'</g>';
+    var pre='<g transform="translate('+tx+' '+ty+')'+(sl.rot?' rotate('+sl.rot+')':'')+'">';
+    if(sl.seat){   /* posto del batterista: toggle indipendenti Musicista / Sgabello. Sgabello sotto, persona verso il kit (+y). */
+      var g='';
+      if(pp.stool!==false) g += '<g transform="translate(0,18)">'+libIcon("sgabellobatt")+'</g>';
+      if(pp.mus!==false)   g += '<g transform="translate(0,36)">'+libIcon("batteristaPersona")+'</g>';   /* 0°: testa a nord (dietro), braccia/bacchette verso il kit (+y) */
+      s += pre+g+'</g>';
+    } else s += pre+libIcon(DRUM_PARTS[sl.k].icon)+'</g>';
   });
   return s;
 }
@@ -1376,6 +1383,7 @@ function explodeBatteria(it){
   var map={kick:"kickR",snare:"snareR",tom:"tomR",floor:"floorR",hihat:"hihatKR",crash:"crashR",ride:"rideR",stool:"stoolR"};
   var lab={kick:"Kick",snare:"Snare",tom:"Tom",floor:"Floor",hihat:"HH",crash:"Crash",ride:"Ride",stool:""};
   L.forEach(function(sl){
+    if(sl.seat){ if(p.stool!==false) out.push({type:"stoolR", dx:sl.x-B.cx, dy:sl.y-B.cy, label:""}); return; }   /* la persona è solo visuale, non un pezzo scomposto */
     var nm=lab[sl.k];
     if(sl.k==="tom"){ nTom++; if(p.toms>1) nm+=" "+nTom; }
     if(sl.k==="crash"){ nCr++; if(p.crash>1) nm+=" "+nCr; }
@@ -1414,15 +1422,17 @@ function explodeTimpani(it){
   return out;
 }
 var COMP = {
-  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,stool:true,lefty:false},
+  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,mus:true,stool:true,lefty:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
                {key:"hihat",label:"Hi-hat",type:"toggle"},
                {key:"crash",label:"Crash",type:"count",min:0,max:2},
                {key:"ride",label:"Ride",type:"toggle"},
                {key:"kick2",label:"Doppia cassa",type:"toggle"},
+               {key:"mus",label:"Musicista",type:"toggle"},
                {key:"stool",label:"Sgabello",type:"toggle"},
                {key:"lefty",label:"Mancino",type:"toggle"} ],
+    reduced:["mus","stool"],   /* pannello: solo Musicista/Sgabello (come il timpanista); il kit su misura si fa con "Dividi in elementi" */
     draw:drawBatteria, size:sizeBatteria, explode:explodeBatteria },
 };
 (function(){
@@ -1985,6 +1995,7 @@ function migrateMusToPostaz(s){
     if(it.type==="musViolino1"){ it.type="vlnpost"; it.vsec=1; delete it.look; delete it.w; delete it.d; return; }
     if(it.type==="musViolino2"){ it.type="vlnpost"; it.vsec=2; delete it.look; delete it.w; delete it.d; return; }   /* Violino II = vlnpost + vsec=2 (illustrazione dedicata) */
     if(it.type==="musTimpani"){ it.type="timpani"; delete it.look; delete it.w; delete it.d; return; }   /* timpani = schema configurabile + timpanista in mezzo (DRAW_LOOK) */
+    if(it.type==="musBatteria"){ it.type="batteria"; delete it.look; delete it.w; delete it.d; return; }   /* batteria = kit schematico + batterista in mezzo (NON più in LOOK_ART) */
     if(it.type==="musDirettore"){ it.type="direttore"; delete it.look; delete it.w; delete it.d; return; }   /* direttore = sempre illustrato + podio/leggio/sgab (NON più in LOOK_ART) */
     var pz=INV[it.type]; if(pz){ it.type=pz; delete it.look; delete it.w; delete it.d; }
   });
@@ -4479,15 +4490,15 @@ function renderProps(){
     document.getElementById("pTastLeg2").checked = it.leggio2===true;
   }
   var pc=document.getElementById("pComp"), comp=COMP[it.type];
-  /* Batteria (scelta Simone 15/07): NIENTE configuratore pezzi in pannello — semplicità. L'illustrato è di
-     default; chi vuole un kit su misura usa "Dividi in elementi" (cassa/rullante/tom/hi-hat/piatti separati). */
-  var noConfig = comp && it.type==="batteria";
-  document.getElementById("selProps").classList.toggle("comp-first", !!comp && !noConfig);   /* configuratore in alto per i configurabili */
+  /* Batteria (scelta Simone 15/07): NIENTE configuratore pezzi kit — semplicità. Il kit su misura si fa con
+     "Dividi in elementi". In pannello mostro SOLO Musicista/Sgabello (come il timpanista), via comp.reduced. */
+  var reduced = comp && comp.reduced;
+  document.getElementById("selProps").classList.toggle("comp-first", !!comp && !reduced);   /* configuratore in alto solo per i configurabili completi */
   /* Aspetto ILLUSTRATO (altri COMP configurabili, es. timpani): i controlli non si riflettono sull'illustrazione
      → li nascondo e rimando allo Schematico. I pezzi restano salvati. */
-  var kitMuted = comp && !noConfig && !DRAW_LOOK[it.type] && hasLookToggle(it) && it.look!=="schematico";   /* timpani (DRAW_LOOK): configuratore SEMPRE (schema disegnato in entrambi i look) */
-  pc.style.display = (comp && !noConfig) ? "block" : "none";
-  if(comp && !noConfig){
+  var kitMuted = comp && !reduced && !DRAW_LOOK[it.type] && hasLookToggle(it) && it.look!=="schematico";   /* timpani (DRAW_LOOK): configuratore SEMPRE (schema disegnato in entrambi i look) */
+  pc.style.display = comp ? "block" : "none";
+  if(comp){
     if(comp.name){ document.getElementById("selNome").textContent = comp.name(it); setPeekName(comp.name(it)); }
     if(kitMuted){
       document.getElementById("pCompCtl").innerHTML =
@@ -4495,11 +4506,11 @@ function renderProps(){
         '<div class="hint" style="font-size:11.5px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
         '<button type="button" class="btn" id="pKitToSchem" style="width:100%;margin-top:6px;font-size:12px;padding:6px 2px">Configura in dettaglio (Schematico)</button>';
       var kb=document.getElementById("pKitToSchem"); if(kb) kb.onclick=function(){ mutSel(function(x){ x.look="schematico"; }); renderProps(); };
-    } else buildCompCtl(comp, it);
+    } else buildCompCtl(comp, it, reduced);
   }
   document.getElementById("pDivide").style.display = isDecomposable(it) ? "block" : "none";   /* "Dividi in elementi" su tutte le icone scomponibili */
 }
-function buildCompCtl(comp, it){
+function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
   var p=parts(it);
   var dimEl=document.createElement("div"); dimEl.className="comp-dim";        /* ingombro reale, come nel prototipo */
@@ -4522,6 +4533,7 @@ function buildCompCtl(comp, it){
     box.appendChild(pr);
   }
   comp.controls.forEach(function(c){
+    if(only && only.indexOf(c.key)<0) return;   /* config ridotta (batteria): solo i controlli elencati (Musicista/Sgabello) */
     if(c.type==="toggle"){
       var lab=document.createElement("label"); lab.className="chk";
       var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=!!p[c.key];
@@ -8368,7 +8380,7 @@ function countAccessori(){
     if(it.type==="sgabello") sgabelli++;
     else if(KEYS_BENCH[it.type] && it.panca!==false) sgabelli++;
     else if(isStool) sgabelli+=(STOOL_POSTAZ[it.type]||mult);
-    else if(it.type==="batteria") sgabelli++;
+    else if(it.type==="batteria" && parts(it).stool!==false) sgabelli++;   /* solo se lo sgabello è attivo (toggle Sgabello) */
     else if(it.type==="direttore" && it.sgab===true) sgabelli++;
     // hearback
     if(it.type==="hearback") hearbacks++;

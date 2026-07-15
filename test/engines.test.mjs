@@ -886,11 +886,10 @@ t("ostacolo: in catalogo (Sicurezza e site), ridimensionabile, zero canali e zer
 });
 
 console.log("\nUnifica icone Fase 2 — tipi funzionali (batteria/arpa/chitarre/piani/direttore) → illustrazione:");
-t("look2Art: batteria/chitarra default → illustrazione; schematico e non-mappati → null", () => {
-  eq(A.look2Art({ type: "batteria" }), "musBatteria");
+t("look2Art: chitarra/arpa default → illustrazione; schematico e non-mappati → null", () => {
   eq(A.look2Art({ type: "gtstand" }), "musChitElettrica");
   eq(A.look2Art({ type: "arpa" }), "musArpa");
-  eq(A.look2Art({ type: "batteria", look: "schematico" }), null);
+  eq(A.look2Art({ type: "gtstand", look: "schematico" }), null);
   eq(A.look2Art({ type: "astamic" }), null);
 });
 t("direttore: sempre illustrato — NON in LOOK_ART, niente toggle Aspetto", () => {
@@ -899,13 +898,33 @@ t("direttore: sempre illustrato — NON in LOOK_ART, niente toggle Aspetto", () 
   eq(A.dirSize({ podio: false })[1], 114);            /* footprint base = illustrazione musDirettore (90×114) */
   eq(A.dirSize({ podio: true })[0], 120);             /* col podio = piattaforma 120×120 */
 });
-t("hasLookToggle: Fase 1 (vlnpost) e Fase 2 (batteria) sì; direttore e non mappati no", () => {
-  ok(A.hasLookToggle({ type: "vlnpost" })); ok(A.hasLookToggle({ type: "batteria" }));
-  ok(!A.hasLookToggle({ type: "direttore" })); ok(!A.hasLookToggle({ type: "astamic" }));
+t("batteria: come il timpanista — NON in LOOK_ART, niente toggle Aspetto; batterista in mezzo al kit", () => {
+  eq(A.look2Art({ type: "batteria" }), null);         /* fuori da LOOK_ART: il draw è sempre il kit schematico + persona */
+  ok(!A.hasLookToggle({ type: "batteria" }));         /* niente Aspetto */
+  const ctl = A.COMP.batteria.controls.map((c) => c.key);
+  ok(ctl.includes("mus") && ctl.includes("stool"));   /* toggle indipendenti Musicista + Sgabello */
+  eq(A.COMP.batteria.reduced.join(","), "mus,stool"); /* pannello ridotto: solo questi due (il kit su misura è "Dividi") */
 });
-t("look illustrato NON cambia i canali: batteria = 8 sia illustrata (default) che schematica", () => {
+t("batteria seat slot: c'è se Musicista O Sgabello; sparisce se entrambi off", () => {
+  const seat = (p) => A.drumSlots(p).some((s) => s.seat);
+  ok(seat({ mus: true, stool: true }));
+  ok(seat({ mus: true, stool: false }));
+  ok(seat({ mus: false, stool: true }));
+  ok(!seat({ mus: false, stool: false }));
+});
+t("conteggio Sgabelli batteria: rispetta il toggle (solo musicista → 0 sgabelli)", () => {
+  reset();
+  const a = add("batteria", 100, 100);                       /* stool default true */
+  const b = add("batteria", 300, 100); A.parts(b).stool = false; A.parts(b).mus = true;   /* solo musicista */
+  eq(A.countAccessori().sgabelli, 1);                         /* solo la prima conta lo sgabello */
+});
+t("hasLookToggle: Fase 1 (vlnpost) sì; batteria/direttore e non mappati no", () => {
+  ok(A.hasLookToggle({ type: "vlnpost" }));
+  ok(!A.hasLookToggle({ type: "batteria" })); ok(!A.hasLookToggle({ type: "direttore" })); ok(!A.hasLookToggle({ type: "astamic" }));
+});
+t("Musicista/Sgabello NON cambiano i canali: batteria = 8 con e senza persona/sgabello", () => {
   reset(); const a = add("batteria", 400, 400); const nA = chans(a).length;
-  reset(); const b = add("batteria", 400, 400); b.look = "schematico"; A.__cabRes = null; const nB = chans(b).length;
+  reset(); const b = add("batteria", 400, 400); const p = A.parts(b); p.mus = false; p.stool = false; A.__cabRes = null; const nB = chans(b).length;
   eq(nA, nB); eq(nA, 8);
 });
 t("migrazione Fase 2: musBatteria→batteria, musDirettore→direttore, musChitElettrica→gtstand; senza twin resta", () => {
