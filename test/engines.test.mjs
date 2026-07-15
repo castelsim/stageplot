@@ -80,9 +80,9 @@ t("elemento dentro una zona -> 0 canali; la zona -> 1 canale inferito", () => {
   reset(); const v = add("vlnpost", 300, 300); const z = add("miczone", 300, 300); z.w = 220; z.d = 150;
   eq(chans(v).length, 0, "violino coperto"); eq(chans(z).length, 1, "zona"); eq(chans(z)[0].mic, "KM184", "mic zona");
 });
-t("micZoneLabel = sezione prevalente plurale (14/07): 'Violini'; zona vuota = KM184 / 'Zona panoramica'", () => {
+t("micZoneLabel = sezione prevalente plurale (14/07): 'Violini I'; zona vuota = KM184 / 'Zona panoramica'", () => {
   reset(); add("vlnpost", 300, 300); add("vlnpost", 340, 300); const z = add("miczone", 320, 300); z.w = 220; z.d = 150;
-  eq(A.micZoneLabel(z), "Violini"); const z2 = add("miczone", 1500, 1500); z2.w = 100; z2.d = 100;
+  eq(A.micZoneLabel(z), "Violini I"); const z2 = add("miczone", 1500, 1500); z2.w = 100; z2.d = 100;
   eq(A.micZoneMic(z2), "KM184"); eq(A.micZoneLabel(z2), "Zona panoramica");
 });
 t("micZoneLabel con label numerati: 'Violino I 1/2' -> 'Violini I'", () => {
@@ -829,7 +829,7 @@ t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B
   eq(sig("tromba"), "Tr");
   eq(sig("saxalto"), "Sax A"); eq(sig("saxtenore"), "Sax T"); eq(sig("saxbaritono"), "Sax B");
   eq(sig("musTromboneBasso"), "Tbn B", "trombone basso non deve matchare 'basso'→Bass");
-  eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
+  eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln I"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
 });
 
 console.log("\nLAB caso 1 (Disney) — L8 voci senza mic + B4 nomi canale duplicati:");
