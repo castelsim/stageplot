@@ -1496,12 +1496,15 @@ function station(it, glyph, dblKind, realistic){
      restano quelli della postazione (l'illustrazione è solo il look). */
   var art = postArt(it);
   if(art){
+    /* leggio davanti alla figura (verso il pubblico, +y) se attivo — l'illustrazione non lo include */
+    var ad = (TYPES[art] && TYPES[art].d) ? TYPES[art].d : 80;
+    var leg = (it.leggio!==false) ? '<g transform="translate(0,'+Math.round(ad*0.52)+')">'+leggioGlyph(0)+'</g>' : '';
     if(it.doppia){
       var hx = it.sep ? it.sep/2 : 45;
       return '<g transform="translate('+(-hx)+',0)">'+libIcon(art)+'</g>'+
-             '<g transform="translate('+hx+',0) scale(-1,1)">'+libIcon(art)+'</g>';
+             '<g transform="translate('+hx+',0) scale(-1,1)">'+libIcon(art)+'</g>'+leg;
     }
-    return libIcon(art);
+    return libIcon(art)+leg;
   }
   var seat = realistic ? seatLight : chairSvg;
   if(it.doppia){
