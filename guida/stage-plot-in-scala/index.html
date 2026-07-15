@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stage plot in scala reale: perché conta e come farlo online | StagePlot</title>
+  <meta name="description" content="Stage plot in scala reale: cosa significa, perché la scala conta davvero (riser, cavi, ingombri, monitor) e come crearne uno online gratis, con misure vere e proporzioni corrette.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/stage-plot-in-scala/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Stage plot in scala reale: perché conta e come farlo online">
+  <meta property="og:description" content="Cosa significa «in scala reale», perché conta (riser, cavi, ingombri, monitor) e come crearne uno online gratis con misure vere.">
+  <meta property="og:url" content="https://stageplot.it/guida/stage-plot-in-scala/">
+  <meta property="og:image" content="https://stageplot.it/preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Stage plot in scala reale: perché conta e come farlo">
+  <meta name="twitter:description" content="Cosa significa «in scala reale», perché conta e come crearne uno online gratis con misure vere.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Stage plot in scala","item":"https://stageplot.it/guida/stage-plot-in-scala/"}
+      ]},
+      {"@type":"Article","headline":"Stage plot in scala reale: perché conta e come farlo online","inLanguage":"it","datePublished":"2026-07-15","dateModified":"2026-07-15","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/stage-plot-in-scala/","author":{"@type":"Person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/favicon.svg"}}},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Che scala si usa per uno stage plot?","acceptedAnswer":{"@type":"Answer","text":"Non serve una scala fissa come 1:50: quello che conta è che le proporzioni siano reali, cioè che un metro sul palco corrisponda sempre alla stessa distanza sul disegno. Così ingombri e distanze restano fedeli alla realtà a qualsiasi zoom."}},
+        {"@type":"Question","name":"Perché uno stage plot deve essere in scala reale?","acceptedAnswer":{"@type":"Answer","text":"Perché il service usa lo stage plot per capire se le cose ci stanno: se il riser della batteria entra nel palco, quanto cavo serve, dove passano le persone, quanto distano i monitor. Un disegno «a occhio» non risponde a queste domande e porta a errori in montaggio."}},
+        {"@type":"Question","name":"Come faccio uno stage plot in scala gratis?","acceptedAnswer":{"@type":"Answer","text":"Con StagePlot: apri l'editor nel browser, imposti le dimensioni reali del palco e trascini elementi (musicisti, backline, monitor, prese) già in scala. Esporti poi il PDF in scala, senza registrazione."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Stage plot in scala
+    </nav>
+
+    <h1>Stage plot in scala reale</h1>
+    <p class="lead">Cosa significa «in scala», perché fa la differenza sul serio e come disegnare un palco con misure vere, online e gratis.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 15/07/2026</p>
+
+    <h2>Cosa vuol dire «in scala reale»</h2>
+    <p>Uno <a href="/guida/cos-e-uno-stage-plot/">stage plot</a> è in scala reale quando le distanze sul disegno rispettano le distanze vere del palco: un metro davanti al mixer e un metro in fondo al palco occupano lo stesso spazio sullo schema. Non serve per forza una scala «da architetto» come 1:50; conta che le <strong>proporzioni siano fedeli</strong>, così un riser da 3×2 metri e un wedge da 50 cm hanno l'ingombro giusto l'uno rispetto all'altro.</p>
+    <p>È l'opposto del disegno «a occhio», dove le icone si mettono dove capita e le dimensioni sono decorative. Quel tipo di schema comunica l'idea dell'allestimento, ma non risponde alle domande pratiche di chi deve montare il palco.</p>
+
+    <h2>Perché la scala conta davvero</h2>
+    <p>Chi allestisce non guarda uno stage plot per «vederlo bello»: lo guarda per capire se le cose <strong>ci stanno</strong> e cosa serve per farle stare. Ecco le domande a cui solo un disegno in scala risponde:</p>
+    <ul>
+      <li><strong>Il riser della batteria entra?</strong> Un praticabile da 2×2 m in un fronte palco stretto cambia tutta la disposizione.</li>
+      <li><strong>Quanto cavo serve?</strong> Le lunghezze di multicore, linee monitor e alimentazione si stimano solo se le distanze sono vere.</li>
+      <li><strong>Dove passano le persone?</strong> I corridoi di servizio e le vie di fuga hanno bisogno di spazio reale, non simbolico.</li>
+      <li><strong>Quanto distano i monitor?</strong> La posizione dei wedge rispetto ai musicisti incide su resa e rientri.</li>
+      <li><strong>La backline sta nei tempi di cambio palco?</strong> Ingombri corretti = stime di montaggio realistiche tra un gruppo e l'altro.</li>
+    </ul>
+    <p>In pratica: la scala trasforma lo stage plot da «immagine» a <strong>strumento di lavoro</strong>. È la differenza tra uno schema che il service apprezza e uno che deve reinterpretare.</p>
+
+    <h2>Stage plot in scala vs disegno «a occhio»</h2>
+    <p>Molti tool per stage plot lavorano con icone di dimensione libera: veloci, ma le proporzioni non tornano. Il rischio è consegnare un documento che sembra a posto e che in montaggio si rivela impreciso — il palco non è come sul foglio. Partire da elementi con le <strong>misure reali</strong> (una sedia da orchestra è 44 cm, un pianoforte a gran coda quasi 3 metri) evita quel divario fin dal primo trascinamento.</p>
+
+    <h2>Come fare uno stage plot in scala online (gratis)</h2>
+    <p>Con <a href="/">StagePlot</a> la scala è la base, non un'opzione. Il flusso è questo:</p>
+    <ul>
+      <li><strong>Imposta il palco</strong> con le sue dimensioni reali (larghezza e profondità in metri) e, se vuoi, carica la planimetria del locale come sfondo.</li>
+      <li><strong>Trascina gli elementi</strong> dal catalogo: musicisti, strumenti, backline, monitor, microfoni e prese arrivano già dimensionati in scala reale.</li>
+      <li><strong>Sistema tutto guardando gli ingombri veri</strong>: se una cosa non ci sta, lo vedi subito.</li>
+      <li><strong>Esporta il PDF in scala</strong>, pronto da allegare al rider, senza registrazione.</li>
+    </ul>
+    <p>Trovi il procedimento completo nella guida <a href="/guida/come-fare-uno-stage-plot/">come fare uno stage plot</a>.</p>
+
+    <h2>Dalla scala nascono le liste tecniche</h2>
+    <p>Il vantaggio di lavorare in scala con elementi «veri» è che il disegno conosce cosa c'è sul palco. Da lì il resto del pacchetto tecnico si costruisce dai dati, non a mano:</p>
+    <ul>
+      <li>La <a href="/guida/channel-list-input-list/">channel list</a> si compila in automatico dagli strumenti che hai messo sul palco.</li>
+      <li>Il <a href="/guida/rider-tecnico/">rider tecnico</a> raccoglie stage plot, canali, monitor e note in un unico PDF coerente.</li>
+      <li>Le lunghezze di cablaggio e i carichi elettrici partono dalle distanze e dagli ingombri reali.</li>
+    </ul>
+    <p>Quando lo stage plot è in scala, questi documenti restano allineati tra loro: cambi una cosa sul palco e le liste seguono.</p>
+
+    <div class="cta-box">
+      <h2>Disegna il tuo palco in scala, gratis</h2>
+      <p>Editor nel browser con misure reali, senza registrazione. Esporta in PDF in scala.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+        <a class="btn consul" href="/guida/come-fare-uno-stage-plot/">Come si fa, passo per passo</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Che scala si usa per uno stage plot?</summary><p>Non serve una scala fissa come 1:50: quello che conta è che le proporzioni siano reali, cioè che un metro sul palco corrisponda sempre alla stessa distanza sul disegno. Così ingombri e distanze restano fedeli alla realtà a qualsiasi zoom.</p></details>
+      <details><summary>Perché uno stage plot deve essere in scala reale?</summary><p>Perché il service usa lo stage plot per capire se le cose ci stanno: se il riser della batteria entra nel palco, quanto cavo serve, dove passano le persone, quanto distano i monitor. Un disegno «a occhio» non risponde a queste domande e porta a errori in montaggio.</p></details>
+      <details><summary>Come faccio uno stage plot in scala gratis?</summary><p>Con StagePlot: apri l'editor nel browser, imposti le dimensioni reali del palco e trascini elementi (musicisti, backline, monitor, prese) già in scala. Esporti poi il PDF in scala, senza registrazione.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/cos-e-uno-stage-plot/"><strong>Cos'è uno stage plot</strong><span>Significato, componenti ed esempi</span></a>
+        <a href="/guida/come-fare-uno-stage-plot/"><strong>Come fare uno stage plot</strong><span>La guida pratica passo per passo</span></a>
+        <a href="/guida/rider-tecnico/"><strong>Rider tecnico</strong><span>Cos'è e cosa deve contenere</span></a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/">Tool gratuito</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
