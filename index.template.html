@@ -410,7 +410,10 @@
     <div id="pLabelWrap"><label>Etichetta</label><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap" style="margin-top:8px">
-      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Nome sul palco</label>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
+        <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Nome sul palco</label>
+        <button class="btn" id="pLblApplyType" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline;white-space:nowrap" title="Applica questa modalità nome (e la sigla) a tutti gli elementi dello stesso tipo">Applica a tutti</button>
+      </div>
       <div style="display:flex;gap:4px">
         <button class="btn" id="pLblFull" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra il nome completo">Intero</button>
         <button class="btn" id="pLblAbbr" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra una sigla breve (il PDF resta col nome completo)">Sigla</button>
@@ -419,7 +422,20 @@
       <div id="pAbbrWrap" style="display:none;margin-top:6px">
         <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
-      <button class="btn" id="pLblApplyType" style="width:100%;margin-top:6px;font-size:11px;padding:4px 2px" title="Applica questa modalità nome a tutti gli elementi dello stesso tipo">Applica agli elementi dello stesso tipo</button>
+    </div>
+    <!-- Gruppo etichetta (opz.A Simone): Dimensione + Colore + Posizione raggruppati qui, non sparsi in basso -->
+    <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione etichetta</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
+    <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
+    <div id="pTxtColorWrap" style="display:none;margin-top:8px">
+      <label>Colore testo</label>
+      <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
+    </div>
+    <div id="pLblPosWrap" style="display:none;margin-top:6px">
+      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione etichetta</label>
+      <div style="display:flex;gap:4px">
+        <button class="btn" id="pLblPosTop" style="flex:1;font-size:12px;padding:5px 2px">↑ Sopra</button>
+        <button class="btn" id="pLblPosBot" style="flex:1;font-size:12px;padding:5px 2px">↓ Sotto</button>
+      </div>
     </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
@@ -449,19 +465,6 @@
     <div id="pPreseWrap" style="display:none">
       <label>Ingressi (prese)</label>
       <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
-    </div>
-    <label style="display:flex;justify-content:space-between;align-items:baseline"><span id="pLblSizeName">Dimensione etichetta</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
-    <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
-    <div id="pTxtColorWrap" style="display:none;margin-top:8px">
-      <label>Colore testo</label>
-      <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
-    </div>
-    <div id="pLblPosWrap" style="display:none;margin-top:6px">
-      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione etichetta</label>
-      <div style="display:flex;gap:4px">
-        <button class="btn" id="pLblPosTop" style="flex:1;font-size:12px;padding:5px 2px">↑ Sopra</button>
-        <button class="btn" id="pLblPosBot" style="flex:1;font-size:12px;padding:5px 2px">↓ Sotto</button>
-      </div>
     </div>
     <div class="row" id="pDims">
       <span><label>L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
