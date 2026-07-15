@@ -12773,6 +12773,57 @@ function openRubPicker(){
     pick.innerHTML=""; pick.appendChild(q); pick.appendChild(listHost); paint(); q.focus();
   });
 }
+/* Modale "La mia rubrica" (spec 15/07): gestione completa + import dai progetti.
+   z-index sopra la modale "I miei progetti" (si apre anche da lì). */
+window.__openRubricaModal=function(){
+  var ov=document.getElementById("rubModal");
+  if(!ov){ ov=document.createElement("div"); ov.id="rubModal";
+    ov.style.cssText="position:fixed;inset:0;z-index:340;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
+    ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)">'+
+      '<h3 style="margin:0 0 4px;font-size:18px">La mia rubrica</h3>'+
+      '<div id="rubCount" style="font-size:11.5px;color:var(--text-3);margin-bottom:10px"></div>'+
+      '<div id="rubRows"></div>'+
+      '<div style="display:flex;gap:10px;margin-top:14px;justify-content:space-between">'+
+        '<button id="rubImport" type="button" class="btn">Importa dai progetti</button>'+
+        '<button id="rubClose" type="button" class="btn primary">Chiudi</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function(e){ if(e.target===ov) ov.style.display="none"; });
+    ov.querySelector("#rubClose").addEventListener("click", function(){ ov.style.display="none"; });
+    ov.querySelector("#rubImport").addEventListener("click", rubImportFlow);
+  }
+  ov.style.display="flex"; rubPaintRows();
+};
+function rubPaintRows(){
+  var host=document.getElementById("rubRows"), cnt=document.getElementById("rubCount"); if(!host) return;
+  host.innerHTML='<div style="font-size:12px;color:var(--text-3)">Carico…</div>';
+  window.__cloud.rubrica.list(function(rows){
+    if(rows==null){ host.innerHTML='<div style="font-size:12px;color:#dc2626">Rubrica non raggiungibile.</div>'; return; }
+    if(cnt) cnt.textContent=rows.length+"/200 contatti · i più usati di recente in alto";
+    host.innerHTML="";
+    if(!rows.length){ host.innerHTML='<div style="font-size:12px;color:var(--text-3)">Vuota. «Importa dai progetti» pesca i contatti già usati nei tuoi progetti cloud.</div>'; return; }
+    rows.forEach(function(c){
+      var row=document.createElement("div"); row.style.cssText="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center;margin-bottom:6px;font-size:12px";
+      row.innerHTML='<div><b>'+esc(c.name||"—")+'</b>'+(c.role?' · '+esc(c.role):'')+'</div><div style="color:var(--text-3);overflow:hidden;text-overflow:ellipsis">'+esc(c.contact||"")+(c.note?' · '+esc(c.note):'')+'</div>';
+      var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Elimina dalla rubrica";
+      del.style.cssText="border:1px solid var(--border,#e5e7eb);background:var(--surface,#fff);border-radius:6px;cursor:pointer;color:#dc2626;font-size:14px;line-height:1;padding:2px 8px";
+      del.addEventListener("click", function(){ window.__cloud.rubrica.remove(c.id, function(){ rubPaintRows(); }); });
+      row.appendChild(del); host.appendChild(row);
+    });
+  });
+}
+function rubImportFlow(){
+  var host=document.getElementById("rubRows"); if(!host) return;
+  host.innerHTML='<div style="font-size:12px;color:var(--text-3)">Cerco contatti nei tuoi progetti…</div>';
+  window.__cloud.rubrica.importCandidates(function(cand){
+    if(cand==null){ rubPaintRows(); if(window.__toast) window.__toast("Import non riuscito.", true); return; }
+    if(!cand.length){ rubPaintRows(); if(window.__toast) window.__toast("Nessun contatto nuovo trovato nei progetti."); return; }
+    var done=0;
+    (function next(){
+      if(done>=cand.length){ if(window.__toast) window.__toast("Importati "+done+" contatti."); rubPaintRows(); return; }
+      window.__cloud.rubrica.upsert(cand[done], function(){ done++; next(); });
+    })();
+  });
+}
 /* T3 — barra tab del link condiviso normale: Stage plot + una tab per ogni lista con dati (tabelle reali). */
 function setupViewerTabs(){
   var tg=document.getElementById("viewToggle"), host=document.getElementById("viewLists");
@@ -13738,8 +13789,10 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       '</div>'+
       '<p style="color:var(--text-3);font-size:12px;margin:0 0 8px">I tuoi progetti si salvano online automaticamente mentre lavori (V. stato accanto al nome del progetto).</p>'+
       '<div style="margin-top:10px">'+rows+'</div>'+
-      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:14px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
+      '<a href="#" id="cloudRubrica" style="display:block;margin-top:12px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">La mia rubrica…</a>'+
+      '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:6px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
+    var rubL=document.getElementById("cloudRubrica"); if(rubL) rubL.addEventListener("click", function(e){ e.preventDefault(); if(window.__openRubricaModal) window.__openRubricaModal(); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudRename"), function(b){ b.addEventListener("click", function(){ renameProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });

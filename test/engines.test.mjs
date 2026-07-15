@@ -958,6 +958,8 @@ t("migrazione: musTimpani → timpani (schema configurabile + timpanista in mezz
   const s = { _v: 2, items: [{ type: "musTimpani" }], inputs: [], outputs: [] };
   A.normalizeState(s);
   eq(s.items[0].type, "timpani");
+});
+
 console.log("\nRubrica contatti — logica pura (spec 15/07):");
 t("contactKey: normalizza maiuscole/spazi; vuoto = '|'", () => {
   eq(A.contactKey({ name: " Mario Rossi ", contact: "333-0000000" }), "Mario Rossi|333-0000000");
