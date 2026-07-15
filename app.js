@@ -24,7 +24,13 @@ var DEFS='<defs>'+
 /* ===== Libreria icone: estratta in /icons.js, caricata ASYNC per l'LCP (era ~1,7 MB inline).
    LIB_ICONS e' il global condiviso; icons.js lo popola quando arriva e chiama __onIconsReady -> re-render. ===== */
 var LIB_ICONS = (window.LIB_ICONS = window.LIB_ICONS || {});
-window.__onIconsReady = function(){ try{ window.__iconsLoaded=true; if(typeof render==="function") render(); }catch(_e){} };
+window.__onIconsReady = function(){ try{ window.__iconsLoaded=true;
+  /* le vb delle illustrazioni ora sono note → ricalcola il footprint degli illustrati Fase 2 (era stato messo
+     alle dims del tipo funzionale quando LIB_ICONS era vuoto) */
+  if(typeof state==="object" && state && state.items && typeof recalcItemDims==="function")
+    state.items.forEach(function(it){ if(typeof look2Art==="function" && look2Art(it)) recalcItemDims(it); });
+  if(typeof render==="function") render();
+}catch(_e){} };
 var _libN=0;
 var _pdfMode=false;   /* true SOLO in drawStageVector() (percorso svg2pdf) → singer/conductor geometrici; false nel percorso raster → icone reali */
 function libIcon(key){ var L=LIB_ICONS[key]; if(!L) return ''; var cx=L.vb[0]+L.vb[2]/2, cy=L.vb[1]+L.vb[3]/2;
@@ -1266,6 +1272,14 @@ var LOOK_ART = {
 };
 /* illustrazione da disegnare al posto dello schema per i tipi Fase 2 in aspetto illustrato (default) */
 function look2Art(it){ return it && it.look!=="schematico" && LOOK_ART[it.type] ? LOOK_ART[it.type] : null; }
+/* Fase 2 illustrato: il footprint (w/d) = dimensioni dell'illustrazione a scala reale, così il riquadro
+   di selezione e le collisioni combaciano con ciò che si vede. In schematico si usano le dims del tipo.
+   Se icons.js non è ancora caricato (vb assente) → null, si ricalcola a __onIconsReady. */
+function look2Dims(it){
+  var a = look2Art(it); if(!a) return null;
+  var e = window.LIB_ICONS && window.LIB_ICONS[a];
+  return (e && e.vb) ? [Math.round(e.vb[2]), Math.round(e.vb[3])] : null;
+}
 /* c'è un toggle Aspetto per questo tipo? (postazione Fase 1 o tipo funzionale Fase 2) */
 function hasLookToggle(it){ return it && (!!POSTAZ_ART[it.type] || !!LOOK_ART[it.type]); }
 /* config "distanza tra i 2" per l'item selezionato (doppia da flag o tipo ×2 del modale) */
@@ -1991,6 +2005,7 @@ function normalizeState(s){
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
+    var _ldn=look2Dims(it); if(_ldn){ it.w=_ldn[0]; it.d=_ldn[1]; }   /* Fase 2 illustrato: footprint = illustrazione (anche progetti vecchi; se icons non pronte → __onIconsReady ricalcola) */
     if(it.type==="testo" && (+it.w||0)<=20){ it.w=200; it.d=70; }   /* 11/07: il testo libero è diventato un box (era un punto 10×10) */
     if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
@@ -2111,6 +2126,7 @@ function b64urlToStr(s){ s=String(s).replace(/-/g,"+").replace(/_/g,"/"); while(
    Centralizza la logica usata negli handler di edit così che anche gli item "grezzi" (AI/import) abbiano ingombri corretti. */
 function recalcItemDims(it){
   var t=TYPES[it.type]; if(!t) return;
+  var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1]; return; }   /* Fase 2 illustrato: footprint = illustrazione */
   if(t.gtr){ var g=gtrSize(it,t); it.w=g[0]; it.d=g[1]; return; }
   if(t.dir || it.type==="direttore"){ var ds=dirSize(it); it.w=ds[0]; it.d=ds[1]; return; }
   if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=minSepType(it.type);
@@ -2471,6 +2487,11 @@ function itemMarkup(it){
   var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(KEYS_BENCH[it.type] && it.panca!==false && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
+  if(TASTIERE[it.type] && (it.leggio || it.leggio2)){   /* leggio/tablet della tastiera: davanti al musicista (lato pubblico, +y) */
+    var _ky=it.d/2+22, _kdx=it.leggio2?34:0;
+    if(it.leggio)  s += '<g transform="translate('+(-_kdx)+','+_ky+')">'+leggioGlyph(0)+'</g>';
+    if(it.leggio2) s += '<g transform="translate('+_kdx+','+_ky+')">'+leggioGlyph(0)+'</g>';
+  }
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
     var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='';
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
@@ -4617,8 +4638,8 @@ function _setLblMode(m){ mutSel(function(it){ if(m==="abbr") delete it.labelMode
 document.getElementById("pLblFull").addEventListener("click", function(){ _setLblMode("full"); });
 document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLblMode("abbr"); });
 document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
-document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ delete it.look; }); renderProps(); });   /* illustrato = default (non memorizzato) */
-document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; }); renderProps(); });
+document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ delete it.look; recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
+document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; recalcItemDims(it); }); renderProps(); });
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
@@ -5432,6 +5453,7 @@ function addItem(type, over){
   if(POSTAZ[type]){ it.sedia=true; it.leggio=true; it.doppia=false; it.sep=minSepType(type); }
   if(DOUBLE_TYPES[type]){ it.sep=minSepType(type); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
+  var _ld0=look2Dims(it); if(_ld0){ it.w=_ld0[0]; it.d=_ld0[1]; }   /* Fase 2 illustrato (default): footprint = illustrazione */
   if(autoNumbered(type)){   /* nome progressivo: Flauto 1, Flauto 2, … (doppie = 2 nomi) */
     var seats0=instrSeats(type), base0=instrBase(type);
     it.label=base0+" "+(seats0+1);
