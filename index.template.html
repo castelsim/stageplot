@@ -1030,7 +1030,7 @@
     <h2>🤖 Crea con l'AI</h2>
     <ol class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 12px 18px;line-height:1.5">
       <li>Premi <b>Apri ChatGPT</b>: si apre con il prompt già pronto. <b>Invia</b> quel messaggio.</li>
-      <li>Nel messaggio successivo <b>descrivi il tuo palco</b> (strumenti, posizioni, microfoni…). Puoi anche partire da un template salvato: es. <i>"come Morricone Pove e aggiungi la tastiera"</i>.</li>
+      <li>Nel messaggio successivo <b>descrivi il tuo palco</b> (strumenti, posizioni, microfoni…). Puoi anche partire da un template salvato: es. <i>"come il mio template orchestra e aggiungi la tastiera"</i>.</li>
       <li>ChatGPT ti restituisce un <b>link</b>: cliccalo (o incollalo qui sotto) e il palco si apre già pronto.</li>
     </ol>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1763,8 +1763,8 @@ var TYPES = {
              draw:function(it){ return drawLibFit("wcchim",it,110,110); }},
   wcpmr: {nome:"Bagno chimico PMR", dim:"160×160", cat:"Sicurezza e site", w:160,d:160,
              draw:function(it){ return drawLibFit("wcpmr",it,160,160); }},
-  /* LAB caso F (Asiago 15/07) — vincolo di sito: palo, albero, monumento, fontana… Nei documenti reali
-     vivono solo come blocchi disegnati a mano ("PALO", "CIPPO DEL PAPA"); qui sono un'area interdetta
+  /* Vincolo di sito: palo, albero, monumento, fontana… Nei documenti reali analizzati vivono solo
+     come blocchi disegnati a mano su un'immagine; qui sono un'area interdetta
      in scala, ridimensionabile ed etichettabile. Nessun canale/carico (fuori da IN_SRC/WATT). */
   ostacolo: {nome:"Ostacolo di sito", dim:"palo, albero, monumento…", cat:"Sicurezza e site", w:100,d:100, resizable:true, defLabel:"OSTACOLO",
              draw:function(it){ var w=it.w,d=it.d,r=Math.min(18,w/6,d/6);
@@ -5242,15 +5242,15 @@ function auditEngine(){
   if(badP48.length) add("warn", badP48.length+(badP48.length===1?" canale ha":" canali hanno")+" il +48V su un mic/DI che non lo richiede (dinamico o wireless).","Audio","Il phantom è inutile e su alcuni radiomicrofoni può essere dannoso: rimuovilo.",{label:"Togli 48V",run:auditFix48V});
   var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
-  /* LAB caso 1 (Disney Ristori, 15/07) — L8: il cantante non genera canali da solo → senza un mic voce
-     entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (l'evento reale aveva 11 canali voce).
+  /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
+     entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (nei casi reali analizzati mancavano fino a 11 canali voce).
      Solo "cantante": il corista vive tipicamente nel mic di sezione/coro o in una zona. */
   var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,podiosp:1};
   var voxless=items.filter(function(it){ return it.type==="cantante" && !itemInMicZone(it)
     && !items.some(function(m){ return AUDIT_VOICE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<150; }); });
   if(voxless.length) add("warn", voxless.length+(voxless.length===1?" cantante è":" cantanti sono")+" senza microfono: la voce non entra nella channel list.","Audio","Ogni voce ha bisogno di un mic accanto (radiomic, asta o headset) oppure di una zona mic.",{label:"Aggiungi radiomic",run:function(){ auditFixAddVoiceMics(voxless); }});
-  /* LAB caso 1 — B4: due canali con lo STESSO nome = probabile doppione non dichiarato (il caso reale:
-     "VOX DIEGO DIRECTOR" microfonato due volte, ch56+ch65, senza nota). Lista manuale se presente,
+  /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
+     la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
      altrimenti quella derivata dagli elementi. */
   var chNames=[];
   if((state.inputs||[]).some(function(r){ return r && r.src && String(r.src).trim(); }))
@@ -5258,7 +5258,7 @@ function auditEngine(){
   else items.forEach(function(it){ (cabItemInputs(it)||[]).forEach(function(ch){ var k=String(ch.name||"").trim(); if(k) chNames.push(k); }); });
   var chCnt={}; chNames.forEach(function(k){ var lk=k.toLowerCase(); chCnt[lk]=(chCnt[lk]||0)+1; });
   var dupCh=Object.keys(chCnt).filter(function(k){ return chCnt[k]>1; });
-  if(dupCh.length) add("warn", (dupCh.length===1?("Due canali si chiamano «"+dupCh[0]+"»"):(dupCh.length+" nomi di canale compaiono più volte ("+dupCh.slice(0,3).join(", ")+"…"+")"))+": patch ambiguo per il service.","Audio","Se è uno spare, dichiaralo nel nome (es. «VOX DIEGO spare»); se sono due sorgenti diverse, rinominane una.");
+  if(dupCh.length) add("warn", (dupCh.length===1?("Due canali si chiamano «"+dupCh[0]+"»"):(dupCh.length+" nomi di canale compaiono più volte ("+dupCh.slice(0,3).join(", ")+"…"+")"))+": patch ambiguo per il service.","Audio","Se è uno spare, dichiaralo nel nome (es. «VOX LEAD spare»); se sono due sorgenti diverse, rinominane una.");
   var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf; }).length;
   if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
   var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
@@ -5267,7 +5267,7 @@ function auditEngine(){
     var uncovered=items.filter(isAudioSource).filter(function(s){ return !monItems.some(function(m){ return Math.hypot(s.x-m.x, s.y-m.y)<AUDIT_MON_NEAR; }); }).length;
     if(uncovered) add("warn", uncovered+(uncovered===1?" postazione è lontana":" postazioni sono lontane")+" da ogni monitor (oltre ~"+(AUDIT_MON_NEAR/100).toFixed(1).replace(".",",")+" m).","Monitor","Verifica la copertura monitor: avvicina un wedge/side o usa gli IEM.",{label:"Aggiungi wedge",run:auditFixAddWedge});
   }
-  /* T4 — contatto del Service: la lezione di Asiago (il collo era «girami un numero del service») */
+  /* T4 — contatto del Service: lezione dei casi reali (il collo era «girami un numero del service») */
   if(audioSrc>0 && !(state.contacts||[]).some(function(c){ return /service/i.test(c.role||"") && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }))
     add("info","Nessun contatto per il Service locale nella rubrica del rider: serve per coordinare la data.","Contatti");
   /* T5 — stato: un documento ancora in bozza non è pronto da inviare */
@@ -11565,7 +11565,7 @@ function aiTypeLegend(){
 /* ===== LIBRERIA TEMPLATE (curata, nel codice) =====
    Ogni voce: { name:"Nome luogo/evento", desc:"breve nota", state:{ titolo,luogo,stage:{blocks:[...]},items:[...],inputs:[],outputs:[] } }
    Per aggiungerne uno: crea il palco nell'app → Condividi → manda il link + il nome; verrà incollato qui.
-   L'utente in ChatGPT potrà dire es. "come Morricone Pove e aggiungi la tastiera": l'AI parte dal template e lo modifica. */
+   L'utente in ChatGPT potrà dire es. "come il mio template orchestra e aggiungi la tastiera": l'AI parte dal template e lo modifica. */
 var AI_TEMPLATES = [
   /* esempio dimostrativo (sostituibile): */
   { name:"Band base", desc:"batteria, basso, 2 chitarre, tastiera, voce + wedge", state:{
@@ -12620,7 +12620,7 @@ function primaryContactStr(contacts){
   return [pri.name, pri.contact].filter(function(x){ return x&&x.trim(); }).join(" — ") || (pri.contact||"");
 }
 function syncTechContact(){ state.techContact = primaryContactStr(); }   /* allinea il legacy field (rider header + pagina consulenza) */
-/* ===== T5 — Stati di approvazione (il «va bene» di DESPAR → sign-off tracciato). Morbidi: il lock hard resta a parte. ===== */
+/* ===== T5 — Stati di approvazione (il «va bene» via email → sign-off tracciato). Morbidi: il lock hard resta a parte. ===== */
 var PROJECT_STATUSES = [
   {k:"bozza",     label:"Bozza",       color:"#6b7280"},
   {k:"revisione", label:"In revisione",color:"#d97706"},
