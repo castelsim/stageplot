@@ -797,6 +797,16 @@ t("docToJSONFull conserva la planimetria dell'attiva; docToJSON la strippa", () 
   ok(!lv.state.venue || !lv.state.venue._dataUrl, "docToJSON: immagine strippata");
   ok(fv.state.venue && fv.state.venue._dataUrl, "docToJSONFull: immagine presente sull'attiva");
 });
+t("safeVenueDataUrl: whitelist raster; scarta svg/js/breakout (difesa in profondità di applyVenueImage)", () => {
+  eq(A.safeVenueDataUrl("data:image/png;base64,AAAB"), "data:image/png;base64,AAAB");
+  eq(A.safeVenueDataUrl("data:image/jpeg;base64,/9j/4AAQ"), "data:image/jpeg;base64,/9j/4AAQ");
+  eq(A.safeVenueDataUrl("data:image/webp;base64,UklGRg=="), "data:image/webp;base64,UklGRg==");
+  eq(A.safeVenueDataUrl("data:image/svg+xml;base64,PHN2Zz4="), "");        // svg = vettore XSS → scartato
+  eq(A.safeVenueDataUrl('data:image/png;base64,AAA" onerror="alert(1)'), ""); // attribute breakout → scartato
+  eq(A.safeVenueDataUrl("javascript:alert(1)"), "");
+  eq(A.safeVenueDataUrl(""), "");
+  eq(A.safeVenueDataUrl(null), "");
+});
 
 console.log("\nUnifica icone (Fase 1) — musicista↔postazione:");
 t("postArt: default illustrato → art; schematico → null; non mappato → null", () => {
