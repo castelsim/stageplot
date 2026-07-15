@@ -898,6 +898,14 @@ t("look2Art: chitarra/arpa default â†’ illustrazione; schematico e non-mappati â
   eq(A.look2Art({ type: "gtstand", look: "schematico" }), null);
   eq(A.look2Art({ type: "astamic" }), null);
 });
+t("zona mic da postazione a 2: un solo item doppia genera una zona che lo copre", () => {
+  reset();
+  const v = add("vlnpost", 450, 340); v.vsec = 1; v.doppia = true; v.sep = 120; A.recalcItemDims(v);
+  const shape = A.miczoneShapeFromItems([v], 25);   /* stessa funzione del bottone "Crea zona microfonazione" */
+  ok(shape && shape.pts && shape.pts.length >= 3, "genera un poligono anche da 1 solo item (la doppia)");
+  const b = A.polyBBox(shape.pts);
+  ok(b.w >= v.w, "la zona copre almeno la larghezza della doppia (entrambi i musicisti)");
+});
 t("chitarra illustrata: ampli/pedaliera nel footprint (bug visualizzazione)", () => {
   const base = A.recalcItemDims.bind(null);
   const it = { type: "gtstand", look: "illustrato" }; A.recalcItemDims(it); const d0 = it.d;
