@@ -2542,7 +2542,9 @@ function hwCompatible(mixerId, sbId){   /* protocollo condiviso mixer↔stagebox
    alimentatore locale, per la serie) · ports (uscite mixer del hub) · v (validato datasheet). */
 var PM_SYS = { ultranet:{name:"ULTRANET", cable:"CAT5e STP"}, anet16:{name:"A-Net Pro16", cable:"CAT5e"},
   anetpro16e:{name:"A-Net Pro16e", cable:"CAT5e"}, hearbus:{name:"HearBus", cable:"CAT5e/CAT6"},
-  hearbuspro:{name:"Hear Back PRO", cable:"CAT6 (PoE)", maxm:150} };   /* maxm: ~500 ft dai datasheet Hear (unico sistema con limite VALIDATO; gli altri senza numero finché non verificati) */
+  hearbuspro:{name:"Hear Back PRO", cable:"CAT6 (PoE)", maxm:150},   /* maxm: ~500 ft dai datasheet Hear (unico sistema con limite VALIDATO; gli altri senza numero finché non verificati) */
+  me:{name:"Allen & Heath ME", cable:"CAT5"}, aes50pm:{name:"AES50 (Midas)", cable:"CAT5e"},
+  klang:{name:"KLANG (Dante/PoE)", cable:"CAT5e"}, livemix:{name:"Livemix", cable:"CAT5e"} };   /* estensione modelli 15/07 — connettore RJ45 ma protocolli DIVERSI e NON intercompatibili */
 var PM_DB = {
   /* Behringer — ULTRANET */
   "p16m":  {brand:"Behringer", model:"Powerplay P16-M", role:"mixer", sys:"ultranet", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, v:true},
@@ -2557,7 +2559,22 @@ var PM_DB = {
   "hbocto":{brand:"Hear Technologies", model:"Hear Back OCTO Mixer", role:"mixer", sys:"hearbus", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},
   "octohub":{brand:"Hear Technologies", model:"Hear Back OCTO Hub", role:"hub", sys:"hearbus", ports:8, powerOverData:true, cascade:"dedicated", v:true},   /* HearBus In/Out dedicati */
   "hbpro": {brand:"Hear Technologies", model:"Hear Back PRO Mixer", role:"mixer", sys:"hearbuspro", daisy:false, hubOnly:true, powerOverData:true, psuLocal:false, v:true},   /* datasheet 14/07: home-run al hub, PoE 36-52V dal hub via CAT6 (fino a ~150 m) */
-  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, cascade:"dedicated", v:true}   /* datasheet 14/07: 8 porte per Network Card (fino a 4 card = 32 mixer), hub concatenabili via HBUS In/Out, PoE 36-52V 15W */
+  "prohub":{brand:"Hear Technologies", model:"Hear Back PRO Hub", role:"hub", sys:"hearbuspro", ports:8, powerOverData:true, cascade:"dedicated", v:true},   /* datasheet 14/07: 8 porte per Network Card (fino a 4 card = 32 mixer), hub concatenabili via HBUS In/Out, PoE 36-52V 15W */
+  /* --- ESTENSIONE 15/07: modelli aggiunti dal prompt di Simone. ver:"partial" = specifiche da confermare sui datasheet ufficiali (revisioni hw). --- */
+  "a640":  {brand:"Aviom", model:"A640", role:"mixer", sys:"anetpro16e", daisy:false, hubOnly:true, powerOverData:true, psuLocal:true, ver:"partial"},
+  /* Allen & Heath ME (Cat5, ME-U PoE) — Link In/Out: in serie solo il 1° riceve PoE, i successivi PSU */
+  "me1":   {brand:"Allen & Heath", model:"ME-1", role:"mixer", sys:"me", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, ver:"partial", note:"Link In/Out; il 1° elemento riceve PoE dal ME-U/switch, i successivi in serie richiedono alimentatore (il Link Out non rilancia la PoE)"},
+  "me500": {brand:"Allen & Heath", model:"ME-500", role:"mixer", sys:"me", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, ver:"partial"},
+  "meu":   {brand:"Allen & Heath", model:"ME-U", role:"hub", sys:"me", ports:10, powerOverData:true, ver:"partial", note:"10 uscite PoE per ME-1/ME-500"},
+  /* Midas AES50 — Hub4 alimenta max 2 DP48 consecutivi per porta */
+  "dp48":  {brand:"Midas", model:"DP48", role:"mixer", sys:"aes50pm", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, ver:"partial", note:"AES50 In/Thru; il Hub4 alimenta fino a 2 DP48 consecutivi, oltre serve alimentatore locale"},
+  "hub4":  {brand:"Midas", model:"DP48 Hub4", role:"hub", sys:"aes50pm", ports:4, powerOverData:true, cascade:"dedicated", ver:"partial", note:"splitta 1 AES50 su 4 uscite; alimenta i DP48 (max 2 consecutivi per porta)"},
+  /* KLANG — switch di rete a 2 porte, PoE NON rilanciata */
+  "klangk":{brand:"KLANG", model:":kontroller", role:"mixer", sys:"klang", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, ver:"partial", note:"switch a 2 porte; PoE in ingresso ma NON rilanciata: in serie solo il 1° è alimentato, i successivi richiedono alimentatore"},
+  /* Digital Audio Labs Livemix — pass-through, alimentazione non propagata in serie */
+  "lmcsduo":{brand:"Digital Audio Labs", model:"Livemix CS-DUO", role:"mixer", sys:"livemix", daisy:true, hubOnly:false, powerOverData:true, psuLocal:true, ver:"partial", note:"2 porte pass-through; in serie l'alimentazione non è propagata (successivi = alimentatore); a stella dal MIX-16/32 no"},
+  "mix16": {brand:"Digital Audio Labs", model:"Livemix MIX-16", role:"hub", sys:"livemix", ports:16, powerOverData:true, ver:"partial"},
+  "mix32": {brand:"Digital Audio Labs", model:"Livemix MIX-32", role:"hub", sys:"livemix", ports:16, powerOverData:true, ver:"partial"}
 };
 function pmOf(it){ return (it && it.pm && PM_DB[it.pm]) || null; }
 function pmSysName(sys){ return (PM_SYS[sys]&&PM_SYS[sys].name)||sys||""; }
@@ -2636,7 +2653,8 @@ function pmAutoConnect(sysFilter){
   return {done:done, left:left, needPsu:needPsu};
 }
 /* hub di default per sistema → creato al baricentro dei mixerini scoperti di quel sistema */
-var PM_DEFAULT_HUB={ ultranet:"p16d", anet16:"d400", anetpro16e:"d800", hearbus:"octohub", hearbuspro:"prohub" };
+var PM_DEFAULT_HUB={ ultranet:"p16d", anet16:"d400", anetpro16e:"d800", hearbus:"octohub", hearbuspro:"prohub",
+  me:"meu", aes50pm:"hub4", livemix:"mix32" };   /* klang = rete Dante/switch PoE, nessun hub PM dedicato */
 function pmAddHub(sys){
   var hid=PM_DEFAULT_HUB[sys]; if(!hid||!PM_DB[hid]) return null;
   var R=monDigEngine();
@@ -3636,12 +3654,13 @@ function pmFillProps(it){
   if(curBrand){
     var mh='';
     Object.keys(PM_DB).forEach(function(k){ var d=PM_DB[k]; if(d.role!==role||d.brand!==curBrand) return;
-      mh+='<option value="'+k+'"'+(it.pm===k?' selected':'')+'>'+esc(d.model)+(d.v===false?" ?":"")+'</option>'; });
+      mh+='<option value="'+k+'"'+(it.pm===k?' selected':'')+'>'+esc(d.model)+((d.v===false||d.ver==="partial")?" ?":"")+'</option>'; });
     mSel.innerHTML=mh; mSel.style.display="";
   } else { mSel.innerHTML=""; mSel.style.display="none"; }
   var info=document.getElementById("pPmInfo"), st=document.getElementById("pPmState");
   if(cur){ var sys=PM_SYS[cur.sys]||{};
-    info.textContent=(sys.name||cur.sys)+" · "+(sys.cable||"")+(cur.role==="hub"?(" · "+(cur.ports||8)+" uscite alimentate"):"");
+    info.textContent=(sys.name||cur.sys)+" · "+(sys.cable||"")+(cur.role==="hub"?(" · "+(cur.ports||8)+" uscite alimentate"):"")+
+      ((cur.ver==="partial"||cur.v===false)?" · ⚠ specifiche da verificare sul datasheet":"")+(cur.note?" · "+cur.note:"");
   } else info.textContent="Generico: nessun vincolo di sistema applicato.";
   /* stato dal motore: alimentazione del mixerino / porte del hub */
   var R=(state.mond&&state.mond.on)?mondResult():null, msg="", col="var(--text-3)";

@@ -509,6 +509,27 @@ t("generico (senza it.pm): zero vincoli nuovi, zero PSU contati", () => {
   eq(R.psuCount, 0, "PSU sul generico");
 });
 
+console.log("\nPM — estensione modelli/sistemi (15/07):");
+t("PM_DB: 10 nuovi modelli presenti (ver partial)", () => {
+  ["a640", "me1", "me500", "meu", "dp48", "hub4", "klangk", "lmcsduo", "mix16", "mix32"].forEach((k) => ok(A.PM_DB[k], "manca " + k));
+  eq(A.PM_DB.dp48.ver, "partial"); eq(A.PM_DB.meu.role, "hub"); eq(A.PM_DB.meu.ports, 10);
+  eq(A.PM_DB.dp48.sys, "aes50pm"); eq(A.PM_DB.me1.daisy, true);
+});
+t("PM_SYS: 4 nuovi sistemi", () => { ["me", "aes50pm", "klang", "livemix"].forEach((s) => ok(A.PM_SYS[s], "manca sys " + s)); });
+t("pmSysCompatible: sistemi diversi NON compatibili (RJ45 ≠ compatibile), A-Net famiglia sì", () => {
+  ok(!A.pmSysCompatible("me", "aes50pm")); ok(!A.pmSysCompatible("livemix", "klang"));
+  ok(A.pmSysCompatible("anet16", "anetpro16e")); ok(A.pmSysCompatible("me", "me"));
+});
+t("pmLinkCheck: ME-1 su Hub4 (sistemi diversi) = bloccato", () => {
+  reset(); const mx = add("hearback", 300, 300); mx.pm = "me1"; const hub = add("mixhub", 400, 300); hub.pm = "hub4";
+  const r = A.pmLinkCheck(mx, hub); ok(r && /NON sono compatibili/.test(r.msg), "atteso blocco cross-sistema; got " + JSON.stringify(r));
+});
+t("pmLinkCheck: DP48 su Hub4 (stesso AES50) = ok", () => {
+  reset(); const mx = add("hearback", 300, 300); mx.pm = "dp48"; const hub = add("mixhub", 400, 300); hub.pm = "hub4";
+  eq(A.pmLinkCheck(mx, hub), null);
+});
+t("PM_DEFAULT_HUB: nuovi sistemi mappati", () => { eq(A.PM_DEFAULT_HUB.me, "meu"); eq(A.PM_DEFAULT_HUB.aes50pm, "hub4"); eq(A.PM_DEFAULT_HUB.livemix, "mix32"); });
+
 console.log("\nAudit T1 — controlli residui (auditEngine):");
 function auditMsgs() { return A.auditEngine().findings.map((f) => f.msg); }
 function hasMsg(re) { return auditMsgs().some((m) => re.test(m)); }
