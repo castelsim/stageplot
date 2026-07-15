@@ -414,6 +414,13 @@
       </div>
       <button class="btn" id="pLblApplyType" style="width:100%;margin-top:6px;font-size:11px;padding:4px 2px" title="Applica questa modalità nome a tutti gli elementi dello stesso tipo">Applica agli elementi dello stesso tipo</button>
     </div>
+    <div id="pLookWrap" style="display:none;margin-top:8px">
+      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Aspetto</label>
+      <div style="display:flex;gap:4px">
+        <button class="btn" id="pLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Illustrazione del musicista, in scala reale">Illustrato</button>
+        <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Schema tecnico: sedia, strumento e leggio">Schematico</button>
+      </div>
+    </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbChRow"><label>Ingressi (input)</label>
@@ -1484,6 +1491,18 @@ function seatLight(cx){ return bar(cx,-22,46,46,'ic soft',9)+bar(cx,-48,46,9,'ic
    realistic=true → seduta chiara (icone realistiche). */
 function station(it, glyph, dblKind, realistic){
   it=it||{};
+  /* Unifica icone (15/07): aspetto ILLUSTRATO (default) → disegna l'illustrazione del musicista
+     invece dello schema. Doppia = 2 illustrazioni a ±sep/2, la 2ª specchiata. Micro/canali/numerazione
+     restano quelli della postazione (l'illustrazione è solo il look). */
+  var art = postArt(it);
+  if(art){
+    if(it.doppia){
+      var hx = it.sep ? it.sep/2 : 45;
+      return '<g transform="translate('+(-hx)+',0)">'+libIcon(art)+'</g>'+
+             '<g transform="translate('+hx+',0) scale(-1,1)">'+libIcon(art)+'</g>';
+    }
+    return libIcon(art);
+  }
   var seat = realistic ? seatLight : chairSvg;
   if(it.doppia){
     var half = it.sep ? it.sep/2 : null;
@@ -2097,23 +2116,23 @@ var TYPES = {
   corista:  {nome:"Corista", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"",
              draw:function(it){ it=it||{}; return singer({mano:false, nomic:true, leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
-  musViolino1: {nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
+  musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
   musViolino2: {nome:"Violino II musicista", dim:"81×82", cat:"Orchestra", sub:"Archi", w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
-  musViola: {nome:"Viola musicista", dim:"84×81", cat:"Orchestra", sub:"Archi", w:84,d:81, defLabel:"Vla", draw:function(it){ return drawLibFit("musViola",it,84,81); }},
-  musVioloncello: {nome:"Violoncello musicista", dim:"82×100", cat:"Orchestra", sub:"Archi", w:82,d:100, defLabel:"Vc", draw:function(it){ return drawLibFit("musVioloncello",it,82,100); }},
-  musContrabbasso: {nome:"Contrabbasso musicista", dim:"70×107", cat:"Orchestra", sub:"Archi", w:70,d:107, defLabel:"Cb", draw:function(it){ return drawLibFit("musContrabbasso",it,70,107); }},
-  musFlauto: {nome:"Flauto musicista", dim:"78×82", cat:"Orchestra", sub:"Legni", w:78,d:82, defLabel:"Fl", draw:function(it){ return drawLibFit("musFlauto",it,78,82); }},
-  musOboe: {nome:"Oboe musicista", dim:"61×90", cat:"Orchestra", sub:"Legni", w:61,d:90, defLabel:"Ob", draw:function(it){ return drawLibFit("musOboe",it,61,90); }},
-  musClarinetto: {nome:"Clarinetto musicista", dim:"59×85", cat:"Orchestra", sub:"Legni", w:59,d:85, defLabel:"Cl", draw:function(it){ return drawLibFit("musClarinetto",it,59,85); }},
-  musFagotto: {nome:"Fagotto musicista", dim:"99×83", cat:"Orchestra", sub:"Legni", w:99,d:83, defLabel:"Fg", draw:function(it){ return drawLibFit("musFagotto",it,99,83); }},
-  musSaxAlto: {nome:"Sax alto musicista", dim:"61×82", cat:"Orchestra", sub:"Legni", w:61,d:82, defLabel:"Sax A", draw:function(it){ return drawLibFit("musSaxAlto",it,61,82); }},
-  musSaxTenore: {nome:"Sax tenore musicista", dim:"57×105", cat:"Orchestra", sub:"Legni", w:57,d:105, defLabel:"Sax T", draw:function(it){ return drawLibFit("musSaxTenore",it,57,105); }},
-  musSaxBaritono: {nome:"Sax baritono musicista", dim:"61×89", cat:"Orchestra", sub:"Legni", w:61,d:89, defLabel:"Sax B", draw:function(it){ return drawLibFit("musSaxBaritono",it,61,89); }},
-  musTromba: {nome:"Tromba musicista", dim:"61×90", cat:"Orchestra", sub:"Ottoni", w:61,d:90, defLabel:"Tr", draw:function(it){ return drawLibFit("musTromba",it,61,90); }},
-  musTrombone: {nome:"Trombone musicista", dim:"61×114", cat:"Orchestra", sub:"Ottoni", w:61,d:114, defLabel:"Tbn", draw:function(it){ return drawLibFit("musTrombone",it,61,114); }},
+  musViola: {catalog:false, nome:"Viola musicista", dim:"84×81", cat:"Orchestra", sub:"Archi", w:84,d:81, defLabel:"Vla", draw:function(it){ return drawLibFit("musViola",it,84,81); }},
+  musVioloncello: {catalog:false, nome:"Violoncello musicista", dim:"82×100", cat:"Orchestra", sub:"Archi", w:82,d:100, defLabel:"Vc", draw:function(it){ return drawLibFit("musVioloncello",it,82,100); }},
+  musContrabbasso: {catalog:false, nome:"Contrabbasso musicista", dim:"70×107", cat:"Orchestra", sub:"Archi", w:70,d:107, defLabel:"Cb", draw:function(it){ return drawLibFit("musContrabbasso",it,70,107); }},
+  musFlauto: {catalog:false, nome:"Flauto musicista", dim:"78×82", cat:"Orchestra", sub:"Legni", w:78,d:82, defLabel:"Fl", draw:function(it){ return drawLibFit("musFlauto",it,78,82); }},
+  musOboe: {catalog:false, nome:"Oboe musicista", dim:"61×90", cat:"Orchestra", sub:"Legni", w:61,d:90, defLabel:"Ob", draw:function(it){ return drawLibFit("musOboe",it,61,90); }},
+  musClarinetto: {catalog:false, nome:"Clarinetto musicista", dim:"59×85", cat:"Orchestra", sub:"Legni", w:59,d:85, defLabel:"Cl", draw:function(it){ return drawLibFit("musClarinetto",it,59,85); }},
+  musFagotto: {catalog:false, nome:"Fagotto musicista", dim:"99×83", cat:"Orchestra", sub:"Legni", w:99,d:83, defLabel:"Fg", draw:function(it){ return drawLibFit("musFagotto",it,99,83); }},
+  musSaxAlto: {catalog:false, nome:"Sax alto musicista", dim:"61×82", cat:"Orchestra", sub:"Legni", w:61,d:82, defLabel:"Sax A", draw:function(it){ return drawLibFit("musSaxAlto",it,61,82); }},
+  musSaxTenore: {catalog:false, nome:"Sax tenore musicista", dim:"57×105", cat:"Orchestra", sub:"Legni", w:57,d:105, defLabel:"Sax T", draw:function(it){ return drawLibFit("musSaxTenore",it,57,105); }},
+  musSaxBaritono: {catalog:false, nome:"Sax baritono musicista", dim:"61×89", cat:"Orchestra", sub:"Legni", w:61,d:89, defLabel:"Sax B", draw:function(it){ return drawLibFit("musSaxBaritono",it,61,89); }},
+  musTromba: {catalog:false, nome:"Tromba musicista", dim:"61×90", cat:"Orchestra", sub:"Ottoni", w:61,d:90, defLabel:"Tr", draw:function(it){ return drawLibFit("musTromba",it,61,90); }},
+  musTrombone: {catalog:false, nome:"Trombone musicista", dim:"61×114", cat:"Orchestra", sub:"Ottoni", w:61,d:114, defLabel:"Tbn", draw:function(it){ return drawLibFit("musTrombone",it,61,114); }},
   musTromboneBasso: {nome:"Trombone basso musicista", dim:"61×114", cat:"Orchestra", sub:"Ottoni", w:61,d:114, defLabel:"Tbn B", draw:function(it){ return drawLibFit("musTromboneBasso",it,61,114); }},
-  musCorno: {nome:"Corno musicista", dim:"61×82", cat:"Orchestra", sub:"Ottoni", w:61,d:82, defLabel:"Cor", draw:function(it){ return drawLibFit("musCorno",it,61,82); }},
-  musTuba: {nome:"Tuba musicista", dim:"70×101", cat:"Orchestra", sub:"Ottoni", w:70,d:101, defLabel:"Tuba", draw:function(it){ return drawLibFit("musTuba",it,70,101); }},
+  musCorno: {catalog:false, nome:"Corno musicista", dim:"61×82", cat:"Orchestra", sub:"Ottoni", w:61,d:82, defLabel:"Cor", draw:function(it){ return drawLibFit("musCorno",it,61,82); }},
+  musTuba: {catalog:false, nome:"Tuba musicista", dim:"70×101", cat:"Orchestra", sub:"Ottoni", w:70,d:101, defLabel:"Tuba", draw:function(it){ return drawLibFit("musTuba",it,70,101); }},
   musArpa: {nome:"Arpa musicista", dim:"162×171", cat:"Orchestra", sub:"Arpa e celesta", w:162,d:171, defLabel:"Arpa", draw:function(it){ return drawLibFit("musArpa",it,162,171); }},
   musTimpani: {nome:"Timpani musicista", dim:"184×119", cat:"Batteria e percussioni", sub:"Percussioni", w:184,d:119, defLabel:"Timp", draw:function(it){ return drawLibFit("musTimpani",it,184,119); }},
   musPercussioni: {nome:"Percussioni musicista", dim:"168×125", cat:"Batteria e percussioni", sub:"Percussioni", w:168,d:125, defLabel:"Perc", draw:function(it){ return drawLibFit("musPercussioni",it,168,125); }},
@@ -2482,6 +2501,16 @@ var DOUBLE_TYPES = {
   violax2:{kind:"vla", dbl:[175,115], sep:90}, cellix2:{kind:"vc", dbl:[205,130], sep:110},
   cbx2:{kind:"cb", dbl:[260,140], sep:140}, archi2leggio:{kind:"vln1", dbl:[175,115], sep:90}
 };
+/* Unifica icone (15/07): mappa postazione → illustrazione musicista (Fase 1: archi/legni/ottoni).
+   In aspetto "illustrato" (default) la postazione disegna questa illustrazione al posto dello schema.
+   La postazione resta l'elemento FUNZIONALE (canali, microfonazione, numerazione, footprint). */
+var POSTAZ_ART = {
+  vlnpost:"musViolino1", violapost:"musViola", violoncello:"musVioloncello", contrabbasso:"musContrabbasso",
+  corno:"musCorno", tromba:"musTromba", trombone:"musTrombone", tuba:"musTuba",
+  flauto:"musFlauto", oboe:"musOboe", clarinetto:"musClarinetto", fagotto:"musFagotto",
+  saxalto:"musSaxAlto", saxtenore:"musSaxTenore", saxbaritono:"musSaxBaritono"
+};
+function postArt(it){ return it && it.look!=="schematico" && POSTAZ_ART[it.type] ? POSTAZ_ART[it.type] : null; }
 /* config "distanza tra i 2" per l'item selezionato (doppia da flag o tipo ×2 del modale) */
 function sepCfg(it){
   if(!it) return null;
@@ -2656,7 +2685,7 @@ var LS_KEY = "stageplot_v1";
 /* Versione di schema del documento (R-ORA-1): ogni blob `data` porta `_v`; migrate() (definita
    sopra normalizeState) lo aggiorna al load. Oggi =1 → catena vuota (identità). Alzare + aggiungere
    MIGRATIONS[n] quando la forma di `data` cambia, così ogni progetto vecchio si migra da solo. */
-var SCHEMA_VERSION = 2;
+var SCHEMA_VERSION = 3;
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,lockIn:false,lockOut:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
@@ -3166,6 +3195,14 @@ MIGRATIONS[1] = function(s){
   }
   return s;
 };
+/* v2→v3 (unifica icone 15/07): le icone musicista di archi/legni/ottoni diventano la POSTAZIONE
+   corrispondente con aspetto illustrato (default). Il footprint si ricalcola alle dims postazione
+   (cancello w/d → backfill in normalizeState). Le mus* senza twin (Vln II, Trombone basso, Fase 2) restano. */
+MIGRATIONS[2] = function(s){
+  var INV={}; for(var p in POSTAZ_ART) INV[POSTAZ_ART[p]]=p;   /* musKey → postazione */
+  (s.items||[]).forEach(function(it){ var pz=INV[it.type]; if(pz){ it.type=pz; delete it.look; delete it.w; delete it.d; } });
+  return s;
+};
 function migrate(s){
   if(!s || typeof s!=="object") return s;
   var v = (typeof s._v==="number") ? s._v : 1;
@@ -3324,7 +3361,7 @@ function sanitizeItems(arr){
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
     /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
@@ -5533,6 +5570,11 @@ function renderProps(){
   document.getElementById("pLblHidden").className = "btn"+(_lm==="hidden"?" primary":"");
   document.getElementById("pAbbrWrap").style.display = (_lm==="abbr") ? "block" : "none";
   var _ab=document.getElementById("pAbbr"); _ab.value=it.abbr||""; _ab.placeholder=abbrOf({type:it.type,label:it.label})||"sigla";
+  var lookw=document.getElementById("pLookWrap");   /* Unifica icone: toggle Aspetto per le postazioni con illustrazione */
+  if(lookw){ var isArt=!!POSTAZ_ART[it.type]; lookw.style.display=isArt?"block":"none";
+    if(isArt){ var ill=(it.look!=="schematico");
+      document.getElementById("pLookIll").className="btn"+(ill?" primary":"");
+      document.getElementById("pLookSch").className="btn"+(ill?"":" primary"); } }
   var hasChair = !!POSTAZ[it.type] && optSedia(it);
   document.getElementById("pLblPosWrap").style.display = hasChair ? "block" : "none";
   if(hasChair){
@@ -5763,6 +5805,8 @@ function _setLblMode(m){ mutSel(function(it){ if(m==="abbr") delete it.labelMode
 document.getElementById("pLblFull").addEventListener("click", function(){ _setLblMode("full"); });
 document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLblMode("abbr"); });
 document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
+document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ delete it.look; }); renderProps(); });   /* illustrato = default (non memorizzato) */
+document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; }); renderProps(); });
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });

@@ -792,5 +792,37 @@ t("docToJSONFull conserva la planimetria dell'attiva; docToJSON la strippa", () 
   ok(fv.state.venue && fv.state.venue._dataUrl, "docToJSONFull: immagine presente sull'attiva");
 });
 
+console.log("\nUnifica icone (Fase 1) — musicista↔postazione:");
+t("postArt: default illustrato → art; schematico → null; non mappato → null", () => {
+  eq(A.postArt({ type: "vlnpost" }), "musViolino1");
+  eq(A.postArt({ type: "vlnpost", look: "schematico" }), null);
+  eq(A.postArt({ type: "flauto" }), "musFlauto");
+  eq(A.postArt({ type: "tuba" }), "musTuba");
+  eq(A.postArt({ type: "astamic" }), null);
+});
+t("toggle look NON cambia i canali (illustrato == schematico)", () => {
+  reset(); const a = add("vlnpost", 300, 300); const nA = chans(a).length;
+  reset(); const b = add("vlnpost", 300, 300); b.look = "schematico"; A.__cabRes = null; const nB = chans(b).length;
+  eq(nA, nB); ok(nA >= 1, "vlnpost ha almeno 1 canale");
+});
+t("migrazione v2→v3: musViolino1 → vlnpost, aspetto illustrato (default), dims postazione", () => {
+  const s = { _v: 2, items: [{ type: "musViolino1", x: 100, y: 100, w: 80, d: 81, label: "Vln I" }], inputs: [], outputs: [] };
+  A.normalizeState(s);
+  eq(s.items[0].type, "vlnpost");
+  ok(s.items[0].look == null, "look non impostato = illustrato default");
+  eq([s.items[0].w, s.items[0].d], [A.TYPES.vlnpost.w, A.TYPES.vlnpost.d]);
+  eq(s.items[0].label, "Vln I", "etichetta preservata");
+});
+t("migrazione: mus* senza twin restano (musViolino2, musBatteria, musTromboneBasso)", () => {
+  const s = { _v: 2, items: [{ type: "musViolino2" }, { type: "musBatteria" }, { type: "musTromboneBasso" }], inputs: [], outputs: [] };
+  A.normalizeState(s);
+  eq(s.items.map((i) => i.type), ["musViolino2", "musBatteria", "musTromboneBasso"]);
+});
+t("catalogo: le 15 mus* con twin sono nascoste (catalog:false); Vln II resta visibile", () => {
+  ["musViolino1", "musViola", "musVioloncello", "musContrabbasso", "musCorno", "musTromba", "musTrombone", "musTuba", "musFlauto", "musOboe", "musClarinetto", "musFagotto", "musSaxAlto", "musSaxTenore", "musSaxBaritono"].forEach((k) => ok(A.TYPES[k].catalog === false, k + " deve essere catalog:false"));
+  ok(A.TYPES.musViolino2.catalog !== false, "musViolino2 resta in catalogo");
+  ok(A.TYPES.musBatteria.catalog !== false, "musBatteria (Fase 2) resta in catalogo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
