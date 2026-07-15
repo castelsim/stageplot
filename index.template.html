@@ -1753,6 +1753,14 @@ var TYPES = {
              draw:function(it){ return drawLibFit("wcchim",it,110,110); }},
   wcpmr: {nome:"Bagno chimico PMR", dim:"160×160", cat:"Sicurezza e site", w:160,d:160,
              draw:function(it){ return drawLibFit("wcpmr",it,160,160); }},
+  /* LAB caso F (Asiago 15/07) — vincolo di sito: palo, albero, monumento, fontana… Nei documenti reali
+     vivono solo come blocchi disegnati a mano ("PALO", "CIPPO DEL PAPA"); qui sono un'area interdetta
+     in scala, ridimensionabile ed etichettabile. Nessun canale/carico (fuori da IN_SRC/WATT). */
+  ostacolo: {nome:"Ostacolo di sito", dim:"palo, albero, monumento…", cat:"Sicurezza e site", w:100,d:100, resizable:true, defLabel:"OSTACOLO",
+             draw:function(it){ var w=it.w,d=it.d,r=Math.min(18,w/6,d/6);
+               return '<rect x="'+(-w/2)+'" y="'+(-d/2)+'" width="'+w+'" height="'+d+'" rx="'+r+'" fill="#dc2626" fill-opacity="0.16" stroke="#dc2626" stroke-width="2" stroke-dasharray="8 6"/>'+
+                 '<line x1="'+(-w/2+9)+'" y1="'+(-d/2+9)+'" x2="'+(w/2-9)+'" y2="'+(d/2-9)+'" stroke="#dc2626" stroke-width="2" stroke-opacity="0.45"/>'+
+                 '<line x1="'+(-w/2+9)+'" y1="'+(d/2-9)+'" x2="'+(w/2-9)+'" y2="'+(-d/2+9)+'" stroke="#dc2626" stroke-width="2" stroke-opacity="0.45"/>'; }},
   metaldet: {nome:"Metal detector", dim:"85×60", cat:"Sicurezza e site", w:85,d:60,
              draw:function(it){ return drawLibFit("metaldet",it,85,60); }},
   tornello: {nome:"Tornello", dim:"a tripode · 50×50", cat:"Sicurezza e site", w:50,d:50,
@@ -2074,7 +2082,7 @@ var TYPES = {
   djset:    {nome:"DJ set su tavolo", dim:"180×60", cat:"Band e backline", sub:"DJ ed elettronica", catalog:false, w:182,d:64, defLabel:"DJ",
              draw:function(it){ return drawLibFit("djset",it,182,64); }},
   /* --- archi (icone realistiche libreria + seduta chiara) --- */
-  vlnpost:  {nome:"Violino I", dim:"postazione", cat:"Orchestra", sub:"Archi", w:100,d:105,
+  vlnpost:  {nome:"Violino", dim:"postazione", cat:"Orchestra", sub:"Archi", w:100,d:105,
              draw:function(it){ return station(it, libIcon('violino'), "vln1", true); }},
   violapost:{nome:"Viola", dim:"postazione", cat:"Orchestra", sub:"Archi", w:100,d:115,
              draw:function(it){ return station(it, libIcon('viola'), "vla", true); }},
@@ -2121,7 +2129,7 @@ var TYPES = {
              draw:function(it){ it=it||{}; return singer({mano:false, nomic:true, leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
-  musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
+  musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", catalog:false, w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
   musViola: {catalog:false, nome:"Viola musicista", dim:"84×81", cat:"Orchestra", sub:"Archi", w:84,d:81, defLabel:"Vla", draw:function(it){ return drawLibFit("musViola",it,84,81); }},
   musVioloncello: {catalog:false, nome:"Violoncello musicista", dim:"82×100", cat:"Orchestra", sub:"Archi", w:82,d:100, defLabel:"Vc", draw:function(it){ return drawLibFit("musVioloncello",it,82,100); }},
   musContrabbasso: {catalog:false, nome:"Contrabbasso musicista", dim:"70×107", cat:"Orchestra", sub:"Archi", w:70,d:107, defLabel:"Cb", draw:function(it){ return drawLibFit("musContrabbasso",it,70,107); }},
@@ -2514,7 +2522,11 @@ var POSTAZ_ART = {
   flauto:"musFlauto", oboe:"musOboe", clarinetto:"musClarinetto", fagotto:"musFagotto",
   saxalto:"musSaxAlto", saxtenore:"musSaxTenore", saxbaritono:"musSaxBaritono"
 };
-function postArt(it){ return it && it.look!=="schematico" && POSTAZ_ART[it.type] ? POSTAZ_ART[it.type] : null; }
+function postArt(it){
+  if(!it || it.look==="schematico") return null;
+  if(it.type==="vlnpost" && it.vsec===2) return "musViolino2";   /* Violino II (vsec=2) = illustrazione dedicata */
+  return POSTAZ_ART[it.type] || null;
+}
 /* config "distanza tra i 2" per l'item selezionato (doppia da flag o tipo ×2 del modale) */
 function sepCfg(it){
   if(!it) return null;
@@ -2675,7 +2687,7 @@ var DEFAULT_LABELS = {
   comboamp:"Gtr amp", stack:"Gtr stack", bassamp:"Bass amp", keysamp:"Keys amp", leslie:"Leslie",
   grancoda:"Grand", mezzacoda:"Baby grand", pianoverticale:"Upright", stagepiano:"Keys", doppiatastiera:"2 Keys", celesta:"Celesta", panchetta:"Panca",
   gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"Direttore",
-  vlnpost:"Vln I", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
+  vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
   astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Speaker", cantante:"Voce", corista:"Coro",
   wedge:"MIX", sidefill:"SIDE", drumfill:"DRUM FILL", iem:"IEM", iemant:"TX IEM", hearback:"PM",
@@ -2689,7 +2701,7 @@ var LS_KEY = "stageplot_v1";
 /* Versione di schema del documento (R-ORA-1): ogni blob `data` porta `_v`; migrate() (definita
    sopra normalizeState) lo aggiorna al load. Oggi =1 → catena vuota (identità). Alzare + aggiungere
    MIGRATIONS[n] quando la forma di `data` cambia, così ogni progetto vecchio si migra da solo. */
-var SCHEMA_VERSION = 3;
+var SCHEMA_VERSION = 4;
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
 var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,lockIn:false,lockOut:false,manual:{}},
   elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
@@ -3202,11 +3214,19 @@ MIGRATIONS[1] = function(s){
 /* v2→v3 (unifica icone 15/07): le icone musicista di archi/legni/ottoni diventano la POSTAZIONE
    corrispondente con aspetto illustrato (default). Il footprint si ricalcola alle dims postazione
    (cancello w/d → backfill in normalizeState). Le mus* senza twin (Vln II, Trombone basso, Fase 2) restano. */
-MIGRATIONS[2] = function(s){
+function migrateMusToPostaz(s){
   var INV={}; for(var p in POSTAZ_ART) INV[POSTAZ_ART[p]]=p;   /* musKey → postazione */
-  (s.items||[]).forEach(function(it){ var pz=INV[it.type]; if(pz){ it.type=pz; delete it.look; delete it.w; delete it.d; } });
+  (s.items||[]).forEach(function(it){
+    if(it.type==="musViolino1"){ it.type="vlnpost"; it.vsec=1; delete it.look; delete it.w; delete it.d; return; }
+    if(it.type==="musViolino2"){ it.type="vlnpost"; it.vsec=2; delete it.look; delete it.w; delete it.d; return; }   /* Violino II = vlnpost + vsec=2 (illustrazione dedicata) */
+    var pz=INV[it.type]; if(pz){ it.type=pz; delete it.look; delete it.w; delete it.d; }
+  });
   return s;
-};
+}
+MIGRATIONS[2] = migrateMusToPostaz;
+/* v3→v4 (15/07): aggiunta la postazione vln2post (Violino II) → converte i musViolino2 residui
+   nei progetti già a v3. Idempotente: sui progetti v2 il passo [2] ha già convertito tutto. */
+MIGRATIONS[3] = migrateMusToPostaz;
 function migrate(s){
   if(!s || typeof s!=="object") return s;
   var v = (typeof s._v==="number") ? s._v : 1;
@@ -6445,7 +6465,7 @@ function miniSvg(k, over){
     }
     if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
       addToGroup("Archi", makeActionBtn("Violino I", "postazione · nome progressivo", "vlnpost", function(){ addViolin(1); }));
-      addToGroup("Archi", makeActionBtn("Violino II", "postazione · nome progressivo", "vlnpost", function(){ addViolin(2); }));
+      addToGroup("Archi", makeActionBtn("Violino II", "postazione · nome progressivo", "vlnpost", function(){ addViolin(2); }, miniSvg("vlnpost",{vsec:2})));   /* thumbnail = illustrazione Vln II (vsec=2) */
       entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }});
       entries.push({nome:"Violino II", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(2); }});
     }

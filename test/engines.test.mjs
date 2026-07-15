@@ -80,9 +80,9 @@ t("elemento dentro una zona -> 0 canali; la zona -> 1 canale inferito", () => {
   reset(); const v = add("vlnpost", 300, 300); const z = add("miczone", 300, 300); z.w = 220; z.d = 150;
   eq(chans(v).length, 0, "violino coperto"); eq(chans(z).length, 1, "zona"); eq(chans(z)[0].mic, "KM184", "mic zona");
 });
-t("micZoneLabel = sezione prevalente plurale (14/07): 'Violini I'; zona vuota = KM184 / 'Zona panoramica'", () => {
+t("micZoneLabel = sezione prevalente plurale (14/07): 'Violini'; zona vuota = KM184 / 'Zona panoramica'", () => {
   reset(); add("vlnpost", 300, 300); add("vlnpost", 340, 300); const z = add("miczone", 320, 300); z.w = 220; z.d = 150;
-  eq(A.micZoneLabel(z), "Violini I"); const z2 = add("miczone", 1500, 1500); z2.w = 100; z2.d = 100;
+  eq(A.micZoneLabel(z), "Violini"); const z2 = add("miczone", 1500, 1500); z2.w = 100; z2.d = 100;
   eq(A.micZoneMic(z2), "KM184"); eq(A.micZoneLabel(z2), "Zona panoramica");
 });
 t("micZoneLabel con label numerati: 'Violino I 1/2' -> 'Violini I'", () => {
@@ -813,14 +813,21 @@ t("migrazione v2→v3: musViolino1 → vlnpost, aspetto illustrato (default), di
   eq([s.items[0].w, s.items[0].d], [A.TYPES.vlnpost.w, A.TYPES.vlnpost.d]);
   eq(s.items[0].label, "Vln I", "etichetta preservata");
 });
-t("migrazione: mus* senza twin restano (musViolino2, musBatteria, musTromboneBasso)", () => {
-  const s = { _v: 2, items: [{ type: "musViolino2" }, { type: "musBatteria" }, { type: "musTromboneBasso" }], inputs: [], outputs: [] };
+t("migrazione: musViolino1→vlnpost vsec 1, musViolino2→vlnpost vsec 2 (Violino I/II postazione)", () => {
+  const s = { _v: 2, items: [{ type: "musViolino1", w: 80, d: 81 }, { type: "musViolino2", w: 81, d: 82 }, { type: "musBatteria" }], inputs: [], outputs: [] };
   A.normalizeState(s);
-  eq(s.items.map((i) => i.type), ["musViolino2", "musBatteria", "musTromboneBasso"]);
+  eq(s.items.map((i) => i.type), ["vlnpost", "vlnpost", "musBatteria"]);
+  eq(s.items[0].vsec, 1); eq(s.items[1].vsec, 2);
+  eq([s.items[1].w, s.items[1].d], [A.TYPES.vlnpost.w, A.TYPES.vlnpost.d]);
 });
-t("catalogo: le 15 mus* con twin sono nascoste (catalog:false); Vln II resta visibile", () => {
-  ["musViolino1", "musViola", "musVioloncello", "musContrabbasso", "musCorno", "musTromba", "musTrombone", "musTuba", "musFlauto", "musOboe", "musClarinetto", "musFagotto", "musSaxAlto", "musSaxTenore", "musSaxBaritono"].forEach((k) => ok(A.TYPES[k].catalog === false, k + " deve essere catalog:false"));
-  ok(A.TYPES.musViolino2.catalog !== false, "musViolino2 resta in catalogo");
+t("Violino II = vlnpost + vsec 2 con illustrazione dedicata (postArt=musViolino2), stessa postazione di Vln I", () => {
+  eq(A.postArt({ type: "vlnpost" }), "musViolino1");
+  eq(A.postArt({ type: "vlnpost", vsec: 2 }), "musViolino2");
+  eq(A.postArt({ type: "vlnpost", vsec: 2, look: "schematico" }), null);
+  ok(A.POSTAZ.vlnpost, "vlnpost è una postazione → Violino I e II hanno microfonazione/sedia/doppia");
+});
+t("catalogo: le 16 mus* con twin sono nascoste (catalog:false); Fase 2 (Batteria) resta visibile", () => {
+  ["musViolino1", "musViolino2", "musViola", "musVioloncello", "musContrabbasso", "musCorno", "musTromba", "musTrombone", "musTuba", "musFlauto", "musOboe", "musClarinetto", "musFagotto", "musSaxAlto", "musSaxTenore", "musSaxBaritono"].forEach((k) => ok(A.TYPES[k].catalog === false, k + " deve essere catalog:false"));
   ok(A.TYPES.musBatteria.catalog !== false, "musBatteria (Fase 2) resta in catalogo");
 });
 
@@ -829,7 +836,7 @@ t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B
   eq(sig("tromba"), "Tr");
   eq(sig("saxalto"), "Sax A"); eq(sig("saxtenore"), "Sax T"); eq(sig("saxbaritono"), "Sax B");
   eq(sig("musTromboneBasso"), "Tbn B", "trombone basso non deve matchare 'basso'→Bass");
-  eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln I"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
+  eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
 });
 
 console.log("\nLAB caso 1 (Disney) — L8 voci senza mic + B4 nomi canale duplicati:");
@@ -867,6 +874,15 @@ t("audit B4: doppione nella lista manuale (state.inputs) → avviso", () => {
   reset(); add("astamic", 300, 300);
   A.state.inputs = [{ src: "VOX DIEGO DIRECTOR", mic: "935" }, { src: "VOX DIEGO DIRECTOR", mic: "SM58" }];
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
+});
+
+console.log("\nLAB caso F (Asiago) — ostacolo di sito:");
+t("ostacolo: in catalogo (Sicurezza e site), ridimensionabile, zero canali e zero carico", () => {
+  const t0 = A.TYPES.ostacolo;
+  ok(t0 && t0.cat === "Sicurezza e site" && t0.resizable === true, "tipo presente e resizable");
+  reset(); const o = add("ostacolo", 400, 400); o.label = "PALO"; A.__cabRes = null;
+  eq(A.cabItemInputs(o).length, 0, "nessun canale audio");
+  ok(A.auditEngine().findings.every((f) => !/PALO/.test(f.msg)), "nessuna criticità generata dall'ostacolo");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
