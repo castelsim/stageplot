@@ -1,4 +1,13 @@
 
+# macOS
+.DS_Store
+
+# strumenti locali / worktree Claude
+.claude/
+
+# Supabase CLI temp (project-ref/pooler/versioni — non vanno versionati)
+supabase/.temp/
+
 # scratch subagent-driven-development
 .superpowers/
 
