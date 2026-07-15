@@ -5711,10 +5711,19 @@ function renderProps(){
   }
   var pc=document.getElementById("pComp"), comp=COMP[it.type];
   document.getElementById("selProps").classList.toggle("comp-first", !!comp);   /* configuratore in alto per i configurabili */
+  /* Aspetto ILLUSTRATO: la configurazione del kit (tom, cassa, piatti…) non si riflette sull'illustrazione
+     (figura generica) → nascondo i controlli muti e rimando allo Schematico. I pezzi restano salvati. */
+  var kitMuted = comp && hasLookToggle(it) && it.look!=="schematico";
   pc.style.display = comp ? "block" : "none";
   if(comp){
     if(comp.name){ document.getElementById("selNome").textContent = comp.name(it); setPeekName(comp.name(it)); }
-    buildCompCtl(comp, it);
+    if(kitMuted){
+      document.getElementById("pCompCtl").innerHTML =
+        '<div class="comp-dim">Ingombro: '+it.w+'×'+it.d+' cm</div>'+
+        '<div class="hint" style="font-size:11.5px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
+        '<button type="button" class="btn" id="pKitToSchem" style="width:100%;margin-top:6px;font-size:12px;padding:6px 2px">Configura in dettaglio (Schematico)</button>';
+      var kb=document.getElementById("pKitToSchem"); if(kb) kb.onclick=function(){ mutSel(function(x){ x.look="schematico"; }); renderProps(); };
+    } else buildCompCtl(comp, it);
   }
   document.getElementById("pDivide").style.display = isDecomposable(it) ? "block" : "none";   /* "Dividi in elementi" su tutte le icone scomponibili */
 }
