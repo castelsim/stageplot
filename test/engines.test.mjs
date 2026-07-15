@@ -898,6 +898,11 @@ t("direttore: sempre illustrato — NON in LOOK_ART, niente toggle Aspetto", () 
   eq(A.dirSize({ podio: false })[1], 114);            /* footprint base = illustrazione musDirettore (90×114) */
   eq(A.dirSize({ podio: true })[0], 120);             /* col podio = piattaforma 120×120 */
 });
+t("strumenti a misura reale: pezzi batteria/timpani NON ridimensionabili; strutture sì", () => {
+  ["timp51R","timp58R","timp66R","timp74R","timp81R","tomR","crashR","rideR","timpsingolo","kickdrum","tomdrum","hihat"]
+    .forEach((k) => ok(!A.TYPES[k].resizable, k + " non deve essere resizable (misura reale)"));
+  ["pedana","truss","fondale","tappeto","metro"].forEach((k) => ok(A.TYPES[k].resizable === true, k + " resta ridimensionabile"));
+});
 t("batteria: come il timpanista — NON in LOOK_ART, niente toggle Aspetto; batterista in mezzo al kit", () => {
   eq(A.look2Art({ type: "batteria" }), null);         /* fuori da LOOK_ART: il draw è sempre il kit schematico + persona */
   ok(!A.hasLookToggle({ type: "batteria" }));         /* niente Aspetto */
