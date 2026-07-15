@@ -913,11 +913,17 @@ t("catalogo Fase 2: 11 twin nascoste; senza twin (chitarra classica, fisarmonica
   ["musChitClassica", "musFisarmonica", "musTromboneBasso"].forEach((k) => ok(A.TYPES[k].catalog !== false, k + " resta visibile"));
 });
 
-t("timpani = DRAW_LOOK: ha il toggle Aspetto ma NON è sostituito da look2Art (draw consapevole: schema + timpanista)", () => {
-  ok(A.hasLookToggle({ type: "timpani" }), "timpani ha il toggle Aspetto");
-  eq(A.look2Art({ type: "timpani" }), null, "timpani NON passa dalla sostituzione look2Art");
-  ok(A.DRAW_LOOK && A.DRAW_LOOK.timpani, "timpani è in DRAW_LOOK");
-  ok(!A.LOOK_ART.timpani, "timpani NON è più in LOOK_ART");
+t("timpani: toggle Musicista + Sgabello indipendenti (niente Aspetto); non in LOOK_ART/DRAW_LOOK", () => {
+  ok(!A.hasLookToggle({ type: "timpani" }), "timpani NON ha il toggle Aspetto (usa Musicista/Sgabello)");
+  eq(A.look2Art({ type: "timpani" }), null);
+  ok(!A.LOOK_ART.timpani && !A.DRAW_LOOK.timpani);
+  const keys = A.COMP.timpani.controls.map((c) => c.key);
+  ok(keys.indexOf("mus") >= 0 && keys.indexOf("stool") >= 0, "controls Musicista + Sgabello presenti");
+});
+t("timpani: il posto (seat) c'è se Musicista O Sgabello; sparisce se entrambi off", () => {
+  ok(A.timpSlots({ count: 2, layout: "arco", mus: true, stool: false }).some((s) => s.seat), "solo musicista → posto presente");
+  ok(A.timpSlots({ count: 2, layout: "arco", mus: false, stool: true }).some((s) => s.seat), "solo sgabello → posto presente");
+  ok(!A.timpSlots({ count: 2, layout: "arco", mus: false, stool: false }).some((s) => s.seat), "nessuno → niente posto");
 });
 t("migrazione: musTimpani → timpani (schema configurabile + timpanista in mezzo)", () => {
   const s = { _v: 2, items: [{ type: "musTimpani" }], inputs: [], outputs: [] };
