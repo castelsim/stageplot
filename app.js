@@ -4727,6 +4727,16 @@ document.getElementById("pDivide").addEventListener("click", splitElement);
 document.getElementById("pSplit").addEventListener("click", splitDouble);
 document.getElementById("pCompSplit").addEventListener("click", explodeComposite);
 document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
+/* B5 progressive disclosure: raccoglie i controlli avanzati (Aspetto, Dimensione etichetta, Colore, Rotazione, Fornito da) in "Altre opzioni ▾" — spostamento a runtime, id/handler invariati */
+(function setupMorePanel(){
+  var body=document.getElementById("pMoreBody");
+  if(body){ ["pLookWrap","pLblSizeWrap","pTxtColorWrap","pRotRow","pByWrap"].forEach(function(id){ var el=document.getElementById(id); if(el) body.appendChild(el); }); }
+  var tog=document.getElementById("pMoreToggle");
+  if(tog) tog.addEventListener("click", function(){
+    var b=document.getElementById("pMoreBody"), c=document.getElementById("pMoreCaret"), open=b.hidden;
+    b.hidden=!open; tog.setAttribute("aria-expanded", String(open)); if(c) c.textContent=open?"▴":"▾";
+  });
+})();
 document.getElementById("pDel").addEventListener("click", deleteSel);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });

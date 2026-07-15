@@ -423,9 +423,11 @@
         <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
     </div>
-    <!-- Gruppo etichetta (opz.A Simone): Dimensione + Colore + Posizione raggruppati qui, non sparsi in basso -->
+    <!-- Dimensione etichetta: spostata in "Altre opzioni" a runtime (setupMorePanel) -->
+    <div id="pLblSizeWrap">
     <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione etichetta</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
+    </div>
     <div id="pTxtColorWrap" style="display:none;margin-top:8px">
       <label>Colore testo</label>
       <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
@@ -556,6 +558,10 @@
     <div id="pComp" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pCompCtl"></div>
       <button class="btn" id="pCompSplit" style="display:none">⇱ Dividi in elementi singoli</button>
+    </div>
+    <div id="pMoreWrap" style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
+      <button class="btn" id="pMoreToggle" type="button" aria-expanded="false" style="width:100%;font-size:12px;color:var(--text-2);background:none;border:none;text-align:left;cursor:pointer;padding:2px 0;display:flex;justify-content:space-between;align-items:center">Altre opzioni <span id="pMoreCaret">▾</span></button>
+      <div id="pMoreBody" hidden style="margin-top:6px"></div>
     </div>
     <button class="btn" id="pDivide" style="width:100%;margin-top:10px;font-size:12px;display:none">⇱ Dividi in elementi</button>
     <div class="btns">
@@ -6004,6 +6010,16 @@ document.getElementById("pDivide").addEventListener("click", splitElement);
 document.getElementById("pSplit").addEventListener("click", splitDouble);
 document.getElementById("pCompSplit").addEventListener("click", explodeComposite);
 document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
+/* B5 progressive disclosure: raccoglie i controlli avanzati (Aspetto, Dimensione etichetta, Colore, Rotazione, Fornito da) in "Altre opzioni ▾" — spostamento a runtime, id/handler invariati */
+(function setupMorePanel(){
+  var body=document.getElementById("pMoreBody");
+  if(body){ ["pLookWrap","pLblSizeWrap","pTxtColorWrap","pRotRow","pByWrap"].forEach(function(id){ var el=document.getElementById(id); if(el) body.appendChild(el); }); }
+  var tog=document.getElementById("pMoreToggle");
+  if(tog) tog.addEventListener("click", function(){
+    var b=document.getElementById("pMoreBody"), c=document.getElementById("pMoreCaret"), open=b.hidden;
+    b.hidden=!open; tog.setAttribute("aria-expanded", String(open)); if(c) c.textContent=open?"▴":"▾";
+  });
+})();
 document.getElementById("pDel").addEventListener("click", deleteSel);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });
