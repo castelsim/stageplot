@@ -2164,7 +2164,9 @@ function b64urlToStr(s){ s=String(s).replace(/-/g,"+").replace(/_/g,"/"); while(
    Centralizza la logica usata negli handler di edit così che anche gli item "grezzi" (AI/import) abbiano ingombri corretti. */
 function recalcItemDims(it){
   var t=TYPES[it.type]; if(!t) return;
-  var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1]; return; }   /* Fase 2 illustrato: footprint = illustrazione */
+  var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1];
+    if(t.gtr){ if(it.ampli) it.w=Math.max(it.w,80); if(it.pedaliera) it.d=Math.max(it.d, it.sedia!==false?150:130); }   /* chitarra illustrata: includi ampli (larghezza) e pedaliera (profondità) nel footprint */
+    return; }   /* Fase 2 illustrato: footprint = illustrazione */
   if(t.gtr){ var g=gtrSize(it,t); it.w=g[0]; it.d=g[1]; return; }
   if(t.dir || it.type==="direttore"){ var ds=dirSize(it); it.w=ds[0]; it.d=ds[1]; return; }
   if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=minSepType(it.type);
@@ -2525,6 +2527,11 @@ function itemMarkup(it){
   var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(KEYS_BENCH[it.type] && it.panca!==false && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
+  if(t.gtr && _la){   /* chitarre/basso in ILLUSTRATO: ampli/pedaliera/leggio NON sono nell'illustrazione del musicista → disegnati a parte (come nello schematico) */
+    if(it.ampli) s += '<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';
+    if(it.pedaliera) s += '<g transform="translate(0,72)">'+pedalGlyph()+'</g>';   /* musicista illustrato = seduto → pedaliera ai piedi */
+    if(it.leggio) s += '<g transform="translate(0,60)">'+leggioGlyph(0)+'</g>';
+  }
   if(TASTIERE[it.type] && (it.leggio || it.leggio2)){   /* leggio/tablet della tastiera: davanti al musicista (lato pubblico, +y) */
     var _ky=it.d/2+22, _kdx=it.leggio2?34:0;
     if(it.leggio)  s += '<g transform="translate('+(-_kdx)+','+_ky+')">'+leggioGlyph(0)+'</g>';
