@@ -486,7 +486,7 @@
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
-    <div class="sldrow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
+    <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
@@ -1869,7 +1869,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("leggiotablet",it,30,42); }},
 
   /* --- pedane / strutture --- */
-  pedana:   {nome:"Pedana", dim:"2×1 m", cat:"Palco e strutture", w:200,d:100,h:40, resizable:true, z:1, riser:true,
+  pedana:   {nome:"Pedana", dim:"2×1 m", cat:"Palco e strutture", w:200,d:100,h:40, resizable:true, z:0, riser:true,
              draw:function(it){ return riserSvg(it.w,it.d); }},
   scala:    {nome:"Scala accesso", dim:"60×90", cat:"Palco e strutture", w:60,d:90, resizable:true, z:1,
              draw:function(it){ var s=rectSvg(it.w,it.d,'ic fFloor',2);
@@ -1893,7 +1893,7 @@ var TYPES = {
              draw:function(it){ return trussTop(it,'x'); }},
   transenna:{nome:"Transenna", dim:"200×25", cat:"Palco e strutture", w:200,d:25, resizable:true, z:2,
              draw:function(it){ return drawLibFit("transenna",it,200,40); }},
-  tappeto:  {nome:"Tappeto", dim:"2×1,6 m", cat:"Palco e strutture", w:200,d:160, resizable:true, z:0,
+  tappeto:  {nome:"Tappeto", dim:"2×1,6 m", cat:"Palco e strutture", w:200,d:160, resizable:true, z:1,
              draw:function(it){ return rectSvg(it.w,it.d,'rug',8); }},
   tavolo:   {nome:"Tavolo", dim:"120×60", cat:"Palco e strutture", w:120,d:60, resizable:true, z:1,
              draw:function(it){ return rectSvg(it.w,it.d,'ic fWoodL',5)+
@@ -1913,7 +1913,7 @@ var TYPES = {
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
                bar(0,-38,52,13,'ic fBlack',2)+circ(0,-27,2.5,'ic fill'); }},
-  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", w:400,d:120, resizable:true, z:1,
+  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", w:400,d:120, resizable:true, z:0,
              draw:function(it){ var s=bar(0,0,it.w,it.d,'ic fFloor',2), n=3, step=it.d/n;
                for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*step,it.w/2,-it.d/2+i*step,'ic'); }
                return s; }},
@@ -5608,6 +5608,9 @@ function renderProps(){
     if(inZone) document.getElementById("pOwnMic").checked=!!it.ownMic; }
   var zw=document.getElementById("pZoneWrap");   /* zona microfono panoramico */
   if(zw){ var isZone=it.type==="miczone"; zw.style.display=isZone?"block":"none";
+    /* zone mic: niente Rotazione né Duplica — non hanno senso per un'area (Simone 15/07) */
+    var _rr=document.getElementById("pRotRow"); if(_rr) _rr.style.display=isZone?"none":"";
+    var _du=document.getElementById("pDup"); if(_du) _du.style.display=isZone?"none":"";
     if(isZone){
       document.getElementById("pZoneOp").value = (it.opacity==null?18:it.opacity);
       var zmic=document.getElementById("pZoneMic"); zmic.value=it.mic||""; zmic.placeholder=micZoneMic(it);
@@ -5710,12 +5713,15 @@ function renderProps(){
     document.getElementById("pTastLeg2").checked = it.leggio2===true;
   }
   var pc=document.getElementById("pComp"), comp=COMP[it.type];
-  document.getElementById("selProps").classList.toggle("comp-first", !!comp);   /* configuratore in alto per i configurabili */
-  /* Aspetto ILLUSTRATO: la configurazione del kit (tom, cassa, piatti…) non si riflette sull'illustrazione
-     (figura generica) → nascondo i controlli muti e rimando allo Schematico. I pezzi restano salvati. */
-  var kitMuted = comp && hasLookToggle(it) && it.look!=="schematico";
-  pc.style.display = comp ? "block" : "none";
-  if(comp){
+  /* Batteria (scelta Simone 15/07): NIENTE configuratore pezzi in pannello — semplicità. L'illustrato è di
+     default; chi vuole un kit su misura usa "Dividi in elementi" (cassa/rullante/tom/hi-hat/piatti separati). */
+  var noConfig = comp && it.type==="batteria";
+  document.getElementById("selProps").classList.toggle("comp-first", !!comp && !noConfig);   /* configuratore in alto per i configurabili */
+  /* Aspetto ILLUSTRATO (altri COMP configurabili, es. timpani): i controlli non si riflettono sull'illustrazione
+     → li nascondo e rimando allo Schematico. I pezzi restano salvati. */
+  var kitMuted = comp && !noConfig && hasLookToggle(it) && it.look!=="schematico";
+  pc.style.display = (comp && !noConfig) ? "block" : "none";
+  if(comp && !noConfig){
     if(comp.name){ document.getElementById("selNome").textContent = comp.name(it); setPeekName(comp.name(it)); }
     if(kitMuted){
       document.getElementById("pCompCtl").innerHTML =
