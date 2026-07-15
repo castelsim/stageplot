@@ -303,7 +303,7 @@ function timpSlots(pp){
     var x=0, sx=0, topy=1e9;
     ms.forEach(function(m){ var r=m.d/2; out.push({icon:m.icon,lbl:m.lbl,r:r,x:x+r,y:0,rot:0}); x+=m.d+4; });
     out.forEach(function(t){ sx+=t.x; topy=Math.min(topy,t.y-t.r); });
-    if(pp.stool!==false) out.push({icon:"sgabellobatt",r:20,x:Math.round(sx/n*10)/10,y:topy-24,rot:0,stool:true});
+    if(pp.stool!==false || pp.mus!==false) out.push({r:20,x:Math.round(sx/n*10)/10,y:topy-24,rot:0,seat:true});   /* posto del musicista: persona e/o sgabello (deciso in drawTimpani) */
   } else {
     /* arco: centri su una circonferenza, concavità verso il musicista (a nord), timpani tangenti+gap */
     var R=TIMP_R_ARC[n], dth=[], span=0;
@@ -315,11 +315,11 @@ function timpSlots(pp){
         x:Math.round(R*Math.sin(ths[i])*10)/10, y:Math.round(R*Math.cos(ths[i])*10)/10,
         rot:Math.round(-ths[i]*180/Math.PI)});   /* pedale verso il musicista */
     }
-    if(pp.stool!==false){
-      var inner=1e9;   /* bordo interno dei timpani frontali: lo sgabello ci si accosta */
+    if(pp.stool!==false || pp.mus!==false){
+      var inner=1e9;   /* bordo interno dei timpani frontali: il posto ci si accosta */
       for(i=0;i<n;i++){ if(Math.abs(ths[i])<1.05) inner=Math.min(inner,(R-ms[i].d/2)*Math.cos(ths[i])); }
       if(inner===1e9) inner=R-ms[0].d/2;
-      out.push({icon:"sgabellobatt",r:20,x:0,y:Math.round((inner-24)*10)/10,rot:0,stool:true});
+      out.push({r:20,x:0,y:Math.round((inner-24)*10)/10,rot:0,seat:true});   /* posto del musicista: persona e/o sgabello */
     }
   }
   if(pp.orient==="tedesco"){ var mn=1e9,mx=-1e9; out.forEach(function(t){ mn=Math.min(mn,t.x); mx=Math.max(mx,t.x); });
@@ -1270,10 +1270,9 @@ var LOOK_ART = {
   grancoda:"musPianoGranCoda", mezzacoda:"musPianoMezzaCoda", stagepiano:"musTastiera",
   gtstand:"musChitElettrica", gtacustica:"musChitAcustica", bassstand:"musBasso", direttore:"musDirettore"
 };
-/* Tipi il cui DRAW è consapevole dell'aspetto (illustrato = schema + persona, NON sostituzione con
-   un'illustrazione intera). Timpani: schema configurabile (numero/arco-linea/scuola) + il timpanista
-   in mezzo. Hanno il toggle Aspetto ma NON passano dalla sostituzione di look2Art. */
-var DRAW_LOOK = { timpani:1 };
+/* Tipi il cui DRAW è consapevole dell'aspetto (illustrato = schema + persona). Vuoto: i timpani ora usano
+   i toggle indipendenti Musicista / Sgabello nel configuratore (non l'Aspetto illustrato/schematico). */
+var DRAW_LOOK = {};
 /* illustrazione da disegnare al posto dello schema per i tipi Fase 2 in aspetto illustrato (default) */
 function look2Art(it){ return it && it.look!=="schematico" && LOOK_ART[it.type] ? LOOK_ART[it.type] : null; }
 /* Fase 2 illustrato: il footprint (w/d) = dimensioni dell'illustrazione a scala reale, così il riquadro
@@ -1389,15 +1388,18 @@ function explodeBatteria(it){
   return out;
 }
 function drawTimpani(it){
-  var L=timpSlots(parts(it)), B=timpBBox(L), s='';
+  var pp=parts(it), L=timpSlots(pp), B=timpBBox(L), s='';
   var W=Math.round(B.w), D=Math.round(B.d);
   if(it.w!==W||it.d!==D){ it.w=W; it.d=D; }   /* riallinea i documenti vecchi al set reale (idempotente) */
-  var illus = it&&it.look!=="schematico";   /* illustrato (default): il TIMPANISTA in mezzo, al posto dello sgabello */
   L.forEach(function(t){
     var tx=Math.round((t.x-B.cx)*10)/10, ty=Math.round((t.y-B.cy)*10)/10;
-    var icon = (t.stool && illus) ? "timpanistaPersona" : t.icon;
-    var rot = t.rot||0;   /* la persona: orientamento base dell'icona (Simone: ruotata 180° rispetto a prima) */
-    s+='<g transform="translate('+tx+' '+ty+')'+(rot?' rotate('+rot+')':'')+'">'+libIcon(icon)+'</g>';
+    var pre='<g transform="translate('+tx+' '+ty+')'+(t.rot?' rotate('+t.rot+')':'')+'">';
+    if(t.seat){   /* posto del musicista: toggle indipendenti Musicista / Sgabello */
+      var g='';
+      if(pp.stool!==false) g += libIcon("sgabellobatt");
+      if(pp.mus!==false)   g += libIcon("timpanistaPersona");
+      s += pre+g+'</g>';
+    } else s += pre+libIcon(t.icon)+'</g>';
   });
   return s;
 }
@@ -1426,10 +1428,11 @@ var COMP = {
 };
 (function(){
   function timpCfg(n){ return {
-    defParts:{count:n, layout:"arco", orient:"americano", stool:true},
+    defParts:{count:n, layout:"arco", orient:"americano", mus:true, stool:true},
     controls:[ {key:"count",label:"Numero timpani",type:"count",min:1,max:5},
                {key:"layout",label:"Disposizione",type:"choice",options:[["arco","Semicerchio"],["linea","In linea"]]},
                {key:"orient",label:"Scuola (lato del grave)",type:"choice",options:[["americano","Americana (dx)"],["tedesco","Tedesca (sx)"]]},
+               {key:"mus",label:"Musicista",type:"toggle"},
                {key:"stool",label:"Sgabello",type:"toggle"} ],
     name:function(it){ var n=parts(it).count; return n===1 ? "Timpano" : "Timpani ×"+n; },
     draw:drawTimpani, size:sizeTimpani, explode:explodeTimpani };
