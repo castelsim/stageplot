@@ -1480,8 +1480,9 @@ function doubleStringPost(kind, dx){
   var lr, legY=38;
   /* tutti gli strumenti PARALLELI (nessuna specchiatura) */
   function parallel(inner, rotL, rotR, ty){ var t=ty||0;
-    return '<g transform="translate('+(-dx)+','+t+') rotate('+(rotL||0)+')">'+inner+'</g>'+
-           '<g transform="translate('+dx+','+t+') rotate('+(rotR||0)+')">'+inner+'</g>'; }
+    /* destra prima (sotto), sinistra dopo (in primo piano) */
+    return '<g transform="translate('+dx+','+t+') rotate('+(rotR||0)+')">'+inner+'</g>'+
+           '<g transform="translate('+(-dx)+','+t+') rotate('+(rotL||0)+')">'+inner+'</g>'; }
   if(kind==="vln1"||kind==="vln2"){ lr=parallel(postaz(gVln(0.45)), -8, 8); }
   else if(kind==="vla"){ lr=parallel(postaz(gVln(0.53)), -8, 8); }
   else if(kind==="vc"){ legY=54; lr=parallel(celloPost(), -7, 7, 4); }
@@ -1508,8 +1509,9 @@ function station(it, glyph, dblKind, realistic){
     if(it.doppia){
       var hx = it.sep ? it.sep/2 : 45;   /* 2 musicisti affiancati, ENTRAMBI verso il pubblico (non specchiati), */
       var conv = 12;                      /* leggermente convergenti verso il centro, come lo schematico */
-      return '<g transform="translate('+(-hx)+',0) rotate('+(-conv)+')">'+libIcon(art)+'</g>'+
-             '<g transform="translate('+hx+',0) rotate('+conv+')">'+libIcon(art)+'</g>'+leg;
+      /* destra prima (sotto), sinistra dopo (in primo piano) */
+      return '<g transform="translate('+hx+',0) rotate('+conv+')">'+libIcon(art)+'</g>'+
+             '<g transform="translate('+(-hx)+',0) rotate('+(-conv)+')">'+libIcon(art)+'</g>'+leg;
     }
     return libIcon(art)+leg;
   }
@@ -1518,8 +1520,9 @@ function station(it, glyph, dblKind, realistic){
     var half = it.sep ? it.sep/2 : null;
     if(/^(vln1|vln2|vla|vc|cb)$/.test(dblKind||"")) return realistic ? doubleStringPostLib(dblKind, half) : doubleStringPost(dblKind, half);
     var dx = half || 45, conv=12;   /* sedie convergenti verso il centro */
-    return '<g transform="translate('+(-dx)+',0) rotate('+(-conv)+')">'+seat(0)+glyph+'</g>'+
-      '<g transform="translate('+dx+',0) rotate('+conv+')">'+seat(0)+glyph+'</g>'+
+    /* destra prima (sotto), sinistra dopo (in primo piano) */
+    return '<g transform="translate('+dx+',0) rotate('+conv+')">'+seat(0)+glyph+'</g>'+
+      '<g transform="translate('+(-dx)+',0) rotate('+(-conv)+')">'+seat(0)+glyph+'</g>'+
       '<g transform="translate(0,38)">'+leggioGlyph(0)+'</g>';
   }
   /* archi singoli realistici: layout dedicato a scala reale (sedia/sgabello + strumento + leggio davanti) */
@@ -1555,7 +1558,8 @@ function doubleStringPostLib(kind, dx){
   /* nel doppio lo sgabello/sedia è sempre al centro locale (non usa stoolX del singolo) */
   var dblSeat=cfg.stool?(circ(0,-26,17,'ic soft')+circ(0,-26,5,'dotS')):seatLight(0);
   function side(sx,ang){ return '<g transform="translate('+sx+',0) rotate('+ang+')">'+dblSeat+inst+'</g>'; }
-  return side(-dx,-conv)+side(dx,conv)+'<g transform="translate(0,'+cfg.legY+')">'+leggioGlyph(0)+'</g>';
+  /* destra prima (sotto), sinistra dopo (in primo piano) */
+  return side(dx,conv)+side(-dx,-conv)+'<g transform="translate(0,'+cfg.legY+')">'+leggioGlyph(0)+'</g>';
 }
 /* ── Timpani realistici (libreria icon-prototype): ingombri reali caldaia+telaio ── */
 var TIMP_MODELS={ t51:{icon:"timp51",d:57,lbl:'20\u2033'}, t58:{icon:"timp58",d:65,lbl:'23\u2033'},
@@ -2020,10 +2024,10 @@ var TYPES = {
              draw:function(it){ return drawLibFit("crash16",it,44,44); }},
   rideR:    {nome:"Ride", dim:"54×54", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:54,d:54,
              draw:function(it){ return drawLibFit("ride20",it,54,54); }},
-  stoolR:   {nome:"Sgabello batteria", dim:"Ø38", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:40,d:40,
+  stoolR:   {nome:"Sgabello batteria", dim:"Ø38", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:40,d:40, z:1,
              draw:function(it){ return drawLibFit("sgabellobatt",it,40,40); }},
-  batteristaR:{nome:"Batterista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:65,d:81, defLabel:"Dr",
-             draw:function(it){ return libIcon("batteristaPersona"); }},   /* persona a misura reale (0 canali, non resizable): piazzabile su kit custom + output di "Dividi" quando Musicista ON */
+  batteristaR:{nome:"Batterista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:65,d:81, z:1, defLabel:"Dr",
+             draw:function(it){ return libIcon("batteristaPersona"); }},   /* z:1 = sotto i fusti/piatti (z:2); a parità di z l'ordine array mette il batterista sopra lo sgabello. Persona a misura reale (0 canali, non resizable): kit custom + output di "Dividi" (Musicista ON) */
   timpsingolo:{nome:"Timpano", dim:"Ø singolo", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:88,d:88,
              draw:function(it){ var r=Math.max(8,Math.min(it.w,it.d)/2-4); return tdrum(0,0,r)+circ(0,0,3,'ic fill'); }},
   kickdrum: {nome:"Cassa (kick)", dim:"Ø singolo", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:60,d:60,
@@ -2641,16 +2645,20 @@ function drawBatteria(it){
   var W=Math.round(B.w), D=Math.round(B.d);
   if(it.w!==W||it.d!==D){ it.w=W; it.d=D; }
   var pp=parts(it);
-  L.forEach(function(sl){
+  function slotSvg(sl){
     var tx=Math.round((sl.x-B.cx)*10)/10, ty=Math.round((sl.y-B.cy)*10)/10;
     var pre='<g transform="translate('+tx+' '+ty+')'+(sl.rot?' rotate('+sl.rot+')':'')+'">';
     if(sl.seat){   /* posto del batterista: toggle indipendenti Musicista / Sgabello. Sgabello sotto, persona verso il kit (+y). */
       var g='';
-      if(pp.stool!==false) g += '<g transform="translate(0,18)">'+libIcon("sgabellobatt")+'</g>';
-      if(pp.mus!==false)   g += '<g transform="translate(0,36)">'+libIcon("batteristaPersona")+'</g>';   /* 0°: testa a nord (dietro), braccia/bacchette verso il kit (+y) */
-      s += pre+g+'</g>';
-    } else s += pre+libIcon(DRUM_PARTS[sl.k].icon)+'</g>';
-  });
+      if(pp.stool!==false) g += '<g transform="translate(0,18)">'+libIcon("sgabellobatt")+'</g>';   /* sgabello sotto */
+      if(pp.mus!==false)   g += '<g transform="translate(0,36)">'+libIcon("batteristaPersona")+'</g>';   /* batterista sopra lo sgabello (0°: testa a nord, braccia verso il kit) */
+      return pre+g+'</g>';
+    }
+    return pre+libIcon(DRUM_PARTS[sl.k].icon)+'</g>';
+  }
+  /* Ordine di disegno: prima il posto (sgabello+batterista) → SOTTO i fusti/piatti, poi i fusti/piatti sopra. */
+  L.forEach(function(sl){ if(sl.seat) s += slotSvg(sl); });
+  L.forEach(function(sl){ if(!sl.seat) s += slotSvg(sl); });
   return s;
 }
 function sizeBatteria(it){ var B=drumBBox(drumSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }

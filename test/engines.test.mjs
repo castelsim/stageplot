@@ -929,6 +929,15 @@ t("batteristaR: elemento persona a misura reale — 0 canali, non resizable, cat
   ok(!A.TYPES.batteristaR.resizable);                   /* misura reale */
   ok(A.TYPES.batteristaR.catalog !== false);            /* draggabile dal catalogo */
 });
+t("z-order batterista: sopra lo sgabello, sotto i fusti/piatti", () => {
+  const zDrum = A.TYPES.kickR.z || 2;
+  ok((A.TYPES.batteristaR.z || 2) < zDrum, "batterista sotto i fusti");
+  ok((A.TYPES.stoolR.z || 2) < zDrum, "sgabello sotto i fusti");
+  ok((A.TYPES.stoolR.z || 2) <= (A.TYPES.batteristaR.z || 2), "sgabello non sopra il batterista");
+  const ex = A.explodeBatteria({ type: "batteria", parts: { mus: true, stool: true } });
+  const iStool = ex.findIndex((p) => p.type === "stoolR"), iBatt = ex.findIndex((p) => p.type === "batteristaR");
+  ok(iStool >= 0 && iBatt > iStool, "explode: batterista dopo lo sgabello (sopra a parità di z)");
+});
 t("Dividi batteria: include il batterista se Musicista ON, non se OFF", () => {
   const withMus = A.explodeBatteria({ type: "batteria", label: "Dr", parts: { mus: true, stool: true } });
   const noMus = A.explodeBatteria({ type: "batteria", label: "Dr", parts: { mus: false, stool: true } });
