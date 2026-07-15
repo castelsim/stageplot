@@ -1935,6 +1935,7 @@ function migrate(s){
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];
+  if(s.lookDefault!=="schematico") s.lookDefault="illustrato";   /* B4: aspetto predefinito del progetto (default illustrato); i nuovi elementi lo ereditano */
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
   /* Backfill difensivo w/d (08/07): un item senza w/d (progetto vecchio/importato) fa calcolare
      geometrie NaN alle draw che dipendono da it.w/it.sep (es. doppiatastiera) → svg2pdf lancia e
@@ -4553,8 +4554,9 @@ function _setLblMode(m){ mutSel(function(it){ if(m==="abbr") delete it.labelMode
 document.getElementById("pLblFull").addEventListener("click", function(){ _setLblMode("full"); });
 document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLblMode("abbr"); });
 document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
-document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ delete it.look; recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
+document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ it.look="illustrato"; recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
 document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; recalcItemDims(it); }); renderProps(); });
+document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
@@ -5383,6 +5385,7 @@ function addItem(type, over){
   if(POSTAZ[type]){ it.sedia=true; it.leggio=true; it.doppia=false; it.sep=minSepType(type); }
   if(DOUBLE_TYPES[type]){ it.sep=minSepType(type); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
+  if(state.lookDefault==="schematico" && hasLookToggle(it)) it.look="schematico";   /* B4: eredita l'aspetto predefinito del progetto */
   var _ld0=look2Dims(it); if(_ld0){ it.w=_ld0[0]; it.d=_ld0[1]; }   /* Fase 2 illustrato (default): footprint = illustrazione */
   if(autoNumbered(type)){   /* nome progressivo: Flauto 1, Flauto 2, … (doppie = 2 nomi) */
     var seats0=instrSeats(type), base0=instrBase(type);
