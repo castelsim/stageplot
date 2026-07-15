@@ -1396,7 +1396,7 @@ function drawTimpani(it){
   L.forEach(function(t){
     var tx=Math.round((t.x-B.cx)*10)/10, ty=Math.round((t.y-B.cy)*10)/10;
     var icon = (t.stool && illus) ? "timpanistaPersona" : t.icon;
-    var rot = (t.rot||0) + ((t.stool && illus) ? 180 : 0);   /* la persona guarda i timpani (verso sud) */
+    var rot = t.rot||0;   /* la persona: orientamento base dell'icona (Simone: ruotata 180° rispetto a prima) */
     s+='<g transform="translate('+tx+' '+ty+')'+(rot?' rotate('+rot+')':'')+'">'+libIcon(icon)+'</g>';
   });
   return s;
