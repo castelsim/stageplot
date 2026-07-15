@@ -898,6 +898,11 @@ t("look2Art: chitarra/arpa default â†’ illustrazione; schematico e non-mappati â
   eq(A.look2Art({ type: "gtstand", look: "schematico" }), null);
   eq(A.look2Art({ type: "astamic" }), null);
 });
+t("corista: niente bottone 'Dividi in elementi' (isDecomposable false)", () => {
+  ok(A.isDecomposable({ type: "corista" }) === false, "corista non scomponibile");
+  ok(A.isDecomposable({ type: "cantante" }) === true, "cantante resta scomponibile");
+  ok(A.isDecomposable({ type: "vlnpost" }) === true, "le postazioni restano scomponibili");
+});
 t("personal mixer digitale: piazzarlo attiva in automatico il layer P.M. (mond)", () => {
   reset(); ok(A.state.mond.on === false, "layer P.M. spento all'inizio");
   add("hearback", 400, 400);
