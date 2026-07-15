@@ -720,5 +720,77 @@ t("audit T5: approvato → nessun nudge bozza", () => {
   ok(!A.auditEngine().findings.some((f) => /ancora una «Bozza»/.test(f.msg)), "nessun nudge da approvato");
 });
 
+console.log("\nT6 — varianti/scene (snapshot indipendenti):");
+t("loadDoc: blob legacy piatto → 1 variante", () => {
+  A.loadDoc({ titolo: "Legacy", luogo: "", items: [], inputs: [], outputs: [] });
+  eq(A.VARIANTS.length, 1); eq(A.state.titolo, "Legacy"); eq(A.activeVar, A.VARIANTS[0].id);
+});
+t("loadDoc: blob doc con 2 varianti carica l'attiva", () => {
+  A.loadDoc({ _doc: 1, active: "vB", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
+  eq(A.VARIANTS.length, 2); eq(A.activeVar, "vB"); eq(A.state.titolo, "Ridotta");
+});
+t("docToJSON: serializza tutte le varianti + active; state resta piatto", () => {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
+  const doc = JSON.parse(A.docToJSON());
+  eq(doc.variants.length, 2); eq(doc.active, "vA"); eq(doc.variants.map((v) => v.name), ["Piena", "Ridotta"]);
+});
+t("switchVariant: congela l'attiva e ripristina la target (modifiche indipendenti)", () => {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
+  A.state.titolo = "Piena EDIT"; add("batteria", 400, 400);
+  A.switchVariant("vB");
+  eq(A.activeVar, "vB"); eq(A.state.titolo, "Ridotta"); eq(A.state.items.length, 0, "vB non eredita gli item di vA");
+  A.switchVariant("vA");
+  eq(A.state.titolo, "Piena EDIT", "modifica di vA congelata"); eq(A.state.items.length, 1, "item di vA preservato");
+});
+t("createVariant: duplica l'attiva (copia identica) e ci passa sopra", () => {
+  A.loadDoc({ titolo: "Base", items: [], inputs: [], outputs: [] });
+  add("astamic", 300, 300);
+  const before = A.VARIANTS.length;
+  const id = A.createVariant("Ridotta");
+  eq(A.VARIANTS.length, before + 1); eq(A.activeVar, id);
+  eq(A.state.titolo, "Base", "la copia parte identica"); eq(A.state.items.length, 1, "la copia eredita gli item");
+  ok(JSON.parse(A.docToJSON()).variants.some((v) => v.name === "Ridotta"), "nuova variante nel doc");
+});
+t("deleteVariant: guardia — non elimina l'ultima variante", () => {
+  A.loadDoc({ titolo: "Solo", items: [], inputs: [], outputs: [] });
+  const only = A.activeVar; A.deleteVariant(only);
+  eq(A.VARIANTS.length, 1, "resta 1 variante"); eq(A.activeVar, only);
+});
+t("deleteVariant: elimina l'attiva → passa a un'altra", () => {
+  A.loadDoc({ _doc: 1, active: "vB", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
+  A.deleteVariant("vB");
+  eq(A.VARIANTS.length, 1); eq(A.VARIANTS[0].id, "vA"); eq(A.activeVar, "vA"); eq(A.state.titolo, "Piena");
+});
+t("renameVariant: aggiorna il nome nel doc", () => {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
+  A.renameVariant("vB", "Venue Y");
+  eq(JSON.parse(A.docToJSON()).variants.find((v) => v.id === "vB").name, "Venue Y");
+});
+t("stateToJSON resta piatto (view/#p=/realtime): niente chiavi variants/active", () => {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } } ] });
+  const flat = JSON.parse(A.stateToJSON());
+  ok(!("variants" in flat) && !("active" in flat), "stato piatto"); eq(flat.titolo, "Piena");
+});
+t("docToJSONFull conserva la planimetria dell'attiva; docToJSON la strippa", () => {
+  A.loadDoc({ titolo: "V", items: [], inputs: [], outputs: [] });
+  A.state.venue = { name: "piantina", _dataUrl: "data:image/png;base64,AAA", _imgW: 100, _imgH: 80 };
+  const light = JSON.parse(A.docToJSON()), full = JSON.parse(A.docToJSONFull());
+  const lv = light.variants.find((v) => v.id === light.active);
+  const fv = full.variants.find((v) => v.id === full.active);
+  ok(!lv.state.venue || !lv.state.venue._dataUrl, "docToJSON: immagine strippata");
+  ok(fv.state.venue && fv.state.venue._dataUrl, "docToJSONFull: immagine presente sull'attiva");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

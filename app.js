@@ -1451,6 +1451,115 @@ function stateToJSON(){ return JSON.stringify(Object.assign({_v:SCHEMA_VERSION},
 var venueImgCache={};
 function cacheVenueImg(v){ if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH}; }
 function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl && venueImgCache[v.name]){ var c=venueImgCache[v.name]; v._dataUrl=c._dataUrl; v._imgW=c._imgW; v._imgH=c._imgH; } return s; }
+/* ===== T6 — Varianti/scene (snapshot indipendenti, design 2026-07-15) =====
+   Un progetto può contenere più VARIANTI (es. "Piena", "Ridotta", "Venue X"), ognuna uno snapshot
+   COMPLETO e autonomo dello stato. Il `state` vivo = variante attiva; le altre vivono congelate in
+   VARIANTS[]. Il documento persistito (cloud/file/localStorage) è { _doc, variants:[{id,name,state}], active }.
+   Retrocompat: un blob SENZA `variants[]` è un progetto legacy piatto → variante singola.
+   Restano PIATTI di proposito: ?view=/#p=/#d= e realtime (mostrano solo la variante attiva), undo/redo (per-variante). */
+var VARIANTS = [], activeVar = null;
+function newVarId(){ return "V"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function activeVarObj(){ for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===activeVar) return VARIANTS[i]; } return VARIANTS[0]||null; }
+function ensureVariants(){ if(!VARIANTS.length){ var id=newVarId(); VARIANTS=[{id:id, name:"Variante 1", state:null}]; activeVar=id; }
+  else if(!activeVarObj()){ activeVar=VARIANTS[0].id; } }
+function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Variante\s+(\d+)$/.exec(v.name||""); if(m) n=Math.max(n, +m[1]); }); return "Variante "+(n+1||VARIANTS.length+1); }
+/* congela lo state vivo nella slot della variante attiva (snapshot piatto, immagine planimetria strippata) */
+function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v) v.state=JSON.parse(stateToJSON()); }
+/* documento COMPLETO serializzato (tutte le varianti) — usato da cloud/localStorage (state LEGGERO, immagine strippata) */
+function docToJSON(){ syncActiveVariant(); return JSON.stringify({ _doc:1, active:activeVar,
+  variants: VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:v.state }; }) }); }
+/* come docToJSON ma la variante attiva porta lo state COMPLETO con la planimetria (_dataUrl) — export su file.
+   Le altre varianti condividono l'immagine per nome: all'import viene messa in cache e riagganciata al primo switch. */
+function docToJSONFull(){ syncActiveVariant(); var full=JSON.parse(JSON.stringify(state)); full._v=SCHEMA_VERSION;
+  return JSON.stringify({ _doc:1, active:activeVar,
+    variants: VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:(v.id===activeVar?full:v.state) }; }) }); }
+/* applica uno stato piatto al `state` vivo (nessun undo, nessuno stacco id cloud): riuso guidato da chi chiama */
+function applyVariantState(flat){ state=normalizeState(flat); state.items=sanitizeItems(state.items||[]); reattachVenueImg(state); }
+/* carica un documento parsato (doc o legacy piatto) in VARIANTS + `state` vivo. Non fa render/persist (lo fa chi chiama). */
+function loadDoc(parsed){
+  if(parsed && Array.isArray(parsed.variants) && parsed.variants.length){
+    VARIANTS = parsed.variants.map(function(v){ return { id:(v&&v.id)||newVarId(), name:(v&&v.name)||"Variante", state:v&&v.state }; });
+    activeVar = (parsed.active && VARIANTS.some(function(v){ return v.id===parsed.active; })) ? parsed.active : VARIANTS[0].id;
+  } else {
+    var id=newVarId(); VARIANTS=[{ id:id, name:"Variante 1", state:parsed }]; activeVar=id;   /* legacy piatto → variante singola */
+  }
+  var a=activeVarObj(); applyVariantState(a && a.state ? a.state : state);
+}
+/* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
+function switchVariant(id){
+  if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
+  if(!target || !target.state) return;
+  syncActiveVariant(); activeVar=id; applyVariantState(target.state);
+  ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
+  undoStack.length=0; redoStack.length=0; lastSnap=stateToJSON();
+  persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  render(); renderChannels(); fit(); renderVariantBar();
+}
+/* crea una nuova variante = copia dell'attiva, poi ci passa sopra */
+function createVariant(name){
+  syncActiveVariant(); var src=activeVarObj(); if(!src) return null;
+  var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
+  VARIANTS.push({ id:id, name:(name||nextVariantName()), state:copy });
+  activeVar=id; applyVariantState(copy);
+  ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
+  undoStack.length=0; redoStack.length=0; lastSnap=stateToJSON();
+  persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  render(); renderChannels(); fit(); renderVariantBar(); return id;
+}
+function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
+  persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); renderVariantBar(); }
+function deleteVariant(id){ if(VARIANTS.length<=1) return;   /* guardia: mai eliminare l'ultima variante */
+  var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return;
+  var wasActive=(id===activeVar); VARIANTS.splice(idx,1);
+  if(wasActive){ var nv=VARIANTS[Math.min(idx, VARIANTS.length-1)]; activeVar=nv.id; applyVariantState(nv.state);
+    ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs(); undoStack.length=0; redoStack.length=0; lastSnap=stateToJSON(); }
+  persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  render(); renderChannels(); fit(); renderVariantBar(); }
+/* barra varianti nell'header: visibile SOLO con ≥2 varianti (UX invariata per chi non le usa); mai in viewer/consulenza */
+function renderVariantBar(){
+  var bar=document.getElementById("variantBar"); if(!bar) return;
+  var multi=VARIANTS.length>1;
+  bar.hidden = !multi || foreignDoc();
+  if(!multi) return;
+  var sel=document.getElementById("variantSel"); if(!sel) return;
+  var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
+    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+'</option>'; }
+  sel.innerHTML=html; sel.value=activeVar;
+}
+function promptRenameVariant(id){
+  var v=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) v=VARIANTS[i]; } if(!v) return;
+  var ov=document.getElementById("varRenameModal");
+  if(!ov){ ov=document.createElement("div"); ov.id="varRenameModal";
+    ov.style.cssText="position:fixed;inset:0;z-index:320;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
+    ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:360px;width:100%;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)">'+
+      '<h3 style="margin:0 0 12px;font-size:18px">Rinomina variante</h3>'+
+      '<input id="varRenameInput" type="text" maxlength="60" placeholder="Nome variante" style="width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:11px 12px;font-size:15px;box-sizing:border-box;background:var(--surface);color:var(--text)">'+
+      '<div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end"><button id="varRenameCancel" type="button" class="btn">Annulla</button><button id="varRenameSave" type="button" class="btn primary">Salva</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function(e){ if(e.target===ov) ov.style.display="none"; });
+  }
+  var inp=ov.querySelector("#varRenameInput"); inp.value=v.name||""; inp.style.borderColor="var(--border)";
+  ov.style.display="flex"; setTimeout(function(){ inp.focus(); inp.select(); },30);
+  function close(){ ov.style.display="none"; }
+  function commit(){ var val=inp.value.trim(); if(!val){ inp.style.borderColor="var(--danger-solid)"; inp.focus(); return; } renameVariant(id, val); close(); }
+  ov.querySelector("#varRenameCancel").onclick=close; ov.querySelector("#varRenameSave").onclick=commit;
+  inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
+}
+function confirmDeleteVariant(id){
+  if(VARIANTS.length<=1){ if(window.__toast) window.__toast("È l'unica variante: non puoi eliminarla.", true); return; }
+  var v=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) v=VARIANTS[i]; } if(!v) return;
+  if(typeof window.confirmDialog==="function"){
+    window.confirmDialog({ icon:"trash", title:"Eliminare la variante «"+(v.name||"")+"»?",
+      message:"Questa scena verrà rimossa dal progetto. Al prossimo salvataggio l'azione non è più reversibile.", confirmText:"Elimina" })
+      .then(function(ok){ if(ok) deleteVariant(id); });
+  } else deleteVariant(id);
+}
+(function(){
+  var sel=document.getElementById("variantSel"); if(sel) sel.addEventListener("change", function(){ switchVariant(this.value); });
+  var bn=document.getElementById("variantNew"); if(bn) bn.addEventListener("click", function(){ createVariant(); });
+  var br=document.getElementById("variantRen"); if(br) br.addEventListener("click", function(){ promptRenameVariant(activeVar); });
+  var bd=document.getElementById("variantDel"); if(bd) bd.addEventListener("click", function(){ confirmDeleteVariant(activeVar); });
+})();
 /* In viewer condiviso e sessione consulenza (?view=) lo stato mostrato è il documento di QUALCUN ALTRO:
    non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
    ritorno sulla home ci si ritrova il progetto altrui come proprio, e l'autosave ne creerebbe una copia cloud). */
@@ -1508,7 +1617,7 @@ track("app_open");
    modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
 function persistLocalState(){
   if(foreignDoc() || window.__projLocked) return;   /* progetto bloccato: nessuna scrittura (né locale né cloud) */
-  try{ localStorage.setItem(LS_KEY, stateToJSON()); }catch(e){}
+  try{ localStorage.setItem(LS_KEY, docToJSON()); }catch(e){}   /* documento COMPLETO (tutte le varianti) */
   /* attivazione (quality gate): 3° elemento raggiunto, una volta per sessione */
   try{ if(!__activatedSent && state.items && state.items.length>=3){ __activatedSent=true; track("project_activated"); } }catch(e){}
   try{
@@ -1698,8 +1807,7 @@ function importProject(json){
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
   undoStack.push(stateToJSON()); if(undoStack.length>120) undoStack.shift(); redoStack.length=0;   /* importazione annullabile con Ctrl+Z */
   try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* ciò che arriva da fuori è un documento NUOVO: senza lo stacco, l'autosave sovrascriverebbe il progetto cloud aperto prima. I flussi che devono agganciare (apri da cloud) risettano l'id subito dopo. */
-  state=normalizeState(s);
-  state.items=sanitizeItems(state.items||[]);
+  loadDoc(s);   /* T6: doc (varianti) o legacy piatto → variante singola; applica la variante attiva a `state` */
   cacheVenueImg(state.venue);   /* l'import può portare con sé una planimetria (.json completo): mettila in cache */
   persistVenueImg();            /* e nella chiave dedicata: sopravvive a un reload dopo l'apertura da cloud/file */
   ensureItemIds();
@@ -1707,7 +1815,7 @@ function importProject(json){
   setEventInputs();
   persistLocalState();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
-  render(); renderChannels(); fit();
+  render(); renderChannels(); fit(); renderVariantBar();
 }
 function normalizeChannelRow(r){
   r=r||{};
@@ -1920,10 +2028,10 @@ function normalizeState(s){
 function load(){
   try{
     var raw = localStorage.getItem(LS_KEY);
-    if(raw){ state = normalizeState(JSON.parse(raw));
+    if(raw){ loadDoc(JSON.parse(raw));   /* doc (varianti) o legacy piatto → variante singola */
       ensureItemIds();
-    }
-  }catch(e){}
+    } else { ensureVariants(); }
+  }catch(e){ try{ ensureVariants(); }catch(_e){} }
   try{ window.__bootCloudId = localStorage.getItem(LS_KEY+"_cloudid") || null; }catch(e){}   /* riaggancia il documento al suo progetto cloud (il modulo cloud lo adotta all'avvio) */
   loadVenueImg(); reattachVenueImg(state);   /* ripristina l'immagine planimetria dalla chiave dedicata */
 }
@@ -9528,6 +9636,8 @@ document.getElementById("bNew").addEventListener("click", function(){
        crasha al primo render, fit() aborta prima di setEventInputs (titolo non resettato) e drag/render
        restano rotti. Normalizzando, il foglio nuovo è completo e coerente. */
     state=normalizeState({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
+    VARIANTS=[]; activeVar=null; ensureVariants();   /* T6: foglio nuovo = documento a variante singola (scarta le varianti del progetto precedente) */
+    if(typeof renderVariantBar==="function") renderVariantBar();
     resetMetaLayersUI();   /* foglio nuovo: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
     try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* foglio nuovo = progetto nuovo: senza lo stacco, l'autosave sovrascriverebbe il progetto aperto col foglio vuoto */
     stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
@@ -9887,7 +9997,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var acts={ "new":function(){proxyClick("bNew");}, "open":function(){proxyClick("bHdrImport");},
       "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
       "projects":function(){proxyClick("bCloud");}, "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
-      "copy":fileMakeCopy, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
+      "copy":fileMakeCopy, "variant-new":function(){ if(typeof createVariant==="function") createVariant(); }, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
       "share":function(){openShare();} };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
@@ -9968,7 +10078,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   function io(m,err){ var el=document.getElementById("ioStatus"); el.textContent=m||""; el.style.color=err?"#dc2626":"#16a34a"; }
   document.getElementById("saveJson").addEventListener("click", function(){
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
-    var data=JSON.stringify(state);   /* export su file: include anche la planimetria (_dataUrl), nessun limite di dimensione */
+    var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
       window.showSaveFilePicker({ suggestedName:name, types:[{description:"Progetto Stage Plot", accept:{"application/json":[".json"]}}] })
         .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); track("export",{format:"stageplot"}); maybeLoginNudge(); }); })
@@ -11801,6 +11911,7 @@ else { window.addEventListener("resize", render); fit();
   });
 }catch(_e){} })();
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
+if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la barra varianti se il documento caricato ne ha ≥2 */
 /* Modelli di partenza (ciclo 9, decisione C): chip nel welcome + picker "Nuovo da modello" (menu File).
    Fonte unica START_MODELS; il click piazza la formazione e chiude l'overlay di provenienza. */
 (function(){
@@ -12077,7 +12188,7 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
     if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
     function doSave(thumb){
-      var fields={ title:projTitle(), data:JSON.parse(stateToJSON()) };   /* data LEGGERO: stateToJSON strippa l'immagine planimetria (ora in colonna venue_image) + include _v */
+      var fields={ title:projTitle(), data:JSON.parse(docToJSON()) };   /* T6: data = documento COMPLETO (tutte le varianti); ogni state resta LEGGERO (immagine planimetria in colonna venue_image) */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
       var wasInsert=!cloudCurrentId;
       var _imgSig=venueImgSig(state.venue), _writeImg = wasInsert || (_imgSig!==_lastCloudImgSig);   /* planimetria: la ri-carichiamo SOLO se cambiata (perf: niente MB ad ogni autosave) */
@@ -12227,7 +12338,16 @@ resetHistory();   /* la sessione iniziale è la base: undo non torna prima del c
          alla riapertura), così il nome non "torna" vecchio riaprendolo. */
       sb.from("stageplot_projects").select("data").eq("id",id).single().then(function(r){
         var dataObj=(r && r.data && r.data.data && typeof r.data.data==="object") ? r.data.data : null;
-        var upd={ title:v }; if(dataObj){ dataObj.titolo=v; upd.data=dataObj; }
+        var upd={ title:v };
+        if(dataObj){
+          if(Array.isArray(dataObj.variants) && dataObj.variants.length){   /* T6: blob doc → rinomina il titolo della variante attiva */
+            var av=dataObj.active, tgt=null;
+            dataObj.variants.forEach(function(vr){ if(vr && vr.id===av) tgt=vr; });
+            if(!tgt) tgt=dataObj.variants[0];
+            if(tgt && tgt.state && typeof tgt.state==="object") tgt.state.titolo=v;
+          } else { dataObj.titolo=v; }   /* legacy piatto */
+          upd.data=dataObj;
+        }
         sb.from("stageplot_projects").update(upd).eq("id",id).select("updated_at").single().then(function(r2){
           if(r2.error || !r2.data){ toast("Rinomina non riuscita: "+((r2.error&&r2.error.message)||"riprova"), true); return; }
           close(); toast("Rinominato: "+v); loadProjects();
