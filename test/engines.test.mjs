@@ -898,6 +898,15 @@ t("look2Art: chitarra/arpa default → illustrazione; schematico e non-mappati �
   eq(A.look2Art({ type: "gtstand", look: "schematico" }), null);
   eq(A.look2Art({ type: "astamic" }), null);
 });
+t("chitarra illustrata: ampli/pedaliera nel footprint (bug visualizzazione)", () => {
+  const base = A.recalcItemDims.bind(null);
+  const it = { type: "gtstand", look: "illustrato" }; A.recalcItemDims(it); const d0 = it.d;
+  const itA = { type: "gtstand", look: "illustrato", ampli: true }; A.recalcItemDims(itA);
+  const itP = { type: "gtstand", look: "illustrato", pedaliera: true }; A.recalcItemDims(itP);
+  ok(itP.d > d0, "pedaliera allunga la profondità in illustrato (era ignorata)");
+  ok(itP.d >= 130, "footprint include la pedaliera");
+  ok(itA.w >= 80, "footprint tiene conto dell'ampli in larghezza");
+});
 t("direttore: sempre illustrato — NON in LOOK_ART, niente toggle Aspetto", () => {
   eq(A.look2Art({ type: "direttore" }), null);        /* fuori da LOOK_ART: nessuna sostituzione da render-interception */
   ok(!A.hasLookToggle({ type: "direttore" }));        /* niente Aspetto: il draw disegna sempre l'illustrazione + podio/leggio */
