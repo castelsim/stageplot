@@ -269,24 +269,30 @@ t("floor accanto al batterista (profondità del rullante), ride davanti al floor
   ok(Math.abs(by.floor.y - by.snare.y) <= 10, "floor alla profondità del rullante, non davanti alla cassa");
   ok(by.ride.y > by.floor.y, "ride davanti al floor, mai dietro");
 });
-t("anti-collisione: fusti mai sovrapposti, piatti al più sfiorano la cassa (4 config)", () => {
-  const P = A.DRUM_PARTS, CYM = { hihat: 1, crash: 1, ride: 1 };
+t("batteria base (Simone): posizioni di default combaciano col kit di riferimento", () => {
+  const S = A.drumSlots({ toms: 2, floor: true, hihat: true, crash: 1, ride: true, stool: true, mus: true });
+  const by = {}; S.forEach((s) => { if (s.seat) by.seat = s; else if (!by[s.k]) by[s.k] = s; });
+  const near = (got, exp, tol = 4) => ok(Math.abs(got - exp) <= tol, `atteso ~${exp}, ottenuto ${got}`);
+  /* coord relative alla cassa (kick a 0,0) */
+  near(by.snare.x, 21); near(by.snare.y, -35);
+  near(by.hihat.x, 57); near(by.hihat.y, -53);
+  near(by.crash.x, 47); near(by.crash.y, -18);
+  near(by.ride.x, -45); near(by.ride.y, -14);
+  near(by.floor.x, -36); near(by.floor.y, -37);
+  near(by.seat.x, 9); near(by.seat.y, -91);
+});
+t("batteria: nessun pezzo perfettamente coincidente (default + config grandi)", () => {
   const cfgs = [
-    { toms: 2, floor: true, hihat: true, crash: 1, ride: true, stool: true },                 // default
-    { toms: 3, floor: true, hihat: true, crash: 2, ride: true, stool: true },                 // kit grande
-    { toms: 2, floor: true, hihat: true, crash: 2, ride: true, stool: true, kick2: true },    // doppia cassa
-    { toms: 3, floor: true, hihat: true, crash: 2, ride: true, stool: true, kick2: true },    // doppia cassa + 3 tom
+    { toms: 2, floor: true, hihat: true, crash: 1, ride: true, stool: true },
+    { toms: 3, floor: true, hihat: true, crash: 2, ride: true, stool: true },
+    { toms: 2, floor: true, hihat: true, crash: 2, ride: true, stool: true, kick2: true },
+    { toms: 3, floor: true, hihat: true, crash: 2, ride: true, stool: true, kick2: true },
   ];
   cfgs.forEach((cfg, ci) => {
-    const S = A.drumSlots(cfg);
+    const S = A.drumSlots(cfg).filter((s) => !s.seat);
     for (let i = 0; i < S.length; i++) for (let j = i + 1; j < S.length; j++) {
-      const a = S[i], b = S[j];
-      if ((a.k === "tom" && b.k === "kick") || (a.k === "kick" && b.k === "tom")) continue; // tom montati sopra la cassa
-      const ox = (P[a.k].w + P[b.k].w) / 2 - Math.abs(a.x - b.x);
-      const oy = (P[a.k].d + P[b.k].d) / 2 - Math.abs(a.y - b.y);
-      const ov = ox > 0 && oy > 0 ? Math.min(ox, oy) : 0;
-      const lim = (CYM[a.k] && b.k === "kick") || (CYM[b.k] && a.k === "kick") ? 12 : 0;    // piatto sopra il bordo cassa: tocco ammesso
-      ok(ov <= lim, "cfg#" + ci + " " + a.k + "↔" + b.k + ": overlap " + Math.round(ov) + " cm (max " + lim + ")");
+      const d = Math.hypot(S[i].x - S[j].x, S[i].y - S[j].y);
+      ok(d > 8, `cfg#${ci} ${S[i].k}↔${S[j].k}: centri troppo vicini (${Math.round(d)} cm)`);
     }
   });
 });

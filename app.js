@@ -1332,25 +1332,26 @@ var DRUM_PARTS={ kick:{icon:"cassa22",w:66,d:62}, snare:{icon:"rullante14",w:46,
 function drumSlots(p){
   var L=[], k2=!!p.kick2;
   function put(k,x,y,r){ L.push({k:k,x:x,y:y,rot:r||0}); }
-  /* Disposizione DESTRORSA da manuale (vista dall'alto: batterista in alto a y<0, pubblico verso y>0).
+  /* Disposizione DESTRORSA (vista dall'alto: batterista in alto a y<0, pubblico verso y>0).
      Hi-hat + rullante sul lato SINISTRO del batterista (= destra schermo, x>0), floor-tom + ride sul
-     lato destro (x<0). Regole (10/07, "una volta per tutte"): FUSTI mai sovrapposti (rullante di
-     fianco alla cassa, non dentro; floor alla profondità del rullante, non davanti); tom montati
-     SOPRA la cassa (unica sovrapposizione fisicamente reale); piatti agli angoli anteriori, al più
-     sfiorano il bordo cassa (tocco ≤ ~10 cm, piatto disegnato sopra); ride DAVANTI al floor, mai
-     dietro. Geometria protetta dal test anti-collisione in test/engines.test.mjs.
+     lato destro (x<0). Geometria = "batteria base" di Simone (kit di riferimento, 16/07): compatta e
+     realistica, rullante/piatti raccolti verso il batterista (non "al fronte" come prima). Le posizioni
+     di default sono lockate dal test in test/engines.test.mjs.
      Il flag p.lefty specchia l'intero kit sull'asse x per un batterista mancino. */
   if(k2){ put("kick",-42,0); put("kick",42,0); } else put("kick",0,0);
-  put("snare", k2?0:58, k2?-56:-14);                    /* di fianco alla cassa (doppia cassa: centrato tra le casse, arretrato) */
-  if(p.hihat) put("hihat", k2?94:100, k2?-50:-22);      /* esterno al rullante */
-  if(p.toms===1) put("tom", k2?42:8, -30, k2?-6:-4);
-  else if(p.toms===2){ put("tom",k2?42:17,-30,-6); put("tom",k2?-42:-17,-31,6); }
-  else if(p.toms>=3){ put("tom",k2?42:17,-30,-6); put("tom",k2?-42:-17,-31,6); put("tom",k2?0:-47,k2?-14:-27,k2?0:10); }   /* 3° tom sospeso accanto (rack centrale se doppia cassa) */
-  if(p.floor) put("floor", k2?-104:(p.toms>=3?-85:-62), k2?-24:(p.toms>=3?-22:-18));   /* accanto alla gamba destra, profondità del rullante */
-  if(p.crash>=1) put("crash", k2?94:52, k2?31:33, 10);  /* angolo anteriore, lato hi-hat */
-  if(p.crash>=2) put("crash", k2?-146:-104, 28, -8);    /* 2° crash oltre il floor */
-  if(p.ride) put("ride", k2?-94:-52, 34);               /* davanti al floor, sopra l'angolo cassa */
-  if(p.stool!==false || p.mus!==false) L.push({k:"stool", x:0, y:k2?-104:-98, rot:0, seat:true});   /* posto del batterista: persona e/o sgabello (deciso in drawBatteria); footprint realistico */
+  /* SINGOLA CASSA = "batteria base" (Simone 16/07, kit di riferimento Desktop): compatta e realistica —
+     rullante e piatti raccolti verso il batterista (a nord della cassa), tom montati sulla cassa, floor a
+     profondità del rullante. DOPPIA CASSA (k2): layout precedente (invariato). Coord relative alla cassa. */
+  put("snare", k2?0:21, k2?-56:-35);
+  if(p.hihat) put("hihat", k2?94:57, k2?-50:-53, k2?0:-35);   /* hi-hat inclinato, lato rullante */
+  if(p.toms===1) put("tom", k2?42:4, k2?-30:-16, k2?-6:0);
+  else if(p.toms===2){ put("tom",k2?42:-10,k2?-30:-16,-6); put("tom",k2?-42:18,k2?-31:-16,6); }
+  else if(p.toms>=3){ put("tom",k2?42:-10,k2?-30:-16,-6); put("tom",k2?-42:18,k2?-31:-16,6); put("tom",k2?0:-40,k2?-14:-27,k2?0:10); }   /* 3° tom accanto (rack centrale se doppia cassa) */
+  if(p.floor) put("floor", k2?-104:(p.toms>=3?-55:-36), k2?-24:(p.toms>=3?-40:-37));   /* profondità del rullante, lato ride */
+  if(p.crash>=1) put("crash", k2?94:47, k2?31:-18, 10);  /* lato hi-hat, appena a nord della cassa */
+  if(p.crash>=2) put("crash", k2?-146:-70, k2?28:-14, -8);    /* 2° crash lato ride */
+  if(p.ride) put("ride", k2?-94:-45, k2?34:-14);         /* lato floor */
+  if(p.stool!==false || p.mus!==false) L.push({k:"stool", x:k2?0:9, y:k2?-104:-91, rot:0, seat:true});   /* posto del batterista: persona e/o sgabello (deciso in drawBatteria) */
   if(p.lefty){ L.forEach(function(sl){ sl.x=-sl.x; sl.rot=-sl.rot; }); }   /* batterista mancino: specchia il kit */
   return L;
 }
