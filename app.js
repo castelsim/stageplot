@@ -230,9 +230,9 @@ function station(it, glyph, dblKind, realistic){
     var ad = (TYPES[art] && TYPES[art].d) ? TYPES[art].d : 80;
     var leg = (it.leggio!==false) ? '<g transform="translate(0,'+Math.round(ad*0.52)+')">'+leggioGlyph(0)+'</g>' : '';
     if(it.doppia){
-      var hx = it.sep ? it.sep/2 : 45;
+      var hx = it.sep ? it.sep/2 : 45;   /* 2 musicisti affiancati, ENTRAMBI verso il pubblico (non specchiati) */
       return '<g transform="translate('+(-hx)+',0)">'+libIcon(art)+'</g>'+
-             '<g transform="translate('+hx+',0) scale(-1,1)">'+libIcon(art)+'</g>'+leg;
+             '<g transform="translate('+hx+',0)">'+libIcon(art)+'</g>'+leg;
     }
     return libIcon(art)+leg;
   }
