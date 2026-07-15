@@ -917,6 +917,19 @@ t("batteria seat slot: c'è se Musicista O Sgabello; sparisce se entrambi off", 
   ok(seat({ mus: false, stool: true }));
   ok(!seat({ mus: false, stool: false }));
 });
+t("batteristaR: elemento persona a misura reale — 0 canali, non resizable, catalog-visibile", () => {
+  reset();
+  eq(chans(add("batteristaR", 300, 300)).length, 0);   /* persona, non sorgente audio */
+  ok(!A.TYPES.batteristaR.resizable);                   /* misura reale */
+  ok(A.TYPES.batteristaR.catalog !== false);            /* draggabile dal catalogo */
+});
+t("Dividi batteria: include il batterista se Musicista ON, non se OFF", () => {
+  const withMus = A.explodeBatteria({ type: "batteria", label: "Dr", parts: { mus: true, stool: true } });
+  const noMus = A.explodeBatteria({ type: "batteria", label: "Dr", parts: { mus: false, stool: true } });
+  ok(withMus.some((p) => p.type === "batteristaR"));
+  ok(!noMus.some((p) => p.type === "batteristaR"));
+  ok(noMus.some((p) => p.type === "stoolR"));           /* lo sgabello resta comunque */
+});
 t("conteggio Sgabelli batteria: rispetta il toggle (solo musicista → 0 sgabelli)", () => {
   reset();
   const a = add("batteria", 100, 100);                       /* stool default true */
