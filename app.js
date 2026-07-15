@@ -2470,7 +2470,7 @@ function itemMarkup(it){
   if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
   var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
-  if(KEYS_BENCH[it.type] && it.panca!==false){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) */
+  if(KEYS_BENCH[it.type] && it.panca!==false && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
     var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='';
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
@@ -4395,7 +4395,10 @@ function renderProps(){
   document.getElementById("pDimSideWrap").style.display = t.riser ? "block" : "none";
   if(t.riser){ var _qs=document.getElementById("pDimSide"); _qs.value = it.dimSide || "auto"; _qs.dispatchEvent(new Event("chips-sync")); }   /* riallinea le chips senza passare da change (che salverebbe) */
   var isKeys=!!KEYS_BENCH[it.type];
-  document.getElementById("pKeysWrap").style.display = isKeys ? "block" : "none";
+  /* in ASPETTO ILLUSTRATO gli accessori "inglobati" nella figura (sedia, sgabello) non hanno senso come toggle
+     (la figura li include già) → li nascondo. Il leggio degli archi invece lo disegno a parte → resta. */
+  var illustrated = hasLookToggle(it) && it.look!=="schematico";
+  document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
   var isPostaz=!!POSTAZ[it.type];
@@ -4403,6 +4406,7 @@ function renderProps(){
   document.getElementById("pFlags").style.display = isPostaz ? "block" : "none";
   if(isPostaz){
     var dbl=it.doppia===true;
+    var _sl=document.getElementById("pSediaLbl"); if(_sl) _sl.style.display = illustrated ? "none" : "";   /* illustrato: la sedia è nella figura */
     document.getElementById("pSedia").checked = it.sedia!==false; document.getElementById("pSedia").disabled=dbl;
     document.getElementById("pLeggioCfg").checked = it.leggio!==false; document.getElementById("pLeggioCfg").disabled=dbl;
     document.getElementById("pDoppia").checked = dbl;
