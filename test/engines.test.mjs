@@ -173,6 +173,25 @@ t("mono/stereo: laptop/djset/pedaliera diventano sorgenti audio", () => {
   pd.stereo = true; A.__cabRes = null;
   eq(chans(pd).length, 2, "pedaliera stereo: 2 canali");
 });
+t("L=dispari: alignStereoOdd porta L della coppia stereo su canale dispari (spare)", () => {
+  const rows = [
+    { n: 1, name: "Basso", itemId: "a" },
+    { n: 2, name: "Piano L", itemId: "b" }, { n: 3, name: "Piano R", itemId: "b" },
+  ];
+  const out = A.alignStereoOdd(rows);
+  eq(out.length, 4, "3 righe + 1 spare");
+  ok(out.some((r) => r.spare), "inserito un canale spare");
+  const pl = out.find((r) => r.name === "Piano L"), pr = out.find((r) => r.name === "Piano R");
+  eq(pl.n % 2, 1, "Piano L su canale dispari");
+  eq(pr.n, pl.n + 1, "Piano R subito dopo (pari)");
+});
+t("L=dispari: coppia già allineata (L dispari) non aggiunge spare", () => {
+  const rows = [{ n: 1, name: "Piano L", itemId: "b" }, { n: 2, name: "Piano R", itemId: "b" }];
+  const out = A.alignStereoOdd(rows);
+  eq(out.length, 2, "nessuno spare");
+  eq(out[0].n, 1, "L resta su 1 (dispari)");
+  ok(A.isStereoPairStart(rows[0], rows[1]), "riconosce la coppia stereo L/R");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;

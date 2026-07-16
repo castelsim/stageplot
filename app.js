@@ -3885,6 +3885,13 @@ function auditEngine(){
   var chCnt={}; chNames.forEach(function(k){ var lk=k.toLowerCase(); chCnt[lk]=(chCnt[lk]||0)+1; });
   var dupCh=Object.keys(chCnt).filter(function(k){ return chCnt[k]>1; });
   if(dupCh.length) add("warn", (dupCh.length===1?("Due canali si chiamano «"+dupCh[0]+"»"):(dupCh.length+" nomi di canale compaiono più volte ("+dupCh.slice(0,3).join(", ")+"…"+")"))+": patch ambiguo per il service.","Audio","Se è uno spare, dichiaralo nel nome (es. «VOX LEAD spare»); se sono due sorgenti diverse, rinominane una.");
+  /* Convenzione console: coppie stereo su una coppia dispari-pari (L=dispari) per il link stereo. Opt-in. */
+  (function(){ var plr=patchList().rows, pairs=0, mis=0;
+    for(var i=0;i<plr.length-1;i++){ if(isStereoPairStart(plr[i],plr[i+1])){ pairs++; if(!(state.cab&&state.cab.stereoOdd) && plr[i].n%2===0) mis++; } }
+    if(!pairs) return;
+    if(state.cab&&state.cab.stereoOdd) add("info","Coppie stereo allineate dispari-pari (L su dispari), con eventuali canali spare.","Audio","",{label:"Torna a numerazione densa",run:function(){ auditFixStereoOdd(false); }});
+    else if(mis) add("warn", mis+(mis===1?" coppia stereo non è allineata":" coppie stereo non sono allineate")+" dispari-pari (L su canale pari).","Audio","In console le coppie stereo si linkano su una coppia dispari-pari (L dispari). Il fix inserisce un canale spare dove serve.",{label:"Allinea dispari-pari",run:function(){ auditFixStereoOdd(true); }});
+  })();
   var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf; }).length;
   if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
   var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
@@ -3939,6 +3946,7 @@ function auditFixAddDistro(){
 function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el && el.offsetParent===null) el=document.getElementById("mTitle");
   if(el){ try{ el.focus(); el.select(); }catch(e){} } }
 function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
+function auditFixStereoOdd(on){ if(!state.cab) state.cab={}; state.cab.stereoOdd=!!on; __cabRes=null; save(); render(); }   /* attiva/disattiva la convenzione L=dispari/R=pari */
 function auditFixOpenChan(){ var b=document.getElementById("bChanList")||document.getElementById("bChanListHdr"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
@@ -8613,6 +8621,18 @@ function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: bo
   });
 })();
 /* ===== INPUT / PATCH LIST automatica — derivata dal motore di cablaggio (fonte unica) ===== */
+/* Coppia stereo = 2 righe adiacenti, stessa sorgente (itemId), che finiscono in L / R. */
+function isStereoPairStart(a, b){ return a && b && a.itemId!=null && b.itemId===a.itemId && /\bL$/.test(a.name||"") && /\bR$/.test(b.name||""); }
+/* Convenzione console: le coppie stereo su una coppia dispari-pari (L=dispari) per il link stereo.
+   Inserisce un canale SPARE prima di una coppia che cadrebbe su pari, poi rinumera denso 1..N. */
+function alignStereoOdd(rows){
+  var out=[], n=0;
+  for(var i=0;i<rows.length;i++){ var r=rows[i];
+    if(isStereoPairStart(r, rows[i+1]) && (n+1)%2===0){ out.push({n:++n, name:"— libero —", mic:"", p48:false, patch:"", box:null, itemId:null, key:null, spare:true}); }
+    r.n=++n; out.push(r);
+  }
+  return out;
+}
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
   function off(key){ return !!(man[key]&&man[key].micOff); }
@@ -8623,6 +8643,7 @@ function patchList(){
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
   (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */
   applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
+  if(state.cab && state.cab.stereoOdd) rows=alignStereoOdd(rows);   /* convenzione L=dispari/R=pari (opt-in via audit) */
   return {rows:rows, R:R};
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
@@ -8710,6 +8731,7 @@ function renderPatchPanel(){
   hd.innerHTML='<span>#</span><span>Sorgente</span><span>Mic/DI</span><span>Patch</span><span></span>';
   host.appendChild(hd);
   pl.rows.forEach(function(r){
+    if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
     var micCell = r.mic ? (esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')) : '<span style="color:var(--text-3)">— no mic</span>';
     var cells=['<span class="pn">'+r.n+'</span>',
       '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
@@ -10620,7 +10642,7 @@ function patchListPdf(shared){
     function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
     trow("#","SORGENTE","MIC / DI","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.box?"#111827":"#dc2626"); });
+    pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
     if(shared) return;
     pdfCredit(doc);
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
