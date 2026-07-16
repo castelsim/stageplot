@@ -12049,6 +12049,11 @@ if(qForm){
     state.outputs=qd.outp.map(normalizeChannelRow);
     linkChannelsToItems(); }   /* aggancia patch→oggetti per il test del link */
 }
+/* Modelli pubblici (landing SEO /stage-plot/…): ?model=<key> apre l'editor con la formazione pronta.
+   Alias per gli slug delle landing esistenti (orchestra→camera, chiesa/festival→coro/band). */
+var MODEL_ALIAS={orchestra:"camera", chiesa:"coro", festival:"band"};
+var qModel=(location.search.match(/model=([\w-]+)/)||[])[1];
+if(qModel){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(typeof formationData==="function" && formationData(mkResolved)) startFromTemplate(mkResolved); }
 setEventInputs();
 normalizeState(state); renderChannels();
 if(location.search.indexOf("inputaudit=1")>-1){   /* QA: un esemplare di ogni sorgente + Auto */
