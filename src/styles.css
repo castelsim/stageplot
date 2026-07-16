@@ -81,6 +81,15 @@
   .btn.primary:hover{background:var(--accent-strong)}
   .btn.danger{background:var(--danger-bg);color:var(--danger)}
   .btn.danger-solid{background:var(--danger);color:#fff}
+  /* Pannello elemento (Opzione 2): bottoni con CONTORNO + fondo chiaro, come il mockup (toggle attivo=teal, Elimina=rosso con contorno) */
+  #selProps .btn{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+  #selProps .btn:hover{background:var(--n-100)}
+  #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  #selProps .btn.primary:hover{background:var(--accent-strong)}
+  #selProps .btn.danger{background:var(--surface);border-color:var(--border);color:var(--danger)}
+  /* Opzione 2: niente linee tratteggiate tra toggle/slider nel pannello (copre anche i controlli COMP dinamici, es. batteria) */
+  #props #selProps .chk{border-bottom:none;padding:6px 0}
+  #props #selProps .sldrow{border-bottom:none}
   /* ===== Header A′ (UI/UX standardization 02/07): File, nome progetto, chip stato, tint, avatar ===== */
   .btn.ghost{background:transparent}
   .btn.ghost:hover{background:var(--n-100)}

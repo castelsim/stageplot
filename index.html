@@ -15,7 +15,7 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Gratis in Italiano — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.15";</script>
+<script>window.__APP_VERSION__="2026.07.16";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -245,6 +245,15 @@
   .btn.primary:hover{background:var(--accent-strong)}
   .btn.danger{background:var(--danger-bg);color:var(--danger)}
   .btn.danger-solid{background:var(--danger);color:#fff}
+  /* Pannello elemento (Opzione 2): bottoni con CONTORNO + fondo chiaro, come il mockup (toggle attivo=teal, Elimina=rosso con contorno) */
+  #selProps .btn{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+  #selProps .btn:hover{background:var(--n-100)}
+  #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  #selProps .btn.primary:hover{background:var(--accent-strong)}
+  #selProps .btn.danger{background:var(--surface);border-color:var(--border);color:var(--danger)}
+  /* Opzione 2: niente linee tratteggiate tra toggle/slider nel pannello (copre anche i controlli COMP dinamici, es. batteria) */
+  #props #selProps .chk{border-bottom:none;padding:6px 0}
+  #props #selProps .sldrow{border-bottom:none}
   /* ===== Header A′ (UI/UX standardization 02/07): File, nome progetto, chip stato, tint, avatar ===== */
   .btn.ghost{background:transparent}
   .btn.ghost:hover{background:var(--n-100)}
@@ -1747,11 +1756,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Schema tecnico: sedia, strumento e leggio">Schematico</button>
       </div>
     </div>
-    <div id="pLabelWrap"><label>Etichetta</label><input type="text" id="pLabel"></div>
+    <div id="pLabelWrap"><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap" style="margin-top:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
-        <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Nome sul palco</label>
+        <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Etichetta</label>
         <button class="btn" id="pLblApplyType" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline;white-space:nowrap" title="Applica questa modalità nome (e la sigla) a tutti gli elementi dello stesso tipo">Applica a tutti</button>
       </div>
       <div style="display:flex;gap:4px">
@@ -1765,7 +1774,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     </div>
     <!-- Dimensione etichetta: spostata in "Altre opzioni" a runtime (setupMorePanel) -->
     <div id="pLblSizeWrap">
-    <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione etichetta</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
+    <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
     </div>
     <div id="pTxtColorWrap" style="display:none;margin-top:8px">
@@ -1773,7 +1782,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
     </div>
     <div id="pLblPosWrap" style="display:none;margin-top:6px">
-      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione etichetta</label>
+      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione</label>
       <div style="display:flex;gap:4px">
         <button class="btn" id="pLblPosTop" style="flex:1;font-size:12px;padding:5px 2px">↑ Sopra</button>
         <button class="btn" id="pLblPosBot" style="flex:1;font-size:12px;padding:5px 2px">↓ Sotto</button>
@@ -1864,7 +1873,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div id="pFlags">
         <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
         <label class="chk"><input type="checkbox" id="pLeggioCfg"> Leggio</label>
-        <label class="chk"><input type="checkbox" id="pDoppia"> Postazione a 2 (2 strumenti + 1 leggio)</label>
+        <label class="chk" title="2 strumenti + 1 leggio nella stessa postazione"><input type="checkbox" id="pDoppia"> Postazione a 2</label>
       </div>
       <div id="pSepWrap" style="display:none;margin-top:6px">
         <label style="display:flex;justify-content:space-between;align-items:baseline">Distanza tra i 2 <span id="pSepVal" style="color:var(--text);font-weight:600">65 cm</span></label>
