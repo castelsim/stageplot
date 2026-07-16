@@ -8638,7 +8638,7 @@ function patchList(){
   function off(key){ return !!(man[key]&&man[key].micOff); }
   function micOf(key, def){ var mm=man[key]; if(mm&&mm.micOff) return ""; return (mm&&mm.mic)?mm.mic:def; }   /* override manuale del mic, altrimenti il suggerito */
   function row(name, defMic, key, patch, box, itemId){ var o=off(key), mic=micOf(key, defMic);
-    return {n:++n, name:name, mic:mic, p48:(o||!mic)?false:!!micInfo(mic).p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
+    return {n:++n, name:name, mic:mic, stand:(o||!mic)?"":(micInfo(mic).stand||""), p48:(o||!mic)?false:!!micInfo(mic).p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }   /* stand = tipo asta suggerito dal mic (MIC_DEFAULTS) */
   R.links.forEach(function(l){ if(l.deleted) return; rows.push(row(l.s.name, l.s.mic, l.s.key, l.box.letter+l.ch, l.box.letter, l.s.it.id)); });
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
   (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */
@@ -10306,9 +10306,9 @@ function channelListCsv(opts){
   var sep = opts.format==="intl" ? "," : ";";
   var rows=pl.rows.map(function(r){
     var patch=(r.patch && r.patch!=="—") ? r.patch : "";   /* "—" è il placeholder visivo del pannello, non un dato: nel CSV va vuoto */
-    return [r.n, r.name, r.mic||"", r.p48?"48V":"", patch];
+    return [r.n, r.name, r.mic||"", r.stand||"", r.p48?"48V":"", patch];
   });
-  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Phantom","Patch"], rows, sep), count: count };
+  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Asta","Phantom","Patch"], rows, sep), count: count };
 }
 function exportChannelCsv(opts){
   var r=channelListCsv(opts);
@@ -10631,7 +10631,7 @@ function patchListPdf(shared){
   var R=pl.R;
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+14, M+98, M+150];
+    var M=16, y=22, cols=[M, M+11, M+76, M+118, M+152];   /* #, SORGENTE, MIC/DI, ASTA, PATCH */
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
@@ -10639,10 +10639,10 @@ function patchListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
     doc.text("Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  "), M, y); y+=8;
-    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
-    trow("#","SORGENTE","MIC / DI","PATCH", true, "#0d9488");
+    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    trow("#","SORGENTE","MIC / DI","ASTA","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.stand||"", r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
     if(shared) return;
     pdfCredit(doc);
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
