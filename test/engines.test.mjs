@@ -202,6 +202,15 @@ t("colonna Asta: micInfo espone lo stand; patchList lo porta nella riga", () => 
   const rows = A.patchList().rows;
   ok(rows.length >= 1 && rows[0].stand === "asta giraffa", "la riga patchList porta lo stand del mic (KM184 → asta giraffa)");
 });
+t("Galleria Modelli: le 3 formazioni IT esistono e producono elementi", () => {
+  ["matrimonio", "dj", "tributo"].forEach((k) => {
+    const fd = A.formationData(k);
+    ok(fd && fd.out && fd.out.length >= 8, k + ": formazione con elementi (" + (fd && fd.out ? fd.out.length : 0) + ")");
+    ok(fd.out.some((it) => A.TYPES[it.type]), k + ": tipi validi");
+  });
+  eq(A.FORM_TITLES.matrimonio, "Matrimonio", "titolo matrimonio");
+  eq(A.FORM_TITLES.dj, "DJ set", "titolo DJ");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
