@@ -4267,7 +4267,7 @@ function renderProps(){
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
   if(mkw){ var mk=MIKING[it.type]; mkw.style.display=mk?"block":"none";
     if(mk){ var msel=document.getElementById("pMike");
-      msel.innerHTML=mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("");
+      msel.innerHTML='<optgroup label="Mic singolo">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Zona"><option value="__zona__">◇ Crea zona di sezione…</option></optgroup>';
       msel.value=it.miking||mk.def; } }
   var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
   if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
@@ -4611,15 +4611,17 @@ document.getElementById("pDoppia").addEventListener("change", function(){ mutSel
   renderProps();
 }); });
 /* Postazione a 2: crea una zona di microfonazione che copre entrambi i musicisti (Simone) */
-document.getElementById("pZoneOne").addEventListener("click", function(){
-  var it=getSel(); if(!it || it.type==="miczone") return;
+function createMicZoneFor(it){   /* crea una zona di microfonazione attorno all'elemento — riusato da pZoneOne e dalla tendina Microfonazione */
+  if(!it || it.type==="miczone") return null;
   var z, shape=miczoneShapeFromItems([it], 25);
   if(shape){ z=addItem("miczone",{x:shape.x, y:shape.y, pts:shape.pts}); if(z){ miczoneRecenter(z); miczoneSyncDims(z); } }
   else { z=addItem("miczone",{x:it.x, y:it.y, w:(it.w||40)+50, d:(it.d||40)+50}); }
-  if(!z) return;
+  if(!z) return null;
   __cabRes=null; save(); selectOne(z.id); render(); renderProps();
   showToast("Zona creata: "+micZoneLabel(z)+" · "+micZoneMic(z));
-});
+  return z;
+}
+document.getElementById("pZoneOne").addEventListener("click", function(){ createMicZoneFor(getSel()); });
 /* slider distanza: aggiornamento live su "input" (senza salvare ad ogni tacca), salva una volta su "change" */
 function applySep(doSave){
   var it=getSel(), cfg=sepCfg(it); if(!cfg) return;
@@ -8438,7 +8440,9 @@ function toggleCabLayer(){
     if(this.checked) it.ownMic=true; else delete it.ownMic;
     __cabRes=null; save(); render(); renderProps(); });
   var mke=document.getElementById("pMike");
-  if(mke) mke.addEventListener("change", function(){ var v=this.value; mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
+  if(mke) mke.addEventListener("change", function(){ var v=this.value;
+    if(v==="__zona__"){ var it0=getSel(); this.value=(it0&&it0.miking)||(it0&&MIKING[it0.type]?MIKING[it0.type].def:""); createMicZoneFor(it0); return; }   /* "Zona" crea una zona di microfonazione (non è un valore di miking) */
+    mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
   /* personal monitor (B1): la marca seleziona il primo modello; il modello scrive it.pm */
   var pmB=document.getElementById("pPmBrand");
   if(pmB) pmB.addEventListener("change", function(){ var it=getSel(); if(!it||(it.type!=="hearback"&&it.type!=="mixhub")) return;
