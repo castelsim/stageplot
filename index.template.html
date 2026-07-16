@@ -410,11 +410,11 @@
         <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Schema tecnico: sedia, strumento e leggio">Schematico</button>
       </div>
     </div>
-    <div id="pLabelWrap"><label>Etichetta</label><input type="text" id="pLabel"></div>
+    <div id="pLabelWrap"><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap" style="margin-top:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
-        <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Nome sul palco</label>
+        <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Etichetta</label>
         <button class="btn" id="pLblApplyType" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline;white-space:nowrap" title="Applica questa modalità nome (e la sigla) a tutti gli elementi dello stesso tipo">Applica a tutti</button>
       </div>
       <div style="display:flex;gap:4px">
@@ -428,7 +428,7 @@
     </div>
     <!-- Dimensione etichetta: spostata in "Altre opzioni" a runtime (setupMorePanel) -->
     <div id="pLblSizeWrap">
-    <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione etichetta</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
+    <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
     </div>
     <div id="pTxtColorWrap" style="display:none;margin-top:8px">
@@ -436,7 +436,7 @@
       <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
     </div>
     <div id="pLblPosWrap" style="display:none;margin-top:6px">
-      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione etichetta</label>
+      <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione</label>
       <div style="display:flex;gap:4px">
         <button class="btn" id="pLblPosTop" style="flex:1;font-size:12px;padding:5px 2px">↑ Sopra</button>
         <button class="btn" id="pLblPosBot" style="flex:1;font-size:12px;padding:5px 2px">↓ Sotto</button>
@@ -527,7 +527,7 @@
       <div id="pFlags">
         <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
         <label class="chk"><input type="checkbox" id="pLeggioCfg"> Leggio</label>
-        <label class="chk"><input type="checkbox" id="pDoppia"> Postazione a 2 (2 strumenti + 1 leggio)</label>
+        <label class="chk" title="2 strumenti + 1 leggio nella stessa postazione"><input type="checkbox" id="pDoppia"> Postazione a 2</label>
       </div>
       <div id="pSepWrap" style="display:none;margin-top:6px">
         <label style="display:flex;justify-content:space-between;align-items:baseline">Distanza tra i 2 <span id="pSepVal" style="color:var(--text);font-weight:600">65 cm</span></label>
@@ -5530,7 +5530,7 @@ function renderProps(){
   var isTxt = it.type==="testo";
   document.getElementById("pLabelWrap").style.display = isTxt ? "none" : "block";
   document.getElementById("pLblModeWrap").style.display = isTxt ? "none" : "block";
-  document.getElementById("pLblSizeName").textContent = isTxt ? "Dimensione testo" : "Dimensione etichetta";
+  document.getElementById("pLblSizeName").textContent = isTxt ? "Dimensione testo" : "Dimensione";
   document.getElementById("pTxtColorWrap").style.display = isTxt ? "block" : "none";
   if(isTxt) document.getElementById("pTxtColor").value = it.txtColor || "#1f2937";
   var sbw=document.getElementById("pSbChWrap");
@@ -5587,6 +5587,7 @@ function renderProps(){
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
   document.getElementById("pLblHidden").className = "btn"+(_lm==="hidden"?" primary":"");
   document.getElementById("pAbbrWrap").style.display = (_lm==="abbr") ? "block" : "none";
+  document.getElementById("pLabelWrap").style.display = (_lm==="full") ? "block" : "none";   /* Opzione 2: una sola casella — nome pieno in Intero, sigla in Sigla */
   var _ab=document.getElementById("pAbbr"); _ab.value=it.abbr||""; _ab.placeholder=abbrOf({type:it.type,label:it.label})||"sigla";
   var lookw=document.getElementById("pLookWrap");   /* Unifica icone: toggle Aspetto per le postazioni con illustrazione */
   if(lookw){ var isArt=hasLookToggle(it); lookw.style.display=isArt?"block":"none";
@@ -6015,15 +6016,34 @@ document.getElementById("pDivide").addEventListener("click", splitElement);
 document.getElementById("pSplit").addEventListener("click", splitDouble);
 document.getElementById("pCompSplit").addEventListener("click", explodeComposite);
 document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
-/* B5 progressive disclosure: raccoglie i controlli avanzati (Aspetto, Dimensione etichetta, Colore, Rotazione, Fornito da) in "Altre opzioni ▾" — spostamento a runtime, id/handler invariati */
-(function setupMorePanel(){
-  var body=document.getElementById("pMoreBody");
-  if(body){ ["pLookWrap","pLblSizeWrap","pTxtColorWrap","pRotRow","pByWrap"].forEach(function(id){ var el=document.getElementById(id); if(el) body.appendChild(el); }); }
-  var tog=document.getElementById("pMoreToggle");
-  if(tog) tog.addEventListener("click", function(){
-    var b=document.getElementById("pMoreBody"), c=document.getElementById("pMoreCaret"), open=b.hidden;
-    b.hidden=!open; tog.setAttribute("aria-expanded", String(open)); if(c) c.textContent=open?"▴":"▾";
-  });
+/* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
+   Supera B5 ("Altre opzioni"): riordino a runtime dei controlli esistenti → handler, colori bottoni e logica show/hide invariati. */
+(function arrangePanel(){
+  var sp=document.getElementById("selProps"); if(!sp) return;
+  var get=function(id){ return document.getElementById(id); };
+  var mw=get("pMoreWrap"); if(mw && mw.parentNode) mw.parentNode.removeChild(mw);   /* via il collapse "Altre opzioni" */
+  var ph=get("pLblHidden"); if(ph) ph.style.display="none";                          /* via "Nascosto" */
+  var aa=get("pLookApplyAll"); if(aa) aa.style.display="none";                       /* via i "Applica a tutti" (pulizia come mockup) */
+  var at=get("pLblApplyType"); if(at) at.style.display="none";
+  var lw=get("pLookWrap"); if(lw) lw.style.marginBottom="9px";                       /* compattazione */
+  var CARD="background:var(--surface-raised);border:1px solid var(--border);border-radius:9px;padding:9px 10px;margin-bottom:9px";
+  /* blocchetto Etichetta: Intero/Sigla + testo + Dimensione + (Colore) + Posizione */
+  var cLbl=document.createElement("div"); cLbl.id="pLblCard"; cLbl.style.cssText=CARD;
+  ["pLblModeWrap","pLabelWrap","pLabel2Wrap","pLblSizeWrap","pTxtColorWrap","pLblPosWrap"].forEach(function(id){ var e=get(id); if(e) cLbl.appendChild(e); });
+  /* Microfonazione come blocchetto */
+  var mk=get("pMikeWrap"); if(mk) mk.style.cssText=CARD;
+  var setHead=function(el){ if(!el) return; var l=el.querySelector("label"); if(l){ l.style.color="var(--text)"; l.style.fontWeight="700"; } };   /* header blocchetti in grassetto scuro (come mockup) */
+  setHead(get("pLblModeWrap")); setHead(mk);
+  ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp"].forEach(function(id){ var e=get(id); if(e){ e.style.borderTop="none"; e.style.marginTop="2px"; e.style.paddingTop="0"; } });   /* niente linea sopra i toggle */
+  var rr0=get("pRotRow"); if(rr0) rr0.style.borderBottom="none";                     /* via la linea tratteggiata sotto Rotazione */
+  sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });    /* via le linee tratteggiate tra i toggle (come mockup) */
+  var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
+  /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
+  ["pLookWrap", cLbl, "pRotRow", "pMikeWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", dv, "pDivide"
+  ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
+  var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
 })();
 document.getElementById("pDel").addEventListener("click", deleteSel);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
