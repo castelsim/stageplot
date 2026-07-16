@@ -148,6 +148,31 @@ t("coerenza ottoni: musTromboneBasso si comporta come gli altri tromboni (assorb
   const tb2 = add("musTromboneBasso", 300, 300);
   eq(chans(tb2)[0].mic, "MD421", "fuori zona: mic MD421 (default close, invariato)");
 });
+t("mono/stereo: tastiere stereo di default (invariate); it.stereo=false → mono; celesta mono→stereo", () => {
+  reset();
+  const gp = add("grancoda", 300, 300);
+  eq(chans(gp).length, 2, "grancoda: stereo di default (2 canali, IN_MULTI invariato)");
+  gp.stereo = false; A.__cabRes = null;
+  eq(chans(gp).length, 1, "grancoda mono: 1 canale");
+  eq(chans(gp)[0].mic, "KM184", "grancoda mono: mic KM184");
+  reset();
+  const ce = add("celesta", 300, 300);
+  eq(chans(ce).length, 1, "celesta: mono di default");
+  ce.stereo = true; A.__cabRes = null;
+  const cc = chans(ce);
+  eq(cc.length, 2, "celesta stereo: 2 canali");
+  ok(/ L$/.test(cc[0].name) && / R$/.test(cc[1].name), "celesta stereo: nomi L/R");
+});
+t("mono/stereo: laptop/djset/pedaliera diventano sorgenti audio", () => {
+  reset();
+  const lp = add("laptop", 300, 300), dj = add("djset", 340, 300), pd = add("pedaliera", 380, 300);
+  ok(A.isAudioSource(lp) && A.isAudioSource(dj) && A.isAudioSource(pd), "sono sorgenti audio");
+  eq(chans(lp).length, 2, "laptop: stereo di default");
+  eq(chans(dj).length, 2, "djset: stereo di default");
+  eq(chans(pd).length, 1, "pedaliera: mono di default");
+  pd.stereo = true; A.__cabRes = null;
+  eq(chans(pd).length, 2, "pedaliera stereo: 2 canali");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
@@ -385,7 +410,7 @@ console.log("\nAudit connessioni elementi (14/07):");
 t("strumenti elettronici assorbono corrente: Hammond 250W, pedaliera 30W, SPD-SX 15W+2 DI", () => {
   reset();
   eq(A.wattOf(add("organohammond", 300, 300)), 250);
-  reset(); eq(A.wattOf(add("pedaliera", 300, 300)), 30); reset(); eq(chans(add("pedaliera", 300, 300)).length, 0, "pedaliera non è sorgente audio");
+  reset(); eq(A.wattOf(add("pedaliera", 300, 300)), 30); reset(); eq(chans(add("pedaliera", 300, 300)).length, 1, "pedaliera = sorgente audio mono di default (modeler diretto; toggle stereo disponibile)");
   reset(); const sp = add("spdsx", 300, 300); eq(A.wattOf(sp), 15); eq(chans(sp).length, 2, "SPD-SX stereo via DI");
 });
 t("postazione DOPPIA (flag) = 2 microfoni; singola = 1; ×2 dedicata resta 2", () => {
