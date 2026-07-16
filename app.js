@@ -2535,10 +2535,15 @@ function itemInMicZone(it){
   }
   return null;
 }
+/* Strumenti che si close-micano SEMPRE (pezzi batteria: kick/rullante/tom/hi-hat): dentro una zona
+   TENGONO il loro mic — l'overhead è in aggiunta, non lo sostituisce. Gli altri restano assorbiti
+   (default storico). `ownMic` diventa override esplicito: it.ownMic!=null vince sul default per tipo. */
+var CLOSE_OBLIGATE = { kickR:1, snareR:1, tomR:1, floorR:1, hihatKR:1 };
+function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !!CLOSE_OBLIGATE[it.type]; }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
 function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || it.type==="distereo"); }
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
-function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone; }); }
+function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
 /* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
 var FAM_PAN = { "Archi":["KM184","archi"], "Legni":["KM184","legni"], "Ottoni":["KM184","ottoni"],
   "Percussioni":["KM184","percussioni"], "Persone e voci":["KM184","coro"] };
@@ -2929,7 +2934,7 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
-  if(it.type!=="miczone" && itemInMicZone(it) && !it.ownMic) return [];   /* coperto da una zona panoramica → 0 canali; it.ownMic=true (azione utente) = mantiene COMUNQUE il suo mic singolo */
+  if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return [];   /* coperto da una zona → 0 canali; effOwnMic (ownMic esplicito o default close-obligato: kick/rullante/tom/hi-hat) mantiene il mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
   var base;
@@ -4272,7 +4277,7 @@ function renderProps(){
       msel.value=it.miking||mk.def; } }
   var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
   if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
-    if(inZone) document.getElementById("pOwnMic").checked=!!it.ownMic; }
+    if(inZone) document.getElementById("pOwnMic").checked=effOwnMic(it); }   /* spuntata di default per i close-obligati (kick/rullante/tom/hi-hat) */
   var zw=document.getElementById("pZoneWrap");   /* zona microfono panoramico */
   if(zw){ var isZone=it.type==="miczone"; zw.style.display=isZone?"block":"none";
     /* zone mic: niente Rotazione né Duplica — non hanno senso per un'area (Simone 15/07) */
@@ -8456,7 +8461,7 @@ function toggleCabLayer(){
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
   var pom=document.getElementById("pOwnMic");   /* mic singolo anche in zona (opt-in) */
   if(pom) pom.addEventListener("change", function(){ var it=getSel(); if(!it) return;
-    if(this.checked) it.ownMic=true; else delete it.ownMic;
+    if(this.checked === !!CLOSE_OBLIGATE[it.type]) delete it.ownMic; else it.ownMic=this.checked;   /* memorizza solo l'override rispetto al default del tipo */
     __cabRes=null; save(); render(); renderProps(); });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value;
@@ -9170,7 +9175,7 @@ function autoInputs(){
     .map(function(o){ return o.it; });
   ordered.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
-    if(it.type!=="miczone" && itemInMicZone(it) && !it.ownMic) return;   /* coperto da una zona panoramica (ownMic = mic singolo voluto dall'utente anche in zona) */
+    if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return;   /* coperto da una zona (effOwnMic = ownMic esplicito o default close-obligato) */
     if(it.type==="miczone"){ rows.push(linkTo(rowFromMic(micZoneLabel(it), micZoneMic(it)),it)); return; }
     if(it.type==="coppiast"){
       rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"KM184"),it,"mic_L"));

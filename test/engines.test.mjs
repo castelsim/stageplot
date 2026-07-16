@@ -97,6 +97,29 @@ t("ownMic: in zona 0 canali di default; con ownMic il mic singolo torna (zona re
   ok(chans(v).length >= 1, "ownMic: il mic singolo conta di nuovo");
   eq(chans(z).length, 1, "la zona resta 1 canale");
 });
+t("close-mic obbligato: kick/rullante/tom/hi-hat tengono il close mic in zona; crash/ride assorbiti", () => {
+  reset();
+  const z = add("miczone", 300, 300); z.w = 260; z.d = 200;
+  const sn = add("snareR", 300, 300);
+  const cr = add("crashR", 320, 300);
+  A.__cabRes = null;
+  ok(A.effOwnMic(sn), "rullante: close-obligato di default");
+  ok(chans(sn).length >= 1, "rullante in zona tiene il suo mic");
+  eq(chans(sn)[0].mic, "SM57", "rullante = SM57");
+  ok(!A.effOwnMic(cr), "crash: non close-obligato");
+  eq(chans(cr).length, 0, "crash in zona assorbito dall'overhead");
+});
+t("close-mic obbligato: override ownMic=false riporta il pezzo ad assorbito; micZoneSources ignora i kept", () => {
+  reset();
+  const z = add("miczone", 300, 300); z.w = 300; z.d = 220;
+  const sn = add("snareR", 300, 300);
+  const cr = add("crashR", 330, 300);
+  A.__cabRes = null;
+  const srcs = A.micZoneSources(z).map((s) => s.type);
+  ok(srcs.includes("crashR") && !srcs.includes("snareR"), "la zona infera dai piatti, non dal rullante kept");
+  sn.ownMic = false; A.__cabRes = null;
+  eq(chans(sn).length, 0, "override esplicito: rullante assorbito");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
