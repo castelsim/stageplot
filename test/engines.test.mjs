@@ -120,6 +120,22 @@ t("close-mic obbligato: override ownMic=false riporta il pezzo ad assorbito; mic
   sn.ownMic = false; A.__cabRes = null;
   eq(chans(sn).length, 0, "override esplicito: rullante assorbito");
 });
+t("close-mic esteso: chitarre/ampli/DI/voci tengono il mic in zona; sezioni archi/fiati assorbite", () => {
+  reset();
+  const z = add("miczone", 300, 300); z.w = 420; z.d = 320;
+  const gt = add("gtstand", 280, 300);   // chitarra (MIKING senza pan)
+  const amp = add("comboamp", 300, 280); // ampli (IN_SRC)
+  const di = add("dimono", 320, 300);    // DI
+  const vox = add("wireless", 300, 320); // voce (radiomic)
+  const tr = add("tromba", 340, 300);    // fiato a sezione (MIKING con pan) → assorbibile
+  A.__cabRes = null;
+  ok(!A.zoneAbsorbable(gt) && chans(gt).length >= 1, "chitarra tiene il mic");
+  ok(!A.zoneAbsorbable(amp) && chans(amp).length >= 1, "ampli tiene il mic");
+  ok(!A.zoneAbsorbable(di) && chans(di).length >= 1, "DI tiene il canale");
+  ok(!A.zoneAbsorbable(vox) && chans(vox).length >= 1, "voce tiene il mic");
+  ok(A.zoneAbsorbable(tr), "fiato a sezione: assorbibile (ha opzione pan)");
+  eq(chans(tr).length, 0, "fiato a sezione: assorbito dalla zona (invariato)");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;

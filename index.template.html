@@ -3820,11 +3820,18 @@ function itemInMicZone(it){
   }
   return null;
 }
-/* Strumenti che si close-micano SEMPRE (pezzi batteria: kick/rullante/tom/hi-hat): dentro una zona
-   TENGONO il loro mic — l'overhead è in aggiunta, non lo sostituisce. Gli altri restano assorbiti
-   (default storico). `ownMic` diventa override esplicito: it.ownMic!=null vince sul default per tipo. */
-var CLOSE_OBLIGATE = { kickR:1, snareR:1, tomR:1, floorR:1, hihatKR:1 };
-function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !!CLOSE_OBLIGATE[it.type]; }
+/* Una zona di microfonazione assorbe il mic singolo di una sorgente SOLO se la ripresa panoramica lo
+   sostituisce davvero: la sorgente è del tipo che si riprende in modo panoramico/di sezione — ha
+   un'opzione mic "pan*" (archi a sezione, archi solisti, cori, fiati a sezione) OPPURE è un piatto
+   del kit (crash/ride, ripresi dagli overhead). Tutto il resto TIENE il close mic (l'eventuale
+   zona/overhead è IN AGGIUNTA): batteria kick/rullante/tom/hi-hat, chitarre, ampli, DI, voci,
+   tastiere, percussioni. `ownMic` resta come override esplicito (it.ownMic!=null vince). */
+function zoneAbsorbable(it){
+  if(it.type==="crashR" || it.type==="rideR") return true;   /* piatti kit → overhead */
+  var mk=MIKING[it.type];
+  return !!(mk && mk.options && mk.options.some(function(o){ return /^pan/.test(o[0]); }));
+}
+function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
 function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || it.type==="distereo"); }
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
@@ -9746,7 +9753,7 @@ function toggleCabLayer(){
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
   var pom=document.getElementById("pOwnMic");   /* mic singolo anche in zona (opt-in) */
   if(pom) pom.addEventListener("change", function(){ var it=getSel(); if(!it) return;
-    if(this.checked === !!CLOSE_OBLIGATE[it.type]) delete it.ownMic; else it.ownMic=this.checked;   /* memorizza solo l'override rispetto al default del tipo */
+    if(this.checked === !zoneAbsorbable(it)) delete it.ownMic; else it.ownMic=this.checked;   /* memorizza solo l'override rispetto al default del tipo */
     __cabRes=null; save(); render(); renderProps(); });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value;
