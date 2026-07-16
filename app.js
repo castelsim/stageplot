@@ -8264,6 +8264,7 @@ var _LM_EYEOFF='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stro
 var _LM_LOCK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 var _LM_TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>';
 function layerRegistry(){
+  if(!state.cab || !state.elec || !state.mond) return [];   /* stato non ancora normalizzato (es. addItem prima del load completo): niente layer, evita il crash su state.cab.on */
   return [
     /* Gruppo "Audio": le 4 facce del segnale (motore cablaggio + monitoraggio digitale).
        Nel pannello stanno sotto un unico header "Audio" (campo group). */
