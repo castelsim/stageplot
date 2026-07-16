@@ -2548,7 +2548,7 @@ function zoneAbsorbable(it){
 }
 function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || it.type==="distereo"); }
+function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo"); }
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
 function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
 /* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
@@ -2944,6 +2944,15 @@ function cabItemInputs(it){
   if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return [];   /* coperto da una zona → 0 canali; effOwnMic (ownMic esplicito o default close-obligato: kick/rullante/tom/hi-hat) mantiene il mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
+  if(STEREO_TOGGLE[it.type]){   /* strumenti ambigui: mono/stereo per-elemento (it.stereo) */
+    var scfg=STEREO_TOGGLE[it.type], sst=(it.stereo!=null?it.stereo:scfg.def);
+    if(sst){
+      if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });   /* tastiere già stereo: nomi curati (Pianoforte L/R…) */
+      var snm=it.label||TYPES[it.type].defLabel||TYPES[it.type].nome;
+      return [{name:snm+" L",mic:scfg.mic},{name:snm+" R",mic:scfg.mic}];
+    }
+    return [{name:(it.label||TYPES[it.type].nome),mic:scfg.mic}];   /* mono = 1 canale */
+  }
   var base;
   if(MIKING[it.type]) base = MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
   else if(IN_MULTI[it.type]) base = IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
@@ -4282,6 +4291,11 @@ function renderProps(){
       var grpLab=mk.grp||"Mic singolo", zonaOpt=(mk.zona===false)?"":'<option value="__zona__">◇ Crea zona di sezione…</option>';   /* label gruppo e opzione zona per-MIKING: sezioni archi/fiati sì, strumenti singoli no */
       msel.innerHTML='<optgroup label="'+esc(grpLab)+'">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Altro"><option value="__nomic__">Nessun microfono</option>'+zonaOpt+'</optgroup>';
       msel.value=it.miking||mk.def; } }
+  var stw=document.getElementById("pStereoWrap");   /* strumenti ambigui: uscita mono/stereo */
+  if(stw){ var scfg=STEREO_TOGGLE[it.type]; stw.style.display=scfg?"block":"none";
+    if(scfg){ var sst=(it.stereo!=null?it.stereo:scfg.def);
+      document.getElementById("pStereoMono").className="btn"+(sst?"":" primary");
+      document.getElementById("pStereoStereo").className="btn"+(sst?" primary":""); } }
   var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
   if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
     if(inZone) document.getElementById("pOwnMic").checked=effOwnMic(it); }   /* spuntata di default per i close-obligati (kick/rullante/tom/hi-hat) */
@@ -4570,6 +4584,9 @@ document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLb
 document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
 document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ it.look="illustrato"; recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
 document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; recalcItemDims(it); }); renderProps(); });
+function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
+document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
+document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
@@ -4767,7 +4784,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });    /* via le linee tratteggiate tra i toggle (come mockup) */
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
-  ["pLookWrap", cLbl, "pRotRow", "pMikeWrap",
+  ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
    "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
@@ -7907,6 +7924,15 @@ var IN_SRC = {
   musArpa:"DPA 4099", musChitElettrica:"DI", musChitAcustica:"DI", musChitClassica:"DI", musBasso:"DI", musFisarmonica:"KM184",
   /* tecnica */
   dimono:"DI", distereo:"DI"   /* distereo gestito come L+R in autoInputs */
+};
+/* Strumenti ambigui MONO/STEREO: toggle per-elemento `it.stereo` (true/false) override sul default
+   del tipo. Stereo = 2 canali (Nome L / Nome R); mono = 1 canale. laptop/djset/pedaliera, oggi
+   non-sorgenti, diventano sorgenti audio. Esclusi doppiatastiera (4ch) e leslie (horn+bass). */
+var STEREO_TOGGLE = {
+  grancoda:{mic:"KM184",def:true}, mezzacoda:{mic:"KM184",def:true}, pianoverticale:{mic:"KM184",def:true},
+  stagepiano:{mic:"DI",def:true}, organohammond:{mic:"DI",def:true}, clavicembalo:{mic:"KM184",def:true},
+  celesta:{mic:"KM184",def:false},
+  laptop:{mic:"DI",def:true}, djset:{mic:"DI",def:true}, pedaliera:{mic:"DI",def:false}
 };
 /* elementi che generano PIÙ canali (stereo o multi-mic) */
 var IN_MULTI = {

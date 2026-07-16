@@ -1799,6 +1799,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <label>Microfonazione</label>
       <select id="pMike"></select>
     </div>
+    <div id="pStereoWrap" style="display:none">
+      <label>Uscita</label>
+      <div style="display:flex;gap:4px">
+        <button class="btn" id="pStereoMono" style="flex:1;font-size:12px;padding:5px 2px" title="1 canale mono">Mono</button>
+        <button class="btn" id="pStereoStereo" style="flex:1;font-size:12px;padding:5px 2px" title="2 canali: L (dispari) + R (pari)">Stereo</button>
+      </div>
+    </div>
     <div id="pOwnMicWrap" style="display:none">
       <label class="chk" title="Questo elemento è dentro una zona panoramica: di default il suo microfono singolo NON conta (lo copre la zona). Attiva per aggiungere comunque il mic singolo alla input list."><input type="checkbox" id="pOwnMic"> Mic singolo anche in zona</label>
     </div>
