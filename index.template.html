@@ -8551,6 +8551,80 @@ function buildBandOut(){
     {type:"corrente", x:580, y:-340, label:""}
   ];
 }
+/* Matrimonio / cerimonia: band versatile all'italiana — batteria, basso, tastiere, chitarra, sax, 2 voci. */
+function buildMatrimonioOut(){
+  return [
+    {type:"pedana", x:0, y:-310, w:300, d:200, h:40, label:"Pedana batteria"},
+    {type:"batteria", x:0, y:-310, label:""},
+    {type:"iem", x:150, y:-360, label:"IEM batteria"},
+    {type:"bassamp", x:-500, y:-290, label:"Ampli basso"},
+    {type:"astamic", x:-470, y:-95, label:"Basso"},
+    {type:"wedge", x:-470, y:5, label:"Basso"},
+    {type:"stagepiano", x:-270, y:-155, rot:12, label:"Tastiere"},
+    {type:"wedge", x:-270, y:-45, label:"Tastiere"},
+    {type:"stack", x:500, y:-290, label:"Ampli chitarra"},
+    {type:"astamic", x:470, y:-95, label:"Chitarra"},
+    {type:"wedge", x:470, y:5, label:"Chitarra"},
+    {type:"saxalto", x:270, y:-155, rot:-10, label:"Sax"},
+    {type:"wedge", x:270, y:-48, label:"Sax"},
+    {type:"wireless", x:-70, y:-72, label:"Voce 1"},
+    {type:"wireless", x:70, y:-72, label:"Voce 2"},
+    {type:"wedge", x:-70, y:35, label:"Voce 1"},
+    {type:"wedge", x:70, y:35, label:"Voce 2"},
+    {type:"sidefill", x:-670, y:30, rot:35, label:"Side fill DX"},
+    {type:"sidefill", x:670, y:30, rot:-35, label:"Side fill SX"},
+    {type:"stagebox", x:600, y:-260, label:"Stage box", ch:32, outCh:12},
+    {type:"corrente", x:-590, y:-340, label:""},
+    {type:"corrente", x:590, y:-340, label:""}
+  ];
+}
+/* DJ set: consolle su postazione + MC + sax live (combo tipica IT) + spie per la pista. */
+function buildDjOut(){
+  return [
+    {type:"pedana", x:0, y:-270, w:260, d:150, h:40, label:"Postazione DJ"},
+    {type:"djset", x:0, y:-270, label:"Consolle DJ"},
+    {type:"wedge", x:-190, y:-185, rot:22, label:"DJ"},
+    {type:"wedge", x:190, y:-185, rot:-22, label:"DJ"},
+    {type:"wireless", x:-150, y:-72, label:"MC"},
+    {type:"wedge", x:-150, y:35, label:"MC"},
+    {type:"saxalto", x:350, y:-120, rot:-12, label:"Sax"},
+    {type:"wedge", x:350, y:-18, label:"Sax"},
+    {type:"sidefill", x:-560, y:20, rot:35, label:"Side fill DX"},
+    {type:"sidefill", x:560, y:20, rot:-35, label:"Side fill SX"},
+    {type:"stagebox", x:430, y:-220, label:"Stage box"},
+    {type:"corrente", x:-390, y:-290, label:""},
+    {type:"corrente", x:390, y:-290, label:""}
+  ];
+}
+/* Tributo / cover rock: band con DUE chitarre + cori (formazione tipica dei tributi). */
+function buildTributoOut(){
+  return [
+    {type:"pedana", x:0, y:-320, w:320, d:210, h:40, label:"Pedana batteria"},
+    {type:"batteria", x:0, y:-320, label:""},
+    {type:"iem", x:160, y:-370, label:"IEM batteria"},
+    {type:"bassamp", x:-530, y:-300, label:"Ampli basso"},
+    {type:"astamic", x:-500, y:-95, label:"Basso"},
+    {type:"wedge", x:-500, y:5, label:"Basso"},
+    {type:"stagepiano", x:-310, y:-160, rot:12, label:"Tastiere"},
+    {type:"wedge", x:-310, y:-52, label:"Tastiere"},
+    {type:"stack", x:530, y:-300, label:"Ampli chitarra 1"},
+    {type:"astamic", x:500, y:-95, label:"Chitarra 1"},
+    {type:"wedge", x:500, y:5, label:"Chitarra 1"},
+    {type:"stack", x:310, y:-300, label:"Ampli chitarra 2"},
+    {type:"astamic", x:300, y:-95, label:"Chitarra 2"},
+    {type:"wedge", x:300, y:5, label:"Chitarra 2"},
+    {type:"corista", x:130, y:-72, label:"Cori"},
+    {type:"wedge", x:130, y:32, label:"Cori"},
+    {type:"wireless", x:-60, y:-72, label:"Voce"},
+    {type:"wedge", x:-60, y:35, label:"Voce"},
+    {type:"sidefill", x:-690, y:30, rot:35, label:"Side fill DX"},
+    {type:"sidefill", x:690, y:30, rot:-35, label:"Side fill SX"},
+    {type:"iemant", x:-610, y:-270, label:"TX in-ear"},
+    {type:"stagebox", x:610, y:-270, label:"Stage box", ch:32, outCh:16},
+    {type:"corrente", x:-600, y:-350, label:""},
+    {type:"corrente", x:600, y:-350, label:""}
+  ];
+}
 function buildAcousticOut(){
   return [
     {type:"tappeto", x:0, y:-150, w:650, d:360, label:""},
@@ -8845,12 +8919,13 @@ var FORM_TITLES = {
   band:"Band pop/rock", acoustic:"Trio acustico", coro:"Coro e piano",
   quartetto:"Quartetto d'archi", camera:"Orchestra da camera", sinfonica_ridotta:"Sinfonica ridotta",
   sinfonica:"Sinfonica completa", orchband:"Orchestra e band", orchcoro:"Orchestra e coro",
-  jazzcombo:"Jazz combo", bigband:"Big band"
+  jazzcombo:"Jazz combo", bigband:"Big band",
+  matrimonio:"Matrimonio", dj:"DJ set", tributo:"Tributo / cover"
 };
 
 /* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
    Fonte unica per i chip del welcome e per il sottomenu "Nuovo da modello". */
-var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"]];
+var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"],["matrimonio","Matrimonio"],["dj","DJ set"],["tributo","Tributo"]];
 /* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
    NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
 function detachCloudDoc(){
@@ -9480,6 +9555,9 @@ function formationData(f){
   if(f==="orchcoro"){ var cc=presetCounts("ridotta"); return { out:buildOrchCoroOut(),
       inp:orchInputs(cc).concat(choirInputs()).concat([ch("Solista 1","SM58"),ch("Solista 2","SM58")]),
       outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Solisti","wedge","fronte palco"),outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")] }; }
+  if(f==="matrimonio") return { out:buildMatrimonioOut(), inp:[], outp:[] };
+  if(f==="dj")         return { out:buildDjOut(),         inp:[], outp:[] };
+  if(f==="tributo")    return { out:buildTributoOut(),    inp:[], outp:[] };
   return null;
 }
 
