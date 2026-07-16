@@ -5552,7 +5552,8 @@ function renderProps(){
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
   if(mkw){ var mk=MIKING[it.type]; mkw.style.display=mk?"block":"none";
     if(mk){ var msel=document.getElementById("pMike");
-      msel.innerHTML='<optgroup label="Mic singolo">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Altro"><option value="__nomic__">Nessun microfono</option><option value="__zona__">◇ Crea zona di sezione…</option></optgroup>';
+      var grpLab=mk.grp||"Mic singolo", zonaOpt=(mk.zona===false)?"":'<option value="__zona__">◇ Crea zona di sezione…</option>';   /* label gruppo e opzione zona per-MIKING: sezioni archi/fiati sì, strumenti singoli no */
+      msel.innerHTML='<optgroup label="'+esc(grpLab)+'">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Altro"><option value="__nomic__">Nessun microfono</option>'+zonaOpt+'</optgroup>';
       msel.value=it.miking||mk.def; } }
   var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
   if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
@@ -9252,14 +9253,21 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
     chans:function(m){ return m==="pan" ? [] : [["","DPA 4099"]]; } };
 });
 /* Chitarre e bassi (pratica reale): scelta DI / mic ampli / entrambi. Elettrica=mic ampli SM57; basso=DI; acustica=DI pickup; classica=mic condensatore. */
-["gtstand","musChitElettrica"].forEach(function(t){ MIKING[t]={ options:[["ampli","Mic ampli (SM57)"],["di","DI"],["amplidi","Mic ampli + DI"]], def:"ampli",
+["gtstand","musChitElettrica"].forEach(function(t){ MIKING[t]={ options:[["ampli","Mic ampli (SM57)"],["di","DI"],["amplidi","Mic ampli + DI"]], def:"ampli", grp:"Mic / DI", zona:false,
   chans:function(m){ if(m==="di") return [["","DI"]]; if(m==="amplidi") return [["ampli","SM57"],["DI","DI"]]; return [["","SM57"]]; } }; });
-["bassstand","musBasso"].forEach(function(t){ MIKING[t]={ options:[["di","DI"],["didmic","DI + mic ampli (MD421)"],["ampli","Mic ampli (MD421)"]], def:"di",
+["bassstand","musBasso"].forEach(function(t){ MIKING[t]={ options:[["di","DI"],["didmic","DI + mic ampli (MD421)"],["ampli","Mic ampli (MD421)"]], def:"di", grp:"Mic / DI", zona:false,
   chans:function(m){ if(m==="didmic") return [["DI","DI"],["ampli","MD421"]]; if(m==="ampli") return [["","MD421"]]; return [["","DI"]]; } }; });
-["gtacustica","musChitAcustica"].forEach(function(t){ MIKING[t]={ options:[["di","DI (pickup)"],["mic","Mic condensatore (KM184)"],["dimic","DI + mic"]], def:"di",
+["gtacustica","musChitAcustica"].forEach(function(t){ MIKING[t]={ options:[["di","DI (pickup)"],["mic","Mic condensatore (KM184)"],["dimic","DI + mic"]], def:"di", grp:"Mic / DI", zona:false,
   chans:function(m){ if(m==="mic") return [["","KM184"]]; if(m==="dimic") return [["DI","DI"],["mic","KM184"]]; return [["","DI"]]; } }; });
-MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI"]], def:"mic",
+MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI"]], def:"mic", grp:"Mic / DI", zona:false,
   chans:function(m){ return m==="di" ? [["","DI"]] : [["","KM184"]]; } };
+/* Batteria: configurazioni tipiche (il tecnico può comunque "Dividere in elementi" per il controllo pezzo-per-pezzo). */
+MIKING.batteria={ options:[["full","Completa (8 mic)"],["reduced","Ridotta (kick + rullante + 2 OH)"],["oh","Solo overhead (2)"]], def:"full", grp:"Configurazione", zona:false,
+  chans:function(m){
+    if(m==="reduced") return [["Kick","D6"],["Rullante","SM57"],["Overhead L","KM184"],["Overhead R","KM184"]];
+    if(m==="oh") return [["Overhead L","KM184"],["Overhead R","KM184"]];
+    return DRUM_KIT;   /* Completa = gli 8 mic (IN_MULTI.batteria) */
+  } };
 /* "Nessun microfono": scelta esplicita → 0 canali, nessun errore nella input list. Applicata a TUTTE le microfonazioni. */
 Object.keys(MIKING).forEach(function(t){ var mk=MIKING[t], orig=mk.chans; mk.chans=function(m){ return m==="__nomic__" ? [] : orig(m); }; });
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
