@@ -7969,7 +7969,7 @@ MIKING.corista = { options:[["indiv","SM58 (per corista)"],["pan","Panoramici (o
   chans:function(m){ return m==="pan" ? [] : [["","SM58"]]; } };
 var WIND_MIC = {flauto:"DPA 4099",oboe:"DPA 4099",clarinetto:"DPA 4099",fagotto:"DPA 4099",
   saxalto:"DPA 4099",saxtenore:"DPA 4099",saxbaritono:"DPA 4099",
-  corno:"MD421",tromba:"e906",trombone:"MD421",tuba:"MD421"};
+  corno:"MD421",tromba:"e906",trombone:"MD421",musTromboneBasso:"MD421",tuba:"MD421"};   /* musTromboneBasso: tipo piazzabile a sé (no funzionale "tromboneBasso" in POSTAZ_ART) → gli diamo close/pan come agli altri ottoni, così è assorbibile in zona e ha la microfonazione di sezione */
 Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
   MIKING[t]={ options:[["close","Ravvicinato (clip)"],["pan","Panoramico (sezione)"]], def:"close",
     chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
