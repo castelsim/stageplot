@@ -4611,7 +4611,7 @@ document.getElementById("pDoppia").addEventListener("change", function(){ mutSel
   renderProps();
 }); });
 /* Postazione a 2: crea una zona di microfonazione che copre entrambi i musicisti (Simone) */
-function createMicZoneFor(it){   /* crea una zona di microfonazione attorno all'elemento — riusato da pZoneOne e dalla tendina Microfonazione */
+function createMicZoneFor(it){   /* crea una zona di microfonazione attorno all'elemento — usato dall'opzione "Zona" della tendina Microfonazione */
   if(!it || it.type==="miczone") return null;
   var z, shape=miczoneShapeFromItems([it], 25);
   if(shape){ z=addItem("miczone",{x:shape.x, y:shape.y, pts:shape.pts}); if(z){ miczoneRecenter(z); miczoneSyncDims(z); } }
@@ -4621,7 +4621,6 @@ function createMicZoneFor(it){   /* crea una zona di microfonazione attorno all'
   showToast("Zona creata: "+micZoneLabel(z)+" · "+micZoneMic(z));
   return z;
 }
-document.getElementById("pZoneOne").addEventListener("click", function(){ createMicZoneFor(getSel()); });
 /* slider distanza: aggiornamento live su "input" (senza salvare ad ogni tacca), salva una volta su "change" */
 function applySep(doSave){
   var it=getSel(), cfg=sepCfg(it); if(!cfg) return;
