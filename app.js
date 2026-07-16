@@ -1074,6 +1074,8 @@ var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi *
 function wattOf(it){
   if(!it) return 0;
   if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
+  var ew=(typeof equipWatt==="function")?equipWatt(it):null;   /* modello reale: consumo elettrico di targa (≠ potenza audio) */
+  if(ew!=null) return ew;
   var w = (WATT_BY_AREA[it.type]!=null) ? Math.round((it.w/100)*(it.d/100)*WATT_BY_AREA[it.type]) : (WATT[it.type]||0);
   /* chitarra/basso su stand: ampli e pedaliera OPZIONALI (flag) sono carichi elettrici (audit 14/07) */
   var g=(TYPES[it.type]||{}).gtr;
@@ -1081,6 +1083,33 @@ function wattOf(it){
   return w;
 }
 function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
+/* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H in docs/product-audit/equipment-intelligence/) =====
+   Un elemento può portare un MODELLO REALE di attrezzatura: it.modelId (slug del DB globale equip_product)
+   + it.modelData (SNAPSHOT dell'oggetto SourcedValue: il progetto resta auto-contenuto e OFFLINE-first)
+   + it.modelOverride (modifiche per-progetto: non toccano mai il DB globale). Tutti campi opzionali e
+   pass-through nel save (stateReplacer non li filtra) → i progetti esistenti non cambiano.
+   Ogni valore è {value, unit_orig, reliability(official|verified|derived|estimated), source{doc,page,quote}}:
+   niente dato senza fonte, null = non disponibile (mai inventato). */
+function equipResolve(it){ var out={},k; var md=it&&it.modelData, ov=it&&it.modelOverride;
+  if(md) for(k in md) out[k]=md[k];
+  if(ov) for(k in ov) out[k]=ov[k];   /* l'override utente vince sullo snapshot */
+  return out; }
+function equipVal(it,key){ var v=equipResolve(it)[key]; if(v==null) return null;
+  return (typeof v==="object" && ("value" in v)) ? v.value : v; }
+/* Consumo ELETTRICO reale dal modello — mai la potenza audio (power_handling resta fuori di proposito).
+   unit "A" → W a 230 V nominali (DERIVATO, dichiarato: I×V). */
+function equipWatt(it){ var r=equipResolve(it), v=r&&r.powerConsumption_W; if(!v||v.value==null) return null;
+  var n=+v.value; if(!isFinite(n)||n<0) return null;
+  if(v.unit_orig==="A") return Math.round(n*230);
+  return Math.round(n); }
+/* Dimensioni verificate in cm (1u=1cm sul palco); null se il modello non le dichiara in mm numerici */
+function equipDimsCm(it){ var r=equipResolve(it); var w=r.dims_w_mm&&r.dims_w_mm.value, d=r.dims_d_mm&&r.dims_d_mm.value;
+  if(w==null||d==null) return null; var wc=Math.round(+w/10), dc=Math.round(+d/10);
+  if(!isFinite(wc)||!isFinite(dc)||wc<=0||dc<=0) return null; return {w:wc, d:dc}; }
+function equipPhantom(it){ return equipVal(it,"phantom"); }   /* "required"|"no"|"ribbon_danger"|… */
+function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
+  var b=(d.brand&&typeof d.brand==="object")?d.brand.value:d.brand, m=(d.model&&typeof d.model==="object")?d.model.value:d.model;
+  var s=[b,m].filter(Boolean).join(" "); return s||null; }
 /* L3 (08/07) — guardia copertura metadata tecnici. Diagnostico (non runtime), richiamabile da console:
    elenca gli elementi "tecnici" a cui manca un metadato atteso, così buchi silenziosi (come i WATT di
    PA/monitor prima del 08/07) non ricompaiono aggiungendo nuovi elementi. Usa hasWatt() = WATT +
@@ -3866,6 +3895,11 @@ function auditEngine(){
      l'utente può ancora introdurre nella channel list MANUALE (state.inputs) o dimenticando frequenze/monitor. */
   var badP48=(state.inputs||[]).filter(function(r){ return r && r.p48 && r.src && String(r.src).trim() && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48; });
   if(badP48.length) add("warn", badP48.length+(badP48.length===1?" canale ha":" canali hanno")+" il +48V su un mic/DI che non lo richiede (dinamico o wireless).","Audio","Il phantom è inutile e su alcuni radiomicrofoni può essere dannoso: rimuovilo.",{label:"Togli 48V",run:auditFix48V});
+  /* EQUIPMENT INTELLIGENCE: ribbon PASSIVO dal modello (es. Royer R-121, dato ribbon_danger dal datasheet)
+     → il +48V può danneggiare il nastro. Promemoria forte, indipendente dalla channel list. */
+  var ribbons=(state.items||[]).filter(function(it){ return typeof equipPhantom==="function" && equipPhantom(it)==="ribbon_danger"; });
+  ribbons.forEach(function(it){ var nm=(typeof equipName==="function"&&equipName(it))||it.label||"microfono a nastro";
+    add("warn", nm+" è un microfono a nastro passivo: MAI +48V sul suo canale.","Audio","Il phantom su un ribbon passivo può danneggiare il nastro (fonte: datasheet del modello)."); });
   var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
@@ -4438,6 +4472,7 @@ function renderProps(){
     } else buildCompCtl(comp, it, reduced);
   }
   document.getElementById("pDivide").style.display = isDecomposable(it) ? "block" : "none";   /* "Dividi in elementi" su tutte le icone scomponibili */
+  if(typeof renderModelField==="function") renderModelField(it);   /* EQUIPMENT INTELLIGENCE: campo Modello reale */
 }
 function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
@@ -4793,9 +4828,63 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
    "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
-   "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", dv, "pDivide"
+   "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
+})();
+/* ===== EQUIPMENT INTELLIGENCE (fase 3): campo "Modello reale" nel pannello =====
+   Generico-first: il campo è opzionale, l'elemento resta pienamente usabile senza. Selezionare un
+   modello SNAPSHOTTA i dati verificati nell'item (offline-first) e applica le dimensioni reali se
+   il datasheet le dichiara. Rimuovere il modello non tocca w/d (l'utente può ridimensionare). */
+function renderModelField(it){
+  var wrap=document.getElementById("pModelWrap"); if(!wrap) return;
+  var cur=document.getElementById("pModelCur"), inp=document.getElementById("pModelSearch"), sug=document.getElementById("pModelSug");
+  var noModel = !it || it.type==="miczone" || (TYPES[it.type]&&TYPES[it.type].riser) || !window.__equip;
+  if(noModel){ wrap.style.display="none"; return; }
+  wrap.style.display="block"; sug.style.display="none"; sug.innerHTML="";
+  var nm=(typeof equipName==="function")?equipName(it):null;
+  if(nm){
+    inp.style.display="none"; cur.style.display="flex";
+    cur.innerHTML='<span style="color:var(--accent,#0d9488);font-weight:600">✓ '+esc(nm)+'</span>'
+      +'<small style="color:var(--text-3,#9ca3af)">verificato</small>'
+      +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">×</button>';
+    var rm=document.getElementById("pModelRm");
+    if(rm) rm.onclick=function(){ mutSel(function(x){ delete x.modelId; delete x.modelData; delete x.modelOverride; }); renderProps(); };
+  } else { inp.style.display="block"; cur.style.display="none"; inp.value=""; }
+}
+(function(){
+  var inp=document.getElementById("pModelSearch"), sug=document.getElementById("pModelSug"); if(!inp) return;
+  var deb=null;
+  inp.addEventListener("input", function(){
+    clearTimeout(deb); var q=inp.value;
+    deb=setTimeout(function(){
+      if(!window.__equip){ return; }
+      window.__equip.search(q, function(rows){
+        sug.innerHTML="";
+        if(!rows.length){ sug.style.display="none"; return; }
+        rows.forEach(function(r){
+          var b=document.createElement("button"); b.type="button";
+          b.style.cssText="display:block;width:100%;text-align:left;border:none;background:none;cursor:pointer;padding:6px 9px;font-size:12px;border-bottom:1px solid var(--border,#eef0f2)";
+          b.innerHTML='<b>'+esc(r.brand||"")+'</b> '+esc(r.model||"")+' <small style="color:var(--text-3,#9ca3af)">'+esc(r.category||"")+'</small>';
+          b.addEventListener("click", function(){
+            window.__equip.get(r.id, function(prod){
+              if(!prod){ sug.style.display="none"; return; }
+              mutSel(function(x){
+                x.modelId=prod.id; x.modelData=prod.data||{};   /* snapshot: il progetto resta riproducibile offline */
+                if(!x.modelData.brand) x.modelData.brand=prod.brand;
+                if(!x.modelData.model) x.modelData.model=prod.model;
+                var dc=(typeof equipDimsCm==="function")?equipDimsCm(x):null;
+                if(dc){ x.w=dc.w; x.d=dc.d; }                    /* dimensioni reali dal datasheet (scala 1u=1cm) */
+              });
+              sug.style.display="none"; renderProps();
+            });
+          });
+          sug.appendChild(b);
+        });
+        sug.style.display="block";
+      });
+    }, 250);
+  });
 })();
 document.getElementById("pDel").addEventListener("click", deleteSel);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
@@ -12772,6 +12861,21 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     clearShareTokenFor: clearShareTokenFor,
     /* token di sessione fresco per l'Authorization header (audit S5: identità del feedback lato server) */
     accessToken: function(){ return sb ? sb.auth.getSession().then(function(r){ return (r&&r.data&&r.data.session)?r.data.session.access_token:null; }).catch(function(){ return null; }) : Promise.resolve(null); }
+  };
+
+  /* ── EQUIPMENT INTELLIGENCE: DB prodotti globale, SOLA LETTURA (RLS select pubblica, 0015).
+     search/get degradano a vuoto senza rete/DB: il tool resta pienamente usabile (generico-first).
+     Il get viene SNAPSHOTTATO nell'item (modelData) → il progetto è riproducibile offline. ── */
+  var equipCache={};
+  window.__equip = {
+    search: function(q, cb){ if(!sb || !q || String(q).trim().length<2){ cb([]); return; }
+      var pat="%"+String(q).trim().replace(/[%_,()]/g," ")+"%";
+      sb.from("equip_product").select("id,brand,model,category").or("brand.ilike."+pat+",model.ilike."+pat).order("brand").limit(10)
+        .then(function(r){ cb((r && r.data)||[]); }, function(){ cb([]); }); },
+    get: function(id, cb){ if(!sb || !id){ cb(null); return; }
+      if(equipCache[id]){ cb(equipCache[id]); return; }
+      sb.from("equip_product").select("id,brand,model,category,data").eq("id",id).maybeSingle()
+        .then(function(r){ var p=(r && r.data)||null; if(p) equipCache[id]=p; cb(p); }, function(){ cb(null); }); }
   };
 
   function init(){

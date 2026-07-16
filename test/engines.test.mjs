@@ -1185,5 +1185,44 @@ t("contactsFromDocs: doc multi-variante + legacy piatto, tronca ai limiti, dedup
   eq(out[2].name, "Organizzatore");
 });
 
+/* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H) — resolve puro + wattOf model-driven ===== */
+console.log("\nEquipment Intelligence — resolve/watt/dims (spec H):");
+t("equipResolve: snapshot ⊕ override (override vince), item nudo = {}", () => {
+  const it = { modelData: { a: { value: 1 }, b: { value: 2 } }, modelOverride: { b: { value: 99, reliability: "user_override" } } };
+  eq(A.equipVal(it, "a"), 1); eq(A.equipVal(it, "b"), 99, "override per-progetto vince sullo snapshot");
+  eq(A.equipVal({}, "a"), null); eq(A.equipVal(null, "a"), null);
+});
+t("equipWatt: W di targa; unit A → W a 230V (derived); potenza audio MAI usata; null-safe", () => {
+  eq(A.equipWatt({ modelData: { powerConsumption_W: { value: 5, unit_orig: "W" } } }), 5, "P16-M 5W");
+  eq(A.equipWatt({ modelData: { powerConsumption_W: { value: 1.5, unit_orig: "A" } } }), 345, "LEOPARD 1.5A@230V (derived)");
+  eq(A.equipWatt({ modelData: { power_handling_W: { value: 2150, unit_orig: "W" } } }), null, "potenza AUDIO ≠ consumo: ignorata");
+  eq(A.equipWatt({ modelData: { powerConsumption_W: { value: null } } }), null); eq(A.equipWatt({}), null);
+});
+t("wattOf usa il consumo del modello (it.watt manuale resta prioritario)", () => {
+  reset(); const it = add("amprack", 300, 300);
+  const base = A.wattOf(it);
+  it.modelData = { powerConsumption_W: { value: 300, unit_orig: "W", reliability: "official" } };
+  eq(A.wattOf(it), 300, "modello vince sul generico (era " + base + ")");
+  it.watt = 111; eq(A.wattOf(it), 111, "override manuale it.watt vince su tutto");
+});
+t("equipDimsCm: mm→cm, null se mancanti/non numerici", () => {
+  const it = { modelData: { dims_w_mm: { value: 684 }, dims_d_mm: { value: 550 } } };
+  const d = A.equipDimsCm(it); eq(d.w, 68); eq(d.d, 55);
+  eq(A.equipDimsCm({ modelData: { dims_w_mm: { value: 684 } } }), null, "manca la profondità → null (mai inventare)");
+  eq(A.equipDimsCm({}), null);
+});
+t("equipPhantom + equipName: ribbon_danger dal modello; nome robusto (stringa o SourcedValue)", () => {
+  eq(A.equipPhantom({ modelData: { phantom: { value: "ribbon_danger" } } }), "ribbon_danger");
+  eq(A.equipName({ modelData: { brand: "Royer", model: "R-121" } }), "Royer R-121");
+  eq(A.equipName({ modelData: { brand: { value: "Shure" }, model: { value: "SM57" } } }), "Shure SM57");
+  eq(A.equipName({}), null);
+});
+t("audit: elemento con modello ribbon passivo → avviso 'MAI +48V'", () => {
+  reset(); const it = add("astamic", 300, 300);
+  it.modelData = { brand: "Royer", model: "R-121", phantom: { value: "ribbon_danger", reliability: "official" } };
+  const found = A.auditEngine().findings.filter(f => /nastro passivo|MAI \+48V/i.test(f.msg));
+  eq(found.length >= 1, true, "avviso ribbon presente");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
