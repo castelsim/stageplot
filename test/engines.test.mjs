@@ -136,6 +136,18 @@ t("close-mic esteso: chitarre/ampli/DI/voci tengono il mic in zona; sezioni arch
   ok(A.zoneAbsorbable(tr), "fiato a sezione: assorbibile (ha opzione pan)");
   eq(chans(tr).length, 0, "fiato a sezione: assorbito dalla zona (invariato)");
 });
+t("coerenza ottoni: musTromboneBasso si comporta come gli altri tromboni (assorbibile in zona)", () => {
+  reset();
+  ok(A.zoneAbsorbable({ type: "musTromboneBasso" }), "trombone basso: assorbibile (ha close/pan come gli ottoni)");
+  eq(A.zoneAbsorbable({ type: "musTromboneBasso" }), A.zoneAbsorbable({ type: "trombone" }), "coerente col trombone");
+  const z = add("miczone", 300, 300); z.w = 260; z.d = 200;
+  const tb = add("musTromboneBasso", 300, 300);
+  A.__cabRes = null;
+  eq(chans(tb).length, 0, "trombone basso in zona: assorbito");
+  reset();
+  const tb2 = add("musTromboneBasso", 300, 300);
+  eq(chans(tb2)[0].mic, "MD421", "fuori zona: mic MD421 (default close, invariato)");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
