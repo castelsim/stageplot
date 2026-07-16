@@ -14083,12 +14083,14 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       if(r.error){ cb(null); return; }
       if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
       var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
-      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", id).then(function(u){ if(!u.error) window.__sendEvent({event:"share_created",props:{}}); cb(u.error?null:tok); });
+      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", id).select("updated_at").single().then(function(u){ if(!u.error){ window.__sendEvent({event:"share_created",props:{}}); if(id===cloudCurrentId && u.data && u.data.updated_at) setRev(u.data.updated_at); }   /* la share bumpa updated_at (trigger 0011): rinfresca la rev locale o il prossimo save vede un falso conflitto (come doLockUpdate) */
+        cb(u.error?null:tok); });
     });
   }
   function clearShareTokenFor(id, cb){
     if(!sb || !id){ if(cb) cb(false); return; }
-    sb.from("stageplot_projects").update({ share_token:null }).eq("id", id).then(function(u){ if(cb) cb(!u.error); });
+    sb.from("stageplot_projects").update({ share_token:null }).eq("id", id).select("updated_at").single().then(function(u){ if(!u.error && id===cloudCurrentId && u.data && u.data.updated_at) setRev(u.data.updated_at);   /* come sopra: la revoca bumpa updated_at → evita il falso conflitto al prossimo save */
+      if(cb) cb(!u.error); });
   }
   /* Condividi una riga della lista: se è il progetto aperto, salva prima (link aggiornato); poi apre la finestra Condividi. */
   function shareRow(id){
