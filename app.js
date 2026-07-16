@@ -2536,7 +2536,7 @@ function itemInMicZone(it){
   return null;
 }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ return it.type!=="miczone" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || it.type==="distereo"); }
+function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || it.type==="distereo"); }
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
 function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone; }); }
 /* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
@@ -4267,7 +4267,7 @@ function renderProps(){
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
   if(mkw){ var mk=MIKING[it.type]; mkw.style.display=mk?"block":"none";
     if(mk){ var msel=document.getElementById("pMike");
-      msel.innerHTML='<optgroup label="Mic singolo">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Zona"><option value="__zona__">◇ Crea zona di sezione…</option></optgroup>';
+      msel.innerHTML='<optgroup label="Mic singolo">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Altro"><option value="__nomic__">Nessun microfono</option><option value="__zona__">◇ Crea zona di sezione…</option></optgroup>';
       msel.value=it.miking||mk.def; } }
   var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
   if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
@@ -7966,6 +7966,17 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
   MIKING[t]={ options:[["archetto","Archetto (DPA)"],["pan","Panoramico (sezione)"]], def:"archetto",
     chans:function(m){ return m==="pan" ? [] : [["","DPA 4099"]]; } };
 });
+/* Chitarre e bassi (pratica reale): scelta DI / mic ampli / entrambi. Elettrica=mic ampli SM57; basso=DI; acustica=DI pickup; classica=mic condensatore. */
+["gtstand","musChitElettrica"].forEach(function(t){ MIKING[t]={ options:[["ampli","Mic ampli (SM57)"],["di","DI"],["amplidi","Mic ampli + DI"]], def:"ampli",
+  chans:function(m){ if(m==="di") return [["","DI"]]; if(m==="amplidi") return [["ampli","SM57"],["DI","DI"]]; return [["","SM57"]]; } }; });
+["bassstand","musBasso"].forEach(function(t){ MIKING[t]={ options:[["di","DI"],["didmic","DI + mic ampli (MD421)"],["ampli","Mic ampli (MD421)"]], def:"di",
+  chans:function(m){ if(m==="didmic") return [["DI","DI"],["ampli","MD421"]]; if(m==="ampli") return [["","MD421"]]; return [["","DI"]]; } }; });
+["gtacustica","musChitAcustica"].forEach(function(t){ MIKING[t]={ options:[["di","DI (pickup)"],["mic","Mic condensatore (KM184)"],["dimic","DI + mic"]], def:"di",
+  chans:function(m){ if(m==="mic") return [["","KM184"]]; if(m==="dimic") return [["DI","DI"],["mic","KM184"]]; return [["","DI"]]; } }; });
+MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI"]], def:"mic",
+  chans:function(m){ return m==="di" ? [["","DI"]] : [["","KM184"]]; } };
+/* "Nessun microfono": scelta esplicita → 0 canali, nessun errore nella input list. Applicata a TUTTE le microfonazioni. */
+Object.keys(MIKING).forEach(function(t){ var mk=MIKING[t], orig=mk.chans; mk.chans=function(m){ return m==="__nomic__" ? [] : orig(m); }; });
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
 function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def); return IN_MULTI[it.type]; }
 /* iemant (Rack TX in-ear) NON è un punto d'ascolto: è l'apparato che trasmette ai beltpack.
