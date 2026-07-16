@@ -192,6 +192,16 @@ t("L=dispari: coppia già allineata (L dispari) non aggiunge spare", () => {
   eq(out[0].n, 1, "L resta su 1 (dispari)");
   ok(A.isStereoPairStart(rows[0], rows[1]), "riconosce la coppia stereo L/R");
 });
+t("colonna Asta: micInfo espone lo stand; patchList lo porta nella riga", () => {
+  eq(A.micInfo("KM184").stand, "asta giraffa", "KM184 → asta giraffa");
+  eq(A.micInfo("SM57").stand, "asta bassa", "SM57 → asta bassa");
+  eq(A.micInfo("DPA 4099").stand, "clip strumento", "DPA 4099 → clip strumento");
+  eq(A.micInfo("DI").stand, "", "DI → nessuna asta");
+  reset();
+  add("grancoda", 300, 300);   // piano stereo microfonato KM184
+  const rows = A.patchList().rows;
+  ok(rows.length >= 1 && rows[0].stand === "asta giraffa", "la riga patchList porta lo stand del mic (KM184 → asta giraffa)");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
