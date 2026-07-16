@@ -426,7 +426,6 @@
         <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
     </div>
-    <!-- Dimensione etichetta: spostata in "Altre opzioni" a runtime (setupMorePanel) -->
     <div id="pLblSizeWrap">
     <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
@@ -567,10 +566,6 @@
     <div id="pComp" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pCompCtl"></div>
       <button class="btn" id="pCompSplit" style="display:none">⇱ Dividi in elementi singoli</button>
-    </div>
-    <div id="pMoreWrap" style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
-      <button class="btn" id="pMoreToggle" type="button" aria-expanded="false" style="width:100%;font-size:12px;color:var(--text-2);background:none;border:none;text-align:left;cursor:pointer;padding:2px 0;display:flex;justify-content:space-between;align-items:center">Altre opzioni <span id="pMoreCaret">▾</span></button>
-      <div id="pMoreBody" hidden style="margin-top:6px"></div>
     </div>
     <button class="btn" id="pDivide" style="width:100%;margin-top:10px;font-size:12px;display:none">⇱ Dividi in elementi</button>
     <div class="btns">
@@ -6058,7 +6053,6 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
 (function arrangePanel(){
   var sp=document.getElementById("selProps"); if(!sp) return;
   var get=function(id){ return document.getElementById(id); };
-  var mw=get("pMoreWrap"); if(mw && mw.parentNode) mw.parentNode.removeChild(mw);   /* via il collapse "Altre opzioni" */
   var ph=get("pLblHidden"); if(ph) ph.style.display="none";                          /* via "Nascosto" */
   var aa=get("pLookApplyAll"); if(aa) aa.style.display="none";                       /* via i "Applica a tutti" (pulizia come mockup) */
   var at=get("pLblApplyType"); if(at) at.style.display="none";

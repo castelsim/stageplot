@@ -4766,7 +4766,6 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
 (function arrangePanel(){
   var sp=document.getElementById("selProps"); if(!sp) return;
   var get=function(id){ return document.getElementById(id); };
-  var mw=get("pMoreWrap"); if(mw && mw.parentNode) mw.parentNode.removeChild(mw);   /* via il collapse "Altre opzioni" */
   var ph=get("pLblHidden"); if(ph) ph.style.display="none";                          /* via "Nascosto" */
   var aa=get("pLookApplyAll"); if(aa) aa.style.display="none";                       /* via i "Applica a tutti" (pulizia come mockup) */
   var at=get("pLblApplyType"); if(at) at.style.display="none";
