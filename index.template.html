@@ -194,6 +194,13 @@
   <button class="btn ghost" id="fileBtn" aria-haspopup="menu" aria-expanded="false">File <span class="chev">▾</span></button>
   <span class="tbdiv"></span>
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
+  <button type="button" id="evChip" class="hdr-evchip" title="Data, orario e luogo dell'evento"></button>
+  <div id="evPop" class="hdrmenu ev-pop" hidden>
+    <label class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
+    <label class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
+    <label class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
+    <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
+  </div>
   <select id="projStatus" class="hdr-status" title="Stato del progetto (bozza → in revisione → approvato)"></select>
   <input type="text" id="projApprovedBy" class="hdr-approver" placeholder="firmato da…" title="Chi ha approvato il progetto" hidden>
   <span class="hdr-variants" id="variantBar" hidden title="Variante/scena attiva del progetto">
@@ -3501,6 +3508,8 @@ function normalizeState(s){
     if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
+  s.evDate=(typeof s.evDate==="string" && /^\d{4}-\d{2}-\d{2}$/.test(s.evDate)) ? s.evDate : "";   /* evento: giorno e orario (header, 17/07) — facoltativi */
+  s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
@@ -6815,10 +6824,48 @@ function updateHeaderStage(){
 /* Titolo/Luogo: campi nell'header (desktop) + pannello Evento (mobile), sincronizzati con lo stato */
 function setEventInputs(){
   ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
-  ["luogo","luogoEv"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
+  ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
+  var _ed=document.getElementById("evDate"); if(_ed && document.activeElement!==_ed) _ed.value=state.evDate||"";
+  var _et=document.getElementById("evTime"); if(_et && document.activeElement!==_et) _et.value=state.evTime||"";
+  if(typeof renderEvChip==="function") renderEvChip();
 }
 ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
-["luogo","luogoEv"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
+["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
+/* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
+function evChipLabel(){
+  var parts=[];
+  if(state.evDate){ try{ var d=new Date(state.evDate+"T00:00:00");
+    parts.push(d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"})); }catch(e){ parts.push(state.evDate); } }
+  if(state.evTime) parts.push(state.evTime);
+  return parts.join(" · ");
+}
+function renderEvChip(){
+  var b=document.getElementById("evChip"); if(!b) return;
+  var t=evChipLabel();
+  b.textContent = t ? "📅 "+t : "📅 Data e ora";
+  b.classList.toggle("set", !!t);
+}
+(function(){
+  var chip=document.getElementById("evChip"), pop=document.getElementById("evPop");
+  if(!chip || !pop) return;
+  function close(){ pop.hidden=true; }
+  chip.addEventListener("click", function(e){
+    e.stopPropagation();
+    if(!pop.hidden){ close(); return; }
+    document.querySelectorAll(".hdrmenu").forEach(function(x){ x.hidden=true; });
+    pop.hidden=false;
+    var r=chip.getBoundingClientRect();
+    pop.style.top=(r.bottom+4)+"px";
+    pop.style.left=Math.max(8, Math.min(r.left, window.innerWidth-pop.offsetWidth-8))+"px";
+  });
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });   /* i click sui campi NON chiudono */
+  document.addEventListener("click", function(e){ if(!pop.hidden && !pop.contains(e.target)) close(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") close(); });
+  var ed=document.getElementById("evDate"), et=document.getElementById("evTime");
+  if(ed) ed.addEventListener("change", function(){ state.evDate=this.value||""; renderEvChip(); saveSoon(); });
+  if(et) et.addEventListener("change", function(){ state.evTime=this.value||""; renderEvChip(); saveSoon(); });
+})();
+renderEvChip();
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
 document.getElementById("mD").addEventListener("change", function(){ applyStageDepth(this.value); });
 var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=oggetti */
