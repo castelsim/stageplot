@@ -839,13 +839,11 @@
   .prodinline-status{margin-left:auto;font-size:11px;color:var(--text-2);white-space:nowrap}
   .prodinline-status b{font-weight:600}
   .prodinline-status b.todef{color:#2563eb}
-  .prod-row{display:flex;align-items:center;gap:8px;padding:4px 6px;margin:0 -6px;border-radius:6px;cursor:pointer;font-size:11.5px}
-  .prod-row:hover{background:var(--surface-raised)}
-  .prod-row .k{flex:0 0 104px;color:var(--text-2);line-height:1.25}
-  .prod-row .v{flex:1;color:var(--text);font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
-  .prod-row .v.missing{color:#2563eb}
-  .prod-row .pen{color:var(--text-3);font-size:11px}
-  .prod-row select,.prod-row textarea{flex:1;font-size:11.5px;border:1px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);min-width:0;padding:3px 4px}
+  .ctrow{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+  .ctrow .k{flex:0 0 96px;font-size:10.5px;color:var(--text-2);line-height:1.2}
+  .ctrow select{flex:1;font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);min-width:0;height:22px}
+  .ctrow select.missing{color:#2563eb;border-color:#bfd3f8}
+  .ctrow input[type=text]{flex:1;font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;height:22px;color:var(--text);background:var(--surface)}
   .pdf-exp-main{display:flex;flex-direction:column;gap:12px;min-width:0}
   .pdf-sheet{background:var(--surface-raised);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:300px}
   .pdf-sheet svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}
