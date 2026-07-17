@@ -2031,36 +2031,6 @@ function usoSystemKey(type, uso){
   if(type==="consolaluci") return "luci";
   return null;
 }
-/* Controllo tecnico pre-export (fase 2): compila le 6 domande, salva nel progetto, prosegue con onDone.
-   "Esporta senza rispondere" = scelta consapevole (asked=true, risposte invariate): mai burocrazia. */
-function openProductionCheck(onDone){
-  var m=document.getElementById("prodCheckModal"); if(!m || !state.production){ if(onDone) onDone(); return; }
-  var host=document.getElementById("prodCheckRows"); host.innerHTML="";
-  PRODUCTION_SYSTEMS.forEach(function(sy){
-    var cur=state.production.systems[sy.key]||{ans:null};
-    var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;gap:10px;margin-bottom:8px";
-    var lab=document.createElement("label"); lab.textContent=sy.label; lab.style.cssText="flex:1;font-size:12.5px;color:var(--text)";
-    var sel=document.createElement("select"); sel.style.cssText="flex:1.2;font-size:12px"; sel.setAttribute("data-sys",sy.key);
-    var o0=document.createElement("option"); o0.value=""; o0.textContent="— scegli —"; sel.appendChild(o0);
-    (sy.key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS).forEach(function(a){ var o=document.createElement("option"); o.value=a[0]; o.textContent=a[1]; sel.appendChild(o); });
-    sel.value=cur.ans||"";
-    row.appendChild(lab); row.appendChild(sel); host.appendChild(row);
-  });
-  var desc=document.getElementById("prodLuciDesc"); if(desc) desc.value=(state.production.systems.luci.note)||"";
-  m.hidden=false;
-  function commit(keep){
-    if(keep){
-      m.querySelectorAll("select[data-sys]").forEach(function(sel){ var k=sel.getAttribute("data-sys");
-        if(state.production.systems[k]) state.production.systems[k].ans = sel.value||null; });
-      if(desc && state.production.systems.luci) state.production.systems.luci.note = String(desc.value||"").slice(0,300);
-    }
-    state.production.asked=true;
-    m.hidden=true; save();
-    if(onDone) onDone();
-  }
-  document.getElementById("prodCheckOk").onclick=function(){ commit(true); };
-  document.getElementById("prodCheckSkip").onclick=function(){ commit(false); };
-}
 /* ===== PRODUZIONE (fase 1, brief 17/07): i 6 sistemi NON deducibili dal disegno =====
    Principio: l'assenza di un elemento non è un errore — l'utente DICHIARA come stanno le cose
    (Controllo tecnico pre-export). Le risposte vivono nel progetto (state.production) e alimenteranno
@@ -2101,6 +2071,18 @@ function productionSummary(s){
     out.push({ key:sy.key, label:sy.label, text:t + (o.note?(" — "+o.note):"") });
   });
   return out;
+}
+/* Stato sintetico per la sezione inline nell'export: quante risposte date e quante voci
+   restano "da definire" (null, da_definire, e non_so per i sistemi non-luci) — stessa
+   semantica delle regole audit fase 4: le deleghe (venue/service/…) NON contano. */
+function productionStatusLine(s){
+  var answered=0, todef=0, pr=s&&s.production;
+  PRODUCTION_SYSTEMS.forEach(function(sy){
+    var o=(pr&&pr.systems&&pr.systems[sy.key])||{};
+    if(o.ans) answered++;
+    if(!o.ans || o.ans==="da_definire" || (sy.key!=="luci" && o.ans==="non_so")) todef++;
+  });
+  return {answered:answered, todef:todef};
 }
 function normalizeState(s){
   s=migrate(s);
@@ -4125,7 +4107,7 @@ function auditEngine(){
       var k=usoSystemKey(it.type, it.uso); if(!k || seen[k]) return; seen[k]=true;
       var o=pr[k]; if(o && o.ans) return;   /* già dichiarato: ok */
       var NAME={playback:"le sequenze/contributi audio",video:"i contributi video",recaudio:"la registrazione audio",recvideo:"la registrazione video",streaming:"la diretta streaming",luci:"le luci"}[k]||k;
-      add("todef","Gli elementi sul palco attivano "+NAME+", ma nel Controllo tecnico non sono ancora dichiarati.","Produzione","Apri Esporta → \"Controllo tecnico — rivedi le risposte\"."); });
+      add("todef","Gli elementi sul palco attivano "+NAME+", ma nel Controllo tecnico non sono ancora dichiarati.","Produzione","Apri Esporta → sezione \"Controllo tecnico\"."); });
     /* 4) sistemi lasciati esplicitamente aperti → da definire (compaiono nella pagina finale) */
     PRODUCTION_SYSTEMS.forEach(function(sy){ var o=pr[sy.key]; if(!o) return;
       if(o.ans==="da_definire"||o.ans==="non_so") add("todef",sy.label+": da definire"+(o.ans==="non_so"?" (risposta: non lo so)":" con un tecnico")+".","Produzione",""); });
@@ -12204,6 +12186,84 @@ function pdfChannelPage(doc, L, paperKey){
   /* Pagine del RIDER TECNICO disponibili per QUESTO progetto (ciclo 11, proposta Simone):
      le LISTE seguono i DATI (esistono appena metti sorgenti/monitor/carichi, senza dover attivare il layer);
      le MAPPE dei cavi seguono i LAYER attivi (sono il lavoro di cablaggio). Ognuna è selezionabile. */
+  /* ===== Controllo tecnico inline (variante C, 17/07) =====
+     Una sola finestra: niente seconda modale sopra l'export (due .modal allo stesso z-index
+     si coprono a vicenda). Riepilogo sempre visibile; click sulla riga = modifica al volo. */
+  function prodAnsLabel(key,val){
+    if(!val) return "— scegli —";
+    var L=(key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS);
+    for(var i=0;i<L.length;i++) if(L[i][0]===val) return L[i][1].toLowerCase();
+    return val;
+  }
+  function pdfRefreshPages(){   /* le risposte cambiano le pagine offerte (es. Criticità); spunte preservate */
+    var keep=pdfSelectedPages();
+    _pdfTechPages=pdfComputeTechPages();
+    pdfRenderTechList();
+    document.querySelectorAll("#pdfTechList input[data-page]").forEach(function(c){ if(keep[c.getAttribute("data-page")]) c.checked=true; });
+    pdfUpdateTechNote();
+  }
+  function renderProdInline(){
+    var host=document.getElementById("prodInline"); if(!host) return;
+    host.innerHTML="";
+    if(!state.production || !state.production.systems || typeof productionStatusLine!=="function") return;
+    var st=productionStatusLine(state);
+    var head=document.createElement("div"); head.className="prodinline-head";
+    var tt=document.createElement("span"); tt.className="pdf-side-h"; tt.style.margin="0"; tt.textContent="Controllo tecnico";
+    var sta=document.createElement("span"); sta.className="prodinline-status";
+    sta.appendChild(document.createTextNode(st.answered+" risposte · "));
+    var b=document.createElement("b"); if(st.todef) b.className="todef"; b.textContent=st.todef+" da definire";
+    sta.appendChild(b);
+    head.appendChild(tt); head.appendChild(sta); host.appendChild(head);
+    function commitAns(k,val){ state.production.systems[k].ans=val||null; save(); renderProdInline(); pdfRefreshPages(); }
+    PRODUCTION_SYSTEMS.forEach(function(sy){
+      var o=state.production.systems[sy.key]||{ans:null};
+      var row=document.createElement("div"); row.className="prod-row";
+      var k=document.createElement("span"); k.className="k"; k.textContent=sy.label;
+      var v=document.createElement("span"); v.className="v"+((!o.ans||o.ans==="da_definire"||(sy.key!=="luci"&&o.ans==="non_so"))?" missing":"");
+      v.textContent=prodAnsLabel(sy.key,o.ans);
+      var pen=document.createElement("span"); pen.className="pen"; pen.textContent="✎";
+      row.appendChild(k); row.appendChild(v); row.appendChild(pen);
+      row.addEventListener("click", function(){
+        if(row.querySelector("select")) return;
+        var sel=document.createElement("select");
+        var o0=document.createElement("option"); o0.value=""; o0.textContent="— scegli —"; sel.appendChild(o0);
+        (sy.key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS).forEach(function(a){
+          var op=document.createElement("option"); op.value=a[0]; op.textContent=a[1];
+          if(a[0]===o.ans) op.selected=true; sel.appendChild(op);
+        });
+        v.style.display="none"; pen.style.display="none"; row.insertBefore(sel,pen);
+        sel.focus();
+        var done=false;
+        function fin(){ if(done) return; done=true; commitAns(sy.key, sel.value); }
+        sel.addEventListener("change", fin);
+        sel.addEventListener("blur", fin);
+        sel.addEventListener("click", function(e){ e.stopPropagation(); });
+      });
+      host.appendChild(row);
+    });
+    /* riga Note luci: testo utente → SEMPRE textContent/value, mai innerHTML */
+    var nrow=document.createElement("div"); nrow.className="prod-row";
+    var nk=document.createElement("span"); nk.className="k"; nk.textContent="Note luci";
+    var note=(state.production.systems.luci&&state.production.systems.luci.note)||"";
+    var nv=document.createElement("span"); nv.className="v"; nv.style.fontWeight="400";
+    nv.textContent=note?(note.length>42?note.slice(0,42)+"…":note):"—";
+    var npen=document.createElement("span"); npen.className="pen"; npen.textContent="✎";
+    nrow.appendChild(nk); nrow.appendChild(nv); nrow.appendChild(npen);
+    nrow.addEventListener("click", function(){
+      if(nrow.querySelector("textarea")) return;
+      var ta=document.createElement("textarea"); ta.rows=2; ta.maxLength=300;
+      ta.placeholder="Atmosfera, colori, momenti, lettura spartiti, riprese video, vincoli…";
+      ta.value=(state.production.systems.luci&&state.production.systems.luci.note)||"";
+      nv.style.display="none"; npen.style.display="none"; nrow.insertBefore(ta,npen);
+      ta.focus();
+      ta.addEventListener("blur", function(){
+        if(state.production.systems.luci) state.production.systems.luci.note=String(ta.value||"").slice(0,300);
+        save(); renderProdInline();
+      });
+      ta.addEventListener("click", function(e){ e.stopPropagation(); });
+    });
+    host.appendChild(nrow);
+  }
   function pdfComputeTechPages(){
     var pages=[];
     /* Pagine-vista (disegno del palco col layer a fuoco) — prima delle liste testuali */
@@ -12279,17 +12339,14 @@ function pdfChannelPage(doc, L, paperKey){
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     _pdfTechPages=pdfComputeTechPages();
     pdfRenderTechList();
+    renderProdInline();
     refresh();
     pdfUpdateTechNote();
+    /* la vecchia modale pre-export non esiste più: la sezione inline è sempre visibile.
+       asked resta per compatibilità blob (vestigiale). */
+    if(state.production && !state.production.asked){ state.production.asked=true; save(); }
   }
-  /* PRODUZIONE (fase 2): al primo export chiede il Controllo tecnico (una volta sola: asked resta true).
-     Mai bloccante: "Esporta senza rispondere" prosegue comunque. */
-  window.openPdfExportModal=function(){
-    if(state.production && !state.production.asked && typeof openProductionCheck==="function"){
-      openProductionCheck(_pdfExportModalCore); return;
-    }
-    _pdfExportModalCore();
-  };
+  window.openPdfExportModal=_pdfExportModalCore;
   document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
   document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; window.__pdfScope="full"; });
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
