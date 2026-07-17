@@ -4405,10 +4405,14 @@ function sceneMarkup(){
   if(venueCalibMode>0) return '<g id="layVenue">'+venue+'</g>';
   /* SOLO attivo (e non sul Palco): elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto */
   var soloSplit = anySolo() && !soloOn("stage");
+  var musShown = anySolo() ? true : musLayerUI.vis;   /* in solo la visibilità la governa lo split */
+  var musAttr = (musShown?'':' display="none"')+((anySolo()||musLayerUI.op>=100)?'':' style="opacity:'+(musLayerUI.op/100)+'"');
   var items='', zones='', bgItems='';
   sortedItems().forEach(function(it){
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
-    if(soloSplit && !itemInSoloLayer(it)) bgItems += itemMarkup(it); else items += itemMarkup(it);
+    var m=itemMarkup(it);
+    if(contactEligible(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
+    if(soloSplit && !itemInSoloLayer(it)) bgItems += m; else items += m;
   });
   if(soloSplit) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
   /* vis/opacità dei layer meta (Palco, Section Mic) INCORPORATE nel markup, come i layer normali:
@@ -8897,6 +8901,11 @@ var _LM_TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" strok
 function layerRegistry(){
   if(!state.cab || !state.elec || !state.mond) return [];   /* stato non ancora normalizzato (es. addItem prima del load completo): niente layer, evita il crash su state.cab.on */
   return [
+    /* Musicisti (17/07): meta-layer sulle persone (stesso set del bottone Contatto). Subito dopo Palco. */
+    { id:"mus", name:"Musicisti", color:"#16a34a", active:(state.items||[]).some(function(x){ return contactEligible(x.type); }),
+      visible:musLayerUI.vis, setVisible:function(v){ musLayerUI.vis=v; render(); },
+      opacity:musLayerUI.op, setOpacity:function(v){ musLayerUI.op=v; var o=(v/100).toString(); svg.querySelectorAll(".mus-item").forEach(function(g){ g.style.opacity=o; }); },
+      lockable:true, locked:musLayerUI.lock, setLocked:function(v){ musLayerUI.lock=v; document.body.classList.toggle("mus-lock",v); if(v){ sel=null; selSet={}; } render(); } },
     /* Gruppo "Audio": le 4 facce del segnale (motore cablaggio + monitoraggio digitale).
        Nel pannello stanno sotto un unico header "Audio" (campo group). */
     { id:"cabin", name:"Input", group:"Audio", color:LAYER_COLORS.audioIn, active:!!state.cab.on,
@@ -8958,6 +8967,7 @@ function layerRegistry(){
    gli elementi del palco o le zone mentre si lavora sugli altri layer. Reset ai default a ogni apertura. */
 var stageLayerUI = {vis:true, op:100, lock:false};
 var micLayerUI   = {vis:true, op:100, lock:false};
+var musLayerUI   = {vis:true, op:100, lock:false};   /* layer Musicisti (17/07): runtime, non persistito */
 /* SOLO (stile console, additivo): id layer → true. Con ≥1 solo attivo la scena mostra SOLO i layer
    in solo (al 100%) + i loro elementi pertinenti; il resto del palco resta sfumato come contesto.
    Runtime, non persistito — come stageLayerUI/micLayerUI. */
@@ -8974,6 +8984,7 @@ function layerShown(id){
     case "mond":   return !!(state.mond && state.mond.on) && state.mond.visible!==false;
     case "elec":   return !!(state.elec && state.elec.on) && state.elec.visible!==false;
     case "miczone":return micLayerUI.vis;
+    case "mus":    return musLayerUI.vis;
     case "stage":  return stageLayerUI.vis;
     case "venue":  return !!(state.venue && state.venue.enabled!==false);
   }
@@ -8988,6 +8999,7 @@ function layerFgItem(id, it){
     case "cabout": return !!(OUT_SET[it.type]!=null || cabIsBox(it) || it.type==="mixer" || it.type==="foh");
     case "mond":   return !!MON_DIG_NODE[it.type];
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
+    case "mus":    return contactEligible(it.type);   /* layer Musicisti: le persone */
   }
   return false;
 }
@@ -9006,8 +9018,9 @@ function pruneSolo(){
   Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
 }
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
+  musLayerUI={vis:true,op:100,lock:false};
   layerSoloUI={};
-  document.body.classList.remove("stage-lock","miczone-lock"); }
+  document.body.classList.remove("stage-lock","miczone-lock","mus-lock"); }
 var layerOpen=true;
 var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider opacita'). Clic sulla riga fa toggle. */
 /* Riga UNICA con tutto inline (richiesta Simone): dot + nome + slider opacita' + occhio + lucchetto +
@@ -9017,8 +9030,8 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    Un layer aperto alla volta; "stage" (Palco → Stato) aperto di default. Le sezioni sono
    le STESSE di prima (statoSec/patchSec/monSec/loadSec): vengono spostate sotto il layer aperto
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
-var layerAccOpen="stage";
-var LAYER_ACC={ stage:"statoSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec" };
+var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
+var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec" };
 function renderLayerRow(L, container){
   var row=document.createElement("div"); row.className="layer-row";
   var accKey=LAYER_ACC[L.id]||null;
@@ -9074,6 +9087,37 @@ function renderLayerManager(){
   var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Layer"; rows.appendChild(hdr);
   LS.forEach(function(L){ renderLayerRow(L, rows); });
   renderPmAccList();
+  renderMusAccList();
+}
+function renderMusAccList(){
+  var el=document.getElementById("musAccSec"); if(!el) return;
+  if(layerAccOpen!=="mus"){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="block";
+  el.innerHTML="";
+  var ppl=(state.items||[]).filter(function(x){ return contactEligible(x.type); });
+  if(!ppl.length){ el.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun musicista sul palco.</div>'; return; }
+  ppl.forEach(function(x){
+    var row=document.createElement("div"); row.className="insp-row"; row.style.cursor="pointer";
+    row.setAttribute("data-mus", x.id);
+    var b=document.createElement("b"); b.textContent=_icName(x);
+    var sm=document.createElement("small"); sm.className="mus-c"; sm.textContent="—";
+    row.appendChild(b); row.appendChild(sm);
+    row.addEventListener("click", function(){ selectOne(x.id); render(); if(typeof ensureVisible==="function") ensureVisible(); });
+    el.appendChild(row);
+  });
+  /* nomi dei contatti assegnati: dall'ACCOUNT (visibili solo qui nel pannello, coerente con la privacy) */
+  var C=window.__cloud, pid=C&&C.currentId&&C.currentId();
+  if(!(C&&C.user&&C.user()) || !pid) return;
+  C.itemContacts.list(pid, function(map){
+    if(!map || layerAccOpen!=="mus") return;
+    C.rubrica.list(function(rows){
+      ppl.forEach(function(x){
+        var cid=map[x.id]; if(!cid) return;
+        var c=(rows||[]).filter(function(r){ return r.id===cid; })[0]; if(!c) return;
+        var cell=el.querySelector('[data-mus="'+x.id+'"] .mus-c'); if(cell) cell.textContent=c.name||"—";
+      });
+    });
+  });
 }
 function renderPmAccList(){
   var el=document.getElementById("pmAccSec"); if(!el) return;

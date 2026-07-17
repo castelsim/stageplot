@@ -1554,5 +1554,20 @@ t("evento: evDate/evTime facoltativi, validati e persistiti", () => {
   eq(A.state.evTime, "", "orario non valido azzerato");
 });
 
+t("layer Musicisti: fg = persone, visibilità da musLayerUI, attivo solo con persone", () => {
+  reset();
+  const v = add("vlnpost", 300, 300), w = add("wedge", 500, 300);
+  eq(A.layerFgItem("mus", v), true, "violinista = fg del layer Musicisti");
+  eq(A.layerFgItem("mus", w), false, "wedge no");
+  eq(A.layerShown("mus"), true, "visibile di default");
+  A.musLayerUI.vis = false;
+  eq(A.layerShown("mus"), false, "occhio chiuso");
+  A.musLayerUI.vis = true;
+  const reg = A.layerRegistry();
+  eq(reg.some(L => L.id === "mus" && L.active), true, "attivo con una persona sul palco");
+  A.state.items = [];
+  eq(A.layerRegistry().some(L => L.id === "mus" && L.active), false, "senza persone: non attivo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
