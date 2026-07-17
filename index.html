@@ -1501,6 +1501,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .chips button:hover:not(.on){background:var(--surface-raised)}
   /* Azioni di pannello: full-width; "Dividi" & co. = primario pieno */
   #props .btn,#grpProps .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+  /* Dividi/Duplica/Elimina su UNA riga (Simone 17/07) */
+  #pActRow{display:flex;gap:6px;margin-top:10px}
+  #pActRow .btn{width:auto;flex:1;margin-top:0;white-space:nowrap;padding:6px 8px}
   #pDivide,#pGtrSplit,#pCompSplit,#pSplit,#grpUngroup{background:var(--accent);border:1px solid var(--accent);
     color:#fff;font-weight:600}
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
@@ -1970,8 +1973,8 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <select id="pModelSel" style="width:100%;font-size:12px"></select>
       <div id="pModelCur" style="display:none;align-items:center;gap:6px;font-size:12px;margin-top:2px"></div>
     </div>
-    <button class="btn" id="pDivide" style="width:100%;margin-top:10px;font-size:12px;display:none">⇱ Dividi in elementi</button>
-    <div class="btns">
+    <div class="btns" id="pActRow">
+      <button class="btn" id="pDivide" style="font-size:12px;display:none">⇱ Dividi</button>
       <button class="btn" id="pDup">Duplica</button>
       <button class="btn danger" id="pDel">Elimina</button>
     </div>
