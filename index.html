@@ -815,26 +815,36 @@
   .mcard .mstatus{font-size:12.5px}
   .mcard .mstatus.ok{color:var(--success)}  .mcard .mstatus.err{color:var(--danger)}  .mcard .mstatus.warn{color:var(--warning)}
   /* ===== Finestra Esporta PDF — compatta, anteprima integrata multipagina (Simone 14/07) ===== */
-  .pdf-export{width:1020px;max-width:96vw;padding:20px 22px}
+  .pdf-export{width:720px;max-width:96vw;padding:20px 22px}
   .pdf-exp-head{display:flex;align-items:baseline;gap:12px;margin:0 0 15px}
   .pdf-exp-head h2{margin:0}
   .pdf-exp-hint{font-size:12px;color:var(--text-3)}
-  .pdf-exp-grid{display:grid;grid-template-columns:164px 272px 180px 1fr;gap:18px;align-items:start}
-  .pdf-col{border-left:1px solid var(--border);padding-left:16px;min-width:0}
+  .pdf-exp-grid{display:grid;grid-template-columns:1fr 240px;gap:22px;align-items:start}
   .pdf-exp-side>label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin:12px 0 5px}
   .pdf-exp-side>label:first-child{margin-top:0}
   .pdf-exp-side .chips{margin:0}
   .pdf-exp-side input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13.5px;background:var(--surface);color:var(--text)}
   .pdf-side-h{font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:7px}
   #pdfTechBox{margin-top:0;padding-top:0;border-top:none}
-  #pdfTechList{display:flex;flex-direction:column;gap:4px}
-  #pdfTechList .chk{font-size:11px;display:flex;align-items:center;gap:7px;cursor:pointer}
-  #pdfTechList input[type="checkbox"]{width:28px;height:16px}
-  #pdfTechList input[type="checkbox"]::after{width:12px;height:12px}
-  #pdfTechList input[type="checkbox"]:checked::after{left:14px}
   #pdfTechNote{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.45}
   /* Controllo tecnico inline nell'export (variante C 17/07): riepilogo + modifica al volo */
-  #prodInline{margin-top:0;padding-top:0;border-top:none}
+  /* Export "un click" (variante A): pagine a pillole + Controllo tecnico a nudge */
+  .pillrow{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 4px}
+  .pill{display:inline-flex;align-items:center;gap:5px;background:var(--accent-tint);border:1px solid var(--accent);color:var(--accent-strong);font-size:11px;font-weight:600;border-radius:999px;padding:3px 9px;cursor:default}
+  .pill .x{cursor:pointer;font-weight:700;opacity:.65}
+  .pill .x:hover{opacity:1}
+  .pill.ghost{background:var(--surface);border:1px dashed var(--border-strong);color:var(--text-2);cursor:pointer;font-weight:500}
+  .pill.ghost:hover{background:var(--surface-raised)}
+  .nudge{margin-top:12px;background:#eff6ff;border:1px solid #bfd3f8;border-radius:9px;padding:8px 11px;font-size:11.5px;color:#2563eb;cursor:pointer;user-select:none}
+  .nudge b{font-weight:700}
+  .nudge .arr{float:right;transition:transform var(--dur-fast) var(--ease)}
+  .nudge.open .arr{transform:rotate(90deg)}
+  .nudge.ok{background:var(--surface-raised);border-color:var(--border);color:var(--text-2)}
+  .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
+  .pdf-optrow label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin:0 0 5px}
+  .pdf-optrow .chips button{padding:5px 8px;font-size:11.5px}
+  .pdf-optrow select{font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);width:128px}
+  #prodInline{margin-top:8px}
   .prodinline-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
   .prodinline-status{margin-left:auto;font-size:11px;color:var(--text-2);white-space:nowrap}
   .prodinline-status b{font-weight:600}
@@ -872,8 +882,7 @@
   .pdf-exp-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
   .pdf-exp-foot .mstatus{flex:1;min-height:16px}
   .pdf-exp-actions{display:flex;gap:8px;flex:0 0 auto}
-  @media(max-width:1100px){ .pdf-exp-grid{grid-template-columns:1fr 1fr} .pdf-exp-main{grid-column:1/-1} }
-  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-col{border-left:none;padding-left:0;border-top:1px solid var(--border);padding-top:12px} }
+  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-optrow{flex-wrap:wrap} }
   body.dark .pdf-sheet{background:#161d22}
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
@@ -2594,36 +2603,51 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     </div>
     <div class="pdf-exp-grid">
       <div class="pdf-exp-side">
-        <label>Formato</label>
-        <select id="pdfPaper" hidden>
-          <option value="a4">A4 (29,7×21 cm)</option>
-          <option value="a3">A3 (42×29,7 cm)</option>
-          <option value="a2">A2 (59,4×42 cm)</option>
-        </select>
-        <div class="chips" data-chips="pdfPaper">
-          <button type="button" data-v="a4" class="on">A4</button>
-          <button type="button" data-v="a3">A3</button>
-          <button type="button" data-v="a2">A2</button>
+        <div id="pdfTechBox" style="display:none">
+          <div class="pdf-side-h" id="pdfPillsTitle">Il tuo PDF</div>
+          <div id="pdfPills" class="pillrow"></div>
+          <div id="pdfTechNote"></div>
         </div>
-        <label>Orientamento</label>
-        <select id="pdfOrient" hidden>
-          <option value="landscape">Orizzontale</option>
-          <option value="portrait">Verticale</option>
-        </select>
-        <div class="chips" data-chips="pdfOrient">
-          <button type="button" data-v="landscape" class="on">Orizz.</button>
-          <button type="button" data-v="portrait">Vert.</button>
+        <div id="prodNudge"></div>
+        <div id="prodInline" hidden></div>
+        <div class="pdf-optrow">
+          <div>
+            <label>Formato</label>
+            <select id="pdfPaper" hidden>
+              <option value="a4">A4 (29,7×21 cm)</option>
+              <option value="a3">A3 (42×29,7 cm)</option>
+              <option value="a2">A2 (59,4×42 cm)</option>
+            </select>
+            <div class="chips" data-chips="pdfPaper">
+              <button type="button" data-v="a4" class="on">A4</button>
+              <button type="button" data-v="a3">A3</button>
+              <button type="button" data-v="a2">A2</button>
+            </div>
+          </div>
+          <div>
+            <label>Orientamento</label>
+            <select id="pdfOrient" hidden>
+              <option value="landscape">Orizzontale</option>
+              <option value="portrait">Verticale</option>
+            </select>
+            <div class="chips" data-chips="pdfOrient">
+              <button type="button" data-v="landscape" class="on">Orizz.</button>
+              <button type="button" data-v="portrait">Vert.</button>
+            </div>
+          </div>
+          <div>
+            <label>Scala</label>
+            <select id="pdfScale">
+              <option value="auto">Automatica</option>
+              <option value="50">1:50</option>
+              <option value="100">1:100</option>
+              <option value="200">1:200</option>
+              <option value="250">1:250</option>
+              <option value="500">1:500</option>
+              <option value="custom">Personalizzata…</option>
+            </select>
+          </div>
         </div>
-        <label>Scala</label>
-        <select id="pdfScale">
-          <option value="auto">Automatica (consigliata)</option>
-          <option value="50">1:50</option>
-          <option value="100">1:100</option>
-          <option value="200">1:200</option>
-          <option value="250">1:250</option>
-          <option value="500">1:500</option>
-          <option value="custom">Personalizzata…</option>
-        </select>
         <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
           <span style="font-size:13px;color:var(--text-2)">1:</span>
           <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
@@ -2632,12 +2656,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <label>Intestazione</label>
         <input type="text" id="pdfHeader" placeholder="Es. Tecnico: … · +39 …" maxlength="120">
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
-      </div>
-      <div id="prodInline" class="pdf-col"></div>
-      <div id="pdfTechBox" class="pdf-col" style="display:none">
-        <div class="pdf-side-h">Pagine del rider</div>
-        <div id="pdfTechList"></div>
-        <div id="pdfTechNote"></div>
       </div>
       <div class="pdf-exp-main">
         <div id="pdfPreview" class="pdf-sheet"></div>
