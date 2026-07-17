@@ -699,6 +699,18 @@
   .rub-manage{padding:7px 9px;font-size:11.5px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
   .rub-manage:hover{background:var(--surface-raised)}
   .rub-cap{font-size:10px;font-weight:700;color:var(--text-3);padding:4px 9px 2px;text-transform:uppercase;letter-spacing:.04em}
+  /* Condividi — variante A (17/07): stato, permessi, revoca visibile */
+  .share-state{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-2);white-space:nowrap}
+  .share-state.on{background:var(--success-bg);border-color:var(--success-border);color:var(--success)}
+  .share-chan{flex:1}
+  .share-perm{display:flex;align-items:center;gap:10px;font-size:12px;padding:5px 0;cursor:default}
+  label.share-perm{cursor:pointer}
+  .share-perm .pd{flex:1}
+  .share-perm .pd small{display:block;color:var(--text-3);font-size:10.5px}
+  .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
+  .share-revoke:hover{background:var(--danger-bg)}
+  body.viewmode.share-hidecontacts .cl-contacts{display:none!important}
+  body.viewmode.share-hidecontacts .pdf-rider-contact{display:none!important}
   /* Pannello CAVO nella colonna destra (17/07) */
   #cabPropsRows .r{display:flex;gap:8px;font-size:12px;margin:2px 0;line-height:1.35}
   #cabPropsRows .r .k{flex:0 0 84px;color:var(--text-2)}

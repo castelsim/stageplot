@@ -1503,5 +1503,17 @@ t("postazione a due: distanza default 90 cm (mai sotto il minimo fisico)", () =>
   eq(single.sep, 90, "postazione singola: sep pronto a 90 per quando diventa doppia");
 });
 
+t("shareOpts: default copia ON, contatti OFF (privacy); override persistiti", () => {
+  reset();
+  delete A.state.shareOpts;
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.shareOpts.copy, true, "copia permessa di default");
+  eq(A.state.shareOpts.contacts, false, "contatti nel link SPENTI di default");
+  A.state.shareOpts = { copy: false, contacts: true };
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.shareOpts.copy, false, "scelta copia=off rispettata");
+  eq(A.state.shareOpts.contacts, true, "opt-in contatti rispettato");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
