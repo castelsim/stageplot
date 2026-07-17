@@ -13516,7 +13516,7 @@ function pdfChannelPage(doc, L, paperKey){
   var _pdfTechPages=[];
   function pdfSelectedPages(){   /* Set delle chiavi spuntate → letto da buildPdfDoc via window.__pdfPages */
     var sel={};
-    document.querySelectorAll("#pdfTechList input[type=checkbox]").forEach(function(c){ if(c.checked) sel[c.getAttribute("data-page")]=true; });
+    document.querySelectorAll("#pdfTechList input[data-page]").forEach(function(c){ if(c.checked) sel[c.getAttribute("data-page")]=true; });   /* solo le pagine vere: il master "Tutte le pagine" non è una pagina (fix conteggio 17/07) */
     return sel;
   }
   function pdfUpdateTechNote(){
