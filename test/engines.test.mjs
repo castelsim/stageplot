@@ -1527,5 +1527,16 @@ t("contactEligible: bottone Contatto solo sugli elementi-persona", () => {
   eq(A.contactEligible("stagebox"), false, "stage box: no");
 });
 
+t("icRoleMatch: sul violino solo i violini, mai i violoncelli", () => {
+  eq(A.icRoleMatch("Postazione violino", "Violino"), true, "violino ↔ violino");
+  eq(A.icRoleMatch("Violino I", "Violino II"), true, "I e II sono entrambi violinisti");
+  eq(A.icRoleMatch("Violoncello", "Violoncello"), true);
+  eq(A.icRoleMatch("Postazione violino", "Violoncello"), false, "violoncello NON è affine al violino");
+  eq(A.icRoleMatch("Violoncello", "Violino"), false, "e viceversa");
+  eq(A.icRoleMatch("Direttore", "Fonico di sala"), false);
+  eq(A.icRoleMatch("Violino I", ""), false, "senza ruolo: non suggerito (si trova cercando)");
+  eq(A.icRoleMatch("Cantante", "cantante"), true, "case-insensitive");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

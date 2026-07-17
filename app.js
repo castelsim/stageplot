@@ -1256,6 +1256,20 @@ var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 }; 
 function contactEligible(type){
   return !!(POSTAZ[type] || DOUBLE_TYPES[type] || VOCE[type] || TASTIERE[type] || type==="direttore" || type==="batteria");
 }
+/* Suggerimenti per ruolo (Simone 17/07): sul violino propongo SOLO i violini della rubrica.
+   Normalizza il ruolo togliendo parole generiche e numeri (I/II/1/2) → confronto per contenimento. */
+function icRoleKey(str){
+  var t=String(str||"").toLowerCase()
+    .replace(/postazione|doppia|doppio|musicista|prof\.|maestro/g," ")
+    .replace(/\b(i|ii|iii|iv|v|1|2|3|4|5|×2|x2)\b/g," ")
+    .replace(/[^a-zàèéìòù]+/g," ").trim().replace(/\s+/g," ");
+  return t;
+}
+function icRoleMatch(elemRole, contactRole){
+  var a=icRoleKey(elemRole), b=icRoleKey(contactRole);
+  if(!a || !b) return false;
+  return a.indexOf(b)>-1 || b.indexOf(a)>-1;
+}
 
 /* ============ ELEMENTI COMPONIBILI (batteria, timpani) ============ */
 function compClone(o){ return JSON.parse(JSON.stringify(o)); }
@@ -12121,26 +12135,51 @@ function openItemContactModal(it){
   document.getElementById("icTitle").textContent="Contatto — "+_icName(it);
   var stPick=document.getElementById("icPick"), stAsg=document.getElementById("icAsg");
   function done(){ ov.style.display="none"; renderProps(); }
-  function showPick(rows){
+  function showPick(rows, asgMap){
     stPick.style.display="block"; stAsg.style.display="none";
     document.getElementById("icN").value=""; document.getElementById("icT").value=""; document.getElementById("icE").value=""; document.getElementById("icNo").value="";
-    document.getElementById("icR").value=(TYPES[it.type]&&TYPES[it.type].nome)||"";
+    var elemRole=(TYPES[it.type]&&TYPES[it.type].nome)||"";
+    document.getElementById("icR").value=elemRole;
+    /* contatto → elemento a cui è GIÀ assegnato in questo progetto (per il blocco anti-doppione) */
+    var takenBy={}; Object.keys(asgMap||{}).forEach(function(iid){ if(iid!==it.id) takenBy[asgMap[iid]]=iid; });
+    function takenLabel(cid){ var iid=takenBy[cid]; if(!iid) return "";
+      var other=(state.items||[]).filter(function(x){ return x.id===iid; })[0];
+      return other ? _icName(other) : "un altro elemento"; }
     var listEl=document.getElementById("icList"), q=document.getElementById("icQ"); q.value="";
+    q.placeholder="Cerca nella tua rubrica… (mostro i ruoli affini)";
     function paint(){
       var f=q.value.trim().toLowerCase();
       listEl.innerHTML="";
-      var cs=(rows||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); })
-        .filter(function(c){ return !f || ((c.name||"")+" "+(c.role||"")+" "+(c.contact||"")).toLowerCase().indexOf(f)>-1; });
-      if(!cs.length){ listEl.innerHTML='<div style="font-size:11.5px;color:var(--text-3);padding:8px 11px">'+((rows||[]).length?"Nessun contatto corrisponde.":"Rubrica vuota — compila il nuovo contatto qui sotto.")+'</div>'; return; }
+      var base=(rows||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
+      /* query vuota → SOLO i ruoli affini allo strumento; cercando si vede tutta la rubrica */
+      var cs = f ? base.filter(function(c){ return ((c.name||"")+" "+(c.role||"")+" "+(c.contact||"")).toLowerCase().indexOf(f)>-1; })
+                 : base.filter(function(c){ return icRoleMatch(elemRole, c.role); });
+      if(!f && elemRole){
+        var hint=document.createElement("div");
+        hint.style.cssText="font-size:10.5px;color:var(--text-3);padding:6px 11px;border-bottom:1px solid var(--n-100,#edebe4)";
+        hint.textContent="Ruoli affini a \u201c"+elemRole+"\u201d \u00b7 cerca per vedere tutta la rubrica";
+        listEl.appendChild(hint);
+      }
+      if(!cs.length){ var em=document.createElement("div"); em.style.cssText="font-size:11.5px;color:var(--text-3);padding:8px 11px";
+        em.textContent=(rows||[]).length ? (f?"Nessun contatto corrisponde.":"Nessun \u201c"+elemRole+"\u201d in rubrica \u2014 cerca per nome o compila il nuovo contatto.") : "Rubrica vuota \u2014 compila il nuovo contatto qui sotto.";
+        listEl.appendChild(em); return; }
       cs.slice(0,30).forEach(function(c){
-        var d=document.createElement("div"); d.style.cssText="display:flex;flex-direction:column;gap:1px;padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--n-100,#edebe4)";
+        var taken=takenLabel(c.id);
+        var d=document.createElement("div"); d.style.cssText="display:flex;flex-direction:column;gap:1px;padding:8px 11px;border-bottom:1px solid var(--n-100,#edebe4);"+(taken?"opacity:.55;cursor:default":"cursor:pointer");
         var r1=document.createElement("span"); r1.style.cssText="font-size:12.5px;font-weight:600";
         r1.textContent=[(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
         d.appendChild(r1);
-        if((c.contact||"").trim()){ var r2=document.createElement("span"); r2.style.cssText="font-size:11px;color:var(--text-2)"; r2.textContent=c.contact.trim(); d.appendChild(r2); }
-        d.addEventListener("mouseenter", function(){ d.style.background="var(--accent-tint)"; });
-        d.addEventListener("mouseleave", function(){ d.style.background=""; });
-        d.addEventListener("click", function(){ C.itemContacts.set(pid, it.id, c.id, function(ok){ if(ok){ C.rubrica.touch&&C.rubrica.touch(c.id,function(){}); showAsg(c); renderProps(); } else if(window.__toast) window.__toast("Assegnazione non riuscita — riprova."); }); });
+        var det=(c.contact||"").trim();
+        var r2=document.createElement("span"); r2.style.cssText="font-size:11px;color:var(--text-2)";
+        r2.textContent = taken ? ("gi\u00e0 assegnato a "+taken+(det?" \u00b7 "+det:"")) : det;
+        if(r2.textContent) d.appendChild(r2);
+        if(!taken){
+          d.addEventListener("mouseenter", function(){ d.style.background="var(--accent-tint)"; });
+          d.addEventListener("mouseleave", function(){ d.style.background=""; });
+          d.addEventListener("click", function(){ C.itemContacts.set(pid, it.id, c.id, function(ok){ if(ok){ C.rubrica.touch&&C.rubrica.touch(c.id,function(){}); showAsg(c); renderProps(); } else if(window.__toast) window.__toast("Assegnazione non riuscita — riprova."); }); });
+        } else {
+          d.addEventListener("click", function(){ if(window.__toast) window.__toast((c.name||"Questo contatto")+" \u00e8 gi\u00e0 assegnato a "+taken+": rimuovi prima quell'assegnazione."); });
+        }
         listEl.appendChild(d);
       });
     }
@@ -12161,7 +12200,13 @@ function openItemContactModal(it){
     var contact=[document.getElementById("icT").value.trim(), document.getElementById("icE").value.trim()].filter(function(x){ return x; }).join(" · ");
     C.rubrica.upsert({ role:document.getElementById("icR").value.trim(), name:name, contact:contact, note:document.getElementById("icNo").value.trim() }, function(row){
       if(!row){ if(window.__toast) window.__toast("Salvataggio non riuscito — riprova."); return; }
-      C.itemContacts.set(pid, it.id, row.id, function(ok){ if(ok){ showAsg(row); renderProps(); } else if(window.__toast) window.__toast("Assegnazione non riuscita — riprova."); });
+      C.itemContacts.invalidate(pid);
+      C.itemContacts.list(pid, function(map2){
+        var takenIid=null; Object.keys(map2||{}).forEach(function(iid){ if(iid!==it.id && map2[iid]===row.id) takenIid=iid; });
+        if(takenIid){ var other=(state.items||[]).filter(function(x){ return x.id===takenIid; })[0];
+          if(window.__toast) window.__toast((row.name||"Questo contatto")+" \u00e8 gi\u00e0 assegnato a "+(other?_icName(other):"un altro elemento")+" in questo progetto."); return; }
+        C.itemContacts.set(pid, it.id, row.id, function(ok){ if(ok){ showAsg(row); renderProps(); } else if(window.__toast) window.__toast("Assegnazione non riuscita — riprova."); });
+      });
     });
   };
   /* stato iniziale: assegnato → scheda; altrimenti pick */
@@ -12169,8 +12214,8 @@ function openItemContactModal(it){
     var cid=map && map[it.id];
     C.rubrica.list(function(rows){
       var c=cid ? (rows||[]).filter(function(x){ return x.id===cid; })[0] : null;
-      if(c) showAsg(c); else showPick(rows||[]);
-      document.getElementById("icChange").onclick=function(){ showPick(rows||[]); };
+      if(c) showAsg(c); else showPick(rows||[], map||{});
+      document.getElementById("icChange").onclick=function(){ showPick(rows||[], map||{}); };
     });
   });
 }
