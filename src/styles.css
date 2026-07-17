@@ -709,6 +709,16 @@
   .rub-manage{padding:7px 9px;font-size:11.5px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
   .rub-manage:hover{background:var(--surface-raised)}
   .rub-cap{font-size:10px;font-weight:700;color:var(--text-3);padding:4px 9px 2px;text-transform:uppercase;letter-spacing:.04em}
+  /* chip data/ora evento nell'header (17/07) */
+  .hdr-evchip{border:1px solid var(--border);background:var(--surface);color:var(--text-3);border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .hdr-evchip:hover{background:var(--surface-raised)}
+  .hdr-evchip.set{color:var(--text);border-color:var(--border-strong)}
+  .ev-pop{padding:10px 12px;min-width:230px}
+  .ev-l{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:8px 0 3px}
+  .ev-l:first-child{margin-top:0}
+  .ev-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12.5px;background:var(--surface);color:var(--text)}
+  .ev-hint{font-size:10.5px;color:var(--text-3);margin-top:8px;line-height:1.4}
+  @media(max-width:900px){ .hdr-evchip{display:none} }
   /* finestra Contatto musicista (17/07) */
   .ic-l{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:0 0 3px}
   .ic-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-size:12.5px;background:var(--surface);color:var(--text)}

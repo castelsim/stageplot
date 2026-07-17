@@ -873,6 +873,16 @@
   .rub-manage{padding:7px 9px;font-size:11.5px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
   .rub-manage:hover{background:var(--surface-raised)}
   .rub-cap{font-size:10px;font-weight:700;color:var(--text-3);padding:4px 9px 2px;text-transform:uppercase;letter-spacing:.04em}
+  /* chip data/ora evento nell'header (17/07) */
+  .hdr-evchip{border:1px solid var(--border);background:var(--surface);color:var(--text-3);border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .hdr-evchip:hover{background:var(--surface-raised)}
+  .hdr-evchip.set{color:var(--text);border-color:var(--border-strong)}
+  .ev-pop{padding:10px 12px;min-width:230px}
+  .ev-l{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:8px 0 3px}
+  .ev-l:first-child{margin-top:0}
+  .ev-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12.5px;background:var(--surface);color:var(--text)}
+  .ev-hint{font-size:10.5px;color:var(--text-3);margin-top:8px;line-height:1.4}
+  @media(max-width:900px){ .hdr-evchip{display:none} }
   /* finestra Contatto musicista (17/07) */
   .ic-l{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:0 0 3px}
   .ic-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-size:12.5px;background:var(--surface);color:var(--text)}
@@ -1612,6 +1622,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <button class="btn ghost" id="fileBtn" aria-haspopup="menu" aria-expanded="false">File <span class="chev">▾</span></button>
   <span class="tbdiv"></span>
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
+  <button type="button" id="evChip" class="hdr-evchip" title="Data, orario e luogo dell'evento"></button>
+  <div id="evPop" class="hdrmenu ev-pop" hidden>
+    <label class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
+    <label class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
+    <label class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
+    <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
+  </div>
   <select id="projStatus" class="hdr-status" title="Stato del progetto (bozza → in revisione → approvato)"></select>
   <input type="text" id="projApprovedBy" class="hdr-approver" placeholder="firmato da…" title="Chi ha approvato il progetto" hidden>
   <span class="hdr-variants" id="variantBar" hidden title="Variante/scena attiva del progetto">

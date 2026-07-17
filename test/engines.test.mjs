@@ -1538,5 +1538,21 @@ t("icRoleMatch: sul violino solo i violini, mai i violoncelli", () => {
   eq(A.icRoleMatch("Cantante", "cantante"), true, "case-insensitive");
 });
 
+t("evento: evDate/evTime facoltativi, validati e persistiti", () => {
+  reset();
+  delete A.state.evDate; delete A.state.evTime;
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.evDate, "", "default vuoto");
+  eq(A.state.evTime, "", "default vuoto");
+  A.state.evDate = "2026-08-01"; A.state.evTime = "21:30";
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.evDate, "2026-08-01", "data valida preservata");
+  eq(A.state.evTime, "21:30", "orario valido preservato");
+  A.state.evDate = "spazzatura"; A.state.evTime = "25h";
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.evDate, "", "data non valida azzerata");
+  eq(A.state.evTime, "", "orario non valido azzerato");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
