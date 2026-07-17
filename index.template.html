@@ -3384,6 +3384,13 @@ function productionStatusLine(s){
   });
   return {answered:answered, todef:todef};
 }
+/* Pagine del rider consigliate (export "un click"): viste core + channel list + criticità quando offerta.
+   Preselezionate a ogni apertura dell'export; il resto è dietro "+ altre pagine…". */
+var PDF_RECOMMENDED=["view-cabin","view-cabout","inputlist","todefine"];
+function pdfRecommendedKeys(pages){
+  var have={}; (pages||[]).forEach(function(p){ have[p.key]=true; });
+  return PDF_RECOMMENDED.filter(function(k){ return have[k]; });
+}
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];
