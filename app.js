@@ -2084,6 +2084,29 @@ function productionStatusLine(s){
   });
   return {answered:answered, todef:todef};
 }
+/* Pagine SUGGERITE dagli elementi sul palco (mai preselezionate: l'utente resta al comando).
+   Tra le disponibili: viste cablaggio/monitor/PM, liste canali/PM, criticità quando offerta. */
+var PDF_SUGGESTED=["view-cabin","view-cabout","view-mond","inputlist","pmlist","todefine"];
+function pdfSuggestedKeys(pages){
+  var have={}; (pages||[]).forEach(function(p){ have[p.key]=true; });
+  return PDF_SUGGESTED.filter(function(k){ return have[k]; });
+}
+/* Inviti mirati per il nudge: elemento regia presente + sistema NON ancora dichiarato → domanda concreta.
+   Mai assumere la risposta: la domanda porta l'utente a dichiararla nel Controllo tecnico. */
+function productionElementHints(s){
+  var hints=[], types={}, sys=(s&&s.production&&s.production.systems)||{};
+  ((s&&s.items)||[]).forEach(function(it){ types[it.type]=true; });
+  function und(k){ return !sys[k] || !sys[k].ans; }
+  if(types.audiointerface && (und("playback")||und("recaudio")))
+    hints.push("c'è un'interfaccia audio sul palco: sequenze o registrazione?");
+  else if(types.laptop && und("playback"))
+    hints.push("c'è un computer sul palco: manda sequenze audio o video?");
+  if(types.camera && und("recvideo") && und("streaming"))
+    hints.push("c'è una camera: registrazione video o streaming?");
+  if((types.proiettore||types.schermo||types.ledwallmod) && und("video"))
+    hints.push("ci sono proiezioni: chi fornisce i contributi video?");
+  return hints;
+}
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];
@@ -12209,7 +12232,8 @@ function pdfChannelPage(doc, L, paperKey){
     if(st.todef){
       var b=document.createElement("b"); b.textContent=st.todef+(st.todef===1?" aspetto da definire":" aspetti da definire");
       nud.appendChild(b);
-      nud.appendChild(document.createTextNode(" — rispondi al Controllo tecnico per un rider più completo "));
+      var hints=(typeof productionElementHints==="function")?productionElementHints(state):[];
+      nud.appendChild(document.createTextNode(" — "+(hints.length?hints[0]+" Rispondi qui ":"rispondi al Controllo tecnico per un rider più completo ")));
     } else {
       nud.appendChild(document.createTextNode("Controllo tecnico completo ✓ — rivedi "));
     }
@@ -12296,7 +12320,8 @@ function pdfChannelPage(doc, L, paperKey){
        piene = nel PDF (× toglie), tratteggiate = click per aggiungere. Default: nessuna (solo palco). */
     var host=document.getElementById("pdfPills"); if(!host) return;
     host.innerHTML="";
-    var nSel=0;
+    var nSel=0, nSugg=0;
+    var sugg={}; if(typeof pdfSuggestedKeys==="function") pdfSuggestedKeys(_pdfTechPages).forEach(function(k){ sugg[k]=true; });
     function mk(txt,cls){ var s=document.createElement("span"); s.className=cls; s.appendChild(document.createTextNode(txt)); return s; }
     _pdfTechPages.forEach(function(p){
       if(_pdfPillSel[p.key]){
@@ -12306,11 +12331,17 @@ function pdfChannelPage(doc, L, paperKey){
         x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRenderPills(); pdfUpdateTechNote(); });
         pill.appendChild(x); host.appendChild(pill);
       } else {
-        var g=mk(p.label,"pill ghost"); g.title="Aggiungi al PDF";
+        var isSugg=!!sugg[p.key]; if(isSugg) nSugg++;
+        var g=mk(p.label,"pill ghost"+(isSugg?" sugg":""));
+        g.title=isSugg?"Suggerita dagli elementi sul palco — click per aggiungerla":"Aggiungi al PDF";
         g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRenderPills(); pdfUpdateTechNote(); });
         host.appendChild(g);
       }
     });
+    var hintEl=document.getElementById("pdfPillsHint");
+    if(!hintEl){ hintEl=document.createElement("div"); hintEl.id="pdfPillsHint"; host.parentNode.insertBefore(hintEl, host.nextSibling); }
+    hintEl.textContent = nSugg ? "Le pagine col bordo verde sono suggerite dagli elementi sul palco." : "";
+    hintEl.style.display = nSugg ? "" : "none";
     var rest=_pdfTechPages.length-nSel;
     if(rest>1){
       var all=mk("Tutte le pagine","pill ghost");

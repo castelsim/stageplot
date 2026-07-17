@@ -1413,5 +1413,25 @@ t("productionStatusLine: conteggi risposte e da-definire", () => {
   eq(A.productionStatusLine(A.state).todef, 3, "luci da_definire conta");
 });
 
+t("pdfSuggestedKeys: suggerite tra le disponibili, mai le neutre", () => {
+  const pages=[{key:"view-cabin"},{key:"rider"},{key:"pmlist"},{key:"cabmap"},{key:"todefine"}];
+  eq(JSON.stringify(A.pdfSuggestedKeys(pages)), JSON.stringify(["view-cabin","pmlist","todefine"]));
+  eq(A.pdfSuggestedKeys([]).length, 0);
+});
+
+t("productionElementHints: interfaccia audio senza dichiarazioni → invito mirato", () => {
+  reset();
+  eq(A.productionElementHints(A.state).length, 0, "palco vuoto: nessun invito");
+  add("audiointerface", 300, 300);
+  const h=A.productionElementHints(A.state);
+  eq(h.length, 1);
+  eq(/interfaccia audio/.test(h[0]), true, "l'invito nomina l'elemento");
+  A.state.production.systems.playback.ans="no";
+  A.state.production.systems.recaudio.ans="configurato";
+  eq(A.productionElementHints(A.state).length, 0, "sistemi dichiarati: niente invito");
+  add("camera", 400, 300);
+  eq(/camera/.test(A.productionElementHints(A.state)[0]), true, "camera senza rec/streaming dichiarati");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
