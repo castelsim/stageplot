@@ -1082,30 +1082,40 @@
 
 <div class="modal" id="shareModal" hidden>
   <div class="mcard" style="width:480px;max-width:94vw">
-    <h2>Condividi progetto</h2>
+    <div style="display:flex;align-items:center;gap:10px">
+      <h2 style="flex:1;margin:0">Condividi progetto</h2>
+      <span id="shareState" class="share-state">Non condiviso</span>
+    </div>
     <!-- elementi tenuti per backward compat JS -->
     <div id="shareTabs" hidden style="display:none">
       <button class="btn primary" id="shareTabLink">🔗 Link del progetto</button>
       <button class="btn" id="shareTabPdf">📄 PDF in scala</button>
     </div>
     <div id="shareLinkBox">
-      <p class="hint" style="font-size:13px;color:var(--text-2);margin:0 0 14px;line-height:1.45">Chiunque abbia il link può vederlo in sola lettura.</p>
-      <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch">
+      <div id="shareIntro" style="display:flex;gap:14px;margin:12px 0 0;align-items:flex-start">
+        <div id="shareMini" style="width:120px;height:84px;flex:0 0 auto;background:var(--surface-raised);border-radius:9px;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
+        <div style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
+      </div>
+      <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
         <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn" id="shareNative" hidden>Condividi…</button>
         <button class="btn primary" id="shareCopy">Copia</button>
       </div>
-      <div id="shareUrlButtons" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button class="btn" id="shareEmail">Email</button>
-        <button class="btn" id="shareWa">WhatsApp</button>
-        <button class="btn" id="shareShowQr" type="button">Mostra QR</button>
+      <div id="shareUrlButtons" style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn share-chan" id="shareEmail">Email</button>
+        <button class="btn share-chan" id="shareWa">WhatsApp</button>
+        <button class="btn share-chan" id="shareShowQr" type="button">QR</button>
       </div>
       <div id="shareQrWrap" style="display:none;margin-top:14px;text-align:center">
         <img id="shareQrImg" width="160" height="160" alt="QR" src="" style="border-radius:8px;background:#fff;padding:6px" onerror="this.style.display='none';document.getElementById('shareQrErr').style.display='block'">
         <div id="shareQrErr" style="display:none;font-size:11px;color:var(--text-2);padding:8px 0">QR non disponibile offline</div>
         <div id="shareQrWarn" style="display:none;font-size:12px;color:var(--text-2);padding:8px 0">Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b></div>
       </div>
-      <div style="margin-top:16px"><span id="shareUnshare" hidden style="color:var(--text-3);font-size:12px;text-decoration:underline;cursor:pointer">Smetti di condividere</span></div>
+      <div id="sharePerms" style="border-top:1px solid var(--border);margin-top:14px;padding-top:8px">
+        <div class="share-perm"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
+        <label class="share-perm" for="shareOptCopy"><span class="pd">Può creare una copia <small>il destinatario riparte dal tuo palco sul suo account</small></span><input type="checkbox" id="shareOptCopy"></label>
+        <label class="share-perm" for="shareOptContacts"><span class="pd">Contatti visibili nel link <small>nomi e recapiti della rubrica del progetto — spento di default</small></span><input type="checkbox" id="shareOptContacts"></label>
+      </div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
@@ -1114,7 +1124,8 @@
     <input type="file" id="importFile" accept="application/json,.json" hidden>
     <div id="ioStatus" hidden></div>
     <button id="shareGoPdf" hidden></button>
-    <div style="display:flex;margin-top:14px">
+    <div style="display:flex;margin-top:14px;align-items:center;gap:10px">
+      <button type="button" id="shareUnshare" hidden class="share-revoke">Smetti di condividere</button>
       <button class="btn" id="shareClose" style="margin-left:auto">Chiudi</button>
     </div>
   </div>
@@ -3470,6 +3481,8 @@ function normalizeState(s){
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  var so=s.shareOpts||{};
+  s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
   s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
   if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
@@ -11854,7 +11867,24 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     }
     setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
   }
-  function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; }
+  function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; shareBadge(on?"attivo":null); }
+  function shareBadge(mode){
+    var el=document.getElementById("shareState"); if(!el) return;
+    if(mode==="attivo"){ el.textContent="● Link attivo"; el.className="share-state on"; }
+    else if(mode==="istantanea"){ el.textContent="Istantanea locale"; el.className="share-state"; }
+    else { el.textContent="Non condiviso"; el.className="share-state"; }
+  }
+  var _shareIsCurrent=true;   /* la modale può aprirsi anche per un ALTRO progetto (lista I miei progetti): lì niente permessi/anteprima */
+  function shareFillExtras(){
+    var mini=document.getElementById("shareMini"), intro=document.getElementById("shareIntro"), perms=document.getElementById("sharePerms");
+    if(intro) intro.style.display=_shareIsCurrent?"flex":"none";
+    if(perms) perms.style.display=_shareIsCurrent?"block":"none";
+    if(!_shareIsCurrent) return;
+    if(mini){ try{ mini.innerHTML=stageSceneSvg(null,{focus:"clean"}); var sv=mini.querySelector("svg"); if(sv){ sv.setAttribute("width","120"); sv.setAttribute("height","84"); sv.style.maxWidth="100%"; sv.style.maxHeight="100%"; } }catch(_e){ mini.textContent=""; } }
+    var oc=document.getElementById("shareOptCopy"), ok=document.getElementById("shareOptContacts");
+    if(oc){ oc.checked=state.shareOpts.copy!==false; oc.onchange=function(){ state.shareOpts.copy=oc.checked; save(); }; }
+    if(ok){ ok.checked=state.shareOpts.contacts===true; ok.onchange=function(){ state.shareOpts.contacts=ok.checked; save(); }; }
+  }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
   var qrSeq = 0;              /* progressivo delle richieste QR (guardia anti-race) */
@@ -11867,10 +11897,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     });
   }
   /* Aperto dal modulo cloud (icona Condividi per riga) con un progetto già salvato. */
-  window.__shareUi = { showForProject: function(id){ modal.hidden=false; status("Preparazione link…"); showUnshare(false); showForProject(id); } };
+  window.__shareUi = { showForProject: function(id){ modal.hidden=false; _shareIsCurrent=false; shareFillExtras(); status("Preparazione link…"); showUnshare(false); showForProject(id); } };
   function openShare(){
     var C=window.__cloud;
     modal.hidden=false;
+    _shareIsCurrent=true; shareFillExtras();
     if(C && C.user()){
       status("Preparazione link…"); showUnshare(false);
       C.save(function(id){
@@ -11881,7 +11912,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     }
     /* non loggato / offline: link hash storico, invariato */
     shareTargetId = null;
-    showUnshare(false);
+    showUnshare(false); shareBadge("istantanea");
     fillShareModal(buildShareUrl());
   }
   document.getElementById("bShare").addEventListener("click", openShare);
@@ -14063,8 +14094,9 @@ function gallery(){
     var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
     var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;
     var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
+    try{ document.body.classList.toggle("share-hidecontacts", !(state.shareOpts && state.shareOpts.contacts===true)); }catch(_e){}   /* contatti nel link: opt-in del proprietario */
     var cp=document.getElementById("viewCopy"); if(!cp) return;
-    cp.hidden=false;
+    cp.hidden = !!(state.shareOpts && state.shareOpts.copy===false);   /* copia disattivabile dal proprietario */
     cp.addEventListener("click", function(){
       var C=window.__cloud;
       if(C && C.user()){

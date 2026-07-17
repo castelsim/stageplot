@@ -2149,6 +2149,8 @@ function normalizeState(s){
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  var so=s.shareOpts||{};
+  s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
   s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
   if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
@@ -10533,7 +10535,24 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     }
     setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
   }
-  function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; }
+  function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; shareBadge(on?"attivo":null); }
+  function shareBadge(mode){
+    var el=document.getElementById("shareState"); if(!el) return;
+    if(mode==="attivo"){ el.textContent="● Link attivo"; el.className="share-state on"; }
+    else if(mode==="istantanea"){ el.textContent="Istantanea locale"; el.className="share-state"; }
+    else { el.textContent="Non condiviso"; el.className="share-state"; }
+  }
+  var _shareIsCurrent=true;   /* la modale può aprirsi anche per un ALTRO progetto (lista I miei progetti): lì niente permessi/anteprima */
+  function shareFillExtras(){
+    var mini=document.getElementById("shareMini"), intro=document.getElementById("shareIntro"), perms=document.getElementById("sharePerms");
+    if(intro) intro.style.display=_shareIsCurrent?"flex":"none";
+    if(perms) perms.style.display=_shareIsCurrent?"block":"none";
+    if(!_shareIsCurrent) return;
+    if(mini){ try{ mini.innerHTML=stageSceneSvg(null,{focus:"clean"}); var sv=mini.querySelector("svg"); if(sv){ sv.setAttribute("width","120"); sv.setAttribute("height","84"); sv.style.maxWidth="100%"; sv.style.maxHeight="100%"; } }catch(_e){ mini.textContent=""; } }
+    var oc=document.getElementById("shareOptCopy"), ok=document.getElementById("shareOptContacts");
+    if(oc){ oc.checked=state.shareOpts.copy!==false; oc.onchange=function(){ state.shareOpts.copy=oc.checked; save(); }; }
+    if(ok){ ok.checked=state.shareOpts.contacts===true; ok.onchange=function(){ state.shareOpts.contacts=ok.checked; save(); }; }
+  }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
   var qrSeq = 0;              /* progressivo delle richieste QR (guardia anti-race) */
@@ -10546,10 +10565,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     });
   }
   /* Aperto dal modulo cloud (icona Condividi per riga) con un progetto già salvato. */
-  window.__shareUi = { showForProject: function(id){ modal.hidden=false; status("Preparazione link…"); showUnshare(false); showForProject(id); } };
+  window.__shareUi = { showForProject: function(id){ modal.hidden=false; _shareIsCurrent=false; shareFillExtras(); status("Preparazione link…"); showUnshare(false); showForProject(id); } };
   function openShare(){
     var C=window.__cloud;
     modal.hidden=false;
+    _shareIsCurrent=true; shareFillExtras();
     if(C && C.user()){
       status("Preparazione link…"); showUnshare(false);
       C.save(function(id){
@@ -10560,7 +10580,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     }
     /* non loggato / offline: link hash storico, invariato */
     shareTargetId = null;
-    showUnshare(false);
+    showUnshare(false); shareBadge("istantanea");
     fillShareModal(buildShareUrl());
   }
   document.getElementById("bShare").addEventListener("click", openShare);
@@ -12742,8 +12762,9 @@ function gallery(){
     var role=document.getElementById("viewRole"); if(role) role.textContent=(d.title||"Progetto condiviso");
     var badge=document.getElementById("viewBadge"); if(badge) badge.hidden=false;
     var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
+    try{ document.body.classList.toggle("share-hidecontacts", !(state.shareOpts && state.shareOpts.contacts===true)); }catch(_e){}   /* contatti nel link: opt-in del proprietario */
     var cp=document.getElementById("viewCopy"); if(!cp) return;
-    cp.hidden=false;
+    cp.hidden = !!(state.shareOpts && state.shareOpts.copy===false);   /* copia disattivabile dal proprietario */
     cp.addEventListener("click", function(){
       var C=window.__cloud;
       if(C && C.user()){

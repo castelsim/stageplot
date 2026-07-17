@@ -863,6 +863,18 @@
   .rub-manage{padding:7px 9px;font-size:11.5px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
   .rub-manage:hover{background:var(--surface-raised)}
   .rub-cap{font-size:10px;font-weight:700;color:var(--text-3);padding:4px 9px 2px;text-transform:uppercase;letter-spacing:.04em}
+  /* Condividi — variante A (17/07): stato, permessi, revoca visibile */
+  .share-state{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-2);white-space:nowrap}
+  .share-state.on{background:var(--success-bg);border-color:var(--success-border);color:var(--success)}
+  .share-chan{flex:1}
+  .share-perm{display:flex;align-items:center;gap:10px;font-size:12px;padding:5px 0;cursor:default}
+  label.share-perm{cursor:pointer}
+  .share-perm .pd{flex:1}
+  .share-perm .pd small{display:block;color:var(--text-3);font-size:10.5px}
+  .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
+  .share-revoke:hover{background:var(--danger-bg)}
+  body.viewmode.share-hidecontacts .cl-contacts{display:none!important}
+  body.viewmode.share-hidecontacts .pdf-rider-contact{display:none!important}
   /* Pannello CAVO nella colonna destra (17/07) */
   #cabPropsRows .r{display:flex;gap:8px;font-size:12px;margin:2px 0;line-height:1.35}
   #cabPropsRows .r .k{flex:0 0 84px;color:var(--text-2)}
@@ -2475,30 +2487,40 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <div class="modal" id="shareModal" hidden>
   <div class="mcard" style="width:480px;max-width:94vw">
-    <h2>Condividi progetto</h2>
+    <div style="display:flex;align-items:center;gap:10px">
+      <h2 style="flex:1;margin:0">Condividi progetto</h2>
+      <span id="shareState" class="share-state">Non condiviso</span>
+    </div>
     <!-- elementi tenuti per backward compat JS -->
     <div id="shareTabs" hidden style="display:none">
       <button class="btn primary" id="shareTabLink">🔗 Link del progetto</button>
       <button class="btn" id="shareTabPdf">📄 PDF in scala</button>
     </div>
     <div id="shareLinkBox">
-      <p class="hint" style="font-size:13px;color:var(--text-2);margin:0 0 14px;line-height:1.45">Chiunque abbia il link può vederlo in sola lettura.</p>
-      <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch">
+      <div id="shareIntro" style="display:flex;gap:14px;margin:12px 0 0;align-items:flex-start">
+        <div id="shareMini" style="width:120px;height:84px;flex:0 0 auto;background:var(--surface-raised);border-radius:9px;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
+        <div style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
+      </div>
+      <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
         <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn" id="shareNative" hidden>Condividi…</button>
         <button class="btn primary" id="shareCopy">Copia</button>
       </div>
-      <div id="shareUrlButtons" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button class="btn" id="shareEmail">Email</button>
-        <button class="btn" id="shareWa">WhatsApp</button>
-        <button class="btn" id="shareShowQr" type="button">Mostra QR</button>
+      <div id="shareUrlButtons" style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn share-chan" id="shareEmail">Email</button>
+        <button class="btn share-chan" id="shareWa">WhatsApp</button>
+        <button class="btn share-chan" id="shareShowQr" type="button">QR</button>
       </div>
       <div id="shareQrWrap" style="display:none;margin-top:14px;text-align:center">
         <img id="shareQrImg" width="160" height="160" alt="QR" src="" style="border-radius:8px;background:#fff;padding:6px" onerror="this.style.display='none';document.getElementById('shareQrErr').style.display='block'">
         <div id="shareQrErr" style="display:none;font-size:11px;color:var(--text-2);padding:8px 0">QR non disponibile offline</div>
         <div id="shareQrWarn" style="display:none;font-size:12px;color:var(--text-2);padding:8px 0">Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b></div>
       </div>
-      <div style="margin-top:16px"><span id="shareUnshare" hidden style="color:var(--text-3);font-size:12px;text-decoration:underline;cursor:pointer">Smetti di condividere</span></div>
+      <div id="sharePerms" style="border-top:1px solid var(--border);margin-top:14px;padding-top:8px">
+        <div class="share-perm"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
+        <label class="share-perm" for="shareOptCopy"><span class="pd">Può creare una copia <small>il destinatario riparte dal tuo palco sul suo account</small></span><input type="checkbox" id="shareOptCopy"></label>
+        <label class="share-perm" for="shareOptContacts"><span class="pd">Contatti visibili nel link <small>nomi e recapiti della rubrica del progetto — spento di default</small></span><input type="checkbox" id="shareOptContacts"></label>
+      </div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
@@ -2507,7 +2529,8 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <input type="file" id="importFile" accept="application/json,.json" hidden>
     <div id="ioStatus" hidden></div>
     <button id="shareGoPdf" hidden></button>
-    <div style="display:flex;margin-top:14px">
+    <div style="display:flex;margin-top:14px;align-items:center;gap:10px">
+      <button type="button" id="shareUnshare" hidden class="share-revoke">Smetti di condividere</button>
       <button class="btn" id="shareClose" style="margin-left:auto">Chiudi</button>
     </div>
   </div>
