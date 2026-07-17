@@ -12176,7 +12176,7 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
 function stageSceneSvg(cropVb, opts){
-  opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabaudio | elec | sectionmic */
+  opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabin | cabout | mond | cabaudio(legacy: i 3 audio fusi) | elec | sectionmic */
   recalcStageBBox();
   var A=printArea(), DM=A.custom?0:80;
   /* cropVb (opzionale): finestra ritagliata quando il disegno non entra nel foglio — si stampa solo la
@@ -12193,6 +12193,9 @@ function stageSceneSvg(cropVb, opts){
     var m=itemMarkup(it);
     if(!focus || focus==="clean"){ fgItems+=m; return; }
     if(focus==="cabaudio" && isAudioTech(it)) fgItems+=m;
+    else if(focus==="cabin" && layerFgItem("cabin",it)) fgItems+=m;     /* 1 pagina per layer (17/07) */
+    else if(focus==="cabout" && layerFgItem("cabout",it)) fgItems+=m;
+    else if(focus==="mond" && layerFgItem("mond",it)) fgItems+=m;
     else if(focus==="elec" && layerFgItem("elec",it)) fgItems+=m;
     else bgItems+=m;
   });
@@ -12212,8 +12215,17 @@ function stageSceneSvg(cropVb, opts){
   var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;
   var audioCab='', elecCab='';
   try{
-    if(focus===null || focus==="cabaudio") audioCab=cablingMarkup()+netMarkup()+monDigMarkup()+cableLegendMarkup();
-    if(focus===null || focus==="elec") elecCab=elecMarkup();
+    /* 1 pagina per layer (17/07): il SOLO temporaneo riusa il meccanismo del canvas — layerShown segue
+       la mappa layerSoloUI e i markup emettono SOLO il layer a fuoco, a piena opacità (op=1 in solo).
+       Solo attorno agli overlay: gli item sono già classificati sopra (fg/bg). */
+    var _keepSolo=layerSoloUI;
+    try{
+      if(focus==="cabin"){ layerSoloUI={cabin:true, net:true}; audioCab=cablingMarkup()+netMarkup()+cableLegendMarkup(); }
+      else if(focus==="cabout"){ layerSoloUI={cabout:true}; audioCab=cablingMarkup()+cableLegendMarkup(); }
+      else if(focus==="mond"){ layerSoloUI={mond:true}; audioCab=monDigMarkup(); }
+      else if(focus==="elec"){ layerSoloUI={elec:true}; elecCab=elecMarkup(); }
+      else if(focus===null || focus==="cabaudio"){ audioCab=cablingMarkup()+netMarkup()+monDigMarkup()+cableLegendMarkup(); if(focus===null) elecCab=elecMarkup(); }
+    } finally { layerSoloUI=_keepSolo; }
   }catch(_e){ audioCab=''; elecCab=''; }
   selCab=_keepCab; window.__cabStatic=_keepStatic;
   /* composizione per vista. FADE = opacità del CONTESTO nelle pagine-vista: il layer competente resta
@@ -13264,7 +13276,10 @@ function buildPdfDoc(paperKey, N, orient, header){
     /* Pagine-vista per layer: stesso box/scala della pag 1, ridisegnato col layer a fuoco (100%) e il
        resto del palco sfumato. Titolo grande in alto. Sono asincrone (svg2pdf) → catena promise. */
     var _views=[];
-    if(want("view-cabaudio")) _views.push(["cabaudio","CABLAGGIO AUDIO"]);
+    if(want("view-cabin"))  _views.push(["cabin","INGRESSI"]);           /* 1 pagina per layer (17/07) */
+    if(want("view-cabout")) _views.push(["cabout","MONITOR"]);
+    if(want("view-mond"))   _views.push(["mond","PERSONAL MONITOR"]);
+    if(want("view-cabaudio")) _views.push(["cabaudio","CABLAGGIO AUDIO"]);   /* legacy (non più offerta) */
     if(want("view-elec"))     _views.push(["elec","ELETTRICO"]);
     if(want("view-sectionmic")) _views.push(["sectionmic","MICROFONAZIONE"]);
     var _viewChain=Promise.resolve();
@@ -13458,7 +13473,9 @@ function pdfChannelPage(doc, L, paperKey){
      pag "Palco" (pulita) + una pagina per ogni VISTA selezionata (layer a fuoco 100% / palco in
      trasparenza, stesso rendering del PDF via stageSceneSvg focus) + le liste testuali (placeholder). */
   var prevIdx=0;
-  var VIEW_MAP={ "view-cabaudio":{focus:"cabaudio",title:"Cablaggio audio"}, "view-elec":{focus:"elec",title:"Elettrico"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"} };
+  var VIEW_MAP={ "view-cabin":{focus:"cabin",title:"Ingressi"}, "view-cabout":{focus:"cabout",title:"Monitor"},
+    "view-mond":{focus:"mond",title:"Personal monitor"}, "view-cabaudio":{focus:"cabaudio",title:"Cablaggio audio"},
+    "view-elec":{focus:"elec",title:"Elettrico"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"} };
   function previewPages(){
     var pages=[{focus:"clean", title:"Palco"}];
     var sel=window.__pdfPages||{};
@@ -13506,7 +13523,10 @@ function pdfChannelPage(doc, L, paperKey){
   function pdfComputeTechPages(){
     var pages=[];
     /* Pagine-vista (disegno del palco col layer a fuoco) — prima delle liste testuali */
-    if(state.cab && state.cab.on){ pages.push({key:"view-cabaudio", label:"Vista: Cablaggio audio"}); }
+    /* 1 pagina per layer (Simone 17/07): Ingressi / Monitor / Personal monitor separate (via la vista fusa) */
+    if(state.cab && state.cab.on){ pages.push({key:"view-cabin", label:"Vista: Ingressi"}); }
+    if(state.cab && state.cab.on && (state.items||[]).some(function(x){return OUT_SET[x.type]!=null;})){ pages.push({key:"view-cabout", label:"Vista: Monitor"}); }
+    if(state.mond && state.mond.on){ pages.push({key:"view-mond", label:"Vista: Personal monitor"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:"Rider tecnico"}); }   /* T2: rider generato dai dati */

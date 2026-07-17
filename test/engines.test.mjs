@@ -1376,5 +1376,24 @@ t("produzione fase 5 — Scenario E: camera documentativa = nessuna assunzione d
   eq(prod.some(f => /streaming|regia/.test(f.msg)), false, "nessuna regia video o streaming assunti");
 });
 
+t("pagine-vista per layer: il solo temporaneo pilota layerShown (cabin on → cabout off)", () => {
+  reset(); A.state.cab.on = true; A.state.mond.on = true;
+  // senza solo: entrambi visibili
+  eq(A.layerShown("cabin"), true); eq(A.layerShown("cabout"), true); eq(A.layerShown("mond"), true);
+  // con solo cabin (come fa stageSceneSvg per la pagina INGRESSI): solo cabin+net
+  const keep = A.layerSoloUI;
+  A.layerSoloUI = { cabin: true, net: true };
+  eq(A.layerShown("cabin"), true); eq(A.layerShown("net"), true);
+  eq(A.layerShown("cabout"), false, "ritorni esclusi dalla pagina Ingressi");
+  eq(A.layerShown("mond"), false, "P.M. esclusi dalla pagina Ingressi");
+  A.layerSoloUI = { mond: true };
+  eq(A.layerShown("mond"), true); eq(A.layerShown("cabin"), false);
+  A.layerSoloUI = keep;
+  // classificazione fg per le nuove pagine
+  reset(); const wedge = add("wedge", 300, 300);
+  eq(A.layerFgItem("cabout", wedge), true, "wedge = fg della pagina Monitor");
+  eq(A.layerFgItem("cabin", wedge), false, "wedge non è fg della pagina Ingressi");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
