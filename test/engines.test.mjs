@@ -1489,5 +1489,14 @@ t("pannello cavo: selectedCableInfo per un link P.M. + ripristina percorso", () 
   A.selMond = null;
 });
 
+t("postazione a due: distanza default 90 cm (mai sotto il minimo fisico)", () => {
+  reset();
+  const v = add("vln1x2", 300, 300); delete v.sep;
+  const cb = add("cbx2", 500, 300); delete cb.sep;
+  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.items.find(i => i.type === "vln1x2").sep, 90, "violini doppi: 90 cm");
+  eq(A.state.items.find(i => i.type === "cbx2").sep, 100, "contrabbassi doppi: il minimo fisico 100 vince su 90");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

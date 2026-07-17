@@ -2500,11 +2500,14 @@ function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return
 function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
 function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t" : Math.round(kg)+" kg"; }
 function powerTotalW(){ return (state.items||[]).reduce(function(a,it){ return a+wattOf(it); },0); }
-/* distanza interna di default (e minima) per le postazioni doppie: la più stretta disponibile.
+/* distanza interna MINIMA per le postazioni doppie (limite fisico dello slider): la più stretta possibile.
    Gli strumenti larghi (contrabbasso, violoncello) hanno un minimo maggiore per non sovrapporsi. */
 var DEFAULT_SEP = 65;
 function minSepType(type){ if(type==="contrabbasso"||type==="cbx2") return 100; if(type==="violoncello"||type==="cellix2") return 78; return DEFAULT_SEP; }
 function minSepOf(it){ return it ? minSepType(it.type) : DEFAULT_SEP; }
+/* distanza DEFAULT quando nasce una postazione a due (Simone 17/07): 90 cm per qualsiasi strumento,
+   mai sotto il minimo fisico (contrabbasso 100). Lo slider mantiene il suo range (min fisico → 300). */
+function defSepOf(it){ return Math.max(90, minSepOf(it)); }
 /* postazioni configurabili (sedia/leggio/doppia). s=[w,d] singola, d=[w,d] doppia.
    La doppia condivide il leggio → cambia SOLO la larghezza, la profondità resta = singola. */
 var POSTAZ = {
@@ -3456,7 +3459,7 @@ function normalizeState(s){
      geometrie NaN alle draw che dipendono da it.w/it.sep (es. doppiatastiera) → svg2pdf lancia e
      il PDF cade in raster. Garantiamo w/d (+ sep per le doppie, parts/size per le composte). */
   s.items.forEach(function(it){ var t=TYPES[it.type]; if(!t) return;
-    if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=minSepType(it.type);
+    if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=defSepOf(it);
       if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
@@ -3601,7 +3604,7 @@ function recalcItemDims(it){
   if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=minSepType(it.type);
     it.sep=Math.max(minSepType(it.type), Math.min(300, it.sep)); it.w=sepToW(cfgD, it.sep); it.d=cfgD.dbl[1]; return; }
   if(POSTAZ[it.type]){ var P=POSTAZ[it.type];
-    if(it.doppia){ if(it.sep==null) it.sep=minSepOf(it); it.sep=Math.max(minSepOf(it), Math.min(300, it.sep)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
+    if(it.doppia){ if(it.sep==null) it.sep=defSepOf(it); it.sep=Math.max(minSepOf(it), Math.min(300, it.sep)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
     else { it.w=P.s[0]; it.d=P.s[1]; }
     return; }
   if(COMP[it.type] && COMP[it.type].size){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; return; }
@@ -6069,7 +6072,7 @@ function renderProps(){
     document.getElementById("pDoppia").checked = dbl;
   }
   var sw=document.getElementById("pSepWrap");
-  if(cfg){ sw.style.display="block"; var sv=Math.max(minSepOf(it), it.sep || minSepOf(it));
+  if(cfg){ sw.style.display="block"; var sv=Math.max(minSepOf(it), it.sep || defSepOf(it));
     document.getElementById("pSep").min = minSepOf(it);
     document.getElementById("pSep").value = sv; document.getElementById("pSepVal").textContent = sv+" cm"; }
   else sw.style.display="none";
