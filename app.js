@@ -12196,25 +12196,36 @@ function pdfChannelPage(doc, L, paperKey){
   /* ===== Controllo tecnico inline (variante C, 17/07) =====
      Una sola finestra: niente seconda modale sopra l'export (due .modal allo stesso z-index
      si coprono a vicenda). Riepilogo sempre visibile; click sulla riga = modifica al volo. */
-  function pdfRefreshPages(){   /* le risposte cambiano le pagine offerte (es. Criticità); spunte preservate */
-    var keep=pdfSelectedPages();
+  function pdfRefreshPages(){   /* le risposte cambiano le pagine offerte (es. Criticità); selezione preservata */
+    var hadTodefine=_pdfTechPages.some(function(p){ return p.key==="todefine"; });
     _pdfTechPages=pdfComputeTechPages();
-    pdfRenderTechList();
-    document.querySelectorAll("#pdfTechList input[data-page]").forEach(function(c){ if(keep[c.getAttribute("data-page")]) c.checked=true; });
+    var avail={}; _pdfTechPages.forEach(function(p){ avail[p.key]=true; });
+    Object.keys(_pdfPillSel).forEach(function(k){ if(!avail[k]) delete _pdfPillSel[k]; });
+    if(!hadTodefine && avail.todefine) _pdfPillSel.todefine=true;   /* la Criticità appena comparsa è consigliata */
+    pdfRenderPills();
     pdfUpdateTechNote();
   }
   function renderProdInline(){
-    var host=document.getElementById("prodInline"); if(!host) return;
-    host.innerHTML="";
-    if(!state.production || !state.production.systems || typeof productionStatusLine!=="function") return;
+    /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
+       neutro quando è completo; click = apre/chiude le tendine qui sotto. Mai bloccante. */
+    var nud=document.getElementById("prodNudge"), host=document.getElementById("prodInline");
+    if(!nud || !host) return;
+    nud.innerHTML=""; host.innerHTML="";
+    if(!state.production || !state.production.systems || typeof productionStatusLine!=="function"){ nud.hidden=true; host.hidden=true; return; }
+    nud.hidden=false;
     var st=productionStatusLine(state);
-    var head=document.createElement("div"); head.className="prodinline-head";
-    var tt=document.createElement("span"); tt.className="pdf-side-h"; tt.style.margin="0"; tt.textContent="Controllo tecnico";
-    var sta=document.createElement("span"); sta.className="prodinline-status";
-    sta.appendChild(document.createTextNode(st.answered+" risposte · "));
-    var b=document.createElement("b"); if(st.todef) b.className="todef"; b.textContent=st.todef+" da definire";
-    sta.appendChild(b);
-    head.appendChild(tt); head.appendChild(sta); host.appendChild(head);
+    nud.className="nudge"+(st.todef?"":" ok")+(_prodOpen?" open":"");
+    if(st.todef){
+      var b=document.createElement("b"); b.textContent=st.todef+(st.todef===1?" aspetto da definire":" aspetti da definire");
+      nud.appendChild(b);
+      nud.appendChild(document.createTextNode(" — rispondi al Controllo tecnico per un rider più completo "));
+    } else {
+      nud.appendChild(document.createTextNode("Controllo tecnico completo ✓ — rivedi "));
+    }
+    var arr=document.createElement("span"); arr.className="arr"; arr.textContent="▸"; nud.appendChild(arr);
+    nud.onclick=function(){ _prodOpen=!_prodOpen; renderProdInline(); };
+    host.hidden=!_prodOpen;
+    if(!_prodOpen) return;
     PRODUCTION_SYSTEMS.forEach(function(sy){
       var o=state.production.systems[sy.key]||{ans:null};
       var row=document.createElement("div"); row.className="ctrow";
@@ -12272,9 +12283,10 @@ function pdfChannelPage(doc, L, paperKey){
     return pages;
   }
   var _pdfTechPages=[];
-  function pdfSelectedPages(){   /* Set delle chiavi spuntate → letto da buildPdfDoc via window.__pdfPages */
+  var _pdfPillSel={}, _pdfPillsExp=false, _prodOpen=false;   /* pillole + stato UI (si resettano a ogni apertura) */
+  function pdfSelectedPages(){   /* Set delle chiavi selezionate (pillole) → letto da buildPdfDoc via window.__pdfPages */
     var sel={};
-    document.querySelectorAll("#pdfTechList input[data-page]").forEach(function(c){ if(c.checked) sel[c.getAttribute("data-page")]=true; });   /* solo le pagine vere: il master "Tutte le pagine" non è una pagina (fix conteggio 17/07) */
+    _pdfTechPages.forEach(function(p){ if(_pdfPillSel[p.key]) sel[p.key]=true; });
     return sel;
   }
   function pdfUpdateTechNote(){
@@ -12285,44 +12297,53 @@ function pdfChannelPage(doc, L, paperKey){
     window.__pdfScope = "full";
     if(note){ var n=Object.keys(window.__pdfPages).length;
       note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
-                           : "Solo palco (1 pagina). Spunta qui sopra le pagine tecniche da allegare."; }
+                           : "Solo palco (1 pagina). Aggiungi qui sopra le pagine tecniche da allegare."; }
     renderPreview();   /* le pagine spuntate compaiono subito nell'anteprima */
   }
-  function pdfRenderTechList(){
-    var host=document.getElementById("pdfTechList"); if(!host) return;
+  function pdfRenderPills(){
+    /* Pagine come pillole (variante A "un click"): consigliate già dentro, le altre dietro
+       "+ altre pagine…" come ghost cliccabili; × = togli (torna ghost). */
+    var host=document.getElementById("pdfPills"); if(!host) return;
     host.innerHTML="";
-    /* interruttore "tutte le pagine" (Simone 17/07): un click le attiva tutte; default OFF; i toggle
-       singoli restano indipendenti e il master si riallinea da solo (on solo se sono tutte on). */
-    var allCb=null;
-    function syncAll(){ if(!allCb) return; var cbs=host.querySelectorAll('input[data-page]');
-      var tot=cbs.length, on=0; cbs.forEach(function(c){ if(c.checked) on++; });
-      allCb.checked = (tot>0 && on===tot); }
-    if(_pdfTechPages.length>1){
-      var labA=document.createElement("label"); labA.className="chk";
-      labA.style.cssText="font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;padding-bottom:7px;margin-bottom:5px;border-bottom:1px solid var(--border,#e5e7eb)";
-      allCb=document.createElement("input"); allCb.type="checkbox"; allCb.checked=false; allCb.id="pdfTechAll";
-      allCb.addEventListener("change", function(){
-        host.querySelectorAll('input[data-page]').forEach(function(c){ c.checked=allCb.checked; });
-        pdfUpdateTechNote();
-      });
-      labA.appendChild(allCb); labA.appendChild(document.createTextNode("Tutte le pagine del rider"));
-      host.appendChild(labA);
-    }
+    var nSel=0;
+    function mk(txt,cls){ var s=document.createElement("span"); s.className=cls; s.appendChild(document.createTextNode(txt)); return s; }
     _pdfTechPages.forEach(function(p){
-      var lab=document.createElement("label"); lab.className="chk"; lab.style.cssText="font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer";
-      var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=false; cb.setAttribute("data-page",p.key);
-      cb.addEventListener("change", function(){ syncAll(); pdfUpdateTechNote(); });
-      lab.appendChild(cb); lab.appendChild(document.createTextNode(p.label));
-      host.appendChild(lab);
+      if(!_pdfPillSel[p.key]) return;
+      nSel++;
+      var pill=mk(p.label,"pill");
+      var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
+      x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRenderPills(); pdfUpdateTechNote(); });
+      pill.appendChild(x); host.appendChild(pill);
     });
+    var rest=_pdfTechPages.filter(function(p){ return !_pdfPillSel[p.key]; });
+    if(_pdfPillsExp){
+      rest.forEach(function(p){
+        var g=mk(p.label,"pill ghost"); g.title="Aggiungi al PDF";
+        g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRenderPills(); pdfUpdateTechNote(); });
+        host.appendChild(g);
+      });
+      if(rest.length>1){
+        var all=mk("Tutte le pagine","pill ghost");
+        all.addEventListener("click", function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRenderPills(); pdfUpdateTechNote(); });
+        host.appendChild(all);
+      }
+    } else if(rest.length){
+      var more=mk("+ altre pagine… ("+rest.length+")","pill ghost");
+      more.addEventListener("click", function(){ _pdfPillsExp=true; pdfRenderPills(); });
+      host.appendChild(more);
+    }
+    var tt=document.getElementById("pdfPillsTitle");
+    if(tt) tt.textContent = nSel ? ("Il tuo PDF: palco + "+nSel+" pagin"+(nSel===1?"a":"e")+" tecnic"+(nSel===1?"a":"he")) : "Il tuo PDF: solo palco";
   }
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     _pdfTechPages=pdfComputeTechPages();
-    pdfRenderTechList();
+    _pdfPillSel={}; _pdfPillsExp=false; _prodOpen=false;
+    pdfRecommendedKeys(_pdfTechPages).forEach(function(k){ _pdfPillSel[k]=true; });
+    pdfRenderPills();
     renderProdInline();
     refresh();
     pdfUpdateTechNote();
-    /* la vecchia modale pre-export non esiste più: la sezione inline è sempre visibile.
+    /* niente modale pre-export: il Controllo tecnico vive nel nudge qui sotto.
        asked resta per compatibilità blob (vestigiale). */
     if(state.production && !state.production.asked){ state.production.asked=true; save(); }
   }

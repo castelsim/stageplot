@@ -681,10 +681,6 @@
   .pdf-optrow .chips button{padding:5px 8px;font-size:11.5px}
   .pdf-optrow select{font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);width:128px}
   #prodInline{margin-top:8px}
-  .prodinline-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
-  .prodinline-status{margin-left:auto;font-size:11px;color:var(--text-2);white-space:nowrap}
-  .prodinline-status b{font-weight:600}
-  .prodinline-status b.todef{color:#2563eb}
   .ctrow{display:flex;align-items:center;gap:7px;margin-bottom:4px}
   .ctrow .k{flex:0 0 90px;font-size:10.5px;color:var(--text-2);line-height:1.2}
   .ctrow select{flex:1;font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);min-width:0;height:22px}
