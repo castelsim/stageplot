@@ -5294,7 +5294,9 @@ function monDigEngine(){
   return {links:links.concat(cascLinks), pending:pending, hubs:hubs, issues:issues, hubLoad:hubLoad, psuCount:psuCount, power:power};
 }
 var __mondRes=null;
-function mondResult(){ if(!__mondRes) __mondRes=monDigEngine(); return __mondRes; }
+/* Come cab/elec: ricalcolo a ogni chiamata — le POSIZIONI devono seguire gli elementi (il drag di un
+   item finisce con render+save senza invalidare le cache; una cache qui congelava i cavi P.M.). */
+function mondResult(){ __mondRes=monDigEngine(); return __mondRes; }
 /* ── pannello "Personal monitor" (B1): marca+modello da PM_DB, stato collegamento/alimentazione ──
    Vista minimale (§13 prompt Simone): 2 select + 1 riga sistema·cavo + 1 riga stato. */
 function pmFillProps(it){
