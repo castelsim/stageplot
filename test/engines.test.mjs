@@ -1457,5 +1457,20 @@ t("pdfHeaderPropose: salvato > contatto primario > vuoto", () => {
   eq(A.pdfHeaderPropose(A.state, null), "", "senza nulla: vuoto");
 });
 
+t("mond: il cavo segue il mixerino quando lo si sposta (cache invalidata)", () => {
+  reset(); A.state.mond.on = true;
+  const m = add("hearback", 300, 300), h = add("mixhub", 600, 300);
+  A.mondManual(m.id).to = h.id; A.__mondRes = null;
+  let l = A.mondResult().links[0];
+  eq(!!l, true, "link creato");
+  const x0 = l.pts[0][0], y0 = l.pts[0][1];
+  eq(Math.abs(x0 - 300) < 80 && Math.abs(y0 - 300) < 80, true, "parte vicino al mixerino");
+  // sposto l'elemento come fa il drag (aggiorna x/y e poi render+save, SENZA toccare la cache)
+  m.x = 1000; m.y = 800;
+  l = A.mondResult().links[0];
+  eq(Math.abs(l.pts[0][0] - 1000) < 80 && Math.abs(l.pts[0][1] - 800) < 80, true,
+     "il cavo parte dalla NUOVA posizione del mixerino");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
