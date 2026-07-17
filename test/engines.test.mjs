@@ -1515,5 +1515,17 @@ t("shareOpts: default copia ON, contatti OFF (privacy); override persistiti", ()
   eq(A.state.shareOpts.contacts, true, "opt-in contatti rispettato");
 });
 
+t("contactEligible: bottone Contatto solo sugli elementi-persona", () => {
+  eq(A.contactEligible("vlnpost"), true, "postazione violino");
+  eq(A.contactEligible("vln1x2"), true, "postazione doppia");
+  eq(A.contactEligible("cantante"), true, "voce");
+  eq(A.contactEligible("stagepiano"), true, "tastiera");
+  eq(A.contactEligible("direttore"), true, "direttore");
+  eq(A.contactEligible("batteria"), true, "batteria");
+  eq(A.contactEligible("wedge"), false, "monitor: no");
+  eq(A.contactEligible("laptop"), false, "computer: no");
+  eq(A.contactEligible("stagebox"), false, "stage box: no");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
