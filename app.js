@@ -4132,6 +4132,12 @@ function auditEngine(){
     /* 5) piazzato bianco senza note → informazione soft (brief: esigenze lettura spartiti) */
     if(pr.luci && pr.luci.ans==="piazzato_bianco" && !(pr.luci.note||"").trim())
       add("info","Piazzato bianco scelto: se servono esigenze particolari (lettura spartiti, riprese), aggiungile nelle note luci.","Produzione","");
+    /* 6) Scenario D (brief §5): registrazione multitraccia prevista ma NON dichiarata configurata →
+       lo split va concordato (direct out / split analogico / protocollo digitale). Non conosciamo gli
+       ingressi dell'interfaccia (dato non inventabile) → il todef porta il numero di canali reali. */
+    var recActive = (pr.recaudio && (pr.recaudio.ans==="da_definire"||pr.recaudio.ans==="non_so")) || (hasUso("recaudio") && !(pr.recaudio&&pr.recaudio.ans==="configurato"));
+    if(recActive && audioSrc>1)
+      add("todef","Registrazione audio prevista con "+audioSrc+" canali: modalità di split (direct out del mixer, split analogico o protocollo digitale) e sistema di acquisizione da concordare.","Produzione","");
   })();
   var errs=f.filter(function(x){return x.lvl==="err";}).length, warns=f.filter(function(x){return x.lvl==="warn";}).length;
   var todefs=f.filter(function(x){return x.lvl==="todef";}).length;
