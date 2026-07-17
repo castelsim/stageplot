@@ -1413,5 +1413,13 @@ t("productionStatusLine: conteggi risposte e da-definire", () => {
   eq(A.productionStatusLine(A.state).todef, 3, "luci da_definire conta");
 });
 
+t("pdfRecommendedKeys: consigliate presenti, in ordine, assenti ignorate", () => {
+  const pages=[{key:"view-cabin"},{key:"view-mond"},{key:"inputlist"},{key:"cabmap"},{key:"todefine"}];
+  const r=A.pdfRecommendedKeys(pages);
+  eq(JSON.stringify(r), JSON.stringify(["view-cabin","inputlist","todefine"]), "view-cabout assente ignorata");
+  eq(A.pdfRecommendedKeys([]).length, 0, "nessuna pagina, nessuna consigliata");
+  eq(JSON.stringify(A.pdfRecommendedKeys([{key:"rider"},{key:"rf"}])), "[]", "solo non consigliate");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
