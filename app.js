@@ -10495,7 +10495,9 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   (function(){
     var acts={ "new":function(){proxyClick("bNew");}, "open":function(){proxyClick("bHdrImport");},
       "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
-      "projects":function(){proxyClick("bCloud");}, "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
+      "projects":function(){proxyClick("bCloud");},
+      "rubrica":function(){ var C=window.__cloud; if(C&&C.user()){ if(window.__openRubricaModal) window.__openRubricaModal(); } else { proxyClick("bCloud"); } },   /* rubrica account: da loggato la modale, altrimenti prima l'accesso */
+      "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "variant-new":function(){ if(typeof createVariant==="function") createVariant(); }, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
       "share":function(){openShare();} };
