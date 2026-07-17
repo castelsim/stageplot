@@ -1567,6 +1567,15 @@ t("layer Musicisti: fg = persone, visibilità da musLayerUI, attivo solo con per
   eq(reg.some(L => L.id === "mus" && L.active), true, "attivo con una persona sul palco");
   A.state.items = [];
   eq(A.layerRegistry().some(L => L.id === "mus" && L.active), false, "senza persone: non attivo");
+  // il solo Musicisti deve SOPRAVVIVERE a pruneSolo quando ci sono persone (bug 18/07)
+  add("vlnpost", 300, 300);
+  A.layerSoloUI = { mus: true };
+  A.pruneSolo();
+  eq(!!A.layerSoloUI.mus, true, "solo Musicisti vivo con persone sul palco");
+  A.state.items = [];
+  A.pruneSolo();
+  eq(!!A.layerSoloUI.mus, false, "senza persone il solo decade");
+  A.layerSoloUI = {};
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
