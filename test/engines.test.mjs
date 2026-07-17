@@ -1343,5 +1343,38 @@ t("produzione fase 4 — luci: mai piazzato bianco implicito; testo dichiarato",
   A.state.rider.luci = ""; A.state.production.systems.luci.ans = null;
 });
 
+t("produzione fase 5 — Scenario C: proiettore+schermo → sistema video attivato, sorgente richiesta, mai errore", () => {
+  reset(); add("proiettore", 300, 300); add("schermo", 500, 300);
+  const A5 = A.auditEngine();
+  const prod = A5.findings.filter(f => f.cat === "Produzione");
+  eq(prod.some(f => f.lvl === "todef" && /sorgente del contenuto/.test(f.msg)), true, "sorgente richiesta (da definire)");
+  eq(prod.some(f => f.lvl === "todef" && /contributi video/.test(f.msg)), true, "sistema video da dichiarare nel Controllo tecnico");
+  eq(prod.filter(f => f.lvl === "err").length, 0, "mai errore");
+  // dichiarato nel Controllo tecnico + sorgente scelta → i todef si chiudono
+  A.state.production.systems.video.ans = "configurato";
+  A.state.items.forEach(i => { if (i.type === "proiettore" || i.type === "schermo") i.uso = "computer"; });
+  const dopo = A.auditEngine().findings.filter(f => f.cat === "Produzione" && f.lvl === "todef");
+  eq(dopo.length, 0, "tutto dichiarato: nessun aspetto aperto");
+  A.state.production.systems.video.ans = null;
+});
+t("produzione fase 5 — Scenario D: rec multitraccia da definire → split da concordare (con n. canali reali)", () => {
+  reset(); add("grancoda", 300, 300); add("vlnpost", 500, 300);   // canali reali >1
+  add("laptop", 700, 300); A.state.items[A.state.items.length - 1].uso = "rec_audio";
+  const A5 = A.auditEngine();
+  const split = A5.findings.filter(f => f.lvl === "todef" && /split/.test(f.msg));
+  eq(split.length, 1, "split da concordare");
+  eq(/con \d+ canali/.test(split[0].msg), true, "porta il numero di canali reali");
+  // dichiarata GIÀ CONFIGURATA → fiducia all'utente: niente todef split
+  A.state.production.systems.recaudio.ans = "configurato";
+  eq(A.auditEngine().findings.filter(f => f.lvl === "todef" && /split/.test(f.msg)).length, 0, "configurato: nessun todef split");
+  A.state.production.systems.recaudio.ans = null;
+});
+t("produzione fase 5 — Scenario E: camera documentativa = nessuna assunzione di regia/streaming", () => {
+  reset(); const c = add("camera", 300, 300); c.uso = "documentativa";
+  const prod = A.auditEngine().findings.filter(f => f.cat === "Produzione");
+  eq(prod.filter(f => f.lvl === "err" || f.lvl === "warn").length, 0, "nessun errore/avviso");
+  eq(prod.some(f => /streaming|regia/.test(f.msg)), false, "nessuna regia video o streaming assunti");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
