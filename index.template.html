@@ -13493,7 +13493,6 @@ function openItemContactModal(it){
           '<div><label class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
           '<div><label class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
         '</div>'+
-        '<div style="margin-top:8px"><label class="ic-l">Note</label><input id="icNo" class="ic-i" type="text" maxlength="120" placeholder="es. arriva alle 15…"></div>'+
         '<div style="margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:11px;color:var(--text-2);line-height:1.5">🔒 <b style="color:var(--accent-strong)">Solo nel tuo account.</b> Salvando, il contatto entra nella tua rubrica e viene assegnato a questa postazione. Condividerlo sarà sempre una scelta esplicita, spenta di default.</div>'+
         '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button id="icCancel" type="button" class="btn">Annulla</button><button id="icSave" type="button" class="btn primary">Salva e assegna</button></div>'+
       '</div>'+
@@ -13519,7 +13518,7 @@ function openItemContactModal(it){
   function done(){ ov.style.display="none"; renderProps(); }
   function showPick(rows, asgMap){
     stPick.style.display="block"; stAsg.style.display="none";
-    document.getElementById("icN").value=""; document.getElementById("icT").value=""; document.getElementById("icE").value=""; document.getElementById("icNo").value="";
+    document.getElementById("icN").value=""; document.getElementById("icT").value=""; document.getElementById("icE").value="";
     var elemRole=(TYPES[it.type]&&TYPES[it.type].nome)||"";
     document.getElementById("icR").value=elemRole;
     /* contatto → elemento a cui è GIÀ assegnato in questo progetto (per il blocco anti-doppione) */
@@ -13580,7 +13579,7 @@ function openItemContactModal(it){
     var name=document.getElementById("icN").value.trim();
     if(!name){ if(window.__toast) window.__toast("Serve almeno il nome."); return; }
     var contact=[document.getElementById("icT").value.trim(), document.getElementById("icE").value.trim()].filter(function(x){ return x; }).join(" · ");
-    C.rubrica.upsert({ role:document.getElementById("icR").value.trim(), name:name, contact:contact, note:document.getElementById("icNo").value.trim() }, function(row){
+    C.rubrica.upsert({ role:document.getElementById("icR").value.trim(), name:name, contact:contact, note:"" }, function(row){
       if(!row){ if(window.__toast) window.__toast("Salvataggio non riuscito — riprova."); return; }
       C.itemContacts.invalidate(pid);
       C.itemContacts.list(pid, function(map2){
