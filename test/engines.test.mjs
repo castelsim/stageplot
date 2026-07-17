@@ -1421,6 +1421,8 @@ t("pdfSuggestedKeys: suggerite tra le disponibili, mai le neutre", () => {
 
 t("productionElementHints: interfaccia audio senza dichiarazioni → invito mirato", () => {
   reset();
+  /* reset() non tocca state.production: azzero i sistemi lasciati dai test precedenti */
+  Object.keys(A.state.production.systems).forEach(k => { A.state.production.systems[k].ans = null; });
   eq(A.productionElementHints(A.state).length, 0, "palco vuoto: nessun invito");
   add("audiointerface", 300, 300);
   const h=A.productionElementHints(A.state);
