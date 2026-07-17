@@ -2107,6 +2107,21 @@ function productionElementHints(s){
     hints.push("ci sono proiezioni: chi fornisce i contributi video?");
   return hints;
 }
+/* Riferimento nel cartiglio: riga composta da un contatto della rubrica ("Fonico: Nome · tel"). */
+function pdfHeaderFromContact(c){
+  if(!c) return "";
+  var who=[(c.name||"").trim(),(c.contact||"").trim()].filter(function(x){ return x; }).join(" \u00b7 ");
+  var role=(c.role||"").trim();
+  return ((role&&who)? role+": "+who : (who||role)).slice(0,120);
+}
+/* Proposta all'apertura dell'export: testo salvato nel progetto, altrimenti il contatto primario. */
+function pdfHeaderPropose(s){
+  if(s && typeof s.pdfHeader==="string" && s.pdfHeader.trim()) return s.pdfHeader;
+  var cs=((s&&s.contacts)||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
+  if(!cs.length) return "";
+  var pri=cs.filter(function(c){ return /tecnic|sala|foh|fonic/i.test(c.role||""); })[0] || cs[0];
+  return pdfHeaderFromContact(pri);
+}
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];
@@ -2126,6 +2141,7 @@ function normalizeState(s){
     if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
+  s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
   s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
   if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
@@ -12351,11 +12367,62 @@ function pdfChannelPage(doc, L, paperKey){
     var tt=document.getElementById("pdfPillsTitle");
     if(tt) tt.textContent = nSel ? ("Il tuo PDF: palco + "+nSel+" pagin"+(nSel===1?"a":"e")+" tecnic"+(nSel===1?"a":"he")) : "Il tuo PDF: solo palco";
   }
+  /* Riferimento cartiglio (variante B): persistente nel progetto + tendina dalla rubrica */
+  function pdfHeaderSavedLine(){
+    var el=document.getElementById("pdfHdrSaved"); if(!el) return;
+    var has=(state.pdfHeader||"").trim();
+    el.textContent = has ? "Salvato nel progetto." :
+      (header.value.trim() ? "Dal contatto primario della rubrica · si salva nel progetto." : "Si salva nel progetto.");
+  }
+  function pdfHeaderInit(){
+    header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state) : (state.pdfHeader||"");
+    pdfHeaderSavedLine();
+  }
+  header.addEventListener("change", function(){
+    state.pdfHeader=String(header.value||"").slice(0,120);
+    save(); pdfHeaderSavedLine();
+  });
+  (function(){
+    var btn=document.getElementById("pdfHdrRub"), menu=document.getElementById("pdfHdrMenu");
+    if(!btn||!menu) return;
+    function closeMenu(){ menu.hidden=true; }
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      if(!menu.hidden){ closeMenu(); return; }
+      menu.innerHTML="";
+      var cs=(state.contacts||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
+      cs.forEach(function(c){
+        var it=document.createElement("div"); it.className="rub-item";
+        var r1=document.createElement("span"); r1.className="r1";
+        r1.textContent=[(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
+        it.appendChild(r1);
+        var ct=(c.contact||"").trim();
+        if(ct){ var r2=document.createElement("span"); r2.className="r2"; r2.textContent=ct; it.appendChild(r2); }
+        it.addEventListener("click", function(){
+          header.value=pdfHeaderFromContact(c);
+          state.pdfHeader=header.value; save();
+          pdfHeaderSavedLine(); refresh(); closeMenu();
+        });
+        menu.appendChild(it);
+      });
+      if(cs.length){ var sep=document.createElement("div"); sep.className="rub-sep"; menu.appendChild(sep); }
+      var man=document.createElement("div"); man.className="rub-manage";
+      man.textContent = cs.length ? "＋ Gestisci i contatti del progetto…" : "＋ Aggiungi contatti al progetto…";
+      man.addEventListener("click", function(){
+        closeMenu(); modal.hidden=true;
+        var b=document.getElementById("bChanList"); if(b) b.click();   /* la rubrica vive nel pannello Channel list */
+      });
+      menu.appendChild(man);
+      menu.hidden=false;
+    });
+    document.addEventListener("click", closeMenu);
+  })();
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     _pdfTechPages=pdfComputeTechPages();
     _pdfPillSel={}; _prodOpen=false;   /* default: solo palco — le pagine tecniche si aggiungono con un click */
     pdfRenderPills();
     renderProdInline();
+    pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();
     /* niente modale pre-export: il Controllo tecnico vive nel nudge qui sotto.

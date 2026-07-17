@@ -1435,5 +1435,20 @@ t("productionElementHints: interfaccia audio senza dichiarazioni → invito mira
   eq(/camera/.test(A.productionElementHints(A.state)[0]), true, "camera senza rec/streaming dichiarati");
 });
 
+t("pdfHeaderPropose: salvato > contatto primario > vuoto", () => {
+  reset();
+  A.state.pdfHeader = ""; A.state.contacts = [];
+  eq(A.pdfHeaderPropose(A.state), "", "niente rubrica: vuoto");
+  A.state.contacts = [
+    { role: "Produzione", name: "Anna B.", contact: "anna@esempio.it", note: "" },
+    { role: "Fonico di sala", name: "Marco V.", contact: "+39 333 000 0000", note: "" }
+  ];
+  eq(A.pdfHeaderPropose(A.state), "Fonico di sala: Marco V. · +39 333 000 0000", "primario = ruolo tecnico/sala, non il primo della lista");
+  A.state.pdfHeader = "Testo mio";
+  eq(A.pdfHeaderPropose(A.state), "Testo mio", "il testo salvato vince sempre");
+  eq(A.pdfHeaderFromContact({ role: "", name: "Solo Nome", contact: "" }), "Solo Nome", "solo nome, senza ruolo");
+  A.state.pdfHeader = "";
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
