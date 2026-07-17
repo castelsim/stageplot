@@ -1307,5 +1307,41 @@ t("produzione fase 3: ITEM_USO copre i 7 tipi regia; usoSystemKey mappa uso→si
   eq(A.usoSystemKey("sedia", "x"), null);
 });
 
+t("produzione fase 4 — Scenario A: solo musicisti = ZERO falsi errori di produzione", () => {
+  reset(); add("vlnpost", 300, 300); add("grancoda", 500, 300);
+  const A4 = A.auditEngine();
+  const prod = A4.findings.filter(f => f.cat === "Produzione");
+  eq(prod.filter(f => f.lvl === "err").length, 0, "nessun errore produzione");
+  eq(prod.filter(f => f.lvl === "warn").length, 0, "nessun avviso produzione");
+});
+t("produzione fase 4 — Scenario B: interfaccia senza utilizzo → 'da definire' (mai errore)", () => {
+  reset(); add("audiointerface", 300, 300);
+  const A4 = A.auditEngine();
+  const td = A4.findings.filter(f => f.lvl === "todef" && /utilizzo/.test(f.msg));
+  eq(td.length >= 1, true, "todef presente");
+  eq((A4.todefs || 0) >= 1, true, "conteggio todefs nel return");
+  eq(A4.findings.filter(f => f.cat === "Produzione" && f.lvl === "err").length, 0, "mai errore");
+});
+t("produzione fase 4 — playback 'configurato' senza postazione → avviso; con postazione → ok", () => {
+  reset(); A.state.production.systems.playback.ans = "configurato";
+  let W = A.auditEngine().findings.filter(f => f.lvl === "warn" && /playback/i.test(f.msg));
+  eq(W.length, 1, "incoerenza reale segnalata");
+  const it = add("laptop", 300, 300); it.uso = "playback_audio";
+  W = A.auditEngine().findings.filter(f => f.lvl === "warn" && /playback/i.test(f.msg));
+  eq(W.length, 0, "postazione presente: nessun avviso");
+  A.state.production.systems.playback.ans = null;
+});
+t("produzione fase 4 — luci: mai piazzato bianco implicito; testo dichiarato", () => {
+  reset();
+  eq(A.productionLuciText(A.state), "Da definire.", "nessuna scelta → dichiarato, non inventato");
+  A.state.production.systems.luci.ans = "service";
+  eq(A.productionLuciText(A.state), "Luci a cura del service tecnico.");
+  A.state.production.systems.luci.ans = "piazzato_bianco"; A.state.production.systems.luci.note = "";
+  eq(/Piazzato bianco diffuso/.test(A.productionLuciText(A.state)), true, "piazzato SOLO se scelto (testo classico)");
+  A.state.rider.luci = "Testo mio";
+  eq(A.productionLuciText(A.state), "Testo mio", "il testo esplicito dell'utente vince");
+  A.state.rider.luci = ""; A.state.production.systems.luci.ans = null;
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

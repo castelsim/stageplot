@@ -3296,6 +3296,26 @@ function migrate(s){
   delete s._v;   /* la versione non vive nello state runtime: si re-inietta a ogni serializzazione */
   return s;
 }
+/* PRODUZIONE (fase 4): testo LUCI del rider — MAI più piazzato bianco implicito (brief §8).
+   Catena: testo esplicito dell'utente (campo rider) → scelta del Controllo tecnico → "Da definire".
+   Il piazzato bianco compare SOLO se scelto (e in quel caso usa il testo professionale classico). */
+function productionLuciText(s){
+  var r=(s&&s.rider)||{};
+  if(r.luci!=null && String(r.luci).trim()!=="") return String(r.luci);
+  var o=s&&s.production&&s.production.systems&&s.production.systems.luci;
+  if(o&&o.ans){
+    if(o.ans==="piazzato_bianco") return RIDER_DEFAULTS.luci+(o.note?(" "+o.note):"");
+    var T={venue:"Luci a cura della venue.",service:"Luci a cura del service tecnico.",
+      produzione:"Luci a cura della produzione.",disegno_dedicato:"Disegno luci dedicato.",
+      da_concordare:"Indicazioni artistiche da concordare.",plot_allegato:"Vedi plot luci allegato.",
+      non_comprese:"Le luci non sono comprese nel presente rider.",da_definire:"Gestione luci da definire.",
+      altro:(o.note||"Vedi note luci.")};
+    var t=T[o.ans]||"Da definire.";
+    if(o.ans!=="altro" && o.note) t+=" "+o.note;
+    return t;
+  }
+  return "Da definire.";   /* dichiarato, non inventato */
+}
 /* ===== PRODUZIONE (fase 3): trigger degli elementi =====
    Gli elementi "regia" dichiarano il proprio UTILIZZO (it.uso) con una tendina per-tipo: un computer
    NON è automaticamente playback, una camera NON è automaticamente una regia video (brief §3).
@@ -5397,14 +5417,47 @@ function auditEngine(){
   ((netEngine()||{}).issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Rete"); } });   /* L5 */
   (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
   /* punteggio di prontezza (pesato per gravità) */
+  /* ===== PRODUZIONE (fase 4): regole di coerenza (brief §9) =====
+     Filosofia §2: l'assenza NON è un errore. Livello "todef" = aspetto da definire (scelta consapevole,
+     non penalizza lo score); warn solo quando un sistema DICHIARATO attivo è incoerente con gli elementi. */
+  (function(){
+    if(typeof ITEM_USO==="undefined" || !state.production) return;
+    var pr=state.production.systems||{};
+    /* 1) elemento regia senza utilizzo → da definire (mai errore) */
+    items.forEach(function(it){ var cfg=ITEM_USO[it.type]; if(!cfg || it.uso) return;
+      var nome=(TYPES[it.type]&&TYPES[it.type].nome)||it.type;
+      add("todef","È presente "+(it.label||nome)+", ma non ne è stato specificato "+(cfg.label==="Sorgente del contenuto"?"la sorgente del contenuto":"l'utilizzo")+".","Produzione","Selezionalo e scegli dalla tendina \""+cfg.label+"\"."); });
+    /* 2) sistema dichiarato CONFIGURATO ma nessun elemento a supporto → avviso (incoerenza reale) */
+    function hasUso(sysKey){ return items.some(function(it){ return it.uso && usoSystemKey(it.type,it.uso)===sysKey; }); }
+    if(pr.playback && pr.playback.ans==="configurato" && !hasUso("playback"))
+      add("warn","Hai indicato sequenze/contributi audio già configurati, ma non è presente una postazione playback (computer o interfaccia con quell'utilizzo).","Produzione","Aggiungi un computer/interfaccia e imposta l'utilizzo, oppure correggi la risposta nel Controllo tecnico.");
+    if(pr.recaudio && pr.recaudio.ans==="configurato" && !hasUso("recaudio"))
+      add("warn","Hai indicato una registrazione audio già configurata, ma nessun elemento la supporta (computer o interfaccia con utilizzo Registrazione).","Produzione","");
+    if(pr.streaming && pr.streaming.ans==="configurato" && !hasUso("streaming"))
+      add("warn","Hai indicato una diretta streaming già configurata, ma nessun elemento la supporta (computer o camera con utilizzo Streaming).","Produzione","");
+    /* 3) elemento attiva un sistema NON dichiarato nel Controllo tecnico → da definire (allineare) */
+    var seen={};
+    items.forEach(function(it){ if(!it.uso && !(it.type==="proiettore"||it.type==="schermo"||it.type==="ledwallmod"||it.type==="consolaluci")) return;
+      var k=usoSystemKey(it.type, it.uso); if(!k || seen[k]) return; seen[k]=true;
+      var o=pr[k]; if(o && o.ans) return;   /* già dichiarato: ok */
+      var NAME={playback:"le sequenze/contributi audio",video:"i contributi video",recaudio:"la registrazione audio",recvideo:"la registrazione video",streaming:"la diretta streaming",luci:"le luci"}[k]||k;
+      add("todef","Gli elementi sul palco attivano "+NAME+", ma nel Controllo tecnico non sono ancora dichiarati.","Produzione","Apri Esporta → \"Controllo tecnico — rivedi le risposte\"."); });
+    /* 4) sistemi lasciati esplicitamente aperti → da definire (compaiono nella pagina finale) */
+    PRODUCTION_SYSTEMS.forEach(function(sy){ var o=pr[sy.key]; if(!o) return;
+      if(o.ans==="da_definire"||o.ans==="non_so") add("todef",sy.label+": da definire"+(o.ans==="non_so"?" (risposta: non lo so)":" con un tecnico")+".","Produzione",""); });
+    /* 5) piazzato bianco senza note → informazione soft (brief: esigenze lettura spartiti) */
+    if(pr.luci && pr.luci.ans==="piazzato_bianco" && !(pr.luci.note||"").trim())
+      add("info","Piazzato bianco scelto: se servono esigenze particolari (lettura spartiti, riprese), aggiungile nelle note luci.","Produzione","");
+  })();
   var errs=f.filter(function(x){return x.lvl==="err";}).length, warns=f.filter(function(x){return x.lvl==="warn";}).length;
+  var todefs=f.filter(function(x){return x.lvl==="todef";}).length;
   /* i findings vengono deduplicati per messaggio: senza questo, 44 sorgenti identiche non instradate
      collassano a 1 e il piano rotto sembra "Da rivedere". Penalità scalata sulla MAGNITUDINE reale
      (elementi senza destinazione da entrambi i motori), capata così pochi non affondano ma molti sì. */
   var unrouted=(Rc.unassigned||[]).length+(Re.unassigned||[]).length;
   var score = items.length ? Math.max(0, 100 - errs*14 - warns*6 - Math.min(45, unrouted*3)) : 0;
   var grade = !items.length ? "Vuoto" : (score>=90?"Pronto" : (score>=65?"Da rivedere" : "Incompleto"));
-  return {findings:f, errs:errs, warns:warns, score:score, grade:grade, totCableM:totCableM,
+  return {findings:f, errs:errs, warns:warns, todefs:todefs, score:score, grade:grade, totCableM:totCableM,
           audioSrc:audioSrc, monitors:monitors, loadsN:loadsN, totW:Re.totW||0, mixer:Rc.mixer||"",
           weightKg:totalWeightKg(), rackU:totalRackU()};   /* L6: logistica (L2) aggregata nel quadro unico */
 }
@@ -10641,16 +10694,17 @@ function renderAuditPanel(){
   document.getElementById("auditScore").innerHTML =
     '<div style="display:flex;align-items:center;gap:12px">'
     +'<div style="width:52px;height:52px;border-radius:50%;border:3px solid '+col+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:'+col+'">'+A.score+'</div>'
-    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:11.5px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+'</div></div></div>';
+    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:11.5px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+((A.todefs||0)>0?(' · '+A.todefs+' da definire'):'')+'</div></div></div>';
   document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
     +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
   var host=document.getElementById("auditFindings");
   host.innerHTML="";
-  var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"; });
+  var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"||x.lvl==="todef"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score */
   if(!probs.length){ host.innerHTML='<div style="color:var(--accent);font-size:12px">✓ Nessuna criticità: il rider sembra pronto.</div>'; return; }
-  probs.sort(function(a,b){ return (a.lvl==="err"?0:1)-(b.lvl==="err"?0:1); });
+  var ORD={err:0,warn:1,todef:2};
+  probs.sort(function(a,b){ return (ORD[a.lvl]||3)-(ORD[b.lvl]||3); });
   probs.forEach(function(x){
-    var c=x.lvl==="err"?"var(--danger,#dc2626)":"#b45309";
+    var c=x.lvl==="err"?"var(--danger,#dc2626)":(x.lvl==="todef"?"#2563eb":"#b45309");
     var row=document.createElement("div"); row.className="audit-find";
     row.innerHTML='<div class="audit-find-txt"><span style="color:'+c+'">●</span> <b>'+esc(x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
     if(x.act && typeof x.act.run==="function"){
@@ -12302,6 +12356,36 @@ function patchListPdf(shared){
 }
 /* T2 — Rider tecnico PDF: pagina di testo con i numeri DERIVATI (microfoni/monitor/pedane/console) + le
    sezioni editabili (sistema audio/luci/personale). Stessa forma delle altre pagine-lista (shared=doc). */
+/* PRODUZIONE (fase 4): ultima pagina del rider — "Criticità e aspetti da definire" (brief §2/§11).
+   Distingue: errori tecnici · informazioni mancanti · sistemi delegati · aspetti consapevolmente da
+   definire. Non inventa nulla: solo audit findings + risposte del Controllo tecnico. */
+function todefinePdf(shared){
+  var A=auditEngine();
+  var errs=A.findings.filter(function(x){return x.lvl==="err";});
+  var warns=A.findings.filter(function(x){return x.lvl==="warn";});
+  var todefs=A.findings.filter(function(x){return x.lvl==="todef";});
+  var deleg=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return ["venue","service","produzione"].indexOf((state.production.systems[r.key]||{}).ans)>=0;}):[];
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, W=210, y=22;
+    doc.setFillColor("#475569"); doc.rect(0,0,W,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Criticità e aspetti da definire", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    function heading(t,col){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(col||"#475569"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
+    function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
+      lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=2.2; }
+    if(errs.length){ heading("ERRORI TECNICI","#dc2626"); errs.forEach(function(x){ body("• "+x.msg+(x.fix?(" → "+x.fix):"")); }); y+=2; }
+    if(warns.length){ heading("INFORMAZIONI MANCANTI O INCOERENTI","#b45309"); warns.forEach(function(x){ body("• "+x.msg); }); y+=2; }
+    if(deleg.length){ heading("SISTEMI DELEGATI","#0d9488"); deleg.forEach(function(r){ body("• "+r.label+": "+r.text+"."); }); y+=2; }
+    if(todefs.length){ heading("ASPETTI CONSAPEVOLMENTE DA DEFINIRE","#2563eb"); todefs.forEach(function(x){ body("• "+x.msg); }); }
+    if(!errs.length && !warns.length && !deleg.length && !todefs.length){ body("Nessuna criticità o aspetto aperto."); }
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-da-definire.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function riderPdf(shared){
   var d=riderData();
   var run=function(doc){
@@ -12322,6 +12406,8 @@ function riderPdf(shared){
     if(d.console){ heading("CONSOLE"); body(d.console); }
     heading("SISTEMA AUDIO"); body(d.sistema);
     heading("LUCI"); body(d.luci);
+    (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
+      if(pm.length){ heading("PRODUZIONE E MEDIA"); pm.forEach(function(r){ body(r.label+": "+r.text); }); } })();
     heading("PERSONALE RICHIESTO AL SERVICE"); body(d.personale);
     if(d.note){ heading("NOTE"); body(d.note); }
     if(d.contatti.length){ heading("CONTATTI E RUOLI"); d.contatti.forEach(function(c){
@@ -12841,7 +12927,7 @@ function availableViewerLists(){
     if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
   return out;
 }
-function viewerHtmlFor(key){ return key==="rider" ? riderHtml() : listPreviewHtml(key); }   /* T2: rider = documento; le altre = tabelle */
+function viewerHtmlFor(key){ return key==="rider" ? riderHtml() : (key==="todefine" ? null : listPreviewHtml(key)); }   /* T2: rider = documento; le altre = tabelle; todefine = placeholder testo (fase 4) */
 /* ===== T2 — Rider tecnico GENERATO dai dati (coerenza: i numeri non possono contraddire le liste). =====
    I quantitativi (canali, monitor, pedane, console) sono DERIVATI; le preferenze non derivabili
    (sistema audio/PA, luci, personale, sedie, note) sono testo editabile con default, in state.rider. */
@@ -12926,7 +13012,7 @@ function riderData(){
     contatti: (state.contacts||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); }),
     contatto: primaryContactStr(),
     status: state.status||"bozza", approvedBy:(state.approval&&state.approval.by)||"", approvedAt:(state.approval&&state.approval.at)||"",
-    sistema: pick("sistema"), luci: pick("luci"), personale: pick("personale"),
+    sistema: pick("sistema"), luci: (typeof productionLuciText==="function"?productionLuciText(state):pick("luci")), personale: pick("personale"),   /* luci: mai default implicito (fase 4) */
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
     pesoKg: (typeof totalWeightKg==="function") ? totalWeightKg() : 0,
     note: r.note||""
@@ -12958,6 +13044,8 @@ function riderHtml(){
     (d.console?sec("Console", esc(d.console), true):"")+
     sec("Sistema audio", esct(d.sistema))+
     sec("Luci", esct(d.luci))+
+    (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
+      return pm.length ? sec("Produzione e media", pm.map(function(r){ return esc(r.label)+": "+esct(r.text); }).join("<br>")) : ""; })()+
     sec("Personale richiesto al service", esct(d.personale))+
     (d.note?sec("Note", esct(d.note)):"")+
     (d.contatti.length
@@ -13187,6 +13275,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("pmlist")) pmListPdf(doc);
       if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
       if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
+      if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
       pdfCredit(doc);
       return doc;
     });
@@ -13411,6 +13500,11 @@ function pdfChannelPage(doc, L, paperKey){
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
+    /* PRODUZIONE (fase 4): ultima pagina "Criticità e aspetti da definire" — offerta solo se c'è contenuto
+       (errori/avvisi/da-definire dall'audit, o sistemi delegati dal Controllo tecnico). */
+    try{ var Aq=auditEngine(); var deleg=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return ["venue","service","produzione"].indexOf((state.production.systems[r.key]||{}).ans)>=0;}):[];
+      if(Aq.errs+Aq.warns+(Aq.todefs||0)>0 || deleg.length) pages.push({key:"todefine", label:"Criticità e aspetti da definire"});
+    }catch(_e){}
     return pages;
   }
   var _pdfTechPages=[];
