@@ -12189,12 +12189,6 @@ function pdfChannelPage(doc, L, paperKey){
   /* ===== Controllo tecnico inline (variante C, 17/07) =====
      Una sola finestra: niente seconda modale sopra l'export (due .modal allo stesso z-index
      si coprono a vicenda). Riepilogo sempre visibile; click sulla riga = modifica al volo. */
-  function prodAnsLabel(key,val){
-    if(!val) return "— scegli —";
-    var L=(key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS);
-    for(var i=0;i<L.length;i++) if(L[i][0]===val) return L[i][1].toLowerCase();
-    return val;
-  }
   function pdfRefreshPages(){   /* le risposte cambiano le pagine offerte (es. Criticità); spunte preservate */
     var keep=pdfSelectedPages();
     _pdfTechPages=pdfComputeTechPages();
@@ -12214,55 +12208,34 @@ function pdfChannelPage(doc, L, paperKey){
     var b=document.createElement("b"); if(st.todef) b.className="todef"; b.textContent=st.todef+" da definire";
     sta.appendChild(b);
     head.appendChild(tt); head.appendChild(sta); host.appendChild(head);
-    function commitAns(k,val){ state.production.systems[k].ans=val||null; save(); renderProdInline(); pdfRefreshPages(); }
     PRODUCTION_SYSTEMS.forEach(function(sy){
       var o=state.production.systems[sy.key]||{ans:null};
-      var row=document.createElement("div"); row.className="prod-row";
+      var row=document.createElement("div"); row.className="ctrow";
       var k=document.createElement("span"); k.className="k"; k.textContent=sy.label;
-      var v=document.createElement("span"); v.className="v"+((!o.ans||o.ans==="da_definire"||(sy.key!=="luci"&&o.ans==="non_so"))?" missing":"");
-      v.textContent=prodAnsLabel(sy.key,o.ans);
-      var pen=document.createElement("span"); pen.className="pen"; pen.textContent="✎";
-      row.appendChild(k); row.appendChild(v); row.appendChild(pen);
-      row.addEventListener("click", function(){
-        if(row.querySelector("select")) return;
-        var sel=document.createElement("select");
-        var o0=document.createElement("option"); o0.value=""; o0.textContent="— scegli —"; sel.appendChild(o0);
-        (sy.key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS).forEach(function(a){
-          var op=document.createElement("option"); op.value=a[0]; op.textContent=a[1];
-          if(a[0]===o.ans) op.selected=true; sel.appendChild(op);
-        });
-        v.style.display="none"; pen.style.display="none"; row.insertBefore(sel,pen);
-        sel.focus();
-        var done=false;
-        function fin(){ if(done) return; done=true; commitAns(sy.key, sel.value); }
-        sel.addEventListener("change", fin);
-        sel.addEventListener("blur", fin);
-        sel.addEventListener("click", function(e){ e.stopPropagation(); });
+      var sel=document.createElement("select");
+      var o0=document.createElement("option"); o0.value=""; o0.textContent="— scegli —"; sel.appendChild(o0);
+      (sy.key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS).forEach(function(a){
+        var op=document.createElement("option"); op.value=a[0]; op.textContent=a[1];
+        if(a[0]===o.ans) op.selected=true; sel.appendChild(op);
       });
-      host.appendChild(row);
+      if(!o.ans || o.ans==="da_definire" || (sy.key!=="luci" && o.ans==="non_so")) sel.className="missing";
+      sel.addEventListener("change", function(){
+        state.production.systems[sy.key].ans = sel.value||null;
+        save(); renderProdInline(); pdfRefreshPages();
+      });
+      row.appendChild(k); row.appendChild(sel); host.appendChild(row);
     });
-    /* riga Note luci: testo utente → SEMPRE textContent/value, mai innerHTML */
-    var nrow=document.createElement("div"); nrow.className="prod-row";
+    /* Note luci: testo utente → sempre value, mai innerHTML */
+    var nrow=document.createElement("div"); nrow.className="ctrow";
     var nk=document.createElement("span"); nk.className="k"; nk.textContent="Note luci";
-    var note=(state.production.systems.luci&&state.production.systems.luci.note)||"";
-    var nv=document.createElement("span"); nv.className="v"; nv.style.fontWeight="400";
-    nv.textContent=note?(note.length>42?note.slice(0,42)+"…":note):"—";
-    var npen=document.createElement("span"); npen.className="pen"; npen.textContent="✎";
-    nrow.appendChild(nk); nrow.appendChild(nv); nrow.appendChild(npen);
-    nrow.addEventListener("click", function(){
-      if(nrow.querySelector("textarea")) return;
-      var ta=document.createElement("textarea"); ta.rows=2; ta.maxLength=300;
-      ta.placeholder="Atmosfera, colori, momenti, lettura spartiti, riprese video, vincoli…";
-      ta.value=(state.production.systems.luci&&state.production.systems.luci.note)||"";
-      nv.style.display="none"; npen.style.display="none"; nrow.insertBefore(ta,npen);
-      ta.focus();
-      ta.addEventListener("blur", function(){
-        if(state.production.systems.luci) state.production.systems.luci.note=String(ta.value||"").slice(0,300);
-        save(); renderProdInline();
-      });
-      ta.addEventListener("click", function(e){ e.stopPropagation(); });
+    var inp=document.createElement("input"); inp.type="text"; inp.maxLength=300;
+    inp.placeholder="facoltative…";
+    inp.value=(state.production.systems.luci&&state.production.systems.luci.note)||"";
+    inp.addEventListener("change", function(){
+      if(state.production.systems.luci) state.production.systems.luci.note=String(inp.value||"").slice(0,300);
+      save();
     });
-    host.appendChild(nrow);
+    nrow.appendChild(nk); nrow.appendChild(inp); host.appendChild(nrow);
   }
   function pdfComputeTechPages(){
     var pages=[];
