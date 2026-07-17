@@ -1046,6 +1046,22 @@
   </div>
 </div>
 
+<!-- PRODUZIONE (fase 2): Controllo tecnico prima dell'esportazione — 6 domande, risposte salvate nel progetto -->
+<div class="modal" id="prodCheckModal" hidden>
+  <div class="mcard" style="width:560px;max-width:94vw">
+    <h2>Controllo tecnico prima dell'esportazione</h2>
+    <p class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 12px">Un minuto per chiarire cosa copre questo rider. Le risposte restano salvate nel progetto: non ti verranno richieste a ogni esportazione.</p>
+    <div id="prodCheckRows"></div>
+    <div style="margin-top:8px">
+      <label for="prodLuciDesc" style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Note luci <small style="color:var(--text-3,#9ca3af)">— facoltative</small></label>
+      <textarea id="prodLuciDesc" rows="2" maxlength="300" placeholder="Atmosfera, colori, momenti, lettura spartiti, riprese video, vincoli…" style="width:100%;font-size:12px;resize:vertical"></textarea>
+    </div>
+    <div class="btns" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="prodCheckSkip" type="button">Esporta senza rispondere</button>
+      <button class="btn primary" id="prodCheckOk" type="button">Salva e continua</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="aiModal" hidden>
   <div class="mcard" style="width:520px;max-width:94vw">
     <h2>🤖 Crea con l'AI</h2>
@@ -1268,6 +1284,7 @@
           <div class="pdf-side-h">Pagine del rider</div>
           <div id="pdfTechList"></div>
           <div id="pdfTechNote"></div>
+          <div style="margin-top:6px"><span id="pdfProdReview" style="font-size:11.5px;color:var(--text-3,#9ca3af);text-decoration:underline;cursor:pointer" onclick="if(typeof openProductionCheck==='function')openProductionCheck(null)">Controllo tecnico — rivedi le risposte</span></div>
         </div>
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
       </div>
@@ -3274,6 +3291,77 @@ function migrate(s){
   delete s._v;   /* la versione non vive nello state runtime: si re-inietta a ogni serializzazione */
   return s;
 }
+/* Controllo tecnico pre-export (fase 2): compila le 6 domande, salva nel progetto, prosegue con onDone.
+   "Esporta senza rispondere" = scelta consapevole (asked=true, risposte invariate): mai burocrazia. */
+function openProductionCheck(onDone){
+  var m=document.getElementById("prodCheckModal"); if(!m || !state.production){ if(onDone) onDone(); return; }
+  var host=document.getElementById("prodCheckRows"); host.innerHTML="";
+  PRODUCTION_SYSTEMS.forEach(function(sy){
+    var cur=state.production.systems[sy.key]||{ans:null};
+    var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;gap:10px;margin-bottom:8px";
+    var lab=document.createElement("label"); lab.textContent=sy.label; lab.style.cssText="flex:1;font-size:12.5px;color:var(--text)";
+    var sel=document.createElement("select"); sel.style.cssText="flex:1.2;font-size:12px"; sel.setAttribute("data-sys",sy.key);
+    var o0=document.createElement("option"); o0.value=""; o0.textContent="— scegli —"; sel.appendChild(o0);
+    (sy.key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS).forEach(function(a){ var o=document.createElement("option"); o.value=a[0]; o.textContent=a[1]; sel.appendChild(o); });
+    sel.value=cur.ans||"";
+    row.appendChild(lab); row.appendChild(sel); host.appendChild(row);
+  });
+  var desc=document.getElementById("prodLuciDesc"); if(desc) desc.value=(state.production.systems.luci.note)||"";
+  m.hidden=false;
+  function commit(keep){
+    if(keep){
+      m.querySelectorAll("select[data-sys]").forEach(function(sel){ var k=sel.getAttribute("data-sys");
+        if(state.production.systems[k]) state.production.systems[k].ans = sel.value||null; });
+      if(desc && state.production.systems.luci) state.production.systems.luci.note = String(desc.value||"").slice(0,300);
+    }
+    state.production.asked=true;
+    m.hidden=true; save();
+    if(onDone) onDone();
+  }
+  document.getElementById("prodCheckOk").onclick=function(){ commit(true); };
+  document.getElementById("prodCheckSkip").onclick=function(){ commit(false); };
+}
+/* ===== PRODUZIONE (fase 1, brief 17/07): i 6 sistemi NON deducibili dal disegno =====
+   Principio: l'assenza di un elemento non è un errore — l'utente DICHIARA come stanno le cose
+   (Controllo tecnico pre-export). Le risposte vivono nel progetto (state.production) e alimenteranno
+   rider/audit (fasi 3-4). Nessun default implicito: niente "piazzato bianco" se non scelto. */
+var PRODUCTION_SYSTEMS=[
+  {key:"playback",  label:"Sequenze o contributi audio"},
+  {key:"video",     label:"Contributi video"},
+  {key:"recaudio",  label:"Registrazione audio"},
+  {key:"recvideo",  label:"Registrazione video"},
+  {key:"streaming", label:"Diretta streaming"},
+  {key:"luci",      label:"Luci"}
+];
+var PRODUCTION_ANSWERS=[
+  ["no","No"], ["configurato","Sì, già configurato"], ["da_definire","Sì, da definire con un tecnico"],
+  ["venue","A carico della venue"], ["service","A carico del service tecnico"],
+  ["produzione","A carico della produzione"], ["non_so","Non lo so"]
+];
+var PRODUCTION_LUCI=[
+  ["piazzato_bianco","Piazzato bianco uniforme"], ["venue","Luci a cura della venue"],
+  ["service","Luci a cura del service tecnico"], ["produzione","Luci a cura della produzione"],
+  ["disegno_dedicato","Disegno luci dedicato"], ["da_concordare","Indicazioni artistiche da concordare"],
+  ["plot_allegato","Plot luci allegato"], ["non_comprese","Non comprese nel presente rider"],
+  ["da_definire","Da definire"], ["altro","Altro"]
+];
+/* Righe di testo per il rider (fase 4) e per i riepiloghi: SOLO i sistemi dichiarati (mai inventare).
+   ans=null → non dichiarato (non compare); "no" → non compare (non previsto). */
+function productionSummary(s){
+  var out=[]; var pr=s&&s.production; if(!pr||!pr.systems) return out;
+  var TXT={ configurato:"previsto e configurato", da_definire:"previsto — modalità da definire con un tecnico",
+    venue:"a carico della venue", service:"a carico del service tecnico", produzione:"a carico della produzione",
+    non_so:"da chiarire con l'organizzazione" };
+  var LUCITXT={ piazzato_bianco:"piazzato bianco uniforme", venue:"a cura della venue", service:"a cura del service tecnico",
+    produzione:"a cura della produzione", disegno_dedicato:"disegno luci dedicato", da_concordare:"indicazioni artistiche da concordare",
+    plot_allegato:"plot luci allegato", non_comprese:"non comprese nel presente rider", da_definire:"da definire", altro:"vedi note" };
+  PRODUCTION_SYSTEMS.forEach(function(sy){
+    var o=pr.systems[sy.key]||{}; if(!o.ans || o.ans==="no") return;
+    var t=(sy.key==="luci"?LUCITXT:TXT)[o.ans]; if(!t) return;
+    out.push({ key:sy.key, label:sy.label, text:t + (o.note?(" — "+o.note):"") });
+  });
+  return out;
+}
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];
@@ -3341,6 +3429,16 @@ function normalizeState(s){
     };
   }) : [];   /* retrocompat: zone opzionali; senza kind = audio */
   s.layerAudio=!!s.layerAudio; s.layerPower=!!s.layerPower;   /* layer tecnici, off di default */
+  /* PRODUZIONE: normalizzazione difensiva (risposte fuori enum → null; note troncate; retrocompat: assente → default) */
+  (function(){ var pr=(s.production&&typeof s.production==="object")?s.production:{};
+    var sys=(pr.systems&&typeof pr.systems==="object")?pr.systems:{};
+    var A=PRODUCTION_ANSWERS.map(function(a){return a[0];}), L=PRODUCTION_LUCI.map(function(a){return a[0];});
+    function nrm(k, valid){ var o=(sys[k]&&typeof sys[k]==="object")?sys[k]:{};
+      return { ans:(valid.indexOf(o.ans)>=0)?o.ans:null, note:String(o.note||"").slice(0,300) }; }
+    s.production={ asked:!!pr.asked, systems:{
+      playback:nrm("playback",A), video:nrm("video",A), recaudio:nrm("recaudio",A),
+      recvideo:nrm("recvideo",A), streaming:nrm("streaming",A), luci:nrm("luci",L) } };
+  })();
   var cb=s.cab||{};   /* cablaggio audio calcolato: layer + preferenze + override manuali del tecnico */
   var man={};
   if(cb.manual && typeof cb.manual==="object"){ Object.keys(cb.manual).forEach(function(k){ var m=cb.manual[k]||{}; var o={};
@@ -13303,11 +13401,19 @@ function pdfChannelPage(doc, L, paperKey){
       host.appendChild(lab);
     });
   }
-  window.openPdfExportModal=function(){ modal.hidden=false; prevIdx=0;
+  function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     _pdfTechPages=pdfComputeTechPages();
     pdfRenderTechList();
     refresh();
     pdfUpdateTechNote();
+  }
+  /* PRODUZIONE (fase 2): al primo export chiede il Controllo tecnico (una volta sola: asked resta true).
+     Mai bloccante: "Esporta senza rispondere" prosegue comunque. */
+  window.openPdfExportModal=function(){
+    if(state.production && !state.production.asked && typeof openProductionCheck==="function"){
+      openProductionCheck(_pdfExportModalCore); return;
+    }
+    _pdfExportModalCore();
   };
   document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
   document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; window.__pdfScope="full"; });

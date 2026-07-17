@@ -1265,5 +1265,31 @@ t("equipCatsFor: campo modello solo sugli elementi tecnici pertinenti (mai music
   eq(A.equipFieldLabel(["microfono", "di"]), "Microfono / DI reale");
 });
 
+t("production: normalizeState crea i 6 sistemi, scarta risposte fuori enum, tronca le note", () => {
+  const s0 = A.normalizeState({ items: [], stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+  eq(!!s0.production, true); eq(s0.production.asked, false);
+  eq(Object.keys(s0.production.systems).length, 6);
+  eq(s0.production.systems.luci.ans, null, "nessun default implicito: niente piazzato bianco");
+  const s1 = A.normalizeState({ items: [], stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    production: { asked: true, systems: { playback: { ans: "service", note: "X".repeat(999) }, luci: { ans: "HACK" }, video: { ans: "configurato" } } } });
+  eq(s1.production.asked, true);
+  eq(s1.production.systems.playback.ans, "service");
+  eq(s1.production.systems.playback.note.length, 300, "note troncate a 300");
+  eq(s1.production.systems.luci.ans, null, "valore fuori enum → null");
+  eq(s1.production.systems.video.ans, "configurato");
+});
+t("productionSummary: solo sistemi dichiarati (mai inventare), testi corretti", () => {
+  const s = { production: { asked: true, systems: {
+    playback: { ans: "service", note: "" }, video: { ans: "no", note: "" }, recaudio: { ans: null, note: "" },
+    recvideo: { ans: "da_definire", note: "" }, streaming: { ans: null, note: "" },
+    luci: { ans: "piazzato_bianco", note: "lettura spartiti" } } } };
+  const rows = A.productionSummary(s);
+  eq(rows.length, 3, "no e null non compaiono");
+  eq(rows.find(r => r.key === "playback").text, "a carico del service tecnico");
+  eq(rows.find(r => r.key === "recvideo").text.includes("da definire con un tecnico"), true);
+  eq(rows.find(r => r.key === "luci").text, "piazzato bianco uniforme — lettura spartiti");
+  eq(A.productionSummary({}).length, 0);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

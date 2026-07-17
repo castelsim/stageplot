@@ -2392,6 +2392,22 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   </div>
 </div>
 
+<!-- PRODUZIONE (fase 2): Controllo tecnico prima dell'esportazione — 6 domande, risposte salvate nel progetto -->
+<div class="modal" id="prodCheckModal" hidden>
+  <div class="mcard" style="width:560px;max-width:94vw">
+    <h2>Controllo tecnico prima dell'esportazione</h2>
+    <p class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 12px">Un minuto per chiarire cosa copre questo rider. Le risposte restano salvate nel progetto: non ti verranno richieste a ogni esportazione.</p>
+    <div id="prodCheckRows"></div>
+    <div style="margin-top:8px">
+      <label for="prodLuciDesc" style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Note luci <small style="color:var(--text-3,#9ca3af)">— facoltative</small></label>
+      <textarea id="prodLuciDesc" rows="2" maxlength="300" placeholder="Atmosfera, colori, momenti, lettura spartiti, riprese video, vincoli…" style="width:100%;font-size:12px;resize:vertical"></textarea>
+    </div>
+    <div class="btns" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="prodCheckSkip" type="button">Esporta senza rispondere</button>
+      <button class="btn primary" id="prodCheckOk" type="button">Salva e continua</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="aiModal" hidden>
   <div class="mcard" style="width:520px;max-width:94vw">
     <h2>🤖 Crea con l'AI</h2>
@@ -2614,6 +2630,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
           <div class="pdf-side-h">Pagine del rider</div>
           <div id="pdfTechList"></div>
           <div id="pdfTechNote"></div>
+          <div style="margin-top:6px"><span id="pdfProdReview" style="font-size:11.5px;color:var(--text-3,#9ca3af);text-decoration:underline;cursor:pointer" onclick="if(typeof openProductionCheck==='function')openProductionCheck(null)">Controllo tecnico — rivedi le risposte</span></div>
         </div>
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
       </div>
