@@ -7536,7 +7536,7 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"elecreconnect", key:selElec, end:eend.getAttribute("data-eend")||"distro", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }
     var ehit=e.target.closest(".elec-hit");
-    if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+    if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; selCabSet={}; selMond=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   if(state.mond && state.mond.on && !state.mond.locked && e.target.closest){
     /* ── monitoraggio digitale: parità Max (lati, estremi, selezione) ── */
@@ -7570,6 +7570,7 @@ svg.addEventListener("pointerdown", function(e){
       svg.setPointerCapture(e.pointerId); render(); return; }   /* trascina un capo: su una box = riconnetti, nel vuoto = scollega */
     var chit=e.target.closest(".cab-hit");
     if(chit && !cabKeyLocked(chit.getAttribute("data-cab"))){ var ck=chit.getAttribute("data-cab");
+      selElec=null; selMond=null;   /* un cavo selezionato alla volta tra le famiglie (Simone 17/07) */
       if(e.shiftKey){ if(selCabSet[ck]) delete selCabSet[ck]; else selCabSet[ck]=true; selCab=selCabSet[ck]?ck:(Object.keys(selCabSet)[0]||null); }   /* Shift = aggiungi/togli dalla selezione multipla */
       else { selCab=ck; selCabSet={}; selCabSet[ck]=true; }
       render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
