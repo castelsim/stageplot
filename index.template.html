@@ -634,6 +634,12 @@
     </div>
     <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
   </div>
+  <div class="sec" id="cabPropsSec" hidden style="border-bottom:1px solid var(--border,#e5e7eb);padding-bottom:12px;margin-bottom:10px">
+    <div id="cabPropsTitle" style="font-weight:700;font-size:13px"></div>
+    <div id="cabPropsSub" style="font-size:11.5px;color:var(--text-2);margin:1px 0 8px"></div>
+    <div id="cabPropsRows"></div>
+    <div id="cabPropsActs" style="margin-top:10px"></div>
+  </div>
   <div class="sec" id="noSel" style="font-size:12.5px;color:var(--text-3)">
     <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
     <!-- Layer: sempre visibili, niente tendina (Simone 08/07: una volta attivati restano nell'inspector) -->
@@ -5765,6 +5771,118 @@ function redrawItemNode(it){
 
 /* ============ PANNELLO PROPRIETÀ ============ */
 function getSel(){ return state.items.find(function(i){ return i.id===sel; }) || null; }
+/* ===== Pannello CAVO (colonna destra, 17/07): click su un cavo → dati del motore + azioni.
+   Nessun dato inventato: tutto viene dai risultati dei tre motori (cab/elec/mond). ===== */
+function _cpName(x){ return x ? (x.label||(TYPES[x.type]&&TYPES[x.type].nome)||x.type) : "?"; }
+function _cpLen(lenM, cut){ var m=Math.round(lenM||0); return cut ? ("~"+m+" m · taglio "+cut+" m") : (m? m+" m" : "—"); }
+function selectedCableInfo(){
+  var byId={}; (state.items||[]).forEach(function(x){ byId[x.id]=x; });
+  if(selMond && state.mond && state.mond.on){
+    var Rm=mondResult(), lm=(Rm.links||[]).filter(function(k){ return k.key===selMond; })[0];
+    if(lm){
+      var pmF=pmOf(lm.from), rows=[];
+      rows.push(["Da", _cpName(lm.from)]);
+      rows.push(["A", _cpName(lm.to)+(lm.isCasc?" · cascata":lm.toIsHub?" · hub":" · in serie")]);
+      if(pmF) rows.push(["Sistema", pmSysName(pmF.sys)+((PM_SYS[pmF.sys]||{}).cable?" · "+PM_SYS[pmF.sys].cable:"")]);
+      var pw=(Rm.power||{})[lm.from.id];
+      rows.push(["Alimentazione", pw==="data"?"dal cavo dati ⚡":pw==="psu"?"alimentatore locale (PSU)":pw==="invalid"?"non valida":"—"]);
+      rows.push(["Lunghezza", _cpLen(lm.lenM, lm.cut)]);
+      var manM=(state.mond.manual||{})[lm.key]||{};
+      return { title:"Cavo personal monitor", sub:_cpName(lm.from)+" → "+_cpName(lm.to), rows:rows,
+        hasPts:!!(manM.pts&&manM.pts.length), from:lm.from, to:lm.to,
+        resetPts:function(){ var m=mondManual(lm.key); delete m.pts; __mondRes=null; },
+        unlink:function(){ var m=mondManual(lm.key); delete m.to; delete m.pts; if(!Object.keys(m).length) delete state.mond.manual[lm.key]; selMond=null; __mondRes=null; } };
+    }
+  }
+  if(selElec && state.elec && state.elec.on){
+    var Re=elecResult();
+    var ll=(Re.loadLinks||[]).filter(function(k){ return k.key===selElec; })[0];
+    if(ll){
+      var rowsE=[["Carico", _cpName(ll.load.it)+" · "+Math.round(ll.load.w)+" W ("+ll.load.a.toFixed(1)+" A)"],
+                 ["Quadro", (ll.distro.letter||"")+(ll.distro.name?" · "+ll.distro.name:"")],
+                 ["Fase", "L"+((ll.phase||0)+1)],
+                 ["Presa", ll.cee?"CEE (oltre 16 A)":"Schuko 16 A"],
+                 ["Lunghezza", _cpLen(ll.lenM, ll.cut)]];
+      var em=(state.elec.manual||{})[selElec]||{};
+      return { title:"Linea elettrica", sub:_cpName(ll.load.it)+" → "+(ll.distro.letter||"quadro"), rows:rowsE,
+        hasPts:!!(em.pts&&em.pts.length), from:ll.load.it, to:ll.distro.it||null,
+        resetPts:function(){ var m=(state.elec.manual||{})[selElec]; if(m){ delete m.pts; if(!Object.keys(m).length) delete state.elec.manual[selElec]; } __elecRes=null; },
+        unlink:function(){ state.elec.manual=state.elec.manual||{}; var m=state.elec.manual[selElec]=state.elec.manual[selElec]||{}; m.deleted=true; delete m.pts; selElec=null; __elecRes=null; } };
+    }
+    var ul=(Re.uplinks||[]).filter(function(k){ return k.key===selElec; })[0];
+    if(ul){
+      var rowsU=[["Dorsale", (ul.from.letter||"quadro")+" → "+(ul.to&&ul.to.letter?ul.to.letter:"alimentazione")],
+                 ["Corrente", Math.round(ul.a)+" A"],
+                 ["Sezione", ul.section||"—"],
+                 ["Lunghezza", _cpLen(ul.lenM, null)]];
+      var uid=ul.from.it?ul.from.it.id:null, uo=uid?((state.elec.uplinks||{})[uid]||null):null;
+      return { title:"Dorsale elettrica", sub:(ul.from.letter||"Q?")+" → alimentazione", rows:rowsU,
+        hasPts:!!(uo&&uo.pts&&uo.pts.length), from:ul.from.it||null, to:(ul.to&&ul.to.it)||null,
+        resetPts:function(){ if(uid && state.elec.uplinks && state.elec.uplinks[uid]){ delete state.elec.uplinks[uid].pts; if(!Object.keys(state.elec.uplinks[uid]).length) delete state.elec.uplinks[uid]; } __elecRes=null; },
+        unlink:null };
+    }
+  }
+  if(selCab && state.cab && state.cab.on){
+    var Rc=cabResult();
+    var lc=(Rc.links||[]).filter(function(k){ return k.key===selCab; })[0];
+    if(lc){
+      var srcIt=lc.s&&lc.s.it, boxIt=lc.box?byId[lc.box.id]:null, rowsC=[];
+      rowsC.push(["Sorgente", _cpName(srcIt)]);
+      if(lc.box) rowsC.push(["Stage box", (lc.box.letter||"")+(lc.ch?(" · canale "+(lc.box.letter||"")+lc.ch):"")]);
+      if(lc.bundleN>1) rowsC.push(["Fascio", lc.bundleN+" canali in multipolare"]);
+      rowsC.push(["Lunghezza", _cpLen(lc.lenM, lc.cut)]);
+      if(lc.deleted) rowsC.push(["Stato", "eliminato dall'utente"]);
+      return { title:"Cavo audio — ingresso", sub:_cpName(srcIt)+" → box "+(lc.box&&lc.box.letter||""), rows:rowsC,
+        hasPts:!!(((state.cab.manual||{})[selCab]||{}).pts||[]).length, from:srcIt||null, to:boxIt,
+        resetPts:function(){ var m=cabManual(selCab); delete m.pts; __cabRes=null; },
+        unlink: lc.deleted ? function(){ cabManual(selCab).deleted=false; __cabRes=null; }
+                           : function(){ cabDeleteKey(selCab); selCab=null; selCabSet={}; __cabRes=null; },
+        unlinkLabel: lc.deleted ? "Riattiva cavo" : "Scollega" };
+    }
+    var lr=(Rc.returnLinks||[]).filter(function(k){ return k.key===selCab; })[0];
+    if(lr){
+      var rowsR=[["Ritorno a", _cpName(lr.sink)]];
+      if(lr.box && lr.outCh) rowsR.push(["Uscita", (lr.box.letter||"")+" out "+lr.outCh]);
+      rowsR.push(["Lunghezza", _cpLen(lr.lenM, lr.cut)]);
+      return { title:"Cavo di ritorno — monitor", sub:"box "+(lr.box&&lr.box.letter||"")+" → "+_cpName(lr.sink), rows:rowsR,
+        hasPts:!!(((state.cab.manual||{})[selCab]||{}).pts||[]).length, from:lr.box?byId[lr.box.id]:null, to:lr.sink||null,
+        resetPts:function(){ var m=cabManual(selCab); delete m.pts; __cabRes=null; },
+        unlink:function(){ cabDeleteKey(selCab); selCab=null; selCabSet={}; __cabRes=null; } };
+    }
+  }
+  return null;
+}
+function renderCablePanel(info){
+  var sec=document.getElementById("cabPropsSec"); if(!sec) return;
+  sec.hidden=!info;
+  if(!info) return;
+  document.getElementById("cabPropsTitle").textContent=info.title;
+  document.getElementById("cabPropsSub").textContent=info.sub||"";
+  var host=document.getElementById("cabPropsRows"); host.innerHTML="";
+  info.rows.forEach(function(r){
+    var d=document.createElement("div"); d.className="r";
+    var k=document.createElement("span"); k.className="k"; k.textContent=r[0];
+    var v=document.createElement("span"); v.className="v"; v.textContent=r[1];
+    d.appendChild(k); d.appendChild(v); host.appendChild(d);
+  });
+  var acts=document.getElementById("cabPropsActs"); acts.innerHTML="";
+  function mkBtn(label, primary, fn, disabled, title){
+    var b=document.createElement("button"); b.type="button"; b.className="btn"+(primary?" primary":"");
+    b.textContent=label; if(disabled) b.disabled=true; if(title) b.title=title;
+    if(!disabled) b.addEventListener("click", function(){ fn(); save(); render(); });
+    acts.appendChild(b);
+  }
+  mkBtn("Ripristina percorso", true, info.resetPts, !info.hasPts,
+    info.hasPts ? "Cancella i segmenti disegnati a mano: torna il percorso automatico" : "Nessun segmento fatto a mano su questo cavo");
+  if(info.unlink) mkBtn(info.unlinkLabel||"Scollega", false, info.unlink);
+  [info.from, info.to].forEach(function(itx){
+    if(!itx || !itx.id) return;
+    mkBtn("Vai a "+_cpName(itx), false, function(){
+      selCab=null; selCabSet={}; selElec=null; selMond=null;
+      selectOne(itx.id); if(typeof ensureVisible==="function") ensureVisible();
+    });
+  });
+}
 function renderProps(){
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
@@ -5815,6 +5933,7 @@ function renderProps(){
   }
   grp.hidden=true;
   var it = getSel(), box = document.getElementById("selProps");
+  renderCablePanel(it ? null : (typeof selectedCableInfo==="function" ? selectedCableInfo() : null));
   document.getElementById("noSel").hidden = !!it;
   box.hidden = !it;
   if(!it) return;

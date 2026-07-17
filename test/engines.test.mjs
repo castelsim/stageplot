@@ -1472,5 +1472,22 @@ t("mond: il cavo segue il mixerino quando lo si sposta (cache invalidata)", () =
      "il cavo parte dalla NUOVA posizione del mixerino");
 });
 
+t("pannello cavo: selectedCableInfo per un link P.M. + ripristina percorso", () => {
+  reset(); A.state.mond.on = true;
+  const m = add("hearback", 300, 300), h = add("mixhub", 600, 300);
+  A.mondManual(m.id).to = h.id;
+  A.mondManual(m.id).pts = [[450, 200]];              // segmento fatto "a mano"
+  A.selMond = m.id; A.selCab = null; A.selElec = null;
+  const info = A.selectedCableInfo();
+  eq(!!info, true, "info trovata");
+  eq(info.title, "Cavo personal monitor");
+  eq(info.hasPts, true, "segnala il percorso modificato a mano");
+  eq(info.rows.some(r => r[0] === "Lunghezza"), true, "riga lunghezza presente");
+  info.resetPts();                                     // il tasto Ripristina percorso
+  eq((A.state.mond.manual[m.id].pts || []).length, 0, "segmenti cancellati");
+  eq(A.state.mond.manual[m.id].to, h.id, "il collegamento resta");
+  A.selMond = null;
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
