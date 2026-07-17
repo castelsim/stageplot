@@ -13278,10 +13278,27 @@ function pdfChannelPage(doc, L, paperKey){
   function pdfRenderTechList(){
     var host=document.getElementById("pdfTechList"); if(!host) return;
     host.innerHTML="";
+    /* interruttore "tutte le pagine" (Simone 17/07): un click le attiva tutte; default OFF; i toggle
+       singoli restano indipendenti e il master si riallinea da solo (on solo se sono tutte on). */
+    var allCb=null;
+    function syncAll(){ if(!allCb) return; var cbs=host.querySelectorAll('input[data-page]');
+      var tot=cbs.length, on=0; cbs.forEach(function(c){ if(c.checked) on++; });
+      allCb.checked = (tot>0 && on===tot); }
+    if(_pdfTechPages.length>1){
+      var labA=document.createElement("label"); labA.className="chk";
+      labA.style.cssText="font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;padding-bottom:7px;margin-bottom:5px;border-bottom:1px solid var(--border,#e5e7eb)";
+      allCb=document.createElement("input"); allCb.type="checkbox"; allCb.checked=false; allCb.id="pdfTechAll";
+      allCb.addEventListener("change", function(){
+        host.querySelectorAll('input[data-page]').forEach(function(c){ c.checked=allCb.checked; });
+        pdfUpdateTechNote();
+      });
+      labA.appendChild(allCb); labA.appendChild(document.createTextNode("Tutte le pagine del rider"));
+      host.appendChild(labA);
+    }
     _pdfTechPages.forEach(function(p){
       var lab=document.createElement("label"); lab.className="chk"; lab.style.cssText="font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer";
       var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=false; cb.setAttribute("data-page",p.key);
-      cb.addEventListener("change", pdfUpdateTechNote);
+      cb.addEventListener("change", function(){ syncAll(); pdfUpdateTechNote(); });
       lab.appendChild(cb); lab.appendChild(document.createTextNode(p.label));
       host.appendChild(lab);
     });
