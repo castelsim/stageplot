@@ -1252,6 +1252,10 @@ function sepCfg(it){
 function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /* larghezza ingombro dalla distanza */
 var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
+/* Contatto sul musicista (17/07): il bottone Contatto compare SOLO sugli elementi-persona. */
+function contactEligible(type){
+  return !!(POSTAZ[type] || DOUBLE_TYPES[type] || VOCE[type] || TASTIERE[type] || type==="direttore" || type==="batteria");
+}
 
 /* ============ ELEMENTI COMPONIBILI (batteria, timpani) ============ */
 function compClone(o){ return JSON.parse(JSON.stringify(o)); }
@@ -4807,6 +4811,10 @@ function renderProps(){
     } else buildCompCtl(comp, it, reduced);
   }
   document.getElementById("pDivide").style.display = isDecomposable(it) ? "block" : "none";   /* "Dividi in elementi" su tutte le icone scomponibili */
+  (function(){ var cbtn=document.getElementById("pContactBtn"); if(!cbtn) return;
+    var elig=(typeof contactEligible==="function") && contactEligible(it.type);
+    cbtn.style.display=elig?"flex":"none";
+    if(elig && typeof renderItemContactBtn==="function") renderItemContactBtn(it); })();
   if(typeof renderModelField==="function") renderModelField(it);   /* EQUIPMENT INTELLIGENCE: campo Modello reale */
   if(typeof renderUsoField==="function") renderUsoField(it);       /* PRODUZIONE: utilizzo elemento regia */
 }
@@ -12044,6 +12052,126 @@ function openRubPicker(){
     pick.innerHTML=""; pick.appendChild(q); pick.appendChild(listHost); paint(); q.focus();
   });
 }
+/* ===== Contatto sul musicista (17/07, mockup approvato): bottone nel pannello + finestra.
+   PRIVACY BY DESIGN: persona in stageplot_contacts (rubrica account), legame in stageplot_item_contacts
+   (0016) — MAI nel blob → link/copie/PDF non contengono nulla. Nome visibile SOLO nel pannello. ===== */
+function _icName(it){ return (it.label||(TYPES[it.type]&&TYPES[it.type].nome)||it.type); }
+function renderItemContactBtn(it){
+  var b=document.getElementById("pContactBtn"); if(!b) return;
+  b.className="btn"; b.style.border=""; b.style.background=""; b.style.color="";
+  b.innerHTML='👤 Contatto <small style="font-weight:400;color:var(--text-3)">— nessuno</small>';
+  b.onclick=function(){ openItemContactModal(it); };
+  var C=window.__cloud, pid=C&&C.currentId&&C.currentId();
+  if(!(C&&C.user&&C.user()) || !pid) return;
+  C.itemContacts.list(pid, function(map){
+    if(!map || !map[it.id]) return;
+    C.rubrica.list(function(rows){
+      var c=(rows||[]).filter(function(x){ return x.id===map[it.id]; })[0]; if(!c) return;
+      var cur=getSel(); if(!cur || cur.id!==it.id) return;   /* selezione cambiata nel frattempo */
+      b.style.border="1px solid var(--accent)"; b.style.background="var(--accent-tint)"; b.style.color="var(--accent-strong)";
+      b.innerHTML='👤 '+esc(c.name||"?")+(c.contact?' <small style="font-weight:400">· '+esc(c.contact)+'</small>':'');
+    });
+  });
+}
+function openItemContactModal(it){
+  var C=window.__cloud;
+  if(!(C&&C.user&&C.user())){ if(window.__toast) window.__toast("Accedi per assegnare i contatti dei musicisti."); if(window.proxyClick) proxyClick("bCloud"); return; }
+  var pid=C.currentId&&C.currentId();
+  if(!pid){ C.save(function(id){ if(id) openItemContactModal(it); }); return; }   /* come Condividi: prima salva online */
+  var ov=document.getElementById("icModal");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="icModal";
+    ov.style.cssText="position:fixed;inset:0;z-index:350;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
+    ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:460px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:var(--elev-4)">'+
+      '<h3 id="icTitle" style="margin:0 0 2px;font-size:15px"></h3>'+
+      '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:12px">Il contatto resta nel tuo account: non entra nel progetto, nei link condivisi né nei PDF.</div>'+
+      '<div id="icPick">'+
+        '<input id="icQ" type="text" placeholder="Cerca nella tua rubrica…" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-size:13px">'+
+        '<div id="icList" style="margin-top:6px;border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:180px;overflow-y:auto"></div>'+
+        '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:10.5px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+          '<div><label class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
+          '<div><label class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
+          '<div><label class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
+          '<div><label class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
+        '</div>'+
+        '<div style="margin-top:8px"><label class="ic-l">Note</label><input id="icNo" class="ic-i" type="text" maxlength="120" placeholder="es. arriva alle 15…"></div>'+
+        '<div style="margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:11px;color:var(--text-2);line-height:1.5">🔒 <b style="color:var(--accent-strong)">Solo nel tuo account.</b> Salvando, il contatto entra nella tua rubrica e viene assegnato a questa postazione. Condividerlo sarà sempre una scelta esplicita, spenta di default.</div>'+
+        '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button id="icCancel" type="button" class="btn">Annulla</button><button id="icSave" type="button" class="btn primary">Salva e assegna</button></div>'+
+      '</div>'+
+      '<div id="icAsg" style="display:none">'+
+        '<div style="border:1px solid var(--accent);background:var(--accent-tint);border-radius:10px;padding:11px 13px">'+
+          '<div id="icAName" style="font-size:14px;font-weight:700;color:var(--accent-strong)"></div>'+
+          '<div id="icADet" style="font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.5"></div>'+
+          '<span id="icARole" style="display:inline-block;background:var(--surface);border:1px solid var(--accent);color:var(--accent-strong);font-size:10.5px;font-weight:600;border-radius:999px;padding:1px 8px;margin-top:6px"></span>'+
+        '</div>'+
+        '<div style="margin-top:12px;font-size:11px;color:var(--text-2)">🔒 Visibile solo a te, qui nel pannello. Palco, PDF e link condivisi restano senza nomi.</div>'+
+        '<div style="display:flex;margin-top:14px;justify-content:space-between;align-items:center">'+
+          '<button id="icUnassign" type="button" style="color:#b91c1c;font-size:12px;font-weight:600;cursor:pointer;background:none;border:none;padding:6px 0">Rimuovi assegnazione</button>'+
+          '<span><button id="icChange" type="button" class="btn">Cambia…</button> <button id="icClose" type="button" class="btn primary">Chiudi</button></span>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function(e){ if(e.target===ov) ov.style.display="none"; });
+  }
+  ov.style.display="flex";
+  document.getElementById("icTitle").textContent="Contatto — "+_icName(it);
+  var stPick=document.getElementById("icPick"), stAsg=document.getElementById("icAsg");
+  function done(){ ov.style.display="none"; renderProps(); }
+  function showPick(rows){
+    stPick.style.display="block"; stAsg.style.display="none";
+    document.getElementById("icN").value=""; document.getElementById("icT").value=""; document.getElementById("icE").value=""; document.getElementById("icNo").value="";
+    document.getElementById("icR").value=(TYPES[it.type]&&TYPES[it.type].nome)||"";
+    var listEl=document.getElementById("icList"), q=document.getElementById("icQ"); q.value="";
+    function paint(){
+      var f=q.value.trim().toLowerCase();
+      listEl.innerHTML="";
+      var cs=(rows||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); })
+        .filter(function(c){ return !f || ((c.name||"")+" "+(c.role||"")+" "+(c.contact||"")).toLowerCase().indexOf(f)>-1; });
+      if(!cs.length){ listEl.innerHTML='<div style="font-size:11.5px;color:var(--text-3);padding:8px 11px">'+((rows||[]).length?"Nessun contatto corrisponde.":"Rubrica vuota — compila il nuovo contatto qui sotto.")+'</div>'; return; }
+      cs.slice(0,30).forEach(function(c){
+        var d=document.createElement("div"); d.style.cssText="display:flex;flex-direction:column;gap:1px;padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--n-100,#edebe4)";
+        var r1=document.createElement("span"); r1.style.cssText="font-size:12.5px;font-weight:600";
+        r1.textContent=[(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
+        d.appendChild(r1);
+        if((c.contact||"").trim()){ var r2=document.createElement("span"); r2.style.cssText="font-size:11px;color:var(--text-2)"; r2.textContent=c.contact.trim(); d.appendChild(r2); }
+        d.addEventListener("mouseenter", function(){ d.style.background="var(--accent-tint)"; });
+        d.addEventListener("mouseleave", function(){ d.style.background=""; });
+        d.addEventListener("click", function(){ C.itemContacts.set(pid, it.id, c.id, function(ok){ if(ok){ C.rubrica.touch&&C.rubrica.touch(c.id,function(){}); showAsg(c); renderProps(); } else if(window.__toast) window.__toast("Assegnazione non riuscita — riprova."); }); });
+        listEl.appendChild(d);
+      });
+    }
+    q.oninput=paint; paint();
+  }
+  function showAsg(c){
+    stPick.style.display="none"; stAsg.style.display="block";
+    document.getElementById("icAName").textContent=c.name||"?";
+    document.getElementById("icADet").textContent=(c.contact||"—")+(c.note?" · "+c.note:"");
+    document.getElementById("icARole").textContent=c.role||"";
+  }
+  document.getElementById("icCancel").onclick=done;
+  document.getElementById("icClose").onclick=done;
+  document.getElementById("icUnassign").onclick=function(){ C.itemContacts.remove(pid, it.id, function(){ done(); }); };
+  document.getElementById("icSave").onclick=function(){
+    var name=document.getElementById("icN").value.trim();
+    if(!name){ if(window.__toast) window.__toast("Serve almeno il nome."); return; }
+    var contact=[document.getElementById("icT").value.trim(), document.getElementById("icE").value.trim()].filter(function(x){ return x; }).join(" · ");
+    C.rubrica.upsert({ role:document.getElementById("icR").value.trim(), name:name, contact:contact, note:document.getElementById("icNo").value.trim() }, function(row){
+      if(!row){ if(window.__toast) window.__toast("Salvataggio non riuscito — riprova."); return; }
+      C.itemContacts.set(pid, it.id, row.id, function(ok){ if(ok){ showAsg(row); renderProps(); } else if(window.__toast) window.__toast("Assegnazione non riuscita — riprova."); });
+    });
+  };
+  /* stato iniziale: assegnato → scheda; altrimenti pick */
+  C.itemContacts.list(pid, function(map){
+    var cid=map && map[it.id];
+    C.rubrica.list(function(rows){
+      var c=cid ? (rows||[]).filter(function(x){ return x.id===cid; })[0] : null;
+      if(c) showAsg(c); else showPick(rows||[]);
+      document.getElementById("icChange").onclick=function(){ showPick(rows||[]); };
+    });
+  });
+}
 /* Modale "La mia rubrica" (spec 15/07): gestione completa + import dai progetti.
    z-index sopra la modale "I miei progetti" (si apre anche da lì). */
 window.__openRubricaModal=function(){
@@ -13500,7 +13628,27 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       });
     }, function(){ cb(null); });
   }
+  /* ── Contatto sul musicista (17/07): assegnazioni item↔contatto SOLO nell'account (mai nel blob) ── */
+  var icCache={};   /* projectId → { itemId: contactId } */
+  function itemContactsList(pid, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    if(icCache[pid]){ cb(icCache[pid]); return; }
+    sb.from("stageplot_item_contacts").select("item_id,contact_id").eq("project_id", pid)
+      .then(function(r){ if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ m[x.item_id]=x.contact_id; }); icCache[pid]=m; cb(m); }, function(){ cb(null); });
+  }
+  function itemContactSet(pid, itemId, contactId, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    sb.from("stageplot_item_contacts").upsert({ user_id:cloudUser.id, project_id:pid, item_id:itemId, contact_id:contactId, updated_at:new Date().toISOString() })
+      .then(function(r){ if(r.error){ cb(null); return; } if(icCache[pid]) icCache[pid][itemId]=contactId; cb(true); }, function(){ cb(null); });
+  }
+  function itemContactRemove(pid, itemId, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    sb.from("stageplot_item_contacts").delete().eq("project_id", pid).eq("item_id", itemId)
+      .then(function(r){ if(r.error){ cb(null); return; } if(icCache[pid]) delete icCache[pid][itemId]; cb(true); }, function(){ cb(null); });
+  }
   window.__cloud = {
+    itemContacts: { list:itemContactsList, set:itemContactSet, remove:itemContactRemove,
+                    invalidate:function(pid){ if(pid) delete icCache[pid]; else icCache={}; } },
     rubrica: { list:rubricaList, upsert:rubricaUpsert, remove:rubricaRemove, touch:rubricaTouch,
                importCandidates:rubricaImportCandidates, invalidate:function(){ rubCache=null; } },
     user: function(){ return cloudUser; },
