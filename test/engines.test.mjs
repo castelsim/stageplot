@@ -1447,7 +1447,14 @@ t("pdfHeaderPropose: salvato > contatto primario > vuoto", () => {
   A.state.pdfHeader = "Testo mio";
   eq(A.pdfHeaderPropose(A.state), "Testo mio", "il testo salvato vince sempre");
   eq(A.pdfHeaderFromContact({ role: "", name: "Solo Nome", contact: "" }), "Solo Nome", "solo nome, senza ruolo");
+  // cascata con account Google (nome · email): dopo la rubrica, prima del vuoto
+  const acct = { role: "", name: "Nome Account", contact: "utente@esempio.it" };
+  eq(A.pdfHeaderPropose(A.state, acct), "Testo mio", "il salvato vince anche sull'account");
   A.state.pdfHeader = "";
+  eq(A.pdfHeaderPropose(A.state, acct), "Fonico di sala: Marco V. · +39 333 000 0000", "la rubrica del progetto vince sull'account");
+  A.state.contacts = [];
+  eq(A.pdfHeaderPropose(A.state, acct), "Nome Account · utente@esempio.it", "senza rubrica: account Google");
+  eq(A.pdfHeaderPropose(A.state, null), "", "senza nulla: vuoto");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
