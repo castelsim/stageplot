@@ -9014,6 +9014,7 @@ function pruneSolo(){
   var alive={ cabin:!!(state.cab&&state.cab.on), cabout:!!(state.cab&&state.cab.on), net:!!(state.cab&&state.cab.on),
               mond:!!(state.mond&&state.mond.on), elec:!!(state.elec&&state.elec.on),
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
+              mus:(state.items||[]).some(function(x){return contactEligible(x.type);}),
               venue:!!(state.venue&&state.venue._dataUrl), stage:true };
   Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
 }
