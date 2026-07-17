@@ -2114,13 +2114,17 @@ function pdfHeaderFromContact(c){
   var role=(c.role||"").trim();
   return ((role&&who)? role+": "+who : (who||role)).slice(0,120);
 }
-/* Proposta all'apertura dell'export: testo salvato nel progetto, altrimenti il contatto primario. */
-function pdfHeaderPropose(s){
+/* Proposta all'apertura dell'export: salvato nel progetto > contatto primario della rubrica >
+   account Google (nome · email) > vuoto. acct = {name,contact} opzionale. */
+function pdfHeaderPropose(s, acct){
   if(s && typeof s.pdfHeader==="string" && s.pdfHeader.trim()) return s.pdfHeader;
   var cs=((s&&s.contacts)||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
-  if(!cs.length) return "";
-  var pri=cs.filter(function(c){ return /tecnic|sala|foh|fonic/i.test(c.role||""); })[0] || cs[0];
-  return pdfHeaderFromContact(pri);
+  if(cs.length){
+    var pri=cs.filter(function(c){ return /tecnic|sala|foh|fonic/i.test(c.role||""); })[0] || cs[0];
+    return pdfHeaderFromContact(pri);
+  }
+  if(acct && ((acct.name&&acct.name.trim())||(acct.contact&&acct.contact.trim()))) return pdfHeaderFromContact(acct);
+  return "";
 }
 function normalizeState(s){
   s=migrate(s);
@@ -12368,6 +12372,12 @@ function pdfChannelPage(doc, L, paperKey){
     if(tt) tt.textContent = nSel ? ("Il tuo PDF: palco + "+nSel+" pagin"+(nSel===1?"a":"e")+" tecnic"+(nSel===1?"a":"he")) : "Il tuo PDF: solo palco";
   }
   /* Riferimento cartiglio (variante B): persistente nel progetto + tendina dalla rubrica */
+  function pdfHeaderAccount(){
+    var C=window.__cloud, u=C&&C.user&&C.user(); if(!u) return null;
+    var md=u.user_metadata||{};
+    var name=String(md.full_name||md.name||"").trim(), em=String(u.email||"").trim();
+    return (name||em) ? { role:"", name:name, contact:em } : null;
+  }
   function pdfHeaderSavedLine(){
     var el=document.getElementById("pdfHdrSaved"); if(!el) return;
     var has=(state.pdfHeader||"").trim();
@@ -12375,7 +12385,7 @@ function pdfChannelPage(doc, L, paperKey){
       (header.value.trim() ? "Dal contatto primario della rubrica · si salva nel progetto." : "Si salva nel progetto.");
   }
   function pdfHeaderInit(){
-    header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state) : (state.pdfHeader||"");
+    header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();
   }
   header.addEventListener("change", function(){
@@ -12390,11 +12400,10 @@ function pdfChannelPage(doc, L, paperKey){
       e.stopPropagation();
       if(!menu.hidden){ closeMenu(); return; }
       menu.innerHTML="";
-      var cs=(state.contacts||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
-      cs.forEach(function(c){
+      function mkItem(c, label){
         var it=document.createElement("div"); it.className="rub-item";
         var r1=document.createElement("span"); r1.className="r1";
-        r1.textContent=[(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
+        r1.textContent=label || [(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
         it.appendChild(r1);
         var ct=(c.contact||"").trim();
         if(ct){ var r2=document.createElement("span"); r2.className="r2"; r2.textContent=ct; it.appendChild(r2); }
@@ -12403,9 +12412,13 @@ function pdfChannelPage(doc, L, paperKey){
           state.pdfHeader=header.value; save();
           pdfHeaderSavedLine(); refresh(); closeMenu();
         });
-        menu.appendChild(it);
-      });
-      if(cs.length){ var sep=document.createElement("div"); sep.className="rub-sep"; menu.appendChild(sep); }
+        return it;
+      }
+      var acct=pdfHeaderAccount();
+      if(acct) menu.appendChild(mkItem(acct, "Io — "+(acct.name||acct.contact)+" (account)"));
+      var cs=(state.contacts||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
+      cs.forEach(function(c){ menu.appendChild(mkItem(c)); });
+      if(acct||cs.length){ var sep=document.createElement("div"); sep.className="rub-sep"; menu.appendChild(sep); }
       var man=document.createElement("div"); man.className="rub-manage";
       man.textContent = cs.length ? "＋ Gestisci i contatti del progetto…" : "＋ Aggiungi contatti al progetto…";
       man.addEventListener("click", function(){
@@ -12414,6 +12427,20 @@ function pdfChannelPage(doc, L, paperKey){
       });
       menu.appendChild(man);
       menu.hidden=false;
+      /* rubrica dell'ACCOUNT (fase A): arriva async (cache dopo la 1ª volta); dedupe sui contatti già in lista */
+      var C=window.__cloud;
+      if(C && C.rubrica && C.user && C.user()){
+        var seen={}; if(acct) seen[contactKey(acct)]=true; cs.forEach(function(c){ seen[contactKey(c)]=true; });
+        C.rubrica.list(function(rows){
+          if(!rows || menu.hidden) return;
+          var fresh=rows.filter(function(c){ return ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())) && !seen[contactKey(c)]; });
+          if(!fresh.length) return;
+          var cap=document.createElement("div"); cap.className="rub-cap"; cap.textContent="Rubrica del tuo account";
+          menu.insertBefore(cap, man);
+          fresh.forEach(function(c){ menu.insertBefore(mkItem(c), man); });
+          var sep2=document.createElement("div"); sep2.className="rub-sep"; menu.insertBefore(sep2, man);
+        });
+      }
     });
     document.addEventListener("click", closeMenu);
   })();
