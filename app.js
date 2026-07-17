@@ -8802,10 +8802,22 @@ function alignStereoOdd(rows){
 }
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
+  var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
   function off(key){ return !!(man[key]&&man[key].micOff); }
   function micOf(key, def){ var mm=man[key]; if(mm&&mm.micOff) return ""; return (mm&&mm.mic)?mm.mic:def; }   /* override manuale del mic, altrimenti il suggerito */
   function row(name, defMic, key, patch, box, itemId){ var o=off(key), mic=micOf(key, defMic);
-    return {n:++n, name:name, mic:mic, stand:(o||!mic)?"":(micInfo(mic).stand||""), p48:(o||!mic)?false:!!micInfo(mic).p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }   /* stand = tipo asta suggerito dal mic (MIC_DEFAULTS) */
+    /* EQUIPMENT INTELLIGENCE: se l'elemento sorgente ha un MODELLO di microfono assegnato, il canale
+       derivato usa il modello reale e il phantom di targa (datasheet). L'override manuale del canale
+       (cabSetMic/micOff) resta prioritario. required→48V on; no/ribbon_danger→off (il ribbon ha già
+       il suo avviso in audit). */
+    var eqPh=null, srcIt=byId[itemId];
+    if(srcIt && srcIt.modelData && String(equipVal(srcIt,"category")||"")==="microfono"){
+      var mm=man[key], realMic=equipVal(srcIt,"model");
+      if(realMic && !o && !(mm&&mm.mic)) mic=String(realMic);
+      eqPh=equipPhantom(srcIt);
+    }
+    var p48=(o||!mic)?false:(eqPh!=null ? eqPh==="required" : !!micInfo(mic).p48);
+    return {n:++n, name:name, mic:mic, stand:(o||!mic)?"":(micInfo(mic).stand||""), p48:p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }   /* stand = tipo asta suggerito dal mic (MIC_DEFAULTS) */
   R.links.forEach(function(l){ if(l.deleted) return; rows.push(row(l.s.name, l.s.mic, l.s.key, l.box.letter+l.ch, l.box.letter, l.s.it.id)); });
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
   (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */

@@ -1224,5 +1224,33 @@ t("audit: elemento con modello ribbon passivo → avviso 'MAI +48V'", () => {
   eq(found.length >= 1, true, "avviso ribbon presente");
 });
 
+t("Input List dal modello: mic reale + phantom di targa sul canale derivato", () => {
+  reset(); const it = add("astamic", 300, 300);   // default IN_SRC: SM58 (dinamico, no 48V)
+  let r0 = A.patchList().rows.find(r => r.itemId === it.id);
+  eq(r0.mic, "SM58"); eq(r0.p48, false, "default: dinamico senza phantom");
+  // modello condensatore assegnato → mic reale + 48V dal datasheet
+  it.modelData = { category: "microfono", model: "KM184", phantom: { value: "required", reliability: "official" } };
+  A.__cabRes = null;
+  let r1 = A.patchList().rows.find(r => r.itemId === it.id);
+  eq(r1.mic, "KM184", "il canale mostra il modello reale");
+  eq(r1.p48, true, "phantom di targa: required → 48V");
+  eq(r1.stand, "asta giraffa", "stand da MIC_DEFAULTS quando il nome combacia");
+  // ribbon passivo → phantom OFF per costruzione (l'audit avvisa già)
+  it.modelData = { category: "microfono", model: "R-121", phantom: { value: "ribbon_danger", reliability: "official" } };
+  A.__cabRes = null;
+  let r2 = A.patchList().rows.find(r => r.itemId === it.id);
+  eq(r2.mic, "R-121"); eq(r2.p48, false, "ribbon passivo: mai 48V sul derivato");
+  // override manuale del canale vince sul modello
+  A.cabSetMic(r2.key, "SM57");
+  let r3 = A.patchList().rows.find(r => r.itemId === it.id);
+  eq(r3.mic, "SM57", "override manuale (cabSetMic) prioritario sul modello");
+  // modello NON-microfono (es. line array) → canale invariato
+  reset(); const it2 = add("astamic", 300, 300);
+  it2.modelData = { category: { value: "line_array" }, model: { value: "LEOPARD" }, powerConsumption_W: { value: 1.5, unit_orig: "A" } };
+  A.__cabRes = null;
+  let r4 = A.patchList().rows.find(r => r.itemId === it2.id);
+  eq(r4.mic, "SM58", "categoria non-microfono: il canale resta col suggerito");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
