@@ -1913,11 +1913,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div id="pCompCtl"></div>
       <button class="btn" id="pCompSplit" style="display:none">⇱ Dividi in elementi singoli</button>
     </div>
-    <!-- EQUIPMENT INTELLIGENCE (fase 3): modello reale opzionale — generico-first, dati verificati opt-in -->
+    <!-- EQUIPMENT INTELLIGENCE: modello reale opzionale — tendina per-categoria, solo dove ha senso
+         (feedback 17/07: l'utente va accompagnato; niente testo libero, niente campo su musicisti) -->
     <div id="pModelWrap" style="display:none;margin-top:12px">
-      <label style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Modello reale <small style="color:var(--text-3,#9ca3af)">— dati verificati dal produttore</small></label>
-      <input type="text" id="pModelSearch" placeholder="Cerca marca o modello…" autocomplete="off" style="width:100%;font-size:12px">
-      <div id="pModelSug" style="display:none;border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--surface,#fff)"></div>
+      <label id="pModelLbl" for="pModelSel" style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Modello reale <small style="color:var(--text-3,#9ca3af)">— opzionale, dati verificati</small></label>
+      <select id="pModelSel" style="width:100%;font-size:12px"></select>
       <div id="pModelCur" style="display:none;align-items:center;gap:6px;font-size:12px;margin-top:2px"></div>
     </div>
     <button class="btn" id="pDivide" style="width:100%;margin-top:10px;font-size:12px;display:none">⇱ Dividi in elementi</button>
