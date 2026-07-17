@@ -12746,30 +12746,44 @@ function flattenGradients(rootEl){
 }
 function flattenCssToAttrs(rootEl){
   /* due passaggi: prima si leggono tutti gli stili calcolati (prima di toccare classi/stili dei parent),
-     poi si applicano come attributi e si rimuovono class/style/style-blocks */
+     poi si applicano come attributi e si rimuovono class/style/style-blocks.
+     OPACITÀ (fix 17/07): svg2pdf perdeva il fade delle pagine-vista (il gruppo <g style="opacity:0.3">
+     veniva spogliato dal removeAttribute('style') e l'opacity di gruppo non era catturata) → il PDF
+     usciva tutto al 100%. Ora l'opacità CUMULATIVA (elemento × antenati) viene piegata dentro
+     fill-opacity/stroke-opacity per-shape, che svg2pdf supporta sempre; l'attributo `opacity` viene
+     rimosso per evitare doppie applicazioni. */
   var all=rootEl.querySelectorAll('*');
-  var snapshot=[];
+  var snapshot=[], cum=new Map();
   for(var i=0;i<all.length;i++){
-    var cs=getComputedStyle(all[i]);
+    var el=all[i], cs=getComputedStyle(el);
+    var own=parseFloat(cs.opacity); if(!isFinite(own)) own=1;
+    var pa=(el.parentElement && cum.has(el.parentElement)) ? cum.get(el.parentElement) : 1;
+    var alpha=own*pa; cum.set(el, alpha);   /* document order: il parent è già in mappa */
     snapshot.push({
       fill:cs.fill, stroke:cs.stroke,
       fillOpacity:cs.fillOpacity, strokeOpacity:cs.strokeOpacity,
       strokeWidth:cs.strokeWidth, strokeLinejoin:cs.strokeLinejoin,
       strokeLinecap:cs.strokeLinecap, strokeDasharray:cs.strokeDasharray,
-      fillRule:cs.fillRule
+      fillRule:cs.fillRule, alpha:alpha
     });
   }
   for(var i=0;i<all.length;i++){
     var el=all[i], s=snapshot[i];
     if(s.fill) el.setAttribute('fill',s.fill);
     if(s.stroke) el.setAttribute('stroke',s.stroke);
-    if(s.fillOpacity!=null&&s.fillOpacity!=='') el.setAttribute('fill-opacity',s.fillOpacity);
-    if(s.strokeOpacity!=null&&s.strokeOpacity!=='') el.setAttribute('stroke-opacity',s.strokeOpacity);
+    var fo=parseFloat(s.fillOpacity), so=parseFloat(s.strokeOpacity);
+    if(!isFinite(fo)) fo=1; if(!isFinite(so)) so=1;
+    fo=fo*s.alpha; so=so*s.alpha;
+    if(fo<1) el.setAttribute('fill-opacity', String(Math.round(fo*1000)/1000));
+    else if(s.fillOpacity!=null&&s.fillOpacity!=='') el.setAttribute('fill-opacity',s.fillOpacity);
+    if(so<1) el.setAttribute('stroke-opacity', String(Math.round(so*1000)/1000));
+    else if(s.strokeOpacity!=null&&s.strokeOpacity!=='') el.setAttribute('stroke-opacity',s.strokeOpacity);
     if(s.strokeWidth) el.setAttribute('stroke-width',s.strokeWidth);
     if(s.strokeLinejoin) el.setAttribute('stroke-linejoin',s.strokeLinejoin);
     if(s.strokeLinecap) el.setAttribute('stroke-linecap',s.strokeLinecap);
     if(s.strokeDasharray&&s.strokeDasharray!=='none') el.setAttribute('stroke-dasharray',s.strokeDasharray);
     if(s.fillRule) el.setAttribute('fill-rule',s.fillRule);
+    el.removeAttribute('opacity');   /* piegata in fill/stroke-opacity: mai doppia applicazione */
     el.removeAttribute('class'); el.removeAttribute('style');
   }
   rootEl.querySelectorAll('style').forEach(function(s){ s.parentNode.removeChild(s); });
