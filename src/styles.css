@@ -1337,6 +1337,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .chips button:hover:not(.on){background:var(--surface-raised)}
   /* Azioni di pannello: full-width; "Dividi" & co. = primario pieno */
   #props .btn,#grpProps .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+  /* Dividi/Duplica/Elimina su UNA riga (Simone 17/07) */
+  #pActRow{display:flex;gap:6px;margin-top:10px}
+  #pActRow .btn{width:auto;flex:1;margin-top:0;white-space:nowrap;padding:6px 8px}
   #pDivide,#pGtrSplit,#pCompSplit,#pSplit,#grpUngroup{background:var(--accent);border:1px solid var(--accent);
     color:#fff;font-weight:600}
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
