@@ -1285,6 +1285,7 @@
         </div>
         <label>Intestazione</label>
         <input type="text" id="pdfHeader" placeholder="Es. Tecnico: … · +39 …" maxlength="120">
+        <div id="prodInline"></div>
         <div id="pdfTechBox" style="display:none">
           <div class="pdf-side-h">Pagine del rider</div>
           <div id="pdfTechList"></div>
@@ -13532,6 +13533,84 @@ function pdfChannelPage(doc, L, paperKey){
   /* Pagine del RIDER TECNICO disponibili per QUESTO progetto (ciclo 11, proposta Simone):
      le LISTE seguono i DATI (esistono appena metti sorgenti/monitor/carichi, senza dover attivare il layer);
      le MAPPE dei cavi seguono i LAYER attivi (sono il lavoro di cablaggio). Ognuna è selezionabile. */
+  /* ===== Controllo tecnico inline (variante C, 17/07) =====
+     Sostituisce la modale prodCheckModal, che si apriva DIETRO pdfModal (stesso z-index 50,
+     DOM precedente). Riepilogo sempre visibile; click sulla riga = modifica al volo. */
+  function prodAnsLabel(key,val){
+    if(!val) return "— scegli —";
+    var L=(key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS);
+    for(var i=0;i<L.length;i++) if(L[i][0]===val) return L[i][1].toLowerCase();
+    return val;
+  }
+  function pdfRefreshPages(){   /* le risposte cambiano le pagine offerte (es. Criticità); spunte preservate */
+    var keep=pdfSelectedPages();
+    _pdfTechPages=pdfComputeTechPages();
+    pdfRenderTechList();
+    document.querySelectorAll("#pdfTechList input[data-page]").forEach(function(c){ if(keep[c.getAttribute("data-page")]) c.checked=true; });
+    pdfUpdateTechNote();
+  }
+  function renderProdInline(){
+    var host=document.getElementById("prodInline"); if(!host) return;
+    host.innerHTML="";
+    if(!state.production || !state.production.systems || typeof productionStatusLine!=="function") return;
+    var st=productionStatusLine(state);
+    var head=document.createElement("div"); head.className="prodinline-head";
+    var tt=document.createElement("span"); tt.className="pdf-side-h"; tt.style.margin="0"; tt.textContent="Controllo tecnico";
+    var sta=document.createElement("span"); sta.className="prodinline-status";
+    sta.appendChild(document.createTextNode(st.answered+" risposte · "));
+    var b=document.createElement("b"); if(st.todef) b.className="todef"; b.textContent=st.todef+" da definire";
+    sta.appendChild(b);
+    head.appendChild(tt); head.appendChild(sta); host.appendChild(head);
+    function commitAns(k,val){ state.production.systems[k].ans=val||null; save(); renderProdInline(); pdfRefreshPages(); }
+    PRODUCTION_SYSTEMS.forEach(function(sy){
+      var o=state.production.systems[sy.key]||{ans:null};
+      var row=document.createElement("div"); row.className="prod-row";
+      var k=document.createElement("span"); k.className="k"; k.textContent=sy.label;
+      var v=document.createElement("span"); v.className="v"+((!o.ans||o.ans==="da_definire"||(sy.key!=="luci"&&o.ans==="non_so"))?" missing":"");
+      v.textContent=prodAnsLabel(sy.key,o.ans);
+      var pen=document.createElement("span"); pen.className="pen"; pen.textContent="✎";
+      row.appendChild(k); row.appendChild(v); row.appendChild(pen);
+      row.addEventListener("click", function(){
+        if(row.querySelector("select")) return;
+        var sel=document.createElement("select");
+        var o0=document.createElement("option"); o0.value=""; o0.textContent="— scegli —"; sel.appendChild(o0);
+        (sy.key==="luci"?PRODUCTION_LUCI:PRODUCTION_ANSWERS).forEach(function(a){
+          var op=document.createElement("option"); op.value=a[0]; op.textContent=a[1];
+          if(a[0]===o.ans) op.selected=true; sel.appendChild(op);
+        });
+        v.style.display="none"; pen.style.display="none"; row.insertBefore(sel,pen);
+        sel.focus();
+        var done=false;
+        function fin(){ if(done) return; done=true; commitAns(sy.key, sel.value); }
+        sel.addEventListener("change", fin);
+        sel.addEventListener("blur", fin);
+        sel.addEventListener("click", function(e){ e.stopPropagation(); });
+      });
+      host.appendChild(row);
+    });
+    /* riga Note luci: testo utente → SEMPRE textContent/value, mai innerHTML */
+    var nrow=document.createElement("div"); nrow.className="prod-row";
+    var nk=document.createElement("span"); nk.className="k"; nk.textContent="Note luci";
+    var note=(state.production.systems.luci&&state.production.systems.luci.note)||"";
+    var nv=document.createElement("span"); nv.className="v"; nv.style.fontWeight="400";
+    nv.textContent=note?(note.length>42?note.slice(0,42)+"…":note):"—";
+    var npen=document.createElement("span"); npen.className="pen"; npen.textContent="✎";
+    nrow.appendChild(nk); nrow.appendChild(nv); nrow.appendChild(npen);
+    nrow.addEventListener("click", function(){
+      if(nrow.querySelector("textarea")) return;
+      var ta=document.createElement("textarea"); ta.rows=2; ta.maxLength=300;
+      ta.placeholder="Atmosfera, colori, momenti, lettura spartiti, riprese video, vincoli…";
+      ta.value=(state.production.systems.luci&&state.production.systems.luci.note)||"";
+      nv.style.display="none"; npen.style.display="none"; nrow.insertBefore(ta,npen);
+      ta.focus();
+      ta.addEventListener("blur", function(){
+        if(state.production.systems.luci) state.production.systems.luci.note=String(ta.value||"").slice(0,300);
+        save(); renderProdInline();
+      });
+      ta.addEventListener("click", function(e){ e.stopPropagation(); });
+    });
+    host.appendChild(nrow);
+  }
   function pdfComputeTechPages(){
     var pages=[];
     /* Pagine-vista (disegno del palco col layer a fuoco) — prima delle liste testuali */
