@@ -1491,11 +1491,16 @@ t("pannello cavo: selectedCableInfo per un link P.M. + ripristina percorso", () 
 
 t("postazione a due: distanza default 90 cm (mai sotto il minimo fisico)", () => {
   reset();
-  const v = add("vln1x2", 300, 300); delete v.sep;
-  const cb = add("cbx2", 500, 300); delete cb.sep;
+  const v = add("vln1x2", 300, 300);
+  eq(v.sep, 90, "addItem diretto: 90 cm subito");
+  const cb = add("cbx2", 500, 300);
+  eq(cb.sep, 100, "contrabbassi doppi: il minimo fisico 100 vince su 90");
+  delete v.sep; delete cb.sep;
   const ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.items.find(i => i.type === "vln1x2").sep, 90, "violini doppi: 90 cm");
-  eq(A.state.items.find(i => i.type === "cbx2").sep, 100, "contrabbassi doppi: il minimo fisico 100 vince su 90");
+  eq(A.state.items.find(i => i.type === "vln1x2").sep, 90, "normalize (progetti caricati): 90 cm");
+  eq(A.state.items.find(i => i.type === "cbx2").sep, 100, "normalize: minimo fisico rispettato");
+  const single = add("vlnpost", 700, 300);
+  eq(single.sep, 90, "postazione singola: sep pronto a 90 per quando diventa doppia");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

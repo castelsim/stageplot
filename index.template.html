@@ -3601,7 +3601,7 @@ function recalcItemDims(it){
     return; }   /* Fase 2 illustrato: footprint = illustrazione */
   if(t.gtr){ var g=gtrSize(it,t); it.w=g[0]; it.d=g[1]; return; }
   if(t.dir || it.type==="direttore"){ var ds=dirSize(it); it.w=ds[0]; it.d=ds[1]; return; }
-  if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=minSepType(it.type);
+  if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=defSepOf(it);
     it.sep=Math.max(minSepType(it.type), Math.min(300, it.sep)); it.w=sepToW(cfgD, it.sep); it.d=cfgD.dbl[1]; return; }
   if(POSTAZ[it.type]){ var P=POSTAZ[it.type];
     if(it.doppia){ if(it.sep==null) it.sep=defSepOf(it); it.sep=Math.max(minSepOf(it), Math.min(300, it.sep)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
@@ -6727,7 +6727,7 @@ function applyDistribute(riser, template, n, eq){
         it={ id:uid(), type:type, rot:0, w:t.w, d:t.d, label:defaultLabel(type) };
         if(t.riser) it.h=t.h||40;
         if(KEYS_BENCH[type]) it.panca=true;
-        if(POSTAZ[type]){ it.sedia=template.sedia!==false; it.leggio=template.leggio!==false; it.doppia=false; it.sep=template.sep||minSepType(type); }
+        if(POSTAZ[type]){ it.sedia=template.sedia!==false; it.leggio=template.leggio!==false; it.doppia=false; it.sep=template.sep||defSepOf({type:type}); }
         if(VOCE[type]){ it.mano=template.mano===true; it.leggio=template.leggio!==false; it.donna=template.donna===true; it.sedia=template.sedia===true; }
         if(COMP[type]){ it.parts=compClone(template.parts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
         if(template.vsec!=null) it.vsec=template.vsec;
@@ -7204,8 +7204,8 @@ function addItem(type, over){
            rot:0, w:t.w, d:t.d, label:defaultLabel(type) };
   if(t.riser) it.h=t.h||40;
   if(KEYS_BENCH[type]) it.panca=true;   /* tastiere/piano: sgabello di default */
-  if(POSTAZ[type]){ it.sedia=true; it.leggio=true; it.doppia=false; it.sep=minSepType(type); }
-  if(DOUBLE_TYPES[type]){ it.sep=minSepType(type); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
+  if(POSTAZ[type]){ it.sedia=true; it.leggio=true; it.doppia=false; it.sep=defSepOf({type:type}); }
+  if(DOUBLE_TYPES[type]){ it.sep=defSepOf({type:type}); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
   if(state.lookDefault==="schematico" && hasLookToggle(it)) it.look="schematico";   /* B4: eredita l'aspetto predefinito del progetto */
   var _ld0=look2Dims(it); if(_ld0){ it.w=_ld0[0]; it.d=_ld0[1]; }   /* Fase 2 illustrato (default): footprint = illustrazione */
