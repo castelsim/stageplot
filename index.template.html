@@ -3418,6 +3418,18 @@ function productionSummary(s){
   });
   return out;
 }
+/* Stato sintetico per la sezione inline nell'export: quante risposte date e quante voci
+   restano "da definire" (null, da_definire, e non_so per i sistemi non-luci) — stessa
+   semantica delle regole audit fase 4: le deleghe (venue/service/…) NON contano. */
+function productionStatusLine(s){
+  var answered=0, todef=0, pr=s&&s.production;
+  PRODUCTION_SYSTEMS.forEach(function(sy){
+    var o=(pr&&pr.systems&&pr.systems[sy.key])||{};
+    if(o.ans) answered++;
+    if(!o.ans || o.ans==="da_definire" || (sy.key!=="luci" && o.ans==="non_so")) todef++;
+  });
+  return {answered:answered, todef:todef};
+}
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];

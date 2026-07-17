@@ -1395,5 +1395,23 @@ t("pagine-vista per layer: il solo temporaneo pilota layerShown (cabin on → ca
   eq(A.layerFgItem("cabin", wedge), false, "wedge non è fg della pagina Ingressi");
 });
 
+t("productionStatusLine: conteggi risposte e da-definire", () => {
+  reset();
+  let st = A.productionStatusLine(A.state);
+  eq(st.answered, 0, "nessuna risposta all'inizio");
+  eq(st.todef, 6, "null conta come da definire");
+  A.state.production.systems.playback.ans = "no";
+  A.state.production.systems.video.ans = "configurato";
+  A.state.production.systems.recaudio.ans = "da_definire";
+  A.state.production.systems.recvideo.ans = "non_so";
+  A.state.production.systems.streaming.ans = "service";
+  A.state.production.systems.luci.ans = "da_concordare";
+  st = A.productionStatusLine(A.state);
+  eq(st.answered, 6, "tutte risposte");
+  eq(st.todef, 2, "da_definire + non_so; luci da_concordare NON è todef");
+  A.state.production.systems.luci.ans = "da_definire";
+  eq(A.productionStatusLine(A.state).todef, 3, "luci da_definire conta");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
