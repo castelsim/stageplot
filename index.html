@@ -863,6 +863,11 @@
   .rub-manage{padding:7px 9px;font-size:11.5px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
   .rub-manage:hover{background:var(--surface-raised)}
   .rub-cap{font-size:10px;font-weight:700;color:var(--text-3);padding:4px 9px 2px;text-transform:uppercase;letter-spacing:.04em}
+  /* Pannello CAVO nella colonna destra (17/07) */
+  #cabPropsRows .r{display:flex;gap:8px;font-size:12px;margin:2px 0;line-height:1.35}
+  #cabPropsRows .r .k{flex:0 0 84px;color:var(--text-2)}
+  #cabPropsRows .r .v{flex:1;color:var(--text);min-width:0;overflow-wrap:anywhere}
+  #cabPropsActs .btn[disabled]{opacity:.45;cursor:default}
   .ctrow{display:flex;align-items:center;gap:7px;margin-bottom:4px}
   .ctrow .k{flex:0 0 90px;font-size:10.5px;color:var(--text-2);line-height:1.2}
   .ctrow select{flex:1;font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);min-width:0;height:22px}
@@ -2018,6 +2023,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <button class="btn danger" id="grpDel">Elimina</button>
     </div>
     <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
+  </div>
+  <div class="sec" id="cabPropsSec" hidden style="border-bottom:1px solid var(--border,#e5e7eb);padding-bottom:12px;margin-bottom:10px">
+    <div id="cabPropsTitle" style="font-weight:700;font-size:13px"></div>
+    <div id="cabPropsSub" style="font-size:11.5px;color:var(--text-2);margin:1px 0 8px"></div>
+    <div id="cabPropsRows"></div>
+    <div id="cabPropsActs" style="margin-top:10px"></div>
   </div>
   <div class="sec" id="noSel" style="font-size:12.5px;color:var(--text-3)">
     <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
