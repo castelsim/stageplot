@@ -732,6 +732,7 @@
   .share-perm .pd small{display:block;color:var(--text-3);font-size:10.5px}
   .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
   .share-revoke:hover{background:var(--danger-bg)}
+  body.mus-lock .mus-item{pointer-events:none}   /* lucchetto Musicisti: le persone non si toccano */
   body.viewmode.share-hidecontacts .cl-contacts{display:none!important}
   body.viewmode.share-hidecontacts .pdf-rider-contact{display:none!important}
   /* Pannello CAVO nella colonna destra (17/07) */
