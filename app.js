@@ -2044,15 +2044,15 @@ var PRODUCTION_SYSTEMS=[
   {key:"luci",      label:"Luci"}
 ];
 var PRODUCTION_ANSWERS=[
-  ["no","No"], ["configurato","Sì, già configurato"], ["da_definire","Sì, da definire con un tecnico"],
-  ["venue","A carico della venue"], ["service","A carico del service tecnico"],
+  ["no","No"], ["configurato","Sì, già configurato"], ["da_definire","Sì, da definire"],
+  ["venue","A carico della venue"], ["service","A carico del service"],
   ["produzione","A carico della produzione"], ["non_so","Non lo so"]
 ];
 var PRODUCTION_LUCI=[
-  ["piazzato_bianco","Piazzato bianco uniforme"], ["venue","Luci a cura della venue"],
-  ["service","Luci a cura del service tecnico"], ["produzione","Luci a cura della produzione"],
-  ["disegno_dedicato","Disegno luci dedicato"], ["da_concordare","Indicazioni artistiche da concordare"],
-  ["plot_allegato","Plot luci allegato"], ["non_comprese","Non comprese nel presente rider"],
+  ["piazzato_bianco","Piazzato bianco uniforme"], ["venue","A cura della venue"],
+  ["service","A cura del service"], ["produzione","A cura della produzione"],
+  ["disegno_dedicato","Disegno luci dedicato"], ["da_concordare","Da concordare"],
+  ["plot_allegato","Plot luci allegato"], ["non_comprese","Non comprese nel rider"],
   ["da_definire","Da definire"], ["altro","Altro"]
 ];
 /* Righe di testo per il rider (fase 4) e per i riepiloghi: SOLO i sistemi dichiarati (mai inventare).
