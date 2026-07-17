@@ -829,6 +829,19 @@
   #pdfTechList{display:flex;flex-direction:column;gap:6px}
   #pdfTechList .chk{font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer}
   #pdfTechNote{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.45}
+  /* Controllo tecnico inline nell'export (variante C 17/07): riepilogo + modifica al volo */
+  #prodInline{margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+  .prodinline-head{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+  .prodinline-status{margin-left:auto;font-size:11px;color:var(--text-2);white-space:nowrap}
+  .prodinline-status b{font-weight:600}
+  .prodinline-status b.todef{color:#2563eb}
+  .prod-row{display:flex;align-items:center;gap:8px;padding:4px 6px;margin:0 -6px;border-radius:6px;cursor:pointer;font-size:11.5px}
+  .prod-row:hover{background:var(--surface-raised)}
+  .prod-row .k{flex:0 0 104px;color:var(--text-2);line-height:1.25}
+  .prod-row .v{flex:1;color:var(--text);font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+  .prod-row .v.missing{color:#2563eb}
+  .prod-row .pen{color:var(--text-3);font-size:11px}
+  .prod-row select,.prod-row textarea{flex:1;font-size:11.5px;border:1px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);min-width:0;padding:3px 4px}
   .pdf-exp-main{display:flex;flex-direction:column;gap:12px;min-width:0}
   .pdf-sheet{background:var(--surface-raised);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:300px}
   .pdf-sheet svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}
@@ -2397,22 +2410,6 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   </div>
 </div>
 
-<!-- PRODUZIONE (fase 2): Controllo tecnico prima dell'esportazione — 6 domande, risposte salvate nel progetto -->
-<div class="modal" id="prodCheckModal" hidden>
-  <div class="mcard" style="width:560px;max-width:94vw">
-    <h2>Controllo tecnico prima dell'esportazione</h2>
-    <p class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 12px">Un minuto per chiarire cosa copre questo rider. Le risposte restano salvate nel progetto: non ti verranno richieste a ogni esportazione.</p>
-    <div id="prodCheckRows"></div>
-    <div style="margin-top:8px">
-      <label for="prodLuciDesc" style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Note luci <small style="color:var(--text-3,#9ca3af)">— facoltative</small></label>
-      <textarea id="prodLuciDesc" rows="2" maxlength="300" placeholder="Atmosfera, colori, momenti, lettura spartiti, riprese video, vincoli…" style="width:100%;font-size:12px;resize:vertical"></textarea>
-    </div>
-    <div class="btns" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn" id="prodCheckSkip" type="button">Esporta senza rispondere</button>
-      <button class="btn primary" id="prodCheckOk" type="button">Salva e continua</button>
-    </div>
-  </div>
-</div>
 <div class="modal" id="aiModal" hidden>
   <div class="mcard" style="width:520px;max-width:94vw">
     <h2>🤖 Crea con l'AI</h2>
@@ -2631,11 +2628,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         </div>
         <label>Intestazione</label>
         <input type="text" id="pdfHeader" placeholder="Es. Tecnico: … · +39 …" maxlength="120">
+        <div id="prodInline"></div>
         <div id="pdfTechBox" style="display:none">
           <div class="pdf-side-h">Pagine del rider</div>
           <div id="pdfTechList"></div>
           <div id="pdfTechNote"></div>
-          <div style="margin-top:6px"><span id="pdfProdReview" style="font-size:11.5px;color:var(--text-3,#9ca3af);text-decoration:underline;cursor:pointer" onclick="if(typeof openProductionCheck==='function')openProductionCheck(null)">Controllo tecnico — rivedi le risposte</span></div>
         </div>
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
       </div>
