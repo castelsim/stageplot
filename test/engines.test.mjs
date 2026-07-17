@@ -1252,5 +1252,18 @@ t("Input List dal modello: mic reale + phantom di targa sul canale derivato", ()
   eq(r4.mic, "SM58", "categoria non-microfono: il canale resta col suggerito");
 });
 
+t("equipCatsFor: campo modello solo sugli elementi tecnici pertinenti (mai musicisti/arredo)", () => {
+  eq(JSON.stringify(A.equipCatsFor({ type: "astamic" })), JSON.stringify(["microfono", "di"]), "asta mic → microfoni/DI");
+  eq(JSON.stringify(A.equipCatsFor({ type: "hearback" })), JSON.stringify(["personal_mixer", "hub"]), "personal mixer → PM/hub");
+  eq(JSON.stringify(A.equipCatsFor({ type: "q338" })), JSON.stringify(["console"]), "console → console");
+  eq(JSON.stringify(A.equipCatsFor({ type: "arraylarge" })), JSON.stringify(["line_array", "subwoofer", "amps"]), "PA → array/sub/amps");
+  eq(JSON.stringify(A.equipCatsFor({ type: "stagebox" })), JSON.stringify(["stagebox"]), "stagebox → stagebox");
+  eq(A.equipCatsFor({ type: "vlnpost" }), null, "postazione violino → nessun campo");
+  eq(A.equipCatsFor({ type: "direttore" }) || A.equipCatsFor({ type: "conductor" }) || null, null, "direttore → nessun campo");
+  eq(A.equipCatsFor({ type: "sedia" }), null, "sedia → nessun campo");
+  eq(A.equipCatsFor(null), null);
+  eq(A.equipFieldLabel(["microfono", "di"]), "Microfono / DI reale");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

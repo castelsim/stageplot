@@ -567,11 +567,11 @@
       <div id="pCompCtl"></div>
       <button class="btn" id="pCompSplit" style="display:none">⇱ Dividi in elementi singoli</button>
     </div>
-    <!-- EQUIPMENT INTELLIGENCE (fase 3): modello reale opzionale — generico-first, dati verificati opt-in -->
+    <!-- EQUIPMENT INTELLIGENCE: modello reale opzionale — tendina per-categoria, solo dove ha senso
+         (feedback 17/07: l'utente va accompagnato; niente testo libero, niente campo su musicisti) -->
     <div id="pModelWrap" style="display:none;margin-top:12px">
-      <label style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Modello reale <small style="color:var(--text-3,#9ca3af)">— dati verificati dal produttore</small></label>
-      <input type="text" id="pModelSearch" placeholder="Cerca marca o modello…" autocomplete="off" style="width:100%;font-size:12px">
-      <div id="pModelSug" style="display:none;border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--surface,#fff)"></div>
+      <label id="pModelLbl" for="pModelSel" style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Modello reale <small style="color:var(--text-3,#9ca3af)">— opzionale, dati verificati</small></label>
+      <select id="pModelSel" style="width:100%;font-size:12px"></select>
       <div id="pModelCur" style="display:none;align-items:center;gap:6px;font-size:12px;margin-top:2px"></div>
     </div>
     <button class="btn" id="pDivide" style="width:100%;margin-top:10px;font-size:12px;display:none">⇱ Dividi in elementi</button>
@@ -2404,6 +2404,25 @@ function equipPhantom(it){ return equipVal(it,"phantom"); }   /* "required"|"no"
 function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
   var b=(d.brand&&typeof d.brand==="object")?d.brand.value:d.brand, m=(d.model&&typeof d.model==="object")?d.model.value:d.model;
   var s=[b,m].filter(Boolean).join(" "); return s||null; }
+/* Il campo "modello reale" appare SOLO dove ha senso (feedback Simone 17/07: l'utente va accompagnato,
+   niente testo libero su musicisti/direttore). Mappa: categoria di catalogo → categorie del DB prodotti.
+   Tendina per-categoria, non ricerca libera. */
+var EQUIP_CATS_BY_TYPE={ hearback:["personal_mixer","hub"], mixerino:["personal_mixer","hub"] };
+var EQUIP_CATS_BY_CATALOG={ "Microfoni e DI":["microfono","di"], "Regia e console":["console"],
+  "PA e diffusione":["line_array","subwoofer","amps"], "Cablaggio e segnale":["stagebox"] };
+function equipCatsFor(it){
+  if(!it||!it.type||!TYPES[it.type]) return null;
+  if(EQUIP_CATS_BY_TYPE[it.type]) return EQUIP_CATS_BY_TYPE[it.type];
+  var c=EQUIP_CATS_BY_CATALOG[TYPES[it.type].cat];
+  return (c&&c.length)?c:null; }
+function equipFieldLabel(cats){
+  if(!cats||!cats.length) return "Modello reale";
+  if(cats[0]==="microfono") return "Microfono / DI reale";
+  if(cats[0]==="console") return "Modello console";
+  if(cats[0]==="personal_mixer") return "Modello personal mixer";
+  if(cats[0]==="stagebox") return "Modello stagebox";
+  if(cats[0]==="line_array") return "Modello diffusore / ampli";
+  return "Modello reale"; }
 /* L3 (08/07) — guardia copertura metadata tecnici. Diagnostico (non runtime), richiamabile da console:
    elenca gli elementi "tecnici" a cui manca un metadato atteso, così buchi silenziosi (come i WATT di
    PA/monitor prima del 08/07) non ricompaiono aggiungendo nuovi elementi. Usa hasWatt() = WATT +
@@ -6126,58 +6145,58 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
 })();
-/* ===== EQUIPMENT INTELLIGENCE (fase 3): campo "Modello reale" nel pannello =====
-   Generico-first: il campo è opzionale, l'elemento resta pienamente usabile senza. Selezionare un
-   modello SNAPSHOTTA i dati verificati nell'item (offline-first) e applica le dimensioni reali se
-   il datasheet le dichiara. Rimuovere il modello non tocca w/d (l'utente può ridimensionare). */
+/* ===== EQUIPMENT INTELLIGENCE: campo "modello reale" nel pannello =====
+   Regole (feedback Simone 17/07): (1) il campo appare SOLO sugli elementi tecnici pertinenti
+   (equipCatsFor: aste/mic, console, PA, stagebox, personal mixer) — mai su musicisti/direttore/arredo;
+   (2) niente testo libero: TENDINA con i modelli professionali della categoria + "Generico";
+   (3) etichetta parlante per categoria. Selezione → snapshot verificato nell'item (offline-first)
+   + dimensioni reali dal datasheet. Rimuovere = tornare al generico (w/d restano). */
 function renderModelField(it){
   var wrap=document.getElementById("pModelWrap"); if(!wrap) return;
-  var cur=document.getElementById("pModelCur"), inp=document.getElementById("pModelSearch"), sug=document.getElementById("pModelSug");
-  var noModel = !it || it.type==="miczone" || (TYPES[it.type]&&TYPES[it.type].riser) || !window.__equip;
-  if(noModel){ wrap.style.display="none"; return; }
-  wrap.style.display="block"; sug.style.display="none"; sug.innerHTML="";
+  var cur=document.getElementById("pModelCur"), sel=document.getElementById("pModelSel"), lbl=document.getElementById("pModelLbl");
+  var cats=(it && window.__equip) ? equipCatsFor(it) : null;
+  if(!cats){ wrap.style.display="none"; return; }
   var nm=(typeof equipName==="function")?equipName(it):null;
   if(nm){
-    inp.style.display="none"; cur.style.display="flex";
+    wrap.style.display="block"; sel.style.display="none"; cur.style.display="flex";
+    if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats)+" ";
     cur.innerHTML='<span style="color:var(--accent,#0d9488);font-weight:600">✓ '+esc(nm)+'</span>'
-      +'<small style="color:var(--text-3,#9ca3af)">verificato</small>'
+      +'<small style="color:var(--text-3,#9ca3af)">dati verificati</small>'
       +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">×</button>';
     var rm=document.getElementById("pModelRm");
     if(rm) rm.onclick=function(){ mutSel(function(x){ delete x.modelId; delete x.modelData; delete x.modelOverride; }); renderProps(); };
-  } else { inp.style.display="block"; cur.style.display="none"; inp.value=""; }
+    return;
+  }
+  /* nessun modello: tendina della categoria (cache in __equip.byCat); 0 modelli in DB → campo nascosto */
+  cur.style.display="none";
+  wrap.dataset.forItem = it.id;   /* guardia anti-race: la selezione può cambiare durante il fetch */
+  window.__equip.byCat(cats, function(rows){
+    if(wrap.dataset.forItem !== String(it.id)) return;
+    if(!rows.length){ wrap.style.display="none"; return; }
+    wrap.style.display="block"; sel.style.display="block";
+    if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats)+" ";
+    sel.innerHTML="";
+    var o0=document.createElement("option"); o0.value=""; o0.textContent="— Generico (predefinito) —"; sel.appendChild(o0);
+    rows.forEach(function(r){ var o=document.createElement("option"); o.value=r.id; o.textContent=(r.brand||"")+" "+(r.model||""); sel.appendChild(o); });
+    sel.value="";
+  });
 }
 (function(){
-  var inp=document.getElementById("pModelSearch"), sug=document.getElementById("pModelSug"); if(!inp) return;
-  var deb=null;
-  inp.addEventListener("input", function(){
-    clearTimeout(deb); var q=inp.value;
-    deb=setTimeout(function(){
-      if(!window.__equip){ return; }
-      window.__equip.search(q, function(rows){
-        sug.innerHTML="";
-        if(!rows.length){ sug.style.display="none"; return; }
-        rows.forEach(function(r){
-          var b=document.createElement("button"); b.type="button";
-          b.style.cssText="display:block;width:100%;text-align:left;border:none;background:none;cursor:pointer;padding:6px 9px;font-size:12px;border-bottom:1px solid var(--border,#eef0f2)";
-          b.innerHTML='<b>'+esc(r.brand||"")+'</b> '+esc(r.model||"")+' <small style="color:var(--text-3,#9ca3af)">'+esc(r.category||"")+'</small>';
-          b.addEventListener("click", function(){
-            window.__equip.get(r.id, function(prod){
-              if(!prod){ sug.style.display="none"; return; }
-              mutSel(function(x){
-                x.modelId=prod.id; x.modelData=prod.data||{};   /* snapshot: il progetto resta riproducibile offline */
-                if(!x.modelData.brand) x.modelData.brand=prod.brand;
-                if(!x.modelData.model) x.modelData.model=prod.model;
-                var dc=(typeof equipDimsCm==="function")?equipDimsCm(x):null;
-                if(dc){ x.w=dc.w; x.d=dc.d; }                    /* dimensioni reali dal datasheet (scala 1u=1cm) */
-              });
-              sug.style.display="none"; renderProps();
-            });
-          });
-          sug.appendChild(b);
-        });
-        sug.style.display="block";
+  var sel=document.getElementById("pModelSel"); if(!sel) return;
+  sel.addEventListener("change", function(){
+    var id=sel.value; if(!id || !window.__equip) return;
+    window.__equip.get(id, function(prod){
+      if(!prod) return;
+      mutSel(function(x){
+        x.modelId=prod.id; x.modelData=prod.data||{};   /* snapshot: il progetto resta riproducibile offline */
+        if(!x.modelData.brand) x.modelData.brand=prod.brand;
+        if(!x.modelData.model) x.modelData.model=prod.model;
+        if(!x.modelData.category) x.modelData.category=prod.category;
+        var dc=(typeof equipDimsCm==="function")?equipDimsCm(x):null;
+        if(dc){ x.w=dc.w; x.d=dc.d; }                    /* dimensioni reali dal datasheet (scala 1u=1cm) */
       });
-    }, 250);
+      renderProps();
+    });
   });
 })();
 document.getElementById("pDel").addEventListener("click", deleteSel);
@@ -11982,8 +12001,10 @@ function stageSceneSvg(cropVb, opts){
     if(focus===null || focus==="elec") elecCab=elecMarkup();
   }catch(_e){ audioCab=''; elecCab=''; }
   selCab=_keepCab; window.__cabStatic=_keepStatic;
-  /* composizione per vista */
-  var FADE="0.2";
+  /* composizione per vista. FADE = opacità del CONTESTO nelle pagine-vista: il layer competente resta
+     al 100%, il resto del palco sfuma. 0.3 (Simone 17/07): a 0.2 il contesto spariva in fotocopia/stampa
+     B/N; a 0.3 resta orientabile ma chiaramente secondario; oltre 0.35 competerebbe col layer a fuoco. */
+  var FADE="0.3";
   var showZones = (focus===null || focus==="sectionmic");   /* le zone si vedono solo nella scena piena o nella loro pagina-vista */
   var bgGroup = bgItems ? '<g style="opacity:'+FADE+'">'+bgItems+'</g>' : '';
   /* zoneGroup nel ramo else è mostrato SOLO per focus===null (export PNG/legacy) → zone a resa naturale, nessuna opacità forzata */
@@ -14275,7 +14296,13 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     get: function(id, cb){ if(!sb || !id){ cb(null); return; }
       if(equipCache[id]){ cb(equipCache[id]); return; }
       sb.from("equip_product").select("id,brand,model,category,data").eq("id",id).maybeSingle()
-        .then(function(r){ var p=(r && r.data)||null; if(p) equipCache[id]=p; cb(p); }, function(){ cb(null); }); }
+        .then(function(r){ var p=(r && r.data)||null; if(p) equipCache[id]=p; cb(p); }, function(){ cb(null); }); },
+    /* tendina per categoria: i modelli pertinenti all'elemento (feedback 17/07: accompagnare, non far scrivere) */
+    byCat: function(cats, cb){ if(!sb || !cats || !cats.length){ cb([]); return; }
+      var key="cat:"+cats.join(",");
+      if(equipCache[key]){ cb(equipCache[key]); return; }
+      sb.from("equip_product").select("id,brand,model,category").in("category",cats).order("brand").order("model").limit(60)
+        .then(function(r){ var rows=(r && r.data)||[]; equipCache[key]=rows; cb(rows); }, function(){ cb([]); }); }
   };
 
   function init(){
