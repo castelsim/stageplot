@@ -457,6 +457,16 @@
   .cab-editable .cab-homehit{pointer-events:all;cursor:grab}
   /* Layer Manager */
   .layer-row{display:flex;align-items:center;gap:8px;padding:5px 2px}
+  /* fisarmonica layer→lista (17/07) */
+  .layer-arr{width:11px;flex:0 0 auto;font-size:9px;color:var(--text-3);text-align:center;transition:transform var(--dur-fast) var(--ease)}
+  .layer-arr.open{transform:rotate(90deg)}
+  .layer-arr.none{visibility:hidden}
+  .layer-accrow{cursor:pointer;border-radius:6px}
+  .layer-accrow:hover{background:var(--surface-raised)}
+  .layer-accbody{padding:0 0 10px 17px}
+  .layer-accbody .cab-sechead{display:none}
+  .layer-accbody > div{margin-top:0!important;border-top:none!important;padding-top:0!important}
+  .layer-accbody .insp-hd{display:none}
   .layer-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
   .layer-name{flex:1 1 auto;min-width:0;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .layer-ico{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;padding:3px;border-radius:6px;display:flex;align-items:center}

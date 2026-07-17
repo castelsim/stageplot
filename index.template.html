@@ -648,6 +648,8 @@
     </div>
     <!-- Inspector B "lista piatta" (scelta Simone 08/07): STATO + PROGETTO a righe chiave-valore -->
     <div id="statoSec" style="display:none"></div>
+    <div id="pmAccSec" style="display:none"></div>
+    <div id="accPark" style="display:none"></div>
     <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
     <!-- Audit / diagnostica: analisi automatica del progetto (AI deterministica) -->
@@ -2333,7 +2335,7 @@ var TYPES = {
    La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
 /* Semplificazione 08/07: nomi corti (una riga), gigante spezzato (Palco e pedane / Allestimento),
    Monitor separato dai Microfoni. "Allestimento" = rigging+strutture+sicurezza+site, in coda. */
-var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento","Liste tecniche"];
+var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento"];   /* "Liste tecniche" tolta (17/07): le liste vivono sotto i layer */
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,wireless:1,dimono:1,distereo:1,
@@ -7039,26 +7041,6 @@ function miniSvg(k, over){
         entries.push({k:"stagebox", nome:nome, over:over, dim:v[1]});
       });
     }
-    if(c==="Liste tecniche"){   /* le liste (input/monitor/carichi) direttamente, senza sottocategorie */
-      var CAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 25 Q 14 20 16 13 T 27 7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="5" cy="25" r="2.6" fill="currentColor"/><rect x="23" y="4" width="7" height="6" rx="1.5" fill="currentColor"/></svg>';
-      var PATCH_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 12h12M10 16h12M10 20h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var MON_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M8 22l4-12 3 8 2-5 3 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5 26h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var PM_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="7" y="5" width="18" height="22" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="20" cy="12" r="2" fill="currentColor"/><path d="M10 20h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var ECAB_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M16 4l-4 7h3l-2 6 8-9h-4l3-4z" fill="currentColor"/><path d="M5 27h22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-      var LOAD_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M17 10l-5 8h4l-1 5 6-9h-4l1-4z" fill="currentColor"/></svg>';   /* lista + fulmine: distinta dalla lista ingressi */
-      var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      /* sottocategorie = menu a tendina uniformi (come tutte le altre categorie), via addToGroup */
-      /* Diagnostica / Audit progetto NASCOSTO temporaneamente (06/07, scelta Simone: prima lavoriamo sui layer, l'audit torna dopo)
-      addToGroup("Diagnostica", makeActionBtn("Audit progetto","analisi automatica + punteggio",null,toggleAuditView,AUDIT_ICON));
-      entries.push({nome:"Audit progetto",dim:"analisi automatica + punteggio",action:toggleAuditView,iconHtml:AUDIT_ICON}); */
-      /* Simone 08/07: "Cablaggio audio" e "Cablaggio elettrico" TOLTI dal catalogo — i layer si
-         attivano tirando un cavo dalle PORTE dell'elemento selezionato (stile Max). Le voci restano
-         nel codice (toggleCabLayer/toggleElecLayer) per pannelli, cestini e retrocompatibilità. */
-      [["Lista ingressi","canali microfoni → mixer",togglePatchView,PATCH_ICON],
-       ["Lista monitor","mix e ritorni",toggleMonitorView,MON_ICON],
-       ["Lista carichi","potenza per carico → distro",toggleLoadView,LOAD_ICON]].forEach(function(a){
-        body.appendChild(makeActionBtn(a[0],a[1],null,a[2],a[3])); n++; entries.push({nome:a[0],dim:a[1],action:a[2],iconHtml:a[3],noQuick:true}); });   /* dirette, niente sub-head; noQuick = fuori dalla ricerca rapida (non sono elementi) */
-    }
     cats[c].forEach(function(k){
       if(TYPES[k].cat==="Palco e strutture" && c==="Palco e pedane") return;   /* i palco/pedane li fa il blocco speciale; truss/transenna passano di qui (in Rigging e sicurezza) */
       if(k==="pedana") return;
@@ -10223,8 +10205,8 @@ function layerRegistry(){
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); },
       removable:true, remove:function(){ state.venue=null; clearVenueImg(); venueCalibCancel(); save(); render(); } }   /* cestino = rimuove l'immagine planimetria */
     ,{ id:"stage", name:"Palco", color:"#64748b",
-      /* attivo solo quando c'è già almeno un altro layer tecnico attivo (resta invisibile al musicista base) */
-      active:(!!(state.cab&&state.cab.on) || !!(state.elec&&state.elec.on) || !!(state.mond&&state.mond.on) || (state.items||[]).some(function(x){return x.type==="miczone";}) || !!(state.venue&&state.venue._dataUrl)),
+      /* sempre attivo (17/07): ospita lo Stato nella fisarmonica — anche senza altri layer */
+      active:true,
       /* stato runtime non persistito → niente save(); vis/op vivono nel markup (sceneMarkup), il DOM diretto serve solo alla fluidità dello slider */
       visible:stageLayerUI.vis, setVisible:function(v){ stageLayerUI.vis=v; render(); },
       opacity:stageLayerUI.op, setOpacity:function(v){ stageLayerUI.op=v; var g=document.getElementById("layItems"); if(g) g.style.opacity=(v/100).toString(); },
@@ -10301,9 +10283,24 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
 /* Riga UNICA con tutto inline (richiesta Simone): dot + nome + slider opacita' + occhio + lucchetto +
    cestino. Le 3 icone (occhio/lucchetto/cestino) stanno in una griglia a slot fissi → sempre allineate
    (slot vuoto dove il layer non ha quel controllo); lo slider compare solo se il layer ha opacita'. */
+/* Fisarmonica layer→lista (Simone 17/07): click sul layer = apre SOTTO la sua lista.
+   Un layer aperto alla volta; "stage" (Palco → Stato) aperto di default. Le sezioni sono
+   le STESSE di prima (statoSec/patchSec/monSec/loadSec): vengono spostate sotto il layer aperto
+   e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
+var layerAccOpen="stage";
+var LAYER_ACC={ stage:"statoSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec" };
 function renderLayerRow(L, container){
   var row=document.createElement("div"); row.className="layer-row";
-  row.innerHTML='<span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
+  var accKey=LAYER_ACC[L.id]||null;
+  row.innerHTML='<span class="layer-arr'+(accKey?(layerAccOpen===L.id?" open":""):" none")+'">\u25b8</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
+  if(accKey){
+    row.classList.add("layer-accrow");
+    row.addEventListener("click", function(e){
+      if(e.target.closest(".layer-controls")) return;   /* slider/S/occhio/lucchetto/cestino NON aprono la lista */
+      layerAccOpen = (layerAccOpen===L.id) ? null : L.id;
+      render();
+    });
+  }
   var ctrl=document.createElement("div"); ctrl.className="layer-controls";
   if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità";
     op.addEventListener("input", function(){ L.setOpacity(+this.value); });          /* live, leggero */
@@ -10323,9 +10320,20 @@ function renderLayerRow(L, container){
   else icons.appendChild(document.createElement("span"));
   ctrl.appendChild(icons); row.appendChild(ctrl);
   container.appendChild(row);
+  if(accKey && layerAccOpen===L.id){
+    var body=document.createElement("div"); body.className="layer-accbody";
+    var secEl=document.getElementById(accKey);
+    if(secEl) body.appendChild(secEl);
+    container.appendChild(body);
+  }
 }
 function renderLayerManager(){
   var sec=document.getElementById("layerSec"); if(!sec) return;
+  /* prima del rebuild: riporta le sezioni nel parcheggio (rows.innerHTML="" le distruggerebbe) */
+  var park=document.getElementById("accPark");
+  if(park) Object.keys(LAYER_ACC).forEach(function(k){ var el=document.getElementById(LAYER_ACC[k]); if(el && el.parentNode!==park) park.appendChild(el); });
+  /* le liste sono attive SOLO come corpo del layer aperto (via la voce catalogo "Liste tecniche") */
+  patchActive=(layerAccOpen==="cabin"); monActive=(layerAccOpen==="cabout"); loadActive=(layerAccOpen==="elec");
   var LS=layerRegistry().filter(function(L){ return L.active; });
   /* il layer Palco resta sempre in cima alla lista (richiesta Simone) */
   LS=LS.filter(function(L){ return L.id==="stage"; }).concat(LS.filter(function(L){ return L.id!=="stage"; }));
@@ -10335,6 +10343,19 @@ function renderLayerManager(){
   var rows=document.getElementById("layerRows"); rows.innerHTML="";
   var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Layer"; rows.appendChild(hdr);
   LS.forEach(function(L){ renderLayerRow(L, rows); });
+  renderPmAccList();
+}
+function renderPmAccList(){
+  var el=document.getElementById("pmAccSec"); if(!el) return;
+  if(layerAccOpen!=="mond" || !state.mond || !state.mond.on){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="block";
+  var R=mondResult(), s='<div class="insp-hd">Lista personal monitor</div>';
+  if(!(R.links||[]).length){ el.innerHTML=s+'<div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun collegamento: trascina un cavo dal mixerino a un hub.</div>'; return; }
+  R.links.forEach(function(l){
+    var pmF=pmOf(l.from), pw=(R.power||{})[l.from.id];
+    s+='<div class="insp-row"><b>'+esc((l.from.label||"mixer")+" \u2192 "+(l.to.label||(l.toIsHub?"hub":"mixer")))+'</b><small>'+esc((pmF?pmSysName(pmF.sys)+" \u00b7 ":"")+(l.cut?l.cut+" m":Math.round(l.lenM)+" m")+(pw==="data"?" \u00b7 \u26a1":pw==="psu"?" \u00b7 PSU":""))+'</small></div>';
+  });
+  el.innerHTML=s;
 }
 var cabOpen=false;   /* legacy: pannello tolto */
 function renderCabPanel(){
@@ -10967,7 +10988,7 @@ function renderInspectorB(){
       var _boxEl=(state.items||[]).find(function(it){ return typeof cabIsBox==="function" && cabIsBox(it); });
       s+= _boxEl
         ? '<div class="insp-fix" onclick="window.__fixStagebox(\''+_boxEl.id+'\')">Aumenta la capacità della stage box →</div>'
-        : '<div class="insp-fix insp-fix-static">Aggiungi una stage box più capiente (catalogo › Liste tecniche)</div>';
+        : '<div class="insp-fix insp-fix-static">Aggiungi una stage box più capiente (catalogo › Audio › Stagebox e cablaggio)</div>';
     }
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
     if(xlr) s+=ir("Cavi XLR", xlr);
