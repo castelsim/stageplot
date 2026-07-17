@@ -1980,6 +1980,37 @@ function migrate(s){
   delete s._v;   /* la versione non vive nello state runtime: si re-inietta a ogni serializzazione */
   return s;
 }
+/* ===== PRODUZIONE (fase 3): trigger degli elementi =====
+   Gli elementi "regia" dichiarano il proprio UTILIZZO (it.uso) con una tendina per-tipo: un computer
+   NON è automaticamente playback, una camera NON è automaticamente una regia video (brief §3).
+   Il dato alimenta le regole di coerenza e il rider (fase 4). Campo opzionale, pass-through nel save. */
+var ITEM_USO={
+  laptop:        {label:"Utilizzo", opts:[["playback_audio","Playback audio"],["playback_video","Playback video"],
+                  ["rec_audio","Registrazione audio"],["rec_video","Registrazione video"],["streaming","Streaming"],
+                  ["luci","Controllo luci"],["multi","Più funzioni"],["altro","Altro"]]},
+  audiointerface:{label:"Funzione", opts:[["playback","Playback"],["registrazione","Registrazione"],
+                  ["entrambe","Playback e registrazione"],["conversione","Conversione di formato"],["altro","Altro"]]},
+  camera:        {label:"Utilizzo", opts:[["documentativa","Ripresa documentativa"],["rec_pro","Registrazione professionale"],
+                  ["streaming","Streaming"],["rec_streaming","Registrazione e streaming"],["promo","Contenuto promozionale"],["altro","Altro"]]},
+  proiettore:    {label:"Sorgente del contenuto", opts:[["computer","Computer dedicato"],["regia","Regia video"],
+                  ["mediaserver","Media server"],["da_definire","Da definire"],["altro","Altro"]]},
+  schermo:       {label:"Sorgente del contenuto", opts:[["computer","Computer dedicato"],["regia","Regia video"],
+                  ["mediaserver","Media server"],["da_definire","Da definire"],["altro","Altro"]]},
+  ledwallmod:    {label:"Sorgente del contenuto", opts:[["computer","Computer dedicato"],["regia","Regia video"],
+                  ["mediaserver","Media server"],["da_definire","Da definire"],["altro","Altro"]]},
+  consolaluci:   {label:"Operatore luci", opts:[["produzione","Della produzione"],["service","Del service tecnico"],
+                  ["venue","Della venue"],["da_definire","Da definire"]]}
+};
+/* ponte uso→sistema di produzione (per le regole di coerenza, fase 4): quale sistema attiva questo item? */
+function usoSystemKey(type, uso){
+  if(type==="laptop"){ return ({playback_audio:"playback",playback_video:"video",rec_audio:"recaudio",
+    rec_video:"recvideo",streaming:"streaming",luci:"luci"})[uso]||null; }
+  if(type==="audiointerface"){ return ({playback:"playback",registrazione:"recaudio",entrambe:"recaudio"})[uso]||null; }
+  if(type==="camera"){ return ({rec_pro:"recvideo",streaming:"streaming",rec_streaming:"streaming"})[uso]||null; }
+  if(type==="proiettore"||type==="schermo"||type==="ledwallmod") return "video";
+  if(type==="consolaluci") return "luci";
+  return null;
+}
 /* Controllo tecnico pre-export (fase 2): compila le 6 domande, salva nel progetto, prosegue con onDone.
    "Esporta senza rispondere" = scelta consapevole (asked=true, risposte invariate): mai burocrazia. */
 function openProductionCheck(onDone){
@@ -4573,6 +4604,7 @@ function renderProps(){
   }
   document.getElementById("pDivide").style.display = isDecomposable(it) ? "block" : "none";   /* "Dividi in elementi" su tutte le icone scomponibili */
   if(typeof renderModelField==="function") renderModelField(it);   /* EQUIPMENT INTELLIGENCE: campo Modello reale */
+  if(typeof renderUsoField==="function") renderUsoField(it);       /* PRODUZIONE: utilizzo elemento regia */
 }
 function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
@@ -4928,7 +4960,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
    "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
-   "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pModelWrap", dv, "pDivide"
+   "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
 })();
@@ -4968,6 +5000,26 @@ function renderModelField(it){
     sel.value="";
   });
 }
+/* PRODUZIONE (fase 3): tendina "Utilizzo" per gli elementi regia (ITEM_USO). "— non specificato —" =
+   nessuna assunzione; il valore vive sull'item (it.uso) e alimenta regole/rider in fase 4. */
+function renderUsoField(it){
+  var wrap=document.getElementById("pUsoWrap"); if(!wrap) return;
+  var cfg=(it && ITEM_USO[it.type])||null;
+  if(!cfg){ wrap.style.display="none"; return; }
+  wrap.style.display="block";
+  var lbl=document.getElementById("pUsoLbl"); if(lbl) lbl.textContent=cfg.label;
+  var sel=document.getElementById("pUsoSel"); sel.innerHTML="";
+  var o0=document.createElement("option"); o0.value=""; o0.textContent="— non specificato —"; sel.appendChild(o0);
+  cfg.opts.forEach(function(a){ var o=document.createElement("option"); o.value=a[0]; o.textContent=a[1]; sel.appendChild(o); });
+  sel.value=it.uso||"";
+}
+(function(){
+  var sel=document.getElementById("pUsoSel"); if(!sel) return;
+  sel.addEventListener("change", function(){
+    var v=sel.value;
+    mutSel(function(x){ if(v) x.uso=v; else delete x.uso; });
+  });
+})();
 (function(){
   var sel=document.getElementById("pModelSel"); if(!sel) return;
   sel.addEventListener("change", function(){

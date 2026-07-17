@@ -1291,5 +1291,21 @@ t("productionSummary: solo sistemi dichiarati (mai inventare), testi corretti", 
   eq(A.productionSummary({}).length, 0);
 });
 
+t("produzione fase 3: ITEM_USO copre i 7 tipi regia; usoSystemKey mappa uso→sistema", () => {
+  ["laptop", "audiointerface", "camera", "proiettore", "schermo", "ledwallmod", "consolaluci"].forEach(k =>
+    eq(!!A.ITEM_USO[k], true, "ITEM_USO manca: " + k));
+  eq(!!A.ITEM_USO["vlnpost"], false, "postazione musicista: nessun campo utilizzo");
+  // un computer NON è automaticamente playback: senza uso → nessun sistema
+  eq(A.usoSystemKey("laptop", undefined), null);
+  eq(A.usoSystemKey("laptop", "rec_audio"), "recaudio");
+  eq(A.usoSystemKey("laptop", "luci"), "luci");
+  eq(A.usoSystemKey("audiointerface", "entrambe"), "recaudio");
+  eq(A.usoSystemKey("camera", "documentativa"), null, "camera documentativa: nessuna regia video assunta");
+  eq(A.usoSystemKey("camera", "rec_streaming"), "streaming");
+  eq(A.usoSystemKey("proiettore", "computer"), "video", "schermo/proiettore attivano sempre i contributi video");
+  eq(A.usoSystemKey("consolaluci", null), "luci");
+  eq(A.usoSystemKey("sedia", "x"), null);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
