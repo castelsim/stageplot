@@ -394,6 +394,7 @@
   /* L5 · layer rete/dati — colore layer RETE = indigo; tratteggio "dati" distinto da multicore/elettrico */
   .net-line{fill:none;stroke:#4f46e5;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:10 4 2 4;pointer-events:none}
   .net-lbl{fill:#4f46e5;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
+  .net-sec{stroke-dasharray:5 5;stroke-width:1.6;opacity:.75}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
   .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
