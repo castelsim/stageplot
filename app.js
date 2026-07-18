@@ -118,20 +118,26 @@ function gtrGlyph(kind){
 function gtrHead(kind){ var y=kind==="bass"?-52:kind==="ac"?-45:-44, h=kind==="bass"?15:14; return bar(0,y,9,h,'ic fBlack',2); }
 function ampCombo(){ return bar(0,0,64,26,'ic fMon',3)+bar(0,3,24,6,'ic fill',3)+kn(-15,-8.5,6,6); }
 function gtrLegY(it,kind){ return it.sedia ? 38 : (kind==="bass"?60:56); }
+/* posizione del leggio nella postazione: con la PEDALIERA va OLTRE i pedali (nella realtà si legge
+   sopra la pedalboard); senza, resta vicino allo strumento. Un solo punto di verità (draw + Dividi). */
+function gtrLeggioY(it,kind){
+  if(it.sedia) return it.pedaliera ? 104 : 60;
+  return it.pedaliera ? (kind==="bass"?100:96) : gtrLegY(it,kind);
+}
 /* offset della postazione seduta (scala reale) — ricalca le proporzioni del progetto condiviso */
 var GTR_GX=0, GTR_GY=-2;   /* strumento CENTRATO tra sedia e leggio (come gli archi), tenuto dal musicista seduto */
 function guitarDraw(it,kind){
   it=it||{}; var s='';
   if(it.ampli) s+='<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';   /* ampli staccato dietro, angolato (come nel link) */
+  if(it.pedaliera) s+='<g transform="translate(0,'+(it.sedia?72:64)+')">'+pedalGlyph()+'</g>';   /* pedaliera ai piedi, disegnata PRIMA: la chitarra imbracciata le passa sopra */
   if(it.sedia){
     s+=chairSvg(0);                                                              /* sedia (origine) */
     s+='<g transform="translate('+GTR_GX+','+GTR_GY+')">'+gtrHead(kind)+gtrGlyph(kind)+'</g>';   /* strumento CENTRATO tra sedia e leggio, SCALA REALE */
-    if(it.leggio) s+='<g transform="translate(0,60)">'+leggioGlyph(0)+'</g>';     /* leggio davanti allo strumento (non coperto dal corpo) */
+    if(it.leggio) s+='<g transform="translate(0,'+gtrLeggioY(it,kind)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07: si sovrapponevano) */
   } else {
     s+=gtrHead(kind)+gtrGlyph(kind);                                             /* in piedi: chitarra su stand */
-    if(it.leggio) s+='<g transform="translate(0,'+gtrLegY(it,kind)+')">'+leggioGlyph(0)+'</g>';
+    if(it.leggio) s+='<g transform="translate(0,'+gtrLeggioY(it,kind)+')">'+leggioGlyph(0)+'</g>';
   }
-  if(it.pedaliera) s+='<g transform="translate(0,'+(it.sedia?72:64)+')">'+pedalGlyph()+'</g>';   /* pedaliera ai piedi, davanti */
   return s;
 }
 function gtrSize(it,t){ var d=t.d, w=t.w;
@@ -139,6 +145,7 @@ function gtrSize(it,t){ var d=t.d, w=t.w;
   else if(it.leggio) d+=44;
   if(it.ampli) w=Math.max(w,80);     /* ampli dietro: NON allunga la profondità → il nome resta vicino */
   if(it.pedaliera) d=Math.max(d, (it.sedia?150:130));   /* pedaliera davanti, ai piedi */
+  if(it.pedaliera && it.leggio) d=Math.max(d, (it.sedia?190:175));   /* leggio spostato oltre la pedaliera (fix 18/07) */
   return [w,d];
 }
 /* pedaliera (pedalboard) vista dall'alto: ~50×30 cm con 4 pedali */
@@ -161,7 +168,7 @@ function explodeGuitar(){
   var kind=t.gtr, base=it.label?it.label+" ":"", pcs=[], seated=it.sedia;
   pcs.push({type:it.type, dx:seated?GTR_GX:0, dy:seated?GTR_GY:0, label:it.label||"", extra:{sedia:false,leggio:false,ampli:false}});   /* chitarra (di fianco e a livello sedia) */
   if(seated) pcs.push({type:"sedia", dx:0, dy:-25, label:""});
-  if(it.leggio) pcs.push({type:"leggio", dx:0, dy:gtrLegY(it,kind), label:""});
+  if(it.leggio) pcs.push({type:"leggio", dx:0, dy:gtrLeggioY(it,kind), label:""});
   if(it.ampli) pcs.push({type:"comboamp",dx:-43, dy:-88, rot:-30, label:base+"Ampli"});
   if(it.pedaliera) pcs.push({type:"pedaliera", dx:0, dy:(seated?72:64), label:base+"Pedalboard"});
   var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), made=[];
