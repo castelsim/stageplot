@@ -451,6 +451,8 @@ function gazStructLabel(it){   /* nome base (editabile) + dimensione live, es. "
   var t=TYPES[it.type]||{}, base=(it.label!=null&&it.label!=='')?it.label:(t.defLabel||"Gazebo");
   return base+" "+gazLabel(it.w||t.w||300, it.d||t.d||300)+" m";
 }
+function isCover(it){ return !!GAZ_TYPES[it.type] || (typeof it.type==="string" && it.type.indexOf("roof")===0); }   /* coperture = gazebo/tende/PMA + copertura palco (roof*) */
+var hideCovers=false;   /* toggle "Coperture" (solo vista): le nasconde sul canvas per lavorare sotto — PDF e salvataggio NON toccati */
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -4703,6 +4705,7 @@ function sceneMarkup(){
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
   sortedItems().forEach(function(it){
     if(it.rackId){ var _rk=_racks[it.rackId]; if(_rk){ it.x=_rk.x; it.y=_rk.y; } return; }   /* nel rack: vive col rack, i cavi partono da lì; non disegnato né cliccabile */
+    if(hideCovers && isCover(it)) return;   /* toggle Coperture: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var m=itemMarkup(it);
     if(contactEligible(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
@@ -4758,7 +4761,22 @@ function render(){
   var _ds=document.getElementById("docState"), _dsM=document.getElementById("docStateM");
   if(_ds) _ds.style.display=_dcHide?"none":"";
   if(_dsM) _dsM.style.display=_dcHide?"none":"";
+  syncCoverToggle();
 }
+/* pillola flottante "Coperture": compare solo se in scena c'è almeno una copertura; nasconderle serve a
+   lavorare sugli elementi sotto (le coperture hanno un'area-click che copre tutto l'ingombro). Solo vista. */
+function syncCoverToggle(){
+  var btn=document.getElementById("coverToggle"); if(!btn) return;
+  var n=(state.items||[]).reduce(function(a,it){ return a+(isCover(it)?1:0); },0);
+  if(n===0 || document.body.classList.contains("viewmode")){ btn.hidden=true; hideCovers=false; return; }
+  btn.hidden=false; btn.classList.toggle("on", hideCovers);
+  var eye='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var eyeOff='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4M6.2 6.2A17.3 17.3 0 0 0 2 12s3.6 7 10 7a10.6 10.6 0 0 0 3.9-.7"/><path d="m3 3 18 18"/></svg>';
+  btn.innerHTML=(hideCovers?eyeOff:eye)+'<span>'+(hideCovers?'Coperture nascoste':'Coperture')+'</span>';
+  btn.title=hideCovers?'Mostra di nuovo le coperture':'Nascondi le coperture (gazebo, tende, copertura) per lavorare sugli elementi sotto';
+  btn.setAttribute('aria-pressed', hideCovers?'true':'false');
+}
+document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("#coverToggle")){ hideCovers=!hideCovers; render(); } });
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
    Fallback al render() completo se il nodo non è in DOM (es. cambio di selezione). */

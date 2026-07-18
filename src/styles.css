@@ -180,6 +180,10 @@
   #catalog .sub-body button span{color:var(--accent)}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:var(--accent)}
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
+  #coverToggle{position:absolute;top:12px;left:12px;z-index:6;display:inline-flex;align-items:center;gap:6px;padding:6px 12px 6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:12.5px;font-weight:600;line-height:1;box-shadow:0 2px 10px rgba(0,0,0,.10);cursor:pointer;-webkit-user-select:none;user-select:none}
+  #coverToggle svg{width:16px;height:16px;flex:none}
+  #coverToggle:hover{border-color:var(--accent)}
+  #coverToggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
   /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
   /* barra conflitto cloud (guardia di versione): fissa in basso, MAI sovrascrivere in silenzio.
