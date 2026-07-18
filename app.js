@@ -431,6 +431,20 @@ function drawCableRamp(it){
 }
 /* n° moduli di una tratta di passacavi (per etichetta/STATO/rider) */
 function rampModules(it){ if(it.type!=="cableramp") return 0; var cfg=RAMP_TYPES[it.rampType]||RAMP_TYPES.midi; if(cfg.end) return 1; return Math.max(1, Math.round((it.w||cfg.w)/cfg.w)); }
+/* Gazebo/tenda: reso come TELAIO (perimetro + montanti agli angoli + falde del tetto a linee) —
+   NON occlude gli elementi sotto (come la copertura palco). Configurabile per taglia + resize libero. */
+var GAZEBO_SIZES = [[300,300],[300,450],[300,600],[400,400],[400,800]];   /* taglie evento più comuni (cm) */
+function gazLabel(w,d){ function f(n){ return (Math.round(n/10)/10).toString().replace(".",","); } return f(w)+"×"+f(d); }
+function drawGazebo(it){
+  var w=it.w||300, d=it.d||300, xL=-w/2, xR=w/2, yT=-d/2, yB=d/2;
+  var FR="#8f979e", DIAG="#c3c8cd", POST="#6f767d";
+  var s='<rect x="'+xL+'" y="'+yT+'" width="'+w+'" height="'+d+'" rx="6" fill="none" stroke="'+FR+'" stroke-width="4"/>';
+  s+='<path fill="none" stroke="'+DIAG+'" stroke-width="2" d="M '+xL+','+yT+' L 0,0 L '+xR+','+yT+' M '+xL+','+yB+' L 0,0 L '+xR+','+yB+'"/>';   /* falde del tetto verso il colmo */
+  var ps=Math.max(12, Math.min(w,d)*0.05);   /* montanti angolari */
+  [[xL,yT],[xR,yT],[xL,yB],[xR,yB]].forEach(function(p){ s+='<rect x="'+(p[0]-ps/2)+'" y="'+(p[1]-ps/2)+'" width="'+ps+'" height="'+ps+'" rx="2" fill="'+POST+'"/>'; });
+  s+='<text x="0" y="'+(yT-10)+'" text-anchor="middle" fill="'+FR+'" font-size="'+Math.max(18,Math.min(w,d)*0.08)+'" font-weight="700" font-family="-apple-system,Segoe UI,sans-serif">'+gazLabel(w,d)+' m</text>';
+  return s;
+}
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -461,8 +475,8 @@ var TYPES = {
              draw:function(it){ return drawLibFit("estcarr",it,40,70); }},
   foodtruck: {nome:"Food truck", dim:"290×500", cat:"Sicurezza e site", w:290,d:500,
              draw:function(it){ return drawLibFit("foodtruck",it,290,500); }},
-  gazebo33: {nome:"Gazebo 3×3", dim:"300×300", cat:"Sicurezza e site", w:300,d:300,
-             draw:function(it){ return drawLibFit("gazebo33",it,300,300); }},
+  gazebo33: {nome:"Gazebo", dim:"telaio · taglia regolabile", cat:"Sicurezza e site", w:300,d:300, resizable:true, defLabel:"Gazebo",
+             draw:function(it){ return drawGazebo(it); }},
   tenda63: {nome:"Tenda 6×3", dim:"600×300", cat:"Sicurezza e site", w:600,d:300,
              draw:function(it){ return drawLibFit("tenda63",it,600,300); }},
   container10: {nome:"Container 10′", dim:"300×240", cat:"Sicurezza e site", w:300,d:240,
@@ -5276,6 +5290,12 @@ function renderProps(){
     if(isRamp){ var rsel=document.getElementById("pRamp");
       rsel.innerHTML=Object.keys(RAMP_TYPES).map(function(k){ return '<option value="'+k+'">'+esc(RAMP_TYPES[k].nome)+(RAMP_TYPES[k].ch?" · "+RAMP_TYPES[k].ch+" canali":"")+'</option>'; }).join("");
       rsel.value=it.rampType||"midi"; } }
+  var gzw=document.getElementById("pGazWrap");   /* gazebo: taglia preset (poi resize libero) */
+  if(gzw){ var isGaz=it.type==="gazebo33"; gzw.style.display=isGaz?"block":"none";
+    if(isGaz){ var gsel=document.getElementById("pGaz"), gcur=it.w+"x"+it.d;
+      var gopts=GAZEBO_SIZES.map(function(sz){ return '<option value="'+sz[0]+'x'+sz[1]+'">'+gazLabel(sz[0],sz[1])+' m</option>'; });
+      if(!GAZEBO_SIZES.some(function(sz){ return sz[0]===it.w && sz[1]===it.d; })) gopts.unshift('<option value="'+gcur+'">'+gazLabel(it.w,it.d)+' m (personalizzata)</option>');
+      gsel.innerHTML=gopts.join(""); gsel.value=gcur; } }
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
   var isPostaz=!!POSTAZ[it.type];
   pp.style.display = (isPostaz || cfg) ? "block" : "none";
@@ -5546,6 +5566,7 @@ function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
+document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(it.type==="gazebo33"){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo: taglia preset */
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
@@ -5743,7 +5764,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pRampWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */

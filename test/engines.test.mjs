@@ -229,6 +229,13 @@ t("Passacavi tratta modulare: conteggio moduli dalla lunghezza + badge ×N", () 
   const svg = A.drawCableRamp({ type: "cableramp", rampType: "midi", w: 88 * 3, d: 54 });
   ok(svg.indexOf("×3") > -1, "il disegno mostra il badge ×3");
 });
+t("Gazebo: telaio NON occludente (fill none) + etichetta misura + taglie preset", () => {
+  const svg = A.drawGazebo({ type: "gazebo33", w: 300, d: 600 });
+  ok(svg.indexOf('fill="none"') > -1, "perimetro senza riempimento → gli elementi sotto si vedono");
+  ok(svg.indexOf("3×6") > -1, "etichetta misura 3×6");
+  ok(A.GAZEBO_SIZES.length >= 4, "taglie preset presenti");
+  eq(A.gazLabel(450, 400), "4,5×4", "gazLabel converte cm→m");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
