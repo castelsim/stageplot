@@ -912,6 +912,17 @@
   .rack-unum{position:absolute;left:-13px;font-size:8px;color:#8b8b93}
   .rack-dev{position:absolute;left:0;right:0;top:2px;border-radius:4px;background:#0d9488;color:#fff;font-size:10.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.28);overflow:hidden;white-space:nowrap}
   .rack-dev small{font-weight:400;opacity:.75;font-size:9px;margin-left:8px}
+  /* F2: griglia porte stagebox + popover porta/nome breve */
+  .sbports{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-top:3px}
+  .sbp{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text-3);background:var(--surface)}
+  .sbp.uso{background:var(--accent);border-color:var(--accent);color:#fff;cursor:default}
+  .sbp.pin{background:var(--n-800);border-color:var(--n-800);color:#fff;cursor:default}
+  .sbp.ris{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning)}
+  .port-pop{position:fixed;z-index:120;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--elev-2);padding:10px 12px;min-width:200px}
+  .port-pop label{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:6px 0 3px}
+  .port-pop label:first-child{margin-top:0}
+  .port-pop select,.port-pop input{width:100%;border:1px solid var(--border);border-radius:7px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text)}
+  .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
   body.viewmode.share-hidecontacts .cl-contacts{display:none!important}
   body.viewmode.share-hidecontacts .pdf-rider-contact{display:none!important}
   /* Pannello CAVO nella colonna destra (17/07) */
@@ -1899,6 +1910,15 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
       <div id="pSbOutRow"><label>Uscite (per i monitor)</label>
         <select id="pSbOut"><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select></div>
+      <div id="pSbIdRow" style="display:none;margin-top:6px">
+        <label>Device ID <small style="color:var(--text-3);font-weight:400">— ordina la numerazione FOH</small></label>
+        <select id="pSbIdSel"></select>
+      </div>
+      <div id="pSbPortsWrap" style="display:none;margin-top:6px">
+        <label>Porte fisiche <small style="color:var(--text-3);font-weight:400">— click: libera ⇄ riservata</small></label>
+        <div id="pSbPorts" class="sbports"></div>
+        <div id="pSbPortsHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
+      </div>
     </div>
     <div id="pMikeWrap" style="display:none">
       <label>Microfonazione</label>

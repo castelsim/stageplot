@@ -1611,5 +1611,48 @@ t("rack: contenuti ordinati, U dai datasheet noti, orfani liberati dal normalize
   eq(A.state.items.some(i => i.rackId), false, "nessun rackId orfano dopo il normalize");
 });
 
+t("F2: device ID + FOH continuo + porte riservate/pinnate + conflitti", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {};
+  const b32 = add("stagebox", 700, 250); b32.hw = "rio3224d2";
+  const b16 = add("stagebox", 900, 250); b16.hw = "rio1608d2"; b16.sbId = 1;   // il 16 diventa ID1 → FOH 1-16
+  const mic = add("astamic", 880, 400);
+  A.__cabRes = null;
+  let R = A.audioCablingEngine();
+  const B16 = R.boxes.find(b => b.id === b16.id), B32 = R.boxes.find(b => b.id === b32.id);
+  eq(B16.eid, 1, "sbId esplicito vince"); eq(B16.fohBase, 0, "ID1 parte da FOH 1");
+  eq(B32.fohBase, 16, "la 32 continua da 17");
+  const l = R.links.find(x => x.s.it.id === mic.id);
+  eq(l.box.id, b16.id, "il mic va sulla box vicina");
+  const row = A.patchList().rows.find(r => r.key === l.key);
+  eq(row.foh, B16.fohBase + l.ch, "canale FOH continuo in lista"); eq(A.patchList().hasFoh, true, "hasFoh con 2 box");
+  // porta riservata: la 1 resta libera (spare), il mic scala
+  b16.sbRes = [l.ch]; A.__cabRes = null; R = A.audioCablingEngine();
+  const l2 = R.links.find(x => x.s.it.id === mic.id);
+  ok(l2.ch !== l.ch, "la porta riservata viene saltata");
+  // pin manuale porta 5 + nome breve
+  A.cabManual(l2.key).port = 5; A.cabManual(l2.key).short = "VOX";
+  A.__cabRes = null; R = A.audioCablingEngine();
+  const l3 = R.links.find(x => x.s.it.id === mic.id);
+  eq(l3.ch, 5, "porta pinnata rispettata"); eq(l3.pinned, true, "flag pinned");
+  eq(A.patchList().rows.find(r => r.key === l3.key).short, "VOX", "nome breve in lista");
+  // conflitto: seconda sorgente pinnata sulla stessa porta → err
+  const mic2 = add("astamic", 920, 400);
+  A.__cabRes = null; R = A.audioCablingEngine();
+  const lx = R.links.find(x => x.s.it.id === mic2.id);
+  A.cabManual(lx.key).port = 5; A.__cabRes = null; R = A.audioCablingEngine();
+  ok(R.issues.some(i => i.lvl === "err" && /Porta duplicata/.test(i.msg)), "porta duplicata = errore");
+  // device ID duplicato → warn
+  delete A.state.cab.manual[l3.key]; delete A.state.cab.manual[lx.key];
+  b32.sbId = 1; A.__cabRes = null; R = A.audioCablingEngine();
+  ok(R.issues.some(i => i.lvl === "warn" && /Device ID duplicato/.test(i.msg)), "ID duplicato = warn");
+  // normalize sanifica sbId/sbRes fuori range
+  b32.sbId = 99; b16.sbRes = [0, 3, 3, 70];
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  const n32 = A.state.items.find(i => i.id === b32.id), n16 = A.state.items.find(i => i.id === b16.id);
+  eq(n32.sbId, undefined, "sbId fuori range rimosso");
+  eq(JSON.stringify(n16.sbRes), "[3]", "sbRes dedup + solo porte valide");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
