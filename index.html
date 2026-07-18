@@ -2052,6 +2052,15 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div id="pModelCur" style="display:none;align-items:center;gap:6px;font-size:12px;margin-top:2px"></div>
     </div>
     <div id="pInRack" style="display:none;font-size:11.5px;margin:6px 0"></div>
+    <div id="pRxWrap" style="display:none">
+      <label>Marca e modello</label><select id="pRxHw"></select>
+      <div id="pRxNRow" style="display:none"><label>Canali RF</label><select id="pRxN"></select></div>
+      <label>Banda <small style="color:var(--text-3);font-weight:400">— es. R1-9 (facoltativa)</small></label>
+      <input id="pRxBand" type="text" maxlength="12" placeholder="—">
+      <label>Canali <small style="color:var(--text-3);font-weight:400">— associazione automatica, cambia dalla tendina</small></label>
+      <div id="pRxChs"></div>
+      <div id="pRxKv" style="margin-top:4px;font-size:11.5px;color:var(--text-2)"></div>
+    </div>
     <div id="pRackWrap" style="display:none">
       <label>Funzione</label><select id="pRackFn"></select>
       <label>Dimensione</label><select id="pRackU"></select>

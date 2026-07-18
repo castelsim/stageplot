@@ -866,6 +866,11 @@ var TYPES = {
                s2+=bar(-33,0,5,16,'ic fGrey',2)+bar(33,0,5,16,'ic fGrey',2);
                [-14,-7,0,7,14].forEach(function(y){ s2+=bar(0,y,38,1.6,'fill',1); });
                return s2; }},
+  rxrf:     {nome:"Ricevitore RF", dim:"rack 1U", cat:"Cablaggio e segnale", w:48,d:36, defLabel:"RX RF",
+             draw:function(){ /* unità rack: display + 2 manopole + antennine */
+               var s2=bar(0,2,46,26,'ic fBlack',3)+bar(-11,2,16,10,'ic fGrey',1.5)+circ(8,2,3.4,'ic tec fGrey')+circ(17,2,3.4,'ic tec fGrey');
+               s2+='<line x1="-18" y1="-11" x2="-23" y2="-19" class="tec"/><line x1="18" y1="-11" x2="23" y2="-19" class="tec"/>';
+               return s2; }},
   patchpt:  {nome:"Patch point", dim:"punto di patch", cat:"Cablaggio e segnale", w:34,d:34, defLabel:"PATCH",
              draw:function(){ return circ(0,0,15,'ic tec fGrey')+circ(0,0,4,'tec fill')+bar(0,-9,2,6,'tec fill',1)+bar(0,9,2,6,'tec fill',1)+bar(-9,0,6,2,'tec fill',1)+bar(9,0,6,2,'tec fill',1); }},
   splitter: {nome:"Splitter audio", dim:"rack 3U", cat:"Cablaggio e segnale", catalog:false, w:70,d:46, defLabel:"SPLIT",
@@ -1268,7 +1273,7 @@ function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /*
 var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
 /* ===== RACK (18/07, mockup approvato): contenitore tecnico — un ingombro sul palco, apparecchi veri dentro ===== */
-var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1 };
+var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1 };
 var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
 /* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
 var RACK_U_HW={ rio3224d2:3, rio3224d3:3, rio1608d2:2, rio1608d3:2, tio1608d:2 };
@@ -2219,6 +2224,9 @@ function normalizeState(s){
     if(it.type==="rack"){ if(!(it.rackU>=4 && it.rackU<=24)) it.rackU=12; if(!it.rackFn) it.rackFn="generico"; }
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; } }
+    if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
+    if(it.rxId!=null){ var _rxOk=s.items.some(function(r){ return r.type==="rxrf" && r.id===it.rxId; });
+      if(!_rxOk){ delete it.rxId; delete it.rxCh; } else if(it.rxCh!=null && !(it.rxCh>=1&&it.rxCh<=8)) delete it.rxCh; }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
@@ -3232,6 +3240,9 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
+  /* F3: radiomic/headset con ricevitore → 0 canali qui; il ricevitore diventa la sorgente (XLR out) */
+  if(RF_TX[it.type] && rfAssign().byTx[it.id]) return [];
+  if(it.type==="rxrf"){ return (rfAssign().byRx[it.id]||[]).map(function(a){ return {name:rfTxName(a.tx), mic:(IN_SRC[a.tx.type]||"RF")}; }); }
   if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return [];   /* coperto da una zona → 0 canali; effOwnMic (ownMic esplicito o default close-obligato: kick/rullante/tom/hi-hat) mantiene il mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
@@ -4236,6 +4247,7 @@ function auditEngine(){
   (Rc.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1;
     var capF = i.code==="cap"; add(i.lvl,i.msg,"Audio", capF?"Aggiungi una stage box (o un RIO con più canali) dal catalogo.":"", capF?{label:"Aggiungi stage box",run:auditFixAddBox}:null); } });
   ((netEngine()||{}).issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Rete"); } });   /* L5 */
+  (typeof rfIssues==="function"?rfIssues():[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"RF"); } });   /* F3 */
   (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
   /* punteggio di prontezza (pesato per gravità) */
   /* ===== PRODUZIONE (fase 4): regole di coerenza (brief §9) =====
@@ -4687,6 +4699,62 @@ function rackFreeItem(x, rk){
   delete x.rackId; delete x.rackPos;
   x.x=(rk?rk.x:x.x)+80; x.y=(rk?rk.y:x.y)+((state.items.length%3)-1)*40;   /* si libera accanto al rack */
 }
+/* ===== F3: pannello Ricevitore RF — modello, banda, canali con tx e frequenza ===== */
+function renderRxPanel(it){
+  var w=document.getElementById("pRxWrap"); if(!w) return;
+  if(!it || it.type!=="rxrf"){ w.style.display="none"; return; }
+  w.style.display="block";
+  var hwSel=document.getElementById("pRxHw");
+  hwSel.innerHTML="";
+  var og=document.createElement("option"); og.value=""; og.textContent="Generico ("+rxCapOf({rxN:it.rxN})+" canali)"; hwSel.appendChild(og);
+  Object.keys(RX_DB).forEach(function(k){ var o=document.createElement("option"); o.value=k; o.textContent=RX_DB[k].brand+" "+RX_DB[k].model+" — "+RX_DB[k].ch+" ch"; hwSel.appendChild(o); });
+  hwSel.value=(it.hw&&RX_DB[it.hw])?it.hw:"";
+  hwSel.onchange=function(){ if(hwSel.value) it.hw=hwSel.value; else delete it.hw; __cabRes=null; save(); render(); renderProps(); };
+  var nRow=document.getElementById("pRxNRow"), nSel=document.getElementById("pRxN");
+  nRow.style.display=it.hw?"none":"block";
+  if(!it.hw){ nSel.innerHTML=""; for(var i2=1;i2<=8;i2++){ var oi=document.createElement("option"); oi.value=i2; oi.textContent=i2; nSel.appendChild(oi); }
+    nSel.value=String(rxCapOf(it));
+    nSel.onchange=function(){ it.rxN=+nSel.value; __cabRes=null; save(); render(); renderProps(); }; }
+  var bd=document.getElementById("pRxBand");
+  bd.value=it.band||"";
+  bd.onchange=function(){ var v=bd.value.trim(); if(v) it.band=v.slice(0,12); else delete it.band; save(); renderProps(); };
+  /* canali: per ogni slot una tendina coi trasmettitori */
+  var A=rfAssign(), mine=A.byRx[it.id]||[], cap=rxCapOf(it);
+  var host=document.getElementById("pRxChs"); host.innerHTML="";
+  var byCh={}; mine.forEach(function(a){ byCh[a.ch]=a.tx; });
+  for(var c=1;c<=cap;c++){
+    (function(ch){
+      var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;gap:6px;margin-bottom:4px";
+      var lab=document.createElement("span"); lab.style.cssText="flex:0 0 18px;font-size:11px;font-weight:700;color:var(--text-2)"; lab.textContent=ch;
+      var sel=document.createElement("select"); sel.style.cssText="flex:1;min-width:0;font-size:11.5px";
+      var o0=document.createElement("option"); o0.value=""; o0.textContent="— (auto)"; sel.appendChild(o0);
+      A.txs.forEach(function(tx){ var o=document.createElement("option"); o.value=tx.id;
+        var whr=A.byTx[tx.id]; o.textContent=rfTxName(tx)+(whr&&whr.rx.id!==it.id?" (su altro RX)":"");
+        sel.appendChild(o); });
+      var cur=byCh[ch]; sel.value=cur?String(cur.id):"";
+      sel.onchange=function(){
+        if(cur){ delete cur.rxId; delete cur.rxCh; }
+        if(sel.value){ var tx=A.txs.filter(function(t){ return String(t.id)===sel.value; })[0];
+          if(tx){ tx.rxId=it.id; tx.rxCh=ch; } }
+        __cabRes=null; save(); render(); renderProps();
+      };
+      var fr=document.createElement("input"); fr.type="text"; fr.maxLength=8; fr.placeholder="MHz"; fr.style.cssText="flex:0 0 64px;font-size:11px;font-family:ui-monospace,monospace";
+      if(cur){ fr.value=cur.rf||""; fr.onchange=function(){ var v=fr.value.trim(); if(v) cur.rf=v.slice(0,20); else delete cur.rf; save(); renderProps(); }; }
+      else fr.disabled=true;
+      row.appendChild(lab); row.appendChild(sel); row.appendChild(fr);
+      host.appendChild(row);
+    })(c);
+  }
+  /* kv: uscita audio (lettera/ID box dal motore) + orfani */
+  var kv=document.getElementById("pRxKv"), lines=[];
+  try{ var R=cabResult(); var ls=(R.links||[]).filter(function(l){ return l.s.it.id===it.id && !l.deleted; });
+    if(ls.length){ var b=ls[0].box, tag=b.sbId?("ID "+b.sbId):("box "+b.letter);
+      lines.push(mine.length+"× XLR → "+tag+(b.fohBase!=null?" · FOH "+ls.map(function(l){return b.fohBase+l.ch;}).join(", "):"")); }
+    else if(mine.length) lines.push(mine.length+" canali audio da collegare (pallino teal → stage box)");
+  }catch(_e){}
+  if(A.orphans.length) lines.push("⚠ "+A.orphans.length+" radiomic senza ricevitore");
+  kv.innerHTML=lines.map(function(l){ return "<div>"+esc(l)+"</div>"; }).join("");
+}
 function renderRackPanel(it){
   var w=document.getElementById("pRackWrap"); if(!w) return;
   var isR=it && it.type==="rack";
@@ -5067,6 +5135,7 @@ function renderProps(){
     cbtn.style.display=elig?"flex":"none";
     if(elig && typeof renderItemContactBtn==="function") renderItemContactBtn(it); })();
   if(typeof renderRackPanel==="function") renderRackPanel(it);   /* RACK: contenuti/U/fronte */
+  if(typeof renderRxPanel==="function") renderRxPanel(it);   /* F3: ricevitore RF */
   (function(){ var br=document.getElementById("pInRack"); if(!br) return;
     if(it.rackId){ var rk=(state.items||[]).filter(function(q){ return q.id===it.rackId; })[0];
       br.style.display="block"; br.innerHTML="";
@@ -11893,7 +11962,54 @@ function backlineListPdf(shared){
 /* ===== Lista RF auto (discovery pro #2): radiomicrofoni e in-ear che usano una frequenza radio.
    SOLO documentale (frequenza + banda per il rider) — NON coordinamento/intermod (c'è Wireless Workbench).
    Il service legge quante frequenze servono e in che banda per pianificare. Layer opzionale. ===== */
-var RF_TYPES={ wireless:"Radiomic palmare", headset:"Headset (archetto)", iem:"IEM beltpack", iemant:"TX in-ear (rack)" };
+/* ===== F3 — Sistema RF: ricevitori model-driven, associazione tx→rx automatica =====
+   RX_DB: SOLO dati di targa verificati (datasheet pubblici); il generico chiede i canali.
+   RF_BANDS: range pubblicati Sennheiser EW-D/EW-DX — il controllo frequenza∈banda scatta solo
+   se la banda scritta coincide con una nota (mai inventare). */
+var RX_DB={
+  ewdem:   {brand:"Sennheiser", model:"EW-D EM",    ch:1},
+  ewdxem2: {brand:"Sennheiser", model:"EW-DX EM 2", ch:2},
+  ulxd4d:  {brand:"Shure",      model:"ULXD4D",     ch:2},
+  ulxd4q:  {brand:"Shure",      model:"ULXD4Q",     ch:4}
+};
+var RF_BANDS={ "R1-9":[520.0,607.8], "S1-10":[606.2,693.8], "Q1-9":[470.2,550.0], "U1/5":[823.2,831.8] };
+var RF_TX={ wireless:1, headset:1 };
+function rxCapOf(it){ return (it.hw&&RX_DB[it.hw]) ? RX_DB[it.hw].ch : Math.max(1,Math.min(8,+it.rxN||2)); }
+function rfAssign(){
+  /* derivazione pura: pin espliciti (rxId+rxCh) → rxId solo → automatici in ordine; il resto = orfani */
+  var rxs=(state.items||[]).filter(function(x){ return x.type==="rxrf"; });
+  var txs=(state.items||[]).filter(function(x){ return RF_TX[x.type]; });
+  var byTx={}, byRx={}, orphans=[];
+  if(!rxs.length) return {byTx:byTx, byRx:byRx, orphans:[], rxs:rxs, txs:txs};
+  var rxById={}, slots={};
+  rxs.forEach(function(r){ rxById[r.id]=r; slots[r.id]=new Array(rxCapOf(r)); byRx[r.id]=[]; });
+  function put(tx,r,ch){ slots[r.id][ch-1]=tx; byTx[tx.id]={rx:r, ch:ch}; }
+  txs.forEach(function(tx){ var r=rxById[tx.rxId];
+    if(r && tx.rxCh>=1 && tx.rxCh<=slots[r.id].length && !slots[r.id][tx.rxCh-1]) put(tx,r,tx.rxCh); });
+  txs.forEach(function(tx){ if(byTx[tx.id]) return; var r=rxById[tx.rxId]; if(!r) return;
+    for(var c=0;c<slots[r.id].length;c++){ if(!slots[r.id][c]){ put(tx,r,c+1); return; } } });
+  txs.forEach(function(tx){ if(byTx[tx.id]) return;
+    for(var i=0;i<rxs.length;i++){ var r=rxs[i];
+      for(var c=0;c<slots[r.id].length;c++){ if(!slots[r.id][c]){ put(tx,r,c+1); return; } } }
+    orphans.push(tx); });
+  rxs.forEach(function(r){ slots[r.id].forEach(function(tx,c){ if(tx) byRx[r.id].push({tx:tx, ch:c+1}); }); });
+  return {byTx:byTx, byRx:byRx, orphans:orphans, rxs:rxs, txs:txs};
+}
+function rfTxName(tx){ return (tx.label&&tx.label.trim()) ? tx.label.trim() : (TYPES[tx.type]?TYPES[tx.type].nome:tx.type); }
+function rfIssues(){
+  var A=rfAssign(), out=[];
+  if(!A.rxs.length) return out;
+  if(A.orphans.length) out.push({lvl:"warn", msg:A.orphans.length+" radiomic senza ricevitore ("+A.orphans.map(rfTxName).join(", ")+"): capienza RF esaurita — aggiungi un ricevitore."});
+  var seen={};
+  A.txs.forEach(function(tx){ var f=(tx.rf||"").trim(); if(!f) return;
+    if(seen[f]) out.push({lvl:"err", msg:"Frequenza RF duplicata "+f+" MHz: "+seen[f]+" e "+rfTxName(tx)+" — due trasmettitori sulla stessa frequenza si disturbano."});
+    else seen[f]=rfTxName(tx); });
+  A.rxs.forEach(function(r){ var rng=RF_BANDS[(r.band||"").trim()]; if(!rng) return;
+    (A.byRx[r.id]||[]).forEach(function(a){ var f=parseFloat(a.tx.rf); if(!isFinite(f)) return;
+      if(f<rng[0]||f>rng[1]) out.push({lvl:"warn", msg:"Frequenza "+a.tx.rf+" MHz di "+rfTxName(a.tx)+" fuori dalla banda "+r.band.trim()+" ("+rng[0]+"–"+rng[1]+" MHz) del ricevitore."}); }); });
+  return out;
+}
+var RF_TYPES={ wireless:"Radiomic palmare", headset:"Headset (archetto)", iem:"IEM beltpack", iemant:"TX in-ear (rack)", rxrf:"Ricevitore" };
 function isRf(it){ return !!(it && RF_TYPES[it.type]); }
 function rfList(){
   var rows=[], bands={};
@@ -11902,7 +12018,13 @@ function rfList(){
     var t=TYPES[it.type];
     var name=(it.label && it.label.trim()) ? it.label.trim() : (t?t.nome:it.type);
     var band=(it.band||"").trim();
-    rows.push({ name:name, kind:RF_TYPES[it.type], rf:(it.rf||"").trim(), band:band });
+    if(it.type==="rxrf"){   /* il ricevitore compare come riga infrastruttura: modello + canali */
+      var _db=it.hw&&RX_DB[it.hw];
+      rows.push({ name:name, kind:"Ricevitore "+rxCapOf(it)+" ch"+(_db?" ("+_db.brand+" "+_db.model+")":""), rf:"", band:band, rx:"" });
+      if(band) bands[band]=(bands[band]||0)+1; return; }
+    var _as=rfAssign().byTx[it.id];
+    rows.push({ name:name, kind:RF_TYPES[it.type], rf:(it.rf||"").trim(), band:band,
+      rx:_as ? ((_as.rx.label&&_as.rx.label.trim())||"RX")+" ch "+_as.ch : "" });
     if(band) bands[band]=(bands[band]||0)+1;
   });
   rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
@@ -11912,7 +12034,7 @@ function rfListPdf(shared){
   var pl=rfList(); if(!pl.rows.length){ if(!shared) alert("Nessun radiomic o in-ear sul palco."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+78, M+120];
+    var M=16, y=22, cols=[M, M+66, M+104, M+148];
     doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
@@ -11922,10 +12044,10 @@ function rfListPdf(shared){
     var sommario = pl.count+" frequenz"+(pl.count===1?"a":"e")+" RF" + (bandKeys.length ? "   ·   "+bandKeys.map(function(b){ return b+": "+pl.bands[b]; }).join("  ·  ") : "");
     doc.text(sommario, M, y); y+=6;
     doc.setFontSize(8.5); doc.setTextColor("#9ca3af"); doc.text("Documentazione per il coordinamento frequenze (a cura del service).", M, y); y+=7;
-    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.6; }
-    trow("DISPOSITIVO","TIPO","FREQUENZA / BANDA", "", true, "#4338ca");
+    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.6; }
+    trow("DISPOSITIVO","TIPO","FREQUENZA / BANDA", "RICEVITORE", true, "#4338ca");
     doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
-    pl.rows.forEach(function(r){ var fb=[r.rf, r.band].filter(Boolean).join(" · ")||"—"; trow(r.name, r.kind, fb, "", false, r.rf||r.band?"#111827":"#9ca3af"); });
+    pl.rows.forEach(function(r){ var fb=[r.rf, r.band].filter(Boolean).join(" · ")||"—"; trow(r.name, r.kind, fb, r.rx||"", false, r.rf||r.band?"#111827":"#9ca3af"); });
     if(shared) return;
     pdfCredit(doc);
     doc.save(fileName()+"-lista-rf.pdf");
@@ -12294,7 +12416,7 @@ function pdfListConfig(){
       cols:[{h:"Q.tà",num:1,f:function(r){return r.qty+"×";}},{h:"Attrezzatura",f:function(r){return r.name;}},{h:"Fornito da",f:function(r){return r.by||"—";}}] },
     rf:{ title:"Lista RF", color:"#4f46e5", data:(typeof rfList==="function"?rfList:null),
       sub:function(d){ return d.count+" frequenz"+(d.count===1?"a":"e")+" RF"; },
-      cols:[{h:"Dispositivo",f:function(r){return r.name;}},{h:"Tipo",f:function(r){return r.kind;}},{h:"Freq / banda",f:function(r){return [r.rf,r.band].filter(Boolean).join(" · ")||"—";}}] }
+      cols:[{h:"Dispositivo",f:function(r){return r.name;}},{h:"Tipo",f:function(r){return r.kind;}},{h:"Freq / banda",f:function(r){return [r.rf,r.band].filter(Boolean).join(" · ")||"—";}},{h:"Ricevitore",f:function(r){return r.rx||"—";}}] }
   };
 }
 function listPreviewHtml(key){
