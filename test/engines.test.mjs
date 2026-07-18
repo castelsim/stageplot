@@ -1654,5 +1654,51 @@ t("F2: device ID + FOH continuo + porte riservate/pinnate + conflitti", () => {
   eq(JSON.stringify(n16.sbRes), "[3]", "sbRes dedup + solo porte valide");
 });
 
+t("F3: ricevitori RF — associazione auto, pin, capienza, sorgente audio dal ricevitore", () => {
+  reset();
+  const v1 = add("wireless", 300, 200); v1.label = "Voce 1";
+  const v2 = add("wireless", 350, 200); v2.label = "Voce 2";
+  const pr = add("headset", 400, 200); pr.label = "Presentatore";
+  // senza ricevitori: tutto come prima (i tx sono sorgenti)
+  eq(A.rfAssign().rxs.length, 0, "nessun rx");
+  eq(A.cabItemInputs(v1).length, 1, "senza rx il palmare resta sorgente");
+  // rx generico da 2: i primi due assegnati, il terzo orfano
+  const rx = add("rxrf", 600, 300);
+  let R = A.rfAssign();
+  eq(R.byTx[v1.id].ch, 1, "Voce 1 → ch 1"); eq(R.byTx[v2.id].ch, 2, "Voce 2 → ch 2");
+  eq(R.orphans.length, 1, "Presentatore orfano");
+  eq(A.cabItemInputs(v1).length, 0, "tx assegnato: 0 canali dal palmare");
+  const chans = A.cabItemInputs(rx);
+  eq(chans.length, 2, "il ricevitore è la sorgente");
+  eq(chans[0].name, "Voce 1", "nome canale dal tx"); eq(chans[0].mic, "Beta 58A", "capsula da IN_SRC");
+  eq(A.cabItemInputs(pr).length, 1, "l'orfano resta sorgente diretta");
+  ok(A.rfIssues().some(i => i.lvl === "warn" && /senza ricevitore/.test(i.msg)), "warn orfano");
+  // pin esplicito: Presentatore sul ch 1 → Voce 1 scala, Voce 2 orfana (2 posti)
+  pr.rxId = rx.id; pr.rxCh = 1;
+  R = A.rfAssign();
+  eq(R.byTx[pr.id].ch, 1, "pin rispettato"); eq(R.byTx[v1.id].ch, 2, "auto scala");
+  eq(R.orphans[0].id, v2.id, "Voce 2 orfana");
+  // modello reale: ULXD4Q = 4 canali → tutti dentro
+  rx.hw = "ulxd4q";
+  R = A.rfAssign();
+  eq(R.orphans.length, 0, "capienza 4: nessun orfano");
+  eq(A.rxCapOf(rx), 4, "canali di targa");
+  // frequenza duplicata = err; fuori banda nota = warn
+  v1.rf = "524.375"; v2.rf = "524.375";
+  ok(A.rfIssues().some(i => i.lvl === "err" && /duplicata/.test(i.msg)), "freq duplicata = err");
+  delete v2.rf; rx.band = "R1-9"; v1.rf = "700.000";
+  ok(A.rfIssues().some(i => i.lvl === "warn" && /fuori dalla banda/.test(i.msg)), "700 MHz fuori R1-9 = warn");
+  v1.rf = "524.375";
+  ok(!A.rfIssues().some(i => /fuori dalla banda/.test(i.msg)), "524.375 in R1-9: ok");
+  // lista RF: colonna ricevitore
+  const row = A.rfList().rows.find(r => r.name === "Voce 1");
+  ok(/ch/.test(row.rx), "lista: ricevitore + canale");
+  // normalize: rx eliminato → pin puliti, tx tornano sorgenti
+  A.state.items = A.state.items.filter(i => i.id !== rx.id);
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.items.some(i => i.rxId != null), false, "rxId orfano rimosso");
+  eq(A.cabItemInputs(A.state.items.find(i => i.id === v1.id)).length, 1, "il palmare torna sorgente");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
