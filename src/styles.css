@@ -395,6 +395,24 @@
   .net-line{fill:none;stroke:#4f46e5;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:10 4 2 4;pointer-events:none}
   .net-lbl{fill:#4f46e5;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .net-sec{stroke-dasharray:5 5;stroke-width:1.6;opacity:.75}
+  /* Output list: righe bus console + porte out nel pannello box */
+  .bus-row{display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid var(--n-100);font-size:12px}
+  .bus-tag{flex:0 0 auto;font-size:9px;font-weight:700;border-radius:999px;padding:1px 7px;background:var(--n-100);color:var(--text-2)}
+  .bus-nm{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bus-out{flex:0 0 auto;font-family:ui-monospace,monospace;font-size:10.5px;background:var(--n-100);border-radius:5px;padding:1px 6px;cursor:pointer;white-space:nowrap}
+  .bus-out.pin{background:var(--n-800);color:#fff}
+  .bus-out.miss{background:var(--danger-bg,#fee2e2);color:var(--danger,#b91c1c);font-weight:700}
+  .bus-dst{flex:0 1 auto;max-width:110px;font-size:10.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bus-x{flex:0 0 auto;color:var(--text-3);cursor:pointer;padding:0 3px;font-size:14px}
+  .bus-x:hover{color:var(--danger,#b91c1c)}
+  .bus-add{display:flex;gap:6px;margin-top:8px}
+  .bus-add select{flex:0 0 auto;font-size:11.5px;max-width:132px}
+  .bus-add input{flex:1;min-width:0;font-size:12px}
+  .bus-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .bus-chip{font-size:10.5px;border:1px dashed var(--n-300);color:var(--text-2);border-radius:999px;padding:2px 9px;cursor:pointer}
+  .bus-chip:hover{border-color:var(--accent);color:var(--accent-strong)}
+  .sbp.mon{background:#0891b2;border-color:#0891b2;color:#fff;cursor:default}
+  .sbp.busout{background:#4f46e5;border-color:#4f46e5;color:#fff;cursor:default}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
   .cab-legend-t{fill:#374151;font-size:9px;font-weight:600}
