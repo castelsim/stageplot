@@ -1592,5 +1592,24 @@ t("stagebox generica: 8 in / 0 out = ciabattina 34×26, reversibile, mai sopra i
   eq([sb.w, sb.d].join("x"), "58x46", "col modello hw non si tocca");
 });
 
+t("rack: contenuti ordinati, U dai datasheet noti, orfani liberati dal normalize", () => {
+  reset();
+  const rk = add("rack", 500, 200);
+  const b1 = add("stagebox", 500, 200); b1.hw = "rio3224d2"; b1.rackId = rk.id; b1.rackPos = 1;
+  const b2 = add("stagebox", 500, 200); b2.hw = "rio1608d2"; b2.rackId = rk.id; b2.rackPos = 0;
+  const hub = add("mixhub", 500, 200); hub.rackId = rk.id; hub.rackPos = 2;
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.items.find(i => i.type === "rack").rackU, 12, "default 12U");
+  const cont = A.rackContents(rk.id);
+  eq(cont.map(x => x.hw || x.type).join(","), "rio1608d2,rio3224d2,mixhub", "ordine per rackPos");
+  eq(A.rackUsedU(rk.id), 2 + 3 + 1, "U: 2 (Rio16) + 3 (Rio32) + 1 (default hub)");
+  cont[2].rackUh = 2;
+  eq(A.rackUsedU(rk.id), 7, "U modificabile a mano vince");
+  // rack eliminato → gli apparecchi si liberano
+  A.state.items = A.state.items.filter(i => i.id !== rk.id);
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.items.some(i => i.rackId), false, "nessun rackId orfano dopo il normalize");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

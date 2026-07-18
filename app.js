@@ -859,6 +859,13 @@ var TYPES = {
   stagebox: {nome:"Stagebox", dim:"~55×40", cat:"Cablaggio e segnale", w:58,d:46, defLabel:"STAGEBOX",
              /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26 */
              draw:function(it){ return drawLibFit("stagebox",it,50,40); }},
+  rack:     {nome:"Rack tecnico", dim:"case 60×50", cat:"Cablaggio e segnale", w:60,d:50, defLabel:"RACK",
+             draw:function(it){
+               /* case da rack vista dall'alto: guscio scuro, cornice interna, maniglie laterali, feritoie */
+               var s2=bar(0,0,60,50,'ic fBlack',5)+bar(0,0,50,40,'ic thin fGrey',3);
+               s2+=bar(-33,0,5,16,'ic fGrey',2)+bar(33,0,5,16,'ic fGrey',2);
+               [-14,-7,0,7,14].forEach(function(y){ s2+=bar(0,y,38,1.6,'fill',1); });
+               return s2; }},
   patchpt:  {nome:"Patch point", dim:"punto di patch", cat:"Cablaggio e segnale", w:34,d:34, defLabel:"PATCH",
              draw:function(){ return circ(0,0,15,'ic tec fGrey')+circ(0,0,4,'tec fill')+bar(0,-9,2,6,'tec fill',1)+bar(0,9,2,6,'tec fill',1)+bar(-9,0,6,2,'tec fill',1)+bar(9,0,6,2,'tec fill',1); }},
   splitter: {nome:"Splitter audio", dim:"rack 3U", cat:"Cablaggio e segnale", catalog:false, w:70,d:46, defLabel:"SPLIT",
@@ -1260,6 +1267,23 @@ function sepCfg(it){
 function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /* larghezza ingombro dalla distanza */
 var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
+/* ===== RACK (18/07, mockup approvato): contenitore tecnico — un ingombro sul palco, apparecchi veri dentro ===== */
+var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1 };
+var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
+/* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
+var RACK_U_HW={ rio3224d2:3, rio3224d3:3, rio1608d2:2, rio1608d3:2, tio1608d:2 };
+function rackUhOf(it){
+  if(it.rackUh) return it.rackUh;
+  if(it.type==="stagebox" && it.hw && RACK_U_HW[it.hw]) return RACK_U_HW[it.hw];
+  return 1;
+}
+function rackContents(rackId){
+  return (state.items||[]).filter(function(x){ return x.rackId===rackId; })
+    .sort(function(a,b){ return (a.rackPos||0)-(b.rackPos||0); });
+}
+function rackUsedU(rackId){
+  return rackContents(rackId).reduce(function(a,x){ return a+rackUhOf(x); },0);
+}
 /* Contatto sul musicista (17/07): il bottone Contatto compare SOLO sugli elementi-persona. */
 function contactEligible(type){
   return !!(POSTAZ[type] || DOUBLE_TYPES[type] || VOCE[type] || TASTIERE[type] || type==="direttore" || type==="batteria");
@@ -2175,6 +2199,16 @@ function normalizeState(s){
   s.items=s.items||[];
   if(s.lookDefault!=="schematico") s.lookDefault="illustrato";   /* B4: aspetto predefinito del progetto (default illustrato); i nuovi elementi lo ereditano */
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
+  /* RACK: rackId orfano (rack eliminato/mancante) → l'apparecchio si libera dov'era; ordine rinumerato */
+  (function(){
+    var rackIds={}; s.items.forEach(function(x){ if(x.type==="rack") rackIds[x.id]=1; });
+    s.items.forEach(function(x){ if(x.rackId && !rackIds[x.rackId]){ delete x.rackId; delete x.rackPos; } });
+    Object.keys(rackIds).forEach(function(rid){
+      s.items.filter(function(x){ return x.rackId===rid; })
+        .sort(function(a,b){ return (a.rackPos||0)-(b.rackPos||0); })
+        .forEach(function(x,i){ x.rackPos=i; });
+    });
+  })();
   /* Backfill difensivo w/d (08/07): un item senza w/d (progetto vecchio/importato) fa calcolare
      geometrie NaN alle draw che dipendono da it.w/it.sep (es. doppiatastiera) → svg2pdf lancia e
      il PDF cade in raster. Garantiamo w/d (+ sep per le doppie, parts/size per le composte). */
@@ -2182,6 +2216,7 @@ function normalizeState(s){
     if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=defSepOf(it);
       if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
     if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
+    if(it.type==="rack"){ if(!(it.rackU>=4 && it.rackU<=24)) it.rackU=12; if(!it.rackFn) it.rackFn="generico"; }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
