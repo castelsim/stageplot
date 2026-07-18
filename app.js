@@ -2217,6 +2217,8 @@ function normalizeState(s){
       if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
     if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
     if(it.type==="rack"){ if(!(it.rackU>=4 && it.rackU<=24)) it.rackU=12; if(!it.rackFn) it.rackFn="generico"; }
+    if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
+      if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; } }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
@@ -3300,7 +3302,12 @@ function audioCablingEngine(){
   sources.forEach(function(s){ var k=s.it.id; if(!byItem[k]){ byItem[k]={it:s.it, list:[]}; groups.push(byItem[k]); } byItem[k].list.push(s); });
   /* 4-6. stage box: piazzate (capacità dal modello hw), oppure proposta drop box 8ch a gruppi */
   var boxes=state.items.filter(cabIsBox).map(function(it){
-    return {x:it.x, y:it.y, cap:cabBoxCap(it), used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null, name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
+    var cap0=cabBoxCap(it);
+    var res=(Array.isArray(it.sbRes)?it.sbRes:[]).filter(function(pn){ return pn>=1 && pn<=cap0; });
+    var rm={}; res.forEach(function(pn){ rm[pn]=1; });
+    return {x:it.x, y:it.y, cap:cap0, used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null,
+            sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, taken:{}, pins:{},
+            name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
   if(!manualMode && !boxes.length && totIn){
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
       var nb=Math.max(1, Math.ceil(c.n/8));
@@ -3312,13 +3319,27 @@ function audioCablingEngine(){
     issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
   }
   boxes.forEach(function(b,i){ b.letter=String.fromCharCode(65+i); });
+  /* F2 (caso DM7/Rio): device ID effettivo = sbId scelto o posizione; numerazione FOH CONTINUA per ordine di ID */
+  var _eidTaken={}; boxes.forEach(function(b){ if(b.sbId) _eidTaken[b.sbId]=1; });
+  var _eidNext=1;
+  boxes.forEach(function(b){ if(b.sbId){ b.eid=b.sbId; } else { while(_eidTaken[_eidNext]) _eidNext++; b.eid=_eidNext; _eidTaken[_eidNext]=1; } });
+  var _sorted=boxes.slice().sort(function(a,b2){ return (a.eid-b2.eid) || (a.letter<b2.letter?-1:1); });
+  var _base=0; _sorted.forEach(function(b){ b.fohBase=_base; _base+=b.cap; });
+  var _seenId={}; boxes.forEach(function(b){ if(b.sbId){ if(_seenId[b.sbId]) issues.push({lvl:"warn", msg:"Device ID duplicato: due stage box con ID "+b.sbId+" — cambia l'ID di una."}); _seenId[b.sbId]=b; } });
+  var _dupPorts=[];
+  function takePort(b, want){
+    if(want>0){ if(b.taken[want]) _dupPorts.push({b:b, p:want}); b.taken[want]=1; b.pins[want]=1; return want; }
+    for(var pn=1; pn<=b.cap; pn++){ if(!b.taken[pn] && !b.resMap[pn]){ b.taken[pn]=1; return pn; } }
+    b.overflow=(b.overflow||0)+1; var po=b.cap+b.overflow; b.taken[po]=1; return po;   /* oltre capienza: numerata oltre, l'audit avvisa già */
+  }
   var home=cabHomePoint();
   /* 7-10. assegnazione: canali di un elemento insieme sulla box più vicina con capacità; poi spill */
   var links=[], unassigned=[], pending=[];
   function d2(x,y,b){ return Math.pow(x-b.x,2)+Math.pow(y-b.y,2); }
   groups.forEach(function(g){
     var cand=boxes.slice().sort(function(a,b){ return d2(g.it.x,g.it.y,a)-d2(g.it.x,g.it.y,b); });
-    var whole=cand.filter(function(b){ return b.cap-b.used>=g.list.length; })[0]||null;
+    function bfree(b){ return b.cap-(b.res?b.res.length:0)-b.used; }   /* F2: le porte riservate non contano per l'auto */
+    var whole=cand.filter(function(b){ return bfree(b)>=g.list.length; })[0]||null;
     if(g.list.length>=2){
       /* CAVO UNICO (Simone 09/07): uno strumento multi-canale (batteria, ampli, coppie…) = UN cavo che porta
          tutti i canali. Instrada UNA volta con chiave di gruppo "grp:id"; gli N link condividono cavo/box/percorso
@@ -3330,23 +3351,28 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
       var pts=[portAnchor(g.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
-      g.list.forEach(function(s){ b.used++; links.push({s:s, box:b, ch:b.used, key:gk, pts:pts, lenM:lenM, cut:cut,
-        label:(b.letter+b.used), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
+      g.list.forEach(function(s){ b.used++; var pn=takePort(b,0); links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut,
+        label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
       return;
     }
     g.list.forEach(function(s){
       var ov=man[s.key]||{};
       if(manualMode && !ov.box && !ov.deleted){ pending.push(s); return; }   /* manual-first: non ancora collegata (non è un errore) */
       /* Fase B riconnessione: se l'utente ha trascinato l'estremo su una stage box precisa, usa QUELLA (se ha posto) */
-      var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box && bb.cap-bb.used>=1; })[0] : null;
-      var b= manualMode ? forced : (forced || whole || cand.filter(function(bb){ return bb.cap-bb.used>=1; })[0] || null);
+      var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box && bfree(bb)>=1; })[0] : null;
+      var b= manualMode ? forced : (forced || whole || cand.filter(function(bb){ return bfree(bb)>=1; })[0] || null);
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
+      var pn=takePort(b, (ov.port>0? +ov.port : 0));   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       var pts=[portAnchor(s.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);   /* il cavo parte dal pallino audio dell'elemento */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
-      links.push({s:s, box:b, ch:b.used, key:s.key, pts:pts, lenM:lenM, cut:cut,
-                  label:(ov.label!=null?ov.label:(b.letter+b.used)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
+      links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0),
+                  label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
+  });
+  _dupPorts.forEach(function(dp){
+    var tag=dp.b.sbId?("ID "+dp.b.sbId):("box "+dp.b.letter);
+    issues.push({lvl:"err", msg:"Porta duplicata su "+tag+": porta "+dp.p+" assegnata a due canali — sposta uno dei due."});
   });
   /* Fan-out (08/07): i cavi che convergono su una stessa box entrano su punti DISTINTI (a ventaglio
      nei connettori), non tutti sul centro → si contano invece di accavallarsi in un'unica linea.
@@ -4756,6 +4782,45 @@ function openRackFront(it){
   }
   body.appendChild(frame);
 }
+/* ===== F2 (DM7/Rio): Device ID + griglia porte nel pannello stagebox ===== */
+function renderSbF2(it){
+  var idRow=document.getElementById("pSbIdRow"), pw=document.getElementById("pSbPortsWrap");
+  if(!idRow || !pw) return;
+  idRow.style.display="block"; pw.style.display="block";
+  var R=null, b=null;
+  try{ R=cabResult(); b=(R.boxes||[]).filter(function(x){ return x.id===it.id; })[0]; }catch(_e){}
+  var sel=document.getElementById("pSbIdSel");
+  sel.innerHTML="";
+  var autoId=b?b.eid:1;
+  var o0=document.createElement("option"); o0.value=""; o0.textContent="Automatico (ID "+autoId+")"; sel.appendChild(o0);
+  for(var i2=1;i2<=12;i2++){ var oi=document.createElement("option"); oi.value=i2; oi.textContent="ID "+i2; sel.appendChild(oi); }
+  sel.value=it.sbId>0?String(it.sbId):"";
+  sel.onchange=function(){ if(sel.value) it.sbId=+sel.value; else delete it.sbId; __cabRes=null; save(); render(); renderProps(); };
+  var host=document.getElementById("pSbPorts"); host.innerHTML="";
+  var cap=b?b.cap:cabBoxCap(it);
+  var resArr=Array.isArray(it.sbRes)?it.sbRes:[];
+  for(var pn=1;pn<=cap;pn++){
+    var d=document.createElement("div"); d.className="sbp"; d.textContent=pn;
+    var st = b&&b.pins[pn] ? "pin" : (b&&b.taken[pn] ? "uso" : (resArr.indexOf(pn)>-1 ? "ris" : ""));
+    if(st) d.classList.add(st);
+    d.title = st==="pin"?"pinnata a mano":st==="uso"?"in uso (dal palco)":st==="ris"?"riservata — click per liberare":"libera — click per riservare";
+    (function(pn2, st2){
+      d.addEventListener("click", function(){
+        if(st2==="uso"||st2==="pin") return;
+        var arr=Array.isArray(it.sbRes)?it.sbRes.slice():[];
+        var ix=arr.indexOf(pn2);
+        if(ix>-1) arr.splice(ix,1); else arr.push(pn2);
+        if(arr.length) it.sbRes=arr; else delete it.sbRes;
+        __cabRes=null; save(); render(); renderProps();
+      });
+    })(pn, st);
+    host.appendChild(d);
+  }
+  var used=b?Object.keys(b.taken).length:0;
+  var hint=document.getElementById("pSbPortsHint");
+  if(b && b.fohBase!=null) hint.textContent="Canali FOH "+(b.fohBase+1)+"–"+(b.fohBase+cap)+" · "+used+" in uso · "+resArr.length+" riservate · "+Math.max(0,cap-used-resArr.length)+" libere";
+  else hint.textContent=used+" in uso · "+resArr.length+" riservate";
+}
 function renderProps(){
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
@@ -4843,6 +4908,7 @@ function renderProps(){
       hwSel.value = it.hw||"";
       var mx=(state.cab&&state.cab.mixer);
       document.getElementById("pSbHwHint").textContent = (mx&&MIXER_DB[mx]) ? "· compatibili "+hwProtoNames(MIXER_DB[mx].proto) : "";
+      renderSbF2(it);
       document.getElementById("pSbChRow").style.display = it.hw ? "none" : "block";
       document.getElementById("pSbOutRow").style.display = it.hw ? "none" : "block";   /* #9/#13: uscite solo per le generiche (i modelli hanno in/out fissi) */
       if(!it.hw){ var sbSel=document.getElementById("pSbCh"), cap=String(cabBoxCap(it));
@@ -9484,12 +9550,18 @@ function patchList(){
     }
     var p48=(o||!mic)?false:(eqPh!=null ? eqPh==="required" : !!micInfo(mic).p48);
     return {n:++n, name:name, mic:mic, stand:(o||!mic)?"":(micInfo(mic).stand||""), p48:p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }   /* stand = tipo asta suggerito dal mic (MIC_DEFAULTS) */
-  R.links.forEach(function(l){ if(l.deleted) return; rows.push(row(l.s.name, l.s.mic, l.s.key, l.box.letter+l.ch, l.box.letter, l.s.it.id)); });
+  var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
+  R.links.forEach(function(l){ if(l.deleted) return;
+    var tag=l.box.sbId?("ID"+l.box.sbId):l.box.letter;
+    var r0=row(l.s.name, l.s.mic, l.s.key, tag+"·"+l.ch, l.box.letter, l.s.it.id);
+    r0.foh=(l.box.fohBase!=null)?(l.box.fohBase+l.ch):null; r0.port=l.ch; r0.boxId=l.box.id; r0.pinned=!!l.pinned;
+    r0.short=(man[l.s.key]&&man[l.s.key].short)||"";
+    rows.push(r0); });
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
   (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */
   applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
   if(state.cab && state.cab.stereoOdd) rows=alignStereoOdd(rows);   /* convenzione L=dispari/R=pari (opt-in via audit) */
-  return {rows:rows, R:R};
+  return {rows:rows, R:R, hasFoh:hasFoh};
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
 /* Liste tecniche MODIFICABILI: click su una riga = seleziona l'elemento sul palco (per spostarlo),
@@ -9559,6 +9631,40 @@ function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dra
   }
   row.appendChild(acts); return row;
 }
+/* F2: popover porta fisica + nome breve (un solo punto di edit per canale — facilità) */
+function openPortPop(ev, r){
+  var old=document.getElementById("portPop"); if(old) old.remove();
+  var pop=document.createElement("div"); pop.id="portPop"; pop.className="port-pop";
+  var R=cabResult(), b=(R.boxes||[]).filter(function(x){ return x.id===r.boxId; })[0];
+  var man=state.cab.manual||{}, cur=(man[r.key]&&man[r.key].port)||0;
+  var h='';
+  if(b){
+    h+='<label>Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
+    for(var pn=1;pn<=b.cap;pn++){
+      var free=!b.taken[pn]||pn===r.port;
+      h+='<option value="'+pn+'"'+(cur===pn?' selected':'')+(free?'':' disabled')+'>'+pn+(b.resMap[pn]?' (riservata)':(b.taken[pn]&&pn!==r.port?' — occupata':''))+'</option>';
+    }
+    h+='</select>';
+  }
+  h+='<label>Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
+  pop.innerHTML=h;
+  document.body.appendChild(pop);
+  pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
+  pop.style.top=Math.min(ev.clientY+8, window.innerHeight-pop.offsetHeight-10)+"px";
+  function commit(){
+    var m=cabManual(r.key);
+    var sv=document.getElementById("ppSel");
+    if(sv){ if(sv.value) m.port=+sv.value; else delete m.port; }
+    var sh=document.getElementById("ppShort").value.trim();
+    if(sh) m.short=sh.slice(0,12); else delete m.short;
+    if(!Object.keys(m).length) delete state.cab.manual[r.key];
+    __cabRes=null; save(); render();
+  }
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });
+  var sv=document.getElementById("ppSel"); if(sv) sv.addEventListener("change", commit);
+  document.getElementById("ppShort").addEventListener("change", commit);
+  setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
+}
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
   sec.style.display = patchActive ? "block" : "none";   /* sezione presente SOLO se attivata dal catalogo */
@@ -9578,10 +9684,12 @@ function renderPatchPanel(){
   pl.rows.forEach(function(r){
     if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
     var micCell = r.mic ? (esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')) : '<span style="color:var(--text-3)">— no mic</span>';
-    var cells=['<span class="pn">'+r.n+'</span>',
-      '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
+    var numCell=(pl.hasFoh && r.foh) ? r.foh : r.n;   /* F2: con più box/ID il numero è il canale FOH continuo */
+    var srcTxt=esc(r.name)+(r.short?' <small style="color:var(--text-3)">«'+esc(r.short)+'»</small>':'');
+    var cells=['<span class="pn"'+(pl.hasFoh&&r.foh?' style="font-weight:700;color:var(--accent-strong)"':'')+'>'+numCell+'</span>',
+      '<span class="psrc" title="'+esc(r.name)+'">'+srcTxt+'</span>',
       '<span class="pmic">'+micCell+'</span>',
-      '<span class="ppatch">'+esc(r.patch)+'</span>'];
+      '<span class="ppatch">'+(r.pinned?'📌 ':'')+esc(r.patch)+'</span>'];
     var key=r.key, iid=r.itemId;   /* cestino = toglie SOLO il mic; ▲▼ = riordino; doppio click sul nome = rinomina */
     var row=makeListRow(cells, iid?[iid]:null, iid&&selSet[iid],
       r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
@@ -9591,9 +9699,22 @@ function renderPatchPanel(){
     var micEl=row.querySelector(".pmic");   /* click sulla cella MIC/DI = cambia mic/tipo inline (testo: SM58, DI, Line…) */
     if(micEl){ micEl.classList.add("editable-cell"); micEl.title="Click per cambiare microfono/tipo (es. SM58, DI, Line)";
       micEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(micEl, r.mic||"", function(v){ cabSetMic(key, v); }); }); }
+    var pEl=row.querySelector(".ppatch");   /* F2: click sulla cella patch = porta fisica + nome breve (popover) */
+    if(pEl){ pEl.classList.add("editable-cell"); pEl.title="Click: porta fisica e nome breve console";
+      pEl.addEventListener("click", function(e){ e.stopPropagation(); openPortPop(e, r); }); }
     if(!r.box) row.classList.add("unassigned");
     if(r.micOff) row.classList.add("micoff");
     host.appendChild(row);
+  });
+  /* F2: riepilogo porte per box (riservate/libere) — i tuoi 65-96 senza righe fantasma */
+  (R.boxes||[]).forEach(function(b){
+    if(!b.res.length && b.used) return;
+    var used2=Object.keys(b.taken).length, free2=Math.max(0,b.cap-used2-b.res.length);
+    if(!b.res.length && !free2) return;
+    var tag=b.sbId?("ID"+b.sbId):b.letter;
+    var d2=document.createElement("div"); d2.className="patch-row"; d2.style.color="var(--text-3)"; d2.style.fontSize="11px";
+    d2.innerHTML='<span class="pn"></span><span class="psrc" style="font-style:italic">'+esc(tag)+(b.fohBase!=null?' · FOH '+(b.fohBase+1)+'–'+(b.fohBase+b.cap):'')+'</span><span class="pmic"></span><span class="ppatch">'+used2+' uso · '+b.res.length+' ris · '+free2+' lib</span>';
+    host.appendChild(d2);
   });
   enableRowDrag(host, function(){ return patchList().rows.map(function(r){ return r.key; }); }, function(o){ state.cab.order=o; });
 }
@@ -11522,7 +11643,13 @@ function patchListPdf(shared){
     function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
     trow("#","SORGENTE","MIC / DI","ASTA","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow(r.n, r.name, r.mic+(r.p48?"  (48V)":""), r.stand||"", r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.name+(r.short?'  «'+r.short+'»':""), r.mic+(r.p48?"  (48V)":""), r.stand||"", r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
+    try{ cabResult().boxes.forEach(function(b){
+      if(!b.res.length) return;
+      var u2=Object.keys(b.taken).length;
+      trow("", (b.sbId?("ID"+b.sbId):b.letter)+(b.fohBase!=null?"  ·  FOH "+(b.fohBase+1)+"-"+(b.fohBase+b.cap):""), u2+" in uso · "+b.res.length+" riservate", "", "", false, "#9a948b");
+    }); }catch(_e){}
     if(shared) return;
     pdfCredit(doc);
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
@@ -11667,6 +11794,42 @@ function backlineList(){
   rows.sort(function(a,b){ return a.name.localeCompare(b.name,"it") || a.by.localeCompare(b.by); });
   var byService=rows.filter(function(r){ return r.by==="Service"; }).reduce(function(s,r){ return s+r.qty; },0);
   return { rows:rows, count:rows.length, totItems:rows.reduce(function(s,r){return s+r.qty;},0), byService:byService };
+}
+function dantePatchPdf(shared){
+  var R; try{ R=cabResult(); }catch(_e){ R={boxes:[]}; }
+  var boxes=(R.boxes||[]).slice().sort(function(a,b){ return a.eid-b.eid; });
+  if(!boxes.length){ if(!shared) alert("Nessuna stage box sul palco."); return; }
+  var rackNames={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") rackNames[x.id]=x.label||"Rack"; });
+  var byId={}; (state.items||[]).forEach(function(x){ byId[x.id]=x; });
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+26, M+92, M+124, M+150, M+172];
+    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Patch stage box", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    if(R.mixer&&MIXER_DB[R.mixer]){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=7; }
+    function trow(a,b,c,d,e,f,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
+    trow("DEVICE","MODELLO","POSIZIONE","CANALI FOH","IN USO","RISERVATE", true, "#0d9488");
+    doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
+    boxes.forEach(function(b){
+      var it=byId[b.id]||{};
+      var model=(b.hw&&STAGEBOX_DB[b.hw])?STAGEBOX_DB[b.hw].model:(it.equipName||b.cap+" in");
+      var pos=(it.rackId&&rackNames[it.rackId])?rackNames[it.rackId]:"palco";
+      var u=Object.keys(b.taken).length;
+      trow("ID "+b.eid+(b.sbId?"":" (auto)")+"  ["+b.letter+"]", model.slice(0,34), pos.slice(0,16),
+           (b.fohBase!=null)?((b.fohBase+1)+"-"+(b.fohBase+b.cap)):"—",
+           u+"/"+b.cap, b.res.length?b.res.join(","):"—", false, "#111827");
+    });
+    y+=3;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
+    doc.text("Device ID = ordine della numerazione FOH. Riservate = porte tenute libere (spare).", M, y);
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-patch.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 function rackListPdf(shared){
   var racks=(state.items||[]).filter(function(x){ return x.type==="rack"; });
@@ -12655,6 +12818,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("rf")) rfListPdf(doc);
       if(want("pmlist")) pmListPdf(doc);
       if(want("racklist")) rackListPdf(doc);
+      if(want("dantepatch")) dantePatchPdf(doc);
       if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
       if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
       if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
@@ -12947,6 +13111,9 @@ function pdfChannelPage(doc, L, paperKey){
     if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
     if((state.items||[]).some(function(x){ return x.type==="rack"; })){ pages.push({key:"racklist", label:"Lista rack"}); }
+    try{ var bb=Rc.boxes||[];
+      if(bb.length>1 || bb.some(function(b){ return b.sbId||b.res.length||Object.keys(b.pins).length; })) pages.push({key:"dantepatch", label:"Patch stage box"});
+    }catch(_e){}
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     /* PRODUZIONE (fase 4): ultima pagina "Criticità e aspetti da definire" — offerta solo se c'è contenuto
