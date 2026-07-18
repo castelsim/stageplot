@@ -11668,6 +11668,43 @@ function backlineList(){
   var byService=rows.filter(function(r){ return r.by==="Service"; }).reduce(function(s,r){ return s+r.qty; },0);
   return { rows:rows, count:rows.length, totItems:rows.reduce(function(s,r){return s+r.qty;},0), byService:byService };
 }
+function rackListPdf(shared){
+  var racks=(state.items||[]).filter(function(x){ return x.type==="rack"; });
+  if(!racks.length){ if(!shared) alert("Nessun rack sul palco."); return; }
+  var FN={}; RACK_FN.forEach(function(o){ FN[o[0]]=o[1]; });
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22;
+    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista rack", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=9; }
+    var letters={}; try{ (cabResult().boxes||[]).forEach(function(b){ if(b.id) letters[b.id]=b.letter; }); }catch(_e){}
+    racks.forEach(function(rk){
+      var cont=rackContents(rk.id), used=rackUsedU(rk.id), tot=rk.rackU||12;
+      if(y>270){ doc.addPage(); y=18; }
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#0b7a70");
+      doc.text((rk.label||"Rack")+" — "+(FN[rk.rackFn]||"Generico")+" · "+used+"/"+tot+"U"+(used>tot?"  (!) rack troppo piccolo":""), M, y); y+=6;
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#111827");
+      if(!cont.length){ doc.setTextColor("#777777"); doc.text("(vuoto)", M, y); y+=6; }
+      cont.forEach(function(x,i){
+        if(y>286){ doc.addPage(); y=18; }
+        var nm=(letters[x.id]?("["+letters[x.id]+"] "):"")+rackDevName(x);
+        doc.setTextColor("#111827"); doc.text((i+1)+".", M, y);
+        doc.text(rackUhOf(x)+"U", M+9, y);
+        doc.text(nm.slice(0,80), M+22, y);
+        y+=5.4;
+      });
+      y+=5;
+    });
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-rack.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function backlineListPdf(shared){
   var pl=backlineList(); if(!pl.rows.length){ if(!shared) alert("Nessun elemento backline sul palco."); return; }
   var run=function(doc){
@@ -12617,6 +12654,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("backline")) backlineListPdf(doc);
       if(want("rf")) rfListPdf(doc);
       if(want("pmlist")) pmListPdf(doc);
+      if(want("racklist")) rackListPdf(doc);
       if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
       if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
       if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
@@ -12908,6 +12946,7 @@ function pdfChannelPage(doc, L, paperKey){
     if((typeof backlineList==="function") && backlineList().count){ pages.push({key:"backline", label:"Backline (attrezzatura)"}); }
     if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
+    if((state.items||[]).some(function(x){ return x.type==="rack"; })){ pages.push({key:"racklist", label:"Lista rack"}); }
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     /* PRODUZIONE (fase 4): ultima pagina "Criticità e aspetti da definire" — offerta solo se c'è contenuto
