@@ -229,10 +229,14 @@ t("Passacavi tratta modulare: conteggio moduli dalla lunghezza + badge ×N", () 
   const svg = A.drawCableRamp({ type: "cableramp", rampType: "midi", w: 88 * 3, d: 54 });
   ok(svg.indexOf("×3") > -1, "il disegno mostra il badge ×3");
 });
-t("Gazebo: telaio NON occludente (fill none) + etichetta misura + taglie preset", () => {
+t("Coperture (gazebo/tende): telaio NON occludente + etichetta UNICA nome+dimensione", () => {
   const svg = A.drawGazebo({ type: "gazebo33", w: 300, d: 600 });
   ok(svg.indexOf('fill="none"') > -1, "perimetro senza riempimento → gli elementi sotto si vedono");
-  ok(svg.indexOf("3×6") > -1, "etichetta misura 3×6");
+  ok(svg.indexOf("<text") === -1, "nessun testo nel disegno: l'etichetta è unica, gestita a livello app");
+  eq(A.gazStructLabel({ type: "gazebo33", w: 300, d: 600 }), "Gazebo 3×6 m", "etichetta = nome + dimensione automatica");
+  eq(A.gazStructLabel({ type: "gazebo33", w: 300, d: 600, label: "Bar" }), "Bar 3×6 m", "nome personalizzato, dimensione sempre automatica");
+  ok(A.GAZ_TYPES.gazebo33 && A.GAZ_TYPES.tenda63 && A.GAZ_TYPES.pma, "gazebo, tenda 6×3 e PMA = coperture a telaio");
+  ok(A.drawGazebo({ type: "pma", w: 500, d: 400 }, { cross: true }).indexOf("#dc2626") > -1, "PMA: croce rossa");
   ok(A.GAZEBO_SIZES.length >= 4, "taglie preset presenti");
   eq(A.gazLabel(450, 400), "4,5×4", "gazLabel converte cm→m");
 });
