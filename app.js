@@ -857,6 +857,7 @@ var TYPES = {
              draw:function(){ return '<path class="ic tec" fill="#fff" d="M -11,-12 L 1,10 L -23,10 Z"/>'+
                '<path class="ic tec" fill="#fff" d="M 11,-12 L 23,10 L -1,10 Z"/>'; }},
   stagebox: {nome:"Stagebox", dim:"~55×40", cat:"Cablaggio e segnale", w:58,d:46, defLabel:"STAGEBOX",
+             /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26 */
              draw:function(it){ return drawLibFit("stagebox",it,50,40); }},
   patchpt:  {nome:"Patch point", dim:"punto di patch", cat:"Cablaggio e segnale", w:34,d:34, defLabel:"PATCH",
              draw:function(){ return circ(0,0,15,'ic tec fGrey')+circ(0,0,4,'tec fill')+bar(0,-9,2,6,'tec fill',1)+bar(0,9,2,6,'tec fill',1)+bar(-9,0,6,2,'tec fill',1)+bar(9,0,6,2,'tec fill',1); }},
@@ -1302,6 +1303,14 @@ function trussTop(it, kind){
   else { for(a=-L/2;a<L/2-0.1;a+=step){ a2=Math.min(a+step,L/2); s+=lin(px(a,aT),py(a,aT),px(a2,aB),py(a2,aB),"ic thin"); s+=lin(px(a,aB),py(a,aB),px(a2,aT),py(a2,aT),"ic thin"); } }
   [[-L/2,-W/2],[-L/2,W/2],[L/2,-W/2],[L/2,W/2]].forEach(function(e){ s+=circ(px(e[0],e[1]),py(e[0],e[1]),railH*0.75,"ic"); });
   return s;
+}
+/* Stagebox generica: dimensioni dai canali (Simone, dal campo 18/07): una ciabatta 8 in / 0 out è una
+   scatoletta, non un rack. Solo tra i due default (mai sopra le scelte manuali/modello). Idempotente. */
+function sbAutoSize(it){
+  if(!it || it.type!=="stagebox" || it.hw || it.modelId) return;
+  var small=(it.ch||16)<=8 && !(it.outCh>0);
+  if(small && it.w===58 && it.d===46){ it.w=34; it.d=26; }
+  else if(!small && it.w===34 && it.d===26){ it.w=58; it.d=46; }
 }
 function drawLibFit(key,it,bw,bd){ var k=Math.min((it&&it.w||bw)/bw,(it&&it.d||bd)/bd); k=Math.round(k*1000)/1000;
   return (k===1)?libIcon(key):'<g transform="scale('+k+')">'+libIcon(key)+'</g>'; }
@@ -2172,6 +2181,7 @@ function normalizeState(s){
   s.items.forEach(function(it){ var t=TYPES[it.type]; if(!t) return;
     if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=defSepOf(it);
       if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
+    if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
@@ -9168,9 +9178,9 @@ function toggleCabLayer(){
   document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
   var sb=document.getElementById("pSbCh");
-  if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; __cabRes=null; save(); render(); } });
+  if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
   var sbo=document.getElementById("pSbOut");
-  if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; __cabRes=null; save(); render(); } });
+  if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
   var pom=document.getElementById("pOwnMic");   /* mic singolo anche in zona (opt-in) */
   if(pom) pom.addEventListener("change", function(){ var it=getSel(); if(!it) return;
     if(this.checked === !zoneAbsorbable(it)) delete it.ownMic; else it.ownMic=this.checked;   /* memorizza solo l'override rispetto al default del tipo */
