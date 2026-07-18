@@ -4013,7 +4013,7 @@ function itemMarkup(it){
   if(t.gtr && _la){   /* chitarre/basso in ILLUSTRATO: ampli/pedaliera/leggio NON sono nell'illustrazione del musicista → disegnati a parte (come nello schematico) */
     if(it.ampli) s += '<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';
     if(it.pedaliera) s += '<g transform="translate(0,72)">'+pedalGlyph()+'</g>';   /* musicista illustrato = seduto → pedaliera ai piedi */
-    if(it.leggio) s += '<g transform="translate(0,60)">'+leggioGlyph(0)+'</g>';
+    if(it.leggio) s += '<g transform="translate(0,'+(it.pedaliera?104:60)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07, come lo schematico) */
   }
   if(TASTIERE[it.type] && (it.leggio || it.leggio2)){   /* leggio/tablet della tastiera: davanti al musicista (lato pubblico, +y) */
     var _ky=it.d/2+22, _kdx=it.leggio2?34:0;
