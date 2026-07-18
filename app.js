@@ -1357,7 +1357,7 @@ function drawBatteria(it){
       var g='';
       if(pp.stool!==false) g += '<g transform="translate(0,18)">'+libIcon("sgabellobatt")+'</g>';   /* sgabello sotto */
       if(pp.mus!==false)   g += '<g transform="translate(0,36)">'+libIcon("batteristaPersona")+'</g>';   /* batterista sopra lo sgabello (0°: testa a nord, braccia verso il kit) */
-      if(pp.leggio===true) g += '<g transform="translate('+(pp.lefty?56:-56)+',36)">'+leggioGlyph(0)+'</g>';   /* leggio accanto, lato hi-hat (18/07) */
+      if(pp.leggio===true) g += '<g transform="translate('+(pp.lefty?56:-56)+',36) rotate('+(pp.lefty?-90:90)+')">'+leggioGlyph(0)+'</g>';   /* leggio di fianco, mensola RIVOLTA al batterista (18/07 v2) */
       return pre+g+'</g>';
     }
     return pre+libIcon(DRUM_PARTS[sl.k].icon)+'</g>';
@@ -1377,7 +1377,7 @@ function explodeBatteria(it){
       var sdx=sl.x-B.cx, sdy=sl.y-B.cy;
       if(p.stool!==false) out.push({type:"stoolR", dx:sdx, dy:sdy+18, label:""});
       if(p.mus!==false)   out.push({type:"batteristaR", dx:sdx, dy:sdy+36, label:base+"Batterista"});
-      if(p.leggio===true) out.push({type:"leggio", dx:sdx+(p.lefty?56:-56), dy:sdy+36, label:""});
+      if(p.leggio===true) out.push({type:"leggio", dx:sdx+(p.lefty?56:-56), dy:sdy+36, label:"", extra:{rot:(p.lefty?-90:90)}});
       return;
     }
     var nm=lab[sl.k];
@@ -1401,7 +1401,7 @@ function drawTimpani(it){
       var g='';
       if(pp.stool!==false) g += '<g transform="translate(0,-28)">'+libIcon("sgabellobatt")+'</g>';
       if(pp.mus!==false)   g += '<g transform="translate(0,8)">'+libIcon("timpanistaPersona")+'</g>';
-      if(pp.leggio===true) g += '<g transform="translate(46,-20)">'+leggioGlyph(0)+'</g>';   /* leggio a fianco del timpanista, arretrato per non toccare i timpani laterali (18/07) */
+      if(pp.leggio===true) g += '<g transform="translate(0,34)">'+leggioGlyph(0)+'</g>';   /* leggio DAVANTI al timpanista, la mensola alta sta sopra il bordo dei timpani (18/07 v2) */
       s += pre+g+'</g>';
     } else s += pre+libIcon(t.icon)+'</g>';
   });
@@ -1412,7 +1412,7 @@ var TIMP_R_TYPE={timp51:"timp51R",timp58:"timp58R",timp66:"timp66R",timp74:"timp
 function explodeTimpani(it){
   var L=timpSlots(parts(it)), B=timpBBox(L), base=it.label?it.label+" ":"", out=[];
   var _seat=L.filter(function(t){ return t.seat; })[0];
-  if(_seat && parts(it).leggio===true) out.push({type:"leggio", dx:Math.round(_seat.x-B.cx+46), dy:Math.round(_seat.y-B.cy-20), label:""});
+  if(_seat && parts(it).leggio===true) out.push({type:"leggio", dx:Math.round(_seat.x-B.cx), dy:Math.round(_seat.y-B.cy+34), label:""});
   L.forEach(function(t){
     var dx=Math.round((t.x-B.cx)*10)/10, dy=Math.round((t.y-B.cy)*10)/10;
     if(t.stool){ out.push({type:"stoolR", dx:dx, dy:dy, label:""}); return; }
