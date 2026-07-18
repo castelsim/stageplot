@@ -878,6 +878,10 @@ var TYPES = {
   rfsplit:  {nome:"Splitter antenna", dim:"1:4 attivo", cat:"Cablaggio e segnale", w:44,d:30, defLabel:"SPLIT RF",
              draw:function(){ var s2=bar(0,0,40,24,'ic tec fGrey',3)+circ(-14,-6,2,'tec fill');
                [-12,-4,4,12].forEach(function(x){ s2+=circ(x,7,2,'tec fill'); }); return s2; }},
+  netswitch:{nome:"Switch rete", dim:"rack 1U", cat:"Cablaggio e segnale", w:46,d:30, defLabel:"SWITCH",
+             draw:function(){ var s2=bar(0,0,44,22,'ic fBlack',3);
+               for(var i2=0;i2<6;i2++) s2+=bar(-15+i2*6,3,4,5,'ic fGrey',0.8);
+               s2+=bar(-15,-5,10,2.5,'ic fGrey',1); return s2; }},
   patchpt:  {nome:"Patch point", dim:"punto di patch", cat:"Cablaggio e segnale", w:34,d:34, defLabel:"PATCH",
              draw:function(){ return circ(0,0,15,'ic tec fGrey')+circ(0,0,4,'tec fill')+bar(0,-9,2,6,'tec fill',1)+bar(0,9,2,6,'tec fill',1)+bar(-9,0,6,2,'tec fill',1)+bar(9,0,6,2,'tec fill',1); }},
   splitter: {nome:"Splitter audio", dim:"rack 3U", cat:"Cablaggio e segnale", catalog:false, w:70,d:46, defLabel:"SPLIT",
@@ -1280,7 +1284,7 @@ function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /*
 var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
 /* ===== RACK (18/07, mockup approvato): contenitore tecnico — un ingombro sul palco, apparecchi veri dentro ===== */
-var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1 };
+var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1, netswitch:1 };
 var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
 /* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
 var RACK_U_HW={ rio3224d2:3, rio3224d3:3, rio1608d2:2, rio1608d3:2, tio1608d:2 };
@@ -2232,6 +2236,7 @@ function normalizeState(s){
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; } }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
+    if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
     if(it.rxId!=null){ var _rxOk=s.items.some(function(r){ return r.type==="rxrf" && r.id===it.rxId; });
       if(!_rxOk){ delete it.rxId; delete it.rxCh; } else if(it.rxCh!=null && !(it.rxCh>=1&&it.rxCh<=8)) delete it.rxCh; }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
@@ -4378,27 +4383,48 @@ function netEngine(){
   var R=cabResult(); if(!R) return {runs:[], issues:[]};
   var mx=R.mixer && MIXER_DB[R.mixer]; if(!mx) return {runs:[], issues:[]};
   var runs=[], issues=[], OBS=obstacleRects(), mgn=1+(state.cab.margin||30)/100;
+  /* F3: switch esplicito sul palco → i protocolli switchabili (Dante/AVB) vanno a stella sullo switch,
+     con un solo trunk switch→console; i punto-punto (AES50, gigaACE…) restano diretti. */
+  var sws=(state.items||[]).filter(function(x){ return x.type==="netswitch"; });
+  var sw=sws[0]||null, red=!!state.netRed, swUsed=0, trunkDone=false;
+  if(sws.length>1) issues.push({lvl:"info", msg:sws.length+" switch sul palco: la rete considera il primo ("+(sw.label||"Switch")+")."});
   (R.snakes||[]).forEach(function(k){
     var b=k.box; if(!b || !b.hw || !STAGEBOX_DB[b.hw]) return;   /* solo box reali con hardware digitale */
     var common=mx.proto.filter(function(p){ return STAGEBOX_DB[b.hw].proto.indexOf(p)>=0; });
     var proto=common[0]||STAGEBOX_DB[b.hw].proto[0];   /* se incompatibile il cab già segnala: qui il proto della box */
     var spec=NET_PROTO_SPEC[proto]; if(!spec) return;
-    var ex={}; if(b.id) ex[b.id]=1;
-    var pts=orthExpand(cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex));
+    var toSw=!!(sw && spec.switchable);
+    var ex={}; if(b.id) ex[b.id]=1; if(toSw && sw.id) ex[sw.id]=1;
+    var pts=orthExpand(cabRoutePts([[k.x1,k.y1],[toSw?sw.x:k.x2, toSw?sw.y:k.y2]], OBS, ex));
     var lenM=polyLen(pts)/100*mgn;
+    if(toSw){ swUsed += (red && spec.redundant) ? 2 : 1;
+      if(!trunkDone){ trunkDone=true;
+        var ex2={}; if(sw.id) ex2[sw.id]=1;
+        var tp=orthExpand(cabRoutePts([[sw.x,sw.y],[k.x2,k.y2]], OBS, ex2));
+        var tl=polyLen(tp)/100*mgn, tsp=spec;
+        swUsed += (red && tsp.redundant) ? 2 : 1;
+        runs.push({box:null, sw:sw, kind:"trunk", proto:proto, spec:tsp, lenM:tl,
+                   medium:tsp.fiberOnly?"fibra":(tl<=tsp.maxCat?tsp.media:(tsp.fiber?"fibra":tsp.media)),
+                   pts:tp, red:(red&&tsp.redundant)});
+      } }
     var medium=spec.fiberOnly ? "fibra" : (lenM<=spec.maxCat ? spec.media : (spec.fiber?"fibra":spec.media));
     if(!spec.fiberOnly && lenM>spec.maxCat){
       if(spec.fiber) issues.push({lvl:"warn", msg:"Tratta "+AUDIO_PROTO[proto]+" box "+b.letter+" di "+lenM.toFixed(0)+" m: oltre il limite rame ("+spec.maxCat+" m) — prevista in fibra."});
       else issues.push({lvl:"err", msg:"Tratta "+AUDIO_PROTO[proto]+" box "+b.letter+" di "+lenM.toFixed(0)+" m: oltre il limite del protocollo ("+spec.maxCat+" m su "+spec.media+")."});
     }
-    runs.push({box:b, proto:proto, spec:spec, lenM:lenM, medium:medium, pts:pts});
+    runs.push({box:b, sw:(toSw?sw:null), kind:"box", proto:proto, spec:spec, lenM:lenM, medium:medium, pts:pts, red:(toSw&&red&&spec.redundant)});
   });
   /* topologia */
-  if(runs.filter(function(r){ return r.spec.switchable; }).length>=2)
-    issues.push({lvl:"warn", msg:"Più box "+runs.filter(function(r){return r.spec.switchable;}).map(function(r){return AUDIO_PROTO[r.proto];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join("/")+" in rete: prevedi uno switch gigabit dedicato (QoS/DSCP attivo) al punto principale."});
-  if(runs.some(function(r){ return r.spec.redundant; }))
+  if(!sw && runs.filter(function(r){ return r.spec.switchable; }).length>=2)
+    issues.push({lvl:"warn", msg:"Più box "+runs.filter(function(r){return r.spec.switchable;}).map(function(r){return AUDIO_PROTO[r.proto];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join("/")+" in rete: trascina uno «Switch rete» dal catalogo (QoS/DSCP attivo) al punto principale."});
+  if(!sw && runs.some(function(r){ return r.spec.redundant; }))
     issues.push({lvl:"info", msg:"Protocollo con ridondanza: prevedi rete primaria + secondaria (doppio cavo e porte dedicate)."});
-  return {runs:runs, issues:issues};
+  var swPorts=sw?Math.max(4,Math.min(48,+sw.swPorts||8)):0;
+  if(sw && swUsed>swPorts)
+    issues.push({lvl:"err", msg:"Switch "+(sw.label||"rete")+": servono "+swUsed+" porte ("+(red?"Primary+Secondary":"Primary")+"), il modello ne ha "+swPorts+"."});
+  if(sw && red && !runs.some(function(r){ return r.spec.redundant; }))
+    issues.push({lvl:"info", msg:"Ridondanza attiva ma nessun protocollo ridondante in rete: l'interruttore non ha effetto."});
+  return {runs:runs, issues:issues, sw:sw, swUsed:swUsed, swPorts:swPorts, red:red};
 }
 function netMarkup(){
   if(!state.cab || !state.cab.on || !layerShown("net")) return '';
@@ -4408,12 +4434,13 @@ function netMarkup(){
   var s='<g class="net-layer" style="opacity:'+op+'">';
   N.runs.forEach(function(r){
     var ni='<path class="net-line" d="'+orthPathD(r.pts)+'"/>';
+    if(r.red) ni+='<path class="net-line net-sec" d="'+orthPathD(r.pts)+'" transform="translate(4,4)"/>';   /* F3: Secondary */
     if(LBL && state.cab.showLabels!==false){
       var mid=cabMidpoint(r.pts);
-      var lb=AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
+      var lb=(r.kind==="trunk" ? AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+(r.red?'Primary+Secondary':'trunk console') : AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(r.red?' · P+S':''))+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
       ni+='<text class="net-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-5).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>';
     }
-    s+='<g class="cabgrp" data-own="'+esc(r.box&&r.box.id||'')+'">'+ni+'</g>';
+    s+='<g class="cabgrp" data-own="'+esc(r.box&&r.box.id||(r.sw&&r.sw.id)||'')+'">'+ni+'</g>';
   });
   return s+'</g>';
 }
@@ -4507,18 +4534,18 @@ function rfMarkup(){
   /* coni di copertura (solo visivi): direzione = rotazione dell'antenna, ampiezza antAng, raggio fisso */
   C.ants.forEach(function(an){
     var ang=(an.antAng===360)?360:(+an.antAng||90), R2=260;
-    if(ang>=360){ s2+='<circle cx="'+an.x+'" cy="'+an.y+'" r="'+R2+'" fill="#4f46e5" opacity="0.06"/>'; return; }
+    if(ang>=360){ s2+='<circle cx="'+an.x+'" cy="'+an.y+'" r="'+R2+'" fill="#7c3aed" opacity="0.06"/>'; return; }
     var dir=((an.rot||0)-90)*Math.PI/180, a0=dir-ang*Math.PI/360, a1=dir+ang*Math.PI/360;
     var x0=an.x+R2*Math.cos(a0), y0=an.y+R2*Math.sin(a0), x1=an.x+R2*Math.cos(a1), y1=an.y+R2*Math.sin(a1);
-    s2+='<path d="M'+an.x+' '+an.y+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+R2+' '+R2+' 0 '+(ang>180?1:0)+' 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+' Z" fill="#4f46e5" opacity="0.07"/>'+
-        '<path d="M'+an.x+' '+an.y+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+'" stroke="#4f46e5" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>'+
-        '<path d="M'+an.x+' '+an.y+' L'+x1.toFixed(1)+' '+y1.toFixed(1)+'" stroke="#4f46e5" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>';
+    s2+='<path d="M'+an.x+' '+an.y+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+R2+' '+R2+' 0 '+(ang>180?1:0)+' 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+' Z" fill="#7c3aed" opacity="0.07"/>'+
+        '<path d="M'+an.x+' '+an.y+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+'" stroke="#7c3aed" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>'+
+        '<path d="M'+an.x+' '+an.y+' L'+x1.toFixed(1)+' '+y1.toFixed(1)+'" stroke="#7c3aed" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>';
   });
   var LBL=window.__cabStatic || (state.cab&&state.cab.labelMode==="always") || document.body.classList.contains("viewmode");
   C.links.forEach(function(l){
-    s2+='<path d="'+orthPathD(l.pts)+'" fill="none" stroke="#4f46e5" stroke-width="2.2" opacity="0.9"/>';
+    s2+='<path d="'+orthPathD(l.pts)+'" fill="none" stroke="#7c3aed" stroke-width="2.2" opacity="0.9"/>';
     if(LBL){ var mid=cabMidpoint(l.pts);
-      s2+='<text x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#4f46e5" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
+      s2+='<text x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
   });
   return s2+'</g>';
 }
@@ -5167,6 +5194,21 @@ function renderProps(){
     if(elig && typeof renderItemContactBtn==="function") renderItemContactBtn(it); })();
   if(typeof renderRackPanel==="function") renderRackPanel(it);   /* RACK: contenuti/U/fronte */
   if(typeof renderRxPanel==="function") renderRxPanel(it);   /* F3: ricevitore RF */
+  (function(){ var w=document.getElementById("pSwWrap"); if(!w) return;
+    if(!it || it.type!=="netswitch"){ w.style.display="none"; return; }
+    w.style.display="block";
+    var ps=document.getElementById("pSwPorts"); ps.value=String(Math.max(4,Math.min(48,+it.swPorts||8)));
+    ps.onchange=function(){ it.swPorts=+ps.value; save(); render(); renderProps(); };
+    var rd=document.getElementById("pSwRed"); rd.checked=!!state.netRed;
+    rd.onchange=function(){ state.netRed=rd.checked; save(); render(); renderProps(); };
+    var kv=document.getElementById("pSwKv"), lines=[];
+    try{ var N=netEngine();
+      if(N.sw && N.sw.id===it.id){ lines.push("Porte: "+N.swUsed+" usate / "+Math.max(0,N.swPorts-N.swUsed)+" libere"+(N.red?" (Primary+Secondary)":""));
+        N.runs.forEach(function(r){ lines.push((r.kind==="trunk"?"→ console":"← box "+(r.box.sbId?("ID"+r.box.sbId):r.box.letter))+" · "+r.medium+" · "+Math.ceil(r.lenM)+" m"+(r.red?" ×2":"")); }); }
+      else if(N.sw) lines.push("La rete usa l'altro switch ("+(N.sw.label||"Switch")+").");
+      else lines.push("Nessuna tratta di rete (attiva il cablaggio con mixer e stage box digitali).");
+    }catch(_e){}
+    kv.innerHTML=lines.map(function(l){ return "<div>"+esc(l)+"</div>"; }).join(""); })();
   (function(){ var w=document.getElementById("pAntWrap"); if(!w) return;
     if(!it || it.type!=="rfant"){ w.style.display="none"; return; }
     w.style.display="block";
@@ -9279,7 +9321,7 @@ function layerRegistry(){
     { id:"net", name:"Rete audio", group:"Audio", color:LAYER_COLORS.rete,
       active:!!state.cab.on && netEngine().runs.length>0,
       visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },   /* Rete audio = auto-derivata (netEngine): SOLO visibilità, niente lucchetto/cestino propri */
-    { id:"rf", name:"RF", group:"Audio", color:"#4f46e5",
+    { id:"rf", name:"RF", group:"Audio", color:"#7c3aed",
       active:state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
       visible:state.rfShow!==false, setVisible:function(v){ state.rfShow=v; save(); render(); } },   /* F3: coassiali + coni antenna, auto-derivato come net */
     { id:"mond", name:"P.M.", group:"Audio", color:"#c026d3", active:!!state.mond.on,
@@ -11943,6 +11985,36 @@ function dantePatchPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+function netListPdf(shared){
+  var N; try{ N=netEngine(); }catch(_e){ N={runs:[]}; }
+  if(!N.runs.length){ if(!shared) alert("Nessuna tratta di rete (serve il cablaggio attivo con mixer e box digitali)."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+58, M+96, M+134, M+164];
+    doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rete", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    var head = N.sw ? "Topologia a stella sullo switch "+(N.sw.label||"rete")+" ("+N.swUsed+"/"+N.swPorts+" porte"+(N.red?", Primary+Secondary":"")+")" : "Tratte dirette box → console (nessuno switch)";
+    doc.text(head, M, y); y+=7;
+    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    trow("TRATTA","PROTOCOLLO","MEZZO","LUNGHEZZA","NOTE", true, "#4338ca");
+    doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
+    N.runs.forEach(function(r){
+      var da = r.kind==="trunk" ? "switch → console" : ("box "+(r.box.sbId?("ID"+r.box.sbId):r.box.letter)+(N.sw&&r.sw?" → switch":" → console"));
+      trow(da, AUDIO_PROTO[r.proto]||r.proto, r.medium, Math.ceil(r.lenM)+" m"+(r.red?" ×2":""), r.red?"Primary + Secondary":(r.kind==="trunk"?"trunk":""), false, "#111827");
+    });
+    y+=3;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
+    doc.text("Lunghezze con margine di posa. I protocolli punto-punto (AES50, gigaACE) restano diretti alla console.", M, y);
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-rete.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function rackListPdf(shared){
   var racks=(state.items||[]).filter(function(x){ return x.type==="rack"; });
   if(!racks.length){ if(!shared) alert("Nessun rack sul palco."); return; }
@@ -13023,6 +13095,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("pmlist")) pmListPdf(doc);
       if(want("racklist")) rackListPdf(doc);
       if(want("dantepatch")) dantePatchPdf(doc);
+      if(want("netlist")) netListPdf(doc);
       if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
       if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
       if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
@@ -13318,6 +13391,7 @@ function pdfChannelPage(doc, L, paperKey){
     try{ var bb=Rc.boxes||[];
       if(bb.length>1 || bb.some(function(b){ return b.sbId||b.res.length||Object.keys(b.pins).length; })) pages.push({key:"dantepatch", label:"Patch stage box"});
     }catch(_e){}
+    try{ if(netEngine().runs.length) pages.push({key:"netlist", label:"Rete (tratte digitali)"}); }catch(_e){}
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     /* PRODUZIONE (fase 4): ultima pagina "Criticità e aspetti da definire" — offerta solo se c'è contenuto

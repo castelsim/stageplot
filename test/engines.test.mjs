@@ -1724,5 +1724,39 @@ t("F3: catena coassiale antenna->splitter->ricevitori, avvisi topologia", () => 
   ok(/Antenna direttiva 90/.test(kinds) && /Distribuzione RF/.test(kinds), "antenne+splitter in lista");
 });
 
+t("F3: rete/Dante — switch a stella, trunk console, ridondanza e porte", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
+  A.state.cab.home = { kind: "foh" };
+  const b1 = add("stagebox", 300, 300); b1.hw = "rio3224d2";
+  const b2 = add("stagebox", 900, 300); b2.hw = "rio1608d2";
+  add("astamic", 320, 400); add("astamic", 880, 400);
+  A.__cabRes = null;
+  // senza switch: tratte dirette + warn "switch"
+  let N = A.netEngine();
+  eq(N.runs.length, 2, "2 tratte dirette");
+  ok(N.runs.every(r => r.kind === "box" && !r.sw), "dirette alla console");
+  ok(N.issues.some(i => /Switch rete/.test(i.msg)), "warn: consiglia lo switch");
+  // con lo switch: 2 box->switch + 1 trunk
+  const sw = add("netswitch", 600, 600);
+  A.__cabRes = null; N = A.netEngine();
+  eq(N.runs.filter(r => r.kind === "box" && r.sw).length, 2, "box a stella sullo switch");
+  eq(N.runs.filter(r => r.kind === "trunk").length, 1, "un solo trunk verso la console");
+  eq(N.swUsed, 3, "3 porte Primary");
+  ok(!N.issues.some(i => /Switch rete/.test(i.msg)), "consiglio sparito");
+  // ridondanza: porte doppie; 5 porte non bastano piu
+  A.state.netRed = true; sw.swPorts = 5;
+  A.__cabRes = null; N = A.netEngine();
+  eq(N.swUsed, 6, "Primary+Secondary = 6 porte");
+  ok(N.runs.every(r => r.red), "tutte le tratte ridondate (Dante)");
+  ok(N.issues.some(i => i.lvl === "err" && /porte/.test(i.msg)), "err porte insufficienti");
+  sw.swPorts = 8; A.__cabRes = null; N = A.netEngine();
+  ok(!N.issues.some(i => i.lvl === "err" && /porte/.test(i.msg)), "8 porte bastano");
+  // normalize: swPorts fuori range rimosso
+  sw.swPorts = 99; let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.items.find(i => i.id === sw.id).swPorts, undefined, "swPorts sanificato");
+  A.state.netRed = false;
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
