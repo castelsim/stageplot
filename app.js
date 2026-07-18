@@ -414,17 +414,23 @@ function drawCableRamp(it){
     s+='<line x1="'+xL+'" y1="'+(yT+d*0.4)+'" x2="'+xL+'" y2="'+(yB-d*0.4)+'" stroke="'+YEL+'" stroke-width="4"/>';
     return s;
   }
+  var ML=cfg.w, n=Math.max(1, Math.round(w/ML));   /* n° moduli standard nella tratta */
   var rx=Math.min(9, d*0.13);
   var s='<rect x="'+xL+'" y="'+yT+'" width="'+w+'" height="'+d+'" rx="'+rx+'" fill="'+BLK+'"/>';
   var bev=Math.max(5, d*0.17);   /* spalle nere = rampa carrabile (alto/basso) */
   s+='<rect x="'+(xL+7)+'" y="'+(yT+bev)+'" width="'+(w-14)+'" height="'+(d-2*bev)+'" rx="4" fill="'+YEL+'"/>';
-  var n=cfg.ch, top=yT+bev+(d-2*bev)*0.18, bot=yB-bev-(d-2*bev)*0.18, gap=(n>1)?(bot-top)/(n-1):0;
-  for(var i=0;i<n;i++){ var y=(n===1)?0:(top+i*gap);
+  var nc=cfg.ch, top=yT+bev+(d-2*bev)*0.18, bot=yB-bev-(d-2*bev)*0.18, gap=(nc>1)?(bot-top)/(nc-1):0;
+  for(var i=0;i<nc;i++){ var y=(nc===1)?0:(top+i*gap);
     s+='<line x1="'+(xL+13)+'" y1="'+y+'" x2="'+(xR-13)+'" y2="'+y+'" stroke="'+GRV+'" stroke-width="'+(cfg.big?5:2.6)+'" stroke-linecap="round"/>'; }
+  for(var m=1;m<n;m++){ var xs=xL+m*ML;   /* giunzione a coda di rondine tra i moduli */
+    s+='<path fill="none" stroke="'+BLK+'" stroke-width="2.5" d="M '+xs+','+yT+' l 6,'+(d*0.28).toFixed(1)+' l -12,'+(d*0.44).toFixed(1)+' l 6,'+(d*0.28).toFixed(1)+'"/>'; }
   s+='<line x1="'+xL+'" y1="'+(yT+d*0.38)+'" x2="'+xL+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
   s+='<line x1="'+xR+'" y1="'+(yT+d*0.38)+'" x2="'+xR+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
+  if(n>1) s+='<text x="0" y="'+(yT-6)+'" text-anchor="middle" font-size="20" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">×'+n+'</text>';   /* conteggio moduli sul palco */
   return s;
 }
+/* n° moduli di una tratta di passacavi (per etichetta/STATO/rider) */
+function rampModules(it){ if(it.type!=="cableramp") return 0; var cfg=RAMP_TYPES[it.rampType]||RAMP_TYPES.midi; if(cfg.end) return 1; return Math.max(1, Math.round((it.w||cfg.w)/cfg.w)); }
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -1040,7 +1046,7 @@ var TYPES = {
     draw:function(it){ return drawLibFit("gen60",it,420,180); }},
   gen20: {nome:"Generatore 20 kVA", dim:"300×150", cat:"Elettrico", sub:"Generatori", w:300,d:150,
     draw:function(it){ return drawLibFit("gen20",it,300,150); }},
-  cableramp: {nome:"Passacavi", dim:"giallo/nero · Micro/Midi/XXL", cat:"Elettrico", sub:"Percorsi cavi", w:88,d:54, defLabel:"Passacavi",
+  cableramp: {nome:"Passacavi", dim:"tratta modulare giallo/nero", cat:"Elettrico", sub:"Percorsi cavi", w:88,d:54, resizable:true, defLabel:"Passacavi",
     draw:function(it){ return drawCableRamp(it); }},
   torrefaro: {nome:"Torre faro mobile", dim:"260×180", cat:"Elettrico", sub:"Illuminazione di servizio", w:260,d:180,
     draw:function(it){ return drawLibFit("torrefaro",it,260,180); }},
@@ -7175,6 +7181,7 @@ svg.addEventListener("pointermove", function(e){
       if(ed.indexOf("t")>=0){ nd=Math.max(MIN, drag.d0-ldy); sgy=-1; }
       if(grid){ nw=snap(nw); nd=snap(nd); }
       rzit.w=nw; rzit.d=nd;
+      if(rzit.type==="cableramp"){ var rcfg=RAMP_TYPES[rzit.rampType||"midi"]; if(!rcfg.end){ nw=Math.max(rcfg.w, Math.round(nw/rcfg.w)*rcfg.w); nd=rcfg.d; rzit.w=nw; rzit.d=nd; } }   /* passacavi: lunghezza a scatti di 1 modulo, larghezza fissa per formato */
       var shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;   /* shift calcolato sui valori (eventualmente) snappati → lato opposto davvero fermo */
       var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot);   /* riporta lo shift locale in coordinate globali (lato opposto fermo) */
       rzit.x = drag.x0 + (shx*cc - shy*ss);
@@ -10489,6 +10496,9 @@ function renderInspectorB(){
       s+=ir("Multiprese", pparts.join(" · ")); }   /* come i cavi: quante multiprese per numero di prese */
     if(nPrese)  s+=ir("Prese 220 V", nPrese);
     if(nQuadri) s+=ir("Quadri / distro", nQuadri);
+    var _ramp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });
+    if(_ramp.length){ var _rmod=_ramp.reduce(function(a,it){ return a+rampModules(it); },0), _rlen=_ramp.reduce(function(a,it){ return a+(it.w||0); },0);
+      s+=ir("Passacavi", _rmod+" moduli · "+(_rlen/100).toFixed(1).replace(".",",")+" m"); }   /* il service sa quanti pezzi servono */
     if(c.sedie)     s+=ir("Sedie", c.sedie);
     if(c.leggii)    s+=ir("Leggii", c.leggii);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
@@ -12178,6 +12188,9 @@ function loadListPdf(shared){
     trow("#","CARICO","W","A","DISTRO/FASE", true, "#b45309");
     doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, r.ok?"#111827":"#dc2626"); });
+    var _rmp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });   /* passacavi: il service sa quanti moduli servono */
+    if(_rmp.length){ var _rm=_rmp.reduce(function(a,it){ return a+rampModules(it); },0), _rl=_rmp.reduce(function(a,it){ return a+(it.w||0); },0);
+      y+=4; doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text("Passacavi: "+_rm+" moduli · "+(_rl/100).toFixed(1).replace(".",",")+" m", M, y); y+=6; }
     if(shared) return;
     pdfCredit(doc);
     if(window.__loadPdfTest){ window.__loadPdfTest={name:fileName()+"-lista-carichi.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }

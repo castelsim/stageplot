@@ -221,6 +221,14 @@ t("Passacavi: 4 varianti con dimensioni reali + disegno giallo/nero", () => {
   eq(A.RAMP_TYPES.midi.ch, 5, "Midi = 5 canali");
   eq([A.RAMP_TYPES.midi.w, A.RAMP_TYPES.midi.d].join("x"), "88x54", "Midi 88x54 (≈ Defender MIDI 5)");
 });
+t("Passacavi tratta modulare: conteggio moduli dalla lunghezza + badge ×N", () => {
+  eq(A.rampModules({ type: "cableramp", rampType: "midi", w: 88 * 5 }), 5, "midi 440cm = 5 moduli");
+  eq(A.rampModules({ type: "cableramp", rampType: "micro", w: 100 * 3 }), 3, "micro 300cm = 3 moduli");
+  eq(A.rampModules({ type: "cableramp", rampType: "midi", w: 88 }), 1, "1 modulo");
+  eq(A.rampModules({ type: "cableramp", rampType: "end", w: 54 }), 1, "rampa terminale conta 1");
+  const svg = A.drawCableRamp({ type: "cableramp", rampType: "midi", w: 88 * 3, d: 54 });
+  ok(svg.indexOf("×3") > -1, "il disegno mostra il badge ×3");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
