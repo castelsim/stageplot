@@ -211,6 +211,16 @@ t("Galleria Modelli: le 3 formazioni IT esistono e producono elementi", () => {
   eq(A.FORM_TITLES.matrimonio, "Matrimonio", "titolo matrimonio");
   eq(A.FORM_TITLES.dj, "DJ set", "titolo DJ");
 });
+t("Passacavi: 4 varianti con dimensioni reali + disegno giallo/nero", () => {
+  ["micro", "midi", "xxl", "end"].forEach((k) => {
+    ok(A.RAMP_TYPES[k], k + " esiste");
+    const svg = A.drawCableRamp({ type: "cableramp", rampType: k, w: A.RAMP_TYPES[k].w, d: A.RAMP_TYPES[k].d });
+    ok(svg && svg.indexOf("#efc31f") > -1 && svg.indexOf("#1c1c1c") > -1, k + ": disegno giallo+nero");
+  });
+  eq(A.RAMP_TYPES.micro.ch, 2, "Micro = 2 canali");
+  eq(A.RAMP_TYPES.midi.ch, 5, "Midi = 5 canali");
+  eq([A.RAMP_TYPES.midi.w, A.RAMP_TYPES.midi.d].join("x"), "88x54", "Midi 88x54 (≈ Defender MIDI 5)");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
