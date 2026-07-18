@@ -517,6 +517,7 @@
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
+    <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
@@ -1787,6 +1788,37 @@ function pianoCoda(it){
 /* Tastiera a barre graduate (xilofono/marimba): cornice trapezia + barre */
 
 /* ============ CATALOGO (dimensioni REALI in cm, verificate — vedi RICERCA.md) ============ */
+/* Passacavi (cable ramp) giallo/nero, gamma tipo Defender/Adam Hall — varianti reali (dim. cm, n° canali). */
+var RAMP_TYPES = {
+  micro:{nome:"Micro (pedonale)",  w:100, d:28, ch:2},
+  midi: {nome:"Midi (carrabile)",  w:88,  d:54, ch:5},
+  xxl:  {nome:"XXL (cavi grossi)", w:88,  d:72, ch:5, big:true},
+  end:  {nome:"Rampa terminale",   w:54,  d:26, ch:0, end:true}
+};
+/* disegno parametrico (top-down, centrato): base nera + coperchio giallo alta-visibilità + N canali
+   + incastri modulari; asse lungo = w (cavi lungo x), spalle carrabili in alto/basso, ends a sx/dx. */
+function drawCableRamp(it){
+  var cfg=RAMP_TYPES[it.rampType]||RAMP_TYPES.midi, w=it.w||cfg.w, d=it.d||cfg.d;
+  var YEL="#efc31f", BLK="#1c1c1c", GRV="#3a3a3a";
+  var xL=-w/2, xR=w/2, yT=-d/2, yB=d/2;
+  if(cfg.end){   /* rampa terminale = trapezio: alto al lato modulare (sx), sottile a terra (dx) */
+    var thin=Math.max(4, d*0.22);
+    var s='<path fill="'+BLK+'" d="M '+xL+','+yT+' L '+xR+','+(-thin/2)+' L '+xR+','+(thin/2)+' L '+xL+','+yB+' Z"/>';
+    s+='<path fill="'+YEL+'" d="M '+(xL+5)+','+(yT+5)+' L '+(xR-4)+','+(-thin/2+2)+' L '+(xR-4)+','+(thin/2-2)+' L '+(xL+5)+','+(yB-5)+' Z"/>';
+    s+='<line x1="'+xL+'" y1="'+(yT+d*0.4)+'" x2="'+xL+'" y2="'+(yB-d*0.4)+'" stroke="'+YEL+'" stroke-width="4"/>';
+    return s;
+  }
+  var rx=Math.min(9, d*0.13);
+  var s='<rect x="'+xL+'" y="'+yT+'" width="'+w+'" height="'+d+'" rx="'+rx+'" fill="'+BLK+'"/>';
+  var bev=Math.max(5, d*0.17);   /* spalle nere = rampa carrabile (alto/basso) */
+  s+='<rect x="'+(xL+7)+'" y="'+(yT+bev)+'" width="'+(w-14)+'" height="'+(d-2*bev)+'" rx="4" fill="'+YEL+'"/>';
+  var n=cfg.ch, top=yT+bev+(d-2*bev)*0.18, bot=yB-bev-(d-2*bev)*0.18, gap=(n>1)?(bot-top)/(n-1):0;
+  for(var i=0;i<n;i++){ var y=(n===1)?0:(top+i*gap);
+    s+='<line x1="'+(xL+13)+'" y1="'+y+'" x2="'+(xR-13)+'" y2="'+y+'" stroke="'+GRV+'" stroke-width="'+(cfg.big?5:2.6)+'" stroke-linecap="round"/>'; }
+  s+='<line x1="'+xL+'" y1="'+(yT+d*0.38)+'" x2="'+xL+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
+  s+='<line x1="'+xR+'" y1="'+(yT+d*0.38)+'" x2="'+xR+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
+  return s;
+}
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -2402,8 +2434,8 @@ var TYPES = {
     draw:function(it){ return drawLibFit("gen60",it,420,180); }},
   gen20: {nome:"Generatore 20 kVA", dim:"300×150", cat:"Elettrico", sub:"Generatori", w:300,d:150,
     draw:function(it){ return drawLibFit("gen20",it,300,150); }},
-  cableramp: {nome:"Passacavi carrabile", dim:"90×50 modulo", cat:"Elettrico", sub:"Percorsi cavi", w:90,d:50,
-    draw:function(it){ return drawLibFit("cableramp",it,90,50); }},
+  cableramp: {nome:"Passacavi", dim:"giallo/nero · Micro/Midi/XXL", cat:"Elettrico", sub:"Percorsi cavi", w:88,d:54, defLabel:"Passacavi",
+    draw:function(it){ return drawCableRamp(it); }},
   torrefaro: {nome:"Torre faro mobile", dim:"260×180", cat:"Elettrico", sub:"Illuminazione di servizio", w:260,d:180,
     draw:function(it){ return drawLibFit("torrefaro",it,260,180); }},
   ledwallmod: {nome:"LED wall modulare", dim:"300×12", cat:"Video", w:300,d:12,
@@ -3793,7 +3825,7 @@ function sanitizeItems(arr){
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
     /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
@@ -6516,6 +6548,11 @@ function renderProps(){
   var illustrated = hasLookToggle(it) && it.look!=="schematico";
   document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
+  var rw=document.getElementById("pRampWrap");   /* passacavi: formato (Micro/Midi/XXL/Rampa terminale) */
+  if(rw){ var isRamp=it.type==="cableramp"; rw.style.display=isRamp?"block":"none";
+    if(isRamp){ var rsel=document.getElementById("pRamp");
+      rsel.innerHTML=Object.keys(RAMP_TYPES).map(function(k){ return '<option value="'+k+'">'+esc(RAMP_TYPES[k].nome)+(RAMP_TYPES[k].ch?" · "+RAMP_TYPES[k].ch+" canali":"")+'</option>'; }).join("");
+      rsel.value=it.rampType||"midi"; } }
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
   var isPostaz=!!POSTAZ[it.type];
   pp.style.display = (isPostaz || cfg) ? "block" : "none";
@@ -6785,6 +6822,7 @@ document.getElementById("pLookSch").addEventListener("click", function(){ mutSel
 function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
+document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
@@ -6982,7 +7020,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pRampWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
