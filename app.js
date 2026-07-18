@@ -871,6 +871,13 @@ var TYPES = {
                var s2=bar(0,2,46,26,'ic fBlack',3)+bar(-11,2,16,10,'ic fGrey',1.5)+circ(8,2,3.4,'ic tec fGrey')+circ(17,2,3.4,'ic tec fGrey');
                s2+='<line x1="-18" y1="-11" x2="-23" y2="-19" class="tec"/><line x1="18" y1="-11" x2="23" y2="-19" class="tec"/>';
                return s2; }},
+  rfant:    {nome:"Antenna RF", dim:"paddle su stativo", cat:"Cablaggio e segnale", w:30,d:22, defLabel:"ANT",
+             draw:function(){ /* paddle direttiva su stativo, vista dall'alto: pala + gambo */
+               return '<rect x="-10" y="-9" width="20" height="13" rx="3" class="ic tec fGrey"/>'+
+                      '<line x1="0" y1="4" x2="0" y2="10" class="tec"/>'+circ(0,10,2.2,'tec fill'); }},
+  rfsplit:  {nome:"Splitter antenna", dim:"1:4 attivo", cat:"Cablaggio e segnale", w:44,d:30, defLabel:"SPLIT RF",
+             draw:function(){ var s2=bar(0,0,40,24,'ic tec fGrey',3)+circ(-14,-6,2,'tec fill');
+               [-12,-4,4,12].forEach(function(x){ s2+=circ(x,7,2,'tec fill'); }); return s2; }},
   patchpt:  {nome:"Patch point", dim:"punto di patch", cat:"Cablaggio e segnale", w:34,d:34, defLabel:"PATCH",
              draw:function(){ return circ(0,0,15,'ic tec fGrey')+circ(0,0,4,'tec fill')+bar(0,-9,2,6,'tec fill',1)+bar(0,9,2,6,'tec fill',1)+bar(-9,0,6,2,'tec fill',1)+bar(9,0,6,2,'tec fill',1); }},
   splitter: {nome:"Splitter audio", dim:"rack 3U", cat:"Cablaggio e segnale", catalog:false, w:70,d:46, defLabel:"SPLIT",
@@ -1273,7 +1280,7 @@ function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /*
 var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
 /* ===== RACK (18/07, mockup approvato): contenitore tecnico — un ingombro sul palco, apparecchi veri dentro ===== */
-var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1 };
+var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1 };
 var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
 /* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
 var RACK_U_HW={ rio3224d2:3, rio3224d3:3, rio1608d2:2, rio1608d3:2, tio1608d:2 };
@@ -4491,7 +4498,31 @@ function mzMicHitMarkup(){
   var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
   return '<circle class="mz-mic" data-id="'+z.id+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
+function rfMarkup(){
+  if(!layerShown("rf")) return '';
+  var C; try{ C=rfChain(); }catch(_e){ return ''; }
+  if(!C.links.length && !C.ants.length) return '';
+  var op=soloOn("rf")?1:0.85;
+  var s2='<g class="rf-layer" style="opacity:'+op+'">';
+  /* coni di copertura (solo visivi): direzione = rotazione dell'antenna, ampiezza antAng, raggio fisso */
+  C.ants.forEach(function(an){
+    var ang=(an.antAng===360)?360:(+an.antAng||90), R2=260;
+    if(ang>=360){ s2+='<circle cx="'+an.x+'" cy="'+an.y+'" r="'+R2+'" fill="#4f46e5" opacity="0.06"/>'; return; }
+    var dir=((an.rot||0)-90)*Math.PI/180, a0=dir-ang*Math.PI/360, a1=dir+ang*Math.PI/360;
+    var x0=an.x+R2*Math.cos(a0), y0=an.y+R2*Math.sin(a0), x1=an.x+R2*Math.cos(a1), y1=an.y+R2*Math.sin(a1);
+    s2+='<path d="M'+an.x+' '+an.y+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+R2+' '+R2+' 0 '+(ang>180?1:0)+' 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+' Z" fill="#4f46e5" opacity="0.07"/>'+
+        '<path d="M'+an.x+' '+an.y+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+'" stroke="#4f46e5" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>'+
+        '<path d="M'+an.x+' '+an.y+' L'+x1.toFixed(1)+' '+y1.toFixed(1)+'" stroke="#4f46e5" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>';
+  });
+  var LBL=window.__cabStatic || (state.cab&&state.cab.labelMode==="always") || document.body.classList.contains("viewmode");
+  C.links.forEach(function(l){
+    s2+='<path d="'+orthPathD(l.pts)+'" fill="none" stroke="#4f46e5" stroke-width="2.2" opacity="0.9"/>';
+    if(LBL){ var mid=cabMidpoint(l.pts);
+      s2+='<text x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#4f46e5" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
+  });
+  return s2+'</g>';
+}
+function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+rfMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -5136,6 +5167,13 @@ function renderProps(){
     if(elig && typeof renderItemContactBtn==="function") renderItemContactBtn(it); })();
   if(typeof renderRackPanel==="function") renderRackPanel(it);   /* RACK: contenuti/U/fronte */
   if(typeof renderRxPanel==="function") renderRxPanel(it);   /* F3: ricevitore RF */
+  (function(){ var w=document.getElementById("pAntWrap"); if(!w) return;
+    if(!it || it.type!=="rfant"){ w.style.display="none"; return; }
+    w.style.display="block";
+    var a=document.getElementById("pAntAng"); a.value=String(it.antAng||90);
+    a.onchange=function(){ it.antAng=+a.value; save(); render(); };
+    var h=document.getElementById("pAntH"); h.value=(it.antH!=null?it.antH:"");
+    h.onchange=function(){ var v=parseFloat(h.value); if(isFinite(v)&&v>0) it.antH=v; else delete it.antH; save(); }; })();
   (function(){ var br=document.getElementById("pInRack"); if(!br) return;
     if(it.rackId){ var rk=(state.items||[]).filter(function(q){ return q.id===it.rackId; })[0];
       br.style.display="block"; br.innerHTML="";
@@ -9241,6 +9279,9 @@ function layerRegistry(){
     { id:"net", name:"Rete audio", group:"Audio", color:LAYER_COLORS.rete,
       active:!!state.cab.on && netEngine().runs.length>0,
       visible:state.cab.showNet!==false, setVisible:function(v){ state.cab.showNet=v; save(); render(); } },   /* Rete audio = auto-derivata (netEngine): SOLO visibilità, niente lucchetto/cestino propri */
+    { id:"rf", name:"RF", group:"Audio", color:"#4f46e5",
+      active:state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
+      visible:state.rfShow!==false, setVisible:function(v){ state.rfShow=v; save(); render(); } },   /* F3: coassiali + coni antenna, auto-derivato come net */
     { id:"mond", name:"P.M.", group:"Audio", color:"#c026d3", active:!!state.mond.on,
       visible:state.mond.visible!==false, setVisible:function(v){ state.mond.visible=v; save(); render(); },
       opacity:state.mond.opacity, setOpacity:function(v){ state.mond.opacity=v; var g=svg.querySelector(".mond-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
@@ -9297,6 +9338,7 @@ function layerShown(id){
     case "cabin":  return !!(state.cab && state.cab.on) && state.cab.showInputs!==false;
     case "cabout": return !!(state.cab && state.cab.on) && state.cab.showReturns!==false;
     case "net":    return !!(state.cab && state.cab.on) && state.cab.showNet!==false;
+    case "rf":     return state.rfShow!==false;
     case "mond":   return !!(state.mond && state.mond.on) && state.mond.visible!==false;
     case "elec":   return !!(state.elec && state.elec.on) && state.elec.visible!==false;
     case "miczone":return micLayerUI.vis;
@@ -9328,6 +9370,7 @@ function itemInSoloLayer(it){
 function pruneSolo(){
   if(!anySolo()) return;
   var alive={ cabin:!!(state.cab&&state.cab.on), cabout:!!(state.cab&&state.cab.on), net:!!(state.cab&&state.cab.on),
+              rf:(state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
               mond:!!(state.mond&&state.mond.on), elec:!!(state.elec&&state.elec.on),
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return contactEligible(x.type);}),
@@ -11998,6 +12041,7 @@ function rfAssign(){
 function rfTxName(tx){ return (tx.label&&tx.label.trim()) ? tx.label.trim() : (TYPES[tx.type]?TYPES[tx.type].nome:tx.type); }
 function rfIssues(){
   var A=rfAssign(), out=[];
+  try{ rfChain().issues.forEach(function(i){ out.push(i); }); }catch(_e){}
   if(!A.rxs.length) return out;
   if(A.orphans.length) out.push({lvl:"warn", msg:A.orphans.length+" radiomic senza ricevitore ("+A.orphans.map(rfTxName).join(", ")+"): capienza RF esaurita — aggiungi un ricevitore."});
   var seen={};
@@ -12008,6 +12052,39 @@ function rfIssues(){
     (A.byRx[r.id]||[]).forEach(function(a){ var f=parseFloat(a.tx.rf); if(!isFinite(f)) return;
       if(f<rng[0]||f>rng[1]) out.push({lvl:"warn", msg:"Frequenza "+a.tx.rf+" MHz di "+rfTxName(a.tx)+" fuori dalla banda "+r.band.trim()+" ("+rng[0]+"–"+rng[1]+" MHz) del ricevitore."}); }); });
   return out;
+}
+/* Catena coassiale: antenna→splitter→ricevitori (o antenna→ricevitore se non c'è splitter).
+   Derivazione pura come netEngine: percorsi ortogonali con ostacoli, metri con margine di posa. */
+function rfChain(){
+  var ants=(state.items||[]).filter(function(x){ return x.type==="rfant"; });
+  var spls=(state.items||[]).filter(function(x){ return x.type==="rfsplit"; });
+  var rxs=(state.items||[]).filter(function(x){ return x.type==="rxrf"; });
+  var links=[], issues=[];
+  if(!rxs.length && !ants.length) return {links:links, issues:issues, ants:ants, spls:spls, rxs:rxs};
+  var OBS=obstacleRects(), mgn=1+((state.cab&&state.cab.margin)||30)/100;
+  function near(from, list){ var best=null, bd=Infinity;
+    list.forEach(function(o){ var dx=o.x-from.x, dy=o.y-from.y, d=dx*dx+dy*dy; if(d<bd){ bd=d; best=o; } });
+    return best; }
+  function link(a,b,kind){
+    var ex={}; if(a.id) ex[a.id]=1; if(b.id) ex[b.id]=1;
+    var pts=orthExpand(cabRoutePts([[a.x,a.y],[b.x,b.y]], OBS, ex));
+    links.push({a:a, b:b, kind:kind, pts:pts, lenM:polyLen(pts)/100*mgn});
+  }
+  if(spls.length){
+    ants.forEach(function(an){ var sp=near(an,spls); if(sp) link(an,sp,"ant"); });
+    var perSpl={};
+    rxs.forEach(function(rx){ var sp=near(rx,spls); if(!sp) return;
+      perSpl[sp.id]=(perSpl[sp.id]||0)+1; link(sp,rx,"rx"); });
+    Object.keys(perSpl).forEach(function(sid){ if(perSpl[sid]>4)
+      issues.push({lvl:"warn", msg:"Splitter antenna con "+perSpl[sid]+" ricevitori: le uscite tipiche sono 4 — aggiungi uno splitter."}); });
+    spls.forEach(function(sp){ if(!ants.length) issues.push({lvl:"warn", msg:"Splitter antenna senza antenne: aggiungi le antenne direttive (A+B)."}); });
+  } else if(ants.length){
+    ants.forEach(function(an){ var rx=near(an,rxs); if(rx) link(an,rx,"ant"); });
+    if(rxs.length>1) issues.push({lvl:"warn", msg:rxs.length+" ricevitori senza splitter antenna: con più ricevitori la distribuzione RF va splittata (1:4)."});
+  }
+  if(rxs.length && !ants.length && rfAssign().txs.some(function(t){ return !!rfAssign().byTx[t.id]; }))
+    issues.push({lvl:"info", msg:"Ricevitori senza antenne dedicate: per portata e diversity aggiungi 2 antenne direttive (A+B)."});
+  return {links:links, issues:issues, ants:ants, spls:spls, rxs:rxs};
 }
 var RF_TYPES={ wireless:"Radiomic palmare", headset:"Headset (archetto)", iem:"IEM beltpack", iemant:"TX in-ear (rack)", rxrf:"Ricevitore" };
 function isRf(it){ return !!(it && RF_TYPES[it.type]); }
@@ -12026,6 +12103,11 @@ function rfList(){
     rows.push({ name:name, kind:RF_TYPES[it.type], rf:(it.rf||"").trim(), band:band,
       rx:_as ? ((_as.rx.label&&_as.rx.label.trim())||"RX")+" ch "+_as.ch : "" });
     if(band) bands[band]=(bands[band]||0)+1;
+  });
+  (state.items||[]).forEach(function(it){   /* F3: infrastruttura RF in lista (antenne/splitter) */
+    if(it.type==="rfant") rows.push({ name:(it.label&&it.label.trim())||"Antenna RF",
+      kind:"Antenna "+(it.antAng===360?"omni":"direttiva "+(+it.antAng||90)+"°")+(it.antH?" · h "+it.antH+" m":""), rf:"", band:"", rx:"" });
+    if(it.type==="rfsplit") rows.push({ name:(it.label&&it.label.trim())||"Splitter antenna", kind:"Distribuzione RF 1:4", rf:"", band:"", rx:"" });
   });
   rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
   return { rows:rows, count:rows.length, bands:bands };
