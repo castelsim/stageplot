@@ -1700,5 +1700,29 @@ t("F3: ricevitori RF — associazione auto, pin, capienza, sorgente audio dal ri
   eq(A.cabItemInputs(A.state.items.find(i => i.id === v1.id)).length, 1, "il palmare torna sorgente");
 });
 
+t("F3: catena coassiale antenna->splitter->ricevitori, avvisi topologia", () => {
+  reset();
+  const rx1 = add("rxrf", 500, 300); const rx2 = add("rxrf", 560, 300);
+  const a1 = add("rfant", 200, 150); const a2 = add("rfant", 260, 150);
+  // senza splitter con 2 rx: antenna sul piu vicino + warn
+  let C = A.rfChain();
+  eq(C.links.length, 2, "2 antenne collegate");
+  ok(C.links.every(l => l.lenM > 0), "metri calcolati");
+  ok(C.issues.some(i => /senza splitter/.test(i.msg)), "warn: serve splitter con 2 rx");
+  // con lo splitter: ant->split + split->rx, niente warn
+  const sp = add("rfsplit", 380, 220);
+  C = A.rfChain();
+  eq(C.links.filter(l => l.kind === "ant").length, 2, "antenne sullo splitter");
+  eq(C.links.filter(l => l.kind === "rx").length, 2, "splitter sui ricevitori");
+  ok(!C.issues.some(i => /senza splitter/.test(i.msg)), "warn sparito");
+  // overflow: 5 ricevitori su uno splitter 1:4
+  for (let i = 0; i < 3; i++) add("rxrf", 600 + i * 40, 300);
+  C = A.rfChain();
+  ok(C.issues.some(i => /uscite tipiche sono 4/.test(i.msg)), "warn oltre 4 uscite");
+  // lista: infrastruttura presente
+  const kinds = A.rfList().rows.map(r => r.kind).join("|");
+  ok(/Antenna direttiva 90/.test(kinds) && /Distribuzione RF/.test(kinds), "antenne+splitter in lista");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
