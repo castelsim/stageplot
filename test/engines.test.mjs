@@ -1965,5 +1965,39 @@ t("Macchina cuffie: hub -> bus console (16 ch contigui), o Dante = nota", () => 
   A.state.buses = [];
 });
 
+t("Hub produzione: reparti tecnici derivati dal palco + extra a mano", () => {
+  reset();
+  // palco vuoto: nessun reparto tecnico
+  eq(A.productionDepts().length, 0, "palco vuoto = 0 reparti");
+  // audio + monitor + power dal palco
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" };
+  add("stagebox", 500, 300).hw = "rio3224d2";
+  add("astamic", 520, 400);
+  add("wedge", 540, 500);
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.elec.supply = { kind: "left" };
+  add("distro32", 100, 300); add("testamobile", 200, 300);
+  A.__cabRes = null; A.__elecRes = null;
+  let d = A.productionDepts();
+  const keys = d.map(x => x.key);
+  ok(keys.indexOf("audio") >= 0, "reparto Audio derivato");
+  ok(keys.indexOf("monitor") >= 0, "reparto Monitor derivato");
+  ok(keys.indexOf("power") >= 0, "reparto Power derivato");
+  ok(d.find(x => x.key === "audio").plot === true, "audio = dal palco");
+  ok(/ingressi/.test(d.find(x => x.key === "audio").detail), "detail con conteggio");
+  // extra a mano
+  A.state.production.depts = [{ id: "dp1", name: "Catering" }];
+  d = A.productionDepts();
+  const cat = d.find(x => x.name === "Catering");
+  ok(cat && cat.extra === true && cat.plot === false, "extra = aggiunto a mano");
+  // normalize: depts preservati e sanificati
+  A.state.production.depts = [{ id: "dp1", name: "  Luci  " }, { name: "" }, { name: "x".repeat(60) }];
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.production.depts.length, 2, "vuoto scartato, 2 restano");
+  eq(A.state.production.depts[0].name, "Luci", "nome trimmato");
+  ok(A.state.production.depts[1].name.length === 40, "nome troncato a 40");
+  ok(A.state.production.depts.every(x => x.id), "id garantito");
+  A.state.production.depts = [];
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
