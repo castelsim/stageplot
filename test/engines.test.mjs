@@ -1772,5 +1772,52 @@ t("F3: rete/Dante — switch a stella, trunk console, ridondanza e porte", () =>
   A.state.netRed = false;
 });
 
+t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
+  A.state.cab.home = { kind: "foh" };
+  const b1 = add("stagebox", 300, 300); b1.hw = "rio3224d2"; b1.sbId = 1;   // 8 out
+  const b2 = add("stagebox", 900, 300); b2.hw = "rio1608d2"; b2.sbId = 2;   // 8 out
+  const w = add("wedge", 320, 500);   // 1 mix monitor derivato
+  add("astamic", 320, 400);
+  A.state.buses = [];
+  A.__cabRes = null;
+  let L = A.busList();
+  eq(L.auto.length, 1, "mix monitor derivato presente");
+  const monBox = L.auto[0].box, monPort = L.auto[0].ports[0];
+  // bus stereo auto: prime 2 consecutive libere (dopo il monitor se stessa box)
+  A.state.buses.push({ id: "bA", name: "MAIN L/R", kind: "st", dest: "P.A." });
+  A.__cabRes = null; L = A.busList();
+  const main = L.rows[0];
+  eq(main.ports.length, 2, "stereo = 2 porte");
+  ok(main.ports[1] === main.ports[0] + 1, "porte consecutive");
+  if (main.box.id === monBox.id) ok(main.ports[0] !== monPort, "non pesta il monitor");
+  // pin: porta 7 su ID2
+  A.state.buses.push({ id: "bB", name: "TV L/R", kind: "st", boxId: b2.id, port: 7 });
+  A.__cabRes = null; L = A.busList();
+  const tv = L.rows.find(r => r.bus.id === "bB");
+  eq(tv.box.id, b2.id, "pin box rispettato"); eq(tv.ports.join(","), "7,8", "pin porta 7-8");
+  eq(tv.pinned, true, "flag pinned");
+  // conflitto: altro bus pinnato sulla stessa porta -> err e riassegnato altrove
+  A.state.buses.push({ id: "bC", name: "REC L/R", kind: "st", boxId: b2.id, port: 8 });
+  A.__cabRes = null; L = A.busList();
+  ok(L.issues.some(i => i.lvl === "err" && /occupata/.test(i.msg)), "pin in conflitto = err");
+  const rec = L.rows.find(r => r.bus.id === "bC");
+  ok(rec.box && !(rec.box.id === b2.id && rec.ports[0] === 8), "riassegnato altrove");
+  // saturazione: 16 out totali - riempio tutto -> bus senza porta, mai perso
+  for (let i = 0; i < 12; i++) A.state.buses.push({ id: "bF" + i, name: "X" + i, kind: "st" });
+  A.__cabRes = null; L = A.busList();
+  ok(L.unpatched.length >= 1, "bus senza porta out");
+  ok(L.issues.some(i => /senza porta out/.test(i.msg)), "err out esaurite");
+  eq(L.rows.length, A.state.buses.length, "nessun bus perso dalle righe");
+  // normalize: kind farlocco -> st; boxId orfano -> pulito; senza nome -> via
+  A.state.buses = [{ id: "z1", name: "OK", kind: "boh", boxId: "manca", port: 3 }, { name: "  " }];
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.buses.length, 1, "bus senza nome eliminato");
+  eq(A.state.buses[0].kind, "st", "kind sanificato");
+  eq(A.state.buses[0].boxId, undefined, "boxId orfano rimosso");
+  A.state.buses = [];
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

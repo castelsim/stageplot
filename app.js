@@ -2244,6 +2244,17 @@ function pdfHeaderPropose(s, acct){
 function normalizeState(s){
   s=migrate(s);
   s.items=s.items||[];
+  /* Output list: bus console sanificati (additivo, nessun bump) */
+  if(!Array.isArray(s.buses)) s.buses=[];
+  s.buses=s.buses.filter(function(bu){ return bu && typeof bu.name==="string" && bu.name.trim(); });
+  s.buses.forEach(function(bu){
+    if(!bu.id) bu.id="b"+Math.random().toString(36).slice(2,9);
+    bu.name=bu.name.trim().slice(0,40);
+    if(!BUS_KINDS[bu.kind]) bu.kind="st";
+    if(bu.dest!=null){ bu.dest=String(bu.dest).slice(0,40); if(!bu.dest) delete bu.dest; }
+    if(bu.port!=null && !(bu.port>=1&&bu.port<=64)){ delete bu.port; }
+    if(bu.boxId!=null && !s.items.some(function(x){ return x.id===bu.boxId; })){ delete bu.boxId; delete bu.port; }
+  });
   if(s.lookDefault!=="schematico") s.lookDefault="illustrato";   /* B4: aspetto predefinito del progetto (default illustrato); i nuovi elementi lo ereditano */
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
   /* RACK: rackId orfano (rack eliminato/mancante) → l'apparecchio si libera dov'era; ordine rinumerato */
@@ -4292,6 +4303,7 @@ function auditEngine(){
     var capF = i.code==="cap"; add(i.lvl,i.msg,"Audio", capF?"Aggiungi una stage box (o un RIO con più canali) dal catalogo.":"", capF?{label:"Aggiungi stage box",run:auditFixAddBox}:null); } });
   ((netEngine()||{}).issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Rete"); } });   /* L5 */
   (typeof rfIssues==="function"?rfIssues():[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"RF"); } });   /* F3 */
+  ((typeof busList==="function"&&(state.buses||[]).length)?busList().issues:[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Audio"); } });   /* Output list */
   (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
   /* punteggio di prontezza (pesato per gravità) */
   /* ===== PRODUZIONE (fase 4): regole di coerenza (brief §9) =====
@@ -9945,6 +9957,45 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
   });
   applyListOrder(rows, state.cab&&state.cab.monOrder, function(r){ return r.sinkId; });
   return {rows:rows, R:R};
+}
+/* ===== OUTPUT LIST (caso reale Sernaglia): bus console → porte out delle box =====
+   I mix monitor restano DERIVATI (motore cab). Qui vivono solo i bus che non derivano dal palco
+   (MAIN/TV/REC/matrici/cuffie): state.buses = [{id,name,kind,dest,boxId,port}].
+   Un bus = una voce, anche su più uscite (mai duplicato). Porte auto = prime N consecutive libere. */
+var BUS_KINDS={ st:{tag:"ST", n:2, nome:"Stereo (2 out)"}, mono:{tag:"DIR", n:1, nome:"Mono / Direct (1 out)"}, mtx:{tag:"MTX", n:2, nome:"Matrix (2 out)"} };
+var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Macchina cuffie","st","cuffie"],["Near fill L/R","st","near fill"]];
+function busPortN(bu){ return BUS_KINDS[bu.kind] ? BUS_KINDS[bu.kind].n : 1; }
+function busList(){
+  var R=cabResult(true);
+  var boxes=(R.boxes||[]).filter(function(b){ return !b.auto; }).slice().sort(function(a,b){ return a.eid-b.eid; });
+  var taken={}; boxes.forEach(function(b){ taken[b.id]={}; });
+  var auto=[];
+  (R.mixes||[]).forEach(function(m){ if(!m.box || !taken[m.box.id]) return;
+    var ps=[]; for(var i=0;i<m.ch;i++){ taken[m.box.id][m.outCh+i]="mon"; ps.push(m.outCh+i); }
+    auto.push({name:m.name, tag:"MIX", box:m.box, ports:ps, dest:m.sinks.length+"× monitor"}); });
+  function firstFree(b,n){
+    for(var p=1;p<=b.outCap-n+1;p++){ var ok=true;
+      for(var i=0;i<n;i++){ if(taken[b.id][p+i]){ ok=false; break; } }
+      if(ok) return p; }
+    return 0; }
+  var rows=[], issues=[], unpatched=[];
+  (state.buses||[]).forEach(function(bu){
+    var n=busPortN(bu), b=null, p0=0;
+    var pinB=bu.boxId ? boxes.filter(function(x){ return x.id===bu.boxId; })[0] : null;
+    if(pinB && bu.port>=1){
+      var ok=(bu.port+n-1)<=pinB.outCap;
+      for(var i=0;i<n&&ok;i++){ if(taken[pinB.id][bu.port+i]) ok=false; }
+      if(ok){ b=pinB; p0=bu.port; }
+      else issues.push({lvl:"err", msg:"Uscita «"+bu.name+"»: porta out "+bu.port+" occupata o fuori range su "+(pinB.sbId?("ID "+pinB.sbId):("box "+pinB.letter))+" — scegli un'altra porta."});
+    } else if(pinB){ p0=firstFree(pinB,n); if(p0) b=pinB; }
+    if(!b){ for(var j=0;j<boxes.length&&!b;j++){ var q=firstFree(boxes[j],n); if(q){ b=boxes[j]; p0=q; } } }
+    if(!b){ unpatched.push(bu); rows.push({bus:bu, name:bu.name, tag:(BUS_KINDS[bu.kind]||{}).tag||"ST", box:null, ports:[], dest:bu.dest||"", pinned:false}); return; }
+    var ps2=[]; for(var k=0;k<n;k++){ taken[b.id][p0+k]="bus"; ps2.push(p0+k); }
+    rows.push({bus:bu, name:bu.name, tag:(BUS_KINDS[bu.kind]||{}).tag||"ST", box:b, ports:ps2, dest:bu.dest||"", pinned:!!(bu.boxId&&bu.port>=1&&b.id===bu.boxId&&p0===bu.port)});
+  });
+  if(unpatched.length) issues.push({lvl:"err", msg:unpatched.length+" uscit"+(unpatched.length===1?"a":"e")+" console senza porta out ("+unpatched.map(function(u){return u.name;}).join(", ")+"): servono più out — un'altra stage box o meno bus."});
+  var hub=(state.items||[]).some(function(x){ return x.type==="mixhub"; });
+  return {auto:auto, rows:rows, boxes:boxes, taken:taken, issues:issues, unpatched:unpatched, hub:hub, count:auto.length+rows.length};
 }
 var monActive=false, monOpen=true;
 function renderMonitorPanel(){
