@@ -3702,6 +3702,11 @@ function normalizeState(s){
     if(it.type==="testo" && (+it.w||0)<=20){ it.w=200; it.d=70; }   /* 11/07: il testo libero è diventato un box (era un punto 10×10) */
     if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
   });
+  if(s.elec && s.elec.manual && typeof s.elec.manual==="object"){   /* F4: linea/connettore sanificati */
+    Object.keys(s.elec.manual).forEach(function(k){ var m=s.elec.manual[k]; if(!m||typeof m!=="object") return;
+      if(m.line!=null && !(m.line>=1 && m.line<=64)) delete m.line;
+      if(m.conn!=null && ["schuko","cee","powercon"].indexOf(m.conn)<0) delete m.conn;
+    }); }
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.evDate=(typeof s.evDate==="string" && /^\d{4}-\d{2}-\d{2}$/.test(s.evDate)) ? s.evDate : "";   /* evento: giorno e orario (header, 17/07) — facoltativi */
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
@@ -5272,6 +5277,14 @@ var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"
 function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
 function elecSection(a){ for(var i=0;i<ELEC_SECTIONS.length;i++){ if(a<=ELEC_SECTIONS[i][0]) return ELEC_SECTIONS[i][1]; } return "95 mm²"; }
+/* F4: connettore della linea — dedotto (audio rack → PowerCON, >16A → CEE, altrimenti Schuko) o override */
+var ELEC_POWERCON={ rack:1, amprack:1 };
+function elecConnOf(it, a, ov){
+  var k = (ov==="schuko"||ov==="cee"||ov==="powercon") ? ov : (ELEC_POWERCON[it.type] ? "powercon" : (a>16 ? "cee" : "schuko"));
+  if(k==="powercon") return {k:"pc", label:"PowerCON"};
+  if(k==="cee") return {k:"cee", label:"CEE"+(a>32?"63":(a>16?"32":"16"))};
+  return {k:"sk", label:"Schuko"};
+}
 function elecMargin(){ return 0.2; }
 function elecKW(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
 function elecSupplyPoint(){
@@ -5472,6 +5485,15 @@ function electricEngine(){
   if(!manualModeE && supply) distros.forEach(function(d){ if(d.loadW<=0) return;
     if(d.it && ups[d.it.id] && ups[d.it.id].to) return;   /* ha già un uplink disegnato dall'utente */
     feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:orthLen([[d.x,d.y],[supply.x,supply.y]])/100}); });
+  /* F4: numero di linea per distro (progressivo, pin via elecManual.line) + connettore per ogni carico */
+  distros.forEach(function(d){
+    var mine=loadLinks.filter(function(l){ return l.distro===d; });
+    var taken={};
+    mine.forEach(function(l){ var ov=eman[l.key]||{}; if(ov.line>=1 && ov.line<=64 && !taken[ov.line]){ l.line=ov.line; l.linePinned=true; taken[ov.line]=1; } });
+    var nx=1; mine.forEach(function(l){ if(l.line) return; while(taken[nx]) nx++; l.line=nx; taken[nx]=1; });
+    d.nLines=mine.length; d.maxLine=mine.reduce(function(m,l){ return Math.max(m,l.line); },0);
+  });
+  loadLinks.forEach(function(l){ var ov=eman[l.key]||{}; l.conn=elecConnOf(l.load.it, l.load.a, ov.conn); });
   /* 5. riepiloghi + criticità */
   var capW=distros.reduce(function(s,d){ return s+d.a*ELEC_VOLT*d.ph; },0);
   distros.forEach(function(d){
@@ -6149,7 +6171,8 @@ function selectedCableInfo(){
       var rowsE=[["Carico", _cpName(ll.load.it)+" · "+Math.round(ll.load.w)+" W ("+ll.load.a.toFixed(1)+" A)"],
                  ["Quadro", (ll.distro.letter||"")+(ll.distro.name?" · "+ll.distro.name:"")],
                  ["Fase", "L"+((ll.phase||0)+1)],
-                 ["Presa", ll.cee?"CEE (oltre 16 A)":"Schuko 16 A"],
+                 ["Linea", "#"+(ll.line||"?")+(ll.linePinned?" (fissa)":"")],
+                 ["Connettore", (ll.conn&&ll.conn.label)||"Schuko"],
                  ["Lunghezza", _cpLen(ll.lenM, ll.cut)]];
       var em=(state.elec.manual||{})[selElec]||{};
       return { title:"Linea elettrica", sub:_cpName(ll.load.it)+" → "+(ll.distro.letter||"quadro"), rows:rowsE,
@@ -11714,7 +11737,8 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
 function loadList(){
   var R=elecResult(true), rows=[], n=0;
   R.loadLinks.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true}); });
+    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true,
+      line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id}); });
   R.unassigned.forEach(function(l){ n++;
     rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false}); });
   (R.pending||[]).forEach(function(l){ n++;   /* manual-first: la lista carichi è completa anche senza cavi */
@@ -11735,12 +11759,50 @@ function renderLoadPanel(){
   sum.innerHTML='<b>'+pl.rows.length+'</b> carichi · <b>'+elecKW(R.totW)+'</b> · '+R.totA.toFixed(0)+' A<br>Distro: <b>'+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join(", ")+'</b>';
   var h='<div class="patch-row loadrow patch-hd"><span>#</span><span>Carico</span><span>Pot.</span><span>Q/L</span></div>';
   pl.rows.forEach(function(r){
-    h+='<div class="patch-row loadrow'+(r.ok?'':' unassigned')+'"><span class="pn">'+r.n+'</span>'
-      +'<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
+    var lineTxt = (r.ok && r.line) ? (r.distro+"·"+r.phase+"·#"+r.line+(r.linePinned?" 📌":"")) : (r.ok?r.distro+"·"+r.phase:"—");
+    h+='<div class="patch-row loadrow'+(r.ok?'':' unassigned')+'" data-lid="'+esc(r.loadId||"")+'"><span class="pn">'+r.n+'</span>'
+      +'<span class="psrc" title="'+esc(r.name)+(r.conn?" · "+r.conn:"")+'">'+esc(r.name)+(r.conn?' <small style="color:var(--text-3)">'+esc(r.conn)+'</small>':'')+'</span>'
       +'<span class="pmic">'+(r.w>=1000?(r.w/1000).toFixed(1).replace(".",",")+"kW":r.w+"W")+' <b class="p48b">'+r.a.toFixed(1)+'A</b></span>'
-      +'<span class="ppatch">'+esc(r.ok?r.distro+"·"+r.phase:"—")+'</span></div>';
+      +'<span class="ppatch'+(r.ok&&r.line?" editable-cell":"")+'">'+esc(lineTxt)+'</span></div>';
   });
   host.innerHTML=h;
+  /* F4: click sulla pillola linea → popover numero + connettore */
+  Array.prototype.forEach.call(host.querySelectorAll(".loadrow"), function(row){
+    var lid=row.getAttribute("data-lid"); if(!lid) return;
+    var cell=row.querySelector(".ppatch.editable-cell"); if(!cell) return;
+    cell.addEventListener("click", function(e){ e.stopPropagation(); openLinePop(e, lid); });
+  });
+}
+/* F4: popover linea (numero) + connettore per un carico */
+function openLinePop(ev, loadId){
+  var old=document.getElementById("linePop"); if(old) old.remove();
+  var Re=elecResult(), ll=(Re.loadLinks||[]).filter(function(k){ return k.key===loadId; })[0]; if(!ll) return;
+  var maxL=Math.max(ll.distro.maxLine||1, 12);
+  var pop=document.createElement("div"); pop.id="linePop"; pop.className="port-pop";
+  var man=(state.elec.manual||{})[loadId]||{};
+  var h='<label>Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
+  for(var pn=1;pn<=maxL;pn++){ h+='<option value="'+pn+'"'+(man.line===pn?' selected':'')+'>#'+pn+'</option>'; }
+  h+='</select><label>Connettore</label><select id="lpConn">'+
+     '<option value=""'+(!man.conn?' selected':'')+'>Automatico ('+((ll.conn&&ll.conn.label)||"Schuko")+')</option>'+
+     '<option value="schuko"'+(man.conn==="schuko"?' selected':'')+'>Schuko</option>'+
+     '<option value="cee"'+(man.conn==="cee"?' selected':'')+'>CEE</option>'+
+     '<option value="powercon"'+(man.conn==="powercon"?' selected':'')+'>PowerCON</option></select>';
+  pop.innerHTML=h;
+  document.body.appendChild(pop);
+  pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
+  pop.style.top=Math.min(ev.clientY+8, window.innerHeight-pop.offsetHeight-10)+"px";
+  function commit(){
+    var m=elecManual(loadId);
+    var nv=document.getElementById("lpNum").value, cv=document.getElementById("lpConn").value;
+    if(nv) m.line=+nv; else delete m.line;
+    if(cv) m.conn=cv; else delete m.conn;
+    if(!Object.keys(m).length) delete state.elec.manual[loadId];
+    __elecRes=null; save(); render();
+  }
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });
+  document.getElementById("lpNum").addEventListener("change", commit);
+  document.getElementById("lpConn").addEventListener("change", commit);
+  setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
 }
 function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordionOpen("load"); closeMobileDrawers(); clearSelection(); } render(); if(loadActive) techScrollTo("loadSec"); }
 (function(){
@@ -13692,6 +13754,41 @@ function netListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+function elecLinesPdf(shared){
+  var R; try{ R=elecResult(true); }catch(_e){ R={distros:[],loadLinks:[]}; }
+  var distros=(R.distros||[]).filter(function(d){ return (R.loadLinks||[]).some(function(l){ return l.distro===d; }); });
+  if(!distros.length){ if(!shared) alert("Nessuna linea elettrica (aggiungi carichi e un distro)."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+22, M+52, M+72, M+160];
+    doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Alimentazioni", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    distros.forEach(function(d){
+      if(y>268){ doc.addPage(); y=18; }
+      var mine=(R.loadLinks||[]).filter(function(l){ return l.distro===d; }).sort(function(a,b){ return a.line-b.line; });
+      var phTxt=d.phLoad.slice(0,d.ph).map(function(x){ return x.toFixed(0); }).join("/");
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b45309");
+      doc.text((d.letter||"Q")+" — "+(d.name||"Distro")+" · "+(d.loadW/ELEC_VOLT).toFixed(0)+" A · L1/L2/L3 = "+phTxt+" A", M, y); y+=6;
+      doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
+      trow("LINEA","CONN.","FASE","CARICO","POT.", true, "#b45309");
+      mine.forEach(function(l){
+        trow("#"+l.line+(l.linePinned?" *":""), (l.conn&&l.conn.label)||"Schuko", "L"+(l.phase+1), (l.load.it.label||TYPES[l.load.it.type].nome).slice(0,52), elecKW(l.load.w), false, "#111827");
+      });
+      y+=4;
+    });
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
+    if(y>286){ doc.addPage(); y=18; }
+    doc.text("* = numero linea scelto a mano. Magnetotermici e differenziali = dati di targa del quadro.", M, y);
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-alimentazioni.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function outputListPdf(shared){
   var L; try{ L=busList(); }catch(_e){ L={count:0}; }
   if(!L.count){ if(!shared) alert("Nessuna uscita console (aggiungi monitor o bus dalle «Uscite console»)."); return; }
@@ -14814,6 +14911,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
       if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
       if(want("loadlist")) loadListPdf(doc);
+      if(want("eleclines")) elecLinesPdf(doc);
       if(want("backline")) backlineListPdf(doc);
       if(want("rf")) rfListPdf(doc);
       if(want("pmlist")) pmListPdf(doc);
@@ -15109,6 +15207,7 @@ function pdfChannelPage(doc, L, paperKey){
     if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
     var Re=(typeof elecResult==="function")?elecResult(true):{loads:[]};
     if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
+    try{ if((Re.loadLinks||[]).length) pages.push({key:"eleclines", label:"Alimentazioni (linee del distro)"}); }catch(_e){}
     if((typeof backlineList==="function") && backlineList().count){ pages.push({key:"backline", label:"Backline (attrezzatura)"}); }
     if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }

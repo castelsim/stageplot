@@ -1870,5 +1870,46 @@ t("Sub-snake analogica -> rack I/O: blocco contiguo, FOH del Rio, riservate, fal
   eq(A.state.items.find(i => i.id === ana.id).sbTo, undefined, "sbTo orfano rimosso");
 });
 
+t("F4: linee numerate del distro + connettore (auto, pin, override)", () => {
+  reset();
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.elec.manual = {};
+  A.state.elec.supply = { kind: "left" };
+  const d = add("distro32", 100, 300);
+  const h1 = add("testamobile", 200, 300);   // moving head, >0W
+  const h2 = add("testamobile", 240, 300);
+  const rk = add("rack", 300, 300);           // rack audio → PowerCON, ma serve wattOf>0
+  A.__elecRes = null;
+  let R = A.electricEngine();
+  const links = R.loadLinks;
+  ok(links.length >= 2, "carichi collegati");
+  // numeri progressivi distinti per distro
+  const nums = links.map(l => l.line).sort((a, b) => a - b);
+  eq(new Set(nums).size, nums.length, "numeri linea distinti");
+  ok(nums[0] === 1, "parte da 1");
+  // connettore dedotto: moving head (5A) = Schuko
+  const lh = links.find(l => l.load.it.id === h1.id);
+  eq(lh.conn.k, "sk", "moving head <16A = Schuko");
+  // override connettore = CEE
+  A.state.elec.manual[h1.id] = { conn: "cee" };
+  A.__elecRes = null; R = A.electricEngine();
+  eq(R.loadLinks.find(l => l.load.it.id === h1.id).conn.k, "cee", "override CEE");
+  // pin numero linea 7
+  A.state.elec.manual[h1.id] = { line: 7 };
+  A.__elecRes = null; R = A.electricEngine();
+  const lh2 = R.loadLinks.find(l => l.load.it.id === h1.id);
+  eq(lh2.line, 7, "linea pinnata a 7"); eq(lh2.linePinned, true, "flag pin");
+  // gli altri non collidono col 7
+  ok(R.loadLinks.filter(l => l.load.it.id !== h1.id).every(l => l.line !== 7), "nessuna collisione col pin");
+  // loadList espone line/conn
+  const row = A.loadList().rows.find(r => r.loadId === h1.id);
+  eq(row.line, 7, "line in lista"); ok(row.conn, "conn label in lista");
+  // normalize: line/conn fuori range puliti
+  A.state.elec.manual[h1.id] = { line: 99, conn: "xxx", distro: d.id };
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq((A.state.elec.manual[h1.id] || {}).line, undefined, "line fuori range rimossa");
+  eq((A.state.elec.manual[h1.id] || {}).conn, undefined, "conn invalido rimosso");
+  A.state.elec.manual = {};
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
