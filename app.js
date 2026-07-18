@@ -2198,6 +2198,33 @@ var PRODUCTION_LUCI=[
   ["plot_allegato","Plot luci allegato"], ["non_comprese","Non comprese nel rider"],
   ["da_definire","Da definire"], ["altro","Altro"]
 ];
+/* ===== HUB PRODUZIONE (decisione 2A): reparti = aree di lavoro della produzione.
+   Tecnici DERIVATI dal palco (Audio/Monitor/RF/Rete/Power) + EXTRA a mano (Palco/Luci/…).
+   I derivati sono viste del plot (nessun dato in più); gli extra = etichette in state.production.depts.
+   I responsabili/contatti (decisioni 3-4) saranno account-only, non qui. ===== */
+var DEPT_COLORS={ audio:"#0d9488", monitor:"#06b6d4", rf:"#7c3aed", rete:"#4f46e5", power:"#d97706" };
+var DEPT_SUGGEST=["Palco","Luci","Video","Backline","Catering","Logistica","Sicurezza","Trasporti"];
+function productionDepts(){
+  var out=[];
+  var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,boxes:[]};
+  if(state.cab && state.cab.on && Rc.totIn){
+    var nBox=(Rc.boxes||[]).filter(function(b){ return !b.auto; }).length;
+    out.push({key:"audio", name:"Audio", color:DEPT_COLORS.audio, plot:true, detail:Rc.totIn+" ingressi"+(nBox?" · "+nBox+" stage box":"")}); }
+  var mons=(state.items||[]).filter(function(x){ return OUT_SET[x.type]!=null && x.type!=="monmix"; }).length;
+  var pms=(state.items||[]).filter(function(x){ return (typeof pmOf==="function") && pmOf(x); }).length;
+  if(state.cab && state.cab.on && (mons||pms))
+    out.push({key:"monitor", name:"Monitor", color:DEPT_COLORS.monitor, plot:true, detail:[mons?mons+" monitor":"", pms?pms+" personal monitor":""].filter(Boolean).join(" · ")});
+  var rfn=(state.items||[]).filter(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"||(typeof RF_TX!=="undefined"&&RF_TX[x.type]); }).length;
+  if(rfn) out.push({key:"rf", name:"RF", color:DEPT_COLORS.rf, plot:true, detail:rfn+" element"+(rfn===1?"o":"i")+" RF"});
+  var netN=(typeof netEngine==="function")?((netEngine().runs)||[]).length:0;
+  if(netN) out.push({key:"rete", name:"Rete / Dante", color:DEPT_COLORS.rete, plot:true, detail:netN+" tratt"+(netN===1?"a":"e")});
+  var Re=(typeof elecResult==="function")?elecResult(true):{loads:[],distros:[]};
+  if(state.elec && state.elec.on && (Re.loads||[]).length)
+    out.push({key:"power", name:"Power", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
+  ((state.production&&state.production.depts)||[]).forEach(function(d){
+    out.push({key:d.id, name:d.name, color:"#746e60", plot:false, extra:true, detail:""}); });
+  return out;
+}
 /* Righe di testo per il rider (fase 4) e per i riepiloghi: SOLO i sistemi dichiarati (mai inventare).
    ans=null → non dichiarato (non compare); "no" → non compare (non previsto). */
 function productionSummary(s){
@@ -2385,9 +2412,11 @@ function normalizeState(s){
     var A=PRODUCTION_ANSWERS.map(function(a){return a[0];}), L=PRODUCTION_LUCI.map(function(a){return a[0];});
     function nrm(k, valid){ var o=(sys[k]&&typeof sys[k]==="object")?sys[k]:{};
       return { ans:(valid.indexOf(o.ans)>=0)?o.ans:null, note:String(o.note||"").slice(0,300) }; }
+    var depts=(Array.isArray(pr.depts)?pr.depts:[]).filter(function(d){ return d && typeof d.name==="string" && d.name.trim(); })
+      .map(function(d){ return { id:d.id||("dp"+Math.random().toString(36).slice(2,9)), name:d.name.trim().slice(0,40) }; });
     s.production={ asked:!!pr.asked, systems:{
       playback:nrm("playback",A), video:nrm("video",A), recaudio:nrm("recaudio",A),
-      recvideo:nrm("recvideo",A), streaming:nrm("streaming",A), luci:nrm("luci",L) } };
+      recvideo:nrm("recvideo",A), streaming:nrm("streaming",A), luci:nrm("luci",L) }, depts:depts };
   })();
   var cb=s.cab||{};   /* cablaggio audio calcolato: layer + preferenze + override manuali del tecnico */
   var man={};
@@ -11660,7 +11689,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "variant-new":function(){ if(typeof createVariant==="function") createVariant(); }, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
-      "share":function(){openShare();} };
+      "share":function(){openShare();}, "produzione":function(){ if(window.openProdHub) window.openProdHub(); } };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
       var a=x.getAttribute("data-help");
@@ -13484,6 +13513,59 @@ function openItemContactModal(it){
 }
 /* Modale "La mia rubrica" (spec 15/07): gestione completa + import dai progetti.
    z-index sopra la modale "I miei progetti" (si apre anche da lì). */
+/* ===== HUB PRODUZIONE (decisione 2A) — modale reparti ===== */
+window.openProdHub=function(){
+  var m=document.getElementById("prodModal"); if(!m) return;
+  m.hidden=false;
+  renderProdHub();
+};
+function renderProdHub(){
+  var host=document.getElementById("prodDeptRows"); if(!host) return;
+  if(!state.production) state.production={};
+  if(!Array.isArray(state.production.depts)) state.production.depts=[];
+  var depts=productionDepts();
+  host.innerHTML="";
+  depts.forEach(function(d){
+    var row=document.createElement("div"); row.className="prod-dept";
+    row.innerHTML='<span class="pd-dot" style="background:'+d.color+'"></span>'+
+      '<span class="pd-nm">'+esc(d.name)+'</span>'+
+      '<span class="pd-src '+(d.plot?"plot":"extra")+'">'+(d.plot?"dal palco":"aggiunto")+'</span>'+
+      '<span class="pd-el">'+esc(d.detail||"")+'</span>'+
+      (d.extra?'<span class="pd-x" title="Rimuovi reparto">\u00d7</span>':'');
+    if(d.extra){ row.querySelector(".pd-x").addEventListener("click", function(){
+      state.production.depts=state.production.depts.filter(function(x){ return x.id!==d.key; });
+      save(); renderProdHub(); }); }
+    host.appendChild(row);
+  });
+  if(!depts.length) host.innerHTML='<div class="hint">Nessun reparto: disegna il palco (audio, RF, power…) o aggiungine uno qui sotto.</div>';
+  var add=document.getElementById("prodDeptAdd"); add.innerHTML="";
+  var have={}; depts.forEach(function(d){ have[d.name.toLowerCase()]=1; });
+  var lbl=document.createElement("span"); lbl.style.cssText="font-size:11px;color:var(--text-3);margin-right:4px"; lbl.textContent="aggiungi:";
+  add.appendChild(lbl);
+  DEPT_SUGGEST.filter(function(n){ return !have[n.toLowerCase()]; }).forEach(function(n){
+    var c=document.createElement("span"); c.className="prod-chip"; c.textContent=n;
+    c.addEventListener("click", function(){ addProdDept(n); });
+    add.appendChild(c);
+  });
+  var inp=document.createElement("input"); inp.type="text"; inp.maxLength=40; inp.placeholder="reparto personalizzato…"; inp.className="prod-inp";
+  var btn=document.createElement("button"); btn.type="button"; btn.className="btn primary"; btn.style.cssText="width:auto;margin:0;padding:5px 12px"; btn.textContent="\uff0b";
+  function go(){ var v=inp.value.trim(); if(v){ addProdDept(v); inp.value=""; } }
+  btn.addEventListener("click", go);
+  inp.addEventListener("keydown", function(e){ if(e.key==="Enter") go(); });
+  add.appendChild(inp); add.appendChild(btn);
+}
+function addProdDept(name){
+  if(!state.production) state.production={};
+  if(!Array.isArray(state.production.depts)) state.production.depts=[];
+  name=(name||"").trim().slice(0,40); if(!name) return;
+  var exists=productionDepts().some(function(d){ return d.name.toLowerCase()===name.toLowerCase(); });
+  if(exists){ if(window.__toast) window.__toast("«"+name+"» esiste già."); return; }
+  state.production.depts.push({ id:"dp"+Math.random().toString(36).slice(2,9), name:name });
+  save(); renderProdHub();
+}
+(function(){ var m=document.getElementById("prodModal"); if(!m) return;
+  var c=document.getElementById("prodClose"); if(c) c.addEventListener("click", function(){ m.hidden=true; });
+  m.addEventListener("click", function(e){ if(e.target===m) m.hidden=true; }); })();
 window.__openRubricaModal=function(){
   var ov=document.getElementById("rubModal");
   if(!ov){ ov=document.createElement("div"); ov.id="rubModal";
