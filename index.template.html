@@ -511,7 +511,7 @@
       <span id="pHwrap"><label>h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
     </div>
     <div id="pDimSideWrap" style="display:none">
-      <label>Lato quota</label>
+      <label id="pDimSideLbl">Lato quota</label>
       <div class="chips" data-chips="pDimSide">
         <button type="button" data-v="auto">Auto</button>
         <button type="button" data-v="top">Sopra</button>
@@ -1849,15 +1849,21 @@ function rampModules(it){ if(it.type!=="cableramp") return 0; var cfg=RAMP_TYPES
    NON occlude gli elementi sotto (come la copertura palco). Configurabile per taglia + resize libero. */
 var GAZEBO_SIZES = [[300,300],[300,450],[300,600],[400,400],[400,800]];   /* taglie evento più comuni (cm) */
 function gazLabel(w,d){ function f(n){ return (Math.round(n/10)/10).toString().replace(".",","); } return f(w)+"×"+f(d); }
-function drawGazebo(it){
+function drawGazebo(it, opts){
+  opts=opts||{};
   var w=it.w||300, d=it.d||300, xL=-w/2, xR=w/2, yT=-d/2, yB=d/2;
   var FR="#8f979e", DIAG="#c3c8cd", POST="#6f767d";
   var s='<rect x="'+xL+'" y="'+yT+'" width="'+w+'" height="'+d+'" rx="6" fill="none" stroke="'+FR+'" stroke-width="4"/>';
   s+='<path fill="none" stroke="'+DIAG+'" stroke-width="2" d="M '+xL+','+yT+' L 0,0 L '+xR+','+yT+' M '+xL+','+yB+' L 0,0 L '+xR+','+yB+'"/>';   /* falde del tetto verso il colmo */
   var ps=Math.max(12, Math.min(w,d)*0.05);   /* montanti angolari */
   [[xL,yT],[xR,yT],[xL,yB],[xR,yB]].forEach(function(p){ s+='<rect x="'+(p[0]-ps/2)+'" y="'+(p[1]-ps/2)+'" width="'+ps+'" height="'+ps+'" rx="2" fill="'+POST+'"/>'; });
-  s+='<text x="0" y="'+(yT-10)+'" text-anchor="middle" fill="'+FR+'" font-size="'+Math.max(18,Math.min(w,d)*0.08)+'" font-weight="700" font-family="-apple-system,Segoe UI,sans-serif">'+gazLabel(w,d)+' m</text>';
-  return s;
+  if(opts.cross){ var cs=Math.min(w,d)*0.14; s+='<rect x="'+(-cs/2).toFixed(1)+'" y="'+(-cs*0.17).toFixed(1)+'" width="'+cs.toFixed(1)+'" height="'+(cs*0.34).toFixed(1)+'" rx="2" fill="#dc2626"/><rect x="'+(-cs*0.17).toFixed(1)+'" y="'+(-cs/2).toFixed(1)+'" width="'+(cs*0.34).toFixed(1)+'" height="'+cs.toFixed(1)+'" rx="2" fill="#dc2626"/>'; }   /* croce = tenda medica (PMA) */
+  return s;   /* etichetta (nome + misura) disegnata a livello app in itemMarkup, non qui: unica e posizionabile sul lato */
+}
+var GAZ_TYPES = { gazebo33:1, tenda63:1, pma:1 };   /* coperture "a telaio": etichetta unica nome+dimensione, taglia+lato configurabili */
+function gazStructLabel(it){   /* nome base (editabile) + dimensione live, es. "Gazebo 3×6 m" */
+  var t=TYPES[it.type]||{}, base=(it.label!=null&&it.label!=='')?it.label:(t.defLabel||"Gazebo");
+  return base+" "+gazLabel(it.w||t.w||300, it.d||t.d||300)+" m";
 }
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
@@ -1867,8 +1873,8 @@ var TYPES = {
              draw:function(it){ return drawLibFit("njersey",it,100,50); }},
   ambulanza: {nome:"Ambulanza", dim:"210×590", cat:"Sicurezza e site", w:210,d:590,
              draw:function(it){ return drawLibFit("ambulanza",it,210,590); }},
-  pma: {nome:"Tenda medica", dim:"PMA · 500×400", cat:"Sicurezza e site", w:500,d:400,
-             draw:function(it){ return drawLibFit("pma",it,500,400); }},
+  pma: {nome:"Tenda medica", dim:"PMA · telaio 5×4 m", cat:"Sicurezza e site", w:500,d:400, resizable:true, defLabel:"PMA",
+             draw:function(it){ return drawGazebo(it, {cross:true}); }},
   wcchim: {nome:"Bagno chimico", dim:"110×110", cat:"Sicurezza e site", w:110,d:110,
              draw:function(it){ return drawLibFit("wcchim",it,110,110); }},
   wcpmr: {nome:"Bagno chimico PMR", dim:"160×160", cat:"Sicurezza e site", w:160,d:160,
@@ -1891,8 +1897,8 @@ var TYPES = {
              draw:function(it){ return drawLibFit("foodtruck",it,290,500); }},
   gazebo33: {nome:"Gazebo", dim:"telaio · taglia regolabile", cat:"Sicurezza e site", w:300,d:300, resizable:true, defLabel:"Gazebo",
              draw:function(it){ return drawGazebo(it); }},
-  tenda63: {nome:"Tenda 6×3", dim:"600×300", cat:"Sicurezza e site", w:600,d:300,
-             draw:function(it){ return drawLibFit("tenda63",it,600,300); }},
+  tenda63: {nome:"Tenda 6×3", dim:"telaio · 6×3 m", cat:"Sicurezza e site", w:600,d:300, resizable:true, defLabel:"Tenda",
+             draw:function(it){ return drawGazebo(it); }},
   container10: {nome:"Container 10′", dim:"300×240", cat:"Sicurezza e site", w:300,d:240,
              draw:function(it){ return drawLibFit("container10",it,300,240); }},
   cabregia: {nome:"Cabina regia", dim:"300×250", cat:"Sicurezza e site", w:300,d:250,
@@ -4246,7 +4252,7 @@ function itemMarkup(it){
   }
   var _hid = (it.labelMode==='hidden');
   var fsz0 = _hid ? 0 : ((it.lblSize==null) ? 14 : it.lblSize);   /* 0 = nascosta; 'hidden' = nome nascosto per questo elemento */
-  if(!t.innerLabel && fsz0>0){
+  if(!t.innerLabel && !GAZ_TYPES[it.type] && fsz0>0){   /* coperture: etichetta unica gestita a parte (nome+dim, lato scelto) */
     var fsz = fsz0;                             /* dimensione etichetta regolabile (cm reali) */
     var fst = ' style="font-size:'+fsz+'px"';
     /* postazioni con sedia: etichetta sopra allo schienale di default (ruota con l'elemento) */
@@ -4263,6 +4269,18 @@ function itemMarkup(it){
       if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+tilt+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
+    }
+  }
+  /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
+  if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
+    var gzsz=(it.lblSize==null)?14:it.lblSize;
+    if(gzsz>0){
+      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='';
+      if(gzs==='top'){ gdy=-(it.d/2)-goff; }
+      else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
+      else if(gzs==='left'){ gdx=-(it.w/2)-goff; gtr=' transform="rotate(-90 '+gdx+' 0)"'; }
+      else { gdx=(it.w/2)+goff; gtr=' transform="rotate(90 '+gdx+' 0)"'; }
+      s += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
@@ -6688,6 +6706,11 @@ function renderProps(){
   document.getElementById("pAbbrWrap").style.display = (_lm==="abbr") ? "block" : "none";
   document.getElementById("pLabelWrap").style.display = (_lm==="full") ? "block" : "none";   /* Opzione 2: una sola casella — nome pieno in Intero, sigla in Sigla */
   var _ab=document.getElementById("pAbbr"); _ab.value=it.abbr||""; _ab.placeholder=abbrOf({type:it.type,label:it.label})||"sigla";
+  if(GAZ_TYPES[it.type]){   /* coperture: un solo campo "Nome" (niente Intero/Sigla) → l'etichetta è nome + dimensione automatica */
+    document.getElementById("pLblModeWrap").style.display="none";
+    document.getElementById("pAbbrWrap").style.display="none";
+    document.getElementById("pLabelWrap").style.display="block";
+  }
   var lookw=document.getElementById("pLookWrap");   /* Unifica icone: toggle Aspetto per le postazioni con illustrazione */
   if(lookw){ var isArt=hasLookToggle(it); lookw.style.display=isArt?"block":"none";
     if(isArt){ var ill=(it.look!=="schematico");
@@ -6700,7 +6723,7 @@ function renderProps(){
     document.getElementById("pLblPosTop").className = "btn" + (above ? " primary" : "");
     document.getElementById("pLblPosBot").className = "btn" + (above ? "" : " primary");
   }
-  document.getElementById("pLabel").placeholder = (POSTAZ[it.type] && t.cat==="Orchestra" && (t.sub==="Legni" || t.sub==="Ottoni")) ? "es. Clarinetto / Sax" : "";
+  document.getElementById("pLabel").placeholder = GAZ_TYPES[it.type] ? (t.defLabel||"Nome") : ((POSTAZ[it.type] && t.cat==="Orchestra" && (t.sub==="Legni" || t.sub==="Ottoni")) ? "es. Clarinetto / Sax" : "");
   var rr=it.rot||0, rNorm;
   if(rr>=-180 && rr<=180){ rNorm=rr; }   /* già nel range: preserva i due estremi (-180 resta a sinistra, non salta a 180) */
   else { rNorm=((rr%360)+360)%360; if(rNorm>180) rNorm-=360; }
@@ -6714,8 +6737,10 @@ function renderProps(){
     document.getElementById("pD").value = it.d;
     if(t.riser) document.getElementById("pH").value = it.h;
   }
-  document.getElementById("pDimSideWrap").style.display = t.riser ? "block" : "none";
-  if(t.riser){ var _qs=document.getElementById("pDimSide"); _qs.value = it.dimSide || "auto"; _qs.dispatchEvent(new Event("chips-sync")); }   /* riallinea le chips senza passare da change (che salverebbe) */
+  var isGazCover=!!GAZ_TYPES[it.type];   /* coperture: stesso controllo "Lato" dei riser, ma per l'etichetta unica */
+  document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
+  document.getElementById("pDimSideLbl").textContent = isGazCover ? "Lato etichetta" : "Lato quota";
+  if(t.riser||isGazCover){ var _qs=document.getElementById("pDimSide"); _qs.value = it.dimSide || (isGazCover?"top":"auto"); _qs.dispatchEvent(new Event("chips-sync")); }   /* riallinea le chips senza passare da change (che salverebbe) */
   var isKeys=!!KEYS_BENCH[it.type];
   /* in ASPETTO ILLUSTRATO gli accessori "inglobati" nella figura (sedia, sgabello) non hanno senso come toggle
      (la figura li include già) → li nascondo. Il leggio degli archi invece lo disegno a parte → resta. */
@@ -6728,7 +6753,7 @@ function renderProps(){
       rsel.innerHTML=Object.keys(RAMP_TYPES).map(function(k){ return '<option value="'+k+'">'+esc(RAMP_TYPES[k].nome)+(RAMP_TYPES[k].ch?" · "+RAMP_TYPES[k].ch+" canali":"")+'</option>'; }).join("");
       rsel.value=it.rampType||"midi"; } }
   var gzw=document.getElementById("pGazWrap");   /* gazebo: taglia preset (poi resize libero) */
-  if(gzw){ var isGaz=it.type==="gazebo33"; gzw.style.display=isGaz?"block":"none";
+  if(gzw){ var isGaz=!!GAZ_TYPES[it.type]; gzw.style.display=isGaz?"block":"none";
     if(isGaz){ var gsel=document.getElementById("pGaz"), gcur=it.w+"x"+it.d;
       var gopts=GAZEBO_SIZES.map(function(sz){ return '<option value="'+sz[0]+'x'+sz[1]+'">'+gazLabel(sz[0],sz[1])+' m</option>'; });
       if(!GAZEBO_SIZES.some(function(sz){ return sz[0]===it.w && sz[1]===it.d; })) gopts.unshift('<option value="'+gcur+'">'+gazLabel(it.w,it.d)+' m (personalizzata)</option>');
@@ -7003,7 +7028,7 @@ function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
-document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(it.type==="gazebo33"){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo: taglia preset */
+document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
