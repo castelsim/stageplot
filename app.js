@@ -5263,16 +5263,21 @@ function renderUsoField(it){
   var sel=document.getElementById("pModelSel"); if(!sel) return;
   sel.addEventListener("change", function(){
     var id=sel.value; if(!id || !window.__equip) return;
+    var targetIds=selIds();   /* FIX 18/07 (dal concerto): con rete lenta la risposta arriva quando la selezione è già cambiata → il modello finiva nel vuoto. Si applica agli item scelti ORA, per id. */
     window.__equip.get(id, function(prod){
       if(!prod) return;
-      mutSel(function(x){
-        x.modelId=prod.id; x.modelData=prod.data||{};   /* snapshot: il progetto resta riproducibile offline */
+      var applied=0;
+      (state.items||[]).forEach(function(x){
+        if(targetIds.indexOf(x.id)<0) return;
+        x.modelId=prod.id; x.modelData=JSON.parse(JSON.stringify(prod.data||{}));   /* snapshot per-item: il progetto resta riproducibile offline */
         if(!x.modelData.brand) x.modelData.brand=prod.brand;
         if(!x.modelData.model) x.modelData.model=prod.model;
         if(!x.modelData.category) x.modelData.category=prod.category;
         var dc=(typeof equipDimsCm==="function")?equipDimsCm(x):null;
         if(dc){ x.w=dc.w; x.d=dc.d; }                    /* dimensioni reali dal datasheet (scala 1u=1cm) */
+        applied++;
       });
+      if(applied){ __cabRes=null; __mondRes=null; save(); render(); }
       renderProps();
     });
   });
