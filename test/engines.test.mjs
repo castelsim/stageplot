@@ -240,6 +240,11 @@ t("Coperture (gazebo/tende): telaio NON occludente + etichetta UNICA nome+dimens
   ok(A.GAZEBO_SIZES.length >= 4, "taglie preset presenti");
   eq(A.gazLabel(450, 400), "4,5×4", "gazLabel converte cm→m");
 });
+t("Layer Coperture: isCover riconosce coperture (gazebo/tende/PMA/copertura palco), non gli altri", () => {
+  ok(A.isCover({ type: "gazebo33" }) && A.isCover({ type: "tenda63" }) && A.isCover({ type: "pma" }), "gazebo, tenda, PMA = coperture");
+  ok(A.isCover({ type: "roof86" }) && A.isCover({ type: "roof1210" }), "copertura palco = copertura");
+  ok(!A.isCover({ type: "wedge" }) && !A.isCover({ type: "djset" }), "monitor/strumenti NON sono coperture");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
