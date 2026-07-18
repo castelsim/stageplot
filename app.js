@@ -4990,6 +4990,29 @@ function renderSbF2(it){
   var hint=document.getElementById("pSbPortsHint");
   if(b && b.fohBase!=null) hint.textContent="Canali FOH "+(b.fohBase+1)+"–"+(b.fohBase+cap)+" · "+used+" in uso · "+resArr.length+" riservate · "+Math.max(0,cap-used-resArr.length)+" libere";
   else hint.textContent=used+" in uso · "+resArr.length+" riservate";
+  /* OUTPUT LIST: griglia porte out (monitor=ciano, bus=indaco), sola lettura */
+  var ow=document.getElementById("pSbPortsOutWrap");
+  if(ow){
+    var outCap=b?b.outCap:cabBoxCapOut(it);
+    if(!outCap){ ow.style.display="none"; }
+    else{
+      ow.style.display="block";
+      var oh=document.getElementById("pSbPortsOut"); oh.innerHTML="";
+      var tk={}, names={};
+      try{ var BL=busList(); tk=BL.taken[it.id]||{};
+        BL.auto.concat(BL.rows).forEach(function(r){ if(r.box&&r.box.id===it.id) r.ports.forEach(function(pn2){ names[pn2]=r.name; }); });
+      }catch(_e){}
+      var usedOut=0;
+      for(var po=1;po<=outCap;po++){
+        var d2=document.createElement("div"); d2.className="sbp"; d2.textContent=po;
+        if(tk[po]==="mon"){ d2.classList.add("mon"); usedOut++; }
+        else if(tk[po]==="bus"){ d2.classList.add("busout"); usedOut++; }
+        if(names[po]) d2.title=names[po];
+        oh.appendChild(d2);
+      }
+      document.getElementById("pSbPortsOutHint").textContent=usedOut+" in uso · "+(outCap-usedOut)+" libere — assegna dalle «Uscite console» (layer Monitor)";
+    }
+  }
 }
 function renderProps(){
   updateHeaderStage();
@@ -9997,6 +10020,87 @@ function busList(){
   var hub=(state.items||[]).some(function(x){ return x.type==="mixhub"; });
   return {auto:auto, rows:rows, boxes:boxes, taken:taken, issues:issues, unpatched:unpatched, hub:hub, count:auto.length+rows.length};
 }
+/* ── UI Uscite console (fisarmonica Monitor): righe bus + aggiunta + chips ── */
+function openBusPop(ev, row){
+  var old=document.getElementById("busPop"); if(old) old.remove();
+  var bu=row.bus, L=busList();
+  var pop=document.createElement("div"); pop.id="busPop"; pop.className="port-pop";
+  var h='<label>Stage box</label><select id="bpBox"><option value="">Automatica</option>';
+  L.boxes.forEach(function(b){ h+='<option value="'+esc(b.id)+'"'+(bu.boxId===b.id?' selected':'')+'>'+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+' — out '+b.outCap+'</option>'; });
+  h+='</select><label>Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
+  for(var pn=1;pn<=64;pn++){ h+='<option value="'+pn+'"'+(bu.port===pn?' selected':'')+'>'+pn+'</option>'; }
+  h+='</select><label>Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
+  pop.innerHTML=h;
+  document.body.appendChild(pop);
+  pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
+  pop.style.top=Math.min(ev.clientY+8, window.innerHeight-pop.offsetHeight-10)+"px";
+  function commit(){
+    var bx=document.getElementById("bpBox").value, pt=document.getElementById("bpPort").value, ds=document.getElementById("bpDest").value.trim();
+    if(bx) bu.boxId=bx; else { delete bu.boxId; delete bu.port; }
+    if(bx && pt) bu.port=+pt; else delete bu.port;
+    if(ds) bu.dest=ds; else delete bu.dest;
+    __cabRes=null; save(); render();
+  }
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });
+  ["bpBox","bpPort","bpDest"].forEach(function(id2){ document.getElementById(id2).addEventListener("change", commit); });
+  setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
+}
+function renderBusSec(){
+  var host=document.getElementById("busSec"); if(!host) return;
+  host.innerHTML="";
+  var L; try{ L=busList(); }catch(_e){ return; }
+  var hd=document.createElement("div");
+  hd.style.cssText="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px";
+  hd.textContent="Uscite console";
+  host.appendChild(hd);
+  var sub=document.createElement("div");
+  sub.style.cssText="font-size:10.5px;color:var(--text-3);margin-bottom:6px";
+  sub.textContent="TV, REC, main, matrici, cuffie — quello che non deriva dal palco. Porta out automatica, click sulla pillola per box/porta/destinazione.";
+  host.appendChild(sub);
+  L.rows.forEach(function(r){
+    var row=document.createElement("div"); row.className="bus-row";
+    var pill = r.box ? ((r.box.sbId?("ID"+r.box.sbId):r.box.letter)+" out "+r.ports[0]+(r.ports.length>1?"–"+r.ports[r.ports.length-1]:"")+(r.pinned?" 📌":"")) : "senza out";
+    row.innerHTML='<span class="bus-tag">'+esc(r.tag)+'</span><span class="bus-nm" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'+
+      '<span class="bus-out'+(r.box?'':' miss')+(r.pinned?' pin':'')+'">'+esc(pill)+'</span>'+
+      '<span class="bus-dst" title="'+esc(r.dest||'')+'">'+esc(r.dest||"")+'</span><span class="bus-x" title="Elimina">×</span>';
+    row.querySelector(".bus-out").addEventListener("click", function(e){ e.stopPropagation(); openBusPop(e, r); });
+    row.querySelector(".bus-x").addEventListener("click", function(){
+      state.buses=state.buses.filter(function(x){ return x.id!==r.bus.id; });
+      __cabRes=null; save(); render();
+    });
+    host.appendChild(row);
+  });
+  var add=document.createElement("div"); add.className="bus-add";
+  var ksel=document.createElement("select");
+  Object.keys(BUS_KINDS).forEach(function(k){ var o=document.createElement("option"); o.value=k; o.textContent=BUS_KINDS[k].nome; ksel.appendChild(o); });
+  var inp=document.createElement("input"); inp.type="text"; inp.maxLength=40; inp.placeholder="Nome (es. TV L/R)";
+  var btn=document.createElement("button"); btn.type="button"; btn.className="btn primary"; btn.style.cssText="width:auto;margin:0;padding:5px 12px"; btn.textContent="＋";
+  function addBus(){
+    var nm=inp.value.trim(); if(!nm) return;
+    state.buses.push({ id:"b"+Math.random().toString(36).slice(2,9), name:nm.slice(0,40), kind:ksel.value });
+    inp.value=""; __cabRes=null; save(); render();
+  }
+  btn.addEventListener("click", addBus);
+  inp.addEventListener("keydown", function(e){ if(e.key==="Enter") addBus(); });
+  add.appendChild(ksel); add.appendChild(inp); add.appendChild(btn);
+  host.appendChild(add);
+  var have={}; (state.buses||[]).forEach(function(b){ have[b.name.toLowerCase()]=1; });
+  var chips=BUS_CHIPS.filter(function(c){ return !have[c[0].toLowerCase()]; });
+  if(chips.length){
+    var cw=document.createElement("div"); cw.className="bus-chips";
+    chips.forEach(function(c){
+      var ch=document.createElement("span"); ch.className="bus-chip"; ch.textContent=c[0];
+      ch.addEventListener("click", function(){
+        state.buses.push({ id:"b"+Math.random().toString(36).slice(2,9), name:c[0], kind:c[1], dest:c[2] });
+        __cabRes=null; save(); render();
+      });
+      cw.appendChild(ch);
+    });
+    host.appendChild(cw);
+  }
+  if(L.hub){ var hb=document.createElement("div"); hb.style.cssText="font-size:10.5px;color:var(--text-3);margin-top:6px";
+    hb.textContent="ℹ C'è un hub personal monitor sul palco: se i canali cuffie escono dalla console, aggiungi un bus «Macchina cuffie»."; host.appendChild(hb); }
+}
 var monActive=false, monOpen=true;
 function renderMonitorPanel(){
   var sec=document.getElementById("monSec"); if(!sec) return;
@@ -10012,6 +10116,7 @@ function renderMonitorPanel(){
     pb.disabled = !unc; }
   var host=document.getElementById("monRows"), sum=document.getElementById("monSummary");
   var pl=monitorList(), R=pl.R;
+  renderBusSec();   /* OUTPUT LIST: la sezione «Uscite console» vive anche senza monitor sul palco */
   if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun monitor sul palco: aggiungi wedge, side/drum fill o IEM.</div>'; sum.textContent=""; return; }
   sum.innerHTML='<b>'+pl.rows.length+'</b> monitor · '+R.mixes.length+' mix<br>Uscite usate: <b>'+R.mixChTot+' / '+R.capOutTot+'</b>';
   host.innerHTML="";
@@ -12112,6 +12217,50 @@ function netListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+function outputListPdf(shared){
+  var L; try{ L=busList(); }catch(_e){ L={count:0}; }
+  if(!L.count){ if(!shared) alert("Nessuna uscita console (aggiungi monitor o bus dalle «Uscite console»)."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+26, M+108, M+134];
+    doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Output list", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
+    var all=(L.auto||[]).concat(L.rows.filter(function(r){ return r.box; }));
+    L.boxes.forEach(function(b){
+      var mine=all.filter(function(r){ return r.box.id===b.id; }).sort(function(a,c){ return a.ports[0]-c.ports[0]; });
+      if(!mine.length) return;
+      if(y>270){ doc.addPage(); y=18; }
+      var usedN=mine.reduce(function(a,r){ return a+r.ports.length; },0);
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#0e7490");
+      doc.text((b.sbId?("ID "+b.sbId):("Box "+b.letter))+(b.hw&&STAGEBOX_DB[b.hw]?" — "+STAGEBOX_DB[b.hw].model:"")+" · out "+usedN+"/"+b.outCap, M, y); y+=6;
+      doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y-3.5, 194, y-3.5);
+      trow("OUT","BUS","TIPO","DESTINAZIONE", true, "#0e7490");
+      mine.forEach(function(r){
+        var op=r.ports.length>1 ? (r.ports[0]+"-"+r.ports[r.ports.length-1]) : String(r.ports[0]);
+        trow(op+(r.pinned?" *":""), r.name.slice(0,44), r.tag||"MIX", (r.dest||"").slice(0,30), false, "#111827");
+      });
+      y+=4;
+    });
+    if(L.unpatched && L.unpatched.length){
+      if(y>270){ doc.addPage(); y=18; }
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#b91c1c");
+      doc.text("Da patchare (out esaurite)", M, y); y+=6;
+      L.unpatched.forEach(function(bu){ trow("—", bu.name.slice(0,44), (BUS_KINDS[bu.kind]||{}).tag||"ST", (bu.dest||"").slice(0,30), false, "#b91c1c"); });
+      y+=2;
+    }
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
+    if(y>286){ doc.addPage(); y=18; }
+    doc.text("* = porta scelta a mano. Un bus può alimentare più uscite senza essere duplicato.", M, y);
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-output-list.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function rackListPdf(shared){
   var racks=(state.items||[]).filter(function(x){ return x.type==="rack"; });
   if(!racks.length){ if(!shared) alert("Nessun rack sul palco."); return; }
@@ -13196,6 +13345,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("racklist")) rackListPdf(doc);
       if(want("dantepatch")) dantePatchPdf(doc);
       if(want("netlist")) netListPdf(doc);
+      if(want("outputlist")) outputListPdf(doc);
       if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
       if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
       if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
@@ -13492,6 +13642,7 @@ function pdfChannelPage(doc, L, paperKey){
       if(bb.length>1 || bb.some(function(b){ return b.sbId||b.res.length||Object.keys(b.pins).length; })) pages.push({key:"dantepatch", label:"Patch stage box"});
     }catch(_e){}
     try{ if(netEngine().runs.length) pages.push({key:"netlist", label:"Rete (tratte digitali)"}); }catch(_e){}
+    try{ if(busList().count) pages.push({key:"outputlist", label:"Output list (uscite console)"}); }catch(_e){}
     if(state.cab && state.cab.on && Rc.totIn){ pages.push({key:"cabmap", label:"Schema cablaggio audio"}); }
     if(state.elec && state.elec.on && Re.loads && Re.loads.length){ pages.push({key:"elecmap", label:"Schema elettrico"}); }
     /* PRODUZIONE (fase 4): ultima pagina "Criticità e aspetti da definire" — offerta solo se c'è contenuto
