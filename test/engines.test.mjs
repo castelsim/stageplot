@@ -1722,6 +1722,10 @@ t("F3: catena coassiale antenna->splitter->ricevitori, avvisi topologia", () => 
   // lista: infrastruttura presente
   const kinds = A.rfList().rows.map(r => r.kind).join("|");
   ok(/Antenna direttiva 90/.test(kinds) && /Distribuzione RF/.test(kinds), "antenne+splitter in lista");
+  // modello reale dal campo (Sernaglia): ADP UHF = 100 gradi di targa, vince sul campo manuale
+  a1.hw = "adpuhf"; a1.antAng = 70;
+  eq(A.antAngOf(a1), 100, "targa ADP 100 gradi");
+  ok(/direttiva 100.*ADP/.test(A.rfList().rows.map(r => r.kind).join("|")), "lista col modello");
 });
 
 t("F3: rete/Dante — switch a stella, trunk console, ridondanza e porte", () => {
