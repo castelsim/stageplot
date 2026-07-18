@@ -557,6 +557,13 @@
       </div>
       <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
       <div id="pPmState" style="font-size:11.5px;font-weight:600;margin-top:3px"></div>
+      <div id="pPmFeedWrap" style="display:none;margin-top:8px">
+        <label>Alimentato da <small style="color:var(--text-3);font-weight:400">— sorgente dei canali cuffia</small></label>
+        <div id="pPmFeedSeg" class="feed-seg"><div data-v="console">Omni out console</div><div data-v="dante">Rete Dante</div></div>
+        <div id="pPmFeedChRow" style="margin-top:6px"><label>Canali dalla console</label>
+          <select id="pPmFeedCh"></select></div>
+        <div id="pPmFeedHint" style="font-size:10.5px;color:var(--text-3);margin-top:3px"></div>
+      </div>
       <div id="pPmActions" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
@@ -3708,6 +3715,8 @@ function normalizeState(s){
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
+    if(it.type==="mixhub"){ if(it.pmFeed!=null && it.pmFeed!=="dante" && it.pmFeed!=="console") delete it.pmFeed;
+      if(it.pmFeedCh!=null && !(it.pmFeedCh>=1&&it.pmFeedCh<=64)) delete it.pmFeedCh; }
     if(it.rxId!=null){ var _rxOk=s.items.some(function(r){ return r.type==="rxrf" && r.id===it.rxId; });
       if(!_rxOk){ delete it.rxId; delete it.rxCh; } else if(it.rxCh!=null && !(it.rxCh>=1&&it.rxCh<=8)) delete it.rxCh; }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
@@ -4522,6 +4531,10 @@ var PM_DB = {
   "mix32": {brand:"Digital Audio Labs", model:"Livemix MIX-32", role:"hub", sys:"livemix", ports:16, powerOverData:true, ver:"partial"}
 };
 function pmOf(it){ return (it && it.pm && PM_DB[it.pm]) || null; }
+/* macchina cuffie: canali che l'hub prende dalla console (Ultranet/A-Net = 16, HearBus = 8; default 16) */
+var PM_SYS_CH={ ultranet:16, anet16:16, anetpro16e:16, hearbus:8, hearbuspro:8 };
+function pmFeedChOf(it){ if(it.pmFeedCh>=1 && it.pmFeedCh<=64) return it.pmFeedCh; var d=pmOf(it); return (d&&PM_SYS_CH[d.sys])||16; }
+function pmIsHub(it){ if(!it||it.type!=="mixhub") return false; var d=pmOf(it); return !d || d.role==="hub"; }
 function pmSysName(sys){ return (PM_SYS[sys]&&PM_SYS[sys].name)||sys||""; }
 /* Validazione di un collegamento personal-monitor from→to al DROP (B2): null = ok, {msg} = bloccare.
    Il generico (senza modello) resta permissivo come sempre. Stesse regole del motore: qui si
@@ -6586,6 +6599,23 @@ function renderProps(){
   var pmWrap=document.getElementById("pPmWrap");   /* personal monitor model-driven (B1): marca/modello da PM_DB */
   if(pmWrap){ var isPm=(it.type==="hearback"||it.type==="mixhub"); pmWrap.style.display = isPm ? "block" : "none";
     if(isPm) pmFillProps(it); }
+  (function(){ var fw=document.getElementById("pPmFeedWrap"); if(!fw) return;
+    if(!(typeof pmIsHub==="function" && pmIsHub(it))){ fw.style.display="none"; return; }
+    fw.style.display="block";
+    var feed=(it.pmFeed==="dante")?"dante":"console";
+    Array.prototype.forEach.call(document.querySelectorAll("#pPmFeedSeg > div"), function(d){
+      d.classList.toggle("on", d.getAttribute("data-v")===feed);
+      d.onclick=function(){ if(d.getAttribute("data-v")==="dante") it.pmFeed="dante"; else delete it.pmFeed; __cabRes=null; save(); render(); renderProps(); };
+    });
+    document.getElementById("pPmFeedChRow").style.display = feed==="console" ? "block" : "none";
+    var cs=document.getElementById("pPmFeedCh"); cs.innerHTML="";
+    var def=(typeof pmFeedChOf==="function")?pmFeedChOf(Object.assign({},it,{pmFeedCh:null})):16;
+    [8,16,24,32,40,48].forEach(function(nn){ var o=document.createElement("option"); o.value=nn; o.textContent=nn+(nn===def?" (sistema)":""); cs.appendChild(o); });
+    cs.value=String(pmFeedChOf(it));
+    cs.onchange=function(){ var v=+cs.value; if(v===def) delete it.pmFeedCh; else it.pmFeedCh=v; __cabRes=null; save(); render(); renderProps(); };
+    var hint=document.getElementById("pPmFeedHint");
+    hint.textContent = feed==="console" ? pmFeedChOf(it)+" uscite console occupate (vedi «Uscite console»)." : "Canali dalla rete: nessuna uscita console fisica.";
+  })();
   document.getElementById("pLabel").value = it.label||"";
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
@@ -11500,7 +11530,7 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
    (MAIN/TV/REC/matrici/cuffie): state.buses = [{id,name,kind,dest,boxId,port}].
    Un bus = una voce, anche su più uscite (mai duplicato). Porte auto = prime N consecutive libere. */
 var BUS_KINDS={ st:{tag:"ST", n:2, nome:"Stereo (2 out)"}, mono:{tag:"DIR", n:1, nome:"Mono / Direct (1 out)"}, mtx:{tag:"MTX", n:2, nome:"Matrix (2 out)"} };
-var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Macchina cuffie","st","cuffie"],["Near fill L/R","st","near fill"]];
+var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Near fill L/R","st","near fill"]];
 function busPortN(bu){ return BUS_KINDS[bu.kind] ? BUS_KINDS[bu.kind].n : 1; }
 function busList(){
   var R=cabResult(true);
@@ -11515,7 +11545,20 @@ function busList(){
       for(var i=0;i<n;i++){ if(taken[b.id][p+i]){ ok=false; break; } }
       if(ok) return p; }
     return 0; }
-  var rows=[], issues=[], unpatched=[];
+  var issues=[];
+  /* MACCHINA CUFFIE (caso Sernaglia): ogni hub alimentato dalla console occupa un blocco contiguo di uscite */
+  var nPM=(state.items||[]).filter(function(x){ var d=pmOf(x); return d && d.role==="mixer"; }).length;
+  (state.items||[]).forEach(function(hb){
+    if(!pmIsHub(hb) || hb.pmFeed==="dante") return;
+    var d=pmOf(hb), n=pmFeedChOf(hb), b=null, p0=0;
+    for(var j=0;j<boxes.length;j++){ var q=firstFree(boxes[j],n); if(q){ b=boxes[j]; p0=q; break; } }
+    if(!b){ issues.push({lvl:"err", msg:"Macchina cuffie "+(d?d.model:"hub")+" ("+n+" canali): nessuna stage box con "+n+" uscite contigue libere."}); return; }
+    var ps=[]; for(var k=0;k<n;k++){ taken[b.id][p0+k]="cuf"; ps.push(p0+k); }
+    auto.push({name:"Cuffie "+(d?d.model:"hub")+" ("+n+" canali)", tag:"CUF", box:b, ports:ps, dest:"macchina cuffie"+(nPM?" \u2192 "+nPM+" personal mixer":""), cuf:true});
+  });
+  (state.items||[]).forEach(function(hb){ if(pmIsHub(hb) && hb.pmFeed==="dante"){ var d=pmOf(hb);
+    issues.push({lvl:"info", msg:pmFeedChOf(hb)+" canali cuffie ("+(d?d.model:"hub")+") via rete Dante: nessuna uscita console fisica occupata."}); } });
+  var rows=[], unpatched=[];
   (state.buses||[]).forEach(function(bu){
     var n=busPortN(bu), b=null, p0=0;
     var pinB=bu.boxId ? boxes.filter(function(x){ return x.id===bu.boxId; })[0] : null;
@@ -11571,6 +11614,13 @@ function renderBusSec(){
   sub.style.cssText="font-size:10.5px;color:var(--text-3);margin-bottom:6px";
   sub.textContent="TV, REC, main, matrici, cuffie — quello che non deriva dal palco. Porta out automatica, click sulla pillola per box/porta/destinazione.";
   host.appendChild(sub);
+  (L.auto||[]).filter(function(a){ return a.cuf; }).forEach(function(a){
+    var row=document.createElement("div"); row.className="bus-row";
+    var pill=(a.box.sbId?("ID"+a.box.sbId):a.box.letter)+" out "+a.ports[0]+(a.ports.length>1?"–"+a.ports[a.ports.length-1]:"");
+    row.innerHTML='<span class="bus-tag" style="background:var(--pmbg,#fdf4ff);color:#c026d3">CUF</span><span class="bus-nm" title="'+esc(a.name)+'">'+esc(a.name)+'</span>'+
+      '<span class="bus-out">'+esc(pill)+'</span><span class="bus-dst" title="'+esc(a.dest)+'">'+esc(a.dest)+'</span><span style="flex:0 0 auto;font-size:9px;color:var(--text-3)">auto</span>';
+    host.appendChild(row);
+  });
   L.rows.forEach(function(r){
     var row=document.createElement("div"); row.className="bus-row";
     var pill = r.box ? ((r.box.sbId?("ID"+r.box.sbId):r.box.letter)+" out "+r.ports[0]+(r.ports.length>1?"–"+r.ports[r.ports.length-1]:"")+(r.pinned?" 📌":"")) : "senza out";

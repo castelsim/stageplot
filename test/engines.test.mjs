@@ -1918,5 +1918,43 @@ t("F4: linee numerate del distro + connettore (auto, pin, override)", () => {
   A.state.elec.manual = {};
 });
 
+t("Macchina cuffie: hub -> bus console (16 ch contigui), o Dante = nota", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
+  A.state.cab.home = { kind: "foh" };
+  const box = add("stagebox", 500, 300); box.hw = "rio3224d2"; box.sbId = 1;   // 16 out
+  add("astamic", 520, 400);
+  const hub = add("mixhub", 300, 500); hub.pm = "p16d";   // Powerplay P16-D, Ultranet
+  A.state.buses = [];
+  A.__cabRes = null;
+  let L = A.busList();
+  const cuf = L.auto.find(a => a.cuf);
+  ok(cuf, "riga cuffie derivata");
+  eq(cuf.ports.length, 16, "16 canali (Ultranet)");
+  ok(cuf.ports[15] === cuf.ports[0] + 15, "blocco contiguo");
+  eq(cuf.tag, "CUF", "tag CUF");
+  // canali override
+  hub.pmFeedCh = 8; A.__cabRes = null; L = A.busList();
+  eq(L.auto.find(a => a.cuf).ports.length, 8, "override 8 canali");
+  delete hub.pmFeedCh;
+  // Dante = niente uscite, solo nota info
+  hub.pmFeed = "dante"; A.__cabRes = null; L = A.busList();
+  ok(!L.auto.some(a => a.cuf), "via Dante: nessuna riga bus");
+  ok(L.issues.some(i => i.lvl === "info" && /via rete Dante/.test(i.msg)), "nota Dante");
+  delete hub.pmFeed;
+  // out esaurite: box da pochi canali + hub 16 -> err
+  box.hw = null; box.ch = 8; box.outCh = 8; A.__cabRes = null; L = A.busList();
+  ok(L.issues.some(i => i.lvl === "err" && /uscite contigue/.test(i.msg)), "err senza 16 out contigue");
+  // pmIsHub e helper
+  eq(A.pmIsHub(hub), true, "mixhub = hub");
+  eq(A.pmFeedChOf(hub), 16, "default Ultranet 16");
+  // normalize: pmFeed/pmFeedCh invalidi puliti
+  hub.pmFeed = "boh"; hub.pmFeedCh = 99;
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  const nh = A.state.items.find(i => i.id === hub.id);
+  eq(nh.pmFeed, undefined, "pmFeed invalido rimosso"); eq(nh.pmFeedCh, undefined, "pmFeedCh fuori range rimosso");
+  A.state.buses = [];
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

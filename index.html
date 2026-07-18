@@ -578,6 +578,9 @@
   .sbp.mon{background:#0891b2;border-color:#0891b2;color:#fff;cursor:default}
   .sbp.snk{background:#0b7a70;border-color:#0b7a70;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);cursor:default}
   .loadrow .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
+  .feed-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .feed-seg>div{flex:1;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2)}
+  .feed-seg>div.on{background:#c026d3;color:#fff;font-weight:600}
   .sbp.busout{background:#4f46e5;border-color:#4f46e5;color:#fff;cursor:default}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
@@ -2033,6 +2036,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       </div>
       <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
       <div id="pPmState" style="font-size:11.5px;font-weight:600;margin-top:3px"></div>
+      <div id="pPmFeedWrap" style="display:none;margin-top:8px">
+        <label>Alimentato da <small style="color:var(--text-3);font-weight:400">— sorgente dei canali cuffia</small></label>
+        <div id="pPmFeedSeg" class="feed-seg"><div data-v="console">Omni out console</div><div data-v="dante">Rete Dante</div></div>
+        <div id="pPmFeedChRow" style="margin-top:6px"><label>Canali dalla console</label>
+          <select id="pPmFeedCh"></select></div>
+        <div id="pPmFeedHint" style="font-size:10.5px;color:var(--text-3);margin-top:3px"></div>
+      </div>
       <div id="pPmActions" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
