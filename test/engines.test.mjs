@@ -1084,7 +1084,7 @@ t("batteria: come il timpanista — NON in LOOK_ART, niente toggle Aspetto; batt
   ok(!A.hasLookToggle({ type: "batteria" }));         /* niente Aspetto */
   const ctl = A.COMP.batteria.controls.map((c) => c.key);
   ok(ctl.includes("mus") && ctl.includes("stool"));   /* toggle indipendenti Musicista + Sgabello */
-  eq(A.COMP.batteria.reduced.join(","), "mus,stool"); /* pannello ridotto: solo questi due (il kit su misura è "Dividi") */
+  eq(A.COMP.batteria.reduced.join(","), "mus,stool,leggio"); /* pannello ridotto: solo questi due (il kit su misura è "Dividi") */
 });
 t("batteria seat slot: c'è se Musicista O Sgabello; sparisce se entrambi off", () => {
   const seat = (p) => A.drumSlots(p).some((s) => s.seat);
