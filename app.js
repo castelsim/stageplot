@@ -2276,7 +2276,8 @@ function normalizeState(s){
     if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
     if(it.type==="rack"){ if(!(it.rackU>=4 && it.rackU<=24)) it.rackU=12; if(!it.rackFn) it.rackFn="generico"; }
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
-      if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; } }
+      if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
+      if(it.sbTo!=null && it.sbTo!=="main" && !s.items.some(function(x){ return x.id===it.sbTo; })) delete it.sbTo; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
@@ -3389,8 +3390,14 @@ function audioCablingEngine(){
   var _eidTaken={}; boxes.forEach(function(b){ if(b.sbId) _eidTaken[b.sbId]=1; });
   var _eidNext=1;
   boxes.forEach(function(b){ if(b.sbId){ b.eid=b.sbId; } else { while(_eidTaken[_eidNext]) _eidNext++; b.eid=_eidNext; _eidTaken[_eidNext]=1; } });
+  /* ANALOGICA vs RACK I/O (caso Sernaglia): la generica è una sub-snake analogica; se sul palco c'è
+     un rack I/O digitale, la sua coda entra lì (blocco contiguo di porte) e NON ha un blocco FOH proprio. */
+  boxes.forEach(function(b){ b.digital=!!(b.hw && STAGEBOX_DB[b.hw]); });
+  var _hasDig=boxes.some(function(b){ return b.digital; });
+  function sbToOf(b){ var it2=(state.items||[]).filter(function(x){ return x.id===b.id; })[0]; return (it2&&it2.sbTo)?it2.sbTo:""; }
+  boxes.forEach(function(b){ b.wantUp = !b.digital && _hasDig && sbToOf(b)!=="main"; b.up=null; });
   var _sorted=boxes.slice().sort(function(a,b2){ return (a.eid-b2.eid) || (a.letter<b2.letter?-1:1); });
-  var _base=0; _sorted.forEach(function(b){ b.fohBase=_base; _base+=b.cap; });
+  var _base=0; _sorted.forEach(function(b){ if(b.wantUp){ b.fohBase=null; return; } b.fohBase=_base; _base+=b.cap; });
   var _seenId={}; boxes.forEach(function(b){ if(b.sbId){ if(_seenId[b.sbId]) issues.push({lvl:"warn", msg:"Device ID duplicato: due stage box con ID "+b.sbId+" — cambia l'ID di una."}); _seenId[b.sbId]=b; } });
   var _dupPorts=[];
   function takePort(b, want){
@@ -3455,9 +3462,29 @@ function audioCablingEngine(){
       l.lenM=orthLen(l.pts)/100+MIC_REACH; l.cut=cabCut(l.lenM);
     });
   });
-  /* digital snake: home-run da ogni box usata al punto principale */
+  /* coda della sub-snake analogica → blocco contiguo di porte sul rack I/O (riservate rispettate) */
+  boxes.forEach(function(b){
+    if(!b.wantUp || !b.used) return;
+    var myPorts=Object.keys(b.taken).map(Number).sort(function(x,y){ return x-y; });
+    var N=myPorts.length;
+    var toId=sbToOf(b);
+    var cand=boxes.filter(function(t){ return t.digital && (!toId || t.id===toId); });
+    if(!toId) cand.sort(function(t1,t2){ return d2(b.x,b.y,t1)-d2(b.x,b.y,t2); });
+    var found=null, p0=0;
+    for(var ci=0; ci<cand.length && !found; ci++){ var t=cand[ci];
+      for(var p=1; p<=t.cap-N+1; p++){ var free=true;
+        for(var k=0;k<N;k++){ if(t.taken[p+k] || t.resMap[p+k]){ free=false; break; } }
+        if(free){ found=t; p0=p; break; } } }
+    if(!found){ issues.push({lvl:"err", msg:"Coda della sub-snake "+b.letter+" ("+N+" ch): nessun rack I/O con "+N+" porte contigue libere — libera porte, togli riservate o aggiungi un rack I/O."}); return; }
+    var map={};
+    myPorts.forEach(function(mp,ix){ found.taken[p0+ix]=1; found.snkFrom=found.snkFrom||{}; found.snkFrom[p0+ix]=b.letter; map[mp]=p0+ix; });
+    b.up={box:found, p0:p0, n:N, map:map, lenM:orthLen([[b.x,b.y],[found.x,found.y]])/100};
+  });
+  /* digital snake: home-run da ogni box usata al punto principale; l'analogica con coda va al rack I/O */
   var snakes=[];
-  if(home){ boxes.forEach(function(b){ if(!b.used) return; snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); }); }
+  boxes.forEach(function(b){ if(!b.used) return;
+    if(b.up){ snakes.push({box:b, x1:b.x, y1:b.y, x2:b.up.box.x, y2:b.up.box.y, lenM:b.up.lenM, up:b.up}); return; }
+    if(home) snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); });
   /* ── MONITOR / OUTPUT: mix per etichetta → uscita su box vicina → cavi di ritorno ── */
   var sinks=state.items.map(function(it,idx){ return {it:it,idx:idx}; })
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type))||(a.idx-b.idx); })
@@ -3679,7 +3706,7 @@ function cablingMarkup(){
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
-        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch</text>'; }
+        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch'+(k.up?' \u2192 '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
@@ -4959,6 +4986,31 @@ function renderSbF2(it){
   idRow.style.display="block"; pw.style.display="block";
   var R=null, b=null;
   try{ R=cabResult(); b=(R.boxes||[]).filter(function(x){ return x.id===it.id; })[0]; }catch(_e){}
+  /* ANALOGICA vs RACK I/O: badge + "Collega a" (solo analogica con rack I/O sul palco); Device ID solo digitali */
+  var isDig=!!(it.hw && STAGEBOX_DB[it.hw]);
+  var kind=document.getElementById("pSbKind");
+  if(kind){ kind.textContent = isDig ? "Rack I/O digitale ("+hwProtoNames(STAGEBOX_DB[it.hw].proto)+")" : "Analogica (sub-snake)";
+    kind.style.color = isDig ? "#4f46e5" : "var(--accent-strong)"; }
+  var digs=(R&&R.boxes||[]).filter(function(x){ return x.digital; });
+  var toRow=document.getElementById("pSbToRow");
+  if(toRow){
+    if(isDig || !digs.length){ toRow.style.display="none"; }
+    else{
+      toRow.style.display="block";
+      var ts=document.getElementById("pSbToSel"); ts.innerHTML="";
+      var autoT=b&&b.up?((b.up.box.sbId?("ID "+b.up.box.sbId):("box "+b.up.box.letter))):"il più vicino";
+      var o0=document.createElement("option"); o0.value=""; o0.textContent="Automatico ("+autoT+")"; ts.appendChild(o0);
+      digs.forEach(function(t){ var o=document.createElement("option"); o.value=t.id; o.textContent=(t.sbId?("ID "+t.sbId):("Box "+t.letter))+(t.hw&&STAGEBOX_DB[t.hw]?" — "+STAGEBOX_DB[t.hw].model:""); ts.appendChild(o); });
+      var om=document.createElement("option"); om.value="main"; om.textContent="Punto principale (multipolare fino alla console)"; ts.appendChild(om);
+      ts.value=(it.sbTo && (it.sbTo==="main" || digs.some(function(t){ return t.id===it.sbTo; })))?it.sbTo:"";
+      ts.onchange=function(){ if(ts.value) it.sbTo=ts.value; else delete it.sbTo; __cabRes=null; save(); render(); renderProps(); };
+      var th=document.getElementById("pSbToHint");
+      if(b&&b.up) th.textContent="Coda "+b.up.n+" ch \u2192 "+(b.up.box.sbId?("ID "+b.up.box.sbId):("box "+b.up.box.letter))+" · porte "+b.up.p0+"–"+(b.up.p0+b.up.n-1)+" · "+Math.ceil(b.up.lenM)+" m — FOH dal rack I/O";
+      else if(it.sbTo==="main") th.textContent="Multipolare analogico fino al punto principale (come una snake classica).";
+      else th.textContent=b&&b.used?"Nessun blocco contiguo libero: guarda l'audit.":"";
+    }
+  }
+  if(!isDig){ idRow.style.display="none"; }
   var sel=document.getElementById("pSbIdSel");
   sel.innerHTML="";
   var autoId=b?b.eid:1;
@@ -4973,7 +5025,8 @@ function renderSbF2(it){
     var d=document.createElement("div"); d.className="sbp"; d.textContent=pn;
     var st = b&&b.pins[pn] ? "pin" : (b&&b.taken[pn] ? "uso" : (resArr.indexOf(pn)>-1 ? "ris" : ""));
     if(st) d.classList.add(st);
-    d.title = st==="pin"?"pinnata a mano":st==="uso"?"in uso (dal palco)":st==="ris"?"riservata — click per liberare":"libera — click per riservare";
+    if(st==="uso" && b && b.snkFrom && b.snkFrom[pn]){ d.classList.add("snk"); d.title="da "+b.snkFrom[pn]+" (sub-snake)"; }
+    else d.title = st==="pin"?"pinnata a mano":st==="uso"?"in uso (dal palco)":st==="ris"?"riservata — click per liberare":"libera — click per riservare";
     (function(pn2, st2){
       d.addEventListener("click", function(){
         if(st2==="uso"||st2==="pin") return;
@@ -9788,8 +9841,11 @@ function patchList(){
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
   R.links.forEach(function(l){ if(l.deleted) return;
     var tag=l.box.sbId?("ID"+l.box.sbId):l.box.letter;
-    var r0=row(l.s.name, l.s.mic, l.s.key, tag+"·"+l.ch, l.box.letter, l.s.it.id);
-    r0.foh=(l.box.fohBase!=null)?(l.box.fohBase+l.ch):null; r0.port=l.ch; r0.boxId=l.box.id; r0.pinned=!!l.pinned;
+    var up=l.box.up, upCh=up?up.map[l.ch]:null;
+    var ptxt = up&&upCh ? (l.box.letter+"\u2192"+(up.box.sbId?("ID"+up.box.sbId):up.box.letter)+":"+upCh) : (tag+"\u00b7"+l.ch);
+    var r0=row(l.s.name, l.s.mic, l.s.key, ptxt, l.box.letter, l.s.it.id);
+    r0.foh=(up&&upCh) ? (up.box.fohBase!=null?up.box.fohBase+upCh:null) : ((l.box.fohBase!=null)?(l.box.fohBase+l.ch):null);
+    r0.port=(up&&upCh)?upCh:l.ch; r0.boxId=l.box.id; r0.pinned=!!l.pinned;
     r0.short=(man[l.s.key]&&man[l.s.key].short)||"";
     rows.push(r0); });
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
