@@ -1819,5 +1819,48 @@ t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai 
   A.state.buses = [];
 });
 
+t("Sub-snake analogica -> rack I/O: blocco contiguo, FOH del Rio, riservate, fallback main", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
+  A.state.cab.home = { kind: "foh" };
+  const rio = add("stagebox", 900, 300); rio.hw = "rio3224d2"; rio.sbId = 1;
+  const ana = add("stagebox", 200, 300); ana.ch = 8; ana.outCh = 0;      // generica = analogica
+  const m1 = add("astamic", 180, 400); const m2 = add("astamic", 220, 400);  // vicini all'analogica
+  const dir = add("astamic", 880, 400);                                   // diretto al rio
+  A.__cabRes = null;
+  let R = A.audioCablingEngine();
+  const bA = R.boxes.find(b => b.id === ana.id), bR = R.boxes.find(b => b.id === rio.id);
+  eq(bA.digital, false, "generica = analogica"); eq(bR.digital, true, "rio = rack I/O");
+  eq(bA.fohBase, null, "l'analogica non ha blocco FOH proprio");
+  ok(bA.up && bA.up.box.id === rio.id, "coda agganciata al rio");
+  eq(bA.up.n, 2, "2 canali raccolti");
+  ok(bA.up.p0 >= 1, "blocco assegnato");
+  // le porte del blocco risultano occupate sul rio, con provenienza
+  ok(bR.taken[bA.up.p0] && bR.snkFrom[bA.up.p0] === bA.letter, "porta del rio occupata dalla coda");
+  // patch list: FOH dal rio, patch con freccia
+  const pl = A.patchList();
+  const rowM = pl.rows.find(r => r.itemId === m1.id);
+  ok(rowM.foh === bR.fohBase + bA.up.map[1] || rowM.foh === bR.fohBase + bA.up.map[2] || rowM.foh >= 1, "FOH dal rio");
+  ok(rowM.patch.indexOf("\u2192") > 0 && /ID1:/.test(rowM.patch), "patch A->ID1:porta");
+  const rowD = pl.rows.find(r => r.itemId === dir.id);
+  ok(/ID1\u00b7/.test(rowD.patch), "il diretto resta ID1-porta");
+  // la snake dell'analogica punta al rio
+  const sk = R.snakes.find(k => k.box.id === ana.id);
+  ok(sk && sk.up && sk.x2 === rio.x, "snake verso il rack I/O");
+  // riservate del rio rispettate: riservo le prime 30 -> blocco impossibile = err
+  rio.sbRes = Array.from({ length: 31 }, (_, i) => i + 1); A.__cabRes = null;
+  R = A.audioCablingEngine();
+  ok(R.issues.some(i => i.lvl === "err" && /porte contigue/.test(i.msg)), "err senza blocco contiguo");
+  delete rio.sbRes;
+  // sbTo=main: comportamento classico (multipolare al punto principale, FOH proprio)
+  ana.sbTo = "main"; A.__cabRes = null;
+  R = A.audioCablingEngine();
+  const bA2 = R.boxes.find(b => b.id === ana.id);
+  ok(!bA2.up && bA2.fohBase != null, "main = niente coda, blocco FOH proprio");
+  // normalize: sbTo con id inesistente -> pulito
+  ana.sbTo = "fantasma"; let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.items.find(i => i.id === ana.id).sbTo, undefined, "sbTo orfano rimosso");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

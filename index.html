@@ -576,6 +576,7 @@
   .bus-chip{font-size:10.5px;border:1px dashed var(--n-300);color:var(--text-2);border-radius:999px;padding:2px 9px;cursor:pointer}
   .bus-chip:hover{border-color:var(--accent);color:var(--accent-strong)}
   .sbp.mon{background:#0891b2;border-color:#0891b2;color:#fff;cursor:default}
+  .sbp.snk{background:#0b7a70;border-color:#0b7a70;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);cursor:default}
   .sbp.busout{background:#4f46e5;border-color:#4f46e5;color:#fff;cursor:default}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
@@ -1925,6 +1926,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
+      <div id="pSbKind" style="font-size:10.5px;font-weight:600;margin:3px 0 2px"></div>
+      <div id="pSbToRow" style="display:none;margin-top:4px">
+        <label>Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
+        <select id="pSbToSel"></select>
+        <div id="pSbToHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
+      </div>
       <div id="pSbChRow"><label>Ingressi (input)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
       <div id="pSbOutRow"><label>Uscite (per i monitor)</label>
