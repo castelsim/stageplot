@@ -1578,5 +1578,19 @@ t("layer Musicisti: fg = persone, visibilità da musLayerUI, attivo solo con per
   A.layerSoloUI = {};
 });
 
+t("stagebox generica: 8 in / 0 out = ciabattina 34×26, reversibile, mai sopra i modelli", () => {
+  reset();
+  const sb = add("stagebox", 400, 200);
+  sb.ch = 8; delete sb.outCh;
+  A.sbAutoSize(sb);
+  eq([sb.w, sb.d].join("x"), "34x26", "piccola con 8in/0out");
+  sb.ch = 16; A.sbAutoSize(sb);
+  eq([sb.w, sb.d].join("x"), "58x46", "torna grande con 16 canali");
+  sb.ch = 8; sb.outCh = 4; A.sbAutoSize(sb);
+  eq([sb.w, sb.d].join("x"), "58x46", "con uscite resta grande");
+  delete sb.outCh; sb.hw = "tio1608d"; A.sbAutoSize(sb);
+  eq([sb.w, sb.d].join("x"), "58x46", "col modello hw non si tocca");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
