@@ -607,8 +607,10 @@
       <div id="pRxKv" style="margin-top:4px;font-size:11.5px;color:var(--text-2)"></div>
     </div>
     <div id="pAntWrap" style="display:none">
-      <label>Angolo di copertura</label><select id="pAntAng">
-        <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="360">Omnidirezionale</option></select>
+      <label>Marca e modello</label><select id="pAntHw"></select>
+      <div id="pAntKv" style="font-size:11px;color:var(--text-2);margin:2px 0 6px"></div>
+      <div id="pAntAngRow"><label>Angolo di copertura</label><select id="pAntAng">
+        <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="100">100° (paddle larga)</option><option value="360">Omnidirezionale</option></select></div>
       <label>Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
       <input id="pAntH" type="number" min="0" max="10" step="0.5" placeholder="2.5">
       <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
@@ -3627,6 +3629,7 @@ function normalizeState(s){
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; } }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
+    if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
     if(it.rxId!=null){ var _rxOk=s.items.some(function(r){ return r.type==="rxrf" && r.id===it.rxId; });
       if(!_rxOk){ delete it.rxId; delete it.rxCh; } else if(it.rxCh!=null && !(it.rxCh>=1&&it.rxCh<=8)) delete it.rxCh; }
@@ -5924,7 +5927,7 @@ function rfMarkup(){
   var s2='<g class="rf-layer" style="opacity:'+op+'">';
   /* coni di copertura (solo visivi): direzione = rotazione dell'antenna, ampiezza antAng, raggio fisso */
   C.ants.forEach(function(an){
-    var ang=(an.antAng===360)?360:(+an.antAng||90), R2=260;
+    var ang=antAngOf(an), R2=260;
     if(ang>=360){ s2+='<circle cx="'+an.x+'" cy="'+an.y+'" r="'+R2+'" fill="#7c3aed" opacity="0.06"/>'; return; }
     var dir=((an.rot||0)-90)*Math.PI/180, a0=dir-ang*Math.PI/360, a1=dir+ang*Math.PI/360;
     var x0=an.x+R2*Math.cos(a0), y0=an.y+R2*Math.sin(a0), x1=an.x+R2*Math.cos(a1), y1=an.y+R2*Math.sin(a1);
@@ -6603,6 +6606,14 @@ function renderProps(){
   (function(){ var w=document.getElementById("pAntWrap"); if(!w) return;
     if(!it || it.type!=="rfant"){ w.style.display="none"; return; }
     w.style.display="block";
+    var hs=document.getElementById("pAntHw"); hs.innerHTML="";
+    var o0=document.createElement("option"); o0.value=""; o0.textContent="Generica"; hs.appendChild(o0);
+    Object.keys(RF_ANT_DB).forEach(function(k){ var o=document.createElement("option"); o.value=k; o.textContent=RF_ANT_DB[k].brand+" "+RF_ANT_DB[k].model; hs.appendChild(o); });
+    hs.value=(it.hw&&RF_ANT_DB[it.hw])?it.hw:"";
+    hs.onchange=function(){ if(hs.value) it.hw=hs.value; else delete it.hw; save(); render(); renderProps(); };
+    var db=it.hw&&RF_ANT_DB[it.hw];
+    document.getElementById("pAntKv").textContent = db ? (db.range+" · "+db.ang+"° · "+db.gain+" (targa)") : "";
+    document.getElementById("pAntAngRow").style.display = db ? "none" : "block";
     var a=document.getElementById("pAntAng"); a.value=String(it.antAng||90);
     a.onchange=function(){ it.antAng=+a.value; save(); render(); };
     var h=document.getElementById("pAntH"); h.value=(it.antH!=null?it.antH:"");
@@ -13479,6 +13490,8 @@ var RX_DB={
   ulxd4q:  {brand:"Shure",      model:"ULXD4Q",     ch:4}
 };
 var RF_BANDS={ "R1-9":[520.0,607.8], "S1-10":[606.2,693.8], "Q1-9":[470.2,550.0], "U1/5":[823.2,831.8] };
+var RF_ANT_DB={ adpuhf:{brand:"Sennheiser", model:"ADP UHF", ang:100, gain:"5 dBi", range:"470-1075 MHz"} };
+function antAngOf(it){ if(it.hw&&RF_ANT_DB[it.hw]) return RF_ANT_DB[it.hw].ang; return (it.antAng===360)?360:(+it.antAng||90); }
 var RF_TX={ wireless:1, headset:1 };
 function rxCapOf(it){ return (it.hw&&RX_DB[it.hw]) ? RX_DB[it.hw].ch : Math.max(1,Math.min(8,+it.rxN||2)); }
 function rfAssign(){
@@ -13568,8 +13581,9 @@ function rfList(){
     if(band) bands[band]=(bands[band]||0)+1;
   });
   (state.items||[]).forEach(function(it){   /* F3: infrastruttura RF in lista (antenne/splitter) */
-    if(it.type==="rfant") rows.push({ name:(it.label&&it.label.trim())||"Antenna RF",
-      kind:"Antenna "+(it.antAng===360?"omni":"direttiva "+(+it.antAng||90)+"°")+(it.antH?" · h "+it.antH+" m":""), rf:"", band:"", rx:"" });
+    if(it.type==="rfant"){ var _adb=it.hw&&RF_ANT_DB[it.hw];
+      rows.push({ name:(it.label&&it.label.trim())||"Antenna RF",
+        kind:"Antenna "+(antAngOf(it)===360?"omni":"direttiva "+antAngOf(it)+"°")+(_adb?" ("+_adb.brand+" "+_adb.model+")":"")+(it.antH?" · h "+it.antH+" m":""), rf:"", band:"", rx:"" }); }
     if(it.type==="rfsplit") rows.push({ name:(it.label&&it.label.trim())||"Splitter antenna", kind:"Distribuzione RF 1:4", rf:"", band:"", rx:"" });
   });
   rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
