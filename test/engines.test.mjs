@@ -275,8 +275,9 @@ t("Direttore: microfono talkback → sorgente audio collegabile alla stage box",
 t("Parapetto pedana: spessore 8 cm di default, si estende in lunghezza", () => {
   eq(A.TYPES.parapetto.d, 8, "spessore di default 8 cm");
   ok(A.TYPES.parapetto.resizable, "resizable (in lunghezza)");
-  const svg = A.TYPES.parapetto.draw({ w: 400, d: 99 });
-  ok(svg.indexOf('height="8"') > -1 || svg.indexOf(" 8 ") > -1, "il disegno tiene lo spessore 8 anche se d è alterato");
+  const svg = A.TYPES.parapetto.draw({ w: 400, d: 8 });
+  ok(svg.indexOf('height="8"') > -1, "alla profondità di default il disegno è spesso 8 cm");
+  // lo spessore resta fisso in resize (hook itemresize: nd=TYPES.parapetto.d) → verificato nel browser
 });
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
@@ -2065,7 +2066,7 @@ t("DI box: varianti icona + footprint + default per tipo", () => {
 t("parapetto: disegno contenuto nella profondità (allineamento snap/bordo)", () => {
   reset();
   const par = add("parapetto", 400, 250);
-  eq(par.d, 12, "profondità di default 12 (visibile)");
+  eq(par.d, 8, "profondità di default 8 cm (richiesta utente 19/07; il draw ora segue it.d → montanti contenuti anche a 8)");
   // il draw non deve contenere coordinate y oltre ±d/2 (prima i montanti erano a ±12 su d=8)
   const svg = A.TYPES.parapetto.draw(par);
   const ys = (svg.match(/y[12]?="(-?[\d.]+)"/g) || []).map(m => Math.abs(parseFloat(m.match(/(-?[\d.]+)/)[1])));
