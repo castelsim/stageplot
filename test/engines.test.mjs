@@ -272,6 +272,12 @@ t("Direttore: microfono talkback → sorgente audio collegabile alla stage box",
   d.micType = "collodoca";
   ok(/collo/i.test(A.cabItemInputs(d)[0].mic), "collo d'oca se scelto");
 });
+t("Parapetto pedana: spessore 8 cm di default, si estende in lunghezza", () => {
+  eq(A.TYPES.parapetto.d, 8, "spessore di default 8 cm");
+  ok(A.TYPES.parapetto.resizable, "resizable (in lunghezza)");
+  const svg = A.TYPES.parapetto.draw({ w: 400, d: 99 });
+  ok(svg.indexOf('height="8"') > -1 || svg.indexOf(" 8 ") > -1, "il disegno tiene lo spessore 8 anche se d è alterato");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
