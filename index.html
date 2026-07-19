@@ -15,7 +15,7 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Gratis in Italiano — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.18";</script>
+<script>window.__APP_VERSION__="2026.07.19";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -344,10 +344,15 @@
   #catalog .sub-body button span{color:var(--accent)}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:var(--accent)}
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
-  #coverToggle{position:absolute;top:12px;left:12px;z-index:6;display:inline-flex;align-items:center;gap:6px;padding:6px 12px 6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:12.5px;font-weight:600;line-height:1;box-shadow:0 2px 10px rgba(0,0,0,.10);cursor:pointer;-webkit-user-select:none;user-select:none}
-  #coverToggle svg{width:16px;height:16px;flex:none}
-  #coverToggle:hover{border-color:var(--accent)}
-  #coverToggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .cov-head{font-size:11.5px;color:var(--text-3);font-weight:600;margin:2px 0 6px}
+  .cov-list{display:flex;flex-direction:column;gap:4px}
+  .cov-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);font-size:12.5px;cursor:pointer}
+  .cov-item:hover{border-color:var(--accent)}
+  .cov-item.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cov-nm{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cov-dim{color:var(--text-2);font-variant-numeric:tabular-nums}
+  .cov-area{color:var(--text-3);font-size:11px;font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
+  .cov-note{font-size:10.5px;color:var(--text-3);margin-top:8px;line-height:1.45}
   /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
   /* barra conflitto cloud (guardia di versione): fissa in basso, MAI sovrascrivere in silenzio.
@@ -1778,7 +1783,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><button id="coverToggle" type="button" hidden aria-pressed="false"></button>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
 <div id="venueCalibBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
@@ -2227,6 +2232,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="statoSec" style="display:none"></div>
     <div id="pmAccSec" style="display:none"></div>
     <div id="musAccSec" style="display:none"></div>
+    <div id="coverAccSec" style="display:none"></div>
     <div id="accPark" style="display:none"></div>
     <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>

@@ -280,7 +280,7 @@
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><button id="coverToggle" type="button" hidden aria-pressed="false"></button>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
 <div id="venueCalibBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
@@ -729,6 +729,7 @@
     <div id="statoSec" style="display:none"></div>
     <div id="pmAccSec" style="display:none"></div>
     <div id="musAccSec" style="display:none"></div>
+    <div id="coverAccSec" style="display:none"></div>
     <div id="accPark" style="display:none"></div>
     <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
@@ -1857,7 +1858,7 @@ function drawCableRamp(it){
     s+='<path fill="none" stroke="'+BLK+'" stroke-width="2.5" d="M '+xs+','+yT+' l 6,'+(d*0.28).toFixed(1)+' l -12,'+(d*0.44).toFixed(1)+' l 6,'+(d*0.28).toFixed(1)+'"/>'; }
   s+='<line x1="'+xL+'" y1="'+(yT+d*0.38)+'" x2="'+xL+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
   s+='<line x1="'+xR+'" y1="'+(yT+d*0.38)+'" x2="'+xR+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
-  if(n>1) s+='<text x="0" y="'+(yT-6)+'" text-anchor="middle" font-size="20" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">×'+n+'</text>';   /* conteggio moduli sul palco */
+  if(n>1) s+='<text x="0" y="'+(yT-6)+'" text-anchor="middle" font-size="18" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+((w/100).toFixed(1)).replace(".",",")+' m</text>';   /* lunghezza reale della tratta sul palco (non il n° moduli) */
   return s;
 }
 /* n° moduli di una tratta di passacavi (per etichetta/STATO/rider) */
@@ -6163,9 +6164,10 @@ function sceneMarkup(){
   var musAttr = (musShown?'':' display="none"')+((anySolo()||musLayerUI.op>=100)?'':' style="opacity:'+(musLayerUI.op/100)+'"');
   var items='', zones='', bgItems='';
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
+  if(hideCovers && !(state.items||[]).some(isCover)) hideCovers=false;   /* niente coperture → azzera il toggle (evita che una nuova copertura nasca nascosta) */
   sortedItems().forEach(function(it){
     if(it.rackId){ var _rk=_racks[it.rackId]; if(_rk){ it.x=_rk.x; it.y=_rk.y; } return; }   /* nel rack: vive col rack, i cavi partono da lì; non disegnato né cliccabile */
-    if(hideCovers && isCover(it)) return;   /* toggle Coperture: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
+    if(hideCovers && isCover(it) && !soloOn("cover")) return;   /* toggle Coperture: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var m=itemMarkup(it);
     if(contactEligible(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
@@ -6221,22 +6223,7 @@ function render(){
   var _ds=document.getElementById("docState"), _dsM=document.getElementById("docStateM");
   if(_ds) _ds.style.display=_dcHide?"none":"";
   if(_dsM) _dsM.style.display=_dcHide?"none":"";
-  syncCoverToggle();
 }
-/* pillola flottante "Coperture": compare solo se in scena c'è almeno una copertura; nasconderle serve a
-   lavorare sugli elementi sotto (le coperture hanno un'area-click che copre tutto l'ingombro). Solo vista. */
-function syncCoverToggle(){
-  var btn=document.getElementById("coverToggle"); if(!btn) return;
-  var n=(state.items||[]).reduce(function(a,it){ return a+(isCover(it)?1:0); },0);
-  if(n===0 || document.body.classList.contains("viewmode")){ btn.hidden=true; hideCovers=false; return; }
-  btn.hidden=false; btn.classList.toggle("on", hideCovers);
-  var eye='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-  var eyeOff='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4M6.2 6.2A17.3 17.3 0 0 0 2 12s3.6 7 10 7a10.6 10.6 0 0 0 3.9-.7"/><path d="m3 3 18 18"/></svg>';
-  btn.innerHTML=(hideCovers?eyeOff:eye)+'<span>'+(hideCovers?'Coperture nascoste':'Coperture')+'</span>';
-  btn.title=hideCovers?'Mostra di nuovo le coperture':'Nascondi le coperture (gazebo, tende, copertura) per lavorare sugli elementi sotto';
-  btn.setAttribute('aria-pressed', hideCovers?'true':'false');
-}
-document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("#coverToggle")){ hideCovers=!hideCovers; render(); } });
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
    Fallback al render() completo se il nodo non è in DOM (es. cambio di selezione). */
@@ -11071,6 +11058,9 @@ function layerRegistry(){
           message:"Tutte le zone panoramiche verranno rimosse dal palco. Le sorgenti coperte tornano canali singoli.",
           confirmText:"Elimina le zone" }).then(function(ok){ if(!ok) return;
           state.items=(state.items||[]).filter(function(x){return x.type!=="miczone";}); sel=null; selSet={}; __cabRes=null; save(); render(); }); } }
+    ,{ id:"cover", name:"Coperture", color:"#8f979e",   /* coperture (gazebo/tende/copertura palco): mostra/nascondi per lavorare sotto; la lista (fisarmonica) mostra ognuna con la sua misura */
+      active:(state.items||[]).some(isCover),
+      visible:!hideCovers, setVisible:function(v){ hideCovers=!v; render(); } }
   ];
 }
 /* Stato runtime (non persistito) dei layer "meta" Palco e Section Mic: attenuano/nascondono/bloccano
@@ -11111,6 +11101,7 @@ function layerFgItem(id, it){
     case "mond":   return !!MON_DIG_NODE[it.type];
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return contactEligible(it.type);   /* layer Musicisti: le persone */
+    case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
   }
   return false;
 }
@@ -11144,7 +11135,7 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    le STESSE di prima (statoSec/patchSec/monSec/loadSec): vengono spostate sotto il layer aperto
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
-var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec" };
+var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec" };
 function renderLayerRow(L, container){
   var row=document.createElement("div"); row.className="layer-row";
   var accKey=LAYER_ACC[L.id]||null;
@@ -11201,7 +11192,27 @@ function renderLayerManager(){
   LS.forEach(function(L){ renderLayerRow(L, rows); });
   renderPmAccList();
   renderMusAccList();
+  renderCoverList();
 }
+/* Coperture (fisarmonica del layer "Coperture"): elenco delle coperture con misura e area a terra.
+   Clic su una voce = seleziona (e mostra) quella copertura. L'occhio del layer nasconde/mostra tutte. */
+function renderCoverList(){
+  var el=document.getElementById("coverAccSec"); if(!el) return;
+  if(layerAccOpen!=="cover"){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="block";
+  var cov=(state.items||[]).filter(isCover);
+  if(!cov.length){ el.innerHTML='<div class="cov-note">Nessuna copertura sul palco.</div>'; return; }
+  function fa(a){ return (Math.round(a*10)/10).toString().replace(".",","); }
+  var totA=0; cov.forEach(function(it){ totA+=(it.w/100)*(it.d/100); });
+  var h='<div class="cov-head">'+cov.length+' copertur'+(cov.length===1?"a":"e")+' · '+fa(totA)+' m² a terra</div><div class="cov-list">';
+  cov.forEach(function(it){
+    var t=TYPES[it.type]||{}, nm=(it.label!=null&&it.label!=="")?it.label:(t.defLabel||t.nome||"Copertura");
+    h+='<button type="button" class="cov-item'+((sel===it.id)?' on':'')+'" data-id="'+it.id+'"><span class="cov-nm">'+esc(nm)+'</span><span class="cov-dim">'+gazLabel(it.w||t.w,it.d||t.d)+' m</span><span class="cov-area">'+fa((it.w/100)*(it.d/100))+' m²</span></button>';
+  });
+  h+='</div><div class="cov-note">L’occhio del layer nasconde/mostra tutte (per lavorare sugli elementi sotto). Clic su una voce = selezionala.</div>';
+  el.innerHTML=h;
+}
+document.addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest(".cov-item"); if(!b) return; var id=b.getAttribute("data-id"); var it=(state.items||[]).find(function(x){ return String(x.id)===String(id); }); if(it){ hideCovers=false; selectOne(it.id); render(); } });
 function renderMusAccList(){
   var el=document.getElementById("musAccSec"); if(!el) return;
   if(layerAccOpen!=="mus"){ el.innerHTML=""; el.style.display="none"; return; }
