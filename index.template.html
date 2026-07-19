@@ -7053,7 +7053,7 @@ function renderProps(){
     DI_LOOKS.forEach(function(look){
       var bb=DI_BB[look], demo=Object.assign({}, it, {diLook:look, w:(bb?bb[2]:50), d:(bb?bb[3]:30)});   /* scala COSTANTE (bw/bh) → tratto uniforme come nel mockup */
       var cell=document.createElement("div"); cell.className="di-opt"+(look===cur?" sel":"");
-      cell.innerHTML='<svg width="58" height="40" viewBox="-32 -22 64 44">'+diDraw(demo)+'</svg>'
+      cell.innerHTML='<svg width="52" height="40" viewBox="-32 -24 64 48">'+diDraw(demo)+'</svg>'
         +'<div class="di-nm">'+esc(DI_LOOK_LABEL[look])+'</div>';
       cell.addEventListener("click", function(){
         it.diLook=look; var f2=diFootprint(look, it.type); it.w=f2[0]; it.d=f2[1];
