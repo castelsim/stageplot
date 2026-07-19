@@ -612,6 +612,14 @@
   .prod-chip{font-size:11px;border:1px dashed var(--n-300);color:var(--text-2);border-radius:999px;padding:3px 10px;cursor:pointer}
   .prod-chip:hover{border-color:var(--accent);color:var(--accent-strong)}
   .prod-inp{border:1px solid var(--border);border-radius:7px;padding:5px 9px;font-size:12px;flex:1;min-width:130px}
+  /* DI box: picker varianti icona */
+  .di-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .di-opt{border:1.5px solid var(--border);border-radius:10px;padding:7px 3px 5px;cursor:pointer;text-align:center;background:var(--surface);transition:.12s}
+  .di-opt:hover{border-color:var(--n-300)}
+  .di-opt.sel{border-color:var(--accent);background:var(--accent-tint)}
+  .di-opt svg{display:block;margin:0 auto 3px}
+  .di-nm{font-size:9.5px;color:var(--text-2);font-weight:600;line-height:1.1}
+  .di-opt.sel .di-nm{color:var(--accent-strong)}
   .sbp.busout{background:#4f46e5;border-color:#4f46e5;color:#fff;cursor:default}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
@@ -1928,6 +1936,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <button class="btn" id="pLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Illustrazione del musicista, in scala reale">Illustrato</button>
         <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Schema tecnico: sedia, strumento e leggio">Schematico</button>
       </div>
+    </div>
+    <div id="pDiWrap" style="display:none;margin-bottom:10px">
+      <label style="font-size:12px;color:var(--text-2);margin:0 0 5px;display:block">Tipo di DI <small style="color:var(--text-3);font-weight:400">— aspetto dell'icona</small></label>
+      <div id="pDiGrid" class="di-grid"></div>
     </div>
     <div id="pLabelWrap"><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>

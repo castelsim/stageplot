@@ -57,6 +57,36 @@ function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w
 function rectSvg(w,d,cls,rx){ return bar(0,0,w,d,cls,rx); }
 function circ(x,y,r,cls){ return '<circle class="'+(cls||'ic')+'" cx="'+x+'" cy="'+y+'" r="'+r+'"/>'; }
 function lin(x1,y1,x2,y2,cls){ return '<line class="'+(cls||'ic')+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"/>'; }
+/* ===== DI box: varianti icona selezionabili (Simone 18/07) ===== */
+var DI_LOOKS=["passiva","attiva","stereo","rack","schema"];
+var DI_LOOK_LABEL={passiva:"Passiva", attiva:"Attiva", stereo:"Stereo", rack:"Rack 6/8ch", schema:"Schematico"};
+var DI_FOOTPRINT={ passiva:[30,26], attiva:[30,26], stereo:[48,28], rack:[76,24] };   /* schema = footprint del tipo */
+function diLookOf(it){ if(it && it.diLook && DI_LOOK_LABEL[it.diLook]) return it.diLook; return (it&&it.type==="distereo")?"stereo":"passiva"; }
+function diFootprint(look, type){ if(DI_FOOTPRINT[look]) return DI_FOOTPRINT[look]; return type==="distereo"?[48,28]:[28,28]; }   /* schema */
+function diDraw(it){
+  var look=diLookOf(it), w=it.w, d=it.d, bwid=Math.max(14,Math.min(w*0.82,w-8)), bh=Math.max(12,d*0.78);
+  if(look==="schema"){
+    if(it.type==="distereo") return '<path class="ic tec" fill="#fff" d="M -11,-12 L 1,10 L -23,10 Z"/><path class="ic tec" fill="#fff" d="M 11,-12 L 23,10 L -1,10 Z"/>';
+    return '<path class="ic tec" fill="#fff" d="M 0,-11 L 11,10 L -11,10 Z"/>';
+  }
+  if(look==="rack"){
+    var s2=bar(0,0,w,bh,"ic",2)+bar(-w/2+3,0,6,bh,"ic thin",1)+bar(w/2-3,0,6,bh,"ic thin",1);
+    var n=6; for(var i=0;i<n;i++){ var x=-w/2+16+i*((w-32)/(n-1)); s2+=circ(x,0,2.2,"tec fill"); }
+    s2+=circ(-w/2+8,-bh*0.28,1,"ic thin")+circ(-w/2+8,bh*0.28,1,"ic thin");
+    return s2;
+  }
+  var s=bar(0,0,bwid,bh,"ic",3);
+  if(look==="stereo"){
+    s+=lin(0,-bh/2+2,0,bh/2-2,"ic thin");
+    s+=circ(-bwid/2,-bh*0.26,2.6,"ic thin fGrey")+circ(-bwid/2,bh*0.26,2.6,"ic thin fGrey");
+    s+=bar(bwid/2-1,-bh*0.26,5,6,"tec fill",1)+bar(bwid/2-1,bh*0.26,5,6,"tec fill",1);
+    return s;
+  }
+  s+=circ(-bwid/2,-bh*0.24,2.8,"ic thin fGrey")+circ(-bwid/2,bh*0.24,2.8,"ic thin fGrey");   /* in + thru */
+  s+=bar(bwid/2-1,0,6,7,"tec fill",1);   /* XLR out */
+  if(look==="attiva"){ s+='<circle cx="'+(-bwid*0.14)+'" cy="'+(-bh*0.24)+'" r="2.2" fill="#16a34a"/>'; s+=bar(bwid*0.16,-bh*0.2,10,5,"ic thin fGrey",1); }
+  return s;
+}
 function sring(x,y,r,cls){ return '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" class="'+cls+'"/>'; }
 function rimlight(x,y,r){ var rr=r-2; return '<path class="hilite" d="M '+(x-rr*0.72)+','+(y-rr*0.42)+' A '+rr+' '+rr+' 0 0 1 '+(x+rr*0.42)+','+(y-rr*0.72)+'"/>'; }
 function shadow(rx,ry,cx,cy){ return ''; }
@@ -915,10 +945,9 @@ var TYPES = {
                return s; }},
   /* --- tecnica --- */
   dimono:   {nome:"DI mono", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", w:28,d:28, defLabel:"DI",
-             draw:function(it){ return drawLibFit("dibox",it,13,9); }},
+             draw:function(it){ return diDraw(it); }},
   distereo: {nome:"DI stereo", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", w:48,d:28, defLabel:"DI st",
-             draw:function(){ return '<path class="ic tec" fill="#fff" d="M -11,-12 L 1,10 L -23,10 Z"/>'+
-               '<path class="ic tec" fill="#fff" d="M 11,-12 L 23,10 L -1,10 Z"/>'; }},
+             draw:function(it){ return diDraw(it); }},
   stagebox: {nome:"Stagebox", dim:"~55×40", cat:"Cablaggio e segnale", w:58,d:46, defLabel:"STAGEBOX",
              /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26 */
              draw:function(it){ return drawLibFit("stagebox",it,50,40); }},
@@ -2342,6 +2371,7 @@ function normalizeState(s){
       if(it.sbTo!=null && it.sbTo!=="main" && !s.items.some(function(x){ return x.id===it.sbTo; })) delete it.sbTo; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
+    if(it.type==="dimono"||it.type==="distereo"){ if(it.diLook && !DI_LOOK_LABEL[it.diLook]) delete it.diLook; }
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
     if(it.type==="mixhub"){ if(it.pmFeed!=null && it.pmFeed!=="dante" && it.pmFeed!=="console") delete it.pmFeed;
       if(it.pmFeedCh!=null && !(it.pmFeedCh>=1&&it.pmFeedCh<=64)) delete it.pmFeedCh; }
@@ -5475,6 +5505,24 @@ function renderProps(){
     if(elig && typeof renderItemContactBtn==="function") renderItemContactBtn(it); })();
   if(typeof renderRackPanel==="function") renderRackPanel(it);   /* RACK: contenuti/U/fronte */
   if(typeof renderRxPanel==="function") renderRxPanel(it);   /* F3: ricevitore RF */
+  (function(){ var w=document.getElementById("pDiWrap"); if(!w) return;
+    if(!it || (it.type!=="dimono" && it.type!=="distereo")){ w.style.display="none"; return; }
+    w.style.display="block";
+    var host=document.getElementById("pDiGrid"); host.innerHTML="";
+    var cur=diLookOf(it);
+    DI_LOOKS.forEach(function(look){
+      var fp=diFootprint(look, it.type), demo=Object.assign({}, it, {diLook:look, w:fp[0], d:fp[1]});
+      var cell=document.createElement("div"); cell.className="di-opt"+(look===cur?" sel":"");
+      var sc=Math.min(46/fp[0], 34/fp[1]);
+      cell.innerHTML='<svg width="52" height="38" viewBox="'+(-fp[0]/2-2)+' '+(-fp[1]/2-2)+' '+(fp[0]+4)+' '+(fp[1]+4)+'">'+diDraw(demo)+'</svg>'
+        +'<div class="di-nm">'+esc(DI_LOOK_LABEL[look])+'</div>';
+      cell.addEventListener("click", function(){
+        it.diLook=look; var f2=diFootprint(look, it.type); it.w=f2[0]; it.d=f2[1];
+        __cabRes=null; save(); render(); renderProps();
+      });
+      host.appendChild(cell);
+    });
+  })();
   (function(){ var w=document.getElementById("pSwWrap"); if(!w) return;
     if(!it || it.type!=="netswitch"){ w.style.display="none"; return; }
     w.style.display="block";
