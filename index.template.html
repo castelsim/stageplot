@@ -2073,9 +2073,12 @@ var TYPES = {
   rampa:    {nome:"Rampa accesso", dim:"120×240", cat:"Palco e strutture", w:120,d:240, resizable:true, z:1,
              draw:function(it){ return '<path class="ic fFloor" d="M '+(-it.w/2)+','+(it.d/2)+' L '+(it.w/2)+','+(it.d/2)+' L '+(it.w/2-18)+','+(-it.d/2)+' L '+(-it.w/2+18)+','+(-it.d/2)+' Z"/>'+
                lin(-it.w/2+16,-it.d/2,it.w/2-16,-it.d/2,'ic thin')+lin(-it.w/2+30,-it.d/2+45,it.w/2-30,-it.d/2+45,'ic thin'); }},
-  parapetto:{nome:"Parapetto pedana", dim:"200×8", cat:"Palco e strutture", w:200,d:8, resizable:true, z:2,
-             draw:function(it){ var s=bar(0,0,it.w,8,'ic fGrey',2);
-               for(var x=-it.w/2+18;x<it.w/2;x+=36) s+=lin(x,-12,x,12,'ic thin');
+  parapetto:{nome:"Parapetto pedana", dim:"200×12", cat:"Palco e strutture", w:200,d:12, resizable:true, z:2,
+             /* disegno CONTENUTO in it.d (prima i montanti sforavano a ±12 su d=8 → il box snap/hit
+                si allineava ma il disegno no). Ora la ringhiera riempie la profondità reale. */
+             draw:function(it){ var hd=it.d/2;
+               var s=bar(0,0,it.w,it.d,'ic fGrey',2);
+               for(var x=-it.w/2+16;x<it.w/2-4;x+=32) s+=lin(x,-hd+1.5,x,hd-1.5,'ic thin');
                return s; }},
   fondale:  {nome:"Fondale", dim:"backdrop 600×20", cat:"Palco e strutture", w:600,d:20, resizable:true, z:1,
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+
