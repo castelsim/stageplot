@@ -1203,8 +1203,9 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 /* Il campo "modello reale" appare SOLO dove ha senso (feedback Simone 17/07: l'utente va accompagnato,
    niente testo libero su musicisti/direttore). Mappa: categoria di catalogo → categorie del DB prodotti.
    Tendina per-categoria, non ricerca libera. */
-var EQUIP_CATS_BY_TYPE={ hearback:["personal_mixer","hub"], mixerino:["personal_mixer","hub"] };
-var EQUIP_CATS_BY_CATALOG={ "Microfoni e DI":["microfono","di"], "Regia e console":["console"],
+var EQUIP_CATS_BY_TYPE={ hearback:["personal_mixer","hub"], mixerino:["personal_mixer","hub"],
+  dimono:["di"], distereo:["di"] };   /* un DI mostra SOLO modelli DI, non microfoni (Simone 18/07) */
+var EQUIP_CATS_BY_CATALOG={ "Microfoni e DI":["microfono"], "Regia e console":["console"],
   "PA e diffusione":["line_array","subwoofer","amps"], "Cablaggio e segnale":["stagebox"] };
 function equipCatsFor(it){
   if(!it||!it.type||!TYPES[it.type]) return null;
@@ -1213,7 +1214,8 @@ function equipCatsFor(it){
   return (c&&c.length)?c:null; }
 function equipFieldLabel(cats){
   if(!cats||!cats.length) return "Modello reale";
-  if(cats[0]==="microfono") return "Microfono / DI reale";
+  if(cats[0]==="di") return "Modello DI";
+  if(cats[0]==="microfono") return "Microfono reale";
   if(cats[0]==="console") return "Modello console";
   if(cats[0]==="personal_mixer") return "Modello personal mixer";
   if(cats[0]==="stagebox") return "Modello stagebox";
