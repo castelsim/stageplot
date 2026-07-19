@@ -1305,7 +1305,7 @@ t("equipCatsFor: campo modello solo sugli elementi tecnici pertinenti (mai music
   eq(JSON.stringify(A.equipCatsFor({ type: "hearback" })), JSON.stringify(["personal_mixer", "hub"]), "personal mixer → PM/hub");
   eq(JSON.stringify(A.equipCatsFor({ type: "q338" })), JSON.stringify(["console"]), "console → console");
   eq(JSON.stringify(A.equipCatsFor({ type: "arraylarge" })), JSON.stringify(["line_array", "subwoofer", "amps"]), "PA → array/sub/amps");
-  eq(JSON.stringify(A.equipCatsFor({ type: "stagebox" })), JSON.stringify(["stagebox"]), "stagebox → stagebox");
+  eq(A.equipCatsFor({ type: "stagebox" }), null, "stagebox → null (unificato: il modello è il campo hw STAGEBOX_DB)");
   eq(A.equipCatsFor({ type: "vlnpost" }), null, "postazione violino → nessun campo");
   eq(A.equipCatsFor({ type: "direttore" }) || A.equipCatsFor({ type: "conductor" }) || null, null, "direttore → nessun campo");
   eq(A.equipCatsFor({ type: "sedia" }), null, "sedia → nessun campo");
@@ -2019,6 +2019,8 @@ t("equip: un DI mostra solo modelli DI, un mic solo microfoni", () => {
   eq(JSON.stringify(A.equipCatsFor({ type: "astamic" })), JSON.stringify(["microfono"]), "asta mic → solo microfono");
   eq(JSON.stringify(A.equipCatsFor({ type: "giraffa" })), JSON.stringify(["microfono"]), "giraffa → solo microfono");
   eq(A.equipFieldLabel(["di"]), "Modello DI", "label DI");
+  ok(A.STAGEBOX_DB["rio3224d2"].equip === "yamaha-rio3224-d2", "hw Rio3224 agganciato al prodotto verificato");
+  ok(A.STAGEBOX_DB["dl32"].equip === "midas-dl32", "hw DL32 agganciato al prodotto verificato");
   eq(A.equipFieldLabel(["microfono"]), "Microfono reale", "label microfono");
 });
 

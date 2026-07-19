@@ -452,6 +452,7 @@
     </div>
     <div id="pSbChWrap" style="display:none">
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
+      <div id="pSbEquip" style="display:none;font-size:11px;margin-top:3px"></div>
       <div id="pSbKind" style="font-size:10.5px;font-weight:600;margin:3px 0 2px"></div>
       <div id="pSbToRow" style="display:none;margin-top:4px">
         <label>Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
@@ -2645,6 +2646,7 @@ var EQUIP_CATS_BY_CATALOG={ "Microfoni e DI":["microfono"], "Regia e console":["
   "PA e diffusione":["line_array","subwoofer","amps"], "Cablaggio e segnale":["stagebox"] };
 function equipCatsFor(it){
   if(!it||!it.type||!TYPES[it.type]) return null;
+  if(it.type==="stagebox") return null;   /* unificato 18/07: il modello è il campo hw (STAGEBOX_DB), non un campo separato */
   if(EQUIP_CATS_BY_TYPE[it.type]) return EQUIP_CATS_BY_TYPE[it.type];
   var c=EQUIP_CATS_BY_CATALOG[TYPES[it.type].cat];
   return (c&&c.length)?c:null; }
@@ -4514,19 +4516,19 @@ var AUDIO_PROTO = { dante:"Dante", aes50:"AES50", dsnake:"dSNAKE", gigaace:"giga
 var STAGEBOX_DB = {
   /* Yamaha — Dante, preamplificatori remoti */
   "tio1608d":{brand:"Yamaha", model:"Tio1608-D", proto:["dante"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
-  "rio1608d2":{brand:"Yamaha", model:"Rio1608-D2", proto:["dante"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
-  "rio3224d2":{brand:"Yamaha", model:"Rio3224-D2", proto:["dante"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
+  "rio1608d2":{brand:"Yamaha", model:"Rio1608-D2", proto:["dante"], in:16, out:8, pre:true, casc:true, power:"AC", v:true, equip:"yamaha-rio1608-d2"},
+  "rio3224d2":{brand:"Yamaha", model:"Rio3224-D2", proto:["dante"], in:32, out:16, pre:true, casc:true, power:"AC", v:true, equip:"yamaha-rio3224-d2"},
   "rio1608d3":{brand:"Yamaha", model:"Rio1608-D3", proto:["dante"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
   "rio3224d3":{brand:"Yamaha", model:"Rio3224-D3", proto:["dante"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
   /* Allen & Heath */
-  "dx168":{brand:"Allen & Heath", model:"DX168", proto:["gigaace"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
+  "dx168":{brand:"Allen & Heath", model:"DX168", proto:["gigaace"], in:16, out:8, pre:true, casc:true, power:"AC", v:true, equip:"allenheath-dx168"},
   "gx4816":{brand:"Allen & Heath", model:"GX4816", proto:["gigaace"], in:48, out:16, pre:true, casc:true, power:"AC", v:true},
   "dx32":{brand:"Allen & Heath", model:"DX32 (modulare)", proto:["gigaace"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
   "ar2412":{brand:"Allen & Heath", model:"AR2412", proto:["dsnake"], in:24, out:12, pre:true, casc:true, power:"AC", v:true},
   "ab168":{brand:"Allen & Heath", model:"AB168", proto:["dsnake"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
   /* Midas — AES50 */
-  "dl16":{brand:"Midas", model:"DL16", proto:["aes50"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
-  "dl32":{brand:"Midas", model:"DL32", proto:["aes50"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
+  "dl16":{brand:"Midas", model:"DL16", proto:["aes50"], in:16, out:8, pre:true, casc:true, power:"AC", v:true, equip:"midas-dl16"},
+  "dl32":{brand:"Midas", model:"DL32", proto:["aes50"], in:32, out:16, pre:true, casc:true, power:"AC", v:true, equip:"midas-dl32"},
   "dl151":{brand:"Midas", model:"DL151", proto:["aes50"], in:24, out:0, pre:true, casc:true, power:"AC", v:true},
   "dl153":{brand:"Midas", model:"DL153", proto:["aes50"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
   "dl251":{brand:"Midas", model:"DL251", proto:["aes50"], in:48, out:16, pre:true, casc:true, power:"AC", v:true},
@@ -6519,6 +6521,22 @@ function openRackFront(it){
   body.appendChild(frame);
 }
 /* ===== F2 (DM7/Rio): Device ID + griglia porte nel pannello stagebox ===== */
+/* Unificazione stage box (18/07): se il modello hw ha un prodotto verificato (STAGEBOX_DB[hw].equip),
+   mostra la provenienza "dati verificati" inline sotto la tendina — senza un secondo campo modello. */
+function renderSbEquip(it){
+  var el=document.getElementById("pSbEquip"); if(!el) return;
+  var hw=it.hw&&STAGEBOX_DB[it.hw], slug=hw&&hw.equip;
+  if(!slug || !window.__equip){ el.style.display="none"; el.innerHTML=""; return; }
+  el.style.display="block";
+  el.innerHTML='<span style="color:var(--accent-strong,#0b7a70);font-weight:600">✓ dati verificati</span> <small style="color:var(--text-3)">verifica…</small>';
+  el.dataset.forItem=it.id;
+  window.__equip.get(slug, function(prod){
+    if(el.dataset.forItem!==String(it.id)) return;
+    if(!prod){ el.innerHTML='<small style="color:var(--text-3)">✓ modello di targa ('+esc(hw.in)+' in / '+esc(hw.out)+' out · '+hwProtoNames(hw.proto)+')</small>'; return; }
+    var src=(prod.primary_source_doc||"").replace(/-/g," ");
+    el.innerHTML='<span style="color:var(--accent-strong,#0b7a70);font-weight:600">✓ '+esc((prod.brand||"")+" "+(prod.model||""))+'</span> <small style="color:var(--text-3)">dati verificati'+(src?" · "+esc(src):"")+'</small>';
+  });
+}
 function renderSbF2(it){
   var idRow=document.getElementById("pSbIdRow"), pw=document.getElementById("pSbPortsWrap");
   if(!idRow || !pw) return;
@@ -6710,6 +6728,7 @@ function renderProps(){
       hwSel.value = it.hw||"";
       var mx=(state.cab&&state.cab.mixer);
       document.getElementById("pSbHwHint").textContent = (mx&&MIXER_DB[mx]) ? "· compatibili "+hwProtoNames(MIXER_DB[mx].proto) : "";
+      renderSbEquip(it);
       renderSbF2(it);
       document.getElementById("pSbChRow").style.display = it.hw ? "none" : "block";
       document.getElementById("pSbOutRow").style.display = it.hw ? "none" : "block";   /* #9/#13: uscite solo per le generiche (i modelli hanno in/out fissi) */
