@@ -279,9 +279,15 @@ t("Layer Musicisti: persone + strumenti suonati dentro, backline/arredo fuori", 
   ok(A.musLayerItem("vlnpost") && A.musLayerItem("direttore"), "compatibile con quelli già dentro");
   ok(!A.contactEligible("marimba") && A.contactEligible("vlnpost"), "il Contatto (stretto) resta 'persone', niente strumenti nudi");
 });
+t("Leggio generico: arpa e strumenti-musicista senza leggio nativo", () => {
+  ok(A.leggioExtra({ type: "arpa" }) && A.leggioExtra({ type: "marimba" }) && A.leggioExtra({ type: "grancoda" }), "arpa/marimba/piano hanno il leggio opzionale");
+  ok(!A.leggioExtra({ type: "vlnpost" }) && !A.leggioExtra({ type: "direttore" }) && !A.leggioExtra({ type: "batteria" }), "leggio nativo o batteria/direttore → niente generico");
+  ok(!A.leggioExtra({ type: "comboamp" }) && !A.leggioExtra({ type: "wedge" }), "non-musicisti → niente leggio");
+  ok(A.canHaveLucetta({ type: "arpa" }), "l'arpa col leggio può avere la lucetta");
+});
 t("Lucetta leggio: dove è ammessa + glyph lampada", () => {
   ok(A.canHaveLucetta({ type: "leggio" }) && A.canHaveLucetta({ type: "sedialeggio" }) && A.canHaveLucetta({ type: "vlnpost" }) && A.canHaveLucetta({ type: "direttore" }), "leggii standalone + postazioni + direttore");
-  ok(!A.canHaveLucetta({ type: "djset" }) && !A.canHaveLucetta({ type: "gazebo33" }), "chi non ha leggio → niente lucetta");
+  ok(!A.canHaveLucetta({ type: "wedge" }) && !A.canHaveLucetta({ type: "gazebo33" }), "chi non ha leggio → niente lucetta");
   ok(A.leggioLamp(0).indexOf("#f4c430") > -1, "la lampada ha la testa illuminata (ambra)");
 });
 t("Parapetto pedana: spessore 8 cm di default, si estende in lunghezza", () => {
