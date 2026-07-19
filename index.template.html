@@ -15193,19 +15193,25 @@ function renderProdHub(){
   if(!Array.isArray(state.production.depts)) state.production.depts=[];
   var depts=productionDepts();
   host.innerHTML="";
+  var C=window.__cloud, pid=C&&C.currentId&&C.currentId(), logged=!!(C&&C.user&&C.user()), aHosts={};
   depts.forEach(function(d){
     var row=document.createElement("div"); row.className="prod-dept";
-    row.innerHTML='<span class="pd-dot" style="background:'+d.color+'"></span>'+
+    row.innerHTML='<div class="pd-hd"><span class="pd-dot" style="background:'+d.color+'"></span>'+
       '<span class="pd-nm">'+esc(d.name)+'</span>'+
       '<span class="pd-src '+(d.plot?"plot":"extra")+'">'+(d.plot?"dal palco":"aggiunto")+'</span>'+
       '<span class="pd-el">'+esc(d.detail||"")+'</span>'+
-      (d.extra?'<span class="pd-x" title="Rimuovi reparto">\u00d7</span>':'');
+      (d.extra?'<span class="pd-x" title="Rimuovi reparto">\u00d7</span>':'')+'</div>'+
+      '<div class="pd-assign"></div>';
     if(d.extra){ row.querySelector(".pd-x").addEventListener("click", function(){
       state.production.depts=state.production.depts.filter(function(x){ return x.id!==d.key; });
+      if(logged&&pid&&C.deptAssign) C.deptAssign.invalidate(pid);
       save(); renderProdHub(); }); }
-    host.appendChild(row);
+    host.appendChild(row); aHosts[d.key]=row.querySelector(".pd-assign");
   });
-  if(!depts.length) host.innerHTML='<div class="hint">Nessun reparto: disegna il palco (audio, RF, power…) o aggiungine uno qui sotto.</div>';
+  if(!depts.length){ host.innerHTML='<div class="hint">Nessun reparto: disegna il palco (audio, RF, power…) o aggiungine uno qui sotto.</div>'; }
+  else if(!logged || !pid){ depts.forEach(function(d){ var a=aHosts[d.key]; if(a) a.innerHTML='<span class="pd-hint">🔒 Accedi per assegnare azienda e responsabili (restano privati nel tuo account)</span>'; }); }
+  else { C.deptAssign.list(pid, function(amap){ C.rubrica.list(function(rows){ amap=amap||{}; rows=rows||[];
+    depts.forEach(function(d){ renderDeptAssign(d, aHosts[d.key], amap[d.key]||[], rows, pid); }); }); }); }
   var add=document.getElementById("prodDeptAdd"); add.innerHTML="";
   var have={}; depts.forEach(function(d){ have[d.name.toLowerCase()]=1; });
   var lbl=document.createElement("span"); lbl.style.cssText="font-size:11px;color:var(--text-3);margin-right:4px"; lbl.textContent="aggiungi:";
@@ -15221,6 +15227,48 @@ function renderProdHub(){
   btn.addEventListener("click", go);
   inp.addEventListener("keydown", function(e){ if(e.key==="Enter") go(); });
   add.appendChild(inp); add.appendChild(btn);
+}
+var DEPT_ROLES=["Capo reparto","Tecnico","Assistente","Runner"];
+function daFindOrCreate(rubrica, name, kind, role, cb){
+  var C=window.__cloud, ex=(rubrica||[]).filter(function(c){ return (c.name||"").trim().toLowerCase()===name.trim().toLowerCase() && (c.kind||"person")===kind; })[0];
+  if(ex){ cb(ex); return; }
+  C.rubrica.upsert({ name:name.trim(), kind:kind, role:(kind==="company"?"Azienda":(role||"")) }, function(row){ cb(row); });
+}
+function daPill(cls, html, onx){
+  var s=document.createElement("span"); s.className="da-pill "+cls; s.innerHTML=html;
+  if(onx){ var x=document.createElement("span"); x.className="da-x"; x.textContent="×"; x.title="Rimuovi"; x.addEventListener("click", function(e){ e.stopPropagation(); onx(); }); s.appendChild(x); }
+  return s;
+}
+function daAddForm(host, deptKey, kind, rubrica, pid){
+  var C=window.__cloud;
+  var trig=document.createElement("span"); trig.className="da-pill add"; trig.textContent=kind==="company"?"＋ azienda":"＋ responsabile";
+  trig.addEventListener("click", function(){
+    var form=document.createElement("span"); form.className="da-form";
+    var dl=document.createElement("datalist"); dl.id="dl-"+kind+"-"+deptKey;
+    (rubrica||[]).filter(function(c){ return (c.kind||"person")===kind; }).forEach(function(c){ var o=document.createElement("option"); o.value=c.name; dl.appendChild(o); });
+    var inp=document.createElement("input"); inp.type="text"; inp.placeholder=kind==="company"?"nome azienda":"nome responsabile"; inp.setAttribute("list", dl.id); inp.className="da-inp";
+    var roleSel=null;
+    if(kind!=="company"){ roleSel=document.createElement("select"); roleSel.className="da-role"; DEPT_ROLES.forEach(function(r){ var o=document.createElement("option"); o.value=r; o.textContent=r; roleSel.appendChild(o); }); }
+    var ok=document.createElement("button"); ok.type="button"; ok.className="btn primary"; ok.style.cssText="width:auto;margin:0;padding:3px 9px;font-size:11px"; ok.textContent="✓";
+    function commit(){ var nm=inp.value.trim(); if(!nm) return;
+      daFindOrCreate(rubrica, nm, kind, roleSel?roleSel.value:"", function(row){ if(!row) return;
+        C.deptAssign.set(pid, deptKey, row.id, kind==="company"?"__azienda__":(roleSel?roleSel.value:""), function(){ renderProdHub(); }); }); }
+    ok.addEventListener("click", commit); inp.addEventListener("keydown", function(e){ if(e.key==="Enter") commit(); });
+    form.appendChild(dl); form.appendChild(inp); if(roleSel) form.appendChild(roleSel); form.appendChild(ok);
+    host.replaceChild(form, trig); inp.focus();
+  });
+  host.appendChild(trig);
+}
+function renderDeptAssign(d, host, assigns, rubrica, pid){
+  if(!host) return; host.innerHTML="";
+  var C=window.__cloud, byId={}; (rubrica||[]).forEach(function(c){ byId[c.id]=c; });
+  var az=assigns.filter(function(a){ return a.role==="__azienda__"; })[0];
+  var resp=assigns.filter(function(a){ return a.role!=="__azienda__"; });
+  if(az && byId[az.contact_id]) host.appendChild(daPill("az", "🏢 "+esc(byId[az.contact_id].name), function(){ C.deptAssign.remove(pid,d.key,az.contact_id,function(){ renderProdHub(); }); }));
+  else daAddForm(host, d.key, "company", rubrica, pid);
+  resp.forEach(function(a){ var c=byId[a.contact_id]; if(!c) return;
+    host.appendChild(daPill("pe", esc(c.name)+(a.role?' <b class="r">'+esc(a.role.toUpperCase())+'</b>':''), function(){ C.deptAssign.remove(pid,d.key,a.contact_id,function(){ renderProdHub(); }); })); });
+  daAddForm(host, d.key, "person", rubrica, pid);
 }
 function addProdDept(name){
   if(!state.production) state.production={};
@@ -16759,14 +16807,15 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   function rubricaList(cb){
     if(!sb || !cloudUser){ cb(null); return; }
     if(rubCache){ cb(rubCache); return; }
-    sb.from("stageplot_contacts").select("id,role,name,contact,note,updated_at")
+    sb.from("stageplot_contacts").select("id,role,name,contact,note,kind,updated_at")
       .order("updated_at",{ascending:false}).limit(200)
       .then(function(r){ if(r.error){ cb(null); return; } rubCache=r.data||[]; cb(rubCache); }, function(){ cb(null); });
   }
   function rubricaUpsert(c, cb){
     if(!sb || !cloudUser){ cb(null); return; }
     var row={ user_id:cloudUser.id, role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
-              contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120), updated_at:new Date().toISOString() };
+              contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120),
+              kind:(c.kind==="company"?"company":"person"), updated_at:new Date().toISOString() };
     rubricaList(function(existing){
       var dup=(existing||[]).find(function(x){ return contactKey(x)===contactKey(row); });
       var q = dup ? sb.from("stageplot_contacts").update(row).eq("id",dup.id).select().single()
@@ -16812,9 +16861,29 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     sb.from("stageplot_item_contacts").delete().eq("project_id", pid).eq("item_id", itemId)
       .then(function(r){ if(r.error){ cb(null); return; } if(icCache[pid]) delete icCache[pid][itemId]; cb(true); }, function(){ cb(null); });
   }
+  /* ── Hub produzione (decisione 3A): responsabilità reparto → contatti, account-only ── */
+  var daCache={};   /* projectId → { deptKey: [{contact_id, role}] } */
+  function deptAssignList(pid, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    if(daCache[pid]){ cb(daCache[pid]); return; }
+    sb.from("stageplot_dept_assign").select("dept_key,contact_id,role").eq("project_id", pid)
+      .then(function(r){ if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ (m[x.dept_key]=m[x.dept_key]||[]).push({contact_id:x.contact_id, role:x.role||""}); }); daCache[pid]=m; cb(m); }, function(){ cb(null); });
+  }
+  function deptAssignSet(pid, deptKey, contactId, role, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    sb.from("stageplot_dept_assign").upsert({ user_id:cloudUser.id, project_id:pid, dept_key:deptKey, contact_id:contactId, role:String(role||"").slice(0,40), updated_at:new Date().toISOString() }, { onConflict:"user_id,project_id,dept_key,contact_id" })
+      .then(function(r){ if(r.error){ cb(null); return; } delete daCache[pid]; cb(true); }, function(){ cb(null); });
+  }
+  function deptAssignRemove(pid, deptKey, contactId, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    sb.from("stageplot_dept_assign").delete().eq("project_id", pid).eq("dept_key", deptKey).eq("contact_id", contactId)
+      .then(function(r){ if(r.error){ cb(null); return; } delete daCache[pid]; cb(true); }, function(){ cb(null); });
+  }
   window.__cloud = {
     itemContacts: { list:itemContactsList, set:itemContactSet, remove:itemContactRemove,
                     invalidate:function(pid){ if(pid) delete icCache[pid]; else icCache={}; } },
+    deptAssign: { list:deptAssignList, set:deptAssignSet, remove:deptAssignRemove,
+                  invalidate:function(pid){ if(pid) delete daCache[pid]; else daCache={}; } },
     rubrica: { list:rubricaList, upsert:rubricaUpsert, remove:rubricaRemove, touch:rubricaTouch,
                importCandidates:rubricaImportCandidates, invalidate:function(){ rubCache=null; } },
     user: function(){ return cloudUser; },
