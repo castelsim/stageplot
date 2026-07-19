@@ -2981,6 +2981,9 @@ function itemMarkup(it){
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
       hpts=[["l",-it.w/2,0],["r",it.w/2,0]];
+    } else if(it.type==="parapetto"){
+      /* parapetto pedana: si estende solo in lunghezza → solo maniglie l/r (spessore fisso 8 cm) */
+      hpts=[["l",-bw,0],["r",bw,0]];
     } else {
       hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
     }
@@ -7395,6 +7398,7 @@ svg.addEventListener("pointermove", function(e){
       if(grid){ nw=snap(nw); nd=snap(nd); }
       rzit.w=nw; rzit.d=nd;
       if(rzit.type==="cableramp"){ var rcfg=RAMP_TYPES[rzit.rampType||"midi"]; if(!rcfg.end){ nw=Math.max(rcfg.w, Math.round(nw/rcfg.w)*rcfg.w); nd=rcfg.d; rzit.w=nw; rzit.d=nd; } }   /* passacavi: lunghezza a scatti di 1 modulo, larghezza fissa per formato */
+      if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
       var shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;   /* shift calcolato sui valori (eventualmente) snappati → lato opposto davvero fermo */
       var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot);   /* riporta lo shift locale in coordinate globali (lato opposto fermo) */
       rzit.x = drag.x0 + (shx*cc - shy*ss);
