@@ -796,6 +796,7 @@
   .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
   .share-revoke:hover{background:var(--danger-bg)}
   body.mus-lock .mus-item{pointer-events:none}   /* lucchetto Musicisti: le persone non si toccano */
+  body.cover-lock .cover-item{pointer-events:none}   /* lucchetto Coperture: non si spostano per sbaglio */
   /* RACK (18/07) */
   .rack-ubar{height:9px;border-radius:999px;background:var(--n-100);overflow:hidden;margin:8px 0 3px}
   .rack-ubar i{display:block;height:100%;background:var(--accent);width:0;transition:width var(--dur-fast) var(--ease)}
