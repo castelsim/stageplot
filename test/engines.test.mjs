@@ -2056,5 +2056,16 @@ t("DI box: varianti icona + footprint + default per tipo", () => {
   eq(A.state.items.find(i => i.id === m.id).diLook, undefined, "diLook invalido rimosso");
 });
 
+t("parapetto: disegno contenuto nella profondità (allineamento snap/bordo)", () => {
+  reset();
+  const par = add("parapetto", 400, 250);
+  eq(par.d, 12, "profondità di default 12 (visibile)");
+  // il draw non deve contenere coordinate y oltre ±d/2 (prima i montanti erano a ±12 su d=8)
+  const svg = A.TYPES.parapetto.draw(par);
+  const ys = (svg.match(/y[12]?="(-?[\d.]+)"/g) || []).map(m => Math.abs(parseFloat(m.match(/(-?[\d.]+)/)[1])));
+  const maxY = Math.max.apply(null, ys);
+  ok(maxY <= par.d / 2 + 0.5, "nessuna coordinata oltre ±d/2 (era ±12 su d=8): max=" + maxY);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
