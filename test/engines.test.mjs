@@ -259,6 +259,19 @@ t("Coperture — info: h di default, punto-nella-copertura, gear a rischio + cop
   add("djset", 500, 500); add("djset", 1100, 1100);
   eq(A.coveredBy(gz).length, 1, "solo il DJ sotto il gazebo risulta coperto");
 });
+t("Direttore: microfono talkback → sorgente audio collegabile alla stage box", () => {
+  reset();
+  const d = add("direttore", 400, 300);
+  ok(!A.isAudioSource(d), "senza mic: NON è sorgente");
+  eq(A.cabItemInputs(d).length, 0, "senza mic: 0 canali");
+  d.mic = true;
+  ok(A.isAudioSource(d), "col mic: è sorgente audio");
+  const ch = A.cabItemInputs(d);
+  eq(ch.length, 1, "col mic: 1 canale talkback");
+  ok(/palmare/i.test(ch[0].mic), "default = palmare (gelato) on/off");
+  d.micType = "collodoca";
+  ok(/collo/i.test(A.cabItemInputs(d)[0].mic), "collo d'oca se scelto");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;

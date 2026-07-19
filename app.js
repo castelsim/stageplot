@@ -916,6 +916,10 @@ var TYPES = {
                if(it.leggio) s+='<g transform="translate(0,'+(it.podio?-70:-66)+')">'+leggioGlyph(0)+'</g>';
                /* sgabello dietro (verso pubblico, +y) — dentro il box 120×120 */
                if(it.sgab){ var sy=it.podio?44:42; s+=circ(0,sy,17,'ic soft')+circ(0,sy,5,'dotS'); }
+               if(it.mic){   /* microfono talkback: collo d'oca da podio o palmare "gelato" in mano */
+                 if(it.micType==="collodoca") s+='<g transform="translate(22,14)">'+circ(0,4,6,'ic fBlack')+'<path d="M0,2 C -7,-6 7,-15 0,-25" fill="none" stroke="#2a2d30" stroke-width="2.4"/>'+bar(0,-28,6,10,'ic fBlack',3)+'</g>';
+                 else s+='<g transform="translate(25,7) rotate(24)">'+bar(0,4,7.5,17,'ic fBlack',4)+circ(0,-6,5.5,'ic fGrey')+circ(0,-6,3,'dotS')+'</g>';
+               }
                return s; }},
   /* --- monitoraggio --- */
   wedge:    {nome:"Wedge monitor", dim:"58×50", cat:"Monitor da palco", w:60,d:52, defLabel:"MIX 1",
@@ -2545,7 +2549,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
     /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
@@ -3017,7 +3021,8 @@ function zoneAbsorbable(it){
 }
 function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo"); }
+function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
+function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
 function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
 /* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
@@ -3419,6 +3424,7 @@ function cabItemInputs(it){
   if(it.type==="rxrf"){ return (rfAssign().byRx[it.id]||[]).map(function(a){ return {name:rfTxName(a.tx), mic:(IN_SRC[a.tx.type]||"RF")}; }); }
   if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return [];   /* coperto da una zona → 0 canali; effOwnMic (ownMic esplicito o default close-obligato: kick/rullante/tom/hi-hat) mantiene il mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
+  if(it.type==="direttore") return it.mic ? [{name:(it.label||TYPES.direttore.defLabel||"Direttore"), mic: dirMicLabel(it)}] : [];   /* direttore col mic = 1 canale talkback (verso tecnici/musicisti), collegabile alla stage box */
   if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
   if(STEREO_TOGGLE[it.type]){   /* strumenti ambigui: mono/stereo per-elemento (it.stereo) */
     var scfg=STEREO_TOGGLE[it.type], sst=(it.stereo!=null?it.stereo:scfg.def);
@@ -5472,6 +5478,9 @@ function renderProps(){
     document.getElementById("pDirPodio").checked = it.podio===true;
     document.getElementById("pDirLeggio").checked = it.leggio===true;
     document.getElementById("pDirSgab").checked = it.sgab===true;
+    document.getElementById("pDirMic").checked = it.mic===true;
+    document.getElementById("pDirMicWrap").style.display = it.mic===true ? "block" : "none";
+    document.getElementById("pDirMicType").value = it.micType || "palmare";
   }
   var ptast=document.getElementById("pTastiera"), isTast=!!TASTIERE[it.type];
   ptast.style.display = isTast ? "block" : "none";
@@ -5811,6 +5820,8 @@ document.getElementById("pGtrPedal").addEventListener("change", function(){ mutS
 document.getElementById("pDirPodio").addEventListener("change", function(){ mutSel(function(it){ it.podio=document.getElementById("pDirPodio").checked; var sz=dirSize(it); it.w=sz[0]; it.d=sz[1]; }); });
 document.getElementById("pDirLeggio").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pDirLeggio").checked; var sz=dirSize(it); it.w=sz[0]; it.d=sz[1]; }); });
 document.getElementById("pDirSgab").addEventListener("change", function(){ mutSel(function(it){ it.sgab=document.getElementById("pDirSgab").checked; var sz=dirSize(it); it.w=sz[0]; it.d=sz[1]; }); });
+document.getElementById("pDirMic").addEventListener("change", function(){ mutSel(function(it){ it.mic=document.getElementById("pDirMic").checked; if(it.mic && !it.micType) it.micType="palmare"; __cabRes=null; }); });   /* direttore col mic = sorgente talkback collegabile alla stage box */
+document.getElementById("pDirMicType").addEventListener("change", function(){ mutSel(function(it){ it.micType=document.getElementById("pDirMicType").value; __cabRes=null; }); });
 document.getElementById("pTastLeg1").addEventListener("change", function(){
   mutSel(function(it){ it.leggio=document.getElementById("pTastLeg1").checked; if(!it.leggio) it.leggio2=false; });
   document.getElementById("pTastLeg2").disabled = !document.getElementById("pTastLeg1").checked;
