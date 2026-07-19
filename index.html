@@ -2119,6 +2119,15 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <label class="chk"><input type="checkbox" id="pDirPodio"> Podio</label>
       <label class="chk"><input type="checkbox" id="pDirLeggio"> Leggio</label>
       <label class="chk"><input type="checkbox" id="pDirSgab"> Sgabello</label>
+      <label class="chk"><input type="checkbox" id="pDirMic"> Microfono talkback (parla a tecnici e musicisti)</label>
+      <div id="pDirMicWrap" style="display:none;margin-top:5px">
+        <label style="font-size:11px;color:var(--text-3)">Tipo microfono</label>
+        <select id="pDirMicType" style="width:100%">
+          <option value="palmare">Palmare con interruttore (gelato) — es. SM58S</option>
+          <option value="collodoca">Collo d'oca talkback da podio — es. ATR3M</option>
+        </select>
+        <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Diventa un canale collegabile alla stage box.</div>
+      </div>
     </div>
     <div id="pTastiera" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <label class="chk"><input type="checkbox" id="pTastLeg1"> Leggio</label>
