@@ -1885,6 +1885,10 @@ function gazStructLabel(it){   /* nome base (editabile) + dimensione live, es. "
 }
 function isCover(it){ return !!GAZ_TYPES[it.type] || (typeof it.type==="string" && it.type.indexOf("roof")===0); }   /* coperture = gazebo/tende/PMA + copertura palco (roof*) */
 var hideCovers=false;   /* toggle "Coperture" (solo vista): le nasconde sul canvas per lavorare sotto — PDF e salvataggio NON toccati */
+function coverH(it){ return (it&&it.h!=null) ? it.h : (String(it&&it.type).indexOf("roof")===0 ? 500 : 250); }   /* luce sotto la copertura (cm): default 5 m per la copertura palco, 2,5 m per gazebo/tende */
+function ptInCover(px,py,cov){ var dx=px-cov.x, dy=py-cov.y, a=-((cov.rot||0)*Math.PI/180), c=Math.cos(a), s=Math.sin(a); return Math.abs(dx*c-dy*s)<=(cov.w||0)/2 && Math.abs(dx*s+dy*c)<=(cov.d||0)/2; }   /* punto nel rettangolo (ruotato) della copertura */
+function coverAtRisk(it){ return !isCover(it) && (isAudioSource(it) || wattOf(it)>0 || OUT_SET[it.type]!=null || it.type==="mixer" || it.type==="foh" || it.type==="rack" || cabIsBox(it)); }   /* attrezzatura audio/elettrica = "teme la pioggia" */
+function coveredBy(cov){ return (state.items||[]).filter(function(x){ return coverAtRisk(x) && ptInCover(x.x,x.y,cov); }); }
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -3940,6 +3944,7 @@ function sanitizeItems(arr){
     var it={ id:o.id||uid(), type:o.type, x:Math.round(+o.x||0), y:Math.round(+o.y||0), rot:Math.round(+o.rot||0),
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
+    else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
     ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
@@ -6784,11 +6789,12 @@ function renderProps(){
   document.getElementById("pRotVal").textContent = rNorm+"°";
   var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
   document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
-  document.getElementById("pHwrap").style.display = t.riser ? "" : "none";
+  document.getElementById("pHwrap").style.display = (t.riser || isCover(it)) ? "" : "none";   /* coperture: h = luce libera sotto la struttura */
   if(t.resizable){
     document.getElementById("pW").value = it.w;
     document.getElementById("pD").value = it.d;
     if(t.riser) document.getElementById("pH").value = it.h;
+    else if(isCover(it)) document.getElementById("pH").value = coverH(it);
   }
   var isGazCover=!!GAZ_TYPES[it.type];   /* coperture: stesso controllo "Lato" dei riser, ma per l'etichetta unica */
   document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
@@ -9780,6 +9786,7 @@ function placeOut(out, fitStage, clearFirst, force){
     var it={id:uid(), type:o.type, x:Math.round(C.x+o.x), y:Math.round(C.y+o.y),
             rot:Math.round((o.rot||0)/5)*5, w:z.w, d:z.d, label:o.label!=null?o.label:defaultLabel(o.type)};
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
+    else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
     ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","hw","ch","outCh"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box) */
     return it;
@@ -11198,23 +11205,43 @@ function renderLayerManager(){
 }
 /* Coperture (fisarmonica del layer "Coperture"): elenco delle coperture con misura e area a terra.
    Clic su una voce = seleziona (e mostra) quella copertura. L'occhio del layer nasconde/mostra tutte. */
+function coverName(it){ var t=TYPES[it.type]||{}; return (it.label!=null&&it.label!=="")?it.label:(t.defLabel||t.nome||"Copertura"); }
 function renderCoverList(){
   var el=document.getElementById("coverAccSec"); if(!el) return;
   if(layerAccOpen!=="cover"){ el.innerHTML=""; el.style.display="none"; return; }
   el.style.display="block";
   var cov=(state.items||[]).filter(isCover);
-  if(!cov.length){ el.innerHTML='<div class="cov-note">Nessuna copertura sul palco.</div>'; return; }
+  var add='<div class="cov-add"><span>Aggiungi:</span><button type="button" data-add="gazebo33">Gazebo</button><button type="button" data-add="tenda63">Tenda 6×3</button><button type="button" data-add="roof86">Copertura</button><button type="button" data-add="pma">PMA</button></div>';
+  if(!cov.length){ el.innerHTML='<div class="cov-note">Nessuna copertura sul palco.</div>'+add; return; }
   function fa(a){ return (Math.round(a*10)/10).toString().replace(".",","); }
+  function fm(cm){ return (Math.round(cm/10)/10).toString().replace(".",","); }
   var totA=0; cov.forEach(function(it){ totA+=(it.w/100)*(it.d/100); });
-  var h='<div class="cov-head">'+cov.length+' copertur'+(cov.length===1?"a":"e")+' · '+fa(totA)+' m² a terra</div><div class="cov-list">';
+  /* raggruppa per tipo+misura → riepilogo per il service */
+  var grp={}, order=[];
+  cov.forEach(function(it){ var t=TYPES[it.type]||{}, k=(t.defLabel||t.nome||it.type)+" "+gazLabel(it.w||t.w,it.d||t.d)+" m"; if(grp[k]==null){ grp[k]=0; order.push(k); } grp[k]++; });
+  var svc=order.map(function(k){ return grp[k]+"× "+k; }).join(" · ");
+  var h='<div class="cov-head">'+cov.length+' copertur'+(cov.length===1?"a":"e")+' · '+fa(totA)+' m² a terra</div>';
+  h+='<div class="cov-svc">Per il service: '+esc(svc)+'</div><div class="cov-list">';
   cov.forEach(function(it){
-    var t=TYPES[it.type]||{}, nm=(it.label!=null&&it.label!=="")?it.label:(t.defLabel||t.nome||"Copertura");
-    h+='<button type="button" class="cov-item'+((sel===it.id)?' on':'')+'" data-id="'+it.id+'"><span class="cov-nm">'+esc(nm)+'</span><span class="cov-dim">'+gazLabel(it.w||t.w,it.d||t.d)+' m</span><span class="cov-area">'+fa((it.w/100)*(it.d/100))+' m²</span></button>';
+    var t=TYPES[it.type]||{}, nCov=coveredBy(it).length;
+    h+='<button type="button" class="cov-item'+((sel===it.id)?' on':'')+'" data-id="'+it.id+'">'+
+         '<span class="cov-nm">'+esc(coverName(it))+'</span>'+
+         '<span class="cov-dim">'+gazLabel(it.w||t.w,it.d||t.d)+' m · h'+fm(coverH(it))+'</span>'+
+         '<span class="cov-area">'+(nCov?("copre "+nCov):"vuota")+'</span></button>';
   });
-  h+='</div><div class="cov-note">L’occhio del layer nasconde/mostra tutte (per lavorare sugli elementi sotto). Clic su una voce = selezionala.</div>';
+  h+='</div>';
+  /* fuori copertura: attrezzatura non sotto nessuna copertura — mostrato solo se qualcosa È già coperto (uso intenzionale come riparo) */
+  if(cov.some(function(c){ return coveredBy(c).length>0; })){
+    var out=(state.items||[]).filter(function(x){ return coverAtRisk(x) && !cov.some(function(c){ return ptInCover(x.x,x.y,c); }); });
+    if(out.length){ var names=out.slice(0,6).map(function(x){ return esc(coverName(x)); }).join(", ")+(out.length>6?" +"+(out.length-6):"");
+      h+='<div class="cov-warn">⚠ '+out.length+' fuori copertura: '+names+'</div>';
+    } else h+='<div class="cov-ok">✓ Tutta l’attrezzatura è coperta.</div>';
+  }
+  h+=add+'<div class="cov-note">L’occhio del layer nasconde/mostra tutte (per lavorare sotto). Clic su una voce = selezionala.</div>';
   el.innerHTML=h;
 }
 document.addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest(".cov-item"); if(!b) return; var id=b.getAttribute("data-id"); var it=(state.items||[]).find(function(x){ return String(x.id)===String(id); }); if(it){ hideCovers=false; selectOne(it.id); render(); } });
+document.addEventListener("click", function(e){ var a=e.target.closest&&e.target.closest(".cov-add button[data-add]"); if(!a) return; var ty=a.getAttribute("data-add"); var it=addItem(ty,{x:(state.stage.w/2), y:(state.stage.d/2)}); if(it){ hideCovers=false; selectOne(it.id); save(); render(); } });
 function renderMusAccList(){
   var el=document.getElementById("musAccSec"); if(!el) return;
   if(layerAccOpen!=="mus"){ el.innerHTML=""; el.style.display="none"; return; }
@@ -12141,6 +12168,9 @@ function renderInspectorB(){
     var _ramp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });
     if(_ramp.length){ var _rmod=_ramp.reduce(function(a,it){ return a+rampModules(it); },0), _rlen=_ramp.reduce(function(a,it){ return a+(it.w||0); },0);
       s+=ir("Passacavi", _rmod+" moduli · "+(_rlen/100).toFixed(1).replace(".",",")+" m"); }   /* il service sa quanti pezzi servono */
+    var _cov=(state.items||[]).filter(isCover);
+    if(_cov.length){ var _covA=_cov.reduce(function(a,it){ return a+(it.w/100)*(it.d/100); },0);
+      s+=ir("Coperture", _cov.length+" · "+(Math.round(_covA*10)/10).toString().replace(".",",")+" m² a terra"); }   /* gazebo/tende/copertura: quante strutture + superficie */
     if(c.sedie)     s+=ir("Sedie", c.sedie);
     if(c.leggii)    s+=ir("Leggii", c.leggii);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);

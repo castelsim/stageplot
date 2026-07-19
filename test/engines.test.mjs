@@ -246,6 +246,19 @@ t("Layer Coperture: isCover riconosce coperture (gazebo/tende/PMA/copertura palc
   ok(A.isCover({ type: "roof86" }) && A.isCover({ type: "roof1210" }), "copertura palco = copertura");
   ok(!A.isCover({ type: "wedge" }) && !A.isCover({ type: "djset" }), "monitor/strumenti NON sono coperture");
 });
+t("Coperture — info: h di default, punto-nella-copertura, gear a rischio + copertura", () => {
+  eq(A.coverH({ type: "gazebo33" }), 250, "gazebo: h default 2,5 m");
+  eq(A.coverH({ type: "roof86" }), 500, "copertura palco: h default 5 m");
+  eq(A.coverH({ type: "gazebo33", h: 300 }), 300, "h override rispettato");
+  const g = { type: "gazebo33", x: 500, y: 500, w: 300, d: 600 };
+  ok(A.ptInCover(500, 500, g) && A.ptInCover(640, 500, g), "centro e bordo (x=+140<150) dentro");
+  ok(!A.ptInCover(700, 500, g), "x=+200>150 fuori");
+  ok(A.coverAtRisk({ type: "djset" }) && !A.coverAtRisk({ type: "gazebo33" }), "gear teme la pioggia, la copertura no");
+  reset();
+  const gz = add("gazebo33", 500, 500); gz.w = 300; gz.d = 600;
+  add("djset", 500, 500); add("djset", 1100, 1100);
+  eq(A.coveredBy(gz).length, 1, "solo il DJ sotto il gazebo risulta coperto");
+});
 t("zona da selezione: hull poligonale aderente (gruppo in diagonale → area << bbox)", () => {
   reset();
   const a = add("vlnpost", 300, 300); a.rot = 40;
