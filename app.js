@@ -1451,7 +1451,7 @@ function musLayerItem(type){
   return !!(t && (t.cat==="Orchestra" || t.cat==="Band e backline" || t.cat==="Batteria e percussioni"));
 }
 var LUCETTA_STANDALONE = {leggio:1, sedialeggio:1, leggiotablet:1};   /* leggii "veri e propri" */
-function canHaveLucetta(it){ var t=TYPES[it.type]||{}; return !!(LUCETTA_STANDALONE[it.type] || POSTAZ[it.type] || VOCE[it.type] || TASTIERE[it.type] || it.type==="direttore" || t.gtr); }   /* leggio standalone o accessorio (musicisti con leggio) */
+function canHaveLucetta(it){ var t=TYPES[it.type]||{}; return !!(LUCETTA_STANDALONE[it.type] || POSTAZ[it.type] || VOCE[it.type] || TASTIERE[it.type] || it.type==="direttore" || t.gtr || leggioExtra(it)); }   /* leggio standalone o accessorio (musicisti con leggio, anche quelli col leggio generico) */
 /* Suggerimenti per ruolo (Simone 17/07): sul violino propongo SOLO i violini della rubrica.
    Normalizza il ruolo togliendo parole generiche e numeri (I/II/1/2) → confronto per contenimento. */
 function icRoleKey(str){
@@ -1699,6 +1699,10 @@ function ungroupSel(){ selItems().forEach(function(it){ delete it.grp; }); rende
 /* opzioni applicabili in multi-selezione */
 function supportsSedia(it){ return !!POSTAZ[it.type] || !!VOCE[it.type] || !!(TYPES[it.type]&&TYPES[it.type].gtr); }
 function supportsLeggio(it){ return !!POSTAZ[it.type] || !!VOCE[it.type] || !!(TYPES[it.type]&&TYPES[it.type].gtr) || !!TASTIERE[it.type]; }
+/* musicisti-strumento senza leggio "nativo" (arpa, piani, organi, percussioni, mallet…): leggio
+   opzionale (OFF di default) reso genericamente davanti allo strumento in itemMarkup. */
+function leggioExtra(it){ return musLayerItem(it.type) && !supportsLeggio(it) && it.type!=="direttore" && it.type!=="batteria"; }
+function leggioExtraY(it){ var m={arpa:70, grancoda:60, mezzacoda:55}; return (m[it.type]!=null) ? m[it.type] : Math.min(it.d/2+18, 90); }   /* posizione leggio: davanti; offset dedicato per gli strumenti grandi/asimmetrici */
 function optSedia(it){ return (TYPES[it.type]&&TYPES[it.type].gtr) || !!VOCE[it.type] ? it.sedia===true : it.sedia!==false; }
 function applyOptAll(key, val){
   selItems().forEach(function(it){
@@ -2952,6 +2956,7 @@ function itemMarkup(it){
     if(it.leggio)  s += '<g transform="translate('+(-_kdx)+','+_ky+')">'+leggioGlyph(0)+'</g>';
     if(it.leggio2) s += '<g transform="translate('+_kdx+','+_ky+')">'+leggioGlyph(0)+'</g>';
   }
+  if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
     var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='';
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
@@ -5527,6 +5532,9 @@ function renderProps(){
     document.getElementById("pGtrAmp").checked = it.ampli===true;
     document.getElementById("pGtrPedal").checked = it.pedaliera===true;
   }
+  var _isLegX = leggioExtra(it);   /* strumenti-musicista col leggio generico opzionale (arpa, piani, percussioni…) */
+  document.getElementById("pLeggioGenWrap").style.display = _isLegX ? "" : "none";
+  if(_isLegX) document.getElementById("pLeggioGen").checked = it.leggio===true;
   document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
   document.getElementById("pLucetta").checked = it.lucetta===true;
   var pdir=document.getElementById("pDir"), isDir=!!t.dir;
@@ -5798,6 +5806,7 @@ document.getElementById("pRf").addEventListener("input", function(){ var v=docum
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
 document.getElementById("pMir").addEventListener("change", function(){ var v=this.checked; mutSelSoon(function(it){ if(v) it.mir=true; else delete it.mir; }); });   /* Specchia l'arte dell'icona */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
+document.getElementById("pLeggioGen").addEventListener("change", function(){ var v=document.getElementById("pLeggioGen").checked; mutSel(function(it){ it.leggio=v; }); });   /* leggio generico strumenti-musicista */
 document.getElementById("pLucetta").addEventListener("change", function(){ var v=document.getElementById("pLucetta").checked; mutSel(function(it){ it.lucetta=v; }); });   /* lucetta leggio (solo visiva) */
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
@@ -5989,7 +5998,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLucettaWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
