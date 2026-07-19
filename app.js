@@ -2875,7 +2875,7 @@ function itemMarkup(it){
     /* postazioni con sedia: etichetta sopra allo schienale di default (ruota con l'elemento) */
     var lblAbove = !!POSTAZ[it.type] && optSedia(it) && it.lblAbove !== false;
     var benchExtra = (KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* piano/tastiere con sgabello: nome sotto lo sgabello, non sopra */
-    var ly  = lblAbove ? -52.5 - fsz*0.35 : it.d/2 + fsz*0.55 + 5 + benchExtra;
+    var ly  = lblAbove ? -52.5 - fsz*0.35 : it.d/2 + 9 + fsz*0.72 + benchExtra;   /* sotto: superare il selbox (bordo a d/2+9) così il testo non ci finisce dentro */
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
