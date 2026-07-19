@@ -482,7 +482,7 @@ function gazStructLabel(it){   /* nome base (editabile) + dimensione live, es. "
   return base+" "+gazLabel(it.w||t.w||300, it.d||t.d||300)+" m";
 }
 function isCover(it){ return !!GAZ_TYPES[it.type] || (typeof it.type==="string" && it.type.indexOf("roof")===0); }   /* coperture = gazebo/tende/PMA + copertura palco (roof*) */
-var hideCovers=false;   /* toggle "Coperture" (solo vista): le nasconde sul canvas per lavorare sotto — PDF e salvataggio NON toccati */
+var coverLayerUI={vis:true, op:100, lock:false};   /* layer Coperture (runtime, non persistito): visibilità + opacità + lucchetto come gli altri layer */
 function coverH(it){ return (it&&it.h!=null) ? it.h : (String(it&&it.type).indexOf("roof")===0 ? 500 : 250); }   /* luce sotto la copertura (cm): default 5 m per la copertura palco, 2,5 m per gazebo/tende */
 function ptInCover(px,py,cov){ var dx=px-cov.x, dy=py-cov.y, a=-((cov.rot||0)*Math.PI/180), c=Math.cos(a), s=Math.sin(a); return Math.abs(dx*c-dy*s)<=(cov.w||0)/2 && Math.abs(dx*s+dy*c)<=(cov.d||0)/2; }   /* punto nel rettangolo (ruotato) della copertura */
 function coverAtRisk(it){ return !isCover(it) && (isAudioSource(it) || wattOf(it)>0 || OUT_SET[it.type]!=null || it.type==="mixer" || it.type==="foh" || it.type==="rack" || cabIsBox(it)); }   /* attrezzatura audio/elettrica = "teme la pioggia" */
@@ -4810,13 +4810,14 @@ function sceneMarkup(){
   var musAttr = (musShown?'':' display="none"')+((anySolo()||musLayerUI.op>=100)?'':' style="opacity:'+(musLayerUI.op/100)+'"');
   var items='', zones='', bgItems='';
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
-  if(hideCovers && !(state.items||[]).some(isCover)) hideCovers=false;   /* niente coperture → azzera il toggle (evita che una nuova copertura nasca nascosta) */
+  if(!coverLayerUI.vis && !(state.items||[]).some(isCover)) coverLayerUI.vis=true;   /* niente coperture → riporta la vista a visibile (evita che una nuova copertura nasca nascosta) */
   sortedItems().forEach(function(it){
     if(it.rackId){ var _rk=_racks[it.rackId]; if(_rk){ it.x=_rk.x; it.y=_rk.y; } return; }   /* nel rack: vive col rack, i cavi partono da lì; non disegnato né cliccabile */
-    if(hideCovers && isCover(it) && !soloOn("cover")) return;   /* toggle Coperture: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
+    if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var m=itemMarkup(it);
     if(contactEligible(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
+    else if(isCover(it)) m='<g class="cover-item"'+(coverLayerUI.op>=100?'':' style="opacity:'+(coverLayerUI.op/100)+'"')+'>'+m+'</g>';   /* layer Coperture: opacità per-elemento (come Musicisti) */
     if(soloSplit && !itemInSoloLayer(it)) bgItems += m; else items += m;
   });
   if(soloSplit) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
@@ -9764,7 +9765,9 @@ function layerRegistry(){
           state.items=(state.items||[]).filter(function(x){return x.type!=="miczone";}); sel=null; selSet={}; __cabRes=null; save(); render(); }); } }
     ,{ id:"cover", name:"Coperture", color:"#8f979e",   /* coperture (gazebo/tende/copertura palco): mostra/nascondi per lavorare sotto; la lista (fisarmonica) mostra ognuna con la sua misura */
       active:(state.items||[]).some(isCover),
-      visible:!hideCovers, setVisible:function(v){ hideCovers=!v; render(); } }
+      visible:coverLayerUI.vis, setVisible:function(v){ coverLayerUI.vis=v; render(); },
+      opacity:coverLayerUI.op, setOpacity:function(v){ coverLayerUI.op=v; var o=(v/100).toString(); svg.querySelectorAll(".cover-item").forEach(function(g){ g.style.opacity=o; }); },
+      lockable:true, locked:coverLayerUI.lock, setLocked:function(v){ coverLayerUI.lock=v; document.body.classList.toggle("cover-lock",v); if(v){ sel=null; selSet={}; } render(); } }
   ];
 }
 /* Stato runtime (non persistito) dei layer "meta" Palco e Section Mic: attenuano/nascondono/bloccano
@@ -9935,8 +9938,8 @@ function renderCoverList(){
   h+=add+'<div class="cov-note">L’occhio del layer nasconde/mostra tutte (per lavorare sotto). Clic su una voce = selezionala.</div>';
   el.innerHTML=h;
 }
-document.addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest(".cov-item"); if(!b) return; var id=b.getAttribute("data-id"); var it=(state.items||[]).find(function(x){ return String(x.id)===String(id); }); if(it){ hideCovers=false; selectOne(it.id); render(); } });
-document.addEventListener("click", function(e){ var a=e.target.closest&&e.target.closest(".cov-add button[data-add]"); if(!a) return; var ty=a.getAttribute("data-add"); var it=addItem(ty,{x:(state.stage.w/2), y:(state.stage.d/2)}); if(it){ hideCovers=false; selectOne(it.id); save(); render(); } });
+document.addEventListener("click", function(e){ var b=e.target.closest&&e.target.closest(".cov-item"); if(!b) return; var id=b.getAttribute("data-id"); var it=(state.items||[]).find(function(x){ return String(x.id)===String(id); }); if(it){ coverLayerUI.vis=true; selectOne(it.id); render(); } });
+document.addEventListener("click", function(e){ var a=e.target.closest&&e.target.closest(".cov-add button[data-add]"); if(!a) return; var ty=a.getAttribute("data-add"); var it=addItem(ty,{x:(state.stage.w/2), y:(state.stage.d/2)}); if(it){ coverLayerUI.vis=true; selectOne(it.id); save(); render(); } });
 function renderMusAccList(){
   var el=document.getElementById("musAccSec"); if(!el) return;
   if(layerAccOpen!=="mus"){ el.innerHTML=""; el.style.display="none"; return; }
