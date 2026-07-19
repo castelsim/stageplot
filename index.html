@@ -629,13 +629,14 @@
   .da-inp{border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;width:120px}
   .da-role{border:1px solid var(--border);border-radius:6px;padding:3px 4px;font-size:11px}
   /* DI box: picker varianti icona */
-  .di-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-  .di-opt{border:1.5px solid var(--border);border-radius:10px;padding:7px 3px 5px;cursor:pointer;text-align:center;background:var(--surface);transition:.12s}
+  .di-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .di-opt{border:1.5px solid var(--border);border-radius:10px;padding:8px 4px 6px;cursor:pointer;text-align:center;background:var(--surface);transition:.12s}
   .di-opt:hover{border-color:var(--n-300)}
   .di-opt.sel{border-color:var(--accent);background:var(--accent-tint)}
-  .di-opt svg{display:block;margin:0 auto 3px}
-  .di-nm{font-size:9.5px;color:var(--text-2);font-weight:600;line-height:1.1}
+  .di-opt svg{display:block;margin:0 auto 4px}
+  .di-nm{font-size:9.5px;color:var(--text-2);font-weight:600;line-height:1.15}
   .di-opt.sel .di-nm{color:var(--accent-strong)}
+  .di-note{font-size:10.5px;color:var(--text-3);margin-top:9px;line-height:1.5}
   .sbp.busout{background:#4f46e5;border-color:#4f46e5;color:#fff;cursor:default}
   .cab-legend{pointer-events:none}
   .cab-legend-bg{fill:#ffffff;opacity:.82;stroke:#e5e7eb;stroke-width:1}
@@ -1957,6 +1958,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
       <label style="font-size:12px;color:var(--text-2);margin:0 0 5px;display:block">Tipo di DI <small style="color:var(--text-3);font-weight:400">— aspetto dell'icona</small></label>
       <div id="pDiGrid" class="di-grid"></div>
+      <div class="di-note">Di default <b>Passiva</b> (la più comune); <b>Stereo</b> per il DI stereo. L'icona è solo l'aspetto — non cambia canali né collegamento.</div>
     </div>
     <div id="pLabelWrap"><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
