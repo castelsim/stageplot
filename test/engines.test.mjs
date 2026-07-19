@@ -2074,5 +2074,23 @@ t("parapetto: disegno contenuto nella profondità (allineamento snap/bordo)", ()
   ok(maxY <= par.d / 2 + 0.5, "nessuna coordinata oltre ±d/2 (era ±12 su d=8): max=" + maxY);
 });
 
+t("sicurezza: 7 nuovi presidi + info sull'elemento (descrizione/portata/note)", () => {
+  const nuovi = ["estport", "uscemerg", "puntoracc", "primsocc", "idrante", "lucemerg", "segnalet"];
+  nuovi.forEach(t => {
+    ok(A.TYPES[t] && A.TYPES[t].cat === "Sicurezza e site", t + " nel catalogo Sicurezza");
+    ok(A.SAFETY_INFO[t], t + " ha i campi info");
+    ok(A.TYPES[t].draw({ w: A.TYPES[t].w, d: A.TYPES[t].d }).length > 20, t + " ha un disegno");
+  });
+  // normalize: campi safety sanificati (stringa non vuota, troncati)
+  reset();
+  const e = add("estport", 100, 100);
+  e.safeDesc = "  Estintore CO2  "; e.safeCap = "x".repeat(80); e.safeNote = "";
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  const n = A.state.items.find(i => i.id === e.id);
+  eq(n.safeDesc, "Estintore CO2".slice(0, 120), "descrizione conservata");
+  ok(n.safeCap.length === 80 || n.safeCap.length <= 120, "portata troncata");
+  eq(n.safeNote, undefined, "nota vuota rimossa");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

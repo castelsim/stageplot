@@ -2142,6 +2142,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <label id="pUsoLbl" for="pUsoSel" style="font-size:11px;color:var(--text-2,#6b7280);display:block;margin-bottom:3px">Utilizzo</label>
       <select id="pUsoSel" style="width:100%;font-size:12px"></select>
     </div>
+    <div id="pSafetyWrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+      <label style="font-size:11px;color:#b45309;font-weight:600;display:block;margin-bottom:6px">🛟 Info sicurezza <small style="color:var(--text-3);font-weight:400">— per il piano di sicurezza</small></label>
+      <input id="pSafeDesc" type="text" placeholder="Descrizione (es. estintore CO₂)" style="width:100%;font-size:12px;margin-bottom:6px">
+      <input id="pSafeCap" type="text" placeholder="Capacità / portata (es. 6 kg · 500 pax)" style="width:100%;font-size:12px;margin-bottom:6px">
+      <input id="pSafeNote" type="text" placeholder="Note (verifica, scadenza, posizione…)" style="width:100%;font-size:12px">
+    </div>
     <!-- EQUIPMENT INTELLIGENCE: modello reale opzionale — tendina per-categoria, solo dove ha senso
          (feedback 17/07: l'utente va accompagnato; niente testo libero, niente campo su musicisti) -->
     <div id="pModelWrap" style="display:none;margin-top:12px">

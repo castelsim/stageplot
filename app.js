@@ -515,6 +515,33 @@ var TYPES = {
              draw:function(it){ return drawLibFit("tornello",it,50,50); }},
   estcarr: {nome:"Estintore carrellato", dim:"40×70", cat:"Sicurezza e site", w:40,d:70,
              draw:function(it){ return drawLibFit("estcarr",it,40,70); }},
+  /* ── Presidi di sicurezza (18/07, richiesta Simone): icone inline, con info sull'elemento ── */
+  estport: {nome:"Estintore portatile", dim:"punto", cat:"Sicurezza e site", w:24,d:26, defLabel:"EST",
+             draw:function(){ return '<rect x="-8" y="-12" width="16" height="24" rx="6" fill="#dc2626" stroke="#7f1d1d" stroke-width="1.5"/>'
+               +'<rect x="-4" y="-15" width="8" height="4" rx="1.5" fill="#7f1d1d"/>'
+               +'<rect x="-6" y="-1" width="12" height="7" rx="1" fill="#fff"/>'; }},
+  uscemerg: {nome:"Uscita di emergenza", dim:"segnale", cat:"Sicurezza e site", w:40,d:40, defLabel:"USCITA",
+             draw:function(){ return '<rect x="-18" y="-18" width="36" height="36" rx="3" fill="#16a34a"/>'
+               +'<rect x="-14" y="-11" width="9" height="22" rx="1" fill="none" stroke="#fff" stroke-width="2"/>'
+               +'<path d="M 0,-9 L 9,0 L 0,9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>'
+               +'<line x1="-4" y1="0" x2="9" y2="0" stroke="#fff" stroke-width="2.6"/>'; }},
+  puntoracc:{nome:"Punto di raccolta", dim:"segnale", cat:"Sicurezza e site", w:44,d:44, defLabel:"RACCOLTA",
+             draw:function(){ var s='<rect x="-20" y="-20" width="40" height="40" rx="3" fill="#16a34a"/>';
+               [[0,-13,0,-5],[0,13,0,5],[-13,0,-5,0],[13,0,5,0]].forEach(function(a){ s+='<path d="M '+a[0]+','+a[1]+' L '+a[2]+','+a[3]+'" stroke="#fff" stroke-width="2.4" marker="1"/><path d="M '+a[2]+','+a[3]+' l '+((a[0]-a[2])*0.4-(a[1]-a[3])*0.4)+','+((a[1]-a[3])*0.4+(a[0]-a[2])*0.4)+'" stroke="#fff" stroke-width="2.4"/>'; });
+               return s+'<circle cx="0" cy="0" r="3" fill="#fff"/>'; }},
+  primsocc: {nome:"Pronto soccorso", dim:"cassetta", cat:"Sicurezza e site", w:32,d:26, defLabel:"PS",
+             draw:function(){ return '<rect x="-15" y="-12" width="30" height="24" rx="3" fill="#16a34a" stroke="#14532d" stroke-width="1.5"/>'
+               +'<path d="M 0,-7 L 0,7 M -7,0 L 7,0" stroke="#fff" stroke-width="4" stroke-linecap="round"/>'; }},
+  idrante:  {nome:"Idrante / manichetta", dim:"cassetta", cat:"Sicurezza e site", w:34,d:34, defLabel:"IDR",
+             draw:function(){ return '<rect x="-15" y="-15" width="30" height="30" rx="3" fill="#dc2626" stroke="#7f1d1d" stroke-width="1.5"/>'
+               +'<circle cx="0" cy="0" r="8.5" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="0" cy="0" r="2.6" fill="#fff"/>'; }},
+  lucemerg: {nome:"Luce di emergenza", dim:"faretto", cat:"Sicurezza e site", w:34,d:16, defLabel:"LUCE EM",
+             draw:function(){ return '<rect x="-15" y="-6" width="30" height="12" rx="2" fill="#292620"/>'
+               +'<circle cx="-7" cy="0" r="4" fill="#fde047"/><circle cx="7" cy="0" r="4" fill="#fde047"/>'; }},
+  segnalet: {nome:"Segnaletica sicurezza", dim:"cartello", cat:"Sicurezza e site", w:22,d:32, defLabel:"SEGN",
+             draw:function(){ return '<rect x="-1.5" y="-1" width="3" height="16" fill="#746e60"/>'
+               +'<rect x="-10" y="-15" width="20" height="15" rx="2" fill="#16a34a" stroke="#14532d" stroke-width="1.2"/>'
+               +'<path d="M -4,-11 L 4,-7.5 L -4,-4 Z" fill="#fff"/>'; }},
   foodtruck: {nome:"Food truck", dim:"290×500", cat:"Sicurezza e site", w:290,d:500,
              draw:function(it){ return drawLibFit("foodtruck",it,290,500); }},
   gazebo33: {nome:"Gazebo", dim:"telaio · taglia regolabile", cat:"Sicurezza e site", w:300,d:300, resizable:true, defLabel:"Gazebo",
@@ -2379,6 +2406,7 @@ function normalizeState(s){
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
     if(it.type==="dimono"||it.type==="distereo"){ if(it.diLook && !DI_LOOK_LABEL[it.diLook]) delete it.diLook; }
+    ["safeDesc","safeCap","safeNote"].forEach(function(k){ if(it[k]!=null){ if(typeof it[k]!=="string"||!it[k].trim()) delete it[k]; else it[k]=it[k].trim().slice(0,120); } });
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
     if(it.type==="mixhub"){ if(it.pmFeed!=null && it.pmFeed!=="dante" && it.pmFeed!=="console") delete it.pmFeed;
       if(it.pmFeedCh!=null && !(it.pmFeedCh>=1&&it.pmFeedCh<=64)) delete it.pmFeedCh; }
@@ -5578,6 +5606,7 @@ function renderProps(){
     } else br.style.display="none"; })();
   if(typeof renderModelField==="function") renderModelField(it);   /* EQUIPMENT INTELLIGENCE: campo Modello reale */
   if(typeof renderUsoField==="function") renderUsoField(it);       /* PRODUZIONE: utilizzo elemento regia */
+  if(typeof renderSafetyInfo==="function") renderSafetyInfo(it);   /* Presidi sicurezza: info sull'elemento */
 }
 function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
@@ -5979,6 +6008,20 @@ function renderModelField(it){
 }
 /* PRODUZIONE (fase 3): tendina "Utilizzo" per gli elementi regia (ITEM_USO). "— non specificato —" =
    nessuna assunzione; il valore vive sull'item (it.uso) e alimenta regole/rider in fase 4. */
+/* Presidi di sicurezza: campi info sull'elemento (descrizione/portata/note) per il piano di sicurezza.
+   Testo descrittivo (nessun dato personale) → vive nel blob come le altre proprietà. */
+var SAFETY_INFO={ mojobar:1,njersey:1,ostacolo:1,metaldet:1,tornello:1,estcarr:1,parapetto:1,transenna:1,ambulanza:1,pma:1,
+  estport:1,uscemerg:1,puntoracc:1,primsocc:1,idrante:1,lucemerg:1,segnalet:1 };
+function renderSafetyInfo(it){
+  var w=document.getElementById("pSafetyWrap"); if(!w) return;
+  if(!it || !SAFETY_INFO[it.type]){ w.style.display="none"; return; }
+  w.style.display="block";
+  var dd=document.getElementById("pSafeDesc"), cc=document.getElementById("pSafeCap"), nn=document.getElementById("pSafeNote");
+  dd.value=it.safeDesc||""; cc.value=it.safeCap||""; nn.value=it.safeNote||"";
+  dd.oninput=function(){ mutSel(function(x){ var v=dd.value.slice(0,80); if(v) x.safeDesc=v; else delete x.safeDesc; }); saveSoon(); };
+  cc.oninput=function(){ mutSel(function(x){ var v=cc.value.slice(0,60); if(v) x.safeCap=v; else delete x.safeCap; }); saveSoon(); };
+  nn.oninput=function(){ mutSel(function(x){ var v=nn.value.slice(0,120); if(v) x.safeNote=v; else delete x.safeNote; }); saveSoon(); };
+}
 function renderUsoField(it){
   var wrap=document.getElementById("pUsoWrap"); if(!wrap) return;
   var cfg=(it && ITEM_USO[it.type])||null;
