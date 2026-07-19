@@ -272,6 +272,18 @@ t("Direttore: microfono talkback → sorgente audio collegabile alla stage box",
   d.micType = "collodoca";
   ok(/collo/i.test(A.cabItemInputs(d)[0].mic), "collo d'oca se scelto");
 });
+t("Layer Musicisti: persone + strumenti suonati dentro, backline/arredo fuori", () => {
+  ok(A.musLayerItem("gtstand") && A.musLayerItem("bassstand") && A.musLayerItem("batteristaR"), "chitarra/basso/batterista dentro");
+  ok(A.musLayerItem("marimba") && A.musLayerItem("timpani") && A.musLayerItem("arpa") && A.musLayerItem("grancoda"), "mallet/timpani/arpa/piano dentro");
+  ok(!A.musLayerItem("comboamp") && !A.musLayerItem("bassamp") && !A.musLayerItem("pedaliera") && !A.musLayerItem("panchetta"), "ampli/pedaliera/panchetta FUORI");
+  ok(A.musLayerItem("vlnpost") && A.musLayerItem("direttore"), "compatibile con quelli già dentro");
+  ok(!A.contactEligible("marimba") && A.contactEligible("vlnpost"), "il Contatto (stretto) resta 'persone', niente strumenti nudi");
+});
+t("Lucetta leggio: dove è ammessa + glyph lampada", () => {
+  ok(A.canHaveLucetta({ type: "leggio" }) && A.canHaveLucetta({ type: "sedialeggio" }) && A.canHaveLucetta({ type: "vlnpost" }) && A.canHaveLucetta({ type: "direttore" }), "leggii standalone + postazioni + direttore");
+  ok(!A.canHaveLucetta({ type: "djset" }) && !A.canHaveLucetta({ type: "gazebo33" }), "chi non ha leggio → niente lucetta");
+  ok(A.leggioLamp(0).indexOf("#f4c430") > -1, "la lampada ha la testa illuminata (ambra)");
+});
 t("Parapetto pedana: spessore 8 cm di default, si estende in lunghezza", () => {
   eq(A.TYPES.parapetto.d, 8, "spessore di default 8 cm");
   ok(A.TYPES.parapetto.resizable, "resizable (in lunghezza)");

@@ -534,6 +534,7 @@
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
+    <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
     <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
     <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
@@ -1554,12 +1555,20 @@ function postaz(glyph){
   return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+(glyph||'');
 }
 /* glifo leggio (vista dall'alto) per l'elemento "leggio" e per "Sedia + leggio" */
+var _lucettaOn=false;   /* impostato da itemMarkup prima del draw: aggiunge la lucetta al leggio (standalone o accessorio) senza passare it a ogni chiamata */
+function leggioLamp(y){
+  y=y||2;
+  /* lucetta da leggio (tipo Littlelite): braccetto dal bordo alto della mensola + testa illuminata (ambra) */
+  return lin(0,y-8,0,y-17,'ic thin')+bar(0,y-19,16,5,'ic fBlack',2)+'<circle cx="0" cy="'+(y-19)+'" r="2.3" fill="#f4c430"/>';
+}
 function leggioGlyph(y){
   y=y||2;
   /* tripode a 3 gambe (base ~32 cm) + colonna + mensola 50×16 (Manhasset Symphony) */
-  return lin(0,y-8,-16,y+13,'ic thin')+lin(0,y-8,0,y+14,'ic thin')+lin(0,y-8,16,y+13,'ic thin')+
+  var s=lin(0,y-8,-16,y+13,'ic thin')+lin(0,y-8,0,y+14,'ic thin')+lin(0,y-8,16,y+13,'ic thin')+
     circ(0,y-8,2.6,'ic fill')+
     bar(0,y,50,16,'ic fBlack',2);
+  if(_lucettaOn) s+=leggioLamp(y);
+  return s;
 }
 /* Sagoma cantante (vista dall'alto): spalle + testa, rivolto al pubblico (+y).
    Opzioni: it.mano = microfono in mano (altrimenti su asta davanti); it.leggio = leggio davanti. */
@@ -2093,7 +2102,7 @@ var TYPES = {
   flightcase: {nome:"Flight case", dim:"120×60", cat:"Dispositivi", w:120,d:60,
              draw:function(it){ return drawLibFit("flightcase",it,120,60); }},
   leggiotablet: {nome:"Leggio tablet", dim:"30×42", cat:"Palco e strutture", w:30,d:42,
-             draw:function(it){ return drawLibFit("leggiotablet",it,30,42); }},
+             draw:function(it){ return drawLibFit("leggiotablet",it,30,42)+(_lucettaOn?leggioLamp(-13):''); }},
 
   /* --- pedane / strutture --- */
   pedana:   {nome:"Pedana", dim:"2×1 m", cat:"Palco e strutture", w:200,d:100,h:40, resizable:true, z:0, riser:true,
@@ -2885,6 +2894,17 @@ function rackUsedU(rackId){
 function contactEligible(type){
   return !!(POSTAZ[type] || DOUBLE_TYPES[type] || VOCE[type] || TASTIERE[type] || type==="direttore" || type==="batteria");
 }
+var MUS_EQUIP = {comboamp:1, stack:1, bassamp:1, keysamp:1, pedaliera:1, panchetta:1, drumshield:1, tavolopercussioni:1};   /* backline/arredo: sul palco ma NON musicisti (fuori dal layer) */
+/* layer Musicisti (largo): tutti i musicisti + gli strumenti suonati (Orchestra/Band/Batteria),
+   escluso il backline e l'arredo. contactEligible (stretto = persone) resta per il Contatto. */
+function musLayerItem(type){
+  if(contactEligible(type)) return true;
+  if(MUS_EQUIP[type]) return false;
+  var t=TYPES[type];
+  return !!(t && (t.cat==="Orchestra" || t.cat==="Band e backline" || t.cat==="Batteria e percussioni"));
+}
+var LUCETTA_STANDALONE = {leggio:1, sedialeggio:1, leggiotablet:1};   /* leggii "veri e propri" */
+function canHaveLucetta(it){ var t=TYPES[it.type]||{}; return !!(LUCETTA_STANDALONE[it.type] || POSTAZ[it.type] || VOCE[it.type] || TASTIERE[it.type] || it.type==="direttore" || t.gtr); }   /* leggio standalone o accessorio (musicisti con leggio) */
 /* Suggerimenti per ruolo (Simone 17/07): sul violino propongo SOLO i violini della rubrica.
    Normalizza il ruolo togliendo parole generiche e numeri (I/II/1/2) → confronto per contenimento. */
 function icRoleKey(str){
@@ -4032,7 +4052,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
     /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
@@ -4364,6 +4384,7 @@ function riserDimSide(it){
 }
 function itemMarkup(it){
   var t = TYPES[it.type]; if(!t) return '';
+  _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
   var hw = Math.max(it.w,70)/2 + 8, hd = Math.max(it.d,30)/2 + 8;   /* area di click generosa */
   var bw = it.w/2 + 6, bh = it.d/2 + 6;                             /* riquadro selezione aderente all'ingombro reale */
   var isOut = isOutsideStage(it);
@@ -6268,7 +6289,7 @@ function sceneMarkup(){
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var m=itemMarkup(it);
-    if(contactEligible(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
+    if(musLayerItem(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
     else if(isCover(it)) m='<g class="cover-item"'+(coverLayerUI.op>=100?'':' style="opacity:'+(coverLayerUI.op/100)+'"')+'>'+m+'</g>';   /* layer Coperture: opacità per-elemento (come Musicisti) */
     if(soloSplit && !itemInSoloLayer(it)) bgItems += m; else items += m;
   });
@@ -6959,6 +6980,8 @@ function renderProps(){
     document.getElementById("pGtrAmp").checked = it.ampli===true;
     document.getElementById("pGtrPedal").checked = it.pedaliera===true;
   }
+  document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
+  document.getElementById("pLucetta").checked = it.lucetta===true;
   var pdir=document.getElementById("pDir"), isDir=!!t.dir;
   pdir.style.display = isDir ? "block" : "none";
   if(isDir){
@@ -7228,6 +7251,7 @@ document.getElementById("pRf").addEventListener("input", function(){ var v=docum
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
 document.getElementById("pMir").addEventListener("change", function(){ var v=this.checked; mutSelSoon(function(it){ if(v) it.mir=true; else delete it.mir; }); });   /* Specchia l'arte dell'icona */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
+document.getElementById("pLucetta").addEventListener("change", function(){ var v=document.getElementById("pLucetta").checked; mutSel(function(it){ it.lucetta=v; }); });   /* lucetta leggio (solo visiva) */
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
@@ -7418,7 +7442,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLucettaWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
@@ -11153,7 +11177,7 @@ function layerRegistry(){
   if(!state.cab || !state.elec || !state.mond) return [];   /* stato non ancora normalizzato (es. addItem prima del load completo): niente layer, evita il crash su state.cab.on */
   return [
     /* Musicisti (17/07): meta-layer sulle persone (stesso set del bottone Contatto). Subito dopo Palco. */
-    { id:"mus", name:"Musicisti", color:"#16a34a", active:(state.items||[]).some(function(x){ return contactEligible(x.type); }),
+    { id:"mus", name:"Musicisti", color:"#16a34a", active:(state.items||[]).some(function(x){ return musLayerItem(x.type); }),
       visible:musLayerUI.vis, setVisible:function(v){ musLayerUI.vis=v; render(); },
       opacity:musLayerUI.op, setOpacity:function(v){ musLayerUI.op=v; var o=(v/100).toString(); svg.querySelectorAll(".mus-item").forEach(function(g){ g.style.opacity=o; }); },
       lockable:true, locked:musLayerUI.lock, setLocked:function(v){ musLayerUI.lock=v; document.body.classList.toggle("mus-lock",v); if(v){ sel=null; selSet={}; } render(); } },
@@ -11259,7 +11283,7 @@ function layerFgItem(id, it){
     case "cabout": return !!(OUT_SET[it.type]!=null || cabIsBox(it) || it.type==="mixer" || it.type==="foh");
     case "mond":   return !!MON_DIG_NODE[it.type];
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
-    case "mus":    return contactEligible(it.type);   /* layer Musicisti: le persone */
+    case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
   }
   return false;
@@ -11276,7 +11300,7 @@ function pruneSolo(){
               rf:(state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
               mond:!!(state.mond&&state.mond.on), elec:!!(state.elec&&state.elec.on),
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
-              mus:(state.items||[]).some(function(x){return contactEligible(x.type);}),
+              mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
               venue:!!(state.venue&&state.venue._dataUrl), stage:true };
   Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
 }
@@ -11397,7 +11421,7 @@ function renderMusAccList(){
   if(layerAccOpen!=="mus"){ el.innerHTML=""; el.style.display="none"; return; }
   el.style.display="block";
   el.innerHTML="";
-  var ppl=(state.items||[]).filter(function(x){ return contactEligible(x.type); });
+  var ppl=(state.items||[]).filter(function(x){ return musLayerItem(x.type); });
   if(!ppl.length){ el.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun musicista sul palco.</div>'; return; }
   ppl.forEach(function(x){
     var row=document.createElement("div"); row.className="insp-row"; row.style.cursor="pointer";
