@@ -67,16 +67,17 @@ function diFootprint(look, type){ if(DI_FOOTPRINT[look]) return DI_FOOTPRINT[loo
    divisore tratteggiato con L/R, orecchie rack). Disegnate nello spazio 64×48 del mockup e
    ri-centrate/scalate a origine. Classi StagePlot: .ic=box bianco bordo scuro, .ic soft thin=
    grigio chiaro (in/thru), .tec fill=accento tecnico (XLR/canali). */
+/* BB[look] = [cx,cy, larghezza,altezza] del contenuto icona nello spazio 64×48 del mockup.
+   Sul palco: scala per riempire il footprint. Nel selettore: si passa w/d = bw/bh → scala COSTANTE
+   (tratto uniforme come nel mockup, niente icone "chunky" da upscaling dei footprint piccoli). */
+var DI_BB={ passiva:[32.4,24,44,29], attiva:[32.4,24,44,29], stereo:[32,24,55,31], rack:[32,24,57,21] };
 function diDraw(it){
   var look=diLookOf(it), w=it.w, d=it.d;
   if(look==="schema"){
     if(it.type==="distereo") return '<path class="tec" fill="#fff" d="M -11,-12 L 1,10 L -23,10 Z"/><path class="tec" fill="#fff" d="M 11,-12 L 23,10 L -1,10 Z"/>';
     return '<path class="tec" fill="#fff" d="M 0,-11 L 11,10 L -11,10 Z"/>';
   }
-  /* geometria del mockup (spazio 64×48) scalata per RIEMPIRE il footprint reale, centrata.
-     BB[look] = [cx,cy, larghezza,altezza] del contenuto nel mockup → scala = min(w/bw, d/bh). */
-  var BB={ passiva:[32.4,24,44,29], attiva:[32.4,24,44,29], stereo:[32,24,55,31], rack:[32,24,57,21] };
-  var bb=BB[look]||BB.passiva, S=Math.min(w/bb[2], d/bb[3])*0.96;
+  var bb=DI_BB[look]||DI_BB.passiva, S=Math.min(w/bb[2], d/bb[3])*0.96;
   function wrap(mk){ return '<g transform="scale('+S.toFixed(3)+') translate('+(-bb[0])+','+(-bb[1])+')">'+mk+'</g>'; }
   if(look==="rack") return wrap(
     '<rect class="ic" x="4" y="14" width="56" height="20" rx="2"/>'
@@ -5595,10 +5596,9 @@ function renderProps(){
     var host=document.getElementById("pDiGrid"); host.innerHTML="";
     var cur=diLookOf(it);
     DI_LOOKS.forEach(function(look){
-      var fp=diFootprint(look, it.type), demo=Object.assign({}, it, {diLook:look, w:fp[0], d:fp[1]});
+      var bb=DI_BB[look], demo=Object.assign({}, it, {diLook:look, w:(bb?bb[2]:50), d:(bb?bb[3]:30)});   /* scala COSTANTE (bw/bh) → tratto uniforme come nel mockup */
       var cell=document.createElement("div"); cell.className="di-opt"+(look===cur?" sel":"");
-      var sc=Math.min(46/fp[0], 34/fp[1]);
-      cell.innerHTML='<svg width="52" height="38" viewBox="'+(-fp[0]/2-2)+' '+(-fp[1]/2-2)+' '+(fp[0]+4)+' '+(fp[1]+4)+'">'+diDraw(demo)+'</svg>'
+      cell.innerHTML='<svg width="58" height="40" viewBox="-32 -22 64 44">'+diDraw(demo)+'</svg>'
         +'<div class="di-nm">'+esc(DI_LOOK_LABEL[look])+'</div>';
       cell.addEventListener("click", function(){
         it.diLook=look; var f2=diFootprint(look, it.type); it.w=f2[0]; it.d=f2[1];
