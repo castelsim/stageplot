@@ -1288,7 +1288,7 @@ t("Input List dal modello: mic reale + phantom di targa sul canale derivato", ()
 });
 
 t("equipCatsFor: campo modello solo sugli elementi tecnici pertinenti (mai musicisti/arredo)", () => {
-  eq(JSON.stringify(A.equipCatsFor({ type: "astamic" })), JSON.stringify(["microfono", "di"]), "asta mic → microfoni/DI");
+  eq(JSON.stringify(A.equipCatsFor({ type: "astamic" })), JSON.stringify(["microfono"]), "asta mic → solo microfono");
   eq(JSON.stringify(A.equipCatsFor({ type: "hearback" })), JSON.stringify(["personal_mixer", "hub"]), "personal mixer → PM/hub");
   eq(JSON.stringify(A.equipCatsFor({ type: "q338" })), JSON.stringify(["console"]), "console → console");
   eq(JSON.stringify(A.equipCatsFor({ type: "arraylarge" })), JSON.stringify(["line_array", "subwoofer", "amps"]), "PA → array/sub/amps");
@@ -1297,7 +1297,7 @@ t("equipCatsFor: campo modello solo sugli elementi tecnici pertinenti (mai music
   eq(A.equipCatsFor({ type: "direttore" }) || A.equipCatsFor({ type: "conductor" }) || null, null, "direttore → nessun campo");
   eq(A.equipCatsFor({ type: "sedia" }), null, "sedia → nessun campo");
   eq(A.equipCatsFor(null), null);
-  eq(A.equipFieldLabel(["microfono", "di"]), "Microfono / DI reale");
+  eq(A.equipFieldLabel(["microfono"]), "Microfono reale");
 });
 
 t("production: normalizeState crea i 6 sistemi, scarta risposte fuori enum, tronca le note", () => {
@@ -1998,6 +1998,15 @@ t("Hub produzione: reparti tecnici derivati dal palco + extra a mano", () => {
   ok(A.state.production.depts[1].name.length === 40, "nome troncato a 40");
   ok(A.state.production.depts.every(x => x.id), "id garantito");
   A.state.production.depts = [];
+});
+
+t("equip: un DI mostra solo modelli DI, un mic solo microfoni", () => {
+  eq(JSON.stringify(A.equipCatsFor({ type: "distereo" })), JSON.stringify(["di"]), "DI stereo → solo di");
+  eq(JSON.stringify(A.equipCatsFor({ type: "dimono" })), JSON.stringify(["di"]), "DI mono → solo di");
+  eq(JSON.stringify(A.equipCatsFor({ type: "astamic" })), JSON.stringify(["microfono"]), "asta mic → solo microfono");
+  eq(JSON.stringify(A.equipCatsFor({ type: "giraffa" })), JSON.stringify(["microfono"]), "giraffa → solo microfono");
+  eq(A.equipFieldLabel(["di"]), "Modello DI", "label DI");
+  eq(A.equipFieldLabel(["microfono"]), "Microfono reale", "label microfono");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
