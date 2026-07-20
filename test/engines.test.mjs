@@ -379,51 +379,34 @@ t("itemChannels coerente: batteria 8, corista 1, zona 1", () => {
 });
 
 console.log("\nLayer Manager (nomi/gruppi):");
-t("nomi layer (Input / Monitor / P.M. / Power; Rete audio invariato)", () => {
+t("Cablaggio audio: layer UNICO (Simone 20/07 — unisce Input/Monitor/Rete/RF/P.M.)", () => {
+  reset(); A.state.cab.on = true;
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  eq(by.cabin.name, "Input"); eq(by.cabout.name, "Monitor"); eq(by.net.name, "Rete audio");
-  eq(by.mond.name, "P.M."); eq(by.elec.name, "Power");
+  ok(by.cabaudio && by.cabaudio.name === "Cablaggio audio", "un solo layer 'Cablaggio audio'");
+  ok(!by.cabin && !by.cabout && !by.net && !by.rf && !by.mond, "niente più Input/Monitor/Rete/RF/P.M. separati");
+  ok(by.cabaudio.lockable && by.cabaudio.removable, "ha lucchetto + cestino");
 });
-t("lucchetto+cestino su Input/Monitor/P.M./Power/Planimetria; Rete solo visibilità", () => {
-  const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  ["cabin", "cabout", "mond", "elec", "venue"].forEach((k) => {
-    ok(by[k] && by[k].lockable, k + " lockable"); ok(by[k] && by[k].removable, k + " removable");
-  });
-  ok(!by.net.lockable, "Rete audio: niente lucchetto (auto-derivata)"); ok(!by.net.removable, "Rete audio: niente cestino");
-});
-t("Input e Monitor: lock indipendenti (state.cab.lockIn / lockOut)", () => {
-  reset();
-  let by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  by.cabin.setLocked(true);
-  ok(A.state.cab.lockIn === true, "lockIn settato dall'Input");
-  ok(!A.state.cab.lockOut, "il Monitor (lockOut) NON è toccato");
-  by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  ok(by.cabin.locked === true && by.cabout.locked === false, "Input bloccato, Monitor libero");
-});
-t("cestino Input azzera solo input; cestino Monitor solo i ritorni (ret:)", () => {
-  reset();
-  A.state.cab.manual = { "grp:x": { box: "b1" }, "id7#0": { box: "b2" }, "ret:m1:s1": { pts: [[0, 0]] } };
-  let by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  by.cabin.remove();
-  eq(Object.keys(A.state.cab.manual), ["ret:m1:s1"], "cestino Input: restano solo i ret:");
+t("Cablaggio audio: occhio/lucchetto/cestino aggregano tutta la catena", () => {
+  reset(); A.state.cab.on = true;
+  A.layerRegistry().find((x) => x.id === "cabaudio").setVisible(false);
+  ok(A.state.cab.showInputs === false && A.state.cab.showReturns === false && A.state.rfShow === false, "occhio nasconde ingressi+ritorni+RF insieme");
+  A.layerRegistry().find((x) => x.id === "cabaudio").setLocked(true);
+  ok(A.state.cab.lockIn === true && A.state.cab.lockOut === true, "lucchetto blocca ingressi+ritorni insieme");
   A.state.cab.manual = { "grp:x": { box: "b1" }, "ret:m1:s1": { pts: [[0, 0]] } };
-  by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  by.cabout.remove();
-  eq(Object.keys(A.state.cab.manual), ["grp:x"], "cestino Monitor: restano solo gli input");
+  A.layerRegistry().find((x) => x.id === "cabaudio").remove();
+  eq(Object.keys(A.state.cab.manual).length, 0, "cestino azzera TUTTO il cablaggio audio (in+out+P.M.)");
 });
 t("migrate v1→v2: cab.locked unico → lockIn + lockOut", () => {
   const s = A.migrate({ _v: 1, cab: { locked: true, on: true } });
   ok(s.cab.lockIn === true && s.cab.lockOut === true, "locked propagato ai due rami");
   ok(!("locked" in s.cab), "vecchio cab.locked rimosso");
 });
-t("gruppo Audio sui 4 layer di segnale; elec/venue singoli", () => {
-  const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  eq(by.cabin.group, "Audio"); eq(by.cabout.group, "Audio"); eq(by.net.group, "Audio"); eq(by.mond.group, "Audio");
-  ok(!by.elec.group, "elec senza gruppo"); ok(!by.venue.group, "venue senza gruppo");
-});
-t("ordine: gruppo Audio prima di Elettrico e Planimetria", () => {
+t("layer: ordine Cablaggio audio → Power → Planimetria", () => {
+  reset(); A.state.cab.on = true;
   const ids = A.layerRegistry().map((L) => L.id);
-  ok(ids.indexOf("mond") < ids.indexOf("elec"), "mond < elec"); ok(ids.indexOf("elec") < ids.indexOf("venue"), "elec < venue");
+  ok(ids.indexOf("cabaudio") > -1 && !ids.includes("mond"), "c'è cabaudio, non più mond/cabin/cabout");
+  ok(ids.indexOf("cabaudio") < ids.indexOf("elec"), "cabaudio < elec");
+  ok(ids.indexOf("elec") < ids.indexOf("venue"), "elec < venue");
 });
 
 console.log("\nCatalogo — strumenti sempre visibili (niente 'Mostra tutti'):");
