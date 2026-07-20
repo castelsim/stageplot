@@ -275,7 +275,8 @@ t("Direttore: microfono talkback → sorgente audio collegabile alla stage box",
 t("Layer Musicisti: persone + strumenti suonati dentro, backline/arredo fuori", () => {
   ok(A.musLayerItem("gtstand") && A.musLayerItem("bassstand") && A.musLayerItem("batteristaR"), "chitarra/basso/batterista dentro");
   ok(A.musLayerItem("marimba") && A.musLayerItem("timpani") && A.musLayerItem("arpa") && A.musLayerItem("grancoda"), "mallet/timpani/arpa/piano dentro");
-  ok(!A.musLayerItem("comboamp") && !A.musLayerItem("bassamp") && !A.musLayerItem("pedaliera") && !A.musLayerItem("panchetta"), "ampli/pedaliera/panchetta FUORI");
+  ok(!A.musLayerItem("comboamp") && !A.musLayerItem("bassamp") && !A.musLayerItem("panchetta"), "ampli/panchetta (backline/arredo) FUORI");
+  ok(A.musLayerItem("pedaliera"), "la pedaliera È strumento del musicista → DENTRO");
   ok(A.musLayerItem("vlnpost") && A.musLayerItem("direttore"), "compatibile con quelli già dentro");
   ok(!A.contactEligible("marimba") && A.contactEligible("vlnpost"), "il Contatto (stretto) resta 'persone', niente strumenti nudi");
 });
