@@ -2915,7 +2915,7 @@ function rackUsedU(rackId){
 function contactEligible(type){
   return !!(POSTAZ[type] || DOUBLE_TYPES[type] || VOCE[type] || TASTIERE[type] || type==="direttore" || type==="batteria");
 }
-var MUS_EQUIP = {comboamp:1, stack:1, bassamp:1, keysamp:1, pedaliera:1, panchetta:1, drumshield:1, tavolopercussioni:1};   /* backline/arredo: sul palco ma NON musicisti (fuori dal layer) */
+var MUS_EQUIP = {comboamp:1, stack:1, bassamp:1, keysamp:1, panchetta:1, drumshield:1, tavolopercussioni:1};   /* backline/arredo: sul palco ma NON musicisti (ampli fuori). La pedaliera invece È strumento del musicista → dentro (Simone 20/07) */
 /* layer Musicisti (largo): tutti i musicisti + gli strumenti suonati (Orchestra/Band/Batteria),
    escluso il backline e l'arredo. contactEligible (stretto = persone) resta per il Contatto. */
 function musLayerItem(type){
