@@ -737,6 +737,24 @@
   .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
   body.dark .layer-ico:hover{background:#222b38}
+  /* Layer "lavora qui" (20/07): riga cliccabile = fuoco; occhio a destra; avanzati sotto quando a fuoco */
+  .layer-clickable{cursor:pointer;border-radius:7px}
+  .layer-clickable:hover{background:var(--n-100)}
+  body.dark .layer-clickable:hover{background:#222b38}
+  .layer-row.focus{background:var(--accent-tint)}
+  .layer-row.focus:hover{background:var(--accent-tint)}
+  .layer-row.focus .layer-name{color:var(--accent-strong)}
+  .layer-chev{width:11px;flex:0 0 auto;font-size:9px;color:var(--text-3);text-align:center;transition:transform var(--dur-fast) var(--ease)}
+  .layer-row.focus .layer-chev{transform:rotate(90deg);color:var(--accent)}
+  .layer-eye{margin-left:auto}
+  .layer-adv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:3px 0 9px 2px}
+  .adv-op{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2)}
+  .adv-op input[type=range]{width:78px;margin:0}
+  .adv-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11px;font-weight:600;padding:4px 9px;border-radius:7px;cursor:pointer}
+  .adv-btn svg{width:14px;height:14px}
+  .adv-btn:hover{border-color:var(--accent)}
+  .adv-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .adv-reset:hover{border-color:var(--danger,#dc2626);color:var(--danger,#dc2626)}
   .cab-sechead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
   .cab-sechead .caret{font-size:11px;color:var(--text-3);width:10px;flex:0 0 auto}
   .cab-sectitle{flex:1 1 auto;font-size:12.5px;color:var(--text)}
