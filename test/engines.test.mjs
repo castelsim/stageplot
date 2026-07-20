@@ -2062,23 +2062,24 @@ t("equip: un DI mostra solo modelli DI, un mic solo microfoni", () => {
   eq(A.equipFieldLabel(["microfono"]), "Microfono reale", "label microfono");
 });
 
-t("DI box: varianti icona + footprint + default per tipo", () => {
+t("DI box unico: canali (mono/stereo/multi) + tipo (passiva/attiva) + icona", () => {
   reset();
   const m = add("dimono", 100, 100);
-  eq(A.diLookOf(m), "passiva", "DI mono default passiva");
+  eq(A.diCh(m), "mono", "default mono");
+  eq(A.diChannels(m), 1, "mono = 1 canale");
+  eq(A.cabItemInputs(m).length, 1, "mono = 1 ingresso");
+  m.diCh = "stereo";
+  eq(A.cabItemInputs(m).length, 2, "stereo = 2 ingressi L/R");
+  m.diCh = "multi"; m.diMultiCh = 8;
+  eq(A.cabItemInputs(m).length, 8, "multi = 8 ingressi");
+  m.diCh = "mono"; m.diType = "attiva";
+  ok(/attiva/i.test(A.cabItemInputs(m)[0].mic), "attiva → mic 'DI attiva' (phantom)");
+  eq(JSON.stringify(A.diFootprint({ type: "dimono", diCh: "stereo" })), JSON.stringify([48, 28]), "footprint stereo");
+  ok(A.diDraw({ type: "dimono", diCh: "mono", diType: "passiva", w: 30, d: 26 }).indexOf("tec fill") > -1, "passiva ha XLR out");
+  ok(A.diDraw({ type: "dimono", diCh: "mono", diType: "attiva", w: 30, d: 26 }).indexOf("#16a34a") > -1, "attiva ha LED verde");
+  ok(A.diDraw({ type: "dimono", diCh: "stereo", diSchema: true, w: 48, d: 28 }).match(/path/g).length === 2, "schematico stereo = 2 triangoli");
   const st = add("distereo", 200, 100);
-  eq(A.diLookOf(st), "stereo", "DI stereo default stereo");
-  m.diLook = "rack";
-  eq(A.diLookOf(m), "rack", "variante impostata");
-  eq(JSON.stringify(A.diFootprint("rack", "dimono")), JSON.stringify([76, 24]), "footprint rack");
-  eq(JSON.stringify(A.diFootprint("stereo", "dimono")), JSON.stringify([48, 28]), "footprint stereo");
-  ok(A.diDraw(Object.assign({}, m, { diLook: "passiva", w: 30, d: 26 })).indexOf("tec fill") > -1, "passiva ha XLR out");
-  ok(A.diDraw(Object.assign({}, m, { diLook: "attiva", w: 30, d: 26 })).indexOf("#16a34a") > -1, "attiva ha LED verde");
-  ok(A.diDraw(Object.assign({}, st, { diLook: "schema", w: 48, d: 28 })).match(/path/g).length === 2, "schema stereo = 2 triangoli");
-  // normalize: diLook invalido rimosso
-  m.diLook = "boh";
-  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.items.find(i => i.id === m.id).diLook, undefined, "diLook invalido rimosso");
+  eq(A.cabItemInputs(st).length, 2, "vecchio distereo = 2 canali (compat)");
 });
 
 t("parapetto: disegno contenuto nella profondità (allineamento snap/bordo)", () => {
