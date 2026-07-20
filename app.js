@@ -3905,8 +3905,8 @@ function cablingMarkup(){
   var showIn=layerShown("cabin"), showRet=layerShown("cabout");   /* occhi del Layer Manager (+ solo) */
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
-  var op=soloOn("cabin")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;   /* in solo: piena resa */
-  var retOp=soloOn("cabout")?1:(state.cab.retOpacity==null?100:state.cab.retOpacity)/100;   /* #23: opacità indipendente dei ritorni monitor */
+  var op=(soloOn("cabin")||soloOn("cabaudio"))?1:(state.cab.opacity==null?70:state.cab.opacity)/100;   /* in solo: piena resa */
+  var retOp=(soloOn("cabout")||soloOn("cabaudio"))?1:(state.cab.retOpacity==null?100:state.cab.retOpacity)/100;   /* #23: opacità indipendente dei ritorni monitor */
   var edit=!state.cab.lockIn && showIn && !window.__cabStatic;   /* editing cavi INGRESSO (layer Input): lock indipendente dal Monitor */
   var editRet=!state.cab.lockOut && showRet && !window.__cabStatic;   /* #17: cavi di RITORNO (layer Monitor): lock indipendente dall'Input */
   /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
@@ -4178,7 +4178,7 @@ var selMond=null;   /* cavo monitor digitale selezionato (key = id del mixerino)
 function monDigMarkup(){
   if(!state.mond || !state.mond.on || !layerShown("mond")) return '';
   var R=mondResult(); if(!R) return '';
-  var op=soloOn("mond")?1:(state.mond.opacity==null?70:state.mond.opacity)/100;
+  var op=(soloOn("mond")||soloOn("cabaudio"))?1:(state.mond.opacity==null?70:state.mond.opacity)/100;
   var editM=!window.__cabStatic;
   var LBLM=window.__cabStatic || document.body.classList.contains("viewmode");
   var s='<g class="mond-layer'+(editM?' mond-editable':'')+'" style="opacity:'+op+'">';
@@ -4738,7 +4738,7 @@ function netEngine(){
 function netMarkup(){
   if(!state.cab || !state.cab.on || !layerShown("net")) return '';
   var N=netEngine(); if(!N.runs.length) return '';
-  var op=soloOn("net")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;
+  var op=(soloOn("net")||soloOn("cabaudio"))?1:(state.cab.opacity==null?70:state.cab.opacity)/100;
   var LBL=window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="net-layer" style="opacity:'+op+'">';
   N.runs.forEach(function(r){
@@ -4838,7 +4838,7 @@ function rfMarkup(){
   if(!layerShown("rf")) return '';
   var C; try{ C=rfChain(); }catch(_e){ return ''; }
   if(!C.links.length && !C.ants.length) return '';
-  var op=soloOn("rf")?1:0.85;
+  var op=(soloOn("rf")||soloOn("cabaudio"))?1:0.85;
   var s2='<g class="rf-layer" style="opacity:'+op+'">';
   /* coni di copertura (solo visivi): direzione = rotazione dell'antenna, ampiezza antAng, raggio fisso */
   C.ants.forEach(function(an){
@@ -9839,7 +9839,10 @@ function anySolo(){ for(var k in layerSoloUI){ if(layerSoloUI[k]) return true; }
 function soloOn(id){ return !!layerSoloUI[id]; }
 /* fonte unica di visibilità di un layer nella scena: il solo (se attivo) vince sugli occhi */
 function layerShown(id){
-  if(anySolo()) return soloOn(id);
+  /* i sotto-id audio (cabin/cabout/net/rf/mond) sono confluiti nel layer unico "cabaudio":
+     sotto solo seguono il solo di cabaudio, così l'overlay non sparisce facendo solo sull'audio. */
+  if(id==="cabin"||id==="cabout"||id==="net"||id==="rf"||id==="mond"){ if(anySolo()) return soloOn("cabaudio")||soloOn(id); }
+  else if(anySolo()) return soloOn(id);
   switch(id){
     case "cabaudio": return !!(state.cab&&state.cab.on) || !!(state.mond&&state.mond.on) || state.rfShow!==false;   /* layer unico audio */
     case "cabin":  return !!(state.cab && state.cab.on) && state.cab.showInputs!==false;
