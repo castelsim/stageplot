@@ -11942,6 +11942,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
          input/monitor list. Una lista già compilata a mano non viene toccata (autoInputs esce se piena). */
       try{ if(!state.inputs.length) autoInputs(); }catch(e){}
       try{ if(!state.outputs.length) autoOutputs(); }catch(e){}
+      /* Decisione 5A: pre-carica la responsabilità (account-only) per la pagina PDF, poi rinfresca le pillole */
+      try{ var Cx=window.__cloud, px=Cx&&Cx.currentId&&Cx.currentId();
+        if(Cx&&Cx.user&&Cx.user()&&px){ Cx.deptAssign.list(px, function(a){ Cx.rubrica.list(function(r){ window.__respData={assigns:a||{}, rubrica:r||[]}; if(typeof pdfRefreshPages==="function") pdfRefreshPages(); }); }); }
+        else window.__respData=null;
+      }catch(e){ window.__respData=null; }
     }
     renderFramePanel(); render();
   });
@@ -12540,6 +12545,44 @@ function todefinePdf(shared){
     if(shared) return;
     pdfCredit(doc);
     doc.save(fileName()+"-da-definire.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+/* Decisione 5A: pagina "Responsabilità" del rider — reparto → azienda (pubblici), + referenti
+   che l'utente ha pubblicato esplicitamente (opt-in). Persone non pubblicate restano nell'account. */
+function responsabilitaPdf(shared){
+  var rd=window.__respData;
+  if(!rd || !rd.assigns){ if(!shared) alert("Nessuna responsabilità assegnata (assegnala in File → Produzione)."); return; }
+  var deps=(typeof productionDepts==="function")?productionDepts():[];
+  var byId={}; (rd.rubrica||[]).forEach(function(c){ byId[c.id]=c; });
+  var rows=[];
+  deps.forEach(function(d){
+    var list=rd.assigns[d.key]||[];
+    var az=list.filter(function(a){ return a.role==="__azienda__"; })[0];
+    var pubs=list.filter(function(a){ return a.role!=="__azienda__" && a.published; });
+    if(!az && !pubs.length) return;
+    rows.push({ rep:d.name, az: az&&byId[az.contact_id]?byId[az.contact_id].name:"—",
+      ref: pubs.map(function(a){ var c=byId[a.contact_id]||{}; return (c.name||"")+(a.role?" ("+a.role+")":"")+(c.contact?" · "+c.contact:""); }).join("   ·   ") });
+  });
+  if(!rows.length){ if(!shared) alert("Nessuna azienda assegnata ai reparti."); return; }
+  var run=function(doc){
+    if(shared) doc.addPage("a4","portrait");
+    var M=16, y=22, cols=[M, M+50, M+118];
+    doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Responsabilità", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
+    function trow(a,b,c,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.8; }
+    trow("REPARTO","AZIENDA / SERVICE","REFERENTE (se pubblicato)", true, "#0b7a70");
+    doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
+    rows.forEach(function(r){ trow(r.rep, r.az, r.ref||"—", false, "#111827"); });
+    y+=4;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");
+    doc.text("I contatti personali non pubblicati restano privati e non compaiono su questo documento.", M, y);
+    if(shared) return;
+    pdfCredit(doc);
+    doc.save(fileName()+"-responsabilita.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -13866,7 +13909,12 @@ function renderDeptAssign(d, host, assigns, rubrica, pid){
   if(az && byId[az.contact_id]) host.appendChild(daPill("az", "🏢 "+esc(byId[az.contact_id].name), function(){ C.deptAssign.remove(pid,d.key,az.contact_id,function(){ renderProdHub(); }); }));
   else daAddForm(host, d.key, "company", rubrica, pid);
   resp.forEach(function(a){ var c=byId[a.contact_id]; if(!c) return;
-    host.appendChild(daPill("pe", esc(c.name)+(a.role?' <b class="r">'+esc(a.role.toUpperCase())+'</b>':''), function(){ C.deptAssign.remove(pid,d.key,a.contact_id,function(){ renderProdHub(); }); })); });
+    var pill=daPill("pe", esc(c.name)+(a.role?' <b class="r">'+esc(a.role.toUpperCase())+'</b>':''), function(){ C.deptAssign.remove(pid,d.key,a.contact_id,function(){ renderProdHub(); }); });
+    var pub=document.createElement("span"); pub.className="da-pub"+(a.published?" on":""); pub.textContent=a.published?"🌐":"🔒";
+    pub.title=a.published?"pubblicato sul rider (col contatto) — click per renderlo privato":"privato nell'account — click per pubblicarlo sul rider";
+    pub.addEventListener("click", function(e){ e.stopPropagation(); C.deptAssign.set(pid, d.key, a.contact_id, a.role, function(){ renderProdHub(); }, !a.published); });
+    var xx=pill.querySelector(".da-x"); if(xx) pill.insertBefore(pub, xx); else pill.appendChild(pub);
+    host.appendChild(pill); });
   daAddForm(host, d.key, "person", rubrica, pid);
 }
 function addProdDept(name){
@@ -14006,6 +14054,7 @@ function buildPdfDoc(paperKey, N, orient, header){
         pdfChannelPage(doc, L, paperKey);
       }
       if(want("rider")) riderPdf(doc);   /* T2: il rider apre le pagine tecniche */
+      if(want("responsabilita")) responsabilitaPdf(doc);   /* Decisione 5A */
       if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
       if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
       if(want("loadlist")) loadListPdf(doc);
@@ -14300,6 +14349,10 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:"Rider tecnico"}); }   /* T2: rider generato dai dati */
+    try{ var rd=window.__respData; if(rd && rd.assigns && typeof productionDepts==="function"){
+      var hasResp=productionDepts().some(function(d){ return (rd.assigns[d.key]||[]).some(function(a){ return a.role==="__azienda__"; }); });
+      if(hasResp) pages.push({key:"responsabilita", label:"Responsabilità (produzione)"});
+    } }catch(_e){}
     var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
     if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
     if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
@@ -15371,12 +15424,14 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   function deptAssignList(pid, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
     if(daCache[pid]){ cb(daCache[pid]); return; }
-    sb.from("stageplot_dept_assign").select("dept_key,contact_id,role").eq("project_id", pid)
-      .then(function(r){ if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ (m[x.dept_key]=m[x.dept_key]||[]).push({contact_id:x.contact_id, role:x.role||""}); }); daCache[pid]=m; cb(m); }, function(){ cb(null); });
+    sb.from("stageplot_dept_assign").select("dept_key,contact_id,role,published").eq("project_id", pid)
+      .then(function(r){ if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ (m[x.dept_key]=m[x.dept_key]||[]).push({contact_id:x.contact_id, role:x.role||"", published:!!x.published}); }); daCache[pid]=m; cb(m); }, function(){ cb(null); });
   }
-  function deptAssignSet(pid, deptKey, contactId, role, cb){
+  function deptAssignSet(pid, deptKey, contactId, role, cb, published){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
-    sb.from("stageplot_dept_assign").upsert({ user_id:cloudUser.id, project_id:pid, dept_key:deptKey, contact_id:contactId, role:String(role||"").slice(0,40), updated_at:new Date().toISOString() }, { onConflict:"user_id,project_id,dept_key,contact_id" })
+    var row={ user_id:cloudUser.id, project_id:pid, dept_key:deptKey, contact_id:contactId, role:String(role||"").slice(0,40), updated_at:new Date().toISOString() };
+    if(published!=null) row.published=!!published;
+    sb.from("stageplot_dept_assign").upsert(row, { onConflict:"user_id,project_id,dept_key,contact_id" })
       .then(function(r){ if(r.error){ cb(null); return; } delete daCache[pid]; cb(true); }, function(){ cb(null); });
   }
   function deptAssignRemove(pid, deptKey, contactId, cb){
