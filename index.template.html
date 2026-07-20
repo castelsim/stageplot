@@ -420,9 +420,14 @@
       </div>
     </div>
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
-      <label style="font-size:12px;color:var(--text-2);margin:0 0 5px;display:block">Tipo di DI <small style="color:var(--text-3);font-weight:400">— aspetto dell'icona</small></label>
-      <div id="pDiGrid" class="di-grid"></div>
-      <div class="di-note">Di default <b>Passiva</b> (la più comune); <b>Stereo</b> per il DI stereo. L'icona è solo l'aspetto — non cambia canali né collegamento.</div>
+      <div id="pDiPrev" class="di-prev"></div>
+      <label class="di-lbl">Canali</label>
+      <div class="di-seg" id="pDiCh"><button type="button" data-v="mono">Mono</button><button type="button" data-v="stereo">Stereo</button><button type="button" data-v="multi">Multicanale</button></div>
+      <div id="pDiMultiWrap" style="display:none;margin-top:6px"><label class="di-lbl">Canali rack</label><div class="di-seg" id="pDiMultiN"><button type="button" data-v="6">6</button><button type="button" data-v="8">8</button></div></div>
+      <label class="di-lbl">Tipo</label>
+      <div class="di-seg" id="pDiType"><button type="button" data-v="passiva">Passiva</button><button type="button" data-v="attiva">Attiva</button></div>
+      <label class="chk" style="margin-top:7px"><input type="checkbox" id="pDiSchema"> Icona schematica (simbolo)</label>
+      <div class="di-note"><b>Passiva/Attiva</b>: le attive richiedono alimentazione (phantom 48V o batteria) — segnato in channel list. Modello reale qui sotto.</div>
     </div>
     <div id="pLabelWrap"><input type="text" id="pLabel"></div>
     <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
@@ -1512,45 +1517,44 @@ function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w
 function rectSvg(w,d,cls,rx){ return bar(0,0,w,d,cls,rx); }
 function circ(x,y,r,cls){ return '<circle class="'+(cls||'ic')+'" cx="'+x+'" cy="'+y+'" r="'+r+'"/>'; }
 function lin(x1,y1,x2,y2,cls){ return '<line class="'+(cls||'ic')+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"/>'; }
-/* ===== DI box: varianti icona selezionabili (Simone 18/07) ===== */
-var DI_LOOKS=["passiva","attiva","stereo","rack","schema"];
-var DI_LOOK_LABEL={passiva:"Passiva", attiva:"Attiva", stereo:"Stereo", rack:"Rack 6/8ch", schema:"Schematico"};
-var DI_FOOTPRINT={ passiva:[30,26], attiva:[30,26], stereo:[48,28], rack:[76,24] };   /* schema = footprint del tipo */
-function diLookOf(it){ if(it && it.diLook && DI_LOOK_LABEL[it.diLook]) return it.diLook; return (it&&it.type==="distereo")?"stereo":"passiva"; }
-function diFootprint(look, type){ if(DI_FOOTPRINT[look]) return DI_FOOTPRINT[look]; return type==="distereo"?[48,28]:[28,28]; }   /* schema */
-/* Icone DI allineate al mockup di-icone (proporzioni + dettagli: ground-lift, vano batteria+LED,
-   divisore tratteggiato con L/R, orecchie rack). Disegnate nello spazio 64×48 del mockup e
-   ri-centrate/scalate a origine. Classi StagePlot: .ic=box bianco bordo scuro, .ic soft thin=
-   grigio chiaro (in/thru), .tec fill=accento tecnico (XLR/canali). */
-/* BB[look] = [cx,cy, larghezza,altezza] del contenuto icona nello spazio 64×48 del mockup.
-   Sul palco: scala per riempire il footprint. Nel selettore: si passa w/d = bw/bh → scala COSTANTE
-   (tratto uniforme come nel mockup, niente icone "chunky" da upscaling dei footprint piccoli). */
-var DI_BB={ passiva:[32.4,24,44,29], attiva:[32.4,24,44,29], stereo:[32,24,55,31], rack:[32,24,57,21] };
+/* ===== DI box: ELEMENTO UNICO (Simone 20/07). Due assi indipendenti + aspetto:
+   diCh = mono|stereo|multi (canali) · diType = passiva|attiva (topologia) · diSchema = simbolo astratto. */
+var DI_CH_LABEL={mono:"Mono", stereo:"Stereo", multi:"Multicanale"};
+var DI_TYPE_LABEL={passiva:"Passiva", attiva:"Attiva"};
+function diCh(it){ return (it&&DI_CH_LABEL[it.diCh])?it.diCh : ((it&&it.type==="distereo")?"stereo":"mono"); }
+function diType(it){ return (it&&it.diType==="attiva")?"attiva":"passiva"; }
+function diMultiN(it){ return (it&&it.diMultiCh===6)?6:8; }
+function diChannels(it){ var c=diCh(it); return c==="stereo"?2:(c==="multi"?diMultiN(it):1); }
+function diFootprint(it){ var c=diCh(it); return c==="stereo"?[48,28]:(c==="multi"?[76,24]:[30,26]); }
+/* icone: geometria mockup (spazio 64×48) scalata al footprint, centrata. Classi: .ic box, .ic soft thin (in/thru), .tec fill (XLR/canali/LED). */
+var DI_BB={ mono:[32.4,24,44,29], stereo:[32,24,55,31], multi:[32,24,57,21] };
 function diDraw(it){
-  var look=diLookOf(it), w=it.w, d=it.d;
-  if(look==="schema"){
-    if(it.type==="distereo") return '<path class="tec" fill="#fff" d="M -11,-12 L 1,10 L -23,10 Z"/><path class="tec" fill="#fff" d="M 11,-12 L 23,10 L -1,10 Z"/>';
-    return '<path class="tec" fill="#fff" d="M 0,-11 L 11,10 L -11,10 Z"/>';
+  var ch=diCh(it), type=diType(it), w=it.w, d=it.d;
+  if(it.diSchema===true){   /* simbolo astratto: 2 triangoli = stereo/multi, 1 = mono */
+    if(ch==="mono") return '<path class="tec" fill="#fff" d="M 0,-11 L 11,10 L -11,10 Z"/>';
+    return '<path class="tec" fill="#fff" d="M -11,-12 L 1,10 L -23,10 Z"/><path class="tec" fill="#fff" d="M 11,-12 L 23,10 L -1,10 Z"/>';
   }
-  var bb=DI_BB[look]||DI_BB.passiva, S=Math.min(w/bb[2], d/bb[3])*0.96;
+  var bb=DI_BB[ch]||DI_BB.mono, S=Math.min(w/bb[2], d/bb[3])*0.96;
   function wrap(mk){ return '<g transform="scale('+S.toFixed(3)+') translate('+(-bb[0])+','+(-bb[1])+')">'+mk+'</g>'; }
-  if(look==="rack") return wrap(
-    '<rect class="ic" x="4" y="14" width="56" height="20" rx="2"/>'
-    +'<rect class="ic" x="4" y="14" width="6" height="20"/><rect class="ic" x="54" y="14" width="6" height="20"/>'
-    +'<circle class="tec fill" cx="18" cy="24" r="2.4"/><circle class="tec fill" cx="27" cy="24" r="2.4"/><circle class="tec fill" cx="36" cy="24" r="2.4"/><circle class="tec fill" cx="45" cy="24" r="2.4"/>'
-    +'<circle class="ic" cx="12" cy="18" r="1"/><circle class="ic" cx="12" cy="30" r="1"/>');
-  if(look==="stereo") return wrap(
-    '<rect class="ic" x="8" y="9" width="48" height="30" rx="3"/>'
+  if(ch==="multi"){ var n=diMultiN(it), s='<rect class="ic" x="4" y="14" width="56" height="20" rx="2"/><rect class="ic" x="4" y="14" width="6" height="20"/><rect class="ic" x="54" y="14" width="6" height="20"/>';
+    for(var i=0;i<n;i++){ var x=14+i*(46/(n-1)); s+='<circle class="tec fill" cx="'+x.toFixed(1)+'" cy="24" r="2.1"/>'; }
+    s+= (type==="attiva") ? '<circle cx="12" cy="18" r="1.8" fill="#16a34a"/>' : '<circle class="ic" cx="12" cy="18" r="1"/><circle class="ic" cx="12" cy="30" r="1"/>';
+    return wrap(s);
+  }
+  if(ch==="stereo"){ var s2='<rect class="ic" x="8" y="9" width="48" height="30" rx="3"/>'
     +'<line class="ic" stroke-dasharray="3 3" x1="32" y1="9" x2="32" y2="39"/>'
     +'<circle class="ic soft thin" cx="8" cy="16" r="3"/><circle class="ic soft thin" cx="8" cy="32" r="3"/>'
     +'<rect class="tec fill" x="53" y="12" width="6" height="7" rx="1.2"/><rect class="tec fill" x="53" y="27" width="6" height="7" rx="1.2"/>'
     +'<text x="20" y="27" font-size="9" fill="#746e60" text-anchor="middle" font-family="-apple-system,sans-serif">L</text>'
-    +'<text x="44" y="27" font-size="9" fill="#746e60" text-anchor="middle" font-family="-apple-system,sans-serif">R</text>');
+    +'<text x="44" y="27" font-size="9" fill="#746e60" text-anchor="middle" font-family="-apple-system,sans-serif">R</text>';
+    if(type==="attiva") s2+='<circle cx="17" cy="14" r="2.2" fill="#16a34a"/>';
+    return wrap(s2);
+  }
   var mk='<rect class="ic" x="14" y="10" width="36" height="28" rx="3"/>'
     +'<circle class="ic soft thin" cx="14" cy="18" r="3.2"/><circle class="ic soft thin" cx="14" cy="30" r="3.2"/>'
     +'<rect class="tec fill" x="47" y="20" width="7" height="8" rx="1.5"/>';
-  if(look==="attiva") mk+='<circle cx="24" cy="17" r="2.4" fill="#16a34a"/><rect class="ic soft thin" x="30" y="14" width="14" height="7" rx="1.5"/>';
-  else mk+='<line class="ic" x1="24" y1="34" x2="30" y2="34"/>';   /* ground-lift switch */
+  if(type==="attiva") mk+='<circle cx="24" cy="17" r="2.4" fill="#16a34a"/><rect class="ic soft thin" x="30" y="14" width="14" height="7" rx="1.5"/>';   /* LED + vano batteria */
+  else mk+='<line class="ic" x1="24" y1="34" x2="30" y2="34"/>';   /* ground-lift */
   return wrap(mk);
 }
 function sring(x,y,r,cls){ return '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" class="'+cls+'"/>'; }
@@ -2452,10 +2456,10 @@ var TYPES = {
                for(var i=0;i<5;i++){ var x=-w/2+9+i*((w-14)/4); s+=bar(x,d/2-6,7,6,"ic thin",1); }   /* fila di porte RJ45 sul fronte */
                return s; }},
   /* --- tecnica --- */
-  dimono:   {nome:"DI mono", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", w:28,d:28, defLabel:"DI",
+  dimono:   {nome:"DI box", dim:"mono / stereo / multi", cat:"Microfoni e DI", sub:"DI", w:30,d:26, defLabel:"DI",
              draw:function(it){ return diDraw(it); }},
-  distereo: {nome:"DI stereo", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", w:48,d:28, defLabel:"DI st",
-             draw:function(it){ return diDraw(it); }},
+  distereo: {nome:"DI box stereo", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", catalog:false, w:48,d:28, defLabel:"DI",
+             draw:function(it){ return diDraw(it); }},   /* catalog:false: sostituito dal DI box unico; resta per i progetti vecchi (migrato a dimono+stereo) */
   stagebox: {nome:"Stagebox", dim:"~55×40", cat:"Cablaggio e segnale", w:58,d:46, defLabel:"STAGEBOX",
              /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26 */
              draw:function(it){ return drawLibFit("stagebox",it,50,40); }},
@@ -3894,7 +3898,12 @@ function normalizeState(s){
       if(it.sbTo!=null && it.sbTo!=="main" && !s.items.some(function(x){ return x.id===it.sbTo; })) delete it.sbTo; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
-    if(it.type==="dimono"||it.type==="distereo"){ if(it.diLook && !DI_LOOK_LABEL[it.diLook]) delete it.diLook; }
+    if(it.type==="distereo"){ it.type="dimono"; if(!it.diCh) it.diCh="stereo"; }   /* consolidamento DI: stereo → DI box unico (mono/stereo/multi) */
+    if(it.type==="dimono"){   /* DI box: migra il vecchio selettore diLook → assi diCh/diType/diSchema + normalizza footprint */
+      if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
+      if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
+      var _dif2=diFootprint(it); it.w=_dif2[0]; it.d=_dif2[1];
+    }
     ["safeDesc","safeCap","safeNote"].forEach(function(k){ if(it[k]!=null){ if(typeof it[k]!=="string"||!it[k].trim()) delete it[k]; else it[k]=it[k].trim().slice(0,120); } });
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
     if(it.type==="mixhub"){ if(it.pmFeed!=null && it.pmFeed!=="dante" && it.pmFeed!=="console") delete it.pmFeed;
@@ -4069,7 +4078,12 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
+      if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
+      if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
+      var _dif=diFootprint(it); it.w=_dif[0]; it.d=_dif[1];
+    }
     if(o.pts && o.pts.length>=3) it.pts=o.pts.map(function(p){ return [Math.round(+p[0]||0),Math.round(+p[1]||0)]; });
     recalcItemDims(it);   /* ingombri coerenti con i flag (doppia/sep, podio/leggio/sgab, gtr, parti, voce) */
     /* ZONA: rettangolo → fonte-verità = w/d (nessun pts, il resize funziona). pts esiste solo per poligoni custom → w/d = bbox */
@@ -4950,7 +4964,12 @@ function cabItemInputs(it){
   if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return [];   /* coperto da una zona → 0 canali; effOwnMic (ownMic esplicito o default close-obligato: kick/rullante/tom/hi-hat) mantiene il mic singolo */
   if(it.type==="miczone") return [{name: micZoneLabel(it), mic: micZoneMic(it)}];   /* la zona = 1 canale mono */
   if(it.type==="direttore") return it.mic ? [{name:(it.label||TYPES.direttore.defLabel||"Direttore"), mic: dirMicLabel(it)}] : [];   /* direttore col mic = 1 canale talkback (verso tecnici/musicisti), collegabile alla stage box */
-  if(it.type==="distereo") return [{name:labelPrefix(it,"L"),mic:"DI"},{name:labelPrefix(it,"R"),mic:"DI"}];
+  if(it.type==="dimono"||it.type==="distereo"){   /* DI box: canali = diChannels (mono 1 · stereo 2 L/R · multi N); mic = DI / DI attiva */
+    var _dn=diChannels(it), _dm=(diType(it)==="attiva"?"DI attiva":"DI");
+    if(_dn===1) return [{name:(it.label||TYPES[it.type].defLabel||"DI"), mic:_dm}];
+    if(_dn===2) return [{name:labelPrefix(it,"L"),mic:_dm},{name:labelPrefix(it,"R"),mic:_dm}];
+    var _da=[]; for(var _di=1;_di<=_dn;_di++) _da.push({name:labelPrefix(it,String(_di)),mic:_dm}); return _da;
+  }
   if(STEREO_TOGGLE[it.type]){   /* strumenti ambigui: mono/stereo per-elemento (it.stereo) */
     var scfg=STEREO_TOGGLE[it.type], sst=(it.stereo!=null?it.stereo:scfg.def);
     if(sst){
@@ -7046,21 +7065,15 @@ function renderProps(){
   if(typeof renderRackPanel==="function") renderRackPanel(it);   /* RACK: contenuti/U/fronte */
   if(typeof renderRxPanel==="function") renderRxPanel(it);   /* F3: ricevitore RF */
   (function(){ var w=document.getElementById("pDiWrap"); if(!w) return;
-    if(!it || (it.type!=="dimono" && it.type!=="distereo")){ w.style.display="none"; return; }
+    if(!it || it.type!=="dimono"){ w.style.display="none"; return; }
     w.style.display="block";
-    var host=document.getElementById("pDiGrid"); host.innerHTML="";
-    var cur=diLookOf(it);
-    DI_LOOKS.forEach(function(look){
-      var bb=DI_BB[look], demo=Object.assign({}, it, {diLook:look, w:(bb?bb[2]:50), d:(bb?bb[3]:30)});   /* scala COSTANTE (bw/bh) → tratto uniforme come nel mockup */
-      var cell=document.createElement("div"); cell.className="di-opt"+(look===cur?" sel":"");
-      cell.innerHTML='<svg width="52" height="40" viewBox="-32 -24 64 48">'+diDraw(demo)+'</svg>'
-        +'<div class="di-nm">'+esc(DI_LOOK_LABEL[look])+'</div>';
-      cell.addEventListener("click", function(){
-        it.diLook=look; var f2=diFootprint(look, it.type); it.w=f2[0]; it.d=f2[1];
-        __cabRes=null; save(); render(); renderProps();
-      });
-      host.appendChild(cell);
-    });
+    var ch=diCh(it), ty=diType(it), mn=diMultiN(it), bb=DI_BB[ch]||DI_BB.mono;
+    document.getElementById("pDiPrev").innerHTML='<svg width="64" height="44" viewBox="-32 -24 64 48">'+diDraw(Object.assign({}, it, {w:bb[2], d:bb[3]}))+'</svg>';   /* anteprima a scala costante */
+    [].forEach.call(document.querySelectorAll("#pDiCh button"),function(b){ b.classList.toggle("on", b.getAttribute("data-v")===ch); });
+    [].forEach.call(document.querySelectorAll("#pDiType button"),function(b){ b.classList.toggle("on", b.getAttribute("data-v")===ty); });
+    document.getElementById("pDiMultiWrap").style.display = (ch==="multi") ? "block" : "none";
+    [].forEach.call(document.querySelectorAll("#pDiMultiN button"),function(b){ b.classList.toggle("on", +b.getAttribute("data-v")===mn); });
+    document.getElementById("pDiSchema").checked = it.diSchema===true;
   })();
   (function(){ var w=document.getElementById("pSwWrap"); if(!w) return;
     if(!it || it.type!=="netswitch"){ w.style.display="none"; return; }
@@ -7273,6 +7286,11 @@ document.getElementById("pMir").addEventListener("change", function(){ var v=thi
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pLeggioGen").addEventListener("change", function(){ var v=document.getElementById("pLeggioGen").checked; mutSel(function(it){ it.leggio=v; }); });   /* leggio generico strumenti-musicista */
 document.getElementById("pLucetta").addEventListener("change", function(){ var v=document.getElementById("pLucetta").checked; mutSel(function(it){ it.lucetta=v; }); });   /* lucetta leggio (solo visiva) */
+/* DI box: controlli segmentati (canali / tipo / multi) + icona schematica */
+document.getElementById("pDiCh").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diCh=b.getAttribute("data-v"); if(it.diCh==="multi"&&it.diMultiCh!==6) it.diMultiCh=8; var f=diFootprint(it); it.w=f[0]; it.d=f[1]; __cabRes=null; }); });
+document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); __cabRes=null; }); });
+document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
+document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
 document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
