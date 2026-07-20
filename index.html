@@ -15,7 +15,7 @@
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Gratis in Italiano — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.19";</script>
+<script>window.__APP_VERSION__="2026.07.20";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -2181,6 +2181,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <input id="pSafeDesc" type="text" placeholder="Descrizione (es. estintore CO₂)" style="width:100%;font-size:12px;margin-bottom:6px">
       <input id="pSafeCap" type="text" placeholder="Capacità / portata (es. 6 kg · 500 pax)" style="width:100%;font-size:12px;margin-bottom:6px">
       <input id="pSafeNote" type="text" placeholder="Note (verifica, scadenza, posizione…)" style="width:100%;font-size:12px">
+    </div>
+    <div id="pRespWrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+      <label style="font-size:11px;color:var(--text-2);font-weight:600;display:block;margin-bottom:5px">Responsabile <small id="pRespDept" style="color:var(--text-3);font-weight:400"></small></label>
+      <div id="pRespBody"></div>
     </div>
     <!-- EQUIPMENT INTELLIGENCE: modello reale opzionale — tendina per-categoria, solo dove ha senso
          (feedback 17/07: l'utente va accompagnato; niente testo libero, niente campo su musicisti) -->

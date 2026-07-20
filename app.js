@@ -2328,6 +2328,19 @@ function productionDepts(){
     out.push({key:d.id, name:d.name, color:"#746e60", plot:false, extra:true, detail:""}); });
   return out;
 }
+/* Decisione 4A: a quale reparto TECNICO appartiene un elemento (per l'eredità del responsabile). */
+var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Power" };
+function elementDept(it){
+  if(!it||!it.type) return null;
+  if(it.type==="rxrf"||it.type==="rfant"||it.type==="rfsplit"||(typeof RF_TX!=="undefined"&&RF_TX[it.type])) return "rf";
+  if(it.type==="netswitch") return "rete";
+  if(OUT_SET[it.type]!=null && it.type!=="monmix") return "monitor";
+  if(typeof pmOf==="function" && pmOf(it)) return "monitor";
+  if((typeof cabIsBox==="function"&&cabIsBox(it)) || it.type==="mixer" || it.type==="foh" || it.type==="monmix" || it.type==="dimono" || it.type==="distereo" || (typeof isAudioSource==="function"&&isAudioSource(it))) return "audio";
+  if(typeof elecIsDistro==="function" && elecIsDistro(it)) return "power";
+  if(typeof wattOf==="function" && wattOf(it)>0) return "power";
+  return null;
+}
 /* Righe di testo per il rider (fase 4) e per i riepiloghi: SOLO i sistemi dichiarati (mai inventare).
    ans=null → non dichiarato (non compare); "no" → non compare (non previsto). */
 function productionSummary(s){
@@ -5656,6 +5669,7 @@ function renderProps(){
   if(typeof renderModelField==="function") renderModelField(it);   /* EQUIPMENT INTELLIGENCE: campo Modello reale */
   if(typeof renderUsoField==="function") renderUsoField(it);       /* PRODUZIONE: utilizzo elemento regia */
   if(typeof renderSafetyInfo==="function") renderSafetyInfo(it);   /* Presidi sicurezza: info sull'elemento */
+  if(typeof renderRespField==="function") renderRespField(it);     /* Decisione 4A: responsabile ereditato/eccezione */
 }
 function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
@@ -13788,6 +13802,39 @@ function renderProdHub(){
   add.appendChild(inp); add.appendChild(btn);
 }
 var DEPT_ROLES=["Capo reparto","Tecnico","Assistente","Runner"];
+/* Decisione 4A: pannello Responsabile dell'elemento — eredita dal reparto o eccezione sul singolo.
+   Eccezione salvata account-only riusando dept_assign con dept_key "el:<itemId>" (nessuna nuova tabella). */
+function renderRespField(it){
+  var w=document.getElementById("pRespWrap"); if(!w) return;
+  var dept=(typeof elementDept==="function")?elementDept(it):null;
+  if(!dept){ w.style.display="none"; return; }
+  w.style.display="block";
+  document.getElementById("pRespDept").textContent="— reparto "+(DEPT_NAME[dept]||dept);
+  var body=document.getElementById("pRespBody"); body.innerHTML="";
+  var C=window.__cloud, pid=C&&C.currentId&&C.currentId(), logged=!!(C&&C.user&&C.user());
+  if(!logged || !pid){ body.innerHTML='<span class="pd-hint">🔒 Accedi e assegna il reparto in Produzione per l\'eredità</span>'; return; }
+  var elKey="el:"+it.id;
+  C.deptAssign.list(pid, function(amap){ C.rubrica.list(function(rows){ amap=amap||{}; rows=rows||[];
+    if(getSel && (!getSel()||getSel().id!==it.id)) return;   /* selezione cambiata */
+    var byId={}; rows.forEach(function(c){ byId[c.id]=c; });
+    var inh=(amap[dept]||[]).filter(function(a){ return a.role==="__azienda__"; })[0];
+    var exc=(amap[elKey]||[]).filter(function(a){ return a.role==="__azienda__"; })[0];
+    body.innerHTML="";
+    if(exc && byId[exc.contact_id]){
+      var p=daPill("az", "🏢 "+esc(byId[exc.contact_id].name)+' <b style="font-size:8.5px;opacity:.75">ECCEZIONE</b>', function(){ C.deptAssign.remove(pid, elKey, exc.contact_id, function(){ renderProps(); }); });
+      body.appendChild(p);
+      var note=document.createElement("div"); note.className="pd-hint"; note.style.marginTop="4px"; note.textContent="rimuovi × per tornare a ereditare"; body.appendChild(note);
+    } else {
+      var line=document.createElement("div"); line.style.cssText="font-size:12px;margin-bottom:6px";
+      line.innerHTML = inh && byId[inh.contact_id]
+        ? 'Eredita: <b>🏢 '+esc(byId[inh.contact_id].name)+'</b> <small style="color:var(--text-3)">(dal reparto '+esc(DEPT_NAME[dept]||dept)+')</small>'
+        : '<span style="color:var(--text-3)">Nessun responsabile del reparto — assegnalo in <b>File → Produzione</b></span>';
+      body.appendChild(line);
+      daAddForm(body, elKey, "company", rows, pid);   /* "＋ azienda" = imposta l'eccezione */
+      var t=body.querySelector(".da-pill.add"); if(t) t.textContent="＋ eccezione (altra azienda)";
+    }
+  }); });
+}
 function daFindOrCreate(rubrica, name, kind, role, cb){
   var C=window.__cloud, ex=(rubrica||[]).filter(function(c){ return (c.name||"").trim().toLowerCase()===name.trim().toLowerCase() && (c.kind||"person")===kind; })[0];
   if(ex){ cb(ex); return; }
