@@ -9787,20 +9787,20 @@ function layerRegistry(){
       setOpacity:function(v){ state.cab.opacity=v; state.cab.retOpacity=v; if(state.mond) state.mond.opacity=v; var o=(v/100).toString(); ["cab-inlayer","net-layer","cab-retlayer","mond-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.lockIn,
       setLocked:function(v){ state.cab.lockIn=v; state.cab.lockOut=v; if(state.mond) state.mond.locked=v; if(v){ selCab=null; selMond=null; } save(); render(); },
-      removable:true, remove:function(){ state.cab.manual={}; if(state.mond) state.mond.manual={}; selCab=null; selMond=null; __cabRes=null; __mondRes=null; save(); render(); } },   /* cestino = azzera tutti gli aggiustamenti del cablaggio audio (ingressi + ritorni + P.M.) */
+      removable:true, removeLabel:"Azzera percorsi", remove:function(){ state.cab.manual={}; if(state.mond) state.mond.manual={}; selCab=null; selMond=null; __cabRes=null; __mondRes=null; save(); render(); } },   /* cestino = azzera tutti gli aggiustamenti del cablaggio audio (ingressi + ritorni + P.M.) */
     /* Elettrico (motore proprio) e Planimetria (sfondo). */
     { id:"elec", name:"Power", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
-      removable:true, remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+      removable:true, removeLabel:"Azzera Power", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico. */
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
       /* opacità LIVE senza render(): un render pieno ricostruirebbe lo slider a metà trascinamento (bug segnalato da Simone) */
       opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); },
-      removable:true, remove:function(){ state.venue=null; clearVenueImg(); venueCalibCancel(); save(); render(); } }   /* cestino = rimuove l'immagine planimetria */
+      removable:true, removeLabel:"Rimuovi immagine", remove:function(){ state.venue=null; clearVenueImg(); venueCalibCancel(); save(); render(); } }   /* cestino = rimuove l'immagine planimetria */
     ,{ id:"stage", name:"Palco", color:"#64748b",
       /* sempre attivo (17/07): ospita lo Stato nella fisarmonica — anche senza altri layer */
       active:true,
@@ -9815,7 +9815,7 @@ function layerRegistry(){
       visible:micLayerUI.vis, setVisible:function(v){ micLayerUI.vis=v; render(); },
       opacity:micLayerUI.op, setOpacity:function(v){ micLayerUI.op=v; var g=document.getElementById("layMicZones"); if(g) g.style.opacity=(v/100).toString(); },
       lockable:true, locked:micLayerUI.lock, setLocked:function(v){ micLayerUI.lock=v; document.body.classList.toggle("miczone-lock",v); if(v){ sel=null; selSet={}; } render(); },
-      removable:true, remove:function(){ confirmDialog({ icon:"warn", title:"Eliminare le zone di microfonazione?",
+      removable:true, removeLabel:"Elimina zone", remove:function(){ confirmDialog({ icon:"warn", title:"Eliminare le zone di microfonazione?",
           message:"Tutte le zone panoramiche verranno rimosse dal palco. Le sorgenti coperte tornano canali singoli.",
           confirmText:"Elimina le zone" }).then(function(ok){ if(!ok) return;
           state.items=(state.items||[]).filter(function(x){return x.type!=="miczone";}); sel=null; selSet={}; __cabRes=null; save(); render(); }); } }
@@ -9904,40 +9904,37 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
 var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabaudio:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec" };   /* cabaudio apre la channel list (Input); monSec/pmAccSec restano parcheggiati (cabout/mond non hanno più riga) + impilati sotto cabaudio */
+/* Layer "lavora qui" (Simone 20/07): la riga e' [pallino][nome]...[occhio]. CLIC sulla riga = mette
+   a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
+   Ri-clic = mostra tutto. L'occhio resta indipendente. Opacita'/lucchetto/reset compaiono SOTTO
+   solo quando il layer e' a fuoco (niente piu' 5 controlli sempre in vista). */
 function renderLayerRow(L, container){
-  var row=document.createElement("div"); row.className="layer-row";
-  var accKey=LAYER_ACC[L.id]||null;
-  row.innerHTML='<span class="layer-arr'+(accKey?(layerAccOpen===L.id?" open":""):" none")+'">\u25b8</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
-  if(accKey){
-    row.classList.add("layer-accrow");
-    row.addEventListener("click", function(e){
-      if(e.target.closest(".layer-controls")) return;   /* slider/S/occhio/lucchetto/cestino NON aprono la lista */
-      layerAccOpen = (layerAccOpen===L.id) ? null : L.id;
-      render();
-    });
-  }
-  var ctrl=document.createElement("div"); ctrl.className="layer-controls";
-  if(L.opacity!=null){ var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity; op.className="layer-opacity"; op.title="Opacità";
-    op.addEventListener("input", function(){ L.setOpacity(+this.value); });          /* live, leggero */
-    op.addEventListener("change", function(){ save(); render(); });                  /* rilascio: salva + sync */
-    ctrl.appendChild(op); }
-  var icons=document.createElement("div"); icons.className="layer-icons";
-  /* SOLO (stile console): mostra solo questo layer (+ i suoi elementi), il resto sfuma. Additivo, vince sull'occhio. */
-  var so=document.createElement("button"); so.type="button"; so.className="layer-ico layer-solo"+(soloOn(L.id)?" on":"");
-  so.title=soloOn(L.id)?"Togli il solo":"Solo — mostra solo questo layer"; so.textContent="S";
-  so.addEventListener("click", function(){ var was=layerSoloUI[L.id]; layerSoloUI={}; if(!was) layerSoloUI[L.id]=true; render(); });   /* SOLO esclusivo (Simone 14/07): uno alla volta, come il solo exclusive di una console */
-  icons.appendChild(so);
-  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi":"Mostra"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
-  eye.addEventListener("click", function(){ L.setVisible(!L.visible); }); icons.appendChild(eye);
-  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca modifiche":"Blocca modifiche"; lk.innerHTML=_LM_LOCK; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); icons.appendChild(lk); }
-  else icons.appendChild(document.createElement("span"));   /* slot vuoto → occhio/cestino restano incolonnati */
-  if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title="Rimuovi il layer"; tr.innerHTML=_LM_TRASH; tr.addEventListener("click", function(){ L.remove(); }); icons.appendChild(tr); }
-  else icons.appendChild(document.createElement("span"));
-  ctrl.appendChild(icons); row.appendChild(ctrl);
+  var focus=(layerAccOpen===L.id), accKey=LAYER_ACC[L.id]||null;
+  var row=document.createElement("div"); row.className="layer-row layer-clickable"+(focus?" focus":"");
+  row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
+  row.title=focus?"Clicca per mostrare tutti i layer":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
+  row.addEventListener("click", function(e){
+    if(e.target.closest(".layer-eye")) return;
+    if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
+    else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; }
+    render();
+  });
+  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questo layer":"Mostra questo layer"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
+  eye.addEventListener("click", function(e){ e.stopPropagation(); L.setVisible(!L.visible); }); row.appendChild(eye);
   container.appendChild(row);
-  if(accKey && layerAccOpen===L.id){
+  if(focus){
     var body=document.createElement("div"); body.className="layer-accbody";
-    var secEl=document.getElementById(accKey);
+    var strip=document.createElement("div"); strip.className="layer-adv";
+    if(L.opacity!=null){ var ow=document.createElement("label"); ow.className="adv-op"; ow.innerHTML='<span>Opacità</span>';
+      var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity;
+      op.addEventListener("input", function(){ L.setOpacity(+this.value); });
+      op.addEventListener("change", function(){ save(); render(); });
+      op.addEventListener("click", function(e){ e.stopPropagation(); });
+      ow.appendChild(op); strip.appendChild(ow); }
+    if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="adv-btn"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK+'<span>'+(L.locked?"Bloccato":"Blocca")+'</span>'; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); strip.appendChild(lk); }
+    if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="adv-btn adv-reset"; tr.innerHTML=_LM_TRASH+'<span>'+(L.removeLabel||"Rimuovi")+'</span>'; tr.addEventListener("click", function(){ L.remove(); }); strip.appendChild(tr); }
+    body.appendChild(strip);
+    var secEl=accKey?document.getElementById(accKey):null;
     if(secEl) body.appendChild(secEl);
     container.appendChild(body);
   }
