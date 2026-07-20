@@ -2111,5 +2111,21 @@ t("sicurezza: 7 nuovi presidi + info sull'elemento (descrizione/portata/note)", 
   eq(n.safeNote, undefined, "nota vuota rimossa");
 });
 
+t("decisione 4A: elementDept mappa gli elementi al reparto tecnico", () => {
+  reset();
+  const sb = add("stagebox", 100, 100); sb.hw = "rio3224d2";
+  eq(A.elementDept(sb), "audio", "stage box → audio");
+  eq(A.elementDept(add("astamic", 120, 100)), "audio", "microfono → audio");
+  eq(A.elementDept(add("wedge", 140, 100)), "monitor", "wedge → monitor");
+  eq(A.elementDept(add("rxrf", 160, 100)), "rf", "ricevitore → rf");
+  eq(A.elementDept(add("rfant", 180, 100)), "rf", "antenna → rf");
+  eq(A.elementDept(add("netswitch", 200, 100)), "rete", "switch → rete");
+  eq(A.elementDept(add("distro32", 220, 100)), "power", "distro → power");
+  eq(A.elementDept(add("testamobile", 240, 100)), "power", "carico (testa mobile) → power");
+  eq(A.elementDept(add("sedia", 260, 100)), null, "sedia → nessun reparto");
+  eq(A.elementDept(add("pedana", 280, 100)), null, "pedana → nessun reparto");
+  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Power", "nomi reparto");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
