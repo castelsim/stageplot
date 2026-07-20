@@ -11345,11 +11345,11 @@ function itemInSoloLayer(it){
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
 function pruneSolo(){
   if(!anySolo()) return;
-  var alive={ cabin:!!(state.cab&&state.cab.on), cabout:!!(state.cab&&state.cab.on), net:!!(state.cab&&state.cab.on),
-              rf:(state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
-              mond:!!(state.mond&&state.mond.on), elec:!!(state.elec&&state.elec.on),
+  var alive={ cabaudio:(!!(state.cab&&state.cab.on) || !!(state.mond&&state.mond.on) || (state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; })),   /* layer audio UNICO */
+              elec:!!(state.elec&&state.elec.on),
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
+              cover:(state.items||[]).some(isCover),
               venue:!!(state.venue&&state.venue._dataUrl), stage:true };
   Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
 }
