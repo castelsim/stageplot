@@ -3794,13 +3794,13 @@ function productionDepts(){
   if(netN) out.push({key:"rete", name:"Rete / Dante", color:DEPT_COLORS.rete, plot:true, detail:netN+" tratt"+(netN===1?"a":"e")});
   var Re=(typeof elecResult==="function")?elecResult(true):{loads:[],distros:[]};
   if(state.elec && state.elec.on && (Re.loads||[]).length)
-    out.push({key:"power", name:"Power", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
+    out.push({key:"power", name:"Corrente", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
   ((state.production&&state.production.depts)||[]).forEach(function(d){
     out.push({key:d.id, name:d.name, color:"#746e60", plot:false, extra:true, detail:""}); });
   return out;
 }
 /* Decisione 4A: a quale reparto TECNICO appartiene un elemento (per l'eredità del responsabile). */
-var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Power" };
+var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Corrente" };
 function elementDept(it){
   if(!it||!it.type) return null;
   if(it.type==="rxrf"||it.type==="rfant"||it.type==="rfsplit"||(typeof RF_TX!=="undefined"&&RF_TX[it.type])) return "rf";
@@ -4030,7 +4030,7 @@ function normalizeState(s){
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
     lockIn:!!cb.lockIn, lockOut:!!cb.lockOut, manual:man,
-    style:(cb.style==="curve"||cb.style==="dir")?cb.style:"orto",   /* stile cavi: angoli retti (orto) · smussati (curve) · percorso diretto (dir); il vecchio "loom" migra a orto */
+    style:normCabStyle(cb.style), styleOut:normCabStyle(cb.styleOut),   /* stile cavi per layer: angoli retti (orto) · smussati (curve) · diretto (dir); il vecchio "loom" migra a orto */
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
@@ -4053,7 +4053,7 @@ function normalizeState(s){
     mode:(eb.mode==="auto"||eb.mode==="manual")?eb.mode:(eb.on?"auto":"manual"),
     labelMode:(eb.labelMode==="always")?"always":"hover",   /* parità con l'audio: canvas pulito, info in hover */
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
-    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, manual:eman, uplinks:eups };
+    phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, style:normCabStyle(eb.style), manual:eman, uplinks:eups };
   var mb=s.mond||{};   /* monitoraggio digitale: catene mixerino→hub (manual[id]={to,pts,deleted}) */
   var mman={};
   if(mb.manual && typeof mb.manual==="object"){ Object.keys(mb.manual).forEach(function(k){ var v=mb.manual[k]||{}, o={};
@@ -4062,7 +4062,7 @@ function normalizeState(s){
     if(v.deleted) o.deleted=true;
     if(v.auto) o.auto=1;
     if(Object.keys(o).length) mman[String(k).slice(0,60)]=o; }); }
-  s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(mb.opacity==null?70:mb.opacity))), locked:!!mb.locked, manual:mman };
+  s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(mb.opacity==null?70:mb.opacity))), locked:!!mb.locked, style:normCabStyle(mb.style), manual:mman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -4935,7 +4935,13 @@ function orthLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.abs(pts[i
 function orthPathD(pts){ var ep=orthExpand(pts); if(ep.length<2) return ''; return 'M '+ep.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L '); }
 /* Layer v2 (21/07): stile grafico dei cavi, per progetto. orto = spigoli (storico) · curve = angoli
    molto arrotondati (stesso percorso/routing/editing, resa morbida) · loom = orto + canale alla partenza. */
-function cabStyle(){ return (state.cab && (state.cab.style==="curve"||state.cab.style==="dir")) ? state.cab.style : "orto"; }
+function normCabStyle(v){ return (v==="curve"||v==="dir") ? v : "orto"; }
+/* stile grafico dei cavi, INDIPENDENTE per ogni layer di cablaggio (Simone 21/07):
+   Ingressi (cab.style) · Output (cab.styleOut) · P.M. (mond.style) · Corrente (elec.style). */
+function cabStyle(){ return normCabStyle(state.cab && state.cab.style); }
+function cabStyleOut(){ return normCabStyle(state.cab && state.cab.styleOut); }
+function mondStyle(){ return normCabStyle(state.mond && state.mond.style); }
+function elecStyle(){ return normCabStyle(state.elec && state.elec.style); }
 function roundedPathD(ep, r){
   if(ep.length<2) return '';
   var d='M '+ep[0][0].toFixed(1)+' '+ep[0][1].toFixed(1);
@@ -4951,18 +4957,20 @@ function roundedPathD(ep, r){
   d+=' L '+ep[ep.length-1][0].toFixed(1)+' '+ep[ep.length-1][1].toFixed(1);
   return d;
 }
-function cabPathD(pts){
-  if(cabStyle()!=="curve") return orthPathD(pts);
+function cabPathD(pts, style){
+  if((style||cabStyle())!=="curve") return orthPathD(pts);
   var ep=orthExpand(pts); if(ep.length<2) return '';
   return roundedPathD(ep, 34);
 }
 /* "Diretto" (percorso più corto): linea dritta sui punti GREZZI (ancora + waypoint manuali + box),
    senza routing ortogonale. La lunghezza nei report resta quella del percorso ortogonale (stima
-   prudente per l'ordine cavi). Gli altri stili usano il percorso instradato. */
-function cabDrawD(rawPts, routedPts){
-  if(cabStyle()==="dir"){ var pp=rawPts||[]; if(pp.length<2) return '';
+   prudente per l'ordine cavi). Gli altri stili usano il percorso instradato. style = orto|curve|dir
+   (default: stile Ingressi) — così ogni layer disegna col SUO stile. */
+function cabDrawD(rawPts, routedPts, style){
+  style=style||cabStyle();
+  if(style==="dir"){ var pp=rawPts||[]; if(pp.length<2) return '';
     return 'M '+pp.map(function(pt){ return pt[0].toFixed(1)+' '+pt[1].toFixed(1); }).join(' L '); }
-  return cabPathD(routedPts);
+  return cabPathD(routedPts, style);
 }
 /* ── Editing cavi stile Max (08/07): si trascina il LATO (segmento dritto), non l'angolo. Gli angoli
    si formano da soli. cabMoveSeg sposta il segmento `si` della polilinea `fp` in perpendicolare al
@@ -5535,7 +5543,7 @@ function cablingMarkup(){
   if(showRet){ s+='<g class="cab-retlayer" style="opacity:'+retOp+'">';
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts);
+      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, cabStyleOut());
       var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(editRet) ri+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
@@ -5701,7 +5709,7 @@ function elecMarkup(){
   R.feeds.forEach(function(f){
     var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
     var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex);
-    var fi='<path class="elec-feed" d="'+orthPathD(dpts)+'"/>';
+    var fi='<path class="elec-feed" d="'+cabDrawD([[f.x1,f.y1],[f.x2,f.y2]], dpts, elecStyle())+'"/>';
     if(LBLE && sl){ var mid=cabMidpoint(orthExpand(dpts));
       fi+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
     s+='<g class="cabgrp" data-own="'+esc(f.distro&&f.distro.it&&f.distro.it.id||'')+'">'+fi+'</g>';
@@ -5709,7 +5717,7 @@ function elecMarkup(){
   /* tier 2: uplink ciabatta → quadro (disegnati dall'utente, selezionabili come le linee) */
   (R.uplinks||[]).forEach(function(u){
     var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
-    var dpts=cabRoutePts(u.pts, OBS, ex), d=orthPathD(dpts);
+    var dpts=cabRoutePts(u.pts, OBS, ex), d=cabDrawD(u.pts, dpts, elecStyle());
     var ui='<path class="elec-feed'+(selElec===u.key?' sel':'')+'" d="'+d+'"/>';
     if(editE) ui+='<path class="elec-hit" data-el="'+esc(u.key)+'" d="'+d+'"/>';
     if(LBLE || selElec===u.key){ var midU=cabMidpoint(orthExpand(dpts));
@@ -5718,7 +5726,7 @@ function elecMarkup(){
   });
   R.loadLinks.forEach(function(l){
     var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
-    var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
+    var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, elecStyle());
     var li='<path class="elec-line'+(l.cee?' elec-cee':'')+(selElec===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editE) li+='<path class="elec-hit" data-el="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLE || selElec===l.key){ var mid=cabMidpoint(orthExpand(dpts));
@@ -5769,7 +5777,7 @@ function monDigMarkup(){
   var OBS=obstacleRects();
   R.links.forEach(function(l){
     var ex={}; if(l.from) ex[l.from.id]=1; if(l.to) ex[l.to.id]=1;
-    var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
+    var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, mondStyle());
     var li='<path class="mond-line'+(selMond===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editM) li+='<path class="mond-hit" data-mond="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLM || selMond===l.key){ var mid=cabMidpoint(orthExpand(dpts));
@@ -11459,12 +11467,12 @@ function layerRegistry(){
       setLocked:function(v){ if(state.mond) state.mond.locked=v; if(v) selMond=null; save(); render(); },
       removable:true, removeLabel:"Azzera percorsi P.M.", remove:function(){ if(state.mond) state.mond.manual={}; selMond=null; __mondRes=null; save(); render(); } },
     /* Elettrico (motore proprio) e Planimetria (sfondo). */
-    { id:"elec", name:"Power", color:LAYER_COLORS.elettrico,
+    { id:"elec", name:"Corrente", color:LAYER_COLORS.elettrico,
       active:true, engineOn:!!state.elec.on,   /* D-L1A: core sempre in lista, clic attiva */
       activate:function(){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); },
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
-      removable:true, removeLabel:"Azzera Power", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+      removable:true, removeLabel:"Azzera corrente", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico. */
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
@@ -11570,7 +11578,7 @@ function layerFgItem(id, it){
   switch(id){
     /* Layer v3: ogni layer tecnico = cavi + trasduttori/dispositivi collegati (Simone) */
     case "cabin": case "net": return !!(isAudioSource(it) || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || RF_TX[it.type]);   /* Ingressi: sorgenti + box + console + catena RF */
-    case "cabout": return !!(OUT_SET[it.type]!=null || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="iemant");   /* Output: monitor + box + console + rack TX in-ear */
+    case "cabout": return !!((OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]) || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="iemant");   /* Output: monitor analogici + box + console + rack TX in-ear. I personal mixer (MON_DIG_NODE) NO: sono digitali → layer P.M. */
     case "mond":   return !!MON_DIG_NODE[it.type];
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
@@ -11670,14 +11678,19 @@ function renderLayerRow(L, container){
       op.addEventListener("change", function(){ save(); render(); });
       op.addEventListener("click", function(e){ e.stopPropagation(); });
       ow.appendChild(op); strip.appendChild(ow); body.appendChild(strip); }
-    /* Layer v2: il cablaggio si collega DA SOLO (auto-connect in addItem) — il bottone "Collega
-       automaticamente" non serve più. Qui resta il selettore dello stile grafico dei cavi. */
-    if(L.id==="cabin" && state.cab.on){
+    /* Il cablaggio si collega DA SOLO (auto-connect in addItem). Qui, per OGNI layer di cablaggio,
+       il selettore dello stile grafico dei cavi (indipendente per layer, Simone 21/07). */
+    var styleGetSet=null;
+    if(L.id==="cabin"  && state.cab.on) styleGetSet=[cabStyle,    function(v){ state.cab.style=v; }];
+    else if(L.id==="cabout" && state.cab.on) styleGetSet=[cabStyleOut, function(v){ state.cab.styleOut=v; }];
+    else if(L.id==="mond"  && state.mond && state.mond.on) styleGetSet=[mondStyle, function(v){ state.mond.style=v; }];
+    else if(L.id==="elec"  && state.elec.on) styleGetSet=[elecStyle, function(v){ state.elec.style=v; }];
+    if(styleGetSet){ var _get=styleGetSet[0], _set=styleGetSet[1];
       var sw=document.createElement("div"); sw.className="layer-adv layer-cabstyle";
       [["orto","Angoli retti"],["curve","Smussati"],["dir","Diretto"]].forEach(function(sd){
-        var sb=document.createElement("button"); sb.type="button"; sb.className="adv-btn"+(cabStyle()===sd[0]?" on":""); sb.textContent=sd[1];
-        sb.title="Stile grafico dei cavi";
-        sb.addEventListener("click", function(){ state.cab.style=sd[0]; save(); render(); });
+        var sb=document.createElement("button"); sb.type="button"; sb.className="adv-btn"+(_get()===sd[0]?" on":""); sb.textContent=sd[1];
+        sb.title="Stile grafico dei cavi di questo layer";
+        sb.addEventListener("click", function(){ _set(sd[0]); save(); render(); });
         sw.appendChild(sb); });
       body.appendChild(sw);
     }
@@ -12821,7 +12834,7 @@ function autoOutputs(){
   if(state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   state.items.forEach(function(it){
-    if(OUT_SET[it.type]!=null){
+    if(OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]){   /* i personal mixer non generano un canale di uscita analogico: viaggiano in digitale (layer P.M.) */
       var r=outch(it.label || TYPES[it.type].nome, OUT_SET[it.type], "stage");
       r.linked_item_id=it.id; rows.push(r);
     }

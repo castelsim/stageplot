@@ -2115,7 +2115,7 @@ t("decisione 4A: elementDept mappa gli elementi al reparto tecnico", () => {
   eq(A.elementDept(add("testamobile", 240, 100)), "power", "carico (testa mobile) → power");
   eq(A.elementDept(add("sedia", 260, 100)), null, "sedia → nessun reparto");
   eq(A.elementDept(add("pedana", 280, 100)), null, "pedana → nessun reparto");
-  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Power", "nomi reparto");
+  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Corrente", "nomi reparto (power in italiano)");
 });
 
 t("layer Output: iemant (rack TX in-ear) fa parte della catena", () => {
@@ -2320,6 +2320,29 @@ t("layer tecnici: punti sezione + legenda + distribuzione omogenea tra box", () 
   const R = A.cabResult(true);
   const perBox = {}; R.links.forEach(l => { if (l.box) perBox[l.box.id] = (perBox[l.box.id] || 0) + 1; });
   ok((perBox.bA || 0) >= 1 && (perBox.bB || 0) >= 1, "collegamenti spartiti tra le box (" + JSON.stringify(perBox) + ")");
+});
+
+t("P.M. NON è nel layer Output (personal mixer digitali) + stili cavo per-layer", () => {
+  reset();
+  const hb = add("hearback", 300, 300);   // personal mixer
+  const wd = add("wedge", 400, 300);       // monitor analogico
+  const hub = add("mixhub", 500, 300);
+  eq(A.layerFgItem("cabout", hb), false, "personal mixer NON in Output");
+  eq(A.layerFgItem("cabout", wd), true, "wedge (monitor analogico) in Output");
+  eq(A.layerFgItem("mond", hb), true, "personal mixer nel layer P.M.");
+  eq(A.layerFgItem("mond", hub), true, "hub nel layer P.M.");
+  // stili indipendenti per layer
+  A.state.cab.style = "orto"; A.state.cab.styleOut = "curve"; A.state.mond.style = "dir"; A.state.elec.style = "curve";
+  eq(A.cabStyle(), "orto", "Ingressi: orto");
+  eq(A.cabStyleOut(), "curve", "Output: curve");
+  eq(A.mondStyle(), "dir", "P.M.: dir");
+  eq(A.elecStyle(), "curve", "Corrente: curve");
+  // normalize preserva/sanifica
+  A.state.cab.styleOut = "loom"; A.state.mond.style = "spazzatura"; A.state.elec.style = "dir";
+  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.cab.styleOut, "orto", "styleOut loom → orto");
+  eq(A.state.mond.style, "orto", "mond style non valido → orto");
+  eq(A.state.elec.style, "dir", "elec style valido preservato");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
