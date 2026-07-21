@@ -2142,9 +2142,13 @@ t("D-L1A: layer core Cablaggio audio e Power sempre in lista, con stato motore",
 
 t("D-L2A: cabConnectAll materializza la proposta (solo box reali, manuali intatti)", () => {
   reset();
-  const mic = add("astamic", 200, 200), wedge = add("wedge", 300, 300);
-  add("stagebox", 400, 200);
-  A.state.cab.on = true; A.__cabRes = null;
+  // stato costruito SENZA addItem (= progetto caricato: l'auto-connect non scatta sui load)
+  A.state.items = [
+    { id: "m1", type: "astamic", x: 200, y: 200, rot: 0, w: 30, d: 30, label: "Mic 1" },
+    { id: "w1", type: "wedge", x: 300, y: 300, rot: 0, w: 50, d: 40, label: "Mon 1" },
+    { id: "b1", type: "stagebox", x: 400, y: 200, rot: 0, w: 60, d: 40, label: "SB" }
+  ];
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.__cabRes = null;
   let R = A.cabResult(true);
   ok(R.pending.length >= 1, "in manuale l'ingresso è pending (" + R.pending.length + ")");
   ok(R.mixes.some(m => m.pending), "il mix monitor è pending");
@@ -2157,6 +2161,72 @@ t("D-L2A: cabConnectAll materializza la proposta (solo box reali, manuali intatt
   ok(R.links.some(l => l.box && !l.box.auto), "il cavo va su una box REALE");
   // idempotente: secondo giro non tocca nulla
   eq(A.cabConnectAll(), 0, "secondo giro: niente da collegare");
+});
+
+t("Layer v2: occhi a famiglie indipendenti (Palco non ingloba i Musicisti)", () => {
+  reset();
+  add("vlnpost", 300, 300);      // musicista
+  add("wedge", 500, 300);        // attrezzatura (famiglia Palco)
+  A.layerSoloUI = {}; A.layerAccOpen = null;
+  A.stageLayerUI.vis = true; A.musLayerUI.vis = true;
+  let mk = A.sceneMarkup();
+  ok(mk.indexOf('class="st-item"') >= 0 && mk.indexOf('class="mus-item"') >= 0, "wrapper per famiglia presenti");
+  ok(!/st-item" display="none"/.test(mk) && !/mus-item" display="none"/.test(mk), "tutti visibili con occhi accesi");
+  // bug 2 (storico): Palco spento + Musicisti acceso → i musicisti DEVONO vedersi
+  A.stageLayerUI.vis = false;
+  mk = A.sceneMarkup();
+  ok(/st-item" display="none"/.test(mk), "famiglia Palco nascosta");
+  ok(!/mus-item" display="none"/.test(mk), "musicisti VISIBILI col Palco spento (bug 2 risolto)");
+  // bug 1 (storico): Musicisti spento + Palco acceso → attrezzatura visibile, musicisti no
+  A.stageLayerUI.vis = true; A.musLayerUI.vis = false;
+  mk = A.sceneMarkup();
+  ok(!/st-item" display="none"/.test(mk), "famiglia Palco visibile");
+  ok(/mus-item" display="none"/.test(mk), "solo i musicisti nascosti");
+  // fuoco Palco = famiglia Palco a fuoco, musicisti sfumati
+  A.musLayerUI.vis = true;
+  const v = A.state.items.find(x => x.type === "vlnpost"), w = A.state.items.find(x => x.type === "wedge");
+  eq(A.layerFgItem("stage", w), true, "wedge = famiglia Palco");
+  eq(A.layerFgItem("stage", v), false, "violinista NON è famiglia Palco");
+  A.layerSoloUI = { stage: true };
+  ok(A.itemInSoloLayer(w) && !A.itemInSoloLayer(v), "solo Palco: attrezzatura a fuoco, musicisti sfumati");
+  A.layerSoloUI = {};
+  // niente slider opacità nel registro (resta solo la Planimetria)
+  const withOp = A.layerRegistry().filter(L => L.opacity != null).map(L => L.id);
+  eq(JSON.stringify(withOp), JSON.stringify(["venue"]), "opacità solo sulla Planimetria");
+});
+
+t("Layer v2: cablaggio automatico su addItem + stile cavi + pallini", () => {
+  reset();
+  A.state.cab.style = "orto";
+  // 1) auto-connect: aggiungo sorgente poi stage box → si collega DA SOLO
+  A.addItem("astamic", { x: 200, y: 200 });
+  ok(!A.state.cab.on, "senza box il motore resta spento");
+  A.addItem("stagebox", { x: 400, y: 200 });
+  ok(A.state.cab.on, "con la box il motore si accende da solo");
+  let R = A.cabResult(true);
+  eq(R.pending.length, 0, "l'ingresso si è collegato da solo");
+  ok(R.links.some(l => l.box && !l.box.auto), "cavo su box reale");
+  // anche una sorgente aggiunta DOPO si collega
+  A.addItem("astamic", { x: 250, y: 250 });
+  R = A.cabResult(true);
+  eq(R.pending.length, 0, "anche la sorgente aggiunta dopo si collega da sola");
+  // 2) stile cavi: orto = solo L, curve = Q (angoli arrotondati), percorso identico
+  const pts = [[0, 0], [100, 0], [100, 80]];
+  ok(A.cabPathD(pts).indexOf("Q") < 0, "orto: nessuna curva");
+  A.state.cab.style = "curve";
+  ok(A.cabPathD(pts).indexOf("Q") >= 0, "curve: angoli arrotondati (Q)");
+  // 3) loom: canale leggibile alla partenza + pallini sorgente sempre presenti
+  A.state.cab.style = "loom";
+  const mk = A.cablingMarkup();
+  ok(mk.indexOf("cab-startlbl") >= 0, "stile fascio: etichetta canale alla partenza");
+  ok(mk.indexOf("cab-srcdot") >= 0, "pallino sorgente sempre visibile");
+  // 4) normalizeState sanifica lo stile
+  A.state.cab.style = "spazzatura";
+  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.cab.style, "orto", "stile non valido → orto");
+  A.state.cab.style = "curve";
+  const ns2 = A.normalizeState(A.state); if (ns2) A.state = ns2;
+  eq(A.state.cab.style, "curve", "stile valido preservato");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

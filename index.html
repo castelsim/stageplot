@@ -696,6 +696,13 @@
   .cab-home rect{fill:#0f766e;stroke:#0a5952;stroke-width:1.5}
   .cab-home text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
   .cab-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
+  /* Layer v2: pallino sorgente sempre visibile (evidente, al centro) + capo monitor + canale alla partenza */
+  .cab-srcdot{fill:#0d9488;stroke:#fff;stroke-width:2;pointer-events:none}
+  .cab-srcdot-pend{fill:#fff;stroke:#0d9488;stroke-width:2;stroke-dasharray:3 2.2}
+  .cab-mondot{fill:#0891b2;stroke:#fff;stroke-width:1.8;pointer-events:none}
+  .cab-startlbl{font-size:10px}
+  body.dark .cab-srcdot{stroke:#0e1214}
+  body.dark .cab-mondot{stroke:#0e1214}
   .cab-hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:none}
   .cab-editable .cab-hit{pointer-events:stroke;cursor:pointer}
   .cab-editable .cab-hit:hover{stroke:rgba(13,148,136,.22)}   /* Fase B: hover evidenzia il cavo (banda teal soffusa, stile Max MSP) */
@@ -749,6 +756,7 @@
   .layer-chev{width:11px;flex:0 0 auto;font-size:9px;color:var(--text-3);text-align:center;transition:transform var(--dur-fast) var(--ease)}
   .layer-row.focus .layer-chev{transform:rotate(90deg);color:var(--accent)}
   .layer-eye{margin-left:auto}
+  .layer-trash:hover{color:var(--danger,#dc2626)}
   .layer-adv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:3px 0 9px 2px}
   .adv-op{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2)}
   .adv-op input[type=range]{width:78px;margin:0}
