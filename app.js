@@ -2313,7 +2313,7 @@ function productionDepts(){
   if(state.cab && state.cab.on && Rc.totIn){
     var nBox=(Rc.boxes||[]).filter(function(b){ return !b.auto; }).length;
     out.push({key:"audio", name:"Audio", color:DEPT_COLORS.audio, plot:true, detail:Rc.totIn+" ingressi"+(nBox?" · "+nBox+" stage box":"")}); }
-  var mons=(state.items||[]).filter(function(x){ return OUT_SET[x.type]!=null && x.type!=="monmix"; }).length;
+  var mons=(state.items||[]).filter(function(x){ return OUT_SET[x.type]!=null && x.type!=="monmix" && !MON_DIG_NODE[x.type]; }).length;   /* i personal mixer sono contati a parte (pms) */
   var pms=(state.items||[]).filter(function(x){ return (typeof pmOf==="function") && pmOf(x); }).length;
   if(state.cab && state.cab.on && (mons||pms))
     out.push({key:"monitor", name:"Monitor", color:DEPT_COLORS.monitor, plot:true, detail:[mons?mons+" monitor":"", pms?pms+" personal monitor":""].filter(Boolean).join(" · ")});
@@ -3381,6 +3381,19 @@ function pmAutoConnect(sysFilter){
   var left=R2.pending.filter(function(m){ var d=pmOf(m); return d && (!sysFilter || pmSysCompatible(d.sys, sysFilter)); }).length;
   return {done:done, left:left, needPsu:needPsu};
 }
+/* fallback SENZA modelli (Layer v3): mixerino → hub più vicino via Cat5. I vincoli di sistema
+   arrivano coi modelli B1 (pmAutoConnect); qui vale il motore storico "mixerini→hub". */
+function pmAutoConnectBasic(){
+  var hubs=state.items.filter(pmIsHub); if(!hubs.length) return 0;
+  var man=(state.mond&&state.mond.manual)||{}; var done=0;
+  state.items.forEach(function(m){ if(m.type!=="hearback" || pmOf(m)) return;   /* col modello ci pensa pmAutoConnect */
+    var ov=man[m.id]; if(ov && (ov.to||ov.deleted)) return;
+    var best=null,bd=Infinity; hubs.forEach(function(h){ var d2=(h.x-m.x)*(h.x-m.x)+(h.y-m.y)*(h.y-m.y); if(d2<bd){ bd=d2; best=h; } });
+    if(best){ mondManual(m.id).to=best.id; done++; }
+  });
+  if(done){ if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; } __mondRes=null; save(); }
+  return done;
+}
 /* hub di default per sistema → creato al baricentro dei mixerini scoperti di quel sistema */
 var PM_DEFAULT_HUB={ ultranet:"p16d", anet16:"d400", anetpro16e:"d800", hearbus:"octohub", hearbuspro:"prohub",
   me:"meu", aes50pm:"hub4", livemix:"mix32" };   /* klang = rete Dante/switch PoE, nessun hub PM dedicato */
@@ -3733,7 +3746,7 @@ function audioCablingEngine(){
   /* ── MONITOR / OUTPUT: mix per etichetta → uscita su box vicina → cavi di ritorno ── */
   var sinks=state.items.map(function(it,idx){ return {it:it,idx:idx}; })
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type))||(a.idx-b.idx); })
-    .filter(function(o){ return OUT_SET[o.it.type]!=null && o.it.type!=="monmix"; }).map(function(o){ return o.it; });
+    .filter(function(o){ return OUT_SET[o.it.type]!=null && o.it.type!=="monmix" && !MON_DIG_NODE[o.it.type]; }).map(function(o){ return o.it; });   /* i personal mixer NON sono sink analogici: vanno via Cat5 all'hub (motore mond) */
   var mixMap={}, mixes=[];
   sinks.forEach(function(it){ var lbl=(it.label||"").trim(), key=lbl?("L:"+lbl.toUpperCase()):("I:"+it.id);
     if(!mixMap[key]){ mixMap[key]={name:lbl, sinks:[], stereo:false, key:key}; mixes.push(mixMap[key]); }
@@ -4866,7 +4879,7 @@ function portDefs(it){
     else tip+=" → trascina su una stage box";
     out.push({kind:"audio", color:LAYER_COLORS.audioIn, tip:tip});
   }
-  if(OUT_SET[it.type]!=null && it.type!=="monmix") out.push({kind:"mon", color:LAYER_COLORS.monitor, tip:"Monitor · ritorno dalla stage box"});
+  if(OUT_SET[it.type]!=null && it.type!=="monmix" && !MON_DIG_NODE[it.type]) out.push({kind:"mon", color:LAYER_COLORS.monitor, tip:"Monitor · ritorno dalla stage box"});   /* i mixerini si collegano SOLO in digitale (porta dig → hub) */
   if(wattOf(it)>0) out.push({kind:"pow", color:LAYER_COLORS.elettrico, tip:"Alimentazione · "+elecKW(wattOf(it))+" → trascina su un distro"});
   if(MON_DIG_NODE[it.type]){   /* B3/B3+: porte per-modello — IN e THRU separati sui mixer daisy */
     var pmD=pmOf(it), pmTip="Monitor personali · trascina su hub o altro mixerino";
@@ -6900,7 +6913,13 @@ function addItem(type, over){
      interattivi: i progetti caricati non vengono toccati. Le correzioni manuali e i cavi eliminati
      dall'utente restano tali (cabConnectAll salta box già assegnate e chiavi deleted). */
   try{
-    if((cabIsBox(it) || cabItemInputs(it).length || (OUT_SET[it.type]!=null && it.type!=="monmix")) && state.items.some(cabIsBox)) cabConnectAll();
+    if((cabIsBox(it) || cabItemInputs(it).length || (OUT_SET[it.type]!=null && it.type!=="monmix" && !MON_DIG_NODE[it.type])) && state.items.some(cabIsBox)) cabConnectAll();
+  }catch(_e){}
+  /* P.M.: connessione DIGITALE automatica — il mixerino si aggancia via Cat5 all'hub appena esiste
+     (coi modelli B1 decide pmAutoConnect con vincoli di sistema/porte; senza modello, fallback base
+     = hub più vicino, come il motore storico). Aggiungendo un hub si agganciano i pendenti. */
+  try{
+    if(MON_DIG_NODE[type]){ var _n=((pmAutoConnect()||{}).done||0)+pmAutoConnectBasic(); if(_n) render(); }
   }catch(_e){}
   if(MON_DIG_NODE[type] && typeof renderLayerManager==="function") renderLayerManager();   /* aggiorna il toggle del layer P.M. */
   closeMobileDrawers();   /* su mobile: chiudi il catalogo per vedere il palco */
@@ -10042,24 +10061,35 @@ function renderLayerRow(L, container){
   row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
   row.title=focus?"Clicca per mostrare tutti i layer":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
   row.addEventListener("click", function(e){
-    if(e.target.closest(".layer-ico")) return;   /* occhio/lucchetto/cestino inline: non cambiano il fuoco */
+    if(e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
     else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; }
     render();
   });
-  /* Layer v2 (21/07): occhio + lucchetto + cestino SEMPRE inline di fianco al nome (scelta Simone).
-     Lo slider opacità è sparito ovunque tranne la Planimetria (unico caso in cui serve: la
-     trasparenza dell'immagine di sfondo) — vive nel corpo del fuoco. */
+  /* Controlli SEMPRE inline (scelta Simone) su GRIGLIA A SLOT FISSI [S][occhio][lucchetto][cestino]:
+     i bottoni uguali stanno in colonne verticali allineate tra le righe (slot vuoto dove il layer
+     non ha quel controllo). Lo slider opacità vive solo sulla Planimetria, nel corpo del fuoco. */
+  var slots=document.createElement("div"); slots.className="layer-slots";
+  function slot(el){ var sp=document.createElement("span"); sp.className="layer-slot"; if(el) sp.appendChild(el); slots.appendChild(sp); }
+  /* S = solo ESCLUSIVO puro (come il solo exclusive di una console): evidenzia il layer senza
+     aprire la lista. Ri-clic = mostra tutti. Il clic sulla riga resta il fuoco (solo + lista). */
+  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+(soloOn(L.id)?" on":""); sb.textContent="S"; sb.title=soloOn(L.id)?"Togli il solo":"Solo: metti in evidenza solo questo layer";
+  sb.addEventListener("click", function(e){ e.stopPropagation();
+    if(soloOn(L.id)) layerSoloUI={}; else { layerSoloUI={}; layerSoloUI[L.id]=true; }
+    render(); });
+  slot(sb);
   var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questo layer":"Mostra questo layer"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
     if(L.visible && layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
-    L.setVisible(!L.visible); }); row.appendChild(eye);
+    L.setVisible(!L.visible); });
+  slot(eye);
   if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
-    lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); row.appendChild(lk); }
+    lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); slot(lk); } else slot(null);
   if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title=L.removeLabel||"Rimuovi"; tr.innerHTML=_LM_TRASH;
-    tr.addEventListener("click", function(e){ e.stopPropagation(); L.remove(); }); row.appendChild(tr); }
+    tr.addEventListener("click", function(e){ e.stopPropagation(); L.remove(); }); slot(tr); } else slot(null);
+  row.appendChild(slots);
   container.appendChild(row);
   if(focus){
     var body=document.createElement("div"); body.className="layer-accbody";

@@ -358,6 +358,7 @@ t("catena m2->m1->hub: 2 tratte, 0 pending, nessun errore", () => {
 });
 t("mixerino senza .to = pending", () => {
   reset(); add("hearback", 200, 400); add("mixhub", 500, 200);
+  A.state.mond.manual = {}; A.__mondRes = null;   /* l'aggancio automatico di addItem lo aveva già collegato */
   eq(A.monDigEngine().pending.length, 1);
 });
 t("loop A<->B = issue di livello err", () => {
@@ -604,6 +605,7 @@ t("B2 pmLinkCheck: blocca protocolli misti, serie vietata, hub pieno; ok sui val
   for (let i = 0; i < 8; i++) { const mx = add("hearback", 100 + i * 50, 500); mx.pm = "p16m"; A.state.mond.manual[mx.id] = { to: h.id }; }
   A.__mondRes = null;
   const m9 = add("hearback", 700, 500); m9.pm = "p16m";
+  delete A.state.mond.manual[m9.id]; A.__mondRes = null;   /* l'auto-aggancio l'aveva messo in catena: qui testiamo il drop sull'hub pieno */
   ok(A.pmLinkCheck(m9, h) !== null, "nono mixer su hub da 8 va bloccato");
   // ma la RICONNESSIONE di uno già collegato allo stesso hub resta valida
   const first = A.state.items.filter((x) => A.state.mond.manual[x.id] && A.state.mond.manual[x.id].to === h.id)[0];
@@ -637,6 +639,7 @@ t("B3 pmAutoConnect: stella fin dove c'è posto, poi catena per chi la supporta"
   const h = add("mixhub", 900, 300); h.pm = "p16d";
   const ms = [];
   for (let i = 0; i < 9; i++) { const m = add("hearback", 100 + i * 60, 300); m.pm = "p16m"; ms.push(m); }
+  A.state.mond.manual = {}; A.__mondRes = null;   /* l'hook di addItem ha già agganciato coi modelli default: riparti pulito per testare la chiamata esplicita */
   const r = A.pmAutoConnect("ultranet");
   eq(r.done, 9, "tutti collegati"); eq(r.left, 0); eq(r.needPsu, 1, "il nono in catena → 1 PSU");
   const R = A.monDigEngine();
@@ -647,6 +650,7 @@ t("B3 pmAutoConnect hub-only (OCTO): stella fino a 8, gli altri restano liberi (
   reset(); A.state.mond.on = true; A.state.mond.manual = {};
   const h = add("mixhub", 900, 300); h.pm = "octohub";
   for (let i = 0; i < 10; i++) { const m = add("hearback", 100 + i * 50, 300); m.pm = "hbocto"; }
+  A.state.mond.manual = {}; A.__mondRes = null;   /* idem: l'hook di addItem aggancia già in automatico */
   const r = A.pmAutoConnect("hearbus");
   eq(r.done, 8, "solo 8 collegati"); eq(r.left, 2, "2 senza posto"); eq(r.needPsu, 0, "nessuna catena OCTO");
 });
@@ -2243,6 +2247,20 @@ t("Layer v2: cablaggio automatico su addItem + stile cavi + pallini", () => {
   A.state.cab.style = "curve";
   const ns2 = A.normalizeState(A.state); if (ns2) A.state = ns2;
   eq(A.state.cab.style, "curve", "stile valido preservato");
+});
+
+t("P.M.: connessione DIGITALE automatica all'hub, MAI ritorno analogico dalla box", () => {
+  reset();
+  add("stagebox", 500, 200);
+  A.state.cab.on = true;
+  const h = add("mixhub", 700, 300);       // hub (anche senza modello: pmIsHub)
+  const m = add("hearback", 300, 300);     // mixerino → si aggancia da solo via Cat5
+  const Rm = A.monDigEngine();
+  ok((Rm.links || []).some(l => l.from.id === m.id && (l.to.id === h.id || l.toIsHub)), "mixerino → hub via Cat5 (automatico)");
+  const Rc = A.cabResult(true);
+  ok(!(Rc.mixes || []).some(mx => (mx.sinks || []).some(sk => sk.id === m.id || sk.id === h.id)), "nessun mix ANALOGICO per i nodi digitali");
+  ok(!(Rc.returnLinks || []).some(l => l.sink && (l.sink.id === m.id || l.sink.id === h.id)), "nessun ritorno analogico verso mixerino/hub");
+  ok(!A.portDefs(m).some(p => p.kind === "mon"), "mixerino senza porta 'mon' (si collega solo in digitale)");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
