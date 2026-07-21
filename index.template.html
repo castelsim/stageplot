@@ -3794,13 +3794,13 @@ function productionDepts(){
   if(netN) out.push({key:"rete", name:"Rete / Dante", color:DEPT_COLORS.rete, plot:true, detail:netN+" tratt"+(netN===1?"a":"e")});
   var Re=(typeof elecResult==="function")?elecResult(true):{loads:[],distros:[]};
   if(state.elec && state.elec.on && (Re.loads||[]).length)
-    out.push({key:"power", name:"Corrente", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
+    out.push({key:"power", name:"Power", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
   ((state.production&&state.production.depts)||[]).forEach(function(d){
     out.push({key:d.id, name:d.name, color:"#746e60", plot:false, extra:true, detail:""}); });
   return out;
 }
 /* Decisione 4A: a quale reparto TECNICO appartiene un elemento (per l'eredità del responsabile). */
-var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Corrente" };
+var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Power" };
 function elementDept(it){
   if(!it||!it.type) return null;
   if(it.type==="rxrf"||it.type==="rfant"||it.type==="rfsplit"||(typeof RF_TX!=="undefined"&&RF_TX[it.type])) return "rf";
@@ -4877,10 +4877,17 @@ function elecConnectAll(){
 function pmAutoConnectBasic(){
   var hubs=state.items.filter(pmIsHub); if(!hubs.length) return 0;
   var man=(state.mond&&state.mond.manual)||{}; var done=0;
+  /* CAPIENZA: ogni hub porta un max di mixerini (porte del modello, 8 per il generico). Conta gli
+     agganci diretti-a-hub già presenti, poi riempi solo dove c'è posto; gli eccedenti restano
+     pendenti (li prenderà un secondo hub). Simone 21/07: "ogni hub max un tot di P.M.". */
+  var load={}; hubs.forEach(function(h){ load[h.id]=0; });
+  state.items.forEach(function(x){ var ov=man[x.id]; if(ov && ov.to && !ov.deleted && load[ov.to]!=null) load[ov.to]++; });
   state.items.forEach(function(m){ if(m.type!=="hearback" || pmOf(m)) return;   /* col modello ci pensa pmAutoConnect */
     var ov=man[m.id]; if(ov && (ov.to||ov.deleted)) return;
-    var best=null,bd=Infinity; hubs.forEach(function(h){ var d2=(h.x-m.x)*(h.x-m.x)+(h.y-m.y)*(h.y-m.y); if(d2<bd){ bd=d2; best=h; } });
-    if(best){ var mmB=mondManual(m.id); mmB.to=best.id; mmB.auto=1; done++; }
+    var best=null,bd=Infinity;
+    hubs.forEach(function(h){ var d=pmOf(h), cap=(d&&d.ports)||8; if((load[h.id]||0)>=cap) return;   /* hub pieno: salta */
+      var d2=(h.x-m.x)*(h.x-m.x)+(h.y-m.y)*(h.y-m.y); if(d2<bd){ bd=d2; best=h; } });
+    if(best){ var mmB=mondManual(m.id); mmB.to=best.id; mmB.auto=1; load[best.id]++; done++; }
   });
   if(done){ if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; } __mondRes=null; save(); }
   return done;
@@ -11435,7 +11442,7 @@ function layerRegistry(){
     /* Layer v3 (21/07, Simone): Ingressi / Output / P.M. = TRE layer separati, ognuno = cavi +
        trasduttori/dispositivi collegati. Riusano gli id storici cabin/cabout/mond (pagine PDF già
        allineate). Il vecchio layer unico "cabaudio" non esiste più. */
-    { id:"cabin", name:"Ingressi", color:LAYER_COLORS.audioIn,
+    { id:"cabin", name:"Input", color:LAYER_COLORS.audioIn,
       active:true,
       engineOn:!!state.cab.on || state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
       activate:function(){ cabActivateFlow(); },   /* prima attivazione: motore ON + wizard stage box se servono */
@@ -11443,7 +11450,7 @@ function layerRegistry(){
       setVisible:function(v){ state.cab.showInputs=v; state.cab.showNet=v; state.rfShow=v; save(); render(); },   /* l'occhio Ingressi governa anche rete e RF (infrastruttura d'ingresso) */
       lockable:true, locked:!!state.cab.lockIn,
       setLocked:function(v){ state.cab.lockIn=v; if(v) selCab=null; save(); render(); },
-      removable:true, removeLabel:"Azzera percorsi ingressi", remove:function(){ var man=state.cab.manual||{};
+      removable:true, removeLabel:"Azzera percorsi Input", remove:function(){ var man=state.cab.manual||{};
         Object.keys(man).forEach(function(k){ if(String(k).indexOf("mix:")!==0 && String(k).indexOf("ret:")!==0) delete man[k]; });
         selCab=null; __cabRes=null; save(); render(); } },
     { id:"cabout", name:"Output", color:LAYER_COLORS.monitor,
@@ -11467,12 +11474,12 @@ function layerRegistry(){
       setLocked:function(v){ if(state.mond) state.mond.locked=v; if(v) selMond=null; save(); render(); },
       removable:true, removeLabel:"Azzera percorsi P.M.", remove:function(){ if(state.mond) state.mond.manual={}; selMond=null; __mondRes=null; save(); render(); } },
     /* Elettrico (motore proprio) e Planimetria (sfondo). */
-    { id:"elec", name:"Corrente", color:LAYER_COLORS.elettrico,
+    { id:"elec", name:"Power", color:LAYER_COLORS.elettrico,
       active:true, engineOn:!!state.elec.on,   /* D-L1A: core sempre in lista, clic attiva */
       activate:function(){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); },
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
-      removable:true, removeLabel:"Azzera corrente", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+      removable:true, removeLabel:"Azzera Power", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico. */
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
