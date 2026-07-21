@@ -2362,5 +2362,34 @@ t("P.M.: un hub generico regge max 8 mixerini (capienza rispettata dall'auto-con
   ok(((R.hubLoad || {})[hub2.id] || 0) >= 2, "il secondo hub prende gli eccedenti");
 });
 
+t("vista cablaggio: cavi solo col layer selezionato; Power = carichi a pallini", () => {
+  reset();
+  add("astamic", 300, 300);
+  add("stagebox", 600, 400);
+  add("comboamp", 200, 300);      // carico (ampli)
+  add("distro32", 250, 480);
+  A.state.cab.on = true; A.state.elec.on = true; A.__cabRes = null; A.__elecRes = null;
+  A.__cabStatic = false;   // nel sandbox window.__cabStatic è uno stub truthy: nel browser è falsy (export PDF a parte)
+  // niente selezionato → nessun cavo
+  A.layerSoloUI = {}; A.layerAccOpen = null;
+  let mk = A.cablingMarkup();
+  ok(mk.indexOf("cab-line") < 0, "nessun cavo Input senza layer selezionato");
+  eq(A.elecMarkup(), "", "nessun cavo Power senza layer selezionato");
+  // solo Input → cavi + pallino box
+  A.layerSoloUI = { cabin: true };
+  mk = A.cablingMarkup();
+  ok(mk.indexOf("cab-line") >= 0, "cavi Input col layer selezionato");
+  ok(mk.indexOf("cab-boxdot") >= 0, "pallino al centro della stage box");
+  // solo Power → carichi come pallini sezione + legenda
+  A.layerSoloUI = { elec: true };
+  const amp = A.state.items.find(x => x.type === "comboamp");
+  eq(A.techDotItem(amp, "elec"), true, "l'ampli (carico) diventa un pallino in Power");
+  eq(A.techDotItem(A.state.items.find(x => x.type === "distro32"), "elec"), false, "il distro resta un dispositivo, non un pallino");
+  const scene = A.sceneMarkup();
+  ok(scene.indexOf("secdot") >= 0, "pallini nel layer Power");
+  ok(A.sectionLegendMarkup().length > 0, "legenda Power");
+  A.layerSoloUI = {};
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
