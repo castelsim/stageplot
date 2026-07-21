@@ -2263,5 +2263,22 @@ t("P.M.: connessione DIGITALE automatica all'hub, MAI ritorno analogico dalla bo
   ok(!A.portDefs(m).some(p => p.kind === "mon"), "mixerino senza porta 'mon' (si collega solo in digitale)");
 });
 
+t("solo: S = isolamento (resto NASCOSTO), fuoco = fade 15%", () => {
+  reset();
+  add("vlnpost", 300, 300);   // musicista (nel solo Musicisti)
+  add("sedia", 500, 300);     // contesto
+  A.layerSoloUI = { mus: true }; A.layerSoloMode = "focus";
+  let mk = A.sceneMarkup();
+  ok(mk.indexOf("solo-bg") >= 0, "fuoco: il contesto c'è, sfumato");
+  const nFocus = (mk.match(/class="item[ "]/g) || []).length;
+  A.layerSoloMode = "iso";
+  mk = A.sceneMarkup();
+  ok(mk.indexOf("solo-bg") < 0, "S: nessun contesto sfumato");
+  const nIso = (mk.match(/class="item[ "]/g) || []).length;
+  ok(nIso < nFocus, "S: il contesto è proprio assente (" + nIso + " < " + nFocus + ")");
+  ok(mk.indexOf("layStage") >= 0, "il perimetro del palco resta (il foglio)");
+  A.layerSoloUI = {}; A.layerSoloMode = "focus";
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

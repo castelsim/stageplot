@@ -4978,9 +4978,10 @@ function sceneMarkup(){
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
     else m='<g class="st-item"'+showAttr+'>'+m+'</g>';
-    if(soloSplit && !itemInSoloLayer(it)) bgItems += m; else items += m;
+    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
+    else items += m;
   });
-  if(soloSplit) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
+  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -9973,6 +9974,10 @@ var musLayerUI   = {vis:true, op:100, lock:false};   /* layer Musicisti (17/07):
    in solo (al 100%) + i loro elementi pertinenti; il resto del palco resta sfumato come contesto.
    Runtime, non persistito — come stageLayerUI/micLayerUI. */
 var layerSoloUI = {};
+/* Resa del solo (Simone 21/07): "focus" = tendina/fuoco → resto SFUMATO al 15% (per lavorare col
+   contesto) · "iso" = bottone S → resto NASCOSTO del tutto (per leggere/verificare la catena).
+   S e fuoco si escludono a vicenda. Le pagine PDF restano col fade (resa validata sui rider). */
+var layerSoloMode = "focus";
 function anySolo(){ for(var k in layerSoloUI){ if(layerSoloUI[k]) return true; } return false; }
 function soloOn(id){ return !!layerSoloUI[id]; }
 /* fonte unica di visibilità di un layer nella scena: il solo (se attivo) vince sugli occhi */
@@ -10063,7 +10068,7 @@ function renderLayerRow(L, container){
   row.addEventListener("click", function(e){
     if(e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
-    else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; }
+    else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="focus"; }   /* tendina = fuoco: contesto sfumato */
     render();
   });
   /* Controlli SEMPRE inline (scelta Simone) su GRIGLIA A SLOT FISSI [S][occhio][lucchetto][cestino]:
@@ -10073,16 +10078,17 @@ function renderLayerRow(L, container){
   function slot(el){ var sp=document.createElement("span"); sp.className="layer-slot"; if(el) sp.appendChild(el); slots.appendChild(sp); }
   /* S = solo ESCLUSIVO puro (come il solo exclusive di una console): evidenzia il layer senza
      aprire la lista. Ri-clic = mostra tutti. Il clic sulla riga resta il fuoco (solo + lista). */
-  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+(soloOn(L.id)?" on":""); sb.textContent="S"; sb.title=soloOn(L.id)?"Togli il solo":"Solo: metti in evidenza solo questo layer";
+  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; sb.title=(soloOn(L.id)&&layerSoloMode==="iso")?"Togli il solo":"Solo: SOLTANTO questo layer (il resto sparisce)";
   sb.addEventListener("click", function(e){ e.stopPropagation();
-    if(soloOn(L.id)) layerSoloUI={}; else { layerSoloUI={}; layerSoloUI[L.id]=true; }
+    if(soloOn(L.id) && layerSoloMode==="iso"){ layerSoloUI={}; }
+    else { layerAccOpen=null; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="iso"; }   /* S chiude la tendina: i due solo si escludono */
     render(); });
   slot(sb);
   var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questo layer":"Mostra questo layer"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
-    if(L.visible && layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
+    if(L.visible && (layerAccOpen===L.id || soloOn(L.id))){ layerAccOpen=null; layerSoloUI={}; }
     L.setVisible(!L.visible); });
   slot(eye);
   if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
