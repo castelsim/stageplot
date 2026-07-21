@@ -383,7 +383,7 @@ console.log("\nLayer Manager (nomi/gruppi):");
 t("Layer v3: Ingressi/Output/P.M. separati con occhio/lucchetto/cestino propri", () => {
   reset(); A.state.cab.on = true;
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  ok(by.cabin && by.cabin.name === "Ingressi", "layer Ingressi");
+  ok(by.cabin && by.cabin.name === "Input", "layer Input");
   ok(by.cabout && by.cabout.name === "Output", "layer Output");
   ok(!by.cabaudio, "il layer unico non esiste piu'");
   by.cabin.setVisible(false);
@@ -2115,7 +2115,7 @@ t("decisione 4A: elementDept mappa gli elementi al reparto tecnico", () => {
   eq(A.elementDept(add("testamobile", 240, 100)), "power", "carico (testa mobile) → power");
   eq(A.elementDept(add("sedia", 260, 100)), null, "sedia → nessun reparto");
   eq(A.elementDept(add("pedana", 280, 100)), null, "pedana → nessun reparto");
-  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Corrente", "nomi reparto (power in italiano)");
+  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Power", "nomi reparto");
 });
 
 t("layer Output: iemant (rack TX in-ear) fa parte della catena", () => {
@@ -2137,7 +2137,7 @@ t("Layer v3: Ingressi/Output sempre in lista, P.M. situazionale, stato motore", 
   const reg = A.layerRegistry();
   const cin = reg.find(L => L.id === "cabin"), cout = reg.find(L => L.id === "cabout"), el = reg.find(L => L.id === "elec");
   ok(!reg.some(L => L.id === "cabaudio"), "il layer unico cabaudio non esiste piu'");
-  eq(cin.active, true, "Ingressi in lista anche a motore spento");
+  eq(cin.active, true, "Input in lista anche a motore spento");
   eq(cin.engineOn, false, "motore spento");
   eq(cout.active, true, "Output in lista anche a motore spento");
   eq(el.active, true, "Power in lista");
@@ -2343,6 +2343,23 @@ t("P.M. NON è nel layer Output (personal mixer digitali) + stili cavo per-layer
   eq(A.state.cab.styleOut, "orto", "styleOut loom → orto");
   eq(A.state.mond.style, "orto", "mond style non valido → orto");
   eq(A.state.elec.style, "dir", "elec style valido preservato");
+});
+
+t("P.M.: un hub generico regge max 8 mixerini (capienza rispettata dall'auto-connect)", () => {
+  reset();
+  const hub = add("mixhub", 900, 300);   // hub generico → cap 8
+  for (let i = 0; i < 10; i++) add("hearback", 100 + i * 40, 300);   // 10 mixerini generici
+  // l'hook di addItem ha già auto-connesso: verifica che l'hub NON sia sovraccarico
+  let R = A.monDigEngine();
+  eq((R.hubLoad || {})[hub.id], 8, "l'hub si ferma a 8 (capienza)");
+  eq(R.pending.length, 2, "i 2 eccedenti restano pendenti");
+  ok(!R.issues.some(i => i.lvl === "err" && /porte di/.test(i.msg)), "nessun errore di over-capacità");
+  // un secondo hub raccoglie gli eccedenti
+  A.add ? null : null;
+  const hub2 = add("mixhub", 200, 300);
+  R = A.monDigEngine();
+  eq(R.pending.length, 0, "col secondo hub tutti collegati");
+  ok(((R.hubLoad || {})[hub2.id] || 0) >= 2, "il secondo hub prende gli eccedenti");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
