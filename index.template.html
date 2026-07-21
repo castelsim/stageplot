@@ -4872,6 +4872,15 @@ function elecConnectAll(){
   __elecRes=null; save(); render();
   return done;
 }
+/* "Cablaggio automatico" di un layer (Simone 21/07): (ri)collega ciò che è pendente col motore
+   giusto. Non tocca i collegamenti manuali né gli eliminati (li rispetta cabConnectAll/elecConnectAll).
+   Combinato con "Azzera percorsi" (cestino) dà il ricablaggio ottimale completo. */
+function layerAutoConnect(id){
+  if(id==="cabin"||id==="cabout") return cabConnectAll();
+  if(id==="elec") return elecConnectAll();
+  if(id==="mond"){ var n=((pmAutoConnect()||{}).done||0)+pmAutoConnectBasic(); if(n) render(); return n; }
+  return 0;
+}
 /* fallback SENZA modelli (Layer v3): mixerino → hub più vicino via Cat5. I vincoli di sistema
    arrivano coi modelli B1 (pmAutoConnect); qui vale il motore storico "mixerini→hub". */
 function pmAutoConnectBasic(){
@@ -5460,7 +5469,9 @@ function cabLoomMarkup(polys){
 function cablingMarkup(){
   window.__loomN=0;   /* azzera PRIMA degli early-return: la legenda non deve leggere un conteggio stantio */
   if(!state.cab || !state.cab.on) return '';
-  var showIn=layerShown("cabin"), showRet=layerShown("cabout");   /* occhi del Layer Manager (+ solo) */
+  /* Simone 21/07: senza layer selezionato = plot pulito SENZA cavi. I cavi compaiono solo quando il
+     layer è a fuoco/solo (nel PDF __cabStatic la vista è decisa altrove → invariato). */
+  var showIn=layerShown("cabin") && (window.__cabStatic||soloOn("cabin")), showRet=layerShown("cabout") && (window.__cabStatic||soloOn("cabout"));
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
   var op=soloOn("cabin")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;   /* in solo: piena resa */
@@ -5505,7 +5516,7 @@ function cablingMarkup(){
         li+='<text class="cab-lbl cab-startlbl" x="'+(sp0[0]+13).toFixed(1)+'" y="'+(sp0[1]-10).toFixed(1)+'">'+esc(String(l.label)+(l.bundleN>1?' ×'+l.bundleN:''))+'</text>'; }
       linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>';
     });
-    s+=cabLoomMarkup(loomPolys)+linkS;   /* fascia loom SOTTO i cavi (ordine di pittura SVG) */
+    s+=linkS;   /* fasci/loom rimossi (Simone 21/07): le scie semi-trasparenti disturbavano e non servivano */
     /* Layer v2 (21/07, richiesta Simone): pallino sorgente SEMPRE visibile, evidente, al centro
        dell'elemento — è anche la maniglia di drag verso un'altra box (stessa infra .port-hit).
        Pending (senza box) = pallino "vuoto": si vede subito cosa resta da collegare. */
@@ -5584,6 +5595,8 @@ function cablingMarkup(){
     if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · 8ch</text></g>';
     var bw=hasRet?76:52, bt=hasRet ? (b.letter+' '+b.used+'/'+b.cap+' · '+b.usedOut+'/'+b.outCap) : (b.letter+' — '+b.used+'/'+b.cap);
     s+='<g class="cab-badge"><rect x="'+(b.x-bw/2)+'" y="'+(b.y-(b.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+b.x+'" y="'+(b.y-(b.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
+    /* Simone 21/07: pallino al CENTRO dell'icona stage box — punto di convergenza di tutti i cavi */
+    if(b.used||b.usedOut) s+='<circle class="cab-boxdot" cx="'+b.x.toFixed(1)+'" cy="'+b.y.toFixed(1)+'" r="7.5"/>';
   });
   s+='</g>';
   return s;
@@ -5707,6 +5720,7 @@ var selElec=null;   /* linea elettrica selezionata (key = id del carico) — par
 function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
 function elecMarkup(){
   if(!state.elec || !state.elec.on || !layerShown("elec")) return '';
+  if(!(window.__cabStatic||soloOn("elec"))) return '';   /* cavi power solo col layer selezionato */
   var R=elecResult(); if(!R) return '';
   var op=soloOn("elec")?1:(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
   var editE=!window.__cabStatic && !state.elec.locked;   /* parità Max; niente editing se il layer Elettrico è bloccato (lucchetto) */
@@ -5776,6 +5790,7 @@ function elecMarkup(){
 var selMond=null;   /* cavo monitor digitale selezionato (key = id del mixerino) */
 function monDigMarkup(){
   if(!state.mond || !state.mond.on || !layerShown("mond")) return '';
+  if(!(window.__cabStatic||soloOn("mond"))) return '';   /* cavi P.M. solo col layer selezionato */
   var R=mondResult(); if(!R) return '';
   var op=soloOn("mond")?1:(state.mond.opacity==null?70:state.mond.opacity)/100;
   var editM=!window.__cabStatic;
@@ -6336,6 +6351,7 @@ function netEngine(){
 }
 function netMarkup(){
   if(!state.cab || !state.cab.on || !layerShown("net")) return '';
+  if(!(window.__cabStatic||soloOn("cabin"))) return '';   /* rete = infrastruttura Input: solo col layer Input selezionato */
   var N=netEngine(); if(!N.runs.length) return '';
   var op=soloOn("net")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;
   var LBL=window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
@@ -6440,6 +6456,7 @@ function mzMicHitMarkup(){
 }
 function rfMarkup(){
   if(!layerShown("rf")) return '';
+  if(!(window.__cabStatic||soloOn("cabin"))) return '';   /* RF = infrastruttura Input */
   var C; try{ C=rfChain(); }catch(_e){ return ''; }
   if(!C.links.length && !C.ants.length) return '';
   var op=soloOn("rf")?1:0.85;
@@ -6494,7 +6511,8 @@ function sceneMarkup(){
     if(it.rackId){ var _rk=_racks[it.rackId]; if(_rk){ it.x=_rk.x; it.y=_rk.y; } return; }   /* nel rack: vive col rack, i cavi partono da lì; non disegnato né cliccabile */
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
-    var m=(techSoloOn() && itemInSoloLayer(it) && musLayerItem(it.type)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti → punti sezione */
+    var _dotId=techDotSoloId();
+    var m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
     var showAttr=(anySolo() || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
@@ -11556,6 +11574,13 @@ function sectionColor(name){
   return SECTION_PALETTE[h%SECTION_PALETTE.length];
 }
 function techSoloOn(){ return soloOn("cabin")||soloOn("cabout")||soloOn("mond"); }
+/* elemento che, nel solo/fuoco di un layer di cablaggio, diventa un PUNTO colorato+nominato:
+   audio (cabin/cabout/mond) = i MUSICISTI · power (elec) = i CARICHI (Simone 21/07: Power come Input). */
+function techDotItem(it, id){
+  if(id==="elec") return wattOf(it)>0 && !elecIsDistro(it) && !elecIsGen(it);
+  return musLayerItem(it.type) && layerFgItem(id, it);
+}
+function techDotSoloId(){ return soloOn("cabin")?"cabin" : soloOn("cabout")?"cabout" : soloOn("mond")?"mond" : soloOn("elec")?"elec" : null; }
 function sectionDotMarkup(it){
   var sec=sectionOf(it), col=sectionColor(sec);
   var s='<g class="item secdot" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
@@ -11565,10 +11590,10 @@ function sectionDotMarkup(it){
   return s+'</g>';
 }
 function sectionLegendMarkup(){
-  var id = soloOn("cabin")?"cabin" : soloOn("cabout")?"cabout" : soloOn("mond")?"mond" : null;
+  var id = techDotSoloId();
   if(!id) return '';
   var secs=[], seen={};
-  (state.items||[]).forEach(function(it){ if(!musLayerItem(it.type) || !layerFgItem(id,it)) return;
+  (state.items||[]).forEach(function(it){ if(!techDotItem(it, id)) return;
     var nm=sectionOf(it); if(!seen[nm]){ seen[nm]=1; secs.push(nm); } });
   if(!secs.length) return '';
   var lh=13, pad=6, w=118, h=secs.length*lh+pad*2, x=state.stage.w-6-w, y=state.stage.d-6-h;
@@ -11687,6 +11712,15 @@ function renderLayerRow(L, container){
       ow.appendChild(op); strip.appendChild(ow); body.appendChild(strip); }
     /* Il cablaggio si collega DA SOLO (auto-connect in addItem). Qui, per OGNI layer di cablaggio,
        il selettore dello stile grafico dei cavi (indipendente per layer, Simone 21/07). */
+    /* "⚡ Cablaggio automatico" su ogni layer di cablaggio: (ri)collega i pendenti col motore giusto */
+    var _cablables={cabin:1,cabout:1,mond:1,elec:1};
+    if(_cablables[L.id]){
+      var aw=document.createElement("div"); aw.className="layer-adv layer-autocab";
+      var ab=document.createElement("button"); ab.type="button"; ab.className="adv-btn adv-connect"; ab.innerHTML='⚡ <span>Cablaggio automatico</span>';
+      ab.title="Collega automaticamente gli elementi al dispositivo compatibile più vicino";
+      ab.addEventListener("click", function(){ var n=layerAutoConnect(L.id); showToast(n?("Collegati "+n+" elementi"):"Tutto già collegato", n?undefined:undefined); });
+      aw.appendChild(ab); body.appendChild(aw);
+    }
     var styleGetSet=null;
     if(L.id==="cabin"  && state.cab.on) styleGetSet=[cabStyle,    function(v){ state.cab.style=v; }];
     else if(L.id==="cabout" && state.cab.on) styleGetSet=[cabStyleOut, function(v){ state.cab.styleOut=v; }];
