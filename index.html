@@ -1882,13 +1882,14 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
   <div class="sec" id="stageEditPanel" hidden>
     <div id="stageBlocksSec">
-    <h3 style="margin-bottom:6px">Palco</h3>
+    <h3 style="margin-bottom:6px">Palco e pedane</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
-    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco è un insieme di blocchi. Aggiungili, <b>trascinali</b> sul palco e dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
-    <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola misura e altezza con i tasti + / −, poi scegli dove metterlo sul palco.</div>
+    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Palco e pedane con la stessa meccanica: aggiungi, <b>trascina</b> sul palco, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
+    <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco o una pedana, regola misura e altezza con + / −, poi scegli dove metterla.</div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock" style="flex:1">＋ Blocco</button>
       <button class="btn" id="bAddSemi" style="flex:1">＋ Semicerchio</button>
+      <button class="btn" id="bAddPedana" style="flex:1">＋ Pedana</button>
     </div>
     <div id="blkList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
