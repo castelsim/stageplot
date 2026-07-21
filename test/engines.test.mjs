@@ -2391,5 +2391,29 @@ t("vista cablaggio: cavi solo col layer selezionato; Power = carichi a pallini",
   A.layerSoloUI = {};
 });
 
+t("Input: N pallini per musicista (postazione doppia = 2) + zona dal punto mic", () => {
+  reset();
+  const d = add("vlnpost", 400, 250); d.doppia = true; d.label = "Violini I"; d.label2 = "Violini I b";
+  eq(A.cabItemInputs(d).length, 2, "la doppia genera 2 canali");
+  eq(A.musicianSeats(d).length, 2, "2 sedute (2 musicisti)");
+  const single = add("vlnpost", 600, 250);
+  eq(A.musicianSeats(single).length, 1, "postazione singola = 1 seduta");
+  A.layerSoloUI = { cabin: true };
+  const dot = A.sectionDotMarkup(d);
+  eq((dot.match(/secdot-c/g) || []).length, 2, "2 pallini sezione per la doppia");
+  ok(dot.indexOf("Violini I b") >= 0, "il 2° musicista ha il suo nome");
+  A.layerSoloUI = {};
+  // zona: il cavo parte dal punto del microfono
+  reset(); A.state.cab.on = true;
+  add("stagebox", 800, 500);
+  const z = add("miczone", 400, 250); z.pts = [[-50, -50], [50, -50], [50, 50], [-50, 50]];
+  A.__cabRes = null;
+  const R = A.audioCablingEngine();
+  const zl = R.links.find(l => l.s.it.id === z.id);
+  ok(zl, "la zona genera un canale");
+  const anchor = A.portAnchor(z, "audio");
+  ok(Math.abs(zl.pts[0][0] - anchor[0]) < 2 && Math.abs(zl.pts[0][1] - anchor[1]) < 2, "il cavo della zona parte dal punto mic");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -4049,8 +4049,9 @@ function cablingMarkup(){
     /* Layer v2 (21/07, richiesta Simone): pallino sorgente SEMPRE visibile, evidente, al centro
        dell'elemento — è anche la maniglia di drag verso un'altra box (stessa infra .port-hit).
        Pending (senza box) = pallino "vuoto": si vede subito cosa resta da collegare. */
-    var dotS='', dotSeen={};
+    var dotS='', dotSeen={}, _hideMusDot=!!techDotSoloId();   /* nel tech view il musicista è già un pallino sezione */
     R.links.forEach(function(l){ if(l.deleted) return; var did=l.s.it.id; if(dotSeen[did]) return; dotSeen[did]=1;
+      if(_hideMusDot && musLayerItem(l.s.it.type)) return;   /* niente pallino teal sopra il pallino sezione */
       var da=portAnchor(l.s.it,"audio");
       dotS+='<circle class="cab-srcdot" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
       if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(did)+'" data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>Audio · trascina su una stage box per cambiare</title></circle>';
@@ -10110,12 +10111,26 @@ function techDotItem(it, id){
   return musLayerItem(it.type) && layerFgItem(id, it);
 }
 function techDotSoloId(){ return soloOn("cabin")?"cabin" : soloOn("cabout")?"cabout" : soloOn("mond")?"mond" : soloOn("elec")?"elec" : null; }
+/* sedute dei musicisti in una postazione (offset pre-rotazione): 2 per una DOPPIA, 1 altrimenti.
+   Così negli Input vediamo N pallini, uno per musicista (Simone 21/07). */
+function musicianSeats(it){
+  var two = (it.doppia===true && POSTAZ[it.type] && !DOUBLE_TYPES[it.type]) || !!DOUBLE_TYPES[it.type];
+  if(!two) return [[0,0]];
+  var hx = it.sep ? it.sep/2 : 45;
+  return [[hx,0],[-hx,0]];
+}
 function sectionDotMarkup(it){
   var sec=sectionOf(it), col=sectionColor(sec);
+  var seats=musicianSeats(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  var labels=[it.label||"", (seats.length>1 ? (it.label2||((it.label||"")+" 2")) : "")];
   var s='<g class="item secdot" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
-  s+='<circle class="hit" r="17" fill="transparent"/>';
-  s+='<circle class="secdot-c" r="11" style="fill:'+col+'"/>';
-  if(it.label) s+='<text class="secdot-lbl" y="26" text-anchor="middle">'+esc(it.label)+'</text>';
+  seats.forEach(function(o,i){
+    var rx=(o[0]*c-o[1]*sn), ry=(o[0]*sn+o[1]*c);
+    s+='<circle class="hit" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="15" fill="transparent"/>';
+    s+='<circle class="secdot-c" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="10" style="fill:'+col+'"/>';
+    var lbl=(seats.length>1?labels[i]:labels[0]);
+    if(lbl) s+='<text class="secdot-lbl" x="'+rx.toFixed(1)+'" y="'+(ry+24).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>';
+  });
   return s+'</g>';
 }
 function sectionLegendMarkup(){
