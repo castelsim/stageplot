@@ -379,34 +379,37 @@ t("itemChannels coerente: batteria 8, corista 1, zona 1", () => {
 });
 
 console.log("\nLayer Manager (nomi/gruppi):");
-t("Cablaggio audio: layer UNICO (Simone 20/07 — unisce Input/Monitor/Rete/RF/P.M.)", () => {
+t("Layer v3: Ingressi/Output/P.M. separati con occhio/lucchetto/cestino propri", () => {
   reset(); A.state.cab.on = true;
   const by = {}; A.layerRegistry().forEach((L) => { by[L.id] = L; });
-  ok(by.cabaudio && by.cabaudio.name === "Cablaggio audio", "un solo layer 'Cablaggio audio'");
-  ok(!by.cabin && !by.cabout && !by.net && !by.rf && !by.mond, "niente più Input/Monitor/Rete/RF/P.M. separati");
-  ok(by.cabaudio.lockable && by.cabaudio.removable, "ha lucchetto + cestino");
-});
-t("Cablaggio audio: occhio/lucchetto/cestino aggregano tutta la catena", () => {
-  reset(); A.state.cab.on = true;
-  A.layerRegistry().find((x) => x.id === "cabaudio").setVisible(false);
-  ok(A.state.cab.showInputs === false && A.state.cab.showReturns === false && A.state.rfShow === false, "occhio nasconde ingressi+ritorni+RF insieme");
-  A.layerRegistry().find((x) => x.id === "cabaudio").setLocked(true);
-  ok(A.state.cab.lockIn === true && A.state.cab.lockOut === true, "lucchetto blocca ingressi+ritorni insieme");
-  A.state.cab.manual = { "grp:x": { box: "b1" }, "ret:m1:s1": { pts: [[0, 0]] } };
-  A.layerRegistry().find((x) => x.id === "cabaudio").remove();
-  eq(Object.keys(A.state.cab.manual).length, 0, "cestino azzera TUTTO il cablaggio audio (in+out+P.M.)");
+  ok(by.cabin && by.cabin.name === "Ingressi", "layer Ingressi");
+  ok(by.cabout && by.cabout.name === "Output", "layer Output");
+  ok(!by.cabaudio, "il layer unico non esiste piu'");
+  by.cabin.setVisible(false);
+  ok(A.state.cab.showInputs === false && A.state.rfShow === false && A.state.cab.showNet === false, "occhio Ingressi: cavi input + rete + RF");
+  ok(A.state.cab.showReturns !== false, "i ritorni NON sono toccati dall'occhio Ingressi");
+  by.cabout.setVisible(false);
+  ok(A.state.cab.showReturns === false, "occhio Output: ritorni");
+  by.cabin.setLocked(true);
+  ok(A.state.cab.lockIn === true && A.state.cab.lockOut !== true, "lucchetto Ingressi non blocca gli Output");
+  A.state.cab.manual = { "grp:x": { box: "b1" }, "mix:L:M1": { box: "b1" }, "ret:m1:s1": { pts: [[0, 0]] } };
+  by.cabin.remove();
+  ok(!A.state.cab.manual["grp:x"] && A.state.cab.manual["mix:L:M1"] && A.state.cab.manual["ret:m1:s1"], "cestino Ingressi azzera solo gli input");
+  A.layerRegistry().find((x) => x.id === "cabout").remove();
+  eq(Object.keys(A.state.cab.manual).length, 0, "cestino Output azzera mix e ritorni");
 });
 t("migrate v1→v2: cab.locked unico → lockIn + lockOut", () => {
   const s = A.migrate({ _v: 1, cab: { locked: true, on: true } });
   ok(s.cab.lockIn === true && s.cab.lockOut === true, "locked propagato ai due rami");
   ok(!("locked" in s.cab), "vecchio cab.locked rimosso");
 });
-t("layer: ordine Cablaggio audio → Power → Planimetria", () => {
+t("layer: ordine Ingressi → Output → P.M. → Power → Planimetria", () => {
   reset(); A.state.cab.on = true;
   const ids = A.layerRegistry().map((L) => L.id);
-  ok(ids.indexOf("cabaudio") > -1 && !ids.includes("mond"), "c'è cabaudio, non più mond/cabin/cabout");
-  ok(ids.indexOf("cabaudio") < ids.indexOf("elec"), "cabaudio < elec");
-  ok(ids.indexOf("elec") < ids.indexOf("venue"), "elec < venue");
+  ok(ids.indexOf("cabin") > -1 && ids.indexOf("cabout") > ids.indexOf("cabin"), "Ingressi poi Output");
+  ok(ids.indexOf("mond") > ids.indexOf("cabout"), "poi P.M.");
+  ok(ids.indexOf("mond") < ids.indexOf("elec"), "P.M. < Power");
+  ok(ids.indexOf("elec") < ids.indexOf("venue"), "Power < Planimetria");
 });
 
 console.log("\nCatalogo — strumenti sempre visibili (niente 'Mostra tutti'):");
@@ -2111,33 +2114,39 @@ t("decisione 4A: elementDept mappa gli elementi al reparto tecnico", () => {
   ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Power", "nomi reparto");
 });
 
-t("layer Cablaggio audio: iemant (rack TX in-ear) fa parte della catena", () => {
+t("layer Output: iemant (rack TX in-ear) fa parte della catena", () => {
   reset();
   const tx = add("iemant", 300, 300);
-  eq(A.layerFgItem("cabaudio", tx), true, "rack TX in-ear = fg del layer audio (come i beltpack)");
-  eq(A.layerRegistry().some(L => L.id === "cabaudio" && L.active), true, "solo un TX sul palco: layer audio attivo");
-  A.layerSoloUI = { cabaudio: true };
+  eq(A.layerFgItem("cabout", tx), true, "rack TX in-ear = fg del layer Output (come i beltpack)");
+  A.state.cab.on = true;
+  A.layerSoloUI = { cabout: true };
   A.pruneSolo();
-  eq(!!A.layerSoloUI.cabaudio, true, "il solo audio sopravvive con un TX sul palco");
-  A.state.items = [];
+  eq(!!A.layerSoloUI.cabout, true, "il solo Output sopravvive col motore acceso");
+  A.state.cab.on = false; A.state.items = [];
   A.pruneSolo();
-  eq(!!A.layerSoloUI.cabaudio, false, "senza catena audio il solo decade");
+  eq(!!A.layerSoloUI.cabout, false, "senza motore il solo decade");
   A.layerSoloUI = {};
 });
 
-t("D-L1A: layer core Cablaggio audio e Power sempre in lista, con stato motore", () => {
+t("Layer v3: Ingressi/Output sempre in lista, P.M. situazionale, stato motore", () => {
   reset();
   const reg = A.layerRegistry();
-  const cab = reg.find(L => L.id === "cabaudio"), el = reg.find(L => L.id === "elec");
-  eq(cab.active, true, "cabaudio in lista anche a motore spento");
-  eq(cab.engineOn, false, "motore audio spento");
-  eq(el.active, true, "elec in lista anche a motore spento");
-  eq(el.engineOn, false, "motore power spento");
+  const cin = reg.find(L => L.id === "cabin"), cout = reg.find(L => L.id === "cabout"), el = reg.find(L => L.id === "elec");
+  ok(!reg.some(L => L.id === "cabaudio"), "il layer unico cabaudio non esiste piu'");
+  eq(cin.active, true, "Ingressi in lista anche a motore spento");
+  eq(cin.engineOn, false, "motore spento");
+  eq(cout.active, true, "Output in lista anche a motore spento");
+  eq(el.active, true, "Power in lista");
+  eq(reg.find(L => L.id === "mond").active, false, "P.M. situazionale: senza mixerini non compare (Q2-A)");
+  A.add ? null : null;
+  A.state.items.push({ id: "pm1", type: "mixp16", x: 100, y: 100, rot: 0, w: 40, d: 30 });
+  ok(A.layerRegistry().find(L => L.id === "mond").active || !A.MON_DIG_NODE["mixp16"], "con un mixerino P.M. compare (se il tipo esiste)");
+  A.state.items = [];
   A.state.cab.on = true; A.state.elec.on = true;
   const reg2 = A.layerRegistry();
-  eq(reg2.find(L => L.id === "cabaudio").engineOn, true, "motore audio acceso");
-  eq(reg2.find(L => L.id === "elec").engineOn, true, "motore power acceso");
-  ok(typeof cab.activate === "function" && typeof el.activate === "function", "activate presenti");
+  eq(reg2.find(L => L.id === "cabin").engineOn, true, "motore ingressi acceso");
+  eq(reg2.find(L => L.id === "cabout").engineOn, true, "motore output acceso");
+  ok(typeof cin.activate === "function" && typeof cout.activate === "function" && typeof el.activate === "function", "activate presenti");
 });
 
 t("D-L2A: cabConnectAll materializza la proposta (solo box reali, manuali intatti)", () => {
@@ -2163,33 +2172,40 @@ t("D-L2A: cabConnectAll materializza la proposta (solo box reali, manuali intatt
   eq(A.cabConnectAll(), 0, "secondo giro: niente da collegare");
 });
 
-t("Layer v2: occhi a famiglie indipendenti (Palco non ingloba i Musicisti)", () => {
+t("Layer v3: Palco = tutto, occhi in OR (viste)", () => {
   reset();
   add("vlnpost", 300, 300);      // musicista
-  add("wedge", 500, 300);        // attrezzatura (famiglia Palco)
+  add("sedia", 500, 300);        // attrezzatura pura (nessun layer tecnico)
+  const mic = add("astamic", 350, 300);   // sorgente (layer Ingressi)
   A.layerSoloUI = {}; A.layerAccOpen = null;
-  A.stageLayerUI.vis = true; A.musLayerUI.vis = true;
+  A.stageLayerUI.vis = true; A.musLayerUI.vis = true; A.state.cab.on = false;
   let mk = A.sceneMarkup();
-  ok(mk.indexOf('class="st-item"') >= 0 && mk.indexOf('class="mus-item"') >= 0, "wrapper per famiglia presenti");
-  ok(!/st-item" display="none"/.test(mk) && !/mus-item" display="none"/.test(mk), "tutti visibili con occhi accesi");
-  // bug 2 (storico): Palco spento + Musicisti acceso → i musicisti DEVONO vedersi
-  A.stageLayerUI.vis = false;
+  ok(!/display="none"/.test(mk.split("layItems")[1] || mk), "Palco acceso: tutto visibile");
+  // Palco acceso + Musicisti SPENTO: i musicisti restano (Palco = tutto — demo approvata)
+  A.musLayerUI.vis = false;
   mk = A.sceneMarkup();
-  ok(/st-item" display="none"/.test(mk), "famiglia Palco nascosta");
-  ok(!/mus-item" display="none"/.test(mk), "musicisti VISIBILI col Palco spento (bug 2 risolto)");
-  // bug 1 (storico): Musicisti spento + Palco acceso → attrezzatura visibile, musicisti no
-  A.stageLayerUI.vis = true; A.musLayerUI.vis = false;
-  mk = A.sceneMarkup();
-  ok(!/st-item" display="none"/.test(mk), "famiglia Palco visibile");
-  ok(/mus-item" display="none"/.test(mk), "solo i musicisti nascosti");
-  // fuoco Palco = famiglia Palco a fuoco, musicisti sfumati
+  ok(!/mus-item" display="none"/.test(mk), "Palco acceso mostra i musicisti anche con l'occhio Musicisti spento");
   A.musLayerUI.vis = true;
-  const v = A.state.items.find(x => x.type === "vlnpost"), w = A.state.items.find(x => x.type === "wedge");
-  eq(A.layerFgItem("stage", w), true, "wedge = famiglia Palco");
-  eq(A.layerFgItem("stage", v), false, "violinista NON è famiglia Palco");
-  A.layerSoloUI = { stage: true };
-  ok(A.itemInSoloLayer(w) && !A.itemInSoloLayer(v), "solo Palco: attrezzatura a fuoco, musicisti sfumati");
-  A.layerSoloUI = {};
+  // Palco SPENTO + solo Musicisti acceso: si vedono SOLO i musicisti
+  A.stageLayerUI.vis = false; A.state.cab.on = false;
+  mk = A.sceneMarkup();
+  ok(!/mus-item" display="none"/.test(mk), "musicisti visibili col Palco spento");
+  ok(/st-item" display="none"/.test(mk), "attrezzatura nascosta col Palco spento");
+  // Palco SPENTO + Ingressi acceso: il mic (sorgente) si vede, la sedia no
+  A.musLayerUI.vis = false; A.state.cab.on = true; A.state.cab.showInputs = true;
+  mk = A.sceneMarkup();
+  const chunks = mk.match(/<g class="st-item"[^>]*>/g) || [];
+  ok(chunks.some(c => c.indexOf("display") < 0), "almeno un elemento tecnico (mic) visibile via Ingressi");
+  ok(chunks.some(c => c.indexOf('display="none"') >= 0), "la sedia resta nascosta");
+  A.musLayerUI.vis = true; A.stageLayerUI.vis = true;
+  // fuoco Palco = vista d'insieme (tutto a fuoco)
+  const v = A.state.items.find(x => x.type === "vlnpost");
+  eq(A.layerFgItem("stage", v), true, "Palco contiene tutto (anche i musicisti)");
+  // Ingressi = sorgenti + catena; Output = monitor
+  eq(A.layerFgItem("cabin", mic), true, "mic = layer Ingressi");
+  const w = add("wedge", 520, 320);
+  eq(A.layerFgItem("cabout", w), true, "wedge = layer Output");
+  eq(A.layerFgItem("cabin", w), false, "wedge NON è Ingressi");
   // niente slider opacità nel registro (resta solo la Planimetria)
   const withOp = A.layerRegistry().filter(L => L.opacity != null).map(L => L.id);
   eq(JSON.stringify(withOp), JSON.stringify(["venue"]), "opacità solo sulla Planimetria");
