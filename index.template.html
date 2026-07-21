@@ -4022,6 +4022,7 @@ function normalizeState(s){
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
     lockIn:!!cb.lockIn, lockOut:!!cb.lockOut, manual:man,
+    style:(cb.style==="curve"||cb.style==="loom")?cb.style:"orto",   /* Layer v2: stile grafico dei cavi (orto = storico) */
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
@@ -4892,6 +4893,29 @@ function orthExpand(pts){ if(!pts||pts.length<2) return pts||[]; var out=[pts[0]
   return out; }
 function orthLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]); } return d; }   /* lunghezza Manhattan */
 function orthPathD(pts){ var ep=orthExpand(pts); if(ep.length<2) return ''; return 'M '+ep.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L '); }
+/* Layer v2 (21/07): stile grafico dei cavi, per progetto. orto = spigoli (storico) · curve = angoli
+   molto arrotondati (stesso percorso/routing/editing, resa morbida) · loom = orto + canale alla partenza. */
+function cabStyle(){ return (state.cab && (state.cab.style==="curve"||state.cab.style==="loom")) ? state.cab.style : "orto"; }
+function roundedPathD(ep, r){
+  if(ep.length<2) return '';
+  var d='M '+ep[0][0].toFixed(1)+' '+ep[0][1].toFixed(1);
+  for(var i=1;i<ep.length-1;i++){
+    var a=ep[i-1], b=ep[i], c=ep[i+1];
+    var d1=Math.hypot(b[0]-a[0],b[1]-a[1]), d2=Math.hypot(c[0]-b[0],c[1]-b[1]);
+    if(!d1 || !d2) continue;
+    var rr=Math.min(r, d1/2, d2/2);
+    var p1=[b[0]-(b[0]-a[0])/d1*rr, b[1]-(b[1]-a[1])/d1*rr];
+    var p2=[b[0]+(c[0]-b[0])/d2*rr, b[1]+(c[1]-b[1])/d2*rr];
+    d+=' L '+p1[0].toFixed(1)+' '+p1[1].toFixed(1)+' Q '+b[0].toFixed(1)+' '+b[1].toFixed(1)+' '+p2[0].toFixed(1)+' '+p2[1].toFixed(1);
+  }
+  d+=' L '+ep[ep.length-1][0].toFixed(1)+' '+ep[ep.length-1][1].toFixed(1);
+  return d;
+}
+function cabPathD(pts){
+  if(cabStyle()!=="curve") return orthPathD(pts);
+  var ep=orthExpand(pts); if(ep.length<2) return '';
+  return roundedPathD(ep, 34);
+}
 /* ── Editing cavi stile Max (08/07): si trascina il LATO (segmento dritto), non l'angolo. Gli angoli
    si formano da soli. cabMoveSeg sposta il segmento `si` della polilinea `fp` in perpendicolare al
    valore `val` (y per orizzontale, x per verticale); se un estremo del segmento è un TERMINALE fisso
@@ -5387,7 +5411,7 @@ function cablingMarkup(){
     R.snakes.forEach(function(k){ if(k.box && k.box.id && netBox[k.box.id]) return;
       var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
       var dpts=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex);
-      var sk='<path class="cab-snake" d="'+orthPathD(dpts)+'"/>';
+      var sk='<path class="cab-snake" d="'+cabPathD(dpts)+'"/>';
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
@@ -5398,7 +5422,7 @@ function cablingMarkup(){
     R.links.forEach(function(l){
       if(drawnKey[l.key]) return; drawnKey[l.key]=1;   /* CAVO UNICO: gli N canali di un bundle condividono la key → un solo cavo disegnato */
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
+      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabPathD(dpts);
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
         linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
@@ -5407,9 +5431,26 @@ function cablingMarkup(){
       if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
       var lbl=(LBL || selCab===l.key) ? cabLinkLabel(l) : '';   /* il cavo selezionato mostra la sua etichetta anche in modalità hover */
       if(lbl){ var mid=cabMidpoint(ep); li+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
+      if(cabStyle()==="loom" && l.label!=null){ var sp0=ep[0];   /* stile "fascio": canale leggibile alla partenza (resa da rider) */
+        li+='<text class="cab-lbl cab-startlbl" x="'+(sp0[0]+11).toFixed(1)+'" y="'+(sp0[1]-9).toFixed(1)+'">'+esc(String(l.label)+(l.bundleN>1?' ×'+l.bundleN:''))+'</text>'; }
       linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>';
     });
     s+=cabLoomMarkup(loomPolys)+linkS;   /* fascia loom SOTTO i cavi (ordine di pittura SVG) */
+    /* Layer v2 (21/07, richiesta Simone): pallino sorgente SEMPRE visibile, evidente, al centro
+       dell'elemento — è anche la maniglia di drag verso un'altra box (stessa infra .port-hit).
+       Pending (senza box) = pallino "vuoto": si vede subito cosa resta da collegare. */
+    var dotS='', dotSeen={};
+    R.links.forEach(function(l){ if(l.deleted) return; var did=l.s.it.id; if(dotSeen[did]) return; dotSeen[did]=1;
+      var da=portAnchor(l.s.it,"audio");
+      dotS+='<circle class="cab-srcdot" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
+      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(did)+'" data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>Audio · trascina su una stage box per cambiare</title></circle>';
+    });
+    (R.pending||[]).forEach(function(pnd){ var did=pnd.it.id; if(dotSeen[did]) return; dotSeen[did]=1;
+      var da=portAnchor(pnd.it,"audio");
+      dotS+='<circle class="cab-srcdot cab-srcdot-pend" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
+      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(did)+'" data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>Da collegare · trascina su una stage box</title></circle>';
+    });
+    s+=dotS;
     if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
       if(sl){
         /* editing Max: ogni LATO dritto è trascinabile in perpendicolare (angoli impliciti) */
@@ -5439,12 +5480,15 @@ function cablingMarkup(){
   if(showRet){ s+='<g class="cab-retlayer" style="opacity:'+retOp+'">';
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex), d=orthPathD(dpts);
+      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabPathD(dpts);
       var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(editRet) ri+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
         ri+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
+      var mep=orthExpand(dpts), mlast=mep[mep.length-1];   /* Layer v2: pallino ciano al capo monitor */
+      ri+='<circle class="cab-mondot" cx="'+mlast[0].toFixed(1)+'" cy="'+mlast[1].toFixed(1)+'" r="5.5"/>';
+      if(cabStyle()==="loom") ri+='<text class="cab-lbl cab-lbl-ret cab-startlbl" x="'+(mlast[0]+10).toFixed(1)+'" y="'+(mlast[1]-8).toFixed(1)+'">M'+l.mix.n+'</text>';
       s+='<g class="cabgrp" data-own="'+esc((l.sink&&l.sink.id||'')+(l.box&&l.box.id?' '+l.box.id:''))+'">'+ri+'</g>';
     });
     /* editing del ritorno selezionato: lati piegabili + estremo lato box (riconnetti ad altra box). Il capo monitor è fisso. */
@@ -6265,6 +6309,9 @@ function portAnchor(it, kind){
   }
   var ks=portKinds(it), i=ks.indexOf(kind);
   if(i<0) return [it.x, it.y];
+  /* Layer v2 (21/07, richiesta Simone): il cavo AUDIO parte dal CENTRO dell'elemento (pallino
+     evidente sul musicista/strumento); idem il capo monitor. Le altre porte (pow/dig) restano sotto. */
+  if(kind==="audio" || kind==="mon") return [Math.round(it.x), Math.round(it.y)];
   return [Math.round(it.x+(i-(ks.length-1)/2)*26), Math.round(it.y+(it.d||40)/2+16)];
 }
 function portDefs(it){
@@ -6303,6 +6350,8 @@ function portsMarkup(){
   var defs=portDefs(it); if(!defs.length) return '';
   var s='<g class="ports">';
   defs.forEach(function(p){
+    /* Layer v2: col layer cavi visibile il pallino audio fisso c'è già (cab-srcdot) — niente doppione */
+    if(p.kind==="audio" && state.cab && state.cab.on && layerShown("cabin")) return;
     var a=portAnchor(it, p.kind), cx=a[0], cy=a[1];   /* stessa ancora usata dai motori: il cavo parte DA QUI */
     s+='<circle class="port-dot" style="fill:'+p.color+'" cx="'+cx+'" cy="'+cy+'" r="6"/>'
       +'<circle class="port-hit" data-port="'+p.kind+'" data-item="'+esc(it.id)+'" data-x="'+cx+'" data-y="'+cy+'" cx="'+cx+'" cy="'+cy+'" r="13"><title>'+esc(p.tip)+'</title></circle>';
@@ -6352,10 +6401,16 @@ function sceneMarkup(){
   var venue = (state.venue && layerShown("venue") ? venueMarkup() : '');   /* layer 0: planimetria (partecipa al solo) */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
   if(venueCalibMode>0) return '<g id="layVenue">'+venue+'</g>';
-  /* SOLO attivo (e non sul Palco): elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto */
-  var soloSplit = anySolo() && !soloOn("stage");
-  var musShown = anySolo() ? true : musLayerUI.vis;   /* in solo la visibilità la governa lo split */
-  var musAttr = (musShown?'':' display="none"')+((anySolo()||musLayerUI.op>=100)?'':' style="opacity:'+(musLayerUI.op/100)+'"');
+  /* SOLO attivo: elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto.
+     Anche il Palco è una famiglia come le altre (Layer v2, 21/07): il suo solo sfuma i musicisti. */
+  var soloSplit = anySolo();
+  /* FAMIGLIE INDIPENDENTI (Layer v2, 21/07): ogni elemento appartiene a UNA famiglia (Palco =
+     attrezzatura di scena · Musicisti = persone+strumenti · Coperture · Mic zone) e ogni occhio
+     governa SOLO la sua. Prima Palco era il contenitore di tutto e Musicisti un filtro annidato:
+     Palco spento nascondeva anche i musicisti, e "solo Musicisti" non li faceva riapparire.
+     Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
+  var musAttr = ((anySolo()||musLayerUI.vis)?'':' display="none"');
+  var stAttr  = ((anySolo()||stageLayerUI.vis)?'':' display="none"');
   var items='', zones='', bgItems='';
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
   if(!coverLayerUI.vis && !(state.items||[]).some(isCover)) coverLayerUI.vis=true;   /* niente coperture → riporta la vista a visibile (evita che una nuova copertura nasca nascosta) */
@@ -6364,22 +6419,20 @@ function sceneMarkup(){
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var m=itemMarkup(it);
-    if(musLayerItem(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* layer Musicisti per-elemento (sono interlacciati nello z-order) */
-    else if(isCover(it)) m='<g class="cover-item"'+(coverLayerUI.op>=100?'':' style="opacity:'+(coverLayerUI.op/100)+'"')+'>'+m+'</g>';   /* layer Coperture: opacità per-elemento (come Musicisti) */
+    if(musLayerItem(it.type)) m='<g class="mus-item"'+musAttr+'>'+m+'</g>';   /* famiglia Musicisti (interlacciati nello z-order) */
+    else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';                  /* famiglia Coperture */
+    else m='<g class="st-item"'+stAttr+'>'+m+'</g>';                           /* famiglia Palco (attrezzatura di scena) */
     if(soloSplit && !itemInSoloLayer(it)) bgItems += m; else items += m;
   });
   if(soloSplit) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
-  /* vis/opacità dei layer meta (Palco, Section Mic) INCORPORATE nel markup, come i layer normali:
-     render() è chiamato ovunque e un gruppo "nudo" perderebbe lo stato a ogni ridisegno (bug 14/07).
-     In solo: il layer in solo va a piena resa (il solo vince su occhio e slider), gli altri sono già filtrati. */
+  /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
+     perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
-  var mzAttr=(mzShown?'':' display="none"')+((soloOn("miczone")||micLayerUI.op>=100)?'':' style="opacity:'+(micLayerUI.op/100)+'"');
-  var stShown=anySolo() ? true : stageLayerUI.vis;   /* col solo il gruppo resta visibile: il contesto sfumato vive nel sottogruppo */
-  var stAttr=(stShown?'':' display="none"')+((anySolo()||stageLayerUI.op>=100)?'':' style="opacity:'+(stageLayerUI.op/100)+'"');
+  var mzAttr=(mzShown?'':' display="none"');
   return '<g id="layVenue">'+venue+'</g>'+
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
-         '<g id="layItems"'+stAttr+'>'+items+'</g>'+
+         '<g id="layItems">'+items+'</g>'+
          '<g id="layOverlay">'+overlayLayerMarkup()+'</g>';
 }
 /* sostituisce il contenuto di un nodo SVG in modo robusto (non si affida a <g>.innerHTML, meno universale di <svg>.innerHTML) */
@@ -8299,6 +8352,13 @@ function addItem(type, over){
   if(MON_DIG_NODE[type] && state.mond && !state.mond.on){ state.mond.on=true; state.mond.visible=true; __mondRes=null; }   /* personal mixer/hub digitale → attiva in automatico il layer P.M. (monitoraggio) */
   addCascade=(addCascade+25)%150;
   state.items.push(it); selectOne(it.id); render(); save(); ensureVisible();
+  /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
+     cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
+     interattivi: i progetti caricati non vengono toccati. Le correzioni manuali e i cavi eliminati
+     dall'utente restano tali (cabConnectAll salta box già assegnate e chiavi deleted). */
+  try{
+    if((cabIsBox(it) || cabItemInputs(it).length || (OUT_SET[it.type]!=null && it.type!=="monmix")) && state.items.some(cabIsBox)) cabConnectAll();
+  }catch(_e){}
   if(MON_DIG_NODE[type] && typeof renderLayerManager==="function") renderLayerManager();   /* aggiorna il toggle del layer P.M. */
   closeMobileDrawers();   /* su mobile: chiudi il catalogo per vedere il palco */
   showDragHintOnce();   /* onboarding: la prima volta spiega come spostare/ruotare */
@@ -11257,7 +11317,6 @@ function layerRegistry(){
     /* Musicisti (17/07): meta-layer sulle persone (stesso set del bottone Contatto). Subito dopo Palco. */
     { id:"mus", name:"Musicisti", color:"#16a34a", active:(state.items||[]).some(function(x){ return musLayerItem(x.type); }),
       visible:musLayerUI.vis, setVisible:function(v){ musLayerUI.vis=v; render(); },
-      opacity:musLayerUI.op, setOpacity:function(v){ musLayerUI.op=v; var o=(v/100).toString(); svg.querySelectorAll(".mus-item").forEach(function(g){ g.style.opacity=o; }); },
       lockable:true, locked:musLayerUI.lock, setLocked:function(v){ musLayerUI.lock=v; document.body.classList.toggle("mus-lock",v); if(v){ sel=null; selSet={}; } render(); } },
     /* Gruppo "Audio": le 4 facce del segnale (motore cablaggio + monitoraggio digitale).
        Nel pannello stanno sotto un unico header "Audio" (campo group). */
@@ -11272,8 +11331,6 @@ function layerRegistry(){
       activate:function(){ cabActivateFlow(); },   /* prima attivazione: motore ON + wizard stage box se servono */
       visible:state.cab.showInputs!==false,
       setVisible:function(v){ state.cab.showInputs=v; state.cab.showReturns=v; state.cab.showNet=v; state.rfShow=v; if(state.mond) state.mond.visible=v; save(); render(); },
-      opacity:state.cab.opacity,
-      setOpacity:function(v){ state.cab.opacity=v; state.cab.retOpacity=v; if(state.mond) state.mond.opacity=v; var o=(v/100).toString(); ["cab-inlayer","net-layer","cab-retlayer","mond-layer"].forEach(function(c){ var g=svg.querySelector("."+c); if(g) g.style.opacity=o; }); saveSoon(); },
       lockable:true, locked:!!state.cab.lockIn,
       setLocked:function(v){ state.cab.lockIn=v; state.cab.lockOut=v; if(state.mond) state.mond.locked=v; if(v){ selCab=null; selMond=null; } save(); render(); },
       removable:true, removeLabel:"Azzera percorsi", remove:function(){ state.cab.manual={}; if(state.mond) state.mond.manual={}; selCab=null; selMond=null; __cabRes=null; __mondRes=null; save(); render(); } },   /* cestino = azzera tutti gli aggiustamenti del cablaggio audio (ingressi + ritorni + P.M.) */
@@ -11282,7 +11339,6 @@ function layerRegistry(){
       active:true, engineOn:!!state.elec.on,   /* D-L1A: core sempre in lista, clic attiva */
       activate:function(){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); },
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
-      opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
       removable:true, removeLabel:"Azzera Power", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico. */
@@ -11297,14 +11353,12 @@ function layerRegistry(){
       active:true,
       /* stato runtime non persistito → niente save(); vis/op vivono nel markup (sceneMarkup), il DOM diretto serve solo alla fluidità dello slider */
       visible:stageLayerUI.vis, setVisible:function(v){ stageLayerUI.vis=v; render(); },
-      opacity:stageLayerUI.op, setOpacity:function(v){ stageLayerUI.op=v; var g=document.getElementById("layItems"); if(g) g.style.opacity=(v/100).toString(); },
       lockable:true, locked:stageLayerUI.lock, setLocked:function(v){ stageLayerUI.lock=v; document.body.classList.toggle("stage-lock",v); if(v){ sel=null; selSet={}; } render(); }
       /* niente removable → nessun cestino (il palco non si elimina da qui) */
     }
     ,{ id:"miczone", name:"Mic zone", color:"#7c3aed",
       active:(state.items||[]).some(function(x){return x.type==="miczone";}),
       visible:micLayerUI.vis, setVisible:function(v){ micLayerUI.vis=v; render(); },
-      opacity:micLayerUI.op, setOpacity:function(v){ micLayerUI.op=v; var g=document.getElementById("layMicZones"); if(g) g.style.opacity=(v/100).toString(); },
       lockable:true, locked:micLayerUI.lock, setLocked:function(v){ micLayerUI.lock=v; document.body.classList.toggle("miczone-lock",v); if(v){ sel=null; selSet={}; } render(); },
       removable:true, removeLabel:"Elimina zone", remove:function(){ confirmDialog({ icon:"warn", title:"Eliminare le zone di microfonazione?",
           message:"Tutte le zone panoramiche verranno rimosse dal palco. Le sorgenti coperte tornano canali singoli.",
@@ -11313,7 +11367,6 @@ function layerRegistry(){
     ,{ id:"cover", name:"Coperture", color:"#8f979e",   /* coperture (gazebo/tende/copertura palco): mostra/nascondi per lavorare sotto; la lista (fisarmonica) mostra ognuna con la sua misura */
       active:(state.items||[]).some(isCover),
       visible:coverLayerUI.vis, setVisible:function(v){ coverLayerUI.vis=v; render(); },
-      opacity:coverLayerUI.op, setOpacity:function(v){ coverLayerUI.op=v; var o=(v/100).toString(); svg.querySelectorAll(".cover-item").forEach(function(g){ g.style.opacity=o; }); },
       lockable:true, locked:coverLayerUI.lock, setLocked:function(v){ coverLayerUI.lock=v; document.body.classList.toggle("cover-lock",v); if(v){ sel=null; selSet={}; } render(); } }
   ];
 }
@@ -11361,11 +11414,11 @@ function layerFgItem(id, it){
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
+    case "stage":  return !(musLayerItem(it.type) || isCover(it) || it.type==="miczone");   /* famiglia Palco = tutto il resto (Layer v2) */
   }
   return false;
 }
 function itemInSoloLayer(it){
-  if(soloOn("stage")) return true;
   for(var id in layerSoloUI){ if(layerSoloUI[id] && layerFgItem(id, it)) return true; }
   return false;
 }
@@ -11417,40 +11470,44 @@ function renderLayerRow(L, container){
   row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
   row.title=focus?"Clicca per mostrare tutti i layer":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
   row.addEventListener("click", function(e){
-    if(e.target.closest(".layer-eye")) return;
+    if(e.target.closest(".layer-ico")) return;   /* occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
     else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; }
     render();
   });
+  /* Layer v2 (21/07): occhio + lucchetto + cestino SEMPRE inline di fianco al nome (scelta Simone).
+     Lo slider opacità è sparito ovunque tranne la Planimetria (unico caso in cui serve: la
+     trasparenza dell'immagine di sfondo) — vive nel corpo del fuoco. */
   var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questo layer":"Mostra questo layer"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
     if(L.visible && layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
     L.setVisible(!L.visible); }); row.appendChild(eye);
+  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
+    lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); row.appendChild(lk); }
+  if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title=L.removeLabel||"Rimuovi"; tr.innerHTML=_LM_TRASH;
+    tr.addEventListener("click", function(e){ e.stopPropagation(); L.remove(); }); row.appendChild(tr); }
   container.appendChild(row);
   if(focus){
     var body=document.createElement("div"); body.className="layer-accbody";
-    var strip=document.createElement("div"); strip.className="layer-adv";
-    if(L.opacity!=null){ var ow=document.createElement("label"); ow.className="adv-op"; ow.innerHTML='<span>Opacità</span>';
+    if(L.opacity!=null){ var strip=document.createElement("div"); strip.className="layer-adv";
+      var ow=document.createElement("label"); ow.className="adv-op"; ow.innerHTML='<span>Opacità</span>';
       var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity;
       op.addEventListener("input", function(){ L.setOpacity(+this.value); });
       op.addEventListener("change", function(){ save(); render(); });
       op.addEventListener("click", function(e){ e.stopPropagation(); });
-      ow.appendChild(op); strip.appendChild(ow); }
-    if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="adv-btn"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK+'<span>'+(L.locked?"Bloccato":"Blocca")+'</span>'; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); strip.appendChild(lk); }
-    if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="adv-btn adv-reset"; tr.innerHTML=_LM_TRASH+'<span>'+(L.removeLabel||"Rimuovi")+'</span>'; tr.addEventListener("click", function(){ L.remove(); }); strip.appendChild(tr); }
-    body.appendChild(strip);
-    /* D-L2A: motore acceso ma ingressi/mix ancora da collegare → un click e il palco si cabla
-       (materializza la proposta del motore; i collegamenti manuali esistenti non si toccano). */
-    if(L.id==="cabaudio" && state.items.some(cabIsBox)){   /* anche a cab.on spento (layer acceso via RF): cabConnectAll accende il motore */
-      var Rq=cabResult(), nPend=(Rq.pending||[]).length + (Rq.mixes||[]).filter(function(m){ return m.pending; }).length;
-      if(nPend>0){ var cw=document.createElement("div"); cw.className="layer-adv";
-        var cb=document.createElement("button"); cb.type="button"; cb.className="adv-btn adv-connect";
-        cb.innerHTML='⚡ <span>Collega automaticamente ('+nPend+')</span>';
-        cb.title="Collega ingressi e mix liberi alla stage box più vicina (restano modificabili uno a uno)";
-        cb.addEventListener("click", function(){ var n=cabConnectAll(); showToast(n?("Collegati "+n+" tra ingressi e mix"):"Niente da collegare (canali esauriti?)", n?undefined:"err"); });
-        cw.appendChild(cb); body.appendChild(cw); }
+      ow.appendChild(op); strip.appendChild(ow); body.appendChild(strip); }
+    /* Layer v2: il cablaggio si collega DA SOLO (auto-connect in addItem) — il bottone "Collega
+       automaticamente" non serve più. Qui resta il selettore dello stile grafico dei cavi. */
+    if(L.id==="cabaudio" && state.cab.on){
+      var sw=document.createElement("div"); sw.className="layer-adv layer-cabstyle";
+      [["curve","Curve"],["orto","Ortogonali"],["loom","Fascio + canali"]].forEach(function(sd){
+        var sb=document.createElement("button"); sb.type="button"; sb.className="adv-btn"+(cabStyle()===sd[0]?" on":""); sb.textContent=sd[1];
+        sb.title="Stile grafico dei cavi";
+        sb.addEventListener("click", function(){ state.cab.style=sd[0]; save(); render(); });
+        sw.appendChild(sb); });
+      body.appendChild(sw);
     }
     /* D-L3A: linguette della catena audio (le sezioni esistono già: patchSec/monSec/pmAccSec) */
     if(L.id==="cabaudio"){
