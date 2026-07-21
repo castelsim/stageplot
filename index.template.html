@@ -597,10 +597,12 @@
       <label class="chk" style="display:none"><input type="checkbox" id="pDonna"> Donna (maglietta rosa)</label>
       <div class="stpr-f" id="pMicModeWrap"><label>Microfono</label>
         <div class="chips" data-chips="pMicMode">
-          <button type="button" data-v="asta">Su asta (base tonda)</button>
+          <button type="button" data-v="tonda">Base tonda</button>
+          <button type="button" data-v="giraffa">Giraffa</button>
           <button type="button" data-v="mano">In mano</button>
+          <button type="button" data-v="pano">Panoramico</button>
         </div>
-        <select id="pMicMode" hidden><option value="asta">asta</option><option value="mano">mano</option></select>
+        <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="pano">panoramico</option></select>
       </div>
       <label class="chk"><input type="checkbox" id="pLeggioV"> Leggio</label>
       <label class="chk" id="pSediaVWrap"><input type="checkbox" id="pSediaV"> Sedia</label>
@@ -1603,27 +1605,39 @@ function leggioGlyph(y){
 /* Sagoma cantante (vista dall'alto), rivolto al pubblico (+y). Stessa figura per tutti,
    capelli marroni; it.donna = maglietta rosa (uomo = blu). it.mano = mic in mano ·
    it.nomic = senza mic (coro) · it.leggio = leggio. */
+/* Modalità microfono di una voce (Simone 21/07): base tonda · giraffa (boom) · in mano · panoramico
+   (nessun mic personale). Fonte unica; legge it.micMode, con fallback ai vecchi flag it.mano/it.nomic. */
+function micModeOf(it){
+  var m=it&&it.micMode;
+  if(m==="tonda"||m==="giraffa"||m==="mano"||m==="pano") return m;
+  if(it&&it.mano) return "mano";
+  if(it&&it.nomic) return "pano";
+  return (it&&it.type==="corista") ? "pano" : "tonda";
+}
 function singer(it){
   it=it||{};
-  var donna=it.donna===true;
+  var mm=micModeOf(it), donna=it.donna===true;
   var s=(it.sedia===true ? seatLight(0) : '');   /* coristi: sedia opzionale (contorno chiaro dietro la persona) */
+  var noMic=(mm==="pano");
   if(_pdfMode){
     /* PDF: sagoma top-down geometrica — 3 path, vettoriale, nessun blocco svg2pdf */
-    s+=circ(0,-20,15,'ic fGrey')+bar(0,4,32,it.nomic?24:26,'ic fGrey',9);
-  } else if(it.nomic){
+    s+=circ(0,-20,15,'ic fGrey')+bar(0,4,32,noMic?24:26,'ic fGrey',9);
+  } else if(noMic){
     s+='<g transform="'+(donna?'translate(-29,-34)':'translate(-32,-33)')+' scale(0.08)">'+(donna?CORO_DONNA_ART:CORO_UOMO_ART)+'</g>';
   } else {
     s+='<g transform="'+(donna?'translate(-21,-40)':'translate(-21,-41)')+' scale(0.1)">'+(donna?SINGER_DONNA_ART:SINGER_UOMO_ART)+'</g>';
   }
   var legY=30;
-  if(!it.nomic){
-    if(it.mano){
-      s+='<g transform="translate(19,30) rotate(-28)">'+bar(0,0,7.5,15,'ic fGrey',3)+'</g>';   /* mic in mano */
-      legY=40;
-    } else {
-      s+=bar(0,22,8,12,'ic fGrey',3)+lin(0,28,0,34,'ic thin')+circ(0,38,11,'ic fBlack')+circ(0,38,4,'dotS');   /* capsula + asta + base */
-      legY=55;
-    }
+  if(mm==="mano"){
+    s+='<g transform="translate(19,30) rotate(-28)">'+bar(0,0,7.5,15,'ic fGrey',3)+'</g>';   /* mic in mano */
+    legY=40;
+  } else if(mm==="giraffa"){
+    /* asta a giraffa (boom): capsula davanti + braccio diagonale a una base tonda di lato */
+    s+=bar(0,20,8,10,'ic fGrey',3)+lin(0,26,22,34,'ic thin')+circ(24,40,10,'ic fBlack')+circ(24,40,3.5,'dotS');
+    legY=55;
+  } else if(mm==="tonda"){
+    s+=bar(0,22,8,12,'ic fGrey',3)+lin(0,28,0,34,'ic thin')+circ(0,38,11,'ic fBlack')+circ(0,38,4,'dotS');   /* capsula + asta dritta + base tonda */
+    legY=55;
   }
   if(it.leggio) s+='<g transform="translate(0,'+legY+')">'+leggioGlyph(0)+'</g>';
   return s;
@@ -2395,7 +2409,7 @@ var TYPES = {
   cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce",
              draw:function(it){ return singer(it); }},
   corista:  {nome:"Corista", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"",
-             draw:function(it){ it=it||{}; return singer({mano:false, nomic:true, leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
   musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", catalog:false, w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
@@ -4106,7 +4120,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -4588,7 +4602,7 @@ function zoneAbsorbable(it){
 }
 function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
+function isAudioSource(it){ if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
 function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
 function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
@@ -5071,6 +5085,10 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
+  if(VOCE[it.type]){   /* voci (cantante/corista): il canale lo decide la modalità mic — panoramico = 0 (coperto dal mic di sezione), altrimenti 1 SM58 */
+    if(micModeOf(it)==="pano") return [];
+    return [{name:(it.label||TYPES[it.type].defLabel||TYPES[it.type].nome), mic:"SM58"}];
+  }
   /* F3: radiomic/headset con ricevitore → 0 canali qui; il ricevitore diventa la sorgente (XLR out) */
   if(RF_TX[it.type] && rfAssign().byTx[it.id]) return [];
   if(it.type==="rxrf"){ return (rfAssign().byRx[it.id]||[]).map(function(a){ return {name:rfTxName(a.tx), mic:(IN_SRC[a.tx.type]||"RF")}; }); }
@@ -5591,12 +5609,20 @@ function cablingMarkup(){
     s+='</g>';
   }
   /* ── stage box + badge in/out (infrastruttura condivisa) ── */
-  var hasRet=R.returnLinks.length>0;
   R.boxes.forEach(function(b){
     if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · 8ch</text></g>';
-    var bw=hasRet?76:52, bt=hasRet ? (b.letter+' '+b.used+'/'+b.cap+' · '+b.usedOut+'/'+b.outCap) : (b.letter+' — '+b.used+'/'+b.cap);
-    s+='<g class="cab-badge"><rect x="'+(b.x-bw/2)+'" y="'+(b.y-(b.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+b.x+'" y="'+(b.y-(b.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
-    /* Simone 21/07: pallino al CENTRO dell'icona stage box — punto di convergenza di tutti i cavi */
+    /* Stagebox coerente con gli I/O (Simone 21/07, variante A): due barre sopra la box — ingressi
+       (teal) e uscite (ciano) — che si riempiono in base agli input/output assegnati. */
+    var BW=58, bx0=b.x-BW/2, showOut=b.outCap>0, y0=b.y-(b.auto?54:52);
+    function iobar(y,u,c,cls){ if(!c) return ''; var fw=BW*Math.min(1,(u||0)/c);
+      return '<rect class="cab-iobar-bg" x="'+bx0.toFixed(1)+'" y="'+y+'" width="'+BW+'" height="5" rx="2.5"/>'
+        +'<rect class="'+cls+'" x="'+bx0.toFixed(1)+'" y="'+y+'" width="'+fw.toFixed(1)+'" height="5" rx="2.5"/>'
+        +'<text class="cab-iolbl '+cls+'-t" x="'+(bx0-4).toFixed(1)+'" y="'+(y+4.7)+'" text-anchor="end">'+(u||0)+'</text>'
+        +'<text class="cab-iolbl cab-iolbl-cap" x="'+(bx0+BW+4).toFixed(1)+'" y="'+(y+4.7)+'" text-anchor="start">'+c+'</text>'; }
+    s+='<g class="cab-iobox"><text class="cab-iobox-lbl" x="'+b.x.toFixed(1)+'" y="'+(y0-3)+'" text-anchor="middle">'+esc(b.letter)+(b.sbId?' · ID'+b.sbId:'')+'</text>';
+    s+=iobar(y0, b.used, b.cap, 'cab-iobar-in')+(showOut?iobar(y0+8, b.usedOut, b.outCap, 'cab-iobar-out'):'');
+    s+='</g>';
+    /* pallino al CENTRO dell'icona stage box — punto di convergenza di tutti i cavi */
     if(b.used||b.usedOut) s+='<circle class="cab-boxdot" cx="'+b.x.toFixed(1)+'" cy="'+b.y.toFixed(1)+'" r="7.5"/>';
   });
   s+='</g>';
@@ -7075,7 +7101,7 @@ function renderProps(){
         if(![].some.call(soSel.options,function(o){ return o.value===capo; })){ var op2=document.createElement("option"); op2.value=capo; op2.textContent=capo; soSel.appendChild(op2); }
         soSel.value=capo; } } }
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
-  if(mkw){ var mk=MIKING[it.type]; mkw.style.display=mk?"block":"none";
+  if(mkw){ var mk=MIKING[it.type]; mkw.style.display=(mk && !VOCE[it.type])?"block":"none";   /* per le voci il controllo è pMicMode (chip), non il dropdown */
     if(mk){ var msel=document.getElementById("pMike");
       var grpLab=mk.grp||"Mic singolo", zonaOpt=(mk.zona===false)?"":'<option value="__zona__">◇ Crea zona di sezione…</option>';   /* label gruppo e opzione zona per-MIKING: sezioni archi/fiati sì, strumenti singoli no */
       msel.innerHTML='<optgroup label="'+esc(grpLab)+'">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Altro"><option value="__nomic__">Nessun microfono</option>'+zonaOpt+'</optgroup>';
@@ -7192,8 +7218,8 @@ function renderProps(){
   pv.style.display = isVoce ? "block" : "none";
   if(isVoce){
     document.getElementById("pDonna").checked = it.donna===true;
-    var _mmw=document.getElementById("pMicModeWrap"); if(_mmw) _mmw.style.display = it.nomic ? "none" : "";
-    var _mm=document.getElementById("pMicMode"); if(_mm){ _mm.value = it.mano===true ? "mano" : "asta"; try{ _mm.dispatchEvent(new Event("chips-sync")); }catch(e){} }
+    var _mmw=document.getElementById("pMicModeWrap"); if(_mmw) _mmw.style.display = "";
+    var _mm=document.getElementById("pMicMode"); if(_mm){ _mm.value = micModeOf(it); try{ _mm.dispatchEvent(new Event("chips-sync")); }catch(e){} }
     document.getElementById("pLeggioV").checked = it.leggio!==false;
     document.getElementById("pSediaVWrap").style.display = (it.type==="corista") ? "block" : "none";   /* sedia solo per coristi */
     document.getElementById("pSediaV").checked = it.sedia===true;
@@ -7547,7 +7573,7 @@ function applySep(doSave){
 document.getElementById("pSep").addEventListener("input", function(){ applySep(false); });
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ mutSel(function(it){ it.donna=document.getElementById("pDonna").checked; }); });
-document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.mano=(v==="mano"); }); });
+document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.micMode=v; delete it.mano; delete it.nomic; }); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
   it.leggio=document.getElementById("pLeggioV").checked;
   if(it.type==="cantante") it.d = it.leggio?122:90;   /* fa spazio al leggio davanti */
@@ -10238,7 +10264,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","hw","ch","outCh"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */

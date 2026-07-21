@@ -702,6 +702,19 @@
   .cab-mondot{fill:#0891b2;stroke:#fff;stroke-width:1.8;pointer-events:none}
   .cab-boxdot{fill:#fff;stroke:#0d9488;stroke-width:3;pointer-events:none}
   body.dark .cab-boxdot{fill:#0e1214;stroke:#2dd4bf}
+  /* stagebox coerente con gli I/O (variante A): barre riempimento IN/OUT */
+  .cab-iobox,.cab-iobar-bg,.cab-iobar-in,.cab-iobar-out,.cab-iolbl,.cab-iobox-lbl{pointer-events:none}
+  .cab-iobar-bg{fill:#e5e7eb}
+  .cab-iobar-in{fill:#0d9488}
+  .cab-iobar-out{fill:#0891b2}
+  .cab-iolbl{font-size:7px;font-family:var(--font-mono,ui-monospace);font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2px}
+  .cab-iobar-in-t{fill:#0d9488}
+  .cab-iobar-out-t{fill:#0891b2}
+  .cab-iolbl-cap{fill:#9ca3af}
+  .cab-iobox-lbl{font-size:9px;font-weight:700;fill:#334155;paint-order:stroke;stroke:#fff;stroke-width:2.4px}
+  body.dark .cab-iobar-bg{fill:#374151}
+  body.dark .cab-iolbl{stroke:#0e1214}
+  body.dark .cab-iobox-lbl{fill:#cbd5e1;stroke:#0e1214}
   .cab-startlbl{font-size:10px}
   body.dark .cab-srcdot{stroke:#0e1214}
   body.dark .cab-mondot{stroke:#0e1214}
@@ -2202,10 +2215,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <label class="chk" style="display:none"><input type="checkbox" id="pDonna"> Donna (maglietta rosa)</label>
       <div class="stpr-f" id="pMicModeWrap"><label>Microfono</label>
         <div class="chips" data-chips="pMicMode">
-          <button type="button" data-v="asta">Su asta (base tonda)</button>
+          <button type="button" data-v="tonda">Base tonda</button>
+          <button type="button" data-v="giraffa">Giraffa</button>
           <button type="button" data-v="mano">In mano</button>
+          <button type="button" data-v="pano">Panoramico</button>
         </div>
-        <select id="pMicMode" hidden><option value="asta">asta</option><option value="mano">mano</option></select>
+        <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="pano">panoramico</option></select>
       </div>
       <label class="chk"><input type="checkbox" id="pLeggioV"> Leggio</label>
       <label class="chk" id="pSediaVWrap"><input type="checkbox" id="pSediaV"> Sedia</label>
