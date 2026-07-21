@@ -2230,23 +2230,30 @@ t("Layer v2: cablaggio automatico su addItem + stile cavi + pallini", () => {
   A.addItem("astamic", { x: 250, y: 250 });
   R = A.cabResult(true);
   eq(R.pending.length, 0, "anche la sorgente aggiunta dopo si collega da sola");
-  // 2) stile cavi: orto = solo L, curve = Q (angoli arrotondati), percorso identico
+  // 2) stile cavi: retti = solo L, smussati = Q, diretto = linea dritta sui punti grezzi
   const pts = [[0, 0], [100, 0], [100, 80]];
-  ok(A.cabPathD(pts).indexOf("Q") < 0, "orto: nessuna curva");
+  ok(A.cabPathD(pts).indexOf("Q") < 0, "angoli retti: nessuna curva");
   A.state.cab.style = "curve";
-  ok(A.cabPathD(pts).indexOf("Q") >= 0, "curve: angoli arrotondati (Q)");
-  // 3) loom: canale leggibile alla partenza + pallini sorgente sempre presenti
-  A.state.cab.style = "loom";
-  const mk = A.cablingMarkup();
-  ok(mk.indexOf("cab-startlbl") >= 0, "stile fascio: etichetta canale alla partenza");
+  ok(A.cabPathD(pts).indexOf("Q") >= 0, "smussati: angoli arrotondati (Q)");
+  A.state.cab.style = "dir";
+  eq(A.cabDrawD([[0, 0], [100, 80]], pts), "M 0.0 0.0 L 100.0 80.0", "diretto: linea dritta sui punti grezzi");
+  // 3) canale alla partenza nel SOLO Ingressi + pallini sorgente sempre presenti
+  A.state.cab.style = "orto";
+  A.layerSoloUI = { cabin: true };
+  let mk = A.cablingMarkup();
+  ok(mk.indexOf("cab-startlbl") >= 0, "solo Ingressi: etichetta canale alla partenza");
   ok(mk.indexOf("cab-srcdot") >= 0, "pallino sorgente sempre visibile");
-  // 4) normalizeState sanifica lo stile
+  A.layerSoloUI = {};
+  // 4) normalizeState sanifica lo stile (il vecchio "loom" migra a orto)
   A.state.cab.style = "spazzatura";
-  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  let ns = A.normalizeState(A.state); if (ns) A.state = ns;
   eq(A.state.cab.style, "orto", "stile non valido → orto");
-  A.state.cab.style = "curve";
-  const ns2 = A.normalizeState(A.state); if (ns2) A.state = ns2;
-  eq(A.state.cab.style, "curve", "stile valido preservato");
+  A.state.cab.style = "loom";
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.cab.style, "orto", "loom (vecchio) → orto");
+  A.state.cab.style = "dir";
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.cab.style, "dir", "diretto preservato");
 });
 
 t("P.M.: connessione DIGITALE automatica all'hub, MAI ritorno analogico dalla box", () => {
@@ -2278,6 +2285,41 @@ t("solo: S = isolamento (resto NASCOSTO), fuoco = fade 15%", () => {
   ok(nIso < nFocus, "S: il contesto è proprio assente (" + nIso + " < " + nFocus + ")");
   ok(mk.indexOf("layStage") >= 0, "il perimetro del palco resta (il foglio)");
   A.layerSoloUI = {}; A.layerSoloMode = "focus";
+});
+
+t("layer tecnici: punti sezione + legenda + distribuzione omogenea tra box", () => {
+  reset();
+  // sezioni e colori stabili
+  const v1 = add("vlnpost", 200, 200); v1.vsec = 1;
+  const v2 = add("vlnpost", 260, 200); v2.vsec = 2;
+  const bat = add("batteria", 400, 200);
+  eq(A.sectionOf(v1), "Violini I"); eq(A.sectionOf(v2), "Violini II");
+  ok(A.sectionOf(bat).length > 0, "la batteria ha una sezione");
+  ok(A.sectionColor("Violini I") !== A.sectionColor("Viole"), "colori diversi per sezioni diverse");
+  eq(A.sectionColor("Violini I"), A.sectionColor("Violini I"), "colore stabile");
+  // nel solo Ingressi i musicisti diventano punti + compare la legenda
+  A.state.cab.on = true;
+  A.layerSoloUI = { cabin: true }; A.layerSoloMode = "iso";
+  const mk = A.sceneMarkup();
+  ok(mk.indexOf("secdot") >= 0, "musicisti come punti sezione");
+  const leg = A.sectionLegendMarkup();
+  ok(leg.indexOf("Violini I") >= 0 && leg.indexOf("Violini II") >= 0, "legenda con le sezioni presenti");
+  A.layerSoloUI = {}; A.layerSoloMode = "focus";
+  // distribuzione: 2 box quasi equidistanti → sorgenti spartite, non concentrate
+  reset(); A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  A.state.items = [
+    { id: "bA", type: "stagebox", x: 300, y: 500, rot: 0, w: 60, d: 40 },
+    { id: "bB", type: "stagebox", x: 360, y: 500, rot: 0, w: 60, d: 40 },
+    { id: "m1", type: "astamic", x: 300, y: 200, rot: 0, w: 30, d: 30 },
+    { id: "m2", type: "astamic", x: 320, y: 200, rot: 0, w: 30, d: 30 },
+    { id: "m3", type: "astamic", x: 340, y: 200, rot: 0, w: 30, d: 30 },
+    { id: "m4", type: "astamic", x: 360, y: 200, rot: 0, w: 30, d: 30 }
+  ];
+  A.__cabRes = null;
+  A.cabConnectAll();
+  const R = A.cabResult(true);
+  const perBox = {}; R.links.forEach(l => { if (l.box) perBox[l.box.id] = (perBox[l.box.id] || 0) + 1; });
+  ok((perBox.bA || 0) >= 1 && (perBox.bB || 0) >= 1, "collegamenti spartiti tra le box (" + JSON.stringify(perBox) + ")");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
