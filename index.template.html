@@ -11244,7 +11244,7 @@ function layerRegistry(){
        occhio/opacità/lucchetto/cestino agiscono su TUTTA la catena audio. Le pagine-vista PDF
        (view-cabin/cabout/mond) restano granulari; il focus canvas usa "cabaudio" (tutta la catena). */
     { id:"cabaudio", name:"Cablaggio audio", color:LAYER_COLORS.audioIn,
-      active:!!state.cab.on || !!(state.mond&&state.mond.on) || state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; }),
+      active:!!state.cab.on || !!(state.mond&&state.mond.on) || state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"||x.type==="iemant"; }),
       visible:state.cab.showInputs!==false,
       setVisible:function(v){ state.cab.showInputs=v; state.cab.showReturns=v; state.cab.showNet=v; state.rfShow=v; if(state.mond) state.mond.visible=v; save(); render(); },
       opacity:state.cab.opacity,
@@ -11327,7 +11327,7 @@ function layerShown(id){
    (Simone: Power = cavi corrente + CARICHI; P.M. = mixerini + hub + cablaggi digitali) */
 function layerFgItem(id, it){
   switch(id){
-    case "cabaudio": return !!(cabIsBox(it) || it.type==="mixer" || it.type==="foh" || OUT_SET[it.type]!=null || MON_DIG_NODE[it.type] || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || RF_TX[it.type] || isAudioSource(it));   /* focus audio: tutta la catena (sorgenti+dispositivi+monitor+P.M.+RF) */
+    case "cabaudio": return !!(cabIsBox(it) || it.type==="mixer" || it.type==="foh" || OUT_SET[it.type]!=null || MON_DIG_NODE[it.type] || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || it.type==="iemant" || RF_TX[it.type] || isAudioSource(it));   /* focus audio: tutta la catena (sorgenti+dispositivi+monitor+P.M.+RF; iemant = rack TX in-ear, fuori da OUT_SET ma parte della catena) */
     case "cabin": case "net": return !!(cabIsBox(it) || it.type==="mixer" || it.type==="foh");
     case "cabout": return !!(OUT_SET[it.type]!=null || cabIsBox(it) || it.type==="mixer" || it.type==="foh");
     case "mond":   return !!MON_DIG_NODE[it.type];
@@ -11345,7 +11345,7 @@ function itemInSoloLayer(it){
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
 function pruneSolo(){
   if(!anySolo()) return;
-  var alive={ cabaudio:(!!(state.cab&&state.cab.on) || !!(state.mond&&state.mond.on) || (state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; })),   /* layer audio UNICO */
+  var alive={ cabaudio:(!!(state.cab&&state.cab.on) || !!(state.mond&&state.mond.on) || (state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"||x.type==="iemant"; })),   /* layer audio UNICO */
               elec:!!(state.elec&&state.elec.on),
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
@@ -11384,7 +11384,11 @@ function renderLayerRow(L, container){
     render();
   });
   var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questo layer":"Mostra questo layer"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
-  eye.addEventListener("click", function(e){ e.stopPropagation(); L.setVisible(!L.visible); }); row.appendChild(eye);
+  eye.addEventListener("click", function(e){ e.stopPropagation();
+    /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
+       (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
+    if(L.visible && layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
+    L.setVisible(!L.visible); }); row.appendChild(eye);
   container.appendChild(row);
   if(focus){
     var body=document.createElement("div"); body.className="layer-accbody";

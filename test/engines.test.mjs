@@ -2111,5 +2111,19 @@ t("decisione 4A: elementDept mappa gli elementi al reparto tecnico", () => {
   ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Power", "nomi reparto");
 });
 
+t("layer Cablaggio audio: iemant (rack TX in-ear) fa parte della catena", () => {
+  reset();
+  const tx = add("iemant", 300, 300);
+  eq(A.layerFgItem("cabaudio", tx), true, "rack TX in-ear = fg del layer audio (come i beltpack)");
+  eq(A.layerRegistry().some(L => L.id === "cabaudio" && L.active), true, "solo un TX sul palco: layer audio attivo");
+  A.layerSoloUI = { cabaudio: true };
+  A.pruneSolo();
+  eq(!!A.layerSoloUI.cabaudio, true, "il solo audio sopravvive con un TX sul palco");
+  A.state.items = [];
+  A.pruneSolo();
+  eq(!!A.layerSoloUI.cabaudio, false, "senza catena audio il solo decade");
+  A.layerSoloUI = {};
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
