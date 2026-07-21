@@ -11942,14 +11942,19 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
          input/monitor list. Una lista già compilata a mano non viene toccata (autoInputs esce se piena). */
       try{ if(!state.inputs.length) autoInputs(); }catch(e){}
       try{ if(!state.outputs.length) autoOutputs(); }catch(e){}
-      /* Decisione 5A: pre-carica la responsabilità (account-only) per la pagina PDF, poi rinfresca le pillole */
-      try{ var Cx=window.__cloud, px=Cx&&Cx.currentId&&Cx.currentId();
-        if(Cx&&Cx.user&&Cx.user()&&px){ Cx.deptAssign.list(px, function(a){ Cx.rubrica.list(function(r){ window.__respData={assigns:a||{}, rubrica:r||[]}; if(typeof pdfRefreshPages==="function") pdfRefreshPages(); }); }); }
-        else window.__respData=null;
-      }catch(e){ window.__respData=null; }
+      preloadRespData();
     }
     renderFramePanel(); render();
   });
+  /* Decisione 5A: pre-carica la responsabilità (account-only) per la pagina PDF, poi rinfresca le
+     pillole. Chiamata da ENTRAMBI gli ingressi dell'export: header (bHdrPdf) e menu File/Condividi
+     (bPdf) — dal solo header la pagina "Responsabilità" non veniva mai offerta via menu. */
+  window.preloadRespData=function(){
+    try{ var Cx=window.__cloud, px=Cx&&Cx.currentId&&Cx.currentId();
+      if(Cx&&Cx.user&&Cx.user()&&px){ Cx.deptAssign.list(px, function(a){ Cx.rubrica.list(function(r){ window.__respData={assigns:a||{}, rubrica:r||[]}; if(typeof pdfRefreshPages==="function") pdfRefreshPages(); }); }); }
+      else window.__respData=null;
+    }catch(e){ window.__respData=null; }
+  };
   /* frameSaveJson rimosso (A′): il download del progetto vive in File → Scarica file progetto */
   (function(){ var fv=document.getElementById("frameVers"); if(fv) fv.addEventListener("click", toggleVersionEdit); })();
   /* Export come modale: chiusura con X e click sullo sfondo */
@@ -14517,7 +14522,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.production && !state.production.asked){ state.production.asked=true; save(); }
   }
   window.openPdfExportModal=_pdfExportModalCore;
-  document.getElementById("bPdf").addEventListener("click", function(){ (window.openPrintAreaStep||window.openPdfExportModal)(); });
+  document.getElementById("bPdf").addEventListener("click", function(){ if(window.preloadRespData) preloadRespData(); (window.openPrintAreaStep||window.openPdfExportModal)(); });
   document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; window.__pdfScope="full"; });
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
