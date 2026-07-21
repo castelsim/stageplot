@@ -597,6 +597,17 @@
   .layer-solo:hover{border-color:var(--accent);color:var(--accent)}
   .layer-solo.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .layer-trash:hover{color:var(--danger,#dc2626)}
+  /* selettore stile cavi = segmented control (UI cablaggio, passata 21/07) */
+  .layer-cabstyle{gap:0;padding:4px 8px 8px 24px}
+  .layer-cabstyle .adv-btn{border-radius:0;margin-left:-1px;flex:1;justify-content:center;white-space:nowrap}
+  .layer-cabstyle .adv-btn:first-child{border-radius:7px 0 0 7px;margin-left:0}
+  .layer-cabstyle .adv-btn:last-child{border-radius:0 7px 7px 0}
+  .layer-cabstyle .adv-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;position:relative;z-index:1}
+  /* punti sezione (layer tecnici) + legenda */
+  .secdot-c{stroke:#fff;stroke-width:2.5}
+  .secdot-lbl{font-size:9.5px;fill:#334155;paint-order:stroke;stroke:#fff;stroke-width:2.4px;font-weight:600}
+  body.dark .secdot-c{stroke:#0e1214}
+  body.dark .secdot-lbl{fill:#cbd5e1;stroke:#0e1214}
   .layer-adv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:3px 0 9px 2px}
   .adv-op{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2)}
   .adv-op input[type=range]{width:78px;margin:0}
