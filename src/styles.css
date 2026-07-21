@@ -593,6 +593,20 @@
   .adv-btn:hover{border-color:var(--accent)}
   .adv-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .adv-reset:hover{border-color:var(--danger,#dc2626);color:var(--danger,#dc2626)}
+  /* D-L1A: riga layer col motore spento = invito ad attivare */
+  .layer-offrow{opacity:.62}
+  .layer-offrow .layer-name{font-weight:500}
+  .layer-offrow:hover{opacity:1}
+  .layer-actbadge{margin-left:auto;font-size:10px;color:var(--text-3);border:1px dashed var(--text-3);border-radius:99px;padding:1px 8px;line-height:1.5}
+  .layer-offrow:hover .layer-actbadge{color:var(--accent);border-color:var(--accent)}
+  /* D-L2A: bottone "Collega automaticamente" nella striscia del fuoco */
+  .adv-connect{border-color:var(--accent);color:var(--accent);background:var(--accent-soft,rgba(13,148,136,.08))}
+  .adv-connect:hover{background:var(--accent);color:#fff}
+  /* D-L3A: linguette Ingressi/Output/P.M. sotto "Cablaggio audio" */
+  .layer-tabs{display:flex;gap:2px;margin:2px 0 6px;border-bottom:1.5px solid var(--border)}
+  .layer-tab{border:none;background:none;font-size:11px;font-weight:600;color:var(--text-3);padding:4px 9px 5px;cursor:pointer;border-radius:6px 6px 0 0}
+  .layer-tab:hover{color:var(--text-2);background:var(--n-100)}
+  .layer-tab.on{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
   .cab-sechead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
   .cab-sechead .caret{font-size:11px;color:var(--text-3);width:10px;flex:0 0 auto}
   .cab-sectitle{flex:1 1 auto;font-size:12.5px;color:var(--text)}

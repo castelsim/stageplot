@@ -2125,5 +2125,39 @@ t("layer Cablaggio audio: iemant (rack TX in-ear) fa parte della catena", () => 
   A.layerSoloUI = {};
 });
 
+t("D-L1A: layer core Cablaggio audio e Power sempre in lista, con stato motore", () => {
+  reset();
+  const reg = A.layerRegistry();
+  const cab = reg.find(L => L.id === "cabaudio"), el = reg.find(L => L.id === "elec");
+  eq(cab.active, true, "cabaudio in lista anche a motore spento");
+  eq(cab.engineOn, false, "motore audio spento");
+  eq(el.active, true, "elec in lista anche a motore spento");
+  eq(el.engineOn, false, "motore power spento");
+  A.state.cab.on = true; A.state.elec.on = true;
+  const reg2 = A.layerRegistry();
+  eq(reg2.find(L => L.id === "cabaudio").engineOn, true, "motore audio acceso");
+  eq(reg2.find(L => L.id === "elec").engineOn, true, "motore power acceso");
+  ok(typeof cab.activate === "function" && typeof el.activate === "function", "activate presenti");
+});
+
+t("D-L2A: cabConnectAll materializza la proposta (solo box reali, manuali intatti)", () => {
+  reset();
+  const mic = add("astamic", 200, 200), wedge = add("wedge", 300, 300);
+  add("stagebox", 400, 200);
+  A.state.cab.on = true; A.__cabRes = null;
+  let R = A.cabResult(true);
+  ok(R.pending.length >= 1, "in manuale l'ingresso è pending (" + R.pending.length + ")");
+  ok(R.mixes.some(m => m.pending), "il mix monitor è pending");
+  const n = A.cabConnectAll();
+  ok(n >= 2, "collegati ingresso + mix (n=" + n + ")");
+  R = A.cabResult(true);
+  eq(R.pending.length, 0, "nessun ingresso pending dopo il collega-tutto");
+  eq(R.mixes.filter(m => m.pending).length, 0, "nessun mix pending");
+  eq(A.state.cab.mode, "manual", "il mode resta manual (override espliciti)");
+  ok(R.links.some(l => l.box && !l.box.auto), "il cavo va su una box REALE");
+  // idempotente: secondo giro non tocca nulla
+  eq(A.cabConnectAll(), 0, "secondo giro: niente da collegare");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

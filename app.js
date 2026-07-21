@@ -4053,9 +4053,30 @@ function cabTryInsertAt(sp, it){
   }
   return false;
 }
-/* Manual-first: "Proponi collegamenti" materializza la proposta del motore come override ESPLICITI
-   (simulazione in modalità auto → scrive man[key].box solo verso box/distro REALI). Così la proposta
-   diventa collegamenti dell'utente: visibili, modificabili, cancellabili uno a uno. */
+/* Manual-first: "Collega automaticamente" (D-L2A, 21/07) materializza la proposta del motore come
+   override ESPLICITI: simula in modalità auto e scrive man[key].box SOLO verso box REALI (salta le
+   proposte b.auto) e SOLO dove l'utente non ha già un collegamento. Così la proposta diventa
+   collegamenti dell'utente: visibili, modificabili, cancellabili uno a uno. Ritorna quante chiavi
+   (cavi input/gruppo + mix monitor) ha collegato. */
+function cabConnectAll(){
+  if(!state.cab.on) state.cab.on=true;
+  var man=state.cab.manual=state.cab.manual||{};
+  var prev=state.cab.mode; state.cab.mode="auto";
+  var R; try{ R=audioCablingEngine(); } finally{ state.cab.mode=prev; }
+  var done=0, seen={};
+  (R.links||[]).forEach(function(l){
+    if(l.deleted || !l.box || l.box.auto) return;
+    var cm=man[l.key]||(man[l.key]={});
+    if(!cm.box && !cm.deleted){ cm.box=l.box.id; if(!seen[l.key]){ seen[l.key]=1; done++; } }
+  });
+  (R.mixes||[]).forEach(function(m){
+    if(!m.box || m.box.auto) return;
+    var k="mix:"+m.key, cm=man[k]||(man[k]={});
+    if(!cm.box && !cm.deleted){ cm.box=m.box.id; done++; }
+  });
+  __cabRes=null; save(); render();
+  return done;
+}
 /* Allinea elettrico (parità con cabAlign): snap dei corner manuali alla griglia + pulizia collineari */
 /* Align stile Max (08/07): riordina TUTTI i cavi manuali — snap dei corner alla griglia + pulizia
    (fonde i collineari, toglie i micro-jog). Diverso da "Reset manuale" (che butta il routing): qui il
@@ -9780,7 +9801,11 @@ function layerRegistry(){
        occhio/opacità/lucchetto/cestino agiscono su TUTTA la catena audio. Le pagine-vista PDF
        (view-cabin/cabout/mond) restano granulari; il focus canvas usa "cabaudio" (tutta la catena). */
     { id:"cabaudio", name:"Cablaggio audio", color:LAYER_COLORS.audioIn,
-      active:!!state.cab.on || !!(state.mond&&state.mond.on) || state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"||x.type==="iemant"; }),
+      /* D-L1A (21/07): layer CORE sempre in lista. Spento = riga-invito col badge "attiva"
+         (i vecchi toggleCabLayer/toggleElecLayer erano codice morto: il wizard era irraggiungibile). */
+      active:true,
+      engineOn:!!state.cab.on || !!(state.mond&&state.mond.on) || state.items.some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"||x.type==="iemant"; }),
+      activate:function(){ cabActivateFlow(); },   /* prima attivazione: motore ON + wizard stage box se servono */
       visible:state.cab.showInputs!==false,
       setVisible:function(v){ state.cab.showInputs=v; state.cab.showReturns=v; state.cab.showNet=v; state.rfShow=v; if(state.mond) state.mond.visible=v; save(); render(); },
       opacity:state.cab.opacity,
@@ -9789,7 +9814,9 @@ function layerRegistry(){
       setLocked:function(v){ state.cab.lockIn=v; state.cab.lockOut=v; if(state.mond) state.mond.locked=v; if(v){ selCab=null; selMond=null; } save(); render(); },
       removable:true, removeLabel:"Azzera percorsi", remove:function(){ state.cab.manual={}; if(state.mond) state.mond.manual={}; selCab=null; selMond=null; __cabRes=null; __mondRes=null; save(); render(); } },   /* cestino = azzera tutti gli aggiustamenti del cablaggio audio (ingressi + ritorni + P.M.) */
     /* Elettrico (motore proprio) e Planimetria (sfondo). */
-    { id:"elec", name:"Power", color:LAYER_COLORS.elettrico, active:!!state.elec.on,
+    { id:"elec", name:"Power", color:LAYER_COLORS.elettrico,
+      active:true, engineOn:!!state.elec.on,   /* D-L1A: core sempre in lista, clic attiva */
+      activate:function(){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); },
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       opacity:state.elec.opacity, setOpacity:function(v){ state.elec.opacity=v; var g=svg.querySelector(".elec-layer"); if(g) g.style.opacity=(v/100).toString(); saveSoon(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
@@ -9903,6 +9930,7 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    le STESSE di prima (statoSec/patchSec/monSec/loadSec): vengono spostate sotto il layer aperto
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
+var cabAccTab="in";      /* D-L3A: linguetta attiva sotto "Cablaggio audio" (in|out|pm), runtime */
 var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabaudio:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec" };   /* cabaudio apre la channel list (Input); monSec/pmAccSec restano parcheggiati (cabout/mond non hanno più riga) + impilati sotto cabaudio */
 /* Layer "lavora qui" (Simone 20/07): la riga e' [pallino][nome]...[occhio]. CLIC sulla riga = mette
    a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
@@ -9910,6 +9938,17 @@ var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabaudio:"patchSec", cabout:"
    solo quando il layer e' a fuoco (niente piu' 5 controlli sempre in vista). */
 function renderLayerRow(L, container){
   var focus=(layerAccOpen===L.id), accKey=LAYER_ACC[L.id]||null;
+  /* D-L3A: sotto "Cablaggio audio" la fisarmonica ha 3 linguette (Ingressi/Output/P.M.) */
+  if(L.id==="cabaudio") accKey=(cabAccTab==="out")?"monSec":(cabAccTab==="pm")?"pmAccSec":"patchSec";
+  /* D-L1A: motore spento → riga-invito. Il clic ATTIVA il motore e mette il layer a fuoco. */
+  if(L.engineOn===false){
+    var offRow=document.createElement("div"); offRow.className="layer-row layer-clickable layer-offrow";
+    offRow.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span><span class="layer-actbadge">attiva</span>';
+    offRow.title="Attiva: "+L.name;
+    offRow.addEventListener("click", function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); });
+    container.appendChild(offRow);
+    return;
+  }
   var row=document.createElement("div"); row.className="layer-row layer-clickable"+(focus?" focus":"");
   row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
   row.title=focus?"Clicca per mostrare tutti i layer":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
@@ -9938,6 +9977,27 @@ function renderLayerRow(L, container){
     if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="adv-btn"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK+'<span>'+(L.locked?"Bloccato":"Blocca")+'</span>'; lk.addEventListener("click", function(){ L.setLocked(!L.locked); }); strip.appendChild(lk); }
     if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="adv-btn adv-reset"; tr.innerHTML=_LM_TRASH+'<span>'+(L.removeLabel||"Rimuovi")+'</span>'; tr.addEventListener("click", function(){ L.remove(); }); strip.appendChild(tr); }
     body.appendChild(strip);
+    /* D-L2A: motore acceso ma ingressi/mix ancora da collegare → un click e il palco si cabla
+       (materializza la proposta del motore; i collegamenti manuali esistenti non si toccano). */
+    if(L.id==="cabaudio" && state.items.some(cabIsBox)){   /* anche a cab.on spento (layer acceso via RF): cabConnectAll accende il motore */
+      var Rq=cabResult(), nPend=(Rq.pending||[]).length + (Rq.mixes||[]).filter(function(m){ return m.pending; }).length;
+      if(nPend>0){ var cw=document.createElement("div"); cw.className="layer-adv";
+        var cb=document.createElement("button"); cb.type="button"; cb.className="adv-btn adv-connect";
+        cb.innerHTML='⚡ <span>Collega automaticamente ('+nPend+')</span>';
+        cb.title="Collega ingressi e mix liberi alla stage box più vicina (restano modificabili uno a uno)";
+        cb.addEventListener("click", function(){ var n=cabConnectAll(); showToast(n?("Collegati "+n+" tra ingressi e mix"):"Niente da collegare (canali esauriti?)", n?undefined:"err"); });
+        cw.appendChild(cb); body.appendChild(cw); }
+    }
+    /* D-L3A: linguette della catena audio (le sezioni esistono già: patchSec/monSec/pmAccSec) */
+    if(L.id==="cabaudio"){
+      var Rt=cabResult(), pmN=(state.items||[]).filter(function(x){ return (typeof pmOf==="function") && pmOf(x); }).length;
+      var tabs=document.createElement("div"); tabs.className="layer-tabs";
+      [["in","Ingressi ("+(Rt.totIn||0)+")"],["out","Output ("+((Rt.mixes||[]).length)+")"],["pm","P.M. ("+pmN+")"]].forEach(function(td){
+        var tb=document.createElement("button"); tb.type="button"; tb.className="layer-tab"+(cabAccTab===td[0]?" on":""); tb.textContent=td[1];
+        tb.addEventListener("click", function(e){ e.stopPropagation(); cabAccTab=td[0]; render(); });
+        tabs.appendChild(tb); });
+      body.appendChild(tabs);
+    }
     var secEl=accKey?document.getElementById(accKey):null;
     if(secEl) body.appendChild(secEl);
     container.appendChild(body);
@@ -9949,7 +10009,7 @@ function renderLayerManager(){
   var park=document.getElementById("accPark");
   if(park) Object.keys(LAYER_ACC).forEach(function(k){ var el=document.getElementById(LAYER_ACC[k]); if(el && el.parentNode!==park) park.appendChild(el); });
   /* le liste sono attive SOLO come corpo del layer aperto (via la voce catalogo "Liste tecniche") */
-  patchActive=(layerAccOpen==="cabaudio"); monActive=(layerAccOpen==="cabout"); loadActive=(layerAccOpen==="elec");   /* cabaudio → channel list (Input) */
+  patchActive=(layerAccOpen==="cabaudio" && cabAccTab==="in"); monActive=(layerAccOpen==="cabaudio" && cabAccTab==="out"); loadActive=(layerAccOpen==="elec");   /* D-L3A: cabaudio → linguette Ingressi/Output/P.M. */
   var LS=layerRegistry().filter(function(L){ return L.active; });
   /* il layer Palco resta sempre in cima alla lista (richiesta Simone) */
   LS=LS.filter(function(L){ return L.id==="stage"; }).concat(LS.filter(function(L){ return L.id!=="stage"; }));
@@ -10034,8 +10094,10 @@ function renderMusAccList(){
 }
 function renderPmAccList(){
   var el=document.getElementById("pmAccSec"); if(!el) return;
-  if(layerAccOpen!=="mond" || !state.mond || !state.mond.on){ el.innerHTML=""; el.style.display="none"; return; }
+  /* D-L3A: vive nella linguetta P.M. sotto "Cablaggio audio" (mond non ha più riga propria) */
+  if(!(layerAccOpen==="cabaudio" && cabAccTab==="pm")){ el.innerHTML=""; el.style.display="none"; return; }
   el.style.display="block";
+  if(!state.mond || !state.mond.on){ el.innerHTML='<div class="insp-hd">Lista personal monitor</div><div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun sistema personal monitor: trascina un mixerino dal catalogo e collegalo a un hub.</div>'; return; }
   var R=mondResult(), s='<div class="insp-hd">Lista personal monitor</div>';
   if(!(R.links||[]).length){ el.innerHTML=s+'<div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun collegamento: trascina un cavo dal mixerino a un hub.</div>'; return; }
   R.links.forEach(function(l){
@@ -10050,10 +10112,7 @@ function renderCabPanel(){
   sec.style.display="none";   /* Simone 09/07 (#24): niente box "Cavo selezionato" — Backspace elimina, trascini lati/estremi per piegare/riconnettere */
   if(!(state.cab && state.cab.on)) selCab=null;
 }
-function toggleCabLayer(){
-  if(!state.cab.on){ cabActivateFlow(); return; }   /* prima attivazione → modale mixer + punto principale */
-  state.cab.on=false; selCab=null; save(); render();
-}
+/* toggleCabLayer rimosso (21/07): era codice morto — l'attivazione ora è il clic sulla riga layer (D-L1A) */
 (function(){
   /* pannello Cablaggio audio tolto: restano solo gli handler del box "Cavo selezionato" */
   document.getElementById("cabSelLabel").addEventListener("input", function(){ if(!selCab) return; cabManual(selCab).label=this.value; __cabRes=null; save(); render(); });
@@ -10128,7 +10187,7 @@ function cabSuggestBoxes(needs){   /* default = una box per cluster, arrotondata
   return sizes;
 }
 function cabActivateFlow(){
-  state.cab.on=true; techAccordionOpen("cab"); __cabRes=null;
+  state.cab.on=true; techAccordionOpen("patch"); __cabRes=null;   /* D-L1A: la lista che si apre sotto il layer è la channel list (il vecchio pannello "cab" non esiste più) */
   var needs=cabPlanNeeds();
   if(needs.totIn>0 && !state.items.some(cabIsBox)){ save(); render(); openCabBoxWizard(needs); return; }   /* servono box → wizard */
   save(); render();
@@ -10778,10 +10837,7 @@ function renderElecPanel(){
   var sec=document.getElementById("elecSec"); if(!sec) return;
   sec.style.display="none";   /* Simone 08/07: niente box "Linea selezionata" sull'elettrico (elimina = Backspace) */
 }
-function toggleElecLayer(){
-  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; __elecRes=null; save(); render(); return; }
-  state.elec.on=false; save(); render();
-}
+/* toggleElecLayer rimosso (21/07): era codice morto — l'attivazione ora è il clic sulla riga layer (D-L1A) */
 (function(){
   /* pannello Cablaggio elettrico tolto: restano solo gli handler del box "Linea selezionata" */
   document.getElementById("elecSelDelete").addEventListener("click", function(){ if(!selElec) return;
