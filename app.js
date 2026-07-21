@@ -13619,12 +13619,16 @@ function renderContacts(){
   if(dl && !dl.__filled){ dl.__filled=true; dl.innerHTML=CONTACT_ROLES.map(function(r){ return '<option value="'+esc(r)+'"></option>'; }).join(""); }
   var ro=document.body.classList.contains("consult-viewer") || !!window.__projLocked;
   host.innerHTML="";
+  var logged=!!(window.__cloud && window.__cloud.user && window.__cloud.user());
   (state.contacts||[]).forEach(function(c,i){
     var row=document.createElement("div"); row.style.cssText="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;margin-bottom:7px";
+    var star=null;   /* riferimento per aggiornare la ★ live mentre si compila la riga (niente re-render → niente perdita del focus) */
+    function rowFilled(){ return !!((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }
+    function refreshStar(){ if(star) star.style.display=rowFilled()?"":"none"; }
     function inp(field, ph, span, list){ var el=document.createElement("input"); el.type="text"; el.value=c[field]||""; el.placeholder=ph;
       el.style.cssText="min-width:0;padding:4px 7px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111"+(span?";grid-column:1 / span "+span:"");
       if(list) el.setAttribute("list",list);
-      if(ro) el.readOnly=true; else el.addEventListener("input", function(){ var lim=field==="note"?120:(field==="contact"?80:(field==="name"?60:40)); state.contacts[i][field]=el.value.slice(0,lim); syncTechContact(); saveSoon(); });
+      if(ro) el.readOnly=true; else el.addEventListener("input", function(){ var lim=field==="note"?120:(field==="contact"?80:(field==="name"?60:40)); state.contacts[i][field]=el.value.slice(0,lim); if(field==="name"||field==="contact") refreshStar(); syncTechContact(); saveSoon(); });
       return el; }
     row.appendChild(inp("role","Ruolo (es. Service locale)",2,"roleList"));
     var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Rimuovi contatto";
@@ -13633,10 +13637,10 @@ function renderContacts(){
     row.appendChild(del);
     row.appendChild(inp("name","Nome"));
     row.appendChild(inp("contact","Telefono / email"));
-    /* Rubrica (spec 15/07): ★ salva questa riga nella rubrica account — solo loggati, riga non vuota */
-    var logged=!!(window.__cloud && window.__cloud.user && window.__cloud.user());
-    if(logged && !ro && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim()))){
-      var star=document.createElement("button"); star.type="button"; star.textContent="★"; star.title="Salva in rubrica";
+    /* Rubrica (spec 15/07): ★ salva questa riga nella rubrica account — solo loggati. La ★ è sempre
+       creata (da loggati) ma nascosta finché la riga è vuota: così appare/sparisce mentre digiti. */
+    if(logged && !ro){
+      star=document.createElement("button"); star.type="button"; star.textContent="★"; star.title="Salva in rubrica";
       star.style.cssText="border:1px solid var(--border,#e5e7eb);background:#fff;border-radius:6px;cursor:pointer;color:#0d9488;font-size:13px;line-height:1;padding:0 8px";
       star.addEventListener("click", function(){
         window.__cloud.rubrica.upsert(c, function(saved){
@@ -13644,6 +13648,7 @@ function renderContacts(){
           if(saved && typeof track==="function") track("rubrica_save");
         });
       });
+      refreshStar();
       row.appendChild(star);
     } else { row.appendChild(document.createElement("span")); }
     row.appendChild(inp("note","Note (opzionale)",3));
@@ -15582,6 +15587,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       updateBtn();
       if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
+      if(typeof window.renderContacts==="function") window.renderContacts();   /* login/logout: i controlli rubrica (+ Dalla rubrica, ★, Gestisci) compaiono subito, non al prossimo re-render */
       if(modalOpen()) renderModal();
       if(cloudUser && modalOpen()) loadProjects();
     });
