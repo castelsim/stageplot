@@ -282,7 +282,21 @@
   #props h3{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text);margin:0 0 6px}
   #props .sec{margin-bottom:18px}
   #props label{display:block;font-size:12px;color:var(--text-2);margin:8px 0 3px}
-  #props input,#props select{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px}
+  #props input,#props select{width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--t-body);background:var(--surface);color:var(--text);
+    transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+  #props input:not([type=range]):hover,#props select:hover{border-color:var(--border-strong)}   /* feedback al passaggio, come nei mockup */
+  #props select{appearance:none;-webkit-appearance:none;padding-right:28px;cursor:pointer;   /* chevron custom coerente (niente freccia di sistema) */
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;background-position:right 9px center}
+  /* Card di gruppo nel pannello proprietà (riusabile — niente più stili inline sparsi) */
+  #props .prop-card{border:1px solid var(--border);border-radius:var(--r-lg);padding:11px 12px;margin:0 0 9px;background:var(--surface-raised);
+    transition:border-color var(--dur-fast) var(--ease)}
+  #props .prop-card:hover{border-color:var(--border-strong)}
+  #props .prop-card>label:first-child{margin-top:0}
+  #props .prop-card__head{font-size:var(--t-caption);font-weight:700;color:var(--text);margin:0 0 8px;display:flex;align-items:baseline;gap:6px}
+  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
+  #props .prop-hint{font-size:var(--t-micro);color:var(--text-3);margin-top:6px;line-height:1.35}
+  #props label .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota accanto all'etichetta (— cosa fa) */
   #props .row{display:flex;gap:6px}
   #props .row>*{flex:1}
   #props .chk{display:block;font-size:13px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
