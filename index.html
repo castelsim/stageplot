@@ -871,7 +871,7 @@
      a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
   .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
   /* liste modificabili (Input/Monitor): 5ª colonna per il cestino; riga cliccabile = seleziona sul palco */
-  .patch-row.editable{grid-template-columns:22px minmax(0,1.4fr) minmax(0,1fr) 40px 54px}
+  .patch-row.editable{grid-template-columns:22px minmax(0,1fr) minmax(0,1.55fr) 44px 44px}   /* MIC/DI larga: nome mic leggibile + badge 48V sempre pinnato */
   .patch-row.editable:not(.patch-hd){cursor:pointer}
   .patch-row.editable:not(.patch-hd):hover{background:var(--accent-tint)}
   .patch-row.rowsel{background:var(--accent-tint)}
@@ -892,7 +892,9 @@
   .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
   .patch-row .pn{color:var(--text-3);font-weight:700}
   .patch-row .psrc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-  .patch-row .pmic{color:var(--text-2);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .patch-row .pmic{color:var(--text-2);font-size:10.5px;display:flex;align-items:center;gap:4px;min-width:0}
+  .patch-row .pmic .micname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}   /* tronca il NOME mic, non il badge */
+  .patch-row .p48b,.patch-row .pamp{flex:0 0 auto}   /* 48V/Ampere sempre visibili (mai troncati) */
   .patch-row .p48b{display:inline-block;font-size:8.5px;font-weight:700;color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;vertical-align:middle}   /* phantom 48V = badge teal */
   .patch-row .pamp{display:inline-block;font-size:8.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}   /* assorbimento (A) = badge ambra (dominio potenza) */
   body.dark .patch-row .p48b{color:#5eb8c7;background:#13202a}

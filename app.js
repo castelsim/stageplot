@@ -10832,7 +10832,7 @@ function renderPatchPanel(){
   host.appendChild(hd);
   pl.rows.forEach(function(r){
     if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
-    var micCell = r.mic ? (esc(r.mic)+(r.p48?' <b class="p48b">48V</b>':'')) : '<span class="lbl-note">— no mic</span>';
+    var micCell = r.mic ? ('<span class="micname">'+esc(r.mic)+'</span>'+(r.p48?'<b class="p48b">48V</b>':'')) : '<span class="lbl-note">— no mic</span>';
     var numCell=(pl.hasFoh && r.foh) ? r.foh : r.n;   /* F2: con più box/ID il numero è il canale FOH continuo */
     var srcTxt=esc(r.name)+(r.short?' <small class="lbl-note">«'+esc(r.short)+'»</small>':'');
     var cells=['<span class="pn"'+(pl.hasFoh&&r.foh?' style="font-weight:700;color:var(--accent-strong)"':'')+'>'+numCell+'</span>',
