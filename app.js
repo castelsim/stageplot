@@ -160,9 +160,15 @@ function singer(it){
     s+='<g transform="translate(19,30) rotate(-28)">'+bar(0,0,7.5,15,'ic fGrey',3)+'</g>';   /* mic in mano */
     legY=40;
   } else if(mm==="giraffa"){
-    /* asta a giraffa (boom): capsula davanti + braccio diagonale a una base tonda di lato */
-    s+=bar(0,20,8,10,'ic fGrey',3)+lin(0,26,22,34,'ic thin')+circ(24,40,10,'ic fBlack')+circ(24,40,3.5,'dotS');
-    legY=55;
+    /* asta a giraffa (boom): coerente con l'elemento catalogo "Asta giraffa" (Simone 22/07) — su
+       schermo l'icona di libreria vera (treppiede + braccio + mic), in PDF un glifo geometrico
+       equivalente (svg2pdf non digerisce l'icona dettagliata). Mic verso il cantante, base davanti. */
+    if(_pdfMode){
+      s+=bar(0,26,7,9,'ic fGrey',3)+lin(0,30,0,50,'ic thin')+lin(0,50,-10,58,'ic thin')+lin(0,50,10,58,'ic thin')+lin(0,50,0,60,'ic thin');
+    } else {
+      s+='<g transform="translate(0,40) scale(0.4) rotate(180)">'+libIcon("asta_giraffa")+'</g>';
+    }
+    legY=64;
   } else if(mm==="tonda"){
     s+=bar(0,22,8,12,'ic fGrey',3)+lin(0,28,0,34,'ic thin')+circ(0,38,11,'ic fBlack')+circ(0,38,4,'dotS');   /* capsula + asta dritta + base tonda */
     legY=55;
@@ -6811,11 +6817,16 @@ function miniSvg(k, over){
       var dirPov={leggio:true};
       body.appendChild(makeBtn("direttore","Direttore", dirPov, "con leggio")); n++;
       entries.push({k:"direttore", nome:"Direttore", over:dirPov, dim:"con leggio"});
-      var corU={donna:false}, corD={donna:true};
-      body.appendChild(makeBtn("corista","Uomo", corU, "voce coro")); n++;
-      entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce coro"});
-      body.appendChild(makeBtn("corista","Donna", corD, "voce coro")); n++;
-      entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce coro"});
+      /* Voci (Simone 21/07): cantante/solista e corista sono la STESSA figura → una sola coppia di
+         persone (uomo/donna) trovabile con qualunque nome (cantante, cantanti, solista, corista,
+         coriste…). Default = mic su asta base tonda (chi lascia una "voce" si aspetta un microfono);
+         panoramico si imposta dal pannello per il coro. */
+      var voxKw="cantante cantanti cantanta cantante solista soliste corista coriste coristi coro voce voci persona cantore";
+      var corU={donna:false, micMode:"tonda"}, corD={donna:true, micMode:"tonda"};
+      body.appendChild(makeBtn("corista","Uomo", corU, "voce")); n++;
+      entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce", kw:voxKw});
+      body.appendChild(makeBtn("corista","Donna", corD, "voce")); n++;
+      entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce", kw:voxKw});
     }
     if(c==="Audio"){   /* varianti stage box (i LAYER audio calcolati sono in "Layer tecnici") */
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
@@ -6913,7 +6924,7 @@ function miniSvg(k, over){
       rb.addEventListener("click", function(){ if(window.__openRender) window.__openRender(); });
       results.appendChild(rb); return;
     }
-    var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1; });
+    var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1 || (e.kw && e.kw.indexOf(q)>-1); });   /* match su nome O parole chiave (alias di ricerca) */
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>';
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
       return; }
