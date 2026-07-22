@@ -359,6 +359,45 @@ t("postazione doppia: 2 cavi separati (1 per musicista), NON un bundle grp", () 
   const s0 = bl[0].pts[0], s1 = bl[1].pts[0];
   ok(Math.abs(s0[0] - s1[0]) > 40, "i 2 cavi partono da sedute diverse");
 });
+t("layer Input: il pallino del musicista è maniglia del cavo, non lo sposta", () => {
+  reset();
+  const v = add("cantante", 400, 300); v.micMode = "tonda";
+  A.state.cab.on = true; A.state.cab.lockIn = false;
+  const wasStatic = A.__cabStatic; A.__cabStatic = false;   // nel browser è falsy → editing attivo
+  A.layerSoloUI = { cabin: true };
+  const mk = A.sectionDotMarkup(v);
+  ok(mk.indexOf('class="port-hit"') >= 0 && mk.indexOf('data-port="audio"') >= 0, "il pallino è una maniglia del cavo (port-hit audio)");
+  ok(mk.indexOf('class="hit"') < 0, "niente hit di spostamento nel layer Input");
+  A.layerSoloUI = {}; A.__cabStatic = wasStatic;
+});
+t("ascolto per performer: crea/sostituisce/rimuove il monitor collegato", () => {
+  reset();
+  const v = add("cantante", 400, 300);
+  const dir = add("direttore", 200, 300);
+  const box = add("stagebox", 700, 500);
+  ok(A.ascoltoEligible(v) && A.ascoltoEligible(dir), "cantante e direttore idonei");
+  ok(!A.ascoltoEligible(box), "stage box NON idonea");
+  // wedge → crea un wedge collegato
+  A.setAscolto(v, "wedge");
+  let mon = A.state.items.find(x => x.id === v.ascoltoId);
+  ok(v.ascolto === "wedge" && mon && mon.type === "wedge", "wedge creato e collegato");
+  const firstId = mon.id;
+  // cambio → personal mixer: sostituisce (via il wedge, entra hearback)
+  A.setAscolto(v, "pm");
+  ok(!A.state.items.some(x => x.id === firstId), "il wedge precedente è stato rimosso");
+  mon = A.state.items.find(x => x.id === v.ascoltoId);
+  ok(v.ascolto === "pm" && mon && mon.type === "hearback", "personal mixer creato al posto del wedge");
+  // none → rimuove
+  A.setAscolto(v, "none");
+  ok(!v.ascolto && !v.ascoltoId, "ascolto azzerato");
+  ok(!A.state.items.some(x => x.type === "hearback"), "il personal mixer è stato rimosso");
+  // normalize: link orfano si azzera
+  A.setAscolto(dir, "iem");
+  A.state.items = A.state.items.filter(x => x.id !== dir.ascoltoId);   // cancello il monitor a mano
+  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  const dir2 = A.state.items.find(x => x.type === "direttore");
+  ok(!dir2.ascolto && !dir2.ascoltoId, "link orfano azzerato da normalizeState");
+});
 t("stage box del mixer (foh): esclusa dall'auto, resta target manuale", () => {
   reset();
   const mic = add("astamic", 300, 200);

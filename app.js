@@ -2480,6 +2480,8 @@ function normalizeState(s){
       if(it.foh!==true) delete it.foh;   /* flag "stage box del mixer": solo booleano true */
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
       if(it.sbTo!=null && it.sbTo!=="main" && !s.items.some(function(x){ return x.id===it.sbTo; })) delete it.sbTo; }
+    if(it.ascoltoId && !s.items.some(function(x){ return x.id===it.ascoltoId; })){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
+    if(it.ascolto && !ASCOLTO_TYPE[it.ascolto]){ delete it.ascolto; delete it.ascoltoId; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
     if(it.type==="distereo"){ it.type="dimono"; if(!it.diCh) it.diCh="stereo"; }   /* consolidamento DI: stereo → DI box unico (mono/stereo/multi) */
@@ -5835,6 +5837,13 @@ function renderProps(){
   if(_isLegX) document.getElementById("pLeggioGen").checked = it.leggio===true;
   document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
   document.getElementById("pLucetta").checked = it.lucetta===true;
+  var ascW=document.getElementById("pAscoltoWrap");   /* Ascolto (wedge/iem/pm/cuffie) per performer */
+  if(ascW){ var elig=ascoltoEligible(it); ascW.style.display = elig ? "" : "none";
+    if(elig){ var asel=document.getElementById("pAscolto");
+      if(it.ascolto && !ascoltoLinked(it)) delete it.ascolto;   /* monitor cancellato a mano → azzera */
+      asel.value = it.ascolto || "none";
+      document.getElementById("pAscoltoHint").textContent = ASCOLTO_HINT[it.ascolto] || "";
+      asel.onchange=function(){ setAscolto(it, asel.value); }; } }
   var pdir=document.getElementById("pDir"), isDir=!!t.dir;
   pdir.style.display = isDir ? "block" : "none";
   if(isDir){
@@ -6295,7 +6304,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pAscoltoWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
@@ -10246,11 +10255,20 @@ function sectionDotMarkup(it){
   var sec=sectionOf(it), col=sectionColor(sec);
   var seats=musicianSeats(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
   var labels=[it.label||"", (seats.length>1 ? (it.label2||((it.label||"")+" 2")) : "")];
-  var s='<g class="item secdot" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
+  /* Nel layer INPUT il pallino del musicista è la MANIGLIA DEL CAVO (Simone 21/07): trascinandolo si
+     cabla verso una stage box, NON si sposta il musicista (per spostarli si va nel layer Musicisti).
+     Un pallino per seduta = un cavo per musicista. */
+  var cabEdit = (techDotSoloId()==="cabin") && state.cab && !state.cab.lockIn && !window.__cabStatic;
+  var s='<g class="item secdot'+(cabEdit?' secdot-wire':'')+'" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
   seats.forEach(function(o,i){
     var rx=(o[0]*c-o[1]*sn), ry=(o[0]*sn+o[1]*c);
-    s+='<circle class="hit" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="15" fill="transparent"/>';
-    s+='<circle class="secdot-c" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="10" style="fill:'+col+'"/>';
+    if(cabEdit){
+      s+='<circle class="secdot-c" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="10" style="fill:'+col+'"/>';
+      s+='<circle class="port-hit" data-port="audio" data-item="'+esc(it.id)+'"'+(seats.length>1?' data-seat="'+i+'"':'')+' data-x="'+(it.x+rx).toFixed(1)+'" data-y="'+(it.y+ry).toFixed(1)+'" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="15"><title>Trascina su una stage box per collegare questo musicista</title></circle>';
+    } else {
+      s+='<circle class="hit" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="15" fill="transparent"/>';
+      s+='<circle class="secdot-c" cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="10" style="fill:'+col+'"/>';
+    }
     var lbl=(seats.length>1?labels[i]:labels[0]);
     if(lbl) s+='<text class="secdot-lbl" x="'+rx.toFixed(1)+'" y="'+(ry+24).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>';
   });
@@ -11073,6 +11091,39 @@ function performerSpots(){
   return (state.items||[]).filter(isPerformer).map(function(it){
     return { id:it.id, x:it.x, y:it.y, rot:(it.rot||0), kind:performerKind(it), label:(it.label||TYPES[it.type].nome) };
   });
+}
+/* ── ASCOLTO per performer (Simone 21/07): musicisti, cantanti, direttori dichiarano COSA usano per
+   sentirsi → l'app crea/associa l'elemento monitor giusto vicino a loro, nel layer competente. ── */
+var ASCOLTO_TYPE = { wedge:"wedge", iem:"iem", pm:"hearback", cuffie:"cuffie" };
+var ASCOLTO_HINT = {
+  wedge:"Spia da pavimento davanti al performer (ritorno analogico → layer Output).",
+  iem:"In-ear wireless col bodypack (layer Output / RF).",
+  pm:"Personal mixer digitale collegato all'hub via Cat5 (layer P.M.).",
+  cuffie:"Cuffie cablate dal personal mixer / macchina cuffie (layer P.M.)."
+};
+function ascoltoEligible(it){ return !!it && (isPerformer(it) || it.type==="direttore"); }
+function ascoltoPos(it, kind){   /* posizione del monitor rispetto al performer (locale → mondo con rotazione) */
+  var d=(it.d||60), w=(it.w||60), local;
+  if(kind==="wedge") local=[0, d/2+45];            /* spia DAVANTI, verso il pubblico */
+  else if(kind==="iem") local=[w/2+16, -d/2+8];    /* beltpack in alto a lato */
+  else local=[w/2+24, 10];                          /* personal mixer / cuffie a lato */
+  var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [Math.round(Math.min(state.stage.w-20, Math.max(20, it.x+local[0]*c-local[1]*s))),
+          Math.round(Math.min(state.stage.d-20, Math.max(20, it.y+local[0]*s+local[1]*c)))];
+}
+function ascoltoLinked(it){ return it.ascoltoId ? (state.items||[]).filter(function(x){ return x.id===it.ascoltoId; })[0] : null; }
+function setAscolto(it, kind){
+  if(!ascoltoEligible(it)) return;
+  var old=ascoltoLinked(it);
+  if(old){ state.items=state.items.filter(function(x){ return x.id!==old.id; }); }   /* via il monitor precedente */
+  delete it.ascoltoId;
+  if(!kind || kind==="none"){ delete it.ascolto; __cabRes=null; __mondRes=null; save(); render(); renderProps(); return; }
+  var type=ASCOLTO_TYPE[kind]; if(!type){ delete it.ascolto; return; }
+  var pos=ascoltoPos(it, kind);
+  var created=addItem(type, {x:pos[0], y:pos[1], label:(it.label||TYPES[it.type].nome||"MIX")});   /* etichetta = nome del performer → suo mix */
+  it.ascolto=kind; if(created && created.id) it.ascoltoId=created.id;
+  selectOne(it.id);   /* torna al performer (addItem aveva selezionato il monitor) */
+  __cabRes=null; __mondRes=null; save(); render(); renderProps();
 }
 function performerCovered(spot){   /* ha già un monitor vicino (wedge/side/drum/IEM entro ~200cm) → non proporne un altro */
   return state.items.some(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix" && Math.hypot(it.x-spot.x, it.y-spot.y)<200; });

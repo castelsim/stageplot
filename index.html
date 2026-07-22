@@ -2162,6 +2162,17 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
     <div id="pLeggioGenWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLeggioGen"> Leggio</label></div>
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
+    <div id="pAscoltoWrap" style="display:none">
+      <label>Ascolto <small style="color:var(--text-3);font-weight:400">— cosa usa per sentirsi</small></label>
+      <select id="pAscolto">
+        <option value="none">Nessuno</option>
+        <option value="wedge">Spia (wedge)</option>
+        <option value="iem">In-ear (bodypack)</option>
+        <option value="pm">Personal mixer</option>
+        <option value="cuffie">Cuffie</option>
+      </select>
+      <div id="pAscoltoHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
+    </div>
     <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
     <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
