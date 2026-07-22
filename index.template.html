@@ -1614,6 +1614,14 @@ function micModeOf(it){
   if(it&&it.nomic) return "pano";
   return (it&&it.type==="corista") ? "pano" : "tonda";
 }
+/* Profondità del cantante (footprint): a scala reale il mic si estende in avanti, la giraffa
+   fino a ~90 cm → il box deve contenerlo perché l'etichetta non finisca sopra il microfono. */
+function cantanteDepth(it){
+  var mm=micModeOf(it);
+  var d = mm==="giraffa"?180 : mm==="tonda"?120 : 90;   /* box centrato → 2× estensione mic */
+  if(it.leggio) d = Math.max(d, mm==="giraffa"?200:mm==="tonda"?150:122);
+  return d;
+}
 function singer(it){
   it=it||{};
   var mm=micModeOf(it), donna=it.donna===true;
@@ -1628,23 +1636,28 @@ function singer(it){
        più semplice e coerente, usata sia col mic che panoramica. */
     s+='<g transform="'+(donna?'translate(-29,-34)':'translate(-32,-33)')+' scale(0.08)">'+(donna?CORO_DONNA_ART:CORO_UOMO_ART)+'</g>';
   }
+  /* Microfoni A SCALA REALE, posizionati da Simone con l'editor (mic-editor.html, 22/07):
+     su schermo l'icona di libreria vera (astadritta/asta_giraffa) alla scala reale dell'elemento
+     catalogo × la scala scelta; in PDF un glifo geometrico equivalente (svg2pdf non digerisce le
+     icone dettagliate). Valori (cm reali, origine = centro cantante, +y = pubblico). */
   var legY=30;
   if(mm==="mano"){
-    s+='<g transform="translate(19,30) rotate(-28)">'+bar(0,0,7.5,15,'ic fGrey',3)+'</g>';   /* mic in mano */
-    legY=40;
+    s+='<g transform="translate(35.7,32.1) rotate(-28)"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
+    legY=48;
   } else if(mm==="giraffa"){
-    /* asta a giraffa (boom): coerente con l'elemento catalogo "Asta giraffa" (Simone 22/07) — su
-       schermo l'icona di libreria vera (treppiede + braccio + mic), in PDF un glifo geometrico
-       equivalente (svg2pdf non digerisce l'icona dettagliata). Mic verso il cantante, base davanti. */
     if(_pdfMode){
-      s+=bar(0,26,7,9,'ic fGrey',3)+lin(0,30,0,50,'ic thin')+lin(0,50,-10,58,'ic thin')+lin(0,50,10,58,'ic thin')+lin(0,50,0,60,'ic thin');
+      s+=bar(0,40,7,9,'ic fGrey',3)+lin(0,44,0,74,'ic thin')+lin(0,74,-12,84,'ic thin')+lin(0,74,12,84,'ic thin')+lin(0,74,0,88,'ic thin');
     } else {
-      s+='<g transform="translate(0,40) scale(0.4) rotate(180)">'+libIcon("asta_giraffa")+'</g>';
+      s+='<g transform="translate(-0.3,59.2) rotate(180) scale(0.775)">'+libIcon("asta_giraffa")+'</g>';
     }
-    legY=64;
+    legY=96;
   } else if(mm==="tonda"){
-    s+=bar(0,22,8,12,'ic fGrey',3)+lin(0,28,0,34,'ic thin')+circ(0,38,11,'ic fBlack')+circ(0,38,4,'dotS');   /* capsula + asta dritta + base tonda */
-    legY=55;
+    if(_pdfMode){
+      s+=bar(0,28,8,11,'ic fGrey',3)+lin(0,34,0,42,'ic thin')+circ(0,48,10,'ic fBlack')+circ(0,48,4,'dotS');
+    } else {
+      s+='<g transform="translate(-0.3,41) rotate(-180) scale(0.693)">'+libIcon("astadritta")+'</g>';   /* scaleUser 0.56 × scala reale 1.238 */
+    }
+    legY=60;
   }
   if(it.leggio) s+='<g transform="translate(0,'+legY+')">'+leggioGlyph(0)+'</g>';
   return s;
@@ -4115,7 +4128,7 @@ function recalcItemDims(it){
     else { it.w=P.s[0]; it.d=P.s[1]; }
     return; }
   if(COMP[it.type] && COMP[it.type].size){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; return; }
-  if(it.type==="cantante"){ it.d = it.leggio?122:90; return; }
+  if(it.type==="cantante"){ it.d = cantanteDepth(it); return; }
 }
 /* normalizza item "grezzi" (es. generati dall'AI): chiavi valide, dimensioni/parts di default, id garantito */
 function sanitizeItems(arr){
@@ -7578,10 +7591,10 @@ function applySep(doSave){
 document.getElementById("pSep").addEventListener("input", function(){ applySep(false); });
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ mutSel(function(it){ it.donna=document.getElementById("pDonna").checked; }); });
-document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.micMode=v; delete it.mano; delete it.nomic; }); });
+document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
   it.leggio=document.getElementById("pLeggioV").checked;
-  if(it.type==="cantante") it.d = it.leggio?122:90;   /* fa spazio al leggio davanti */
+  if(it.type==="cantante") it.d = cantanteDepth(it);   /* footprint = figura + mic in scala */
 }); });
 document.getElementById("pSediaV").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSediaV").checked; }); });
 function gtrApply(it){ var sz=gtrSize(it, TYPES[it.type]); it.w=sz[0]; it.d=sz[1]; }
@@ -8480,6 +8493,7 @@ function addItem(type, over){
   if(COMP[type]){ it.parts=compClone(COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
   if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero */
     var fs=findFreeSpot(it.x, it.y, it.w, it.d); it.x=fs.x; it.y=fs.y;
   }
