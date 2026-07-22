@@ -3761,7 +3761,7 @@ function audioCablingEngine(){
       return la!==lb ? la-lb : da-db; });
     function bfree(b){ return b.cap-(b.res?b.res.length:0)-b.used; }   /* F2: le porte riservate non contano per l'auto */
     var whole=cand.filter(function(b){ return bfree(b)>=g.list.length; })[0]||null;
-    if(g.list.length>=2){
+    if(g.list.length>=2 && !isPerMusicianMulti(g.it)){
       /* CAVO UNICO (Simone 09/07): uno strumento multi-canale (batteria, ampli, coppie…) = UN cavo che porta
          tutti i canali. Instrada UNA volta con chiave di gruppo "grp:id"; gli N link condividono cavo/box/percorso
          (ch per-canale A1..A8), ma restano N righe nella channel list. */
@@ -3785,7 +3785,8 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
       var pn=takePort(b, (ov.port>0? +ov.port : 0));   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
-      var pts=[portAnchor(s.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);   /* il cavo parte dal pallino audio dell'elemento */
+      var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
+      var pts=[_sa].concat((ov.pts||[])).concat([[b.x,b.y]]);   /* il cavo parte dal pallino audio del musicista (per-seduta nelle postazioni) */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
       links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0),
                   label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
@@ -4084,17 +4085,20 @@ function cablingMarkup(){
        dell'elemento — è anche la maniglia di drag verso un'altra box (stessa infra .port-hit).
        Pending (senza box) = pallino "vuoto": si vede subito cosa resta da collegare. */
     var dotS='', dotSeen={}, _hideMusDot=!!techDotSoloId();   /* nel tech view il musicista è già un pallino sezione */
-    R.links.forEach(function(l){ if(l.deleted) return; var did=l.s.it.id; if(dotSeen[did]) return; dotSeen[did]=1;
-      if(_hideMusDot && musLayerItem(l.s.it.type)) return;   /* niente pallino teal sopra il pallino sezione */
-      var da=portAnchor(l.s.it,"audio");
-      dotS+='<circle class="cab-srcdot" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
-      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(did)+'" data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>Audio · trascina su una stage box per cambiare</title></circle>';
-    });
-    (R.pending||[]).forEach(function(pnd){ var did=pnd.it.id; if(dotSeen[did]) return; dotSeen[did]=1;
-      var da=portAnchor(pnd.it,"audio");
-      dotS+='<circle class="cab-srcdot cab-srcdot-pend" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
-      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(did)+'" data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>Da collegare · trascina su una stage box</title></circle>';
-    });
+    /* pallino sorgente: uno per SEDUTA nelle postazioni a più musicisti (ogni musicista = 1 cavo, Simone
+       21/07), uno solo al centro per gli strumenti singoli (anche multi-mic: batteria = 1 cavo). */
+    function srcDot(it2, key, pend){
+      var per=isPerMusicianMulti(it2), n=cabItemInputs(it2).length;
+      var seat = per ? ((+String(key).split("#")[1] < n/2) ? 0 : 1) : null;
+      var dkey = it2.id + (per ? ("#s"+seat) : "");
+      if(dotSeen[dkey]) return; dotSeen[dkey]=1;
+      if(_hideMusDot && musLayerItem(it2.type)) return;   /* niente pallino teal sopra il pallino sezione */
+      var da = per ? channelAnchor(it2, seatChannels(it2, seat)[0], n) : portAnchor(it2,"audio");
+      dotS+='<circle class="cab-srcdot'+(pend?' cab-srcdot-pend':'')+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
+      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(it2.id)+'"'+(per?' data-seat="'+seat+'"':'')+' data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>'+(pend?'Da collegare · trascina su una stage box':'Audio · trascina su una stage box per cambiare')+'</title></circle>';
+    }
+    R.links.forEach(function(l){ if(l.deleted) return; srcDot(l.s.it, l.s.key, false); });
+    (R.pending||[]).forEach(function(pnd){ srcDot(pnd.it, pnd.key, true); });
     s+=dotS;
     if(edit && selCab){ var sl=R.links.filter(function(l){ return l.key===selCab && !l.deleted; })[0];
       if(sl){
@@ -4180,7 +4184,11 @@ function cabKeyLocked(key){ return String(key).indexOf("ret:")===0 ? !!state.cab
 function cabBothLocked(){ return !!state.cab.lockIn && !!state.cab.lockOut; }
 /* collega un elemento a una box scrivendo l'override giusto: gruppo (cavo unico) se multi-canale, altrimenti per-canale */
 function cabItemRouteKey(it){ return cabItemInputs(it).length>=2 ? ("grp:"+it.id) : (it.id+"#0"); }
-function cabSetItemBox(it, boxId){ if(cabItemInputs(it).length){ var cm=cabManual(cabItemRouteKey(it)); cm.box=boxId; delete cm.auto; } }   /* scelto a mano: non si ridistribuisce più */
+function cabSetItemBox(it, boxId){
+  var n=cabItemInputs(it).length; if(!n) return;
+  if(isPerMusicianMulti(it)){ for(var i=0;i<n;i++){ var cmi=cabManual(it.id+"#"+i); cmi.box=boxId; delete cmi.auto; } return; }   /* postazione: ogni musicista alla stessa box, ma cavi separati */
+  var cm=cabManual(cabItemRouteKey(it)); cm.box=boxId; delete cm.auto;   /* scelto a mano: non si ridistribuisce più */
+}
 /* ── Shift+trascina un elemento SOPRA un cavo (stile Max: inserire un oggetto nel patch cord) ──
    Rilasci con Shift una stage box/sub-snake su un cavo audio → quello strumento si ricollega alla
    box rilasciata; un distro/ciabatta su una linea elettrica → il carico si ricollega al distro. */
@@ -7418,8 +7426,8 @@ svg.addEventListener("pointerdown", function(e){
     var pit=(state.items||[]).filter(function(x){ return x.id===_onPort.getAttribute("data-item"); })[0];
     if(pit){
       e.preventDefault();
-      var pk=_onPort.getAttribute("data-port");
-      drag={mode:"port", kind:pk, it:pit, x0:+_onPort.getAttribute("data-x"), y0:+_onPort.getAttribute("data-y"), moved:false};
+      var pk=_onPort.getAttribute("data-port"), pseat=_onPort.getAttribute("data-seat");
+      drag={mode:"port", kind:pk, it:pit, seat:(pseat==null?null:+pseat), x0:+_onPort.getAttribute("data-x"), y0:+_onPort.getAttribute("data-y"), moved:false};
       var gl=document.createElementNS("http://www.w3.org/2000/svg","line");
       gl.setAttribute("class","port-ghost");
       gl.setAttribute("style","stroke:"+({audio:LAYER_COLORS.audioIn, mon:LAYER_COLORS.monitor, pow:LAYER_COLORS.elettrico, dig:"#c026d3"}[pk]||"#888"));
@@ -7923,7 +7931,10 @@ svg.addEventListener("pointerup", function(e){
         var pb=hitAt(cabIsBox);
         if(pb){
           if(!state.cab.on){ state.cab.on=true; }   /* il gesto ATTIVA il layer; niente pannello (tolto) */
-          if(drag.kind==="audio"){ cabSetItemBox(pit, pb.id); }
+          if(drag.kind==="audio"){
+            if(drag.seat!=null && isPerMusicianMulti(pit)){ seatChannels(pit, drag.seat).forEach(function(ii){ var cm=cabManual(pit.id+"#"+ii); cm.box=pb.id; delete cm.auto; }); }   /* solo il musicista trascinato */
+            else cabSetItemBox(pit, pb.id);
+          }
           else { var plbl=(pit.label||"").trim(), mkey=(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id));
             var _cmx=cabManual("mix:"+mkey); _cmx.box=pb.id; delete _cmx.auto;
             var rk="ret:"+mkey+":"+pit.id; if(state.cab.manual[rk]) delete state.cab.manual[rk].deleted; }   /* #17: ritrascinare la porta ravviva un ritorno eliminato */
@@ -10166,6 +10177,23 @@ function musicianSeats(it){
   if(!two) return [[0,0]];
   var hx = it.sep ? it.sep/2 : 45;
   return [[hx,0],[-hx,0]];
+}
+/* postazione a più musicisti: ogni musicista = 1 pallino + 1 cavo (Simone 21/07), NON un cavo
+   bundle "×2". Diverso dallo strumento singolo multi-mic (batteria, piano stereo, DI L/R) che
+   resta UN cavo. Fonte unica = musicianSeats: >1 seduta ⇒ per-musicista. */
+function isPerMusicianMulti(it){ return musicianSeats(it).length>1; }
+/* mappa canale→seduta (prima metà dei canali = musicista 1 = seduta 0, ecc.) → ancora sul palco */
+function channelAnchor(it, chIdx, totalCh){
+  var seats=musicianSeats(it);
+  if(seats.length<2 || !(totalCh>1)) return portAnchor(it,"audio");
+  var o=seats[chIdx < totalCh/2 ? 0 : 1], a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [Math.round(it.x + o[0]*c - o[1]*s), Math.round(it.y + o[0]*s + o[1]*c)];
+}
+/* indici di canale che appartengono a una seduta (per il drag del singolo pallino su una box) */
+function seatChannels(it, seatIdx){
+  var n=cabItemInputs(it).length, half=n/2, a=[];
+  for(var i=0;i<n;i++){ if((i<half?0:1)===seatIdx) a.push(i); }
+  return a;
 }
 function sectionDotMarkup(it){
   var sec=sectionOf(it), col=sectionColor(sec);
