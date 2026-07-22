@@ -349,6 +349,22 @@ t("microfono singolo: cavo per-canale (key id#0, non grp)", () => {
   const l = A.audioCablingEngine().links.filter((x) => x.s.it.id === mic.id)[0];
   ok(l && /#0$/.test(l.key) && l.key.indexOf("grp:") !== 0, "key per-canale");
 });
+t("postazione doppia: 2 cavi separati (1 per musicista), NON un bundle grp", () => {
+  reset(); const d = add("vlnpost", 400, 250); d.doppia = true; d.sep = 90; const box = add("stagebox", 700, 500);
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.cabSetItemBox(d, box.id); A.__cabRes = null;
+  const bl = A.audioCablingEngine().links.filter((l) => l.s.it.id === d.id);
+  eq(bl.length, 2, "2 canali");
+  eq(new Set(bl.map((l) => l.key)).size, 2, "2 chiavi distinte (non bundle)");
+  ok(bl.every((l) => l.key.indexOf("grp:") !== 0), "nessuna key grp");
+  const s0 = bl[0].pts[0], s1 = bl[1].pts[0];
+  ok(Math.abs(s0[0] - s1[0]) > 40, "i 2 cavi partono da sedute diverse");
+});
+t("vln1x2 (×2 dedicata): 2 cavi separati per i 2 musicisti", () => {
+  reset(); const v = add("vln1x2", 400, 250); const box = add("stagebox", 700, 500);
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.cabSetItemBox(v, box.id); A.__cabRes = null;
+  const bl = A.audioCablingEngine().links.filter((l) => l.s.it.id === v.id);
+  eq(bl.length, 2, "2 canali"); eq(new Set(bl.map((l) => l.key)).size, 2, "2 cavi separati");
+});
 
 console.log("\nMonitoraggio digitale (monDigEngine):");
 t("catena m2->m1->hub: 2 tratte, 0 pending, nessun errore", () => {
