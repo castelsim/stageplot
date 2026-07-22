@@ -2234,7 +2234,7 @@ t("Layer v3: Palco = tutto, occhi in OR (viste)", () => {
 
 t("Layer v2: cablaggio automatico su addItem + stile cavi + pallini", () => {
   reset();
-  A.state.cab.style = "orto";
+  A.state.cab.style = "curve";
   // 1) auto-connect: aggiungo sorgente poi stage box → si collega DA SOLO
   A.addItem("astamic", { x: 200, y: 200 });
   ok(!A.state.cab.on, "senza box il motore resta spento");
@@ -2247,27 +2247,29 @@ t("Layer v2: cablaggio automatico su addItem + stile cavi + pallini", () => {
   A.addItem("astamic", { x: 250, y: 250 });
   R = A.cabResult(true);
   eq(R.pending.length, 0, "anche la sorgente aggiunta dopo si collega da sola");
-  // 2) stile cavi: retti = solo L, smussati = Q, diretto = linea dritta sui punti grezzi
+  // 2) stile cavi (2 stili, 21/07): smussati = Q, diretto = linea dritta sui punti grezzi
   const pts = [[0, 0], [100, 0], [100, 80]];
-  ok(A.cabPathD(pts).indexOf("Q") < 0, "angoli retti: nessuna curva");
   A.state.cab.style = "curve";
   ok(A.cabPathD(pts).indexOf("Q") >= 0, "smussati: angoli arrotondati (Q)");
   A.state.cab.style = "dir";
   eq(A.cabDrawD([[0, 0], [100, 80]], pts), "M 0.0 0.0 L 100.0 80.0", "diretto: linea dritta sui punti grezzi");
   // 3) canale alla partenza nel SOLO Ingressi + pallini sorgente sempre presenti
-  A.state.cab.style = "orto";
+  A.state.cab.style = "curve";
   A.layerSoloUI = { cabin: true };
   let mk = A.cablingMarkup();
   ok(mk.indexOf("cab-startlbl") >= 0, "solo Ingressi: etichetta canale alla partenza");
   ok(mk.indexOf("cab-srcdot") >= 0, "pallino sorgente sempre visibile");
   A.layerSoloUI = {};
-  // 4) normalizeState sanifica lo stile (il vecchio "loom" migra a orto)
+  // 4) normalizeState sanifica lo stile (orto/loom vecchi → smussati; solo curve|dir validi)
   A.state.cab.style = "spazzatura";
   let ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.style, "orto", "stile non valido → orto");
+  eq(A.state.cab.style, "curve", "stile non valido → smussati");
+  A.state.cab.style = "orto";
+  ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  eq(A.state.cab.style, "curve", "orto (vecchio) → smussati");
   A.state.cab.style = "loom";
   ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.style, "orto", "loom (vecchio) → orto");
+  eq(A.state.cab.style, "curve", "loom (vecchio) → smussati");
   A.state.cab.style = "dir";
   ns = A.normalizeState(A.state); if (ns) A.state = ns;
   eq(A.state.cab.style, "dir", "diretto preservato");
@@ -2348,17 +2350,17 @@ t("P.M. NON è nel layer Output (personal mixer digitali) + stili cavo per-layer
   eq(A.layerFgItem("cabout", wd), true, "wedge (monitor analogico) in Output");
   eq(A.layerFgItem("mond", hb), true, "personal mixer nel layer P.M.");
   eq(A.layerFgItem("mond", hub), true, "hub nel layer P.M.");
-  // stili indipendenti per layer
-  A.state.cab.style = "orto"; A.state.cab.styleOut = "curve"; A.state.mond.style = "dir"; A.state.elec.style = "curve";
-  eq(A.cabStyle(), "orto", "Ingressi: orto");
+  // stili indipendenti per layer (2 stili: curve|dir)
+  A.state.cab.style = "curve"; A.state.cab.styleOut = "curve"; A.state.mond.style = "dir"; A.state.elec.style = "curve";
+  eq(A.cabStyle(), "curve", "Ingressi: smussati");
   eq(A.cabStyleOut(), "curve", "Output: curve");
   eq(A.mondStyle(), "dir", "P.M.: dir");
   eq(A.elecStyle(), "curve", "Corrente: curve");
-  // normalize preserva/sanifica
+  // normalize preserva/sanifica (orto/loom vecchi → smussati)
   A.state.cab.styleOut = "loom"; A.state.mond.style = "spazzatura"; A.state.elec.style = "dir";
   const ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.styleOut, "orto", "styleOut loom → orto");
-  eq(A.state.mond.style, "orto", "mond style non valido → orto");
+  eq(A.state.cab.styleOut, "curve", "styleOut loom → smussati");
+  eq(A.state.mond.style, "curve", "mond style non valido → smussati");
   eq(A.state.elec.style, "dir", "elec style valido preservato");
 });
 
