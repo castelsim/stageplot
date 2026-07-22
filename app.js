@@ -3510,7 +3510,7 @@ function orthLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.abs(pts[i
 function orthPathD(pts){ var ep=orthExpand(pts); if(ep.length<2) return ''; return 'M '+ep.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L '); }
 /* Layer v2 (21/07): stile grafico dei cavi, per progetto. orto = spigoli (storico) · curve = angoli
    molto arrotondati (stesso percorso/routing/editing, resa morbida) · loom = orto + canale alla partenza. */
-function normCabStyle(v){ return (v==="curve"||v==="dir") ? v : "orto"; }
+function normCabStyle(v){ return (v==="curve"||v==="dir") ? v : "curve"; }   /* 21/07 Simone: solo 2 stili — Angoli smussati (curve, default) · Diretto (dir). Il vecchio "orto"/"loom" migra a smussati. */
 /* stile grafico dei cavi, INDIPENDENTE per ogni layer di cablaggio (Simone 21/07):
    Ingressi (cab.style) · Output (cab.styleOut) · P.M. (mond.style) · Corrente (elec.style). */
 function cabStyle(){ return normCabStyle(state.cab && state.cab.style); }
@@ -4064,10 +4064,14 @@ function cablingMarkup(){
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
+    var _dirIn=(cabStyle()==="dir");
     R.links.forEach(function(l){
       if(drawnKey[l.key]) return; drawnKey[l.key]=1;   /* CAVO UNICO: gli N canali di un bundle condividono la key → un solo cavo disegnato */
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts);
+      /* "Cablaggio diretto" (Simone 21/07): la linea deve partire ESATTAMENTE dal pallino al centro
+         della box (niente ventaglio) e diramarsi verso le sorgenti → sovrascrivo il capo box al centro. */
+      var _rp = (_dirIn && l.box) ? l.pts.slice(0,-1).concat([[l.box.x, l.box.y]]) : l.pts;
+      var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts);
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
         linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
@@ -5561,6 +5565,32 @@ function renderProps(){
     document.getElementById("grpLeggioWrap").style.display = allLeggio ? "block" : "none";
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
+    /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
+    var gsb=document.getElementById("grpSbWrap");
+    if(gsb){ var boxes=its.filter(cabIsBox);
+      if(boxes.length && boxes.length===its.length){ gsb.style.display="block";
+        document.getElementById("grpSbN").textContent="("+boxes.length+")";
+        var gHw=document.getElementById("grpSbHw"), byBrand={};
+        Object.keys(STAGEBOX_DB).forEach(function(id){ var b=STAGEBOX_DB[id]; (byBrand[b.brand]=byBrand[b.brand]||[]).push({id:id,m:b}); });
+        var h='<option value="__keep__">— invariato —</option><option value="">Generico (scegli i canali)</option>';
+        Object.keys(byBrand).forEach(function(br){ h+='<optgroup label="'+esc(br)+'">'; byBrand[br].forEach(function(o){ h+='<option value="'+o.id+'">'+esc(o.m.model)+' ('+o.m.in+' in)</option>'; }); h+='</optgroup>'; });
+        gHw.innerHTML=h;
+        gHw.value = boxes.every(function(b){ return (b.hw||"")===(boxes[0].hw||""); }) ? (boxes[0].hw||"") : "__keep__";
+        gHw.onchange=function(){ var v=gHw.value; if(v==="__keep__") return;
+          boxes.forEach(function(b){ if(v) b.hw=v; else delete b.hw; if(typeof sbAutoSize==="function") sbAutoSize(b); });
+          __cabRes=null; save(); render(); renderProps(); };
+        var anyHw=boxes.some(function(b){ return !!b.hw; });   /* i modelli hanno in/out fissi → i menu generici solo se nessuna ha un modello */
+        document.getElementById("grpSbGenRows").style.display = anyHw ? "none" : "block";
+        if(!anyHw){
+          var gCh=document.getElementById("grpSbCh"), chC=boxes.every(function(b){ return cabBoxCap(b)===cabBoxCap(boxes[0]); }) ? String(cabBoxCap(boxes[0])) : "";
+          gCh.value = [].some.call(gCh.options,function(o){ return o.value===chC; }) ? chC : "";
+          gCh.onchange=function(){ if(!gCh.value) return; boxes.forEach(function(b){ b.ch=+gCh.value; if(typeof sbAutoSize==="function") sbAutoSize(b); }); __cabRes=null; save(); render(); renderProps(); };
+          var gOut=document.getElementById("grpSbOut"), outC=boxes.every(function(b){ return cabBoxCapOut(b)===cabBoxCapOut(boxes[0]); }) ? String(cabBoxCapOut(boxes[0])) : "";
+          gOut.value = [].some.call(gOut.options,function(o){ return o.value===outC; }) ? outC : "";
+          gOut.onchange=function(){ if(gOut.value==="") return; boxes.forEach(function(b){ b.outCh=+gOut.value; if(typeof sbAutoSize==="function") sbAutoSize(b); }); __cabRes=null; save(); render(); renderProps(); };
+        }
+      } else gsb.style.display="none";
+    }
     /* --- crea zona microfonazione dagli elementi selezionati (Simone 14/07) --- */
     var zoneWrap=document.getElementById("grpZoneWrap");
     if(zoneWrap){ var zsrc=its.filter(function(x){ return isAudioSource(x); });
@@ -8496,7 +8526,9 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fit(); return; }   /* "a" → adatta la vista al contenuto (palco + elementi, anche fuori palco), come il bottone Adatta */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; selMond=null; closeCabMenu(); collapseCats(); render(); }
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; selMond=null; closeCabMenu(); collapseCats();
+    if(anySolo() || layerAccOpen){ layerSoloUI={}; layerAccOpen=null; if(typeof renderLayerManager==="function") renderLayerManager(); }   /* ESC: i layer si deselezionano e tornano alla modalità base */
+    render(); }
   if(!it) return;
   if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); deleteSel(); }
   else if(e.key==="r"){ rotateSel(15); }
@@ -10348,7 +10380,7 @@ function renderLayerRow(L, container){
     else if(L.id==="elec"  && state.elec.on) styleGetSet=[elecStyle, function(v){ state.elec.style=v; }];
     if(styleGetSet){ var _get=styleGetSet[0], _set=styleGetSet[1];
       var sw=document.createElement("div"); sw.className="layer-adv layer-cabstyle";
-      [["orto","Angoli retti"],["curve","Smussati"],["dir","Diretto"]].forEach(function(sd){
+      [["curve","Angoli smussati"],["dir","Cablaggio diretto"]].forEach(function(sd){
         var sb=document.createElement("button"); sb.type="button"; sb.className="adv-btn"+(_get()===sd[0]?" on":""); sb.textContent=sd[1];
         sb.title="Stile grafico dei cavi di questo layer";
         sb.addEventListener("click", function(){ _set(sd[0]); save(); render(); });
