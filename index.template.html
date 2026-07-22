@@ -462,6 +462,7 @@
       </div>
     </div>
     <div id="pSbChWrap" style="display:none">
+      <label class="chk" id="pSbFohWrap" style="margin-bottom:6px"><input type="checkbox" id="pSbFoh"> Stage box del mixer (lato regia)</label>
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbEquip" style="display:none;font-size:11px;margin-top:3px"></div>
       <div id="pSbKind" style="font-size:10.5px;font-weight:600;margin:3px 0 2px"></div>
@@ -3961,6 +3962,7 @@ function normalizeState(s){
     if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
     if(it.type==="rack"){ if(!(it.rackU>=4 && it.rackU<=24)) it.rackU=12; if(!it.rackFn) it.rackFn="generico"; }
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
+      if(it.foh!==true) delete it.foh;   /* flag "stage box del mixer": solo booleano true */
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
       if(it.sbTo!=null && it.sbTo!=="main" && !s.items.some(function(x){ return x.id===it.sbTo; })) delete it.sbTo; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
@@ -5201,6 +5203,7 @@ function audioCablingEngine(){
     var res=(Array.isArray(it.sbRes)?it.sbRes:[]).filter(function(pn){ return pn>=1 && pn<=cap0; });
     var rm={}; res.forEach(function(pn){ rm[pn]=1; });
     return {x:it.x, y:it.y, cap:cap0, used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null,
+            foh:!!it.foh,   /* "stage box del mixer" (lato regia): esclusa dall'auto, solo target manuale per gli overflow */
             sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, taken:{}, pins:{},
             name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
   if(!manualMode && !boxes.length && totIn){
@@ -5239,7 +5242,9 @@ function audioCablingEngine(){
   function d2(x,y,b){ return Math.pow(x-b.x,2)+Math.pow(y-b.y,2); }
   groups.forEach(function(g){
     /* distribuzione omogenea (Simone): vince la box più vicina; quasi equidistanti (< 1 m) → la meno carica */
-    var cand=boxes.slice().sort(function(a,b){ var da=Math.sqrt(d2(g.it.x,g.it.y,a)), db=Math.sqrt(d2(g.it.x,g.it.y,b));
+    /* la "stage box del mixer" (lato regia, b.foh) è ESCLUSA dall'auto: l'utente ci collega a mano gli
+       overflow. Resta un target manuale (ov.box) come qualsiasi altra box. */
+    var cand=boxes.filter(function(b){ return !b.foh; }).sort(function(a,b){ var da=Math.sqrt(d2(g.it.x,g.it.y,a)), db=Math.sqrt(d2(g.it.x,g.it.y,b));
       if(Math.abs(da-db)>100) return da-db;
       var la=a.used/(a.cap||1), lb=b.used/(b.cap||1);
       return la!==lb ? la-lb : da-db; });
@@ -5360,9 +5365,13 @@ function audioCablingEngine(){
     var nDI=g.list.filter(function(s){ return String(s.mic).indexOf("DI")>-1; }).length;
     diStereo+=Math.floor(nDI/2); diMono+=nDI%2; });
   /* criticità */
-  if(totIn>capTot && boxes.length) issues.push({lvl:"err", code:"cap", msg:"Input richiesti ("+totIn+") superiori ai canali disponibili ("+capTot+"): serve un'altra stage box."});
+  var _fohB=boxes.filter(function(b){ return b.foh; })[0];   /* la stage box del mixer, se marcata */
+  var _mixHint=_fohB ? (" — collegali a mano alla stage box del mixer ("+_fohB.letter+").")
+                     : " — aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano.";
+  var _palcoCap=boxes.filter(function(b){ return !b.foh; }).reduce(function(a,b){ return a+b.cap; },0);
+  if(totIn>_palcoCap && boxes.some(function(b){ return !b.foh; })) issues.push({lvl:"err", code:"cap", msg:"Ingressi palco insufficienti: "+totIn+" canali per "+_palcoCap+" disponibili sul palco"+_mixHint});
   boxes.forEach(function(b){ if(b.used>b.cap) issues.push({lvl:"err", code:"cap", msg:"Stage box "+b.letter+" satura ("+b.used+"/"+b.cap+" ch)."}); });
-  unassigned.forEach(function(s){ issues.push({lvl:"err", msg:"Sorgente senza destinazione: "+s.name+" (canali esauriti)."}); });
+  unassigned.forEach(function(s){ issues.push({lvl:"err", msg:"Sorgente senza destinazione: "+s.name+" (ingressi palco esauriti)"+_mixHint}); });
   links.forEach(function(l){ if(l.deleted) return;
     if(l.cut==null) issues.push({lvl:"err", msg:"Cavo oltre 50 m: "+l.s.name+" ("+l.lenM.toFixed(1)+" m)."});
     else if(l.cut>=30) issues.push({lvl:"warn", msg:"Cavo lungo ("+l.cut+" m) per "+l.s.name+": valuta una sub-snake di zona."});
@@ -5592,8 +5601,11 @@ function cablingMarkup(){
       if(sl){
         /* editing Max: ogni LATO dritto è trascinabile in perpendicolare (angoli impliciti) */
         var exsl={}; if(sl.s&&sl.s.it) exsl[sl.s.it.id]=1; if(sl.box&&sl.box.id) exsl[sl.box.id]=1;
-        var poly=orthExpand(cabRoutePts(sl.pts, OBS, exsl));
-        for(var pi=0;pi<poly.length-1;pi++){ var A=poly[pi], B=poly[pi+1];
+        /* Bug 21/07: in stile DIRETTO l'overlay deve seguire la linea dritta, NON l'espansione
+           ortogonale (altrimenti si vede un doppio cavo ad angolo retto). Niente lati trascinabili
+           (l'editing perpendicolare è ortogonale) — restano solo i due estremi per riconnettere. */
+        var poly = _dirIn ? ((_dirIn && sl.box) ? sl.pts.slice(0,-1).concat([[sl.box.x, sl.box.y]]) : sl.pts).map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(sl.pts, OBS, exsl));
+        if(!_dirIn) for(var pi=0;pi<poly.length-1;pi++){ var A=poly[pi], B=poly[pi+1];
           if(A[0]===B[0] && A[1]===B[1]) continue;
           var ori=(A[1]===B[1])?"h":"v";
           s+='<line class="cab-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
@@ -5631,8 +5643,9 @@ function cablingMarkup(){
     /* editing del ritorno selezionato: lati piegabili + estremo lato box (riconnetti ad altra box). Il capo monitor è fisso. */
     if(editRet && selCab){ var rl=R.returnLinks.filter(function(l){ return l.key===selCab; })[0];
       if(rl){ var exr={}; if(rl.box&&rl.box.id) exr[rl.box.id]=1; if(rl.sink&&rl.sink.id) exr[rl.sink.id]=1;
-        var polyR=orthExpand(cabRoutePts(rl.pts, OBS, exr));
-        for(var pj=0;pj<polyR.length-1;pj++){ var Ar=polyR[pj], Br=polyR[pj+1];
+        var _dirOut=(cabStyleOut()==="dir");   /* stesso fix del bug doppio-cavo: diretto = polilinea dritta, niente lati ortogonali */
+        var polyR = _dirOut ? rl.pts.map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(rl.pts, OBS, exr));
+        if(!_dirOut) for(var pj=0;pj<polyR.length-1;pj++){ var Ar=polyR[pj], Br=polyR[pj+1];
           if(Ar[0]===Br[0] && Ar[1]===Br[1]) continue;
           var orir=(Ar[1]===Br[1])?"h":"v";
           s+='<line class="cab-seg cab-seg-ret" x1="'+Ar[0]+'" y1="'+Ar[1]+'" x2="'+Br[0]+'" y2="'+Br[1]+'"/>';
@@ -5656,7 +5669,7 @@ function cablingMarkup(){
         +'<rect class="'+cls+'" x="'+bx0.toFixed(1)+'" y="'+y+'" width="'+fw.toFixed(1)+'" height="5" rx="2.5"/>'
         +'<text class="cab-iolbl '+cls+'-t" x="'+(bx0-4).toFixed(1)+'" y="'+(y+4.7)+'" text-anchor="end">'+(u||0)+'</text>'
         +'<text class="cab-iolbl cab-iolbl-cap" x="'+(bx0+BW+4).toFixed(1)+'" y="'+(y+4.7)+'" text-anchor="start">'+c+'</text>'; }
-    s+='<g class="cab-iobox"><text class="cab-iobox-lbl" x="'+b.x.toFixed(1)+'" y="'+(y0-3)+'" text-anchor="middle">'+esc(b.letter)+(b.sbId?' · ID'+b.sbId:'')+'</text>';
+    s+='<g class="cab-iobox"><text class="cab-iobox-lbl" x="'+b.x.toFixed(1)+'" y="'+(y0-3)+'" text-anchor="middle">'+esc(b.letter)+(b.sbId?' · ID'+b.sbId:'')+(b.foh?' · MIXER':'')+'</text>';
     s+=iobar(y0, b.used, b.cap, 'cab-iobar-in')+(showOut?iobar(y0+8, b.usedOut, b.outCap, 'cab-iobar-out'):'');
     s+='</g>';
     /* pallino al CENTRO dell'icona stage box — punto di convergenza di tutti i cavi */
@@ -7151,6 +7164,9 @@ function renderProps(){
   var sbw=document.getElementById("pSbChWrap");
   if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
     if(isBox){ cabFillSbHw();
+      var fohChk=document.getElementById("pSbFoh");
+      if(fohChk){ fohChk.checked=!!it.foh;
+        fohChk.onchange=function(){ if(this.checked) it.foh=true; else delete it.foh; __cabRes=null; save(); render(); renderProps(); }; }
       var hwSel=document.getElementById("pSbHw");
       if(it.hw && ![].some.call(hwSel.options,function(o){ return o.value===it.hw; })){   /* modello non compatibile col mixer: mostralo comunque, marcato */
         var op=document.createElement("option"); op.value=it.hw; op.textContent=hwLabel(it.hw,STAGEBOX_DB)+" — non compatibile"; hwSel.appendChild(op); }

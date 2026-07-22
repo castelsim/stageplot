@@ -359,6 +359,28 @@ t("postazione doppia: 2 cavi separati (1 per musicista), NON un bundle grp", () 
   const s0 = bl[0].pts[0], s1 = bl[1].pts[0];
   ok(Math.abs(s0[0] - s1[0]) > 40, "i 2 cavi partono da sedute diverse");
 });
+t("stage box del mixer (foh): esclusa dall'auto, resta target manuale", () => {
+  reset();
+  const mic = add("astamic", 300, 200);
+  const palco = add("stagebox", 500, 250);
+  const foh = add("stagebox", 500, 900); foh.foh = true;   // lato regia
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;   // auto puro (senza override dell'auto-connect di addItem)
+  let R = A.audioCablingEngine();
+  let l = R.links.find(x => x.s.it.id === mic.id);
+  ok(l && l.box && l.box.id === palco.id, "auto instrada sul palco, NON sulla box del mixer");
+  // senza box palco, l'auto NON usa la foh → sorgente non assegnata (da collegare a mano)
+  reset();
+  const mic2 = add("astamic", 300, 200);
+  const foh2 = add("stagebox", 500, 900); foh2.foh = true;
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  R = A.audioCablingEngine();
+  ok(!R.links.some(x => x.s.it.id === mic2.id && x.box), "niente auto-connessione sulla box del mixer");
+  ok(R.issues.some(i => /mixer/i.test(i.msg)), "avviso che punta alla stage box del mixer");
+  // ma il collegamento MANUALE alla foh funziona
+  A.state.cab.mode = "manual"; A.cabSetItemBox(mic2, foh2.id); A.__cabRes = null;
+  R = A.audioCablingEngine();
+  ok(R.links.some(x => x.s.it.id === mic2.id && x.box && x.box.id === foh2.id), "collegamento manuale alla box del mixer OK");
+});
 t("vln1x2 (×2 dedicata): 2 cavi separati per i 2 musicisti", () => {
   reset(); const v = add("vln1x2", 400, 250); const box = add("stagebox", 700, 500);
   A.state.cab.on = true; A.state.cab.mode = "manual"; A.cabSetItemBox(v, box.id); A.__cabRes = null;
