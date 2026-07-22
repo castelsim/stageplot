@@ -603,13 +603,17 @@
   .bus-add select{flex:0 0 auto;font-size:11.5px;max-width:132px}
   .bus-add input{flex:1;min-width:0;font-size:12px}
   .bus-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-  .bus-chip{font-size:10.5px;border:1px dashed var(--n-300);color:var(--text-2);border-radius:999px;padding:2px 9px;cursor:pointer}
-  .bus-chip:hover{border-color:var(--accent);color:var(--accent-strong)}
+  .bus-chip{font-size:10.5px;border:1px solid var(--border);color:var(--text-2);background:var(--surface);border-radius:var(--r-pill);padding:3px 10px;cursor:pointer;
+    transition:background var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+  .bus-chip::before{content:"+ ";color:var(--text-3);font-weight:700}   /* affordance: la pillola AGGIUNGE quel bus */
+  .bus-chip:hover{border-color:var(--accent);color:var(--accent-strong);background:var(--accent-tint)}
+  .bus-chip:hover::before{color:var(--accent-strong)}
   .sbp.mon{background:#0891b2;border-color:#0891b2;color:#fff;cursor:default}
   .sbp.snk{background:#0b7a70;border-color:#0b7a70;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);cursor:default}
   .loadrow .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
   .feed-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .feed-seg>div{flex:1;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2)}
+  .feed-seg>div{flex:1;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2);transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+  .feed-seg>div:hover:not(.on){background:var(--n-100)}
   .feed-seg>div.on{background:#c026d3;color:#fff;font-weight:600}
   /* Hub produzione: reparti */
   .prod-dept{display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid var(--n-100);font-size:12.5px}
@@ -806,10 +810,13 @@
   .layer-adv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:3px 0 9px 2px}
   .adv-op{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2)}
   .adv-op input[type=range]{width:78px;margin:0}
-  .adv-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11px;font-weight:600;padding:4px 9px;border-radius:7px;cursor:pointer}
+  .adv-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:11px;font-weight:600;padding:5px 10px;border-radius:var(--r-sm);cursor:pointer;
+    transition:background var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
   .adv-btn svg{width:14px;height:14px}
-  .adv-btn:hover{border-color:var(--accent)}
+  .adv-btn:hover{border-color:var(--accent);background:var(--accent-tint);color:var(--accent-strong)}
   .adv-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .adv-btn.on:hover{background:var(--accent-strong);color:#fff}
+  .adv-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   .adv-reset:hover{border-color:var(--danger,#dc2626);color:var(--danger,#dc2626)}
   /* D-L1A: riga layer col motore spento = invito ad attivare */
   .layer-offrow{opacity:.62}
@@ -818,8 +825,10 @@
   .layer-actbadge{margin-left:auto;font-size:10px;color:var(--text-3);border:1px dashed var(--text-3);border-radius:99px;padding:1px 8px;line-height:1.5}
   .layer-offrow:hover .layer-actbadge{color:var(--accent);border-color:var(--accent)}
   /* D-L2A: bottone "Collega automaticamente" nella striscia del fuoco */
-  .adv-connect{border-color:var(--accent);color:var(--accent);background:var(--accent-soft,rgba(13,148,136,.08))}
-  .adv-connect:hover{background:var(--accent);color:#fff}
+  .adv-connect{border:1px solid var(--accent-soft);color:var(--accent-strong);background:var(--surface);font-weight:600;padding:6px 12px;
+    transition:background var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+  .adv-connect:hover{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(13,148,136,.28)}
+  .adv-connect:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   /* D-L3A: linguette Ingressi/Output/P.M. sotto "Cablaggio audio" */
   .layer-tabs{display:flex;gap:2px;margin:2px 0 6px;border-bottom:1.5px solid var(--border)}
   .layer-tab{border:none;background:none;font-size:11px;font-weight:600;color:var(--text-3);padding:4px 9px 5px;cursor:pointer;border-radius:6px 6px 0 0}
