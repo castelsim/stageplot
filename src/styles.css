@@ -296,7 +296,7 @@
   #props .prop-card__head{font-size:var(--t-caption);font-weight:700;color:var(--text);margin:0 0 8px;display:flex;align-items:baseline;gap:6px}
   #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
   #props .prop-hint{font-size:var(--t-micro);color:var(--text-3);margin-top:6px;line-height:1.35}
-  #props label .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota accanto all'etichetta (— cosa fa) */
+  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
   #props .row{display:flex;gap:6px}
   #props .row>*{flex:1}
   #props .chk{display:block;font-size:13px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
@@ -364,7 +364,9 @@
   body.dark .cab-return.sel{stroke:#67e8f9}
   body.dark .cab-lbl-ret{fill:#67e8f9}
   #monRows .ppatch{color:#0891b2}
+  #monRows .patch-row:not(.patch-hd):not(.patch-sum):not(.unassigned) .ppatch{background:#e0f2fe}   /* token uscita monitor = tinta ciano coerente col dominio Output */
   body.dark #monRows .ppatch{color:#22d3ee}
+  body.dark #monRows .patch-row:not(.patch-hd):not(.patch-sum):not(.unassigned) .ppatch{background:#0c2a33}
   .cab-line.sel{stroke:#0f766e;stroke-width:3.6}
   .cab-del{fill:none;stroke:#9ca3af;stroke-width:1.6;stroke-dasharray:3 5;pointer-events:none}
   .cab-snake{stroke:#0d9488;stroke-width:2;stroke-dasharray:9 5;opacity:.45;fill:none;pointer-events:none}
@@ -727,9 +729,17 @@
   .patch-row .pn{color:var(--text-3);font-weight:700}
   .patch-row .psrc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
   .patch-row .pmic{color:var(--text-2);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .patch-row .p48b{color:var(--accent);font-size:8.5px}
-  .patch-row .ppatch{font-weight:700;color:var(--accent);text-align:center}
+  .patch-row .p48b{display:inline-block;font-size:8.5px;font-weight:700;color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;vertical-align:middle}   /* phantom 48V = badge teal */
+  .patch-row .pamp{display:inline-block;font-size:8.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}   /* assorbimento (A) = badge ambra (dominio potenza) */
+  body.dark .patch-row .p48b{color:#5eb8c7;background:#13202a}
+  body.dark .patch-row .pamp{color:#fbbf24;background:#3a2c0a}
+  .patch-row .ppatch{font-weight:700;color:var(--accent-strong);text-align:center}
+  /* il codice patch (A-1 / Q1·L1·#1) reso come TOKEN, come i chip dei mockup */
+  .patch-row:not(.patch-hd):not(.patch-sum):not(.unassigned) .ppatch{display:inline-block;justify-self:center;background:var(--accent-tint);border-radius:5px;padding:1px 6px;transition:background var(--dur-fast) var(--ease)}
+  .patch-row.editable:not(.patch-hd):hover .ppatch.editable-cell{background:var(--accent-soft)}
   .patch-row.unassigned .ppatch{color:var(--danger,#dc2626)}
+  .patch-row.patch-sum{color:var(--text-3);font-size:11px}   /* riga riepilogo box (uso · ris · lib): niente stili inline */
+  .patch-row.patch-sum .psrc{font-style:italic}
   body.dark .patch-row{border-color:#2c3a3f}
   body.dark .patch-row.patch-hd{background:#20292e;color:#9aa6b6}
   body.dark #patchRows{border-color:#314046}
