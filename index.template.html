@@ -6150,7 +6150,7 @@ function cablingMarkup(){
   /* stile Max (08/07): canvas PULITO — etichette visibili solo se "sempre" (toggle), nel PDF/PNG
      statico e nel viewer condiviso (chi legge non può fare hover consapevole). In hover: bolla assist. */
   var LBL = window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
-  var OBS=obstacleRects();   /* Pilastro 2: i cavi aggirano pedane ed elementi ingombranti */
+  var OBS=obstacleRects();   /* percorso ortogonale diretto (L); l'aggiramento ostacoli A* è disattivato in cabRoutePts (OBS resta per riattivarlo) */
   var s='<g class="cab-layer'+((edit||editRet)?' cab-editable':'')+'">';
   /* ── lato INGRESSI (teal) ── */
   if(showIn){ s+='<g class="cab-inlayer" style="opacity:'+op+'">';
@@ -6419,7 +6419,7 @@ function elecMarkup(){
   var editE=!window.__cabStatic && !state.elec.locked;   /* parità Max; niente editing se il layer Elettrico è bloccato (lucchetto) */
   var LBLE=window.__cabStatic || state.elec.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="elec-layer'+(editE?' elec-editable':'')+'" style="opacity:'+op+'">';
-  var OBS=obstacleRects();   /* Pilastro 2: anche i cavi elettrici aggirano pedane/elementi */
+  var OBS=obstacleRects();   /* percorso ortogonale diretto (L); aggiramento ostacoli disattivato (vedi cabRoutePts) */
   R.feeds.forEach(function(f){
     var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
     var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex);
@@ -15394,6 +15394,11 @@ function cabReportPdf(shared){
     doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
     y=22;
     if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
+    /* M-06 onestà tecnica: le lunghezze sono stime sul percorso ortogonale, da verificare in loco. */
+    (function(){ var d="Le lunghezze sono STIME sul percorso ortogonale (Manhattan) più margine di reach, utili per l'ordine cavi. Il percorso reale sul palco — pieghe, ostacoli, dislivelli, passaggi — va verificato in loco.";
+      doc.setFontSize(8); doc.setFont("helvetica","italic"); var dl=doc.splitTextToSize(d, W-2*M-6), dh=dl.length*3.5+4;
+      doc.setFillColor("#f0fdfa"); doc.setDrawColor("#0d9488"); doc.roundedRect(M, y-3, W-2*M, dh, 1.5, 1.5, "FD");
+      doc.setTextColor("#0f766e"); doc.text(dl, M+3, y+1); y+=dh+4; })();
     line("Riepilogo", 12, true, "#0d9488", 6);
     if(R.mixer && MIXER_DB[R.mixer]) line("Mixer FOH: "+hwLabel(R.mixer,MIXER_DB)+" ("+hwProtoNames(MIXER_DB[R.mixer].proto)+")", 10, false, null, 5);
     if(R.home) line("Punto principale di connessione: "+R.home.name, 10, false, null, 5);
@@ -16048,6 +16053,11 @@ function elecReportPdf(shared){
     doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
     y=22;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
+    /* M-06 onestà tecnica: i valori sono STIME preliminari, non un progetto esecutivo. Assunzioni esplicite. */
+    (function(){ var d="STIMA PRELIMINARE — non è un progetto elettrico esecutivo. Valori calcolati con assunzioni fisse (230 V, cosφ = 1, nessun derating, spunto, duty cycle, caduta di tensione o dislivello). Dimensionamento, protezioni e sicurezza vanno verificati da un elettricista qualificato.";
+      doc.setFontSize(8); doc.setFont("helvetica","italic"); var dl=doc.splitTextToSize(d, W-2*M-6), dh=dl.length*3.5+4;
+      doc.setFillColor("#fff7ed"); doc.setDrawColor("#f59e0b"); doc.roundedRect(M, y-3, W-2*M, dh, 1.5, 1.5, "FD");
+      doc.setTextColor("#92400e"); doc.text(dl, M+3, y+1); y+=dh+4; })();
     line("Riepilogo", 12, true, "#b45309", 6);
     line("Potenza totale: "+elecKW(R.totW)+"  ·  "+R.totA.toFixed(0)+" A  ("+(R.phase3?"trifase":"monofase")+")", 10, false, null, 5);
     if(R.supply) line("Alimentazione: "+R.supply.name+(R.supply.kva?" ("+R.supply.kva+" kVA)":""), 10, false, null, 5);
