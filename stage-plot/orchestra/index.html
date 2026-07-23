@@ -37,11 +37,14 @@
         {"@type":"ListItem","position":2,"name":"Stage plot","item":"https://stageplot.it/stage-plot/"},
         {"@type":"ListItem","position":3,"name":"Orchestra","item":"https://stageplot.it/stage-plot/orchestra/"}
       ]},
-      {"@type":"Article","headline":"Stage plot per orchestra: disposizione e microfonazione","inLanguage":"it","datePublished":"2026-06-28","dateModified":"2026-06-28","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/stage-plot/orchestra/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
+      {"@type":"Article","headline":"Stage plot per orchestra: disposizione e microfonazione","inLanguage":"it","datePublished":"2026-06-28","dateModified":"2026-07-23","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/stage-plot/orchestra/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
       {"@type":"FAQPage","mainEntity":[
         {"@type":"Question","name":"Come si dispone un'orchestra sul palco?","acceptedAnswer":{"@type":"Answer","text":"In formazione ad arco verso il direttore: archi davanti, legni al centro, ottoni dietro e percussioni in fondo, spesso su pedane per le sezioni arretrate."}},
         {"@type":"Question","name":"Servono le pedane per l'orchestra?","acceptedAnswer":{"@type":"Answer","text":"Sì: le pedane (riser) per ottoni e percussioni migliorano la visibilità del direttore e la resa sonora. Vanno indicate nello stage plot con le altezze."}},
-        {"@type":"Question","name":"Quanti microfoni servono per un'orchestra?","acceptedAnswer":{"@type":"Answer","text":"Dipende dall'organico e dalla sala: si va da una ripresa d'insieme con pochi microfoni a una microfonazione per sezioni con molti canali."}}
+        {"@type":"Question","name":"Quanti microfoni servono per un'orchestra?","acceptedAnswer":{"@type":"Answer","text":"Dipende dall'organico e dalla sala: si va da una ripresa d'insieme con pochi microfoni a una microfonazione per sezioni con molti canali."}},
+        {"@type":"Question","name":"Qual è la differenza tra ripresa d'insieme e microfonazione per sezioni?","acceptedAnswer":{"@type":"Answer","text":"La ripresa d'insieme usa poche coppie principali per l'immagine globale; la microfonazione per sezioni aggiunge spot vicino a legni, ottoni e archi per dettaglio e rinforzo."}},
+        {"@type":"Question","name":"Dove si mette la coppia principale?","acceptedAnswer":{"@type":"Answer","text":"In alto, sopra e leggermente dietro il direttore, così cattura l'orchestra in modo bilanciato."}},
+        {"@type":"Question","name":"Come si indicano le pedane nello stage plot?","acceptedAnswer":{"@type":"Answer","text":"Con la posizione e l'altezza (per esempio 20 o 40 cm) di ogni riser di ottoni e percussioni."}}
       ]}
     ]
   }
@@ -65,7 +68,7 @@
 
     <h1>Stage plot per orchestra</h1>
     <p class="lead">Disposizione a settori, pedane e microfonazione: come mappare un organico numeroso in modo che il service prepari la sala senza esitazioni.</p>
-    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 28/06/2026</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 23/07/2026</p>
     <figure style="margin:22px 0"><img src="/stage-plot/previews/orchestra.svg" alt="Anteprima dello stage plot di un'orchestra: disposizione a settori" loading="lazy" style="width:100%;height:auto;border:1px solid #e6e1d8;border-radius:12px;background:#f4f1ea"></figure>
 
     <p>Lo stage plot di un'orchestra è più complesso di quello di una band: tanti musicisti acustici, sezioni distinte e l'esigenza di pedane e leggii. La chiarezza è tutto. Per il metodo generale vedi <a href="/guida/come-fare-uno-stage-plot/">come fare uno stage plot</a>.</p>
@@ -89,6 +92,41 @@
       <li>Una <a href="/guida/channel-list-input-list/">input list</a> per la microfonazione.</li>
     </ul>
 
+    <h2>Microfonazione dell'orchestra</h2>
+    <p>Nello stage plot conviene indicare l'impianto di ripresa previsto, perché condiziona la posizione di aste e cavi:</p>
+    <ul>
+      <li><strong>Coppia principale</strong>: due condensatori in alto, sopra e leggermente dietro il direttore, per l'immagine d'insieme dell'orchestra.</li>
+      <li><strong>Microfoni di sezione (spot)</strong>: condensatori vicino a legni, ottoni e archi bassi per dettaglio e rinforzo dove serve.</li>
+      <li><strong>Solisti</strong>: microfono dedicato, per esempio una coppia sul pianoforte o un condensatore sul violino solista.</li>
+      <li>Per il solo rinforzo in sala si privilegiano gli spot per sezione; per la ripresa è la coppia principale a portare l'immagine stereo.</li>
+    </ul>
+
+    <h2>Channel list di esempio</h2>
+    <p>Una channel list orientativa per un'orchestra sinfonica con ripresa d'insieme e spot, da adattare all'organico:</p>
+    <table class="ch-table">
+      <caption>Esempio: channel list di un'orchestra (estratto)</caption>
+      <thead><tr><th>#</th><th>Sorgente</th><th>Ripresa</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td>1-2</td><td>Coppia principale L/R</td><td>Condensatore</td><td>Sopra il direttore</td></tr>
+        <tr><td>3-4</td><td>Violini I / II</td><td>Condensatore spot</td><td>Uno per sezione</td></tr>
+        <tr><td>5</td><td>Viole / violoncelli</td><td>Condensatore spot</td><td></td></tr>
+        <tr><td>6</td><td>Contrabbassi</td><td>Condensatore o DI</td><td>Se amplificati</td></tr>
+        <tr><td>7</td><td>Legni</td><td>Condensatore</td><td>Coppia sopra la sezione</td></tr>
+        <tr><td>8</td><td>Ottoni</td><td>Condensatore o dinamico</td><td>Su pedana</td></tr>
+        <tr><td>9</td><td>Timpani / percussioni</td><td>Condensatore overhead</td><td></td></tr>
+        <tr><td>10</td><td>Arpa / solista</td><td>Condensatore</td><td>Se presente</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Errori comuni</h2>
+    <ul>
+      <li><strong>Pedane senza altezze</strong>: senza le quote il service non sa come montare i riser di ottoni e percussioni.</li>
+      <li><strong>Settori senza numeri</strong>: indicare leggii e musicisti per sezione evita di dimensionare male il palco.</li>
+      <li><strong>Solo spot, nessuna coppia principale</strong>: l'immagine d'insieme risulta povera e poco naturale.</li>
+      <li><strong>Luci leggio e alimentazione dimenticate</strong>: vanno previste per ogni settore.</li>
+      <li><strong>Contrabbassi e arpa non indicati</strong> per la ripresa: sono spesso i più difficili da recuperare all'ultimo.</li>
+    </ul>
+
     <div class="callout">
       <p>Con <a href="/">StagePlot</a> il generatore d'organico crea la base dell'orchestra in scala: aggiungi le pedane e i microfoni, ed esporti il PDF pronto per il teatro.</p>
     </div>
@@ -107,6 +145,9 @@
       <details><summary>Come si dispone un'orchestra sul palco?</summary><p>In formazione ad arco verso il direttore: archi davanti, legni al centro, ottoni dietro e percussioni in fondo, spesso su pedane per le sezioni arretrate.</p></details>
       <details><summary>Servono le pedane per l'orchestra?</summary><p>Sì: le pedane (riser) per ottoni e percussioni migliorano la visibilità del direttore e la resa sonora. Vanno indicate nello stage plot con le altezze.</p></details>
       <details><summary>Quanti microfoni servono per un'orchestra?</summary><p>Dipende dall'organico e dalla sala: si va da una ripresa d'insieme con pochi microfoni a una microfonazione per sezioni con molti canali.</p></details>
+      <details><summary>Qual è la differenza tra ripresa d'insieme e microfonazione per sezioni?</summary><p>La ripresa d'insieme usa poche coppie principali per l'immagine globale; la microfonazione per sezioni aggiunge spot vicino a legni, ottoni e archi per dettaglio e rinforzo.</p></details>
+      <details><summary>Dove si mette la coppia principale?</summary><p>In alto, sopra e leggermente dietro il direttore, così cattura l'orchestra in modo bilanciato.</p></details>
+      <details><summary>Come si indicano le pedane nello stage plot?</summary><p>Con la posizione e l'altezza (per esempio 20 o 40 cm) di ogni riser di ottoni e percussioni.</p></details>
     </div>
 
     <div class="related">
