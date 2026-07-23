@@ -1204,6 +1204,22 @@ t("autoInputs genera la input list dagli strumenti, senza attivare il cablaggio"
   ok(A.state.inputs.length >= 8, "batteria → ≥8 canali auto (ottenuti: " + A.state.inputs.length + ")");
   eq(A.state.cab.on, false, "il cablaggio NON viene attivato (C: nessun cavo disegnato)");
 });
+t("M-04: autoInputs(silent) genera in memoria SENZA salvare (apertura Esporta = anteprima non-mutante)", () => {
+  reset();
+  add("batteria", 400, 400);
+  A.state.inputs = [];
+  let saves = 0;
+  const origSave = A.save;
+  A.save = function () { saves++; };
+  try {
+    A.autoInputs(true);                       // silent, come l'apertura dell'hub Esporta
+    ok(A.state.inputs.length >= 8, "le liste sono generate in memoria per l'anteprima");
+    eq(saves, 0, "silent: nessun salvataggio all'apertura dell'anteprima");
+    A.state.inputs = [];
+    A.autoInputs();                           // normale (bottone Auto) → salva
+    ok(saves >= 1, "non-silent: il salvataggio avviene (comportamento invariato)");
+  } finally { A.save = origSave; }
+});
 console.log("\nAudit connessioni elementi (14/07):");
 t("strumenti elettronici assorbono corrente: Hammond 250W, pedaliera 30W, SPD-SX 15W+2 DI", () => {
   reset();

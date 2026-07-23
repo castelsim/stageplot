@@ -12295,8 +12295,8 @@ function clBank(type){
   if(cat==="Cablaggio e segnale"||cat==="Regia e console"||cat==="Tecnica") return 80;   /* DI, playback, tecnica */
   return 90;
 }
-function autoInputs(){
-  if(state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
+function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in memoria SENZA salvare né chiedere — M-04 */
+  if(!silent && state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
   /* M3: ordina gli strumenti per banco (stabile: parità → ordine di inserimento) prima di numerare i canali */
@@ -12331,10 +12331,10 @@ function autoInputs(){
     }
     if(IN_SRC[it.type]!=null){ rows.push(linkTo(rowFromMic(it.label || t.nome, IN_SRC[it.type]),it)); }
   });
-  state.inputs=rows; save(); renderChannels();
+  state.inputs=rows; if(!silent) save(); renderChannels();
 }
-function autoOutputs(){
-  if(state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
+function autoOutputs(silent){   /* silent=true dall'apertura Esporta: niente save/confirm — M-04 */
+  if(!silent && state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
   var rows=[];
   state.items.forEach(function(it){
     if(OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]){   /* i personal mixer non generano un canale di uscita analogico: viaggiano in digitale (layer P.M.) */
@@ -12342,7 +12342,7 @@ function autoOutputs(){
       r.linked_item_id=it.id; rows.push(r);
     }
   });
-  state.outputs=rows; save(); renderChannels();
+  state.outputs=rows; if(!silent) save(); renderChannels();
 }
 
 /* ============ PLANIMETRIA / VENUE ============ */
@@ -13364,8 +13364,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       /* C (ciclo primo-PDF-completo): se la channel list è VUOTA, generala dagli strumenti sul palco
          (instrument-driven, come "Auto" — NON attiva il cablaggio/cavi). Così il PDF non esce mai senza
          input/monitor list. Una lista già compilata a mano non viene toccata (autoInputs esce se piena). */
-      try{ if(!state.inputs.length) autoInputs(); }catch(e){}
-      try{ if(!state.outputs.length) autoOutputs(); }catch(e){}
+      try{ if(!state.inputs.length) autoInputs(true); }catch(e){}   /* M-04: genera per l'anteprima SENZA salvare (niente persistenza silenziosa all'apertura) */
+      try{ if(!state.outputs.length) autoOutputs(true); }catch(e){}
       preloadRespData();
     }
     renderFramePanel(); render();
@@ -15556,6 +15556,16 @@ function buildPdfDoc(paperKey, N, orient, header){
    Ritorna "saved" | "share" | "download" | "abort". */
 function exportPdf(paperKey, scaleSel, orient, header){
   var info=document.getElementById("pdfInfo");
+  /* M-04: gate sugli errori CRITICI — non esportare un documento errato senza una scelta esplicita.
+     Gli avvisi non bloccano; solo gli errori. Override esplicito via conferma. */
+  try{ var _A=(typeof auditEngine==="function") ? auditEngine() : null;
+    if(_A && _A.errs>0){
+      var _first=(_A.findings||[]).filter(function(x){ return x.lvl==="err"; })[0];
+      var _msg="Il progetto ha "+_A.errs+" error"+(_A.errs>1?"i":"e")+" critic"+(_A.errs>1?"i":"o")
+        +(_first?":\n• "+_first.msg:"")+"\n\nIl documento esportato potrebbe essere incompleto o errato. Esportare comunque?";
+      if(!confirm(_msg)){ info.className="mstatus err"; info.textContent="Export annullato: risolvi gli errori critici (Audit) o conferma l'export."; return; }
+    }
+  }catch(e){}
   var N=resolveScale(paperKey, scaleSel, orient);
   var oTxt=(orient==="portrait"?"verticale":"orizzontale");
   var aTxt=printArea().custom?"L'area di stampa":"Il palco";
