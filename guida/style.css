@@ -62,3 +62,9 @@ table.ch-table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
 .ch-table th{background:var(--panel);font-weight:700}
 .ch-table caption{caption-side:bottom;color:var(--muted);font-size:12px;margin-top:8px;text-align:left}
 @media (max-width:680px){.nav{display:none}.cta-actions .btn{width:100%}.ch-table{font-size:13px}.ch-table th,.ch-table td{padding:6px 7px}}
+.author-card{margin:36px 0 8px;padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.author-card .ac-name{margin:0 0 6px;font-weight:800;color:var(--ink);font-size:15px}
+.author-card .ac-name span{font-weight:500;color:var(--muted)}
+.author-card .ac-bio{margin:0 0 8px;font-size:14px;color:var(--muted);line-height:1.6}
+.author-card .ac-link a{font-size:14px;color:var(--accent);text-decoration:none;font-weight:600}
+.author-card .ac-link a:hover{text-decoration:underline}
