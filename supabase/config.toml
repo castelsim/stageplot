@@ -1,0 +1,21 @@
+project_id = "vsodplqkuvnsdiikvmjb"
+
+# Versiona l'autenticazione richiesta dalle Edge Functions: le funzioni pubbliche
+# verificano autonomamente token/firma quando applicabile; le altre richiedono JWT.
+[functions.create-consultation]
+verify_jwt = true
+
+[functions.get-shared-project]
+verify_jwt = false
+
+[functions.process-consultation-notifications]
+verify_jwt = false
+
+[functions.save-shared-project]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.submit-feedback]
+verify_jwt = false

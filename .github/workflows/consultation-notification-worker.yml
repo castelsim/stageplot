@@ -1,0 +1,43 @@
+name: Consultation notification worker
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: consultation-notification-worker
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      WORKER_URL: ${{ secrets.CONSULTATION_WORKER_URL }}
+      WORKER_SECRET: ${{ secrets.CONSULTATION_WORKER_SECRET }}
+    steps:
+      - name: Elabora notifiche e alert pendenti
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$WORKER_URL" || -z "$WORKER_SECRET" ]]; then
+            echo "::error::Worker non configurato: impostare CONSULTATION_WORKER_URL e CONSULTATION_WORKER_SECRET."
+            exit 1
+          fi
+          response="$(
+            curl --fail-with-body --silent --show-error \
+              --proto '=https' \
+              --location \
+              --max-redirs 0 \
+              --max-time 240 \
+              --request POST \
+              --header "x-stageplot-worker-secret: $WORKER_SECRET" \
+              "$WORKER_URL"
+          )"
+          if ! jq -e '.ok == true' >/dev/null <<<"$response"; then
+            echo "::error::Il worker non ha restituito una conferma valida."
+            exit 1
+          fi

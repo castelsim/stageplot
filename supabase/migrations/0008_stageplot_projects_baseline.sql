@@ -10,12 +10,10 @@
 -- È IDEMPOTENTE: sul DB di produzione (dove tutto esiste già) non cambia nulla;
 -- serve come fonte di verità versionata e per ricostruire il DB altrove.
 --
--- NOTA sul drift residuo (fuori da S2): la catena di migration ha un disallineamento
--- preesistente (0006/0007 locali non tracciate nel remoto; 7 migration solo-remote).
--- Un `supabase db reset` end-to-end richiede una riconciliazione separata della catena
--- (in particolare stageplot_projects è referenziata da 0002/0003/0006, che vengono prima
--- di questa nell'ordine: per un reset pulito la CREATE andrebbe anticipata). Qui l'obiettivo
--- è l'auditabilità delle RLS, non il reset completo.
+-- Il prerequisito 0000 anticipa la CREATE per rendere riproducibili i riferimenti
+-- presenti nelle migration precedenti. Questa baseline rimane intenzionalmente
+-- idempotente per documentare lo schema/RLS storico e per non alterare la sequenza
+-- già applicata agli ambienti esistenti.
 
 create table if not exists public.stageplot_projects (
   id uuid primary key default gen_random_uuid(),
