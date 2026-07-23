@@ -34,21 +34,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.7.5
       - name: Verifica che index.html sia allineato ai sorgenti
         run: node build.mjs --check
-      - name: Prepara la cartella pubblica (solo asset statici)
+      - name: Test motori frontend
+        run: node --test test/engines.test.mjs
+      - name: Test funzioni condivise Supabase
+        run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
+      - name: Type-check Edge Functions
+        run: >-
+          deno check --lock=deno.lock --frozen
+          supabase/functions/create-consultation/index.ts
+          supabase/functions/get-shared-project/index.ts
+          supabase/functions/process-consultation-notifications/index.ts
+          supabase/functions/save-shared-project/index.ts
+          supabase/functions/stripe-webhook/index.ts
+          supabase/functions/submit-feedback/index.ts
+      - name: Lint backend
+        run: deno lint supabase/functions
+      - name: Prepara la cartella pubblica (allowlist)
         run: |
           mkdir -p _site
-          rsync -a --delete \
-            --exclude='_site' \
-            --exclude='.git' --exclude='.github' \
-            --exclude='.claude' --exclude='.superpowers' \
-            --exclude='supabase' --exclude='docs' --exclude='src' \
-            --exclude='build.mjs' --exclude='index.template.html' \
-            --exclude='AGENTS.md' --exclude='STAGEPLOT_DESIGN_SYSTEM.md' \
-            --exclude='.gitignore' --exclude='README.md' \
-            --exclude='node_modules' --exclude='.DS_Store' --exclude='*.tar.gz' \
-            ./ ./_site/
+          rsync -a --exclude='.DS_Store' --exclude='README.md' \
+            .nojekyll 404.html CNAME LICENSE \
+            index.html app.js icons.js sw.js manifest.webmanifest \
+            robots.txt sitemap.xml llms.txt \
+            favicon.ico favicon.svg favicon-48.png favicon-96.png \
+            apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
+            consulenza guida privacy stage-plot termini vendor \
+            ./_site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
