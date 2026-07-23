@@ -1,15 +1,11 @@
 # Goal
 Sessione 21/07 (seguito): microfoni voci a scala reale, cablaggio input per-musicista, 2 stili cavo + diretto preciso, stage box del mixer (lato-FOH), ascolto per performer, e **rifinitura UI dei pannelli/liste al livello dei mockup**. Ultima fase: audit visivo Input/Output/Power + lista canali.
 
-# ⚠️ INCIDENTE APERTO — progetto cloud da ripristinare (PRIORITÀ)
-Facendo verifiche live sul **tab loggato** (127.0.0.1:8077) col progetto cloud **"sernaglia 26 okok"** aperto, ho sovrascritto il progetto con una scena usa-e-getta.
-- **Causa:** `elecConnectAll()`/`cabConnectAll()` (e l'auto-connect di `addItem`) chiamano `save()` INTERNAMENTE → l'autosave ha persistito 4 elementi finti (ampli/ciabatta) sul cloud. Il "clona-state + render senza save()" NON basta: il save parte dentro le funzioni-motore. È lo stesso errore del 10/07 (memoria `feedback-stageplot-prove-account`, aggiornata).
-- **Stato attuale del progetto cloud:** 4 elementi throwaway (comboamp "Ampli chitarra", bassamp "Ampli basso", stagepiano "Tastiere", ciabatta "Ciabatta").
-- **Recupero (100% possibile):** in `localStorage["stageplot_versions"]` c'è **"Versione 21/7 22:29" = 102 elementi** = orchestra Sernaglia reale (18 hearback, 9 stagebox, 6 vlnpost, viole/celli/corni/flauti, direttore, pedane, parapetti…). È l'indice 0 dell'array versioni.
-- **Come ripristinare:** funzione app `restoreVersion(0)` + `save()`. La mia esecuzione JS è stata **bloccata dal classificatore** (giusto: scrive sul cloud). Deve farlo l'utente:
-  1. dall'app: pannello **"Punti di ripristino"** → **Ripristina** su "Versione 21/7 22:29" → **Salva** (⌘S); OPPURE
-  2. con approvazione dell'utente: rieseguire `restoreVersion(0)` nella console dell'app.
-- **In attesa della decisione dell'utente** su come procedere (al momento dell'handoff non ancora ripristinato).
+# ✅ INCIDENTE CHIUSO — progetto cloud ripristinato (23/07)
+Il 21/07, facendo verifiche live sul **tab loggato** (127.0.0.1:8077) col progetto cloud **"sernaglia 26 okok"** aperto, il progetto era stato sovrascritto con una scena usa-e-getta (4 elementi throwaway).
+- **Causa:** `elecConnectAll()`/`cabConnectAll()` (e l'auto-connect di `addItem`) chiamano `save()` INTERNAMENTE → l'autosave ha persistito la scena finta sul cloud. Il "clona-state + render senza save()" NON basta: il save parte dentro le funzioni-motore. Stesso errore del 10/07 (memoria `feedback-stageplot-prove-account`, aggiornata).
+- **Risoluzione (23/07):** Simone ha ripristinato dall'app "Versione 21/7 22:29" (102 elementi, orchestra Sernaglia reale) dal pannello **"Punti di ripristino"** + salvataggio. Progetto cloud tornato integro.
+- **Lezione operativa:** vedi REGOLA RIBADITA in "Bugs and risks".
 
 # Current state (codice)
 - App live su **stageplot.it** (GitHub Pages da `main`). Working tree **pulito**, `main` in sync con `origin/main`.
@@ -47,8 +43,7 @@ File toccati: `index.template.html` (sorgente), `src/styles.css`, `app.js`+`inde
 - **REGOLA RIBADITA (vedi incidente sopra)**: verifiche interattive UI/motori SOLO su **localhost non loggato, progetto vuoto**. Mai sul tab col progetto cloud aperto. Le funzioni `elecConnectAll`/`cabConnectAll`/`addItem`(auto-connect) salvano sul cloud.
 
 # Next step
-1. **Ripristinare il progetto Sernaglia** (vedi sezione incidente) — attende l'utente.
-2. Eventuali altre viste da portare a livello mockup se l'utente le segnala.
+1. Eventuali altre viste da portare a livello mockup se l'utente le segnala.
 
 # Relevant commands
 ```
@@ -61,5 +56,6 @@ git push origin main      # deploy (Pages)
 ```
 
 # Git state
-- Branch **main**, in sync con `origin/main`, working tree **pulito** (a parte `handoff.md`).
-- Ultimo commit: **`c25cc5f`**.
+- Branch **main**, in sync con `origin/main`, working tree **pulito**.
+- Ultimo commit di codice: **`c25cc5f`** (i successivi sono solo docs `handoff.md`).
+- Nota 23/07: repo spostato in `COWORK/STAGEPLOT/stageplot` (prima `COWORK/GITHUB/stageplot`).
