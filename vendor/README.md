@@ -66,3 +66,26 @@ shasum -a 256 vendor/pdf.min.js
 ```
 
 Dopo: ritestare l'export PDF (vettoriale e raster) nel browser.
+
+### Vulnerabilità nota — jsPDF 2.5.1 (audit M-11)
+
+`jspdf` 2.5.1 è affetto da **CVE-2025-29907 / GHSA-w532-jxjh-hjhj** (ReDoS: un URL immagine
+malformato può innescare backtracking catastrofico nel parser, corretto in jsPDF **3.0.1**).
+
+- **Tipo di rischio:** denial-of-service **lato client** (blocca la scheda di chi esporta), non
+  esecuzione di codice né esfiltrazione. Nessun jsPDF gira lato server.
+- **Raggiungibilità:** l'unico dato non generato dall'app che raggiunge jsPDF è **l'immagine
+  planimetria** (venue). Vettore teorico = un progetto condiviso con un data-URL immagine ostile.
+- **Già mitigato in-app (di fatto non sfruttabile):** ① il `_dataUrl` della venue è **sempre**
+  prodotto da `canvas.toDataURL` (import PDF/immagine e re-encode in export → PNG/JPEG puliti),
+  mai il byte grezzo dell'utente; ② `safeVenueDataUrl` impone una **allowlist regex stretta e
+  ReDoS-safe** — `^data:image/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$` (classe singola,
+  nessun quantificatore annidato) — applicata in serializzazione **e** al render (seconda
+  barriera). A jsPDF arrivano quindi solo data-URL base64 ben formati: l'input malformato che
+  innescherebbe il backtracking catastrofico **non è costruibile**.
+- **Perché non aggiorniamo (ancora):** è un **bundle custom** (jspdf+svg2pdf concatenati); il salto
+  a 3.x è major, ad alto rischio di regressione su una funzione molto usata, **senza golden test
+  PDF**. Con il rischio già neutralizzato a monte, il bump è **igiene rimandabile**, non urgente.
+- **Se/quando si aggiorna:** pianificarlo separatamente con suite di regressione PDF (vettoriale +
+  raster, multipagina, cartiglio, planimetria) prima del merge, e mantenere comunque le due
+  barriere sopra (difesa in profondità).
