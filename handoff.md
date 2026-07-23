@@ -1,72 +1,65 @@
 # Goal
-Ridisegno del sistema **layer / cablaggio** dell'editor: layer come "viste" (Palco = tutto · Musicisti · Input · Output · P.M. · Power), cablaggio automatico leggibile, e coerenza grafica di sorgenti/stagebox/voci. Fase attuale: rifinitura visiva del cablaggio — chiusa e live.
+Sessione 21/07 (seguito): microfoni voci a scala reale, cablaggio input per-musicista, 2 stili cavo + diretto preciso, stage box del mixer (lato-FOH), ascolto per performer, e **rifinitura UI dei pannelli/liste al livello dei mockup**. Ultima fase: audit visivo Input/Output/Power + lista canali.
 
-# Current state
-- App live e funzionante su **stageplot.it** (GitHub Pages da `main`). Deploy verificato: i marker di questa sessione sono presenti nel bundle live (`cab-iobar-in`, `micModeOf`, `cab-boxdot`, `pmAutoConnectBasic`, `layerAutoConnect`).
-- Suite **238/238 verde**; `node build.mjs --check` allineato (index.html + app.js generati dai sorgenti).
-- Working tree **pulito**, `main` **in sync** con `origin/main`, ultimo commit `6468b12`.
-- Supabase allineato: migrazioni fino a **0018** applicate, seed equip applicati (44 prodotti).
+# ⚠️ INCIDENTE APERTO — progetto cloud da ripristinare (PRIORITÀ)
+Facendo verifiche live sul **tab loggato** (127.0.0.1:8077) col progetto cloud **"sernaglia 26 okok"** aperto, ho sovrascritto il progetto con una scena usa-e-getta.
+- **Causa:** `elecConnectAll()`/`cabConnectAll()` (e l'auto-connect di `addItem`) chiamano `save()` INTERNAMENTE → l'autosave ha persistito 4 elementi finti (ampli/ciabatta) sul cloud. Il "clona-state + render senza save()" NON basta: il save parte dentro le funzioni-motore. È lo stesso errore del 10/07 (memoria `feedback-stageplot-prove-account`, aggiornata).
+- **Stato attuale del progetto cloud:** 4 elementi throwaway (comboamp "Ampli chitarra", bassamp "Ampli basso", stagepiano "Tastiere", ciabatta "Ciabatta").
+- **Recupero (100% possibile):** in `localStorage["stageplot_versions"]` c'è **"Versione 21/7 22:29" = 102 elementi** = orchestra Sernaglia reale (18 hearback, 9 stagebox, 6 vlnpost, viole/celli/corni/flauti, direttore, pedane, parapetti…). È l'indice 0 dell'array versioni.
+- **Come ripristinare:** funzione app `restoreVersion(0)` + `save()`. La mia esecuzione JS è stata **bloccata dal classificatore** (giusto: scrive sul cloud). Deve farlo l'utente:
+  1. dall'app: pannello **"Punti di ripristino"** → **Ripristina** su "Versione 21/7 22:29" → **Salva** (⌘S); OPPURE
+  2. con approvazione dell'utente: rieseguire `restoreVersion(0)` nella console dell'app.
+- **In attesa della decisione dell'utente** su come procedere (al momento dell'handoff non ancora ripristinato).
 
-# Decisions made
-- **Palco = TUTTO** (occhi in OR): un elemento si vede se l'occhio Palco è acceso OPPURE un layer acceso lo contiene. Coperture = veto. `layerFgItem("stage")` è sempre true.
-- **Input/Output/P.M. = tre layer separati** (id storici `cabin`/`cabout`/`mond`). Il vecchio layer unico "cabaudio" non esiste più (resta solo come `focus` legacy nel renderer PDF).
-- **P.M. solo digitali**: i personal mixer (`hearback`/`mixhub`, MON_DIG_NODE) NON sono sink analogici e NON stanno in Output; si collegano via Cat5 all'hub. Capienza hub rispettata (porte del modello, 8 generico).
-- **Vista cablaggio**: senza layer selezionato = plot pulito, **0 cavi**. I cavi compaiono solo col layer a fuoco/solo (canvas). Il PDF (`window.__cabStatic`) è invariato.
-- **Solo a due rese**: bottone **S** = isola (resto NASCOSTO) · clic sulla riga (tendina) = fuoco con contesto sfumato 15%. Si escludono a vicenda.
-- **Niente slider opacità** nel pannello layer (solo Planimetria). Riga = griglia a slot fissi `[S][occhio][lucchetto][cestino]`.
-- **Nomi layer**: Palco · Musicisti · **Input** · Output · P.M. · **Power** (fisici in IT, tecnici in EN; "Corrente" scartato).
-- **Stile cavo per-layer** (indipendente): `cab.style` (Input) · `cab.styleOut` (Output) · `mond.style` (P.M.) · `elec.style` (Power). Valori: `orto` (Angoli retti) · `curve` (Smussati) · `dir` (Diretto). Il vecchio `loom` migra a `orto`; i fasci/scie sono stati RIMOSSI.
-- **Pallini colorati per sezione** nei layer tecnici: musicisti (audio) e carichi (Power) diventano punti col colore della sezione + legenda. **N pallini per musicista** nelle postazioni doppie.
-- **Costruttore "Palco e pedane"**: la card "Blocco palco" costruisce anche le pedane (+ Blocco / + Semicerchio / + Pedana + chip pedane esistenti).
-- **Voci — 4 modalità mic** (`micModeOf`): Base tonda · Giraffa · In mano · Panoramico. Panoramico = 0 canali (voce nel mic di sezione); altrimenti 1 SM58. Default corista = panoramico. Il dropdown "Microfonazione" è nascosto per le voci.
-- **Stagebox = variante A**: al posto della pillola numerica, due barre sopra la box (ingressi teal / uscite ciano) proporzionali a used/capacità.
+# Current state (codice)
+- App live su **stageplot.it** (GitHub Pages da `main`). Working tree **pulito**, `main` in sync con `origin/main`.
+- Suite **243/243 verde** (`node test/engines.test.mjs`); `node build.mjs --check` allineato.
+- Ultimo commit: **`c25cc5f`**.
 
-# Changed this session
-15 commit (`3a87026..6468b12`). File toccati:
-- `index.template.html` — sorgente unico dell'app (tutte le modifiche logica/UI/registro layer).
-- `src/styles.css` — CSS layer/cablaggio (slot, solo, section-dot, cab-boxdot, iobar, autocab, cabstyle).
-- `app.js` + `index.html` — **generati** da `node build.mjs` (NON editare a mano).
-- `test/engines.test.mjs` — +~14 test, alcuni aggiornati al modello v3.
-- `supabase/migrations/0018_dept_published.sql` — creato (già applicato in produzione).
+# Changed this session (commit `6468b12`→`c25cc5f`)
+Sequenza (dal più recente):
+- `c25cc5f` — lista canali: colonna MIC/DI più larga + badge 48V/Ampere sempre visibile (pmic flex, .micname troncabile, badge pinnato).
+- `e808598` — liste (canali/carichi) a livello mockup: codice patch = TOKEN con tinta di dominio (teal Input, ciano Output, teal Power); badge 48V (teal) e Ampere (`.pamp` ambra); tolti stili inline dalle righe (`.lbl-note`, `.patch-sum`).
+- `1c165d3` — bottoni layer Input/Output rifiniti: `.adv-connect` (Cablaggio automatico) da verde slavato → contorno pulito con hover pieno; `.adv-btn` segmentato hover/transizioni/focus-ring; `.bus-chip` (MAIN L/R…) solido con prefisso "+"; `.feed-seg` hover.
+- `859c910` — rifinitura controlli via design system: classi `.prop-card`/`.prop-card__head`/`.prop-hint`/`.lbl-note`; `#props select/input` hover+transizione+chevron custom. Applicate ai 3 controlli nuovi + card gemelle pannello gruppo.
+- `be72e42` — **Ascolto per performer** (`it.ascolto`/`ascoltoId`: wedge/iem/pm/cuffie/none → crea/associa il monitor giusto vicino al performer) + **pallino musicista nel layer Input = maniglia del cavo** (`sectionDotMarkup` con `port-hit` per-seduta al posto del `.hit`, classe `secdot-wire`; non sposta più il musicista).
+- `f02009b` — fix BUG doppio-cavo ortogonale in editing su stile diretto (overlay segue la linea dritta, solo maniglie dei capi); **stage box del mixer** (flag `it.foh`, esclusa dall'auto, target manuale overflow, badge "MIXER").
+- `3c6ab0e` — 2 stili cavo (Angoli smussati/Cablaggio diretto, orto rimosso→curve); diretto converge sul pallino centro box; **batch multi-selezione stage box** (`#grpSbWrap`: modello/ingressi/uscite insieme); **ESC azzera i layer** (solo/fuoco → base).
+- `3ce605c` — **un cavo per musicista** nelle postazioni (doppia + tipi ×2 sbundlano; `musicianSeats`/`isPerMusicianMulti`/`channelAnchor`/`seatChannels`; batteria/piano stereo restano UN cavo).
+- `6844204` — microfoni voci a scala reale (tonda/giraffa/mano bakati dall'editor) + `cantanteDepth` footprint dinamico.
+- `ccab69a`/`5731b3d`/`6468b12` — voci: alias ricerca, figura coro unica, 4 modalità mic.
 
-# Files in flight
-Nessuno. Tutto committato e pushato. Working tree pulito.
+File toccati: `index.template.html` (sorgente), `src/styles.css`, `app.js`+`index.html` (generati — `node build.mjs`), `test/engines.test.mjs` (+~7 test).
 
-# Failed attempts
-- **Rinomina "Power" → "Corrente"** (commit `0e25b4e`): fatta e poi **annullata** su richiesta (`6f663f4`). Il layer resta "Power". Non ri-italianizzare senza motivo.
-- **Selettore stile con "Fascio + canali"** (loom): scartato. Le "scie" semi-trasparenti (`.cab-loom`) disturbavano → rimosse. Non reintrodurre il loom nel rendering.
-- **Slider opacità sul layer selezionato**: giudicato inutile (il fuoco sfuma già) → rimosso da tutti i layer tranne Planimetria.
+# Decisions made (chiave)
+- **Stili cavo = 2**: Angoli smussati (curve, default) · Cablaggio diretto (dir). orto/loom migrano a smussati.
+- **Diretto**: linea dritta dal pallino centro box; editing = solo maniglie dei capi (niente segmenti ortogonali).
+- **Postazioni** = 1 pallino + 1 cavo per musicista; strumenti singoli multi-mic = 1 cavo (invariato).
+- **Stage box del mixer** (`it.foh`): fuori dall'auto, target manuale per gli overflow.
+- **Ascolto** performer: 4 tipi che CREANO l'elemento monitor (deciso via AskUserQuestion).
+- **Layer Input**: il pallino del musicista cabla, non sposta (per spostare → layer Musicisti).
+- **UI**: i controlli nuovi nascono con classi del design system + hover/focus, mai stili inline grezzi (feedback Simone; memoria `feedback-stageplot-ui-polish`).
 
 # Bugs and risks
-- **Gotcha SW-cache (dev)**: il service worker su localhost serve `app.js` stantio. In sviluppo: deregistrare SW + svuotare caches + hard reload (Cmd+Shift+R). Su stageplot.it basta l'hard reload.
-- **Gotcha test-sandbox**: `window.__cabStatic` è uno stub *truthy* nel sandbox node → per testare "nessun cavo senza selezione" impostare `A.__cabStatic = false`. Nel browser è falsy.
-- **Regressione potenziale coristi**: il default corista è passato a "panoramico" = **0 canali** (prima 1 SM58). Progetti esistenti con coristi perdono i canali per-corista finché non si imposta una modalità mic o un mic di sezione. Scelta deliberata (coro coperto da mic di sezione).
-- **Stile "Diretto"**: il disegno è a linea retta ma le **lunghezze nei report** restano calcolate sul percorso ortogonale (stima prudente). Non è un bug, ma è una scelta da ricordare.
-- **PDF pagine-vista**: usano `stageSceneSvg(focus=...)`, indipendenti dal registro/solo. Non toccate da questa sessione ma da ricontrollare se si cambia la semantica dei layer.
-- **3 worktree stantii** (`cttesti`, `fase2-layout-ui`, `rubmenu`): puliti e **0 commit avanti** rispetto a main → nessun lavoro da perdere. Rimuovibili con `git worktree remove`.
-
-# Tests
-- Eseguito: `node test/engines.test.mjs` → **238/238 verde**.
-- Eseguito: `node build.mjs --check` → ok.
-- Verificato e2e su localhost (porta 8077, SW deregistrato): occhi OR, S/tendina, 0 cavi senza selezione, pallino centro box, Power a pallini, N pallini doppia, capienza hub (8+2 pendenti), 4 modalità mic + icone, stagebox 5/16 in + 2/8 out.
-- **Da fare**: nessun test mancante bloccante. Se si tocca il PDF, aggiungere copertura sulle pagine-vista (oggi non testate in sandbox).
+- **Gotcha SW-cache (dev)**: deregistrare SW + svuotare caches + hard reload su porta nuova.
+- **Gotcha test-sandbox**: `window.__cabStatic` truthy nel sandbox node.
+- **Gotcha classe CSS**: non chiamare una classe `secdot-cab` (contiene la sottostringa `secdot-c` → falsa i conteggi test); usato `secdot-wire`.
+- **REGOLA RIBADITA (vedi incidente sopra)**: verifiche interattive UI/motori SOLO su **localhost non loggato, progetto vuoto**. Mai sul tab col progetto cloud aperto. Le funzioni `elecConnectAll`/`cabConnectAll`/`addItem`(auto-connect) salvano sul cloud.
 
 # Next step
-Chiedere a Simone se le rese live lo convincono (ha lavorato molto a raffica). Nessun intervento tecnico obbligato in coda. Se serve un default: **valutare la resa del cavo bundle di una postazione doppia** — oggi i 2 pallini musicista hanno UN solo cavo "A1 ×2" che parte dal pallino di destra; se Simone vuole un cavo per pallino, modificare la resa in `cablingMarkup` (attualmente il motore bundla i canali di un elemento con chiave `grp:<id>`).
+1. **Ripristinare il progetto Sernaglia** (vedi sezione incidente) — attende l'utente.
+2. Eventuali altre viste da portare a livello mockup se l'utente le segnala.
 
 # Relevant commands
 ```
-cd /Users/simonecastellan/COWORK/GITHUB/stageplot
-node build.mjs            # rigenera index.html + app.js dai sorgenti (SEMPRE dopo aver toccato src/ o index.template.html)
-node build.mjs --check    # verifica che index.html/app.js siano allineati (pre-merge)
-node test/engines.test.mjs   # suite motori (238 test)
-python3 -m http.server 8077 --bind 127.0.0.1   # server statico per test locale
-git push origin main      # deploy (GitHub Pages) — chiede conferma via hook
+cd /Users/simonecastellan/COWORK/STAGEPLOT/stageplot
+node build.mjs            # rigenera index.html + app.js (dopo src/ o index.template.html)
+node build.mjs --check    # verifica allineamento
+node test/engines.test.mjs   # suite (243 test)
+python3 -m http.server 8077 --bind 127.0.0.1   # server locale
+git push origin main      # deploy (Pages)
 ```
-Test locale nel browser: deregistrare SW + svuotare caches, poi hard reload. Non aprire prove su un tab loggato con progetto cloud aperto (usare localhost).
 
 # Git state
-- Branch: **main**, in sync con `origin/main`, working tree **pulito**.
-- Ultimo commit: **`6468b12`** — "voci con 4 modalità mic + stagebox variante A".
-- Nessuna modifica non committata. Nessun file in staging.
-- Worktree extra (stantii, 0 avanti): `.claude/worktrees/{cttesti,fase2-layout-ui,rubmenu}`.
+- Branch **main**, in sync con `origin/main`, working tree **pulito** (a parte `handoff.md`).
+- Ultimo commit: **`c25cc5f`**.
