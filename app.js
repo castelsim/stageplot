@@ -679,7 +679,7 @@ var TYPES = {
                  circ(-w*0.22,d/2-r-2,r,"ic fGrey")+circ(w*0.22,d/2-r-2,r,"ic fGrey"); }},
   miczone: {nome:"Microfono panoramico (zona)", dim:"area di ripresa", cat:"Microfoni e DI", sub:"Aste e microfoni",
     w:220, d:150, resizable:true, ess:true, z:0, defLabel:"",
-    draw:function(it){ var pts=miczonePts(it), o=(it.opacity==null?18:it.opacity)/100, b=polyBBox(pts), zc=micZoneColor(it), mp=micZoneMicPos(it);
+    draw:function(it){ var pts=miczonePts(it), o=(it.opacity==null?18:it.opacity)/100, b=polyBBox(pts), zc=esc(micZoneColor(it)), mp=micZoneMicPos(it);
       return '<polygon points="'+ptsAttr(pts)+'" fill="'+zc+'" fill-opacity="'+o.toFixed(2)+'" stroke="'+zc+'" stroke-opacity="0.85" stroke-width="1.6" stroke-dasharray="6 5" stroke-linejoin="round"/>'+
         '<circle cx="'+mp[0]+'" cy="'+mp[1]+'" r="7" fill="'+zc+'" stroke="#fff" stroke-width="1.8"/>'+   /* posizione del microfono (trascinabile da selezionata) */
         '<circle cx="'+mp[0]+'" cy="'+mp[1]+'" r="2.6" fill="#fff"/>'+
@@ -1295,9 +1295,11 @@ function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
    pass-through nel save (stateReplacer non li filtra) → i progetti esistenti non cambiano.
    Ogni valore è {value, unit_orig, reliability(official|verified|derived|estimated), source{doc,page,quote}}:
    niente dato senza fonte, null = non disponibile (mai inventato). */
-function equipResolve(it){ var out={},k; var md=it&&it.modelData, ov=it&&it.modelOverride;
-  if(md) for(k in md) out[k]=md[k];
-  if(ov) for(k in ov) out[k]=ov[k];   /* l'override utente vince sullo snapshot */
+function equipResolve(it){ var out=Object.create(null); var md=it&&it.modelData, ov=it&&it.modelOverride;
+  function merge(src){ if(!src||typeof src!=="object") return; Object.keys(src).forEach(function(k){
+    if(k!=="__proto__"&&k!=="prototype"&&k!=="constructor") out[k]=src[k];
+  }); }
+  merge(md); merge(ov);   /* l'override utente vince sullo snapshot */
   return out; }
 function equipVal(it,key){ var v=equipResolve(it)[key]; if(v==null) return null;
   return (typeof v==="object" && ("value" in v)) ? v.value : v; }
@@ -1769,54 +1771,207 @@ function uid(){ return "i"+(nextId++); }
 /* replacer per serializzare lo state SENZA il file immagine della planimetria (richiesto al ricaricamento) */
 function stateReplacer(k,v){ return (k==='_dataUrl'||k==='_imgW'||k==='_imgH')?undefined:v; }
 function stateToJSON(){ return JSON.stringify(Object.assign({_v:SCHEMA_VERSION}, state), stateReplacer); }
-/* Cache in-memoria delle immagini planimetria (per nome): gli snapshot di cronologia NON contengono il base64
-   (evita il blow-up di memoria con 120 snapshot da più MB ciascuno). Dopo un undo/redo l'immagine viene
-   ri-agganciata da qui, così lo sfondo non sparisce. */
-var venueImgCache={};
-function cacheVenueImg(v){ if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH}; }
-function reattachVenueImg(s){ var v=s&&s.venue; if(v && v.name && !v._dataUrl && venueImgCache[v.name]){ var c=venueImgCache[v.name]; v._dataUrl=c._dataUrl; v._imgW=c._imgW; v._imgH=c._imgH; } return s; }
+/* Cache in memoria delle planimetrie PER VARIANTE. Gli snapshot di cronologia non contengono il base64
+   (evita il blow-up con 120 snapshot), ma due varianti possono avere immagini diverse anche con lo stesso
+   filename. Una firma del bundle impedisce inoltre di riagganciare il vecchio slot locale dopo un write fallito. */
+var venueImgCache=Object.create(null), venuePersistedSig=null, venuePersistedKey=null, venueStageFailedSig=null;
+function venueDataHash(s){
+  var h=2166136261; s=String(s||"");
+  for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  return (h>>>0).toString(16)+":"+s.length;
+}
+function venueImageRecord(v,known){
+  if(!v || typeof v!=="object") return null;
+  var du=safeVenueDataUrl(v._dataUrl); if(!du) return null;
+  var iw=Number(v._imgW), ih=Number(v._imgH);
+  return {name:String(v.name||"").slice(0,160),_dataUrl:du,
+    _imgW:(isFinite(iw)&&iw>0?Math.round(iw):undefined),_imgH:(isFinite(ih)&&ih>0?Math.round(ih):undefined),
+    _sig:(known&&known._dataUrl===du&&known._sig)?known._sig:venueDataHash(du)};
+}
+function cacheVenueImg(v,variantId){
+  var key=String(variantId||activeVar||""); if(!key) return false;
+  var rec=venueImageRecord(v,venueImgCache[key]); if(!rec) return false;
+  venueImgCache[key]=rec; return true;
+}
+function reattachVenueImg(s,variantId){
+  var v=s&&s.venue, c=venueImgCache[String(variantId||activeVar||"")];
+  if(v && !v._dataUrl && c){ v._dataUrl=c._dataUrl; v._imgW=c._imgW; v._imgH=c._imgH; }
+  return s;
+}
+function venueImageBundleFromVariants(variants,active){
+  var images=Object.create(null);
+  (variants||[]).forEach(function(v){
+    if(!v || v.id==null) return;
+    var rec=venueImageRecord(v.state&&v.state.venue);
+    if(rec) images[String(v.id)]={name:rec.name,_dataUrl:rec._dataUrl,_imgW:rec._imgW,_imgH:rec._imgH};
+  });
+  return {_venueDoc:1,active:String(active||""),images:images};
+}
+function venueImageBundle(){
+  cacheVenueImg(state&&state.venue,activeVar);
+  var images=Object.create(null);
+  Object.keys(venueImgCache).forEach(function(k){ var c=venueImgCache[k]; if(c&&c._dataUrl)
+    images[k]={name:c.name,_dataUrl:c._dataUrl,_imgW:c._imgW,_imgH:c._imgH}; });
+  return {_venueDoc:1,active:String(activeVar||""),images:images};
+}
+/* Formato compatto SOLO per lo storage locale: le varianti clonate condividono lo stesso asset
+   invece di duplicarne il base64. In memoria e sul cloud resta il formato v1, compatibile coi client
+   già pubblicati; normalizeVenueImageBundle espande entrambi in una rappresentazione canonica v1. */
+function compactVenueImageBundle(bundle){
+  var normalized=normalizeVenueImageBundle(bundle,activeVar);
+  if(!normalized) return {_venueDoc:2,active:String(activeVar||""),assets:{},images:{}};
+  var assets=Object.create(null), images=Object.create(null);
+  Object.keys(normalized.images).sort().forEach(function(k){
+    var rec=venueImageRecord(normalized.images[k]); if(!rec) return;
+    var base=rec._sig+":"+(rec._imgW||0)+"x"+(rec._imgH||0), asset=base, n=1;
+    while(assets[asset] && assets[asset]._dataUrl!==rec._dataUrl) asset=base+":"+(++n);
+    if(!assets[asset]) assets[asset]={_dataUrl:rec._dataUrl,_imgW:rec._imgW,_imgH:rec._imgH};
+    images[k]={asset:asset,name:rec.name};
+  });
+  return {_venueDoc:2,active:String(normalized.active||activeVar||""),assets:assets,images:images};
+}
+function venueImageBundleSig(bundle){
+  if(!bundle){
+    cacheVenueImg(state&&state.venue,activeVar);
+    return Object.keys(venueImgCache).sort().map(function(k){ var r=venueImgCache[k];
+      return r&&r._sig ? k+":"+r.name+":"+r._sig : ""; }).filter(Boolean).join("|");
+  }
+  var normalized=(bundle&&bundle._venueDoc===2)?normalizeVenueImageBundle(bundle,activeVar):bundle;
+  return Object.keys((normalized&&normalized.images)||{}).sort().map(function(k){
+    var rec=venueImageRecord(normalized.images[k]); return rec ? k+":"+rec.name+":"+rec._sig : "";
+  }).filter(Boolean).join("|");
+}
+function venueStorageKey(sig){ return LS_KEY_VENUE+"."+venueDataHash(sig).replace(":","_"); }
+function normalizeVenueImageBundle(raw,legacyActive){
+  var parsed=raw;
+  if(typeof raw==="string"){ try{ parsed=JSON.parse(raw); }catch(e){ return null; } }
+  var images=Object.create(null), count=0, active=String((parsed&&parsed.active)||legacyActive||"");
+  if(parsed && parsed._venueDoc===1 && parsed.images && typeof parsed.images==="object"){
+    Object.keys(parsed.images).forEach(function(k){
+      if(k==="__proto__"||k==="prototype"||k==="constructor") return;
+      var rec=venueImageRecord(parsed.images[k]); if(rec){ images[k]={name:rec.name,_dataUrl:rec._dataUrl,_imgW:rec._imgW,_imgH:rec._imgH}; count++; }
+    });
+  } else if(parsed && parsed._venueDoc===2 && parsed.images && typeof parsed.images==="object" &&
+            parsed.assets && typeof parsed.assets==="object"){
+    Object.keys(parsed.images).forEach(function(k){
+      if(k==="__proto__"||k==="prototype"||k==="constructor") return;
+      var link=parsed.images[k], assetKey=link&&typeof link==="object"?String(link.asset||""):"";
+      if(!assetKey || assetKey==="__proto__"||assetKey==="prototype"||assetKey==="constructor") return;
+      var asset=parsed.assets[assetKey];
+      var rec=venueImageRecord(asset&&typeof asset==="object"?{
+        name:String(link.name||""),_dataUrl:asset._dataUrl,_imgW:asset._imgW,_imgH:asset._imgH
+      }:null);
+      if(rec){ images[k]={name:rec.name,_dataUrl:rec._dataUrl,_imgW:rec._imgW,_imgH:rec._imgH}; count++; }
+    });
+  } else {
+    var legacy=venueImageRecord(parsed), key=String(legacyActive||activeVar||"");
+    if(legacy && key){ images[key]={name:legacy.name,_dataUrl:legacy._dataUrl,_imgW:legacy._imgW,_imgH:legacy._imgH}; active=key; count=1; }
+  }
+  return count ? {_venueDoc:1,active:active,images:images} : null;
+}
+function replaceVenueImageBundle(raw){
+  var bundle=normalizeVenueImageBundle(raw,activeVar);
+  if(!bundle){ venueImgCache=Object.create(null); return false; }
+  var next=Object.create(null);
+  Object.keys(bundle.images).forEach(function(k){ var rec=venueImageRecord(bundle.images[k]); if(rec) next[k]=rec; });
+  venueImgCache=next;
+  reattachVenueImg(state,activeVar);
+  return Object.keys(next).length>0;
+}
 /* ===== T6 — Varianti/scene (snapshot indipendenti, design 2026-07-15) =====
    Un progetto può contenere più VARIANTI (es. "Piena", "Ridotta", "Venue X"), ognuna uno snapshot
    COMPLETO e autonomo dello stato. Il `state` vivo = variante attiva; le altre vivono congelate in
    VARIANTS[]. Il documento persistito (cloud/file/localStorage) è { _doc, variants:[{id,name,state}], active }.
    Retrocompat: un blob SENZA `variants[]` è un progetto legacy piatto → variante singola.
    Restano PIATTI di proposito: ?view=/#p=/#d= e realtime (mostrano solo la variante attiva), undo/redo (per-variante). */
-var VARIANTS = [], activeVar = null;
+var VARIANTS = [], activeVar = null, DOC_EXTRA={};
 function newVarId(){ return "V"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function activeVarObj(){ for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===activeVar) return VARIANTS[i]; } return VARIANTS[0]||null; }
 function ensureVariants(){ if(!VARIANTS.length){ var id=newVarId(); VARIANTS=[{id:id, name:"Variante 1", state:null}]; activeVar=id; }
   else if(!activeVarObj()){ activeVar=VARIANTS[0].id; } }
 function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Variante\s+(\d+)$/.exec(v.name||""); if(m) n=Math.max(n, +m[1]); }); return "Variante "+(n+1||VARIANTS.length+1); }
 /* congela lo state vivo nella slot della variante attiva (snapshot piatto, immagine planimetria strippata) */
-function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v) v.state=JSON.parse(stateToJSON()); }
+function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); } }
+function documentEnvelope(active,variants,extra){
+  var out={}; Object.keys(extra||DOC_EXTRA||{}).forEach(function(k){ out[k]=(extra||DOC_EXTRA)[k]; });
+  out._doc=1; out.active=active; out.variants=variants; return out;
+}
 /* documento COMPLETO serializzato (tutte le varianti) — usato da cloud/localStorage (state LEGGERO, immagine strippata) */
-function docToJSON(){ syncActiveVariant(); return JSON.stringify({ _doc:1, active:activeVar,
-  variants: VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:v.state }; }) }); }
+function docToJSON(){ syncActiveVariant(); return JSON.stringify(documentEnvelope(activeVar,
+  VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:v.state }; }))); }
 /* come docToJSON ma la variante attiva porta lo state COMPLETO con la planimetria (_dataUrl) — export su file.
    Le altre varianti condividono l'immagine per nome: all'import viene messa in cache e riagganciata al primo switch. */
-function docToJSONFull(){ syncActiveVariant(); var full=JSON.parse(JSON.stringify(state)); full._v=SCHEMA_VERSION;
-  return JSON.stringify({ _doc:1, active:activeVar,
-    variants: VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:(v.id===activeVar?full:v.state) }; }) }); }
-/* applica uno stato piatto al `state` vivo (nessun undo, nessuno stacco id cloud): riuso guidato da chi chiama */
-function applyVariantState(flat){ state=normalizeState(flat); state.items=sanitizeItems(state.items||[]); reattachVenueImg(state); }
-/* carica un documento parsato (doc o legacy piatto) in VARIANTS + `state` vivo. Non fa render/persist (lo fa chi chiama). */
-function loadDoc(parsed){
-  if(parsed && Array.isArray(parsed.variants) && parsed.variants.length){
-    VARIANTS = parsed.variants.map(function(v){ return { id:(v&&v.id)||newVarId(), name:(v&&v.name)||"Variante", state:v&&v.state }; });
-    activeVar = (parsed.active && VARIANTS.some(function(v){ return v.id===parsed.active; })) ? parsed.active : VARIANTS[0].id;
-  } else {
-    var id=newVarId(); VARIANTS=[{ id:id, name:"Variante 1", state:parsed }]; activeVar=id;   /* legacy piatto → variante singola */
-  }
-  var a=activeVarObj(); applyVariantState(a && a.state ? a.state : state);
+function docToJSONFull(){ syncActiveVariant();
+  return JSON.stringify(documentEnvelope(activeVar,
+    VARIANTS.map(function(v){ var full=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(full,v.id); full._v=SCHEMA_VERSION;
+      return { id:v.id, name:v.name, state:full }; }))); }
+/* applica uno stato piatto al `state` vivo (nessun undo, nessuno stacco id cloud): riuso guidato da chi chiama.
+   I documenti persistiti passano SOLO dal normalizzatore versionato: sanitizeItems è riservato agli input AI grezzi
+   e la sua whitelist non rappresenta lo schema completo del progetto. */
+function applyVariantState(flat, allowCachedVenue, variantId){
+  state=normalizeState(flat);
+  if(allowCachedVenue!==false) reattachVenueImg(state,variantId||activeVar);
 }
+/* Valida e normalizza senza toccare lo stato globale: usato anche dai flussi cloud che devono
+   completare una scrittura remota prima di sostituire il documento locale. */
+function prepareDoc(parsed){
+  var nextVariants, nextActive, nextExtra={}, isDoc=!!(parsed && typeof parsed==="object" &&
+    (parsed._doc===1 || Object.prototype.hasOwnProperty.call(parsed,"variants")));
+  if(isDoc){
+    if(Object.prototype.hasOwnProperty.call(parsed,"_doc") && parsed._doc!==1)
+      throw documentLoadError("FUTURE_DOCUMENT","Formato documento non supportato.");
+    if(Object.prototype.hasOwnProperty.call(parsed,"_v") &&
+       (typeof parsed._v!=="number" || !isFinite(parsed._v) || Math.floor(parsed._v)!==parsed._v || parsed._v<1 || parsed._v>SCHEMA_VERSION))
+      throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di StagePlot.");
+    Object.keys(parsed).forEach(function(k){
+      if(["_doc","_v","_local","active","variants","__proto__","prototype","constructor"].indexOf(k)<0) nextExtra[k]=parsed[k];
+    });
+    if(!Array.isArray(parsed.variants) || !parsed.variants.length)
+      throw documentLoadError("INVALID_VARIANTS","Il documento non contiene varianti valide.");
+    var seen=Object.create(null);
+    nextVariants=parsed.variants.map(function(v,i){
+      if(!v || typeof v!=="object" || !v.state || typeof v.state!=="object" || Array.isArray(v.state))
+        throw documentLoadError("INVALID_VARIANT_STATE","La variante "+(i+1)+" non è valida.");
+      var id=(typeof v.id==="string"||typeof v.id==="number")?String(v.id):newVarId();
+      if(!id || id.length>80) id=newVarId();
+      if(seen[id]) throw documentLoadError("DUPLICATE_VARIANT_ID","Identificativo variante duplicato.");
+      seen[id]=true;
+      var normalized=normalizeState(v.state); normalized._v=SCHEMA_VERSION;
+      return { id:id, name:String(v.name||"Variante").slice(0,80), state:normalized };
+    });
+    var requested=(typeof parsed.active==="string"||typeof parsed.active==="number")?String(parsed.active):"";
+    nextActive=(requested && nextVariants.some(function(v){ return v.id===requested; })) ? requested : nextVariants[0].id;
+  } else {
+    var id=newVarId(), normalized=normalizeState(parsed); normalized._v=SCHEMA_VERSION;
+    nextVariants=[{ id:id, name:"Variante 1", state:normalized }]; nextActive=id;   /* legacy piatto → variante singola */
+  }
+  return {variants:nextVariants, active:nextActive, extra:nextExtra};
+}
+function bumpDocumentEpoch(){ window.__docEpoch=(window.__docEpoch||0)+1; return window.__docEpoch; }
+function commitPreparedDoc(prepared){
+  /* Commit atomico: nessuno stato globale cambia finché ogni variante non è stata validata e normalizzata. */
+  window.__respLoadSeq=(window.__respLoadSeq||0)+1; window.__respData=null;   /* nessun contatto account attraversa il progetto */
+  VARIANTS=prepared.variants; activeVar=prepared.active; DOC_EXTRA=prepared.extra||{};
+  venueImgCache=Object.create(null);   /* confine documento: nessuna bitmap del progetto precedente può attraversarlo */
+  VARIANTS.forEach(function(v){
+    cacheVenueImg(v.state&&v.state.venue,v.id);
+    v.state=JSON.parse(JSON.stringify(v.state,stateReplacer));   /* il blob leggero resta privo delle bitmap */
+  });
+  bumpDocumentEpoch();   /* invalida callback cloud asincrone appartenenti al documento precedente */
+  var a=activeVarObj();
+  if(a&&a.state){ state=a.state; delete state._v; reattachVenueImg(state,a.id); }   /* già normalizzato da prepareDoc: evita un secondo pass O(N²) sull'attiva */
+}
+/* carica un documento parsato (doc o legacy piatto) in VARIANTS + `state` vivo. Non fa render/persist (lo fa chi chiama). */
+function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
 /* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
 function switchVariant(id){
   if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
   if(!target || !target.state) return;
-  syncActiveVariant(); activeVar=id; applyVariantState(target.state);
+  syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
-  undoStack.length=0; redoStack.length=0; lastSnap=stateToJSON();
+  resetHistory();
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  if(window.__consultDirty) window.__consultDirty();
   render(); renderChannels(); fit(); renderVariantBar();
 }
 /* crea una nuova variante = copia dell'attiva, poi ci passa sopra */
@@ -1824,26 +1979,31 @@ function createVariant(name){
   syncActiveVariant(); var src=activeVarObj(); if(!src) return null;
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   VARIANTS.push({ id:id, name:(name||nextVariantName()), state:copy });
-  activeVar=id; applyVariantState(copy);
+  if(venueImgCache[src.id]) venueImgCache[id]=Object.assign({},venueImgCache[src.id]);
+  activeVar=id; applyVariantState(copy,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
-  undoStack.length=0; redoStack.length=0; lastSnap=stateToJSON();
+  resetHistory();
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  if(window.__consultDirty) window.__consultDirty();
   render(); renderChannels(); fit(); renderVariantBar(); return id;
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
-  persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); renderVariantBar(); }
+  persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
 function deleteVariant(id){ if(VARIANTS.length<=1) return;   /* guardia: mai eliminare l'ultima variante */
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return;
   var wasActive=(id===activeVar); VARIANTS.splice(idx,1);
-  if(wasActive){ var nv=VARIANTS[Math.min(idx, VARIANTS.length-1)]; activeVar=nv.id; applyVariantState(nv.state);
-    ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs(); undoStack.length=0; redoStack.length=0; lastSnap=stateToJSON(); }
+  delete venueImgCache[String(id)];
+  if(wasActive){ var nv=VARIANTS[Math.min(idx, VARIANTS.length-1)]; activeVar=nv.id; applyVariantState(nv.state,true,nv.id);
+    ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs(); resetHistory(); }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  if(window.__consultDirty) window.__consultDirty();
   render(); renderChannels(); fit(); renderVariantBar(); }
-/* barra varianti nell'header: visibile SOLO con ≥2 varianti (UX invariata per chi non le usa); mai in viewer/consulenza */
+/* Barra varianti: il viewer resta sulla sola variante pubblicata; il consulente editor deve invece
+   poter navigare e salvare tutte le varianti del documento completo. */
 function renderVariantBar(){
   var bar=document.getElementById("variantBar"); if(!bar) return;
   var multi=VARIANTS.length>1;
-  bar.hidden = !multi || foreignDoc();
+  bar.hidden = !multi || document.body.classList.contains("viewmode") || document.body.classList.contains("consult-viewer");
   if(!multi) return;
   var sel=document.getElementById("variantSel"); if(!sel) return;
   var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
@@ -1904,6 +2064,10 @@ function applyProjLock(locked){
       bar.querySelector("#lockDup").addEventListener("click", function(){ if(window.__cloud && window.__cloud.dupOpenCurrent) window.__cloud.dupOpenCurrent(); });
       bar.querySelector("#lockUnlock").addEventListener("click", function(){ if(window.__cloud && window.__cloud.unlockCurrent) window.__cloud.unlockCurrent(); });
     }
+    var lockDup=bar.querySelector("#lockDup"), lockUnlock=bar.querySelector("#lockUnlock");
+    var consultationLock=!!window.__consultMode;
+    if(lockDup) lockDup.hidden=consultationLock;
+    if(lockUnlock) lockUnlock.hidden=consultationLock;
     bar.hidden=false;
   } else if(bar){ bar.hidden=true; }
 }
@@ -1918,12 +2082,39 @@ function maybeLoginNudge(){
   try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per averlo salvato online."); }catch(e){}
 }
 window.maybeLoginNudge=maybeLoginNudge;
-/* Analytics minimi (spec 2026-07-03): 6 eventi, fire-and-forget, zero terzi, zero identificatori
-   persistenti per gli anonimi. Gli eventi si accodano finché il modulo cloud non ha risolto l'auth
-   iniziale (così app_open dei loggati porta lo user_id), poi __flushEvents li spedisce.
+/* Analytics minimi (spec 2026-07-03): eventi first-party solo per utenti autenticati.
+   Gli eventi si accodano finché il modulo cloud non ha risolto l'auth iniziale
+   (così app_open dei loggati porta lo user_id); per gli anonimi vengono scartati.
    Mai in viewer/consulenza (?view=/export=): i numeri restano quelli del tool. */
 var __evtQ=[]; window.__evtQ=__evtQ;
 var __activatedSent=false;
+var __localSaveWarned=false;
+var localWriterId;
+try{ localWriterId=(window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():null; }catch(_writerIdErr){}
+localWriterId=String(localWriterId||Date.now()+"."+Math.random().toString(36).slice(2));
+var localWriteCounter=0, localExpectedRevision=null, localStorageIdentity=null, localConflictWarned=false;
+try{ localStorageIdentity=window.localStorage; }
+catch(_storageGetterErr){ window.__localStorageUnavailable=true; }
+function localRevisionFromRaw(raw){
+  if(!raw) return "";
+  try{
+    var parsed=JSON.parse(raw), rev=parsed&&parsed._local&&parsed._local.localRevision;
+    if(typeof rev==="string"&&rev) return rev;
+  }catch(e){}
+  return "legacy:"+venueDataHash(raw);
+}
+function markLocalConflict(){
+  window.__localConflict=true;
+  if(window.setDocState) window.setDocState("conflict");
+  if(!localConflictWarned){
+    localConflictWarned=true;
+    try{ if(typeof saveVersion==="function") saveVersion("Conflitto tra schede "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}),true); }catch(_recoveryErr){}
+    if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: esporta questa versione o ricarica prima di continuare.",true);
+  }
+}
+function projectContentSig(data,venueSig){
+  try{ return venueDataHash(JSON.stringify(data)+"|venue:"+String(venueSig||"")); }catch(e){ return null; }
+}
 /* classifica l'origine dell'evento: separa il traffico reale (prod) dallo sviluppo (localhost) nei dati */
 function analyticsEnv(h){ h=(h!=null?h:location.hostname); return /(^|\.)stageplot\.it$/.test(h)?"prod":((h==="localhost"||h==="127.0.0.1"||h==="[::1]"||!h)?"localhost":"other"); }
 function track(event, props){
@@ -1939,51 +2130,150 @@ track("app_open");
    fa sopravvivere l'associazione online TRA le sessioni: senza, ogni riapertura creerebbe un duplicato
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
    modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
-function persistLocalState(){
-  if(foreignDoc() || window.__projLocked) return;   /* progetto bloccato: nessuna scrittura (né locale né cloud) */
-  try{ localStorage.setItem(LS_KEY, docToJSON()); }catch(e){}   /* documento COMPLETO (tutte le varianti) */
+function persistLocalState(forceLockedMetadata){
+  if(foreignDoc() || (window.__projLocked&&!forceLockedMetadata) || window.__docLoadBlocked) return;   /* progetto bloccato: scrittura solo per rev metadata esplicitamente autorizzata */
+  if(window.__localConflict) return false;
+  var C=window.__cloud, cloudId=window.__bootCloudId||null, cloudRev=window.__bootCloudRev||null, payload;
+  var stagedVenue=null;
+  try{
+    var existingRaw=localStorage.getItem(LS_KEY);
+    if(localStorage!==localStorageIdentity){
+      localStorageIdentity=localStorage; localExpectedRevision=localRevisionFromRaw(existingRaw);
+      window.__localConflict=false; localConflictWarned=false;
+    } else if(localExpectedRevision!=null && localRevisionFromRaw(existingRaw)!==localExpectedRevision){
+      markLocalConflict(); return false;
+    }
+    if(C && typeof C.currentId==="function"){
+      cloudId=C.currentId()||null;
+      cloudRev=(typeof C.currentRev==="function" ? C.currentRev() : null)||null;
+    }
+    var currentVenueSig=venueImageBundleSig();
+    if(currentVenueSig!==venuePersistedSig){
+      stagedVenue=stageVenueImg();
+      /* Il documento leggero non contiene il base64. Se il nuovo bundle non entra nello storage, non
+         committiamo neppure il root: così l'ultima coppia documento+planimetrie durevole resta atomica
+         e un'aggiunta troppo grande non rende irraggiungibili anche gli asset già salvati. */
+      if(stagedVenue===false) throw new Error("VENUE_STAGE_FAILED");
+    } else stagedVenue={sig:venuePersistedSig==null?currentVenueSig:venuePersistedSig,key:venuePersistedKey||null,changed:false};
+    var localDoc=JSON.parse(docToJSON());   /* documento COMPLETO (tutte le varianti) */
+    var venueUnavailable=window.__bootVenueUnavailable===true;
+    if(currentVenueSig&&stagedVenue.sig===currentVenueSig) venueUnavailable=false;
+    else if(currentVenueSig!==stagedVenue.sig) venueUnavailable=true;
+    var contentSig=projectContentSig(localDoc,currentVenueSig), cloudSig=window.__bootCloudSig||null;
+    /* Dirty è una proprietà del documento, non della sessione: “utente loggato” da solo non deve
+       resuscitare una copia appena eliminata. Viceversa il flag viene armato PRIMA del commit locale,
+       così un redirect OAuth/reload conserva l'obbligo di creare o aggiornare la copia cloud. */
+    var pending=!!(contentSig!==cloudSig &&
+      (cloudId||_cloudDirty||_cloudSaving||window.__bootCloudPending===true));
+    /* Associazione nello stesso valore del documento: se una seconda chiave localStorage fallisce non può
+       più nascere la coppia pericolosa “contenuto A + cloud ID B”. Le vecchie chiavi restano solo mirror. */
+    var localRevision=localWriterId+":"+(++localWriteCounter)+":"+Date.now().toString(36);
+    localDoc._local={cloudId:cloudId, cloudRev:cloudRev, venueSig:stagedVenue.sig, venueKey:stagedVenue.key,
+      venueUnavailable:venueUnavailable, contentSig:contentSig, cloudSig:cloudSig, cloudPending:pending};
+    localDoc._local.localRevision=localRevision;
+    payload=JSON.stringify(localDoc);
+    localStorage.setItem(LS_KEY,payload);
+    localExpectedRevision=localRevision;
+    window.__localStorageUnavailable=false; __localSaveWarned=false;
+  }catch(e){
+    /* Gli asset content-addressed sono immutabili e possono essere condivisi da un'altra scheda:
+       non eliminarli qui. Senza un GC coordinato/refcount, anche una chiave apparentemente orfana
+       potrebbe essere diventata autorevole tra la stage write e questo fallimento del root. */
+    window.__localStorageUnavailable=true;
+    if(!__localSaveWarned){ __localSaveWarned=true;
+      try{ if(window.setDocState) window.setDocState("local-error"); if(window.__toast) window.__toast("Salvataggio sul dispositivo non disponibile. Esporta il progetto o verifica lo spazio libero.",true); }catch(_e){}
+    }
+    return false;   /* non aggiornare MAI associazione/revisione se il documento non è stato scritto */
+  }
+  if(stagedVenue){
+    venuePersistedSig=stagedVenue.sig; venuePersistedKey=stagedVenue.key;
+    /* Niente garbage collection opportunistica: due tab possono avere root diversi ancora aperti.
+       La pulizia richiederà una futura procedura coordinata; la priorità qui è non invalidare pointer vivi. */
+  }
   /* attivazione (quality gate): 3° elemento raggiunto, una volta per sessione */
   try{ if(!__activatedSent && state.items && state.items.length>=3){ __activatedSent=true; track("project_activated"); } }catch(e){}
   try{
-    var C=window.__cloud;
-    if(C && C.currentId){
-      var id=C.currentId();
-      if(id){ localStorage.setItem(LS_KEY+"_cloudid", id); window.__bootCloudId=id; }
-      else { localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }
-    }
+    window.__bootCloudId=cloudId; window.__bootCloudRev=cloudRev; window.__bootCloudMeta=true;
+    window.__bootContentSig=contentSig; window.__bootCloudPending=pending;
+    window.__bootVenueUnavailable=venueUnavailable;
+    if(cloudId) localStorage.setItem(LS_KEY+"_cloudid",cloudId); else localStorage.removeItem(LS_KEY+"_cloudid");
+    if(cloudRev) localStorage.setItem(LS_KEY+"_cloudrev",cloudRev); else localStorage.removeItem(LS_KEY+"_cloudrev");
   }catch(e){}
+  return true;
 }
 window.persistLocalState=persistLocalState;
+window.addEventListener("storage",function(e){
+  if(!e || e.key!==LS_KEY || foreignDoc()) return;
+  var incoming=localRevisionFromRaw(e.newValue);
+  if(localExpectedRevision!=null && incoming!==localExpectedRevision) markLocalConflict();
+});
+window.addEventListener("beforeunload",function(e){
+  if(!window.__localConflict) return;
+  e.preventDefault(); e.returnValue="";
+});   /* dopo un conflitto multi-tab gli edit restano solo in memoria: non chiudere senza esportarli */
 /* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
    digitazione), ma in una chiave separata scritta SOLO quando la planimetria cambia. Così sopravvive a reload e
    login senza riscrivere MB ad ogni carattere. */
-function persistVenueImg(){
-  if(foreignDoc()) return;
-  var v=state.venue;
+function stageVenueImg(){
+  if(foreignDoc() || window.__docLoadBlocked) return;
+  var bundle=venueImageBundle(), hasImages=Object.keys(bundle.images).length>0, sig=venueImageBundleSig();
+  if(sig && sig===venueStageFailedSig) return false;   /* non riscrivere MB a ogni tasto dopo una quota failure */
   try{
-    if(v && v._dataUrl){ localStorage.setItem(LS_KEY_VENUE, JSON.stringify({name:v.name, _dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH})); }
-    else { localStorage.removeItem(LS_KEY_VENUE); }
-  }catch(e){ if(e && e.name==="QuotaExceededError" && window.__toast) window.__toast("Planimetria troppo pesante per il salvataggio offline; verrà salvata nel cloud.", true); }
+    var key=hasImages?venueStorageKey(sig):null;
+    if(key) localStorage.setItem(key, JSON.stringify(compactVenueImageBundle(bundle)));
+    venueStageFailedSig=null;
+    return {sig:sig,key:key,changed:sig!==venuePersistedSig||key!==venuePersistedKey};
+  }catch(e){
+    venueStageFailedSig=sig||null;
+    if(window.__toast) window.__toast(e&&e.name==="QuotaExceededError"
+      ?"Planimetria troppo pesante per la copia offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud."
+      :"Impossibile salvare la planimetria offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud.", true);
+    return false;
+  }
 }
-function loadVenueImg(){
-  try{ var raw=localStorage.getItem(LS_KEY_VENUE); if(!raw) return;
-    var v=JSON.parse(raw); if(v && v.name && v._dataUrl) venueImgCache[v.name]={_dataUrl:v._dataUrl, _imgW:v._imgW, _imgH:v._imgH};
-  }catch(e){}
+function persistVenueImg(){ return stageVenueImg()!==false; }   /* compatibilità call site: la pointer atomica viene committata da persistLocalState */
+function loadVenueImg(expectedSig,expectedKey){
+  try{
+    var key=(typeof expectedKey==="string" && expectedKey.indexOf(LS_KEY_VENUE+".")===0 && expectedKey.length<200)?expectedKey:LS_KEY_VENUE;
+    if(expectedSig==="" && !expectedKey){ venuePersistedSig=""; venuePersistedKey=null; return false; }
+    var raw=localStorage.getItem(key); if(!raw){ venuePersistedSig=""; venuePersistedKey=null;
+      if(expectedSig) window.__bootVenueUnavailable=true; return false; }
+    var v=JSON.parse(raw), sig;
+    if(v && (v._venueDoc===1||v._venueDoc===2)) sig=venueImageBundleSig(v);
+    else { var legacy=venueImageRecord(v); sig=legacy?venueImageBundleSig({_venueDoc:1,images:(function(){ var x=Object.create(null); if(activeVar) x[activeVar]=legacy; return x; })()}):""; }
+    /* Il documento e la bitmap sono due chiavi: una firma nel documento impedisce il mix A/B se una sola write riesce. */
+    venuePersistedSig=sig; venuePersistedKey=key;
+    if(expectedSig!=null && String(expectedSig)!==sig){ venueImgCache=Object.create(null);
+      if(expectedSig) window.__bootVenueUnavailable=true; return false; }
+    var loaded=replaceVenueImageBundle(v);
+    if(loaded) window.__bootVenueUnavailable=false;
+    else if(expectedSig) window.__bootVenueUnavailable=true;
+    return loaded;
+  }catch(e){ if(expectedSig) window.__bootVenueUnavailable=true; }
+  return false;
 }
-function clearVenueImg(){ try{ localStorage.removeItem(LS_KEY_VENUE); }catch(e){} }
+function clearVenueImg(){
+  if(activeVar) delete venueImgCache[String(activeVar)];
+  window.__bootVenueUnavailable=false;   /* gesto esplicito: la rimozione deve poter propagare anche al cloud */
+  return true;   /* il prossimo persistLocalState committa bundle+pointer senza distruggere lo slot precedente */
+}
 function save(){
-  persistLocalState();
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();   /* arma il pending durevole prima del commit locale */
+  var localOk=persistLocalState();
+  if(window.__consultDirty) window.__consultDirty();   /* indipendente dal debounce history e dal base64 escluso dagli snapshot undo */
   recordHistory();
-  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  return localOk!==false;
 }
 /* Salvataggio per input ad alta frequenza (digitazione testo): persiste subito in localStorage (niente perdita
    al reload) ma RINVIA lo snapshot di cronologia (il costoso JSON.stringify completo) → un solo snapshot per
    "parola" invece di uno per carattere. */
 var _saveSoonT=null;
 function saveSoon(){
-  persistLocalState();
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();   /* idem: il root locale deve sapere che il cloud è indietro */
+  var localOk=persistLocalState();
+  if(window.__consultDirty) window.__consultDirty();   /* la consulenza deve risultare dirty già al primo carattere */
   clearTimeout(_saveSoonT); _saveSoonT=setTimeout(recordHistory, 500);
-  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  return localOk!==false;
 }
 /* registra SUBITO uno snapshot in sospeso nel debounce (digitazione): serve prima di undo/redo,
    altrimenti un ⌘Z entro 500ms dall'ultimo tasto non annulla ciò che hai appena scritto (ciclo 5). */
@@ -2002,6 +2292,8 @@ function setDocState(mode){
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
   else if(mode==="offline-warn"){ html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per il cloud"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
+  else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
+  else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
   else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Modificato altrove — scegli come continuare"; htmlM=CHIP_SVG.warn+"Modificato altrove"; }
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
@@ -2010,6 +2302,22 @@ function setDocState(mode){
 }
 window.setDocState=setDocState;
 var _cloudAsT=null, _cloudRetryT=null, _cloudRetryStep=0;
+var _cloudDirty=false, _cloudSaving=false, _cloudChangeSeq=0, _cloudFlushWaiters=[];
+function resolveCloudFlush(ok){
+  var q=_cloudFlushWaiters.splice(0); q.forEach(function(fn){ try{ fn(!!ok); }catch(e){} });
+}
+function resolveCloudFlushWhenIdle(ok){
+  if(!ok){ resolveCloudFlush(false); return; }
+  var C=window.__cloud;
+  if(C&&typeof C.whenIdle==="function") C.whenIdle(function(){ resolveCloudFlush(true); });
+  else resolveCloudFlush(true);
+}
+function markCloudClean(){
+  _cloudDirty=false; _cloudChangeSeq++;
+  window.__bootCloudPending=false;
+  clearTimeout(_cloudAsT); _cloudAsT=null;
+  clearTimeout(_cloudRetryT); _cloudRetryT=null; _cloudRetryStep=0;
+}
 var CLOUD_RETRY_MS=[5000,15000,45000,60000];   /* backoff dopo un errore; poi resta a 60s finché non riesce */
 /* ripianifica un tentativo dopo un errore di rete/server (ciclo 12, decisione A: retry automatico).
    Se la sessione è caduta davvero (utente non più loggato) NON ritenta a vuoto → "Accedi per il cloud". */
@@ -2022,32 +2330,62 @@ function scheduleCloudRetry(){
 }
 function cloudAutosaveNow(){
   var C=window.__cloud;
+  clearTimeout(_cloudAsT); _cloudAsT=null;
   clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* questo tentativo sostituisce l'eventuale retry pendente */
-  if(window.__projLocked) return;   /* progetto bloccato: mai sovrascrivere il cloud */
-  if(!C || !C.user()){ setDocState("offline-warn"); _cloudRetryStep=0; return; }
-  if(window.__cloudConflict){ setDocState("conflict"); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
+  if(_cloudSaving) return;   /* il callback corrente rilancia se nel frattempo sono arrivate altre modifiche */
+  if(window.__docLoadBlocked){ setDocState("blocked"); resolveCloudFlush(false); return; }   /* documento incompatibile: mai sovrascrivere il cloud */
+  if(window.__localConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* un'altra tab ha una revisione locale concorrente */
+  if(window.__bootVenueUnavailable){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* pointer locale mancante: attendi il recupero autorevole, mai inviare venue_image=null */
+  if(window.__projLocked){ resolveCloudFlushWhenIdle(true); return; }
+  if(!C || !C.user()){ setDocState(window.__localStorageUnavailable?"local-error":"offline-warn"); _cloudRetryStep=0; resolveCloudFlush(false); return; }
+  if(window.__cloudConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
+  if(!_cloudDirty){ resolveCloudFlushWhenIdle(true); return; }
+  var saveEpoch=window.__docEpoch||0, saveSeq=_cloudChangeSeq;
+  _cloudSaving=true;
   setDocState("saving");
   C.save(function(id){
-    if(window.__cloudConflict){ setDocState("conflict"); return; }
-    if(id){ setDocState("online"); _cloudRetryStep=0; }        /* riuscito: azzera il backoff */
-    else { setDocState("error"); scheduleCloudRetry(); }       /* fallito: ritenta da solo (non è più una bugia) */
+    _cloudSaving=false;
+    if((window.__docEpoch||0)!==saveEpoch){
+      resolveCloudFlush(false);
+      if(_cloudDirty) cloudAutosaveNow(); else resolveCloudFlushWhenIdle(true);   /* il timer del nuovo documento può essere scaduto mentre il vecchio save era in volo */
+      return;
+    }   /* callback di un documento abbandonato */
+    if(window.__cloudConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }
+    if(id){
+      if(saveSeq===_cloudChangeSeq) _cloudDirty=false;
+      setDocState("online"); _cloudRetryStep=0;
+      if(_cloudDirty) cloudAutosaveNow(); else resolveCloudFlushWhenIdle(true);   /* modifiche durante il volo → secondo snapshot */
+    } else {
+      setDocState("error"); resolveCloudFlush(false); scheduleCloudRetry();
+    }
   }, true);
 }
 function scheduleCloudAutosave(){
+  if(window.__docLoadBlocked){ setDocState("blocked"); return; }
   if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked) return;  /* consulenza: autosave proprio · bloccato: read-only */
+  _cloudDirty=true; _cloudChangeSeq++;
+  if(window.__bootVenueUnavailable){ setDocState("conflict"); return; }
   var C=window.__cloud;
-  if(!C || !C.user()){ setDocState("offline-warn"); return; }
+  if(!C || !C.user()){ setDocState(window.__localStorageUnavailable?"local-error":"offline-warn"); return; }
+  setDocState("saving");   /* durante il debounce il contenuto è locale/pending, non ancora “online” */
   _cloudRetryStep=0; clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* una modifica dell'utente riparte da capo */
   clearTimeout(_cloudAsT); _cloudAsT=setTimeout(cloudAutosaveNow, 10000);
 }
-function flushCloudAutosave(){
-  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked) return;
-  clearTimeout(_cloudAsT); cloudAutosaveNow();
+function flushCloudAutosave(done){
+  if(window.__docLoadBlocked){ setDocState("blocked"); if(done) done(false); return; }
+  if(window.__bootVenueUnavailable){ setDocState("conflict"); if(done) done(false); return; }
+  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked){ if(done) done(true); return; }
+  if(done) _cloudFlushWaiters.push(done);
+  if(!_cloudDirty && !_cloudSaving){ resolveCloudFlushWhenIdle(true); return; }
+  clearTimeout(_cloudAsT); _cloudAsT=null;
+  if(!_cloudSaving) cloudAutosaveNow();
 }
 /* ritenta SUBITO quando la rete torna o quando l'utente riapre la scheda — ma solo se c'è un salvataggio in sospeso */
 window.addEventListener("online", function(){ if(_cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } });
 document.addEventListener("visibilitychange", function(){ if(!document.hidden && _cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } });
 window.scheduleCloudAutosave=scheduleCloudAutosave; window.flushCloudAutosave=flushCloudAutosave;
+window.__markCloudClean=markCloudClean;
+window.__cloudNeedsFlush=function(){ var C=window.__cloud; return _cloudDirty||_cloudSaving||!!(C&&C.isWriting&&C.isWriting()); };
 function renderAccountBtn(){
   var C=window.__cloud, u=C&&C.user(), em=u&&(u.email||"?");
   ["accountBtn","accountBtnM"].forEach(function(id){
@@ -2055,7 +2393,10 @@ function renderAccountBtn(){
     if(u){ b.textContent=em.slice(0,2).toUpperCase(); b.classList.add("logged"); b.title=em; }
     else { b.textContent="Accedi"; b.classList.remove("logged"); b.title="Accedi per salvare online"; }
   });
-  if(u) setDocState(C.currentId()?"online":"local"); else setDocState("offline-warn");
+  if(window.__docLoadBlocked) setDocState("blocked");
+  else if(window.__localStorageUnavailable && !u) setDocState("local-error");
+  else if(u) setDocState((_cloudDirty||_cloudSaving||window.__bootCloudPending)?"saving":(C.currentId()?"online":"local"));
+  else setDocState("offline-warn");
 }
 window.renderAccountBtn=renderAccountBtn;
 /* ===== Mobile: barra peek dell'elemento (specifiche a scomparsa) ===== */
@@ -2088,58 +2429,96 @@ window.setPeekName=setPeekName;
   try{ setDocState("local"); }catch(e){}   /* stato iniziale; l'auth callback lo aggiorna appena il modulo cloud parte */
 })();
 /* ===== Undo / Redo ===== */
-var undoStack=[], redoStack=[], lastSnap=null;
+var undoStack=[], redoStack=[], lastSnap=null, venueHistoryAssets=Object.create(null);
+function historySnapshot(){
+  var json=stateToJSON(), rec=venueImageRecord(state&&state.venue,venueImgCache[String(activeVar||"")]);
+  var venueSig=rec&&rec._sig?rec._sig:null;
+  if(venueSig) venueHistoryAssets[venueSig]=rec;
+  return {json:json,venueSig:venueSig};
+}
+function historySnapshotValue(snap){ return typeof snap==="string"?{json:snap,venueSig:null}:snap; }
+function sameHistorySnapshot(a,b){
+  a=historySnapshotValue(a); b=historySnapshotValue(b);
+  return !!a&&!!b&&a.json===b.json&&a.venueSig===b.venueSig;
+}
+function pruneVenueHistoryAssets(){
+  var keep=Object.create(null);
+  [lastSnap].concat(undoStack,redoStack).forEach(function(s){ s=historySnapshotValue(s); if(s&&s.venueSig) keep[s.venueSig]=true; });
+  Object.keys(venueHistoryAssets).forEach(function(k){ if(!keep[k]) delete venueHistoryAssets[k]; });
+}
 function recordHistory(){
-  var s=stateToJSON();
-  if(s===lastSnap) return;
+  var s=historySnapshot();
+  if(sameHistorySnapshot(s,lastSnap)) return;
   if(lastSnap!=null){ undoStack.push(lastSnap); if(undoStack.length>120) undoStack.shift(); }
   lastSnap=s; redoStack.length=0;
-  if(window.__rtBroadcast) window.__rtBroadcast(s);   /* Fase 3: sessione live, solo editor */
+  pruneVenueHistoryAssets();
+  if(window.__rtBroadcast) window.__rtBroadcast(s.json);   /* Fase 3: sessione live, solo editor */
 }
-function resetHistory(){ lastSnap=stateToJSON(); undoStack.length=0; redoStack.length=0; }
+function resetHistory(){ venueHistoryAssets=Object.create(null); undoStack.length=0; redoStack.length=0; lastSnap=historySnapshot(); }
 function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); return isFinite(n)?n:0; }
 function syncNextId(){
   nextId=1;
   state.items.forEach(function(it){ var n=itemIdNum(it.id); if(n>=nextId) nextId=n+1; });
 }
 function ensureItemIds(){
-  var seen={}, max=0;
+  var seen=Object.create(null), max=0;
   state.items.forEach(function(it){ var n=itemIdNum(it.id); if(n>max) max=n; });
   nextId=max+1;
-  state.items.forEach(function(it){ if(!it.id || seen[it.id]) it.id=uid(); seen[it.id]=true; });
+  state.items.forEach(function(it){
+    if(!safeItemId(it.id) || seen[it.id]){ do{ it.id=uid(); }while(seen[it.id]); }
+    seen[it.id]=true;
+  });
   syncNextId();
 }
-function applyHistory(json){
-  state=reattachVenueImg(normalizeState(JSON.parse(json))); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
+function applyHistory(snapshot){
+  var snap=historySnapshotValue(snapshot);
+  state=normalizeState(JSON.parse(snap.json));
+  var key=String(activeVar||"");
+  if(snap.venueSig && venueHistoryAssets[snap.venueSig]){
+    venueImgCache[key]=Object.assign({},venueHistoryAssets[snap.venueSig]);
+    reattachVenueImg(state,key);
+  } else if(key) delete venueImgCache[key];
+  ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
   setEventInputs();
   persistLocalState();
+  if(window.__consultDirty) window.__consultDirty();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels();
 }
 function applyRemoteState(json){
   try{
-    state=reattachVenueImg(normalizeState(JSON.parse(json))); state.items=sanitizeItems(state.items||[]);
-    cacheVenueImg(state.venue); ensureItemIds(); lastSnap=stateToJSON(); sel=null; selSet={};
+    state=reattachVenueImg(normalizeState(JSON.parse(json)),activeVar);
+    cacheVenueImg(state.venue,activeVar); ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
     setEventInputs(); render(); renderChannels(); fit();
   }catch(e){ /* stato remoto non valido: ignora */ }
 }
-function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); }
-function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); }
+function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); }
+function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); }
 /* ===== Importa progetto da file .json (annullabile) ===== */
-function importProject(json){
+function activatePreparedProject(prepared, opts){
+  opts=opts||{};
+  commitPreparedDoc(prepared);
+  window.__docLoadBlocked=null;   /* un documento compatibile aperto esplicitamente sblocca persistenza e cloud */
+  /* Un cambio documento è un confine della cronologia: uno snapshot piatto del progetto precedente
+     non può essere ripristinato sopra il nuovo cloud ID senza corrompere varianti e associazione. */
+  if(!opts.keepCloud){
+    detachCloudDoc(true);   /* commitPreparedDoc ha già incrementato l'epoch; qui azzera anche boot id/rev pre-modulo */
+  }
+  cacheVenueImg(state.venue,activeVar);   /* l'import può portare con sé una planimetria (.json completo): mettila in cache */
+  ensureItemIds();
+  resetHistory(); sel=null; selSet={};
+  setEventInputs();
+  if(opts.persist!==false){
+    var localOk=persistLocalState();
+    if(localOk!==false) persistVenueImg();   /* non toccare la planimetria del vecchio slot se il nuovo documento non è persistibile */
+  }
+  if(opts.autosave!==false && window.scheduleCloudAutosave) scheduleCloudAutosave();
+  render(); renderChannels(); fit(); renderVariantBar();
+}
+function importProject(json, opts){
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
-  undoStack.push(stateToJSON()); if(undoStack.length>120) undoStack.shift(); redoStack.length=0;   /* importazione annullabile con Ctrl+Z */
-  try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* ciò che arriva da fuori è un documento NUOVO: senza lo stacco, l'autosave sovrascriverebbe il progetto cloud aperto prima. I flussi che devono agganciare (apri da cloud) risettano l'id subito dopo. */
-  loadDoc(s);   /* T6: doc (varianti) o legacy piatto → variante singola; applica la variante attiva a `state` */
-  cacheVenueImg(state.venue);   /* l'import può portare con sé una planimetria (.json completo): mettila in cache */
-  persistVenueImg();            /* e nella chiave dedicata: sopravvive a un reload dopo l'apertura da cloud/file */
-  ensureItemIds();
-  lastSnap=stateToJSON(); sel=null; selSet={};
-  setEventInputs();
-  persistLocalState();
-  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
-  render(); renderChannels(); fit(); renderVariantBar();
+  activatePreparedProject(prepareDoc(s),opts);   /* valida tutto prima del primo side effect */
 }
 function normalizeChannelRow(r){
   r=r||{};
@@ -2250,9 +2629,16 @@ MIGRATIONS[2] = migrateMusToPostaz;
 MIGRATIONS[3] = migrateMusToPostaz;
 MIGRATIONS[4] = migrateMusToPostaz;
 function migrate(s){
-  if(!s || typeof s!=="object") return s;
-  var v = (typeof s._v==="number") ? s._v : 1;
-  while(v < SCHEMA_VERSION && MIGRATIONS[v]){ s = MIGRATIONS[v](s) || s; v++; }
+  if(!s || typeof s!=="object" || Array.isArray(s)) throw documentLoadError("INVALID_DOCUMENT","Documento non valido.");
+  var hasV=Object.prototype.hasOwnProperty.call(s,"_v");
+  if(hasV && (typeof s._v!=="number" || !isFinite(s._v) || Math.floor(s._v)!==s._v || s._v<1))
+    throw documentLoadError("INVALID_SCHEMA_VERSION","Versione documento non valida.");
+  var v = hasV ? s._v : 1;
+  if(v>SCHEMA_VERSION) throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di StagePlot.");
+  while(v < SCHEMA_VERSION){
+    if(typeof MIGRATIONS[v]!=="function") throw documentLoadError("MISSING_MIGRATION","Migrazione documento non disponibile.");
+    s = MIGRATIONS[v](s) || s; v++;
+  }
   delete s._v;   /* la versione non vive nello state runtime: si re-inietta a ogni serializzazione */
   return s;
 }
@@ -2442,9 +2828,151 @@ function pdfHeaderPropose(s, acct){
   if(acct && ((acct.name&&acct.name.trim())||(acct.contact&&acct.contact.trim()))) return pdfHeaderFromContact(acct);
   return "";
 }
+/* Confine di caricamento del documento persistito.
+   Preserva ogni campo proprio (anche additivo/futuro), ma rende sicuri i valori strutturali usati
+   direttamente da geometria e markup. Non è la whitelist AI di sanitizeItems. */
+function itemTypeDef(it){
+  if(!it || typeof it!=="object" || Array.isArray(it) || typeof it.type!=="string") return null;
+  if(!Object.prototype.hasOwnProperty.call(TYPES,it.type)) return null;
+  var t=TYPES[it.type];
+  return t && typeof t==="object" && typeof t.draw==="function" ? t : null;
+}
+function documentLoadError(code, message){
+  var e=new Error(message||"Documento non compatibile"); e.code=code; return e;
+}
+function itemIdString(v){
+  if(typeof v==="string") return v;
+  if(typeof v==="number" && isFinite(v)) return String(v);
+  return null;
+}
+var ITEM_ID_MAX=80, ROUTE_KEY_MAX=200;
+function safeItemId(v){
+  var s=itemIdString(v);
+  return !!(s && s.length<=ITEM_ID_MAX && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(s) &&
+    s!=="prototype" && !Object.prototype.hasOwnProperty.call(Object.prototype,s));
+}
+function normalizeCompositeParts(it){
+  var c=Object.prototype.hasOwnProperty.call(COMP,it.type) && COMP[it.type];
+  if(!c) return;
+  var src=(it.parts && typeof it.parts==="object" && !Array.isArray(it.parts)) ? it.parts : {};
+  var out={};
+  Object.keys(src).forEach(function(k){
+    if(k!=="__proto__" && k!=="prototype" && k!=="constructor") out[k]=src[k];
+  });
+  Object.keys(c.defParts||{}).forEach(function(k){ if(out[k]===undefined) out[k]=c.defParts[k]; });
+  (c.controls||[]).forEach(function(ctl){
+    var def=(c.defParts||{})[ctl.key], v=out[ctl.key];
+    if(ctl.type==="count"){
+      v=Number(v); out[ctl.key]=isFinite(v)?Math.max(ctl.min,Math.min(ctl.max,Math.round(v))):def;
+    } else if(ctl.type==="toggle"){
+      out[ctl.key]=(typeof v==="boolean")?v:!!def;
+    } else if(ctl.type==="choice"){
+      var vals=(ctl.options||[]).map(function(o){ return o[0]; });
+      out[ctl.key]=(vals.indexOf(v)>=0)?v:def;
+    }
+  });
+  it.parts=out;
+}
+function normalizeLoadedItems(arr){
+  if(arr==null) return [];
+  if(!Array.isArray(arr)) throw documentLoadError("INVALID_ITEMS","La lista elementi non è valida.");
+  var provided=Object.create(null), used=Object.create(null), seq=1;
+  arr.forEach(function(it,idx){
+    if(!itemTypeDef(it)) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
+    if(it.id==null || it.id==="") return;
+    var id=itemIdString(it.id);
+    /* id non-safe o duplicato: NON blocca il documento — verrà riassegnato nel map (come gli id vuoti),
+       così un progetto vecchio/importato con id sporchi resta apribile e l'id sporco non raggiunge il DOM.
+       Il fail-closed resta SOLO sul tipo ignoto (elemento non renderizzabile). */
+    if(!safeItemId(id) || provided[id]) return;
+    provided[id]=used[id]=true;
+  });
+  return arr.map(function(it){
+    var t=itemTypeDef(it), n;
+    ["__proto__","prototype","constructor"].forEach(function(k){ if(Object.prototype.hasOwnProperty.call(it,k)) delete it[k]; });
+    var _id=(it.id==null||it.id==="")?"":itemIdString(it.id);
+    if(_id && safeItemId(_id) && provided[_id]===true){   /* id valido, unico e non ancora consumato → si conserva */
+      it.id=_id; provided[_id]=false;   /* consuma: un eventuale duplicato successivo viene riassegnato */
+    } else {   /* vuoto, non-safe o duplicato → riassegnato (come il vecchio ensureItemIds): nessun lockout */
+      do{ it.id="i"+(seq++); }while(used[it.id]);
+      used[it.id]=true;
+    }
+    if(it.label==null) it.label=defaultLabel(it.type);
+    else if(typeof it.label!=="string" && typeof it.label!=="number") it.label=defaultLabel(it.type);
+    else it.label=String(it.label);
+    if(it.label2!=null){
+      if(typeof it.label2==="string" || typeof it.label2==="number") it.label2=String(it.label2);
+      else delete it.label2;
+    }
+    [["x",0],["y",0],["rot",0]].forEach(function(k){
+      n=Number(it[k[0]]); it[k[0]]=isFinite(n)?Math.round(n):k[1];
+    });
+    ["w","d"].forEach(function(k){
+      if(it[k]==null) return;
+      n=Number(it[k]); if(isFinite(n)&&n>0) it[k]=n; else delete it[k];
+    });
+    ["h","z","sep","antAng","antH","kg","watt","rackU","rackPos","rackUh","sbId","ch","outCh",
+      "rxN","rxCh","swPorts","pmFeedCh","prese"].forEach(function(k){
+      if(it[k]==null) return; n=Number(it[k]); if(isFinite(n)) it[k]=n; else delete it[k];
+    });
+    if(it.lblSize!=null){ n=Number(it.lblSize); if(isFinite(n)) it.lblSize=Math.max(0,Math.min(34,n)); else delete it.lblSize; }
+    if(it.opacity!=null){ n=Number(it.opacity); if(isFinite(n)) it.opacity=Math.max(0,Math.min(100,n)); else delete it.opacity; }
+    if(it.pts!=null){
+      if(Array.isArray(it.pts) && it.pts.length>=3 && it.pts.every(function(p){ return Array.isArray(p)&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1]); }))
+        it.pts=it.pts.map(function(p){ return [Math.round(+p[0]),Math.round(+p[1])]; });
+      else delete it.pts;
+    }
+    if(it.micPos!=null){
+      if(Array.isArray(it.micPos) && it.micPos.length===2 && isFinite(+it.micPos[0]) && isFinite(+it.micPos[1]))
+        it.micPos=[Math.round(+it.micPos[0]),Math.round(+it.micPos[1])];
+      else delete it.micPos;
+    }
+    if(it.zcol!=null && !/^#[0-9a-f]{6}$/i.test(String(it.zcol))) delete it.zcol;
+    if(it.txtColor!=null && !/^#[0-9a-f]{6}$/i.test(String(it.txtColor))) delete it.txtColor;
+    if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
+    else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
+    return it;
+  });
+}
+function normalizeItemRefField(o,k,allowMain){
+  if(!o || o[k]==null) return;
+  var v=itemIdString(o[k]);
+  if(allowMain && v==="main"){ o[k]=v; return; }
+  if(safeItemId(v)) o[k]=v; else delete o[k];
+}
+function normalizePersistedItemRefs(s){
+  (s.items||[]).forEach(function(it){
+    ["rackId","ascoltoId","rxId","distOf"].forEach(function(k){ normalizeItemRefField(it,k,false); });
+    normalizeItemRefField(it,"sbTo",true);
+  });
+  (Array.isArray(s.buses)?s.buses:[]).forEach(function(bu){ normalizeItemRefField(bu,"boxId",false); });
+  ["inputs","outputs"].forEach(function(k){
+    (Array.isArray(s[k])?s[k]:[]).forEach(function(r){ normalizeItemRefField(r,"linked_item_id",false); });
+  });
+  var cb=s.cab;
+  if(cb && cb.manual && typeof cb.manual==="object") Object.keys(cb.manual).forEach(function(k){
+    var m=cb.manual[k]; if(m && typeof m==="object") normalizeItemRefField(m,"box",false);
+  });
+  var eb=s.elec;
+  if(eb && eb.manual && typeof eb.manual==="object") Object.keys(eb.manual).forEach(function(k){
+    var m=eb.manual[k];
+    if(typeof m==="number") eb.manual[k]=String(m);
+    else if(m && typeof m==="object") normalizeItemRefField(m,"distro",false);
+  });
+  if(eb && eb.uplinks && typeof eb.uplinks==="object") Object.keys(eb.uplinks).forEach(function(k){
+    normalizeItemRefField(eb.uplinks[k],"to",false);
+  });
+  var mb=s.mond;
+  if(mb && mb.manual && typeof mb.manual==="object") Object.keys(mb.manual).forEach(function(k){
+    normalizeItemRefField(mb.manual[k],"to",false);
+  });
+}
 function normalizeState(s){
   s=migrate(s);
-  s.items=s.items||[];
+  ["__proto__","prototype","constructor"].forEach(function(k){ if(Object.prototype.hasOwnProperty.call(s,k)) delete s[k]; });
+  s.items=normalizeLoadedItems(s.items);
+  normalizePersistedItemRefs(s);
+  var itemById=Object.create(null); s.items.forEach(function(it){ itemById[it.id]=it; });
   /* Output list: bus console sanificati (additivo, nessun bump) */
   if(!Array.isArray(s.buses)) s.buses=[];
   s.buses=s.buses.filter(function(bu){ return bu && typeof bu.name==="string" && bu.name.trim(); });
@@ -2454,7 +2982,7 @@ function normalizeState(s){
     if(!BUS_KINDS[bu.kind]) bu.kind="st";
     if(bu.dest!=null){ bu.dest=String(bu.dest).slice(0,40); if(!bu.dest) delete bu.dest; }
     if(bu.port!=null && !(bu.port>=1&&bu.port<=64)){ delete bu.port; }
-    if(bu.boxId!=null && !s.items.some(function(x){ return x.id===bu.boxId; })){ delete bu.boxId; delete bu.port; }
+    if(bu.boxId!=null && !itemById[bu.boxId]){ delete bu.boxId; delete bu.port; }
   });
   if(s.lookDefault!=="schematico") s.lookDefault="illustrato";   /* B4: aspetto predefinito del progetto (default illustrato); i nuovi elementi lo ereditano */
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
@@ -2471,7 +2999,7 @@ function normalizeState(s){
   /* Backfill difensivo w/d (08/07): un item senza w/d (progetto vecchio/importato) fa calcolare
      geometrie NaN alle draw che dipendono da it.w/it.sep (es. doppiatastiera) → svg2pdf lancia e
      il PDF cade in raster. Garantiamo w/d (+ sep per le doppie, parts/size per le composte). */
-  s.items.forEach(function(it){ var t=TYPES[it.type]; if(!t) return;
+  s.items.forEach(function(it){ var t=itemTypeDef(it); if(!t) return;
     if(DOUBLE_TYPES[it.type]){ if(it.sep==null) it.sep=defSepOf(it);
       if(it.w==null) it.w=sepToW(DOUBLE_TYPES[it.type], it.sep); if(it.d==null) it.d=DOUBLE_TYPES[it.type].dbl[1]; }
     if(typeof sbAutoSize==="function") sbAutoSize(it);   /* ciabatta 8in/0out piccola (18/07) */
@@ -2479,8 +3007,8 @@ function normalizeState(s){
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(it.foh!==true) delete it.foh;   /* flag "stage box del mixer": solo booleano true */
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
-      if(it.sbTo!=null && it.sbTo!=="main" && !s.items.some(function(x){ return x.id===it.sbTo; })) delete it.sbTo; }
-    if(it.ascoltoId && !s.items.some(function(x){ return x.id===it.ascoltoId; })){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
+      if(it.sbTo!=null && it.sbTo!=="main" && !itemById[it.sbTo]) delete it.sbTo; }
+    if(it.ascoltoId && !itemById[it.ascoltoId]){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
     if(it.ascolto && !ASCOLTO_TYPE[it.ascolto]){ delete it.ascolto; delete it.ascoltoId; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
@@ -2494,7 +3022,7 @@ function normalizeState(s){
     if(it.type==="netswitch" && it.swPorts!=null && !(it.swPorts>=4&&it.swPorts<=48)) delete it.swPorts;
     if(it.type==="mixhub"){ if(it.pmFeed!=null && it.pmFeed!=="dante" && it.pmFeed!=="console") delete it.pmFeed;
       if(it.pmFeedCh!=null && !(it.pmFeedCh>=1&&it.pmFeedCh<=64)) delete it.pmFeedCh; }
-    if(it.rxId!=null){ var _rxOk=s.items.some(function(r){ return r.type==="rxrf" && r.id===it.rxId; });
+    if(it.rxId!=null){ var _rxOk=itemById[it.rxId]&&itemById[it.rxId].type==="rxrf";
       if(!_rxOk){ delete it.rxId; delete it.rxCh; } else if(it.rxCh!=null && !(it.rxCh>=1&&it.rxCh<=8)) delete it.rxCh; }
     if(COMP[it.type] && COMP[it.type].size){ if(it.parts==null) it.parts=compClone(COMP[it.type].defParts);
       if(it.w==null||it.d==null){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; } }
@@ -2542,7 +3070,10 @@ function normalizeState(s){
     corners.forEach(function(p){ bb.w=Math.max(bb.w,p[0]); bb.d=Math.max(bb.d,p[1]); });
   });
   s.stage.w=bb.w; s.stage.d=bb.d;
-  if(!window.__consultMode){ s.inputs=[]; s.outputs=[]; }   /* channel list riservata alla consulenza: preservata solo in modalità editor (audit/roadmap 1B) */
+  /* Le liste tecniche restano sempre nel documento. L'eventuale entitlement limita la UI, non distrugge i dati
+     quando il progetto viene aperto fuori dalla modalità consulenza. */
+  s.inputs=Array.isArray(s.inputs)?s.inputs:[];
+  s.outputs=Array.isArray(s.outputs)?s.outputs:[];
   if(s.venue){ s.venue=normalizeVenue(s.venue); }   /* retrocompat: venue opzionale */
   s.zones = Array.isArray(s.zones) ? s.zones.map(function(z,i){
     var kind = z.kind==="power" ? "power" : "audio";
@@ -2575,14 +3106,14 @@ function normalizeState(s){
       recvideo:nrm("recvideo",A), streaming:nrm("streaming",A), luci:nrm("luci",L) }, depts:depts };
   })();
   var cb=s.cab||{};   /* cablaggio audio calcolato: layer + preferenze + override manuali del tecnico */
-  var man={};
+  var man=Object.create(null);
   if(cb.manual && typeof cb.manual==="object"){ Object.keys(cb.manual).forEach(function(k){ var m=cb.manual[k]||{}; var o={};
     if(Array.isArray(m.pts)) o.pts=m.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
     if(m.label!=null) o.label=String(m.label).slice(0,40);
     if(m.deleted) o.deleted=true;
     if(m.auto) o.auto=1;   /* collegamento fatto dall'auto-connect: ridistribuibile quando arriva una box nuova */
-    if(typeof m.box==="string" && m.box) o.box=m.box.slice(0,60);   /* riconnessione/porte: la box scelta a mano DEVE sopravvivere al reload */
-    if(Object.keys(o).length) man[String(k).slice(0,60)]=o; }); }
+    if(typeof m.box==="string" && m.box) o.box=m.box.slice(0,ITEM_ID_MAX);   /* riconnessione/porte: la box scelta a mano DEVE sopravvivere al reload */
+    if(Object.keys(o).length) man[String(k).slice(0,ROUTE_KEY_MAX)]=o; }); }
   s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round(cb.opacity==null?70:cb.opacity))), auto:cb.auto!==false,
     /* manual-first (08/07): i documenti che avevano GIÀ il cablaggio attivo restano "auto" (niente rider svuotati); i nuovi nascono "manual" */
     mode:(cb.mode==="auto"||cb.mode==="manual")?cb.mode:(cb.on?"auto":"manual"),
@@ -2596,51 +3127,118 @@ function normalizeState(s){
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
-  var eman={};   /* override elettrici per carico: {distro, pts, deleted} — legacy stringa = solo distro */
+  var eman=Object.create(null);   /* override elettrici per carico: {distro, pts, deleted} — legacy stringa = solo distro */
   if(eb.manual && typeof eb.manual==="object"){ Object.keys(eb.manual).forEach(function(k){ var v=eb.manual[k], o={};
-    if(typeof v==="string" && v){ o.distro=v.slice(0,60); }
+    if(typeof v==="string" && v){ o.distro=v.slice(0,ITEM_ID_MAX); }
     else if(v && typeof v==="object"){
-      if(typeof v.distro==="string" && v.distro) o.distro=v.distro.slice(0,60);
+      if(typeof v.distro==="string" && v.distro) o.distro=v.distro.slice(0,ITEM_ID_MAX);
       if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
       if(v.deleted) o.deleted=true;
       if(v.auto) o.auto=1;
     }
-    if(Object.keys(o).length) eman[String(k).slice(0,60)]=o; }); }
-  var eups={};   /* tier 2 (Simone): ciabatta/distro → quadro, SOLO manuale */
+    if(Object.keys(o).length) eman[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
+  var eups=Object.create(null);   /* tier 2 (Simone): ciabatta/distro → quadro, SOLO manuale */
   if(eb.uplinks && typeof eb.uplinks==="object"){ Object.keys(eb.uplinks).forEach(function(k){ var v=eb.uplinks[k]||{}; var o={};
-    if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,60);
+    if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
-    if(Object.keys(o).length) eups[String(k).slice(0,60)]=o; }); }
+    if(Object.keys(o).length) eups[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
     mode:(eb.mode==="auto"||eb.mode==="manual")?eb.mode:(eb.on?"auto":"manual"),
     labelMode:(eb.labelMode==="always")?"always":"hover",   /* parità con l'audio: canvas pulito, info in hover */
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
     phase3:eb.phase3!==false, showLabels:eb.showLabels!==false, showLengths:eb.showLengths!==false, style:normCabStyle(eb.style), manual:eman, uplinks:eups };
   var mb=s.mond||{};   /* monitoraggio digitale: catene mixerino→hub (manual[id]={to,pts,deleted}) */
-  var mman={};
+  var mman=Object.create(null);
   if(mb.manual && typeof mb.manual==="object"){ Object.keys(mb.manual).forEach(function(k){ var v=mb.manual[k]||{}, o={};
-    if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,60);
+    if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
     if(v.deleted) o.deleted=true;
     if(v.auto) o.auto=1;
-    if(Object.keys(o).length) mman[String(k).slice(0,60)]=o; }); }
+    if(Object.keys(o).length) mman[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(mb.opacity==null?70:mb.opacity))), locked:!!mb.locked, style:normCabStyle(mb.style), manual:mman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
 function load(){
-  try{
-    var raw = localStorage.getItem(LS_KEY);
-    if(raw){ loadDoc(JSON.parse(raw));   /* doc (varianti) o legacy piatto → variante singola */
+  window.__docLoadBlocked=null;
+  window.__bootCloudMeta=false; window.__bootVenueMeta=false; window.__bootCloudId=null; window.__bootCloudRev=null; window.__bootVenueSig=null; window.__bootVenueKey=null;
+  window.__bootContentSig=null; window.__bootCloudSig=null; window.__bootCloudPending=false; window.__bootCloudSigKnown=false; window.__bootVenueUnavailable=false;
+  var raw=null, parsed=null, storageError=null, storageRef=null;
+  try{ storageRef=window.localStorage; raw=storageRef.getItem(LS_KEY); }
+  catch(e){ storageError=e; window.__localStorageUnavailable=true; }
+  localStorageIdentity=storageRef; localExpectedRevision=localRevisionFromRaw(raw);
+  window.__localConflict=false; localConflictWarned=false;
+  if(raw){
+    try{
+      parsed=JSON.parse(raw);
+      if(parsed && parsed._local && typeof parsed._local==="object"){
+        window.__bootCloudMeta=true;
+        window.__bootVenueMeta=Object.prototype.hasOwnProperty.call(parsed._local,"venueSig");
+        window.__bootCloudId=typeof parsed._local.cloudId==="string" ? parsed._local.cloudId : null;
+        window.__bootCloudRev=typeof parsed._local.cloudRev==="string" ? parsed._local.cloudRev : null;
+        window.__bootVenueSig=typeof parsed._local.venueSig==="string" ? parsed._local.venueSig : null;
+        window.__bootVenueKey=typeof parsed._local.venueKey==="string" ? parsed._local.venueKey : null;
+        window.__bootContentSig=typeof parsed._local.contentSig==="string" ? parsed._local.contentSig : null;
+        window.__bootCloudSig=typeof parsed._local.cloudSig==="string" ? parsed._local.cloudSig : null;
+        window.__bootCloudPending=parsed._local.cloudPending===true;
+        window.__bootCloudSigKnown=typeof parsed._local.cloudSig==="string";
+        window.__bootVenueUnavailable=parsed._local.venueUnavailable===true;
+      }
+      loadDoc(parsed);   /* doc (varianti) o legacy piatto → variante singola */
       ensureItemIds();
-    } else { ensureVariants(); }
-  }catch(e){ try{ ensureVariants(); }catch(_e){} }
-  try{ window.__bootCloudId = localStorage.getItem(LS_KEY+"_cloudid") || null; }catch(e){}   /* riaggancia il documento al suo progetto cloud (il modulo cloud lo adotta all'avvio) */
-  loadVenueImg(); reattachVenueImg(state);   /* ripristina l'immagine planimetria dalla chiave dedicata */
+    }catch(e){
+      window.__docLoadBlocked={code:e&&e.code||"INVALID_DOCUMENT"};
+      window.__bootCloudMeta=false; window.__bootVenueMeta=false; window.__bootCloudId=null; window.__bootCloudRev=null; window.__bootVenueSig=null; window.__bootVenueKey=null;
+      window.__bootContentSig=null; window.__bootCloudSig=null; window.__bootCloudPending=false; window.__bootCloudSigKnown=false;
+      window.__bootVenueUnavailable=false;
+      try{ ensureVariants(); }catch(_e){}
+      try{ if(window.setDocState) window.setDocState("blocked"); }catch(_e){}
+      setTimeout(function(){ try{ if(window.__toast) window.__toast("Il progetto salvato richiede una versione compatibile di StagePlot. Non è stato modificato e il salvataggio è sospeso.",true); }catch(_e){} },0);
+    }
+  } else {
+    try{ ensureVariants(); }catch(_e){}
+    if(storageError){
+      setTimeout(function(){ try{ if(window.setDocState) window.setDocState("local-error"); if(window.__toast) window.__toast("Memoria locale non accessibile. Il cloud resta disponibile, ma questo dispositivo non può conservare copie offline.",true); }catch(_e){} },0);
+    }
+  }
+  if(!window.__docLoadBlocked){
+    if(raw && !window.__bootCloudMeta && !storageError){
+      try{
+        window.__bootCloudId=localStorage.getItem(LS_KEY+"_cloudid")||null;
+        window.__bootCloudRev=localStorage.getItem(LS_KEY+"_cloudrev")||null;
+      }catch(e){}
+    }
+  } else { window.__bootCloudId=null; window.__bootCloudRev=null; window.__bootVenueSig=null; window.__bootVenueKey=null; }
+  if(!window.__docLoadBlocked && raw){
+    /* Lo slot legacy è adottabile soltanto insieme a un documento legacy reale. Se il root è assente,
+       oppure possiede già metadati venue senza puntatore valido, una bitmap orfana non attraversa il boot. */
+    if(window.__bootVenueMeta) loadVenueImg(window.__bootVenueSig,window.__bootVenueKey);
+    else if(!window.__bootCloudMeta) loadVenueImg(null,null);
+    reattachVenueImg(state,activeVar);
+  } else { venueImgCache=Object.create(null); venuePersistedSig=""; venuePersistedKey=null; }
+  if(!window.__docLoadBlocked && raw && !window.__bootVenueUnavailable){
+    try{
+      var actualContentSig=projectContentSig(JSON.parse(docToJSON()),venueImageBundleSig());
+      if(window.__bootContentSig&&actualContentSig!==window.__bootContentSig) window.__bootCloudPending=true;
+      if(window.__bootCloudSigKnown&&actualContentSig!==window.__bootCloudSig) window.__bootCloudPending=true;
+      window.__bootContentSig=actualContentSig;
+    }catch(_e){}
+  }
+  if(!window.__docLoadBlocked && window.__bootCloudPending) _cloudDirty=true;
 }
 /* ===== LZString (compressToEncodedURIComponent / decompress) — per il link di condivisione ===== */
 var LZString=(function(){var f=String.fromCharCode;var keyStrUriSafe="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";var baseReverseDic={};function getBaseValue(alphabet,character){if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i}}return baseReverseDic[alphabet][character]}var LZString={compressToEncodedURIComponent:function(input){if(input==null)return"";return LZString._compress(input,6,function(a){return keyStrUriSafe.charAt(a)})},decompressFromEncodedURIComponent:function(input){if(input==null)return"";if(input=="")return null;input=input.replace(/ /g,"+");return LZString._decompress(input.length,32,function(index){return getBaseValue(keyStrUriSafe,input.charAt(index))})},_compress:function(uncompressed,bitsPerChar,getCharFromInt){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break}else context_data_position++}return context_data.join("")},_decompress:function(length,resetValue,getNextValue){var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};for(i=0;i<3;i+=1){dictionary[i]=i}bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(next=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 2:return""}dictionary[3]=c;w=c;result.push(c);while(true){if(data.index>length){return""}bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(c=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[c]){entry=dictionary[c]}else{if(c===dictSize){entry=w+w.charAt(0)}else{return null}}result.push(entry);dictionary[dictSize++]=w+entry.charAt(0);enlargeIn--;w=entry;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}}}};return LZString})();
-function buildShareUrl(){ var base=location.href.split("#")[0].split("?")[0]; return base+"#p="+LZString.compressToEncodedURIComponent(stateToJSON()); }
+function stateForPublicShare(input){
+  var out=JSON.parse(JSON.stringify(input||{}));
+  var opts=out.shareOpts&&typeof out.shareOpts==="object"?out.shareOpts:null;
+  if(window.__projLocked || !(opts&&opts.contacts===true)){
+    delete out.contacts; delete out.techContact; delete out.pdfHeader;
+    if(out.approval&&typeof out.approval==="object") delete out.approval.by;
+  }
+  return out;
+}
+function publicShareStateJSON(){ return JSON.stringify(stateForPublicShare(JSON.parse(stateToJSON()))); }
+function buildShareUrl(){ var base=location.href.split("#")[0].split("?")[0]; return base+"#p="+LZString.compressToEncodedURIComponent(publicShareStateJSON()); }
 function b64urlToStr(s){ s=String(s).replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; return decodeURIComponent(escape(atob(s))); }
 /* ricalcola w/d di un item dalla sua configurazione (doppia/sep, podio/leggio/sgab, gtr, parti componibili, voce).
    Centralizza la logica usata negli handler di edit così che anche gli item "grezzi" (AI/import) abbiano ingombri corretti. */
@@ -2662,13 +3260,17 @@ function recalcItemDims(it){
 }
 /* normalizza item "grezzi" (es. generati dall'AI): chiavi valide, dimensioni/parts di default, id garantito */
 function sanitizeItems(arr){
-  return (arr||[]).map(function(o){ var t=TYPES[o.type]; if(!t) return null;
-    var it={ id:o.id||uid(), type:o.type, x:Math.round(+o.x||0), y:Math.round(+o.y||0), rot:Math.round(+o.rot||0),
+  var used=Object.create(null);
+  return (Array.isArray(arr)?arr:[]).map(function(o){ var t=itemTypeDef(o); if(!t) return null;
+    var oid=itemIdString(o.id);
+    if(!safeItemId(oid) || used[oid]){ do{ oid=uid(); }while(used[oid]); }
+    used[oid]=true;
+    var it={ id:oid, type:o.type, x:Math.round(+o.x||0), y:Math.round(+o.y||0), rot:Math.round(+o.rot||0),
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
-    if(COMP[o.type]) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -2706,9 +3308,13 @@ function loadFromHash(){
     if(!raw) return false;
     var obj=JSON.parse(raw);
     if(dm) obj.items=sanitizeItems(obj.items);                   /* JSON AI: ripulisci e rendi validi gli elementi */
-    state=normalizeState(obj);
-    ensureItemIds();
-    history.replaceState(null,"",location.pathname+location.search);   /* via l'hash: gli edit poi vanno in localStorage */
+    var prepared=prepareDoc(obj);                                /* valida prima di qualsiasi sostituzione */
+    guardDocumentReplacement({reason:pm?"aprire un link condiviso":"aprire un progetto generato",
+      title:pm?"Aprire questo stage plot condiviso?":"Aprire il progetto generato?",
+      confirmText:"Apri come copia"},function(){
+      activatePreparedProject(prepared);                         /* nuova identità: non eredita il cloud del documento precedente */
+      history.replaceState(null,"",location.pathname+location.search);   /* rimuovi l'hash solo dopo il commit riuscito */
+    });
     return true;
   }catch(e){ return false; }
 }
@@ -3004,12 +3610,13 @@ function riserDimSide(it){
   return best;
 }
 function itemMarkup(it){
-  var t = TYPES[it.type]; if(!t) return '';
+  var t = itemTypeDef(it); if(!t) return '';
   _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
   var hw = Math.max(it.w,70)/2 + 8, hd = Math.max(it.d,30)/2 + 8;   /* area di click generosa */
   var bw = it.w/2 + 6, bh = it.d/2 + 6;                             /* riquadro selezione aderente all'ingombro reale */
   var isOut = isOutsideStage(it);
-  var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
+  var attrId=esc(it.id);
+  var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+attrId+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
   if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
@@ -3071,7 +3678,7 @@ function itemMarkup(it){
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
   if(!stageEdit && selSet[it.id] && selIds().length===1){
     var ky=-(bh+26);
-    s += '<g class="rot-handle" data-id="'+it.id+'">'+
+    s += '<g class="rot-handle" data-id="'+attrId+'">'+
          '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+9)+'"/>'+
          '<circle class="rh-hit" cx="0" cy="'+ky+'" r="16"/>'+
          '<circle class="rh-knob" cx="0" cy="'+ky+'" r="9"/>'+
@@ -3084,17 +3691,17 @@ function itemMarkup(it){
     var mzp=miczonePts(it), mzPoly=!!(it.pts && it.pts.length>=3);
     mzp.forEach(function(p,vi){                 /* midpoint di ogni lato: "+" per inserire un vertice */
       var q=mzp[(vi+1)%mzp.length], mx=(p[0]+q[0])/2, my=(p[1]+q[1])/2;
-      s += '<circle class="mz-mid" data-id="'+it.id+'" data-mid="'+vi+'" cx="'+mx+'" cy="'+my+'" r="7"/>'+
+      s += '<circle class="mz-mid" data-id="'+attrId+'" data-mid="'+vi+'" cx="'+mx+'" cy="'+my+'" r="7"/>'+
            '<line class="mz-plus" x1="'+(mx-3.5)+'" y1="'+my+'" x2="'+(mx+3.5)+'" y2="'+my+'"/>'+
            '<line class="mz-plus" x1="'+mx+'" y1="'+(my-3.5)+'" x2="'+mx+'" y2="'+(my+3.5)+'"/>';
     });
     if(mzPoly){
       mzp.forEach(function(p,vi){               /* vertici del poligono: pallini trascinabili */
-        s += '<circle class="mz-vtx" data-id="'+it.id+'" data-vtx="'+vi+'" cx="'+p[0]+'" cy="'+p[1]+'" r="7"/>';
+        s += '<circle class="mz-vtx" data-id="'+attrId+'" data-vtx="'+vi+'" cx="'+p[0]+'" cy="'+p[1]+'" r="7"/>';
       });
     } else {                                    /* rettangolo: angoli di ridimensionamento (uniforme), i lati restano ai "+" */
       [["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]].forEach(function(p){
-        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-9)+'" y="'+(p[2]-9)+'" width="18" height="18" rx="2"/>';
+        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-9)+'" y="'+(p[2]-9)+'" width="18" height="18" rx="2"/>';
       });
     }
   }
@@ -3111,8 +3718,8 @@ function itemMarkup(it){
       hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
     }
     hpts.forEach(function(p){
-      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+it.id+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="7"/>';
-      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+it.id+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
+      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+attrId+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="7"/>';
+      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
     });
   }
   s += '</g>';
@@ -4083,11 +4690,11 @@ function cablingMarkup(){
       var _rp = (_dirIn && l.box) ? l.pts.slice(0,-1).concat([[l.box.x, l.box.y]]) : l.pts;
       var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts);
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
-      if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
+      if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';
         linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
       var ep=orthExpand(dpts); loomPolys.push({key:l.key, poly:ep});
       li+='<path class="cab-line'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
-      if(edit) li+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';
+      if(edit) li+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';
       var lbl=(LBL || selCab===l.key) ? cabLinkLabel(l) : '';   /* il cavo selezionato mostra la sua etichetta anche in modalità hover */
       if(lbl){ var mid=cabMidpoint(ep); li+='<text class="cab-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lbl)+'</text>'; }
       if(soloOn("cabin") && l.label!=null){ var sp0=ep[0];   /* nel solo/fuoco Ingressi: canale leggibile alla partenza */
@@ -4126,13 +4733,13 @@ function cablingMarkup(){
           if(A[0]===B[0] && A[1]===B[1]) continue;
           var ori=(A[1]===B[1])?"h":"v";
           s+='<line class="cab-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
-          s+='<line class="cab-seg-hit" data-cab="'+selCab+'" data-seg="'+pi+'" data-ori="'+ori+'" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
+          s+='<line class="cab-seg-hit" data-cab="'+esc(selCab)+'" data-seg="'+pi+'" data-ori="'+ori+'" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
         }
         /* DOPPIO ESTREMO stile Max: maniglia su ENTRAMBI i capi del cavo selezionato.
            Rilascio su una stage box = riconnetti; rilascio nel vuoto = scollega (come in Max). */
         [["src", poly[0]], ["box", poly[poly.length-1]]].forEach(function(ec){
-          s+='<circle class="cab-endpt" data-cab="'+selCab+'" data-end="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="8"/>'
-            +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" data-end="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="17"/>';
+          s+='<circle class="cab-endpt" data-cab="'+esc(selCab)+'" data-end="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="8"/>'
+            +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+esc(selCab)+'" data-end="'+ec[0]+'" cx="'+ec[1][0].toFixed(1)+'" cy="'+ec[1][1].toFixed(1)+'" r="17"/>';
         });
       }
     }
@@ -4148,7 +4755,7 @@ function cablingMarkup(){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
       var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, cabStyleOut());
       var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
-      if(editRet) ri+='<path class="cab-hit" data-cab="'+l.key+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
+      if(editRet) ri+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
         var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
         ri+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
@@ -4166,11 +4773,11 @@ function cablingMarkup(){
           if(Ar[0]===Br[0] && Ar[1]===Br[1]) continue;
           var orir=(Ar[1]===Br[1])?"h":"v";
           s+='<line class="cab-seg cab-seg-ret" x1="'+Ar[0]+'" y1="'+Ar[1]+'" x2="'+Br[0]+'" y2="'+Br[1]+'"/>';
-          s+='<line class="cab-seg-hit" data-cab="'+selCab+'" data-seg="'+pj+'" data-ori="'+orir+'" x1="'+Ar[0]+'" y1="'+Ar[1]+'" x2="'+Br[0]+'" y2="'+Br[1]+'"/>';
+          s+='<line class="cab-seg-hit" data-cab="'+esc(selCab)+'" data-seg="'+pj+'" data-ori="'+orir+'" x1="'+Ar[0]+'" y1="'+Ar[1]+'" x2="'+Br[0]+'" y2="'+Br[1]+'"/>';
         }
         var bxEnd=polyR[0];
-        s+='<circle class="cab-endpt cab-endpt-ret" data-cab="'+selCab+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="8"/>'
-          +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+selCab+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="17"/>';
+        s+='<circle class="cab-endpt cab-endpt-ret" data-cab="'+esc(selCab)+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="8"/>'
+          +'<circle class="cab-endpt cab-endpt-hit" data-cab="'+esc(selCab)+'" data-end="box" cx="'+bxEnd[0].toFixed(1)+'" cy="'+bxEnd[1].toFixed(1)+'" r="17"/>';
       }
     }
     s+='</g>';
@@ -5050,7 +5657,7 @@ function mzMicHitMarkup(){
   if(!z) return '';
   var mp=micZoneMicPos(z), a=(z.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
   var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
-  return '<circle class="mz-mic" data-id="'+z.id+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
+  return '<circle class="mz-mic" data-id="'+esc(z.id)+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
 }
 function rfMarkup(){
   if(!layerShown("rf")) return '';
@@ -5143,11 +5750,23 @@ function redrawStageLayers(){
   setSvgInner(ls, stageLayerMarkup());
   setSvgInner(lo, overlayLayerMarkup());
 }
+/* Indice DOM per ID opachi: evita sia selector costruiti con dati del documento sia scansioni O(n)
+   per ogni elemento durante drag/rotate di gruppi grandi. Ricostruito dopo ogni render completo. */
+var itemNodeIndex=new Map();
+function reindexItemNodes(){
+  itemNodeIndex=new Map();
+  var nodes=svg.querySelectorAll(".item[data-id]");
+  for(var i=0;i<nodes.length;i++){
+    var key=nodes[i].getAttribute("data-id");
+    if(!itemNodeIndex.has(key)) itemNodeIndex.set(key,nodes[i]);
+  }
+}
 function render(){
   pruneSolo();   /* niente solo fantasma su layer disattivati */
   if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
   svg.innerHTML = sceneMarkup();
+  reindexItemNodes();
   renderProps();
   renderAccessoriCount();
   renderVenuePanel();
@@ -5161,7 +5780,7 @@ function render(){
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
   if(state.items.length>0){ try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
   /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
-  var _dcHide = (!state.items || !state.items.length) && !(window.__cloud && window.__cloud.user && window.__cloud.user());
+  var _dcHide = !window.__docLoadBlocked && (!state.items || !state.items.length) && !(window.__cloud && window.__cloud.user && window.__cloud.user());
   var _ds=document.getElementById("docState"), _dsM=document.getElementById("docStateM");
   if(_ds) _ds.style.display=_dcHide?"none":"";
   if(_dsM) _dsM.style.display=_dcHide?"none":"";
@@ -5169,13 +5788,18 @@ function render(){
 /* Aggiornamento PARZIALE di un singolo elemento durante rotate/resize: evita di rigenerare l'intera scena
    (svg.innerHTML) ad ogni frame su progetti grandi. Aggiorna solo il nodo dell'elemento attivo + il pannello.
    Fallback al render() completo se il nodo non è in DOM (es. cambio di selezione). */
-function itemNode(id){ return svg.querySelector('.item[data-id="'+id+'"]'); }
+function itemNode(id){
+  var wanted=String(id), n=itemNodeIndex.get(wanted);
+  if(n && n.parentNode) return n;
+  reindexItemNodes();
+  return itemNodeIndex.get(wanted)||null;
+}
 function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); renderProps(); } else render(); }
 function redrawItemNode(it){
   var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
   var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=itemMarkup(it);   /* parsing in namespace SVG (come svg.innerHTML) */
   var nw=tmp.firstElementChild;
-  if(nw){ n.parentNode.replaceChild(nw, n); renderProps(); } else render();
+  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw); renderProps(); } else render();
 }
 
 /* ============ PANNELLO PROPRIETÀ ============ */
@@ -7131,8 +7755,10 @@ function addItem(type, over){
 }
 /* onboarding: mostra UNA sola volta (flag localStorage) come si manipola un elemento appena aggiunto */
 function showDragHintOnce(){
-  if(localStorage.getItem("sp_dragHint")) return;
-  localStorage.setItem("sp_dragHint","1");
+  try{
+    if(window.localStorage.getItem("sp_dragHint")) return;
+    window.localStorage.setItem("sp_dragHint","1");
+  }catch(_storageErr){}   /* storage negato: mostra comunque l'aiuto, senza interrompere addItem */
   var m=document.querySelector("main"); if(!m) return;
   var t=document.createElement("div"); t.id="dragHint";
   var s=document.createElement("span"); s.textContent="Trascinalo per spostarlo · maniglia in alto per ruotarlo · pannello a destra per nome, copia, elimina";
@@ -7770,7 +8396,7 @@ svg.addEventListener("pointermove", function(e){
         it.x = magnet.sdx!==0 ? Math.round(d.x0+ddx+magnet.sdx) : snap(d.x0+ddx);
         it.y = magnet.sdy!==0 ? Math.round(d.y0+ddy+magnet.sdy) : snap(d.y0+ddy);
       }
-      var g=svg.querySelector('[data-id="'+it.id+'"]');
+      var g=itemNode(it.id);
       if(g) g.setAttribute("transform","translate("+it.x+" "+it.y+")");
     });
   } else if(drag.mode==="rotate"){
@@ -7787,7 +8413,7 @@ svg.addEventListener("pointermove", function(e){
       it.x=Math.round(np[0]); it.y=Math.round(np[1]); it.rot=Math.round((((b.rot+gdeg)%360)+360)%360);
       /* R-b1 (audit): aggiornamento parziale come item/rotate invece di render() pieno per frame →
          niente scatti ruotando selezioni grandi (render pieno solo al rilascio, pointerup grouprot 6497). */
-      var g=svg.querySelector('[data-id="'+it.id+'"]');
+      var g=itemNode(it.id);
       if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); } });
     drag.moved=true;
   } else if(drag.mode==="mzmic"){           /* ZONA: trascina il pallino del microfono (frame locale, considera la rotazione) */
@@ -8302,7 +8928,7 @@ function venueAutoLock(){ if(state.venue && state.venue.calibration && !state.ve
    Vuoto → torna al placeholder "Testo…" (mai un box invisibile sul palco). */
 function inlineTextEdit(id){
   var it=(state.items||[]).find(function(i){ return i.id===id; }); if(!it) return;
-  var g=svg.querySelector('.item[data-id="'+id+'"]'); if(!g) return;
+  var g=itemNode(id); if(!g) return;
   var r=g.getBoundingClientRect();
   var scale=r.width/Math.max(+it.w||200,10);          /* px schermo per cm mondo (con rotazione è l'AABB: approssimazione accettata) */
   var fs=Math.max(11, Math.max(6, it.lblSize==null?14:+it.lblSize||14)*scale);
@@ -8503,10 +9129,18 @@ document.addEventListener("keydown", function(e){
       e.preventDefault(); if(window.__toast) window.__toast("Il progetto è bloccato. Sbloccalo per modificarlo."); return;
     }
   }
-  if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.fileSaveVersion) fileSaveVersion(); return; }
+  if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault();
+    if(window.__consultMode){ var liveSave=document.getElementById("viewSave"); if(liveSave&&!liveSave.disabled) liveSave.click(); }
+    else if(!document.body.classList.contains("viewmode") && window.fileSaveVersion) fileSaveVersion();
+    return;
+  }
   /* ⌘N = nuovo progetto (richiesta Simone). NB: Chrome spesso NON consegna ⌘N alla pagina (finestra
      nuova riservata) — per questo vale anche ⌥⌘N, sempre consegnato. e.code copre l'Alt su Mac. */
-  if((e.metaKey||e.ctrlKey) && !e.shiftKey && (e.key==="n"||e.key==="N"||e.code==="KeyN")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.proxyClick) proxyClick("bNew"); return; }
+  if((e.metaKey||e.ctrlKey) && !e.shiftKey && (e.key==="n"||e.key==="N"||e.code==="KeyN")){ e.preventDefault();
+    if(window.__consultMode){ if(window.__toast) window.__toast("Nuovo progetto non disponibile durante la consulenza.",true); }
+    else if(!document.body.classList.contains("viewmode") && window.proxyClick) proxyClick("bNew");
+    return;
+  }
   if((e.metaKey||e.ctrlKey) && (e.key==="p"||e.key==="P")){ e.preventDefault(); if(!document.body.classList.contains("viewmode") && window.proxyClick) window.proxyClick("bHdrPdf"); return; }   /* U1: Cmd/Ctrl+P = come "Esporta PDF…" (apre l'hub Esporta centrato, non la stampa del browser) */
   if((e.metaKey||e.ctrlKey) && (e.key==="z"||e.key==="Z")){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
   if((e.metaKey||e.ctrlKey) && (e.key==="y"||e.key==="Y")){ e.preventDefault(); redo(); return; }
@@ -9331,22 +9965,115 @@ var FORM_TITLES = {
 var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"],["matrimonio","Matrimonio"],["dj","DJ set"],["tributo","Tributo"]];
 /* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
    NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
-function detachCloudDoc(){
-  try{ window.__bootCloudId=null; localStorage.removeItem(LS_KEY+"_cloudid"); if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(_e){}
+function detachCloudDoc(epochAlreadyChanged){
+  if(!epochAlreadyChanged) bumpDocumentEpoch();
+  window.__bootCloudMeta=true; window.__bootCloudId=null; window.__bootCloudRev=null;
+  window.__bootCloudSig=null; window.__bootContentSig=null; window.__bootCloudPending=false; window.__bootCloudSigKnown=true; window.__bootVenueUnavailable=false;
+  try{ localStorage.removeItem(LS_KEY+"_cloudid"); localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(_e){}
+  try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(_e){}
+}
+function stateHasMeaningfulWork(s){
+  if(!s || typeof s!=="object") return false;
+  if(String(s.titolo||"").trim() || String(s.luogo||"").trim() || String(s.techContact||"").trim()) return true;
+  if(["items","inputs","outputs","contacts","zones"].some(function(k){ return Array.isArray(s[k])&&s[k].length; })) return true;
+  if(s.venue || s.printFrame || (s.rider&&Object.keys(s.rider).length)) return true;
+  if(s.status&&s.status!=="bozza") return true;
+  if(s.approval&&(s.approval.by||s.approval.at)) return true;
+  if(s.cab&&s.cab.manual&&Object.keys(s.cab.manual).length) return true;
+  if(s.elec&&((s.elec.manual&&Object.keys(s.elec.manual).length)||(s.elec.uplinks&&Object.keys(s.elec.uplinks).length))) return true;
+  if(s.mond&&s.mond.manual&&Object.keys(s.mond.manual).length) return true;
+  var st=s.stage||{}, blocks=Array.isArray(st.blocks)?st.blocks:[];
+  return Number(st.w)!==1200 || Number(st.d)!==800 || blocks.length!==1 ||
+    Number(blocks[0]&&blocks[0].x)!==0 || Number(blocks[0]&&blocks[0].y)!==0 ||
+    Number(blocks[0]&&blocks[0].w)!==1200 || Number(blocks[0]&&blocks[0].d)!==800 ||
+    !!(blocks[0]&&blocks[0].h);
+}
+function hasMeaningfulDocument(){
+  try{
+    syncActiveVariant();
+    if(Object.keys(DOC_EXTRA||{}).length || VARIANTS.length>1) return true;
+    return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state); });
+  }catch(e){ return true; }   /* se non riusciamo a classificare il documento, trattalo come lavoro da proteggere */
+}
+var documentReplacementSeq=0;
+function guardDocumentReplacement(options,action){
+  options=options||{};
+  var request=++documentReplacementSeq, meaningful=hasMeaningfulDocument();
+  function current(){ return request===documentReplacementSeq; }
+  function abort(message){ if(current()&&message&&window.__toast) window.__toast(message,true); }
+  function protectAndRun(){
+    if(!current()) return;
+    if(window.__localConflict){
+      abort("Un'altra scheda ha modificato il progetto. Esporta questa versione o ricarica prima di sostituirla."); return;
+    }
+    if(window.__docLoadBlocked && !options.allowBlockedDiscard){
+      abort("Il documento locale non è compatibile: non verrà sostituito. Esportalo o usa esplicitamente File → Nuovo."); return;
+    }
+    if(meaningful){
+      var recoveryName="Prima di "+String(options.reason||"cambiare progetto").slice(0,80);
+      if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){
+        abort("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo."); return;
+      }
+    }
+    /* Forza nello snapshot locale anche l'ultimo input e arma l'autosave. Il recovery appena creato
+       resta comunque la rete di sicurezza se la quota locale è esaurita. */
+    if(!window.__docLoadBlocked && typeof save==="function") save();
+    var C=window.__cloud, needsFlush=window.__cloudNeedsFlush&&window.__cloudNeedsFlush();
+    if(C&&C.user&&C.user()&&needsFlush&&typeof window.flushCloudAutosave==="function"){
+      window.flushCloudAutosave(function(ok){
+        if(!current()) return;
+        if(!ok){ abort("Cambio progetto sospeso: le modifiche correnti non sono ancora al sicuro nel cloud."); return; }
+        action();
+      });
+    } else action();
+  }
+  if(meaningful&&!options.skipConfirm){
+    var ask={icon:"warn",title:options.title||"Sostituire il progetto aperto?",
+      message:options.message||"Verrà creato un punto di recupero e completato il salvataggio cloud prima di continuare.",
+      confirmText:options.confirmText||"Continua"};
+    if(typeof window.confirmDialog==="function"){
+      window.confirmDialog(ask).then(function(ok){ if(ok&&current()) protectAndRun(); });
+    } else if(typeof window.confirm!=="function" || window.confirm(ask.title+"\n\n"+ask.message)) protectAndRun();
+  } else protectAndRun();
+  return request;
+}
+function beginNewDocument(initialState,options){
+  options=options||{};
+  /* Qualsiasi generatore/modello può rimpiazzare lo slot locale: prima conserva l'intero documento,
+     incluse varianti e planimetrie. Se il recovery non entra nello storage, non distruggere il lavoro. */
+  if(!options.skipRecovery && hasMeaningfulDocument()){
+    var recoveryName="Prima di "+String(options.reason||"nuovo progetto").slice(0,80);
+    if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){
+      if(window.__toast) window.__toast("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo.",true);
+      return false;
+    }
+  }
+  commitPreparedDoc(prepareDoc(initialState||{titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]}));
+  window.__docLoadBlocked=null;
+  detachCloudDoc(true);   /* commitPreparedDoc ha già invalidato tutte le callback del documento precedente */
+  resetHistory(); sel=null; selSet={}; clearVenueImg();
+  return true;
 }
 /* Piazza una formazione PRONTA sul palco (band/acustica/coro/…), riusando le formazioni esistenti
    con force=true → niente modale di review. Aggancia welcome-chips e menu "Nuovo da modello". */
-function startFromTemplate(f){
+function startFromTemplate(f,options){
+  options=options||{};
   var qd = (typeof formationData==="function") ? formationData(f) : null;
   if(!qd || !qd.out) return;
-  detachCloudDoc();   /* "Nuovo da modello" = documento NUOVO: stacca dal progetto cloud aperto o l'autosave lo sovrascrive */
-  resetMetaLayersUI();   /* nuovo da modello: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
-  state.titolo = (typeof FORM_TITLES!=="undefined" && FORM_TITLES[f]) || state.titolo || "";
-  placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
-  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
-  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
-  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
-  render(); if(typeof fitStage==="function") fitStage(); render();
+  var title=FORM_TITLES[f]||f;
+  guardDocumentReplacement({skipConfirm:!!options.skipConfirm,reason:"modello "+title,
+    title:"Creare il modello «"+title+"»?",confirmText:"Crea modello"},function(){
+    if(!beginNewDocument({titolo:(FORM_TITLES[f]||""),luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]},
+        {skipRecovery:true,reason:"modello "+title})) return;
+    resetMetaLayersUI();   /* nuovo da modello: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
+    placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
+    var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+    try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+    var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
+    render(); if(typeof fitStage==="function") fitStage(); render();
+    if(typeof options.after==="function") options.after();
+  });
+  return true;
 }
 
 /* Modelli "per tipo di sala": dimensionano il palco (dimensioni TIPICHE del tipo di luogo, non di un luogo
@@ -9363,27 +10090,33 @@ var VENUE_MODELS = [
 ];
 /* Modello "per tipo di sala": esempio COMPLETO = formazione adatta piazzata (riusa le formazioni) +
    altezza tipica della sala + una PIANTA di sfondo generata (mostra la funzione Planimetria). */
-function startFromVenue(v){
+function startFromVenue(v,options){
+  options=options||{};
   var V=null; for(var i=0;i<VENUE_MODELS.length;i++){ if(VENUE_MODELS[i][0]===v){ V=VENUE_MODELS[i]; break; } }
   if(!V) return;
   var P=V[2];
-  detachCloudDoc();   /* documento NUOVO: non sovrascrivere il progetto cloud aperto */
-  var qd = (typeof formationData==="function") ? formationData(P.form) : null;
-  if(qd && qd.out){ placeOut(qd.out, true, true, true); }   /* adatta il palco alla formazione + azzera + force */
-  else { state.items=[]; state.stage={w:1000,d:700,blocks:[{x:0,y:0,w:1000,d:700}]}; if(typeof recalcStageBBox==="function") recalcStageBBox(); }
-  if(state.stage.blocks && state.stage.blocks[0]) state.stage.blocks[0].h=(P.h||0);   /* altezza tipica della sala */
-  try{ makeVenueBackdrop(V[1], P.house); }catch(_e){}   /* pianta di sfondo (dimostra "Planimetria") */
-  if(typeof persistVenueImg==="function") persistVenueImg();
-  state.titolo=V[1];
-  if(typeof clearSelection==="function") clearSelection();
-  save();
-  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
-  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
-  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
-  render();
-  if(typeof fitTo==="function" && state.venue){ fitTo(state.venue.x-state.venue.w/2, state.venue.y-state.venue.h/2, state.venue.w, state.venue.h); }   /* inquadra sala + platea */
-  else if(typeof fitStage==="function"){ fitStage(); }
-  render();
+  guardDocumentReplacement({skipConfirm:!!options.skipConfirm,reason:"modello "+V[1],
+    title:"Creare il modello «"+V[1]+"»?",confirmText:"Crea modello"},function(){
+    if(!beginNewDocument({titolo:V[1],luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]},
+        {skipRecovery:true,reason:"modello "+V[1]})) return;
+    var qd = (typeof formationData==="function") ? formationData(P.form) : null;
+    if(qd && qd.out){ placeOut(qd.out, true, true, true); }   /* adatta il palco alla formazione + azzera + force */
+    else { state.items=[]; state.stage={w:1000,d:700,blocks:[{x:0,y:0,w:1000,d:700}]}; if(typeof recalcStageBBox==="function") recalcStageBBox(); }
+    if(state.stage.blocks && state.stage.blocks[0]) state.stage.blocks[0].h=(P.h||0);   /* altezza tipica della sala */
+    try{ makeVenueBackdrop(V[1], P.house); }catch(_e){}   /* pianta di sfondo (dimostra "Planimetria") */
+    state.titolo=V[1];
+    if(typeof clearSelection==="function") clearSelection();
+    save();
+    var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+    try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+    var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
+    render();
+    if(typeof fitTo==="function" && state.venue){ fitTo(state.venue.x-state.venue.w/2, state.venue.y-state.venue.h/2, state.venue.w, state.venue.h); }   /* inquadra sala + platea */
+    else if(typeof fitStage==="function"){ fitStage(); }
+    render();
+    if(typeof options.after==="function") options.after();
+  });
+  return true;
 }
 /* Genera una PIANTA schematica (vista dall'alto) come immagine di sfondo: sala + fronte palco + pubblico + FOH.
    Disegnata su canvas → PNG (l'app accetta solo raster, non SVG). Posizionata in coord. mondo dietro/attorno al palco. */
@@ -9442,28 +10175,33 @@ var FAMOUS_VENUES = [
   ["circo_massimo",   "Circo Massimo, Roma",     {shape:"rect",     wv:14000, dv:18000, sw:3200, sd:1800, form:"band", house:"standing"}],
   ["forum_assago",    "Forum, Assago",           {shape:"arena",    wv:5200, dv:6200, sw:2000, sd:1300, form:"band", house:"seats"}]
 ];
-function startFromFamousVenue(v){
+function startFromFamousVenue(v,options){
+  options=options||{};
   var V=null; for(var i=0;i<FAMOUS_VENUES.length;i++){ if(FAMOUS_VENUES[i][0]===v){ V=FAMOUS_VENUES[i]; break; } }
   if(!V) return;
   var P=V[2];
-  detachCloudDoc();
-  state.items=[];
-  state.stage={ w:P.sw, d:P.sd, blocks:[{x:0,y:0,w:P.sw,d:P.sd,h:(P.h||60)}] };
-  if(typeof recalcStageBBox==="function") recalcStageBBox();
-  var qd = (typeof formationData==="function") ? formationData(P.form||"band") : null;
-  if(qd && qd.out){ placeOut(qd.out, false, false, true); }   /* band centrata sul palco, senza ridimensionarlo */
-  try{ drawVenuePlan(V[1], P); }catch(_e){}
-  if(typeof persistVenueImg==="function") persistVenueImg();
-  state.titolo=V[1]; state.luogo=V[1];
-  if(typeof clearSelection==="function") clearSelection();
-  save();
-  var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
-  try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
-  var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
-  render();
-  if(typeof fitTo==="function" && state.venue){ fitTo(state.venue.x-state.venue.w/2, state.venue.y-state.venue.h/2, state.venue.w, state.venue.h); }
-  else if(typeof fitStage==="function"){ fitStage(); }
-  render();
+  guardDocumentReplacement({skipConfirm:!!options.skipConfirm,reason:"modello "+V[1],
+    title:"Creare il modello «"+V[1]+"»?",confirmText:"Crea modello"},function(){
+    if(!beginNewDocument({titolo:V[1],luogo:V[1],stage:{w:P.sw,d:P.sd,blocks:[{x:0,y:0,w:P.sw,d:P.sd,h:(P.h||60)}]},items:[],inputs:[],outputs:[]},
+        {skipRecovery:true,reason:"modello "+V[1]})) return;
+    state.stage={ w:P.sw, d:P.sd, blocks:[{x:0,y:0,w:P.sw,d:P.sd,h:(P.h||60)}] };
+    if(typeof recalcStageBBox==="function") recalcStageBBox();
+    var qd = (typeof formationData==="function") ? formationData(P.form||"band") : null;
+    if(qd && qd.out){ placeOut(qd.out, false, false, true); }   /* band centrata sul palco, senza ridimensionarlo */
+    try{ drawVenuePlan(V[1], P); }catch(_e){}
+    state.titolo=V[1]; state.luogo=V[1];
+    if(typeof clearSelection==="function") clearSelection();
+    save();
+    var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+    try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
+    var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;
+    render();
+    if(typeof fitTo==="function" && state.venue){ fitTo(state.venue.x-state.venue.w/2, state.venue.y-state.venue.h/2, state.venue.w, state.venue.h); }
+    else if(typeof fitStage==="function"){ fitStage(); }
+    render();
+    if(typeof options.after==="function") options.after();
+  });
+  return true;
 }
 /* Disegna la pianta di una venue con la sua FORMA reale (ellisse/trapezio/rettangolo/arena) come immagine di sfondo. */
 function drawVenuePlan(name, P){
@@ -10259,7 +10997,7 @@ function sectionDotMarkup(it){
      cabla verso una stage box, NON si sposta il musicista (per spostarli si va nel layer Musicisti).
      Un pallino per seduta = un cavo per musicista. */
   var cabEdit = (techDotSoloId()==="cabin") && state.cab && !state.cab.lockIn && !window.__cabStatic;
-  var s='<g class="item secdot'+(cabEdit?' secdot-wire':'')+'" data-id="'+it.id+'" transform="translate('+it.x+' '+it.y+')">';
+  var s='<g class="item secdot'+(cabEdit?' secdot-wire':'')+'" data-id="'+esc(it.id)+'" transform="translate('+it.x+' '+it.y+')">';
   seats.forEach(function(o,i){
     var rx=(o[0]*c-o[1]*sn), ry=(o[0]*sn+o[1]*c);
     if(cabEdit){
@@ -10466,7 +11204,7 @@ function renderCoverList(){
   h+='<div class="cov-svc">Per il service: '+esc(svc)+'</div><div class="cov-list">';
   cov.forEach(function(it){
     var t=TYPES[it.type]||{}, nCov=coveredBy(it).length;
-    h+='<button type="button" class="cov-item'+((sel===it.id)?' on':'')+'" data-id="'+it.id+'">'+
+    h+='<button type="button" class="cov-item'+((sel===it.id)?' on':'')+'" data-id="'+esc(it.id)+'">'+
          '<span class="cov-nm">'+esc(coverName(it))+'</span>'+
          '<span class="cov-dim">'+gazLabel(it.w||t.w,it.d||t.d)+' m · h'+fm(coverH(it))+'</span>'+
          '<span class="cov-area">'+(nCov?("copre "+nCov):"vuota")+'</span></button>';
@@ -10491,11 +11229,13 @@ function renderMusAccList(){
   el.innerHTML="";
   var ppl=(state.items||[]).filter(function(x){ return musLayerItem(x.type); });
   if(!ppl.length){ el.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun musicista sul palco.</div>'; return; }
+  var contactCells=new Map();
   ppl.forEach(function(x){
     var row=document.createElement("div"); row.className="insp-row"; row.style.cursor="pointer";
     row.setAttribute("data-mus", x.id);
     var b=document.createElement("b"); b.textContent=_icName(x);
     var sm=document.createElement("small"); sm.className="mus-c"; sm.textContent="—";
+    contactCells.set(String(x.id),sm);
     row.appendChild(b); row.appendChild(sm);
     row.addEventListener("click", function(){ selectOne(x.id); render(); if(typeof ensureVisible==="function") ensureVisible(); });
     el.appendChild(row);
@@ -10509,7 +11249,7 @@ function renderMusAccList(){
       ppl.forEach(function(x){
         var cid=map[x.id]; if(!cid) return;
         var c=(rows||[]).filter(function(r){ return r.id===cid; })[0]; if(!c) return;
-        var cell=el.querySelector('[data-mus="'+x.id+'"] .mus-c'); if(cell) cell.textContent=c.name||"—";
+        var cell=contactCells.get(String(x.id)); if(cell) cell.textContent=c.name||"—";
       });
     });
   });
@@ -11423,7 +12163,7 @@ function renderInspectorB(){
     if(_over){   /* avviso AZIONABILE (coerente col pattern audit): indica come risolvere e porta lì */
       var _boxEl=(state.items||[]).find(function(it){ return typeof cabIsBox==="function" && cabIsBox(it); });
       s+= _boxEl
-        ? '<div class="insp-fix" onclick="window.__fixStagebox(\''+_boxEl.id+'\')">Aumenta la capacità della stage box →</div>'
+        ? '<div class="insp-fix" data-fix-stagebox="'+esc(_boxEl.id)+'">Aumenta la capacità della stage box →</div>'
         : '<div class="insp-fix insp-fix-static">Aggiungi una stage box più capiente (catalogo › Audio › Stagebox e cablaggio)</div>';
     }
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
@@ -11463,6 +12203,10 @@ function renderInspectorB(){
      pannelli si aprono/chiudono col CLICK SUL NOME DEL LAYER nel Layer manager. */
   pg.innerHTML="";
 }
+document.addEventListener("click", function(e){
+  var b=e.target.closest&&e.target.closest(".insp-fix[data-fix-stagebox]"); if(!b) return;
+  window.__fixStagebox(b.getAttribute("data-fix-stagebox"));
+});
 function renderAccessoriCount(){
   renderLayerManager();
   renderInspectorB();
@@ -11612,7 +12356,30 @@ function venueDefault(){ return {enabled:true,locked:false,name:"",x:0,y:0,w:500
 function safeVenueDataUrl(u){
   return (typeof u==="string" && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(u)) ? u : "";
 }
-function normalizeVenue(v){ if(!v) return null; var o=Object.assign(venueDefault(), v); if(o._dataUrl!=null) o._dataUrl=safeVenueDataUrl(o._dataUrl); return o; }
+function normalizeVenue(v){
+  if(!v||typeof v!=="object"||Array.isArray(v)) return null;
+  var o=venueDefault();
+  function num(x,f,min,max){ x=Number(x); return isFinite(x)?Math.max(min,Math.min(max,x)):f; }
+  o.enabled=v.enabled!==false; o.locked=v.locked===true;
+  o.name=(typeof v.name==="string"||typeof v.name==="number")?String(v.name).slice(0,160):"";
+  o.x=num(v.x,0,-10000000,10000000); o.y=num(v.y,0,-10000000,10000000);
+  o.w=num(v.w,5000,1,10000000); o.h=num(v.h,3500,1,10000000);
+  o.rot=num(v.rot,0,-360000,360000)%360; o.opacity=num(v.opacity,40,0,100);
+  if(v.calibration && typeof v.calibration==="object" && !Array.isArray(v.calibration)){
+    var c={}, rc=Number(v.calibration.realCm), rw=Number(v.calibration.realW);
+    if(isFinite(rc)&&rc>0&&rc<=10000000) c.realCm=rc;
+    if(isFinite(rw)&&rw>0&&rw<=10000000) c.realW=rw;
+    ["p1","p2"].forEach(function(k){ var p=v.calibration[k];
+      if(p&&typeof p==="object"&&isFinite(Number(p.x))&&isFinite(Number(p.y)))
+        c[k]={x:num(p.x,0,-10000000,10000000),y:num(p.y,0,-10000000,10000000)}; });
+    if(Object.keys(c).length) o.calibration=c;
+  }
+  var du=safeVenueDataUrl(v._dataUrl); if(du) o._dataUrl=du;
+  var iw=Number(v._imgW), ih=Number(v._imgH);
+  if(isFinite(iw)&&iw>0&&iw<=100000) o._imgW=Math.round(iw);
+  if(isFinite(ih)&&ih>0&&ih<=100000) o._imgH=Math.round(ih);
+  return o;
+}
 
 /* il punto (mondo) cade sulla planimetria? — hit-test geometrico, indipendente da pointer-events/lock */
 function venueHitTest(sp){
@@ -11624,12 +12391,14 @@ function venueHitTest(sp){
 function venueMarkup(){
   var v=state.venue; if(!v) return '';
   var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return '';   /* seconda barriera: rivalida al render */
-  var op=((v.opacity||40)/100).toFixed(2);
-  var hw=v.w/2, hh=v.h/2;
+  function n(x,f){ x=Number(x); return isFinite(x)?x:f; }
+  var x=n(v.x,0), y=n(v.y,0), w=Math.max(1,n(v.w,1)), h=Math.max(1,n(v.h,1)), rot=n(v.rot,0);
+  var op=(Math.max(0,Math.min(100,n(v.opacity,40)))/100).toFixed(2);
+  var hw=w/2, hh=h/2;
   var pe=v.locked?'none':'auto';
-  var s='<image href="'+durl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+v.w+'" height="'+v.h+'"';
+  var s='<image href="'+durl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+w+'" height="'+h+'"';
   s+=' opacity="'+op+'" pointer-events="'+pe+'"';
-  s+=' transform="translate('+v.x+','+v.y+') rotate('+((v.rot||0))+')"';
+  s+=' transform="translate('+x+','+y+') rotate('+rot+')"';
   if(!v.locked) s+=' class="venue-img" data-venue="1"';
   s+='/>';
   /* punti calibrazione */
@@ -11733,12 +12502,29 @@ function renderFramePanel(){
 /* ===== Versioni salvate ===== */
 var VER_KEY='stageplot_versions';
 function loadVersions(){ try{ return JSON.parse(localStorage.getItem(VER_KEY)||'[]'); }catch(e){ return []; } }
-function saveVersion(name){
+function saveVersion(name,includeImages){
   var vs=loadVersions();
-  vs.unshift({name:name||'Versione', date:Date.now(), data:stateToJSON()});
+  var C=window.__cloud, cid=(C&&typeof C.currentId==="function")?(C.currentId()||null):(window.__bootCloudId||null);
+  var row={name:name||'Versione', date:Date.now(), cloudId:cid};
+  if(includeImages || foreignDoc()){
+    /* Recovery prima di un'azione distruttiva e sessioni consulenza devono essere autosufficienti:
+       se la quota non basta, il caller riceve false e non procede. */
+    row.data=docToJSONFull();
+  } else {
+    row.data=docToJSON();
+    var sig=venueImageBundleSig();
+    if(sig){
+      var staged=(sig===venuePersistedSig&&venuePersistedKey)?{sig:sig,key:venuePersistedKey}:stageVenueImg();
+      if(!staged||!staged.key||staged.sig!==sig) return false;
+      try{ if(!localStorage.getItem(staged.key)) return false; }catch(_venueReadErr){ return false; }
+      row.venueSig=sig; row.venueKey=staged.key;
+    }
+  }
+  vs.unshift(row);
   if(vs.length>30) vs=vs.slice(0,30);
-  try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); }catch(e){}
+  try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); }catch(e){ return false; }
   renderVersionPanel();
+  return true;
 }
 function deleteVersion(idx){
   var vs=loadVersions(); vs.splice(idx,1);
@@ -11747,8 +12533,28 @@ function deleteVersion(idx){
 }
 function restoreVersion(idx){
   var vs=loadVersions(); if(!vs[idx]) return;
-  applyHistory(vs[idx].data);
-  render();
+  try{
+    var parsed=JSON.parse(vs[idx].data);   /* errore leggibile prima di qualsiasi side effect */
+    var prepared=prepareDoc(parsed);
+    var versionVenue=null;
+    if(vs[idx].venueSig){
+      if(typeof vs[idx].venueKey!=="string" || vs[idx].venueKey.indexOf(LS_KEY_VENUE+".")!==0) throw new Error("Version venue ref");
+      var venueRaw=localStorage.getItem(vs[idx].venueKey); if(!venueRaw) throw new Error("Version venue missing");
+      versionVenue=normalizeVenueImageBundle(JSON.parse(venueRaw),prepared.active);
+      if(!versionVenue || venueImageBundleSig(versionVenue)!==vs[idx].venueSig) throw new Error("Version venue mismatch");
+    }
+    var C=window.__cloud, current=(C&&C.currentId)?(C.currentId()||null):(window.__bootCloudId||null);
+    /* Anche gli snapshot legacy piatti attraversano il confine documento. Un record storico senza project ID
+       non deve ereditare l'aggancio cloud corrente e sovrascrivere un progetto diverso al prossimo autosave. */
+    var sameCloud=!!(vs[idx].cloudId && current && vs[idx].cloudId===current);
+    guardDocumentReplacement({reason:"ripristinare una versione",title:"Ripristinare «"+String(vs[idx].name||"Versione").slice(0,60)+"»?",
+      confirmText:"Ripristina"},function(){
+      activatePreparedProject(prepared,{keepCloud:sameCloud,persist:false,autosave:false});
+      if(versionVenue) replaceVenueImageBundle(versionVenue);
+      reattachVenueImg(state,activeVar); resetHistory(); save();
+      render();
+    });
+  }catch(e){ if(window.__toast) window.__toast("Versione non valida o non più compatibile.",true); }
 }
 function renderVersionPanel(){
   var p=document.getElementById('versPanel'); if(!p) return;
@@ -11814,32 +12620,46 @@ document.getElementById("frameSavePdf").addEventListener("click", function(){ en
 document.getElementById("frameSavePng").addEventListener("click", function(){ ensurePrintFrame(); exportPng(); saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); });
 document.getElementById("frameSaveCsv").addEventListener("click", function(){ if(window.openCsvExport) window.openCsvExport(); });
 
+var venueLoadSeq=0;
 function venueLoadFile(file){
   if(!file) return;
+  var request=++venueLoadSeq, requestEpoch=window.__docEpoch||0, requestVariant=String(activeVar||"");
+  function stillCurrent(){
+    return request===venueLoadSeq && requestEpoch===(window.__docEpoch||0) && requestVariant===String(activeVar||"");
+  }
   var rd=new FileReader();
   rd.onload=function(){
-    if(!state.venue) state.venue=venueDefault();
-    state.venue.name=file.name;
+    if(!stillCurrent()) return;
+    var source=String(rd.result||"");
     /* dimensioni immagine → w/h iniziale in cm (1px=1cm, utente calibra dopo) */
     var img=new Image();
     img.onload=function(){
+      if(!stillCurrent()) return;
       /* downscale a ~2000px lato lungo + ricompressione JPEG: tiene l'immagine salvabile (quota localStorage, payload cloud) */
-      var MAXS=2000, iw=img.naturalWidth, ih=img.naturalHeight, durl=String(rd.result);
+      var MAXS=2000, iw=img.naturalWidth, ih=img.naturalHeight, durl=source;
       if(Math.max(iw,ih)>MAXS){
         var sc=MAXS/Math.max(iw,ih), cw=Math.round(iw*sc), ch=Math.round(ih*sc);
         var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
-        cv.getContext("2d").drawImage(img,0,0,cw,ch);
-        try{ durl=cv.toDataURL("image/jpeg",0.85); iw=cw; ih=ch; }catch(e){}
+        var cg=cv.getContext("2d");
+        if(cg){ cg.drawImage(img,0,0,cw,ch);
+          try{ durl=cv.toDataURL("image/jpeg",0.85); iw=cw; ih=ch; }catch(e){}
+        }
       }
+      if(!stillCurrent()) return;   /* il downscale può essere costoso: ricontrolla prima del commit */
+      durl=safeVenueDataUrl(durl);
+      if(!durl){ if(window.__toast) window.__toast("Formato planimetria non supportato.",true); return; }
+      if(!state.venue) state.venue=venueDefault();
+      state.venue.name=String(file.name||"").slice(0,160);
       state.venue._dataUrl=durl; state.venue._imgW=iw; state.venue._imgH=ih;
       if(!state.venue.calibration){ state.venue.w=iw; state.venue.h=ih; }
-      cacheVenueImg(state.venue);   /* per il re-attach dopo undo/redo (gli snapshot non contengono il base64) */
-      persistVenueImg();            /* salva l'immagine nella chiave dedicata (sopravvive a reload e login) */
+      cacheVenueImg(state.venue,requestVariant);   /* per il re-attach dopo undo/redo (gli snapshot non contengono il base64) */
       save(); renderVenuePanel(); render();
       if(!state.venue.calibration) venueCalibStart();   /* UX B: appena importata, si parte subito con la scala */
     };
-    img.src=String(rd.result);
+    img.onerror=function(){ if(stillCurrent() && window.__toast) window.__toast("Impossibile leggere la planimetria selezionata.",true); };
+    img.src=source;
   };
+  rd.onerror=function(){ if(stillCurrent() && window.__toast) window.__toast("Impossibile leggere il file selezionato.",true); };
   rd.readAsDataURL(file);
 }
 
@@ -12041,23 +12861,28 @@ window.confirmDialog=confirmDialog;
 
 /* ============ FILE: nuovo / json / png ============ */
 document.getElementById("bNew").addEventListener("click", function(){
+  if(window.__consultMode){
+    if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Usa Esporta recupero se ti serve una copia.",true);
+    return;
+  }
   confirmDialog({
     icon:"warn", title:"Nuovo stage plot?",
     message:"Quello attuale verrà cancellato. Salva o esporta prima se vuoi conservarlo.",
     confirmText:"Cancella e ricomincia"
   }).then(function(ok){
     if(!ok) return;
-    /* normalizeState: senza, lo stato nuovo non ha cab/elec/namesMode/… → layerRegistry (state.cab.on)
-       crasha al primo render, fit() aborta prima di setEventInputs (titolo non resettato) e drag/render
-       restano rotti. Normalizzando, il foglio nuovo è completo e coerente. */
-    state=normalizeState({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
-    VARIANTS=[]; activeVar=null; ensureVariants();   /* T6: foglio nuovo = documento a variante singola (scarta le varianti del progetto precedente) */
-    if(typeof renderVariantBar==="function") renderVariantBar();
-    resetMetaLayersUI();   /* foglio nuovo: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
-    try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* foglio nuovo = progetto nuovo: senza lo stacco, l'autosave sovrascriverebbe il progetto aperto col foglio vuoto */
-    stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
-    setEventInputs(); renderChannels();
-    resetCatalogView();   /* foglio nuovo = catalogo in stato di partenza */
+    guardDocumentReplacement({skipConfirm:true,allowBlockedDiscard:true,reason:"nuovo progetto"},function(){
+      window.__docLoadBlocked=null;   /* scelta esplicita: abbandona l'eventuale documento locale incompatibile */
+      /* Un solo confine documento: scarta anche varianti inattive, metadati root, contatti, routing e cache
+         del progetto precedente, oltre a invalidare ogni save asincrono ancora in volo. */
+      if(!beginNewDocument({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]},
+          {skipRecovery:true,reason:"nuovo progetto"})) return;
+      if(typeof renderVariantBar==="function") renderVariantBar();
+      resetMetaLayersUI();   /* foglio nuovo: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
+      stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
+      setEventInputs(); renderChannels();
+      resetCatalogView();   /* foglio nuovo = catalogo in stato di partenza */
+    });
   });
 });
 /* Auto-ricompattamento RIMOSSO (07/07, scelta Simone): le categorie restano aperte finché non ne apri
@@ -12338,6 +13163,46 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     else { el.textContent="Non condiviso"; el.className="share-state"; }
   }
   var _shareIsCurrent=true;   /* la modale può aprirsi anche per un ALTRO progetto (lista I miei progetti): lì niente permessi/anteprima */
+  var sharePermissionsBusy=false;
+  function setShareActionsEnabled(enabled){
+    ["shareCopy","shareEmail","shareWa","shareNative","shareShowQr","shareUnshare"].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.disabled=!enabled;
+    });
+    var oc=document.getElementById("shareOptCopy"), ok=document.getElementById("shareOptContacts");
+    if(oc) oc.disabled=!enabled; if(ok) ok.disabled=!enabled;
+  }
+  function commitShareOption(control,key,value){
+    if(sharePermissionsBusy) return;
+    var old=state.shareOpts[key], oldUrl=urlEl.value, C=window.__cloud, optionEpoch=window.__docEpoch||0;
+    if(window.__projLocked){
+      control.checked=old===true || (key==="copy"&&old!==false);
+      status("Sblocca il progetto prima di modificare i permessi del link.");
+      return;
+    }
+    state.shareOpts[key]=value; sharePermissionsBusy=true; setShareActionsEnabled(false); urlEl.value=""; qrSeq++;
+    var qr=document.getElementById("shareQrImg"), qrWrap=document.getElementById("shareQrWrap");
+    if(qr){ qr.src=""; qr.style.display="none"; } if(qrWrap) qrWrap.style.display="none";
+    status("Aggiornamento permessi…");
+    save();
+    function finish(ok){
+      if(optionEpoch!==(window.__docEpoch||0)){ sharePermissionsBusy=false; setShareActionsEnabled(true); return; }
+      sharePermissionsBusy=false; setShareActionsEnabled(true);
+      if(ok){
+        if(C&&C.user&&C.user()){ fillShareModal(oldUrl); status("✓ Permessi aggiornati online."); }
+        else { fillShareModal(buildShareUrl()); shareBadge("istantanea"); }
+      } else {
+        /* Una risposta di rete persa non prova che il CAS sia fallito: il server potrebbe avere già
+           pubblicato il nuovo valore. Non mentire ripristinando solo la UI locale e non mostrare il
+           link finché revisione e contenuto non vengono riallineati. */
+        control.checked=value===true || (key==="copy"&&value!==false);
+        urlEl.value=""; setShareActionsEnabled(false);
+        var revoke=document.getElementById("shareUnshare"); if(revoke) revoke.disabled=false;
+        status("Esito non verificato: non usare il link. Puoi revocarlo subito oppure riallineare il progetto al cloud.");
+      }
+    }
+    if(C&&C.user&&C.user()&&typeof window.flushCloudAutosave==="function") window.flushCloudAutosave(finish);
+    else finish(true);
+  }
   function shareFillExtras(){
     var mini=document.getElementById("shareMini"), intro=document.getElementById("shareIntro"), perms=document.getElementById("sharePerms");
     if(intro) intro.style.display=_shareIsCurrent?"flex":"none";
@@ -12345,31 +13210,63 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     if(!_shareIsCurrent) return;
     if(mini){ try{ mini.innerHTML=stageSceneSvg(null,{focus:"clean"}); var sv=mini.querySelector("svg"); if(sv){ sv.setAttribute("width","120"); sv.setAttribute("height","84"); sv.style.maxWidth="100%"; sv.style.maxHeight="100%"; } }catch(_e){ mini.textContent=""; } }
     var oc=document.getElementById("shareOptCopy"), ok=document.getElementById("shareOptContacts");
-    if(oc){ oc.checked=state.shareOpts.copy!==false; oc.onchange=function(){ state.shareOpts.copy=oc.checked; save(); }; }
-    if(ok){ ok.checked=state.shareOpts.contacts===true; ok.onchange=function(){ state.shareOpts.contacts=ok.checked; save(); }; }
+    if(oc){ oc.checked=state.shareOpts.copy!==false; oc.onchange=function(){ commitShareOption(oc,"copy",oc.checked); }; }
+    if(ok){ ok.checked=state.shareOpts.contacts===true; ok.onchange=function(){ commitShareOption(ok,"contacts",ok.checked); }; }
+    if(window.__projLocked){ if(oc) oc.disabled=true; if(ok) ok.disabled=true; }
   }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
   var qrSeq = 0;              /* progressivo delle richieste QR (guardia anti-race) */
-  function showForProject(id){
+  var shareRequestSeq = 0;    /* copre l'intera pipeline save → token → URL */
+  function shareRequestCurrent(seq,id){
+    return seq===shareRequestSeq && !modal.hidden && (!id||shareTargetId===id);
+  }
+  function invalidateShareRequest(){
+    shareRequestSeq++; qrSeq++; shareTargetId=null;
+  }
+  function closeShare(){
+    invalidateShareRequest(); modal.hidden=true;
+  }
+  function showForProject(id,request){
+    var seq=request||++shareRequestSeq;
     shareTargetId = id;
     window.__cloud.ensureShareTokenFor(id, function(tok){
-      if(!tok){ fillShareModal(buildShareUrl()); return; }   /* fallback offline */
+      if(!shareRequestCurrent(seq,id)) return;
+      if(!tok){
+        var C=window.__cloud;
+        if(_shareIsCurrent && C && C.currentId && C.currentId()===id){
+          fillShareModal(buildShareUrl()); shareBadge("istantanea");
+        } else status("Impossibile preparare il link. Riprova.");
+        return;
+      }
       fillShareModal(location.origin+location.pathname+"?view="+encodeURIComponent(tok));
       showUnshare(true);
     });
   }
   /* Aperto dal modulo cloud (icona Condividi per riga) con un progetto già salvato. */
-  window.__shareUi = { showForProject: function(id){ modal.hidden=false; _shareIsCurrent=false; shareFillExtras(); status("Preparazione link…"); showUnshare(false); showForProject(id); } };
+  window.__shareUi = { showForProject: function(id){
+    var request=++shareRequestSeq;
+    modal.hidden=false; _shareIsCurrent=false; shareFillExtras(); status("Preparazione link…"); showUnshare(false);
+    showForProject(id,request);
+  } };
   function openShare(){
-    var C=window.__cloud;
+    var C=window.__cloud, request=++shareRequestSeq, sourceEpoch=window.__docEpoch||0;
     modal.hidden=false;
     _shareIsCurrent=true; shareFillExtras();
     if(C && C.user()){
       status("Preparazione link…"); showUnshare(false);
+      save();   /* cattura anche l'ultimo input prima della pipeline */
       C.save(function(id){
-        if(!id){ status(""); return; }
-        showForProject(id);
+        if(request!==shareRequestSeq || modal.hidden || sourceEpoch!==(window.__docEpoch||0)) return;
+        if(!id || !C.currentId || C.currentId()!==id){ status("Condivisione sospesa: il progetto non è stato salvato."); return; }
+        function ready(ok){
+          if(request!==shareRequestSeq || modal.hidden || sourceEpoch!==(window.__docEpoch||0) || C.currentId()!==id) return;
+          if(!ok){ status("Condivisione sospesa: le ultime modifiche non sono online."); return; }
+          showForProject(id,request);
+        }
+        /* C.save può aver serializzato uno snapshot mentre l'utente continuava a editare: pubblica il token
+           soltanto dopo che la coda autosave conferma lo stato più recente. */
+        if(window.flushCloudAutosave) window.flushCloudAutosave(ready); else ready(true);
       });
       return;
     }
@@ -12407,23 +13304,39 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      versione dal menu — confondevano). Sotto il cofano resta uno snapshot versione SILENZIOSO:
      rete di sicurezza gratuita, zero carico cognitivo. */
   function fileSaveCloud(){
-    save();
-    try{ var d=new Date(); saveVersion("Versione "+d.getDate()+"/"+(d.getMonth()+1)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")); }catch(e){}
+    if(window.__consultMode){
+      var liveSave=document.getElementById("viewSave"); if(liveSave&&!liveSave.disabled) liveSave.click();
+      if(window.__toast) window.__toast("Salvataggio consulenza richiesto.");
+      return;
+    }
+    var localOk=save();
+    if(localOk){
+      try{ var d=new Date(); saveVersion("Versione "+d.getDate()+"/"+(d.getMonth()+1)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")); }catch(e){}
+    }
     if(window.__cloud && window.__cloud.user && window.__cloud.user()){
-      if(window.flushCloudAutosave) window.flushCloudAutosave();
-      if(window.__toast) window.__toast("Salvato sul cloud.");
+      if(window.flushCloudAutosave) window.flushCloudAutosave(function(ok){
+        if(!window.__toast) return;
+        if(ok) window.__toast(localOk?"✓ Salvato sul dispositivo e sul cloud.":"✓ Salvato sul cloud; la copia locale non è disponibile.",!localOk);
+        else window.__toast(localOk
+          ?"Salvataggio cloud non riuscito: il progetto resta sul dispositivo."
+          :"Salvataggio non riuscito né sul dispositivo né sul cloud. Esporta subito il progetto.",true);
+      });
     } else if(window.__toast){
-      window.__toast("Salvato su questo dispositivo. Accedi per salvarlo sul cloud.");
+      window.__toast(localOk
+        ?"Salvato su questo dispositivo. Accedi per salvarlo sul cloud."
+        :"Salvataggio sul dispositivo non riuscito. Esporta subito il progetto.",!localOk);
     }
   }
   window.fileSaveVersion=fileSaveCloud;   /* alias legacy: ⌘S e vecchi call site puntano qui */
   function fileMakeCopy(){
     var C=window.__cloud;
     if(!(C&&C.user())){ proxyClick("bCloud"); return; }   /* la copia è un concetto cloud: prima accedi */
-    C.setCurrentId(null);
+    detachCloudDoc();   /* nuova identità: invalida anche un eventuale INSERT senza ID ancora in volo */
     state.titolo=(state.titolo||"Senza titolo")+" — copia";
     setEventInputs(); save();
-    if(window.flushCloudAutosave) window.flushCloudAutosave();
+    if(window.flushCloudAutosave) window.flushCloudAutosave(function(ok){
+      if(window.__toast) window.__toast(ok?"✓ Copia creata nel cloud.":"Copia non ancora salvata nel cloud; resta sul dispositivo.",!ok);
+    });
   }
   bindMenu("fileBtn","fileMenu"); bindMenu("helpBtn","helpMenu");
   (function(){
@@ -12442,7 +13355,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       else if(a==="feedback"){ if(typeof window.openFeedbackBox==="function") window.openFeedbackBox(); else proxyClick("fbTrigger"); }
     }); });
   })();
-  document.getElementById("shareClose").addEventListener("click", function(){ modal.hidden=true; });
+  document.getElementById("shareClose").addEventListener("click", closeShare);
   /* — pulsanti header: Save as / Importa — */
   document.getElementById("bHdrPdf").addEventListener("click", function(){
     var open=!(saveAsOpen||frameEdit);
@@ -12461,10 +13374,21 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      pillole. Chiamata da ENTRAMBI gli ingressi dell'export: header (bHdrPdf) e menu File/Condividi
      (bPdf) — dal solo header la pagina "Responsabilità" non veniva mai offerta via menu. */
   window.preloadRespData=function(){
-    try{ var Cx=window.__cloud, px=Cx&&Cx.currentId&&Cx.currentId();
-      if(Cx&&Cx.user&&Cx.user()&&px){ Cx.deptAssign.list(px, function(a){ Cx.rubrica.list(function(r){ window.__respData={assigns:a||{}, rubrica:r||[]}; if(typeof pdfRefreshPages==="function") pdfRefreshPages(); }); }); }
+    var request=window.__respLoadSeq=(window.__respLoadSeq||0)+1; window.__respData=null;
+    try{ var Cx=window.__cloud, ux=Cx&&Cx.user&&Cx.user(), px=Cx&&Cx.currentId&&Cx.currentId(), userId=ux&&ux.id;
+      function current(){ var Cn=window.__cloud, un=Cn&&Cn.user&&Cn.user();
+        return request===window.__respLoadSeq && Cn&&Cn.currentId&&Cn.currentId()===px && un&&un.id===userId; }
+      if(userId&&px){ Cx.deptAssign.list(px, function(a){ if(!current()) return;
+        Cx.rubrica.list(function(r){ if(!current()) return;
+          window.__respData={projectId:px,userId:userId,assigns:a||{},rubrica:r||[]};
+          if(typeof pdfRefreshPages==="function") pdfRefreshPages();
+        }); }); }
       else window.__respData=null;
     }catch(e){ window.__respData=null; }
+  };
+  window.currentRespData=function(){
+    var rd=window.__respData, Cx=window.__cloud, ux=Cx&&Cx.user&&Cx.user(), px=Cx&&Cx.currentId&&Cx.currentId();
+    return rd&&ux&&rd.userId===ux.id&&rd.projectId===px?rd:null;
   };
   /* frameSaveJson rimosso (A′): il download del progetto vive in File → Scarica file progetto */
   (function(){ var fv=document.getElementById("frameVers"); if(fv) fv.addEventListener("click", toggleVersionEdit); })();
@@ -12483,10 +13407,10 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   (function(){ var fs=document.getElementById("frameShare"); if(fs) fs.addEventListener("click", function(){ openShare(); }); })();
   document.getElementById("bHdrImport").addEventListener("click", function(){ document.getElementById("importJson").click(); });
   document.getElementById("shareTabLink").addEventListener("click", function(){ openShare(); });
-  document.getElementById("shareTabPdf").addEventListener("click", function(){ modal.hidden=true; document.getElementById("bPdf").click(); });
-  document.getElementById("shareGoPdf").addEventListener("click", function(){ modal.hidden=true; document.getElementById("bPdf").click(); });
-  modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
-  document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
+  document.getElementById("shareTabPdf").addEventListener("click", function(){ closeShare(); document.getElementById("bPdf").click(); });
+  document.getElementById("shareGoPdf").addEventListener("click", function(){ closeShare(); document.getElementById("bPdf").click(); });
+  modal.addEventListener("click", function(e){ if(e.target===modal) closeShare(); });
+  document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") closeShare(); });
   function copy(){ var url=urlEl.value;
     function done(){ status("✓ Link copiato — incollalo dove vuoi."); }
     if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done, function(){ urlEl.select(); document.execCommand("copy"); done(); }); }
@@ -12502,10 +13426,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   }); })();
   (function(){ var ub=document.getElementById("shareUnshare"); if(ub) ub.addEventListener("click", function(){
     var C=window.__cloud; if(!C || !shareTargetId) return;
-    C.clearShareTokenFor(shareTargetId, function(ok){
+    var target=shareTargetId, request=shareRequestSeq;
+    C.clearShareTokenFor(target, function(ok){
+      if(!shareRequestCurrent(request,target)) return;
       if(ok){ status("Condivisione revocata."); urlEl.value=""; showUnshare(false);
         var q=document.getElementById('shareQrImg'); if(q){ q.style.display='none'; q.src=''; } }
-      else status("Revoca non riuscita.");
+      else if(ok===null) status("Esito della revoca non verificato: non usare il link e riprova quando la connessione è disponibile.");
+      else status("Revoca non riuscita: il link risulta ancora attivo.");
     });
   }); })();
   document.getElementById("shareEmail").addEventListener("click", function(){
@@ -12542,8 +13469,19 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var f=e.target.files && e.target.files[0]; e.target.value="";
     if(!f) return;
     var rd=new FileReader();
-    rd.onload=function(){ try{ importProject(String(rd.result)); io(""); modal.hidden=true; }
-                          catch(err){ io("✗ File non valido: non è un progetto Stage Plot.", true); } };
+    rd.onload=function(){
+      var prepared;
+      try{
+        var parsed=JSON.parse(String(rd.result));
+        if(!parsed||typeof parsed!=="object") throw new Error("Formato non valido");
+        prepared=prepareDoc(parsed);   /* valida interamente prima di chiedere di sostituire il documento */
+      }catch(err){ io("✗ File non valido: non è un progetto Stage Plot.", true); return; }
+      guardDocumentReplacement({reason:"aprire "+String(f.name||"un file").slice(0,60),
+        title:"Aprire questo progetto?",confirmText:"Apri progetto"},function(){
+        activatePreparedProject(prepared);
+        io(""); closeShare();
+      });
+    };
     rd.onerror=function(){ io("✗ Impossibile leggere il file.", true); };
     rd.readAsText(f);
   });
@@ -12625,10 +13563,17 @@ aiTemplatesBlock()
       if((m=v.match(/#d=([^&\s]+)/))) obj=JSON.parse(b64urlToStr(m[1]));
       else if((m=v.match(/#p=([^&\s]+)/))) obj=JSON.parse(LZString.decompressFromEncodedURIComponent(m[1]));
       else obj=JSON.parse(v);
-      obj.items=sanitizeItems(obj.items);
-      state=normalizeState(obj);
-      ensureItemIds();
-      clearSelection(); setEventInputs(); renderChannels(); save(); fit(); modal.hidden=true;
+      if(!obj || typeof obj!=="object" || Array.isArray(obj) || obj._doc===1 || Array.isArray(obj.variants))
+        throw new Error("Formato AI non valido");
+      var aiDoc=JSON.parse(JSON.stringify(obj));
+      aiDoc.items=sanitizeItems(aiDoc.items);
+      var prepared=prepareDoc(aiDoc);   /* validazione completa prima di qualunque side effect */
+      guardDocumentReplacement({reason:"caricare il progetto AI",title:"Sostituire il progetto con quello generato?",
+        message:"Verrà creato un punto di recupero e completato il salvataggio cloud prima di aprire il progetto generato.",
+        confirmText:"Apri progetto"},function(){
+          activatePreparedProject(prepared);
+          clearSelection(); setEventInputs(); renderChannels(); fit(); modal.hidden=true;
+        });
     }catch(e){ status("Non riconosciuto: incolla il link #d=… o il JSON che ti dà ChatGPT."); }
   });
 })();
@@ -13068,7 +14013,7 @@ function todefinePdf(shared){
 /* Decisione 5A: pagina "Responsabilità" del rider — reparto → azienda (pubblici), + referenti
    che l'utente ha pubblicato esplicitamente (opt-in). Persone non pubblicate restano nell'account. */
 function responsabilitaPdf(shared){
-  var rd=window.__respData;
+  var rd=window.currentRespData?window.currentRespData():null;
   if(!rd || !rd.assigns){ if(!shared) alert("Nessuna responsabilità assegnata (assegnala in File → Produzione)."); return; }
   var deps=(typeof productionDepts==="function")?productionDepts():[];
   var byId={}; (rd.rubrica||[]).forEach(function(c){ byId[c.id]=c; });
@@ -14870,7 +15815,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:"Rider tecnico"}); }   /* T2: rider generato dai dati */
-    try{ var rd=window.__respData; if(rd && rd.assigns && typeof productionDepts==="function"){
+    try{ var rd=window.currentRespData?window.currentRespData():null; if(rd && rd.assigns && typeof productionDepts==="function"){
       var hasResp=productionDepts().some(function(d){ return (rd.assigns[d.key]||[]).some(function(a){ return a.role==="__azienda__"; }); });
       if(hasResp) pages.push({key:"responsabilita", label:"Responsabilità (produzione)"});
     } }catch(_e){}
@@ -15100,8 +16045,7 @@ function pdfChannelPage(doc, L, paperKey){
 })();
 /* ============ DEMO (?demo=1) ============ */
 function demo(){
-  try{ window.__bootCloudId=null; localStorage.removeItem(LS_KEY+"_cloudid"); if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* ?demo=1 (QA): documento NUOVO — mai sovrascrivere il progetto cloud aperto */
-  state=normalizeState({titolo:"Demo — band + archi",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});   /* normalizeState: senza, lo stato demo non ha cab/elec/zones/… e addItem/layerRegistry crashano (come per "Nuovo") */
+  beginNewDocument({titolo:"Demo — band + archi",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
   resetMetaLayersUI();
   addItem("pedana",{x:600,y:170,w:300,d:200,h:60,label:"Drum riser"});
   addItem("batteria",{x:600,y:160,label:""});
@@ -15149,6 +16093,11 @@ function gallery(){
 (function(){
   var vt = new URLSearchParams(location.search).get("view");
   if(!vt) return;   /* flusso normale invariato */
+  /* Il bearer link è un confine documento già dal primo tick: rete/auth possono impiegare secondi.
+     Senza questa marcatura sincrona, un click potrebbe persistere il foglio transitorio sopra
+     l'ultimo progetto locale prima della risposta Edge. */
+  window.__consultMode=true;
+  document.body.classList.add("viewmode","consult-pending");
   var SB_URL="https://vsodplqkuvnsdiikvmjb.supabase.co";
   var SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
   var ADMIN_ID="4b899cba-3cc2-4b26-9ef0-c3e915929277";
@@ -15161,40 +16110,85 @@ function gallery(){
       whenSupabase(function(){
         var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});
         sb.auth.getSession().then(function(res){
-          var user=res&&res.data&&res.data.session?res.data.session.user:null;
+          var session=res&&res.data&&res.data.session?res.data.session:null;
+          var user=session?session.user:null;
           var isEditor = !!(user && user.id===ADMIN_ID);
-          startSession(sb, vt, d, isEditor);
+          if(!isEditor){ startSession(sb, vt, d, false); return; }
+          /* La prima GET anonima è intenzionalmente redatta. Solo il JWT dell'admin può ottenere
+             documento completo, varianti e contatti per l'editor di consulenza. */
+          fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt),{
+            headers:{"Authorization":"Bearer "+session.access_token}
+          }).then(function(r){ if(!r.ok) throw new Error("admin load"); return r.json(); })
+            .then(function(full){ if(!full||full.error||full.kind!=="consultation") throw new Error("admin load");
+              startSession(sb,vt,full,true);
+            }).catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— accesso consulente non disponibile"); });
         });
       });
     })
     .catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— errore di caricamento"); });
 
   function startSession(sb, token, d, isEditor){
-    if(!isEditor){ document.body.classList.add("viewmode"); window.__consultMode=true; document.body.classList.add("consult-viewer"); }   /* 1C: il cliente vede la channel list live (read-only) — preserva i dati */
-    if(isEditor){ window.__consultMode=true; document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
-    importProject(JSON.stringify(d.data));
+    document.body.classList.remove("consult-pending","consult-viewer","consult-editor");
+    if(!isEditor){ document.body.classList.add("viewmode","consult-viewer"); }   /* 1C: il cliente vede la channel list live (read-only) — preserva i dati */
+    if(isEditor){ document.body.classList.remove("viewmode"); document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
+    importProject(JSON.stringify(d.data),{keepCloud:true,persist:false,autosave:false});
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
+    if(isEditor && d.is_locked && window.applyProjLock) window.applyProjLock(true);
     var ch=sb.channel("consulenza:"+token, {config:{broadcast:{self:false}, presence:{key:isEditor?"editor":"viewer"}}});
-    if(isEditor){
-      window.__rtBroadcast=function(s){ ch.send({type:"broadcast", event:"state", payload:{json:s}}); };
-    } else {
-      ch.on("broadcast", {event:"state"}, function(m){ if(m.payload&&m.payload.json) applyRemoteState(m.payload.json); });
-    }
-    ch.on("presence", {event:"sync"}, function(){ updatePresence(ch, isEditor); });
+    /* Il canale pubblico non è un'autorità per il documento: un viewer potrebbe inviare broadcast arbitrari
+       e le planimetrie superano facilmente i limiti payload Realtime. Lo stato live arriva esclusivamente
+       dall'Edge Function dopo il CAS; Realtime resta solo un indicatore non autorevole di presenza. */
+    if(isEditor) window.__rtBroadcast=function(){};
+    else setupTrustedViewerRefresh(token,d.updated_at);
+    ch.on("presence", {event:"sync"}, function(){
+      updatePresence(ch, isEditor);
+    });
     ch.subscribe(function(status){
       if(status==="SUBSCRIBED"){
         ch.track({role:isEditor?"editor":"viewer", at:Date.now()});
         if(isEditor && window.__rtBroadcast) window.__rtBroadcast(stateToJSON());
       }
     });
-    showBar(isEditor?"editor":"viewer", "");
-    if(isEditor) setupAutosave(sb, token);
+    showBar(isEditor?"editor":"viewer", isEditor&&d.is_locked?"progetto bloccato · sola lettura":"");
+    if(isEditor && d.is_locked){
+      var lockedSave=document.getElementById("viewSave"); if(lockedSave){ lockedSave.disabled=true; lockedSave.title="Il progetto è bloccato"; }
+    } else if(isEditor) setupAutosave(sb, token, d.updated_at);
     window.__role=isEditor?"editor":"viewer";
+  }
+
+  function setupTrustedViewerRefresh(token,initialRevision){
+    var revision=typeof initialRevision==="string"?initialRevision:null, busy=false, lastConfirmed=Date.now();
+    function meta(text){ var m=document.getElementById("viewMeta"); if(m) m.textContent=text||""; }
+    function fresh(label){ lastConfirmed=Date.now(); meta(label||"in diretta"); }
+    function stale(){
+      var seconds=Math.max(1,Math.round((Date.now()-lastConfirmed)/1000));
+      meta("connessione interrotta · dati non verificati da "+seconds+"s");
+    }
+    function refresh(){
+      if(busy||document.hidden) return; busy=true;
+      var url="https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/get-shared-project?token="+encodeURIComponent(token);
+      if(revision) url+="&since="+encodeURIComponent(revision);
+      fetch(url)
+        .then(function(r){ if(!r.ok) throw new Error("refresh"); return r.json(); })
+        .then(function(next){
+          busy=false;
+          if(!next||next.error||next.kind!=="consultation"||!next.updated_at) throw new Error("refresh");
+          if(next.unchanged===true || next.updated_at===revision){ fresh("in diretta"); return; }
+          try{
+            importProject(JSON.stringify(next.data),{keepCloud:true,persist:false,autosave:false});
+            if(window.__applyVenueImage) window.__applyVenueImage(next.venue_image);
+            revision=next.updated_at;
+            fresh("aggiornato");
+          }catch(e){ stale(); }
+        }).catch(function(){ busy=false; stale(); });
+    }
+    setInterval(refresh,2500);
+    document.addEventListener("visibilitychange",function(){ if(!document.hidden) refresh(); else meta("aggiornamenti in pausa"); });
   }
 
   function startSharedProject(token, d){
     document.body.classList.add("viewmode");
-    importProject(JSON.stringify(d.data));
+    importProject(JSON.stringify(d.data),{keepCloud:true,persist:false,autosave:false});
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
     try{ setupViewerTabs(); }catch(e){}   /* T3: tab liste tecniche (Input/Monitor/Carichi/RF/Backline) nel link condiviso */
     try{ var vs=document.getElementById("viewStatus"); if(vs){ var si=statusInfo(state.status); vs.hidden=false; vs.textContent=si.label; vs.style.background=si.color; vs.style.color="#fff"; } }catch(e){}   /* T5: badge stato nel link condiviso */
@@ -15208,16 +16202,8 @@ function gallery(){
     cp.addEventListener("click", function(){
       var C=window.__cloud;
       if(C && C.user()){
-        C.setCurrentId(null);
-        try{ state.titolo="Copia di "+(d.title||"progetto"); }catch(e){}
-        C.save(function(id){
-          if(!id) return;
-          document.body.classList.remove("viewmode");
-          try{ if(window.persistLocalState) window.persistLocalState(); }catch(e){}   /* la copia diventa il documento locale (senza, un reload riporterebbe il progetto precedente) */
-          try{ history.replaceState(null,"",location.pathname); }catch(e){}
-          var bar=document.getElementById("viewBar"); if(bar) bar.style.display="none";
-          if(window.__toast) window.__toast("✓ Copia creata nel tuo account.");
-        });
+        if(C.copySharedToken) C.copySharedToken(token);   /* INSERT remoto isolato: non tocca binding/mirror/slot locale */
+        else if(window.__toast) window.__toast("Copia non disponibile. Riprova dopo aver riaperto la pagina.",true);
       } else {
         try{ sessionStorage.setItem("copyFromToken", token); }catch(e){}
         if(C && C.signIn) C.signIn();
@@ -15235,79 +16221,182 @@ function gallery(){
   }
   function updatePresence(ch, isEditor){
     var st=ch.presenceState(); var roles=[]; Object.keys(st).forEach(function(k){ (st[k]||[]).forEach(function(p){ roles.push(p.role); }); });
-    var other = isEditor ? (roles.indexOf("viewer")>-1?"cliente connesso":"cliente non connesso")
-                         : (roles.indexOf("editor")>-1?"consulente connesso":"consulente non connesso");
+    /* Presence sul canale pubblico è solo indicativa: non attribuire un'identità/ruolo verificato. */
+    var other = roles.length>1 ? "altro partecipante online" : "nessun altro partecipante";
     var el=document.getElementById("viewPresence"); if(el) el.textContent="● "+other;
   }
-  function setupAutosave(sb, token){
+  function setupAutosave(sb, token, initialRevision){
     var sv=document.getElementById("viewSave");
-    var t=null, lastSent=null;
+    var recoveryExport=document.getElementById("viewExport");
+    if(recoveryExport) recoveryExport.addEventListener("click",function(){ var b=document.getElementById("saveJson"); if(b) b.click(); });
+    var t=null, retryT=null, retryStep=0, retryDelays=[3000,10000,30000,60000], inFlight=false, dirty=false, conflict=false;
+    var expectedRevision=(typeof initialRevision==="string"&&initialRevision)?initialRevision:null;
+    var confirmedSnapshot=null, confirmedVenueSnapshot=null;
+    var DATA_MAX=5*1024*1024, VENUE_MAX=15*1024*1024;
+    function meta(text){ var m=document.getElementById("viewMeta"); if(m) m.textContent=text; }
+    function bytes(text){ try{ return new TextEncoder().encode(text).byteLength; }catch(e){ return unescape(encodeURIComponent(text)).length; } }
+    function capture(){
+      var dataJson=docToJSON(), bundle=venueImageBundle();
+      var venueJson=Object.keys(bundle.images||{}).length?JSON.stringify(bundle):null;
+      if(bytes(dataJson)>DATA_MAX){ var de=new Error("documento troppo grande"); de.code="DATA_TOO_LARGE"; throw de; }
+      if(venueJson&&bytes(venueJson)>VENUE_MAX){ var ve=new Error("planimetrie troppo grandi"); ve.code="VENUE_TOO_LARGE"; throw ve; }
+      return {data:JSON.parse(dataJson),venue_image:venueJson,dataSnapshot:dataJson,
+        venueSnapshot:venueJson||"",snapshot:dataJson+"\n"+(venueJson||"")};
+    }
+    function scheduleRetry(){
+      if(conflict||retryT) return;
+      var delay=retryDelays[Math.min(retryStep,retryDelays.length-1)]; retryStep++;
+      retryT=setTimeout(function(){ retryT=null; if(dirty&&!inFlight) doSave(); },delay);
+    }
+    function failed(message){
+      inFlight=false; dirty=true; meta(message||"non salvato — nuovo tentativo automatico"); scheduleRetry();
+    }
+    function freezeSession(message,toastMessage){
+      conflict=true; inFlight=false; dirty=true;
+      clearTimeout(t); clearTimeout(retryT); retryT=null;
+      var backed=false;
+      try{ backed=typeof saveVersion==="function" &&
+        saveVersion("Recupero consulenza "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}),true); }catch(e){}
+      window.__projLocked=true; document.body.classList.add("proj-ro","consult-conflict");
+      if(sv) sv.disabled=true;
+      if(recoveryExport) recoveryExport.hidden=false;
+      meta((message||"salvataggio sospeso")+(backed
+        ?" · recupero locale creato; ricarica per riallinearti"
+        :" · NON ricaricare: esporta subito File → Scarica progetto"));
+      if(window.__toast) window.__toast(toastMessage||(backed
+        ?"Salvataggio sospeso. È stato creato un punto di recupero locale."
+        :"Recupero locale non disponibile: non ricaricare la pagina; esporta subito il progetto."),true);
+    }
     function doSave(){
-      var data; try{ data=JSON.parse(JSON.stringify(state)); }catch(e){ return; } data._v=SCHEMA_VERSION;   /* serializzazione COMPLETA: include la planimetria (_dataUrl), coerente col cloud-save; +versione R-ORA-1 */
-      var snap=JSON.stringify(data); if(snap===lastSent) return; lastSent=snap;
-      var m=document.getElementById("viewMeta"); if(m) m.textContent="salvataggio…";
+      if(conflict){ meta("conflitto — ricarica la sessione"); return; }
+      if(inFlight){ dirty=true; return; }
+      var payload;
+      try{ payload=capture(); }
+      catch(e){
+        freezeSession(e&&e.code==="VENUE_TOO_LARGE"?"planimetrie oltre il limite di salvataggio":"documento oltre il limite di salvataggio",
+          "Il progetto è troppo grande per l’autosalvataggio della consulenza. Esportalo prima di chiudere.");
+        return;
+      }
+      if(payload.snapshot===confirmedSnapshot){ dirty=false; retryStep=0; clearTimeout(retryT); retryT=null; meta("salvato"); return; }
+      if(!expectedRevision){
+        freezeSession("revisione mancante","Salvataggio sospeso: manca la revisione del progetto.");
+        return;
+      }
+      var body={data:payload.data,expected_revision:expectedRevision};
+      var sendsVenue=payload.venueSnapshot!==confirmedVenueSnapshot;
+      if(sendsVenue) body.venue_image=payload.venue_image;   /* omesso = invariato; null = cancellazione esplicita */
+      inFlight=true; dirty=false; meta("salvataggio…");
       sb.auth.getSession().then(function(res){
         var jwt=res&&res.data&&res.data.session?res.data.session.access_token:"";
+        if(!jwt){ freezeSession("sessione scaduta","Sessione consulente scaduta: salvataggio sospeso."); return; }
         fetch("https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/save-shared-project?token="+encodeURIComponent(token),{
-          method:"POST", headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"}, body:JSON.stringify({data:data})
-        }).then(function(r){return r.json();}).then(function(j){ if(m) m.textContent=j.ok?"salvato":"non salvato"; })
-          .catch(function(){ if(m) m.textContent="non salvato"; });
-      });
+          method:"POST", headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+          body:JSON.stringify(body)
+        }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status,ok:r.ok,body:j}; }); })
+          .then(function(result){
+            if(result.status===409 || (result.body&&result.body.code==="REVISION_CONFLICT")){
+              freezeSession("conflitto con una versione più recente",
+                "Il progetto è stato modificato altrove. Salvataggio sospeso.");
+              return;
+            }
+            if(result.status===423 || (result.body&&result.body.code==="PROJECT_LOCKED")){
+              freezeSession("progetto bloccato","Il progetto è stato bloccato: nessuna modifica è stata sovrascritta.");
+              return;
+            }
+            if([400,401,403,404,405,413].indexOf(result.status)>=0){
+              var terminal=result.status===413?"payload oltre il limite":
+                (result.status===401||result.status===403)?"sessione non autorizzata":
+                result.status===404?"sessione non più disponibile":"payload rifiutato dal server";
+              freezeSession(terminal,"Salvataggio della consulenza sospeso: "+terminal+".");
+              return;
+            }
+            if(!result.ok || !result.body || !result.body.ok || !result.body.updated_at){ failed("non salvato"); return; }
+            expectedRevision=result.body.updated_at;
+            confirmedSnapshot=payload.snapshot;
+            confirmedVenueSnapshot=payload.venueSnapshot;
+            inFlight=false; retryStep=0; clearTimeout(retryT); retryT=null;
+            if(dirty){
+              clearTimeout(t); t=setTimeout(doSave,0);   /* serializzato: la versione più recente segue quella confermata */
+            } else meta("salvato");
+          })
+          .catch(function(){ failed("non salvato"); });
+      }).catch(function(){ freezeSession("sessione non verificabile","Sessione consulente non verificabile: salvataggio sospeso."); });
+    }
+    try{
+      var initial=capture(); confirmedSnapshot=initial.snapshot; confirmedVenueSnapshot=initial.venueSnapshot;
+    }catch(initialErr){
+      setTimeout(function(){ freezeSession(initialErr&&initialErr.code==="VENUE_TOO_LARGE"
+        ?"planimetrie oltre il limite di salvataggio":"documento oltre il limite di salvataggio",
+        "Questo progetto supera i limiti della consulenza: esportalo prima di chiudere."); },0);
     }
     var prev=window.__rtBroadcast;
-    window.__rtBroadcast=function(s){ if(prev) prev(s); clearTimeout(t); t=setTimeout(doSave, 10000); };
-    if(sv) sv.addEventListener("click", function(){ clearTimeout(t); doSave(); });
+    window.__consultDirty=function(){ if(conflict) return; dirty=true; retryStep=0; clearTimeout(retryT); retryT=null; clearTimeout(t); t=setTimeout(doSave,2000); };
+    window.__rtBroadcast=function(s,forceVenue){ if(prev) prev(s,forceVenue); window.__consultDirty(); };
+    if(sv) sv.addEventListener("click", function(){ dirty=true; clearTimeout(t); doSave(); });
+    window.addEventListener("beforeunload",function(e){
+      if(!dirty&&!inFlight) return;
+      e.preventDefault(); e.returnValue="";
+    });
+    window.addEventListener("online",function(){ if(dirty&&!conflict){ clearTimeout(retryT); retryT=null; retryStep=0; doSave(); } });
+    document.addEventListener("visibilitychange",function(){ if(!document.hidden&&dirty&&!conflict&&!inFlight) doSave(); });
   }
 
   window.__startSession=startSession;
 })();
-var sharedLoaded=loadFromHash();   /* link condiviso: carica il progetto dall'URL */
+var hasSharedHash=!!(location.hash&&/[#&][pd]=/.test(location.hash)), localBootDone=false;
+/* Per un link hash, carica prima l'eventuale lavoro locale: il guard può così crearne recovery e flush
+   prima di aprire lo snapshot esterno come copia. */
+if(hasSharedHash && !/[?&]view=/.test(location.search)){ load(); localBootDone=true; }
+var sharedLoaded=!/[?&]view=/.test(location.search) && loadFromHash();   /* ?view= è autorevole: hash e scenari non possono sostituirlo */
 /* A′ (UI/UX 02/07): all'avvio si RIPRISTINA l'ultimo lavoro da localStorage (modello Docs/Excalidraw —
    il chip "Salvato sul dispositivo" deve dire il vero, e su mobile il browser ricarica i tab da solo).
    Il foglio pulito ora è un gesto esplicito: File → Nuovo. Niente ripristino per link condivisi (#p=)
    e sessioni consulenza (?view=), che portano il proprio stato. */
-if(!sharedLoaded && !/[?&]view=/.test(location.search)) load();
-if(location.search.indexOf("demo=1")>-1) demo();
-if(location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */
+if(!sharedLoaded && !/[?&]view=/.test(location.search) && !localBootDone) load();
+/* Parametri di scenario/demo e link documento sono mutuamente esclusivi. Un URL combinato non deve
+   mutare lo state transitorio mentre il viewer o il guard del link stanno ancora caricando. */
+var allowStartupScenario=!/[?&]view=/.test(location.search) && !hasSharedHash;
+if(allowStartupScenario && location.search.indexOf("demo=1")>-1) demo();
+if(allowStartupScenario && location.search.indexOf("orch=1")>-1){     /* QA: organico standard completo */
+  beginNewDocument({titolo:"Orchestra sinfonica — organico standard",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
   var c={}; ORCH_DEF.forEach(function(s){ c[s.id]=s.def; });
-  state.titolo="Orchestra sinfonica — organico standard";
   genOrchestra(c, true, true, true);
 }
-var qStrings=(location.search.match(/strings=([0-9.,-]+)/)||[])[1];   /* QA: ?strings=8,6,4,4,2 */
+var qStrings=allowStartupScenario?(location.search.match(/strings=([0-9.,-]+)/)||[])[1]:null;   /* QA: ?strings=8,6,4,4,2 */
 if(qStrings){
   var sv=qStrings.split(/[.,-]/).map(function(x){ return parseInt(x,10)||0; });
-  state.titolo="Organico archi — "+sv.slice(0,5).join(".");
+  beginNewDocument({titolo:"Organico archi — "+sv.slice(0,5).join("."),luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
   genStringOrganico({v1:sv[0]||0,v2:sv[1]||0,vle:sv[2]||0,vc:sv[3]||0,cb:sv[4]||0},
     {podio:true, stereo:true}, true, true, true);
 }
 /* QA formazioni: ?form=band|acoustic|coro|quartetto|camera|sinfonica_ridotta|sinfonica|jazzcombo|bigband|orchband|orchcoro */
-var qForm=(location.search.match(/form=(\w+)/)||[])[1];
+var qForm=allowStartupScenario?(location.search.match(/form=(\w+)/)||[])[1]:null;
 if(qForm){
   var qd=formationData(qForm);
-  if(qd){ try{ window.__bootCloudId=null; localStorage.removeItem(LS_KEY+"_cloudid"); if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(e){}   /* ?form= (QA): documento NUOVO — mai riagganciare/sovrascrivere il progetto cloud aperto (incidente 10/07) */
-    state.titolo=FORM_TITLES[qForm]||qForm; placeOut(qd.out, true, true, true);
+  if(qd){ beginNewDocument({titolo:FORM_TITLES[qForm]||qForm,luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
+    placeOut(qd.out, true, true, true);
     state.inputs=qd.inp.map(normalizeChannelRow);
     state.outputs=qd.outp.map(normalizeChannelRow);
-    linkChannelsToItems(); }   /* aggancia patch→oggetti per il test del link */
+    linkChannelsToItems(); save(); }   /* aggancia patch→oggetti per il test del link */
 }
 /* Modelli pubblici (landing SEO /stage-plot/…): ?model=<key> apre l'editor con la formazione pronta.
    Alias per gli slug delle landing esistenti (orchestra→camera, chiesa/festival→coro/band). */
 var MODEL_ALIAS={orchestra:"camera", chiesa:"coro", festival:"band", acustica:"acoustic", jazz:"jazzcombo"};
-var qModel=(location.search.match(/model=([\w-]+)/)||[])[1];
+var qModel=allowStartupScenario?(location.search.match(/model=([\w-]+)/)||[])[1]:null;
 if(qModel){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(typeof formationData==="function" && formationData(mkResolved)) startFromTemplate(mkResolved); }
 setEventInputs();
 normalizeState(state); renderChannels();
-if(location.search.indexOf("inputaudit=1")>-1){   /* QA: un esemplare di ogni sorgente + Auto */
-  state.items=[];
+if(allowStartupScenario && location.search.indexOf("inputaudit=1")>-1){   /* QA: un esemplare di ogni sorgente + Auto */
+  beginNewDocument({titolo:"QA input audit",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
   Object.keys(IN_SRC).concat(Object.keys(IN_MULTI)).forEach(function(k){ if(TYPES[k]) addItem(k); });
   autoInputs();
 }
-var qPdfUi=(location.search.match(/pdfui=(a[234])/)||[])[1];
+var qPdfUi=allowStartupScenario?(location.search.match(/pdfui=(a[234])/)||[])[1]:null;
 if(qPdfUi){ document.getElementById("pdfPaper").value=qPdfUi;
   var qpo=(location.search.match(/orient=(portrait|landscape)/)||[])[1]; if(qpo) document.getElementById("pdfOrient").value=qpo;
   document.getElementById("pdfModal").hidden=false;
   document.getElementById("pdfPaper").dispatchEvent(new Event("change")); }
-var qPdfGen=(location.search.match(/pdfgen=(a[234])/)||[])[1];
+var qPdfGen=allowStartupScenario?(location.search.match(/pdfgen=(a[234])/)||[])[1]:null;
 if(qPdfGen){ if(!state.items.length){ demo(); }   /* demo() popola gia' input/output list */
   var qgo=(location.search.match(/orient=(portrait|landscape)/)||[])[1]||"landscape";
   var gn=resolveScale(qPdfGen,"auto",qgo);
@@ -15315,20 +16404,22 @@ if(qPdfGen){ if(!state.items.length){ demo(); }   /* demo() popola gia' input/ou
   else buildPdfDoc(qPdfGen, gn, qgo, "QA header test").then(function(doc){ document.title="PDFOK pages="+doc.internal.getNumberOfPages()+" scale=1:"+gn+" bytes="+doc.output("arraybuffer").byteLength;
     if(location.search.indexOf("dump=1")>-1){ var ta=document.createElement("div"); ta.id="pdfb64"; ta.style.display="none"; ta.textContent=doc.output("datauristring"); document.body.appendChild(ta); } })
     .catch(function(e){ document.title="PDFERR "+(e&&e.message||e); }); }
-if(location.search.indexOf("shapeqa=2")>-1){   /* QA: palco con fronte a semicerchio */
-  state.stage.blocks=[{x:0,y:0,w:1200,d:700,h:100},{shape:"semi",flat:"top",x:300,y:700,w:600,d:300}]; recalcStageBBox(); fit();
+if(allowStartupScenario && location.search.indexOf("shapeqa=2")>-1){   /* QA: palco con fronte a semicerchio */
+  beginNewDocument({titolo:"QA palco semicerchio",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
+  state.stage.blocks=[{x:0,y:0,w:1200,d:700,h:100},{shape:"semi",flat:"top",x:300,y:700,w:600,d:300}]; recalcStageBBox(); save(); fit();
 }
-else if(location.search.indexOf("shapeqa=1")>-1){   /* QA: palco a T quotato + altezza */
-  state.stage.blocks=[{x:0,y:0,w:1200,d:800,h:100},{x:500,y:800,w:200,d:300}]; recalcStageBBox(); fit();
+else if(allowStartupScenario && location.search.indexOf("shapeqa=1")>-1){   /* QA: palco a T quotato + altezza */
+  beginNewDocument({titolo:"QA palco a T",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
+  state.stage.blocks=[{x:0,y:0,w:1200,d:800,h:100},{x:500,y:800,w:200,d:300}]; recalcStageBBox(); save(); fit();
 }
-if(location.search.indexOf("rotqa=1")>-1){ demo(); var f=state.items[10]||state.items[0]; if(f){ selectOne(f.id); fit(); } }
-if(location.search.indexOf("icone=1")>-1){ gallery(); }
-else if(location.search.indexOf("export=1")>-1){   /* QA: anteprima del PNG esportato (planimetria + channel list) */
+if(allowStartupScenario && location.search.indexOf("rotqa=1")>-1){ demo(); var f=state.items[10]||state.items[0]; if(f){ selectOne(f.id); fit(); } }
+if(allowStartupScenario && location.search.indexOf("icone=1")>-1){ gallery(); }
+else if(allowStartupScenario && location.search.indexOf("export=1")>-1){   /* QA: anteprima del PNG esportato (planimetria + channel list) */
   var ex=buildExportSvg();
   document.body.style.cssText="display:block;margin:0;background:#888";
   document.body.innerHTML='<div style="padding:16px">'+ex.svgStr.replace('<svg ','<svg style="width:100%;height:auto;background:#fff" ')+'</div>';
 }
-else if(location.search.indexOf("json=1")>-1){   /* QA: anteprima del JSON di progetto (formato 2, per il 3D) */
+else if(allowStartupScenario && location.search.indexOf("json=1")>-1){   /* QA: anteprima del JSON di progetto (formato 2, per il 3D) */
   document.body.style.cssText="display:block;margin:0";
   document.body.innerHTML='<pre style="font:11px/1.45 Menlo,monospace;padding:14px;white-space:pre-wrap">'+
     esc(JSON.stringify(buildProjectJson(),null,2))+'</pre>';
@@ -15356,7 +16447,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     host.innerHTML="";
     START_MODELS.forEach(function(m){
       var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
-      b.addEventListener("click", function(){ startFromTemplate(m[0]); if(after) after(); });
+      b.addEventListener("click", function(){ startFromTemplate(m[0],{after:after}); });
       host.appendChild(b);
     });
   }
@@ -15401,26 +16492,77 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   var SUPABASE_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
 
-  var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[];   /* adotta l'aggancio persistito dal boot (load()) */
+  var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[], cloudOpenSeq=0, cloudProjectsLoadSeq=0;   /* adotta l'aggancio persistito dal boot (load()) */
+  var authGeneration=0, authUserId=null;
+  function setCloudUser(next){
+    var nextId=next&&next.id?String(next.id):null;
+    if(nextId!==authUserId){
+      authGeneration++; authUserId=nextId; cloudProjects=[];
+      cloudOpenSeq++; cloudProjectsLoadSeq++;
+      if(typeof authReconcileSeq==="number") authReconcileSeq++;
+      if(Array.isArray(cloudWriteQueue) && cloudWriteQueue.length){
+        cloudWriteQueue.splice(0).forEach(function(w){ try{ if(typeof w.cb==="function") w.cb(null); }catch(e){} });
+      }
+      rubCache=null; icCache={}; daCache={}; window.__respData=null;
+      window.__respLoadSeq=(window.__respLoadSeq||0)+1;
+    }
+    cloudUser=next||null;
+  }
+  function authStill(userId,generation){
+    return generation===authGeneration && !!cloudUser && cloudUser.id===userId;
+  }
+  var cloudWriteBusy=false, cloudWriteQueue=[], cloudWriteIdleWaiters=[];   /* un solo INSERT/UPDATE alla volta: evita duplicati e falsi conflitti */
+  function notifyCloudWriteIdle(){
+    if(cloudWriteBusy||cloudWriteQueue.length) return;
+    var q=cloudWriteIdleWaiters.splice(0); q.forEach(function(fn){ try{ fn(); }catch(e){} });
+  }
+  function drainCloudWriteQueue(){
+    while(cloudWriteQueue.length){
+      var n=cloudWriteQueue.shift();
+      if((window.__docEpoch||0)!==n.epoch){ try{ if(typeof n.cb==="function") n.cb(null); }catch(e){} if(cloudWriteBusy) return; continue; }
+      saveProject(n.cb,n.silent); return;
+    }
+    notifyCloudWriteIdle();
+  }
   /* ── Guardia di versione (decisione 11/07, opzione A): il save cloud è condizionale su updated_at.
      cloudRev = updated_at dell'ultima lettura/scrittura del progetto agganciato; se il server ha una
      rev diversa, NON si sovrascrive e si apre la barra di conflitto. Con la migration 0011 (trigger
      touch su updated_at) la guardia è attiva; senza, updated_at non cambia mai → guardia inerte. */
-  var cloudRev=null; try{ cloudRev=localStorage.getItem(LS_KEY+"_cloudrev")||null; }catch(e){}
+  var cloudRev=window.__bootCloudMeta ? (window.__bootCloudRev||null) : null;
+  if(!window.__bootCloudMeta){ try{ cloudRev=localStorage.getItem(LS_KEY+"_cloudrev")||null; }catch(e){} }
   var cloudConflict=false, confBar=null;
   /* PERF planimetria (0013): l'immagine sta in una colonna dedicata `venue_image`, scritta SOLO quando cambia.
      firma leggera dell'immagine corrente; se combacia con l'ultima scritta nel cloud, non la ri-carichiamo. */
   var _lastCloudImgSig=null;
-  function venueImgSig(v){ return (v && v._dataUrl) ? ((v.name||"")+"|"+v._dataUrl.length) : ""; }
-  function venueImgField(){ var v=state.venue; return (v && v._dataUrl) ? JSON.stringify({name:v.name,_dataUrl:v._dataUrl,_imgW:v._imgW,_imgH:v._imgH}) : null; }
-  function applyVenueImage(raw){   /* applica `venue_image` (dal cloud) allo state + cache/persist locale per il reload */
+  function venueImgSig(){ return venueImageBundleSig(); }
+  function venueImgField(){ var b=venueImageBundle(); return Object.keys(b.images).length?JSON.stringify(b):null; }
+  function safeVenueImageField(raw,fallbackBundle,legacyActive){
+    var key=legacyActive||activeVar;
+    var b=normalizeVenueImageBundle(raw,key) || normalizeVenueImageBundle(fallbackBundle,key);
+    return b ? JSON.stringify(b) : null;
+  }
+  function remoteProjectContentInfo(rawData,rawVenue){
+    var prepared=prepareDoc(JSON.parse(JSON.stringify(rawData)));
+    var doc=JSON.parse(JSON.stringify(documentEnvelope(prepared.active,prepared.variants,prepared.extra),stateReplacer));
+    var inline=venueImageBundleFromVariants(prepared.variants,prepared.active);
+    var bundle=normalizeVenueImageBundle(rawVenue,prepared.active)||normalizeVenueImageBundle(inline,prepared.active);
+    var venueSig=bundle?venueImageBundleSig(bundle):"";
+    return {sig:projectContentSig(doc,venueSig),venueSig:venueSig};
+  }
+  function applyVenueImage(raw, deferPersist){   /* applica `venue_image` (dal cloud) allo state + cache/persist locale per il reload */
     if(!raw) return false;
-    try{ var vi=JSON.parse(raw); if(vi && vi._dataUrl){ var _du=safeVenueDataUrl(vi._dataUrl); if(!_du) return false;   /* difesa in profondità: sanitizza il _dataUrl dal cloud all'ingresso, come normalizeVenue (audit 15/07) */ state.venue=state.venue||{name:vi.name}; state.venue._dataUrl=_du; state.venue._imgW=vi._imgW; state.venue._imgH=vi._imgH;
-      if(typeof cacheVenueImg==="function") cacheVenueImg(state.venue); if(typeof persistVenueImg==="function") persistVenueImg(); return true; } }catch(e){}
-    return false;
+    try{ var b=normalizeVenueImageBundle(raw,activeVar); if(!b || !replaceVenueImageBundle(b)) return false;
+      var cur=b.images[String(activeVar)]; if(cur && !state.venue) state.venue=normalizeVenue({name:cur.name,_dataUrl:cur._dataUrl,_imgW:cur._imgW,_imgH:cur._imgH});
+      reattachVenueImg(state,activeVar);
+      window.__bootVenueUnavailable=false;
+      if(!deferPersist && typeof persistVenueImg==="function") persistVenueImg();
+      if(typeof renderVenuePanel==="function") renderVenuePanel();
+      if(typeof render==="function") render();   /* importProject ha renderizzato prima dell'attachment dedicato */
+      return true; }catch(e){ return false; }
   }
   window.__applyVenueImage=applyVenueImage;   /* usato dal viewer condiviso (IIFE separato) per mostrare la planimetria */
-  function setRev(v){ cloudRev=v||null; try{ if(v) localStorage.setItem(LS_KEY+"_cloudrev", v); else localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(e){} }
+  function setRev(v){ cloudRev=v||null; window.__bootCloudRev=cloudRev;
+    try{ if(v) localStorage.setItem(LS_KEY+"_cloudrev", v); else localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(e){} }
   function exitConflict(){ cloudConflict=false; window.__cloudConflict=false; if(confBar){ confBar.remove(); confBar=null; } }
   function enterConflict(){
     cloudConflict=true; window.__cloudConflict=true;
@@ -15433,25 +16575,42 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       +'<button type="button" id="cbCopy">Continua qui come copia</button>';
     document.body.appendChild(confBar);
     confBar.querySelector("#cbLoad").addEventListener("click", function(){
-      /* rete di sicurezza: il lavoro locale finisce nella cronologia versioni prima di essere rimpiazzato */
-      try{ if(typeof saveVersion==="function") saveVersion("Prima dell'aggiornamento "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})); }catch(e){}
-      sb.from("stageplot_projects").select("data,title,updated_at,venue_image").eq("id",cloudCurrentId).single().then(function(r){
+      /* Rete di sicurezza multi-variante (incluse planimetrie). Se lo snapshot non entra nello storage,
+         non sostituire il lavoro locale. */
+      var backed=false;
+      try{ backed=typeof saveVersion==="function" && saveVersion("Prima dell'aggiornamento "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}),true); }catch(e){}
+      if(!backed){ toast("Impossibile creare il punto di recupero locale. Esporta il progetto prima di caricare la versione cloud.",true); return; }
+      var conflictId=cloudCurrentId, conflictEpoch=window.__docEpoch||0;
+      var conflictSnapshot=docToJSON(), conflictVenueSig=venueImageBundleSig();
+      sb.from("stageplot_projects").select("data,title,updated_at,venue_image,is_locked").eq("id",conflictId).single().then(function(r){
         if(r.error||!r.data){ toast("Caricamento non riuscito. Riprova.", true); return; }
+        if(cloudCurrentId!==conflictId || (window.__docEpoch||0)!==conflictEpoch){ return; }   /* risposta appartenente a un progetto già abbandonato */
+        if(docToJSON()!==conflictSnapshot || venueImageBundleSig()!==conflictVenueSig){
+          toast("Hai modificato il progetto durante il caricamento. La versione locale è rimasta aperta; riprova.",true); return;
+        }
         try{
-          importProject(JSON.stringify(r.data.data));
-          var gi=applyVenueImage(r.data.venue_image); _lastCloudImgSig = gi ? venueImgSig(state.venue) : ((state.venue && state.venue._dataUrl) ? "__migrate__" : "");
-          setRev(r.data.updated_at); exitConflict(); persistLocalState();
+          importProject(JSON.stringify(r.data.data), {keepCloud:true, autosave:false});
+          if(r.data.title!=null){ state.titolo=String(r.data.title).slice(0,120); if(typeof setEventInputs==="function") setEventInputs(); }
+          var gi=applyVenueImage(r.data.venue_image,true); _lastCloudImgSig = gi ? venueImgSig(state.venue) : ((state.venue && state.venue._dataUrl) ? "__migrate__" : "");
+          if(!r.data.venue_image && !state.venue){ window.__bootVenueUnavailable=false; }
+          setRev(r.data.updated_at);
+          window.__bootCloudSig=projectContentSig(JSON.parse(docToJSON()),venueImgSig()); window.__bootCloudSigKnown=true; window.__bootCloudPending=false;
+          if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);
+          exitConflict(); var localOk=persistLocalState(true); if(localOk!==false) persistVenueImg();
+          if(window.__markCloudClean) window.__markCloudClean();
           if(window.setDocState) window.setDocState("online");
           toast("✓ Caricata la versione più recente.");
         }catch(e){ toast("Il progetto salvato non è valido.", true); }
-      });
+      }, function(){ toast("Caricamento non riuscito. Riprova.",true); });
     });
     confBar.querySelector("#cbCopy").addEventListener("click", function(){
-      cloudCurrentId=null; setRev(null);
+      detachCloudDoc();   /* nuova identità: invalida INSERT/UPDATE e callback del progetto in conflitto */
       try{ state.titolo=((state.titolo||"Senza titolo")+" (copia)").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
-      exitConflict(); persistLocalState();
-      saveProject(function(){ if(window.setDocState) window.setDocState("online"); }, true);   /* nasce subito il progetto-copia */
-      toast("Da qui in poi lavori su una copia separata.");
+      exitConflict(); save();
+      flushCloudAutosave(function(ok){
+        if(ok){ if(window.setDocState) window.setDocState("online"); toast("✓ Copia separata creata nel cloud."); }
+        else { if(window.setDocState) window.setDocState("error"); toast("La copia resta sul dispositivo: il salvataggio cloud non è riuscito e verrà ritentato.",true); }
+      });   /* nasce subito il progetto-copia; il coordinatore conserva gli edit arrivati durante l'INSERT */
     });
   }
   /* ---- Analytics minimi (spec 2026-07-03): spedizione centralizzata ---- */
@@ -15477,11 +16636,11 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       props.mobile=(typeof isMobile==="function")?isMobile():false;
       props.app_version=window.__APP_VERSION__||"";
       props.env=analyticsEnv();   /* prod / localhost / other — per filtrare il rumore di sviluppo nelle metriche */
-      var rec={ event:row.event, session_id:analyticsSessionId(), user_id:cloudUser?cloudUser.id:null, props:props };
-      if(sb && cloudUser){ sb.from("analytics_events").insert(rec).then(function(){},function(){}); }
-      else fetch(SUPABASE_URL+"/rest/v1/analytics_events",{ method:"POST", keepalive:true,
-        headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON_KEY, "Authorization":"Bearer "+SUPABASE_ANON_KEY, "Prefer":"return=minimal" },
-        body: JSON.stringify(rec) }).catch(function(){});
+      /* Nessun endpoint INSERT anonimo: evita spam/bulk write sul database pubblico.
+         Gli eventi pre-login restano solo in memoria e vengono scartati se l'utente non accede. */
+      if(!sb || !cloudUser) return;
+      var rec={ event:row.event, session_id:analyticsSessionId(), user_id:cloudUser.id, props:props };
+      sb.from("analytics_events").insert(rec).then(function(){},function(){});
     }catch(e){}
   };
   window.__flushEvents=function(){ try{ var q=window.__evtQ||[]; while(q.length) window.__sendEvent(q.shift()); }catch(e){} };
@@ -15532,18 +16691,18 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     var rows="";
     if(cloudProjects.length){
       rows=cloudProjects.map(function(p){
-        var cur = p.id===cloudCurrentId;
+        var cur = p.id===cloudCurrentId, pid=esc(p.id);
         return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
           '<div style="flex:1;min-width:0">'+
             '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
-          '<button class="cloudOpen" data-id="'+p.id+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
-          '<button class="cloudRename" data-id="'+p.id+'" title="Rinomina" aria-label="Rinomina" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'+
-          '<button class="cloudDup" data-id="'+p.id+'" title="Duplica" aria-label="Duplica" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'+
-          '<button class="cloudShareRow'+(p.share_token?' is-shared':'')+'" data-id="'+p.id+'" title="'+(p.share_token?'Condiviso · clicca per gestire':'Condividi con un link')+'" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md);position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
-          '<button class="cloudLock" data-id="'+p.id+'" data-locked="'+(p.is_locked?1:0)+'" title="'+(p.is_locked?"Progetto bloccato · clicca per sbloccare":"Blocca progetto")+'" aria-label="'+(p.is_locked?"Sblocca progetto":"Blocca progetto")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--warning)":"var(--text-2)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="'+(p.is_locked?"M7 11V7a5 5 0 0 1 10 0v4":"M7 11V7a5 5 0 0 1 9.9-1")+'"/></svg></button>'+
-          '<button class="cloudDel" data-id="'+p.id+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
+          '<button class="cloudOpen" data-id="'+pid+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
+          '<button class="cloudRename" data-id="'+pid+'" title="Rinomina" aria-label="Rinomina" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'+
+          '<button class="cloudDup" data-id="'+pid+'" title="Duplica" aria-label="Duplica" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'+
+          '<button class="cloudShareRow'+(p.share_token?' is-shared':'')+'" data-id="'+pid+'" title="'+(p.share_token?'Condiviso · clicca per gestire':'Condividi con un link')+'" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md);position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
+          '<button class="cloudLock" data-id="'+pid+'" data-locked="'+(p.is_locked?1:0)+'" title="'+(p.is_locked?"Progetto bloccato · clicca per sbloccare":"Blocca progetto")+'" aria-label="'+(p.is_locked?"Sblocca progetto":"Blocca progetto")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--warning)":"var(--text-2)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="'+(p.is_locked?"M7 11V7a5 5 0 0 1 10 0v4":"M7 11V7a5 5 0 0 1 9.9-1")+'"/></svg></button>'+
+          '<button class="cloudDel" data-id="'+pid+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
     } else {
@@ -15577,7 +16736,11 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   }
   function signOut(){
     if(!sb) return;
-    sb.auth.signOut().then(function(){ cloudCurrentId=null; toast("Disconnesso."); });
+    sb.auth.signOut().then(function(){
+      detachCloudDoc();   /* non trasferire ID/revisione del vecchio account a un login successivo sullo stesso browser */
+      if(window.__markCloudClean) window.__markCloudClean();
+      persistLocalState(); toast("Disconnesso. Il progetto resta su questo dispositivo.");
+    });
   }
 
   /* Titolo obbligatorio al salvataggio online: senza nome il progetto non è riconoscibile nel selettore consulenza. */
@@ -15618,53 +16781,121 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
   }
 
-  function saveProject(onSaved, silent){
+  function saveProject(onSaved, silent, lockHeld){
     /* silent=true → autosave (V2): niente toast, niente prompt nome (default "Senza titolo"), esito via onSaved(id|null) */
-    if(window.__projLocked && cloudCurrentId){ if(typeof onSaved==="function") onSaved(cloudCurrentId); return; }   /* BLOCCO: mai riscrivere un progetto bloccato (backstop lato client) */
-    if(cloudConflict){ if(typeof onSaved==="function") onSaved(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
-    if(!sb){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else toast("Cloud non disponibile.", true); return; }
-    if(!cloudUser){ if(silent){ if(typeof onSaved==="function") onSaved(null); } else { toast("Accedi per salvare online."); signIn(); } return; }
+    var hasLock=!!lockHeld, finished=false;
+    function done(id){
+      if(finished) return; finished=true;
+      if(hasLock){ cloudWriteBusy=false; hasLock=false; }
+      try{ if(typeof onSaved==="function") onSaved(id||null); }catch(e){}
+      if(!cloudWriteBusy) drainCloudWriteQueue();
+    }
+    function fail(msg){
+      if(!silent && msg) toast(msg,true);
+      done(null);
+    }
+    if(window.__docLoadBlocked){
+      fail("Documento incompatibile: salvataggio sospeso per evitare sovrascritture."); return;
+    }
+    if(window.__bootVenueUnavailable){
+      fail("Planimetria locale non disponibile: attendi il recupero cloud prima di salvare."); return;
+    }
+    if(window.__projLocked && cloudCurrentId){ done(cloudCurrentId); return; }   /* BLOCCO: mai riscrivere un progetto bloccato (backstop lato client) */
+    if(cloudConflict){ done(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
+    if(!sb){ fail("Cloud non disponibile."); return; }
+    if(!cloudUser){ if(!silent){ toast("Accedi per salvare online."); signIn(); } done(null); return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
+    if(!hasLock){
+      if(cloudWriteBusy){
+        var qe=window.__docEpoch||0, tail=cloudWriteQueue.length?cloudWriteQueue[cloudWriteQueue.length-1]:null;
+        if(tail && tail.epoch===qe){   /* tutti chiedono lo snapshot più recente dello stesso documento: coalesci, ma conserva gli esiti */
+          var prev=tail.cb, next=onSaved; tail.cb=function(id){ try{ if(typeof prev==="function") prev(id); }finally{ if(typeof next==="function") next(id); } };
+          tail.silent=tail.silent&&!!silent;
+        } else cloudWriteQueue.push({cb:onSaved,silent:!!silent,epoch:qe});
+        return;
+      }
+      cloudWriteBusy=true; hasLock=true;
+    }
+
+    /* Fail-closed: un UPDATE senza revisione nota può sovrascrivere modifiche remote. Prima la legge,
+       poi riparte solo se documento e associazione sono ancora gli stessi. */
+    if(cloudCurrentId && !cloudRev){
+      var probeId=cloudCurrentId, probeEpoch=window.__docEpoch||0, probeUser=cloudUser.id, probeAuth=authGeneration;
+      sb.from("stageplot_projects").select("id,updated_at").eq("id",probeId).maybeSingle().then(function(r){
+        if(!authStill(probeUser,probeAuth)){ done(null); return; }
+        if(cloudCurrentId!==probeId || (window.__docEpoch||0)!==probeEpoch){ done(null); return; }
+        if(r.error){ fail("Impossibile verificare la versione cloud. Salvataggio sospeso."); return; }
+        if(r.data && r.data.id && r.data.updated_at){
+          /* Senza una revisione locale non possiamo sapere se il blob sul server è lo stesso che stiamo
+             mostrando: adottare la rev e scrivere renderebbe stale data autorevole. Richiedi una scelta. */
+          enterConflict(); if(!silent) toast("Versione cloud da verificare prima del salvataggio.",true); done(null);
+        } else {   /* record rimosso: il documento corrente può rinascere solo come nuovo progetto */
+          cloudCurrentId=null; setRev(null); persistLocalState(); saveProject(onSaved,silent,true);
+        }
+      }, function(){ fail("Impossibile verificare la versione cloud. Salvataggio sospeso."); });
+      return;
+    }
+
+    /* Snapshot immutabile PRIMA delle operazioni asincrone (thumbnail/rete). Una risposta del progetto A
+       arrivata dopo l'apertura di B può completare A, ma non può riagganciare o persistere B sopra A. */
+    var saveEpoch=window.__docEpoch||0, targetId=cloudCurrentId, targetRev=cloudRev,
+        targetUserId=cloudUser.id, targetAuth=authGeneration;
+    var wasInsert=!targetId, snapshotTitle=projTitle(), snapshotData=JSON.parse(docToJSON());
+    var snapshotImgSig=venueImgSig(state.venue), snapshotVenueImg=venueImgField();
+    var snapshotContentSig=projectContentSig(snapshotData,snapshotImgSig);
+    var writeImg=wasInsert || (snapshotImgSig!==_lastCloudImgSig);
     function doSave(thumb){
-      var fields={ title:projTitle(), data:JSON.parse(docToJSON()) };   /* T6: data = documento COMPLETO (tutte le varianti); ogni state resta LEGGERO (immagine planimetria in colonna venue_image) */
+      if(!authStill(targetUserId,targetAuth)){ done(null); return; }
+      var fields={ title:snapshotTitle, data:snapshotData };   /* T6: snapshot COMPLETO e immutabile di tutte le varianti */
       if(thumb) fields.thumbnail=thumb;   /* miniatura del render reale per l'anteprima nella pagina consulenza */
-      var wasInsert=!cloudCurrentId;
-      var _imgSig=venueImgSig(state.venue), _writeImg = wasInsert || (_imgSig!==_lastCloudImgSig);   /* planimetria: la ri-carichiamo SOLO se cambiata (perf: niente MB ad ogni autosave) */
-      if(_writeImg) fields.venue_image = venueImgField();
+      if(writeImg) fields.venue_image=snapshotVenueImg;
       var q;
-      if(cloudCurrentId){
-        q=sb.from("stageplot_projects").update(fields).eq("id", cloudCurrentId);
-        if(cloudRev) q=q.eq("updated_at", cloudRev);   /* guardia di versione: scrivi solo se nessun altro ha salvato nel frattempo */
-        q=q.select().single();
+      if(targetId){
+        q=sb.from("stageplot_projects").update(fields).eq("id",targetId).eq("updated_at",targetRev).select().single();
       } else {
-        q=sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:fields.title, data:fields.data, thumbnail:thumb||null, venue_image:(_writeImg?fields.venue_image:null)||null }).select().single();
+        q=sb.from("stageplot_projects").insert({ user_id:targetUserId, schema_version:SCHEMA_VERSION, title:fields.title,
+          data:fields.data, thumbnail:thumb||null, venue_image:(writeImg?fields.venue_image:null)||null }).select().single();
       }
       q.then(function(r){
+        if(!authStill(targetUserId,targetAuth)){ done(null); return; }
         if(r.error){
-          if(cloudCurrentId && r.error.code==="PGRST116"){
+          if(targetId && r.error.code==="PGRST116"){
+            if(cloudCurrentId!==targetId || (window.__docEpoch||0)!==saveEpoch){ done(null); return; }
             /* zero righe toccate: o la riga non esiste più, o esiste con un'ALTRA rev (qualcuno ha salvato altrove) */
-            sb.from("stageplot_projects").select("id,updated_at").eq("id",cloudCurrentId).maybeSingle().then(function(chk){
+            sb.from("stageplot_projects").select("id,updated_at").eq("id",targetId).maybeSingle().then(function(chk){
+              if(!authStill(targetUserId,targetAuth)){ done(null); return; }
+              if(cloudCurrentId!==targetId || (window.__docEpoch||0)!==saveEpoch){ done(null); return; }
+              if(!chk || chk.error){ fail("Impossibile verificare il conflitto cloud. Salvataggio sospeso."); return; }
               if(chk && chk.data && chk.data.id){
                 enterConflict();                         /* riga viva ma più avanti: MAI sovrascrivere in silenzio */
-                if(typeof onSaved==="function") onSaved(null);
+                done(null);
               } else {                                   /* la riga agganciata non esiste più: stacca e salva come progetto nuovo */
                 cloudCurrentId=null; setRev(null);
                 try{ localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }catch(e){}
-                doSave(thumb);
+                persistLocalState(); saveProject(onSaved,silent,true);
               }
-            }, function(){ if(typeof onSaved==="function") onSaved(null); });
+            }, function(){ done(null); });
             return;
           }
-          if(!silent) toast("Salvataggio non riuscito: "+r.error.message, true); if(silent && typeof onSaved==="function") onSaved(null); return;
+          fail("Salvataggio non riuscito: "+r.error.message); return;
         }
-        if(r.data && r.data.id) cloudCurrentId=r.data.id;
-        if(r.data && r.data.updated_at) setRev(r.data.updated_at);
-        if(_writeImg) _lastCloudImgSig=_imgSig;   /* immagine planimetria ora allineata nel cloud → non ri-caricarla finché non cambia */
-        if(wasInsert) window.__sendEvent({event:"cloud_first_save",props:{}});
-        persistLocalState();   /* riallinea stato+aggancio persistiti (copre anche insert appena nati) */
-        if(!silent){ toast("✓ Salvato online."); loadProjects(); }
-        if(typeof onSaved==="function") onSaved(cloudCurrentId);
-      }, function(){ if(silent && typeof onSaved==="function") onSaved(null); });
+        var resultId=(r.data&&r.data.id)||targetId;
+        var stillCurrent=authStill(targetUserId,targetAuth) &&
+          (window.__docEpoch||0)===saveEpoch && cloudCurrentId===targetId;
+        if(stillCurrent){
+          cloudCurrentId=resultId;
+          if(r.data && r.data.updated_at) setRev(r.data.updated_at);
+          if(writeImg) _lastCloudImgSig=snapshotImgSig;   /* immagine planimetria ora allineata nel cloud */
+          window.__bootCloudSig=snapshotContentSig; window.__bootCloudSigKnown=true; window.__bootCloudPending=false;
+          persistLocalState();   /* riallinea stato+aggancio solo se la risposta appartiene ancora al documento aperto */
+        }
+        if(wasInsert && stillCurrent) window.__sendEvent({event:"cloud_first_save",props:{}});
+        if(!silent && stillCurrent){ toast("✓ Salvato online."); loadProjects(); }
+        done(resultId);
+      }, function(){
+        if(!authStill(targetUserId,targetAuth)){ done(null); return; }
+        fail("Salvataggio non riuscito. Verifica la connessione.");
+      });
     }
     /* genera la miniatura del rendering vero (non blocca il salvataggio se fallisce) */
     var saved=false;
@@ -15676,55 +16907,116 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   }
 
   function completeCopyFromToken(token){
+    var copyUserId=cloudUser&&cloudUser.id, copyAuth=authGeneration;
+    if(!copyUserId){ toast("Accedi per completare la copia.",true); return; }
     fetch(SUPABASE_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(token))
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d || d.error || !d.data){ toast("Impossibile completare la copia.", true); return; }
-        cloudCurrentId=null;   /* PRIMA dell'import: il persist dentro importProject non deve agganciare la copia al vecchio progetto */
-        try{ importProject(JSON.stringify(d.data)); }catch(e){ toast("Copia non valida.", true); return; }
-        applyVenueImage(d.venue_image);   /* la copia tiene la planimetria (colonna dedicata) */
-        try{ state.titolo="Copia di "+(d.title||"progetto"); }catch(e){}
-        saveProject(function(){ toast("✓ Copia creata nel tuo account."); try{ history.replaceState(null,"",location.pathname); }catch(e){} });
+        if(!authStill(copyUserId,copyAuth)) return;
+        if(!d || d.error || !d.data || d.kind!=="project"){
+          toast("Impossibile completare la copia.", true); return;
+        }
+        if(d.data.shareOpts && d.data.shareOpts.copy===false){
+          try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}
+          toast("Il proprietario non consente più di creare una copia.", true); return;
+        }
+        var prepared, copyTitle=("Copia di "+(d.title||"progetto")).slice(0,120), copyData, copyVenue;
+        try{
+          prepared=prepareDoc(JSON.parse(JSON.stringify(d.data)));   /* validazione isolata: nessun commit locale */
+          var active=prepared.variants.filter(function(v){ return v.id===prepared.active; })[0];
+          if(active) active.state.titolo=copyTitle;
+          copyData=JSON.parse(JSON.stringify(documentEnvelope(prepared.active,prepared.variants,prepared.extra),stateReplacer));
+          /* Progetti legacy: se la colonna dedicata è vuota, recupera le bitmap ancora inline nel blob. */
+          copyVenue=safeVenueImageField(d.venue_image,venueImageBundleFromVariants(prepared.variants,prepared.active),prepared.active);
+        }catch(e){ toast("Copia non valida.", true); return; }
+        /* Crea la copia senza mai sostituire automaticamente l'unico slot locale: dopo OAuth potrebbe
+           contenere modifiche non ancora arrivate al cloud che nessun flag volatile può dimostrare sicure. */
+        sb.from("stageplot_projects").insert({user_id:copyUserId,schema_version:SCHEMA_VERSION,title:copyTitle,
+          data:copyData,thumbnail:null,venue_image:copyVenue}).select().single().then(function(r){
+          if(!authStill(copyUserId,copyAuth)) return;
+          if(r.error||!r.data||!r.data.id){ toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); return; }
+          try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}   /* non ritentare un insert già riuscito */
+          toast("✓ Copia creata nel cloud. Il progetto locale corrente è rimasto aperto.");
+          loadProjects();
+        }, function(){ if(authStill(copyUserId,copyAuth)) toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); });
       })
-      .catch(function(){ toast("Impossibile completare la copia.", true); });
+      .catch(function(){ if(authStill(copyUserId,copyAuth)) toast("Impossibile completare la copia.", true); });
   }
 
   function loadProjects(){
     if(!sb || !cloudUser) return;
+    var request=++cloudProjectsLoadSeq, requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_projects").select("id,title,updated_at,share_token,is_locked").is("deleted_at",null).order("updated_at",{ascending:false})
       .then(function(r){
+        if(request!==cloudProjectsLoadSeq || !authStill(requestUser,requestAuth)) return;
         if(r.error){ toast("Impossibile leggere i progetti: "+r.error.message, true); return; }
         cloudProjects=r.data||[];
         if(cloudCurrentId){ var cur=cloudProjects.filter(function(x){ return x.id===cloudCurrentId; })[0];   /* boot/refresh: se il progetto agganciato è bloccato → sola-lettura */
-          if(window.applyProjLock) window.applyProjLock(!!(cur && cur.is_locked)); }
+          /* Una lista incompleta/non più contenente il progetto non è prova che sia sbloccato:
+             conserva lo stato corrente e lascia che open/save CAS rendano esplicito il conflitto. */
+          if(cur && window.applyProjLock) window.applyProjLock(!!cur.is_locked); }
         if(modalOpen()) renderModal();
       });
   }
 
   function openProject(id){
-    if(!sb) return;
-    sb.from("stageplot_projects").select("data,title,updated_at,is_locked,venue_image").eq("id",id).single().then(function(r){
-      if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
-      try{
-        if(window.applyProjLock) window.applyProjLock(false);   /* azzera un eventuale blocco precedente PRIMA del persist del nuovo progetto */
-        exitConflict(); importProject(JSON.stringify(r.data.data)); cloudCurrentId=id; setRev(r.data.updated_at);
-        var gotImg=applyVenueImage(r.data.venue_image);   /* immagine planimetria dalla colonna dedicata */
-        _lastCloudImgSig = gotImg ? venueImgSig(state.venue) : ((state.venue && state.venue._dataUrl) ? "__migrate__" : "");   /* immagine solo dentro `data` (progetto vecchio) → migra al prossimo salvataggio */
-        persistLocalState();
-        if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);   /* bloccato → editor sola-lettura */
-        toast(r.data.is_locked?"✓ Progetto aperto (bloccato · sola lettura).":"✓ Progetto aperto."); closeModal();
-      }
-      catch(e){ toast("Il progetto salvato non è valido.", true); }
-    });
+    if(!sb || !cloudUser) return;
+    var request=++cloudOpenSeq, requestUser=cloudUser.id, requestAuth=authGeneration;
+    function fetchAndOpen(){
+      if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth)) return;
+      var sourceEpoch=window.__docEpoch||0;
+      sb.from("stageplot_projects").select("data,title,updated_at,is_locked,venue_image").eq("id",id).single().then(function(r){
+        if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth) || (window.__docEpoch||0)!==sourceEpoch) return;
+        if(r.error || !r.data){ toast("Apertura non riuscita.", true); return; }
+        /* Un edit avvenuto mentre la richiesta era in volo deve essere salvato prima: non sostituire lo slot locale. */
+        if(window.__cloudNeedsFlush && window.__cloudNeedsFlush()){
+          toast("Il progetto corrente è cambiato durante l’apertura. Salvalo e riprova.",true); return;
+        }
+        var prepared;
+        try{ prepared=prepareDoc(JSON.parse(JSON.stringify(r.data.data))); }
+        catch(e){ toast("Il progetto salvato non è valido.", true); return; }
+        guardDocumentReplacement({reason:"aprire un altro progetto",title:"Aprire «"+String(r.data.title||"progetto").slice(0,120)+"»?",
+          message:"Il progetto corrente avrà un punto di recupero e verrà salvato prima di essere sostituito.",
+          confirmText:"Apri progetto"},function(){
+          if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth)) return;
+          try{
+            activatePreparedProject(prepared,{autosave:false});   /* commit soltanto dopo validazione, recovery e flush */
+            cloudCurrentId=id; setRev(r.data.updated_at);
+            if(r.data.title!=null){ state.titolo=String(r.data.title).slice(0,120);
+              ["titolo","titoloEv","mTitle"].forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=state.titolo; });
+              if(typeof setEventInputs==="function") setEventInputs();
+            }   /* la colonna title è autorevole: evita read-modify-write del blob durante una rinomina */
+            var gotImg=applyVenueImage(r.data.venue_image,true);   /* immagine planimetria dalla colonna dedicata */
+            _lastCloudImgSig = gotImg ? venueImgSig() : ((state.venue && state.venue._dataUrl) ? "__migrate__" : "");   /* immagine solo dentro `data` (progetto vecchio) → migra al prossimo salvataggio */
+            if(!r.data.venue_image && !state.venue) window.__bootVenueUnavailable=false;
+            window.__bootCloudSig=projectContentSig(JSON.parse(docToJSON()),venueImgSig()); window.__bootCloudSigKnown=true; window.__bootCloudPending=false;
+            if(window.__markCloudClean) window.__markCloudClean();
+            var localOk=persistLocalState(); if(localOk!==false) persistVenueImg();
+            if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);   /* bloccato → editor sola-lettura */
+            toast(r.data.is_locked?"✓ Progetto aperto (bloccato · sola lettura).":"✓ Progetto aperto."); closeModal();
+          }catch(e){ toast("Il progetto salvato non è valido.", true); }
+        });
+      });
+    }
+    if(window.__cloudNeedsFlush && window.__cloudNeedsFlush()){
+      toast("Salvo le modifiche correnti prima di aprire il progetto…");
+      window.flushCloudAutosave(function(ok){
+        if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth)) return;
+        if(ok) fetchAndOpen(); else toast("Apertura sospesa: le modifiche correnti non sono ancora al sicuro nel cloud.",true);
+      });
+    } else fetchAndOpen();
   }
 
   /* Duplica (richiesta Simone 08/07): copia integrale del progetto con titolo " — copia" */
   function dupProject(id){
     if(!sb || !cloudUser) return;
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_projects").select("data,title,venue_image").eq("id",id).single().then(function(r){
+      if(!authStill(requestUser,requestAuth)) return;
       if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
       var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
-      sb.from("stageplot_projects").insert({ user_id:cloudUser.id, schema_version:SCHEMA_VERSION, title:t, data:r.data.data, venue_image:r.data.venue_image||null }).then(function(w){   /* la copia tiene la planimetria */
+      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:r.data.data, venue_image:r.data.venue_image||null }).then(function(w){   /* la copia tiene la planimetria */
+        if(!authStill(requestUser,requestAuth)) return;
         if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
         toast("Copia creata: "+t);
         loadProjects();
@@ -15735,6 +17027,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
      update del solo title su Supabase; se è il progetto aperto aggiorna anche il titolo in UI. */
   function renameProject(id){
     if(!sb || !cloudUser) return;
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     var pj=cloudProjects.filter(function(x){ return x.id===id; })[0]; if(!pj) return;
     if(pj.is_locked){ toast("Progetto bloccato: sbloccalo per rinominarlo.", true); return; }
     var ov=document.getElementById("renameModal");
@@ -15757,6 +17050,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     setTimeout(function(){ inp.focus(); inp.select(); }, 30);
     function close(){ ov.style.display="none"; }
     function commit(){
+      if(!authStill(requestUser,requestAuth)){ close(); return; }
       var v=inp.value.trim();
       if(!v){ inp.style.borderColor="var(--danger-solid)"; inp.focus(); return; }
       if(v===(pj.title||"")){ close(); return; }
@@ -15767,29 +17061,19 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
         ["titolo","titoloEv","mTitle"].forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=v; });
         if(typeof setEventInputs==="function") setEventInputs();
         if(typeof render==="function") render();
+        save();   /* la rinomina resta almeno sul dispositivo anche se la rete fallisce */
         close();
-        if(typeof saveProject==="function") saveProject(function(okId){ toast(okId?("Rinominato e salvato: "+v):"Rinominato, ma salvataggio cloud non riuscito", !okId); loadProjects(); });
+        if(typeof flushCloudAutosave==="function") flushCloudAutosave(function(ok){
+          toast(ok?("Rinominato e salvato: "+v):"Rinominato, ma salvataggio cloud non riuscito", !ok); loadProjects(); });
         else { toast("Rinominato: "+v); loadProjects(); }
         return;
       }
-      /* ALTRO progetto (non aperto): aggiorna la colonna `title` E il blob `data.titolo` (letto da importProject
-         alla riapertura), così il nome non "torna" vecchio riaprendolo. */
-      sb.from("stageplot_projects").select("data").eq("id",id).single().then(function(r){
-        var dataObj=(r && r.data && r.data.data && typeof r.data.data==="object") ? r.data.data : null;
-        var upd={ title:v };
-        if(dataObj){
-          if(Array.isArray(dataObj.variants) && dataObj.variants.length){   /* T6: blob doc → rinomina il titolo della variante attiva */
-            var av=dataObj.active, tgt=null;
-            dataObj.variants.forEach(function(vr){ if(vr && vr.id===av) tgt=vr; });
-            if(!tgt) tgt=dataObj.variants[0];
-            if(tgt && tgt.state && typeof tgt.state==="object") tgt.state.titolo=v;
-          } else { dataObj.titolo=v; }   /* legacy piatto */
-          upd.data=dataObj;
-        }
-        sb.from("stageplot_projects").update(upd).eq("id",id).select("updated_at").single().then(function(r2){
-          if(r2.error || !r2.data){ toast("Rinomina non riuscita: "+((r2.error&&r2.error.message)||"riprova"), true); return; }
-          close(); toast("Rinominato: "+v); loadProjects();
-        }, function(){ toast("Rinomina non riuscita. Riprova.", true); });
+      /* ALTRO progetto: modifica soltanto la colonna title. Riscrivere il blob letto prima, senza CAS,
+         cancellerebbe eventuali edit concorrenti; openProject sovrappone questa colonna all'apertura. */
+      sb.from("stageplot_projects").update({title:v}).eq("id",id).select("updated_at").single().then(function(r2){
+        if(!authStill(requestUser,requestAuth)) return;
+        if(r2.error || !r2.data){ toast("Rinomina non riuscita: "+((r2.error&&r2.error.message)||"riprova"), true); return; }
+        close(); toast("Rinominato: "+v); loadProjects();
       }, function(){ toast("Rinomina non riuscita. Riprova.", true); });
     }
     ov.querySelector("#renameCancel").onclick=close;
@@ -15797,13 +17081,29 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     inp.onkeydown=function(e){ if(e.key==="Enter") commit(); else if(e.key==="Escape") close(); };
   }
   function delProject(id){
-    if(!sb) return;
-    var go=function(){
+    if(!sb || !cloudUser) return;
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    var performDelete=function(){
+      if(!authStill(requestUser,requestAuth)) return;
       sb.from("stageplot_projects").delete().eq("id",id).then(function(r){
-        if(r.error){ toast("Eliminazione non riuscita: "+r.error.message, true); return; }
-        if(cloudCurrentId===id) cloudCurrentId=null;
-        toast("Progetto eliminato."); loadProjects();
+        if(!authStill(requestUser,requestAuth)) return;
+        if(r.error){
+          if(r.error.code==="23503") toast("Il progetto è legato a una consulenza attiva e non può essere eliminato.",true);
+          else toast("Eliminazione non riuscita: "+r.error.message,true);
+          return;
+        }
+        if(cloudCurrentId===id){
+          detachCloudDoc(); if(window.__markCloudClean) window.__markCloudClean(); persistLocalState();
+          toast("Progetto eliminato dal cloud; la copia sul dispositivo resta disponibile.");
+        } else toast("Progetto eliminato.");
+        loadProjects();
       });
+    };
+    var go=function(){
+      if(cloudCurrentId===id && window.__cloudNeedsFlush && window.__cloudNeedsFlush()){
+        toast("Completo il salvataggio in corso prima dell’eliminazione…");
+        window.flushCloudAutosave(function(ok){ if(ok) performDelete(); else toast("Eliminazione sospesa: il salvataggio in corso non è concluso.",true); });
+      } else performDelete();
     };
     var pj=cloudProjects.filter(function(x){ return x.id===id; })[0], locked=pj&&pj.is_locked;
     if(typeof window.confirmDialog==="function"){
@@ -15816,13 +17116,61 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     }
   }
 
+  function expectedMetadataRevision(id,known,cb){
+    var isCurrent=id===cloudCurrentId;
+    if(isCurrent){
+      if(!cloudRev || (known && known!==cloudRev)){
+        enterConflict(); cb(null); return;
+      }
+      cb(cloudRev); return;
+    }
+    if(known){ cb(known); return; }
+    var cached=cloudProjects.filter(function(x){ return x.id===id; })[0];
+    if(cached&&cached.updated_at){ cb(cached.updated_at); return; }
+    sb.from("stageplot_projects").select("updated_at").eq("id",id).maybeSingle().then(function(r){
+      cb(!r.error&&r.data&&r.data.updated_at?r.data.updated_at:null);
+    },function(){ cb(null); });
+  }
+  function updateProjectMetadataCas(id,fields,selectFields,cb,knownRevision){
+    if(!cloudUser){ if(cb) cb(null); return; }
+    var wasCurrent=id===cloudCurrentId, epoch=window.__docEpoch||0,
+        requestUser=cloudUser.id, requestAuth=authGeneration;
+    expectedMetadataRevision(id,knownRevision,function(expected){
+      if(!authStill(requestUser,requestAuth)){ if(cb) cb(null); return; }
+      if(!expected){ if(cb) cb(null); return; }
+      if(wasCurrent && (id!==cloudCurrentId || epoch!==(window.__docEpoch||0))){ if(cb) cb(null); return; }
+      sb.from("stageplot_projects").update(fields).eq("id",id).eq("updated_at",expected)
+        .select(selectFields||"updated_at").maybeSingle().then(function(r){
+          if(!authStill(requestUser,requestAuth)){ if(cb) cb(null); return; }
+          if(r.error || !r.data){
+            if(wasCurrent && id===cloudCurrentId && epoch===(window.__docEpoch||0)) enterConflict();
+            if(cb) cb(null); return;
+          }
+          if(wasCurrent){
+            if(id!==cloudCurrentId || epoch!==(window.__docEpoch||0)){ if(cb) cb(null); return; }
+            if(r.data.updated_at) setRev(r.data.updated_at);
+            persistLocalState(true);   /* la nuova rev è committata insieme al documento, anche se ora è locked */
+          }
+          if(cb) cb(r.data);
+        },function(){ if(cb) cb(null); });
+    });
+  }
+
   /* Blocco/sblocco progetto. La protezione reale è nel trigger DB (0012) + nelle guardie client. */
-  function doLockUpdate(id, v){
-    sb.from("stageplot_projects").update({ is_locked:v }).eq("id", id).select("updated_at").single().then(function(r){
-      if(r.error || !r.data){ toast("Impossibile aggiornare il blocco. Riprova.", true); return; }
-      if(id===cloudCurrentId){ if(r.data.updated_at) setRev(r.data.updated_at); if(window.applyProjLock) window.applyProjLock(v); }
+  function doLockUpdate(id, v, keepFrozenOnFailure){
+    updateProjectMetadataCas(id,{is_locked:v},"updated_at",function(data){
+      if(!data){
+        if(keepFrozenOnFailure && id===cloudCurrentId){
+          enterConflict();
+          toast("Esito del blocco non verificato: l’editor resta in sola lettura finché non ricarichi la versione cloud.",true);
+        } else toast("Impossibile aggiornare il blocco: il progetto è cambiato altrove. Ricarica e riprova.",true);
+        return;
+      }
+      if(id===cloudCurrentId){
+        if(window.applyProjLock) window.applyProjLock(v);
+      }
       toast(v?"Progetto bloccato":"Progetto sbloccato"); loadProjects();
-    }, function(){ toast("Impossibile aggiornare il blocco. Riprova.", true); });
+    });
   }
   function toggleLock(id, currentlyLocked){
     if(!sb || !cloudUser) return;
@@ -15833,19 +17181,29 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     /* BLOCCA: se è il progetto aperto, salva PRIMA (non perdere modifiche non salvate), poi blocca */
     confirmOr("Bloccare questo progetto?", "Non potrà essere modificato finché non verrà sbloccato.", "Blocca", "warn", function(){
       if(id===cloudCurrentId && !window.__projLocked){
-        saveProject(function(sid){ if(sid){ doLockUpdate(id, true); } else { toast("Impossibile salvare prima di bloccare. Riprova.", true); } }, true);
+        save();
+        flushCloudAutosave(function(ok){
+          if(ok){
+            if(window.applyProjLock) window.applyProjLock(true);   /* congela sincronicamente lo snapshot appena flushato durante il CAS del lock */
+            doLockUpdate(id,true,true);
+          } else toast("Impossibile salvare prima di bloccare. Riprova.",true);
+        });
       } else { doLockUpdate(id, true); }
     });
   }
-  function unlockCurrent(){ if(cloudCurrentId) toggleLock(cloudCurrentId, true); }
+  function unlockCurrent(){
+    if(window.__consultMode){ toast("Il blocco può essere gestito soltanto dal proprietario fuori dalla consulenza.",true); return; }
+    if(cloudCurrentId) toggleLock(cloudCurrentId, true);
+  }
   function dupOpenCurrent(){   /* barra "Progetto bloccato" → Duplica: crea una copia EDITABILE ("… — copia") e continua qui, senza toccare l'originale */
+    if(window.__consultMode){ toast("La sessione di consulenza bloccata resta in sola lettura.",true); return; }
     if(!sb || !cloudUser){ toast("Accedi per duplicare.", true); return; }
     if(window.applyProjLock) window.applyProjLock(false);   /* la copia è editabile: sblocca l'editor + nascondi la barra */
-    cloudCurrentId=null; setRev(null); _lastCloudImgSig=null;   /* stacca dall'originale → il prossimo salvataggio è un progetto NUOVO (la planimetria viaggia: wasInsert) */
-    try{ localStorage.removeItem(LS_KEY+"_cloudid"); window.__bootCloudId=null; }catch(e){}
+    detachCloudDoc();   /* nuova identità: invalida anche callback/INSERT senza ID ancora in volo */
     try{ state.titolo=((state.titolo||"Senza titolo")+" — copia").slice(0,120); var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }catch(e){}
-    exitConflict(); persistLocalState();
-    saveProject(function(id){ toast(id?("✓ Copia creata: "+state.titolo):"Copia non riuscita.", !id); }, true);   /* nasce subito il progetto-copia, agganciato ed editabile */
+    exitConflict(); save();
+    flushCloudAutosave(function(ok){
+      toast(ok?("✓ Copia creata: "+state.titolo):"Copia non ancora salvata nel cloud; verrà ritentato.", !ok); });   /* nasce subito il progetto-copia, agganciato ed editabile */
   }
   function confirmOr(title, msg, okTxt, icon, cb){
     if(typeof window.confirmDialog==="function"){ window.confirmDialog({ icon:icon||"warn", title:title, message:msg, confirmText:okTxt }).then(function(ok){ if(ok) cb(); }); }
@@ -15860,24 +17218,53 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
 
   /* Interfaccia cloud per gli altri IIFE (openShare, ?view=), che hanno scope separati. */
   function ensureShareTokenFor(id, cb){
-    if(!sb || !id){ cb(null); return; }
-    sb.from("stageplot_projects").select("share_token").eq("id", id).single().then(function(r){
+    if(!sb || !id || !cloudUser){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_projects").select("share_token,updated_at").eq("id", id).single().then(function(r){
+      if(!authStill(requestUser,requestAuth)){ cb(null); return; }
       if(r.error){ cb(null); return; }
+      if(id===cloudCurrentId && (!cloudRev || !r.data || r.data.updated_at!==cloudRev)){
+        enterConflict(); cb(null); return;
+      }
       if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
       var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
-      sb.from("stageplot_projects").update({ share_token:tok }).eq("id", id).select("updated_at").single().then(function(u){ if(!u.error){ window.__sendEvent({event:"share_created",props:{}}); if(id===cloudCurrentId && u.data && u.data.updated_at) setRev(u.data.updated_at); }   /* la share bumpa updated_at (trigger 0011): rinfresca la rev locale o il prossimo save vede un falso conflitto (come doLockUpdate) */
-        cb(u.error?null:tok); });
+      updateProjectMetadataCas(id,{share_token:tok},"updated_at,share_token",function(data){
+        if(data){ window.__sendEvent({event:"share_created",props:{}}); cb(data.share_token||tok); }
+        else cb(null);
+      },r.data&&r.data.updated_at);
     });
   }
   function clearShareTokenFor(id, cb){
     if(!sb || !id){ if(cb) cb(false); return; }
-    sb.from("stageplot_projects").update({ share_token:null }).eq("id", id).select("updated_at").single().then(function(u){ if(!u.error && id===cloudCurrentId && u.data && u.data.updated_at) setRev(u.data.updated_at);   /* come sopra: la revoca bumpa updated_at → evita il falso conflitto al prossimo save */
-      if(cb) cb(!u.error); });
+    var requestUser=cloudUser&&cloudUser.id, requestAuth=authGeneration;
+    updateProjectMetadataCas(id,{share_token:null},"updated_at",function(data){
+      if(data){ if(cb) cb(true); return; }
+      if(!requestUser || !authStill(requestUser,requestAuth)){ if(cb) cb(null); return; }
+      /* Revocare è più importante del CAS documentale: un UPDATE limitato al solo token non può
+         sovrascrivere il progetto. Se la revisione è ambigua, ripeti idempotentemente e verifica
+         con una GET autorevole; il documento corrente resta in conflitto e non adotta la nuova rev. */
+      sb.from("stageplot_projects").update({share_token:null}).eq("id",id)
+        .select("id").maybeSingle().then(function(){
+          if(!authStill(requestUser,requestAuth)){ if(cb) cb(null); return; }
+          sb.from("stageplot_projects").select("share_token").eq("id",id).maybeSingle().then(function(check){
+            if(!authStill(requestUser,requestAuth) || check.error || !check.data){ if(cb) cb(null); return; }
+            if(id===cloudCurrentId) enterConflict();
+            if(cb) cb(check.data.share_token===null);
+          },function(){ if(cb) cb(null); });
+        },function(){
+          if(!authStill(requestUser,requestAuth)){ if(cb) cb(null); return; }
+          sb.from("stageplot_projects").select("share_token").eq("id",id).maybeSingle().then(function(check){
+            if(!authStill(requestUser,requestAuth) || check.error || !check.data){ if(cb) cb(null); return; }
+            if(check.data.share_token===null && id===cloudCurrentId) enterConflict();
+            if(cb) cb(check.data.share_token===null);
+          },function(){ if(cb) cb(null); });
+        });
+    });
   }
   /* Condividi una riga della lista: se è il progetto aperto, salva prima (link aggiornato); poi apre la finestra Condividi. */
   function shareRow(id){
     function go(){ closeModal(); if(window.__shareUi) window.__shareUi.showForProject(id); }
-    if(id===cloudCurrentId){ saveProject(function(){ go(); }); }
+    if(id===cloudCurrentId){ save(); flushCloudAutosave(function(ok){ if(ok) go(); else toast("Condivisione sospesa: il progetto corrente non è stato salvato nel cloud.",true); }); }
     else { go(); }
   }
   /* ===== Rubrica contatti account (spec 15/07) — CRUD minimale con cache di sessione.
@@ -15886,37 +17273,48 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   function rubricaList(cb){
     if(!sb || !cloudUser){ cb(null); return; }
     if(rubCache){ cb(rubCache); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_contacts").select("id,role,name,contact,note,kind,updated_at")
       .order("updated_at",{ascending:false}).limit(200)
-      .then(function(r){ if(r.error){ cb(null); return; } rubCache=r.data||[]; cb(rubCache); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth)){ cb(null); return; }
+        if(r.error){ cb(null); return; } rubCache=r.data||[]; cb(rubCache); }, function(){ cb(null); });
   }
   function rubricaUpsert(c, cb){
     if(!sb || !cloudUser){ cb(null); return; }
-    var row={ user_id:cloudUser.id, role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    var row={ user_id:requestUser, role:String(c.role||"").slice(0,40), name:String(c.name||"").slice(0,60),
               contact:String(c.contact||"").slice(0,80), note:String(c.note||"").slice(0,120),
               kind:(c.kind==="company"?"company":"person"), updated_at:new Date().toISOString() };
     rubricaList(function(existing){
+      if(!authStill(requestUser,requestAuth) || existing===null){ cb(null); return; }
       var dup=(existing||[]).find(function(x){ return contactKey(x)===contactKey(row); });
       var q = dup ? sb.from("stageplot_contacts").update(row).eq("id",dup.id).select().single()
                   : sb.from("stageplot_contacts").insert(row).select().single();
-      q.then(function(r){ if(r.error){ cb(null); return; } rubCache=null; cb(r.data); }, function(){ cb(null); });
+      q.then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+        rubCache=null; cb(r.data); }, function(){ cb(null); });
     });
   }
   function rubricaRemove(id, cb){
     if(!sb || !cloudUser){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_contacts").delete().eq("id",id)
-      .then(function(r){ if(r.error){ cb(null); return; } rubCache=null; cb(true); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+        rubCache=null; cb(true); }, function(){ cb(null); });
   }
   function rubricaTouch(id){   /* pick → sale in cima all'ordinamento "uso recente"; fire-and-forget */
     if(!sb || !cloudUser || !id) return;
-    sb.from("stageplot_contacts").update({updated_at:new Date().toISOString()}).eq("id",id).then(function(){ rubCache=null; },function(){});
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_contacts").update({updated_at:new Date().toISOString()}).eq("id",id)
+      .then(function(){ if(authStill(requestUser,requestAuth)) rubCache=null; },function(){});
   }
   function rubricaImportCandidates(cb){   /* blob dei propri progetti → candidati dedupe, esclusi quelli già in rubrica */
     if(!sb || !cloudUser){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_projects").select("data").is("deleted_at",null).limit(100).then(function(r){
-      if(r.error){ cb(null); return; }
+      if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
       var cand=contactsFromDocs((r.data||[]).map(function(p){ return p.data; }));
       rubricaList(function(existing){
+        if(!authStill(requestUser,requestAuth) || existing===null){ cb(null); return; }
         var have={}; (existing||[]).forEach(function(x){ have[contactKey(x)]=1; });
         cb(cand.filter(function(c){ return !have[contactKey(c)]; }));
       });
@@ -15927,38 +17325,50 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
   function itemContactsList(pid, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
     if(icCache[pid]){ cb(icCache[pid]); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_item_contacts").select("item_id,contact_id").eq("project_id", pid)
-      .then(function(r){ if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ m[x.item_id]=x.contact_id; }); icCache[pid]=m; cb(m); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth)){ cb(null); return; }
+        if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ m[x.item_id]=x.contact_id; }); icCache[pid]=m; cb(m); }, function(){ cb(null); });
   }
   function itemContactSet(pid, itemId, contactId, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
-    sb.from("stageplot_item_contacts").upsert({ user_id:cloudUser.id, project_id:pid, item_id:itemId, contact_id:contactId, updated_at:new Date().toISOString() })
-      .then(function(r){ if(r.error){ cb(null); return; } if(icCache[pid]) icCache[pid][itemId]=contactId; cb(true); }, function(){ cb(null); });
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_item_contacts").upsert({ user_id:requestUser, project_id:pid, item_id:itemId, contact_id:contactId, updated_at:new Date().toISOString() })
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+        if(icCache[pid]) icCache[pid][itemId]=contactId; cb(true); }, function(){ cb(null); });
   }
   function itemContactRemove(pid, itemId, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_item_contacts").delete().eq("project_id", pid).eq("item_id", itemId)
-      .then(function(r){ if(r.error){ cb(null); return; } if(icCache[pid]) delete icCache[pid][itemId]; cb(true); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+        if(icCache[pid]) delete icCache[pid][itemId]; cb(true); }, function(){ cb(null); });
   }
   /* ── Hub produzione (decisione 3A): responsabilità reparto → contatti, account-only ── */
   var daCache={};   /* projectId → { deptKey: [{contact_id, role}] } */
   function deptAssignList(pid, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
     if(daCache[pid]){ cb(daCache[pid]); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_dept_assign").select("dept_key,contact_id,role,published").eq("project_id", pid)
-      .then(function(r){ if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ (m[x.dept_key]=m[x.dept_key]||[]).push({contact_id:x.contact_id, role:x.role||"", published:!!x.published}); }); daCache[pid]=m; cb(m); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth)){ cb(null); return; }
+        if(r.error){ cb(null); return; } var m={}; (r.data||[]).forEach(function(x){ (m[x.dept_key]=m[x.dept_key]||[]).push({contact_id:x.contact_id, role:x.role||"", published:!!x.published}); }); daCache[pid]=m; cb(m); }, function(){ cb(null); });
   }
   function deptAssignSet(pid, deptKey, contactId, role, cb, published){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
-    var row={ user_id:cloudUser.id, project_id:pid, dept_key:deptKey, contact_id:contactId, role:String(role||"").slice(0,40), updated_at:new Date().toISOString() };
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    var row={ user_id:requestUser, project_id:pid, dept_key:deptKey, contact_id:contactId, role:String(role||"").slice(0,40), updated_at:new Date().toISOString() };
     if(published!=null) row.published=!!published;
     sb.from("stageplot_dept_assign").upsert(row, { onConflict:"user_id,project_id,dept_key,contact_id" })
-      .then(function(r){ if(r.error){ cb(null); return; } delete daCache[pid]; cb(true); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+        delete daCache[pid]; cb(true); }, function(){ cb(null); });
   }
   function deptAssignRemove(pid, deptKey, contactId, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
     sb.from("stageplot_dept_assign").delete().eq("project_id", pid).eq("dept_key", deptKey).eq("contact_id", contactId)
-      .then(function(r){ if(r.error){ cb(null); return; } delete daCache[pid]; cb(true); }, function(){ cb(null); });
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+        delete daCache[pid]; cb(true); }, function(){ cb(null); });
   }
   window.__cloud = {
     itemContacts: { list:itemContactsList, set:itemContactSet, remove:itemContactRemove,
@@ -15969,6 +17379,9 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
                importCandidates:rubricaImportCandidates, invalidate:function(){ rubCache=null; } },
     user: function(){ return cloudUser; },
     currentId: function(){ return cloudCurrentId; },
+    currentRev: function(){ return cloudRev; },
+    isWriting: function(){ return cloudWriteBusy||!!cloudWriteQueue.length; },
+    whenIdle: function(cb){ if(!cloudWriteBusy&&!cloudWriteQueue.length) cb(); else cloudWriteIdleWaiters.push(cb); },
     setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); _lastCloudImgSig=null; exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } },   /* documento staccato/nuovo: mai bloccato; reset firma immagine → riscritta al 1° salvataggio */
     signIn: signIn,
     save: saveProject,
@@ -15976,6 +17389,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     dupOpenCurrent: dupOpenCurrent,   /* usato dalla barra "Progetto bloccato — Duplica" */
     ensureShareTokenFor: ensureShareTokenFor,
     clearShareTokenFor: clearShareTokenFor,
+    copySharedToken: completeCopyFromToken,
     /* token di sessione fresco per l'Authorization header (audit S5: identità del feedback lato server) */
     accessToken: function(){ return sb ? sb.auth.getSession().then(function(r){ return (r&&r.data&&r.data.session)?r.data.session.access_token:null; }).catch(function(){ return null; }) : Promise.resolve(null); }
   };
@@ -16001,6 +17415,61 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
         .then(function(r){ var rows=(r && r.data)||[]; equipCache[key]=rows; cb(rows); }, function(){ cb([]); }); }
   };
 
+  var authReconcileSeq=0;
+  function reconcileBootAndResume(){
+    var seq=++authReconcileSeq;
+    window.__cloudAuthResolved=true;
+    if(!cloudUser) return;
+    if(!cloudCurrentId){
+      if(_cloudDirty||window.__bootCloudPending) cloudAutosaveNow();
+      return;
+    }
+    var id=cloudCurrentId, expected=cloudRev;
+    if(!expected){ enterConflict(); return; }
+    /* Il lock è autorevole lato DB e va applicato al boot PRIMA di qualunque autosave. Per i root
+       legacy senza firma, una lettura completa permette di adottare il binding soltanto se il
+       documento normalizzato è davvero identico; ogni differenza resta un conflitto fail-closed. */
+    var needFull=!window.__bootCloudSigKnown||window.__bootVenueUnavailable;
+    var fields=needFull?"updated_at,is_locked,data,venue_image":"updated_at,is_locked";
+    sb.from("stageplot_projects").select(fields).eq("id",id).maybeSingle().then(function(r){
+      if(seq!==authReconcileSeq||id!==cloudCurrentId) return;
+      if(r.error){ setDocState("error"); setTimeout(function(){ if(seq===authReconcileSeq) reconcileBootAndResume(); },5000); return; }
+      if(!r.data||!r.data.updated_at||r.data.updated_at!==expected){ enterConflict(); return; }
+      if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);
+      if(!window.__bootCloudSigKnown){
+        var remoteInfo,localSig;
+        try{
+          remoteInfo=remoteProjectContentInfo(r.data.data,r.data.venue_image);
+          localSig=projectContentSig(JSON.parse(docToJSON()),venueImgSig());
+        }catch(_legacyErr){ enterConflict(); return; }
+        if(!remoteInfo.sig||remoteInfo.sig!==localSig){ enterConflict(); return; }
+        window.__bootCloudSig=localSig; window.__bootCloudSigKnown=true; window.__bootCloudPending=false;
+        if(window.__markCloudClean) window.__markCloudClean();
+      }
+      if(window.__bootVenueUnavailable){
+        if(r.data.venue_image){
+          if(!applyVenueImage(r.data.venue_image,true)){ enterConflict(); return; }
+          _lastCloudImgSig=venueImgSig();
+          persistLocalState(true);   /* anche locked: asset recuperato + pointer devono sopravvivere al prossimo boot */
+        } else if(window.__bootCloudPending){
+          /* La bitmap locale dichiarata non disponibile non esiste neppure nel cloud: non propagare
+             un null distruttivo come se fosse una cancellazione intenzionale. */
+          enterConflict(); return;
+        } else {
+          window.__bootVenueUnavailable=false; _lastCloudImgSig="";
+        }
+      }
+      if(r.data.is_locked){
+        /* Un edit locale arrivato prima della risoluzione auth non può essere scritto sopra una
+           versione approvata: resta disponibile nel conflitto e può essere duplicato. */
+        if(_cloudDirty||window.__bootCloudPending){ enterConflict(); return; }
+        _lastCloudImgSig=venueImgSig(); setDocState("online"); return;
+      }
+      if(_cloudDirty||window.__bootCloudPending) cloudAutosaveNow();
+      else { _lastCloudImgSig=venueImgSig(); setDocState("online"); }
+    },function(){ if(seq===authReconcileSeq){ setDocState("error"); setTimeout(reconcileBootAndResume,5000); } });
+  }
+
   function init(){
     var bCloud=document.getElementById("bCloud");
     if(bCloud) bCloud.addEventListener("click", openModal);
@@ -16012,31 +17481,24 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
 
     sb.auth.getSession().then(function(r){
-      cloudUser=(r && r.data && r.data.session)?r.data.session.user:null;
+      setCloudUser((r && r.data && r.data.session)?r.data.session.user:null);
+      window.__cloudAuthResolved=true;
       if(!oauthReturn) hadSessionAtBoot=!!cloudUser;
       updateBtn();
       var copyTok=null; try{ copyTok=sessionStorage.getItem("copyFromToken"); }catch(e){}
       if(copyTok && cloudUser){
-        try{ sessionStorage.removeItem("copyFromToken"); sessionStorage.removeItem("cloudReopen"); }catch(e){}
+        try{ sessionStorage.removeItem("cloudReopen"); }catch(e){}   /* copyFromToken resta finché l'INSERT non è confermato */
         completeCopyFromToken(copyTok);
         return;
       }
       var reopen=false; try{ reopen=sessionStorage.getItem("cloudReopen")==="1"; }catch(e){}
       if(reopen && cloudUser){ try{ sessionStorage.removeItem("cloudReopen"); }catch(e){} openModal(); }
-      /* guardia di versione al boot: se il cloud è più avanti del locale (altro tab/dispositivo ha
-         salvato dopo di noi), apri il conflitto PRIMA che un edit qui sovrascriva quel lavoro */
-      if(cloudUser && cloudCurrentId){
-        sb.from("stageplot_projects").select("updated_at").eq("id",cloudCurrentId).maybeSingle().then(function(cr){
-          if(cr && cr.data && cr.data.updated_at){
-            if(cloudRev && cr.data.updated_at!==cloudRev) enterConflict();
-            else if(!cloudRev) setRev(cr.data.updated_at);   /* prima sessione con la guardia: adotta la rev del server */
-          }
-        }, function(){});
-      }
+      reconcileBootAndResume();
       window.__flushEvents();   /* auth iniziale risolta: gli eventi in coda partono con lo user_id giusto */
     });
     sb.auth.onAuthStateChange(function(ev, session){
-      cloudUser=session?session.user:null;
+      setCloudUser(session?session.user:null);
+      window.__cloudAuthResolved=true;
       if(ev==="SIGNED_IN" && cloudUser && !loginTracked && !hadSessionAtBoot){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
@@ -16045,6 +17507,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       if(typeof window.renderContacts==="function") window.renderContacts();   /* login/logout: i controlli rubrica (+ Dalla rubrica, ★, Gestisci) compaiono subito, non al prossimo re-render */
       if(modalOpen()) renderModal();
       if(cloudUser && modalOpen()) loadProjects();
+      reconcileBootAndResume();
     });
   }
 

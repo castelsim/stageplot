@@ -52,6 +52,13 @@ let pass = 0, fail = 0;
 function t(name, fn) { try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
 function eq(got, exp, msg) { const g = JSON.stringify(got), e = JSON.stringify(exp); if (g !== e) throw new Error((msg || "") + " atteso " + e + ", ottenuto " + g); }
 function ok(cond, msg) { if (!cond) throw new Error(msg || "condizione falsa"); }
+function throws(fn, code) {
+  try { fn(); } catch (e) {
+    if (code && e.code !== code) throw new Error("errore atteso " + code + ", ottenuto " + (e.code || e.message));
+    return e;
+  }
+  throw new Error("eccezione attesa" + (code ? " (" + code + ")" : ""));
+}
 function reset() {
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
@@ -516,9 +523,610 @@ t("stateToJSON marca il documento con _v = SCHEMA_VERSION", () => {
   ok(typeof blob._v === "number" && blob._v >= 1, "il blob salvato deve portare la versione"); eq(blob._v, A.SCHEMA_VERSION);
 });
 t("round-trip salva→carica: _v consumato, items conservati", () => {
-  reset(); A.state.items = [{ id: "z", type: "voce", x: 10, y: 10 }];
+  reset(); A.state.items = [{ id: "z", type: "cantante", x: 10, y: 10 }];
   const back = A.normalizeState(JSON.parse(A.stateToJSON()));
   ok(!("_v" in back), "_v consumato al load"); eq(back.items[0].id, "z");
+});
+t("loadDoc→save→load conserva campi tecnici, relazioni e campi additivi", () => {
+  const richItems = [
+    { id: "rack-a", type: "rack", x: 100, y: 120, w: 60, d: 50, rackU: 18, rackFn: "rf" },
+    { id: "sb-a", type: "stagebox", x: 100, y: 120, w: 58, d: 46, hw: "rio3224d2",
+      sbId: 7, sbRes: [2, 4], sbTo: "main", foh: true, rackId: "rack-a", rackPos: 0, rackUh: 3 },
+    { id: "mon-a", type: "wedge", x: 220, y: 180, w: 60, d: 52 },
+    { id: "rx-a", type: "rxrf", x: 260, y: 180, w: 48, d: 36, hw: "ewdxem2", rxN: 2, band: "R1-9" },
+    { id: "voice-a", type: "wireless", x: 300, y: 220, w: 18, d: 32, ascolto: "wedge",
+      ascoltoId: "mon-a", rxId: "rx-a", rxCh: 2, rf: "550.125", band: "R1-9", ownMic: false },
+    { id: "hub-a", type: "mixhub", x: 360, y: 220, w: 60, d: 34, pm: "p16d",
+      pmFeed: "dante", pmFeedCh: 32 },
+    { id: "net-a", type: "netswitch", x: 430, y: 220, w: 46, d: 30, swPorts: 24 },
+    { id: "power-a", type: "ciabatta", x: 500, y: 220, w: 44, d: 17, prese: 12 },
+    { id: "zone-a", type: "miczone", x: 560, y: 260, w: 220, d: 150, zcol: "#2563eb",
+      micPos: [12, -7], safeDesc: "Carico sospeso", safeCap: "250 kg", safeNote: "Verifica tecnica" },
+    { id: "laptop-a", type: "laptop", x: 650, y: 260, w: 44, d: 34, uso: "playback_audio",
+      by: "Band", modelId: "fixture-model",
+      modelData: { brand: { value: "Fixture" }, model: { value: "Offline" } },
+      modelOverride: { powerConsumption_W: { value: 65, unit_orig: "W" } },
+      futureExtension: { revision: 3, flags: ["keep"] } },
+  ];
+  const doc = { _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "Rich", items: richItems, inputs: [], outputs: [],
+      buses: [{ id: "bus-a", name: "Monitor", kind: "aux", boxId: "sb-a", port: 2 }] } },
+    { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [
+      { id: "sb-b", type: "stagebox", x: 90, y: 90, w: 58, d: 46, hw: "dx168", sbId: 3, foh: true },
+    ], inputs: [], outputs: [] } },
+  ] };
+  const assertActiveRich = () => {
+    const by = Object.fromEntries(A.state.items.map((it) => [it.id, it]));
+    eq({ hw: by["sb-a"].hw, sbId: by["sb-a"].sbId, sbRes: by["sb-a"].sbRes, sbTo: by["sb-a"].sbTo,
+      foh: by["sb-a"].foh, rackId: by["sb-a"].rackId, rackPos: by["sb-a"].rackPos, rackUh: by["sb-a"].rackUh },
+      { hw: "rio3224d2", sbId: 7, sbRes: [2, 4], sbTo: "main", foh: true, rackId: "rack-a", rackPos: 0, rackUh: 3 },
+      "stagebox/rack");
+    eq({ rackU: by["rack-a"].rackU, rackFn: by["rack-a"].rackFn }, { rackU: 18, rackFn: "rf" }, "rack");
+    eq({ ascolto: by["voice-a"].ascolto, ascoltoId: by["voice-a"].ascoltoId, rxId: by["voice-a"].rxId,
+      rxCh: by["voice-a"].rxCh, rf: by["voice-a"].rf, band: by["voice-a"].band, ownMic: by["voice-a"].ownMic },
+      { ascolto: "wedge", ascoltoId: "mon-a", rxId: "rx-a", rxCh: 2, rf: "550.125", band: "R1-9", ownMic: false },
+      "ascolto/RF");
+    eq({ pm: by["hub-a"].pm, pmFeed: by["hub-a"].pmFeed, pmFeedCh: by["hub-a"].pmFeedCh },
+      { pm: "p16d", pmFeed: "dante", pmFeedCh: 32 }, "personal monitor");
+    eq(by["net-a"].swPorts, 24, "porte switch"); eq(by["power-a"].prese, 12, "prese");
+    eq({ zcol: by["zone-a"].zcol, micPos: by["zone-a"].micPos, safeDesc: by["zone-a"].safeDesc,
+      safeCap: by["zone-a"].safeCap, safeNote: by["zone-a"].safeNote },
+      { zcol: "#2563eb", micPos: [12, -7], safeDesc: "Carico sospeso", safeCap: "250 kg", safeNote: "Verifica tecnica" },
+      "zona/safety");
+    eq({ uso: by["laptop-a"].uso, by: by["laptop-a"].by, modelId: by["laptop-a"].modelId,
+      modelData: by["laptop-a"].modelData, modelOverride: by["laptop-a"].modelOverride,
+      futureExtension: by["laptop-a"].futureExtension },
+      { uso: "playback_audio", by: "Band", modelId: "fixture-model",
+        modelData: { brand: { value: "Fixture" }, model: { value: "Offline" } },
+        modelOverride: { powerConsumption_W: { value: 65, unit_orig: "W" } },
+        futureExtension: { revision: 3, flags: ["keep"] } },
+      "modello/campi additivi");
+    eq(A.state.buses[0].boxId, "sb-a", "relazione bus→stagebox");
+  };
+  A.loadDoc(JSON.parse(JSON.stringify(doc))); assertActiveRich();
+  A.loadDoc(JSON.parse(A.docToJSON())); assertActiveRich();
+  A.switchVariant("vB");
+  const sbB = A.state.items.find((it) => it.id === "sb-b");
+  eq({ hw: sbB.hw, sbId: sbB.sbId, foh: sbB.foh }, { hw: "dx168", sbId: 3, foh: true },
+    "campi tecnici variante inattiva");
+});
+t("Input/Output List restano intatte in tutte le varianti anche fuori dalla consulenza", () => {
+  const oldConsult = A.__consultMode;
+  const before = A.docToJSON();
+  A.__consultMode = false;
+  try {
+    A.loadDoc({ _doc: 1, active: "one", variants: [
+      { id: "one", name: "Uno", state: { _v: A.SCHEMA_VERSION, items: [
+        { id: "voice", type: "cantante" }, { id: "mon", type: "wedge" },
+      ], inputs: [{ src: "Voce", linked_item_id: "voice", notes: "keep-in" }],
+      outputs: [{ src: "Mix 1", linked_item_id: "mon", notes: "keep-out" }] } },
+      { id: "two", name: "Due", state: { _v: A.SCHEMA_VERSION, items: [{ id: "di", type: "dimono" }],
+        inputs: [{ src: "DI", linked_item_id: "di" }], outputs: [{ src: "Spare" }] } },
+    ] });
+    const saved = JSON.parse(A.docToJSON());
+    const one = saved.variants.find((v) => v.id === "one").state;
+    const two = saved.variants.find((v) => v.id === "two").state;
+    eq([one.inputs.length, one.outputs.length, two.inputs.length, two.outputs.length], [1, 1, 1, 1]);
+    eq([one.inputs[0].linked_item_id, one.outputs[0].linked_item_id, two.inputs[0].linked_item_id],
+      ["voice", "mon", "di"], "relazioni delle liste preservate");
+  } finally {
+    A.__consultMode = oldConsult;
+    A.loadDoc(JSON.parse(before));
+  }
+});
+t("campi additivi al root del documento sopravvivono a load/save/load", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc({ _doc: 1, active: "r1", futureRootMeta: { revision: 7, flags: ["keep"] }, variants: [
+      { id: "r1", name: "Root", state: { _v: A.SCHEMA_VERSION, titolo: "Root", items: [], inputs: [], outputs: [] } },
+    ] });
+    let saved = JSON.parse(A.docToJSON());
+    eq(saved.futureRootMeta, { revision: 7, flags: ["keep"] }, "extra root serializzato");
+    A.loadDoc(saved); saved = JSON.parse(A.docToJSON());
+    eq(saved.futureRootMeta, { revision: 7, flags: ["keep"] }, "extra root preservato al secondo load");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("sanitizeItems scarta tipi ereditati dal prototype senza eccezioni", () => {
+  ["constructor", "__proto__", "toString"].forEach((type) => {
+    eq(A.sanitizeItems([{ id: "bad-" + type, type, x: 0, y: 0 }]), [], type);
+  });
+});
+t("normalizeState conserva il backfill dimensionale di elementi componibili e doppi legacy", () => {
+  const legacy = A.normalizeState({ items: [
+    { id: "kit", type: "batteria", x: 10, y: 20,
+      parts: { toms: 3, floor: true, hihat: true, crash: 2, ride: true, kick2: true, mus: true, stool: true } },
+    { id: "duo", type: "vln1x2", x: 30, y: 40, sep: 120 },
+  ], inputs: [], outputs: [] });
+  const kit = legacy.items.find((it) => it.id === "kit");
+  const duo = legacy.items.find((it) => it.id === "duo");
+  eq([kit.w, kit.d], A.sizeBatteria(kit), "dimensioni kit derivate dai pezzi");
+  eq([duo.w, duo.d], [A.sepToW(A.DOUBLE_TYPES.vln1x2, 120), A.DOUBLE_TYPES.vln1x2.dbl[1]],
+    "dimensioni doppia derivate dalla separazione");
+});
+t("ID numerici legacy mantengono tutte le relazioni dopo la canonicalizzazione", () => {
+  const oldConsult = A.__consultMode;
+  A.__consultMode = true;
+  try {
+    const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [
+      { id: 1, type: "rack", rackU: 12 },
+      { id: 2, type: "stagebox", rackId: 1, rackPos: 0 },
+      { id: 3, type: "wedge" },
+      { id: 4, type: "rxrf" },
+      { id: 5, type: "wireless", ascolto: "wedge", ascoltoId: 3, rxId: 4, rxCh: 1 },
+      { id: 6, type: "pedana" },
+      { id: 7, type: "sedia", distOf: 6 },
+      { id: 8, type: "ciabatta" },
+      { id: 9, type: "quadro" },
+      { id: 10, type: "hearback" },
+      { id: 11, type: "mixhub" },
+      { id: 12, type: "stagebox", sbTo: 2 },
+    ], buses: [{ id: "bus", name: "Main", kind: "st", boxId: 2, port: 1 }],
+      inputs: [{ src: "Voce", linked_item_id: 5 }], outputs: [{ src: "Mix", linked_item_id: 3 }],
+      cab: { on: true, manual: { "5#0": { box: 2 } } },
+      elec: { on: true, manual: { 7: { distro: 8 } }, uplinks: { 8: { to: 9 } } },
+      mond: { on: true, manual: { 10: { to: 11 } } } });
+    const by = Object.fromEntries(s.items.map((it) => [it.id, it]));
+    eq(s.items.map((it) => it.id), ["1","2","3","4","5","6","7","8","9","10","11","12"], "ID canonici");
+    eq({ rackId: by["2"].rackId, ascoltoId: by["5"].ascoltoId, rxId: by["5"].rxId,
+      distOf: by["7"].distOf, sbTo: by["12"].sbTo },
+      { rackId: "1", ascoltoId: "3", rxId: "4", distOf: "6", sbTo: "2" }, "relazioni item");
+    eq({ bus: s.buses[0].boxId, cab: s.cab.manual["5#0"].box,
+      distro: s.elec.manual["7"].distro, up: s.elec.uplinks["8"].to, mond: s.mond.manual["10"].to,
+      input: s.inputs[0].linked_item_id, output: s.outputs[0].linked_item_id },
+      { bus: "2", cab: "2", distro: "8", up: "9", mond: "11", input: "5", output: "3" },
+      "grafi tecnici");
+  } finally {
+    A.__consultMode = oldConsult;
+  }
+});
+t("ID di 80 caratteri e chiavi di routing composte non vengono troncati", () => {
+  const src = "s".repeat(80), box = "b".repeat(80), load = "l".repeat(80);
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [
+    { id: src, type: "cantante" }, { id: box, type: "stagebox" },
+    { id: load, type: "sedia" }, { id: "d".repeat(80), type: "ciabatta" },
+    { id: "q".repeat(80), type: "quadro" },
+  ], inputs: [], outputs: [],
+  cab: { on: true, manual: { [src + "#0"]: { box } } },
+  elec: { on: true, manual: { [load]: { distro: "d".repeat(80) }, [src]: "d".repeat(80) },
+    uplinks: { ["d".repeat(80)]: { to: "q".repeat(80) } } } });
+  ok(Object.prototype.hasOwnProperty.call(s.cab.manual, src + "#0"), "chiave cavo composta completa");
+  eq(s.cab.manual[src + "#0"].box, box, "target stagebox completo");
+  ok(Object.prototype.hasOwnProperty.call(s.elec.manual, load), "chiave carico completa");
+  eq(s.elec.manual[load].distro, "d".repeat(80), "target distro completo");
+  eq(s.elec.manual[src].distro, "d".repeat(80), "target distro legacy stringa completo");
+  eq(s.elec.uplinks["d".repeat(80)].to, "q".repeat(80), "uplink completo");
+});
+t("documenti futuri, tipi ignoti e liste non valide sono rifiutati senza commit parziale", () => {
+  reset();
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items: [{ id: "stable", type: "cantante" }], inputs: [], outputs: [] });
+  const beforeState = A.state;
+  const beforeDoc = A.docToJSON();
+  throws(() => A.loadDoc({ _v: A.SCHEMA_VERSION + 1, items: [{ id: "future", type: "cantante" }] }), "FUTURE_SCHEMA");
+  ok(A.state === beforeState, "schema futuro non sostituisce lo state");
+  eq(A.docToJSON(), beforeDoc, "schema futuro non altera il documento");
+  throws(() => A.loadDoc({ _doc: 2, active: "v", variants: [
+    { id: "v", state: { _v: A.SCHEMA_VERSION, items: [] } },
+  ] }), "FUTURE_DOCUMENT");
+  throws(() => A.loadDoc({ _doc: 1, _v: A.SCHEMA_VERSION + 1, active: "v", variants: [
+    { id: "v", state: { _v: A.SCHEMA_VERSION, items: [] } },
+  ] }), "FUTURE_SCHEMA");
+  throws(() => A.loadDoc({ _v: A.SCHEMA_VERSION, items: [{ id: "future", type: "tipo_futuro" }] }), "UNKNOWN_ITEM_TYPE");
+  throws(() => A.loadDoc({ _v: A.SCHEMA_VERSION, items: {} }), "INVALID_ITEMS");
+  throws(() => A.loadDoc({ _doc: 1, active: "ok", variants: [
+    { id: "ok", name: "OK", state: { _v: A.SCHEMA_VERSION, items: [{ id: "kept", type: "cantante" }] } },
+    { id: "bad", name: "Future", state: { _v: A.SCHEMA_VERSION + 1, items: [] } },
+  ] }), "FUTURE_SCHEMA");
+  ok(A.state === beforeState, "variante inattiva invalida non produce commit parziale");
+  eq(A.docToJSON(), beforeDoc, "documento invariato dopo tutti i rifiuti");
+});
+t("ID duplicati / non-safe vengono riassegnati (niente lockout) e restano sicuri e unici", () => {
+  reset();
+  // id da injection, duplicati, chiavi pericolose e vuoti: il documento DEVE aprirsi, non bloccarsi
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items: [
+    { id: 'x" data-extra="1', type: "cantante", label: "A" },
+    { id: "dup", type: "cantante", label: "B" },
+    { id: "dup", type: "wedge", label: "C" },
+    { id: "toString", type: "cantante", label: "D" },
+    { id: "__proto__", type: "cantante", label: "E" },
+    { id: "", type: "cantante", label: "F" },
+  ] });
+  const items = A.state.items;
+  eq(items.length, 6, "tutti gli elementi conservati: nessun lockout, nessuna perdita");
+  const ids = items.map((it) => it.id);
+  ok(ids.every((id) => A.safeItemId(id)), "tutti gli id sono sicuri dopo la riparazione");
+  eq(new Set(ids).size, 6, "tutti gli id sono unici");
+  ok(!ids.some((id) => /["'<>]/.test(id)), "nessun id sopravvive con caratteri da injection");
+  eq(items.map((it) => it.label).join(""), "ABCDEF", "i dati degli elementi restano intatti e nell'ordine originale");
+});
+t("boot con documento futuro sospende ogni persistenza e non riaggancia il progetto cloud", () => {
+  const oldStorage = A.localStorage;
+  const oldCloud = A.__cloud;
+  const oldDocument = A.document;
+  const oldConsult = A.__consultMode;
+  const oldBlocked = A.__docLoadBlocked;
+  const oldBootCloudId = A.__bootCloudId;
+  const oldBootCloudRev = A.__bootCloudRev;
+  const oldBootCloudMeta = A.__bootCloudMeta;
+  const oldUnavailable = A.__localStorageUnavailable;
+  const beforeState = A.state;
+  const beforeDoc = A.docToJSON();
+  const reads = [], writes = [], removals = [];
+  let cloudSaves = 0;
+  A.localStorage = {
+    getItem: (key) => {
+      reads.push(key);
+      if (key === A.LS_KEY) return JSON.stringify({
+        _v: A.SCHEMA_VERSION + 1,
+        items: [{ id: "future", type: "cantante" }],
+        inputs: [],
+        outputs: [],
+      });
+      if (key === A.LS_KEY + "_cloudid") return "cloud-project-existing";
+      return null;
+    },
+    setItem: (key, value) => writes.push([key, value]),
+    removeItem: (key) => removals.push(key),
+  };
+  A.__consultMode = false;
+  A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+  A.__cloud = { user: () => ({ id: "u" }), save: () => { cloudSaves++; }, currentId: () => "cloud-project-existing" };
+  try {
+    A.load();
+    eq(A.__docLoadBlocked.code, "FUTURE_SCHEMA", "motivo del blocco");
+    eq(A.__bootCloudId, null, "il cloud ID non viene adottato");
+    ok(!reads.includes(A.LS_KEY + "_cloudid"), "nessuna lettura dell'associazione cloud durante il blocco");
+    ok(A.state === beforeState && A.docToJSON() === beforeDoc, "il documento runtime resta intatto");
+    A.persistLocalState();
+    A.persistVenueImg();
+    A.cloudAutosaveNow();
+    eq({ writes: writes.length, removals: removals.length, cloudSaves },
+      { writes: 0, removals: 0, cloudSaves: 0 },
+      "nessuna sovrascrittura locale, rimozione o scrittura cloud");
+  } finally {
+    A.localStorage = oldStorage;
+    A.__cloud = oldCloud;
+    A.document = oldDocument;
+    A.__consultMode = oldConsult;
+    A.__docLoadBlocked = oldBlocked;
+    A.__bootCloudId = oldBootCloudId;
+    A.__bootCloudRev = oldBootCloudRev;
+    A.__bootCloudMeta = oldBootCloudMeta;
+    A.__localStorageUnavailable = oldUnavailable;
+  }
+});
+t("persistenza locale: documento e binding cloud sono un unico commit; nessun ID se il blob fallisce", () => {
+  const oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document, oldConsult = A.__consultMode;
+  const oldUnavailable = A.__localStorageUnavailable;
+  const writes = [];
+  A.__consultMode = false;
+  A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+  A.__cloud = { currentId: () => "project-B", currentRev: () => "rev-B", user: () => ({ id: "u" }) };
+  try {
+    A.localStorage = {
+      getItem: () => null,
+      setItem: (key, value) => { writes.push([key, value]); if (key === A.LS_KEY) throw new Error("quota"); },
+      removeItem: (key) => writes.push([key, null]),
+    };
+    eq(A.persistLocalState(), false, "il commit documento fallisce esplicitamente");
+    ok(!writes.some(([key]) => key === A.LS_KEY + "_cloudid"), "binding separato mai scritto dopo il fallimento");
+
+    writes.length = 0;
+    A.localStorage = {
+      getItem: () => null,
+      setItem: (key, value) => writes.push([key, value]),
+      removeItem: (key) => writes.push([key, null]),
+    };
+    eq(A.persistLocalState(), true, "commit riuscito");
+    const rootWrite = writes.find(([key]) => key === A.LS_KEY);
+    ok(rootWrite, "documento scritto");
+    const meta = JSON.parse(rootWrite[1])._local;
+    eq({ cloudId: meta.cloudId, cloudRev: meta.cloudRev, venueSig: meta.venueSig,
+      venueKey: meta.venueKey, venueUnavailable: meta.venueUnavailable },
+      { cloudId: "project-B", cloudRev: "rev-B", venueSig: "", venueKey: null, venueUnavailable: false },
+      "binding cloud e riferimento planimetria incorporati atomicamente");
+    ok(typeof meta.contentSig === "string" && meta.contentSig.length > 0, "firma contenuto persistita");
+    ok(typeof meta.localRevision === "string" && meta.localRevision.length > 0, "revisione locale persistita");
+    eq(meta.cloudPending, true, "documento cloud nuovo resta marcato come da sincronizzare");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument; A.__consultMode = oldConsult;
+    A.__localStorageUnavailable = oldUnavailable;
+  }
+});
+t("quota planimetria non committa un root che renda irraggiungibile l'ultima copia completa", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const oldConflict = A.__localConflict, oldUnavailable = A.__localStorageUnavailable;
+  const oldBootVenueUnavailable = A.__bootVenueUnavailable;
+  const oldPersistedSig = A.venuePersistedSig, oldPersistedKey = A.venuePersistedKey;
+  const oldStageFailedSig = A.venueStageFailedSig, oldExpectedRevision = A.localExpectedRevision;
+  const oldStorageIdentity = A.localStorageIdentity;
+  const store = new Map();
+  let rejectNewVenueAsset = false;
+  try {
+    A.localStorage = {
+      getItem: (key) => store.has(key) ? store.get(key) : null,
+      setItem: (key, value) => {
+        if (rejectNewVenueAsset && key.startsWith(A.LS_KEY_VENUE + ".")) {
+          const error = new Error("quota");
+          error.name = "QuotaExceededError";
+          throw error;
+        }
+        store.set(key, value);
+      },
+      removeItem: (key) => store.delete(key),
+    };
+    A.__cloud = { currentId: () => null, currentRev: () => null, user: () => null };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A.__localStorageUnavailable = false; A.__bootVenueUnavailable = false;
+    A.venuePersistedSig = null; A.venuePersistedKey = null; A.venueStageFailedSig = null;
+    A.localExpectedRevision = null; A.localStorageIdentity = oldStorageIdentity;
+    A.loadDoc({ _v: A.SCHEMA_VERSION, venue: {
+      name: "A.png", _dataUrl: "data:image/png;base64,QUFB", _imgW: 100, _imgH: 80,
+      x: 0, y: 0, w: 100, h: 80,
+    }, items: [], inputs: [], outputs: [] });
+    eq(A.persistLocalState(), true, "prima coppia root+asset salvata");
+    const durableRoot = store.get(A.LS_KEY);
+    const durableKeys = [...store.keys()].filter((key) => key.startsWith(A.LS_KEY_VENUE + "."));
+    eq(durableKeys.length, 1, "asset A presente");
+
+    A.state.venue = {
+      name: "B.png", _dataUrl: "data:image/png;base64,QkJC", _imgW: 120, _imgH: 90,
+      x: 0, y: 0, w: 120, h: 90,
+    };
+    rejectNewVenueAsset = true;
+    eq(A.persistLocalState(), false, "quota della nuova bitmap fallisce chiusa");
+    eq(store.get(A.LS_KEY), durableRoot, "il root autorevole resta quello associato alla bitmap A");
+    eq([...store.keys()].filter((key) => key.startsWith(A.LS_KEY_VENUE + ".")), durableKeys,
+      "l'asset durevole precedente non viene eliminato");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A.__localConflict = oldConflict; A.__localStorageUnavailable = oldUnavailable;
+    A.__bootVenueUnavailable = oldBootVenueUnavailable;
+    A.venuePersistedSig = oldPersistedSig; A.venuePersistedKey = oldPersistedKey;
+    A.venueStageFailedSig = oldStageFailedSig; A.localExpectedRevision = oldExpectedRevision;
+    A.localStorageIdentity = oldStorageIdentity;
+    A.loadDoc(JSON.parse(before));
+  }
+});
+t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
+  const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
+  const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;
+  const oldBootCloudId = A.__bootCloudId, oldBootCloudRev = A.__bootCloudRev, oldBootCloudMeta = A.__bootCloudMeta;
+  A.__consultMode = false;
+  A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+  A.localStorage = { getItem: () => { throw new Error("SecurityError"); }, setItem: () => {}, removeItem: () => {} };
+  try {
+    A.load();
+    eq(A.__docLoadBlocked, null, "nessun blocco di compatibilità");
+    eq(A.__localStorageUnavailable, true, "errore storage distinto e visibile");
+  } finally {
+    A.localStorage = oldStorage; A.document = oldDocument; A.__consultMode = oldConsult;
+    A.__docLoadBlocked = oldBlocked; A.__localStorageUnavailable = oldUnavailable;
+    A.__bootCloudId = oldBootCloudId; A.__bootCloudRev = oldBootCloudRev; A.__bootCloudMeta = oldBootCloudMeta;
+  }
+});
+t("getter localStorage negato non interrompe il boot dell'app", () => {
+  const storageDescriptor = Object.getOwnPropertyDescriptor(A, "localStorage");
+  const oldDocument = A.document, oldConsult = A.__consultMode;
+  const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;
+  A.__consultMode = false;
+  A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+  Object.defineProperty(A, "localStorage", {
+    configurable: true,
+    get: () => { throw new Error("SecurityError"); },
+  });
+  try {
+    A.load();
+    eq(A.__docLoadBlocked, null, "nessun falso blocco documento");
+    eq(A.__localStorageUnavailable, true, "storage negato segnalato senza eccezione");
+  } finally {
+    if (storageDescriptor) Object.defineProperty(A, "localStorage", storageDescriptor);
+    else delete A.localStorage;
+    A.document = oldDocument; A.__consultMode = oldConsult;
+    A.__docLoadBlocked = oldBlocked; A.__localStorageUnavailable = oldUnavailable;
+  }
+});
+t("import invalido non stacca il cloud; import valido azzera la cronologia cross-documento", () => {
+  const oldCloud = A.__cloud, oldBlocked = A.__docLoadBlocked;
+  const before = A.docToJSON(), beforeUndo = A.undoStack.slice(), beforeRedo = A.redoStack.slice();
+  const detached = [];
+  A.__cloud = { setCurrentId: (id) => detached.push(id), currentId: () => "project-A", currentRev: () => "rev-A", user: () => null };
+  try {
+    A.undoStack.push("sentinel"); A.redoStack.push("sentinel");
+    throws(() => A.importProject(JSON.stringify({ _v: A.SCHEMA_VERSION + 1, items: [] })), "FUTURE_SCHEMA");
+    eq(detached.length, 0, "nessun lifecycle alterato dal documento invalido");
+    A.importProject(JSON.stringify({ _v: A.SCHEMA_VERSION, items: [{ id: "new", type: "cantante" }], inputs: [], outputs: [] }),
+      { autosave: false });
+    eq(detached, [null], "stacco soltanto dopo la validazione");
+    eq([A.undoStack.length, A.redoStack.length], [0, 0], "nessun undo può attraversare il confine progetto");
+  } finally {
+    A.__cloud = oldCloud; A.__docLoadBlocked = oldBlocked;
+    A.loadDoc(JSON.parse(before));
+    A.undoStack.length = 0; beforeUndo.forEach((x) => A.undoStack.push(x));
+    A.redoStack.length = 0; beforeRedo.forEach((x) => A.redoStack.push(x));
+  }
+});
+t("cache planimetria viene isolata al cambio documento anche con nomi uguali", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, venue: { name: "plan.png", _dataUrl: "data:image/png;base64,AA==" },
+      items: [], inputs: [], outputs: [] });
+    A.cacheVenueImg(A.state.venue);
+    A.loadDoc({ _doc: 1, active: "b1", variants: [
+      { id: "b1", name: "B1", state: { _v: A.SCHEMA_VERSION, venue: { name: "plan.png" }, items: [], inputs: [], outputs: [] } },
+      { id: "b2", name: "B2", state: { _v: A.SCHEMA_VERSION, venue: { name: "plan.png" }, items: [], inputs: [], outputs: [] } },
+    ] });
+    ok(!A.state.venue._dataUrl, "il progetto B non eredita l'immagine di A");
+    A.switchVariant("b2");
+    ok(!A.state.venue._dataUrl, "neppure una variante inattiva riaggancia la cache di A");
+  } finally {
+    A.loadDoc(JSON.parse(before));
+  }
+});
+t("firma planimetria locale impedisce il mix documento B / bitmap A dopo una write parziale", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage;
+  try {
+    A.loadDoc({ _doc: 1, active: "b", variants: [
+      { id: "b", name: "B", state: { titolo: "B", venue: { name: "stage.png", x: 0, y: 0, w: 100, h: 80 }, items: [], inputs: [], outputs: [] } },
+    ] });
+    const stale = { _venueDoc: 1, active: "b", images: {
+      b: { name: "stage.png", _dataUrl: "data:image/png;base64,QUFB", _imgW: 100, _imgH: 80 },
+    } };
+    A.localStorage = { getItem: (key) => key === A.LS_KEY_VENUE ? JSON.stringify(stale) : null,
+      setItem: () => {}, removeItem: () => {} };
+    eq(A.loadVenueImg("firma-di-B-diversa"), false, "bundle stale rifiutato");
+    ok(!A.state.venue._dataUrl, "la bitmap A non viene mostrata come documento B");
+  } finally { A.localStorage = oldStorage; A.loadDoc(JSON.parse(before)); }
+});
+t("bundle planimetrie locale v2 deduplica il base64 e torna alla forma canonica", () => {
+  const dataUrl = "data:image/png;base64,QUFB";
+  const canonical = { _venueDoc: 1, active: "a", images: {
+    a: { name: "Piena", _dataUrl: dataUrl, _imgW: 100, _imgH: 80 },
+    b: { name: "Ridotta", _dataUrl: dataUrl, _imgW: 100, _imgH: 80 },
+  } };
+  const compact = A.compactVenueImageBundle(canonical);
+  eq(compact._venueDoc, 2, "formato locale compatto");
+  eq(Object.keys(compact.assets).length, 1, "un solo asset per due varianti clonate");
+  eq((JSON.stringify(compact).match(/data:image\/png;base64,QUFB/g) || []).length, 1,
+    "il payload base64 compare una sola volta");
+  const roundTrip = A.normalizeVenueImageBundle(compact, "a");
+  eq({ active: roundTrip.active, keys: Object.keys(roundTrip.images).sort(),
+    names: [roundTrip.images.a.name, roundTrip.images.b.name],
+    urls: [roundTrip.images.a._dataUrl, roundTrip.images.b._dataUrl] },
+    { active: "a", keys: ["a", "b"], names: ["Piena", "Ridotta"], urls: [dataUrl, dataUrl] },
+    "round-trip v2 → v1 senza perdita");
+});
+t("puntatore planimetria mancante blocca la propagazione di una cancellazione involontaria", () => {
+  const oldStorage = A.localStorage, oldUnavailable = A.__bootVenueUnavailable;
+  try {
+    A.__bootVenueUnavailable = false;
+    A.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+    eq(A.loadVenueImg("firma-attesa", A.LS_KEY_VENUE + ".asset-atteso"), false, "asset assente");
+    eq(A.__bootVenueUnavailable, true, "assenza distinta dalla cancellazione intenzionale");
+  } finally {
+    A.localStorage = oldStorage;
+    A.__bootVenueUnavailable = oldUnavailable;
+  }
+});
+t("undo/redo ripristina la bitmap corretta e recupera una planimetria eliminata", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud;
+  const oldConflict = A.__localConflict, oldBlocked = A.__docLoadBlocked, oldConsult = A.__consultMode;
+  const store = new Map();
+  const imageA = "data:image/png;base64,QUFB", imageB = "data:image/png;base64,QkJC";
+  try {
+    A.localStorage = {
+      getItem: (key) => store.has(key) ? store.get(key) : null,
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key),
+    };
+    A.__cloud = { currentId: () => null, currentRev: () => null, user: () => null };
+    A.__localConflict = false; A.__docLoadBlocked = null; A.__consultMode = false;
+    A.loadDoc({ _v: A.SCHEMA_VERSION, venue: {
+      name: "A.png", _dataUrl: imageA, _imgW: 100, _imgH: 80, x: 0, y: 0, w: 100, h: 80,
+    }, items: [], inputs: [], outputs: [] });
+    A.resetHistory();
+    A.state.venue = {
+      name: "B.png", _dataUrl: imageB, _imgW: 120, _imgH: 90, x: 0, y: 0, w: 120, h: 90,
+    };
+    A.recordHistory();
+    A.undo();
+    eq(A.state.venue._dataUrl, imageA, "undo ripristina l'immagine A");
+    A.redo();
+    eq(A.state.venue._dataUrl, imageB, "redo ripristina l'immagine B");
+
+    A.resetHistory();
+    A.state.venue = null;
+    A.recordHistory();
+    A.undo();
+    eq(A.state.venue._dataUrl, imageB, "undo dell'eliminazione recupera la bitmap B");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud;
+    A.__localConflict = oldConflict; A.__docLoadBlocked = oldBlocked; A.__consultMode = oldConsult;
+    A.loadDoc(JSON.parse(before)); A.resetHistory();
+  }
+});
+t("concorrenza tra schede sospende la scrittura locale invece di sovrascrivere", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const oldConflict = A.__localConflict, oldDirty = A._cloudDirty, oldSaving = A._cloudSaving;
+  const store = new Map();
+  try {
+    A.localStorage = {
+      getItem: (key) => store.has(key) ? store.get(key) : null,
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key),
+    };
+    A.__cloud = { currentId: () => null, currentRev: () => null, user: () => null };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A._cloudDirty = false; A._cloudSaving = false;
+    eq(A.persistLocalState(), true, "prima revisione scritta");
+    const external = JSON.parse(store.get(A.LS_KEY));
+    external._local.localRevision = "altra-scheda:1";
+    store.set(A.LS_KEY, JSON.stringify(external));
+    const beforeRejectedWrite = store.get(A.LS_KEY);
+    A.state.titolo = "Modifica concorrente locale";
+    eq(A.persistLocalState(), false, "seconda scrittura rifiutata");
+    eq(A.__localConflict, true, "conflitto reso esplicito");
+    eq(store.get(A.LS_KEY), beforeRejectedWrite, "root dell'altra scheda non sovrascritto");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A.__localConflict = oldConflict; A._cloudDirty = oldDirty; A._cloudSaving = oldSaving;
+    A.loadDoc(JSON.parse(before));
+  }
+});
+t("sessione autenticata senza binding o dirty non resuscita un progetto cloud eliminato", () => {
+  const oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const oldDirty = A._cloudDirty, oldSaving = A._cloudSaving, oldPending = A.__bootCloudPending;
+  const oldCloudId = A.__bootCloudId, oldCloudSig = A.__bootCloudSig, oldConflict = A.__localConflict;
+  const store = new Map();
+  try {
+    A.localStorage = {
+      getItem: (key) => store.has(key) ? store.get(key) : null,
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key),
+    };
+    A.__cloud = { currentId: () => null, currentRev: () => null, user: () => ({ id: "logged-in" }) };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A._cloudDirty = false; A._cloudSaving = false; A.__bootCloudPending = false;
+    A.__bootCloudId = null; A.__bootCloudSig = null; A.__localConflict = false;
+    eq(A.persistLocalState(), true, "copia locale conservata");
+    const meta = JSON.parse(store.get(A.LS_KEY))._local;
+    eq({ cloudId: meta.cloudId, cloudPending: meta.cloudPending }, { cloudId: null, cloudPending: false },
+      "il solo login non arma una nuova INSERT cloud");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A._cloudDirty = oldDirty; A._cloudSaving = oldSaving; A.__bootCloudPending = oldPending;
+    A.__bootCloudId = oldCloudId; A.__bootCloudSig = oldCloudSig; A.__localConflict = oldConflict;
+  }
+});
+t("Nuovo usa un confine documento unico: scarta varianti, contatti, extra e invalida callback", () => {
+  const before = A.docToJSON(), oldCloud = A.__cloud, oldEpoch = A.__docEpoch || 0;
+  const detached = [];
+  try {
+    A.loadDoc({ _doc: 1, active: "old-a", privateRoot: { keep: false }, variants: [
+      { id: "old-a", name: "A", state: { titolo: "A", items: [], inputs: [{ src: "Segreto" }], outputs: [],
+        contacts: [{ role: "Tecnico", name: "Ada", contact: "private@example.invalid" }] } },
+      { id: "old-b", name: "B", state: { titolo: "B", items: [{ id: "old", type: "cantante" }], inputs: [], outputs: [] } },
+    ] });
+    const loadedEpoch = A.__docEpoch || 0;
+    A.__cloud = { setCurrentId: (id) => detached.push(id), currentId: () => "old-project", currentRev: () => "old-rev" };
+    A.beginNewDocument({ titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+      items: [], inputs: [], outputs: [] });
+    const fresh = JSON.parse(A.docToJSON());
+    eq(fresh.variants.length, 1, "una sola variante pulita");
+    ok(!("privateRoot" in fresh), "metadata root del vecchio progetto scartati");
+    eq([A.state.items.length, A.state.inputs.length, A.state.outputs.length, A.state.contacts.length], [0,0,0,0],
+      "nessun dato tecnico/personale attraversa il confine");
+    ok((A.__docEpoch || 0) > loadedEpoch && (A.__docEpoch || 0) > oldEpoch, "epoch incrementato");
+    eq(detached, [null], "associazione cloud azzerata una volta");
+  } finally { A.__cloud = oldCloud; A.loadDoc(JSON.parse(before)); }
+});
+t("parts componibili manipolate vengono normalizzate senza crash o prototype pollution", () => {
+  const parts = JSON.parse('{"count":{},"layout":"constructor","orient":null,"mus":"false","__proto__":{"polluted":true}}');
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "tim", type: "timpani", parts }], inputs: [], outputs: [] });
+  const p = s.items[0].parts;
+  eq({ count: p.count, layout: p.layout, orient: p.orient, mus: p.mus },
+    { count: 2, layout: "arco", orient: "americano", mus: true });
+  ok(!Object.prototype.hasOwnProperty.call(p, "__proto__") && !p.polluted, "chiavi magiche eliminate");
+  ok(Number.isFinite(s.items[0].w) && Number.isFinite(s.items[0].d), "dimensioni calcolabili");
 });
 
 console.log("\nBatteria — disposizione destrorsa + toggle mancino:");
@@ -1057,14 +1665,20 @@ t("stateToJSON resta piatto (view/#p=/realtime): niente chiavi variants/active",
   const flat = JSON.parse(A.stateToJSON());
   ok(!("variants" in flat) && !("active" in flat), "stato piatto"); eq(flat.titolo, "Piena");
 });
-t("docToJSONFull conserva la planimetria dell'attiva; docToJSON la strippa", () => {
-  A.loadDoc({ titolo: "V", items: [], inputs: [], outputs: [] });
-  A.state.venue = { name: "piantina", _dataUrl: "data:image/png;base64,AAA", _imgW: 100, _imgH: 80 };
+t("docToJSONFull conserva le planimetrie di tutte le varianti; docToJSON le strippa", () => {
+  A.loadDoc({ _doc: 1, active: "va", variants: [
+    { id: "va", name: "A", state: { titolo: "A", venue: { name: "same.png", _dataUrl: "data:image/png;base64,QUFB", _imgW: 100, _imgH: 80 }, items: [], inputs: [], outputs: [] } },
+    { id: "vb", name: "B", state: { titolo: "B", venue: { name: "same.png", _dataUrl: "data:image/png;base64,QkJC", _imgW: 120, _imgH: 90 }, items: [], inputs: [], outputs: [] } },
+  ] });
   const light = JSON.parse(A.docToJSON()), full = JSON.parse(A.docToJSONFull());
   const lv = light.variants.find((v) => v.id === light.active);
   const fv = full.variants.find((v) => v.id === full.active);
   ok(!lv.state.venue || !lv.state.venue._dataUrl, "docToJSON: immagine strippata");
   ok(fv.state.venue && fv.state.venue._dataUrl, "docToJSONFull: immagine presente sull'attiva");
+  eq(full.variants.map((v) => v.state.venue._dataUrl),
+    ["data:image/png;base64,QUFB", "data:image/png;base64,QkJC"], "bitmap distinte, anche con filename uguale");
+  A.switchVariant("vb"); eq(A.state.venue._dataUrl, "data:image/png;base64,QkJC", "switch riaggancia la bitmap della variante corretta");
+  A.switchVariant("va"); eq(A.state.venue._dataUrl, "data:image/png;base64,QUFB", "ritorno alla bitmap A");
 });
 t("safeVenueDataUrl: whitelist raster; scarta svg/js/breakout (difesa in profondità di applyVenueImage)", () => {
   eq(A.safeVenueDataUrl("data:image/png;base64,AAAB"), "data:image/png;base64,AAAB");
@@ -1075,6 +1689,204 @@ t("safeVenueDataUrl: whitelist raster; scarta svg/js/breakout (difesa in profond
   eq(A.safeVenueDataUrl("javascript:alert(1)"), "");
   eq(A.safeVenueDataUrl(""), "");
   eq(A.safeVenueDataUrl(null), "");
+});
+t("planimetria manipolata: geometria numerica e markup SVG senza attribute injection", () => {
+  const v = A.normalizeVenue({ name: 7, _dataUrl: "data:image/png;base64,QUFB",
+    x: '1" onload="alert(1)', y: "20", w: '50" onerror="alert(2)', h: -4,
+    rot: '0) scale(9)" onload="alert(3)', opacity: "999", locked: false,
+    calibration: { p1: { x: '0" onload="x', y: 2 }, realCm: "100" } });
+  eq({ x: v.x, y: v.y, w: v.w, h: v.h, rot: v.rot, opacity: v.opacity },
+    { x: 0, y: 20, w: 5000, h: 1, rot: 0, opacity: 100 }, "campi geometrici normalizzati/clampati");
+  const oldVenue = A.state.venue;
+  try {
+    A.state.venue = v;
+    const markup = A.venueMarkup();
+    ok(markup.includes("<image ") && !/onload|onerror|alert|scale\(9\)/.test(markup), "nessun attributo/evento iniettato");
+  } finally { A.state.venue = oldVenue; }
+});
+t("item ID opaco: markup SVG/HTML codificato e lookup senza selector interpolato", () => {
+  reset();
+  const id = 'audit" data-audit-marker="present';
+  const it = { id, type: "astamic", x: 100, y: 100, rot: 0, w: 38, d: 80, label: "Asta" };
+  A.selSet = {};
+  const markup = A.itemMarkup(it);
+  ok(markup.includes("data-id=\"audit&quot; data-audit-marker=&quot;present\""), "ID codificato nell'attributo");
+  ok(!markup.includes('" data-audit-marker="'), "nessun secondo attributo iniettato");
+  const dot = A.sectionDotMarkup({ id, type: "cantante", x: 20, y: 30, rot: 0, w: 90, d: 90, label: "Voce" });
+  ok(dot.includes("data-id=\"audit&quot; data-audit-marker=&quot;present\""), "section dot codificato");
+  const oldSvg = A.svg;
+  const oldIndex = A.itemNodeIndex;
+  const expected = { getAttribute: (name) => name === "data-id" ? id : null };
+  let scans = 0;
+  try {
+    A.svg = { querySelectorAll: (selector) => {
+      eq(selector, ".item[data-id]", "selector statico");
+      scans++;
+      return [{ getAttribute: () => "other" }, expected];
+    } };
+    A.itemNodeIndex = new Map();
+    ok(A.itemNode(id) === expected, "lookup per confronto del valore opaco");
+    expected.parentNode = {};
+    ok(A.itemNode(id) === expected && scans === 1, "indice riusato senza scansioni per frame");
+  } finally {
+    A.svg = oldSvg;
+    A.itemNodeIndex = oldIndex;
+  }
+});
+t("sink dinamici: chiavi cavo codificate e nessun handler/selector costruito da ID", () => {
+  ok(!/data-cab="'\+(?:l\.key|selCab)\+/.test(appjs), "nessuna chiave cavo interpolata senza esc");
+  ok(!appjs.includes('onclick="window.__fixStagebox'), "nessun inline handler con ID stagebox");
+  ok(!/querySelector\([^\n]*data-mus[^\n]*x\.id/.test(appjs), "nessun selector dinamico per ID musicista");
+  ok(/function saveProject\(onSaved, silent, lockHeld\)\{\s*\/\*[^]*?if\(window\.__docLoadBlocked\)/.test(appjs),
+    "il salvataggio cloud manuale rispetta il blocco documento");
+  const copyFlow = appjs.slice(appjs.indexOf("function completeCopyFromToken"), appjs.indexOf("function loadProjects"));
+  ok(!/cloudCurrentId=null[^]*importProject/.test(copyFlow),
+    "salva una copia non stacca il cloud prima della validazione");
+  ok(!copyFlow.includes("activatePreparedProject(prepared"),
+    "il ritorno OAuth non sostituisce automaticamente l'unica copia locale");
+  const openFlow = appjs.slice(appjs.indexOf("function openProject"), appjs.indexOf("function dupProject"));
+  const preparePos = openFlow.indexOf("prepared=prepareDoc");
+  const activatePos = openFlow.indexOf("activatePreparedProject(prepared");
+  const bindPos = openFlow.indexOf("cloudCurrentId=id");
+  ok(preparePos >= 0 && activatePos > preparePos && bindPos > activatePos,
+    "apertura cloud valida e attiva il documento prima di cambiare associazione");
+});
+t("share pubblico: dati personali e firma nominativa sono fail-closed", () => {
+  const oldLocked = A.__projLocked;
+  try {
+    A.__projLocked = false;
+    const hidden = A.stateForPublicShare({
+      contacts: [{ name: "Ada", contact: "ada@example.test" }],
+      techContact: "Ada",
+      pdfHeader: "Ada · +39 000",
+      approval: { by: "Ada", at: "2026-07-23" },
+      shareOpts: { contacts: false },
+    });
+    eq(hidden.contacts, undefined);
+    eq(hidden.techContact, undefined);
+    eq(hidden.pdfHeader, undefined);
+    eq(hidden.approval, { at: "2026-07-23" });
+    A.__projLocked = true;
+    const locked = A.stateForPublicShare({
+      contacts: [{ name: "Ada" }],
+      approval: { by: "Ada", at: "2026-07-23" },
+      shareOpts: { contacts: true },
+    });
+    eq(locked.contacts, undefined);
+    eq(locked.approval, { at: "2026-07-23" });
+  } finally { A.__projLocked = oldLocked; }
+});
+t("boot consulenza: il confine read-only precede rete e scenari QA", () => {
+  const bootStart = appjs.indexOf('var vt = new URLSearchParams(location.search).get("view")');
+  const fetchStart = appjs.indexOf("fetch(SB_URL+\"/functions/v1/get-shared-project", bootStart);
+  const sessionStart = appjs.indexOf("function startSession", bootStart);
+  const bootFlow = appjs.slice(bootStart, sessionStart);
+  ok(bootStart >= 0 && fetchStart > bootStart && sessionStart > fetchStart, "flusso view individuato");
+  ok(bootFlow.indexOf("window.__consultMode=true") < bootFlow.indexOf("fetch(SB_URL"),
+    "modalità consulenza impostata sincronicamente prima della rete");
+  ok(bootFlow.includes('classList.add("viewmode","consult-pending")'),
+    "interazioni bloccate durante il caricamento del bearer link");
+  const scenarioFlow = appjs.slice(appjs.indexOf("var allowStartupScenario="), appjs.indexOf("/* ===== Supabase", appjs.indexOf("var allowStartupScenario=")));
+  ok(scenarioFlow.includes("!/[?&]view=/.test(location.search)") &&
+    scenarioFlow.includes("allowStartupScenario && location.search.indexOf(\"demo=1\")"),
+  "gli scenari QA non possono mutare un documento aperto con ?view=");
+  ok(appjs.includes('var sharedLoaded=!/[?&]view=/.test(location.search) && loadFromHash()'),
+    "?view= resta autorevole anche se l'URL contiene un hash documento");
+  const sessionFlow = appjs.slice(sessionStart, appjs.indexOf("function setupTrustedViewerRefresh", sessionStart));
+  ok(sessionFlow.includes("d.is_locked") && sessionFlow.includes("window.applyProjLock(true)") &&
+    sessionFlow.includes("if(isEditor && d.is_locked)") && sessionFlow.includes("else if(isEditor) setupAutosave"),
+  "un progetto consulenza bloccato nasce read-only e non installa l'autosave");
+  const lockUiFlow = appjs.slice(appjs.indexOf("function applyProjLock"), appjs.indexOf("window.applyProjLock"));
+  ok(lockUiFlow.includes("consultationLock=!!window.__consultMode") &&
+    lockUiFlow.includes("lockDup.hidden=consultationLock") &&
+    lockUiFlow.includes("lockUnlock.hidden=consultationLock"),
+  "la consulenza bloccata non offre comandi proprietario che produrrebbero una falsa copia");
+});
+t("lifecycle cloud: snapshot immutabile, revision guard e cambio progetto fail-closed", () => {
+  const saveFlow = appjs.slice(appjs.indexOf("function saveProject"), appjs.indexOf("function completeCopyFromToken"));
+  ok(saveFlow.includes("snapshotData=JSON.parse(docToJSON())"), "payload catturato prima dell'asincronia");
+  ok(saveFlow.includes('.eq("updated_at",targetRev)'), "ogni update porta la revisione catturata");
+  ok(saveFlow.includes("if(cloudCurrentId && !cloudRev)"), "revisione ignota gestita prima dell'update");
+  const unknownRev = saveFlow.slice(saveFlow.indexOf("if(cloudCurrentId && !cloudRev)"), saveFlow.indexOf("/* Snapshot immutabile"));
+  ok(unknownRev.includes("enterConflict()") && !unknownRev.includes("setRev(r.data.updated_at)"),
+    "una revisione ignota fallisce chiusa: conflitto, mai adozione cieca");
+  ok(/stillCurrent=authStill\(targetUserId,targetAuth\)\s*&&\s*\(window\.__docEpoch\|\|0\)===saveEpoch\s*&&\s*cloudCurrentId===targetId/.test(saveFlow),
+    "una risposta stale o appartenente a un altro account non può riagganciare il documento corrente");
+  ok(appjs.includes("cloudWriteBusy=false, cloudWriteQueue=[]") && saveFlow.includes("cloudWriteQueue.push"),
+    "INSERT e UPDATE concorrenti sono serializzati");
+  const autosaveFlow = appjs.slice(appjs.indexOf("function cloudAutosaveNow"), appjs.indexOf("function renderAccountBtn"));
+  ok(autosaveFlow.includes("window.__bootVenueUnavailable") &&
+    autosaveFlow.includes('setDocState("conflict")') &&
+    autosaveFlow.includes("resolveCloudFlush(false)"),
+  "una planimetria locale mancante non può propagare venue_image=null al cloud");
+  ok(appjs.includes('window.addEventListener("beforeunload",function(e){\n  if(!window.__localConflict) return;'),
+    "gli edit sospesi dopo conflitto multi-tab attivano l'avviso di uscita");
+  const openFlow = appjs.slice(appjs.indexOf("function openProject"), appjs.indexOf("function dupProject"));
+  ok(openFlow.includes("window.flushCloudAutosave(function(ok)"), "il cambio progetto attende il flush");
+  ok(openFlow.includes("window.__cloudNeedsFlush()"), "gli edit durante la lettura remota bloccano il commit");
+  const conflictFlow = appjs.slice(appjs.indexOf('querySelector("#cbLoad")'), appjs.indexOf('querySelector("#cbCopy")'));
+  ok(conflictFlow.includes("conflictSnapshot=docToJSON()") && conflictFlow.includes("venueImageBundleSig()!==conflictVenueSig"),
+    "il load del conflitto non sostituisce edit o bitmap cambiati durante la GET");
+  ok(conflictFlow.includes('select("data,title,updated_at,venue_image,is_locked")') &&
+    conflictFlow.includes("applyProjLock(!!r.data.is_locked)") &&
+    conflictFlow.includes("persistLocalState(true)"),
+  "la risoluzione del conflitto applica e persiste anche il lock autorevole");
+  ok(/function beginNewDocument\(initialState(?:,options)?\)/.test(appjs) && appjs.includes("function detachCloudDoc(epochAlreadyChanged)"),
+    "Nuovo/modelli/copie usano un confine che invalida le callback");
+  const copyFlow = appjs.slice(appjs.indexOf("function completeCopyFromToken"), appjs.indexOf("function loadProjects"));
+  ok(copyFlow.includes('.insert({user_id:') && !copyFlow.includes("activatePreparedProject(prepared"),
+    "la copia nasce nel cloud e lo slot locale non viene sostituito");
+  ok(copyFlow.includes('d.kind!=="project"') &&
+    copyFlow.includes("d.data.shareOpts.copy===false") &&
+    copyFlow.indexOf("d.data.shareOpts.copy===false") < copyFlow.indexOf('.insert({user_id:'),
+  "il permesso di copia viene ricontrollato dalla GET autorevole dopo login/OAuth");
+  const copyInsertPos = copyFlow.indexOf('.insert({user_id:');
+  ok(copyInsertPos >= 0 &&
+    copyFlow.slice(copyInsertPos).includes('removeItem("copyFromToken")'),
+  "un errore di insert lascia il token ritentabile; il successo lo consuma");
+  ok(!appjs.includes("if(!window.__consultMode){ s.inputs=[]; s.outputs=[]; }"),
+    "entitlement UI separato dalla persistenza delle liste");
+  const fileSaveStart = appjs.indexOf("function fileSaveCloud");
+  const fileSaveFlow = appjs.slice(fileSaveStart, appjs.indexOf("window.fileSaveVersion", fileSaveStart));
+  ok(fileSaveFlow.includes("flushCloudAutosave(function(ok)") && fileSaveFlow.includes("if(ok)"),
+    "Salva conferma il cloud soltanto dal callback reale");
+  const shareRowFlow = appjs.slice(appjs.indexOf("function shareRow"), appjs.indexOf("function rubricaList"));
+  ok(shareRowFlow.includes("flushCloudAutosave(function(ok)") && shareRowFlow.includes("if(ok) go()"),
+    "Condividi non pubblica una versione stale se il save fallisce");
+  const shareOptionFlow = appjs.slice(appjs.indexOf("function commitShareOption"), appjs.indexOf("function shareFillExtras"));
+  ok(shareOptionFlow.includes("Esito non verificato") && shareOptionFlow.includes('urlEl.value=""') &&
+    shareOptionFlow.includes("revoke.disabled=false") && !shareOptionFlow.includes("state.shareOpts[key]=old"),
+  "una risposta persa sui permessi non mostra né afferma un link con stato privacy incerto");
+  const revokeFlow = appjs.slice(appjs.indexOf("function clearShareTokenFor"), appjs.indexOf("function shareRow"));
+  ok(revokeFlow.includes("update({share_token:null})") && revokeFlow.includes('select("share_token")') &&
+    revokeFlow.includes("enterConflict()"),
+  "la revoca privacy ha un fallback idempotente verificato senza adottare una revisione documentale ambigua");
+  const accountFlow = appjs.slice(appjs.indexOf("function setCloudUser"), appjs.indexOf("function authStill"));
+  ok(accountFlow.includes("authGeneration++") && accountFlow.includes("cloudOpenSeq++") &&
+    accountFlow.includes("cloudProjectsLoadSeq++") && accountFlow.includes("cloudWriteQueue.splice(0)") &&
+    accountFlow.includes("rubCache=null"),
+  "il cambio account invalida callback, coda e cache del tenant precedente");
+  const listFlow = appjs.slice(appjs.indexOf("function loadProjects"), appjs.indexOf("function openProject"));
+  ok(listFlow.includes("request=++cloudProjectsLoadSeq") &&
+    listFlow.includes("request!==cloudProjectsLoadSeq") &&
+    listFlow.includes("if(cur && window.applyProjLock)"),
+  "una lista cloud stale o priva del progetto corrente non può sbloccare l'editor");
+  const lockFlow = appjs.slice(appjs.indexOf("function doLockUpdate"), appjs.indexOf("function unlockCurrent"));
+  ok(lockFlow.includes("keepFrozenOnFailure") && lockFlow.includes("window.applyProjLock(true)") &&
+    lockFlow.indexOf("window.applyProjLock(true)") < lockFlow.indexOf("doLockUpdate(id,true,true)"),
+  "il comando Blocca congela subito l'editor e resta fail-closed se il CAS è ambiguo");
+  const rubricaImportFlow = appjs.slice(appjs.indexOf("function rubricaImportCandidates"), appjs.indexOf("function itemContactsList"));
+  ok(rubricaImportFlow.includes("requestUser=cloudUser.id") &&
+    rubricaImportFlow.includes("authStill(requestUser,requestAuth)"),
+  "l'import rubrica scarta risposte asincrone appartenenti a un account precedente");
+  const analyticsStart = appjs.indexOf("window.__sendEvent=function");
+  const analyticsFlow = appjs.slice(
+    analyticsStart,
+    appjs.indexOf("window.__flushEvents=function", analyticsStart),
+  );
+  ok(analyticsFlow.includes("if(!sb || !cloudUser) return") &&
+    !analyticsFlow.includes("/rest/v1/analytics_events"),
+  "analytics non espone più un endpoint INSERT anonimo dal client");
 });
 t("B4 Aspetto globale: normalizeState default illustrato + preserva schematico", () => {
   eq(A.normalizeState({ items: [], inputs: [], outputs: [] }).lookDefault, "illustrato");
