@@ -2,7 +2,47 @@ import { assertEquals } from "jsr:@std/assert@1.0.19";
 import {
   projectDataForPublicShare,
   projectVenueForPublicShare,
+  redactSnapshotForFeedback,
 } from "./project-sharing.ts";
+
+Deno.test("feedback: lo snapshot rimuove SEMPRE i contatti (anche con opt-in) senza mutare la sorgente", () => {
+  const source = {
+    titolo: "Live",
+    contacts: [{ name: "Ada", contact: "ada@example.test" }],
+    techContact: "Ada · ada@example.test",
+    pdfHeader: "Ada · +39 000",
+    approval: { by: "Ada", at: "2026-07-23T12:00:00Z" },
+    shareOpts: { contacts: true },
+  };
+  const out = redactSnapshotForFeedback(source) as Record<string, unknown>;
+  assertEquals(out.contacts, undefined);
+  assertEquals(out.techContact, undefined);
+  assertEquals(out.pdfHeader, undefined);
+  assertEquals((out.approval as Record<string, unknown>).by, undefined);
+  assertEquals(out.titolo, "Live");                       // dato non-PII preservato
+  assertEquals(Array.isArray(source.contacts), true);      // sorgente non mutata
+});
+
+Deno.test("feedback: snapshot multi-variante redige i contatti di OGNI variante", () => {
+  const source = {
+    variants: [
+      { id: "a", state: { contacts: [{ name: "Ada" }], techContact: "x" } },
+      { id: "b", state: { contacts: [{ name: "Bea" }], pdfHeader: "y" } },
+    ],
+    active: "a",
+  };
+  const out = redactSnapshotForFeedback(source) as Record<string, unknown>;
+  const vs = out.variants as Array<Record<string, unknown>>;
+  assertEquals((vs[0].state as Record<string, unknown>).contacts, undefined);
+  assertEquals((vs[0].state as Record<string, unknown>).techContact, undefined);
+  assertEquals((vs[1].state as Record<string, unknown>).contacts, undefined);
+  assertEquals((vs[1].state as Record<string, unknown>).pdfHeader, undefined);
+});
+
+Deno.test("feedback: snapshot null/assente resta invariato", () => {
+  assertEquals(redactSnapshotForFeedback(null), null);
+  assertEquals(redactSnapshotForFeedback(undefined), undefined);
+});
 
 Deno.test("share pubblico legacy: contatti rimossi per default senza mutare la sorgente", () => {
   const source = {
