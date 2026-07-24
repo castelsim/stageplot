@@ -19624,16 +19624,29 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<script>/* SEO-06: striscia value-proposition. Overlay in cima al canvas, non riflowa il layout. Nascosta nei link condivisi (?view=) e in modalità viewer/consulenza; dismissibile per sessione; ricompare alla visita successiva. */
+<script>/* SEO-06: striscia value-proposition. Overlay in cima al canvas, non riflowa il layout.
+   Si mostra SOLO a chi arriva davvero nuovo: prima volta su questo browser (localStorage) E progetto
+   ancora vuoto (isFreshBlankProject → niente lavoro in corso, niente deep-link, niente viewer/consulenza).
+   Vista una volta, non torna più. 24/07: prima usava sessionStorage senza guardare il progetto, quindi
+   ricompariva a ogni scheda nuova sopra il palco anche a chi tornava sul proprio lavoro.
+   La decisione aspetta il "load" perché questo script inline gira PRIMA del bundle app.js (defer):
+   solo a boot finito lo stato del progetto è caricato e isFreshBlankProject() è attendibile. */
 (function(){try{
   var el=document.getElementById("homePromo"); if(!el) return;
+  var seen=false; try{ seen=localStorage.getItem("hpSeen")==="1"; }catch(e){}
   var isView=/[?&](view|export)=/.test(location.search)||document.body.classList.contains("viewmode")||window.__consultMode;
-  var dismissed=false; try{dismissed=sessionStorage.getItem("hpDismiss")==="1";}catch(e){}
-  if(isView||dismissed){ el.remove(); return; }
-  el.hidden=false;
-  function close(){ el.remove(); try{sessionStorage.setItem("hpDismiss","1");}catch(e){} }
-  var c=document.getElementById("hpClose"); if(c) c.addEventListener("click",close);
-  var s=document.getElementById("hpStart"); if(s) s.addEventListener("click",close);
+  if(isView||seen){ el.remove(); return; }
+  function close(){ el.remove(); }
+  function show(){
+    var fresh=(typeof isFreshBlankProject==="function") ? isFreshBlankProject() : false;   /* app non pronta → non disturbare */
+    if(!fresh || document.body.classList.contains("viewmode") || window.__consultMode){ el.remove(); return; }
+    try{ localStorage.setItem("hpSeen","1"); }catch(e){}   /* mostrata = vista: la prossima volta non compare */
+    el.hidden=false;
+    var c=document.getElementById("hpClose"); if(c) c.addEventListener("click",close);
+    var s=document.getElementById("hpStart"); if(s) s.addEventListener("click",close);
+  }
+  if(document.readyState==="complete") show();
+  else window.addEventListener("load", show);
 }catch(e){}})();
 </script>
 </body>
