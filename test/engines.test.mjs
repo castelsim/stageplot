@@ -3420,5 +3420,34 @@ t("ricerca 'audit' e 'controlla' trovano l'Audit", () => {
   ok(A.__spSearch("controlla").some(r => r.nome === "Audit progetto"), "'controlla' (alias) non trova l'Audit");
 });
 
+/* ---- Undo: printFrame (area di stampa/export) escluso dalla cronologia (bug undo poco prevedibile) ---- */
+console.log("\nUndo / printFrame:");
+t("printFrame NON crea passi di undo (mutazione invisibile dell'export)", () => {
+  reset(); A.resetHistory();
+  add("batteria", 400, 400);
+  const before = A.undoStack.length;
+  A.state.printFrame = { x: 0, y: 0, w: 500, h: 500 }; A.save();
+  A.state.printFrame = { x: 0, y: 0, w: 700, h: 700 }; A.save();
+  eq(A.undoStack.length, before, "printFrame ha creato passi di undo");
+});
+t("printFrame è preservato attraverso undo (non è contenuto undoable)", () => {
+  reset(); A.resetHistory();
+  add("cantante", 300, 300);
+  A.state.printFrame = { x: 1, y: 2, w: 300, h: 300 }; A.save();
+  add("comboamp", 200, 200);
+  A.undo();
+  ok(A.state.printFrame && A.state.printFrame.w === 300, "printFrame perso dopo undo");
+});
+t("undo di un elemento reale funziona ancora (non regredito)", () => {
+  reset(); A.resetHistory();
+  add("batteria", 400, 400);
+  eq(A.state.items.length, 1);
+  A.undo();
+  eq(A.state.items.length, 0, "undo non ha rimosso l'elemento");
+});
+t("helper export toast esposti (pdfSave/toastDownloaded)", () => {
+  ok(typeof A.pdfSave === "function" && typeof A.toastDownloaded === "function");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
