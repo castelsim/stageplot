@@ -283,7 +283,7 @@
 
 <!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
+<main><div id="homePromo" hidden><span class="hp-text"><strong>Editor gratuito per stage plot in scala</strong> — genera anche input, monitor e channel list, esporta il PDF e condividi via link.</span><button type="button" class="hp-cta" id="hpStart">Apri l'editor</button><a class="hp-link" href="/guida/esempi-stage-plot/">Vedi un esempio</a><button type="button" class="hp-close" id="hpClose" aria-label="Chiudi">✕</button></div><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
 <div id="venueCalibPop" hidden>
@@ -19394,6 +19394,18 @@ if ("serviceWorker" in navigator) {
     document.getElementById("updX").addEventListener("click", function () { bar.remove(); });
   });
 }
+</script>
+<script>/* SEO-06: striscia value-proposition. Overlay in cima al canvas, non riflowa il layout. Nascosta nei link condivisi (?view=) e in modalità viewer/consulenza; dismissibile per sessione; ricompare alla visita successiva. */
+(function(){try{
+  var el=document.getElementById("homePromo"); if(!el) return;
+  var isView=/[?&](view|export)=/.test(location.search)||document.body.classList.contains("viewmode")||window.__consultMode;
+  var dismissed=false; try{dismissed=sessionStorage.getItem("hpDismiss")==="1";}catch(e){}
+  if(isView||dismissed){ el.remove(); return; }
+  el.hidden=false;
+  function close(){ el.remove(); try{sessionStorage.setItem("hpDismiss","1");}catch(e){} }
+  var c=document.getElementById("hpClose"); if(c) c.addEventListener("click",close);
+  var s=document.getElementById("hpStart"); if(s) s.addEventListener("click",close);
+}catch(e){}})();
 </script>
 </body>
 </html>

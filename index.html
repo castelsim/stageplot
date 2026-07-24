@@ -1819,6 +1819,18 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* drop della planimetria sul foglio (UX C) */
   main.venue-dropping::after{content:"Rilascia qui la planimetria";position:absolute;inset:14px;border:2.5px dashed var(--accent);border-radius:14px;background:rgba(13,148,136,.07);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--accent);z-index:40;pointer-events:none}
 
+
+/* SEO-06 — Striscia value-proposition (home/editor). Overlay assoluto in cima al canvas: non riflowa grid desktop né gli offset fixed mobile. Dismissibile, nascosta in view mode (gestito via JS). */
+#homePromo{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:9px 14px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06);font-size:14px;line-height:1.4}
+#homePromo .hp-text{color:var(--text-2);min-width:0;flex:1 1 260px}
+#homePromo .hp-text strong{color:var(--text)}
+#homePromo .hp-cta{flex:none;border:1px solid var(--accent);background:var(--accent);color:var(--text-on-accent);border-radius:8px;padding:7px 13px;font-weight:600;font-size:13px;cursor:pointer}
+#homePromo .hp-cta:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
+#homePromo .hp-link{flex:none;color:var(--accent);text-decoration:none;font-weight:600;font-size:13px;padding:7px 4px}
+#homePromo .hp-link:hover{text-decoration:underline}
+#homePromo .hp-close{flex:none;margin-left:auto;border:0;background:transparent;color:var(--text-3);font-size:16px;line-height:1;cursor:pointer;padding:6px}
+#homePromo .hp-close:hover{color:var(--text)}
+@media (max-width:560px){#homePromo{font-size:13px;padding:8px 12px 10px}#homePromo .hp-text{flex-basis:100%}#homePromo .hp-close{position:absolute;top:5px;right:8px;margin:0}}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -1939,7 +1951,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
+<main><div id="homePromo" hidden><span class="hp-text"><strong>Editor gratuito per stage plot in scala</strong> — genera anche input, monitor e channel list, esporta il PDF e condividi via link.</span><button type="button" class="hp-cta" id="hpStart">Apri l'editor</button><a class="hp-link" href="/guida/esempi-stage-plot/">Vedi un esempio</a><button type="button" class="hp-close" id="hpClose" aria-label="Chiudi">✕</button></div><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
 <div id="venueCalibPop" hidden>
@@ -3308,6 +3320,18 @@ if ("serviceWorker" in navigator) {
     document.getElementById("updX").addEventListener("click", function () { bar.remove(); });
   });
 }
+</script>
+<script>/* SEO-06: striscia value-proposition. Overlay in cima al canvas, non riflowa il layout. Nascosta nei link condivisi (?view=) e in modalità viewer/consulenza; dismissibile per sessione; ricompare alla visita successiva. */
+(function(){try{
+  var el=document.getElementById("homePromo"); if(!el) return;
+  var isView=/[?&](view|export)=/.test(location.search)||document.body.classList.contains("viewmode")||window.__consultMode;
+  var dismissed=false; try{dismissed=sessionStorage.getItem("hpDismiss")==="1";}catch(e){}
+  if(isView||dismissed){ el.remove(); return; }
+  el.hidden=false;
+  function close(){ el.remove(); try{sessionStorage.setItem("hpDismiss","1");}catch(e){} }
+  var c=document.getElementById("hpClose"); if(c) c.addEventListener("click",close);
+  var s=document.getElementById("hpStart"); if(s) s.addEventListener("click",close);
+}catch(e){}})();
 </script>
 </body>
 </html>
