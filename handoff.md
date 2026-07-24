@@ -1,3 +1,27 @@
+# SESSIONE 24/07 — Backlog audit: TUTTI i finding M residui ("facciamoli tutti")
+
+Codice LIVE (`a755174`); **resta 1 azione utente**: `supabase db push` (password DB) per applicare le migration 0032+0033 in produzione.
+
+**Codice concreto (fatto, testato, gran parte live):**
+- **M-14** (`0032`, validata 6/6 su pg effimero) — il lock del progetto ora congela TUTTO il contenuto (`data`/`title`/`venue_image`/`thumbnail`), non solo data/title: la planimetria di un progetto "read-only" non è più modificabile via Data API. Metadati amministrativi (`share_token`/`is_locked`) restano mutabili → revoca share e sblocco possibili anche da bloccato. **Attende `db push`.**
+- **M-13** — (a) retention (`0033`): funzione `stageplot_purge_expired()` (analytics >30gg coerente con l'informativa, feedback_throttle >7gg) + schedulazione pg_cron **best-effort in blocco guardato** (se pg_cron off, la migration NON fallisce). **Attende `db push`.** (b) **redazione feedback LIVE**: `submit-feedback` strippa i contatti di terzi dallo `project_snapshot` prima di archiviarlo (`redactSnapshotForFeedback` in `_shared/project-sharing.ts`, +3 test deno = 56 verdi). Funzione **deployata** (`--use-api`). (c) export/delete account self-service = **piano documentato** (troppo sensibile per farlo di fretta).
+- **M-17** — **misura-prima fatta** (numeri reali in browser): `render()` = collo confermato, **30 / 404 / 959 ms** a 100/500/1000 elementi; `serialize`/`save` <1ms sempre. Budget + direzione (render incrementale, accoppiato a M-15) in `docs/perf/BENCHMARK.md`.
+- **M-15 quick-win** (LIVE `a755174`): `cabRoutePts` da `return pts` (codice A* morto) a **flag esplicito** `CAB_AVOID_OBSTACLES=false`; + **test di caratterizzazione** (275° test): i motori puri (audio/elec/mond/audit/net) NON chiamano `save()`/`render()` — pinna l'invariante la cui violazione ha causato l'incidente cloud.
+
+**Piani/decisioni (XL — onestamente NON riscritti, come raccomanda il report):**
+- **M-15 monolite** — `docs/architecture/REFACTOR_PLAN.md` (numeri reali: 105 catch vuoti, motori già isolati, il debito è il commit-point unico; 3 quick-win, 2 fatti).
+- **M-16 modello dati collaborazione** — `docs/architecture/DATA_MODEL_EVOLUTION.md`: **deliberatamente differito** in attesa di validazione prodotto (no CRDT prematuro); modello-obiettivo registrato.
+- **M-19 osservabilità/DR** — `docs/ops/`: RUNBOOK (5 scenari), RPO_RTO, BACKUP_RESTORE_DRILL.
+- **M-13 governance** — `docs/privacy/`: DATA_MAP, RETENTION, DATA_RIGHTS.
+
+**docs/ è gitignored** (repo pubblico → runbook/data-map con dettagli infra/PII restano interni, NON pubblicati). I 9 file vivono in `docs/` sul disco.
+
+**Backlog audit dopo questa sessione:** restano solo H-10 conformità WCAG piena AT-testata (baseline già live) e le PARTI XL di M-13/M-15/M-16/M-19 che richiedono scelte prodotto/legali/infra (export-delete account, refactor monolite incrementale, modello collaborazione, staging/error-tracking). **Tutti i finding con un fix di codice azionabile sono chiusi.**
+
+**PROSSIMA AZIONE UTENTE:** `cd .../stageplot && supabase db push` (digitare password DB) → applica 0032+0033. Poi verificare in dashboard se pg_cron è attivo (per la schedulazione retention); se no, la funzione `stageplot_purge_expired()` esiste già e va schedulata a mano o dal worker.
+
+---
+
 # SESSIONE 24/07 — Backlog audit: Track D (finding Low)
 
 Tutto LIVE (`c954b3b`), verificato in browser + produzione, 274 test verdi.
