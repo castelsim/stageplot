@@ -4226,11 +4226,13 @@ function _astarOrth(a,b,rects){
   var path=[], cur=tk; while(cur!=null){ var pp=cur.split(","); path.unshift([xs[+pp[0]],ys[+pp[1]]]); cur=prev[cur]; }
   return path;
 }
+/* Aggiramento ostacoli A* dei cavi: FEATURE DISATTIVATA (Simone 08/07). Il cavo è la L ortogonale
+   diretta tra i punti; le pieghe le mette solo l'utente. Audit M-15: flag esplicito invece di un
+   `return` anticipato che mascherava il codice A* come irraggiungibile. Per riattivarlo mettere
+   `true` — ma NON senza benchmark (audit M-17: la struttura è lineare e non profilata). */
+var CAB_AVOID_OBSTACLES = false;
 function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo, escludendo gli ostacoli-estremo */
-  /* Simone 08/07: NIENTE snodi automatici — il cavo è la L ortogonale diretta tra i punti,
-     le pieghe le mette SOLO l'utente (trascina i lati / waypoint). L'aggiramento ostacoli A*
-     resta qui sotto, disattivato: per riattivarlo basta togliere questo return. */
-  return pts;
+  if(!CAB_AVOID_OBSTACLES) return pts;
   if(!allObs||!allObs.length||!pts||pts.length<2) return pts;
   var rects=exclude ? allObs.filter(function(r){ return !exclude[r.id]; }) : allObs;
   if(!rects.length) return pts;
