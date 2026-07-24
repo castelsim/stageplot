@@ -3405,5 +3405,20 @@ t("stateHasMeaningfulWork: false su default, true dopo un palco custom", () => {
   reset(); ok(A.stateHasMeaningfulWork(A.state) === false); A.applyStageSize(9, 5, false); ok(A.stateHasMeaningfulWork(A.state) === true);
 });
 
+/* ---- Audit raggiungibile (regressione: ingresso perso con la rimozione di "Liste tecniche" il 17/07) ---- */
+console.log("\nAudit progetto (raggiungibilità):");
+t("il catalogo espone la voce-azione 'Audit progetto'", () => {
+  const e = (A.__catEntries || []).find(x => x.nome === "Audit progetto");
+  ok(e, "voce 'Audit progetto' assente dal catalogo (ingresso Audit perso)");
+  ok(typeof e.action === "function", "la voce Audit non ha un'azione");
+});
+t("toggleAuditView accende auditActive (unico gate del pannello #auditSec)", () => {
+  A.auditActive = false; A.toggleAuditView(); ok(A.auditActive === true, "toggleAuditView non ha attivato l'audit"); A.auditActive = false;
+});
+t("ricerca 'audit' e 'controlla' trovano l'Audit", () => {
+  ok(A.__spSearch("audit").some(r => r.nome === "Audit progetto"), "'audit' non trova l'Audit");
+  ok(A.__spSearch("controlla").some(r => r.nome === "Audit progetto"), "'controlla' (alias) non trova l'Audit");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

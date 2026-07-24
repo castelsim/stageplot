@@ -7599,8 +7599,13 @@ function miniSvg(k, over){
   var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
   el.insertBefore(makeActionBtn("Palco e pedane","costruisci palco e pedane","pedana", toggleStageEdit), results);
   el.insertBefore(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON), results);
+  /* Audit progetto: ingresso ripristinato (era nella categoria "Liste tecniche", rimossa il 17/07 →
+     rimasto orfano). toggleAuditView accende auditActive, l'unico gate del pannello #auditSec. */
+  var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  el.insertBefore(makeActionBtn("Audit progetto","controlla se manca qualcosa", null, toggleAuditView, AUDIT_ICON), results);
   entries.push({nome:"Palco e pedane", dim:"costruisci palco e pedane", icon:"pedana", action:toggleStageEdit, noQuick:true});
   entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
+  entries.push({nome:"Audit progetto", dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   ["metro","testo"].forEach(function(k){
     var b=makeBtn(k, TYPES[k].nome); el.insertBefore(b, results); entries.push({k:k,nome:TYPES[k].nome});
   });
@@ -7611,7 +7616,7 @@ function miniSvg(k, over){
      sinonimi e termini comuni. Così "tastiera" trova singola+doppia, "coro" attraversa persone e
      dispositivi, "voce"/"singer" trovano il cantante — con un solo meccanismo per tutta la libreria. */
   entries.forEach(function(e){
-    var t=e.k?TYPES[e.k]:null, parts=[e.nome, e.dim];
+    var t=e.k?TYPES[e.k]:null, parts=[e.nome, e.dim, e.kw];   /* e.kw: parole chiave opzionali per le voci-azione senza tipo (es. Audit) */
     if(t){ parts.push(t.nome, t.cat, t.sub, subOf(e.k), t.alias); }
     e._kw=_deacc(parts.filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi (già in uso altrove) */
     e._nname=_deacc(e.nome);
