@@ -3034,6 +3034,23 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 </div>
 
 <!-- Picker "Nuovo da modello" (menu File): parti da una formazione pronta. -->
+<!-- Popup login al salvataggio esplicito senza account (una volta a sessione, non bloccante): il lavoro è già salvato in locale, invita al cloud a valore. -->
+<div class="modal" id="loginPrompt" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="lpTitle">
+    <div class="wl-head">
+      <span class="wl-badge">✓ Salvato sul dispositivo</span>
+      <div class="wl-title" id="lpTitle">Accedi per non perderlo</div>
+      <div class="wl-tag">Il tuo progetto è già salvato su questo dispositivo. Accedi con Google per averlo anche nel cloud e ritrovarlo da qualsiasi dispositivo, senza rischiare di perderlo.</div>
+    </div>
+    <div class="wl-body">
+      <div class="wl-foot">
+        <button type="button" class="wl-skip" id="lpSkip">Continua senza account</button>
+        <button type="button" class="wl-cta" id="lpLogin">Accedi con Google</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="modelPicker" hidden>
   <div class="mcard" style="width:440px;max-width:94vw">
     <h2>Parti da un modello</h2>
@@ -3358,8 +3375,11 @@ if ("serviceWorker" in navigator) {
       + '<button type="button" id="updGo">Ricarica</button>'
       + '<button type="button" id="updX" aria-label="Chiudi">✕</button>';
     document.body.appendChild(bar);
-    document.getElementById("updGo").addEventListener("click", function () { location.reload(); });
-    document.getElementById("updX").addEventListener("click", function () { bar.remove(); });
+    /* si ritira da solo dopo 12s per non coprire l'area di lavoro: l'aggiornamento non è urgente
+       (si applica al prossimo reload comunque). Resta chiudibile subito e con "Ricarica". */
+    var updT=setTimeout(function(){ if(bar.parentNode) bar.remove(); }, 12000);
+    document.getElementById("updGo").addEventListener("click", function () { clearTimeout(updT); location.reload(); });
+    document.getElementById("updX").addEventListener("click", function () { clearTimeout(updT); bar.remove(); });
   });
 }
 </script>

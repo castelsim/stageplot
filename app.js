@@ -2084,6 +2084,32 @@ function maybeLoginNudge(){
   try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per averlo salvato online."); }catch(e){}
 }
 window.maybeLoginNudge=maybeLoginNudge;
+/* Popup login al salvataggio esplicito (Cmd+S / menu Salva) se non loggato: una volta a sessione, non bloccante (il salvataggio locale è già avvenuto). Obiettivo: convertire al login/cloud senza forzare. */
+var loginPromptShown=false;
+function maybeLoginPromptOnSave(localOk){
+  try{
+    if(!localOk) return false;                                   /* solo se il salvataggio locale è riuscito */
+    if(loginPromptShown || foreignDoc()) return false;           /* non in viewer/consulenza, non due volte */
+    if(window.__cloud && window.__cloud.user && window.__cloud.user()) return false;  /* già loggato */
+    try{ if(sessionStorage.getItem("sp_loginPrompt")==="1") return false; }catch(_e){} /* una sola volta a sessione */
+    var m=document.getElementById("loginPrompt"); if(!m) return false;
+    loginPromptShown=true; try{ sessionStorage.setItem("sp_loginPrompt","1"); }catch(_e){}
+    m.hidden=false;
+    var lg=document.getElementById("lpLogin"); if(lg) lg.focus();
+    return true;
+  }catch(e){ return false; }
+}
+window.maybeLoginPromptOnSave=maybeLoginPromptOnSave;
+(function(){
+  var m=document.getElementById("loginPrompt"); if(!m) return;
+  function closeLP(){ m.hidden=true; }
+  var lg=document.getElementById("lpLogin");
+  if(lg) lg.addEventListener("click", function(){ closeLP(); try{ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); else if(window.proxyClick) window.proxyClick("bCloud"); }catch(e){} });
+  var sk=document.getElementById("lpSkip");
+  if(sk) sk.addEventListener("click", closeLP);
+  m.addEventListener("click", function(ev){ if(ev.target===m) closeLP(); });
+  document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !m.hidden) closeLP(); });
+})();
 /* Analytics minimi (spec 2026-07-03): eventi first-party solo per utenti autenticati.
    Gli eventi si accodano finché il modulo cloud non ha risolto l'auth iniziale
    (così app_open dei loggati porta lo user_id); per gli anonimi vengono scartati.
@@ -2432,8 +2458,19 @@ window.setPeekName=setPeekName;
 })();
 /* ===== Undo / Redo ===== */
 var undoStack=[], redoStack=[], lastSnap=null, venueHistoryAssets=Object.create(null);
+/* L'area di stampa (printFrame) è configurazione di export, non contenuto editabile: prepararla dal
+   flusso Esporta (ensurePrintFrame / "frame palco" / "frame tutto") non deve creare passi di undo
+   invisibili. La escludo dagli snapshot di cronologia (resta comunque in stato e serializzata per
+   salvataggio/reload — vedi applyHistory che la preserva attraverso undo/redo). */
+function historyStateJSON(){
+  var had=("printFrame" in state), f=state.printFrame;
+  if(had) delete state.printFrame;
+  var j=stateToJSON();
+  if(had) state.printFrame=f;
+  return j;
+}
 function historySnapshot(){
-  var json=stateToJSON(), rec=venueImageRecord(state&&state.venue,venueImgCache[String(activeVar||"")]);
+  var json=historyStateJSON(), rec=venueImageRecord(state&&state.venue,venueImgCache[String(activeVar||"")]);
   var venueSig=rec&&rec._sig?rec._sig:null;
   if(venueSig) venueHistoryAssets[venueSig]=rec;
   return {json:json,venueSig:venueSig};
@@ -2474,7 +2511,9 @@ function ensureItemIds(){
 }
 function applyHistory(snapshot){
   var snap=historySnapshotValue(snapshot);
+  var keepFrame=state.printFrame;   /* l'area di stampa non è undoable: la mantengo attraverso undo/redo */
   state=normalizeState(JSON.parse(snap.json));
+  if(keepFrame!=null) state.printFrame=keepFrame;
   var key=String(activeVar||"");
   if(snap.venueSig && venueHistoryAssets[snap.venueSig]){
     venueImgCache[key]=Object.assign({},venueHistoryAssets[snap.venueSig]);
@@ -7906,15 +7945,29 @@ function renumberInstr(base){
 }
 /* ===== Drawer mobile (catalogo / pannello) ===== */
 function isMobile(){ return window.matchMedia("(max-width:880px)").matches; }
+/* A11y: i drawer mobile (catalogo, menu azioni) si aprono/chiudono solo con una classe CSS (transform
+   fuori schermo). Da chiusi restavano nell'albero di accessibilità e focusabili (pulsanti "Chiudi"
+   fantasma). Qui: da chiusi e SOLO su mobile → inert + aria-hidden. Su desktop il catalogo è la sidebar
+   sempre attiva: non lo tocco, e non interferisco con l'inert delle modali (marco il mio con data-attr). */
+function syncDrawerA11y(){
+  var mob=isMobile();
+  [document.getElementById("catalog"), document.getElementById("mActions")].forEach(function(el){
+    if(!el) return;
+    var closed = mob && !el.classList.contains("open");
+    if(closed){ el.setAttribute("inert",""); el.setAttribute("aria-hidden","true"); el.setAttribute("data-drawer-inert",""); }
+    else if(el.hasAttribute("data-drawer-inert")){ el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); el.removeAttribute("data-drawer-inert"); }
+  });
+}
 function closeMobileDrawers(){
   if(!isMobile()) return;
   document.getElementById("catalog").classList.remove("open");
   document.getElementById("mobBackdrop").classList.remove("show");
+  syncDrawerA11y();
 }
 (function(){
   var cat=document.getElementById("catalog"), bd=document.getElementById("mobBackdrop");
-  function closeAll(){ cat.classList.remove("open"); var ms=document.getElementById("mActions"); if(ms) ms.classList.remove("open"); bd.classList.remove("show"); }
-  function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); }
+  function closeAll(){ cat.classList.remove("open"); var ms=document.getElementById("mActions"); if(ms) ms.classList.remove("open"); bd.classList.remove("show"); syncDrawerA11y(); }
+  function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
   /* barra hub: ↶ ↷ ⤢ (sempre visibile in basso) */
@@ -7925,8 +7978,10 @@ function closeMobileDrawers(){
   function proxy(id){ var b=document.getElementById(id); if(b) b.click(); }
   /* A′: #mActions è un bottom-sheet a UN livello (aperto da dock "Menu" o ⋯ in alto) */
   var mSheet=document.getElementById("mActions");
-  function toggleMobileMenu(on){ if(!mSheet) return; mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); }
+  function toggleMobileMenu(on){ if(!mSheet) return; mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); syncDrawerA11y(); }
   window.toggleMobileMenu=toggleMobileMenu;
+  window.addEventListener("resize", syncDrawerA11y);   /* passaggio mobile↔desktop: risincronizza l'inert dei drawer */
+  syncDrawerA11y();   /* stato iniziale: su mobile i drawer partono chiusi → inert */
   Array.prototype.forEach.call(document.querySelectorAll("#mActions button"), function(b){
     b.addEventListener("click", function(){
       var a=b.getAttribute("data-act"); if(!a) return;
@@ -12937,8 +12992,8 @@ document.getElementById("bNew").addEventListener("click", function(){
   }
   confirmDialog({
     icon:"warn", title:"Nuovo stage plot?",
-    message:"Quello attuale verrà cancellato. Salva o esporta prima se vuoi conservarlo.",
-    confirmText:"Cancella e ricomincia"
+    message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato, esportalo o salvalo prima: verrà chiuso.",
+    confirmText:"Azzera e ricomincia"
   }).then(function(ok){
     if(!ok) return;
     guardDocumentReplacement({skipConfirm:true,allowBlockedDiscard:true,reason:"nuovo progetto"},function(){
@@ -13392,10 +13447,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
           ?"Salvataggio cloud non riuscito: il progetto resta sul dispositivo."
           :"Salvataggio non riuscito né sul dispositivo né sul cloud. Esporta subito il progetto.",true);
       });
-    } else if(window.__toast){
-      window.__toast(localOk
-        ?"Salvato su questo dispositivo. Accedi per salvarlo sul cloud."
-        :"Salvataggio sul dispositivo non riuscito. Esporta subito il progetto.",!localOk);
+    } else {
+      /* non loggato: al primo salvataggio della sessione mostra il popup login; poi ripiega sul toast soft */
+      if(!(window.maybeLoginPromptOnSave && window.maybeLoginPromptOnSave(localOk)) && window.__toast){
+        window.__toast(localOk
+          ?"Salvato su questo dispositivo. Accedi per salvarlo sul cloud."
+          :"Salvataggio sul dispositivo non riuscito. Esporta subito il progetto.",!localOk);
+      }
     }
   }
   window.fileSaveVersion=fileSaveCloud;   /* alias legacy: ⌘S e vecchi call site puntano qui */
@@ -13649,6 +13707,10 @@ aiTemplatesBlock()
   });
 })();
 function dl(href,name){ var a=document.createElement("a"); a.href=href; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+/* conferma download coerente per tutti gli export (CSV/PDF/PNG) — il file parte davvero ma senza
+   feedback l'utente non lo sa (il browser mostra il download in un angolo, spesso ignorato). */
+function toastDownloaded(name){ try{ if(window.__toast) window.__toast("Download completato: "+name); }catch(_e){} }
+function pdfSave(doc, name){ doc.save(name); toastDownloaded(name); }
 
 /* ===== Export CSV della channel list (discovery pro #1 + preset #4) — il service importa in
    Excel/console invece di ri-digitare il PDF a mano. Separatore scelto + BOM UTF-8 (accenti). ===== */
@@ -13665,6 +13727,7 @@ function downloadCsv(text, name){
   var blob=new Blob([text], {type:"text/csv;charset=utf-8"});
   var url=URL.createObjectURL(blob);
   dl(url, name);
+  toastDownloaded(name);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
 }
 /* Channel list (ingressi) in CSV, formato scelto. Fonte: la lista instrument-driven (stessa del PDF/pannello).
@@ -14017,7 +14080,7 @@ function cabReportPdf(shared){
     if(shared) return;
     pdfCredit(doc);
     if(window.__cabPdfTest){ window.__cabPdfTest={name:fileName()+"-cablaggio-audio.pdf", pages:doc.getNumberOfPages()}; return; }   /* hook di test: niente download */
-    doc.save(fileName()+"-cablaggio-audio.pdf");
+    pdfSave(doc, fileName()+"-cablaggio-audio.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14049,7 +14112,7 @@ function patchListPdf(shared){
     if(shared) return;
     pdfCredit(doc);
     if(window.__patchPdfTest){ window.__patchPdfTest={name:fileName()+"-input-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
-    doc.save(fileName()+"-input-list.pdf");
+    pdfSave(doc, fileName()+"-input-list.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14081,7 +14144,7 @@ function todefinePdf(shared){
     if(!errs.length && !warns.length && !deleg.length && !todefs.length){ body("Nessuna criticità o aspetto aperto."); }
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-da-definire.pdf");
+    pdfSave(doc, fileName()+"-da-definire.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14119,7 +14182,7 @@ function responsabilitaPdf(shared){
     doc.text("I contatti personali non pubblicati restano privati e non compaiono su questo documento.", M, y);
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-responsabilita.pdf");
+    pdfSave(doc, fileName()+"-responsabilita.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14155,7 +14218,7 @@ function riderPdf(shared){
     else if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); doc.text("Riferimento tecnico: "+d.contatto, M, y); y+=5; }
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-rider.pdf");
+    pdfSave(doc, fileName()+"-rider.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14179,7 +14242,7 @@ function monitorListPdf(shared){
     if(shared) return;
     pdfCredit(doc);
     if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
-    doc.save(fileName()+"-monitor-list.pdf");
+    pdfSave(doc, fileName()+"-monitor-list.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14206,7 +14269,7 @@ function loadListPdf(shared){
     if(shared) return;
     pdfCredit(doc);
     if(window.__loadPdfTest){ window.__loadPdfTest={name:fileName()+"-lista-carichi.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
-    doc.save(fileName()+"-lista-carichi.pdf");
+    pdfSave(doc, fileName()+"-lista-carichi.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14263,7 +14326,7 @@ function dantePatchPdf(shared){
     doc.text("Device ID = ordine della numerazione FOH. Riservate = porte tenute libere (spare).", M, y);
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-patch.pdf");
+    pdfSave(doc, fileName()+"-patch.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14293,7 +14356,7 @@ function netListPdf(shared){
     doc.text("Lunghezze con margine di posa. I protocolli punto-punto (AES50, gigaACE) restano diretti alla console.", M, y);
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-rete.pdf");
+    pdfSave(doc, fileName()+"-rete.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14328,7 +14391,7 @@ function elecLinesPdf(shared){
     doc.text("* = numero linea scelto a mano. Magnetotermici e differenziali = dati di targa del quadro.", M, y);
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-alimentazioni.pdf");
+    pdfSave(doc, fileName()+"-alimentazioni.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14372,7 +14435,7 @@ function outputListPdf(shared){
     doc.text("* = porta scelta a mano. Un bus può alimentare più uscite senza essere duplicato.", M, y);
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-output-list.pdf");
+    pdfSave(doc, fileName()+"-output-list.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14409,7 +14472,7 @@ function rackListPdf(shared){
     });
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-rack.pdf");
+    pdfSave(doc, fileName()+"-rack.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14431,7 +14494,7 @@ function backlineListPdf(shared){
     pl.rows.forEach(function(r){ trow(r.qty+"×", r.name, r.by||"—", false, r.by==="Service"?"#0b7a70":"#111827"); });
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-backline.pdf");
+    pdfSave(doc, fileName()+"-backline.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14569,7 +14632,7 @@ function rfListPdf(shared){
     pl.rows.forEach(function(r){ var fb=[r.rf, r.band].filter(Boolean).join(" · ")||"—"; trow(r.name, r.kind, fb, r.rx||"", false, r.rf||r.band?"#111827":"#9ca3af"); });
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-lista-rf.pdf");
+    pdfSave(doc, fileName()+"-lista-rf.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14620,7 +14683,7 @@ function pmListPdf(shared){
     if(pWithModel.length) line(pWithModel.length+" mixerino/i con modello non ancora collegati al hub.", 9, false, "#9ca3af", 5);
     if(shared) return;
     pdfCredit(doc);
-    doc.save(fileName()+"-personal-monitor.pdf");
+    pdfSave(doc, fileName()+"-personal-monitor.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14657,7 +14720,7 @@ function elecReportPdf(shared){
     if(shared) return;
     pdfCredit(doc);
     if(window.__elecPdfTest){ window.__elecPdfTest={name:fileName()+"-piano-elettrico.pdf", pages:doc.getNumberOfPages()}; return; }
-    doc.save(fileName()+"-piano-elettrico.pdf");
+    pdfSave(doc, fileName()+"-piano-elettrico.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -14688,7 +14751,7 @@ function auditReportPdf(shared){
     if(shared) return;
     pdfCredit(doc);
     if(window.__auditPdfTest){ window.__auditPdfTest={name:fileName()+"-audit.pdf", pages:doc.getNumberOfPages()}; return; }
-    doc.save(fileName()+"-audit.pdf");
+    pdfSave(doc, fileName()+"-audit.pdf");
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
@@ -15645,7 +15708,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
   info.className="mstatus"; info.textContent="Genero il PDF…";
   /* U2/U3: download AUTOMATICO del browser, niente più selettore "salva con nome" (la finestra extra) */
   buildPdfDoc(paperKey, N, orient, header).then(function(doc){
-    doc.save(fileName()+".pdf");
+    pdfSave(doc, fileName()+".pdf");
     info.className="mstatus ok"; info.textContent="✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
     window.__pdfScope="full";   /* riporta al default */
     track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
@@ -15682,6 +15745,7 @@ function exportPng(){
     ctx.drawImage(img,0,0,pxW,pxH);
     var a=document.createElement("a");
     a.download=fileName()+".png"; a.href=c.toDataURL("image/png"); a.click();   /* audit L-01: nome canonico (= titolo progetto, come i PDF), non il legacy state.nome */
+    toastDownloaded(fileName()+".png");
     track("export",{format:"png"});
     maybeLoginNudge();
   };
