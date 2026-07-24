@@ -275,7 +275,10 @@
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
+<div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
+  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
@@ -10274,9 +10277,23 @@ svg.addEventListener("pointerup", function(e){
   svg.classList.remove("dragging");
   drag=null;
 });
-svg.addEventListener("pointercancel", function(e){   /* touch interrotto: ripulisci lo stato */
+svg.addEventListener("pointercancel", function(e){   /* touch interrotto (2° dito, gesture iOS, rotazione device): chiudi la transazione di drag in modo atomico (audit M-21) */
   delete pointers[e.pointerId];
   if(Object.keys(pointers).length<2) pinch=null;
+  if(!drag){ svg.classList.remove("dragging"); return; }
+  if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);   /* via il cavo-fantasma (mode port) */
+  var mode=drag.mode, moved=drag.moved;
+  drag=null; svg.classList.remove("dragging");
+  /* Modalità che scrivono lo stato DURANTE il move (posizione/rotazione/segmenti/alimentazione):
+     al momento dell'interruzione lo stato è già alla posizione parziale → COMMIT (persisti, così
+     DOM/stato/persistenza/undo restano coerenti). Le modalità reconnect/port NON toccano lo stato
+     finché non c'è un rilascio valido → nessun save e il render ripristina la vista (rollback). */
+  var liveMut={item:1,rotate:1,grouprot:1,venue:1,frame:1,frameresize:1,cabseg:1,cabhome:1,elecseg:1,elecsupply:1,mondseg:1};
+  __cabRes=null; __elecRes=null; __mondRes=null;
+  if(moved && liveMut[mode]) save();
+  render();
+  if(typeof renderCabPanel==="function") renderCabPanel();
+  if(typeof renderElecPanel==="function") renderElecPanel();
 });
 svg.addEventListener("wheel", function(e){
   e.preventDefault();
@@ -10608,6 +10625,10 @@ function applyTheme(dark){
 })();
 
 /* ============ TASTIERA ============ */
+/* A11y canvas (audit H-10): annunci per screen reader nella regione #a11yLive. */
+function a11yAnnounce(msg){ var el=document.getElementById("a11yLive"); if(!el) return; el.textContent=""; setTimeout(function(){ el.textContent=msg; }, 30); }
+function a11yDesc(it){ if(!it) return ""; var nm=(it.label!=null&&it.label!=="")?String(it.label):(typeof defaultLabel==="function"?defaultLabel(it.type):String(it.type||"elemento")); return nm+", posizione "+Math.round(it.x)+", "+Math.round(it.y)+(it.rot?(", ruotato "+Math.round(it.rot)+" gradi"):""); }
+function a11yItemIndex(id){ var a=state.items||[]; for(var i=0;i<a.length;i++){ if(a[i].id===id) return i; } return -1; }
 document.addEventListener("keydown", function(e){
   var modal=document.getElementById("orchModal");
   if(!modal.hidden && e.key==="Escape"){ modal.hidden=true; return; }
@@ -10615,6 +10636,26 @@ document.addEventListener("keydown", function(e){
   if(!strModal.hidden && e.key==="Escape"){ strModal.hidden=true; return; }
   var legM=document.getElementById("legniModal"); if(!legM.hidden && e.key==="Escape"){ legM.hidden=true; return; }
   var ottM=document.getElementById("ottoniModal"); if(!ottM.hidden && e.key==="Escape"){ ottM.hidden=true; return; }
+  /* Selezione da tastiera sul canvas (H-10): quando l'SVG ha il focus, Tab/Shift+Tab scorrono gli
+     elementi in ordine di documento e li annunciano. Oltre l'ultimo (o prima del primo) si esce dal
+     canvas lasciando passare il Tab del browser → nessuna trappola di focus. Sola navigazione: ok
+     anche a progetto bloccato. */
+  var _svg=document.getElementById("svg");
+  if(e.key==="Tab" && document.activeElement===_svg){
+    var order=(state.items||[]).filter(function(x){ return x && x.id!=null; });
+    if(order.length){
+      var ci=-1; for(var _i=0;_i<order.length;_i++){ if(order[_i].id===sel){ ci=_i; break; } }
+      if(!e.shiftKey){
+        if(ci<0){ e.preventDefault(); selectOne(order[0].id); render(); a11yAnnounce("Selezionato "+a11yDesc(getSel())+". 1 di "+order.length); return; }
+        if(ci<order.length-1){ e.preventDefault(); selectOne(order[ci+1].id); render(); a11yAnnounce(a11yDesc(getSel())+". "+(ci+2)+" di "+order.length); return; }
+        clearSelection(); render();   /* oltre l'ultimo: esci dal canvas */
+      } else {
+        if(ci<0){ e.preventDefault(); selectOne(order[order.length-1].id); render(); a11yAnnounce("Selezionato "+a11yDesc(getSel())+". "+order.length+" di "+order.length); return; }
+        if(ci>0){ e.preventDefault(); selectOne(order[ci-1].id); render(); a11yAnnounce(a11yDesc(getSel())+". "+ci+" di "+order.length); return; }
+        clearSelection(); render();   /* prima del primo: esci */
+      }
+    }
+  }
   if(window.__projLocked && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){   /* progetto bloccato: blocca le scorciatoie che modificano, MA non dentro i campi di testo (dialoghi permessi: Esporta PDF, ecc.) */
     if(e.key!=="Escape" && (e.key==="Delete"||e.key==="Backspace"||/^Arrow/.test(e.key) || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|s|x)$/i.test(e.key)))){
       e.preventDefault(); if(window.__toast) window.__toast("Il progetto è bloccato. Sbloccalo per modificarlo."); return;
@@ -10679,17 +10720,17 @@ document.addEventListener("keydown", function(e){
     if(anySolo() || layerAccOpen){ layerSoloUI={}; layerAccOpen=null; if(typeof renderLayerManager==="function") renderLayerManager(); }   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
   if(!it) return;
-  if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); deleteSel(); }
-  else if(e.key==="r"){ rotateSel(15); }
-  else if(e.key==="R"){ rotateSel(-15); }
-  else if(e.key==="d"||e.key==="D"){ duplicateSel(); }
+  if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it); deleteSel(); a11yAnnounce(_dn+" eliminato"); }
+  else if(e.key==="r"){ rotateSel(15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
+  else if(e.key==="R"){ rotateSel(-15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
+  else if(e.key==="d"||e.key==="D"){ duplicateSel(); a11yAnnounce("Duplicato: "+a11yDesc(getSel())); }
   else if(e.key.indexOf("Arrow")===0){
     e.preventDefault();
     var dx=0,dy=0;
     if(e.key==="ArrowLeft") dx=-step; if(e.key==="ArrowRight") dx=step;
     if(e.key==="ArrowUp") dy=-step; if(e.key==="ArrowDown") dy=step;
     selItems().forEach(function(s){ s.x+=dx; s.y+=dy; });
-    render(); save(); ensureVisible();
+    render(); save(); ensureVisible(); a11yAnnounce(a11yDesc(getSel()));
   }
 });
 document.addEventListener("keyup", function(e){
@@ -17937,16 +17978,62 @@ else if(allowStartupScenario && location.search.indexOf("json=1")>-1){   /* QA: 
 }
 else { window.addEventListener("resize", render); fit();
 }
-/* A11y (ciclo 7): marca tutti i modali generici come dialoghi per gli screen reader (role+aria-modal).
-   confirmModal e welcome hanno già i propri role/aria-labelledby; qui si copre il resto in un colpo, DRY. */
+/* A11y modali (audit M-22): oltre alla semantica (role/aria-modal/nome) ora un vero contratto di
+   dialogo — focus trap (Tab ciclico dentro la modale in cima), restore del focus al trigger alla
+   chiusura, e sfondo `inert` (non focalizzabile né leggibile dallo screen reader) mentre è aperta.
+   confirmModal e welcome hanno già i propri role/aria-labelledby; qui si copre il resto in un colpo. */
 (function(){ try{
-  document.querySelectorAll(".modal").forEach(function(m){
+  var mods=Array.prototype.slice.call(document.querySelectorAll(".modal"));
+  mods.forEach(function(m){
     if(!m.getAttribute("role")) m.setAttribute("role","dialog");
     if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
     if(!m.getAttribute("aria-label") && !m.getAttribute("aria-labelledby")){
       var h=m.querySelector("h2,h3,h4"); if(h){ if(!h.id) h.id="mtitle-"+(m.id||Math.random().toString(36).slice(2)); m.setAttribute("aria-labelledby", h.id); }
     }
   });
+  var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  var openStack=[], returnFocus=new WeakMap(), bgInert=[];
+  function isVisible(m){ if(m.hidden) return false; var cs=getComputedStyle(m); if(cs.display==="none"||cs.visibility==="hidden") return false; var r=m.getBoundingClientRect(); return r.width>0 && r.height>0; }
+  function focusables(m){ return Array.prototype.slice.call(m.querySelectorAll(FOCUSABLE)).filter(function(el){ return !el.disabled && el.getClientRects().length>0; }); }
+  function setBgInert(on){
+    if(on){ if(bgInert.length) return;
+      Array.prototype.forEach.call(document.body.children, function(el){
+        if(!el.classList || el.classList.contains("modal")) return;      /* le modali sono gestite a parte */
+        if(el.getAttribute && el.getAttribute("aria-live")) return;       /* la regione di annunci resta viva */
+        if(el.hasAttribute("inert")) return;
+        el.setAttribute("inert",""); bgInert.push(el);
+      });
+    } else { bgInert.forEach(function(el){ el.removeAttribute("inert"); }); bgInert=[]; }
+  }
+  function onOpen(m){
+    if(openStack.indexOf(m)>=0) return;
+    returnFocus.set(m, document.activeElement);
+    openStack.push(m); setBgInert(true);
+    var f=focusables(m), target=f[0]||m;
+    if(target===m && !m.hasAttribute("tabindex")) m.setAttribute("tabindex","-1");
+    setTimeout(function(){ try{ target.focus(); }catch(_){} }, 0);
+  }
+  function onClose(m){
+    var i=openStack.indexOf(m); if(i<0) return;
+    openStack.splice(i,1);
+    if(!openStack.length) setBgInert(false);
+    var ret=returnFocus.get(m); returnFocus.delete(m);
+    setTimeout(function(){ try{ if(ret && ret.focus && document.contains(ret)) ret.focus(); }catch(_){} }, 0);
+  }
+  mods.forEach(function(m){
+    var wasVis=isVisible(m);
+    try{ new MutationObserver(function(){ var v=isVisible(m); if(v&&!wasVis) onOpen(m); else if(!v&&wasVis) onClose(m); wasVis=v; }).observe(m, {attributes:true, attributeFilter:["hidden","style","class"]}); }catch(_){}
+    if(wasVis) onOpen(m);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key!=="Tab" || !openStack.length) return;
+    var m=openStack[openStack.length-1], f=focusables(m);
+    if(!f.length){ e.preventDefault(); try{ m.focus(); }catch(_){} return; }
+    var first=f[0], last=f[f.length-1], a=document.activeElement;
+    if(!m.contains(a)){ e.preventDefault(); first.focus(); return; }
+    if(e.shiftKey && a===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && a===last){ e.preventDefault(); first.focus(); }
+  }, true);
 }catch(_e){} })();
 resetHistory();   /* la sessione iniziale è la base: undo non torna prima del caricamento */
 if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la barra varianti se il documento caricato ne ha ≥2 */

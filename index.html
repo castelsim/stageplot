@@ -18,7 +18,7 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stage Plot Gratis in Italiano — Editor Online in Scala | StagePlot</title>
-<script>window.__APP_VERSION__="2026.07.23";</script>
+<script>window.__APP_VERSION__="2026.07.24";</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1481,7 +1481,10 @@
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   /* ===== Accessibilità: motion ridotto + target touch ===== */
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
-  @media (pointer:coarse){.btn,.btn-icon,.cnt-b,.mtbtn,.mact-grid button{min-height:44px}}
+  @media (pointer:coarse){.btn,.btn-icon,.cnt-b,.mtbtn,.mact-grid button,.layer-ico,.adv-btn,.feed-seg{min-height:44px}}
+  /* audit M-22: i controlli icona dei layer (S/occhio/lucchetto/cestino) erano ~20-22px → sotto la
+     soglia touch. Su puntatore grosso allargo le colonne e alzo il target a 44px. */
+  @media (pointer:coarse){.layer-icons{grid-template-columns:repeat(4,minmax(36px,1fr));gap:4px}.layer-ico{padding:6px}}
   /* ===== Pannello informativo SEO "Cos'è uno stage plot" (overlay, non tocca il grid) ===== */
   #learn{position:fixed;inset:0;z-index:70;background:rgba(17,24,39,.55);display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px 16px}
   #learn.open{display:block}
@@ -1928,7 +1931,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <aside id="catalog"></aside>
 
-<main><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
+<div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
+  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>

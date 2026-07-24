@@ -1322,7 +1322,10 @@
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   /* ===== Accessibilità: motion ridotto + target touch ===== */
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
-  @media (pointer:coarse){.btn,.btn-icon,.cnt-b,.mtbtn,.mact-grid button{min-height:44px}}
+  @media (pointer:coarse){.btn,.btn-icon,.cnt-b,.mtbtn,.mact-grid button,.layer-ico,.adv-btn,.feed-seg{min-height:44px}}
+  /* audit M-22: i controlli icona dei layer (S/occhio/lucchetto/cestino) erano ~20-22px → sotto la
+     soglia touch. Su puntatore grosso allargo le colonne e alzo il target a 44px. */
+  @media (pointer:coarse){.layer-icons{grid-template-columns:repeat(4,minmax(36px,1fr));gap:4px}.layer-ico{padding:6px}}
   /* ===== Pannello informativo SEO "Cos'è uno stage plot" (overlay, non tocca il grid) ===== */
   #learn{position:fixed;inset:0;z-index:70;background:rgba(17,24,39,.55);display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px 16px}
   #learn.open{display:block}
