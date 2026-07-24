@@ -343,6 +343,26 @@ t("zone: colori tutti diversi alla creazione (zcol dalla palette)", () => {
   if (z1.zcol === z2.zcol || z2.zcol === z3.zcol || z1.zcol === z3.zcol) throw new Error("colori duplicati: " + [z1.zcol, z2.zcol, z3.zcol].join(","));
 });
 
+console.log("\nContratto side-effect (audit M-15): i motori di calcolo NON salvano né renderizzano");
+t("i motori puri (audio/elec/mond/audit) non chiamano save() né render()", () => {
+  reset();
+  const mic = add("astamic", 200, 400); const box = add("stagebox", 600, 250);
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.cabSetItemBox(mic, box.id); A.__cabRes = null;
+  A.state.elec = A.state.elec || {}; A.state.elec.on = true; A.__elecRes = null;
+  const origSave = A.save, origRender = A.render;
+  let saves = 0, renders = 0;
+  A.save = function () { saves++; }; A.render = function () { renders++; };
+  try {
+    A.audioCablingEngine();
+    if (typeof A.electricEngine === "function") A.electricEngine();
+    if (typeof A.monDigEngine === "function") A.monDigEngine();
+    if (typeof A.auditEngine === "function") A.auditEngine();
+    if (typeof A.netEngine === "function") A.netEngine();
+  } finally { A.save = origSave; A.render = origRender; }
+  eq(saves, 0, "un motore di calcolo non deve salvare (classe dell'incidente cloud: engine che chiama save)");
+  eq(renders, 0, "un motore di calcolo non deve renderizzare");
+});
+
 console.log("\nCavo unico (audioCablingEngine):");
 t("batteria + box: 8 canali ma 1 sola KEY (un cavo)", () => {
   reset(); const b = add("batteria", 400, 500); const box = add("stagebox", 600, 250);
