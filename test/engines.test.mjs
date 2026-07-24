@@ -3374,6 +3374,36 @@ t("priorità al nome: 'tastiera' → il primo risultato matcha sul nome", () => 
 });
 t("query vuota → nessun risultato", () => { eq(A.__spSearch("").length, 0); eq(A.__spSearch("   ").length, 0); });
 
+/* ---- Quick-add (doppio click sul palco): stessi alias della barra del catalogo ----
+   Regressione 24/07: la ricerca rapida filtrava solo su nome e chiave del tipo, quindi "cantante",
+   "voce", "singer", "frontman" trovavano l'elemento nella colonna sinistra e NIENTE col doppio click. */
+console.log("\nRicerca rapida quick-add (parità con il catalogo):");
+function qaKeys(q) { return (A.__qaSearch ? A.__qaSearch(q) : []).map(function (r) { return r.k; }); }
+t("__qaSearch esposto (gemella di __spSearch)", () => { ok(typeof A.__qaSearch === "function", "window.__qaSearch mancante"); });
+t("i sinonimi delle voci trovano la persona (uomo/donna)", () => {
+  ["cantante", "cantanti", "voce", "voci", "solista", "corista", "coriste", "singer", "vocalist", "frontman", "coro"].forEach(function (q) {
+    const r = A.__qaSearch(q);
+    ok(r.some(x => x.k === "corista"), "'" + q + "' non trova la persona nel quick-add: " + JSON.stringify(r.map(x => x.nome)));
+  });
+});
+t("alias inglesi e di categoria: 'keyboard' → tastiera", () => { ok(qaKeys("keyboard").indexOf("tastiera") > -1); });
+t("parità catalogo/quick-add sugli alias del corista", () => {
+  (A.TYPES.corista.alias || "").split(/\s+/).filter(Boolean).forEach(function (w) {
+    if (searchKeys(w).indexOf("corista") > -1) ok(qaKeys(w).indexOf("corista") > -1, "alias solo nella colonna sinistra: " + w);
+  });
+});
+t("non regredisce: nome, chiave tecnica e voci-azione", () => {
+  ok(qaKeys("wedge").indexOf("wedge") > -1, "la chiave tecnica non trova più il wedge");
+  ok(A.__qaSearch("violino").some(x => x.nome === "Violino I"), "manca Violino I");
+  ok(!A.__qaSearch("audit").some(x => x.nome === "Audit progetto"), "il quick-add non deve suggerire le azioni (noQuick)");
+});
+t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
+  const r = A.__qaSearch("tastiera"); ok(r.length > 0);
+  ok(A._deacc(r[0].nome).indexOf("tastiera") > -1, "primo risultato non sul nome: " + r[0].nome);
+});
+t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
+t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
+
 /* ---- Popup dimensioni palco: validazione, gating dallo stato, creazione palco ---- */
 console.log("\nPopup dimensioni palco:");
 t("parseStageDim: accetta interi/decimali con . o , e spazi", () => { eq(A.parseStageDim("8"), 8); eq(A.parseStageDim("6,5"), 6.5); eq(A.parseStageDim("6.5"), 6.5); eq(A.parseStageDim(" 10 "), 10); });

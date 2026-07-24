@@ -7843,6 +7843,40 @@ function showDragHintOnce(){
    vedere la lista. Riusa addItem(type,{x,y}) che accetta già la posizione. */
 var _qaSp=null;
 function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.remove(); _qaSp=null; }
+/* Ricerca della quick-add: STESSO indice della barra di ricerca del catalogo (e._kw = nome +
+   dimensione + categoria/sottocategoria + alias del tipo, minuscole e senza accenti).
+   Fino al 24/07 filtrava solo su nome e chiave: "cantante", "voce", "singer", "frontman", "coro",
+   "keyboard" trovavano l'elemento nella colonna sinistra e NIENTE col doppio click sul palco.
+   La chiave tecnica (e.k) resta indicizzata per non perdere le ricerche per sigla; se __catEntries
+   non c'è ancora (fallback ai TYPES) l'indice si costruisce qui con gli stessi campi. */
+var _qaOpts=null, _qaIdx=null, _qaSrc=false;
+function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
+function qaIndex(){
+  var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
+  if(_qaOpts && _qaSrc===src) return;   /* cache: l'indice del catalogo si costruisce una volta sola */
+  _qaSrc=src;
+  _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
+    .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
+  _qaIdx=_qaOpts.map(function(e){
+    var t=e.k?TYPES[e.k]:null, p=[e._kw, e.nome, e.dim, e.kw, e.k];
+    if(t && !e._kw) p.push(t.nome, t.cat, t.sub, subOf(e.k), t.alias);
+    return _deacc(p.filter(Boolean).join(" "));
+  });
+}
+function qaSearch(q){
+  q=_deacc(String(q||"").trim()); if(!q) return [];
+  qaIndex();
+  /* ranking: prima chi inizia con la query, poi chi la contiene nel nome, poi chi la trova solo
+     negli alias/categoria; a parità le categorie musicali prima (un fonico che digita "ba" vuole
+     Basso/Batteria prima di Bagno chimico), infine alfabetico */
+  function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(qaCat(e))?1:0; }
+  function rankW(e){ var n=_deacc(e.nome||""); return n.indexOf(q)===0?0:(n.indexOf(q)>-1?1:2); }
+  return _qaOpts.filter(function(e,i){ return _qaIdx[i].indexOf(q)>-1; })
+    .sort(function(a,b){ var na=_deacc(a.nome||""), nb=_deacc(b.nome||"");
+      return (rankW(a)-rankW(b)) || (catW(a)-catW(b)) || na.localeCompare(nb); })
+    .slice(0,8);
+}
+window.__qaSearch=function(q){ return qaSearch(q).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };   /* superficie pura per i test (gemella di __spSearch) */
 function openQuickAdd(sp, cx, cy){
   closeQuickAdd();
   _qaSp={x:Math.round(sp.x), y:Math.round(sp.y)};
@@ -7858,30 +7892,19 @@ function openQuickAdd(sp, cx, cy){
   wrap.appendChild(ghost); wrap.appendChild(inp);
   var list=document.createElement("ul"); list.className="qa-list";
   box.appendChild(wrap); box.appendChild(list); document.body.appendChild(box);
-  /* cerca sull'INDICE DEL CATALOGO (window.__catEntries): copre anche Violino I/II, varianti
-     stagebox/pedane, Uomo/Donna… — non solo i TYPES (fix richiesta Simone: "violino non trova
-     Violino I e II"). Fallback ai TYPES se l'indice non c'è ancora. */
-  var opts=((window.__catEntries && window.__catEntries.length) ? window.__catEntries
-    : Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
-    .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
+  /* cerca sull'INDICE DEL CATALOGO (window.__catEntries, alias compresi — vedi qaSearch): copre anche
+     Violino I/II, varianti stagebox/pedane, Uomo/Donna… — non solo i TYPES (fix richiesta Simone:
+     "violino non trova Violino I e II"). */
   var _m=[];   /* match correnti (per pick da tastiera/click) */
-  function entCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
   function draw(q){
-    q=(q||"").trim().toLowerCase(); list.innerHTML=""; ghost.textContent=""; _m=[];
-    if(!q) return;
-    /* ranking: prima chi inizia con la query, poi le categorie musicali (un fonico che digita "ba"
-       vuole Basso/Batteria prima di Bagno chimico), infine alfabetico */
-    function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(entCat(e))?1:0; }
-    _m=opts.filter(function(e){ var n=(e.nome||"").toLowerCase(); return n.indexOf(q)>-1 || (e.k && e.k.toLowerCase().indexOf(q)>-1); })
-      .sort(function(a,b){ var na=(a.nome||"").toLowerCase(), nb=(b.nome||"").toLowerCase();
-        return ((na.indexOf(q)===0?0:1)-(nb.indexOf(q)===0?0:1)) || (catW(a)-catW(b)) || na.localeCompare(nb); })
-      .slice(0,8);
-    if(_m.length){ var tn=_m[0].nome||"";
-      if(tn.toLowerCase().indexOf(q)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length); }
+    list.innerHTML=""; ghost.textContent=""; _m=qaSearch(q);
+    if(!_m.length) return;
+    var nq=_deacc(String(q||"").trim()), tn=_m[0].nome||"";
+    if(_deacc(tn).indexOf(nq)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length);
     _m.forEach(function(e,i){
         var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-i",i);
         var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=e.nome;
-        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=entCat(e).split(/,| e |·/)[0].trim();
+        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=qaCat(e).split(/,| e |·/)[0].trim();
         li.appendChild(nm); li.appendChild(sm);
         li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(e); });
         list.appendChild(li); });
