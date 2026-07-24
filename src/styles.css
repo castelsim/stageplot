@@ -1032,6 +1032,20 @@
   .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
   .wl-cta:hover{background:var(--accent-strong)}
   .wl-mob{display:none}
+  /* Popup dimensioni palco (#stageSize): riusa .wl-card/.wl-head/.wl-body/.wl-cta */
+  .ss-fields{display:flex;gap:12px;margin:2px 0}
+  .ss-field{flex:1;display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+  .ss-inwrap{position:relative;display:flex;align-items:center}
+  .ss-inwrap input{width:100%;padding:10px 30px 10px 12px;font:inherit;font-size:16px;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-sizing:border-box;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)}
+  .ss-inwrap input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--focus-ring)}
+  .ss-inwrap i{position:absolute;right:11px;font-style:normal;font-size:13px;font-weight:600;color:var(--text-3);pointer-events:none}
+  .ss-err{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--danger)}
+  .ss-foot{margin-top:16px}
+  .wl-ghost{appearance:none;background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast)}
+  .wl-ghost:hover{background:var(--accent-tint);color:var(--accent)}
+  body.dark .ss-inwrap input{background:#141a1d;border-color:#2a3138}
+  body.dark .wl-ghost{background:#141a1d;border-color:#2a3138}
+  @media (max-width:880px){ .ss-foot{flex-direction:row;align-items:center} .wl-ghost{min-height:44px} }
   /* modelli di partenza nel welcome + picker "Nuovo da modello" (ciclo 9) */
   .wl-mods-lbl{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 9px;display:flex;align-items:center;gap:8px}
   .wl-mods-lbl::before,.wl-mods-lbl::after{content:"";height:1px;background:var(--border);flex:1}

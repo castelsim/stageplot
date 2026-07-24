@@ -62,6 +62,8 @@ function throws(fn, code) {
 function reset() {
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
+  A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
+  A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {};
   A.state.elec.on = false; A.state.elec.manual = {}; A.state.elec.uplinks = {};
   A.state.mond.on = false; A.state.mond.manual = {};
@@ -3341,6 +3343,66 @@ t("Input: N pallini per musicista (postazione doppia = 2) + zona dal punto mic",
   ok(zl, "la zona genera un canale");
   const anchor = A.portAnchor(z, "audio");
   ok(Math.abs(zl.pts[0][0] - anchor[0]) < 2 && Math.abs(zl.pts[0][1] - anchor[1]) < 2, "il cavo della zona parte dal punto mic");
+});
+
+/* ---- Ricerca catalogo: alias, normalizzazione, priorità, no-duplicati ---- */
+console.log("\nRicerca catalogo (alias / normalizzazione):");
+function searchKeys(q) { return (A.__spSearch ? A.__spSearch(q) : []).map(function (r) { return r.k; }); }
+t("__spSearch esposto dal catalogo", () => { ok(typeof A.__spSearch === "function", "window.__spSearch mancante"); });
+t("'tastiera' → tastiera singola + doppia", () => {
+  const keys = searchKeys("tastiera");
+  ok(keys.indexOf("tastiera") > -1, "manca la tastiera singola");
+  ok(keys.indexOf("doppiatastiera") > -1, "manca la doppia tastiera");
+});
+t("la tastiera singola è un tipo reale e usabile", () => { ok(A.TYPES.tastiera && A.TYPES.tastiera.catalog !== false, "TYPES.tastiera assente o non nel catalogo"); });
+t("'coro' → persone (corista) + dispositivi (mic/pedana coro)", () => {
+  const keys = searchKeys("coro");
+  ok(keys.indexOf("corista") > -1, "manca il corista");
+  ok(keys.indexOf("micchoir") > -1 || keys.indexOf("pedanacoro") > -1, "manca un dispositivo del coro");
+});
+t("'voce' trova il cantante/corista", () => { ok(searchKeys("voce").indexOf("corista") > -1); });
+t("'cantante' trova il corista", () => { ok(searchKeys("cantante").indexOf("corista") > -1); });
+t("'singer' (inglese) trova il cantante/corista", () => { ok(searchKeys("singer").indexOf("corista") > -1); });
+t("case-insensitive: 'TASTIERA' = 'tastiera'", () => { eq(searchKeys("TASTIERA").sort(), searchKeys("tastiera").sort()); });
+t("normalizzazione accenti (_deacc riusato)", () => { eq(A._deacc("À la Séance"), "a la seance"); });
+t("nessun duplicato nei risultati (k|nome unico per query)", () => {
+  const seen = {}; A.__spSearch("mic").forEach(function (r) { const id = (r.k || "") + "|" + r.nome; ok(!seen[id], "duplicato: " + id); seen[id] = 1; });
+});
+t("priorità al nome: 'tastiera' → il primo risultato matcha sul nome", () => {
+  const res = A.__spSearch("tastiera"); ok(res.length > 0);
+  ok(A._deacc(res[0].nome).indexOf("tastiera") > -1, "il primo non matcha sul nome: " + res[0].nome);
+});
+t("query vuota → nessun risultato", () => { eq(A.__spSearch("").length, 0); eq(A.__spSearch("   ").length, 0); });
+
+/* ---- Popup dimensioni palco: validazione, gating dallo stato, creazione palco ---- */
+console.log("\nPopup dimensioni palco:");
+t("parseStageDim: accetta interi/decimali con . o , e spazi", () => { eq(A.parseStageDim("8"), 8); eq(A.parseStageDim("6,5"), 6.5); eq(A.parseStageDim("6.5"), 6.5); eq(A.parseStageDim(" 10 "), 10); });
+t("parseStageDim: rifiuta zero/negativi/vuoto/testo/incompleto", () => { eq(A.parseStageDim("0"), null); eq(A.parseStageDim("-3"), null); eq(A.parseStageDim(""), null); eq(A.parseStageDim("abc"), null); eq(A.parseStageDim("3."), null); });
+t("isFreshBlankProject: true su progetto vuoto default (nuovo esplicito)", () => {
+  reset(); A.location.hash = ""; const f = A.foreignDoc; A.foreignDoc = function () { return false; };
+  try { ok(A.isFreshBlankProject(true) === true); } finally { A.foreignDoc = f; }
+});
+t("isFreshBlankProject: false se c'è già lavoro (titolo)", () => {
+  reset(); A.location.hash = ""; const f = A.foreignDoc; A.foreignDoc = function () { return false; }; A.state.titolo = "X";
+  try { ok(A.isFreshBlankProject(true) === false); } finally { A.foreignDoc = f; A.state.titolo = ""; }
+});
+t("isFreshBlankProject: false su viewer/consulenza (foreignDoc)", () => {
+  reset(); A.location.hash = ""; const f = A.foreignDoc; A.foreignDoc = function () { return true; };
+  try { ok(A.isFreshBlankProject(true) === false); } finally { A.foreignDoc = f; }
+});
+t("isFreshBlankProject: deep-link #p= soppresso, ma 'Nuovo' esplicito lo ignora", () => {
+  reset(); A.location.hash = "#p=abc"; const f = A.foreignDoc; A.foreignDoc = function () { return false; };
+  try { ok(A.isFreshBlankProject(false) === false, "deep-link non deve mostrare il popup"); ok(A.isFreshBlankProject(true) === true, "File→Nuovo ignora l'hash residuo"); } finally { A.foreignDoc = f; A.location.hash = ""; }
+});
+t("applyStageSize: rettangolo singolo centrato con le misure (m→cm)", () => {
+  reset(); A.applyStageSize(10, 7, false);
+  eq(A.state.stage.w, 1000); eq(A.state.stage.d, 700); eq(A.state.stage.blocks.length, 1);
+  eq(A.state.stage.blocks[0].x, 0); eq(A.state.stage.blocks[0].y, 0); eq(A.state.stage.blocks[0].w, 1000); eq(A.state.stage.blocks[0].d, 700);
+  ok(!A.state.stage._provisional);
+});
+t("applyStageSize provvisorio: marca _provisional (dimensioni da confermare)", () => { reset(); A.applyStageSize(8, 6, true); ok(A.state.stage._provisional === true); });
+t("stateHasMeaningfulWork: false su default, true dopo un palco custom", () => {
+  reset(); ok(A.stateHasMeaningfulWork(A.state) === false); A.applyStageSize(9, 5, false); ok(A.stateHasMeaningfulWork(A.state) === true);
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
