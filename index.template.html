@@ -18466,6 +18466,7 @@ function maybeAskStageSize(explicit){
       props.app_version=window.__APP_VERSION__||"";
       props.build_id=window.__BUILD_ID__||"";   /* audit L-03: identità immutabile della release (commit) */
       props.env=analyticsEnv();   /* prod / localhost / other — per filtrare il rumore di sviluppo nelle metriche */
+      props.founder=!!(cloudUser && cloudUser.email && String(cloudUser.email).toLowerCase()==="castellansimone@gmail.com");   /* SEO-05: marca i test del fondatore (email pubblica) → filtrabili con props->>'founder' nelle metriche, senza perdere il dato */
       /* Nessun endpoint INSERT anonimo: evita spam/bulk write sul database pubblico.
          Gli eventi pre-login restano solo in memoria e vengono scartati se l'utente non accede. */
       if(!sb || !cloudUser) return;
