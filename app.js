@@ -7843,13 +7843,16 @@ function showDragHintOnce(){
    vedere la lista. Riusa addItem(type,{x,y}) che accetta già la posizione. */
 var _qaSp=null;
 function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.remove(); _qaSp=null; }
-/* Ricerca della quick-add: STESSO indice della barra di ricerca del catalogo (e._kw = nome +
-   dimensione + categoria/sottocategoria + alias del tipo, minuscole e senza accenti).
+/* Ricerca della quick-add: stessi dati della barra di ricerca del catalogo (nome + dimensione +
+   categoria/sottocategoria + alias del tipo, minuscole e senza accenti), ma tenuti in DUE indici.
    Fino al 24/07 filtrava solo su nome e chiave: "cantante", "voce", "singer", "frontman", "coro",
    "keyboard" trovavano l'elemento nella colonna sinistra e NIENTE col doppio click sul palco.
-   La chiave tecnica (e.k) resta indicizzata per non perdere le ricerche per sigla; se __catEntries
-   non c'è ancora (fallback ai TYPES) l'indice si costruisce qui con gli stessi campi. */
-var _qaOpts=null, _qaIdx=null, _qaSrc=false;
+   Perché due indici: qui i suggerimenti sono tagliati a 8, quindi un match DEBOLE (la query è solo il
+   nome della categoria, condiviso da decine di elementi) non deve scavalcare un match FORTE (nome,
+   chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
+   "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
+   vicini di sottocategoria e fuori dai primi 8. */
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaSrc=false;
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
@@ -7857,24 +7860,32 @@ function qaIndex(){
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
-  _qaIdx=_qaOpts.map(function(e){
-    var t=e.k?TYPES[e.k]:null, p=[e._kw, e.nome, e.dim, e.kw, e.k];
-    if(t && !e._kw) p.push(t.nome, t.cat, t.sub, subOf(e.k), t.alias);
-    return _deacc(p.filter(Boolean).join(" "));
+  _qaName=[]; _qaStrong=[]; _qaAll=[];
+  _qaOpts.forEach(function(e){
+    var t=e.k?TYPES[e.k]:null;
+    var nome=_deacc(e.nome||"");
+    var strong=[nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];      /* come l'utente chiama l'elemento */
+    var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                  /* dove sta nel catalogo */
+    _qaName.push(nome);
+    _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
+    _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
   });
 }
 function qaSearch(q){
   q=_deacc(String(q||"").trim()); if(!q) return [];
   qaIndex();
-  /* ranking: prima chi inizia con la query, poi chi la contiene nel nome, poi chi la trova solo
-     negli alias/categoria; a parità le categorie musicali prima (un fonico che digita "ba" vuole
-     Basso/Batteria prima di Bagno chimico), infine alfabetico */
+  /* ranking: nome che inizia con la query → nome che la contiene → match forte (chiave/alias/dimensione)
+     → match debole (solo categoria). A parità le categorie musicali prima (un fonico che digita "ba"
+     vuole Basso/Batteria prima di Bagno chimico), infine alfabetico. */
   function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(qaCat(e))?1:0; }
-  function rankW(e){ var n=_deacc(e.nome||""); return n.indexOf(q)===0?0:(n.indexOf(q)>-1?1:2); }
-  return _qaOpts.filter(function(e,i){ return _qaIdx[i].indexOf(q)>-1; })
-    .sort(function(a,b){ var na=_deacc(a.nome||""), nb=_deacc(b.nome||"");
-      return (rankW(a)-rankW(b)) || (catW(a)-catW(b)) || na.localeCompare(nb); })
-    .slice(0,8);
+  var hit=[];
+  for(var i=0;i<_qaOpts.length;i++){
+    if(_qaAll[i].indexOf(q)===-1) continue;
+    var n=_qaName[i];
+    hit.push({e:_qaOpts[i], n:n, r:(n.indexOf(q)===0?0:(n.indexOf(q)>-1?1:(_qaStrong[i].indexOf(q)>-1?2:3)))});
+  }
+  hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
+  return hit.slice(0,8).map(function(x){ return x.e; });
 }
 window.__qaSearch=function(q){ return qaSearch(q).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };   /* superficie pura per i test (gemella di __spSearch) */
 function openQuickAdd(sp, cx, cy){
@@ -7899,8 +7910,11 @@ function openQuickAdd(sp, cx, cy){
   function draw(q){
     list.innerHTML=""; ghost.textContent=""; _m=qaSearch(q);
     if(!_m.length) return;
-    var nq=_deacc(String(q||"").trim()), tn=_m[0].nome||"";
-    if(_deacc(tn).indexOf(nq)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length);
+    /* completamento fantasma: confronto GREZZO (non deaccentato) perché il resto del nome si taglia con
+       la lunghezza di quello che l'utente ha digitato. Deaccentando, un accento composto (NFD, tipico
+       del copia-incolla da macOS) sposta le lunghezze e il ghost mostrerebbe il nome mangiato. */
+    var raw=String(q||"").trim().toLowerCase(), tn=_m[0].nome||"";
+    if(raw && tn.toLowerCase().indexOf(raw)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length);
     _m.forEach(function(e,i){
         var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-i",i);
         var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=e.nome;

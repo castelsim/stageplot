@@ -3397,6 +3397,18 @@ t("non regredisce: nome, chiave tecnica e voci-azione", () => {
   ok(A.__qaSearch("violino").some(x => x.nome === "Violino I"), "manca Violino I");
   ok(!A.__qaSearch("audit").some(x => x.nome === "Audit progetto"), "il quick-add non deve suggerire le azioni (noQuick)");
 });
+/* Il quick-add taglia a 8: un match sulla sola CATEGORIA non deve scavalcare chi ha quella parola
+   come nome/chiave/alias, o l'elemento cercato esce dalla lista e Invio ne inserisce un altro. */
+t("match forte (nome/chiave/alias) prima del match di sola categoria", () => {
+  ok(qaKeys("stagebox").indexOf("stagebox") > -1, "'stagebox' non trova piu' gli Stage box 8/16/24");
+  ok(qaKeys("percussioni").indexOf("percussioni") > -1, "'percussioni' perde l'elemento con quella chiave");
+  ok(qaKeys("console").indexOf("organoconsole") > -1, "'console' perde la consolle dell'organo");
+  ok(qaKeys("mic").indexOf("micover") > -1, "'mic' perde l'overhead di sezione");
+});
+t("le 3 varianti di stage box restano tutte raggiungibili con una parola sola", () => {
+  const nomi = A.__qaSearch("stagebox").map(r => r.nome);
+  ["Stage box 8", "Stage box 16", "Stage box 24"].forEach(n => ok(nomi.indexOf(n) > -1, "manca " + n));
+});
 t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
   const r = A.__qaSearch("tastiera"); ok(r.length > 0);
   ok(A._deacc(r[0].nome).indexOf("tastiera") > -1, "primo risultato non sul nome: " + r[0].nome);
@@ -3404,26 +3416,21 @@ t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
 
-/* ---- Striscia value-proposition (SEO-06): solo al primo accesso vero ----
-   Vive in uno <script> inline di index.html (fuori dal bundle app.js) → si verifica sul testo generato. */
-console.log("\nStriscia value-proposition (#homePromo):");
+/* ---- Striscia value-proposition (SEO-06): RIMOSSA il 24/07 ----
+   Al primo accesso finiva sempre dietro la welcome card (z-index 6 vs 50, sottoalbero inert) e li' si
+   marcava "vista": non era mai utilmente visibile, e la welcome card dice gia' le stesse cose.
+   Questi test presidiano la rimozione completa: niente markup, CSS o script orfani. */
+console.log("\nStriscia value-proposition (#homePromo, rimossa):");
 const indexHtml = readFileSync(join(root, "index.html"), "utf8");
-const promoJs = (indexHtml.match(/<script>\/\* SEO-06:[\s\S]*?<\/script>/) || [""])[0];   /* lo <script>, non il commento CSS omonimo */
-t("lo script della striscia esiste in index.html", () => { ok(promoJs.indexOf("homePromo") > -1, "blocco SEO-06 non trovato"); });
-t("compare una volta sola per browser (localStorage, non sessionStorage)", () => {
-  ok(promoJs.indexOf('localStorage.getItem("hpSeen")') > -1, "manca la lettura del flag persistente");
-  ok(promoJs.indexOf('localStorage.setItem("hpSeen","1")') > -1, "manca la marcatura 'vista'");
-  ok(!/sessionStorage\.(get|set)Item/.test(promoJs), "torna a ricomparire a ogni scheda (sessionStorage)");   /* la parola resta nel commento storico: conta l'uso reale */
+const stylesCss = readFileSync(join(root, "src/styles.css"), "utf8");
+t("nessun residuo nell'HTML generato", () => {
+  ["homePromo", "hp-text", "hp-cta", "hpStart", "hpClose", "hpSeen", "hpDismiss"].forEach(s =>
+    ok(indexHtml.indexOf(s) === -1, "residuo in index.html: " + s));
 });
-t("solo su progetto vuoto e mai in viewer/consulenza/link condivisi", () => {
-  ok(promoJs.indexOf("isFreshBlankProject()") > -1, "non controlla se c'e' gia' del lavoro in corso");
-  ok(/view\|export/.test(promoJs) && promoJs.indexOf("viewmode") > -1 && promoJs.indexOf("__consultMode") > -1, "gate viewer/consulenza perso");
-});
-t("decide dopo il boot (lo script inline gira prima del bundle defer)", () => {
-  ok(/readyState==="complete"/.test(promoJs) && /addEventListener\("load"/.test(promoJs), "decisione presa prima che lo stato sia caricato");
-});
-t("app non pronta → la striscia non compare", () => {
-  ok(/typeof isFreshBlankProject==="function"\) \? isFreshBlankProject\(\) : false/.test(promoJs), "fallback non conservativo");
+t("nessuna regola CSS orfana", () => { ok(stylesCss.indexOf("homePromo") === -1 && stylesCss.indexOf("hp-cta") === -1); });
+t("nessun residuo nel bundle app.js", () => { ok(appjs.indexOf("homePromo") === -1 && appjs.indexOf("hpSeen") === -1); });
+t("il canvas resta il primo figlio di <main> (nessun overlay in cima)", () => {
+  ok(/<main><svg id="svg"/.test(indexHtml), "struttura di <main> alterata dalla rimozione");
 });
 
 /* ---- Popup dimensioni palco: validazione, gating dallo stato, creazione palco ---- */
