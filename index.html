@@ -1831,6 +1831,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #homePromo .hp-close{flex:none;margin-left:auto;border:0;background:transparent;color:var(--text-3);font-size:16px;line-height:1;cursor:pointer;padding:6px}
 #homePromo .hp-close:hover{color:var(--text)}
 @media (max-width:560px){#homePromo{font-size:13px;padding:8px 12px 10px}#homePromo .hp-text{flex-basis:100%}#homePromo .hp-close{position:absolute;top:5px;right:8px;margin:0}}
+
+/* SEO-08 — robustezza anti-overflow della welcome card su schermi stretti (<~400px). Non-regressivo: agisce solo quando il contenuto starebbe per sforare il contenitore, invisibile altrimenti. Verifica finale su device reale. */
+.wl-step>span{min-width:0;overflow-wrap:break-word}
+.wl-mods{max-width:100%}
+.wl-mods button{max-width:100%;white-space:normal}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
