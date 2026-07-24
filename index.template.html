@@ -13,6 +13,7 @@
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; frame-src 'self' blob:; base-uri 'self'; form-action 'self'">
 <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
+<script>/* SEO (audit SEO-02): un progetto condiviso via ?view= è un link con token e non va indicizzato/archiviato. Additivo: non tocca la logica di condivisione, aggiunge solo un meta robots noindex quando è presente il token. */try{if(/[?&]view=/.test(location.search)){var _r=document.createElement("meta");_r.name="robots";_r.content="noindex,nofollow,noarchive";document.head.appendChild(_r);}}catch(e){}</script>
 <!-- Referrer-Policy esplicita (audit M-08): non affidarsi al default del browser. Protegge i token
      dei link di condivisione (nell'URL) da leak via header Referer verso risorse/destinazioni. -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
