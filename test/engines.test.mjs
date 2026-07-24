@@ -3404,6 +3404,28 @@ t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
 
+/* ---- Striscia value-proposition (SEO-06): solo al primo accesso vero ----
+   Vive in uno <script> inline di index.html (fuori dal bundle app.js) → si verifica sul testo generato. */
+console.log("\nStriscia value-proposition (#homePromo):");
+const indexHtml = readFileSync(join(root, "index.html"), "utf8");
+const promoJs = (indexHtml.match(/<script>\/\* SEO-06:[\s\S]*?<\/script>/) || [""])[0];   /* lo <script>, non il commento CSS omonimo */
+t("lo script della striscia esiste in index.html", () => { ok(promoJs.indexOf("homePromo") > -1, "blocco SEO-06 non trovato"); });
+t("compare una volta sola per browser (localStorage, non sessionStorage)", () => {
+  ok(promoJs.indexOf('localStorage.getItem("hpSeen")') > -1, "manca la lettura del flag persistente");
+  ok(promoJs.indexOf('localStorage.setItem("hpSeen","1")') > -1, "manca la marcatura 'vista'");
+  ok(!/sessionStorage\.(get|set)Item/.test(promoJs), "torna a ricomparire a ogni scheda (sessionStorage)");   /* la parola resta nel commento storico: conta l'uso reale */
+});
+t("solo su progetto vuoto e mai in viewer/consulenza/link condivisi", () => {
+  ok(promoJs.indexOf("isFreshBlankProject()") > -1, "non controlla se c'e' gia' del lavoro in corso");
+  ok(/view\|export/.test(promoJs) && promoJs.indexOf("viewmode") > -1 && promoJs.indexOf("__consultMode") > -1, "gate viewer/consulenza perso");
+});
+t("decide dopo il boot (lo script inline gira prima del bundle defer)", () => {
+  ok(/readyState==="complete"/.test(promoJs) && /addEventListener\("load"/.test(promoJs), "decisione presa prima che lo stato sia caricato");
+});
+t("app non pronta → la striscia non compare", () => {
+  ok(/typeof isFreshBlankProject==="function"\) \? isFreshBlankProject\(\) : false/.test(promoJs), "fallback non conservativo");
+});
+
 /* ---- Popup dimensioni palco: validazione, gating dallo stato, creazione palco ---- */
 console.log("\nPopup dimensioni palco:");
 t("parseStageDim: accetta interi/decimali con . o , e spazi", () => { eq(A.parseStageDim("8"), 8); eq(A.parseStageDim("6,5"), 6.5); eq(A.parseStageDim("6.5"), 6.5); eq(A.parseStageDim(" 10 "), 10); });
