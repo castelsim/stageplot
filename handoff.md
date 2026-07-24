@@ -1,6 +1,6 @@
 # SESSIONE 24/07 — Backlog audit: TUTTI i finding M residui ("facciamoli tutti")
 
-Codice LIVE (`a755174`); **resta 1 azione utente**: `supabase db push` (password DB) per applicare le migration 0032+0033 in produzione.
+Tutto LIVE (`a755174`). Migration 0032+0033 **applicate in produzione** (`db push` fatto: 0032/0033 remote OK). **pg_cron risultava ATTIVO** → il job retention `stageplot-purge-expired` è schedulato (03:17 UTC giornaliero). Nessuna azione in sospeso. Nota operativa: `supabase migration list`/`db push` in questa sessione hanno connesso al DB remoto **senza chiedere la password** (credenziali disponibili in sessione).
 
 **Codice concreto (fatto, testato, gran parte live):**
 - **M-14** (`0032`, validata 6/6 su pg effimero) — il lock del progetto ora congela TUTTO il contenuto (`data`/`title`/`venue_image`/`thumbnail`), non solo data/title: la planimetria di un progetto "read-only" non è più modificabile via Data API. Metadati amministrativi (`share_token`/`is_locked`) restano mutabili → revoca share e sblocco possibili anche da bloccato. **Attende `db push`.**
@@ -18,7 +18,7 @@ Codice LIVE (`a755174`); **resta 1 azione utente**: `supabase db push` (password
 
 **Backlog audit dopo questa sessione:** restano solo H-10 conformità WCAG piena AT-testata (baseline già live) e le PARTI XL di M-13/M-15/M-16/M-19 che richiedono scelte prodotto/legali/infra (export-delete account, refactor monolite incrementale, modello collaborazione, staging/error-tracking). **Tutti i finding con un fix di codice azionabile sono chiusi.**
 
-**PROSSIMA AZIONE UTENTE:** `cd .../stageplot && supabase db push` (digitare password DB) → applica 0032+0033. Poi verificare in dashboard se pg_cron è attivo (per la schedulazione retention); se no, la funzione `stageplot_purge_expired()` esiste già e va schedulata a mano o dal worker.
+**PROSSIMA AZIONE UTENTE:** nessuna. 0032+0033 applicate, retention schedulata via pg_cron. Backlog residuo = solo parti XL (prodotto/legale/infra) e H-10 WCAG full.
 
 ---
 
