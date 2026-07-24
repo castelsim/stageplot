@@ -1,3 +1,14 @@
+# SESSIONE 24/07 — Backup DB automatizzato (LaunchAgent)
+
+Backup automatico del DB Supabase, **verificato funzionante nel contesto launchd** (accesso Keychain OK).
+- **Script:** `COWORK/STAGEPLOT/ops/stageplot-db-backup.sh` (fuori dal repo). Fa `supabase db dump` schema+data+roles → `COWORK/STAGEPLOT/backups/AAAAMMGG-HHMM/`, rotazione ultimi 14. Auth via **token nel Keychain** (nessuna password DB). `supabase db dump` usa **Docker** (pg_dump in container): lo script **avvia Docker se spento e lo richiude solo se l'ha avviato lui** (e se non ci sono container attivi).
+- **Schedulazione:** LaunchAgent `~/Library/LaunchAgents/it.stageplot.dbbackup.plist`, **giornaliero 14:00** (Mac verosimilmente acceso/Docker su → niente avvio Docker). Log: `ops/backup.log` + `ops/launchd.{out,err}.log`.
+- **Gestione:** ricaricare `launchctl bootstrap gui/$(id -u) <plist>`; forzare ora `launchctl kickstart gui/$(id -u)/it.stageplot.dbbackup`; disattivare `launchctl bootout gui/$(id -u)/it.stageplot.dbbackup`.
+- **Gotcha:** `head -n -N` (conteggio negativo) NON esiste su macOS/BSD → rotazione con conteggio esplicito. Il dump `--data-only` avvisa su trigger/constraint al restore (normale: restore = schema.sql poi data.sql, vedi drill).
+- Backup manuale one-shot resta in `_backup_prod_20260724-1206/`.
+
+---
+
 # SESSIONE 24/07 — Backlog audit: TUTTI i finding M residui ("facciamoli tutti")
 
 Tutto LIVE (`a755174`). Migration 0032+0033 **applicate in produzione** (`db push` fatto: 0032/0033 remote OK). **pg_cron risultava ATTIVO** → il job retention `stageplot-purge-expired` è schedulato (03:17 UTC giornaliero). Nessuna azione in sospeso. Nota operativa: `supabase migration list`/`db push` in questa sessione hanno connesso al DB remoto **senza chiedere la password** (credenziali disponibili in sessione).
