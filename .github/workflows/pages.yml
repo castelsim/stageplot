@@ -65,6 +65,8 @@ jobs:
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
             consulenza guida privacy stage-plot termini vendor \
             ./_site/
+      - name: Timbra il build ID (SHA del commit) negli asset pubblicati (audit L-03)
+        run: sed -i "s/__BUILD_SHA_PLACEHOLDER__/${GITHUB_SHA:0:7}/g" _site/index.html
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site

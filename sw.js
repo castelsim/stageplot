@@ -14,7 +14,12 @@
  */
 "use strict";
 
-var CACHE = "stageplot-v1";
+/* audit L-02: cache namespaced sotto un prefisso. La pulizia in `activate` tocca SOLO le cache
+   con questo prefisso (mai le cache di altre app sulla stessa origine). La versione è un lever
+   manuale: bump = precache pulito su una release. La freschezza a ogni visita è già garantita
+   dallo stale-while-revalidate sotto, quindi non serve versionare a ogni commit. */
+var CACHE_PREFIX = "stageplot-";
+var CACHE = CACHE_PREFIX + "v2";
 var PRECACHE = [
   "/",
   "/app.js",                   /* bundle JS dell'app (caricato defer) — serve offline */
@@ -36,7 +41,7 @@ self.addEventListener("install", function (e) {
 self.addEventListener("activate", function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k !== CACHE; })
+      return Promise.all(keys.filter(function (k) { return k.indexOf(CACHE_PREFIX) === 0 && k !== CACHE; })
         .map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );

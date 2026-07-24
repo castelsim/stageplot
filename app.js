@@ -15648,7 +15648,7 @@ function exportPng(){
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,pxW,pxH);
     ctx.drawImage(img,0,0,pxW,pxH);
     var a=document.createElement("a");
-    a.download=(state.nome||"stage-plot")+".png"; a.href=c.toDataURL("image/png"); a.click();
+    a.download=fileName()+".png"; a.href=c.toDataURL("image/png"); a.click();   /* audit L-01: nome canonico (= titolo progetto, come i PDF), non il legacy state.nome */
     track("export",{format:"png"});
     maybeLoginNudge();
   };
@@ -16739,6 +16739,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       props.logged=!!cloudUser;
       props.mobile=(typeof isMobile==="function")?isMobile():false;
       props.app_version=window.__APP_VERSION__||"";
+      props.build_id=window.__BUILD_ID__||"";   /* audit L-03: identità immutabile della release (commit) */
       props.env=analyticsEnv();   /* prod / localhost / other — per filtrare il rumore di sviluppo nelle metriche */
       /* Nessun endpoint INSERT anonimo: evita spam/bulk write sul database pubblico.
          Gli eventi pre-login restano solo in memoria e vengono scartati se l'utente non accede. */
@@ -17709,7 +17710,7 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     var body={
       message: msg.value.trim(), hint: hint, honeypot: hp.value,
       tech_context: techContext(),
-      meta:{ app_version: window.__APP_VERSION__||null, page_url: location.href,
+      meta:{ app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: location.href,
         user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
       project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
       project_id: (projectId||null)
