@@ -1,3 +1,17 @@
+# SESSIONE 24/07 — Backlog audit: Track D (finding Low)
+
+Tutto LIVE (`c954b3b`), verificato in browser + produzione, 274 test verdi.
+
+- **L-01** — nome file PNG canonico. `exportPng` usava il legacy `state.nome` (non slugificato); ora usa `fileName()` (= `state.titolo` slugificato, **come i PDF**). `state.nome` non è più usato da nessuna parte. Verificato: titolo "Concerto Estivo 2026!" → `concerto-estivo-2026.png`.
+- **L-02** — service worker: cache sotto prefisso `stageplot-`; la pulizia in `activate` tocca **solo le proprie** cache (non cancella più *tutte* le cache dell'origine — evita conflitti con altre app/tool sullo stesso dominio). Bump `v1→v2` come lever manuale. La freschezza a ogni visita è già garantita dallo stale-while-revalidate, quindi niente versioning per-commit (evita re-precache a ogni deploy).
+- **L-03** — build ID immutabile del commit, separato dalla versione prodotto (data). Placeholder `__BUILD_SHA_PLACEHOLDER__` **timbrato dal workflow di deploy** con `${GITHUB_SHA:0:7}` (solo `_site/`, non nel repo). Esposto in `window.__BUILD_ID__`, nei due payload analytics (`build_id`) e in un `console.info` di avvio. **Verificato in produzione**: `stageplot.it` serve `window.__BUILD_ID__="c954b3b"`. Due release nello stesso giorno ora distinguibili in telemetria/supporto.
+
+**Gotcha L-03 (per il futuro):** la sentinella del VALORE (`__BUILD_SHA_PLACEHOLDER__`) è volutamente distinta dall'identificatore `window.__BUILD_ID__`, così il `sed` della CI non tocca il nome della variabile. In dev/localhost il placeholder resta (il `console.info` mostra "build dev"). `--check` resta verde perché build.mjs non tocca il placeholder (match placeholder↔placeholder) e `stripVer` normalizza `__APP_VERSION__`.
+
+**Backlog audit rimasto (nessuna urgenza):** M-13 (GDPR/lifecycle), M-15/16/17 (architettura/perf — M-15 = macchina a stati gesture, prereq di un H-10 completo), M-19 (osservabilità/DR), H-10 conformità WCAG piena AT-testata. **Tutti i finding Critical/High/Medium/Low azionabili dell'audit sono stati chiusi o valutati** tranne questi (per lo più L/XL o dipendenti da scelte di hosting/prodotto).
+
+---
+
 # SESSIONE 24/07 — Backlog audit: Track C (accessibilità + mobile)
 
 Tutto LIVE (`87cd700`), verificato in browser (localhost non loggato), 274 test verdi.
