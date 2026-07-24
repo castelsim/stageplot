@@ -9116,21 +9116,24 @@ function miniSvg(k, over){
   });
   // tutte le categorie chiuse di default (nessuna .open)
 
-  /* — Sempre in vista, fuori dalle categorie: struttura (Blocco palco, Planimetria) + annotazioni (Metro, Testo) — */
+  /* — Sempre in vista, fuori dalle categorie: struttura (Blocco palco, Planimetria) + Audit + annotazioni
+     (Metro, Testo). Raggruppate in #catPinned così durante la ricerca si nascondono insieme all'accordion:
+     restano nei risultati (sono in entries[]) senza sdoppiarsi come bottone persistente + risultato. */
+  var pin=document.createElement("div"); pin.id="catPinned"; el.insertBefore(pin, results);
   var extraSep=document.createElement("div"); extraSep.style.cssText="height:1px;background:var(--border);margin:10px 6px 8px";
-  el.insertBefore(extraSep, results);
+  pin.appendChild(extraSep);
   var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
-  el.insertBefore(makeActionBtn("Palco e pedane","costruisci palco e pedane","pedana", toggleStageEdit), results);
-  el.insertBefore(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON), results);
+  pin.appendChild(makeActionBtn("Palco e pedane","costruisci palco e pedane","pedana", toggleStageEdit));
+  pin.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON));
   /* Audit progetto: ingresso ripristinato (era nella categoria "Liste tecniche", rimossa il 17/07 →
      rimasto orfano). toggleAuditView accende auditActive, l'unico gate del pannello #auditSec. */
   var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  el.insertBefore(makeActionBtn("Audit progetto","controlla se manca qualcosa", null, toggleAuditView, AUDIT_ICON), results);
+  pin.appendChild(makeActionBtn("Audit progetto","controlla se manca qualcosa", null, toggleAuditView, AUDIT_ICON));
   entries.push({nome:"Palco e pedane", dim:"costruisci palco e pedane", icon:"pedana", action:toggleStageEdit, noQuick:true});
   entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
   entries.push({nome:"Audit progetto", dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   ["metro","testo"].forEach(function(k){
-    var b=makeBtn(k, TYPES[k].nome); el.insertBefore(b, results); entries.push({k:k,nome:TYPES[k].nome});
+    pin.appendChild(makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
   });
 
   /* Ricerca permissiva (generale, nessun hardcoded): per ogni entry un indice normalizzato — minuscole
@@ -9158,8 +9161,8 @@ function miniSvg(k, over){
     var q=this.value.trim().toLowerCase();
     clearTimeout(__noResTimer);
     results.innerHTML="";
-    if(!q){ wrap.style.display=""; results.style.display="none"; return; }
-    wrap.style.display="none"; results.style.display="block";
+    if(!q){ wrap.style.display=""; pin.style.display=""; results.style.display="none"; return; }
+    wrap.style.display="none"; pin.style.display="none"; results.style.display="block";   /* le azioni pinnate ricompaiono nei risultati se pertinenti (niente doppione) */
     if(q==="json"){   /* escape-hatch tecnica: solo con "json" ESATTO. Non è una categoria né un elemento del palco. */
       results.innerHTML='<div class="json-tools">'
         +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
