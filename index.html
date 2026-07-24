@@ -1197,6 +1197,20 @@
   .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
   .wl-cta:hover{background:var(--accent-strong)}
   .wl-mob{display:none}
+  /* Popup dimensioni palco (#stageSize): riusa .wl-card/.wl-head/.wl-body/.wl-cta */
+  .ss-fields{display:flex;gap:12px;margin:2px 0}
+  .ss-field{flex:1;display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+  .ss-inwrap{position:relative;display:flex;align-items:center}
+  .ss-inwrap input{width:100%;padding:10px 30px 10px 12px;font:inherit;font-size:16px;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-sizing:border-box;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)}
+  .ss-inwrap input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--focus-ring)}
+  .ss-inwrap i{position:absolute;right:11px;font-style:normal;font-size:13px;font-weight:600;color:var(--text-3);pointer-events:none}
+  .ss-err{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--danger)}
+  .ss-foot{margin-top:16px}
+  .wl-ghost{appearance:none;background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast)}
+  .wl-ghost:hover{background:var(--accent-tint);color:var(--accent)}
+  body.dark .ss-inwrap input{background:#141a1d;border-color:#2a3138}
+  body.dark .wl-ghost{background:#141a1d;border-color:#2a3138}
+  @media (max-width:880px){ .ss-foot{flex-direction:row;align-items:center} .wl-ghost{min-height:44px} }
   /* modelli di partenza nel welcome + picker "Nuovo da modello" (ciclo 9) */
   .wl-mods-lbl{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 9px;display:flex;align-items:center;gap:8px}
   .wl-mods-lbl::before,.wl-mods-lbl::after{content:"";height:1px;background:var(--border);flex:1}
@@ -2991,6 +3005,29 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
       <div class="wl-foot">
         <label class="wl-skip"><input type="checkbox" id="wlSkip">Non mostrare più</label>
         <button type="button" class="wl-cta" id="wlGo">Progetta il tuo palco</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dimensioni del primo palco (progetto nuovo, ancora senza palco): larghezza × profondità.
+     Compare solo per un progetto nuovo/vuoto; mai su viewer, deep-link o import (vedi maybeAskStageSize). -->
+<div class="modal" id="stageSize" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="ssTitle">
+    <div class="wl-head">
+      <span class="wl-badge">Nuovo palco</span>
+      <div class="wl-title" id="ssTitle">Quanto è grande il tuo palco?</div>
+      <div class="wl-tag">Larghezza e profondità utili del palco. Potrai modificarle e deformare gli angoli in ogni momento.</div>
+    </div>
+    <div class="wl-body">
+      <div class="ss-fields">
+        <label class="ss-field"><span>Larghezza</span><span class="ss-inwrap"><input type="text" inputmode="decimal" id="ssW" autocomplete="off" aria-describedby="ssErr"><i>m</i></span></label>
+        <label class="ss-field"><span>Profondità</span><span class="ss-inwrap"><input type="text" inputmode="decimal" id="ssD" autocomplete="off" aria-describedby="ssErr"><i>m</i></span></label>
+      </div>
+      <div class="ss-err" id="ssErr" role="alert" hidden></div>
+      <div class="wl-foot ss-foot">
+        <button type="button" class="wl-ghost" id="ssUnknown">Non conosco le misure</button>
+        <button type="button" class="wl-cta" id="ssGo">Crea il palco</button>
       </div>
     </div>
   </div>

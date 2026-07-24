@@ -670,7 +670,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("cuffie",it,22,20); }},
   astacuffie: {nome:"Asta cuffie", dim:"24×30", cat:"Monitor da palco", w:24,d:30,
              draw:function(it){ return drawLibFit("astacuffie",it,24,30); }},
-  micchoir: {nome:"Mic coro", dim:"overhead", cat:"Microfoni e DI", sub:"Aste e microfoni", w:40,d:100,
+  micchoir: {nome:"Mic coro", dim:"overhead", cat:"Microfoni e DI", sub:"Aste e microfoni", w:40,d:100, alias:"coro cori coristi choir chorus microfono overhead ambiente",
              draw:function(it){ return drawLibFit("micchoir",it,40,100); }},
   micover: {nome:"Overhead sezione", dim:"stereo · fiati/archi/perc.", cat:"Microfoni e DI", sub:"Aste e microfoni", w:64,d:92,
              draw:function(it){ var w=it.w,d=it.d, r=Math.min(w,d)*0.11;
@@ -739,7 +739,7 @@ var TYPES = {
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
                bar(0,-38,52,13,'ic fBlack',2)+circ(0,-27,2.5,'ic fill'); }},
-  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", w:400,d:120, resizable:true, z:0,
+  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", alias:"coro cori coristi choir chorus pedana gradoni riser postazione", w:400,d:120, resizable:true, z:0,
              draw:function(it){ var s=bar(0,0,it.w,it.d,'ic fFloor',2), n=3, step=it.d/n;
                for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*step,it.w/2,-it.d/2+i*step,'ic'); }
                return s; }},
@@ -888,9 +888,11 @@ var TYPES = {
              draw:function(it){ return pianoCoda(it); }},
   pianoverticale:{nome:"Piano verticale", dim:"150×62", cat:"Band e backline", sub:"Tastiere e piani", w:152,d:64,
              draw:function(it){ return drawLibFit("pianoverticale",it,150,62); }},
-  stagepiano:{nome:"Stage piano", dim:"88 tasti", cat:"Band e backline", sub:"Tastiere e piani", w:138,d:42,
+  stagepiano:{nome:"Stage piano", dim:"88 tasti", cat:"Band e backline", sub:"Tastiere e piani", w:138,d:42, alias:"tastiera keyboard piano digitale synth 88 tasti",
              draw:function(it){ return drawLibFit("stagepiano",it,135,40); }},
-  doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78,
+  tastiera: {nome:"Tastiera", dim:"synth · 1 tastiera", cat:"Band e backline", sub:"Tastiere e piani", w:120,d:36, alias:"tastiera tastiere keyboard synth sintetizzatore synthesizer piano digitale master keyboard workstation singola nord korg roland",
+             draw:function(it){ return drawLibFit("stagepiano",it,118,34); }},
+  doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78, alias:"tastiera tastiere doppia due keyboard keyboards synth sintetizzatore stack",
              draw:function(it){ return drawLibFit("doppiatastiera",it,105,50); }},
   celesta:  {nome:"Celesta", dim:"105×62", cat:"Orchestra", sub:"Arpa e celesta", w:107,d:64,
              draw:function(it){ return drawLibFit("celesta",it,115,60); }},
@@ -951,9 +953,9 @@ var TYPES = {
              draw:function(){ return '<path class="ic fWoodL" d="M -30,22 L 30,22 L 21,-22 L -21,-22 Z"/>'+
                '<path class="ic thin" fill="none" d="M -24,16 L 24,16 L 17,-16 L -17,-16 Z"/>'+
                circ(0,-8,2.5,'ic fill')+lin(0,-8,0,0,'ic thin'); }},
-  cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce",
+  cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
-  corista:  {nome:"Corista", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"",
+  corista:  {nome:"Corista", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
              draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
@@ -1215,7 +1217,7 @@ var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,asta
   pedana:1,tappeto:1,fondale:1,sediabianca:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
-  stagepiano:1,grancoda:1,doppiatastiera:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
+  stagepiano:1,tastiera:1,grancoda:1,doppiatastiera:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
 /* Gli STRUMENTI si vedono sempre tutti (niente "Mostra tutti" nella categoria Strumenti): sono il cuore
    dello stage plot, nasconderne di standard (oboe, fagotto, tuba, timpani, arpa…) confondeva. Il filtro
    essenziale-first resta per le categorie ad accessori (Audio/Luci/Elettrico/Palco/Allestimento/…). */
@@ -7520,14 +7522,14 @@ function miniSvg(k, over){
       entries.push({k:"direttore", nome:"Direttore", over:dirPov, dim:"con leggio"});
       /* Voci (Simone 21/07): cantante/solista e corista sono la STESSA figura → una sola coppia di
          persone (uomo/donna) trovabile con qualunque nome (cantante, cantanti, solista, corista,
-         coriste…). Default = mic su asta base tonda (chi lascia una "voce" si aspetta un microfono);
-         panoramico si imposta dal pannello per il coro. */
-      var voxKw="cantante cantanti cantanta cantante solista soliste corista coriste coristi coro voce voci persona cantore";
+         coriste…). I sinonimi vivono su TYPES.corista.alias (indicizzati dalla ricerca generale,
+         invisibili in UI) — nessun caso speciale qui. Default = mic su asta base tonda (chi lascia una
+         "voce" si aspetta un microfono); panoramico si imposta dal pannello per il coro. */
       var corU={donna:false, micMode:"tonda"}, corD={donna:true, micMode:"tonda"};
       body.appendChild(makeBtn("corista","Uomo", corU, "voce")); n++;
-      entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce", kw:voxKw});
+      entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce"});
       body.appendChild(makeBtn("corista","Donna", corD, "voce")); n++;
-      entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce", kw:voxKw});
+      entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce"});
     }
     if(c==="Audio"){   /* varianti stage box (i LAYER audio calcolati sono in "Layer tecnici") */
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
@@ -7603,6 +7605,26 @@ function miniSvg(k, over){
     var b=makeBtn(k, TYPES[k].nome); el.insertBefore(b, results); entries.push({k:k,nome:TYPES[k].nome});
   });
 
+  /* Ricerca permissiva (generale, nessun hardcoded): per ogni entry un indice normalizzato — minuscole
+     + diacritici rimossi — costruito da nome + dimensione + categoria/sottocategoria + alias del tipo.
+     Gli alias vivono su TYPES[k].alias (dati, invisibili in UI): singolare/plurale, italiano/inglese,
+     sinonimi e termini comuni. Così "tastiera" trova singola+doppia, "coro" attraversa persone e
+     dispositivi, "voce"/"singer" trovano il cantante — con un solo meccanismo per tutta la libreria. */
+  entries.forEach(function(e){
+    var t=e.k?TYPES[e.k]:null, parts=[e.nome, e.dim];
+    if(t){ parts.push(t.nome, t.cat, t.sub, subOf(e.k), t.alias); }
+    e._kw=_deacc(parts.filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi (già in uso altrove) */
+    e._nname=_deacc(e.nome);
+  });
+  function searchMatches(query){
+    var nq=_deacc(String(query||"").trim());
+    if(!nq) return [];
+    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1; });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
+    m.sort(function(a,b){ return (b._nname.indexOf(nq)>-1?1:0)-(a._nname.indexOf(nq)>-1?1:0); });   /* priorità: prima le corrispondenze sul nome principale (sort stabile preserva l'ordine) */
+    return m;
+  }
+  window.__spSearch=function(query){ return searchMatches(query).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };   /* superficie pura per i test */
+
   var __noResTimer=null, __lastNoRes="";   /* search_no_results: 1 solo evento per query, quando l'utente si ferma */
   search.addEventListener("input", function(){
     var q=this.value.trim().toLowerCase();
@@ -7625,7 +7647,7 @@ function miniSvg(k, over){
       rb.addEventListener("click", function(){ if(window.__openRender) window.__openRender(); });
       results.appendChild(rb); return;
     }
-    var matched=entries.filter(function(e){ return e.nome.toLowerCase().indexOf(q)>-1 || (e.kw && e.kw.indexOf(q)>-1); });   /* match su nome O parole chiave (alias di ricerca) */
+    var matched=searchMatches(q);   /* match permissivo su nome+categoria+alias, senza accenti, priorità al nome */
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>';
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
       return; }
@@ -12922,6 +12944,7 @@ document.getElementById("bNew").addEventListener("click", function(){
       stageEdit=false; selBlock=null; eventoEdit=false; renderStagePanel(); renderEventoPanel(); clearSelection(); save(); fit();
       setEventInputs(); renderChannels();
       resetCatalogView();   /* foglio nuovo = catalogo in stato di partenza */
+      if(typeof maybeAskStageSize==="function") maybeAskStageSize(true);   /* progetto nuovo senza palco → chiedi le dimensioni */
     });
   });
 });
@@ -16569,24 +16592,91 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     window.openModelPicker=function(){ mp.hidden=false; };   /* aperto dalla voce File "Nuovo da modello…" */
   }
 })();
+/* ===== Dimensioni del primo palco (progetto nuovo, ancora senza palco) =====
+   Nessun flag globale: la condizione dipende dallo STATO del progetto. Un progetto è "nuovo e senza
+   palco" quando lo stage è ancora il default 1200×800 e non c'è alcun lavoro → stateHasMeaningfulWork()
+   è false. Escludiamo viewer/consulenza (foreignDoc), deep-link (#p=/#d=) e import: quei flussi portano
+   già un palco proprio. L'azione esplicita "File → Nuovo" passa explicit=true e ignora l'hash residuo. */
+function isFreshBlankProject(explicit){
+  try{
+    if(typeof foreignDoc==="function" && foreignDoc()) return false;   /* viewer / consulenza ?view= */
+    if(!explicit && location.hash.length>1) return false;              /* deep-link #p=/#d= aperto come copia */
+    return !stateHasMeaningfulWork(state);                             /* palco ancora default + nessun lavoro */
+  }catch(_e){ return false; }
+}
+/* Accetta "8", "6,5", "6.5"; rifiuta vuoto, non numerico, zero e negativi. Ritorna metri (Number) o null. */
+function parseStageDim(v){
+  var s=String(v==null?"":v).trim().replace(",",".");
+  if(!s || !/^\d*\.?\d+$/.test(s)) return null;
+  var n=parseFloat(s);
+  return (isFinite(n) && n>0) ? n : null;
+}
+function applyStageSize(wM, dM, provisional){
+  var w=Math.max(100,Math.round(wM*100)), d=Math.max(100,Math.round(dM*100));   /* metri → cm (min 1 m) */
+  state.stage={w:w, d:d, blocks:[{x:0,y:0,w:w,d:d}]};
+  if(provisional) state.stage._provisional=true;   /* "dimensioni da confermare" (additivo, retro-compatibile) */
+  if(typeof recalcStageBBox==="function") recalcStageBBox();
+  save(); render();
+  if(typeof fitStage==="function") fitStage(); else if(typeof fit==="function") fit();   /* zoom per mostrare tutto il palco */
+}
+var __stageSizeOpen=false;
+function closeStageSize(){ var m=document.getElementById("stageSize"); if(m) m.hidden=true; __stageSizeOpen=false; }
+function showStageSizeModal(){
+  var m=document.getElementById("stageSize"); if(!m) return;
+  var wIn=document.getElementById("ssW"), dIn=document.getElementById("ssD"), err=document.getElementById("ssErr");
+  wIn.value="8"; dIn.value="6"; if(err) err.hidden=true;   /* valori iniziali ragionevoli, modificabili */
+  m.hidden=false; __stageSizeOpen=true;
+  setTimeout(function(){ try{ wIn.focus(); wIn.select(); }catch(_e){} }, 0);
+}
+function maybeAskStageSize(explicit){
+  if(__stageSizeOpen) return;
+  var wl=document.getElementById("welcome");
+  if(!explicit && wl && !wl.hidden) return;   /* welcome aperto: sarà lui a incatenare la richiesta alla chiusura */
+  if(!isFreshBlankProject(explicit)) return;
+  showStageSizeModal();
+}
+(function(){
+  var m=document.getElementById("stageSize"); if(!m) return;
+  var wIn=document.getElementById("ssW"), dIn=document.getElementById("ssD"), err=document.getElementById("ssErr");
+  function fail(msg){ if(err){ err.textContent=msg; err.hidden=false; } }
+  function confirm(){
+    var w=parseStageDim(wIn.value), d=parseStageDim(dIn.value);
+    if(w===null){ fail("Inserisci una larghezza valida: solo numeri positivi."); try{ wIn.focus(); }catch(_e){} return; }
+    if(d===null){ fail("Inserisci una profondità valida: solo numeri positivi."); try{ dIn.focus(); }catch(_e){} return; }
+    applyStageSize(w, d, false); closeStageSize();
+  }
+  document.getElementById("ssGo").addEventListener("click", confirm);
+  document.getElementById("ssUnknown").addEventListener("click", function(){ applyStageSize(8, 6, true); closeStageSize(); });   /* palco indicativo 8×6, marcato da confermare */
+  m.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); confirm(); } });
+  m.addEventListener("click", function(e){ if(e.target===m) closeStageSize(); });   /* click fuori = tieni il default */
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !m.hidden) closeStageSize(); });
+  [wIn,dIn].forEach(function(i){ i.addEventListener("input", function(){ if(err) err.hidden=true; }); });
+})();
+
 /* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
    Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
-   Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded). */
+   Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded).
+   Alla chiusura (CTA/Esc/click-fuori) incatena la richiesta delle dimensioni del palco. */
 (function(){
   var wl=document.getElementById("welcome"); if(!wl) return;
   var seen=null; try{ seen=localStorage.getItem("sp_welcome")||localStorage.getItem("sp_onboarded"); }catch(_e){}
-  if(seen || state.items.length>0 || foreignDoc() || location.hash.length>1 ||
-     /[?&](view|export|form|demo|orch|strings|inputaudit|pdfui|pdfgen|shapeqa|rotqa|icone|json)=/.test(location.search)) return;
+  var deep = state.items.length>0 || (typeof foreignDoc==="function"&&foreignDoc()) || location.hash.length>1 ||
+     /[?&](view|export|form|demo|orch|strings|inputaudit|pdfui|pdfgen|shapeqa|rotqa|icone|json)=/.test(location.search);
   function close(){
     var sk=document.getElementById("wlSkip");
     if(sk && sk.checked){ try{ localStorage.setItem("sp_welcome","1"); }catch(_e){} }
     wl.hidden=true;
+    maybeAskStageSize(false);   /* dopo il benvenuto, chiedi le misure del palco (se ancora nuovo/vuoto) */
   }
-  document.getElementById("wlGo").addEventListener("click", close);
-  wl.addEventListener("click", function(ev){ if(ev.target===wl) close(); });
-  document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !wl.hidden) close(); });
-  wl.hidden=false;
-  document.getElementById("wlGo").focus();
+  if(!deep && !seen){
+    document.getElementById("wlGo").addEventListener("click", close);
+    wl.addEventListener("click", function(ev){ if(ev.target===wl) close(); });
+    document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !wl.hidden) close(); });
+    wl.hidden=false;
+    document.getElementById("wlGo").focus();
+  } else if(!deep){
+    maybeAskStageSize(false);   /* welcome già visto, ma progetto nuovo e vuoto → chiedi comunque le misure */
+  }
 })();
 
 ;
