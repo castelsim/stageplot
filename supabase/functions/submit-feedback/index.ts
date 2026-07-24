@@ -4,6 +4,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { validateFeedback } from "../_shared/feedback-validation.ts";
 import { buildFeedbackEmail } from "../_shared/feedback-prompt.ts";
 import { sendEmail } from "../_shared/email.ts";
+import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -52,6 +53,9 @@ Deno.serve(async (req) => {
     if (rlErr) console.error("throttle fallito:", rlErr.message);
     else if (typeof count === "number" && count > 5) return json({ error: "troppi invii, riprova più tardi" }, 429);
   }
+
+  // audit M-13: minimizza i contatti di terzi nello snapshot prima di archiviarlo (e prima dell'email)
+  f.project_snapshot = redactSnapshotForFeedback(f.project_snapshot);
 
   const { data: row, error } = await supabase.from("feedback").insert({
     message: f.message, hint: f.hint,

@@ -50,6 +50,26 @@ export function projectDataForPublicShare(
 }
 
 /**
+ * Rimuove i dati di contatto (PII di terzi: musicisti/tecnici) da uno snapshot di progetto
+ * PRIMA di archiviarlo nella tabella `feedback` (audit M-13). Il feedback serve a diagnosticare
+ * problemi: geometria e layer bastano, i contatti sono PII di terzi da minimizzare. Diversamente
+ * dalla condivisione, qui i contatti si rimuovono SEMPRE (nessun opt-in). Lavora su una copia e
+ * gestisce sia il documento multi-variante sia lo stato piatto legacy.
+ */
+export function redactSnapshotForFeedback(snapshot: unknown): unknown {
+  if (snapshot === null || snapshot === undefined) return snapshot;
+  const out = cloneJson(snapshot);
+  if (!isRecord(out)) return out;
+  if (Array.isArray(out.variants)) {
+    for (const v of out.variants) {
+      if (isRecord(v) && isRecord(v.state)) redactState(v.state, false);
+    }
+  }
+  redactState(out, false);
+  return out;
+}
+
+/**
  * Come il documento, anche la colonna venue_image pubblica soltanto l'immagine
  * della variante attiva. Il record legacy restituito verrà rimappato dal client
  * sull'ID locale creato importando lo stato piatto.
