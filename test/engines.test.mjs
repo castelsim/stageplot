@@ -3540,6 +3540,58 @@ t("fitStage (nuovo palco) include anch'esso le scritte", () => {
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
 });
 
+/* ---- Aste microfoniche: conteggio con le regole vere, non "un mic = un'asta" ----
+   Nei rider reali le aste di batteria/ampli non si disegnano: si conta quante ne servono. */
+console.log("\nAste microfoniche (conteggio):");
+t("la batteria non produce un'asta per microfono: i tom vanno a clip", () => {
+  reset();
+  const dr = add("batteria", 500, 300);
+  eq(A.cabItemInputs(dr).length, 8, "il kit di riferimento e' a 8 canali");
+  const n = A.standNeeds();
+  eq(n.giraffa.tot, 3, "hi-hat + 2 overhead vogliono una giraffa ciascuno");
+  eq(n.bassa.tot, 2, "cassa e rullante top vanno su asta bassa");
+  eq(n.clip.tot, 3, "rullante btm e i due tom vanno a clip, non su asta");
+  eq(A.standTotal(n), 5, "8 canali di batteria = 5 aste vere, non 8");
+});
+t("microfonazione ridotta e soli overhead: le aste calano di conseguenza", () => {
+  reset();
+  const dr = add("batteria", 500, 300);
+  dr.miking = "reduced";
+  eq(A.standTotal(A.standNeeds()), 4, "kick + rullante + 2 OH");
+  dr.miking = "oh";
+  eq(A.standTotal(A.standNeeds()), 2, "solo i due overhead");
+});
+t("gli strumenti in DI non chiedono aste", () => {
+  reset();
+  add("stagepiano", 300, 300); add("bassstand", 500, 300); add("laptop", 700, 300);
+  eq(A.standTotal(A.standNeeds()), 0, "DI e strumenti in linea non hanno supporti");
+});
+t("le voci contano l'asta che hanno gia' disegnata, senza doppiarla", () => {
+  reset();
+  const v = add("cantante", 400, 400); v.micMode = "tonda";
+  let n = A.standNeeds();
+  eq(n.dritta.tot, 1, "il cantante con asta tonda vale un'asta dritta");
+  eq(n.dritta.gia, 1, "ed e' gia' disegnata nell'icona, non e' da aggiungere");
+  v.micMode = "giraffa"; n = A.standNeeds();
+  eq(n.giraffa.tot, 1); eq(n.dritta.tot, 0);
+  v.micMode = "mano"; eq(A.standTotal(A.standNeeds()), 0, "col palmare non serve asta");
+});
+t("un'asta messa a mano dal catalogo si conta una volta sola", () => {
+  reset();
+  add("astamic", 300, 300); add("giraffa", 500, 300); add("astabassa", 700, 300);
+  const n = A.standNeeds();
+  eq(A.standTotal(n), 3, "tre oggetti asta = tre aste");
+  eq(n.dritta.gia + n.giraffa.gia + n.bassa.gia, 3, "sono tutte gia' sul palco");
+  eq(n.dritta.dedotte + n.giraffa.dedotte + n.bassa.dedotte, 0, "il loro canale non deve dedurne un'altra");
+});
+t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", () => {
+  const generati = new Set(Object.values(A.MIC_DEFAULTS).map(d => d.stand).filter(Boolean));
+  generati.forEach(v => ok(A.standKindOf(Object.keys(A.MIC_DEFAULTS).find(k => A.MIC_DEFAULTS[k].stand === v)) !== undefined,
+    "valore non classificabile: " + v));
+  ok(A.STAND_SUGGEST.indexOf("asta giraffa") > -1 && A.STAND_SUGGEST.indexOf("tall boom") === -1,
+    "il datalist deve usare lo stesso vocabolario dei valori generati");
+});
+
 /* ---- DI: un'opzione del pannello diventa un oggetto sul palco, e una tappa del cavo ----
    Prima scegliere "DI" cambiava solo l'etichetta del canale: nessuna scatoletta, nessun passaggio. */
 console.log("\nDI come oggetto e nodo della catena:");
