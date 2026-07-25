@@ -2587,18 +2587,63 @@ t("layer Musicisti: fg = persone, visibilità da musLayerUI, attivo solo con per
   A.layerSoloUI = {};
 });
 
-t("stagebox generica: 8 in / 0 out = ciabattina 34×26, reversibile, mai sopra i modelli", () => {
+/* 25/07: le misure seguono la geometria reale (XLR 26 mm di passo, max 16 per fila come sui 19").
+   Piu' canali = telaio piu' grande, non connettori piu' fitti. */
+t("stagebox: le misure seguono i canali come nella realta'", () => {
   reset();
   const sb = add("stagebox", 400, 200);
-  sb.ch = 8; delete sb.outCh;
-  A.sbAutoSize(sb);
-  eq([sb.w, sb.d].join("x"), "34x26", "piccola con 8in/0out");
+  const dim = (o) => { Object.assign(sb, o); A.sbAutoSize(sb); return [sb.w, sb.d].join("x"); };
+  const d8 = dim({ ch: 8, outCh: 0 }), d16 = dim({ ch: 16, outCh: 8 }), d32 = dim({ ch: 32, outCh: 16 });
+  ok(d8 !== d16 && d16 !== d32, "8, 16 e 32 canali devono avere misure diverse: " + [d8, d16, d32].join(" / "));
+  const [w8, h8] = d8.split("x").map(Number), [w16, h16] = d16.split("x").map(Number), [w32, h32] = d32.split("x").map(Number);
+  eq(w8, w16, "fino a 16 canali la larghezza non cambia (8 connettori per fila)");
+  ok(w32 > w16, "oltre i 16 canali la fila si allarga (16 per fila, come un 19\")");
+  ok(h16 > h8, "piu' file di connettori = piu' profondita'");
+  ok(w16 < 58 && h16 < 46, "una stage box vera e' piu' piccola del vecchio 58x46: " + d16);
+  /* il passo dei connettori resta identico fra box diverse: e' il telaio a cambiare */
+  const L8 = A.sbLayout({ type: "stagebox", ch: 8, outCh: 0 }), L32 = A.sbLayout({ type: "stagebox", ch: 32, outCh: 16 });
+  const passo = (L) => (L.w - 2 * A.SB_PAD - A.SB_CTRL) / L.cols;   /* la larghezza e' arrotondata al cm: tolleranza */
+  ok(Math.abs(passo(L8) - A.SB_PITCH) < 0.05 && Math.abs(passo(L32) - A.SB_PITCH) < 0.05,
+    "il passo dei connettori deve restare 26 mm su ogni box: " + passo(L8).toFixed(2) + " vs " + passo(L32).toFixed(2));
+  eq(L32.per, 16, "oltre 16 canali si usano 16 connettori per fila");
+  eq(L8.per, 8, "fino a 16 canali, 8 per fila");
+});
+t("stagebox: modelli reali e misure personalizzate non vengono toccati", () => {
+  reset();
+  const sb = add("stagebox", 400, 200);
   sb.ch = 16; A.sbAutoSize(sb);
-  eq([sb.w, sb.d].join("x"), "58x46", "torna grande con 16 canali");
-  sb.ch = 8; sb.outCh = 4; A.sbAutoSize(sb);
-  eq([sb.w, sb.d].join("x"), "58x46", "con uscite resta grande");
-  delete sb.outCh; sb.hw = "tio1608d"; A.sbAutoSize(sb);
-  eq([sb.w, sb.d].join("x"), "58x46", "col modello hw non si tocca");
+  sb.hw = "tio1608d"; const prima = [sb.w, sb.d].join("x");
+  sb.ch = 32; A.sbAutoSize(sb);
+  eq([sb.w, sb.d].join("x"), prima, "col modello hw le misure vengono dal datasheet");
+  delete sb.hw; sb.w = 77; sb.d = 33; sb.ch = 8; A.sbAutoSize(sb);
+  eq([sb.w, sb.d].join("x"), "77x33", "una misura personalizzata non va sovrascritta");
+});
+t("stagebox: una box appena creata ha gia' le misure dei suoi canali", () => {
+  reset();
+  const b8 = A.addItem("stagebox", { x: 200, y: 200, ch: 8, outCh: 0 });
+  const b32 = A.addItem("stagebox", { x: 600, y: 200, ch: 32, outCh: 16 });
+  const g = (it) => [it.w, it.d].join("x");
+  ok(g(b8) !== "58x46" && g(b32) !== "58x46", "addItem usa ancora le misure fisse del tipo");
+  ok(g(b8) !== g(b32), "8 e 32 canali devono nascere con misure diverse: " + g(b8) + " / " + g(b32));
+  eq(g(b32), [A.sbLayout(b32).w, A.sbLayout(b32).d].join("x"));
+});
+t("stagebox: il pallino dei cavi sta sul bordo, non sul pannello", () => {
+  const box = { x: 500, y: 300, w: 33, d: 17 };
+  const a = A.boxAnchor(box);
+  eq(a[0], 500, "il pallino resta centrato in orizzontale");
+  ok(a[1] > box.y + box.d / 2, "il pallino deve stare FUORI dal pannello, verso il pubblico: " + a[1]);
+  ok(a[1] < box.y + box.d / 2 + 8, "ma attaccato alla box, non staccato: " + a[1]);
+  /* i cavi devono arrivare li', non al centro: nessun capo cavo hard-coded sul centro della box */
+  ok(appjs.indexOf("concat([[b.x,b.y]])") === -1 && appjs.indexOf("[[m.box.x,m.box.y]]") === -1,
+    "restano capi cavo agganciati al centro della box");
+});
+t("stagebox: i progetti vecchi (58x46, 34x26) migrano alle misure reali", () => {
+  reset();
+  const sb = add("stagebox", 400, 200);
+  sb.w = 58; sb.d = 46; sb.ch = 16; sb.outCh = 8; A.sbAutoSize(sb);
+  ok(sb.w !== 58 || sb.d !== 46, "la misura legacy non e' stata migrata");
+  const dopo = [sb.w, sb.d].join("x");
+  A.sbAutoSize(sb); eq([sb.w, sb.d].join("x"), dopo, "sbAutoSize deve essere idempotente");
 });
 
 t("rack: contenuti ordinati, U dai datasheet noti, orfani liberati dal normalize", () => {

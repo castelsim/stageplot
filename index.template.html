@@ -2572,7 +2572,7 @@ var TYPES = {
              draw:function(it){ return diDraw(it); }},
   distereo: {nome:"DI box stereo", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", catalog:false, w:48,d:28, defLabel:"DI",
              draw:function(it){ return diDraw(it); }},   /* catalog:false: sostituito dal DI box unico; resta per i progetti vecchi (migrato a dimono+stereo) */
-  stagebox: {nome:"Stagebox", dim:"~55×40", cat:"Cablaggio e segnale", w:58,d:46, defLabel:"STAGEBOX",
+  stagebox: {nome:"Stagebox", dim:"33×17", cat:"Cablaggio e segnale", w:33,d:17, defLabel:"STAGEBOX",
              /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26.
                 Il pannello è generato sui canali reali (sbDraw): niente più icona fissa a 24 XLR. */
              draw:function(it){ return sbDraw(it); }},
@@ -2706,7 +2706,7 @@ var TYPES = {
     draw:function(it){ return drawLibFit("amprack",it,60,80); }},
   delaytower: {nome:"Delay tower", dim:"220×220", cat:"PA e diffusione", sub:"Torri", w:220,d:220,
     draw:function(it){ return drawLibFit("delaytower",it,220,220); }},
-  substg: {nome:"Sub-stagebox", dim:"di zona", cat:"Cablaggio e segnale", w:48,d:35,
+  substg: {nome:"Sub-stagebox", dim:"di zona", cat:"Cablaggio e segnale", w:33,d:14,
     draw:function(it){ return sbDraw(it); }},   /* stesso pannello generato: capacità 8/4 di default */
   splitrack: {nome:"Splitter rack", dim:"60×70", cat:"Cablaggio e segnale", w:60,d:70,
     draw:function(it){ return drawLibFit("splitrack",it,60,70); }},
@@ -3150,79 +3150,112 @@ function sbPortUse(it){   /* canali già patchati, dal risultato del motore (cac
 }
 function sbLod(it){   /* 2 = XLR con pin · 1 = pastiglie · 0 = barre di riempimento */
   if(window.__scenePrint || window.__cabStatic) return 2;   /* export PDF/PNG: risoluzione alta, dettaglio pieno */
+  if(window.__sbMiniLod===true) return 1;   /* anteprima del catalogo: pastiglie, per distinguere 8 / 16 / 24 canali */
   var pxPerCm=NaN;
   try{ pxPerCm=(svg.clientWidth||1000)/((vb&&vb.w)||1000); }catch(e){}
   if(!isFinite(pxPerCm) || pxPerCm<=0) return 2;   /* misura non disponibile: meglio il dettaglio pieno che una barra */
   var wpx=(it.w||58)*pxPerCm;   /* larghezza della box in pixel di schermo */
-  return wpx>=150 ? 2 : (wpx>=40 ? 1 : 0);   /* a "Adatta" la box sta sui 50 px: i pallini si contano ancora */
+  return wpx>=110 ? 2 : (wpx>=30 ? 1 : 0);   /* soglie sulle misure REALI: una stage box e' larga 33-54 cm, non 58 */
 }
-function sbRowPlan(n){ return n<=8 ? n : (n<=16 ? 8 : (n<=24 ? 12 : 16)); }   /* connettori per riga */
 function sbDraw(it){
-  var W=it.w||58, D=it.d||46, cap=cabBoxCap(it), capOut=cabBoxCapOut(it), lod=sbLod(it);
+  var L=sbLayout(it), W=it.w||L.w, D=it.d||L.d, lod=sbLod(it);
   var use=lod>0 ? sbPortUse(it) : {i:{},o:{}};
   var r2=function(v){ return Math.round(v*100)/100; };
-  var s='<rect x="'+r2(-W/2)+'" y="'+r2(-D/2)+'" width="'+W+'" height="'+D+'" rx="2.4" fill="#101214"/>'
-       +'<rect x="'+r2(-W/2+1.1)+'" y="'+r2(-D/2+1.1)+'" width="'+r2(W-2.2)+'" height="'+r2(D-2.2)+'" rx="1.8" fill="#1d2024"/>'
-       +'<rect x="'+r2(-W/2+2)+'" y="'+r2(-D/2+2)+'" width="'+r2(W-4)+'" height="0.9" rx=".45" fill="#fff" opacity=".07"/>';
-  var pad=2.4, headH=(lod===2 && D>=30) ? 4.6 : 0;
-  var px=-W/2+pad, py=-D/2+pad+headH, pw=W-2*pad, ph=D-2*pad-headH;
-  if(headH){   /* targhetta: quanti ingressi e quante uscite, in chiaro */
-    s+='<text x="'+r2(-W/2+pad+0.6)+'" y="'+r2(-D/2+pad+3.2)+'" font-size="3.2" font-weight="700" fill="#8b9196" opacity=".85">'
-      +cap+' IN'+(capOut?' · '+capOut+' OUT':'')+'</text>';
+  /* guscio: la palette è quella dell'icona storica, così la box resta sorella delle altre */
+  var s='<rect x="'+r2(-W/2)+'" y="'+r2(-D/2)+'" width="'+W+'" height="'+D+'" rx="1.8" fill="#101214"/>'
+       +'<rect x="'+r2(-W/2+0.8)+'" y="'+r2(-D/2+0.8)+'" width="'+r2(W-1.6)+'" height="'+r2(D-1.6)+'" rx="1.3" fill="#1d2024"/>'
+       +'<rect x="'+r2(-W/2+1.4)+'" y="'+r2(-D/2+1.4)+'" width="'+r2(W-2.8)+'" height="0.5" rx=".25" fill="#fff" opacity=".07"/>';
+  /* Il passo è FISSO (26 mm reali): i connettori restano identici su ogni box. Si stringe solo se la
+     box ha una misura imposta da un datasheet e non ci starebbero. */
+  var ctrl=Math.min(SB_CTRL, W*0.28), pad=SB_PAD;
+  var availW=W-2*pad-ctrl, cols=L.cols;
+  var pitch=Math.min(SB_PITCH, availW/Math.max(cols,1));
+  var conn=Math.min(SB_CONN, pitch*0.92), rad=conn/2;
+  var rows=L.rowsIn+L.rowsOut;
+  var rowPitch=Math.min(SB_ROW, (D-2*pad-(L.rowsOut?1.2:0)-(lod===2?2.4:0))/Math.max(rows,1));
+  var x0=-W/2+pad, y0=-D/2+pad+(lod===2?2.4:0);
+  /* pannello connettori + zona controlli (display e LED: ce l'hanno tutte le box reali) */
+  s+='<rect x="'+r2(x0-0.5)+'" y="'+r2(y0-0.5)+'" width="'+r2(availW+1)+'" height="'+r2(rows*rowPitch+(L.rowsOut?1.2:0)+1)+'" rx=".9" fill="#26292d"/>';
+  if(ctrl>3.5){
+    var cx0=W/2-pad-ctrl+1;
+    s+='<rect x="'+r2(cx0)+'" y="'+r2(y0)+'" width="'+r2(ctrl-2)+'" height="'+r2(Math.min(3.4,D*0.22))+'" rx=".6" fill="#0e1113"/>';   /* display */
+    for(var li=0;li<3;li++) s+='<circle cx="'+r2(cx0+1+li*1.6)+'" cy="'+r2(y0+Math.min(3.4,D*0.22)+1.6)+'" r=".45" fill="'+(li===0?"#14b8a6":"#3f4449")+'"/>';   /* LED stato */
   }
-  s+='<rect x="'+r2(px)+'" y="'+r2(py)+'" width="'+r2(pw)+'" height="'+r2(ph)+'" rx="1.1" fill="#26292d"/>';
-  var inPer=sbRowPlan(cap), inRows=Math.ceil(cap/inPer);
-  var outPer=capOut ? sbRowPlan(capOut) : 0, outRows=capOut ? Math.ceil(capOut/outPer) : 0;
-  var sep=capOut ? 1.2 : 0, rowH=(ph-2*0.8-sep)/((inRows+outRows)||1), y=py+0.8+rowH/2;
-  function drawRow(from, count, per, used, color){
-    var blocks=Math.ceil(per/8), gap=blocks>1 ? 1.1 : 0;
-    var usable=pw-2*1.2-gap*(blocks-1), step=usable/per, rad=Math.min(rowH*0.38, step*0.42);
+  var IN_COL="#14b8a6", OUT_COL="#22d3ee";
+  function row(from,count,used,color,y,isOut){
     for(var i=0;i<count;i++){
-      var n=from+i, b=Math.floor(i/8);
-      var cx=px+1.2+b*gap+(i+0.5)*step, on=!!used[n];
-      /* patchato vs libero si distinguono per LUMINOSITÀ, non solo per tinta: il PDF può finire in
-         bianco e nero e "occupato" deve restare leggibile comunque. */
+      var n=from+i, cx=x0+(i+0.5)*pitch, on=!!used[n];
       if(lod===2){
         s+='<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad)+'" fill="'+(on?color:"#4e5358")+'"/>'
-          +'<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad*0.72)+'" fill="'+(on?"#0b1f1d":"#0a0b0c")+'"/>';
-        var pr=Math.max(0.18, rad*0.15), off=rad*0.3, pin=on?"#eaf7f4":"#7d8489";
+          +'<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad*0.7)+'" fill="'+(on?"#0b1f1d":"#0a0b0c")+'"/>';
+        var pr=Math.max(0.16, rad*0.16), off=rad*0.32, pin=on?"#eaf7f4":"#7d8489";
         s+='<circle cx="'+r2(cx-off)+'" cy="'+r2(y-off*0.7)+'" r="'+r2(pr)+'" fill="'+pin+'"/>'
           +'<circle cx="'+r2(cx+off)+'" cy="'+r2(y-off*0.7)+'" r="'+r2(pr)+'" fill="'+pin+'"/>'
           +'<circle cx="'+r2(cx)+'" cy="'+r2(y+off*0.9)+'" r="'+r2(pr)+'" fill="'+pin+'"/>';
       } else {
-        s+='<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad*0.86)+'" fill="'+(on?color:"#41464b")+'"/>';
+        s+='<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad*0.8)+'" fill="'+(on?color:"#41464b")+'"/>';
       }
     }
-  }
-  function drawBar(count, used, color){   /* lod 0: una barra per sezione, riempita quanto il patch */
-    var n=0; for(var k in used) if(used[k]) n++;
-    var bw=pw-2.4, bh=Math.min(rowH*0.62, 3.4);
-    s+='<rect x="'+r2(px+1.2)+'" y="'+r2(y-bh/2)+'" width="'+r2(bw)+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="#3a3f44"/>';
-    if(n>0) s+='<rect x="'+r2(px+1.2)+'" y="'+r2(y-bh/2)+'" width="'+r2(bw*Math.min(1,n/(count||1)))+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="'+color+'"/>';
-  }
-  var IN_COL="#14b8a6", OUT_COL="#22d3ee";   /* teal = Input, ciano = Output (colori dei layer, schiariti per il fondo scuro) */
-  if(lod===0){
-    y=py+0.8+rowH*inRows/2; drawBar(cap, use.i, IN_COL);
-    if(capOut){ y=py+0.8+rowH*inRows+sep+rowH*outRows/2; drawBar(capOut, use.o, OUT_COL); }
-  } else {
-    if(capOut){   /* fascia di fondo più chiara sotto le uscite: le due sezioni si leggono anche in b/n */
-      var obY=py+0.8+rowH*inRows+sep-0.5;
-      s+='<rect x="'+r2(px+0.7)+'" y="'+r2(obY)+'" width="'+r2(pw-1.4)+'" height="'+r2(rowH*outRows+1)+'" rx=".8" fill="#1a1d20"/>'
-        +'<rect x="'+r2(px+1.2)+'" y="'+r2(obY-0.9)+'" width="'+r2(pw-2.4)+'" height="0.4" rx=".2" fill="#454b50"/>';
+    /* serigrafia come sui pannelli veri: "IN 1 … 16" sulla prima fila della sezione, poi solo i numeri */
+    if(lod===2 && count>1 && pitch>=1.9){
+      var fs=Math.min(1.6, rowPitch*0.46);
+      var pre=(from===1 ? (isOut?"OUT ":"IN ") : "");
+      s+='<text x="'+r2(x0+0.5*pitch)+'" y="'+r2(y-rad-0.35)+'" font-size="'+r2(fs)+'" text-anchor="'+(pre?"start":"middle")+'" fill="#9aa1a7">'+pre+from+'</text>'
+        +'<text x="'+r2(x0+(count-0.5)*pitch)+'" y="'+r2(y-rad-0.35)+'" font-size="'+r2(fs)+'" text-anchor="middle" fill="#9aa1a7">'+(from+count-1)+'</text>';
     }
-    for(var r=0;r<inRows;r++){ var from=r*inPer+1, cnt=Math.min(inPer, cap-r*inPer); drawRow(from, cnt, inPer, use.i, IN_COL); y+=rowH; }
-    if(capOut){
-      y+=sep;
-      for(var q=0;q<outRows;q++){ var f2=q*outPer+1, c2=Math.min(outPer, capOut-q*outPer); drawRow(f2, c2, outPer, use.o, OUT_COL); y+=rowH; }
-    }
+  }
+  var y=y0+rowPitch/2;
+  for(var r=0;r<L.rowsIn;r++){ row(r*L.per+1, Math.min(L.per, L.cap-r*L.per), use.i, IN_COL, y, false); y+=rowPitch; }
+  if(L.rowsOut){
+    s+='<rect x="'+r2(x0)+'" y="'+r2(y-rowPitch/2+0.2)+'" width="'+r2(availW)+'" height="0.35" rx=".17" fill="#454b50"/>';
+    y+=1.2;
+    for(var q=0;q<L.rowsOut;q++){ row(q*L.outPer+1, Math.min(L.outPer, L.out-q*L.outPer), use.o, OUT_COL, y, true); y+=rowPitch; }
+  }
+  if(lod===0){   /* troppo piccola per i connettori: barra di riempimento, resta il colpo d'occhio */
+    s='<rect x="'+r2(-W/2)+'" y="'+r2(-D/2)+'" width="'+W+'" height="'+D+'" rx="1.8" fill="#101214"/>'
+     +'<rect x="'+r2(-W/2+0.8)+'" y="'+r2(-D/2+0.8)+'" width="'+r2(W-1.6)+'" height="'+r2(D-1.6)+'" rx="1.3" fill="#1d2024"/>';
+    var nIn=0,nOut=0,k; for(k in use.i) if(use.i[k]) nIn++; for(k in use.o) if(use.o[k]) nOut++;
+    var bw=W-2*pad, bh=Math.min(2.2,(D-2*pad)/(L.out?3:2)), by=-bh/2-(L.out?bh*0.8:0);
+    s+='<rect x="'+r2(-bw/2)+'" y="'+r2(by)+'" width="'+r2(bw)+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="#3a3f44"/>';
+    if(nIn) s+='<rect x="'+r2(-bw/2)+'" y="'+r2(by)+'" width="'+r2(bw*Math.min(1,nIn/(L.cap||1)))+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="'+IN_COL+'"/>';
+    if(L.out){ var by2=by+bh*1.6;
+      s+='<rect x="'+r2(-bw/2)+'" y="'+r2(by2)+'" width="'+r2(bw)+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="#3a3f44"/>';
+      if(nOut) s+='<rect x="'+r2(-bw/2)+'" y="'+r2(by2)+'" width="'+r2(bw*Math.min(1,nOut/(L.out||1)))+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="'+OUT_COL+'"/>'; }
   }
   return s;
 }
+/* ===== Geometria REALE della stage box (ricerca 25/07 sui modelli in commercio) =====
+   Il connettore XLR da pannello è una costante fisica: flangia Neutrik D-series 26 × 31 mm, identica
+   sul DL16 e sul SD-Rack. Nessun costruttore lo rimpicciolisce per farci stare più canali — quindi nel
+   disegno il passo NON cambia mai, e i connettori sono omogenei fra box diverse.
+   Quello che cambia è il TELAIO: max 16 XLR per fila (limite dei 19": 483/26), poi si aggiungono file.
+   Riferimenti misurati: A&H AB168 = 417×189 mm, 16 in / 8 out su 2 file (è la famiglia da pavimento,
+   l'unica in cui in pianta i connettori si vedono davvero); Midas DL32 = 483×242 mm, 32 in / 16 out su
+   3 file da 16 (passo misurato 26,1 mm, flange a contatto); Yamaha Rio3224-D2 = 480×368 mm, 4 file da 8. */
+var SB_PITCH=2.6, SB_ROW=3.4, SB_CONN=2.4;   /* cm: passo orizzontale, passo fra le file, diametro connettore */
+var SB_PAD=1.6, SB_CTRL=9;                    /* cm: margine interno, zona controlli/display a destra */
+function sbLayout(it){
+  var cap=cabBoxCap(it), out=cabBoxCapOut(it);
+  var per=cap<=16 ? 8 : 16;                   /* box piccole 8 per fila (AB168, Rio), grandi 16 (DL32) */
+  var outPer=Math.min(per, Math.max(out,1));
+  var rowsIn=Math.ceil(cap/per), rowsOut=out?Math.ceil(out/Math.min(per,16)):0;
+  var cols=Math.max(per, out?Math.min(per,16):0);
+  return { cap:cap, out:out, per:per, outPer:Math.min(per,16), rowsIn:rowsIn, rowsOut:rowsOut, cols:cols,
+    w: Math.round(2*SB_PAD + cols*SB_PITCH + SB_CTRL),
+    d: Math.round(2*SB_PAD + (rowsIn+rowsOut)*SB_ROW + (rowsOut?1.2:0) + 2.6) };
+}
+/* Le dimensioni seguono i canali, come nella realtà. Conservativo come la versione precedente: tocca
+   solo le misure "canoniche" (quelle generate da noi), mai una box con modello reale o ridimensionata. */
+function sbIsCanonSize(w,d){   /* misura generata da noi? (allora si può aggiornare senza chiedere) */
+  if(w===58&&d===46) return true; if(w===34&&d===26) return true; if(w===48&&d===35) return true;   /* versioni precedenti */
+  if(w!==Math.round(2*SB_PAD+8*SB_PITCH+SB_CTRL) && w!==Math.round(2*SB_PAD+16*SB_PITCH+SB_CTRL)) return false;
+  for(var r=1;r<=8;r++) for(var o=0;o<=1;o++) if(d===Math.round(2*SB_PAD+r*SB_ROW+(o?1.2:0)+2.6)) return true;
+  return false;
+}
 function sbAutoSize(it){
-  if(!it || it.type!=="stagebox" || it.hw || it.modelId) return;
-  var small=(it.ch||16)<=8 && !(it.outCh>0);
-  if(small && it.w===58 && it.d===46){ it.w=34; it.d=26; }
-  else if(!small && it.w===34 && it.d===26){ it.w=58; it.d=46; }
+  if(!it || (it.type!=="stagebox" && it.type!=="substg") || it.hw || it.modelId) return;
+  if(it.w!=null && it.d!=null && !sbIsCanonSize(it.w,it.d)) return;   /* misura personalizzata o da datasheet: non si tocca */
+  var L=sbLayout(it); it.w=L.w; it.d=L.d;
 }
 function drawLibFit(key,it,bw,bd){ var k=Math.min((it&&it.w||bw)/bw,(it&&it.d||bd)/bd); k=Math.round(k*1000)/1000;
   return (k===1)?libIcon(key):'<g transform="scale('+k+')">'+libIcon(key)+'</g>'; }
@@ -5815,6 +5848,13 @@ function pmAddHub(sys){
    Puro: stato → risultato. Gli unici dati persistiti sono gli override manuali del tecnico (state.cab.manual). */
 var CABLE_CUTS=[3,5,10,15,20,30,50];   /* tagli XLR reali, in metri */
 function cabCut(m){ for(var i=0;i<CABLE_CUTS.length;i++){ if(CABLE_CUTS[i]>=m-1e-9) return CABLE_CUTS[i]; } return null; }
+/* Punto in cui i cavi toccano la stage box: non più il centro dell'icona (dove copriva i connettori
+   del pannello), ma il BORDO verso il pubblico — come nella realtà, dove il fascio esce dal lato
+   frontale. Le dimensioni arrivano dall'item: l'oggetto del motore porta w/d (vedi boxes.map). */
+function boxAnchor(b){
+  var d=(b && b.d) || 46;
+  return [ Math.round((b?b.x:0)*10)/10, Math.round(((b?b.y:0) + d/2 + 3)*10)/10 ];
+}
 function cabIsBox(it){ return it.type==="stagebox"||it.type==="substg"||it.type==="patchpt"; }
 function cabBoxCap(it){
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(1, STAGEBOX_DB[it.hw].in||8);
@@ -6049,7 +6089,7 @@ function audioCablingEngine(){
     var cap0=cabBoxCap(it);
     var res=(Array.isArray(it.sbRes)?it.sbRes:[]).filter(function(pn){ return pn>=1 && pn<=cap0; });
     var rm={}; res.forEach(function(pn){ rm[pn]=1; });
-    return {x:it.x, y:it.y, cap:cap0, used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null,
+    return {x:it.x, y:it.y, w:it.w, d:it.d, cap:cap0, used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null,
             foh:!!it.foh,   /* "stage box del mixer" (lato regia): esclusa dall'auto, solo target manuale per gli overflow */
             sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, taken:{}, pins:{},
             name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
@@ -6106,7 +6146,7 @@ function audioCablingEngine(){
       var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box; })[0] : null;   /* il gruppo va TUTTO su una box (satura → warning) */
       var b= manualMode ? forced : (forced || whole || cand[0] || null);
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
-      var pts=[portAnchor(g.it,"audio")].concat((ov.pts||[])).concat([[b.x,b.y]]);
+      var pts=[portAnchor(g.it,"audio")].concat((ov.pts||[])).concat([boxAnchor(b)]);
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
       g.list.forEach(function(s){ b.used++; var pn=takePort(b,0); links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut,
         label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
@@ -6122,7 +6162,7 @@ function audioCablingEngine(){
       b.used++;
       var pn=takePort(b, (ov.port>0? +ov.port : 0));   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
-      var pts=[_sa].concat((ov.pts||[])).concat([[b.x,b.y]]);   /* il cavo parte dal pallino audio del musicista (per-seduta nelle postazioni) */
+      var pts=[_sa].concat((ov.pts||[])).concat([boxAnchor(b)]);   /* il cavo parte dal pallino audio del musicista (per-seduta nelle postazioni) */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
       links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0),
                   label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
@@ -6141,9 +6181,9 @@ function audioCablingEngine(){
     var span=Math.min(bl.length*9, 46);   /* larghezza totale del ventaglio (cap) */
     bl.sort(function(a,c){ return a.ch-c.ch; }).forEach(function(l,i){
       var off=Math.round((i-(bl.length-1)/2)*span/Math.max(1,bl.length-1));
-      var prev=l.pts[l.pts.length-2]||[b.x,b.y];
+      var prev=l.pts[l.pts.length-2]||boxAnchor(b);
       var vert=Math.abs(prev[1]-b.y)>=Math.abs(prev[0]-b.x);   /* ingresso più verticale? offset in x, altrimenti in y */
-      l.pts[l.pts.length-1]= vert ? [b.x+off, b.y] : [b.x, b.y+off];
+      var _ba=boxAnchor(b); l.pts[l.pts.length-1]= vert ? [_ba[0]+off, _ba[1]] : [_ba[0], _ba[1]+off];
       l.lenM=orthLen(l.pts)/100+MIC_REACH; l.cut=cabCut(l.lenM);
     });
   });
@@ -6196,7 +6236,7 @@ function audioCablingEngine(){
   mixes.forEach(function(m){ if(!m.box) return;
     m.sinks.forEach(function(sk){ var key="ret:"+m.key+":"+sk.id, ov=man[key]||{};   /* #17: i ritorni editabili come gli input */
       if(ov.deleted) return;   /* ritorno eliminato a mano (si ricrea ritrascinando la porta ciano) */
-      var pts=[[m.box.x,m.box.y]].concat((ov.pts||[])).concat([portAnchor(sk,"mon")]);   /* box → (waypoint manuali) → pallino monitor */
+      var pts=[boxAnchor(m.box)].concat((ov.pts||[])).concat([portAnchor(sk,"mon")]);   /* box → (waypoint manuali) → pallino monitor */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m di slack anche sul ritorno */
       returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut, key:key, manual:!!(ov.pts&&ov.pts.length)}); }); });
   var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
@@ -6410,7 +6450,7 @@ function cablingMarkup(){
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       /* "Cablaggio diretto" (Simone 21/07): la linea deve partire ESATTAMENTE dal pallino al centro
          della box (niente ventaglio) e diramarsi verso le sorgenti → sovrascrivo il capo box al centro. */
-      var _rp = (_dirIn && l.box) ? l.pts.slice(0,-1).concat([[l.box.x, l.box.y]]) : l.pts;
+      var _rp = (_dirIn && l.box) ? l.pts.slice(0,-1).concat([boxAnchor(l.box)]) : l.pts;
       var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts);
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';
@@ -6510,7 +6550,7 @@ function cablingMarkup(){
     if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · 8ch</text></g>';
     /* Stagebox coerente con gli I/O (Simone 21/07, variante A): due barre sopra la box — ingressi
        (teal) e uscite (ciano) — che si riempiono in base agli input/output assegnati. */
-    var BW=58, bx0=b.x-BW/2, showOut=b.outCap>0, y0=b.y-(b.auto?54:52);
+    var BW=Math.max(34,(b.w||58)), bx0=b.x-BW/2, showOut=b.outCap>0, y0=b.y-(b.d||46)/2-(showOut?16:9);   /* sopra il bordo alto della box, larghe quanto lei: due barre da 5 + aria */
     function iobar(y,u,c,cls){ if(!c) return ''; var fw=BW*Math.min(1,(u||0)/c);
       return '<rect class="cab-iobar-bg" x="'+bx0.toFixed(1)+'" y="'+y+'" width="'+BW+'" height="5" rx="2.5"/>'
         +'<rect class="'+cls+'" x="'+bx0.toFixed(1)+'" y="'+y+'" width="'+fw.toFixed(1)+'" height="5" rx="2.5"/>'
@@ -6519,8 +6559,10 @@ function cablingMarkup(){
     s+='<g class="cab-iobox"><text class="cab-iobox-lbl" x="'+b.x.toFixed(1)+'" y="'+(y0-3)+'" text-anchor="middle">'+esc(b.letter)+(b.sbId?' · ID'+b.sbId:'')+(b.foh?' · MIXER':'')+'</text>';
     s+=iobar(y0, b.used, b.cap, 'cab-iobar-in')+(showOut?iobar(y0+8, b.usedOut, b.outCap, 'cab-iobar-out'):'');
     s+='</g>';
-    /* pallino al CENTRO dell'icona stage box — punto di convergenza di tutti i cavi */
-    if(b.used||b.usedOut) s+='<circle class="cab-boxdot" cx="'+b.x.toFixed(1)+'" cy="'+b.y.toFixed(1)+'" r="7.5"/>';
+    /* pallino sul BORDO della box (lato pubblico): è il punto di convergenza dei cavi e non copre più
+       i connettori del pannello, che ora sono informativi. Raggio proporzionato alla box reale. */
+    if(b.used||b.usedOut){ var _bd=boxAnchor(b);
+      s+='<circle class="cab-boxdot" cx="'+_bd[0]+'" cy="'+_bd[1]+'" r="'+Math.max(2.4, Math.min(4.2, (b.w||40)*0.085)).toFixed(1)+'"/>'; }
   });
   s+='</g>';
   return s;
@@ -6604,7 +6646,7 @@ function cabAlign(){
   var R=cabResult(); if(!R) return;
   var step=snapVal()||25, man=state.cab.manual||{}, changed=false;
   R.links.forEach(function(l){ var m=man[l.key]; if(!m||!m.pts||!m.pts.length||!l.box) return;
-    var full=[l.pts[0]].concat(m.pts).concat([[l.box.x,l.box.y]]);
+    var full=[l.pts[0]].concat(m.pts).concat([boxAnchor(l.box)]);
     var snapped=full.map(function(p,i){ return (i===0||i===full.length-1) ? p.slice() : [Math.round(p[0]/step)*step, Math.round(p[1]/step)*step]; });
     var poly=cabCleanPoly(snapped), interior=poly.slice(1,-1);
     if(interior.length) m.pts=interior; else delete m.pts;
@@ -9149,8 +9191,13 @@ function miniSvg(k, over){
   var t=TYPES[k];
   var it={type:k, w:(over&&over.w)||t.w, d:(over&&over.d)||t.d, h:(over&&over.h)||t.h||40};
   if(over) Object.keys(over).forEach(function(kk){ if(it[kk]==null) it[kk]=over[kk]; });   /* flag (sedia/leggio/ampli…) → anteprima coerente */
+  if(cabIsBox(it) && !(over&&over.w)) sbAutoSize(it);   /* stage box: l'anteprima ha le misure dei suoi canali */
   var ext=Math.max(it.w,it.d)+26;
-  return '<svg class="mini" viewBox="'+(-ext/2)+' '+(-ext/2)+' '+ext+' '+ext+'" width="32" height="32" aria-hidden="true">'+t.draw(it)+'</svg>';
+  /* l'anteprima non e' sul palco: il livello di dettaglio non puo' dipendere dallo zoom del canvas.
+     Le stage box si disegnano a pastiglie, cosi' 8 / 16 / 24 canali si distinguono in miniatura. */
+  var _km=window.__sbMiniLod; window.__sbMiniLod=true;
+  var body=t.draw(it); window.__sbMiniLod=_km;
+  return '<svg class="mini" viewBox="'+(-ext/2)+' '+(-ext/2)+' '+ext+' '+ext+'" width="32" height="32" aria-hidden="true">'+body+'</svg>';
 }
 (function buildCatalog(){
   var el = document.getElementById("catalog"), cats={};
@@ -9467,6 +9514,7 @@ function addItem(type, over){
   if(COMP[type]){ it.parts=compClone(COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
   if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero */
     var fs=findFreeSpot(it.x, it.y, it.w, it.d); it.x=fs.x; it.y=fs.y;
