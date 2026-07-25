@@ -3495,6 +3495,64 @@ t("fitStage (nuovo palco) include anch'esso le scritte", () => {
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
 });
 
+/* ---- Stage box: il pannello disegnato È il numero di canali ---- */
+console.log("\nStage box (pannello sui canali reali):");
+const sbConn = (mk) => (mk.match(/#0a0b0c|#0b1f1d/g) || []).length;   // un foro per connettore (lod 2)
+const sbOn = (mk) => (mk.match(/#0b1f1d/g) || []).length;             // foro "acceso" = canale patchato
+t("il numero di connettori disegnati e' esattamente IN + OUT", () => {
+  reset(); A.__cabStatic = true;   // dettaglio pieno, come in export
+  [[8, 4], [16, 8], [24, 12], [32, 16], [8, 0]].forEach(([ch, out]) => {
+    const b = add("stagebox", 400, 300); b.ch = ch; b.outCh = out;
+    eq(A.cabBoxCap(b), ch); eq(A.cabBoxCapOut(b), out);
+    eq(sbConn(A.sbDraw(b)), ch + out, `box ${ch}/${out}: connettori disegnati diversi dai canali`);
+    A.state.items.pop();
+  });
+});
+t("i canali patchati si accendono, gli altri no", () => {
+  reset(); A.__cabStatic = true; A.layerSoloUI = {};
+  const box = add("stagebox", 700, 500); box.ch = 16; box.outCh = 8;
+  eq(sbOn(A.sbDraw(box)), 0, "senza patch nessun connettore acceso");
+  A.state.cab.on = true;
+  add("cantante", 300, 300); add("astamic", 400, 300); A.__cabRes = null;
+  const usati = Object.keys(A.sbPortUse(box).i).length;
+  ok(usati > 0, "il motore non riporta canali occupati");
+  eq(sbOn(A.sbDraw(box)), usati, "connettori accesi diversi dai canali patchati");
+  eq(sbConn(A.sbDraw(box)), 24, "il totale dei connettori non deve cambiare col patch");
+});
+t("modello reale: i canali vengono dal database, non dai campi generici", () => {
+  reset(); A.__cabStatic = true;
+  const b = add("stagebox", 400, 300); b.ch = 8; b.outCh = 2; b.hw = "rio3224d2";   // 32 in / 16 out
+  eq(A.cabBoxCap(b), 32); eq(A.cabBoxCapOut(b), 16);
+  eq(sbConn(A.sbDraw(b)), 48, "il pannello ignora il modello reale");
+});
+t("la sub-stagebox usa lo stesso pannello (8/4 di default)", () => {
+  reset(); A.__cabStatic = true;
+  const b = add("substg", 400, 300);
+  eq(sbConn(A.sbDraw(b)), A.cabBoxCap(b) + A.cabBoxCapOut(b));
+  ok(A.TYPES.substg.draw(b).length > 200, "disegno vuoto");
+});
+t("livello di dettaglio: export sempre al massimo, misura assente non degrada", () => {
+  const b = { type: "stagebox", w: 58, d: 46, ch: 16 };
+  A.__cabStatic = true; eq(A.sbLod(b), 2, "in export serve il dettaglio pieno");
+  A.__cabStatic = false;
+  const vb0 = A.vb;
+  A.vb = { x: 0, y: 0, w: 400, h: 300 };   // svg del sandbox non misurabile → fallback conservativo
+  eq(A.sbLod(b), 2);
+  A.vb = vb0; A.__cabStatic = true;
+});
+t("nel PDF il dettaglio non dipende dallo zoom dello schermo", () => {
+  const fn = appjs.slice(appjs.indexOf("function stageSceneSvg"), appjs.indexOf("function stageSceneSvg") + 6000);
+  const iFlag = fn.indexOf("window.__scenePrint=true"), iItems = fn.indexOf("sortedItems().forEach");
+  ok(iFlag > -1, "manca il flag di disegno per la stampa");
+  ok(iItems > -1 && iFlag < iItems, "il flag stampa si accende dopo aver gia' disegnato gli elementi");
+  ok(fn.indexOf("window.__scenePrint=_keepPrint") > -1, "il flag stampa non viene ripristinato");
+  ok(appjs.indexOf("if(window.__scenePrint || window.__cabStatic) return 2") > -1, "sbLod non onora il flag stampa");
+});
+t("nessuna dipendenza dall'icona di libreria fissa", () => {
+  ok(appjs.indexOf('drawLibFit("stagebox"') === -1, "stagebox usa ancora l'icona a 24 XLR fissi");
+  ok(appjs.indexOf('drawLibFit("substg"') === -1, "substg usa ancora l'icona fissa");
+});
+
 /* ---- Vista completa vs viste layer, e selezionabilita' ---- */
 console.log("\nViste layer e selezionabilita':");
 t("nessuna vista selezionata: tutti i cablaggi visibili (cabLayerLive)", () => {
