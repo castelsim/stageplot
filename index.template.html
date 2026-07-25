@@ -2573,8 +2573,9 @@ var TYPES = {
   distereo: {nome:"DI box stereo", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", catalog:false, w:48,d:28, defLabel:"DI",
              draw:function(it){ return diDraw(it); }},   /* catalog:false: sostituito dal DI box unico; resta per i progetti vecchi (migrato a dimono+stereo) */
   stagebox: {nome:"Stagebox", dim:"~55×40", cat:"Cablaggio e segnale", w:58,d:46, defLabel:"STAGEBOX",
-             /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26 */
-             draw:function(it){ return drawLibFit("stagebox",it,50,40); }},
+             /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26.
+                Il pannello è generato sui canali reali (sbDraw): niente più icona fissa a 24 XLR. */
+             draw:function(it){ return sbDraw(it); }},
   rack:     {nome:"Rack tecnico", dim:"case 60×50", cat:"Cablaggio e segnale", w:60,d:50, defLabel:"RACK",
              draw:function(it){
                /* case da rack vista dall'alto: guscio scuro, cornice interna, maniglie laterali, feritoie */
@@ -2706,7 +2707,7 @@ var TYPES = {
   delaytower: {nome:"Delay tower", dim:"220×220", cat:"PA e diffusione", sub:"Torri", w:220,d:220,
     draw:function(it){ return drawLibFit("delaytower",it,220,220); }},
   substg: {nome:"Sub-stagebox", dim:"di zona", cat:"Cablaggio e segnale", w:48,d:35,
-    draw:function(it){ return drawLibFit("substg",it,48,35); }},
+    draw:function(it){ return sbDraw(it); }},   /* stesso pannello generato: capacità 8/4 di default */
   splitrack: {nome:"Splitter rack", dim:"60×70", cat:"Cablaggio e segnale", w:60,d:70,
     draw:function(it){ return drawLibFit("splitrack",it,60,70); }},
   mcorereel: {nome:"Bobina multicore", dim:"Ø45", cat:"Cablaggio e segnale", w:45,d:45,
@@ -3125,6 +3126,98 @@ function trussTop(it, kind){
 }
 /* Stagebox generica: dimensioni dai canali (Simone, dal campo 18/07): una ciabatta 8 in / 0 out è una
    scatoletta, non un rack. Solo tra i due default (mai sopra le scelte manuali/modello). Idempotente. */
+/* ===== Stage box: il pannello È i canali reali (Simone 25/07) =====
+   Prima era un'icona di libreria fissa: 24 XLR disegnati sempre uguali, sia su una box da 8 sia su
+   una da 32. Ora i connettori sono ESATTAMENTE quelli della box — capacità dal modello reale
+   (STAGEBOX_DB) o dai campi ch/outCh — e quelli già patchati si vedono accesi, leggendo il motore di
+   cablaggio: a colpo d'occhio si sa quanto è piena.
+   Tre livelli di dettaglio secondo quanto è grande sullo SCHERMO (non nel palco): XLR con i tre pin
+   da vicino, pastiglie a media distanza, barre di riempimento da lontano — altrimenti a zoom basso
+   32 connettori diventano una poltiglia di puntini. In export PDF/PNG sempre il massimo dettaglio.
+   Palette allineata all'icona storica (guscio #101214, corpo #1d2024, pannello #26292d) e ai colori
+   dei layer: ingressi teal come Input, uscite ciano come Output. */
+function sbPortUse(it){   /* canali già patchati, dal risultato del motore (cachato in __cabRes) */
+  var use={ i:{}, o:{} };
+  try{
+    if(!state.cab || !state.cab.on) return use;
+    var R=cabResult(); if(!R) return use;
+    (R.links||[]).forEach(function(l){ if(!l.deleted && l.box && l.box.id===it.id && l.ch>0) use.i[l.ch]=1; });
+    (R.returnLinks||[]).forEach(function(l){ if(!l.box || l.box.id!==it.id) return;
+      var n=(l.mix && l.mix.ch)||1, base=l.outCh||0;
+      for(var k=0;k<n;k++) use.o[base+k]=1; });   /* un mix stereo occupa 2 uscite */
+  }catch(e){}
+  return use;
+}
+function sbLod(it){   /* 2 = XLR con pin · 1 = pastiglie · 0 = barre di riempimento */
+  if(window.__scenePrint || window.__cabStatic) return 2;   /* export PDF/PNG: risoluzione alta, dettaglio pieno */
+  var pxPerCm=NaN;
+  try{ pxPerCm=(svg.clientWidth||1000)/((vb&&vb.w)||1000); }catch(e){}
+  if(!isFinite(pxPerCm) || pxPerCm<=0) return 2;   /* misura non disponibile: meglio il dettaglio pieno che una barra */
+  var wpx=(it.w||58)*pxPerCm;   /* larghezza della box in pixel di schermo */
+  return wpx>=150 ? 2 : (wpx>=40 ? 1 : 0);   /* a "Adatta" la box sta sui 50 px: i pallini si contano ancora */
+}
+function sbRowPlan(n){ return n<=8 ? n : (n<=16 ? 8 : (n<=24 ? 12 : 16)); }   /* connettori per riga */
+function sbDraw(it){
+  var W=it.w||58, D=it.d||46, cap=cabBoxCap(it), capOut=cabBoxCapOut(it), lod=sbLod(it);
+  var use=lod>0 ? sbPortUse(it) : {i:{},o:{}};
+  var r2=function(v){ return Math.round(v*100)/100; };
+  var s='<rect x="'+r2(-W/2)+'" y="'+r2(-D/2)+'" width="'+W+'" height="'+D+'" rx="2.4" fill="#101214"/>'
+       +'<rect x="'+r2(-W/2+1.1)+'" y="'+r2(-D/2+1.1)+'" width="'+r2(W-2.2)+'" height="'+r2(D-2.2)+'" rx="1.8" fill="#1d2024"/>'
+       +'<rect x="'+r2(-W/2+2)+'" y="'+r2(-D/2+2)+'" width="'+r2(W-4)+'" height="0.9" rx=".45" fill="#fff" opacity=".07"/>';
+  var pad=2.4, headH=(lod===2 && D>=30) ? 4.6 : 0;
+  var px=-W/2+pad, py=-D/2+pad+headH, pw=W-2*pad, ph=D-2*pad-headH;
+  if(headH){   /* targhetta: quanti ingressi e quante uscite, in chiaro */
+    s+='<text x="'+r2(-W/2+pad+0.6)+'" y="'+r2(-D/2+pad+3.2)+'" font-size="3.2" font-weight="700" fill="#8b9196" opacity=".85">'
+      +cap+' IN'+(capOut?' · '+capOut+' OUT':'')+'</text>';
+  }
+  s+='<rect x="'+r2(px)+'" y="'+r2(py)+'" width="'+r2(pw)+'" height="'+r2(ph)+'" rx="1.1" fill="#26292d"/>';
+  var inPer=sbRowPlan(cap), inRows=Math.ceil(cap/inPer);
+  var outPer=capOut ? sbRowPlan(capOut) : 0, outRows=capOut ? Math.ceil(capOut/outPer) : 0;
+  var sep=capOut ? 1.2 : 0, rowH=(ph-2*0.8-sep)/((inRows+outRows)||1), y=py+0.8+rowH/2;
+  function drawRow(from, count, per, used, color){
+    var blocks=Math.ceil(per/8), gap=blocks>1 ? 1.1 : 0;
+    var usable=pw-2*1.2-gap*(blocks-1), step=usable/per, rad=Math.min(rowH*0.38, step*0.42);
+    for(var i=0;i<count;i++){
+      var n=from+i, b=Math.floor(i/8);
+      var cx=px+1.2+b*gap+(i+0.5)*step, on=!!used[n];
+      /* patchato vs libero si distinguono per LUMINOSITÀ, non solo per tinta: il PDF può finire in
+         bianco e nero e "occupato" deve restare leggibile comunque. */
+      if(lod===2){
+        s+='<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad)+'" fill="'+(on?color:"#4e5358")+'"/>'
+          +'<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad*0.72)+'" fill="'+(on?"#0b1f1d":"#0a0b0c")+'"/>';
+        var pr=Math.max(0.18, rad*0.15), off=rad*0.3, pin=on?"#eaf7f4":"#7d8489";
+        s+='<circle cx="'+r2(cx-off)+'" cy="'+r2(y-off*0.7)+'" r="'+r2(pr)+'" fill="'+pin+'"/>'
+          +'<circle cx="'+r2(cx+off)+'" cy="'+r2(y-off*0.7)+'" r="'+r2(pr)+'" fill="'+pin+'"/>'
+          +'<circle cx="'+r2(cx)+'" cy="'+r2(y+off*0.9)+'" r="'+r2(pr)+'" fill="'+pin+'"/>';
+      } else {
+        s+='<circle cx="'+r2(cx)+'" cy="'+r2(y)+'" r="'+r2(rad*0.86)+'" fill="'+(on?color:"#41464b")+'"/>';
+      }
+    }
+  }
+  function drawBar(count, used, color){   /* lod 0: una barra per sezione, riempita quanto il patch */
+    var n=0; for(var k in used) if(used[k]) n++;
+    var bw=pw-2.4, bh=Math.min(rowH*0.62, 3.4);
+    s+='<rect x="'+r2(px+1.2)+'" y="'+r2(y-bh/2)+'" width="'+r2(bw)+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="#3a3f44"/>';
+    if(n>0) s+='<rect x="'+r2(px+1.2)+'" y="'+r2(y-bh/2)+'" width="'+r2(bw*Math.min(1,n/(count||1)))+'" height="'+r2(bh)+'" rx="'+r2(bh/2)+'" fill="'+color+'"/>';
+  }
+  var IN_COL="#14b8a6", OUT_COL="#22d3ee";   /* teal = Input, ciano = Output (colori dei layer, schiariti per il fondo scuro) */
+  if(lod===0){
+    y=py+0.8+rowH*inRows/2; drawBar(cap, use.i, IN_COL);
+    if(capOut){ y=py+0.8+rowH*inRows+sep+rowH*outRows/2; drawBar(capOut, use.o, OUT_COL); }
+  } else {
+    if(capOut){   /* fascia di fondo più chiara sotto le uscite: le due sezioni si leggono anche in b/n */
+      var obY=py+0.8+rowH*inRows+sep-0.5;
+      s+='<rect x="'+r2(px+0.7)+'" y="'+r2(obY)+'" width="'+r2(pw-1.4)+'" height="'+r2(rowH*outRows+1)+'" rx=".8" fill="#1a1d20"/>'
+        +'<rect x="'+r2(px+1.2)+'" y="'+r2(obY-0.9)+'" width="'+r2(pw-2.4)+'" height="0.4" rx=".2" fill="#454b50"/>';
+    }
+    for(var r=0;r<inRows;r++){ var from=r*inPer+1, cnt=Math.min(inPer, cap-r*inPer); drawRow(from, cnt, inPer, use.i, IN_COL); y+=rowH; }
+    if(capOut){
+      y+=sep;
+      for(var q=0;q<outRows;q++){ var f2=q*outPer+1, c2=Math.min(outPer, capOut-q*outPer); drawRow(f2, c2, outPer, use.o, OUT_COL); y+=rowH; }
+    }
+  }
+  return s;
+}
 function sbAutoSize(it){
   if(!it || it.type!=="stagebox" || it.hw || it.modelId) return;
   var small=(it.ch||16)<=8 && !(it.outCh>0);
@@ -15599,6 +15692,11 @@ function stageSceneSvg(cropVb, opts){
      parte centrale che ci sta, sempre in scala. Senza cropVb = scena intera (area + margine quote). */
   var vb=cropVb || {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
   var keep=sel, keepSet=selSet; sel=null; selSet={};
+  /* Il disegno è per la STAMPA, non per lo schermo: i generatori che semplificano in base a quanto
+     l'elemento è grande sul monitor (es. il pannello della stage box, sbLod) devono dare il massimo
+     dettaglio. Va acceso PRIMA di costruire gli item — __cabStatic arriva più sotto, quando ormai
+     sarebbe tardi. Ripristinato nel finally in fondo alla funzione. */
+  var _keepPrint=window.__scenePrint; window.__scenePrint=true;
   /* classifica ogni elemento per la vista a fuoco (fg) o sfumato (bg) — layerFgItem = STESSA
      classificazione del SOLO sul canvas: la vista "cabaudio" include ritorni e P.M. → fg anche
      monitor/mixerini; la vista "elec" include i CARICHI (wattOf>0), come chiesto da Simone */
@@ -15660,6 +15758,7 @@ function stageSceneSvg(cropVb, opts){
   } else {
     body = stageFloorMarkup()+dims+zones+zoneGroup+bgGroup+fgItems+audioCab+elecCab;
   }
+  window.__scenePrint=_keepPrint;   /* fine del disegno per la stampa: si torna alle regole dello schermo */
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+css+'</style>'+DEFS+
     '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
