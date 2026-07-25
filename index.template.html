@@ -12369,7 +12369,7 @@ function renderPrompt(o){
    Singolo canale qui in IN_SRC; elementi stereo/multipli in IN_MULTI. Convenzioni live PA. */
 /* M4 — suggerimenti (datalist) per mic/DI e stand: modelli comuni nel live sound. Solo hint, campo resta libero. */
 var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","e906","e609","MD421","e604","e904","D6","Beta 52A","e602","Beta 91A","SM81","KM184","C451","DPA 4099","DPA 4066","C414","U87","TLM 103","DI","DI stereo","Radial J48"];
-var STAND_SUGGEST = ["tall boom","short boom","tall straight","short straight","clip","round base","table","a terra","—"];
+var STAND_SUGGEST = ["asta dritta","asta giraffa","asta bassa","clip","clip strumento","headset","interno/terra","da tavolo","—"];   /* stesso vocabolario dei valori generati da MIC_DEFAULTS: prima erano in inglese e non combaciavano mai */
 var IN_SRC = {
   /* voci e microfoni */
   astamic:"SM58", giraffa:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184",
@@ -12759,6 +12759,54 @@ function chanRow(kind, row, i){
 }
 /* ===== Conteggio accessori (sedie / leggii / sgabelli) ===== */
 var STOOL_POSTAZ = {contrabbasso:1, cbx2:2};   /* tipi POSTAZ che usano sgabello anziché sedia */
+/* ===== Aste microfoniche: quante e quali ne servono (Simone 25/07) =====
+   Scelta motivata dalla ricerca sui rider reali: negli stage plot pubblicati le aste di batteria e
+   ampli NON si disegnano mai (si disegnano solo quelle delle voci, che qui sono già dentro l'icona
+   del cantante e ne cambiano l'ingombro). Quello che manca davvero è il CONTEGGIO: nei rider veri
+   compare come totale nella sezione microfoni — "(3) telescoping boom mic stands".
+   Regole reali, non "un microfono = un'asta" (sbaglierebbe del 60-100% su una batteria): i tom vanno
+   a clip sul cerchio, gli overhead su giraffa, la cassa su asta bassa. La categoria si deduce dal
+   MODELLO di microfono, che il tool già assegna a ogni canale (MIC_DEFAULTS). */
+var STAND_KINDS=[ ["giraffa","Asta giraffa"], ["bassa","Asta bassa"], ["dritta","Asta dritta"],
+                  ["clip","Clip / pinza"], ["headset","Headset"], ["terra","A terra / interno"] ];
+function standKindOf(mic){   /* modello di microfono → supporto fisico (il primo valore è il primario) */
+  var st=String((micInfo(mic)||{}).stand||"");
+  if(!st) return null;                                   /* DI e strumenti in linea: nessun supporto */
+  if(st.indexOf("headset")>-1) return "headset";
+  if(st.indexOf("interno")>-1 || st.indexOf("terra")>-1) return "terra";
+  if(st.indexOf("giraffa")>-1) return "giraffa";
+  if(st.indexOf("clip")===0) return "clip";              /* "clip", "clip strumento", "clip/asta bassa" */
+  if(st.indexOf("bassa")>-1) return "bassa";
+  if(st.indexOf("dritta")>-1) return "dritta";
+  return null;
+}
+function standKindOfItem(it){   /* aste già presenti sul palco come oggetto, e aste delle voci (micMode) */
+  if(it.type==="giraffa") return "giraffa";
+  if(it.type==="astabassa") return "bassa";
+  if(it.type==="astamic") return "dritta";
+  if(it.type==="headset") return "headset";
+  if(VOCE[it.type]){ var m=micModeOf(it); return m==="giraffa" ? "giraffa" : (m==="tonda" ? "dritta" : null); }
+  return null;
+}
+/* Ritorna {kind: {tot, gia, mancanti}} — "gia" = già disegnate sul palco (oggetto o asta della voce),
+   "mancanti" = dedotte dai microfoni dei canali e non ancora rappresentate. */
+function standNeeds(){
+  var out={}; STAND_KINDS.forEach(function(k){ out[k[0]]={tot:0, gia:0, dedotte:0}; });
+  (state.items||[]).forEach(function(it){
+    if(!TYPES[it.type]) return;
+    var own=standKindOfItem(it);
+    if(own){ out[own].gia++; out[own].tot++; }
+    if(!isAudioSource(it)) return;
+    if(it.type==="astamic"||it.type==="giraffa"||it.type==="astabassa"||it.type==="headset") return;   /* l'asta È l'oggetto: già contata sopra */
+    if(VOCE[it.type]) return;                                   /* voci: l'asta è nell'icona, già contata */
+    (cabItemInputs(it)||[]).forEach(function(c){
+      var k=standKindOf(c.mic); if(!k) return;
+      out[k].dedotte++; out[k].tot++;
+    });
+  });
+  return out;
+}
+function standTotal(n){ var t=0; STAND_KINDS.forEach(function(k){ if(k[0]!=="clip"&&k[0]!=="headset"&&k[0]!=="terra") t+=n[k[0]].tot; }); return t; }   /* "aste" vere: clip e headset non lo sono */
 function countAccessori(){
   var sedie=0, leggii=0, sgabelli=0, hearbacks=0;
   state.items.forEach(function(it){
@@ -14224,6 +14272,19 @@ function renderInspectorB(){
     var _cov=(state.items||[]).filter(isCover);
     if(_cov.length){ var _covA=_cov.reduce(function(a,it){ return a+(it.w/100)*(it.d/100); },0);
       s+=ir("Coperture", _cov.length+" · "+(Math.round(_covA*10)/10).toString().replace(".",",")+" m² a terra"); }   /* gazebo/tende/copertura: quante strutture + superficie */
+    /* Aste microfoniche: quante ne servono davvero, dedotte dal modello di mic di ogni canale.
+       I tom vanno a clip, gli overhead su giraffa: contarne una per microfono sarebbe sbagliato. */
+    try{ var _st=standNeeds(), _stTot=standTotal(_st);
+      var _ASTE={giraffa:1,bassa:1,dritta:1};
+      if(_stTot || _st.clip.tot){
+        var _sd=STAND_KINDS.filter(function(k){ return _ASTE[k[0]] && _st[k[0]].tot>0; })
+          .map(function(k){ return _st[k[0]].tot+"× "+k[1].toLowerCase(); });
+        var _alt=STAND_KINDS.filter(function(k){ return !_ASTE[k[0]] && _st[k[0]].tot>0; })
+          .map(function(k){ return _st[k[0]].tot+"× "+k[1].toLowerCase(); });
+        s+=ir("Aste microfoniche", (_stTot||0)+(_sd.length?"  ·  "+_sd.join(" · "):"")
+          +(_alt.length?"      senza asta: "+_alt.join(" · "):""));   /* clip e headset non sono aste: contate a parte */
+      }
+    }catch(_e){}
     if(c.sedie)     s+=ir("Sedie", c.sedie);
     if(c.leggii)    s+=ir("Leggii", c.leggii);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
@@ -15979,6 +16040,10 @@ function cabReportPdf(shared){
     var cuts=Object.keys(R.cables).sort(function(a,b){ return parseFloat(a)-parseFloat(b); });
     if(cuts.length) line("Cavi XLR: "+cuts.map(function(c){ return R.cables[c]+" × "+c; }).join(", "), 10, false, null, 5);
     if(R.diMono||R.diStereo) line("DI da prevedere: "+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":""), 10, false, null, 5);
+    /* aste: nei rider veri il dato sta qui, come totale ("(3) telescoping boom mic stands") */
+    try{ var _sn=standNeeds(), _snParts=STAND_KINDS.filter(function(k){ return _sn[k[0]].tot>0; }).map(function(k){ return _sn[k[0]].tot+" "+k[1].toLowerCase(); });
+      if(_snParts.length) line("Supporti microfonici: "+_snParts.join(" · "), 10, false, null, 5);
+    }catch(_e){}
     if(R.snakes && R.snakes.length) line("Digital snake (home-run al punto principale): "+R.snakes.map(function(k){ return k.box.letter+" "+k.lenM.toFixed(0)+" m"; }).join(", "), 10, false, null, 5);
     /* L5 — sezione rete/dati: tratte digitali con protocollo, mezzo e lunghezza sul percorso reale */
     var N=netEngine();
