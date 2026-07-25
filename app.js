@@ -9326,6 +9326,10 @@ function renderStagePanel(){
   document.getElementById("bResetBlock").style.display = hasPts(r) ? "" : "none";   /* visibile solo se il blocco è un quadrilatero deformato */
   document.getElementById("blkW").value=r.w/100; document.getElementById("blkD").value=r.d/100;
   document.getElementById("blkX").value=r.x/100; document.getElementById("blkY").value=r.y/100;
+  /* X/Y = posizione del blocco rispetto all'origine: sul PALCO BASE valgono sempre 0,0 e spostarlo non
+     significa nulla (è lui a definire l'origine). Si mostrano solo per i blocchi aggiunti, dove servono
+     ad allineare con precisione una passerella o un'ala. */
+  var _xy=document.getElementById("blkXYRow"); if(_xy) _xy.style.display = (selBlock===0 ? "none" : "");
   document.getElementById("blkH").value=r.h||0;
   var fw=document.getElementById("blkFlatWrap"), isSemi=(r.shape==="semi");
   fw.style.display=isSemi?"":"none";
@@ -12269,7 +12273,7 @@ function renderBusSec(){
   var ksel=document.createElement("select");
   Object.keys(BUS_KINDS).forEach(function(k){ var o=document.createElement("option"); o.value=k; o.textContent=BUS_KINDS[k].nome; ksel.appendChild(o); });
   var inp=document.createElement("input"); inp.type="text"; inp.maxLength=40; inp.placeholder="Nome (es. TV L/R)";
-  var btn=document.createElement("button"); btn.type="button"; btn.className="btn primary"; btn.style.cssText="width:auto;margin:0;padding:5px 12px"; btn.textContent="＋";
+  var btn=document.createElement("button"); btn.type="button"; btn.className="btn primary"; btn.style.cssText="width:auto;margin:0;padding:5px 12px"; btn.textContent="+";
   function addBus(){
     var nm=inp.value.trim(); if(!nm) return;
     state.buses.push({ id:"b"+Math.random().toString(36).slice(2,9), name:nm.slice(0,40), kind:ksel.value });
@@ -15961,8 +15965,8 @@ function renderRespField(it){
         ? 'Eredita: <b>🏢 '+esc(byId[inh.contact_id].name)+'</b> <small style="color:var(--text-3)">(dal reparto '+esc(DEPT_NAME[dept]||dept)+')</small>'
         : '<span style="color:var(--text-3)">Nessun responsabile del reparto — assegnalo in <b>File → Produzione</b></span>';
       body.appendChild(line);
-      daAddForm(body, elKey, "company", rows, pid);   /* "＋ azienda" = imposta l'eccezione */
-      var t=body.querySelector(".da-pill.add"); if(t) t.textContent="＋ eccezione (altra azienda)";
+      daAddForm(body, elKey, "company", rows, pid);   /* "+ azienda" = imposta l'eccezione */
+      var t=body.querySelector(".da-pill.add"); if(t) t.textContent="+ eccezione (altra azienda)";
     }
   }); });
 }
@@ -15978,7 +15982,7 @@ function daPill(cls, html, onx){
 }
 function daAddForm(host, deptKey, kind, rubrica, pid){
   var C=window.__cloud;
-  var trig=document.createElement("span"); trig.className="da-pill add"; trig.textContent=kind==="company"?"＋ azienda":"＋ responsabile";
+  var trig=document.createElement("span"); trig.className="da-pill add"; trig.textContent=kind==="company"?"+ azienda":"+ responsabile";
   trig.addEventListener("click", function(){
     var form=document.createElement("span"); form.className="da-form";
     var dl=document.createElement("datalist"); dl.id="dl-"+kind+"-"+deptKey;
@@ -16586,7 +16590,7 @@ function pdfChannelPage(doc, L, paperKey){
       cs.forEach(function(c){ menu.appendChild(mkItem(c)); });
       if(acct||cs.length){ var sep=document.createElement("div"); sep.className="rub-sep"; menu.appendChild(sep); }
       var man=document.createElement("div"); man.className="rub-manage";
-      man.textContent = cs.length ? "＋ Gestisci i contatti del progetto…" : "＋ Aggiungi contatti al progetto…";
+      man.textContent = cs.length ? "+ Gestisci i contatti del progetto…" : "+ Aggiungi contatti al progetto…";
       man.addEventListener("click", function(){
         closeMenu(); modal.hidden=true;
         var b=document.getElementById("bChanList"); if(b) b.click();   /* la rubrica vive nel pannello Channel list */

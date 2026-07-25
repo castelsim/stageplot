@@ -207,7 +207,7 @@
   <span class="hdr-variants" id="variantBar" hidden title="Variante/scena attiva del progetto">
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="8.5" y="14" width="7" height="7" rx="1"/></svg>
     <select id="variantSel" aria-label="Variante attiva"></select>
-    <button type="button" class="tbar-ico" id="variantNew" title="Nuova variante (duplica l'attuale)" aria-label="Nuova variante">＋</button>
+    <button type="button" class="tbar-ico" id="variantNew" title="Nuova variante (duplica l'attuale)" aria-label="Nuova variante">+</button>
     <button type="button" class="tbar-ico" id="variantRen" title="Rinomina variante" aria-label="Rinomina variante"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
     <button type="button" class="tbar-ico" id="variantDel" title="Elimina variante" aria-label="Elimina variante"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
   </span>
@@ -305,17 +305,17 @@
     <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Palco e pedane con la stessa meccanica: aggiungi, <b>trascina</b> sul palco, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
     <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco o una pedana, regola misura e altezza con + / −, poi scegli dove metterla.</div>
     <div class="row" style="gap:8px">
-      <button class="btn" id="bAddBlock" style="flex:1">＋ Blocco</button>
-      <button class="btn" id="bAddSemi" style="flex:1">＋ Semicerchio</button>
-      <button class="btn" id="bAddPedana" style="flex:1">＋ Pedana</button>
+      <button class="btn" id="bAddBlock">+ Blocco</button>
+      <button class="btn" id="bAddSemi">+ Semicerchio</button>
+      <button class="btn" id="bAddPedana">+ Pedana</button>
     </div>
     <div id="blkList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
       <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
       <div class="stpr-grid">
-        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">＋</button></div></div>
-        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">＋</button></div></div>
-        <div class="stpr-f"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">＋</button></div></div>
+        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
+        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
+        <div class="stpr-f"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
         <div class="stpr-f" id="blkFlatWrap" style="display:none;grid-column:1/-1"><label>Lato curvo verso</label>
           <div class="chips" data-chips="blkFlat">
             <button type="button" data-v="top">Pubblico</button>
@@ -340,7 +340,7 @@
         <div class="pg-hint">fondo palco in alto · pubblico in basso</div>
       </div>
       <p class="hint" id="blkHint" style="font-size:11px;color:var(--text-2);margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
-      <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza (torna rettangolo)</button>
+      <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza</button>
       <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
     </div>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
@@ -709,7 +709,7 @@
       <div id="pRackRows"></div>
       <div style="display:flex;gap:6px;margin-top:6px">
         <select id="pRackAdd" style="flex:1;font-size:12px;min-width:0"></select>
-        <button type="button" class="btn primary" id="pRackAddBtn" style="width:auto;margin-top:0;padding:6px 12px">＋</button>
+        <button type="button" class="btn primary" id="pRackAddBtn" style="width:auto;margin-top:0;padding:6px 12px">+</button>
       </div>
       <div class="rack-ubar"><i id="pRackUbar"></i></div>
       <div id="pRackUsub" style="font-size:10.5px;color:var(--text-2)"></div>
@@ -770,11 +770,11 @@
       <button class="btn" id="grpRotR">⟳ 15</button>
     </div>
     <div class="row">
-      <button class="btn" id="grpLineDist" title="Mette gli elementi selezionati in linea orizzontale, equidistanti, tra il più a sinistra e il più a destra" style="flex:1">⇿ Allinea in linea (equidistanti)</button>
+      <button class="btn" id="grpLineDist" title="Mette gli elementi selezionati in linea orizzontale, equidistanti, tra il più a sinistra e il più a destra" style="flex:1">⇿ Allinea equidistanti</button>
     </div>
     <div class="row" style="display:flex;gap:6px">
-      <button class="btn" id="grpGroup" style="flex:1 1 0;min-width:0;white-space:nowrap">▣ Unisci blocco</button>
-      <button class="btn" id="grpUngroup" style="flex:1 1 0;min-width:0;white-space:nowrap">⤢ Dividi blocco</button>
+      <button class="btn" id="grpGroup" style="flex:1 1 0;min-width:0;white-space:nowrap">▣ Unisci</button>
+      <button class="btn" id="grpUngroup" style="flex:1 1 0;min-width:0;white-space:nowrap">⤢ Dividi</button>
     </div>
     <div class="btns">
       <button class="btn" id="grpDup">Duplica</button>
@@ -958,7 +958,7 @@
   <button type="button" class="mpk-exp" id="mPeekExp" aria-label="Mostra tutte le specifiche" title="Specifiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
 </div>
 
-<button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">＋</button>
+<button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">+</button>
 <button class="fab props" id="fabProps" title="Proprietà" aria-label="Apri pannello">≡</button>
 <div id="mobBackdrop"></div>
 <div id="railHandle" title="Trascina per allargare il pannello · doppio click per reimpostare" aria-hidden="true"></div>
@@ -10867,6 +10867,10 @@ function renderStagePanel(){
   document.getElementById("bResetBlock").style.display = hasPts(r) ? "" : "none";   /* visibile solo se il blocco è un quadrilatero deformato */
   document.getElementById("blkW").value=r.w/100; document.getElementById("blkD").value=r.d/100;
   document.getElementById("blkX").value=r.x/100; document.getElementById("blkY").value=r.y/100;
+  /* X/Y = posizione del blocco rispetto all'origine: sul PALCO BASE valgono sempre 0,0 e spostarlo non
+     significa nulla (è lui a definire l'origine). Si mostrano solo per i blocchi aggiunti, dove servono
+     ad allineare con precisione una passerella o un'ala. */
+  var _xy=document.getElementById("blkXYRow"); if(_xy) _xy.style.display = (selBlock===0 ? "none" : "");
   document.getElementById("blkH").value=r.h||0;
   var fw=document.getElementById("blkFlatWrap"), isSemi=(r.shape==="semi");
   fw.style.display=isSemi?"":"none";
@@ -13810,7 +13814,7 @@ function renderBusSec(){
   var ksel=document.createElement("select");
   Object.keys(BUS_KINDS).forEach(function(k){ var o=document.createElement("option"); o.value=k; o.textContent=BUS_KINDS[k].nome; ksel.appendChild(o); });
   var inp=document.createElement("input"); inp.type="text"; inp.maxLength=40; inp.placeholder="Nome (es. TV L/R)";
-  var btn=document.createElement("button"); btn.type="button"; btn.className="btn primary"; btn.style.cssText="width:auto;margin:0;padding:5px 12px"; btn.textContent="＋";
+  var btn=document.createElement("button"); btn.type="button"; btn.className="btn primary"; btn.style.cssText="width:auto;margin:0;padding:5px 12px"; btn.textContent="+";
   function addBus(){
     var nm=inp.value.trim(); if(!nm) return;
     state.buses.push({ id:"b"+Math.random().toString(36).slice(2,9), name:nm.slice(0,40), kind:ksel.value });
@@ -17502,8 +17506,8 @@ function renderRespField(it){
         ? 'Eredita: <b>🏢 '+esc(byId[inh.contact_id].name)+'</b> <small style="color:var(--text-3)">(dal reparto '+esc(DEPT_NAME[dept]||dept)+')</small>'
         : '<span style="color:var(--text-3)">Nessun responsabile del reparto — assegnalo in <b>File → Produzione</b></span>';
       body.appendChild(line);
-      daAddForm(body, elKey, "company", rows, pid);   /* "＋ azienda" = imposta l'eccezione */
-      var t=body.querySelector(".da-pill.add"); if(t) t.textContent="＋ eccezione (altra azienda)";
+      daAddForm(body, elKey, "company", rows, pid);   /* "+ azienda" = imposta l'eccezione */
+      var t=body.querySelector(".da-pill.add"); if(t) t.textContent="+ eccezione (altra azienda)";
     }
   }); });
 }
@@ -17519,7 +17523,7 @@ function daPill(cls, html, onx){
 }
 function daAddForm(host, deptKey, kind, rubrica, pid){
   var C=window.__cloud;
-  var trig=document.createElement("span"); trig.className="da-pill add"; trig.textContent=kind==="company"?"＋ azienda":"＋ responsabile";
+  var trig=document.createElement("span"); trig.className="da-pill add"; trig.textContent=kind==="company"?"+ azienda":"+ responsabile";
   trig.addEventListener("click", function(){
     var form=document.createElement("span"); form.className="da-form";
     var dl=document.createElement("datalist"); dl.id="dl-"+kind+"-"+deptKey;
@@ -18127,7 +18131,7 @@ function pdfChannelPage(doc, L, paperKey){
       cs.forEach(function(c){ menu.appendChild(mkItem(c)); });
       if(acct||cs.length){ var sep=document.createElement("div"); sep.className="rub-sep"; menu.appendChild(sep); }
       var man=document.createElement("div"); man.className="rub-manage";
-      man.textContent = cs.length ? "＋ Gestisci i contatti del progetto…" : "＋ Aggiungi contatti al progetto…";
+      man.textContent = cs.length ? "+ Gestisci i contatti del progetto…" : "+ Aggiungi contatti al progetto…";
       man.addEventListener("click", function(){
         closeMenu(); modal.hidden=true;
         var b=document.getElementById("bChanList"); if(b) b.click();   /* la rubrica vive nel pannello Channel list */
