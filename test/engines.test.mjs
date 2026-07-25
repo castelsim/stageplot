@@ -3541,39 +3541,8 @@ t("fitStage (nuovo palco) include anch'esso le scritte", () => {
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
 });
 
-/* ---- Quick-add: si apre proponendo, non vuota ---- */
-console.log("\nQuick-add (suggerimenti all'apertura):");
-t("propone i sei elementi di partenza quando non sa ancora niente di te", () => {
-  const s = A.qaSuggested();
-  eq(s.length, 6, "servono sei proposte");
-  s.forEach(k => ok(A.TYPES[k], "tipo inesistente fra le proposte: " + k));
-});
-t("impara da cosa metti davvero", () => {
-  const store = {};
-  const ls = A.localStorage;
-  A.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; }, removeItem: k => { delete store[k]; } };
-  try {
-    for (let i = 0; i < 4; i++) A.qaFreqBump("timpani");
-    A.qaFreqBump("arpa");
-    const s = A.qaSuggested();
-    eq(s[0], "timpani", "il più usato deve venire per primo");
-    ok(s.indexOf("arpa") > -1, "anche gli altri usati devono comparire");
-    eq(s.length, 6, "la lista resta di sei");
-  } finally { A.localStorage = ls; }
-});
-t("segnala cosa manca al progetto, con le regole dell'Audit", () => {
-  reset();
-  eq(A.qaMissing().length, 0, "progetto vuoto: niente da segnalare");
-  add("cantante", 300, 400);
-  const m = A.qaMissing();
-  ok(m.length > 0, "con una sorgente e nessuna box, la stage box va segnalata");
-  eq(m[0].k, "stagebox");
-  ok(m[0].why && m[0].why.length <= 18, "la motivazione deve stare nella pastiglia: " + m[0].why);
-  ok(m[0].full && m[0].full.length > m[0].why.length, "il testo esteso va nel tooltip");
-  add("stagebox", 800, 200);
-  ok(!A.qaMissing().some(x => x.k === "stagebox"), "messa la box, non si segnala piu'");
-  ok(A.qaMissing().length <= 2, "al massimo due segnalazioni");
-});
+/* ---- Quick-add: campo di ricerca e risultati con l'anteprima dell'elemento (variante B) ---- */
+console.log("\nQuick-add (anteprime):");
 t("le miniature dei risultati sono quelle del catalogo, in cache", () => {
   const e = { k: "wedge", nome: "Wedge monitor" };
   const a = A.qaIcon(e), b = A.qaIcon(e);
