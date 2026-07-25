@@ -257,9 +257,9 @@
   .mob-hint{display:none}
   .stpr-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
   .stpr-f label{display:block;font-size:12px;color:var(--text-2);margin:0 0 3px}
-  .stpr{display:flex;align-items:center;gap:5px}   /* v2.2: stepper come la batteria — bottoni staccati, niente boxone */
+  .stpr{display:flex;align-items:stretch;gap:5px}   /* i bottoni prendono l'altezza del campo: prima erano sfalsati */   /* v2.2: stepper come la batteria — bottoni staccati, niente boxone */
   .stpr input{flex:1;min-width:0;width:100%;border:1px solid var(--border);border-radius:7px;text-align:center;padding:4px 2px;font-size:13px;background:var(--surface);color:var(--text)}
-  .stpr-b{flex:0 0 auto;width:26px;height:26px;border:1px solid var(--border);border-radius:7px;background:var(--n-100);color:var(--text);font-size:15px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .stpr-b{flex:0 0 auto;width:26px;min-height:26px;height:auto;border:1px solid var(--border);border-radius:7px;background:var(--n-100);color:var(--text);font-size:15px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
   .stpr-b:active{background:var(--border)}
   input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}   /* v2.2: mai frecce native */
   input[type=number]{-moz-appearance:textfield}
@@ -297,8 +297,11 @@
   #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
   #props .prop-hint{font-size:var(--t-micro);color:var(--text-3);margin-top:6px;line-height:1.35}
   #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
-  #props .row{display:flex;gap:6px}
-  #props .row>*{flex:1}
+  /* Colonna destra ridimensionabile (280-560px): i figli di una .row devono poter STRINGERSI e, se
+     non ci stanno, andare a capo. Senza min-width:0 il flex non scende sotto la min-content del
+     contenuto e la riga sfonda il pannello — era la causa degli elementi che uscivano dallo schermo. */
+  #props .row{display:flex;flex-wrap:wrap;gap:6px}
+  #props .row>*{flex:1 1 118px;min-width:0}
   #props .chk{display:block;font-size:13px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
   #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:#c9c5bb;border-radius:999px}   /* v2.2: pillola piena come il prototipo — senza radius esplicito vinceva #props input{border-radius:8px} (id>attr) */
   #props .chk input:checked{background:var(--accent)}
@@ -457,8 +460,8 @@
   .sbp.mon{background:#0891b2;border-color:#0891b2;color:#fff;cursor:default}
   .sbp.snk{background:#0b7a70;border-color:#0b7a70;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);cursor:default}
   .loadrow .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
-  .feed-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .feed-seg>div{flex:1;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2);transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+  .feed-seg{display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .feed-seg>div{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2);transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
   .feed-seg>div:hover:not(.on){background:var(--n-100)}
   .feed-seg>div.on{background:#c026d3;color:#fff;font-weight:600}
   /* Hub produzione: reparti */
@@ -507,7 +510,7 @@
   .di-prev svg{width:64px;height:44px}   /* dimensione esplicita: batte la regola globale svg{width:100%} */
   .di-lbl{font-size:11px;color:var(--text-2);font-weight:600;margin:8px 0 4px;display:block}
   .di-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .di-seg button{flex:1;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11.5px;font-weight:600;padding:6px 4px;cursor:pointer;transition:.12s}
+  .di-seg button{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11.5px;font-weight:600;padding:6px 4px;cursor:pointer;transition:.12s}
   .di-seg button:first-child{border-left:none}
   .di-seg button:hover{background:var(--accent-tint)}
   .di-seg button.on{background:var(--accent);color:#fff}
@@ -1212,7 +1215,7 @@
     .desk-hint{display:none} .mob-hint{display:block}
     #props #blkXYRow{display:none} #blkHint{display:none} #stageDragHint{display:none}
     .stpr-grid{grid-template-columns:1fr}
-    .stpr-b{width:44px;height:44px;font-size:20px}
+    .stpr-b{width:44px;min-height:44px;height:auto;font-size:20px}
     .stpr input{font-size:16px}   /* niente zoom iOS al focus */
     .stpr input{padding:9px 2px;font-size:15px}
     .pg-cells{max-width:none}
@@ -1625,6 +1628,18 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Dividi/Duplica/Elimina su UNA riga (Simone 17/07) */
   #pActRow{display:flex;gap:6px;margin-top:10px}
   #pActRow .btn{width:auto;flex:1;margin-top:0;white-space:nowrap;padding:6px 8px}
+  /* Le stesse azioni sulla selezione multipla erano impaginate al contrario: il width:100% qui sopra
+     le impilava una per riga, mentre in #pActRow stanno affiancate. Ora si comportano uguale. */
+  #props .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  #props .btns .btn{width:auto;flex:1 1 110px;min-width:0;margin-top:0}
+  /* Bottone accanto a un campo (Salva del punto di ripristino, Auto delle liste): il width:100% lo
+     faceva prendere tutta la riga schiacciando l'input a zero. */
+  #props .clsec-head .btn,#versBox .btn{width:auto;flex:0 0 auto;margin-top:0}
+  #props .clsec-head .cl-lbl{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  #versBox input{min-width:0}
+  /* Testo dei bottoni in riga: si tronca invece di sfondare il pannello */
+  #props .btn{min-width:0}
+  #props .row .btn,#props .btns .btn{overflow:hidden;text-overflow:ellipsis}
   #pDivide,#pGtrSplit,#pCompSplit,#pSplit,#grpUngroup{background:var(--accent);border:1px solid var(--accent);
     color:#fff;font-weight:600}
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
@@ -1632,13 +1647,16 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .item.selected .selbox{stroke:var(--accent);stroke-width:2;stroke-dasharray:none;fill:none}
 
   /* ═══ Panel refine (04/07): configuratore in alto per i COMP, stepper compatti, respiro ═══ */
-  #props{padding:16px}
+  #props{padding:16px;overflow-x:hidden}   /* con overflow-y:auto la x diventa auto: bastava una riga larga per far comparire lo scorrimento laterale */
+  @media (max-width:880px){ #props{padding:10px 14px 22px} }   /* il bottom sheet aveva perso il suo respiro in fondo, sovrascritto da qui */
   #props .chk{padding:9px 0}
   #props .cnt-row{margin:8px 0}
   #props .btn.cnt-b{width:26px;height:26px;min-width:26px;padding:0;margin-top:0;
     display:inline-flex;align-items:center;justify-content:center;border-radius:7px;font-size:15px}
-  #props .chips{flex-wrap:nowrap}
-  #props .chips button{flex:1 1 0;padding:6px 4px;font-size:11.5px;white-space:nowrap;min-width:0}
+  /* le chips vanno a capo quando la colonna è stretta: prima restavano su una riga e le etichette
+     ("Base tonda", "Panoramico") venivano tagliate a metà */
+  #props .chips{flex-wrap:wrap}
+  #props .chips button{flex:1 1 84px;padding:6px 4px;font-size:11.5px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}   /* base 84px: sotto quella misura vanno a capo invece di tagliarsi */
   #selProps{display:flex;flex-direction:column}
   #selProps > *{flex:0 0 auto}
   #selProps.comp-first h3{order:-2}
