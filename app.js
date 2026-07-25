@@ -3156,7 +3156,7 @@ function normalizeItemRefField(o,k,allowMain){
 }
 function normalizePersistedItemRefs(s){
   (s.items||[]).forEach(function(it){
-    ["rackId","ascoltoId","rxId","distOf"].forEach(function(k){ normalizeItemRefField(it,k,false); });
+    ["rackId","ascoltoId","rxId","distOf","diId","diFor"].forEach(function(k){ normalizeItemRefField(it,k,false); });
     normalizeItemRefField(it,"sbTo",true);
   });
   (Array.isArray(s.buses)?s.buses:[]).forEach(function(bu){ normalizeItemRefField(bu,"boxId",false); });
@@ -3223,6 +3223,8 @@ function normalizeState(s){
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
       if(it.sbTo!=null && it.sbTo!=="main" && !itemById[it.sbTo]) delete it.sbTo; }
     if(it.ascoltoId && !itemById[it.ascoltoId]){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
+    if(it.diId && !itemById[it.diId]){ delete it.diId; delete it.diOff; }   /* DI cancellata a mano: lo strumento torna senza */
+    if(it.diFor && !itemById[it.diFor]) delete it.diFor;                    /* strumento sparito: la DI resta ma libera */
     if(it.ascolto && !ASCOLTO_TYPE[it.ascolto]){ delete it.ascolto; delete it.ascoltoId; }
     if(it.type==="rxrf"){ if(it.hw && !RX_DB[it.hw]) delete it.hw; if(it.rxN!=null && !(it.rxN>=1&&it.rxN<=8)) delete it.rxN; }
     if(it.type==="rfant" && it.hw && !RF_ANT_DB[it.hw]) delete it.hw;
@@ -3971,7 +3973,8 @@ function zoneAbsorbable(it){
 }
 function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
+function isAudioSource(it){ if(it.diFor) return false;   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
+  if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
 function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
 function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
@@ -4591,7 +4594,9 @@ function audioCablingEngine(){
     /* distribuzione omogenea (Simone): vince la box più vicina; quasi equidistanti (< 1 m) → la meno carica */
     /* la "stage box del mixer" (lato regia, b.foh) è ESCLUSA dall'auto: l'utente ci collega a mano gli
        overflow. Resta un target manuale (ov.box) come qualsiasi altra box. */
-    var cand=boxes.filter(function(b){ return !b.foh; }).sort(function(a,b){ var da=Math.sqrt(d2(g.it.x,g.it.y,a)), db=Math.sqrt(d2(g.it.x,g.it.y,b));
+    /* con una DI in mezzo la tratta lunga parte da LEI: la box più vicina si misura dalla DI, non dallo strumento */
+    var _dix=diLinked(g.it), _px=_dix?_dix.x:g.it.x, _py=_dix?_dix.y:g.it.y;
+    var cand=boxes.filter(function(b){ return !b.foh; }).sort(function(a,b){ var da=Math.sqrt(d2(_px,_py,a)), db=Math.sqrt(d2(_px,_py,b));
       if(Math.abs(da-db)>100) return da-db;
       var la=a.used/(a.cap||1), lb=b.used/(b.cap||1);
       return la!==lb ? la-lb : da-db; });
@@ -4606,7 +4611,7 @@ function audioCablingEngine(){
       var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box; })[0] : null;   /* il gruppo va TUTTO su una box (satura → warning) */
       var b= manualMode ? forced : (forced || whole || cand[0] || null);
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
-      var pts=[portAnchor(g.it,"audio")].concat((ov.pts||[])).concat([boxAnchor(b)]);
+      var pts=[portAnchor(g.it,"audio")].concat(_dix?[[_dix.x,_dix.y]]:[]).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → DI → stage box */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
       g.list.forEach(function(s){ b.used++; var pn=takePort(b,0); links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut,
         label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
@@ -4622,7 +4627,7 @@ function audioCablingEngine(){
       b.used++;
       var pn=takePort(b, (ov.port>0? +ov.port : 0));   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
-      var pts=[_sa].concat((ov.pts||[])).concat([boxAnchor(b)]);   /* il cavo parte dal pallino audio del musicista (per-seduta nelle postazioni) */
+      var pts=[_sa].concat(_dix?[[_dix.x,_dix.y]]:[]).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → (DI) → stage box; il capo parte dal pallino audio del musicista */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
       links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0),
                   label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
@@ -5998,6 +6003,7 @@ function reindexItemNodes(){
 }
 function render(){
   pruneSolo();   /* niente solo fantasma su layer disattivati */
+  diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
   if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
   svg.innerHTML = sceneMarkup();
@@ -6559,6 +6565,14 @@ function renderProps(){
         var soSel=document.getElementById("pSbOut"), capo=String(cabBoxCapOut(it));
         if(![].some.call(soSel.options,function(o){ return o.value===capo; })){ var op2=document.createElement("option"); op2.value=capo; op2.textContent=capo; soSel.appendChild(op2); }
         soSel.value=capo; } } }
+  var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": vale solo dove il segnale passerebbe da una DI */
+  if(balw){
+    var _mayDi = !!(MIKING[it.type] && Object.keys(DI_MIKING).some(function(k){ return (MIKING[it.type].options||[]).some(function(o){ return o[0]===k; }); }))
+      || (STEREO_TOGGLE[it.type] && String(STEREO_TOGGLE[it.type].mic||"").indexOf("DI")>-1)
+      || String(IN_SRC[it.type]||"").indexOf("DI")>-1;
+    balw.style.display=_mayDi?"block":"none";
+    var balc=document.getElementById("pBalOut"); if(balc) balc.checked=!!it.balOut;
+  }
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
   if(mkw){ var mk=MIKING[it.type]; mkw.style.display=(mk && !VOCE[it.type])?"block":"none";   /* per le voci il controllo è pMicMode (chip), non il dropdown */
     if(mk){ var msel=document.getElementById("pMike");
@@ -7451,7 +7465,14 @@ function deleteSel(){
     if(i.type==="vlnpost" && i.vsec!=null) vsecs[i.vsec]=true;
     else if(i.type && autoNumbered(i.type)) bases[instrBase(i.type)]=true;
   });
-  state.items = state.items.filter(function(i){ return !selSet[i.id]; });
+  var _delIds={}; state.items.forEach(function(i){ if(selSet[i.id]) _delIds[i.id]=1; });
+  state.items.forEach(function(i){   /* accessori legati: la DI di uno strumento cancellato se ne va con lui */
+    if(i.diId && _delIds[i.diId]) { delete i.diId; delete i.diOff; }
+    if(i.diFor && _delIds[i.diFor]) _delIds[i.id]=1;
+    if(i.diId && _delIds[i.id]) _delIds[i.diId]=1;
+  });
+  state.items.forEach(function(i){ if(i.diFor && _delIds[i.diFor]) _delIds[i.id]=1; });
+  state.items = state.items.filter(function(i){ return !_delIds[i.id]; });
   Object.keys(vsecs).forEach(function(s){ renumberViolins(+s); });
   Object.keys(bases).forEach(function(b){ renumberInstr(b); });
   clearSelection(); render(); save();
@@ -9083,6 +9104,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="item" && drag.moved){
     if(e.shiftKey && selIds().length===1) cabTryInsertAt(svgPoint(e), getSel());   /* Shift al rilascio sopra un cavo = inserisci nel percorso (stile Max) */
+    (state.items||[]).forEach(function(x){ if(x.diFor && selSet[x.id]) diSaveOff(x); });   /* DI trascinata a mano: da ora sta li', anche quando lo strumento si sposta */
     renderSnapGuides([]); render(); save(); ensureVisible(); }
   else if(drag && drag.mode==="marquee"){
     var r=drag.rect;
@@ -11689,6 +11711,10 @@ function renderCabPanel(){
   document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
   var sb=document.getElementById("pSbCh");
+  var _bal=document.getElementById("pBalOut");
+  if(_bal) _bal.addEventListener("change", function(){   /* uscita bilanciata a bordo: la DI non serve piu' */
+    var v=this.checked; mutSel(function(it){ it.balOut=v; if(!v) delete it.balOut; diApply(it); });
+    __cabRes=null; save(); render(); renderProps(); });
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
   var sbo=document.getElementById("pSbOut");
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
@@ -11699,7 +11725,8 @@ function renderCabPanel(){
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value;
     if(v==="__zona__"){ var it0=getSel(); this.value=(it0&&it0.miking)||(it0&&MIKING[it0.type]?MIKING[it0.type].def:""); createMicZoneFor(it0); return; }   /* "Zona" crea una zona di microfonazione (non è un valore di miking) */
-    mutSel(function(it){ if(MIKING[it.type]) it.miking=v; }); __cabRes=null; save(); render(); });
+    mutSel(function(it){ if(MIKING[it.type]){ it.miking=v; diApply(it); } });   /* "DI" → la scatoletta compare davvero sul palco */
+    __cabRes=null; save(); render(); renderProps(); });
   /* personal monitor (B1): la marca seleziona il primo modello; il modello scrive it.pm */
   var pmB=document.getElementById("pPmBrand");
   if(pmB) pmB.addEventListener("change", function(){ var it=getSel(); if(!it||(it.type!=="hearback"&&it.type!=="mixhub")) return;
@@ -12249,6 +12276,72 @@ var ASCOLTO_HINT = {
   pm:"Personal mixer digitale collegato all'hub via Cat5 (layer P.M.).",
   cuffie:"Cuffie cablate dal personal mixer / macchina cuffie (layer P.M.)."
 };
+/* ===== Accessori di segnale: un'opzione del pannello diventa un OGGETTO sul palco =====
+   Caso pilota (Simone 25/07): la DI. Scegliere "DI" nella microfonazione cambiava solo l'etichetta del
+   canale; nella realtà la DI è una scatoletta per terra accanto allo strumento, e il segnale ci passa
+   dentro prima di arrivare alla stage box (fonte: Sound On Sound, Radial — la DI va vicino allo
+   strumento, non alla box, per accorciare il tratto sbilanciato).
+   Il legame è bidirezionale e vive sull'item: src.diId → id della DI, di.diFor → id della sorgente,
+   src.diOff → offset LOCALE (nel frame ruotato dello strumento), così la DI lo segue quando lo sposti
+   o lo ruoti, ma se la trascini a mano resta dove l'hai messa (l'offset si aggiorna).
+   src.balOut = lo strumento esce già bilanciato (preamp a bordo, ampli con XLR out): niente DI.
+   Stesso meccanismo riusabile per ampli, pedaliera, aste: cambia solo quale tipo si crea. */
+var DI_MIKING={ di:1, amplidi:1, dimic:1, didmic:1 };   /* valori di microfonazione che implicano una DI */
+function diUsesBox(it){   /* questo elemento passa da una DI? (tendina microfonazione, o mic di default "DI") */
+  if(!it || it.balOut) return false;
+  if(MIKING[it.type]) return !!DI_MIKING[it.miking || MIKING[it.type].def];
+  if(it.type==="dimono" || it.type==="distereo") return false;   /* la DI non passa da sé stessa */
+  var st=STEREO_TOGGLE[it.type];
+  if(st && String(st.mic||"").indexOf("DI")>-1) return true;
+  return String(IN_SRC[it.type]||"").indexOf("DI")>-1;
+}
+function diLinked(it){ return (it&&it.diId) ? (state.items||[]).filter(function(x){ return x.id===it.diId; })[0] : null; }
+function diSourceOf(di){ return (di&&di.diFor) ? (state.items||[]).filter(function(x){ return x.id===di.diFor; })[0] : null; }
+function diDefaultOff(it){   /* di fianco allo strumento, verso il pubblico: a portata di jack corto */
+  return [Math.round((it.w||60)/2+22), Math.round((it.d||60)/2+6)];
+}
+function diSyncPos(src){   /* riporta la DI al suo posto rispetto allo strumento (offset locale + rotazione) */
+  var di=diLinked(src); if(!di) return;
+  var off=(Array.isArray(src.diOff)&&src.diOff.length===2) ? src.diOff : diDefaultOff(src);
+  var a=(src.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  di.x=Math.round(src.x+off[0]*c-off[1]*sn);
+  di.y=Math.round(src.y+off[0]*sn+off[1]*c);
+  di.rot=src.rot||0;
+}
+function diSaveOff(di){   /* la DI è stata trascinata: memorizza il nuovo offset nel frame dello strumento */
+  var src=diSourceOf(di); if(!src) return;
+  var a=-(src.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  var dx=di.x-src.x, dy=di.y-src.y;
+  src.diOff=[Math.round(dx*c-dy*sn), Math.round(dx*sn+dy*c)];
+}
+function diSyncAll(){ (state.items||[]).forEach(function(it){ if(it.diId) diSyncPos(it); }); }
+/* crea o rimuove la DI in base all'opzione. Idempotente: chiamabile a ogni cambio del pannello. */
+function diApply(it, opts){
+  if(!it) return null;
+  var want=diUsesBox(it) && it.diBox!==false, cur=diLinked(it);
+  if(!want){
+    if(cur) state.items=state.items.filter(function(x){ return x.id!==cur.id; });
+    delete it.diId; delete it.diOff;
+    return null;
+  }
+  if(cur){ diSyncPos(it); return cur; }
+  var off=diDefaultOff(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  var st=STEREO_TOGGLE[it.type];
+  var di={ id:uid(), type:"dimono", x:Math.round(it.x+off[0]*c-off[1]*sn), y:Math.round(it.y+off[0]*sn+off[1]*c),
+    rot:it.rot||0, w:TYPES.dimono.w, d:TYPES.dimono.d, label:"", diFor:it.id };
+  if((st && it.stereo!==false && st.def!==false) || it.stereo===true) di.diCh="stereo";   /* strumento stereo = DI stereo (2 canali sulla box) */
+  var fp=(typeof diFootprint==="function") ? diFootprint(di) : null;
+  if(fp){ di.w=fp[0]; di.d=fp[1]; }
+  di.label=diNextLabel();
+  state.items.push(di);
+  it.diId=di.id; it.diOff=off;
+  if(!(opts&&opts.quiet)){ __cabRes=null; }
+  return di;
+}
+function diNextLabel(){   /* numerazione progressiva come gli altri hardware: DI 1, DI 2… */
+  var n=0; (state.items||[]).forEach(function(x){ var m=/^DI\s+(\d+)$/.exec(x.label||""); if(m) n=Math.max(n,+m[1]); });
+  return "DI "+(n+1);
+}
 function ascoltoEligible(it){ return !!it && (isPerformer(it) || it.type==="direttore"); }
 function ascoltoPos(it, kind){   /* posizione del monitor rispetto al performer (locale → mondo con rotazione) */
   var d=(it.d||60), w=(it.w||60), local;
