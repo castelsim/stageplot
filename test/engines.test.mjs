@@ -3296,7 +3296,7 @@ t("P.M.: un hub generico regge max 8 mixerini (capienza rispettata dall'auto-con
   ok(((R.hubLoad || {})[hub2.id] || 0) >= 2, "il secondo hub prende gli eccedenti");
 });
 
-t("vista cablaggio: cavi solo col layer selezionato; Power = carichi a pallini", () => {
+t("vista cablaggio: senza vista la tavola e' completa, con la vista e' un filtro; Power = carichi a pallini", () => {
   reset();
   add("astamic", 300, 300);
   add("stagebox", 600, 400);
@@ -3304,11 +3304,20 @@ t("vista cablaggio: cavi solo col layer selezionato; Power = carichi a pallini",
   add("distro32", 250, 480);
   A.state.cab.on = true; A.state.elec.on = true; A.__cabRes = null; A.__elecRes = null;
   A.__cabStatic = false;   // nel sandbox window.__cabStatic è uno stub truthy: nel browser è falsy (export PDF a parte)
-  // niente selezionato → nessun cavo
+  /* 25/07: nessuna vista selezionata = TAVOLA COMPLETA (prima era "plot pulito senza cavi") */
   A.layerSoloUI = {}; A.layerAccOpen = null;
   let mk = A.cablingMarkup();
-  ok(mk.indexOf("cab-line") < 0, "nessun cavo Input senza layer selezionato");
-  eq(A.elecMarkup(), "", "nessun cavo Power senza layer selezionato");
+  ok(mk.indexOf("cab-line") >= 0, "senza vista selezionata i cavi Input devono vedersi");
+  ok(A.elecMarkup().indexOf("elec-line") >= 0 || A.elecMarkup() !== "", "senza vista selezionata i cavi Power devono vedersi");
+  /* una vista attiva su un ALTRO layer torna a filtrare */
+  A.layerSoloUI = { elec: true };
+  ok(A.cablingMarkup().indexOf("cab-line") < 0, "vista Power attiva: i cavi Input si tolgono di mezzo");
+  A.layerSoloUI = { cabin: true };
+  eq(A.elecMarkup(), "", "vista Input attiva: i cavi Power si tolgono di mezzo");
+  /* l'occhio resta l'altro asse: chiuso, nasconde anche in vista completa */
+  A.layerSoloUI = {}; A.state.cab.showInputs = false;
+  ok(A.cablingMarkup().indexOf("cab-line") < 0, "occhio Input chiuso: niente cavi neanche in vista completa");
+  A.state.cab.showInputs = true;
   // solo Input → cavi + pallino box
   A.layerSoloUI = { cabin: true };
   mk = A.cablingMarkup();
@@ -3420,6 +3429,108 @@ t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
 });
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
+
+/* ---- Adatta (fit): il palco E le scritte FONDO PALCO / PUBBLICO sempre dentro la vista ----
+   Le scritte sono <text> in coordinate palco disegnate fuori dal rettangolo: nessuno le contava, e
+   su palchi piccoli il margine proporzionale non bastava. Qui si simula l'area centrale reale
+   (colonne larghe = canvas stretto) e si verifica che il viewBox le contenga davvero. */
+console.log("\nAdatta / fit-to-view:");
+function withCanvas(w, h, fn) {   /* svg e render sono stub: interessa solo il vb calcolato */
+  const svg0 = A.svg, render0 = A.render, mob0 = A.isMobile;
+  A.svg = { clientWidth: w, clientHeight: h, setAttribute() {}, getAttribute: () => "", style: {} };
+  A.render = function () {};
+  A.isMobile = () => w < 880;
+  try { return fn(); } finally { A.svg = svg0; A.render = render0; A.isMobile = mob0; }
+}
+const CANVAS = [["due colonne larghe", 480, 700], ["una colonna", 820, 700], ["senza colonne", 1400, 700],
+  ["finestra bassa", 1200, 320], ["finestra stretta e alta", 360, 900], ["mobile", 390, 620]];
+t("contentBounds include le scritte del palco (sopra e sotto)", () => {
+  reset(); A.applyStageSize(4, 3, false);   /* palco piccolo: e' il caso che si tagliava */
+  const b = A.contentBounds(), d = A.stageDecorBounds();
+  ok(b.y0 <= -55, "il bordo alto non copre FONDO PALCO: " + b.y0);
+  ok(b.y1 >= A.state.stage.d + 41, "il bordo basso non copre PUBBLICO: " + b.y1);
+  ok(b.x0 <= d.x0 && b.x1 >= d.x1, "quote laterali fuori dal riquadro");
+});
+t("Adatta: scritte dentro la vista con qualunque larghezza dell'area centrale", () => {
+  [[4, 3], [8, 6], [12, 8], [20, 12]].forEach(([wm, dm]) => {
+    reset(); A.applyStageSize(wm, dm, false);
+    const d = A.stageDecorBounds();
+    CANVAS.forEach(([nome, cw, ch]) => {
+      withCanvas(cw, ch, () => A.fit());
+      const v = A.vb;
+      ok(v.x <= d.x0 && v.x + v.w >= d.x1, `palco ${wm}x${dm} · ${nome}: scritte fuori in orizzontale`);
+      ok(v.y <= d.y0 && v.y + v.h >= d.y1, `palco ${wm}x${dm} · ${nome}: FONDO PALCO/PUBBLICO tagliati (vb.y=${v.y.toFixed(0)}, serve ${d.y0})`);
+    });
+  });
+});
+t("Adatta: margine di sicurezza reale attorno al contenuto", () => {
+  reset(); A.applyStageSize(4, 3, false);
+  const d = A.stageDecorBounds();
+  withCanvas(1000, 700, () => A.fit());
+  ok(A.vb.y <= d.y0 - 30, "meno di 30 cm d'aria sopra le scritte");
+  ok(A.vb.y + A.vb.h >= d.y1 + 30, "meno di 30 cm d'aria sotto le scritte");
+});
+t("Adatta: gli elementi fuori dal palco restano dentro la vista", () => {
+  reset(); A.applyStageSize(6, 4, false);
+  add("wedge", -200, -300); add("wedge", A.state.stage.w + 250, A.state.stage.d + 200);
+  const b = A.contentBounds();
+  withCanvas(900, 700, () => A.fit());
+  ok(A.vb.x <= b.x0 && A.vb.x + A.vb.w >= b.x1 && A.vb.y <= b.y0 && A.vb.y + A.vb.h >= b.y1, "contenuto fuori palco tagliato");
+});
+t("Adatta include le ancore dei cablaggi disegnate fuori dal palco", () => {
+  reset(); A.applyStageSize(8, 6, false);
+  const senza = A.contentBounds();
+  A.state.cab.on = true; A.state.cab.home = { kind: "foh" };          // punto principale in sala: D+120
+  A.state.elec.on = true; A.state.elec.supply = { kind: "rete", x: 0, y: 0 };  // arrivo corrente: D+108
+  A.layerSoloUI = {}; A.__cabRes = null; A.__elecRes = null;
+  const con = A.contentBounds();
+  ok(con.y1 > senza.y1, "il riquadro non si allarga per le ancore sotto il palco");
+  ok(con.y1 >= A.state.stage.d + 120, "il punto principale audio (FOH) resta fuori: " + con.y1);
+  A.state.cab.on = false; A.state.elec.on = false; A.state.cab.home = null;
+});
+t("fitStage (nuovo palco) include anch'esso le scritte", () => {
+  reset(); A.applyStageSize(5, 4, false);
+  const d = A.stageDecorBounds();
+  withCanvas(700, 700, () => A.fitStage());
+  ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
+});
+
+/* ---- Vista completa vs viste layer, e selezionabilita' ---- */
+console.log("\nViste layer e selezionabilita':");
+t("nessuna vista selezionata: tutti i cablaggi visibili (cabLayerLive)", () => {
+  A.layerSoloUI = {}; A.layerAccOpen = null; A.__cabStatic = false;
+  ["cabin", "cabout", "mond", "elec"].forEach(id => ok(A.cabLayerLive(id), "layer spento in vista completa: " + id));
+});
+t("vista selezionata: filtra sugli altri layer", () => {
+  A.__cabStatic = false; A.layerSoloUI = { cabin: true };
+  ok(A.cabLayerLive("cabin"), "il layer selezionato deve restare acceso");
+  ["cabout", "mond", "elec"].forEach(id => ok(!A.cabLayerLive(id), "layer non filtrato: " + id));
+  A.layerSoloUI = {};
+});
+t("export PDF: la vista la decide la pagina, non lo stato UI", () => {
+  A.__cabStatic = true; A.layerSoloUI = { cabin: true };
+  ["cabin", "cabout", "mond", "elec"].forEach(id => ok(A.cabLayerLive(id), "__cabStatic deve bypassare il filtro: " + id));
+  A.__cabStatic = false; A.layerSoloUI = {};
+});
+t("un elemento non disegnato non e' selezionabile col rettangolo", () => {
+  reset(); A.layerSoloUI = {}; A.layerAccOpen = null;
+  const w = add("wedge", 400, 400);
+  A.stageLayerUI.vis = true; A.musLayerUI.vis = true;
+  ok(A.itemPickable(w), "in vista completa dev'essere selezionabile");
+  A.stageLayerUI.vis = false; A.state.cab.showReturns = false; A.state.cab.on = false;
+  ok(!A.itemPickable(w), "occhi chiusi: non deve essere selezionabile");
+  A.stageLayerUI.vis = true; A.state.cab.showReturns = true;
+  const r = add("rack", 700, 300); const inRack = add("wedge", 700, 300); inRack.rackId = r.id;
+  ok(!A.itemPickable(inRack), "elemento dentro un rack: non selezionabile");
+});
+t("in vista layer selezionata il contesto non e' selezionabile", () => {
+  reset(); const p = add("corista", 300, 300); const box = add("stagebox", 600, 400);
+  A.state.cab.on = true; A.__cabRes = null;
+  A.layerSoloUI = { cabin: true };
+  ok(A.itemPickable(box), "la stage box appartiene alla vista Input: selezionabile");
+  ok(!A.itemPickable(p) || A.itemInSoloLayer(p), "il contesto sfumato non dev'essere selezionabile");
+  A.layerSoloUI = {};
+});
 
 /* ---- Vocabolario di ricerca (SEARCH_ALIAS): come i fonici chiamano davvero le cose ---- */
 console.log("\nVocabolario di ricerca (mestieri, gergo, plurali):");

@@ -6280,9 +6280,9 @@ function cabLoomMarkup(polys){
 function cablingMarkup(){
   window.__loomN=0;   /* azzera PRIMA degli early-return: la legenda non deve leggere un conteggio stantio */
   if(!state.cab || !state.cab.on) return '';
-  /* Simone 21/07: senza layer selezionato = plot pulito SENZA cavi. I cavi compaiono solo quando il
-     layer è a fuoco/solo (nel PDF __cabStatic la vista è decisa altrove → invariato). */
-  var showIn=layerShown("cabin") && (window.__cabStatic||soloOn("cabin")), showRet=layerShown("cabout") && (window.__cabStatic||soloOn("cabout"));
+  /* Simone 25/07: senza vista layer selezionata la tavola è COMPLETA (cavi compresi, governati dagli
+     occhi); con una vista attiva restano solo i cavi di quel layer. Vedi cabLayerLive(). */
+  var showIn=layerShown("cabin") && cabLayerLive("cabin"), showRet=layerShown("cabout") && cabLayerLive("cabout");
   if(!showIn && !showRet) return '';
   var R=cabResult(); if(!R) return '';
   var op=soloOn("cabin")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;   /* in solo: piena resa */
@@ -6555,7 +6555,7 @@ var selElec=null;   /* linea elettrica selezionata (key = id del carico) — par
 function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
 function elecMarkup(){
   if(!state.elec || !state.elec.on || !layerShown("elec")) return '';
-  if(!(window.__cabStatic||soloOn("elec"))) return '';   /* cavi power solo col layer selezionato */
+  if(!cabLayerLive("elec")) return '';   /* vista attiva su un altro layer → i cavi power si tolgono di mezzo */
   var R=elecResult(); if(!R) return '';
   var op=soloOn("elec")?1:(state.elec.opacity==null?70:state.elec.opacity)/100, sl=state.elec.showLabels, sg=state.elec.showLengths;
   var editE=!window.__cabStatic && !state.elec.locked;   /* parità Max; niente editing se il layer Elettrico è bloccato (lucchetto) */
@@ -6625,7 +6625,7 @@ function elecMarkup(){
 var selMond=null;   /* cavo monitor digitale selezionato (key = id del mixerino) */
 function monDigMarkup(){
   if(!state.mond || !state.mond.on || !layerShown("mond")) return '';
-  if(!(window.__cabStatic||soloOn("mond"))) return '';   /* cavi P.M. solo col layer selezionato */
+  if(!cabLayerLive("mond")) return '';   /* vista attiva su un altro layer → i cavi P.M. si tolgono di mezzo */
   var R=mondResult(); if(!R) return '';
   var op=soloOn("mond")?1:(state.mond.opacity==null?70:state.mond.opacity)/100;
   var editM=!window.__cabStatic;
@@ -7186,7 +7186,7 @@ function netEngine(){
 }
 function netMarkup(){
   if(!state.cab || !state.cab.on || !layerShown("net")) return '';
-  if(!(window.__cabStatic||soloOn("cabin"))) return '';   /* rete = infrastruttura Input: solo col layer Input selezionato */
+  if(!cabLayerLive("cabin")) return '';   /* rete = infrastruttura Input: segue la vista Input */
   var N=netEngine(); if(!N.runs.length) return '';
   var op=soloOn("net")?1:(state.cab.opacity==null?70:state.cab.opacity)/100;
   var LBL=window.__cabStatic || state.cab.labelMode==="always" || document.body.classList.contains("viewmode");
@@ -7291,7 +7291,7 @@ function mzMicHitMarkup(){
 }
 function rfMarkup(){
   if(!layerShown("rf")) return '';
-  if(!(window.__cabStatic||soloOn("cabin"))) return '';   /* RF = infrastruttura Input */
+  if(!cabLayerLive("cabin")) return '';   /* RF = infrastruttura Input: segue la vista Input */
   var C; try{ C=rfChain(); }catch(_e){ return ''; }
   if(!C.links.length && !C.ants.length) return '';
   var op=soloOn("rf")?1:0.85;
@@ -7315,6 +7315,27 @@ function rfMarkup(){
   return s2+'</g>';
 }
 function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+rfMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
+/* Layer v3 (21/07, Simone): PALCO CONTIENE TUTTO. Un elemento si vede se l'occhio del Palco è
+   acceso OPPURE un layer acceso lo contiene (OR delle viste: Musicisti / Ingressi / Output /
+   P.M. / Power). Palco spento + solo Ingressi acceso = solo la catena input. Le COPERTURE fanno
+   eccezione (veto): il loro occhio le nasconde comunque — serve per lavorare sotto il gazebo. */
+function itemEyeShown(it){
+  if(isCover(it)) return coverLayerUI.vis;
+  if(stageLayerUI.vis) return true;   /* Palco = tutto */
+  if(musLayerUI.vis && musLayerItem(it.type)) return true;
+  var ids=["cabin","cabout","mond","elec"];
+  for(var i=0;i<ids.length;i++){ if(layerShown(ids[i]) && layerFgItem(ids[i], it)) return true; }
+  return false;
+}
+/* "si può prendere col mouse?" — stessa regola con cui la scena decide di disegnarlo, così il marquee
+   non può selezionare (e quindi spostare o cancellare) ciò che non si vede: elementi in un rack,
+   coperture spente, layer con l'occhio chiuso, contesto fuori dalla vista selezionata. */
+function itemPickable(it){
+  if(!it || it.rackId) return false;
+  if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
+  if(anySolo()) return itemInSoloLayer(it);
+  return itemEyeShown(it);
+}
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
@@ -7326,19 +7347,8 @@ function sceneMarkup(){
   /* SOLO attivo: elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto.
      Il solo del Palco = vista d'insieme (tutto a fuoco: layerFgItem("stage") è sempre true). */
   var soloSplit = anySolo();
-  /* Layer v3 (21/07, Simone): PALCO CONTIENE TUTTO. Un elemento si vede se l'occhio del Palco è
-     acceso OPPURE un layer acceso lo contiene (OR delle viste: Musicisti / Ingressi / Output /
-     P.M. / Power). Palco spento + solo Ingressi acceso = solo la catena input. Le COPERTURE fanno
-     eccezione (veto): il loro occhio le nasconde comunque — serve per lavorare sotto il gazebo.
+  /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
-  function itemEyeShown(it){
-    if(isCover(it)) return coverLayerUI.vis;
-    if(stageLayerUI.vis) return true;   /* Palco = tutto */
-    if(musLayerUI.vis && musLayerItem(it.type)) return true;
-    var ids=["cabin","cabout","mond","elec"];
-    for(var i=0;i<ids.length;i++){ if(layerShown(ids[i]) && layerFgItem(ids[i], it)) return true; }
-    return false;
-  }
   var items='', zones='', bgItems='';
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
   if(!coverLayerUI.vis && !(state.items||[]).some(isCover)) coverLayerUI.vis=true;   /* niente coperture → riporta la vista a visibile (evita che una nuova copertura nasca nascosta) */
@@ -10479,7 +10489,7 @@ svg.addEventListener("pointerup", function(e){
       selSet={}; sel=null;
       /* selezione per INTERSEZIONE dell'ingombro (AABB) col rettangolo, non per solo centro: basta sfiorare l'elemento */
       state.items.forEach(function(it){
-        if(it.rackId) return;   /* dentro un rack: non visibile → non selezionabile col marquee */
+        if(!itemPickable(it)) return;   /* non disegnato (rack, occhio chiuso, fuori dalla vista) → non selezionabile */
         var hw=(it.w||0)/2, hd=(it.d||0)/2;
         if(it.x-hw<=r.x+r.w && it.x+hw>=r.x && it.y-hd<=r.y+r.h && it.y+hd>=r.y){ selSet[it.id]=true; sel=it.id; }
       });
@@ -10494,7 +10504,8 @@ svg.addEventListener("pointerup", function(e){
       function _addHits(links){ (links||[]).forEach(function(l){ if(l.deleted) return;
         var ex={}; if(l.s&&l.s.it) ex[l.s.it.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
         if(polyHitsRect(orthExpand(cabRoutePts(l.pts, OBS, ex)), rr)) selCabSet[l.key]=true; }); }
-      if(Rm){ if(state.cab.showInputs!==false) _addHits(Rm.links); if(state.cab.showReturns!==false) _addHits(Rm.returnLinks); }
+      /* stessi gate del disegno (occhio + vista selezionata): non si selezionano cavi non visibili */
+      if(Rm){ if(layerShown("cabin") && cabLayerLive("cabin")) _addHits(Rm.links); if(layerShown("cabout") && cabLayerLive("cabout")) _addHits(Rm.returnLinks); }
       selCab=Object.keys(selCabSet)[0]||null;
     }
     if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
@@ -10561,10 +10572,24 @@ svg.addEventListener("drop", function(e){
 });
 /* il doppio-click è gestito manualmente nel pointerdown (vedi lastDown): il dblclick nativo
    non scatta perché render() ricrea il bersaglio del primo click. */
-/* riquadro di TUTTO il contenuto (palco + elementi) per "vedere sempre tutto" */
+/* Ingombro delle scritte disegnate FUORI dal rettangolo del palco: "FONDO PALCO" e "PUBBLICO"
+   (stageLayerMarkup) e le quote dei blocchi (stageDimsMarkup). Sono <text> SVG in coordinate palco,
+   quindi occupano sempre lo stesso spazio in cm a qualunque zoom — ma nessuno le contava, e su un
+   palco piccolo il margine proporzionale non bastava a coprirle: "Adatta" le tagliava.
+   I numeri vengono dal markup e dal CSS, non a occhio:
+     FONDO PALCO  baseline y=-42, font 16 → sale fino a ~-55 (ascender ≈ 0,8em)
+     PUBBLICO     baseline y=D+38, font 16 → scende fino a ~D+42 (descender ≈ 0,2em)
+     larghezza    "FONDO PALCO" ≈ 11 caratteri × (16×0,6 + 2 di letter-spacing) → ±65 dal centro
+     quote        offset 16 e 33 cm dal bordo + font 14 ruotato → ~45 cm oltre i lati */
+function stageDecorBounds(){
+  var W=state.stage.w||0, D=state.stage.d||0, half=65, side=45;
+  return { x0:Math.min(-side, W/2-half), y0:-58, x1:Math.max(W+side, W/2+half), y1:D+42 };
+}
+/* riquadro di TUTTO il contenuto (palco + scritte/quote + elementi) per "vedere sempre tutto" */
 function contentBounds(){
   recalcStageBBox();
-  var x0=0,y0=0,x1=state.stage.w,y1=state.stage.d;
+  var dec=stageDecorBounds();
+  var x0=dec.x0,y0=dec.y0,x1=dec.x1,y1=dec.y1;
   state.items.forEach(function(it){
     /* bounding box REALE (rettangolare), ruotato: niente più approssimazione "quadrata" che gonfiava il lato corto */
     var rot=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
@@ -10577,10 +10602,20 @@ function contentBounds(){
       var halfTxt=Math.max(String(it.label||"").length, String(it.label2||"").length)*fs*0.28;
       ax0=Math.min(ax0, it.x-halfTxt); ax1=Math.max(ax1, it.x+halfTxt); }
     x0=Math.min(x0,ax0); y0=Math.min(y0,ay0); x1=Math.max(x1,ax1); y1=Math.max(y1,ay1); });
+  /* Àncore dei cablaggi: badge disegnati FUORI dal palco e assenti da state.items — il punto
+     principale audio (stage rack a D+72, FOH a D+120) e l'arrivo di corrente (rete a D+108).
+     Sono cliccabili e trascinabili, quindi devono stare nella vista; le mezze misure vengono dai
+     <rect> del markup. Si contano solo se davvero disegnate (stessi gate dei cavi). */
+  [ (state.cab && state.cab.on && layerShown("cabin") && cabLayerLive("cabin")) ? [cabHomePoint(), 40, 15] : null,
+    (state.elec && state.elec.on && layerShown("elec") && cabLayerLive("elec")) ? [elecSupplyPoint(), 48, 15] : null
+  ].forEach(function(a){ if(!a || !a[0]) return; var p=a[0];
+    x0=Math.min(x0,p.x-a[1]); x1=Math.max(x1,p.x+a[1]); y0=Math.min(y0,p.y-a[2]); y1=Math.max(y1,p.y+a[2]); });
   return {x0:x0,y0:y0,x1:x1,y1:y1};
 }
-/* margine di fit proporzionato al palco: un margine fisso (140cm) rimpiccioliva troppo i palchi piccoli */
-function fitMargin(){ var big=Math.max(state.stage.w||0, state.stage.d||0, 300); return Math.round(big*(isMobile()?0.05:0.055)); }
+/* Margine di fit proporzionato al palco: un margine fisso (140cm) rimpiccioliva troppo i palchi
+   piccoli. Minimo assoluto 30 cm: aria fra il contenuto (scritte comprese) e il bordo dell'area
+   visibile, anche su palchi molto piccoli dove il 5% varrebbe una decina di centimetri. */
+function fitMargin(){ var big=Math.max(state.stage.w||0, state.stage.d||0, 300); return Math.max(30, Math.round(big*(isMobile()?0.05:0.055))); }
 /* larghezza viewBox che mostra TUTTO (= massimo zoom-out consentito) */
 function fitTo(x0,y0,x1,y1){
   var m=fitMargin();
@@ -10590,7 +10625,9 @@ function fitTo(x0,y0,x1,y1){
   render();
 }
 function fit(){ var b=contentBounds(); fitTo(b.x0,b.y0,b.x1,b.y1); }
-function fitStage(){ recalcStageBBox(); fitTo(0,0,state.stage.w,state.stage.d); }   /* "a": adatta la vista al solo palco */
+/* adatta al solo palco (nuovo documento, cambio misure): niente elementi, ma le scritte FONDO PALCO
+   e PUBBLICO fanno parte del palco e devono restare leggibili. Il tasto "a" usa fit(), non questa. */
+function fitStage(){ recalcStageBBox(); var d=stageDecorBounds(); fitTo(d.x0,d.y0,d.x1,d.y1); }
 function ensureVisible(){}
 /* ===== Modifica palco (forma a blocchi) ===== */
 function renderStagePanel(){
@@ -12687,6 +12724,14 @@ var layerSoloUI = {};
 var layerSoloMode = "focus";
 function anySolo(){ for(var k in layerSoloUI){ if(layerSoloUI[k]) return true; } return false; }
 function soloOn(id){ return !!layerSoloUI[id]; }
+/* I CAVI di un layer si disegnano quando:
+   - nessuna vista layer è selezionata → TAVOLA COMPLETA: tutti i cablaggi insieme, a decidere
+     restano solo gli occhi (Simone 25/07; ribalta il "senza layer selezionato = plot pulito senza
+     cavi" del 21/07, che nascondeva il lavoro di cablaggio appena si usciva dalla vista);
+   - oppure la vista selezionata è proprio la sua (fuoco o S) → filtro: solo quei cavi;
+   - oppure siamo in export/PDF (__cabStatic), dove la vista è decisa dalla pagina.
+   Gli occhi restano un asse separato: layerShown(id) li applica in ogni caso. */
+function cabLayerLive(id){ return !!window.__cabStatic || !anySolo() || soloOn(id); }
 /* fonte unica di visibilità di un layer nella scena: il solo (se attivo) vince sugli occhi */
 function layerShown(id){
   /* Layer v3: rete e RF sono infrastruttura del layer Ingressi → sotto solo seguono cabin */
