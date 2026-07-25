@@ -3540,6 +3540,84 @@ t("fitStage (nuovo palco) include anch'esso le scritte", () => {
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
 });
 
+/* ---- DI: un'opzione del pannello diventa un oggetto sul palco, e una tappa del cavo ----
+   Prima scegliere "DI" cambiava solo l'etichetta del canale: nessuna scatoletta, nessun passaggio. */
+console.log("\nDI come oggetto e nodo della catena:");
+function diSetup() {
+  reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16; box.outCh = 8;
+  const gtr = add("musChitClassica", 300, 400);
+  return { box, gtr };
+}
+t("scegliere DI crea la scatoletta accanto allo strumento, legata a lui", () => {
+  const { gtr } = diSetup();
+  ok(!A.diLinked(gtr), "non deve esistere prima");
+  gtr.miking = "di"; const di = A.diApply(gtr);
+  ok(di && di.type === "dimono", "nessuna DI creata");
+  eq(di.diFor, gtr.id, "la DI non e' legata allo strumento");
+  eq(gtr.diId, di.id, "lo strumento non conosce la sua DI");
+  ok(Math.hypot(di.x - gtr.x, di.y - gtr.y) < 120, "la DI deve nascere ACCANTO allo strumento: " + [di.x, di.y]);
+  ok(/^DI \d+$/.test(di.label || ""), "etichetta progressiva mancante: " + di.label);
+});
+t("il cavo passa DENTRO la DI: strumento → DI → stage box", () => {
+  const { gtr } = diSetup();
+  gtr.miking = "di"; const di = A.diApply(gtr); A.__cabRes = null;
+  const l = (A.cabResult().links || [])[0];
+  ok(l, "nessun cavo generato");
+  ok(l.pts.length >= 3, "il percorso deve avere una tappa in mezzo: " + JSON.stringify(l.pts));
+  ok(l.pts.some(p => Math.abs(p[0] - di.x) < 2 && Math.abs(p[1] - di.y) < 2), "il cavo non passa dalla DI");
+  eq((A.cabResult().links || []).length, 1, "la DI non deve aggiungere canali");
+});
+t("la stage box si sceglie dalla DI, non dallo strumento", () => {
+  const { gtr } = diSetup();
+  const lontana = add("stagebox", 320, 380); lontana.ch = 16;   // vicinissima allo strumento
+  gtr.miking = "di"; const di = A.diApply(gtr);
+  di.x = 900; di.y = 160; A.__cabRes = null;                    // ma la DI e' stata portata vicino all'altra box
+  const l = (A.cabResult().links || [])[0];
+  ok(l && l.box, "nessuna box assegnata");
+  const dBox = Math.hypot(l.box.x - di.x, l.box.y - di.y);
+  ok(dBox < Math.hypot(lontana.x - di.x, lontana.y - di.y) + 1, "ha scelto la box vicina allo strumento invece che alla DI");
+});
+t("la DI segue lo strumento quando lo sposti, e resta dove la trascini", () => {
+  const { gtr } = diSetup();
+  gtr.miking = "di"; const di = A.diApply(gtr);
+  const dx = di.x - gtr.x, dy = di.y - gtr.y;
+  gtr.x += 200; gtr.y += 150; A.diSyncAll();
+  eq([di.x - gtr.x, di.y - gtr.y].join(","), [dx, dy].join(","), "la DI non ha seguito lo strumento");
+  di.x = gtr.x - 80; di.y = gtr.y - 60; A.diSaveOff(di);        // l'utente la trascina altrove
+  gtr.x += 100; A.diSyncAll();
+  eq([di.x - gtr.x, di.y - gtr.y].join(","), [-80, -60].join(","), "il nuovo posto scelto a mano non e' stato rispettato");
+});
+t("tolta l'opzione o cancellato lo strumento, la DI se ne va", () => {
+  const { gtr } = diSetup();
+  gtr.miking = "di"; A.diApply(gtr);
+  gtr.miking = "mic"; A.diApply(gtr);
+  ok(!A.diLinked(gtr) && !A.state.items.some(i => i.type === "dimono"), "la DI resta sul palco dopo aver scelto Mic");
+  gtr.miking = "di"; const di2 = A.diApply(gtr);
+  ok(di2, "non ricreata");
+  A.selSet = {}; A.selSet[gtr.id] = true; A.sel = gtr.id; A.deleteSel();
+  ok(!A.state.items.some(i => i.type === "dimono"), "cancellato lo strumento, la sua DI deve sparire");
+});
+t("uscita bilanciata a bordo: niente DI, cavo diretto", () => {
+  const { gtr } = diSetup();
+  gtr.miking = "di"; A.diApply(gtr);
+  gtr.balOut = true; A.diApply(gtr); A.__cabRes = null;
+  ok(!A.state.items.some(i => i.type === "dimono"), "con l'uscita bilanciata la DI non deve esserci");
+  const l = (A.cabResult().links || [])[0];
+  eq(l.pts.length, 2, "senza DI il cavo va diretto alla stage box");
+});
+t("strumento stereo → DI stereo (una scatoletta, due canali)", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 800, 150); box.ch = 16;
+  const keys = add("stagepiano", 400, 400);
+  const di = A.diApply(keys);
+  ok(di, "nessuna DI per la tastiera");
+  eq(di.diCh, "stereo", "una tastiera stereo vuole una DI stereo");
+  eq(A.state.items.filter(i => i.type === "dimono").length, 1, "una sola scatoletta");
+  eq(A.cabItemInputs(keys).length, 2, "restano due canali (L/R)");
+  ok(!A.isAudioSource(di), "la DI generata non deve contare come sorgente autonoma");
+});
+
 /* ---- Stage box: il pannello disegnato È il numero di canali ---- */
 console.log("\nStage box (pannello sui canali reali):");
 const sbConn = (mk) => (mk.match(/#0a0b0c|#0b1f1d/g) || []).length;   // un foro per connettore (lod 2)
