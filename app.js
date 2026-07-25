@@ -8019,6 +8019,7 @@ function addItem(type, over){
   if(MON_DIG_NODE[type] && state.mond && !state.mond.on){ state.mond.on=true; state.mond.visible=true; __mondRes=null; }   /* personal mixer/hub digitale → attiva in automatico il layer P.M. (monitoraggio) */
   addCascade=(addCascade+25)%150;
   state.items.push(it); selectOne(it.id); render(); save(); ensureVisible();
+  qaFreqBump(type);   /* quick-add: impara cosa metti davvero, per proporlo la prossima volta */
   /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
      interattivi: i progetti caricati non vengono toccati. Le correzioni manuali e i cavi eliminati
@@ -8076,6 +8077,54 @@ function showDragHintOnce(){
 /* Quick-add stile Max (08/07): doppio click sul vuoto → digiti il nome, appare la lista dei nomi
    corrispondenti, clicchi/Invio per aggiungere l'elemento nel punto del click. Basta l'iniziale per
    vedere la lista. Riusa addItem(type,{x,y}) che accetta già la posizione. */
+/* ===== Quick-add: cosa proporre quando la finestrella si apre ancora vuota =====
+   (Simone 25/07, variante C+B) Il difetto vero non era l'aspetto: la finestrella si apriva muta e chi
+   non sapeva già cosa scrivere la chiudeva. Ora appena si apre mostra due cose concrete — quello che
+   l'utente mette più spesso (frequenza vera, imparata dall'uso) e quello che manca al progetto
+   (le stesse regole dell'Audit) — e ogni riga porta la miniatura dell'elemento, quella del catalogo. */
+var QA_FREQ_KEY="sp_qafreq";
+function qaFreq(){ try{ return JSON.parse(localStorage.getItem(QA_FREQ_KEY)||"{}")||{}; }catch(e){ return {}; } }
+function qaFreqBump(type){
+  if(!type || !TYPES[type]) return;
+  try{ var f=qaFreq(); f[type]=(f[type]||0)+1; localStorage.setItem(QA_FREQ_KEY, JSON.stringify(f)); }catch(e){}
+}
+var QA_START=["astamic","wedge","dimono","batteria","stagebox","cantante"];   /* primo avvio: i sei che si mettono sempre */
+function qaSuggested(){
+  var f=qaFreq(), ranked=Object.keys(f).filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; })
+    .sort(function(a,b){ return f[b]-f[a]; });
+  var out=[];
+  ranked.concat(QA_START).forEach(function(k){ if(out.length<6 && out.indexOf(k)===-1 && TYPES[k]) out.push(k); });
+  return out;
+}
+/* "Manca al progetto": poche regole certe, le stesse dell'Audit — niente suggerimenti a caso */
+function qaMissing(){
+  var out=[];
+  try{
+    var items=state.items||[];
+    var hasSrc=items.some(function(it){ return isAudioSource(it); });
+    var hasBox=items.some(function(it){ return cabIsBox(it); });
+    if(hasSrc && !hasBox) out.push({k:"stagebox", why:"manca", full:"Nessuna stage box sul palco"});
+    if(out.length<2 && typeof monUncovered==="function"){
+      var n=monUncovered().length;
+      if(n>0) out.push({k:"wedge", why:n+" senza ascolto", full:(n===1?"Un musicista":n+" musicisti")+" senza monitor d'ascolto"});
+    }
+    if(out.length<2 && items.length && !items.some(function(it){ return it.type==="corrente"||elecIsDistro(it); })
+       && items.some(function(it){ return wattOf(it)>0; })) out.push({k:"corrente", why:"niente 220 V", full:"Ci sono carichi ma nessuna presa"});
+  }catch(e){}
+  return out.slice(0,2);
+}
+/* miniature: costose da generare (icone di libreria), ma sempre uguali → si tengono in cache per chiave */
+var _qaIcoCache={};
+function qaIcon(e){
+  if(e.iconHtml) return e.iconHtml;
+  var k=e.k||e.icon; if(!k || !TYPES[k]) return '';
+  var ck=k+"|"+(e.over?JSON.stringify(e.over):"");
+  if(_qaIcoCache[ck]==null){
+    try{ _qaIcoCache[ck]=miniSvg(k, e.over||null).replace('width="32" height="32"','width="26" height="26"'); }
+    catch(_e){ _qaIcoCache[ck]=''; }
+  }
+  return _qaIcoCache[ck];
+}
 var _qaSp=null;
 function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.remove(); _qaSp=null; }
 /* Ricerca della quick-add: stessi dati della barra di ricerca del catalogo (nome + dimensione +
@@ -8144,32 +8193,62 @@ function openQuickAdd(sp, cx, cy){
   box.style.top=Math.max(8, Math.min(cy, window.innerHeight-336))+"px";
   /* variante B "minimal chic" (scelta Simone 08/07): input con completamento fantasma del primo
      match (ghost grigio sotto l'input trasparente, stesse metriche → il testo digitato lo copre) */
+  var top=document.createElement("div"); top.className="qa-top";
+  top.innerHTML='<svg class="qa-mag" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   var wrap=document.createElement("div"); wrap.className="qa-inpwrap";
   var ghost=document.createElement("div"); ghost.className="qa-ghost";
   var inp=document.createElement("input"); inp.type="text"; inp.className="qa-input";
-  inp.placeholder="Aggiungi elemento…"; inp.setAttribute("aria-label","Cerca un elemento da aggiungere");
-  wrap.appendChild(ghost); wrap.appendChild(inp);
+  inp.placeholder="Cerca un elemento…"; inp.setAttribute("aria-label","Cerca un elemento da aggiungere");
+  wrap.appendChild(ghost); wrap.appendChild(inp); top.appendChild(wrap);
+  var body=document.createElement("div"); body.className="qa-body";
   var list=document.createElement("ul"); list.className="qa-list";
-  box.appendChild(wrap); box.appendChild(list); document.body.appendChild(box);
+  var foot=document.createElement("div"); foot.className="qa-foot";
+  foot.innerHTML='<span class="qa-kbd">\u2191\u2193</span> scorri <span class="qa-kbd">\u21b5</span> aggiungi <span class="qa-sp"></span><span class="qa-kbd">esc</span> chiudi';
+  box.appendChild(top); box.appendChild(body); body.appendChild(list); box.appendChild(foot); document.body.appendChild(box);
   /* cerca sull'INDICE DEL CATALOGO (window.__catEntries, alias compresi — vedi qaSearch): copre anche
      Violino I/II, varianti stagebox/pedane, Uomo/Donna… — non solo i TYPES (fix richiesta Simone:
      "violino non trova Violino I e II"). */
   var _m=[];   /* match correnti (per pick da tastiera/click) */
+  function row(e, i, sub, tip){   /* riga con la MINIATURA dell'elemento: si riconosce con l'occhio, non leggendo */
+    var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-i",i);
+    var ic=document.createElement("span"); ic.className="qa-ico"; ic.innerHTML=qaIcon(e);
+    var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=e.nome;
+    var sm=document.createElement("span"); sm.className="qa-pill"+(sub?" qa-why":""); sm.textContent=sub || qaCat(e).split(/,| e |·/)[0].trim();
+    if(tip) li.title=tip;
+    li.appendChild(ic); li.appendChild(nm); li.appendChild(sm);
+    li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(e); });
+    return li;
+  }
+  function entryOf(k){   /* dal tipo alla voce di catalogo (così pick() funziona come per i risultati) */
+    var all=(window.__catEntries||[]).filter(function(e){ return e.k===k && !e.noQuick; });
+    /* fra le varianti (Stage box 8/16/24) si propone quella base, non la prima dell'elenco */
+    var hit=all.filter(function(e){ return !e.over; })[0] || all.filter(function(e){ return e.over && e.over.ch===16; })[0] || all[0];
+    return hit || (TYPES[k] ? {k:k, nome:TYPES[k].nome} : null);
+  }
+  function drawEmpty(){   /* finestrella appena aperta: propone invece di restare muta */
+    list.innerHTML=""; ghost.textContent=""; _m=[];
+    var miss0=qaMissing(), missK={}; miss0.forEach(function(m){ missK[m.k]=1; });
+    var sug=qaSuggested().filter(function(k){ return !missK[k]; }).slice(0,5).map(entryOf).filter(Boolean);   /* niente doppioni con "manca al progetto" */
+    if(sug.length){
+      var h1=document.createElement("li"); h1.className="qa-sect"; h1.textContent="Di solito metti"; list.appendChild(h1);
+      sug.forEach(function(e){ _m.push(e); list.appendChild(row(e, _m.length-1)); });
+    }
+    var miss=miss0;
+    if(miss.length){
+      var h2=document.createElement("li"); h2.className="qa-sect"; h2.textContent="Manca al progetto"; list.appendChild(h2);
+      miss.forEach(function(m){ var e=entryOf(m.k); if(!e) return; _m.push(e); list.appendChild(row(e, _m.length-1, m.why, m.full)); });
+    }
+  }
   function draw(q){
+    if(!String(q||"").trim()) return drawEmpty();
     list.innerHTML=""; ghost.textContent=""; _m=qaSearch(q);
-    if(!_m.length) return;
+    if(!_m.length){ var no=document.createElement("li"); no.className="qa-sect"; no.textContent="Nessun elemento trovato"; list.appendChild(no); return; }
     /* completamento fantasma: confronto GREZZO (non deaccentato) perché il resto del nome si taglia con
        la lunghezza di quello che l'utente ha digitato. Deaccentando, un accento composto (NFD, tipico
        del copia-incolla da macOS) sposta le lunghezze e il ghost mostrerebbe il nome mangiato. */
     var raw=String(q||"").trim().toLowerCase(), tn=_m[0].nome||"";
     if(raw && tn.toLowerCase().indexOf(raw)===0) ghost.textContent=inp.value+tn.slice(inp.value.trim().length);
-    _m.forEach(function(e,i){
-        var li=document.createElement("li"); li.className="qa-item"+(i===0?" sel":""); li.setAttribute("data-i",i);
-        var nm=document.createElement("span"); nm.className="qa-name"; nm.textContent=e.nome;
-        var sm=document.createElement("span"); sm.className="qa-pill"; sm.textContent=qaCat(e).split(/,| e |·/)[0].trim();
-        li.appendChild(nm); li.appendChild(sm);
-        li.addEventListener("mousedown", function(ev){ ev.preventDefault(); pick(e); });
-        list.appendChild(li); });
+    _m.forEach(function(e,i){ list.appendChild(row(e,i)); });
   }
   function pick(e){ var sp2=_qaSp; closeQuickAdd(); if(!sp2 || !e) return;
     if(e.action){ e.action(); }   /* voci speciali (Violino I/II, liste…): azione propria, posizione automatica */
@@ -8186,6 +8265,7 @@ function openQuickAdd(sp, cx, cy){
     else if(ev.key==="Enter"){ ev.preventDefault(); var s=list.querySelector(".qa-item.sel"); if(s) pick(_m[+s.getAttribute("data-i")]); }
   });
   inp.addEventListener("blur", function(){ setTimeout(closeQuickAdd, 140); });   /* click fuori → chiudi (il mousedown sulle voci fa in tempo) */
+  drawEmpty();   /* si apre già con qualcosa da scegliere */
   setTimeout(function(){ inp.focus(); }, 0);
 }
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
