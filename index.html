@@ -688,19 +688,36 @@
   /* Quick-add palette (doppio click sul vuoto → digiti il nome, stile Max) */
   /* Quick-add — variante B "minimal chic" (scelta Simone 08/07): niente icone, nome + categoria a
      pillola, selezione con barretta teal, completamento fantasma nell'input */
-  .quick-add{position:fixed;z-index:60;width:272px;background:var(--panel,#fff);border:1px solid #e7e2da;border-radius:13px;box-shadow:0 14px 40px rgba(31,41,55,.16);overflow:hidden}
-  .qa-inpwrap{position:relative;border-bottom:1px solid #f0ebe4}
-  .qa-ghost{position:absolute;inset:0;padding:12px 14px;font-size:14.5px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
-  .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:12px 14px;font-size:14.5px;background:transparent;color:var(--text,#111827);outline:none}
-  .qa-list{list-style:none;margin:0;padding:5px 6px;max-height:270px;overflow-y:auto}
-  .qa-item{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8.5px 10px 8.5px 13px;border-radius:9px;cursor:pointer}
-  .qa-name{font-size:13.5px;font-weight:500;color:var(--text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .qa-pill{flex:none;font-size:9.5px;font-weight:600;letter-spacing:.3px;color:#8d867b;background:#f3efe9;padding:3px 8px;border-radius:99px}
+  /* Quick-add (doppio clic sul palco). 25/07: si apre PROPONENDO invece che vuota, e ogni riga porta
+     la miniatura reale dell'elemento — riconoscerlo con l'occhio è più veloce che leggere un elenco
+     di nomi simili ("Wedge monitor" / "Sidefill"). Token del design system: accent teal, neutri caldi. */
+  .quick-add{position:fixed;z-index:60;width:296px;background:var(--panel,#fff);border:1px solid #e7e2da;border-radius:13px;
+    box-shadow:0 14px 40px rgba(31,41,55,.16);overflow:hidden;display:flex;flex-direction:column;max-height:min(420px,72vh)}
+  .qa-top{display:flex;align-items:center;gap:9px;padding:0 13px}
+  .qa-mag{flex:none;width:15px;height:15px;color:#a8a196}   /* la regola globale svg{width:100%} la gonfiava a tutta la finestrella */
+  .qa-body{overflow-y:auto;flex:1;min-height:0}
+  .qa-ghost{position:absolute;inset:0;padding:12px 0;font-size:14.5px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
+  .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:12px 0;font-size:14.5px;background:transparent;color:var(--text,#111827);outline:none}
+  .qa-list{list-style:none;margin:0;padding:5px 6px}
+  .qa-sect{list-style:none;font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#8d867b;padding:8px 12px 4px}
+  .qa-item{position:relative;display:flex;align-items:center;gap:10px;padding:6px 10px 6px 12px;border-radius:9px;cursor:pointer}
+  .qa-ico{flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:rgba(141,134,123,.09);overflow:hidden}
+  .qa-ico svg{display:block;width:22px!important;height:22px!important}   /* idem: batte svg{width:100%;height:100%} del canvas */
+  .qa-name{font-size:13.5px;font-weight:500;color:var(--text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .qa-pill{flex:none;font-size:9.5px;font-weight:600;letter-spacing:.3px;color:#8d867b;background:#f3efe9;padding:3px 8px;border-radius:99px;
+    max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .qa-item:hover{background:rgba(13,148,136,.06)}
   .qa-item.sel{background:rgba(13,148,136,.09)}
-  .qa-item.sel::before{content:"";position:absolute;left:3px;top:7px;bottom:7px;width:3px;border-radius:3px;background:#0d9488}
+  .qa-item.sel::before{content:"";position:absolute;left:3px;top:6px;bottom:6px;width:3px;border-radius:3px;background:#0d9488}
   .qa-item.sel .qa-name{color:#0f766e;font-weight:600}
   .qa-item.sel .qa-pill{background:rgba(13,148,136,.13);color:#0f766e}
+  .qa-item.sel .qa-ico{background:rgba(13,148,136,.14)}
+  .qa-pill.qa-why{max-width:120px;background:rgba(180,83,9,.10);color:#b45309}   /* "manca al progetto": è un avviso, non una categoria */
+  body.dark .qa-pill.qa-why{background:rgba(251,191,36,.14);color:#fbbf24}
+  .qa-foot{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid #ece7de;font-size:10.5px;color:#8d867b}
+  .qa-foot .qa-sp{margin-left:auto}
+  .qa-kbd{font-size:9.5px;font-weight:700;border:1px solid #e7e2da;border-radius:5px;padding:1px 5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#8d867b}
   body.dark .quick-add{background:#141a1f;border-color:#2a3138}
   /* menu contestuale sul cavo (tasto destro) */
   .cab-ctx{position:fixed;z-index:200;background:var(--panel,#fff);border:1px solid #e7e2da;border-radius:10px;box-shadow:0 12px 34px rgba(31,41,55,.18);padding:4px;min-width:158px;display:flex;flex-direction:column;gap:1px}
@@ -712,6 +729,11 @@
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
+  body.dark .qa-mag,body.dark .qa-sect,body.dark .qa-foot,body.dark .qa-kbd{color:#8b949e}
+  body.dark .qa-ico{background:rgba(139,148,158,.12)}
+  body.dark .qa-foot{border-top-color:#2a3138}
+  body.dark .qa-kbd{border-color:#2a3138}
+  body.dark .qa-item.sel .qa-ico{background:rgba(45,212,191,.16)}
   body.dark .qa-item:hover{background:rgba(45,212,191,.08)}
   body.dark .qa-item.sel{background:rgba(45,212,191,.13)}
   body.dark .qa-item.sel::before{background:#2dd4bf}
