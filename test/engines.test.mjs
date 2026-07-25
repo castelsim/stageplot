@@ -14,6 +14,7 @@ import vm from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const appjs = readFileSync(join(root, "app.js"), "utf8");   /* l'app e' nel bundle defer app.js (build.mjs) */
+const stylesCss = readFileSync(join(root, "src/styles.css"), "utf8");   /* il CSS e' sorgente: alcuni comportamenti (lock delle pedane) vivono li' */
 
 /* ---- sandbox: carica gli <script> inline reali con uno stub DOM che ingoia tutto ---- */
 function loadApp() {
@@ -3540,6 +3541,47 @@ t("fitStage (nuovo palco) include anch'esso le scritte", () => {
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
 });
 
+/* ---- Pedane: parte del palco, si toccano solo in modalità "Palco e pedane" ---- */
+console.log("\nPedane come elementi del palco:");
+t("fuori dalla modalita' palco la pedana e' ferma e non si prende", () => {
+  reset(); A.stageEdit = false;
+  const ped = add("pedana", 500, 300);
+  ok(A.isRiser(ped), "la pedana deve essere riconosciuta come riser");
+  ok(!A.riserEditable(ped), "fuori dalla modalita' palco non e' modificabile");
+  ok(!A.itemPickable(ped), "e non deve essere selezionabile (nemmeno col rettangolo)");
+});
+t("in modalita' palco torna selezionabile e modificabile", () => {
+  reset(); const ped = add("pedana", 500, 300);
+  A.stageEdit = true;
+  try { ok(A.riserEditable(ped) && A.itemPickable(ped), "in modalita' palco la pedana deve rispondere"); }
+  finally { A.stageEdit = false; }
+});
+t("gli altri elementi non sono toccati dal blocco", () => {
+  reset(); A.stageEdit = false;
+  const dr = add("batteria", 500, 300);
+  ok(A.riserEditable(dr) && A.itemPickable(dr), "la batteria resta selezionabile fuori dalla modalita' palco");
+  A.stageEdit = true;
+  try { ok(A.riserEditable(dr), "riserEditable riguarda solo le pedane"); } finally { A.stageEdit = false; }
+});
+t("una pedana in un gruppo non viene trascinata dagli altri elementi", () => {
+  reset(); A.stageEdit = false;
+  const ped = add("pedana", 500, 300), sedia = add("sedia", 480, 290);
+  ped.grp = sedia.grp = "g1";
+  const moving = [ped, sedia].filter(A.riserEditable);
+  eq(moving.length, 1, "solo la sedia si muove");
+  eq(moving[0].type, "sedia");
+});
+t("il markup marca le pedane con la loro classe, e il CSS le blocca", () => {
+  ok(appjs.indexOf('class="riser-item"') > -1, "manca la classe sul gruppo della pedana");
+  ok(stylesCss.indexOf("body:not(.stage-edit) .riser-item{pointer-events:none}") > -1, "manca il blocco fuori modalita'");
+  ok(/body\.stage-edit \.riser-item \.item\{opacity:1;pointer-events:all\}/.test(stylesCss), "in modalita' palco la pedana deve essere piena e cliccabile");
+});
+t("in modalita' palco la pedana ha la precedenza sul blocco sottostante", () => {
+  ok(appjs.indexOf("l'ultima vince: è quella più in alto") > -1 || appjs.indexOf("ha la precedenza sul blocco") > -1
+    || /if\(!e\.target\.closest \|\| !e\.target\.closest\(".blk-corner,.blk-edge/.test(appjs),
+    "manca la precedenza della pedana sull'overlay dei blocchi");
+});
+
 /* ---- Aste microfoniche: conteggio con le regole vere, non "un mic = un'asta" ----
    Nei rider reali le aste di batteria/ampli non si disegnano: si conta quante ne servono. */
 console.log("\nAste microfoniche (conteggio):");
@@ -3817,7 +3859,6 @@ t("ogni parola del vocabolario funziona su ENTRAMBE le ricerche", () => {
    Questi test presidiano la rimozione completa: niente markup, CSS o script orfani. */
 console.log("\nStriscia value-proposition (#homePromo, rimossa):");
 const indexHtml = readFileSync(join(root, "index.html"), "utf8");
-const stylesCss = readFileSync(join(root, "src/styles.css"), "utf8");
 t("nessun residuo nell'HTML generato", () => {
   ["homePromo", "hp-text", "hp-cta", "hpStart", "hpClose", "hpSeen", "hpDismiss"].forEach(s =>
     ok(indexHtml.indexOf(s) === -1, "residuo in index.html: " + s));

@@ -3892,7 +3892,7 @@ function itemMarkup(it){
     }
   }
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
-  if(!stageEdit && selSet[it.id] && selIds().length===1){
+  if((stageEdit ? isRiser(it) : true) && selSet[it.id] && selIds().length===1){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto */
     var ky=-(bh+26);
     s += '<g class="rot-handle" data-id="'+attrId+'">'+
          '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+9)+'"/>'+
@@ -3922,7 +3922,7 @@ function itemMarkup(it){
     }
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
-  if(!stageEdit && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
+  if((stageEdit ? isRiser(it) : true) && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
     var H=9, hpts;
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
@@ -5930,8 +5930,11 @@ function itemEyeShown(it){
 /* "si può prendere col mouse?" — stessa regola con cui la scena decide di disegnarlo, così il marquee
    non può selezionare (e quindi spostare o cancellare) ciò che non si vede: elementi in un rack,
    coperture spente, layer con l'occhio chiuso, contesto fuori dalla vista selezionata. */
+function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
+function riserEditable(it){ return !isRiser(it) || stageEdit; }   /* pedane: si toccano solo in modalità "Palco e pedane" */
 function itemPickable(it){
   if(!it || it.rackId) return false;
+  if(!riserEditable(it)) return false;   /* la pedana è parte del palco: ferma finché non entri in modalità palco */
   if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
   if(anySolo()) return itemInSoloLayer(it);
   return itemEyeShown(it);
@@ -5961,6 +5964,7 @@ function sceneMarkup(){
     var showAttr=(anySolo() || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
+    else if(TYPES[it.type] && TYPES[it.type].riser) m='<g class="riser-item"'+showAttr+'>'+m+'</g>';   /* pedane: parte del palco, si toccano solo in modalità "Palco e pedane" */
     else m='<g class="st-item"'+showAttr+'>'+m+'</g>';
     if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
     else items += m;
@@ -6425,6 +6429,8 @@ function renderSbF2(it){
 function renderProps(){
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
+  var _selOne = n===1 ? getSel() : null;
+  document.body.classList.toggle("riser-sel", !!(_selOne && isRiser(_selOne)));   /* pedana selezionata: in modalità palco il suo pannello resta visibile */
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
@@ -6485,9 +6491,19 @@ function renderProps(){
       document.getElementById("grpLblPosTop").className="btn"+(firstAbove?" primary":"");
       document.getElementById("grpLblPosBot").className="btn"+(firstAbove?"":" primary");
     }
-    /* --- distribuzione: pedana + elemento(i) dello stesso tipo --- */
-    var risers=its.filter(function(it){ return TYPES[it.type]&&TYPES[it.type].riser; });
-    var others=its.filter(function(it){ return !(TYPES[it.type]&&TYPES[it.type].riser); });
+    /* --- distribuzione: pedana + elemento(i) dello stesso tipo ---
+       La pedana ora si seleziona solo in modalita' palco, quindi non si puo' piu' pretendere che sia
+       nella selezione: se gli elementi scelti poggiano tutti sulla STESSA pedana, la si trova da soli. */
+    var risers=its.filter(isRiser);
+    var others=its.filter(function(it){ return !isRiser(it); });
+    if(!risers.length && others.length){
+      var _under=null, _same=true;
+      others.forEach(function(o){
+        var r=(state.items||[]).filter(function(x){ return isRiser(x) && itemsOnRiser(x).indexOf(o)>-1; })[0]||null;
+        if(!r) _same=false; else if(!_under) _under=r; else if(_under!==r) _same=false;
+      });
+      if(_same && _under) risers=[_under];
+    }
     var sameType = others.length>0 && others.every(function(it){ return it.type===others[0].type; });
     var dist=document.getElementById("grpDist");
     if(risers.length===1 && sameType){
@@ -8505,6 +8521,26 @@ svg.addEventListener("pointerdown", function(e){
     svg.setPointerCapture(e.pointerId); return;
   }
   if(stageEdit){                            /* modalità forma palco: trascina i blocchi / i lati per ridimensionare */
+    /* Le PEDANE stanno sopra il palco e in questa modalità sono l'oggetto da sistemare: hanno la
+       precedenza sul blocco sottostante. Il test va fatto sulla geometria, non su e.target, perché
+       l'overlay dei blocchi copre tutta l'area e intercetterebbe sempre il clic. */
+    if(!e.target.closest || !e.target.closest(".blk-corner,.blk-edge,.rot-handle,.rs-handle")){
+      var _ped=null;
+      (state.items||[]).forEach(function(it){
+        if(!isRiser(it) || !itemPickable(it)) return;
+        var rr=(it.rot||0)*Math.PI/180, cs=Math.cos(-rr), sn=Math.sin(-rr);
+        var dx=sp.x-it.x, dy=sp.y-it.y, lx=dx*cs-dy*sn, ly=dx*sn+dy*cs;
+        if(Math.abs(lx)<=(it.w||0)/2 && Math.abs(ly)<=(it.d||0)/2) _ped=it;   /* l'ultima vince: è quella più in alto */
+      });
+      if(_ped){
+        if(!selSet[_ped.id]) selectOne(_ped.id);
+        selBlock=null; renderStagePanel();
+        var _mv=selItems().slice().filter(isRiser);
+        _mv.slice().forEach(function(it){ itemsOnRiser(it).forEach(function(o){ if(_mv.indexOf(o)===-1) _mv.push(o); }); });   /* porta con sé chi ci sta sopra */
+        drag={mode:"item", sp0:{x:sp.x,y:sp.y}, items:_mv.map(function(i){ return {id:i.id, x0:i.x, y0:i.y}; }), moved:false};
+        svg.setPointerCapture(e.pointerId); render(); return;
+      }
+    }
     var corner = e.target.closest ? e.target.closest(".blk-corner") : null;
     if(corner){                             /* trascina un ANGOLO */
       var ci=+corner.getAttribute("data-block"), cci=+corner.getAttribute("data-corner"); selBlock=ci; renderStagePanel();
@@ -8615,7 +8651,7 @@ svg.addEventListener("pointerdown", function(e){
     }
     if(!selSet[id]) selectClick(id);      /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco) */
     if(e.altKey){ e.preventDefault(); duplicateSel(true); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata */
-    var moving=selItems().slice();
+    var moving=selItems().slice().filter(riserEditable);   /* fuori dalla modalità palco la pedana non si sposta, neanche dentro a un gruppo */
     moving.slice().forEach(function(it){      /* le pedane trascinano gli elementi sopra */
       if(TYPES[it.type] && TYPES[it.type].riser){
         if(it.grp){                            /* pedana in un blocco (es. duplicata): porta i membri del blocco, non gli elementi geometrici (così non aggancia gli originali sotto) */
@@ -9278,7 +9314,7 @@ function renderStagePanel(){
     var pb=document.createElement("button"); pb.type="button"; pb.className="blkchip";
     pb.textContent="Pedana "+(pi+1)+" · "+fmtM(pd.w)+"×"+fmtM(pd.d);
     pb.title="Seleziona la pedana sul palco (misura, altezza, parapetto nel suo pannello)";
-    pb.addEventListener("click", function(){ stageEdit=false; selBlock=null; venueAutoLock(); renderStagePanel(); selectOne(pd.id); render(); ensureVisible(); });
+    pb.addEventListener("click", function(){ selBlock=null; selectOne(pd.id); renderStagePanel(); render(); ensureVisible(); });   /* si resta in modalità palco: è lì che le pedane si modificano */
     list.appendChild(pb);
   });
   var bp=document.getElementById("blkProps");
@@ -9487,9 +9523,11 @@ document.getElementById("outHead").addEventListener("click", function(e){ if(e.t
 document.getElementById("bAddBlock").addEventListener("click", addStageBlock);
 document.getElementById("bAddSemi").addEventListener("click", addSemicircle);
 document.getElementById("bAddPedana").addEventListener("click", function(){
-  /* + Pedana: stessa porta d'ingresso del costruttore — crea la pedana e la mette in mano all'utente */
-  stageEdit=false; selBlock=null; venueAutoLock(); renderStagePanel();
-  addItem("pedana");
+  /* + Pedana: la pedana e' parte del palco, quindi si crea e si sistema DENTRO la modalita' palco
+     (prima si usciva subito: era proprio il momento in cui restava trascinabile ovunque) */
+  selBlock=null;
+  if(!stageEdit){ stageEdit=true; document.body.classList.toggle("stage-edit", true); }
+  addItem("pedana"); renderStagePanel();
 });
 document.getElementById("bDelBlock").addEventListener("click", delSelBlock);
 document.getElementById("bUndo").addEventListener("click", undo);
@@ -9619,7 +9657,7 @@ document.addEventListener("keydown", function(e){
     var dx=0,dy=0;
     if(e.key==="ArrowLeft") dx=-step; if(e.key==="ArrowRight") dx=step;
     if(e.key==="ArrowUp") dy=-step; if(e.key==="ArrowDown") dy=step;
-    selItems().forEach(function(s){ s.x+=dx; s.y+=dy; });
+    selItems().filter(riserEditable).forEach(function(s){ s.x+=dx; s.y+=dy; });   /* le pedane si spostano solo in modalità palco */
     render(); save(); ensureVisible(); a11yAnnounce(a11yDesc(getSel()));
   }
 });
