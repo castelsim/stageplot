@@ -1204,6 +1204,53 @@ var TYPES = {
   rack4u:   {nome:"Rack 4U", dim:"48×55", cat:"Dispositivi", w:48,d:55, defLabel:"Rack 4U",
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
+/* ===== Vocabolario di ricerca (24/07) =====
+   Come i fonici chiamano davvero le cose: nomi di mestiere ("chitarrista"), plurali ("transenne"),
+   gergo ("spia", "praticabile", "in ear", "occhio di bue") e inglese ("drummer", "kick").
+   Misurato: 32 termini realistici davano ZERO risultati in ENTRAMBE le ricerche.
+   Tabella unica invece di 25 campi alias sparsi nelle definizioni: alimenta sia la barra del catalogo
+   sia il quick-add (indicizzano entrambe TYPES[k].alias), e si vede a colpo d'occhio cosa manca.
+   REGOLA: niente parole di 2-3 lettere e niente frammenti contenuti in altre parole — la ricerca è una
+   substring, una parola sbagliata inquina query lontane (è per questo che "mic" trova "Bagno chimico"). */
+var SEARCH_ALIAS = {
+  /* mestieri e strumenti di banda */
+  gtstand:"chitarrista chitarristi guitarist", gtacustica:"chitarrista chitarristi guitarist",
+  musChitElettrica:"chitarrista chitarristi guitarist", musChitAcustica:"chitarrista chitarristi guitarist",
+  musChitClassica:"chitarrista chitarristi guitarist",
+  bassstand:"bassista bassisti bass player", musBasso:"bassista bassisti bass player",
+  bassamp:"bassista bassisti amplificatore amplificatori",
+  comboamp:"amplificatore amplificatori", stack:"amplificatore amplificatori",
+  batteria:"drummer batterista batteristi kick cassa charleston hi hat hihat piatti tom tamburo",
+  batteristaR:"drummer batteristi", musBatteria:"drummer batterista batteristi",
+  tastiera:"tastierista tastieristi keyboardist", doppiatastiera:"tastierista tastieristi keyboardist",
+  stagepiano:"tastierista tastieristi pianista pianisti pianoforte",
+  grancoda:"pianista pianisti pianoforte", mezzacoda:"pianista pianisti pianoforte",
+  pianoverticale:"pianista pianisti pianoforte",
+  trombone:"tromba a coulisse coulisse trombonista", musTrombone:"tromba a coulisse coulisse trombonista",
+  /* monitor e microfoni */
+  wedge:"spia spie monitor da terra floor monitor",
+  iem:"in ear inear auricolare auricolari earphone radiotrasmettitore",
+  iemant:"in ear inear auricolari",
+  wireless:"radiomicrofono radiomicrofoni radiomic archetto gelato",
+  astamic:"aste microfoniche astina astine mic stand", giraffa:"aste microfoniche mic stand boom",
+  astabassa:"aste microfoniche astina astine mic stand",
+  talkback:"clearcom clear com intercom comunicazione regia",
+  /* strutture, cablaggio, elettrico, video */
+  pedana:"praticabile praticabili americana modulo",
+  transenna:"transenne barriera barriere",
+  cableramp:"cavo cavi passacavo canalina",
+  mcorereel:"cavo cavi cablaggio xlr", patchpt:"cavo cavi xlr jack connettore connettori",
+  netswitch:"router wifi rete lan ethernet",
+  ciabatta:"alimentazione corrente elettricita", quadro:"alimentazione corrente elettricita",
+  distro63:"alimentazione corrente", distro32:"alimentazione corrente", distro125:"alimentazione corrente",
+  followspot:"seguipersona segui persona occhio di bue cannone",
+  schermo:"televisore video wall maxischermo",   /* NON "monitor": inquinerebbe la query dei wedge */
+  camera:"telecamera telecamere videocamera riprese",
+  notebook:"computer portatile pc", laptop:"computer portatile pc"
+};
+Object.keys(SEARCH_ALIAS).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
+  if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+SEARCH_ALIAS[k]).trim();
+});
 /* CAT_ORDER = macro-categorie per la trovabilità (L, 07/07): da 17 a 10, strumenti in UN posto.
    La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
 /* Semplificazione 08/07: nomi corti (una riga), gigante spezzato (Palco e pedane / Allestimento),
@@ -7871,18 +7918,31 @@ function qaIndex(){
     _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
   });
 }
+/* la query cade all'inizio di una parola? "mic" sta a inizio parola in "Mic coro" e "microfoniche",
+   ma a metà in "Bagno chimico" — che infatti non è quello che sta cercando chi digita "mic". */
+function qaWordStart(s,q){
+  for(var i=s.indexOf(q); i>-1; i=s.indexOf(q,i+1)){ if(i===0 || !/[a-z0-9]/.test(s.charAt(i-1))) return true; }
+  return false;
+}
 function qaSearch(q){
   q=_deacc(String(q||"").trim()); if(!q) return [];
   qaIndex();
-  /* ranking: nome che inizia con la query → nome che la contiene → match forte (chiave/alias/dimensione)
-     → match debole (solo categoria). A parità le categorie musicali prima (un fonico che digita "ba"
+  /* ranking, dal più al meno pertinente: nome che INIZIA con la query → query a inizio parola nel nome
+     → a inizio parola in un campo forte (chiave/alias/dimensione) → a metà parola nel nome → a metà
+     parola nel forte → solo categoria. A parità le categorie musicali prima (un fonico che digita "ba"
      vuole Basso/Batteria prima di Bagno chimico), infine alfabetico. */
   function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(qaCat(e))?1:0; }
   var hit=[];
   for(var i=0;i<_qaOpts.length;i++){
     if(_qaAll[i].indexOf(q)===-1) continue;
-    var n=_qaName[i];
-    hit.push({e:_qaOpts[i], n:n, r:(n.indexOf(q)===0?0:(n.indexOf(q)>-1?1:(_qaStrong[i].indexOf(q)>-1?2:3)))});
+    var n=_qaName[i], s=_qaStrong[i], r;
+    if(n.indexOf(q)===0) r=0;
+    else if(qaWordStart(n,q)) r=1;
+    else if(qaWordStart(s,q)) r=2;
+    else if(n.indexOf(q)>-1) r=3;
+    else if(s.indexOf(q)>-1) r=4;
+    else r=5;
+    hit.push({e:_qaOpts[i], n:n, r:r});
   }
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
   return hit.slice(0,8).map(function(x){ return x.e; });
@@ -16703,14 +16763,17 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
 })();
 /* ===== Dimensioni del primo palco (progetto nuovo, ancora senza palco) =====
    Nessun flag globale: la condizione dipende dallo STATO del progetto. Un progetto è "nuovo e senza
-   palco" quando lo stage è ancora il default 1200×800 e non c'è alcun lavoro → stateHasMeaningfulWork()
-   è false. Escludiamo viewer/consulenza (foreignDoc), deep-link (#p=/#d=) e import: quei flussi portano
-   già un palco proprio. L'azione esplicita "File → Nuovo" passa explicit=true e ignora l'hash residuo. */
+   palco" quando non c'è lavoro in NESSUNA variante e il palco è ancora il default 1200×800 →
+   hasMeaningfulDocument() è false. Si guarda il DOCUMENTO, non la sola variante attiva (24/07: con
+   stateHasMeaningfulWork(state) un documento con più varianti, o con contenuti extra, risultava
+   "nuovo" appena la variante aperta era vuota, e chiedeva le misure del palco su lavoro esistente).
+   Escludiamo viewer/consulenza (foreignDoc), deep-link (#p=/#d=) e import: quei flussi portano già un
+   palco proprio. L'azione esplicita "File → Nuovo" passa explicit=true e ignora l'hash residuo. */
 function isFreshBlankProject(explicit){
   try{
     if(typeof foreignDoc==="function" && foreignDoc()) return false;   /* viewer / consulenza ?view= */
     if(!explicit && location.hash.length>1) return false;              /* deep-link #p=/#d= aperto come copia */
-    return !stateHasMeaningfulWork(state);                             /* palco ancora default + nessun lavoro */
+    return !hasMeaningfulDocument();                                   /* nessun lavoro in tutto il documento */
   }catch(_e){ return false; }
 }
 /* Accetta "8", "6,5", "6.5"; rifiuta vuoto, non numerico, zero e negativi. Ritorna metri (Number) o null. */

@@ -68,6 +68,10 @@ function reset() {
   A.state.elec.on = false; A.state.elec.manual = {}; A.state.elec.uplinks = {};
   A.state.mond.on = false; A.state.mond.manual = {};
   A.__cabRes = null; A.__elecRes = null; A.__mondRes = null;
+  /* confine documento: i test che caricano documenti multi-variante (loadDoc) lasciavano VARIANTS e
+     DOC_EXTRA popolati, contaminando chi legge il DOCUMENTO e non la sola variante attiva
+     (hasMeaningfulDocument → isFreshBlankProject). */
+  A.VARIANTS = []; A.activeVar = null; A.DOC_EXTRA = {}; A.ensureVariants();
 }
 function add(type, x, y) { A.addItem(type, { x, y }); return A.state.items[A.state.items.length - 1]; }
 function chans(it) { return A.cabItemInputs(it); }
@@ -3404,6 +3408,7 @@ t("match forte (nome/chiave/alias) prima del match di sola categoria", () => {
   ok(qaKeys("percussioni").indexOf("percussioni") > -1, "'percussioni' perde l'elemento con quella chiave");
   ok(qaKeys("console").indexOf("organoconsole") > -1, "'console' perde la consolle dell'organo");
   ok(qaKeys("mic").indexOf("micover") > -1, "'mic' perde l'overhead di sezione");
+  ok(qaKeys("console").indexOf("mixer") === 0, "'console' non mette per primo la console/mixer");
 });
 t("le 3 varianti di stage box restano tutte raggiungibili con una parola sola", () => {
   const nomi = A.__qaSearch("stagebox").map(r => r.nome);
@@ -3415,6 +3420,52 @@ t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
 });
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
+
+/* ---- Vocabolario di ricerca (SEARCH_ALIAS): come i fonici chiamano davvero le cose ---- */
+console.log("\nVocabolario di ricerca (mestieri, gergo, plurali):");
+t("SEARCH_ALIAS e' fuso nei TYPES (una sola fonte per le due ricerche)", () => {
+  ok(A.SEARCH_ALIAS && Object.keys(A.SEARCH_ALIAS).length > 20, "tabella alias mancante o vuota");
+  Object.keys(A.SEARCH_ALIAS).forEach(k => {
+    ok(A.TYPES[k], "alias su un tipo inesistente: " + k);
+    ok((A.TYPES[k].alias || "").indexOf(A.SEARCH_ALIAS[k].split(" ")[0]) > -1, "alias non fuso in TYPES." + k);
+  });
+});
+t("i termini da fonico trovano l'elemento giusto", () => {
+  const casi = { chitarrista: /chitarra/i, bassista: /basso/i, drummer: /batteri/i, tastierista: /tastiera|piano/i,
+    pianista: /piano/i, amplificatore: /ampli|combo|stack/i, praticabile: /pedana/i, "in ear": /iem|in-ear/i,
+    radiomicrofono: /wireless/i, intercom: /talkback/i, cavo: /passacavi|multicore|patch/i, alimentazione: /distro|multipresa|quadro/i,
+    kick: /batteria/i, transenne: /transenna/i, seguipersona: /follow spot/i, "occhio di bue": /follow spot/i,
+    router: /switch rete/i, computer: /portatile|laptop/i, spia: /wedge/i, telecamera: /camera/i, "tromba a coulisse": /trombone/i };
+  Object.keys(casi).forEach(q => {
+    const nomi = A.__qaSearch(q).map(r => r.nome);
+    ok(nomi.length > 0, "'" + q + "' non trova nulla");
+    ok(nomi.some(n => casi[q].test(n)), "'" + q + "' trova " + JSON.stringify(nomi.slice(0, 3)) + ", atteso " + casi[q]);
+  });
+});
+t("nessun alias inquina le query comuni (la ricerca e' una substring)", () => {
+  /* "monitor" deve restare la query dei wedge: se un alias ci infila il LED wall, e' rumore */
+  ok(!A.__qaSearch("monitor").map(r => r.nome).slice(0, 3).some(n => /LED wall/i.test(n)), "'monitor' inquinato dal video");
+  ok(A.__qaSearch("mic").map(r => r.k).indexOf("micchoir") > -1, "'mic' non trova piu' i microfoni");
+  /* "piano" puo' legittimamente pescare le tastiere (stage piano), non altro */
+  ok(A.__qaSearch("piano").map(r => r.nome).every(n => /piano|panchetta|tastiera/i.test(n)), "'piano' ha preso risultati fuori tema");
+});
+t("il match a META' parola non scavalca quello a inizio parola", () => {
+  /* difetto storico: "Bagno chi-mic-o" davanti a microfoni e aste perche' il nome contiene "mic" */
+  const mic = A.__qaSearch("mic").map(r => r.nome);
+  const bagno = mic.findIndex(n => /Bagno chimico/i.test(n));
+  const overhead = mic.findIndex(n => /Overhead/i.test(n));
+  ok(overhead > -1, "'mic' perde l'overhead di sezione");
+  ok(bagno === -1 || bagno > overhead, "il bagno chimico scavalca ancora i microfoni");
+  ok(A.__qaSearch("mic").slice(0, 4).every(r => /mic/i.test(r.nome)), "i primi 4 di 'mic' non sono microfoni");
+});
+t("ogni parola del vocabolario funziona su ENTRAMBE le ricerche", () => {
+  const parole = new Set();
+  Object.values(A.SEARCH_ALIAS).forEach(s => s.split(/\s+/).forEach(w => { if (w.length > 3) parole.add(w); }));
+  parole.forEach(w => {
+    ok(A.__spSearch(w).length > 0, "catalogo a zero su: " + w);
+    ok(A.__qaSearch(w).length > 0, "quick-add a zero su: " + w);
+  });
+});
 
 /* ---- Striscia value-proposition (SEO-06): RIMOSSA il 24/07 ----
    Al primo accesso finiva sempre dietro la welcome card (z-index 6 vs 50, sottoalbero inert) e li' si
@@ -3452,6 +3503,15 @@ t("isFreshBlankProject: false su viewer/consulenza (foreignDoc)", () => {
 t("isFreshBlankProject: deep-link #p= soppresso, ma 'Nuovo' esplicito lo ignora", () => {
   reset(); A.location.hash = "#p=abc"; const f = A.foreignDoc; A.foreignDoc = function () { return false; };
   try { ok(A.isFreshBlankProject(false) === false, "deep-link non deve mostrare il popup"); ok(A.isFreshBlankProject(true) === true, "File→Nuovo ignora l'hash residuo"); } finally { A.foreignDoc = f; A.location.hash = ""; }
+});
+t("isFreshBlankProject: guarda il DOCUMENTO, non la sola variante attiva", () => {
+  reset(); A.location.hash = ""; const f = A.foreignDoc; A.foreignDoc = function () { return false; };
+  const vs = A.VARIANTS.slice();
+  try {
+    ok(A.isFreshBlankProject(true) === true, "documento davvero vuoto: il popup misure ci vuole");
+    A.VARIANTS.push({ name: "Variante B", state: { titolo: "Lavoro esistente", items: [] } });
+    ok(A.isFreshBlankProject(true) === false, "seconda variante con lavoro: non e' un progetto nuovo");
+  } finally { A.foreignDoc = f; A.VARIANTS.length = 0; vs.forEach(v => A.VARIANTS.push(v)); }
 });
 t("applyStageSize: rettangolo singolo centrato con le misure (m→cm)", () => {
   reset(); A.applyStageSize(10, 7, false);
