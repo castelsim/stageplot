@@ -3766,6 +3766,27 @@ t("quando manca la stage box il cablaggio automatico guida invece di rispondere 
   ok(A.state.items.some(A.cabIsBox), "la stage box non e' stata aggiunta");
   eq(A.autoConnectNeeds("cabin"), null, "con box e sorgenti non deve chiedere altro");
 });
+/* 26/07 (Simone): "chitarre e bassi nel motore di ricerca non hanno l'illustrazione della persona".
+   L'anteprima del catalogo/quick-add disegnava lo schema anche per i tipi che sul palco nascono
+   illustrati (LOOK_ART): chitarre, basso, piani, stage piano, arpa, percussioni. */
+t("l'anteprima dei tipi illustrati mostra il musicista, non lo schema", () => {
+  const tipi = Object.keys(A.LOOK_ART);
+  ok(tipi.length >= 8, "attesi tutti i tipi LOOK_ART: " + tipi.join(","));
+  const vero = A.libIcon;                                  // nel sandbox LIB_ICONS e' lo stub: si spia la delega
+  A.libIcon = (k) => '<g data-art="' + k + '"></g>';
+  try {
+    tipi.forEach(function (tp) {
+      const mini = A.miniSvg(tp, null, 8);
+      ok(mini.indexOf('data-art="' + A.LOOK_ART[tp] + '"') > -1, tp + ": l'anteprima non usa l'illustrazione " + A.LOOK_ART[tp]);
+    });
+  } finally { A.libIcon = vero; }
+  eq(A.look2Art({ type: "comboamp" }), null, "un ampli non deve diventare un musicista");
+  eq(A.look2Art({ type: "bassstand", look: "schematico" }), null, "in aspetto schematico l'anteprima resta lo schema");
+});
+t("senza le illustrazioni caricate l'anteprima resta lo schema (niente riquadro vuoto)", () => {
+  const mini = A.miniSvg("bassstand", null, 8);          // LIB_ICONS.musBasso assente nel sandbox
+  ok(mini.indexOf("<svg") === 0 && mini.length > 120, "anteprima vuota: " + mini.slice(0, 80));
+});
 t("palco vuoto: il cablaggio automatico dice cosa aggiungere, per ogni layer", () => {
   reset(); A.state.cab.on = true;
   ["cabin", "cabout", "elec", "mond"].forEach(function (id) {

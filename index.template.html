@@ -1570,6 +1570,7 @@ window.__onIconsReady = function(){ try{ window.__iconsLoaded=true;
      alle dims del tipo funzionale quando LIB_ICONS era vuoto) */
   if(typeof state==="object" && state && state.items && typeof recalcItemDims==="function")
     state.items.forEach(function(it){ if(typeof look2Art==="function" && look2Art(it)) recalcItemDims(it); });
+  if(typeof refreshCatalogArt==="function") refreshCatalogArt();   /* anteprime del catalogo/ricerca: da schema a illustrazione */
   if(typeof render==="function") render();
 }catch(_e){} };
 var _libN=0;
@@ -9345,12 +9346,34 @@ function miniSvg(k, over, pad){
   var it={type:k, w:(over&&over.w)||t.w, d:(over&&over.d)||t.d, h:(over&&over.h)||t.h||40};
   if(over) Object.keys(over).forEach(function(kk){ if(it[kk]==null) it[kk]=over[kk]; });   /* flag (sedia/leggio/ampli…) → anteprima coerente */
   if(cabIsBox(it) && !(over&&over.w)) sbAutoSize(it);   /* stage box: l'anteprima ha le misure dei suoi canali */
+  /* ASPETTO ILLUSTRATO (default) anche nell'anteprima: chitarre, basso, piani, stage piano, arpa e
+     percussioni sul palco nascono col musicista disegnato — il catalogo e la ricerca mostravano lo
+     schema visto dall'alto, e la voce non si riconosceva (Simone 26/07). Come nel render dell'item:
+     illustrazione al posto dello schema, e footprint = dimensioni dell'illustrazione. Gli accessori
+     (ampli/pedaliera/leggio) restano fuori dalla miniatura: il sottotitolo della voce li elenca già. */
+  var _la=(typeof look2Art==="function") ? look2Art(it) : null;
+  if(_la){ var _ld=look2Dims(it); if(_ld){ it.w=_ld[0]; it.d=_ld[1]; } else _la=null; }   /* icons.js non ancora caricato → schema, si rigenera a __onIconsReady */
   var ext=Math.max(it.w,it.d)+(pad==null?26:pad);   /* pad ridotto per la quick-add: nel riquadro da 26px il disegno deve riempire */
   /* l'anteprima non e' sul palco: il livello di dettaglio non puo' dipendere dallo zoom del canvas.
      Le stage box si disegnano a pastiglie, cosi' 8 / 16 / 24 canali si distinguono in miniatura. */
   var _km=window.__sbMiniLod; window.__sbMiniLod=true;
-  var body=t.draw(it); window.__sbMiniLod=_km;
+  var body=_la?libIcon(_la):t.draw(it); window.__sbMiniLod=_km;
   return '<svg class="mini" viewBox="'+(-ext/2)+' '+(-ext/2)+' '+ext+' '+ext+'" width="32" height="32" aria-hidden="true">'+body+'</svg>';
+}
+/* Le illustrazioni (icons.js) arrivano dopo la costruzione del catalogo: le anteprime dei tipi
+   illustrati nascono schematiche. Qui si rigenerano una volta sole, quando le icone sono pronte. */
+function refreshCatalogArt(){
+  try{
+    if(typeof _qaIcoCache==="object" && _qaIcoCache) Object.keys(_qaIcoCache).forEach(function(k){ delete _qaIcoCache[k]; });
+    var bs=document.querySelectorAll("#catalog button[data-mini-k]");
+    for(var i=0;i<bs.length;i++){
+      var b=bs[i], k=b.dataset.miniK; if(!k || !LOOK_ART[k]) continue;
+      var over=null; try{ over=b.dataset.miniOver?JSON.parse(b.dataset.miniOver):null; }catch(_e){}
+      var svg=b.querySelector("svg.mini"); if(!svg) continue;
+      var tmp=document.createElement("div"); tmp.innerHTML=miniSvg(k, over);
+      if(tmp.firstChild) b.replaceChild(tmp.firstChild, svg);
+    }
+  }catch(_e){}
 }
 (function buildCatalog(){
   var el = document.getElementById("catalog"), cats={};
@@ -9360,6 +9383,8 @@ function miniSvg(k, over, pad){
     var b=document.createElement("button");
     if(isEss(k)) b.dataset.ess="1";   /* Task 4: essenziale-first + Mostra tutti */
     var shownDim = dim || TYPES[k].dim;
+    b.dataset.miniK=k;                                            /* per rigenerare l'anteprima quando arrivano le illustrazioni */
+    if(over) b.dataset.miniOver=JSON.stringify(over);
     b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small>'+esc(shownDim)+'</small>':'')+'</span>';
     b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); catCompactSoon(); });
     b.draggable=true;   /* desktop: trascina sul palco per posizionarlo dove vuoi */
