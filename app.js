@@ -4272,6 +4272,99 @@ function elecConnectAll(){
   __elecRes=null; save(); render();
   return done;
 }
+/* ===== AVVISI: toast + finestra-guida =====
+   showToast era CHIAMATA in 12 punti (cablaggio automatico, zone mic, veto personal monitor, export
+   PNG) ma non è mai stata definita: ogni chiamata lanciava un ReferenceError che l'handler globale
+   mostrava come "Si è verificato un problema imprevisto" (report Simone 26/07). Definizione unica:
+   inoltra al toast dell'app; se il toast non è ancora montato resta silenziosa. */
+function showToast(msg, kind){
+  try{ if(window.__toast) window.__toast(String(msg==null?"":msg), kind==="err"||kind===true); }catch(e){}
+}
+/* Finestra-guida (Simone 26/07): quando un'azione non può riuscire perché MANCA un elemento sul
+   palco, non un errore generico ma una finestra che dice cosa serve e — dove ha senso — lo aggiunge
+   al posto tuo. o = {title, msg, steps:[…], action:{label, run}} */
+function guideDialog(o){
+  o=o||{};
+  var old=document.getElementById("guideDlg"); if(old) old.remove();
+  var ov=document.createElement("div"); ov.id="guideDlg"; ov.className="guide-ov";
+  var card=document.createElement("div"); card.className="guide-card";
+  card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true"); card.setAttribute("aria-label", o.title||"Manca qualcosa");
+  var h=document.createElement("h3"); h.className="guide-title"; h.textContent=o.title||"Manca qualcosa"; card.appendChild(h);
+  if(o.msg){ var p=document.createElement("p"); p.className="guide-msg"; p.textContent=o.msg; card.appendChild(p); }
+  if(o.steps && o.steps.length){
+    var ul=document.createElement("ul"); ul.className="guide-steps";
+    o.steps.forEach(function(s){ var li=document.createElement("li"); li.textContent=s; ul.appendChild(li); });
+    card.appendChild(ul);
+  }
+  var row=document.createElement("div"); row.className="guide-actions";
+  function close(){ document.removeEventListener("keydown", onKey, true); ov.remove(); }
+  function onKey(e){ if(e.key==="Escape"){ e.stopPropagation(); close(); } }
+  var cancel=document.createElement("button"); cancel.type="button"; cancel.className="btn";
+  cancel.textContent=o.action?"Annulla":"Ho capito";
+  cancel.addEventListener("click", close);
+  row.appendChild(cancel);
+  if(o.action){
+    var go=document.createElement("button"); go.type="button"; go.className="btn primary"; go.textContent=o.action.label||"Aggiungi";
+    go.addEventListener("click", function(){ close(); try{ o.action.run(); }catch(e){ showToast("Non è stato possibile completare l'operazione","err"); } });
+    row.appendChild(go);
+  }
+  card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+  ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
+  document.addEventListener("keydown", onKey, true);
+  setTimeout(function(){ try{ (o.action?go:cancel).focus(); }catch(e){} }, 30);
+  return ov;
+}
+/* Dove mettere un elemento che aggiungiamo NOI: al centro, sul fondo palco (dietro ai musicisti). */
+function guideSpot(dy){
+  var w=(state.stage&&state.stage.w)||1200, d=(state.stage&&state.stage.d)||800;
+  return {x:Math.round(w/2), y:Math.round(Math.max(40, Math.min(d-40, dy==null?60:dy)))};
+}
+/* Precondizioni del "Cablaggio automatico": cosa manca perché possa riuscire davvero.
+   Ritorna null se si può procedere, altrimenti l'oggetto per guideDialog. Prima di questo controllo
+   il bottone rispondeva "Tutto già collegato" anche quando in realtà non c'era la stage box. */
+function autoConnectNeeds(id){
+  var items=state.items||[];
+  function reconnect(){ __cabRes=null; __elecRes=null; __mondRes=null; render();
+    var n=layerAutoConnect(id); showToast(n?("Collegati "+n+" elementi"):"Aggiunto: ora puoi collegare"); }
+  if(id==="cabin" || id==="cabout"){
+    var srcIn=items.filter(function(it){ return isAudioSource(it) && cabItemInputs(it).length; }).length;
+    var srcOut=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }).length;
+    if(id==="cabin" && !srcIn) return {title:"Non c'è ancora niente da collegare",
+      msg:"Il cablaggio degli ingressi parte dagli strumenti e dalle voci sul palco: al momento non ce ne sono.",
+      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi premi di nuovo «Cablaggio automatico»"]};
+    if(id==="cabout" && !srcOut) return {title:"Non ci sono ascolti da collegare",
+      msg:"Le uscite collegano monitor, spie e sidefill alla stage box: al momento non ce ne sono sul palco.",
+      steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi premi di nuovo «Cablaggio automatico»"]};
+    if(!items.some(cabIsBox)) return {title:"Manca la stage box",
+      msg:"I cavi devono arrivare da qualche parte: senza una stage box (o un rack I/O) sul palco il cablaggio resta appeso.",
+      steps:["Una stage box generica ha 16 ingressi e 8 uscite","Puoi spostarla e scegliere il modello reale dal pannello"],
+      action:{label:"Aggiungi una stage box", run:function(){ var s=guideSpot(60); addItem("stagebox", s); reconnect(); }}};
+    return null;
+  }
+  if(id==="elec"){
+    var carichi=items.filter(function(it){ return (typeof wattOf==="function") && wattOf(it)>0 && !elecIsDistro(it) && !elecIsGen(it); }).length;
+    if(!carichi) return {title:"Non c'è niente da alimentare",
+      msg:"Il cablaggio elettrico parte dagli elementi che consumano corrente: amplificatori, rack, mixer, luci.",
+      steps:["Aggiungi gli elementi che vanno alimentati","Poi premi di nuovo «Cablaggio automatico»"]};
+    if(!items.some(function(it){ return elecIsDistro(it) || elecIsGen(it); })) return {title:"Manca la presa di corrente",
+      msg:"Serve almeno una ciabatta, un distro o un generatore da cui partire: senza, i carichi non hanno dove attaccarsi.",
+      steps:["Una ciabatta copre 16 A monofase","Per carichi più alti usa un distro 32/63 A dal catalogo"],
+      action:{label:"Aggiungi una ciabatta", run:function(){ var s=guideSpot(60); addItem("ciabatta", s); reconnect(); }}};
+    return null;
+  }
+  if(id==="mond"){
+    var pm=items.filter(function(it){ return it.type==="hearback"; }).length;
+    if(!pm) return {title:"Non ci sono personal monitor",
+      msg:"Questo cablaggio collega i mixerini personali al loro hub: sul palco non ce n'è ancora nessuno.",
+      steps:["Aggiungi i mixerini personali ai musicisti","Poi premi di nuovo «Cablaggio automatico»"]};
+    if(!items.some(pmIsHub)) return {title:"Manca l'hub dei personal monitor",
+      msg:"I mixerini vanno tutti a un hub, che li alimenta e porta il segnale: senza hub restano scollegati.",
+      steps:["L'hub generico porta 8 mixerini","Scegliendo marca e modello valgono le porte reali"],
+      action:{label:"Aggiungi un hub", run:function(){ var s=guideSpot(60); addItem("mixhub", s); reconnect(); }}};
+    return null;
+  }
+  return null;
+}
 /* "Cablaggio automatico" di un layer (Simone 21/07): (ri)collega ciò che è pendente col motore
    giusto. Non tocca i collegamenti manuali né gli eliminati (li rispetta cabConnectAll/elecConnectAll).
    Combinato con "Azzera percorsi" (cestino) dà il ricablaggio ottimale completo. */
@@ -4480,6 +4573,11 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 function cabItemInputs(it){
+  /* DI generata da uno strumento (diFor): è una TAPPA del cavo, non una sorgente. I canali sono
+     quelli dello strumento — contarli anche qui raddoppiava gli ingressi in stage box e le righe
+     della lista canali (chitarra classica + DI = 2 ingressi invece di 1). Una DI aggiunta a mano
+     dal catalogo NON ha diFor: resta una sorgente con i suoi canali. */
+  if(it.diFor && typeof diSourceOf==="function" && diSourceOf(it)) return [];
   if(VOCE[it.type]){   /* voci (cantante/corista): il canale lo decide la modalità mic — panoramico = 0 (coperto dal mic di sezione), altrimenti 1 SM58 */
     if(micModeOf(it)==="pano") return [];
     return [{name:(it.label||TYPES[it.type].defLabel||TYPES[it.type].nome), mic:"SM58"}];
@@ -4575,7 +4673,10 @@ function audioCablingEngine(){
       var nb=Math.max(1, Math.ceil(c.n/8));
       for(var i=0;i<nb;i++){
         var ox=(nb===1)?0:(i-(nb-1)/2)*70;
-        boxes.push({x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx+ox))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-90))), cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch"});
+        /* stessa forma delle box reali: senza taken/pins/res/resMap l'assegnazione porte (takePort)
+           crashava appena si cablava senza stage box sul palco (toast "problema imprevisto"). */
+        boxes.push({x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx+ox))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-90))), cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch",
+          foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{}});
       }
     });
     issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
@@ -11720,7 +11821,11 @@ function renderLayerRow(L, container){
       var aw=document.createElement("div"); aw.className="layer-adv layer-autocab";
       var ab=document.createElement("button"); ab.type="button"; ab.className="adv-btn adv-connect"; ab.innerHTML='⚡ <span>Cablaggio automatico</span>';
       ab.title="Collega automaticamente gli elementi al dispositivo compatibile più vicino";
-      ab.addEventListener("click", function(){ var n=layerAutoConnect(L.id); showToast(n?("Collegati "+n+" elementi"):"Tutto già collegato", n?undefined:undefined); });
+      ab.addEventListener("click", function(){
+        var need=autoConnectNeeds(L.id);                      /* manca qualcosa? finestra-guida, non un toast muto */
+        if(need){ guideDialog(need); return; }
+        var n=layerAutoConnect(L.id); showToast(n?("Collegati "+n+" elementi"):"Tutto già collegato");
+      });
       aw.appendChild(ab); body.appendChild(aw);
     }
     var styleGetSet=null;

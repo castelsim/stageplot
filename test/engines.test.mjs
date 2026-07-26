@@ -3712,6 +3712,67 @@ t("il cavo passa DENTRO la DI: strumento → DI → stage box", () => {
   ok(l.pts.some(p => Math.abs(p[0] - di.x) < 2 && Math.abs(p[1] - di.y) < 2), "il cavo non passa dalla DI");
   eq((A.cabResult().links || []).length, 1, "la DI non deve aggiungere canali");
 });
+/* Bug 26/07 (Simone): "chitarra classica con DI, col cablaggio automatico occupa 2 ingressi".
+   La DI generata (diFor) è una tappa del cavo, non una sorgente: i canali sono quelli dello strumento. */
+t("la DI non raddoppia gli ingressi in stage box ne' le righe della lista canali", () => {
+  const { gtr } = diSetup();
+  gtr.miking = "di"; A.diApply(gtr); A.__cabRes = null;
+  eq(A.cabItemInputs(A.diLinked(gtr)).length, 0, "la DI generata non ha canali propri");
+  eq(A.cabResult().totIn, 1, "ingressi contati");
+  eq(A.patchList().rows.length, 1, "righe nella lista canali");
+  eq(A.cabResult().boxes[0].used, 1, "canali occupati sulla stage box");
+});
+t("i tipi che nascono con la DI (basso, tastiere, acustica...) contano i canali una volta sola", () => {
+  ["musBasso", "gtacustica", "keysamp", "stagepiano"].forEach(function (tp) {
+    reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+    const b = A.addItem("stagebox", { x: 850, y: 150 }) || A.state.items[A.state.items.length - 1]; b.ch = 16;
+    const it = add(tp, 300, 400);
+    const atteso = A.cabItemInputs(it).length;
+    A.diApply(it); A.__cabRes = null;
+    eq(A.patchList().rows.length, atteso, tp + ": righe lista canali");
+  });
+});
+t("una DI presa dal catalogo (senza strumento) resta una sorgente col suo canale", () => {
+  reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+  const b = add("stagebox", 850, 150); b.ch = 16;
+  const di = add("dimono", 300, 400);
+  eq(A.cabItemInputs(di).length, 1, "la DI a se' stante deve avere il suo canale");
+});
+/* Bug 26/07: cablare senza stage box crashava (le drop box proposte non avevano taken/pins/res). */
+t("il cablaggio automatico senza stage box propone le drop box e non crasha", () => {
+  reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+  const g = add("musChitClassica", 300, 400); g.miking = "di"; A.diApply(g);
+  add("cantante", 500, 400);
+  A.__cabRes = null;
+  A.cabConnectAll();                                   // prima lanciava: takePort su box senza taken
+  A.state.cab.mode = "auto"; A.__cabRes = null;         // le drop box si propongono solo in modalita' auto
+  const R = A.cabResult();
+  ok(R.boxes.length > 0 && R.boxes.every(b => b.auto), "attese solo drop box proposte");
+  ok(R.boxes.every(b => b.taken && b.pins && b.resMap), "le drop box devono avere la stessa forma delle box reali");
+});
+/* Il bottone "Cablaggio automatico" chiamava showToast, mai definita: ReferenceError → l'handler
+   globale mostrava "Si e' verificato un problema imprevisto". */
+t("showToast e guideDialog esistono davvero", () => {
+  eq(typeof A.showToast, "function", "showToast");
+  eq(typeof A.guideDialog, "function", "guideDialog");
+});
+t("quando manca la stage box il cablaggio automatico guida invece di rispondere 'tutto collegato'", () => {
+  reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+  add("cantante", 300, 400);
+  const need = A.autoConnectNeeds("cabin");
+  ok(need && /stage box/i.test(need.title), "attesa la guida sulla stage box: " + JSON.stringify(need));
+  ok(need.action && typeof need.action.run === "function", "la guida deve poter aggiungere la stage box");
+  need.action.run();
+  ok(A.state.items.some(A.cabIsBox), "la stage box non e' stata aggiunta");
+  eq(A.autoConnectNeeds("cabin"), null, "con box e sorgenti non deve chiedere altro");
+});
+t("palco vuoto: il cablaggio automatico dice cosa aggiungere, per ogni layer", () => {
+  reset(); A.state.cab.on = true;
+  ["cabin", "cabout", "elec", "mond"].forEach(function (id) {
+    const need = A.autoConnectNeeds(id);
+    ok(need && need.title && need.msg, id + ": nessuna guida per il palco vuoto");
+  });
+});
 t("la stage box si sceglie dalla DI, non dallo strumento", () => {
   const { gtr } = diSetup();
   const lontana = add("stagebox", 320, 380); lontana.ch = 16;   // vicinissima allo strumento
