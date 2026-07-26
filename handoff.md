@@ -1,3 +1,40 @@
+# SESSIONE 26/07 — Cablaggio: DI, crash, finestre-guida · anteprime illustrate
+
+Due segnalazioni di Simone, quattro difetti trovati. **Tutto LIVE su `main`** (`0a15a1c` + `7481b26`), working tree pulito, in sync con origin, **379 test verdi**, `node build.mjs --check` allineato.
+
+**1. «Chitarra classica con DI: il cablaggio automatico occupa 2 ingressi invece di 1»** — `cabItemInputs` contava i canali della DI generata (`diFor`) **in aggiunta** a quelli dello strumento. La DI è una **tappa del cavo**, non una sorgente: ora restituisce 0 canali se ha uno strumento associato. Una DI presa dal catalogo (senza `diFor`) resta sorgente col suo canale.
+- **Estensione del bug** (verificata tipo per tipo): tutti i 10 che nascono con la DI — `musBasso`, `gtacustica`, `keysamp`, `musChitAcustica`, `pedaliera`, `bassstand`, + `organohammond`/`stagepiano`/`djset`/`laptop` (2→4 canali) — e ogni strumento messo a mano su microfonazione «DI».
+- Si propagava a: ingressi occupati in stage box, lista canali, CSV/PDF input list, aste dedotte.
+- Nota architetturale: `isAudioSource` escludeva già le DI generate, ma il raccoglitore `sources` del motore usa `cabItemInputs`, non `isAudioSource`.
+
+**2. Toast rosso «Si è verificato un problema imprevisto»** — `showToast` era **chiamata in 12 punti e mai definita** (cablaggio automatico, creazione zone mic, veti PM, export PNG): `ReferenceError` → handler globale R1. Ora definita, inoltra a `window.__toast`. **Scan statico su tutto `app.js`: era l'unico caso** (`openPdfExportModal`, `preloadRespData`, `fileSaveVersion` sono `window.X`, globali valide). Lo scan è riproducibile: strip di commenti/stringhe, raccolta dei chiamati vs definiti (function/var/param/catch/arrow).
+
+**3. Crash cablando senza stage box** — le drop box **proposte** dal motore (`auto:true`) nascevano senza `taken/pins/res/resMap` → `takePort` moriva su `b.taken[want]`. Ora hanno la stessa forma delle box reali. Si vedeva solo in modalità auto (cioè sempre da `cabConnectAll`, che forza `mode="auto"`).
+
+**4. Finestre-guida quando manca un elemento** (richiesta esplicita di Simone: «se il sistema ha bisogno di qualcosa, pop up che portano l'utente a farlo»). Nuovo pattern riusabile:
+- `guideDialog({title,msg,steps,action})` — overlay + card, ESC/click-fuori chiudono, focus sull'azione. Stili in `src/styles.css` (`.guide-ov/.guide-card/.guide-title/.guide-msg/.guide-steps/.guide-actions`), bottoni `.btn`/`.btn.primary` del design system.
+- `autoConnectNeeds(layerId)` — precondizioni per i 4 layer cablabili: **Ingressi/Uscite** → «Manca la stage box» *(aggiunge stage box 16/8 e ricabla)* o «Non c'è ancora niente da collegare»; **Power** → «Manca la presa di corrente» *(aggiunge ciabatta)* o «Non c'è niente da alimentare»; **P.M.** → «Manca l'hub» *(aggiunge hub)* o «Non ci sono personal monitor».
+- Prima, senza stage box, il bottone rispondeva **«Tutto già collegato»**: falso e muto.
+
+**5. «Chitarre e bassi nella ricerca non hanno l'illustrazione della persona»** (`7481b26`) — `miniSvg` (catalogo **e** quick-add) disegnava sempre `t.draw()`, lo schema dall'alto, mentre sul palco quei tipi nascono illustrati. Ora usa `look2Art` → `libIcon` con footprint da `look2Dims`. Riguardava tutti e 8 i `LOOK_ART`: chit. elettrica/acustica, basso, gran coda, mezzacoda, stage piano, arpa, percussioni. Accessori (ampli/pedaliera/leggio) fuori dalla miniatura — il sottotitolo della voce li elenca già. Poiché `icons.js` arriva **dopo** la costruzione del catalogo, i bottoni portano `data-mini-k`/`data-mini-over` e **`refreshCatalogArt()`** rigenera le anteprime da `__onIconsReady`; senza illustrazioni si resta sullo schema (mai riquadro vuoto).
+
+**Verifica live** (localhost:8091, non loggato): 1 ingresso · 1 riga in lista canali · porta 1 in uso sulla box · cavo che passa dalla DI · finestra-guida e bottone «Aggiungi una stage box» funzionanti · nessun errore in console · miniature col musicista in catalogo e quick-add.
+
+**Test aggiunti** (`test/engines.test.mjs`, 370→379): DI non raddoppia (singolo + i 4 tipi che nascono con la DI), DI da catalogo resta sorgente, drop box proposte ben formate, `showToast`/`guideDialog` esistono, guida stage box + azione che la crea, guida su tutti e 4 i layer a palco vuoto, anteprime illustrate per tutti i `LOOK_ART` + fallback schema.
+- *Gotcha test*: nel sandbox node `LIB_ICONS` è lo stub universale → per testare l'anteprima illustrata si spia la delega sostituendo `A.libIcon`, non popolando `LIB_ICONS`.
+
+**Gotcha operativo ribadito**: su localhost il SW serve `app.js` stantio — le funzioni nuove risultano `undefined` finché non si fa unregister SW + `caches.delete()` + reload con `?v=` nuovo. È successo due volte in questa sessione.
+
+**Nota prove**: usato il tab locale col progetto **DOPO-IMPORT** (solo dispositivo, non cloud) svuotandone la scena; i 2 punti di ripristino locali (22/07) hanno entrambi 0 elementi → era già vuoto.
+
+**Sessioni 25-26/07 precedenti (non documentate qui, solo nei commit `74e76de`…`ff0f77b`)**: quick-add variante B (ricerca + anteprima per riga), ricerca con vocabolario da fonico e sigle rider, pedane come parte del palco, aste «quante e quali servono davvero», DI come oggetto sul palco e tappa del cavo, stage box con geometria reale, fix pannello destro che sfondava.
+
+# Next step
+1. Nessuna azione utente in sospeso.
+2. Il pattern `guideDialog` è pronto per altre precondizioni (audit, export, planimetria) se emergono casi analoghi.
+
+---
+
 # SESSIONE 24/07 — Backup DB automatizzato (LaunchAgent)
 
 Backup automatico del DB Supabase, **verificato funzionante nel contesto launchd** (accesso Keychain OK).
