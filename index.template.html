@@ -2756,27 +2756,27 @@ var TYPES = {
    substring, una parola sbagliata inquina query lontane (è per questo che "mic" trova "Bagno chimico"). */
 var SEARCH_ALIAS = {
   /* mestieri e strumenti di banda */
-  gtstand:"chitarrista chitarristi guitarist", gtacustica:"chitarrista chitarristi guitarist",
-  musChitElettrica:"chitarrista chitarristi guitarist", musChitAcustica:"chitarrista chitarristi guitarist",
-  musChitClassica:"chitarrista chitarristi guitarist",
-  bassstand:"bassista bassisti bass player", musBasso:"bassista bassisti bass player",
-  bassamp:"bassista bassisti amplificatore amplificatori",
-  comboamp:"amplificatore amplificatori", stack:"amplificatore amplificatori",
-  batteria:"drummer batterista batteristi kick cassa charleston hi hat hihat piatti tom tamburo",
-  batteristaR:"drummer batteristi", musBatteria:"drummer batterista batteristi",
-  tastiera:"tastierista tastieristi keyboardist", doppiatastiera:"tastierista tastieristi keyboardist",
-  stagepiano:"tastierista tastieristi pianista pianisti pianoforte",
-  grancoda:"pianista pianisti pianoforte", mezzacoda:"pianista pianisti pianoforte",
-  pianoverticale:"pianista pianisti pianoforte",
-  trombone:"tromba a coulisse coulisse trombonista", musTrombone:"tromba a coulisse coulisse trombonista",
+  gtstand:"chitarrista chitarristi guitarist gtr gtrs gt", gtacustica:"chitarrista chitarristi guitarist",
+  musChitElettrica:"chitarrista chitarristi guitarist gtr gt", musChitAcustica:"chitarrista chitarristi guitarist",
+  musChitClassica:"chitarrista chitarristi guitarist gtr gt",
+  bassstand:"bassista bassisti bass player bs", musBasso:"bassista bassisti bass player",
+  bassamp:"bassista bassisti amplificatore amplificatori bs bass cab",
+  comboamp:"amplificatore amplificatori gtr cab guitar cab", stack:"amplificatore amplificatori",
+  batteria:"drummer batterista batteristi kick cassa charleston hi hat hihat piatti tom tamburo dr drs drms drum kit drumkit bd sn snr sd hh ft oh cym crash ride",
+  batteristaR:"drummer batteristi dr drs drms", musBatteria:"drummer batterista batteristi",
+  tastiera:"tastierista tastieristi keyboardist kb kys keys", doppiatastiera:"tastierista tastieristi keyboardist",
+  stagepiano:"tastierista tastieristi pianista pianisti pianoforte kb kys keys pno",
+  grancoda:"pianista pianisti pianoforte pno", mezzacoda:"pianista pianisti pianoforte",
+  pianoverticale:"pianista pianisti pianoforte pno",
+  trombone:"tromba a coulisse coulisse trombonista tbn trb tbone", musTrombone:"tromba a coulisse coulisse trombonista",
   /* monitor e microfoni */
-  wedge:"spia spie monitor da terra floor monitor",
-  iem:"in ear inear auricolare auricolari earphone radiotrasmettitore",
+  wedge:"spia spie monitor da terra floor monitor mon mons",
+  iem:"in ear inear auricolare auricolari earphone radiotrasmettitore mon mons",
   iemant:"in ear inear auricolari",
   wireless:"radiomicrofono radiomicrofoni radiomic archetto gelato",
   astamic:"aste microfoniche astina astine mic stand", giraffa:"aste microfoniche mic stand boom",
   astabassa:"aste microfoniche astina astine mic stand",
-  talkback:"clearcom clear com intercom comunicazione regia",
+  talkback:"clearcom clear com intercom comunicazione regia tb",
   /* strutture, cablaggio, elettrico, video */
   pedana:"praticabile praticabili americana modulo",
   transenna:"transenne barriera barriere",
@@ -2788,7 +2788,21 @@ var SEARCH_ALIAS = {
   followspot:"seguipersona segui persona occhio di bue cannone",
   schermo:"televisore video wall maxischermo",   /* NON "monitor": inquinerebbe la query dei wedge */
   camera:"telecamera telecamere videocamera riprese",
-  notebook:"computer portatile pc", laptop:"computer portatile pc"
+  notebook:"computer portatile pc", laptop:"computer portatile pc",
+  /* sigle delle input list anglosassoni: un fonico le digita per abitudine (BD, SN, OH, Gtr, Kys…).
+     Verificate una per una contro i falsi positivi: la ricerca è una substring, e sigle come "kbd" o
+     "bsn" pescavano la batteria sulla query "bd" e il fagotto su "sn". Quelle sono state scartate. */
+  keysamp:"kb kys", controllermidi:"kb keys",
+  corista:"vox bgv bv backing vox lead vox",
+  rullante:"sn snr sd snare", grancassa:"bd",
+  piatto:"cym crash ride", piatticoppia:"cym",
+  micover:"oh",
+  sidefill:"mon mons sf", hearback:"mon mons",
+  cuffie:"cans headphones",
+  arraylarge:"casse", arraymid:"casse", sub218:"casse", frontfill:"casse",
+  tromba:"tpt trp trumpet", corno:"hrn horn", tuba:"tba", fagotto:"fg",
+  violapost:"vla", violoncello:"vc vlc cello", contrabbasso:"db cb upright", arpa:"harp",
+  consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", testamobile:"lx", sagomatore:"lx",
 };
 Object.keys(SEARCH_ALIAS).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+SEARCH_ALIAS[k]).trim();
@@ -9433,16 +9447,27 @@ function miniSvg(k, over, pad){
      sinonimi e termini comuni. Così "tastiera" trova singola+doppia, "coro" attraversa persone e
      dispositivi, "voce"/"singer" trovano il cantante — con un solo meccanismo per tutta la libreria. */
   entries.forEach(function(e){
-    var t=e.k?TYPES[e.k]:null, parts=[e.nome, e.dim, e.kw];   /* e.kw: parole chiave opzionali per le voci-azione senza tipo (es. Audit) */
-    if(t){ parts.push(t.nome, t.cat, t.sub, subOf(e.k), t.alias); }
-    e._kw=_deacc(parts.filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi (già in uso altrove) */
+    var t=e.k?TYPES[e.k]:null;
+    var strong=[e.nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];   /* come l'utente chiama l'elemento */
+    var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                 /* dove sta nel catalogo */
     e._nname=_deacc(e.nome);
+    e._kwStrong=_deacc(strong.filter(Boolean).join(" "));
+    e._kw=_deacc(strong.concat(weak).filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi */
   });
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
     if(!nq) return [];
     var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1; });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
-    m.sort(function(a,b){ return (b._nname.indexOf(nq)>-1?1:0)-(a._nname.indexOf(nq)>-1?1:0); });   /* priorità: prima le corrispondenze sul nome principale (sort stabile preserva l'ordine) */
+    /* STESSO ordinamento della finestrella del doppio clic (qaSearch): nome che inizia con la query →
+       query a inizio parola nel nome → a inizio parola in un campo forte → a metà parola → sola
+       categoria. Prima la barra guardava solo "il nome contiene la query", e cercando "kb" (tastiere)
+       usciva "Talkback", che ha kb in mezzo a una parola. */
+    m.forEach(function(e){
+      var n=e._nname;
+      e._rank = n.indexOf(nq)===0 ? 0 : (qaWordStart(n,nq) ? 1 : (qaWordStart(e._kwStrong,nq) ? 2
+             : (n.indexOf(nq)>-1 ? 3 : (e._kwStrong.indexOf(nq)>-1 ? 4 : 5))));
+    });
+    m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     return m;
   }
   window.__spSearch=function(query){ return searchMatches(query).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };   /* superficie pura per i test */
@@ -9703,6 +9728,10 @@ function openQuickAdd(sp, cx, cy){
   var ghost=document.createElement("div"); ghost.className="qa-ghost";
   var inp=document.createElement("input"); inp.type="text"; inp.className="qa-input";
   inp.placeholder="Cerca un elemento…"; inp.setAttribute("aria-label","Cerca un elemento da aggiungere");
+  /* niente autofill: i gestori di password (1Password, LastPass, Dashlane) marcano i campi di testo con
+     barrette e icone dentro il campo — su una barra di ricerca non hanno senso e sporcano il disegno */
+  inp.setAttribute("autocomplete","off"); inp.setAttribute("autocorrect","off"); inp.setAttribute("spellcheck","false");
+  inp.setAttribute("data-lpignore","true"); inp.setAttribute("data-1p-ignore",""); inp.setAttribute("data-form-type","other");
   wrap.appendChild(ghost); wrap.appendChild(inp); top.appendChild(wrap);
   var body=document.createElement("div"); body.className="qa-body";
   var list=document.createElement("ul"); list.className="qa-list";
@@ -15107,7 +15136,7 @@ var DESC3D={ pedana:"black stage riser/platform", podio:"square conductor podium
   vibrafono:"vibraphone with silver bars", marimba:"5-octave concert marimba",
   comboamp:"guitar combo amplifier", stack:"guitar head + 4x12 cabinet", bassamp:"bass amp 8x10 fridge cabinet",
   leslie:"Leslie rotary speaker cabinet", grancoda:"concert grand piano, black polished, lid open",
-  mezzacoda:"baby grand piano, black polished", pianoverticale:"upright piano, black",
+  mezzacoda:"baby grand piano, black polished pno", pianoverticale:"upright piano, black",
   stagepiano:"88-key stage piano on X stand", doppiatastiera:"two keyboards on double tier stand",
   celesta:"celesta, wooden body", panchetta:"black piano bench", arpa:"concert pedal harp, natural wood",
   gtstand:"electric guitar on stand", gtacustica:"acoustic guitar on stand", bassstand:"electric bass on stand",
@@ -15155,7 +15184,7 @@ var TYPEMAT={ pedana:"stage_riser_black",pedanacoro:"stage_riser_black",podio:"s
   glockenspiel:"silver_metal",xilofono:"varnished_wood",vibrafono:"silver_metal",marimba:"dark_varnished_wood",
   grancoda:"black_gloss_piano",mezzacoda:"black_gloss_piano",pianoverticale:"black_gloss_piano",celesta:"dark_varnished_wood",
   stagepiano:"black_metal",doppiatastiera:"black_metal",arpa:"varnished_wood",archi2leggio:"varnished_wood",vln1x2:"varnished_wood",vln2x2:"varnished_wood",violax2:"varnished_wood",cellix2:"varnished_wood",cbx2:"dark_varnished_wood",
-  gtacustica:"varnished_wood",bassstand:"varnished_wood",gtstand:"varnished_wood",
+  gtacustica:"varnished_wood gtr gtrs gt acoustic guitar",bassstand:"varnished_wood",gtstand:"varnished_wood",
   violoncello:"varnished_wood",contrabbasso:"dark_varnished_wood",
   drumshield:"plexiglass_clear", schermo:"black_metal", hearback:"black_metal",
   orchestra_chair:"black_padded_chair",music_stand:"black_metal",violin:"varnished_wood",viola:"varnished_wood",

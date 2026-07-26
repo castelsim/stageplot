@@ -3541,8 +3541,48 @@ t("fitStage (nuovo palco) include anch'esso le scritte", () => {
   ok(A.vb.y <= d.y0 && A.vb.y + A.vb.h >= d.y1, "fitStage taglia le scritte");
 });
 
+/* ---- Sigle delle input list: un fonico digita "gtr", non "chitarra" ---- */
+console.log("\nSigle da rider (gtr, bd, sn, kys…):");
+t("le sigle trovano l'elemento giusto, su entrambe le ricerche", () => {
+  const casi = { gtr: /chitarra/i, gt: /chitarra/i, bs: /basso/i, kb: /tastier|keys|piano/i, kys: /tastier|keys|piano/i,
+    pno: /piano/i, vox: /donna|uomo/i, bgv: /donna|uomo/i, bd: /batteria|cassa/i, sn: /batteria|rullante/i,
+    snr: /batteria|rullante/i, hh: /batteria/i, ft: /batteria/i, oh: /batteria|overhead/i, cym: /batteria|piatt/i,
+    mons: /iem|wedge|monitor|personal/i, cans: /cuffie/i, casse: /array|fill|sub/i, tpt: /tromba/i, tbn: /trombone/i,
+    hrn: /corno/i, tba: /tuba/i, fg: /fagotto/i, vla: /viola/i, vc: /violoncello/i, db: /contrabbasso/i,
+    harp: /arpa/i, lx: /luci|par|dimmer|testa|sagoma/i, tb: /talkback/i };
+  Object.keys(casi).forEach(q => {
+    const qa = A.__qaSearch(q).map(r => r.nome), sp = A.__spSearch(q).map(r => r.nome);
+    ok(qa.length && sp.length, "'" + q + "' non trova nulla");
+    ok(qa.some(n => casi[q].test(n)), "quick-add, '" + q + "': " + JSON.stringify(qa.slice(0, 3)));
+    ok(sp.some(n => casi[q].test(n)), "catalogo, '" + q + "': " + JSON.stringify(sp.slice(0, 3)));
+  });
+});
+t("le sigle corte non pescano l'elemento sbagliato", () => {
+  /* trappole trovate in fase di verifica: "kbd" faceva uscire le tastiere su "bd" (bass drum),
+     "bsn" faceva uscire il fagotto su "sn" (snare). Quelle abbreviazioni sono state scartate. */
+  ok(!/tastiera|keys|midi/i.test(A.__qaSearch("bd")[0].nome), "'bd' deve dare la batteria, non le tastiere");
+  ok(!/fagotto/i.test(A.__qaSearch("sn")[0].nome), "'sn' deve dare il rullante, non il fagotto");
+  ok(!/fagotto/i.test(A.__qaSearch("bs")[0].nome), "'bs' deve dare il basso, non il fagotto");
+  ok(A.__qaSearch("pian").every(r => !/array|front fill|sub 2/i.test(r.nome)), "'pian' non deve pescare l'impianto");
+});
+t("le due ricerche ordinano allo stesso modo", () => {
+  ["gtr", "kb", "tb", "mons", "vox", "batteria", "wedge", "cantante"].forEach(q => {
+    const a = A.__qaSearch(q)[0], b = A.__spSearch(q)[0];
+    ok(a && b, "'" + q + "' vuoto su una delle due");
+    eq(a.nome, b.nome, "primo risultato diverso per '" + q + "'");
+  });
+});
+t("la chiave tecnica si cerca anche dalla barra del catalogo", () => {
+  ok(A.__spSearch("wedge").some(r => r.k === "wedge"));
+  ok(A.__spSearch("micover").length > 0, "prima la chiave tecnica non era indicizzata nella barra");
+});
+
 /* ---- Quick-add: campo di ricerca e risultati con l'anteprima dell'elemento (variante B) ---- */
 console.log("\nQuick-add (anteprime):");
+t("il campo di ricerca dice ai gestori di password di stare alla larga", () => {
+  ["data-lpignore", "data-1p-ignore", 'autocomplete","off"'].forEach(a =>
+    ok(appjs.indexOf(a) > -1, "manca l'attributo anti-autofill: " + a));
+});
 t("le miniature dei risultati sono quelle del catalogo, in cache", () => {
   const e = { k: "wedge", nome: "Wedge monitor" };
   const a = A.qaIcon(e), b = A.qaIcon(e);

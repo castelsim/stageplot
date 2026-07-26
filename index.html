@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.07.25";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.07.26";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -698,6 +698,7 @@
   .qa-inpwrap{position:relative;flex:1;min-width:0}
   .qa-ghost{position:absolute;inset:0;padding:11px 0;font-size:14.5px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
   .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:11px 0;font-size:14.5px;background:transparent;color:var(--text,#111827);outline:none}
+  .quick-add input{border:0!important;outline:0!important;box-shadow:none!important;background-image:none!important}   /* nessun bordo iniettato da estensioni o temi */
   .qa-body{overflow-y:auto;flex:1;min-height:0;border-top:1px solid #ece7de}
   .quick-add.qa-collapsed .qa-body,.quick-add.qa-collapsed .qa-foot{display:none}   /* campo vuoto: solo la barra di ricerca */
   .qa-list{list-style:none;margin:0;padding:5px 6px;display:flex;flex-direction:column;gap:1px}
