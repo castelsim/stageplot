@@ -2166,6 +2166,25 @@ t("rotazione e distanza: campo numerico; dimensione: slider su una riga", () => 
   eq(appjs.indexOf("pRotVal"), -1, "l'output separato non serve più: il valore è nel campo");
   eq(appjs.indexOf("pSepVal"), -1);
 });
+/* Pannello layer (27/07): la riga chiusa dice quanto contiene, e il cestino esce dalla riga. */
+t("la riga del layer porta il suo numero", () => {
+  reset(); A.state.cab.on = true; A.state.elec.on = true;
+  add("astamic", 300, 300); add("astamic", 500, 300); add("stagebox", 900, 700);
+  A.__cabRes = null; A.__elecRes = null;
+  const L = A.layerRegistry();
+  const by = (id) => L.filter((x) => x.id === id)[0];
+  eq(A.layerSummary(by("cabin")), "2", "sotto un layer «Input» il numero nudo basta");
+  eq(A.layerSummary(by("stage")), "12 × 8 m", "il palco dice la misura, non un conteggio");
+  reset();
+  eq(A.layerSummary(by("mus")), "", "niente musicisti: nessun numero, non uno zero");
+});
+t("il cestino non sta più accanto all'occhio", () => {
+  eq(appjs.indexOf('tr.className="layer-ico layer-trash"'), -1,
+     "azzerava tutti i percorsi a due pixel dall'occhio");
+  ok(appjs.indexOf('rb.className="adv-btn adv-reset"') > -1, "ora è in fondo al corpo del layer");
+  ok(appjs.indexOf("I collegamenti fatti a mano su questo layer vengono persi") > -1,
+     "e chiede conferma prima di azzerare");
+});
 t("Dividi · Duplica · Elimina stanno su una riga sola", () => {
   ok(stylesCss.indexOf("#props .btns{display:flex;flex-wrap:nowrap") > -1,
      "con flex-wrap:wrap il terzo bottone andava a capo");
