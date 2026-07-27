@@ -1745,3 +1745,18 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn.on{position:relative;z-index:1}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
+
+/* Finestre delle richieste ai musicisti: stessa scocca di guideDialog, con dentro i campi
+   del pannello (label/input/select/textarea del design system). */
+.guide-card.req-card{max-width:520px;max-height:86vh;display:flex;flex-direction:column}
+.req-body{overflow:auto;margin:-2px -2px 0;padding:2px}
+.req-body label{display:block;font-size:var(--t-label);color:var(--text-2);margin:11px 0 3px}
+.req-body input[type=text],.req-body select,.req-body textarea{width:100%;border:1px solid var(--border);
+  border-radius:var(--r-md);padding:8px 10px;font-size:var(--t-body);background:var(--surface);color:var(--text);
+  font-family:var(--font-ui)}
+.req-body input[type=text]:hover,.req-body select:hover,.req-body textarea:hover{border-color:var(--border-strong)}
+.req-body input[readonly]{background:var(--surface-raised);color:var(--text-2)}
+.req-body textarea{resize:vertical}
+.req-body .btns{display:flex;flex-wrap:wrap;gap:6px}
+.req-body .btns .btn{flex:1;min-width:118px;text-align:center;text-decoration:none;line-height:1.9}
+.req-body .prop-card{margin-bottom:9px}

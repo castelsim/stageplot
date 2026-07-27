@@ -14,6 +14,9 @@ verify_jwt = false
 [functions.save-shared-project]
 verify_jwt = true
 
+[functions.setup-request]
+verify_jwt = false
+
 [functions.stripe-webhook]
 verify_jwt = false
 
