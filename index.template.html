@@ -13891,6 +13891,24 @@ var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"mon
    a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
    Ri-clic = mostra tutto. L'occhio resta indipendente. Opacita'/lucchetto/reset compaiono SOTTO
    solo quando il layer e' a fuoco (niente piu' 5 controlli sempre in vista). */
+/* Riassunto del layer, per la riga chiusa (mockup A, 27/07): «11 canali», «0,4 kW», «4 musicisti».
+   È il dato che il tecnico cerca per primo, e prima bisognava aprire il layer per vederlo.
+   Usa le cache dei motori (niente force): la riga si ridisegna a ogni render. */
+function layerSummary(L){
+  try{
+    if(L.id==="stage"){ var s=state.stage||{}; return Math.round((s.w||0)/100)+" × "+Math.round((s.d||0)/100)+" m"; }
+    if(L.id==="mus"){ var n=(state.items||[]).filter(function(x){ return musLayerItem(x.type); }).length; return n?String(n):""; }
+    /* Sotto un layer che si chiama «Input» il numero nudo basta: scrivere «11 canali» rubava spazio
+       al nome, che finiva troncato in «Out…». L'unità resta dove non è deducibile (kW, metri). */
+    if(L.id==="cabin"){ var R=cabResult(); var c=R&&R.totIn||0; return c?String(c):""; }
+    if(L.id==="cabout"){ var R2=cabResult(); var m=(R2&&R2.mixes||[]).length; return m?String(m):""; }
+    if(L.id==="mond"){ var h=(state.items||[]).filter(function(x){ return MON_DIG_NODE[x.type]; }).length; return h?String(h):""; }
+    if(L.id==="elec"){ var E=elecResult(); return (E&&E.totW) ? elecKW(E.totW) : ""; }
+    if(L.id==="miczone"){ var z=(state.items||[]).filter(function(x){ return x.type==="miczone"; }).length; return z?String(z):""; }
+    if(L.id==="cover"){ var cv=(state.items||[]).filter(isCover).length; return cv?String(cv):""; }
+  }catch(e){}
+  return "";
+}
 function renderLayerRow(L, container){
   var focus=(layerAccOpen===L.id), accKey=LAYER_ACC[L.id]||null;
   /* D-L1A: motore spento → riga-invito. Il clic ATTIVA il motore e mette il layer a fuoco. */
@@ -13903,7 +13921,9 @@ function renderLayerRow(L, container){
     return;
   }
   var row=document.createElement("div"); row.className="layer-row layer-clickable"+(focus?" focus":"");
-  row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>';
+  var _sum=layerSummary(L);
+  row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>'
+    +(_sum?'<span class="layer-cnt">'+esc(_sum)+'</span>':'');
   row.title=focus?"Clicca per mostrare tutti i layer":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
   row.addEventListener("click", function(e){
     if(e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
@@ -13933,12 +13953,25 @@ function renderLayerRow(L, container){
   slot(eye);
   if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
     lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); slot(lk); } else slot(null);
-  if(L.removable){ var tr=document.createElement("button"); tr.type="button"; tr.className="layer-ico layer-trash"; tr.title=L.removeLabel||"Rimuovi"; tr.innerHTML=_LM_TRASH;
-    tr.addEventListener("click", function(e){ e.stopPropagation(); L.remove(); }); slot(tr); } else slot(null);
+  /* Il cestino NON sta più in riga (27/07): azzera tutti i percorsi del layer e stava a due pixel
+     dall'occhio. Ora è in fondo al corpo del layer aperto, con l'etichetta che dice cosa fa. */
   row.appendChild(slots);
   container.appendChild(row);
   if(focus){
     var body=document.createElement("div"); body.className="layer-accbody";
+    var _mkReset=function(){
+      if(!L.removable) return;
+      var rs=document.createElement("div"); rs.className="layer-adv layer-reset";
+      var rb=document.createElement("button"); rb.type="button"; rb.className="adv-btn adv-reset";
+      rb.textContent=L.removeLabel||"Azzera";
+      rb.title=L.removeLabel||"Azzera";
+      rb.addEventListener("click", function(e){ e.stopPropagation();
+        confirmDialog({icon:"trash", title:(L.removeLabel||"Azzera")+"?",
+          message:"I collegamenti fatti a mano su questo layer vengono persi. Puoi sempre rifarli col cablaggio automatico.",
+          confirmText:"Azzera"}).then(function(ok){ if(ok) L.remove(); });
+      });
+      rs.appendChild(rb); body.appendChild(rs);
+    };
     if(L.opacity!=null){ var strip=document.createElement("div"); strip.className="layer-adv";
       var ow=document.createElement("label"); ow.className="adv-op"; ow.innerHTML='<span>Opacità</span>';
       var op=document.createElement("input"); op.type="range"; op.min=15; op.max=100; op.step=1; op.value=L.opacity;
@@ -13977,6 +14010,7 @@ function renderLayerRow(L, container){
     }
     var secEl=accKey?document.getElementById(accKey):null;
     if(secEl) body.appendChild(secEl);
+    _mkReset();   /* l'azzeramento chiude il corpo: è l'ultima cosa, e chiede conferma */
     container.appendChild(body);
   }
 }
