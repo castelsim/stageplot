@@ -7035,7 +7035,6 @@ function renderProps(){
   document.getElementById("pLabel2").value = it.label2||"";
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
-  document.getElementById("pLblSizeVal").textContent = lblv;
   var _lm = it.labelMode||"full";   /* modalità nome per-elemento (default = nome intero) */
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
@@ -7065,7 +7064,6 @@ function renderProps(){
   if(rr>=-180 && rr<=180){ rNorm=rr; }   /* già nel range: preserva i due estremi (-180 resta a sinistra, non salta a 180) */
   else { rNorm=((rr%360)+360)%360; if(rNorm>180) rNorm-=360; }
   document.getElementById("pRot").value = rNorm;
-  document.getElementById("pRotVal").textContent = rNorm+"°";
   var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
   document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
   document.getElementById("pHwrap").style.display = (t.riser || isCover(it)) ? "" : "none";   /* coperture: h = luce libera sotto la struttura */
@@ -7110,7 +7108,7 @@ function renderProps(){
   var sw=document.getElementById("pSepWrap");
   if(cfg){ sw.style.display="block"; var sv=Math.max(minSepOf(it), it.sep || defSepOf(it));
     document.getElementById("pSep").min = minSepOf(it);
-    document.getElementById("pSep").value = sv; document.getElementById("pSepVal").textContent = sv+" cm"; }
+    document.getElementById("pSep").value = sv; }
   else sw.style.display="none";
   var pv=document.getElementById("pVoce"), isVoce=!!VOCE[it.type];
   pv.style.display = isVoce ? "block" : "none";
@@ -7253,6 +7251,7 @@ function renderProps(){
   if(typeof renderUsoField==="function") renderUsoField(it);       /* PRODUZIONE: utilizzo elemento regia */
   if(typeof renderSafetyInfo==="function") renderSafetyInfo(it);   /* Presidi sicurezza: info sull'elemento */
   if(typeof renderRespField==="function") renderRespField(it);     /* Decisione 4A: responsabile ereditato/eccezione */
+  if(typeof syncPanelGroups==="function") syncPanelGroups();       /* B3: via le intestazioni dei gruppi rimasti vuoti */
 }
 function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
@@ -7396,7 +7395,7 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
   var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
-document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
+document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; if(this.value===""||!isFinite(v)) return; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
 document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ render(); save(); } });
 (function(){   /* allineamento del testo (testo libero e forma) */
   var w=document.getElementById("pAlignWrap"); if(!w) return;
@@ -7498,11 +7497,11 @@ document.getElementById("pH").addEventListener("change", function(){ mutSel(func
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
   var it=getSel(); if(!it) return;
-  var raw=+document.getElementById("pRot").value||0, v=raw, cards=[-180,-135,-90,-45,0,45,90,135,180];
-  for(var i=0;i<cards.length;i++){ if(Math.abs(raw-cards[i])<=ROT_SNAP){ v=cards[i]; break; } }
-  if(v!==raw) document.getElementById("pRot").value=v;   /* aggancia anche il thumb */
+  var el=document.getElementById("pRot"), raw=+el.value;
+  if(el.value==="" || !isFinite(raw)) return;   /* campo in corso di digitazione: non ruotare a 0 */
+  var v=Math.max(-180, Math.min(180, raw));
+  if(v!==raw) el.value=v;
   it.rot=v;
-  document.getElementById("pRotVal").textContent = v+"°";   /* con segno: 0 al centro, ±180 agli estremi */
   /* perf (ciclo 8): mentre TRASCINI lo slider aggiorna solo il nodo (come il drag sul canvas),
      render pieno + save solo al rilascio → niente scatti su palchi grandi (2700+ nodi = ~14ms/render). */
   if(doSave){ render(); save(); } else rotateItemNode(it);
@@ -7552,7 +7551,6 @@ function applySep(doSave){
   var it=getSel(), cfg=sepCfg(it); if(!cfg) return;
   it.sep=Math.max(minSepOf(it), Math.min(300, +document.getElementById("pSep").value||minSepOf(it)));
   it.w=sepToW(cfg, it.sep);
-  document.getElementById("pSepVal").textContent = it.sep+" cm";
   render(); if(doSave) save();
 }
 document.getElementById("pSep").addEventListener("input", function(){ applySep(false); });
@@ -7662,31 +7660,79 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
 /* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
    Supera B5 ("Altre opzioni"): riordino a runtime dei controlli esistenti → handler, colori bottoni e logica show/hide invariati. */
 (function arrangePanel(){
+  /* B3 (Simone 27/07): il pannello è organizzato in GRUPPI con l'intestazione col termine del mestiere
+     — Etichetta · Microfono · Ascolto · Accessori · Dettagli tecnici · Disegno — separati dallo spazio
+     bianco invece che da riquadri e linee. Nessun controllo tolto, nessun handler toccato: si riordinano
+     i wrapper esistenti a runtime. Le intestazioni si nascondono da sole quando il gruppo è vuoto per
+     il tipo selezionato (syncPanelGroups, chiamata a fine renderProps). */
   var sp=document.getElementById("selProps"); if(!sp) return;
   var get=function(id){ return document.getElementById(id); };
-  var ph=get("pLblHidden"); if(ph) ph.style.display="none";                          /* via "Nascosto" */
-  var aa=get("pLookApplyAll"); if(aa) aa.style.display="none";                       /* via i "Applica a tutti" (pulizia come mockup) */
+  var aa=get("pLookApplyAll"); if(aa) aa.style.display="none";                       /* via i "Applica a tutti": la sigla la chiede il dialogo, l'aspetto il menu */
   var at=get("pLblApplyType"); if(at) at.style.display="none";
-  var lw=get("pLookWrap"); if(lw) lw.style.marginBottom="9px";                       /* compattazione */
-  var CARD="background:var(--surface-raised);border:1px solid var(--border);border-radius:9px;padding:9px 10px;margin-bottom:9px";
-  /* blocchetto Etichetta: Intero/Sigla + testo + Dimensione + (Colore) + Posizione */
-  var cLbl=document.createElement("div"); cLbl.id="pLblCard"; cLbl.style.cssText=CARD;
-  ["pLblModeWrap","pLabelWrap","pLabel2Wrap","pLblSizeWrap","pAlignWrap","pTxtColorWrap","pLblPosWrap"].forEach(function(id){ var e=get(id); if(e) cLbl.appendChild(e); });
-  /* Microfonazione + catena d'uscita: unico blocchetto "Uscita" (.prop-card, gia' stilato) */
-  var mk=get("pOutCard");
-  var setHead=function(el){ if(!el) return; var l=el.querySelector("label"); if(l){ l.style.color="var(--text)"; l.style.fontWeight="700"; } };   /* header blocchetti in grassetto scuro (come mockup) */
+  var lw=get("pLookWrap"); if(lw) lw.style.marginBottom="0";
+  var setHead=function(el){ if(!el) return; var l=el.querySelector("label"); if(l){ l.style.color="var(--text-2)"; l.style.fontWeight="600"; } };
   setHead(get("pLblModeWrap"));
-  ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp"].forEach(function(id){ var e=get(id); if(e){ e.style.borderTop="none"; e.style.marginTop="2px"; e.style.paddingTop="0"; } });   /* niente linea sopra i toggle */
-  var rr0=get("pRotRow"); if(rr0) rr0.style.borderBottom="none";                     /* via la linea tratteggiata sotto Rotazione */
-  sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });    /* via le linee tratteggiate tra i toggle (come mockup) */
-  var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
-  /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
-  ["pLookWrap", cLbl, "pShapeWrap", "pRotRow", "pOutCard", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pHeadMicWrap","pAscoltoWrap","pReqWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
-   "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
-  ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
+  ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp"].forEach(function(id){ var e=get(id); if(e){ e.style.borderTop="none"; e.style.marginTop="0"; e.style.paddingTop="0"; } });
+  var rr0=get("pRotRow"); if(rr0) rr0.style.borderBottom="none";
+  sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });   /* l'aria viene dallo spazio, non dalle linee */
+
+  /* La lucetta è un accessorio del LEGGIO: le sta sotto, rientrata, invece di stare quattro controlli
+     più in alto come prima. Stesso trattamento per Distanza e Dividi, che esistono solo se la
+     postazione è a 2. */
+  var flags=get("pFlags"), luc=get("pLucettaWrap"), dopLbl=(get("pDoppia")||{}).closest ? get("pDoppia").closest("label") : null;
+  if(flags && luc && dopLbl){
+    var nest=document.createElement("div"); nest.className="pnest"; nest.appendChild(luc);
+    flags.insertBefore(nest, dopLbl);
+  }
+  var postaz=get("pPostaz"), sep=get("pSepWrap"), divide=get("pDivide");
+  if(postaz && sep){
+    var nest2=document.createElement("div"); nest2.className="pnest"; nest2.id="pDblNest";
+    nest2.appendChild(sep);
+    postaz.appendChild(nest2);
+  }
+
+  function group(title, note, ids){
+    var g=document.createElement("div"); g.className="pgrp";
+    var h=document.createElement("div"); h.className="pgh"; h.textContent=title;
+    if(note){ var s=document.createElement("span"); s.className="pgh-note"; s.textContent=" — "+note; h.appendChild(s); }
+    g.appendChild(h);
+    ids.forEach(function(id){ var e=get(id); if(e) g.appendChild(e); });
+    sp.appendChild(g); return g;
+  }
+  /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
+  function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
+  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap");
+  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
+  group("Microfono", null, ["pOutCard","pStereoWrap","pHeadMicWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
+  group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
+  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
+  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pMirWrap","pReqWrap"]);
+  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
+  var resp=get("pRespWrap"), cont=get("pContactBtn");
+  if(resp || cont){
+    var d=document.createElement("details"); d.className="pdetails";
+    var s=document.createElement("summary"); s.textContent="Responsabile e contatto"; d.appendChild(s);
+    if(resp){ resp.style.borderTop="none"; resp.style.marginTop="0"; resp.style.paddingTop="0"; d.appendChild(resp); }
+    if(cont) d.appendChild(cont);
+    sp.appendChild(d);
+  }
+  if(divide) sp.appendChild(divide);
+  var dv=document.createElement("hr"); dv.className="pdiv"; sp.appendChild(dv);
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
 })();
+/* Un'intestazione di gruppo senza controlli visibili sotto è rumore: il gruppo sparisce con essa. */
+function syncPanelGroups(){
+  var gs=document.querySelectorAll("#selProps .pgrp, #selProps .pdetails, #selProps .pnest");
+  for(var i=0;i<gs.length;i++){
+    var g=gs[i], vis=false, kids=g.children;
+    for(var j=0;j<kids.length;j++){
+      var k=kids[j];
+      if(k.classList.contains("pgh") || k.tagName==="SUMMARY") continue;
+      if(k.offsetParent!==null || (k.style.display!=="none" && k.hidden!==true)){ vis=true; break; }
+    }
+    g.style.display = vis ? "" : "none";
+  }
+}
 /* ===== EQUIPMENT INTELLIGENCE: campo "modello reale" nel pannello =====
    Regole (feedback Simone 17/07): (1) il campo appare SOLO sugli elementi tecnici pertinenti
    (equipCatsFor: aste/mic, console, PA, stagebox, personal mixer) — mai su musicisti/direttore/arredo;
