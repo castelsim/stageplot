@@ -335,8 +335,9 @@
      mentre si lavora sugli elementi che ci stanno sopra. In modalità palco vale l'opposto: sono le
      uniche a rispondere, tutto il resto passa in secondo piano. */
   body.stage-edit .item{opacity:.35;pointer-events:none}
-  body.stage-edit .riser-item .item{opacity:1;pointer-events:all}
-  body:not(.stage-edit) .riser-item{pointer-events:none}
+  /* La pedana è un elemento come gli altri (27/07): niente blocco fuori dalla modalità palco. In
+     modalità palco resta visibile e attenuata come il resto, perché lì si lavora la forma del palco. */
+  body.stage-edit .riser-item .item{opacity:.5}
   .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:2}
   .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:2.5}   /* metro: maniglie tonde agli estremi della linea */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}

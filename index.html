@@ -500,8 +500,9 @@
      mentre si lavora sugli elementi che ci stanno sopra. In modalità palco vale l'opposto: sono le
      uniche a rispondere, tutto il resto passa in secondo piano. */
   body.stage-edit .item{opacity:.35;pointer-events:none}
-  body.stage-edit .riser-item .item{opacity:1;pointer-events:all}
-  body:not(.stage-edit) .riser-item{pointer-events:none}
+  /* La pedana è un elemento come gli altri (27/07): niente blocco fuori dalla modalità palco. In
+     modalità palco resta visibile e attenuata come il resto, perché lì si lavora la forma del palco. */
+  body.stage-edit .riser-item .item{opacity:.5}
   .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:2}
   .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:2.5}   /* metro: maniglie tonde agli estremi della linea */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
@@ -2118,14 +2119,14 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
   </div>
   <div class="sec" id="stageEditPanel" hidden>
     <div id="stageBlocksSec">
-    <h3 style="margin-bottom:6px">Palco e pedane</h3>
+    <h3 style="margin-bottom:6px">Forma del palco</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
-    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Palco e pedane con la stessa meccanica: aggiungi, <b>trascina</b> sul palco, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco.</div>
+    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
     <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco o una pedana, regola misura e altezza con + / −, poi scegli dove metterla.</div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock">+ Blocco</button>
       <button class="btn" id="bAddSemi">+ Semicerchio</button>
-      <button class="btn" id="bAddPedana">+ Pedana</button>
+
     </div>
     <div id="blkList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
