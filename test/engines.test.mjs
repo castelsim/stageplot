@@ -4206,6 +4206,18 @@ t("il testo dentro la forma si allinea come quello libero", () => {
   const m = A.drawTextBox(t2);
   ok(m.indexOf('text-anchor="end"') > -1 && m.indexOf('x="' + (t2.w / 2 - 8) + '"') > -1, "a destra, ancorato al bordo");
 });
+/* Il bug del 27/07: l'allineamento non si vedeva e nella forma il testo usciva dal riquadro, perché
+   .txtbox-line{text-anchor:start} nel CSS batteva l'attributo sul <text> (proprietà di presentazione:
+   la regola di classe vince). Questo test presidia il CSS, non solo il markup. */
+t("nessuna regola CSS puo' ribaltare l'allineamento del testo", () => {
+  const regola = (stylesCss.match(/\.txtbox-line\{[^}]*\}/) || [""])[0];
+  ok(regola, "regola .txtbox-line non trovata");
+  eq(/text-anchor/.test(regola), false, "text-anchor nel CSS batterebbe l'attributo: " + regola);
+  const f = { type: "forma", w: 200, d: 120, label: "x", align: "right" };
+  const m = A.drawShape(f);
+  ok(m.indexOf('text-anchor="end"') > -1 && /style="[^"]*text-anchor:end/.test(m),
+    "l'allineamento va anche nello style inline, cosi' nessuna classe lo ribalta");
+});
 t("cercando una geometria si trova la voce giusta", () => {
   reset();
   const primi = q => A.__qaSearch(q).map(r => r.nome)[0];
