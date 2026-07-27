@@ -4157,7 +4157,7 @@ t("SEARCH_ALIAS e' fuso nei TYPES (una sola fonte per le due ricerche)", () => {
 });
 t("i termini da fonico trovano l'elemento giusto", () => {
   const casi = { chitarrista: /chitarra/i, bassista: /basso/i, drummer: /batteri/i, tastierista: /tastiera|piano/i,
-    pianista: /piano/i, amplificatore: /ampli|combo|stack/i, praticabile: /pedana/i, "in ear": /iem|in-ear/i,
+    pianista: /piano/i, amplificatore: /ampli|combo|stack/i, "in ear": /iem|in-ear/i,
     radiomicrofono: /wireless/i, intercom: /talkback/i, cavo: /passacavi|multicore|patch/i, alimentazione: /distro|multipresa|quadro/i,
     kick: /batteria/i, transenne: /transenna/i, seguipersona: /follow spot/i, "occhio di bue": /follow spot/i,
     router: /switch rete/i, computer: /portatile|laptop/i, spia: /wedge/i, telecamera: /camera/i, "tromba a coulisse": /trombone/i };
@@ -4166,6 +4166,38 @@ t("i termini da fonico trovano l'elemento giusto", () => {
     ok(nomi.length > 0, "'" + q + "' non trova nulla");
     ok(nomi.some(n => casi[q].test(n)), "'" + q + "' trova " + JSON.stringify(nomi.slice(0, 3)) + ", atteso " + casi[q]);
   });
+});
+/* 27/07 (Simone): «l'etichetta deve partire sempre dal nome intero; la sigla la sceglie l'utente,
+   e gli si chiede se applicarla a tutti gli strumenti simili». */
+t("l'etichetta di un elemento nuovo e' il nome intero, non la sigla", () => {
+  reset();
+  const it = add("cantante", 300, 300);
+  eq(it.labelMode, undefined, "il default non si memorizza");
+  eq(A.lblText("Voce solista", it, true), "Voce solista", "deve uscire il nome intero");
+  it.labelMode = "abbr";
+  ok(A.lblText("Voce solista", it, true).length < "Voce solista".length, "in sigla il testo si accorcia");
+  it.labelMode = "hidden";
+  eq(A.lblText("Voce solista", it, true), "", "nascosta");
+});
+t("la sigla si puo' estendere agli altri elementi dello stesso tipo", () => {
+  reset();
+  const a = add("cantante", 200, 300), b = add("cantante", 400, 300), c = add("astamic", 600, 300);
+  a.labelMode = "abbr";
+  const simili = A.state.items.filter(o => o !== a && o.type === a.type && (o.labelMode || "full") !== "abbr");
+  eq(simili.length, 1, "un solo cantante da convertire");
+  simili.forEach(o => { o.labelMode = "abbr"; });
+  eq(b.labelMode, "abbr", "il secondo cantante segue");
+  eq(c.labelMode, undefined, "l'asta microfono non c'entra: resta col nome intero");
+});
+/* 27/07 (Simone): «le pedane devono esserci solo nella sezione palco e pedane». Non sono elementi
+   da trascinare: sono parte del palco. Cercandole si deve arrivare al costruttore. */
+t("la pedana non e' un elemento del catalogo: la ricerca porta al costruttore", () => {
+  const quick = A.__qaSearch("pedana").map(r => r.nome);
+  eq(quick.some(n => /^Pedana 2/i.test(n)), false, "la pedana singola non deve piu' comparire fra gli elementi: " + JSON.stringify(quick));
+  const catalogo = (A.__catEntries || []).filter(e => /pedana|praticabile/i.test((e.nome || "") + " " + (e.kw || "")));
+  ok(catalogo.some(e => e.nome === "Palco e pedane"), "cercando pedana si deve trovare «Palco e pedane»");
+  eq(catalogo.some(e => e.k === "pedana"), false, "nessuna voce di catalogo per il tipo pedana");
+  ok(A.TYPES.pedana, "il TIPO pedana resta: lo crea il costruttore col suo + Pedana");
 });
 t("nessun alias inquina le query comuni (la ricerca e' una substring)", () => {
   /* "monitor" deve restare la query dei wedge: se un alias ci infila il LED wall, e' rumore */
