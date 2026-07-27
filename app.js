@@ -1677,6 +1677,16 @@ function sbPortUse(it){   /* canali già patchati, dal risultato del motore (cac
   }catch(e){}
   return use;
 }
+/* MANIGLIE A MISURA FISSA (variante A, Simone 27/07). Erano quadrati da 18 CENTIMETRI disegnati
+   nelle coordinate del palco: grandi come mezza sedia, e con lo zoom raddoppiavano invece di
+   restare uguali. Qui si converte una misura in pixel di schermo nei centimetri corrispondenti,
+   così il segno resta di 6-7 px a qualsiasi ingrandimento. */
+function cmPerPx(){
+  var k=NaN;
+  try{ k=((vb&&vb.w)||1000)/(svg.clientWidth||1000); }catch(e){}
+  return (isFinite(k)&&k>0) ? k : 1;
+}
+function hSize(px){ return px*cmPerPx(); }
 function sbLod(it){   /* 2 = XLR con pin · 1 = pastiglie · 0 = barre di riempimento */
   if(window.__scenePrint || window.__cabStatic) return 2;   /* export PDF/PNG: risoluzione alta, dettaglio pieno */
   if(window.__sbMiniLod===true) return 1;   /* anteprima del catalogo: pastiglie, per distinguere 8 / 16 / 24 canali */
@@ -4044,25 +4054,25 @@ function itemMarkup(it){
   }
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
   if((stageEdit ? isRiser(it) : true) && selSet[it.id] && selIds().length===1){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto */
-    var ky=-(bh+26);
+    var _k=cmPerPx(), knob=7*_k, ky=-(bh+hSize(22));
     s += '<g class="rot-handle" data-id="'+attrId+'">'+
-         '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+9)+'"/>'+
-         '<circle class="rh-hit" cx="0" cy="'+ky+'" r="16"/>'+
-         '<circle class="rh-knob" cx="0" cy="'+ky+'" r="9"/>'+
-         '<path class="rh-ico" d="M '+(-3.5)+' '+(ky-0.5)+' A 4 4 0 1 1 '+(-3.5)+' '+(ky+1.5)+'"/>'+
-         '<path class="rh-ico" d="M '+(-3.5)+' '+(ky-3)+' L '+(-3.5)+' '+(ky-0.2)+' L '+(-0.7)+' '+(ky-0.2)+'"/>'+
+         '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+knob)+'" stroke-width="'+(1.5*_k)+'"/>'+
+         '<circle class="rh-hit" cx="0" cy="'+ky+'" r="'+(14*_k)+'"/>'+
+         '<circle class="rh-knob" cx="0" cy="'+ky+'" r="'+knob+'" stroke-width="'+(1.8*_k)+'"/>'+
+         '<path class="rh-ico" d="M '+(-2.7*_k)+' '+(ky-0.4*_k)+' A '+(3*_k)+' '+(3*_k)+' 0 1 1 '+(-2.7*_k)+' '+(ky+1.2*_k)+'" stroke-width="'+(1.5*_k)+'"/>'+
+         '<path class="rh-ico" d="M '+(-2.7*_k)+' '+(ky-2.3*_k)+' L '+(-2.7*_k)+' '+(ky-0.15*_k)+' L '+(-0.5*_k)+' '+(ky-0.15*_k)+'" stroke-width="'+(1.5*_k)+'"/>'+
          '</g>';
   }
   /* LUCCHETTO della pedana (Simone 27/07): accanto alla maniglia di rotazione. Chiuso, la pedana
      resta dov'è — non si sposta, non si allunga, non si ruota — e il doppio clic ci passa
      attraverso: si apre la ricerca rapida, per posare un elemento SOPRA la pedana. */
   if(isRiser(it) && selSet[it.id] && selIds().length===1){
-    var lky=-(bh+26), lkx=26;
+    var _lk=cmPerPx(), lky=-(bh+hSize(22)), lkx=hSize(21), lknob=7*_lk;
     s += '<g class="lock-handle'+(it.locked?" on":"")+'" data-id="'+attrId+'" role="button" tabindex="0" aria-pressed="'+(it.locked?"true":"false")+'" aria-label="'+(it.locked?"Sblocca la pedana":"Blocca la pedana")+'">'+
-         '<circle class="lk-hit" cx="'+lkx+'" cy="'+lky+'" r="15"/>'+
-         '<circle class="lk-knob" cx="'+lkx+'" cy="'+lky+'" r="9"/>'+
-         '<rect class="lk-body" x="'+(lkx-3.6)+'" y="'+(lky-0.6)+'" width="7.2" height="5.6" rx="1.2"/>'+
-         '<path class="lk-arc" d="M '+(lkx-2.2)+' '+(lky-0.8)+' v -1.8 a 2.2 2.2 0 0 1 4.4 0 '+(it.locked?"v 1.8":"v 0.4")+'"/>'+
+         '<circle class="lk-hit" cx="'+lkx+'" cy="'+lky+'" r="'+(13*_lk)+'"/>'+
+         '<circle class="lk-knob" cx="'+lkx+'" cy="'+lky+'" r="'+lknob+'" stroke-width="'+(1.8*_lk)+'"/>'+
+         '<rect class="lk-body" x="'+(lkx-2.8*_lk)+'" y="'+(lky-0.5*_lk)+'" width="'+(5.6*_lk)+'" height="'+(4.4*_lk)+'" rx="'+(1*_lk)+'"/>'+
+         '<path class="lk-arc" d="M '+(lkx-1.7*_lk)+' '+(lky-0.6*_lk)+' v '+(-1.4*_lk)+' a '+(1.7*_lk)+' '+(1.7*_lk)+' 0 0 1 '+(3.4*_lk)+' 0 '+(it.locked?("v "+(1.4*_lk)):("v "+(0.3*_lk)))+'" stroke-width="'+(1.3*_lk)+'"/>'+
          '</g>';
   }
   /* ZONA: rettangolo = 4 angoli di resize + "+" sui lati per iniziare a modellare; poligono = vertici trascinabili + "+" (Alt+click rimuove). */
@@ -4076,17 +4086,19 @@ function itemMarkup(it){
     });
     if(mzPoly){
       mzp.forEach(function(p,vi){               /* vertici del poligono: pallini trascinabili */
-        s += '<circle class="mz-vtx" data-id="'+attrId+'" data-vtx="'+vi+'" cx="'+p[0]+'" cy="'+p[1]+'" r="7"/>';
+        s += '<circle class="mz-vtx" data-id="'+attrId+'" data-vtx="'+vi+'" cx="'+p[0]+'" cy="'+p[1]+'" r="'+hSize(4.5)+'" stroke-width="'+hSize(1.6)+'"/>';
       });
     } else {                                    /* rettangolo: angoli di ridimensionamento (uniforme), i lati restano ai "+" */
+      var mhs=hSize(3.25), mhg=hSize(7.5);   /* stessa misura fissa delle altre maniglie (variante A) */
       [["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]].forEach(function(p){
-        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-9)+'" y="'+(p[2]-9)+'" width="18" height="18" rx="2"/>';
+        s += '<rect class="rs-grab" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-mhg)+'" y="'+(p[2]-mhg)+'" width="'+(2*mhg)+'" height="'+(2*mhg)+'"/>';
+        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-mhs)+'" y="'+(p[2]-mhs)+'" width="'+(2*mhs)+'" height="'+(2*mhs)+'" rx="'+hSize(1.2)+'" stroke-width="'+hSize(1.4)+'"/>';
       });
     }
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
   if((stageEdit ? isRiser(it) : true) && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
-    var H=9, hpts;
+    var hpts;
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
       hpts=[["l",-it.w/2,0],["r",it.w/2,0]];
@@ -4096,9 +4108,13 @@ function itemMarkup(it){
     } else {
       hpts=[["l",-bw,0],["r",bw,0],["t",0,-bh],["b",0,bh],["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]];
     }
+    /* variante A: quadratino da 6,5 px SEMPRE, con sotto un'area di presa invisibile da 15 px —
+       piccolo da vedere, facile da afferrare col mouse e col dito (come negli editor vettoriali). */
+    var hs=hSize(3.25), hg=hSize(7.5), hr=hSize(1.2);
     hpts.forEach(function(p){
-      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+attrId+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="7"/>';
-      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-H)+'" y="'+(p[2]-H)+'" width="'+(2*H)+'" height="'+(2*H)+'" rx="2"/>';
+      s += '<rect class="rs-grab" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-hg)+'" y="'+(p[2]-hg)+'" width="'+(2*hg)+'" height="'+(2*hg)+'"/>';
+      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+attrId+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="'+hSize(4)+'" stroke-width="'+hSize(1.6)+'"/>';
+      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-hs)+'" y="'+(p[2]-hs)+'" width="'+(2*hs)+'" height="'+(2*hs)+'" rx="'+hr+'" stroke-width="'+hSize(1.4)+'"/>';
     });
   }
   s += '</g>';
@@ -9024,10 +9040,10 @@ svg.addEventListener("pointerdown", function(e){
      già selezionato. In modalità «Palco e pedane» l'overlay dei blocchi le copre, e quel ramo esce
      sempre con un return: il codice delle maniglie non veniva mai raggiunto, e la pedana si spostava
      invece di allungarsi o ruotare (bug 27/07). */
-  var rsh = e.target.closest ? e.target.closest(".rs-handle") : null;
+  var rsh = e.target.closest ? e.target.closest(".rs-handle,.rs-grab") : null;   /* .rs-grab = area di presa invisibile attorno al segno minuto */
   if(!rsh && document.elementsFromPoint){   /* maniglia coperta da un overlay (blocchi del palco): la si cerca sotto il dito */
     var _st=document.elementsFromPoint(e.clientX, e.clientY);
-    for(var _i=0;_i<_st.length;_i++){ var _h=_st[_i].closest && _st[_i].closest(".rs-handle"); if(_h){ rsh=_h; break; } }
+    for(var _i=0;_i<_st.length;_i++){ var _h=_st[_i].closest && _st[_i].closest(".rs-handle,.rs-grab"); if(_h){ rsh=_h; break; } }
   }
   if(rsh){                                  /* maniglia di ridimensionamento: trascina lato/angolo */
     var rsid=rsh.getAttribute("data-id"); selectOne(rsid); var rsit=getSel();
