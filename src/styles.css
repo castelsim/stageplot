@@ -338,8 +338,13 @@
   /* La pedana è un elemento come gli altri (27/07): niente blocco fuori dalla modalità palco. In
      modalità palco resta visibile e attenuata come il resto, perché lì si lavora la forma del palco. */
   body.stage-edit .riser-item .item{opacity:.5}
-  .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:2}
-  .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:2.5}   /* metro: maniglie tonde agli estremi della linea */
+  /* Maniglie (variante A): segno minuto a misura FISSA — lo spessore arriva dal markup, che lo
+     calcola in pixel di schermo. Sotto, un'area di presa invisibile piu' larga: piccole da vedere,
+     facili da afferrare. */
+  .rs-handle{fill:#fff;stroke:var(--accent);vector-effect:non-scaling-stroke;pointer-events:none}
+  .rs-grab{fill:transparent;cursor:pointer}
+  .rs-grab:hover ~ .rs-handle,.rs-handle:hover{fill:var(--accent-tint)}
+  .rs-handle.rs-end{fill:var(--accent);stroke:#fff}   /* metro: maniglie tonde agli estremi della linea */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
   .rot-handle{cursor:grab}
@@ -348,7 +353,7 @@
   .rot-handle .rh-ico{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round}
   .rot-handle .rh-hit{fill:transparent}
   /* ZONA microfono panoramico: maniglie sui vertici del poligono + midpoint per aggiungere */
-  .mz-vtx{fill:#8b5cf6;stroke:#fff;stroke-width:2;cursor:grab}
+  .mz-vtx{fill:#8b5cf6;stroke:#fff;cursor:grab}
   .mz-vtx:hover{fill:#7c3aed}
   .mz-mid{fill:#fff;stroke:#8b5cf6;stroke-width:1.5;opacity:.92;cursor:copy}
   .mz-mid:hover{fill:#ede9fe}
