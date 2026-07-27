@@ -1760,3 +1760,18 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 .req-body .btns{display:flex;flex-wrap:wrap;gap:6px}
 .req-body .btns .btn{flex:1;min-width:118px;text-align:center;text-decoration:none;line-height:1.9}
 .req-body .prop-card{margin-bottom:9px}
+
+/* Elemento FORMA: selettore geometria + tavolozza colori nel pannello destro. */
+#props .shape-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+#props .shape-grid button{display:flex;align-items:center;justify-content:center;aspect-ratio:1;padding:0;
+  border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;
+  transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+#props .shape-grid button:hover{border-color:var(--accent);background:var(--accent-tint)}
+#props .shape-grid button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+#props .shape-grid svg{width:20px;height:20px;display:block}
+#props .swatches{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:6px}
+#props .swatches button{aspect-ratio:1;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+#props .swatches button.on{border-color:var(--text);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 0 0 2px var(--surface)}
+#props #pShapeFillFree{width:100%;height:30px;padding:2px;border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface);cursor:pointer}
