@@ -4665,6 +4665,10 @@ function pdfHeaderFromContact(c){
    account Google (nome · email) > vuoto. acct = {name,contact} opzionale. */
 function pdfHeaderPropose(s, acct){
   if(s && typeof s.pdfHeader==="string" && s.pdfHeader.trim()) return s.pdfHeader;
+  /* svuotato APPOSTA dall'utente (stringa vuota salvata) ≠ mai impostato (campo assente): senza questa
+     distinzione la proposta — contatto o, peggio, nome ed email dell'account — tornava a ogni apertura
+     e finiva stampata sul cartiglio senza che nessuno l'avesse scelta. */
+  if(s && s.pdfHeaderOff===true) return "";
   var cs=((s&&s.contacts)||[]).filter(function(c){ return (c.name&&c.name.trim())||(c.contact&&c.contact.trim()); });
   if(cs.length){
     var pri=cs.filter(function(c){ return /tecnic|sala|foh|fonic/i.test(c.role||""); })[0] || cs[0];
@@ -16876,16 +16880,20 @@ function autoScale(paperKey, orient, cartH){
 function resolveScale(paperKey, scaleSel, orient, cartH){
   return scaleSel==="auto" ? autoScale(paperKey, orient, cartH) : parseInt(scaleSel,10);
 }
+/* Scala personalizzata, valore effettivo (10–500). Number() e non parseInt: "1e3" con parseInt
+   diventava 1 → 1:10 mentre si chiedeva 1:1000, e i decimali sparivano senza dirlo. Vuoto o non
+   numerico → 75, il valore di partenza; 0 e i negativi vanno al minimo, non al default. */
+function pdfScaleClamp(raw){
+  var t=String(raw==null?"":raw).trim();
+  var n=t==="" ? 75 : Number(t);
+  if(!isFinite(n)) n=75;
+  return Math.round(Math.max(10, Math.min(500, n)));
+}
 /* M-scala: valore di scala effettivo — se "Personalizzata", legge l'input 1:N (10–500) */
 function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) return "auto";
   if(s.value==="custom"){
     var c=document.getElementById("pdfScaleCustom");
-    /* Number() e non parseInt: "1e3" con parseInt diventava 1 → 1:10 (si chiedeva 1:1000!), e i
-       decimali venivano troncati in silenzio. Vuoto o non numerico → 75, il valore di partenza. */
-    var raw=c ? String(c.value).trim() : "";
-    var n=raw==="" ? 75 : Number(raw);
-    if(!isFinite(n)) n=75;
-    n=Math.round(Math.max(10, Math.min(500, n)));
+    var n=pdfScaleClamp(c && c.value);
     if(c && String(c.value)!==String(n)) c.value=n;   /* il campo mostra la scala davvero usata */
     return String(n);
   }
@@ -17208,8 +17216,9 @@ function riderPdf(shared){
     if(d.note){ heading("NOTE"); body(d.note); }
     if(d.contatti.length){ heading("CONTATTI E RUOLI"); d.contatti.forEach(function(c){
         var head=[c.role||"—", c.name].filter(Boolean).join(" · ");
-        var ct=[c.contact, c.note].filter(Boolean).join(" · ");
-        body(head+(ct?" — "+ct:"")); }); }
+        /* SOLO ruolo, nome e recapito: la NOTA del contatto è un appunto interno del tecnico
+           («non risponde mai, chiama la moglie») e non deve finire nel PDF che si manda al locale. */
+        body(head+(c.contact?" — "+c.contact:"")); }); }
     else if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); doc.text("Riferimento tecnico: "+d.contatto, M, y); y+=5; }
     if(shared) return;
     pdfCredit(doc);
@@ -18875,7 +18884,9 @@ function pdfChannelPage(doc, L, paperKey){
   }
   function renderPreview(){
     var host=document.getElementById("pdfPreview"); if(!host) return;
-    var N=resolveScale(paper.value, pdfScaleValue(), orient.value);
+    /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
+       una scala e la riga di stato dichiararne un'altra */
+    var N=resolveScale(paper.value, pdfScaleValue(), orient.value, cartHFor(header.value, paper.value, orient.value));
     var pages=previewPages();
     if(prevIdx>=pages.length) prevIdx=pages.length-1; if(prevIdx<0) prevIdx=0;
     var p=pages[prevIdx];
@@ -19080,7 +19091,9 @@ function pdfChannelPage(doc, L, paperKey){
     pdfHeaderSavedLine();
   }
   header.addEventListener("change", function(){
-    state.pdfHeader=String(header.value||"").slice(0,120);
+    var v=String(header.value||"").slice(0,120);
+    state.pdfHeader=v;
+    if(v.trim()) delete state.pdfHeaderOff; else state.pdfHeaderOff=true;   /* vuoto = scelta, non "non ho ancora deciso" */
     save(); pdfHeaderSavedLine();
   });
   (function(){
