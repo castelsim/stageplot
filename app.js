@@ -953,7 +953,7 @@ var TYPES = {
                '<g transform="translate(32,0) rotate(20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'; }},
   wireless: {nome:"Mic wireless", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:34,d:34, defLabel:"WL",
              draw:function(it){ return drawLibFit("radiomic",it,4,14); }},
-  headset:  {nome:"Headset", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:32,d:32, defLabel:"HS",
+  headset:  {nome:"Archetto (headset)", dim:"DPA 4066 · 4088", cat:"Microfoni e DI", sub:"Aste e microfoni", w:32,d:32, defLabel:"HS",
              draw:function(it){ return drawLibFit("headsetclip",it,12,12); }},
   podiosp:  {nome:"Podio speaker", dim:"60×45", cat:"Palco e strutture", catalog:false, w:62,d:48,
              draw:function(){ return '<path class="ic fWoodL" d="M -30,22 L 30,22 L 21,-22 L -21,-22 Z"/>'+
@@ -1238,12 +1238,14 @@ var SEARCH_ALIAS = {
   wedge:"spia spie monitor da terra floor monitor mon mons",
   iem:"in ear inear auricolare auricolari earphone radiotrasmettitore mon mons",
   iemant:"in ear inear auricolari",
-  wireless:"radiomicrofono radiomicrofoni radiomic archetto gelato",
+  wireless:"radiomicrofono radiomicrofoni radiomic gelato palmare",
+  headset:"archetto microfono ad archetto headset headworn dpa 4066 dpa 4088 madonna",
   astamic:"aste microfoniche astina astine mic stand", giraffa:"aste microfoniche mic stand boom",
   astabassa:"aste microfoniche astina astine mic stand",
   talkback:"clearcom clear com intercom comunicazione regia tb",
   /* strutture, cablaggio, elettrico, video */
-  pedana:"praticabile praticabili americana modulo",
+  /* la pedana NON è un elemento del catalogo (27/07): i suoi sinonimi vivono sulla voce
+     «Palco e pedane», che porta al costruttore — vedi entries più sotto */
   transenna:"transenne barriera barriere",
   cableramp:"cavo cavi passacavo canalina",
   mcorereel:"cavo cavi cablaggio xlr", patchpt:"cavo cavi xlr jack connettore connettori",
@@ -6764,7 +6766,7 @@ function renderProps(){
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
   document.getElementById("pLblSizeVal").textContent = lblv;
-  var _lm = it.labelMode||"abbr";   /* modalità nome per-elemento (default = Sigla) */
+  var _lm = it.labelMode||"full";   /* modalità nome per-elemento (default = nome intero) */
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
   document.getElementById("pLblHidden").className = "btn"+(_lm==="hidden"?" primary":"");
@@ -7103,7 +7105,7 @@ function abbrOf(it){
 /* testo dell'etichetta da disegnare in base alla modalità per-elemento (full/abbr/hidden) */
 function lblText(raw, it, isPrimary){
   if(!raw) return "";
-  var mode=it.labelMode||"abbr";   /* default = Sigla */
+  var mode=it.labelMode||"full";   /* default = nome INTERO (Simone 27/07): la sigla è una scelta, non il punto di partenza */
   if(mode==="hidden") return "";
   if(mode==="abbr") return isPrimary ? abbrOf(it) : abbrOf({type:it.type, label:raw});   /* il 2° strumento della postazione a 2 usa la stessa logica (sigla + numero) */
   return raw;
@@ -7120,7 +7122,33 @@ document.getElementById("pLblSize").addEventListener("change", function(){ var i
 document.getElementById("pTxtColor").addEventListener("input", function(){ var v=document.getElementById("pTxtColor").value; mutSelSoon(function(it){ it.txtColor=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
-function _setLblMode(m){ mutSel(function(it){ if(m==="abbr") delete it.labelMode; else it.labelMode=m; }); renderProps(); }   /* default = Sigla → "abbr" non si memorizza */
+function _setLblMode(m){
+  mutSel(function(it){ if(m==="full") delete it.labelMode; else it.labelMode=m; });   /* default = nome intero → "full" non si memorizza */
+  renderProps();
+  if(m==="abbr") lblAskSameType();   /* la sigla di solito la si vuole per tutti gli strumenti uguali */
+}
+/* Scegliendo la sigla: se sul palco ci sono altri elementi dello stesso tipo ancora col nome intero,
+   chiedilo una volta invece di farglielo ripetere elemento per elemento (Simone 27/07). */
+function lblAskSameType(){
+  var it=getSel(); if(!it) return;
+  var simili=(state.items||[]).filter(function(o){ return o!==it && o.type===it.type && (o.labelMode||"full")!=="abbr"; });
+  if(!simili.length) return;
+  var nome=(TYPES[it.type]&&TYPES[it.type].nome)||"elemento";
+  guideDialog({
+    title:"Sigla anche per gli altri?",
+    msg: simili.length===1
+      ? ("Sul palco c'è un altro «"+nome+"»: vuoi la sigla anche per lui, o solo per questo?")
+      : ("Sul palco ci sono altri "+simili.length+" «"+nome+"»: vuoi la sigla anche per loro, o solo per questo?"),
+    steps:["Puoi sempre cambiare idea elemento per elemento"],
+    action:{ label:"Sì, tutti ("+simili.length+")", run:function(){
+      simili.forEach(function(o){ o.labelMode="abbr"; });
+      save(); render(); renderProps();
+      showToast("Sigla applicata a "+simili.length+(simili.length===1?" elemento":" elementi"));
+    }}
+  });
+  var ov=document.getElementById("guideDlg");
+  if(ov){ var b=ov.querySelector(".guide-actions .btn"); if(b) b.textContent="Solo questo"; }
+}
 document.getElementById("pLblFull").addEventListener("click", function(){ _setLblMode("full"); });
 document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLblMode("abbr"); });
 document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
@@ -7133,7 +7161,7 @@ document.getElementById("pRamp").addEventListener("change", function(){ var v=th
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
-document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"abbr"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
+document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"full"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
 document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
@@ -7933,12 +7961,10 @@ function refreshCatalogArt(){
       g.head.innerHTML='<span class="caret">▸</span><span>'+esc(sub)+'</span><span class="count">'+g.count+'</span>';
       g.body.appendChild(btn); n++; }
     if(c==="Palco e pedane"){
-      /* — Pedane e gradoni — (Blocco palco e Planimetria stanno fissi in fondo alla sidebar, con Metro e Testo) */
-      [["2×1 m",200,100]].forEach(function(p){
-        var nome="Pedana "+p[0], over={w:p[1],d:p[2]};
-        addToGroup("Pedane e gradoni", makeBtn("pedana",nome,over,p[0]));
-        entries.push({k:"pedana",nome:nome,over:over,dim:p[0]});
-      });
+      /* La PEDANA non sta nel catalogo (Simone 27/07): è parte del palco e si crea dentro «Palco e
+         pedane» col suo «+ Pedana», dove poi si sposta e si dimensiona. Averla anche qui la rendeva
+         un elemento trascinabile ovunque — la stessa incoerenza chiusa il 25/07 sul trascinamento.
+         Resta invece la pedana coro: gradoni con un disegno suo, che il costruttore non sa fare. */
       if(TYPES.pedanacoro){ addToGroup("Pedane e gradoni", makeBtn("pedanacoro", TYPES.pedanacoro.nome)); entries.push({k:"pedanacoro",nome:TYPES.pedanacoro.nome}); }
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
@@ -8047,7 +8073,8 @@ function refreshCatalogArt(){
      rimasto orfano). toggleAuditView accende auditActive, l'unico gate del pannello #auditSec. */
   var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   pin.appendChild(makeActionBtn("Audit progetto","controlla se manca qualcosa", null, toggleAuditView, AUDIT_ICON));
-  entries.push({nome:"Palco e pedane", dim:"costruisci palco e pedane", icon:"pedana", action:toggleStageEdit, noQuick:true});
+  entries.push({nome:"Palco e pedane", dim:"costruisci palco e pedane", icon:"pedana", action:toggleStageEdit, noQuick:true,
+                kw:"pedana pedane praticabile praticabili americana modulo gradone gradoni riser palco stage"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
   entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
   entries.push({nome:"Audit progetto", dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   ["metro","testo"].forEach(function(k){
@@ -11087,7 +11114,7 @@ function renderPrompt(o){
 /* MIC/DI di default per OGNI elemento che produce suono (pulsante "Auto" da palco).
    Singolo canale qui in IN_SRC; elementi stereo/multipli in IN_MULTI. Convenzioni live PA. */
 /* M4 — suggerimenti (datalist) per mic/DI e stand: modelli comuni nel live sound. Solo hint, campo resta libero. */
-var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","e906","e609","MD421","e604","e904","D6","Beta 52A","e602","Beta 91A","SM81","KM184","C451","DPA 4099","DPA 4066","C414","U87","TLM 103","DI","DI stereo","Radial J48"];
+var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","e906","e609","MD421","e604","e904","D6","Beta 52A","e602","Beta 91A","SM81","KM184","C451","DPA 4099","DPA 4066","DPA 4088","C414","U87","TLM 103","DI","DI stereo","Radial J48"];
 var STAND_SUGGEST = ["asta dritta","asta giraffa","asta bassa","clip","clip strumento","headset","interno/terra","da tavolo","—"];   /* stesso vocabolario dei valori generati da MIC_DEFAULTS: prima erano in inglese e non combaciavano mai */
 var IN_SRC = {
   /* voci e microfoni */
@@ -11231,7 +11258,8 @@ var MIC_DEFAULTS = {
   "D6":{stand:"asta bassa",p48:false}, "Beta 91A":{stand:"interno/terra",p48:true},
   "MD421":{stand:"asta bassa/clip",p48:false}, "SM81":{stand:"asta giraffa",p48:true},
   "KM184":{stand:"asta giraffa",p48:true}, "C414":{stand:"asta giraffa",p48:true},
-  "DPA 4099":{stand:"clip strumento",p48:true}, "DPA 4066":{stand:"headset",p48:true}
+  "DPA 4099":{stand:"clip strumento",p48:true}, "DPA 4066":{stand:"headset",p48:true},
+  "DPA 4088":{stand:"headset",p48:true}   /* archetto DIREZIONALE (cardioide): piu' rifiuto del 4066 omni, teatro e voci con monitor forte */
 };
 function micInfo(mic){
   if(MIC_DEFAULTS[mic]) return MIC_DEFAULTS[mic];
