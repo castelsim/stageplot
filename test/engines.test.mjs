@@ -2143,6 +2143,28 @@ t("il riazzeramento non tocca chitarre, piani e postazioni doppie", () => {
   eq(d.sedia, true, "la postazione a 2 ha un leggio solo e la sedia bloccata: resta com'è");
   eq(d.leggio, true);
 });
+/* B3 (Simone 27/07): il pannello elemento è in gruppi col termine del mestiere, e le due misure
+   che stavano su slider a tutta larghezza sono campi numerici — mezza riga invece di una intera. */
+t("pannello elemento: gruppi col termine del mestiere, non riquadri", () => {
+  const g = ["Etichetta", "Microfono", "Ascolto", "Accessori", "Dettagli tecnici", "Disegno"];
+  g.forEach((n) => ok(appjs.indexOf('group("' + n + '"') > -1, "manca il gruppo «" + n + "»"));
+  ok(appjs.indexOf("function syncPanelGroups") > -1, "un gruppo senza controlli visibili deve sparire, intestazione compresa");
+  ok(appjs.indexOf('muteLabel("pLblModeWrap")') > -1, "la label che ripete il titolo del gruppo va zittita");
+});
+t("rotazione, distanza e dimensione: campo numerico, non slider", () => {
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  ["pRot", "pSep", "pLblSize"].forEach((id) => {
+    const re = new RegExp('<input[^>]*id="' + id + '"[^>]*>');
+    const tag = (html.match(re) || [""])[0];
+    ok(tag.indexOf('type="number"') > -1, id + " deve essere un campo numerico: " + tag);
+  });
+  eq(appjs.indexOf("pRotVal"), -1, "l'output separato non serve più: il valore è nel campo");
+  eq(appjs.indexOf("pSepVal"), -1);
+});
+t("la rotazione non salta a 0 mentre stai digitando", () => {
+  ok(appjs.indexOf('if(el.value==="" || !isFinite(raw)) return;') > -1,
+     "campo vuoto a metà digitazione: non deve ruotare l'elemento a 0");
+});
 t("il toggle si chiama «Postazione» / «Strumento solo», non più «Illustrato» / «Schematico»", () => {
   const html = readFileSync(join(root, "index.html"), "utf8");
   ok(html.indexOf(">Postazione</button>") > -1, "il primo bottone dice cosa disegna");

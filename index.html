@@ -465,6 +465,31 @@
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%23a29c8e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     background-repeat:no-repeat;background-position:right 9px center}
   /* Card di gruppo nel pannello proprietà (riusabile — niente più stili inline sparsi) */
+  /* B3 (27/07) — gruppi del pannello elemento: intestazione col termine del mestiere e separazione
+     affidata allo SPAZIO BIANCO, non a riquadri e linee tratteggiate. Stesse righe, molto meno rumore. */
+  #props #selProps .pgrp{margin:0 0 2px}
+  #props #selProps .pgrp>.pgh{font-size:11.5px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:19px 0 7px}
+  #props #selProps .pgrp:first-of-type>.pgh{margin-top:2px}
+  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
+  /* dentro un gruppo intitolato, il riquadro è un doppio incapsulamento: resta il contenuto */
+  #props #selProps .prop-flat{border:none;background:none;padding:0;margin:0}
+  /* Responsabile e contatto: in fondo e chiuso — è il concetto più avanzato del prodotto e stava
+     in cima al pannello più usato. */
+  #props #selProps .pdetails{margin-top:16px;border-top:1px dashed var(--border);padding-top:2px}
+  #props #selProps .pdetails>summary{cursor:pointer;font-size:12px;color:var(--text-2);padding:8px 0;
+    list-style:none;display:flex;align-items:center;gap:6px;font-weight:600}
+  #props #selProps .pdetails>summary::-webkit-details-marker{display:none}
+  #props #selProps .pdetails>summary::before{content:"›";display:inline-block;transition:transform .15s;
+    color:var(--text-3);font-size:14px}
+  #props #selProps .pdetails[open]>summary::before{transform:rotate(90deg)}
+  #props #selProps .pnest{padding-left:13px;border-left:2px solid var(--accent-tint);margin:1px 0 2px}
+  #props #selProps .pdiv{border:none;border-top:1px solid var(--border);margin:18px 0 12px}
+  /* riga "voce a sinistra, valore stretto a destra": costa mezza riga invece di una intera */
+  #props .numrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0}
+  #props .numrow>label{margin:0;flex:0 0 auto;color:var(--text-2)}
+  #props .numwrap{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px}
+  #props .numwrap>input[type=number]{width:66px;text-align:right;padding:4px 7px}
+  #props .numwrap>i{font-style:normal;font-size:11.5px;color:var(--text-3)}
   #props .prop-card{border:1px solid var(--border);border-radius:var(--r-lg);padding:11px 12px;margin:0 0 9px;background:var(--surface-raised);
     transition:border-color var(--dur-fast) var(--ease)}
   #props .prop-card:hover{border-color:var(--border-strong)}
@@ -2306,9 +2331,9 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
         <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
     </div>
-    <div id="pLblSizeWrap">
-    <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
-    <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
+    <div id="pLblSizeWrap" class="numrow">
+      <label for="pLblSize"><span id="pLblSizeName">Dimensione</span></label>
+      <span class="numwrap"><input type="number" id="pLblSize" min="0" max="34" step="1" inputmode="numeric"><i>pt</i></span>
     </div>
     <!-- FORMA: geometria, stile, colore, ordine. Testo/dimensione/colore-testo riusano i controlli
          dell'Etichetta, come per il testo libero. -->
@@ -2383,8 +2408,8 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     </div>
     <!-- USCITA: microfonazione, da quale anello esce il segnale e com'è l'uscita. I tre si parlano:
          l'esito (DI oppure cavo diretto) è scritto sotto, così non resta implicito. -->
-    <div id="pOutCard" class="prop-card" style="display:none">
-      <div class="prop-card__head">Uscita</div>
+    <div id="pOutCard" class="prop-flat" style="display:none">
+      <div class="prop-card__head" id="pOutHead" hidden>Uscita</div>
       <div id="pMikeWrap" style="display:none">
         <label>Microfonazione</label>
         <select id="pMike"></select>
@@ -2486,7 +2511,10 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     </div>
     <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
     <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
-    <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label><input type="range" id="pRot" min="-180" max="180" step="5"><output id="pRotVal">0°</output></div>
+    <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
+         esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
+    <div class="numrow" id="pRotRow"><label for="pRot">Rotazione</label>
+      <span class="numwrap"><input type="number" id="pRot" min="-180" max="180" step="5" inputmode="numeric"><i>°</i></span></div>
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
@@ -2529,8 +2557,8 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
         <label class="chk" title="2 strumenti + 1 leggio nella stessa postazione"><input type="checkbox" id="pDoppia"> Postazione a 2</label>
       </div>
       <div id="pSepWrap" style="display:none;margin-top:6px">
-        <label style="display:flex;justify-content:space-between;align-items:baseline">Distanza tra i 2 <span id="pSepVal" style="color:var(--text);font-weight:600">65 cm</span></label>
-        <input type="range" id="pSep" min="65" max="300" step="5" style="width:100%;padding:0">
+        <div class="numrow"><label for="pSep">Distanza tra i 2</label>
+          <span class="numwrap"><input type="number" id="pSep" min="65" max="300" step="5" inputmode="numeric"><i>cm</i></span></div>
         <button class="btn" id="pSplit" style="display:none">⇔ Dividi in 2 postazioni singole</button>
       </div>
     </div>
