@@ -7035,6 +7035,7 @@ function renderProps(){
   document.getElementById("pLabel2").value = it.label2||"";
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
+  document.getElementById("pLblSizeVal").textContent = lblv;
   var _lm = it.labelMode||"full";   /* modalità nome per-elemento (default = nome intero) */
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
@@ -7395,7 +7396,7 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
   var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
-document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; if(this.value===""||!isFinite(v)) return; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
+document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf: nodo parziale durante il trascinamento */   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
 document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ render(); save(); } });
 (function(){   /* allineamento del testo (testo libero e forma) */
   var w=document.getElementById("pAlignWrap"); if(!w) return;
@@ -7684,7 +7685,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
     var nest=document.createElement("div"); nest.className="pnest"; nest.appendChild(luc);
     flags.insertBefore(nest, dopLbl);
   }
-  var postaz=get("pPostaz"), sep=get("pSepWrap"), divide=get("pDivide");
+  var postaz=get("pPostaz"), sep=get("pSepWrap");
   if(postaz && sep){
     var nest2=document.createElement("div"); nest2.className="pnest"; nest2.id="pDblNest";
     nest2.appendChild(sep);
@@ -7716,7 +7717,6 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
     if(cont) d.appendChild(cont);
     sp.appendChild(d);
   }
-  if(divide) sp.appendChild(divide);
   var dv=document.createElement("hr"); dv.className="pdiv"; sp.appendChild(dv);
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
 })();
