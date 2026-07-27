@@ -895,7 +895,13 @@
   .mcard .mstatus{font-size:12.5px}
   .mcard .mstatus.ok{color:var(--success)}  .mcard .mstatus.err{color:var(--danger)}  .mcard .mstatus.warn{color:var(--warning)}
   /* ===== Finestra Esporta PDF — compatta, anteprima integrata multipagina (Simone 14/07) ===== */
-  .pdf-export{width:720px;max-width:96vw;padding:20px 22px}
+  /* La card scorre come un foglio unico: aprendo il Controllo tecnico (che aggiunge sei righe) le
+     azioni «Annulla / Esporta PDF» finivano sotto il bordo, tagliate a metà (Simone 27/07).
+     Ora il corpo scorre e testata e azioni restano ferme, sempre raggiungibili. */
+  .pdf-export{width:720px;max-width:96vw;padding:20px 22px;display:flex;flex-direction:column;overflow:hidden}
+  .pdf-export .pdf-exp-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -22px;padding:0 22px}
+  .pdf-export .pdf-exp-head{flex:0 0 auto}
+  .pdf-export .pdf-exp-foot{flex:0 0 auto;border-top:1px solid var(--border);padding-top:12px;background:var(--surface)}
   .pdf-exp-head{display:flex;align-items:baseline;gap:12px;margin:0 0 15px}
   .pdf-exp-head h2{margin:0}
   .pdf-exp-hint{font-size:12px;color:var(--text-3)}

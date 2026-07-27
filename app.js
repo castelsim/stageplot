@@ -13974,7 +13974,9 @@ function renderFramePanel(){
   p.hidden=!(saveAsOpen||frameEdit);
   document.body.classList.toggle("export-menu", saveAsOpen && !frameEdit);   /* modale centrato solo nel menu, non durante editing/PDF */
   if(!(saveAsOpen||frameEdit)) return;
-  if(frameEdit){
+  {
+    /* i quattro campi vanno riempiti SEMPRE che il pannello sia visibile: aperti dal menu Esporta
+       (saveAsOpen, senza editing) restavano vuoti e sembrava che l'area non esistesse */
     var f=state.printFrame||frameStageRect();
     document.getElementById("frameW").value=fmtMnum(f.w);
     document.getElementById("frameH").value=fmtMnum(f.h);
@@ -14082,12 +14084,15 @@ function resizeFrame(drag, sp){
 }
 ["frameW","frameH","frameX","frameY"].forEach(function(id){
   document.getElementById(id).addEventListener("change", function(){
-    activateFrameEdit();
+    /* Leggere PRIMA di attivare: activateFrameEdit() ridisegna il pannello e riscrive i quattro campi
+       dai valori correnti dell'area — chiamandolo per primo il numero appena digitato veniva
+       sovrascritto e la modifica andava persa (bug 27/07: "il primo valore che scrivi non conta"). */
     var w=Math.max(0.5, +document.getElementById("frameW").value||0.5);
     var h=Math.max(0.5, +document.getElementById("frameH").value||0.5);
     var x=+document.getElementById("frameX").value||0, y=+document.getElementById("frameY").value||0;
+    activateFrameEdit();
     state.printFrame={x:Math.round(x*100), y:Math.round(y*100), w:Math.round(w*100), h:Math.round(h*100)};
-    save(); render();
+    save(); render(); renderFramePanel();   /* rimette nei campi i valori normalizzati (arrotondati, minimi) */
   });
 });
 document.getElementById("frameStage").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=frameStageRect(); save(); render(); });
@@ -15229,14 +15234,20 @@ function pdfLayout(paperKey, orient, cartH){
     drawX:M+10, drawY:M+topLbl,
     drawW:pw-2*M-20, drawH:ph-M-cartH-botLbl-(M+topLbl) };
 }
+/* Altezza del cartiglio per foglio+orientamento: la stessa formula che usano anteprima e PDF, in un
+   posto solo. Prima ogni chiamante la ricalcolava a modo suo e la scala automatica usava 22 fisso. */
+function cartHFor(header, paperKey, orient){
+  var L=pdfLayout(paperKey, orient, 22);
+  return cartHForHeader(header, L.pw-2*L.M-90);
+}
 /* stima l'altezza del cartiglio in base alle righe dell'intestazione (8pt ≈ 1.8mm/char) */
 function cartHForHeader(header, titleW){
   if(!header || !String(header).trim()) return 22;
   var charsPerLine=Math.max(20, Math.floor(titleW/1.8));
   return 22+Math.max(0, Math.ceil(String(header).trim().length/charsPerLine)-1)*4;
 }
-function scaleFits(N, paperKey, orient){
-  var L=pdfLayout(paperKey, orient), A=printArea(), DM=A.custom?0:80;
+function scaleFits(N, paperKey, orient, cartH){
+  var L=pdfLayout(paperKey, orient, cartH), A=printArea(), DM=A.custom?0:80;
   return (A.w+2*DM)*10/N<=L.drawW && (A.h+2*DM)*10/N<=L.drawH;
 }
 /* Geometria del disegno sul foglio a scala 1:N (mm). Se il contenuto sfora l'area utile, NON lo rimpicciolisce:
@@ -15253,16 +15264,29 @@ function pdfStageBox(N, paperKey, orient, cartH){
   var cropped = visMmW < fullMmW-0.05 || visMmH < fullMmH-0.05;
   return {L:L, A:A, ix:ix, iy:iy, mmW:visMmW, mmH:visMmH, vb:vb, cropped:cropped, mmPerCm:mmPerCm};
 }
-function autoScale(paperKey, orient){
-  for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient)) return SCALES[i]; }
+/* cartH: altezza REALE del cartiglio (cresce se il riferimento va a capo). Passarla è indispensabile:
+   col default 22 "Automatica" sceglieva una scala che nel PDF non entrava più, e il disegno veniva
+   ritagliato in silenzio — l'anteprima, che usa l'altezza vera, mostrava un'altra cosa (27/07). */
+function autoScale(paperKey, orient, cartH){
+  for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH)) return SCALES[i]; }
   return SCALES[SCALES.length-1];  /* non entra nemmeno a 1:500 → usa la scala più piccola e ritaglia ciò che ci sta */
 }
-function resolveScale(paperKey, scaleSel, orient){
-  return scaleSel==="auto" ? autoScale(paperKey, orient) : parseInt(scaleSel,10);
+function resolveScale(paperKey, scaleSel, orient, cartH){
+  return scaleSel==="auto" ? autoScale(paperKey, orient, cartH) : parseInt(scaleSel,10);
 }
 /* M-scala: valore di scala effettivo — se "Personalizzata", legge l'input 1:N (10–500) */
 function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) return "auto";
-  if(s.value==="custom"){ var c=document.getElementById("pdfScaleCustom"); return String(Math.max(10, Math.min(500, parseInt(c&&c.value,10)||75))); }
+  if(s.value==="custom"){
+    var c=document.getElementById("pdfScaleCustom");
+    /* Number() e non parseInt: "1e3" con parseInt diventava 1 → 1:10 (si chiedeva 1:1000!), e i
+       decimali venivano troncati in silenzio. Vuoto o non numerico → 75, il valore di partenza. */
+    var raw=c ? String(c.value).trim() : "";
+    var n=raw==="" ? 75 : Number(raw);
+    if(!isFinite(n)) n=75;
+    n=Math.round(Math.max(10, Math.min(500, n)));
+    if(c && String(c.value)!==String(n)) c.value=n;   /* il campo mostra la scala davvero usata */
+    return String(n);
+  }
   return s.value;
 }
 /* SVG dell'area di stampa: palco + griglia + elementi + quote dimensionali.
@@ -17006,7 +17030,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     var want=function(k){ return pg ? !!pg[k] : false; };
     /* Pagine-vista per layer: stesso box/scala della pag 1, ridisegnato col layer a fuoco (100%) e il
        resto del palco sfumato. Titolo grande in alto. Sono asincrone (svg2pdf) → catena promise. */
-    var _views=[];
+    var _views=[], _viewFails=[];
     if(want("view-cabin"))  _views.push(["cabin","INGRESSI"]);           /* 1 pagina per layer (17/07) */
     if(want("view-cabout")) _views.push(["cabout","MONITOR"]);
     if(want("view-mond"))   _views.push(["mond","PERSONAL MONITOR"]);
@@ -17020,12 +17044,19 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
         doc.text(v[1], L.M, 11);
         return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0])
-          .catch(function(){ /* se svg2pdf fallisce, la pagina resta col solo titolo: non blocca l'export */ })
-          .then(function(){ pdfScaleBar(doc, ix, iy+stMmH+10, N); });
+          .catch(function(e){   /* se svg2pdf fallisce la pagina resta col solo titolo: non blocca l'export, ma va detto */
+            try{ console.error("[stageplot] pagina-vista non disegnata:", v[1], e); }catch(_){}
+            _viewFails.push(v[1]);
+          })
+          .then(function(){
+            pdfScaleBar(doc, ix, iy+stMmH+10, N);
+            pdfCartiglio(doc, L, N, header);   /* «stampato in basso su ogni pagina»: anche qui, non solo sulla prima */
+          });
       });
     });
     /* Dopo le pagine-vista: consulenza + liste testuali selezionate, poi credito. Tutto DENTRO la catena
        così l'ordine finale è pag1 → viste → consulenza → liste. */
+    doc.__viewFails=_viewFails;
     return _viewChain.then(function(){
       /* PAG 2+ channel list della CONSULENZA (lista manuale): invariato (audit/roadmap 1B) */
       if(window.__consultMode && (state.inputs.length || state.outputs.length)){
@@ -17069,16 +17100,23 @@ function exportPdf(paperKey, scaleSel, orient, header){
       if(!confirm(_msg)){ info.className="mstatus err"; info.textContent="Export annullato: risolvi gli errori critici (Audit) o conferma l'export."; return; }
     }
   }catch(e){}
-  var N=resolveScale(paperKey, scaleSel, orient);
+  var N=resolveScale(paperKey, scaleSel, orient, cartHFor(header, paperKey, orient));
   var oTxt=(orient==="portrait"?"verticale":"orizzontale");
   var aTxt=printArea().custom?"L'area di stampa":"Il palco";
   if(!N){ info.className="mstatus err"; info.textContent=aTxt+" non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+" "+oTxt+". Prova un foglio più grande, l'altro orientamento o riduci l'area."; return; }
   /* se a 1:N il disegno sfora il foglio NON è più un errore: si stampa la parte centrale che ci sta, in scala (vedi pdfStageBox) */
   info.className="mstatus"; info.textContent="Genero il PDF…";
   /* U2/U3: download AUTOMATICO del browser, niente più selettore "salva con nome" (la finestra extra) */
+  var _boxChk=pdfStageBox(N, paperKey, orient, cartHFor(header, paperKey, orient));
   buildPdfDoc(paperKey, N, orient, header).then(function(doc){
     pdfSave(doc, fileName()+".pdf");
-    info.className="mstatus ok"; info.textContent="✓ PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+").";
+    /* dire la verità a valle: il ritaglio e le pagine non disegnate non devono sparire dietro un "✓" */
+    var _avvisi=[];
+    if(_boxChk.cropped) _avvisi.push("stampata solo la parte centrale che ci sta nel foglio");
+    if(doc.__viewFails && doc.__viewFails.length) _avvisi.push("pagine non disegnate: "+doc.__viewFails.join(", "));
+    info.className="mstatus"+(_avvisi.length?" warn":" ok");
+    info.textContent=(_avvisi.length?"⚠ ":"✓ ")+"PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+")"+
+      (_avvisi.length?" — "+_avvisi.join(" · ")+".":".");
     window.__pdfScope="full";   /* riporta al default */
     track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
   }).catch(function(e){
@@ -17253,12 +17291,13 @@ function pdfChannelPage(doc, L, paperKey){
   function refresh(){
     var info=document.getElementById("pdfInfo");
     document.getElementById("pdfScaleCustomRow").hidden = scl.value!=="custom";   /* M-scala: input custom visibile solo se "Personalizzata" */
-    var N=resolveScale(paper.value, pdfScaleValue(), orient.value);
+    var _cartH=cartHFor(header.value, paper.value, orient.value);   /* la stessa che userà il PDF */
+    var N=resolveScale(paper.value, pdfScaleValue(), orient.value, _cartH);
     var oTxt=orient.value==="portrait"?"verticale":"orizzontale";
     if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500 su "+paper.value.toUpperCase()+" "+oTxt+" — prova un foglio più grande o l'altro orientamento."; }
     else {
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
-      var box=pdfStageBox(N, paper.value, orient.value, 22);
+      var box=pdfStageBox(N, paper.value, orient.value, _cartH);
       info.className="mstatus"+(box.cropped?" warn":"");
       info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
         (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala. Scegli <b>Automatica</b> o un foglio più grande per averlo tutto." : "");
@@ -17516,7 +17555,13 @@ function pdfChannelPage(doc, L, paperKey){
   orient.addEventListener("change", refresh); header.addEventListener("input", refresh);
   document.getElementById("pdfPrev").addEventListener("click", function(){ prevIdx--; renderPreview(); });
   document.getElementById("pdfNext").addEventListener("click", function(){ prevIdx++; renderPreview(); });
-  document.getElementById("pdfGo").addEventListener("click", function(){ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); });
+  document.getElementById("pdfGo").addEventListener("click", function(){
+    var b=this;
+    if(b.disabled) return;                       /* niente due export in parallelo: erano due file e due passate di svg2pdf sul main thread */
+    b.disabled=true; var _t=b.textContent; b.textContent="Genero…";
+    try{ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); }
+    finally { setTimeout(function(){ b.disabled=false; b.textContent=_t; }, 2500); }
+  });
 })();
 /* ============ AREA DI STAMPA — step 1 del flusso PDF ============ */
 (function(){
