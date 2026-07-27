@@ -13972,11 +13972,32 @@ function frameContentRect(){
 function ensurePrintFrame(){ if(!state.printFrame) state.printFrame=frameStageRect(); }
 function toggleFrameEdit(){ frameEdit=!frameEdit; if(frameEdit){ exitHubModes("frame"); clearSelection(); ensurePrintFrame(); } renderFramePanel(); render(); }
 function fmtMnum(cm){ return (cm/100).toFixed(2).replace(/\.?0+$/,""); }
-function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; saveAsOpen=true; ensurePrintFrame(); renderFramePanel(); render(); } }
+function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; saveAsOpen=false; clearSelection(); ensurePrintFrame(); renderFramePanel(); render(); } }
+/* fine della scelta: si torna alla finestra Esporta, da dove si era partiti */
+function finishFrameEdit(){ frameEdit=false; saveAsOpen=true; renderFramePanel(); render(); }
+/* riassunto dell'area nella finestra Esporta: dice sempre cosa verrà stampato */
+function frameSummaryText(){
+  var f=state.printFrame;
+  if(!f) return "tutto il palco ("+fmtM(state.stage.w)+" × "+fmtM(state.stage.d)+") con le quote";
+  var st=frameStageRect();
+  /* area che coincide col palco: stampa lo stesso rettangolo ma SENZA il margine delle quote —
+     va detto, altrimenti sembra identico a «tutto il palco» e non si capisce perché il PDF cambia */
+  if(Math.abs(f.x-st.x)<2 && Math.abs(f.y-st.y)<2 && Math.abs(f.w-st.w)<2 && Math.abs(f.h-st.h)<2)
+    return "il palco esatto ("+fmtM(f.w)+" × "+fmtM(f.h)+"), senza margine per le quote";
+  return "area scelta "+fmtM(f.w)+" × "+fmtM(f.h)+(f.x||f.y ? " · da "+fmtM(f.x)+"; "+fmtM(f.y) : "");
+}
 function renderFramePanel(){
   var p=document.getElementById("framePanel"); if(!p) return;
-  p.hidden=!(saveAsOpen||frameEdit);
-  document.body.classList.toggle("export-menu", saveAsOpen && !frameEdit);   /* modale centrato solo nel menu, non durante editing/PDF */
+  /* La finestra Esporta è SEMPRE un modale centrato: durante la scelta dell'area si chiude e i suoi
+     controlli passano al pannello destro (come «Palco e pedane»). Prima restava aperta senza la
+     classe che la centrava, e cadeva in basso a sinistra sopra il catalogo. */
+  p.hidden=!(saveAsOpen && !frameEdit);
+  document.body.classList.toggle("export-menu", saveAsOpen && !frameEdit);
+  var ap=document.getElementById("areaEditPanel");
+  if(ap) ap.hidden=!frameEdit;
+  document.body.classList.toggle("area-edit", frameEdit);
+  var sm=document.getElementById("frameSummaryTxt");
+  if(sm) sm.textContent=frameSummaryText();
   if(!(saveAsOpen||frameEdit)) return;
   {
     /* i quattro campi vanno riempiti SEMPRE che il pannello sia visibile: aperti dal menu Esporta
@@ -14099,7 +14120,9 @@ function resizeFrame(drag, sp){
     save(); render(); renderFramePanel();   /* rimette nei campi i valori normalizzati (arrotondati, minimi) */
   });
 });
-document.getElementById("frameStage").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=frameStageRect(); save(); render(); });
+document.getElementById("frameEditBtn").addEventListener("click", activateFrameEdit);   /* dalla finestra Esporta si passa al pannello destro */
+document.getElementById("areaDone").addEventListener("click", finishFrameEdit);
+document.getElementById("frameStage").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=frameStageRect(); save(); render(); renderFramePanel(); });
 document.getElementById("frameAll").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=frameContentRect(); save(); render(); });
 document.getElementById("frameClear").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=null; save(); render(); });
 document.getElementById("frameCenter").addEventListener("click", function(){
