@@ -1503,6 +1503,34 @@ t("capienza stage box superata → err con fix a un click", () => {
   ok(f.length > 0, "atteso errore capienza; findings: " + auditMsgs().join(" | "));
   ok(f.some((x) => x.act), "atteso fix a un click sull'errore capienza");
 });
+/* Audit 27/07: un duo acustico non è un progetto sbagliato. Le regole «manca la stage box», «manca il
+   quadro», «mancano i monitor» erano tarate su una produzione media e scattavano su due canali e un
+   ampli da 150 W, con l'aggravante che «nessun quadro» usciva DUE volte (warn qui, err dal motore
+   elettrico, testi diversi → la dedup per stringa non scattava) e l'err bloccava l'export del PDF. */
+t("progetto piccolo: niente stage box/distro/monitor richiesti, e nessun errore critico", () => {
+  reset(); A.state.cab.on = true; A.state.elec.on = true;
+  add("astamic", 300, 300);                 /* 1 canale voce */
+  const amp = add("comboamp", 500, 300);    /* 150 W: un ampli in una Schuko */
+  A.__cabRes = null; A.__elecRes = null;
+  const R = A.auditEngine();
+  eq(R.errs, 0, "un duo non deve avere errori critici; findings: " + auditMsgs().join(" | "));
+  ok(!hasMsg(/nessuna stage box reale/), "sotto i 4 canali la stage box non serve");
+  ok(!hasMsg(/nessun quadro\/distro/), "sotto 1 kW il quadro non serve");
+  ok(!hasMsg(/i musicisti non si sentono/), "sotto i 4 canali i monitor sono del locale");
+  ok(amp && A.WATT.comboamp === 150, "il carico di prova deve restare piccolo");
+});
+t("progetto grande: le stesse regole tornano, e «nessun quadro» esce UNA volta sola", () => {
+  reset(); A.state.cab.on = true; A.state.elec.on = true;
+  add("batteria", 300, 300); add("astamic", 400, 400); add("astamic", 500, 400);
+  for (let i = 0; i < 6; i++) add("stack", 200 + i * 60, 600);   /* 6 × 250 W = 1,5 kW */
+  A.__cabRes = null; A.__elecRes = null;
+  ok(hasMsg(/nessuna stage box reale/), "sopra soglia la stage box torna a mancare davvero");
+  const q = auditFind(/nessun quadro\/distro/);
+  eq(q.length, 1, "la regola del quadro deve comparire una volta sola; findings: " + auditMsgs().join(" | "));
+  eq(q[0].lvl, "err", "sopra soglia resta un errore critico: la dedup non deve declassarlo");
+  ok(q[0].act, "e deve conservare il fix a un click (è la voce di auditEngine a sopravvivere)");
+  ok(A.auditEngine().errs > 0, "il conteggio errori deve vederlo");
+});
 t("monitor scoperto (wedge lontano, no IEM) → avviso", () => {
   reset(); A.state.cab.on = true;
   add("astamic", 200, 200); add("wedge", 1100, 700); A.__cabRes = null;
