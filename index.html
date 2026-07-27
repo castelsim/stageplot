@@ -2421,6 +2421,16 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
     <!-- RICHIESTA SETUP: il tecnico chiede al musicista com'è fatta la sua postazione. La risposta
          torna nel progetto e diventa una proposta, non una modifica automatica del palco. -->
+    <!-- MICROFONO VOCE dello strumentista: archetto in testa (mani occupate), giraffa o palmare -->
+    <div id="pHeadMicWrap" style="display:none">
+      <label>Canta? <small class="lbl-note">— microfono voce del musicista</small></label>
+      <select id="pHeadMic">
+        <option value="">No</option>
+        <option value="archetto">Sì, archetto in testa (DPA 4088)</option>
+        <option value="asta">Sì, giraffa davanti alla bocca</option>
+        <option value="mano">Sì, palmare su asta</option>
+      </select>
+    </div>
     <div id="pReqWrap" style="display:none">
       <button type="button" class="btn" id="pReqBtn" style="width:100%">✉︎ Richiedi setup al musicista</button>
       <div id="pReqState" class="prop-hint"></div>
@@ -2493,9 +2503,10 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
           <button type="button" data-v="tonda">Base tonda</button>
           <button type="button" data-v="giraffa">Giraffa</button>
           <button type="button" data-v="mano">In mano</button>
+          <button type="button" data-v="archetto">Archetto</button>
           <button type="button" data-v="pano">Panoramico</button>
         </div>
-        <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="pano">panoramico</option></select>
+        <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="archetto">archetto</option><option value="pano">panoramico</option></select>
       </div>
       <label class="chk"><input type="checkbox" id="pLeggioV"> Leggio</label>
       <label class="chk" id="pSediaVWrap"><input type="checkbox" id="pSediaV"> Sedia</label>
