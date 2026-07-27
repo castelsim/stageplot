@@ -1735,3 +1735,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 .guide-steps li+li{margin-top:2px}
 .guide-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
 .guide-actions .btn{min-height:38px}
+
+/* Blocco "Uscita" del pannello: i due tipi di uscita (jack/XLR) come coppia segmentata.
+   Riusa .adv-btn del design system — niente stili inline (regola Simone). */
+#props .seg{display:flex;gap:0}
+#props .seg .adv-btn{flex:1;border-radius:0;margin-left:-1px;padding:7px 8px;white-space:nowrap}
+#props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
+#props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+#props .seg .adv-btn.on{position:relative;z-index:1}
+#props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
+#props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}

@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.07.26";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.07.27";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1900,6 +1900,16 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 .guide-steps li+li{margin-top:2px}
 .guide-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
 .guide-actions .btn{min-height:38px}
+
+/* Blocco "Uscita" del pannello: i due tipi di uscita (jack/XLR) come coppia segmentata.
+   Riusa .adv-btn del design system — niente stili inline (regola Simone). */
+#props .seg{display:flex;gap:0}
+#props .seg .adv-btn{flex:1;border-radius:0;margin-left:-1px;padding:7px 8px;white-space:nowrap}
+#props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
+#props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+#props .seg .adv-btn.on{position:relative;z-index:1}
+#props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
+#props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -2231,10 +2241,31 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
         <div id="pSbPortsOutHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
       </div>
     </div>
-    <div id="pBalWrap" style="display:none"><label class="chk" title="Lo strumento (o il suo ampli/preamp) esce già bilanciato in XLR: la DI non serve, il cavo va diretto alla stage box"><input type="checkbox" id="pBalOut"> Uscita bilanciata a bordo <span style="color:var(--text-3);font-weight:400">— niente DI</span></label></div>
-    <div id="pMikeWrap" style="display:none">
-      <label>Microfonazione</label>
-      <select id="pMike"></select>
+    <!-- USCITA: microfonazione, da quale anello esce il segnale e com'è l'uscita. I tre si parlano:
+         l'esito (DI oppure cavo diretto) è scritto sotto, così non resta implicito. -->
+    <div id="pOutCard" class="prop-card" style="display:none">
+      <div class="prop-card__head">Uscita</div>
+      <div id="pMikeWrap" style="display:none">
+        <label>Microfonazione</label>
+        <select id="pMike"></select>
+      </div>
+      <!-- CATENA (chitarre, basso, acustica): si vede, si clicca. I nodi sono gli anelli che ci sono,
+         i pallini i punti da cui prendi il suono. La DI compare da sé quando il tratto resta jack. -->
+    <div id="pChainWrap" style="display:none">
+      <svg id="pChain" viewBox="0 0 300 122" width="100%" height="112" role="group" aria-label="Catena del segnale"></svg>
+      <div class="seg" role="group" aria-label="Anelli della catena">
+        <button type="button" class="adv-btn" id="pChainPed" data-node="ped">Pedaliera</button>
+        <button type="button" class="adv-btn" id="pChainAmp" data-node="amp">Ampli</button>
+      </div>
+    </div>
+    <div id="pBalWrap" style="display:none">
+      <label>Tipo di uscita</label>
+      <div class="seg" role="group" aria-label="Tipo di uscita">
+        <button type="button" class="adv-btn" id="pOutJack" data-bal="0" title="Uscita jack sbilanciata: serve una DI per arrivare alla stage box">Jack <span class="lbl-note">sbilanciata</span></button>
+        <button type="button" class="adv-btn" id="pOutXlr" data-bal="1" title="Uscita XLR bilanciata (preamp/DI out a bordo): il cavo va diretto alla stage box">XLR <span class="lbl-note">bilanciata</span></button>
+      </div>
+    </div>
+      <div id="pOutHint" class="prop-hint"></div>
     </div>
     <div id="pStereoWrap" style="display:none">
       <label>Uscita</label>
