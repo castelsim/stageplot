@@ -9798,10 +9798,14 @@ function refreshCatalogArt(){
       g.head.innerHTML='<span class="caret">▸</span><span>'+esc(sub)+'</span><span class="count">'+g.count+'</span>';
       g.body.appendChild(btn); n++; }
     if(c==="Palco e pedane"){
-      /* La PEDANA non sta nel catalogo (Simone 27/07): è parte del palco e si crea dentro «Palco e
-         pedane» col suo «+ Pedana», dove poi si sposta e si dimensiona. Averla anche qui la rendeva
-         un elemento trascinabile ovunque — la stessa incoerenza chiusa il 25/07 sul trascinamento.
-         Resta invece la pedana coro: gradoni con un disegno suo, che il costruttore non sa fare. */
+      /* La PEDANA sta di nuovo fra gli elementi (Simone 27/07, dopo la prova sul campo): serve anche
+         come singola area rialzata da posare, non solo dentro il costruttore. Resta comunque parte
+         del palco — si sposta e si ridimensiona in modalità «Palco e pedane», come le altre. */
+      [["2×1 m",200,100]].forEach(function(pz){
+        var nome="Pedana "+pz[0], over={w:pz[1],d:pz[2]};
+        addToGroup("Pedane e gradoni", makeBtn("pedana",nome,over,pz[0]));
+        entries.push({k:"pedana",nome:nome,over:over,dim:pz[0],kw:"pedana pedane praticabile praticabili americana modulo riser area rialzata"});
+      });
       if(TYPES.pedanacoro){ addToGroup("Pedane e gradoni", makeBtn("pedanacoro", TYPES.pedanacoro.nome)); entries.push({k:"pedanacoro",nome:TYPES.pedanacoro.nome}); }
       /* FORME: un solo tipo, sei porte d'ingresso — cercando "cerchio" o "triangolo" si trova la voce
          giusta, e nel pannello la forma si cambia senza cancellare l'elemento. */
@@ -10600,6 +10604,50 @@ svg.addEventListener("pointerdown", function(e){
     if(feB){ drag={mode:"frame", sp0:{x:sp.x,y:sp.y}, f0:Object.assign({},state.printFrame), moved:false};
       svg.setPointerCapture(e.pointerId); return; }
   }
+  /* MANIGLIE (ridimensionamento e rotazione) PRIMA di tutto: sono un gesto esplicito su un elemento
+     già selezionato. In modalità «Palco e pedane» l'overlay dei blocchi le copre, e quel ramo esce
+     sempre con un return: il codice delle maniglie non veniva mai raggiunto, e la pedana si spostava
+     invece di allungarsi o ruotare (bug 27/07). */
+  var rsh = e.target.closest ? e.target.closest(".rs-handle") : null;
+  if(!rsh && document.elementsFromPoint){   /* maniglia coperta da un overlay (blocchi del palco): la si cerca sotto il dito */
+    var _st=document.elementsFromPoint(e.clientX, e.clientY);
+    for(var _i=0;_i<_st.length;_i++){ var _h=_st[_i].closest && _st[_i].closest(".rs-handle"); if(_h){ rsh=_h; break; } }
+  }
+  if(rsh){                                  /* maniglia di ridimensionamento: trascina lato/angolo */
+    var rsid=rsh.getAttribute("data-id"); selectOne(rsid); var rsit=getSel();
+    if(rsit && rsit.type==="metro"){
+      /* metro: capi LIBERI — trascini un capo (punto A o B) dove vuoi, l'altro resta inchiodato.
+         Dal capo fisso + cursore si ricavano lunghezza, angolo e centro. */
+      var mr=(rsit.rot||0)*Math.PI/180, msgn=(rsh.getAttribute("data-edge")==="l")?-1:1;
+      drag={mode:"metroend", id:rsid, sgn:msgn,
+            fix:[rsit.x - msgn*Math.cos(mr)*rsit.w/2, rsit.y - msgn*Math.sin(mr)*rsit.w/2], moved:false};
+      render(); svg.setPointerCapture(e.pointerId); return;
+    }
+    if(rsit){ var sp3=svgPoint(e);
+      drag={mode:"itemresize", id:rsid, edge:rsh.getAttribute("data-edge"),
+            x0:rsit.x, y0:rsit.y, w0:rsit.w, d0:rsit.d, rot:(rsit.rot||0)*Math.PI/180, sp0:{x:sp3.x,y:sp3.y}, moved:false};
+      render(); svg.setPointerCapture(e.pointerId);
+    }
+    return;
+  }
+  var rh = e.target.closest ? e.target.closest(".rot-handle") : null;
+  if(!rh && document.elementsFromPoint){   /* la maniglia di rotazione è un gruppo: sotto il dito ci sono i suoi FIGLI (rh-knob, rh-ico) — si risale con closest */
+    var _sr=document.elementsFromPoint(e.clientX, e.clientY);
+    for(var _j=0;_j<_sr.length;_j++){ var _g=_sr[_j].closest && _sr[_j].closest(".rot-handle"); if(_g){ rh=_g; break; } }
+  }
+  if(rh){                                   /* maniglia di rotazione: trascina per ruotare attorno al centro */
+    var rid=rh.getAttribute("data-id");
+    if(selIds().length>1 && selSet[rid]){   /* R: maniglia di un membro di una selezione multipla → ruota il BLOCCO rigido */
+      var gits=selItems(), gpiv=selBBoxCenter(gits), gsp=svgPoint(e);
+      drag={mode:"grouprot", pivot:gpiv, base:gits.map(function(it){ return {id:it.id, x:it.x, y:it.y, rot:it.rot||0}; }),
+            a0:Math.atan2(gsp.y-gpiv[1], gsp.x-gpiv[0]), moved:false};
+      svg.setPointerCapture(e.pointerId); return;
+    }
+    selectOne(rid); var rit=getSel();
+    if(rit){ drag={mode:"rotate", id:rid, cx:rit.x, cy:rit.y, moved:false}; render(); svg.setPointerCapture(e.pointerId); }
+    return;
+  }
+
   /* Alt+trascina = disegna un nuovo blocco del palco, MA solo se sei già in "Blocco palco" (stage-edit):
      i blocchi si creano solo attivando l'elemento Blocco palco dal catalogo, non per caso in editing normale. */
   if(e.altKey && stageEdit && stagePanelView==="palco" && !dcG && !(e.target.closest && e.target.closest(".rot-handle"))){
@@ -10615,7 +10663,15 @@ svg.addEventListener("pointerdown", function(e){
     /* Le PEDANE stanno sopra il palco e in questa modalità sono l'oggetto da sistemare: hanno la
        precedenza sul blocco sottostante. Il test va fatto sulla geometria, non su e.target, perché
        l'overlay dei blocchi copre tutta l'area e intercetterebbe sempre il clic. */
-    if(!e.target.closest || !e.target.closest(".blk-corner,.blk-edge,.rot-handle,.rs-handle")){
+    /* L'overlay dei blocchi del palco è disegnato SOPRA le pedane: copriva le loro maniglie, e il
+       clic finiva sempre sul rettangolo del blocco — la pedana si spostava invece di allungarsi o
+       ruotare (bug 27/07). e.target da solo non basta: va guardato cosa c'è davvero sotto il dito. */
+    var _under=(document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : []);
+    var _onHandle=false;
+    for(var _u=0;_u<_under.length;_u++){   /* l'overlay del blocco sta SOPRA: si guarda tutta la pila, e si risale ai gruppi-maniglia */
+      if(_under[_u].closest && _under[_u].closest(".rs-handle,.rot-handle")){ _onHandle=true; break; }
+    }
+    if(!e.target.closest || (!_onHandle && !e.target.closest(".blk-corner,.blk-edge,.rot-handle,.rs-handle"))){
       var _ped=null;
       (state.items||[]).forEach(function(it){
         if(!isRiser(it) || !itemPickable(it)) return;
@@ -10695,37 +10751,6 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"mzvtx", id:mzid2, vi:mmi+1, moved:false};
       render(); svg.setPointerCapture(e.pointerId);
     }
-    return;
-  }
-  var rsh = e.target.closest ? e.target.closest(".rs-handle") : null;
-  if(rsh){                                  /* maniglia di ridimensionamento: trascina lato/angolo */
-    var rsid=rsh.getAttribute("data-id"); selectOne(rsid); var rsit=getSel();
-    if(rsit && rsit.type==="metro"){
-      /* metro: capi LIBERI — trascini un capo (punto A o B) dove vuoi, l'altro resta inchiodato.
-         Dal capo fisso + cursore si ricavano lunghezza, angolo e centro. */
-      var mr=(rsit.rot||0)*Math.PI/180, msgn=(rsh.getAttribute("data-edge")==="l")?-1:1;
-      drag={mode:"metroend", id:rsid, sgn:msgn,
-            fix:[rsit.x - msgn*Math.cos(mr)*rsit.w/2, rsit.y - msgn*Math.sin(mr)*rsit.w/2], moved:false};
-      render(); svg.setPointerCapture(e.pointerId); return;
-    }
-    if(rsit){ var sp3=svgPoint(e);
-      drag={mode:"itemresize", id:rsid, edge:rsh.getAttribute("data-edge"),
-            x0:rsit.x, y0:rsit.y, w0:rsit.w, d0:rsit.d, rot:(rsit.rot||0)*Math.PI/180, sp0:{x:sp3.x,y:sp3.y}, moved:false};
-      render(); svg.setPointerCapture(e.pointerId);
-    }
-    return;
-  }
-  var rh = e.target.closest ? e.target.closest(".rot-handle") : null;
-  if(rh){                                   /* maniglia di rotazione: trascina per ruotare attorno al centro */
-    var rid=rh.getAttribute("data-id");
-    if(selIds().length>1 && selSet[rid]){   /* R: maniglia di un membro di una selezione multipla → ruota il BLOCCO rigido */
-      var gits=selItems(), gpiv=selBBoxCenter(gits), gsp=svgPoint(e);
-      drag={mode:"grouprot", pivot:gpiv, base:gits.map(function(it){ return {id:it.id, x:it.x, y:it.y, rot:it.rot||0}; }),
-            a0:Math.atan2(gsp.y-gpiv[1], gsp.x-gpiv[0]), moved:false};
-      svg.setPointerCapture(e.pointerId); return;
-    }
-    selectOne(rid); var rit=getSel();
-    if(rit){ drag={mode:"rotate", id:rid, cx:rit.x, cy:rit.y, moved:false}; render(); svg.setPointerCapture(e.pointerId); }
     return;
   }
   var g = e.target.closest ? e.target.closest(".item") : null;

@@ -4351,15 +4351,15 @@ t("la sigla si puo' estendere agli altri elementi dello stesso tipo", () => {
   eq(b.labelMode, "abbr", "il secondo cantante segue");
   eq(c.labelMode, undefined, "l'asta microfono non c'entra: resta col nome intero");
 });
-/* 27/07 (Simone): «le pedane devono esserci solo nella sezione palco e pedane». Non sono elementi
-   da trascinare: sono parte del palco. Cercandole si deve arrivare al costruttore. */
-t("la pedana non e' un elemento del catalogo: la ricerca porta al costruttore", () => {
+/* 27/07 (Simone), dopo la prova sul campo: la pedana torna FRA GLI ELEMENTI — serve anche come
+   singola area rialzata da posare — e resta parte del palco (si muove in «Palco e pedane»). */
+t("la pedana e' un elemento del catalogo e porta anche al costruttore", () => {
   const quick = A.__qaSearch("pedana").map(r => r.nome);
-  eq(quick.some(n => /^Pedana 2/i.test(n)), false, "la pedana singola non deve piu' comparire fra gli elementi: " + JSON.stringify(quick));
-  const catalogo = (A.__catEntries || []).filter(e => /pedana|praticabile/i.test((e.nome || "") + " " + (e.kw || "")));
-  ok(catalogo.some(e => e.nome === "Palco e pedane"), "cercando pedana si deve trovare «Palco e pedane»");
-  eq(catalogo.some(e => e.k === "pedana"), false, "nessuna voce di catalogo per il tipo pedana");
-  ok(A.TYPES.pedana, "il TIPO pedana resta: lo crea il costruttore col suo + Pedana");
+  ok(quick.some(n => /^Pedana 2/i.test(n)), "la pedana singola deve esserci: " + JSON.stringify(quick));
+  const voci = (A.__catEntries || []).filter(e => /pedana|praticabile/i.test((e.nome || "") + " " + (e.kw || "")));
+  ok(voci.some(e => e.k === "pedana"), "voce di catalogo per il tipo pedana");
+  ok(voci.some(e => e.nome === "Palco e pedane"), "cercando pedana si trova anche il costruttore");
+  eq(A.TYPES.pedana.resizable, true, "si allunga trascinando");
 });
 t("nessun alias inquina le query comuni (la ricerca e' una substring)", () => {
   /* "monitor" deve restare la query dei wedge: se un alias ci infila il LED wall, e' rumore */
