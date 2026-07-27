@@ -1766,7 +1766,7 @@ function micModeOf(it){
   if(m==="tonda"||m==="giraffa"||m==="mano"||m==="pano"||m==="archetto") return m;   /* archetto = headset indossato (27/07) */
   if(it&&it.mano) return "mano";
   if(it&&it.nomic) return "pano";
-  return (it&&it.type==="corista") ? "pano" : "tonda";
+  return "tonda";   /* anche il corista nasce col SUO microfono (Simone 27/07): nella band i cori hanno un SM58 a testa. I coristi creati in massa dal generatore coro nascono panoramici, perché lì la ripresa è d'insieme (micMode:"pano" esplicito). */
 }
 /* Profondità del cantante (footprint): a scala reale il mic si estende in avanti, la giraffa
    fino a ~90 cm → il box deve contenerlo perché l'etichetta non finisca sopra il microfono. */
@@ -9922,6 +9922,10 @@ function refreshCatalogArt(){
   pin.appendChild(extraSep);
   var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
   pin.appendChild(makeActionBtn("Forma del palco","blocchi, misure e altezze","pedana", toggleStageEdit));
+  /* La PEDANA sta qui sotto, in mano al palco ma come elemento a sé (Simone 27/07): si posa e si
+     lavora subito — misure, altezza, rotazione — senza entrare in nessuna modalità. */
+  var PEDANA_ICON=miniSvg("pedana", {w:200,d:100});
+  pin.appendChild(makeActionBtn("Pedana","2×1 m · si allunga e ruota", null, function(){ addItem("pedana"); }, PEDANA_ICON));
   pin.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON));
   /* Audit progetto: ingresso ripristinato (era nella categoria "Liste tecniche", rimossa il 17/07 →
      rimasto orfano). toggleAuditView accende auditActive, l'unico gate del pannello #auditSec. */
@@ -12423,7 +12427,7 @@ function buildVoiceOrganicoOut(counts, opts){
     var m=singers.length; if(!m) return;
     var totW=(m-1)*sp, x0=-totW/2, y=frontY-ri*rowGap;
     if(opts.riser) out.push({type:"pedanacoro", x:0, y:y-12, w:Math.max(400,totW+150), d:120, h:20+ri*20, label:""});
-    singers.forEach(function(s,idx){ out.push({type:"corista", x:Math.round(x0+idx*sp), y:y, rot:0, label:s.lbl, donna:s.donna}); });
+    singers.forEach(function(s,idx){ out.push({type:"corista", x:Math.round(x0+idx*sp), y:y, rot:0, label:s.lbl, donna:s.donna, micMode:"pano"}); });   /* coro d'insieme: overhead, non un mic a testa */
   });
   if(opts.mics) [-260,0,260].forEach(function(x){ out.push({type:"giraffa", x:x, y:frontY+70, rot:180, label:"Coro"}); });
   if(opts.director) out.push({type:"podio", x:0, y:frontY+150, label:"Direttore"});
@@ -13053,8 +13057,9 @@ Object.keys(ARCHI_SEC).forEach(function(t){
 });
 /* Cori e fiati a SEZIONE (elementi singoli): "Panoramico" = 0 canali individuali — la sezione la
    riprendi con Mic coro / overhead (sorgenti a sé). Approccio A scelto da Simone (09/07). */
-MIKING.corista = { options:[["indiv","SM58 (per corista)"],["pan","Panoramici (overhead)"]], def:"indiv",
-  chans:function(m){ return m==="pan" ? [] : [["","SM58"]]; } };
+/* Il corista NON usa MIKING: per le voci il microfono lo decide micMode (i chip del pannello:
+   base tonda, giraffa, in mano, archetto, panoramico). La vecchia riga MIKING.corista dichiarava
+   "indiv" come default mentre il comportamento reale era panoramico — due fonti in disaccordo. */
 var WIND_MIC = {flauto:"DPA 4099",oboe:"DPA 4099",clarinetto:"DPA 4099",fagotto:"DPA 4099",
   saxalto:"DPA 4099",saxtenore:"DPA 4099",saxbaritono:"DPA 4099",
   corno:"MD421",tromba:"e906",trombone:"MD421",musTromboneBasso:"MD421",tuba:"MD421"};   /* musTromboneBasso: tipo piazzabile a sé (no funzionale "tromboneBasso" in POSTAZ_ART) → gli diamo close/pan come agli altri ottoni, così è assorbibile in zona e ha la microfonazione di sezione */
