@@ -142,7 +142,7 @@ function leggioGlyph(y){
    (nessun mic personale). Fonte unica; legge it.micMode, con fallback ai vecchi flag it.mano/it.nomic. */
 function micModeOf(it){
   var m=it&&it.micMode;
-  if(m==="tonda"||m==="giraffa"||m==="mano"||m==="pano") return m;
+  if(m==="tonda"||m==="giraffa"||m==="mano"||m==="pano"||m==="archetto") return m;   /* archetto = headset indossato (27/07) */
   if(it&&it.mano) return "mano";
   if(it&&it.nomic) return "pano";
   return (it&&it.type==="corista") ? "pano" : "tonda";
@@ -151,9 +151,21 @@ function micModeOf(it){
    fino a ~90 cm → il box deve contenerlo perché l'etichetta non finisca sopra il microfono. */
 function cantanteDepth(it){
   var mm=micModeOf(it);
-  var d = mm==="giraffa"?180 : mm==="tonda"?120 : 90;   /* box centrato → 2× estensione mic */
+  var d = mm==="giraffa"?180 : mm==="tonda"?120 : 90;   /* box centrato → 2× estensione mic; archetto e palmare non sporgono */
   if(it.leggio) d = Math.max(d, mm==="giraffa"?200:mm==="tonda"?150:122);
   return d;
+}
+/* Archetto in testa: si legge anche a 1:100 — un archetto sottile che gira dall'orecchio alla
+   guancia, col puntino della capsula. Disegnato in scala reale sopra la figura (origine = centro). */
+function headMicGlyph(){
+  /* Doppio tratto (bianco sotto, scuro sopra): l'archetto cade sulla testa della figura, spesso
+     scura — a tratto singolo spariva dentro i capelli. Stesso trucco delle etichette (paint-order). */
+  var d='M-9.5,-3 A 9.5,9.5 0 0 1 9.5,-3';        /* archetto attorno alla nuca */
+  var b='M9.5,-3 q 3.5,7 -1.5,11.5';              /* braccetto verso la guancia */
+  return '<g fill="none" stroke-linecap="round">'+
+      '<path d="'+d+'" stroke="#fff" stroke-width="4.4"/><path d="'+b+'" stroke="#fff" stroke-width="4.4"/>'+
+      '<path d="'+d+'" stroke="#2b2e31" stroke-width="1.7"/><path d="'+b+'" stroke="#2b2e31" stroke-width="1.7"/>'+
+    '</g><circle cx="8" cy="8.6" r="2.3" fill="#2b2e31" stroke="#fff" stroke-width="1.1"/>';
 }
 function singer(it){
   it=it||{};
@@ -174,7 +186,8 @@ function singer(it){
      catalogo × la scala scelta; in PDF un glifo geometrico equivalente (svg2pdf non digerisce le
      icone dettagliate). Valori (cm reali, origine = centro cantante, +y = pubblico). */
   var legY=30;
-  if(mm==="mano"){
+  if(mm==="archetto"){ s+='<g transform="translate(0,-19)">'+headMicGlyph()+'</g>'; legY=34; }   /* indossato: niente asta, niente ingombro davanti */
+  else if(mm==="mano"){
     s+='<g transform="translate(35.7,32.1) rotate(-28)"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
     legY=48;
   } else if(mm==="giraffa"){
@@ -1540,6 +1553,22 @@ function sepCfg(it){
 }
 function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /* larghezza ingombro dalla distanza */
 var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
+/* ===== MICROFONO VOCE DELLO STRUMENTISTA (Simone 27/07: «negli strumenti idonei l'opzione per
+   aggiungere il microfono ad archetto in testa») =====
+   Idonei = chi suona con le MANI OCCUPATE e canta lo stesso: chitarre e basso, tastiere, batteria,
+   percussioni, fisarmonica, arpa, DJ. Per loro l'archetto (DPA 4088 direzionale: piu' rifiuto del
+   4066 omni, indispensabile con le spie alte) e' la soluzione standard; in alternativa la giraffa
+   davanti alla bocca o un palmare su asta. Fiati e archi restano fuori: mentre suonano non cantano,
+   e se cantano in un pezzo usano l'asta come tutti — il loro canale mic esiste gia'. */
+var HEADMIC_TYPES = { gtstand:1, gtacustica:1, bassstand:1, musChitClassica:1,
+  stagepiano:1, tastiera:1, doppiatastiera:1, organohammond:1, grancoda:1, mezzacoda:1, pianoverticale:1,
+  batteria:1, percussioni:1, cajon:1, fisarmonica:1, arpa:1, djset:1 };
+var HEADMIC_MIC = { archetto:"DPA 4088", asta:"SM58", mano:"SM58" };
+function canHeadMic(it){ return !!(it && (HEADMIC_TYPES[it.type] || (TYPES[it.type]&&TYPES[it.type].gtr))); }
+function headMicOf(it){
+  var v=it&&it.headMic;
+  return (v==="archetto"||v==="asta"||v==="mano") && canHeadMic(it) ? v : "";
+}
 var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 };   /* tastiere con leggio esterno */
 /* ===== RACK (18/07, mockup approvato): contenitore tecnico — un ingombro sul palco, apparecchi veri dentro ===== */
 var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1, netswitch:1 };
@@ -3526,7 +3555,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -3938,6 +3967,11 @@ function itemMarkup(it){
   if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
   var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
+  var _hm=headMicOf(it);
+  if(_hm){   /* microfono voce del musicista: l'archetto si indossa, gli altri stanno davanti alla bocca */
+    if(_hm==="archetto") s += '<g transform="translate(0,'+(-((it.d||60)/2)+14)+')">'+headMicGlyph()+'</g>';   /* sulla testa, appena dentro il bordo alto */
+    else s += '<g transform="translate(0,'+(-((it.d||60)/2+16))+')"><circle r="4.6" fill="#2b2e31"/><line x1="0" y1="4.6" x2="0" y2="16" class="ic thin"/></g>';
+  }
   if(KEYS_BENCH[it.type] && it.panca!==false && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
   if(t.gtr && _la){   /* chitarre/basso in ILLUSTRATO: ampli/pedaliera/leggio NON sono nell'illustrazione del musicista → disegnati a parte (come nello schematico) */
     if(it.ampli) s += '<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';
@@ -4658,15 +4692,23 @@ function cabRoutePts(pts, allObs, exclude){   /* route ogni segmento consecutivo
   return out;
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
+/* canale VOCE dello strumentista (archetto/asta/palmare): sempre in coda ai canali dello strumento,
+   con un nome che si legge nella input list («Chitarra 1 voce»). */
+function headMicInputs(it){
+  var v=headMicOf(it); if(!v) return [];
+  var base=it.label||(TYPES[it.type]&&TYPES[it.type].nome)||"Voce";
+  return [{name:base+" voce", mic:HEADMIC_MIC[v]||"SM58"}];
+}
 function cabItemInputs(it){
   /* DI generata da uno strumento (diFor): è una TAPPA del cavo, non una sorgente. I canali sono
      quelli dello strumento — contarli anche qui raddoppiava gli ingressi in stage box e le righe
      della lista canali (chitarra classica + DI = 2 ingressi invece di 1). Una DI aggiunta a mano
      dal catalogo NON ha diFor: resta una sorgente con i suoi canali. */
   if(it.diFor && typeof diSourceOf==="function" && diSourceOf(it)) return [];
-  if(VOCE[it.type]){   /* voci (cantante/corista): il canale lo decide la modalità mic — panoramico = 0 (coperto dal mic di sezione), altrimenti 1 SM58 */
-    if(micModeOf(it)==="pano") return [];
-    return [{name:(it.label||TYPES[it.type].defLabel||TYPES[it.type].nome), mic:"SM58"}];
+  if(VOCE[it.type]){   /* voci (cantante/corista): il canale lo decide la modalità mic — panoramico = 0 (coperto dal mic di sezione) */
+    var _vm=micModeOf(it);
+    if(_vm==="pano") return [];
+    return [{name:(it.label||TYPES[it.type].defLabel||TYPES[it.type].nome), mic:(_vm==="archetto"?"DPA 4088":"SM58")}];
   }
   /* F3: radiomic/headset con ricevitore → 0 canali qui; il ricevitore diventa la sorgente (XLR out) */
   if(RF_TX[it.type] && rfAssign().byTx[it.id]) return [];
@@ -4680,15 +4722,15 @@ function cabItemInputs(it){
     if(_dn===2) return [{name:labelPrefix(it,"L"),mic:_dm},{name:labelPrefix(it,"R"),mic:_dm}];
     var _da=[]; for(var _di=1;_di<=_dn;_di++) _da.push({name:labelPrefix(it,String(_di)),mic:_dm}); return _da;
   }
-  if(hasChain(it)) return chainInputs(it);   /* chitarre/basso/acustica: i canali sono i prelievi della catena */
+  if(hasChain(it)) return chainInputs(it).concat(headMicInputs(it));   /* chitarre/basso/acustica: prelievi della catena + eventuale voce */
   if(STEREO_TOGGLE[it.type]){   /* strumenti ambigui: mono/stereo per-elemento (it.stereo) */
     var scfg=STEREO_TOGGLE[it.type], sst=(it.stereo!=null?it.stereo:scfg.def);
     if(sst){
-      if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });   /* tastiere già stereo: nomi curati (Pianoforte L/R…) */
+      if(IN_MULTI[it.type]) return IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; }).concat(headMicInputs(it));   /* tastiere già stereo: nomi curati (Pianoforte L/R…) */
       var snm=it.label||TYPES[it.type].defLabel||TYPES[it.type].nome;
-      return [{name:snm+" L",mic:scfg.mic},{name:snm+" R",mic:scfg.mic}];
+      return [{name:snm+" L",mic:scfg.mic},{name:snm+" R",mic:scfg.mic}].concat(headMicInputs(it));
     }
-    return [{name:(it.label||TYPES[it.type].nome),mic:scfg.mic}];   /* mono = 1 canale */
+    return [{name:(it.label||TYPES[it.type].nome),mic:scfg.mic}].concat(headMicInputs(it));   /* mono = 1 canale */
   }
   var base;
   if(MIKING[it.type]) base = MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
@@ -4705,6 +4747,7 @@ function cabItemInputs(it){
   /* uscita XLR bilanciata: NON c'è nessuna DI, quindi il canale non è "DI" ma una linea XLR — la
      input list deve dirlo al fonico (i canali col microfono restano come sono). */
   if(it.balOut) base = base.map(function(c){ return String(c.mic).indexOf("DI")>-1 ? {name:c.name, mic:"XLR"} : c; });
+  base = base.concat(headMicInputs(it));
   return base;
 }
 /* punto principale di connessione (FOH / stage rack / lato palco / personalizzato) → coordinate sul palco */
@@ -6985,6 +7028,12 @@ function renderProps(){
   if(_isLegX) document.getElementById("pLeggioGen").checked = it.leggio===true;
   document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
   document.getElementById("pLucetta").checked = it.lucetta===true;
+  var hmW=document.getElementById("pHeadMicWrap");   /* microfono voce: solo su chi suona con le mani occupate */
+  if(hmW){
+    var _hmOk=canHeadMic(it);
+    hmW.style.display=_hmOk?"":"none";
+    if(_hmOk) document.getElementById("pHeadMic").value=headMicOf(it);
+  }
   var reqW=document.getElementById("pReqWrap");   /* richiesta setup: solo persone/postazioni, e solo su progetto cloud */
   if(reqW){
     var C0=window.__cloud, canReq = !!(C0 && C0.user && C0.user() && C0.currentId && C0.currentId());
@@ -7512,7 +7561,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pShapeWrap", "pRotRow", "pOutCard", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pAscoltoWrap","pReqWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pHeadMicWrap","pAscoltoWrap","pReqWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
@@ -11688,7 +11737,10 @@ function standKindOfItem(it){   /* aste già presenti sul palco come oggetto, e 
   if(it.type==="astabassa") return "bassa";
   if(it.type==="astamic") return "dritta";
   if(it.type==="headset") return "headset";
-  if(VOCE[it.type]){ var m=micModeOf(it); return m==="giraffa" ? "giraffa" : (m==="tonda" ? "dritta" : null); }
+  if(VOCE[it.type]){ var m=micModeOf(it);
+    return m==="giraffa" ? "giraffa" : (m==="tonda" ? "dritta" : (m==="archetto" ? "headset" : null)); }
+  if(headMicOf(it)==="archetto") return "headset";      /* strumentista con archetto in testa */
+  if(headMicOf(it)==="asta") return "giraffa";          /* ...o con la giraffa davanti alla bocca */
   return null;
 }
 /* Ritorna {kind: {tot, gia, mancanti}} — "gia" = già disegnate sul palco (oggetto o asta della voce),
@@ -12220,6 +12272,12 @@ function renderCabPanel(){
   function chainAct(what){ mutSel(function(it){ chainToggle(it, what); }); save(); render(); renderProps(); }
   ["pChainPed","pChainAmp"].forEach(function(bid){
     var b=document.getElementById(bid); if(b) b.addEventListener("click", function(){ chainAct(this.dataset.node); });
+  });
+  var _hm=document.getElementById("pHeadMic");
+  if(_hm) _hm.addEventListener("change", function(){
+    var v=this.value;
+    mutSel(function(it){ if(v) it.headMic=v; else delete it.headMic; });
+    __cabRes=null; save(); render(); renderProps();
   });
   var _reqBtn=document.getElementById("pReqBtn");
   if(_reqBtn) _reqBtn.addEventListener("click", function(){ var it=getSel(); if(it) openRequestCreate(it); });

@@ -4167,6 +4167,55 @@ t("i termini da fonico trovano l'elemento giusto", () => {
     ok(nomi.some(n => casi[q].test(n)), "'" + q + "' trova " + JSON.stringify(nomi.slice(0, 3)) + ", atteso " + casi[q]);
   });
 });
+/* MICROFONO AD ARCHETTO (Simone 27/07): l'archetto in testa per chi suona con le mani occupate,
+   e come modalita' mic delle voci. DPA 4088 direzionale: piu' rifiuto del 4066 omni, serve con le spie. */
+t("l'archetto e' proposto solo a chi suona con le mani occupate", () => {
+  reset();
+  [["gtstand", true], ["bassstand", true], ["stagepiano", true], ["batteria", true],
+   ["percussioni", true], ["djset", true], ["musChitClassica", true],
+   ["saxalto", false], ["tromba", false], ["vln1", false], ["stagebox", false], ["cantante", false]]
+    .forEach(c => eq(A.canHeadMic({ type: c[0] }), c[1], c[0]));
+});
+t("lo strumentista che canta guadagna un canale voce, in coda ai suoi", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16;
+  const g = add("gtstand", 300, 400); g.label = "Chitarra";
+  const soli = A.cabItemInputs(g).length;
+  g.headMic = "archetto"; A.__cabRes = null;
+  const conVoce = A.cabItemInputs(g);
+  eq(conVoce.length, soli + 1, "un canale in piu'");
+  eq(conVoce[conVoce.length - 1].mic, "DPA 4088", "archetto direzionale");
+  eq(conVoce[conVoce.length - 1].name, "Chitarra voce", "si legge nella input list");
+  g.headMic = "asta"; A.__cabRes = null;
+  eq(A.cabItemInputs(g).slice(-1)[0].mic, "SM58", "giraffa davanti alla bocca");
+  g.headMic = "boh";
+  eq(A.cabItemInputs(g).length, soli, "un valore inventato non aggiunge canali");
+});
+t("anche le tastiere stereo e la batteria prendono la voce", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const k = add("stagepiano", 300, 300); k.headMic = "archetto";
+  const mics = A.cabItemInputs(k).map(c => c.mic);
+  eq(mics[mics.length - 1], "DPA 4088", "in coda ai due canali stereo: " + mics.join("+"));
+  const b = add("batteria", 600, 300); b.headMic = "archetto";
+  eq(A.cabItemInputs(b).length, A.cabItemInputs({ type: "batteria" }).length + 1, "batterista che canta");
+});
+t("archetto anche come microfono della voce", () => {
+  reset();
+  const c = add("cantante", 300, 300); c.label = "Voce";
+  eq(A.cabItemInputs(c)[0].mic, "SM58", "di partenza e' il palmare su base tonda");
+  c.micMode = "archetto";
+  eq(A.micModeOf(c), "archetto", "la modalita' esiste");
+  eq(A.cabItemInputs(c)[0].mic, "DPA 4088", "col archetto cambia il microfono");
+});
+t("l'archetto non chiede aste, la giraffa si", () => {
+  reset();
+  const c = add("cantante", 300, 300); c.micMode = "archetto";
+  eq(A.standKindOfItem(c), "headset", "voce con archetto");
+  c.micMode = "tonda"; eq(A.standKindOfItem(c), "dritta", "voce su base tonda");
+  const g = add("gtstand", 500, 300); g.headMic = "archetto";
+  eq(A.standKindOfItem(g), "headset", "chitarrista con archetto: nessuna asta da portare");
+  g.headMic = "asta"; eq(A.standKindOfItem(g), "giraffa", "con la giraffa serve l'asta");
+});
 /* 27/07: la scelta dell'area di stampa vive nel PANNELLO DESTRO (variante B), non piu' in una
    finestra che entrando in modifica cadeva in basso a sinistra. */
 t("il riassunto dice sempre cosa verra' stampato", () => {
