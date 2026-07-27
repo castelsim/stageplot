@@ -1032,7 +1032,10 @@
   /* Testo libero (box di testo): righe con wrapping; il fill (colore) è inline per-elemento.
      Alone bianco leggero come le etichette per restare leggibile sopra la griglia; sempre visibile
      anche con i nomi strumenti nascosti (è contenuto, non un'etichetta). */
-  .txtbox-line{font-weight:500;text-anchor:start;paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+  /* niente text-anchor qui: e' una proprieta' di PRESENTAZIONE, e la regola di classe batteva
+     l'attributo sul <text> — l'allineamento (sinistra/centro/destra) non si vedeva e nella forma
+     il testo usciva dal riquadro. L'allineamento lo decide il disegno, riga per riga. */
+  .txtbox-line{font-weight:500;paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
   svg.names-hidden .item .txtbox-line{display:inline}
   .hit{fill:rgba(0,0,0,0);stroke:none}
   .selbox{fill:none;stroke:none;pointer-events:none}

@@ -5283,7 +5283,7 @@ function drawShape(it){
     var y0=-((lines.length-1)*lh)/2 + fsz*0.34, tc=esc(it.txtColor||"#1f2937");
     var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10);
     lines.forEach(function(ln,i){
-      if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px" fill="'+tc+'">'+esc(ln)+'</text>';
+      if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+'" fill="'+tc+'">'+esc(ln)+'</text>';
     });
   }
   return s;
@@ -5303,7 +5303,7 @@ function drawTextBox(it){
   var al=textAlignOf(it,"left"), ax=textAnchorXY(it, al, pad);
   var col=esc(it.txtColor||"#1f2937"), s='';
   lines.forEach(function(ln,i){
-    if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px" fill="'+col+'">'+esc(ln)+'</text>';
+    if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+'" fill="'+col+'">'+esc(ln)+'</text>';
   });
   return s;
 }
