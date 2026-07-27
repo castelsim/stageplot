@@ -767,6 +767,13 @@ var TYPES = {
                  '<rect x="'+(-tw/2)+'" y="'+(y-fs*.85)+'" width="'+tw+'" height="'+(fs+8)+'" rx="5" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>'+
                  '<text class="lbl" y="'+y+'" style="font-size:'+fs+'px">'+esc(txt)+'</text>';
              }},
+  /* FORMA (27/07): un solo tipo con l'asse `shape`, come la DI box con mono/stereo/multi. Nel catalogo
+     compare come sei voci diverse (rettangolo, cerchio…) così la ricerca le trova tutte, ma nel pannello
+     resta un selettore: un cerchio diventa un quadrato senza cancellare e rifare. Nasce SOTTO gli altri
+     (area), e col comando del pannello va sopra (annotazione). */
+  forma:    {nome:"Forma", dim:"area · annotazione", cat:"Palco e strutture", w:200,d:140, resizable:true, z:1, innerLabel:true, defLabel:"",
+             alias:"forma forme shape area zona evidenzia annotazione",   /* le parole della singola geometria (quadrato, cerchio…) stanno sulla VOCE, non sul tipo: altrimenti ogni forma trova ogni query */
+             draw:function(it){ return drawShape(it); }},
   testo:    {nome:"Testo libero", dim:"box di testo", cat:"Palco e strutture", w:200,d:70, resizable:true, z:3, innerLabel:true, defLabel:"Testo…",
              draw:function(it){ return drawTextBox(it); }},
   /* --- ottoni (icone realistiche libreria + seduta chiara) --- */
@@ -3165,6 +3172,12 @@ function normalizeLoadedItems(arr){
     }
     if(it.zcol!=null && !/^#[0-9a-f]{6}$/i.test(String(it.zcol))) delete it.zcol;
     if(it.txtColor!=null && !/^#[0-9a-f]{6}$/i.test(String(it.txtColor))) delete it.txtColor;
+    if(it.align!=null && it.align!=="left" && it.align!=="center" && it.align!=="right") delete it.align;
+    if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
+      if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
+      if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
+      if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed") delete it.shapeStyle;
+    }
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
     return it;
@@ -3509,7 +3522,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -3624,13 +3637,73 @@ function wrapTextLines(str, maxW, fsz){
   });
   return out;
 }
+/* ---- FORMA: sei geometrie, un solo tipo (Simone 27/07) ----
+   Colori: otto tinte del design system + libero. Stile: pieno, contorno, tratteggio. Il testo si
+   scrive col doppio clic sul palco, come nel testo libero, e sta al centro. */
+var SHAPES=[
+  ["rect","Rettangolo","quadrato riquadro box area"],
+  ["circle","Cerchio","tondo ellisse ovale cerchia"],
+  ["tri","Triangolo","triangolo cuneo"],
+  ["rhombus","Rombo","diamante losanga"],
+  ["arrow","Freccia","direzione verso entrata uscita"],
+  ["line","Linea","riga tratto divisorio separatore"]
+];
+var SHAPE_FILL=[
+  ["#0d9488","Teal"],["#b45309","Ambra"],["#b91c1c","Rosso"],["#2563eb","Blu"],
+  ["#15803d","Verde"],["#7c3aed","Viola"],["#59544a","Grigio"],["#ffffff","Bianco"]
+];
+function shapeOf(it){ var k=it&&it.shape; return SHAPES.some(function(x){ return x[0]===k; }) ? k : "rect"; }
+function shapeStyleOf(it){ var v=it&&it.shapeStyle; return (v==="outline"||v==="dashed") ? v : "solid"; }
+function shapeFillOf(it){ return (it && /^#[0-9a-f]{6}$/i.test(it.fill||"")) ? it.fill : "#0d9488"; }
+/* geometria della forma nel riquadro w×d, centrata sull'origine come tutti gli elementi */
+function shapeGeom(it){
+  var w=Math.max(8,it.w||120), d=Math.max(8,it.d||80), hw=w/2, hd=d/2, k=shapeOf(it);
+  if(k==="circle") return '<ellipse cx="0" cy="0" rx="'+hw+'" ry="'+hd+'"/>';
+  if(k==="tri")    return '<polygon points="0,'+(-hd)+' '+hw+','+hd+' '+(-hw)+','+hd+'"/>';
+  if(k==="rhombus")return '<polygon points="0,'+(-hd)+' '+hw+',0 0,'+hd+' '+(-hw)+',0"/>';
+  if(k==="line")   return '<rect x="'+(-hw)+'" y="'+(-Math.min(hd,4))+'" width="'+w+'" height="'+(Math.min(hd,4)*2)+'" rx="2"/>';
+  if(k==="arrow"){                                   /* punta a destra: si ruota come ogni elemento */
+    var t=Math.min(hd*0.55, hd), px=hw-Math.min(w*0.34, 90);
+    return '<polygon points="'+(-hw)+','+(-t)+' '+px+','+(-t)+' '+px+','+(-hd)+' '+hw+',0 '+px+','+hd+' '+px+','+t+' '+(-hw)+','+t+'"/>';
+  }
+  return '<rect x="'+(-hw)+'" y="'+(-hd)+'" width="'+w+'" height="'+d+'" rx="'+Math.min(14, Math.min(w,d)*0.12)+'"/>';
+}
+function drawShape(it){
+  var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
+  var geom=shapeGeom(it), attrs;
+  if(st==="solid")        attrs='fill="'+col+'" fill-opacity="'+(op*0.22).toFixed(3)+'" stroke="'+col+'" stroke-width="2"';
+  else if(st==="outline") attrs='fill="none" stroke="'+col+'" stroke-width="2.4"';
+  else                    attrs='fill="none" stroke="'+col+'" stroke-width="2.4" stroke-dasharray="10 7"';
+  var s='<g class="shape" opacity="'+op+'">'+geom.replace(/\/>$/, " "+attrs+"/>")+'</g>';
+  /* testo al centro, con lo stesso wrapping del testo libero */
+  var txt=it.label||"";
+  if(txt){
+    var fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14);
+    var lines=wrapTextLines(txt, Math.max(20, it.w-16), fsz), lh=fsz*1.25;
+    var y0=-((lines.length-1)*lh)/2 + fsz*0.34, tc=esc(it.txtColor||"#1f2937");
+    var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10);
+    lines.forEach(function(ln,i){
+      if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px" fill="'+tc+'">'+esc(ln)+'</text>';
+    });
+  }
+  return s;
+}
+/* allineamento del testo (Simone 27/07): vale per il testo libero e per il testo dentro la forma.
+   Default: a sinistra nel testo libero, centrato nella forma. */
+function textAlignOf(it, def){ var a=it&&it.align; return (a==="center"||a==="right"||a==="left") ? a : (def||"left"); }
+function textAnchorXY(it, align, pad){
+  if(align==="center") return ["middle", 0];
+  if(align==="right")  return ["end", it.w/2-pad];
+  return ["start", -it.w/2+pad];
+}
 function drawTextBox(it){
   var fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14), pad=8;
   var lines=wrapTextLines(it.label||"", Math.max(20, it.w-pad*2), fsz);
-  var lh=fsz*1.25, x=-it.w/2+pad, y0=-it.d/2+pad+fsz*0.85;
+  var lh=fsz*1.25, y0=-it.d/2+pad+fsz*0.85;
+  var al=textAlignOf(it,"left"), ax=textAnchorXY(it, al, pad);
   var col=esc(it.txtColor||"#1f2937"), s='';
   lines.forEach(function(ln,i){
-    if(ln) s+='<text class="txtbox-line" x="'+x+'" y="'+(y0+i*lh)+'" text-anchor="start" style="font-size:'+fsz+'px" fill="'+col+'">'+esc(ln)+'</text>';
+    if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px" fill="'+col+'">'+esc(ln)+'</text>';
   });
   return s;
 }
@@ -6682,11 +6755,54 @@ function renderProps(){
   document.getElementById("pLabel").value = it.label||"";
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
+  /* pannello della FORMA: geometria, stile, colore, ordine */
+  var shw=document.getElementById("pShapeWrap");
+  if(shw){
+    var isShape = it.type==="forma";
+    shw.style.display = isShape ? "block" : "none";
+    if(isShape){
+      var kind=shapeOf(it), sst=shapeStyleOf(it), fill=shapeFillOf(it);
+      var grid=document.getElementById("pShapeKind");
+      if(!grid.childElementCount){
+        grid.innerHTML=SHAPES.map(function(sh){
+          var mini={rect:'<rect x="3" y="5" width="18" height="14" rx="3"/>',
+                    circle:'<ellipse cx="12" cy="12" rx="9" ry="7"/>',
+                    tri:'<polygon points="12,4 21,20 3,20"/>',
+                    rhombus:'<polygon points="12,3 21,12 12,21 3,12"/>',
+                    arrow:'<polygon points="3,9 14,9 14,5 21,12 14,19 14,15 3,15"/>',
+                    line:'<rect x="3" y="10.5" width="18" height="3" rx="1.5"/>'}[sh[0]];
+          return '<button type="button" data-shape="'+sh[0]+'" title="'+esc(sh[1])+'" aria-label="'+esc(sh[1])+'">'+
+            '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+mini+'</svg></button>';
+        }).join("");
+      }
+      grid.querySelectorAll("[data-shape]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-shape")===kind); });
+      shw.querySelectorAll("[data-sst]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-sst")===sst); });
+      var sw=document.getElementById("pShapeFill");
+      if(!sw.childElementCount){
+        sw.innerHTML=SHAPE_FILL.map(function(c){
+          return '<button type="button" data-fill="'+c[0]+'" title="'+esc(c[1])+'" aria-label="'+esc(c[1])+'" style="background:'+c[0]+'"></button>';
+        }).join("");
+      }
+      sw.querySelectorAll("[data-fill]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-fill").toLowerCase()===fill.toLowerCase()); });
+      document.getElementById("pShapeFillFree").value=fill;
+      document.getElementById("pShapeOp").value = (it.opacity==null?100:it.opacity);
+      var davanti=(it.z!=null?it.z:1)>=3;
+      shw.querySelectorAll("[data-sz]").forEach(function(b){ b.classList.toggle("on", (b.getAttribute("data-sz")==="front")===davanti); });
+    }
+  }
   var isTxt = it.type==="testo";
-  document.getElementById("pLabelWrap").style.display = isTxt ? "none" : "block";
-  document.getElementById("pLblModeWrap").style.display = isTxt ? "none" : "block";
-  document.getElementById("pLblSizeName").textContent = isTxt ? "Dimensione testo" : "Dimensione";
-  document.getElementById("pTxtColorWrap").style.display = isTxt ? "block" : "none";
+  var inner = isTxt || it.type==="forma";   /* si scrive dentro l'elemento: niente Intero/Sigla, il testo è quello che si vede */
+  document.getElementById("pLabelWrap").style.display = inner ? "none" : "block";
+  document.getElementById("pLblModeWrap").style.display = inner ? "none" : "block";
+  document.getElementById("pLblSizeName").textContent = inner ? "Dimensione testo" : "Dimensione";
+  document.getElementById("pTxtColorWrap").style.display = (isTxt || it.type==="forma") ? "block" : "none";
+  var alw=document.getElementById("pAlignWrap");   /* allineamento: testo libero e testo dentro la forma */
+  if(alw){
+    var hasTxt = isTxt || it.type==="forma";
+    alw.style.display = hasTxt ? "block" : "none";
+    if(hasTxt){ var al=textAlignOf(it, isTxt?"left":"center");
+      alw.querySelectorAll("[data-align]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-align")===al); }); }
+  }
   if(isTxt) document.getElementById("pTxtColor").value = it.txtColor || "#1f2937";
   var sbw=document.getElementById("pSbChWrap");
   if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
@@ -7119,6 +7235,33 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
 document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ render(); save(); } });
+(function(){   /* allineamento del testo (testo libero e forma) */
+  var w=document.getElementById("pAlignWrap"); if(!w) return;
+  w.addEventListener("click", function(e){
+    var b=e.target.closest("[data-align]"); if(!b) return;
+    var v=b.getAttribute("data-align"), it=getSel();
+    var def=(it && it.type==="forma") ? "center" : "left";
+    mutSel(function(x){ if(v===def) delete x.align; else x.align=v; });   /* il default non si memorizza */
+    renderProps();
+  });
+})();
+(function(){   /* FORMA: geometria, stile, colore, ordine */
+  var wrap=document.getElementById("pShapeWrap"); if(!wrap) return;
+  function mut(fn){ mutSel(fn); renderProps(); }
+  wrap.addEventListener("click", function(e){
+    var k=e.target.closest("[data-shape]"), st=e.target.closest("[data-sst]"),
+        fl=e.target.closest("[data-fill]"), z=e.target.closest("[data-sz]");
+    if(k) mut(function(it){ it.shape=k.getAttribute("data-shape"); });
+    else if(st) mut(function(it){ var v=st.getAttribute("data-sst"); if(v==="solid") delete it.shapeStyle; else it.shapeStyle=v; });
+    else if(fl) mut(function(it){ it.fill=fl.getAttribute("data-fill"); });
+    else if(z) mut(function(it){ var front=z.getAttribute("data-sz")==="front"; if(front) it.z=3; else delete it.z; });
+  });
+  var free=document.getElementById("pShapeFillFree");
+  if(free) free.addEventListener("input", function(){ var v=this.value; mutSelSoon(function(it){ it.fill=v; }); });
+  var op=document.getElementById("pShapeOp");
+  if(op) op.addEventListener("input", function(){ var v=+this.value;
+    mutSelSoon(function(it){ if(v>=100) delete it.opacity; else it.opacity=v; }); });
+})();
 document.getElementById("pTxtColor").addEventListener("input", function(){ var v=document.getElementById("pTxtColor").value; mutSelSoon(function(it){ it.txtColor=v; }); });
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
@@ -7354,7 +7497,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var CARD="background:var(--surface-raised);border:1px solid var(--border);border-radius:9px;padding:9px 10px;margin-bottom:9px";
   /* blocchetto Etichetta: Intero/Sigla + testo + Dimensione + (Colore) + Posizione */
   var cLbl=document.createElement("div"); cLbl.id="pLblCard"; cLbl.style.cssText=CARD;
-  ["pLblModeWrap","pLabelWrap","pLabel2Wrap","pLblSizeWrap","pTxtColorWrap","pLblPosWrap"].forEach(function(id){ var e=get(id); if(e) cLbl.appendChild(e); });
+  ["pLblModeWrap","pLabelWrap","pLabel2Wrap","pLblSizeWrap","pAlignWrap","pTxtColorWrap","pLblPosWrap"].forEach(function(id){ var e=get(id); if(e) cLbl.appendChild(e); });
   /* Microfonazione + catena d'uscita: unico blocchetto "Uscita" (.prop-card, gia' stilato) */
   var mk=get("pOutCard");
   var setHead=function(el){ if(!el) return; var l=el.querySelector("label"); if(l){ l.style.color="var(--text)"; l.style.fontWeight="700"; } };   /* header blocchetti in grassetto scuro (come mockup) */
@@ -7364,7 +7507,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });    /* via le linee tratteggiate tra i toggle (come mockup) */
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
-  ["pLookWrap", cLbl, "pRotRow", "pOutCard", "pStereoWrap",
+  ["pLookWrap", cLbl, "pShapeWrap", "pRotRow", "pOutCard", "pStereoWrap",
    "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pAscoltoWrap","pReqWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
@@ -7966,6 +8109,15 @@ function refreshCatalogArt(){
          un elemento trascinabile ovunque — la stessa incoerenza chiusa il 25/07 sul trascinamento.
          Resta invece la pedana coro: gradoni con un disegno suo, che il costruttore non sa fare. */
       if(TYPES.pedanacoro){ addToGroup("Pedane e gradoni", makeBtn("pedanacoro", TYPES.pedanacoro.nome)); entries.push({k:"pedanacoro",nome:TYPES.pedanacoro.nome}); }
+      /* FORME: un solo tipo, sei porte d'ingresso — cercando "cerchio" o "triangolo" si trova la voce
+         giusta, e nel pannello la forma si cambia senza cancellare l'elemento. */
+      SHAPES.forEach(function(sh){
+        var over={shape:sh[0]};
+        if(sh[0]==="line"){ over.w=300; over.d=6; over.shapeStyle="outline"; }
+        if(sh[0]==="arrow"){ over.w=220; over.d=90; }
+        addToGroup("Forme e note", makeBtn("forma", sh[1], over, ""));
+        entries.push({k:"forma", nome:sh[1], over:over, kw:sh[2]+" forma forme area zona evidenzia annotazione"});
+      });
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
        ["Scenografia",         ["fondale","quinta","tappeto"]],
@@ -8641,7 +8793,7 @@ svg.addEventListener("pointerdown", function(e){
     }
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
-      if(dcIt && dcIt.type==="testo"){
+      if(dcIt && (dcIt.type==="testo" || dcIt.type==="forma")){
         /* Testo libero: scrivi direttamente sul palco (anche mobile: doppio tap).
            preventDefault: senza, la default action del mousedown sposta il focus e chiude
            la textarea appena aperta (bug trovato col mouse vero; gli eventi sintetici non lo mostrano). */

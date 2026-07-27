@@ -1925,6 +1925,21 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 .req-body .btns{display:flex;flex-wrap:wrap;gap:6px}
 .req-body .btns .btn{flex:1;min-width:118px;text-align:center;text-decoration:none;line-height:1.9}
 .req-body .prop-card{margin-bottom:9px}
+
+/* Elemento FORMA: selettore geometria + tavolozza colori nel pannello destro. */
+#props .shape-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+#props .shape-grid button{display:flex;align-items:center;justify-content:center;aspect-ratio:1;padding:0;
+  border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;
+  transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+#props .shape-grid button:hover{border-color:var(--accent);background:var(--accent-tint)}
+#props .shape-grid button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+#props .shape-grid svg{width:20px;height:20px;display:block}
+#props .swatches{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:6px}
+#props .swatches button{aspect-ratio:1;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+#props .swatches button.on{border-color:var(--text);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 0 0 2px var(--surface)}
+#props #pShapeFillFree{width:100%;height:30px;padding:2px;border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface);cursor:pointer}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -2216,6 +2231,37 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="pLblSizeWrap">
     <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px"><span id="pLblSizeName">Dimensione</span> <span id="pLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
     <input type="range" id="pLblSize" min="0" max="34" step="1" style="width:100%;padding:0">
+    </div>
+    <!-- FORMA: geometria, stile, colore, ordine. Testo/dimensione/colore-testo riusano i controlli
+         dell'Etichetta, come per il testo libero. -->
+    <div id="pShapeWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Forma</div>
+      <div id="pShapeKind" class="shape-grid" role="group" aria-label="Tipo di forma"></div>
+      <label>Stile</label>
+      <div class="seg" role="group" aria-label="Stile della forma">
+        <button type="button" class="adv-btn" data-sst="solid">Pieno</button>
+        <button type="button" class="adv-btn" data-sst="outline">Contorno</button>
+        <button type="button" class="adv-btn" data-sst="dashed">Tratteggio</button>
+      </div>
+      <label>Colore</label>
+      <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>
+      <input type="color" id="pShapeFillFree" value="#0d9488" aria-label="Colore libero">
+      <label>Trasparenza <small class="lbl-note">— per usarla come area di sfondo</small></label>
+      <input type="range" id="pShapeOp" min="15" max="100" step="1" value="100">
+      <label>Ordine <small class="lbl-note">— rispetto agli altri elementi</small></label>
+      <div class="seg" role="group" aria-label="Ordine">
+        <button type="button" class="adv-btn" data-sz="back">Sotto</button>
+        <button type="button" class="adv-btn" data-sz="front">Sopra</button>
+      </div>
+      <div class="prop-hint">Doppio clic sulla forma per scriverci dentro.</div>
+    </div>
+    <div id="pAlignWrap" style="display:none;margin-top:8px">
+      <label>Allineamento</label>
+      <div class="seg" role="group" aria-label="Allineamento del testo">
+        <button type="button" class="adv-btn" data-align="left" title="A sinistra" aria-label="A sinistra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 11h10M4 16h13"/></svg></button>
+        <button type="button" class="adv-btn" data-align="center" title="Al centro" aria-label="Al centro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 11h10M6 16h12"/></svg></button>
+        <button type="button" class="adv-btn" data-align="right" title="A destra" aria-label="A destra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M10 11h10M7 16h13"/></svg></button>
+      </div>
     </div>
     <div id="pTxtColorWrap" style="display:none;margin-top:8px">
       <label>Colore testo</label>

@@ -4167,6 +4167,54 @@ t("i termini da fonico trovano l'elemento giusto", () => {
     ok(nomi.some(n => casi[q].test(n)), "'" + q + "' trova " + JSON.stringify(nomi.slice(0, 3)) + ", atteso " + casi[q]);
   });
 });
+/* 27/07: elemento FORMA — un tipo con l'asse `shape`, sei voci nel catalogo, testo dentro. */
+t("la forma e' un tipo solo, con sei geometrie", () => {
+  reset();
+  eq(A.SHAPES.length, 6, "rettangolo, cerchio, triangolo, rombo, freccia, linea");
+  const it = add("forma", 300, 300);
+  eq(A.shapeOf(it), "rect", "di default e' un rettangolo");
+  it.shape = "circle"; eq(A.shapeOf(it), "circle", "cambia geometria senza cambiare tipo");
+  it.shape = "inventata"; eq(A.shapeOf(it), "rect", "una geometria sconosciuta torna al rettangolo");
+  eq(A.shapeFillOf({}), "#0d9488", "colore di default");
+  eq(A.shapeFillOf({ fill: "javascript:alert(1)" }), "#0d9488", "un colore non valido non entra nel disegno");
+  eq(A.shapeStyleOf({ shapeStyle: "dashed" }), "dashed");
+  eq(A.shapeStyleOf({ shapeStyle: "boh" }), "solid");
+});
+t("ogni geometria disegna qualcosa di suo, col colore scelto", () => {
+  reset();
+  const it = add("forma", 300, 300); it.fill = "#b45309";
+  const markup = {};
+  A.SHAPES.forEach(sh => { it.shape = sh[0]; markup[sh[0]] = A.drawShape(it); });
+  ok(/ellipse/.test(markup.circle), "cerchio = ellisse");
+  ok(/polygon/.test(markup.tri) && /polygon/.test(markup.rhombus) && /polygon/.test(markup.arrow), "triangolo, rombo e freccia sono poligoni");
+  ok(/rect/.test(markup.rect) && /rect/.test(markup.line), "rettangolo e linea");
+  ok(markup.rect.indexOf("#b45309") > -1, "il colore scelto finisce nel disegno");
+  const uniche = new Set(Object.values(markup));
+  eq(uniche.size, 6, "sei disegni diversi");
+});
+t("il testo dentro la forma si allinea come quello libero", () => {
+  reset();
+  const f = add("forma", 300, 300); f.label = "BACKLINE";
+  ok(A.drawShape(f).indexOf('text-anchor="middle"') > -1, "nella forma il testo nasce centrato");
+  f.align = "right";
+  ok(A.drawShape(f).indexOf('text-anchor="end"') > -1, "a destra");
+  const t2 = add("testo", 500, 300); t2.label = "Note di palco";
+  ok(A.drawTextBox(t2).indexOf('text-anchor="start"') > -1, "il testo libero nasce a sinistra");
+  t2.align = "center";
+  ok(A.drawTextBox(t2).indexOf('text-anchor="middle"') > -1, "centrato");
+  t2.align = "right";
+  const m = A.drawTextBox(t2);
+  ok(m.indexOf('text-anchor="end"') > -1 && m.indexOf('x="' + (t2.w / 2 - 8) + '"') > -1, "a destra, ancorato al bordo");
+});
+t("cercando una geometria si trova la voce giusta", () => {
+  reset();
+  const primi = q => A.__qaSearch(q).map(r => r.nome)[0];
+  eq(primi("quadrato"), "Rettangolo", "quadrato → rettangolo");
+  eq(primi("cerchio"), "Cerchio");
+  eq(primi("triangolo"), "Triangolo");
+  eq(primi("rombo"), "Rombo");
+  eq(primi("freccia"), "Freccia");
+});
 /* 27/07 (Simone): «l'etichetta deve partire sempre dal nome intero; la sigla la sceglie l'utente,
    e gli si chiede se applicarla a tutti gli strumenti simili». */
 t("l'etichetta di un elemento nuovo e' il nome intero, non la sigla", () => {
