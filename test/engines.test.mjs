@@ -63,6 +63,7 @@ function throws(fn, code) {
 function reset() {
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
+  A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {};
@@ -2116,6 +2117,38 @@ t("chitarra illustrata: ampli/pedaliera nel footprint (bug visualizzazione)", ()
   ok(itP.d > d0, "pedaliera allunga la profondità in illustrato (era ignorata)");
   ok(itP.d >= 130, "footprint include la pedaliera");
   ok(itA.w >= 80, "footprint tiene conto dell'ampli in larghezza");
+});
+/* «Postazione» / «Strumento solo» (Simone 27/07): il toggle sceglie COSA si disegna, non lo stile.
+   Le due scelte hanno stati canonici diversi e passare dall'una all'altra li riazzera. */
+t("Strumento solo: sedia e leggio si spengono; Postazione: tornano", () => {
+  reset();
+  const v = add("vlnpost", 400, 400);
+  eq(A.optSedia(v), true, "la postazione nasce con la sedia");
+  eq(v.leggio, true, "e col leggio");
+  A.lookReset(v, "schematico");
+  eq(v.sedia, false, "«Strumento solo» = il solo violino, niente sedia");
+  eq(v.leggio, false, "né leggio: si riaggiungono a mano dalla colonna di destra");
+  A.lookReset(v, "illustrato");
+  eq(A.optSedia(v), true, "tornando a «Postazione» la sedia è di nuovo implicita");
+  eq(v.leggio, undefined, "e il leggio torna al default del tipo");
+});
+t("il riazzeramento non tocca chitarre, piani e postazioni doppie", () => {
+  reset();
+  const g = add("gtacustica", 400, 400);          /* gtr: la sedia è già spenta di suo */
+  const before = JSON.stringify({ s: g.sedia, l: g.leggio });
+  A.lookReset(g, "schematico");
+  eq(JSON.stringify({ s: g.sedia, l: g.leggio }), before, "le chitarre hanno i loro default, non si toccano");
+  const d = add("vlnpost", 600, 400); d.doppia = true; d.sedia = true; d.leggio = true;
+  A.lookReset(d, "schematico");
+  eq(d.sedia, true, "la postazione a 2 ha un leggio solo e la sedia bloccata: resta com'è");
+  eq(d.leggio, true);
+});
+t("il toggle si chiama «Postazione» / «Strumento solo», non più «Illustrato» / «Schematico»", () => {
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  ok(html.indexOf(">Postazione</button>") > -1, "il primo bottone dice cosa disegna");
+  ok(html.indexOf(">Strumento solo</button>") > -1, "il secondo pure");
+  eq(html.indexOf(">Illustrato</button>"), -1, "il vecchio nome descriveva lo stile, non il contenuto");
+  eq(html.indexOf(">Schematico</button>"), -1);
 });
 t("direttore: sempre illustrato — NON in LOOK_ART, niente toggle Aspetto", () => {
   eq(A.look2Art({ type: "direttore" }), null);        /* fuori da LOOK_ART: nessuna sostituzione da render-interception */
