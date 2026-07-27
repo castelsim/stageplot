@@ -3642,6 +3642,21 @@ t("il lucchetto ferma la pedana dov'e'", () => {
   ok(appjs.indexOf('class="lock-handle') > -1, "il lucchetto si disegna accanto alla maniglia di rotazione");
   ok(appjs.indexOf("openQuickAdd(svgPoint(e)") > -1, "col lucchetto chiuso il doppio clic apre la ricerca rapida");
 });
+/* Aspetto della pedana bloccata (variante A, Simone 27/07): attenuandola si confondeva col palco. */
+t("la pedana bloccata si riconosce: perimetro marcato e lucchettino", () => {
+  reset();
+  const libera = A.TYPES.pedana.draw({ w: 200, d: 100 });
+  const chiusa = A.TYPES.pedana.draw({ w: 200, d: 100, locked: true });
+  eq(libera.indexOf("riser-fixed"), -1, "libera: perimetro normale");
+  eq(libera.indexOf("riser-lock"), -1, "libera: nessun lucchetto sul disegno");
+  ok(chiusa.indexOf("riser-fixed") > -1, "bloccata: perimetro marcato");
+  ok(chiusa.indexOf("riser-lock") > -1, "bloccata: lucchettino nell'angolo");
+  ok(stylesCss.indexOf(".ic.riser-fixed{stroke-width:3.6}") > -1, "il bordo piu' spesso arriva dal CSS");
+  eq(stylesCss.indexOf(".riser-item.locked .item{opacity:.85}"), -1, "niente piu' trasparenza: si confondeva col palco");
+  const piccola = A.TYPES.pedana.draw({ w: 60, d: 40, locked: true });
+  ok(piccola.indexOf("riser-fixed") > -1, "anche la piccola ha il perimetro marcato");
+  eq(piccola.indexOf("riser-lock"), -1, "sotto i 70x50 cm il lucchetto starebbe addosso all'angolo: si tace");
+});
 /* PIÈ DI PAGINA DEL PDF (27/07): i numeri che servono a chi allestisce, contati dagli elementi veri. */
 t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () => {
   reset(); A.state.cab.on = true; A.__cabRes = null;
