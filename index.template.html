@@ -1735,25 +1735,6 @@ function kn(x0,y,n,st,cls){ var s=''; for(var i=0;i<n;i++) s+=circ(x0+i*st,y,1.9
 
 /* Postazione orchestrale: SOLO sedia nera + glifo strumento.
    Il leggio è un elemento separato del catalogo (in fondo a ogni categoria). */
-/* Chitarra classica in aspetto SCHEMATICO: seduta, musicista visto dall'alto e chitarra in grembo,
-   con la paletta verso sinistra come la si tiene davvero. Stessi mattoni delle altre postazioni. */
-function classicGuitarTop(it){
-  var s=seatLight(0);                                   /* seduta chiara, come le postazioni d'orchestra */
-  s+='<circle cx="0" cy="-16" r="11" class="ic fill"/>';          /* testa */
-  s+=bar(0,5,30,20,'ic fill',8);                                  /* spalle/busto */
-  /* Chitarra classica a SCALA REALE vista dall'alto: cassa 37 cm, lunghezza totale ~100 cm, tenuta
-     in grembo con la paletta alzata a sinistra. Al primo tentativo era grande la metà e i due lobi
-     si fondevano in una macchia. */
-  s+='<g transform="translate(4,15) rotate(-27)">'+
-       '<path class="ic" d="M20,0 C20,10.5 13.5,15 7,15 C0.5,15 -3,10.5 -3,4.5'+
-         ' C-3,-1 0.5,-4 4,-4 C7.5,-4 9,-1 9,0 C9,1 7.5,4 4,4 C0.5,4 -3,1 -3,-4.5'+
-         ' C-3,-10.5 0.5,-15 7,-15 C13.5,-15 20,-10.5 20,0 Z"/>'+   /* profilo a otto della cassa */
-       '<circle cx="7.5" cy="0" r="3.6" class="ic fill"/>'+                             /* buca */
-       '<rect x="-32" y="-2.4" width="30" height="4.8" rx="2" class="ic"/>'+             /* manico */
-       '<rect x="-41" y="-3.4" width="10" height="6.8" rx="2.2" class="ic fBlack"/>'+    /* paletta */
-     '</g>';
-  return s;
-}
 function postaz(glyph){
   return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+(glyph||'');
 }
@@ -2659,7 +2640,9 @@ var TYPES = {
   /* unica chitarra senza un tipo funzionale "schematico" a cui appoggiarsi (le altre lo hanno via
      LOOK_ART): il suo draw conosce i due aspetti — illustrato di default, schematico su richiesta. */
   musChitClassica: {nome:"Chitarra classica musicista", dim:"87×87", cat:"Band e backline", sub:"Chitarre e bassi", w:87,d:87, defLabel:"Git cl",
-    draw:function(it){ return (it&&it.look==="schematico") ? classicGuitarTop(it) : drawLibFit("musChitClassica",it,87,87); }},
+    draw:function(it){ return (it&&it.look==="schematico")
+      ? guitarDraw({sedia:it.sedia, leggio:it.leggio, ampli:it.ampli, pedaliera:it.pedaliera}, "ac")   /* IDENTICO alla chitarra acustica (Simone 27/07): stesso disegno, stessi flag, nessun default in piu' */
+      : drawLibFit("musChitClassica",it,87,87); }},
   musBasso: {catalog:false, nome:"Basso musicista", dim:"97×79", cat:"Band e backline", sub:"Chitarre e bassi", w:97,d:79, defLabel:"Basso", draw:function(it){ return drawLibFit("musBasso",it,97,79); }},
   musFisarmonica: {nome:"Fisarmonica musicista", dim:"82×96", cat:"Band e backline", sub:"Tastiere e piani", w:82,d:96, defLabel:"Fis", draw:function(it){ return drawLibFit("musFisarmonica",it,82,96); }},
   musDirettore: {catalog:false, nome:"Direttore musicista", dim:"90×114", cat:"Persone e voci", w:90,d:114, defLabel:"Dir", draw:function(it){ return drawLibFit("musDirettore",it,90,114); }},
@@ -5178,6 +5161,12 @@ function b64urlToStr(s){ s=String(s).replace(/-/g,"+").replace(/_/g,"/"); while(
    Centralizza la logica usata negli handler di edit così che anche gli item "grezzi" (AI/import) abbiano ingombri corretti. */
 function recalcItemDims(it){
   var t=TYPES[it.type]; if(!t) return;
+  if(it.type==="musChitClassica"){   /* schematico = postazione acustica (stesse misure), illustrato = l'illustrazione */
+    if(it.look==="schematico"){ var gs=gtrSize({sedia:it.sedia, leggio:it.leggio, ampli:it.ampli, pedaliera:it.pedaliera}, TYPES.gtacustica);
+      it.w=gs[0]; it.d=gs[1]; }
+    else { it.w=t.w; it.d=t.d; }
+    return;
+  }
   var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1];
     if(t.gtr){ if(it.ampli) it.w=Math.max(it.w,80); if(it.pedaliera) it.d=Math.max(it.d, it.sedia!==false?150:130); }   /* chitarra illustrata: includi ampli (larghezza) e pedaliera (profondità) nel footprint */
     return; }   /* Fase 2 illustrato: footprint = illustrazione */
@@ -8664,7 +8653,10 @@ function renderProps(){
     document.getElementById("pSediaVWrap").style.display = (it.type==="corista") ? "block" : "none";   /* sedia solo per coristi */
     document.getElementById("pSediaV").checked = it.sedia===true;
   }
-  var pg=document.getElementById("pGtr"), isGtr=!!t.gtr;
+  /* i toggle sedia/leggio/ampli/pedaliera valgono anche per la chitarra classica in aspetto
+     schematico: usa lo stesso disegno dell'acustica, e senza i toggle quei flag sarebbero
+     irraggiungibili (la sedia, per una classica, serve quasi sempre). */
+  var pg=document.getElementById("pGtr"), isGtr=!!t.gtr || (it.type==="musChitClassica" && it.look==="schematico");
   pg.style.display = isGtr ? "block" : "none";
   if(isGtr){
     document.getElementById("pGtrSedia").checked = it.sedia===true;
