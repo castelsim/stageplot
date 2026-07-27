@@ -50,6 +50,7 @@ jobs:
           supabase/functions/get-shared-project/index.ts
           supabase/functions/process-consultation-notifications/index.ts
           supabase/functions/save-shared-project/index.ts
+          supabase/functions/setup-request/index.ts
           supabase/functions/stripe-webhook/index.ts
           supabase/functions/submit-feedback/index.ts
       - name: Lint backend
@@ -63,7 +64,7 @@ jobs:
             robots.txt sitemap.xml llms.txt \
             favicon.ico favicon.svg favicon-48.png favicon-96.png \
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
-            consulenza guida privacy stage-plot termini vendor \
+            consulenza guida privacy richiesta stage-plot termini vendor \
             ./_site/
       - name: Timbra il build ID (SHA del commit) negli asset pubblicati (audit L-03)
         run: sed -i "s/__BUILD_SHA_PLACEHOLDER__/${GITHUB_SHA:0:7}/g" _site/index.html
