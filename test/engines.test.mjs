@@ -4175,9 +4175,13 @@ t("la chitarra classica musicista ha anche l'aspetto schematico", () => {
   eq(A.hasLookToggle(it), true, "il toggle Illustrato/Schematico deve esserci");
   it.look = "schematico";
   const sch = A.TYPES.musChitClassica.draw(it);   // nel sandbox l'illustrazione e' uno stub: si verifica il ramo schematico
-  ok(/path/.test(sch) && /circle/.test(sch), "cassa, buca e testa disegnate: " + sch.slice(0, 80));
-  ok(sch.length > 300, "disegno completo, non un segnaposto");
-  ok(A.classicGuitarTop(it).indexOf("rect") > -1, "manico e paletta");
+  // lo schematico DEVE essere identico a quello della chitarra acustica (stesso disegno, stessi accessori)
+  const stessiFlag = x => ({ sedia: x.sedia, leggio: x.leggio, ampli: x.ampli, pedaliera: x.pedaliera });
+  eq(sch, A.TYPES.gtacustica.draw(stessiFlag(it)), "schematico della classica ≠ schematico dell'acustica");
+  [["sedia", true], ["leggio", true], ["ampli", true], ["pedaliera", true]].forEach(function (f) {
+    it[f[0]] = f[1];
+    eq(A.TYPES.musChitClassica.draw(it), A.TYPES.gtacustica.draw(stessiFlag(it)), "diverso con " + f[0]);
+  });
 });
 t("l'archetto e' proposto solo a chi suona con le mani occupate", () => {
   reset();
