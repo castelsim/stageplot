@@ -260,6 +260,7 @@
   <button class="mi" data-file="model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 10.5h16M10 5v14"/></svg>Nuovo da modello…</button>
   <button class="mi" data-file="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>I miei progetti…</button>
   <button class="mi" data-file="rubrica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="15" height="18" rx="2"/><path d="M22 7h-3M22 12h-3M22 17h-3"/><circle cx="11.5" cy="10" r="2.2"/><path d="M7.8 17c.8-1.9 2.2-2.8 3.7-2.8s2.9.9 3.7 2.8"/></svg>La mia rubrica…</button>
+  <button class="mi" data-file="richieste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 3z"/><path d="M8 9h8M8 12.5h5"/></svg><span>Richieste ai musicisti…</span></button>
   <button class="mi" data-file="produzione"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V8l6-4 6 4v13M10 21v-5h4v5"/></svg>Produzione — reparti…</button>
   <hr>
   <button class="mi" data-file="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva<span class="kbd">⌘S</span></button>
@@ -570,6 +571,12 @@
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
     <div id="pLeggioGenWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLeggioGen"> Leggio</label></div>
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
+    <!-- RICHIESTA SETUP: il tecnico chiede al musicista com'è fatta la sua postazione. La risposta
+         torna nel progetto e diventa una proposta, non una modifica automatica del palco. -->
+    <div id="pReqWrap" style="display:none">
+      <button type="button" class="btn" id="pReqBtn" style="width:100%">✉︎ Richiedi setup al musicista</button>
+      <div id="pReqState" class="prop-hint"></div>
+    </div>
     <div id="pAscoltoWrap" style="display:none">
       <label>Ascolto <small class="lbl-note">— cosa usa per sentirsi</small></label>
       <select id="pAscolto">
@@ -8420,6 +8427,13 @@ function renderProps(){
   if(_isLegX) document.getElementById("pLeggioGen").checked = it.leggio===true;
   document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
   document.getElementById("pLucetta").checked = it.lucetta===true;
+  var reqW=document.getElementById("pReqWrap");   /* richiesta setup: solo persone/postazioni, e solo su progetto cloud */
+  if(reqW){
+    var C0=window.__cloud, canReq = !!(C0 && C0.user && C0.user() && C0.currentId && C0.currentId());
+    var isPerf = (typeof ascoltoEligible==="function" && ascoltoEligible(it)) || hasChain(it);
+    reqW.style.display = (isPerf && canReq) ? "" : "none";
+    if(isPerf && canReq && typeof requestBadgeFor==="function") requestBadgeFor(it);
+  }
   var ascW=document.getElementById("pAscoltoWrap");   /* Ascolto (wedge/iem/pm/cuffie) per performer */
   if(ascW){ var elig=ascoltoEligible(it); ascW.style.display = elig ? "" : "none";
     if(elig){ var asel=document.getElementById("pAscolto");
@@ -8887,7 +8901,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
   ["pLookWrap", cLbl, "pRotRow", "pOutCard", "pStereoWrap",
-   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pAscoltoWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
+   "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pAscoltoWrap","pReqWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
   var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
@@ -13587,6 +13601,8 @@ function renderCabPanel(){
   ["pChainPed","pChainAmp"].forEach(function(bid){
     var b=document.getElementById(bid); if(b) b.addEventListener("click", function(){ chainAct(this.dataset.node); });
   });
+  var _reqBtn=document.getElementById("pReqBtn");
+  if(_reqBtn) _reqBtn.addEventListener("click", function(){ var it=getSel(); if(it) openRequestCreate(it); });
   var _chainSvg=document.getElementById("pChain");
   if(_chainSvg){
     _chainSvg.addEventListener("click", function(e){ var g=e.target.closest(".ctap"); if(g) chainAct(g.getAttribute("data-tap")); });
@@ -14232,6 +14248,273 @@ function chainInputs(it){
   if(c.ampMic)  out.push({name:(c.taps>1?labelPrefix(it,"ampli"):base), mic:(CHAIN_AMPMIC[it.type]||"SM57")});
   if(c.ampDi)   out.push({name:(c.taps>1?labelPrefix(it,"DI amp"):base), mic:"DI out"});
   return out;
+}
+/* ===== RICHIESTE SETUP — interfaccia del tecnico (spec docs/richieste/SPEC_R1.md) =====
+   Tre gesti: chiedere (link), leggere la risposta, applicarla voce per voce. Tutto in due finestre
+   piccole: la richiesta nasce dalla postazione selezionata, l'elenco vive nel menu File. */
+var REQ_STATUS_LABEL={ created:"Da inviare", sent:"Inviata", opened:"Aperta", in_progress:"In compilazione",
+  submitted:"Ricevuta", reopened:"Riaperta", closed:"Chiusa", expired:"Scaduta", revoked:"Annullata" };
+var REQ_SCHEMAS=[["electric_guitar_setup","Chitarra elettrica"]];
+function requestLink(token){ return location.origin+"/richiesta/?t="+encodeURIComponent(token); }
+function requestShareText(name, token){
+  return "Ciao"+(name?" "+name:"")+", puoi indicarmi il setup che userai per questo evento? "+
+    "Non serve registrarsi e ci vuole circa un minuto: "+requestLink(token);
+}
+var _reqCache=null;   /* elenco delle richieste del progetto aperto (invalidato a ogni azione) */
+function requestsRefresh(cb){
+  var C=window.__cloud; if(!C || !C.requests || !C.user() || !C.currentId()){ _reqCache=[]; if(cb) cb([]); return; }
+  C.requests.list(C.currentId(), function(rows){ _reqCache=rows||[]; if(cb) cb(_reqCache); });
+}
+/* riga di stato sotto il bottone del pannello: dice a colpo d'occhio se quel musicista ha risposto */
+function requestBadgeFor(it){
+  var n=document.getElementById("pReqState"); if(!n||!it) return;
+  function paint(){
+    var mine=(_reqCache||[]).filter(function(r){ return r.item_id===it.id; });
+    if(!mine.length){ n.textContent="Setup non ancora richiesto."; return; }
+    var r=mine[0];
+    n.textContent = (REQ_STATUS_LABEL[r.status]||r.status) +
+      (r.submitted_at ? " · risposta del "+new Date(r.submitted_at).toLocaleDateString("it-IT") : "") +
+      (r.current_version>1 ? " · versione "+r.current_version : "");
+  }
+  if(_reqCache) paint(); else requestsRefresh(paint);
+}
+/* ---------------------------------------------------------------- finestra: crea la richiesta */
+function openRequestCreate(it){
+  var C=window.__cloud; if(!C || !C.user() || !C.currentId()){ showToast("Accedi e salva il progetto per usare le richieste","err"); return; }
+  var nome="", ruolo=(it && TYPES[it.type]) ? TYPES[it.type].nome : "";
+  if(it && it.label) nome=it.label;
+  var ov=reqModal("Richiedi il setup",
+    '<label>Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
+    '<label>Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
+    '<label>Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
+    '<label>Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
+    '<label>Scade fra <small class="lbl-note">— dopo, il link non si apre più</small></label>'+
+    '<select id="rqExp"><option value="30">30 giorni</option><option value="14">14 giorni</option><option value="7">7 giorni</option><option value="">Nessuna scadenza</option></select>',
+    [["Annulla","",null],["Crea il link","primary",function(box){
+      var giorni=box.querySelector("#rqExp").value;
+      var exp = giorni ? new Date(Date.now()+(+giorni)*864e5).toISOString() : null;
+      C.requests.create({
+        projectId:C.currentId(), itemId:(it?it.id:""), name:box.querySelector("#rqName").value.trim(),
+        role:box.querySelector("#rqRole").value.trim(), schemaId:box.querySelector("#rqSchema").value,
+        message:box.querySelector("#rqMsg").value.trim(), expiresAt:exp
+      }, function(res){
+        if(!res){ showToast("Non è stato possibile creare la richiesta","err"); return; }
+        _reqCache=null; requestsRefresh(function(){ if(it) requestBadgeFor(it); });
+        openRequestLink(res.id, box.querySelector("#rqName").value.trim(), res.token);
+      });
+      return true;   /* chiude questa finestra: la prossima mostra il link */
+    }]]);
+  setTimeout(function(){ var f=ov.querySelector("#rqName"); if(f) f.focus(); }, 30);
+}
+/* ---------------------------------------------------------------- finestra: il link appena creato */
+function openRequestLink(reqId, nome, token){
+  var link=requestLink(token), testo=requestShareText(nome, token);
+  reqModal("Link pronto",
+    '<p class="prop-hint" style="margin-top:0">Questo link si vede una volta sola: copialo adesso. Chi ce l\'ha può rispondere, ma non vede il resto del progetto.</p>'+
+    '<label>Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
+    '<label>Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
+    '<div class="btns" style="margin-top:10px">'+
+      '<button type="button" class="btn" id="rqCopyLink">Copia link</button>'+
+      '<button type="button" class="btn" id="rqCopyText">Copia messaggio</button>'+
+      '<a class="btn" id="rqWa" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(testo)+'">WhatsApp</a>'+
+      '<a class="btn" id="rqMail" href="mailto:?subject='+encodeURIComponent("Setup per l\'evento")+'&body='+encodeURIComponent(testo)+'">Email</a>'+
+    '</div>',
+    [["Ho inviato","primary",function(){ var C=window.__cloud; if(C&&C.requests) C.requests.markSent(reqId, function(){ _reqCache=null; requestsRefresh(); }); return true; }],
+     ["Chiudi","",null]],
+    function(box){
+      function copia(txt,msg){ try{ navigator.clipboard.writeText(txt).then(function(){ showToast(msg); },function(){ showToast("Copia non riuscita","err"); }); }catch(e){ showToast("Copia non riuscita","err"); } }
+      box.querySelector("#rqCopyLink").addEventListener("click", function(){ copia(link,"Link copiato"); });
+      box.querySelector("#rqCopyText").addEventListener("click", function(){ copia(testo,"Messaggio copiato"); });
+    });
+}
+/* ---------------------------------------------------------------- finestra: elenco e risposte */
+function openRequestsPanel(){
+  var C=window.__cloud;
+  if(!C || !C.user() || !C.currentId()){ showToast("Accedi e salva il progetto per vedere le richieste","err"); return; }
+  var ov=reqModal("Richieste ai musicisti", '<div id="rqList" class="prop-hint">Carico…</div>', [["Chiudi","",null]]);
+  requestsRefresh(function(rows){
+    var box=ov.querySelector("#rqList");
+    if(!rows || !rows.length){ box.textContent="Nessuna richiesta. Selezziona un musicista sul palco e usa «Richiedi setup»."; return; }
+    box.className="";
+    box.innerHTML=rows.map(function(r){
+      var quando = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString("it-IT") : "";
+      return '<div class="prop-card" data-req="'+esc(r.id)+'">'+
+        '<div class="prop-card__head">'+esc(r.recipient_name||"Senza nome")+
+          ' <span class="muted">'+esc(r.recipient_role||"")+'</span></div>'+
+        '<div class="prop-hint" style="margin-top:0">'+esc(REQ_STATUS_LABEL[r.status]||r.status)+
+          (quando?" · risposta del "+quando:"")+(r.current_version>1?" · versione "+r.current_version:"")+'</div>'+
+        '<div class="btns" style="margin-top:8px">'+
+          (r.submitted_at?'<button type="button" class="btn primary" data-act="see">Vedi risposta</button>':'')+
+          (r.status==="submitted"?'<button type="button" class="btn" data-act="reopen">Riapri</button>':'')+
+          (r.status!=="revoked"&&r.status!=="closed"?'<button type="button" class="btn" data-act="revoke">Annulla</button>':'')+
+        '</div></div>';
+    }).join("");
+    box.addEventListener("click", function(e){
+      var b=e.target.closest("[data-act]"); if(!b) return;
+      var id=b.closest("[data-req]").getAttribute("data-req");
+      var act=b.getAttribute("data-act");
+      if(act==="see") openRequestAnswer(id);
+      else if(act==="reopen") C.requests.reopen(id, function(){ _reqCache=null; showToast("Richiesta riaperta: il musicista può aggiornarla"); ov.remove(); openRequestsPanel(); });
+      else if(act==="revoke") C.requests.revoke(id, function(){ _reqCache=null; showToast("Link annullato"); ov.remove(); openRequestsPanel(); });
+    });
+  });
+}
+/* ---------------------------------------------------------------- finestra: risposta + proposta */
+function openRequestAnswer(reqId){
+  var C=window.__cloud;
+  var r=(_reqCache||[]).filter(function(x){ return x.id===reqId; })[0];
+  var it=(state.items||[]).filter(function(x){ return r && x.id===r.item_id; })[0]||null;
+  var ov=reqModal("Risposta del musicista", '<div id="rqAns" class="prop-hint">Carico…</div>', [["Chiudi","",null]]);
+  C.requests.versions(reqId, function(vers){
+    var box=ov.querySelector("#rqAns");
+    var inviate=(vers||[]).filter(function(v){ return v.status==="submitted"; });
+    if(!inviate.length){ box.textContent="Il musicista non ha ancora inviato."; return; }
+    box.className="";
+    var v=inviate[0], p=setupProposal(v.answers||{}, it);
+    function lista(arr, cls){
+      if(!arr.length) return '<div class="prop-hint">—</div>';
+      return arr.map(function(x,i){
+        return '<div class="prop-card" style="margin-bottom:6px"><div><b>'+esc(x.label)+'</b>'+
+          (x.why?'<div class="prop-hint" style="margin-top:2px">'+esc(x.why)+'</div>':'')+'</div>'+
+          (cls==="add"?'<div class="btns" style="margin-top:6px"><button type="button" class="btn primary" data-add="'+i+'">Aggiungi</button>'+
+            '<button type="button" class="btn" data-skip="'+i+'">Ignora</button></div>':'')+'</div>';
+      }).join("");
+    }
+    box.innerHTML=
+      (inviate.length>1?'<div class="prop-hint" style="margin-top:0">Versione '+v.version_number+' di '+inviate.length+' · le precedenti restano nello storico.</div>':'')+
+      '<div class="prop-card__head" style="margin-top:8px">Già presente</div>'+lista(p.presenti,"ok")+
+      '<div class="prop-card__head" style="margin-top:12px">Da aggiungere</div>'+lista(p.aggiungere,"add")+
+      '<div class="prop-card__head" style="margin-top:12px">Da verificare</div>'+lista(p.verificare,"chk")+
+      '<div class="btns" style="margin-top:12px">'+
+        (p.aggiungere.length?'<button type="button" class="btn primary" id="rqAll">Applica tutto</button>':'')+
+        '<button type="button" class="btn" id="rqDone">Segna implementata</button></div>';
+    function applica(i){
+      var voce=p.aggiungere[i]; if(!voce) return;
+      var nuovo=setupProposalApply(voce, it);
+      if(nuovo && nuovo.id){ selectOne(nuovo.id); ensureVisible(); }
+      save(); render(); renderProps();
+      showToast("Applicato: "+voce.label);
+    }
+    box.addEventListener("click", function(e){
+      var a=e.target.closest("[data-add]"), sk=e.target.closest("[data-skip]");
+      if(a){ applica(+a.getAttribute("data-add")); a.closest(".prop-card").style.opacity=".45"; a.disabled=true; }
+      if(sk){ sk.closest(".prop-card").style.opacity=".45"; sk.disabled=true; }
+    });
+    var all=box.querySelector("#rqAll");
+    if(all) all.addEventListener("click", function(){ p.aggiungere.forEach(function(_,i){ applica(i); }); ov.remove(); });
+    box.querySelector("#rqDone").addEventListener("click", function(){
+      C.requests.markImplemented(reqId, function(){ _reqCache=null; showToast("Richiesta segnata come implementata"); ov.remove(); });
+    });
+  });
+}
+/* finestra piccola e riusabile per le richieste: stessa forma di guideDialog, con campi dentro */
+function reqModal(titolo, html, azioni, onReady){
+  var old=document.getElementById("reqDlg"); if(old) old.remove();
+  var ov=document.createElement("div"); ov.id="reqDlg"; ov.className="guide-ov";
+  var card=document.createElement("div"); card.className="guide-card req-card";
+  card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true"); card.setAttribute("aria-label",titolo);
+  card.innerHTML='<h3 class="guide-title">'+esc(titolo)+'</h3><div class="req-body" id="reqBody">'+html+'</div>';
+  var row=document.createElement("div"); row.className="guide-actions";
+  (azioni||[]).forEach(function(a){
+    var b=document.createElement("button"); b.type="button"; b.className="btn"+(a[1]?" "+a[1]:"");
+    b.textContent=a[0];
+    b.addEventListener("click", function(){ var chiudi=true; if(a[2]) chiudi=a[2](card)!==false; if(chiudi) ov.remove(); });
+    row.appendChild(b);
+  });
+  card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+  ov.addEventListener("click", function(e){ if(e.target===ov) ov.remove(); });
+  document.addEventListener("keydown", function esc2(e){ if(e.key==="Escape"){ ov.remove(); document.removeEventListener("keydown",esc2,true); } }, true);
+  if(onReady) onReady(card);
+  return ov;
+}
+window.openRequestsPanel=openRequestsPanel;
+/* ===== PROPOSTA OPERATIVA dalle risposte del musicista (spec docs/richieste/SPEC_R1.md) =====
+   Le risposte NON toccano il palco: entrano qui e diventano un elenco di cose da fare, che il
+   tecnico applica una per una. Il motore è puro (niente DOM, niente rete): riceve le risposte e
+   l'elemento della postazione, restituisce tre liste. Ogni voce da aggiungere porta l'azione con
+   cui si applica — un flag della catena d'uscita, oppure un elemento da posare accanto. */
+function setupProposal(answers, it){
+  var a=answers||{}, chain=(it && hasChain(it)) ? chainOf(it) : null;
+  var presenti=[], aggiungere=[], verificare=[];
+  function add(key,label,why,act){ aggiungere.push({key:key,label:label,why:why,act:act}); }
+  function has(type){ return (state.items||[]).some(function(x){ return x.type===type; }); }
+
+  if(a.pedalboard==="yes"){
+    var dim = a.pedalboard_size==="large" ? "grande" : (a.pedalboard_size==="small" ? "piccola" : "media");
+    if(chain && chain.ped) presenti.push({label:"Pedaliera già sulla postazione"});
+    else add("ped","Pedaliera ("+dim+")","Il musicista la porta: entra nella catena del segnale.",{kind:"chain",what:"ped"});
+    if(a.pedalboard_size==="unknown") verificare.push({label:"Dimensione della pedaliera", why:"Il musicista non l'ha saputa indicare: serve per lo spazio a terra."});
+  }
+
+  if(a.amp==="combo" || a.amp==="stack"){
+    var tipo = a.amp==="combo" ? "comboamp" : "stack";
+    var nome = a.amp==="combo" ? "Combo chitarra" : "Stack chitarra";
+    if(chain && chain.amp) presenti.push({label:"Amplificatore già sulla postazione"});
+    else add("amp",nome,"Il musicista amplifica sul palco.",{kind:"chain",what:"amp"});
+    if(!has(tipo)) add("ampitem",nome+" (elemento sul palco)","Va disegnato: occupa spazio e assorbe corrente.",{kind:"add",type:tipo});
+    if(a.amp_provider==="production") verificare.push({label:"Amplificatore a carico della produzione", why:"Il musicista NON lo porta: va procurato."});
+    if(a.amp_provider==="unknown") verificare.push({label:"Chi porta l'amplificatore", why:"Il musicista non lo sa: da confermare prima del carico."});
+    if(a.amp_onstage==="no") verificare.push({label:"Ampli fuori dal palco", why:"Va deciso dove metterlo e come portarci il segnale."});
+  } else if(a.amp==="unknown"){
+    verificare.push({label:"Come amplifica", why:"Il musicista non lo sa ancora: cambia microfoni, corrente e spazio."});
+  }
+
+  if(a.output==="mic"){
+    if(chain && chain.ampMic) presenti.push({label:"Microfono sull'ampli già previsto"});
+    else add("ampmic","Microfono davanti all'ampli","Il suono si prende dal cono.",{kind:"chain",what:"ampmic"});
+  } else if(a.output==="xlr"){
+    if(chain && chain.ped) add("pedxlr","Uscita XLR della pedaliera","Esce già bilanciato: nessuna DI da portare.",{kind:"chain",what:"pedxlr"});
+    else verificare.push({label:"Uscita XLR senza pedaliera dichiarata", why:"Da capire da quale apparecchio esce l'XLR."});
+  } else if(a.output==="jack"){
+    if(chain && chain.tapLine) presenti.push({label:"Linea in DI già prevista"});
+    else add("line","Linea in DI","Uscita jack sbilanciata: ci vuole una DI.",{kind:"chain",what:"line"});
+  } else if(a.output==="both"){
+    if(!(chain && chain.ampMic)) add("ampmic","Microfono davanti all'ampli","Il musicista vuole microfono e cavo insieme.",{kind:"chain",what:"ampmic"});
+    if(!(chain && chain.tapLine)) add("line","Linea in DI","Secondo canale, in parallelo al microfono.",{kind:"chain",what:"line"});
+  } else if(a.output==="unknown"){
+    verificare.push({label:"Come esce il suono", why:"Non lo sa: decidi tu fra microfono, DI e XLR."});
+  }
+
+  if(a.stereo==="stereo") verificare.push({label:"Uscita stereo", why:"Servono due canali e due DI: da confermare col musicista."});
+  if(a.stereo==="unknown" && a.output!=="mic") verificare.push({label:"Mono o stereo", why:"Il musicista non lo sa: cambia il numero di canali."});
+
+  var prese = +a.power||0;
+  if(prese>0){
+    add("power","Punto corrente ("+prese+(prese===1?" presa":" prese")+")","Serve alimentazione alla postazione.",{kind:"add",type:"ciabatta"});
+  }
+
+  var chitarre=+a.guitars||0;
+  if(chitarre>=2 && (a.stands==="none"||a.stands===undefined))
+    verificare.push({label:chitarre+" chitarre senza supporto", why:"Chiedi dove le appoggia: sul palco servono spazio o stativi."});
+  if(a.stands && a.stands!=="none"){
+    var q = a.stands==="single" ? "singolo" : (a.stands==="double" ? "doppio" : "rastrelliera");
+    var chi = a.stands_provider==="production" ? " — a carico della produzione"
+            : (a.stands_provider==="unknown" ? " — da confermare chi lo porta" : " — lo porta il musicista");
+    verificare.push({label:"Supporto chitarre ("+q+")"+chi, why:"Nel catalogo non c'è ancora un elemento supporto: annotalo nel rider."});
+  }
+  if(typeof a.notes==="string" && a.notes) verificare.push({label:"Nota del musicista", why:a.notes});
+
+  if(it) presenti.push({label:(it.label||TYPES[it.type].nome)+" già sul palco"});
+  return {presenti:presenti, aggiungere:aggiungere, verificare:verificare};
+}
+/* applica UNA voce della proposta. Gli elementi nuovi nascono accanto alla postazione e restano
+   selezionati: il tecnico li vede, li sposta, li verifica. Niente automatismi irreversibili. */
+function setupProposalApply(voce, it){
+  if(!voce || !voce.act) return null;
+  if(voce.act.kind==="chain"){
+    if(!it || !hasChain(it)) return null;
+    chainToggle(it, voce.act.what);
+    return it;
+  }
+  if(voce.act.kind==="add"){
+    var base = it || {x:(state.stage.w/2), y:(state.stage.d/2), w:60, d:60};
+    var nuovo = addItem(voce.act.type, {
+      x: Math.round(base.x + (base.w||60)/2 + 70),
+      y: Math.round(base.y + 40)
+    });
+    return nuovo;
+  }
+  return null;
 }
 /* ===== la catena DISEGNATA nel pannello (variante C, scelta da Simone il 27/07) =====
    Si legge da sinistra a destra come sul palco. La tratta è ambra finché il segnale è sbilanciato,
@@ -15935,7 +16218,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
       "copy":fileMakeCopy, "variant-new":function(){ if(typeof createVariant==="function") createVariant(); }, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
-      "share":function(){openShare();}, "produzione":function(){ if(window.openProdHub) window.openProdHub(); } };
+      "share":function(){openShare();}, "produzione":function(){ if(window.openProdHub) window.openProdHub(); },
+      "richieste":function(){ if(window.openRequestsPanel) window.openRequestsPanel(); } };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
       var a=x.getAttribute("data-help");
@@ -20214,7 +20498,77 @@ function maybeAskStageSize(explicit){
       .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
         delete daCache[pid]; cb(true); }, function(){ cb(null); });
   }
+  /* ── RICHIESTE SETUP (0034) — spec docs/richieste/SPEC_R1.md ───────────────────────────────
+     Il tecnico crea la richiesta e riceve la risposta; il musicista passa dall'Edge Function.
+     Il TOKEN si genera QUI e non viene mai salvato: nel database va solo il suo sha-256. Chi
+     leggesse la tabella non potrebbe aprire i link. Il link in chiaro esiste solo mentre la
+     finestra è aperta e nel messaggio che il tecnico manda. */
+  function reqToken(){
+    var b=new Uint8Array(32); crypto.getRandomValues(b);
+    var s=""; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");   /* 43 char url-safe */
+  }
+  function reqHash(token){
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then(function(buf){
+      return Array.prototype.map.call(new Uint8Array(buf), function(x){ return ("0"+x.toString(16)).slice(-2); }).join("");
+    });
+  }
+  function requestsList(pid, cb){
+    if(!sb || !cloudUser || !pid){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("sp_requests")
+      .select("id,item_id,recipient_name,recipient_role,schema_id,status,expires_at,created_at,sent_at,opened_at,submitted_at,reopened_at,reviewed_at,implemented_at,revoked_at,current_version,technician_message")
+      .eq("project_id", pid).order("created_at",{ascending:false})
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; } cb(r.data||[]); },
+            function(){ cb(null); });
+  }
+  function requestCreate(o, cb){
+    if(!sb || !cloudUser || !o || !o.projectId){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration, token=reqToken();
+    reqHash(token).then(function(hash){
+      if(!authStill(requestUser,requestAuth)){ cb(null); return; }
+      sb.from("sp_requests").insert({
+        user_id:requestUser, project_id:o.projectId, item_id:o.itemId||"",
+        contact_id:o.contactId||null, request_type:"setup", schema_id:o.schemaId||"electric_guitar_setup",
+        recipient_name:o.name||"", recipient_role:o.role||"", technician_message:o.message||"",
+        status:"created", token_hash:hash, expires_at:o.expiresAt||null
+      }).select("id").single().then(function(r){
+        if(!authStill(requestUser,requestAuth) || r.error || !r.data){ cb(null); return; }
+        sb.from("sp_request_events").insert({ request_id:r.data.id, event:"request_created", actor:"technician" })
+          .then(function(){}, function(){});
+        cb({ id:r.data.id, token:token });   /* il token torna SOLO qui: da questo momento non è più recuperabile */
+      }, function(){ cb(null); });
+    }, function(){ cb(null); });
+  }
+  function requestVersions(reqId, cb){
+    if(!sb || !cloudUser || !reqId){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("sp_request_versions").select("id,version_number,status,answers,submitted_at,created_at")
+      .eq("request_id", reqId).order("version_number",{ascending:false})
+      .then(function(r){ if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; } cb(r.data||[]); },
+            function(){ cb(null); });
+  }
+  /* azioni del tecnico sullo stato. La riapertura NON tocca la versione inviata: resta nello
+     storico, e la prossima bozza del musicista nascerà come versione successiva. */
+  function requestSetStatus(reqId, patch, event, cb){
+    if(!sb || !cloudUser || !reqId){ cb(null); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("sp_requests").update(patch).eq("id", reqId).then(function(r){
+      if(!authStill(requestUser,requestAuth) || r.error){ cb(null); return; }
+      if(event) sb.from("sp_request_events").insert({ request_id:reqId, event:event, actor:"technician" })
+        .then(function(){}, function(){});
+      cb(true);
+    }, function(){ cb(null); });
+  }
   window.__cloud = {
+    requests: {
+      list:requestsList, create:requestCreate, versions:requestVersions,
+      markSent:function(id,cb){ requestSetStatus(id,{status:"sent",sent_at:new Date().toISOString()},"marked_sent",cb||function(){}); },
+      reopen:function(id,cb){ requestSetStatus(id,{status:"reopened",reopened_at:new Date().toISOString()},"reopened",cb||function(){}); },
+      close:function(id,cb){ requestSetStatus(id,{status:"closed",closed_at:new Date().toISOString()},"request_closed",cb||function(){}); },
+      revoke:function(id,cb){ requestSetStatus(id,{status:"revoked",revoked_at:new Date().toISOString()},"token_revoked",cb||function(){}); },
+      markImplemented:function(id,cb){ requestSetStatus(id,{implemented_at:new Date().toISOString(),reviewed_at:new Date().toISOString()},"proposal_applied",cb||function(){}); }
+    },
     itemContacts: { list:itemContactsList, set:itemContactSet, remove:itemContactRemove,
                     invalidate:function(pid){ if(pid) delete icCache[pid]; else icCache={}; } },
     deptAssign: { list:deptAssignList, set:deptAssignSet, remove:deptAssignRemove,

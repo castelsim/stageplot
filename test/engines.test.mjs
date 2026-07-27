@@ -3896,6 +3896,79 @@ t("la catena vale per chitarre e basso, non per gli altri", () => {
     eq(A.hasChain({ type: c[0] }), c[1], c[0]);
   });
 });
+/* RICHIESTE SETUP (spec docs/richieste/SPEC_R1.md): le risposte del musicista non toccano il palco,
+   diventano una proposta che il tecnico applica voce per voce. */
+function propSetup() {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16;
+  const gt = add("gtstand", 300, 400);
+  return { box, gt };
+}
+const RISPOSTE_TIPO = {
+  guitars: 2, stands: "double", stands_provider: "self", pedalboard: "yes",
+  pedalboard_size: "large", amp: "combo", amp_provider: "self", amp_onstage: "yes",
+  output: "mic", power: 2, notes: "uso un wah a pedale"
+};
+t("la proposta separa cosa c'e', cosa aggiungere e cosa verificare", () => {
+  const { gt } = propSetup();
+  const p = A.setupProposal(RISPOSTE_TIPO, gt);
+  ok(p.presenti.length >= 1, "la postazione stessa e' gia' presente");
+  const keys = p.aggiungere.map(v => v.key);
+  ok(keys.includes("ped"), "pedaliera dichiarata: da aggiungere · " + keys.join(","));
+  ok(keys.includes("power"), "due prese: punto corrente");
+  ok(p.verificare.some(v => /wah/.test(v.why || "")), "la nota del musicista arriva al tecnico");
+});
+t("la proposta non ripropone cio' che e' gia' sulla postazione", () => {
+  const { gt } = propSetup();
+  A.chainToggle(gt, "ped");                       // il tecnico l'ha gia' messa
+  const p = A.setupProposal(RISPOSTE_TIPO, gt);
+  eq(p.aggiungere.filter(v => v.key === "ped").length, 0, "niente doppioni");
+  ok(p.presenti.some(v => /Pedaliera/.test(v.label)), "va segnalata come gia' presente");
+});
+t("uscita jack: la proposta chiede la linea in DI; uscita microfono: il mic sull'ampli", () => {
+  const { gt } = propSetup();
+  const jack = A.setupProposal({ ...RISPOSTE_TIPO, output: "jack" }, gt);
+  ok(jack.aggiungere.some(v => v.key === "line"), "linea in DI");
+  // la chitarra elettrica nasce gia' col microfono sull'ampli: la proposta lo conferma, non lo duplica
+  const mic = A.setupProposal({ ...RISPOSTE_TIPO, output: "mic" }, gt);
+  ok(mic.presenti.some(v => /[Mm]icrofono/.test(v.label)), "microfono gia' previsto: " + JSON.stringify(mic.presenti));
+  A.chainToggle(gt, "ampmic");                    // ora il mic NON c'e' piu'
+  ok(A.setupProposal({ ...RISPOSTE_TIPO, output: "mic" }, gt).aggiungere.some(v => v.key === "ampmic"),
+    "senza microfono va proposto");
+  const both = A.setupProposal({ ...RISPOSTE_TIPO, output: "both" }, gt);
+  eq(both.aggiungere.filter(v => v.key === "line" || v.key === "ampmic").length, 2, "due canali");
+});
+t("i 'non lo so' del musicista diventano cose da verificare, non decisioni", () => {
+  const { gt } = propSetup();
+  const p = A.setupProposal(
+    { ...RISPOSTE_TIPO, amp: "unknown", output: "unknown", stereo: "unknown", amp_provider: "unknown" }, gt);
+  ok(p.verificare.length >= 3, "attese piu' verifiche: " + JSON.stringify(p.verificare.map(v => v.label)));
+  eq(p.aggiungere.some(v => v.key === "ampmic" || v.key === "line"), false,
+    "senza sapere come esce il suono non si decide al posto suo");
+});
+t("applicare una voce della proposta cambia la catena, non il resto del palco", () => {
+  const { gt } = propSetup();
+  const prima = A.state.items.length;
+  const p = A.setupProposal(RISPOSTE_TIPO, gt);
+  const ped = p.aggiungere.filter(v => v.key === "ped")[0];
+  A.setupProposalApply(ped, gt);
+  eq(A.chainOf(gt).ped, true, "la pedaliera e' entrata nella catena");
+  eq(A.state.items.length, prima, "nessun elemento nuovo per un flag della catena");
+});
+t("applicare il punto corrente posa una ciabatta accanto alla postazione", () => {
+  const { gt } = propSetup();
+  const p = A.setupProposal(RISPOSTE_TIPO, gt);
+  const pw = p.aggiungere.filter(v => v.key === "power")[0];
+  const nuovo = A.setupProposalApply(pw, gt);
+  ok(nuovo && nuovo.type === "ciabatta", "attesa una ciabatta");
+  ok(Math.hypot(nuovo.x - gt.x, nuovo.y - gt.y) < 200, "deve nascere vicino al musicista");
+});
+t("le risposte da sole non toccano mai il palco", () => {
+  const { gt } = propSetup();
+  const prima = JSON.stringify(A.state.items);
+  A.setupProposal(RISPOSTE_TIPO, gt);
+  eq(JSON.stringify(A.state.items), prima, "il motore della proposta e' puro");
+});
 /* 26/07 (Simone): "chitarre e bassi nel motore di ricerca non hanno l'illustrazione della persona".
    L'anteprima del catalogo/quick-add disegnava lo schema anche per i tipi che sul palco nascono
    illustrati (LOOK_ART): chitarre, basso, piani, stage piano, arpa, percussioni. */

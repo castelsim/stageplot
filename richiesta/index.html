@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- CSP: questa pagina parla SOLO con l'Edge Function. Nessuna libreria, nessun terzo. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+<script>/* se qualcuno la incornicia, esce */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0d9488">
+<title>Il tuo setup — StagePlot</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+  :root{
+    --bg:#f5f4f0;--surface:#fff;--raised:#edebe4;--border:#ddd9cd;--border-strong:#c8c3b4;
+    --text:#292620;--text-2:#746e60;--text-3:#a29c8e;
+    --accent:#0d9488;--accent-strong:#0b7a70;--accent-tint:#e4f2f0;
+    --warn:#b45309;--warn-bg:#fffbeb;--warn-bd:#fde68a;--ok:#15803d;--ok-bg:#f0fdf4;--ok-bd:#bbf7d0;
+    --r:12px;--r-lg:16px;
+    --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px;line-height:1.5;
+    -webkit-text-size-adjust:100%;padding:0 0 96px}
+  .wrap{max-width:560px;margin:0 auto;padding:0 18px}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px 12px;
+    margin:0 -18px 18px;position:sticky;top:0;z-index:5}
+  .brand{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);font-weight:700}
+  .who{font-size:20px;font-weight:700;margin-top:2px;letter-spacing:-.01em}
+  .role{color:var(--text-2);font-size:14px}
+  .bar{height:5px;background:var(--raised);border-radius:99px;margin-top:12px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .25s cubic-bezier(.2,0,.2,1)}
+  .step{font-size:12px;color:var(--text-3);margin-top:6px;display:flex;justify-content:space-between}
+  .msg{background:var(--accent-tint);border-radius:var(--r);padding:12px 14px;font-size:15px;margin-bottom:18px;color:#0b5f58}
+  .msg b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;opacity:.75}
+  h1{font-size:23px;line-height:1.28;letter-spacing:-.015em;margin-bottom:6px}
+  .help{color:var(--text-2);font-size:15px;margin-bottom:18px}
+  .opts{display:flex;flex-direction:column;gap:10px}
+  button{font:inherit;color:inherit}
+  .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);
+    border:1.5px solid var(--border);border-radius:var(--r);padding:15px 16px;cursor:pointer;
+    transition:border-color .12s,background .12s;min-height:58px}
+  .opt:hover{border-color:var(--border-strong)}
+  .opt.on{border-color:var(--accent);background:var(--accent-tint)}
+  .opt .t{font-weight:600}
+  .opt .h{display:block;font-weight:400;font-size:14px;color:var(--text-2);margin-top:1px}
+  .opt .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--border-strong);flex:0 0 auto;position:relative}
+  .opt.on .dot{border-color:var(--accent);background:var(--accent)}
+  .opt.on .dot::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
+  .num{display:flex;align-items:center;gap:14px;justify-content:center;margin:10px 0 4px}
+  .num button{width:62px;height:62px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);
+    font-size:28px;font-weight:600;cursor:pointer;color:var(--accent-strong)}
+  .num button:active{background:var(--accent-tint)}
+  .num .v{min-width:76px;text-align:center;font-size:38px;font-weight:700;font-variant-numeric:tabular-nums}
+  textarea{width:100%;min-height:120px;border:1.5px solid var(--border);border-radius:var(--r);padding:13px 14px;
+    font:inherit;font-size:16px;background:var(--surface);color:var(--text);resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  .nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;z-index:6}
+  .nav .inner{max-width:560px;margin:0 auto;display:flex;gap:10px;width:100%}
+  .btn{flex:1;border:1.5px solid var(--border);background:var(--surface);border-radius:var(--r);padding:15px 14px;
+    font-size:16px;font-weight:600;cursor:pointer;min-height:54px}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:active{background:var(--accent-strong)}
+  .btn.ghost{flex:0 0 96px}
+  .btn[disabled]{opacity:.5;cursor:default}
+  .save{font-size:12.5px;color:var(--text-3);text-align:center;margin-top:12px;min-height:18px}
+  .save.ok{color:var(--ok)}
+  .save.err{color:var(--warn)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:12px}
+  .row{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:15px}
+  .row:last-child{border-bottom:none}
+  .row .k{color:var(--text-2)}
+  .row .v{font-weight:600;text-align:right}
+  .note{background:var(--warn-bg);border:1px solid var(--warn-bd);color:var(--warn);border-radius:var(--r);
+    padding:12px 14px;font-size:14.5px;margin:14px 0}
+  .done{background:var(--ok-bg);border:1px solid var(--ok-bd);color:var(--ok);border-radius:var(--r);
+    padding:14px;font-size:15px;margin-bottom:16px;font-weight:600}
+  .center{text-align:center;padding:52px 0}
+  .center h1{margin-bottom:10px}
+  .center p{color:var(--text-2)}
+  .foot{text-align:center;color:var(--text-3);font-size:12px;margin-top:26px}
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#12181b;--surface:#1b2327;--raised:#20292e;--border:#2c3a3f;--border-strong:#314046;
+      --text:#e5e7eb;--text-2:#96a5a1;--text-3:#6b7280;--accent:#14b8a6;--accent-strong:#0d9488;--accent-tint:#13202a;
+      --warn:#fbbf24;--warn-bg:#2a2113;--warn-bd:#4a3a1a;--ok:#86efac;--ok-bg:#12261a;--ok-bd:#1f4430}
+    .msg{color:#a7e8e0}
+  }
+</style>
+</head>
+<body>
+<div id="app" class="wrap"><div class="center"><p>Un attimo…</p></div></div>
+
+<script>
+(function(){
+  "use strict";
+  var FN = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/setup-request";
+  var token = new URLSearchParams(location.search).get("t") || "";
+  var app = document.getElementById("app");
+  var S = { schema:null, answers:{}, idx:0, mode:"denied", recipient:{}, message:"", submitted:false, version:1, review:false };
+  var saveT = null, saving = false, dirty = false;
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  function el(html){ var d=document.createElement("div"); d.innerHTML=html; return d.firstElementChild; }
+
+  /* domande pertinenti alle risposte date: la stessa logica gira anche sul server */
+  function applies(q){
+    if(!q.showIf) return true;
+    var v = S.answers[q.showIf.key];
+    return typeof v==="string" && q.showIf.in.indexOf(v)>=0;
+  }
+  function visible(){ return (S.schema.questions||[]).filter(applies); }
+  function missing(){
+    return visible().filter(function(q){ return !q.optional && S.answers[q.key]===undefined; });
+  }
+
+  /* ------------------------------------------------------------------ rete */
+  function api(method, body){
+    return fetch(FN+"?t="+encodeURIComponent(token), {
+      method: method,
+      headers: body ? {"Content-Type":"application/json"} : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, status:r.status, d:d}; }); });
+  }
+  function saveDraft(){
+    if(S.mode!=="write") return;
+    saving = true; dirty = false; paint(true);
+    api("POST", {action:"draft", answers:S.answers}).then(function(res){
+      saving = false;
+      setSave(res.ok ? "ok" : "err", res.ok ? "Salvato" : "Non riesco a salvare: riprova fra poco");
+    }).catch(function(){ saving=false; setSave("err","Sei offline: le risposte restano su questo telefono"); });
+  }
+  function scheduleSave(){
+    dirty = true; setSave("", "Salvo…");
+    if(saveT) clearTimeout(saveT);
+    saveT = setTimeout(saveDraft, 900);   /* una sola scrittura anche se tocchi cinque opzioni */
+  }
+  function setSave(cls, txt){
+    var n=document.getElementById("saveline"); if(!n) return;
+    n.className = "save "+cls; n.textContent = txt||"";
+  }
+
+  /* ------------------------------------------------------------------ schermate */
+  function paint(keepSaveLine){
+    if(S.mode==="denied") return;
+    if(S.review) return paintReview();
+    var qs = visible(), q = qs[Math.min(S.idx, qs.length-1)];
+    if(!q) return paintReview();
+    var n = qs.indexOf(q)+1;
+    app.innerHTML =
+      header(n, qs.length) +
+      '<h1>'+esc(q.label)+'</h1>' +
+      (q.help ? '<p class="help">'+esc(q.help)+'</p>' : '<div style="height:8px"></div>') +
+      body(q) +
+      '<div class="save" id="saveline"></div>';
+    document.body.appendChild(navBar(q, n, qs.length));
+    bind(q);
+    if(keepSaveLine) setSave("", "Salvo…");
+  }
+  function header(n, tot){
+    return '<header><div class="wrap" style="padding:0">'+
+      '<div class="brand">StagePlot · richiesta setup</div>'+
+      '<div class="who">'+esc(S.recipient.name||"Il tuo setup")+'</div>'+
+      (S.recipient.role?'<div class="role">'+esc(S.recipient.role)+'</div>':'')+
+      '<div class="bar"><i style="width:'+Math.round(n/tot*100)+'%"></i></div>'+
+      '<div class="step"><span>Domanda '+n+' di '+tot+'</span><span>circa '+(S.schema.minutes||2)+' min</span></div>'+
+      '</div></header>'+
+      (n===1 && S.message ? '<div class="msg"><b>Messaggio del tecnico</b>'+esc(S.message)+'</div>' : '');
+  }
+  function body(q){
+    var v = S.answers[q.key];
+    if(q.type==="number"){
+      var cur = (v===undefined? (q.min||0) : v);
+      return '<div class="num"><button type="button" data-num="-1" aria-label="meno">−</button>'+
+        '<div class="v" id="numv">'+cur+'</div>'+
+        '<button type="button" data-num="1" aria-label="più">+</button></div>';
+    }
+    if(q.type==="text"){
+      return '<textarea id="txt" placeholder="Scrivi qui, se ti va" maxlength="1000">'+esc(v||"")+'</textarea>';
+    }
+    var opts = q.options || (q.type==="yesno"
+      ? [{value:"yes",label:"Sì"},{value:"no",label:"No"},{value:"unknown",label:"Non lo so"}]
+      : []);
+    return '<div class="opts">'+opts.map(function(o){
+      return '<button type="button" class="opt'+(v===o.value?" on":"")+'" data-v="'+esc(o.value)+'">'+
+        '<span class="dot"></span><span class="t">'+esc(o.label)+
+        (o.hint?'<span class="h">'+esc(o.hint)+'</span>':'')+'</span></button>';
+    }).join("")+'</div>';
+  }
+  function navBar(q, n, tot){
+    var old=document.querySelector(".nav"); if(old) old.remove();
+    var avanti = (n===tot) ? "Rivedi e invia" : "Avanti";
+    return el('<div class="nav"><div class="inner">'+
+      (n>1?'<button type="button" class="btn ghost" id="back">Indietro</button>':'')+
+      '<button type="button" class="btn primary" id="next">'+avanti+'</button>'+
+      '</div></div>');
+  }
+  function bind(q){
+    app.querySelectorAll(".opt").forEach(function(b){
+      b.addEventListener("click", function(){
+        S.answers[q.key] = b.getAttribute("data-v");
+        scheduleSave();
+        setTimeout(next, 160);           /* scegli e vai avanti: un tocco solo */
+      });
+    });
+    app.querySelectorAll("[data-num]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var min=q.min||0, max=(q.max==null?99:q.max);
+        var cur = S.answers[q.key]===undefined ? min : S.answers[q.key];
+        cur = Math.min(max, Math.max(min, cur + (+b.getAttribute("data-num"))));
+        S.answers[q.key]=cur;
+        document.getElementById("numv").textContent = cur;
+        scheduleSave();
+      });
+    });
+    var t=document.getElementById("txt");
+    if(t) t.addEventListener("input", function(){ S.answers[q.key]=t.value.trim()||undefined; scheduleSave(); });
+    var nx=document.getElementById("next"); if(nx) nx.addEventListener("click", next);
+    var bk=document.getElementById("back"); if(bk) bk.addEventListener("click", prev);
+  }
+  function next(){
+    var q = visible()[S.idx];
+    if(q && q.type==="number" && S.answers[q.key]===undefined) S.answers[q.key] = q.min||0;
+    if(S.idx >= visible().length-1){ S.review=true; if(dirty) saveDraft(); paintReview(); return; }
+    S.idx++; paint();
+  }
+  function prev(){ if(S.review){ S.review=false; } else if(S.idx>0){ S.idx--; } paint(); }
+
+  function labelOf(q, v){
+    if(q.type==="number") return String(v);
+    if(q.type==="text") return v;
+    var opts = q.options || [{value:"yes",label:"Sì"},{value:"no",label:"No"},{value:"unknown",label:"Non lo so"}];
+    var f = opts.filter(function(o){ return o.value===v; })[0];
+    return f ? f.label : String(v);
+  }
+  function paintReview(){
+    var qs = visible(), miss = missing();
+    var righe = qs.filter(function(q){ return S.answers[q.key]!==undefined; }).map(function(q){
+      return '<div class="row"><span class="k">'+esc(q.label)+'</span><span class="v">'+esc(labelOf(q,S.answers[q.key]))+'</span></div>';
+    }).join("");
+    app.innerHTML =
+      '<header><div class="wrap" style="padding:0">'+
+        '<div class="brand">StagePlot · richiesta setup</div>'+
+        '<div class="who">'+esc(S.recipient.name||"Il tuo setup")+'</div>'+
+        (S.recipient.role?'<div class="role">'+esc(S.recipient.role)+'</div>':'')+
+      '</div></header>'+
+      (S.submitted ? '<div class="done">Risposte inviate al tecnico. Grazie.</div>' : '')+
+      '<h1 style="margin-bottom:12px">'+(S.submitted?"Ecco cosa hai inviato":"Controlla e invia")+'</h1>'+
+      '<div class="card">'+(righe||'<div class="row"><span class="k">Nessuna risposta</span></div>')+'</div>'+
+      (S.submitted
+        ? '<p class="help">Se qualcosa è cambiato, scrivi al tecnico: può riaprire la richiesta e potrai aggiornarla.</p>'
+        : (miss.length
+            ? '<div class="note">Manca ancora qualche risposta ('+miss.length+'). Tocca «Torna alle domande».</div>'
+            : '<div class="note">Dopo l\'invio non potrai più modificare da solo. Il tecnico può riaprire la richiesta se serve una correzione.</div>'))+
+      '<div class="save" id="saveline"></div>'+
+      '<div class="foot">Versione '+S.version+' · non serve registrarsi</div>';
+    var old=document.querySelector(".nav"); if(old) old.remove();
+    if(!S.submitted){
+      document.body.appendChild(el('<div class="nav"><div class="inner">'+
+        '<button type="button" class="btn ghost" id="back">Indietro</button>'+
+        '<button type="button" class="btn primary" id="send"'+(miss.length?" disabled":"")+'>'+
+          (miss.length?"Torna alle domande":"Invia al tecnico")+'</button>'+
+        '</div></div>'));
+      document.getElementById("back").addEventListener("click", function(){ S.review=false; paint(); });
+      var sb=document.getElementById("send");
+      if(!miss.length) sb.addEventListener("click", submit);
+    }
+  }
+  function submit(){
+    var b=document.getElementById("send"); if(!b || b.disabled) return;
+    b.disabled = true; b.textContent = "Invio…";
+    api("POST", {action:"submit", answers:S.answers}).then(function(res){
+      if(res.ok && res.d && res.d.submitted){
+        S.submitted = true; S.mode = "read"; S.version = res.d.version || S.version;
+        paintReview(); window.scrollTo(0,0); return;
+      }
+      if(res.status===422){ b.disabled=false; b.textContent="Invia al tecnico"; setSave("err","Manca qualche risposta obbligatoria."); return; }
+      if(res.status===409){ S.submitted=true; S.mode="read"; paintReview(); return; }
+      b.disabled=false; b.textContent="Invia al tecnico";
+      setSave("err","Non riesco a inviare: riprova fra poco.");
+    }).catch(function(){
+      b.disabled=false; b.textContent="Invia al tecnico";
+      setSave("err","Sei offline: riprova quando torna la linea.");
+    });
+  }
+
+  function denied(msg){
+    S.mode="denied";
+    var old=document.querySelector(".nav"); if(old) old.remove();
+    app.innerHTML = '<div class="center"><h1>Link non utilizzabile</h1><p>'+esc(msg)+'</p></div>';
+  }
+
+  /* ------------------------------------------------------------------ avvio */
+  if(!token) { denied("Manca il codice della richiesta. Apri il link che ti ha mandato il tecnico."); return; }
+  api("GET").then(function(res){
+    if(!res.ok || !res.d || res.d.error){
+      denied((res.d && res.d.message) || "Questo link non è valido. Chiedi al tecnico di inviartene uno nuovo.");
+      return;
+    }
+    var d = res.d;
+    S.schema = d.schema; S.answers = d.answers || {}; S.mode = d.mode;
+    S.recipient = d.recipient || {}; S.message = d.message || "";
+    S.submitted = !!d.submitted; S.version = d.version || 1;
+    if(S.submitted || S.mode==="read"){ S.review=true; paintReview(); return; }
+    /* riprendi da dove aveva lasciato: prima domanda ancora senza risposta */
+    var qs = visible();
+    for(var i=0;i<qs.length;i++){ if(S.answers[qs[i].key]===undefined){ S.idx=i; break; } S.idx=i; }
+    paint();
+  }).catch(function(){
+    denied("Non riesco a raggiungere il server. Controlla la connessione e riapri il link.");
+  });
+})();
+</script>
+</body>
+</html>

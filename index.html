@@ -1910,6 +1910,21 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn.on{position:relative;z-index:1}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
+
+/* Finestre delle richieste ai musicisti: stessa scocca di guideDialog, con dentro i campi
+   del pannello (label/input/select/textarea del design system). */
+.guide-card.req-card{max-width:520px;max-height:86vh;display:flex;flex-direction:column}
+.req-body{overflow:auto;margin:-2px -2px 0;padding:2px}
+.req-body label{display:block;font-size:var(--t-label);color:var(--text-2);margin:11px 0 3px}
+.req-body input[type=text],.req-body select,.req-body textarea{width:100%;border:1px solid var(--border);
+  border-radius:var(--r-md);padding:8px 10px;font-size:var(--t-body);background:var(--surface);color:var(--text);
+  font-family:var(--font-ui)}
+.req-body input[type=text]:hover,.req-body select:hover,.req-body textarea:hover{border-color:var(--border-strong)}
+.req-body input[readonly]{background:var(--surface-raised);color:var(--text-2)}
+.req-body textarea{resize:vertical}
+.req-body .btns{display:flex;flex-wrap:wrap;gap:6px}
+.req-body .btns .btn{flex:1;min-width:118px;text-align:center;text-decoration:none;line-height:1.9}
+.req-body .prop-card{margin-bottom:9px}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -2007,6 +2022,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   <button class="mi" data-file="model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 10.5h16M10 5v14"/></svg>Nuovo da modello…</button>
   <button class="mi" data-file="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>I miei progetti…</button>
   <button class="mi" data-file="rubrica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="15" height="18" rx="2"/><path d="M22 7h-3M22 12h-3M22 17h-3"/><circle cx="11.5" cy="10" r="2.2"/><path d="M7.8 17c.8-1.9 2.2-2.8 3.7-2.8s2.9.9 3.7 2.8"/></svg>La mia rubrica…</button>
+  <button class="mi" data-file="richieste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 3z"/><path d="M8 9h8M8 12.5h5"/></svg><span>Richieste ai musicisti…</span></button>
   <button class="mi" data-file="produzione"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V8l6-4 6 4v13M10 21v-5h4v5"/></svg>Produzione — reparti…</button>
   <hr>
   <button class="mi" data-file="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva<span class="kbd">⌘S</span></button>
@@ -2317,6 +2333,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
     <div id="pLeggioGenWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLeggioGen"> Leggio</label></div>
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
+    <!-- RICHIESTA SETUP: il tecnico chiede al musicista com'è fatta la sua postazione. La risposta
+         torna nel progetto e diventa una proposta, non una modifica automatica del palco. -->
+    <div id="pReqWrap" style="display:none">
+      <button type="button" class="btn" id="pReqBtn" style="width:100%">✉︎ Richiedi setup al musicista</button>
+      <div id="pReqState" class="prop-hint"></div>
+    </div>
     <div id="pAscoltoWrap" style="display:none">
       <label>Ascolto <small class="lbl-note">— cosa usa per sentirsi</small></label>
       <select id="pAscolto">
