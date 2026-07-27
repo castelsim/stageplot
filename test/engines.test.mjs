@@ -4167,6 +4167,32 @@ t("i termini da fonico trovano l'elemento giusto", () => {
     ok(nomi.some(n => casi[q].test(n)), "'" + q + "' trova " + JSON.stringify(nomi.slice(0, 3)) + ", atteso " + casi[q]);
   });
 });
+/* EXPORT PDF (27/07): bug trovati dall'orchestra di agenti sul codice dell'export. */
+t("la scala personalizzata regge vuoto, zero, decimali e notazione esponenziale", () => {
+  [["", 75], ["0", 10], ["5", 10], ["800", 500], ["1e3", 500], ["62.5", 63], ["abc", 75], [null, 75], ["-20", 10]]
+    .forEach(c => eq(A.pdfScaleClamp(c[0]), c[1], "input " + JSON.stringify(c[0])));
+});
+t("l'altezza del cartiglio e' una sola per anteprima, avviso ed export", () => {
+  const corto = A.cartHFor("", "a4", "landscape");
+  const lungo = A.cartHFor("x".repeat(120), "a4", "portrait");
+  eq(corto, 22, "senza riferimento il cartiglio e' quello base");
+  ok(lungo > corto, "un riferimento lungo alza il cartiglio: " + lungo);
+  // la scala automatica deve tenerne conto: con cartiglio piu' alto c'e' meno area di disegno
+  const largo = A.autoScale("a4", "portrait", 22), stretto = A.autoScale("a4", "portrait", lungo);
+  ok(stretto >= largo, "col cartiglio alto la scala non puo' essere piu' generosa");
+});
+t("la nota interna di un contatto non finisce nel PDF", () => {
+  const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
+  ok(src, "sezione contatti del rider non trovata");
+  eq(/c\.note/.test(src[0]), false, "la nota del contatto e' un appunto interno: " + src[0].slice(0, 200));
+});
+t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
+  eq(A.pdfHeaderPropose({ pdfHeader: "Mario · 333" }, null), "Mario · 333", "quello scelto vale");
+  eq(A.pdfHeaderPropose({ pdfHeader: "", pdfHeaderOff: true }, { name: "Simone", contact: "s@x.it" }), "",
+    "svuotato apposta: non si ripropone l'account");
+  ok(A.pdfHeaderPropose({}, { name: "Simone", contact: "s@x.it" }).indexOf("Simone") > -1,
+    "mai impostato: la proposta ci sta");
+});
 /* 27/07: elemento FORMA — un tipo con l'asse `shape`, sei voci nel catalogo, testo dentro. */
 t("la forma e' un tipo solo, con sei geometrie", () => {
   reset();
