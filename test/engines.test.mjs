@@ -4167,6 +4167,19 @@ t("i termini da fonico trovano l'elemento giusto", () => {
     ok(nomi.some(n => casi[q].test(n)), "'" + q + "' trova " + JSON.stringify(nomi.slice(0, 3)) + ", atteso " + casi[q]);
   });
 });
+/* 27/07: la scelta dell'area di stampa vive nel PANNELLO DESTRO (variante B), non piu' in una
+   finestra che entrando in modifica cadeva in basso a sinistra. */
+t("il riassunto dice sempre cosa verra' stampato", () => {
+  reset();
+  A.state.stage.w = 1200; A.state.stage.d = 800;
+  delete A.state.printFrame;
+  ok(/tutto il palco/.test(A.frameSummaryText()), "senza area: " + A.frameSummaryText());
+  A.state.printFrame = A.frameStageRect();
+  ok(/palco esatto/.test(A.frameSummaryText()), "area = palco, va distinta: " + A.frameSummaryText());
+  A.state.printFrame = { x: 100, y: 50, w: 600, h: 400 };
+  ok(/area scelta/.test(A.frameSummaryText()), "area ritagliata: " + A.frameSummaryText());
+  delete A.state.printFrame;
+});
 /* EXPORT PDF (27/07): bug trovati dall'orchestra di agenti sul codice dell'export. */
 t("la scala personalizzata regge vuoto, zero, decimali e notazione esponenziale", () => {
   [["", 75], ["0", 10], ["5", 10], ["800", 500], ["1e3", 500], ["62.5", 63], ["abc", 75], [null, 75], ["-20", 10]]

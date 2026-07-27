@@ -1949,6 +1949,13 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .swatches button.on{border-color:var(--text);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 0 0 2px var(--surface)}
 #props #pShapeFillFree{width:100%;height:30px;padding:2px;border:1px solid var(--border);border-radius:var(--r-md);
   background:var(--surface);cursor:pointer}
+
+/* Scelta dell'AREA DI STAMPA: modalità del pannello destro, gemella di «Palco e pedane».
+   Mentre si sceglie l'area gli elementi si attenuano e le altre sezioni si fanno da parte. */
+body.area-edit .item{opacity:.4;pointer-events:none}
+body.area-edit #eventoSec,body.area-edit #groupProps,body.area-edit #noSel,
+body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
+#areaEditPanel h3{display:flex;align-items:center;gap:7px}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -2085,6 +2092,30 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 
 <aside id="props">
   <button type="button" id="propsGrab" aria-label="Chiudi le specifiche" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><span>Chiudi</span></button>
+  <!-- AREA DI STAMPA: sta nel pannello destro come il costruttore Palco e pedane (scelta B, 27/07).
+       Prima i controlli vivevano nella finestra Esporta, che entrando in modifica perdeva il
+       posizionamento e cadeva in basso a sinistra sopra il catalogo. -->
+  <div class="sec" id="areaEditPanel" hidden>
+    <h3 style="margin-bottom:6px">▣ Area di stampa</h3>
+    <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Trascina o ridimensiona il rettangolo sul palco, oppure scrivi le misure.</div>
+    <div id="frameBox">
+      <div class="frame-row">
+        <div><label>Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
+        <div><label>Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
+      </div>
+      <div class="frame-row">
+        <div><label>X (m)</label><input type="number" id="frameX" step="0.1"></div>
+        <div><label>Y (m)</label><input type="number" id="frameY" step="0.1"></div>
+      </div>
+      <div class="frame-row" style="margin-top:10px">
+        <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
+        <button class="btn" id="frameAll" style="flex:1;font-size:12px">Tutto + planimetria</button>
+      </div>
+      <button class="btn" id="frameCenter" style="width:100%;margin-top:6px;font-size:12px">⊕ Centra palco nell'area</button>
+      <button class="btn danger" id="frameClear" style="width:100%;margin-top:6px;font-size:12px">Reimposta (usa il palco)</button>
+    </div>
+    <button class="btn primary" id="areaDone" style="width:100%;margin-top:12px;padding:10px;font-size:13px">Torna a Esporta</button>
+  </div>
   <div class="sec" id="stageEditPanel" hidden>
     <div id="stageBlocksSec">
     <h3 style="margin-bottom:6px">Palco e pedane</h3>
@@ -2841,26 +2872,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     <div class="exp-head"><h4>Esporta</h4><button type="button" class="exp-close" id="expClose" aria-label="Chiudi">✕</button></div>
     <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Scarica PDF in scala</button>
     <p class="hint" style="font-size:11.5px;color:var(--text-2);margin:6px 0 12px">Esporta tutto il palco, pronto da stampare o inviare al service.</p>
-    <details id="frameAdvanced" style="margin-bottom:14px">
-      <summary style="cursor:pointer;font-size:12px;color:var(--text);font-weight:600;padding:6px 0;user-select:none">⚙ Area di stampa — avanzato</summary>
-      <div id="frameBox" style="margin-top:6px">
-        <p class="hint" style="font-size:11.5px;color:var(--text-2);margin:0 0 8px">Per esportare solo una parte: trascina/ridimensiona il rettangolo sul palco, o usa i valori (in metri).</p>
-        <div class="frame-row">
-          <div><label>Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
-          <div><label>Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
-        </div>
-        <div class="frame-row">
-          <div><label>X (m)</label><input type="number" id="frameX" step="0.1"></div>
-          <div><label>Y (m)</label><input type="number" id="frameY" step="0.1"></div>
-        </div>
-        <div class="frame-row" style="margin-top:10px">
-          <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
-          <button class="btn" id="frameAll" style="flex:1;font-size:12px">Tutto + planimetria</button>
-        </div>
-        <button class="btn" id="frameCenter" style="width:100%;margin-top:6px;font-size:12px">⊕ Centra palco nell'area</button>
-        <button class="btn danger" id="frameClear" style="width:100%;margin-top:6px;font-size:12px">Reimposta (usa il palco)</button>
-      </div>
-    </details>
+    <div id="frameSummary" style="margin-bottom:14px">
+      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin:0 0 7px">Area stampata: <b id="frameSummaryTxt">tutto il palco</b></div>
+      <button class="btn" id="frameEditBtn" style="width:100%;font-size:12px">▣ Scegli l'area di stampa</button>
+    </div>
     <p class="hint" style="font-size:11px;color:var(--text-3);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em">Altri formati</p>
     <button class="btn" id="frameSavePng" style="width:100%;margin-top:0;font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Scarica immagine (PNG)</button>
     <button class="btn" id="frameSaveCsv" style="width:100%;margin-top:6px;font-size:12px" title="Channel list in CSV: il service la importa in Excel o nella console senza ridigitarla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2M8 17h2M14 13h2M14 17h2"/></svg>Channel list (CSV)</button>

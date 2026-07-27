@@ -1784,3 +1784,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .swatches button.on{border-color:var(--text);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 0 0 2px var(--surface)}
 #props #pShapeFillFree{width:100%;height:30px;padding:2px;border:1px solid var(--border);border-radius:var(--r-md);
   background:var(--surface);cursor:pointer}
+
+/* Scelta dell'AREA DI STAMPA: modalità del pannello destro, gemella di «Palco e pedane».
+   Mentre si sceglie l'area gli elementi si attenuano e le altre sezioni si fanno da parte. */
+body.area-edit .item{opacity:.4;pointer-events:none}
+body.area-edit #eventoSec,body.area-edit #groupProps,body.area-edit #noSel,
+body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
+#areaEditPanel h3{display:flex;align-items:center;gap:7px}
