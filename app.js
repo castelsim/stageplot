@@ -66,7 +66,12 @@ function diCh(it){ return (it&&DI_CH_LABEL[it.diCh])?it.diCh : ((it&&it.type==="
 function diType(it){ return (it&&it.diType==="attiva")?"attiva":"passiva"; }
 function diMultiN(it){ return (it&&it.diMultiCh===6)?6:8; }
 function diChannels(it){ var c=diCh(it); return c==="stereo"?2:(c==="multi"?diMultiN(it):1); }
-function diFootprint(it){ var c=diCh(it); return c==="stereo"?[48,28]:(c==="multi"?[76,24]:[30,26]); }
+/* INGOMBRO REALE (cm, misure di catalogo — Simone 27/07: "dev'essere reale"):
+   mono   Radial ProDI / JDI 12,7×10,2 · BSS AR-133 13,3×10,2      → 13×10
+   stereo Radial ProD2 17,8×12,7 · JDI Duplex 19,1×12,7            → 19×13
+   multi  rack 19" 1U (Radial JD6 e simili): larghezza 48,3, prof. utile ~24 → 48×24
+   Prima erano 30×26 / 48×28 / 76×24: una DI grande come una cassetta degli attrezzi. */
+function diFootprint(it){ var c=diCh(it); return c==="stereo"?[19,13]:(c==="multi"?[48,24]:[13,10]); }
 /* icone: geometria mockup (spazio 64×48) scalata al footprint, centrata. Classi: .ic box, .ic soft thin (in/thru), .tec fill (XLR/canali/LED). */
 var DI_BB={ mono:[32.4,24,44,29], stereo:[32,24,55,31], multi:[32,24,57,21] };
 function diDraw(it){
@@ -1029,9 +1034,9 @@ var TYPES = {
                for(var i=0;i<5;i++){ var x=-w/2+9+i*((w-14)/4); s+=bar(x,d/2-6,7,6,"ic thin",1); }   /* fila di porte RJ45 sul fronte */
                return s; }},
   /* --- tecnica --- */
-  dimono:   {nome:"DI box", dim:"mono / stereo / multi", cat:"Microfoni e DI", sub:"DI", w:30,d:26, defLabel:"DI",
+  dimono:   {nome:"DI box", dim:"13×10 · mono / stereo / multi", cat:"Microfoni e DI", sub:"DI", w:13,d:10, defLabel:"DI",
              draw:function(it){ return diDraw(it); }},
-  distereo: {nome:"DI box stereo", dim:"simbolo", cat:"Microfoni e DI", sub:"DI", catalog:false, w:48,d:28, defLabel:"DI",
+  distereo: {nome:"DI box stereo", dim:"19×13", cat:"Microfoni e DI", sub:"DI", catalog:false, w:19,d:13, defLabel:"DI",
              draw:function(it){ return diDraw(it); }},   /* catalog:false: sostituito dal DI box unico; resta per i progetti vecchi (migrato a dimono+stereo) */
   stagebox: {nome:"Stagebox", dim:"33×17", cat:"Cablaggio e segnale", w:33,d:17, defLabel:"STAGEBOX",
              /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26.

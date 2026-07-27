@@ -3043,7 +3043,11 @@ t("DI box unico: canali (mono/stereo/multi) + tipo (passiva/attiva) + icona", ()
   eq(A.cabItemInputs(m).length, 8, "multi = 8 ingressi");
   m.diCh = "mono"; m.diType = "attiva";
   ok(/attiva/i.test(A.cabItemInputs(m)[0].mic), "attiva → mic 'DI attiva' (phantom)");
-  eq(JSON.stringify(A.diFootprint({ type: "dimono", diCh: "stereo" })), JSON.stringify([48, 28]), "footprint stereo");
+  // ingombri REALI da catalogo (27/07): mono 13x10 (ProDI/AR-133), stereo 19x13 (ProD2), multi 48x24 (rack 19")
+  eq(JSON.stringify(A.diFootprint({ type: "dimono", diCh: "mono" })), JSON.stringify([13, 10]), "footprint mono");
+  eq(JSON.stringify(A.diFootprint({ type: "dimono", diCh: "stereo" })), JSON.stringify([19, 13]), "footprint stereo");
+  eq(JSON.stringify(A.diFootprint({ type: "dimono", diCh: "multi" })), JSON.stringify([48, 24]), "footprint multi (rack 19\")");
+  ok(A.TYPES.dimono.w === 13 && A.TYPES.dimono.d === 10, "il tipo nasce con l'ingombro reale");
   ok(A.diDraw({ type: "dimono", diCh: "mono", diType: "passiva", w: 30, d: 26 }).indexOf("tec fill") > -1, "passiva ha XLR out");
   ok(A.diDraw({ type: "dimono", diCh: "mono", diType: "attiva", w: 30, d: 26 }).indexOf("#16a34a") > -1, "attiva ha LED verde");
   ok(A.diDraw({ type: "dimono", diCh: "stereo", diSchema: true, w: 48, d: 28 }).match(/path/g).length === 2, "schematico stereo = 2 triangoli");
