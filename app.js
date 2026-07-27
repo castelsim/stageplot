@@ -114,6 +114,25 @@ function kn(x0,y,n,st,cls){ var s=''; for(var i=0;i<n;i++) s+=circ(x0+i*st,y,1.9
 
 /* Postazione orchestrale: SOLO sedia nera + glifo strumento.
    Il leggio è un elemento separato del catalogo (in fondo a ogni categoria). */
+/* Chitarra classica in aspetto SCHEMATICO: seduta, musicista visto dall'alto e chitarra in grembo,
+   con la paletta verso sinistra come la si tiene davvero. Stessi mattoni delle altre postazioni. */
+function classicGuitarTop(it){
+  var s=seatLight(0);                                   /* seduta chiara, come le postazioni d'orchestra */
+  s+='<circle cx="0" cy="-16" r="11" class="ic fill"/>';          /* testa */
+  s+=bar(0,5,30,20,'ic fill',8);                                  /* spalle/busto */
+  /* Chitarra classica a SCALA REALE vista dall'alto: cassa 37 cm, lunghezza totale ~100 cm, tenuta
+     in grembo con la paletta alzata a sinistra. Al primo tentativo era grande la metà e i due lobi
+     si fondevano in una macchia. */
+  s+='<g transform="translate(4,15) rotate(-27)">'+
+       '<path class="ic" d="M20,0 C20,10.5 13.5,15 7,15 C0.5,15 -3,10.5 -3,4.5'+
+         ' C-3,-1 0.5,-4 4,-4 C7.5,-4 9,-1 9,0 C9,1 7.5,4 4,4 C0.5,4 -3,1 -3,-4.5'+
+         ' C-3,-10.5 0.5,-15 7,-15 C13.5,-15 20,-10.5 20,0 Z"/>'+   /* profilo a otto della cassa */
+       '<circle cx="7.5" cy="0" r="3.6" class="ic fill"/>'+                             /* buca */
+       '<rect x="-32" y="-2.4" width="30" height="4.8" rx="2" class="ic"/>'+             /* manico */
+       '<rect x="-41" y="-3.4" width="10" height="6.8" rx="2.2" class="ic fBlack"/>'+    /* paletta */
+     '</g>';
+  return s;
+}
 function postaz(glyph){
   return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+(glyph||'');
 }
@@ -157,15 +176,21 @@ function cantanteDepth(it){
 }
 /* Archetto in testa: si legge anche a 1:100 — un archetto sottile che gira dall'orecchio alla
    guancia, col puntino della capsula. Disegnato in scala reale sopra la figura (origine = centro). */
+/* ARCHETTO (headset tipo DPA 4088) visto DALL'ALTO, a scala reale — testa ≈ 18 cm di larghezza:
+   la staffa gira dietro la nuca e si appoggia sopra le due orecchie, da lì il boom sottile scende
+   lungo la guancia e la capsula si ferma all'angolo della bocca. Ogni tratto è disegnato due volte,
+   bianco spesso sotto e scuro sottile sopra: sulle illustrazioni i capelli sono scuri e un tratto
+   singolo ci sparirebbe dentro (com'era al primo tentativo). */
 function headMicGlyph(){
-  /* Doppio tratto (bianco sotto, scuro sopra): l'archetto cade sulla testa della figura, spesso
-     scura — a tratto singolo spariva dentro i capelli. Stesso trucco delle etichette (paint-order). */
-  var d='M-9.5,-3 A 9.5,9.5 0 0 1 9.5,-3';        /* archetto attorno alla nuca */
-  var b='M9.5,-3 q 3.5,7 -1.5,11.5';              /* braccetto verso la guancia */
-  return '<g fill="none" stroke-linecap="round">'+
-      '<path d="'+d+'" stroke="#fff" stroke-width="4.4"/><path d="'+b+'" stroke="#fff" stroke-width="4.4"/>'+
-      '<path d="'+d+'" stroke="#2b2e31" stroke-width="1.7"/><path d="'+b+'" stroke="#2b2e31" stroke-width="1.7"/>'+
-    '</g><circle cx="8" cy="8.6" r="2.3" fill="#2b2e31" stroke="#fff" stroke-width="1.1"/>';
+  var staffa='M-8.6,-1.2 C -9.6,-6.2 -5.4,-9.4 0,-9.4 C 5.4,-9.4 9.6,-6.2 8.6,-1.2';   /* dietro la nuca, sopra le orecchie */
+  var boom  ='M8.6,-1.2 C 10.2,3.4 9.4,6.6 6.6,8.4';                                    /* braccetto lungo la guancia */
+  function due(d,w){ return '<path d="'+d+'" stroke="#fff" stroke-width="'+(w+2.6)+'"/><path d="'+d+'" stroke="#2b2e31" stroke-width="'+w+'"/>'; }
+  return '<g fill="none" stroke-linecap="round" stroke-linejoin="round">'+
+      due(staffa,1.5)+due(boom,1.2)+
+      '<circle cx="-8.6" cy="-1.2" r="2.4" fill="#fff" stroke="#2b2e31" stroke-width="1.1"/>'+   /* appoggio orecchio sinistro */
+      '<circle cx="8.6" cy="-1.2" r="2.4" fill="#fff" stroke="#2b2e31" stroke-width="1.1"/>'+    /* appoggio orecchio destro */
+    '</g>'+
+    '<circle cx="6.2" cy="9.2" r="1.9" fill="#2b2e31" stroke="#fff" stroke-width="1"/>';         /* capsula all'angolo della bocca */
 }
 function singer(it){
   it=it||{};
@@ -1010,7 +1035,10 @@ var TYPES = {
   musTastiera: {catalog:false, nome:"Tastiera musicista", dim:"132×117", cat:"Band e backline", sub:"Tastiere e piani", w:132,d:117, defLabel:"Keys", draw:function(it){ return drawLibFit("musTastiera",it,132,117); }},
   musChitElettrica: {catalog:false, nome:"Chitarra elettrica musicista", dim:"88×87", cat:"Band e backline", sub:"Chitarre e bassi", w:88,d:87, defLabel:"Git", draw:function(it){ return drawLibFit("musChitElettrica",it,88,87); }},
   musChitAcustica: {catalog:false, nome:"Chitarra acustica musicista", dim:"86×88", cat:"Band e backline", sub:"Chitarre e bassi", w:86,d:88, defLabel:"Git ac", draw:function(it){ return drawLibFit("musChitAcustica",it,86,88); }},
-  musChitClassica: {nome:"Chitarra classica musicista", dim:"87×87", cat:"Band e backline", sub:"Chitarre e bassi", w:87,d:87, defLabel:"Git cl", draw:function(it){ return drawLibFit("musChitClassica",it,87,87); }},
+  /* unica chitarra senza un tipo funzionale "schematico" a cui appoggiarsi (le altre lo hanno via
+     LOOK_ART): il suo draw conosce i due aspetti — illustrato di default, schematico su richiesta. */
+  musChitClassica: {nome:"Chitarra classica musicista", dim:"87×87", cat:"Band e backline", sub:"Chitarre e bassi", w:87,d:87, defLabel:"Git cl",
+    draw:function(it){ return (it&&it.look==="schematico") ? classicGuitarTop(it) : drawLibFit("musChitClassica",it,87,87); }},
   musBasso: {catalog:false, nome:"Basso musicista", dim:"97×79", cat:"Band e backline", sub:"Chitarre e bassi", w:97,d:79, defLabel:"Basso", draw:function(it){ return drawLibFit("musBasso",it,97,79); }},
   musFisarmonica: {nome:"Fisarmonica musicista", dim:"82×96", cat:"Band e backline", sub:"Tastiere e piani", w:82,d:96, defLabel:"Fis", draw:function(it){ return drawLibFit("musFisarmonica",it,82,96); }},
   musDirettore: {catalog:false, nome:"Direttore musicista", dim:"90×114", cat:"Persone e voci", w:90,d:114, defLabel:"Dir", draw:function(it){ return drawLibFit("musDirettore",it,90,114); }},
@@ -1531,7 +1559,7 @@ var LOOK_ART = {
 /* Nota: direttore NON è in LOOK_ART — è sempre illustrato (conductor()=libIcon("musDirettore")), senza toggle Aspetto, con podio/leggio/sgab disegnati a parte. */
 /* Tipi il cui DRAW è consapevole dell'aspetto (illustrato = schema + persona). Vuoto: i timpani ora usano
    i toggle indipendenti Musicista / Sgabello nel configuratore (non l'Aspetto illustrato/schematico). */
-var DRAW_LOOK = {};
+var DRAW_LOOK = { musChitClassica:1 };   /* il suo draw sa disegnare sia illustrato sia schematico */
 /* illustrazione da disegnare al posto dello schema per i tipi Fase 2 in aspetto illustrato (default) */
 function look2Art(it){ return it && it.look!=="schematico" && LOOK_ART[it.type] ? LOOK_ART[it.type] : null; }
 /* Fase 2 illustrato: il footprint (w/d) = dimensioni dell'illustrazione a scala reale, così il riquadro

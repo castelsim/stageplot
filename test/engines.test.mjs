@@ -4169,6 +4169,16 @@ t("i termini da fonico trovano l'elemento giusto", () => {
 });
 /* MICROFONO AD ARCHETTO (Simone 27/07): l'archetto in testa per chi suona con le mani occupate,
    e come modalita' mic delle voci. DPA 4088 direzionale: piu' rifiuto del 4066 omni, serve con le spie. */
+t("la chitarra classica musicista ha anche l'aspetto schematico", () => {
+  reset();
+  const it = add("musChitClassica", 300, 300);
+  eq(A.hasLookToggle(it), true, "il toggle Illustrato/Schematico deve esserci");
+  it.look = "schematico";
+  const sch = A.TYPES.musChitClassica.draw(it);   // nel sandbox l'illustrazione e' uno stub: si verifica il ramo schematico
+  ok(/path/.test(sch) && /circle/.test(sch), "cassa, buca e testa disegnate: " + sch.slice(0, 80));
+  ok(sch.length > 300, "disegno completo, non un segnaposto");
+  ok(A.classicGuitarTop(it).indexOf("rect") > -1, "manico e paletta");
+});
 t("l'archetto e' proposto solo a chi suona con le mani occupate", () => {
   reset();
   [["gtstand", true], ["bassstand", true], ["stagepiano", true], ["batteria", true],
