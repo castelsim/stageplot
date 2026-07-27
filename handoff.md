@@ -1,3 +1,17 @@
+# SESSIONE 27/07 — Catena d'uscita · Richieste setup ai musicisti (R1)
+
+**1. Catena d'uscita** (`496b4cc`) — microfonazione, pedaliera e uscita bilanciata erano tre controlli scollegati: ora sono una **catena disegnata e cliccabile** nel pannello di chitarre, basso e acustica (variante C, scelta sui mockup in `docs/mockup/uscita.html`). Regole reali: strumento sempre jack sbilanciato; pedaliera jack o XLR (se jack la DI va DOPO di lei); dall'ampli si prende mic, DI out o entrambi. Modello: anelli (`pedaliera`/`ampli`) + prelievi (`tapLine`/`ampMic`/`ampDi`/`strMic`, `pedXlr`); un prelievo = un canale; la DI non si sceglie, e' una conseguenza. `chainMigrate` porta i progetti vecchi nella catena senza perdite.
+
+**2. Richieste setup ai musicisti — R1** (`c92003e`, CI `c264738`) — **in produzione**: migrazione 0034 applicata (`sp_requests`/`sp_request_versions`/`sp_request_events`), Edge Function `setup-request` deployata, pagina `/richiesta/` pubblicata. Il tecnico crea la richiesta dalla postazione, manda il link; il musicista risponde senza account; la risposta torna nel progetto come **proposta** (gia' presente / da aggiungere / da verificare) che il tecnico applica voce per voce. Riapertura = nuova versione, la precedente resta. Spec: `docs/richieste/SPEC_R1.md`.
+
+**Verificato in produzione** con richiesta di prova poi cancellata: link vero a 414px, bozza e ripresa dopo reload, invio, doppio clic → una sola versione, sola lettura dopo l'invio, riapertura → v2 con v1 intatta, revoca → link chiuso, chiave anon → 0 righe, PATCH su versione inviata → bloccato dal trigger. Test: 398 motori + 10 deno.
+
+**Aperto**: percorso «tecnico loggato crea la richiesta dall'app» provato con service role, non con la JWT dell'utente — da confermare al primo uso vero. Fuori da R1 per scelta: foto, chiarimenti, badge sul palco, notifiche, questionari di basso/tastiere/percussioni/batteria/generico.
+
+**Gotcha**: `pages.yml` pubblica per allowlist (una cartella nuova non va online finche' non la aggiungi) e il `deno check` elenca le function una per una.
+
+---
+
 # SESSIONE 26/07 — Cablaggio: DI, crash, finestre-guida · anteprime illustrate
 
 Due segnalazioni di Simone, quattro difetti trovati. **Tutto LIVE su `main`** (`0a15a1c` + `7481b26`), working tree pulito, in sync con origin, **379 test verdi**, `node build.mjs --check` allineato.
