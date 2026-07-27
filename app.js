@@ -7458,14 +7458,25 @@ function lblAskSameType(){
 document.getElementById("pLblFull").addEventListener("click", function(){ _setLblMode("full"); });
 document.getElementById("pLblAbbr").addEventListener("click", function(){ _setLblMode("abbr"); });
 document.getElementById("pLblHidden").addEventListener("click", function(){ _setLblMode("hidden"); });
-document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ it.look="illustrato"; recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
-document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; recalcItemDims(it); }); renderProps(); });
+/* «Postazione» / «Strumento solo» (Simone 27/07): il toggle non sceglie più uno STILE di disegno ma
+   COSA si disegna, e le due scelte hanno stati canonici diversi. Passando dall'una all'altra i flag si
+   RIAZZERANO (decisione esplicita: ogni scelta ha il suo stato, l'undo copre il ripensamento) —
+   altrimenti sceglievi «Strumento solo» e ti restava la sedia addosso.
+   Vale solo per le POSTAZ (archi/legni/ottoni), le uniche dove sedia e leggio nascono accesi: le
+   chitarre hanno già la sedia spenta di default, e piano/arpa/percussioni non hanno questi flag. */
+function lookReset(it, mode){
+  if(!POSTAZ[it.type] || it.doppia===true) return;   /* la doppia ha un leggio solo e la sedia bloccata */
+  if(mode==="schematico"){ it.sedia=false; it.leggio=false; }
+  else { delete it.sedia; delete it.leggio; }   /* postazione: torna ai default del tipo (entrambi accesi) */
+}
+document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ it.look="illustrato"; lookReset(it,"illustrato"); recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
+document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; lookReset(it,"schematico"); recalcItemDims(it); }); renderProps(); });
 function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
-document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Aspetto schematico applicato a tutto il progetto":"Aspetto illustrato applicato a tutto il progetto"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
+document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; lookReset(o,lk); recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Tutto il progetto disegnato come «Strumento solo»":"Tutto il progetto disegnato come «Postazione»"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"full"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
@@ -8527,6 +8538,7 @@ function addItem(type, over){
   if(t.riser) it.h=t.h||40;
   if(KEYS_BENCH[type]) it.panca=true;   /* tastiere/piano: sgabello di default */
   if(POSTAZ[type]){ it.sedia=true; it.leggio=true; it.doppia=false; it.sep=defSepOf({type:type}); }
+  if(POSTAZ[type] && state.lookDefault==="schematico"){ it.sedia=false; it.leggio=false; }   /* «Strumento solo»: nasce nudo, sedia e leggio si aggiungono a mano */
   if(DOUBLE_TYPES[type]){ it.sep=defSepOf({type:type}); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
   if(state.lookDefault==="schematico" && hasLookToggle(it)) it.look="schematico";   /* B4: eredita l'aspetto predefinito del progetto */
