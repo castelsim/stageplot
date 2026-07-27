@@ -1792,3 +1792,14 @@ body.area-edit .item{opacity:.4;pointer-events:none}
 body.area-edit #eventoSec,body.area-edit #groupProps,body.area-edit #noSel,
 body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 #areaEditPanel h3{display:flex;align-items:center;gap:7px}
+
+/* Lucchetto della pedana: accanto alla maniglia di rotazione, stessa scocca. */
+.lock-handle{cursor:pointer}
+.lock-handle .lk-hit{fill:transparent}
+.lock-handle .lk-knob{fill:#fff;stroke:var(--accent);stroke-width:2.5}
+.lock-handle .lk-body{fill:var(--accent);stroke:none}
+.lock-handle .lk-arc{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round}
+.lock-handle.on .lk-knob{fill:var(--accent);stroke:var(--accent)}
+.lock-handle.on .lk-body{fill:#fff}
+.lock-handle.on .lk-arc{stroke:#fff}
+.riser-item.locked .item{opacity:.85}

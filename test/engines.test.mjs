@@ -3631,6 +3631,47 @@ t("una pedana in un gruppo si muove con gli altri, come ogni elemento", () => {
   ped.grp = sedia.grp = "g1";
   eq([ped, sedia].filter(A.riserEditable).length, 2, "nessuno dei due e' bloccato");
 });
+t("il lucchetto ferma la pedana dov'e'", () => {
+  reset();
+  const ped = add("pedana", 500, 300);
+  ok(A.riserEditable(ped), "aperta si muove");
+  ped.locked = true;
+  eq(A.riserEditable(ped), false, "col lucchetto chiuso non si sposta, non si allunga, non ruota");
+  delete ped.locked;
+  ok(A.riserEditable(ped), "riaperta torna a muoversi");
+  ok(appjs.indexOf('class="lock-handle') > -1, "il lucchetto si disegna accanto alla maniglia di rotazione");
+  ok(appjs.indexOf("openQuickAdd(svgPoint(e)") > -1, "col lucchetto chiuso il doppio clic apre la ricerca rapida");
+});
+/* PIÈ DI PAGINA DEL PDF (27/07): i numeri che servono a chi allestisce, contati dagli elementi veri. */
+t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  eq(A.pdfTotals().length, 0, "palco vuoto: niente riga");
+  add("stagebox", 900, 100);
+  add("corista", 200, 300); add("corista", 300, 300);
+  add("hearback", 500, 400); add("mixhub", 600, 400);
+  add("wedge", 400, 500); add("leggio", 700, 300); add("sedia", 750, 300);
+  A.__cabRes = null;
+  const t2 = A.pdfTotals().join(" · ");
+  ok(/\d+ canali/.test(t2), "canali: " + t2);
+  ok(/leggii|leggio/.test(t2), "leggii: " + t2);
+  ok(/sedut/.test(t2), "sedute: " + t2);
+  ok(/1 personal mixer \(1 hub\)/.test(t2), "personal mixer con l'hub: " + t2);
+  ok(/1 spia/.test(t2), "spie al singolare: " + t2);
+});
+t("una postazione doppia conta due sedute e un leggio solo", () => {
+  reset();
+  const d = add("vln1x2", 300, 300);
+  const tot = A.pdfTotals().join(" · ");
+  ok(/2 sedute/.test(tot), "due musicisti, due sedie: " + tot);
+  ok(/1 leggio\b/.test(tot), "ma un leggio in due: " + tot);
+});
+t("il cartiglio si alza quando c'e' la riga dei totali", () => {
+  reset();
+  const vuoto = A.cartHFor("", "a4", "landscape");
+  add("leggio", 300, 300);
+  const pieno = A.cartHFor("", "a4", "landscape");
+  ok(pieno > vuoto, "va contata, o la scala automatica sceglie una scala che poi non entra");
+});
 t("il costruttore lavora SOLO la forma del palco", () => {
   const html = readFileSync(join(root, "index.html"), "utf8");
   eq(/id="bAddPedana"/.test(html), false, "«+ Pedana» non deve stare nel costruttore");

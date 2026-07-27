@@ -4053,6 +4053,18 @@ function itemMarkup(it){
          '<path class="rh-ico" d="M '+(-3.5)+' '+(ky-3)+' L '+(-3.5)+' '+(ky-0.2)+' L '+(-0.7)+' '+(ky-0.2)+'"/>'+
          '</g>';
   }
+  /* LUCCHETTO della pedana (Simone 27/07): accanto alla maniglia di rotazione. Chiuso, la pedana
+     resta dov'è — non si sposta, non si allunga, non si ruota — e il doppio clic ci passa
+     attraverso: si apre la ricerca rapida, per posare un elemento SOPRA la pedana. */
+  if(isRiser(it) && selSet[it.id] && selIds().length===1){
+    var lky=-(bh+26), lkx=26;
+    s += '<g class="lock-handle'+(it.locked?" on":"")+'" data-id="'+attrId+'" role="button" tabindex="0" aria-pressed="'+(it.locked?"true":"false")+'" aria-label="'+(it.locked?"Sblocca la pedana":"Blocca la pedana")+'">'+
+         '<circle class="lk-hit" cx="'+lkx+'" cy="'+lky+'" r="15"/>'+
+         '<circle class="lk-knob" cx="'+lkx+'" cy="'+lky+'" r="9"/>'+
+         '<rect class="lk-body" x="'+(lkx-3.6)+'" y="'+(lky-0.6)+'" width="7.2" height="5.6" rx="1.2"/>'+
+         '<path class="lk-arc" d="M '+(lkx-2.2)+' '+(lky-0.8)+' v -1.8 a 2.2 2.2 0 0 1 4.4 0 '+(it.locked?"v 1.8":"v 0.4")+'"/>'+
+         '</g>';
+  }
   /* ZONA: rettangolo = 4 angoli di resize + "+" sui lati per iniziare a modellare; poligono = vertici trascinabili + "+" (Alt+click rimuove). */
   if(!stageEdit && it.type==="miczone" && selSet[it.id] && selIds().length===1){
     var mzp=miczonePts(it), mzPoly=!!(it.pts && it.pts.length>=3);
@@ -6201,7 +6213,7 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
    pedana è un oggetto che ci si appoggia sopra. Quindi la pedana si prende dal catalogo e si lavora
    come qualunque altro elemento — si sposta, si allunga, si ruota — senza entrare in nessuna
    modalità; il costruttore resta per la sola forma del palco. */
-function riserEditable(it){ return true; }
+function riserEditable(it){ return !(it && it.locked===true); }   /* col lucchetto chiuso la pedana resta dov'è */
 function itemPickable(it){
   if(!it || it.rackId) return false;
 
@@ -8876,6 +8888,12 @@ svg.addEventListener("pointerdown", function(e){
       if(dcId){ selectOne(dcId); render(); if(isMobile()) document.body.classList.add("props-expanded"); }
       return;
     }
+    var _dcIt0=dcId ? (state.items||[]).filter(function(i){ return i.id===dcId; })[0] : null;
+    if(_dcIt0 && isRiser(_dcIt0) && _dcIt0.locked===true && !isMobile()){
+      /* pedana col lucchetto chiuso: il doppio clic la attraversa e apre la ricerca rapida, così ci
+         si posa sopra un elemento senza prima sbloccarla (Simone 27/07) */
+      openQuickAdd(svgPoint(e), e.clientX, e.clientY); return;
+    }
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
       if(dcIt && (dcIt.type==="testo" || dcIt.type==="forma")){
@@ -8990,6 +9008,17 @@ svg.addEventListener("pointerdown", function(e){
     var feB=e.target.closest ? e.target.closest("[data-frame-body]") : null;
     if(feB){ drag={mode:"frame", sp0:{x:sp.x,y:sp.y}, f0:Object.assign({},state.printFrame), moved:false};
       svg.setPointerCapture(e.pointerId); return; }
+  }
+  var lkh = e.target.closest ? e.target.closest(".lock-handle") : null;
+  if(!lkh && document.elementsFromPoint){
+    var _sl=document.elementsFromPoint(e.clientX, e.clientY);
+    for(var _k=0;_k<_sl.length;_k++){ var _lg=_sl[_k].closest && _sl[_k].closest(".lock-handle"); if(_lg){ lkh=_lg; break; } }
+  }
+  if(lkh){                                  /* lucchetto della pedana: apre e chiude, non trascina nulla */
+    e.preventDefault();
+    var _lid=lkh.getAttribute("data-id"), _lit=(state.items||[]).filter(function(x){ return x.id===_lid; })[0];
+    if(_lit){ if(_lit.locked) delete _lit.locked; else _lit.locked=true; save(); render(); renderProps(); }
+    return;
   }
   /* MANIGLIE (ridimensionamento e rotazione) PRIMA di tutto: sono un gesto esplicito su un elemento
      già selezionato. In modalità «Palco e pedane» l'overlay dei blocchi le copre, e quel ramo esce
@@ -15349,9 +15378,11 @@ function cartHFor(header, paperKey, orient){
 }
 /* stima l'altezza del cartiglio in base alle righe dell'intestazione (8pt ≈ 1.8mm/char) */
 function cartHForHeader(header, titleW){
-  if(!header || !String(header).trim()) return 22;
+  var base=22;
+  try{ if(pdfTotals().length) base+=5; }catch(e){}   /* riga dei totali: va contata, o «Automatica» sceglie una scala che poi non entra */
+  if(!header || !String(header).trim()) return base;
   var charsPerLine=Math.max(20, Math.floor(titleW/1.8));
-  return 22+Math.max(0, Math.ceil(String(header).trim().length/charsPerLine)-1)*4;
+  return base+Math.max(0, Math.ceil(String(header).trim().length/charsPerLine)-1)*4;
 }
 function scaleFits(N, paperKey, orient, cartH){
   var L=pdfLayout(paperKey, orient, cartH), A=printArea(), DM=A.custom?0:80;
@@ -16399,6 +16430,43 @@ function niceBarMeters(N){            /* barra di scala: ~25-40 mm sul foglio */
   for(var i=0;i<cand.length;i++){ var mm=cand[i]*1000/N; if(mm>=22 && mm<=45){ return cand[i]; } if(mm<45) best=cand[i]; }
   return best;
 }
+/* TOTALI DEL PIÈ DI PAGINA (Simone 27/07): «quando esporto il PDF, al piè di pagina devono
+   esserci le informazioni essenziali — quanti leggii, quanti personal mixer…».
+   Sono i numeri che servono a chi carica il camion e a chi allestisce, non una lista: canali,
+   leggii, sedie, personal mixer, ascolti. Contati dagli elementi veri, non dichiarati a mano. */
+function pdfTotals(){
+  var it=state.items||[], out=[];
+  function n(f){ var c=0; it.forEach(function(x){ if(f(x)) c++; }); return c; }
+  var canali=0; it.forEach(function(x){ try{ canali+=cabItemInputs(x).length; }catch(e){} });
+  /* leggii: elementi a sé + il leggio acceso su una postazione + le postazioni che lo hanno di serie */
+  /* LEGGII — elementi a sé, leggio acceso su una postazione, e le postazioni che lo hanno di serie
+     (archi/legni/ottoni, comprese le doppie: due musicisti condividono UN leggio). */
+  var isPost=function(x){ return !!POSTAZ[x.type] || !!DOUBLE_TYPES[x.type]; };
+  var leggii=n(function(x){
+    if(x.type==="leggio"||x.type==="leggiotablet"||x.type==="sedialeggio") return true;
+    if(x.leggio===true) return true;
+    return isPost(x) && x.leggio!==false;
+  });
+  /* SEDUTE — sedie e sgabelli veri, più quelle incluse nelle postazioni: una doppia ne vuole due. */
+  var sedie=0;
+  it.forEach(function(x){
+    if(x.type==="sedia"||x.type==="sediabianca"||x.type==="sedialeggio"||x.type==="sgabello"||x.type==="panchetta"){ sedie++; return; }
+    if(!isPost(x) && !VOCE[x.type] && !(TYPES[x.type]&&TYPES[x.type].gtr)) return;
+    if(optSedia(x)!==true) return;
+    sedie += (x.doppia===true || DOUBLE_TYPES[x.type]) ? 2 : 1;
+  });
+  var pm=n(function(x){ return x.type==="hearback"; });
+  var hub=n(function(x){ return x.type==="mixhub"; });
+  var wedge=n(function(x){ return x.type==="wedge"||x.type==="sidefill"; });
+  var iem=n(function(x){ return x.type==="iem"; });
+  if(canali) out.push(canali+" canali");
+  if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
+  if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
+  if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
+  if(wedge)  out.push(wedge+(wedge===1?" spia":" spie"));
+  if(iem)    out.push(iem+" in-ear");
+  return out;
+}
 function pdfCartiglio(doc, L, N, header){
   var y=L.ph-L.cartH, M=L.M, scW=90, titleW=L.pw-2*M-scW;
   doc.setDrawColor(31,41,55); doc.setLineWidth(0.4);
@@ -16419,10 +16487,19 @@ function pdfCartiglio(doc, L, N, header){
   var subStr=sub.join("  ·  ");
   var subL=doc.splitTextToSize(subStr, titleW);
   doc.text(subL.length>1 ? subL[0].replace(/\s+\S*$/,"")+"…" : subStr, M, y+14);
+  /* TOTALI essenziali: quanti leggii, sedute, personal mixer, spie — quello che serve a chi allestisce */
+  var _tot=pdfTotals(), _yNext=y+19;
+  if(_tot.length){
+    doc.setFontSize(8.5); doc.setTextColor(31,41,55);
+    var _tStr=_tot.join("  ·  ");
+    var _tL=doc.splitTextToSize(_tStr, titleW);
+    doc.text(_tL.length>1 ? _tL[0].replace(/\s+\S*$/,"")+"…" : _tStr, M, _yNext);
+    _yNext+=5;
+  }
   /* intestazione opzionale — multi-riga, sfrutta l'altezza dinamica del cartiglio */
   if(header && String(header).trim()){
     doc.setFontSize(8); doc.setTextColor(120,120,120);
-    doc.text(doc.splitTextToSize(String(header).trim(), titleW), M, y+19);
+    doc.text(doc.splitTextToSize(String(header).trim(), titleW), M, _yNext);
   }
   /* SCALA a destra — colonna riservata scW */
   doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(17,24,39);
