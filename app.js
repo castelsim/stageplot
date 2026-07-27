@@ -3238,6 +3238,7 @@ function normalizeState(s){
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
       if(it.sbTo!=null && it.sbTo!=="main" && !itemById[it.sbTo]) delete it.sbTo; }
     if(it.ascoltoId && !itemById[it.ascoltoId]){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
+    if(typeof chainMigrate==="function") chainMigrate(it);   /* microfonazione storica → catena d'uscita (una volta sola) */
     if(it.diId && !itemById[it.diId]){ delete it.diId; delete it.diOff; }   /* DI cancellata a mano: lo strumento torna senza */
     if(it.diFor && !itemById[it.diFor]) delete it.diFor;                    /* strumento sparito: la DI resta ma libera */
     if(it.ascolto && !ASCOLTO_TYPE[it.ascolto]){ delete it.ascolto; delete it.ascoltoId; }
@@ -3501,7 +3502,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -4595,6 +4596,7 @@ function cabItemInputs(it){
     if(_dn===2) return [{name:labelPrefix(it,"L"),mic:_dm},{name:labelPrefix(it,"R"),mic:_dm}];
     var _da=[]; for(var _di=1;_di<=_dn;_di++) _da.push({name:labelPrefix(it,String(_di)),mic:_dm}); return _da;
   }
+  if(hasChain(it)) return chainInputs(it);   /* chitarre/basso/acustica: i canali sono i prelievi della catena */
   if(STEREO_TOGGLE[it.type]){   /* strumenti ambigui: mono/stereo per-elemento (it.stereo) */
     var scfg=STEREO_TOGGLE[it.type], sst=(it.stereo!=null?it.stereo:scfg.def);
     if(sst){
@@ -4614,8 +4616,11 @@ function cabItemInputs(it){
   if(it.doppia===true && POSTAZ[it.type] && !DOUBLE_TYPES[it.type] && base.length){
     var l2 = it.label2 || ((it.label||TYPES[it.type].nome)+" 2");
     var second = base.map(function(c,i){ return {name: (base.length>1 ? l2+" "+(i+1) : l2), mic:c.mic}; });
-    return base.concat(second);
+    base = base.concat(second);
   }
+  /* uscita XLR bilanciata: NON c'è nessuna DI, quindi il canale non è "DI" ma una linea XLR — la
+     input list deve dirlo al fonico (i canali col microfono restano come sono). */
+  if(it.balOut) base = base.map(function(c){ return String(c.mic).indexOf("DI")>-1 ? {name:c.name, mic:"XLR"} : c; });
   return base;
 }
 /* punto principale di connessione (FOH / stage rack / lato palco / personalizzato) → coordinate sul palco */
@@ -4711,7 +4716,8 @@ function audioCablingEngine(){
     /* la "stage box del mixer" (lato regia, b.foh) è ESCLUSA dall'auto: l'utente ci collega a mano gli
        overflow. Resta un target manuale (ov.box) come qualsiasi altra box. */
     /* con una DI in mezzo la tratta lunga parte da LEI: la box più vicina si misura dalla DI, non dallo strumento */
-    var _dix=diLinked(g.it), _px=_dix?_dix.x:g.it.x, _py=_dix?_dix.y:g.it.y;
+    /* tappe del cavo in ordine (anello d'uscita → DI): la box più vicina si misura dall'ULTIMA tappa */
+    var _wp=cabWaypoints(g.it), _last=_wp.length?_wp[_wp.length-1]:null, _px=_last?_last[0]:g.it.x, _py=_last?_last[1]:g.it.y;
     var cand=boxes.filter(function(b){ return !b.foh; }).sort(function(a,b){ var da=Math.sqrt(d2(_px,_py,a)), db=Math.sqrt(d2(_px,_py,b));
       if(Math.abs(da-db)>100) return da-db;
       var la=a.used/(a.cap||1), lb=b.used/(b.cap||1);
@@ -4727,7 +4733,7 @@ function audioCablingEngine(){
       var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box; })[0] : null;   /* il gruppo va TUTTO su una box (satura → warning) */
       var b= manualMode ? forced : (forced || whole || cand[0] || null);
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
-      var pts=[portAnchor(g.it,"audio")].concat(_dix?[[_dix.x,_dix.y]]:[]).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → DI → stage box */
+      var pts=[portAnchor(g.it,"audio")].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → pedaliera/ampli → DI → stage box */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
       g.list.forEach(function(s){ b.used++; var pn=takePort(b,0); links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut,
         label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
@@ -4743,7 +4749,7 @@ function audioCablingEngine(){
       b.used++;
       var pn=takePort(b, (ov.port>0? +ov.port : 0));   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
-      var pts=[_sa].concat(_dix?[[_dix.x,_dix.y]]:[]).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → (DI) → stage box; il capo parte dal pallino audio del musicista */
+      var pts=[_sa].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → (pedaliera/ampli) → (DI) → stage box; il capo parte dal pallino audio del musicista */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
       links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0),
                   label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
@@ -6697,16 +6703,26 @@ function renderProps(){
         var soSel=document.getElementById("pSbOut"), capo=String(cabBoxCapOut(it));
         if(![].some.call(soSel.options,function(o){ return o.value===capo; })){ var op2=document.createElement("option"); op2.value=capo; op2.textContent=capo; soSel.appendChild(op2); }
         soSel.value=capo; } } }
-  var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": vale solo dove il segnale passerebbe da una DI */
+  var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": dove il segnale passerebbe da una DI */
   if(balw){
-    var _mayDi = !!(MIKING[it.type] && Object.keys(DI_MIKING).some(function(k){ return (MIKING[it.type].options||[]).some(function(o){ return o[0]===k; }); }))
-      || (STEREO_TOGGLE[it.type] && String(STEREO_TOGGLE[it.type].mic||"").indexOf("DI")>-1)
-      || String(IN_SRC[it.type]||"").indexOf("DI")>-1;
-    balw.style.display=_mayDi?"block":"none";
-    var balc=document.getElementById("pBalOut"); if(balc) balc.checked=!!it.balOut;
+    var _mayDi = mayNeedDi(it), _chain = hasChain(it);
+    /* chitarre/basso/acustica: al posto dei controlli sciolti c'è la CATENA disegnata (variante C) */
+    var _cw=document.getElementById("pChainWrap");
+    if(_cw) _cw.style.display=_chain?"block":"none";
+    balw.style.display=(_mayDi && !_chain)?"block":"none";
+    var _bx=document.getElementById("pOutXlr"), _bj=document.getElementById("pOutJack");
+    if(_bx&&_bj){ var _bal=!!it.balOut; _bx.classList.toggle("on",_bal); _bj.classList.toggle("on",!_bal);
+      _bx.setAttribute("aria-pressed",_bal?"true":"false"); _bj.setAttribute("aria-pressed",_bal?"false":"true"); }
+    if(_chain) chainRender(it);
+    var _h=document.getElementById("pOutHint");
+    if(_h) _h.textContent = _chain ? chainHint(it) : (!_mayDi ? "" :
+      (it.balOut ? "Uscita bilanciata: il cavo va diretto alla stage box, niente DI."
+                 : "Uscita sbilanciata: serve una DI, messa accanto allo strumento — il tratto jack resta corto."));
+    var _card=document.getElementById("pOutCard");
+    if(_card){ var _mkOn=!!(MIKING[it.type] && !VOCE[it.type] && !_chain); _card.style.display=(_mayDi||_mkOn||_chain)?"block":"none"; }
   }
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
-  if(mkw){ var mk=MIKING[it.type]; mkw.style.display=(mk && !VOCE[it.type])?"block":"none";   /* per le voci il controllo è pMicMode (chip), non il dropdown */
+  if(mkw){ var mk=MIKING[it.type]; mkw.style.display=(mk && !VOCE[it.type] && !hasChain(it))?"block":"none";   /* voci: chip pMicMode · chitarre/basso: la catena */
     if(mk){ var msel=document.getElementById("pMike");
       var grpLab=mk.grp||"Mic singolo", zonaOpt=(mk.zona===false)?"":'<option value="__zona__">◇ Crea zona di sezione…</option>';   /* label gruppo e opzione zona per-MIKING: sezioni archi/fiati sì, strumenti singoli no */
       msel.innerHTML='<optgroup label="'+esc(grpLab)+'">'+mk.options.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join("")+'</optgroup><optgroup label="Altro"><option value="__nomic__">Nessun microfono</option>'+zonaOpt+'</optgroup>';
@@ -7299,16 +7315,16 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   /* blocchetto Etichetta: Intero/Sigla + testo + Dimensione + (Colore) + Posizione */
   var cLbl=document.createElement("div"); cLbl.id="pLblCard"; cLbl.style.cssText=CARD;
   ["pLblModeWrap","pLabelWrap","pLabel2Wrap","pLblSizeWrap","pTxtColorWrap","pLblPosWrap"].forEach(function(id){ var e=get(id); if(e) cLbl.appendChild(e); });
-  /* Microfonazione come blocchetto */
-  var mk=get("pMikeWrap"); if(mk) mk.style.cssText=CARD;
+  /* Microfonazione + catena d'uscita: unico blocchetto "Uscita" (.prop-card, gia' stilato) */
+  var mk=get("pOutCard");
   var setHead=function(el){ if(!el) return; var l=el.querySelector("label"); if(l){ l.style.color="var(--text)"; l.style.fontWeight="700"; } };   /* header blocchetti in grassetto scuro (come mockup) */
-  setHead(get("pLblModeWrap")); setHead(mk);
+  setHead(get("pLblModeWrap"));
   ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp"].forEach(function(id){ var e=get(id); if(e){ e.style.borderTop="none"; e.style.marginTop="2px"; e.style.paddingTop="0"; } });   /* niente linea sopra i toggle */
   var rr0=get("pRotRow"); if(rr0) rr0.style.borderBottom="none";                     /* via la linea tratteggiata sotto Rotazione */
   sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });    /* via le linee tratteggiate tra i toggle (come mockup) */
   var dv=document.createElement("hr"); dv.style.cssText="border:none;border-top:1px solid var(--border);margin:11px 0 9px";   /* divisore prima delle azioni */
   /* ordine finale del pannello (i controlli non pertinenti al tipo restano nascosti da renderProps) */
-  ["pLookWrap", cLbl, "pRotRow", "pMikeWrap", "pStereoWrap",
+  ["pLookWrap", cLbl, "pRotRow", "pOutCard", "pStereoWrap",
    "pSbChWrap","pOwnMicWrap","pZoneWrap","pPreseWrap","pDims","pDimSideWrap","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pAscoltoWrap","pRampWrap","pGazWrap","pWattWrap","pByWrap","pRfWrap","pMirWrap","pPmWrap",
    "pPostaz","pVoce","pGtr","pDir","pTastiera","pComp", "pUsoWrap", "pModelWrap", dv, "pDivide"
   ].forEach(function(x){ var e=(typeof x==="string")?get(x):x; if(e) sp.appendChild(e); });
@@ -8169,7 +8185,12 @@ function addItem(type, over){
   }
   if(MON_DIG_NODE[type] && state.mond && !state.mond.on){ state.mond.on=true; state.mond.visible=true; __mondRes=null; }   /* personal mixer/hub digitale → attiva in automatico il layer P.M. (monitoraggio) */
   addCascade=(addCascade+25)%150;
-  state.items.push(it); selectOne(it.id); render(); save(); ensureVisible();
+  state.items.push(it);
+  /* strumenti che nascono con la microfonazione "DI" (basso, acustica, tastiere, stage piano...):
+     la scatoletta compare SUBITO accanto a loro, come quando si sceglie DI a mano. Prima appariva
+     solo toccando la tendina, e il pannello diceva "serve una DI" mostrando un palco senza DI. */
+  try{ if(typeof diUsesBox==="function" && diUsesBox(it)) diApply(it, {quiet:true}); }catch(_e){}
+  selectOne(it.id); render(); save(); ensureVisible();
   /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
      interattivi: i progetti caricati non vengono toccati. Le correzioni manuali e i cavi eliminati
@@ -11990,10 +12011,28 @@ function renderCabPanel(){
   document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
   var sb=document.getElementById("pSbCh");
-  var _bal=document.getElementById("pBalOut");
-  if(_bal) _bal.addEventListener("change", function(){   /* uscita bilanciata a bordo: la DI non serve piu' */
-    var v=this.checked; mutSel(function(it){ it.balOut=v; if(!v) delete it.balOut; diApply(it); });
-    __cabRes=null; save(); render(); renderProps(); });
+  /* Tipo di uscita (XLR bilanciata / jack sbilanciata): decide se ci vuole la DI. */
+  ["pOutXlr","pOutJack"].forEach(function(bid){
+    var b=document.getElementById(bid); if(!b) return;
+    b.addEventListener("click", function(){
+      var v=this.getAttribute("data-bal")==="1";
+      mutSel(function(it){ if(v) it.balOut=true; else delete it.balOut; delete it.diOff; diApply(it); });
+      __cabRes=null; save(); render(); renderProps();
+    });
+  });
+  /* CATENA: i due anelli (pedaliera/ampli) e i pallini di prelievo dentro l'SVG. */
+  function chainAct(what){ mutSel(function(it){ chainToggle(it, what); }); save(); render(); renderProps(); }
+  ["pChainPed","pChainAmp"].forEach(function(bid){
+    var b=document.getElementById(bid); if(b) b.addEventListener("click", function(){ chainAct(this.dataset.node); });
+  });
+  var _chainSvg=document.getElementById("pChain");
+  if(_chainSvg){
+    _chainSvg.addEventListener("click", function(e){ var g=e.target.closest(".ctap"); if(g) chainAct(g.getAttribute("data-tap")); });
+    _chainSvg.addEventListener("keydown", function(e){   /* i pallini sono focusabili: Invio/Spazio li accende */
+      if(e.key!=="Enter" && e.key!==" ") return;
+      var g=e.target.closest(".ctap"); if(!g) return; e.preventDefault(); chainAct(g.getAttribute("data-tap"));
+    });
+  }
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
   var sbo=document.getElementById("pSbOut");
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
@@ -12565,9 +12604,195 @@ var ASCOLTO_HINT = {
    o lo ruoti, ma se la trascini a mano resta dove l'hai messa (l'offset si aggiorna).
    src.balOut = lo strumento esce già bilanciato (preamp a bordo, ampli con XLR out): niente DI.
    Stesso meccanismo riusabile per ampli, pedaliera, aste: cambia solo quale tipo si crea. */
+/* ===== CATENA D'USCITA di chitarre, bassi e acustiche =====
+   Simone 26-27/07: «lo strumento ha SEMPRE l'uscita jack sbilanciata. Poi o entra in DI e va
+   bilanciato al mixer, o entra nella pedaliera che può uscire sbilanciata o bilanciata (bilanciata
+   → dritta al mixer, sbilanciata → serve la DI), o entra nell'ampli e da lì il tecnico prende il
+   microfono, la DI dell'ampli se c'è, o entrambi».
+
+     Strumento ──jack──▶ [Pedaliera] ──jack/XLR──▶ [Ampli] ──▶ mixer
+                            │                        │
+                         prelievo di linea       mic sul cono · DI out
+
+   Modello: la catena è fatta di ANELLI che ci sono o no (it.pedaliera, it.ampli — gli stessi flag
+   che li disegnano) e di PRELIEVI, cioè da dove si prende davvero il suono (uno o più):
+     it.tapLine  linea prima dell'ampli — DI, oppure XLR se la pedaliera esce bilanciata (it.pedXlr)
+     it.ampMic   microfono sul cono            it.ampDi   DI out dell'ampli
+     it.strMic   microfono sullo strumento (acustica: condensatore sulla buca)
+   Ogni prelievo acceso = un canale. La DI fisica non si sceglie: serve se e solo se il prelievo di
+   linea è acceso e il segnale è ancora sbilanciato — e nasce alla FINE del tratto jack. */
+function hasChain(it){ var t=it&&TYPES[it.type]; return !!(t && t.gtr); }   /* chitarra elettrica, acustica, basso */
+var CHAIN_DEF={   /* prelievi di default per tipo, uguali alla microfonazione con cui nascevano */
+  gtstand:{ampli:true,ampMic:true}, gtacustica:{tapLine:true}, bassstand:{tapLine:true}
+};
+var CHAIN_AMPMIC={ gtstand:"SM57", gtacustica:"SM57", bassstand:"MD421" };   /* microfono tipico sul cono */
+function chainOf(it){
+  var d=CHAIN_DEF[it.type]||{};
+  var amp = (it.ampli!=null) ? it.ampli===true : !!d.ampli;
+  var c={
+    ped: it.pedaliera===true,
+    pedXlr: it.pedXlr===true,
+    amp: amp,
+    ampMic: (it.ampMic!=null) ? it.ampMic===true : (amp && !!d.ampMic),
+    ampDi: it.ampDi===true,
+    strMic: it.strMic===true,
+    tapLine: (it.tapLine!=null) ? it.tapLine===true : !!d.tapLine
+  };
+  if(!c.amp){ c.ampMic=false; c.ampDi=false; }        /* senza ampli non ci sono i suoi prelievi */
+  if(!c.ped) c.pedXlr=false;
+  c.lineBal = c.ped && c.pedXlr;                       /* il prelievo di linea è già bilanciato? */
+  c.needDi  = c.tapLine && !c.lineBal;                 /* ...altrimenti ci vuole la DI, fine del tratto jack */
+  c.taps    = (c.tapLine?1:0)+(c.ampMic?1:0)+(c.ampDi?1:0)+(c.strMic?1:0);
+  return c;
+}
+/* posizione LOCALE (nel frame dello strumento) degli anelli, come li disegna il render */
+function chainNodePos(it, kind){
+  var p = (kind==="pedaliera") ? [0, (look2Art(it)||it.sedia) ? 72 : 64] : [-43,-88];
+  var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [Math.round(it.x+p[0]*c-p[1]*s), Math.round(it.y+p[0]*s+p[1]*c)];
+}
+/* tappe del cavo, in ordine reale: pedaliera (se il segnale ci passa) → DI → stage box */
+function cabWaypoints(it){
+  var w=[], di=diLinked(it);
+  if(hasChain(it)){
+    var c=chainOf(it);
+    if(c.tapLine && c.ped) w.push(chainNodePos(it,"pedaliera"));
+    else if(!c.tapLine && c.amp) w.push(chainNodePos(it,"ampli"));   /* solo prelievi dall'ampli: il cavo parte da lì */
+  }
+  if(di) w.push([di.x, di.y]);
+  return w;
+}
+/* canali di uno strumento con catena: un canale per prelievo acceso */
+function chainInputs(it){
+  var c=chainOf(it), base=it.label||TYPES[it.type].nome, out=[];
+  if(c.tapLine) out.push({name:(c.taps>1?labelPrefix(it,"DI"):base), mic:(c.lineBal?"XLR":"DI")});
+  if(c.strMic)  out.push({name:(c.taps>1?labelPrefix(it,"mic"):base), mic:"KM184"});
+  if(c.ampMic)  out.push({name:(c.taps>1?labelPrefix(it,"ampli"):base), mic:(CHAIN_AMPMIC[it.type]||"SM57")});
+  if(c.ampDi)   out.push({name:(c.taps>1?labelPrefix(it,"DI amp"):base), mic:"DI out"});
+  return out;
+}
+/* ===== la catena DISEGNATA nel pannello (variante C, scelta da Simone il 27/07) =====
+   Si legge da sinistra a destra come sul palco. La tratta è ambra finché il segnale è sbilanciato,
+   verde quando è bilanciato: si vede a colpo d'occhio perché la DI serve (o non serve più). */
+function chainSvgMarkup(it){
+  var c=chainOf(it), W=300, y=42, GAP=18;
+  var css=function(n){ try{ return getComputedStyle(document.body).getPropertyValue(n).trim()||""; }catch(e){ return ""; } };
+  var UNBAL=css("--warning")||"#b45309", BAL=css("--success")||"#15803d", ACC=css("--accent")||"#0d9488",
+      BRD=css("--border-strong")||"#c8c3b4", SURF=css("--surface")||"#fff", TINT=css("--accent-tint")||"#e4f2f0",
+      T2=css("--text-2")||"#746e60", ASTR=css("--accent-strong")||"#0b7a70";
+  /* la DI sta dove sta davvero: subito dopo l'anello da cui esce la linea (col thru il segnale
+     prosegue verso l'ampli), non in coda alla catena */
+  var nodi=[{t:"Strumento",w:56,k:"strum"}];
+  if(c.ped) nodi.push({t:"Pedaliera",w:52,k:"ped"});
+  if(c.needDi) nodi.push({t:"DI",w:28,k:"di"});
+  if(c.amp) nodi.push({t:"Ampli",w:42,k:"amp"});
+  nodi.push({t:"Mixer",w:46,k:"mix"});
+  var tot=nodi.reduce(function(a,n){ return a+n.w; },0)+GAP*(nodi.length-1);
+  var x=Math.max(3,(W-tot)/2), bal=false, segs=[], s="";
+  nodi.forEach(function(n,i){ n.x=x; x+=n.w+GAP;
+    if(i<nodi.length-1){
+      segs.push({x1:n.x+n.w, x2:n.x+n.w+GAP, bal:bal});
+      if(n.k==="di") bal=true;
+      if(n.k==="ped" && c.pedXlr) bal=true;
+      if(n.k==="amp") bal=(c.ampMic||c.ampDi);
+    }
+  });
+  segs.forEach(function(g){ s+='<line x1="'+g.x1+'" y1="'+y+'" x2="'+g.x2+'" y2="'+y+'" stroke="'+(g.bal?BAL:UNBAL)+'" stroke-width="2.4"/>'; });
+  nodi.forEach(function(n){
+    var acceso=(n.k==="ped"||n.k==="amp"||n.k==="di");
+    s+='<g><rect x="'+n.x+'" y="'+(y-15)+'" width="'+n.w+'" height="30" rx="7" fill="'+(acceso?TINT:SURF)+'" stroke="'+(acceso?ACC:BRD)+'" stroke-width="'+(acceso?1.5:1)+'"/>'+
+       '<text x="'+(n.x+n.w/2)+'" y="'+(y+4)+'" text-anchor="middle" font-size="9" font-weight="600" fill="'+(acceso?ASTR:T2)+'">'+esc(n.t)+'</text></g>';
+  });
+  function tap(cx,on,id,lab){
+    return '<g class="ctap" data-tap="'+id+'" role="button" tabindex="0" aria-pressed="'+(on?"true":"false")+'" aria-label="'+esc(lab)+'" style="cursor:pointer">'+
+      '<line x1="'+cx+'" y1="'+(y+15)+'" x2="'+cx+'" y2="80" stroke="'+(on?ACC:BRD)+'" stroke-width="1.5"'+(on?"":' stroke-dasharray="3 3"')+'/>'+
+      '<circle cx="'+cx+'" cy="87" r="7" fill="'+(on?ACC:SURF)+'" stroke="'+(on?ACC:BRD)+'" stroke-width="1.5"/>'+
+      '<text x="'+cx+'" y="108" text-anchor="middle" font-size="8.5" font-weight="600" fill="'+(on?ASTR:T2)+'">'+esc(lab)+'</text></g>';
+  }
+  var nStr=nodi[0], nPed=nodi.filter(function(n){return n.k==="ped";})[0], nAmp=nodi.filter(function(n){return n.k==="amp";})[0];
+  /* prelievo di linea: sulla pedaliera se c'è, altrimenti sullo strumento */
+  var nLine=nPed||nStr, cx=nLine.x+nLine.w/2;
+  /* due pallini sotto lo stesso nodo: scostati, o le etichette si sovrappongono */
+  s+=tap(nPed?cx-20:cx, c.tapLine, "line", "linea");
+  if(nPed) s+=tap(cx+22, c.pedXlr, "pedxlr", "XLR");
+  if(it.type==="gtacustica") s+=tap(nStr.x+nStr.w/2, c.strMic, "strmic", "mic");
+  if(nAmp){ s+=tap(nAmp.x+nAmp.w/2-18, c.ampMic, "ampmic", "mic"); s+=tap(nAmp.x+nAmp.w/2+20, c.ampDi, "ampdi", "DI out"); }
+  return s;
+}
+function chainRender(it){
+  var svg=document.getElementById("pChain"); if(!svg||!it) return;
+  svg.innerHTML=chainSvgMarkup(it);
+  var c=chainOf(it);
+  var bp=document.getElementById("pChainPed"), ba=document.getElementById("pChainAmp");
+  if(bp){ bp.classList.toggle("on",c.ped); bp.textContent=c.ped?"Pedaliera":"+ Pedaliera"; bp.setAttribute("aria-pressed",c.ped?"true":"false"); }
+  if(ba){ ba.classList.toggle("on",c.amp); ba.textContent=c.amp?"Ampli":"+ Ampli"; ba.setAttribute("aria-pressed",c.amp?"true":"false"); }
+}
+function chainHint(it){
+  var c=chainOf(it);
+  if(!c.taps) return "Nessun punto di prelievo acceso: da questo strumento non arriva niente al mixer.";
+  var p=[];
+  if(c.tapLine) p.push(c.lineBal ? "linea XLR dalla pedaliera" : "linea in DI");
+  if(c.strMic) p.push("microfono sullo strumento");
+  if(c.ampMic) p.push("microfono sull'ampli");
+  if(c.ampDi) p.push("DI out dell'ampli");
+  var testa=(c.taps===1?"Un canale":c.taps+" canali")+": "+p.join(" · ")+".";
+  return testa+" "+(c.needDi ? ("La DI va "+(c.ped?"dopo la pedaliera":"ai piedi dello strumento")+", dove finisce il tratto jack.")
+                             : "Nessuna DI da portare.");
+}
+/* click su un pallino o su un anello: cambia la catena e rifà DI, cavi e pannello */
+function chainToggle(it, what){
+  if(!it || !hasChain(it)) return;
+  var c=chainOf(it);
+  if(what==="ped"){ it.pedaliera=!c.ped; if(!it.pedaliera) delete it.pedXlr; if(typeof gtrApply==="function") gtrApply(it); }
+  else if(what==="amp"){ it.ampli=!c.amp;
+    if(it.ampli && !c.ampMic && !c.ampDi) it.ampMic=true;      /* si aggiunge l'ampli per riprenderlo: parte dal microfono */
+    if(!it.ampli){ it.ampMic=false; it.ampDi=false; if(!c.tapLine && !c.strMic) it.tapLine=true; }   /* niente ampli: torna la linea */
+    if(typeof gtrApply==="function") gtrApply(it); }
+  else if(what==="line") it.tapLine=!c.tapLine;
+  else if(what==="pedxlr") it.pedXlr=!c.pedXlr;
+  else if(what==="ampmic") it.ampMic=!c.ampMic;
+  else if(what==="ampdi") it.ampDi=!c.ampDi;
+  else if(what==="strmic") it.strMic=!c.strMic;
+  it._chain=1;
+  delete it.diOff;                       /* la DI torna al posto giusto per la nuova catena */
+  if(typeof diApply==="function") diApply(it);
+  __cabRes=null;
+}
+/* MIGRAZIONE dalla vecchia microfonazione (una tendina) alla catena (anelli + prelievi). Fatta una
+   volta sola per elemento: i progetti salvati prima di oggi si aprono con la stessa configurazione. */
+var CHAIN_FROM_MIKING={
+  ampli:{ampli:true,ampMic:true}, di:{tapLine:true}, amplidi:{ampli:true,ampMic:true,tapLine:true},
+  didmic:{ampli:true,ampMic:true,tapLine:true}, mic:{strMic:true}, dimic:{tapLine:true,strMic:true},
+  __nomic__:{}
+};
+function chainMigrate(it){
+  if(!hasChain(it) || it._chain) return;
+  var m=it.miking, map=(m!=null)?CHAIN_FROM_MIKING[m]:null;
+  if(map){
+    if(map.ampli) it.ampli=true;
+    it.ampMic=!!map.ampMic; it.ampDi=!!map.ampDi; it.tapLine=!!map.tapLine; it.strMic=!!map.strMic;
+    delete it.miking;
+  }
+  if(it.balOut===true){ it.pedXlr=it.pedaliera===true ? true : it.pedXlr; delete it.balOut; }   /* "esce bilanciato" era la pedaliera XLR */
+  it._chain=1;
+}
 var DI_MIKING={ di:1, amplidi:1, dimic:1, didmic:1 };   /* valori di microfonazione che implicano una DI */
-function diUsesBox(it){   /* questo elemento passa da una DI? (tendina microfonazione, o mic di default "DI") */
+/* il segnale di questo elemento potrebbe passare da una DI / uscire da una porta DI-out? (decide se
+   mostrare il blocco "Uscita": microfonazione con DI, sorgente DI, o canali DI in IN_MULTI come la
+   testata basso col suo DI out). Va calcolata sui DATI DEL TIPO, non sui canali correnti: con
+   l'uscita bilanciata i canali diventano "XLR" e il blocco sparirebbe da sotto le dita. */
+function mayNeedDi(it){
+  if(!it) return false;
+  var t=it.type;
+  if(MIKING[t] && Object.keys(DI_MIKING).some(function(k){ return (MIKING[t].options||[]).some(function(o){ return o[0]===k; }); })) return true;
+  if(STEREO_TOGGLE[t] && String(STEREO_TOGGLE[t].mic||"").indexOf("DI")>-1) return true;
+  if(String(IN_SRC[t]||"").indexOf("DI")>-1) return true;
+  if(IN_MULTI[t] && IN_MULTI[t].some(function(c){ return String(c[1]||"").indexOf("DI")>-1; })) return true;   /* ampli con DI out */
+  return false;
+}
+function diUsesBox(it){   /* questo elemento passa da una DI? (catena dei prelievi, tendina microfonazione, o mic di default "DI") */
   if(!it || it.balOut) return false;
+  if(hasChain(it)) return chainOf(it).needDi;   /* serve solo se il prelievo di linea è ancora sbilanciato */
   if(MIKING[it.type]) return !!DI_MIKING[it.miking || MIKING[it.type].def];
   if(it.type==="dimono" || it.type==="distereo") return false;   /* la DI non passa da sé stessa */
   var st=STEREO_TOGGLE[it.type];
@@ -12576,7 +12801,11 @@ function diUsesBox(it){   /* questo elemento passa da una DI? (tendina microfona
 }
 function diLinked(it){ return (it&&it.diId) ? (state.items||[]).filter(function(x){ return x.id===it.diId; })[0] : null; }
 function diSourceOf(di){ return (di&&di.diFor) ? (state.items||[]).filter(function(x){ return x.id===di.diFor; })[0] : null; }
-function diDefaultOff(it){   /* di fianco allo strumento, verso il pubblico: a portata di jack corto */
+function diDefaultOff(it){   /* di fianco alla FINE del tratto sbilanciato: a portata di jack corto */
+  if(hasChain(it) && chainOf(it).ped){   /* con la pedaliera la DI sta dopo di lei, non allo strumento */
+    var p=[0, (look2Art(it)||it.sedia) ? 72 : 64];
+    return [Math.round(p[0]+34), Math.round(p[1]+6)];
+  }
   return [Math.round((it.w||60)/2+22), Math.round((it.d||60)/2+6)];
 }
 function diSyncPos(src){   /* riporta la DI al suo posto rispetto allo strumento (offset locale + rotazione) */

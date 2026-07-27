@@ -74,7 +74,7 @@ function reset() {
      (hasMeaningfulDocument → isFreshBlankProject). */
   A.VARIANTS = []; A.activeVar = null; A.DOC_EXTRA = {}; A.ensureVariants();
 }
-function add(type, x, y) { A.addItem(type, { x, y }); return A.state.items[A.state.items.length - 1]; }
+function add(type, x, y) { return A.addItem(type, { x, y }) || A.state.items[A.state.items.length - 1]; }   /* addItem puo' creare anche la DI: vale il valore restituito */
 function chans(it) { return A.cabItemInputs(it); }
 
 console.log("StagePlot — test motori\n");
@@ -2369,7 +2369,7 @@ t("produzione fase 5 — Scenario C: proiettore+schermo → sistema video attiva
 });
 t("produzione fase 5 — Scenario D: rec multitraccia da definire → split da concordare (con n. canali reali)", () => {
   reset(); add("grancoda", 300, 300); add("vlnpost", 500, 300);   // canali reali >1
-  add("laptop", 700, 300); A.state.items[A.state.items.length - 1].uso = "rec_audio";
+  add("laptop", 700, 300).uso = "rec_audio";   /* l'ultimo item puo' essere la DI del laptop */
   const A5 = A.auditEngine();
   const split = A5.findings.filter(f => f.lvl === "todef" && /split/.test(f.msg));
   eq(split.length, 1, "split da concordare");
@@ -3765,6 +3765,136 @@ t("quando manca la stage box il cablaggio automatico guida invece di rispondere 
   need.action.run();
   ok(A.state.items.some(A.cabIsBox), "la stage box non e' stata aggiunta");
   eq(A.autoConnectNeeds("cabin"), null, "con box e sorgenti non deve chiedere altro");
+});
+/* CATENA D'USCITA (Simone 26/07): microfonazione + pedaliera + uscita bilanciata devono parlarsi.
+   Basso con pedaliera: basso → pedaliera → (DI se jack) → stage box. */
+function outSetup() {
+  reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16;
+  const bs = add("bassstand", 300, 400);
+  return { box, bs };
+}
+t("uno strumento che nasce in DI porta la sua DI gia' all'inserimento", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const bs = add("bassstand", 300, 400);
+  ok(A.diLinked(bs), "il basso nasce col prelievo di linea: la DI deve esserci");
+  eq(A.state.items.filter(i => i.type === "dimono").length, 1, "una sola DI");
+  eq(A.cabItemInputs(bs).length, 1, "un canale solo");
+  const voce = add("cantante", 500, 400);
+  ok(!A.diLinked(voce), "una voce non deve portarsi dietro una DI");
+});
+/* CATENA D'USCITA (Simone 27/07, variante C): lo strumento esce SEMPRE jack; poi DI, oppure
+   pedaliera (jack o XLR), oppure ampli da cui si prende mic e/o DI out — o entrambi. */
+function chainSetup(tp) {
+  reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16;
+  const it = add(tp || "bassstand", 300, 400);
+  return { box, it };
+}
+t("i default di partenza rispecchiano la pratica: basso e acustica in DI, elettrica sul mic dell'ampli", () => {
+  reset();
+  const b = A.chainOf({ type: "bassstand" }), a = A.chainOf({ type: "gtacustica" }), e = A.chainOf({ type: "gtstand" });
+  eq([b.tapLine, b.amp], [true, false], "basso: linea in DI");
+  eq([a.tapLine, a.amp], [true, false], "acustica: linea in DI");
+  eq([e.tapLine, e.amp, e.ampMic], [false, true, true], "elettrica: microfono sull'ampli");
+});
+t("dritto in DI: un canale e la DI ai piedi dello strumento", () => {
+  const { it } = chainSetup();
+  const c = A.chainOf(it);
+  ok(c.tapLine && c.needDi, "il prelievo di linea e' sbilanciato: serve la DI");
+  eq(A.cabItemInputs(it)[0].mic, "DI", "canale");
+  const di = A.diLinked(it);
+  ok(di && Math.hypot(di.x - it.x, di.y - it.y) < 120, "la DI sta accanto allo strumento");
+});
+t("pedaliera con uscita jack: la DI si sposta DOPO la pedaliera", () => {
+  const { it } = chainSetup();
+  A.chainToggle(it, "ped");
+  const c = A.chainOf(it);
+  ok(c.ped && !c.pedXlr && c.needDi, "pedaliera jack: la DI ci vuole ancora");
+  const di = A.diLinked(it), ped = A.chainNodePos(it, "pedaliera");
+  ok(Math.hypot(di.x - ped[0], di.y - ped[1]) < Math.hypot(di.x - it.x, di.y - it.y),
+    "la DI deve stare accanto alla pedaliera");
+  A.__cabRes = null;
+  const l = (A.cabResult().links || [])[0];
+  ok(l.pts.some(p => Math.abs(p[0] - ped[0]) < 2 && Math.abs(p[1] - ped[1]) < 2), "il cavo passa dalla pedaliera");
+  ok(l.pts.some(p => Math.abs(p[0] - di.x) < 2 && Math.abs(p[1] - di.y) < 2), "il cavo passa dalla DI");
+});
+t("pedaliera con uscita XLR: niente DI e il canale diventa XLR", () => {
+  const { it } = chainSetup();
+  A.chainToggle(it, "ped"); A.chainToggle(it, "pedxlr");
+  const c = A.chainOf(it);
+  ok(c.lineBal && !c.needDi, "bilanciata: nessuna DI");
+  ok(!A.diLinked(it), "la DI deve sparire dal palco");
+  eq(A.cabItemInputs(it)[0].mic, "XLR", "il canale non e' piu' DI");
+  eq(A.patchList().rows.length, 1, "sempre un canale solo");
+});
+t("dall'ampli: microfono, DI out o entrambi — un canale per prelievo", () => {
+  const { it } = chainSetup();
+  A.chainToggle(it, "line");                 // spegne la linea
+  A.chainToggle(it, "amp");                  // accende l'ampli: parte dal microfono
+  eq(A.cabItemInputs(it).map(c => c.mic).join("+"), "MD421", "solo microfono sul cono");
+  ok(!A.diLinked(it), "col microfono non serve nessuna DI");
+  A.chainToggle(it, "ampdi");                // + DI out della testata
+  eq(A.cabItemInputs(it).map(c => c.mic).join("+"), "MD421+DI out", "due canali distinti");
+  eq(A.patchList().rows.length, 2, "due righe in lista canali");
+  A.chainToggle(it, "ampmic");               // solo DI out
+  eq(A.cabItemInputs(it).map(c => c.mic).join("+"), "DI out", "solo DI out");
+  ok(!A.diLinked(it), "la DI out e' gia' bilanciata: niente DI esterna");
+});
+t("DI prima dell'ampli + microfono sul cono: due canali e la DI c'e'", () => {
+  const { it } = chainSetup();
+  A.chainToggle(it, "amp");                  // linea (default) + ampli col suo microfono
+  const mics = A.cabItemInputs(it).map(c => c.mic);
+  eq(JSON.stringify(mics), JSON.stringify(["DI", "MD421"]), "linea in DI + microfono");
+  ok(A.diLinked(it), "il canale di linea e' sbilanciato: la DI serve");
+});
+t("acustica: il microfono sullo strumento e' un prelievo a se'", () => {
+  const { it } = chainSetup("gtacustica");
+  A.chainToggle(it, "strmic");
+  eq(A.cabItemInputs(it).map(c => c.mic).join("+"), "DI+KM184", "DI del pickup + condensatore");
+  A.chainToggle(it, "line");
+  eq(A.cabItemInputs(it).map(c => c.mic).join("+"), "KM184", "solo microfono");
+  ok(!A.diLinked(it), "senza prelievo di linea non serve la DI");
+});
+t("spegnere tutti i prelievi = nessun canale (e l'hint lo dice)", () => {
+  const { it } = chainSetup();
+  A.chainToggle(it, "line");
+  eq(A.cabItemInputs(it).length, 0, "nessun canale");
+  ok(/niente al mixer/.test(A.chainHint(it)), "l'hint deve avvisare: " + A.chainHint(it));
+});
+t("la vecchia microfonazione migra nella catena senza perdere niente", () => {
+  reset();
+  const casi = [
+    ["bassstand", "di", ["DI"]],
+    ["bassstand", "didmic", ["DI", "MD421"]],
+    ["bassstand", "ampli", ["MD421"]],
+    ["gtstand", "ampli", ["SM57"]],
+    ["gtstand", "amplidi", ["DI", "SM57"]],
+    ["gtacustica", "dimic", ["DI", "KM184"]],
+    ["gtacustica", "mic", ["KM184"]],
+    ["bassstand", "__nomic__", []]
+  ];
+  casi.forEach(function (c) {
+    const it = { id: "x", type: c[0], x: 0, y: 0, miking: c[1] };
+    A.chainMigrate(it);
+    eq(JSON.stringify(A.cabItemInputs(it).map(x => x.mic)), JSON.stringify(c[2]), c[0] + " / " + c[1]);
+    ok(it.miking === undefined, "la vecchia microfonazione va rimossa");
+  });
+});
+t("l'uscita bilanciata dei vecchi progetti diventa la pedaliera XLR", () => {
+  reset();
+  const it = { id: "y", type: "bassstand", x: 0, y: 0, miking: "di", balOut: true, pedaliera: true };
+  A.chainMigrate(it);
+  eq(it.pedXlr, true, "balOut sulla pedaliera = uscita XLR");
+  ok(it.balOut === undefined, "il vecchio campo va via");
+  eq(A.cabItemInputs(it)[0].mic, "XLR", "canale bilanciato");
+});
+t("la catena vale per chitarre e basso, non per gli altri", () => {
+  reset();
+  [["bassstand", true], ["gtstand", true], ["gtacustica", true],
+   ["cantante", false], ["stagepiano", false], ["laptop", false], ["bassamp", false]].forEach(function (c) {
+    eq(A.hasChain({ type: c[0] }), c[1], c[0]);
+  });
 });
 /* 26/07 (Simone): "chitarre e bassi nel motore di ricerca non hanno l'illustrazione della persona".
    L'anteprima del catalogo/quick-add disegnava lo schema anche per i tipi che sul palco nascono
