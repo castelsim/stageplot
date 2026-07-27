@@ -83,7 +83,18 @@ console.log("Microfonazione / cabItemInputs:");
 t("batteria = 8 canali (generica)", () => { reset(); const b = add("batteria", 400, 400); eq(chans(b).length, 8); });
 t("archi vln1x2 default (archetto) = 2 canali DPA", () => { reset(); const v = add("vln1x2", 300, 300); eq(chans(v).length, 2); eq(chans(v)[0].mic, "DPA 4099"); });
 t("archi vln1x2 miking pan1 = 1 canale, pan2 = 2", () => { reset(); const v = add("vln1x2", 300, 300); v.miking = "pan1"; A.__cabRes = null; eq(chans(v).length, 1); v.miking = "pan2"; eq(chans(v).length, 2); });
-t("corista: panoramico di default (0), asta tonda = 1 (SM58)", () => { reset(); const c = add("corista", 200, 300); eq(chans(c).length, 0, "coristi coperti dal mic di sezione"); c.micMode = "tonda"; eq(chans(c).length, 1); eq(chans(c)[0].mic, "SM58"); c.micMode = "mano"; eq(chans(c).length, 1, "in mano = 1 canale"); c.micMode = "pano"; eq(chans(c).length, 0, "panoramico = 0"); });
+t("corista: nasce col SUO microfono (SM58); panoramico = 0", () => { reset(); const c = add("corista", 200, 300); eq(chans(c).length, 1, "un corista aggiunto a mano ha il suo mic"); eq(chans(c)[0].mic, "SM58"); c.micMode = "pano"; eq(chans(c).length, 0, "panoramico: lo copre il mic di sezione"); });
+t("il coro generato in massa nasce panoramico (overhead, non un mic a testa)", () => {
+  reset();
+  const gen = A.choirItems ? A.choirItems({ s: 3, a: 3, t: 2, b: 2 }) : null;
+  if (gen && gen.length) {
+    const coristi = gen.filter(x => x.type === "corista");
+    ok(coristi.length > 0, "il generatore crea coristi");
+    ok(coristi.every(x => x.micMode === "pano"), "tutti panoramici: la ripresa e' d'insieme");
+  } else {
+    ok(appjs.indexOf('donna:s.donna, micMode:"pano"') > -1, "il generatore coro deve marcare i coristi come panoramici");
+  }
+});
 t("cantante: mic personale (1 SM58) tranne panoramico (0)", () => { reset(); const c = add("cantante", 200, 300); eq(chans(c).length, 1); eq(chans(c)[0].mic, "SM58"); ["tonda","giraffa","mano"].forEach(function(m){ c.micMode=m; eq(chans(c).length,1,m+" = 1 canale"); }); c.micMode="pano"; eq(chans(c).length,0); });
 t("fiato (tromba) default = 1 (e906), panoramico = 0", () => { reset(); const tr = add("tromba", 200, 300); eq(chans(tr).length, 1); eq(chans(tr)[0].mic, "e906"); tr.miking = "pan"; eq(chans(tr).length, 0); });
 t("archi singolo (violoncello) archetto = 1, panoramico = 0", () => { reset(); const vc = add("violoncello", 200, 300); eq(chans(vc).length, 1); vc.miking = "pan"; eq(chans(vc).length, 0); });
