@@ -173,6 +173,7 @@
     --n-500:#746e60;--n-600:#59544a;--n-700:#423e36;--n-800:#292620;--n-900:#1a1815;
     /* accent brand (teal, uno solo) */
     --accent-tint:#e4f2f0;--accent-soft:#b9dcd7;--accent:#0d9488;--accent-strong:#0b7a70;--accent-bright:#14b8a6;
+    --accent-deep:#096a61;   /* hover del bottone primario: 6,47:1 su bianco (audit 27/07) */
     /* semantica canvas (invariata) */
     --canvas-monitor:#2563eb;--canvas-power:#dc2626;--canvas-tech:#b45309;--canvas-ink:#1f2937;
     /* feedback */
@@ -242,15 +243,25 @@
   /* Sezione 5: divisori tra gruppi della toolbar */
   .tbdiv{width:1px;height:20px;background:var(--border);flex:0 0 auto;align-self:center}
   .btn:hover{background:var(--n-200)}
-  .btn.primary{background:var(--accent);color:#fff}
-  .btn.primary:hover{background:var(--accent-strong)}
+  /* Il primario porta testo bianco a 13px: --accent (#0d9488) dava 3,74:1, sotto il 4,5:1 richiesto da
+     WCAG AA per il testo normale — e lo dava sull'azione principale di OGNI schermata. --accent-strong
+     è 5,21:1. (Il design system dichiarava ~4,8:1: è il contrasto del vecchio accent blu #0e7490, mai
+     ricalcolato dopo il passaggio al teal in v2.2 — audit 27/07.) */
+  .btn.primary{background:var(--accent-strong);color:#fff}
+  .btn.primary:hover{background:var(--accent-deep)}
   .btn.danger{background:var(--danger-bg);color:var(--danger)}
   .btn.danger-solid{background:var(--danger);color:#fff}
+  /* Stati mancanti (audit 27/07): senza :disabled il JS iniettava style.opacity a mano, con valori
+     diversi da punto a punto — e dove non lo faceva il bottone sembrava attivo ma non rispondeva.
+     Senza :active nessun bottone dava il ritorno tattile della pressione. */
+  .btn:active:not(:disabled){transform:translateY(1px)}
+  .btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
+  .btn.primary:disabled,.btn.primary[disabled]{background:var(--accent-strong)}
   /* Pannello elemento (Opzione 2): bottoni con CONTORNO + fondo chiaro, come il mockup (toggle attivo=teal, Elimina=rosso con contorno) */
   #selProps .btn{background:var(--surface);border:1px solid var(--border);color:var(--text)}
   #selProps .btn:hover{background:var(--n-100)}
-  #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  #selProps .btn.primary:hover{background:var(--accent-strong)}
+  #selProps .btn.primary{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+  #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
   #selProps .btn.danger{background:var(--surface);border-color:var(--border);color:var(--danger)}
   /* Opzione 2: niente linee tratteggiate tra toggle/slider nel pannello (copre anche i controlli COMP dinamici, es. batteria) */
   #props #selProps .chk{border-bottom:none;padding:6px 0}
@@ -451,7 +462,7 @@
     transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
   #props input:not([type=range]):hover,#props select:hover{border-color:var(--border-strong)}   /* feedback al passaggio, come nei mockup */
   #props select{appearance:none;-webkit-appearance:none;padding-right:28px;cursor:pointer;   /* chevron custom coerente (niente freccia di sistema) */
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%23a29c8e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     background-repeat:no-repeat;background-position:right 9px center}
   /* Card di gruppo nel pannello proprietà (riusabile — niente più stili inline sparsi) */
   #props .prop-card{border:1px solid var(--border);border-radius:var(--r-lg);padding:11px 12px;margin:0 0 9px;background:var(--surface-raised);
@@ -931,7 +942,12 @@
   body.dark .rowedit{background:#141a1d;color:#e5e7eb}
   .patch-row:last-child{border-bottom:none}
   .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
-  .patch-row .pn{color:var(--text-3);font-weight:700}
+  /* Le celle della TESTATA non avevano troncamento: col pannello stretto «SORGENTE» sbordava e finiva
+     stampata sopra «MIC / DI» — si leggeva «SORGEИTE/DI» (audit 27/07). */
+  .patch-row.patch-hd>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  /* Il numero di canale è il dato più consultato da chi sta cablando: --text-3 è 2,73:1 su bianco ed è
+     riservato dal design system a placeholder e decorazioni, non a un'informazione operativa. */
+  .patch-row .pn{color:var(--text-2);font-weight:700}
   .patch-row .psrc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
   .patch-row .pmic{color:var(--text-2);font-size:10.5px;display:flex;align-items:center;gap:4px;min-width:0}
   .patch-row .pmic .micname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}   /* tronca il NOME mic, non il badge */
@@ -2956,7 +2972,6 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
   <div class="mcard">
     <h2>Aggiungi stage box</h2>
     <p class="hint" id="cabWizNeed">Sul palco ci sono ingressi audio ma nessuna stage box.</p>
-    <p class="hint" style="margin-top:2px">Aggiungi le stage box che hai davvero: le posiziono io vicino ai gruppi di strumenti.</p>
     <div id="cabWizRows" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
     <button class="btn" id="cabWizAdd" style="width:100%;margin-top:8px">+ Aggiungi stage box</button>
     <div class="comp-dim" id="cabWizCover" style="margin-top:10px">—</div>

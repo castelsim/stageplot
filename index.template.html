@@ -1141,7 +1141,6 @@
   <div class="mcard">
     <h2>Aggiungi stage box</h2>
     <p class="hint" id="cabWizNeed">Sul palco ci sono ingressi audio ma nessuna stage box.</p>
-    <p class="hint" style="margin-top:2px">Aggiungi le stage box che hai davvero: le posiziono io vicino ai gruppi di strumenti.</p>
     <div id="cabWizRows" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
     <button class="btn" id="cabWizAdd" style="width:100%;margin-top:8px">+ Aggiungi stage box</button>
     <div class="comp-dim" id="cabWizCover" style="margin-top:10px">—</div>
@@ -2622,7 +2621,10 @@ var TYPES = {
                circ(0,-8,2.5,'ic fill')+lin(0,-8,0,0,'ic thin'); }},
   cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
-  corista:  {nome:"Corista", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
+  /* Si chiama «Voce» perché è la figura generica della voce: il catalogo la offre come Uomo/Donna sotto
+     la ricerca «voce/cantante/corista», e il pannello deve dire la stessa parola con cui l'hai trovata.
+     Prima diceva «Corista» — che in italiano è il cantante di un coro, non il solista (audit 27/07). */
+  corista:  {nome:"Voce", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
              draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
@@ -5662,6 +5664,9 @@ function itemMarkup(it){
     /* postazioni con sedia: etichetta sopra allo schienale di default (ruota con l'elemento) */
     var lblAbove = !!POSTAZ[it.type] && optSedia(it) && it.lblAbove !== false;
     var benchExtra = (KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* piano/tastiere con sgabello: nome sotto lo sgabello, non sopra */
+    /* Voci con microfono su asta: la base dell'asta sporge sotto il footprint, e il nome ci finiva
+       sopra (audit 27/07, emerso quando le voci hanno smesso di nascere anonime). */
+    if(VOCE[it.type]){ var _mm=micModeOf(it); if(_mm==="tonda"||_mm==="giraffa") benchExtra += 26; }
     var ly  = lblAbove ? -52.5 - fsz*0.35 : it.d/2 + 9 + fsz*0.72 + benchExtra;   /* sotto: superare il selbox (bordo a d/2+9) così il testo non ci finisce dentro */
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
@@ -5672,7 +5677,12 @@ function itemMarkup(it){
       if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(-tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
       if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+tilt+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
-      s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
+      /* DI generata da uno strumento (audit 27/07): il suo posto è sotto lo strumento, quindi la sua
+         etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
+         «Chitarra acustica 1» + «DI 1» = «Chitarrala…stica 1», al primo elemento aggiunto. Qui il nome
+         esce di lato, dove non c'è nient'altro. */
+      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+7)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+'</text>';
+      else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
     }
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
@@ -7052,7 +7062,13 @@ function cabAlign(){
 /* ===== CABLAGGIO ELETTRICO — motore (carichi → distro → alimentazione, bilanciamento fasi) =====
    Stesso principio del cablaggio audio: dati (WATT reali) → calcolo → layer → report. */
 var ELEC_VOLT=230;
-var ELEC_DISTRO = { distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"} };
+/* Soglie sotto le quali l'Audit tace (27/07, dall'audit d'uso). Un duo acustico — due canali e un ampli
+   da 200 W in una presa — prendeva «Da rivedere» con un errore critico, perché le regole erano tarate
+   su una produzione media applicata a qualunque progetto. Sotto queste soglie stage box, quadro
+   elettrico e monitor di palco non mancano: semplicemente non servono. */
+var AUDIT_MIN_CH=4;      /* canali audio: fino a 4 si va diretti al banco, senza stage box */
+var AUDIT_MIN_W=1000;    /* watt: sotto 1 kW non si tira un quadro, si usa la Schuko che c'è */
+var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"} };
 var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"],[250,"70 mm²"]];
 function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
@@ -7289,7 +7305,10 @@ function electricEngine(){
   loadLinks.forEach(function(l){ if(l.cee) issues.push({lvl:"warn", msg:"«"+(l.load.it.label||TYPES[l.load.it.type].nome)+"» "+l.load.a.toFixed(0)+" A: serve una linea dedicata (CEE), non una Schuko."}); });
   loadLinks.forEach(function(l){ if(l.lenM>25) issues.push({lvl:"warn", msg:"Carico lontano dal distro ("+(l.load.it.label||TYPES[l.load.it.type].nome)+", "+l.lenM.toFixed(0)+" m): valuta la caduta di tensione / sezione maggiore."}); });
   if(supply && supply.kva && totW>supply.kva*1000*0.9) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: carico "+elecKW(totW)+" (> 90% della resa)."});
-  if(!distros.length && loads.length) issues.push({lvl:"err", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
+  /* Stessa `rule` della regola gemella in auditEngine: una sola voce, non due formulazioni.
+     In scala (audit 27/07): sotto AUDIT_MIN_W siamo nell'ordine dell'ampli attaccato alla Schuko che
+     c'è già — non manca niente, quindi non si segnala niente. I totali restano nel pannello. */
+  if(!distros.length && loads.length && totW>AUDIT_MIN_W) issues.push({lvl:"err", rule:"nodistro", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
   if(pendingE.length) issues.push({lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
   return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply,
           totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
@@ -7474,16 +7493,28 @@ function pmFillProps(it){
 var AUDIT_MON_NEAR=350;   /* T1 — soglia prossimità monitor (~3,5 m a 100 px/m); tarabile */
 function auditEngine(){
   var items=state.items||[], Rc=cabResult(true), Re=elecResult(true), f=[];
-  function add(lvl,msg,cat,fix,act){ f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null}); }
+  /* Dedup per CHIAVE, non per testo (audit 27/07): la stessa regola dichiarata sia qui sia dentro un
+     motore usciva due volte — con due formulazioni diverse e due gravità diverse — perché il confronto
+     era sulla stringa. Chi la dichiara per primo vince: qui le regole hanno l'azione a un click. */
+  var seen={};
+  function add(lvl,msg,cat,fix,act,rule){
+    if(rule){ if(seen[rule]) return; seen[rule]=1; }
+    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null});
+  }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
   var realBox=items.some(cabIsBox), realDistro=items.some(elecIsDistro);
   /* completezza / impostazione — con azione a un click (audit azionabile) */
   if(!items.length) add("info","Palco vuoto: aggiungi strumenti, microfoni ed elementi.","Progetto");
-  if(audioSrc>0 && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.",{label:"Aggiungi stage box",run:auditFixAddBox});
-  if(loadsN>0 && !realDistro) add("warn","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro});
+  /* Soglie (audit 27/07): sotto una certa dimensione questi rilievi sono fuori scala. Per 2 canali si
+     tirano due cavi al banco, e 200 W sono un ampli in una Schuko: né stage box né quadro elettrico.
+     Sopra la soglia tornano a essere quello che sono, cioè roba che manca davvero. */
+  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
+  /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
+     click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
+  if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add("err","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* "Alimentazione non definita" rimosso: nel modello a 2 livelli il quadro è un elemento piazzato,
      il "da collegare al quadro" lo segnala già il motore sui carichi scoperti. */
-  if(audioSrc>0 && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge});
+  if(audioSrc>AUDIT_MIN_CH && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
   if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del rider.","Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
@@ -7540,14 +7571,26 @@ function auditEngine(){
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
     +(Rc.returnLinks||[]).reduce(function(a,l){return a+l.lenM;},0)
     +(Re.loadLinks||[]).reduce(function(a,l){return a+l.lenM;},0);
-  /* aggrega criticità dei motori (err/warn, dedup) con la loro categoria d'origine */
-  var seen={};
-  (Rc.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1;
-    var capF = i.code==="cap"; add(i.lvl,i.msg,"Audio", capF?"Aggiungi una stage box (o un RIO con più canali) dal catalogo.":"", capF?{label:"Aggiungi stage box",run:auditFixAddBox}:null); } });
-  ((netEngine()||{}).issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Rete"); } });   /* L5 */
-  (typeof rfIssues==="function"?rfIssues():[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"RF"); } });   /* F3 */
-  ((typeof busList==="function"&&(state.buses||[]).length)?busList().issues:[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Audio"); } });   /* Output list */
-  (Re.issues||[]).forEach(function(i){ if(i.lvl!=="info" && !seen[i.msg]){ seen[i.msg]=1; add(i.lvl,i.msg,"Elettrico"); } });
+  /* aggrega criticità dei motori (err/warn, dedup) con la loro categoria d'origine.
+     La chiave è `rule` quando il motore la dichiara, altrimenti il testo: così una regola già coperta
+     qui sopra (con la sua azione a un click) non ricompare in una seconda formulazione. `rule` è
+     l'IDENTITÀ della regola — da non confondere con `code`, che è l'etichetta di tipo usata per
+     decorare (più rilievi diversi possono condividere lo stesso `code`, es. "cap"). */
+  function absorb(list,cat,decorate){
+    (list||[]).forEach(function(i){
+      if(!i || i.lvl==="info") return;
+      var k=i.rule||i.msg; if(seen[k]) return; seen[k]=1;
+      var d=decorate?decorate(i):null;
+      f.push({lvl:i.lvl, msg:i.msg, cat:cat, fix:(d&&d.fix)||"", act:(d&&d.act)||null});
+    });
+  }
+  absorb(Rc.issues,"Audio",function(i){ return i.code==="cap"
+    ? {fix:"Aggiungi una stage box (o un RIO con più canali) dal catalogo.", act:{label:"Aggiungi stage box",run:auditFixAddBox}}
+    : null; });
+  absorb((netEngine()||{}).issues,"Rete");   /* L5 */
+  absorb(typeof rfIssues==="function"?rfIssues():[],"RF");   /* F3 */
+  absorb((typeof busList==="function"&&(state.buses||[]).length)?busList().issues:[],"Audio");   /* Output list */
+  absorb(Re.issues,"Elettrico");
   /* punteggio di prontezza (pesato per gravità) */
   /* ===== PRODUZIONE (fase 4): regole di coerenza (brief §9) =====
      Filosofia §2: l'assenza NON è un errore. Livello "todef" = aspetto da definire (scelta consapevole,
@@ -8379,8 +8422,8 @@ function renderProps(){
     /* --- opzioni multiple (sedia/leggio) applicate a tutti --- */
     var allSedia=its.every(supportsSedia), allLeggio=its.every(supportsLeggio);
     document.getElementById("grpOpts").style.display = (allSedia||allLeggio) ? "block" : "none";
-    document.getElementById("grpSediaWrap").style.display = allSedia ? "block" : "none";
-    document.getElementById("grpLeggioWrap").style.display = allLeggio ? "block" : "none";
+    document.getElementById("grpSediaWrap").style.display = allSedia ? "" : "none";       /* "" e non "block": .chk è flex (controllo a destra) */
+    document.getElementById("grpLeggioWrap").style.display = allLeggio ? "" : "none";
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
     /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
@@ -8696,7 +8739,7 @@ function renderProps(){
     var _mmw=document.getElementById("pMicModeWrap"); if(_mmw) _mmw.style.display = "";
     var _mm=document.getElementById("pMicMode"); if(_mm){ _mm.value = micModeOf(it); try{ _mm.dispatchEvent(new Event("chips-sync")); }catch(e){} }
     document.getElementById("pLeggioV").checked = it.leggio!==false;
-    document.getElementById("pSediaVWrap").style.display = (it.type==="corista") ? "block" : "none";   /* sedia solo per coristi */
+    document.getElementById("pSediaVWrap").style.display = (it.type==="corista") ? "" : "none";   /* sedia solo per le voci — "" e non "block", che rompeva l'allineamento del toggle (audit 27/07) */
     document.getElementById("pSediaV").checked = it.sedia===true;
   }
   /* i toggle sedia/leggio/ampli/pedaliera valgono anche per la chitarra classica in aspetto
@@ -10114,6 +10157,16 @@ function addItem(type, over){
     if(DOUBLE_TYPES[type]) it.label2=base0+" "+(seats0+2);
   }
   if(VOCE[type]){ it.mano=false; it.leggio=(type==="corista"); it.donna=false; }   /* cantante: mic su asta, no leggio · corista: leggio */
+  /* Voce inserita a mano dal catalogo: nasce con un nome, come ogni strumento (audit 27/07 — prima
+     restava una figura anonima sul palco e un pallino senza didascalia nella vista Ingressi).
+     I coristi creati in massa dal generatore coro passano il LORO label in `over` e non toccano questo. */
+  if(type==="corista" && !(over && over.label!=null)){
+    var _voci=(state.items||[]).reduce(function(m,o){
+      var mm=(o.type==="corista" && typeof o.label==="string") ? o.label.match(/^Voce\s+(\d+)$/) : null;
+      return mm ? Math.max(m, +mm[1]) : m;
+    }, 0);
+    it.label="Voce "+(_voci+1);
+  }
   if(COMP[type]){ it.parts=compClone(COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
@@ -11673,10 +11726,32 @@ document.getElementById("bChanDone").addEventListener("click", toggleChan);
 })();
 document.getElementById("inAdd").addEventListener("click", function(){ state.inputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("in"); });
 document.getElementById("outAdd").addEventListener("click", function(){ state.outputs.push(normalizeChannelRow({})); save(); renderChannels(); ensureClOpen("out"); });
-document.getElementById("inClear").addEventListener("click", function(){ if(state.inputs.length && confirm("Svuotare la input list?")){ state.inputs=[]; save(); renderChannels(); } });
-document.getElementById("outClear").addEventListener("click", function(){ if(state.outputs.length && confirm("Svuotare la output list?")){ state.outputs=[]; save(); renderChannels(); } });
-document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation(); autoInputs(); ensureClOpen("in"); });
-document.getElementById("outAuto").addEventListener("click", function(e){ e.stopPropagation(); autoOutputs(); ensureClOpen("out"); });
+/* Le quattro azioni distruttive sulle liste usano la finestra dell'app, non i dialoghi nativi del
+   browser (audit 27/07): quelli si possono sopprimere — e allora l'azione o non parte più o parte
+   senza chiedere — e bloccavano la scheda al secondo click. */
+function askThenRun(hasContent, title, message, confirmText, run){
+  if(!hasContent){ run(); return; }
+  confirmDialog({icon:"warn", title:title, message:message, confirmText:confirmText})
+    .then(function(ok){ if(ok) run(); });
+}
+document.getElementById("inClear").addEventListener("click", function(){
+  askThenRun(state.inputs.length, "Svuotare la input list?", "Le righe vengono cancellate. Puoi rigenerarle dai mic e dalle DI sul palco con «Auto».", "Svuota",
+    function(){ state.inputs=[]; save(); renderChannels(); });
+});
+document.getElementById("outClear").addEventListener("click", function(){
+  askThenRun(state.outputs.length, "Svuotare la output list?", "Le righe vengono cancellate. Puoi rigenerarle dai monitor sul palco con «Auto».", "Svuota",
+    function(){ state.outputs=[]; save(); renderChannels(); });
+});
+document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation();
+  askThenRun(state.inputs.some(function(r){return r.src||r.mic;}), "Rigenerare la input list?",
+    "Viene ricostruita dai mic e dalle DI sul palco, e sostituisce quella attuale.", "Rigenera",
+    function(){ autoInputs(); ensureClOpen("in"); });
+});
+document.getElementById("outAuto").addEventListener("click", function(e){ e.stopPropagation();
+  askThenRun(state.outputs.some(function(r){return r.src||r.mic;}), "Rigenerare la output list?",
+    "Viene ricostruita dai monitor sul palco, e sostituisce quella attuale.", "Rigenera",
+    function(){ autoOutputs(); ensureClOpen("out"); });
+});
 function clToggle(kind){ var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body"); var open=head.classList.toggle("open"); body.classList.toggle("open", open); }
 function ensureClOpen(kind){ var head=document.getElementById(kind+"Head"), body=document.getElementById(kind+"Body"); head.classList.add("open"); body.classList.add("open"); }
 document.getElementById("inHead").addEventListener("click", function(e){ if(e.target.closest(".btn")) return; clToggle("in"); });
@@ -14062,7 +14137,10 @@ function cabSuggestBoxes(needs){   /* default = una box per cluster, arrotondata
 function cabActivateFlow(){
   state.cab.on=true; techAccordionOpen("patch"); __cabRes=null;   /* D-L1A: la lista che si apre sotto il layer è la channel list (il vecchio pannello "cab" non esiste più) */
   var needs=cabPlanNeeds();
-  if(needs.totIn>0 && !state.items.some(cabIsBox)){ save(); render(); openCabBoxWizard(needs); return; }   /* servono box → wizard */
+  /* Il wizard si apre solo quando le stage box servono davvero (audit 27/07): sotto AUDIT_MIN_CH si va
+     diretti al banco, e chi accendeva il layer per GUARDARE gli ingressi si ritrovava una finestra che
+     gli proponeva una box da 8 canali per 2 ingressi — con «stage box» mai spiegato. */
+  if(needs.totIn>AUDIT_MIN_CH && !state.items.some(cabIsBox)){ save(); render(); openCabBoxWizard(needs); return; }
   save(); render();
 }
 var __cabWizSizes=[];
@@ -14070,8 +14148,11 @@ function openCabBoxWizard(needs){
   var m=document.getElementById("cabModal"); if(!m) return;
   __cabWizSizes = cabSuggestBoxes(needs).slice(); if(!__cabWizSizes.length) __cabWizSizes=[8];
   m._needs=needs;
+  /* Una frase sola, e «stage box» spiegata la prima volta che compare (audit 27/07): prima erano due
+     righe consecutive che dicevano la stessa cosa, con un termine mai tradotto. */
   document.getElementById("cabWizNeed").textContent =
-    "Servono ~"+needs.totIn+" canali su "+needs.clusters.length+" grupp"+(needs.clusters.length===1?"o":"i")+" di strumenti. Metti le stage box che hai:";
+    "Servono ~"+needs.totIn+" canali su "+needs.clusters.length+" grupp"+(needs.clusters.length===1?"o":"i")+" di strumenti. "
+    +"Dimmi quante stage box hai e di che taglia — sono le scatole dove si infilano i cavi sul palco: le posiziono io vicino agli strumenti.";
   renderCabWizRows(); m.hidden=false;
 }
 function renderCabWizRows(){
@@ -14714,7 +14795,7 @@ function openRequestsPanel(){
   var ov=reqModal("Richieste ai musicisti", '<div id="rqList" class="prop-hint">Carico…</div>', [["Chiudi","",null]]);
   requestsRefresh(function(rows){
     var box=ov.querySelector("#rqList");
-    if(!rows || !rows.length){ box.textContent="Nessuna richiesta. Selezziona un musicista sul palco e usa «Richiedi setup»."; return; }
+    if(!rows || !rows.length){ box.textContent="Nessuna richiesta. Seleziona un musicista sul palco e usa «Richiedi setup»."; return; }
     box.className="";
     box.innerHTML=rows.map(function(r){
       var quando = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString("it-IT") : "";
@@ -15542,8 +15623,9 @@ function clBank(type){
   if(cat==="Cablaggio e segnale"||cat==="Regia e console"||cat==="Tecnica") return 80;   /* DI, playback, tecnica */
   return 90;
 }
-function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in memoria SENZA salvare né chiedere — M-04 */
-  if(!silent && state.inputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la input list dai mic/DI sul palco? Sostituisce quella attuale.")) return;
+/* La conferma di sovrascrittura vive nei click handler (#inAuto/#outAuto) via confirmDialog: qui dentro
+   era un confirm() NATIVO, e al secondo click bloccava del tutto la finestra (audit 27/07). */
+function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in memoria SENZA salvare — M-04 */
   var rows=[];
   function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
   /* M3: ordina gli strumenti per banco (stabile: parità → ordine di inserimento) prima di numerare i canali */
@@ -15580,8 +15662,7 @@ function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in
   });
   state.inputs=rows; if(!silent) save(); renderChannels();
 }
-function autoOutputs(silent){   /* silent=true dall'apertura Esporta: niente save/confirm — M-04 */
-  if(!silent && state.outputs.some(function(r){return r.src||r.mic;}) && !confirm("Rigenerare la output list dai monitor sul palco? Sostituisce quella attuale.")) return;
+function autoOutputs(silent){   /* silent=true dall'apertura Esporta: niente save — M-04 (conferma nel click) */
   var rows=[];
   state.items.forEach(function(it){
     if(OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]){   /* i personal mixer non generano un canale di uscita analogico: viaggiano in digitale (layer P.M.) */
@@ -18930,16 +19011,9 @@ function buildPdfDoc(paperKey, N, orient, header){
    Ritorna "saved" | "share" | "download" | "abort". */
 function exportPdf(paperKey, scaleSel, orient, header){
   var info=document.getElementById("pdfInfo");
-  /* M-04: gate sugli errori CRITICI — non esportare un documento errato senza una scelta esplicita.
-     Gli avvisi non bloccano; solo gli errori. Override esplicito via conferma. */
-  try{ var _A=(typeof auditEngine==="function") ? auditEngine() : null;
-    if(_A && _A.errs>0){
-      var _first=(_A.findings||[]).filter(function(x){ return x.lvl==="err"; })[0];
-      var _msg="Il progetto ha "+_A.errs+" error"+(_A.errs>1?"i":"e")+" critic"+(_A.errs>1?"i":"o")
-        +(_first?":\n• "+_first.msg:"")+"\n\nIl documento esportato potrebbe essere incompleto o errato. Esportare comunque?";
-      if(!confirm(_msg)){ info.className="mstatus err"; info.textContent="Export annullato: risolvi gli errori critici (Audit) o conferma l'export."; return; }
-    }
-  }catch(e){}
+  /* M-04: il gate sugli errori CRITICI vive nel click di #pdfGo, non più qui — perché lì può usare la
+     finestra dell'app (Promise) invece del confirm() nativo che alcuni browser lasciano sopprimere.
+     Qui si esporta e basta: chi arriva a questo punto ha già scelto. */
   var N=resolveScale(paperKey, scaleSel, orient, cartHFor(header, paperKey, orient));
   var oTxt=(orient==="portrait"?"verticale":"orizzontale");
   var aTxt=printArea().custom?"L'area di stampa":"Il palco";
@@ -19402,9 +19476,29 @@ function pdfChannelPage(doc, L, paperKey){
   document.getElementById("pdfGo").addEventListener("click", function(){
     var b=this;
     if(b.disabled) return;                       /* niente due export in parallelo: erano due file e due passate di svg2pdf sul main thread */
-    b.disabled=true; var _t=b.textContent; b.textContent="Genero…";
-    try{ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); }
-    finally { setTimeout(function(){ b.disabled=false; b.textContent=_t; }, 2500); }
+    function run(){
+      b.disabled=true; var _t=b.textContent; b.textContent="Genero…";
+      try{ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); }
+      finally { setTimeout(function(){ b.disabled=false; b.textContent=_t; }, 2500); }
+    }
+    /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
+       Prima era un confirm() NATIVO del browser: chi spunta «impedisci a questa pagina di creare altre
+       finestre di dialogo» restava senza export, e il bottone smetteva di rispondere senza dire perché.
+       Ora è la finestra dell'app, con due strade dichiarate invece di OK/Annulla. */
+    var _A=null; try{ _A=(typeof auditEngine==="function")?auditEngine():null; }catch(e){}
+    if(!(_A && _A.errs>0)){ run(); return; }
+    var _first=(_A.findings||[]).filter(function(x){ return x.lvl==="err"; })[0];
+    confirmDialog({
+      icon:"warn",
+      title:(_A.errs>1 ? "Ci sono "+_A.errs+" errori critici" : "C'è un errore critico"),
+      message:(_first ? "«"+_first.msg+"»\n\n" : "")+"Il documento esportato potrebbe essere incompleto o errato. Puoi esportarlo lo stesso, oppure sistemarlo prima: nell'Audit ogni voce ha la sua correzione a un click.",
+      confirmText:"Esporta comunque", cancelText:"Vai all'Audit"
+    }).then(function(ok){
+      if(ok){ run(); return; }
+      modal.hidden=true; window.__pdfScope="full";
+      if(typeof toggleAuditView==="function" && typeof auditActive!=="undefined" && !auditActive) toggleAuditView();
+      else if(typeof techAccordionOpen==="function") techAccordionOpen("audit");
+    });
   });
 })();
 /* ============ AREA DI STAMPA — step 1 del flusso PDF ============ */
@@ -19957,7 +20051,11 @@ function closeStageSize(){ var m=document.getElementById("stageSize"); if(m) m.h
 function showStageSizeModal(){
   var m=document.getElementById("stageSize"); if(!m) return;
   var wIn=document.getElementById("ssW"), dIn=document.getElementById("ssD"), err=document.getElementById("ssErr");
-  wIn.value="8"; dIn.value="6"; if(err) err.hidden=true;   /* valori iniziali ragionevoli, modificabili */
+  /* Precompila con le misure del palco che si sta GUARDANDO (audit 27/07): erano fisse a 8×6 mentre
+     dietro la finestra il palco nuovo è 12×8, e l'utente vedeva due verità diverse nello stesso istante. */
+  function _m(cm){ var v=(cm||0)/100; return String(Math.round(v*100)/100).replace(".",","); }
+  var _st=state.stage||{};
+  wIn.value=_m(_st.w||1200); dIn.value=_m(_st.d||800); if(err) err.hidden=true;
   m.hidden=false; __stageSizeOpen=true;
   setTimeout(function(){ try{ wIn.focus(); wIn.select(); }catch(_e){} }, 0);
 }
@@ -19979,7 +20077,12 @@ function maybeAskStageSize(explicit){
     applyStageSize(w, d, false); closeStageSize();
   }
   document.getElementById("ssGo").addEventListener("click", confirm);
-  document.getElementById("ssUnknown").addEventListener("click", function(){ applyStageSize(8, 6, true); closeStageSize(); });   /* palco indicativo 8×6, marcato da confermare */
+  /* «Non conosco le misure» applicava 8×6 in silenzio: chi dichiara di non saperle è proprio quello
+     che ha bisogno di sapere cosa gli è stato messo e come cambiarlo (audit 27/07). */
+  document.getElementById("ssUnknown").addEventListener("click", function(){
+    applyStageSize(8, 6, true); closeStageSize();   /* palco indicativo 8×6, marcato da confermare */
+    if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Forma del palco».");
+  });
   m.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); confirm(); } });
   m.addEventListener("click", function(e){ if(e.target===m) closeStageSize(); });   /* click fuori = tieni il default */
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !m.hidden) closeStageSize(); });
@@ -20435,6 +20538,14 @@ function maybeAskStageSize(explicit){
     }
     if(window.__projLocked && cloudCurrentId){ done(cloudCurrentId); return; }   /* BLOCCO: mai riscrivere un progetto bloccato (backstop lato client) */
     if(cloudConflict){ done(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
+    /* Documento NUOVO e ancora vuoto: l'autosave non deve depositare un guscio nell'elenco (audit
+       27/07 — sei «Senza titolo» accumulati in un pomeriggio, indistinguibili tra loro). Appena si
+       posa qualcosa, il salvataggio successivo crea la riga. Il salvataggio ESPLICITO crea sempre:
+       se l'utente preme Salva, il progetto lo vuole anche vuoto. */
+    if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument()){
+      try{ setDocState("local"); }catch(_e){}   /* «Salvato sul dispositivo»: è la verità finché è vuoto */
+      done(null); return;
+    }
     if(!sb){ fail("Cloud non disponibile."); return; }
     if(!cloudUser){ if(!silent){ toast("Accedi per salvare online."); signIn(); } done(null); return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
