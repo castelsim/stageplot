@@ -99,8 +99,9 @@
   #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
   #selProps .btn.danger{background:var(--surface);border-color:var(--border);color:var(--danger)}
   /* Opzione 2: niente linee tratteggiate tra toggle/slider nel pannello (copre anche i controlli COMP dinamici, es. batteria) */
-  #props #selProps .chk{border-bottom:none;padding:6px 0}
-  #props #selProps .sldrow{border-bottom:none}
+  #props #selProps .chk{border-bottom:none;padding:4px 0}
+  #props #selProps .sldrow{border-bottom:none;padding:5px 0}
+  #props #selProps .sldrow>output{font-weight:600;color:var(--text);min-width:22px;text-align:right;font-size:12px}
   /* ===== Header A′ (UI/UX standardization 02/07): File, nome progetto, chip stato, tint, avatar ===== */
   .btn.ghost{background:transparent}
   .btn.ghost:hover{background:var(--n-100)}
@@ -303,24 +304,24 @@
   /* B3 (27/07) — gruppi del pannello elemento: intestazione col termine del mestiere e separazione
      affidata allo SPAZIO BIANCO, non a riquadri e linee tratteggiate. Stesse righe, molto meno rumore. */
   #props #selProps .pgrp{margin:0 0 2px}
-  #props #selProps .pgrp>.pgh{font-size:11.5px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:19px 0 7px}
+  #props #selProps .pgrp>.pgh{font-size:11.5px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:13px 0 5px}
   #props #selProps .pgrp:first-of-type>.pgh{margin-top:2px}
   #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
   /* dentro un gruppo intitolato, il riquadro è un doppio incapsulamento: resta il contenuto */
   #props #selProps .prop-flat{border:none;background:none;padding:0;margin:0}
   /* Responsabile e contatto: in fondo e chiuso — è il concetto più avanzato del prodotto e stava
      in cima al pannello più usato. */
-  #props #selProps .pdetails{margin-top:16px;border-top:1px dashed var(--border);padding-top:2px}
-  #props #selProps .pdetails>summary{cursor:pointer;font-size:12px;color:var(--text-2);padding:8px 0;
+  #props #selProps .pdetails{margin-top:11px;border-top:1px dashed var(--border);padding-top:0}
+  #props #selProps .pdetails>summary{cursor:pointer;font-size:12px;color:var(--text-2);padding:7px 0;
     list-style:none;display:flex;align-items:center;gap:6px;font-weight:600}
   #props #selProps .pdetails>summary::-webkit-details-marker{display:none}
   #props #selProps .pdetails>summary::before{content:"›";display:inline-block;transition:transform .15s;
     color:var(--text-3);font-size:14px}
   #props #selProps .pdetails[open]>summary::before{transform:rotate(90deg)}
-  #props #selProps .pnest{padding-left:13px;border-left:2px solid var(--accent-tint);margin:1px 0 2px}
-  #props #selProps .pdiv{border:none;border-top:1px solid var(--border);margin:18px 0 12px}
+  #props #selProps .pnest{padding-left:12px;border-left:2px solid var(--accent-tint);margin:0}
+  #props #selProps .pdiv{border:none;border-top:1px solid var(--border);margin:13px 0 10px}
   /* riga "voce a sinistra, valore stretto a destra": costa mezza riga invece di una intera */
-  #props .numrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0}
+  #props .numrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
   #props .numrow>label{margin:0;flex:0 0 auto;color:var(--text-2)}
   #props .numwrap{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px}
   #props .numwrap>input[type=number]{width:66px;text-align:right;padding:4px 7px}
@@ -349,8 +350,9 @@
   #props .cnt-row .cnt-lab{flex:1;font-size:13px;color:var(--n-700)}
   #props .cnt-b{padding:1px 11px;font-weight:700;line-height:1.4;min-width:30px}
   #props .cnt-v{min-width:20px;text-align:center;font-weight:600;font-size:13px}
-  #props .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  #props .btns .btn{padding:6px 10px;font-size:12px}
+  #props .btns{display:flex;flex-wrap:nowrap;gap:6px;margin-top:10px}
+  #props .btns .btn{padding:6px 4px;font-size:12px;flex:1 1 0;min-width:0;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
   /* slider rotazione con tacca centrale (0°) */
   footer{grid-area:foot;display:flex;align-items:center;gap:18px;padding:0 14px;border-top:1px solid var(--border);
     font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden}
@@ -1709,8 +1711,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #pActRow .btn{width:auto;flex:1;margin-top:0;white-space:nowrap;padding:6px 8px}
   /* Le stesse azioni sulla selezione multipla erano impaginate al contrario: il width:100% qui sopra
      le impilava una per riga, mentre in #pActRow stanno affiancate. Ora si comportano uguale. */
-  #props .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  #props .btns .btn{width:auto;flex:1 1 110px;min-width:0;margin-top:0}
+  #props .btns{display:flex;flex-wrap:nowrap;gap:6px;margin-top:10px}
+  #props .btns .btn{width:auto;flex:1 1 0;min-width:0;margin-top:0;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;padding:6px 4px}
   /* Bottone accanto a un campo (Salva del punto di ripristino, Auto delle liste): il width:100% lo
      faceva prendere tutta la riga schiacciando l'input a zero. */
   #props .clsec-head .btn,#versBox .btn{width:auto;flex:0 0 auto;margin-top:0}

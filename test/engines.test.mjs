@@ -2151,15 +2151,26 @@ t("pannello elemento: gruppi col termine del mestiere, non riquadri", () => {
   ok(appjs.indexOf("function syncPanelGroups") > -1, "un gruppo senza controlli visibili deve sparire, intestazione compresa");
   ok(appjs.indexOf('muteLabel("pLblModeWrap")') > -1, "la label che ripete il titolo del gruppo va zittita");
 });
-t("rotazione, distanza e dimensione: campo numerico, non slider", () => {
+/* Dimensione resta uno SLIDER (Simone: «mi piace che vada da piccolo a sinistra a grande a destra»),
+   ma sulla stessa riga di etichetta e valore. Rotazione e Distanza sono misure esatte: campo numerico. */
+t("rotazione e distanza: campo numerico; dimensione: slider su una riga", () => {
   const html = readFileSync(join(root, "index.html"), "utf8");
-  ["pRot", "pSep", "pLblSize"].forEach((id) => {
+  const size = (html.match(/<div id="pLblSizeWrap"[^>]*>/) || [""])[0];
+  ok(size.indexOf('class="sldrow"') > -1, "Dimensione: etichetta, slider e valore sulla stessa riga");
+  ok(html.indexOf('<input type="range" id="pLblSize"') > -1, "e resta uno slider");
+  ["pRot", "pSep"].forEach((id) => {
     const re = new RegExp('<input[^>]*id="' + id + '"[^>]*>');
     const tag = (html.match(re) || [""])[0];
     ok(tag.indexOf('type="number"') > -1, id + " deve essere un campo numerico: " + tag);
   });
   eq(appjs.indexOf("pRotVal"), -1, "l'output separato non serve più: il valore è nel campo");
   eq(appjs.indexOf("pSepVal"), -1);
+});
+t("Dividi · Duplica · Elimina stanno su una riga sola", () => {
+  ok(stylesCss.indexOf("#props .btns{display:flex;flex-wrap:nowrap") > -1,
+     "con flex-wrap:wrap il terzo bottone andava a capo");
+  ok(stylesCss.indexOf("#props .btns .btn{width:auto;flex:1 1 0") > -1,
+     "base 0: si dividono la larghezza invece di pretendere 110px a testa");
 });
 t("la rotazione non salta a 0 mentre stai digitando", () => {
   ok(appjs.indexOf('if(el.value==="" || !isFinite(raw)) return;') > -1,
