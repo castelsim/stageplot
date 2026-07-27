@@ -47,12 +47,26 @@ function libIcon(key){ var L=LIB_ICONS[key]; if(!L) return ''; var cx=L.vb[0]+L.
 
 
 /* ============ HELPER GRAFICI (unità = cm, vista dall'alto, origine al centro, fronte palco = giù) ============ */
-function riserSvg(w,d){
+function riserSvg(w,d,locked){
   var w2=w/2,d2=d/2;
-  var s='<rect class="ic fFloor" x="'+(-w2)+'" y="'+(-d2)+'" width="'+w+'" height="'+d+'" rx="2"/>'+
+  /* Pedana BLOCCATA (variante A, Simone 27/07): perimetro piu' marcato — come una struttura
+     fissata a terra — e un lucchettino discreto nell'angolo. Tutto in bianco e nero, cosi' il
+     segno regge identico a schermo e in stampa; prima la pedana bloccata si confondeva col palco. */
+  var s='<rect class="ic fFloor'+(locked?" riser-fixed":"")+'" x="'+(-w2)+'" y="'+(-d2)+'" width="'+w+'" height="'+d+'" rx="2"/>'+
         '<rect class="ic thin" fill="none" x="'+(-w2+7)+'" y="'+(-d2+7)+'" width="'+(w-14)+'" height="'+(d-14)+'"/>';
   [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(function(c){ s+=bar(c[0]*(w2-8),c[1]*(d2-8),7,7,'ic fill',1); });
+  if(locked) s+=riserLockGlyph(w2,d2);
   return s;
+}
+/* Lucchettino dentro l'angolo in alto a destra. Su pedane piccole starebbe addosso alla barra
+   d'angolo: sotto i 70×50 cm si tace, il bordo marcato basta. */
+function riserLockGlyph(w2,d2){
+  if(w2*2<70 || d2*2<50) return "";
+  var x=w2-19, y=-d2+17;
+  return '<g class="riser-lock" transform="translate('+x+','+y+')">'+
+         '<rect x="-3" y="-0.4" width="6" height="4.6" rx="1"/>'+
+         '<path class="rl-arc" fill="none" d="M -1.8 -0.6 v -1.5 a 1.8 1.8 0 0 1 3.6 0 v 1.5"/>'+
+         '</g>';
 }
 function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w/2)+'" y="'+(cy-d/2)+'" width="'+w+'" height="'+d+'" rx="'+(rx==null?3:rx)+'"/>'; }
 function rectSvg(w,d,cls,rx){ return bar(0,0,w,d,cls,rx); }
@@ -718,7 +732,7 @@ var TYPES = {
 
   /* --- pedane / strutture --- */
   pedana:   {nome:"Pedana", dim:"2×1 m", cat:"Palco e strutture", w:200,d:100,h:40, resizable:true, z:0, riser:true,
-             draw:function(it){ return riserSvg(it.w,it.d); }},
+             draw:function(it){ return riserSvg(it.w,it.d,it.locked===true); }},
   scala:    {nome:"Scala accesso", dim:"60×90", cat:"Palco e strutture", w:60,d:90, resizable:true, z:1,
              draw:function(it){ var s=rectSvg(it.w,it.d,'ic fFloor',2);
                for(var i=1;i<5;i++){ s+=lin(-it.w/2,-it.d/2+i*it.d/5,it.w/2,-it.d/2+i*it.d/5,'ic thin'); }
