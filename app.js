@@ -9920,7 +9920,12 @@ svg.addEventListener("pointerup", function(e){
     render();
   }
   else if(drag && drag.mode==="pan"){
-    if(Math.abs(e.clientX-drag.px)<4 && Math.abs(e.clientY-drag.py)<4){ clearSelection(); render(); }  /* click sullo sfondo = deseleziona */
+    if(Math.abs(e.clientX-drag.px)<4 && Math.abs(e.clientY-drag.py)<4){   /* click sullo sfondo = deseleziona */
+      clearSelection();
+      /* dentro una lista, il vuoto FUORI dal palco vale come Esc: si esce e si torna alla vista di partenza
+         (dentro il palco no: lì si lavora, il click serve solo a deselezionare) */
+      if(inListMode() && isOutsideStage(svgPoint(e))) exitListMode();
+      render(); }
     else ensureVisible();   /* pan in panoramica: non lasciare elementi fuori */
   }
   svg.classList.remove("dragging");
@@ -10414,8 +10419,8 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fit(); return; }   /* "a" → adatta la vista al contenuto (palco + elementi, anche fuori palco), come il bottone Adatta */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); selCab=null; selCabSet={}; selElec=null; selMond=null; closeCabMenu(); collapseCats();
-    if(anySolo() || layerAccOpen){ layerSoloUI={}; layerAccOpen=null; if(typeof renderLayerManager==="function") renderLayerManager(); }   /* ESC: i layer si deselezionano e tornano alla modalità base */
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); collapseCats();
+    exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
   if(!it) return;
   if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it); deleteSel(); a11yAnnounce(_dn+" eliminato"); }
@@ -12208,6 +12213,17 @@ var layerSoloUI = {};
 var layerSoloMode = "focus";
 function anySolo(){ for(var k in layerSoloUI){ if(layerSoloUI[k]) return true; } return false; }
 function soloOn(id){ return !!layerSoloUI[id]; }
+/* "dentro una lista" = una lista è a fuoco (tendina aperta) oppure un layer è in solo. */
+function inListMode(){ return !!layerAccOpen || anySolo(); }
+/* Uscita unica dalla lista — la stessa di Esc: liste chiuse, niente solo, cavi deselezionati. */
+function exitListMode(){
+  var wasList=inListMode();
+  layerSoloUI={}; layerAccOpen=null;
+  selCab=null; selCabSet={}; selElec=null; selMond=null;
+  if(typeof closeCabMenu==="function") closeCabMenu();
+  if(wasList && typeof renderLayerManager==="function") renderLayerManager();
+  return wasList;
+}
 /* I CAVI di un layer si disegnano quando:
    - nessuna vista layer è selezionata → TAVOLA COMPLETA: tutti i cablaggi insieme, a decidere
      restano solo gli occhi (Simone 25/07; ribalta il "senza layer selezionato = plot pulito senza
