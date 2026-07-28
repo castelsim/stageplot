@@ -727,6 +727,15 @@
   .di-prev{display:flex;justify-content:center;align-items:center;height:52px;margin:0 0 4px}
   .di-prev svg{width:64px;height:44px}   /* dimensione esplicita: batte la regola globale svg{width:100%} */
   .di-lbl{font-size:11px;color:var(--text-2);font-weight:600;margin:8px 0 4px;display:block}
+  /* «Serve a»: la DI e' una tappa del cavo o una sorgente a se'. Stessa resa dei select del
+     pannello — #props select vince su una classe nuda, quindi la regola porta l'id. */
+  #props #pDiFor.di-sel{width:100%;padding:7px 10px;border:1px solid var(--border-strong);
+    border-radius:var(--r-md);background:var(--surface);color:var(--text);font:13px var(--font-ui);
+    appearance:none;padding-right:28px;cursor:pointer;
+    background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),linear-gradient(135deg,var(--text-3) 50%,transparent 50%);
+    background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+  #props #pDiFor.di-sel:hover{border-color:var(--accent)}
+  #props #pDiFor.di-sel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--focus-ring)}
   .di-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
   .di-seg button{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11.5px;font-weight:600;padding:6px 4px;cursor:pointer;transition:.12s}
   .di-seg button:first-child{border-left:none}
@@ -2510,6 +2519,11 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     </div>
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
       <div id="pDiPrev" class="di-prev"></div>
+      <div id="pDiForWrap" style="display:none">
+        <label class="di-lbl">Serve a</label>
+        <select id="pDiFor" class="di-sel"></select>
+        <div class="di-note" id="pDiForNote"></div>
+      </div>
       <label class="di-lbl">Canali</label>
       <div class="di-seg" id="pDiCh"><button type="button" data-v="mono">Mono</button><button type="button" data-v="stereo">Stereo</button><button type="button" data-v="multi">Multicanale</button></div>
       <div id="pDiMultiWrap" style="display:none;margin-top:6px"><label class="di-lbl">Canali rack</label><div class="di-seg" id="pDiMultiN"><button type="button" data-v="6">6</button><button type="button" data-v="8">8</button></div></div>
