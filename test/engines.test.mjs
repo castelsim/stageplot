@@ -1499,7 +1499,7 @@ t("radiomic con frequenza RF → nessun avviso RF", () => {
 t("capienza stage box superata → err con fix a un click", () => {
   reset(); A.state.cab.on = true;
   const b = add("stagebox", 600, 600); b.ch = 2; b.outCh = 2; A.__cabRes = null;
-  add("batteria", 300, 300); A.__cabRes = null;
+  add("batteria", 300, 300); cabla();
   const f = auditFind(/superiori ai canali|satura/);
   ok(f.length > 0, "atteso errore capienza; findings: " + auditMsgs().join(" | "));
   ok(f.some((x) => x.act), "atteso fix a un click sull'errore capienza");
@@ -2237,10 +2237,37 @@ t("la barra dice quanti canali mancano, e «Collega» rispetta i cablaggi a mano
   reset(); A.state.cab.on = true;
   add("astamic", 200, 200); add("astamic", 400, 200); add("stagebox", 900, 700);
   A.__cabRes = null;
+  eq(A.patchList().rows.filter((r) => !r.spare && !r.box).length, 2,
+     "inserire la box NON collega: i canali restano liberi finché non lo chiedi");
+  cabla();
   const pl = A.patchList();
-  eq(pl.rows.filter((r) => !r.spare && !r.box).length, 0, "con la box i canali si collegano");
+  eq(pl.rows.filter((r) => !r.spare && !r.box).length, 0, "dopo «Collega» sono tutti cablati");
   ok(appjs.indexOf('bar.className="cab-bar"') > -1, "la barra esiste in cima alla lista");
   ok(appjs.indexOf("Tutti i canali sono cablati") > -1, "e dice anche quando non c'è nulla da fare");
+});
+t("inserire NON collega: né audio, né elettrico, né P.M.", () => {
+  reset();
+  /* Simone 28/07: «non voglio che si colleghino in automatico — se inserisco una stage box si attiva
+     il collegamento e vedo i cavi». Vale per tutti e tre i motori. */
+  add("cantante", 200, 200); add("stagebox", 900, 700); A.__cabRes = null;
+  eq(A.cabResult(true).links.length, 0, "audio: nessun cavo dall'inserimento");
+  add("comboamp", 300, 300); add("distro32", 800, 300); A.__elecRes = null;
+  eq((A.elecResult(true).loadLinks || []).length, 0, "elettrico: nessuna linea dall'inserimento");
+  add("mixhub", 500, 500); add("hearback", 550, 500); A.__mondRes = null;
+  eq((A.monDigEngine().links || []).length, 0, "P.M.: nessun aggancio dall'inserimento");
+  cabla();
+  ok(A.cabResult(true).links.length > 0, "ma «Collega» li fa tutti");
+});
+t("un collegamento chiesto accende il motore (o il cavo non si vedrebbe)", () => {
+  reset();
+  eq(A.state.cab.on, false, "motore spento all'inizio");
+  const mic = add("cantante", 200, 200); const box = add("stagebox", 900, 700);
+  A.cabSetItemBox(mic, box.id);
+  ok(A.state.cab.on, "collegare a mano accende il motore audio");
+  reset();
+  A.elecManual("x"); ok(A.state.elec.on, "idem per l'elettrico");
+  reset();
+  A.mondManual("y"); ok(A.state.mond.on, "idem per il P.M.");
 });
 t("la lista è a due livelli: il nome della sorgente non si tronca più", () => {
   ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
@@ -3401,21 +3428,25 @@ t("Layer v3: Palco = tutto, occhi in OR (viste)", () => {
   eq(JSON.stringify(withOp), JSON.stringify(["venue"]), "opacità solo sulla Planimetria");
 });
 
-t("Layer v2: cablaggio automatico su addItem + stile cavi + pallini", () => {
+t("Layer v2: il cablaggio si CHIEDE (non nasce dall'inserimento) + stile cavi + pallini", () => {
   reset();
   A.state.cab.style = "curve";
-  // 1) auto-connect: aggiungo sorgente poi stage box → si collega DA SOLO
+  /* 28/07 (Simone): «non voglio che si colleghino in automatico — se inserisco una stage box si
+     attiva il collegamento e vedo i cavi». Inserire non collega più: lo chiede la barra «Collega». */
   A.addItem("astamic", { x: 200, y: 200 });
-  ok(!A.state.cab.on, "senza box il motore resta spento");
   A.addItem("stagebox", { x: 400, y: 200 });
-  ok(A.state.cab.on, "con la box il motore si accende da solo");
+  A.__cabRes = null;
+  eq(A.cabResult(true).links.length, 0, "inserire la box NON disegna cavi");
+  cabla();
   let R = A.cabResult(true);
-  eq(R.pending.length, 0, "l'ingresso si è collegato da solo");
+  eq(R.pending.length, 0, "dopo «Collega» l'ingresso è cablato");
   ok(R.links.some(l => l.box && !l.box.auto), "cavo su box reale");
-  // anche una sorgente aggiunta DOPO si collega
+  // una sorgente aggiunta DOPO resta libera finché non la si collega
   A.addItem("astamic", { x: 250, y: 250 });
-  R = A.cabResult(true);
-  eq(R.pending.length, 0, "anche la sorgente aggiunta dopo si collega da sola");
+  A.__cabRes = null;
+  eq(A.cabResult(true).pending.length, 1, "la sorgente nuova resta da collegare");
+  cabla();
+  eq(A.cabResult(true).pending.length, 0, "«Collega» prende anche lei");
   // 2) stile cavi (2 stili, 21/07): smussati = Q, diretto = linea dritta sui punti grezzi
   const pts = [[0, 0], [100, 0], [100, 80]];
   A.state.cab.style = "curve";
@@ -3449,9 +3480,10 @@ t("P.M.: connessione DIGITALE automatica all'hub, MAI ritorno analogico dalla bo
   add("stagebox", 500, 200);
   A.state.cab.on = true;
   const h = add("mixhub", 700, 300);       // hub (anche senza modello: pmIsHub)
-  const m = add("hearback", 300, 300);     // mixerino → si aggancia da solo via Cat5
+  const m = add("hearback", 300, 300);     // mixerino
+  pmCabla();                               // 28/07: l'aggancio si chiede, non nasce dall'inserimento
   const Rm = A.monDigEngine();
-  ok((Rm.links || []).some(l => l.from.id === m.id && (l.to.id === h.id || l.toIsHub)), "mixerino → hub via Cat5 (automatico)");
+  ok((Rm.links || []).some(l => l.from.id === m.id && (l.to.id === h.id || l.toIsHub)), "mixerino → hub via Cat5 dopo la richiesta");
   const Rc = A.cabResult(true);
   ok(!(Rc.mixes || []).some(mx => (mx.sinks || []).some(sk => sk.id === m.id || sk.id === h.id)), "nessun mix ANALOGICO per i nodi digitali");
   ok(!(Rc.returnLinks || []).some(l => l.sink && (l.sink.id === m.id || l.sink.id === h.id)), "nessun ritorno analogico verso mixerino/hub");
@@ -3537,7 +3569,7 @@ t("P.M.: un hub generico regge max 8 mixerini (capienza rispettata dall'auto-con
   reset();
   const hub = add("mixhub", 900, 300);   // hub generico → cap 8
   for (let i = 0; i < 10; i++) add("hearback", 100 + i * 40, 300);   // 10 mixerini generici
-  // l'hook di addItem ha già auto-connesso: verifica che l'hub NON sia sovraccarico
+  pmCabla();   // 28/07: l'aggancio si chiede — poi l'hub NON deve sovraccaricarsi
   let R = A.monDigEngine();
   eq((R.hubLoad || {})[hub.id], 8, "l'hub si ferma a 8 (capienza)");
   eq(R.pending.length, 2, "i 2 eccedenti restano pendenti");
@@ -3545,8 +3577,9 @@ t("P.M.: un hub generico regge max 8 mixerini (capienza rispettata dall'auto-con
   // un secondo hub raccoglie gli eccedenti
   A.add ? null : null;
   const hub2 = add("mixhub", 200, 300);
+  pmCabla();   // 28/07: anche il secondo hub raccoglie i pendenti solo se glielo si chiede
   R = A.monDigEngine();
-  eq(R.pending.length, 0, "col secondo hub tutti collegati");
+  eq(R.pending.length, 0, "col secondo hub, dopo la richiesta, sono tutti collegati");
   ok(((R.hubLoad || {})[hub2.id] || 0) >= 2, "il secondo hub prende gli eccedenti");
 });
 
@@ -3557,6 +3590,7 @@ t("vista cablaggio: senza vista la tavola e' completa, con la vista e' un filtro
   add("comboamp", 200, 300);      // carico (ampli)
   add("distro32", 250, 480);
   A.state.cab.on = true; A.state.elec.on = true; A.__cabRes = null; A.__elecRes = null;
+  cabla(); A.elecConnectAll(); A.__elecRes = null;   // 28/07: il cablaggio si chiede
   A.__cabStatic = false;   // nel sandbox window.__cabStatic è uno stub truthy: nel browser è falsy (export PDF a parte)
   /* 25/07: nessuna vista selezionata = TAVOLA COMPLETA (prima era "plot pulito senza cavi") */
   A.layerSoloUI = {}; A.layerAccOpen = null;
@@ -3595,6 +3629,7 @@ t("Input: N pallini per musicista (postazione doppia = 2) + zona dal punto mic",
   eq(A.musicianSeats(d).length, 2, "2 sedute (2 musicisti)");
   const single = add("vlnpost", 600, 250);
   eq(A.musicianSeats(single).length, 1, "postazione singola = 1 seduta");
+  cabla();   // 28/07: i pallini di partenza esistono sui cavi, che ora si chiedono
   A.layerSoloUI = { cabin: true };
   const dot = A.sectionDotMarkup(d);
   eq((dot.match(/secdot-c/g) || []).length, 2, "2 pallini sezione per la doppia");
@@ -3604,7 +3639,7 @@ t("Input: N pallini per musicista (postazione doppia = 2) + zona dal punto mic",
   reset(); A.state.cab.on = true;
   add("stagebox", 800, 500);
   const z = add("miczone", 400, 250); z.pts = [[-50, -50], [50, -50], [50, 50], [-50, 50]];
-  A.__cabRes = null;
+  cabla();
   const R = A.audioCablingEngine();
   const zl = R.links.find(l => l.s.it.id === z.id);
   ok(zl, "la zona genera un canale");
@@ -3942,10 +3977,15 @@ t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", ()
 /* ---- DI: un'opzione del pannello diventa un oggetto sul palco, e una tappa del cavo ----
    Prima scegliere "DI" cambiava solo l'etichetta del canale: nessuna scatoletta, nessun passaggio. */
 console.log("\nDI come oggetto e nodo della catena:");
+/* Il collegamento non è più automatico all'inserimento (Simone 28/07): i test che verificano i CAVI
+   devono chiederlo, come fa l'utente con la barra «Collega». */
+function cabla() { A.__cabRes = null; A.cabConnectAll(); A.__cabRes = null; }
+function pmCabla() { A.__mondRes = null; try { A.pmAutoConnect(); } catch (e) {} A.pmAutoConnectBasic(); A.__mondRes = null; }
 function diSetup() {
   reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
   const box = add("stagebox", 850, 150); box.ch = 16; box.outCh = 8;
   const gtr = add("musChitClassica", 300, 400);
+  cabla();
   return { box, gtr };
 }
 t("scegliere DI crea la scatoletta accanto allo strumento, legata a lui", () => {
@@ -3960,7 +4000,7 @@ t("scegliere DI crea la scatoletta accanto allo strumento, legata a lui", () => 
 });
 t("il cavo passa DENTRO la DI: strumento → DI → stage box", () => {
   const { gtr } = diSetup();
-  gtr.miking = "di"; const di = A.diApply(gtr); A.__cabRes = null;
+  gtr.miking = "di"; const di = A.diApply(gtr); cabla();
   const l = (A.cabResult().links || [])[0];
   ok(l, "nessun cavo generato");
   ok(l.pts.length >= 3, "il percorso deve avere una tappa in mezzo: " + JSON.stringify(l.pts));
@@ -3971,7 +4011,7 @@ t("il cavo passa DENTRO la DI: strumento → DI → stage box", () => {
    La DI generata (diFor) è una tappa del cavo, non una sorgente: i canali sono quelli dello strumento. */
 t("la DI non raddoppia gli ingressi in stage box ne' le righe della lista canali", () => {
   const { gtr } = diSetup();
-  gtr.miking = "di"; A.diApply(gtr); A.__cabRes = null;
+  gtr.miking = "di"; A.diApply(gtr); cabla();
   eq(A.cabItemInputs(A.diLinked(gtr)).length, 0, "la DI generata non ha canali propri");
   eq(A.cabResult().totIn, 1, "ingressi contati");
   eq(A.patchList().rows.length, 1, "righe nella lista canali");
@@ -4044,6 +4084,7 @@ function chainSetup(tp) {
   reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
   const box = add("stagebox", 850, 150); box.ch = 16;
   const it = add(tp || "bassstand", 300, 400);
+  cabla();
   return { box, it };
 }
 t("i default di partenza rispecchiano la pratica: basso e acustica in DI, elettrica sul mic dell'ampli", () => {
@@ -4063,7 +4104,7 @@ t("dritto in DI: un canale e la DI ai piedi dello strumento", () => {
 });
 t("pedaliera con uscita jack: la DI si sposta DOPO la pedaliera", () => {
   const { it } = chainSetup();
-  A.chainToggle(it, "ped");
+  A.chainToggle(it, "ped"); cabla();
   const c = A.chainOf(it);
   ok(c.ped && !c.pedXlr && c.needDi, "pedaliera jack: la DI ci vuole ancora");
   const di = A.diLinked(it), ped = A.chainNodePos(it, "pedaliera");
@@ -4320,7 +4361,7 @@ t("i canali patchati si accendono, gli altri no", () => {
   const box = add("stagebox", 700, 500); box.ch = 16; box.outCh = 8;
   eq(sbOn(A.sbDraw(box)), 0, "senza patch nessun connettore acceso");
   A.state.cab.on = true;
-  add("cantante", 300, 300); add("astamic", 400, 300); A.__cabRes = null;
+  add("cantante", 300, 300); add("astamic", 400, 300); cabla();
   const usati = Object.keys(A.sbPortUse(box).i).length;
   ok(usati > 0, "il motore non riporta canali occupati");
   eq(sbOn(A.sbDraw(box)), usati, "connettori accesi diversi dai canali patchati");

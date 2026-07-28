@@ -5356,7 +5356,8 @@ function cablingMarkup(){
   s+='</g>';
   return s;
 }
-function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
+function cabManual(key){ state.cab.manual=state.cab.manual||{}; if(!state.cab.on) state.cab.on=true;   /* un collegamento chiesto accende il motore: senza, il cavo non si vedrebbe */
+  if(!state.cab.manual[key]) state.cab.manual[key]={}; return state.cab.manual[key]; }
 /* Lock per RAMO (Input vs Monitor): la chiave "ret:…" identifica un cavo di ritorno (monitor),
    tutto il resto è ingresso (input). Così bloccare l'Input non tocca l'editing del Monitor. */
 function cabKeyLocked(key){ return String(key).indexOf("ret:")===0 ? !!state.cab.lockOut : !!state.cab.lockIn; }
@@ -5482,7 +5483,8 @@ function elecSupplyPoint(){
   p.x=Math.round(p.x); p.y=Math.round(p.y); return p;
 }
 var selElec=null;   /* linea elettrica selezionata (key = id del carico) — parità con selCab */
-function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
+function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.on) state.elec.on=true;
+  if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
 function elecMarkup(){
   if(!state.elec || !state.elec.on || !layerShown("elec")) return '';
   if(!cabLayerLive("elec")) return '';   /* vista attiva su un altro layer → i cavi power si tolgono di mezzo */
@@ -5702,7 +5704,8 @@ var __elecRes=null;
 function elecResult(force){ if(force || state.elec.auto || !__elecRes) __elecRes=electricEngine(); return __elecRes; }
 
 /* ===== MONITORAGGIO DIGITALE — motore (mixerini → hub, catene star/daisy-chain) ===== */
-function mondManual(key){ state.mond.manual=state.mond.manual||{}; if(!state.mond.manual[key]) state.mond.manual[key]={}; return state.mond.manual[key]; }
+function mondManual(key){ state.mond.manual=state.mond.manual||{}; if(!state.mond.on){ state.mond.on=true; state.mond.visible=true; }
+  if(!state.mond.manual[key]) state.mond.manual[key]={}; return state.mond.manual[key]; }
 function monDigEngine(){
   var man=(state.mond&&state.mond.manual)||{}, items=state.items||[], byId={};
   items.forEach(function(it){ byId[it.id]=it; });
@@ -8635,37 +8638,17 @@ function addItem(type, over){
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
      interattivi: i progetti caricati non vengono toccati. Le correzioni manuali e i cavi eliminati
      dall'utente restano tali (cabConnectAll salta box già assegnate e chiavi deleted). */
-  try{
-    if(cabIsBox(it)){   /* box NUOVA: i collegamenti fatti dall'auto si ridistribuiscono (i manuali restano) */
-      var _cman=state.cab.manual||{};
-      Object.keys(_cman).forEach(function(k){ var m=_cman[k]; if(m && m.auto){ delete m.box; delete m.auto; if(!Object.keys(m).length) delete _cman[k]; } });
-      __cabRes=null;
-    }
-    if((cabIsBox(it) || cabItemInputs(it).length || (OUT_SET[it.type]!=null && it.type!=="monmix" && !MON_DIG_NODE[it.type])) && state.items.some(cabIsBox)) cabConnectAll();
-  }catch(_e){}
-  /* POWER: cablaggio automatico — un carico si collega da solo al distro (e un distro nuovo
-     raccoglie i carichi pendenti), come per l'audio. */
-  try{
-    if(elecIsDistro(it)){   /* distro nuovo: ridistribuisci i collegamenti auto */
-      var _eman=state.elec.manual||{};
-      Object.keys(_eman).forEach(function(k){ var v=_eman[k]; if(v && v.auto){ delete v.distro; delete v.auto; if(!Object.keys(v).length) delete _eman[k]; } });
-      __elecRes=null;
-    }
-    if((elecIsDistro(it) || wattOf(it)>0) && state.items.some(elecIsDistro)) elecConnectAll();
-  }catch(_e){}
+  /* NIENTE collegamento automatico all'inserimento (Simone 28/07): «non voglio che si colleghino in
+     automatico — se inserisco una stage box si attiva il collegamento e vedo i cavi». Il cablaggio è
+     sempre un'azione richiesta: barra «N non cablati → Collega» in cima alla lista, o «⚡ Cablaggio
+     automatico» del layer. Vale per audio, elettrico e P.M.
+     Nota: anche la RIDISTRIBUZIONE è stata tolta — cancellava i collegamenti auto per rifarli subito
+     dopo, quindi da sola avrebbe scollegato i cavi esistenti all'arrivo di una box nuova. */
+
   /* P.M.: connessione DIGITALE automatica — il mixerino si aggancia via Cat5 all'hub appena esiste
      (coi modelli B1 decide pmAutoConnect con vincoli di sistema/porte; senza modello, fallback base
      = hub più vicino, come il motore storico). Aggiungendo un hub si agganciano i pendenti. */
-  try{
-    if(MON_DIG_NODE[type]){
-      if(pmIsHub(it) && state.mond && state.mond.manual){   /* hub nuovo: ridistribuisci gli agganci auto */
-        var _mman=state.mond.manual;
-        Object.keys(_mman).forEach(function(k){ var v=_mman[k]; if(v && v.auto){ delete v.to; delete v.auto; if(!Object.keys(v).length) delete _mman[k]; } });
-        __mondRes=null;
-      }
-      var _n=((pmAutoConnect()||{}).done||0)+pmAutoConnectBasic(); if(_n) render();
-    }
-  }catch(_e){}
+
   if(MON_DIG_NODE[type] && typeof renderLayerManager==="function") renderLayerManager();   /* aggiorna il toggle del layer P.M. */
   closeMobileDrawers();   /* su mobile: chiudi il catalogo per vedere il palco */
   showDragHintOnce();   /* onboarding: la prima volta spiega come spostare/ruotare */
@@ -12858,7 +12841,12 @@ function renderPatchPanel(){
     go.addEventListener("click", function(e){ e.stopPropagation();
       var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
       if(need){ guideDialog(need); return; }                 /* manca qualcosa: finestra-guida, non un toast muto */
-      var n=layerAutoConnect("cabin");
+      var prima=freeRows.length;
+      layerAutoConnect("cabin");
+      /* Conta i CANALI, non i cavi: un cavo multicanale (la batteria) ne porta otto, e il numero
+         deve combaciare con quello che la barra diceva un attimo prima. */
+      var dopo=patchList().rows.filter(function(x){ return !x.spare && !x.box; }).length;
+      var n=Math.max(0, prima-dopo);
       showToast(n ? ("Collegati "+n+(n===1?" canale":" canali")) : "Nessun canale da collegare");
     });
     bar.appendChild(go);
