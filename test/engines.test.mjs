@@ -4049,6 +4049,74 @@ t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", ()
 console.log("\nDI come oggetto e nodo della catena:");
 /* Il collegamento non è più automatico all'inserimento (Simone 28/07): i test che verificano i CAVI
    devono chiederlo, come fa l'utente con la barra «Collega». */
+t("canali riservati: righe vere nella lista, con numero e patch", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16; box.outCh = 8;
+  const m1 = add("astamic", 300, 400), m2 = add("astamic", 400, 400);
+  cabla();
+  const base = A.patchList().rows;
+  eq(base.length, 2, "senza riservate: solo le due sorgenti");
+  // riservo la porta 2: diventa una RIGA, in mezzo, e la seconda sorgente scala al numero 3
+  box.sbRes = [2]; A.__cabRes = null;
+  const pl = A.patchList(), rows = pl.rows;
+  eq(rows.length, 3, "la riservata è una riga della lista");
+  const res = rows.filter(r => r.reserved);
+  eq(res.length, 1, "una sola riga riservata");
+  eq(res[0].port, 2, "la riga porta il numero di porta riservato");
+  eq(res[0].name, "", "nessuna sorgente sulla riga riservata");
+  ok(/2$/.test(res[0].patch), "la patch indica la porta: " + res[0].patch);
+  eq(rows[1].reserved, true, "sta al posto della porta, non in coda");
+  eq(rows.map(r => r.n).join(","), "1,2,3", "rinumerazione coerente 1..N");
+  ok(rows[2].port > 2, "la sorgente dopo la riservata sta su una porta successiva");
+  // liberandola la lista torna com'era
+  A.cabFreePort(box.id, 2); A.__cabRes = null;
+  eq(A.patchList().rows.length, 2, "liberata: la riga sparisce");
+  ok(!box.sbRes, "sbRes ripulito quando resta vuoto");
+});
+
+t("canali riservati: non contano come «da collegare» e finiscono in CSV/PDF", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 850, 150); box.ch = 16; box.outCh = 8;
+  add("astamic", 300, 400);
+  cabla();
+  box.sbRes = [3, 5]; A.__cabRes = null;
+  const rows = A.patchList().rows;
+  eq(rows.filter(r => r.reserved).length, 2, "due riservate");
+  eq(rows.filter(r => !r.spare && !r.reserved && !r.box).length, 0, "nessun canale risulta da collegare");
+  const csv = A.channelListCsv({ format: "excel-it" }).csv;
+  eq((csv.match(/RISERVATO/g) || []).length, 2, "le riservate sono esplicite nel CSV");
+  const ah = A.channelListCsv({ format: "ah" }).csv;
+  ok(ah.includes("SPARE"), "nel formato A&H il canale riservato è uno SPARE");
+});
+
+t("CSV: con più box il numero di canale è quello FOH, come nel pannello e nel PDF", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const b1 = add("stagebox", 200, 150); b1.ch = 16; b1.outCh = 8; b1.sbId = 1;
+  const b2 = add("stagebox", 900, 150); b2.ch = 16; b2.outCh = 8; b2.sbId = 2;
+  add("astamic", 200, 400); const far = add("astamic", 900, 400);
+  cabla();
+  const pl = A.patchList();
+  eq(pl.hasFoh, true, "due box con ID");
+  const rFar = pl.rows.find(r => r.itemId === far.id);
+  ok(rFar.foh > 16, "la sorgente sulla seconda box sta oltre il canale 16: " + rFar.foh);
+  const righe = A.channelListCsv({ format: "excel-it" }).csv.split("\n").filter(Boolean);
+  const suaRiga = righe.find(l => l.includes(rFar.name));
+  eq(suaRiga.split(";")[0], String(rFar.foh), "nel CSV il numero è il canale FOH, non l'indice di riga");
+});
+
+t("canali riservati: con più box seguono la numerazione FOH continua", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const b1 = add("stagebox", 200, 150); b1.ch = 16; b1.outCh = 8; b1.sbId = 1;
+  const b2 = add("stagebox", 900, 150); b2.ch = 16; b2.outCh = 8; b2.sbId = 2;
+  add("astamic", 200, 400); add("astamic", 900, 400);
+  cabla();
+  b2.sbRes = [4]; A.__cabRes = null;
+  const pl = A.patchList();
+  eq(pl.hasFoh, true, "due box con ID → numerazione FOH");
+  const res = pl.rows.filter(r => r.reserved)[0];
+  eq(res.foh, 20, "porta 4 della seconda box = FOH 20 (16+4)");
+});
+
 function cabla() { A.__cabRes = null; A.cabConnectAll(); A.__cabRes = null; }
 function pmCabla() { A.__mondRes = null; try { A.pmAutoConnect(); } catch (e) {} A.pmAutoConnectBasic(); A.__mondRes = null; }
 function diSetup() {

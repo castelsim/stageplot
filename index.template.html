@@ -14352,6 +14352,7 @@ function patchList(){
   (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */
   applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
   if(state.cab && state.cab.stereoOdd) rows=alignStereoOdd(rows);   /* convenzione L=dispari/R=pari (opt-in via audit) */
+  rows=insertReserved(rows, R);
   return {rows:rows, R:R, hasFoh:hasFoh};
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
@@ -14373,6 +14374,46 @@ function cabMoveInput(key, dir){ _listMove(patchList().rows.map(function(r){retu
 function cabMoveMonitor(id, dir){ _listMove(monitorList().rows.map(function(r){return r.sinkId;}), id, dir, function(o){ state.cab.monOrder=o; }); }
 function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return i.id===id;}); if(it){ it.label=String(v).slice(0,40); __cabRes=null; save(); render(); } }
 /* applica un ordine manuale (array di chiavi) a righe con campo `keyf`; le chiavi ignote restano in coda nell'ordine di default */
+/* CANALI RISERVATI \u2014 in una channel list professionale un canale tenuto libero di proposito \u00e8 una
+   RIGA a tutti gli effetti: ha il suo numero, la sua porta, e nessuna sorgente. Serve a non spezzare una
+   sezione fra due stage box e a dichiarare gli spare. Il dato esisteva gi\u00e0 (it.sbRes \u2014 la griglia di
+   porte cliccabili nel pannello della box) ma viveva solo come conteggio in fondo alla lista.
+   Le riservate si inseriscono DOPO l\u0027ordinamento manuale e l\u0027allineamento stereo: seguono la porta,
+   non l\u0027ordine scelto a mano, perch\u00e9 il loro senso \u00e8 esattamente quello di occupare un numero. */
+/* libera una porta riservata (dalla riga della lista): stessa scrittura del toggle sulla griglia porte */
+function cabFreePort(boxId, pn){
+  var it=state.items.filter(function(x){ return x.id===boxId; })[0];
+  if(!it || !Array.isArray(it.sbRes)) return;
+  var arr=it.sbRes.filter(function(v){ return v!==pn; });
+  if(arr.length) it.sbRes=arr; else delete it.sbRes;
+  __cabRes=null; save(); render(); renderProps();
+  if(typeof showToast==="function") showToast("Canale "+pn+" liberato");
+}
+function insertReserved(rows, R){
+  var res=[];
+  (R.boxes||[]).forEach(function(b){
+    (b.res||[]).forEach(function(pn){
+      var tag=b.sbId?("ID"+b.sbId):b.letter;
+      res.push({ n:0, name:"", mic:"", stand:"", p48:false, patch:tag+"\u00b7"+pn, box:b.letter, boxId:b.id,
+                 itemId:null, key:"res:"+b.id+":"+pn, micOff:false, reserved:true, port:pn, short:"",
+                 foh:(b.fohBase!=null)?(b.fohBase+pn):null });
+    });
+  });
+  if(!res.length) return rows;
+  res.sort(function(a,b){ return (a.foh!=null&&b.foh!=null) ? a.foh-b.foh : a.port-b.port; });
+  res.forEach(function(rr){
+    var at=rows.length;
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      if(r.boxId!==rr.boxId || r.port==null) continue;
+      if(r.port>rr.port){ at=i; break; }
+      at=i+1;
+    }
+    rows.splice(at,0,rr);
+  });
+  rows.forEach(function(r,i){ r.n=i+1; });   /* la riservata occupa il numero: quelle dopo scalano */
+  return rows;
+}
 function applyListOrder(rows, order, keyf){
   if(!order || !order.length) return rows;
   var pos={}; order.forEach(function(k,i){ pos[k]=i; });
@@ -14472,7 +14513,7 @@ function renderPatchPanel(){
   /* Barra del cablaggio: il comando principale sta QUI, non nel clic sul layer. Dice quanti canali
      mancano e dove andranno; se sono tutti a posto lo dice invece di sparire (uno stato «fatto» va
      detto, non dedotto dall'assenza di avvisi). */
-  var freeRows=pl.rows.filter(function(r){ return !r.spare && !r.box; });
+  var freeRows=pl.rows.filter(function(r){ return !r.spare && !r.reserved && !r.box; });
   var bar=document.createElement("div"); bar.className="cab-bar"+(freeRows.length?"":" done");
   if(freeRows.length){
     var hasBox=(R.boxes||[]).some(function(b){ return !b.auto; });
@@ -14490,7 +14531,7 @@ function renderPatchPanel(){
       layerAutoConnect("cabin");
       /* Conta i CANALI, non i cavi: un cavo multicanale (la batteria) ne porta otto, e il numero
          deve combaciare con quello che la barra diceva un attimo prima. */
-      var dopo=patchList().rows.filter(function(x){ return !x.spare && !x.box; }).length;
+      var dopo=patchList().rows.filter(function(x){ return !x.spare && !x.reserved && !x.box; }).length;
       var n=Math.max(0, prima-dopo);
       showToast(n ? ("Collegati "+n+(n===1?" canale":" canali")) : "Nessun canale da collegare");
     });
@@ -14503,6 +14544,12 @@ function renderPatchPanel(){
   hd.innerHTML='<span>#</span><span>Sorgente</span><span class="ppatch">Patch</span><span></span>';   /* 4 celle come il grid a due livelli: «Mic/DI» sta sotto la sorgente, non ha una colonna sua */
   host.appendChild(hd);
   pl.rows.forEach(function(r){
+    if(r.reserved){ var rs=document.createElement("div"); rs.className="patch-row editable"; rs.style.color="var(--text-3)";
+      rs.innerHTML='<span class="pn">'+((pl.hasFoh&&r.foh)?r.foh:r.n)+'</span><span class="psrc" style="font-style:italic">\u2014 riservato \u2014</span><span class="pmic"></span><span class="ppatch">'+esc(r.patch)+'</span><span class="rowacts"></span>';
+      rs.title="Canale tenuto libero di proposito \u2014 click per liberarlo";
+      rs.style.cursor="pointer";
+      (function(bid,pn){ rs.addEventListener("click", function(){ cabFreePort(bid,pn); }); })(r.boxId, r.port);
+      host.appendChild(rs); return; }   /* canale riservato: numerato, senza sorgente */
     if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
     var micCell = r.mic ? ('<span class="micname">'+esc(r.mic)+'</span>'+(r.p48?'<b class="p48b">48V</b>':'')) : '<span class="lbl-note">— no mic</span>';
     /* asta e nome-banco stanno sulla seconda riga, dove c'è spazio: in 220 px non possono essere colonne */
@@ -17166,13 +17213,15 @@ function channelListCsv(opts){
        Nomi max 8 caratteri ALFANUMERICI senza accenti (vincolo A&H: äöüéß non ammessi, >8 char troncati);
        "-" = cella ignorata all'import; valori yes/no minuscoli. Fonte: doc A&H + tool community dlive-midi-tools.
        DA VERIFICARE sulla console prima dell'evento. */
-    var ah=pl.rows.map(function(r){ return ["yes", ahName(r.name), "-", "-", "-", "-", "-", r.p48?"yes":"no"]; });
+    var ah=pl.rows.map(function(r){ return ["yes", r.reserved?"SPARE":ahName(r.name), "-", "-", "-", "-", "-", r.p48?"yes":"no"]; });
     return { csv: rowsToCsv(["Enabled","Name","Color","Source","Socket","Gain","Pad","Phantom"], ah, ",").replace(/^﻿/,""), count:count };
   }
   var sep = opts.format==="intl" ? "," : ";";
   var rows=pl.rows.map(function(r){
     var patch=(r.patch && r.patch!=="—") ? r.patch : "";   /* "—" è il placeholder visivo del pannello, non un dato: nel CSV va vuoto */
-    return [r.n, r.name, r.mic||"", r.stand||"", r.p48?"48V":"", patch];
+    /* il numero è quello che il fonico ha sul banco: con più box/Device ID vale il canale FOH continuo,
+       come nel pannello e nel PDF (prima il CSV usava l'indice di riga → numeri sfasati all'import) */
+    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.mic||"", r.stand||"", r.p48?"48V":"", patch];
   });
   return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Asta","Phantom","Patch"], rows, sep), count: count };
 }
@@ -17563,7 +17612,7 @@ function patchListPdf(shared){
       doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
     trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.name, r.short||"", r.mic+(r.p48?"  (48V)":""), r.stand||"", r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.stand||"", r.patch, false, (r.spare||r.reserved)?"#9a948b":(r.box?"#111827":"#dc2626")); });
     /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
     try{ cabResult().boxes.forEach(function(b){
       if(!b.res.length) return;
