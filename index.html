@@ -2241,6 +2241,13 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0}
 /* Popup della porta: la conseguenza della scelta, scritta sotto la tendina */
 .port-pop .pp-note{font-size:10.5px;color:var(--text-3);line-height:1.4;margin-top:5px}
+/* La patch nella finestra piena e' un comando: si preme e si sceglie la porta, collegata o no.
+   Da scollegata resta in tono d'avviso — dice che manca qualcosa, ma e' la via per rimediare. */
+.cl-row button.cl-patch{border:1px solid transparent;background:none;font:inherit;color:inherit;
+  cursor:pointer;padding:2px 7px;border-radius:var(--r-sm);text-decoration:underline dotted var(--text-3)}
+.cl-row button.cl-patch:hover{border-color:var(--accent);background:var(--accent-tint);
+  color:var(--accent-strong);text-decoration:none}
+.cl-row button.cl-patch:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>

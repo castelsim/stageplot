@@ -5438,5 +5438,114 @@ t("una porta oltre la capienza della box non si assegna", () => {
   eq(A.cabSetPort(c.id + "#0", 99), false, "una porta inesistente va rifiutata");
 });
 
+console.log("\n— Channel list piena: la miniatura del palco —");
+
+function palcoMisto() {
+  reset();
+  A.state.cab.on = true;
+  const batt = add("batteria", 600, 300);
+  const voce = add("cantante", 300, 500);
+  add("stagebox", 200, 700);
+  A.__cabRes = null;
+  return { batt, voce };
+}
+
+t("ogni strumento ha un pallino solo, anche se occupa piu' canali", () => {
+  const { batt, voce } = palcoMisto();
+  const dots = A.clMiniDots(A.patchList(), null);
+  eq(dots.length, 2, "attesi 2 pallini: batteria e voce");
+  eq(dots.map((d) => d.itemId).sort(), [batt.id, voce.id].sort());
+});
+
+t("selezionando un canale qualsiasi della batteria si accende il suo pallino", () => {
+  const { batt } = palcoMisto();
+  const righe = A.patchList().rows.filter((r) => r.itemId === batt.id);
+  const quarta = righe[3];                       /* Hi-Hat: era il caso che non si accendeva */
+  const acceso = A.clMiniDots(A.patchList(), quarta.key).filter((d) => d.on);
+  eq(acceso.length, 1, "nessun pallino acceso scegliendo il quarto canale");
+  eq(acceso[0].itemId, batt.id);
+});
+
+t("il primo canale continua ad accendere il pallino, come prima", () => {
+  const { batt } = palcoMisto();
+  const prima = A.patchList().rows.filter((r) => r.itemId === batt.id)[0];
+  eq(A.clMiniDots(A.patchList(), prima.key).filter((d) => d.on).length, 1);
+});
+
+t("il nome sul palco e' quello del canale scelto, non del primo dello strumento", () => {
+  const { batt } = palcoMisto();
+  const righe = A.patchList().rows.filter((r) => r.itemId === batt.id);
+  const acceso = A.clMiniDots(A.patchList(), righe[6].key).filter((d) => d.on)[0];
+  eq(acceso.name, righe[6].name, "il pallino mostra il nome sbagliato");
+});
+
+t("si accende un pallino solo: gli altri strumenti restano spenti", () => {
+  const { voce } = palcoMisto();
+  const riga = A.patchList().rows.filter((r) => r.itemId === voce.id)[0];
+  const dots = A.clMiniDots(A.patchList(), riga.key);
+  eq(dots.filter((d) => d.on).length, 1);
+  eq(dots.filter((d) => d.on)[0].itemId, voce.id);
+});
+
+t("senza selezione non si accende niente", () => {
+  palcoMisto();
+  eq(A.clMiniDots(A.patchList(), null).filter((d) => d.on).length, 0);
+});
+
+console.log("\n— Channel list piena: la patch si gestisce sempre —");
+
+function palcoDaCollegare() {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  const v = add("cantante", 400, 300);
+  const sb = add("stagebox", 200, 700);
+  A.__cabRes = null;
+  return { v, sb };
+}
+
+t("una riga non collegata puo' ricevere una porta: la scelta la collega", () => {
+  const { v, sb } = palcoDaCollegare();
+  const riga = A.patchList().rows[0];
+  ok(!riga.box, "la riga deve partire scollegata");
+  eq(A.cabSetPort(riga.key, 5), true, "la scelta è stata rifiutata su una riga scollegata");
+  A.__cabRes = null;
+  const dopo = A.patchList().rows[0];
+  ok(dopo.box, "la riga è rimasta scollegata");
+  eq(dopo.patch, "A\u00b75", "non ha preso la porta scelta");
+});
+
+t("collegare scegliendo la porta usa la stage box del palco", () => {
+  const { sb } = palcoDaCollegare();
+  const riga = A.patchList().rows[0];
+  A.cabSetPort(riga.key, 3);
+  eq(A.state.cab.manual[riga.key].box, sb.id, "non ha agganciato la stage box");
+});
+
+t("senza stage box non si puo' assegnare una porta", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  add("cantante", 400, 300);
+  A.__cabRes = null;
+  eq(A.cabSetPort(A.patchList().rows[0].key, 3), false, "senza box la porta non esiste");
+});
+
+t("nella finestra piena non c'e' il fulmine: la patch e' il comando", () => {
+  /* il fulmine resta nella colonna di destra, dove si lavora un cavo alla volta (Simone 28/07) */
+  ok(appjs.indexOf("cl-zap") === -1, "il fulmine è ancora nella finestra piena");
+  ok(appjs.indexOf("cl-patch") > -1, "la cella della patch deve restare");
+});
+
+t("la cella della patch e' un comando anche quando la riga non e' collegata", () => {
+  /* la riga del markup che disegna la cella: deve essere un <button> con data-port, in
+     entrambi gli stati — «A·1» quando è collegata, «da collegare» quando non lo è */
+  const righe = appjs.split(/\r?\n/);
+  const i = righe.findIndex((l) => l.indexOf('class="cl-patch') > -1 && l.indexOf("r.box?''") > -1);
+  ok(i > -1, "manca la cella della patch con i due stati");
+  const blocco = righe.slice(i, i + 3).join("\n");
+  ok(/<button/.test(blocco), "la cella non è un comando: " + blocco.slice(0, 160));
+  ok(/data-port=/.test(blocco), "la cella non apre la scelta della porta");
+  ok(/da collegare/.test(blocco), "manca lo stato «da collegare»");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
