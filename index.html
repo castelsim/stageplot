@@ -1011,6 +1011,13 @@
   .patch-row .pmic{color:var(--text-2);font-size:10.5px;display:flex;align-items:center;gap:4px;min-width:0}
   .patch-row .pmic .micname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}   /* tronca il NOME mic, non il badge */
   .patch-row .p48b,.patch-row .pamp{flex:0 0 auto}   /* 48V/Ampere sempre visibili (mai troncati) */
+  /* Asta e nome sul banco (caso reale 28/07): due delle nove colonne della channel list vera. In 220 px
+     non possono essere colonne, quindi vivono sulla seconda riga del canale, con un peso minore del mic. */
+  .patch-row .pstand{flex:0 0 auto;font-size:9.5px;color:var(--text-3);white-space:nowrap}
+  .patch-row .pstand::before{content:"· "}
+  .patch-row .pfoh{flex:0 1 auto;min-width:0;font-size:9px;font-weight:700;letter-spacing:.2px;
+    color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* Stato del cablaggio (28/07): «cablato dal sistema» (teal), «scelto a mano» (viola, il sistema non
      lo tocca), «non cablato» (vuoto — niente icona: il vuoto comunica il vuoto). */
   .patch-row.editable>.ppatch{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;
