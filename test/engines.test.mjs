@@ -5370,6 +5370,73 @@ t("il CSV della channel list produce righe, non un file vuoto", () => {
   ok(righe[0].indexOf("Canale") > -1, "manca l'intestazione");
   ok(righe[1].indexOf("Kick") > -1 || righe[1].indexOf("Voce") > -1, "prima riga vuota: " + righe[1]);
 });
+console.log("\n— Porte della stage box: sceglierle a mano —");
+
+function trePreseCollegate() {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {};
+  const a = add("cantante", 300, 300);
+  const b = add("cantante", 500, 300);
+  const c = add("cantante", 700, 300);
+  add("stagebox", 200, 700);
+  A.__cabRes = null;
+  return { a, b, c };
+}
+function porte() {
+  A.__cabRes = null;
+  const m = {};
+  A.patchList().rows.forEach((r) => { m[r.name] = r.patch; });
+  return m;
+}
+
+t("senza scelte a mano le porte vanno in ordine crescente", () => {
+  trePreseCollegate();
+  eq(porte(), { "Cantante 1": "A·1", "Cantante 2": "A·2", "Cantante 3": "A·3" });
+});
+
+t("assegnare una porta gia' occupata sposta l'altro invece di litigare", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);            /* il terzo vuole la porta 1, che ha il primo */
+  const p = porte();
+  eq(p["Cantante 3"], "A\u00b71", "chi ha scelto la porta non l'ha ottenuta");
+  ok(p["Cantante 1"] !== "A\u00b71", "il vecchio occupante è rimasto sulla porta 1");
+});
+
+t("gli altri si ridispongono in ordine crescente sulle porte libere", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  const p = porte();
+  eq([p["Cantante 1"], p["Cantante 2"]], ["A\u00b72", "A\u00b73"], "i non scelti non sono in ordine");
+});
+
+t("scegliere una porta a mano non produce l'errore di porta duplicata", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  A.__cabRes = null;
+  const dup = (A.cabResult(true).issues || []).filter((i) => /duplicata/i.test(i.msg));
+  eq(dup.length, 0, "il motore segnala ancora un conflitto: " + JSON.stringify(dup));
+});
+
+t("chi sceglie per ultimo vince: il pin precedente sulla stessa porta si libera", () => {
+  const { b, c } = trePreseCollegate();
+  A.cabSetPort(b.id + "#0", 5);
+  A.cabSetPort(c.id + "#0", 5);            /* stessa porta, scelta dopo */
+  const p = porte();
+  eq(p["Cantante 3"], "A\u00b75", "l'ultima scelta non ha vinto");
+  ok(p["Cantante 2"] !== "A\u00b75", "due canali sono rimasti sulla stessa porta");
+});
+
+t("liberare la scelta rimette il canale in fila", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  A.cabSetPort(c.id + "#0", 0);            /* 0 = torna automatica */
+  eq(porte(), { "Cantante 1": "A\u00b71", "Cantante 2": "A\u00b72", "Cantante 3": "A\u00b73" });
+});
+
+t("una porta oltre la capienza della box non si assegna", () => {
+  const { c } = trePreseCollegate();
+  eq(A.cabSetPort(c.id + "#0", 99), false, "una porta inesistente va rifiutata");
+});
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

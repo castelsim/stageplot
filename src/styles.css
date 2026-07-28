@@ -2074,3 +2074,5 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 .riser-lock{fill:#1f2937;stroke:none;opacity:.82;pointer-events:none}
 .riser-lock .rl-arc{stroke:#1f2937;stroke-width:1.1;stroke-linecap:round;fill:none}
 body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0}
+/* Popup della porta: la conseguenza della scelta, scritta sotto la tendina */
+.port-pop .pp-note{font-size:10.5px;color:var(--text-3);line-height:1.4;margin-top:5px}
