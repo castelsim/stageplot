@@ -451,6 +451,11 @@
     </div>
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
       <div id="pDiPrev" class="di-prev"></div>
+      <div id="pDiForWrap" style="display:none">
+        <label class="di-lbl">Serve a</label>
+        <select id="pDiFor" class="di-sel"></select>
+        <div class="di-note" id="pDiForNote"></div>
+      </div>
       <label class="di-lbl">Canali</label>
       <div class="di-seg" id="pDiCh"><button type="button" data-v="mono">Mono</button><button type="button" data-v="stereo">Stereo</button><button type="button" data-v="multi">Multicanale</button></div>
       <div id="pDiMultiWrap" style="display:none;margin-top:6px"><label class="di-lbl">Canali rack</label><div class="di-seg" id="pDiMultiN"><button type="button" data-v="6">6</button><button type="button" data-v="8">8</button></div></div>
@@ -7578,7 +7583,7 @@ function auditEngine(){
   var seen={};
   function add(lvl,msg,cat,fix,act,rule){
     if(rule){ if(seen[rule]) return; seen[rule]=1; }
-    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null});
+    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, rule:rule||""});   /* la chiave resta sul finding: serve ai test e a distinguere due avvisi con lo stesso testo */
   }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
   var realBox=items.some(cabIsBox), realDistro=items.some(elecIsDistro);
@@ -7709,6 +7714,21 @@ function auditEngine(){
     if(recActive && audioSrc>1)
       add("todef","Registrazione audio prevista con "+audioSrc+" canali: modalità di split (direct out del mixer, split analogico o protocollo digitale) e sistema di acquisizione da concordare.","Produzione","");
   })();
+  /* DI presa dal catalogo e mai associata a nessuno: dichiara canali che non esistono.
+     Contestata solo se accanto c'e' davvero uno strumento che passa da DI — una DI usata
+     da sola (playback, tastiera senza icona…) e' una scelta legittima e non si tocca. */
+  (function(){
+    var orfane=items.filter(function(it){
+      return it.type==="dimono" && !it.diFor && typeof diCandidates==="function" && diCandidates(it).length;
+    });
+    if(!orfane.length) return;
+    var ch=orfane.reduce(function(a,d){ return a+((d.diCh==="stereo")?2:(d.diCh==="multi"?(d.diMultiCh||8):1)); },0);
+    add("warn", orfane.length===1
+      ? "Una DI non è associata allo strumento accanto: sta dichiarando "+ch+" canal"+(ch===1?"e":"i")+" in più."
+      : orfane.length+" DI non sono associate agli strumenti accanto: stanno dichiarando "+ch+" canali in più.",
+      "Audio","La DI è una tappa del cavo, non una sorgente: associala e i suoi canali tornano quelli dello strumento.",
+      {label:"Associa allo strumento", run:function(){ auditFixDiAdopt(orfane); }}, "di-orfana");
+  })();
   var errs=f.filter(function(x){return x.lvl==="err";}).length, warns=f.filter(function(x){return x.lvl==="warn";}).length;
   var todefs=f.filter(function(x){return x.lvl==="todef";}).length;
   /* i findings vengono deduplicati per messaggio: senza questo, 44 sorgenti identiche non instradate
@@ -7726,6 +7746,19 @@ function auditEngine(){
    l'avviso sparisce dall'audit alla deselezione. Le fix "di impostazione" (rete) restano nell'audit. */
 function auditFixAddBox(){ state.cab.on=true; __cabRes=null; addItem("stagebox"); }
 function auditFixAddWedge(){ addItem("wedge"); }
+/* Adotta ogni DI orfana con lo strumento piu' vicino fra i candidati. Qui indovinare e'
+   legittimo: il candidato deve gia' passare da DI ed essere entro 2,5 m — non e' una
+   deduzione sul contenuto, e' l'unica lettura possibile di due oggetti posati accanto. */
+function auditFixDiAdopt(list){
+  var n=0;
+  (list||[]).forEach(function(di){
+    var c=diCandidates(di)[0];
+    if(c && diAdopt(di,c)) n++;
+  });
+  if(!n) return;
+  save(); render(); renderChannels();
+  showToast(n===1 ? "DI associata allo strumento" : n+" DI associate agli strumenti");
+}
 /* LAB caso 1 — L8: piazza un radiomic accanto a ogni cantante scoperto, col nome del cantante come canale */
 function auditFixAddVoiceMics(list){
   (list||[]).forEach(function(v){ var it=state.items.find(function(i){ return i.id===v.id; }); if(!it) return;
@@ -8918,6 +8951,27 @@ function renderProps(){
     document.getElementById("pDiMultiWrap").style.display = (ch==="multi") ? "block" : "none";
     [].forEach.call(document.querySelectorAll("#pDiMultiN button"),function(b){ b.classList.toggle("on", +b.getAttribute("data-v")===mn); });
     document.getElementById("pDiSchema").checked = it.diSchema===true;
+    /* «Serve a» — la domanda che mancava. Una DI presa dal catalogo resta una sorgente coi
+       suoi canali finche' non si dice a chi appartiene; associata, diventa una tappa del cavo. */
+    (function(){
+      var wrap=document.getElementById("pDiForWrap"), selEl=document.getElementById("pDiFor"), note=document.getElementById("pDiForNote");
+      if(!wrap||!selEl) return;
+      var src=(typeof diSourceOf==="function")?diSourceOf(it):null;
+      var cands=(typeof diCandidates==="function")?diCandidates(it):[];
+      if(!src && !cands.length){ wrap.style.display="none"; return; }
+      wrap.style.display="";
+      var opts='<option value="">— nessuno: e\u0027 una sorgente a se\u0027 —</option>';
+      var list=src?[src]:cands;
+      list.forEach(function(x){
+        var nm=(x.label&&String(x.label).trim())||(TYPES[x.type]&&TYPES[x.type].nome)||x.type;
+        opts+='<option value="'+esc(x.id)+'"'+((src&&src.id===x.id)?" selected":"")+'>'+esc(nm)+'</option>';
+      });
+      selEl.innerHTML=opts;
+      var ch=(it.diCh==="stereo")?2:(it.diCh==="multi"?(it.diMultiCh||8):1);
+      note.innerHTML = src
+        ? "Tappa del cavo di <b>"+esc((src.label&&String(src.label).trim())||TYPES[src.type].nome)+"</b>: in channel list i canali sono quelli dello strumento, non suoi."
+        : "Non associata: dichiara <b>"+ch+" canal"+(ch===1?"e":"i")+"</b> per conto suo, oltre allo strumento.";
+    })();
   })();
   (function(){ var w=document.getElementById("pSwWrap"); if(!w) return;
     if(!it || it.type!=="netswitch"){ w.style.display="none"; return; }
@@ -9198,6 +9252,18 @@ document.getElementById("pLeggioGen").addEventListener("change", function(){ var
 document.getElementById("pLucetta").addEventListener("change", function(){ var v=document.getElementById("pLucetta").checked; mutSel(function(it){ it.lucetta=v; }); });   /* lucetta leggio (solo visiva) */
 /* DI box: controlli segmentati (canali / tipo / multi) + icona schematica */
 document.getElementById("pDiCh").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diCh=b.getAttribute("data-v"); if(it.diCh==="multi"&&it.diMultiCh!==6) it.diMultiCh=8; var f=diFootprint(it); it.w=f[0]; it.d=f[1]; __cabRes=null; }); });
+document.getElementById("pDiFor").addEventListener("change", function(e){
+  var it=getSel(); if(!it || it.type!=="dimono") return;
+  var v=e.target.value;
+  if(!v){   /* «nessuno»: torna sorgente a se', e lo strumento perde il riferimento */
+    var old=diSourceOf(it); if(old && old.diId===it.id){ delete old.diId; delete old.diOff; }
+    delete it.diFor; __cabRes=null; save(); render(); renderChannels(); renderProps();
+    return;
+  }
+  var src=(state.items||[]).filter(function(x){ return x.id===v; })[0];
+  if(src && diAdopt(it, src)){ save(); render(); renderChannels(); renderProps();
+    showToast("DI associata a "+((src.label&&String(src.label).trim())||TYPES[src.type].nome)); }
+});
 document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
@@ -15601,6 +15667,41 @@ function diSyncPos(src){   /* riporta la DI al suo posto rispetto allo strumento
   di.x=Math.round(src.x+off[0]*c-off[1]*sn);
   di.y=Math.round(src.y+off[0]*sn+off[1]*c);
   di.rot=src.rot||0;
+}
+/* ===== ADOZIONE di una DI presa dal catalogo (28/07) ==============================
+   Una DI generata dal software nasce con diFor e vale come TAPPA del cavo: lo strumento
+   resta un canale solo. Una DI trascinata dal catalogo no — resta una sorgente coi suoi
+   canali, e se e' stereo ne dichiara due che non esistono. Nel progetto reale che ha fatto
+   emergere il caso, la DI era posata a 75 px dalla chitarra: visivamente collegate, nel
+   dato no. Mancava il modo di dirlo, e queste due funzioni sono quel modo. */
+var DI_ADOPT_RANGE=250;   /* 2,5 m: oltre, «la DI di quello strumento li'» non e' piu' una lettura ovvia */
+/* Strumenti che possono adottare questa DI: passano da DI, sono vicini, e non ne hanno
+   gia' un'altra diversa da questa. Ordinati per distanza — il primo e' il candidato naturale. */
+function diCandidates(di){
+  if(!di || di.type!=="dimono" || di.diFor) return [];
+  return (state.items||[]).filter(function(it){
+    if(it===di || it.type==="dimono" || it.type==="distereo") return false;
+    if(typeof diUsesBox!=="function" || !diUsesBox(it)) return false;
+    if(it.diId && it.diId!==di.id) return false;   /* ha gia' la sua DI: prima va liberata */
+    return Math.hypot((it.x||0)-(di.x||0), (it.y||0)-(di.y||0)) <= DI_ADOPT_RANGE;
+  }).sort(function(a,b){
+    return Math.hypot((a.x||0)-(di.x||0),(a.y||0)-(di.y||0)) - Math.hypot((b.x||0)-(di.x||0),(b.y||0)-(di.y||0));
+  });
+}
+/* Lega la DI allo strumento. La DI NON si sposta: e' l'utente che l'ha messa li', e l'offset
+   viene calcolato dalla posizione attuale (stessa logica del trascinamento, diSaveOff). */
+function diAdopt(di, src){
+  if(!di || !src || di.type!=="dimono") return false;
+  if(typeof diUsesBox!=="function" || !diUsesBox(src)) return false;
+  var vecchia=diLinked(src);
+  if(vecchia && vecchia.id!==di.id){
+    /* la DI che il software aveva generato per questo strumento non serve piu' */
+    if(vecchia.diFor===src.id) state.items=(state.items||[]).filter(function(x){ return x.id!==vecchia.id; });
+  }
+  di.diFor=src.id; src.diId=di.id;
+  diSaveOff(di);            /* memorizza dove sta ORA, cosi' non salta al posto di default */
+  __cabRes=null;
+  return true;
 }
 function diSaveOff(di){   /* la DI è stata trascinata: memorizza il nuovo offset nel frame dello strumento */
   var src=diSourceOf(di); if(!src) return;
