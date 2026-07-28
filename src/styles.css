@@ -793,8 +793,31 @@
      colonna destra fino a mostrare tutto il contenuto); # e ultima (patch/uscita/Q-L, contenuto corto)
      a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
   .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
-  /* liste modificabili (Input/Monitor): 5ª colonna per il cestino; riga cliccabile = seleziona sul palco */
-  .patch-row.editable{grid-template-columns:22px minmax(0,1fr) minmax(0,1.55fr) 44px 44px}   /* MIC/DI larga: nome mic leggibile + badge 48V sempre pinnato */
+  /* liste modificabili (Input/Monitor) — DUE LIVELLI (28/07): in 220 px cinque colonne troncavano le
+     sorgenti a «Bat…», «Chi…», «Vo…», illeggibili proprio nel dato che il fonico viene a leggere.
+     Ora il canale occupa due righe — nome intero sopra, mic e 48V sotto — con numero a sinistra e
+     patch a destra su entrambe. Solo CSS: il markup (4 celle + .rowacts) e tutto il JS di
+     trascinamento/rinomina restano identici. */
+  .patch-row.editable{grid-template-columns:20px minmax(0,1fr) auto 26px;grid-template-rows:auto auto;
+    gap:1px 7px;padding:6px 8px}
+  .patch-row.editable>.pn{grid-area:1/1/3/2;align-self:center}
+  .patch-row.editable>.psrc{grid-area:1/2/2/3}
+  .patch-row.editable>.pmic{grid-area:2/2/3/3;font-size:10.5px}
+  .patch-row.editable>.ppatch{grid-area:1/3/3/4;align-self:center;justify-self:end}
+  .patch-row.editable>.rowacts{grid-area:1/4/3/5;align-self:center}
+  /* l'intestazione resta a una riga: sono etichette, non dati */
+  .patch-row.editable.patch-hd{grid-template-rows:auto}
+  .patch-row.editable.patch-hd>*{grid-area:auto}
+  .patch-row.editable.patch-hd>.ppatch{justify-self:end}
+  /* Barra del cablaggio in cima alla lista: il comando principale (28/07) */
+  .cab-bar{display:flex;align-items:center;gap:8px;background:var(--accent-tint);
+    border:1px solid var(--accent-soft);border-radius:8px;padding:6px 9px;margin:0 0 8px;
+    font-size:11.5px;color:var(--accent-strong)}
+  .cab-bar-txt{flex:1 1 auto;line-height:1.35;min-width:0}
+  #props .cab-bar .cab-bar-go,.cab-bar .cab-bar-go{flex:0 0 auto;font-size:11px;padding:4px 10px;
+    width:auto;min-width:0;margin:0;white-space:nowrap}
+  .cab-bar.done{background:var(--success-bg);border-color:#bbf7d0;color:var(--success)}
+  body.dark .cab-bar.done{background:#052e16;border-color:#166534}
   .patch-row.editable:not(.patch-hd){cursor:pointer}
   .patch-row.editable:not(.patch-hd):hover{background:var(--accent-tint)}
   .patch-row.rowsel{background:var(--accent-tint)}
@@ -823,6 +846,13 @@
   .patch-row .pmic{color:var(--text-2);font-size:10.5px;display:flex;align-items:center;gap:4px;min-width:0}
   .patch-row .pmic .micname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}   /* tronca il NOME mic, non il badge */
   .patch-row .p48b,.patch-row .pamp{flex:0 0 auto}   /* 48V/Ampere sempre visibili (mai troncati) */
+  /* Stato del cablaggio (28/07): «cablato dal sistema» (teal), «scelto a mano» (viola, il sistema non
+     lo tocca), «non cablato» (vuoto — niente icona: il vuoto comunica il vuoto). */
+  .patch-row.editable>.ppatch{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;
+    padding:2px 6px;border-radius:5px;background:var(--accent-tint);color:var(--accent-strong);white-space:nowrap}
+  .patch-row.editable.cab-man>.ppatch{background:#ede9fe;color:#6d28d9}
+  body.dark .patch-row.editable.cab-man>.ppatch{background:#2e1065;color:#c4b5fd}
+  .patch-row.editable.unassigned>.ppatch{background:none;color:var(--text-3);font-weight:400;padding:2px 0}
   .patch-row .p48b{display:inline-block;font-size:8.5px;font-weight:700;color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;vertical-align:middle}   /* phantom 48V = badge teal */
   .patch-row .pamp{display:inline-block;font-size:8.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}   /* assorbimento (A) = badge ambra (dominio potenza) */
   body.dark .patch-row .p48b{color:#5eb8c7;background:#13202a}

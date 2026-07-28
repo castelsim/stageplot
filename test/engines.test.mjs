@@ -2218,6 +2218,35 @@ t("A11Y-SEL: i select orfani di label visibile hanno il nome accessibile", () =>
   ok(html.indexOf('<select id="pMike" aria-label="Microfonazione">') > -1);
   ok(/<select id="pAscolto" aria-label="Ascolto[^"]*">/.test(html));
 });
+/* Input List (Simone 28/07): «aprire un layer non deve creare o modificare dati tecnici senza
+   un'azione esplicita». Il cablaggio si chiede: barra in cima alla lista, non clic sul layer. */
+t("aprire il layer Input non apre il wizard e non collega niente", () => {
+  reset();
+  add("astamic", 200, 200); add("astamic", 400, 200); add("astamic", 600, 200);
+  add("astamic", 800, 200); add("astamic", 1000, 200);   /* 5 canali: sopra AUDIT_MIN_CH */
+  A.__cabRes = null;
+  const primaManual = JSON.stringify(A.state.cab.manual || {});
+  A.cabActivateFlow();
+  eq(JSON.stringify(A.state.cab.manual || {}), primaManual, "nessun collegamento creato aprendo il layer");
+  eq(A.state.items.filter(A.cabIsBox).length, 0, "e nessuna stage box aggiunta dal wizard");
+  ok(A.state.cab.on, "il motore si accende: la lista stessa ne deriva");
+  ok(appjs.indexOf("openCabBoxWizard(needs); return;") === -1,
+     "il wizard non parte più dall'apertura del layer");
+});
+t("la barra dice quanti canali mancano, e «Collega» rispetta i cablaggi a mano", () => {
+  reset(); A.state.cab.on = true;
+  add("astamic", 200, 200); add("astamic", 400, 200); add("stagebox", 900, 700);
+  A.__cabRes = null;
+  const pl = A.patchList();
+  eq(pl.rows.filter((r) => !r.spare && !r.box).length, 0, "con la box i canali si collegano");
+  ok(appjs.indexOf('bar.className="cab-bar"') > -1, "la barra esiste in cima alla lista");
+  ok(appjs.indexOf("Tutti i canali sono cablati") > -1, "e dice anche quando non c'è nulla da fare");
+});
+t("la lista è a due livelli: il nome della sorgente non si tronca più", () => {
+  ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
+  ok(stylesCss.indexOf(".patch-row.editable>.pmic{grid-area:2/2/3/3") > -1, "mic sulla seconda");
+  ok(stylesCss.indexOf(".patch-row.editable.cab-man>.ppatch") > -1, "e «a mano» si distingue dal cablato");
+});
 t("la riga del layer porta il suo numero", () => {
   reset(); A.state.cab.on = true; A.state.elec.on = true;
   add("astamic", 300, 300); add("astamic", 500, 300); add("stagebox", 900, 700);
