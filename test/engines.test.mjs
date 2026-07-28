@@ -2235,9 +2235,12 @@ t("etichetta: il campo sta staccato dai bottoni in TUTTE le modalità", () => {
   ok(stylesCss.indexOf("#props #pLabelWrap{margin-top:6px}") > -1, "lo stacco sta sul campo nome");
   ok(html.indexOf('id="pAbbrWrap" style="display:none;margin-top:6px"') > -1, "stesso valore per la sigla");
 });
-t("dimensione e rotazione: slider su una riga; distanza: campo numerico", () => {
+t("dimensione, rotazione e distanza fra i due: slider su una riga", () => {
   /* 28/07 — dietrofront esplicito di Simone sulla rotazione: era tornata campo numerico col pannello
-     B3, ora è di nuovo uno slider, come la Dimensione. Si ruota guardando il palco, non digitando. */
+     B3, ora è di nuovo uno slider, come la Dimensione. Si ruota guardando il palco, non digitando.
+     28/07 sera — stessa richiesta per la distanza della postazione a 2 («deve avere sempre lo
+     slider»): era l'unica misura continua del pannello rimasta a campo numerico, e allontanare i
+     due leggii si capisce guardandoli muoversi. */
   const html = readFileSync(join(root, "index.html"), "utf8");
   const size = (html.match(/<div id="pLblSizeWrap"[^>]*>/) || [""])[0];
   ok(size.indexOf('class="sldrow"') > -1, "Dimensione: etichetta, slider e valore sulla stessa riga");
@@ -2250,9 +2253,13 @@ t("dimensione e rotazione: slider su una riga; distanza: campo numerico", () => 
   ok(rot.indexOf('step="1"') > -1, "step 1: tutti i gradi interi restano raggiungibili");
   ok(html.indexOf('<output id="pRotVal"') > -1, "il valore in gradi resta leggibile accanto allo slider");
   ok(appjs.indexOf("pRotVal") > -1, "e l'app lo aggiorna");
+  const sepRow = (html.match(/<div class="sldrow"><label for="pSep">[\s\S]{0,220}?<\/div>/) || [""])[0];
+  ok(sepRow, "Distanza tra i 2: stessa riga singola di Dimensione e Rotazione");
   const sep = (html.match(/<input[^>]*id="pSep"[^>]*>/) || [""])[0];
-  ok(sep.indexOf('type="number"') > -1, "la distanza resta un campo numerico: " + sep);
-  eq(appjs.indexOf("pSepVal"), -1);
+  ok(sep.indexOf('type="range"') > -1, "la distanza è uno slider: " + sep);
+  ok(sep.indexOf('step="5"') > -1, "passo di 5 cm: le misure restano tonde");
+  ok(html.indexOf('<output id="pSepVal"') > -1, "i centimetri restano leggibili accanto allo slider");
+  ok(appjs.indexOf("pSepVal") > -1, "e l'app li aggiorna mentre si trascina");
 });
 /* Pannello layer (27/07): la riga chiusa dice quanto contiene, e il cestino esce dalla riga. */
 /* ===== Regressioni della review 27-28/07 (harness Playwright in COWORK/STAGEPLOT/review/) ===== */
@@ -5235,6 +5242,31 @@ t("la chitarra acustica esce di default dal pickup, in DI", () => {
 
 t("la chitarra classica di default si microfona: non ha il piezo", () => {
   eq(A.MIKING.musChitClassica.def, "mic");
+});
+console.log("\n— Postazione a 2: la distanza fra i due —");
+
+t("ogni strumento ha la sua distanza minima fisica", () => {
+  eq(A.minSepType("contrabbasso"), 100, "il contrabbasso ingombra di più");
+  eq(A.minSepType("violoncello"), 78);
+  eq(A.minSepType("vlnpost"), A.DEFAULT_SEP, "il violino sta al minimo generico");
+});
+
+t("una postazione a due nasce a 90 cm, mai sotto il minimo fisico", () => {
+  eq(A.defSepOf({ type: "vlnpost" }), 90);
+  eq(A.defSepOf({ type: "contrabbasso" }), 100, "90 sarebbe sotto il minimo del contrabbasso");
+});
+
+t("allargare la distanza allarga l'ingombro della postazione", () => {
+  const cfg = A.POSTAZ.vlnpost;
+  const stretta = A.sepToW(cfg, 90), larga = A.sepToW(cfg, 150);
+  ok(larga > stretta, "l'ingombro non è cresciuto con la distanza");
+  eq(larga - stretta, 60, "l'ingombro deve seguire la distanza uno a uno");
+});
+
+t("il violino I è una postazione configurabile: la distanza ha senso solo a due", () => {
+  const solo = { type: "vlnpost", vsec: 1 };
+  eq(A.sepCfg(solo), null, "da solo non c'è nessuna distanza da regolare");
+  ok(A.sepCfg({ type: "vlnpost", vsec: 1, doppia: true }), "a due la distanza va regolata");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

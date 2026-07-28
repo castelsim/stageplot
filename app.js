@@ -7228,7 +7228,8 @@ function renderProps(){
   var sw=document.getElementById("pSepWrap");
   if(cfg){ sw.style.display="block"; var sv=Math.max(minSepOf(it), it.sep || defSepOf(it));
     document.getElementById("pSep").min = minSepOf(it);
-    document.getElementById("pSep").value = sv; }
+    document.getElementById("pSep").value = sv;
+    var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = sv+" cm"; }
   else sw.style.display="none";
   var pv=document.getElementById("pVoce"), isVoce=!!VOCE[it.type];
   pv.style.display = isVoce ? "block" : "none";
@@ -7707,7 +7708,10 @@ function applySep(doSave){
   it.w=sepToW(cfg, it.sep);
   render(); if(doSave) save();
 }
-document.getElementById("pSep").addEventListener("input", function(){ applySep(false); });
+document.getElementById("pSep").addEventListener("input", function(){
+  var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = (this.value||"")+" cm";   /* il numero segue il cursore, come Dimensione */
+  applySep(false);
+});
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ mutSel(function(it){ it.donna=document.getElementById("pDonna").checked; }); });
 document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); });
