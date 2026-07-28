@@ -5981,5 +5981,57 @@ t("applicare a tutti allinea gli altri e non tocca i tipi diversi", () => {
   eq(A.lblSizeOf(w), 20, "il wedge resta com'era");
 });
 
+console.log("\n— Catena dello strumento: i pallini di prelievo —");
+
+/* Le x dei pallini (i <circle> dei tap) nel diagramma della catena. */
+function tapX(it) {
+  const m = A.chainSvgMarkup(it).match(/<circle cx="([\d.]+)"/g) || [];
+  return m.map((c) => parseFloat(c.match(/cx="([\d.]+)"/)[1]));
+}
+
+t("linea e mic della chitarra acustica non finiscono nello stesso punto", () => {
+  reset();
+  const gt = add("gtacustica", 300, 300);
+  gt.strMic = true;                       /* accende anche il microfono sullo strumento */
+  const xs = tapX(gt);
+  eq(xs.length, 2, "attesi due pallini: linea e mic");
+  ok(xs[0] !== xs[1], "le due etichette sono sovrapposte: stessa x " + xs[0]);
+});
+
+t("i due pallini restano distinguibili anche da spenti", () => {
+  reset();
+  const gt = add("gtacustica", 300, 300);
+  gt.tapLine = false; gt.strMic = false;
+  const xs = tapX(gt);
+  ok(Math.abs(xs[0] - xs[1]) >= 24, "troppo vicini: le etichette si toccano ancora (" + xs + ")");
+});
+
+t("con la pedaliera i pallini stanno su nodi diversi e non si scontrano", () => {
+  reset();
+  const gt = add("gtacustica", 300, 300);
+  gt.pedaliera = true; gt.pedXlr = true; gt.strMic = true;
+  const xs = tapX(gt);
+  eq(xs.length, 3, "attesi tre pallini: linea, XLR, mic");
+  eq(new Set(xs).size, 3, "due pallini condividono la stessa x: " + xs);
+});
+
+t("uno strumento senza microfono proprio tiene il suo unico pallino al centro", () => {
+  reset();
+  const b = add("bassstand", 300, 300);
+  eq(tapX(b).length, 1, "il basso non ha il prelievo mic sullo strumento");
+});
+
+console.log("\n— Chitarre: cosa esce davvero —");
+
+t("la chitarra acustica esce di default dal pickup, in DI", () => {
+  eq(A.MIKING.gtacustica.def, "di");
+  ok(A.MIKING.gtacustica.options.some((o) => o[0] === "mic"), "deve poter essere microfonata");
+  ok(A.MIKING.gtacustica.options.some((o) => o[0] === "dimic"), "deve poter fare DI + mic insieme");
+});
+
+t("la chitarra classica di default si microfona: non ha il piezo", () => {
+  eq(A.MIKING.musChitClassica.def, "mic");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
