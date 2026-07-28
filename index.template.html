@@ -898,6 +898,23 @@
     <div id="pmAccSec" style="display:none"></div>
     <div id="musAccSec" style="display:none"></div>
     <div id="coverAccSec" style="display:none"></div>
+    <!-- Luci come reparto (blocco A): la lista delle RICHIESTE. In testa solo l'oscurabilità
+         (è un interruttore, sta su una riga); il clima luminoso vive nel pannello, dove ha
+         lo spazio di un campo di testo — nella colonna a 220 px andava a capo tre volte. -->
+    <div id="luciSec" style="display:none">
+      <div id="lightsVenueBar" class="lights-venue">
+        <label class="chk lights-sw"><input type="checkbox" id="lightsBlackout"> Sala oscurabile</label>
+        <button type="button" class="lights-nd" id="lightsBlackoutNo" title="Il buio non serve">non serve</button>
+      </div>
+      <div id="lightsRows"></div>
+      <button type="button" class="lights-add" id="lightsAdd">+ Aggiungi una luce</button>
+      <div id="lightsCard"></div>
+      <div id="lightsMoodCard" class="prop-card" style="margin-top:9px">
+        <div class="prop-card__head">Clima luminoso <span class="muted">tutto lo spettacolo</span></div>
+        <input type="text" id="lightsMood" class="lights-inp" placeholder="es. calda, morbida e teatrale">
+        <p class="prop-hint">Chiude la sezione LUCI del rider: «L'illuminazione dovrà essere…».</p>
+      </div>
+    </div>
     <div id="accPark" style="display:none"></div>
     <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
@@ -4592,6 +4609,16 @@ function productionLuciText(s){
   var r=(s&&s.rider)||{};
   if(r.luci!=null && String(r.luci).trim()!=="") return String(r.luci);
   var o=s&&s.production&&s.production.systems&&s.production.systems.luci;
+  /* Blocco A: se la lista dichiara delle richieste, sono LORO il testo delle luci.
+     La delega (venue/service/produzione) non si perde: dice CHI le fa e resta in testa,
+     perché «a cura della venue» senza l'elenco è proprio ciò che lasciava il rider muto. */
+  var lines=(typeof lightsRiderLines==="function") ? lightsRiderLines(s&&s.lights) : [];
+  if(lines.length){
+    var DEL={venue:"Luci a cura della venue.",service:"Luci a cura del service tecnico.",
+      produzione:"Luci a cura della produzione.",plot_allegato:"Vedi plot luci allegato."};
+    var head=(o&&o.ans&&DEL[o.ans]) ? DEL[o.ans]+"\n" : "";
+    return head+lightsRiderText(s&&s.lights);
+  }
   if(o&&o.ans){
     if(o.ans==="piazzato_bianco") return RIDER_DEFAULTS.luci+(o.note?(" "+o.note):"");
     var T={venue:"Luci a cura della venue.",service:"Luci a cura del service tecnico.",
@@ -4660,6 +4687,171 @@ var PRODUCTION_LUCI=[
   ["plot_allegato","Plot luci allegato"], ["non_comprese","Non comprese nel rider"],
   ["da_definire","Da definire"], ["altro","Altro"]
 ];
+/* ===== LUCI COME REPARTO (blocco A, 28/07) ==========================================
+   Fino a qui le luci erano dieci icone MUTE più una domanda di delega (PRODUCTION_LUCI:
+   «chi le fa»). Mancava il livello di mezzo — «cosa serve, quanto, com'è» — e chi doveva
+   dirlo scriveva cartelli di testo sul palco («FRONTALE SU ELEVATORE 4M CON PAR CALDI»)
+   per poi rifare il rider a mano altrove, con disegno e testo che divergevano.
+
+   Modello: la RIGA della lista è la fonte del numero; le icone sul palco la ILLUSTRANO.
+   Le luci frontali stanno in sala su un elevatore, non sul palco: pretendere che il numero
+   venga dal disegno costringerebbe a piazzarle in scala falsa. Da qui la regola cardine:
+   n non scende MAI sotto le icone agganciate (lightsNormalizeRows).
+   PRODUCTION_LUCI resta e non si duplica: risponde a CHI, la lista a COSA. =============== */
+var LIGHT_FN=[
+  ["frontale","Frontale"], ["controluce","Controluce"], ["laterale","Laterale (di taglio)"],
+  ["fondale","Fondale / ciclorama"], ["effetto","Effetto"], ["occhiodibue","Occhio di bue"],
+  ["leggii","Luce leggii"], ["sala","Luce di sala"]
+];
+var LIGHT_POS=[
+  ["elevatore","Elevatore"], ["americana","Americana"], ["terra","A terra"],
+  ["ballerina","Ballerina"], ["sala","In sala"]
+];
+var LIGHT_POS_H={ elevatore:1, americana:1 };   /* solo qui l'altezza è un'informazione: «a terra a 4 m» non vuol dire niente */
+/* Apparecchi che si CHIEDONO in un rider: sorgenti luminose + macchine d'atmosfera.
+   Struttura (americana) e regia (console, dimmer) restano oggetti del palco — nessun rider
+   scrive «n.1 dimmer rack» tra le richieste luci.
+   Singolare e plurale perché il rider si LEGGE: «n.4 sagomatori», non «n.4 Sagomatore». */
+var LIGHT_GEAR={
+  parluci:    {sing:"proiettore PAR / wash", plur:"proiettori PAR / wash"},
+  sagomatore: {sing:"sagomatore",            plur:"sagomatori"},
+  testamobile:{sing:"testa mobile",          plur:"teste mobili"},
+  followspot: {sing:"follow spot",           plur:"follow spot"},
+  strobo:     {sing:"stroboscopio",          plur:"stroboscopi"},
+  fumomachine:{sing:"macchina del fumo",     plur:"macchine del fumo"},
+  hazer:      {sing:"hazer",                 plur:"hazer"}
+};
+function lightsIsGear(t){ return !!LIGHT_GEAR[t]; }
+function lightFnLabel(k){ for(var i=0;i<LIGHT_FN.length;i++) if(LIGHT_FN[i][0]===k) return LIGHT_FN[i][1]; return ""; }
+function lightPosLabel(k){ for(var i=0;i<LIGHT_POS.length;i++) if(LIGHT_POS[i][0]===k) return LIGHT_POS[i][1]; return ""; }
+function lightGearLabel(g){ return (TYPES[g] && TYPES[g].nome) ? TYPES[g].nome : String(g||""); }
+var nextLightId=1;
+function lightRowId(){ return "L"+(nextLightId++)+Math.random().toString(36).slice(2,5); }
+function lightRow(o){ o=o||{}; return {
+  id:o.id||lightRowId(), fn:String(o.fn||""), n:Math.max(1,Math.round(Number(o.n)||1)),
+  gear:String(o.gear||""), gearAlt:String(o.gearAlt||""), color:String(o.color||""),
+  pos:String(o.pos||""), posH:(o.posH===0||o.posH)?String(o.posH):"", note:String(o.note||""),
+  items:Array.isArray(o.items)?o.items.slice():[] }; }
+/* Migrazione e primo popolamento: una riga per TIPO di apparecchio, con le icone agganciate.
+   fn nasce VUOTA di proposito: nessuno può indovinare se un sagomatore piazzato è frontale
+   o controluce, e inventarlo produrrebbe un rider che dichiara il falso (lo chiede l'audit L1). */
+function lightsFromItems(items){
+  var order=[], by={};
+  (items||[]).forEach(function(it){
+    if(!it || !lightsIsGear(it.type)) return;
+    if(!by[it.type]){ by[it.type]={ ids:[] }; order.push(it.type); }
+    by[it.type].ids.push(it.id);
+  });
+  return { rows:order.map(function(tp){ return lightRow({ gear:tp, n:by[tp].ids.length, items:by[tp].ids }); }),
+           blackout:null, mood:"" };
+}
+/* La regola cardine, in una funzione pura: le icone sparite si staccano, ma la RICHIESTA
+   non cala mai per una cancellazione sul palco; disegnarne una in più invece la alza. */
+function lightsNormalizeRows(rows, aliveIds){
+  var alive={}; (aliveIds||[]).forEach(function(id){ alive[id]=1; });
+  return (rows||[]).map(function(r){
+    var row=lightRow(r);
+    row.items=row.items.filter(function(id){ return alive[id]; });
+    row.n=Math.max(row.n, row.items.length, 1);
+    return row;
+  });
+}
+function lightsNormalize(l, items){
+  var ids=(items||[]).filter(function(it){ return it && lightsIsGear(it.type); }).map(function(it){ return it.id; });
+  if(!l || typeof l!=="object" || !Array.isArray(l.rows)) return lightsFromItems(items);
+  return { rows:lightsNormalizeRows(l.rows, ids),
+           blackout:(l.blackout===true||l.blackout===false)?l.blackout:null,
+           mood:String(l.mood||"") };
+}
+/* Quattro sagomatori identici possono essere due frontali e due contro: senza questa azione
+   la riga nata dalla migrazione sarebbe correggibile solo cancellandola. */
+function lightsSplitRow(rows, rowId, k){
+  var out=[], done=false;
+  (rows||[]).forEach(function(r){
+    if(done || r.id!==rowId || !(k>0) || k>=r.n || r.n<=1){ out.push(r); return; }
+    done=true;
+    var keep=r.n-k, a=lightRow(r), b=lightRow(r);
+    a.n=keep; a.items=r.items.slice(0, Math.min(keep, r.items.length));
+    b.id=lightRowId(); b.n=k; b.fn=""; b.items=r.items.slice(Math.min(keep, r.items.length));
+    out.push(a); out.push(b);
+  });
+  return out;
+}
+/* Il testo della richiesta, come lo pronuncia un rider: «n.4 proiettori LED Warm White
+   oppure sagomatori LED 3200 K.» — quantità, apparecchio, alternativa, colore, posizione. */
+function lightGearText(gear, n){
+  var G=LIGHT_GEAR[gear];
+  if(G) return (n>1?G.plur:G.sing);
+  return String(gear||"").trim();   /* testo libero dell'utente: passa tale e quale */
+}
+function lightRowText(r){
+  var parts=["n."+r.n];
+  var g=lightGearText(r.gear, r.n); if(g) parts.push(g);
+  var alt=String(r.gearAlt||"").trim(); if(alt) parts.push("oppure "+alt);
+  var col=String(r.color||"").trim(); if(col) parts.push(col);
+  var pos=lightPosLabel(r.pos), h=String(r.posH||"").trim();
+  if(pos){
+    var loc=(r.pos==="terra"||r.pos==="sala") ? pos.toLowerCase() : "su "+pos.toLowerCase();
+    if(h && LIGHT_POS_H[r.pos]) loc+=" a "+h+" m";
+    parts.push(loc);
+  }
+  return parts.join(" ")+".";
+}
+/* Righe della sezione LUCI, raggruppate per funzione e nell'ordine del mestiere
+   (frontale prima del contro, il contro prima del fondale) — non nell'ordine di inserimento. */
+function lightsRiderLines(l){
+  l=l||{}; var rows=Array.isArray(l.rows)?l.rows:[];
+  if(!rows.length) return [];
+  var out=[];
+  if(l.blackout===true) out.push({kind:"p", text:"Lo spettacolo richiede un ambiente completamente oscurabile."});
+  else if(l.blackout===false) out.push({kind:"p", text:"Non è richiesto un ambiente oscurabile."});
+  var order=LIGHT_FN.map(function(f){ return f[0]; }).concat([""]);
+  order.forEach(function(fn){
+    var group=rows.filter(function(r){ return String(r.fn||"")===fn; });
+    if(!group.length) return;
+    out.push({kind:"h", text: fn ? lightFnLabel(fn) : "Funzione da assegnare"});
+    group.forEach(function(r){
+      out.push({kind:"li", text: lightRowText(r)});
+      var nt=String(r.note||"").trim(); if(nt) out.push({kind:"li", text:nt});
+    });
+  });
+  var mood=String(l.mood||"").trim();
+  if(mood) out.push({kind:"p", text:"L'illuminazione dovrà essere "+mood+"."});
+  return out;
+}
+function lightsRiderText(l){
+  return lightsRiderLines(l).map(function(x){ return x.kind==="li" ? "• "+x.text : x.text; }).join("\n");
+}
+/* Le etichette a bordo palco — quelle che l'utente scriveva a mano con un elemento «testo».
+   Ora nascono dalla riga: cambi «4 m» in «3 m» nella scheda e cambiano insieme al rider,
+   perché è lo stesso dato. Si posano al centro delle icone della richiesta; una richiesta
+   senza icone non scrive nulla (non saprebbe dove), e una senza informazioni nemmeno. */
+function lightsLabels(){
+  var byId={}; (state.items||[]).forEach(function(it){ byId[it.id]=it; });
+  var out=[];
+  (((state.lights||{}).rows)||[]).forEach(function(r){
+    var its=(r.items||[]).map(function(id){ return byId[id]; }).filter(Boolean);
+    if(!its.length) return;
+    var bits=[];
+    if(String(r.fn||"").trim()) bits.push(lightFnLabel(r.fn));
+    var p=lightPosLabel(r.pos);
+    if(p){
+      var loc=(r.pos==="terra"||r.pos==="sala") ? p : "su "+p;
+      if(String(r.posH||"").trim() && LIGHT_POS_H[r.pos]) loc+=" a "+r.posH+" m";
+      bits.push(loc);
+    }
+    if(String(r.color||"").trim()) bits.push("· "+r.color);
+    var text=bits.join(" ").replace(/\s+/g," ").trim();
+    if(!text) return;
+    var xs=its.map(function(i){ return i.x||0; }), ys=its.map(function(i){ return i.y||0; });
+    var cx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2;
+    var cy=(Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
+    var d=(state.stage&&state.stage.d)||0;
+    out.push({ id:r.id, x:Math.round(cx), y:Math.round(cy), text:text.toUpperCase(),
+               above:(cy < d/2) });   /* sopra il palco → l'etichetta va più in alto, sotto → più in basso */
+  });
+  return out;
+}
 /* ===== HUB PRODUZIONE (decisione 2A): reparti = aree di lavoro della produzione.
    Tecnici DERIVATI dal palco (Audio/Monitor/RF/Rete/Power) + EXTRA a mano (Palco/Luci/…).
    I derivati sono viste del plot (nessun dato in più); gli extra = etichette in state.production.depts.
@@ -4926,6 +5118,9 @@ function normalizeState(s){
   s.items=normalizeLoadedItems(s.items);
   normalizePersistedItemRefs(s);
   var itemById=Object.create(null); s.items.forEach(function(it){ itemById[it.id]=it; });
+  /* Luci come reparto (v6): se il progetto non le aveva, si costruiscono dalle icone già sul
+     palco — additivo, nessuna icona toccata. La funzione resta vuota: la chiede l'audit L1. */
+  s.lights=lightsNormalize(s.lights, s.items);
   /* Output list: bus console sanificati (additivo, nessun bump) */
   if(!Array.isArray(s.buses)) s.buses=[];
   s.buses=s.buses.filter(function(bu){ return bu && typeof bu.name==="string" && bu.name.trim(); });
@@ -7568,7 +7763,7 @@ function auditEngine(){
   var seen={};
   function add(lvl,msg,cat,fix,act,rule){
     if(rule){ if(seen[rule]) return; seen[rule]=1; }
-    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null});
+    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, rule:rule||""});
   }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
   var realBox=items.some(cabIsBox), realDistro=items.some(elecIsDistro);
@@ -7699,6 +7894,46 @@ function auditEngine(){
     if(recActive && audioSrc>1)
       add("todef","Registrazione audio prevista con "+audioSrc+" canali: modalità di split (direct out del mixer, split analogico o protocollo digitale) e sistema di acquisizione da concordare.","Produzione","");
   })();
+  /* ===== LUCI (blocco A) — sei regole che chiudono i buchi visti nei rider reali.
+     Tutte contestano un'informazione MANCANTE, mai una scelta dell'utente. ===== */
+  (function(){
+    var L=state.lights||{rows:[]}, rows=Array.isArray(L.rows)?L.rows:[];
+    var lightItems=items.filter(function(it){ return lightsIsGear(it.type); });
+    /* L1 — senza funzione il rider stampa «n.4 luci»: non dice se illuminano il viso o vengono da dietro */
+    var noFn=rows.filter(function(r){ return !String(r.fn||"").trim(); });
+    if(noFn.length) add("warn", noFn.length===1 ? "Una richiesta luci non dice cosa fa." : noFn.length+" richieste luci non dicono cosa fanno.",
+      "Luci","Apri la lista Luci e assegna la funzione (frontale, controluce, fondale…).",
+      {label:"Assegna le funzioni", run:auditFixLightsFn}, "luci-fn");
+    /* L2 — è la prima domanda che fa un teatro, e nel rider è una riga sola */
+    if(rows.length && L.blackout!==true && L.blackout!==false)
+      add("warn","Non è dichiarato se la sala deve essere oscurabile.","Luci",
+        "In testa alla lista Luci, dichiara se lo spettacolo richiede il buio.",
+        {label:"Dichiara", run:auditFixLightsBlackout}, "luci-blackout");
+    /* L3 — «bianco» non è un'informazione: 3200 K sì. Le macchine d'atmosfera non hanno colore. */
+    var noCol=rows.filter(function(r){ return LIGHT_GEAR[r.gear] && r.gear!=="fumomachine" && r.gear!=="hazer" && !String(r.color||"").trim(); });
+    if(noCol.length) add("info","Alcune luci non dicono la temperatura o il colore.","Luci",
+      "Scrivi 3200 K, RGBW o quello che serve: «bianco» lascia decidere al service.", null, "luci-colore");
+    /* L4 — il caso osservato: delega dichiarata e lista vuota. Si delega senza dire cosa serve. */
+    var del=state.production&&state.production.systems&&state.production.systems.luci;
+    if(del && (del.ans==="venue"||del.ans==="service"||del.ans==="produzione") && !rows.length)
+      add("warn","Le luci sono delegate, ma il rider non dice cosa serve.","Luci",
+        "Apri la lista Luci ed elenca le richieste: è quello che leggerà chi le monta.", null, "luci-delega-vuota");
+    /* L5 — 4 m e 2 m sono due spettacoli diversi */
+    var noH=rows.filter(function(r){ return LIGHT_POS_H[r.pos] && !String(r.posH||"").trim(); });
+    if(noH.length) add("info","Una luce su struttura non dice a che altezza.","Luci",
+      "Indica i metri: chi monta deve sapere se è un elevatore a 4 m o a 2 m.", null, "luci-altezza");
+    /* L6 — la scala di risalita per i progetti che esistono già: i cartelli scritti a mano
+       accanto alle luci sono richieste travestite da decorazione. 2 m = 200 px tra i centri. */
+    if(lightItems.length){
+      var near=items.filter(function(it){
+        if(it.type!=="testo" || !String(it.label||"").trim()) return false;
+        return lightItems.some(function(l){ return Math.hypot((l.x||0)-(it.x||0), (l.y||0)-(it.y||0))<200; });
+      });
+      if(near.length) add("warn", near.length===1 ? "Una nota scritta a mano sta accanto alle luci." : near.length+" note scritte a mano stanno accanto alle luci.",
+        "Luci","Sono richieste, non decorazioni: trasformale in righe della lista Luci e finiranno nel rider.",
+        {label:"Trasformale in righe", run:function(){ auditFixLightsNotes(near); }}, "luci-cartelli");
+    }
+  })();
   var errs=f.filter(function(x){return x.lvl==="err";}).length, warns=f.filter(function(x){return x.lvl==="warn";}).length;
   var todefs=f.filter(function(x){return x.lvl==="todef";}).length;
   /* i findings vengono deduplicati per messaggio: senza questo, 44 sorgenti identiche non instradate
@@ -7716,6 +7951,28 @@ function auditEngine(){
    l'avviso sparisce dall'audit alla deselezione. Le fix "di impostazione" (rete) restano nell'audit. */
 function auditFixAddBox(){ state.cab.on=true; __cabRes=null; addItem("stagebox"); }
 function auditFixAddWedge(){ addItem("wedge"); }
+/* Luci (blocco A): i tre fix a un click. Portano dove si risponde — non rispondono al posto
+   dell'utente, perché nessuno può sapere se quel sagomatore è un frontale o un controluce. */
+function auditFixLightsFn(){ openLightsLayer(); }
+function auditFixLightsBlackout(){ openLightsLayer(); var el=document.getElementById("lightsBlackout"); if(el&&el.focus) try{ el.focus(); }catch(e){} }
+/* L6 — il cartello diventa una riga: il testo finisce nella nota della richiesta, così la
+   frase che l'utente aveva scritto a mano non si perde, e l'elemento sparisce dal palco. */
+function auditFixLightsNotes(list){
+  if(!state.lights) state.lights=lightsFromItems(state.items);
+  var rows=state.lights.rows.slice();
+  (list||[]).forEach(function(it){
+    var near=(state.items||[]).filter(function(l){ return lightsIsGear(l.type) && Math.hypot((l.x||0)-(it.x||0),(l.y||0)-(it.y||0))<200; });
+    var gear=near.length?near[0].type:"", host=null;
+    for(var i=0;i<rows.length;i++){ if(rows[i].gear===gear){ host=rows[i]; break; } }
+    if(!host){ host=lightRow({gear:gear, n:Math.max(1,near.length)}); rows.push(host); }
+    host.note=[host.note, String(it.label||"").trim()].filter(function(x){ return x&&x.trim(); }).join(" · ");
+  });
+  var ids={}; (list||[]).forEach(function(it){ ids[it.id]=1; });
+  state.items=(state.items||[]).filter(function(it){ return !ids[it.id]; });
+  state.lights.rows=rows;
+  save(); render(); renderLightsList();
+  showToast((list||[]).length===1 ? "Nota trasformata in richiesta luci" : (list||[]).length+" note trasformate in richieste luci");
+}
 /* LAB caso 1 — L8: piazza un radiomic accanto a ogni cantante scoperto, col nome del cantante come canale */
 function auditFixAddVoiceMics(list){
   (list||[]).forEach(function(v){ var it=state.items.find(function(i){ return i.id===v.id; }); if(!it) return;
@@ -7955,7 +8212,18 @@ function rfMarkup(){
   });
   return s2+'</g>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+rfMarkup()+elecMarkup()+monDigMarkup()+cableLegendMarkup()+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
+function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+rfMarkup()+elecMarkup()+monDigMarkup()+lightsLabelsMarkup()+cableLegendMarkup()+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
+/* Le etichette delle richieste luci, al posto dei cartelli scritti a mano. Seguono l'occhio
+   del layer: spegnere le Luci le spegne insieme alle icone, come per ogni altro reparto. */
+function lightsLabelsMarkup(){
+  if(!lightsLayerUI.vis && !stageLayerUI.vis) return "";
+  var labs=(typeof lightsLabels==="function")?lightsLabels():[];
+  if(!labs.length) return "";
+  return '<g id="layLightsLab" class="lights-lab">'+labs.map(function(L){
+    var dy=L.above ? -34 : 34;   /* fuori dall'icona, dal lato in cui la luce "guarda" il palco */
+    return '<text x="'+L.x+'" y="'+(L.y+dy)+'" text-anchor="middle">'+esc(L.text)+'</text>';
+  }).join("")+'</g>';
+}
 /* Layer v3 (21/07, Simone): PALCO CONTIENE TUTTO. Un elemento si vede se l'occhio del Palco è
    acceso OPPURE un layer acceso lo contiene (OR delle viste: Musicisti / Ingressi / Output /
    P.M. / Power). Palco spento + solo Ingressi acceso = solo la catena input. Le COPERTURE fanno
@@ -13752,6 +14020,21 @@ function layerRegistry(){
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
       removable:true, removeLabel:"Azzera Power", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+    /* Luci (blocco A): il reparto che prima non esisteva. Core come Power — sempre in lista,
+       con la riga-invito quando il progetto non dice nulla (D-L1A): un rider senza luci è
+       un rider muto su metà dello spettacolo, e l'invito è l'unico modo di dirlo senza urlare. */
+    { id:"luci", name:"Luci", color:LAYER_COLORS.luci,
+      active:true,
+      engineOn:!!(state.lights && state.lights.rows && state.lights.rows.length),
+      activate:function(){ lightsActivate(); },
+      visible:lightsLayerUI.vis, setVisible:function(v){ lightsLayerUI.vis=v; render(); },
+      lockable:true, locked:lightsLayerUI.lock,
+      setLocked:function(v){ lightsLayerUI.lock=v; document.body.classList.toggle("luci-lock",v); if(v){ sel=null; selSet={}; } render(); },
+      removable:true, removeLabel:"Azzera le richieste luci",
+      remove:function(){ confirmDialog({ icon:"warn", title:"Azzerare le richieste luci?",
+          message:"Le righe della lista vengono rimosse. Le luci disegnate sul palco restano dove sono.",
+          confirmText:"Azzera le richieste" }).then(function(ok){ if(!ok) return;
+          state.lights={rows:[],blackout:null,mood:""}; selLight=null; save(); render(); renderLightsList(); }); } },
     /* L4: la planimetria È il layer 0 della scena (z-order sceneMarkup) → governata dal pannello unico. */
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
@@ -13785,6 +14068,8 @@ function layerRegistry(){
    gli elementi del palco o le zone mentre si lavora sugli altri layer. Reset ai default a ogni apertura. */
 var stageLayerUI = {vis:true, op:100, lock:false};
 var micLayerUI   = {vis:true, op:100, lock:false};
+var lightsLayerUI= {vis:true, op:100, lock:false};   /* layer Luci (runtime, non persistito) */
+var selLight = null;   /* id della riga luci selezionata → apre la sua card nel pannello */
 var musLayerUI   = {vis:true, op:100, lock:false};   /* layer Musicisti (17/07): runtime, non persistito */
 /* SOLO (stile console, additivo): id layer → true. Con ≥1 solo attivo la scena mostra SOLO i layer
    in solo (al 100%) + i loro elementi pertinenti; il resto del palco resta sfumato come contesto.
@@ -13917,6 +14202,7 @@ function layerFgItem(id, it){
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
+    case "luci":   return lightsIsGear(it.type) || it.type==="americana" || it.type==="consolaluci" || it.type==="dimmerluci";   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
     case "stage":  return true;   /* Layer v3: Palco = TUTTO (fuoco Palco = vista d'insieme) */
   }
   return false;
@@ -13952,7 +14238,7 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    le STESSE di prima (statoSec/patchSec/monSec/loadSec): vengono spostate sotto il layer aperto
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
-var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec" };   /* Layer v3: ogni layer apre la SUA lista (Ingressi=channel list, Output=monitor list, P.M.=lista pm) */
+var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec", luci:"luciSec" };   /* Layer v3: ogni layer apre la SUA lista (Ingressi=channel list, Output=monitor list, P.M.=lista pm) */
 /* Layer "lavora qui" (Simone 20/07): la riga e' [pallino][nome]...[occhio]. CLIC sulla riga = mette
    a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
    Ri-clic = mostra tutto. L'occhio resta indipendente. Opacita'/lucchetto/reset compaiono SOTTO
@@ -13972,6 +14258,8 @@ function layerSummary(L){
     if(L.id==="elec"){ var E=elecResult(); return (E&&E.totW) ? elecKW(E.totW) : ""; }
     if(L.id==="miczone"){ var z=(state.items||[]).filter(function(x){ return x.type==="miczone"; }).length; return z?String(z):""; }
     if(L.id==="cover"){ var cv=(state.items||[]).filter(isCover).length; return cv?String(cv):""; }
+    /* Luci: il numero che il tecnico cerca è quanti APPARECCHI gli stai chiedendo, non quante righe */
+    if(L.id==="luci"){ var lw=((state.lights&&state.lights.rows)||[]).reduce(function(a,r){ return a+(r.n||0); },0); return lw?String(lw):""; }
   }catch(e){}
   return "";
 }
@@ -14078,7 +14366,198 @@ function renderLayerManager(){
   renderPmAccList();
   renderMusAccList();
   renderCoverList();
+  renderLightsList();
 }
+/* ===== LUCI — la lista delle richieste (blocco A) ====================================
+   Due livelli e non una tabella: il pannello è stretto e ridimensionabile, e il 28/07 su
+   Input e Monitor quattro colonne affiancate avevano ridotto le sorgenti a «Bat…» e «Chi…»
+   proprio nel dato che il tecnico viene a leggere. Qui la quantità sta a sinistra, la
+   funzione sopra per intero, apparecchio e posizione sotto in secondaria. */
+function lightsRows(){ return (state.lights && state.lights.rows) || []; }
+function lightsActivate(){
+  if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
+  if(!state.lights.rows.length){
+    var born=lightsFromItems(state.items);
+    /* se ci sono già luci sul palco la lista nasce da quelle, altrimenti si parte da una riga vuota */
+    state.lights.rows = born.rows.length ? born.rows : [lightRow({})];
+  }
+  layerAccOpen="luci"; lightsLayerUI.vis=true;
+  save(); render(); renderLightsList();
+}
+function openLightsLayer(){ layerAccOpen="luci"; lightsLayerUI.vis=true; render(); renderLightsList(); }
+function lightsRowById(id){ var r=lightsRows().filter(function(x){ return x.id===id; }); return r[0]||null; }
+/* Sottotitolo della riga: apparecchio · colore · posizione. È la riga che il fonico legge
+   di sfuggita, quindi porta solo ciò che distingue una richiesta dall'altra. */
+function lightRowSub(r){
+  var bits=[];
+  var g=lightGearText(r.gear, 2); if(g) bits.push(g.charAt(0).toUpperCase()+g.slice(1));
+  if(String(r.color||"").trim()) bits.push(r.color);
+  var p=lightPosLabel(r.pos);
+  if(p) bits.push(p.toLowerCase()+((String(r.posH||"").trim()&&LIGHT_POS_H[r.pos])?" "+r.posH+" m":""));
+  return bits.join(" · ") || "da completare";
+}
+function renderLightsList(){
+  var el=document.getElementById("luciSec"); if(!el) return;
+  if(layerAccOpen!=="luci"){ el.style.display="none"; return; }
+  el.style.display="block";
+  var L=state.lights||{rows:[]};
+  /* testata: solo l'oscurabilità (un interruttore su una riga). Il clima sta nel pannello. */
+  var cb=document.getElementById("lightsBlackout"), no=document.getElementById("lightsBlackoutNo");
+  if(cb) cb.checked = L.blackout===true;
+  var bar=document.getElementById("lightsVenueBar");
+  if(bar) bar.className="lights-venue"+(L.blackout===null?" undecided":"")+(L.blackout===false?" off":"");
+  if(no) no.setAttribute("aria-pressed", L.blackout===false ? "true" : "false");
+  var host=document.getElementById("lightsRows"); if(!host) return;
+  var rows=lightsRows();
+  if(!rows.length){ host.innerHTML='<div class="lights-empty">Nessuna richiesta luci.</div>'; return; }
+  var alive={}; (state.items||[]).forEach(function(it){ alive[it.id]=1; });
+  host.innerHTML='<div class="lights-list">'+rows.map(function(r){
+    var shown=(r.items||[]).filter(function(id){ return alive[id]; }).length;
+    var todo=!String(r.fn||"").trim();
+    return '<div class="lrow'+(todo?" todo":"")+(selLight===r.id?" sel":"")+'" data-lid="'+esc(r.id)+'">'+
+      '<span class="ln">'+r.n+'×</span>'+
+      '<span class="lfn">'+esc(todo?"Funzione?":lightFnLabel(r.fn))+'</span>'+
+      '<span class="lsub">'+esc(lightRowSub(r))+'</span>'+
+      '<button type="button" class="lpin" data-lpin="'+esc(r.id)+'" title="'+(shown?("Mostrate sul palco: "+shown+" di "+r.n):"Nessuna disegnata sul palco: aggiungine una")+'">'+
+        (shown?('◉'+shown):'◎')+'</button>'+
+    '</div>';
+  }).join("")+'</div>';
+  var mood=document.getElementById("lightsMood");
+  if(mood && mood!==document.activeElement) mood.value=String(L.mood||"");
+  renderLightsCard();
+}
+/* La scheda della riga selezionata: i campi nell'ordine in cui un rider li pronuncia —
+   cosa fa, quanti, cos'è, di che bianco, da dove. «Sul palco» è in sola lettura: è un
+   conteggio, non una richiesta, e vederlo accanto alla quantità spiega la differenza. */
+function renderLightsCard(){
+  var host=document.getElementById("lightsCard"); if(!host) return;
+  var r=selLight?lightsRowById(selLight):null;
+  if(!r){ host.innerHTML=""; return; }
+  var alive={}; (state.items||[]).forEach(function(it){ alive[it.id]=1; });
+  var shown=(r.items||[]).filter(function(id){ return alive[id]; }).length;
+  var idx=lightsRows().indexOf(r)+1, tot=lightsRows().length;
+  function opts(list, cur, empty){
+    return '<option value=""'+(cur?"":" selected")+'>'+esc(empty)+'</option>'+
+      list.map(function(o){ return '<option value="'+esc(o[0])+'"'+(cur===o[0]?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("");
+  }
+  var gearList=Object.keys(LIGHT_GEAR).map(function(k){ return [k, lightGearText(k,1).charAt(0).toUpperCase()+lightGearText(k,1).slice(1)]; });
+  var freeGear = r.gear && !LIGHT_GEAR[r.gear];
+  var h='<div class="prop-card" style="margin-top:9px">'+
+    '<div class="prop-card__head">Luce <span class="muted">riga '+idx+' di '+tot+'</span></div>'+
+    '<label class="lights-lbl">Funzione</label>'+
+    '<select class="lights-sel" id="lcFn">'+opts(LIGHT_FN, r.fn, "— da assegnare —")+'</select>'+
+    '<div class="lights-two">'+
+      '<div><label class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
+      '<div><label class="lights-lbl">Sul palco</label><input type="text" class="lights-inp num" value="'+shown+'" disabled></div>'+
+    '</div>';
+  if(shown && shown<r.n) h+='<p class="prop-hint">Ne hai disegnate '+shown+' delle '+r.n+' richieste. Il rider ne chiede '+r.n+': il disegno è un’illustrazione, non il conteggio.</p>';
+  h+='<label class="lights-lbl">Apparecchio</label>'+
+    '<select class="lights-sel" id="lcGear">'+opts(gearList, freeGear?"":r.gear, "— scegli —")+'<option value="__free"'+(freeGear?" selected":"")+'>altro…</option></select>'+
+    (freeGear?'<input type="text" class="lights-inp" id="lcGearFree" value="'+esc(r.gear)+'" placeholder="come lo scrivi nel rider">':'')+
+    '<label class="lights-lbl">Alternativa accettata</label>'+
+    '<input type="text" class="lights-inp" id="lcAlt" value="'+esc(r.gearAlt)+'" placeholder="niente, oppure «sagomatori LED»">'+
+    (String(r.gearAlt||"").trim()?'<p class="prop-hint">Nel rider: «n.'+r.n+' '+esc(lightGearText(r.gear,r.n))+' <b>oppure</b> '+esc(r.gearAlt)+'».</p>':'')+
+    '<label class="lights-lbl">Temperatura o colore</label>'+
+    '<input type="text" class="lights-inp" id="lcColor" value="'+esc(r.color)+'" placeholder="es. 3200 K, RGBW">'+
+    '<div class="lights-two">'+
+      '<div><label class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
+      (LIGHT_POS_H[r.pos]?'<div><label class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
+    '</div>'+
+    '<label class="lights-lbl">Nota</label>'+
+    '<input type="text" class="lights-inp" id="lcNote" value="'+esc(r.note)+'" placeholder="finisce nel rider sotto la richiesta">'+
+    '<div class="lights-acts">'+
+      (r.n>1?'<button type="button" class="btn sm" id="lcSplit">Dividi</button>':'')+
+      '<button type="button" class="btn sm" id="lcShow">Mostra sul palco</button>'+
+      '<button type="button" class="btn sm danger" id="lcDel">Elimina</button>'+
+    '</div></div>';
+  host.innerHTML=h;
+}
+/* Un campo alla volta, senza ridisegnare la scheda a ogni tasto: riscriverla farebbe
+   perdere il fuoco a metà parola (la lezione dei campi di testo del pannello). */
+function lightsEdit(id, patch, redraw){
+  var r=lightsRowById(id); if(!r) return;
+  Object.keys(patch).forEach(function(k){ r[k]=patch[k]; });
+  if(patch.n!=null){
+    var alive={}; (state.items||[]).forEach(function(it){ alive[it.id]=1; });
+    var shown=(r.items||[]).filter(function(x){ return alive[x]; }).length;
+    r.n=Math.max(1, Math.round(Number(patch.n)||1), shown);   /* la richiesta non può stare sotto ciò che è già disegnato */
+  }
+  save(); render();
+  renderLightsList();
+  if(redraw) renderLightsCard();
+}
+/* Il pallino porta al palco: illumina quelle già disegnate, o ne fa nascere una se non ce n'è.
+   Non altera MAI la quantità richiesta al ribasso — è la riga a comandare, non il disegno. */
+function lightsPinClick(id){
+  var r=lightsRowById(id); if(!r) return;
+  var alive={}; (state.items||[]).forEach(function(it){ alive[it.id]=1; });
+  var have=(r.items||[]).filter(function(x){ return alive[x]; });
+  if(have.length){ selSet={}; have.forEach(function(x){ selSet[x]=1; }); sel=have[0]; lightsLayerUI.vis=true; render(); return; }
+  var ty=LIGHT_GEAR[r.gear]?r.gear:"parluci";
+  var it=addItem(ty,{x:(state.stage.w/2), y:-60});   /* fuori dal palco: le luci stanno in sala o su struttura */
+  if(!it) return;
+  r.items=(r.items||[]).concat([it.id]);
+  r.n=Math.max(r.n, r.items.length);
+  if(!r.gear) r.gear=ty;
+  lightsLayerUI.vis=true; selectOne(it.id); save(); render(); renderLightsList();
+}
+document.addEventListener("click", function(e){
+  var p=e.target.closest && e.target.closest("[data-lpin]");
+  if(p){ e.stopPropagation(); lightsPinClick(p.getAttribute("data-lpin")); return; }
+  var row=e.target.closest && e.target.closest(".lrow[data-lid]");
+  if(row){ selLight=row.getAttribute("data-lid"); sel=null; selSet={}; render(); renderLightsList(); return; }
+  var addb=e.target.closest && e.target.closest("#lightsAdd");
+  if(addb){ if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
+    var nr=lightRow({}); state.lights.rows=lightsRows().concat([nr]); selLight=nr.id; save(); render(); renderLightsList(); return; }
+  var nob=e.target.closest && e.target.closest("#lightsBlackoutNo");
+  if(nob){ if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
+    state.lights.blackout = (state.lights.blackout===false) ? null : false; save(); render(); renderLightsList(); return; }
+});
+document.addEventListener("change", function(e){
+  if(e.target && e.target.id==="lightsBlackout"){
+    if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
+    state.lights.blackout = e.target.checked ? true : null;   /* togliere la spunta torna a «non dichiarato», non a «no»: il no è esplicito */
+    save(); render(); renderLightsList();
+  }
+});
+/* Scheda della riga: tendine e bottoni ridisegnano (cambia la forma della scheda),
+   i campi di testo no — si aggiorna solo la riga in lista mentre si scrive. */
+document.addEventListener("change", function(e){
+  var t=e.target; if(!t || !t.id || !selLight) return;
+  if(t.id==="lcFn")  lightsEdit(selLight,{fn:t.value}, true);
+  if(t.id==="lcPos") lightsEdit(selLight,{pos:t.value, posH:LIGHT_POS_H[t.value]?(lightsRowById(selLight)||{}).posH:""}, true);
+  if(t.id==="lcN")   lightsEdit(selLight,{n:t.value}, true);
+  if(t.id==="lcGear"){
+    if(t.value==="__free") lightsEdit(selLight,{gear:""}, true);
+    else lightsEdit(selLight,{gear:t.value}, true);
+  }
+});
+document.addEventListener("input", function(e){
+  var t=e.target; if(!t || !t.id) return;
+  if(t.id==="lightsMood"){ if(!state.lights) state.lights={rows:[],blackout:null,mood:""}; state.lights.mood=t.value; saveSoon(); return; }
+  if(!selLight) return;
+  if(t.id==="lcAlt")      lightsEdit(selLight,{gearAlt:t.value});
+  if(t.id==="lcColor")    lightsEdit(selLight,{color:t.value});
+  if(t.id==="lcNote")     lightsEdit(selLight,{note:t.value});
+  if(t.id==="lcH")        lightsEdit(selLight,{posH:t.value});
+  if(t.id==="lcGearFree") lightsEdit(selLight,{gear:t.value});
+});
+document.addEventListener("click", function(e){
+  if(!e.target.closest) return;
+  if(e.target.closest("#lcShow")){ lightsPinClick(selLight); return; }
+  if(e.target.closest("#lcSplit")){
+    var r=lightsRowById(selLight); if(!r || r.n<2) return;
+    state.lights.rows=lightsSplitRow(lightsRows(), selLight, Math.floor(r.n/2));
+    save(); render(); renderLightsList();
+    showToast("Riga divisa: assegna la funzione alla nuova");
+    return;
+  }
+  if(e.target.closest("#lcDel")){
+    state.lights.rows=lightsRows().filter(function(x){ return x.id!==selLight; });
+    selLight=null; save(); render(); renderLightsList();
+    return;
+  }
+});
 /* Coperture (fisarmonica del layer "Coperture"): elenco delle coperture con misura e area a terra.
    Clic su una voce = seleziona (e mostra) quella copertura. L'occhio del layer nasconde/mostra tutte. */
 function coverName(it){ var t=TYPES[it.type]||{}; return (it.label!=null&&it.label!=="")?it.label:(t.defLabel||t.nome||"Copertura"); }
@@ -18585,8 +19064,38 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
 }
 /* ANTEPRIMA VERA delle liste (Simone 14/07): tabella HTML dai DATI REALI (stesse righe/colonne del PDF),
    non un placeholder. Ogni lista ha la sua funzione-dati (patchList/monitorList/…) e la config delle colonne. */
+/* Lista luci per il PDF: le stesse righe della lista, nell'ordine del mestiere del rider.
+   «Sul palco» dice quante ne sono disegnate: se è meno della quantità, non è un errore —
+   è il disegno che illustra, e vederlo scritto evita la domanda al telefono. */
+function lightsList(){
+  var L=state.lights||{rows:[]}, rows=Array.isArray(L.rows)?L.rows:[];
+  var alive={}; (state.items||[]).forEach(function(it){ alive[it.id]=1; });
+  var order=LIGHT_FN.map(function(f){ return f[0]; }).concat([""]);
+  var out=[];
+  order.forEach(function(fn){
+    rows.filter(function(r){ return String(r.fn||"")===fn; }).forEach(function(r){
+      out.push({ n:r.n, fn:fn?lightFnLabel(fn):"— da assegnare —",
+        gear:lightGearText(r.gear, r.n)||"—", color:r.color||"",
+        pos:(function(){ var p=lightPosLabel(r.pos); if(!p) return "";
+          return p+((String(r.posH||"").trim()&&LIGHT_POS_H[r.pos])?" · "+r.posH+" m":""); })(),
+        note:r.note||"", shown:(r.items||[]).filter(function(id){ return alive[id]; }).length });
+    });
+  });
+  return { rows:out, tot:out.reduce(function(a,r){ return a+r.n; },0),
+           blackout:L.blackout, mood:String(L.mood||"") };
+}
 function pdfListConfig(){
   return {
+    lightslist:{ title:"Lista luci", color:"#db2777", data:(typeof lightsList==="function"?lightsList:null),
+      sub:function(d){ return [d.tot+" apparecchi richiesti",
+        (d.blackout===true?"sala oscurabile":(d.blackout===false?"buio non necessario":"oscurabilità da dichiarare")),
+        d.mood?("luce "+d.mood):""].filter(Boolean).join(" · "); },
+      cols:[{h:"Q.tà",num:1,f:function(r){return r.n+"×";}},
+            {h:"Funzione",f:function(r){return r.fn;},warn:function(r){return r.fn.indexOf("assegnare")>=0;}},
+            {h:"Apparecchio",f:function(r){return r.gear;}},
+            {h:"Colore",f:function(r){return r.color||"—";},warn:function(r){return !r.color;}},
+            {h:"Posizione",f:function(r){return r.pos||"—";}},
+            {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
     inputlist:{ title:"Input list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
       sub:function(d){ return d.R&&d.R.boxes?("Stage box: "+d.R.boxes.map(function(b){return b.letter;}).join(", ")):""; },
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Sorgente",f:function(r){return r.name;}},{h:"Mic / DI",f:function(r){return r.mic+(r.p48?" · 48V":"");}},{h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
@@ -18740,7 +19249,18 @@ function riderHtml(){
     sec("Stage e pedane", esc(riderPedaneText(d.pedane))+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+
     sec("Sistema audio", esct(d.sistema))+
-    sec("Luci", esct(d.luci))+
+    /* Luci: se la lista dichiara delle richieste, la sezione esce STRUTTURATA (intestazione
+       per funzione + voci), come in un rider vero. Il testo scritto a mano resta prosa. */
+    sec("Luci", (function(){
+      var manual=(state.rider&&state.rider.luci!=null&&String(state.rider.luci).trim()!=="");
+      var lines=(!manual && typeof lightsRiderLines==="function") ? lightsRiderLines(state.lights) : [];
+      if(!lines.length) return esct(d.luci);
+      return lines.map(function(x){
+        if(x.kind==="h")  return '<div class="pdf-rider-lh">'+esc(x.text)+'</div>';
+        if(x.kind==="li") return '<div class="pdf-rider-li">'+esc(x.text)+'</div>';
+        return '<div>'+esc(x.text)+'</div>';
+      }).join("");
+    })(), !(state.rider&&state.rider.luci!=null&&String(state.rider.luci).trim()!==""))+
     (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
       return pm.length ? sec("Produzione e media", pm.map(function(r){ return esc(r.label)+": "+esct(r.text); }).join("<br>")) : ""; })()+
     sec("Personale richiesto al service", esct(d.personale))+
@@ -19241,6 +19761,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     if(want("view-cabaudio")) _views.push(["cabaudio","CABLAGGIO AUDIO"]);   /* legacy (non più offerta) */
     if(want("view-elec"))     _views.push(["elec","ELETTRICO"]);
     if(want("view-sectionmic")) _views.push(["sectionmic","MICROFONAZIONE"]);
+    if(want("view-luci"))     _views.push(["luci","LUCI"]);
     var _viewChain=Promise.resolve();
     _views.forEach(function(v){
       _viewChain=_viewChain.then(function(){
@@ -19458,7 +19979,8 @@ function pdfChannelPage(doc, L, paperKey){
   var prevIdx=0;
   var VIEW_MAP={ "view-cabin":{focus:"cabin",title:"Ingressi"}, "view-cabout":{focus:"cabout",title:"Monitor"},
     "view-mond":{focus:"mond",title:"Personal monitor"}, "view-cabaudio":{focus:"cabaudio",title:"Cablaggio audio"},
-    "view-elec":{focus:"elec",title:"Elettrico"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"} };
+    "view-elec":{focus:"elec",title:"Elettrico"}, "view-sectionmic":{focus:"sectionmic",title:"Mic zone"},
+    "view-luci":{focus:"luci",title:"Luci"} };
   function previewPages(){
     var pages=[{focus:"clean", title:"Palco"}];
     var sel=window.__pdfPages||{};
@@ -19576,6 +20098,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.mond && state.mond.on){ pages.push({key:"view-mond", label:"Vista: Personal monitor"}); }
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
+    if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"view-luci", label:"Vista: Luci"}); }
     if((state.items||[]).length){ pages.push({key:"rider", label:"Rider tecnico"}); }   /* T2: rider generato dai dati */
     try{ var rd=window.currentRespData?window.currentRespData():null; if(rd && rd.assigns && typeof productionDepts==="function"){
       var hasResp=productionDepts().some(function(d){ return (rd.assigns[d.key]||[]).some(function(a){ return a.role==="__azienda__"; }); });
@@ -19591,6 +20114,7 @@ function pdfChannelPage(doc, L, paperKey){
     if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
     if((state.items||[]).some(function(x){ return x.type==="rack"; })){ pages.push({key:"racklist", label:"Lista rack"}); }
+    if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"lightslist", label:"Lista luci"}); }
     try{ var bb=Rc.boxes||[];
       if(bb.length>1 || bb.some(function(b){ return b.sbId||b.res.length||Object.keys(b.pins).length; })) pages.push({key:"dantepatch", label:"Patch stage box"});
     }catch(_e){}
