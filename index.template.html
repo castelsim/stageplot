@@ -952,7 +952,8 @@
       <div id="patchBody" style="margin-top:8px">
         <div id="patchSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
         <div id="patchRows"></div>
-        <button class="btn primary" id="patchPdf" style="width:100%;margin-top:10px">Esporta input list (PDF)</button>
+        <button class="btn primary" id="clOpen" style="width:100%;margin-top:10px">Apri la channel list</button>
+        <button class="btn" id="patchPdf" style="width:100%;margin-top:6px">Esporta input list (PDF)</button>
         <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Si genera dagli elementi audio sul palco e dalle stage box del <b>Cablaggio audio</b>. Per rinominare un canale, rinomina l'elemento sul palco.</div>
       </div>
     </div>
@@ -5069,6 +5070,16 @@ function normalizeState(s){
     if(m.deleted) o.deleted=true;
     if(m.auto) o.auto=1;   /* collegamento fatto dall'auto-connect: ridistribuibile quando arriva una box nuova */
     if(typeof m.box==="string" && m.box) o.box=m.box.slice(0,ITEM_ID_MAX);   /* riconnessione/porte: la box scelta a mano DEVE sopravvivere al reload */
+    /* 28/07 — questa lista era CHIUSA e scartava tutto il resto: nome breve console, microfono scelto
+       a mano, porta pinnata e «togli microfono» sparivano a ogni ricaricamento E a ogni undo
+       (applyHistory ripassa da qui). Sono scelte dell'utente sul canale: vanno conservate. */
+    if(m.short!=null) o.short=String(m.short).slice(0,12);
+    if(m.mic!=null) o.mic=String(m.mic).slice(0,40);
+    if(m.stand!=null) o.stand=String(m.stand).slice(0,24);        /* asta scelta a mano */
+    if(m.p48===true||m.p48===false) o.p48=m.p48;                   /* phantom forzato (o tolto) a mano */
+    if(m.micOff) o.micOff=1;
+    if(m.seg) o.seg=1;                                             /* cavo segmentato */
+    var _pt=+m.port; if(_pt>=1 && _pt<=64) o.port=Math.round(_pt);
     if(Object.keys(o).length) man[String(k).slice(0,ROUTE_KEY_MAX)]=o; }); }
   s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round((cb.opacity==null||cb.opacity===70)?100:cb.opacity))), auto:cb.auto!==false,
     /* manual-first (08/07): i documenti che avevano GIÀ il cablaggio attivo restano "auto" (niente rider svuotati); i nuovi nascono "manual" */
@@ -11916,6 +11927,7 @@ function a11yAnnounce(msg){ var el=document.getElementById("a11yLive"); if(!el) 
 function a11yDesc(it){ if(!it) return ""; var nm=(it.label!=null&&it.label!=="")?String(it.label):(typeof defaultLabel==="function"?defaultLabel(it.type):String(it.type||"elemento")); return nm+", posizione "+Math.round(it.x)+", "+Math.round(it.y)+(it.rot?(", ruotato "+Math.round(it.rot)+" gradi"):""); }
 function a11yItemIndex(id){ var a=state.items||[]; for(var i=0;i<a.length;i++){ if(a[i].id===id) return i; } return -1; }
 document.addEventListener("keydown", function(e){
+  if(clOpen && e.key==="Escape"){ clShow(false); return; }   /* channel list a schermo intero */
   var modal=document.getElementById("orchModal");
   if(!modal.hidden && e.key==="Escape"){ modal.hidden=true; return; }
   var strModal=document.getElementById("stringModal");
@@ -14375,7 +14387,14 @@ function patchList(){
       eqPh=equipPhantom(srcIt);
     }
     var p48=(o||!mic)?false:(eqPh!=null ? eqPh==="required" : !!micInfo(mic).p48);
-    return {n:++n, name:name, mic:mic, stand:(o||!mic)?"":(micInfo(mic).stand||""), p48:p48, patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }   /* stand = tipo asta suggerito dal mic (MIC_DEFAULTS) */
+    var stand=(o||!mic)?"":(micInfo(mic).stand||"");
+    /* 28/07 — asta e phantom restano DERIVATI dal microfono, ma sul canale valgono le scelte
+       dell'utente: in una channel list vera il fonico corregge l'asta e il 48V riga per riga. */
+    var _ov=man[key]||{};
+    if(_ov.stand!=null) stand=_ov.stand;
+    if(_ov.p48===true||_ov.p48===false) p48=_ov.p48;
+    return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
+            patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
   R.links.forEach(function(l){ if(l.deleted) return;
     var tag=l.box.sbId?("ID"+l.box.sbId):l.box.letter;
@@ -14393,6 +14412,106 @@ function patchList(){
   rows=insertReserved(rows, R);
   return {rows:rows, R:R, hasFoh:hasFoh};
 }
+/* ═══════════ CHANNEL LIST a schermo intero (variante C, Simone 28/07) ═══════════
+   La lista completa — numero, sorgente, mic/DI, asta, 48V, patch — accanto a una miniatura del palco.
+   Premendo una riga la sorgente si accende sulla miniatura; il numero si digita e le altre scalano. */
+var clOpen=false, clSel=null;
+function clFmtSum(pl){
+  var righe=pl.rows.filter(function(r){ return !r.reserved && !r.spare; });
+  var ph=righe.filter(function(r){ return r.p48; }).length;
+  var liberi=righe.filter(function(r){ return !r.box; }).length;
+  var box=(pl.R.boxes||[]).filter(function(b){ return !b.auto; })
+    .map(function(b){ return (b.sbId?("ID"+b.sbId):b.letter)+" "+(Object.keys(b.taken).length)+"/"+b.cap; }).join(" · ");
+  return righe.length+" canali"+(ph?" · "+ph+" con 48V":"")+(liberi?" · "+liberi+" da collegare":"")+(box?" · "+box:"");
+}
+/* miniatura: il palco in scala, un pallino per ogni sorgente della lista + le stage box */
+function clRenderMini(pl){
+  var host=document.getElementById("clMini"); if(!host) return;
+  var W=state.stage.w||1200, D=state.stage.d||800;
+  /* la miniatura prende la FORMA del palco: un palco largo e basso non deve stare in un quadrato con
+     due bande vuote. Pallini e testo in scala col palco, non in pixel fissi. */
+  host.style.aspectRatio=W+" / "+D;
+  /* la miniatura è larga ~190 px per un palco di 1200 unità: 1 px ≈ 6 unità. L'unità qui sotto è
+     tarata perché i pallini restino leggibili (≈6 px di diametro) senza coprire il palco. */
+  var u=Math.max(W,D)/30;
+  var s='<svg viewBox="0 0 '+W+' '+D+'" preserveAspectRatio="xMidYMid meet">';
+  s+='<rect x="'+(u/4).toFixed(1)+'" y="'+(u/4).toFixed(1)+'" width="'+(W-u/2).toFixed(1)+'" height="'+(D-u/2).toFixed(1)+'" rx="'+(u/3).toFixed(1)+'" class="cl-mini-stage" stroke-width="'+(u/2.4).toFixed(1)+'"/>';
+  (state.items||[]).filter(cabIsBox).forEach(function(b){
+    s+='<rect class="cl-mini-box" x="'+(b.x-(b.w||60)/2)+'" y="'+(b.y-(b.d||24)/2)+'" width="'+(b.w||60)+'" height="'+(b.d||24)+'" rx="'+(u/6).toFixed(1)+'"/>';
+  });
+  var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
+  var visti={};
+  pl.rows.forEach(function(r){
+    if(!r.itemId || visti[r.itemId]) return; visti[r.itemId]=1;
+    var it=byId[r.itemId]; if(!it) return;
+    var on=(clSel && clSel===r.key);
+    s+='<circle class="cl-mini-dot'+(on?" on":"")+(r.box?"":" free")+'" data-k="'+esc(r.key)+'" cx="'+Math.round(it.x)+'" cy="'+Math.round(it.y)+'" r="'+(on?u*0.78:u*0.5).toFixed(1)+'" '
+      + 'stroke-width="'+(on?u*0.3:u*0.18).toFixed(1)+'"/>';
+    if(on) s+='<text class="cl-mini-name" x="'+Math.round(it.x)+'" y="'+Math.round(it.y-u*1.35)+'" text-anchor="middle" '
+      + 'font-size="'+(u*1.15).toFixed(1)+'" stroke-width="'+(u*0.34).toFixed(1)+'">'+esc(r.name)+'</text>';
+  });
+  s+='</svg>';
+  host.innerHTML=s;
+}
+function clRender(){
+  var dlg=document.getElementById("clDlg"); if(!dlg) return;
+  dlg.hidden=!clOpen;
+  document.body.classList.toggle("cl-open", clOpen);
+  if(!clOpen) return;
+  var pl=patchList();
+  document.getElementById("clSum").textContent=clFmtSum(pl);
+  clRenderMini(pl);
+  var tb=document.getElementById("clTable");
+  var mics=Object.keys(MIC_DEFAULTS||{});   /* stesso vocabolario del pannello: niente elenco parallelo */
+  var h='<thead><tr><th class="cl-grip" scope="col"><span class="sr-only">Ordine</span></th>'
+      + '<th class="cl-num" scope="col">'+(pl.hasFoh?"FOH":"Canale")+'</th>'
+      + '<th scope="col">Sorgente</th><th scope="col">Mic / DI</th><th scope="col">Asta</th>'
+      + '<th class="cl-48" scope="col">48V</th><th scope="col">Patch</th><th class="cl-act" scope="col"></th></tr></thead><tbody>';
+  pl.rows.forEach(function(r,i){
+    if(r.reserved){
+      h+='<tr class="cl-row cl-res"><td class="cl-grip"></td><td class="cl-num">'+((pl.hasFoh&&r.foh)?r.foh:r.n)+'</td>'
+       + '<td class="cl-src"><i>\u2014 riservato \u2014</i></td><td colspan="3"></td>'
+       + '<td><span class="cl-patch">'+esc(r.patch)+'</span></td>'
+       + '<td class="cl-act"><button type="button" class="cl-free" data-free="'+esc(r.boxId||"")+'" data-port="'+r.port+'" title="Libera questo canale">\u00d7</button></td></tr>';
+      return;
+    }
+    if(r.spare){
+      h+='<tr class="cl-row cl-res"><td class="cl-grip"></td><td class="cl-num">'+r.n+'</td>'
+       + '<td class="cl-src"><i>\u2014 libero (coppia stereo) \u2014</i></td><td colspan="4"></td><td></td></tr>';
+      return;
+    }
+    var num=(pl.hasFoh&&r.foh)?r.foh:r.n;
+    h+='<tr class="cl-row'+(clSel===r.key?" sel":"")+(r.box?"":" libero")+'" data-k="'+esc(r.key)+'" data-rk="'+esc(r.key)+'" draggable="true">'
+     + '<td class="cl-grip" title="Trascina per riordinare">\u283f</td>'
+     + '<td class="cl-num"><input class="cl-numin" type="number" min="1" max="'+pl.rows.length+'" value="'+num+'" data-num="'+esc(r.key)+'" aria-label="Numero del canale '+esc(r.name)+'"></td>'
+     + '<td class="cl-src"><button type="button" class="cl-name" data-go="'+esc(r.itemId||"")+'" title="Premi: la sorgente si accende sul palco">'+esc(r.name)+'</button>'
+     +   (r.short?'<span class="cl-short" title="Nome sul banco">'+esc(r.short)+'</span>':'')+'</td>'
+     + '<td><select class="cl-cell" data-mic="'+esc(r.key)+'" aria-label="Microfono o DI">'
+     +   '<option value=""'+(r.micOff?" selected":"")+'>\u2014 no mic</option>'
+     +   mics.map(function(m){ return '<option'+(m===r.mic?" selected":"")+'>'+esc(m)+'</option>'; }).join("")
+     +   ((r.mic && mics.indexOf(r.mic)<0)?('<option selected>'+esc(r.mic)+'</option>'):'')
+     + '</select></td>'
+     + '<td><select class="cl-cell'+(r.standAuto?" auto":"")+'" data-stand="'+esc(r.key)+'" aria-label="Asta">'
+     +   '<option value="__auto"'+(r.standAuto?" selected":"")+'>'+(r.stand?esc(r.stand)+" (dal mic)":"\u2014")+'</option>'
+     +   STAND_SUGGEST.map(function(a){ return '<option'+((!r.standAuto&&a===r.stand)?" selected":"")+'>'+esc(a)+'</option>'; }).join("")
+     + '</select></td>'
+     + '<td class="cl-48"><label class="cl-sw"><input type="checkbox" data-p48="'+esc(r.key)+'"'+(r.p48?" checked":"")+' aria-label="Phantom 48V"><span></span></label></td>'
+     + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
+     + '<td class="cl-act">'+(r.box?'':'<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
+     + '</tr>';
+  });
+  h+='</tbody>';
+  tb.innerHTML=h;
+  if(typeof enableRowDrag==="function") enableRowDrag(tb, function(){
+    return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; });
+  }, function(o){ state.cab.order=o; });
+}
+function clShow(v){
+  clOpen=(v!==false);
+  if(clOpen && !(state.cab&&state.cab.on)){ state.cab.on=true; __cabRes=null; }
+  clRender();
+  if(clOpen){ var c=document.getElementById("clClose"); if(c) c.focus(); }
+}
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
 /* Liste tecniche MODIFICABILI: click su una riga = seleziona l'elemento sul palco (per spostarlo),
    cestino = lo elimina. Riusate da Input list (sorgente) e Monitor list (wedge del mix). */
@@ -14408,6 +14527,22 @@ function _listMove(cur, id, dir, apply){
   var i=cur.indexOf(id), j=i+dir; if(i<0||j<0||j>=cur.length) return;
   cur.splice(i,1); cur.splice(j,0,id); apply(cur); __cabRes=null; save(); render();
 }
+/* NUMERO DI CANALE (Simone 28/07): «se cambio la 3 in 1, le altre scalano». Il numero resta DERIVATO
+   dall'ordine — non si assegna, si sposta la riga e i numeri seguono: così la lista è sempre 1…N senza
+   buchi né doppioni. I canali riservati non entrano nell'ordine manuale (tengono la loro porta). */
+function cabSetChannelNo(key, n){
+  var rows=patchList().rows.filter(function(r){ return !r.reserved && !r.spare; });
+  var keys=rows.map(function(r){ return r.key; });
+  var from=keys.indexOf(key); if(from<0) return false;
+  var to=Math.max(1, Math.min(keys.length, Math.round(+n||0)))-1;
+  if(to===from) return false;
+  keys.splice(from,1); keys.splice(to,0,key);
+  state.cab.order=keys; __cabRes=null; save(); render();
+  return true;
+}
+/* asta e phantom scelti a mano sul canale (null/undefined = torna al valore suggerito dal microfono) */
+function cabSetStand(key, v){ var m=cabManual(key); if(v==null||v==="") delete m.stand; else m.stand=String(v).slice(0,24); __cabRes=null; save(); render(); }
+function cabSetP48(key, v){ var m=cabManual(key); if(v==null) delete m.p48; else m.p48=!!v; __cabRes=null; save(); render(); }
 function cabMoveInput(key, dir){ _listMove(patchList().rows.map(function(r){return r.key;}), key, dir, function(o){ state.cab.order=o; }); }
 function cabMoveMonitor(id, dir){ _listMove(monitorList().rows.map(function(r){return r.sinkId;}), id, dir, function(o){ state.cab.monOrder=o; }); }
 function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return i.id===id;}); if(it){ it.label=String(v).slice(0,40); __cabRes=null; save(); render(); } }
@@ -14487,17 +14622,41 @@ function enableRowDrag(host, keysFn, setOrder){
     });
   });
 }
-function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dragKey){
+/* EVIDENZIA (Simone 28/07): premendo il nome nella lista la sorgente si accende SUL PALCO e basta —
+   la lista resta aperta e il pannello non cambia. Prima il click selezionava l'elemento, e la colonna
+   di destra passava alle sue proprietà: si perdeva di vista la lista che si stava leggendo. */
+var _flashT=null;
+function flashItem(id){
+  if(!id) return;
+  var n=(typeof itemNode==="function") ? itemNode(id) : null; if(!n) return;
+  [].forEach.call(document.querySelectorAll(".it-flash"), function(el){ el.classList.remove("it-flash"); });
+  if(_flashT){ clearTimeout(_flashT); _flashT=null; }
+  n.classList.add("it-flash");
+  _flashT=setTimeout(function(){ n.classList.remove("it-flash"); _flashT=null; }, 1600);
+}
+function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dragKey, opts){
+  opts=opts||{};
   var row=document.createElement("div"); row.className="patch-row editable"+(sels?" rowsel":"");
   row.innerHTML=cells.join("");
   if(dragKey!=null){ row.dataset.rk=dragKey; row.setAttribute("draggable","true"); }   /* riordino rapido a trascinamento */
-  if(onRename){ var nameEl=row.querySelector(".psrc"); if(nameEl){ nameEl.classList.add("renamable"); nameEl.title="Click per rinominare";
-    nameEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); }); } }   /* click sul nome = rinomina; sul resto = seleziona */
+  if(onRename){ var nameEl=row.querySelector(".psrc"); if(nameEl){ nameEl.classList.add("renamable");
+    if(opts.flashOnName){
+      /* Input list (Simone 28/07): premere il nome ACCENDE la sorgente sul palco e basta — la lista
+         resta aperta e il pannello di destra non cambia. La rinomina passa al doppio click. */
+      nameEl.title="Premi: la sorgente si accende sul palco · doppio click per rinominare";
+      nameEl.addEventListener("click", function(e){ e.stopPropagation(); flashItem(opts.flashId); });
+      nameEl.addEventListener("dblclick", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); });
+    } else {
+      nameEl.title="Click per rinominare";
+      nameEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); });
+    } } }
   var acts=document.createElement("div"); acts.className="rowacts";
   /* ▲▼ tolte (Simone 08/07): le righe si riordinano trascinandole (enableRowDrag) */
   acts.appendChild(_rowBtn(_ROW_TRASH, delTitle||"Elimina dal palco", "rowdel", function(){ if(onDelete) onDelete(); else listDeleteItems(ids); }));
   if(ids && ids.length){
-    row.addEventListener("click", function(e){ if(e.target.closest(".rowacts")||e.target.closest(".rowedit")) return; selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });   /* sync: seleziona sul palco + pannello proprietà */
+    row.addEventListener("click", function(e){ if(e.target.closest(".rowacts")||e.target.closest(".rowedit")) return;
+      if(opts.flashOnName){ flashItem(ids[0]); return; }   /* Input list: evidenzia, non cambia pannello */
+      selectMany(ids); render(); if(typeof ensureVisible==="function") ensureVisible(); });   /* sync: seleziona sul palco + pannello proprietà */
   }
   row.appendChild(acts); return row;
 }
@@ -14592,7 +14751,7 @@ function renderPatchPanel(){
       r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
       function(){ cabMicToggle(key); },
       function(dir){ cabMoveInput(key, dir); },
-      function(v){ cabRenameItem(iid, v); }, key);   /* key = riordino a trascinamento */
+      function(v){ cabRenameItem(iid, v); }, key, {flashOnName:true, flashId:iid});   /* key = riordino a trascinamento */
     var micEl=row.querySelector(".pmic");   /* click sulla cella MIC/DI = cambia mic/tipo inline (testo: SM58, DI, Line…) */
     if(micEl){ micEl.classList.add("editable-cell"); micEl.title="Click per cambiare microfono/tipo (es. SM58, DI, Line)";
       micEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(micEl, r.mic||"", function(v){ cabSetMic(key, v); }); }); }
@@ -14647,6 +14806,39 @@ function techScrollTo(id){
   head.addEventListener("click", function(e){ if(e.target.closest("#patchTrash")) return; if(patchOpen) patchOpen=false; else techAccordionOpen("patch"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); patchActive=false; render(); });   /* cestino: rimuove l'input list */
   document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
+  /* ── channel list a schermo intero ── */
+  var _clO=document.getElementById("clOpen"); if(_clO) _clO.addEventListener("click", function(){ clShow(true); });
+  var _clC=document.getElementById("clClose"); if(_clC) _clC.addEventListener("click", function(){ clShow(false); });
+  var _clP=document.getElementById("clPdf"); if(_clP) _clP.addEventListener("click", function(){ patchListPdf(); });
+  var _clV=document.getElementById("clCsv"); if(_clV) _clV.addEventListener("click", function(){ if(typeof openCsvExport==="function") openCsvExport(); else exportChannelCsv({format:"excel-it"}); });
+  var _clDlg=document.getElementById("clDlg");
+  if(_clDlg){
+    _clDlg.addEventListener("click", function(e){ if(e.target===_clDlg) clShow(false); });   /* clic sullo sfondo = chiudi */
+    /* nome della sorgente: la accende sul palco e basta — niente cambio di pannello (Simone 28/07) */
+    _clDlg.addEventListener("click", function(e){
+      var nm=e.target.closest(".cl-name");
+      if(nm){ var row=nm.closest(".cl-row"); clSel=row?row.getAttribute("data-k"):null;
+        flashItem(nm.getAttribute("data-go")); clRender(); return; }
+      var dot=e.target.closest(".cl-mini-dot");
+      if(dot){ clSel=dot.getAttribute("data-k"); clRender();
+        var rr=_clDlg.querySelector('.cl-row.sel'); if(rr) rr.scrollIntoView({block:"nearest"}); return; }
+      var zap=e.target.closest(".cl-zap");
+      if(zap){ var k=zap.getAttribute("data-zap");
+        var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
+        if(need){ clShow(false); guideDialog(need); return; }
+        var hit=cabConnectOne(k); clRender();
+        showToast(hit ? "Canale collegato" : "Nessuna porta libera: aggiungi una stage box", hit?"":"err"); return; }
+      var fr=e.target.closest(".cl-free");
+      if(fr){ cabFreePort(fr.getAttribute("data-free"), +fr.getAttribute("data-port")); clRender(); return; }
+    });
+    _clDlg.addEventListener("change", function(e){
+      var t2=e.target;
+      if(t2.classList.contains("cl-numin")){ cabSetChannelNo(t2.getAttribute("data-num"), t2.value); clRender(); return; }
+      if(t2.hasAttribute("data-mic")){ cabSetMic(t2.getAttribute("data-mic"), t2.value); clRender(); return; }
+      if(t2.hasAttribute("data-stand")){ cabSetStand(t2.getAttribute("data-stand"), t2.value==="__auto"?null:t2.value); clRender(); return; }
+      if(t2.hasAttribute("data-p48")){ cabSetP48(t2.getAttribute("data-p48"), t2.checked); clRender(); return; }
+    });
+  }
 })();
 /* ===== MONITOR LIST automatica — derivata dal motore (lato output) ===== */
 function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga distinta (4 monitor → 4 righe, anche se duplicati) */
@@ -21805,5 +21997,30 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+<!-- CHANNEL LIST a schermo intero (Simone 28/07, variante C): la lista completa accanto alla
+     striscia del palco. Premi una riga e la sorgente si accende sulla miniatura: sai sempre di quale
+     strumento stai parlando, senza chiudere la lista. -->
+<div id="clDlg" class="cl-ov" hidden>
+  <div class="cl-win" role="dialog" aria-modal="true" aria-labelledby="clTitle">
+    <div class="cl-top">
+      <span class="cl-t" id="clTitle">Channel list</span>
+      <span class="cl-s" id="clSum"></span>
+      <span class="cl-sp">
+        <button type="button" class="btn" id="clCsv">CSV</button>
+        <button type="button" class="btn primary" id="clPdf">PDF</button>
+        <button type="button" class="btn" id="clClose" aria-label="Chiudi la channel list">Chiudi</button>
+      </span>
+    </div>
+    <div class="cl-split">
+      <div class="cl-stage">
+        <div class="cl-lbl">Fondo palco</div>
+        <div class="cl-mini" id="clMini"></div>
+        <div class="cl-lbl">Pubblico</div>
+        <div class="cl-hint">Premi una riga: la sorgente si accende qui.</div>
+      </div>
+      <div class="cl-tablewrap"><table class="cl-table" id="clTable"></table></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

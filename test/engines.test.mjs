@@ -2153,6 +2153,78 @@ t("pannello elemento: gruppi col termine del mestiere, non riquadri", () => {
 });
 /* Dimensione resta uno SLIDER (Simone: «mi piace che vada da piccolo a sinistra a grande a destra»),
    ma sulla stessa riga di etichetta e valore. Rotazione e Distanza sono misure esatte: campo numerico. */
+t("numero di canale: si cambia a mano e le altre righe scalano", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 900, 130); box.ch = 16; box.outCh = 8;
+  const a1 = add("astamic", 200, 400), a2 = add("astamic", 400, 400), a3 = add("astamic", 600, 400);
+  cabla();
+  const nomi = () => A.patchList().rows.map(r => r.n + ":" + r.itemId);
+  const prima = nomi();
+  eq(prima.length, 3, "tre canali");
+  const terza = A.patchList().rows[2];
+  ok(A.cabSetChannelNo(terza.key, 1), "la terza diventa la prima");
+  const dopo = A.patchList().rows;
+  eq(dopo[0].itemId, terza.itemId, "ora è in cima");
+  eq(dopo.map(r => r.n).join(","), "1,2,3", "numerazione sempre 1..N, senza buchi");
+  eq(dopo[1].itemId, a1.id, "le altre scalano di uno");
+  eq(dopo[2].itemId, a2.id);
+  /* fuori scala: si aggancia agli estremi invece di sparire */
+  A.cabSetChannelNo(dopo[0].key, 99);
+  eq(A.patchList().rows[2].itemId, terza.itemId, "99 su 3 canali = ultimo posto");
+  A.cabSetChannelNo(A.patchList().rows[2].key, 0);
+  eq(A.patchList().rows[0].itemId, terza.itemId, "0 = primo posto");
+  eq(A.cabSetChannelNo("chiave-inesistente", 1), false, "chiave ignota: non fa nulla");
+});
+
+t("asta e phantom: derivati dal microfono finché non li tocchi", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 900, 130); box.ch = 16; box.outCh = 8;
+  add("astamic", 300, 400);
+  cabla();
+  let r = A.patchList().rows[0];
+  const standAuto = r.stand;
+  eq(r.standAuto, true, "l'asta arriva dal microfono");
+  eq(r.p48Auto, true, "e così il phantom");
+  A.cabSetStand(r.key, "asta giraffa"); A.__cabRes = null;
+  r = A.patchList().rows[0];
+  eq(r.stand, "asta giraffa", "asta scelta a mano");
+  eq(r.standAuto, false, "e si sa che è una scelta, non un suggerimento");
+  A.cabSetP48(r.key, true); A.__cabRes = null;
+  r = A.patchList().rows[0];
+  eq(r.p48, true, "phantom acceso a mano");
+  eq(r.p48Auto, false);
+  /* tornare all'automatico */
+  A.cabSetStand(r.key, null); A.cabSetP48(r.key, null); A.__cabRes = null;
+  r = A.patchList().rows[0];
+  eq(r.stand, standAuto, "asta di nuovo dal microfono");
+  eq(r.standAuto, true); eq(r.p48Auto, true);
+  eq(A.state.cab.manual[r.key].stand, undefined, "e l'override sparisce, non resta a sporcare");
+});
+
+t("le scelte fatte sul canale sopravvivono a reload e undo", () => {
+  /* 28/07 — normalizeState aveva una whitelist CHIUSA (pts/label/deleted/auto/box) e buttava via tutto
+     il resto: il nome breve console, il microfono scelto a mano, la porta pinnata e il «togli
+     microfono» sparivano a ogni ricaricamento E a ogni undo (applyHistory ripassa di qui). */
+  reset();
+  A.state.cab.manual = { k1: { seg:1, short:"VOX", mic:"SM58", stand:"asta giraffa", p48:false,
+                               port:5, micOff:1, label:"x", pts:[[1,2],[3,4]], deleted:true, auto:1 } };
+  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  const m = A.state.cab.manual.k1;
+  eq(m.short, "VOX", "nome breve console");
+  eq(m.mic, "SM58", "microfono scelto a mano");
+  eq(m.stand, "asta giraffa", "asta scelta a mano");
+  eq(m.p48, false, "phantom tolto a mano (false NON è «assente»)");
+  eq(m.port, 5, "porta pinnata");
+  eq(m.micOff, 1, "microfono tolto");
+  eq(m.seg, 1, "cavo segmentato");
+  eq(m.label, "x", "e ciò che già sopravviveva sopravvive ancora");
+  eq(m.deleted, true); eq(m.auto, 1); eq(m.pts.length, 2);
+  /* i valori fuori scala restano fuori */
+  A.state.cab.manual = { k2: { port: 999, short: "x".repeat(40) } };
+  const ns2 = A.normalizeState(A.state); if (ns2) A.state = ns2;
+  eq(A.state.cab.manual.k2.port, undefined, "porta fuori range scartata");
+  eq(A.state.cab.manual.k2.short.length, 12, "nome breve troncato");
+});
 t("etichetta: il campo sta staccato dai bottoni in TUTTE le modalità", () => {
   /* 28/07 — il riordino B3 ha messo i bottoni Intero/Sigla/Nascosto SOPRA il campo, ma il margine di
      stacco stava sul blocco dei bottoni: con «Intero» il riquadro finiva incollato, con «Sigla» il
