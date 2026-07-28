@@ -4488,7 +4488,13 @@ function elecConnectAll(){
    fam: "cab" (ingressi e monitor) · "elec" (corrente) · "mond" (personal monitor). */
 function cabSegToggle(fam, key){
   var man = fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
-  if(man.seg) delete man.seg; else man.seg=1;
+  if(man.seg){
+    delete man.seg;
+    /* 28/07 (bug segnalato da Simone): «Torna diritto» diceva diritto e il cavo restava piegato. I
+       waypoint disegnati a mano trascinando i lati restavano nell'override, e il tracciato diretto
+       ci passa comunque attraverso. Un cavo diritto è una retta: via anche quelli. */
+    delete man.pts;
+  } else man.seg=1;
   if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
   return !!man.seg;
