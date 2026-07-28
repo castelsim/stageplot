@@ -2153,6 +2153,16 @@ t("pannello elemento: gruppi col termine del mestiere, non riquadri", () => {
 });
 /* Dimensione resta uno SLIDER (Simone: «mi piace che vada da piccolo a sinistra a grande a destra»),
    ma sulla stessa riga di etichetta e valore. Rotazione e Distanza sono misure esatte: campo numerico. */
+t("etichetta: il campo sta staccato dai bottoni in TUTTE le modalità", () => {
+  /* 28/07 — il riordino B3 ha messo i bottoni Intero/Sigla/Nascosto SOPRA il campo, ma il margine di
+     stacco stava sul blocco dei bottoni: con «Intero» il riquadro finiva incollato, con «Sigla» il
+     margin-top di pAbbrWrap lo salvava. Lo stacco ora sta sul campo. */
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  const mode = (html.match(/<div id="pLblModeWrap"[^>]*>/) || [""])[0];
+  eq(mode.indexOf("margin-top"), -1, "niente margine inline sul blocco dei bottoni: " + mode);
+  ok(stylesCss.indexOf("#props #pLabelWrap{margin-top:6px}") > -1, "lo stacco sta sul campo nome");
+  ok(html.indexOf('id="pAbbrWrap" style="display:none;margin-top:6px"') > -1, "stesso valore per la sigla");
+});
 t("dimensione e rotazione: slider su una riga; distanza: campo numerico", () => {
   /* 28/07 — dietrofront esplicito di Simone sulla rotazione: era tornata campo numerico col pannello
      B3, ora è di nuovo uno slider, come la Dimensione. Si ruota guardando il palco, non digitando. */

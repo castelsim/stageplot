@@ -321,6 +321,11 @@
   #props #selProps .pnest{padding-left:12px;border-left:2px solid var(--accent-tint);margin:0}
   #props #selProps .pdiv{border:none;border-top:1px solid var(--border);margin:13px 0 10px}
   /* riga "voce a sinistra, valore stretto a destra": costa mezza riga invece di una intera */
+  /* ETICHETTA (28/07) — il riordino B3 ha messo i bottoni Intero/Sigla/Nascosto SOPRA il campo, ma il
+     margine di stacco viveva sul blocco dei bottoni (pensato per quando il campo stava sopra): con
+     «Intero» il riquadro finiva incollato ai bottoni, mentre con «Sigla» il suo margin-top lo salvava.
+     Ora lo stacco sta sul campo, uguale nelle due modalità. */
+  #props #pLabelWrap{margin-top:6px}
   #props .numrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
   #props .numrow>label{margin:0;flex:0 0 auto;color:var(--text-2)}
   #props .numwrap{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px}
