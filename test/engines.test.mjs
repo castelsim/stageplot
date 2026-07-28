@@ -2269,6 +2269,39 @@ t("un collegamento chiesto accende il motore (o il cavo non si vedrebbe)", () =>
   reset();
   A.mondManual("y"); ok(A.state.mond.on, "idem per il P.M.");
 });
+/* Dal confronto con una channel list vera (28/07): delle nove colonne che il fonico compila a mano,
+   quattro mancavano o erano sepolte. Qui le tre recuperate con i dati che avevamo già. */
+t("il PDF input list ha FOH come colonna sua, separata dalla sorgente", () => {
+  ok(appjs.indexOf('trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH"') > -1,
+     "sei colonne: il nome sul banco non è più accodato al nome dello strumento fra virgolette");
+  eq(appjs.indexOf("r.name+(r.short?'  «'+r.short+'»':\"\")"), -1, "via l'accodamento");
+});
+t("asta e nome-banco compaiono anche nella lista del pannello", () => {
+  ok(appjs.indexOf('micCell += \'<span class="pstand">\'') > -1, "asta sulla seconda riga del canale");
+  ok(appjs.indexOf('micCell += \'<span class="pfoh"') > -1, "e il nome sul banco");
+  ok(stylesCss.indexOf(".patch-row .pfoh") > -1, "con uno stile suo, distinto dal mic");
+});
+t("le mandate alla macchina cuffie prendono il nome dai gruppi sul palco", () => {
+  reset(); A.state.cab.on = true;
+  add("batteria", 300, 200); add("bassstand", 500, 300); add("gtstand", 700, 300);
+  add("corista", 500, 500); add("vlnpost", 900, 400);
+  A.__cabRes = null;
+  const n = A.pmFeedNames(8);
+  eq(n.length, 8, "una mandata per uscita, sempre");
+  ["Drums", "Bass", "Guit", "Archi", "Voci"].forEach((g) =>
+    ok(n.indexOf(g) > -1, "manca il gruppo «" + g + "»; ottenuti: " + n.join(", ")));
+  ok(n[0] === "Drums", "l'ordine è quello dei banchi della channel list");
+  reset();
+  eq(A.pmFeedNames(4).join(","), "Mandata 1,Mandata 2,Mandata 3,Mandata 4",
+     "palco vuoto: nomi generici, non un blocco anonimo");
+});
+t("le tastiere prendono due mandate (in cuffia si vogliono in stereo)", () => {
+  reset(); A.state.cab.on = true;
+  add("stagepiano", 400, 400); A.__cabRes = null;
+  const n = A.pmFeedNames(8);
+  ok(n.indexOf("Key L") > -1 && n.indexOf("Key R") > -1, "Key L e Key R; ottenuti: " + n.join(", "));
+  eq(A.pmFeedNames(1)[0], "Key", "con una sola uscita resta mono, senza la L che prometterebbe una R");
+});
 t("il fulmine collega UN canale solo, senza toccare gli altri", () => {
   reset(); A.state.cab.on = true;
   const v1 = add("corista", 200, 300), v2 = add("corista", 500, 300), v3 = add("corista", 800, 300);
@@ -3221,14 +3254,19 @@ t("Macchina cuffie: hub -> bus console (16 ch contigui), o Dante = nota", () => 
   A.state.buses = [];
   A.__cabRes = null;
   let L = A.busList();
-  const cuf = L.auto.find(a => a.cuf);
-  ok(cuf, "riga cuffie derivata");
-  eq(cuf.ports.length, 16, "16 canali (Ultranet)");
-  ok(cuf.ports[15] === cuf.ports[0] + 15, "blocco contiguo");
-  eq(cuf.tag, "CUF", "tag CUF");
+  /* 28/07 (caso reale): UNA RIGA PER MANDATA, ognuna col suo nome — come il documento che il fonico
+     consegna («keyl · keyr · drums · bass · guit · archi · fiati · voci»), non un blocco anonimo. */
+  const cufs = L.auto.filter(a => a.cuf);
+  eq(cufs.length, 16, "16 mandate, una riga ciascuna (Ultranet)");
+  const ports = cufs.map(c => c.ports[0]);
+  ok(ports.every((p, i) => i === 0 || p === ports[i - 1] + 1), "blocco contiguo");
+  eq(cufs[0].tag, "CUF", "tag CUF");
+  ok(cufs.every(c => c.name && c.name.length), "ogni mandata ha un nome");
+  ok(cufs.some(c => /voci/i.test(c.name)), "il gruppo presente sul palco dà il nome: c'è una voce → «Voci»");
+  const cuf = { ports: ports, tag: cufs[0].tag, cuf: true };   /* compat con le asserzioni successive */
   // canali override
   hub.pmFeedCh = 8; A.__cabRes = null; L = A.busList();
-  eq(L.auto.find(a => a.cuf).ports.length, 8, "override 8 canali");
+  eq(L.auto.filter(a => a.cuf).length, 8, "override 8 canali → 8 mandate");
   delete hub.pmFeedCh;
   // Dante = niente uscite, solo nota info
   hub.pmFeed = "dante"; A.__cabRes = null; L = A.busList();

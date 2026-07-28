@@ -12881,6 +12881,9 @@ function renderPatchPanel(){
   pl.rows.forEach(function(r){
     if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
     var micCell = r.mic ? ('<span class="micname">'+esc(r.mic)+'</span>'+(r.p48?'<b class="p48b">48V</b>':'')) : '<span class="lbl-note">— no mic</span>';
+    /* asta e nome-banco stanno sulla seconda riga, dove c'è spazio: in 220 px non possono essere colonne */
+    if(r.stand) micCell += '<span class="pstand">'+esc(r.stand)+'</span>';
+    if(r.short) micCell += '<span class="pfoh" title="Nome sul banco">'+esc(r.short)+'</span>';
     var numCell=(pl.hasFoh && r.foh) ? r.foh : r.n;   /* F2: con più box/ID il numero è il canale FOH continuo */
     var srcTxt=esc(r.name)+(r.short?' <small class="lbl-note">«'+esc(r.short)+'»</small>':'');
     var cells=['<span class="pn"'+(pl.hasFoh&&r.foh?' style="font-weight:700;color:var(--accent-strong)"':'')+'>'+numCell+'</span>',
@@ -12967,6 +12970,27 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
 var BUS_KINDS={ st:{tag:"ST", n:2, nome:"Stereo (2 out)"}, mono:{tag:"DIR", n:1, nome:"Mono / Direct (1 out)"}, mtx:{tag:"MTX", n:2, nome:"Matrix (2 out)"} };
 var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Near fill L/R","st","near fill"]];
 function busPortN(bu){ return BUS_KINDS[bu.kind] ? BUS_KINDS[bu.kind].n : 1; }
+var PM_FEED_NAMES={ 10:"Drums", 15:"Perc", 20:"Bass", 30:"Guit", 40:"Key", 50:"Fiati", 60:"Archi", 70:"Voci" };
+/* Nomi suggeriti per le mandate alla macchina cuffie: un nome per ogni GRUPPO strumentale presente sul
+   palco (l'ordine è quello dei banchi della channel list). Le tastiere prendono due mandate (L/R) se
+   c'è spazio: in cuffia si vogliono in stereo. Oltre i gruppi disponibili le uscite restano generiche. */
+function pmFeedNames(n){
+  var seen={}, out=[];
+  (state.items||[]).forEach(function(it){
+    if(!cabItemInputs(it).length) return;
+    var bank=clBank(it.type), nm=PM_FEED_NAMES[bank];
+    if(nm && !seen[bank]){ seen[bank]=1; out.push({bank:bank, name:nm}); }
+  });
+  out.sort(function(a,b){ return a.bank-b.bank; });
+  var names=[];
+  out.forEach(function(g){
+    if(g.bank===40 && names.length+2<=n){ names.push("Key L","Key R"); return; }   /* tastiere in stereo */
+    names.push(g.name);
+  });
+  names=names.slice(0,n);
+  while(names.length<n) names.push("Mandata "+(names.length+1));
+  return names;
+}
 function busList(){
   var R=cabResult(true);
   var boxes=(R.boxes||[]).filter(function(b){ return !b.auto; }).slice().sort(function(a,b){ return a.eid-b.eid; });
@@ -12989,7 +13013,13 @@ function busList(){
     for(var j=0;j<boxes.length;j++){ var q=firstFree(boxes[j],n); if(q){ b=boxes[j]; p0=q; break; } }
     if(!b){ issues.push({lvl:"err", msg:"Macchina cuffie "+(d?d.model:"hub")+" ("+n+" canali): nessuna stage box con "+n+" uscite contigue libere."}); return; }
     var ps=[]; for(var k=0;k<n;k++){ taken[b.id][p0+k]="cuf"; ps.push(p0+k); }
-    auto.push({name:"Cuffie "+(d?d.model:"hub")+" ("+n+" canali)", tag:"CUF", box:b, ports:ps, dest:"macchina cuffie"+(nPM?" \u2192 "+nPM+" personal mixer":""), cuf:true});
+    /* UNA RIGA PER MANDATA, con il suo nome: è come è fatto il documento che il fonico consegna.
+       Il blocco resta identificabile (stesso hub, porte contigue) ma ogni uscita dice cosa porta. */
+    var fn=pmFeedNames(n), mdl=(d?d.model:"hub");
+    fn.forEach(function(nm, k){
+      auto.push({name:nm, tag:"CUF", box:b, ports:[ps[k]], cuf:true, feedOf:mdl,
+        dest:(k===0 ? ("cuffie "+mdl+(nPM?" \u2192 "+nPM+" personal mixer":"")) : "cuffie "+mdl)});
+    });
   });
   (state.items||[]).forEach(function(hb){ if(pmIsHub(hb) && hb.pmFeed==="dante"){ var d=pmOf(hb);
     issues.push({lvl:"info", msg:pmFeedChOf(hb)+" canali cuffie ("+(d?d.model:"hub")+") via rete Dante: nessuna uscita console fisica occupata."}); } });
@@ -15897,7 +15927,7 @@ function patchListPdf(shared){
   var R=pl.R;
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+11, M+76, M+118, M+152];   /* #, SORGENTE, MIC/DI, ASTA, PATCH */
+    var M=16, y=22, cols=[M, M+10, M+62, M+100, M+136, M+158];   /* #, SORGENTE, FOH, MIC/DI, ASTA, PATCH */
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
@@ -15905,15 +15935,16 @@ function patchListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
     doc.text("Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  "), M, y); y+=8;
-    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
-    trow("#","SORGENTE","MIC / DI","ASTA","PATCH", true, "#0d9488");
+    function trow(a,b,c,d,e,f,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827");
+      doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
+    trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.name+(r.short?'  «'+r.short+'»':""), r.mic+(r.p48?"  (48V)":""), r.stand||"", r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.name, r.short||"", r.mic+(r.p48?"  (48V)":""), r.stand||"", r.patch, false, r.spare?"#9a948b":(r.box?"#111827":"#dc2626")); });
     /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
     try{ cabResult().boxes.forEach(function(b){
       if(!b.res.length) return;
       var u2=Object.keys(b.taken).length;
-      trow("", (b.sbId?("ID"+b.sbId):b.letter)+(b.fohBase!=null?"  ·  FOH "+(b.fohBase+1)+"-"+(b.fohBase+b.cap):""), u2+" in uso · "+b.res.length+" riservate", "", "", false, "#9a948b");
+      trow("", (b.sbId?("ID"+b.sbId):b.letter)+(b.fohBase!=null?"  ·  FOH "+(b.fohBase+1)+"-"+(b.fohBase+b.cap):""), "", u2+" in uso · "+b.res.length+" riservate", "", "", false, "#9a948b");
     }); }catch(_e){}
     if(shared) return;
     pdfCredit(doc);
