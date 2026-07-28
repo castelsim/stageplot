@@ -5224,18 +5224,56 @@ t("L6 — i cartelli scritti a mano vicino alle luci vengono intercettati", () =
   reset();
   add("sagomatore", 100, 100);
   const txt = add("testo", 180, 100);
-  txt.label = "FRONTALE SU ELEVATORE 4M CON PAR CALDI";
+  txt.label = "Nota di regia";
   A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
   ok(hasRule("luci-cartelli"), "L6 non è scattata");
 });
 
-t("L6 lascia in pace un testo lontano dalle luci", () => {
+t("L6 lascia in pace un testo lontano che non parla di luci", () => {
   reset();
   add("sagomatore", 100, 100);
   const txt = add("testo", 900, 900);
   txt.label = "SET LIST";
   A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
-  ok(!hasRule("luci-cartelli"), "L6 è scattata su un testo lontano");
+  ok(!hasRule("luci-cartelli"), "L6 è scattata su un testo lontano che non parla di luci");
+});
+
+/* Il caso reale: il cartello del frontale sta a 2,7 m dalla luce più vicina — fuori da
+   qualunque soglia ragionevole. Ma PARLA di luci, e il palco ne ha: tanto basta. */
+t("L6 riconosce un cartello che parla di luci anche se è lontano", () => {
+  reset();
+  add("sagomatore", 100, 100);
+  const txt = add("testo", 900, 900);
+  txt.label = "FRONTALE SU ELEVATORE 4M CON PAR CALDI";
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
+  ok(hasRule("luci-cartelli"), "un cartello che nomina frontale, elevatore e PAR non è stato riconosciuto");
+});
+
+t("L6 tace se sul palco non c'è nessuna luce", () => {
+  reset();
+  const txt = add("testo", 100, 100);
+  txt.label = "FRONTALE SU ELEVATORE 4M CON PAR CALDI";
+  ok(!hasRule("luci-cartelli"), "senza luci sul palco non è una nota sulle luci");
+});
+
+t("il cartello diventa una nota del reparto, non di una richiesta a caso", () => {
+  reset();
+  add("sagomatore", 100, -50);          /* i contro, in alto */
+  const wash = add("parluci", 300, 50); /* i wash, più vicini al cartello del contro */
+  const txt = add("testo", 300, -100);
+  txt.label = "CONTRO SU ELEVATORE 4M CON PAR CALDI";
+  A.state.lights = A.lightsFromItems(A.state.items);
+  const f = A.auditEngine().findings.filter((x) => x.rule === "luci-cartelli")[0];
+  f.act.run();
+  eq(A.state.items.filter((i) => i.type === "testo").length, 0, "il cartello è rimasto sul palco");
+  eq(A.state.lights.notes, ["CONTRO SU ELEVATORE 4M CON PAR CALDI"], "il testo non è finito nelle note del reparto");
+  ok(A.state.lights.rows.every((r) => !r.note), "il testo è stato attribuito a una richiesta: non si può indovinare di quale luce parli");
+});
+
+t("le note del reparto finiscono in fondo alla sezione luci del rider", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", notes: ["CONTRO SU ELEVATORE 4 M"],
+    rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore" })] });
+  eq(L[L.length - 1], { kind: "li", text: "CONTRO SU ELEVATORE 4 M" });
 });
 
 console.log("\n— Luci: le etichette a bordo palco —");

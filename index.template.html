@@ -908,6 +908,7 @@
       </div>
       <div id="lightsRows"></div>
       <button type="button" class="lights-add" id="lightsAdd">+ Aggiungi una luce</button>
+      <div id="lightsNotes"></div>
       <div id="lightsCard"></div>
       <div id="lightsMoodCard" class="prop-card" style="margin-top:9px">
         <div class="prop-card__head">Clima luminoso <span class="muted">tutto lo spettacolo</span></div>
@@ -4743,7 +4744,7 @@ function lightsFromItems(items){
     by[it.type].ids.push(it.id);
   });
   return { rows:order.map(function(tp){ return lightRow({ gear:tp, n:by[tp].ids.length, items:by[tp].ids }); }),
-           blackout:null, mood:"" };
+           blackout:null, mood:"", notes:[] };
 }
 /* La regola cardine, in una funzione pura: le icone sparite si staccano, ma la RICHIESTA
    non cala mai per una cancellazione sul palco; disegnarne una in più invece la alza. */
@@ -4761,8 +4762,15 @@ function lightsNormalize(l, items){
   if(!l || typeof l!=="object" || !Array.isArray(l.rows)) return lightsFromItems(items);
   return { rows:lightsNormalizeRows(l.rows, ids),
            blackout:(l.blackout===true||l.blackout===false)?l.blackout:null,
-           mood:String(l.mood||"") };
+           mood:String(l.mood||""),
+           notes:(Array.isArray(l.notes)?l.notes:[]).map(String).filter(function(x){ return x.trim(); }) };
 }
+/* Vocabolario del reparto: serve a riconoscere un cartello che PARLA di luci anche quando
+   sta lontano dalle icone. Nel caso che ha motivato tutto questo, il cartello del frontale
+   era a 2,7 m dalla luce piu' vicina — fuori da qualunque soglia sensata — ma diceva
+   «FRONTALE SU ELEVATORE 4M CON PAR CALDI»: il testo lo dichiara meglio della geometria. */
+var LIGHT_WORDS=/\b(luc[ei]|frontal[ei]|controluc[ei]|contro|sagomator|par\b|wash|fondal|ciclorama|elevator|american|piazzat|gelatin|gobo|led\b|\d{3,4}\s*k\b|warm|rgbw|dimmer|strobo|follow\s*spot|occhio di bue|fumo|hazer|taglio|leggi[oi])/i;
+function lightsIsLightNote(it){ return !!(it && it.type==="testo" && LIGHT_WORDS.test(String(it.label||""))); }
 /* Quattro sagomatori identici possono essere due frontali e due contro: senza questa azione
    la riga nata dalla migrazione sarebbe correggibile solo cancellandola. */
 function lightsSplitRow(rows, rowId, k){
@@ -4817,6 +4825,11 @@ function lightsRiderLines(l){
   });
   var mood=String(l.mood||"").trim();
   if(mood) out.push({kind:"p", text:"L'illuminazione dovrà essere "+mood+"."});
+  /* Note del reparto: testo dell'utente che vale per le luci ma non per una richiesta sola
+     (tipicamente i cartelli recuperati da L6). In fondo, tali e quali: sono parole sue. */
+  (Array.isArray(l.notes)?l.notes:[]).forEach(function(n){
+    if(String(n||"").trim()) out.push({kind:"li", text:String(n).trim()});
+  });
   return out;
 }
 function lightsRiderText(l){
@@ -7927,10 +7940,11 @@ function auditEngine(){
     if(lightItems.length){
       var near=items.filter(function(it){
         if(it.type!=="testo" || !String(it.label||"").trim()) return false;
+        if(lightsIsLightNote(it)) return true;   /* lo dice il testo: la distanza non c'entra */
         return lightItems.some(function(l){ return Math.hypot((l.x||0)-(it.x||0), (l.y||0)-(it.y||0))<200; });
       });
       if(near.length) add("warn", near.length===1 ? "Una nota scritta a mano sta accanto alle luci." : near.length+" note scritte a mano stanno accanto alle luci.",
-        "Luci","Sono richieste, non decorazioni: trasformale in righe della lista Luci e finiranno nel rider.",
+        "Luci","Sono richieste, non decorazioni: spostale nelle note delle Luci e finiranno in fondo alla sezione del rider.",
         {label:"Trasformale in righe", run:function(){ auditFixLightsNotes(near); }}, "luci-cartelli");
     }
   })();
@@ -7955,23 +7969,23 @@ function auditFixAddWedge(){ addItem("wedge"); }
    dell'utente, perché nessuno può sapere se quel sagomatore è un frontale o un controluce. */
 function auditFixLightsFn(){ openLightsLayer(); }
 function auditFixLightsBlackout(){ openLightsLayer(); var el=document.getElementById("lightsBlackout"); if(el&&el.focus) try{ el.focus(); }catch(e){} }
-/* L6 — il cartello diventa una riga: il testo finisce nella nota della richiesta, così la
-   frase che l'utente aveva scritto a mano non si perde, e l'elemento sparisce dal palco. */
+/* L6 — il cartello diventa una NOTA DEL REPARTO, non di una richiesta.
+   Prima provavo ad agganciarlo alla luce piu' vicina, e sul caso reale sbagliava: il cartello
+   «CONTRO SU ELEVATORE 4M CON PAR CALDI» finiva sui wash, perche' geometricamente i wash
+   stavano piu' vicini dei sagomatori di contro. La geometria non sa di quale luce parli un
+   cartello, e attribuire un'informazione all'apparecchio sbagliato e' peggio che non attribuirla:
+   il testo si conserva intatto in coda alla sezione LUCI, dove l'utente lo ricolloca se vuole. */
 function auditFixLightsNotes(list){
   if(!state.lights) state.lights=lightsFromItems(state.items);
-  var rows=state.lights.rows.slice();
+  if(!Array.isArray(state.lights.notes)) state.lights.notes=[];
   (list||[]).forEach(function(it){
-    var near=(state.items||[]).filter(function(l){ return lightsIsGear(l.type) && Math.hypot((l.x||0)-(it.x||0),(l.y||0)-(it.y||0))<200; });
-    var gear=near.length?near[0].type:"", host=null;
-    for(var i=0;i<rows.length;i++){ if(rows[i].gear===gear){ host=rows[i]; break; } }
-    if(!host){ host=lightRow({gear:gear, n:Math.max(1,near.length)}); rows.push(host); }
-    host.note=[host.note, String(it.label||"").trim()].filter(function(x){ return x&&x.trim(); }).join(" · ");
+    var t=String(it.label||"").trim();
+    if(t && state.lights.notes.indexOf(t)<0) state.lights.notes.push(t);
   });
   var ids={}; (list||[]).forEach(function(it){ ids[it.id]=1; });
   state.items=(state.items||[]).filter(function(it){ return !ids[it.id]; });
-  state.lights.rows=rows;
   save(); render(); renderLightsList();
-  showToast((list||[]).length===1 ? "Nota trasformata in richiesta luci" : (list||[]).length+" note trasformate in richieste luci");
+  showToast((list||[]).length===1 ? "Nota spostata nelle luci" : (list||[]).length+" note spostate nelle luci");
 }
 /* LAB caso 1 — L8: piazza un radiomic accanto a ogni cantante scoperto, col nome del cantante come canale */
 function auditFixAddVoiceMics(list){
@@ -14422,6 +14436,15 @@ function renderLightsList(){
         (shown?('◉'+shown):'◎')+'</button>'+
     '</div>';
   }).join("")+'</div>';
+  /* Note del reparto (dai cartelli recuperati, o scritte a mano): stanno sotto le richieste
+     perche' valgono per le luci in generale, non per una riga sola. */
+  var nh=document.getElementById("lightsNotes");
+  if(nh){
+    var ns=Array.isArray(L.notes)?L.notes:[];
+    nh.innerHTML = ns.length ? ('<div class="lights-notes-h">Note delle luci</div>'+ns.map(function(t,i){
+      return '<div class="lights-note"><span>'+esc(t)+'</span><button type="button" class="lights-note-x" data-lnote="'+i+'" title="Togli la nota" aria-label="Togli la nota">×</button></div>';
+    }).join("")) : "";
+  }
   var mood=document.getElementById("lightsMood");
   if(mood && mood!==document.activeElement) mood.value=String(L.mood||"");
   renderLightsCard();
@@ -14509,6 +14532,10 @@ document.addEventListener("click", function(e){
   var addb=e.target.closest && e.target.closest("#lightsAdd");
   if(addb){ if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
     var nr=lightRow({}); state.lights.rows=lightsRows().concat([nr]); selLight=nr.id; save(); render(); renderLightsList(); return; }
+  var nx=e.target.closest && e.target.closest("[data-lnote]");
+  if(nx){ var i=parseInt(nx.getAttribute("data-lnote"),10);
+    if(state.lights && Array.isArray(state.lights.notes)){ state.lights.notes.splice(i,1); save(); render(); renderLightsList(); }
+    return; }
   var nob=e.target.closest && e.target.closest("#lightsBlackoutNo");
   if(nob){ if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
     state.lights.blackout = (state.lights.blackout===false) ? null : false; save(); render(); renderLightsList(); return; }

@@ -2156,6 +2156,17 @@ body.dark .lrow>.lpin:hover{background:#20292e}
 .lights-lab text{font:600 11px var(--font-ui);fill:var(--text-2);letter-spacing:.04em;
   paint-order:stroke;stroke:var(--sheet,#fff);stroke-width:3px;stroke-linejoin:round}
 body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
+/* Note del reparto luci: testo dell'utente (spesso recuperato dai cartelli sul palco). Tono da
+   citazione — sono parole sue, non un dato che abbiamo dedotto noi. */
+#luciSec .lights-notes-h{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;
+  letter-spacing:.06em;margin:10px 0 4px}
+#luciSec .lights-note{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:var(--text-2);
+  background:var(--surface-raised);border:1px solid var(--border);border-radius:6px;
+  padding:5px 7px;margin-bottom:4px;line-height:1.35}
+#luciSec .lights-note>span{flex:1 1 auto;min-width:0}
+#luciSec .lights-note-x{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;
+  font-size:14px;line-height:1;padding:0 2px}
+#luciSec .lights-note-x:hover{color:var(--danger)}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -2901,6 +2912,7 @@ body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
       </div>
       <div id="lightsRows"></div>
       <button type="button" class="lights-add" id="lightsAdd">+ Aggiungi una luce</button>
+      <div id="lightsNotes"></div>
       <div id="lightsCard"></div>
       <div id="lightsMoodCard" class="prop-card" style="margin-top:9px">
         <div class="prop-card__head">Clima luminoso <span class="muted">tutto lo spettacolo</span></div>
