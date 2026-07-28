@@ -6091,6 +6091,24 @@ function elecConnectAll(){
   __elecRes=null; save(); render();
   return done;
 }
+/* Collega UN SOLO carico (fulmine sulla riga della lista carichi, Simone 28/07): come elecConnectAll
+   ma materializza solo il carico chiesto. Ritorna l'id del distro scelto, o null se non ce n'è uno. */
+function elecConnectOne(loadId){
+  if(!loadId) return null;
+  if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; }
+  var man=state.elec.manual=state.elec.manual||{};
+  var ov=man[loadId]||(man[loadId]={});
+  if(ov.distro) return ov.distro;               /* già collegato: non si tocca */
+  delete ov.deleted;                            /* il fulmine è una richiesta esplicita */
+  var prev=state.elec.mode; state.elec.mode="auto";
+  var R; try{ R=electricEngine(); } finally{ state.elec.mode=prev; }
+  var hit=null;
+  (R.loadLinks||[]).forEach(function(l){ if(!hit && l.load.it.id===loadId && l.distro && !l.distro.auto && l.distro.it) hit=l.distro.it.id; });
+  if(!hit){ if(!Object.keys(ov).length) delete man[loadId]; return null; }
+  ov.distro=hit; ov.auto=1;
+  __elecRes=null; save(); render();
+  return hit;
+}
 /* ===== AVVISI: toast + finestra-guida =====
    showToast era CHIAMATA in 12 punti (cablaggio automatico, zone mic, veto personal monitor, export
    PNG) ma non è mai stata definita: ogni chiamata lanciava un ReferenceError che l'handler globale
@@ -6143,56 +6161,53 @@ function guideSpot(dy){
    il bottone rispondeva "Tutto già collegato" anche quando in realtà non c'era la stage box. */
 function autoConnectNeeds(id){
   var items=state.items||[];
-  function reconnect(){ __cabRes=null; __elecRes=null; __mondRes=null; render();
-    var n=layerAutoConnect(id); showToast(n?("Collegati "+n+" elementi"):"Aggiunto: ora puoi collegare"); }
+  /* la guida aggiunge il pezzo che manca e si ferma lì: il cablaggio lo decide l'utente, un cavo
+     alla volta (prima da qui partiva un collega-tutto, rimosso il 28/07). */
+  function aggiunto(){ __cabRes=null; __elecRes=null; __mondRes=null; save(); render();
+    showToast("Aggiunto: ora puoi collegare i canali uno a uno, col fulmine sulla riga"); }
   if(id==="cabin" || id==="cabout"){
     var srcIn=items.filter(function(it){ return isAudioSource(it) && cabItemInputs(it).length; }).length;
     var srcOut=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }).length;
     if(id==="cabin" && !srcIn) return {title:"Non c'è ancora niente da collegare",
       msg:"Il cablaggio degli ingressi parte dagli strumenti e dalle voci sul palco: al momento non ce ne sono.",
-      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi premi di nuovo «Cablaggio automatico»"]};
+      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi collega i canali dalla Input list, col fulmine \u26a1 sulla riga"]};
     if(id==="cabout" && !srcOut) return {title:"Non ci sono ascolti da collegare",
       msg:"Le uscite collegano monitor, spie e sidefill alla stage box: al momento non ce ne sono sul palco.",
-      steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi premi di nuovo «Cablaggio automatico»"]};
+      steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi collega ogni monitor dalla Monitor list, col fulmine \u26a1 sulla riga"]};
     if(!items.some(cabIsBox)) return {title:"Manca la stage box",
       msg:"I cavi devono arrivare da qualche parte: senza una stage box (o un rack I/O) sul palco il cablaggio resta appeso.",
       steps:["Una stage box generica ha 16 ingressi e 8 uscite","Puoi spostarla e scegliere il modello reale dal pannello"],
-      action:{label:"Aggiungi una stage box", run:function(){ var s=guideSpot(60); addItem("stagebox", s); reconnect(); }}};
+      action:{label:"Aggiungi una stage box", run:function(){ var s=guideSpot(60); addItem("stagebox", s); aggiunto(); }}};
     return null;
   }
   if(id==="elec"){
     var carichi=items.filter(function(it){ return (typeof wattOf==="function") && wattOf(it)>0 && !elecIsDistro(it) && !elecIsGen(it); }).length;
     if(!carichi) return {title:"Non c'è niente da alimentare",
       msg:"Il cablaggio elettrico parte dagli elementi che consumano corrente: amplificatori, rack, mixer, luci.",
-      steps:["Aggiungi gli elementi che vanno alimentati","Poi premi di nuovo «Cablaggio automatico»"]};
+      steps:["Aggiungi gli elementi che vanno alimentati","Poi collega ogni carico dalla lista, col fulmine \u26a1 sulla riga"]};
     if(!items.some(function(it){ return elecIsDistro(it) || elecIsGen(it); })) return {title:"Manca la presa di corrente",
       msg:"Serve almeno una ciabatta, un distro o un generatore da cui partire: senza, i carichi non hanno dove attaccarsi.",
       steps:["Una ciabatta copre 16 A monofase","Per carichi più alti usa un distro 32/63 A dal catalogo"],
-      action:{label:"Aggiungi una ciabatta", run:function(){ var s=guideSpot(60); addItem("ciabatta", s); reconnect(); }}};
+      action:{label:"Aggiungi una ciabatta", run:function(){ var s=guideSpot(60); addItem("ciabatta", s); aggiunto(); }}};
     return null;
   }
   if(id==="mond"){
     var pm=items.filter(function(it){ return it.type==="hearback"; }).length;
     if(!pm) return {title:"Non ci sono personal monitor",
       msg:"Questo cablaggio collega i mixerini personali al loro hub: sul palco non ce n'è ancora nessuno.",
-      steps:["Aggiungi i mixerini personali ai musicisti","Poi premi di nuovo «Cablaggio automatico»"]};
+      steps:["Aggiungi i mixerini personali ai musicisti","Poi collegali all'hub trascinando il pallino del mixerino"]};
     if(!items.some(pmIsHub)) return {title:"Manca l'hub dei personal monitor",
       msg:"I mixerini vanno tutti a un hub, che li alimenta e porta il segnale: senza hub restano scollegati.",
       steps:["L'hub generico porta 8 mixerini","Scegliendo marca e modello valgono le porte reali"],
-      action:{label:"Aggiungi un hub", run:function(){ var s=guideSpot(60); addItem("mixhub", s); reconnect(); }}};
+      action:{label:"Aggiungi un hub", run:function(){ var s=guideSpot(60); addItem("mixhub", s); aggiunto(); }}};
     return null;
   }
   return null;
 }
-/* "Cablaggio automatico" di un layer (Simone 21/07): (ri)collega ciò che è pendente col motore
-   giusto. Non tocca i collegamenti manuali né gli eliminati (li rispetta cabConnectAll/elecConnectAll).
-   Combinato con "Azzera percorsi" (cestino) dà il ricablaggio ottimale completo. */
-function layerAutoConnect(id){
-  if(id==="cabin"||id==="cabout") return cabConnectAll();
-  if(id==="elec") return elecConnectAll();
-  if(id==="mond"){ var n=((pmAutoConnect()||{}).done||0)+pmAutoConnectBasic(); if(n) render(); return n; }
-  return 0;
-}
+/* layerAutoConnect (il "⚡ Cablaggio automatico" di layer) è stata rimossa il 28/07 insieme al suo
+   bottone: si collega un cavo alla volta. cabConnectAll/elecConnectAll restano come OPERAZIONI DI
+   MOTORE — non sono più esposte nell'interfaccia, ma sono la logica di riferimento di
+   cabConnectOne/elecConnectOne e servono a seminare gli scenari nei test. */
 /* fallback SENZA modelli (Layer v3): mixerino → hub più vicino via Cat5. I vincoli di sistema
    arrivano coi modelli B1 (pmAutoConnect); qui vale il motore storico "mixerini→hub". */
 function pmAutoConnectBasic(){
@@ -13938,7 +13953,7 @@ function renderLayerRow(L, container){
   var _sum=layerSummary(L);
   row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>'
     +(_sum?'<span class="layer-cnt">'+esc(_sum)+'</span>':'');
-  row.title=focus?"Clicca per mostrare tutti i layer":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
+  row.title=focus?"Clicca per mostrare tutte le liste":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
   row.addEventListener("click", function(e){
     if(e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
@@ -13952,13 +13967,13 @@ function renderLayerRow(L, container){
   function slot(el){ var sp=document.createElement("span"); sp.className="layer-slot"; if(el) sp.appendChild(el); slots.appendChild(sp); }
   /* S = solo ESCLUSIVO puro (come il solo exclusive di una console): evidenzia il layer senza
      aprire la lista. Ri-clic = mostra tutti. Il clic sulla riga resta il fuoco (solo + lista). */
-  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; sb.title=(soloOn(L.id)&&layerSoloMode==="iso")?"Togli il solo":"Solo: SOLTANTO questo layer (il resto sparisce)";
+  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; sb.title=(soloOn(L.id)&&layerSoloMode==="iso")?"Togli il solo":"Solo: SOLTANTO questa lista (il resto sparisce)";
   sb.addEventListener("click", function(e){ e.stopPropagation();
     if(soloOn(L.id) && layerSoloMode==="iso"){ layerSoloUI={}; }
     else { layerAccOpen=null; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="iso"; }   /* S chiude la tendina: i due solo si escludono */
     render(); });
   slot(sb);
-  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questo layer":"Mostra questo layer"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
+  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questa lista":"Mostra questa lista"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
@@ -13981,7 +13996,7 @@ function renderLayerRow(L, container){
       rb.title=L.removeLabel||"Azzera";
       rb.addEventListener("click", function(e){ e.stopPropagation();
         confirmDialog({icon:"trash", title:(L.removeLabel||"Azzera")+"?",
-          message:"I collegamenti fatti a mano su questo layer vengono persi. Puoi sempre rifarli col cablaggio automatico.",
+          message:"I collegamenti fatti a mano su questa lista vengono persi. Potrai rifarli un cavo alla volta, col fulmine sulla riga.",
           confirmText:"Azzera"}).then(function(ok){ if(ok) L.remove(); });
       });
       rs.appendChild(rb); body.appendChild(rs);
@@ -13995,19 +14010,9 @@ function renderLayerRow(L, container){
       ow.appendChild(op); strip.appendChild(ow); body.appendChild(strip); }
     /* Il cablaggio si collega DA SOLO (auto-connect in addItem). Qui, per OGNI layer di cablaggio,
        il selettore dello stile grafico dei cavi (indipendente per layer, Simone 21/07). */
-    /* "⚡ Cablaggio automatico" su ogni layer di cablaggio: (ri)collega i pendenti col motore giusto */
-    var _cablables={cabin:1,cabout:1,mond:1,elec:1};
-    if(_cablables[L.id]){
-      var aw=document.createElement("div"); aw.className="layer-adv layer-autocab";
-      var ab=document.createElement("button"); ab.type="button"; ab.className="adv-btn adv-connect"; ab.innerHTML='⚡ <span>Cablaggio automatico</span>';
-      ab.title="Collega automaticamente gli elementi al dispositivo compatibile più vicino";
-      ab.addEventListener("click", function(){
-        var need=autoConnectNeeds(L.id);                      /* manca qualcosa? finestra-guida, non un toast muto */
-        if(need){ guideDialog(need); return; }
-        var n=layerAutoConnect(L.id); showToast(n?("Collegati "+n+" elementi"):"Tutto già collegato");
-      });
-      aw.appendChild(ab); body.appendChild(aw);
-    }
+    /* Niente "⚡ Cablaggio automatico" di layer (Simone 28/07): un comando che cabla tutto in blocco
+       nasconde le scelte del motore dentro un click solo. Si collega un cavo alla volta, col fulmine
+       sulla riga della lista competente (ingressi, monitor, carichi). */
     var styleGetSet=null;
     if(L.id==="cabin"  && state.cab.on) styleGetSet=[cabStyle,    function(v){ state.cab.style=v; }];
     else if(L.id==="cabout" && state.cab.on) styleGetSet=[cabStyleOut, function(v){ state.cab.styleOut=v; }];
@@ -14017,7 +14022,7 @@ function renderLayerRow(L, container){
       var sw=document.createElement("div"); sw.className="layer-adv layer-cabstyle";
       [["curve","Angoli smussati"],["dir","Cablaggio diretto"]].forEach(function(sd){
         var sb=document.createElement("button"); sb.type="button"; sb.className="adv-btn"+(_get()===sd[0]?" on":""); sb.textContent=sd[1];
-        sb.title="Stile grafico dei cavi di questo layer";
+        sb.title="Stile grafico dei cavi di questa lista";
         sb.addEventListener("click", function(){ _set(sd[0]); save(); render(); });
         sw.appendChild(sb); });
       body.appendChild(sw);
@@ -14040,9 +14045,11 @@ function renderLayerManager(){
   LS=LS.filter(function(L){ return L.id==="stage"; }).concat(LS.filter(function(L){ return L.id!=="stage"; }));
   sec.style.display = LS.length ? "block" : "none";
   if(!LS.length) return;
-  /* Un solo header "Layer" + lista PIATTA di tutti i layer attivi, in ordine (Simone: niente divisore). */
+  /* Un solo header "Liste" + elenco PIATTO di tutte le liste attive, in ordine (Simone: niente divisore).
+     Nell'interfaccia si chiamano LISTE, non layer: «layer» è gergo di grafica, mentre qui l'utente
+     lavora su Input list, Monitor list, carichi… I nomi interni (layerRows, layerAccOpen) restano. */
   var rows=document.getElementById("layerRows"); rows.innerHTML="";
-  var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Layer"; rows.appendChild(hdr);
+  var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Liste"; rows.appendChild(hdr);
   LS.forEach(function(L){ renderLayerRow(L, rows); });
   renderPmAccList();
   renderMusAccList();
@@ -14521,21 +14528,8 @@ function renderPatchPanel(){
     txt.innerHTML='<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale non cablato":"canali non cablati")
       + (hasBox ? "" : ' <span class="lbl-note">— manca una stage box</span>');
     bar.appendChild(txt);
-    var go=document.createElement("button"); go.type="button"; go.className="btn primary cab-bar-go";
-    go.textContent="Collega";
-    go.title="Collega i canali liberi alla destinazione più adatta. I collegamenti fatti a mano restano.";
-    go.addEventListener("click", function(e){ e.stopPropagation();
-      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
-      if(need){ guideDialog(need); return; }                 /* manca qualcosa: finestra-guida, non un toast muto */
-      var prima=freeRows.length;
-      layerAutoConnect("cabin");
-      /* Conta i CANALI, non i cavi: un cavo multicanale (la batteria) ne porta otto, e il numero
-         deve combaciare con quello che la barra diceva un attimo prima. */
-      var dopo=patchList().rows.filter(function(x){ return !x.spare && !x.reserved && !x.box; }).length;
-      var n=Math.max(0, prima-dopo);
-      showToast(n ? ("Collegati "+n+(n===1?" canale":" canali")) : "Nessun canale da collegare");
-    });
-    bar.appendChild(go);
+    /* niente «Collega» qui: il cablaggio si fa un canale alla volta, col fulmine sulla riga
+       (Simone 28/07). La barra resta come CONTATORE — dice quanti canali mancano, non li cabla. */
   } else {
     bar.innerHTML='<span class="cab-bar-txt">✓ Tutti i canali sono cablati</span>';
   }
@@ -14629,7 +14623,7 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
   R.mixes.forEach(function(m){
     var patch = m.box ? (m.box.letter+"O"+m.outCh+(m.ch===2?"–"+(m.outCh+1):"")) : "—";
     m.sinks.forEach(function(sk){ n++;
-      rows.push({n:n, name:(sk.label||m.name), mix:m.name, tipo:OUT_SET[sk.type]||"monitor", stereo:m.ch===2, patch:patch, box:m.box, sinkId:sk.id}); });
+      rows.push({n:n, name:(sk.label||m.name), mix:m.name, tipo:OUT_SET[sk.type]||"monitor", stereo:m.ch===2, patch:patch, box:m.box, sinkId:sk.id, mixKey:"mix:"+m.key}); });
   });
   applyListOrder(rows, state.cab&&state.cab.monOrder, function(r){ return r.sinkId; });
   return {rows:rows, R:R};
@@ -14827,13 +14821,20 @@ function renderMonitorPanel(){
     var cells=['<span class="pn">'+r.n+'</span>',
       '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>',
       '<span class="pmic">'+esc(r.tipo)+(r.stereo?' <b class="p48b">ST</b>':'')+'</span>',
-      '<span class="ppatch">'+esc(r.patch)+'</span>'];
+      '<span class="ppatch">'+esc(r.patch)+(r.box?'':'<button type="button" class="cab-one" title="Collega questo monitor" aria-label="Collega questo monitor">\u26a1</button>')+'</span>'];
     var sid=r.sinkId;   /* cestino = elimina il monitor; ▲▼ = riordino; doppio click sul nome = rinomina */
     var row=makeListRow(cells, [sid], selSet[sid], "Elimina questo monitor dal palco",
       null,
       function(dir){ cabMoveMonitor(sid, dir); },
       function(v){ cabRenameItem(sid, v); }, sid);   /* sid = riordino a trascinamento */
     if(!r.box) row.classList.add("unassigned");
+    var oneEl=row.querySelector(".cab-one");   /* fulmine: collega SOLO questo monitor */
+    if(oneEl){ (function(mk){ oneEl.addEventListener("click", function(e){ e.stopPropagation();
+      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabout") : null;
+      if(need){ guideDialog(need); return; }
+      var hit=cabConnectOne(mk);
+      showToast(hit ? "Monitor collegato" : "Nessuna uscita disponibile per questo monitor", hit?"":"err");
+    }); })(r.mixKey); }
     host.appendChild(row);
   });
   enableRowDrag(host, function(){ return monitorList().rows.map(function(r){ return r.sinkId; }); }, function(o){ state.cab.monOrder=o; });
@@ -15505,12 +15506,12 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
 function loadList(){
   var R=elecResult(true), rows=[], n=0;
   R.loadLinks.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true,
+    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
       line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id}); });
   R.unassigned.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false}); });
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, loadId:l.it.id}); });
   (R.pending||[]).forEach(function(l){ n++;   /* manual-first: la lista carichi è completa anche senza cavi */
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:true}); });
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, loadId:l.it.id}); });
   return {rows:rows, R:R};
 }
 var loadActive=false, loadOpen=true;
@@ -15531,12 +15532,20 @@ function renderLoadPanel(){
     h+='<div class="patch-row loadrow'+(r.ok?'':' unassigned')+'" data-lid="'+esc(r.loadId||"")+'"><span class="pn">'+r.n+'</span>'
       +'<span class="psrc" title="'+esc(r.name)+(r.conn?" · "+r.conn:"")+'">'+esc(r.name)+(r.conn?' <small class="lbl-note">'+esc(r.conn)+'</small>':'')+'</span>'
       +'<span class="pmic">'+(r.w>=1000?(r.w/1000).toFixed(1).replace(".",",")+"kW":r.w+"W")+' <b class="pamp">'+r.a.toFixed(1)+'A</b></span>'
-      +'<span class="ppatch'+(r.ok&&r.line?" editable-cell":"")+'">'+esc(lineTxt)+'</span></div>';
+      +'<span class="ppatch'+(r.ok&&r.line?" editable-cell":"")+'">'+esc(lineTxt)
+      +(r.linked?'':'<button type="button" class="cab-one" title="Collega questo carico" aria-label="Collega questo carico">\u26a1</button>')+'</span></div>';
   });
   host.innerHTML=h;
   /* F4: click sulla pillola linea → popover numero + connettore */
   Array.prototype.forEach.call(host.querySelectorAll(".loadrow"), function(row){
     var lid=row.getAttribute("data-lid"); if(!lid) return;
+    var one=row.querySelector(".cab-one");   /* fulmine: collega SOLO questo carico */
+    if(one){ one.addEventListener("click", function(e){ e.stopPropagation();
+      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("elec") : null;
+      if(need){ guideDialog(need); return; }
+      var hit=elecConnectOne(lid);
+      showToast(hit ? "Carico collegato" : "Nessun quadro disponibile per questo carico", hit?"":"err");
+    }); }
     var cell=row.querySelector(".ppatch.editable-cell"); if(!cell) return;
     cell.addEventListener("click", function(e){ e.stopPropagation(); openLinePop(e, lid); });
   });
