@@ -4491,6 +4491,7 @@ function cabSegToggle(fam, key){
   if(man.seg) delete man.seg; else man.seg=1;
   if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
+  return !!man.seg;
 }
 /* Collega UN SOLO carico (fulmine sulla riga della lista carichi, Simone 28/07): come elecConnectAll
    ma materializza solo il carico chiesto. Ritorna l'id del distro scelto, o null se non ce n'è uno. */
@@ -6587,7 +6588,8 @@ function renderCablePanel(info){
   if(_seg){
     var _on=cabSegOn(_seg.store, _seg.key);
     mkBtn(_on?"Torna diritto":"Segmenta", !_on, function(){ cabSegToggle(_seg.fam, _seg.key); }, false,
-      _on ? "Rimetti il cavo in linea retta" : "Squadra il percorso ad angoli retti: poi puoi trascinare i lati per modellarlo");
+      (_on ? "Rimetti il cavo in linea retta" : "Squadra il percorso ad angoli retti: poi puoi trascinare i lati per modellarlo")
+      + " \u00b7 doppio click sul cavo");
   }
   mkBtn("Ripristina percorso", false, info.resetPts, !info.hasPts,
     info.hasPts ? "Cancella i segmenti disegnati a mano: torna il percorso automatico" : "Nessun segmento fatto a mano su questo cavo");
@@ -9092,6 +9094,30 @@ svg.addEventListener("pointerdown", function(e){
   var dcG = e.target.closest ? e.target.closest(".item") : null;
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
   var _onCabEl = state.cab && state.cab.on && e.target.closest && e.target.closest(".cab-hit,.cab-seg-hit,.cab-endpt,.cab-homehit");
+  /* SEGMENTA COL DOPPIO CLICK (Simone 28/07): il gesto sta sul cavo, non solo nel pannello. Il tratto
+     del cavo (.cab-hit e famiglie) risponde; i lati e gli estremi no, perché lì il doppio click
+     cadrebbe in mezzo a un trascinamento. */
+  var _dcCab=null;
+  if(e.target.closest){
+    /* anche i LATI del cavo selezionato (.cab-seg-hit) rispondono: una volta segmentato, le maniglie
+       stanno sopra il tratto e senza questo il doppio click per tornare diritti non arriverebbe mai
+       al cavo. Il primo click avvia il trascinamento del lato, il secondo — fermo, entro 400 ms —
+       vale come doppio click. */
+    var _h1=e.target.closest(".cab-hit,.cab-seg-hit"), _h2=e.target.closest(".elec-hit,.elec-seg-hit"), _h3=e.target.closest(".mond-hit,.mond-seg-hit");
+    if(_h1 && state.cab && state.cab.on) _dcCab={fam:"cab", key:_h1.getAttribute("data-cab")};
+    else if(_h2 && state.elec && state.elec.on) _dcCab={fam:"elec", key:_h2.getAttribute("data-el")};
+    else if(_h3 && state.mond && state.mond.on) _dcCab={fam:"mond", key:_h3.getAttribute("data-mond")};
+  }
+  if(_dcCab && _dcCab.key && lastDown && lastDown.cab===_dcCab.key && Date.now()-lastDown.t<400
+     && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && !window.__projLocked){
+    lastDown=null; e.preventDefault();
+    drag={mode:"none"};   /* il rilascio che segue non deve essere letto come clic sul vuoto (deselezionava il cavo) */
+    try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+    cabSegToggle(_dcCab.fam, _dcCab.key);
+    var _segNow=cabSegOn(_dcCab.fam==="elec" ? (state.elec&&state.elec.manual) : (_dcCab.fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual)), _dcCab.key);
+    showToast(_segNow ? "Cavo segmentato \u2014 trascina i lati per modellarlo" : "Cavo diritto");
+    return;
+  }
   var _onPort = e.target.closest ? e.target.closest(".port-hit") : null;   /* porte stile Max: mai doppio-click */
   if(venueCalibMode===0 && !_onCabEl && !_onPort && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
@@ -9124,7 +9150,7 @@ svg.addEventListener("pointerdown", function(e){
     }   /* mobile: doppio-tap sul vuoto non entra in modifica palco */
     return;
   }
-  lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId};
+  lastDown={t:Date.now(), x:e.clientX, y:e.clientY, id:dcId, cab:(_dcCab&&_dcCab.key)||null};
   var sp = svgPoint(e);
   /* ── editing cavi audio (patch Max/MSP): agisce solo se clicchi un elemento del cavo ── */
   if(state.elec && state.elec.on && state.elec.visible!==false && !state.elec.locked && e.target.closest){
