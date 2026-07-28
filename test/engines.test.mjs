@@ -2269,6 +2269,38 @@ t("un collegamento chiesto accende il motore (o il cavo non si vedrebbe)", () =>
   reset();
   A.mondManual("y"); ok(A.state.mond.on, "idem per il P.M.");
 });
+t("il fulmine collega UN canale solo, senza toccare gli altri", () => {
+  reset(); A.state.cab.on = true;
+  const v1 = add("corista", 200, 300), v2 = add("corista", 500, 300), v3 = add("corista", 800, 300);
+  add("stagebox", 1000, 700); A.__cabRes = null;
+  const key = A.patchList().rows.find((r) => r.itemId === v2.id).key;
+  const box = A.cabConnectOne(key);
+  ok(box, "il canale trova la sua destinazione");
+  const dopo = A.patchList().rows;
+  eq(dopo.filter((r) => r.box).length, 1, "cablato solo quello chiesto");
+  eq(dopo.find((r) => r.itemId === v2.id).box != null, true, "ed è proprio lui");
+  ok(!dopo.find((r) => r.itemId === v1.id).box, "gli altri restano liberi");
+  ok(!dopo.find((r) => r.itemId === v3.id).box);
+  eq(A.state.cab.manual[key].auto, 1, "marcato come scelta del sistema: «Collega» potrà ridistribuirlo");
+});
+t("il fulmine non tocca un canale già cablato e non inventa destinazioni", () => {
+  reset(); A.state.cab.on = true;
+  const v = add("corista", 200, 300); const box = add("stagebox", 900, 700); A.__cabRes = null;
+  const key = A.patchList().rows[0].key;
+  A.cabSetItemBox(v, box.id);                       // scelta a mano
+  const prima = A.state.cab.manual[key].box;
+  eq(A.cabConnectOne(key), prima, "già cablato: restituisce la destinazione e non la cambia");
+  eq(A.state.cab.manual[key].auto, undefined, "e resta «a mano», non diventa automatico");
+  reset(); A.state.cab.on = true;
+  add("corista", 200, 300); A.__cabRes = null;      // nessuna stage box sul palco
+  eq(A.cabConnectOne(A.patchList().rows[0].key), null, "senza destinazione non collega nulla");
+});
+t("il fulmine c'è solo sulle righe non cablate, e ha un nome accessibile", () => {
+  ok(appjs.indexOf('r.box ? \'\' : \'<button type="button" class="cab-one"') > -1,
+     "niente fulmine dove il canale è già cablato");
+  ok(appjs.indexOf('aria-label="Collega questo canale"') > -1, "nome accessibile (non solo il title)");
+  ok(stylesCss.indexOf("@media (hover:none)") > -1, "su touch resta visibile: senza hover sarebbe irraggiungibile");
+});
 t("la lista è a due livelli: il nome della sorgente non si tronca più", () => {
   ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
   ok(stylesCss.indexOf(".patch-row.editable>.pmic{grid-area:2/2/3/3") > -1, "mic sulla seconda");

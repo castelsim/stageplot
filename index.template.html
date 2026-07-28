@@ -7052,6 +7052,27 @@ function cabConnectAll(){
   __cabRes=null; save(); render();
   return done;
 }
+/* Collega UN SOLO canale (fulmine sulla riga della lista, Simone 28/07): stessa logica di
+   cabConnectAll — simula la modalità auto e prende la destinazione che il motore sceglierebbe — ma
+   materializza solo la chiave chiesta. Gli altri canali restano come sono.
+   Ritorna l'id della box scelta, o null se non c'è destinazione. */
+function cabConnectOne(key){
+  if(!key) return null;
+  if(!state.cab.on) state.cab.on=true;
+  var man=state.cab.manual=state.cab.manual||{};
+  var cm=man[key]||(man[key]={});
+  if(cm.box) return cm.box;                       /* già cablato: non si tocca */
+  delete cm.deleted;                              /* il fulmine è una richiesta esplicita: annulla un «cavo tolto» */
+  var prev=state.cab.mode; state.cab.mode="auto";
+  var R; try{ R=audioCablingEngine(); } finally{ state.cab.mode=prev; }
+  var hit=null;
+  (R.links||[]).forEach(function(l){ if(!hit && l.key===key && l.box && !l.box.auto) hit=l.box.id; });
+  if(!hit) (R.mixes||[]).forEach(function(m){ if(!hit && ("mix:"+m.key)===key && m.box && !m.box.auto) hit=m.box.id; });
+  if(!hit){ if(!Object.keys(cm).length) delete man[key]; return null; }
+  cm.box=hit; cm.auto=1;
+  __cabRes=null; save(); render();
+  return hit;
+}
 /* Allinea elettrico (parità con cabAlign): snap dei corner manuali alla griglia + pulizia collineari */
 /* Align stile Max (08/07): riordina TUTTI i cavi manuali — snap dei corner alla griglia + pulizia
    (fonde i collineari, toglie i micro-jog). Diverso da "Reset manuale" (che butta il routing): qui il
@@ -14489,7 +14510,8 @@ function renderPatchPanel(){
     var cells=['<span class="pn"'+(pl.hasFoh&&r.foh?' style="font-weight:700;color:var(--accent-strong)"':'')+'>'+numCell+'</span>',
       '<span class="psrc" title="'+esc(r.name)+'">'+srcTxt+'</span>',
       '<span class="pmic">'+micCell+'</span>',
-      '<span class="ppatch">'+(r.pinned?'📌 ':'')+esc(r.patch)+'</span>'];
+      '<span class="ppatch">'+(r.pinned?'📌 ':'')+esc(r.patch)
+        +(r.box ? '' : '<button type="button" class="cab-one" title="Collega questo canale" aria-label="Collega questo canale">⚡</button>')+'</span>'];
     var key=r.key, iid=r.itemId;   /* cestino = toglie SOLO il mic; ▲▼ = riordino; doppio click sul nome = rinomina */
     var row=makeListRow(cells, iid?[iid]:null, iid&&selSet[iid],
       r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
@@ -14501,7 +14523,20 @@ function renderPatchPanel(){
       micEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(micEl, r.mic||"", function(v){ cabSetMic(key, v); }); }); }
     var pEl=row.querySelector(".ppatch");   /* F2: click sulla cella patch = porta fisica + nome breve (popover) */
     if(pEl){ pEl.classList.add("editable-cell"); pEl.title="Click: porta fisica e nome breve console";
-      pEl.addEventListener("click", function(e){ e.stopPropagation(); openPortPop(e, r); }); }
+      pEl.addEventListener("click", function(e){
+        if(e.target.closest(".cab-one")) return;   /* il fulmine ha il suo gesto */
+        e.stopPropagation(); openPortPop(e, r);
+      }); }
+    var oneEl=row.querySelector(".cab-one");   /* fulmine: collega SOLO questo canale */
+    if(oneEl) oneEl.addEventListener("click", function(e){
+      e.stopPropagation();
+      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
+      if(need){ guideDialog(need); return; }      /* niente destinazione: si spiega, non si fallisce in silenzio */
+      var boxId=cabConnectOne(key);
+      if(!boxId){ showToast("Nessuna destinazione adatta per questo canale",true); return; }
+      var b=(cabResult().boxes||[]).filter(function(x){ return x.id===boxId; })[0];
+      showToast("Collegato a "+(b?("Stage box "+b.letter):"una stage box"));
+    });
     if(!r.box) row.classList.add("unassigned");
     /* scelto a mano = il cablaggio automatico non lo ridistribuisce: va distinto a colpo d'occhio */
     var _mm=(state.cab&&state.cab.manual)||{}; var _mk=_mm[key];
