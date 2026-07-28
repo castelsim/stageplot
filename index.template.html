@@ -7169,6 +7169,15 @@ function cabSetPort(key, port){
   /* su quale box sta questo canale: la scelta manuale, altrimenti quella che gli ha dato il motore */
   var boxId=m.box||null;
   if(!boxId){ var R0=cabResult(); (R0.links||[]).forEach(function(l){ if(!boxId && l.key===key && l.box) boxId=l.box.id; }); }
+  /* Riga non ancora collegata: scegliere la porta E' il modo di collegarla — si aggancia alla stage
+     box reale piu' vicina allo strumento, la stessa che sceglierebbe il motore. Cosi' nella finestra
+     piena la patch resta il comando anche su una riga «da collegare» (Simone, 28/07). */
+  if(!boxId && _it){
+    var reali=(state.items||[]).filter(function(x){ return cabIsBox(x) && !x.foh; });
+    if(!reali.length) reali=(state.items||[]).filter(cabIsBox);
+    reali.sort(function(p1,p2){ return Math.hypot((p1.x||0)-(_it.x||0),(p1.y||0)-(_it.y||0))-Math.hypot((p2.x||0)-(_it.x||0),(p2.y||0)-(_it.y||0)); });
+    if(reali[0]) boxId=reali[0].id;
+  }
   var b=(cabResult().boxes||[]).filter(function(x){ return x.id===boxId; })[0];
   if(!b || port<1 || port>b.cap) return false;
   /* l'ultimo vince: chi aveva scelto la stessa porta sulla stessa box torna in fila */
@@ -14504,6 +14513,25 @@ function clFmtSum(pl){
   return righe.length+" canali"+(ph?" · "+ph+" con 48V":"")+(liberi?" · "+liberi+" da collegare":"")+(box?" · "+box:"");
 }
 /* miniatura: il palco in scala, un pallino per ogni sorgente della lista + le stage box */
+/* I pallini della miniatura: uno per STRUMENTO, non per canale. Quale si accende lo decide
+   l'itemId della riga scelta, non la sua chiave: uno strumento a piu' canali (batteria, postazione
+   a 2) ha una riga per microfono ma un pallino solo, che portava la chiave della PRIMA riga —
+   scegliendo il quarto canale il confronto falliva e non si accendeva niente. Sembrava che
+   l'anteprima seguisse il numero invece dello strumento (Simone, 28/07). */
+function clMiniDots(pl, sel){
+  var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
+  var rows=(pl&&pl.rows)||[];
+  var selRow=sel ? rows.filter(function(r){ return r.key===sel; })[0] : null;
+  var out=[], visti={};
+  rows.forEach(function(r){
+    if(!r.itemId || visti[r.itemId]) return; visti[r.itemId]=1;
+    var it=byId[r.itemId]; if(!it) return;
+    var on=!!(selRow && selRow.itemId===r.itemId);
+    out.push({ key:r.key, itemId:r.itemId, x:it.x, y:it.y, on:on,
+               linked:!!r.box, name:on?selRow.name:r.name });   /* acceso: il nome e' quello del canale scelto */
+  });
+  return out;
+}
 function clRenderMini(pl){
   var host=document.getElementById("clMini"); if(!host) return;
   var W=state.stage.w||1200, D=state.stage.d||800;
@@ -14518,16 +14546,12 @@ function clRenderMini(pl){
   (state.items||[]).filter(cabIsBox).forEach(function(b){
     s+='<rect class="cl-mini-box" x="'+(b.x-(b.w||60)/2)+'" y="'+(b.y-(b.d||24)/2)+'" width="'+(b.w||60)+'" height="'+(b.d||24)+'" rx="'+(u/6).toFixed(1)+'"/>';
   });
-  var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
-  var visti={};
-  pl.rows.forEach(function(r){
-    if(!r.itemId || visti[r.itemId]) return; visti[r.itemId]=1;
-    var it=byId[r.itemId]; if(!it) return;
-    var on=(clSel && clSel===r.key);
-    s+='<circle class="cl-mini-dot'+(on?" on":"")+(r.box?"":" free")+'" data-k="'+esc(r.key)+'" cx="'+Math.round(it.x)+'" cy="'+Math.round(it.y)+'" r="'+(on?u*0.78:u*0.5).toFixed(1)+'" '
+  clMiniDots(pl, clSel).forEach(function(d){
+    var on=d.on;
+    s+='<circle class="cl-mini-dot'+(on?" on":"")+(d.linked?"":" free")+'" data-k="'+esc(d.key)+'" cx="'+Math.round(d.x)+'" cy="'+Math.round(d.y)+'" r="'+(on?u*0.78:u*0.5).toFixed(1)+'" '
       + 'stroke-width="'+(on?u*0.3:u*0.18).toFixed(1)+'"/>';
-    if(on) s+='<text class="cl-mini-name" x="'+Math.round(it.x)+'" y="'+Math.round(it.y-u*1.35)+'" text-anchor="middle" '
-      + 'font-size="'+(u*1.15).toFixed(1)+'" stroke-width="'+(u*0.34).toFixed(1)+'">'+esc(r.name)+'</text>';
+    if(on) s+='<text class="cl-mini-name" x="'+Math.round(d.x)+'" y="'+Math.round(d.y-u*1.35)+'" text-anchor="middle" '
+      + 'font-size="'+(u*1.15).toFixed(1)+'" stroke-width="'+(u*0.34).toFixed(1)+'">'+esc(d.name)+'</text>';
   });
   s+='</svg>';
   host.innerHTML=s;
@@ -14575,8 +14599,14 @@ function clRender(){
      +   STAND_SUGGEST.map(function(a){ return '<option'+((!r.standAuto&&a===r.stand)?" selected":"")+'>'+esc(a)+'</option>'; }).join("")
      + '</select></td>'
      + '<td class="cl-48"><label class="cl-sw"><input type="checkbox" data-p48="'+esc(r.key)+'"'+(r.p48?" checked":"")+' aria-label="Phantom 48V"><span></span></label></td>'
-     + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
-     + '<td class="cl-act">'+(r.box?'':'<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
+     /* La patch E' il comando: si preme e si sceglie la porta, collegata o no. Il fulmine qui
+        non c'e' (resta nella colonna di destra, dove si lavora un cavo alla volta): in una
+        tabella che esiste per assegnare i canali, il posto dove si assegna dev'essere la
+        cella del canale stesso. */
+     + '<td><button type="button" class="cl-patch'+(r.box?'':' no')+'" data-port="'+esc(r.key)+'" '
+     +   'title="'+(r.box?'Cambia la porta sulla stage box':'Scegli la porta: il canale si collega lì')+'">'
+     +   esc(r.box?r.patch:"da collegare")+'</button></td>'
+     + '<td class="cl-act"></td>'
      + '</tr>';
   });
   h+='</tbody>';
@@ -14908,12 +14938,15 @@ function techScrollTo(id){
       var dot=e.target.closest(".cl-mini-dot");
       if(dot){ clSel=dot.getAttribute("data-k"); clRender();
         var rr=_clDlg.querySelector('.cl-row.sel'); if(rr) rr.scrollIntoView({block:"nearest"}); return; }
-      var zap=e.target.closest(".cl-zap");
-      if(zap){ var k=zap.getAttribute("data-zap");
+      /* la patch e' il comando della riga: apre la scelta della porta, collegata o no */
+      var pcell=e.target.closest("[data-port]");
+      if(pcell){
+        var pk=pcell.getAttribute("data-port");
         var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
         if(need){ clShow(false); guideDialog(need); return; }
-        var hit=cabConnectOne(k); clRender();
-        showToast(hit ? "Canale collegato" : "Nessuna porta libera: aggiungi una stage box", hit?"":"err"); return; }
+        var prow=patchList().rows.filter(function(x){ return x.key===pk; })[0];
+        if(prow){ clSel=pk; openPortPop(e, prow); }
+        return; }
       var fr=e.target.closest(".cl-free");
       if(fr){ cabFreePort(fr.getAttribute("data-free"), +fr.getAttribute("data-port")); clRender(); return; }
     });
