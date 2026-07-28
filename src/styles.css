@@ -615,6 +615,9 @@
   .cab-ctx-i.danger{color:#dc2626}
   .cab-ctx-i.danger:hover{background:rgba(220,38,38,.1)}
   body.dark .cab-ctx{background:#141a1f;border-color:#2a3138}
+  /* SEGMENTA (28/07): premi un cavo e la sua unica azione compare lì, sopra al punto premuto */
+  .cab-pop{min-width:0}
+  .cab-pop .cab-ctx-i{padding:6px 12px;font-weight:600;white-space:nowrap}
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
