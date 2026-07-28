@@ -2364,10 +2364,13 @@ t("il PDF input list ha FOH come colonna sua, separata dalla sorgente", () => {
      "sei colonne: il nome sul banco non è più accodato al nome dello strumento fra virgolette");
   eq(appjs.indexOf("r.name+(r.short?'  «'+r.short+'»':\"\")"), -1, "via l'accodamento");
 });
-t("asta e nome-banco compaiono anche nella lista del pannello", () => {
-  ok(appjs.indexOf('micCell += \'<span class="pstand">\'') > -1, "asta sulla seconda riga del canale");
-  ok(appjs.indexOf('micCell += \'<span class="pfoh"') > -1, "e il nome sul banco");
-  ok(stylesCss.indexOf(".patch-row .pfoh") > -1, "con uno stile suo, distinto dal mic");
+t("asta e nome-banco vivono nella channel list, non nella colonna", () => {
+  /* 28/07 (variante B): la colonna è un'ANTEPRIMA — una riga per canale, numero · nome · patch.
+     Asta, microfono, 48V e nome-banco si leggono e si cambiano nella finestra, dove c'è spazio. */
+  ok(appjs.indexOf('row.className="patch-lite"') > -1, "la colonna usa la riga a un livello");
+  ok(appjs.indexOf('data-stand=') > -1, "l'asta è una colonna della channel list");
+  ok(appjs.indexOf('class="cl-short"') > -1, "e il nome sul banco pure");
+  ok(stylesCss.indexOf(".patch-lite{") > -1, "con il suo stile");
 });
 t("le mandate alla macchina cuffie prendono il nome dai gruppi sul palco", () => {
   reset(); A.state.cab.on = true;
@@ -2416,16 +2419,19 @@ t("il fulmine non tocca un canale già cablato e non inventa destinazioni", () =
   add("corista", 200, 300); A.__cabRes = null;      // nessuna stage box sul palco
   eq(A.cabConnectOne(A.patchList().rows[0].key), null, "senza destinazione non collega nulla");
 });
-t("il fulmine c'è solo sulle righe non cablate, e ha un nome accessibile", () => {
-  ok(appjs.indexOf('r.box ? \'\' : \'<button type="button" class="cab-one"') > -1,
-     "niente fulmine dove il canale è già cablato");
-  ok(appjs.indexOf('aria-label="Collega questo canale"') > -1, "nome accessibile (non solo il title)");
-  ok(stylesCss.indexOf("@media (hover:none)") > -1, "su touch resta visibile: senza hover sarebbe irraggiungibile");
+t("il fulmine c'è solo sulle righe non cablate, ed è VISIBILE senza passarci sopra", () => {
+  /* 28/07 — aveva opacity:0 e compariva solo in hover: con due canali da collegare non si vedeva
+     nessun comando. Ora la riga non cablata mostra il fulmine al posto del cestino. */
+  ok(appjs.indexOf('zp.setAttribute("aria-label","Collega questo canale")') > -1, "nome accessibile");
+  ok(appjs.indexOf('if(r.box){') > -1 && appjs.indexOf('lite-trash') > -1, "cablato = cestino, non cablato = fulmine");
+  eq(stylesCss.indexOf(".cab-one{border:none;background:none;color:var(--accent-strong);font-size:11px;cursor:pointer;\n    opacity:0"), -1,
+     "niente più opacity:0 sul fulmine");
+  ok(stylesCss.indexOf(".lite-btn") > -1, "i due bottoni di riga hanno uno stile comune");
 });
-t("la lista è a due livelli: il nome della sorgente non si tronca più", () => {
+t("la Monitor list resta a due livelli (là il nome si troncava)", () => {
   ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
-  ok(stylesCss.indexOf(".patch-row.editable>.pmic{grid-area:2/2/3/3") > -1, "mic sulla seconda");
-  ok(stylesCss.indexOf(".patch-row.editable.cab-man>.ppatch") > -1, "e «a mano» si distingue dal cablato");
+  ok(stylesCss.indexOf(".patch-row.editable>.pmic{grid-area:2/2/3/3") > -1, "tipo sulla seconda");
+  ok(appjs.indexOf('hd.innerHTML=\'<span>#</span><span>Monitor</span>') > -1, "ed è la Monitor list a usarla");
 });
 t("la riga del layer porta il suo numero", () => {
   reset(); A.state.cab.on = true; A.state.elec.on = true;

@@ -950,11 +950,9 @@
         <button type="button" class="cab-trash" id="patchTrash" title="Rimuovi l'input list" aria-label="Rimuovi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div id="patchBody" style="margin-top:8px">
-        <div id="patchSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
+        <div id="patchSummary" hidden></div>
         <div id="patchRows"></div>
         <button class="btn primary" id="clOpen" style="width:100%;margin-top:10px">Apri la channel list</button>
-        <button class="btn" id="patchPdf" style="width:100%;margin-top:6px">Esporta input list (PDF)</button>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Si genera dagli elementi audio sul palco e dalle stage box del <b>Cablaggio audio</b>. Per rinominare un canale, rinomina l'elemento sul palco.</div>
       </div>
     </div>
     <!-- Monitor list (auto, dai monitor sul palco): sezione a tendina con cestino -->
@@ -14610,7 +14608,8 @@ function _rowBtn(html, title, cls, fn){ var b=document.createElement("button"); 
    Le frecce ▲▼ restano come alternativa. */
 var _dragRK=null;
 function enableRowDrag(host, keysFn, setOrder){
-  [].forEach.call(host.querySelectorAll(".patch-row[data-rk]"), function(row){
+  /* .patch-lite = riga dell'anteprima Input (28/07), .patch-row = Monitor list e channel list */
+  [].forEach.call(host.querySelectorAll("[data-rk]"), function(row){
     row.addEventListener("dragstart", function(e){ _dragRK=row.dataset.rk; row.classList.add("rowdragging"); e.dataTransfer.effectAllowed="move"; try{ e.dataTransfer.setData("text/plain", _dragRK); }catch(_){} });
     row.addEventListener("dragend", function(){ _dragRK=null; [].forEach.call(host.querySelectorAll(".rowdragging,.rowdrop"), function(el){ el.classList.remove("rowdragging","rowdrop"); }); });
     row.addEventListener("dragover", function(e){ if(_dragRK==null || row.dataset.rk===_dragRK) return; e.preventDefault(); e.dataTransfer.dropEffect="move"; row.classList.add("rowdrop"); });
@@ -14701,92 +14700,88 @@ function renderPatchPanel(){
   document.getElementById("patchBody").style.display = patchOpen ? "block" : "none";
   document.getElementById("patchCaret").textContent = patchOpen ? "▾" : "▸";
   if(!patchOpen) return;
-  var host=document.getElementById("patchRows"), sum=document.getElementById("patchSummary");
+  var host=document.getElementById("patchRows");
   var pl=patchList(), R=pl.R;
-  if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun ingresso audio: aggiungi microfoni, DI o strumenti sul palco.</div>'; sum.textContent=""; return; }
-  var ph=pl.rows.filter(function(r){ return r.p48; }).length, di=pl.rows.filter(function(r){ return String(r.mic).indexOf("DI")>-1; }).length;
-  sum.innerHTML='<b>'+pl.rows.length+'</b> ingressi · '+ph+' con 48V · '+di+' DI<br>Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw&&STAGEBOX_DB[b.hw]?" "+STAGEBOX_DB[b.hw].model:"")+(b.auto?" (auto)":""); }).join(", ")+'</b>';
+  if(!pl.rows.length){ host.innerHTML='<div class="patch-empty">Nessun ingresso audio: aggiungi microfoni, DI o strumenti sul palco.</div>'; return; }
   host.innerHTML="";
-  /* Barra del cablaggio: il comando principale sta QUI, non nel clic sul layer. Dice quanti canali
-     mancano e dove andranno; se sono tutti a posto lo dice invece di sparire (uno stato «fatto» va
-     detto, non dedotto dall'assenza di avvisi). */
+  /* ANTEPRIMA (Simone 28/07, variante B) — la channel list completa vive nella finestra: qui una riga
+     per canale, numero · nome · patch, e una barra sola che dice a che punto sei. Prima c'erano
+     quattro blocchi per gli stessi numeri (riepilogo a frase, barra, piede della box) e il fulmine
+     era invisibile finché non ci passavi sopra col mouse. */
   var freeRows=pl.rows.filter(function(r){ return !r.spare && !r.reserved && !r.box; });
-  var bar=document.createElement("div"); bar.className="cab-bar"+(freeRows.length?"":" done");
-  if(freeRows.length){
-    var hasBox=(R.boxes||[]).some(function(b){ return !b.auto; });
-    var txt=document.createElement("span"); txt.className="cab-bar-txt";
-    txt.innerHTML='<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale non cablato":"canali non cablati")
-      + (hasBox ? "" : ' <span class="lbl-note">— manca una stage box</span>');
-    bar.appendChild(txt);
-    /* niente «Collega» qui: il cablaggio si fa un canale alla volta, col fulmine sulla riga
-       (Simone 28/07). La barra resta come CONTATORE — dice quanti canali mancano, non li cabla. */
-  } else {
-    bar.innerHTML='<span class="cab-bar-txt">✓ Tutti i canali sono cablati</span>';
+  var boxReali=(R.boxes||[]).filter(function(b){ return !b.auto; });
+  var cap="";
+  if(boxReali.length===1){ var b0=boxReali[0];
+    cap=Object.keys(b0.taken).length+"/"+b0.cap+" su "+(b0.sbId?("ID"+b0.sbId):b0.letter);
+  } else if(boxReali.length>1){
+    var us=0, ca=0; boxReali.forEach(function(b){ us+=Object.keys(b.taken).length; ca+=b.cap; });
+    cap=us+"/"+ca+" su "+boxReali.length+" box";
   }
+  var bar=document.createElement("div"); bar.className="cab-bar"+(freeRows.length?"":" done");
+  var txt=document.createElement("span"); txt.className="cab-bar-txt";
+  if(freeRows.length){
+    txt.innerHTML='<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale da collegare":"canali da collegare")
+      + (boxReali.length ? "" : ' <span class="lbl-note">— manca una stage box</span>');
+  } else txt.innerHTML='\u2713 Tutti i canali sono cablati';
+  bar.appendChild(txt);
+  if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
+    cs.title="Porte in uso sulla stage box"; bar.appendChild(cs); }
   host.appendChild(bar);
-  var hd=document.createElement("div"); hd.className="patch-row patch-hd editable";
-  hd.innerHTML='<span>#</span><span>Sorgente</span><span class="ppatch">Patch</span><span></span>';   /* 4 celle come il grid a due livelli: «Mic/DI» sta sotto la sorgente, non ha una colonna sua */
-  host.appendChild(hd);
+
   pl.rows.forEach(function(r){
-    if(r.reserved){ var rs=document.createElement("div"); rs.className="patch-row editable"; rs.style.color="var(--text-3)";
-      rs.innerHTML='<span class="pn">'+((pl.hasFoh&&r.foh)?r.foh:r.n)+'</span><span class="psrc" style="font-style:italic">\u2014 riservato \u2014</span><span class="pmic"></span><span class="ppatch">'+esc(r.patch)+'</span><span class="rowacts"></span>';
-      rs.title="Canale tenuto libero di proposito \u2014 click per liberarlo";
-      rs.style.cursor="pointer";
-      (function(bid,pn){ rs.addEventListener("click", function(){ cabFreePort(bid,pn); }); })(r.boxId, r.port);
-      host.appendChild(rs); return; }   /* canale riservato: numerato, senza sorgente */
-    if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
-    var micCell = r.mic ? ('<span class="micname">'+esc(r.mic)+'</span>'+(r.p48?'<b class="p48b">48V</b>':'')) : '<span class="lbl-note">— no mic</span>';
-    /* asta e nome-banco stanno sulla seconda riga, dove c'è spazio: in 220 px non possono essere colonne */
-    if(r.stand) micCell += '<span class="pstand">'+esc(r.stand)+'</span>';
-    if(r.short) micCell += '<span class="pfoh" title="Nome sul banco">'+esc(r.short)+'</span>';
-    var numCell=(pl.hasFoh && r.foh) ? r.foh : r.n;   /* F2: con più box/ID il numero è il canale FOH continuo */
-    var srcTxt=esc(r.name)+(r.short?' <small class="lbl-note">«'+esc(r.short)+'»</small>':'');
-    var cells=['<span class="pn"'+(pl.hasFoh&&r.foh?' style="font-weight:700;color:var(--accent-strong)"':'')+'>'+numCell+'</span>',
-      '<span class="psrc" title="'+esc(r.name)+'">'+srcTxt+'</span>',
-      '<span class="pmic">'+micCell+'</span>',
-      '<span class="ppatch">'+(r.pinned?'📌 ':'')+esc(r.patch)
-        +(r.box ? '' : '<button type="button" class="cab-one" title="Collega questo canale" aria-label="Collega questo canale">⚡</button>')+'</span>'];
-    var key=r.key, iid=r.itemId;   /* cestino = toglie SOLO il mic; ▲▼ = riordino; doppio click sul nome = rinomina */
-    var row=makeListRow(cells, iid?[iid]:null, iid&&selSet[iid],
-      r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)",
-      function(){ cabMicToggle(key); },
-      function(dir){ cabMoveInput(key, dir); },
-      function(v){ cabRenameItem(iid, v); }, key, {flashOnName:true, flashId:iid});   /* key = riordino a trascinamento */
-    var micEl=row.querySelector(".pmic");   /* click sulla cella MIC/DI = cambia mic/tipo inline (testo: SM58, DI, Line…) */
-    if(micEl){ micEl.classList.add("editable-cell"); micEl.title="Click per cambiare microfono/tipo (es. SM58, DI, Line)";
-      micEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(micEl, r.mic||"", function(v){ cabSetMic(key, v); }); }); }
-    var pEl=row.querySelector(".ppatch");   /* F2: click sulla cella patch = porta fisica + nome breve (popover) */
-    if(pEl){ pEl.classList.add("editable-cell"); pEl.title="Click: porta fisica e nome breve console";
-      pEl.addEventListener("click", function(e){
-        if(e.target.closest(".cab-one")) return;   /* il fulmine ha il suo gesto */
-        e.stopPropagation(); openPortPop(e, r);
-      }); }
-    var oneEl=row.querySelector(".cab-one");   /* fulmine: collega SOLO questo canale */
-    if(oneEl) oneEl.addEventListener("click", function(e){
-      e.stopPropagation();
-      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
-      if(need){ guideDialog(need); return; }      /* niente destinazione: si spiega, non si fallisce in silenzio */
-      var boxId=cabConnectOne(key);
-      if(!boxId){ showToast("Nessuna destinazione adatta per questo canale",true); return; }
-      var b=(cabResult().boxes||[]).filter(function(x){ return x.id===boxId; })[0];
-      showToast("Collegato a "+(b?("Stage box "+b.letter):"una stage box"));
-    });
-    if(!r.box) row.classList.add("unassigned");
-    /* scelto a mano = il cablaggio automatico non lo ridistribuisce: va distinto a colpo d'occhio */
-    var _mm=(state.cab&&state.cab.manual)||{}; var _mk=_mm[key];
-    if(r.box && _mk && _mk.box && !_mk.auto) row.classList.add("cab-man");
-    if(r.micOff) row.classList.add("micoff");
+    var num=(pl.hasFoh && r.foh) ? r.foh : r.n;
+    if(r.reserved || r.spare){
+      var rs=document.createElement("div"); rs.className="patch-lite muted";
+      rs.innerHTML='<span class="pn">'+num+'</span><span class="psrc"><i>'
+        + (r.reserved ? "\u2014 riservato \u2014" : "\u2014 libero (coppia stereo) \u2014")
+        + '</i></span><span class="ppatch">'+(r.reserved?esc(r.patch):"")+'</span><span class="pact"></span>';
+      if(r.reserved){ rs.title="Canale tenuto libero di proposito \u2014 click per liberarlo"; rs.style.cursor="pointer";
+        (function(bid,pn){ rs.addEventListener("click", function(){ cabFreePort(bid,pn); }); })(r.boxId, r.port); }
+      host.appendChild(rs); return;
+    }
+    var key=r.key, iid=r.itemId;
+    var row=document.createElement("div");
+    row.className="patch-lite"+(r.box?"":" unassigned")+(r.micOff?" micoff":"");
+    var _mm=(state.cab&&state.cab.manual)||{}, _mk=_mm[key];
+    if(r.box && _mk && _mk.box && !_mk.auto) row.classList.add("cab-man");   /* scelto a mano: non lo tocca l'auto */
+    row.dataset.rk=key; row.setAttribute("draggable","true");
+    row.innerHTML='<span class="pn">'+num+'</span>'
+      + '<span class="psrc" title="'+esc(r.name)+(r.mic?(" \u00b7 "+esc(r.mic)):"")+(r.p48?" \u00b7 48V":"")+'">'+esc(r.name)+'</span>'
+      + '<span class="ppatch">'+(r.pinned?"\ud83d\udccc ":"")+(r.box?esc(r.patch):'<span class="nopatch">\u2014</span>')+'</span>'
+      + '<span class="pact"></span>';
+    var act=row.querySelector(".pact");
+    if(r.box){
+      var tr=document.createElement("button"); tr.type="button"; tr.className="lite-btn lite-trash";
+      tr.innerHTML=_ROW_TRASH;
+      tr.title=r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)";
+      tr.setAttribute("aria-label", tr.title);
+      tr.addEventListener("click", function(e){ e.stopPropagation(); cabMicToggle(key); });
+      act.appendChild(tr);
+    } else {
+      var zp=document.createElement("button"); zp.type="button"; zp.className="lite-btn cab-one";
+      zp.textContent="\u26a1"; zp.title="Collega questo canale"; zp.setAttribute("aria-label","Collega questo canale");
+      zp.addEventListener("click", function(e){ e.stopPropagation();
+        var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
+        if(need){ guideDialog(need); return; }
+        var boxId=cabConnectOne(key);
+        if(!boxId){ showToast("Nessuna destinazione adatta per questo canale",true); return; }
+        var b=(cabResult().boxes||[]).filter(function(x){ return x.id===boxId; })[0];
+        showToast("Collegato a "+(b?("Stage box "+b.letter):"una stage box"));
+      });
+      act.appendChild(zp);
+    }
+    /* il nome: un click accende la sorgente sul palco, due la rinominano (28/07) */
+    var nameEl=row.querySelector(".psrc"); nameEl.classList.add("renamable");
+    nameEl.title="Premi: la sorgente si accende sul palco \u00b7 doppio click per rinominare";
+    nameEl.addEventListener("click", function(e){ e.stopPropagation(); flashItem(iid); });
+    nameEl.addEventListener("dblclick", function(e){ e.stopPropagation();
+      startInlineRename(nameEl, r.name, function(v){ cabRenameItem(iid, v); }); });
+    /* la patch resta il punto d'accesso a porta fisica e nome breve */
+    var pEl=row.querySelector(".ppatch");
+    if(r.box){ pEl.classList.add("editable-cell"); pEl.title="Click: porta fisica e nome breve console";
+      pEl.addEventListener("click", function(e){ e.stopPropagation(); openPortPop(e, r); }); }
+    row.addEventListener("click", function(e){ if(e.target.closest(".pact")||e.target.closest(".rowedit")) return; flashItem(iid); });
     host.appendChild(row);
-  });
-  /* F2: riepilogo porte per box (riservate/libere) — i tuoi 65-96 senza righe fantasma */
-  (R.boxes||[]).forEach(function(b){
-    if(!b.res.length && b.used) return;
-    var used2=Object.keys(b.taken).length, free2=Math.max(0,b.cap-used2-b.res.length);
-    if(!b.res.length && !free2) return;
-    var tag=b.sbId?("ID"+b.sbId):b.letter;
-    var d2=document.createElement("div"); d2.className="patch-row patch-sum";
-    d2.innerHTML='<span class="pn"></span><span class="psrc">'+esc(tag)+(b.fohBase!=null?' · FOH '+(b.fohBase+1)+'–'+(b.fohBase+b.cap):'')+'</span><span class="pmic"></span><span class="ppatch">'+used2+' uso · '+b.res.length+' ris · '+free2+' lib</span>';
-    host.appendChild(d2);
   });
   enableRowDrag(host, function(){ return patchList().rows.map(function(r){ return r.key; }); }, function(o){ state.cab.order=o; });
 }
@@ -14805,7 +14800,8 @@ function techScrollTo(id){
   var head=document.getElementById("patchSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#patchTrash")) return; if(patchOpen) patchOpen=false; else techAccordionOpen("patch"); renderAccessoriCount(); });   /* accordion */
   document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); patchActive=false; render(); });   /* cestino: rimuove l'input list */
-  document.getElementById("patchPdf").addEventListener("click", function(){ patchListPdf(); });
+  /* «Esporta input list (PDF)» tolto dalla colonna (Simone 28/07): l'export vive nella channel list,
+     insieme al CSV. patchListPdf resta — la chiama il bottone PDF della finestra. */
   /* ── channel list a schermo intero ── */
   var _clO=document.getElementById("clOpen"); if(_clO) _clO.addEventListener("click", function(){ clShow(true); });
   var _clC=document.getElementById("clClose"); if(_clC) _clC.addEventListener("click", function(){ clShow(false); });
