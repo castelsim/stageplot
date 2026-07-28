@@ -2153,17 +2153,23 @@ t("pannello elemento: gruppi col termine del mestiere, non riquadri", () => {
 });
 /* Dimensione resta uno SLIDER (Simone: «mi piace che vada da piccolo a sinistra a grande a destra»),
    ma sulla stessa riga di etichetta e valore. Rotazione e Distanza sono misure esatte: campo numerico. */
-t("rotazione e distanza: campo numerico; dimensione: slider su una riga", () => {
+t("dimensione e rotazione: slider su una riga; distanza: campo numerico", () => {
+  /* 28/07 — dietrofront esplicito di Simone sulla rotazione: era tornata campo numerico col pannello
+     B3, ora è di nuovo uno slider, come la Dimensione. Si ruota guardando il palco, non digitando. */
   const html = readFileSync(join(root, "index.html"), "utf8");
   const size = (html.match(/<div id="pLblSizeWrap"[^>]*>/) || [""])[0];
   ok(size.indexOf('class="sldrow"') > -1, "Dimensione: etichetta, slider e valore sulla stessa riga");
   ok(html.indexOf('<input type="range" id="pLblSize"') > -1, "e resta uno slider");
-  ["pRot", "pSep"].forEach((id) => {
-    const re = new RegExp('<input[^>]*id="' + id + '"[^>]*>');
-    const tag = (html.match(re) || [""])[0];
-    ok(tag.indexOf('type="number"') > -1, id + " deve essere un campo numerico: " + tag);
-  });
-  eq(appjs.indexOf("pRotVal"), -1, "l'output separato non serve più: il valore è nel campo");
+  const rotRow = (html.match(/<div class="sldrow" id="pRotRow"[^>]*>/) || [""])[0];
+  ok(rotRow, "Rotazione: stessa riga singola della Dimensione");
+  const rot = (html.match(/<input[^>]*id="pRot"[^>]*>/) || [""])[0];
+  ok(rot.indexOf('type="range"') > -1, "pRot è uno slider: " + rot);
+  ok(rot.indexOf('min="-180"') > -1 && rot.indexOf('max="180"') > -1, "giro completo");
+  ok(rot.indexOf('step="1"') > -1, "step 1: tutti i gradi interi restano raggiungibili");
+  ok(html.indexOf('<output id="pRotVal"') > -1, "il valore in gradi resta leggibile accanto allo slider");
+  ok(appjs.indexOf("pRotVal") > -1, "e l'app lo aggiorna");
+  const sep = (html.match(/<input[^>]*id="pSep"[^>]*>/) || [""])[0];
+  ok(sep.indexOf('type="number"') > -1, "la distanza resta un campo numerico: " + sep);
   eq(appjs.indexOf("pSepVal"), -1);
 });
 /* Pannello layer (27/07): la riga chiusa dice quanto contiene, e il cestino esce dalla riga. */
@@ -2354,8 +2360,23 @@ t("il cestino non sta più accanto all'occhio", () => {
   eq(appjs.indexOf('tr.className="layer-ico layer-trash"'), -1,
      "azzerava tutti i percorsi a due pixel dall'occhio");
   ok(appjs.indexOf('rb.className="adv-btn adv-reset"') > -1, "ora è in fondo al corpo del layer");
-  ok(appjs.indexOf("I collegamenti fatti a mano su questo layer vengono persi") > -1,
-     "e chiede conferma prima di azzerare");
+  ok(appjs.indexOf("I collegamenti fatti a mano su questa lista vengono persi") > -1,
+     "e chiede conferma prima di azzerare");   /* «lista», non «layer»: rename UI del 28/07 */
+});
+t("nessun collega-tutto è rimasto nell'interfaccia", () => {
+  /* il cablaggio si fa un cavo alla volta (28/07): questi testi vivevano sui bottoni rimossi */
+  eq(appjs.indexOf('go.textContent="Collega"'), -1, "bottone Collega della barra Input list");
+  eq(appjs.indexOf("⚡ <span>Cablaggio automatico</span>"), -1, "⚡ Cablaggio automatico di lista");
+  eq(appjs.indexOf("function layerAutoConnect"), -1, "il ponte verso i motori");
+  eq(appjs.indexOf('b1.textContent="Collega automaticamente"'), -1, "personal monitor: collega tutti i liberi");
+  eq(appjs.indexOf('b3.textContent="Collega i mixerini liberi'), -1, "hub: collega tutti i mixerini");
+  /* l'alternativa uno-a-uno c'è per tutte e tre le liste */
+  ok(appjs.indexOf("function cabConnectOne") > -1, "ingressi e monitor");
+  ok(appjs.indexOf("function elecConnectOne") > -1, "carichi");
+  ok(appjs.indexOf('title="Collega questo monitor"') > -1, "fulmine sulla Monitor list");
+  ok(appjs.indexOf('title="Collega questo carico"') > -1, "fulmine sulla lista carichi");
+  /* aggiungere un elemento non è cablare: l'hub si può ancora creare, senza collegare nulla */
+  ok(appjs.indexOf('b2.textContent="Aggiungi hub ("+hd.model+")"') > -1, "resta la creazione dell'hub");
 });
 t("Dividi · Duplica · Elimina stanno su una riga sola", () => {
   ok(stylesCss.indexOf("#props .btns{display:flex;flex-wrap:nowrap") > -1,
@@ -2560,7 +2581,8 @@ t("Input List dal modello: mic reale + phantom di targa sul canale derivato", ()
 
 t("equipCatsFor: campo modello solo sugli elementi tecnici pertinenti (mai musicisti/arredo)", () => {
   eq(JSON.stringify(A.equipCatsFor({ type: "astamic" })), JSON.stringify(["microfono"]), "asta mic → solo microfono");
-  eq(JSON.stringify(A.equipCatsFor({ type: "hearback" })), JSON.stringify(["personal_mixer", "hub"]), "personal mixer → PM/hub");
+  eq(A.equipCatsFor({ type: "hearback" }), null, "personal mixer → null (unificato 28/07: il modello è il campo pm, blocco «Personal monitor»)");
+  eq(A.equipCatsFor({ type: "mixhub" }), null, "hub PM → null, stessa ragione");
   eq(JSON.stringify(A.equipCatsFor({ type: "q338" })), JSON.stringify(["console"]), "console → console");
   eq(JSON.stringify(A.equipCatsFor({ type: "arraylarge" })), JSON.stringify(["line_array", "subwoofer", "amps"]), "PA → array/sub/amps");
   eq(A.equipCatsFor({ type: "stagebox" }), null, "stagebox → null (unificato: il modello è il campo hw STAGEBOX_DB)");

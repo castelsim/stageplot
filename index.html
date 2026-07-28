@@ -518,7 +518,11 @@
   #props .btns{display:flex;flex-wrap:nowrap;gap:6px;margin-top:10px}
   #props .btns .btn{padding:6px 4px;font-size:12px;flex:1 1 0;min-width:0;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
-  /* slider rotazione con tacca centrale (0°) */
+  /* slider rotazione (28/07: era un campo numerico) — tacca centrale per ritrovare lo 0° a colpo d'occhio */
+  #props #pRotRow{position:relative}
+  #props #pRotRow::after{content:"";position:absolute;left:50%;bottom:9px;width:1px;height:7px;
+    background:var(--border);pointer-events:none}
+  #props #pRotVal{min-width:34px;text-align:right}
   footer{grid-area:foot;display:flex;align-items:center;gap:18px;padding:0 14px;border-top:1px solid var(--border);
     font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden}
   /* SVG — palco */
@@ -2568,8 +2572,9 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
-    <div class="numrow" id="pRotRow"><label for="pRot">Rotazione</label>
-      <span class="numwrap"><input type="number" id="pRot" min="-180" max="180" step="5" inputmode="numeric"><i>°</i></span></div>
+    <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
+      <input type="range" id="pRot" min="-180" max="180" step="1" value="0">
+      <output id="pRotVal">0°</output></div>
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
