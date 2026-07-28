@@ -12617,12 +12617,12 @@ function cabSuggestBoxes(needs){   /* default = una box per cluster, arrotondata
   return sizes;
 }
 function cabActivateFlow(){
-  state.cab.on=true; techAccordionOpen("patch"); __cabRes=null;   /* D-L1A: la lista che si apre sotto il layer è la channel list (il vecchio pannello "cab" non esiste più) */
-  var needs=cabPlanNeeds();
-  /* Il wizard si apre solo quando le stage box servono davvero (audit 27/07): sotto AUDIT_MIN_CH si va
-     diretti al banco, e chi accendeva il layer per GUARDARE gli ingressi si ritrovava una finestra che
-     gli proponeva una box da 8 canali per 2 ingressi — con «stage box» mai spiegato. */
-  if(needs.totIn>AUDIT_MIN_CH && !state.items.some(cabIsBox)){ save(); render(); openCabBoxWizard(needs); return; }
+  /* Aprire il layer mostra la lista e i cavi che ci sono. NON crea collegamenti, NON apre il wizard
+     delle stage box (Simone 28/07): «un utente può voler sistemare la Input List senza alcuna
+     intenzione di disegnare i cavi sul palco». Il motore si accende perché la lista stessa ne deriva —
+     ma senza box e senza percorsi manuali non produce nessun cavo.
+     Il cablaggio si chiede: barra «N non cablati → Collega» in cima alla lista, o fulmine sulla riga. */
+  state.cab.on=true; techAccordionOpen("patch"); __cabRes=null;
   save(); render();
 }
 var __cabWizSizes=[];
@@ -12841,8 +12841,33 @@ function renderPatchPanel(){
   var ph=pl.rows.filter(function(r){ return r.p48; }).length, di=pl.rows.filter(function(r){ return String(r.mic).indexOf("DI")>-1; }).length;
   sum.innerHTML='<b>'+pl.rows.length+'</b> ingressi · '+ph+' con 48V · '+di+' DI<br>Stage box: <b>'+R.boxes.map(function(b){ return b.letter+(b.hw&&STAGEBOX_DB[b.hw]?" "+STAGEBOX_DB[b.hw].model:"")+(b.auto?" (auto)":""); }).join(", ")+'</b>';
   host.innerHTML="";
+  /* Barra del cablaggio: il comando principale sta QUI, non nel clic sul layer. Dice quanti canali
+     mancano e dove andranno; se sono tutti a posto lo dice invece di sparire (uno stato «fatto» va
+     detto, non dedotto dall'assenza di avvisi). */
+  var freeRows=pl.rows.filter(function(r){ return !r.spare && !r.box; });
+  var bar=document.createElement("div"); bar.className="cab-bar"+(freeRows.length?"":" done");
+  if(freeRows.length){
+    var hasBox=(R.boxes||[]).some(function(b){ return !b.auto; });
+    var txt=document.createElement("span"); txt.className="cab-bar-txt";
+    txt.innerHTML='<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale non cablato":"canali non cablati")
+      + (hasBox ? "" : ' <span class="lbl-note">— manca una stage box</span>');
+    bar.appendChild(txt);
+    var go=document.createElement("button"); go.type="button"; go.className="btn primary cab-bar-go";
+    go.textContent="Collega";
+    go.title="Collega i canali liberi alla destinazione più adatta. I collegamenti fatti a mano restano.";
+    go.addEventListener("click", function(e){ e.stopPropagation();
+      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
+      if(need){ guideDialog(need); return; }                 /* manca qualcosa: finestra-guida, non un toast muto */
+      var n=layerAutoConnect("cabin");
+      showToast(n ? ("Collegati "+n+(n===1?" canale":" canali")) : "Nessun canale da collegare");
+    });
+    bar.appendChild(go);
+  } else {
+    bar.innerHTML='<span class="cab-bar-txt">✓ Tutti i canali sono cablati</span>';
+  }
+  host.appendChild(bar);
   var hd=document.createElement("div"); hd.className="patch-row patch-hd editable";
-  hd.innerHTML='<span>#</span><span>Sorgente</span><span>Mic/DI</span><span>Patch</span><span></span>';
+  hd.innerHTML='<span>#</span><span>Sorgente</span><span class="ppatch">Patch</span><span></span>';   /* 4 celle come il grid a due livelli: «Mic/DI» sta sotto la sorgente, non ha una colonna sua */
   host.appendChild(hd);
   pl.rows.forEach(function(r){
     if(r.spare){ var sp=document.createElement("div"); sp.className="patch-row"; sp.style.color="var(--text-3)"; sp.innerHTML='<span class="pn">'+r.n+'</span><span class="psrc" style="font-style:italic">— libero (coppia stereo) —</span><span></span><span></span><span></span>'; host.appendChild(sp); return; }   /* canale spare per l'allineamento dispari-pari */
@@ -12866,6 +12891,9 @@ function renderPatchPanel(){
     if(pEl){ pEl.classList.add("editable-cell"); pEl.title="Click: porta fisica e nome breve console";
       pEl.addEventListener("click", function(e){ e.stopPropagation(); openPortPop(e, r); }); }
     if(!r.box) row.classList.add("unassigned");
+    /* scelto a mano = il cablaggio automatico non lo ridistribuisce: va distinto a colpo d'occhio */
+    var _mm=(state.cab&&state.cab.manual)||{}; var _mk=_mm[key];
+    if(r.box && _mk && _mk.box && !_mk.auto) row.classList.add("cab-man");
     if(r.micOff) row.classList.add("micoff");
     host.appendChild(row);
   });
