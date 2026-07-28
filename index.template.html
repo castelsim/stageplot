@@ -6101,37 +6101,11 @@ function elecConnectAll(){
 /* SEGMENTA (Simone 28/07) — il cavo nasce diritto; premendolo si può squadrarlo, e solo quello.
    La pillola compare dove hai premuto: è un\'azione sul cavo, non una preferenza da cercare altrove.
    fam: "cab" (ingressi e monitor) · "elec" (corrente) · "mond" (personal monitor). */
-function cabPopClose(){ var o=document.getElementById("cabPop"); if(o) o.remove(); }
 function cabSegToggle(fam, key){
   var man = fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
   if(man.seg) delete man.seg; else man.seg=1;
   if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
   save(); render();
-  showToast(man.seg ? "Cavo segmentato" : "Cavo diritto");
-}
-function openCabPop(ev, fam, key){
-  cabPopClose();
-  var store = fam==="elec" ? (state.elec&&state.elec.manual) : (fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual));
-  var on = cabSegOn(store, key);
-  var pop=document.createElement("div"); pop.id="cabPop"; pop.className="cab-ctx cab-pop";
-  var b=document.createElement("button"); b.type="button"; b.className="cab-ctx-i";
-  b.textContent = on ? "Torna diritto" : "Segmenta";
-  b.title = on ? "Rimetti il cavo in linea retta" : "Squadra il percorso ad angoli retti, come un cavo posato";
-  b.addEventListener("click", function(e){ e.stopPropagation(); cabSegToggle(fam, key); cabPopClose(); });
-  pop.appendChild(b);
-  document.body.appendChild(pop);
-  var x=(ev&&ev.clientX!=null)?ev.clientX:120, y=(ev&&ev.clientY!=null)?ev.clientY:120;
-  pop.style.left=Math.max(6, Math.min(x-pop.offsetWidth/2, window.innerWidth-pop.offsetWidth-6))+"px";
-  pop.style.top=Math.max(6, y-pop.offsetHeight-12)+"px";
-  setTimeout(function(){ document.addEventListener("pointerdown", _cabPopDismiss, true);
-    window.addEventListener("wheel", cabPopClose, {passive:true, once:true});   /* se muovi la vista, la pillola non resta appesa nel vuoto */
-  }, 0);
-}
-function _cabPopDismiss(e){
-  var pop=document.getElementById("cabPop");
-  if(pop && e.target.closest && e.target.closest("#cabPop")) return;   /* click DENTRO: lascia agire il bottone */
-  document.removeEventListener("pointerdown", _cabPopDismiss, true);
-  cabPopClose();
 }
 /* Collega UN SOLO carico (fulmine sulla riga della lista carichi, Simone 28/07): come elecConnectAll
    ma materializza solo il carico chiesto. Ritorna l'id del distro scelto, o null se non ce n'è uno. */
@@ -6924,13 +6898,16 @@ function cablingMarkup(){
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
-    var _dirIn=true;   /* il cavo è diretto per default: le maniglie seguono la polilinea grezza */
+    /* diretto o segmentato è ormai una proprietà del SINGOLO cavo: il capo al centro della box e le
+       maniglie dei lati vanno decisi cavo per cavo. Con un flag unico per tutta la lista, i cavi
+       segmentati restavano senza lati da trascinare — cioè non si potevano modellare. */
+    function _dirOf(key){ return cabStyleFor(key)==="dir"; }
     R.links.forEach(function(l){
       if(drawnKey[l.key]) return; drawnKey[l.key]=1;   /* CAVO UNICO: gli N canali di un bundle condividono la key → un solo cavo disegnato */
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       /* "Cablaggio diretto" (Simone 21/07): la linea deve partire ESATTAMENTE dal pallino al centro
          della box (niente ventaglio) e diramarsi verso le sorgenti → sovrascrivo il capo box al centro. */
-      var _rp = (_dirIn && l.box) ? l.pts.slice(0,-1).concat([boxAnchor(l.box)]) : l.pts;
+      var _rp = (_dirOf(l.key) && l.box) ? l.pts.slice(0,-1).concat([boxAnchor(l.box)]) : l.pts;
       var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts, cabStyleFor(l.key));
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';
@@ -6971,8 +6948,9 @@ function cablingMarkup(){
         /* Bug 21/07: in stile DIRETTO l'overlay deve seguire la linea dritta, NON l'espansione
            ortogonale (altrimenti si vede un doppio cavo ad angolo retto). Niente lati trascinabili
            (l'editing perpendicolare è ortogonale) — restano solo i due estremi per riconnettere. */
-        var poly = _dirIn ? ((_dirIn && sl.box) ? sl.pts.slice(0,-1).concat([[sl.box.x, sl.box.y]]) : sl.pts).map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(sl.pts, OBS, exsl));
-        if(!_dirIn) for(var pi=0;pi<poly.length-1;pi++){ var A=poly[pi], B=poly[pi+1];
+        var _dirSel=_dirOf(sl.key);
+        var poly = _dirSel ? ((sl.box ? sl.pts.slice(0,-1).concat([[sl.box.x, sl.box.y]]) : sl.pts)).map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(sl.pts, OBS, exsl));
+        if(!_dirSel) for(var pi=0;pi<poly.length-1;pi++){ var A=poly[pi], B=poly[pi+1];
           if(A[0]===B[0] && A[1]===B[1]) continue;
           var ori=(A[1]===B[1])?"h":"v";
           s+='<line class="cab-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
@@ -7010,7 +6988,7 @@ function cablingMarkup(){
     /* editing del ritorno selezionato: lati piegabili + estremo lato box (riconnetti ad altra box). Il capo monitor è fisso. */
     if(editRet && selCab){ var rl=R.returnLinks.filter(function(l){ return l.key===selCab; })[0];
       if(rl){ var exr={}; if(rl.box&&rl.box.id) exr[rl.box.id]=1; if(rl.sink&&rl.sink.id) exr[rl.sink.id]=1;
-        var _dirOut=true;   /* come sopra: diretto = polilinea dritta, niente lati ortogonali */
+        var _dirOut=(cabStyleFor(rl.key)==="dir");   /* come sopra: diretto = polilinea dritta, segmentato = lati trascinabili */
         var polyR = _dirOut ? rl.pts.map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(rl.pts, OBS, exr));
         if(!_dirOut) for(var pj=0;pj<polyR.length-1;pj++){ var Ar=polyR[pj], Br=polyR[pj+1];
           if(Ar[0]===Br[0] && Ar[1]===Br[1]) continue;
@@ -8218,7 +8196,15 @@ function renderCablePanel(info){
     if(!disabled) b.addEventListener("click", function(){ fn(); save(); render(); });
     acts.appendChild(b);
   }
-  mkBtn("Ripristina percorso", true, info.resetPts, !info.hasPts,
+  /* SEGMENTA (28/07): la forma del cavo si comanda da qui, non da una pillola sul canvas — quella
+     copriva il cavo proprio dove si trascinano i lati per modellarlo (segnalazione di Simone). */
+  var _seg=cabSelFam();
+  if(_seg){
+    var _on=cabSegOn(_seg.store, _seg.key);
+    mkBtn(_on?"Torna diritto":"Segmenta", !_on, function(){ cabSegToggle(_seg.fam, _seg.key); }, false,
+      _on ? "Rimetti il cavo in linea retta" : "Squadra il percorso ad angoli retti: poi puoi trascinare i lati per modellarlo");
+  }
+  mkBtn("Ripristina percorso", false, info.resetPts, !info.hasPts,
     info.hasPts ? "Cancella i segmenti disegnati a mano: torna il percorso automatico" : "Nessun segmento fatto a mano su questo cavo");
   if(info.unlink) mkBtn(info.unlinkLabel||"Scollega", false, info.unlink);
   [info.from, info.to].forEach(function(itx){
@@ -10774,8 +10760,9 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"elecreconnect", key:selElec, end:eend.getAttribute("data-eend")||"distro", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }
     var ehit=e.target.closest(".elec-hit");
-    if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; selCabSet={}; selMond=null; render();
-      openCabPop(e, "elec", selElec); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+    if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; selCabSet={}; selMond=null;
+      if(typeof clearSelection==="function") clearSelection(); render();
+      svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   if(state.mond && state.mond.on && !state.mond.locked && e.target.closest){
     /* ── monitoraggio digitale: parità Max (lati, estremi, selezione) ── */
@@ -10790,8 +10777,9 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"mondreconnect", key:selMond, end:mend.getAttribute("data-mend")||"to", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }
     var mhit=e.target.closest(".mond-hit");
-    if(mhit){ selMond=mhit.getAttribute("data-mond"); selCab=null; selElec=null; render();
-      openCabPop(e, "mond", selMond); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+    if(mhit){ selMond=mhit.getAttribute("data-mond"); selCab=null; selElec=null;
+      if(typeof clearSelection==="function") clearSelection(); render();
+      svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   if(state.cab && state.cab.on && !cabBothLocked() && e.target.closest){
     var chome=e.target.closest(".cab-homehit");
@@ -10813,8 +10801,8 @@ svg.addEventListener("pointerdown", function(e){
       selElec=null; selMond=null;   /* un cavo selezionato alla volta tra le famiglie (Simone 17/07) */
       if(e.shiftKey){ if(selCabSet[ck]) delete selCabSet[ck]; else selCabSet[ck]=true; selCab=selCabSet[ck]?ck:(Object.keys(selCabSet)[0]||null); }   /* Shift = aggiungi/togli dalla selezione multipla */
       else { selCab=ck; selCabSet={}; selCabSet[ck]=true; }
+      if(typeof clearSelection==="function") clearSelection();   /* il cavo prende il posto dell'elemento nella colonna di destra */
       render(); renderCabPanel();
-      if(!e.shiftKey) openCabPop(e, "cab", ck);   /* premi il cavo → puoi segmentarlo */
       svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   /* ── PORTE stile Max: trascina dal pallino dell'elemento selezionato verso una box/distro ── */
@@ -14177,6 +14165,13 @@ function renderPmAccList(){
   el.innerHTML=s;
 }
 var cabOpen=false;   /* legacy: pannello tolto */
+/* famiglia del cavo selezionato: serve al comando «Segmenta», che vale per tutte e tre */
+function cabSelFam(){
+  if(selCab) return {fam:"cab", key:selCab, store:(state.cab&&state.cab.manual)};
+  if(selElec) return {fam:"elec", key:selElec, store:(state.elec&&state.elec.manual)};
+  if(selMond) return {fam:"mond", key:selMond, store:(state.mond&&state.mond.manual)};
+  return null;
+}
 function renderCabPanel(){
   var sec=document.getElementById("cabSec"); if(!sec) return;
   sec.style.display="none";   /* Simone 09/07 (#24): niente box "Cavo selezionato" — Backspace elimina, trascini lati/estremi per piegare/riconnettere */
