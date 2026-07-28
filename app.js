@@ -9922,9 +9922,12 @@ svg.addEventListener("pointerup", function(e){
   else if(drag && drag.mode==="pan"){
     if(Math.abs(e.clientX-drag.px)<4 && Math.abs(e.clientY-drag.py)<4){   /* click sullo sfondo = deseleziona */
       clearSelection();
-      /* dentro una lista, il vuoto FUORI dal palco vale come Esc: si esce e si torna alla vista di partenza
-         (dentro il palco no: lì si lavora, il click serve solo a deselezionare) */
-      if(inListMode() && isOutsideStage(svgPoint(e))) exitListMode();
+      /* Dentro una lista, il click sul VUOTO vale come Esc: si esce e si torna alla vista di partenza.
+         Vale sia fuori dal palco sia dentro (Simone, 28/07 sera): la prima versione distingueva i due
+         casi — dentro il palco «lì si lavora» — ma il vuoto è vuoto, e dover ricordare da che parte
+         del bordo si è cliccato per sapere se la lista si chiude è una regola che nessuno tiene a mente.
+         Il pan non chiude nulla: qui siamo già nel ramo del click fermo (< 4 px). */
+      if(inListMode()) exitListMode();
       render(); }
     else ensureVisible();   /* pan in panoramica: non lasciare elementi fuori */
   }

@@ -5035,5 +5035,45 @@ t("helper export toast esposti (pdfSave/toastDownloaded)", () => {
   ok(typeof A.pdfSave === "function" && typeof A.toastDownloaded === "function");
 });
 
+console.log("\n— Uscita dalle liste —");
+
+t("aprire una lista mette in «modo lista», uscire la chiude", () => {
+  reset();
+  A.layerAccOpen = "cabin";
+  ok(A.inListMode(), "con una lista aperta si è in modo lista");
+  eq(A.exitListMode(), true, "l'uscita deve dire che c'era davvero una lista aperta");
+  eq(A.layerAccOpen, null, "la lista è rimasta aperta");
+  ok(!A.inListMode());
+});
+
+t("anche il solo su un layer conta come modo lista", () => {
+  reset();
+  A.layerAccOpen = null; A.layerSoloUI = { cabin: true };
+  ok(A.inListMode(), "un layer in solo è modo lista");
+  A.exitListMode();
+  eq(Object.keys(A.layerSoloUI).length, 0, "il solo non è stato tolto");
+});
+
+t("uscire dalle liste lascia andare anche i cavi selezionati", () => {
+  reset();
+  A.layerAccOpen = "cabin"; A.selCab = "x"; A.selCabSet = { x: 1 };
+  A.exitListMode();
+  eq(A.selCab, null); eq(Object.keys(A.selCabSet).length, 0);
+});
+
+t("fuori da una lista l'uscita non ha niente da chiudere", () => {
+  reset();
+  A.layerAccOpen = null; A.layerSoloUI = {};
+  eq(A.exitListMode(), false, "senza liste aperte deve dire che non c'era nulla da chiudere");
+});
+
+t("il click sul vuoto chiude la lista ovunque, dentro o fuori dal palco", () => {
+  /* la condizione sul lato del bordo non c'è più: il vuoto è vuoto (Simone 28/07 sera) */
+  const html = readFileSync(join(root, "app.js"), "utf8");
+  const riga = (html.match(/if\(inListMode\(\)[^)]*\)\s*exitListMode\(\);/) || [""])[0];
+  ok(riga, "manca la chiamata a exitListMode dal click sul vuoto");
+  eq(riga.indexOf("isOutsideStage"), -1, "il click sul vuoto distingue ancora dentro/fuori dal palco: " + riga);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
