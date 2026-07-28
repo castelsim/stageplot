@@ -5497,15 +5497,21 @@ function cabConnectOne(key){
   if(!key) return null;
   if(!state.cab.on) state.cab.on=true;
   var man=state.cab.manual=state.cab.manual||{};
-  var cm=man[key]||(man[key]={});
-  if(cm.box) return cm.box;                       /* già cablato: non si tocca */
-  delete cm.deleted;                              /* il fulmine è una richiesta esplicita: annulla un «cavo tolto» */
   var prev=state.cab.mode; state.cab.mode="auto";
   var R; try{ R=audioCablingEngine(); } finally{ state.cab.mode=prev; }
-  var hit=null;
-  (R.links||[]).forEach(function(l){ if(!hit && l.key===key && l.box && !l.box.auto) hit=l.box.id; });
-  if(!hit) (R.mixes||[]).forEach(function(m){ if(!hit && ("mix:"+m.key)===key && m.box && !m.box.auto) hit=m.box.id; });
-  if(!hit){ if(!Object.keys(cm).length) delete man[key]; return null; }
+  /* La chiave della RIGA non è la chiave del PERCORSO (bug 28/07, batteria): uno strumento
+     multicanale viaggia su UN multipolare con chiave di gruppo «grp:<id>», mentre la riga della
+     lista ha la chiave del canale «<id>#<n>». Cercando la chiave della riga fra i link non si
+     trovava nulla e il fulmine rispondeva «nessuna destinazione adatta» pur avendo la stage box lì.
+     Il link porta entrambe: l.s.key è il canale, l.key è il percorso. Collegando il percorso, gli
+     otto canali della batteria vanno insieme — che è anche quello che ci si aspetta. */
+  var hit=null, rk=null;
+  (R.links||[]).forEach(function(l){ if(!hit && l.s && l.s.key===key && l.box && !l.box.auto){ hit=l.box.id; rk=l.key; } });
+  if(!hit) (R.mixes||[]).forEach(function(m){ if(!hit && ("mix:"+m.key)===key && m.box && !m.box.auto){ hit=m.box.id; rk="mix:"+m.key; } });
+  if(!hit) return null;
+  var cm=man[rk]||(man[rk]={});
+  if(cm.box) return cm.box;                       /* già cablato: non si tocca */
+  delete cm.deleted;                              /* il fulmine è una richiesta esplicita: annulla un «cavo tolto» */
   cm.box=hit; cm.auto=1;
   __cabRes=null; save(); render();
   return hit;
@@ -12903,7 +12909,9 @@ function clRender(){
      + '</select></td>'
      + '<td class="cl-48"><label class="cl-sw"><input type="checkbox" data-p48="'+esc(r.key)+'"'+(r.p48?" checked":"")+' aria-label="Phantom 48V"><span></span></label></td>'
      + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
-     + '<td class="cl-act">'+(r.box?'':'<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
+     + '<td class="cl-act">'+(r.box
+         ? '<button type="button" class="cl-unlink" data-unlink="'+esc(r.key)+'" title="Scollega questo canale: libera la porta sulla stage box" aria-label="Scollega questo canale">\u00d7</button>'
+         : '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
      + '</tr>';
   });
   h+='</tbody>';
@@ -12925,6 +12933,25 @@ var _ROW_TRASH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stro
 function selectMany(ids){ ids=(ids||[]).filter(Boolean); sel=ids[0]||null; selSet={}; ids.forEach(function(id){ selSet[id]=true; }); }
 function listDeleteItems(ids){ var set={}; (ids||[]).forEach(function(id){ set[id]=true; }); state.items=state.items.filter(function(i){ return !set[i.id]; }); clearSelection(); __cabRes=null; __elecRes=null; save(); render(); }
 /* Input list: togliere il microfono NON elimina la sorgente — resta come canale senza mic (per-canale, key it.id#idx). Reversibile. */
+/* SCOLLEGA dalla lista (Simone 28/07): il cestino della riga toglie il CABLAGGIO, non il microfono.
+   Prima liberava il microfono e lasciava la porta della stage box occupata: si vedeva sparire un dato
+   che nella riga non c'è nemmeno più, e la box restava piena. Ora ⚡ collega e 🗑 scollega — e per
+   togliere il microfono c'è «— no mic» nella channel list.
+   Come per il fulmine, la chiave della riga non è quella del percorso: uno strumento multicanale si
+   scollega tutto insieme, com'è collegato. */
+function cabRouteKeyOf(key){
+  var R=cabResult(true), rk=null;
+  (R.links||[]).forEach(function(l){ if(!rk && l.s && l.s.key===key) rk=l.key; });
+  return rk||key;
+}
+function cabUnlinkOne(key){
+  var rk=cabRouteKeyOf(key);
+  var prima=patchList().rows.filter(function(r){ return r.box && !r.reserved && !r.spare; }).length;
+  cabDeleteKey(rk);
+  __cabRes=null; save(); render();
+  var dopo=patchList().rows.filter(function(r){ return r.box && !r.reserved && !r.spare; }).length;
+  return Math.max(1, prima-dopo);
+}
 function cabMicToggle(key){ var m=cabManual(key); m.micOff=!m.micOff; if(m.micOff) delete m.mic; __cabRes=null; save(); render(); }
 /* Input list: cambia il microfono/tipo di un canale (testo libero: "SM58", "DI", "Line"…). Vuoto = togli il mic. */
 function cabSetMic(key, v){ var m=cabManual(key); v=String(v||"").trim(); if(v){ m.mic=v.slice(0,24); m.micOff=false; } else { delete m.mic; m.micOff=true; } __cabRes=null; save(); render(); }
@@ -13161,9 +13188,12 @@ function renderPatchPanel(){
     if(r.box){
       var tr=document.createElement("button"); tr.type="button"; tr.className="lite-btn lite-trash";
       tr.innerHTML=_ROW_TRASH;
-      tr.title=r.micOff?"Rimetti il microfono suggerito":"Togli il microfono (la sorgente resta)";
-      tr.setAttribute("aria-label", tr.title);
-      tr.addEventListener("click", function(e){ e.stopPropagation(); cabMicToggle(key); });
+      tr.title="Scollega questo canale: libera la porta sulla stage box";
+      tr.setAttribute("aria-label","Scollega questo canale");
+      tr.addEventListener("click", function(e){ e.stopPropagation();
+        var n=cabUnlinkOne(key);
+        showToast(n>1 ? (n+" canali scollegati") : "Canale scollegato");
+      });
       act.appendChild(tr);
     } else {
       var zp=document.createElement("button"); zp.type="button"; zp.className="lite-btn cab-one";
@@ -13171,10 +13201,13 @@ function renderPatchPanel(){
       zp.addEventListener("click", function(e){ e.stopPropagation();
         var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
         if(need){ guideDialog(need); return; }
+        var liberi=function(){ return patchList().rows.filter(function(x){ return !x.box && !x.reserved && !x.spare; }).length; };
+        var prima=liberi();
         var boxId=cabConnectOne(key);
         if(!boxId){ showToast("Nessuna destinazione adatta per questo canale",true); return; }
         var b=(cabResult().boxes||[]).filter(function(x){ return x.id===boxId; })[0];
-        showToast("Collegato a "+(b?("Stage box "+b.letter):"una stage box"));
+        var n=Math.max(1, prima-liberi());   /* uno strumento multicanale va tutto insieme: dillo */
+        showToast((n>1 ? (n+" canali collegati a ") : "Collegato a ")+(b?("Stage box "+b.letter):"una stage box"));
       });
       act.appendChild(zp);
     }
@@ -13230,8 +13263,14 @@ function techScrollTo(id){
       if(zap){ var k=zap.getAttribute("data-zap");
         var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
         if(need){ clShow(false); guideDialog(need); return; }
+        var liberi=function(){ return patchList().rows.filter(function(x){ return !x.box && !x.reserved && !x.spare; }).length; };
+        var prima=liberi();
         var hit=cabConnectOne(k); clRender();
-        showToast(hit ? "Canale collegato" : "Nessuna porta libera: aggiungi una stage box", hit?"":"err"); return; }
+        var n=hit ? Math.max(1, prima-liberi()) : 0;
+        showToast(hit ? (n>1 ? (n+" canali collegati") : "Canale collegato") : "Nessuna porta libera: aggiungi una stage box", hit?"":"err"); return; }
+      var un=e.target.closest(".cl-unlink");
+      if(un){ var n2=cabUnlinkOne(un.getAttribute("data-unlink")); clRender();
+        showToast(n2>1 ? (n2+" canali scollegati") : "Canale scollegato"); return; }
       var fr=e.target.closest(".cl-free");
       if(fr){ cabFreePort(fr.getAttribute("data-free"), +fr.getAttribute("data-port")); clRender(); return; }
     });
