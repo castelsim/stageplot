@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.07.27";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.07.28";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -2425,7 +2425,7 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
       <div class="prop-card__head" id="pOutHead" hidden>Uscita</div>
       <div id="pMikeWrap" style="display:none">
         <label>Microfonazione</label>
-        <select id="pMike"></select>
+        <select id="pMike" aria-label="Microfonazione"></select>
       </div>
       <!-- CATENA (chitarre, basso, acustica): si vede, si clicca. I nodi sono gli anelli che ci sono,
          i pallini i punti da cui prendi il suono. La DI compare da sé quando il tratto resta jack. -->
@@ -2513,7 +2513,7 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     </div>
     <div id="pAscoltoWrap" style="display:none">
       <label>Ascolto <small class="lbl-note">— cosa usa per sentirsi</small></label>
-      <select id="pAscolto">
+      <select id="pAscolto" aria-label="Ascolto — cosa usa per sentirsi">
         <option value="none">Nessuno</option>
         <option value="wedge">Spia (wedge)</option>
         <option value="iem">In-ear (bodypack)</option>
