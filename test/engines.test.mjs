@@ -3549,29 +3549,29 @@ t("Layer v2: il cablaggio si CHIEDE (non nasce dall'inserimento) + stile cavi + 
   eq(A.cabResult(true).pending.length, 1, "la sorgente nuova resta da collegare");
   cabla();
   eq(A.cabResult(true).pending.length, 0, "«Collega» prende anche lei");
-  // 2) stile cavi (2 stili, 21/07): smussati = Q, diretto = linea dritta sui punti grezzi
+  // 2) stile cavi (28/07): diretto di default, segmentato = angoli retti. Niente più smussati.
   const pts = [[0, 0], [100, 0], [100, 80]];
-  A.state.cab.style = "curve";
-  ok(A.cabPathD(pts).indexOf("Q") >= 0, "smussati: angoli arrotondati (Q)");
-  A.state.cab.style = "dir";
   eq(A.cabDrawD([[0, 0], [100, 80]], pts), "M 0.0 0.0 L 100.0 80.0", "diretto: linea dritta sui punti grezzi");
+  const seg = A.cabDrawD([[0, 0], [100, 80]], pts, "orto");
+  eq(seg.indexOf("Q"), -1, "segmentato: angoli retti, nessuna curva");
+  ok(seg.indexOf("L") > 0, "e resta una spezzata");
   // 3) canale alla partenza nel SOLO Ingressi + pallini sorgente sempre presenti
-  A.state.cab.style = "curve";
   A.layerSoloUI = { cabin: true };
   let mk = A.cablingMarkup();
   ok(mk.indexOf("cab-startlbl") >= 0, "solo Ingressi: etichetta canale alla partenza");
   ok(mk.indexOf("cab-srcdot") >= 0, "pallino sorgente sempre visibile");
   A.layerSoloUI = {};
-  // 4) normalizeState sanifica lo stile (orto/loom vecchi → smussati; solo curve|dir validi)
+  // 4) normalizeState sanifica lo stile: dal 28/07 tutto ciò che non è "orto" diventa diretto
   A.state.cab.style = "spazzatura";
   let ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.style, "curve", "stile non valido → smussati");
-  A.state.cab.style = "orto";
-  ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.style, "curve", "orto (vecchio) → smussati");
+  eq(A.state.cab.style, "dir", "stile non valido → diretto");
   A.state.cab.style = "loom";
   ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.style, "curve", "loom (vecchio) → smussati");
+  eq(A.state.cab.style, "dir", "loom (vecchio) → diretto");
+  /* il campo di lista resta sanificato ma non è più letto da nessuno: cabStyle() dice sempre "dir".
+     "orto" è tornato un valore valido perché è lo stile del SINGOLO cavo segmentato. */
+  eq(A.normCabStyle("orto"), "orto", "orto = segmentato, valore valido");
+  eq(A.normCabStyle("curve"), "dir", "smussati non esistono più");
   A.state.cab.style = "dir";
   ns = A.normalizeState(A.state); if (ns) A.state = ns;
   eq(A.state.cab.style, "dir", "diretto preservato");
@@ -3654,16 +3654,25 @@ t("P.M. NON è nel layer Output (personal mixer digitali) + stili cavo per-layer
   eq(A.layerFgItem("mond", hb), true, "personal mixer nel layer P.M.");
   eq(A.layerFgItem("mond", hub), true, "hub nel layer P.M.");
   // stili indipendenti per layer (2 stili: curve|dir)
+  /* 28/07: lo stile non è più della lista ma del CAVO — le liste disegnano tutte diretto, e la
+     forma si decide cavo per cavo col comando «Segmenta». */
   A.state.cab.style = "curve"; A.state.cab.styleOut = "curve"; A.state.mond.style = "dir"; A.state.elec.style = "curve";
-  eq(A.cabStyle(), "curve", "Ingressi: smussati");
-  eq(A.cabStyleOut(), "curve", "Output: curve");
-  eq(A.mondStyle(), "dir", "P.M.: dir");
-  eq(A.elecStyle(), "curve", "Corrente: curve");
+  eq(A.cabStyle(), "dir", "Ingressi: diretto, qualunque cosa dica il vecchio state");
+  eq(A.cabStyleOut(), "dir", "Output: diretto");
+  eq(A.mondStyle(), "dir", "P.M.: diretto");
+  eq(A.elecStyle(), "dir", "Corrente: diretto");
+  A.state.cab.manual = { "k1": { seg: 1 }, "k2": {} };
+  eq(A.cabStyleFor("k1"), "orto", "il cavo segmentato va ad angoli retti");
+  eq(A.cabStyleFor("k2"), "dir", "gli altri restano diretti");
+  eq(A.cabStyleFor("mai-visto"), "dir", "e un cavo senza override pure");
+  A.state.elec.manual = { "e1": { seg: 1 } }; A.state.mond.manual = { "m1": { seg: 1 } };
+  eq(A.elecStyleFor("e1"), "orto", "vale anche per la corrente");
+  eq(A.mondStyleFor("m1"), "orto", "e per i personal monitor");
   // normalize preserva/sanifica (orto/loom vecchi → smussati)
   A.state.cab.styleOut = "loom"; A.state.mond.style = "spazzatura"; A.state.elec.style = "dir";
   const ns = A.normalizeState(A.state); if (ns) A.state = ns;
-  eq(A.state.cab.styleOut, "curve", "styleOut loom → smussati");
-  eq(A.state.mond.style, "curve", "mond style non valido → smussati");
+  eq(A.state.cab.styleOut, "dir", "styleOut loom → diretto (i progetti vecchi si appiattiscono)");
+  eq(A.state.mond.style, "dir", "mond style non valido → diretto");
   eq(A.state.elec.style, "dir", "elec style valido preservato");
 });
 

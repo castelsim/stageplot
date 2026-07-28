@@ -4473,6 +4473,41 @@ function elecConnectAll(){
   __elecRes=null; save(); render();
   return done;
 }
+/* SEGMENTA (Simone 28/07) — il cavo nasce diritto; premendolo si può squadrarlo, e solo quello.
+   La pillola compare dove hai premuto: è un\'azione sul cavo, non una preferenza da cercare altrove.
+   fam: "cab" (ingressi e monitor) · "elec" (corrente) · "mond" (personal monitor). */
+function cabPopClose(){ var o=document.getElementById("cabPop"); if(o) o.remove(); }
+function cabSegToggle(fam, key){
+  var man = fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
+  if(man.seg) delete man.seg; else man.seg=1;
+  if(fam==="elec") __elecRes=null; else if(fam==="mond") __mondRes=null; else __cabRes=null;
+  save(); render();
+  showToast(man.seg ? "Cavo segmentato" : "Cavo diritto");
+}
+function openCabPop(ev, fam, key){
+  cabPopClose();
+  var store = fam==="elec" ? (state.elec&&state.elec.manual) : (fam==="mond" ? (state.mond&&state.mond.manual) : (state.cab&&state.cab.manual));
+  var on = cabSegOn(store, key);
+  var pop=document.createElement("div"); pop.id="cabPop"; pop.className="cab-ctx cab-pop";
+  var b=document.createElement("button"); b.type="button"; b.className="cab-ctx-i";
+  b.textContent = on ? "Torna diritto" : "Segmenta";
+  b.title = on ? "Rimetti il cavo in linea retta" : "Squadra il percorso ad angoli retti, come un cavo posato";
+  b.addEventListener("click", function(e){ e.stopPropagation(); cabSegToggle(fam, key); cabPopClose(); });
+  pop.appendChild(b);
+  document.body.appendChild(pop);
+  var x=(ev&&ev.clientX!=null)?ev.clientX:120, y=(ev&&ev.clientY!=null)?ev.clientY:120;
+  pop.style.left=Math.max(6, Math.min(x-pop.offsetWidth/2, window.innerWidth-pop.offsetWidth-6))+"px";
+  pop.style.top=Math.max(6, y-pop.offsetHeight-12)+"px";
+  setTimeout(function(){ document.addEventListener("pointerdown", _cabPopDismiss, true);
+    window.addEventListener("wheel", cabPopClose, {passive:true, once:true});   /* se muovi la vista, la pillola non resta appesa nel vuoto */
+  }, 0);
+}
+function _cabPopDismiss(e){
+  var pop=document.getElementById("cabPop");
+  if(pop && e.target.closest && e.target.closest("#cabPop")) return;   /* click DENTRO: lascia agire il bottone */
+  document.removeEventListener("pointerdown", _cabPopDismiss, true);
+  cabPopClose();
+}
 /* Collega UN SOLO carico (fulmine sulla riga della lista carichi, Simone 28/07): come elecConnectAll
    ma materializza solo il carico chiesto. Ritorna l'id del distro scelto, o null se non ce n'è uno. */
 function elecConnectOne(loadId){
@@ -4667,13 +4702,21 @@ function orthLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.abs(pts[i
 function orthPathD(pts){ var ep=orthExpand(pts); if(ep.length<2) return ''; return 'M '+ep.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L '); }
 /* Layer v2 (21/07): stile grafico dei cavi, per progetto. orto = spigoli (storico) · curve = angoli
    molto arrotondati (stesso percorso/routing/editing, resa morbida) · loom = orto + canale alla partenza. */
-function normCabStyle(v){ return (v==="curve"||v==="dir") ? v : "curve"; }   /* 21/07 Simone: solo 2 stili — Angoli smussati (curve, default) · Diretto (dir). Il vecchio "orto"/"loom" migra a smussati. */
-/* stile grafico dei cavi, INDIPENDENTE per ogni layer di cablaggio (Simone 21/07):
-   Ingressi (cab.style) · Output (cab.styleOut) · P.M. (mond.style) · Corrente (elec.style). */
-function cabStyle(){ return normCabStyle(state.cab && state.cab.style); }
-function cabStyleOut(){ return normCabStyle(state.cab && state.cab.styleOut); }
-function mondStyle(){ return normCabStyle(state.mond && state.mond.style); }
-function elecStyle(){ return normCabStyle(state.elec && state.elec.style); }
+/* STILE DEI CAVI (Simone 28/07): non è più una proprietà della LISTA — con due bottoni globali si
+   sceglieva per tutti i cavi insieme, mentre la forma di un cavo è una questione del singolo cavo.
+   Ora il cablaggio è SEMPRE DIRETTO, e chi vuole squadrare un percorso lo fa cavo per cavo, col
+   comando «Segmenta» che compare quando lo si preme (override .seg sulla chiave del cavo).
+   Gli angoli smussati non ci sono più: segmentato = angoli retti, come un cavo posato davvero. */
+function normCabStyle(v){ return (v==="orto"||v==="dir") ? v : "dir"; }   /* i vecchi "curve"/"loom" diventano diretti */
+function cabStyle(){ return "dir"; }
+function cabStyleOut(){ return "dir"; }
+function mondStyle(){ return "dir"; }
+function elecStyle(){ return "dir"; }
+/* stile del SINGOLO cavo: segmentato (ortogonale) se l'utente l'ha chiesto, altrimenti diretto */
+function cabSegOn(man, key){ var m=man&&man[key]; return !!(m && m.seg); }
+function cabStyleFor(key){ return cabSegOn(state.cab&&state.cab.manual, key) ? "orto" : "dir"; }
+function elecStyleFor(key){ return cabSegOn(state.elec&&state.elec.manual, key) ? "orto" : "dir"; }
+function mondStyleFor(key){ return cabSegOn(state.mond&&state.mond.manual, key) ? "orto" : "dir"; }
 function roundedPathD(ep, r){
   if(ep.length<2) return '';
   var d='M '+ep[0][0].toFixed(1)+' '+ep[0][1].toFixed(1);
@@ -5132,7 +5175,9 @@ function showCabMenu(cx, cy, key){
   if(multi){ add("Elimina "+Object.keys(selCabSet).length+" cavi", true, function(){ Object.keys(selCabSet).forEach(cabDeleteKey); selCabSet={}; selCab=null; }); }
   else { var del=state.cab.manual[key] && state.cab.manual[key].deleted;
     add(del?"Ripristina cavo":"Elimina cavo", !del, function(){ if(del){ cabManual(key).deleted=false; } else { cabDeleteKey(key); } selCab=null; selCabSet={}; });
-    add("Reset percorso", false, function(){ cabResetPathKey(key); }); }
+    add("Reset percorso", false, function(){ cabResetPathKey(key); });
+    var segOn=cabSegOn(state.cab.manual, key);
+    add(segOn?"Torna diritto":"Segmenta", false, function(){ var m=cabManual(key); if(segOn) delete m.seg; else m.seg=1; }); }
   document.body.appendChild(m);
   var r=m.getBoundingClientRect();
   m.style.left=Math.min(cx, window.innerWidth-r.width-6)+"px";
@@ -5254,14 +5299,14 @@ function cablingMarkup(){
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
-    var _dirIn=(cabStyle()==="dir");
+    var _dirIn=true;   /* il cavo è diretto per default: le maniglie seguono la polilinea grezza */
     R.links.forEach(function(l){
       if(drawnKey[l.key]) return; drawnKey[l.key]=1;   /* CAVO UNICO: gli N canali di un bundle condividono la key → un solo cavo disegnato */
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
       /* "Cablaggio diretto" (Simone 21/07): la linea deve partire ESATTAMENTE dal pallino al centro
          della box (niente ventaglio) e diramarsi verso le sorgenti → sovrascrivo il capo box al centro. */
       var _rp = (_dirIn && l.box) ? l.pts.slice(0,-1).concat([boxAnchor(l.box)]) : l.pts;
-      var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts);
+      var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts, cabStyleFor(l.key));
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';
         linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
@@ -5326,7 +5371,7 @@ function cablingMarkup(){
   if(showRet){ s+='<g class="cab-retlayer" style="opacity:'+retOp+'">';
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, cabStyleOut());
+      var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, cabStyleFor(l.key));
       var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(editRet) ri+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
@@ -5340,7 +5385,7 @@ function cablingMarkup(){
     /* editing del ritorno selezionato: lati piegabili + estremo lato box (riconnetti ad altra box). Il capo monitor è fisso. */
     if(editRet && selCab){ var rl=R.returnLinks.filter(function(l){ return l.key===selCab; })[0];
       if(rl){ var exr={}; if(rl.box&&rl.box.id) exr[rl.box.id]=1; if(rl.sink&&rl.sink.id) exr[rl.sink.id]=1;
-        var _dirOut=(cabStyleOut()==="dir");   /* stesso fix del bug doppio-cavo: diretto = polilinea dritta, niente lati ortogonali */
+        var _dirOut=true;   /* come sopra: diretto = polilinea dritta, niente lati ortogonali */
         var polyR = _dirOut ? rl.pts.map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(rl.pts, OBS, exr));
         if(!_dirOut) for(var pj=0;pj<polyR.length-1;pj++){ var Ar=polyR[pj], Br=polyR[pj+1];
           if(Ar[0]===Br[0] && Ar[1]===Br[1]) continue;
@@ -5547,7 +5592,7 @@ function elecMarkup(){
   /* tier 2: uplink ciabatta → quadro (disegnati dall'utente, selezionabili come le linee) */
   (R.uplinks||[]).forEach(function(u){
     var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
-    var dpts=cabRoutePts(u.pts, OBS, ex), d=cabDrawD(u.pts, dpts, elecStyle());
+    var dpts=cabRoutePts(u.pts, OBS, ex), d=cabDrawD(u.pts, dpts, elecStyleFor(u.key));
     var ui='<path class="elec-feed'+(selElec===u.key?' sel':'')+'" d="'+d+'"/>';
     if(editE) ui+='<path class="elec-hit" data-el="'+esc(u.key)+'" d="'+d+'"/>';
     if(LBLE || selElec===u.key){ var midU=cabMidpoint(orthExpand(dpts));
@@ -5556,7 +5601,7 @@ function elecMarkup(){
   });
   R.loadLinks.forEach(function(l){
     var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
-    var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, elecStyle());
+    var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, elecStyleFor(l.key));
     var li='<path class="elec-line'+(l.cee?' elec-cee':'')+(selElec===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editE) li+='<path class="elec-hit" data-el="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLE || selElec===l.key){ var mid=cabMidpoint(orthExpand(dpts));
@@ -5608,7 +5653,7 @@ function monDigMarkup(){
   var OBS=obstacleRects();
   R.links.forEach(function(l){
     var ex={}; if(l.from) ex[l.from.id]=1; if(l.to) ex[l.to.id]=1;
-    var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, mondStyle());
+    var dpts=cabRoutePts(l.pts, OBS, ex), d=cabDrawD(l.pts, dpts, mondStyleFor(l.key));
     var li='<path class="mond-line'+(selMond===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editM) li+='<path class="mond-hit" data-mond="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLM || selMond===l.key){ var mid=cabMidpoint(orthExpand(dpts));
@@ -9104,7 +9149,8 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"elecreconnect", key:selElec, end:eend.getAttribute("data-eend")||"distro", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }
     var ehit=e.target.closest(".elec-hit");
-    if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; selCabSet={}; selMond=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+    if(ehit){ selElec=ehit.getAttribute("data-el"); selCab=null; selCabSet={}; selMond=null; render();
+      openCabPop(e, "elec", selElec); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   if(state.mond && state.mond.on && !state.mond.locked && e.target.closest){
     /* ── monitoraggio digitale: parità Max (lati, estremi, selezione) ── */
@@ -9119,7 +9165,8 @@ svg.addEventListener("pointerdown", function(e){
       drag={mode:"mondreconnect", key:selMond, end:mend.getAttribute("data-mend")||"to", moved:false};
       svg.setPointerCapture(e.pointerId); render(); return; }
     var mhit=e.target.closest(".mond-hit");
-    if(mhit){ selMond=mhit.getAttribute("data-mond"); selCab=null; selElec=null; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+    if(mhit){ selMond=mhit.getAttribute("data-mond"); selCab=null; selElec=null; render();
+      openCabPop(e, "mond", selMond); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   if(state.cab && state.cab.on && !cabBothLocked() && e.target.closest){
     var chome=e.target.closest(".cab-homehit");
@@ -9141,7 +9188,9 @@ svg.addEventListener("pointerdown", function(e){
       selElec=null; selMond=null;   /* un cavo selezionato alla volta tra le famiglie (Simone 17/07) */
       if(e.shiftKey){ if(selCabSet[ck]) delete selCabSet[ck]; else selCabSet[ck]=true; selCab=selCabSet[ck]?ck:(Object.keys(selCabSet)[0]||null); }   /* Shift = aggiungi/togli dalla selezione multipla */
       else { selCab=ck; selCabSet={}; selCabSet[ck]=true; }
-      render(); renderCabPanel(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
+      render(); renderCabPanel();
+      if(!e.shiftKey) openCabPop(e, "cab", ck);   /* premi il cavo → puoi segmentarlo */
+      svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return; }
   }
   /* ── PORTE stile Max: trascina dal pallino dell'elemento selezionato verso una box/distro ── */
   if(_onPort){
@@ -12388,20 +12437,7 @@ function renderLayerRow(L, container){
     /* Niente "⚡ Cablaggio automatico" di layer (Simone 28/07): un comando che cabla tutto in blocco
        nasconde le scelte del motore dentro un click solo. Si collega un cavo alla volta, col fulmine
        sulla riga della lista competente (ingressi, monitor, carichi). */
-    var styleGetSet=null;
-    if(L.id==="cabin"  && state.cab.on) styleGetSet=[cabStyle,    function(v){ state.cab.style=v; }];
-    else if(L.id==="cabout" && state.cab.on) styleGetSet=[cabStyleOut, function(v){ state.cab.styleOut=v; }];
-    else if(L.id==="mond"  && state.mond && state.mond.on) styleGetSet=[mondStyle, function(v){ state.mond.style=v; }];
-    else if(L.id==="elec"  && state.elec.on) styleGetSet=[elecStyle, function(v){ state.elec.style=v; }];
-    if(styleGetSet){ var _get=styleGetSet[0], _set=styleGetSet[1];
-      var sw=document.createElement("div"); sw.className="layer-adv layer-cabstyle";
-      [["curve","Angoli smussati"],["dir","Cablaggio diretto"]].forEach(function(sd){
-        var sb=document.createElement("button"); sb.type="button"; sb.className="adv-btn"+(_get()===sd[0]?" on":""); sb.textContent=sd[1];
-        sb.title="Stile grafico dei cavi di questa lista";
-        sb.addEventListener("click", function(){ _set(sd[0]); save(); render(); });
-        sw.appendChild(sb); });
-      body.appendChild(sw);
-    }
+    /* niente selettore di stile qui (28/07): la forma è del singolo cavo, non della lista */
     var secEl=accKey?document.getElementById(accKey):null;
     if(secEl) body.appendChild(secEl);
     _mkReset();   /* l'azzeramento chiude il corpo: è l'ultima cosa, e chiede conferma */
