@@ -5323,6 +5323,53 @@ t("senza stage box il fulmine non inventa una destinazione", () => {
   A.__cabRes = null;
   eq(A.cabConnectOne(A.patchList().rows[0].key), null, "senza box deve dire di no");
 });
+console.log("\n— Channel list piena: cosa si apre sopra —");
+
+/* Il valore di z-index di un selettore, letto dal CSS sorgente. */
+function zOf(sel) {
+  const re = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{[^}]*z-index:\\s*(\\d+)");
+  const m = stylesCss.match(re);
+  return m ? +m[1] : null;
+}
+
+t("la channel list piena sta sopra la scala dei modali", () => {
+  const cl = zOf(".cl-ov");
+  ok(cl && cl > 50, "la finestra piena deve stare sopra i modali normali (è " + cl + ")");
+});
+
+t("un dialogo aperto DALLA channel list le finisce sopra, non sotto", () => {
+  /* «il CSV non esporta nulla»: il picker si apriva a z 50 sotto la finestra a z 300, e il
+     bottone sembrava morto. Stesso destino toccava al PDF (Simone, 28/07 sera). */
+  const cl = zOf(".cl-ov"), sopra = zOf("body.cl-open .modal");
+  ok(sopra, "manca la regola che alza i modali quando la channel list è aperta");
+  ok(sopra > cl, "un dialogo aperto dalla channel list resta sotto di lei: " + sopra + " vs " + cl);
+});
+
+t("anche il toast si vede, quando la channel list è aperta", () => {
+  const cl = zOf(".cl-ov"), t = zOf("body.cl-open #cloudToast");
+  ok(t && t > cl, "il messaggio di conferma resterebbe nascosto dietro la finestra");
+});
+
+t("la conferma delle azioni distruttive resta sopra a tutto", () => {
+  const conf = zOf("body.cl-open #confirmModal");
+  const modale = zOf("body.cl-open .modal");
+  ok(conf && modale && conf >= modale, "la conferma deve restare almeno alla pari dei dialoghi");
+});
+
+t("il CSV della channel list produce righe, non un file vuoto", () => {
+  reset();
+  A.state.cab.on = true;
+  add("cantante", 400, 300);
+  add("batteria", 600, 400);
+  add("stagebox", 200, 700);
+  A.__cabRes = null;
+  const r = A.channelListCsv();
+  eq(r.count, 9, "9 canali: 1 voce + 8 microfoni della batteria");
+  const righe = r.csv.trim().split(/\r?\n/);
+  eq(righe.length, 10, "intestazione + 9 righe");
+  ok(righe[0].indexOf("Canale") > -1, "manca l'intestazione");
+  ok(righe[1].indexOf("Kick") > -1 || righe[1].indexOf("Voce") > -1, "prima riga vuota: " + righe[1]);
+});
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
