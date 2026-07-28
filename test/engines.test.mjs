@@ -2167,6 +2167,57 @@ t("rotazione e distanza: campo numerico; dimensione: slider su una riga", () => 
   eq(appjs.indexOf("pSepVal"), -1);
 });
 /* Pannello layer (27/07): la riga chiusa dice quanto contiene, e il cestino esce dalla riga. */
+/* ===== Regressioni della review 27-28/07 (harness Playwright in COWORK/STAGEPLOT/review/) ===== */
+t("CANVAS-01: una pedana NON si aggancia fuori dal palco; un wedge sì (è voluto)", () => {
+  reset();
+  const ped = add("pedana", 100, 100);   // 200×100: minX=0, maxX=200
+  // trascinata quasi tutta oltre il lato sinistro: maxX arriva a 5 → il vecchio candidato
+  // incrociato [maxX,0] distava 5 (< soglia 15) e la incollava INTERAMENTE fuori (sdx=-5)
+  let r = A.magneticSnap([{ id: ped.id, x0: ped.x, y0: ped.y }], -195, 300);
+  eq(r.sdx, 0, "per i riser i candidati incrociati non esistono: nessun teletrasporto fuori");
+  const w = add("wedge", 100, 300);      // per un monitor l'appoggio ESTERNO a filo resta legittimo
+  const half = w.w / 2;
+  r = A.magneticSnap([{ id: w.id, x0: w.x, y0: w.y }], -(w.x + half) + 5, 0);
+  eq(r.sdx, -5, "il wedge si appoggia ancora fuori, a filo del bordo (comportamento voluto)");
+});
+t("LISTE-01: «MIX N» non riparte da 1 — due proposte in momenti diversi non si sovrappongono", () => {
+  reset(); A.state.cab.on = true;
+  add("corista", 200, 200); A.__cabRes = null;
+  const n1 = A.monProposeWedges();
+  ok(n1 >= 1, "prima proposta: almeno un monitor");
+  add("corista", 1000, 700); A.__cabRes = null;
+  const n2 = A.monProposeWedges();
+  ok(n2 >= 1, "seconda proposta (musicista nuovo, scoperto)");
+  const mix = A.state.items.map((i) => i.label).filter((L) => /^MIX \d+$/.test(L || ""));
+  eq(new Set(mix).size, mix.length,
+     "etichette MIX tutte diverse (prima: due «MIX 1» → stessa uscita cablata); trovate: " + mix.join(", "));
+});
+t("CABLAGGI-09: applyHistory invalida le cache dei motori", () => {
+  ok(appjs.indexOf("__cabRes=null; __elecRes=null; __mondRes=null;") > -1 &&
+     appjs.indexOf("Lo stato è appena stato sostituito") > -1,
+     "dopo un undo il canvas disegnava i cavi verso la box PRE-undo");
+});
+t("LAYER-01: cavi al 100% in vista base, e il 70 salvato (default orfano) migra", () => {
+  eq(A.state.cab.opacity, 100, "default del documento nuovo");
+  const s = A.normalizeState({ items: [], inputs: [], outputs: [], cab: { opacity: 70 }, elec: { opacity: 70 }, mond: { opacity: 70 } });
+  eq(s.cab.opacity, 100, "il 70 salvato era il default orfano (nessuna UI poteva cambiarlo): migra");
+  eq(s.elec.opacity, 100); eq(s.mond.opacity, 100);
+  eq(A.normalizeState({ items: [], inputs: [], outputs: [], cab: { opacity: 40 } }).cab.opacity, 40,
+     "un valore davvero personalizzato (JSON a mano) si rispetta");
+});
+t("ICONE-01: niente height negative nella libreria icone", () => {
+  const icons = readFileSync(join(root, "icons.js"), "utf8");
+  eq(icons.match(/height=\\"-/g), null, "un rect con altezza negativa non renderizza e sporca la console a ogni scena");
+});
+t("CAT-01: «cassa» al singolare trova le casse PA", () => {
+  ok(/(^|\s)cassa(\s|$)/.test(A.TYPES.arraylarge.alias || ""), "alias singolare su arraylarge");
+  ok(/(^|\s)cassa(\s|$)/.test(A.TYPES.sub218.alias || ""), "e sul sub");
+});
+t("A11Y-SEL: i select orfani di label visibile hanno il nome accessibile", () => {
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  ok(html.indexOf('<select id="pMike" aria-label="Microfonazione">') > -1);
+  ok(/<select id="pAscolto" aria-label="Ascolto[^"]*">/.test(html));
+});
 t("la riga del layer porta il suo numero", () => {
   reset(); A.state.cab.on = true; A.state.elec.on = true;
   add("astamic", 300, 300); add("astamic", 500, 300); add("stagebox", 900, 700);

@@ -557,7 +557,7 @@
       <div class="prop-card__head" id="pOutHead" hidden>Uscita</div>
       <div id="pMikeWrap" style="display:none">
         <label>Microfonazione</label>
-        <select id="pMike"></select>
+        <select id="pMike" aria-label="Microfonazione"></select>
       </div>
       <!-- CATENA (chitarre, basso, acustica): si vede, si clicca. I nodi sono gli anelli che ci sono,
          i pallini i punti da cui prendi il suono. La DI compare da sé quando il tratto resta jack. -->
@@ -645,7 +645,7 @@
     </div>
     <div id="pAscoltoWrap" style="display:none">
       <label>Ascolto <small class="lbl-note">— cosa usa per sentirsi</small></label>
-      <select id="pAscolto">
+      <select id="pAscolto" aria-label="Ascolto — cosa usa per sentirsi">
         <option value="none">Nessuno</option>
         <option value="wedge">Spia (wedge)</option>
         <option value="iem">In-ear (bodypack)</option>
@@ -2938,7 +2938,7 @@ var SEARCH_ALIAS = {
   micover:"oh",
   sidefill:"mon mons sf", hearback:"mon mons",
   cuffie:"cans headphones",
-  arraylarge:"casse", arraymid:"casse", sub218:"casse", frontfill:"casse",
+  arraylarge:"casse cassa", arraymid:"casse cassa", sub218:"casse cassa", frontfill:"casse cassa",
   tromba:"tpt trp trumpet", corno:"hrn horn", tuba:"tba", fagotto:"fg",
   violapost:"vla", violoncello:"vc vlc cello", contrabbasso:"db cb upright", arpa:"harp",
   consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", testamobile:"lx", sagomatore:"lx",
@@ -3612,9 +3612,9 @@ var LS_KEY = "stageplot_v1";
    MIGRATIONS[n] quando la forma di `data` cambia, così ogni progetto vecchio si migra da solo. */
 var SCHEMA_VERSION = 5;
 var LS_KEY_VENUE = LS_KEY + "_venue";   /* immagine planimetria: chiave separata, scritta solo quando cambia (vedi persistVenueImg) */
-var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:70,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,lockIn:false,lockOut:false,manual:{}},
-  elec:{on:false,visible:true,opacity:70,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
-  mond:{on:false,visible:true,opacity:70,manual:{}} };
+var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]}, items:[], inputs:[], outputs:[], zones:[], layerAudio:false, layerPower:false, cab:{on:false,opacity:100,auto:true,mode:"manual",labelMode:"hover",margin:30,mixer:"",home:null,showLabels:true,showLengths:true,showChannels:true,showInputs:true,showReturns:true,showNet:true,looms:true,lockIn:false,lockOut:false,manual:{}},
+  elec:{on:false,visible:true,opacity:100,auto:true,mode:"manual",labelMode:"hover",supply:null,phase3:true,showLabels:true,showLengths:true,manual:{},uplinks:{}},
+  mond:{on:false,visible:true,opacity:100,manual:{}} };
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
@@ -4413,6 +4413,11 @@ function applyHistory(snapshot){
     reattachVenueImg(state,key);
   } else if(key) delete venueImgCache[key];
   ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
+  /* CABLAGGI-09 / B2-09 (review 27/07): le cache dei motori sopravvivevano all'undo — il canvas
+     continuava a disegnare il cavo verso la box PRE-undo, e il renderChannels() qui sotto riparava
+     la cache per le letture successive SENZA ridisegnare, nascondendo il bug a chi lo cercava.
+     Lo stato è appena stato sostituito: ogni derivato va ricalcolato. */
+  __cabRes=null; __elecRes=null; __mondRes=null;
   setEventInputs();
   persistLocalState();
   if(window.__consultDirty) window.__consultDirty();
@@ -5061,7 +5066,7 @@ function normalizeState(s){
     if(m.auto) o.auto=1;   /* collegamento fatto dall'auto-connect: ridistribuibile quando arriva una box nuova */
     if(typeof m.box==="string" && m.box) o.box=m.box.slice(0,ITEM_ID_MAX);   /* riconnessione/porte: la box scelta a mano DEVE sopravvivere al reload */
     if(Object.keys(o).length) man[String(k).slice(0,ROUTE_KEY_MAX)]=o; }); }
-  s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round(cb.opacity==null?70:cb.opacity))), auto:cb.auto!==false,
+  s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round((cb.opacity==null||cb.opacity===70)?100:cb.opacity))), auto:cb.auto!==false,
     /* manual-first (08/07): i documenti che avevano GIÀ il cablaggio attivo restano "auto" (niente rider svuotati); i nuovi nascono "manual" */
     mode:(cb.mode==="auto"||cb.mode==="manual")?cb.mode:(cb.on?"auto":"manual"),
     labelMode:(cb.labelMode==="always")?"always":"hover",   /* stile Max: canvas pulito, info in hover; nel PDF/viewer etichette SEMPRE */
@@ -5089,7 +5094,7 @@ function normalizeState(s){
     if(typeof v.to==="string" && v.to) o.to=v.to.slice(0,ITEM_ID_MAX);
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
     if(Object.keys(o).length) eups[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
-  s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(eb.opacity==null?70:eb.opacity))), auto:eb.auto!==false,
+  s.elec={ on:!!eb.on, visible:eb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round((eb.opacity==null||eb.opacity===70)?100:eb.opacity))), auto:eb.auto!==false,
     mode:(eb.mode==="auto"||eb.mode==="manual")?eb.mode:(eb.on?"auto":"manual"),
     labelMode:(eb.labelMode==="always")?"always":"hover",   /* parità con l'audio: canvas pulito, info in hover */
     supply:(eb.supply&&typeof eb.supply==="object")?{kind:String(eb.supply.kind||"rete").slice(0,20), x:Math.round(eb.supply.x||0), y:Math.round(eb.supply.y||0)}:null,
@@ -5102,7 +5107,7 @@ function normalizeState(s){
     if(v.deleted) o.deleted=true;
     if(v.auto) o.auto=1;
     if(Object.keys(o).length) mman[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
-  s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round(mb.opacity==null?70:mb.opacity))), locked:!!mb.locked, style:normCabStyle(mb.style), manual:mman };
+  s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round((mb.opacity==null||mb.opacity===70)?100:mb.opacity))), locked:!!mb.locked, style:normCabStyle(mb.style), manual:mman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
   return s;
 }
@@ -9738,9 +9743,10 @@ function magneticSnap(dragItems, ddx, ddy){
   /* bounding box (AABB) di tutti gli items trascinati nelle posizioni proposte.
      Tiene conto della rotazione: per un rettangolo ruotato di θ,
      halfW_aabb = w/2·|cosθ| + d/2·|sinθ|, halfD_aabb = w/2·|sinθ| + d/2·|cosθ| */
-  var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity, allRisers=true;
   dragItems.forEach(function(d){
     var it=state.items.find(function(i){return i.id===d.id;}); if(!it) return;
+    if(!isRiser(it)) allRisers=false;
     var px=d.x0+ddx, py=d.y0+ddy;
     var rot=(it.rot||0)*Math.PI/180;
     var c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
@@ -9752,10 +9758,14 @@ function magneticSnap(dragItems, ddx, ddy){
   var cx=(minX+maxX)/2, cy=(minY+maxY)/2;
 
   /* candidati: bordi e centro del palco.
-     [maxX,0] / [minX,W]: snap bordo destro/sinistro al lato opposto del palco → snap fuori dal palco.
-     [minY,D]: bordo superiore al fronte del palco (elemento posizionato davanti). */
-  var xCands=[[minX,0,''],[maxX,W,''],[maxX,0,''],[minX,W,''],[cx,W/2,'center']];
-  var yCands=[[minY,0,''],[maxY,D,''],[minY,D,''],[maxY,0,''],[cy,D/2,'center']];
+     I candidati INCROCIATI ([maxX,0]/[minX,W], [minY,D]/[maxY,0]) appoggiano l'elemento FUORI,
+     a filo del bordo — voluti per wedge/sidefill davanti al palco. Sulle PEDANE erano il bug
+     CANVAS-01 (review 27/07, segnalato da Simone): trascinandone una oltre un lato, il candidato
+     incrociato vinceva per distanza minima e la pedana si incollava interamente fuori dal palco.
+     Una pedana appartiene al palco: per i riser i candidati incrociati non esistono. */
+  var xCands=[[minX,0,''],[maxX,W,''],[cx,W/2,'center']];
+  var yCands=[[minY,0,''],[maxY,D,''],[cy,D/2,'center']];
+  if(!allRisers){ xCands.push([maxX,0,''],[minX,W,'']); yCands.push([minY,D,''],[maxY,0,'']); }
 
   var xSnap=null,xDist=T+1,ySnap=null,yDist=T+1;
   xCands.forEach(function(c){ var d=Math.abs(c[0]-c[1]); if(d<xDist){xDist=d;xSnap={delta:c[1]-c[0],val:c[1],cls:c[2]};} });
@@ -15296,13 +15306,17 @@ function monProposeWedges(){
   var spots=monUncovered();   /* solo i musicisti senza un monitor vicino (IEM incluso = già coperto) */
   if(!spots.length) return 0;
   var groups=performerGroups(spots), n=0;
+  /* LISTE-01 (review 27/07): «MIX N» ripartiva da 1 a OGNI chiamata — due wedge proposti in momenti
+     diversi ricevevano lo stesso «MIX 1» e, siccome il motore raggruppa i monitor per etichetta,
+     finivano cablati sulla stessa uscita. La numerazione riparte dal massimo già sul palco. */
+  var mixBase=0; (state.items||[]).forEach(function(x){ [x.label,x.label2].forEach(function(L){ var m=/^MIX\s+(\d+)$/i.exec(L||""); if(m) mixBase=Math.max(mixBase,+m[1]); }); });
   groups.sort(function(a,b){ return a.cx-b.cx; }).forEach(function(g, i){
     var drummer=g.spots.some(function(s){ return s.kind==="batteria"; });
     var x, y, type;
     if(drummer){ type="drumfill"; x=Math.round(g.cx+80); y=Math.round(g.cy); }   /* drum-fill accanto al kit */
     else { type="wedge"; x=Math.round(g.cx); y=Math.round(g.cy+90); }             /* wedge davanti, verso il pubblico */
     x=Math.min(state.stage.w-40, Math.max(40, x)); y=Math.min(state.stage.d-30, Math.max(60, y));
-    addItem(type, {x:Math.round(x), y:Math.round(y), label:"MIX "+(i+1)});   /* orientamento default: etichetta leggibile (il rot 180 la capovolgeva) */
+    addItem(type, {x:Math.round(x), y:Math.round(y), label:"MIX "+(mixBase+i+1)});   /* orientamento default: etichetta leggibile (il rot 180 la capovolgeva) */
     n++;
   });
   return n;
@@ -16292,7 +16306,9 @@ function confirmDialog(opts){
       cancb.removeEventListener("click",onCancel);
       m.removeEventListener("mousedown",onBack);
       document.removeEventListener("keydown",onKey,true);
-      try{ if(prev&&prev.focus) prev.focus(); }catch(e){}
+      /* niente prev.focus() qui: era sincrono mentre lo sfondo è ancora `inert` (non focalizzabile)
+         e spediva il focus su <body>. Il ripristino è dell'infrastruttura modali (M-22), che lo fa
+         dopo aver tolto inert — un solo sistema, non due in competizione (PERF-A11Y-02). */
       resolve(val);
     }
     function onOk(){ done(true); }
@@ -20044,6 +20060,14 @@ else { window.addEventListener("resize", render); fit();
   });
   var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   var openStack=[], returnFocus=new WeakMap(), bgInert=[];
+  /* Ultimo focus FUORI da ogni modale: è il trigger da riprendere alla chiusura. Serve perché il
+     MutationObserver è asincrono e onOpen arriva quando il focus è già dentro la modale. */
+  var lastOutsideFocus=null;
+  document.addEventListener("focusin", function(e){
+    var el=e.target; if(!el || el===document.body) return;
+    if(el.closest && el.closest(".modal")) return;
+    lastOutsideFocus=el;
+  }, true);
   function isVisible(m){ if(m.hidden) return false; var cs=getComputedStyle(m); if(cs.display==="none"||cs.visibility==="hidden") return false; var r=m.getBoundingClientRect(); return r.width>0 && r.height>0; }
   function focusables(m){ return Array.prototype.slice.call(m.querySelectorAll(FOCUSABLE)).filter(function(el){ return !el.disabled && el.getClientRects().length>0; }); }
   function setBgInert(on){
@@ -20058,7 +20082,14 @@ else { window.addEventListener("resize", render); fit();
   }
   function onOpen(m){
     if(openStack.indexOf(m)>=0) return;
-    returnFocus.set(m, document.activeElement);
+    /* PERF-A11Y-02 (review 27/07): il MutationObserver qui sotto è ASINCRONO, quindi per le modali
+       che spostano il focus da sé (confirmDialog focalizza Annulla subito, in modo sincrono) questo
+       onOpen arrivava a focus GIÀ dentro la modale e registrava un bottone interno come elemento da
+       ripristinare. Alla chiusura quel bottone era nascosto → il focus finiva su <body>. Se il focus
+       è già dentro, la modale si gestisce da sé: non c'è nulla da ricordare. */
+    var af=document.activeElement;
+    var trigger=(af && !m.contains(af) && af!==document.body && !(af.closest&&af.closest(".modal"))) ? af : lastOutsideFocus;
+    returnFocus.set(m, trigger || null);
     openStack.push(m); setBgInert(true);
     var f=focusables(m), target=f[0]||m;
     if(target===m && !m.hasAttribute("tabindex")) m.setAttribute("tabindex","-1");
@@ -20069,7 +20100,11 @@ else { window.addEventListener("resize", render); fit();
     openStack.splice(i,1);
     if(!openStack.length) setBgInert(false);
     var ret=returnFocus.get(m); returnFocus.delete(m);
-    setTimeout(function(){ try{ if(ret && ret.focus && document.contains(ret)) ret.focus(); }catch(_){} }, 0);
+    /* Solo se c'è davvero un trigger ESTERNO da riprendere, e se è ancora focalizzabile: un focus()
+       su un elemento nascosto non fallisce con un errore, sposta il focus su <body> in silenzio. */
+    setTimeout(function(){ try{
+      if(ret && ret.focus && document.contains(ret) && ret.getClientRects().length) ret.focus();
+    }catch(_){} }, 0);
   }
   mods.forEach(function(m){
     var wasVis=isVisible(m);
