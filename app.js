@@ -5496,6 +5496,15 @@ function cabConnectAll(){
 function cabConnectOne(key){
   if(!key) return null;
   if(!state.cab.on) state.cab.on=true;
+  /* La riga della lista e il CAVO non hanno la stessa chiave: gli strumenti a piu' canali
+     (batteria, cori, zone) hanno una riga per microfono — «i1#0», «i1#3»… — ma un cavo solo,
+     instradato come gruppo («grp:i1»). Il fulmine cercava la chiave della riga fra i link del
+     motore, non la trovava e rispondeva «nessuna destinazione adatta»: la batteria era
+     impossibile da cablare (segnalato da Simone, 28/07). Qui la chiave della riga viene
+     tradotta in quella di routing, che e' la sola che il motore conosce. */
+  var _mi=String(key).match(/^(?:grp:)?(.+?)(?:#\d+)?$/);
+  var _it=_mi ? (state.items||[]).filter(function(x){ return x.id===_mi[1]; })[0] : null;
+  if(_it && typeof cabItemRouteKey==="function") key=cabItemRouteKey(_it);
   var man=state.cab.manual=state.cab.manual||{};
   var cm=man[key]||(man[key]={});
   if(cm.box) return cm.box;                       /* già cablato: non si tocca */

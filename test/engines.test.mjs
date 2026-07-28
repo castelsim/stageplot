@@ -5035,5 +5035,61 @@ t("helper export toast esposti (pdfSave/toastDownloaded)", () => {
   ok(typeof A.pdfSave === "function" && typeof A.toastDownloaded === "function");
 });
 
+console.log("\n— Fulmine sulla riga: strumenti a piu' canali —");
+
+function palcoConBatteria() {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  const batt = add("batteria", 600, 300);
+  const sb = add("stagebox", 200, 700);
+  A.__cabRes = null;
+  return { batt, sb };
+}
+
+t("la batteria ha una riga per canale ma un solo cavo di gruppo", () => {
+  const { batt } = palcoConBatteria();
+  eq(A.patchList().rows.length, 8, "8 microfoni = 8 righe in lista");
+  eq(A.cabItemRouteKey(batt), "grp:" + batt.id, "gli strumenti multicanale si instradano a gruppo");
+});
+
+t("il fulmine collega la batteria (era il bug: «nessuna destinazione adatta»)", () => {
+  const { batt, sb } = palcoConBatteria();
+  const riga = A.patchList().rows[0];
+  eq(A.cabConnectOne(riga.key), sb.id, "il fulmine non ha trovato la stage box");
+});
+
+t("collegare un canale della batteria collega tutto il gruppo: è un cavo solo", () => {
+  const { batt } = palcoConBatteria();
+  A.cabConnectOne(A.patchList().rows[0].key);
+  A.__cabRes = null;
+  const rows = A.patchList().rows;
+  eq(rows.filter((r) => r.box).length, 8, "gli altri 7 canali sono rimasti scollegati");
+});
+
+t("il collegamento si scrive sulla chiave di gruppo, non su quella della riga", () => {
+  const { batt } = palcoConBatteria();
+  A.cabConnectOne(A.patchList().rows[3].key);   /* dal quarto canale: il risultato non cambia */
+  ok(A.state.cab.manual["grp:" + batt.id], "manca il cavo sulla chiave di gruppo");
+  ok(!A.state.cab.manual[batt.id + "#3"], "non deve restare un cavo appeso alla singola riga");
+});
+
+t("uno strumento a un canale solo continua a collegarsi come prima", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  add("cantante", 400, 300);
+  const sb = add("stagebox", 200, 700);
+  A.__cabRes = null;
+  const riga = A.patchList().rows[0];
+  eq(A.cabConnectOne(riga.key), sb.id);
+});
+
+t("senza stage box il fulmine non inventa una destinazione", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  add("batteria", 600, 300);
+  A.__cabRes = null;
+  eq(A.cabConnectOne(A.patchList().rows[0].key), null, "senza box deve dire di no");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
