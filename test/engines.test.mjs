@@ -65,6 +65,7 @@ function reset() {
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
+  A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {};
   A.state.elec.on = false; A.state.elec.manual = {}; A.state.elec.uplinks = {};
@@ -4955,6 +4956,324 @@ t("undo di un elemento reale funziona ancora (non regredito)", () => {
 });
 t("helper export toast esposti (pdfSave/toastDownloaded)", () => {
   ok(typeof A.pdfSave === "function" && typeof A.toastDownloaded === "function");
+});
+
+/* ===================================================================================
+   LUCI COME REPARTO (blocco A) — le luci smettono di essere icone mute e diventano
+   una richiesta: funzione, quantità, apparecchio, temperatura, posizione.
+   La riga della lista è la fonte del numero; le icone sul palco la illustrano.
+   =================================================================================== */
+console.log("\n— Luci: modello e migrazione —");
+
+t("le sorgenti luminose sul palco diventano righe, una per tipo", () => {
+  reset();
+  add("sagomatore", 100, 100); add("sagomatore", 200, 100);
+  add("parluci", 300, 100); add("parluci", 400, 100); add("parluci", 500, 100);
+  const L = A.lightsFromItems(A.state.items);
+  eq(L.rows.length, 2, "attese 2 righe (sagomatore, parluci)");
+  const sag = L.rows.filter((r) => r.gear === "sagomatore")[0];
+  const par = L.rows.filter((r) => r.gear === "parluci")[0];
+  eq(sag.n, 2, "sagomatori"); eq(par.n, 3, "PAR/wash");
+  eq(sag.items.length, 2, "icone agganciate al sagomatore");
+});
+
+t("la funzione nasce vuota: nessuno indovina se un sagomatore è frontale o contro", () => {
+  reset();
+  add("sagomatore", 100, 100);
+  eq(A.lightsFromItems(A.state.items).rows[0].fn, "");
+});
+
+t("struttura e regia non diventano richieste luci", () => {
+  reset();
+  add("americana", 300, 50); add("consolaluci", 100, 600); add("dimmerluci", 200, 600);
+  eq(A.lightsFromItems(A.state.items).rows.length, 0);
+});
+
+t("le macchine d'atmosfera invece si chiedono", () => {
+  reset();
+  add("fumomachine", 100, 100); add("hazer", 200, 100);
+  eq(A.lightsFromItems(A.state.items).rows.length, 2);
+});
+
+t("un progetto senza luci non produce righe", () => {
+  reset();
+  add("cantante", 300, 300);
+  eq(A.lightsFromItems(A.state.items).rows.length, 0);
+});
+
+t("normalizeState costruisce le luci dai progetti che non le avevano (v5 → v6)", () => {
+  const s = A.normalizeState({ items: [{ id: "x1", type: "sagomatore", x: 10, y: 10 }] });
+  ok(s.lights && Array.isArray(s.lights.rows), "state.lights mancante dopo la migrazione");
+  eq(s.lights.rows.length, 1);
+  eq(s.lights.rows[0].n, 1);
+  eq(s.lights.blackout, null, "l'oscurabilità non si inventa");
+});
+
+t("normalizeState non tocca le luci già dichiarate", () => {
+  const s = A.normalizeState({
+    items: [{ id: "x1", type: "sagomatore", x: 10, y: 10 }],
+    lights: { rows: [{ id: "r1", fn: "frontale", n: 4, gear: "sagomatore", items: [] }], blackout: true, mood: "calda" },
+  });
+  eq(s.lights.rows.length, 1);
+  eq(s.lights.rows[0].n, 4, "la quantità scritta a mano è stata sovrascritta");
+  eq(s.lights.blackout, true);
+});
+
+t("la quantità non scende mai sotto le icone disegnate", () => {
+  const rows = [{ id: "r1", fn: "frontale", n: 4, gear: "sagomatore", items: ["a", "b"] }];
+  eq(A.lightsNormalizeRows(rows, ["a", "b"])[0].n, 4, "4 richieste con 2 disegnate deve restare 4");
+});
+
+t("disegnare una quinta icona alza la quantità richiesta", () => {
+  const rows = [{ id: "r1", fn: "frontale", n: 4, gear: "sagomatore", items: ["a", "b", "c", "d", "e"] }];
+  eq(A.lightsNormalizeRows(rows, ["a", "b", "c", "d", "e"])[0].n, 5);
+});
+
+t("un'icona cancellata dal palco si stacca dalla riga ma non abbassa la richiesta", () => {
+  const rows = [{ id: "r1", fn: "frontale", n: 4, gear: "sagomatore", items: ["a", "b"] }];
+  const out = A.lightsNormalizeRows(rows, ["a"]);   /* "b" non è più sul palco */
+  eq(out[0].items, ["a"], "l'icona morta è rimasta agganciata");
+  eq(out[0].n, 4, "la richiesta è stata abbassata da una cancellazione");
+});
+
+t("dividere una riga da 4 in 2+2 spartisce le icone e non cambia il totale", () => {
+  const rows = [{ id: "r1", fn: "", n: 4, gear: "sagomatore", items: ["a", "b", "c", "d"] }];
+  const out = A.lightsSplitRow(rows, "r1", 2);
+  eq(out.length, 2, "attese due righe dopo la divisione");
+  eq(out[0].n + out[1].n, 4, "il totale è cambiato");
+  eq(out[0].items.length, 2); eq(out[1].items.length, 2);
+  ok(out[0].id !== out[1].id, "le due righe hanno lo stesso id");
+  eq(out[1].gear, "sagomatore", "l'apparecchio non è stato ereditato");
+});
+
+t("dividere una riga da 4 lasciando 1 dà 3 + 1", () => {
+  const rows = [{ id: "r1", fn: "frontale", n: 4, gear: "sagomatore", items: [] }];
+  const out = A.lightsSplitRow(rows, "r1", 1);
+  eq([out[0].n, out[1].n], [3, 1]);
+});
+
+t("non si divide una riga da 1", () => {
+  const rows = [{ id: "r1", fn: "frontale", n: 1, gear: "sagomatore", items: [] }];
+  eq(A.lightsSplitRow(rows, "r1", 1).length, 1, "una riga da 1 è stata divisa");
+});
+
+console.log("\n— Luci: il testo del rider —");
+
+/* Il caso che ha motivato il blocco A: un rider impaginato a mano fuori dal software.
+   Questo test è il contratto — le stesse parole devono uscire dal dato. */
+function riderLights() {
+  return {
+    blackout: true, mood: "calda, morbida e teatrale",
+    rows: [
+      { id: "r1", fn: "frontale", n: 4, gear: "proiettori LED Warm White", gearAlt: "sagomatori LED", color: "3200 K", items: [] },
+      { id: "r2", fn: "controluce", n: 4, gear: "proiettori LED Warm White", items: [] },
+      { id: "r3", fn: "fondale", n: 3, gear: "Wash LED RGBW", items: [] },
+    ],
+  };
+}
+
+t("l'oscurabilità dichiarata apre la sezione luci", () => {
+  const L = A.lightsRiderLines(riderLights());
+  eq(L[0], { kind: "p", text: "Lo spettacolo richiede un ambiente completamente oscurabile." });
+});
+
+t("una richiesta con alternativa e temperatura si legge come nel rider vero", () => {
+  const L = A.lightsRiderLines(riderLights());
+  eq(L[1], { kind: "h", text: "Frontale" });
+  eq(L[2], { kind: "li", text: "n.4 proiettori LED Warm White oppure sagomatori LED 3200 K." });
+});
+
+t("una richiesta senza alternativa né temperatura resta asciutta", () => {
+  const L = A.lightsRiderLines(riderLights());
+  eq(L[4], { kind: "li", text: "n.4 proiettori LED Warm White." });
+});
+
+t("il clima chiude la sezione", () => {
+  const L = A.lightsRiderLines(riderLights());
+  eq(L[L.length - 1], { kind: "p", text: "L'illuminazione dovrà essere calda, morbida e teatrale." });
+});
+
+t("gli apparecchi di catalogo si declinano al plurale", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", rows: [{ id: "r1", fn: "frontale", n: 4, gear: "sagomatore", items: [] }] });
+  eq(L[1], { kind: "li", text: "n.4 sagomatori." });
+});
+
+t("un solo apparecchio resta al singolare", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", rows: [{ id: "r1", fn: "frontale", n: 1, gear: "sagomatore", items: [] }] });
+  eq(L[1], { kind: "li", text: "n.1 sagomatore." });
+});
+
+t("la posizione con altezza entra nella richiesta", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", rows: [{ id: "r1", fn: "controluce", n: 4, gear: "sagomatore", pos: "elevatore", posH: "4", items: [] }] });
+  eq(L[1], { kind: "li", text: "n.4 sagomatori su elevatore a 4 m." });
+});
+
+t("due richieste con la stessa funzione stanno sotto una sola intestazione", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", rows: [
+    { id: "r1", fn: "frontale", n: 2, gear: "sagomatore", items: [] },
+    { id: "r2", fn: "frontale", n: 3, gear: "parluci", items: [] },
+  ] });
+  eq(L.filter((x) => x.kind === "h").length, 1, "intestazione Frontale duplicata");
+  eq(L.filter((x) => x.kind === "li").length, 2);
+});
+
+t("le funzioni escono nell'ordine del mestiere, non di inserimento", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", rows: [
+    { id: "r1", fn: "fondale", n: 3, gear: "parluci", items: [] },
+    { id: "r2", fn: "frontale", n: 4, gear: "sagomatore", items: [] },
+  ] });
+  eq(L.filter((x) => x.kind === "h").map((x) => x.text), ["Frontale", "Fondale / ciclorama"]);
+});
+
+t("una richiesta ancora senza funzione non viene inventata", () => {
+  const L = A.lightsRiderLines({ blackout: null, mood: "", rows: [{ id: "r1", fn: "", n: 4, gear: "sagomatore", items: [] }] });
+  eq(L.filter((x) => x.kind === "h").map((x) => x.text), ["Funzione da assegnare"]);
+});
+
+t("senza luci dichiarate la sezione non esiste", () => {
+  eq(A.lightsRiderLines({ blackout: null, mood: "", rows: [] }), []);
+});
+
+t("il testo del rider scritto a mano vince sulla lista", () => {
+  reset();
+  A.state.lights = riderLights();
+  A.state.rider = { luci: "Le luci le porta la produzione." };
+  eq(A.riderData().luci, "Le luci le porta la produzione.");
+});
+
+t("senza testo a mano il rider prende la sezione generata dalla lista", () => {
+  reset();
+  A.state.lights = riderLights();
+  ok(A.riderData().luci.indexOf("n.4 proiettori LED Warm White oppure sagomatori LED 3200 K.") >= 0,
+    "la richiesta generata non è finita nel rider");
+});
+
+console.log("\n— Luci: le regole di audit —");
+
+function lightRules() { return (A.auditEngine().findings || []).map((x) => x.rule).filter(Boolean); }
+function hasRule(k) { return lightRules().indexOf(k) >= 0; }
+
+t("L1 — una richiesta senza funzione viene contestata", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "", n: 4, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
+  ok(hasRule("luci-fn"), "L1 non è scattata");
+});
+
+t("L1 tace quando ogni richiesta dice cosa fa", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
+  ok(!hasRule("luci-fn"), "L1 è scattata a torto");
+});
+
+t("L2 — con delle luci in lista l'oscurabilità va dichiarata", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", color: "3200 K" })], blackout: null, mood: "" };
+  ok(hasRule("luci-blackout"), "L2 non è scattata");
+});
+
+t("L2 tace anche quando la risposta è «no»", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", color: "3200 K" })], blackout: false, mood: "" };
+  ok(!hasRule("luci-blackout"), "una risposta negativa vale come dichiarazione");
+});
+
+t("L2 tace su un progetto senza luci", () => {
+  reset(); add("cantante", 300, 300);
+  ok(!hasRule("luci-blackout"));
+});
+
+t("L3 — una sorgente senza temperatura o colore non è un'informazione", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", color: "" })], blackout: true, mood: "" };
+  ok(hasRule("luci-colore"), "L3 non è scattata");
+});
+
+t("L3 non chiede il colore a una macchina del fumo", () => {
+  reset(); add("fumomachine", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "effetto", n: 1, gear: "fumomachine", color: "" })], blackout: true, mood: "" };
+  ok(!hasRule("luci-colore"), "L3 è scattata su una macchina d'atmosfera");
+});
+
+t("L4 — delegare le luci senza dire cosa serve viene contestato", () => {
+  reset();
+  A.state.production = { asked: true, depts: [], systems: { luci: { ans: "venue", note: "" } } };
+  A.state.lights = { rows: [], blackout: null, mood: "" };
+  ok(hasRule("luci-delega-vuota"), "L4 non è scattata");
+});
+
+t("L4 tace se la lista dice cosa serve alla venue", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.production = { asked: true, depts: [], systems: { luci: { ans: "venue", note: "" } } };
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
+  ok(!hasRule("luci-delega-vuota"), "L4 è scattata con la lista piena");
+});
+
+t("L5 — un elevatore senza altezza lascia due spettacoli possibili", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", color: "3200 K", pos: "elevatore", posH: "" })], blackout: true, mood: "" };
+  ok(hasRule("luci-altezza"), "L5 non è scattata");
+});
+
+t("L5 non chiede l'altezza di una luce a terra", () => {
+  reset(); add("sagomatore", 100, 100);
+  A.state.lights = { rows: [A.lightRow({ fn: "fondale", n: 3, gear: "sagomatore", color: "RGBW", pos: "terra", posH: "" })], blackout: true, mood: "" };
+  ok(!hasRule("luci-altezza"), "L5 è scattata su una luce a terra");
+});
+
+t("L6 — i cartelli scritti a mano vicino alle luci vengono intercettati", () => {
+  reset();
+  add("sagomatore", 100, 100);
+  const txt = add("testo", 180, 100);
+  txt.label = "FRONTALE SU ELEVATORE 4M CON PAR CALDI";
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
+  ok(hasRule("luci-cartelli"), "L6 non è scattata");
+});
+
+t("L6 lascia in pace un testo lontano dalle luci", () => {
+  reset();
+  add("sagomatore", 100, 100);
+  const txt = add("testo", 900, 900);
+  txt.label = "SET LIST";
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "sagomatore", color: "3200 K" })], blackout: true, mood: "" };
+  ok(!hasRule("luci-cartelli"), "L6 è scattata su un testo lontano");
+});
+
+console.log("\n— Luci: le etichette a bordo palco —");
+
+t("una richiesta disegnata porta la sua etichetta sul palco", () => {
+  reset();
+  const a = add("sagomatore", 100, -50), b = add("sagomatore", 500, -50);
+  A.state.lights = { rows: [A.lightRow({ fn: "controluce", n: 4, gear: "sagomatore", color: "LED warm 3200 K", pos: "elevatore", posH: "4", items: [a.id, b.id] })], blackout: true, mood: "" };
+  const lab = A.lightsLabels();
+  eq(lab.length, 1);
+  eq(lab[0].text, "CONTROLUCE SU ELEVATORE A 4 M · LED WARM 3200 K");
+});
+
+t("l'etichetta si posa al centro delle icone di quella richiesta", () => {
+  reset();
+  const a = add("sagomatore", 100, -50), b = add("sagomatore", 500, -50);
+  A.state.lights = { rows: [A.lightRow({ fn: "controluce", n: 2, gear: "sagomatore", pos: "elevatore", posH: "4", items: [a.id, b.id] })], blackout: true, mood: "" };
+  eq(A.lightsLabels()[0].x, 300, "non è a metà fra le due icone");
+});
+
+t("una richiesta non ancora disegnata non scrive nulla sul palco", () => {
+  reset();
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", pos: "elevatore", posH: "4", items: [] })], blackout: true, mood: "" };
+  eq(A.lightsLabels().length, 0);
+});
+
+t("senza niente da dire non compare nessuna etichetta", () => {
+  reset();
+  const a = add("sagomatore", 100, -50);
+  A.state.lights = { rows: [A.lightRow({ fn: "", n: 1, gear: "sagomatore", items: [a.id] })], blackout: null, mood: "" };
+  eq(A.lightsLabels().length, 0, "un'etichetta vuota è peggio di nessuna etichetta");
+});
+
+t("la sola funzione basta per meritare un'etichetta", () => {
+  reset();
+  const a = add("sagomatore", 100, -50);
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "sagomatore", items: [a.id] })], blackout: null, mood: "" };
+  eq(A.lightsLabels()[0].text, "FRONTALE");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
