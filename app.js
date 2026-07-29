@@ -100,6 +100,28 @@ function faroTeatroSvg(it, fres){
          diventerebbe rumore — il nome sotto l'icona dice quale dei due è */
   return s;
 }
+/* ===== LUCE CONTINUA DA STUDIO/VIDEO — pezzi di disegno comuni (Simone 29/07) =====
+   Stessa famiglia grafica dei fari da palco (corpo .ic fGrey, ottica bianca, tratti .ic thin) e stessa
+   convenzione: il FRONTE è +y (verso il basso), il fascio esce da lì. Le coordinate sono in cm reali:
+   niente transform/scale, si lavora sulle misure. */
+function studioYokeSvg(w,d,depth){   /* i due bracci della staffa a U, ai lati: da sopra si vedono su quasi ogni apparecchio da set */
+  var hw=w/2, t=Math.max(1.4, w*0.05);
+  return bar(-hw+t/2, 0, t, d*depth, 'ic fGrey', 1)+bar(hw-t/2, 0, t, d*depth, 'ic fGrey', 1);
+}
+function studioFinsSvg(w,d,n,y0,y1){   /* alette di raffreddamento sul dorso: dicono «apparecchio a LED/scarica», non un PAR */
+  var s="", half=(n-1)/2;
+  for(var i=0;i<n;i++){ var x=(i-half)*w*0.11; s+=lin(x,y0,x,y1,'ic thin'); }
+  return s;
+}
+/* Ottica frontale convessa in avanti (mezza ellisse sul bordo del corpo): `rings` = anelli della
+   lente fresnel, 0 = liscia (parabola/lente piana). Stessa costruzione di faroTeatroSvg. */
+function studioLensSvg(r, cy, rings, cls){
+  var rr=(r*0.76).toFixed(1), y=cy.toFixed(1);
+  var s='<path class="'+(cls||'ic')+'" d="M '+(-r).toFixed(1)+' '+y+' A '+r.toFixed(1)+' '+rr+' 0 0 0 '+r.toFixed(1)+' '+y+' Z"/>';
+  for(var i=1;i<=(rings||0);i++){ var k=1-i/((rings||0)+1);
+    s+='<path class="ic thin" fill="none" d="M '+(-r*k).toFixed(1)+' '+y+' A '+(r*k).toFixed(1)+' '+(r*k*0.76).toFixed(1)+' 0 0 0 '+(r*k).toFixed(1)+' '+y+'"/>'; }
+  return s;
+}
 /* Il SUPPORTO dell'apparecchio, in pianta e sotto di esso: treppiede dello stativo (tre gambe a 120°,
    la colonna al centro) oppure morsetto dell'appeso. A terra non si disegna niente: il faro poggia. */
 function mountUnderSvg(it){
@@ -1300,6 +1322,130 @@ var TYPES = {
   fresnel:   {nome:"Fresnel", dim:"24×28 · 500 W", cat:"Luci", w:24,d:28,
     alias:"fresnel faro fresnel lente anelli proiettore teatrale faro alogeno luce teatro sfumato",
     draw:function(it){ return faroTeatroSvg(it,true); }},
+  /* ========== LUCI VIDEO E STUDIO (Simone 29/07) — luce CONTINUA da set, non fari da palco ==========
+     Sono TIPOLOGIE tecniche (la famiglia di apparecchio), non modelli commerciali. Le misure sono
+     l'INGOMBRO IN PIANTA TIPICO della categoria, ricavato ogni volta da un apparecchio rappresentativo
+     che è citato nel commento: nessun numero è dichiarato come dato di targa di questo elemento, e
+     dove non c'era una fonte non c'è un numero. Il fronte è +y, come tutti gli altri fari. */
+  ledcob:    {nome:"Luce LED COB", dim:"30×22 · ~300 W", cat:"Luci", sub:"Video e studio", w:30,d:22,
+    /* testa COB con attacco frontale per modificatori (Bowens): ingombro tipico di una 300 W di classe
+       media — riferimento Aputure LS 300d II, testa 11,75×8,49×13,56 in (≈29,8×21,6 cm in pianta,
+       staffa compresa). La famiglia va da 60 W a 600 W: la 100 W è più piccola, la 600 W più larga. */
+    alias:"cob monotorcia testa luce continua bowens attacco frontale modificatori softbox parabola daylight bicolore rgb set troupe",
+    draw:function(it){
+      var w=it.w, d=it.d, hd=d/2;
+      var s=studioYokeSvg(w,d,0.62);                             /* bracci corti: quello che deve saltare all'occhio è l'attacco davanti */
+      s+=bar(0,-d*0.26,w*0.44,d*0.44,'ic fGrey',3);              /* il corpo, arretrato: davanti c'è solo l'attacco */
+      s+=studioFinsSvg(w,d,3,-d*0.44,-d*0.32);
+      var r=w*0.30, cy=hd-r*0.78;                                /* ATTACCO A BAIONETTA: una ghiera bianca attorno al foro, non una lente piena */
+      s+=studioLensSvg(r,cy,0,'ic');
+      s+=studioLensSvg(r*0.56,cy,0,'ic fGrey');
+      return s; }},
+  ledmono:   {nome:"Monolight LED", dim:"26×18 · ~200 W", cat:"Luci", sub:"Video e studio", w:26,d:18,
+    /* tutto-in-uno: alimentazione e controllo dentro il corpo, niente scatola a terra. Ingombro tipico
+       da amaran 300c (9,8×6,1×5,6 in ≈ 25×15,5×14 cm), +2 cm per la staffa. */
+    alias:"monolight tutto in uno all in one corpo unico luce continua bowens compatta portatile set video studio",
+    draw:function(it){
+      var w=it.w, d=it.d, hd=d/2;
+      var s=studioYokeSvg(w,d,0.84);
+      s+=bar(0,-d*0.06,w*0.72,d*0.78,'ic fGrey',3);              /* UN corpo solo che riempie quasi tutto: è questo il segno del tutto-in-uno */
+      s+=studioFinsSvg(w,d,4,-d*0.40,-d*0.26);
+      var r=w*0.19, cy=hd-r*0.85;
+      s+=studioLensSvg(r,cy,0,'ic');
+      return s; }},
+  ledpanel:  {nome:"Pannello LED", dim:"42×15 · ~100 W", cat:"Luci", sub:"Video e studio", w:42,d:15,
+    /* il classico 1×1: riferimento Litepanels Astra 6X, 414×449×135 mm → in pianta ≈41 di larghezza e
+       ≈14 di profondità (staffa compresa). */
+    alias:"pannello panel 1x1 uno per uno bicolore piatto luce continua morbida diffusa set video studio interviste",
+    draw:function(it){
+      var w=it.w, d=it.d, hd=d/2;
+      var s=studioYokeSvg(w,d,0.86);
+      s+=bar(0,-d*0.10,w*0.86,d*0.55,'ic fGrey',2);              /* rettangolo SOTTILE e largo: il pannello si legge dallo spessore */
+      s+=bar(0,hd-d*0.19,w*0.86,d*0.30,'ic soft thin',1);        /* la faccia luminosa, davanti */
+      for(var i=-3;i<=3;i++) s+=circ((i*w*0.12).toFixed(1),(hd-d*0.19).toFixed(1),Math.max(0.8,d*0.07),'dotS');   /* la matrice di LED */
+      return s; }},
+  ledflex:   {nome:"LED flessibile", dim:"60×8 · ~200 W", cat:"Luci", sub:"Video e studio", w:60,d:8,
+    /* mat flessibile 2×2 ft: riferimento amaran F22c, telo 60×60 cm, spessore di pochi mm; in pianta
+       resta la LARGHEZZA (60) e una profondità minima (8) per telo + telaio/aggancio. */
+    alias:"flessibile flex mat telo tappetino arrotolabile luce continua morbida diffusa set video studio",
+    draw:function(it){
+      /* il telo è UN pezzo solo con il BORDO FRONTALE ondulato: un telo non sta dritto, e l'onda
+         disegnata a parte sembrava uno scarabocchio staccato dalla scocca */
+      var w=it.w, d=it.d, hw=w/2;
+      var x0=-w*0.49, x1=w*0.49, yb=-d*0.38, yf=d*0.10, amp=d*0.30, n=5, seg=(x1-x0)/n;
+      var p='M '+x0.toFixed(1)+' '+yb.toFixed(1)+' L '+x1.toFixed(1)+' '+yb.toFixed(1)+' L '+x1.toFixed(1)+' '+yf.toFixed(1);
+      for(var i=0;i<n;i++) p+=' q '+(-seg/2).toFixed(1)+' '+((i%2?-1:1)*amp).toFixed(1)+' '+(-seg).toFixed(1)+' 0';
+      var s='<path class="ic fGrey" d="'+p+' Z"/>';
+      [-1,1].forEach(function(k){ s+=circ((k*hw*0.88).toFixed(1),(yb+d*0.16).toFixed(1),Math.max(0.7,d*0.10),'ic thin'); });   /* gli occhielli per legarlo */
+      return s; }},
+  ledtube:   {nome:"Tubo LED", dim:"104×6 · ~80 W", cat:"Luci", sub:"Video e studio", w:104,d:6,
+    /* barra a pixel: riferimento Astera Titan Tube, 1035 mm × Ø43 mm (→ 104×5, arrotondato a 6 con
+       le clip di aggancio). Il taglio corto da 2 ft esiste: si ridimensiona a mano. */
+    alias:"tubo barra bastone pixel bar rgb luce continua wireless a batteria effetto set video studio",
+    draw:function(it){
+      var w=it.w, d=it.d, hw=w/2;
+      var s=bar(0,0,w,d,'ic fGrey',d/2);                         /* capsula lunghissima: nessun altro apparecchio ha questa proporzione */
+      s+=bar(0,d*0.22,w*0.94,d*0.30,'ic soft thin',d*0.15);      /* il lato che illumina, verso il fronte */
+      for(var x=-hw+w*0.09; x<hw-w*0.05; x+=w*0.09) s+=lin(x.toFixed(1),-d*0.26,x.toFixed(1),d*0.02,'ic thin');   /* i pixel */
+      [-1,1].forEach(function(k){ s+=bar(k*(hw-d*0.35),0,d*0.7,d*0.88,'ic fill',1); });   /* i due tappi */
+      return s; }},
+  openface:  {nome:"Open-face LED", dim:"28×30 · ~600 W", cat:"Luci", sub:"Video e studio", w:28,d:30,
+    /* senza lente: si vede il riflettore, e le bandiere sono di serie. Ingombro tipico dalla scocca di
+       un open-face classico 1000 W (ARRI Arrilite 1000: 19×29,2×19 cm), allargata a 28 dalle bandiere. */
+    alias:"open face openface aperto senza lente riflettore parabola bandiere barndoors redhead blonde dura luce continua set video",
+    draw:function(it){
+      /* Il segno dell'open-face è il RIFLETTORE: largo quanto tutto l'apparecchio e poco profondo, con
+         la lampada nuda che si vede dentro. Niente lente e niente staffa disegnata: la larghezza
+         dichiarata è già quella del riflettore con le bandiere ripiegate ai lati.
+         Le bandiere APERTE (due alette in avanti) sono state provate due volte e scartate: due elementi
+         scuri che sporgono davanti a una scocca, a palco intero, sembrano le gambe di uno sgabello. */
+      var w=it.w, d=it.d;
+      var s=bar(0,-d*0.30,w*0.62,d*0.38,'ic fGrey',2);           /* la scocca, dietro */
+      var r=w*0.48, cy=-d*0.055;
+      s+=studioLensSvg(r,cy,0,'ic');                             /* riflettore aperto, largo come il faro */
+      s+=bar(0,cy+r*0.26,w*0.12,d*0.045,'ic fill',1);            /* la LAMPADA nuda: è questo che vuol dire «open face» */
+      [-1,1].forEach(function(k){ s+=bar(k*r*0.97,cy+d*0.06,w*0.055,d*0.16,'ic fGrey',1); });   /* i cardini delle bandiere, ripiegate sui lati */
+      return s; }},
+  hmi:       {nome:"HMI", dim:"40×40 · ~2000 W", cat:"Luci", sub:"Video e studio", w:40,d:40,
+    /* lampada a scarica, luce giorno, alimentatore SEPARATO. Ingombro tipico da un 1,8 kW di classe
+       media (ARRI M18, lamphead 387×388 mm → 39×39, arrotondato a 40). */
+    alias:"hmi scarica ioduri metallici daylight 5600 kelvin luce dura sole alimentatore ballast cinema set video",
+    draw:function(it){
+      var w=it.w, d=it.d, hd=d/2;
+      var s=studioYokeSvg(w,d,0.62);
+      s+=bar(0,-d*0.06,w*0.66,d*0.50,'ic fGrey',3);              /* corpo grosso e squadrato: è il più pesante dei nove */
+      s+=studioFinsSvg(w,d,5,-d*0.28,-d*0.16);
+      var r=w*0.30, cy=hd-r*0.80;
+      s+=studioLensSvg(r,cy,0,'ic');
+      s+=lin(0,-d*0.31,0,-d*0.37,'ic thin');                     /* il CAVO e l'ALIMENTATORE dietro, staccati dal corpo: nessun LED ne ha bisogno, un HMI sì */
+      s+=bar(0,-d*0.425,w*0.32,d*0.11,'ic fGrey',1.5);
+      return s; }},
+  fresnelled:{nome:"Fresnel LED", dim:"37×35 · ~300 W", cat:"Luci", sub:"Video e studio", w:37,d:35,
+    /* fresnel a LED da studio: riferimento ARRI L7-C, 14,7×13,8 in ≈ 37×35 cm in pianta. Lente ad
+       anelli come il fresnel da palco, ma corpo LED (alette) e niente lampada da cambiare. */
+    alias:"fresnel led lente anelli spot taglio zoom fascio regolabile luce continua studio televisivo set video",
+    draw:function(it){
+      var w=it.w, d=it.d, hd=d/2;
+      var s=studioYokeSvg(w,d,0.66);
+      s+=bar(0,-d*0.16,w*0.58,d*0.46,'ic fGrey',3);
+      s+=studioFinsSvg(w,d,4,-d*0.36,-d*0.24);
+      var r=w*0.33, cy=hd-r*0.74;
+      s+=studioLensSvg(r,cy,2,'ic');                             /* gli ANELLI: come il fresnel da palco, ma su un corpo molto più grande */
+      return s; }},
+  softlight: {nome:"Soft light", dim:"82×20 · ~500 W", cat:"Luci", sub:"Video e studio", w:82,d:20,
+    /* soft professionale (LED soft da studio): riferimento ARRI SkyPanel S60-C, 813×347×133 mm → 81 di
+       larghezza e 13 di profondità, portati a 82×20 con staffa e diffusore montati. */
+    alias:"soft light softlight softbox velo diffusore luce morbida avvolgente ombre sfumate skypanel style luce continua studio set video",
+    draw:function(it){
+      var w=it.w, d=it.d, hd=d/2;
+      var s=studioYokeSvg(w,d,0.74);
+      s+=bar(0,-d*0.24,w*0.86,d*0.40,'ic fGrey',3);              /* la scocca, dietro */
+      s+='<path class="ic soft thin" d="M '+(-w*0.43).toFixed(1)+' '+(-d*0.03).toFixed(1)+
+          ' L '+(-w*0.47).toFixed(1)+' '+(hd*0.92).toFixed(1)+
+          ' L '+(w*0.47).toFixed(1)+' '+(hd*0.92).toFixed(1)+
+          ' L '+(w*0.43).toFixed(1)+' '+(-d*0.03).toFixed(1)+' Z"/>';   /* il DIFFUSORE che si apre in avanti: più largo della scocca */
+      for(var i=-2;i<=2;i++) s+=lin((i*w*0.16).toFixed(1),(d*0.02).toFixed(1),(i*w*0.17).toFixed(1),(hd*0.86).toFixed(1),'ic thin');
+      return s; }},
   strobo:     {nome:"Stroboscopio", dim:"30×15", cat:"Luci", w:30,d:15,
     draw:function(it){ return bar(0,0,it.w,it.d,'ic fGrey',2)+
       lin(-8,it.d/2-4,-8,-it.d/2+4,'ic thin')+lin(0,it.d/2-4,0,-it.d/2+4,'ic thin')+lin(8,it.d/2-4,8,-it.d/2+4,'ic thin'); }},
@@ -1470,6 +1616,9 @@ var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Au
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,astagigante:1,wireless:1,dimono:1,distereo:1,
   wedge:1,sidefill:1,iem:1,hearback:1, mixer:1,stagebox:1,foh:1,arraylarge:1,sub218:1,frontfill:1,amprack:1,
   parluci:1,testamobile:1,sagomatore:1,farope:1,fresnel:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
+  /* video e studio: essenziali le sorgenti LED che si montano ogni giorno; HMI, Fresnel LED e
+     open-face restano sotto «Mostra tutti» (set più strutturati, non il kit di tutti i giorni) */
+  ledcob:1,ledmono:1,ledpanel:1,ledflex:1,ledtube:1,softlight:1,
   pedana:1,tappeto:1,fondale:1,sediabianca:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
@@ -1500,7 +1649,7 @@ function subOf(k){   /* sottocategoria (nuova) di un tipo */
   if(oc==="Band e backline"){ if(os==="Ampli") return ""; if(k==="organohammond"||k==="controllermidi") return "Tastiere e piani"; return os; }
   if(oc==="Monitor da palco") return "Monitor";
   if(oc==="Cablaggio e segnale") return "Stagebox e cablaggio";
-  if(oc==="Luci") return "Luci";
+  if(oc==="Luci") return os || "Luci";   /* il reparto luci ha ora due banchi: quello da palco e «Video e studio» (luce continua) */
   if(oc==="Video") return "Video";
   if(oc==="Rigging e strutture") return "Rigging";
   if(oc==="Sicurezza e site") return "Sicurezza";
@@ -1522,6 +1671,17 @@ var WATT = {
   amprack:2500,
   consolaluci:100, dimmerluci:3600, testamobile:350, parluci:150, sagomatore:400,
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
+  /* LUCE CONTINUA DA STUDIO/VIDEO: un solo numero non descrive una categoria che va da 60 a 600 W, quindi
+     qui c'e' il TAGLIO PIU' DIFFUSO della famiglia + il rincaro di alimentatore e ventole (~10%), e si
+     corregge dal pannello sul singolo apparecchio. Riferimenti dichiarati: COB 300 W di classe media
+     (Aputure LS 300d II) → 330; monolight 200 W (amaran 300c è 300, i tagli piccoli 100/150) → 200;
+     pannello 1x1 bicolore (Litepanels Astra 6X) → 100; mat flessibile 2x2 (amaran F22c, 200 W) → 200;
+     tubo (Astera Titan Tube, max 72 W) → 80; open-face LED di classe 500/600 W → 600 (l'open-face
+     ALOGENO 800/1000 W va alzato a mano); HMI 1,8 kW lampada (ARRI M18) + perdite del ballast → 2000;
+     fresnel LED da studio (ARRI L7-C, 200 W) allargato alla famiglia 300/600 W → 300; soft LED
+     (ARRI SkyPanel S60-C, max 450 W) → 500. */
+  ledcob:330, ledmono:200, ledpanel:100, ledflex:200, ledtube:80,
+  openface:600, hmi:2000, fresnelled:300, softlight:500,
   followspot:1200, strobo:800, fumomachine:1500, hazer:1000, proiettore:500, camera:30,
   torrefaro:1000,
   ipad:12, tablet:10, notebook:65, macbook:60, rack2u:150, rack4u:300,
@@ -1582,7 +1742,11 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"],
   /* fari: il modello reale sta sul faro, non su tutta la categoria Luci — console, dimmer e macchine
      del fumo non hanno un catalogo di «fari» da cui scegliere (Simone 29/07) */
-  farope:["faro"], fresnel:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"] };   /* un DI mostra SOLO modelli DI, non microfoni (Simone 18/07) */
+  farope:["faro"], fresnel:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
+  /* anche la luce continua da studio porta un modello reale, e la categoria del DB prodotti è la stessa
+     dei fari: un apparecchio è un apparecchio, e chi noleggia scrive marca+modello sul rider */
+  ledcob:["faro"], ledmono:["faro"], ledpanel:["faro"], ledflex:["faro"], ledtube:["faro"],
+  openface:["faro"], hmi:["faro"], fresnelled:["faro"], softlight:["faro"] };   /* un DI mostra SOLO modelli DI, non microfoni (Simone 18/07) */
 /* hearback/mixerino NON sono qui (Simone 28/07): avevano DUE campi per la stessa cosa — «Modello
    personal mixer» (generico, descrittivo) e «Personal monitor» marca+modello (PM_DB), che è quello
    vero: da lì il motore ricava sistema, porte, alimentazione e vincoli. Stessa scelta già fatta per
@@ -1646,6 +1810,10 @@ var WEIGHT = {
   /* luci */
   consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
   strobo:8, fumomachine:15, hazer:12, torrefaro:60,
+  /* luce continua studio/video: peso dell'apparecchio di riferimento della categoria, arrotondato
+     (LS 300d II testa ~3,2 · amaran 300c ~2,9 · Astra 6X ~3,2 · F22c telo+driver ~2 · Titan Tube 1,35 ·
+      ARRI M18 lamphead ~12,5 · L7-C ~9,5 · SkyPanel S60-C ~12,5). Stativi e cavi NON sono compresi. */
+  ledcob:4, ledmono:3, ledpanel:3, ledflex:2, ledtube:2, openface:5, hmi:13, fresnelled:10, softlight:13,
   /* video */
   ledwallmod:8, schermo:40, proiettore:15, camera:5
 };
@@ -3284,7 +3452,19 @@ var LIGHT_GEAR={
   followspot: {sing:"follow spot",           plur:"follow spot"},
   strobo:     {sing:"stroboscopio",          plur:"stroboscopi"},
   fumomachine:{sing:"macchina del fumo",     plur:"macchine del fumo"},
-  hazer:      {sing:"hazer",                 plur:"hazer"}
+  hazer:      {sing:"hazer",                 plur:"hazer"},
+  /* luce continua da studio/video: si chiede a noleggio esattamente come un faro da palco, e da qui
+     eredita anche il MONTAGGIO (isMountable = lightsIsGear) — a terra / su stativo / appeso.
+     Lo stativo da studio è il caso d'uso normale di quasi tutti questi apparecchi. */
+  ledcob:     {sing:"luce LED COB",          plur:"luci LED COB"},
+  ledmono:    {sing:"monolight LED",         plur:"monolight LED"},
+  ledpanel:   {sing:"pannello LED",          plur:"pannelli LED"},
+  ledflex:    {sing:"LED flessibile",        plur:"LED flessibili"},
+  ledtube:    {sing:"tubo LED",              plur:"tubi LED"},
+  openface:   {sing:"open-face LED",         plur:"open-face LED"},
+  hmi:        {sing:"HMI",                   plur:"HMI"},
+  fresnelled: {sing:"fresnel LED",           plur:"fresnel LED"},
+  softlight:  {sing:"soft light",            plur:"soft light"}
 };
 function lightsIsGear(t){ return !!LIGHT_GEAR[t]; }
 function lightFnLabel(k){ for(var i=0;i<LIGHT_FN.length;i++) if(LIGHT_FN[i][0]===k) return LIGHT_FN[i][1]; return ""; }

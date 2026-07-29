@@ -5969,6 +5969,160 @@ t("il supporto si disegna sotto l'apparecchio, e a terra non si disegna", () => 
   ok(A.mountUnderSvg(f).indexOf("<rect") > -1, "appeso: il morsetto");
 });
 
+console.log("\n— Luci da studio e video: le nove tipologie —");
+
+const STUDIO = ["ledcob", "ledmono", "ledpanel", "ledflex", "ledtube", "openface", "hmi", "fresnelled", "softlight"];
+
+t("le nove tipologie stanno nel reparto Luci, sul banco «Video e studio»", () => {
+  reset();
+  STUDIO.forEach((k) => {
+    ok(A.TYPES[k], "manca il tipo " + k);
+    eq(A.TYPES[k].cat, "Luci", k + ": categoria di catalogo");
+    eq(A.TYPES[k].sub, "Video e studio", k + ": sottocategoria");
+    eq(A.subOf(k), "Video e studio", k + ": il catalogo deve mostrarlo sotto il suo banco, non dentro «Luci»");
+    eq(A.catOf(k), "Luci e video", k + ": macro-categoria");
+  });
+  eq(A.subOf("parluci"), "Luci", "i fari da palco restano dove sono sempre stati");
+});
+t("le misure sono l'ingombro reale in pianta, e le proporzioni fra loro reggono", () => {
+  reset();
+  STUDIO.forEach((k) => {
+    const t2 = A.TYPES[k];
+    ok(t2.w > 0 && t2.d > 0, k + ": senza ingombro");
+    ok(!t2.resizable, k + ": misura reale, non si stira a piacere");
+  });
+  const W = (k) => A.TYPES[k].w, D = (k) => A.TYPES[k].d;
+  ok(W("ledtube") > W("softlight"), "il tubo e' il piu' lungo di tutti (~1 m)");
+  ok(W("softlight") > W("ledflex"), "il soft e' piu' largo del telo flessibile");
+  ok(W("ledflex") > W("ledpanel"), "il telo 2x2 ft e' piu' largo di un 1x1");
+  ok(W("ledpanel") > W("ledcob"), "il pannello e' piu' largo di una testa COB");
+  ok(W("ledcob") > W("ledmono"), "e la testa COB piu' della monolight tutto-in-uno");
+  ok(D("ledtube") < D("ledflex") && D("ledflex") < D("ledpanel"), "tubo, telo e pannello: profondita' crescente, tutti sottili");
+  ok(D("hmi") >= 40 && W("hmi") >= 40, "l'HMI e' il corpo piu' grosso: 1,8 kW e alimentatore a parte");
+  ok(W("ledtube") / D("ledtube") > 10, "il tubo si riconosce dalla proporzione: una barra, non una scatola");
+  ok(W("ledpanel") / D("ledpanel") > 2, "il pannello e' un rettangolo sottile");
+});
+t("ogni tipologia ha un disegno suo, e nessuno tocca transform/scale/viewBox", () => {
+  reset();
+  const svg = {};
+  STUDIO.forEach((k) => {
+    const t2 = A.TYPES[k], s = t2.draw({ type: k, w: t2.w, d: t2.d });
+    ok(s.length > 100, k + ": disegno troppo povero per distinguersi");
+    eq(/transform=|scale\(|viewBox/.test(s), false, k + ": scala reale — niente transform/scale/viewBox nell'icona");
+    ok(!/\bNaN\b|undefined/.test(s), k + ": coordinate sporche nel path");
+    svg[k] = s;
+  });
+  const distinti = new Set(Object.values(svg));
+  eq(distinti.size, STUDIO.length, "due tipologie disegnate uguali");
+});
+t("i segni che le fanno riconoscere a colpo d'occhio", () => {
+  reset();
+  const dis = (k) => A.TYPES[k].draw({ type: k, w: A.TYPES[k].w, d: A.TYPES[k].d });
+  const anelli = (s) => (s.match(/class="ic thin" fill="none"/g) || []).length;
+  eq(anelli(dis("fresnelled")), 2, "fresnel LED: la lente ad anelli, come il fresnel da palco");
+  eq(anelli(dis("hmi")), 0, "HMI: ottica liscia, non ad anelli");
+  ok(dis("hmi").indexOf("<rect") > -1 && (dis("hmi").match(/<rect/g) || []).length > (dis("fresnelled").match(/<rect/g) || []).length,
+    "HMI: un corpo in piu' — l'alimentatore dietro, che il LED non ha");
+  const of2 = dis("openface");
+  ok(of2.indexOf('class="ic fill"') > -1, "open-face: la lampada nuda si vede — non c'e' lente davanti");
+  eq((of2.match(/ A /g) || []).length, 1, "open-face: riflettore aperto, senza anelli");
+  ok(Math.abs(parseFloat(of2.match(/<path class="ic" d="M (-?[\d.]+)/)[1])) > A.TYPES.openface.w * 0.4,
+    "open-face: il riflettore e' largo quanto l'apparecchio, non un occhiello in mezzo alla scocca");
+  ok(dis("ledflex").indexOf(" q ") > -1, "flessibile: il bordo ondulato di un telo");
+  eq((dis("ledcob").match(/ A /g) || []).length, 2, "COB: la ghiera dell'attacco frontale (due archi concentrici)");
+  eq((dis("hmi").match(/ A /g) || []).length, 1, "HMI: ottica sola, senza ghiera");
+  ok(dis("ledpanel").indexOf('class="dotS"') > -1, "pannello: la matrice di LED sulla faccia");
+  ok(dis("ledtube").indexOf('class="ic soft thin"') > -1, "tubo: il lato che illumina, verso il fronte");
+  ok(dis("softlight").indexOf('class="ic soft thin"') > -1, "soft: il diffusore davanti alla scocca");
+});
+t("nel rider si chiamano col nome del mestiere, singolare e plurale", () => {
+  reset();
+  STUDIO.forEach((k) => ok(A.LIGHT_GEAR[k], k + ": non entra nella lista luci"));
+  eq(A.lightGearText("ledpanel", 3), "pannelli LED");
+  eq(A.lightGearText("ledtube", 1), "tubo LED");
+  eq(A.lightGearText("ledflex", 4), "LED flessibili");
+  eq(A.lightGearText("hmi", 2), "HMI", "le sigle non si pluralizzano");
+  eq(A.lightGearText("softlight", 1), "soft light");
+});
+t("ereditano il montaggio dei fari: a terra, su stativo, appeso", () => {
+  reset();
+  STUDIO.forEach((k) => ok(A.isMountable({ type: k }), k + ": senza montaggio, e uno stativo da studio e' il caso normale"));
+  const p = add("ledpanel", 300, 200);
+  eq(A.mountModeOf(p), "floor", "nasce a terra come tutti gli altri apparecchi");
+  eq(A.mountNote(p), "", "e a terra non si scrive niente in pianta");
+  A.mountSet(p, { mode: "stand", h: A.MOUNT_H_DEF.stand });
+  eq(A.mountNote(p), "stativo 2,5 m", "sullo stativo l'altezza compare");
+  eq((A.mountUnderSvg(p).match(/<line/g) || []).length, 3, "e il treppiede si disegna sotto");
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const tb = add("ledtube", 500, 100);
+  A.mountSet(tb, { mode: "hung", h: 350 });
+  eq(A.hangSupportOf(tb), am, "un tubo appeso alla barra la trova per geometria, come un faro");
+});
+t("la vista Luci le mostra insieme ai fari da palco", () => {
+  reset();
+  STUDIO.forEach((k) => ok(A.layerFgItem("luci", { type: k }), k + ": fuori dalla vista Luci"));
+});
+t("ogni tipologia dichiara il suo assorbimento: nessun buco nel piano elettrico", () => {
+  reset();
+  STUDIO.forEach((k) => {
+    ok(A.hasWatt(k), k + ": senza potenza il piano elettrico lo conta zero");
+    ok(A.WATT[k] >= 80 && A.WATT[k] <= 2000, k + ": valore fuori scala per la categoria");
+  });
+  ok(A.WATT.hmi > A.WATT.openface, "l'HMI da 1,8 kW pesa piu' di un open-face LED");
+  ok(A.WATT.ledtube < A.WATT.ledpanel, "un tubo a batteria e' il carico piu' leggero");
+  eq(A.techGapCheck().senzaPotenza.filter((k) => STUDIO.indexOf(k) > -1).length, 0, "la guardia dei metadati non trova buchi");
+  const t2 = A.TYPES.hmi;
+  eq(A.wattOf({ type: "hmi", w: t2.w, d: t2.d }), 2000);
+  eq(A.wattOf({ type: "hmi", w: t2.w, d: t2.d, watt: 575 }), 575, "e sul singolo apparecchio si corregge a mano");
+});
+t("pesano quello che pesano: i totali del tech pack li vedono", () => {
+  reset();
+  STUDIO.forEach((k) => ok(A.WEIGHT[k] > 0, k + ": peso mancante"));
+  ok(A.WEIGHT.hmi > A.WEIGHT.ledtube * 5, "un HMI e un tubo LED non si trasportano allo stesso modo");
+  add("softlight", 300, 300);
+  eq(A.totalWeightKg(), A.WEIGHT.softlight);
+});
+t("portano un modello reale, dalla stessa tendina dei fari", () => {
+  reset();
+  STUDIO.forEach((k) => {
+    eq(A.equipCatsFor({ type: k }), ["faro"], k + ": niente campo «Modello reale»");
+    eq(A.equipFieldLabel(A.equipCatsFor({ type: k })), "Modello del faro");
+  });
+});
+t("gli alias le trovano senza inquinare le query di sempre", () => {
+  reset();
+  const primo = (q) => (A.__qaSearch(q)[0] || {}).k;
+  eq(primo("cob"), "ledcob");
+  eq(primo("pannello"), "ledpanel");
+  eq(primo("tubo"), "ledtube");
+  eq(primo("flex"), "ledflex");
+  eq(primo("hmi"), "hmi");
+  eq(primo("soft"), "softlight");
+  eq(primo("open face"), "openface");
+  eq(primo("monolight"), "ledmono");
+  ["luce continua", "set", "studio"].forEach((q) =>
+    ok(A.__qaSearch(q).some((r) => STUDIO.indexOf(r.k) > -1), "il gergo del set non trova niente: " + q));
+  /* le query storiche non devono cambiare padrone (la ricerca e' una substring) */
+  eq(primo("tuba"), "tuba", "«tuba» resta dell'ottone, non del tubo LED");
+  eq(primo("par"), "parluci", "«par» resta del PAR da palco");
+  eq(primo("faro"), "farope", "«faro» resta dei fari da palco");
+  ok(A.__qaSearch("piano").every((r) => STUDIO.indexOf(r.k) === -1), "«piano» non pesca luci da studio");
+  ok(A.__qaSearch("mic").slice(0, 4).every((r) => STUDIO.indexOf(r.k) === -1), "«mic» resta dei microfoni");
+  ok(A.__qaSearch("monitor").every((r) => STUDIO.indexOf(r.k) === -1), "«monitor» resta dei wedge");
+});
+t("sei essenziali (il kit di tutti i giorni), tre sotto «Mostra tutti»", () => {
+  reset();
+  ["ledcob", "ledmono", "ledpanel", "ledflex", "ledtube", "softlight"].forEach((k) => ok(A.isEss(k), k + ": deve vedersi subito"));
+  ["openface", "hmi", "fresnelled"].forEach((k) => ok(!A.isEss(k), k + ": set strutturato, non kit quotidiano"));
+});
+t("le misure hanno una provenienza dichiarata nel sorgente: niente numeri inventati", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const blocco = src.slice(src.indexOf("LUCI VIDEO E STUDIO"), src.indexOf("strobo:"));
+  ok(blocco.length > 500, "il blocco di catalogo non si trova piu'");
+  [/LS 300d II/, /amaran 300c/, /Astra 6X/, /F22c/, /Titan Tube/, /Arrilite/, /M18/, /L7-C/, /SkyPanel/].forEach((rx) =>
+    ok(rx.test(blocco), "manca il riferimento da cui viene la misura: " + rx));
+});
+
 console.log("\n— Uscita dalle liste —");
 
 t("aprire una lista mette in «modo lista», uscire la chiude", () => {
