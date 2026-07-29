@@ -2928,6 +2928,24 @@ body.dark .ask-all .btn{background:transparent}
       </div>
       <div id="pLmInfo" class="prop-hint"></div>
     </div>
+    <div id="pModWrap" style="display:none"><label for="pModKind" title="Softbox, ombrello, griglia: è un attributo della luce, non un oggetto in più sul palco. In pianta l'ingombro prevalente è il suo">Modificatore <small class="lbl-note">— quello che davvero occupa il palco</small></label>
+      <select id="pModKind"></select>
+      <div id="pModSizeWrap" style="display:none;margin-top:7px">
+        <div class="numrow"><label for="pModA" id="pModALbl">Diametro</label>
+          <span class="numwrap"><input type="number" id="pModA" min="5" max="600" step="5" inputmode="numeric"><i>cm</i></span></div>
+        <div class="numrow" id="pModBRow" style="display:none;margin-top:5px"><label for="pModB">Lato corto</label>
+          <span class="numwrap"><input type="number" id="pModB" min="5" max="600" step="5" inputmode="numeric"><i>cm</i></span></div>
+      </div>
+      <div id="pModRotWrap" style="display:none;margin-top:7px">
+        <label>Orientamento</label>
+        <div class="seg" id="pModRot" role="group" aria-label="Orientamento del modificatore">
+          <button type="button" class="adv-btn" data-mrot="h">Orizzontale</button>
+          <button type="button" class="adv-btn" data-mrot="v">Verticale</button>
+        </div>
+      </div>
+      <label class="chk" id="pModGridLbl" style="display:none"><input type="checkbox" id="pModGrid"> Griglia (eggcrate)</label>
+      <div id="pModInfo" class="prop-hint"></div>
+    </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <div id="pFlags">
         <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
