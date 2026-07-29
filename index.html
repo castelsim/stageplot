@@ -1532,6 +1532,16 @@
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
   .pa-card:hover:not(.sel){border-color:var(--accent-soft);background:var(--accent-tint)}
+  /* «Con che cosa lo colleghi?» — computer → mixer: Dante / USB / analogico (29/07).
+     Le opzioni sono schede allineate a sinistra: si legge il nome della connessione, poi il dettaglio
+     del modello (quanti canali, che porta). */
+  .mv-card{width:460px;max-width:94vw}
+  .mv-opts{display:flex;flex-direction:column;gap:8px;margin:14px 0 4px}
+  .mv-opt{text-align:left;display:block;width:100%;font:inherit;color:inherit;background:var(--surface)}
+  .mv-opt b{font-size:14.5px}
+  .mv-opt small{color:var(--text-2)}
+  .mv-foot{display:flex;margin-top:14px}
+  .mv-foot .btn{margin-left:auto}
   /* dialogo di conferma azioni distruttive (sopra ogni altro modale, anche il Cloud z-index 200) */
   #confirmModal{z-index:300}
   .cfm-card{background:var(--surface);color:var(--text);border-radius:var(--r-xl);box-shadow:var(--elev-4);
@@ -2788,6 +2798,19 @@ body.dark .ask-all .btn{background:transparent}
         <div id="pSbPortsOutHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
       </div>
     </div>
+    <!-- IL MIXER È UNA DESTINAZIONE (29/07): il modello decide quanti ingressi ha davvero, e la
+         VARIANTE conta — il DM3 esiste con e senza Dante, e offrirlo a tutti sarebbe una bugia. -->
+    <div id="pMixWrap" style="display:none">
+      <label>Modello <small class="lbl-note">— decide gli ingressi</small></label>
+      <select id="pMixHw"></select>
+      <div id="pMixIo" class="prop-hint"></div>
+    </div>
+    <!-- Con che cosa un computer entra nella console: scelta esplicita, si legge anche sul cavo. -->
+    <div id="pViaWrap" style="display:none">
+      <label>Collegamento al mixer</label>
+      <div class="seg" id="pViaSeg" role="group" aria-label="Collegamento al mixer"></div>
+      <div id="pViaHint" class="prop-hint"></div>
+    </div>
     <!-- USCITA: microfonazione, da quale anello esce il segnale e com'è l'uscita. I tre si parlano:
          l'esito (DI oppure cavo diretto) è scritto sotto, così non resta implicito. -->
     <div id="pOutCard" class="prop-flat" style="display:none">
@@ -3778,6 +3801,17 @@ body.dark .ask-all .btn{background:transparent}
         <b>Allen &amp; Heath Director</b><br><small style="color:var(--text-2)">Sezione [Channels] con nomi + phantom. <b style="color:var(--warning)">Verifica l'import sulla tua console.</b></small></button>
     </div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="csvClose" style="margin-left:auto">Annulla</button></div>
+  </div>
+</div>
+
+<!-- Con che cosa il computer entra nel mixer (29/07). Le opzioni NON sono fisse: le detta il modello
+     della console — un mixer senza Dante qui il Dante non ce l'ha. -->
+<div class="modal" id="mixViaModal" hidden>
+  <div class="mcard mv-card">
+    <h2>Con che cosa lo colleghi?</h2>
+    <div class="hint" id="mvHint"></div>
+    <div class="mv-opts" id="mvOpts"></div>
+    <div class="mv-foot"><button type="button" class="btn" id="mvClose">Annulla</button></div>
   </div>
 </div>
 

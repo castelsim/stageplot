@@ -1367,6 +1367,16 @@
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
   .pa-card:hover:not(.sel){border-color:var(--accent-soft);background:var(--accent-tint)}
+  /* «Con che cosa lo colleghi?» — computer → mixer: Dante / USB / analogico (29/07).
+     Le opzioni sono schede allineate a sinistra: si legge il nome della connessione, poi il dettaglio
+     del modello (quanti canali, che porta). */
+  .mv-card{width:460px;max-width:94vw}
+  .mv-opts{display:flex;flex-direction:column;gap:8px;margin:14px 0 4px}
+  .mv-opt{text-align:left;display:block;width:100%;font:inherit;color:inherit;background:var(--surface)}
+  .mv-opt b{font-size:14.5px}
+  .mv-opt small{color:var(--text-2)}
+  .mv-foot{display:flex;margin-top:14px}
+  .mv-foot .btn{margin-left:auto}
   /* dialogo di conferma azioni distruttive (sopra ogni altro modale, anche il Cloud z-index 200) */
   #confirmModal{z-index:300}
   .cfm-card{background:var(--surface);color:var(--text);border-radius:var(--r-xl);box-shadow:var(--elev-4);
