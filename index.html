@@ -2815,6 +2815,22 @@ body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
       </div>
       <select id="pBy" hidden><option value="">Non specificato</option><option value="Band">Band</option><option value="Service">Service</option></select>
     </div>
+    <div id="pMountWrap" style="display:none"><label>Installazione <small class="lbl-note">— come sta su, e a che altezza</small></label>
+      <div class="seg" id="pMountMode" role="group" aria-label="Modalità di installazione">
+        <button type="button" class="adv-btn" data-mnt="floor">A terra</button>
+        <button type="button" class="adv-btn" data-mnt="stand">Su stativo</button>
+        <button type="button" class="adv-btn" data-mnt="hung">Appeso</button>
+      </div>
+      <div id="pMountHWrap" style="display:none;margin-top:7px">
+        <label for="pMountH">Altezza del punto luce</label>
+        <div class="row"><span><input type="number" id="pMountH" min="20" max="1200" step="10" inputmode="numeric"> <small class="lbl-note">cm</small></span></div>
+      </div>
+      <div id="pMountHangWrap" style="display:none;margin-top:7px">
+        <div id="pMountStruct" class="prop-hint"></div>
+        <label for="pMountSafety" style="margin-top:6px">Cavo di sicurezza <small class="lbl-note">— sicurezza secondaria, obbligatoria sopra le persone</small></label>
+        <select id="pMountSafety"><option value="present">Presente</option><option value="unspecified">Da verificare</option><option value="missing">Mancante</option></select>
+      </div>
+    </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
       <div class="row">
         <span><input type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>

@@ -5573,5 +5573,135 @@ t("la sola funzione basta per meritare un'etichetta", () => {
   eq(A.lightsLabels()[0].text, "FRONTALE");
 });
 
+
+/* ================= MONTAGGIO DEI FARI (Simone 29/07) ==========================================
+   Il faro a terra, su stativo e appeso sono tre montaggi diversi: cambia il materiale e cambia
+   l'altezza del punto luce. Il montaggio è un ATTRIBUTO — nessun oggetto in piu' da tenere vivo —
+   e la struttura dell'appeso si trova per geometria, come la pedana trova chi ci sta sopra. */
+console.log("\n— Fari: PC, fresnel e montaggio —");
+
+t("il catalogo ha finalmente il PC e il fresnel, i due fari base del teatro", () => {
+  reset();
+  ok(A.TYPES.farope && A.TYPES.fresnel, "i tipi esistono");
+  eq(A.TYPES.farope.cat, "Luci"); eq(A.TYPES.fresnel.cat, "Luci");
+  eq(A.WATT.farope, 500, "500 W di default (lampada 300/500), si abbassa dal pannello");
+  ok(A.LIGHT_GEAR.farope && A.LIGHT_GEAR.fresnel, "entrano nel rider col loro nome");
+  eq(A.LIGHT_GEAR.farope.plur, "fari PC");
+  ok(/plft50pcn/.test(A.TYPES.farope.alias||""), "la ricerca trova anche il modello Proel");
+  eq(/piano/.test(A.TYPES.farope.alias||""), false, "ma «piano» resta del pianoforte");
+});
+t("in pianta il PC si distingue dal fresnel per la lente", () => {
+  reset();
+  const pc = A.TYPES.farope.draw({ w: 22, d: 26 }), fr = A.TYPES.fresnel.draw({ w: 24, d: 28 });
+  ok(pc.indexOf("<path") > -1 && fr.indexOf("<path") > -1, "tutti e due hanno la lente in avanti");
+  const anelli = (t2) => (t2.match(/class="ic thin" fill="none"/g) || []).length;
+  eq(anelli(pc), 0, "PC: lente liscia");
+  eq(anelli(fr), 2, "fresnel: lente ad anelli");
+});
+t("il montaggio nasce «a terra» e non tocca la posizione", () => {
+  reset();
+  const f = add("farope", 300, 200);
+  eq(A.mountModeOf(f), "floor", "default e migrazione dei progetti gia' fatti");
+  eq(f.mount, undefined, "a terra non scrive niente nello stato");
+  eq(A.mountHOf(f), 25, "altezza tipica di un faro poggiato");
+  eq(A.mountNote(f), "", "e in pianta non si scrive nulla: poggiato e' il caso normale");
+});
+t("su stativo: altezza suggerita 250 cm, modificabile nei limiti", () => {
+  reset();
+  const f = add("farope", 300, 200);
+  A.mountSet(f, { mode: "stand", h: A.MOUNT_H_DEF.stand });
+  eq(A.mountHOf(f), 250);
+  eq(A.mountNote(f), "stativo 2,5 m", "in pianta compare l'altezza");
+  A.mountSet(f, { h: 320 }); eq(A.mountHOf(f), 320, "si alza");
+  A.mountSet(f, { h: 5 });    eq(A.mountHOf(f), A.MOUNT_H_MIN, "sotto il minimo si ferma al minimo");
+  A.mountSet(f, { h: 9999 }); eq(A.mountHOf(f), A.MOUNT_H_MAX, "e sopra al massimo");
+});
+t("appeso: la struttura si trova per geometria, e non c'e' nessun id da tenere vivo", () => {
+  reset();
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const f = add("farope", 500, 100);
+  A.mountSet(f, { mode: "hung", h: 400 });
+  eq(A.hangSupportOf(f), am, "sotto l'americana = appeso a quella");
+  eq(A.hangItemsOf(am).length, 1, "e l'americana sa chi porta");
+  eq(f.mount.supportId, undefined, "nessun id memorizzato: niente da riparare");
+  f.x = 100;
+  eq(A.hangSupportOf(f), null, "spostato via, si sgancia da solo");
+});
+t("l'americana che si sposta porta con se' i fari appesi", () => {
+  reset();
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const f = add("farope", 500, 100), g = add("parluci", 700, 100), terra = add("farope", 500, 500);
+  [f, g].forEach((x) => A.mountSet(x, { mode: "hung", h: 400 }));
+  const presi = A.hangItemsOf(am);
+  eq(presi.length, 2, "i due appesi");
+  eq(presi.indexOf(terra), -1, "il faro a terra resta dov'e'");
+});
+t("se l'americana sparisce i fari restano dove sono, e l'audit lo dice", () => {
+  reset();
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const f = add("farope", 500, 100);
+  A.mountSet(f, { mode: "hung", h: 400 });
+  const x0 = f.x, y0 = f.y;
+  A.state.items = A.state.items.filter((it) => it.id !== am.id);
+  eq([f.x, f.y].join(","), [x0, y0].join(","), "il faro non si sposta e non si cancella");
+  eq(A.mountModeOf(f), "hung", "resta dichiarato appeso: e' un dato dell'utente, non lo riscriviamo noi");
+  eq(A.hangSupportOf(f), null, "ma senza struttura");
+  A.__cabRes = null; A.__elecRes = null;
+  const f2 = A.auditEngine().findings.filter((x) => /appeso/.test(x.msg));
+  eq(f2.length, 1, "una criticita', una sola: " + JSON.stringify(f2.map((z) => z.msg)));
+});
+t("gli avvisi sui fari appesi sono aggregati, non uno per faro", () => {
+  reset();
+  for (let i = 0; i < 5; i++) A.mountSet(add("farope", 100 + i * 60, 300), { mode: "hung", h: 400 });
+  A.__cabRes = null; A.__elecRes = null;
+  const msg = A.auditEngine().findings.filter((x) => /appesi|appeso/.test(x.msg)).map((x) => x.msg);
+  eq(msg.length, 1, "un avviso solo: " + JSON.stringify(msg));
+  ok(/5 fari/.test(msg[0]), "che dice quanti sono: " + msg[0]);
+});
+t("il cavo di sicurezza si dichiara, e finche' non lo e' l'audit lo ricorda", () => {
+  reset();
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const f = add("farope", 500, 100);
+  A.mountSet(f, { mode: "hung", h: 400 });
+  eq(A.mountSafetyOf(f), "unspecified", "di default e' da verificare");
+  A.__cabRes = null; A.__elecRes = null;
+  ok(A.auditEngine().findings.some((x) => /cavo di sicurezza/.test(x.msg)), "l'audit lo chiede");
+  A.mountSet(f, { safety: "present" });
+  A.__cabRes = null; A.__elecRes = null;
+  eq(A.auditEngine().findings.filter((x) => /cavo di sicurezza/.test(x.msg)).length, 0, "dichiarato, tace");
+});
+t("il montaggio sopravvive a salvataggio, duplicazione e valori sporchi", () => {
+  reset();
+  const s = A.normalizeState({
+    stage: { w: 1200, d: 800 },
+    items: [
+      { id: "i1", type: "farope", x: 100, y: 100, mount: { mode: "hung", h: "420", safety: "present" } },
+      { id: "i2", type: "farope", x: 200, y: 100, mount: { mode: "volante", h: "abc", safety: "boh", note: "x".repeat(500) } },
+    ],
+  });
+  eq(s.items[0].mount.h, 420, "l'altezza torna numero");
+  eq(s.items[0].mount.mode, "hung");
+  eq(s.items[1].mount && s.items[1].mount.mode, undefined, "un modo inventato torna «a terra»");
+  eq(s.items[1].mount && s.items[1].mount.safety, undefined, "e uno stato inventato sparisce");
+  ok(!s.items[1].mount || s.items[1].mount.note.length <= 120, "la nota e' troncata");
+  reset();
+  const f = add("farope", 300, 300);
+  A.mountSet(f, { mode: "stand", h: 260 });
+  A.selectOne(f.id); A.duplicateSel();
+  const copia = A.state.items[A.state.items.length - 1];
+  eq(A.mountModeOf(copia), "stand", "la copia nasce montata come l'originale");
+  eq(A.mountHOf(copia), 260);
+});
+t("il supporto si disegna sotto l'apparecchio, e a terra non si disegna", () => {
+  reset();
+  const f = add("farope", 300, 300);
+  eq(A.mountUnderSvg(f), "", "a terra: niente stativo inesistente");
+  A.mountSet(f, { mode: "stand" });
+  const st = A.mountUnderSvg(f);
+  eq((st.match(/<line/g) || []).length, 3, "treppiede: tre gambe");
+  A.mountSet(f, { mode: "hung" });
+  ok(A.mountUnderSvg(f).indexOf("<rect") > -1, "appeso: il morsetto");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
