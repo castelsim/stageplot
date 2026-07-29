@@ -15591,15 +15591,24 @@ function clRenderMini(pl){
     s+='<rect class="cl-mini-box" x="'+(b.x-(b.w||60)/2)+'" y="'+(b.y-(b.d||24)/2)+'" width="'+(b.w||60)+'" height="'+(b.d||24)+'" rx="'+(u/6).toFixed(1)+'"/>';
   });
   var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
+  /* Il pallino è dell'ELEMENTO, non della riga: una sorgente stereo ha due righe (L e R) ma un solo
+     punto sul palco. Prima il pallino portava la chiave della PRIMA riga, e selezionando la R non si
+     accendeva niente — la miniatura sembrava rotta a metà (Simone 29/07). Ora si accende per
+     l'elemento a cui appartiene la riga scelta, qualunque delle sue righe sia. */
+  var itemDi={}; pl.rows.forEach(function(r){ if(r.key) itemDi[r.key]=r.itemId; });
+  var selItem=clSel ? itemDi[clSel] : null;
   var visti={};
   pl.rows.forEach(function(r){
     if(!r.itemId || visti[r.itemId]) return; visti[r.itemId]=1;
     var it=byId[r.itemId]; if(!it) return;
-    var on=(clSel && clSel===r.key);
+    var on=!!(selItem && selItem===r.itemId);
     s+='<circle class="cl-mini-dot'+(on?" on":"")+(r.box?"":" free")+'" data-k="'+esc(r.key)+'" cx="'+Math.round(it.x)+'" cy="'+Math.round(it.y)+'" r="'+(on?u*0.78:u*0.5).toFixed(1)+'" '
       + 'stroke-width="'+(on?u*0.3:u*0.18).toFixed(1)+'"/>';
-    if(on) s+='<text class="cl-mini-name" x="'+Math.round(it.x)+'" y="'+Math.round(it.y-u*1.35)+'" text-anchor="middle" '
-      + 'font-size="'+(u*1.15).toFixed(1)+'" stroke-width="'+(u*0.34).toFixed(1)+'">'+esc(r.name)+'</text>';
+    if(on){
+      var selRow=pl.rows.filter(function(x){ return x.key===clSel; })[0] || r;   /* col nome della riga scelta: «… L» o «… R» */
+      s+='<text class="cl-mini-name" x="'+Math.round(it.x)+'" y="'+Math.round(it.y-u*1.35)+'" text-anchor="middle" '
+        + 'font-size="'+(u*1.15).toFixed(1)+'" stroke-width="'+(u*0.34).toFixed(1)+'">'+esc(selRow.name)+'</text>';
+    }
   });
   s+='</svg>';
   host.innerHTML=s;
