@@ -480,6 +480,12 @@
       <input type="range" id="pLblSize" min="0" max="34" step="1">
       <output id="pLblSizeVal">14</output>
     </div>
+    <!-- Cambiata la dimensione su UNO, l'app chiede se vale per tutti quelli come lui. Non un modale:
+         una riga che compare dopo il gesto, si accetta con un clic e si ignora tacendo. -->
+    <div id="pLblSizeAll" class="ask-all" hidden>
+      <span id="pLblSizeAllMsg"></span>
+      <button type="button" class="btn" id="pLblSizeAllYes">Applica a tutte</button>
+    </div>
     <!-- FORMA: geometria, stile, colore, ordine. Testo/dimensione/colore-testo riusano i controlli
          dell'Etichetta, come per il testo libero. -->
     <div id="pShapeWrap" class="prop-card" style="display:none">
@@ -9313,6 +9319,7 @@ function renderProps(){
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
   document.getElementById("pLblSizeVal").textContent = lblv;
+  if(typeof renderLblSizeAsk==="function") renderLblSizeAsk();   /* la domanda «anche alle altre?» vive quanto la selezione che l'ha originata */
   var _lm = it.labelMode||"full";   /* modalità nome per-elemento (default = nome intero) */
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
@@ -9675,7 +9682,38 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf: nodo parziale durante il trascinamento */   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
-document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ render(); save(); } });
+document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ _lblSizeAsk=it.id; render(); save(); renderLblSizeAsk(); } });
+/* «CAMBIO LA DIMENSIONE A TUTTE?» (Simone 29/07) — con dieci quinte sul palco, rifare dieci volte lo
+   stesso gesto è lavoro inutile, e il comando «Applica a tutti» accanto all'etichetta bisogna saperlo.
+   Quindi lo chiede l'app, ma DOPO il gesto e senza fermare nessuno: una riga che compare sotto lo
+   slider, si accetta con un clic e si ignora tacendo. Compare solo se la domanda ha senso — cioè se
+   esistono altri elementi dello stesso tipo con una dimensione diversa da quella appena scelta. */
+var _lblSizeAsk=null;   /* id dell'elemento su cui si è appena cambiata la dimensione: runtime, non si salva */
+function lblSizeOf(it){ return (it && it.lblSize!=null) ? +it.lblSize : 14; }
+function lblSizeSiblings(it){
+  if(!it || !TYPES[it.type]) return [];
+  var v=lblSizeOf(it);
+  return (state.items||[]).filter(function(o){ return o!==it && o.type===it.type && lblSizeOf(o)!==v; });
+}
+function renderLblSizeAsk(){
+  var row=document.getElementById("pLblSizeAll"); if(!row) return;
+  var it=getSel(), altri=(it && _lblSizeAsk===it.id) ? lblSizeSiblings(it) : [];   /* solo sull'elemento appena toccato: cambiando selezione la domanda decade */
+  row.hidden = !altri.length;
+  if(!altri.length) return;
+  /* «come questo» e non il nome del tipo al plurale: il nome sta gia' nel titolo del pannello, e
+     nessuna tabella dell'app sa fare «quinta»→«quinte», «wedge»→«wedge». */
+  document.getElementById("pLblSizeAllMsg").textContent =
+    altri.length===1 ? "Un altro elemento come questo ha una dimensione diversa."
+                     : ("Altri "+altri.length+" elementi come questo hanno una dimensione diversa.");
+  document.getElementById("pLblSizeAllYes").textContent = altri.length===1 ? "Applica anche a quello" : "Applica a tutti";
+}
+document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
+  var it=getSel(); if(!it) return;
+  var v=lblSizeOf(it), altri=lblSizeSiblings(it), n=altri.length;
+  altri.forEach(function(o){ o.lblSize=v; });
+  _lblSizeAsk=null; render(); save(); renderProps();
+  if(typeof toast==="function") toast("Dimensione "+v+" applicata a "+n+" element"+(n===1?"o":"i")+".");
+});
 (function(){   /* allineamento del testo (testo libero e forma) */
   var w=document.getElementById("pAlignWrap"); if(!w) return;
   w.addEventListener("click", function(e){
@@ -10045,7 +10083,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
   muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap");
-  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
+  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
   group("Microfono", null, ["pOutCard","pStereoWrap","pHeadMicWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);

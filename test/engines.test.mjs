@@ -5938,5 +5938,48 @@ t("il fulmine collega il canale della zona alla stage box", () => {
   ok(A.patchList().rows[0].box, "e la riga ora ha il suo patch");
 });
 
+
+/* ====== «CAMBIO LA DIMENSIONE A TUTTE?» (Simone 29/07) ========================================
+   Con dieci quinte sul palco, rifare dieci volte lo stesso gesto e' lavoro inutile — e il comando
+   «Applica a tutti» accanto all'etichetta bisogna sapere che c'e'. Ora lo chiede l'app, dopo il
+   gesto e senza fermare nessuno. */
+console.log("\n— La dimensione dell'etichetta, e gli altri come lui —");
+
+t("la domanda ha senso solo se ci sono davvero altri come lui, con una misura diversa", () => {
+  reset();
+  const a = add("quinta", 200, 300), b2 = add("quinta", 400, 300), c = add("wedge", 600, 300);
+  eq(A.lblSizeOf(a), 14, "il default e' 14 anche quando lblSize non c'e'");
+  eq(A.lblSizeSiblings(a).length, 0, "tutte alla stessa misura: niente da chiedere");
+  a.lblSize = 1;
+  eq(A.lblSizeSiblings(a).length, 1, "ora l'altra quinta e' diversa");
+  eq(A.lblSizeSiblings(a).indexOf(c), -1, "il wedge non c'entra: si guarda lo stesso tipo");
+  b2.lblSize = 1;
+  eq(A.lblSizeSiblings(a).length, 0, "allineate: la domanda decade");
+});
+t("un elemento solo del suo tipo non fa domande", () => {
+  reset();
+  const q = add("quinta", 200, 300);
+  q.lblSize = 1;
+  eq(A.lblSizeSiblings(q).length, 0);
+});
+t("la riga della domanda esiste nel pannello, accanto allo slider", () => {
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  ok(html.indexOf('id="pLblSizeAll"') > -1, "la riga c'e'");
+  ok(html.indexOf('id="pLblSizeAllYes"') > -1, "col suo comando");
+  ok(/id="pLblSizeAll"[^>]*hidden/.test(html), "e nasce nascosta: compare solo dopo il gesto");
+  ok(appjs.indexOf("_lblSizeAsk=it.id") > -1, "si accende sull'elemento appena toccato");
+  ok(stylesCss.indexOf(".ask-all{") > -1, "lo stile sta nel design system, non inline");
+});
+t("applicare a tutti allinea gli altri e non tocca i tipi diversi", () => {
+  reset();
+  const a = add("quinta", 200, 300), b2 = add("quinta", 400, 300), c2 = add("quinta", 600, 300);
+  const w = add("wedge", 800, 300);
+  w.lblSize = 20;
+  a.lblSize = 1;
+  A.lblSizeSiblings(a).forEach((o) => { o.lblSize = A.lblSizeOf(a); });   /* quello che fa il bottone */
+  eq([a, b2, c2].map((x) => A.lblSizeOf(x)).join(","), "1,1,1", "le quinte sono allineate");
+  eq(A.lblSizeOf(w), 20, "il wedge resta com'era");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

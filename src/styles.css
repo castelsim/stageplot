@@ -2151,3 +2151,14 @@ body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
 #luciSec .lights-note-x{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;
   font-size:14px;line-height:1;padding:0 2px}
 #luciSec .lights-note-x:hover{color:var(--danger)}
+
+/* «Cambio la dimensione a tutte?» — la domanda che l'app fa DOPO il gesto: una riga discreta sotto
+   il controllo, non un modale che ferma il lavoro. Stessa scocca dei suggerimenti del pannello. */
+.ask-all{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 2px;padding:7px 9px;
+  border:1px solid var(--accent);border-radius:8px;background:color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size:11.5px;color:var(--text-2);line-height:1.35}
+.ask-all[hidden]{display:none}
+.ask-all span{flex:1 1 120px;min-width:0}
+.ask-all .btn{flex:0 0 auto;font-size:11.5px;padding:4px 9px;border-color:var(--accent);color:var(--accent);background:#fff;font-weight:600}
+.ask-all .btn:hover{background:var(--accent);color:#fff}
+body.dark .ask-all .btn{background:transparent}
