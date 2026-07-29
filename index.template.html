@@ -19520,6 +19520,54 @@ function backlineListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* LISTA LUCI nel PDF (Simone 29/07). La pagina si poteva SELEZIONARE e si vedeva in anteprima, ma
+   nel PDF non usciva: la funzione che la stampa non era mai stata scritta. Qui non si copia l'ennesima
+   tabella a mano — si stampa dalla stessa configurazione (`pdfListConfig`) da cui nascono l'anteprima
+   e il link condiviso, così le tre viste non possono piu' divergere. */
+function pdfListGeneric(doc, key, shared){
+  var cfg=(typeof pdfListConfig==="function") ? pdfListConfig()[key] : null;
+  if(!cfg || !cfg.data) return false;
+  var d=cfg.data(); if(!d || !d.rows || !d.rows.length) return false;
+  if(shared) doc.addPage("a4","portrait");
+  var M=16, y=22, col=cfg.color||"#0d9488";
+  doc.setFillColor(col); doc.rect(0,0,210,14,"F");
+  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
+  doc.text("STAGE PLOT \u2014 "+cfg.title, M, 9);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12);
+    doc.text((state.titolo||"")+(state.luogo?" \u2014 "+state.luogo:""), M, y); y+=8; }
+  var sub=cfg.sub?cfg.sub(d):"";
+  if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text(sub, M, y); y+=8; }
+  /* colonne larghe in proporzione al testo: le liste tecniche hanno una colonna lunga (l'apparecchio)
+     e diverse corte (quantità, altezza), e a larghezza fissa la lunga si troncava */
+  var W=178, nCols=cfg.cols.length, xs=[], acc=M;
+  cfg.cols.forEach(function(c,i){ xs.push(acc); acc += (c.num?0.5:1.4)*(W/(nCols+0.6)); });
+  function riga(vals, bold, colore){
+    if(y>286){ doc.addPage(); y=18; }
+    doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5);
+    vals.forEach(function(v,i){ doc.setTextColor((colore&&colore[i])||(bold?"#0b7a70":"#111827")); doc.text(String(v==null?"":v), xs[i], y); });
+    y+=5.6;
+  }
+  riga(cfg.cols.map(function(c){ return c.h; }), true);
+  doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
+  d.rows.forEach(function(r){
+    var vals=cfg.cols.map(function(c){ return c.f(r); });
+    var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
+    riga(vals, false, colori);
+  });
+  return true;
+}
+function lightsListPdf(shared){
+  var run=function(doc){
+    if(!pdfListGeneric(doc, "lightslist", shared)){ if(!shared) alert("Nessuna richiesta luci: apri la lista Luci e aggiungine una."); return; }
+    if(shared) return;
+    pdfCredit(doc);
+    pdfSave(doc, fileName()+"-luci.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 /* ===== Lista RF auto (discovery pro #2): radiomicrofoni e in-ear che usano una frequenza radio.
    SOLO documentale (frequenza + banda per il rider) — NON coordinamento/intermod (c'è Wireless Workbench).
    Il service legge quante frequenze servono e in che banda per pianificare. Layer opzionale. ===== */
@@ -20786,6 +20834,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("responsabilita")) responsabilitaPdf(doc);   /* Decisione 5A */
       if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
       if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
+      if(want("lightslist")) lightsListPdf(doc);   /* era offerta e mostrata in anteprima, ma non usciva */
       if(want("loadlist")) loadListPdf(doc);
       if(want("eleclines")) elecLinesPdf(doc);
       if(want("backline")) backlineListPdf(doc);
