@@ -3362,8 +3362,12 @@ t("la barra Power legge la FASE piu' carica, non la somma dei kW", () => {
   A.state.elec.supply = { kind: "left" };
   add("distro63", 1100, 100);       // 63 A x3 = tanta capienza in assoluto
   const ci = add("ciabatta", 100, 700);   // 16 A monofase: e' lei a soffrire per prima
-  const dim = add("dimmerluci", 120, 690);   // 3600 W = 15,7 A, tutti sulla ciabatta
-  A.state.elec.manual[dim.id] = { distro: ci.id };
+  /* due carichi veri sulla ciabatta: 2500 + 1000 = 3500 W = 15,2 A, cioe' il 95% del suo
+     interruttore. (Prima qui c'era un dimmer rack come carico da 3600 W: dal 29/07 il dimmer e'
+     una DESTINAZIONE — assorbe quello che porta — e non serve piu' a fare da peso.) */
+  const amp = add("amprack", 120, 690), hz = add("hazer", 160, 690);
+  A.state.elec.manual[amp.id] = { distro: ci.id };
+  A.state.elec.manual[hz.id] = { distro: ci.id };
   A.__elecRes = null;
   const R = A.electricEngine();
   const w = A.elecWorstPhase(R);
@@ -6654,6 +6658,54 @@ t("una richiesta senza icone non si inventa un modello", () => {
   reset();
   eq(A.lightRowModel({ items: [] }), "");
   eq(A.lightRowModel({ items: ["morto1", "morto2"] }), "", "icone cancellate: niente modello, niente errore");
+});
+
+
+/* ====== IL DIMMER E' UNA DESTINAZIONE (Simone 29/07) =========================================
+   «Controlla perche' i PAR non si collegano nel dimmer rack.» Non si collegavano perche' il dimmer
+   non era una destinazione: era un CARICO da 3600 W fissi, e i fari gli passavano accanto per
+   andare dritti al quadro — il contrario di come si cabla. */
+console.log("\n— Il dimmer rack alimenta le luci —");
+
+t("il dimmer riceve i fari, e non e' piu' un carico da 3600 W a vuoto", () => {
+  reset();
+  const dim = add("dimmerluci", 850, 250);
+  ok(A.elecIsDistro(dim), "e' una destinazione");
+  eq(A.wattOf(dim), 0, "da solo non assorbe niente: assorbe quello che porta");
+  eq(A.WATT.dimmerluci, undefined, "e non c'e' piu' un numero fisso in tabella");
+});
+t("i PAR si collegano al dimmer, non al quadro", () => {
+  reset();
+  add("dimmerluci", 850, 250); add("quadro", 950, 80);
+  for (let i = 0; i < 4; i++) add("parluci", 200 + i * 140, 250);
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  const R = A.elecResult(true);
+  const alDimmer = (R.loadLinks || []).filter((l) => l.distro.it && l.distro.it.type === "dimmerluci");
+  eq(alDimmer.length, 4, "tutti e quattro al dimmer");
+  const dim = (R.distros || []).filter((d) => d.it && d.it.type === "dimmerluci")[0];
+  eq(Math.round(dim.loadW), 600, "e il dimmer porta la loro potenza (4 x 150 W)");
+});
+t("il dimmer risale al quadro come una ciabatta, e la potenza sale con lui", () => {
+  reset();
+  const dim = add("dimmerluci", 850, 250), q = add("quadro", 950, 80);
+  for (let i = 0; i < 4; i++) add("parluci", 200 + i * 140, 250);
+  A.state.elec.on = true; A.state.elec.mode = "auto";
+  A.state.elec.uplinks = {}; A.state.elec.uplinks[dim.id] = { to: q.id };   /* il cavo che tira l'utente */
+  A.__elecRes = null;
+  const R = A.elecResult(true);
+  eq((R.uplinks || []).length, 1, "il cavo dimmer -> quadro c'e'");
+  const quadro = (R.distros || []).filter((d) => d.it && d.it.id === q.id)[0];
+  eq(Math.round(quadro.loadW), 600, "il quadro vede la potenza delle luci attraverso il dimmer");
+});
+t("i canali del dimmer si contano come le prese di una ciabatta", () => {
+  reset();
+  const dim = add("dimmerluci", 850, 250);
+  eq(dim.prese, undefined, "il default non si scrive nello stato");
+  dim.prese = 24;
+  reset();
+  const d2 = A.normalizeState({ stage: { w: 1200, d: 800 },
+    items: [{ id: "i1", type: "dimmerluci", x: 100, y: 100, prese: 900 }] }).items[0];
+  ok(d2.prese <= 48, "un numero assurdo viene riportato nei limiti: " + d2.prese);
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

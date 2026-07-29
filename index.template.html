@@ -3350,7 +3350,7 @@ var WATT = {
   sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
   q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
   amprack:2500,
-  consolaluci:100, dimmerluci:3600, testamobile:350, parluci:150, sagomatore:400,
+  consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
   /* LUCE CONTINUA DA STUDIO/VIDEO: un solo numero non descrive una categoria che va da 60 a 600 W, quindi
      qui c'e' il TAGLIO PIU' DIFFUSO della famiglia + il rincaro di alimentatore e ventole (~10%), e si
@@ -5854,7 +5854,7 @@ function normalizeState(s){
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
     var _ldn=look2Dims(it); if(_ldn){ it.w=_ldn[0]; it.d=_ldn[1]; }   /* Fase 2 illustrato: footprint = illustrazione (anche progetti vecchi; se icons non pronte → __onIconsReady ricalcola) */
     if(it.type==="testo" && (+it.w||0)<=20){ it.w=200; it.d=70; }   /* 11/07: il testo libero è diventato un box (era un punto 10×10) */
-    if(it.type==="ciabatta" && it.prese!=null) it.prese=Math.max(1,Math.min(24,Math.round(it.prese)));   /* multipresa: nº ingressi */
+    if((it.type==="ciabatta"||it.type==="dimmerluci") && it.prese!=null) it.prese=Math.max(1,Math.min(48,Math.round(it.prese)));   /* prese della multipresa / canali del dimmer */
   });
   if(s.elec && s.elec.manual && typeof s.elec.manual==="object"){   /* F4: linea/connettore sanificati */
     Object.keys(s.elec.manual).forEach(function(k){ var m=s.elec.manual[k]; if(!m||typeof m!=="object") return;
@@ -8097,7 +8097,11 @@ var ELEC_VOLT=230;
    elettrico e monitor di palco non mancano: semplicemente non servono. */
 var AUDIT_MIN_CH=4;      /* canali audio: fino a 4 si va diretti al banco, senza stage box */
 var AUDIT_MIN_W=1000;    /* watt: sotto 1 kW non si tira un quadro, si usa la Schuko che c'è */
-var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"} };
+/* Il DIMMER RACK e' una destinazione, non un carico (Simone 29/07): i fari dimmerabili si
+   attaccano a lui e lui al quadro — prima era un carico da 3600 W fissi e i PAR gli passavano
+   accanto per andare dritti al quadro, che e' il contrario di come si cabla davvero.
+   32 A trifase e 12 canali sono la taglia tipica di un rack da 12 kW: si cambiano dal pannello. */
+var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"}, dimmerluci:{a:32,ph:3,name:"Dimmer"} };
 var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"],[250,"70 mm²"]];
 function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
@@ -8221,7 +8225,9 @@ function elecMarkup(){
   R.distros.forEach(function(d){
     if(d.auto) s+='<g class="elec-ghost"><rect x="'+(d.x-34)+'" y="'+(d.y-22)+'" width="68" height="44" rx="7"/><text x="'+d.x+'" y="'+(d.y+4)+'" text-anchor="middle">'+esc(d.name)+'</text></g>';
     var isCiab=d.it && d.it.type==="ciabatta";   /* multipresa: mostra prese occupate/disponibili, non kW/A */
-    var bt=isCiab ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||6)+' prese')
+    var isDim=d.it && d.it.type==="dimmerluci";   /* dimmer: canali occupati, non kW — e' cosi' che lo si legge */
+    var bt=isDim ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||12)+' canali')
+      : isCiab ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||6)+' prese')
                   : (d.letter+' · '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW · '+Math.max.apply(null,d.phLoad.slice(0,d.ph)).toFixed(0)+'/'+d.a+'A');
     var bw=Math.max(58,8+bt.length*4.6);
     s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-(d.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-(d.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
@@ -9861,9 +9867,13 @@ function renderProps(){
       document.getElementById("pZoneCount").textContent = micZoneSources(it).length + " sorgenti coperte";
       document.getElementById("pZoneRect").style.display = (it.pts && it.pts.length>=3) ? "" : "none";   /* torna a rettangolo solo se è un poligono custom */
     } }
-  var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
+  var mpw=document.getElementById("pPreseWrap");   /* multipresa: prese; dimmer: canali (stesso contatore, nome del mestiere) */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
+  if(mpw && it.type==="dimmerluci"){ mpw.style.display="block";
+    var _pl=mpw.querySelector("label"); if(_pl) _pl.textContent="Canali del dimmer";
+    document.getElementById("pPreseVal").textContent=(it.prese||12); }
+  else if(mpw && it.type==="ciabatta"){ var _pl2=mpw.querySelector("label"); if(_pl2) _pl2.textContent="Prese"; }
   var mnw=document.getElementById("pMountWrap");   /* INSTALLAZIONE: solo i campi della modalità scelta */
   if(mnw){ var canMnt=isMountable(it); mnw.style.display=canMnt?"block":"none";
     if(canMnt){
@@ -10250,7 +10260,9 @@ function lblText(raw, it, isPrimary){
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
-(function(){ function setPrese(d){ var it=getSel(); if(!it||it.type!=="ciabatta") return; it.prese=Math.max(1,Math.min(12,(it.prese||6)+d)); document.getElementById("pPreseVal").textContent=it.prese; save(); }
+(function(){ function setPrese(d){ var it=getSel(); if(!it||(it.type!=="ciabatta"&&it.type!=="dimmerluci")) return;
+  var dim=it.type==="dimmerluci", def=dim?12:6, max=dim?48:12;
+  it.prese=Math.max(1,Math.min(max,(it.prese||def)+d)); document.getElementById("pPreseVal").textContent=it.prese; __elecRes=null; save(); render(); }
   var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
