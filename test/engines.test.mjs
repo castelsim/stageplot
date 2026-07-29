@@ -4595,6 +4595,54 @@ t("la batteria: solo gli overhead sono una coppia, i mic ravvicinati no", () => 
   A.cabSetStandShared(dr.id + "#" + ov, true);
   eq(A.standNeeds().giraffa.tot, 2, "overhead su barra: hi-hat + una giraffa per la coppia, non due");
 });
+/* ---- Trascinamento: la coppia stereo si muove intera (Simone 29/07, decisione 4B) ----
+   L e R vanno tenute attaccate e in ordine: sul banco il link stereo si fa su una coppia
+   dispari-pari. Qui si prova la logica PURA — chi si muove con chi, e in che posto finisce —
+   senza toccare il DOM: il gesto e' provato dagli spec Playwright. */
+t("cabPairBlocks: la coppia stereo e' un blocco solo, i canali singoli no", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 900, 130); box.ch = 16; box.outCh = 8;
+  add("coppiast", 500, 300); add("astamic", 300, 400);
+  cabla();
+  const rows = A.patchList().rows;
+  const L = rows.find(r => r.name === "Stereo L"), R = rows.find(r => r.name === "Stereo R");
+  const solo = rows.find(r => /^Asta/.test(r.name));
+  const b = A.cabPairBlocks();
+  eq(b[L.key], [L.key, R.key], "prendendo la L si muove anche la R");
+  eq(b[R.key], [L.key, R.key], "e prendendo la R si muove la stessa coppia");
+  eq(b[solo.key], [solo.key], "un canale singolo si muove da solo");
+});
+t("cabPairBlocks: due righe gia' separate NON si ricongiungono da sole", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const box = add("stagebox", 900, 130); box.ch = 16; box.outCh = 8;
+  add("coppiast", 500, 300); add("astamic", 300, 400);
+  cabla();
+  const R = A.patchList().rows.find(r => r.name === "Stereo R");
+  A.cabSetChannelNo(R.key, 3);                        /* separate a mano: e' una scelta dell'utente */
+  const rows = A.patchList().rows;
+  ok(rows.findIndex(r => r.name === "Stereo R") - rows.findIndex(r => r.name === "Stereo L") > 1, "ora sono lontane");
+  const b = A.cabPairBlocks();
+  eq(b[R.key], [R.key], "si muove solo la riga presa: riunirle nessuno l'ha chiesto");
+});
+t("il posto e' quello della riga su cui lasci: stessa regola della casella del numero", () => {
+  const k = ["a", "b", "c", "d"];
+  eq(A._dragOrderWith(k, ["a"], "c"), ["b", "c", "a", "d"], "verso il basso: prende il posto (e il numero) di c");
+  eq(A._dragOrderWith(k, ["d"], "b"), ["a", "d", "b", "c"], "verso l'alto: stessa regola nel verso opposto");
+  eq(A._dragOrderWith(k, ["a"], "a"), k, "lasciata dov'era: non cambia niente");
+});
+t("un blocco arriva intero, e non si spacca nemmeno da fuori", () => {
+  const k = ["L", "R", "voce", "basso"];
+  const blocks = { L: ["L", "R"], R: ["L", "R"], voce: ["voce"], basso: ["basso"] };
+  eq(A._dragOrderWith(k, ["L", "R"], "voce", blocks), ["voce", "basso", "L", "R"],
+     "la coppia lasciata sul terzo canale ci arriva intera, L su dispari");
+  eq(A._dragOrderWith(k, ["L", "R"], "voce", blocks), A._dragOrderWith(k, ["L", "R"], "voce"),
+     "prendere la R o la L e' lo stesso gesto: il blocco e' uno");
+  eq(A._dragOrderWith(["voce", "L", "R", "basso"], ["basso"], "R", blocks), ["voce", "basso", "L", "R"],
+     "una riga estranea si ferma PRIMA della coppia invece di infilarsi fra L e R");
+  eq(A._dragOrderWith(["voce", "L", "R", "basso"], ["basso"], "R"), ["voce", "L", "basso", "R"],
+     "senza la mappa dei blocchi resterebbe la vecchia regola: la coppia si spaccherebbe");
+});
+
 t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", () => {
   const generati = new Set(Object.values(A.MIC_DEFAULTS).map(d => d.stand).filter(Boolean));
   generati.forEach(v => ok(A.standKindOf(Object.keys(A.MIC_DEFAULTS).find(k => A.MIC_DEFAULTS[k].stand === v)) !== undefined,
