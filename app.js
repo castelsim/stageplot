@@ -5023,10 +5023,21 @@ function itemMarkup(it){
      gonfiati e si stirerebbero. Lo stativo segue il corpo, non il softbox. */
   var _md=(typeof modBody==="function")?modBody(it):null;
   if(isMountable(it)) s += _md ? '<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+mountUnderSvg(_md.it)+'</g>' : mountUnderSvg(it);
+  /* lucchettino sull'elemento bloccato che non se lo disegna da sé: nell'angolo del suo ingombro,
+     stesso segno degli altri — così aggiungere un bloccabile non vuol dire riscriverne il disegno */
   var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(_md?_md.it:it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   if(_md) _drawn='<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+_drawn+'</g>';
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(_md) s += '<g transform="translate(0 '+_md.modY.toFixed(1)+')">'+modOverSvg(it)+'</g>';   /* il softbox davanti: simmetrico, non lo tocca lo specchio */
+  if(it.locked===true && isLockable(it) && !LOCK_GLYPH_SELF[it.type]){
+    /* La soglia di riserLockGlyph (70×50) nasce per le pedane piccole, dove il lucchetto finirebbe
+       addosso alla barra d'angolo. Su una BARRA — americana, truss: 200×30 — quella soglia lo
+       toglieva del tutto, e l'elemento bloccato non si distingueva da uno libero. Sulle barre il
+       glifo sta al centro dell'altezza, vicino al capo destro, dove c'è posto.
+       Va DOPO l'arte: messo prima, il disegno dell'elemento se lo mangiava. */
+    if(bh*2>=50) s += riserLockGlyph(bw, bh);
+    else if(bw*2>=44) s += lockGlyphAt(bw-11, 0);
+  }
   var _hm=headMicOf(it);
   if(_hm){   /* microfono voce del musicista: l'archetto si indossa, gli altri stanno davanti alla bocca */
     if(_hm==="archetto") s += '<g transform="translate(0,'+(-((it.d||60)/2)+14)+')">'+headMicGlyph()+'</g>';   /* sulla testa, appena dentro il bordo alto */
@@ -7773,9 +7784,19 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
 /* ELEMENTI CHE SI BLOCCANO (Simone 29/07): pedana, tappeto e forma sono i FONDI del disegno — ci si
    posa sopra il resto e si finisce per trascinarli per sbaglio mentre si prende quello che ci sta
    sopra. Il lucchetto è lo stesso per tutti e tre: stesso gesto, stesso segno, stesso effetto. */
-var LOCKABLE={ tappeto:1, forma:1, miczone:1, metro:1 };   /* il metro è una quota: una volta presa, si sposta solo per sbaglio */
+/* Si blocca ciò che sta SOTTO qualcos'altro (Simone 29/07: «tutti gli elementi che servono per
+   avere qualcosa sopra»): i piani d'appoggio — tavolo, podio, pedana coro, flight case — e le
+   strutture che portano i fari, dove il gesto sbagliato non sposta solo loro ma tutto il carico.
+   Il metro non regge niente ma è una quota: presa una volta, si muove solo per sbaglio. */
+var LOCKABLE={ tappeto:1, forma:1, miczone:1, metro:1,
+  tavolo:1, podio:1, pedanacoro:1, flightcase:1, americana:1, truss:1 };
+/* Chi il lucchettino se lo disegna dentro il proprio draw; per tutti gli altri lo mette renderItem. */
+var LOCK_GLYPH_SELF={ pedana:1, tappeto:1, forma:1, miczone:1, metro:1 };
 function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
-function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it&&it.type==="tappeto") ? "il tappeto" : (it&&it.type==="forma") ? "la forma" : (it&&it.type==="miczone") ? "la zona" : (it&&it.type==="metro") ? "il metro" : "l'elemento"; }
+var LOCK_NAMES={ tappeto:"il tappeto", forma:"la forma", miczone:"la zona", metro:"il metro",
+  tavolo:"il tavolo", podio:"il podio", pedanacoro:"la pedana", flightcase:"il flight case",
+  americana:"l\u2019americana", truss:"la truss" };
+function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it && LOCK_NAMES[it.type]) || "l\u2019elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
 function itemPickable(it){
   if(!it || it.rackId) return false;

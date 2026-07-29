@@ -2128,8 +2128,10 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
    attenuandola si confondeva col palco invece di dire «e' fissata». */
 .ic.riser-fixed{stroke-width:3.6}
 .rug.rug-fixed{stroke-width:3.6}   /* tappeto bloccato: stesso segno della pedana, tratteggio invariato */
-.riser-lock{fill:#1f2937;stroke:none;opacity:.82;pointer-events:none}
-.riser-lock .rl-arc{stroke:#1f2937;stroke-width:1.1;stroke-linecap:round;fill:none}
+.riser-lock{fill:#1f2937;stroke:#fff;stroke-width:1.4;paint-order:stroke;opacity:.82;pointer-events:none}
+/* alone bianco come sulle etichette (.lbl): su un flight case nero o su una truss scura il
+   lucchettino nero spariva nel fondo. Su fondo chiaro l'alone non si vede. */
+.riser-lock .rl-arc{stroke:#1f2937;stroke-width:1.1;stroke-linecap:round;fill:none;paint-order:stroke}
 body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0}
 
 /* ===== LUCI COME REPARTO (blocco A, 28/07) =========================================
