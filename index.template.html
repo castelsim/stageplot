@@ -16263,6 +16263,23 @@ function alignStereoOdd(rows){
   }
   return out;
 }
+/* LA COPPIA STEREO SI MUOVE INTERA (Simone 29/07, decisione 4B) ──────────────────────────────────
+   Una ripresa stereo è un solo oggetto sul palco: L e R vanno tenute attaccate e in quest'ordine,
+   perché sul banco il link stereo si fa su una coppia dispari-pari (`stereoOdd`/`alignStereoOdd`).
+   Prendendo una delle due righe si muove la coppia — tanto dalla L quanto dalla R.
+   SE LE DUE RIGHE ERANO GIÀ SEPARATE non si ricongiungono: chi le ha divise (col numero, o con una
+   riservata in mezzo) ha fatto una scelta, e riunirle vorrebbe dire spostare una riga che nessuno ha
+   preso in mano. Si muove quella sola; per riattaccarle basta il numero.
+   Riservati e spare restano fuori, come dall'ordine: qui si guarda la stessa sequenza che il
+   trascinamento riscrive, cioè `state.cab.order`. */
+function cabPairBlocks(){
+  var rows=patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }), m={};
+  for(var i=0;i<rows.length;i++){
+    if(isStereoPairStart(rows[i], rows[i+1])){ var b=[rows[i].key, rows[i+1].key]; m[b[0]]=b; m[b[1]]=b; i++; }
+    else m[rows[i].key]=[rows[i].key];
+  }
+  return m;
+}
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
   var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
@@ -16320,7 +16337,7 @@ function patchList(){
 /* ═══════════ CHANNEL LIST a schermo intero (variante C, Simone 28/07) ═══════════
    La lista completa — numero, sorgente, mic/DI, asta, 48V, patch — accanto a una miniatura del palco.
    Premendo una riga la sorgente si accende sulla miniatura; il numero si digita e le altre scalano. */
-var clOpen=false, clSel=null;
+var clOpen=false, clSel=null, clNumT=null;
 function clFmtSum(pl){
   var righe=pl.rows.filter(function(r){ return !r.reserved && !r.spare; });
   var ph=righe.filter(function(r){ return r.p48; }).length;
@@ -16395,7 +16412,8 @@ function clRender(){
       return;
     }
     var num=(pl.hasFoh&&r.foh)?r.foh:r.n;
-    h+='<tr class="cl-row'+(clSel===r.key?" sel":"")+(r.box?"":" libero")+'" data-k="'+esc(r.key)+'" data-rk="'+esc(r.key)+'" draggable="true">'
+    /* niente draggable="true": il riordino è a pointer events (v. enableRowDrag) */
+    h+='<tr class="cl-row'+(clSel===r.key?" sel":"")+(r.box?"":" libero")+'" data-k="'+esc(r.key)+'" data-rk="'+esc(r.key)+'">'
      + '<td class="cl-grip" title="Trascina per riordinare">\u283f</td>'
      + '<td class="cl-num"><input class="cl-numin" type="number" min="1" max="'+pl.rows.length+'" value="'+num+'" data-num="'+esc(r.key)+'" aria-label="Numero del canale '+esc(r.name)+'"></td>'
      + '<td class="cl-src"><button type="button" class="cl-name" data-go="'+esc(r.itemId||"")+'" title="Premi: la sorgente si accende sul palco">'+esc(r.name)+'</button>'
@@ -16405,15 +16423,25 @@ function clRender(){
      +   mics.map(function(m){ return '<option'+(m===r.mic?" selected":"")+'>'+esc(m)+'</option>'; }).join("")
      +   ((r.mic && mics.indexOf(r.mic)<0)?('<option selected>'+esc(r.mic)+'</option>'):'')
      + '</select></td>'
-     /* ASTA \u2014 sulla SECONDA riga di una coppia stereo la tendina guadagna in cima \u00abstessa asta\u00bb:
-        una ripresa stereo sta su una barra, cio\u00e8 su un'asta sola, e il rider non deve chiederne due.
-        \u00c8 la stessa colonna, non un secondo comando da cercare altrove. */
-     + '<td><select class="cl-cell'+(r.standShared?" pair":(r.standAuto?" auto":""))+'" data-stand="'+esc(r.key)+'" aria-label="Asta"'
-     +   (r.stereoPair?' title="Coppia stereo: su una barra i due canali stanno su una sola asta"':'')+'>'
-     +   (r.stereoPair?('<option value="__pair"'+(r.standShared?" selected":"")+'>\u21b3 stessa asta</option>'):'')
-     +   '<option value="__auto"'+((!r.standShared&&r.standAuto)?" selected":"")+'>'+(r.stand?esc(r.stand)+" (dal mic)":"\u2014")+'</option>'
-     +   STAND_SUGGEST.map(function(a){ return '<option'+((!r.standShared&&!r.standAuto&&a===r.stand)?" selected":"")+'>'+esc(a)+'</option>'; }).join("")
-     + '</select></td>'
+     /* ASTA \u2014 una ripresa stereo sta su una barra, cio\u00e8 su un'asta sola, e il rider non deve
+        chiederne due. Dove il canale la condivide la cella non \u00e8 una tendina ma il DATO SCRITTO
+        (\u00ab\u21b3 stessa asta\u00bb) con accanto \u00abcambia\u00bb, che restituisce la tendina normale: la riga resta
+        pulita e il comando compare solo a chi serve (Simone 29/07, variante 1D).
+        Finch\u00e9 non condivide, la seconda riga della coppia ha \u00abstessa asta\u00bb in cima alla tendina:
+        \u00e8 la stessa colonna, non un secondo comando da cercare altrove. */
+     + '<td class="cl-stand">'+(r.standShared
+       ? ('<span class="cl-shared" title="Coppia stereo: su una barra i due canali stanno su una sola asta">'
+         +   '<span class="cl-shared-t">\u21b3 stessa asta</span>'
+         +   '<button type="button" class="cl-shared-x" data-unshare="'+esc(r.key)+'" '
+         +     'title="Dai a questo canale un\'asta sua" aria-label="Cambia: dai un\'asta sua a '+esc(r.name)+'">cambia</button>'
+         + '</span>')
+       : ('<select class="cl-cell'+(r.standAuto?" auto":"")+'" data-stand="'+esc(r.key)+'" aria-label="Asta"'
+         +   (r.stereoPair?' title="Coppia stereo: su una barra i due canali stanno su una sola asta"':'')+'>'
+         +   (r.stereoPair?'<option value="__pair">\u21b3 stessa asta</option>':'')
+         +   '<option value="__auto"'+(r.standAuto?" selected":"")+'>'+(r.stand?esc(r.stand)+" (dal mic)":"\u2014")+'</option>'
+         +   STAND_SUGGEST.map(function(a){ return '<option'+((!r.standAuto&&a===r.stand)?" selected":"")+'>'+esc(a)+'</option>'; }).join("")
+         + '</select>'))
+     + '</td>'
      + '<td class="cl-48"><label class="cl-sw"><input type="checkbox" data-p48="'+esc(r.key)+'"'+(r.p48?" checked":"")+' aria-label="Phantom 48V"><span></span></label></td>'
      + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
      + '<td class="cl-act">'+(r.box
@@ -16423,13 +16451,35 @@ function clRender(){
   });
   h+='</tbody>';
   tb.innerHTML=h;
-  /* Trascinamento della riga: al RILASCIO la posizione cambia e i numeri si rinumerano (1…N), come
-     digitando nella casella — è lo stesso ordine, `state.cab.order`, mosso con un altro gesto.
+  tb.setAttribute("data-foh", pl.hasFoh?"1":"0");   /* col numero FOH la colonna non segue la posizione: v. clDragRenumber */
+  /* Trascinamento della riga CON ANTEPRIMA VIVA (2C): mentre trascini la riga si sposta davvero, le
+     altre scalano e i numeri seguono; al rilascio si scrive `state.cab.order` — lo stesso ordine che
+     muove la casella del numero, con un altro gesto. Se annulli non è cambiato niente.
      Riservati e spare non hanno data-rk: non si trascinano e non entrano nell'ordine, perché il loro
      senso è tenere la porta. La quarta richiamata ridisegna QUESTA finestra: render() non la tocca. */
   if(typeof enableRowDrag==="function") enableRowDrag(tb, function(){
     return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; });
-  }, function(o){ state.cab.order=o; }, clRender);
+  }, function(o){ state.cab.order=o; }, clRender,
+  { blocksFn:cabPairBlocks, onPreview:clDragRenumber,
+    /* il numero che si sta digitando si applica dopo una pausa: se nel frattempo parte un
+       trascinamento quel colpo in canna va scaricato, o ridisegnerebbe la tabella a metà gesto */
+    onStart:function(){ if(clNumT){ clearTimeout(clNumT); clNumT=null; } } });
+}
+/* I NUMERI DURANTE L'ANTEPRIMA (2C). Provate le due strade nel browser: a numeri fermi la colonna
+   resta indietro rispetto alle righe (trascinando la 1 in fondo si legge 2,3,4,1) e la lista sembra
+   rotta a metà gesto; aggiornandoli la colonna è sempre 1…N e la riga in mano mostra GIÀ il numero
+   che prenderà — che è il senso del gesto («prende il posto e il numero»). Vincono i numeri vivi:
+   il difetto della variante (i numeri che si muovono) è quello che rende leggibile il risultato.
+   Col numero FOH non si tocca nulla: lì il numero è quello fisico del banco, non la posizione. */
+function clDragRenumber(host){
+  if(!host || host.getAttribute("data-foh")==="1") return;
+  var n=0;
+  [].forEach.call(host.querySelectorAll("tbody tr.cl-row"), function(tr){
+    n++;
+    var inp=tr.querySelector(".cl-numin");
+    if(inp){ inp.value=n; return; }
+    var td=tr.querySelector("td.cl-num"); if(td) td.textContent=n;   /* riservati e spare occupano un numero anche loro */
+  });
 }
 function clShow(v){
   clOpen=(v!==false);
@@ -16566,33 +16616,162 @@ function startInlineRename(el, cur, cb){
 }
 function _rowBtn(html, title, cls, fn){ var b=document.createElement("button"); b.type="button"; b.className=cls; b.title=title; b.innerHTML=html; b.addEventListener("click", function(e){ e.stopPropagation(); fn(); }); return b; }
 /* cells = HTML per riga; ids = elementi da selezionare; onDelete = azione cestino; onMove(dir) = su/giù; onRename(v) = rinomina (doppio click sul nome) */
-/* drag-to-reorder delle liste tecniche (Simone 08/07): prendi la riga e trascinala.
-   Le frecce ▲▼ restano come alternativa. */
-var _dragRK=null;
-function enableRowDrag(host, keysFn, setOrder, onDone){
+/* RIORDINO DELLE RIGHE A TRASCINAMENTO (Simone 08/07, rifatto il 29/07) ---------------------------
+   ANTEPRIMA VIVA (variante 2C): mentre trascini la riga SI SPOSTA DAVVERO e le altre scalano — si
+   vede la lista finita prima di lasciare, invece di uno slot acceso da interpretare.
+   Finché non rilasci è SOLO GRAFICA: `state.cab.order` non viene toccato. Se annulli (Esc, o
+   rilasci fuori dalla lista) le righe tornano dov'erano e nel progetto non è cambiato niente.
+   LA REGOLA È UNA SOLA, e l'anteprima la mostra: la riga PRENDE IL POSTO di quella su cui la lasci,
+   come la casella del numero («se cambio la 3 in 1, le altre scalano»). Nessun mezzo confine da
+   indovinare: basta essere sopra una riga, non sopra una sua metà.
+
+   PERCHÉ NON PIÙ IL DRAG&DROP NATIVO (draggable="true"). Provato e misurato: se durante un
+   `dragover` la pagina cambia quello che sta sotto il puntatore — ed è esattamente ciò che fa
+   l'anteprima viva — Chromium perde il bersaglio e al rilascio NON manda più `drop`, ma solo un
+   `dragend` identico a quello dell'annullamento (stesso dropEffect, stesse coordinate). Cioè: o
+   l'anteprima, o la differenza fra «lascio qui» e «annullo». Col puntatore (pointer events) il gesto
+   lo governiamo noi: rilascio = conferma, Esc = annulla, e il tasto premuto non ci sfugge.
+   Col dito resta com'era: il riordino parte solo da mouse o penna (il drag&drop nativo su touch non
+   è mai partito, e una lista che si riordina mentre la si scorre sarebbe peggio del male).
+
+   opts.blocksFn() -> mappa chiave->righe che si muovono INSIEME (la coppia stereo, decisione 4B).
+   opts.onPreview(host) -> chi ha i numeri di canale li ridisegna a ogni passo (la channel list).
+   opts.onStart() -> l'attimo in cui il gesto comincia (serve a spegnere timer di altre modifiche). */
+var _dragCtx=null;
+function _rkMap(host){ var m={}; [].forEach.call(host.querySelectorAll("[data-rk]"), function(el){ if(m[el.dataset.rk]==null) m[el.dataset.rk]=el; }); return m; }
+/* dov'erano le righe prima del gesto: per rimetterle ESATTAMENTE lì se il gesto si annulla */
+function _dragSnap(els){ return els.map(function(el){ return {el:el, par:el.parentNode, ref:el.nextSibling}; }); }
+function _dragUndo(snap){ for(var i=snap.length-1;i>=0;i--){ var s=snap[i]; if(s.par) s.par.insertBefore(s.el, s.ref); } }
+/* l'ordine che si avrebbe lasciando il blocco sulla riga `tgt`: il posto è quello che il bersaglio
+   occupa ORA (indice calcolato prima di togliere il blocco), così un canale singolo prende esattamente
+   il numero della riga toccata e una coppia ci arriva con la sua gemella appresso. È lo stesso conto
+   di cabSetChannelNo: un ordine solo, due modi di muoverlo. */
+function _dragOrderWith(keys, block, tgt, blocks){
+  var at=keys.indexOf(tgt); if(at<0) return null;
+  var rest=keys.filter(function(k){ return block.indexOf(k)<0; });
+  at=Math.max(0, Math.min(at, rest.length));
+  /* UN BLOCCO NON SI SPACCA NEMMENO DA FUORI: se il posto cadrebbe in mezzo a una coppia stereo, la
+     riga si ferma PRIMA della coppia e la coppia scala intera. Una L su 3 e la sua R su 5 non
+     esistono al banco, e sarebbe l'unico modo di ottenerle senza chiederlo. */
+  while(blocks && at>0 && at<rest.length){
+    var b=blocks[rest[at]];
+    if(b && b.length>1 && b.indexOf(rest[at])>0 && b.indexOf(rest[at-1])>=0) at--; else break;
+  }
+  return rest.slice(0,at).concat(block, rest.slice(at));
+}
+function _dragApply(c, next){
+  if(!next || next.join("\n")===c.order.join("\n")) return;   /* è già così: niente sfarfallio */
+  c.order=next; c.moved=true;
+  var map=_rkMap(c.host), first=map[c.block[0]]; if(!first) return;
+  var after=next[next.indexOf(c.block[0])+c.block.length], ref=(after!=null)?map[after]:null, par=first.parentNode;
+  c.block.forEach(function(k){ var el=map[k]; if(el) par.insertBefore(el, ref||null); });
+  if(c.opts.onPreview) c.opts.onPreview(c.host);
+}
+function _dragPreview(c, tgt){ _dragApply(c, _dragOrderWith(c.keys, c.block, tgt, c.blocks)); }
+/* la riga sotto il puntatore, se è di QUESTA lista */
+function _dragRowAt(c, x, y){
+  var el=document.elementFromPoint(x, y); if(!el || !el.closest) return null;
+  var row=el.closest("[data-rk]");
+  return (row && c.host.contains(row)) ? row : null;
+}
+/* liste lunghe: avvicinandosi al bordo il contenitore scorre da solo (col drag&drop nativo lo faceva
+   il browser; qui il gesto è nostro e lo scorrimento va rifatto, se no oltre lo schermo non si va) */
+function _dragScroller(el){
+  for(var n=el; n && n!==document.body; n=n.parentNode){
+    if(n.scrollHeight-n.clientHeight>4){ var ov=(getComputedStyle(n).overflowY||""); if(ov==="auto"||ov==="scroll") return n; }
+  }
+  return null;
+}
+function _dragAutoScroll(c, y){
+  var s=c.scroller; if(!s) return;
+  var r=s.getBoundingClientRect(), m=40;
+  if(y<r.top+m) s.scrollTop-=Math.max(6, (r.top+m-y)/2);
+  else if(y>r.bottom-m) s.scrollTop+=Math.max(6, (y-(r.bottom-m))/2);
+}
+function _dragBegin(c){
+  var keys=c.keysFn().slice(), map=_rkMap(c.host);
+  if(keys.indexOf(c.rk)<0) return false;
+  var blocks=(c.opts.blocksFn?c.opts.blocksFn():null)||null;   /* una volta sola, a inizio gesto: non a ogni movimento */
+  var block=(blocks&&blocks[c.rk])||[c.rk];
+  /* un blocco vale solo se è tutto qui e tutto nell'ordine: nel dubbio si muove la riga presa */
+  if(block.indexOf(c.rk)<0 || block.some(function(k){ return keys.indexOf(k)<0 || !map[k]; })) block=[c.rk];
+  var els=block.map(function(k){ return map[k]; });
+  c.keys=keys; c.order=keys.slice(); c.block=block; c.blocks=blocks; c.snap=_dragSnap(els); c.moved=false; c.live=true;
+  c.scroller=_dragScroller(c.host);
+  els.forEach(function(el){ el.classList.add("rowdragging","rowdrop"); });
+  document.body.classList.add("rowdrag");
+  /* i primi 4 px prima della soglia possono aver iniziato una selezione di testo: sgombrarla, se no
+     il browser ci disegna sopra il suo trascinamento di testo e il gesto diventa due gesti */
+  try{ var sl=window.getSelection(); if(sl && sl.removeAllRanges) sl.removeAllRanges(); }catch(_){}
+  if(c.opts.onStart) c.opts.onStart();
+  return true;
+}
+function _dragFinish(c, conferma){
+  document.removeEventListener("pointermove", _dragMove, true);
+  document.removeEventListener("pointerup", _dragUp, true);
+  document.removeEventListener("pointercancel", _dragStop, true);
+  document.removeEventListener("keydown", _dragKey, true);
+  _dragCtx=null;
+  if(!c.live) return;
+  document.body.classList.remove("rowdrag");
+  [].forEach.call(c.host.querySelectorAll(".rowdragging,.rowdrop"), function(el){ el.classList.remove("rowdragging","rowdrop"); });
+  var cambiato=conferma && (c.order.join("\n")!==c.keys.join("\n"));
+  if(!cambiato){
+    if(c.moved){ _dragUndo(c.snap); if(c.opts.onPreview) c.opts.onPreview(c.host); }   /* annullato: la lista torna com'era */
+    return;
+  }
+  c.setOrder(c.order.slice()); save(); render();
+  /* AL RILASCIO LA LISTA SI RIDISEGNA dal modello. La channel list vive in una finestra che render()
+     non tocca: senza questa richiamata la riga restava dov'era, col vecchio numero, finché non si
+     toccava qualcos'altro — il trascinamento sembrava non funzionare. Chi ha una vista propria la
+     passa qui; le liste in colonna, che render() ridisegna da sé, non passano nulla. */
+  if(typeof c.onDone==="function") c.onDone();
+}
+function _dragMove(e){
+  var c=_dragCtx; if(!c) return;
+  if(!c.live){
+    if(Math.abs(e.clientX-c.x0)+Math.abs(e.clientY-c.y0)<4) return;   /* una mano ferma non trascina: prima la soglia */
+    if(!_dragBegin(c)){ _dragFinish(c, false); return; }
+  }
+  e.preventDefault();
+  _dragAutoScroll(c, e.clientY);
+  /* PORTATA FUORI DALLA LISTA = niente. L'anteprima torna com'era e il rilascio non scrive: quello
+     che si vede è sempre quello che si avrà, anche quando la risposta è «non succede nulla». */
+  var r=c.host.getBoundingClientRect();
+  c.out=(e.clientX<r.left-4 || e.clientX>r.right+4 || e.clientY<r.top-4 || e.clientY>r.bottom+4);
+  if(c.out){ _dragApply(c, c.keys.slice()); return; }
+  var row=_dragRowAt(c, e.clientX, e.clientY);
+  if(row && c.block.indexOf(row.dataset.rk)<0) _dragPreview(c, row.dataset.rk);
+}
+function _dragUp(e){
+  var c=_dragCtx; if(!c) return;
+  var live=c.live;
+  _dragFinish(c, true);
+  if(!live) return;
+  /* dopo un trascinamento vero il rilascio non deve valere ANCHE come click sulla riga (che
+     accenderebbe la sorgente sul palco o aprirebbe una rinomina) */
+  e.preventDefault();
+  var mangia=function(ev){ ev.preventDefault(); ev.stopPropagation(); };
+  document.addEventListener("click", mangia, true);
+  setTimeout(function(){ document.removeEventListener("click", mangia, true); }, 0);
+}
+function _dragStop(){ var c=_dragCtx; if(c) _dragFinish(c, false); }
+function _dragKey(e){ if(e.key!=="Escape") return; var c=_dragCtx; if(!c) return; e.preventDefault(); e.stopPropagation(); _dragFinish(c, false); }
+function enableRowDrag(host, keysFn, setOrder, onDone, opts){
+  opts=opts||{};
   /* .patch-lite = riga dell'anteprima Input (28/07), .patch-row = Monitor list e channel list */
   [].forEach.call(host.querySelectorAll("[data-rk]"), function(row){
-    row.addEventListener("dragstart", function(e){ _dragRK=row.dataset.rk; row.classList.add("rowdragging"); e.dataTransfer.effectAllowed="move"; try{ e.dataTransfer.setData("text/plain", _dragRK); }catch(_){} });
-    row.addEventListener("dragend", function(){ _dragRK=null; [].forEach.call(host.querySelectorAll(".rowdragging,.rowdrop"), function(el){ el.classList.remove("rowdragging","rowdrop"); }); });
-    row.addEventListener("dragover", function(e){ if(_dragRK==null || row.dataset.rk===_dragRK) return; e.preventDefault(); e.dataTransfer.dropEffect="move"; row.classList.add("rowdrop"); });
-    row.addEventListener("dragleave", function(){ row.classList.remove("rowdrop"); });
-    row.addEventListener("drop", function(e){ e.preventDefault(); var tgt=row.dataset.rk; row.classList.remove("rowdrop");
-      if(_dragRK==null || _dragRK===tgt){ _dragRK=null; return; }
-      var keys=keysFn().slice(), from=keys.indexOf(_dragRK), to=keys.indexOf(tgt);
-      if(from<0){ _dragRK=null; return; }
-      if(to<0) to=keys.length-1;
-      /* LA RIGA PRENDE IL POSTO DI QUELLA SU CUI LA LASCI (Simone 29/07) — cioè esattamente quello
-         che fa la casella del numero: «se cambio la 3 in 1, le altre scalano». Prima si inseriva
-         SEMPRE prima del bersaglio: trascinando verso il basso la riga si fermava un posto più su di
-         dove la si vedeva cadere (la portavi sul canale 3 e diventava il 2). Un'unica regola, uguale
-         nei due versi, senza mezze righe da indovinare: niente confini invisibili. */
-      keys.splice(from,1); keys.splice(to,0,_dragRK);
-      setOrder(keys); _dragRK=null; save(); render();
-      /* AL RILASCIO LA LISTA SI RIDISEGNA. La channel list vive in una finestra che render() non
-         tocca: senza questa richiamata la riga restava dov'era, col vecchio numero, finché non si
-         toccava qualcos'altro — il trascinamento sembrava non funzionare. Chi ha una vista propria la
-         passa qui; le liste in colonna, che render() ridisegna da sé, non passano nulla. */
-      if(typeof onDone==="function") onDone();
+    row.addEventListener("pointerdown", function(e){
+      if(e.button!==0) return;
+      if(e.pointerType && e.pointerType!=="mouse" && e.pointerType!=="pen") return;   /* col dito la lista scorre, come prima */
+      if(e.target.closest("input,select,textarea,button,a,label")) return;            /* i controlli della riga restano controlli */
+      if(_dragCtx) _dragFinish(_dragCtx, false);
+      _dragCtx={host:host, row:row, rk:row.dataset.rk, x0:e.clientX, y0:e.clientY, live:false,
+                opts:opts, keysFn:keysFn, setOrder:setOrder, onDone:onDone};
+      document.addEventListener("pointermove", _dragMove, true);
+      document.addEventListener("pointerup", _dragUp, true);
+      document.addEventListener("pointercancel", _dragStop, true);
+      document.addEventListener("keydown", _dragKey, true);
     });
   });
 }
@@ -16612,7 +16791,7 @@ function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dra
   opts=opts||{};
   var row=document.createElement("div"); row.className="patch-row editable"+(sels?" rowsel":"");
   row.innerHTML=cells.join("");
-  if(dragKey!=null){ row.dataset.rk=dragKey; row.setAttribute("draggable","true"); }   /* riordino rapido a trascinamento */
+  if(dragKey!=null){ row.dataset.rk=dragKey; }   /* riordino rapido a trascinamento (pointer events: v. enableRowDrag) */
   if(onRename){ var nameEl=row.querySelector(".psrc"); if(nameEl){ nameEl.classList.add("renamable");
     if(opts.flashOnName){
       /* Input list (Simone 28/07): premere il nome ACCENDE la sorgente sul palco e basta — la lista
@@ -16719,7 +16898,7 @@ function renderPatchPanel(){
     row.className="patch-lite"+(r.box?"":" unassigned")+(r.micOff?" micoff":"");
     var _mm=(state.cab&&state.cab.manual)||{}, _mk=_mm[key];
     if(r.box && _mk && _mk.box && !_mk.auto) row.classList.add("cab-man");   /* scelto a mano: non lo tocca l'auto */
-    row.dataset.rk=key; row.setAttribute("draggable","true");
+    row.dataset.rk=key;   /* riordino a pointer events: v. enableRowDrag */
     row.innerHTML='<span class="pn">'+num+'</span>'
       + '<span class="psrc" title="'+esc(r.name)+(r.mic?(" \u00b7 "+esc(r.mic)):"")+(r.p48?" \u00b7 48V":"")+'">'+esc(r.name)+'</span>'
       + '<span class="ppatch">'+(r.pinned?"\ud83d\udccc ":"")+(r.box?esc(r.patch):'<span class="nopatch">\u2014</span>')+'</span>'
@@ -16767,7 +16946,8 @@ function renderPatchPanel(){
   /* stesso ordine della channel list, quindi stesso filtro: riservati e spare NON entrano nell'ordine
      manuale (tengono la porta, non un posto in lista). Senza il filtro un trascinamento qui scriveva
      in state.cab.order chiavi "res:…" e dei null — voci morte salvate dentro il progetto. */
-  enableRowDrag(host, function(){ return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; }); }, function(o){ state.cab.order=o; });
+  enableRowDrag(host, function(){ return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; }); },
+    function(o){ state.cab.order=o; }, null, { blocksFn:cabPairBlocks });   /* stesso ordine, stessa regola sulle coppie stereo */
 }
 function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
   patchActive=!patchActive;
@@ -16816,15 +16996,22 @@ function techScrollTo(id){
         showToast(n2>1 ? (n2+" canali scollegati") : "Canale scollegato"); return; }
       var fr=e.target.closest(".cl-free");
       if(fr){ cabFreePort(fr.getAttribute("data-free"), +fr.getAttribute("data-port")); clRender(); return; }
+      /* «cambia» (1D): questo canale esce dalla barra e torna a scegliersi l'asta. La cella ridiventa
+         la tendina di tutte le altre — e il fuoco ci va sopra, se no chi lavora da tastiera lo perde. */
+      var cb=e.target.closest("[data-unshare]");
+      if(cb){ var ck=cb.getAttribute("data-unshare");
+        cabSetStandShared(ck, false); clRender();
+        var sl=_clDlg.querySelector('[data-stand="'+(window.CSS&&CSS.escape?CSS.escape(ck):ck)+'"]');
+        if(sl) sl.focus();
+        return; }
     });
     /* IL NUMERO SI APPLICA MENTRE LO SCRIVI (Simone 29/07). Prima l'unico evento era «change», che su
        una casella numerica scatta al blur: si digitava 1 sul canale 3 e la lista restava ferma, con
        due righe che dicevano «1», finché non si cliccava altrove. Ora si applica anche digitando,
        dopo una breve pausa — il tempo di scrivere «12» senza che al primo tasto la riga voli in cima —
        e il fuoco torna sulla casella del canale spostato, che nel frattempo ha cambiato posto. */
-    var _clNumT=null;
     function clApplyNum(key, val, refocus){
-      if(_clNumT){ clearTimeout(_clNumT); _clNumT=null; }
+      if(clNumT){ clearTimeout(clNumT); clNumT=null; }
       if(!cabSetChannelNo(key, val)){ clRender(); return; }
       clRender();
       if(!refocus) return;
@@ -16836,8 +17023,8 @@ function techScrollTo(id){
       if(!t.classList || !t.classList.contains("cl-numin")) return;
       var key=t.getAttribute("data-num"), val=t.value;
       if(val==="") return;                       /* casella svuotata per riscrivere: si aspetta */
-      if(_clNumT) clearTimeout(_clNumT);
-      _clNumT=setTimeout(function(){ _clNumT=null; clApplyNum(key, val, true); }, 320);
+      if(clNumT) clearTimeout(clNumT);
+      clNumT=setTimeout(function(){ clNumT=null; clApplyNum(key, val, true); }, 320);
     });
     _clDlg.addEventListener("change", function(e){
       var t2=e.target;
