@@ -4239,15 +4239,63 @@ t("il comando ribalta l'arte e torna indietro", () => {
   A.mirrorSel();
   eq(q.mir, undefined, "e si torna com'era, senza lasciare tracce nello stato");
 });
-t("in selezione mista si allineano tutti, non si alternano", () => {
+t("con piu' elementi si specchia la DISPOSIZIONE, non solo le icone", () => {
+  reset();
+  const a = add("quinta", 200, 300), b = add("wedge", 800, 300), c = add("sedia", 500, 400);
+  c.rot = 30;
+  A.clearSelection(); [a, b, c].forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; });
+  const cx = (Math.min(a.x - a.w / 2, b.x - b.w / 2, c.x - c.w / 2) + Math.max(a.x + a.w / 2, b.x + b.w / 2, c.x + c.w / 2)) / 2;
+  A.mirrorSel();
+  eq(a.x, Math.round(2 * cx - 200), "chi stava a sinistra passa a destra");
+  eq(b.x, Math.round(2 * cx - 800), "e viceversa");
+  eq(c.y, 400, "la profondita' non si tocca: e' uno specchio sinistra/destra");
+  eq(c.rot, 330, "le rotazioni si ribaltano con la disposizione");
+  eq(a.mir, true, "e ogni icona si ribalta a sua volta");
+  A.mirrorSel();
+  eq([a.x, b.x, c.rot].join(","), [200, 800, 30].join(","), "un secondo specchio riporta tutto com'era");
+  eq(a.mir, undefined, "icone comprese");
+});
+t("nel blocco specchiato il testo si sposta ma non si scrive al contrario", () => {
+  reset();
+  const q = add("quinta", 200, 300), t2 = add("testo", 700, 300);
+  A.clearSelection(); [q, t2].forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; });
+  A.mirrorSel();
+  ok(t2.x < 700, "il testo ha cambiato lato");
+  eq(t2.mir, undefined, "ma non e' ribaltato: si leggerebbe allo specchio");
+  eq(q.mir, true, "la quinta invece si ribalta");
+});
+t("una zona di microfonazione poligonale si specchia con i suoi vertici", () => {
+  reset();
+  const z = add("miczone", 400, 300);
+  z.pts = [[-100, -60], [120, -40], [80, 70], [-90, 50]];
+  const alt = add("quinta", 800, 300);
+  A.clearSelection(); [z, alt].forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; });
+  A.mirrorSel();
+  eq(z.pts[0][0], 100, "i vertici vivono nel frame della zona: si ribaltano anche loro");
+  eq(z.pts[0][1], -60, "in profondita' restano dov'erano");
+});
+t("il lucchetto tiene fermo anche lo specchio del blocco", () => {
+  reset();
+  const a = add("quinta", 200, 300), tap = add("tappeto", 600, 300), b = add("quinta", 900, 300);
+  tap.locked = true;
+  const x0 = tap.x;
+  A.clearSelection(); [a, tap, b].forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; });
+  A.mirrorSel();
+  eq(tap.x, x0, "il tappeto bloccato non si sposta");
+  ok(a.x !== 200, "gli altri si specchiano lo stesso");
+});
+t("lo specchio del blocco e' un'operazione simmetrica: due colpi e si torna", () => {
   reset();
   const a = add("quinta", 300, 300), b = add("quinta", 500, 300), c = add("scala", 700, 300);
-  a.mir = true;
+  a.mir = true;   /* uno era gia' ribaltato: riflettendolo torna dritto, com'e' giusto in uno specchio */
   A.clearSelection(); [a, b, c].forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; });
+  const x0 = [a.x, b.x, c.x].join(",");
   A.mirrorSel();
-  eq([a, b, c].filter((it) => it.mir === true).length, 3, "un colpo solo: tutti specchiati");
+  eq(a.mir, undefined, "chi era specchiato torna dritto");
+  eq([b, c].filter((it) => it.mir === true).length, 2, "e gli altri si ribaltano");
   A.mirrorSel();
-  eq([a, b, c].filter((it) => it.mir === true).length, 0, "e un altro colpo li riporta tutti indietro");
+  eq([a.x, b.x, c.x].join(","), x0, "due specchi = tutto com'era");
+  eq(a.mir, true, "stato delle icone compreso");
 });
 t("l'elemento specchiato lo dice nel disegno", () => {
   reset();
