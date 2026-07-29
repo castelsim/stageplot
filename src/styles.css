@@ -468,7 +468,9 @@
   body.dark .elec-endpt{stroke:#fbbf24;fill:#0e1214}
   .patch-row[data-rk]{cursor:grab}
   .patch-row.rowdragging{opacity:.45}
-  .patch-row.rowdrop{box-shadow:inset 0 2px 0 0 var(--accent)}
+  /* il segno marca il POSTO che la riga trascinata andrà a prendere (sopra e sotto), non un bordo:
+     lasciandola qui prende questo numero — la stessa cosa che fa la casella del numero */
+  .patch-row.rowdrop{box-shadow:inset 0 2px 0 0 var(--accent),inset 0 -2px 0 0 var(--accent);background:var(--accent-tint)}
   .cat-more{display:block;width:calc(100% - 12px);margin:4px 6px 6px;padding:7px 0;font-size:12px;font-weight:600;color:var(--accent);background:none;border:0;cursor:pointer;text-align:left}
   .cat-more:hover{text-decoration:underline}
   .cat-rest{display:none}
@@ -886,7 +888,7 @@
   .patch-lite:hover{background:var(--accent-tint)}
   .patch-lite[data-rk]{cursor:grab}
   .patch-lite.rowdragging{opacity:.45}
-  .patch-lite.rowdrop{box-shadow:inset 0 2px 0 0 var(--accent)}
+  .patch-lite.rowdrop{box-shadow:inset 0 2px 0 0 var(--accent),inset 0 -2px 0 0 var(--accent);background:var(--accent-tint)}
   .patch-lite>.pn{font-weight:700;color:var(--accent-strong);text-align:right;font-variant-numeric:tabular-nums}
   .patch-lite>.psrc{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .patch-lite>.psrc.renamable{cursor:pointer}
@@ -1224,9 +1226,13 @@
   .cl-table tr.cl-row.sel td{background:var(--accent-tint)}
   .cl-table tr.cl-row.sel td:first-child{box-shadow:inset 3px 0 0 var(--accent)}   /* una barretta sola, a sinistra della riga */
   .cl-table tr.rowdragging{opacity:.45}
-  .cl-table tr.rowdrop td{box-shadow:inset 0 2px 0 0 var(--accent)}
-  .cl-table tr.cl-row.sel.rowdrop td:first-child{box-shadow:inset 3px 0 0 var(--accent),inset 0 2px 0 0 var(--accent)}
+  /* il segno marca il POSTO che la riga trascinata andrà a prendere: lasciandola qui prende questo numero */
+  .cl-table tr.rowdrop td{background:var(--accent-tint);box-shadow:inset 0 2px 0 0 var(--accent),inset 0 -2px 0 0 var(--accent)}
+  .cl-table tr.cl-row.sel.rowdrop td:first-child{box-shadow:inset 3px 0 0 var(--accent),inset 0 2px 0 0 var(--accent),inset 0 -2px 0 0 var(--accent)}
   .cl-grip{width:26px;color:var(--text-3);cursor:grab;user-select:none;text-align:center}
+  .cl-table tr.cl-row:active .cl-grip{cursor:grabbing}
+  /* «una sola asta» per la coppia stereo: la seconda riga non ripete l'asta, dice che è la stessa */
+  .cl-cell.pair{color:var(--text-2);font-style:italic}
   .cl-num{width:74px}
   /* larghezze: il nome della sorgente si prende lo spazio, i campi tecnici restano incolonnati */
   .cl-table th:nth-child(4),.cl-table td:nth-child(4){width:132px}
