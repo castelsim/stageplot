@@ -6340,5 +6340,159 @@ t("il capo del cavo elettrico segue davvero l'elemento", () => {
   eq(l.pts[l.pts.length - 1].join(","), [combo.x, combo.y].join(","), "il capo e' il centro del combo");
 });
 
+/* ====== CATALOGO MODELLI — LUCI CONTINUE DA STUDIO/VIDEO (29/07) ==============================
+   Il catalogo sta nel sorgente, come STAGEBOX_DB e PM_DB: offline e senza passaggi a mano in
+   produzione. Qui si difendono le due promesse che valgono piu' del catalogo stesso:
+   (1) ogni voce dichiara cio' che serve a chi monta (potenza, attacco, alimentazione, controllo);
+   (2) CIO' CHE IL PRODUTTORE NON DICHIARA NON C'E' — mai uno zero al posto di un buco, perche'
+       uno zero in un rider e' una bugia, un campo vuoto e' una domanda onesta. */
+console.log("\n— Catalogo modelli: luci continue da studio/video —");
+
+const LM = A.LIGHT_MODEL_DB;
+const lmKeys = Object.keys(LM);
+
+t("il catalogo non e' vuoto e ogni voce ha marca, modello e fascia", () => {
+  ok(lmKeys.length >= 15, "voci in catalogo: " + lmKeys.length);
+  lmKeys.forEach((k) => {
+    const d = LM[k];
+    ok(typeof d.brand === "string" && d.brand.trim(), k + ": manca la marca");
+    ok(typeof d.model === "string" && d.model.trim(), k + ": manca il modello");
+    ok(["base", "pro", "cinema"].indexOf(d.tier) >= 0, k + ": fascia sconosciuta (" + d.tier + ")");
+  });
+});
+
+t("ogni voce dichiara una potenza, e ogni campo dichiarato usa un termine noto", () => {
+  lmKeys.forEach((k) => {
+    const d = LM[k];
+    const w = d.watt != null ? d.watt : d.wattRated;
+    ok(typeof w === "number" && isFinite(w) && w > 0, k + ": potenza mancante o non numerica");
+    if ("att" in d) ok(A.LIGHT_ATT[d.att], k + ": attacco sconosciuto (" + d.att + ")");
+    if ("power" in d) { ok(d.power.length, k + ": alimentazione vuota"); d.power.forEach((p) => ok(A.LIGHT_PWR[p], k + ": alimentazione sconosciuta (" + p + ")")); }
+    if ("ctrl" in d) { ok(d.ctrl.length, k + ": controllo vuoto"); d.ctrl.forEach((c) => ok(A.LIGHT_CTRL[c], k + ": controllo sconosciuto (" + c + ")")); }
+  });
+});
+
+/* Attacco, alimentazione e controllo servono a chi monta, ma qualche produttore non li pubblica.
+   La regola non e' «riempi comunque»: e' «se manca, DILLO». Un campo vuoto senza spiegazione e'
+   una dimenticanza; un campo vuoto con la nota che lo dichiara e' un'informazione. */
+t("il campo che manca e' sempre spiegato in chiaro, mai lasciato a se' stesso", () => {
+  lmKeys.forEach((k) => {
+    const d = LM[k];
+    ["att", "power", "ctrl"].forEach((f) => {
+      if (!(f in d)) ok(String(d.note || "").trim(), k + ": manca «" + f + "» e non c'e' una nota che spieghi perche'");
+    });
+  });
+});
+
+t("la sigla senza produttore non finge di essere un modello", () => {
+  const q = LM.oem_q310_100w;
+  ok(q, "la luce OEM che l'utente possiede davvero e' in catalogo");
+  eq(q.ver, "partial", "e si presenta come da verificare");
+  ok(!("att" in q) && !("cri" in q) && !("color" in q), "senza scheda ufficiale non dichiara attacco, CRI ne' colore");
+  ok(/NESSUNA SCHEDA UFFICIALE/.test(q.note), "e lo scrive: " + q.note);
+  ok(/verificare/.test(A.lightModelSpecText(q)), "nel pannello arriva l'avviso: " + A.lightModelSpecText(q));
+});
+
+t("cio' che non si sa e' ASSENTE: mai null, mai zero", () => {
+  lmKeys.forEach((k) => {
+    const d = LM[k];
+    Object.keys(d).forEach((f) =>
+      ok(d[f] !== null && d[f] !== undefined, k + "." + f + " = null: il campo non dichiarato va TOLTO, non azzerato"));
+    ["watt", "wattRated", "cri", "kg"].forEach((f) => {
+      if (f in d) ok(typeof d[f] === "number" && d[f] > 0, k + "." + f + ": non e' un numero positivo");
+    });
+    if ("cct" in d) {
+      ok(Array.isArray(d.cct) && d.cct.length === 2, k + ": la CCT si scrive [min,max]");
+      ok(d.cct[0] > 0 && d.cct[1] >= d.cct[0], k + ": intervallo CCT incoerente");
+    }
+    if ("lamp" in d) ok(A.LIGHT_LAMP[d.lamp], k + ": sorgente sconosciuta (" + d.lamp + ")");
+    if ("color" in d) ok(A.LIGHT_COLOR[d.color], k + ": colore sconosciuto (" + d.color + ")");
+  });
+});
+
+t("nessun peso della testa spacciato per dichiarato quando non lo e'", () => {
+  ok(!("kg" in LM.aputure_ls300x), "LS 300x: Aputure non pubblica il peso della sola testa, quindi il campo non c'e'");
+  ok(/non dichiarato/.test(LM.aputure_ls300x.note || ""), "e la riga lo dice");
+});
+
+t("l'assorbimento non si confonde con la potenza nominale", () => {
+  eq(LM.smallrig_rc120d.watt, 150, "RC 120D: 150 W assorbiti, non i 120 del nome commerciale");
+  ok(!("watt" in LM.nanlite_forza300ii), "Nanlite non pubblica l'assorbimento: il campo non c'e'");
+  eq(LM.nanlite_forza300ii.wattRated, 350, "resta la potenza nominale, scritta come tale");
+  ok(/nominali/.test(A.lightModelSpecText(LM.nanlite_forza300ii)),
+    "e il pannello lo dichiara: " + A.lightModelSpecText(LM.nanlite_forza300ii));
+  ok(/assorbiti/.test(A.lightModelSpecText(LM.aputure_ls600dpro)),
+    "dove l'assorbimento c'e', si chiama col suo nome: " + A.lightModelSpecText(LM.aputure_ls600dpro));
+});
+
+t("la riga di specifiche non stampa i campi che non esistono", () => {
+  const s = A.lightModelSpecText(LM.aputure_ls300x);
+  ok(!/kg/.test(s), "niente peso inventato: " + s);
+  ok(/Bowens S/.test(s) && /350 W/.test(s), "ma quello che c'e' si legge: " + s);
+});
+
+t("scegliere un modello porta i watt sull'elemento", () => {
+  eq(A.wattOf({ type: "farope", lm: "aputure_ls600dpro" }), 720);
+  eq(A.wattOf({ type: "farope", lm: "smallrig_rc120d" }), 150);
+  eq(A.wattOf({ type: "farope", lm: "nanlux_evoke2400b" }), 2400, "senza assorbimento vale il nominale dichiarato");
+});
+
+/* Trovato provando davvero nel browser: il campo Watt del pannello guardava solo la tabella dei
+   TIPI, quindi su una tipologia nuova (senza default) i watt del modello arrivavano al motore
+   elettrico ma restavano invisibili all'utente. */
+t("il campo Watt compare anche se e' il MODELLO a dichiarare il consumo", () => {
+  eq(A.hasWatt("__tipo_senza_watt"), false);
+  eq(A.hasWattItem({ type: "__tipo_senza_watt" }), false, "senza modello non c'e' niente da mostrare");
+  eq(A.hasWattItem({ type: "__tipo_senza_watt", lm: "aputure_ls600dpro" }), true);
+  eq(A.wattOf({ type: "__tipo_senza_watt", lm: "aputure_ls600dpro" }), 720);
+});
+
+t("senza modello si torna al default del tipo, e il valore scritto a mano vince su tutto", () => {
+  eq(A.wattOf({ type: "farope" }), A.WATT.farope);
+  eq(A.wattOf({ type: "farope", lm: "aputure_ls1200dpro", watt: 300 }), 300);
+});
+
+t("un modello che non esiste non inventa watt", () => {
+  eq(A.wattOf({ type: "farope", lm: "non_esiste_questo" }), A.WATT.farope);
+  eq(A.lightModelWatt({ type: "farope", lm: "non_esiste_questo" }), null);
+});
+
+t("il campo modello vale per le luci da studio, non per i fari da palco", () => {
+  eq(A.lightModelApplies({ type: "parluci" }), false, "il PAR ha gia' il suo «Modello del faro» dal catalogo prodotti");
+  eq(A.lightModelApplies({ type: "farope" }), false);
+  eq(A.lightModelApplies({ type: "chitarra" }), false);
+  /* la tipologia della sottocategoria «Video e studio» prende il campo DA SOLA: e' cosi' che il
+     catalogo funziona con le tipologie che arrivano dopo, senza toccare una riga di codice */
+  A.TYPES.__lucecobtest = { nome: "Luce LED COB", cat: "Luci", sub: "Video e studio", w: 30, d: 30 };
+  A.EQUIP_CATS_BY_TYPE.__lucecobtest = ["faro"];
+  try {
+    eq(A.lightModelApplies({ type: "__lucecobtest" }), true);
+    eq(A.equipCatsFor({ type: "__lucecobtest" }), null,
+      "e non si ritrova DUE campi modello: quello del catalogo prodotti si spegne, come per stage box e personal monitor");
+  } finally { delete A.TYPES.__lucecobtest; delete A.EQUIP_CATS_BY_TYPE.__lucecobtest; }
+});
+
+t("il modello finisce nella lista luci e nel rider, ma solo se le icone lo dichiarano uguale", () => {
+  reset();
+  const a = add("farope", 300, 400), b = add("farope", 400, 400);
+  a.lm = "aputure_ls600dpro"; b.lm = "aputure_ls600dpro";
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 2, gear: "farope", items: [a.id, b.id] })], blackout: null, mood: "" };
+  eq(A.lightsList().rows[0].model, "Aputure LS 600d Pro");
+  ok(/Aputure LS 600d Pro/.test(A.lightRowText(A.state.lights.rows[0])),
+    "e nel rider: " + A.lightRowText(A.state.lights.rows[0]));
+  b.lm = "smallrig_rc350d";
+  eq(A.lightsList().rows[0].model, "", "due modelli diversi non sono un modello: sono due richieste");
+  delete b.lm;
+  eq(A.lightsList().rows[0].model, "", "una senza modello e la riga non ne dichiara nessuno");
+  delete a.lm;
+  eq(A.lightsList().rows[0].model, "", "nessun modello, nessuna riga in piu' nel rider");
+});
+
+t("una richiesta senza icone non si inventa un modello", () => {
+  reset();
+  eq(A.lightRowModel({ items: [] }), "");
+  eq(A.lightRowModel({ items: ["morto1", "morto2"] }), "", "icone cancellate: niente modello, niente errore");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
