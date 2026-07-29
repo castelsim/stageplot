@@ -6656,5 +6656,188 @@ t("una richiesta senza icone non si inventa un modello", () => {
   eq(A.lightRowModel({ items: ["morto1", "morto2"] }), "", "icone cancellate: niente modello, niente errore");
 });
 
+/* ====== MODIFICATORI DELLE LUCI CONTINUE (29/07) ==============================================
+   Il softbox e' un ATTRIBUTO della luce, come il montaggio: niente id, niente orfani. Qui si
+   difendono le tre promesse che valgono piu' del catalogo dei modificatori:
+   (1) in pianta l'ingombro prevalente e' il MODIFICATORE, non l'apparecchio;
+   (2) l'avviso di attacco AVVISA senza bloccare, e TACE dove non si sa;
+   (3) il modificatore compare dove compare gia' l'apparecchio, senza liste nuove. */
+console.log("\n— Modificatori delle luci continue —");
+
+t("il modificatore vive solo sulle luci continue, e nasce assente", () => {
+  reset();
+  STUDIO.forEach((k) => ok(A.modApplies({ type: k }), k + ": non accetta un modificatore"));
+  ok(!A.modApplies({ type: "parluci" }), "il PAR da palco non ha modificatori da studio");
+  ok(!A.modApplies({ type: "chitarra" }), "e nemmeno una chitarra");
+  const c = add("ledcob", 300, 300);
+  eq(A.modKindOf(c), "", "nasce nuda");
+  eq(A.modText(c), "", "e non scrive niente da nessuna parte");
+  eq([c.w, c.d], [A.TYPES.ledcob.w, A.TYPES.ledcob.d], "con le misure dell'apparecchio");
+});
+
+t("e' un ATTRIBUTO: si scrive sull'item, e sparisce con lui", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  A.modSet(c, { kind: "octa" });
+  eq(c.mod.kind, "octa", "sta dentro l'item, non in una lista a parte");
+  ok(!("id" in c.mod), "nessun id da tenere vivo");
+  eq(A.state.items.length, 1, "e non ha creato un secondo oggetto sul palco");
+  A.modSet(c, { kind: null });
+  ok(!("mod" in c), "tolto il tipo, l'attributo sparisce del tutto (come mountSet)");
+  eq([c.w, c.d], [A.TYPES.ledcob.w, A.TYPES.ledcob.d], "e l'ingombro torna quello dell'apparecchio");
+});
+
+t("l'ingombro in pianta e' quello del modificatore, non della luce", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  const base = [A.TYPES.ledcob.w, A.TYPES.ledcob.d];
+  A.modSet(c, { kind: "octa" });
+  eq(c.w, 120, "un ottagonale da 120 su una COB da 30 occupa 120 cm di palco");
+  eq(c.d, base[1] + A.MOD_KINDS.octa.dep, "e in profondita' l'apparecchio piu' la sporgenza del box");
+  ok(c.w > base[0] * 3, "l'ingombro prevalente e' suo, e di parecchio");
+  /* lo snoot invece STRINGE: l'apparecchio resta il piu' largo, e il footprint non cala mai sotto di lui */
+  A.modSet(c, { kind: "snoot" });
+  eq(c.w, base[0], "uno snoot non rende la luce piu' stretta di com'e'");
+  eq(c.d, base[1] + A.MOD_KINDS.snoot.dep, "ma sporge lo stesso");
+});
+
+t("lo stripbox ha un orientamento, e in pianta si vede il lato giusto", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  A.modSet(c, { kind: "strip" });
+  eq(A.modFace(c), [140, 30], "misura tipica di categoria: 140×30");
+  eq(c.w, 140, "orizzontale: il lato lungo attraversa il palco");
+  A.modSet(c, { vert: true });
+  eq(c.w, A.TYPES.ledcob.w, "verticale: in pianta si vede il lato corto (30), e vince la luce (30)");
+  ok(/verticale/.test(A.modText(c)), "e il testo lo dice: " + A.modText(c));
+  A.modSet(c, { vert: null });
+  eq(c.w, 140, "tornando orizzontale l'ingombro torna quello di prima");
+});
+
+t("le misure sono TIPICHE di categoria e si correggono a mano", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  A.modSet(c, { kind: "octa" });
+  eq(A.modFace(c), [120, 120], "la taglia piu' diffusa dell'ottagonale");
+  A.modSet(c, { a: 95 });
+  eq(A.modFace(c), [95, 95], "un tondo ha una misura sola: cambiarla cambia il diametro");
+  eq(c.w, 95, "e il palco se ne accorge");
+  A.modSet(c, { a: 9999 });
+  eq(A.modFace(c)[0], 600, "misure fuori scala si fermano al limite");
+  /* ogni tipologia dichiara una taglia sensata, nessuna a zero */
+  Object.keys(A.MOD_KINDS).forEach((k) => {
+    const K = A.MOD_KINDS[k];
+    ok(K.dep > 0, k + ": sporgenza mancante");
+    if (K.a != null) ok(K.a >= 10 && K.a <= 300 && K.b > 0, k + ": misura fuori scala per la categoria");
+    ok(typeof K.nome === "string" && K.nome.trim(), k + ": manca l'etichetta del mestiere");
+  });
+  eq(A.MOD_ORDER.length, Object.keys(A.MOD_KINDS).length, "l'ordine del pannello copre tutte le tipologie");
+});
+
+t("cio' che si monta addosso all'apparecchio non inventa misure sue", () => {
+  reset();
+  const p = add("ledpanel", 300, 300);
+  A.modSet(p, { kind: "grid" });
+  eq(A.modFace(p), [A.TYPES.ledpanel.w, A.TYPES.ledpanel.w], "la griglia e' larga quanto il pannello: nessun numero inventato");
+  eq(p.w, A.TYPES.ledpanel.w, "e non allarga il palco");
+  eq(A.modText(p), "griglia (eggcrate)", "nel testo niente misure: " + A.modText(p));
+});
+
+t("il disegno: il modificatore davanti, l'apparecchio con le SUE misure", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  A.modSet(c, { kind: "octa" });
+  const body = A.modBody(c);
+  eq([body.it.w, body.it.d], [A.TYPES.ledcob.w, A.TYPES.ledcob.d], "il draw riceve le misure vere, non quelle gonfiate: niente icona stirata");
+  eq(body.dy, -A.MOD_KINDS.octa.dep / 2, "il corpo arretra di mezza sporgenza");
+  eq(body.modY, A.TYPES.ledcob.d / 2, "e il softbox si posa davanti, cosi' l'insieme resta centrato");
+  const svg = A.modOverSvg(c);
+  ok(svg.indexOf("<path") > -1 && svg.indexOf("<line") > -1, "c'e' la sagoma e c'e' la faccia che emette");
+  eq(A.modOverSvg({ type: "ledcob" }), "", "senza modificatore non si disegna niente");
+  /* la faccia marcata sta DAVANTI (+y, dentro il gruppo traslato): e' il segno che dice da che
+     parte esce la luce, e senza di lei il softbox sarebbe un rettangolo muto */
+  const faccia = svg.match(/<line class="ic" x1="([-\d.]+)" y1="([-\d.]+)"/);
+  ok(faccia, "la faccia che emette non e' disegnata: " + svg);
+  eq(+faccia[2], A.MOD_KINDS.octa.dep / 2, "ed e' sul bordo anteriore del modificatore");
+  eq(Math.abs(+faccia[1]), 60, "larga quanto la faccia dell'ottagonale da 120");
+});
+
+t("l'avviso di attacco AVVISA e non blocca, e tace dove non si sa", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  A.modSet(c, { kind: "octa" });
+  eq(A.modFit(c), null, "senza modello dichiarato non si conosce l'attacco: nessun avviso");
+  c.lm = "aputure_ls300d2";                       /* Bowens */
+  eq(A.modFit(c).ok, true, "Bowens su Bowens: compatibile");
+  c.lm = "nanlux_evoke1200";                      /* NL mount */
+  const bad = A.modFit(c);
+  eq(bad.ok, false, "NL mount con un softbox Bowens non si monta");
+  eq(bad.need, "bowens");
+  eq(bad.adapt, "", "nessun adattatore documentato: si segnala e basta, non si inventa");
+  c.lm = "nanlite_forza60ii";                     /* FM mount, adattatore Bowens IN DOTAZIONE */
+  ok(/dotazione/.test(A.modFit(c).adapt), "l'adattatore noto si suggerisce: " + A.modFit(c).adapt);
+  c.lm = "litepanels_gemini2x1";                  /* il produttore NON dichiara l'attacco */
+  eq(A.modFit(c), null, "modello dichiarato ma attacco no: non sapere non e' un difetto da contestare");
+  c.lm = "aputure_ls300d2";
+  A.modSet(c, { kind: "umbrella" });
+  eq(A.modFit(c), null, "l'ombrello sta sullo stativo: l'attacco non e' una domanda");
+  A.modSet(c, { kind: "barn" });
+  eq(A.modFit(c), null, "le barn doors sono l'accessorio dedicato dell'apparecchio");
+});
+
+t("l'audit lo dice UNA volta sola, non una per faro", () => {
+  reset();
+  for (let i = 0; i < 8; i++) {
+    const l = add("ledcob", 200 + i * 60, 300);
+    l.lm = "nanlux_evoke1200";
+    A.modSet(l, { kind: "octa" });
+  }
+  const f = A.auditEngine().findings.filter((x) => x.rule === "luci-mod-attacco");
+  eq(f.length, 1, "otto luci sbagliate = un avviso solo (come gli appesi orfani)");
+  eq(f[0].lvl, "warn", "avvisa, non blocca");
+  ok(/8 modificatori/.test(f[0].msg), "e dice quanti sono: " + f[0].msg);
+  ok(/NL mount/.test(f[0].msg) && /Bowens/.test(f[0].msg), "con i due attacchi in chiaro: " + f[0].msg);
+  /* tolto il modello, l'avviso sparisce: non si sa piu' niente, e non si sa non e' un errore */
+  A.state.items.forEach((l) => { delete l.lm; });
+  eq(A.auditEngine().findings.filter((x) => x.rule === "luci-mod-attacco").length, 0,
+    "senza modello dichiarato l'audit tace");
+});
+
+t("compare dove compare l'apparecchio: lista luci e rider, senza liste nuove", () => {
+  reset();
+  const a = add("ledcob", 300, 400), b = add("ledcob", 400, 400);
+  A.modSet(a, { kind: "octa" }); A.modSet(b, { kind: "octa" });
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 2, gear: "ledcob", items: [a.id, b.id] })], blackout: null, mood: "" };
+  const row = A.state.lights.rows[0];
+  eq(A.modRowText(row), "softbox ottagonale 120");
+  eq(A.lightsList().rows[0].mod, "softbox ottagonale 120", "nella colonna «Apparecchio» della lista luci");
+  ok(/luci LED COB con softbox ottagonale 120/.test(A.lightRowText(row)), "e nel rider: " + A.lightRowText(row));
+  /* stessa regola del modello: due modificatori diversi nella stessa riga non sono un modificatore */
+  A.modSet(b, { kind: "strip" });
+  eq(A.modRowText(row), "", "due diversi = due richieste, non una");
+  A.modSet(b, { kind: "octa" }); A.modSet(b, { a: 95 });
+  eq(A.modRowText(row), "", "e nemmeno due misure diverse dello stesso tipo");
+  A.modSet(b, { a: null });
+  eq(A.modRowText(row), "softbox ottagonale 120", "tornate uguali, la riga lo ridichiara");
+  A.modSet(b, { kind: null });
+  eq(A.modRowText(row), "", "una senza modificatore e la riga non ne dichiara nessuno");
+});
+
+t("una richiesta senza icone non si inventa un modificatore", () => {
+  reset();
+  eq(A.modRowText({ items: [] }), "");
+  eq(A.modRowText({ items: ["morto1"] }), "", "icone cancellate: niente modificatore, niente errore");
+});
+
+t("la griglia e' un accessorio del box, e si legge nel testo", () => {
+  reset();
+  const c = add("ledcob", 300, 300);
+  A.modSet(c, { kind: "octa", grid: true });
+  eq(A.modGrid(c), true);
+  ok(/con griglia/.test(A.modText(c)), A.modText(c));
+  A.modSet(c, { kind: "lantern" });
+  eq(A.modGrid(c), false, "una lantern non prende la griglia: il flag non si trascina dietro");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -3638,6 +3638,177 @@ function lightModelSpecText(d){
   if(d.note) b.push(d.note);
   return b.join(" · ");
 }
+/* ===== MODIFICATORI (Simone 29/07) =========================================================
+   Un softbox non è un oggetto in più sul palco: è un ATTRIBUTO della luce, esattamente come il
+   montaggio («il supporto è un attributo del faro, non un oggetto in più», 29/07). Nessun id da
+   tenere vivo, nessun orfano da recuperare quando si cancella la luce: si cancella la luce e se
+   ne va anche il suo softbox, perché era suo.
+
+   PERCHÉ CONTA: in pianta l'ingombro prevalente è il MODIFICATORE, non l'apparecchio. Una COB da
+   30 cm con un ottagonale da 120 occupa 120 cm di palco, e chi legge il disegno deve vederli. Da
+   qui il footprint derivato (modFootprint) e il disegno del modificatore davanti alla luce.
+
+   MISURE: sono le taglie TIPICHE DI CATEGORIA — quelle che si dicono a voce e si trovano a
+   noleggio — NON dati di targa di un modello. Nessun produttore è citato come fonte: dove serve
+   il numero vero, l'utente lo corregge (a/b sono modificabili). La profondità `dep` è quanto il
+   modificatore sporge in avanti dal fronte dell'apparecchio.
+
+   CAMPI DEL CATALOGO: nome (etichetta del mestiere) · a,b = misure della faccia in cm (a=b per i
+   tondi, null = «quanto la luce» per ciò che si monta addosso) · dep = sporgenza · att = attacco
+   richiesto (bowens | null se non si attacca all'apparecchio | "fit" se è l'accessorio dedicato
+   dell'apparecchio) · rot = ha un orientamento verticale/orizzontale · grid = accetta la griglia ·
+   shape = come si disegna in pianta. ======================================================= */
+var MOD_KINDS={
+  octa:    {nome:"Softbox ottagonale",   a:120, b:120, dep:45, att:"bowens", grid:1, shape:"flare"},
+  para:    {nome:"Softbox parabolico",   a:130, b:130, dep:65, att:"bowens", grid:1, shape:"flare"},   /* deep para: profondo circa metà del diametro */
+  rect:    {nome:"Softbox rettangolare", a:90,  b:60,  dep:40, att:"bowens", grid:1, rot:1, shape:"box"},
+  strip:   {nome:"Stripbox",             a:140, b:30,  dep:30, att:"bowens", grid:1, rot:1, shape:"box"},
+  lantern: {nome:"Lantern",              a:65,  b:65,  dep:65, att:"bowens", shape:"ball"},            /* sfera: sporge quanto è larga */
+  dome:    {nome:"Dome",                 a:55,  b:55,  dep:30, att:"bowens", grid:1, shape:"flare"},
+  snapbag: {nome:"SnapBag",              a:60,  b:60,  dep:25, att:"bowens", grid:1, rot:1, shape:"box"},
+  diff:    {nome:"Diffusore",            a:null,b:null,dep:6,  att:"fit",    shape:"skin"},            /* calotta o telo che sta addosso all'apparecchio */
+  refl:    {nome:"Riflettore standard",  a:22,  b:22,  dep:18, att:"bowens", shape:"flare"},
+  beauty:  {nome:"Beauty dish",          a:55,  b:55,  dep:20, att:"bowens", grid:1, shape:"flare"},
+  snoot:   {nome:"Snoot",                a:15,  b:15,  dep:30, att:"bowens", shape:"flare"},           /* stringe invece di allargare: il flare va all'indietro */
+  barn:    {nome:"Barn doors",           a:null,b:null,dep:20, att:"fit",    shape:"barn"},
+  grid:    {nome:"Griglia (eggcrate)",   a:null,b:null,dep:5,  att:"fit",    shape:"skin"},
+  umbrella:{nome:"Ombrello",             a:105, b:105, dep:40, att:null,     shape:"umbrella"},        /* sta nel portaombrello dello stativo: non si attacca all'apparecchio */
+  frame:   {nome:"Frame con diffusione", a:120, b:120, dep:40, att:null,     rot:1, shape:"frame"}     /* telaio autoportante: la sporgenza è il telaio più la base dello stativo che lo regge */
+};
+var MOD_ORDER=["octa","para","rect","strip","lantern","dome","snapbag","diff","refl","beauty","snoot","barn","grid","umbrella","frame"];
+/* Adattatori DICHIARATI, non dedotti. C'è solo quello che il catalogo dei modelli già documenta:
+   sui Nanlite Forza l'adattatore Bowens è in dotazione (lo dice la scheda del produttore, ed è
+   scritto nella nota del modello). Una chiave assente NON vuol dire «adattatore inesistente»:
+   vuol dire che qui non ne abbiamo una fonte, e allora l'avviso segnala e basta. */
+var MOD_ADAPT={ fm:"l'adattatore Bowens è in dotazione con l'apparecchio" };
+function modApplies(it){ return typeof lightModelApplies==="function" && lightModelApplies(it); }
+function modOf(it){ var k=it && it.mod && it.mod.kind; return (k && MOD_KINDS[k]) ? MOD_KINDS[k] : null; }
+function modKindOf(it){ return modOf(it) ? it.mod.kind : ""; }
+/* Le due misure della faccia, in cm: quelle del catalogo salvo correzione dell'utente.
+   Per ciò che si monta addosso all'apparecchio (diffusore, griglia, barn doors) la faccia È
+   l'apparecchio: nessun numero inventato, si prende la sua larghezza. */
+function modFace(it){
+  var K=modOf(it); if(!K) return null;
+  var base=(TYPES[it.type]||{}), a=K.a, b=K.b;
+  if(a==null){ a=base.w||0; b=base.w||0; }
+  var m=it.mod||{};
+  if(m.a!=null && isFinite(+m.a)) a=Math.max(5, Math.min(600, Math.round(+m.a)));
+  if(m.b!=null && isFinite(+m.b)) b=Math.max(5, Math.min(600, Math.round(+m.b)));
+  if(!K.rot) b=a;                                   /* i tondi hanno una misura sola: il diametro */
+  return [a,b];
+}
+function modVert(it){ var K=modOf(it); return !!(K && K.rot && it.mod && it.mod.vert===true); }
+function modGrid(it){ var K=modOf(it); return !!(K && K.grid && it.mod && it.mod.grid===true); }
+/* Larghezza IN PIANTA (attraverso il palco) e sporgenza in avanti. Verticale = il lato lungo sta
+   in alto, quindi in pianta si vede il lato corto. */
+function modPlan(it){
+  var K=modOf(it), f=modFace(it); if(!K||!f) return null;
+  var w=modVert(it) ? Math.min(f[0],f[1]) : Math.max(f[0],f[1]);
+  return {w:w, dep:K.dep};
+}
+/* INGOMBRO dell'elemento col modificatore: largo quanto il più largo dei due, profondo quanto
+   l'apparecchio PIÙ la sporgenza del modificatore (il telaio parte dal fronte della luce). */
+function modFootprint(it){
+  var base=TYPES[it.type]||{}, P=modPlan(it);
+  if(!P) return [base.w||0, base.d||0];
+  return [Math.max(base.w||0, P.w), (base.d||0)+P.dep];
+}
+/* Scrive/cancella l'attributo. Come mountSet: se non resta niente da dire, il campo sparisce. */
+function modSet(it, patch){
+  if(!it || !modApplies(it)) return;
+  var m=it.mod||{};
+  Object.keys(patch||{}).forEach(function(k){ if(patch[k]==null) delete m[k]; else m[k]=patch[k]; });
+  if(!m.kind || !MOD_KINDS[m.kind]) delete it.mod; else it.mod=m;
+  if(typeof recalcItemDims==="function") recalcItemDims(it);
+}
+/* Come si chiama, come lo direbbe chi monta: «softbox ottagonale 120», «stripbox 30×140 verticale».
+   Ciò che si monta addosso all'apparecchio non porta misure: sono quelle dell'apparecchio. */
+function modText(it){
+  var K=modOf(it); if(!K) return "";
+  var s=K.nome.toLowerCase(), f=modFace(it);
+  if(K.a!=null && f){ s+=" "+(K.rot ? (Math.max(f[0],f[1])+"×"+Math.min(f[0],f[1])) : f[0]); }
+  if(K.rot && modVert(it)) s+=" verticale";
+  if(modGrid(it)) s+=" con griglia";
+  return s;
+}
+/* L'attacco che l'apparecchio dichiara: SOLO dal modello scelto. Senza modello non si sa, e non
+   sapere non è un difetto da segnalare — è semplicemente un dato che nessuno ha ancora scritto. */
+function modLightAtt(it){ var d=(typeof lightModelOf==="function")?lightModelOf(it):null; return (d && d.att) ? d.att : ""; }
+/* Compatibilità attacco: {ok, att, need, adapt} — null quando NON c'è niente da dire.
+   Tace se: non c'è modificatore · il modificatore non si attacca all'apparecchio (ombrello, frame)
+   o è il suo accessorio dedicato (diffusore, griglia, barn doors) · l'apparecchio non dichiara un
+   modello · il modello non dichiara l'attacco. */
+function modFit(it){
+  var K=modOf(it); if(!K || !K.att || K.att==="fit") return null;
+  var att=modLightAtt(it); if(!att) return null;
+  if(att===K.att) return {ok:true, att:att, need:K.att, adapt:""};
+  return {ok:false, att:att, need:K.att, adapt:MOD_ADAPT[att]||""};
+}
+function modAttLabel(k){ return (typeof LIGHT_ATT==="object" && LIGHT_ATT[k]) ? LIGHT_ATT[k] : String(k||""); }
+/* Il modificatore di una RICHIESTA luci: dichiarato solo se tutte le icone agganciate portano lo
+   stesso, misure comprese. Stessa regola di lightRowModel: due modificatori diversi nella stessa
+   riga non sono un modificatore, sono due richieste. */
+function modRowText(r){
+  var ids=(r&&r.items)||[]; if(!ids.length) return "";
+  var byId={}; ((typeof state==="object"&&state&&state.items)||[]).forEach(function(x){ byId[x.id]=x; });
+  var txt=null;
+  for(var i=0;i<ids.length;i++){
+    var it=byId[ids[i]]; if(!it) continue;            /* icona cancellata: non toglie il modificatore alle altre */
+    var t=modText(it); if(!t) return "";
+    if(txt===null) txt=t; else if(txt!==t) return "";
+  }
+  return txt||"";
+}
+/* Il modificatore in PIANTA, davanti all'apparecchio e in scala reale. Il corpo della luce resta
+   dov'era (arretrato di mezza sporgenza, vedi modBody): quello che si vede in più è l'ingombro.
+   La direzione di emissione non si perde mai — ogni forma si apre o si chiude verso +y, e la
+   faccia che emette è la linea marcata sul davanti. */
+function modOverSvg(it){
+  var K=modOf(it), P=modPlan(it); if(!K||!P) return "";
+  var base=TYPES[it.type]||{}, bd=base.d||20, bw=base.w||20;
+  var y0=-P.dep/2, y1=P.dep/2;                        /* il gruppo è già traslato al centro del modificatore */
+  var hf=P.w/2, hb=Math.min(bw, P.w)*0.28;            /* mezza faccia davanti, mezzo attacco dietro */
+  var s="";
+  if(K.shape==="skin"){                               /* addosso all'apparecchio: una fascia sul fronte */
+    s+=bar(0,0,bw*0.98,P.dep,'ic soft thin',1.5);
+    if(it.mod && it.mod.kind==="grid"){ for(var g=-2;g<=2;g++) s+=lin((g*bw*0.2).toFixed(1),y0,(g*bw*0.2).toFixed(1),y1,'ic thin'); }
+    return s+lin(-bw*0.49,y1,bw*0.49,y1,'ic');
+  }
+  if(K.shape==="barn"){                               /* quattro alette aperte in avanti */
+    [-1,1].forEach(function(k){
+      s+='<path class="ic thin" fill="none" d="M '+(k*bw*0.42).toFixed(1)+' '+y0.toFixed(1)+' L '+(k*bw*0.62).toFixed(1)+' '+y1.toFixed(1)+'"/>'; });
+    return s+lin(-bw*0.30,y1,bw*0.30,y1,'ic thin');
+  }
+  if(K.shape==="umbrella"){                           /* calotta: in pianta è un arco, e la corda dice dove sta l'asta */
+    s+='<path class="ic soft thin" d="M '+(-hf).toFixed(1)+' '+y0.toFixed(1)+
+       ' Q 0 '+(y0+2*P.dep).toFixed(1)+' '+hf.toFixed(1)+' '+y0.toFixed(1)+' Z"/>';   /* apice esattamente sul fronte */
+    return s+lin(0,y0,0,y1,'ic thin');                /* l'asta, dal portaombrello al centro della calotta */
+  }
+  if(K.shape==="frame"){                              /* telaio autoportante: staccato dalla luce, con lo spazio in mezzo */
+    return lin(-hf,y1,hf,y1,'ic')+                    /* il telo teso, sul davanti */
+           bar(0,(y1-P.dep*0.10).toFixed(1),P.w,Math.max(1.5,P.dep*0.16),'ic soft thin',1)+
+           [-1,1].map(function(k){ return lin((k*hf).toFixed(1),(y1-P.dep*0.20).toFixed(1),(k*hf).toFixed(1),y1.toFixed(1),'ic thin'); }).join("");   /* i due montanti */
+  }
+  if(K.shape==="ball"){                               /* lantern: sfera, emette tutto intorno */
+    s+=circ(0,0,(P.w/2).toFixed(1),'ic soft thin');
+    return s+lin(-hf*0.5,y0,hf*0.5,y0,'ic thin');
+  }
+  /* flare / box: trapezio dall'attacco alla faccia. Con lo snoot hf < hb e si chiude: è il suo segno. */
+  var pts=[[-hb,y0],[hb,y0],[hf,y1],[-hf,y1]];
+  if(K.shape==="box") pts=[[-hb,y0],[hb,y0],[hf,y1*0.55],[hf,y1],[-hf,y1],[-hf,y1*0.55]];
+  s+='<path class="ic soft thin" d="M '+pts.map(function(p){ return p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' L ')+' Z"/>';
+  s+=lin((-hf).toFixed(1),y1.toFixed(1),hf.toFixed(1),y1.toFixed(1),'ic');   /* la FACCIA: la linea marcata dice da che parte esce la luce */
+  if(modGrid(it)){ for(var i=-2;i<=2;i++) s+=lin((i*hf*0.42).toFixed(1),(y1-P.dep*0.22).toFixed(1),(i*hf*0.42).toFixed(1),y1.toFixed(1),'ic thin'); }
+  return s;
+}
+/* Il CORPO dell'apparecchio quando porta un modificatore: si disegna con le sue misure vere
+   (TYPES) e arretrato di mezza sporgenza, così l'insieme resta centrato nell'ingombro nuovo.
+   Senza questo, i draw dei nove apparecchi userebbero it.w/it.d gonfiati e si stirerebbero. */
+function modBody(it){
+  var P=modPlan(it); if(!P) return null;
+  var base=TYPES[it.type]||{};
+  return { it:Object.assign({}, it, {w:base.w, d:base.d}), dy:-P.dep/2, modY:(base.d||0)/2 };
+}
 /* Il modello REALE di una richiesta luci: lo dichiara solo se TUTTE le icone agganciate portano
    lo stesso modello. Due modelli diversi nella stessa riga non sono un modello: sono due richieste,
    e scriverne uno solo sarebbe un rider che dichiara il falso. */
@@ -3773,6 +3944,8 @@ function lightRowText(r){
   var alt=String(r.gearAlt||"").trim(); if(alt) parts.push("oppure "+alt);
   var mdl=(typeof lightRowModel==="function")?lightRowModel(r):"";
   if(mdl) parts.push("("+mdl+")");   /* il modello vero, quando le icone lo dichiarano tutte uguale */
+  var md=(typeof modRowText==="function")?modRowText(r):"";
+  if(md) parts.push("con "+md);      /* il modificatore: è quello che cambia la luce, e va noleggiato */
   var col=String(r.color||"").trim(); if(col) parts.push(col);
   var loc=lightPosPhrase(r, false);
   if(loc) parts.push(loc.toLowerCase());
@@ -4398,6 +4571,10 @@ function b64urlToStr(s){ s=String(s).replace(/-/g,"+").replace(/_/g,"/"); while(
    Centralizza la logica usata negli handler di edit così che anche gli item "grezzi" (AI/import) abbiano ingombri corretti. */
 function recalcItemDims(it){
   var t=TYPES[it.type]; if(!t) return;
+  /* Luce continua: l'ingombro prevalente in pianta è il MODIFICATORE (un ottagonale da 120 su una
+     COB da 30 occupa 120 cm di palco). Senza modificatore torna alle misure dell'apparecchio: è
+     anche il modo in cui il footprint si ripulisce da solo quando il softbox viene tolto. */
+  if(typeof modApplies==="function" && modApplies(it)){ var mf=modFootprint(it); it.w=mf[0]; it.d=mf[1]; return; }
   if(it.type==="musChitClassica"){   /* schematico = postazione acustica (stesse misure), illustrato = l'illustrazione */
     if(it.look==="schematico"){ var gs=gtrSize({sedia:it.sedia, leggio:it.leggio, ampli:it.ampli, pedaliera:it.pedaliera}, TYPES.gtacustica);
       it.w=gs[0]; it.d=gs[1]; }
@@ -4841,9 +5018,15 @@ function itemMarkup(it){
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
   if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
-  if(isMountable(it)) s += mountUnderSvg(it);   /* stativo o gancio: stanno SOTTO l'apparecchio, come nella realtà */
-  var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
+  /* MODIFICATORE (softbox &co.): l'ingombro in pianta è suo, ma l'apparecchio va disegnato con le
+     SUE misure, arretrato di mezza sporgenza — altrimenti i draw dei nove userebbero un it.w/it.d
+     gonfiati e si stirerebbero. Lo stativo segue il corpo, non il softbox. */
+  var _md=(typeof modBody==="function")?modBody(it):null;
+  if(isMountable(it)) s += _md ? '<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+mountUnderSvg(_md.it)+'</g>' : mountUnderSvg(it);
+  var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(_md?_md.it:it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
+  if(_md) _drawn='<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+_drawn+'</g>';
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
+  if(_md) s += '<g transform="translate(0 '+_md.modY.toFixed(1)+')">'+modOverSvg(it)+'</g>';   /* il softbox davanti: simmetrico, non lo tocca lo specchio */
   var _hm=headMicOf(it);
   if(_hm){   /* microfono voce del musicista: l'archetto si indossa, gli altri stanno davanti alla bocca */
     if(_hm==="archetto") s += '<g transform="translate(0,'+(-((it.d||60)/2)+14)+')">'+headMicGlyph()+'</g>';   /* sulla testa, appena dentro il bordo alto */
@@ -6885,6 +7068,45 @@ function lmFillProps(it){
   if(info) info.textContent = cur ? lightModelSpecText(cur) : "Generico: nessuna specifica dichiarata.";
 }
 
+/* ── pannello «Modificatore» (29/07): softbox &co. come attributo della luce ──
+   Solo i campi che servono davvero: tipo · misura (una o due) · orientamento dove ne ha uno ·
+   griglia. La riga sotto dichiara l'ingombro che ne esce e lo stato dell'attacco. */
+function modFillProps(it){
+  var sel=document.getElementById("pModKind"); if(!sel) return;
+  var cur=modKindOf(it), h='<option value="">Nessuno</option>';
+  MOD_ORDER.forEach(function(k){ h+='<option value="'+k+'"'+(k===cur?' selected':'')+'>'+esc(MOD_KINDS[k].nome)+'</option>'; });
+  sel.innerHTML=h; sel.value=cur;
+  var K=modOf(it), f=modFace(it);
+  var szW=document.getElementById("pModSizeWrap"), bRow=document.getElementById("pModBRow");
+  szW.style.display=(K && K.a!=null) ? "block" : "none";     /* ciò che si monta addosso non ha misure sue */
+  if(K && K.a!=null){
+    document.getElementById("pModA").value=Math.max(f[0],f[1]);
+    document.getElementById("pModALbl").textContent=K.rot ? "Lato lungo" : "Diametro";   /* il termine del mestiere: un ottagonale ha un diametro, uno stripbox due lati */
+    bRow.style.display=K.rot?"":"none";                      /* "" e non "block": .numrow è flex, e block ne romperebbe l'allineamento */
+    if(K.rot) document.getElementById("pModB").value=Math.min(f[0],f[1]);
+  }
+  var rotW=document.getElementById("pModRotWrap");
+  rotW.style.display=(K && K.rot) ? "block" : "none";
+  if(K && K.rot){ var v=modVert(it)?"v":"h";
+    Array.prototype.forEach.call(document.querySelectorAll("#pModRot [data-mrot]"), function(b){
+      b.className="adv-btn"+(b.getAttribute("data-mrot")===v?" on":""); }); }
+  var gl=document.getElementById("pModGridLbl");
+  gl.style.display=(K && K.grid) ? "" : "none";              /* idem: .chk ha il suo display nel CSS */
+  if(K && K.grid) document.getElementById("pModGrid").checked=modGrid(it);
+  var info=document.getElementById("pModInfo");
+  if(!info) return;
+  if(!K){ info.textContent="Nessuno: in pianta l'apparecchio occupa le sue misure ("+(TYPES[it.type].w)+"×"+(TYPES[it.type].d)+" cm)."; return; }
+  var P=modPlan(it), fp=modFootprint(it), b=["In pianta occupa "+fp[0]+"×"+fp[1]+" cm (sporge "+P.dep+" cm davanti alla luce)"];
+  var fit=modFit(it);
+  if(!K.att) b.push("non si attacca all'apparecchio: sta sullo stativo o per conto suo");
+  else if(K.att==="fit") b.push("accessorio dedicato dell'apparecchio");
+  else if(!fit) b.push("attacco "+modAttLabel(K.att)+" — l'apparecchio non dichiara il suo: scegli il modello per saperlo");
+  else if(fit.ok) b.push("attacco "+modAttLabel(K.att)+": compatibile");
+  else b.push("⚠ l'apparecchio ha l'attacco "+modAttLabel(fit.att)+", il modificatore chiede "+modAttLabel(fit.need)+
+    (fit.adapt ? " — "+fit.adapt : " — serve un adattatore"));
+  info.textContent=b.join(" · ");
+}
+
 /* ===== AUDIT / DIAGNOSTICA — "AI" deterministica: aggrega le criticità dei motori + regole
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
 var AUDIT_MON_NEAR=350;   /* T1 — soglia prossimità monitor (~3,5 m a 100 px/m); tarabile */
@@ -7057,6 +7279,25 @@ function auditEngine(){
         : senzaCavo.length+" fari appesi non dichiarano il cavo di sicurezza.",
       "Luci","Sull'apparecchio, in «Installazione», segna il cavo di sicurezza come Presente: è la sicurezza secondaria di ciò che sta sopra le persone.",
       null, "luci-cavo-sicurezza");
+    /* L9 — MODIFICATORE con un attacco che l'apparecchio non ha: il softbox arriva a magazzino e
+       non si monta. AVVISA SENZA BLOCCARE (gli adattatori esistono, e non li conosciamo tutti) e
+       AGGREGATA: con dieci luci non escono dieci avvisi identici, come già per gli appesi orfani.
+       TACE dove non si sa: senza modello dichiarato l'apparecchio non dichiara nessun attacco, e
+       inventarne uno per poterlo contestare sarebbe peggio del silenzio. Tace anche su ciò che non
+       si attacca all'apparecchio (ombrello, frame) e sul suo accessorio dedicato (barn doors,
+       griglia, diffusore): lì l'attacco non è una domanda. */
+    var modBad=lightItems.map(function(it){ var f=modFit(it); return (f && !f.ok) ? {it:it, f:f} : null; }).filter(Boolean);
+    if(modBad.length){
+      var coppie={}, adattatori={};
+      modBad.forEach(function(x){ coppie[modAttLabel(x.f.att)+" → "+modAttLabel(x.f.need)]=1; if(x.f.adapt) adattatori[x.f.adapt]=1; });
+      var ada=Object.keys(adattatori);
+      add("warn", (modBad.length===1 ? "Un modificatore chiede un attacco che l'apparecchio non ha"
+            : modBad.length+" modificatori chiedono un attacco che l'apparecchio non ha")+" ("+Object.keys(coppie).join("; ")+").",
+        "Luci", ada.length ? ("Serve un adattatore: "+ada.join("; ")+". Verifica di averlo in valigia, oppure scegli un modificatore dell'attacco giusto.")
+                           : "Serve un adattatore fra i due attacchi, oppure un modificatore dell'attacco giusto: verificalo prima di partire.",
+        {label:"Mostra il primo", run:function(){ selectOne(modBad[0].it.id); render(); renderProps(); if(typeof flashItem==="function") flashItem(modBad[0].it.id); }},
+        "luci-mod-attacco");
+    }
     /* L3 — «bianco» non è un'informazione: 3200 K sì. Le macchine d'atmosfera non hanno colore. */
     var noCol=rows.filter(function(r){ return LIGHT_GEAR[r.gear] && r.gear!=="fumomachine" && r.gear!=="hazer" && !String(r.color||"").trim(); });
     if(noCol.length) add("info","Alcune luci non dicono la temperatura o il colore.","Luci",
@@ -8036,6 +8277,9 @@ function renderProps(){
   var lmWrap=document.getElementById("pLmWrap");   /* luci continue: marca/modello da LIGHT_MODEL_DB (29/07) */
   if(lmWrap){ var isLm=lightModelApplies(it); lmWrap.style.display = isLm ? "block" : "none";
     if(isLm) lmFillProps(it); }
+  var modWrap=document.getElementById("pModWrap");   /* softbox &co.: attributo della luce continua (29/07) */
+  if(modWrap){ var isMod=modApplies(it); modWrap.style.display = isMod ? "block" : "none";
+    if(isMod) modFillProps(it); }
   (function(){ var fw=document.getElementById("pPmFeedWrap"); if(!fw) return;
     if(!(typeof pmIsHub==="function" && pmIsHub(it))){ fw.style.display="none"; return; }
     fw.style.display="block";
@@ -8980,7 +9224,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
+  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn");
   if(resp || cont){
@@ -14157,6 +14401,36 @@ function renderCabPanel(){
     var v=this.value;
     mutSel(function(x){ if(!lightModelApplies(x)) return; if(v) x.lm=v; else delete x.lm; });
     __elecRes=null; save(); render(); renderProps(); });
+  /* MODIFICATORE (29/07): cambiando tipo si riparte dalle misure tipiche di quella categoria —
+     un ottagonale da 120 non eredita i 140 dello stripbox che c'era prima. */
+  var mdK=document.getElementById("pModKind");
+  if(mdK) mdK.addEventListener("change", function(){ var v=this.value;
+    mutSel(function(x){ if(!modApplies(x)) return;
+      if(!v){ delete x.mod; recalcItemDims(x); return; }
+      x.mod={kind:v}; modSet(x, {}); });
+    __elecRes=null; renderProps(); });
+  ["pModA","pModB"].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    el.addEventListener("change", function(){ var v=+this.value, key=(id==="pModA")?"a":"b";
+      mutSel(function(x){ var K=modOf(x); if(!K || K.a==null) return;
+        var f=modFace(x), lungo=Math.max(f[0],f[1]), corto=Math.min(f[0],f[1]);
+        var n=isFinite(v)?Math.max(5,Math.min(600,Math.round(v))):null;
+        if(key==="a") lungo=(n==null?K.a:n); else corto=(n==null?K.b:n);
+        /* un tondo ha UNA misura: il diametro. Toccarla non deve lasciarsi dietro un lato corto
+           che nessuno vede e che poi torna a galla cambiando tipo. */
+        if(!K.rot){ modSet(x, {a:lungo, b:null}); return; }
+        modSet(x, {a:Math.max(lungo,corto), b:Math.min(lungo,corto)}); });   /* a = lato lungo per definizione */
+      renderProps(); });
+  });
+  var mdR=document.getElementById("pModRot");
+  if(mdR) mdR.addEventListener("click", function(e){ var b=e.target.closest("button[data-mrot]"); if(!b) return;
+    var vert=b.getAttribute("data-mrot")==="v";
+    mutSel(function(x){ if(modOf(x)) modSet(x, {vert:vert?true:null}); });
+    renderProps(); });
+  var mdG=document.getElementById("pModGrid");
+  if(mdG) mdG.addEventListener("change", function(){ var on=this.checked;
+    mutSel(function(x){ if(modOf(x)) modSet(x, {grid:on?true:null}); });
+    renderProps(); });
   var zop=document.getElementById("pZoneOp");   /* zona: opacità live (come gli slider layer) */
   if(zop) zop.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ it.opacity=+this.value;
     var n=itemNode(it.id), r=n&&n.querySelector("polygon"); if(r) r.setAttribute("fill-opacity",(it.opacity/100).toFixed(2)); saveSoon(); } });
@@ -18929,7 +19203,7 @@ function lightsList(){
   order.forEach(function(fn){
     rows.filter(function(r){ return String(r.fn||"")===fn; }).forEach(function(r){
       out.push({ n:r.n, fn:fn?lightFnLabel(fn):"— da assegnare —",
-        gear:lightGearText(r.gear, r.n)||"—", model:lightRowModel(r), color:r.color||"",
+        gear:lightGearText(r.gear, r.n)||"—", model:lightRowModel(r), mod:modRowText(r), color:r.color||"",
         pos:(function(){ var P=lightRowPos(r);
           if(P.misto) return "montaggi diversi";
           var p=lightPosLabel(P.pos); if(!p) return "";
@@ -18950,8 +19224,10 @@ function pdfListConfig(){
       cols:[{h:"Q.tà",num:1,f:function(r){return r.n+"×";}},
             {h:"Funzione",f:function(r){return r.fn;},warn:function(r){return r.fn.indexOf("assegnare")>=0;}},
             /* il modello vero sta nella colonna dell'apparecchio, non in una colonna sua: chi legge
-               cerca «cosa mi serve», e il modello è la stessa informazione, più precisa */
-            {h:"Apparecchio",f:function(r){return r.model?(r.gear+" — "+r.model):r.gear;}},
+               cerca «cosa mi serve», e il modello è la stessa informazione, più precisa.
+               Stessa cosa per il modificatore: chi noleggia deve leggere «COB con ottagonale 120»
+               su una riga sola, non cercarsi il softbox in una lista a parte. */
+            {h:"Apparecchio",f:function(r){return (r.model?(r.gear+" — "+r.model):r.gear)+(r.mod?(" con "+r.mod):"");}},
             {h:"Colore",f:function(r){return r.color||"—";},warn:function(r){return !r.color;}},
             {h:"Posizione",f:function(r){return r.pos||"—";}},
             {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
