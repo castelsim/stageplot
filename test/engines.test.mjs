@@ -6070,5 +6070,46 @@ t("stativo e truss sono posizioni del rider, con la loro altezza", () => {
   ok(A.LIGHT_POS_H.stativo && A.LIGHT_POS_H.truss, "e portano un'altezza, come l'americana");
 });
 
+
+/* ====== DENTRO UNA ZONA PANORAMICA (Simone 29/07) =============================================
+   «Se uno strumento e' dentro una zona panoramica, in automatico eredita il microfono panoramico
+   della sezione; se ha entrambi, nel pannello ci sara' l'opzione mic strumento + panoramico.»
+   Il comportamento c'era gia' ma viveva in una spunta che non lo diceva («Mic singolo anche in
+   zona»): ora sono due scelte con i nomi di cio' che finisce in channel list. */
+console.log("\n— Strumento dentro una zona panoramica —");
+
+t("in zona lo strumento eredita il panoramico: un canale solo, ed e' quello della sezione", () => {
+  reset();
+  const vla = add("violapost", 400, 400);
+  const z = add("miczone", 400, 400); z.w = 300; z.d = 260;
+  A.state.cab.on = true; A.__cabRes = null;
+  eq(A.itemInMicZone(vla), z, "e' dentro la zona");
+  eq(A.effOwnMic(vla), false, "di default non porta il suo microfono");
+  eq(A.cabItemInputs(vla).length, 0, "niente canale suo");
+  eq(A.cabItemInputs(z).length, 1, "il canale e' quello della zona");
+});
+t("con entrambi i canali diventano due", () => {
+  reset();
+  const vla = add("violapost", 400, 400);
+  const z = add("miczone", 400, 400); z.w = 300; z.d = 260;
+  vla.ownMic = true;   /* quel che fa il bottone «Mic strumento + panoramico» */
+  A.__cabRes = null;
+  eq(A.cabItemInputs(vla).length, 1, "il suo microfono torna in lista");
+  eq(A.cabItemInputs(z).length, 1, "e il panoramico resta");
+});
+t("i close-obligati nascono gia' con il loro microfono, anche dentro la zona", () => {
+  reset();
+  const kick = add("grancassa", 400, 400);
+  const z = add("miczone", 400, 400); z.w = 400; z.d = 400;
+  ok(A.effOwnMic(kick), "un kick dentro una panoramica tiene il suo mic: nessuno lo riprende da lontano");
+});
+t("il pannello dice cosa entra in channel list, invece di una spunta da interpretare", () => {
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  ok(html.indexOf('id="pOwnMicMode"') > -1, "il controllo a due scelte c'e'");
+  ok(html.indexOf("Solo panoramico") > -1 && html.indexOf("Mic strumento + panoramico") > -1, "coi nomi giusti");
+  eq(html.indexOf('id="pOwnMic"'), -1, "la vecchia spunta e' sparita: un comando solo");
+  ok(appjs.indexOf("Un canale solo: lo riprende il panoramico") > -1, "e la nota dice quale microfono eredita");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
