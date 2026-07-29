@@ -3132,8 +3132,8 @@ var LIGHT_FN=[
   ["leggii","Luce leggii"], ["sala","Luce di sala"]
 ];
 var LIGHT_POS=[
-  ["elevatore","Elevatore"], ["americana","Americana"], ["terra","A terra"],
-  ["ballerina","Ballerina"], ["sala","In sala"]
+  ["elevatore","Elevatore"], ["americana","Americana"], ["truss","Truss"], ["stativo","Stativo"],
+  ["terra","A terra"], ["ballerina","Ballerina"], ["sala","In sala"]
 ];
 /* ===== MONTAGGIO (Simone 29/07) ============================================================
    Un faro a terra, uno su stativo e uno appeso a un'americana sono tre montaggi diversi, e chi
@@ -3197,7 +3197,7 @@ function mountNote(it){
   var h=(mountHOf(it)/100).toFixed(mountHOf(it)%100?1:0).replace(".",",");
   return (mo==="stand" ? "stativo " : "appeso ")+h+" m";
 }
-var LIGHT_POS_H={ elevatore:1, americana:1 };   /* solo qui l'altezza è un'informazione: «a terra a 4 m» non vuol dire niente */
+var LIGHT_POS_H={ elevatore:1, americana:1, truss:1, stativo:1 };   /* solo qui l'altezza è un'informazione: «a terra a 4 m» non vuol dire niente */
 /* Apparecchi che si CHIEDONO in un rider: sorgenti luminose + macchine d'atmosfera.
    Struttura (americana) e regia (console, dimmer) restano oggetti del palco — nessun rider
    scrive «n.1 dimmer rack» tra le richieste luci.
@@ -3278,6 +3278,52 @@ function lightsSplitRow(rows, rowId, k){
 }
 /* Il testo della richiesta, come lo pronuncia un rider: «n.4 proiettori LED Warm White
    oppure sagomatori LED 3200 K.» — quantità, apparecchio, alternativa, colore, posizione. */
+/* ===== POSIZIONE E ALTEZZA: UN DATO SOLO (Simone 29/07, blocco B5) ==========================
+   La riga del rider aveva la sua posizione («americana, 4 m») e da oggi le icone hanno il loro
+   montaggio: due posti dove dire la stessa cosa sono due posti che possono contraddirsi — proprio
+   quello che questo reparto e' nato per evitare.
+   Regola: se le icone agganciate alla riga DICHIARANO un montaggio, e' quello che vale, ovunque
+   (lista, scheda, etichette a bordo palco, rider, PDF); la riga scritta a mano vale solo dove le
+   icone non lo dicono — cioe' per le luci che sul palco non ci sono (in sala, sull'elevatore).
+   «A terra» resta implicito e NON viene mai dichiarato da solo: e' il default di ogni faro, e
+   trasformare un default in una dichiarazione sarebbe scrivere nel rider una cosa che nessuno ha
+   detto. Se le icone si contraddicono la riga lo dice, invece di sceglierne una a caso. */
+function lightRowMountPos(it){
+  if(mountModeOf(it)==="stand") return "stativo";
+  if(mountModeOf(it)==="hung"){ var st=hangSupportOf(it); return (st && st.type==="truss") ? "truss" : "americana"; }
+  return "terra";
+}
+function lightRowMount(r){
+  var byId={}; (state.items||[]).forEach(function(x){ byId[x.id]=x; });
+  var its=((r&&r.items)||[]).map(function(id){ return byId[id]; }).filter(function(x){ return x && isMountable(x); });
+  if(!its.length) return null;
+  if(!its.some(function(x){ return x.mount && (x.mount.mode==="stand"||x.mount.mode==="hung"); })) return null;
+  var viste={};
+  its.forEach(function(x){
+    var pos=lightRowMountPos(x);
+    viste[pos+"|"+(pos==="terra"?"":mountHOf(x))]=1;
+  });
+  var k=Object.keys(viste);
+  if(k.length>1) return {misto:true, n:its.length};
+  var p=k[0].split("|");
+  return {pos:p[0], h:p[1]?String(+p[1]/100).replace(".",","):"", n:its.length};
+}
+/* Quel che la riga DICE, dopo aver messo d'accordo icone e testo: {pos, h, dalPalco, misto}. */
+function lightRowPos(r){
+  var m=lightRowMount(r);
+  if(m && m.misto) return {pos:"", h:"", misto:true, dalPalco:true};
+  if(m) return {pos:m.pos, h:m.h, dalPalco:true};
+  return {pos:String((r&&r.pos)||""), h:String((r&&r.posH)||"").trim(), dalPalco:false};
+}
+/* Il pezzo «da dove», scritto come lo pronuncia un rider: «su americana a 4 m», «a terra». */
+function lightPosPhrase(r, maiuscolo){
+  var P=lightRowPos(r);
+  if(P.misto) return maiuscolo ? "" : "montaggi diversi";   /* a bordo palco non si scrive: sarebbe una quota falsa */
+  var lab=lightPosLabel(P.pos); if(!lab) return "";
+  var loc=(P.pos==="terra"||P.pos==="sala") ? lab : "su "+lab;
+  if(P.h && LIGHT_POS_H[P.pos]) loc+=" a "+P.h+" m";
+  return loc;
+}
 function lightGearText(gear, n){
   var G=LIGHT_GEAR[gear];
   if(G) return (n>1?G.plur:G.sing);
@@ -3288,12 +3334,8 @@ function lightRowText(r){
   var g=lightGearText(r.gear, r.n); if(g) parts.push(g);
   var alt=String(r.gearAlt||"").trim(); if(alt) parts.push("oppure "+alt);
   var col=String(r.color||"").trim(); if(col) parts.push(col);
-  var pos=lightPosLabel(r.pos), h=String(r.posH||"").trim();
-  if(pos){
-    var loc=(r.pos==="terra"||r.pos==="sala") ? pos.toLowerCase() : "su "+pos.toLowerCase();
-    if(h && LIGHT_POS_H[r.pos]) loc+=" a "+h+" m";
-    parts.push(loc);
-  }
+  var loc=lightPosPhrase(r, false);
+  if(loc) parts.push(loc.toLowerCase());
   return parts.join(" ")+".";
 }
 /* Righe della sezione LUCI, raggruppate per funzione e nell'ordine del mestiere
@@ -3338,12 +3380,8 @@ function lightsLabels(){
     if(!its.length) return;
     var bits=[];
     if(String(r.fn||"").trim()) bits.push(lightFnLabel(r.fn));
-    var p=lightPosLabel(r.pos);
-    if(p){
-      var loc=(r.pos==="terra"||r.pos==="sala") ? p : "su "+p;
-      if(String(r.posH||"").trim() && LIGHT_POS_H[r.pos]) loc+=" a "+r.posH+" m";
-      bits.push(loc);
-    }
+    var loc=lightPosPhrase(r, true);
+    if(loc) bits.push(loc);
     if(String(r.color||"").trim()) bits.push("· "+r.color);
     var text=bits.join(" ").replace(/\s+/g," ").trim();
     if(!text) return;
@@ -13195,8 +13233,8 @@ function lightRowSub(r){
   var bits=[];
   var g=lightGearText(r.gear, 2); if(g) bits.push(g.charAt(0).toUpperCase()+g.slice(1));
   if(String(r.color||"").trim()) bits.push(r.color);
-  var p=lightPosLabel(r.pos);
-  if(p) bits.push(p.toLowerCase()+((String(r.posH||"").trim()&&LIGHT_POS_H[r.pos])?" "+r.posH+" m":""));
+  var loc=lightPosPhrase(r, false);
+  if(loc) bits.push(loc.toLowerCase());
   return bits.join(" · ") || "da completare";
 }
 function renderLightsList(){
@@ -13271,10 +13309,23 @@ function renderLightsCard(){
     (String(r.gearAlt||"").trim()?'<p class="prop-hint">Nel rider: «n.'+r.n+' '+esc(lightGearText(r.gear,r.n))+' <b>oppure</b> '+esc(r.gearAlt)+'».</p>':'')+
     '<label class="lights-lbl">Temperatura o colore</label>'+
     '<input type="text" class="lights-inp" id="lcColor" value="'+esc(r.color)+'" placeholder="es. 3200 K, RGBW">'+
-    '<div class="lights-two">'+
-      '<div><label class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
-      (LIGHT_POS_H[r.pos]?'<div><label class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
-    '</div>'+
+    (function(){
+      /* Posizione e altezza: se le icone di questa riga dichiarano un montaggio, il dato e' il loro e
+         qui si LEGGE — cambiarlo in due posti vorrebbe dire poterli contraddire. Si modifica dove sta
+         la cosa vera: sull'apparecchio, in «Installazione». */
+      var P=lightRowPos(r);
+      if(P.dalPalco){
+        var testo = P.misto ? "Gli apparecchi di questa riga hanno montaggi diversi."
+                            : (lightPosLabel(P.pos)+((P.h&&LIGHT_POS_H[P.pos])?" · "+P.h+" m":""));
+        return '<label class="lights-lbl">Posizione <small class="muted">— dal palco</small></label>'+
+          '<input type="text" class="lights-inp" value="'+esc(testo)+'" disabled>'+
+          '<p class="prop-hint">Lo dicono gli apparecchi disegnati: si cambia su di loro, in «Installazione». Cosi\' rider e disegno non possono contraddirsi.</p>';
+      }
+      return '<div class="lights-two">'+
+        '<div><label class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
+        (LIGHT_POS_H[r.pos]?'<div><label class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
+      '</div>';
+    })()+
     '<label class="lights-lbl">Nota</label>'+
     '<input type="text" class="lights-inp" id="lcNote" value="'+esc(r.note)+'" placeholder="finisce nel rider sotto la richiesta">'+
     '<div class="lights-acts">'+
@@ -18103,8 +18154,11 @@ function lightsList(){
     rows.filter(function(r){ return String(r.fn||"")===fn; }).forEach(function(r){
       out.push({ n:r.n, fn:fn?lightFnLabel(fn):"— da assegnare —",
         gear:lightGearText(r.gear, r.n)||"—", color:r.color||"",
-        pos:(function(){ var p=lightPosLabel(r.pos); if(!p) return "";
-          return p+((String(r.posH||"").trim()&&LIGHT_POS_H[r.pos])?" · "+r.posH+" m":""); })(),
+        pos:(function(){ var P=lightRowPos(r);
+          if(P.misto) return "montaggi diversi";
+          var p=lightPosLabel(P.pos); if(!p) return "";
+          return p+((P.h&&LIGHT_POS_H[P.pos])?" · "+P.h+" m":""); })(),
+        dalPalco:lightRowPos(r).dalPalco,
         note:r.note||"", shown:(r.items||[]).filter(function(id){ return alive[id]; }).length });
     });
   });
