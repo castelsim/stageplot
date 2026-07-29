@@ -13,3 +13,7 @@ supabase/.temp/
 
 # Documenti interni (strategia, audit, idee, spec): restano in locale, fuori dal repo pubblico
 docs/
+
+# Harness di review (Playwright): vive in COWORK/STAGEPLOT/review, fuori dal repo pubblico.
+# Una copia di lavoro dentro la worktree non deve poter finire in un commit.
+review/
