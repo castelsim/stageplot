@@ -5791,5 +5791,65 @@ t("il click sul vuoto chiude la lista ovunque, dentro o fuori dal palco", () => 
   eq(riga.indexOf("isOutsideStage"), -1, "il click sul vuoto distingue ancora dentro/fuori dal palco: " + riga);
 });
 
+
+/* ============ QUARTETTO RIPRESO A ZONE (Simone 29/07) ==========================================
+   «Ho un quartetto con le zone di registrazione. L'input list, se provo a collegare in automatico,
+   mi dice che non c'è niente da collegare, ma in realtà c'è la zona del violoncello.»
+   Radice: «e' una sorgente da microfonare» (isAudioSource, che esclude apposta le zone) veniva usato
+   dove serviva «produce canali». Con la ripresa a zone gli strumenti coperti non producono canali e
+   la zona non contava: totale zero, con la lista piena di righe sotto gli occhi. */
+console.log("\n— Ripresa a zone: cosa conta come canale —");
+
+t("una zona produce un canale, e chi copre non ne produce piu'", () => {
+  reset();
+  const vc = add("violoncello", 500, 400);
+  const z = add("miczone", 500, 400); z.w = 220; z.d = 200;
+  eq(A.cabItemInputs(z).length, 1, "la zona = un canale mono");
+  eq(A.cabItemInputs(vc).length, 0, "lo strumento coperto non ne produce piu': lo riprende la zona");
+  eq(A.isAudioSource(z), false, "la zona NON e' una sorgente da microfonare: e' gia' lei il microfono");
+  ok(A.hasChannels(z), "ma canali ne produce, ed e' questo che conta per il cablaggio");
+});
+t("un palco ripreso SOLO a zone non e' un palco vuoto", () => {
+  reset();
+  const vc = add("violoncello", 500, 400), vla = add("violapost", 340, 380);
+  const z1 = add("miczone", 500, 400); z1.w = 220; z1.d = 200;
+  const z2 = add("miczone", 340, 380); z2.w = 220; z2.d = 200;
+  add("stagebox", 1100, 100);
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.__cabRes = null;
+  eq(A.patchList().rows.length, 2, "la Input list ha due canali");
+  eq(A.autoConnectNeeds("cabin"), null, "e la guida non dice piu' «non c'e' niente da collegare»");
+});
+t("senza NIENTE sul palco la guida continua a dirlo", () => {
+  reset();
+  const g = A.autoConnectNeeds("cabin");
+  ok(g && /niente da collegare/.test(g.title), "il caso vero del palco vuoto resta segnalato: " + (g && g.title));
+});
+t("con i canali ma senza stage box la guida chiede la stage box", () => {
+  reset();
+  const vc = add("violoncello", 500, 400);
+  const z = add("miczone", 500, 400); z.w = 220; z.d = 200;
+  A.__cabRes = null;
+  const g = A.autoConnectNeeds("cabin");
+  ok(g && /stage box/i.test(g.title), "il passo successivo e' quello giusto: " + (g && g.title));
+});
+t("nella vista Ingressi la zona sta in primo piano: e' lei la sorgente", () => {
+  reset();
+  const vc = add("violoncello", 500, 400);
+  const z = add("miczone", 500, 400); z.w = 220; z.d = 200;
+  ok(A.layerFgItem("cabin", z), "la zona non sfuma nello sfondo mentre il canale e' suo");
+  ok(A.layerFgItem("cabin", vc), "e lo strumento che riprende resta visibile con lei");
+});
+t("il fulmine collega il canale della zona alla stage box", () => {
+  reset();
+  const vc = add("violoncello", 500, 400);
+  const z = add("miczone", 500, 400); z.w = 220; z.d = 200;
+  const box = add("stagebox", 1100, 100); box.ch = 16;
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.__cabRes = null;
+  const riga = A.patchList().rows[0];
+  eq(A.cabConnectOne(riga.key), box.id, "collegata alla box");
+  A.__cabRes = null;
+  ok(A.patchList().rows[0].box, "e la riga ora ha il suo patch");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
