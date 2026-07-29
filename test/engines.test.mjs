@@ -6891,5 +6891,105 @@ t("la griglia e' un accessorio del box, e si legge nel testo", () => {
   eq(A.modGrid(c), false, "una lantern non prende la griglia: il flag non si trascina dietro");
 });
 
+console.log("\n— Catena dello strumento: i pallini di prelievo —");
+
+/* Le x dei pallini (i <circle> dei tap) nel diagramma della catena. */
+function tapX(it) {
+  const m = A.chainSvgMarkup(it).match(/<circle cx="([\d.]+)"/g) || [];
+  return m.map((c) => parseFloat(c.match(/cx="([\d.]+)"/)[1]));
+}
+
+t("linea e mic della chitarra acustica non finiscono nello stesso punto", () => {
+  reset();
+  const gt = add("gtacustica", 300, 300);
+  gt.strMic = true;                       /* accende anche il microfono sullo strumento */
+  const xs = tapX(gt);
+  eq(xs.length, 2, "attesi due pallini: linea e mic");
+  ok(xs[0] !== xs[1], "le due etichette sono sovrapposte: stessa x " + xs[0]);
+});
+
+t("i due pallini restano distinguibili anche da spenti", () => {
+  reset();
+  const gt = add("gtacustica", 300, 300);
+  gt.tapLine = false; gt.strMic = false;
+  const xs = tapX(gt);
+  ok(Math.abs(xs[0] - xs[1]) >= 24, "troppo vicini: le etichette si toccano ancora (" + xs + ")");
+});
+
+t("con la pedaliera i pallini stanno su nodi diversi e non si scontrano", () => {
+  reset();
+  const gt = add("gtacustica", 300, 300);
+  gt.pedaliera = true; gt.pedXlr = true; gt.strMic = true;
+  const xs = tapX(gt);
+  eq(xs.length, 3, "attesi tre pallini: linea, XLR, mic");
+  eq(new Set(xs).size, 3, "due pallini condividono la stessa x: " + xs);
+});
+
+t("uno strumento senza microfono proprio tiene il suo unico pallino al centro", () => {
+  reset();
+  const b = add("bassstand", 300, 300);
+  eq(tapX(b).length, 1, "il basso non ha il prelievo mic sullo strumento");
+});
+
+console.log("\n— Chitarre: cosa esce davvero —");
+
+t("la chitarra acustica esce di default dal pickup, in DI", () => {
+  eq(A.MIKING.gtacustica.def, "di");
+  ok(A.MIKING.gtacustica.options.some((o) => o[0] === "mic"), "deve poter essere microfonata");
+  ok(A.MIKING.gtacustica.options.some((o) => o[0] === "dimic"), "deve poter fare DI + mic insieme");
+});
+
+t("la chitarra classica di default si microfona: non ha il piezo", () => {
+  eq(A.MIKING.musChitClassica.def, "mic");
+});
+
+console.log("\n— Channel list piena: cosa si apre sopra —");
+
+/* Il valore di z-index di un selettore, letto dal CSS sorgente. */
+function zOf(sel) {
+  const re = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{[^}]*z-index:\\s*(\\d+)");
+  const m = stylesCss.match(re);
+  return m ? +m[1] : null;
+}
+
+t("la channel list piena sta sopra la scala dei modali", () => {
+  const cl = zOf(".cl-ov");
+  ok(cl && cl > 50, "la finestra piena deve stare sopra i modali normali (è " + cl + ")");
+});
+
+t("un dialogo aperto DALLA channel list le finisce sopra, non sotto", () => {
+  /* «il CSV non esporta nulla»: il picker si apriva a z 50 sotto la finestra a z 300, e il
+     bottone sembrava morto. Stesso destino toccava al PDF (Simone, 28/07 sera). */
+  const cl = zOf(".cl-ov"), sopra = zOf("body.cl-open .modal");
+  ok(sopra, "manca la regola che alza i modali quando la channel list è aperta");
+  ok(sopra > cl, "un dialogo aperto dalla channel list resta sotto di lei: " + sopra + " vs " + cl);
+});
+
+t("anche il toast si vede, quando la channel list è aperta", () => {
+  const cl = zOf(".cl-ov"), t = zOf("body.cl-open #cloudToast");
+  ok(t && t > cl, "il messaggio di conferma resterebbe nascosto dietro la finestra");
+});
+
+t("la conferma delle azioni distruttive resta sopra a tutto", () => {
+  const conf = zOf("body.cl-open #confirmModal");
+  const modale = zOf("body.cl-open .modal");
+  ok(conf && modale && conf >= modale, "la conferma deve restare almeno alla pari dei dialoghi");
+});
+
+t("il CSV della channel list produce righe, non un file vuoto", () => {
+  reset();
+  A.state.cab.on = true;
+  add("cantante", 400, 300);
+  add("batteria", 600, 400);
+  add("stagebox", 200, 700);
+  A.__cabRes = null;
+  const r = A.channelListCsv();
+  eq(r.count, 9, "9 canali: 1 voce + 8 microfoni della batteria");
+  const righe = r.csv.trim().split(/\r?\n/);
+  eq(righe.length, 10, "intestazione + 9 righe");
+  ok(righe[0].indexOf("Canale") > -1, "manca l'intestazione");
+  ok(righe[1].indexOf("Kick") > -1 || righe[1].indexOf("Voce") > -1, "prima riga vuota: " + righe[1]);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -17489,10 +17489,15 @@ function chainSvgMarkup(it){
   var nStr=nodi[0], nPed=nodi.filter(function(n){return n.k==="ped";})[0], nAmp=nodi.filter(function(n){return n.k==="amp";})[0];
   /* prelievo di linea: sulla pedaliera se c'è, altrimenti sullo strumento */
   var nLine=nPed||nStr, cx=nLine.x+nLine.w/2;
-  /* due pallini sotto lo stesso nodo: scostati, o le etichette si sovrappongono */
-  s+=tap(nPed?cx-20:cx, c.tapLine, "line", "linea");
+  /* Due pallini sotto lo STESSO nodo vanno scostati, o le etichette si stampano una sopra
+     l'altra. Lo scostamento valeva solo per la pedaliera: sulla chitarra acustica senza
+     pedaliera «linea» e «mic» cadevano entrambi al centro dello Strumento, alla stessa x
+     esatta, e si leggeva «limieca» (segnalato da Simone, 28/07). */
+  var micSuStrumento = (it.type==="gtacustica");
+  var dueSulloStrumento = micSuStrumento && !nPed;   /* linea e mic condividono il nodo Strumento */
+  s+=tap((nPed||dueSulloStrumento)?cx-20:cx, c.tapLine, "line", "linea");
   if(nPed) s+=tap(cx+22, c.pedXlr, "pedxlr", "XLR");
-  if(it.type==="gtacustica") s+=tap(nStr.x+nStr.w/2, c.strMic, "strmic", "mic");
+  if(micSuStrumento) s+=tap(dueSulloStrumento ? cx+20 : nStr.x+nStr.w/2, c.strMic, "strmic", "mic");
   if(nAmp){ s+=tap(nAmp.x+nAmp.w/2-18, c.ampMic, "ampmic", "mic"); s+=tap(nAmp.x+nAmp.w/2+20, c.ampDi, "ampdi", "DI out"); }
   return s;
 }

@@ -1191,6 +1191,14 @@
   .sbp.ris{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning)}
   /* ═══ CHANNEL LIST a schermo intero (28/07, variante C) ═══
      La lista completa accanto a una miniatura del palco: si compila guardando dove sono gli strumenti. */
+  /* La channel list piena vive a z-index 300, sopra la scala dichiarata (--z-modal:50). Tutto
+     quello che LEI apre — il picker CSV, l'export PDF — nasceva a 50 e finiva dietro la finestra:
+     il bottone sembrava morto e il file non partiva mai («il CSV non esporta nulla», Simone 28/07).
+     Stesso destino per il toast (210), che avrebbe almeno spiegato cosa stava succedendo.
+     Finche' la finestra e' aperta, i suoi dialoghi le stanno sopra. */
+  body.cl-open .modal{z-index:320}
+  body.cl-open #confirmModal{z-index:340}   /* la conferma resta sopra ogni dialogo, come fuori di qui */
+  body.cl-open #cloudToast{z-index:360}     /* e il messaggio si legge sopra tutto */
   .cl-ov{position:fixed;inset:0;z-index:300;background:rgba(38,33,24,.42);backdrop-filter:blur(2px);
     display:flex;align-items:center;justify-content:center;padding:24px}
   .cl-ov[hidden]{display:none}
