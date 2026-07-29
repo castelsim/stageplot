@@ -1019,11 +1019,12 @@
         <span class="cab-sectitle"><b>Lista carichi</b></span>
         <button type="button" class="cab-trash" id="loadTrash" title="Rimuovi la lista carichi" aria-label="Rimuovi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
+      <!-- 29/07: via il riepilogo a frase (#loadSummary) e la didascalia in piede — la barra in cima a
+           #loadRows dice a che punto sei e quanto è carica la fase più carica, e ogni riga porta la sua
+           targa (kW · A · connettore). Restava un bottone pieno solo: l'export. -->
       <div id="loadBody" style="margin-top:8px">
-        <div id="loadSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
         <div id="loadRows"></div>
         <button class="btn primary" id="loadPdf" style="width:100%;margin-top:10px">Esporta lista carichi (PDF)</button>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Potenza reale (assorbimento) di ogni elemento → distro e fase assegnati dal motore elettrico.</div>
       </div>
     </div>
   </div>
@@ -7672,6 +7673,36 @@ function elecSupplyPoint(){
 var selElec=null;   /* linea elettrica selezionata (key = id del carico) — parità con selCab */
 function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.on) state.elec.on=true;
   if(!state.elec.manual[key] || typeof state.elec.manual[key]!=="object") state.elec.manual[key]={}; return state.elec.manual[key]; }
+/* La FASE PIÙ CARICA dell'impianto (29/07) — l'equivalente elettrico della capienza «10/16 su A»
+   dell'Input. Non la somma dei kW dei quadri, che non fa saltare niente: quello che conta è la
+   singola fase più carica, la stessa grandezza con cui electricEngine alza «quasi al limite»
+   (>85% di d.a) e «sovraccarico» (>d.a). Nessun numero nuovo: solo d.phLoad[] contro d.a. */
+function elecWorstPhase(R){
+  var w=null;
+  ((R&&R.distros)||[]).forEach(function(d){
+    if(!d.a) return;
+    for(var p=0;p<d.ph;p++){
+      var a=d.phLoad[p]||0;
+      if(!w || (a/d.a) > (w.a/w.cap)) w={a:a, cap:d.a, letter:d.letter, ph:"L"+(p+1)};
+    }
+  });
+  return w;
+}
+/* Scollega una linea elettrica (carico o uplink). È la stessa scrittura del tasto Elimina sulla
+   linea selezionata: in manual-first l'override sparisce, in auto resta la pietra tombale
+   {deleted:true} che tiene il carico fuori dalla proposta del motore finché non lo richiami col
+   fulmine. Una sola funzione per i due punti d'ingresso: due formulazioni divergerebbero. */
+function elecDeleteKey(key){
+  if(!key || !state.elec) return false;
+  if(String(key).indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[String(key).slice(3)]; }
+  else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[key]; }
+  else { state.elec.manual=state.elec.manual||{}; state.elec.manual[key]={deleted:true}; }
+  if(selElec===key) selElec=null;
+  __elecRes=null;
+  return true;
+}
+/* Cestino sulla riga della lista Power: scollega UN carico e libera la sua linea sul quadro. */
+function elecUnlinkOne(loadId){ if(!elecDeleteKey(loadId)) return 0; save(); render(); return 1; }
 function elecMarkup(){
   if(!state.elec || !state.elec.on || !layerShown("elec")) return '';
   if(!cabLayerLive("elec")) return '';   /* vista attiva su un altro layer → i cavi power si tolgono di mezzo */
@@ -15565,7 +15596,9 @@ function cabSetStand(key, v){ var m=cabManual(key); if(v==null||v==="") delete m
 function cabSetP48(key, v){ var m=cabManual(key); if(v==null) delete m.p48; else m.p48=!!v; __cabRes=null; save(); render(); }
 function cabMoveInput(key, dir){ _listMove(patchList().rows.map(function(r){return r.key;}), key, dir, function(o){ state.cab.order=o; }); }
 function cabMoveMonitor(id, dir){ _listMove(monitorList().rows.map(function(r){return r.sinkId;}), id, dir, function(o){ state.cab.monOrder=o; }); }
-function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return i.id===id;}); if(it){ it.label=String(v).slice(0,40); __cabRes=null; save(); render(); } }
+/* Rinomina dell'elemento dalla riga di una lista. Serve a TUTTE le liste (Input, Monitor, Power):
+   il nome è dell'elemento, non del canale — perciò invalida entrambe le cache dei motori. */
+function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return i.id===id;}); if(it){ it.label=String(v).slice(0,40); __cabRes=null; __elecRes=null; save(); render(); } }
 /* applica un ordine manuale (array di chiavi) a righe con campo `keyf`; le chiavi ignote restano in coda nell'ordine di default */
 /* CANALI RISERVATI \u2014 in una channel list professionale un canale tenuto libero di proposito \u00e8 una
    RIGA a tutti gli effetti: ha il suo numero, la sua porta, e nessuna sorgente. Serve a non spezzare una
@@ -16761,10 +16794,14 @@ function loadList(){
   R.loadLinks.forEach(function(l){ n++;
     rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
       line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id}); });
+  /* Anche il carico NON ancora collegato dichiara la sua spina (29/07): il connettore si deduce
+     dall'elemento e dall'assorbimento, non dalla linea — chi allestisce vuole sapere che serve una
+     CEE PRIMA di tirare il cavo, non dopo. Stessa funzione del motore: nessun secondo criterio. */
+  function _conn(it,a){ var c=elecConnOf(it,a,null); return (c&&c.label)||""; }
   R.unassigned.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, loadId:l.it.id}); });
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   (R.pending||[]).forEach(function(l){ n++;   /* manual-first: la lista carichi è completa anche senza cavi */
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, loadId:l.it.id}); });
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   return {rows:rows, R:R};
 }
 var loadActive=false, loadOpen=true;
@@ -16775,32 +16812,89 @@ function renderLoadPanel(){
   document.getElementById("loadBody").style.display = loadOpen ? "block" : "none";
   document.getElementById("loadCaret").textContent = loadOpen ? "▾" : "▸";
   if(!loadOpen) return;
-  var host=document.getElementById("loadRows"), sum=document.getElementById("loadSummary");
+  var host=document.getElementById("loadRows");
   var pl=loadList(), R=pl.R;
-  if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun carico elettrico sul palco.</div>'; sum.textContent=""; return; }
-  sum.innerHTML='<b>'+pl.rows.length+'</b> carichi · <b>'+elecKW(R.totW)+'</b> · '+R.totA.toFixed(0)+' A<br>Distro: <b>'+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join(", ")+'</b>';
-  var h='<div class="patch-row loadrow patch-hd"><span>#</span><span>Carico</span><span>Pot.</span><span>Q/L</span></div>';
+  if(!pl.rows.length){ host.innerHTML='<div class="patch-empty">Nessun carico elettrico sul palco: aggiungi ampli, rack, luci.</div>'; return; }
+  host.innerHTML="";
+  /* ANTEPRIMA POWER (Simone 29/07) — la stessa grammatica dell'Input: una barra sola in cima, una
+     riga per carico (numero · nome · dove si attacca · azione) e il comando principale sempre
+     visibile. Prima c'erano un riepilogo a frase su due righe, una testata a quattro colonne che
+     troncava i nomi («Amp/drive rac…») e il fulmine infilato DENTRO la pillola della linea, che
+     faceva crescere la riga da collegare rispetto a tutte le altre. */
+  var daFare=pl.rows.filter(function(r){ return !r.linked; }).length;
+  var bar=document.createElement("div"); bar.className="cab-bar"+(daFare?"":" done");
+  var txt=document.createElement("span"); txt.className="cab-bar-txt";
+  if(daFare){
+    txt.innerHTML='<b>'+daFare+'</b> '+(daFare===1?"carico da collegare":"carichi da collegare")
+      + (R.distros.length ? "" : ' <span class="lbl-note">— manca un quadro</span>');
+  } else txt.innerHTML='✓ Tutti i carichi sono collegati';
+  bar.appendChild(txt);
+  var wp=elecWorstPhase(R);
+  if(wp){
+    /* Stesse soglie del motore (sovraccarico > d.a, «quasi al limite» > 85%): un solo criterio, e la
+       capienza smette di essere un numero neutro proprio dove il magnetotermico comincia a soffrire. */
+    var over=wp.a>wp.cap, warn=!over && wp.a>0.85*wp.cap;
+    var cs=document.createElement("span"); cs.className="cab-bar-cap"+(over?" over":(warn?" warn":""));
+    cs.textContent=(over||warn?"⚠ ":"")+Math.round(wp.a)+"/"+wp.cap+" A su "+wp.letter;
+    cs.title="Fase più carica: "+wp.letter+" · "+wp.ph+" ("+wp.a.toFixed(1).replace(".",",")+" A di "+wp.cap+" A)."
+      +(over?" Oltre il nominale: il magnetotermico salta.":(warn?" Quasi al limite: ridistribuisci i carichi.":" È la fase che salta per prima, non il totale."));
+    bar.appendChild(cs); }
+  host.appendChild(bar);
+
   pl.rows.forEach(function(r){
-    var lineTxt = (r.ok && r.line) ? (r.distro+"·"+r.phase+"·#"+r.line+(r.linePinned?" 📌":"")) : (r.ok?r.distro+"·"+r.phase:"—");
-    h+='<div class="patch-row loadrow'+(r.ok?'':' unassigned')+'" data-lid="'+esc(r.loadId||"")+'"><span class="pn">'+r.n+'</span>'
-      +'<span class="psrc" title="'+esc(r.name)+(r.conn?" · "+r.conn:"")+'">'+esc(r.name)+(r.conn?' <small class="lbl-note">'+esc(r.conn)+'</small>':'')+'</span>'
-      +'<span class="pmic">'+(r.w>=1000?(r.w/1000).toFixed(1).replace(".",",")+"kW":r.w+"W")+' <b class="pamp">'+r.a.toFixed(1)+'A</b></span>'
-      +'<span class="ppatch'+(r.ok&&r.line?" editable-cell":"")+'">'+esc(lineTxt)
-      +(r.linked?'':'<button type="button" class="cab-one" title="Collega questo carico" aria-label="Collega questo carico">\u26a1</button>')+'</span></div>';
-  });
-  host.innerHTML=h;
-  /* F4: click sulla pillola linea → popover numero + connettore */
-  Array.prototype.forEach.call(host.querySelectorAll(".loadrow"), function(row){
-    var lid=row.getAttribute("data-lid"); if(!lid) return;
-    var one=row.querySelector(".cab-one");   /* fulmine: collega SOLO questo carico */
-    if(one){ one.addEventListener("click", function(e){ e.stopPropagation();
-      var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("elec") : null;
-      if(need){ guideDialog(need); return; }
-      var hit=elecConnectOne(lid);
-      showToast(hit ? "Carico collegato" : "Nessun quadro disponibile per questo carico", hit?"":"err");
-    }); }
-    var cell=row.querySelector(".ppatch.editable-cell"); if(!cell) return;
-    cell.addEventListener("click", function(e){ e.stopPropagation(); openLinePop(e, lid); });
+    var lid=r.loadId||"";
+    var lineTxt = r.line ? (r.distro+"·"+r.phase+"·#"+r.line+(r.linePinned?" 📌":"")) : (r.linked?(r.distro+"·"+r.phase):"");
+    var pot = (r.w>=1000) ? (r.w/1000).toFixed(1).replace(".",",")+" kW" : r.w+" W";
+    var row=document.createElement("div");
+    row.className="patch-lite load-lite"+(r.linked?"":" unassigned");
+    row.dataset.lid=lid;
+    row.innerHTML='<span class="pn">'+r.n+'</span>'
+      + '<span class="psrc" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
+      + '<span class="ppatch'+(r.linked&&r.line?" editable-cell":"")+'">'
+        + (r.linked ? esc(lineTxt) : '<span class="nopatch">—</span>')   /* stessa casella vuota dell'Input: manca la linea, il fulmine è lì accanto */
+      + '</span>'
+      + '<span class="pload"><span class="pw">'+pot+'</span>'
+        + '<b class="pamp" title="Assorbimento reale a 230 V">'+r.a.toFixed(1).replace(".",",")+' A</b>'
+        + (r.conn?'<span class="pconn">'+esc(r.conn)+'</span>':'')
+      + '</span>'
+      + '<span class="pact"></span>';
+    if(!r.ok) row.querySelector(".ppatch").title="Nessun quadro con capienza per questo carico";
+    var act=row.querySelector(".pact");
+    if(r.linked){
+      /* il cestino sta dove sta sull'Input e fa la stessa cosa: scollega e libera la linea sul quadro */
+      var tr=document.createElement("button"); tr.type="button"; tr.className="lite-btn lite-trash";
+      tr.innerHTML=_ROW_TRASH;
+      tr.title="Scollega questo carico: libera la linea sul quadro";
+      tr.setAttribute("aria-label","Scollega questo carico");
+      tr.addEventListener("click", function(e){ e.stopPropagation();
+        if(elecUnlinkOne(lid)) showToast("Carico scollegato");
+      });
+      act.appendChild(tr);
+    } else {
+      var zp=document.createElement("button"); zp.type="button"; zp.className="lite-btn cab-one";
+      zp.textContent="⚡"; zp.title="Collega questo carico"; zp.setAttribute("aria-label","Collega questo carico");
+      zp.addEventListener("click", function(e){ e.stopPropagation();
+        var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("elec") : null;
+        if(need){ guideDialog(need); return; }
+        var hit=elecConnectOne(lid);
+        if(!hit){ showToast("Nessun quadro disponibile per questo carico", true); return; }
+        var dl=(elecResult().loadLinks||[]).filter(function(l){ return l.key===lid; })[0];
+        showToast(dl ? ("Collegato a "+dl.distro.letter+" · L"+(dl.phase+1)+" · #"+dl.line) : "Carico collegato");
+      });
+      act.appendChild(zp);
+    }
+    /* il nome: un click accende il carico sul palco, due lo rinominano — identico all'Input */
+    var nameEl=row.querySelector(".psrc"); nameEl.classList.add("renamable");
+    nameEl.title="Premi: il carico si accende sul palco · doppio click per rinominare";
+    nameEl.addEventListener("click", function(e){ e.stopPropagation(); flashItem(lid); });
+    nameEl.addEventListener("dblclick", function(e){ e.stopPropagation();
+      startInlineRename(nameEl, r.name, function(v){ cabRenameItem(lid, v); }); });
+    /* F4: la pillola resta il punto d'accesso a numero di linea e connettore */
+    var pEl=row.querySelector(".ppatch");
+    if(r.linked && r.line){ pEl.title="Click: numero di linea e connettore";
+      pEl.addEventListener("click", function(e){ e.stopPropagation(); openLinePop(e, lid); }); }
+    row.addEventListener("click", function(e){ if(e.target.closest(".pact")||e.target.closest(".rowedit")) return; flashItem(lid); });
+    host.appendChild(row);
   });
 }
 /* F4: popover linea (numero) + connettore per un carico */
@@ -16850,11 +16944,9 @@ function renderElecPanel(){
 /* toggleElecLayer rimosso (21/07): era codice morto — l'attivazione ora è il clic sulla riga layer (D-L1A) */
 (function(){
   /* pannello Cablaggio elettrico tolto: restano solo gli handler del box "Linea selezionata" */
+  /* stessa scrittura del cestino sulla riga della lista Power: elecDeleteKey è la fonte unica */
   document.getElementById("elecSelDelete").addEventListener("click", function(){ if(!selElec) return;
-    if(selElec.indexOf("up:")===0){ if(state.elec.uplinks) delete state.elec.uplinks[selElec.slice(3)]; }
-    else if(state.elec.mode!=="auto"){ if(state.elec.manual) delete state.elec.manual[selElec]; }
-    else { state.elec.manual=state.elec.manual||{}; state.elec.manual[selElec]={deleted:true}; }
-    selElec=null; __elecRes=null; save(); render(); });
+    elecDeleteKey(selElec); selElec=null; save(); render(); });
   document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
     if(selElec.indexOf("up:")===0){ var u=state.elec.uplinks&&state.elec.uplinks[selElec.slice(3)]; if(u) delete u.pts; }
     else { var m=state.elec.manual&&state.elec.manual[selElec]; if(m) delete m.pts; }
