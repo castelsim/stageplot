@@ -2517,7 +2517,9 @@ var TYPES = {
                  lin(-w/2,-9,-w/2,9,'ic')+lin(w/2,-9,w/2,9,'ic')+
                  circ(-w/2,0,4,'ic fill')+circ(w/2,0,4,'ic fill')+
                  '<rect x="'+(-tw/2)+'" y="'+(y-fs*.85)+'" width="'+tw+'" height="'+(fs+8)+'" rx="5" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>'+
-                 '<text class="lbl" y="'+y+'" style="font-size:'+fs+'px">'+esc(txt)+'</text>';
+                 '<text class="lbl" y="'+y+'" style="font-size:'+fs+'px">'+esc(txt)+'</text>'+
+                 /* bloccato: il lucchettino accanto alla quota, l'unico posto dove non copre la linea */
+                 (it.locked===true ? lockGlyphAt(tw/2+7, y-fs*0.2) : "");
              }},
   /* FORMA (27/07): un solo tipo con l'asse `shape`, come la DI box con mono/stereo/multi. Nel catalogo
      compare come sei voci diverse (rettangolo, cerchio…) così la ricerca le trova tutte, ma nel pannello
@@ -8565,9 +8567,9 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
 /* ELEMENTI CHE SI BLOCCANO (Simone 29/07): pedana, tappeto e forma sono i FONDI del disegno — ci si
    posa sopra il resto e si finisce per trascinarli per sbaglio mentre si prende quello che ci sta
    sopra. Il lucchetto è lo stesso per tutti e tre: stesso gesto, stesso segno, stesso effetto. */
-var LOCKABLE={ tappeto:1, forma:1, miczone:1 };
+var LOCKABLE={ tappeto:1, forma:1, miczone:1, metro:1 };   /* il metro è una quota: una volta presa, si sposta solo per sbaglio */
 function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
-function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it&&it.type==="tappeto") ? "il tappeto" : (it&&it.type==="forma") ? "la forma" : (it&&it.type==="miczone") ? "la zona" : "l'elemento"; }
+function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it&&it.type==="tappeto") ? "il tappeto" : (it&&it.type==="forma") ? "la forma" : (it&&it.type==="miczone") ? "la zona" : (it&&it.type==="metro") ? "il metro" : "l'elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
 function itemPickable(it){
   if(!it || it.rackId) return false;
@@ -15861,9 +15863,31 @@ function techScrollTo(id){
       var fr=e.target.closest(".cl-free");
       if(fr){ cabFreePort(fr.getAttribute("data-free"), +fr.getAttribute("data-port")); clRender(); return; }
     });
+    /* IL NUMERO SI APPLICA MENTRE LO SCRIVI (Simone 29/07). Prima l'unico evento era «change», che su
+       una casella numerica scatta al blur: si digitava 1 sul canale 3 e la lista restava ferma, con
+       due righe che dicevano «1», finché non si cliccava altrove. Ora si applica anche digitando,
+       dopo una breve pausa — il tempo di scrivere «12» senza che al primo tasto la riga voli in cima —
+       e il fuoco torna sulla casella del canale spostato, che nel frattempo ha cambiato posto. */
+    var _clNumT=null;
+    function clApplyNum(key, val, refocus){
+      if(_clNumT){ clearTimeout(_clNumT); _clNumT=null; }
+      if(!cabSetChannelNo(key, val)){ clRender(); return; }
+      clRender();
+      if(!refocus) return;
+      var el=_clDlg.querySelector('.cl-numin[data-num="'+(window.CSS&&CSS.escape?CSS.escape(key):key)+'"]');
+      if(el){ el.focus(); try{ el.select(); }catch(_e){} }
+    }
+    _clDlg.addEventListener("input", function(e){
+      var t=e.target;
+      if(!t.classList || !t.classList.contains("cl-numin")) return;
+      var key=t.getAttribute("data-num"), val=t.value;
+      if(val==="") return;                       /* casella svuotata per riscrivere: si aspetta */
+      if(_clNumT) clearTimeout(_clNumT);
+      _clNumT=setTimeout(function(){ _clNumT=null; clApplyNum(key, val, true); }, 320);
+    });
     _clDlg.addEventListener("change", function(e){
       var t2=e.target;
-      if(t2.classList.contains("cl-numin")){ cabSetChannelNo(t2.getAttribute("data-num"), t2.value); clRender(); return; }
+      if(t2.classList.contains("cl-numin")){ clApplyNum(t2.getAttribute("data-num"), t2.value, false); return; }
       if(t2.hasAttribute("data-mic")){ cabSetMic(t2.getAttribute("data-mic"), t2.value); clRender(); return; }
       if(t2.hasAttribute("data-stand")){ cabSetStand(t2.getAttribute("data-stand"), t2.value==="__auto"?null:t2.value); clRender(); return; }
       if(t2.hasAttribute("data-p48")){ cabSetP48(t2.getAttribute("data-p48"), t2.checked); clRender(); return; }
@@ -16909,8 +16933,10 @@ function techAccordionOpen(which){
   else if(which==="patch")patchOpen=true; else if(which==="mon")monOpen=true; else if(which==="load")loadOpen=true;
 }
 /* Maniglia di ridimensionamento della colonna destra (solo desktop). Trascina la cucitura canvas↔props:
-   la larghezza vive in --rail, viene persistita e ri-clampata sulla finestra; doppio click = reset;
-   al rilascio si ri-adatta il palco così l'indicatore "Adatta" resta onesto. Inerte su mobile (grid off). */
+   la larghezza vive in --rail, viene persistita e ri-clampata sulla finestra; doppio click = reset.
+   NIENTE adattamento automatico della vista (Simone 29/07): allargare il pannello e vedersi saltare
+   lo zoom del palco a ogni presa della maniglia è peggio di un indicatore «Adatta» impreciso —
+   la vista è dell'utente, e «Adatta» resta lì a un clic per chi la vuole. Inerte su mobile. */
 (function(){
   var handle=document.getElementById("railHandle"); if(!handle) return;
   var DEF=310, MIN=280, MAXHARD=560;
@@ -16919,7 +16945,6 @@ function techAccordionOpen(which){
   function currentRail(){ var v=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--rail"),10); return isFinite(v)&&v>0?v:DEF; }
   function applyRail(px){ px=Math.round(Math.max(MIN, Math.min(railMax(), px))); document.documentElement.style.setProperty("--rail", px+"px"); return px; }
   function setRail(px){ px=applyRail(px); try{ localStorage.setItem("sp_rail", px); }catch(e){} return px; }   /* preferenza dell'utente */
-  function refit(){ var b=document.getElementById("bFit"); if(b) b.click(); }
   applyRail(savedPref());   /* ripristina la larghezza salvata (clampata alla finestra), senza sovrascrivere la preferenza */
   var dragging=false, startX=0, startRail=0;
   handle.addEventListener("pointerdown", function(e){
@@ -16932,11 +16957,11 @@ function techAccordionOpen(which){
   function endDrag(e){
     if(!dragging) return; dragging=false; handle.classList.remove("dragging");
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    document.body.style.cursor=""; setRail(currentRail()); refit();
+    document.body.style.cursor=""; setRail(currentRail());   /* la vista resta dov'era: nessun adattamento a sorpresa */
   }
   handle.addEventListener("pointerup", endDrag);
   handle.addEventListener("pointercancel", endDrag);
-  handle.addEventListener("dblclick", function(){ setRail(DEF); refit(); });
+  handle.addEventListener("dblclick", function(){ setRail(DEF); });   /* reset della LARGHEZZA, non della vista */
   window.addEventListener("resize", function(){ applyRail(savedPref()); });   /* re-clampa sulla finestra, la preferenza resta */
 })();
 /* ===== Inspector B "lista piatta" (scelta Simone 08/07, mockup inspector-vuoto.html) =====
