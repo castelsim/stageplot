@@ -672,6 +672,22 @@
       </div>
       <select id="pBy" hidden><option value="">Non specificato</option><option value="Band">Band</option><option value="Service">Service</option></select>
     </div>
+    <div id="pMountWrap" style="display:none"><label>Installazione <small class="lbl-note">— come sta su, e a che altezza</small></label>
+      <div class="seg" id="pMountMode" role="group" aria-label="Modalità di installazione">
+        <button type="button" class="adv-btn" data-mnt="floor">A terra</button>
+        <button type="button" class="adv-btn" data-mnt="stand">Su stativo</button>
+        <button type="button" class="adv-btn" data-mnt="hung">Appeso</button>
+      </div>
+      <div id="pMountHWrap" style="display:none;margin-top:7px">
+        <label for="pMountH">Altezza del punto luce</label>
+        <div class="row"><span><input type="number" id="pMountH" min="20" max="1200" step="10" inputmode="numeric"> <small class="lbl-note">cm</small></span></div>
+      </div>
+      <div id="pMountHangWrap" style="display:none;margin-top:7px">
+        <div id="pMountStruct" class="prop-hint"></div>
+        <label for="pMountSafety" style="margin-top:6px">Cavo di sicurezza <small class="lbl-note">— sicurezza secondaria, obbligatoria sopra le persone</small></label>
+        <select id="pMountSafety"><option value="present">Presente</option><option value="unspecified">Da verificare</option><option value="missing">Mancante</option></select>
+      </div>
+    </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
       <div class="row">
         <span><input type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
@@ -1722,6 +1738,42 @@ function lockGlyphAt(x,y,col){
          '<rect x="-3" y="-0.4" width="6" height="4.6" rx="1"/>'+
          '<path class="rl-arc" fill="none" d="M -1.8 -0.6 v -1.5 a 1.8 1.8 0 0 1 3.6 0 v 1.5"'+ast+'/>'+
          '</g>';
+}
+/* FARO TEATRALE in pianta (PC / fresnel): staffa a U, corpo, lente in avanti — il fronte è il fascio.
+   A palco intero il faro è alto pochi pixel: la sagoma deve leggersi come «corpo scuro + lente chiara
+   davanti», e il fresnel si distingue dal PC per gli anelli della lente. */
+function faroTeatroSvg(it, fres){
+  var w=Math.max(12,it.w||22), d=Math.max(12,it.d||26), hw=w/2, hd=d/2;
+  var bw=w*0.64, bd=d*0.58, cy=-d*0.10;                                  /* corpo, arretrato: davanti c'è la lente */
+  var s=bar(0, -hd+d*0.07, w*0.9, d*0.1, 'ic fGrey', 1)+                 /* staffa a U: traversa dietro… */
+        bar(-hw+w*0.05, cy, w*0.1, d*0.6, 'ic fGrey', 1)+                /* …e i due bracci ai lati */
+        bar( hw-w*0.05, cy, w*0.1, d*0.6, 'ic fGrey', 1);
+  s+=bar(0, cy, bw, bd, 'ic fGrey', 2);
+  var r=bw/2, ly=cy+bd/2, rr=(r*0.72).toFixed(1);                        /* lente sul bordo frontale, convessa in avanti */
+  s+='<path class="ic" d="M '+(-r)+' '+ly.toFixed(1)+' A '+r.toFixed(1)+' '+rr+' 0 0 0 '+r.toFixed(1)+' '+ly.toFixed(1)+' Z"/>';
+  if(fres){                                                              /* fresnel: gli anelli della lente */
+    [0.66,0.33].forEach(function(k){
+      s+='<path class="ic thin" fill="none" d="M '+(-r*k).toFixed(1)+' '+ly.toFixed(1)+' A '+(r*k).toFixed(1)+' '+(r*k*0.72).toFixed(1)+' 0 0 0 '+(r*k).toFixed(1)+' '+ly.toFixed(1)+'"/>';
+    });
+  }   /* il PC tiene la lente LISCIA: è la differenza vera fra i due, e un segno in più a questa scala
+         diventerebbe rumore — il nome sotto l'icona dice quale dei due è */
+  return s;
+}
+/* Il SUPPORTO dell'apparecchio, in pianta e sotto di esso: treppiede dello stativo (tre gambe a 120°,
+   la colonna al centro) oppure morsetto dell'appeso. A terra non si disegna niente: il faro poggia. */
+function mountUnderSvg(it){
+  var mo=mountModeOf(it);
+  if(mo==="floor") return "";
+  if(mo==="stand"){
+    var r=Math.max(it.w||22,it.d||26)*0.95, s="";   /* gambe che escono dal footprint: a palco intero è l'unico modo per vederle */
+    [90,210,330].forEach(function(a){ var q=a*Math.PI/180;
+      s+=lin(0,0,(r*Math.cos(q)).toFixed(1),(r*Math.sin(q)).toFixed(1),'ic');
+      s+=circ((r*Math.cos(q)).toFixed(1),(r*Math.sin(q)).toFixed(1),Math.max(1.6,(it.w||22)*0.07),'ic fill'); });
+    return s+circ(0,0,Math.max(3,(it.w||22)*0.2),'ic soft');
+  }
+  var g=Math.max(3,(it.w||22)*0.22);            /* morsetto: la ganascia che stringe la barra, dietro l'apparecchio */
+  return bar(0,-(it.d||26)*0.5-g*0.4, g*2.1, g*0.9,'ic fill',1)+
+         '<path class="ic thin" fill="none" d="M '+(-g)+' '+(-(it.d||26)*0.5-g*1.5)+' a '+g+' '+g+' 0 0 1 '+(2*g)+' 0"/>';
 }
 function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w/2)+'" y="'+(cy-d/2)+'" width="'+w+'" height="'+d+'" rx="'+(rx==null?3:rx)+'"/>'; }
 function rectSvg(w,d,cls,rx){ return bar(0,0,w,d,cls,rx); }
@@ -2828,6 +2880,17 @@ var TYPES = {
     draw:function(it){ return drawLibFit("parled",it,28,28); }},
   sagomatore: {nome:"Sagomatore", dim:"35×45", cat:"Luci", w:35,d:45,
     draw:function(it){ return bar(0,5,it.w,it.d-12,'ic fGrey',3)+circ(0,-it.d/2+8,9,'ic thin')+circ(0,-it.d/2+8,5,'ic fBlack'); }},
+  /* PC e FRESNEL (Simone 29/07): i due fari base del teatro mancavano, e un PAR non li sostituisce —
+     il PC ha il fascio regolabile e la lente piano-convessa, il fresnel la lente ad anelli e il bordo
+     sfumato. In pianta si distinguono per la LENTE: liscia sul PC, ad anelli sul fresnel.
+     Misure = ingombro TIPICO di categoria per un 500 W, come per gli altri fari già in catalogo:
+     nessun dato dimensionale di un modello preciso viene dichiarato qui. */
+  farope:    {nome:"Faro PC", dim:"22×26 · 500 W", cat:"Luci", w:22,d:26,
+    alias:"faro pc pc teatrale proiettore teatrale faro alogeno luce teatro proel plft50pcn",   /* niente «piano convessa»: la ricerca e' a sottostringa e «piano» deve trovare il pianoforte */
+    draw:function(it){ return faroTeatroSvg(it,false); }},
+  fresnel:   {nome:"Fresnel", dim:"24×28 · 500 W", cat:"Luci", w:24,d:28,
+    alias:"fresnel faro fresnel lente anelli proiettore teatrale faro alogeno luce teatro sfumato",
+    draw:function(it){ return faroTeatroSvg(it,true); }},
   strobo:     {nome:"Stroboscopio", dim:"30×15", cat:"Luci", w:30,d:15,
     draw:function(it){ return bar(0,0,it.w,it.d,'ic fGrey',2)+
       lin(-8,it.d/2-4,-8,-it.d/2+4,'ic thin')+lin(0,it.d/2-4,0,-it.d/2+4,'ic thin')+lin(8,it.d/2-4,8,-it.d/2+4,'ic thin'); }},
@@ -2992,7 +3055,7 @@ var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Au
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,wireless:1,dimono:1,distereo:1,
   wedge:1,sidefill:1,iem:1,hearback:1, mixer:1,stagebox:1,foh:1,arraylarge:1,sub218:1,frontfill:1,amprack:1,
-  parluci:1,testamobile:1,sagomatore:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
+  parluci:1,testamobile:1,sagomatore:1,farope:1,fresnel:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
   pedana:1,tappeto:1,fondale:1,sediabianca:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
@@ -3044,6 +3107,7 @@ var WATT = {
   q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
   amprack:2500,
   consolaluci:100, dimmerluci:3600, testamobile:350, parluci:150, sagomatore:400,
+  farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
   followspot:1200, strobo:800, fumomachine:1500, hazer:1000, proiettore:500, camera:30,
   torrefaro:1000,
   ipad:12, tablet:10, notebook:65, macbook:60, rack2u:150, rack4u:300,
@@ -3101,7 +3165,10 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 /* Il campo "modello reale" appare SOLO dove ha senso (feedback Simone 17/07: l'utente va accompagnato,
    niente testo libero su musicisti/direttore). Mappa: categoria di catalogo → categorie del DB prodotti.
    Tendina per-categoria, non ricerca libera. */
-var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"] };   /* un DI mostra SOLO modelli DI, non microfoni (Simone 18/07) */
+var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"],
+  /* fari: il modello reale sta sul faro, non su tutta la categoria Luci — console, dimmer e macchine
+     del fumo non hanno un catalogo di «fari» da cui scegliere (Simone 29/07) */
+  farope:["faro"], fresnel:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"] };   /* un DI mostra SOLO modelli DI, non microfoni (Simone 18/07) */
 /* hearback/mixerino NON sono qui (Simone 28/07): avevano DUE campi per la stessa cosa — «Modello
    personal mixer» (generico, descrittivo) e «Personal monitor» marca+modello (PM_DB), che è quello
    vero: da lì il motore ricava sistema, porte, alimentazione e vincoli. Stessa scelta già fatta per
@@ -3122,6 +3189,7 @@ function equipFieldLabel(cats){
   if(cats[0]==="console") return "Modello console";
   if(cats[0]==="stagebox") return "Modello stagebox";
   if(cats[0]==="line_array") return "Modello diffusore / ampli";
+  if(cats[0]==="faro") return "Modello del faro";
   return "Modello reale"; }
 /* L3 (08/07) — guardia copertura metadata tecnici. Diagnostico (non runtime), richiamabile da console:
    elenca gli elementi "tecnici" a cui manca un metadato atteso, così buchi silenziosi (come i WATT di
@@ -3162,7 +3230,7 @@ var WEIGHT = {
   /* cablaggio/dispositivi */
   stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
   /* luci */
-  consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30,
+  consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
   strobo:8, fumomachine:15, hazer:12, torrefaro:60,
   /* video */
   ledwallmod:8, schermo:40, proiettore:15, camera:5
@@ -4726,6 +4794,68 @@ var LIGHT_POS=[
   ["elevatore","Elevatore"], ["americana","Americana"], ["terra","A terra"],
   ["ballerina","Ballerina"], ["sala","In sala"]
 ];
+/* ===== MONTAGGIO (Simone 29/07) ============================================================
+   Un faro a terra, uno su stativo e uno appeso a un'americana sono tre montaggi diversi, e chi
+   allestisce ha bisogno di saperlo: cambia il materiale (base, stativo, gancio + cavo di sicurezza)
+   e cambia l'altezza del punto luce.
+
+   Il montaggio è un ATTRIBUTO del faro, non un oggetto in più: lo stativo si disegna nell'icona,
+   così non c'è nessun id da tenere vivo e nessun orfano da recuperare quando si cancella.
+   Per l'appeso la struttura si trova per GEOMETRIA, come la pedana trova chi ci sta sopra
+   (itemsOnRiser): il faro dentro il rettangolo di un'americana è appeso a quella, e la segue.
+   panDeg non esiste: la rotazione è già it.rot. ========================================== */
+var MOUNT_MODES=[["floor","A terra"],["stand","Su stativo"],["hung","Appeso"]];
+var MOUNT_H_DEF={ floor:25, stand:250, hung:400 };     /* cm dal palco al punto luce */
+var MOUNT_H_MIN=20, MOUNT_H_MAX=1200;                  /* limiti larghi: 20 cm (a terra) → 12 m (americana alta) */
+var MOUNT_SAFETY=[["present","Presente"],["unspecified","Da verificare"],["missing","Mancante"]];
+var HANG_STRUCT={ americana:1, truss:1 };              /* strutture a cui si appende: barra luci e truss */
+function isMountable(it){ return !!(it && lightsIsGear(it.type)); }   /* gli apparecchi del reparto luci */
+function isHangStruct(it){ return !!(it && HANG_STRUCT[it.type]===1); }
+function mountModeOf(it){
+  var m=it && it.mount && it.mount.mode;
+  return (m==="stand"||m==="hung") ? m : "floor";      /* default e migrazione: a terra, senza spostare niente */
+}
+function mountHOf(it){
+  var mo=mountModeOf(it), h=it && it.mount && it.mount.h;
+  if(h==null || !isFinite(+h)) return MOUNT_H_DEF[mo];
+  return Math.max(MOUNT_H_MIN, Math.min(MOUNT_H_MAX, Math.round(+h)));
+}
+function mountSafetyOf(it){
+  var v=it && it.mount && it.mount.safety;
+  return (v==="present"||v==="missing") ? v : "unspecified";
+}
+function mountLabel(k){ for(var i=0;i<MOUNT_MODES.length;i++) if(MOUNT_MODES[i][0]===k) return MOUNT_MODES[i][1]; return ""; }
+function mountSet(it, patch){
+  if(!it || !isMountable(it)) return;
+  var m=it.mount||{};
+  Object.keys(patch||{}).forEach(function(k){ if(patch[k]==null) delete m[k]; else m[k]=patch[k]; });
+  if(m.mode==="floor" && m.h==null && m.safety==null && !m.note) delete it.mount; else it.mount=m;
+}
+/* La struttura a cui il faro è appeso: quella che se lo ritrova sotto. Nessun id memorizzato —
+   sposti l'americana e i suoi fari la seguono, sposti il faro fuori e si sgancia da solo. */
+function hangSupportOf(it){
+  if(!it || mountModeOf(it)!=="hung") return null;
+  var found=null;
+  (state.items||[]).forEach(function(s){
+    if(found || !isHangStruct(s)) return;
+    var rot=(s.rot||0)*Math.PI/180, cos=Math.cos(-rot), sin=Math.sin(-rot);
+    var dx=it.x-s.x, dy=it.y-s.y, lx=dx*cos-dy*sin, ly=dx*sin+dy*cos;
+    if(Math.abs(lx)<=s.w/2 && Math.abs(ly)<=s.d/2+10) found=s;   /* +10 cm: un faro un filo sotto la barra è appeso lo stesso */
+  });
+  return found;
+}
+function hangItemsOf(st){
+  if(!isHangStruct(st)) return [];
+  return (state.items||[]).filter(function(it){ return isMountable(it) && mountModeOf(it)==="hung" && hangSupportOf(it)===st; });
+}
+/* Testo che il montaggio aggiunge sotto il nome, in pianta: è il dato che serve a chi monta. */
+function mountNote(it){
+  if(!isMountable(it)) return "";
+  var mo=mountModeOf(it);
+  if(mo==="floor") return "";
+  var h=(mountHOf(it)/100).toFixed(mountHOf(it)%100?1:0).replace(".",",");
+  return (mo==="stand" ? "stativo " : "appeso ")+h+" m";
+}
 var LIGHT_POS_H={ elevatore:1, americana:1 };   /* solo qui l'altezza è un'informazione: «a terra a 4 m» non vuol dire niente */
 /* Apparecchi che si CHIEDONO in un rider: sorgenti luminose + macchine d'atmosfera.
    Struttura (americana) e regia (console, dimmer) restano oggetti del palco — nessun rider
@@ -4733,6 +4863,8 @@ var LIGHT_POS_H={ elevatore:1, americana:1 };   /* solo qui l'altezza è un'info
    Singolare e plurale perché il rider si LEGGE: «n.4 sagomatori», non «n.4 Sagomatore». */
 var LIGHT_GEAR={
   parluci:    {sing:"proiettore PAR / wash", plur:"proiettori PAR / wash"},
+  farope:     {sing:"faro PC",               plur:"fari PC"},
+  fresnel:    {sing:"fresnel",               plur:"fresnel"},
   sagomatore: {sing:"sagomatore",            plur:"sagomatori"},
   testamobile:{sing:"testa mobile",          plur:"teste mobili"},
   followspot: {sing:"follow spot",           plur:"follow spot"},
@@ -5100,6 +5232,17 @@ function normalizeLoadedItems(arr){
     if(it.zcol!=null && !/^#[0-9a-f]{6}$/i.test(String(it.zcol))) delete it.zcol;
     if(it.txtColor!=null && !/^#[0-9a-f]{6}$/i.test(String(it.txtColor))) delete it.txtColor;
     if(it.align!=null && it.align!=="left" && it.align!=="center" && it.align!=="right") delete it.align;
+    if(it.mount!=null){   /* MONTAGGIO: modo dall'elenco, altezza nei limiti, stato del cavo di sicurezza */
+      if(typeof it.mount!=="object" || Array.isArray(it.mount)) delete it.mount;
+      else {
+        var _mt=it.mount;
+        if(_mt.mode!=="stand" && _mt.mode!=="hung") delete _mt.mode;
+        if(_mt.h!=null){ n=Number(_mt.h); if(isFinite(n)) _mt.h=Math.max(MOUNT_H_MIN,Math.min(MOUNT_H_MAX,Math.round(n))); else delete _mt.h; }
+        if(_mt.safety!=null && _mt.safety!=="present" && _mt.safety!=="missing") delete _mt.safety;
+        if(_mt.note!=null) _mt.note=String(_mt.note).slice(0,120);
+        if(!_mt.mode && _mt.h==null && !_mt.safety && !_mt.note) delete it.mount;
+      }
+    }
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
       if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
@@ -5879,6 +6022,7 @@ function itemMarkup(it){
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
   if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
+  if(isMountable(it)) s += mountUnderSvg(it);   /* stativo o gancio: stanno SOTTO l'apparecchio, come nella realtà */
   var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   var _hm=headMicOf(it);
@@ -5934,6 +6078,10 @@ function itemMarkup(it){
       if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+7)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+'</text>';
       else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
     }
+    /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
+       terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
+    var _mn = mountNote(it);
+    if(_mn) s += '<text class="lbl sub" y="'+(ly+fsz*0.95)+'" style="font-size:'+(fsz*0.8)+'px">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
@@ -7965,6 +8113,21 @@ function auditEngine(){
       add("warn","Non è dichiarato se la sala deve essere oscurabile.","Luci",
         "In testa alla lista Luci, dichiara se lo spettacolo richiede il buio.",
         {label:"Dichiara", run:auditFixLightsBlackout}, "luci-blackout");
+    /* L7 — appeso a NIENTE: il rider promette un montaggio che sul palco non ha struttura sotto.
+       Aggregata, non una riga per faro: con dodici appesi sarebbero dodici avvisi identici. */
+    var appesi=lightItems.filter(function(it){ return mountModeOf(it)==="hung"; });
+    var orfani=appesi.filter(function(it){ return !hangSupportOf(it); });
+    if(orfani.length) add("warn", orfani.length===1 ? "Un faro è impostato come appeso ma non è sopra nessuna struttura."
+        : orfani.length+" fari sono impostati come appesi ma non sono sopra nessuna struttura.",
+      "Luci","Trascinali su un'americana o una truss, oppure riportali a terra o su stativo dal pannello.",
+      {label:"Mostra il primo", run:function(){ selectOne(orfani[0].id); render(); renderProps(); if(typeof flashItem==="function") flashItem(orfani[0].id); }}, "luci-appeso-orfano");
+    /* L8 — il cavo di sicurezza è obbligatorio su tutto ciò che sta sopra la testa della gente.
+       Info e non warn: qui manca la DICHIARAZIONE, non per forza il cavo. */
+    var senzaCavo=appesi.filter(function(it){ return hangSupportOf(it) && mountSafetyOf(it)!=="present"; });
+    if(senzaCavo.length) add("info", senzaCavo.length===1 ? "Un faro appeso non dichiara il cavo di sicurezza."
+        : senzaCavo.length+" fari appesi non dichiarano il cavo di sicurezza.",
+      "Luci","Sull'apparecchio, in «Installazione», segna il cavo di sicurezza come Presente: è la sicurezza secondaria di ciò che sta sopra le persone.",
+      null, "luci-cavo-sicurezza");
     /* L3 — «bianco» non è un'informazione: 3200 K sì. Le macchine d'atmosfera non hanno colore. */
     var noCol=rows.filter(function(r){ return LIGHT_GEAR[r.gear] && r.gear!=="fumomachine" && r.gear!=="hazer" && !String(r.color||"").trim(); });
     if(noCol.length) add("info","Alcune luci non dicono la temperatura o il colore.","Luci",
@@ -9060,6 +9223,24 @@ function renderProps(){
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
+  var mnw=document.getElementById("pMountWrap");   /* INSTALLAZIONE: solo i campi della modalità scelta */
+  if(mnw){ var canMnt=isMountable(it); mnw.style.display=canMnt?"block":"none";
+    if(canMnt){
+      var mo=mountModeOf(it);
+      Array.prototype.forEach.call(document.querySelectorAll("#pMountMode [data-mnt]"), function(b){
+        b.className="adv-btn"+(b.getAttribute("data-mnt")===mo?" on":""); });
+      document.getElementById("pMountHWrap").style.display = (mo==="floor") ? "none" : "block";
+      document.getElementById("pMountH").value = mountHOf(it);
+      var hangW=document.getElementById("pMountHangWrap");
+      hangW.style.display = (mo==="hung") ? "block" : "none";
+      if(mo==="hung"){
+        var st=hangSupportOf(it), sn=document.getElementById("pMountStruct");
+        sn.textContent = st ? ("Appeso a: "+((st.label||"").trim() || TYPES[st.type].nome)+" — si sposta con lei.")
+                            : "Nessuna struttura sotto: trascinalo su un'americana o una truss.";
+        sn.style.color = st ? "" : "var(--warning, #b45309)";
+        document.getElementById("pMountSafety").value = mountSafetyOf(it);
+      }
+    } }
   var mirb=document.getElementById("pMirror");   /* Specchia: azione, accanto a Duplica ed Elimina */
   if(mirb){ var canM=canMirror(it); mirb.style.display=canM?"":"none";
     mirb.className="btn"+(canM&&it.mir?" primary":""); mirb.setAttribute("aria-pressed", (canM&&it.mir)?"true":"false"); }
@@ -9707,6 +9888,29 @@ function mirrorSel(){
   render(); renderProps(); save();
   if(typeof a11yAnnounce==="function") a11yAnnounce(tutti?"Orientamento originale":"Specchiato");
 }
+/* INSTALLAZIONE dei fari: cambiando modo l'altezza torna al valore tipico di quel montaggio, così
+   non resta appesa a 25 cm una luce che prima era a terra. */
+document.getElementById("pMountMode").addEventListener("click", function(e){
+  var b=e.target.closest("button[data-mnt]"); if(!b) return;
+  var mo=b.getAttribute("data-mnt");
+  mutSel(function(it){ if(!isMountable(it)) return;
+    var prima=mountModeOf(it);
+    if(prima===mo) return;
+    mountSet(it, {mode:(mo==="floor"?null:mo), h:(MOUNT_H_DEF[mo]===MOUNT_H_DEF.floor&&mo==="floor")?null:MOUNT_H_DEF[mo]});
+    if(mo!=="hung") mountSet(it, {safety:null});
+  });
+  render(); renderProps(); save();
+});
+document.getElementById("pMountH").addEventListener("change", function(){
+  var v=+document.getElementById("pMountH").value;
+  mutSel(function(it){ if(isMountable(it)) mountSet(it, {h:isFinite(v)?Math.max(MOUNT_H_MIN,Math.min(MOUNT_H_MAX,Math.round(v))):null}); });
+  render(); renderProps(); save();
+});
+document.getElementById("pMountSafety").addEventListener("change", function(){
+  var v=document.getElementById("pMountSafety").value;
+  mutSel(function(it){ if(isMountable(it)) mountSet(it, {safety:(v==="unspecified")?null:v}); });
+  save();
+});
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
 document.getElementById("grpMirror").addEventListener("click", mirrorSel);
 /* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
@@ -9753,11 +9957,12 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   }
   /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
-  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap");
+  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap");
   group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
   group("Microfono", null, ["pOutCard","pStereoWrap","pHeadMicWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
+  group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn");
@@ -11371,6 +11576,9 @@ svg.addEventListener("pointerdown", function(e){
     if(!selSet[id]) selectClick(id);      /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco) */
     if(e.altKey){ e.preventDefault(); duplicateSel(true); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata */
     var moving=selItems().slice().filter(itemEditable);   /* col lucchetto chiuso non si sposta, neanche dentro a un gruppo */
+    moving.slice().forEach(function(it){      /* l'americana trascina i fari che le sono appesi */
+      if(isHangStruct(it)) hangItemsOf(it).forEach(function(o){ if(moving.indexOf(o)===-1 && itemEditable(o)) moving.push(o); });
+    });
     moving.slice().forEach(function(it){      /* le pedane trascinano gli elementi sopra */
       if(TYPES[it.type] && TYPES[it.type].riser){
         if(it.grp){                            /* pedana in un blocco (es. duplicata): porta i membri del blocco, non gli elementi geometrici (così non aggancia gli originali sotto) */
