@@ -757,8 +757,11 @@
         <label class="chk" title="2 strumenti + 1 leggio nella stessa postazione"><input type="checkbox" id="pDoppia"> Postazione a 2</label>
       </div>
       <div id="pSepWrap" style="display:none;margin-top:6px">
-        <div class="numrow"><label for="pSep">Distanza tra i 2</label>
-          <span class="numwrap"><input type="number" id="pSep" min="65" max="300" step="5" inputmode="numeric"><i>cm</i></span></div>
+        <!-- Slider come Dimensione e Rotazione: e' una misura continua, e allontanare i due
+             leggii si CAPISCE guardandoli muoversi, non digitando un numero (Simone 28/07). -->
+        <div class="sldrow"><label for="pSep">Distanza tra i 2</label>
+          <input type="range" id="pSep" min="65" max="300" step="5">
+          <output id="pSepVal">90</output></div>
         <button class="btn" id="pSplit" style="display:none">⇔ Dividi in 2 postazioni singole</button>
       </div>
     </div>
@@ -10238,7 +10241,8 @@ function renderProps(){
   var sw=document.getElementById("pSepWrap");
   if(cfg){ sw.style.display="block"; var sv=Math.max(minSepOf(it), it.sep || defSepOf(it));
     document.getElementById("pSep").min = minSepOf(it);
-    document.getElementById("pSep").value = sv; }
+    document.getElementById("pSep").value = sv;
+    var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = sv+" cm"; }
   else sw.style.display="none";
   var pv=document.getElementById("pVoce"), isVoce=!!VOCE[it.type];
   pv.style.display = isVoce ? "block" : "none";
@@ -10717,7 +10721,10 @@ function applySep(doSave){
   it.w=sepToW(cfg, it.sep);
   render(); if(doSave) save();
 }
-document.getElementById("pSep").addEventListener("input", function(){ applySep(false); });
+document.getElementById("pSep").addEventListener("input", function(){
+  var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = (this.value||"")+" cm";   /* il numero segue il cursore, come Dimensione */
+  applySep(false);
+});
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ mutSel(function(it){ it.donna=document.getElementById("pDonna").checked; }); });
 document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); });
