@@ -2754,8 +2754,16 @@ body.dark .ask-all .btn{background:transparent}
         <button class="btn" id="pStereoStereo" style="flex:1;font-size:12px;padding:5px 2px" title="2 canali: L (dispari) + R (pari)">Stereo</button>
       </div>
     </div>
+    <!-- Dentro una zona panoramica lo strumento EREDITA il microfono della sezione. Se ne ha anche uno
+         suo, i canali diventano due: qui si sceglie quale dei due casi è, con parole che dicono cosa
+         finisce in channel list — non una spunta da interpretare. -->
     <div id="pOwnMicWrap" style="display:none">
-      <label class="chk" title="Questo elemento è dentro una zona panoramica: di default il suo microfono singolo NON conta (lo copre la zona). Attiva per aggiungere comunque il mic singolo alla input list."><input type="checkbox" id="pOwnMic"> Mic singolo anche in zona</label>
+      <label>In zona panoramica <small class="lbl-note">— cosa entra in channel list</small></label>
+      <div class="seg" id="pOwnMicMode" role="group" aria-label="Microfonazione dentro la zona">
+        <button type="button" class="adv-btn" data-om="pano">Solo panoramico</button>
+        <button type="button" class="adv-btn" data-om="both">Mic strumento + panoramico</button>
+      </div>
+      <div id="pOwnMicHint" class="prop-hint"></div>
     </div>
     <div id="pZoneWrap" style="display:none">
       <label>Opacità area</label>

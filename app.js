@@ -7648,9 +7648,17 @@ function renderProps(){
     if(scfg){ var sst=(it.stereo!=null?it.stereo:scfg.def);
       document.getElementById("pStereoMono").className="btn"+(sst?"":" primary");
       document.getElementById("pStereoStereo").className="btn"+(sst?" primary":""); } }
-  var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: opt-in per il mic singolo (Simone 14/07) */
-  if(omw){ var inZone=isAudioSource(it) && !!itemInMicZone(it); omw.style.display=inZone?"block":"none";
-    if(inZone) document.getElementById("pOwnMic").checked=effOwnMic(it); }   /* spuntata di default per i close-obligati (kick/rullante/tom/hi-hat) */
+  var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: eredita il panoramico, e puo' avere anche il suo (Simone 14/07, riscritto 29/07) */
+  if(omw){ var zn=isAudioSource(it) ? itemInMicZone(it) : null; omw.style.display=zn?"block":"none";
+    if(zn){
+      var due=effOwnMic(it);   /* i close-obligati (kick, rullante, tom, hi-hat) nascono gia' con il loro */
+      Array.prototype.forEach.call(document.querySelectorAll("#pOwnMicMode [data-om]"), function(b){
+        b.className="adv-btn"+((b.getAttribute("data-om")==="both")===due?" on":""); });
+      var zname=(zn.label||"").trim()||micZoneLabel(zn);
+      document.getElementById("pOwnMicHint").textContent = due
+        ? ("Due canali: il suo microfono e il panoramico \u00ab"+micZoneMic(zn)+"\u00bb di "+zname+".")
+        : ("Un canale solo: lo riprende il panoramico \u00ab"+micZoneMic(zn)+"\u00bb di "+zname+".");
+    } }
   var zw=document.getElementById("pZoneWrap");   /* zona microfono panoramico */
   if(zw){ var isZone=it.type==="miczone"; zw.style.display=isZone?"block":"none";
     /* zone mic: niente Rotazione né Duplica — non hanno senso per un'area (Simone 15/07) */
@@ -13565,10 +13573,13 @@ function renderCabPanel(){
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
   var sbo=document.getElementById("pSbOut");
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
-  var pom=document.getElementById("pOwnMic");   /* mic singolo anche in zona (opt-in) */
-  if(pom) pom.addEventListener("change", function(){ var it=getSel(); if(!it) return;
-    if(this.checked === !zoneAbsorbable(it)) delete it.ownMic; else it.ownMic=this.checked;   /* memorizza solo l'override rispetto al default del tipo */
-    __cabRes=null; save(); render(); renderProps(); });
+  var pom=document.getElementById("pOwnMicMode");   /* dentro la zona: solo panoramico, oppure mic strumento + panoramico */
+  if(pom) pom.addEventListener("click", function(e){
+    var b=e.target.closest ? e.target.closest("button[data-om]") : null; if(!b) return;
+    var due=b.getAttribute("data-om")==="both", it=getSel(); if(!it) return;
+    if(due === !zoneAbsorbable(it)) delete it.ownMic; else it.ownMic=due;   /* memorizza solo l'override rispetto al default del tipo */
+    __cabRes=null; save(); render(); renderProps();
+  });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value;
     if(v==="__zona__"){ var it0=getSel(); this.value=(it0&&it0.miking)||(it0&&MIKING[it0.type]?MIKING[it0.type].def:""); createMicZoneFor(it0); return; }   /* "Zona" crea una zona di microfonazione (non è un valore di miking) */
