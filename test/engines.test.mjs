@@ -5981,5 +5981,85 @@ t("applicare a tutti allinea gli altri e non tocca i tipi diversi", () => {
   eq(A.lblSizeOf(w), 20, "il wedge resta com'era");
 });
 
+
+/* ====== B5: POSIZIONE E ALTEZZA, UN DATO SOLO (Simone 29/07) ==================================
+   La riga del rider aveva la sua posizione, le icone hanno il montaggio: due posti per la stessa
+   cosa sono due posti che si contraddicono. Vince cio' che dice il palco, dove il palco parla. */
+console.log("\n— Luci: la posizione la dice il palco —");
+
+t("un faro su stativo detta la posizione della sua riga, ovunque", () => {
+  reset();
+  const f = add("farope", 300, 400);
+  A.mountSet(f, { mode: "stand", h: 250 });
+  const r = A.lightRow({ fn: "frontale", n: 1, gear: "farope", items: [f.id] });
+  A.state.lights = { rows: [r], blackout: true, mood: "" };
+  const P = A.lightRowPos(r);
+  eq(P.pos, "stativo"); eq(P.h, "2,5"); eq(P.dalPalco, true);
+  ok(/su stativo a 2,5 m/.test(A.lightRowText(r)), "nel rider: " + A.lightRowText(r));
+  ok(/STATIVO A 2,5 M/.test(A.lightsLabels()[0].text), "e sull'etichetta a bordo palco: " + A.lightsLabels()[0].text);
+});
+t("appeso a un'americana: lo dice il rider, e a una truss lo distingue", () => {
+  reset();
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const f = add("farope", 500, 100);
+  A.mountSet(f, { mode: "hung", h: 420 });
+  const r = A.lightRow({ fn: "controluce", n: 1, gear: "farope", items: [f.id] });
+  eq(A.lightRowPos(r).pos, "americana");
+  ok(/su americana a 4,2 m/.test(A.lightRowText(r)), A.lightRowText(r));
+  A.state.items = A.state.items.filter((x) => x.id !== am.id);
+  const tr = add("truss", 600, 100); tr.w = 400; tr.d = 30;
+  A.__cabRes = null;
+  eq(A.lightRowPos(r).pos, "truss", "su una truss non si scrive «americana»");
+});
+t("«a terra» resta implicito: il default non si dichiara da solo", () => {
+  reset();
+  const f = add("farope", 300, 400);   /* nessun montaggio scelto: e' il default */
+  const r = A.lightRow({ fn: "frontale", n: 1, gear: "farope", items: [f.id] });
+  const P = A.lightRowPos(r);
+  eq(P.dalPalco, false, "il palco non dichiara niente");
+  eq(P.pos, "", "e il rider non scrive «a terra» al posto dell'utente");
+});
+t("quello che l'utente ha scritto a mano resta, se il palco tace", () => {
+  reset();
+  const r = A.lightRow({ fn: "frontale", n: 4, gear: "sagomatore", pos: "elevatore", posH: "4", items: [] });
+  const P = A.lightRowPos(r);
+  eq([P.pos, P.h, P.dalPalco].join(" "), "elevatore 4 false", "le luci in sala non stanno sul palco: la riga e' l'unica fonte");
+  ok(/su elevatore a 4 m/.test(A.lightRowText(r)), A.lightRowText(r));
+});
+t("il palco vince su quanto scritto a mano: niente due verita'", () => {
+  reset();
+  const f = add("farope", 300, 400);
+  A.mountSet(f, { mode: "stand", h: 180 });
+  const r = A.lightRow({ fn: "frontale", n: 1, gear: "farope", pos: "americana", posH: "6", items: [f.id] });
+  const P = A.lightRowPos(r);
+  eq([P.pos, P.h].join(" "), "stativo 1,8", "vale l'apparecchio disegnato, non la vecchia riga");
+});
+t("apparecchi con montaggi diversi: la riga lo dice invece di sceglierne uno", () => {
+  reset();
+  const am = add("americana", 600, 100); am.w = 400; am.d = 30;
+  const a = add("farope", 500, 100), b2 = add("farope", 300, 400);
+  A.mountSet(a, { mode: "hung", h: 400 });
+  A.mountSet(b2, { mode: "stand", h: 250 });
+  const r = A.lightRow({ fn: "frontale", n: 2, gear: "farope", items: [a.id, b2.id] });
+  ok(A.lightRowPos(r).misto, "riconosciuto");
+  ok(/montaggi diversi/.test(A.lightRowText(r)), "nel rider: " + A.lightRowText(r));
+  A.state.lights = { rows: [r], blackout: true, mood: "" };
+  eq(/MONTAGGI|M$/.test(A.lightsLabels()[0].text), false, "a bordo palco non si stampa una quota falsa: " + A.lightsLabels()[0].text);
+});
+t("la Lista luci del PDF porta il montaggio, e dice che viene dal palco", () => {
+  reset();
+  const f = add("farope", 300, 400);
+  A.mountSet(f, { mode: "stand", h: 250 });
+  A.state.lights = { rows: [A.lightRow({ fn: "frontale", n: 1, gear: "farope", items: [f.id] })], blackout: true, mood: "" };
+  const riga = A.lightsList().rows[0];
+  eq(riga.pos, "Stativo · 2,5 m");
+  eq(riga.dalPalco, true);
+});
+t("stativo e truss sono posizioni del rider, con la loro altezza", () => {
+  ok(A.LIGHT_POS.some((p) => p[0] === "stativo"), "«stativo» si puo' anche scrivere a mano");
+  ok(A.LIGHT_POS.some((p) => p[0] === "truss"));
+  ok(A.LIGHT_POS_H.stativo && A.LIGHT_POS_H.truss, "e portano un'altezza, come l'americana");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
