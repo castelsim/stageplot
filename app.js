@@ -622,6 +622,68 @@ function coverH(it){ return (it&&it.h!=null) ? it.h : (String(it&&it.type).index
 function ptInCover(px,py,cov){ var dx=px-cov.x, dy=py-cov.y, a=-((cov.rot||0)*Math.PI/180), c=Math.cos(a), s=Math.sin(a); return Math.abs(dx*c-dy*s)<=(cov.w||0)/2 && Math.abs(dx*s+dy*c)<=(cov.d||0)/2; }   /* punto nel rettangolo (ruotato) della copertura */
 function coverAtRisk(it){ return !isCover(it) && (isAudioSource(it) || wattOf(it)>0 || OUT_SET[it.type]!=null || it.type==="mixer" || it.type==="foh" || it.type==="rack" || cabIsBox(it)); }   /* attrezzatura audio/elettrica = "teme la pioggia" */
 function coveredBy(cov){ return (state.items||[]).filter(function(x){ return coverAtRisk(x) && ptInCover(x.x,x.y,cov); }); }
+/* ===== ASTA GIGANTE (29/07) — pianta in scala reale, vista dall'alto, fronte palco = +y =====
+   È la giraffa da coro/orchestra: treppiede grande a doppia crociera + braccio telescopico con
+   contrappeso. Misure prese dai datasheet dei modelli di riferimento, NON a occhio:
+     · K&M 20811  (k-m.de)  base Ø 1485 mm · altezza 1850-4400 mm · 11 kg · braccio opzionale 21231
+     · Proel PRO300BK       base Ø 1500 mm · altezza 1600-2350 mm · braccio 1350-2050 mm · 5,2 kg
+     · Proel PRO400BK       base Ø 1060 mm · altezza 1510-2400 mm · braccio 1400-2350 mm · 12 kg
+     · K&M 21231 (braccio)  1070-1870 mm · 5,32 kg · contrappeso regolabile · per 20811 e 21411
+   SCELTE: base Ø150 = i due modelli col treppiede più largo (20811 1485, PRO300 1500), arrotondati.
+   Sbraccio disegnato 140 cm = la sola quota dentro TUTTE e tre le corse documentate del braccio
+   (107-187 · 135-205 · 140-235); è la proiezione orizzontale, il braccio vero è più lungo perché
+   scende sul coro. Tubo del braccio Ø5 cm = dato di targa del PRO400BK.
+   Il resto (spessore delle gambe, lunghezza del codolo del contrappeso) è tratto grafico: non è
+   dichiarato da nessun costruttore e qui non lo si inventa come misura.
+   Confronto col resto del catalogo: una giraffa normale ha base Ø 680 mm (Proel RSM180) e braccio
+   435-745 mm (K&M 210/9) — la gigante è più del doppio in entrambe le quote, e si deve vedere. */
+/* base = Ø del treppiede aperto · sbraccio = proiezione orizzontale del braccio dal palo.
+   Da qui discendono l'ingombro (w = base, d = mezza base dietro il palo + sbraccio) e il disegno:
+   una sola fonte, così pianta e misure non possono divergere. */
+var ASTAG = { base:150, sbraccio:140 };
+ASTAG.w = ASTAG.base;
+ASTAG.d = ASTAG.base/2 + ASTAG.sbraccio;            /* 215 cm */
+ASTAG.hubY = -ASTAG.d/2 + ASTAG.base/2;             /* -32,5: il palo NON è al centro del riquadro */
+function drawAstaGigante(){
+  function n(v){ return (Math.round(v*10)/10); }
+  var R=ASTAG.base/2, hubY=ASTAG.hubY;
+  var LEG="#1a1c1e", HL="#41464b", RUB="#0e0f10", HUB="#26292c", HUB2="#34383c",
+      BOOM="#202326", BOOM2="#2a2d31", CW="#101214", CW2="#2c3033", GR="#565b60", GR2="#8b9196";
+  /* piedi del treppiede: uno indietro (fronte palco = +y, quindi -y è dietro), due avanti a ±120° */
+  var feet=[[0,hubY-R],[R*0.866,hubY+R*0.5],[-R*0.866,hubY+R*0.5]], s="";
+  feet.forEach(function(f){   /* gamba come tubo pieno, non come linea: alla scala del palco si vede lo spessore */
+    var ux=f[0]/R, uy=(f[1]-hubY)/R, px=-uy*1.6, py=ux*1.6;   /* semilarghezza tubo 1,6 cm */
+    s+='<path fill="'+LEG+'" d="M '+n(px)+','+n(hubY+py)+' L '+n(f[0]+px)+','+n(f[1]+py)+
+       ' L '+n(f[0]-px)+','+n(f[1]-py)+' L '+n(-px)+','+n(hubY-py)+' Z"/>';
+  });
+  /* doppia crociera: è la firma dei treppiedi giganti (K&M la dichiara "tube legs with double cross
+     braces" su 20811 e 21411) ed è ciò che distingue questa pianta da quella della giraffa normale */
+  [0.55,0.80].forEach(function(k){   /* abbastanza larghe da non impastarsi col perno e col contrappeso */
+    var p=feet.map(function(f){ return [n(f[0]*k), n(hubY+(f[1]-hubY)*k)]; });
+    var dd='M '+p[0][0]+','+p[0][1]+' L '+p[1][0]+','+p[1][1]+' L '+p[2][0]+','+p[2][1]+' Z';
+    s+='<path fill="none" stroke="'+LEG+'" stroke-width="2.2" stroke-linejoin="round" d="'+dd+'"/>';
+    s+='<path fill="none" stroke="'+HL+'" stroke-width=".8" stroke-linejoin="round" d="'+dd+'"/>';
+  });
+  feet.forEach(function(f){ s+='<ellipse fill="'+RUB+'" cx="'+n(f[0])+'" cy="'+n(f[1])+'" rx="3.2" ry="3.2"/>'; });
+  /* contrappeso: codolo dietro il perno, dentro l'impronta del treppiede (non allarga l'ingombro) */
+  s+='<rect fill="'+BOOM2+'" x="-1.6" y="'+n(hubY-34)+'" width="3.2" height="34" rx="1.2"/>';
+  s+='<rect fill="'+CW+'" x="-5.2" y="'+n(hubY-34)+'" width="10.4" height="15" rx="2.6"/>';
+  s+='<rect fill="'+CW2+'" x="-5.2" y="'+n(hubY-29.5)+'" width="10.4" height="2.2" rx=".8"/>';
+  s+='<rect fill="'+CW2+'" x="-5.2" y="'+n(hubY-24)+'" width="10.4" height="2.2" rx=".8"/>';
+  /* braccio telescopico in due tratti (tubo Ø5 cm, dato di targa PRO400BK), il secondo più sottile */
+  var tip=hubY+ASTAG.sbraccio, mid=hubY+ASTAG.sbraccio*0.55;
+  s+='<rect fill="'+BOOM+'" x="-2.5" y="'+n(hubY)+'" width="5" height="'+n(mid-hubY)+'" rx="1.6"/>';
+  s+='<rect fill="'+BOOM2+'" x="-1.9" y="'+n(mid)+'" width="3.8" height="'+n(tip-mid-7)+'" rx="1.3"/>';
+  s+='<rect fill="'+HUB2+'" x="-3.4" y="'+n(mid-2.6)+'" width="6.8" height="5.2" rx="1.4"/>';   /* morsetto della sfilata */
+  /* perno in testa al palo: il cerchio grande è il palo visto da sopra */
+  s+='<circle fill="'+HUB+'" cx="0" cy="'+n(hubY)+'" r="7.5"/><circle fill="'+HUB2+'" cx="0" cy="'+n(hubY)+'" r="4.6"/>';
+  s+='<circle fill="'+BOOM+'" cx="0" cy="'+n(hubY)+'" r="2.2"/>';
+  /* microfono in punta */
+  s+='<rect fill="'+BOOM+'" x="-1.7" y="'+n(tip-8)+'" width="3.4" height="4" rx="1"/>';
+  s+='<circle fill="'+GR+'" cx="0" cy="'+n(tip-3)+'" r="3.4"/>';
+  s+='<circle fill="'+GR2+'" cx="-.4" cy="'+n(tip-3.4)+'" r="2.5"/>';
+  return s;
+}
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -1043,6 +1105,10 @@ var TYPES = {
              draw:function(it){ return drawLibFit("asta_giraffa",it,55,80); }},
   astabassa:{nome:"Asta bassa", dim:"microfono ~45", cat:"Microfoni e DI", sub:"Aste e microfoni", w:50,d:42,
              draw:function(it){ return drawLibFit("astabassa",it,25,45); }},
+  /* Ingombro NON scalabile con drawLibFit: la pianta è già in cm reali (vedi drawAstaGigante).
+     w = Ø del treppiede aperto, d = mezza base dietro il palo + sbraccio del braccio. */
+  astagigante:{nome:"Asta gigante", dim:"base Ø150 · braccio 140", cat:"Microfoni e DI", sub:"Aste e microfoni",
+             w:ASTAG.w, d:ASTAG.d, draw:function(){ return drawAstaGigante(); }},
   coppiast:{nome:"Coppia stereo", dim:"barra 70", cat:"Microfoni e DI", sub:"Aste e microfoni", w:78,d:38, defLabel:"ST L/R",
              draw:function(){ return lin(-32,0,32,0,'ic')+lin(0,0,0,24,'ic thin')+circ(0,24,3,'ic fill')+
                '<g transform="translate(-32,0) rotate(-20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'+
@@ -1357,6 +1423,11 @@ var SEARCH_ALIAS = {
   headset:"archetto microfono ad archetto headset headworn dpa 4066 dpa 4088 madonna",
   astamic:"aste microfoniche astina astine mic stand", giraffa:"aste microfoniche mic stand boom",
   astabassa:"aste microfoniche astina astine mic stand",
+  /* NIENTE "microfoniche" qui: e' gia' su tre elementi e una quarta voce a pari rango spingeva
+     l'Overhead di sezione fuori dai primi 8 risultati di "mic". "aste" basta a farla trovare. */
+  /* "cori" volutamente FUORI: a pari rango scavalcava i coristi, e chi digita "cori" cerca le persone.
+     "coro" basta a farla trovare come ripresa d'insieme. */
+  astagigante:"aste giraffa grande gigante giganti overhead coro boom stand sbraccio contrappeso",
   talkback:"clearcom clear com intercom comunicazione regia tb",
   /* strutture, cablaggio, elettrico, video */
   /* la pedana NON è un elemento del catalogo (27/07): i suoi sinonimi vivono sulla voce
@@ -1396,7 +1467,7 @@ Object.keys(SEARCH_ALIAS).forEach(function(k){   /* fuso nei tipi: le due ricerc
 var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento"];   /* "Liste tecniche" tolta (17/07): le liste vivono sotto i layer */
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
-var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,wireless:1,dimono:1,distereo:1,
+var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,astagigante:1,wireless:1,dimono:1,distereo:1,
   wedge:1,sidefill:1,iem:1,hearback:1, mixer:1,stagebox:1,foh:1,arraylarge:1,sub218:1,frontfill:1,amprack:1,
   parluci:1,testamobile:1,sagomatore:1,farope:1,fresnel:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
   pedana:1,tappeto:1,fondale:1,sediabianca:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
@@ -2049,7 +2120,7 @@ var DEFAULT_LABELS = {
   gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"Direttore",
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
-  astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Speaker", cantante:"Voce", corista:"Coro",
+  astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", astagigante:"Boom XL", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Speaker", cantante:"Voce", corista:"Coro",
   wedge:"MIX", sidefill:"SIDE", drumfill:"DRUM FILL", iem:"IEM", iemant:"TX IEM", hearback:"PM",
   dimono:"DI", distereo:"DI st", stagebox:"STAGEBOX", splitter:"SPLIT", multicore:"SUB", corrente:"220V", ciabatta:"Power",
   quadro:"POWER", foh:"FOH", monmix:"MON MIX", laptop:"MAC", audiointerface:"I/O",
@@ -6466,7 +6537,7 @@ function auditEngine(){
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
      entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (nei casi reali analizzati mancavano fino a 11 canali voce).
      Solo "cantante": il corista vive tipicamente nel mic di sezione/coro o in una zona. */
-  var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,podiosp:1};
+  var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,astagigante:1,podiosp:1};
   var voxless=items.filter(function(it){ return it.type==="cantante" && !itemInMicZone(it)
     && !items.some(function(m){ return AUDIT_VOICE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<150; }); });
   if(voxless.length) add("warn", voxless.length+(voxless.length===1?" cantante è":" cantanti sono")+" senza microfono: la voce non entra nella channel list.","Audio","Ogni voce ha bisogno di un mic accanto (radiomic, asta o headset) oppure di una zona mic.",{label:"Aggiungi radiomic",run:function(){ auditFixAddVoiceMics(voxless); }});
@@ -8046,6 +8117,7 @@ var ABBR_PRO=[
   ["cantante","Vox"],["voce","Vox"],["corista","Coro"],["coro","Coro"],
   ["personal mixer","PM"],["monitoraggio","PM"],["aviom","PM"],["hearback","PM"],
   ["side fill","SF"],["sidefill","SF"],["drum fill","DF"],["drumfill","DF"],["in-ear","IEM"],["in ear","IEM"],["iem","IEM"],["cuffie","IEM"],["monitor","Mon"],["wedge","Mon"],["spia","Mon"],
+  ["asta gigante","OH"],   /* la gigante è una ripresa d'insieme dall'alto: la sigla del mestiere è OH, non "Mic" */
   ["asta microfono","Mic"],["radiomicrofono","RF"],["radiomic","RF"],["overhead","OH"],["microfono","Mic"],["talkback","TB"],["asta","Mic"],
   ["line array","PA"],["subwoofer","Sub"],["diffusore","PA"],
   ["direct box","DI"],["stage box","SB"],["stagebox","SB"],
@@ -9342,7 +9414,7 @@ function findFreeSpot(x,y,w,d){
    Wedge 1/2, DI 1/2, Multipresa 1/2… con re-flow quando ne cancelli uno. */
 var NUMBERED_HW = { wedge:1, sidefill:1, drumfill:1, iem:1, sub18:1,
   dimono:1, distereo:1, ciabatta:1, distro63:1, distro32:1, distro125:1, quadro:1,
-  astamic:1, giraffa:1, astabassa:1 };
+  astamic:1, giraffa:1, astabassa:1, astagigante:1 };
 function autoNumbered(type){ var t=TYPES[type]; if(!t) return false;
   if(type==="corista") return false;   /* i coristi nascono senza etichetta */
   if(type==="direttore") return false;   /* il direttore non si numera: etichetta "Direttore" (sigla M°) */
@@ -9368,7 +9440,7 @@ var INSTR_BASE = {
   wedge:"Wedge", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", sub18:"Sub",
   dimono:"DI", distereo:"DI stereo", ciabatta:"Multipresa",
   distro63:"Distro", distro32:"Distro", distro125:"Quadro", quadro:"Quadro",
-  astamic:"Asta", giraffa:"Giraffa", astabassa:"Asta bassa"
+  astamic:"Asta", giraffa:"Giraffa", astabassa:"Asta bassa", astagigante:"Asta gigante"
 };
 function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].nome) || ""; }
 /* "posti" già usati per quello strumento (una postazione a 2 conta 2) */
@@ -12362,10 +12434,14 @@ function renderPrompt(o){
    Singolo canale qui in IN_SRC; elementi stereo/multipli in IN_MULTI. Convenzioni live PA. */
 /* M4 — suggerimenti (datalist) per mic/DI e stand: modelli comuni nel live sound. Solo hint, campo resta libero. */
 var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","e906","e609","MD421","e604","e904","D6","Beta 52A","e602","Beta 91A","SM81","KM184","C451","DPA 4099","DPA 4066","DPA 4088","C414","U87","TLM 103","DI","DI stereo","Radial J48"];
-var STAND_SUGGEST = ["asta dritta","asta giraffa","asta bassa","clip","clip strumento","headset","interno/terra","da tavolo","—"];   /* stesso vocabolario dei valori generati da MIC_DEFAULTS: prima erano in inglese e non combaciavano mai */
+var STAND_SUGGEST = ["asta dritta","asta giraffa","asta gigante","asta bassa","clip","clip strumento","headset","interno/terra","da tavolo","—"];   /* stesso vocabolario dei valori generati da MIC_DEFAULTS: prima erano in inglese e non combaciavano mai */
+/* Quando la sorgente del canale È un'asta, l'asta la dice l'oggetto sul palco, non il modello di
+   microfono: sul KM184 il default sarebbe "asta giraffa" anche montato su una gigante. Per le tre
+   aste storiche il valore coincide già con quello dedotto dal mic — qui non cambia nulla. */
+var STAND_BY_TYPE = { astamic:"asta dritta", giraffa:"asta giraffa", astagigante:"asta gigante", astabassa:"asta bassa" };
 var IN_SRC = {
   /* voci e microfoni */
-  astamic:"SM58", giraffa:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184",
+  astamic:"SM58", giraffa:"KM184", astagigante:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184",
   /* archi (mic a clip) */
   vlnpost:"DPA 4099", violapost:"DPA 4099", violoncello:"DPA 4099", contrabbasso:"DPA 4099", archi2leggio:"DPA 4099", arpa:"DPA 4099",
   /* legni (mic a clip) */
@@ -12762,13 +12838,16 @@ var STOOL_POSTAZ = {contrabbasso:1, cbx2:2};   /* tipi POSTAZ che usano sgabello
    Regole reali, non "un microfono = un'asta" (sbaglierebbe del 60-100% su una batteria): i tom vanno
    a clip sul cerchio, gli overhead su giraffa, la cassa su asta bassa. La categoria si deduce dal
    MODELLO di microfono, che il tool già assegna a ogni canale (MIC_DEFAULTS). */
-var STAND_KINDS=[ ["giraffa","Asta giraffa"], ["bassa","Asta bassa"], ["dritta","Asta dritta"],
+/* La gigante è un kind a sé, non una giraffa grande: in magazzino sono due articoli diversi e nel
+   rider si chiedono a parte (treppiede da 1,5 m di impronta, braccio con contrappeso). */
+var STAND_KINDS=[ ["giraffa","Asta giraffa"], ["gigante","Asta gigante"], ["bassa","Asta bassa"], ["dritta","Asta dritta"],
                   ["clip","Clip / pinza"], ["headset","Headset"], ["terra","A terra / interno"] ];
 function standKindOf(mic){   /* modello di microfono → supporto fisico (il primo valore è il primario) */
   var st=String((micInfo(mic)||{}).stand||"");
   if(!st) return null;                                   /* DI e strumenti in linea: nessun supporto */
   if(st.indexOf("headset")>-1) return "headset";
   if(st.indexOf("interno")>-1 || st.indexOf("terra")>-1) return "terra";
+  if(st.indexOf("gigante")>-1) return "gigante";         /* prima di "giraffa": nessun MIC_DEFAULTS la genera, ma il vocabolario dev'essere classificabile per intero */
   if(st.indexOf("giraffa")>-1) return "giraffa";
   if(st.indexOf("clip")===0) return "clip";              /* "clip", "clip strumento", "clip/asta bassa" */
   if(st.indexOf("bassa")>-1) return "bassa";
@@ -12777,6 +12856,7 @@ function standKindOf(mic){   /* modello di microfono → supporto fisico (il pri
 }
 function standKindOfItem(it){   /* aste già presenti sul palco come oggetto, e aste delle voci (micMode) */
   if(it.type==="giraffa") return "giraffa";
+  if(it.type==="astagigante") return "gigante";
   if(it.type==="astabassa") return "bassa";
   if(it.type==="astamic") return "dritta";
   if(it.type==="headset") return "headset";
@@ -12795,7 +12875,7 @@ function standNeeds(){
     var own=standKindOfItem(it);
     if(own){ out[own].gia++; out[own].tot++; }
     if(!isAudioSource(it)) return;
-    if(it.type==="astamic"||it.type==="giraffa"||it.type==="astabassa"||it.type==="headset") return;   /* l'asta È l'oggetto: già contata sopra */
+    if(it.type==="astamic"||it.type==="giraffa"||it.type==="astagigante"||it.type==="astabassa"||it.type==="headset") return;   /* l'asta È l'oggetto: già contata sopra */
     if(VOCE[it.type]) return;                                   /* voci: l'asta è nell'icona, già contata */
     (cabItemInputs(it)||[]).forEach(function(c){
       var k=standKindOf(c.mic); if(!k) return;
@@ -13757,14 +13837,18 @@ function patchList(){
        derivato usa il modello reale e il phantom di targa (datasheet). L'override manuale del canale
        (cabSetMic/micOff) resta prioritario. required→48V on; no/ribbon_danger→off (il ribbon ha già
        il suo avviso in audit). */
-    var eqPh=null, srcIt=byId[itemId];
+    var eqPh=null, srcIt=byId[itemId], fromModel=false;
     if(srcIt && srcIt.modelData && String(equipVal(srcIt,"category")||"")==="microfono"){
       var mm=man[key], realMic=equipVal(srcIt,"model");
-      if(realMic && !o && !(mm&&mm.mic)) mic=String(realMic);
+      if(realMic && !o && !(mm&&mm.mic)){ mic=String(realMic); fromModel=true; }
       eqPh=equipPhantom(srcIt);
     }
     var p48=(o||!mic)?false:(eqPh!=null ? eqPh==="required" : !!micInfo(mic).p48);
     var stand=(o||!mic)?"":(micInfo(mic).stand||"");
+    /* Se il canale nasce dal mic di DEFAULT di un'asta, l'asta la dice l'oggetto sul palco: una
+       gigante monta il KM184 come la giraffa, ma resta una gigante. Col modello reale assegnato
+       comanda Equipment Intelligence (regola già esistente), qui non la si scavalca. */
+    if(stand && !fromModel && srcIt && STAND_BY_TYPE[srcIt.type]) stand=STAND_BY_TYPE[srcIt.type];
     /* 28/07 — asta e phantom restano DERIVATI dal microfono, ma sul canale valgono le scelte
        dell'utente: in una channel list vera il fonico corregge l'asta e il 48V riga per riga. */
     var _ov=man[key]||{};
@@ -15462,7 +15546,7 @@ function renderInspectorB(){
     /* Aste microfoniche: quante ne servono davvero, dedotte dal modello di mic di ogni canale.
        I tom vanno a clip, gli overhead su giraffa: contarne una per microfono sarebbe sbagliato. */
     try{ var _st=standNeeds(), _stTot=standTotal(_st);
-      var _ASTE={giraffa:1,bassa:1,dritta:1};
+      var _ASTE={giraffa:1,gigante:1,bassa:1,dritta:1};   /* aste vere (clip/headset/terra vanno nella coda "senza asta") */
       if(_stTot || _st.clip.tot){
         var _sd=STAND_KINDS.filter(function(k){ return _ASTE[k[0]] && _st[k[0]].tot>0; })
           .map(function(k){ return _st[k[0]].tot+"× "+k[1].toLowerCase(); });
@@ -16233,7 +16317,9 @@ var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:
   comboamp:45,stack:110,bassamp:120,keysamp:50,leslie:105,
   grancoda:101,mezzacoda:99,pianoverticale:131,stagepiano:95,doppiatastiera:120,celesta:90,panchetta:48,
   gtstand:105,gtacustica:110,bassstand:115,djset:95,arpa:175,archi2leggio:125,vln1x2:125,vln2x2:125,violax2:125,cellix2:130,cbx2:190,
-  astamic:160,giraffa:170,astabassa:60,coppiast:170,podiosp:115,corista:160,
+  astamic:160,giraffa:170,astagigante:300,astabassa:60,coppiast:170,podiosp:115,corista:160,
+  /* astagigante 300 = quota di LAVORO tipica sopra un coro, scelta nostra: non è un dato di targa.
+     La corsa dichiarata dai costruttori va da 151 cm (Proel PRO400BK, minima) a 440 cm (K&M 20811). */
   wedge:35,sidefill:140,drumfill:60,iemant:60,hearback:12,
   dimono:5,distereo:5,stagebox:25,splitter:25,multicore:15,quadro:120,foh:95,monmix:95,laptop:25,audiointerface:9,
   schermo:300,proiettore:30,camera:160 };
@@ -16257,7 +16343,8 @@ var DESC3D={ pedana:"black stage riser/platform", podio:"square conductor podium
   celesta:"celesta, wooden body", panchetta:"black piano bench", arpa:"concert pedal harp, natural wood",
   gtstand:"electric guitar on stand", gtacustica:"acoustic guitar on stand", bassstand:"electric bass on stand",
   djset:"DJ table with 2 turntables and mixer", astamic:"black straight microphone stand with mic",
-  giraffa:"black boom microphone stand", astabassa:"short/low microphone stand", coppiast:"stereo microphone pair on single stand with stereo bar",
+  giraffa:"black boom microphone stand", astagigante:"very tall black overhead microphone stand, wide heavy tripod base, long telescopic boom with counterweight, over a choir",
+  astabassa:"short/low microphone stand", coppiast:"stereo microphone pair on single stand with stereo bar",
   podiosp:"wooden speaker lectern with gooseneck mic", corista:"backing vocal microphone position with straight mic stand, no person",
   wedge:"black floor wedge monitor", sidefill:"side fill monitor stack",
   drumfill:"drum fill monitor", iemant:"IEM transmitter rack with antennas", hearback:"small personal monitor mixer for headphone/in-ear mix control, with knobs and headphone output",
@@ -16294,7 +16381,7 @@ var MAT3D={ black_metal:{type:"metal",color:"black",finish:"matte"},
 /* material di default per tipo/asset (fallback black_tolex per ampli/tecnica, black_metal aste) */
 var TYPEMAT={ pedana:"stage_riser_black",pedanacoro:"stage_riser_black",podio:"stage_riser_black",scala:"stage_riser_black",rampa:"stage_riser_black",
   tappeto:"muted_red_fabric", sedia:"black_padded_chair",sediabianca:"white_padded_chair",sedialeggio:"black_padded_chair",panchetta:"black_padded_chair",sgabello:"black_padded_chair",
-  leggio:"black_metal",astamic:"black_metal",giraffa:"black_metal",astabassa:"black_metal",coppiast:"black_metal",corista:"black_metal",truss:"silver_metal",transenna:"grey_metal",parapetto:"grey_metal",
+  leggio:"black_metal",astamic:"black_metal",giraffa:"black_metal",astagigante:"black_metal",astabassa:"black_metal",coppiast:"black_metal",corista:"black_metal",truss:"silver_metal",transenna:"grey_metal",parapetto:"grey_metal",
   batteria:"drum_shell_and_heads",edrums:"black_metal",rullante:"drum_shell_and_heads",timbales:"drum_shell_and_heads",percussioni:"varnished_wood",cajon:"varnished_wood",
   timpani:"copper",timpani3:"copper",timpani2:"copper",grancassa:"dark_varnished_wood",piatto:"brass_polished",piatticoppia:"brass_polished",campane:"silver_metal",tamtam:"brass_polished",
   glockenspiel:"silver_metal",xilofono:"varnished_wood",vibrafono:"silver_metal",marimba:"dark_varnished_wood",
