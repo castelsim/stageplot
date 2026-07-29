@@ -7236,5 +7236,153 @@ t("il fix adotta la DI dello strumento vicino", () => {
   eq(A.patchList().rows.length, 1, "dopo il fix resta il solo canale della chitarra");
 });
 
+console.log("\n— Porte della stage box: sceglierle a mano —");
+
+function trePreseCollegate() {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {};
+  const a = add("cantante", 300, 300);
+  const b = add("cantante", 500, 300);
+  const c = add("cantante", 700, 300);
+  const box = add("stagebox", 200, 700);
+  A.__cabRes = null;
+  return { a, b, c, box };
+}
+function porte() {
+  A.__cabRes = null;
+  const m = {};
+  A.patchList().rows.forEach((r) => { if (!r.reserved) m[r.name] = r.patch; });
+  return m;
+}
+function duplicate() {
+  A.__cabRes = null;
+  return (A.cabResult(true).issues || []).filter((i) => /duplicata/i.test(i.msg));
+}
+
+t("senza scelte a mano le porte vanno in ordine crescente", () => {
+  trePreseCollegate();
+  eq(porte(), { "Cantante 1": "A·1", "Cantante 2": "A·2", "Cantante 3": "A·3" });
+});
+
+t("assegnare una porta gia' occupata sposta l'altro invece di litigare", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);            /* il terzo vuole la porta 1, che ha il primo */
+  const p = porte();
+  eq(p["Cantante 3"], "A·1", "chi ha scelto la porta non l'ha ottenuta");
+  ok(p["Cantante 1"] !== "A·1", "il vecchio occupante è rimasto sulla porta 1");
+});
+
+t("gli altri si ridispongono in ordine crescente sulle porte libere", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  const p = porte();
+  eq([p["Cantante 1"], p["Cantante 2"]], ["A·2", "A·3"], "i non scelti non sono in ordine");
+});
+
+t("scegliere una porta a mano non produce l'errore di porta duplicata", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  eq(duplicate().length, 0, "il motore segnala ancora un conflitto: " + JSON.stringify(duplicate()));
+});
+
+t("chi sceglie per ultimo vince: il pin precedente sulla stessa porta si libera", () => {
+  const { b, c } = trePreseCollegate();
+  A.cabSetPort(b.id + "#0", 5);
+  A.cabSetPort(c.id + "#0", 5);            /* stessa porta, scelta dopo */
+  const p = porte();
+  eq(p["Cantante 3"], "A·5", "l'ultima scelta non ha vinto");
+  ok(p["Cantante 2"] !== "A·5", "due canali sono rimasti sulla stessa porta");
+});
+
+t("liberare la scelta rimette il canale in fila", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  A.cabSetPort(c.id + "#0", 0);            /* 0 = torna automatica */
+  eq(porte(), { "Cantante 1": "A·1", "Cantante 2": "A·2", "Cantante 3": "A·3" });
+});
+
+t("una porta oltre la capienza della box non si assegna", () => {
+  const { c } = trePreseCollegate();
+  eq(A.cabSetPort(c.id + "#0", 99), false, "una porta inesistente va rifiutata");
+});
+
+/* ── incroci con quello che è arrivato dopo il 28/07 ── */
+
+t("un canale riservato non si fa rubare la porta da un pin salvato prima", () => {
+  const { c, box } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 3);            /* stato salvato PRIMA: il terzo aveva scelto la 3 */
+  box.sbRes = [3];                          /* poi quella porta è diventata un canale riservato */
+  A.__cabRes = null;
+  ok(porte()["Cantante 3"] !== "A·3", "il pin si è preso la porta riservata");
+  const res = A.patchList().rows.filter((r) => r.reserved);
+  eq(res.length, 1, "il canale riservato è sparito dalla lista");
+  eq(res[0].patch, "A·3", "il riservato non ha più la sua porta");
+  eq(duplicate().length, 0, "porta riservata e pin sulla stessa porta: " + JSON.stringify(duplicate()));
+});
+
+t("una porta riservata non si puo' scegliere a mano", () => {
+  const { a, box } = trePreseCollegate();
+  box.sbRes = [3]; A.__cabRes = null;
+  eq(A.cabSetPort(a.id + "#0", 3), false, "la riservata va rifiutata");
+  ok(!(A.state.cab.manual[a.id + "#0"] || {}).port, "l'override è stato scritto lo stesso");
+});
+
+t("scollegando la riga, la porta scelta se ne va col cavo", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  A.cabUnlinkOne(c.id + "#0");
+  ok(!(A.state.cab.manual[c.id + "#0"] || {}).port, "resta una prenotazione senza cavo");
+  const p = porte();
+  eq(p["Cantante 1"], "A·1", "la porta 1 non è tornata a chi la prendeva per primo");
+});
+
+t("ricollegando col fulmine il canale non si riprende la vecchia porta", () => {
+  const { c } = trePreseCollegate();
+  A.cabSetPort(c.id + "#0", 1);
+  A.cabUnlinkOne(c.id + "#0");
+  ok(A.cabConnectOne(c.id + "#0"), "il fulmine non ha ricollegato la riga scollegata");
+  const p = porte();
+  eq(p["Cantante 1"], "A·1", "il ritorno si è ripreso la porta di un altro");
+  eq(p["Cantante 3"], "A·3", "il canale ricollegato non è tornato automatico");
+  eq(duplicate().length, 0, JSON.stringify(duplicate()));
+});
+
+function batteriaEVoce() {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {};
+  const bat = add("batteria", 400, 300);
+  const voc = add("cantante", 800, 300);
+  add("stagebox", 200, 700);
+  A.__cabRes = null;
+  return { bat, voc };
+}
+
+t("la porta scelta su una riga della batteria vale per il multipolare, non per la riga", () => {
+  const { bat } = batteriaEVoce();
+  A.cabSetPort(bat.id + "#2", 3);          /* la scelta si fa da una riga, ma il cavo è uno solo */
+  eq(Object.keys(A.state.cab.manual).filter((k) => k.indexOf("grp:") === 0).length, 1, "scritto sulla chiave della riga invece che su quella del percorso");
+  eq((A.state.cab.manual["grp:" + bat.id] || {}).port, 3);
+});
+
+t("il multipolare entra su porte consecutive dalla porta scelta", () => {
+  const { bat } = batteriaEVoce();
+  A.cabSetPort(bat.id + "#2", 3);
+  const p = porte();
+  eq([p["Batteria 1 - Kick"], p["Batteria 1 - Overhead R"]], ["A·3", "A·10"], "il blocco non è consecutivo");
+  eq(p["Cantante 1"], "A·1", "la voce non ha preso la prima porta rimasta libera");
+  eq(duplicate().length, 0, JSON.stringify(duplicate()));
+});
+
+t("scegliere una porta dentro il blocco del multipolare lo rimette automatico, senza conflitti", () => {
+  const { bat, voc } = batteriaEVoce();
+  A.cabSetPort(bat.id + "#2", 3);          /* batteria su 3…10 */
+  A.cabSetPort(voc.id + "#0", 5);          /* la voce vuole la 5, che è dentro il blocco */
+  const p = porte();
+  eq(p["Cantante 1"], "A·5", "l'ultima scelta non ha vinto");
+  ok(!(A.state.cab.manual["grp:" + bat.id] || {}).port, "il multipolare ha tenuto un pin che si sovrappone");
+  ok(Object.values(p).filter((v) => v === "A·5").length === 1, "due canali sulla stessa porta");
+  eq(duplicate().length, 0, JSON.stringify(duplicate()));
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
