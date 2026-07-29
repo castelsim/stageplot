@@ -12882,6 +12882,34 @@ function standKindOfItem(it){   /* aste già presenti sul palco come oggetto, e 
   if(headMicOf(it)==="asta") return "giraffa";          /* ...o con la giraffa davanti alla bocca */
   return null;
 }
+/* ── «UNA SOLA ASTA» per la ripresa stereo (Simone 29/07) ────────────────────────────────────────
+   Una coppia ORTF, o due panoramici su barra, occupa DUE canali ma UNA asta sola: contarne due vuol
+   dire far portare al service un'asta in più.
+   DOVE VIVE IL DATO: dove vive già l'asta del canale, cioè nell'override di canale
+   state.cab.manual["id#idx"], accanto a `stand`/`p48`. Sul SECONDO canale della coppia
+   standShared=true significa «questo canale non porta un'asta sua: usa quella del gemello». Non è
+   un'informazione nuova in un posto nuovo — è la stessa colonna Asta che, invece di nominare un
+   supporto, dice che il supporto è condiviso.
+   PERCHÉ SUL CANALE E NON SULL'ELEMENTO: un elemento può avere più coppie o coppie miste con mic
+   singoli (la doppia tastiera ha due coppie L/R, la batteria una coppia di overhead più sei mic
+   ravvicinati): sull'elemento il flag non saprebbe a quale coppia riferirsi. */
+function stereoPairSecond(it, idx, inputs){   /* il canale idx è la R di una coppia L/R della stessa sorgente? */
+  if(!it || !(idx>=1)) return false;
+  inputs=inputs||cabItemInputs(it)||[];
+  return isStereoPairStart({itemId:it.id, name:(inputs[idx-1]||{}).name},
+                           {itemId:it.id, name:(inputs[idx]||{}).name});
+}
+function standSharedOf(it, idx, inputs){
+  if(!stereoPairSecond(it, idx, inputs)) return false;   /* fuori da una coppia il flag non si legge nemmeno: niente stati fantasma */
+  var m=((state.cab&&state.cab.manual)||{})[it.id+"#"+idx];
+  if(m && m.standShared!=null) return !!m.standShared;
+  return it.type==="coppiast";   /* la «Coppia stereo» del catalogo È una barra su un'asta sola ("barra 70"): lì una è il default giusto */
+}
+function standSharedKey(key){   /* dalla chiave di canale "id#idx", come la usano la channel list e il CSV */
+  var p=String(key||"").split("#"); if(p.length<2) return false;
+  var it=(state.items||[]).filter(function(x){ return x.id===p[0]; })[0];
+  return standSharedOf(it, +p[1]);
+}
 /* Ritorna {kind: {tot, gia, mancanti}} — "gia" = già disegnate sul palco (oggetto o asta della voce),
    "mancanti" = dedotte dai microfoni dei canali e non ancora rappresentate. */
 function standNeeds(){
@@ -12893,7 +12921,9 @@ function standNeeds(){
     if(!isAudioSource(it)) return;
     if(it.type==="astamic"||it.type==="giraffa"||it.type==="astagigante"||it.type==="astabassa"||it.type==="headset") return;   /* l'asta È l'oggetto: già contata sopra */
     if(VOCE[it.type]) return;                                   /* voci: l'asta è nell'icona, già contata */
-    (cabItemInputs(it)||[]).forEach(function(c){
+    var inps=cabItemInputs(it)||[];
+    inps.forEach(function(c, ci){
+      if(standSharedOf(it, ci, inps)) return;   /* coppia con asta unica: l'asta la porta il primo canale, il secondo no */
       var k=standKindOf(c.mic); if(!k) return;
       out[k].dedotte++; out[k].tot++;
     });
@@ -13870,7 +13900,15 @@ function patchList(){
     var _ov=man[key]||{};
     if(_ov.stand!=null) stand=_ov.stand;
     if(_ov.p48===true||_ov.p48===false) p48=_ov.p48;
+    /* coppia stereo con una sola asta: la seconda riga non ripete il supporto — è quello del gemello */
+    var _ix=(key!=null) ? parseInt(String(key).split("#")[1], 10) : NaN, _pair=false, _shared=false;
+    if(srcIt && _ix>=1){ var _inps=cabItemInputs(srcIt)||[];
+      _pair=stereoPairSecond(srcIt, _ix, _inps);
+      _shared=_pair && standSharedOf(srcIt, _ix, _inps);
+      if(_shared) stand="";
+    }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
+            stereoPair:_pair, standShared:_shared,
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
   R.links.forEach(function(l){ if(l.deleted) return;
@@ -13977,9 +14015,14 @@ function clRender(){
      +   mics.map(function(m){ return '<option'+(m===r.mic?" selected":"")+'>'+esc(m)+'</option>'; }).join("")
      +   ((r.mic && mics.indexOf(r.mic)<0)?('<option selected>'+esc(r.mic)+'</option>'):'')
      + '</select></td>'
-     + '<td><select class="cl-cell'+(r.standAuto?" auto":"")+'" data-stand="'+esc(r.key)+'" aria-label="Asta">'
-     +   '<option value="__auto"'+(r.standAuto?" selected":"")+'>'+(r.stand?esc(r.stand)+" (dal mic)":"\u2014")+'</option>'
-     +   STAND_SUGGEST.map(function(a){ return '<option'+((!r.standAuto&&a===r.stand)?" selected":"")+'>'+esc(a)+'</option>'; }).join("")
+     /* ASTA \u2014 sulla SECONDA riga di una coppia stereo la tendina guadagna in cima \u00abstessa asta\u00bb:
+        una ripresa stereo sta su una barra, cio\u00e8 su un'asta sola, e il rider non deve chiederne due.
+        \u00c8 la stessa colonna, non un secondo comando da cercare altrove. */
+     + '<td><select class="cl-cell'+(r.standShared?" pair":(r.standAuto?" auto":""))+'" data-stand="'+esc(r.key)+'" aria-label="Asta"'
+     +   (r.stereoPair?' title="Coppia stereo: su una barra i due canali stanno su una sola asta"':'')+'>'
+     +   (r.stereoPair?('<option value="__pair"'+(r.standShared?" selected":"")+'>\u21b3 stessa asta</option>'):'')
+     +   '<option value="__auto"'+((!r.standShared&&r.standAuto)?" selected":"")+'>'+(r.stand?esc(r.stand)+" (dal mic)":"\u2014")+'</option>'
+     +   STAND_SUGGEST.map(function(a){ return '<option'+((!r.standShared&&!r.standAuto&&a===r.stand)?" selected":"")+'>'+esc(a)+'</option>'; }).join("")
      + '</select></td>'
      + '<td class="cl-48"><label class="cl-sw"><input type="checkbox" data-p48="'+esc(r.key)+'"'+(r.p48?" checked":"")+' aria-label="Phantom 48V"><span></span></label></td>'
      + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
@@ -13990,9 +14033,13 @@ function clRender(){
   });
   h+='</tbody>';
   tb.innerHTML=h;
+  /* Trascinamento della riga: al RILASCIO la posizione cambia e i numeri si rinumerano (1…N), come
+     digitando nella casella — è lo stesso ordine, `state.cab.order`, mosso con un altro gesto.
+     Riservati e spare non hanno data-rk: non si trascinano e non entrano nell'ordine, perché il loro
+     senso è tenere la porta. La quarta richiamata ridisegna QUESTA finestra: render() non la tocca. */
   if(typeof enableRowDrag==="function") enableRowDrag(tb, function(){
     return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; });
-  }, function(o){ state.cab.order=o; });
+  }, function(o){ state.cab.order=o; }, clRender);
 }
 function clShow(v){
   clOpen=(v!==false);
@@ -14048,7 +14095,21 @@ function cabSetChannelNo(key, n){
   return true;
 }
 /* asta e phantom scelti a mano sul canale (null/undefined = torna al valore suggerito dal microfono) */
-function cabSetStand(key, v){ var m=cabManual(key); if(v==null||v==="") delete m.stand; else m.stand=String(v).slice(0,24); __cabRes=null; save(); render(); }
+function cabSetStand(key, v){
+  var era=standSharedKey(key);   /* scegliere un supporto vuol dire che questo canale un'asta sua ce l'ha: esce dalla coppia */
+  var m=cabManual(key);
+  if(v==null||v==="") delete m.stand; else m.stand=String(v).slice(0,24);
+  if(era) m.standShared=false;
+  __cabRes=null; save(); render();
+}
+/* «Una sola asta» per la coppia stereo: si scrive sul SECONDO canale, dov'è già la sua asta.
+   Il false resta SCRITTO (non cancellato) perché sulla «Coppia stereo» il default è condivisa:
+   cancellandolo, il default tornerebbe a decidere al posto del fonico. */
+function cabSetStandShared(key, v){
+  if(v){ var m=cabManual(key); m.standShared=true; delete m.stand; }
+  else { if(!standSharedKey(key)) return; cabManual(key).standShared=false; }
+  __cabRes=null; save(); render();
+}
 function cabSetP48(key, v){ var m=cabManual(key); if(v==null) delete m.p48; else m.p48=!!v; __cabRes=null; save(); render(); }
 function cabMoveInput(key, dir){ _listMove(patchList().rows.map(function(r){return r.key;}), key, dir, function(o){ state.cab.order=o; }); }
 function cabMoveMonitor(id, dir){ _listMove(monitorList().rows.map(function(r){return r.sinkId;}), id, dir, function(o){ state.cab.monOrder=o; }); }
@@ -14118,17 +14179,30 @@ function _rowBtn(html, title, cls, fn){ var b=document.createElement("button"); 
 /* drag-to-reorder delle liste tecniche (Simone 08/07): prendi la riga e trascinala.
    Le frecce ▲▼ restano come alternativa. */
 var _dragRK=null;
-function enableRowDrag(host, keysFn, setOrder){
+function enableRowDrag(host, keysFn, setOrder, onDone){
   /* .patch-lite = riga dell'anteprima Input (28/07), .patch-row = Monitor list e channel list */
   [].forEach.call(host.querySelectorAll("[data-rk]"), function(row){
     row.addEventListener("dragstart", function(e){ _dragRK=row.dataset.rk; row.classList.add("rowdragging"); e.dataTransfer.effectAllowed="move"; try{ e.dataTransfer.setData("text/plain", _dragRK); }catch(_){} });
     row.addEventListener("dragend", function(){ _dragRK=null; [].forEach.call(host.querySelectorAll(".rowdragging,.rowdrop"), function(el){ el.classList.remove("rowdragging","rowdrop"); }); });
     row.addEventListener("dragover", function(e){ if(_dragRK==null || row.dataset.rk===_dragRK) return; e.preventDefault(); e.dataTransfer.dropEffect="move"; row.classList.add("rowdrop"); });
     row.addEventListener("dragleave", function(){ row.classList.remove("rowdrop"); });
-    row.addEventListener("drop", function(e){ e.preventDefault(); var tgt=row.dataset.rk; if(_dragRK==null || _dragRK===tgt){ _dragRK=null; return; }
-      var keys=keysFn().slice(), from=keys.indexOf(_dragRK); if(from<0){ _dragRK=null; return; }
-      keys.splice(from,1); var ti=keys.indexOf(tgt); if(ti<0) ti=keys.length; keys.splice(ti,0,_dragRK);   /* inserisci PRIMA del target */
+    row.addEventListener("drop", function(e){ e.preventDefault(); var tgt=row.dataset.rk; row.classList.remove("rowdrop");
+      if(_dragRK==null || _dragRK===tgt){ _dragRK=null; return; }
+      var keys=keysFn().slice(), from=keys.indexOf(_dragRK), to=keys.indexOf(tgt);
+      if(from<0){ _dragRK=null; return; }
+      if(to<0) to=keys.length-1;
+      /* LA RIGA PRENDE IL POSTO DI QUELLA SU CUI LA LASCI (Simone 29/07) — cioè esattamente quello
+         che fa la casella del numero: «se cambio la 3 in 1, le altre scalano». Prima si inseriva
+         SEMPRE prima del bersaglio: trascinando verso il basso la riga si fermava un posto più su di
+         dove la si vedeva cadere (la portavi sul canale 3 e diventava il 2). Un'unica regola, uguale
+         nei due versi, senza mezze righe da indovinare: niente confini invisibili. */
+      keys.splice(from,1); keys.splice(to,0,_dragRK);
       setOrder(keys); _dragRK=null; save(); render();
+      /* AL RILASCIO LA LISTA SI RIDISEGNA. La channel list vive in una finestra che render() non
+         tocca: senza questa richiamata la riga restava dov'era, col vecchio numero, finché non si
+         toccava qualcos'altro — il trascinamento sembrava non funzionare. Chi ha una vista propria la
+         passa qui; le liste in colonna, che render() ridisegna da sé, non passano nulla. */
+      if(typeof onDone==="function") onDone();
     });
   });
 }
@@ -14300,7 +14374,10 @@ function renderPatchPanel(){
     row.addEventListener("click", function(e){ if(e.target.closest(".pact")||e.target.closest(".rowedit")) return; flashItem(iid); });
     host.appendChild(row);
   });
-  enableRowDrag(host, function(){ return patchList().rows.map(function(r){ return r.key; }); }, function(o){ state.cab.order=o; });
+  /* stesso ordine della channel list, quindi stesso filtro: riservati e spare NON entrano nell'ordine
+     manuale (tengono la porta, non un posto in lista). Senza il filtro un trascinamento qui scriveva
+     in state.cab.order chiavi "res:…" e dei null — voci morte salvate dentro il progetto. */
+  enableRowDrag(host, function(){ return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; }); }, function(o){ state.cab.order=o; });
 }
 function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
   patchActive=!patchActive;
@@ -14376,7 +14453,12 @@ function techScrollTo(id){
       var t2=e.target;
       if(t2.classList.contains("cl-numin")){ clApplyNum(t2.getAttribute("data-num"), t2.value, false); return; }
       if(t2.hasAttribute("data-mic")){ cabSetMic(t2.getAttribute("data-mic"), t2.value); clRender(); return; }
-      if(t2.hasAttribute("data-stand")){ cabSetStand(t2.getAttribute("data-stand"), t2.value==="__auto"?null:t2.value); clRender(); return; }
+      if(t2.hasAttribute("data-stand")){
+        var _sk=t2.getAttribute("data-stand"), _sv=t2.value;
+        if(_sv==="__pair") cabSetStandShared(_sk, true);              /* coppia stereo su una barra: una sola asta */
+        else if(_sv==="__auto"){ cabSetStandShared(_sk, false); cabSetStand(_sk, null); }
+        else cabSetStand(_sk, _sv);
+        clRender(); return; }
       if(t2.hasAttribute("data-p48")){ cabSetP48(t2.getAttribute("data-p48"), t2.checked); clRender(); return; }
     });
   }
@@ -17057,7 +17139,9 @@ function channelListCsv(opts){
     var patch=(r.patch && r.patch!=="—") ? r.patch : "";   /* "—" è il placeholder visivo del pannello, non un dato: nel CSV va vuoto */
     /* il numero è quello che il fonico ha sul banco: con più box/Device ID vale il canale FOH continuo,
        come nel pannello e nel PDF (prima il CSV usava l'indice di riga → numeri sfasati all'import) */
-    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.mic||"", r.stand||"", r.p48?"48V":"", patch];
+    /* coppia stereo con asta unica: il service deve leggere che il supporto è quello della riga sopra,
+       non una cella vuota da interpretare come «asta da decidere» */
+    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.mic||"", r.standShared?"stessa asta":(r.stand||""), r.p48?"48V":"", patch];
   });
   return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Asta","Phantom","Patch"], rows, sep), count: count };
 }
@@ -17448,7 +17532,7 @@ function patchListPdf(shared){
       doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
     trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.stand||"", r.patch, false, (r.spare||r.reserved)?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":(r.box?"#111827":"#dc2626")); });
     /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
     try{ cabResult().boxes.forEach(function(b){
       if(!b.res.length) return;
