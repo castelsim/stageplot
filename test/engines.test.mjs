@@ -4101,12 +4101,17 @@ t("il lucchetto ferma tappeto, forma e zona esattamente come la pedana", () => {
   ok(A.itemEditable(sedia), "il lucchetto vale solo dove esiste");
 });
 t("bloccato: niente maniglie di rotazione e di ridimensionamento", () => {
-  ok(/if\(\(stageEdit \? isRiser\(it\) : true\) && itemEditable\(it\) && selSet/.test(appjs),
-    "la maniglia di rotazione sparisce sull'elemento bloccato");
-  ok(/if\(\(stageEdit \? isRiser\(it\) : true\) && itemEditable\(it\) && t\.resizable/.test(appjs),
-    "e con lei le maniglie dei lati e degli angoli");
-  ok(appjs.indexOf("if(isLockable(it) && selSet[it.id] && selIds().length===1)") > -1,
-    "il lucchetto resta: e' l'unico modo per riaprire");
+  reset();
+  const p = add("pedana", 500, 400); p.w = 400; p.d = 240;
+  A.selectOne(p.id);
+  const libera = A.selHandlesMarkup();
+  ok(libera.indexOf("rot-handle") > -1, "libera: si ruota");
+  ok(libera.indexOf("rs-handle") > -1, "libera: si allunga");
+  p.locked = true;
+  const chiusa = A.selHandlesMarkup();
+  eq(chiusa.indexOf("rot-handle"), -1, "la maniglia di rotazione sparisce sull'elemento bloccato");
+  eq(chiusa.indexOf("rs-handle"), -1, "e con lei le maniglie dei lati e degli angoli");
+  ok(chiusa.indexOf("lock-handle") > -1, "il lucchetto resta: e' l'unico modo per riaprire");
   ok(appjs.indexOf("_dcIt0 && isLockable(_dcIt0) && _dcIt0.locked===true") > -1,
     "il doppio clic attraversa il fondo bloccato e apre la ricerca rapida");
 });
@@ -4146,7 +4151,12 @@ t("la zona bloccata: perimetro marcato, lucchetto accanto alla sua etichetta, mi
   eq(+poly[2], -87, "y = bordo alto del poligono + 13");
 });
 t("la zona bloccata non si rimodella: via vertici, «+» e pallino del microfono", () => {
-  ok(/it\.type==="miczone" && itemEditable\(it\) && selSet/.test(appjs), "vertici e «+» spariscono sul bloccato");
+  reset();
+  const z = add("miczone", 500, 300); z.w = 300; z.d = 200;
+  A.selectOne(z.id);
+  ok(A.selHandlesMarkup().indexOf("mz-mid") > -1, "libera: i «+» per modellarla ci sono");
+  z.locked = true;
+  eq(A.selHandlesMarkup().indexOf("mz-mid"), -1, "vertici e «+» spariscono sul bloccato");
   ok(appjs.indexOf('if(!z || !itemEditable(z)) return \'\';') > -1, "il pallino mic non e' piu' trascinabile");
   ok(appjs.indexOf("il cavo parte da l\u00ec") > -1 || appjs.indexOf("il cavo parte da lì") > -1, "ma resta disegnato: il cavo parte da lì");
 });
@@ -4206,6 +4216,83 @@ t("il blocco sopravvive al salvataggio", () => {
             { id: "i2", type: "forma", x: 300, y: 200, locked: true }],
   });
   eq(s.items.filter((i) => i.locked === true).length, 2, "tappeto e forma restano bloccati dopo un giro di normalizzazione");
+});
+/* ---- MANIGLIE SOPRA A TUTTO (Simone 29/07): «con due pedane non riesco a vedere il lucchetto della
+   pedana che sta sotto, perche' viene coperto da quella sopra».
+   Le maniglie stavano dentro il gruppo dell'elemento: chi veniva dopo nell'ordine di disegno ci
+   passava sopra. Ora vivono in un layer proprio, l'ultimo della scena. Cio' che NON si poteva fare
+   e' portare su l'elemento intero: la pedana e' il pavimento e finirebbe sopra a chi ci sta su. ---- */
+console.log("\nManiglie dell'elemento selezionato:");
+t("le maniglie non stanno nel disegno dell'elemento, ma nel layer che sta sopra a tutto", () => {
+  reset();
+  const p = add("pedana", 500, 400); p.w = 400; p.d = 240;
+  A.selectOne(p.id);
+  const disegno = A.itemMarkup(p);
+  eq(disegno.indexOf("lock-handle"), -1, "il lucchetto non e' piu' dentro l'elemento");
+  eq(disegno.indexOf("rot-handle"), -1, "e nemmeno la maniglia di rotazione");
+  eq(disegno.indexOf("rs-handle"), -1, "ne' i quadratini per allungarla");
+  const maniglie = A.selHandlesMarkup();
+  ok(maniglie.indexOf("lock-handle") > -1 && maniglie.indexOf("rot-handle") > -1 && maniglie.indexOf("rs-handle") > -1,
+    "ci sono tutte, nel loro layer");
+});
+t("con due pedane vicine le maniglie della selezionata restano sopra al disegno dell'altra", () => {
+  reset();
+  const sotto = add("pedana", 500, 400); sotto.w = 400; sotto.d = 240;   /* disegnata per prima */
+  const sopra = add("pedana", 500, 180); sopra.w = 400; sopra.d = 240;   /* disegnata dopo: prima copriva le maniglie */
+  A.selectOne(sotto.id);
+  const scena = A.sceneMarkup();
+  const finePedanaSopra = scena.lastIndexOf('data-id="' + sopra.id + '"');
+  const inizioManiglie = scena.indexOf('class="sel-handles');
+  ok(finePedanaSopra > -1 && inizioManiglie > -1, "in scena ci sono sia la pedana che copre sia le maniglie");
+  ok(inizioManiglie > finePedanaSopra, "le maniglie sono scritte DOPO la pedana che copre: si vedono e si cliccano");
+  ok(scena.indexOf('id="layHandles"') > scena.indexOf('id="layOverlay"'),
+    "il layer delle maniglie e' l'ultimo: sopra anche ai cavi e ai blocchi del palco");
+});
+t("la pedana resta il pavimento: sotto a cio' che ci sta sopra, maniglie a parte", () => {
+  /* la tentazione era disegnare per ultimo l'elemento selezionato: avrebbe portato la pedana sopra
+     agli strumenti che ci poggiano. Sopra ci vanno solo le maniglie. */
+  reset();
+  const ped = add("pedana", 500, 400); ped.w = 400; ped.d = 240;
+  const sedia = add("sedia", 500, 400);
+  A.selectOne(ped.id);
+  const scena = A.sceneMarkup();
+  ok(scena.indexOf('data-id="' + ped.id + '"') < scena.indexOf('data-id="' + sedia.id + '"'),
+    "la pedana selezionata resta disegnata prima della sedia che ci sta sopra");
+});
+t("le maniglie seguono l'elemento: stesso centro, stessa rotazione", () => {
+  reset();
+  const p = add("pedana", 320, 260); p.w = 400; p.d = 240; p.rot = 35;
+  A.selectOne(p.id);
+  ok(A.selHandlesMarkup().indexOf('transform="translate(320 260) rotate(35)"') > -1,
+    "fuori dal gruppo dell'elemento, il transform se lo riporta dietro");
+});
+t("niente maniglie a mezz'aria: se l'elemento non e' sul palco, non ci sono", () => {
+  reset();
+  const p = add("pedana", 500, 400);
+  A.selectOne(p.id);
+  ok(A.selHandlesMarkup() !== "", "sul palco le maniglie ci sono");
+  p.rackId = "r1";   /* finito dentro un rack: vive col rack, non e' disegnato */
+  eq(A.selHandlesMarkup(), "", "chiuso in un rack non lascia maniglie sospese dov'era");
+});
+t("in due non si manovra: le maniglie sono di un elemento solo", () => {
+  reset();
+  const a = add("pedana", 300, 400), b = add("pedana", 800, 400);
+  A.selectOne(a.id);
+  ok(A.selHandlesMarkup() !== "", "una sola pedana selezionata: maniglie");
+  A.selSet[b.id] = true; A.sel = b.id;
+  eq(A.selHandlesMarkup(), "", "selezione multipla: nessuna maniglia, si sposta il blocco");
+});
+t("le maniglie portano con se' il reparto, cosi' i lucchetti dei layer valgono anche lassu'", () => {
+  /* uscendo dal gruppo dell'elemento, le maniglie uscivano anche dai contenitori su cui lavorano i
+     lucchetti dei layer (#layItems, .mus-item...): sarebbero rimaste afferrabili a reparto chiuso. */
+  reset();
+  const p = add("pedana", 500, 400);
+  A.selectOne(p.id);
+  ok(A.selHandlesMarkup().indexOf('class="sel-handles riser-item"') > -1, "la pedana e' del reparto pedane");
+  const c = add("corista", 300, 300);
+  A.selectOne(c.id);
+  ok(A.selHandlesMarkup().indexOf("mus-item") > -1, "il musicista porta la classe dei Musicisti");
+  ok(stylesCss.indexOf("body.stage-lock .sel-handles.riser-item") > -1, "e il CSS spegne le maniglie sul layer bloccato");
 });
 /* ---- SPECCHIA come azione (Simone 29/07): «elementi come Quinta devono avere la funzione specchia
    nella stessa riga di duplica ed elimina». Era una spunta nei Dettagli tecnici, e solo per i
