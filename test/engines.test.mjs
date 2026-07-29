@@ -4030,10 +4030,10 @@ t("la pedana si prende e si modifica sempre, senza modalita'", () => {
   reset(); A.stageEdit = false;
   const ped = add("pedana", 500, 300);
   ok(A.isRiser(ped), "resta un riser: continua a portarsi dietro chi ci sta sopra");
-  ok(A.riserEditable(ped), "modificabile fuori dalla modalita' palco");
+  ok(A.itemEditable(ped), "modificabile fuori dalla modalita' palco");
   ok(A.itemPickable(ped), "e selezionabile");
   A.stageEdit = true;
-  try { ok(A.riserEditable(ped), "e anche dentro"); } finally { A.stageEdit = false; }
+  try { ok(A.itemEditable(ped), "e anche dentro"); } finally { A.stageEdit = false; }
 });
 t("la pedana si allunga e si ruota come gli altri elementi", () => {
   reset();
@@ -4046,16 +4046,16 @@ t("una pedana in un gruppo si muove con gli altri, come ogni elemento", () => {
   reset(); A.stageEdit = false;
   const ped = add("pedana", 500, 300), sedia = add("sedia", 480, 290);
   ped.grp = sedia.grp = "g1";
-  eq([ped, sedia].filter(A.riserEditable).length, 2, "nessuno dei due e' bloccato");
+  eq([ped, sedia].filter(A.itemEditable).length, 2, "nessuno dei due e' bloccato");
 });
 t("il lucchetto ferma la pedana dov'e'", () => {
   reset();
   const ped = add("pedana", 500, 300);
-  ok(A.riserEditable(ped), "aperta si muove");
+  ok(A.itemEditable(ped), "aperta si muove");
   ped.locked = true;
-  eq(A.riserEditable(ped), false, "col lucchetto chiuso non si sposta, non si allunga, non ruota");
+  eq(A.itemEditable(ped), false, "col lucchetto chiuso non si sposta, non si allunga, non ruota");
   delete ped.locked;
-  ok(A.riserEditable(ped), "riaperta torna a muoversi");
+  ok(A.itemEditable(ped), "riaperta torna a muoversi");
   ok(appjs.indexOf('class="lock-handle') > -1, "il lucchetto si disegna accanto alla maniglia di rotazione");
   ok(appjs.indexOf("openQuickAdd(svgPoint(e)") > -1, "col lucchetto chiuso il doppio clic apre la ricerca rapida");
 });
@@ -4073,6 +4073,110 @@ t("la pedana bloccata si riconosce: perimetro marcato e lucchettino", () => {
   const piccola = A.TYPES.pedana.draw({ w: 60, d: 40, locked: true });
   ok(piccola.indexOf("riser-fixed") > -1, "anche la piccola ha il perimetro marcato");
   eq(piccola.indexOf("riser-lock"), -1, "sotto i 70x50 cm il lucchetto starebbe addosso all'angolo: si tace");
+});
+
+/* ---- Lucchetto anche sui tappeti e sulle forme (Simone 29/07): sono i FONDI del disegno, ci si
+   posa sopra il resto e si spostano per sbaglio mentre si prende quello che ci sta sopra. ---- */
+console.log("\nLucchetto: pedane, tappeti e forme:");
+t("i fondi del disegno si bloccano, gli altri elementi no", () => {
+  reset();
+  const ped = add("pedana", 500, 300), tap = add("tappeto", 400, 400), frm = add("forma", 300, 200);
+  ok(A.isLockable(ped) && A.isLockable(tap) && A.isLockable(frm), "pedana, tappeto e forma");
+  const sedia = add("sedia", 600, 300), wedge = add("wedge", 700, 400);
+  eq([sedia, wedge].filter(A.isLockable).length, 0, "sedia e wedge non hanno lucchetto");
+  eq(A.isLockable(null), false, "niente elemento, niente lucchetto");
+});
+t("il lucchetto ferma tappeto e forma esattamente come la pedana", () => {
+  reset();
+  const tap = add("tappeto", 400, 400), frm = add("forma", 300, 200);
+  ok(A.itemEditable(tap) && A.itemEditable(frm), "aperti si muovono");
+  tap.locked = true; frm.locked = true;
+  eq([tap, frm].filter(A.itemEditable).length, 0, "chiusi non si spostano, non si allungano, non ruotano");
+  delete tap.locked; delete frm.locked;
+  eq([tap, frm].filter(A.itemEditable).length, 2, "riaperti tornano a muoversi");
+  const sedia = add("sedia", 600, 300);
+  sedia.locked = true;   /* un vecchio progetto con la chiave sporca non deve inchiodare una sedia */
+  ok(A.itemEditable(sedia), "il lucchetto vale solo dove esiste");
+});
+t("bloccato: niente maniglie di rotazione e di ridimensionamento", () => {
+  ok(/if\(\(stageEdit \? isRiser\(it\) : true\) && itemEditable\(it\) && selSet/.test(appjs),
+    "la maniglia di rotazione sparisce sull'elemento bloccato");
+  ok(/if\(\(stageEdit \? isRiser\(it\) : true\) && itemEditable\(it\) && t\.resizable/.test(appjs),
+    "e con lei le maniglie dei lati e degli angoli");
+  ok(appjs.indexOf("if(isLockable(it) && selSet[it.id] && selIds().length===1)") > -1,
+    "il lucchetto resta: e' l'unico modo per riaprire");
+  ok(appjs.indexOf("_dcIt0 && isLockable(_dcIt0) && _dcIt0.locked===true") > -1,
+    "il doppio clic attraversa il fondo bloccato e apre la ricerca rapida");
+});
+t("il lucchetto non viene letto come doppio clic sull'elemento", () => {
+  /* chiudere e riaprire sono due clic vicini sulla stessa maniglia: finivano nel ramo del doppio
+     clic, che sull'elemento bloccato apre la ricerca rapida — e il lucchetto non si riapriva piu' */
+  ok(appjs.indexOf('var _onLock = e.target.closest ? e.target.closest(".lock-handle") : null;') > -1,
+    "il doppio clic riconosce la maniglia");
+  ok(/!_onCabEl && !_onPort && !_onLock && lastDown/.test(appjs), "e la lascia fuori");
+});
+t("il nome nell'etichetta del lucchetto e' quello dell'elemento", () => {
+  reset();
+  eq(A.lockNameOf(add("pedana", 100, 100)), "la pedana");
+  eq(A.lockNameOf(add("tappeto", 200, 100)), "il tappeto");
+  eq(A.lockNameOf(add("forma", 300, 100)), "la forma");
+});
+t("il tappeto bloccato si riconosce: perimetro marcato e lucchettino", () => {
+  reset();
+  const libero = A.TYPES.tappeto.draw({ w: 200, d: 160 });
+  const chiuso = A.TYPES.tappeto.draw({ w: 200, d: 160, locked: true });
+  eq(libero.indexOf("rug-fixed"), -1, "libero: tratteggio normale");
+  eq(libero.indexOf("riser-lock"), -1, "libero: nessun lucchetto sul disegno");
+  ok(chiuso.indexOf("rug-fixed") > -1, "bloccato: perimetro marcato");
+  ok(chiuso.indexOf("riser-lock") > -1, "bloccato: lucchettino nell'angolo");
+  ok(stylesCss.indexOf(".rug.rug-fixed{stroke-width:3.6}") > -1, "il bordo piu' spesso arriva dal CSS");
+});
+t("la forma bloccata: bordo piu' marcato, colore suo, lucchetto DENTRO la figura", () => {
+  reset();
+  const libera = A.TYPES.forma.draw({ w: 200, d: 140, shape: "circle", fill: "#b45309" });
+  const chiusa = A.TYPES.forma.draw({ w: 200, d: 140, shape: "circle", fill: "#b45309", locked: true });
+  ok(libera.indexOf('stroke-width="2"') > -1, "libera: tratto normale");
+  ok(chiusa.indexOf('stroke-width="3.6"') > -1, "bloccata: tratto marcato");
+  ok(chiusa.indexOf("#b45309") > -1 && chiusa.indexOf("riser-lock") > -1, "il lucchetto prende il colore della forma");
+  /* in un cerchio, in un triangolo, in un rombo l'angolo del riquadro cade FUORI dalla figura: il
+     lucchetto starebbe sospeso nel vuoto. Qui si misura davvero: alla quota del lucchetto la figura
+     dev'essere larga abbastanza da contenerlo (il glifo e' largo 6 cm). */
+  const posGlifo = (svg) => {
+    const m = /riser-lock" transform="translate\((-?[\d.]+),(-?[\d.]+)\)/.exec(svg);
+    return m ? { x: +m[1], y: +m[2] } : null;
+  };
+  const W = 200, D = 140, hw = W / 2, hd = D / 2;
+  /* mezza larghezza della figura alla quota y, per come la disegna shapeGeom */
+  const mezzaLarghezza = {
+    circle: (y) => hw * Math.sqrt(Math.max(0, 1 - (y / hd) ** 2)),
+    tri: (y) => hw * ((y + hd) / (2 * hd)),
+    rhombus: (y) => hw * (1 - Math.abs(y) / hd),
+    rect: () => hw,
+    arrow: () => hw,
+  };
+  Object.keys(mezzaLarghezza).forEach((sh) => {
+    const g = posGlifo(A.TYPES.forma.draw({ w: W, d: D, shape: sh, locked: true }));
+    ok(g, sh + ": il lucchetto e' posizionato");
+    eq(g.x, 0, sh + ": sull'asse, non nell'angolo");
+    ok(g.y < 0 && g.y > -hd, sh + ": nella meta' alta, dentro il riquadro (" + g.y + ")");
+    ok(mezzaLarghezza[sh](g.y) >= 4, sh + ": alla sua quota la figura lo contiene (" + mezzaLarghezza[sh](g.y).toFixed(1) + " cm)");
+    ok(Math.abs(g.y) > 12, sh + ": e non finisce addosso al testo, che sta al centro");
+  });
+  const linea = posGlifo(A.TYPES.forma.draw({ w: 200, d: 140, shape: "line", locked: true }));
+  ok(linea && linea.y > -14 && linea.y < 0, "la linea e' alta 8 cm: il lucchetto le sta appena sopra, non nel vuoto del riquadro");
+  const dash = A.TYPES.forma.draw({ w: 200, d: 140, shapeStyle: "dashed", locked: true });
+  ok(dash.indexOf('stroke-width="3.8"') > -1 && dash.indexOf('stroke-dasharray="10 7"') > -1, "anche tratteggiata resta tratteggiata");
+  const piccola = A.TYPES.forma.draw({ w: 60, d: 40, locked: true });
+  eq(piccola.indexOf("riser-lock"), -1, "sulle forme piccole il lucchetto si tace, come sulle pedane");
+});
+t("il blocco sopravvive al salvataggio", () => {
+  reset();
+  const s = A.normalizeState({
+    stage: { w: 1200, d: 800 },
+    items: [{ id: "i1", type: "tappeto", x: 400, y: 400, locked: true },
+            { id: "i2", type: "forma", x: 300, y: 200, locked: true }],
+  });
+  eq(s.items.filter((i) => i.locked === true).length, 2, "tappeto e forma restano bloccati dopo un giro di normalizzazione");
 });
 /* PIÈ DI PAGINA DEL PDF (27/07): i numeri che servono a chi allestisce, contati dagli elementi veri. */
 t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () => {
