@@ -7486,5 +7486,197 @@ t("il lucchetto ferma davvero i piani d'appoggio", () => {
   eq(A.itemEditable(am), false, "e nemmeno l'americana, che porta i fari");
 });
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   IL MIXER È UNA DESTINAZIONE (29/07)
+   Prima: cabIsBox(dm3) = false, portKinds(dm3) = ["pow"], e con un DM3 sul palco il motore
+   proponeva una DROP BOX ignorando i 16 ingressi che la console ha davvero sul retro.
+   ═══════════════════════════════════════════════════════════════════════════ */
+console.log("\n— Il mixer e' una destinazione —");
+
+t("un DM3 sul palco e' una destinazione, una console generica senza modello no", () => {
+  reset();
+  const dm3 = add("dm3", 600, 700);
+  const gen = add("mixer", 200, 700);
+  ok(A.cabIsDest(dm3), "il DM3 dichiara 16 ingressi mic/line: e' una destinazione");
+  ok(!A.cabIsDest(gen), "la console generica non ha un modello: nessun ingresso inventato");
+  eq(A.cabBoxCap(dm3), 16, "capienza dal modello");
+  eq(A.cabBoxCapOut(dm3), 8, "uscite dal modello");
+});
+
+t("col DM3 sul palco il motore NON propone piu' una drop box", () => {
+  reset();
+  add("dm3", 600, 740);
+  add("cantante", 400, 300);
+  add("wedge", 400, 420);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(R.boxes.filter((b) => b.auto).length, 0, "nessuna drop box proposta");
+  ok(!R.issues.some((i) => /drop box/i.test(i.msg)), "e nessun avviso che ne parli");
+  eq(R.boxes.length, 1, "l'unica destinazione e' il mixer");
+  ok(R.boxes[0].isMixer, "ed e' marcata come mixer");
+  eq(R.links.filter((l) => !l.deleted).length, 1, "il canale della voce ci finisce dentro");
+});
+
+t("il mixer non tira una snake verso il punto principale: e' lui il capolinea", () => {
+  reset();
+  add("dm3", 600, 740);
+  add("cantante", 400, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  eq(A.cabResult(true).snakes.length, 0);
+});
+
+t("le porte del mixer si contano e si esauriscono", () => {
+  reset();
+  add("dm3", 600, 740);
+  for (let i = 0; i < 18; i++) add("cantante", 100 + i * 40, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(R.boxes[0].cap, 16, "il DM3 ne ha 16");
+  ok(R.issues.some((i) => i.code === "cap"), "18 voci su 16 ingressi: l'audit lo dice");
+});
+
+t("l'audit non chiede una stage box quando c'e' gia' un mixer con ingressi", () => {
+  reset();
+  add("dm3", 600, 740);
+  for (let i = 0; i < 6; i++) add("cantante", 100 + i * 60, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  ok(!A.auditEngine().findings.some((f) => f.rule === "nobox"), "niente «manca la stage box»");
+});
+
+/* ── DM3 con e senza Dante ── */
+t("il DM3 esiste in due versioni e il modello le distingue", () => {
+  eq(A.MIXER_DB.dm3.dante, true, "DM3-D: Dante di serie");
+  eq(A.MIXER_DB.dm3std.dante, false, "DM3 STANDARD: niente Dante");
+  eq(A.MIXER_DB.dm3.in, A.MIXER_DB.dm3std.in, "stessi ingressi analogici");
+  ok(A.mixerVariants("dm3").length === 2, "sul palco si sceglie quale delle due");
+});
+
+t("le connessioni offerte sono quelle che quel mixer ha davvero", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  eq(A.mixerConnOpts(dm3).map((o) => o.id), ["an", "usb", "dante"], "DM3-D: tutte e tre");
+  dm3.hw = "dm3std";
+  eq(A.mixerConnOpts(dm3).map((o) => o.id), ["an", "usb"], "DM3 STANDARD: niente Dante");
+  const cl5 = add("mixer", 200, 740); cl5.hw = "cl5";
+  eq(A.mixerConnOpts(cl5).map((o) => o.id), ["an", "dante"], "CL5: Dante si', USB TO HOST no");
+});
+
+/* ── Computer → mixer: con che cosa ── */
+t("il MacBook in analogico occupa due ingressi mic/line", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  const mac = add("laptop", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(R.boxes[0].used, 2, "due canali = due ingressi");
+  eq(R.links.filter((l) => l.via).length, 0, "nessuna via digitale");
+  eq(R.links[0].label, "DM3-D 1", "il patch nomina la console, non una «box A» che non esiste");
+  ok(mac && dm3);
+});
+
+t("scegliendo USB o Dante il computer non occupa piu' nessun ingresso analogico", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  const mac = add("laptop", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  A.cabResult(true);
+  A.cabSetVia(mac, "dante"); A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(R.boxes[0].used, 0, "gli ingressi mic/line restano tutti liberi");
+  eq(R.links.filter((l) => l.via === "dante").length, 2, "due canali sulla rete Dante");
+  eq(R.links[0].label, "DANTE 1");
+  eq(A.patchList().rows[0].patch, "DANTE 1", "e la channel list lo dice");
+});
+
+t("una connessione che il mixer non ha torna analogica invece di restare appesa", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  const mac = add("laptop", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  A.cabResult(true);
+  A.cabSetVia(mac, "dante"); A.__cabRes = null;
+  dm3.hw = "dm3std";   /* la stessa console, ma la versione senza Dante */
+  A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(R.links.filter((l) => l.via).length, 0, "niente Dante su un DM3 STANDARD");
+  eq(R.boxes[0].used, 2, "il segnale torna nei due ingressi analogici");
+});
+
+t("i canali entrati via USB non si contano fra quelli da infilare negli XLR", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  const mac = add("laptop", 300, 300);
+  for (let i = 0; i < 16; i++) add("cantante", 100 + i * 40, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  A.cabResult(true);
+  A.cabSetVia(mac, "usb"); A.__cabRes = null;
+  const R = A.cabResult(true);
+  ok(!R.issues.some((i) => i.code === "cap"), "16 voci + il Mac via USB stanno in 16 ingressi");
+  ok(dm3);
+});
+
+t("i cavi USB/Dante non finiscono nel conteggio dei cavi XLR", () => {
+  reset();
+  add("dm3", 600, 740);
+  const mac = add("laptop", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  A.cabResult(true);
+  A.cabSetVia(mac, "usb"); A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(Object.keys(R.cables).length, 0, "nessun taglio XLR da preparare");
+});
+
+t("solo un computer sceglie la via: un microfono entra e basta", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  const voce = add("cantante", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  A.cabResult(true);
+  A.cabSetVia(voce, "dante"); A.__cabRes = null;   /* scritto a forza: il motore lo ignora */
+  const R = A.cabResult(true);
+  eq(R.links.filter((l) => l.via).length, 0, "un microfono in Dante non ci va");
+  eq(R.boxes[0].used, 1);
+  ok(dm3);
+});
+
+t("su una stage box la via non esiste: resta un cavo analogico", () => {
+  reset();
+  add("stagebox", 600, 740);
+  const mac = add("laptop", 300, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  A.cabResult(true);
+  A.cabSetVia(mac, "usb"); A.__cabRes = null;
+  const R = A.cabResult(true);
+  eq(R.links.filter((l) => l.via).length, 0);
+  eq(R.boxes[0].used, 2, "due ingressi della stage box, come sempre");
+});
+
+/* ── migrazione: i progetti gia' salvati ── */
+t("un progetto vecchio con stage box E mixer non cambia destinazione ai suoi cavi", () => {
+  reset();
+  add("stagebox", 200, 700);
+  add("dm3", 900, 740);
+  const voce = add("cantante", 200, 300);   /* vicinissima alla stage box */
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const R = A.cabResult(true);
+  const l = R.links.filter((x) => x.s.it.id === voce.id)[0];
+  ok(!l.box.isMixer, "il cavo resta sulla stage box vicina");
+});
+
+t("le console non ancora verificate restano quello che erano", () => {
+  reset();
+  const q = add("q338", 600, 740);
+  ok(!A.cabIsDest(q), "senza dati di targa non e' una destinazione");
+  eq(A.portKinds(q).indexOf("pow") >= 0, true, "e mantiene la sua presa di corrente");
+});
+
+t("il mixer NON eredita il pannello della stage box (misure e Device ID restano suoi)", () => {
+  reset();
+  const dm3 = add("dm3", 600, 740);
+  ok(!A.cabIsBox(dm3), "cabIsBox resta falso: niente ridimensionamento sui canali");
+  eq(dm3.w, A.TYPES.dm3.w, "la console tiene le sue misure reali");
+  eq(dm3.d, A.TYPES.dm3.d);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
