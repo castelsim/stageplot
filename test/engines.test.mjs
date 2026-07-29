@@ -4075,25 +4075,26 @@ t("la pedana bloccata si riconosce: perimetro marcato e lucchettino", () => {
   eq(piccola.indexOf("riser-lock"), -1, "sotto i 70x50 cm il lucchetto starebbe addosso all'angolo: si tace");
 });
 
-/* ---- Lucchetto anche sui tappeti e sulle forme (Simone 29/07): sono i FONDI del disegno, ci si
-   posa sopra il resto e si spostano per sbaglio mentre si prende quello che ci sta sopra. ---- */
-console.log("\nLucchetto: pedane, tappeti e forme:");
+/* ---- Lucchetto anche sui tappeti, sulle forme e sulle zone di microfonazione (Simone 29/07): sono
+   i FONDI del disegno, ci si posa sopra il resto e si spostano per sbaglio mentre si prende quello
+   che ci sta sopra. ---- */
+console.log("\nLucchetto: pedane, tappeti, forme e zone:");
 t("i fondi del disegno si bloccano, gli altri elementi no", () => {
   reset();
-  const ped = add("pedana", 500, 300), tap = add("tappeto", 400, 400), frm = add("forma", 300, 200);
-  ok(A.isLockable(ped) && A.isLockable(tap) && A.isLockable(frm), "pedana, tappeto e forma");
+  const ped = add("pedana", 500, 300), tap = add("tappeto", 400, 400), frm = add("forma", 300, 200), zon = add("miczone", 700, 300);
+  ok(A.isLockable(ped) && A.isLockable(tap) && A.isLockable(frm) && A.isLockable(zon), "pedana, tappeto, forma e zona");
   const sedia = add("sedia", 600, 300), wedge = add("wedge", 700, 400);
   eq([sedia, wedge].filter(A.isLockable).length, 0, "sedia e wedge non hanno lucchetto");
   eq(A.isLockable(null), false, "niente elemento, niente lucchetto");
 });
-t("il lucchetto ferma tappeto e forma esattamente come la pedana", () => {
+t("il lucchetto ferma tappeto, forma e zona esattamente come la pedana", () => {
   reset();
-  const tap = add("tappeto", 400, 400), frm = add("forma", 300, 200);
-  ok(A.itemEditable(tap) && A.itemEditable(frm), "aperti si muovono");
-  tap.locked = true; frm.locked = true;
-  eq([tap, frm].filter(A.itemEditable).length, 0, "chiusi non si spostano, non si allungano, non ruotano");
-  delete tap.locked; delete frm.locked;
-  eq([tap, frm].filter(A.itemEditable).length, 2, "riaperti tornano a muoversi");
+  const tap = add("tappeto", 400, 400), frm = add("forma", 300, 200), zon = add("miczone", 700, 300);
+  ok(A.itemEditable(tap) && A.itemEditable(frm) && A.itemEditable(zon), "aperti si muovono");
+  tap.locked = true; frm.locked = true; zon.locked = true;
+  eq([tap, frm, zon].filter(A.itemEditable).length, 0, "chiusi non si spostano, non si allungano, non ruotano");
+  delete tap.locked; delete frm.locked; delete zon.locked;
+  eq([tap, frm, zon].filter(A.itemEditable).length, 3, "riaperti tornano a muoversi");
   const sedia = add("sedia", 600, 300);
   sedia.locked = true;   /* un vecchio progetto con la chiave sporca non deve inchiodare una sedia */
   ok(A.itemEditable(sedia), "il lucchetto vale solo dove esiste");
@@ -4120,6 +4121,33 @@ t("il nome nell'etichetta del lucchetto e' quello dell'elemento", () => {
   eq(A.lockNameOf(add("pedana", 100, 100)), "la pedana");
   eq(A.lockNameOf(add("tappeto", 200, 100)), "il tappeto");
   eq(A.lockNameOf(add("forma", 300, 100)), "la forma");
+  eq(A.lockNameOf(add("miczone", 400, 100)), "la zona");
+});
+t("la zona bloccata: perimetro marcato, lucchetto accanto alla sua etichetta, mic non trascinabile", () => {
+  reset();
+  const z = add("miczone", 500, 300); z.w = 300; z.d = 200;
+  const libera = A.TYPES.miczone.draw(z);
+  ok(libera.indexOf('stroke-width="1.6"') > -1, "libera: tratteggio normale");
+  eq(libera.indexOf("riser-lock"), -1, "libera: nessun lucchettino");
+  z.locked = true;
+  const chiusa = A.TYPES.miczone.draw(z);
+  ok(chiusa.indexOf('stroke-width="3.2"') > -1, "bloccata: perimetro marcato");
+  ok(chiusa.indexOf("riser-lock") > -1, "bloccata: lucchettino");
+  /* una zona e' un poligono qualsiasi: il lucchetto sta dove la zona gia' scrive, e il testo scala */
+  const g = /riser-lock" transform="translate\((-?[\d.]+),(-?[\d.]+)\)/.exec(chiusa);
+  const tx = /<text x="(-?[\d.]+)"/.exec(chiusa);
+  ok(g && tx, "lucchetto ed etichetta presenti");
+  ok(+tx[1] > +g[1] + 5, "l'etichetta si sposta a destra e non ci finisce sopra (" + g[1] + " vs " + tx[1] + ")");
+  /* poligonale: il lucchetto segue l'angolo del suo bbox, non un centro immaginario */
+  z.pts = [[-150, -100], [150, -60], [90, 100], [-120, 70]];
+  const poly = /riser-lock" transform="translate\((-?[\d.]+),(-?[\d.]+)\)/.exec(A.TYPES.miczone.draw(z));
+  eq(+poly[1], -138, "x = bordo sinistro del poligono + 12");
+  eq(+poly[2], -87, "y = bordo alto del poligono + 13");
+});
+t("la zona bloccata non si rimodella: via vertici, «+» e pallino del microfono", () => {
+  ok(/it\.type==="miczone" && itemEditable\(it\) && selSet/.test(appjs), "vertici e «+» spariscono sul bloccato");
+  ok(appjs.indexOf('if(!z || !itemEditable(z)) return \'\';') > -1, "il pallino mic non e' piu' trascinabile");
+  ok(appjs.indexOf("il cavo parte da l\u00ec") > -1 || appjs.indexOf("il cavo parte da lì") > -1, "ma resta disegnato: il cavo parte da lì");
 });
 t("il tappeto bloccato si riconosce: perimetro marcato e lucchettino", () => {
   reset();

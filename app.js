@@ -69,6 +69,11 @@ function riserLockGlyph(w2,d2,where,col){
   if(w2*2<70 || d2*2<50) return "";
   var x=(where==="axis"||where==="line")?0:(w2-19);
   var y=(where==="axis") ? -d2*0.45 : (where==="line") ? -9 : (-d2+17);
+  return lockGlyphAt(x,y,col);
+}
+/* il lucchettino, posato dove serve: le zone di microfonazione lo mettono accanto alla loro
+   etichetta (una zona può essere un poligono qualsiasi: l'unico punto sicuro è dove già scrive) */
+function lockGlyphAt(x,y,col){
   var gst=col?(' style="fill:'+col+'"'):"", ast=col?(' style="stroke:'+col+'"'):"";
   return '<g class="riser-lock" transform="translate('+x+','+y+')"'+gst+'>'+
          '<rect x="-3" y="-0.4" width="6" height="4.6" rx="1"/>'+
@@ -726,10 +731,14 @@ var TYPES = {
   miczone: {nome:"Microfono panoramico (zona)", dim:"area di ripresa", cat:"Microfoni e DI", sub:"Aste e microfoni",
     w:220, d:150, resizable:true, ess:true, z:0, defLabel:"",
     draw:function(it){ var pts=miczonePts(it), o=(it.opacity==null?18:it.opacity)/100, b=polyBBox(pts), zc=esc(micZoneColor(it)), mp=micZoneMicPos(it);
-      return '<polygon points="'+ptsAttr(pts)+'" fill="'+zc+'" fill-opacity="'+o.toFixed(2)+'" stroke="'+zc+'" stroke-opacity="0.85" stroke-width="1.6" stroke-dasharray="6 5" stroke-linejoin="round"/>'+
+      /* bloccata: perimetro marcato come la pedana e lucchettino accanto all'etichetta — una zona è
+         un poligono qualsiasi, l'unico punto sicuro dove posarlo è dove la zona già scrive */
+      var lk=(it.locked===true), tx=b.minX+(lk?21:9);
+      return '<polygon points="'+ptsAttr(pts)+'" fill="'+zc+'" fill-opacity="'+o.toFixed(2)+'" stroke="'+zc+'" stroke-opacity="0.85" stroke-width="'+(lk?"3.2":"1.6")+'" stroke-dasharray="6 5" stroke-linejoin="round"/>'+
         '<circle cx="'+mp[0]+'" cy="'+mp[1]+'" r="7" fill="'+zc+'" stroke="#fff" stroke-width="1.8"/>'+   /* posizione del microfono (trascinabile da selezionata) */
         '<circle cx="'+mp[0]+'" cy="'+mp[1]+'" r="2.6" fill="#fff"/>'+
-        '<text x="'+(b.minX+9)+'" y="'+(b.minY+17)+'" fill="'+zc+'" font-size="11" font-weight="700">'+esc(micZoneLabel(it))+' · '+esc(micZoneMic(it))+'</text>'; }},
+        (lk ? lockGlyphAt(b.minX+12, b.minY+13, zc) : '')+
+        '<text x="'+tx+'" y="'+(b.minY+17)+'" fill="'+zc+'" font-size="11" font-weight="700">'+esc(micZoneLabel(it))+' · '+esc(micZoneMic(it))+'</text>'; }},
   talkback: {nome:"Talkback", dim:"25×38", cat:"Microfoni e DI", sub:"Aste e microfoni", w:25,d:38,
              draw:function(it){ return drawLibFit("talkback",it,25,38); }},
   flightcase: {nome:"Flight case", dim:"120×60", cat:"Dispositivi", w:120,d:60,
@@ -4130,7 +4139,7 @@ function itemMarkup(it){
          '</g>';
   }
   /* ZONA: rettangolo = 4 angoli di resize + "+" sui lati per iniziare a modellare; poligono = vertici trascinabili + "+" (Alt+click rimuove). */
-  if(!stageEdit && it.type==="miczone" && selSet[it.id] && selIds().length===1){
+  if(!stageEdit && it.type==="miczone" && itemEditable(it) && selSet[it.id] && selIds().length===1){   /* col lucchetto chiuso la zona non si rimodella */
     var mzp=miczonePts(it), mzPoly=!!(it.pts && it.pts.length>=3);
     mzp.forEach(function(p,vi){                 /* midpoint di ogni lato: "+" per inserire un vertice */
       var q=mzp[(vi+1)%mzp.length], mx=(p[0]+q[0])/2, my=(p[1]+q[1])/2;
@@ -6334,7 +6343,7 @@ function portsMarkup(){
 function mzMicHitMarkup(){
   if(window.__cabStatic || !sel || Object.keys(selSet||{}).length>1) return '';
   var z=(state.items||[]).filter(function(x){ return x.id===sel && x.type==="miczone"; })[0];
-  if(!z) return '';
+  if(!z || !itemEditable(z)) return '';   /* bloccata: il pallino resta disegnato (il cavo parte da lì) ma non si trascina */
   var mp=micZoneMicPos(z), a=(z.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
   var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
   return '<circle class="mz-mic" data-id="'+esc(z.id)+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
@@ -6388,9 +6397,9 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
 /* ELEMENTI CHE SI BLOCCANO (Simone 29/07): pedana, tappeto e forma sono i FONDI del disegno — ci si
    posa sopra il resto e si finisce per trascinarli per sbaglio mentre si prende quello che ci sta
    sopra. Il lucchetto è lo stesso per tutti e tre: stesso gesto, stesso segno, stesso effetto. */
-var LOCKABLE={ tappeto:1, forma:1 };
+var LOCKABLE={ tappeto:1, forma:1, miczone:1 };
 function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
-function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it&&it.type==="tappeto") ? "il tappeto" : (it&&it.type==="forma") ? "la forma" : "l'elemento"; }
+function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it&&it.type==="tappeto") ? "il tappeto" : (it&&it.type==="forma") ? "la forma" : (it&&it.type==="miczone") ? "la zona" : "l'elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
 function itemPickable(it){
   if(!it || it.rackId) return false;
