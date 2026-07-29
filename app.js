@@ -4540,6 +4540,13 @@ function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it)
 function isAudioSource(it){ if(it.diFor) return false;   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
   if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
 function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
+/* «PRODUCE CANALI» non è la stessa cosa di «è una sorgente da microfonare» (bug 29/07, quartetto a
+   zone). isAudioSource esclude di proposito la ZONA — una zona non si microfona, è già lei il
+   microfono — ma la zona UN CANALE lo produce, e gli strumenti che copre non ne producono nessuno.
+   Contando le sorgenti con isAudioSource, un quartetto ripreso a zone risultava vuoto: la Input list
+   mostrava i suoi canali e la guida diceva «non c'è ancora niente da collegare». Chi vuole sapere se
+   c'è qualcosa da cablare deve chiedere i CANALI, che è quello che la lista mostra. */
+function hasChannels(it){ return !!(it && cabItemInputs(it).length); }
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
 function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
 /* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
@@ -4916,7 +4923,7 @@ function autoConnectNeeds(id){
   function aggiunto(){ __cabRes=null; __elecRes=null; __mondRes=null; save(); render();
     showToast("Aggiunto: ora puoi collegare i canali uno a uno, col fulmine sulla riga"); }
   if(id==="cabin" || id==="cabout"){
-    var srcIn=items.filter(function(it){ return isAudioSource(it) && cabItemInputs(it).length; }).length;
+    var srcIn=items.filter(hasChannels).length;   /* i CANALI, come li conta la Input list: le zone mic ci sono anche loro */
     var srcOut=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }).length;
     if(id==="cabin" && !srcIn) return {title:"Non c'è ancora niente da collegare",
       msg:"Il cablaggio degli ingressi parte dagli strumenti e dalle voci sul palco: al momento non ce ne sono.",
@@ -12903,7 +12910,7 @@ function sectionLegendMarkup(){
 function layerFgItem(id, it){
   switch(id){
     /* Layer v3: ogni layer tecnico = cavi + trasduttori/dispositivi collegati (Simone) */
-    case "cabin": case "net": return !!(isAudioSource(it) || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || RF_TX[it.type]);   /* Ingressi: sorgenti + box + console + catena RF */
+    case "cabin": case "net": return !!(isAudioSource(it) || it.type==="miczone" || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || RF_TX[it.type]);   /* Ingressi: sorgenti + box + console + catena RF */
     case "cabout": return !!((OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]) || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="iemant");   /* Output: monitor analogici + box + console + rack TX in-ear. I personal mixer (MON_DIG_NODE) NO: sono digitali → layer P.M. */
     case "mond":   return !!MON_DIG_NODE[it.type];
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
