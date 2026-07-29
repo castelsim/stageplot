@@ -679,7 +679,6 @@
       </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
-    <label class="chk" id="pMirWrap" style="display:none;margin-bottom:8px"><input type="checkbox" id="pMir"> Specchia (ribalta sinistra/destra)</label>
     <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
       <div class="row">
         <span><select id="pPmBrand"></select></span>
@@ -818,6 +817,7 @@
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
     <div class="btns" id="pActRow">
       <button class="btn" id="pDivide" style="font-size:12px;display:none">⇱ Dividi</button>
+      <button class="btn" id="pMirror" type="button" aria-pressed="false" title="Ribalta sinistra/destra">⇋ Specchia</button>
       <button class="btn" id="pDup">Duplica</button>
       <button class="btn danger" id="pDel">Elimina</button>
     </div>
@@ -876,6 +876,7 @@
       <button class="btn" id="grpUngroup" style="flex:1 1 0;min-width:0;white-space:nowrap">⤢ Dividi</button>
     </div>
     <div class="btns">
+      <button class="btn" id="grpMirror" type="button" title="Ribalta sinistra/destra">⇋ Specchia</button>
       <button class="btn" id="grpDup">Duplica</button>
       <button class="btn danger" id="grpDel">Elimina</button>
     </div>
@@ -8545,6 +8546,9 @@ function renderProps(){
     setPeekName(n+" elementi");
     var its=selItems();
     if(!its.length){ grp.hidden=true; document.getElementById("noSel").hidden=false; clearSelection(); return; }   /* selezione stale (id non più in scena) → niente crash */
+    var gmir=document.getElementById("grpMirror");   /* Specchia: c'è se almeno uno della selezione si ribalta */
+    if(gmir){ var mirs=its.filter(canMirror); gmir.style.display=mirs.length?"":"none";
+      gmir.className="btn"+(mirs.length && mirs.every(function(x){ return x.mir===true; })?" primary":""); }
     /* --- opzioni multiple (sedia/leggio) applicate a tutti --- */
     var allSedia=its.every(supportsSedia), allLeggio=its.every(supportsLeggio);
     document.getElementById("grpOpts").style.display = (allSedia||allLeggio) ? "block" : "none";
@@ -8774,8 +8778,9 @@ function renderProps(){
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: numero di ingressi (prese) selezionabile */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
-  var mirw=document.getElementById("pMirWrap");   /* Specchia: musicisti illustrati (icone direzionali, es. arpa) */
-  if(mirw){ var isMus=/^mus/.test(it.type); mirw.style.display=isMus?"block":"none"; if(isMus) document.getElementById("pMir").checked=!!it.mir; }
+  var mirb=document.getElementById("pMirror");   /* Specchia: azione, accanto a Duplica ed Elimina */
+  if(mirb){ var canM=canMirror(it); mirb.style.display=canM?"":"none";
+    mirb.className="btn"+(canM&&it.mir?" primary":""); mirb.setAttribute("aria-pressed", (canM&&it.mir)?"true":"false"); }
   var isDbl2 = it.doppia===true || !!DOUBLE_TYPES[it.type];
   document.getElementById("pLabel2Wrap").style.display = isDbl2 ? "block" : "none";
   document.getElementById("pLabel2").value = it.label2||"";
@@ -9230,7 +9235,6 @@ document.getElementById("pDimSide").addEventListener("change", function(){ var v
 document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
-document.getElementById("pMir").addEventListener("change", function(){ var v=this.checked; mutSelSoon(function(it){ if(v) it.mir=true; else delete it.mir; }); });   /* Specchia l'arte dell'icona */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pLeggioGen").addEventListener("change", function(){ var v=document.getElementById("pLeggioGen").checked; mutSel(function(it){ it.leggio=v; }); });   /* leggio generico strumenti-musicista */
 document.getElementById("pLucetta").addEventListener("change", function(){ var v=document.getElementById("pLucetta").checked; mutSel(function(it){ it.lucetta=v; }); });   /* lucetta leggio (solo visiva) */
@@ -9406,6 +9410,23 @@ document.getElementById("pDivide").addEventListener("click", splitElement);
 document.getElementById("pSplit").addEventListener("click", splitDouble);
 document.getElementById("pCompSplit").addEventListener("click", explodeComposite);
 document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
+/* SPECCHIA (Simone 29/07): era una spunta sepolta nei Dettagli tecnici e solo per i musicisti
+   illustrati — ma serve su quinte, scale, rampe, casse: si duplica un elemento e lo si ribalta per
+   l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
+   Fuori: gli elementi il cui disegno È scrittura (testo, forma, zona) — specchiarli scriverebbe al
+   contrario, che non è mai quello che si vuole. */
+var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1 };
+function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
+function mirrorSel(){
+  var its=selItems().filter(canMirror);
+  if(!its.length) return;
+  var tutti=its.every(function(it){ return it.mir===true; });   /* selezione mista → si allineano tutti */
+  its.forEach(function(it){ if(tutti) delete it.mir; else it.mir=true; });
+  render(); renderProps(); save();
+  if(typeof a11yAnnounce==="function") a11yAnnounce(tutti?"Orientamento originale":"Specchiato");
+}
+document.getElementById("pMirror").addEventListener("click", mirrorSel);
+document.getElementById("grpMirror").addEventListener("click", mirrorSel);
 /* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
    Supera B5 ("Altre opzioni"): riordino a runtime dei controlli esistenti → handler, colori bottoni e logica show/hide invariati. */
 (function arrangePanel(){
@@ -9455,7 +9476,7 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
   group("Microfono", null, ["pOutCard","pStereoWrap","pHeadMicWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
-  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pMirWrap","pReqWrap"]);
+  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn");
   if(resp || cont){

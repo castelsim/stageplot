@@ -2740,7 +2740,6 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
       </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
-    <label class="chk" id="pMirWrap" style="display:none;margin-bottom:8px"><input type="checkbox" id="pMir"> Specchia (ribalta sinistra/destra)</label>
     <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
       <div class="row">
         <span><select id="pPmBrand"></select></span>
@@ -2879,6 +2878,7 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
     <div class="btns" id="pActRow">
       <button class="btn" id="pDivide" style="font-size:12px;display:none">⇱ Dividi</button>
+      <button class="btn" id="pMirror" type="button" aria-pressed="false" title="Ribalta sinistra/destra">⇋ Specchia</button>
       <button class="btn" id="pDup">Duplica</button>
       <button class="btn danger" id="pDel">Elimina</button>
     </div>
@@ -2937,6 +2937,7 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
       <button class="btn" id="grpUngroup" style="flex:1 1 0;min-width:0;white-space:nowrap">⤢ Dividi</button>
     </div>
     <div class="btns">
+      <button class="btn" id="grpMirror" type="button" title="Ribalta sinistra/destra">⇋ Specchia</button>
       <button class="btn" id="grpDup">Duplica</button>
       <button class="btn danger" id="grpDel">Elimina</button>
     </div>
