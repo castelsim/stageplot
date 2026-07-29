@@ -7820,14 +7820,19 @@ function elecMarkup(){
       li+='<text class="elec-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc('L'+(l.phase+1)+(sg!==false?' · '+(l.cut?l.cut+' m':'>50 m'):''))+'</text>'; }
     s+='<g class="cabgrp" data-own="'+esc((l.load&&l.load.it&&l.load.it.id||'')+(l.distro&&l.distro.it?' '+l.distro.it.id:''))+'">'+li+'</g>';
   });
-  /* linea selezionata: lati trascinabili + maniglie ai due capi (parità con l'audio) */
+  /* linea selezionata: lati trascinabili + maniglie ai due capi (parità con l'audio)
+     DIRITTA = niente lati: l'espansione ortogonale disegnava un SECONDO cavo ad angolo retto sopra
+     quello inclinato, e selezionando una linea se ne vedevano due (Simone 29/07). È lo stesso difetto
+     già corretto sull'audio il 21/07: qui restano i due estremi, per riattaccare il cavo altrove.
+     I lati si trascinano quando la linea è segmentata, che è quando esistono davvero. */
   if(editE && selElec){
     var slk=(R.loadLinks||[]).concat(R.uplinks||[]).filter(function(l){ return l.key===selElec; })[0];
     if(slk){
       var exs={}; if(slk.load&&slk.load.it) exs[slk.load.it.id]=1; if(slk.distro&&slk.distro.it) exs[slk.distro.it.id]=1;
       if(slk.from&&slk.from.it) exs[slk.from.it.id]=1; if(slk.to&&slk.to.it) exs[slk.to.it.id]=1;
-      var polyE=orthExpand(cabRoutePts(slk.pts, OBS, exs));
-      for(var pi=0;pi<polyE.length-1;pi++){ var A=polyE[pi], B=polyE[pi+1];
+      var _dirE=(elecStyleFor(selElec)==="dir");
+      var polyE=_dirE ? slk.pts.map(function(p){ return p.slice(); }) : orthExpand(cabRoutePts(slk.pts, OBS, exs));
+      if(!_dirE) for(var pi=0;pi<polyE.length-1;pi++){ var A=polyE[pi], B=polyE[pi+1];
         if(A[0]===B[0] && A[1]===B[1]) continue;
         var ori=(A[1]===B[1])?"h":"v";
         s+='<line class="elec-seg" x1="'+A[0]+'" y1="'+A[1]+'" x2="'+B[0]+'" y2="'+B[1]+'"/>';
@@ -8559,8 +8564,19 @@ function portAnchor(it, kind){
   var ks=portKinds(it), i=ks.indexOf(kind);
   if(i<0) return [it.x, it.y];
   /* Layer v2 (21/07, richiesta Simone): il cavo AUDIO parte dal CENTRO dell'elemento (pallino
-     evidente sul musicista/strumento); idem il capo monitor. Le altre porte (pow/dig) restano sotto. */
-  if(kind==="audio" || kind==="mon") return [Math.round(it.x), Math.round(it.y)];
+     evidente sul musicista/strumento); idem il capo monitor.
+     Dal 29/07 vale per TUTTE le famiglie: un cavo di corrente che finiva 16 cm sotto l'icona sembrava
+     mancare l'elemento, e con due famiglie sullo stesso palco i capi si leggevano a due altezze
+     diverse senza motivo. Se l'elemento ha più porte restano distinte SOLO dove servono a prenderle
+     col dito — cioè nei pallini, sfalsati qui sotto — mentre i cavi convergono tutti al centro. */
+  return [Math.round(it.x), Math.round(it.y)];
+}
+/* Il PALLINO invece resta dov'è afferrabile: se un elemento ha più porte (un combo ha audio e
+   corrente) due pallini nello stesso punto non si prendono, quindi quelli non-audio si sfalsano
+   sotto l'icona. Il cavo però nasce e muore al centro: è la linea che deve leggersi, non la presa. */
+function portDotPos(it, kind){
+  var ks=portKinds(it), i=ks.indexOf(kind);
+  if(i<0 || ks.length<2 || kind==="audio" || kind==="mon") return portAnchor(it, kind);
   return [Math.round(it.x+(i-(ks.length-1)/2)*26), Math.round(it.y+(it.d||40)/2+16)];
 }
 function portDefs(it){
@@ -8601,7 +8617,7 @@ function portsMarkup(){
   defs.forEach(function(p){
     /* Layer v2: col layer cavi visibile il pallino audio fisso c'è già (cab-srcdot) — niente doppione */
     if(p.kind==="audio" && state.cab && state.cab.on && layerShown("cabin")) return;
-    var a=portAnchor(it, p.kind), cx=a[0], cy=a[1];   /* stessa ancora usata dai motori: il cavo parte DA QUI */
+    var a=portDotPos(it, p.kind), cx=a[0], cy=a[1];   /* il pallino sta dove si prende col dito; il cavo poi converge al centro */
     s+='<circle class="port-dot" style="fill:'+p.color+'" cx="'+cx+'" cy="'+cy+'" r="6"/>'
       +'<circle class="port-hit" data-port="'+p.kind+'" data-item="'+esc(it.id)+'" data-x="'+cx+'" data-y="'+cy+'" cx="'+cx+'" cy="'+cy+'" r="13"><title>'+esc(p.tip)+'</title></circle>';
   });
