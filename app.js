@@ -9414,14 +9414,19 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
+  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
-  var resp=get("pRespWrap"), cont=get("pContactBtn");
-  if(resp || cont){
+  var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
+  if(resp || cont || req){
     var d=document.createElement("details"); d.className="pdetails";
-    var s=document.createElement("summary"); s.textContent="Responsabile e contatto"; d.appendChild(s);
+    var s=document.createElement("summary"); s.textContent="Responsabile e contatto";
+    /* Lo stato della richiesta si legge SENZA aprire la tendina: una richiesta in attesa da tre
+       giorni, chiusa qui dentro, non la vedrebbe nessuno (Simone 29/07). */
+    var sum=document.createElement("span"); sum.id="pRespSum"; sum.className="pdet-sum"; s.appendChild(sum);
+    d.appendChild(s);
     if(resp){ resp.style.borderTop="none"; resp.style.marginTop="0"; resp.style.paddingTop="0"; d.appendChild(resp); }
     if(cont) d.appendChild(cont);
+    if(req) d.appendChild(req);   /* «Richiedi setup al musicista»: si scrive a chi e' scritto qui sopra */
     sp.appendChild(d);
   }
   var dv=document.createElement("hr"); dv.className="pdiv"; sp.appendChild(dv);
@@ -15893,12 +15898,14 @@ function requestsRefresh(cb){
 function requestBadgeFor(it){
   var n=document.getElementById("pReqState"); if(!n||!it) return;
   function paint(){
+    var sum=document.getElementById("pRespSum");
     var mine=(_reqCache||[]).filter(function(r){ return r.item_id===it.id; });
-    if(!mine.length){ n.textContent="Setup non ancora richiesto."; return; }
+    if(!mine.length){ n.textContent="Setup non ancora richiesto."; if(sum) sum.textContent=""; return; }
     var r=mine[0];
     n.textContent = (REQ_STATUS_LABEL[r.status]||r.status) +
       (r.submitted_at ? " · risposta del "+new Date(r.submitted_at).toLocaleDateString("it-IT") : "") +
       (r.current_version>1 ? " · versione "+r.current_version : "");
+    if(sum) sum.textContent = " \u00b7 "+(REQ_STATUS_LABEL[r.status]||r.status).toLowerCase();   /* nel titolo, senza aprire */
   }
   if(_reqCache) paint(); else requestsRefresh(paint);
 }

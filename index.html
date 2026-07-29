@@ -2391,6 +2391,10 @@ body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
 .ask-all .btn{flex:0 0 auto;font-size:11.5px;padding:4px 9px;border-color:var(--accent);color:var(--accent);background:#fff;font-weight:600}
 .ask-all .btn:hover{background:var(--accent);color:#fff}
 body.dark .ask-all .btn{background:transparent}
+
+/* Riassunto nel titolo di una tendina del pannello: dice cosa c'e' dentro senza doverla aprire
+   (per esempio lo stato della richiesta di setup al musicista). Secondario, mai in grassetto. */
+#props .pdetails > summary .pdet-sum{font-weight:400;color:var(--accent);font-size:11.5px}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
