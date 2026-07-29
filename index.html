@@ -687,7 +687,7 @@
   .bus-chip:hover::before{color:var(--accent-strong)}
   .sbp.mon{background:#0891b2;border-color:#0891b2;color:#fff;cursor:default}
   .sbp.snk{background:#0b7a70;border-color:#0b7a70;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);cursor:default}
-  .loadrow .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
+  /* .loadrow rimossa (29/07): la lista Power non è più una tabella a colonne — vedi .patch-lite.load-lite */
   .feed-seg{display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden}
   .feed-seg>div{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2);transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
   .feed-seg>div:hover:not(.on){background:var(--n-100)}
@@ -1079,16 +1079,42 @@
   .cab-one:hover{background:var(--accent);border-color:var(--accent);color:#fff}
   .lite-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
   .patch-empty{color:var(--text-3);font-size:12px;padding:8px 2px}
-  /* la barra dice a che punto sei, e a destra quanto è piena la stage box */
+  /* la barra dice a che punto sei, e a destra quanto è piena la stage box (o, sul Power, la fase più carica) */
   .cab-bar-cap{flex:0 0 auto;font-size:10.5px;font-weight:700;opacity:.8;font-variant-numeric:tabular-nums}
   @media (hover:none){
     .lite-btn{width:30px;height:28px}   /* bersaglio per il dito */
     .cab-one{font-size:12px}
   }
+  /* ═══ ANTEPRIMA POWER (29/07) — la lista carichi nella stessa grammatica dell'Input:
+     numero · nome · dove si attacca · azione, una barra sola in cima, il fulmine sempre visibile.
+     L'elettrico ha però una targa che l'audio non ha (potenza, assorbimento, connettore): sta SOTTO
+     il nome, in secondaria, invece di rubarne la colonna — a 260 px quattro colonne affiancate
+     avevano ridotto i carichi a «Amp/drive rac…», lo stesso difetto già corretto su Input e Luci. ═══ */
+  .patch-lite.load-lite{grid-template-rows:auto auto;gap:1px 7px;padding:6px 7px}
+  .patch-lite.load-lite>.pn{grid-area:1/1/3/2;align-self:center}
+  .patch-lite.load-lite>.psrc{grid-area:1/2/2/3}
+  .patch-lite.load-lite>.ppatch{grid-area:1/3/2/4;align-self:center}
+  .patch-lite.load-lite>.pload{grid-area:2/2/3/4}
+  .patch-lite.load-lite>.pact{grid-area:1/4/3/5;align-self:center}
+  /* la targa del carico: quanto tira e con che spina ci arrivi. Non è un sottotitolo decorativo,
+     è il dato con cui si sceglie la ciabatta — per questo l'ampere resta un badge e non testo. */
+  .pload{display:flex;align-items:center;gap:5px;min-width:0;font-size:10.5px;color:var(--text-2);
+    overflow:hidden;white-space:nowrap}
+  .pload>.pw{flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .pload>.pamp{flex:0 0 auto}
+  .pload>.pconn{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pload>.pconn::before{content:"· "}
+  /* Fase più carica oltre la soglia: la capienza smette di essere un numero neutro. Ambra nel chrome
+     vuol dire avviso e per la regola §13 del design system porta SEMPRE il triangolo (lo mette la
+     resa, qui c'è solo il colore); oltre il nominale è rosso, perché lì il magnetotermico salta. */
+  .cab-bar-cap.warn{color:var(--warning);opacity:1}
+  .cab-bar-cap.over{color:var(--danger);opacity:1}
   .patch-row .p48b{display:inline-block;font-size:8.5px;font-weight:700;color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;vertical-align:middle}   /* phantom 48V = badge teal */
-  .patch-row .pamp{display:inline-block;font-size:8.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}   /* assorbimento (A) = badge ambra (dominio potenza) */
+  /* assorbimento (A) = badge ambra (dominio potenza). Unico ambra ammesso nel chrome senza voler dire
+     «attenzione» (DS §13): è una targa tecnica, non uno stato — e vale identico su Input e Power. */
+  .patch-row .pamp,.pload .pamp{display:inline-block;font-size:8.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}
   body.dark .patch-row .p48b{color:#5eb8c7;background:#13202a}
-  body.dark .patch-row .pamp{color:#fbbf24;background:#3a2c0a}
+  body.dark .patch-row .pamp,body.dark .pload .pamp{color:#fbbf24;background:#3a2c0a}
   .patch-row .ppatch{font-weight:700;color:var(--accent-strong);text-align:center}
   /* il codice patch (A-1 / Q1·L1·#1) reso come TOKEN, come i chip dei mockup */
   .patch-row:not(.patch-hd):not(.patch-sum):not(.unassigned) .ppatch{display:inline-block;justify-self:center;background:var(--accent-tint);border-radius:5px;padding:1px 6px;transition:background var(--dur-fast) var(--ease)}
@@ -3183,11 +3209,12 @@ body.dark .ask-all .btn{background:transparent}
         <span class="cab-sectitle"><b>Lista carichi</b></span>
         <button type="button" class="cab-trash" id="loadTrash" title="Rimuovi la lista carichi" aria-label="Rimuovi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
+      <!-- 29/07: via il riepilogo a frase (#loadSummary) e la didascalia in piede — la barra in cima a
+           #loadRows dice a che punto sei e quanto è carica la fase più carica, e ogni riga porta la sua
+           targa (kW · A · connettore). Restava un bottone pieno solo: l'export. -->
       <div id="loadBody" style="margin-top:8px">
-        <div id="loadSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
         <div id="loadRows"></div>
         <button class="btn primary" id="loadPdf" style="width:100%;margin-top:10px">Esporta lista carichi (PDF)</button>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">Potenza reale (assorbimento) di ogni elemento → distro e fase assegnati dal motore elettrico.</div>
       </div>
     </div>
   </div>

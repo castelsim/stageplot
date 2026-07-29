@@ -3355,6 +3355,58 @@ t("F4: linee numerate del distro + connettore (auto, pin, override)", () => {
   A.state.elec.manual = {};
 });
 
+/* ---- Lista Power: la barra e il cestino (veste 29/07, stessa grammatica dell'Input) ---- */
+t("la barra Power legge la FASE piu' carica, non la somma dei kW", () => {
+  reset();
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.elec.manual = {};
+  A.state.elec.supply = { kind: "left" };
+  add("distro63", 1100, 100);       // 63 A x3 = tanta capienza in assoluto
+  const ci = add("ciabatta", 100, 700);   // 16 A monofase: e' lei a soffrire per prima
+  const dim = add("dimmerluci", 120, 690);   // 3600 W = 15,7 A, tutti sulla ciabatta
+  A.state.elec.manual[dim.id] = { distro: ci.id };
+  A.__elecRes = null;
+  const R = A.electricEngine();
+  const w = A.elecWorstPhase(R);
+  eq(w.letter, "Q2", "la piu' carica in PERCENTUALE e' la ciabatta, non il distro grosso");
+  eq(w.cap, 16, "la capienza e' quella del suo interruttore");
+  ok(w.a > 0.85 * w.cap, "ed e' oltre la soglia con cui il motore avvisa: " + w.a.toFixed(1) + " A");
+  eq(A.elecWorstPhase({ distros: [] }), null, "senza quadri non c'e' capienza da dichiarare");
+});
+
+t("il cestino della lista Power scollega un carico e libera la sua linea", () => {
+  reset();
+  A.state.elec.on = true; A.state.elec.mode = "manual"; A.state.elec.manual = {};
+  A.state.elec.supply = { kind: "left" };
+  add("distro32", 1100, 100);
+  const h = add("testamobile", 300, 300);
+  ok(A.elecConnectOne(h.id), "il fulmine collega");
+  A.__elecRes = null;
+  eq(A.loadList().rows.find(r => r.loadId === h.id).linked, true, "collegato");
+  eq(A.elecUnlinkOne(h.id), 1, "il cestino scollega");
+  A.__elecRes = null;
+  const row = A.loadList().rows.find(r => r.loadId === h.id);
+  eq(row.linked, false, "torna da collegare");
+  eq(row.ok, true, "e non e' un errore: in manual-first «da collegare» e' lo stato normale");
+  eq(A.state.elec.manual[h.id], undefined, "in manual-first l'override sparisce del tutto");
+  // in auto resta la pietra tombale, o il motore lo ricollegherebbe da solo al render dopo
+  A.state.elec.mode = "auto"; A.__elecRes = null; A.elecConnectOne(h.id);
+  A.elecUnlinkOne(h.id);
+  eq((A.state.elec.manual[h.id] || {}).deleted, true, "in auto resta {deleted:true}");
+  A.state.elec.manual = {};
+});
+
+t("anche il carico non ancora collegato dichiara la sua spina", () => {
+  reset();
+  A.state.elec.on = true; A.state.elec.mode = "manual"; A.state.elec.manual = {};
+  const rk = add("amprack", 400, 300);     // rack audio = PowerCON
+  const par = add("parluci", 600, 300);    // 150 W = Schuko
+  A.__elecRes = null;
+  const rows = A.loadList().rows;
+  eq(rows.every(r => !r.linked), true, "manual-first: nessuno collegato");
+  eq(rows.find(r => r.loadId === rk.id).conn, "PowerCON", "il rack vuole una PowerCON, e si sa prima di tirare il cavo");
+  eq(rows.find(r => r.loadId === par.id).conn, "Schuko");
+});
+
 t("Macchina cuffie: hub -> bus console (16 ch contigui), o Dante = nota", () => {
   reset();
   A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
