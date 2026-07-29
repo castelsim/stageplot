@@ -7384,5 +7384,64 @@ t("scegliere una porta dentro il blocco del multipolare lo rimette automatico, s
   eq(duplicate().length, 0, JSON.stringify(duplicate()));
 });
 
+
+/* ====== IL TIPO DI ASTA LO DICE LA COLONNA, NON IL MICROFONO (Simone 29/07) ==================
+   Il conteggio deduceva il supporto dal modello di microfono: si cambiava una riga in «asta
+   gigante» e il pacchetto tecnico continuava a chiedere una giraffa. Rider e channel list si
+   contraddicevano sullo stesso foglio. */
+console.log("\n— Aste: la colonna vince sul microfono —");
+
+t("il vocabolario si classifica per intero, da qualunque parte arrivi", () => {
+  eq(A.standKindFromLabel("asta giraffa"), "giraffa");
+  eq(A.standKindFromLabel("asta gigante"), "gigante", "«gigante» prima di «giraffa»: sono due aste diverse");
+  eq(A.standKindFromLabel("asta bassa"), "bassa");
+  eq(A.standKindFromLabel("asta dritta"), "dritta");
+  eq(A.standKindFromLabel("clip strumento"), "clip");
+  eq(A.standKindFromLabel("headset"), "headset");
+  eq(A.standKindFromLabel("interno/terra"), "terra");
+  eq(A.standKindFromLabel(""), null, "niente supporto: DI e strumenti in linea");
+  eq(A.standKindFromLabel("—"), null, "il trattino della tendina non e' un'asta");
+  /* ogni voce proposta nella colonna dev'essere classificabile: una voce che non si sa contare
+     e' una voce che sparisce silenziosamente dal rider */
+  A.STAND_SUGGEST.filter((x) => x !== "—" && x !== "da tavolo").forEach((v) => {
+    ok(A.standKindFromLabel(v), "non classificata: " + v);
+  });
+});
+t("scegliendo l'asta nella colonna, il conteggio la segue", () => {
+  reset();
+  add("stagebox", 900, 100);
+  const coro = add("micchoir", 400, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const key = A.patchList().rows[0].key;
+  eq(A.standNeeds().giraffa.tot, 1, "il microfono suggerisce una giraffa");
+  A.cabSetStand(key, "asta gigante");
+  A.__cabRes = null;
+  eq(A.standNeeds().gigante.tot, 1, "ora e' una gigante");
+  eq(A.standNeeds().giraffa.tot, 0, "e la giraffa non si conta piu'");
+});
+t("tornando all'automatico torna il suggerimento del microfono", () => {
+  reset();
+  add("stagebox", 900, 100);
+  add("micchoir", 400, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const key = A.patchList().rows[0].key;
+  A.cabSetStand(key, "asta gigante"); A.__cabRes = null;
+  eq(A.standNeeds().gigante.tot, 1);
+  A.cabSetStand(key, null); A.__cabRes = null;   /* «(dal mic)» */
+  eq(A.standNeeds().giraffa.tot, 1, "torna a contare quello che il microfono suggerisce");
+  eq(A.standNeeds().gigante.tot, 0);
+});
+t("l'asta condivisa resta condivisa anche cambiando tipo", () => {
+  reset();
+  add("stagebox", 900, 100);
+  const st = add("coppiast", 400, 300);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const righe = A.patchList().rows.filter((r) => r.itemId === st.id);
+  eq(A.standNeeds().giraffa.tot, 1, "la coppia stereo parte con un'asta sola");
+  A.cabSetStand(righe[0].key, "asta gigante"); A.__cabRes = null;
+  eq(A.standNeeds().gigante.tot, 1, "cambiata in gigante");
+  eq(A.standNeeds().gigante.tot + A.standNeeds().giraffa.tot, 1, "e resta UNA: la barra e' sempre una");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

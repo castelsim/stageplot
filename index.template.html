@@ -15368,17 +15368,32 @@ var STOOL_POSTAZ = {contrabbasso:1, cbx2:2};   /* tipi POSTAZ che usano sgabello
    rider si chiedono a parte (treppiede da 1,5 m di impronta, braccio con contrappeso). */
 var STAND_KINDS=[ ["giraffa","Asta giraffa"], ["gigante","Asta gigante"], ["bassa","Asta bassa"], ["dritta","Asta dritta"],
                   ["clip","Clip / pinza"], ["headset","Headset"], ["terra","A terra / interno"] ];
-function standKindOf(mic){   /* modello di microfono → supporto fisico (il primo valore è il primario) */
-  var st=String((micInfo(mic)||{}).stand||"");
+/* Da un'ETICHETTA di supporto al tipo contato. Vale sia per il valore suggerito dal microfono
+   («asta giraffa» di MIC_DEFAULTS) sia per quello scelto a mano nella colonna Asta (STAND_SUGGEST):
+   è lo stesso vocabolario, e questa è la sola funzione che lo classifica. */
+function standKindFromLabel(txt){
+  var st=String(txt||"");
   if(!st) return null;                                   /* DI e strumenti in linea: nessun supporto */
   if(st.indexOf("headset")>-1) return "headset";
   if(st.indexOf("interno")>-1 || st.indexOf("terra")>-1) return "terra";
-  if(st.indexOf("gigante")>-1) return "gigante";         /* prima di "giraffa": nessun MIC_DEFAULTS la genera, ma il vocabolario dev'essere classificabile per intero */
+  if(st.indexOf("gigante")>-1) return "gigante";         /* prima di "giraffa": «asta gigante» contiene «asta», non «giraffa», ma l'ordine protegge da future etichette composte */
   if(st.indexOf("giraffa")>-1) return "giraffa";
   if(st.indexOf("clip")===0) return "clip";              /* "clip", "clip strumento", "clip/asta bassa" */
   if(st.indexOf("bassa")>-1) return "bassa";
   if(st.indexOf("dritta")>-1) return "dritta";
   return null;
+}
+function standKindOf(mic){   /* modello di microfono → supporto fisico (il primo valore è il primario) */
+  return standKindFromLabel((micInfo(mic)||{}).stand);
+}
+/* Il supporto EFFETTIVO di un canale: quello scritto nella colonna Asta se l'utente l'ha scelto,
+   altrimenti quello che il microfono suggerisce. Prima il conteggio guardava solo il microfono: si
+   cambiava una riga in «asta gigante» e il pacchetto tecnico continuava a chiedere una giraffa —
+   il rider contraddiceva la channel list, sullo stesso foglio (Simone 29/07). */
+function standKindOfChannel(it, idx, mic){
+  var m=((state.cab&&state.cab.manual)||{})[it.id+"#"+idx];
+  if(m && m.stand!=null && String(m.stand).trim()) return standKindFromLabel(m.stand);
+  return standKindOf(mic);
 }
 function standKindOfItem(it){   /* aste già presenti sul palco come oggetto, e aste delle voci (micMode) */
   if(it.type==="giraffa") return "giraffa";
@@ -15434,7 +15449,7 @@ function standNeeds(){
     var inps=cabItemInputs(it)||[];
     inps.forEach(function(c, ci){
       if(standSharedOf(it, ci, inps)) return;   /* coppia con asta unica: l'asta la porta il primo canale, il secondo no */
-      var k=standKindOf(c.mic); if(!k) return;
+      var k=standKindOfChannel(it, ci, c.mic); if(!k) return;   /* la colonna Asta vince sul microfono: è una scelta, non un suggerimento */
       out[k].dedotte++; out[k].tot++;
     });
   });
