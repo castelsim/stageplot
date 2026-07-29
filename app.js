@@ -5389,17 +5389,121 @@ var STAGEBOX_DB = {
   "scmini32":{brand:"Soundcraft", model:"Mini Stagebox 32", proto:["madi"], in:32, out:16, pre:true, casc:true, power:"AC", v:true},
   "scvi":{brand:"Soundcraft", model:"Vi Stagebox 64", proto:["madi"], in:64, out:32, pre:true, casc:true, power:"AC", v:true}
 };
+/* ===== MIXER — protocollo di rete E I/O LOCALI (esteso 29/07) =====
+   Fino a ieri qui c'era solo il protocollo digitale: bastava per dire con che stage box dialoga una
+   console, non per sapere quanti cavi ci si infilano DIETRO. Da oggi ci sono anche gli I/O di targa,
+   perché un mixer con ingressi locali è una destinazione dei cavi come una stage box.
+
+   Campi engine-critici:
+     in        ingressi MIC/LINE locali (0/assente = superficie senza I/O a bordo → NON è una destinazione)
+     out       uscite analogiche locali (per i ritorni monitor)
+     usb       interfaccia audio verso computer: {in, out, port} — assente = la console non ce l'ha
+     dante     true = Dante DI SERIE su questo modello · false = non ce l'ha (variante distinta)
+     danteIn/danteOut  canali della rete Dante
+     frame     tipo-icona del palco a cui appartiene la variante (DM3-D e DM3 STANDARD = stesso telaio)
+
+   REGOLA: niente dato senza fonte, assente ≠ zero. Se il manuale non lo dice, il campo NON C'È e
+   l'app non offre quella connessione. Ogni numero cita il documento da cui viene. */
 var MIXER_DB = {
-  "dm3":{brand:"Yamaha", model:"DM3", proto:["dante"], v:true},
-  "cl5":{brand:"Yamaha", model:"CL5", proto:["dante"], v:true},
-  "ql5":{brand:"Yamaha", model:"QL5", proto:["dante"], v:true},
-  "sq5":{brand:"Allen & Heath", model:"SQ5", proto:["gigaace","dsnake"], v:true},
-  "sq6":{brand:"Allen & Heath", model:"SQ6", proto:["gigaace","dsnake"], v:true},
-  "dlive":{brand:"Allen & Heath", model:"dLive S", proto:["gigaace"], v:true},
-  "m32":{brand:"Midas", model:"M32", proto:["aes50"], v:true},
-  "x32":{brand:"Behringer", model:"X32", proto:["aes50"], v:true},
-  "sd12":{brand:"DiGiCo", model:"SD12", proto:["optocore","madi"], v:true},
-  "s6l":{brand:"Avid", model:"S6L", proto:["avb"], v:true}
+  /* Yamaha DM3 — DUE VERSIONI: il Dante ce l'ha SOLO quella con Dante. «DM3 is compatible with the
+     Dante audio network. DM3 STANDARD can only be used as a standalone product» (DM3 Reference
+     Manual rev.C0, Introduction > About the Product, "Differences with DM3", p.10). Nome commerciale
+     della versione Dante nelle specifiche ufficiali Yamaha: DM3-D. */
+  "dm3":{brand:"Yamaha", model:"DM3-D", frame:"dm3", proto:["dante"], v:true,
+    in:16, out:8, usb:{in:18, out:18, port:"USB-B"}, dante:true, danteIn:16, danteOut:16,
+    /* fonte: DM3 Reference Manual rev.C0 — General Specifications p.363 (Analog IN 16 = 12 XLR + 4 combo
+       XLR/TRS · Analog OUT 8 XLR · Dante I/O 16 In/Out, 2 etherCON Primary/Secondary);
+       Digital IN/OUT Standards p.367 (USB TO HOST, USB Type-B, 18 ch in / 18 ch out). */
+    src:"DM3 Reference Manual C0, p.363/367"},
+  "dm3std":{brand:"Yamaha", model:"DM3 STANDARD", frame:"dm3", proto:[], v:true,
+    in:16, out:8, usb:{in:18, out:18, port:"USB-B"}, dante:false,
+    /* stessi I/O analogici e stessa USB della DM3-D; Dante assente per costruzione (DM3 RM C0 p.10). */
+    src:"DM3 Reference Manual C0, p.10/363/367"},
+  "dm7":{brand:"Yamaha", model:"DM7", frame:"dm7", proto:["dante"], v:true,
+    in:32, out:16, usb:{in:18, out:18, port:"USB-C"}, dante:true, danteIn:144, danteOut:144,
+    /* fonte: DM7 series Reference Manual rev.D1 — Analog input standards p.451 (INPUT 1-32 XLR),
+       Analog output standards p.452 (OUTPUT 1-16 XLR), Digital I/O standards p.453
+       (Dante Primary/Secondary 144 ch in / 144 ch out · USB TO HOST USB-C 18/18). */
+    src:"DM7 series Reference Manual D1, p.451-453"},
+  "dm7c":{brand:"Yamaha", model:"DM7 Compact", frame:"dm7c", proto:["dante"], v:true,
+    in:16, out:16, usb:{in:18, out:18, port:"USB-C"}, dante:true, danteIn:144, danteOut:144,
+    /* fonte: DM7 series Reference Manual D1 p.451 («INPUT 1-32 (DM7 Compact INPUT 1-16)») e p.453.
+       Le 16 uscite del Compact il manuale non le distingue riga per riga: confermate dalle
+       specifiche ufficiali Yamaha (pagina prodotto DM7, Analog Output 16). */
+    src:"DM7 series Reference Manual D1, p.451-453 + specifiche Yamaha DM7"},
+  "cl5":{brand:"Yamaha", model:"CL5", proto:["dante"], v:true,
+    in:8, out:8, dante:true, danteIn:64, danteOut:64,
+    /* fonte: CL Owner's Manual (CL5/CL3/CL1) — Input/output characteristics p.57: OMNI IN 1-8 XLR-3-31,
+       OMNI OUT 1-8 XLR-3-32, Dante Primary/Secondary 64 ch in / 64 ch out @48 kHz.
+       NIENTE campo usb: la CL5 non ha USB TO HOST — l'unica USB è tipo A per la chiavetta (stessa
+       tabella p.57); il multitraccia su computer passa da Dante Virtual Soundcard. */
+    src:"CL Owner's Manual, p.57"},
+  "ql5":{brand:"Yamaha", model:"QL5", proto:["dante"], v:true,
+    in:32, out:16, dante:true, danteIn:64, danteOut:64,
+    /* fonte: QL Owner's Manual p.16 (32 INPUT, 16 OMNI OUT) e QL5/QL1 Reference Manual — Data List
+       p.43 (Analog input/output specifications, Digital I/O: Dante 64/64 @48 kHz).
+       Niente campo usb: nessun USB TO HOST nelle Control I/O specifications (Data List p.43). */
+    src:"QL Owner's Manual p.16 + QL5/QL1 Reference Manual Data List p.43"},
+  /* Allen & Heath SQ — l'XLR di talkback NON è contato fra gli ingressi (è dedicato).
+     Dante = SCHEDA OPZIONALE sull'unico I/O Port: il campo `dante` resta ASSENTE, così l'app non
+     offre una connessione che la console di serie non ha. */
+  "sq5":{brand:"Allen & Heath", model:"SQ5", proto:["gigaace","dsnake"], v:true,
+    in:16, out:14, usb:{in:32, out:32, port:"USB-B"},
+    /* fonte: SQ-5 Technical Datasheet rev.G, Overview p.1 (16 XLR in · 12 XLR + 2 TRS out ·
+       "32x32 channel USB streaming to/from Mac/PC"); SQ Reference Guide V1.6.0 §5.3 p.22 (USB-B =
+       interfaccia audio, distinta dalla SQ-Drive USB-A di registrazione) e §12.12 p.100 (Dante = option card). */
+    src:"SQ-5 Technical Datasheet G + SQ Reference Guide V1.6.0 §5.3/§12.12"},
+  "sq6":{brand:"Allen & Heath", model:"SQ6", proto:["gigaace","dsnake"], v:true,
+    in:24, out:16, usb:{in:32, out:32, port:"USB-B"},
+    /* fonte: SQ-6 Technical Datasheet rev.G, Overview p.1 (24 XLR in · 14 XLR + 2 TRS out · USB 32x32);
+       Dante su scheda opzionale (stesso datasheet, "I/O Port for Option Card"). */
+    src:"SQ-6 Technical Datasheet G"},
+  "dlive":{brand:"Allen & Heath", model:"dLive S", proto:["gigaace"], v:true,
+    in:8, out:8,
+    /* fonte: dLive Surface Getting Started Guide AP9899 Iss.4 — Rear Panel §1 (8 XLR mic/line) e §3
+       (8 XLR line out). Identici su S3000/S5000/S7000.
+       NIENTE campo usb: la superficie non ha USB-B audio — le USB-A fanno registrazione stereo e
+       trasferimento file (GSG Iss.4, Front Panel §4 p.10 / Rear Panel §13 p.9).
+       Dante = scheda opzionale sugli I/O Port → campo `dante` assente. */
+    src:"dLive Surface Getting Started Guide AP9899 Iss.4, p.8-10"},
+  "avantis":{brand:"Allen & Heath", model:"Avantis", proto:["gigaace","dsnake"], v:true,
+    in:12, out:12,
+    /* fonte: Avantis Technical Datasheet, Overview p.1 e p.2 (12 XLR in · 12 XLR out · SLink).
+       Niente campo usb: la USB-A fa solo registrazione/riproduzione WAV stereo (Avantis Firmware
+       Reference Guide V1.3 §11.9 p.64) — non è un'interfaccia multicanale. Dante = scheda opzionale. */
+    src:"Avantis Technical Datasheet + Firmware Reference Guide V1.3 §11.9"},
+  /* Midas M32 / Behringer X32 — l'interfaccia audio 32×32 c'è, ma è una SCHEDA nell'unico slot di
+     espansione (DN32-USB / X-USB, montata di serie). Mettendoci la scheda Dante, la USB sparisce:
+     per questo `dante` resta assente invece di essere true. La USB-B del retro NON è audio: è il
+     controllo remoto. */
+  "m32":{brand:"Midas", model:"M32", proto:["aes50"], v:true,
+    in:32, out:16, usb:{in:32, out:32, port:"scheda DN32-USB"},
+    /* fonte: M32 Digital Console User Manual, Appendix A "Connectors" p.46 (32 XLR in + talkback ·
+       16 XLR out) e §3.5 "KLARK TEKNIK DN32-USB" p.44 ("up to 32 channels of audio to and from a computer").
+       Il talkback XLR non è contato fra gli ingressi. */
+    src:"M32 User Manual, Appendix A p.46 + §3.5 p.44"},
+  "x32":{brand:"Behringer", model:"X32", proto:["aes50"], v:true,
+    in:32, out:16, usb:{in:32, out:32, port:"scheda X-USB"},
+    /* fonte: X32 Quick Start Guide (QSG_BE_0603-ACE_X32_WW), "Specifications → Connectors" p.44
+       (32 XLR in + talkback · 16 XLR out) e "X-USB card" p.18-19 ("up to 32 channels to and from a
+       connected computer"). Talkback non contato. */
+    src:"X32 Quick Start Guide, p.18-19/44"},
+  "sd12":{brand:"DiGiCo", model:"SD12", proto:["optocore","madi"], v:true,
+    in:8, out:8,
+    /* fonte: SD12 Operation Manual — Getting Started rev.A, "Rear Panel" p.1-7 (8 Mic/Line In,
+       8 Line Out) e §1.5.3 p.1-17.
+       Niente campo usb: il manuale dichiara "UB MADI: up to 48 I/O channels @48kHz" SENZA dire se
+       sono 48 in + 48 out o 48 in totale (Getting Started rev.A, Overview p.1-6). Dato ambiguo →
+       assente, non stimato. Dante = scheda DMI opzionale. */
+    src:"SD12 Operation Manual Getting Started A, p.1-6/1-7/1-17"},
+  "s6l":{brand:"Avid", model:"S6L", proto:["avb"], v:true,
+    in:8, out:8,
+    /* fonte: VENUE S6L Product Specifications, tabella "S6L Control Surface Specifications", righe
+       "Analog inputs"/"Analog outputs" (8 XLR in, 8 XLR out; il solo S6L-16C ne ha 1 e 2).
+       Niente campo usb: le 4 USB fanno tastiera/mouse/chiavetta e registrazione 2 tracce — il
+       multitraccia va via AVB verso Pro Tools (stesse specifiche, "Ancillary I/O").
+       Dante: le specifiche ufficiali S6L non lo nominano → campo assente, né sì né no. */
+    src:"VENUE S6L Product Specifications, S6L Control Surface Specifications"}
 };
 function hwLabel(id, db){ var m=db[id]; return m ? (m.brand+" "+m.model) : ""; }
 function hwProtoNames(arr){ return (arr||[]).map(function(p){ return AUDIO_PROTO[p]||p; }).join("/"); }
@@ -5407,6 +5511,67 @@ function hwCompatible(mixerId, sbId){   /* protocollo condiviso mixer↔stagebox
   var m=MIXER_DB[mixerId], b=STAGEBOX_DB[sbId];
   if(!m||!b) return true;
   return m.proto.some(function(p){ return b.proto.indexOf(p)>=0; });
+}
+/* ===== IL MIXER È UNA DESTINAZIONE (29/07, richiesta Simone) =====
+   Fino a ieri un DM3 sul palco non era una destinazione per nessun cavo: cabIsBox(dm3) era false,
+   portKinds(dm3) dava solo ["pow"] e il motore, non trovando stage box, PROPONEVA una drop box
+   ignorando i 16 ingressi che il DM3 ha davvero sul retro. Un mixer con ingressi locali ora si
+   comporta come una stage box: ci si collega col fulmine e col trascinamento, le sue porte si
+   contano e si esauriscono.
+
+   MAPPA tipo-sul-palco → modello del registro. La console generica ("mixer") NON ha un default:
+   diventa una destinazione solo se l'utente sceglie un modello (it.hw), perché senza modello non
+   si sa quanti ingressi abbia. Un tipo che non è qui non è una destinazione: nessun numero
+   inventato, nessun ingresso fantasma. */
+/* NON ci sono: sq7, csr3/csr5/csr10 (Rivage), q338 (DiGiCo Quantum), hd96 (Midas HD96). Gli I/O
+   locali di quelle console non sono ancora stati verificati su manuale: finché non lo sono restano
+   fuori, e sul palco si comportano come prima. Meglio una console che non è ancora una destinazione
+   che una console con degli ingressi inventati. */
+var MIXER_TYPE = { dm3:"dm3", dm7:"dm7", dm7c:"dm7c", sq5:"sq5", sq6:"sq6", avantis:"avantis", dlives5:"dlive", dlives7:"dlive" };
+/* modello effettivo di un elemento-console: la scelta esplicita (it.hw, es. la variante DM3-D) vince
+   sul default del tipo. Gli stagebox usano lo stesso campo hw su STAGEBOX_DB: i tipi sono disgiunti. */
+function mixerHwOf(it){
+  if(!it) return null;
+  if(it.hw && MIXER_DB[it.hw]) return it.hw;
+  var d=MIXER_TYPE[it.type];
+  return (d && MIXER_DB[d]) ? d : null;
+}
+function mixerModelOf(it){ var id=mixerHwOf(it); return id?MIXER_DB[id]:null; }
+/* il modello SOLO se ha ingressi locali dichiarati: le superfici di controllo (dLive S, S6L) hanno
+   l'I/O nel rack, non a bordo — restano quello che sono, non destinazioni. */
+function cabMixerIn(it){ var m=mixerModelOf(it); return (m && m.in>0) ? m : null; }
+/* varianti dello stesso telaio (DM3 / DM3-D): stessa icona sul palco, modelli diversi nel registro.
+   Serve perché il DM3 esiste con e senza Dante e offrire Dante a tutti sarebbe una bugia. */
+function mixerVariants(type){
+  var d=MIXER_TYPE[type]; if(!d) return [];
+  return Object.keys(MIXER_DB).filter(function(id){ return MIXER_DB[id].frame===type || id===d; });
+}
+/* ===== CON CHE COSA SI COLLEGA UN COMPUTER AL MIXER (29/07) =====
+   Un MacBook al DM3-D può entrare in tre modi diversi, e sono tre cavi diversi: Dante (rete),
+   USB (interfaccia audio della console) o analogico (due jack negli ingressi mic/line).
+   Le opzioni le detta il MODELLO: un mixer senza Dante non deve offrire Dante, uno senza
+   interfaccia USB non deve offrire USB. Dove il manuale non dichiara il dato, il campo non c'è
+   e l'opzione non compare. */
+var MIX_CONN = { an:{name:"Analogico", tag:"", desc:"due jack negli ingressi mic/line"},
+                 usb:{name:"USB", tag:"USB", desc:"interfaccia audio della console"},
+                 dante:{name:"Dante", tag:"DANTE", desc:"rete audio Cat5e/Cat6"} };
+function normVia(v){ return MIX_CONN[v] ? v : "an"; }
+/* i tipi che si collegano a una console anche in digitale: un computer, non un microfono */
+var COMP_SRC = { laptop:1 };
+function mixerConnOpts(it){   /* it = elemento console sul palco → opzioni REALI di quel modello */
+  var m=mixerModelOf(it); if(!m) return [];
+  var o=[];
+  if(m.in>0) o.push({id:"an", name:MIX_CONN.an.name, hint:m.in+" ingressi mic/line", cap:m.in});
+  if(m.usb && m.usb.in>0) o.push({id:"usb", name:MIX_CONN.usb.name, hint:(m.usb.port?m.usb.port+" · ":"")+m.usb.in+" canali verso il mixer", cap:m.usb.in});
+  if(m.dante===true && m.danteIn>0) o.push({id:"dante", name:MIX_CONN.dante.name, hint:m.danteIn+" canali verso il mixer", cap:m.danteIn});
+  return o;
+}
+/* capienza della via scelta su quel mixer (0 = via non disponibile) */
+function mixerViaCap(m, via){
+  if(!m) return 0;
+  if(via==="usb") return (m.usb && m.usb.in>0) ? m.usb.in : 0;
+  if(via==="dante") return (m.dante===true && m.danteIn>0) ? m.danteIn : 0;
+  return m.in>0 ? m.in : 0;
 }
 /* ===== PERSONAL MONITOR — registro model-driven (B1, 14/07) =====
    Stesso pattern dichiarativo di MIXER_DB/STAGEBOX_DB: il motore mond legge QUI i vincoli, zero
@@ -5650,7 +5815,7 @@ function autoConnectNeeds(id){
     if(id==="cabout" && !srcOut) return {title:"Non ci sono ascolti da collegare",
       msg:"Le uscite collegano monitor, spie e sidefill alla stage box: al momento non ce ne sono sul palco.",
       steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi collega ogni monitor dalla Monitor list, col fulmine \u26a1 sulla riga"]};
-    if(!items.some(cabIsBox)) return {title:"Manca la stage box",
+    if(!items.some(cabIsDest)) return {title:"Manca la stage box",
       msg:"I cavi devono arrivare da qualche parte: senza una stage box (o un rack I/O) sul palco il cablaggio resta appeso.",
       steps:["Una stage box generica ha 16 ingressi e 8 uscite","Puoi spostarla e scegliere il modello reale dal pannello"],
       action:{label:"Aggiungi una stage box", run:function(){ var s=guideSpot(60); addItem("stagebox", s); aggiunto(); }}};
@@ -5736,11 +5901,18 @@ function boxAnchor(b){
   return [ Math.round((b?b.x:0)*10)/10, Math.round(((b?b.y:0) + d/2 + 3)*10)/10 ];
 }
 function cabIsBox(it){ return it.type==="stagebox"||it.type==="substg"||it.type==="patchpt"; }
+/* DESTINAZIONE di un cavo: la scatola dove il cavo finisce. Le stage box lo sono sempre; un mixer
+   lo è quando il suo modello dichiara ingressi locali (29/07). Predicato SEPARATO da cabIsBox
+   apposta: la console non deve ereditare i comportamenti da stage box (pannello canali, Device ID,
+   ridimensionamento automatico sul numero di porte — un DM3 ha le misure che ha). */
+function cabIsDest(it){ return cabIsBox(it) || !!cabMixerIn(it); }
 function cabBoxCap(it){
+  var mx=cabMixerIn(it); if(mx) return Math.max(1, mx.in);   /* mixer: ingressi mic/line di targa */
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(1, STAGEBOX_DB[it.hw].in||8);
   var def=(it.type==="stagebox")?16:8; return Math.min(64,Math.max(1,Math.round(it.ch||def)));
 }
 function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
+  var mxo=mixerModelOf(it); if(mxo && mxo.in>0) return Math.max(0, mxo.out||0);   /* mixer: uscite analogiche locali */
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(0, STAGEBOX_DB[it.hw].out||0);
   var defo=(it.type==="stagebox")?8:4; return Math.min(64,Math.max(0,Math.round(it.outCh==null?defo:it.outCh)));   /* #9/#13: uscite selezionabili per le generiche */
 }
@@ -5833,7 +6005,7 @@ function obstacleRects(){
   var M=16, rects=[];
   (state.items||[]).forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
-    if(cabIsBox(it)||elecIsDistro(it)||elecIsGen(it)) return;   /* box/distro/generatore = nodi, non ostacoli */
+    if(cabIsDest(it)||elecIsDistro(it)||elecIsGen(it)) return;   /* box/mixer-destinazione/distro/generatore = nodi, non ostacoli */
     var w=it.w||t.w||40, d=it.d||t.d||40;
     if(!t.riser && w*d<3200) return;                            /* solo ingombranti (>~57×57) + pedane */
     rects.push({id:it.id, x0:it.x-w/2-M, y0:it.y-d/2-M, x1:it.x+w/2+M, y1:it.y+d/2+M});
@@ -5984,21 +6156,23 @@ function audioCablingEngine(){
   var sources=[];
   state.items.map(function(it,idx){ return {it:it,idx:idx}; })
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type)) || (a.idx-b.idx); })
-    .forEach(function(o){ var it=o.it; if(cabIsBox(it)) return;
+    .forEach(function(o){ var it=o.it; if(cabIsDest(it)) return;
       cabItemInputs(it).forEach(function(inp,ii){ sources.push({it:it, name:inp.name, mic:inp.mic, key:it.id+"#"+ii}); }); });
   var totIn=sources.length, issues=[], mixer=state.cab&&state.cab.mixer;
   /* raggruppa per elemento (i canali di uno strumento restano insieme) */
   var groups=[], byItem={};
   sources.forEach(function(s){ var k=s.it.id; if(!byItem[k]){ byItem[k]={it:s.it, list:[]}; groups.push(byItem[k]); } byItem[k].list.push(s); });
-  /* 4-6. stage box: piazzate (capacità dal modello hw), oppure proposta drop box 8ch a gruppi */
-  var boxes=state.items.filter(cabIsBox).map(function(it){
-    var cap0=cabBoxCap(it);
+  /* 4-6. destinazioni: stage box piazzate + MIXER CON INGRESSI LOCALI (29/07), oppure proposta drop box */
+  var boxes=state.items.filter(cabIsDest).map(function(it){
+    var cap0=cabBoxCap(it), mxm=cabMixerIn(it);
     var res=(Array.isArray(it.sbRes)?it.sbRes:[]).filter(function(pn){ return pn>=1 && pn<=cap0; });
     var rm={}; res.forEach(function(pn){ rm[pn]=1; });
-    return {x:it.x, y:it.y, w:it.w, d:it.d, cap:cap0, used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id, hw:it.hw||null,
+    return {x:it.x, y:it.y, w:it.w, d:it.d, cap:cap0, used:0, outCap:cabBoxCapOut(it), usedOut:0, auto:false, id:it.id,
+            hw:(mxm?null:(it.hw||null)),   /* hw = modello STAGE BOX: il mixer ha il suo (mixHw), non deve finire nelle lookup STAGEBOX_DB */
+            isMixer:!!mxm, mixHw:(mxm?mixerHwOf(it):null), mixM:(mxm||null), dig:{},   /* dig = canali già presi su USB/Dante */
             foh:!!it.foh,   /* "stage box del mixer" (lato regia): esclusa dall'auto, solo target manuale per gli overflow */
             sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, taken:{}, pins:{},
-            name:(it.label||TYPES[it.type].defLabel||"BOX")}; });
+            name:(mxm ? (mxm.brand+" "+mxm.model) : (it.label||TYPES[it.type].defLabel||"BOX"))}; });
   if(!manualMode && !boxes.length && totIn){
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
       var nb=Math.max(1, Math.ceil(c.n/8));
@@ -6012,7 +6186,11 @@ function audioCablingEngine(){
     });
     issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
   }
-  boxes.forEach(function(b,i){ b.letter=String.fromCharCode(65+i); });
+  boxes.forEach(function(b,i){ b.letter=String.fromCharCode(65+i);
+    /* sigla del patch: su una stage box è la lettera («A1»), su una console è il MODELLO
+       («DM3-D 1»). Su un palco col solo mixer, «A1» indicava una box A che non esiste (29/07). */
+    b.tag = (b.isMixer && b.mixM) ? b.mixM.model : b.letter; });
+  function chLabel(b, pn){ return b.isMixer ? (b.tag+" "+pn) : (b.tag+pn); }
   /* F2 (caso DM7/Rio): device ID effettivo = sbId scelto o posizione; numerazione FOH CONTINUA per ordine di ID */
   var _eidTaken={}; boxes.forEach(function(b){ if(b.sbId) _eidTaken[b.sbId]=1; });
   var _eidNext=1;
@@ -6022,7 +6200,9 @@ function audioCablingEngine(){
   boxes.forEach(function(b){ b.digital=!!(b.hw && STAGEBOX_DB[b.hw]); });
   var _hasDig=boxes.some(function(b){ return b.digital; });
   function sbToOf(b){ var it2=(state.items||[]).filter(function(x){ return x.id===b.id; })[0]; return (it2&&it2.sbTo)?it2.sbTo:""; }
-  boxes.forEach(function(b){ b.wantUp = !b.digital && _hasDig && sbToOf(b)!=="main"; b.up=null; });
+  /* il MIXER è il capolinea: non ha una coda da mandare a monte né una snake verso il punto
+     principale — è lui il punto principale (29/07). */
+  boxes.forEach(function(b){ b.wantUp = !b.digital && !b.isMixer && _hasDig && sbToOf(b)!=="main"; b.up=null; });
   var _sorted=boxes.slice().sort(function(a,b2){ return (a.eid-b2.eid) || (a.letter<b2.letter?-1:1); });
   var _base=0; _sorted.forEach(function(b){ if(b.wantUp){ b.fohBase=null; return; } b.fohBase=_base; _base+=b.cap; });
   var _seenId={}; boxes.forEach(function(b){ if(b.sbId){ if(_seenId[b.sbId]) issues.push({lvl:"warn", msg:"Device ID duplicato: due stage box con ID "+b.sbId+" — cambia l'ID di una."}); _seenId[b.sbId]=b; } });
@@ -6067,6 +6247,22 @@ function audioCablingEngine(){
     for(var pn=1; pn<=b.cap; pn++){ if(!b.taken[pn] && !b.resMap[pn]){ b.taken[pn]=1; return pn; } }
     b.overflow=(b.overflow||0)+1; var po=b.cap+b.overflow; b.taken[po]=1; return po;   /* oltre capienza: numerata oltre, l'audit avvisa già */
   }
+  /* VIA di collegamento verso un mixer (29/07): "an" = due jack negli ingressi mic/line (consuma
+     porte), "usb"/"dante" = un cavo solo e canali digitali (NON consumano ingressi analogici).
+     La via è una scelta dell'utente (ov.via) e vale solo per un computer verso una console che
+     quella connessione ce l'ha davvero: se il modello cambia e non ce l'ha più, si torna
+     all'analogico invece di lasciare in giro un Dante che non esiste. */
+  function cabViaOf(b, it, ov){
+    if(!b || !b.isMixer || !COMP_SRC[it.type]) return "an";
+    var v=normVia(ov&&ov.via);
+    if(v!=="an" && !mixerViaCap(b.mixM, v)) return "an";
+    return v;
+  }
+  var USB_MAX_M=5;   /* USB 2.0: 5 m per segmento passivo (USB 2.0 Specification §7.1.16, "Cable Delay"); oltre serve un attivo/ripetitore */
+  function viaIssues(b, via, n, name){
+    var cap=mixerViaCap(b.mixM, via);
+    if(cap && n>cap) issues.push({lvl:"err", msg:"Canali "+MIX_CONN[via].name+" esauriti su "+b.name+": "+n+" richiesti, il modello ne porta "+cap+"."});
+  }
   var home=cabHomePoint();
   /* 7-10. assegnazione: canali di un elemento insieme sulla box più vicina con capacità; poi spill */
   var links=[], unassigned=[], pending=[];
@@ -6095,6 +6291,24 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
       var pts=[portAnchor(g.it,"audio")].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → pedaliera/ampli → DI → stage box */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
+      /* computer → mixer via USB/Dante: un cavo solo, canali digitali, ZERO ingressi mic/line
+         consumati (29/07). Le porte analogiche del DM3 restano libere per i microfoni. */
+      var _via=cabViaOf(b, g.it, ov);
+      if(_via!=="an"){
+        var _vtag=MIX_CONN[_via].tag;
+        /* un cavo di rete o USB NON passa da una DI: il percorso salta le tappe analogiche */
+        var _vpts=[portAnchor(g.it,"audio")].concat((ov.pts||[])).concat([boxAnchor(b)]);
+        var _vlen=orthLen(_vpts)/100;
+        g.list.forEach(function(s){
+          var vn=(b.dig[_via]=(b.dig[_via]||0)+1);
+          links.push({s:s, box:b, ch:vn, via:_via, key:gk, pts:_vpts, lenM:_vlen, cut:null,
+            label:(_vtag+" "+vn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length});
+        });
+        if(!ov.deleted) viaIssues(b, _via, b.dig[_via]);
+        if(!ov.deleted && _via==="usb" && _vlen>USB_MAX_M) issues.push({lvl:"warn", msg:"Tratta USB di "+_vlen.toFixed(0)+" m verso "+b.name+": oltre i "+USB_MAX_M+" m passivi serve un cavo attivo/ripetitore."});
+        if(!ov.deleted && g.it.diId) issues.push({lvl:"info", msg:"«"+(g.it.label||TYPES[g.it.type].nome)+"» entra in "+MIX_CONN[_via].name+": la DI non serve più, puoi toglierla."});
+        return;
+      }
       /* la porta scelta è quella con cui il multipolare ENTRA: i canali seguono consecutivi (3,4,5…)
          finché il blocco è stato prenotato; dove non lo era, quel canale prende la prima libera. */
       var _ci=0;
@@ -6102,7 +6316,7 @@ function audioCablingEngine(){
         var _w=(ov.port>0)? (+ov.port+_ci) : 0; _ci++;
         var pn=takePort(b, (_w>0 && _pinRes[b.id] && _pinRes[b.id][_w]===gk)? _w : 0, gk);
         links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0 && pn===_w),
-          label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
+          label:chLabel(b,pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
       return;
     }
     g.list.forEach(function(s){
@@ -6112,13 +6326,22 @@ function audioCablingEngine(){
       var forced = ov.box ? boxes.filter(function(bb){ return bb.id===ov.box && bfree(bb)>=1; })[0] : null;
       var b= manualMode ? forced : (forced || whole || cand.filter(function(bb){ return bfree(bb)>=1; })[0] || null);
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
-      b.used++;
-      var pn=takePort(b, (ov.port>0? +ov.port : 0), s.key);   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
       var pts=[_sa].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → (pedaliera/ampli) → (DI) → stage box; il capo parte dal pallino audio del musicista */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
+      var _via1=cabViaOf(b, s.it, ov);   /* computer mono verso il mixer: stessa scelta della coppia */
+      if(_via1!=="an"){
+        var vn1=(b.dig[_via1]=(b.dig[_via1]||0)+1);
+        var _v1pts=[portAnchor(s.it,"audio")].concat((ov.pts||[])).concat([boxAnchor(b)]);   /* niente DI su un cavo digitale */
+        links.push({s:s, box:b, ch:vn1, via:_via1, key:s.key, pts:_v1pts, lenM:orthLen(_v1pts)/100, cut:null,
+          label:(MIX_CONN[_via1].tag+" "+vn1), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
+        if(!ov.deleted) viaIssues(b, _via1, b.dig[_via1]);
+        return;
+      }
+      b.used++;
+      var pn=takePort(b, (ov.port>0? +ov.port : 0), s.key);   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0 && pn===+ov.port),   /* pinned = la porta scelta l'ha davvero ottenuta (se era diventata riservata, no) */
-                  label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
+                  label:(ov.label!=null?ov.label:chLabel(b,pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
   });
   _dupPorts.forEach(function(dp){
@@ -6161,6 +6384,7 @@ function audioCablingEngine(){
   /* digital snake: home-run da ogni box usata al punto principale; l'analogica con coda va al rack I/O */
   var snakes=[];
   boxes.forEach(function(b){ if(!b.used) return;
+    if(b.isMixer) return;   /* la console È il capolinea: non si tira una snake dal mixer al mixer (29/07) */
     if(b.up){ snakes.push({box:b, x1:b.x, y1:b.y, x2:b.up.box.x, y2:b.up.box.y, lenM:b.up.lenM, up:b.up}); return; }
     if(home) snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); });
   /* ── MONITOR / OUTPUT: mix per etichetta → uscita su box vicina → cavi di ritorno ── */
@@ -6199,7 +6423,7 @@ function audioCablingEngine(){
   var hasWlrack=state.items.some(function(it){ return it.type==="wlrack"; });
   /* riepiloghi */
   var capTot=boxes.reduce(function(a,b){ return a+b.cap; },0);
-  var cables={}; links.forEach(function(l){ if(l.deleted) return; var k=l.cut?l.cut+" m":">50 m"; cables[k]=(cables[k]||0)+1; });
+  var cables={}; links.forEach(function(l){ if(l.deleted || l.via) return; var k=l.cut?l.cut+" m":">50 m"; cables[k]=(cables[k]||0)+1; });   /* il conteggio è di CAVI XLR: USB/Dante non ci vanno */
   var diMono=0, diStereo=0;
   groups.forEach(function(g){ if(g.it.type==="dimono"||g.it.type==="distereo") return;
     var nDI=g.list.filter(function(s){ return String(s.mic).indexOf("DI")>-1; }).length;
@@ -6209,10 +6433,11 @@ function audioCablingEngine(){
   var _mixHint=_fohB ? (" — collegali a mano alla stage box del mixer ("+_fohB.letter+").")
                      : " — aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano.";
   var _palcoCap=boxes.filter(function(b){ return !b.foh; }).reduce(function(a,b){ return a+b.cap; },0);
-  if(totIn>_palcoCap && boxes.some(function(b){ return !b.foh; })) issues.push({lvl:"err", code:"cap", msg:"Ingressi palco insufficienti: "+totIn+" canali per "+_palcoCap+" disponibili sul palco"+_mixHint});
+  var _viaN=links.filter(function(l){ return !l.deleted && l.via; }).length;   /* i canali entrati via USB/Dante non occupano ingressi mic/line */
+  if((totIn-_viaN)>_palcoCap && boxes.some(function(b){ return !b.foh; })) issues.push({lvl:"err", code:"cap", msg:"Ingressi palco insufficienti: "+(totIn-_viaN)+" canali per "+_palcoCap+" disponibili sul palco"+_mixHint});
   boxes.forEach(function(b){ if(b.used>b.cap) issues.push({lvl:"err", code:"cap", msg:"Stage box "+b.letter+" satura ("+b.used+"/"+b.cap+" ch)."}); });
   unassigned.forEach(function(s){ issues.push({lvl:"err", msg:"Sorgente senza destinazione: "+s.name+" (ingressi palco esauriti)"+_mixHint}); });
-  links.forEach(function(l){ if(l.deleted) return;
+  links.forEach(function(l){ if(l.deleted || l.via) return;   /* i tagli XLR non valgono per una tratta USB/Dante */
     if(l.cut==null) issues.push({lvl:"err", msg:"Cavo oltre 50 m: "+l.s.name+" ("+l.lenM.toFixed(1)+" m)."});
     else if(l.cut>=30) issues.push({lvl:"warn", msg:"Cavo lungo ("+l.cut+" m) per "+l.s.name+": valuta una sub-snake di zona."});
   });
@@ -6297,9 +6522,17 @@ function cabMidpoint(pts){   /* punto a metà lunghezza della polilinea (per l'e
 function cabLinkLabel(l){
   /* solo il CONTENUTO dell'etichetta: la visibilità la decide il chiamante (labelMode hover/always) */
   var parts=[];
+  /* USB/Dante verso una console: la CONNESSIONE è l'informazione principale — un cavo che dice
+     «A1–A2» quando in realtà è un cavo di rete sarebbe una bugia sul disegno (29/07). */
+  if(l.via){
+    parts.push(MIX_CONN[l.via].name + (l.bundleN>1 ? (" · "+l.ch+"–"+(l.ch+l.bundleN-1)+" ("+l.bundleN+" ch)") : (" "+l.ch)));
+    if(state.cab.showLengths) parts.push(Math.max(1,Math.ceil(l.lenM))+' m');
+    return parts.join(' · ');
+  }
   if(l.bundleN>1){   /* cavo unico multi-canale: nome strumento + range canali sulla box */
     if(state.cab.showChannels){ var nm=(l.s.it.label||(TYPES[l.s.it.type]&&TYPES[l.s.it.type].nome)||"");
-      parts.push(nm+" · "+l.box.letter+l.ch+"–"+(l.ch+l.bundleN-1)+" ("+l.bundleN+" ch)"); }
+      var _bt=(l.box.tag||l.box.letter)+(l.box.isMixer?" ":"");
+      parts.push(nm+" · "+_bt+l.ch+"–"+(l.ch+l.bundleN-1)+" ("+l.bundleN+" ch)"); }
   } else if(state.cab.showChannels){ parts.push(l.label); }
   if(state.cab.showLengths) parts.push(l.cut?l.cut+' m':'>50 m');
   return parts.join(' · ');
@@ -6518,7 +6751,7 @@ function cablingMarkup(){
         +'<rect class="'+cls+'" x="'+bx0.toFixed(1)+'" y="'+y+'" width="'+fw.toFixed(1)+'" height="5" rx="2.5"/>'
         +'<text class="cab-iolbl '+cls+'-t" x="'+(bx0-4).toFixed(1)+'" y="'+(y+4.7)+'" text-anchor="end">'+(u||0)+'</text>'
         +'<text class="cab-iolbl cab-iolbl-cap" x="'+(bx0+BW+4).toFixed(1)+'" y="'+(y+4.7)+'" text-anchor="start">'+c+'</text>'; }
-    s+='<g class="cab-iobox"><text class="cab-iobox-lbl" x="'+b.x.toFixed(1)+'" y="'+(y0-3)+'" text-anchor="middle">'+esc(b.letter)+(b.sbId?' · ID'+b.sbId:'')+(b.foh?' · MIXER':'')+'</text>';
+    s+='<g class="cab-iobox"><text class="cab-iobox-lbl" x="'+b.x.toFixed(1)+'" y="'+(y0-3)+'" text-anchor="middle">'+esc(b.tag||b.letter)+(b.sbId?' · ID'+b.sbId:'')+(b.foh?' · MIXER':'')+'</text>';
     s+=iobar(y0, b.used, b.cap, 'cab-iobar-in')+(showOut?iobar(y0+8, b.usedOut, b.outCap, 'cab-iobar-out'):'');
     s+='</g>';
     /* pallino sul BORDO della box (lato pubblico): è il punto di convergenza dei cavi e non copre più
@@ -6537,6 +6770,68 @@ function cabKeyLocked(key){ return String(key).indexOf("ret:")===0 ? !!state.cab
 function cabBothLocked(){ return !!state.cab.lockIn && !!state.cab.lockOut; }
 /* collega un elemento a una box scrivendo l'override giusto: gruppo (cavo unico) se multi-canale, altrimenti per-canale */
 function cabItemRouteKey(it){ return cabItemInputs(it).length>=2 ? ("grp:"+it.id) : (it.id+"#0"); }
+/* ===== CON CHE COSA il computer entra nel mixer (29/07) =====
+   La via è una proprietà del COLLEGAMENTO (sta sull'override di percorso, accanto a box e porta):
+   spostando il computer su un'altra console la scelta viene rivalutata, e cancellando il cavo se ne
+   va con lui. "an" (analogico) è l'assenza del campo — i progetti vecchi non cambiano. */
+function cabViaOfItem(it){ var cm=(state.cab&&state.cab.manual)||{}; var o=cm[cabItemRouteKey(it)]; return normVia(o&&o.via); }
+function cabSetVia(it, via){
+  if(!it) return;
+  var cm=cabManual(cabItemRouteKey(it));
+  via=normVia(via);
+  if(via==="an") delete cm.via; else cm.via=via;
+  __cabRes=null; save(); render();
+  if(typeof renderProps==="function") renderProps();
+}
+/* la console su cui è collegato un elemento (null se il cavo finisce su una stage box o non c'è).
+   Non basta guardare l'override manuale: in modalità automatica la destinazione la sceglie il motore
+   e l'override non esiste — il pannello sarebbe rimasto muto proprio dove il cavo c'è. */
+function cabMixerTargetOf(it){
+  if(!it) return null;
+  var rk=cabItemRouteKey(it);
+  var cm=(state.cab&&state.cab.manual)||{}, o=cm[rk], bid=o&&o.box;
+  if(!bid && state.cab && state.cab.on){
+    var R=null; try{ R=cabResult(); }catch(_e){}
+    ((R&&R.links)||[]).forEach(function(l){ if(!bid && !l.deleted && l.key===rk && l.box && !l.box.auto) bid=l.box.id; });
+  }
+  if(!bid) return null;
+  var t=(state.items||[]).filter(function(x){ return x.id===bid; })[0];
+  return (t && cabMixerIn(t)) ? t : null;
+}
+/* Dopo un collegamento computer→console: se quel modello offre PIÙ DI UNA connessione, la scelta è
+   dell'utente e si chiede (mai indovinata). Se ne offre una sola, la si scrive lo stesso — così è
+   comunque esplicita nel pannello e sull'etichetta del cavo. */
+function mixAskVia(it, mixIt){
+  if(!it || !mixIt || !COMP_SRC[it.type]) return false;
+  var opts=mixerConnOpts(mixIt);
+  if(opts.length<=1){ cabSetVia(it, opts.length?opts[0].id:"an"); return false; }
+  var cur=cabViaOfItem(it);
+  if(opts.some(function(o){ return o.id===cur; }) && cur!=="an") return false;   /* già scelta e ancora valida */
+  openMixViaPicker(it, mixIt);
+  return true;
+}
+function openMixViaPicker(it, mixIt){
+  var m=document.getElementById("mixViaModal"); if(!m) return;
+  var mm=mixerModelOf(mixIt), opts=mixerConnOpts(mixIt);
+  var nm=(it.label||(TYPES[it.type]&&TYPES[it.type].nome)||"Computer");
+  document.getElementById("mvHint").innerHTML=
+    esc(nm)+" → <b>"+esc(mm.brand+" "+mm.model)+"</b>. Sono tre cavi diversi: qui sotto ci sono <b>solo</b> le connessioni che questa console ha davvero.";
+  var host=document.getElementById("mvOpts"); host.innerHTML="";
+  var cur=cabViaOfItem(it);
+  opts.forEach(function(o){
+    var b=document.createElement("button"); b.type="button";
+    b.className="pa-card mv-opt"+(o.id===cur?" sel":""); b.setAttribute("data-via", o.id);
+    b.innerHTML='<b>'+esc(o.name)+'</b><br><small>'+esc(o.hint)+'</small>';
+    b.addEventListener("click", function(){ m.hidden=true; cabSetVia(it, o.id); });
+    host.appendChild(b);
+  });
+  m.hidden=false;
+}
+(function(){
+  var m=document.getElementById("mixViaModal"); if(!m) return;
+  var c=document.getElementById("mvClose"); if(c) c.addEventListener("click", function(){ m.hidden=true; });
+  m.addEventListener("mousedown", function(e){ if(e.target===m) m.hidden=true; });
+})();
 function cabSetItemBox(it, boxId){
   var n=cabItemInputs(it).length; if(!n) return;
   /* cambiando box la porta scelta a mano decade: il numero era di QUELLA box (29/07) */
@@ -6558,7 +6853,7 @@ function distToPoly(sp, P){ var best=1e9;
 function cabTryInsertAt(sp, it){
   if(!it || !sp) return false;
   var TH=26, OBS=obstacleRects();   /* tolleranza dal cavo in cm */
-  if(cabIsBox(it) && state.cab && state.cab.on){
+  if(cabIsDest(it) && state.cab && state.cab.on){
     var R=cabResult(), best=null, bd=TH;
     (R.links||[]).forEach(function(l){ if(l.deleted || (l.box && l.box.id===it.id)) return;
       var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
@@ -6627,7 +6922,16 @@ function cabConnectOne(key){
   delete cm.deleted;                              /* il fulmine è una richiesta esplicita: annulla un «cavo tolto» */
   cm.box=hit; cm.auto=1;
   __cabRes=null; save(); render();
+  /* finito su una console: con che cosa ci entra il computer? (stessa domanda del trascinamento) */
+  var _dst=(state.items||[]).filter(function(x){ return x.id===hit; })[0];
+  var _src=(R.links||[]).filter(function(l){ return l.key===rk; })[0];
+  if(_dst && _src && _src.s && cabMixerIn(_dst)) setTimeout(function(){ mixAskVia(_src.s.it, _dst); }, 0);
   return hit;
+}
+/* etichetta di una destinazione per i messaggi: «Stage box A» o il modello della console (29/07) */
+function cabDestLabel(b){
+  if(!b) return "una stage box";
+  return b.isMixer ? b.name : ("Stage box "+b.letter);
 }
 /* Scelta della porta fisica su una stage box. L'ultimo che sceglie vince: se quella porta era
    già stata scelta da un altro canale, l'altro torna automatico e si rimette in fila. Così
@@ -7226,7 +7530,7 @@ function auditEngine(){
     f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, rule:rule||""});
   }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
-  var realBox=items.some(cabIsBox), realDistro=items.some(elecIsDistro);
+  var realBox=items.some(cabIsDest), realDistro=items.some(elecIsDistro);   /* un mixer con ingressi locali È una destinazione reale: non chiedere una stage box che non serve */
   /* completezza / impostazione — con azione a un click (audit azionabile) */
   if(!items.length) add("info","Palco vuoto: aggiungi strumenti, microfoni ed elementi.","Progetto");
   /* Soglie (audit 27/07): sotto una certa dimensione questi rilievi sono fuori scala. Per 2 canali si
@@ -8517,6 +8821,50 @@ function renderProps(){
         var soSel=document.getElementById("pSbOut"), capo=String(cabBoxCapOut(it));
         if(![].some.call(soSel.options,function(o){ return o.value===capo; })){ var op2=document.createElement("option"); op2.value=capo; op2.textContent=capo; soSel.appendChild(op2); }
         soSel.value=capo; } } }
+  /* ── CONSOLE: variante del modello + I/O di targa (29/07) ────────────────────────────────────
+     Il DM3 esiste con e senza Dante: qui si dice quale dei due è, e il riquadro sotto elenca gli
+     ingressi/uscite/connessioni che quel modello ha DAVVERO, con la fonte del dato. */
+  (function(){
+    var mw=document.getElementById("pMixWrap"); if(!mw) return;
+    var vars=mixerVariants(it.type), mm=mixerModelOf(it);
+    var show=!!(mm && (vars.length>1 || mm.in>0));
+    mw.style.display = show ? "block" : "none";
+    if(!show) return;
+    var sel=document.getElementById("pMixHw"); sel.innerHTML="";
+    (vars.length?vars:[mixerHwOf(it)]).forEach(function(id){
+      var o=document.createElement("option"); o.value=id; o.textContent=MIXER_DB[id].model; sel.appendChild(o); });
+    sel.value=mixerHwOf(it)||"";
+    sel.style.display = vars.length>1 ? "block" : "none";
+    mw.querySelector("label").style.display = vars.length>1 ? "block" : "none";
+    sel.onchange=function(){ it.hw=sel.value; __cabRes=null; save(); render(); renderProps(); };
+    var io=[];
+    if(mm.in>0) io.push(mm.in+" ingressi mic/line");
+    if(mm.out>0) io.push(mm.out+" uscite");
+    if(mm.usb && mm.usb.in>0) io.push("USB "+mm.usb.in+"×"+mm.usb.out+(mm.usb.port?" ("+mm.usb.port+")":""));
+    io.push(mm.dante===true ? ("Dante "+(mm.danteIn||"?")+"×"+(mm.danteOut||"?")) : (mm.dante===false ? "niente Dante" : ""));
+    document.getElementById("pMixIo").textContent = io.filter(Boolean).join(" · ") + (mm.src ? " — "+mm.src : "");
+  })();
+  /* ── COMPUTER: con che cosa entra nella console ──────────────────────────────────────────────
+     Compare solo se il computer È collegato a un mixer, e mostra SOLO le connessioni che quel
+     modello ha: niente Dante su una console che non ce l'ha. */
+  (function(){
+    var vw=document.getElementById("pViaWrap"); if(!vw) return;
+    var mixIt=COMP_SRC[it.type] ? cabMixerTargetOf(it) : null;
+    var opts=mixIt ? mixerConnOpts(mixIt) : [];
+    vw.style.display = opts.length ? "block" : "none";
+    if(!opts.length) return;
+    var cur=cabViaOfItem(it), seg=document.getElementById("pViaSeg"); seg.innerHTML="";
+    if(!opts.some(function(o){ return o.id===cur; })) cur=opts[0].id;
+    opts.forEach(function(o){
+      var b=document.createElement("button"); b.type="button"; b.className="adv-btn"+(o.id===cur?" on":"");
+      b.textContent=o.name; b.title=o.hint;
+      b.onclick=function(){ cabSetVia(it, o.id); };
+      seg.appendChild(b);
+    });
+    var mmv=mixerModelOf(mixIt), h=opts.filter(function(o){ return o.id===cur; })[0];
+    document.getElementById("pViaHint").textContent =
+      (mmv?mmv.brand+" "+mmv.model+" · ":"")+(h?h.hint:"")+(cur==="an"?"" : " — non occupa ingressi mic/line");
+  })();
   var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": dove il segnale passerebbe da una DI */
   if(balw){
     var _mayDi = mayNeedDi(it), _chain = hasChain(it);
@@ -11357,7 +11705,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="cabseg"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabreconnect"){   /* rilascio del capo: su una box = riconnetti, nel vuoto = scollega (come in Max) */
-    var rp=svgPoint(e), tb=(state.items||[]).filter(cabIsBox).filter(function(it){ return Math.abs(rp.x-it.x)<=it.w/2+10 && Math.abs(rp.y-it.y)<=it.d/2+10; })[0];
+    var rp=svgPoint(e), tb=(state.items||[]).filter(cabIsDest).filter(function(it){ return Math.abs(rp.x-it.x)<=it.w/2+10 && Math.abs(rp.y-it.y)<=it.d/2+10; })[0];
     var isRet = drag.key.indexOf("ret:")===0;
     if(isRet){   /* #17: il ritorno monitor cambia box scrivendo sull'override del MIX (m.key) */
       if(tb){ var mk=drag.key.slice(4, drag.key.lastIndexOf(":")); cabManual("mix:"+mk).box=tb.id; __cabRes=null; save(); }
@@ -11383,12 +11731,13 @@ svg.addEventListener("pointerup", function(e){
     var hitAt=function(pred){ return (state.items||[]).filter(pred).filter(function(t){ return Math.abs(pp.x-t.x)<=(t.w||40)/2+14 && Math.abs(pp.y-t.y)<=(t.d||40)/2+14; })[0]; };
     if(drag.moved){
       if(drag.kind==="audio" || drag.kind==="mon"){
-        var pb=hitAt(cabIsBox);
+        var pb=hitAt(cabIsDest);   /* stage box O mixer con ingressi locali (29/07) */
         if(pb){
           if(!state.cab.on){ state.cab.on=true; }   /* il gesto ATTIVA il layer; niente pannello (tolto) */
           if(drag.kind==="audio"){
             if(drag.seat!=null && isPerMusicianMulti(pit)){ seatChannels(pit, drag.seat).forEach(function(ii){ var cm=cabManual(pit.id+"#"+ii); cm.box=pb.id; delete cm.auto; }); }   /* solo il musicista trascinato */
             else cabSetItemBox(pit, pb.id);
+            if(cabMixerIn(pb)) setTimeout(function(){ mixAskVia(pit, pb); }, 0);   /* computer sulla console: con che cosa? (dopo il render del gesto) */
           }
           else { var plbl=(pit.label||"").trim(), mkey=(plbl?("L:"+plbl.toUpperCase()):("I:"+pit.id));
             var _cmx=cabManual("mix:"+mkey); _cmx.box=pb.id; delete _cmx.auto;
@@ -14047,8 +14396,8 @@ function sectionLegendMarkup(){
 function layerFgItem(id, it){
   switch(id){
     /* Layer v3: ogni layer tecnico = cavi + trasduttori/dispositivi collegati (Simone) */
-    case "cabin": case "net": return !!(isAudioSource(it) || it.type==="miczone" || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || RF_TX[it.type]);   /* Ingressi: sorgenti + box + console + catena RF */
-    case "cabout": return !!((OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]) || cabIsBox(it) || it.type==="mixer" || it.type==="foh" || it.type==="iemant");   /* Output: monitor analogici + box + console + rack TX in-ear. I personal mixer (MON_DIG_NODE) NO: sono digitali → layer P.M. */
+    case "cabin": case "net": return !!(isAudioSource(it) || it.type==="miczone" || cabIsDest(it) || it.type==="mixer" || it.type==="foh" || it.type==="rxrf" || it.type==="rfant" || it.type==="rfsplit" || RF_TX[it.type]);   /* Ingressi: sorgenti + box + console + catena RF */
+    case "cabout": return !!((OUT_SET[it.type]!=null && !MON_DIG_NODE[it.type]) || cabIsDest(it) || it.type==="mixer" || it.type==="foh" || it.type==="iemant");   /* Output: monitor analogici + box + console + rack TX in-ear. I personal mixer (MON_DIG_NODE) NO: sono digitali → layer P.M. */
     case "mond":   return !!MON_DIG_NODE[it.type];
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
@@ -14672,7 +15021,7 @@ function cabPlanNeeds(){   /* ingressi + gruppi per elemento + cluster di prossi
   var sources=[];
   state.items.map(function(it,idx){ return {it:it,idx:idx}; })
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type)) || (a.idx-b.idx); })
-    .forEach(function(o){ var it=o.it; if(cabIsBox(it)) return;
+    .forEach(function(o){ var it=o.it; if(cabIsDest(it)) return;
       cabItemInputs(it).forEach(function(inp,ii){ sources.push({it:it, key:it.id+"#"+ii}); }); });
   var groups=[], byItem={};
   sources.forEach(function(s){ var k=s.it.id; if(!byItem[k]){ byItem[k]={it:s.it, list:[]}; groups.push(byItem[k]); } byItem[k].list.push(s); });
@@ -14817,11 +15166,14 @@ function patchList(){
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
   R.links.forEach(function(l){ if(l.deleted) return;
-    var tag=l.box.sbId?("ID"+l.box.sbId):l.box.letter;
+    var tag=l.box.sbId?("ID"+l.box.sbId):(l.box.tag||l.box.letter);
     var up=l.box.up, upCh=up?up.map[l.ch]:null;
-    var ptxt = up&&upCh ? (l.box.letter+"\u2192"+(up.box.sbId?("ID"+up.box.sbId):up.box.letter)+":"+upCh) : (tag+"\u00b7"+l.ch);
+    /* USB/Dante: il patch NON \u00e8 una porta della box, \u00e8 un canale della connessione (29/07) */
+    var ptxt = l.via ? (MIX_CONN[l.via].tag+" "+l.ch)
+             : (up&&upCh ? (l.box.letter+"\u2192"+(up.box.sbId?("ID"+up.box.sbId):up.box.letter)+":"+upCh) : (tag+"\u00b7"+l.ch));
     var r0=row(l.s.name, l.s.mic, l.s.key, ptxt, l.box.letter, l.s.it.id);
-    r0.foh=(up&&upCh) ? (up.box.fohBase!=null?up.box.fohBase+upCh:null) : ((l.box.fohBase!=null)?(l.box.fohBase+l.ch):null);
+    r0.via=l.via||null;
+    r0.foh=l.via ? null : ((up&&upCh) ? (up.box.fohBase!=null?up.box.fohBase+upCh:null) : ((l.box.fohBase!=null)?(l.box.fohBase+l.ch):null));
     r0.port=(up&&upCh)?upCh:l.ch; r0.boxId=l.box.id; r0.pinned=!!l.pinned;
     r0.short=(man[l.s.key]&&man[l.s.key].short)||"";
     rows.push(r0); });
@@ -14856,7 +15208,7 @@ function clRenderMini(pl){
   var u=Math.max(W,D)/30;
   var s='<svg viewBox="0 0 '+W+' '+D+'" preserveAspectRatio="xMidYMid meet">';
   s+='<rect x="'+(u/4).toFixed(1)+'" y="'+(u/4).toFixed(1)+'" width="'+(W-u/2).toFixed(1)+'" height="'+(D-u/2).toFixed(1)+'" rx="'+(u/3).toFixed(1)+'" class="cl-mini-stage" stroke-width="'+(u/2.4).toFixed(1)+'"/>';
-  (state.items||[]).filter(cabIsBox).forEach(function(b){
+  (state.items||[]).filter(cabIsDest).forEach(function(b){
     s+='<rect class="cl-mini-box" x="'+(b.x-(b.w||60)/2)+'" y="'+(b.y-(b.d||24)/2)+'" width="'+(b.w||60)+'" height="'+(b.d||24)+'" rx="'+(u/6).toFixed(1)+'"/>';
   });
   var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
@@ -15320,7 +15672,14 @@ function openPortPop(ev, r){
   var rk=(typeof cabRouteKeyOf==="function") ? cabRouteKeyOf(r.key) : r.key;   /* la porta si scrive sulla chiave di PERCORSO, come il fulmine */
   var cur=(man[rk]&&man[rk].port)||0;
   var h='';
-  if(b){
+  if(b && r.via){
+    /* canale digitale (USB/Dante): non c'è nessuna porta fisica da scegliere — il numero lo dà la
+       connessione, e cambiarla si fa dal pannello del computer (29/07). */
+    h+='<label>'+esc(MIX_CONN[r.via].name)+' su '+esc(b.name)+'</label>'
+      +'<div class="pp-note">Canale '+r.port+' della connessione '+esc(MIX_CONN[r.via].name)+': non occupa un ingresso mic/line. '
+      +'Per cambiare connessione seleziona il computer sul palco.</div>';
+  }
+  else if(b){
     /* Le porte occupate si possono SCEGLIERE (28/07): chi le teneva torna automatico e si rimette
        in fila. Prima erano disabled, e «voglio questo ingresso» era una richiesta impossibile
        proprio quando serviva di più — cioè quando l'ingresso giusto era già preso. */
@@ -15436,7 +15795,7 @@ function renderPatchPanel(){
         if(!boxId){ showToast("Nessuna destinazione adatta per questo canale",true); return; }
         var b=(cabResult().boxes||[]).filter(function(x){ return x.id===boxId; })[0];
         var n=Math.max(1, prima-liberi());   /* uno strumento multicanale va tutto insieme: dillo */
-        showToast((n>1 ? (n+" canali collegati a ") : "Collegato a ")+(b?("Stage box "+b.letter):"una stage box"));
+        showToast((n>1 ? (n+" canali collegati a ") : "Collegato a ")+cabDestLabel(b));
       });
       act.appendChild(zp);
     }
@@ -15554,7 +15913,7 @@ function techScrollTo(id){
 function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga distinta (4 monitor → 4 righe, anche se duplicati) */
   var R=cabResult(true), rows=[], n=0;
   R.mixes.forEach(function(m){
-    var patch = m.box ? (m.box.letter+"O"+m.outCh+(m.ch===2?"–"+(m.outCh+1):"")) : "—";
+    var patch = m.box ? ((m.box.tag||m.box.letter)+(m.box.isMixer?" OUT ":"O")+m.outCh+(m.ch===2?"–"+(m.outCh+1):"")) : "—";
     m.sinks.forEach(function(sk){ n++;
       rows.push({n:n, name:(sk.label||m.name), mix:m.name, tipo:OUT_SET[sk.type]||"monitor", stereo:m.ch===2, patch:patch, box:m.box, sinkId:sk.id, mixKey:"mix:"+m.key}); });
   });
