@@ -4082,8 +4082,8 @@ t("la pedana bloccata si riconosce: perimetro marcato e lucchettino", () => {
 console.log("\nLucchetto: pedane, tappeti, forme e zone:");
 t("i fondi del disegno si bloccano, gli altri elementi no", () => {
   reset();
-  const ped = add("pedana", 500, 300), tap = add("tappeto", 400, 400), frm = add("forma", 300, 200), zon = add("miczone", 700, 300);
-  ok(A.isLockable(ped) && A.isLockable(tap) && A.isLockable(frm) && A.isLockable(zon), "pedana, tappeto, forma e zona");
+  const ped = add("pedana", 500, 300), tap = add("tappeto", 400, 400), frm = add("forma", 300, 200), zon = add("miczone", 700, 300), met = add("metro", 800, 500);
+  ok(A.isLockable(ped) && A.isLockable(tap) && A.isLockable(frm) && A.isLockable(zon) && A.isLockable(met), "pedana, tappeto, forma, zona e metro");
   const sedia = add("sedia", 600, 300), wedge = add("wedge", 700, 400);
   eq([sedia, wedge].filter(A.isLockable).length, 0, "sedia e wedge non hanno lucchetto");
   eq(A.isLockable(null), false, "niente elemento, niente lucchetto");
@@ -4128,6 +4128,7 @@ t("il nome nell'etichetta del lucchetto e' quello dell'elemento", () => {
   eq(A.lockNameOf(add("tappeto", 200, 100)), "il tappeto");
   eq(A.lockNameOf(add("forma", 300, 100)), "la forma");
   eq(A.lockNameOf(add("miczone", 400, 100)), "la zona");
+  eq(A.lockNameOf(add("metro", 500, 100)), "il metro");
 });
 t("la zona bloccata: perimetro marcato, lucchetto accanto alla sua etichetta, mic non trascinabile", () => {
   reset();
@@ -5955,6 +5956,14 @@ t("la domanda ha senso solo se ci sono davvero altri come lui, con una misura di
   eq(A.lblSizeSiblings(a).indexOf(c), -1, "il wedge non c'entra: si guarda lo stesso tipo");
   b2.lblSize = 1;
   eq(A.lblSizeSiblings(a).length, 0, "allineate: la domanda decade");
+});
+t("il metro bloccato non si sposta e non si allunga piu'", () => {
+  reset();
+  const m = add("metro", 400, 300);
+  ok(A.itemEditable(m), "libero si prende dai capi e si allunga");
+  m.locked = true;
+  eq(A.itemEditable(m), false, "bloccato resta la quota che hai preso");
+  ok(/it\.type==="metro"/.test(appjs), "il metro ha ancora le sue due maniglie di lunghezza, quando e' libero");
 });
 t("un elemento solo del suo tipo non fa domande", () => {
   reset();
