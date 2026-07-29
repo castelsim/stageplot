@@ -8991,9 +8991,10 @@ function renderProps(){
     setPeekName(n+" elementi");
     var its=selItems();
     if(!its.length){ grp.hidden=true; document.getElementById("noSel").hidden=false; clearSelection(); return; }   /* selezione stale (id non più in scena) → niente crash */
-    var gmir=document.getElementById("grpMirror");   /* Specchia: c'è se almeno uno della selezione si ribalta */
-    if(gmir){ var mirs=its.filter(canMirror); gmir.style.display=mirs.length?"":"none";
-      gmir.className="btn"+(mirs.length && mirs.every(function(x){ return x.mir===true; })?" primary":""); }
+    /* Specchia su più elementi = ribalta la DISPOSIZIONE: vale anche per una selezione di soli testi,
+       che si spostano senza ribaltarsi. Qui non è un interruttore ma un'azione: niente stato acceso. */
+    var gmir=document.getElementById("grpMirror");
+    if(gmir){ gmir.style.display = its.filter(itemEditable).length>1 ? "" : "none"; gmir.className="btn"; }
     /* --- opzioni multiple (sedia/leggio) applicate a tutti --- */
     var allSedia=its.every(supportsSedia), allLeggio=its.every(supportsLeggio);
     document.getElementById("grpOpts").style.display = (allSedia||allLeggio) ? "block" : "none";
@@ -9880,8 +9881,32 @@ document.getElementById("pDup").addEventListener("click", function(){ duplicateS
    contrario, che non è mai quello che si vuole. */
 var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1 };
 function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
+/* Con PIÙ elementi (selezionati o uniti in blocco) specchiare vuol dire ribaltare la DISPOSIZIONE,
+   non solo l'arte di ognuno: chi sta a sinistra passa a destra rispetto all'asse verticale del
+   gruppo, e le rotazioni si ribaltano con lui. È il gesto vero — allestisci una metà del palco, la
+   duplichi, la specchi e hai l'altra. Ribaltare solo le icone lascerebbe tutto dov'era.
+   L'asse è il centro dell'ingombro della selezione: lo stesso pivot della rotazione di gruppo. */
 function mirrorSel(){
-  var its=selItems().filter(canMirror);
+  var sel1=selItems();
+  if(!sel1.length) return;
+  var its=sel1.filter(canMirror), movable=sel1.filter(itemEditable);
+  if(sel1.length>1 && movable.length>1){
+    var cx=selBBoxCenter(movable)[0];
+    movable.forEach(function(it){
+      it.x=Math.round(2*cx-it.x);
+      if(it.rot) it.rot=Math.round((((-it.rot)%360)+360)%360);   /* lo specchio inverte l'angolo */
+      if(!canMirror(it)) return;                                 /* il testo si sposta ma non si ribalta */
+      if(it.mir) delete it.mir; else it.mir=true;
+    });
+    /* i vertici di una zona poligonale vivono nel suo frame: vanno ribaltati anche loro */
+    movable.forEach(function(it){ if(it.pts && it.pts.length>=3){
+      it.pts=it.pts.map(function(p){ return [-p[0], p[1]]; });
+      if(it.micPos) it.micPos=[-it.micPos[0], it.micPos[1]];
+    } });
+    render(); renderProps(); save();
+    if(typeof a11yAnnounce==="function") a11yAnnounce("Disposizione specchiata");
+    return;
+  }
   if(!its.length) return;
   var tutti=its.every(function(it){ return it.mir===true; });   /* selezione mista → si allineano tutti */
   its.forEach(function(it){ if(tutti) delete it.mir; else it.mir=true; });
