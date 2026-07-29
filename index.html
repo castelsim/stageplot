@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.07.28";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.07.29";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -2208,7 +2208,7 @@ body.area-edit #eventoSec,body.area-edit #groupProps,body.area-edit #noSel,
 body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 #areaEditPanel h3{display:flex;align-items:center;gap:7px}
 
-/* Lucchetto della pedana: accanto alla maniglia di rotazione, stessa scocca. */
+/* Lucchetto dei fondi (pedana, tappeto, forma): accanto alla maniglia di rotazione, stessa scocca. */
 .lock-handle{cursor:pointer}
 .lock-handle .lk-hit{fill:transparent}
 .lock-handle .lk-knob{fill:#fff;stroke:var(--accent);stroke-width:2.5}
@@ -2220,6 +2220,7 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 /* Pedana bloccata (variante A): perimetro marcato + lucchettino, niente trasparenza —
    attenuandola si confondeva col palco invece di dire «e' fissata». */
 .ic.riser-fixed{stroke-width:3.6}
+.rug.rug-fixed{stroke-width:3.6}   /* tappeto bloccato: stesso segno della pedana, tratteggio invariato */
 .riser-lock{fill:#1f2937;stroke:none;opacity:.82;pointer-events:none}
 .riser-lock .rl-arc{stroke:#1f2937;stroke-width:1.1;stroke-linecap:round;fill:none}
 body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0}

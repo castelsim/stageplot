@@ -59,13 +59,20 @@ function riserSvg(w,d,locked){
   return s;
 }
 /* Lucchettino dentro l'angolo in alto a destra. Su pedane piccole starebbe addosso alla barra
-   d'angolo: sotto i 70×50 cm si tace, il bordo marcato basta. */
-function riserLockGlyph(w2,d2){
+   d'angolo: sotto i 70×50 cm si tace, il bordo marcato basta.
+   `where` serve alle FORME (29/07), dove l'angolo del riquadro cade fuori dalla figura — in un
+   cerchio, in un triangolo, in un rombo il lucchetto resterebbe sospeso nel vuoto:
+     "axis" = sull'asse verticale a mezza altezza della metà alta, dove ogni figura è piena e il
+              testo (centrato) non arriva;   "line" = appena sopra il tratto, che è alto 8 cm.
+   `col` serve alle forme, che hanno il colore scelto dall'utente. */
+function riserLockGlyph(w2,d2,where,col){
   if(w2*2<70 || d2*2<50) return "";
-  var x=w2-19, y=-d2+17;
-  return '<g class="riser-lock" transform="translate('+x+','+y+')">'+
+  var x=(where==="axis"||where==="line")?0:(w2-19);
+  var y=(where==="axis") ? -d2*0.45 : (where==="line") ? -9 : (-d2+17);
+  var gst=col?(' style="fill:'+col+'"'):"", ast=col?(' style="stroke:'+col+'"'):"";
+  return '<g class="riser-lock" transform="translate('+x+','+y+')"'+gst+'>'+
          '<rect x="-3" y="-0.4" width="6" height="4.6" rx="1"/>'+
-         '<path class="rl-arc" fill="none" d="M -1.8 -0.6 v -1.5 a 1.8 1.8 0 0 1 3.6 0 v 1.5"/>'+
+         '<path class="rl-arc" fill="none" d="M -1.8 -0.6 v -1.5 a 1.8 1.8 0 0 1 3.6 0 v 1.5"'+ast+'/>'+
          '</g>';
 }
 function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w/2)+'" y="'+(cy-d/2)+'" width="'+w+'" height="'+d+'" rx="'+(rx==null?3:rx)+'"/>'; }
@@ -759,7 +766,9 @@ var TYPES = {
   transenna:{nome:"Transenna", dim:"200×25", cat:"Palco e strutture", w:200,d:25, resizable:true, z:2,
              draw:function(it){ return drawLibFit("transenna",it,200,40); }},
   tappeto:  {nome:"Tappeto", dim:"2×1,6 m", cat:"Palco e strutture", w:200,d:160, resizable:true, z:1,
-             draw:function(it){ return rectSvg(it.w,it.d,'rug',8); }},
+             /* bloccato: stesso segno della pedana — perimetro marcato e lucchettino nell'angolo */
+             draw:function(it){ var lk=it.locked===true;
+               return rectSvg(it.w,it.d,'rug'+(lk?' rug-fixed':''),8) + (lk?riserLockGlyph(it.w/2,it.d/2):''); }},
   tavolo:   {nome:"Tavolo", dim:"120×60", cat:"Palco e strutture", w:120,d:60, resizable:true, z:1,
              draw:function(it){ return rectSvg(it.w,it.d,'ic fWoodL',5)+
                '<rect class="ic thin" fill="none" x="'+(-it.w/2+7)+'" y="'+(-it.d/2+7)+'" width="'+(it.w-14)+'" height="'+(it.d-14)+'" rx="3"/>'; }},
@@ -3765,11 +3774,12 @@ function shapeGeom(it){
 }
 function drawShape(it){
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
-  var geom=shapeGeom(it), attrs;
-  if(st==="solid")        attrs='fill="'+col+'" fill-opacity="'+(op*0.22).toFixed(3)+'" stroke="'+col+'" stroke-width="2"';
-  else if(st==="outline") attrs='fill="none" stroke="'+col+'" stroke-width="2.4"';
-  else                    attrs='fill="none" stroke="'+col+'" stroke-width="2.4" stroke-dasharray="10 7"';
+  var geom=shapeGeom(it), attrs, lk=(it.locked===true), sw=lk?"3.6":"2", swo=lk?"3.8":"2.4";   /* bloccata: perimetro marcato come la pedana, colore invariato */
+  if(st==="solid")        attrs='fill="'+col+'" fill-opacity="'+(op*0.22).toFixed(3)+'" stroke="'+col+'" stroke-width="'+sw+'"';
+  else if(st==="outline") attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'"';
+  else                    attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'" stroke-dasharray="10 7"';
   var s='<g class="shape" opacity="'+op+'">'+geom.replace(/\/>$/, " "+attrs+"/>")+'</g>';
+  if(lk) s+=riserLockGlyph(Math.max(8,it.w||120)/2, Math.max(8,it.d||80)/2, shapeOf(it)==="line"?"line":"axis", col);
   /* testo al centro, con lo stesso wrapping del testo libero */
   var txt=it.label||"";
   if(txt){
@@ -4096,7 +4106,7 @@ function itemMarkup(it){
     }
   }
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
-  if((stageEdit ? isRiser(it) : true) && selSet[it.id] && selIds().length===1){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto */
+  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && selSet[it.id] && selIds().length===1){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto; col lucchetto chiuso non si ruota */
     var _k=cmPerPx(), knob=7*_k, ky=-(bh+hSize(22));
     s += '<g class="rot-handle" data-id="'+attrId+'">'+
          '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+knob)+'" stroke-width="'+(1.5*_k)+'"/>'+
@@ -4106,12 +4116,13 @@ function itemMarkup(it){
          '<path class="rh-ico" d="M '+(-2.7*_k)+' '+(ky-2.3*_k)+' L '+(-2.7*_k)+' '+(ky-0.15*_k)+' L '+(-0.5*_k)+' '+(ky-0.15*_k)+'" stroke-width="'+(1.5*_k)+'"/>'+
          '</g>';
   }
-  /* LUCCHETTO della pedana (Simone 27/07): accanto alla maniglia di rotazione. Chiuso, la pedana
-     resta dov'è — non si sposta, non si allunga, non si ruota — e il doppio clic ci passa
-     attraverso: si apre la ricerca rapida, per posare un elemento SOPRA la pedana. */
-  if(isRiser(it) && selSet[it.id] && selIds().length===1){
-    var _lk=cmPerPx(), lky=-(bh+hSize(22)), lkx=hSize(21), lknob=7*_lk;
-    s += '<g class="lock-handle'+(it.locked?" on":"")+'" data-id="'+attrId+'" role="button" tabindex="0" aria-pressed="'+(it.locked?"true":"false")+'" aria-label="'+(it.locked?"Sblocca la pedana":"Blocca la pedana")+'">'+
+  /* LUCCHETTO (Simone 27/07, esteso a tappeti e forme il 29/07): accanto alla maniglia di rotazione,
+     sui fondi del disegno — pedana, tappeto, forma. Chiuso, l'elemento resta dov'è — non si sposta,
+     non si allunga, non si ruota — e il doppio clic ci passa attraverso: si apre la ricerca rapida,
+     per posare un elemento SOPRA. */
+  if(isLockable(it) && selSet[it.id] && selIds().length===1){
+    var _lk=cmPerPx(), lky=-(bh+hSize(22)), lkx=hSize(21), lknob=7*_lk, _lknm=lockNameOf(it);
+    s += '<g class="lock-handle'+(it.locked?" on":"")+'" data-id="'+attrId+'" role="button" tabindex="0" aria-pressed="'+(it.locked?"true":"false")+'" aria-label="'+(it.locked?"Sblocca ":"Blocca ")+_lknm+'">'+
          '<circle class="lk-hit" cx="'+lkx+'" cy="'+lky+'" r="'+(13*_lk)+'"/>'+
          '<circle class="lk-knob" cx="'+lkx+'" cy="'+lky+'" r="'+lknob+'" stroke-width="'+(1.8*_lk)+'"/>'+
          '<rect class="lk-body" x="'+(lkx-2.8*_lk)+'" y="'+(lky-0.5*_lk)+'" width="'+(5.6*_lk)+'" height="'+(4.4*_lk)+'" rx="'+(1*_lk)+'"/>'+
@@ -4140,7 +4151,7 @@ function itemMarkup(it){
     }
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
-  if((stageEdit ? isRiser(it) : true) && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
+  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
     var hpts;
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
@@ -6374,7 +6385,13 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
    pedana è un oggetto che ci si appoggia sopra. Quindi la pedana si prende dal catalogo e si lavora
    come qualunque altro elemento — si sposta, si allunga, si ruota — senza entrare in nessuna
    modalità; il costruttore resta per la sola forma del palco. */
-function riserEditable(it){ return !(it && it.locked===true); }   /* col lucchetto chiuso la pedana resta dov'è */
+/* ELEMENTI CHE SI BLOCCANO (Simone 29/07): pedana, tappeto e forma sono i FONDI del disegno — ci si
+   posa sopra il resto e si finisce per trascinarli per sbaglio mentre si prende quello che ci sta
+   sopra. Il lucchetto è lo stesso per tutti e tre: stesso gesto, stesso segno, stesso effetto. */
+var LOCKABLE={ tappeto:1, forma:1 };
+function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
+function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it&&it.type==="tappeto") ? "il tappeto" : (it&&it.type==="forma") ? "la forma" : "l'elemento"; }
+function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
 function itemPickable(it){
   if(!it || it.rackId) return false;
 
@@ -9131,16 +9148,21 @@ svg.addEventListener("pointerdown", function(e){
     return;
   }
   var _onPort = e.target.closest ? e.target.closest(".port-hit") : null;   /* porte stile Max: mai doppio-click */
-  if(venueCalibMode===0 && !_onCabEl && !_onPort && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
+  /* Il lucchetto è una MANIGLIA, non l'elemento: chiuderlo e riaprirlo subito dopo sono due clic
+     vicini, e finivano nel ramo del doppio clic — che sull'elemento bloccato apre la ricerca rapida.
+     Risultato: il lucchetto non si riapriva più (bug 29/07, c'era anche sulle pedane). */
+  var _onLock = e.target.closest ? e.target.closest(".lock-handle") : null;
+  if(venueCalibMode===0 && !_onCabEl && !_onPort && !_onLock && lastDown && Date.now()-lastDown.t<400 && Math.abs(e.clientX-lastDown.x)<10 && Math.abs(e.clientY-lastDown.y)<10 && lastDown.id===dcId){
     lastDown=null;
     if(window.__projLocked){   /* progetto bloccato: doppio-click SOLA LETTURA — seleziona/mostra, mai quick-add / testo inline / modifica palco / planimetria */
       if(dcId){ selectOne(dcId); render(); if(isMobile()) document.body.classList.add("props-expanded"); }
       return;
     }
     var _dcIt0=dcId ? (state.items||[]).filter(function(i){ return i.id===dcId; })[0] : null;
-    if(_dcIt0 && isRiser(_dcIt0) && _dcIt0.locked===true && !isMobile()){
-      /* pedana col lucchetto chiuso: il doppio clic la attraversa e apre la ricerca rapida, così ci
-         si posa sopra un elemento senza prima sbloccarla (Simone 27/07) */
+    if(_dcIt0 && isLockable(_dcIt0) && _dcIt0.locked===true && !isMobile()){
+      /* fondo col lucchetto chiuso (pedana, tappeto, forma): il doppio clic lo attraversa e apre la
+         ricerca rapida, così ci si posa sopra un elemento senza prima sbloccarlo (Simone 27/07;
+         tappeti e forme dal 29/07 — nella forma bloccata anche il testo si riscrive da sbloccata) */
       openQuickAdd(svgPoint(e), e.clientX, e.clientY); return;
     }
     if(dcId){ selectOne(dcId); render();
@@ -9412,7 +9434,7 @@ svg.addEventListener("pointerdown", function(e){
     }
     if(!selSet[id]) selectClick(id);      /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco) */
     if(e.altKey){ e.preventDefault(); duplicateSel(true); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata */
-    var moving=selItems().slice().filter(riserEditable);   /* fuori dalla modalità palco la pedana non si sposta, neanche dentro a un gruppo */
+    var moving=selItems().slice().filter(itemEditable);   /* col lucchetto chiuso non si sposta, neanche dentro a un gruppo */
     moving.slice().forEach(function(it){      /* le pedane trascinano gli elementi sopra */
       if(TYPES[it.type] && TYPES[it.type].riser){
         if(it.grp){                            /* pedana in un blocco (es. duplicata): porta i membri del blocco, non gli elementi geometrici (così non aggancia gli originali sotto) */
@@ -10439,7 +10461,7 @@ document.addEventListener("keydown", function(e){
     var dx=0,dy=0;
     if(e.key==="ArrowLeft") dx=-step; if(e.key==="ArrowRight") dx=step;
     if(e.key==="ArrowUp") dy=-step; if(e.key==="ArrowDown") dy=step;
-    selItems().filter(riserEditable).forEach(function(s){ s.x+=dx; s.y+=dy; });   /* le pedane si spostano solo in modalità palco */
+    selItems().filter(itemEditable).forEach(function(s){ s.x+=dx; s.y+=dy; });   /* col lucchetto chiuso le frecce non lo muovono */
     render(); save(); ensureVisible(); a11yAnnounce(a11yDesc(getSel()));
   }
 });
