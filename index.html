@@ -2224,6 +2224,88 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 .riser-lock{fill:#1f2937;stroke:none;opacity:.82;pointer-events:none}
 .riser-lock .rl-arc{stroke:#1f2937;stroke-width:1.1;stroke-linecap:round;fill:none}
 body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0}
+
+/* ===== LUCI COME REPARTO (blocco A, 28/07) =========================================
+   La riga della lista sta su DUE livelli, non in tabella: nel pannello stretto quattro
+   colonne affiancate troncano proprio il dato che il tecnico viene a leggere (stessa
+   soluzione di .patch-row.editable su Input e Monitor). Griglia: quantita' a sinistra su
+   entrambe le righe, funzione sopra, apparecchio/colore/posizione sotto, pallino a destra. */
+.lights-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:6px}
+.lrow{display:grid;grid-template-columns:26px minmax(0,1fr) 24px;grid-template-rows:auto auto;
+  gap:1px 7px;padding:6px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100);cursor:pointer}
+.lrow:last-child{border-bottom:none}
+.lrow:hover{background:var(--accent-tint)}
+.lrow.sel{background:var(--accent-tint)}
+.lrow>.ln{grid-area:1/1/3/2;align-self:center;font-weight:700;font-size:12px;
+  color:var(--layer-luci,#db2777);font-variant-numeric:tabular-nums}
+.lrow>.lfn{grid-area:1/2/2/3;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow>.lsub{grid-area:2/2/3/4;font-size:10.5px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow>.lpin{grid-area:1/3/2/4;align-self:center;justify-self:end;border:none;background:none;
+  color:var(--layer-luci,#db2777);font-size:11px;cursor:pointer;padding:2px 3px;border-radius:5px;
+  font-variant-numeric:tabular-nums}
+.lrow>.lpin:hover{background:var(--n-100)}
+/* Richiesta incompleta: e' un'assenza dichiarata, non un errore — colore d'avviso, mai rosso */
+.lrow.todo>.lfn{color:var(--warning);font-style:italic}
+.lrow.todo>.ln{color:var(--warning)}
+.lights-empty{font-size:11.5px;color:var(--text-3);padding:8px 2px}
+/* Testata: SOLO l'oscurabilita' (un interruttore su una riga). Il clima luminoso vive
+   nella sua card piu' sotto, dove un campo di testo ha lo spazio per respirare. */
+.lights-venue{display:flex;align-items:center;gap:8px;background:var(--accent-tint);
+  border:1px solid var(--accent-soft);border-radius:8px;padding:6px 9px;margin:0 0 2px;
+  font-size:11.5px;color:var(--accent-strong)}
+.lights-venue.undecided{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning)}
+.lights-venue.off{background:var(--surface-raised);border-color:var(--border);color:var(--text-2)}
+/* .chk e' il componente del progetto per gli interruttori nel pannello: porta display:flex
+   row-reverse e vince su #props input{width:100%} (la battaglia di specificita' gia' risolta
+   alla riga 348). Qui resta solo il compito di stare nella barra senza schiacciare «non serve». */
+#luciSec .chk.lights-sw{flex:1 1 auto;min-width:0;margin:0;font-size:11.5px;color:inherit;gap:8px}
+.lights-nd{border:1px solid transparent;background:none;color:inherit;opacity:.7;font-size:10.5px;
+  cursor:pointer;padding:1px 6px;border-radius:999px;flex:0 0 auto}
+.lights-nd:hover{opacity:1;border-color:currentColor}
+.lights-nd[aria-pressed="true"]{opacity:1;border-color:currentColor;font-weight:600}
+.lights-add{width:100%;margin-top:6px;padding:6px 8px;border:1px dashed var(--border);
+  border-radius:8px;background:none;color:var(--accent-strong);font-size:11px;cursor:pointer}
+.lights-add:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
+/* Campi della scheda: stessi token dei controlli del pannello (niente stile inline grezzo) */
+#luciSec .lights-lbl{display:block;font-size:11px;color:var(--text-2);margin:9px 0 3px;font-weight:600}
+#luciSec .lights-lbl:first-of-type{margin-top:0}
+#luciSec .lights-inp,#luciSec .lights-sel{width:100%;padding:7px 10px;border:1px solid var(--border-strong);
+  border-radius:var(--r-md,8px);background:var(--surface);font:13px var(--font-ui);color:var(--text)}
+#luciSec .lights-inp.num{font-variant-numeric:tabular-nums}
+#luciSec .lights-inp:focus,#luciSec .lights-sel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--focus-ring)}
+#luciSec .lights-inp:disabled{color:var(--text-3);background:var(--surface-raised)}
+#luciSec .lights-sel{appearance:none;padding-right:28px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),linear-gradient(135deg,var(--text-3) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+#luciSec .lights-sel:hover{border-color:var(--accent)}
+.lights-two{display:flex;gap:8px;margin-top:9px}
+.lights-two>div{flex:1 1 0;min-width:0}
+.lights-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.lights-acts .btn.danger{color:var(--danger);border-color:var(--border-strong)}
+.lights-acts .btn.danger:hover{border-color:var(--danger)}
+body.dark .lrow:hover,body.dark .lrow.sel{background:#0d3b38}
+body.dark .lrow>.lpin:hover{background:#20292e}
+/* Sezione LUCI del rider: intestazione per funzione + voci, come in un rider vero */
+.pdf-rider-lh{font-weight:700;margin:7px 0 1px}
+.pdf-rider-lh:first-child{margin-top:0}
+.pdf-rider-li{padding-left:12px;text-indent:-9px}
+.pdf-rider-li::before{content:"• ";color:var(--text-3)}
+/* Etichette delle richieste luci sul palco: tono da quota tecnica, non da titolo — devono
+   dire «da qui arriva questa luce» senza rubare la scena agli strumenti. */
+.lights-lab text{font:600 11px var(--font-ui);fill:var(--text-2);letter-spacing:.04em;
+  paint-order:stroke;stroke:var(--sheet,#fff);stroke-width:3px;stroke-linejoin:round}
+body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
+/* Note del reparto luci: testo dell'utente (spesso recuperato dai cartelli sul palco). Tono da
+   citazione — sono parole sue, non un dato che abbiamo dedotto noi. */
+#luciSec .lights-notes-h{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;
+  letter-spacing:.06em;margin:10px 0 4px}
+#luciSec .lights-note{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:var(--text-2);
+  background:var(--surface-raised);border:1px solid var(--border);border-radius:6px;
+  padding:5px 7px;margin-bottom:4px;line-height:1.35}
+#luciSec .lights-note>span{flex:1 1 auto;min-width:0}
+#luciSec .lights-note-x{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;
+  font-size:14px;line-height:1;padding:0 2px}
+#luciSec .lights-note-x:hover{color:var(--danger)}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -2960,6 +3042,24 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
     <div id="pmAccSec" style="display:none"></div>
     <div id="musAccSec" style="display:none"></div>
     <div id="coverAccSec" style="display:none"></div>
+    <!-- Luci come reparto (blocco A): la lista delle RICHIESTE. In testa solo l'oscurabilità
+         (è un interruttore, sta su una riga); il clima luminoso vive nel pannello, dove ha
+         lo spazio di un campo di testo — nella colonna a 220 px andava a capo tre volte. -->
+    <div id="luciSec" style="display:none">
+      <div id="lightsVenueBar" class="lights-venue">
+        <label class="chk lights-sw"><input type="checkbox" id="lightsBlackout"> Sala oscurabile</label>
+        <button type="button" class="lights-nd" id="lightsBlackoutNo" title="Il buio non serve">non serve</button>
+      </div>
+      <div id="lightsRows"></div>
+      <button type="button" class="lights-add" id="lightsAdd">+ Aggiungi una luce</button>
+      <div id="lightsNotes"></div>
+      <div id="lightsCard"></div>
+      <div id="lightsMoodCard" class="prop-card" style="margin-top:9px">
+        <div class="prop-card__head">Clima luminoso <span class="muted">tutto lo spettacolo</span></div>
+        <input type="text" id="lightsMood" class="lights-inp" placeholder="es. calda, morbida e teatrale">
+        <p class="prop-hint">Chiude la sezione LUCI del rider: «L'illuminazione dovrà essere…».</p>
+      </div>
+    </div>
     <div id="accPark" style="display:none"></div>
     <div id="progSec"></div>
     <div id="accessoriCount" style="margin-top:8px;font-size:12px;color:var(--text-2);line-height:1.8"></div>
