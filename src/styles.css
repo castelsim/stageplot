@@ -1291,6 +1291,8 @@
   .port-pop label{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:6px 0 3px}
   .port-pop label:first-child{margin-top:0}
   .port-pop select,.port-pop input{width:100%;border:1px solid var(--border);border-radius:7px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text)}
+  /* Popup della porta: la conseguenza della scelta, scritta sotto la tendina */
+  .port-pop .pp-note{font-size:10.5px;color:var(--text-3);line-height:1.4;margin-top:5px;max-width:240px}
   .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
   body.viewmode.share-hidecontacts .cl-contacts{display:none!important}
   body.viewmode.share-hidecontacts .pdf-rider-contact{display:none!important}

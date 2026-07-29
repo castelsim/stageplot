@@ -7715,8 +7715,43 @@ function audioCablingEngine(){
   var _base=0; _sorted.forEach(function(b){ if(b.wantUp){ b.fohBase=null; return; } b.fohBase=_base; _base+=b.cap; });
   var _seenId={}; boxes.forEach(function(b){ if(b.sbId){ if(_seenId[b.sbId]) issues.push({lvl:"warn", msg:"Device ID duplicato: due stage box con ID "+b.sbId+" — cambia l'ID di una."}); _seenId[b.sbId]=b; } });
   var _dupPorts=[];
-  function takePort(b, want){
-    if(want>0){ if(b.taken[want]) _dupPorts.push({b:b, p:want}); b.taken[want]=1; b.pins[want]=1; return want; }
+  /* PRENOTAZIONE DELLE PORTE SCELTE A MANO (28/07) — prima si assegnava in ordine di gruppo, e chi
+     capitava prima si prendeva la porta: il pin che arrivava dopo la trovava occupata e finiva in
+     «porta duplicata». Cioè scegliere un ingresso già impegnato era impossibile. Ora le porte
+     pinnate si prenotano PRIMA del giro: chi l'ha scelta la ottiene, e gli automatici scorrono
+     sulle libere restando in ordine crescente.
+     Si prenota SOLO per una chiave che verrà davvero instradata (_liveKeys) e SOLO su una porta non
+     riservata: un override rimasto in giro — riga scollegata, elemento cancellato, porta diventata
+     riservata dopo il salvataggio — non deve tenere impegnata una porta senza cavo né rubare un
+     canale riservato (che è una riga della lista a tutti gli effetti). */
+  var _pinRes={}, _liveKeys={}, _bundleN={};
+  groups.forEach(function(g){
+    if(g.list.length>=2 && !isPerMusicianMulti(g.it)){ _liveKeys["grp:"+g.it.id]=1; _bundleN["grp:"+g.it.id]=g.list.length; }   /* cavo unico: la chiave di percorso è quella del gruppo */
+    else g.list.forEach(function(s){ _liveKeys[s.key]=1; });
+  });
+  Object.keys(man).forEach(function(k){
+    var ov=man[k]||{};
+    if(!(ov.port>0) || !ov.box || ov.deleted || !_liveKeys[k]) return;
+    var pb=boxes.filter(function(bb){ return bb.id===ov.box; })[0];
+    if(!pb) return;
+    /* un multipolare entra su porte CONSECUTIVE: si prenota il BLOCCO a partire da quella scelta.
+       Le porte del blocco già riservate o già prenotate da un altro pin si saltano — quel canale
+       torna in fila invece di litigare. */
+    var _n=_bundleN[k]||1;
+    for(var _i=0;_i<_n;_i++){
+      var _p=+ov.port+_i;
+      if(_p>pb.cap || pb.resMap[_p] || pb.taken[_p]) continue;
+      pb.taken[_p]=1; pb.pins[_p]=1;
+      (_pinRes[pb.id]=_pinRes[pb.id]||{})[_p]=k;
+    }
+  });
+  function takePort(b, want, key){
+    if(want>0 && b.resMap[want]) want=0;   /* porta diventata riservata dopo il pin: il canale torna in fila, il riservato tiene il suo numero */
+    if(want>0){
+      var mia = _pinRes[b.id] && _pinRes[b.id][want]===key;   /* la prenotazione è la mia: non è un duplicato */
+      if(b.taken[want] && !mia) _dupPorts.push({b:b, p:want});
+      b.taken[want]=1; b.pins[want]=1; return want;
+    }
     for(var pn=1; pn<=b.cap; pn++){ if(!b.taken[pn] && !b.resMap[pn]){ b.taken[pn]=1; return pn; } }
     b.overflow=(b.overflow||0)+1; var po=b.cap+b.overflow; b.taken[po]=1; return po;   /* oltre capienza: numerata oltre, l'audit avvisa già */
   }
@@ -7748,8 +7783,14 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
       var pts=[portAnchor(g.it,"audio")].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → pedaliera/ampli → DI → stage box */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
-      g.list.forEach(function(s){ b.used++; var pn=takePort(b,0); links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut,
-        label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
+      /* la porta scelta è quella con cui il multipolare ENTRA: i canali seguono consecutivi (3,4,5…)
+         finché il blocco è stato prenotato; dove non lo era, quel canale prende la prima libera. */
+      var _ci=0;
+      g.list.forEach(function(s){ b.used++;
+        var _w=(ov.port>0)? (+ov.port+_ci) : 0; _ci++;
+        var pn=takePort(b, (_w>0 && _pinRes[b.id] && _pinRes[b.id][_w]===gk)? _w : 0, gk);
+        links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0 && pn===_w),
+          label:(b.letter+pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
       return;
     }
     g.list.forEach(function(s){
@@ -7760,11 +7801,11 @@ function audioCablingEngine(){
       var b= manualMode ? forced : (forced || whole || cand.filter(function(bb){ return bfree(bb)>=1; })[0] || null);
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       b.used++;
-      var pn=takePort(b, (ov.port>0? +ov.port : 0));   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
+      var pn=takePort(b, (ov.port>0? +ov.port : 0), s.key);   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
       var pts=[_sa].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → (pedaliera/ampli) → (DI) → stage box; il capo parte dal pallino audio del musicista */
       var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
-      links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0),
+      links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0 && pn===+ov.port),   /* pinned = la porta scelta l'ha davvero ottenuta (se era diventata riservata, no) */
                   label:(ov.label!=null?ov.label:(b.letter+pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
   });
@@ -7900,10 +7941,13 @@ var selCab=null, lastWp=null;   /* cavo selezionato (primario, per l'editing) + 
 var selCabSet={};   /* selezione MULTIPLA di cavi (Shift-click): key → true; Backspace li elimina insieme */
 function cabIsSel(key){ return selCab===key || !!selCabSet[key]; }
 /* elimina un cavo per key: i ritorni con flag deleted; gli input disconnettono (manual) o ghost (auto) */
+/* Via il cavo, via la porta (29/07): la porta fisica è una proprietà del collegamento, non del canale.
+   Lasciando l'override `port` su una riga scollegata resta una prenotazione senza cavo: al primo
+   ricollegamento (fulmine) il canale si riprenderebbe di soppiatto una porta magari già di un altro. */
 function cabDeleteKey(key){ var cm=cabManual(key);
   if(String(key).indexOf("ret:")===0){ cm.deleted=true; return; }
-  if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts; if(!Object.keys(cm).length) delete state.cab.manual[key]; }
-  else cm.deleted=true; }
+  if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts; delete cm.port; if(!Object.keys(cm).length) delete state.cab.manual[key]; }
+  else { cm.deleted=true; delete cm.port; } }
 function cabResetPathKey(key){ var cm=state.cab.manual[key]; if(cm) delete cm.pts; }   /* solo le pieghe: il cavo resta collegato (raddrizza) */
 /* un polilinea (cavo, segmenti ortogonali) sfiora un rettangolo? bbox-overlap per segmento = esatto per AA */
 function polyHitsRect(poly, r){ var x1=r.x+r.w, y1=r.y+r.h;
@@ -8183,8 +8227,9 @@ function cabBothLocked(){ return !!state.cab.lockIn && !!state.cab.lockOut; }
 function cabItemRouteKey(it){ return cabItemInputs(it).length>=2 ? ("grp:"+it.id) : (it.id+"#0"); }
 function cabSetItemBox(it, boxId){
   var n=cabItemInputs(it).length; if(!n) return;
-  if(isPerMusicianMulti(it)){ for(var i=0;i<n;i++){ var cmi=cabManual(it.id+"#"+i); cmi.box=boxId; delete cmi.auto; } return; }   /* postazione: ogni musicista alla stessa box, ma cavi separati */
-  var cm=cabManual(cabItemRouteKey(it)); cm.box=boxId; delete cm.auto;   /* scelto a mano: non si ridistribuisce più */
+  /* cambiando box la porta scelta a mano decade: il numero era di QUELLA box (29/07) */
+  if(isPerMusicianMulti(it)){ for(var i=0;i<n;i++){ var cmi=cabManual(it.id+"#"+i); if(cmi.box!==boxId) delete cmi.port; cmi.box=boxId; delete cmi.auto; } return; }   /* postazione: ogni musicista alla stessa box, ma cavi separati */
+  var cm=cabManual(cabItemRouteKey(it)); if(cm.box!==boxId) delete cm.port; cm.box=boxId; delete cm.auto;   /* scelto a mano: non si ridistribuisce più */
 }
 /* ── Shift+trascina un elemento SOPRA un cavo (stile Max: inserire un oggetto nel patch cord) ──
    Rilasci con Shift una stage box/sub-snake su un cavo audio → quello strumento si ricollega alla
@@ -8266,11 +8311,54 @@ function cabConnectOne(key){
   if(!hit) (R.mixes||[]).forEach(function(m){ if(!hit && ("mix:"+m.key)===key && m.box && !m.box.auto){ hit=m.box.id; rk="mix:"+m.key; } });
   if(!hit) return null;
   var cm=man[rk]||(man[rk]={});
-  if(cm.box) return cm.box;                       /* già cablato: non si tocca */
+  if(cm.box && !cm.deleted) return cm.box;        /* già cablato: non si tocca — ma un cavo TOLTO va ricollegato (29/07: in auto il cestino lascia box+deleted, e il fulmine rispondeva «collegato» senza collegare niente) */
   delete cm.deleted;                              /* il fulmine è una richiesta esplicita: annulla un «cavo tolto» */
   cm.box=hit; cm.auto=1;
   __cabRes=null; save(); render();
   return hit;
+}
+/* Scelta della porta fisica su una stage box. L'ultimo che sceglie vince: se quella porta era
+   già stata scelta da un altro canale, l'altro torna automatico e si rimette in fila. Così
+   «voglio QUESTO ingresso» è sempre una richiesta esaudibile, non un conflitto da risolvere a mano.
+   port 0/null = torna automatica. Ritorna false se la porta non esiste o è riservata.
+   Come il fulmine, scrive sulla chiave di PERCORSO (cabRouteKeyOf): uno strumento multicanale
+   viaggia su un multipolare e la porta scelta è quella con cui il multipolare entra nella box. */
+function cabSetPort(key, port){
+  if(!key) return false;
+  var rk=(typeof cabRouteKeyOf==="function") ? cabRouteKeyOf(key) : key;
+  var man=state.cab.manual=state.cab.manual||{};
+  port=+port||0;
+  if(!port){
+    var m0=man[rk];
+    if(m0){ delete m0.port; if(!Object.keys(m0).length) delete man[rk]; }
+    __cabRes=null; save(); render();
+    return true;
+  }
+  /* su quale box sta questo canale: la scelta manuale, altrimenti quella che gli ha dato il motore */
+  var R=cabResult(true), boxId=(man[rk]&&man[rk].box)||null;
+  if(!boxId) (R.links||[]).forEach(function(l){ if(!boxId && l.key===rk && l.box) boxId=l.box.id; });
+  var b=(R.boxes||[]).filter(function(x){ return x.id===boxId; })[0];
+  if(!b || b.auto || port<1 || port>b.cap) return false;
+  if(b.resMap && b.resMap[port]) return false;   /* riservata: tiene il suo numero, nel popup resta disabilitata */
+  /* l'ultimo vince: chi teneva quella porta torna automatico e si rimette in fila. Un multipolare
+     occupa un BLOCCO di porte consecutive: se le due scelte si sovrappongono anche solo in parte,
+     a tornare automatico è tutto lo strumento — un multipolare non si spezza. */
+  var _span={};
+  (R.links||[]).forEach(function(l){ if(!l.deleted) _span[l.key]=(_span[l.key]||0)+1; });
+  var _mio=port+(_span[rk]||1)-1;
+  Object.keys(man).forEach(function(k){
+    if(k===rk) return;
+    var o=man[k]; if(!o || !(o.port>0)) return;
+    var _suo=+o.port+(_span[k]||1)-1;
+    if(_suo<port || +o.port>_mio) return;   /* blocchi che non si toccano: nessuno si sposta */
+    var kb=o.box||null;
+    if(!kb) (R.links||[]).forEach(function(l){ if(!kb && l.key===k && l.box) kb=l.box.id; });
+    if(kb===boxId){ delete o.port; if(!Object.keys(o).length) delete man[k]; }
+  });
+  var m=cabManual(rk);
+  m.port=port; if(!m.box) m.box=boxId;
+  __cabRes=null; save(); render();
+  return true;
 }
 /* Allinea elettrico (parità con cabAlign): snap dei corner manuali alla griglia + pulizia collineari */
 /* Align stile Max (08/07): riordina TUTTI i cavi manuali — snap dei corner alla griglia + pulizia
@@ -12881,14 +12969,13 @@ svg.addEventListener("pointerup", function(e){
         var rlr=(cabResult().returnLinks||[]).filter(function(l){ return l.key===drag.key; })[0];
         if(!rlr || Math.hypot(rp.x-rlr.pts[0][0], rp.y-rlr.pts[0][1])>60){ cabManual(drag.key).deleted=true; selCab=null; __cabRes=null; save(); }
       }
-    } else if(tb){ cabManual(drag.key).box=tb.id; __cabRes=null; save(); }
+    } else if(tb){ var cmv=cabManual(drag.key); if(cmv.box!==tb.id) delete cmv.port;   /* altra box = altra porta: il numero scelto era di quella di prima */
+      cmv.box=tb.id; __cabRes=null; save(); }
     else if(drag.moved){
       var rl=(cabResult().links||[]).filter(function(l){ return l.key===drag.key; })[0];
       var farEnough = !rl || !rl.box || Math.hypot(rp.x-(drag.end==="src"?rl.pts[0][0]:rl.box.x), rp.y-(drag.end==="src"?rl.pts[0][1]:rl.box.y))>60;   /* micro-rilascio ≠ scollega */
       if(farEnough){
-        var cm=cabManual(drag.key);
-        if(state.cab.mode!=="auto"){ delete cm.box; delete cm.deleted; delete cm.pts; if(!Object.keys(cm).length) delete state.cab.manual[drag.key]; }
-        else cm.deleted=true;
+        cabDeleteKey(drag.key);   /* stessa scollegatura del cestino: via il cavo, via anche la porta scelta */
         selCab=null; __cabRes=null; save();
       }
     }
@@ -16639,15 +16726,27 @@ function openPortPop(ev, r){
   var old=document.getElementById("portPop"); if(old) old.remove();
   var pop=document.createElement("div"); pop.id="portPop"; pop.className="port-pop";
   var R=cabResult(), b=(R.boxes||[]).filter(function(x){ return x.id===r.boxId; })[0];
-  var man=state.cab.manual||{}, cur=(man[r.key]&&man[r.key].port)||0;
+  var man=state.cab.manual||{};
+  var rk=(typeof cabRouteKeyOf==="function") ? cabRouteKeyOf(r.key) : r.key;   /* la porta si scrive sulla chiave di PERCORSO, come il fulmine */
+  var cur=(man[rk]&&man[rk].port)||0;
   var h='';
   if(b){
+    /* Le porte occupate si possono SCEGLIERE (28/07): chi le teneva torna automatico e si rimette
+       in fila. Prima erano disabled, e «voglio questo ingresso» era una richiesta impossibile
+       proprio quando serviva di più — cioè quando l'ingresso giusto era già preso. */
+    var _chi={};
+    (R.links||[]).forEach(function(l){ if(l.box && l.box.id===b.id && !l.deleted) _chi[l.ch]=(l.s&&l.s.name)||""; });
     h+='<label>Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
     for(var pn=1;pn<=b.cap;pn++){
-      var free=!b.taken[pn]||pn===r.port;
-      h+='<option value="'+pn+'"'+(cur===pn?' selected':'')+(free?'':' disabled')+'>'+pn+(b.resMap[pn]?' (riservata)':(b.taken[pn]&&pn!==r.port?' — occupata':''))+'</option>';
+      var nota="";
+      if(b.resMap[pn]) nota=" — riservata";
+      else if(pn===r.port) nota=" — questa";
+      else if(_chi[pn]) nota=" — ora: "+_chi[pn];
+      else if(b.taken[pn]) nota=" — occupata";
+      h+='<option value="'+pn+'"'+(cur===pn?' selected':'')+(b.resMap[pn]?' disabled':'')+'>'+pn+esc(nota)+'</option>';
     }
-    h+='</select>';
+    h+='</select><div class="pp-note">Se la porta è già di un altro canale, quello torna automatico e si rimette in fila.</div>';
+    if(String(rk).indexOf("grp:")===0) h+='<div class="pp-note">Questo strumento entra con un multipolare: la porta scelta è quella del primo canale, gli altri seguono consecutivi.</div>';
   }
   h+='<label>Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
   pop.innerHTML=h;
@@ -16655,9 +16754,9 @@ function openPortPop(ev, r){
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
   pop.style.top=Math.min(ev.clientY+8, window.innerHeight-pop.offsetHeight-10)+"px";
   function commit(){
-    var m=cabManual(r.key);
     var sv=document.getElementById("ppSel");
-    if(sv){ if(sv.value) m.port=+sv.value; else delete m.port; }
+    if(sv && typeof cabSetPort==="function") cabSetPort(r.key, sv.value ? +sv.value : 0);   /* la porta passa da qui: libera chi la teneva */
+    var m=cabManual(r.key);
     var sh=document.getElementById("ppShort").value.trim();
     if(sh) m.short=sh.slice(0,12); else delete m.short;
     if(!Object.keys(m).length) delete state.cab.manual[r.key];
