@@ -4147,6 +4147,14 @@ t("i fondi del disegno si bloccano, gli altri elementi no", () => {
   reset();
   const ped = add("pedana", 500, 300), tap = add("tappeto", 400, 400), frm = add("forma", 300, 200), zon = add("miczone", 700, 300), met = add("metro", 800, 500);
   ok(A.isLockable(ped) && A.isLockable(tap) && A.isLockable(frm) && A.isLockable(zon) && A.isLockable(met), "pedana, tappeto, forma, zona e metro");
+  /* «tutti gli elementi che servono per avere qualcosa sopra» (Simone 29/07): i piani d'appoggio
+     e le strutture che portano i fari — dove il gesto sbagliato sposta anche il carico. */
+  ["tavolo", "podio", "pedanacoro", "flightcase", "americana", "truss"].forEach((k) => {
+    ok(A.isLockable(A.addItem(k, { x: 200, y: 200 })), k + ": ci sta sopra qualcosa, si blocca");
+  });
+  ["sedia", "wedge", "leggio", "cantante"].forEach((k) => {
+    eq(A.isLockable(A.addItem(k, { x: 300, y: 300 })), false, k + ": non e' un piano d'appoggio");
+  });
   const sedia = add("sedia", 600, 300), wedge = add("wedge", 700, 400);
   eq([sedia, wedge].filter(A.isLockable).length, 0, "sedia e wedge non hanno lucchetto");
   eq(A.isLockable(null), false, "niente elemento, niente lucchetto");
@@ -4192,6 +4200,9 @@ t("il nome nell'etichetta del lucchetto e' quello dell'elemento", () => {
   eq(A.lockNameOf(add("forma", 300, 100)), "la forma");
   eq(A.lockNameOf(add("miczone", 400, 100)), "la zona");
   eq(A.lockNameOf(add("metro", 500, 100)), "il metro");
+  eq(A.lockNameOf(add("tavolo", 600, 100)), "il tavolo");
+  eq(A.lockNameOf(add("flightcase", 700, 100)), "il flight case");
+  eq(A.lockNameOf(add("americana", 800, 100)), "l\u2019americana");
 });
 t("la zona bloccata: perimetro marcato, lucchetto accanto alla sua etichetta, mic non trascinabile", () => {
   reset();
@@ -7441,6 +7452,38 @@ t("l'asta condivisa resta condivisa anche cambiando tipo", () => {
   A.cabSetStand(righe[0].key, "asta gigante"); A.__cabRes = null;
   eq(A.standNeeds().gigante.tot, 1, "cambiata in gigante");
   eq(A.standNeeds().gigante.tot + A.standNeeds().giraffa.tot, 1, "e resta UNA: la barra e' sempre una");
+});
+
+
+console.log("\n— Il lucchettino su chi non se lo disegna da se' —");
+t("il tavolo bloccato porta il lucchettino, e senza lucchetto niente", () => {
+  reset();
+  const t2 = add("tavolo", 400, 300);
+  const libero = A.itemMarkup(t2);
+  eq(libero.indexOf("riser-lock"), -1, "libero: nessun segno");
+  t2.locked = true;
+  ok(A.itemMarkup(t2).indexOf("riser-lock") > -1, "bloccato: il segno c'e'");
+  /* deve stare DOPO il disegno, o l'arte dell'elemento se lo mangia */
+  const mk = A.itemMarkup(t2);
+  ok(mk.indexOf("riser-lock") > mk.indexOf("fWoodL"), "il lucchettino e' disegnato sopra il piano del tavolo");
+});
+t("anche una barra sottile lo porta: la soglia delle pedane la escludeva", () => {
+  reset();
+  const am = add("americana", 400, 200);   /* 200x30: profondita' sotto la soglia 70x50 */
+  am.locked = true;
+  ok(A.itemMarkup(am).indexOf("riser-lock") > -1, "l'americana bloccata si riconosce");
+  const tiny = add("metro", 700, 500); tiny.w = 30; tiny.locked = true;
+  /* il metro se lo disegna da se' e ha la sua soglia: qui si verifica solo che non esploda */
+  ok(typeof A.itemMarkup(tiny) === "string", "nessun errore sugli elementi minuscoli");
+});
+t("il lucchetto ferma davvero i piani d'appoggio", () => {
+  reset();
+  const t3 = add("tavolo", 400, 300);
+  ok(A.itemEditable(t3), "libero si sposta");
+  t3.locked = true;
+  eq(A.itemEditable(t3), false, "bloccato no");
+  const am = add("americana", 600, 100); am.locked = true;
+  eq(A.itemEditable(am), false, "e nemmeno l'americana, che porta i fari");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
