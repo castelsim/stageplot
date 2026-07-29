@@ -6241,5 +6241,45 @@ t("il pannello dice cosa entra in channel list, invece di una spunta da interpre
   ok(appjs.indexOf("Un canale solo: lo riprende il panoramico") > -1, "e la nota dice quale microfono eredita");
 });
 
+
+/* ====== CAVI POWER: UN TRACCIATO SOLO, E TUTTI AL CENTRO (Simone 29/07) =======================
+   «Quando clicco su un cavo power la visualizzazione non e' buona, c'e' sia quello inclinato che
+   quello a novanta gradi. E poi devono finire tutti convergenti al centro degli elementi, come i
+   cavi input.» */
+console.log("\n— Cavi power: tracciato e capi —");
+
+t("selezionare una linea DIRITTA non disegna un secondo cavo ad angolo retto", () => {
+  ok(/var _dirE=\(elecStyleFor\(selElec\)==="dir"\);/.test(appjs), "si guarda lo stile della linea selezionata");
+  ok(/if\(!_dirE\) for\(var pi=0;pi<polyE\.length-1;pi\+\+\)/.test(appjs), "i lati ortogonali si disegnano solo quando la linea e' segmentata");
+  /* e' lo stesso rimedio dell'audio: la' il difetto era gia' stato corretto il 21/07 */
+  ok(appjs.indexOf("_dirSel ?") > -1, "l'audio continua ad avere il suo");
+});
+t("il cavo di corrente nasce e muore al CENTRO dell'elemento, come quello audio", () => {
+  reset();
+  const amp = add("amprack", 300, 400);
+  eq(A.portAnchor(amp, "pow").join(","), "300,400", "una porta sola: al centro");
+  const combo = add("comboamp", 600, 400);
+  ok(A.portKinds(combo).length > 1, "il combo ha audio e corrente");
+  eq(A.portAnchor(combo, "pow").join(","), "600,400", "anche con piu' porte il CAVO va al centro");
+  eq(A.portAnchor(combo, "audio").join(","), "600,400", "come quello audio, che era gia' cosi'");
+});
+t("i PALLINI restano distinti: due prese nello stesso punto non si prendono col dito", () => {
+  reset();
+  const combo = add("comboamp", 600, 400);
+  const pa = A.portDotPos(combo, "audio"), pp = A.portDotPos(combo, "pow");
+  ok(pa[0] !== pp[0] || pa[1] !== pp[1], "audio e corrente hanno pallini in due posti diversi");
+  const solo = add("amprack", 300, 400);
+  eq(A.portDotPos(solo, "pow").join(","), A.portAnchor(solo, "pow").join(","), "con una porta sola pallino e cavo coincidono");
+});
+t("il capo del cavo elettrico segue davvero l'elemento", () => {
+  reset();
+  add("distro32", 800, 100);
+  const combo = add("comboamp", 300, 400);
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  const l = (A.elecResult(true).loadLinks || []).filter((x) => x.load.it.id === combo.id)[0];
+  ok(l, "il carico e' collegato");
+  eq(l.pts[l.pts.length - 1].join(","), [combo.x, combo.y].join(","), "il capo e' il centro del combo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
