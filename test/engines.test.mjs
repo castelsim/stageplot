@@ -4480,6 +4480,84 @@ t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", ()
     "il datalist deve usare lo stesso vocabolario dei valori generati");
 });
 
+/* ---- Asta gigante (29/07): la giraffa da coro/orchestra, treppiede largo e braccio lungo ----
+   Misure dai datasheet (K&M 20811 base Ø 1485 mm · Proel PRO300BK base Ø 1500, braccio 1350-2050 ·
+   K&M 21231 braccio 1070-1870 · Proel PRO400BK braccio 1400-2350): NON e' una giraffa scalata. */
+console.log("\nAsta gigante:");
+t("l'ingombro e' quello vero: treppiede da un metro e mezzo, non una giraffa ingrandita", () => {
+  const g = A.TYPES.astagigante, gir = A.TYPES.giraffa;
+  eq(g.w, 150, "larghezza = Ø del treppiede aperto (K&M 20811 148,5 · Proel PRO300BK 150)");
+  eq(g.d, 215, "profondita' = mezza base dietro il palo (75) + sbraccio del braccio (140)");
+  eq(A.ASTAG.d, A.ASTAG.base / 2 + A.ASTAG.sbraccio, "l'ingombro si deriva dalle due misure, non si scrive due volte");
+  ok(g.w > gir.w * 2 && g.d > gir.d * 3, "deve leggersi come 'gigante' accanto alla giraffa normale");
+  ok(A.ASTAG.sbraccio >= 140 && A.ASTAG.sbraccio <= 187,
+    "lo sbraccio disegnato sta dentro TUTTE le corse di catalogo (107-187 · 135-205 · 140-235)");
+});
+t("la pianta e' disegnata in cm reali e sta dentro il suo riquadro", () => {
+  const svg = A.TYPES.astagigante.draw({});
+  ok(!/transform|scale\(|viewBox/.test(svg), "niente scalature: le coordinate sono gia' in cm");
+  const nums = (svg.replace(/#[0-9a-f]{3,8}/gi, "").match(/-?\d+(\.\d+)?/g) || []).map(Number);
+  ok(Math.max(...nums) <= 108 && Math.min(...nums) >= -108,
+    "nessuna coordinata esce dalla meta' profondita' del riquadro (215/2)");
+  ok((svg.match(/<ellipse/g) || []).length === 3, "tre piedi: e' un treppiede");
+});
+t("e' un tipo di asta a se': si conta come 'gigante', non come giraffa", () => {
+  reset();
+  add("astagigante", 400, 300);
+  const n = A.standNeeds();
+  eq(n.gigante.tot, 1, "una gigante sul palco = una asta gigante");
+  eq(n.gigante.gia, 1, "e' gia' disegnata, non e' da aggiungere");
+  eq(n.giraffa.tot, 0, "non deve finire nel mucchio delle giraffe");
+  eq(n.gigante.dedotte, 0, "il suo canale non ne deve dedurre una seconda");
+  eq(A.standTotal(n), 1, "conta fra le aste vere");
+  eq(A.standKindOfItem({ type: "astagigante" }), "gigante");
+  ok(A.STAND_KINDS.some(k => k[0] === "gigante" && k[1] === "Asta gigante"), "manca nel vocabolario dei supporti");
+});
+t("nella channel list la colonna Asta dice 'asta gigante', non 'asta giraffa'", () => {
+  reset();
+  const g = add("astagigante", 400, 300);
+  const r = A.patchList().rows.find(x => x.itemId === g.id);
+  eq(r.mic, "KM184", "monta lo stesso mic da ripresa d'insieme della giraffa");
+  eq(r.stand, "asta gigante", "ma l'asta la dice l'oggetto sul palco, non il modello di microfono");
+  ok(A.STAND_SUGGEST.indexOf("asta gigante") > -1, "la voce deve esserci anche nella tendina");
+  /* le tre aste storiche non cambiano comportamento */
+  reset();
+  const a = add("astamic", 300, 300), b = add("giraffa", 500, 300), c = add("astabassa", 700, 300);
+  const rows = A.patchList().rows;
+  eq(rows.find(x => x.itemId === a.id).stand, "asta dritta");
+  eq(rows.find(x => x.itemId === b.id).stand, "asta giraffa");
+  eq(rows.find(x => x.itemId === c.id).stand, "asta bassa");
+});
+t("si trova col nome del mestiere, senza rubare le query degli altri", () => {
+  ["gigante", "giraffa", "overhead", "coro", "boom"].forEach(w => {
+    ok(A.__qaSearch(w).map(r => r.k).indexOf("astagigante") > -1, "il quick-add non la trova su: " + w);
+    ok(A.__spSearch(w).map(r => r.k).indexOf("astagigante") > -1, "il catalogo non la trova su: " + w);
+  });
+  /* la ricerca e' una substring: la gigante non deve scavalcare chi possiede la parola */
+  eq(A.__qaSearch("overhead")[0].k, "micover", "l'Overhead di sezione resta primo sulla sua parola");
+  eq(A.__qaSearch("cori").map(r => r.k).indexOf("astagigante"), -1, "chi digita 'cori' cerca i coristi");
+  ok(A.__qaSearch("mic").map(r => r.k).indexOf("micover") > -1, "la gigante ha spinto l'overhead fuori dai risultati di 'mic'");
+  ok(A.__qaSearch("orchestra").map(r => r.k).indexOf("astagigante") === -1, "un alias 'orchestra' la metterebbe davanti agli strumenti");
+});
+t("e' presente in tutte le tabelle che elencano le aste", () => {
+  ok(A.ESSENTIAL.astagigante, "catalogo essenziale");
+  ok(A.NUMBERED_HW.astagigante, "numerazione progressiva (Asta gigante 1, 2, ...)");
+  eq(A.INSTR_BASE.astagigante, "Asta gigante", "nome pieno per la numerazione");
+  eq(A.IN_SRC.astagigante, "KM184", "sorgente audio a un canale come la giraffa");
+  ok(A.H3D.astagigante > A.H3D.giraffa, "in 3D deve stare piu' in alto della giraffa");
+  eq(A.TYPEMAT.astagigante, "black_metal");
+  ok(/tripod|boom/.test(A.DESC3D.astagigante), "descrizione 3D mancante");
+  eq(A.proAbbrName("Asta gigante 1"), "OH", "in modalita' sigla e' una ripresa dall'alto");
+});
+t("una gigante accanto a un cantante conta come il suo microfono (audit)", () => {
+  reset();
+  add("cantante", 400, 400);
+  const msg = () => A.auditEngine().findings.filter(f => /senza microfono/i.test(f.msg)).length;
+  eq(msg(), 1, "il cantante da solo va segnalato");
+  add("astagigante", 400, 470);   /* 70 cm: dentro il raggio di 150 della regola */
+  eq(msg(), 0, "con la gigante davanti la voce entra in lista: niente avviso");
+});
+
 /* ---- DI: un'opzione del pannello diventa un oggetto sul palco, e una tappa del cavo ----
    Prima scegliere "DI" cambiava solo l'etichetta del canale: nessuna scatoletta, nessun passaggio. */
 console.log("\nDI come oggetto e nodo della catena:");
