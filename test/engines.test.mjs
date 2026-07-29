@@ -4206,6 +4206,55 @@ t("il blocco sopravvive al salvataggio", () => {
   });
   eq(s.items.filter((i) => i.locked === true).length, 2, "tappeto e forma restano bloccati dopo un giro di normalizzazione");
 });
+/* ---- SPECCHIA come azione (Simone 29/07): «elementi come Quinta devono avere la funzione specchia
+   nella stessa riga di duplica ed elimina». Era una spunta nei Dettagli tecnici, e solo per i
+   musicisti illustrati. ---- */
+console.log("\nSpecchia (azione di riga):");
+t("il comando sta nella riga di Duplica ed Elimina, non piu' in una spunta sepolta", () => {
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  const riga = /<div class="btns" id="pActRow">([^]*?)<\/div>/.exec(html);
+  ok(riga, "la riga azioni c'e'");
+  ["pMirror", "pDup", "pDel"].forEach((id) => ok(riga[1].indexOf('id="' + id + '"') > -1, "manca " + id + " nella riga"));
+  ok(riga[1].indexOf("Specchia") > -1, "col suo nome per esteso");
+  eq(html.indexOf('id="pMirWrap"'), -1, "la vecchia spunta e' sparita: un comando solo");
+  eq(html.indexOf('id="pMir"'), -1, "e con lei la sua casella");
+  ok(html.indexOf('id="grpMirror"') > -1, "c'e' anche nella riga della selezione multipla");
+});
+t("si specchia tutto, tranne cio' che e' scritto", () => {
+  reset();
+  ["quinta", "scala", "rampa", "pedana", "wedge", "musArpa", "tappeto"].forEach((k) => {
+    ok(A.canMirror(A.addItem(k, { x: 200, y: 200 })), k + ": si ribalta");
+  });
+  ["testo", "forma", "miczone", "metro"].forEach((k) => {
+    eq(A.canMirror(A.addItem(k, { x: 300, y: 300 })), false, k + ": specchiarlo scriverebbe al contrario");
+  });
+});
+t("il comando ribalta l'arte e torna indietro", () => {
+  reset();
+  const q = add("quinta", 400, 300);
+  A.selectOne(q.id);
+  A.mirrorSel();
+  eq(q.mir, true, "specchiata");
+  A.mirrorSel();
+  eq(q.mir, undefined, "e si torna com'era, senza lasciare tracce nello stato");
+});
+t("in selezione mista si allineano tutti, non si alternano", () => {
+  reset();
+  const a = add("quinta", 300, 300), b = add("quinta", 500, 300), c = add("scala", 700, 300);
+  a.mir = true;
+  A.clearSelection(); [a, b, c].forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; });
+  A.mirrorSel();
+  eq([a, b, c].filter((it) => it.mir === true).length, 3, "un colpo solo: tutti specchiati");
+  A.mirrorSel();
+  eq([a, b, c].filter((it) => it.mir === true).length, 0, "e un altro colpo li riporta tutti indietro");
+});
+t("l'elemento specchiato lo dice nel disegno", () => {
+  reset();
+  const q = add("quinta", 400, 300);
+  ok(A.itemMarkup(q).indexOf('scale(-1,1)') === -1, "libera: nessuna trasformazione");
+  q.mir = true;
+  ok(A.itemMarkup(q).indexOf('<g transform="scale(-1,1)">') > -1, "specchiata: l'arte e' ribaltata");
+});
 /* PIÈ DI PAGINA DEL PDF (27/07): i numeri che servono a chi allestisce, contati dagli elementi veri. */
 t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () => {
   reset(); A.state.cab.on = true; A.__cabRes = null;
