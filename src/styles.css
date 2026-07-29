@@ -394,6 +394,16 @@
   .rs-handle.rs-end{fill:var(--accent);stroke:#fff}   /* metro: maniglie tonde agli estremi della linea */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
+  /* Le maniglie dell'elemento selezionato vivono in un layer PROPRIO (#layHandles, l'ultimo della
+     scena): dentro il gruppo dell'elemento finivano sotto al disegno di chi viene dopo nell'ordine —
+     due pedane vicine e il lucchetto di quella selezionata spariva. Il gruppo porta con sé la classe
+     di reparto (st-item/riser-item/mus-item/cover-item/mz-item) perché i lucchetti dei layer, che
+     lavorano sui contenitori, continuino a valere anche quassù. */
+  body.stage-lock .sel-handles.st-item,
+  body.stage-lock .sel-handles.riser-item,
+  body.stage-lock .sel-handles.mus-item,
+  body.stage-lock .sel-handles.cover-item,
+  body.miczone-lock .sel-handles.mz-item{pointer-events:none}
   .rot-handle{cursor:grab}
   .rot-handle .rh-line{stroke:var(--accent);stroke-width:2}
   .rot-handle .rh-knob{fill:#fff;stroke:var(--accent);stroke-width:2.5}

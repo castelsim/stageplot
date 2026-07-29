@@ -4436,8 +4436,38 @@ function itemMarkup(it){
       s += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
+  /* Le MANIGLIE dell'elemento selezionato NON stanno qui: vivono nel layer sopra tutto
+     (selHandlesMarkup / layHandles). Dentro il gruppo dell'elemento finivano sotto al disegno
+     di chi viene dopo nell'ordine — due pedane vicine e il lucchetto di quella «sotto» spariva. */
+  s += '</g>';
+  s += '</g>';
+  return s;
+}
+/* ============ MANIGLIE DELL'ELEMENTO SELEZIONATO ============
+   Rotazione, lucchetto, ridimensionamento e maniglie della zona microfono: tutte disegnate in un
+   layer PROPRIO, l'ultimo della scena, e non dentro il gruppo dell'elemento.
+
+   Perché (Simone 29/07): con due pedane vicine, quella disegnata dopo copriva le maniglie di quella
+   selezionata — il lucchetto non si vedeva, quindi per chi lavora non esisteva. Portare l'ELEMENTO
+   in cima all'ordine di disegno non si può: le pedane sono il pavimento, e passerebbero sopra agli
+   strumenti che ci stanno su. Sopra ci vanno solo le maniglie, esattamente come già fa il pallino
+   del microfono della zona (mzMicHitMarkup).
+
+   Il gruppo ripete il transform dell'elemento (translate + rotate): le maniglie restano scritte nel
+   frame locale, quindi il codice è lo stesso di prima e seguono rotazione e posizione. */
+function selHandlesMarkup(){
+  /* Niente selezione, o più di un elemento: nessuna maniglia. È anche ciò che tiene le maniglie
+     fuori da export e pagine PDF, che azzerano sel/selSet prima di costruire il disegno. */
+  if(!sel || !selSet[sel] || selIds().length!==1) return '';
+  var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0];
+  if(!it) return '';
+  var t=itemTypeDef(it); if(!t) return '';
+  if(!itemLiveOnStage(it)) return '';                     /* elemento non disegnato o non manovrabile: niente maniglie sospese nel vuoto */
+  var attrId=esc(it.id);
+  var bw = it.w/2 + 6, bh = it.d/2 + 6;                   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
+  var s='';
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
-  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && selSet[it.id] && selIds().length===1){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto; col lucchetto chiuso non si ruota */
+  if((stageEdit ? isRiser(it) : true) && itemEditable(it)){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto; col lucchetto chiuso non si ruota */
     var _k=cmPerPx(), knob=7*_k, ky=-(bh+hSize(22));
     s += '<g class="rot-handle" data-id="'+attrId+'">'+
          '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+knob)+'" stroke-width="'+(1.5*_k)+'"/>'+
@@ -4451,7 +4481,7 @@ function itemMarkup(it){
      sui fondi del disegno — pedana, tappeto, forma. Chiuso, l'elemento resta dov'è — non si sposta,
      non si allunga, non si ruota — e il doppio clic ci passa attraverso: si apre la ricerca rapida,
      per posare un elemento SOPRA. */
-  if(isLockable(it) && selSet[it.id] && selIds().length===1){
+  if(isLockable(it)){
     var _lk=cmPerPx(), lky=-(bh+hSize(22)), lkx=hSize(21), lknob=7*_lk, _lknm=lockNameOf(it);
     s += '<g class="lock-handle'+(it.locked?" on":"")+'" data-id="'+attrId+'" role="button" tabindex="0" aria-pressed="'+(it.locked?"true":"false")+'" aria-label="'+(it.locked?"Sblocca ":"Blocca ")+_lknm+'">'+
          '<circle class="lk-hit" cx="'+lkx+'" cy="'+lky+'" r="'+(13*_lk)+'"/>'+
@@ -4461,7 +4491,7 @@ function itemMarkup(it){
          '</g>';
   }
   /* ZONA: rettangolo = 4 angoli di resize + "+" sui lati per iniziare a modellare; poligono = vertici trascinabili + "+" (Alt+click rimuove). */
-  if(!stageEdit && it.type==="miczone" && itemEditable(it) && selSet[it.id] && selIds().length===1){   /* col lucchetto chiuso la zona non si rimodella */
+  if(!stageEdit && it.type==="miczone" && itemEditable(it)){   /* col lucchetto chiuso la zona non si rimodella */
     var mzp=miczonePts(it), mzPoly=!!(it.pts && it.pts.length>=3);
     mzp.forEach(function(p,vi){                 /* midpoint di ogni lato: "+" per inserire un vertice */
       var q=mzp[(vi+1)%mzp.length], mx=(p[0]+q[0])/2, my=(p[1]+q[1])/2;
@@ -4482,7 +4512,7 @@ function itemMarkup(it){
     }
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
-  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && t.resizable && it.type!=="miczone" && selSet[it.id] && selIds().length===1){
+  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && t.resizable && it.type!=="miczone"){
     var hpts;
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
@@ -4502,9 +4532,26 @@ function itemMarkup(it){
       else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-hs)+'" y="'+(p[2]-hs)+'" width="'+(2*hs)+'" height="'+(2*hs)+'" rx="'+hr+'" stroke-width="'+hSize(1.4)+'"/>';
     });
   }
-  s += '</g>';
-  s += '</g>';
-  return s;
+  if(!s) return '';
+  /* stessa classe di reparto che il gruppo dell'elemento riceve in sceneMarkup: i lucchetti dei layer
+     (body.mus-lock, body.cover-lock) valgono anche qui, altrimenti uscendo dal gruppo le maniglie
+     resterebbero afferrabili su un reparto chiuso a chiave. */
+  var fam = it.type==="miczone" ? "mz-item" : musLayerItem(it.type) ? "mus-item" : isCover(it) ? "cover-item" : (t.riser ? "riser-item" : "st-item");
+  return '<g class="sel-handles '+fam+'" transform="translate('+it.x+' '+it.y+') rotate('+(it.rot||0)+')">'+s+'</g>';
+}
+/* L'elemento è davvero sul palco e manovrabile? Stesse esclusioni di sceneMarkup (rack, occhio del
+   layer, solo, punto-sezione dei layer tecnici): se non si vede — o si vede solo come contesto
+   sfumato — le sue maniglie non devono restare a mezz'aria. Prima sparivano insieme a lui perché
+   stavano dentro il suo gruppo; ora che vivono in un layer proprio va detto qui. */
+function itemLiveOnStage(it){
+  if(!it || it.rackId) return false;
+  if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
+  if(it.type==="miczone" && !layerShown("miczone")) return false;
+  if(anySolo()){ if(!itemInSoloLayer(it)) return false; }   /* sotto solo si lavora solo sul layer in solo: il resto è contesto (.solo-bg non si clicca) */
+  else if(!itemEyeShown(it)) return false;
+  var _dotId=techDotSoloId();
+  if(_dotId && itemInSoloLayer(it) && techDotItem(it,_dotId)) return false;   /* disegnato come punto sezione, non come elemento */
+  return true;
 }
 function esc(x){ return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function fmtM(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; }
@@ -6865,7 +6912,8 @@ function sceneMarkup(){
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
-         '<g id="layOverlay">'+overlayLayerMarkup()+'</g>';
+         '<g id="layOverlay">'+overlayLayerMarkup()+'</g>'+
+         '<g id="layHandles">'+selHandlesMarkup()+'</g>';   /* ULTIMO: le maniglie di ciò che è selezionato stanno sopra a tutto (anche ai blocchi del palco) */
 }
 /* sostituisce il contenuto di un nodo SVG in modo robusto (non si affida a <g>.innerHTML, meno universale di <svg>.innerHTML) */
 function setSvgInner(el, markup){
@@ -6880,6 +6928,13 @@ function redrawStageLayers(){
   if(!ls || !lo){ render(); return; }
   setSvgInner(ls, stageLayerMarkup());
   setSvgInner(lo, overlayLayerMarkup());
+  redrawSelHandles();
+}
+/* Le maniglie vivono fuori dal gruppo dell'elemento: ogni aggiornamento parziale (sposta, ruota,
+   allunga) deve rigenerarle, altrimenti restano indietro rispetto all'elemento che seguono. */
+function redrawSelHandles(){
+  var lh=document.getElementById("layHandles"); if(!lh) return;
+  setSvgInner(lh, selHandlesMarkup());
 }
 /* Indice DOM per ID opachi: evita sia selector costruiti con dati del documento sia scansioni O(n)
    per ogni elemento durante drag/rotate di gruppi grandi. Ricostruito dopo ogni render completo. */
@@ -6926,12 +6981,12 @@ function itemNode(id){
   reindexItemNodes();
   return itemNodeIndex.get(wanted)||null;
 }
-function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); renderProps(); } else render(); }
+function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); redrawSelHandles(); renderProps(); } else render(); }
 function redrawItemNode(it){
   var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
   var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=itemMarkup(it);   /* parsing in namespace SVG (come svg.innerHTML) */
   var nw=tmp.firstElementChild;
-  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw); renderProps(); } else render();
+  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw); redrawSelHandles(); renderProps(); } else render();
 }
 
 /* ============ PANNELLO PROPRIETÀ ============ */
@@ -10091,6 +10146,7 @@ svg.addEventListener("pointermove", function(e){
       var g=itemNode(it.id);
       if(g) g.setAttribute("transform","translate("+it.x+" "+it.y+")");
     });
+    redrawSelHandles();   /* le maniglie stanno in un layer a parte: seguono l'elemento solo se le ridisegni */
   } else if(drag.mode==="rotate"){
     sp=svgPoint(e); var rit=state.items.find(function(i){ return i.id===drag.id; });
     if(rit){ var ang=Math.atan2(sp.y-drag.cy, sp.x-drag.cx)*180/Math.PI + 90;   /* maniglia in alto = local up */
@@ -10686,6 +10742,7 @@ function inlineTextEdit(id){
     +"border:1.5px solid var(--accent);border-radius:6px;background:var(--sheet,#fff);color:"+(it.txtColor||"#1f2937")+";"
     +"z-index:60;box-shadow:var(--elev-2);outline:none;resize:none;overflow:auto;white-space:pre-wrap";
   g.setAttribute("opacity","0");                      /* niente doppione sotto la textarea (render() lo ripristina) */
+  var _lh=document.getElementById("layHandles"); if(_lh) _lh.setAttribute("opacity","0");   /* le maniglie sono fuori dal gruppo: si nascondono a parte */
   document.body.appendChild(ta);
   ta.focus(); ta.select();
   var done=false;
