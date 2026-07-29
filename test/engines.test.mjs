@@ -7072,5 +7072,169 @@ t("il violino I è una postazione configurabile: la distanza ha senso solo a due
   ok(A.sepCfg({ type: "vlnpost", vsec: 1, doppia: true }), "a due la distanza va regolata");
 });
 
+console.log("\n— DI presa dal catalogo: adozione —");
+
+/* Il caso reale: una DI trascinata dal catalogo accanto a una chitarra acustica. Visivamente
+   sono collegate, nel dato no: la DI resta una sorgente e dichiara canali che non esistono. */
+function chitarraConDiSciolta(stereo) {
+  reset();
+  const gt = add("gtacustica", 300, 200);
+  /* oggi la chitarra nasce con la SUA DI generata: il caso reale è quello di chi l'ha tolta
+     e ha posato accanto una DI presa dal catalogo (o di un progetto salvato prima). */
+  const gen = A.diLinked(gt);
+  if (gen) { A.state.items = A.state.items.filter((x) => x.id !== gen.id); delete gt.diId; delete gt.diOff; }
+  const di = add("dimono", 225, 200);
+  if (stereo) di.diCh = "stereo";
+  A.__cabRes = null;
+  return { gt, di };
+}
+
+t("una DI presa dal catalogo dichiara canali suoi, oltre allo strumento", () => {
+  const { di } = chitarraConDiSciolta(true);
+  ok(A.isAudioSource(di), "la DI sciolta dovrebbe contare come sorgente");
+  eq(A.patchList().rows.length, 3, "attesi 3 canali: chitarra + DI stereo L/R");
+});
+
+t("adottata dalla chitarra, la DI smette di contare canali suoi", () => {
+  const { gt, di } = chitarraConDiSciolta(true);
+  A.diAdopt(di, gt);
+  A.__cabRes = null;
+  eq(di.diFor, gt.id, "la DI non punta allo strumento");
+  eq(gt.diId, di.id, "lo strumento non punta alla DI");
+  ok(!A.isAudioSource(di), "la DI adottata conta ancora come sorgente");
+  eq(A.patchList().rows.map((r) => r.name), ["Chitarra acustica 1"], "resta un canale solo: la chitarra");
+});
+
+t("la DI adottata resta dove l'utente l'aveva messa", () => {
+  const { gt, di } = chitarraConDiSciolta(false);
+  const pos = { x: di.x, y: di.y };
+  A.diAdopt(di, gt);
+  eq({ x: di.x, y: di.y }, pos, "la DI è saltata altrove dopo l'adozione");
+});
+
+t("non si adotta una DI per uno strumento che non passa da DI", () => {
+  reset();
+  const voce = add("cantante", 300, 200);
+  const di = add("dimono", 225, 200);
+  eq(A.diAdopt(di, voce), false, "una voce non ha bisogno di una DI");
+  ok(!di.diFor);
+});
+
+t("adottare una DI al posto di un'altra libera la precedente", () => {
+  const { gt, di } = chitarraConDiSciolta(false);
+  const vecchia = A.diApply(gt);                 /* la chitarra aveva già la sua DI generata */
+  ok(vecchia && gt.diId === vecchia.id);
+  A.diAdopt(di, gt);
+  eq(gt.diId, di.id, "lo strumento non è passato alla DI adottata");
+  ok(!A.state.items.some((x) => x.id === vecchia.id), "la DI generata è rimasta orfana sul palco");
+});
+
+t("una DI riassegnata a un altro strumento lascia il primo senza", () => {
+  const { gt, di } = chitarraConDiSciolta(false);
+  const gt2 = add("gtacustica", 400, 200);
+  const gen2 = A.diLinked(gt2);
+  if (gen2) { A.state.items = A.state.items.filter((x) => x.id !== gen2.id); delete gt2.diId; delete gt2.diOff; }
+  A.diAdopt(di, gt);
+  A.diAdopt(di, gt2);
+  eq(gt2.diId, di.id, "il nuovo strumento non ha preso la DI");
+  eq(gt.diId, undefined, "il primo strumento punta ancora a una DI che ora serve un altro");
+  eq(di.diFor, gt2.id);
+});
+
+t("gli strumenti candidati sono quelli vicini, che passano da DI e non ne hanno già una", () => {
+  const { gt, di } = chitarraConDiSciolta(false);
+  add("cantante", 340, 200);          /* vicino ma non passa da DI */
+  const lontana = add("gtacustica", 3000, 3000);   /* passa da DI ma è lontanissima */
+  eq(A.diCandidates(di).map((x) => x.id), [gt.id], "candidati sbagliati");
+  ok(A.diLinked(lontana), "la chitarra lontana ha la sua DI generata: non è un candidato");
+});
+
+t("uno strumento che ha già la sua DI non compare fra i candidati", () => {
+  reset();
+  add("gtacustica", 300, 200);        /* nasce con la sua DI generata */
+  const di = add("dimono", 225, 260);
+  eq(A.diCandidates(di).length, 0, "una chitarra già servita non deve adottarne un'altra");
+});
+
+t("una DI in più accanto a uno strumento già servito non viene contestata", () => {
+  reset();
+  add("gtacustica", 300, 200);
+  const di = add("dimono", 225, 260); di.diCh = "stereo";
+  A.__cabRes = null;
+  ok(!hasRule("di-orfana"), "è una DI in più, legittima: lo strumento ha già la sua");
+});
+
+t("l'adozione regge il fulmine e il cestino della channel list", () => {
+  /* i comandi di riga sono stati riscritti il 28-29/07: la riga della DI sparisce dopo l'adozione,
+     e quello che resta cablato è il canale dello strumento. */
+  const { gt, di } = chitarraConDiSciolta(true);
+  A.state.cab.on = true;
+  const box = add("stagebox", 900, 700); A.__cabRes = null;
+  const rigaDi = A.patchList().rows.find((r) => r.itemId === di.id);
+  ok(rigaDi, "prima dell'adozione la DI ha la sua riga");
+  eq(A.cabConnectOne(rigaDi.key), box.id, "il fulmine collega la riga della DI");
+  A.diAdopt(di, gt); A.__cabRes = null;
+  const dopo = A.patchList().rows;
+  eq(dopo.length, 1, "dopo l'adozione resta il solo canale della chitarra");
+  ok(!dopo.some((r) => r.itemId === di.id), "la DI non ha più una riga sua");
+  eq(A.cabConnectOne(dopo[0].key), box.id, "il fulmine collega il canale dello strumento");
+  eq(A.cabUnlinkOne(dopo[0].key), 1, "il cestino toglie un canale solo");
+  ok(!A.patchList().rows.some((r) => r.box), "e la lista resta senza cavi, senza righe fantasma");
+});
+
+console.log("\n— DI orfana: la regola di audit —");
+
+t("una DI sciolta accanto a uno strumento che passa da DI viene contestata", () => {
+  chitarraConDiSciolta(true);
+  ok(hasRule("di-orfana"), "la regola non è scattata");
+});
+
+t("la regola tace se la DI è adottata", () => {
+  const { gt, di } = chitarraConDiSciolta(true);
+  A.diAdopt(di, gt);
+  A.__cabRes = null;
+  ok(!hasRule("di-orfana"), "la regola è scattata su una DI adottata");
+});
+
+t("la regola tace su una DI usata da sola, senza strumenti intorno", () => {
+  reset();
+  add("dimono", 225, 200);
+  A.__cabRes = null;
+  ok(!hasRule("di-orfana"), "una DI isolata è una scelta legittima");
+});
+
+t("una DI che non dichiara canali non viene contestata (zona di microfonazione)", () => {
+  /* la regola parla di «canali in più»: se i canali non ci sono, non c'è niente da dire.
+     Il conto si chiede a itemChannels, la stessa fonte della channel list. */
+  const { di } = chitarraConDiSciolta(true);
+  di.ownMic = false;                                   /* dichiarata assorbibile dalla zona */
+  const z = add("miczone", 260, 200); z.w = 400; z.d = 300; A.__cabRes = null;
+  eq(A.itemChannels(di), 0, "dentro la zona la DI non dichiara canali");
+  eq(A.hasChannels(di), false);
+  ok(!hasRule("di-orfana"), "nessun canale di troppo: nessun rilievo");
+});
+
+t("la chiave della regola è unica: un solo rilievo «di-orfana» anche con due DI sciolte", () => {
+  const { gt, di } = chitarraConDiSciolta(true);
+  const gt2 = add("gtacustica", 800, 200);
+  const gen2 = A.diLinked(gt2);
+  if (gen2) { A.state.items = A.state.items.filter((x) => x.id !== gen2.id); delete gt2.diId; delete gt2.diOff; }
+  add("dimono", 730, 200);
+  A.__cabRes = null;
+  const rilievi = A.auditEngine().findings.filter((x) => x.rule === "di-orfana");
+  eq(rilievi.length, 1, "la dedup è per chiave: un rilievo solo");
+  ok(/2 DI non sono associate/.test(rilievi[0].msg), rilievi[0].msg);
+  ok(gt && di, "riferimenti usati");
+});
+
+t("il fix adotta la DI dello strumento vicino", () => {
+  const { gt, di } = chitarraConDiSciolta(true);
+  const f = A.auditEngine().findings.filter((x) => x.rule === "di-orfana")[0];
+  f.act.run();
+  A.__cabRes = null;
+  eq(di.diFor, gt.id);
+  eq(A.patchList().rows.length, 1, "dopo il fix resta il solo canale della chitarra");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
