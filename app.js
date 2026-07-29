@@ -1538,6 +1538,8 @@ var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi *
 function wattOf(it){
   if(!it) return 0;
   if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
+  var lw=(typeof lightModelWatt==="function")?lightModelWatt(it):null;   /* modello della luce (LIGHT_MODEL_DB): watt ASSORBITI di targa */
+  if(lw!=null) return lw;
   var ew=(typeof equipWatt==="function")?equipWatt(it):null;   /* modello reale: consumo elettrico di targa (≠ potenza audio) */
   if(ew!=null) return ew;
   var w = (WATT_BY_AREA[it.type]!=null) ? Math.round((it.w/100)*(it.d/100)*WATT_BY_AREA[it.type]) : (WATT[it.type]||0);
@@ -1547,6 +1549,11 @@ function wattOf(it){
   return w;
 }
 function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
+/* Un elemento consuma anche quando il suo TIPO non ha un default, purché il modello scelto dichiari
+   i watt: senza questo, una luce col modello reale mostrava il consumo al motore elettrico ma non
+   all'utente, perché il campo Watt del pannello guardava solo la tabella dei tipi (visto in prova
+   sul browser il 29/07). */
+function hasWattItem(it){ return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null))); }
 /* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H in docs/product-audit/equipment-intelligence/) =====
    Un elemento può portare un MODELLO REALE di attrezzatura: it.modelId (slug del DB globale equip_product)
    + it.modelData (SNAPSHOT dell'oggetto SourcedValue: il progetto resta auto-contenuto e OFFLINE-first)
@@ -1593,6 +1600,7 @@ function equipCatsFor(it){
   if(!it||!it.type||!TYPES[it.type]) return null;
   if(it.type==="stagebox") return null;   /* unificato 18/07: il modello è il campo hw (STAGEBOX_DB), non un campo separato */
   if(it.type==="hearback"||it.type==="mixhub"||it.type==="mixerino") return null;   /* unificato 28/07: il modello è il campo pm (PM_DB), nel blocco «Personal monitor» */
+  if(typeof lightModelApplies==="function" && lightModelApplies(it)) return null;   /* unificato 29/07: sulle luci continue il modello è il campo lm (LIGHT_MODEL_DB), nel blocco «Modello della luce» — stessa scelta di stage box (18/07) e personal monitor (28/07): un solo campo per la stessa cosa */
   if(EQUIP_CATS_BY_TYPE[it.type]) return EQUIP_CATS_BY_TYPE[it.type];
   var c=EQUIP_CATS_BY_CATALOG[TYPES[it.type].cat];
   return (c&&c.length)?c:null; }
@@ -3287,6 +3295,183 @@ var LIGHT_GEAR={
   hazer:      {sing:"hazer",                 plur:"hazer"}
 };
 function lightsIsGear(t){ return !!LIGHT_GEAR[t]; }
+/* ===== CATALOGO MODELLI — LUCI CONTINUE DA STUDIO/VIDEO (29/07) ==============================
+   PERCHÉ QUI E NON NEL DB: stesso posto di STAGEBOX_DB e PM_DB. Un catalogo nel sorgente funziona
+   offline e si aggiorna con un deploy, senza passaggi a mano in produzione. Il DB Supabase
+   (equip_product) resta per i prodotti audio: le due strade NON si incrociano mai su uno stesso
+   elemento — equipCatsFor restituisce null dove vale questo catalogo, come già per la stage box
+   (18/07) e il personal monitor (28/07). Un solo campo per la stessa cosa.
+
+   STESSE CONVENZIONI DEI DUE PRECEDENTI:
+   · oggetto piatto chiave→scheda, la chiave è lo slug che finisce sull'item (it.lm, come it.hw/it.pm);
+   · brand + model separati (hwLabel li unisce);
+   · v:true = specifiche lette sulla scheda ufficiale del produttore; ver:"partial" = da confermare;
+   · CIÒ CHE NON SI SA NON C'È. Campo assente = non dichiarato. Mai 0, mai null, mai un valore
+     "simile" preso dal fratello maggiore: la regola del progetto è «niente dato senza fonte».
+
+   FONTI — pagine prodotto e schede tecniche ufficiali consultate il 29/07/2026, una per marca:
+   · Neewer      neewer.com (schede prodotto)
+   · Godox       godox.com (schede prodotto)
+   · amaran      amaran.com (specifiche) — marchio Aputure
+   · Aputure     aputure.com (specifiche + manuali PDF)
+   · Nanlite     nanlite.com (schede prodotto)
+   · Nanlux      nanlux.com (schede prodotto)
+   · SmallRig    smallrig.com (schede prodotto)
+   · ARRI        arri.com (technical data / datasheet PDF)
+   · Creamsource creamsource.com (specifiche)
+   · Litepanels  litepanels.com (specifiche)
+   · Kino Flo    kinoflo.com (specifiche)
+   I campi rimasti vuoti e il perché stanno nel commento della singola riga.
+
+   CAMPI: brand · model · tier (base|pro|cinema) · lamp (sorgente) · color (day|bi|rgb) ·
+   cct [min,max] K · cri · watt (ASSORBITI, non "equivalenti") · att (attacco modificatori) ·
+   power [] · ctrl [] · kg (peso della sola testa) · v/ver · note ============================== */
+var LIGHT_LAMP={ cob:"COB", array:"array LED", rgbww:"RGBWW", rgbw:"RGBW", rrgbbw:"RRGBBW",
+  rgblac:"RGBLAC (6 colori)", six:"6 colori" };
+var LIGHT_COLOR={ day:"daylight", bi:"bicolore", rgb:"full color" };
+/* NL e FM non sono la stessa cosa e non sono della stessa casa (verificato 29/07): NL mount è
+   l'attacco dei Nanlux Evoke, FM mount è quello dei piccoli Nanlite Forza (che portano in dotazione
+   l'adattatore a Bowens). Sui Nanlux un «FM mount» non esiste. */
+var LIGHT_ATT={ bowens:"Bowens S", bowensmini:"Bowens mini", aputure:"attacco Aputure",
+  qlm:"ARRI QLM", skypanel:"attacco SkyPanel", nl:"NL mount", fm:"FM mount",
+  prop:"proprietario", none:"nessuno" };
+var LIGHT_PWR={ ac:"rete AC", psu:"alimentatore esterno", box:"control box", dc48:"DC 48 V",
+  vmount:"V-Mount", gold:"Gold Mount", npf:"NP-F", usbc:"USB-C PD", powercon:"powerCON" };
+var LIGHT_CTRL={ local:"manopola", app:"app", bt:"Bluetooth", g24:"2.4 GHz", rf433:"radio 433 MHz",
+  wifi:"Wi-Fi", dmx:"DMX cablato", crmx:"CRMX", artnet:"Art-Net/sACN", eth:"Ethernet" };
+var LIGHT_MODEL_DB={
+  /* ── Neewer (neewer.com) ───────────────────────────────────────────────────────────────────
+     Neewer pubblica solo la potenza NOMINALE della sorgente («Power: 100W»), mai l'assorbimento. */
+  "neewer_cb100": {brand:"Neewer", model:"CB100", tier:"base", color:"day", cct:[5600,5600], cri:97, wattRated:100, att:"bowens", power:["ac"], ctrl:["local","g24"], kg:2.0, ver:"partial", note:"oggi delistato da neewer.com: le specifiche vengono dallo snapshot archiviato della pagina ufficiale (01/2024). Sorgente non dichiarata come COB"},
+  "neewer_fs100b":{brand:"Neewer", model:"FS100B", tier:"base", lamp:"cob", color:"bi", cct:[2700,6500], cri:96, wattRated:100, power:["psu","usbc"], ctrl:["local","app"], kg:0.356, v:true, note:"ATTACCO MODIFICATORI NON DICHIARATO: in dotazione solo riflettore e diffusore, nessun Bowens dichiarato dal produttore. Battery grip Neewer opzionali; il protocollo radio dell'app non è dichiarato"},
+  /* ── Godox (godox.com + manuali PDF) ───────────────────────────────────────────────────────
+     Godox dichiara «Max. Power», che non è etichettato come assorbimento a rete → wattRated.
+     Nessun modello Godox qui dichiara DMX cablato. */
+  "godox_sl60iid": {brand:"Godox", model:"SL60IID", tier:"base", color:"day", cct:[5600,5600], cri:96, wattRated:70, att:"bowens", power:["ac"], ctrl:["local","g24","bt","app"], kg:1.43, v:true},
+  "godox_sl60iibi":{brand:"Godox", model:"SL60IIBi", tier:"base", color:"bi", cct:[2800,6500], cri:96, wattRated:75, att:"bowens", power:["ac"], ctrl:["local","g24","bt","app"], kg:1.5, v:true},
+  "godox_vl150":   {brand:"Godox", model:"VL150", tier:"base", color:"day", cct:[5600,5600], cri:96, wattRated:150, att:"bowens", power:["box","psu","ac","vmount"], ctrl:["local","rf433","bt","app"], kg:1.97, v:true, note:"prima generazione: pagina ancora viva ma fuori dal catalogo corrente (la VL150II dichiara 165 W). Peso della sola testa, controller a parte"},
+  "godox_vl300":   {brand:"Godox", model:"VL300", tier:"base", color:"day", cct:[5600,5600], cri:96, wattRated:300, att:"bowens", power:["box","psu","ac","vmount"], ctrl:["local","rf433","bt","app"], kg:2.64, v:true, note:"prima generazione, fuori dal catalogo corrente (la VL300II dichiara 320 W). Potenza selezionabile 300/250/200 W; peso della sola testa"},
+  /* ── OEM senza marca ───────────────────────────────────────────────────────────────────────
+     Non è un modello: è una sigla da marketplace che nessun produttore rivendica. Sta in catalogo
+     perché è una luce che la gente HA davvero e deve poterla scrivere nel rider — ma non porta
+     nessuna specifica, e i 100 W sono quelli scritti nell'annuncio, non un dato di targa. */
+  "oem_q310_100w":{brand:"OEM / senza marca", model:"Q310 100 W (COB)", tier:"base", lamp:"cob", wattRated:100, ver:"partial", note:"NESSUNA SCHEDA UFFICIALE: la sigla non è rivendicata da nessun produttore. I 100 W sono il nome commerciale, non un assorbimento dichiarato. Attacco, colore, CRI, alimentazione e controllo restano da rilevare sull'esemplare"},
+  /* ── Aputure (aputure.com + help.aputure.com + manuali PDF) ────────────────────────────────
+     Aputure dichiara SIA l'assorbimento SIA la potenza nominale: qui c'è l'assorbimento.
+     «COB» è dichiarato solo per LS 600d e LS 1200d Pro — sugli altri la scheda dice genericamente
+     «point-source LED», quindi il campo lamp resta vuoto invece di essere dedotto. */
+  "aputure_ls300d2":  {brand:"Aputure", model:"LS 300d II", tier:"pro", color:"day", cct:[5600,5600], cri:96, watt:350, att:"bowens", power:["box","ac","vmount","gold"], ctrl:["local","bt","app","g24","dmx"], kg:3.2, v:true},
+  "aputure_ls300x":   {brand:"Aputure", model:"LS 300x", tier:"pro", color:"bi", cct:[2700,6500], cri:96, watt:350, att:"bowens", power:["box","ac","vmount","gold"], ctrl:["local","bt","app","g24","dmx"], v:true, note:"peso della sola testa non dichiarato (la scheda dà solo il peso netto complessivo)"},
+  "aputure_ls600d":   {brand:"Aputure", model:"LS 600d", tier:"pro", lamp:"cob", color:"day", cct:[5600,5600], cri:96, watt:720, att:"bowens", power:["box","ac","vmount","gold","dc48"], ctrl:["local","bt","app","g24","dmx"], kg:4.69, v:true, note:"senza CRMX né Art-Net: è la differenza col Pro"},
+  "aputure_ls600dpro":{brand:"Aputure", model:"LS 600d Pro", tier:"pro", color:"day", cct:[5600,5600], cri:96, watt:720, att:"bowens", power:["box","ac","vmount","gold","dc48"], ctrl:["local","bt","app","g24","dmx","crmx","artnet"], kg:4.64, v:true},
+  "aputure_ls600xpro":{brand:"Aputure", model:"LS 600x Pro", tier:"pro", color:"bi", cct:[2700,6500], cri:96, watt:720, att:"bowens", power:["box","ac","vmount","gold","dc48"], ctrl:["local","bt","app","g24","dmx","crmx","artnet"], kg:5.16, v:true},
+  "aputure_ls600cpro2":{brand:"Aputure", model:"LS 600c Pro II", tier:"pro", color:"rgb", cct:[2300,10000], cri:95, watt:720, att:"bowens", power:["box","ac","vmount","gold","dc48"], ctrl:["local","app","dmx","crmx","artnet"], kg:5.9, v:true, note:"IP54; lo schema colore (RGBWW) non è dichiarato sulla scheda ufficiale, quindi non è scritto qui"},
+  "aputure_ls1200dpro":{brand:"Aputure", model:"LS 1200d Pro", tier:"cinema", lamp:"cob", color:"day", cct:[5600,5600], cri:96, watt:1440, att:"bowens", power:["box","ac","dc48"], ctrl:["local","app","dmx","crmx","artnet"], kg:8.95, v:true, note:"nessuna piastra batteria sul control box: due ingressi DC 48 V"},
+  /* ── amaran, marchio Aputure (help.aputure.com, schede tecniche) ───────────────────────────
+     Aputure pubblica DUE numeri: «DC Input Power (Max)» = assorbimento (è quello qui) e «Output
+     Power (lamp)» = potenza nominale, cioè il numero del nome commerciale. Nessun amaran della
+     serie S dichiara DMX cablato, CRMX o Art-Net: quei campi restano fuori. */
+  "amaran_60ds": {brand:"amaran", model:"60d S", tier:"base", lamp:"cob", color:"day", cct:[5600,5600], cri:97, watt:77, att:"bowens", power:["psu","ac","vmount"], ctrl:["local","bt","app"], kg:0.695, v:true, note:"la pagina commerciale dichiara CRI 96: qui c'è il valore della scheda tecnica"},
+  "amaran_60xs": {brand:"amaran", model:"60x S", tier:"base", lamp:"cob", color:"bi", cct:[2700,6500], cri:97, watt:78, att:"bowens", power:["psu","ac","vmount"], ctrl:["local","bt","app"], kg:0.695, v:true},
+  "amaran_100ds":{brand:"amaran", model:"100d S", tier:"base", lamp:"cob", color:"day", cct:[5600,5600], cri:96, watt:110.9, att:"bowens", power:["psu","ac"], ctrl:["local","bt","app"], kg:1.42, v:true, note:"nessuna alimentazione a batteria dichiarata"},
+  "amaran_100xs":{brand:"amaran", model:"100x S", tier:"base", lamp:"cob", color:"bi", cct:[2700,6500], cri:95, watt:113, att:"bowens", power:["psu","ac"], ctrl:["local","bt","app"], kg:1.42, v:true, note:"nessuna alimentazione a batteria dichiarata"},
+  "amaran_200ds":{brand:"amaran", model:"200d S", tier:"base", lamp:"cob", color:"day", cct:[5600,5600], cri:96, watt:221, att:"bowens", power:["psu","ac"], ctrl:["local","bt","app"], kg:1.56, v:true, note:"nessuna alimentazione a batteria dichiarata"},
+  "amaran_200xs":{brand:"amaran", model:"200x S", tier:"base", lamp:"cob", color:"bi", cct:[2700,6500], cri:95, watt:229, att:"bowens", power:["psu","ac"], ctrl:["local","bt","app"], kg:1.56, v:true, note:"la riga «Power supply» della scheda ufficiale è incoerente (refuso): la tensione DC d'ingresso non è affidabile"},
+  /* ── Nanlite Forza II (nanlite.com) ────────────────────────────────────────────────────────
+     ATTENZIONE: Nanlite e Nanlux dichiarano solo la «Rated Power». L'assorbimento a rete non è
+     pubblicato → wattRated, non watt. CRMX e Art-Net non compaiono sulle schede: campo assente. */
+  "nanlite_forza60ii":  {brand:"Nanlite", model:"Forza 60 II", tier:"base", color:"day", cct:[5600,5600], cri:95, wattRated:72, att:"fm", power:["psu","ac","npf","vmount"], ctrl:["local","g24","bt","app","dmx"], kg:0.84, v:true, note:"attacco FM nativo, adattatore Bowens in dotazione; i 72 W non sono i 60 del nome. Sorgente non dichiarata a parole sulla scheda"},
+  "nanlite_forza60bii": {brand:"Nanlite", model:"Forza 60B II", tier:"base", color:"bi", cct:[2700,6500], cri:96, wattRated:72, att:"fm", power:["psu","ac","npf","vmount"], ctrl:["local","g24","bt","app","dmx"], kg:0.70, v:true, note:"attacco FM nativo, adattatore Bowens in dotazione; cavo adattatore DMX venduto a parte"},
+  "nanlite_forza300ii": {brand:"Nanlite", model:"Forza 300 II", tier:"pro", lamp:"cob", color:"day", cct:[5600,5600], cri:96, wattRated:350, att:"bowens", power:["box","ac","vmount"], ctrl:["local","g24","bt","app","dmx"], kg:2.88, v:true},
+  "nanlite_forza300bii":{brand:"Nanlite", model:"Forza 300B II", tier:"pro", lamp:"cob", color:"bi", cct:[2700,6500], cri:96, wattRated:350, att:"bowens", power:["box","ac","vmount"], ctrl:["local","g24","bt","app","dmx"], kg:2.90, v:true},
+  "nanlite_forza500ii": {brand:"Nanlite", model:"Forza 500 II", tier:"pro", lamp:"cob", color:"day", cct:[5600,5600], cri:96, wattRated:560, att:"bowens", power:["box","ac","vmount"], ctrl:["local","g24","bt","app","dmx"], kg:3.88, v:true},
+  "nanlite_forza500bii":{brand:"Nanlite", model:"Forza 500B II", tier:"pro", lamp:"cob", color:"bi", cct:[2700,6500], cri:96, wattRated:580, att:"bowens", power:["box","ac","vmount"], ctrl:["local","g24","bt","app","dmx"], kg:4.34, v:true},
+  /* ── Nanlux Evoke (nanlux.com) — alimentatore separato pesante e ingresso DC 48 V: in pratica
+     apparecchi da rete. La scheda NON dichiara il funzionamento a V-Mount: qui non c'è. */
+  "nanlux_evoke900c": {brand:"Nanlux", model:"Evoke 900C", tier:"cinema", lamp:"rgblac", color:"rgb", cct:[1800,20000], cri:96, wattRated:940, att:"nl", power:["psu","ac","dc48"], ctrl:["local","g24","bt","app","dmx","crmx","artnet"], kg:7.7, v:true, note:"IP55"},
+  "nanlux_evoke1200": {brand:"Nanlux", model:"Evoke 1200", tier:"cinema", lamp:"cob", color:"day", cct:[5600,5600], cri:96, wattRated:1200, att:"nl", power:["psu","ac","dc48"], ctrl:["local","g24","bt","app","dmx","crmx"], kg:6.94, v:true},
+  "nanlux_evoke1200b":{brand:"Nanlux", model:"Evoke 1200B", tier:"cinema", lamp:"cob", color:"bi", cct:[2700,6500], cri:96, wattRated:1200, att:"nl", power:["psu","ac","dc48"], ctrl:["local","g24","bt","app","dmx","crmx"], kg:7.75, v:true, note:"IP54"},
+  "nanlux_evoke2400b":{brand:"Nanlux", model:"Evoke 2400B", tier:"cinema", lamp:"cob", color:"bi", cct:[2700,6500], cri:96, wattRated:2400, att:"nl", power:["psu","ac","dc48"], ctrl:["local","g24","bt","app","dmx","crmx","artnet"], kg:15, v:true, note:"attacco NL con contatti elettronici (riconosce il modificatore); IP55"},
+  /* ── SmallRig serie RC (smallrig.com + manuali PDF ufficiali) ──────────────────────────────
+     Il numero nel nome è la potenza NOMINALE della sorgente: l'assorbimento dichiarato è più alto
+     (RC 120 = 150 W, RC 350 = 403 W). Qui c'è l'assorbimento. */
+  "smallrig_rc120d":{brand:"SmallRig", model:"RC 120D", tier:"base", lamp:"cob", color:"day", cct:[5600,5600], cri:95, watt:150, att:"bowens", power:["psu","ac","vmount"], ctrl:["local","bt","app","g24"], kg:2.43, v:true, note:"V-Mount con la piastra opzionale; DMX non dichiarato"},
+  "smallrig_rc120b":{brand:"SmallRig", model:"RC 120B", tier:"base", lamp:"cob", color:"bi", cct:[2700,6500], cri:95, watt:150, att:"bowens", power:["psu","ac","vmount"], ctrl:["local","bt","app","g24"], kg:2.43, v:true, note:"V-Mount con la piastra opzionale; DMX non dichiarato"},
+  "smallrig_rc350d":{brand:"SmallRig", model:"RC 350D", tier:"base", lamp:"cob", color:"day", cct:[5600,5600], cri:96, watt:403, att:"bowens", power:["psu","ac"], ctrl:["local","bt","app","g24","dmx"], kg:3.30, v:true, note:"DMX solo con l'adattatore SmallRig 4390 (opzionale); alimentazione a batteria non dichiarata"},
+  "smallrig_rc350b":{brand:"SmallRig", model:"RC 350B", tier:"base", lamp:"cob", color:"bi", cct:[2700,6500], cri:96, watt:403, att:"bowens", power:["psu","ac"], ctrl:["local","bt","app","g24","dmx"], kg:3.30, v:true, note:"DMX solo con l'adattatore SmallRig 4390 (opzionale); alimentazione a batteria non dichiarata"},
+  /* ── ARRI (arri.com, tech specs + datasheet PDF) ───────────────────────────────────────────
+     Il QLM è l'attacco dell'Orbiter e solo suo: lo SkyPanel usa il telaio frontale della sua serie,
+     l'X21 un Quick-Release diverso che recupera gli accessori S60 con un adattatore. */
+  "arri_orbiter":  {brand:"ARRI", model:"Orbiter", tier:"cinema", lamp:"six", color:"rgb", cct:[2000,20000], cri:98, watt:500, att:"qlm", power:["ac","powercon","dc48"], ctrl:["local","dmx","eth","crmx"], kg:11.7, v:true, note:"500 W massimi (400 W nominali); Art-Net/sACN non dichiarati nelle specifiche. Peso del solo apparecchio, senza yoke"},
+  "arri_s60c":     {brand:"ARRI", model:"SkyPanel S60-C", tier:"cinema", lamp:"rgbw", color:"rgb", cct:[2800,10000], cri:95, watt:400, att:"skypanel", power:["psu","ac","powercon"], ctrl:["local","dmx","eth","artnet"], kg:10.6, v:true, note:"FUORI PRODUZIONE (ARRI la elenca fra i modelli dismessi). Alimentatore esterno; a batteria 23–36 V l'uscita scende al 50%. CRMX non dichiarato"},
+  "arri_s120c":    {brand:"ARRI", model:"SkyPanel S120-C", tier:"cinema", lamp:"rgbw", color:"rgb", cct:[2800,10000], cri:95, watt:400, att:"skypanel", power:["psu","ac","powercon"], ctrl:["local","dmx","eth","artnet"], kg:12.9, v:true, note:"alimentatore esterno; batteria 23–36 V su XLR 4 poli. sACN e CRMX non dichiarati su questa scheda"},
+  "arri_x21":      {brand:"ARRI", model:"SkyPanel X21", tier:"cinema", lamp:"six", color:"rgb", cct:[1500,20000], cri:90, watt:800, att:"prop", power:["ac","powercon","dc48"], ctrl:["local","dmx","artnet","eth","crmx","bt"], kg:15, v:true, note:"CRI 90 minimo, 99 in modo High CRI. Attacco Quick-Release proprio, NON il QLM: gli accessori SkyPanel S60 servono l'adattatore S60. IP66"},
+  /* ── Creamsource (knowledge.creamsource.com) — niente Bowens: due guide portafiltri proprie. */
+  "creamsource_vortex4":{brand:"Creamsource", model:"Vortex4", tier:"cinema", lamp:"rgbw", color:"rgb", cct:[2200,15000], cri:95, wattRated:325, att:"prop", power:["ac","powercon","dc48"], ctrl:["local","dmx","crmx","bt","eth","artnet"], kg:9.9, v:true, note:"l'assorbimento è dichiarato solo in corrente (max 3,3 A a 100–240 V): i 325 W sono la potenza dell'apparecchio. IP65; peso senza yoke"},
+  "creamsource_vortex8":{brand:"Creamsource", model:"Vortex8", tier:"cinema", lamp:"rrgbbw", color:"rgb", cct:[2200,15000], cri:95, watt:660, att:"prop", power:["ac","powercon","dc48"], ctrl:["local","dmx","crmx","bt","eth"], kg:15.9, v:true, note:"Art-Net/sACN non dichiarati su questa scheda (sul Vortex4 sì); peso senza yoke"},
+  /* ── Kino Flo / Litepanels ─────────────────────────────────────────────────────────────────── */
+  "kinoflo_celeb450":{brand:"Kino Flo", model:"Celeb 450 LED DMX", tier:"cinema", color:"rgb", cct:[2500,9900], cri:96, watt:255, att:"prop", power:["ac"], ctrl:["local","dmx","crmx"], kg:12, v:true, note:"FUORI PRODUZIONE dal 1° gennaio 2023 (dichiarazione Kino Flo). Portaccessori a molla proprietari; nessun ingresso batteria dichiarato per la 450. Tipo di array non dichiarato"},
+  "litepanels_gemini2x1":{brand:"Litepanels", model:"Gemini 2x1 Soft", tier:"cinema", lamp:"rgbww", color:"rgb", cct:[2700,10000], cri:99, wattRated:325, power:["ac","powercon"], ctrl:["local","dmx","crmx","bt"], kg:10.1, v:true, note:"ATTACCO MODIFICATORI NON DICHIARATO come standard (softbox e griglie Litepanels dedicati). «Nominal power draw» 325 W: nessun massimo dichiarato. CRMX, W-DMX e Bluetooth richiedono il dongle opzionale. Ingresso DC 13–28 V. Peso comprensivo di staffa e alimentatore. Specifiche dalla brochure ufficiale (litepanels.com blocca gli accessi automatici)"}
+};
+/* Il campo compare SOLO sulle luci continue da studio/video. Riconosciute dalla LORO sottocategoria
+   di catalogo, non da un elenco di chiavi scritto a mano: le tipologie che arrivano dopo (Luce LED
+   COB, Monolight, Pannello, Tubo…) prendono il campo da sole, senza toccare questa riga.
+   I fari da palco (PAR, sagomatore, testa mobile) restano fuori di proposito: hanno già il loro
+   «Modello del faro» dal catalogo prodotti, e due campi per la stessa cosa è l'errore che il
+   progetto ha già corretto due volte. */
+var LIGHT_MODEL_CAT="Luci", LIGHT_MODEL_SUB="Video e studio";
+function lightModelApplies(it){
+  if(!it||!it.type||typeof TYPES!=="object") return false;
+  var T=TYPES[it.type];
+  return !!(T && T.cat===LIGHT_MODEL_CAT && T.sub===LIGHT_MODEL_SUB);
+}
+function lightModelOf(it){ return (it && it.lm && LIGHT_MODEL_DB[it.lm]) || null; }
+/* Watt che il modello porta sull'elemento.
+   watt = ASSORBIMENTO dichiarato (power consumption): è il dato giusto per il piano elettrico.
+   wattRated = potenza NOMINALE della sorgente, quando è l'unica cosa che il produttore dichiara
+   (Nanlite e Nanlux non pubblicano l'assorbimento). Usarla come carico è una DERIVAZIONE, e come
+   tale è scritta nella riga di specifiche del pannello — stesso principio di equipWatt, che deriva
+   i watt dagli ampere dichiarandolo. Se il modello non dichiara né l'uno né l'altro non inventa
+   niente: null, e l'elemento torna al default del tipo (o al valore scritto a mano). */
+function lightModelWatt(it){
+  var d=lightModelOf(it); if(!d) return null;
+  var v=(d.watt!=null) ? d.watt : d.wattRated;
+  if(v==null) return null;
+  var n=+v; return (isFinite(n)&&n>=0) ? Math.round(n) : null;
+}
+/* Riga di specifiche del pannello: SOLO i campi dichiarati, nell'ordine in cui servono a chi monta. */
+function lightModelSpecText(d){
+  if(!d) return "";
+  var b=[];
+  var col=LIGHT_COLOR[d.color]||"";
+  if(d.cct && d.cct.length===2) col+=(col?" ":"")+(d.cct[0]===d.cct[1] ? (d.cct[0]+" K") : (d.cct[0]+"–"+d.cct[1]+" K"));
+  var lamp=LIGHT_LAMP[d.lamp]||"";
+  if(lamp||col) b.push([lamp,col].filter(Boolean).join(" "));
+  if(d.cri!=null) b.push("CRI "+d.cri);
+  if(d.watt!=null) b.push(d.watt+" W assorbiti");
+  else if(d.wattRated!=null) b.push(d.wattRated+" W nominali (assorbimento non dichiarato)");
+  if(d.att) b.push("attacco "+(LIGHT_ATT[d.att]||d.att));
+  if(d.power && d.power.length) b.push(d.power.map(function(p){ return LIGHT_PWR[p]||p; }).join(" / "));
+  if(d.ctrl && d.ctrl.length) b.push(d.ctrl.map(function(c){ return LIGHT_CTRL[c]||c; }).join(", "));
+  if(d.kg!=null) b.push(d.kg+" kg");
+  if(d.ver==="partial"||d.v===false) b.push("⚠ specifiche da verificare sulla scheda ufficiale");
+  if(d.note) b.push(d.note);
+  return b.join(" · ");
+}
+/* Il modello REALE di una richiesta luci: lo dichiara solo se TUTTE le icone agganciate portano
+   lo stesso modello. Due modelli diversi nella stessa riga non sono un modello: sono due richieste,
+   e scriverne uno solo sarebbe un rider che dichiara il falso. */
+function lightRowModel(r){
+  var ids=(r&&r.items)||[]; if(!ids.length) return "";
+  var byId={}; ((typeof state==="object"&&state&&state.items)||[]).forEach(function(x){ byId[x.id]=x; });
+  var lm=null;
+  for(var i=0;i<ids.length;i++){
+    var it=byId[ids[i]]; if(!it) continue;               /* icona cancellata: non toglie il modello alle altre */
+    if(!it.lm || !LIGHT_MODEL_DB[it.lm]) return "";      /* una senza modello = la riga non ne ha uno */
+    if(lm===null) lm=it.lm; else if(lm!==it.lm) return "";
+  }
+  return lm ? hwLabel(lm, LIGHT_MODEL_DB) : "";
+}
 function lightFnLabel(k){ for(var i=0;i<LIGHT_FN.length;i++) if(LIGHT_FN[i][0]===k) return LIGHT_FN[i][1]; return ""; }
 function lightPosLabel(k){ for(var i=0;i<LIGHT_POS.length;i++) if(LIGHT_POS[i][0]===k) return LIGHT_POS[i][1]; return ""; }
 function lightGearLabel(g){ return (TYPES[g] && TYPES[g].nome) ? TYPES[g].nome : String(g||""); }
@@ -3406,6 +3591,8 @@ function lightRowText(r){
   var parts=["n."+r.n];
   var g=lightGearText(r.gear, r.n); if(g) parts.push(g);
   var alt=String(r.gearAlt||"").trim(); if(alt) parts.push("oppure "+alt);
+  var mdl=(typeof lightRowModel==="function")?lightRowModel(r):"";
+  if(mdl) parts.push("("+mdl+")");   /* il modello vero, quando le icone lo dichiarano tutte uguale */
   var col=String(r.color||"").trim(); if(col) parts.push(col);
   var loc=lightPosPhrase(r, false);
   if(loc) parts.push(loc.toLowerCase());
@@ -6497,6 +6684,27 @@ function pmFillProps(it){
   }
 }
 
+/* ── pannello «Modello della luce» (29/07): marca+modello da LIGHT_MODEL_DB ──
+   Stesso gesto del blocco «Personal monitor»: due tendine (marca → modello) e una riga di
+   specifiche. Niente testo libero: o è un modello del catalogo, o è generico. */
+function lmFillProps(it){
+  var bSel=document.getElementById("pLmBrand"), mSel=document.getElementById("pLmModel");
+  if(!bSel||!mSel) return;
+  var cur=lightModelOf(it), curBrand=cur?cur.brand:"";
+  var brands={}; Object.keys(LIGHT_MODEL_DB).forEach(function(k){ brands[LIGHT_MODEL_DB[k].brand]=1; });
+  var bh='<option value="">Generico</option>';
+  Object.keys(brands).sort().forEach(function(b){ bh+='<option value="'+esc(b)+'"'+(b===curBrand?' selected':'')+'>'+esc(b)+'</option>'; });
+  bSel.innerHTML=bh;
+  if(curBrand){
+    var mh='';
+    Object.keys(LIGHT_MODEL_DB).forEach(function(k){ var d=LIGHT_MODEL_DB[k]; if(d.brand!==curBrand) return;
+      mh+='<option value="'+k+'"'+(it.lm===k?' selected':'')+'>'+esc(d.model)+((d.v===false||d.ver==="partial")?" ?":"")+'</option>'; });
+    mSel.innerHTML=mh; mSel.style.display="";
+  } else { mSel.innerHTML=""; mSel.style.display="none"; }
+  var info=document.getElementById("pLmInfo");
+  if(info) info.textContent = cur ? lightModelSpecText(cur) : "Generico: nessuna specifica dichiarata.";
+}
+
 /* ===== AUDIT / DIAGNOSTICA — "AI" deterministica: aggrega le criticità dei motori + regole
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
 var AUDIT_MON_NEAR=350;   /* T1 — soglia prossimità monitor (~3,5 m a 100 px/m); tarabile */
@@ -7634,7 +7842,7 @@ function renderProps(){
   document.getElementById("selNome").textContent = t.nome;
   setPeekName(t.nome);
   var pwWrap=document.getElementById("pWattWrap");
-  if(pwWrap){ var powered=hasWatt(it.type); pwWrap.style.display = powered ? "block" : "none";
+  if(pwWrap){ var powered=hasWattItem(it); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
   var byWrap=document.getElementById("pByWrap");   /* backline: "Fornito da" solo per ampli/piani/tastiere/batteria (#3) */
   if(byWrap){ var isBk=(typeof isBackline==="function") && isBackline(it); byWrap.style.display = isBk ? "block" : "none";
@@ -7645,6 +7853,9 @@ function renderProps(){
   var pmWrap=document.getElementById("pPmWrap");   /* personal monitor model-driven (B1): marca/modello da PM_DB */
   if(pmWrap){ var isPm=(it.type==="hearback"||it.type==="mixhub"); pmWrap.style.display = isPm ? "block" : "none";
     if(isPm) pmFillProps(it); }
+  var lmWrap=document.getElementById("pLmWrap");   /* luci continue: marca/modello da LIGHT_MODEL_DB (29/07) */
+  if(lmWrap){ var isLm=lightModelApplies(it); lmWrap.style.display = isLm ? "block" : "none";
+    if(isLm) lmFillProps(it); }
   (function(){ var fw=document.getElementById("pPmFeedWrap"); if(!fw) return;
     if(!(typeof pmIsHub==="function" && pmIsHub(it))){ fw.style.display="none"; return; }
     fw.style.display="block";
@@ -8589,7 +8800,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
+  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap","pReqWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn");
   if(resp || cont){
@@ -13722,6 +13933,20 @@ function renderCabPanel(){
   if(pmMs) pmMs.addEventListener("change", function(){ var it=getSel(); if(!it||(it.type!=="hearback"&&it.type!=="mixhub")) return;
     if(this.value) it.pm=this.value; else delete it.pm;
     __mondRes=null; save(); render(); renderProps(); });
+  /* modello della luce (29/07): la marca seleziona il primo modello; il modello scrive it.lm.
+     Stesso identico gesto delle due tendine del personal monitor. */
+  var lmB=document.getElementById("pLmBrand");
+  if(lmB) lmB.addEventListener("change", function(){ var it=getSel(); if(!it||!lightModelApplies(it)) return;
+    var v=this.value;
+    if(!v){ mutSel(function(x){ if(lightModelApplies(x)) delete x.lm; }); }
+    else { var first=null; Object.keys(LIGHT_MODEL_DB).some(function(k){ if(LIGHT_MODEL_DB[k].brand===v){ first=k; return true; } return false; });
+      if(first) mutSel(function(x){ if(lightModelApplies(x)) x.lm=first; }); }
+    __elecRes=null; save(); render(); renderProps(); });
+  var lmM=document.getElementById("pLmModel");
+  if(lmM) lmM.addEventListener("change", function(){ var it=getSel(); if(!it||!lightModelApplies(it)) return;
+    var v=this.value;
+    mutSel(function(x){ if(!lightModelApplies(x)) return; if(v) x.lm=v; else delete x.lm; });
+    __elecRes=null; save(); render(); renderProps(); });
   var zop=document.getElementById("pZoneOp");   /* zona: opacità live (come gli slider layer) */
   if(zop) zop.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ it.opacity=+this.value;
     var n=itemNode(it.id), r=n&&n.querySelector("polygon"); if(r) r.setAttribute("fill-opacity",(it.opacity/100).toFixed(2)); saveSoon(); } });
@@ -18392,7 +18617,7 @@ function lightsList(){
   order.forEach(function(fn){
     rows.filter(function(r){ return String(r.fn||"")===fn; }).forEach(function(r){
       out.push({ n:r.n, fn:fn?lightFnLabel(fn):"— da assegnare —",
-        gear:lightGearText(r.gear, r.n)||"—", color:r.color||"",
+        gear:lightGearText(r.gear, r.n)||"—", model:lightRowModel(r), color:r.color||"",
         pos:(function(){ var P=lightRowPos(r);
           if(P.misto) return "montaggi diversi";
           var p=lightPosLabel(P.pos); if(!p) return "";
@@ -18412,7 +18637,9 @@ function pdfListConfig(){
         d.mood?("luce "+d.mood):""].filter(Boolean).join(" · "); },
       cols:[{h:"Q.tà",num:1,f:function(r){return r.n+"×";}},
             {h:"Funzione",f:function(r){return r.fn;},warn:function(r){return r.fn.indexOf("assegnare")>=0;}},
-            {h:"Apparecchio",f:function(r){return r.gear;}},
+            /* il modello vero sta nella colonna dell'apparecchio, non in una colonna sua: chi legge
+               cerca «cosa mi serve», e il modello è la stessa informazione, più precisa */
+            {h:"Apparecchio",f:function(r){return r.model?(r.gear+" — "+r.model):r.gear;}},
             {h:"Colore",f:function(r){return r.color||"—";},warn:function(r){return !r.color;}},
             {h:"Posizione",f:function(r){return r.pos||"—";}},
             {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
