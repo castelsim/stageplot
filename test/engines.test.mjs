@@ -4525,6 +4525,65 @@ t("un'asta messa a mano dal catalogo si conta una volta sola", () => {
   eq(n.dritta.gia + n.giraffa.gia + n.bassa.gia, 3, "sono tutte gia' sul palco");
   eq(n.dritta.dedotte + n.giraffa.dedotte + n.bassa.dedotte, 0, "il loro canale non deve dedurne un'altra");
 });
+/* ---- Coppia stereo: due canali, UNA asta (Simone 29/07) ----
+   Una ripresa stereo (ORTF, due panoramici su barra) occupa due canali ma un solo supporto:
+   contarne due significa far portare al service un'asta in piu'. */
+t("la Coppia stereo del catalogo vale un'asta sola, non una per canale", () => {
+  reset();
+  const c = add("coppiast", 500, 300);
+  eq(A.cabItemInputs(c).length, 2, "la coppia da' due canali");
+  eq(A.standTotal(A.standNeeds()), 1, "ma sta su una barra, su una sola asta");
+});
+t("il flag e' del SECONDO canale della coppia: la L porta l'asta, la R la condivide", () => {
+  reset();
+  const c = add("coppiast", 500, 300);
+  eq(A.stereoPairSecond(c, 1), true, "il canale 1 e' la R di una coppia L/R");
+  eq(A.stereoPairSecond(c, 0), false, "il canale 0 e' la L: non condivide, porta");
+  eq(A.standSharedOf(c, 1), true, "sulla Coppia stereo la condivisione e' il default giusto");
+  eq(A.standSharedOf(c, 0), false);
+});
+t("su un pianoforte stereo restano due aste finche' il fonico non dice il contrario", () => {
+  reset();
+  const p = add("grancoda", 500, 300);
+  eq(A.cabItemInputs(p).length, 2, "piano ripreso stereo");
+  eq(A.standTotal(A.standNeeds()), 2, "due panoramici, due aste: il default non decide per il fonico");
+  A.cabSetStandShared(p.id + "#1", true);
+  eq(A.standTotal(A.standNeeds()), 1, "dichiarata la barra, l'asta e' una");
+  eq(A.state.cab.manual[p.id + "#1"].standShared, true, "il dato sta nell'override di canale, con `stand` e `p48`");
+  ok(A.state.cab.manual[p.id + "#0"] === undefined, "e non si scrive nulla sulla riga che l'asta ce l'ha");
+});
+t("scegliere un supporto a mano esce dalla condivisione (una informazione sola, non due)", () => {
+  reset();
+  const c = add("coppiast", 500, 300);
+  eq(A.standTotal(A.standNeeds()), 1);
+  A.cabSetStand(c.id + "#1", "asta giraffa");
+  eq(A.state.cab.manual[c.id + "#1"].standShared, false, "il false resta scritto: il default non deve tornare a decidere");
+  eq(A.standTotal(A.standNeeds()), 2, "questo canale un'asta sua ce l'ha");
+  A.cabSetStandShared(c.id + "#1", true);
+  eq(A.state.cab.manual[c.id + "#1"].stand, undefined, "e tornando alla barra l'asta scelta sparisce");
+  eq(A.standTotal(A.standNeeds()), 1);
+});
+t("fuori da una coppia stereo il flag non si legge nemmeno: niente stati fantasma", () => {
+  reset();
+  const p = add("grancoda", 500, 300);
+  A.cabSetStandShared(p.id + "#1", true);
+  eq(A.standTotal(A.standNeeds()), 1);
+  p.stereo = false;                                    /* piano ripreso mono: la coppia non esiste piu' */
+  A.__cabRes = null;
+  eq(A.cabItemInputs(p).length, 1);
+  eq(A.standTotal(A.standNeeds()), 1, "un canale, un'asta: il vecchio flag non toglie l'unica asta rimasta");
+  p.stereo = true; A.__cabRes = null;
+  eq(A.standTotal(A.standNeeds()), 1, "e tornando stereo la scelta di prima e' ancora li'");
+});
+t("la batteria: solo gli overhead sono una coppia, i mic ravvicinati no", () => {
+  reset();
+  const dr = add("batteria", 500, 300);
+  const ov = A.cabItemInputs(dr).findIndex(c => /Overhead R/.test(c.name));
+  eq(A.stereoPairSecond(dr, ov), true, "Overhead L/R e' una coppia");
+  eq(A.stereoPairSecond(dr, 4), false, "il primo tom no");
+  A.cabSetStandShared(dr.id + "#" + ov, true);
+  eq(A.standNeeds().giraffa.tot, 2, "overhead su barra: hi-hat + una giraffa per la coppia, non due");
+});
 t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", () => {
   const generati = new Set(Object.values(A.MIC_DEFAULTS).map(d => d.stand).filter(Boolean));
   generati.forEach(v => ok(A.standKindOf(Object.keys(A.MIC_DEFAULTS).find(k => A.MIC_DEFAULTS[k].stand === v)) !== undefined,
