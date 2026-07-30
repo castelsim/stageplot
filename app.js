@@ -6312,9 +6312,13 @@ function audioCablingEngine(){
       /* la porta scelta è quella con cui il multipolare ENTRA: i canali seguono consecutivi (3,4,5…)
          finché il blocco è stato prenotato; dove non lo era, quel canale prende la prima libera. */
       var _ci=0;
-      g.list.forEach(function(s){ b.used++;
+      g.list.forEach(function(s){ if(!ov.deleted) b.used++;
         var _w=(ov.port>0)? (+ov.port+_ci) : 0; _ci++;
-        var pn=takePort(b, (_w>0 && _pinRes[b.id] && _pinRes[b.id][_w]===gk)? _w : 0, gk);
+        /* un cavo CANCELLATO non prende la porta: resta come fantasma ripristinabile, ma la porta
+           torna libera subito. Prima la teneva, e su una box da 8 bastavano otto ripensamenti per
+           esaurirla con mezzo palco scollegato (Simone 29/07). Ripristinandolo, il motore gli
+           riassegna la prima libera. */
+        var pn=ov.deleted ? 0 : takePort(b, (_w>0 && _pinRes[b.id] && _pinRes[b.id][_w]===gk)? _w : 0, gk);
         links.push({s:s, box:b, ch:pn, key:gk, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0 && pn===_w),
           label:chLabel(b,pn), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted, bundleN:g.list.length}); });
       return;
@@ -6338,8 +6342,8 @@ function audioCablingEngine(){
         if(!ov.deleted) viaIssues(b, _via1, b.dig[_via1]);
         return;
       }
-      b.used++;
-      var pn=takePort(b, (ov.port>0? +ov.port : 0), s.key);   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
+      if(!ov.deleted) b.used++;   /* il fantasma di un cavo cancellato non consuma capienza */
+      var pn=ov.deleted ? 0 : takePort(b, (ov.port>0? +ov.port : 0), s.key);   /* F2: porta pinnata dall'utente o prima libera (salta le riservate) */
       links.push({s:s, box:b, ch:pn, key:s.key, pts:pts, lenM:lenM, cut:cut, pinned:(ov.port>0 && pn===+ov.port),   /* pinned = la porta scelta l'ha davvero ottenuta (se era diventata riservata, no) */
                   label:(ov.label!=null?ov.label:chLabel(b,pn)), manual:!!(ov.pts&&ov.pts.length), deleted:!!ov.deleted});
     });
