@@ -7556,6 +7556,20 @@ function auditEngine(){
   var ribbons=(state.items||[]).filter(function(it){ return typeof equipPhantom==="function" && equipPhantom(it)==="ribbon_danger"; });
   ribbons.forEach(function(it){ var nm=(typeof equipName==="function"&&equipName(it))||it.label||"microfono a nastro";
     add("warn", nm+" è un microfono a nastro passivo: MAI +48V sul suo canale.","Audio","Il phantom su un ribbon passivo può danneggiare il nastro (fonte: datasheet del modello)."); });
+  /* CATALOGO MICROFONI (30/07): il +48V si puo' forzare riga per riga anche sui canali DERIVATI
+     (dal 28/07 la colonna 48V e' una scelta dell'utente). Su un nastro PASSIVO — R-121, M 160,
+     M 130, Coles 4038 — non e' inutile, e' un danno: il phantom puo' bruciare il nastro. La regola
+     legge il tipo dal catalogo, quindi vale per qualunque nastro passivo ci finisca dentro.
+     Un nastro ATTIVO (R-122 MKII) il +48V lo vuole: p48:true nel catalogo, e qui non si accende. */
+  try{
+    var ribCh=(patchList().rows||[]).filter(function(r){
+      if(!r || !r.p48 || !r.mic) return false;
+      var d=MIC_DB[r.mic]; return !!(d && d.type==="nastro" && !d.p48); });
+    ribCh.forEach(function(r){
+      add("err", "Canale "+r.n+" ("+r.name+"): +48V acceso su "+r.mic+", che e' un nastro PASSIVO.","Audio",
+        "Il phantom su un microfono a nastro passivo puo' danneggiare il nastro: spegni il 48V su questa riga.",
+        {label:"Apri Channel list",run:auditFixOpenChan}, "rib48:"+r.key); });
+  }catch(e){ /* motore cablaggio non pronto: l'audit non deve mai far cadere il pannello */ }
   var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
@@ -8912,9 +8926,18 @@ function renderProps(){
     var _du=document.getElementById("pDup"); if(_du) _du.style.display=isZone?"none":"";
     if(isZone){
       document.getElementById("pZoneOp").value = (it.opacity==null?18:it.opacity);
-      var zmic=document.getElementById("pZoneMic"); zmic.value=it.mic||""; zmic.placeholder=micZoneMic(it);
+      /* MENTRE SI SCRIVE COMANDA IL CAMPO, non il pannello. Ogni tasto salva e ridisegna, e il
+         ridisegno riscriveva dentro il campo il valore GIA' RIPULITO (.trim()): lo spazio appena
+         digitato spariva, e «Beta 58A» diventava «Beta58A», «DPA 4099» «DPA4099». Con un catalogo
+         di modelli che hanno lo spazio nel nome non e' un dettaglio: era impossibile scriverli.
+         Stessa cosa sull'etichetta della zona («Archi I» → «ArchiI»). Trovato in prova sul browser. */
+      var zmic=document.getElementById("pZoneMic");
+      if(document.activeElement!==zmic) zmic.value=it.mic||"";
+      zmic.placeholder=micZoneMic(it);
       document.getElementById("pZoneMicHint").textContent = it.mic ? "(manuale)" : "· inferito";
-      var zlbl=document.getElementById("pZoneLabel"); zlbl.value=it.label||""; zlbl.placeholder=micZoneLabel(it);
+      var zlbl=document.getElementById("pZoneLabel");
+      if(document.activeElement!==zlbl) zlbl.value=it.label||"";
+      zlbl.placeholder=micZoneLabel(it);
       document.getElementById("pZoneCount").textContent = micZoneSources(it).length + " sorgenti coperte";
       document.getElementById("pZoneRect").style.display = (it.pts && it.pts.length>=3) ? "" : "none";   /* torna a rettangolo solo se è un poligono custom */
     } }
@@ -13626,8 +13649,9 @@ function renderPrompt(o){
 /* mic/DI suggeriti per tipo (auto input list); valore = etichetta mic. multi = più canali per un solo elemento */
 /* MIC/DI di default per OGNI elemento che produce suono (pulsante "Auto" da palco).
    Singolo canale qui in IN_SRC; elementi stereo/multipli in IN_MULTI. Convenzioni live PA. */
-/* M4 — suggerimenti (datalist) per mic/DI e stand: modelli comuni nel live sound. Solo hint, campo resta libero. */
-var MIC_SUGGEST = ["SM58","Beta 58A","e935","e945","KMS 105","SM57","Beta 57A","e906","e609","MD421","e604","e904","D6","Beta 52A","e602","Beta 91A","SM81","KM184","C451","DPA 4099","DPA 4066","DPA 4088","C414","U87","TLM 103","DI","DI stereo","Radial J48"];
+/* M4 — suggerimenti (datalist) per lo stand: campo libero, questi sono solo hint.
+   Il mic/DI non ha piu' un elenco suo: i suggerimenti vengono dal catalogo MIC_DB (v. piu' sotto)
+   attraverso il completamento `data-micac` — una fonte sola, niente elenco parallelo che invecchia. */
 var STAND_SUGGEST = ["asta dritta","asta giraffa","asta gigante","asta bassa","clip","clip strumento","headset","interno/terra","da tavolo","—"];   /* stesso vocabolario dei valori generati da MIC_DEFAULTS: prima erano in inglese e non combaciavano mai */
 /* Quando la sorgente del canale È un'asta, l'asta la dice l'oggetto sul palco, non il modello di
    microfono: sul KM184 il default sarebbe "asta giraffa" anche montato su una gigante. Per le tre
@@ -13767,23 +13791,399 @@ function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miki
    (ciclo 3, 11/07). I mix veri sono quelli dei beltpack `iem`. */
 var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"IEM", hearback:"personal mixer", monmix:"console mon" };
 
-/* ---- Channel list realistiche per formazione (contesto LIVE PA, monitor misto wedge+IEM) ---- */
+/* ===== CATALOGO MICROFONI (MIC_DB) — 29/07 ==================================================
+   PERCHE' QUI E NON SU SUPABASE: stesso posto di STAGEBOX_DB, MIXER_DB, PM_DB e LIGHT_MODEL_DB.
+   Un catalogo nel sorgente funziona OFFLINE e si aggiorna con un deploy, senza passaggi a mano in
+   produzione.
+
+   NON SI SOVRAPPONE AL CAMPO «Modello reale» (it.modelData / equip_product, categoria «microfono»):
+   sono due domande diverse sullo stesso microfono, e restano due campi.
+   · MIC_DB risponde a COME SI RIPRENDE il canale. E' testo della colonna «Mic / DI» — finisce sul
+     rider, e da li' si derivano ASTA (micInfo -> standKindFromLabel -> conteggio aste) e +48V (audit).
+     Vive sul CANALE, si scrive a mano, vale anche per un microfono che nel catalogo non c'e'.
+   · «Modello reale» risponde a CHE OGGETTO sta sul palco: misure, consumi, provenienza del dato,
+     con la sua scheda verificata. Vive sull'ELEMENTO, si sceglie da una tendina.
+   Quando l'elemento ha un modello reale di categoria «microfono», patchList lo fa gia' vincere sul
+   mic dedotto (regola 21/07, invariata): il catalogo non lo scavalca mai.
+
+   SCELTA DEI MODELLI: i piu' COMMERCIALI — quelli che si incontrano davvero nei rider e nei parchi
+   noleggio, non le rarita' da collezione. Meglio 130 modelli che il fonico riconosce a colpo d'occhio
+   che 300 con dentro pezzi da museo.
+
+   CAMPI: brand · model (nome di targa) · type (dinamico|condensatore|nastro) · caps (solo condensatori)
+          · pol (direttivita') · p48 · stand · uso · alias (come lo si scrive a mano, varianti)
+   CHIAVE = quello che si scrive sul rider («SM58», «U87», «MD421»), cioe' il valore che finisce nel
+   campo. Il nome di targa completo sta in `model` («MD 421-II»): il completamento cerca in tutti e due,
+   spaziati e attaccati.
+
+   /!\ `stand` USA IL VOCABOLARIO DI standKindFromLabel — «asta dritta», «asta giraffa», «asta bassa»,
+   «asta gigante», «clip…», «headset», «interno/terra», oppure "" (nessun supporto: DI, lavalier,
+   microfono in linea). Un'etichetta nuova non e' un errore rumoroso: quel microfono sparisce dal
+   CONTEGGIO DELLE ASTE del rider senza che nessuno se ne accorga. Il test che lo impedisce sta in
+   test/engines.test.mjs («ogni supporto del catalogo microfoni e' classificabile»).
+
+   NIENTE SPECIFICHE INVENTATE: tipo, direttivita' e phantom sono dati di targa letti sulle schede
+   ufficiali dei costruttori (pubs.shure.com, sennheiser.com, neumann.com, my.akg.com,
+   docs.audio-technica.com, audixusa.com, electrovoice.com, dpamicrophones.com, rode.com,
+   europe.beyerdynamic.com, royerlabs.com, countryman.com, lewitt-audio.com, earthworksaudio.com,
+   telefunken-elektroakustik.com, seelectronics.com, warmaudio.com, schoeps.de,
+   coleselectroacoustics.com), consultate il 29-30/07/2026.
+   Dove il costruttore non dichiara, il campo NON C'E' (es. `caps` assente su parecchi palmari:
+   la dimensione del diaframma non e' pubblicata). E dove NEMMENO LA DIRETTIVITA' era verificabile
+   il microfono e' rimasto FUORI, per quanto famoso: AKG C414 XLII / C314 / D12 VR / C519 M /
+   C516 ML (pagine ufficiali 403/410), Sennheiser e 602-II, Audix OM2/OM3, DPA d:facto 4018V.
+   Meglio un buco che una riga che sembra un dato. ============================================== */
+var MIC_DB = {
+  /* ══ SHURE ══ (pubs.shure.com, user guide ufficiali — sezione Specifications) ═══════════════ */
+  /* voce */
+  "SM58":       {brand:"Shure", model:"SM58", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "Beta 58A":   {brand:"Shure", model:"Beta 58A", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "PGA58":      {brand:"Shure", model:"PGA58", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "SM86":       {brand:"Shure", model:"SM86", type:"condensatore", caps:"electret", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "SM87A":      {brand:"Shure", model:"SM87A", type:"condensatore", caps:"electret", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "Beta 87A":   {brand:"Shure", model:"Beta 87A", type:"condensatore", caps:"electret", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "Beta 87C":   {brand:"Shure", model:"Beta 87C", type:"condensatore", caps:"electret", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce con in-ear"},
+  "KSM8":       {brand:"Shure", model:"KSM8 Dualdyne", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "KSM9":       {brand:"Shure", model:"KSM9", type:"condensatore", caps:"electret doppio diaframma 3/4\"", pol:"commutabile: cardioide / supercardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "KSM11":      {brand:"Shure", model:"KSM11", type:"condensatore", caps:"electret 3/4\"", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "Nexadyne 8/C":{brand:"Shure", model:"Nexadyne 8/C", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"nexadyne 8c"},
+  "Nexadyne 8/S":{brand:"Shure", model:"Nexadyne 8/S", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"nexadyne 8s"},
+  "SM7B":       {brand:"Shure", model:"SM7B", type:"dinamico", pol:"cardioide", p48:false, stand:"asta giraffa", uso:"voce, broadcast, speakeraggio"},
+  /* strumento */
+  "SM57":       {brand:"Shure", model:"SM57", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"rullante, ampli chitarra"},
+  "Beta 57A":   {brand:"Shure", model:"Beta 57A", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"rullante, ampli chitarra"},
+  "PGA57":      {brand:"Shure", model:"PGA57", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"ampli chitarra, rullante"},
+  "PGA56":      {brand:"Shure", model:"PGA56", type:"dinamico", pol:"cardioide", p48:false, stand:"clip/asta bassa", uso:"rullante, tom"},
+  "Beta 52A":   {brand:"Shure", model:"Beta 52A", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"cassa"},
+  "Beta 91A":   {brand:"Shure", model:"Beta 91A", type:"condensatore", caps:"electret boundary", pol:"semicardioide", p48:true, stand:"interno/terra", uso:"cassa, pianoforte, cajon"},
+  "Beta 98A/C": {brand:"Shure", model:"Beta 98A/C", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom, percussioni, fiati", alias:"beta98 beta 98"},
+  "Beta 98AD/C":{brand:"Shure", model:"Beta 98AD/C", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom, rullante", alias:"beta98ad"},
+  "PGA98D":     {brand:"Shure", model:"PGA98D", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom"},
+  "SM81":       {brand:"Shure", model:"SM81", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"hi-hat, chitarra acustica, overhead"},
+  "SM137":      {brand:"Shure", model:"SM137", type:"condensatore", caps:"electret diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici"},
+  "KSM137":     {brand:"Shure", model:"KSM137", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici, archi"},
+  "KSM32":      {brand:"Shure", model:"KSM32", type:"condensatore", caps:"3/4\" side-address", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"panoramico, voce studio"},
+  "Beta 181":   {brand:"Shure", model:"Beta 181", type:"condensatore", caps:"electret diaframma piccolo, capsule intercambiabili", pol:"per capsula: cardioide, supercardioide, omni, figura di 8", p48:true, stand:"asta giraffa", uso:"overhead, rullante, spazi stretti"},
+
+  /* ══ SENNHEISER ══ (sennheiser.com + docs.cloud.sennheiser.com) ═════════════════════════════ */
+  "e835":       {brand:"Sennheiser", model:"e 835", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"e 835"},
+  "e845":       {brand:"Sennheiser", model:"e 845", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"e 845"},
+  "e935":       {brand:"Sennheiser", model:"e 935", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"e 935"},
+  "e945":       {brand:"Sennheiser", model:"e 945", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"e 945"},
+  "e965":       {brand:"Sennheiser", model:"e 965", type:"condensatore", caps:"diaframma grande (25,4 mm)", pol:"commutabile: cardioide / supercardioide", p48:true, stand:"asta dritta", uso:"voce", alias:"e 965"},
+  "e865":       {brand:"Sennheiser", model:"e 865", type:"condensatore", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce", alias:"e 865"},
+  "MD431":      {brand:"Sennheiser", model:"MD 431 II", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"md 431"},
+  "MD441":      {brand:"Sennheiser", model:"MD 441-U", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta giraffa", uso:"voce, ottoni, studio", alias:"md 441"},
+  "MD421":      {brand:"Sennheiser", model:"MD 421-II", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa/clip", uso:"tom, ottoni, ampli basso", alias:"md 421 md421-ii"},
+  "e604":       {brand:"Sennheiser", model:"e 604", type:"dinamico", pol:"cardioide", p48:false, stand:"clip", uso:"tom, rullante", alias:"e 604"},
+  "e609":       {brand:"Sennheiser", model:"e 609 Silver", type:"dinamico", pol:"supercardioide", p48:false, stand:"clip/asta bassa", uso:"ampli chitarra", alias:"e 609 e609 silver"},
+  "e902":       {brand:"Sennheiser", model:"e 902", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa, ampli basso", alias:"e 902"},
+  "e906":       {brand:"Sennheiser", model:"e 906", type:"dinamico", pol:"supercardioide", p48:false, stand:"clip/asta bassa", uso:"ampli chitarra", alias:"e 906"},
+  "e904":       {brand:"Sennheiser", model:"e 904", type:"dinamico", pol:"cardioide", p48:false, stand:"clip", uso:"tom, percussioni", alias:"e 904"},
+  "e901":       {brand:"Sennheiser", model:"e 901", type:"condensatore", caps:"boundary a superficie", pol:"semicardioide", p48:true, stand:"interno/terra", uso:"cassa, pianoforte", alias:"e 901"},
+  "e908 B":     {brand:"Sennheiser", model:"e 908 B", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"fiati", alias:"e908b e 908"},
+  "e908 D":     {brand:"Sennheiser", model:"e 908 D", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom, percussioni", alias:"e908d"},
+  "e614":       {brand:"Sennheiser", model:"e 614", type:"condensatore", caps:"diaframma piccolo", pol:"supercardioide", p48:true, stand:"asta giraffa", uso:"overhead, archi, percussioni", alias:"e 614"},
+  "e914":       {brand:"Sennheiser", model:"e 914", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, pianoforte, archi", alias:"e 914"},
+  "MK 4":       {brand:"Sennheiser", model:"MK 4", type:"condensatore", caps:"diaframma grande (1\")", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce e acustici in studio", alias:"mk4"},
+  /* capsule wireless e microfoni da bodypack: alimentati dal trasmettitore, NON dal +48V della
+     console — segnarli phantom:false non e' una svista, e' quello che evita il 48V inutile in audit */
+  "MMD 835":    {brand:"Sennheiser", model:"MMD 835", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"mmd835 skm 835"},
+  "MMD 845":    {brand:"Sennheiser", model:"MMD 845", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"mmd845"},
+  "MMD 935":    {brand:"Sennheiser", model:"MMD 935", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"mmd935 skm 935"},
+  "MMD 945":    {brand:"Sennheiser", model:"MMD 945", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"mmd945"},
+  "MME 865":    {brand:"Sennheiser", model:"MME 865", type:"condensatore", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"mme865"},
+  "ME 2":       {brand:"Sennheiser", model:"ME 2", type:"condensatore", caps:"electret miniatura", pol:"omnidirezionale", p48:false, stand:"", uso:"lavalier da bodypack", alias:"me2"},
+  "ME 3":       {brand:"Sennheiser", model:"ME 3", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:false, stand:"headset", uso:"archetto da bodypack", alias:"me3"},
+
+  /* ══ NEUMANN ══ (neumann.com) ══════════════════════════════════════════════════════════════ */
+  "U87":        {brand:"Neumann", model:"U 87 Ai", type:"condensatore", caps:"diaframma grande (doppio K87)", pol:"multipattern: omni / cardioide / figura di 8", p48:true, stand:"asta giraffa", uso:"voce, panoramico, overhead", alias:"u 87 u87ai u 87 ai"},
+  "U47 fet":    {brand:"Neumann", model:"U 47 fet i", type:"condensatore", caps:"diaframma grande (K 47)", pol:"cardioide", p48:true, stand:"asta bassa", uso:"cassa, ampli basso, voce", alias:"u47fet u 47 fet"},
+  "TLM 103":    {brand:"Neumann", model:"TLM 103", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio", alias:"tlm103"},
+  "TLM 102":    {brand:"Neumann", model:"TLM 102", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce, strumenti", alias:"tlm102"},
+  "TLM 107":    {brand:"Neumann", model:"TLM 107", type:"condensatore", caps:"diaframma grande (doppio)", pol:"multipattern (5 figure)", p48:true, stand:"asta giraffa", uso:"voce, ripresa generale", alias:"tlm107"},
+  "TLM 170":    {brand:"Neumann", model:"TLM 170 R", type:"condensatore", caps:"diaframma grande (doppio K89)", pol:"multipattern (5 figure)", p48:true, stand:"asta giraffa", uso:"ripresa d'assieme, orchestra", alias:"tlm170 tlm 170 r"},
+  "KM183":      {brand:"Neumann", model:"KM 183", type:"condensatore", caps:"diaframma piccolo", pol:"omnidirezionale", p48:true, stand:"asta giraffa", uso:"ambienza, coro", alias:"km 183"},
+  "KM184":      {brand:"Neumann", model:"KM 184", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"panoramico, overhead, acustici", alias:"km 184"},
+  "KM185":      {brand:"Neumann", model:"KM 185", type:"condensatore", caps:"diaframma piccolo", pol:"ipercardioide", p48:true, stand:"asta giraffa", uso:"rullante, spot", alias:"km 185"},
+  "KMS 104":    {brand:"Neumann", model:"KMS 104", type:"condensatore", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce palmare", alias:"kms104"},
+  "KMS 105":    {brand:"Neumann", model:"KMS 105", type:"condensatore", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce palmare", alias:"kms105"},
+  "KK 105 S":   {brand:"Neumann", model:"KK 105 S", type:"condensatore", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"kk105s kk 105"},
+
+  /* ══ AUDIX ══ (audixusa.com, spec sheet PDF) ═══════════════════════════════════════════════ */
+  "OM5":        {brand:"Audix", model:"OM5", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "OM7":        {brand:"Audix", model:"OM7", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce, palco molto rumoroso"},
+  "i5":         {brand:"Audix", model:"i5", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"rullante, ampli chitarra"},
+  "D2":         {brand:"Audix", model:"D2", type:"dinamico", pol:"ipercardioide", p48:false, stand:"clip strumento", uso:"tom"},
+  "D4":         {brand:"Audix", model:"D4", type:"dinamico", pol:"ipercardioide", p48:false, stand:"clip strumento", uso:"tom bassi, timpani"},
+  /* D6: Audix dichiara CARDIOIDE sulla scheda (la sigla "ipercardioide" gira nei forum, non a targa) */
+  "D6":         {brand:"Audix", model:"D6", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa"},
+  "ADX51":      {brand:"Audix", model:"ADX51", type:"condensatore", caps:"diaframma piccolo (14 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, hi-hat, acustici"},
+  "SCX25A":     {brand:"Audix", model:"SCX25A", type:"condensatore", caps:"diaframma grande (25 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"pianoforte, overhead"},
+
+  /* ══ ELECTRO-VOICE ══ (products.electrovoice.com) ══════════════════════════════════════════ */
+  "RE20":       {brand:"Electro-Voice", model:"RE20", type:"dinamico", pol:"cardioide (Variable-D)", p48:false, stand:"asta giraffa", uso:"voce broadcast, cassa, ampli basso"},
+  "RE320":      {brand:"Electro-Voice", model:"RE320", type:"dinamico", pol:"cardioide (Variable-D)", p48:false, stand:"asta giraffa", uso:"voce broadcast, cassa"},
+  "ND76":       {brand:"Electro-Voice", model:"ND76", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "ND86":       {brand:"Electro-Voice", model:"ND86", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "ND96":       {brand:"Electro-Voice", model:"ND96", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, palco molto rumoroso"},
+  "PL80a":      {brand:"Electro-Voice", model:"PL-80a", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"pl 80a pl80"},
+  "ND44":       {brand:"Electro-Voice", model:"ND44", type:"dinamico", pol:"cardioide stretto", p48:false, stand:"clip strumento", uso:"rullante, tom"},
+  "ND46":       {brand:"Electro-Voice", model:"ND46", type:"dinamico", pol:"supercardioide", p48:false, stand:"clip strumento", uso:"tom, strumenti"},
+  "ND68":       {brand:"Electro-Voice", model:"ND68", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"cassa"},
+  "ND66":       {brand:"Electro-Voice", model:"ND66", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici"},
+
+  /* ══ BEYERDYNAMIC ══ (europe.beyerdynamic.com) ═════════════════════════════════════════════
+     Il suffisso «TG» resta solo sulla serie TG: i due classici oggi si chiamano M 88 e M 201. */
+  "M88":        {brand:"beyerdynamic", model:"M 88", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta bassa", uso:"cassa, voce", alias:"m 88 tg"},
+  "M201":       {brand:"beyerdynamic", model:"M 201", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta bassa", uso:"rullante, chitarra", alias:"m 201 tg"},
+  "TG D70":     {brand:"beyerdynamic", model:"TG D70", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta bassa", uso:"cassa", alias:"tgd70"},
+  "TG D57":     {brand:"beyerdynamic", model:"TG D57", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom, rullante", alias:"tgd57"},
+  "TG V70":     {brand:"beyerdynamic", model:"TG V70", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"tgv70"},
+  "TG I51":     {brand:"beyerdynamic", model:"TG I51", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"rullante, tom, ampli", alias:"tgi51"},
+
+  /* ══ SCHOEPS ══ (schoeps.de) — sul rider e' una riga sola, in magazzino sono due codici:
+     il corpo CMC 6 e la capsula MK. Qui stanno accoppiati come si scrivono. ═══════════════════ */
+  "CMC6 MK4":   {brand:"Schoeps", model:"CMC 6 + MK 4", type:"condensatore", caps:"diaframma piccolo (capsula MK 4)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"spot orchestra, archi, coro", alias:"cmc 6 mk4 schoeps mk4"},
+  "CMC6 MK41":  {brand:"Schoeps", model:"CMC 6 + MK 41", type:"condensatore", caps:"diaframma piccolo (capsula MK 41)", pol:"supercardioide", p48:true, stand:"asta giraffa", uso:"spot orchestra, teatro", alias:"cmc 6 mk41 schoeps mk41"},
+
+  /* ══ NASTRI ══ Il phantom non e' un dettaglio: sui passivi va TOLTO (l'audit lo controlla).
+     Non tutti i nastri sono passivi — R-122 MKII e VR2 il +48V lo RICHIEDONO. ═════════════════ */
+  "R-121":      {brand:"Royer", model:"R-121", type:"nastro", pol:"figura di 8", p48:false, stand:"asta bassa", uso:"ampli chitarra, ottoni", alias:"r121 royer 121"},
+  "R-122 MKII": {brand:"Royer", model:"R-122 MKII", type:"nastro", pol:"figura di 8", p48:true, stand:"asta bassa", uso:"ampli chitarra, ottoni (nastro ATTIVO: vuole il +48V)", alias:"r122 r-122"},
+  "M160":       {brand:"beyerdynamic", model:"M 160", type:"nastro", pol:"ipercardioide", p48:false, stand:"asta giraffa", uso:"ampli chitarra, overhead, ottoni", alias:"m 160"},
+  "M130":       {brand:"beyerdynamic", model:"M 130", type:"nastro", pol:"figura di 8", p48:false, stand:"asta giraffa", uso:"ambienza, coppia M-S con M 160", alias:"m 130"},
+  "4038":       {brand:"Coles", model:"4038", type:"nastro", pol:"figura di 8", p48:false, stand:"asta giraffa", uso:"overhead batteria, ottoni", alias:"coles 4038"},
+
+  /* ══ ALTRI MARCHI DIFFUSI ══════════════════════════════════════════════════════════════════ */
+  "M80":        {brand:"Telefunken", model:"M80", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, rullante"},
+  "M81":        {brand:"Telefunken", model:"M81", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"tom, fiati, ampli chitarra"},
+  "V7":         {brand:"sE Electronics", model:"V7", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "V3":         {brand:"sE Electronics", model:"V3", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce, ampli, percussioni"},
+  "X1 A":       {brand:"sE Electronics", model:"X1 A", type:"condensatore", caps:"back-electret 2/3\"", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce e acustici in studio", alias:"x1a"},
+  "sE2200":     {brand:"sE Electronics", model:"sE2200", type:"condensatore", caps:"diaframma grande (1\")", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio, panoramico", alias:"se 2200"},
+  "WA-87 R2":   {brand:"Warm Audio", model:"WA-87 R2", type:"condensatore", caps:"diaframma grande (tipo K87)", pol:"multipattern: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"voce studio, panoramico", alias:"wa87"},
+  "WA-84":      {brand:"Warm Audio", model:"WA-84", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici", alias:"wa84"},
+
+  /* ══ AKG ══ (my.akg.com / au.akg.com + cutsheet PDF ufficiali) ═════════════════════════════ */
+  "D5":         {brand:"AKG", model:"D5", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "D7":         {brand:"AKG", model:"D7", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "D40":        {brand:"AKG", model:"D40", type:"dinamico", pol:"cardioide", p48:false, stand:"clip strumento", uso:"rullante, tom, ampli chitarra"},
+  "D112":       {brand:"AKG", model:"D112 MkII", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa, ampli basso", alias:"d112 mkii d 112"},
+  "C414":       {brand:"AKG", model:"C414 XLS", type:"condensatore", caps:"diaframma grande", pol:"multipattern (9 figure)", p48:true, stand:"asta giraffa", uso:"panoramico, overhead, studio"},
+  "C451":       {brand:"AKG", model:"C451 B", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"hi-hat, overhead, chitarra acustica", alias:"c451b c 451"},
+  "C214":       {brand:"AKG", model:"C214", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"ampli chitarra, voce"},
+  "P170":       {brand:"AKG", model:"P170", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"hi-hat, overhead, acustici", alias:"perception 170"},
+  "P420":       {brand:"AKG", model:"P420", type:"condensatore", caps:"diaframma grande (doppia capsula)", pol:"multipattern: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"overhead, ampli, voce"},
+  "PZM 30D":    {brand:"AKG", model:"PZM30 D", type:"condensatore", caps:"electret su piastra (boundary)", pol:"emisferico", p48:true, stand:"interno/terra", uso:"boundary, pianoforte, palco teatro", alias:"pzm30d crown pzm"},
+  "PCC 160":    {brand:"AKG", model:"PCC160", type:"condensatore", caps:"electret diaframma piccolo (boundary)", pol:"semi-supercardioide", p48:true, stand:"interno/terra", uso:"boundary da teatro, ribalta", alias:"pcc160 crown pcc"},
+
+  /* ══ AUDIO-TECHNICA ══ (docs.audio-technica.com, submittal sheet ufficiali) ═════════════════ */
+  "AE6100":     {brand:"Audio-Technica", model:"AE6100", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "AE5400":     {brand:"Audio-Technica", model:"AE5400", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "ATM610a":    {brand:"Audio-Technica", model:"ATM610a", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "ATM650":     {brand:"Audio-Technica", model:"ATM650", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta bassa", uso:"rullante, ampli chitarra"},
+  "ATM250":     {brand:"Audio-Technica", model:"ATM250", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta bassa", uso:"cassa"},
+  "ATM230":     {brand:"Audio-Technica", model:"ATM230", type:"dinamico", pol:"ipercardioide", p48:false, stand:"clip strumento", uso:"tom"},
+  "AE2500":     {brand:"Audio-Technica", model:"AE2500", type:"condensatore", caps:"doppio elemento: dinamico + condensatore, due uscite", pol:"cardioide (entrambi gli elementi)", p48:true, stand:"asta bassa", uso:"cassa (due canali: dinamico + condensatore)"},
+  "AE3000":     {brand:"Audio-Technica", model:"AE3000", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom, overhead, ampli"},
+  "ATM350a":    {brand:"Audio-Technica", model:"ATM350a", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:true, stand:"clip strumento", uso:"fiati, archi, tom"},
+  "PRO 35":     {brand:"Audio-Technica", model:"PRO 35", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:true, stand:"clip strumento", uso:"fiati, tom", alias:"pro35"},
+  "AT4050":     {brand:"Audio-Technica", model:"AT4050", type:"condensatore", caps:"diaframma grande", pol:"multipattern: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"overhead, archi, pianoforte"},
+  "AT4040":     {brand:"Audio-Technica", model:"AT4040", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce e acustici in studio"},
+  "AT4033a":    {brand:"Audio-Technica", model:"AT4033a", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio"},
+  "AT2035":     {brand:"Audio-Technica", model:"AT2035", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce e acustici in studio"},
+  "AT2020":     {brand:"Audio-Technica", model:"AT2020", type:"condensatore", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"home studio"},
+
+  /* ══ RODE ══ (rode.com) ════════════════════════════════════════════════════════════════════ */
+  "NT1":        {brand:"RODE", model:"NT1 5th Generation", type:"condensatore", caps:"diaframma grande (1\")", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio"},
+  "NT1-A":      {brand:"RODE", model:"NT1-A", type:"condensatore", caps:"diaframma grande (1\")", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio", alias:"nt1a"},
+  "NT2-A":      {brand:"RODE", model:"NT2-A", type:"condensatore", caps:"diaframma grande (1\")", pol:"multipattern: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"voce studio", alias:"nt2a"},
+  "NT5":        {brand:"RODE", model:"NT5", type:"condensatore", caps:"diaframma piccolo (1/2\")", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, chitarra acustica"},
+  "NT55":       {brand:"RODE", model:"NT55", type:"condensatore", caps:"diaframma piccolo, capsule intercambiabili", pol:"cardioide (capsula omni in dotazione)", p48:true, stand:"asta giraffa", uso:"overhead, acustici"},
+  "M5":         {brand:"RODE", model:"M5", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, coro"},
+  "Procaster":  {brand:"RODE", model:"Procaster", type:"dinamico", pol:"cardioide", p48:false, stand:"asta giraffa", uso:"speakeraggio, podcast"},
+
+  /* ══ DPA ══ (dpamicrophones.com) — nomi di targa ATTUALI: le sigle d:vote / d:fine non sono piu'
+     sul sito, oggi e' «numero + descrizione». Gli alias tengono viva la vecchia dicitura, che sui
+     rider si scrive ancora. I miniatura vogliono il +48V quando vanno in console con l'adattatore
+     XLR (DAD9001 / DAD6001-BC); su bodypack li alimenta il trasmettitore. ═════════════════════ */
+  "DPA 4099":   {brand:"DPA", model:"4099 CORE+ Instrument", type:"condensatore", caps:"electret miniatura (Ø 5,7 mm)", pol:"supercardioide", p48:true, stand:"clip strumento", uso:"archi, fiati, percussioni", alias:"d:vote dvote 4099 core"},
+  "DPA 4066":   {brand:"DPA", model:"4066 Omnidirectional Headset", type:"condensatore", caps:"electret miniatura (Ø 5,4 mm)", pol:"omnidirezionale", p48:true, stand:"headset", uso:"archetto voce", alias:"d:fine dfine 4066 core"},
+  /* archetto DIREZIONALE (cardioide): piu' rifiuto del 4066 omni, teatro e voci con monitor forte */
+  "DPA 4088":   {brand:"DPA", model:"4088 Directional Headset", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:true, stand:"headset", uso:"archetto voce, monitor forte", alias:"d:fine dfine 4088 core"},
+  "DPA 4060":   {brand:"DPA", model:"4060 Omni Miniature Lavalier", type:"condensatore", caps:"electret miniatura", pol:"omnidirezionale", p48:true, stand:"", uso:"lavalier", alias:"4061 d:screet dscreet"},
+  "DPA 4011":   {brand:"DPA", model:"4011 Cardioid", type:"condensatore", caps:"diaframma piccolo (19 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, archi, panoramico"},
+  "DPA 4006":   {brand:"DPA", model:"4006 Omnidirectional", type:"condensatore", caps:"diaframma piccolo (16 mm)", pol:"omnidirezionale", p48:true, stand:"asta giraffa", uso:"orchestra, ambienza"},
+  "DPA 2011":   {brand:"DPA", model:"2011 Twin Diaphragm Cardioid", type:"condensatore", caps:"diaframma piccolo twin (Ø 19 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, percussioni"},
+
+  /* ══ COUNTRYMAN ══ — miniatura da bodypack: li alimenta il trasmettitore, NON il +48V della
+     console. p48:false non e' una svista: e' quello che tiene il phantom inutile fuori dall'audit. */
+  "E6":         {brand:"Countryman", model:"E6 Earset", type:"condensatore", caps:"electret miniatura", pol:"omni o direzionale (cappucci intercambiabili)", p48:false, stand:"headset", uso:"archetto voce, teatro", alias:"countryman e6"},
+  "B3":         {brand:"Countryman", model:"B3", type:"condensatore", caps:"electret miniatura", pol:"omnidirezionale", p48:false, stand:"", uso:"lavalier"},
+  "B6":         {brand:"Countryman", model:"B6", type:"condensatore", caps:"electret miniatura", pol:"omnidirezionale", p48:false, stand:"", uso:"lavalier"},
+
+  /* ══ LEWITT ══ (lewitt-audio.com) ══════════════════════════════════════════════════════════ */
+  "MTP 440 DM": {brand:"LEWITT", model:"MTP 440 DM", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"rullante, ampli, fiati", alias:"mtp440"},
+  "DTP 640 REX":{brand:"LEWITT", model:"DTP 640 REX", type:"condensatore", caps:"doppio elemento: dinamico + condensatore, due uscite", pol:"cardioide (entrambi gli elementi)", p48:true, stand:"asta bassa", uso:"cassa (due canali)", alias:"dtp640"},
+  "LCT 440":    {brand:"LEWITT", model:"LCT 440 PURE", type:"condensatore", caps:"diaframma grande (25,4 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio", alias:"lct440 pure"},
+  "LCT 240":    {brand:"LEWITT", model:"LCT 240 PRO", type:"condensatore", caps:"diaframma piccolo (17 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce, acustici", alias:"lct240 pro"},
+
+  /* ══ EARTHWORKS ══ (earthworksaudio.com) ═══════════════════════════════════════════════════ */
+  "SR314":      {brand:"Earthworks", model:"SR314", type:"condensatore", caps:"diaframma piccolo (14 mm)", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "SR20":       {brand:"Earthworks", model:"SR20 Gen 2", type:"condensatore", caps:"diaframma piccolo (10 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"ampli chitarra, fiati, overhead"},
+  "DM20":       {brand:"Earthworks", model:"DM20", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"clip strumento", uso:"rullante, tom"}
+};
+/* ---- Channel list realistiche per formazione (contesto LIVE PA, monitor misto wedge+IEM) ----
+   MIC_DEFAULTS = la sola cosa che i motori chiedono a un microfono (asta + phantom): si DERIVA dal
+   catalogo, non si riscrive. Restano scritte a mano le voci che microfoni non sono — la DI, la
+   coppia di DI, e «SM57/e906» che e' un modo di dire della channel list (due mic sullo stesso ampli). */
 var MIC_DEFAULTS = {
   "DI":{stand:"",p48:false}, "DI st":{stand:"2 DI",p48:false},
-  "SM58":{stand:"asta dritta",p48:false}, "Beta 58A":{stand:"asta dritta",p48:false},
-  "SM57":{stand:"asta bassa",p48:false}, "SM57/e906":{stand:"asta bassa",p48:false},
-  "e906":{stand:"clip/asta bassa",p48:false}, "e904":{stand:"clip",p48:false},
-  "D6":{stand:"asta bassa",p48:false}, "Beta 91A":{stand:"interno/terra",p48:true},
-  "MD421":{stand:"asta bassa/clip",p48:false}, "SM81":{stand:"asta giraffa",p48:true},
-  "KM184":{stand:"asta giraffa",p48:true}, "C414":{stand:"asta giraffa",p48:true},
-  "DPA 4099":{stand:"clip strumento",p48:true}, "DPA 4066":{stand:"headset",p48:true},
-  "DPA 4088":{stand:"headset",p48:true}   /* archetto DIREZIONALE (cardioide): piu' rifiuto del 4066 omni, teatro e voci con monitor forte */
+  "SM57/e906":{stand:"asta bassa",p48:false}
 };
+Object.keys(MIC_DB).forEach(function(k){ MIC_DEFAULTS[k]={stand:MIC_DB[k].stand, p48:!!MIC_DB[k].p48}; });
 function micInfo(mic){
   if(MIC_DEFAULTS[mic]) return MIC_DEFAULTS[mic];
   if(String(mic).indexOf("DI")>-1) return {stand:"",p48:false};
   return {stand:"",p48:false};
 }
+/* ── COMPLETAMENTO DEL MICROFONO (Simone 29/07) ─────────────────────────────────────────────────
+   «Se ho una zona microfono panoramico e nella sezione microfono scrivo u87 devono comparirmi le
+   opzioni da selezionare.»
+
+   RIUSO DI qaSearch: il RANKING e' lo stesso della finestrella del doppio clic — _deacc, inizio
+   parola (qaWordStart), rango 0..5 dal piu' al meno pertinente. Non si riusa la FUNZIONE perche'
+   qaSearch cerca nel catalogo del palco e le sue voci sanno aggiungersi alla scena (e.action/e.k):
+   corpus e azione sono altri. Qui il corpus e' MIC_DB e l'azione e' «scrivi nel campo». Il criterio
+   con cui si ordina resta uno solo, e sta scritto una volta sola in questa forma.
+
+   IN PIU' RISPETTO A qaSearch: l'indice contiene anche la versione SENZA SPAZI («u87ai» per «U 87
+   Ai», «md421ii» per «MD 421-II»). Sul rider il modello si scrive attaccato, sul datasheet spaziato:
+   chi digita «u87» deve trovarlo comunque. */
+var _micIdxK=null,_micIdxN=null,_micIdxS=null,_micIdxA=null;
+function _micFlat(s){ return _deacc(String(s||"")).replace(/[\s\-]+/g," "); }
+function micIndex(){
+  if(_micIdxK) return;
+  _micIdxK=[];_micIdxN=[];_micIdxS=[];_micIdxA=[];
+  Object.keys(MIC_DB).forEach(function(k){
+    var d=MIC_DB[k];
+    var strong=[k,d.brand,d.model,d.alias||""].join(" ");
+    _micIdxK.push(k);
+    _micIdxN.push(_micFlat(k));
+    _micIdxS.push(_micFlat(strong)+" "+_micFlat(strong).replace(/[\s]+/g,""));
+    /* nell'indice largo entra anche il SUPPORTO: chi cerca «headset» o «clip» sta cercando una
+       famiglia di microfoni, non una parola nel nome */
+    _micIdxA.push(_micFlat([strong,d.type,d.caps||"",d.pol||"",d.uso||"",d.stand||""].join(" "))
+                + " " + _micFlat(strong).replace(/[\s]+/g,""));
+  });
+}
+function micSearch(q, max){
+  q=_micFlat(q).trim(); if(!q) return [];
+  micIndex();
+  var qn=q.replace(/\s+/g,""), hit=[];
+  for(var i=0;i<_micIdxK.length;i++){
+    var all=_micIdxA[i]; if(all.indexOf(q)===-1 && all.indexOf(qn)===-1) continue;
+    var n=_micIdxN[i], s=_micIdxS[i], r;
+    if(n.indexOf(q)===0||n.replace(/\s+/g,"").indexOf(qn)===0) r=0;   /* la chiave INIZIA con quello che ho scritto */
+    else if(qaWordStart(n,q)) r=1;
+    else if(qaWordStart(s,q)||qaWordStart(s,qn)) r=2;                 /* inizio parola in marca/modello/alias */
+    else if(n.indexOf(q)>-1) r=3;
+    else if(s.indexOf(q)>-1||s.indexOf(qn)>-1) r=4;
+    else r=5;                                                          /* solo l'uso o la direttivita' */
+    hit.push({k:_micIdxK[i], r:r, n:n});
+  }
+  hit.sort(function(a,b){ return (a.r-b.r) || a.n.localeCompare(b.n); });
+  return hit.slice(0, max||9).map(function(x){ return {key:x.k, mic:MIC_DB[x.k]}; });
+}
+window.__micSearch=function(q){ return micSearch(q).map(function(m){ return m.key; }); };   /* superficie pura per i test (gemella di __qaSearch) */
+/* Il pannellino dei suggerimenti. UNO SOLO, delegato al documento: la channel list si ricostruisce
+   intera a ogni modifica (clRender rifa' la tabella in HTML), quindi un handler agganciato alla
+   singola <input> lo perderemmo al primo ridisegno. Si aggancia all'ATTRIBUTO `data-micac`, e da li'
+   in poi vale per QUALUNQUE campo microfono — zona panoramica, channel list, input list, e i
+   prossimi — senza che nessuno debba ricordarsi di registrarlo. */
+var _micAcBox=null,_micAcInp=null,_micAcHits=[],_micAcSel=0,_micAcPick=false;
+function micAcClose(){
+  if(_micAcBox && _micAcBox.parentNode) _micAcBox.parentNode.removeChild(_micAcBox);
+  _micAcBox=null; _micAcInp=null; _micAcHits=[]; _micAcSel=0;
+}
+function micAcPlace(inp){
+  if(!_micAcBox||!inp.getBoundingClientRect) return;
+  var r=inp.getBoundingClientRect(), b=_micAcBox;
+  /* piu' largo del campo, non largo come il campo: nella channel list la cella Mic/DI e' stretta e
+     «Shure · condensatore · super…» non ci starebbe (visto in prova sul browser) */
+  var w=Math.min(400, Math.max(330, r.width));
+  b.style.width=w+"px";
+  var h=b.offsetHeight||0, top=r.bottom+4;
+  if((window.innerHeight-r.bottom) < (h+10) && r.top > (h+10)) top=r.top-h-4;   /* niente posto sotto: si apre sopra */
+  b.style.top=Math.max(6, Math.min(top, window.innerHeight-h-6))+"px";
+  b.style.left=Math.max(6, Math.min(r.left, window.innerWidth-w-6))+"px";
+}
+function micAcDraw(inp){
+  var hits=micSearch(inp.value, 9);
+  if(!hits.length){ micAcClose(); return; }
+  if(!_micAcBox){
+    _micAcBox=document.createElement("ul"); _micAcBox.className="mic-ac"; _micAcBox.setAttribute("role","listbox");
+    _micAcBox.addEventListener("mousedown", function(ev){
+      var li=ev.target && ev.target.closest && ev.target.closest(".mic-ac-item"); if(!li) return;
+      ev.preventDefault();   /* il campo non deve perdere il fuoco prima di ricevere il valore */
+      micAcChoose(+li.getAttribute("data-i"));
+    });
+    document.body.appendChild(_micAcBox);
+  }
+  _micAcInp=inp; _micAcHits=hits; _micAcSel=0;
+  _micAcBox.innerHTML=hits.map(function(h,i){
+    var d=h.mic, sub=[d.brand, d.type, d.pol].filter(Boolean).join(" · ");
+    return '<li class="mic-ac-item'+(i===0?" sel":"")+'" role="option" data-i="'+i+'">'
+      + '<span class="mic-ac-k">'+esc(h.key)+'</span>'
+      + '<span class="mic-ac-sub">'+esc(sub)+'</span>'
+      + (d.p48?'<span class="mic-ac-48" title="Richiede phantom +48V">48V</span>':'')
+      + '</li>';
+  }).join("");
+  micAcPlace(inp);
+}
+function micAcMove(d){
+  if(!_micAcBox||!_micAcHits.length) return;
+  _micAcSel=(_micAcSel+d+_micAcHits.length)%_micAcHits.length;
+  var items=_micAcBox.querySelectorAll(".mic-ac-item");
+  Array.prototype.forEach.call(items, function(li,i){ if(li.classList) li.classList.toggle("sel", i===_micAcSel); });
+  var s=_micAcBox.querySelector(".mic-ac-item.sel"); if(s&&s.scrollIntoView) s.scrollIntoView({block:"nearest"});
+}
+function micAcChoose(i){
+  var inp=_micAcInp, h=_micAcHits[(i==null?_micAcSel:i)]; if(!inp||!h) return;
+  micAcClose();
+  inp.value=h.key;
+  /* i campi microfono non ascoltano tutti lo stesso evento: il pannello della zona salva su 'input',
+     la channel list commette su 'change'. Si avvisano tutti e due — chi sceglie non deve sapere chi
+     c'e' dall'altra parte del campo. */
+  _micAcPick=true;
+  try{
+    inp.dispatchEvent(new Event("input",{bubbles:true}));
+    inp.dispatchEvent(new Event("change",{bubbles:true}));
+  } finally { _micAcPick=false; }
+}
+window.__micAcChoose=function(i){ micAcChoose(i); };   /* superficie per i test end-to-end */
+(function micAcInit(){
+  if(!document || !document.addEventListener) return;
+  function isMicField(t){ return !!(t && t.hasAttribute && t.hasAttribute("data-micac")); }
+  document.addEventListener("input", function(e){
+    if(_micAcPick) return;                       /* l'evento se lo e' mandato la scelta: non riaprire */
+    if(!isMicField(e.target)) return;
+    micAcDraw(e.target);
+  }, true);
+  document.addEventListener("keydown", function(e){
+    if(!isMicField(e.target) || !_micAcBox || _micAcInp!==e.target) return;
+    if(e.key==="ArrowDown"){ e.preventDefault(); micAcMove(1); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); micAcMove(-1); }
+    else if(e.key==="Enter"){ e.preventDefault(); micAcChoose(); }
+    else if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); micAcClose(); }   /* Esc chiude i suggerimenti, non la finestra sotto */
+  }, true);
+  document.addEventListener("focusout", function(e){
+    if(!isMicField(e.target)) return;
+    setTimeout(micAcClose, 140);   /* il mousedown su una voce fa in tempo ad arrivare */
+  }, true);
+  if(window.addEventListener){ window.addEventListener("resize", micAcClose); window.addEventListener("scroll", micAcClose, true); }
+})();
 function ch(src,mic,stand,p48,notes){
   var info=micInfo(mic);
   return {src:src, mic:mic, stand:stand!=null?stand:info.stand, p48:p48!=null?!!p48:info.p48, notes:notes||""};
@@ -13980,7 +14380,8 @@ function chanRow(kind, row, i){
   d.appendChild(src);
   if(kind==="in"){
     var mic=document.createElement("input"); mic.className="mic"; mic.value=row.mic||"";
-    mic.placeholder="mic/DI"; mic.setAttribute("list","micList");   /* M4: suggerimenti modelli */
+    mic.placeholder="mic/DI"; mic.setAttribute("data-micac","1");   /* completamento dal catalogo microfoni (MIC_DB) */
+    mic.setAttribute("autocomplete","off"); mic.setAttribute("spellcheck","false");
     mic.addEventListener("input", function(){ row.mic=mic.value; saveSoon(); });
     d.appendChild(mic);
     var stand=document.createElement("input"); stand.className="stand"; stand.value=row.stand||"";
@@ -14111,7 +14512,12 @@ function standNeeds(){
     if(!TYPES[it.type]) return;
     var own=standKindOfItem(it);
     if(own){ out[own].gia++; out[own].tot++; }
-    if(!isAudioSource(it)) return;
+    /* «PRODUCE CANALI», non «è una sorgente da microfonare» — stessa distinzione gia' fatta il 29/07
+       per il palco a zone. Il gate era isAudioSource, che ESCLUDE la zona panoramica di proposito
+       (una zona non si microfona: e' lei il microfono). Risultato: il panoramico della zona compariva
+       in channel list con la sua asta giraffa, ma il conteggio del rider diceva zero aste — e il
+       service arrivava senza. Visto in prova sul browser il 30/07. */
+    if(!hasChannels(it)) return;
     if(it.type==="astamic"||it.type==="giraffa"||it.type==="astagigante"||it.type==="astabassa"||it.type==="headset") return;   /* l'asta È l'oggetto: già contata sopra */
     if(VOCE[it.type]) return;                                   /* voci: l'asta è nell'icona, già contata */
     var inps=cabItemInputs(it)||[];
@@ -15162,6 +15568,7 @@ function patchList(){
       if(_shared) stand="";
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
+            micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
             stereoPair:_pair, standShared:_shared,
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
@@ -15243,7 +15650,10 @@ function clRender(){
   document.getElementById("clSum").textContent=clFmtSum(pl);
   clRenderMini(pl);
   var tb=document.getElementById("clTable");
-  var mics=Object.keys(MIC_DEFAULTS||{});   /* stesso vocabolario del pannello: niente elenco parallelo */
+  /* Mic/DI: CAMPO LIBERO con completamento (29/07), non piu' una tendina. Con 15 microfoni la
+     tendina bastava; col catalogo MIC_DB (oltre 130 modelli) diventa un elenco da scorrere, e
+     soprattutto NON accetta il microfono che il fonico ha in flight case e che nell'elenco non c'e'.
+     Si scrive, compaiono i modelli, si sceglie — oppure si scrive e basta: il campo resta libero. */
   var h='<thead><tr><th class="cl-grip" scope="col"><span class="sr-only">Ordine</span></th>'
       + '<th class="cl-num" scope="col">'+(pl.hasFoh?"FOH":"Canale")+'</th>'
       + '<th scope="col">Sorgente</th><th scope="col">Mic / DI</th><th scope="col">Asta</th>'
@@ -15268,11 +15678,9 @@ function clRender(){
      + '<td class="cl-num"><input class="cl-numin" type="number" min="1" max="'+pl.rows.length+'" value="'+num+'" data-num="'+esc(r.key)+'" aria-label="Numero del canale '+esc(r.name)+'"></td>'
      + '<td class="cl-src"><button type="button" class="cl-name" data-go="'+esc(r.itemId||"")+'" title="Premi: la sorgente si accende sul palco">'+esc(r.name)+'</button>'
      +   (r.short?'<span class="cl-short" title="Nome sul banco">'+esc(r.short)+'</span>':'')+'</td>'
-     + '<td><select class="cl-cell" data-mic="'+esc(r.key)+'" aria-label="Microfono o DI">'
-     +   '<option value=""'+(r.micOff?" selected":"")+'>\u2014 no mic</option>'
-     +   mics.map(function(m){ return '<option'+(m===r.mic?" selected":"")+'>'+esc(m)+'</option>'; }).join("")
-     +   ((r.mic && mics.indexOf(r.mic)<0)?('<option selected>'+esc(r.mic)+'</option>'):'')
-     + '</select></td>'
+     + '<td><input type="text" class="cl-cell cl-micin'+(r.micAuto?" auto":"")+'" data-mic="'+esc(r.key)+'" data-micac="1" maxlength="24"'
+     +   ' value="'+esc(r.micOff?"":(r.mic||""))+'" placeholder="\u2014 no mic" aria-label="Microfono o DI"'
+     +   ' autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other"></td>'
      /* ASTA \u2014 una ripresa stereo sta su una barra, cio\u00e8 su un'asta sola, e il rider non deve
         chiederne due. Dove il canale la condivide la cella non \u00e8 una tendina ma il DATO SCRITTO
         (\u00ab\u21b3 stessa asta\u00bb) con accanto \u00abcambia\u00bb, che restituisce la tendina normale: la riga resta
@@ -17205,8 +17613,8 @@ function updateChanDatalists(){
   function fillList(el, opts){ el.innerHTML=""; opts.forEach(function(o){ var op=document.createElement("option"); op.value=o; el.appendChild(op); }); }
   fillList(inL, inOpts);
   fillList(outL, outOpts);
-  var micL=document.getElementById("micList"), standL=document.getElementById("standList");   /* M4: suggerimenti mic/stand */
-  if(micL) fillList(micL, MIC_SUGGEST);
+  /* il mic non ha piu' un datalist: ha il completamento su MIC_DB (data-micac) — una fonte sola */
+  var standL=document.getElementById("standList");   /* M4: suggerimenti stand */
   if(standL) fillList(standL, STAND_SUGGEST);
 }
 function renderChannels(){

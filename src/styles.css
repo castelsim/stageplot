@@ -643,6 +643,29 @@
   body.dark .qa-item.sel::before{background:#2dd4bf}
   body.dark .qa-item.sel .qa-name{color:#5eead4}
   body.dark .qa-item.sel .qa-pill{background:rgba(45,212,191,.16);color:#5eead4}
+  /* Completamento del microfono (29/07) — si scrive «u87» nel campo Microfono e i modelli compaiono.
+     Stessa grammatica visiva della quick-add (riquadro flottante, barretta teal sulla voce scelta),
+     righe piu' compatte: qui la riga e' un nome corto + la scheda in piccolo, non un'anteprima. */
+  /* z-index 335: il campo microfono vive anche DENTRO la channel list piena, che sta a 300 (v. .cl-ov).
+     A 80 il pannellino c'era ma la tabella se lo mangiava — visibile e non cliccabile. Sotto la
+     conferma distruttiva (340) e il messaggio del cloud (360), che devono restare sopra tutto. */
+  .mic-ac{position:fixed;z-index:335;list-style:none;margin:0;padding:5px;max-height:min(298px,52vh);overflow-y:auto;
+    background:var(--panel,#fff);border:1px solid var(--border,#e7e2da);border-radius:11px;
+    box-shadow:0 12px 34px rgba(31,41,55,.17)}
+  .mic-ac-item{display:flex;align-items:baseline;gap:8px;padding:6px 9px 6px 11px;border-radius:8px;cursor:pointer;position:relative}
+  .mic-ac-k{flex:none;font-size:12.5px;font-weight:650;color:var(--text,#111827)}
+  .mic-ac-sub{flex:1;min-width:0;font-size:10.5px;color:var(--text-3,#8d867b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mic-ac-48{flex:none;font-size:9px;font-weight:700;letter-spacing:.03em;color:var(--accent-strong,#0f766e);
+    background:var(--accent-tint,rgba(13,148,136,.11));padding:2px 6px;border-radius:99px}
+  .mic-ac-item:hover{background:rgba(13,148,136,.06)}
+  .mic-ac-item.sel{background:rgba(13,148,136,.09)}
+  .mic-ac-item.sel::before{content:"";position:absolute;left:3px;top:6px;bottom:6px;width:3px;border-radius:3px;background:#0d9488}
+  .mic-ac-item.sel .mic-ac-k{color:#0f766e}
+  body.dark .mic-ac{background:#141a1f;border-color:#2a3138}
+  body.dark .mic-ac-item:hover{background:rgba(45,212,191,.08)}
+  body.dark .mic-ac-item.sel{background:rgba(45,212,191,.13)}
+  body.dark .mic-ac-item.sel::before{background:#2dd4bf}
+  body.dark .mic-ac-item.sel .mic-ac-k{color:#5eead4}
   .cab-lbl{fill:#0f766e;font-size:9.5px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:2.6px;pointer-events:none}
   .cab-ghost{pointer-events:none}
   .cab-ghost rect{fill:rgba(13,148,136,.10);stroke:#0d9488;stroke-width:1.6;stroke-dasharray:5 4}
