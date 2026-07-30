@@ -7789,5 +7789,37 @@ t("il mixer NON eredita il pannello della stage box (misure e Device ID restano 
   eq(dm3.d, A.TYPES.dm3.d);
 });
 
+
+/* ====== IL PALLINO NON INCHIODA PIU' GLI ELEMENTI PICCOLI (Simone 29/07) ====================
+   Su una DI (13x10 cm) l'area di presa del pallino audio copre il 408% del corpo: ogni tentativo
+   di spostarla faceva partire un cavo, e la DI restava inchiodata dov'era. */
+console.log("\n— Il pallino della porta e gli elementi piccoli —");
+
+t("sotto la soglia il pallino esce dal corpo, sopra resta al centro", () => {
+  reset();
+  const di = add("dimono", 300, 250);
+  ok(A.portDotOutside(di), "una DI e' troppo piccola per tenerselo dentro");
+  const p = A.portDotPos(di, "audio");
+  ok(p[0] > di.x + di.w / 2, "il pallino sta FUORI dal bordo destro: " + p.join(","));
+  eq(p[1], di.y, "alla stessa altezza del centro: si trova a colpo d'occhio");
+  const voce = add("cantante", 600, 300);
+  eq(A.portDotOutside(voce), false, "su un cantante 70x120 il pallino ci sta comodo");
+  eq(A.portDotPos(voce, "audio").join(","), [voce.x, voce.y].join(","), "e resta al centro, dov'era");
+});
+t("il CAVO continua a partire dal centro, anche quando il pallino e' fuori", () => {
+  reset();
+  const di = add("dimono", 300, 250);
+  eq(A.portAnchor(di, "audio").join(","), [di.x, di.y].join(","), "l'ancora del cavo non si sposta");
+  const p = A.portDotPos(di, "audio");
+  ok(p[0] !== di.x, "mentre il pallino si', altrimenti non si prenderebbe l'elemento");
+});
+t("la soglia guarda l'AREA, non un elenco di tipi", () => {
+  reset();
+  const di = add("dimono", 300, 250);
+  ok(A.portDotOutside(di));
+  di.w = 120; di.d = 90;   /* la stessa DI ingrandita a mano dall'utente */
+  eq(A.portDotOutside(di), false, "cresciuta, il pallino torna dentro: la regola e' geometrica");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
