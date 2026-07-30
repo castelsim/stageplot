@@ -7953,5 +7953,72 @@ t("un progetto vecchio si riapre: l'illustrazione diventa il set, senza perdere 
   eq(it.look, undefined, "e l'aspetto orfano viene ripulito");
 });
 
+// ── PICCOLE PERCUSSIONI (30/07, blocco B) ──────────────────────────────────────────────────────
+// Il rischio del blocco A: dieci percussioni sul palco = dieci canali. Nessuno microfona uno shaker
+// con un canale suo — il banco si riprende con uno o due panoramici.
+console.log("\n— Piccole percussioni —");
+
+const PICCOLE = ["djembe", "surdo", "tamburello", "campanaccio", "templeblocks", "triangoloperc"];
+
+t("le piccole percussioni nascono SENZA canale proprio", () => {
+  reset();
+  PICCOLE.forEach(function (tp) {
+    const it = add(tp, 300, 300);
+    eq(chans(it).length, 0, tp + " non porta un canale suo appena posato");
+  });
+});
+
+t("ma se ne microfoni una, il canale compare col mic giusto", () => {
+  reset();
+  const dj = add("djembe", 300, 300);
+  dj.miking = "close";
+  eq(chans(dj).length, 1, "un canale");
+  eq(chans(dj)[0].mic, "e904", "col microfono da tamburo");
+  dj.miking = "pan";
+  eq(chans(dj).length, 0, "e tornando al panoramico sparisce");
+});
+
+t("un banco percussioni intero costa due canali, non otto", () => {
+  reset();
+  PICCOLE.forEach(function (tp, i) { add(tp, 300 + i * 90, 400); });
+  const tv = add("tavolopercussioni", 600, 520); tv.miking = "pan2"; tv.label = "Perc";
+  eq(A.state.items.length, 7, "sette elementi sul palco");
+  const righe = A.patchList().rows.map((r) => r.name);
+  eq(righe.length, 2, "due canali soli: " + righe.join(", "));
+  ok(righe.join(",").indexOf("L") > -1, "la coppia panoramica: " + righe);
+});
+
+t("il tavolo percussioni è il mic d'insieme: muto, poi 1, poi 2 panoramici", () => {
+  reset();
+  const tv = add("tavolopercussioni", 500, 400); tv.label = "Perc";
+  eq(chans(tv).length, 0, "appena posato è solo un piano d'appoggio");
+  tv.miking = "pan1"; eq(chans(tv).length, 1, "un panoramico");
+  tv.miking = "pan2"; eq(chans(tv).length, 2, "coppia stereo");
+  eq(chans(tv).map((c) => c.mic).join(","), "KM184,KM184", "condensatori");
+});
+
+t("il tavolo percussioni si blocca come gli altri piani d'appoggio", () => {
+  reset();
+  const tv = add("tavolopercussioni", 500, 400);
+  ok(A.isLockable(tv), "ha il lucchetto");
+  tv.locked = true;
+  eq(A.itemEditable(tv), false, "e bloccato non si sposta");
+});
+
+t("una zona panoramica assorbe i piccoli, ma NON i tamburi che si microfonano da vicino", () => {
+  reset();
+  PICCOLE.forEach(function (tp) { ok(A.zoneAbsorbable({ type: tp }), tp + ": lo copre il panoramico"); });
+  ["conga", "tumba", "bongos", "cajon", "timbales"].forEach(function (tp) {
+    eq(A.zoneAbsorbable({ type: tp }), false, tp + ": tiene il suo close mic anche dentro una zona");
+  });
+});
+
+t("le misure sono di categoria: surdo > djembe > tamburello", () => {
+  reset();
+  const s = add("surdo", 100, 100), d = add("djembe", 200, 100), tb = add("tamburello", 300, 100);
+  ok(s.w > d.w && d.w > tb.w, "18\" > 12\" > 10\": " + [s.w, d.w, tb.w]);
+  ok(tb.w >= 25 && tb.w <= 30, "un tamburello da 10 pollici sta in ~26 cm: " + tb.w);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

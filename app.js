@@ -998,6 +998,25 @@ var TYPES = {
              draw:function(){ return libIcon("batteristaPersona"); }},
   cajon:    {nome:"Cajon", dim:"30×30", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:34,
              draw:function(){ return bar(0,0,30,30,'ic fWoodL',3)+circ(0,0,7,'ic thin fWoodD')+circ(-9,-9,1.8,'dotS')+circ(9,-9,1.8,'dotS'); }},
+  /* — piccole percussioni (30/07): quelle che un percussionista si porta e si dispone a modo suo.
+       Nascono SENZA canale proprio (MIKING def "pan", come i fiati di sezione): un setup di dieci
+       pezzi si riprende con uno o due panoramici, non con dieci close mic. Chi ne vuole microfonare
+       uno lo dice, e allora il canale compare. Misure di categoria, dai cataloghi costruttore. */
+  djembe:   {nome:"Djembe", dim:"12\" · Ø30", cat:"Batteria e percussioni", sub:"Percussioni", w:32,d:32, defLabel:"Djb",
+             draw:function(){ return djembeGlyph(15); }},
+  surdo:    {nome:"Surdo", dim:"18\" · Ø46", cat:"Batteria e percussioni", sub:"Percussioni", w:48,d:48, defLabel:"Srd",
+             draw:function(){ return lin(-14,16,-22,30,'ic thin')+lin(14,16,22,30,'ic thin')+drum(0,0,23); }},
+  tamburello:{nome:"Tamburello", dim:"10\" · Ø25 · su stand", cat:"Batteria e percussioni", sub:"Percussioni", w:26,d:26, defLabel:"Tamb",
+             draw:function(){ return tamburelloGlyph(12.5); }},
+  campanaccio:{nome:"Campanaccio", dim:"8\" · su asta", cat:"Batteria e percussioni", sub:"Percussioni", w:22,d:14, defLabel:"Cwb",
+             draw:function(){ return lin(-11,4,-2,1,'ic thin')+'<path class="ic fBrass" d="M -2,-6 L 10,-4 L 8,4 L -1,2 Z"/>'; }},
+  templeblocks:{nome:"Temple blocks", dim:"5 pezzi · 65×28", cat:"Batteria e percussioni", sub:"Percussioni", w:65,d:28, defLabel:"Blk",
+             draw:function(){ var s=lin(-28,10,28,10,'ic thin'), r=8.5;   /* cinque blocchi calanti su stativo */
+               for(var i=0;i<5;i++){ s += '<ellipse class="ic fWoodL" cx="'+(-26+i*13)+'" cy="-1" rx="'+(r-i*0.9)+'" ry="'+(r-i*0.9)*0.78+'"/>'
+                 + lin(-26+i*13-(r-i*0.9)*0.5, -1, -26+i*13+(r-i*0.9)*0.5, -1, 'ic thin'); }
+               return s; }},
+  triangoloperc:{nome:"Triangolo", dim:"8\" · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:24,d:24, defLabel:"Trg",
+             draw:function(){ return lin(0,-12,0,-4,'ic thin')+'<path class="ic thin" fill="none" d="M -9,7 L 0,-8 L 9,7 M -7.4,7 L 7.4,7"/>'; }},
   timbales: {nome:"Timbales", dim:"110×60", cat:"Batteria e percussioni", sub:"Percussioni", w:115,d:65,
              draw:function(){
                /* macho 13" + hembra 14" su stand, campanaccio montato al centro */
@@ -1606,6 +1625,10 @@ var SEARCH_ALIAS = {
   rullante:"sn snr sd snare", grancassa:"bd",
   piatto:"cym crash ride", piatticoppia:"cym",
   percussioni:"congas bongos latin perc set percussioni", conga:"congas tumbadora latin perc",
+  djembe:"djembe djembè percussione africana perc", surdo:"surdo samba batucada percussione brasiliana perc",
+  tamburello:"tamburello tamburino tambourine tamb perc", campanaccio:"campanaccio cowbell campana perc",
+  templeblocks:"temple blocks blocchi di legno woodblock legnetti perc", triangoloperc:"triangolo strumento percussione perc",
+  tavolopercussioni:"tavolo percussioni appoggio piccoli perc trap table",   /* niente "piano d'appoggio": la ricerca è a sottostringa e "piano" deve dare il pianoforte */
   quinto:"congas latin perc", tumba:"congas tumbadora latin perc", bongos:"bongo macho hembra latin perc",
   micover:"oh",
   sidefill:"mon mons sf", hearback:"mon mons",
@@ -2296,6 +2319,15 @@ function percBBox(L){ var minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
 }
 /* Conga vista dall'alto: fusto in legno, cerchione cromato, pelle. */
 function congaGlyph(r){ return circ(0,0,r,'ic fWoodD')+circ(0,0,r-1.6,'ic fSilver')+circ(0,0,r-3.4,'ic thin fHead')+rimlight(0,0,r); }
+/* Djembe: come una conga ma accordato a corda — il bordo porta i tiranti, non i lug. */
+function djembeGlyph(r){ var s=circ(0,0,r,'ic fWoodD')+circ(0,0,r-1.4,'ic thin fHead');
+  for(var i=0;i<8;i++){ var a=i*Math.PI/4, c=Math.cos(a), n=Math.sin(a);
+    s += lin(c*(r-1.2), n*(r-1.2), c*(r-3.4), n*(r-3.4), 'ic thin'); }
+  return s+rimlight(0,0,r); }
+/* Tamburello su stand: cerchio con i sonagli sul telaio. */
+function tamburelloGlyph(r){ var s=circ(0,0,r,'ic fWoodL')+circ(0,0,r-2.2,'ic thin fHead');
+  for(var i=0;i<6;i++){ var a=i*Math.PI/3; s += circ(Math.cos(a)*(r-1.1), Math.sin(a)*(r-1.1), 1.5, 'ic fBrass'); }
+  return s; }
 /* Bongos: coppia solidale, hembra (grande) alla destra del suonatore = x<0. */
 function bongosGlyph(){ var H=PERC_BONGO.hembra, M=PERC_BONGO.macho;
   return bar(H*0.1,0,H+M,4,'ic fill',2)+
@@ -8232,12 +8264,12 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
    strutture che portano i fari, dove il gesto sbagliato non sposta solo loro ma tutto il carico.
    Il metro non regge niente ma è una quota: presa una volta, si muove solo per sbaglio. */
 var LOCKABLE={ tappeto:1, forma:1, miczone:1, metro:1,
-  tavolo:1, podio:1, pedanacoro:1, flightcase:1, americana:1, truss:1 };
+  tavolo:1, tavolopercussioni:1, podio:1, pedanacoro:1, flightcase:1, americana:1, truss:1 };   /* il tavolo percussioni è IL piano d'appoggio della categoria: ci si posano sopra i piccoli (30/07) */
 /* Chi il lucchettino se lo disegna dentro il proprio draw; per tutti gli altri lo mette renderItem. */
 var LOCK_GLYPH_SELF={ pedana:1, tappeto:1, forma:1, miczone:1, metro:1 };
 function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
 var LOCK_NAMES={ tappeto:"il tappeto", forma:"la forma", miczone:"la zona", metro:"il metro",
-  tavolo:"il tavolo", podio:"il podio", pedanacoro:"la pedana", flightcase:"il flight case",
+  tavolo:"il tavolo", tavolopercussioni:"il tavolo", podio:"il podio", pedanacoro:"la pedana", flightcase:"il flight case",
   americana:"l\u2019americana", truss:"la truss" };
 function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it && LOCK_NAMES[it.type]) || "l\u2019elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
@@ -9433,7 +9465,7 @@ var ABBR_PRO=[
   ["violoncello","Vc"],["violoncelli","Vc"],["violino","Vln"],["violini","Vln"],["viola","Vla"],["viole","Vla"],["archi","Archi"],["arpa","Arp"],   /* plurali = leggii di sezione del generatore */
   ["direttore","M°"],["leslie","Leslie"],["pedaliera","Pedal"],["dj","DJ"],["panchetta","Panca"],["sgabello","Sgab"],["shield","Shield"],
   ["organo a canne","Org"],["organo hammond","Hmd"],["organo","Org"],["clavicembalo","Cemb"],["pianoforte","Pno"],["stage piano","Pno"],["piano","Pno"],["tastiera","Keys"],["synth","Synth"],["celesta","Cel"],["fisarmonica","Fis"],["controller","Keys"],["spd","Pad"],
-  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["cassa","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["percussion","Perc"],["congas","Cga"],["conga","Cga"],["tumba","Cga"],["quinto","Cga"],["bongo","Bng"],["cajon","Caj"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],
+  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["cassa","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["percussion","Perc"],["congas","Cga"],["conga","Cga"],["tumba","Cga"],["quinto","Cga"],["bongo","Bng"],["cajon","Caj"],["djembe","Djb"],["surdo","Srd"],["tamburello","Tamb"],["campanaccio","Cwb"],["temple blocks","Blk"],["tavolo percussioni","Tav"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],
   ["cantante","Vox"],["voce","Vox"],["corista","Coro"],["coro","Coro"],
   ["personal mixer","PM"],["monitoraggio","PM"],["aviom","PM"],["hearback","PM"],
   ["side fill","SF"],["sidefill","SF"],["drum fill","DF"],["drumfill","DF"],["in-ear","IEM"],["in ear","IEM"],["iem","IEM"],["cuffie","IEM"],["monitor","Mon"],["wedge","Mon"],["spia","Mon"],
@@ -13888,6 +13920,21 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
   MIKING[t]={ options:[["close","Ravvicinato (clip)"],["pan","Panoramico (sezione)"]], def:"close",
     chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
 });
+/* PICCOLE PERCUSSIONI (30/07): nascono panoramiche, cioè con ZERO canali propri — un banco di
+   percussioni si riprende con uno o due mic d'insieme, non pezzo per pezzo, e un rider con dieci
+   righe per dieci sonagli è un rider falso. Chi ne vuole microfonare uno lo dice, e il canale
+   compare. L'opzione "pan" le rende anche assorbibili da una zona di microfonazione (zoneAbsorbable).
+   I tamburi grandi (congas, cajon, timbales…) restano fuori di proposito: si microfonano quasi
+   sempre da vicino e dentro una zona TENGONO il loro mic, com'è già stabilito in zoneAbsorbable. */
+var PERC_PICCOLE={ djembe:"e904", surdo:"D6", tamburello:"KM184", campanaccio:"SM57", templeblocks:"KM184", triangoloperc:"KM184" };
+Object.keys(PERC_PICCOLE).forEach(function(t){ var mic=PERC_PICCOLE[t];
+  MIKING[t]={ options:[["pan","Panoramico — lo prende il mic d'insieme"],["close","Ravvicinato ("+mic+")"]], def:"pan",
+    chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
+});
+/* Il TAVOLO PERCUSSIONI è il mic d'insieme dei piccoli: microfonandolo si riprende tutto quello che
+   ci sta sopra con uno o due canali. Nasce muto (è arredo finché non lo si microfona). */
+MIKING.tavolopercussioni={ options:[["no","Nessuno — è solo un piano d'appoggio"],["pan1","1 panoramico (KM184)"],["pan2","2 panoramici (stereo)"]], def:"no", grp:"Microfono",
+  chans:function(m){ if(m==="pan2") return [["L","KM184"],["R","KM184"]]; if(m==="pan1") return [["","KM184"]]; return []; } };
 /* Archi SINGOLI (violino/viola/violoncello/contrabbasso solisti): archetto (DPA) oppure panoramico=0 canali (overhead) */
 ["vlnpost","violapost","violoncello","contrabbasso"].forEach(function(t){
   MIKING[t]={ options:[["archetto","Archetto (DPA)"],["pan","Panoramico (sezione)"]], def:"archetto",
@@ -17795,7 +17842,7 @@ function clBank(type){
   var t=TYPES[type]||{}, cat=t.cat||"", n=String(type).toLowerCase();
   if(cat==="Batteria e percussioni"||cat==="Band e backline"){
     if(/batter|drum|kick|grancass|rullant|\btom|hihat|hi-hat|overhead|edrums/.test(n)) return 10;   /* batteria (kick primo) */
-    if(/piatt|cajon|conga|bongo|timbal|percuss|tamtam|campan|glocken|vibrafono|marimba|xilofono|timpani|quinto|tumba/.test(n)) return 15; /* altre percussioni */
+    if(/piatt|cajon|conga|bongo|timbal|percuss|tamtam|campan|glocken|vibrafono|marimba|xilofono|timpani|quinto|tumba|djembe|surdo|tamburello|temple|triangolo/.test(n)) return 15; /* altre percussioni */
     if(/bass/.test(n)) return 20;
     if(/gt|chitarr|comboamp|stack|leslie|ampli/.test(n)) return 30;
     if(/keys|piano|tastier|grancoda|mezzacoda|verticale|celesta|stagepiano|doppiatastiera|organ/.test(n)) return 40;
@@ -18459,7 +18506,9 @@ function resetCatalogView(){
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
 var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
-  batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,timpani:90,timpani3:90,timpani2:90,
+  batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,
+  conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
+  timpani:90,timpani3:90,timpani2:90,
   grancassa:130,piatto:140,piatticoppia:40,campane:170,tamtam:180,glockenspiel:90,xilofono:95,vibrafono:95,marimba:95,
   comboamp:45,stack:110,bassamp:120,keysamp:50,leslie:105,
   grancoda:101,mezzacoda:99,pianoverticale:131,stagepiano:95,doppiatastiera:120,celesta:90,panchetta:48,
