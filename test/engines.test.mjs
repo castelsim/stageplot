@@ -5215,7 +5215,8 @@ t("le risposte da sole non toccano mai il palco", () => {
    illustrati (LOOK_ART): chitarre, basso, piani, stage piano, arpa, percussioni. */
 t("l'anteprima dei tipi illustrati mostra il musicista, non lo schema", () => {
   const tipi = Object.keys(A.LOOK_ART);
-  ok(tipi.length >= 8, "attesi tutti i tipi LOOK_ART: " + tipi.join(","));
+  // 7 e non più 8: le percussioni sono uscite dalle illustrazioni il 30/07 (set componibile, come la batteria).
+  ok(tipi.length >= 7, "attesi tutti i tipi LOOK_ART: " + tipi.join(","));
   const vero = A.libIcon;                                  // nel sandbox LIB_ICONS e' lo stub: si spia la delega
   A.libIcon = (k) => '<g data-art="' + k + '"></g>';
   try {
@@ -7864,6 +7865,92 @@ t("con la box quasi piena, cancellare fa spazio davvero", () => {
   add("cantante", 700, 500); A.__cabRes = null;
   const righe = A.patchList().rows.filter((r) => r.box);
   eq(righe.length, 4, "e la sorgente nuova entra: " + righe.map((r) => r.patch).join(","));
+});
+
+// ── SET PERCUSSIONI COMPONIBILE (30/07) ────────────────────────────────────────────────────────
+// Segnalazione utente: «possibilità di inserire percussioni singole per creare setup ad hoc».
+// Prima "percussioni" era un blocco unico e immutabile; ora è componibile come batteria e timpani.
+console.log("\n— Set percussioni componibile —");
+
+t("il set nasce a 2 congas + bongos, con la sua misura vera", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  eq(A.parts(p).congas, 2, "due congas di partenza");
+  eq(A.parts(p).bongos, true, "e i bongos");
+  const [w, d] = A.COMP.percussioni.size(p);
+  eq(p.w, w, "la larghezza segue i pezzi montati"); eq(p.d, d, "e così la profondità");
+  ok(w > 100 && w < 130, "due congas + bongos stanno in poco più di un metro: " + w + " cm");
+});
+
+t("togliendo un pezzo il set si stringe, rimettendolo torna com'era", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  const largo = p.w;
+  A.parts(p).bongos = false; A.drawPercussioni(p);
+  ok(p.w < largo, "senza bongos è più stretto: " + p.w + " < " + largo);
+  A.parts(p).bongos = true; A.parts(p).congas = 3; A.drawPercussioni(p);
+  ok(p.w > largo, "con tre congas è più largo: " + p.w);
+  A.parts(p).congas = 2; A.parts(p).bongos = true; A.drawPercussioni(p);
+  eq(p.w, largo, "e si torna esattamente alla misura di prima");
+});
+
+t("i canali seguono i pezzi montati: niente Bongos in lista se i bongos non ci sono", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  eq(chans(p).length, 2, "congas + bongos");
+  A.parts(p).bongos = false;
+  eq(chans(p).map((c) => c.name).join(","), chans(p)[0].name, "resta un canale solo");
+  ok(!chans(p).some((c) => /bongos/i.test(c.name)), "e non promette i bongos: " + chans(p).map((c) => c.name));
+  A.parts(p).congas = 0; A.parts(p).bongos = true;
+  ok(chans(p).every((c) => !/congas/i.test(c.name)), "e viceversa senza congas");
+});
+
+t("«Dividi in elementi» dà i pezzi veri, uno per uno", () => {
+  reset();
+  const p = add("percussioni", 400, 400); p.label = "Perc";
+  A.parts(p).congas = 3;
+  ok(A.isDecomposable(p), "il set è scomponibile come la batteria");
+  const pezzi = A.COMP.percussioni.explode(p);
+  const tipi = pezzi.map((x) => x.type);
+  eq(tipi.filter((x) => x === "tumba" || x === "conga" || x === "quinto").length, 3, "tre congas distinte: " + tipi);
+  ok(tipi.indexOf("bongos") > -1, "i bongos"); ok(tipi.indexOf("percussionistaR") > -1, "e il percussionista");
+  ok(pezzi.every((x) => !x.label || x.label.indexOf("Perc") === 0), "ogni pezzo porta il nome del set: " + pezzi.map((x) => x.label));
+});
+
+t("i pezzi singoli esistono da soli e sono ognuno una sorgente", () => {
+  reset();
+  ["conga", "quinto", "tumba", "bongos"].forEach(function (tp) {
+    const it = add(tp, 300, 300);
+    eq(it.type, tp, tp + " si può posare da solo");
+    eq(chans(it).length, 1, tp + " vale un canale");
+    ok(it.w > 0 && it.d > 0, tp + " ha una misura");
+  });
+  ok(A.TYPES.conga.catalog !== false, "la conga sta in catalogo");   // catalog non impostato = visibile
+  ok(A.TYPES.quinto.catalog === false, "quinto e tumba nascono dal Dividi, non affollano il catalogo");
+});
+
+t("le misure sono quelle vere: quinto < conga < tumba, e i bongos sono i più piccoli", () => {
+  reset();
+  const q = add("quinto", 100, 100), c = add("conga", 200, 100), tm = add("tumba", 300, 100), b = add("bongos", 400, 100);
+  ok(q.w < c.w && c.w < tm.w, "11\" < 11¾\" < 12½\": " + [q.w, c.w, tm.w]);
+  ok(b.d < q.w, "i bongos sono più bassi di una conga: " + b.d + " < " + q.w);
+});
+
+t("le percussioni non sono più un'illustrazione fissa (come la batteria)", () => {
+  reset();
+  eq(A.LOOK_ART.percussioni, undefined, "fuori da LOOK_ART");
+  const p = add("percussioni", 400, 400);
+  eq(A.look2Art(p), null, "nessuna illustrazione da sostituire al set");
+  ok(A.drawPercussioni(p).length > 0, "e il set si disegna comunque");
+});
+
+t("un progetto vecchio si riapre: l'illustrazione diventa il set, senza perdere nulla", () => {
+  reset();
+  const s = A.normalizeState({ _v: 2, items: [{ id: "x1", type: "musPercussioni", x: 300, y: 300, label: "Perc", w: 168, d: 125, look: "illustrato" }], stage: { w: 1200, d: 800 } });
+  const it = s.items[0];
+  eq(it.type, "percussioni", "il tipo illustrato diventa il set componibile");
+  eq(it.label, "Perc", "l'etichetta resta");
+  eq(it.look, undefined, "e l'aspetto orfano viene ripulito");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

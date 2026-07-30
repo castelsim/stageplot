@@ -984,8 +984,18 @@ var TYPES = {
                return s; }},
   rullante: {nome:"Rullante", dim:"su stand · Ø36", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:46,d:46,
              draw:function(){ return drum(0,0,18)+circ(0,21,2.5,'ic fill')+circ(-18,-11,2.5,'ic fill')+circ(18,-11,2.5,'ic fill'); }},
-  percussioni:{nome:"Congas + bongos", dim:"165×75", cat:"Batteria e percussioni", sub:"Percussioni", w:165,d:75,
-             draw:function(it){ return drawLibFit("congascoppia",it,75,45); }},
+  percussioni:{nome:"Congas + bongos", dim:"componibile", cat:"Batteria e percussioni", sub:"Percussioni", w:122,d:89,
+             draw:function(it){ return drawPercussioni(it); }},
+  conga:    {nome:"Conga", dim:"11¾\" · Ø32", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:32,d:32, defLabel:"Cga",
+             draw:function(){ return congaGlyph(16); }},
+  quinto:   {nome:"Quinto", dim:"11\" · Ø30", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:30,d:30, defLabel:"Cga",
+             draw:function(){ return congaGlyph(15); }},
+  tumba:    {nome:"Tumba", dim:"12½\" · Ø34", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:34,d:34, defLabel:"Cga",
+             draw:function(){ return congaGlyph(17); }},
+  bongos:   {nome:"Bongos", dim:"7\"+8½\" · 44×24", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:44,d:24, defLabel:"Bng",
+             draw:function(){ return bongosGlyph(); }},
+  percussionistaR:{nome:"Percussionista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:65,d:81, z:1, defLabel:"Perc",
+             draw:function(){ return libIcon("batteristaPersona"); }},
   cajon:    {nome:"Cajon", dim:"30×30", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:34,
              draw:function(){ return bar(0,0,30,30,'ic fWoodL',3)+circ(0,0,7,'ic thin fWoodD')+circ(-9,-9,1.8,'dotS')+circ(9,-9,1.8,'dotS'); }},
   timbales: {nome:"Timbales", dim:"110×60", cat:"Batteria e percussioni", sub:"Percussioni", w:115,d:65,
@@ -1595,6 +1605,8 @@ var SEARCH_ALIAS = {
   corista:"vox bgv bv backing vox lead vox",
   rullante:"sn snr sd snare", grancassa:"bd",
   piatto:"cym crash ride", piatticoppia:"cym",
+  percussioni:"congas bongos latin perc set percussioni", conga:"congas tumbadora latin perc",
+  quinto:"congas latin perc", tumba:"congas tumbadora latin perc", bongos:"bongo macho hembra latin perc",
   micover:"oh",
   sidefill:"mon mons sf", hearback:"mon mons",
   cuffie:"cans headphones",
@@ -1874,7 +1886,7 @@ function postArt(it){
 /* Unifica icone FASE 2 (15/07): tipi funzionali NON-postazione (batteria=COMP, chitarre=gtr, arpa,
    direttore, piani, percussioni) → illustrazione musicista. Intercettati al render (t.draw), non in station(). */
 var LOOK_ART = {
-  arpa:"musArpa", percussioni:"musPercussioni",
+  arpa:"musArpa",   /* percussioni tolte il 30/07: set componibile + percussionista in mezzo, come la batteria (l'illustrazione era fissa e non seguiva i pezzi montati) */
   grancoda:"musPianoGranCoda", mezzacoda:"musPianoMezzaCoda", stagepiano:"musTastiera",
   gtstand:"musChitElettrica", gtacustica:"musChitAcustica", bassstand:"musBasso"
 };
@@ -2252,7 +2264,98 @@ function explodeTimpani(it){
   });
   return out;
 }
+/* ── Set percussioni componibile (30/07/2026) ─────────────────────────────────────────────────
+   Prima "percussioni" era un blocco unico e immutabile ("Congas + bongos", un'immagine sola): chi
+   voleva le sole congas, o i pezzi sparpagliati a modo suo, non poteva. Ora è componibile come la
+   batteria e i timpani — stessa regola per tutta la categoria, e "Dividi in elementi singoli" dà i
+   pezzi veri.
+   Misure di categoria (LP): quinto 11" · conga 11¾" · tumba 12½" di pelle, altezza 30";
+   bongos macho 7" + hembra 8½". I raggi qui sono del CERCHIONE (pelle + ~1 cm di cerchio). */
+var PERC_CONGA={ quinto:{r:15,lbl:"Quinto",type:"quinto"}, conga:{r:16,lbl:"Conga",type:"conga"}, tumba:{r:17,lbl:"Tumba",type:"tumba"} };
+var PERC_CONGA_SET={ 1:["conga"], 2:["tumba","conga"], 3:["tumba","conga","quinto"] };   /* da sinistra a destra sullo schermo: la tumba sta alla DESTRA del percussionista, che è x<0 (stessa convenzione del kit batteria) */
+var PERC_BONGO={ hembra:12, macho:10 };   /* raggi cerchione: hembra 8½" ≈ Ø24, macho 7" ≈ Ø20 */
+function percSlots(p){
+  var L=[], x=0, keys=PERC_CONGA_SET[Math.max(1,Math.min(3,p.congas|0))]||PERC_CONGA_SET[2];
+  if((p.congas|0)>0) keys.forEach(function(k,i){
+    var c=PERC_CONGA[k]; if(i) x+=2;                    /* 2 cm d'aria fra i cerchioni: i tamburi si sfiorano */
+    x+=c.r; L.push({k:"conga", size:k, x:x, y:0, r:c.r}); x+=c.r;
+  });
+  if(p.bongos!==false){
+    if(x>0) x+=10;                                      /* i bongos stanno alla sinistra del percussionista, staccati dalle congas */
+    x+=PERC_BONGO.hembra; L.push({k:"bongos", x:x-2, y:8, r:PERC_BONGO.hembra+PERC_BONGO.macho}); x+=PERC_BONGO.hembra+PERC_BONGO.macho*2;
+  }
+  var half=x/2; L.forEach(function(sl){ sl.x-=half; });  /* centratura orizzontale */
+  if(p.mus!==false || p.stool===true) L.push({k:"seat", x:0, y:-62, r:20, seat:true});   /* il percussionista sta DIETRO i tamburi, non dentro come il batterista */
+  return L;
+}
+function percBBox(L){ var minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+  L.forEach(function(t){ var ry=(t.k==="bongos"?PERC_BONGO.hembra:t.r);
+    var down=(t.k==="conga"? t.r*1.35 : ry);   /* le gambe dello stand appoggiano davvero a terra: stanno nell'ingombro */
+    minx=Math.min(minx,t.x-t.r); maxx=Math.max(maxx,t.x+t.r); miny=Math.min(miny,t.y-ry); maxy=Math.max(maxy,t.y+down); });
+  return {w:maxx-minx, d:maxy-miny, cx:(minx+maxx)/2, cy:(miny+maxy)/2};
+}
+/* Conga vista dall'alto: fusto in legno, cerchione cromato, pelle. */
+function congaGlyph(r){ return circ(0,0,r,'ic fWoodD')+circ(0,0,r-1.6,'ic fSilver')+circ(0,0,r-3.4,'ic thin fHead')+rimlight(0,0,r); }
+/* Bongos: coppia solidale, hembra (grande) alla destra del suonatore = x<0. */
+function bongosGlyph(){ var H=PERC_BONGO.hembra, M=PERC_BONGO.macho;
+  return bar(H*0.1,0,H+M,4,'ic fill',2)+
+    '<g transform="translate('+(-M)+',0)">'+congaGlyph(H)+'</g>'+
+    '<g transform="translate('+(H+1)+',0)">'+congaGlyph(M)+'</g>'; }
+function drawPercussioni(it){
+  var p=parts(it), L=percSlots(p), B=percBBox(L), s='';
+  var W=Math.round(B.w), D=Math.round(B.d);
+  if(it.w!==W||it.d!==D){ it.w=W; it.d=D; }   /* riallinea i documenti vecchi al set reale (idempotente), come i timpani */
+  var congas=L.filter(function(sl){ return sl.k==="conga"; });
+  congas.forEach(function(sl){   /* gambe dello stand, appena accennate come sui timbales */
+    var x=sl.x-B.cx, y=sl.y-B.cy, r=sl.r;
+    s += lin(x-r*0.5,y+r*0.6,x-r*0.95,y+r*1.35,'ic thin')+lin(x+r*0.5,y+r*0.6,x+r*0.95,y+r*1.35,'ic thin');
+  });
+  L.forEach(function(sl){
+    var pre='<g transform="translate('+(Math.round((sl.x-B.cx)*10)/10)+' '+(Math.round((sl.y-B.cy)*10)/10)+')">';
+    if(sl.seat){
+      var g='';
+      if(p.stool===true) g += '<g transform="translate(0,-22)">'+libIcon("sgabellobatt")+'</g>';
+      if(p.mus!==false)  g += libIcon("batteristaPersona");   /* il percussionista sta in piedi: sgabello spento di default */
+      s += pre+g+'</g>'; return;
+    }
+    s += pre+(sl.k==="bongos" ? bongosGlyph() : congaGlyph(sl.r))+'</g>';
+  });
+  return s;
+}
+function sizePercussioni(it){ var B=percBBox(percSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }
+function explodePercussioni(it){
+  var p=parts(it), L=percSlots(p), B=percBBox(L), base=it.label?it.label+" ":"", out=[];
+  L.forEach(function(sl){
+    var dx=Math.round((sl.x-B.cx)*10)/10, dy=Math.round((sl.y-B.cy)*10)/10;
+    if(sl.seat){
+      if(p.stool===true) out.push({type:"stoolR", dx:dx, dy:dy-22, label:""});
+      if(p.mus!==false)  out.push({type:"percussionistaR", dx:dx, dy:dy, label:base+"Percussionista"});
+      return;
+    }
+    if(sl.k==="bongos"){ out.push({type:"bongos", dx:dx, dy:dy, label:base+"Bongos"}); return; }
+    var c=PERC_CONGA[sl.size];
+    out.push({type:c.type, dx:dx, dy:dy, label:base+c.lbl});
+  });
+  return out;
+}
+/* Canali del set: seguono i pezzi davvero montati (niente "Bongos" in lista se i bongos non ci sono). */
+function percChans(it){ var p=parts(it), out=[];
+  if((p.congas|0)>0) out.push(["Congas","e904"]);
+  if(p.bongos!==false) out.push(["Bongos","e904"]);
+  return out;   /* set senza pezzi (solo il percussionista) = nessun canale, non due canali finti */
+}
 var COMP = {
+  percussioni: { defParts:{congas:2, bongos:true, mus:true, stool:false},
+    controls:[ {key:"congas",label:"Congas",type:"count",min:0,max:3},
+               {key:"bongos",label:"Bongos",type:"toggle"},
+               {key:"mus",label:"Musicista",type:"toggle"},
+               {key:"stool",label:"Sgabello",type:"toggle"} ],
+    /* niente "reduced" qui (a differenza della batteria): quante congas ci sono È il dato tecnico del set,
+       e comporlo è proprio la richiesta — il configuratore va in pannello, non solo in "Dividi in elementi". */
+    name:function(it){ var p=parts(it), n=p.congas|0;
+      var a=(n>0?(n===1?"Conga":"Congas ×"+n):""), b=(p.bongos!==false?"Bongos":"");
+      return (a&&b)?(a+" + "+b):(a||b||"Percussioni"); },
+    chans:percChans, draw:drawPercussioni, size:sizePercussioni, explode:explodePercussioni },
   batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,mus:true,stool:true,lefty:false,leggio:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
@@ -3202,6 +3305,7 @@ var LABEL_MIGRATE = {
   spdsx:[["SPD-SX (pad)","SPD-SX"]],
   rullante:[["Rullante su stand","Rullante"]],
   percussioni:[["Congas + bongos","Percussioni"]],
+  conga:[["Conga","Cga"]], quinto:[["Quinto","Cga"]], tumba:[["Tumba","Cga"]], bongos:[["Bongos","Bng"]],
   grancassa:[["Gran cassa sinfonica","Gran cassa"]],
   kickdrum:[["Cassa (kick)","Cassa"]],
   piatto:[["Piatto sospeso","Piatto"]],
@@ -3254,6 +3358,7 @@ function migrateMusToPostaz(s){
     if(it.type==="musViolino2"){ it.type="vlnpost"; it.vsec=2; delete it.look; delete it.w; delete it.d; return; }   /* Violino II = vlnpost + vsec=2 (illustrazione dedicata) */
     if(it.type==="musTimpani"){ it.type="timpani"; delete it.look; delete it.w; delete it.d; return; }   /* timpani = schema configurabile + timpanista in mezzo (DRAW_LOOK) */
     if(it.type==="musBatteria"){ it.type="batteria"; delete it.look; delete it.w; delete it.d; return; }   /* batteria = kit schematico + batterista in mezzo (NON più in LOOK_ART) */
+    if(it.type==="musPercussioni"){ it.type="percussioni"; delete it.look; delete it.w; delete it.d; return; }   /* set percussioni = schema componibile + percussionista (NON più in LOOK_ART, 30/07) */
     if(it.type==="musDirettore"){ it.type="direttore"; delete it.look; delete it.w; delete it.d; return; }   /* direttore = sempre illustrato + podio/leggio/sgab (NON più in LOOK_ART) */
     var pz=INV[it.type]; if(pz){ it.type=pz; delete it.look; delete it.w; delete it.d; }
   });
@@ -6104,7 +6209,7 @@ function cabItemInputs(it){
   }
   var base;
   if(MIKING[it.type]) base = MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
-  else if(IN_MULTI[it.type]) base = IN_MULTI[it.type].map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
+  else if(IN_MULTI[it.type]) base = (compChans(it)||IN_MULTI[it.type]).map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
   else if(IN_SRC[it.type]!=null) base = [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
   else return [];
   /* postazione DOPPIA (flag): 2 musicisti su un leggio → i microfoni si raddoppiano (audit 14/07).
@@ -9328,7 +9433,7 @@ var ABBR_PRO=[
   ["violoncello","Vc"],["violoncelli","Vc"],["violino","Vln"],["violini","Vln"],["viola","Vla"],["viole","Vla"],["archi","Archi"],["arpa","Arp"],   /* plurali = leggii di sezione del generatore */
   ["direttore","M°"],["leslie","Leslie"],["pedaliera","Pedal"],["dj","DJ"],["panchetta","Panca"],["sgabello","Sgab"],["shield","Shield"],
   ["organo a canne","Org"],["organo hammond","Hmd"],["organo","Org"],["clavicembalo","Cemb"],["pianoforte","Pno"],["stage piano","Pno"],["piano","Pno"],["tastiera","Keys"],["synth","Synth"],["celesta","Cel"],["fisarmonica","Fis"],["controller","Keys"],["spd","Pad"],
-  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["cassa","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["percussion","Perc"],["congas","Cga"],["conga","Cga"],["bongo","Bng"],["cajon","Caj"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],
+  ["e-drums","Dr"],["edrums","Dr"],["batteria","Dr"],["rullante","Sn"],["gran cassa","BD"],["grancassa","BD"],["kick","Kick"],["cassa","Kick"],["floor tom","FTom"],["tom","Tom"],["hi-hat","HH"],["hihat","HH"],["crash","Crash"],["ride","Ride"],["timpani","Timp"],["timpano","Timp"],["percussion","Perc"],["congas","Cga"],["conga","Cga"],["tumba","Cga"],["quinto","Cga"],["bongo","Bng"],["cajon","Caj"],["timbales","Timb"],["campane","Chimes"],["tam-tam","Tam"],["tamtam","Tam"],["vibrafono","Vib"],["marimba","Mrb"],["xilofono","Xyl"],["glockenspiel","Glk"],["piatti","Cym"],["piatto","Cym"],
   ["cantante","Vox"],["voce","Vox"],["corista","Coro"],["coro","Coro"],
   ["personal mixer","PM"],["monitoraggio","PM"],["aviom","PM"],["hearback","PM"],
   ["side fill","SF"],["sidefill","SF"],["drum fill","DF"],["drumfill","DF"],["in-ear","IEM"],["in ear","IEM"],["iem","IEM"],["cuffie","IEM"],["monitor","Mon"],["wedge","Mon"],["spia","Mon"],
@@ -13692,6 +13797,7 @@ var IN_SRC = {
   /* pezzi della batteria divisa (audit 14/07: dividere il kit conserva gli 8 mic — ricompone D6+SM57+3×e904+SM81+2×KM184) */
   kickR:"D6", snareR:"SM57", tomR:"e904", floorR:"e904", hihatKR:"SM81", crashR:"KM184", rideR:"KM184",
   campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A",
+  conga:"e904", quinto:"e904", tumba:"e904", bongos:"e904",   /* pezzi singoli del set percussioni: stesso mic del blocco da cui nascono */
   /* backline / tastiere a mic o DI singolo */
   comboamp:"SM57", stack:"SM57/e906", keysamp:"DI", celesta:"KM184",
   /* chitarre/basso su stand (DI) */
@@ -13805,7 +13911,12 @@ MIKING.batteria={ options:[["full","Completa (8 mic)"],["reduced","Ridotta (kick
 /* "Nessun microfono": scelta esplicita → 0 canali, nessun errore nella input list. Applicata a TUTTE le microfonazioni. */
 Object.keys(MIKING).forEach(function(t){ var mk=MIKING[t], orig=mk.chans; mk.chans=function(m){ return m==="__nomic__" ? [] : orig(m); }; });
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
-function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def); return IN_MULTI[it.type]; }
+function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def);
+  var cc=compChans(it); if(cc) return cc;
+  return IN_MULTI[it.type]; }
+/* Componibile con canali che seguono i pezzi montati (set percussioni): la lista non promette
+   microfoni su strumenti che non ci sono. Null = usa l'IN_MULTI fisso. */
+function compChans(it){ var c=it&&COMP[it.type]; return (c&&c.chans)?c.chans(it):null; }
 /* iemant (Rack TX in-ear) NON è un punto d'ascolto: è l'apparato che trasmette ai beltpack.
    Tenerlo in OUT_SET creava un mix fantasma + 2 uscite fantasma nella monitor list e nel PDF
    (ciclo 3, 11/07). I mix veri sono quelli dei beltpack `iem`. */
@@ -17683,7 +17794,7 @@ function clBank(type){
   var t=TYPES[type]||{}, cat=t.cat||"", n=String(type).toLowerCase();
   if(cat==="Batteria e percussioni"||cat==="Band e backline"){
     if(/batter|drum|kick|grancass|rullant|\btom|hihat|hi-hat|overhead|edrums/.test(n)) return 10;   /* batteria (kick primo) */
-    if(/piatt|cajon|conga|bongo|timbal|percuss|tamtam|campan|glocken|vibrafono|marimba|xilofono|timpani/.test(n)) return 15; /* altre percussioni */
+    if(/piatt|cajon|conga|bongo|timbal|percuss|tamtam|campan|glocken|vibrafono|marimba|xilofono|timpani|quinto|tumba/.test(n)) return 15; /* altre percussioni */
     if(/bass/.test(n)) return 20;
     if(/gt|chitarr|comboamp|stack|leslie|ampli/.test(n)) return 30;
     if(/keys|piano|tastier|grancoda|mezzacoda|verticale|celesta|stagepiano|doppiatastiera|organ/.test(n)) return 40;
