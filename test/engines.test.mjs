@@ -4662,6 +4662,117 @@ t("il vocabolario dei supporti e' uno solo (niente inglese contro italiano)", ()
     "il datalist deve usare lo stesso vocabolario dei valori generati");
 });
 
+/* ---- CATALOGO MICROFONI (MIC_DB, 29/07) --------------------------------------------------------
+   Il rischio vero di un catalogo che cresce non e' il dato sbagliato (si vede): e' l'ETICHETTA DI
+   SUPPORTO scritta con parole nuove. standKindFromLabel non la riconosce, quel microfono sparisce
+   dal conteggio delle aste del rider, e nessuno se ne accorge finche' il service non arriva senza
+   un'asta. Questi test sono la rete. */
+console.log("\nCatalogo microfoni (MIC_DB):");
+t("ogni supporto del catalogo e' classificabile da standKindFromLabel", () => {
+  const kinds = new Set(A.STAND_KINDS.map(([k]) => k));
+  const rotti = [];
+  Object.keys(A.MIC_DB).forEach((k) => {
+    const st = A.MIC_DB[k].stand;
+    ok(typeof st === "string", k + ": il campo stand deve esserci (\"\" = nessun supporto)");
+    if (st === "") return;                       // DI, lavalier, microfono in linea: nessuna asta, ed e' giusto
+    const kind = A.standKindFromLabel(st);
+    if (kind === null || !kinds.has(kind)) rotti.push(k + " → «" + st + "»");
+  });
+  eq(rotti, [], "supporti che il conteggio delle aste NON sa contare");
+});
+t("ogni voce del catalogo ha marca, modello, tipo, direttivita' e phantom dichiarati", () => {
+  const TIPI = new Set(["dinamico", "condensatore", "nastro"]);
+  const rotti = [];
+  Object.keys(A.MIC_DB).forEach((k) => {
+    const d = A.MIC_DB[k];
+    if (!d.brand || !d.model) rotti.push(k + ": marca/modello");
+    else if (!TIPI.has(d.type)) rotti.push(k + ": tipo «" + d.type + "»");
+    else if (!d.pol) rotti.push(k + ": direttivita'");
+    else if (typeof d.p48 !== "boolean") rotti.push(k + ": phantom non dichiarato");
+  });
+  eq(rotti, [], "voci incomplete (una specifica assente e' meglio di una inventata, ma questi campi sono di targa)");
+});
+t("MIC_DEFAULTS si DERIVA dal catalogo: asta e 48V non si scrivono due volte", () => {
+  Object.keys(A.MIC_DB).forEach((k) => {
+    eq(A.micInfo(k).stand, A.MIC_DB[k].stand, k + ": l'asta della channel list e' quella del catalogo");
+    eq(A.micInfo(k).p48, !!A.MIC_DB[k].p48, k + ": il phantom della channel list e' quello del catalogo");
+  });
+  // le voci che microfoni NON sono restano scritte a mano, e devono restare
+  eq(A.micInfo("DI").stand, "", "la DI non ha asta");
+  eq(A.micInfo("SM57/e906").stand, "asta bassa", "«SM57/e906» e' un modo di dire della channel list, non un modello");
+});
+t("i microfoni che c'erano prima non cambiano ne' asta ne' phantom", () => {
+  // le 14 voci storiche: se una cambia, cambiano i rider gia' consegnati
+  const storiche = { "SM58": ["asta dritta", false], "Beta 58A": ["asta dritta", false],
+    "SM57": ["asta bassa", false], "e906": ["clip/asta bassa", false], "e904": ["clip", false],
+    "D6": ["asta bassa", false], "Beta 91A": ["interno/terra", true], "MD421": ["asta bassa/clip", false],
+    "SM81": ["asta giraffa", true], "KM184": ["asta giraffa", true], "C414": ["asta giraffa", true],
+    "DPA 4099": ["clip strumento", true], "DPA 4066": ["headset", true], "DPA 4088": ["headset", true] };
+  Object.keys(storiche).forEach((k) => {
+    eq([A.micInfo(k).stand, A.micInfo(k).p48], storiche[k], k);
+  });
+});
+t("ogni microfono usato dai default del palco sta nel catalogo", () => {
+  // IN_SRC / IN_MULTI / MIKING assegnano un mic per tipo: se quel nome non e' nel catalogo,
+  // il canale nasce senza asta e senza phantom (micInfo cade nel ramo "sconosciuto")
+  const usati = new Set();
+  Object.values(A.IN_SRC).forEach((m) => usati.add(m));
+  Object.values(A.IN_MULTI).forEach((rows) => rows.forEach(([, m]) => usati.add(m)));
+  const fuori = [...usati].filter((m) => m && !A.MIC_DB[m] && !A.MIC_DEFAULTS[m]);
+  eq(fuori, [], "microfoni assegnati dal palco che il catalogo non conosce");
+});
+
+console.log("\nCompletamento del microfono (micSearch):");
+t("scrivo «u87» e mi compare l'U87", () => {
+  const r = A.micSearch("u87").map((x) => x.key);
+  ok(r.length > 0, "nessun suggerimento per «u87»");
+  eq(r[0], "U87", "l'U87 deve essere il PRIMO, non uno dei tanti");
+});
+t("il completamento non e' sensibile a maiuscole, accenti e spazi", () => {
+  eq(A.micSearch("U87").map((x) => x.key)[0], "U87", "maiuscole");
+  eq(A.micSearch("  u87 ").map((x) => x.key)[0], "U87", "spazi attorno");
+  ok(A.micSearch("md 421").map((x) => x.key).indexOf("MD421") > -1, "spaziato come sul datasheet");
+  ok(A.micSearch("md421").map((x) => x.key).indexOf("MD421") > -1, "attaccato come sul rider");
+});
+t("si cerca anche per marca e per uso, non solo per sigla", () => {
+  ok(A.micSearch("neumann").map((x) => x.key).indexOf("KM184") > -1, "per marca");
+  ok(A.micSearch("shure").map((x) => x.key).length >= 4, "per marca: piu' di un risultato");
+  ok(A.micSearch("cassa").map((x) => x.key).indexOf("D6") > -1, "per uso sul palco");
+});
+t("chi digita una sigla la vede in cima, non a meta' elenco", () => {
+  eq(A.micSearch("sm58").map((x) => x.key)[0], "SM58");
+  eq(A.micSearch("km184").map((x) => x.key)[0], "KM184");
+  eq(A.micSearch("d6").map((x) => x.key)[0], "D6");
+});
+t("campo vuoto = nessun suggerimento (non si apre un elenco addosso a chi non ha scritto niente)", () => {
+  eq(A.micSearch(""), []); eq(A.micSearch("   "), []);
+  eq(A.micSearch("zzzqwerty"), [], "nessun modello: elenco vuoto, e il campo resta com'e' scritto");
+});
+t("il +48V acceso su un nastro passivo e' un ERRORE, non un'inezia", () => {
+  reset();
+  const it = add("astamic", 300, 300);
+  const key = A.patchList().rows.find((r) => r.itemId === it.id).key;
+  A.cabSetMic(key, "R-121");                       // nastro PASSIVO
+  A.cabSetP48(key, true);                          // il fonico lo accende a mano
+  const iss = auditFind(/nastro PASSIVO/i);
+  eq(iss.length, 1, "l'audit deve dirlo");
+  eq(iss[0].lvl, "err", "non e' un consiglio: il phantom brucia il nastro");
+  // un nastro ATTIVO il +48V lo VUOLE: non deve comparire nulla
+  A.cabSetMic(key, "R-122 MKII");
+  eq(auditFind(/nastro PASSIVO/i).length, 0,
+     "R-122 MKII e' attivo (p48 true nel catalogo): niente allarme");
+});
+t("un microfono scritto a mano resta com'e': il catalogo suggerisce, non obbliga", () => {
+  reset();
+  const it = add("astamic", 300, 300);
+  const key = A.patchList().rows.find((r) => r.itemId === it.id).key;
+  A.cabSetMic(key, "Bidule 9000");                 // modello che nel catalogo non c'e'
+  const r = A.patchList().rows.find((x) => x.key === key);
+  eq(r.mic, "Bidule 9000", "il valore scritto a mano non viene ne' corretto ne' buttato");
+  eq(r.stand, "", "sconosciuto = nessuna asta dedotta (mai inventata)");
+  eq(r.p48, false, "sconosciuto = niente phantom dedotto");
+});
+
 /* ---- Asta gigante (29/07): la giraffa da coro/orchestra, treppiede largo e braccio lungo ----
    Misure dai datasheet (K&M 20811 base Ø 1485 mm · Proel PRO300BK base Ø 1500, braccio 1350-2050 ·
    K&M 21231 braccio 1070-1870 · Proel PRO400BK braccio 1400-2350): NON e' una giraffa scalata. */
