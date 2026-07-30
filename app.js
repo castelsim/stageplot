@@ -11197,6 +11197,7 @@ svg.addEventListener("pointerdown", function(e){
   /* niente selezione-testo blu durante i drag: il canvas è user-select:none (CSS), e qui si pulisce
      anche una selezione eventualmente già iniziata fuori dal canvas (segnalazione Simone con foto) */
   try{ var _gs=window.getSelection(); if(_gs && !_gs.isCollapsed) _gs.removeAllRanges(); }catch(_){}
+  endCatSearch();   /* una ricerca in corso finisce appena si torna al palco, in qualunque punto (Simone 30/07) */
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
     if(drag && drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
@@ -12525,7 +12526,7 @@ document.addEventListener("keydown", function(e){
     if(e.key==="Enter"){ e.preventDefault(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); toggleStageEdit(); return; }
     if((e.key==="Backspace"||e.key==="Delete") && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ e.preventDefault(); delSelBlock(); return; }
   }
-  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ if(e.key==="Escape"){ e.target.blur(); clearSelection(); render(); } return; }
+  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ if(e.key==="Escape"){ endCatSearch(); e.target.blur(); clearSelection(); render(); } return; }
   /* cavo selezionato: Backspace/Canc lo toglie (richiesta Simone). In manual-first = SCOLLEGA
      (la sorgente torna "da collegare"); in auto = eliminato col fantasma ripristinabile. */
   if((selCab || Object.keys(selCabSet).length) && (e.key==="Backspace"||e.key==="Delete")){
@@ -12554,7 +12555,7 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fit(); return; }   /* "a" → adatta la vista al contenuto (palco + elementi, anche fuori palco), come il bottone Adatta */
   var it=getSel(), step = e.shiftKey?25:5;
-  if(e.key==="Escape"){ exitHubModes(); clearSelection(); collapseCats();
+  if(e.key==="Escape"){ exitHubModes(); clearSelection(); if(!endCatSearch()) collapseCats();   /* con una ricerca aperta, Esc riporta la colonna in stato di partenza (campo vuoto, in cima) */
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
   if(!it) return;
@@ -18435,6 +18436,15 @@ function catIdleCancel(){}
 function collapseCats(){   /* chiude solo le categorie/sottocategorie aperte (non tocca ricerca/scroll) */
   document.querySelectorAll("#catalog .cat-head.open, #catalog .cat-body.open, #catalog .sub-head.open, #catalog .sub-body.open").forEach(function(el){ el.classList.remove("open"); });
 }
+/* C'è una ricerca in corso nel catalogo? (campo con del testo dentro) */
+function catSearching(){ var q=document.getElementById("catSearch"); return !!(q && q.value); }
+/* Fine della ricerca: il campo si svuota e la colonna torna com'era all'apertura (categorie chiuse,
+   in cima). Si chiama da Esc e dal primo tocco sul canvas — dentro o fuori dal palco, indifferente.
+   Se NON si sta cercando non fa nulla: chi ha aperto una categoria per lavorare non se la vede
+   richiudere a ogni clic sul palco. */
+function endCatSearch(){ if(!catSearching()) return false;
+  var q=document.getElementById("catSearch"); if(q && q===document.activeElement && q.blur) q.blur();
+  resetCatalogView(); return true; }
 function resetCatalogView(){
   catIdleCancel();
   collapseCats();
