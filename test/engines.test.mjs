@@ -8020,5 +8020,70 @@ t("le misure sono di categoria: surdo > djembe > tamburello", () => {
   ok(tb.w >= 25 && tb.w <= 30, "un tamburello da 10 pollici sta in ~26 cm: " + tb.w);
 });
 
+// ── NOTA SULL'ELEMENTO (30/07) ─────────────────────────────────────────────────────────────────
+// Quello che il disegno non sa dire: «shaker, claves, güiro» sul tavolo percussioni, «fornito dalla
+// band» sull'ampli. Sul palco un puntino accanto al nome, il testo nella lista Note del rider.
+console.log("\n— Nota sull'elemento —");
+
+t("una nota si scrive, si legge e si cancella senza lasciare tracce", () => {
+  reset();
+  const it = add("tavolopercussioni", 400, 400);
+  eq(A.noteOf(it), "", "appena posato non ha note");
+  it.note = "shaker, claves, güiro";
+  eq(A.noteOf(it), "shaker, claves, güiro", "la nota si legge");
+  it.note = "   ";
+  eq(A.noteOf(it), "", "solo spazi = nessuna nota");
+});
+
+t("la lista Note raccoglie le note di tutti, nell'ordine del palco", () => {
+  reset();
+  const tv = add("tavolopercussioni", 300, 300); tv.label = "Tavolo perc"; tv.note = "shaker, claves";
+  add("sedia", 500, 300);                                   // senza nota: non deve comparire
+  const am = add("comboamp", 700, 300); am.label = "Ampli"; am.note = "fornito dalla band";
+  const L = A.noteList();
+  eq(L.count, 2, "solo chi ha una nota");
+  eq(L.rows[0].name, "Tavolo perc", "primo quello posato per primo");
+  eq(L.rows[1].note, "fornito dalla band", "e la sua nota");
+});
+
+t("sul disegno il puntino c'è solo dove c'è una nota", () => {
+  reset();
+  const a = add("comboamp", 300, 300); a.label = "Ampli";
+  eq(A.noteDot(a), "", "senza nota nessun segno");
+  a.note = "fornito dalla band";
+  ok(A.noteDot(a).indexOf("lbl-dot") > -1, "con la nota compare il puntino");
+});
+
+t("il segno non dipende dall'etichetta: vale anche per chi nasce anonimo", () => {
+  reset();
+  const p = add("pedana", 400, 400);
+  eq(p.label, "", "le pedane nascono senza nome");
+  p.note = "altezza 40 cm, con scaletta";
+  ok(A.noteDot(p).indexOf("lbl-dot") > -1, "il segno c'e' lo stesso (che finisca sul disegno lo verifica l'e2e)");
+});
+
+t("la nota che arriva da un file altrui viene tagliata e ripulita", () => {
+  const lunga = "x".repeat(500);
+  const s = A.normalizeState({ _v: 5, items: [
+    { id: "n1", type: "sedia", x: 100, y: 100, note: lunga },
+    { id: "n2", type: "sedia", x: 200, y: 100, note: { cattivo: true } },
+    { id: "n3", type: "sedia", x: 300, y: 100, note: "  spazi da togliere  " },
+  ], stage: { w: 1200, d: 800 } });
+  eq(s.items[0].note.length, 140, "tagliata a 140");
+  eq(s.items[1].note, undefined, "un oggetto al posto del testo viene buttato");
+  eq(s.items[2].note, "spazi da togliere", "spazi ripuliti");
+});
+
+t("la lista Note è fra le pagine del rider e del link condiviso", () => {
+  reset();
+  const it = add("comboamp", 400, 400); it.note = "fornito dalla band";
+  const cfg = A.pdfListConfig().notelist;
+  ok(cfg && cfg.data, "la pagina esiste nella configurazione unica delle liste");
+  eq(cfg.title, "Note", "col suo titolo");
+  eq(cfg.data().count, 1, "e legge i dati veri");
+  ok(A.availableViewerLists().indexOf("notelist") > -1 || A.availableViewerLists().some(function (x) { return x === "notelist" || x.key === "notelist"; }),
+    "e compare fra le liste del link condiviso");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

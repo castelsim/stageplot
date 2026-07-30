@@ -4335,6 +4335,10 @@ function normalizeLoadedItems(arr){
       if(typeof it.label2==="string" || typeof it.label2==="number") it.label2=String(it.label2);
       else delete it.label2;
     }
+    if(it.note!=null){   /* nota dell'elemento: testo altrui in arrivo da file/link/cloud → tipo e lunghezza garantiti qui */
+      var _nn=(typeof it.note==="string"||typeof it.note==="number") ? String(it.note).slice(0,NOTE_MAX).trim() : "";
+      if(_nn) it.note=_nn; else delete it.note;
+    }
     [["x",0],["y",0],["rot",0]].forEach(function(k){
       n=Number(it[k[0]]); it[k[0]]=isFinite(n)?Math.round(n):k[1];
     });
@@ -5225,8 +5229,12 @@ function itemMarkup(it){
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
          «Chitarra acustica 1» + «DI 1» = «Chitarrala…stica 1», al primo elemento aggiunto. Qui il nome
          esce di lato, dove non c'è nient'altro. */
-      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+7)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+'</text>';
-      else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+'</text>';
+      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+7)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+    } else if(noteOf(it)){
+      /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
+         alcun segno sul disegno, e resterebbe scritta solo in una lista che nessuno sa di aprire. */
+      s += '<text class="lbl" y="'+ly+'"'+fst+'>'+noteDot(it).replace(" •","•")+'</text>';
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
@@ -8273,6 +8281,18 @@ var LOCK_NAMES={ tappeto:"il tappeto", forma:"la forma", miczone:"la zona", metr
   americana:"l\u2019americana", truss:"la truss" };
 function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it && LOCK_NAMES[it.type]) || "l\u2019elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
+/* NOTA sull'elemento (30/07): quello che il disegno non sa dire. Nata dal tavolo percussioni — i
+   piccoli (shaker, claves, güiro) a 20 cm in pianta sono pallini invisibili, ma il service deve
+   sapere che ci sono — e poi vale per tutti: «ampli fornito dalla band», «piano da accordare». */
+var NOTE_MAX=140;
+var NOTE_HINT={ tavolopercussioni:"es. shaker, claves, güiro, campanelli", percussioni:"es. campanaccio e shaker sul tavolo",
+  comboamp:"es. fornito dalla band", stack:"es. fornito dalla band", grancoda:"es. da accordare la mattina",
+  pedana:"es. altezza 40 cm, con scaletta", tavolo:"es. per il merchandising", flightcase:"es. non spostare" };
+function noteOf(it){ var n=it&&it.note; return (typeof n==="string" && n.trim()) ? n.trim() : ""; }
+/* Il segno che c'è una nota: un puntino attaccato al nome. Non il testo — una riga di prosa dentro
+   al disegno lo sporca e a scala reale non si legge — ma nemmeno niente, o nessuno saprebbe di
+   doverla cercare nella lista Note. Dentro il <text>, così resta centrato col nome. */
+function noteDot(it){ return noteOf(it) ? '<tspan class="lbl-dot"> •</tspan>' : ""; }
 function itemPickable(it){
   if(!it || it.rackId) return false;
 
@@ -8919,6 +8939,9 @@ function renderProps(){
     hint.textContent = feed==="console" ? pmFeedChOf(it)+" uscite console occupate (vedi «Uscite console»)." : "Canali dalla rete: nessuna uscita console fisica.";
   })();
   document.getElementById("pLabel").value = it.label||"";
+  var _pn=document.getElementById("pNote");
+  _pn.value = it.note||"";
+  _pn.placeholder = NOTE_HINT[it.type] || "es. fornito dalla band";   /* il suggerimento parla del pezzo che si ha davanti */
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
   /* pannello della FORMA: geometria, stile, colore, ordine */
@@ -9514,6 +9537,10 @@ function lblText(raw, it, isPrimary){
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
+document.getElementById("pNote").addEventListener("input", function(){ mutSelSoon(function(it){
+  var v=String(document.getElementById("pNote").value||"").slice(0,NOTE_MAX).trim();
+  if(v) it.note=v; else delete it.note;   /* nota vuota = nessuna nota: niente chiavi morte nel documento */
+}); });
 (function(){ function setPrese(d){ var it=getSel(); if(!it||(it.type!=="ciabatta"&&it.type!=="dimmerluci")) return;
   var dim=it.type==="dimmerluci", def=dim?12:6, max=dim?48:12;
   it.prese=Math.max(1,Math.min(max,(it.prese||def)+d)); document.getElementById("pPreseVal").textContent=it.prese; __elecRes=null; save(); render(); }
@@ -9943,6 +9970,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
+  group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
   if(resp || cont || req){
@@ -19815,6 +19843,27 @@ function backlineList(){
   var byService=rows.filter(function(r){ return r.by==="Service"; }).reduce(function(s,r){ return s+r.qty; },0);
   return { rows:rows, count:rows.length, totItems:rows.reduce(function(s,r){return s+r.qty;},0), byService:byService };
 }
+/* LISTA NOTE (30/07): le note scritte sui singoli elementi, raccolte in una pagina sola. Sul disegno
+   c'è il puntino, qui c'è cosa dice. Ordine: quello del palco, che è l'ordine in cui uno le incontra. */
+function noteList(){
+  var rows=[];
+  (state.items||[]).forEach(function(it){
+    var n=noteOf(it); if(!n) return;
+    var t=TYPES[it.type]||{};
+    rows.push({ name:(it.label && it.label.trim()) ? it.label.trim() : (t.nome||it.type), tipo:t.nome||it.type, note:n });
+  });
+  return { rows:rows, count:rows.length };
+}
+function noteListPdf(shared){
+  var run=function(doc){
+    if(!pdfListGeneric(doc, "notelist", shared)){ if(!shared) alert("Nessuna nota scritta sugli elementi."); return; }
+    if(shared) return;
+    pdfCredit(doc);
+    pdfSave(doc, fileName()+"-note.pdf");
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function dantePatchPdf(shared){
   var R; try{ R=cabResult(); }catch(_e){ R={boxes:[]}; }
   var boxes=(R.boxes||[]).slice().sort(function(a,b){ return a.eid-b.eid; });
@@ -20652,6 +20701,9 @@ function pdfListConfig(){
     backline:{ title:"Backline", color:"#0d9488", data:(typeof backlineList==="function"?backlineList:null),
       sub:function(d){ return d.totItems+" element"+(d.totItems===1?"o":"i")+(d.byService?" · "+d.byService+" da Service":""); },
       cols:[{h:"Q.tà",num:1,f:function(r){return r.qty+"×";}},{h:"Attrezzatura",f:function(r){return r.name;}},{h:"Fornito da",f:function(r){return r.by||"—";}}] },
+    notelist:{ title:"Note", color:"#6b7280", data:(typeof noteList==="function"?noteList:null),
+      sub:function(d){ return d.count+" not"+(d.count===1?"a":"e")+" sugli elementi · sul disegno sono i nomi col puntino"; },
+      cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",f:function(r){return r.note;}}] },
     rf:{ title:"Lista RF", color:"#4f46e5", data:(typeof rfList==="function"?rfList:null),
       sub:function(d){ return d.count+" frequenz"+(d.count===1?"a":"e")+" RF"; },
       cols:[{h:"Dispositivo",f:function(r){return r.name;}},{h:"Tipo",f:function(r){return r.kind;}},{h:"Freq / banda",f:function(r){return [r.rf,r.band].filter(Boolean).join(" · ")||"—";}},{h:"Ricevitore",f:function(r){return r.rx||"—";}}] }
@@ -20672,7 +20724,7 @@ function listPreviewHtml(key){
 }
 /* T3 — liste disponibili nel link condiviso (solo quelle con dati). Riusa pdfListConfig → tabelle reali. */
 function availableViewerLists(){
-  var order=["inputlist","monitorlist","loadlist","backline","rf"], cfg=pdfListConfig(), out=[];
+  var order=["inputlist","monitorlist","loadlist","backline","rf","notelist"], cfg=pdfListConfig(), out=[];
   if((state.items||[]).length) out.push({key:"rider", title:"Rider tecnico"});   /* T2: il rider (riepilogo derivato) apre il pacchetto */
   order.forEach(function(k){ var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
     if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
@@ -21342,6 +21394,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       if(want("eleclines")) elecLinesPdf(doc);
       if(want("backline")) backlineListPdf(doc);
       if(want("rf")) rfListPdf(doc);
+      if(want("notelist")) noteListPdf(doc);   /* le note scritte sui singoli elementi: sul disegno il puntino, qui cosa dice */
       if(want("pmlist")) pmListPdf(doc);
       if(want("racklist")) rackListPdf(doc);
       if(want("dantepatch")) dantePatchPdf(doc);
@@ -21658,6 +21711,7 @@ function pdfChannelPage(doc, L, paperKey){
     try{ if((Re.loadLinks||[]).length) pages.push({key:"eleclines", label:"Alimentazioni (linee del distro)"}); }catch(_e){}
     if((typeof backlineList==="function") && backlineList().count){ pages.push({key:"backline", label:"Backline (attrezzatura)"}); }
     if((typeof rfList==="function") && rfList().count){ pages.push({key:"rf", label:"Lista RF (radiomic / in-ear)"}); }
+    if((typeof noteList==="function") && noteList().count){ pages.push({key:"notelist", label:"Note sugli elementi"}); }
     if((state.items||[]).some(function(x){ return !!pmOf(x); })){ pages.push({key:"pmlist", label:"Lista personal monitor"}); }
     if((state.items||[]).some(function(x){ return x.type==="rack"; })){ pages.push({key:"racklist", label:"Lista rack"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"lightslist", label:"Lista luci"}); }

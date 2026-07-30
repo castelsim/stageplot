@@ -294,9 +294,12 @@
   #props h3{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text);margin:0 0 6px}
   #props .sec{margin-bottom:18px}
   #props label{display:block;font-size:12px;color:var(--text-2);margin:8px 0 3px}
-  #props input,#props select{width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--t-body);background:var(--surface);color:var(--text);
+  #props input,#props select,#props textarea{width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:6px 8px;font-size:var(--t-body);background:var(--surface);color:var(--text);
     transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
   #props input:not([type=range]):hover,#props select:hover{border-color:var(--border-strong)}   /* feedback al passaggio, come nei mockup */
+  /* la nota dell'elemento: stesso campo degli altri, ma cresce in altezza e non in larghezza */
+  #props textarea{font-family:inherit;line-height:1.4;resize:vertical;min-height:52px}
+  #props textarea:hover{border-color:var(--border-strong)}
   #props select{appearance:none;-webkit-appearance:none;padding-right:28px;cursor:pointer;   /* chevron custom coerente (niente freccia di sistema) */
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%23a29c8e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     background-repeat:no-repeat;background-position:right 9px center}
@@ -1076,6 +1079,9 @@
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   .lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
+  /* «qui c'è una nota da leggere»: colore d'accento, sta al nome come un asterisco a una voce di
+     tabella. Eredita lo stroke bianco del nome, quindi regge anche sui fondi scuri. */
+  .lbl-dot{fill:#0d9488;font-weight:800}
   /* Anti-confusione (K): nascondi i NOMI degli strumenti (non le quote .sub) quando il palco è
      rimpicciolito o l'utente li spegne; il selezionato e quello sotto il mouse restano leggibili */
   svg.names-hidden .item .lbl:not(.sub){display:none}
@@ -1681,7 +1687,7 @@
   body.dark .dim-h{fill:#fcd34d;stroke:#0e1214}   /* altezza: ambra chiaro per distinguerla */
   body.dark .zone-lbl{fill:#cbd5e1}
   body.dark #props{background:#1b2327;border-left-color:#2c3a3f}
-  body.dark #props input,body.dark #props select{background:#141a1d;border-color:#314046;color:#e5e7eb}
+  body.dark #props input,body.dark #props select,body.dark #props textarea{background:#141a1d;border-color:#314046;color:#e5e7eb}
   body.dark #props .chk{color:#cbd5e1}
   body.dark #eventoSec{background:#20292e !important;border-color:#314046 !important}
   body.dark footer{background:#1b2327;border-top-color:#2c3a3f;color:#96a5a1}
