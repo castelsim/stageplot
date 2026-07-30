@@ -7821,5 +7821,50 @@ t("la soglia guarda l'AREA, non un elenco di tipi", () => {
   eq(A.portDotOutside(di), false, "cresciuta, il pallino torna dentro: la regola e' geometrica");
 });
 
+
+/* ====== UN CAVO CANCELLATO NON TIENE LA PORTA (Simone 29/07) =================================
+   Il cavo tolto resta come fantasma ripristinabile, ma il motore gli assegnava lo stesso una porta:
+   su una box da 8 bastavano otto ripensamenti per esaurirla con mezzo palco scollegato. */
+console.log("\n— Cavi cancellati e porte —");
+
+function scenaPorte() {
+  reset();
+  const box = add("stagebox", 900, 100); box.ch = 8;
+  ["astamic", "musChitAcustica", "cantante"].forEach((t, i) => add(t, 200 + i * 180, 400));
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  return box;
+}
+const patch = () => { A.__cabRes = null; return A.patchList().rows.map((r) => r.patch); };
+
+t("cancellando un cavo la sua porta torna libera, e le altre scalano", () => {
+  scenaPorte();
+  eq(patch().join(","), "A·1,A·2,A·3");
+  A.cabDeleteKey(A.patchList().rows[0].key);
+  eq(patch().join(","), "A·1,A·2", "due canali, due porte: la 3 non resta impegnata da un cavo che non c'e'");
+  const R = A.cabResult(true);
+  eq(R.boxes[0].used, 2, "e la box dichiara due porte occupate, non tre");
+});
+t("ripristinando il cavo tutto torna com'era", () => {
+  scenaPorte();
+  const k = A.patchList().rows[0].key;
+  const prima = patch().join(",");
+  A.cabDeleteKey(k);
+  A.cabManual(k).deleted = false; A.__cabRes = null;
+  eq(patch().join(","), prima, "il fantasma si riprende il suo posto");
+});
+t("con la box quasi piena, cancellare fa spazio davvero", () => {
+  reset();
+  const box = add("stagebox", 900, 100); box.ch = 4;
+  for (let i = 0; i < 4; i++) add("astamic", 150 + i * 150, 400);
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  eq(A.cabResult(true).boxes[0].used, 4, "piena");
+  A.cabDeleteKey(A.patchList().rows[0].key);
+  A.__cabRes = null;
+  eq(A.cabResult(true).boxes[0].used, 3, "cancellato uno, c'e' posto per un altro");
+  add("cantante", 700, 500); A.__cabRes = null;
+  const righe = A.patchList().rows.filter((r) => r.box);
+  eq(righe.length, 4, "e la sorgente nuova entra: " + righe.map((r) => r.patch).join(","));
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
