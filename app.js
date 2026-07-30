@@ -6672,8 +6672,10 @@ function cablingMarkup(){
       if(dotSeen[dkey]) return; dotSeen[dkey]=1;
       if(_hideMusDot && musLayerItem(it2.type)) return;   /* niente pallino teal sopra il pallino sezione */
       var da = per ? channelAnchor(it2, seatChannels(it2, seat)[0], n) : portAnchor(it2,"audio");
-      dotS+='<circle class="cab-srcdot'+(pend?' cab-srcdot-pend':'')+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="6.5"/>';
-      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(it2.id)+'"'+(per?' data-seat="'+seat+'"':'')+' data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+da[0].toFixed(1)+'" cy="'+da[1].toFixed(1)+'" r="13"><title>'+(pend?'Da collegare · trascina su una stage box':'Audio · trascina su una stage box per cambiare')+'</title></circle>';
+      /* il cavo parte dal centro (da), il pallino sta dove si prende senza inchiodare l'elemento */
+      var dp = per ? da : portDotPos(it2, "audio");
+      dotS+='<circle class="cab-srcdot'+(pend?' cab-srcdot-pend':'')+'" cx="'+dp[0].toFixed(1)+'" cy="'+dp[1].toFixed(1)+'" r="6.5"/>';
+      if(edit) dotS+='<circle class="port-hit" data-port="audio" data-item="'+esc(it2.id)+'"'+(per?' data-seat="'+seat+'"':'')+' data-x="'+da[0].toFixed(1)+'" data-y="'+da[1].toFixed(1)+'" cx="'+dp[0].toFixed(1)+'" cy="'+dp[1].toFixed(1)+'" r="'+PORT_HIT_R+'"><title>'+(pend?'Da collegare · trascina su una stage box':'Audio · trascina su una stage box per cambiare')+'</title></circle>';
     }
     R.links.forEach(function(l){ if(l.deleted) return; srcDot(l.s.it, l.s.key, false); });
     (R.pending||[]).forEach(function(pnd){ srcDot(pnd.it, pnd.key, true); });
@@ -7983,9 +7985,23 @@ function portAnchor(it, kind){
 /* Il PALLINO invece resta dov'è afferrabile: se un elemento ha più porte (un combo ha audio e
    corrente) due pallini nello stesso punto non si prendono, quindi quelli non-audio si sfalsano
    sotto l'icona. Il cavo però nasce e muore al centro: è la linea che deve leggersi, non la presa. */
+var PORT_HIT_R=13;   /* raggio dell'area di presa del pallino, in cm reali */
+/* Su un elemento PICCOLO il pallino al centro se lo mangia: su una DI (13×10 cm) l'area di presa
+   copre il 408% del corpo, quindi ogni tentativo di spostarla faceva partire un cavo e l'elemento
+   restava inchiodato (Simone 29/07, visto tre volte in un giorno). Sotto la soglia il pallino ESCE
+   dal corpo, appena oltre il bordo destro: il corpo torna libero per il trascinamento e il pallino
+   resta grande com'era, quindi non si perde in precisione. Il CAVO continua a partire dal centro. */
+function portDotOutside(it){
+  var w=it&&it.w||40, d=it&&it.d||40;
+  return (Math.PI*PORT_HIT_R*PORT_HIT_R) > 0.30*(w*d);
+}
 function portDotPos(it, kind){
   var ks=portKinds(it), i=ks.indexOf(kind);
-  if(i<0 || ks.length<2 || kind==="audio" || kind==="mon") return portAnchor(it, kind);
+  if(i<0 || ks.length<2 || kind==="audio" || kind==="mon"){
+    var a=portAnchor(it, kind);
+    if(portDotOutside(it)) return [Math.round(it.x+(it.w||40)/2+PORT_HIT_R-2), a[1]];
+    return a;
+  }
   return [Math.round(it.x+(i-(ks.length-1)/2)*26), Math.round(it.y+(it.d||40)/2+16)];
 }
 function portDefs(it){
