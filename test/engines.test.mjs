@@ -8085,5 +8085,102 @@ t("la lista Note è fra le pagine del rider e del link condiviso", () => {
     "e compare fra le liste del link condiviso");
 });
 
+// ── I QUATTRO MODI DI COLLEGARE IL COMPUTER (31/07) ────────────────────────────────────────────
+// Simone: «dal computer si può andare alla DI con l'uscita cuffie; oppure USB a una scheda audio,
+// che ha i suoi I/O analogici o digitali; oppure USB diretto al mixer; oppure Dante».
+// Prima la via scelta era solo un'etichetta sul cavo: analogico, USB o Dante, la lista scriveva
+// sempre «Playback L / DI» — un rider che chiede una DI che non c'è.
+console.log("\n— Le quattro vie del computer —");
+
+const nDI = () => A.state.items.filter((x) => x.type === "dimono").length;
+
+t("1) cuffie → DI → mixer: la DI c'è davvero, ed è il caso di partenza", () => {
+  reset();
+  const mac = add("laptop", 300, 400);
+  eq(A.compViaOf(mac), "an", "si parte in analogico");
+  eq(nDI(), 1, "la DI stereo nasce col computer");
+  eq(chans(mac).map((c) => c.mic).join(","), "DI,DI", "e la lista chiede una DI");
+});
+
+t("3) USB e 4) Dante: niente DI, e la lista lo scrive", () => {
+  reset();
+  const mac = add("laptop", 300, 400); add("dm3", 900, 300);
+  A.cabSetVia(mac, "usb");
+  eq(nDI(), 0, "in USB la DI sparisce dal palco");
+  eq(chans(mac)[0].mic, "USB", "e la colonna dice USB");
+  A.cabSetVia(mac, "dante");
+  eq(chans(mac)[0].mic, "Dante", "in Dante dice Dante");
+  A.cabSetVia(mac, "an");
+  eq(nDI(), 1, "tornando all'analogico la DI ricompare");
+});
+
+t("il numero di tracce non è più fisso a due", () => {
+  reset();
+  const mac = add("laptop", 300, 400); add("dm3", 900, 300);
+  A.cabSetVia(mac, "usb");
+  eq(chans(mac).length, 2, "di partenza è un playback stereo");
+  mac.plCh = 8;
+  eq(chans(mac).length, 8, "otto tracce = otto righe");
+});
+
+t("2) computer → scheda audio → mixer: è la scheda a uscire", () => {
+  reset();
+  const mac = add("laptop", 300, 400); mac.label = "MacBook";
+  const ifc = add("audiointerface", 620, 400); ifc.label = "Scheda";
+  eq(chans(ifc).length, 0, "senza modello e senza computer la scheda è muta");
+  ifc.hw = "ultralitemk5";
+  eq(chans(ifc).length, 0, "col modello ma senza computer, ancora muta");
+  mac.ifaceId = ifc.id; mac.plCh = 8;
+  eq(chans(mac).length, 0, "il computer non dichiara più canali suoi: li dichiara lei");
+  eq(chans(ifc).length, 8, "otto tracce escono dalla scheda");
+  eq(chans(ifc)[0].mic, "Line bal.", "in analogico sono uscite di linea");
+});
+
+t("la scheda non promette più canali di quanti la sua uscita ne porti", () => {
+  reset();
+  const mac = add("laptop", 300, 400);
+  const ifc = add("audiointerface", 620, 400); ifc.hw = "ultralitemk5";
+  mac.ifaceId = ifc.id; mac.plCh = 32;                 // ne chiede 32
+  ifc.oVia = "ADAT";
+  eq(chans(ifc).length, 8, "l'ADAT ne porta 8, e otto sono: " + chans(ifc).length);
+  ifc.oVia = "S/PDIF coax";
+  eq(chans(ifc).length, 2, "lo S/PDIF ne porta 2");
+});
+
+t("con la scheda in mezzo la DI sparisce, togliendola torna", () => {
+  reset();
+  const mac = add("laptop", 300, 400);
+  const ifc = add("audiointerface", 620, 400); ifc.hw = "ucx2";
+  eq(nDI(), 1, "prima c'è");
+  mac.ifaceId = ifc.id; A.diApply(mac);
+  eq(nDI(), 0, "con la scheda non serve");
+  delete mac.ifaceId; A.diApply(mac);
+  eq(nDI(), 1, "senza scheda torna");
+});
+
+t("le schede dichiarano solo le uscite che hanno davvero", () => {
+  reset();
+  const ifc = add("audiointerface", 500, 400);
+  eq(A.ifaceOutOpts(ifc).length, 0, "senza modello nessuna opzione inventata");
+  ifc.hw = "sc2i2g4";
+  eq(A.ifaceOutOpts(ifc).map((o) => o.id).join(","), "an", "la 2i2 non ha uscite digitali");
+  ifc.hw = "apollotwinx";
+  ok(A.ifaceOutOpts(ifc).every((o) => o.id !== "ADAT"),
+    "sull'Apollo Twin X la porta ottica è SOLO ingresso: non è una via d'uscita");
+  ifc.hw = "ufx3";
+  ok(A.ifaceOutOpts(ifc).some((o) => o.id === "MADI"), "la UFX III esce anche in MADI");
+});
+
+t("ogni scheda del registro porta la sua fonte", () => {
+  const ids = Object.keys(A.IFACE_DB);
+  ok(ids.length >= 20, "il registro è popolato: " + ids.length + " modelli");
+  ids.forEach(function (id) {
+    const m = A.IFACE_DB[id];
+    ok(m.src && m.src.length > 10, id + ": manca la fonte del dato");
+    ok(m.brand && m.model, id + ": manca marca o modello");
+    ok(typeof m.out === "number", id + ": le uscite analogiche vanno dichiarate (0 se non ne ha)");
+  });
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

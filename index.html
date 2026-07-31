@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.07.30";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.07.31";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -2852,6 +2852,29 @@ body.dark .ask-all .btn{background:transparent}
       <label>Collegamento al mixer</label>
       <div class="seg" id="pViaSeg" role="group" aria-label="Collegamento al mixer"></div>
       <div id="pViaHint" class="prop-hint"></div>
+      <!-- Quante tracce manda: due (L/R) è il playback normale, ma un multitraccia ne manda otto o
+           sedici e la lista deve dirlo. Il massimo lo detta la via scelta (31/07). -->
+      <div id="pPlChRow" class="sldrow" style="margin-top:8px">
+        <label for="pPlCh">Tracce</label>
+        <input type="range" id="pPlCh" min="1" max="16" step="1">
+        <output id="pPlChVal">2</output>
+      </div>
+    </div>
+    <!-- SCHEDA AUDIO: che modello è (i suoi I/O vengono dal registro, non si inventano) e con che
+         cosa esce verso il mixer. Sul computer, invece, da quale scheda passa. -->
+    <div id="pIfaceWrap" style="display:none">
+      <label>Modello</label>
+      <select id="pIfaceHw"></select>
+      <div id="pIfaceOutRow" style="display:none;margin-top:8px">
+        <label>Uscita verso il mixer</label>
+        <div class="seg" id="pIfaceOutSeg" role="group" aria-label="Uscita verso il mixer"></div>
+      </div>
+      <div id="pIfaceHint" class="prop-hint"></div>
+    </div>
+    <div id="pCompIfaceWrap" style="display:none">
+      <label>Passa da una scheda audio</label>
+      <select id="pCompIface"></select>
+      <div id="pCompIfaceHint" class="prop-hint"></div>
     </div>
     <!-- USCITA: microfonazione, da quale anello esce il segnale e com'è l'uscita. I tre si parlano:
          l'esito (DI oppure cavo diretto) è scritto sotto, così non resta implicito. -->
