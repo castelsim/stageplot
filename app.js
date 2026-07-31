@@ -7445,7 +7445,11 @@ function elecMarkup(){
       : isCiab ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||6)+' prese')
                   : (d.letter+' · '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW · '+Math.max.apply(null,d.phLoad.slice(0,d.ph)).toFixed(0)+'/'+d.a+'A');
     var bw=Math.max(58,8+bt.length*4.6);
-    s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-(d.auto?42:40))+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-(d.auto?31:29))+'" text-anchor="middle">'+esc(bt)+'</text></g>';
+    /* Il badge si appoggia al BORDO dell'elemento, non a 40 cm fissi dal centro: su una ciabatta
+       profonda 17 cm restava sospeso a mezz'aria, staccato dal suo oggetto e in mezzo ai cavi
+       (31/07). Sui distro proposti (senza elemento) resta la quota di prima. */
+    var bTop = d.auto ? 42 : Math.max(24, ((d.it && d.it.d) || 40)/2 + 22);
+    s+='<g class="elec-badge"><rect x="'+(d.x-bw/2)+'" y="'+(d.y-bTop)+'" width="'+bw+'" height="15" rx="7"/><text x="'+d.x+'" y="'+(d.y-bTop+11)+'" text-anchor="middle">'+esc(bt)+'</text></g>';
   });
   if(R.supply){ var h=R.supply; s+='<g class="elec-supply"><rect x="'+(h.x-46)+'" y="'+(h.y-13)+'" width="92" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>'
     +'<rect class="elec-supplyhit" data-elecsupply="1" x="'+(h.x-48)+'" y="'+(h.y-15)+'" width="96" height="30" rx="6"/></g>'; }
@@ -7534,19 +7538,12 @@ function electricEngine(){
     var lenM=orthLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);
     loadLinks.push({load:l, distro:dd, phase:ph, pts:pts, lenM:lenM, cut:cut, cee:l.a>16, key:l.it.id, manual:!!(ov.pts&&ov.pts.length)});
   });
-  /* fan-out al distro (parità con l'audio): le linee AUTO che partono dallo stesso distro escono da punti distinti */
-  distros.forEach(function(d){
-    var dl=loadLinks.filter(function(l){ return !l.manual && l.distro===d; });
-    if(dl.length<2) return;
-    var span=Math.min(dl.length*9, 46);
-    dl.forEach(function(l,i){
-      var off=Math.round((i-(dl.length-1)/2)*span/Math.max(1,dl.length-1));
-      var nxt=l.pts[1]||[d.x,d.y];
-      var vert=Math.abs(nxt[1]-d.y)>=Math.abs(nxt[0]-d.x);
-      l.pts[0]= vert ? [d.x+off, d.y] : [d.x, d.y+off];
-      l.lenM=orthLen(l.pts)/100*(1+elecMargin()); l.cut=cabCut(l.lenM);
-    });
-  });
+  /* FAN-OUT AL DISTRO RIMOSSO (31/07). Sparpagliava i capi su un anello di ±14 cm attorno al centro
+     senza guardare quanto è grande il distro: su una ciabatta 44×17 lo scostamento verticale cadeva
+     FUORI dal corpo (semi-profondità 8,5 cm) e il cavo finiva nel vuoto accanto all'oggetto.
+     Vale la regola già fissata per i cavi power il 29/07 — «devono finire tutti convergenti al
+     centro degli elementi, come i cavi input» — che il lato distro non aveva mai recepito.
+     Entrambi i capi stanno al centro: portAnchor lo fa già dall'altra parte. */
   /* 3b. TIER 2 (Simone 08/07): ciabatta/distro → quadro, SOLO manuale (pallino ambra sulla ciabatta).
      Il carico della ciabatta risale sul quadro (fase meno carica) con verifica di sovraccarico. */
   var ups=(state.elec&&state.elec.uplinks)||{}, uplinks=[], upPend=0;
@@ -7563,6 +7560,24 @@ function electricEngine(){
     var upts=[[d.x,d.y]].concat(u.pts||[]).concat([[T.x,T.y]]);
     uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(u.pts&&u.pts.length)});
   });
+  /* Chi «pende» davvero (31/07): non tutto ciò che è senza uplink va collegato a monte — il quadro
+     di testa è il punto di consegna, e contarlo faceva dire «1 ciabatta da alimentare» con l'unico
+     quadro in scena. Fuori dal conto: chi RICEVE un uplink (sta a monte, non a valle) e il distro
+     con la capienza maggiore, che è la consegna. Il conto va rifatto qui perché prima dipendeva
+     dall'ordine di iterazione: un quadro elencato dopo le ciabatte risultava «da alimentare». */
+  (function(){
+    if(!manualModeE) return;
+    var riceve={}; uplinks.forEach(function(u){ if(u.to && u.to.it) riceve[u.to.it.id]=1; });
+    var testa=null; distros.forEach(function(d){ if(d.it && (!testa || d.a>testa.a)) testa=d; });
+    upPend=0;
+    distros.forEach(function(d){
+      if(!d.it || d.loadW<=0) return;
+      if(ups[d.it.id] && ups[d.it.id].to) return;      /* già collegato a monte */
+      if(riceve[d.it.id]) return;                       /* riceve da altri: è lui il quadro */
+      if(testa && d.it.id===testa.it.id) return;        /* punto di consegna */
+      upPend++;
+    });
+  })();
   if(manualModeE && upPend>0) issues.push({lvl:"info", msg:upPend+" ciabatte/distro da collegare al quadro: pallino ambra sulla ciabatta → trascina sul quadro."});
   /* 4. cavi di alimentazione distro→sorgente: SOLO in modalità auto (in manual niente automatismi) */
   var feeds=[];
@@ -7597,6 +7612,7 @@ function electricEngine(){
   if(!distros.length && loads.length && totW>AUDIT_MIN_W) issues.push({lvl:"err", rule:"nodistro", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
   if(pendingE.length) issues.push({lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
   return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply,
+          upPend:upPend,   /* ciabatte/distro con carico ma senza linea verso il quadro: la lista deve dirlo (31/07) */
           totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
 }
 var __elecRes=null;
@@ -17759,11 +17775,18 @@ function renderLoadPanel(){
      troncava i nomi («Amp/drive rac…») e il fulmine infilato DENTRO la pillola della linea, che
      faceva crescere la riga da collegare rispetto a tutte le altre. */
   var daFare=pl.rows.filter(function(r){ return !r.linked; }).length;
-  var bar=document.createElement("div"); bar.className="cab-bar"+(daFare?"":" done");
+  /* La catena non finisce al carico: una ciabatta piena di ampli ma senza linea verso il quadro è
+     un impianto interrotto, e il verde «tutti collegati» lo nascondeva (Simone 31/07). Il motore lo
+     sapeva già (issues), ma quell'avviso non compariva da nessuna parte. */
+  var upDaFare=R.upPend||0;
+  var bar=document.createElement("div"); bar.className="cab-bar"+((daFare||upDaFare)?"":" done");
   var txt=document.createElement("span"); txt.className="cab-bar-txt";
   if(daFare){
     txt.innerHTML='<b>'+daFare+'</b> '+(daFare===1?"carico da collegare":"carichi da collegare")
       + (R.distros.length ? "" : ' <span class="lbl-note">— manca un quadro</span>');
+  } else if(upDaFare){
+    txt.innerHTML='Carichi a posto · <b>'+upDaFare+'</b> '+(upDaFare===1?"ciabatta da alimentare":"ciabatte da alimentare")
+      + ' <span class="lbl-note">— selezionala e trascina dal pallino ambra al quadro</span>';
   } else txt.innerHTML='✓ Tutti i carichi sono collegati';
   bar.appendChild(txt);
   var wp=elecWorstPhase(R);
