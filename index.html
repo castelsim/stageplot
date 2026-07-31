@@ -2762,6 +2762,18 @@ body.dark .ask-all .btn{background:transparent}
       <span id="pLblSizeAllMsg"></span>
       <button type="button" class="btn" id="pLblSizeAllYes">Applica a tutte</button>
     </div>
+    <!-- DISTANZA del nome dall'elemento, in cm reali dal bordo (31/07). Stessa meccanica della
+         dimensione, «Applica a tutte» compreso: su un palco fitto il nome finisce addosso a quello
+         accanto, e l'unico rimedio era spostare l'elemento. -->
+    <div id="pLblDistWrap" class="sldrow">
+      <label for="pLblDist">Distanza</label>
+      <input type="range" id="pLblDist" min="0" max="80" step="1">
+      <output id="pLblDistVal">9</output>
+    </div>
+    <div id="pLblDistAll" class="ask-all" hidden>
+      <span id="pLblDistAllMsg"></span>
+      <button type="button" class="btn" id="pLblDistAllYes">Applica a tutte</button>
+    </div>
     <!-- NOTA sull'elemento (30/07): quello che il disegno non dice — «shaker, claves, güiro»,
          «ampli fornito dalla band», «da accordare». Sul palco resta un puntino accanto al nome:
          una nota che non si vede è una nota che nessuno legge. Il testo esce nella lista Note. -->
