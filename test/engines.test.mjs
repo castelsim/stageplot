@@ -8429,5 +8429,56 @@ t("la lista Rete non va in ricorsione (cabResult chiama netEngine)", () => {
   eq(A.netEngine().runs.filter((r) => r.kind === "dvs").length, 1, "e il risultato è stabile");
 });
 
+// ── I MODELLI IN VETRINA (31/07) ───────────────────────────────────────────────────────────────
+// Simone: «lasciare le formazioni più professionali, tipo dj o matrimonio vanno tolti — devono
+// essere professionali, coerenti e facili da capire». Più «Orchestra pop», dal suo modello.
+console.log("\n— Modelli in vetrina —");
+
+t("in vetrina ci sono solo organici, non occasioni", () => {
+  const chiavi = A.START_MODELS.map((m) => m[0]);
+  ok(chiavi.indexOf("matrimonio") < 0, "niente Matrimonio: è un'occasione, non una formazione");
+  ok(chiavi.indexOf("dj") < 0, "niente DJ set");
+  ok(chiavi.indexOf("orchpop") > -1, "c'è Orchestra pop");
+});
+
+t("i vecchi link non si rompono: matrimonio e DJ esistono ancora", () => {
+  ["matrimonio", "dj"].forEach((k) => {
+    const fd = A.formationData(k);
+    ok(fd && fd.out && fd.out.length >= 8, k + ": si apre ancora da /stage-plot/?model=" + k);
+  });
+});
+
+t("OGNI modello in vetrina arriva completo: elementi, canali e uscite", () => {
+  A.START_MODELS.forEach(function (m) {
+    const fd = A.formationData(m[0]);
+    ok(fd, m[1] + ": la formazione esiste");
+    ok(fd.out.length >= 10, m[1] + ": ha un palco vero (" + fd.out.length + " elementi)");
+    ok(fd.inp.length > 0, m[1] + ": ha la sua channel list (era il buco del Tributo)");
+    ok(fd.outp.length > 0, m[1] + ": e le sue uscite");
+    ok(fd.out.every((it) => A.TYPES[it.type]), m[1] + ": nessun tipo inventato");
+    ok(A.FORM_TITLES[m[0]], m[1] + ": ha un titolo");
+  });
+});
+
+t("Orchestra pop: l'organico è quello del modello, senza nomi di persona", () => {
+  const fd = A.formationData("orchpop");
+  eq(fd.out.length, 35, "35 elementi");
+  const conta = (t) => fd.out.filter((i) => i.type === t).length;
+  eq(conta("vlnpost"), 6, "sei postazioni violini");
+  eq(conta("trombone"), 3, "tre tromboni");
+  eq(conta("pedana"), 2, "le due pedane digradanti");
+  ok(conta("batteria") === 1 && conta("gtstand") === 1 && conta("stagepiano") === 1, "la ritmica pop c'è");
+  ok(conta("direttore") === 1, "e il direttore");
+  const etichette = fd.out.map((i) => i.label || "").join(" ");
+  ok(!/cozza|valerio/i.test(etichette), "nessun nome di persona finito nel repo pubblico");
+});
+
+t("Orchestra pop non calpesta Orchestra e band: sono due cose diverse", () => {
+  const pop = A.formationData("orchpop"), ob = A.formationData("orchband");
+  ok(pop.out.length !== ob.out.length, "organici diversi");
+  const popH = pop.out.filter((i) => i.type === "pedana").length;
+  ok(popH >= 2, "la pop ha le pedane digradanti per legni e ottoni: " + popH);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
