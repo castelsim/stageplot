@@ -15384,6 +15384,39 @@ function buildOrchBandOut(){
   ];
   return out.concat(band);
 }
+/* ORCHESTRA DA CAMERA (31/07) — dal modello di Simone, che è una disposizione curata a mano e non
+   il ventaglio generato: archi in file concentriche con le rotazioni una per una, legni in colonna
+   dietro sull'asse, corni in fondo, podio del direttore davanti. Postazioni SINGOLE, non doppie:
+   in un organico da camera ogni leggio è un musicista.
+   Il generatore parametrico (buildOrchestraOut) resta e serve alle sinfoniche e alle combinazioni. */
+function buildOrchCameraOut(){
+  return [
+    /* — fiati, in colonna sull'asse, dal fondo verso il podio — */
+    {type:"corno",      x:-65, y:-1280, rot:-5, label:"Corno 1"},
+    {type:"corno",      x:65,  y:-1280, rot:5,  label:"Corno 2"},
+    {type:"clarinetto", x:-112, y:-1105, rot:-5, label:"Clarinetto"},
+    {type:"fagotto",    x:113,  y:-1105, rot:5,  label:"Fagotto"},
+    {type:"flauto",     x:-112, y:-930, rot:-10, label:"Flauto"},
+    {type:"oboe",       x:113,  y:-930, rot:10,  label:"Oboe"},
+    /* — archi, file concentriche attorno al podio: V1 a sinistra, V2 al centro, viole e celli a destra — */
+    {type:"contrabbasso", x:353, y:-623, rot:35, label:"Contrabbasso"},
+    {type:"vlnpost", x:-85, y:-582, rot:-10, vsec:2, label:"Violino II 3"},
+    {type:"vlnpost", x:85,  y:-582, rot:10,  vsec:2, label:"Violino II 4"},
+    {type:"vlnpost", x:-242, y:-517, rot:-35, vsec:1, label:"Violino I 4"},
+    {type:"violapost", x:242, y:-517, rot:35, label:"Viola 3"},
+    {type:"vlnpost", x:0,    y:-440, vsec:2, label:"Violino II 2"},
+    {type:"vlnpost", x:-110, y:-418, rot:-20, vsec:2, label:"Violino II 1"},
+    {type:"violapost", x:110, y:-418, rot:20, label:"Viola 1"},
+    {type:"vlnpost", x:-363, y:-398, rot:-55, vsec:1, label:"Violino I 3"},
+    {type:"violoncello", x:363, y:-398, rot:55, label:"Violoncello 2"},
+    {type:"vlnpost", x:-203, y:-357, rot:-45, vsec:1, label:"Violino I 2"},
+    {type:"violapost", x:203, y:-357, rot:45, label:"Viola 2"},
+    {type:"vlnpost", x:-267, y:-264, rot:-65, vsec:1, label:"Violino I 1"},
+    {type:"violoncello", x:267, y:-264, rot:65, label:"Violoncello 1"},
+    /* — il podio, fronte palco — */
+    {type:"podio", x:0, y:-150, label:""}
+  ];
+}
 /* ORCHESTRA POP (31/07) — dal modello di Simone, disposizione presa da una produzione vera:
    archi in ventaglio davanti al direttore, legni e ottoni su due pedane digradanti in fondo, ritmica
    pop (batteria, chitarra, stage piano) sui lati. È il caso che il repertorio orchestra + band
@@ -15730,10 +15763,15 @@ function startFromTemplate(f,options){
   var title=FORM_TITLES[f]||f;
   guardDocumentReplacement({skipConfirm:!!options.skipConfirm,reason:"modello "+title,
     title:"Creare il modello «"+title+"»?",confirmText:"Crea modello"},function(){
-    if(!beginNewDocument({titolo:(FORM_TITLES[f]||""),luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]},
+    /* Il palco della formazione, quando lo dichiara: un modello sa su che misura è stato pensato, e
+       i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
+    var _sg=(qd.stage && qd.stage.w>0 && qd.stage.d>0) ? {w:qd.stage.w, d:qd.stage.d} : {w:1200, d:800};
+    if(!beginNewDocument({titolo:(FORM_TITLES[f]||""),luogo:"",stage:{w:_sg.w,d:_sg.d,blocks:[{x:0,y:0,w:_sg.w,d:_sg.d}]},items:[],inputs:[],outputs:[]},
         {skipRecovery:true,reason:"modello "+title})) return;
     resetMetaLayersUI();   /* nuovo da modello: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
-    placeOut(qd.out, true, true, true);   /* adatta palco + azzera + force (nessuna review) */
+    /* se la formazione ha dichiarato il suo palco NON si riadatta: la misura è una scelta del
+       modello, e ricalcolarla dal contenuto la butterebbe via. */
+    placeOut(qd.out, !qd.stage, true, true);
     var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
     try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
     var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
@@ -15767,7 +15805,7 @@ function startFromVenue(v,options){
     if(!beginNewDocument({titolo:V[1],luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]},
         {skipRecovery:true,reason:"modello "+V[1]})) return;
     var qd = (typeof formationData==="function") ? formationData(P.form) : null;
-    if(qd && qd.out){ placeOut(qd.out, true, true, true); }   /* adatta il palco alla formazione + azzera + force */
+    if(qd && qd.out){ placeOut(qd.out, !qd.stage, true, true); }   /* palco della formazione se dichiarato, altrimenti adattato */
     else { state.items=[]; state.stage={w:1000,d:700,blocks:[{x:0,y:0,w:1000,d:700}]}; if(typeof recalcStageBBox==="function") recalcStageBBox(); }
     if(state.stage.blocks && state.stage.blocks[0]) state.stage.blocks[0].h=(P.h||0);   /* altezza tipica della sala */
     try{ makeVenueBackdrop(V[1], P.house); }catch(_e){}   /* pianta di sfondo (dimostra "Planimetria") */
@@ -16768,11 +16806,15 @@ function orchOutputs(){
 }
 /* dispatch: per ogni voce del menu, layout + channel list coerenti */
 function formationData(f){
-  if(f==="band")  return { out:buildBandOut(),  inp:bandInputs(), outp:bandOutputs() };
+  /* 16 × 6,5 m: la misura del modello di Simone, che è la proporzione di un palco da concerto —
+     i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
+  if(f==="band")  return { out:buildBandOut(),  inp:bandInputs(), outp:bandOutputs(), stage:{w:1600,d:650} };
   if(f==="acoustic") return { out:buildAcousticOut(), inp:acousticInputs(), outp:acousticOutputs() };
   if(f==="coro")  return { out:buildCoroOut(),  inp:coroInputs(), outp:coroOutputs() };
   if(f==="quartetto") return { out:buildQuartettoOut(), inp:quartettoInputs(), outp:quartettoOutputs() };
-  if(f==="camera"){ var ca=presetCounts("camera"); return { out:buildOrchestraOut(ca), inp:orchInputs(ca), outp:orchOutputs() }; }
+  /* «Orchestra da camera» in vetrina = il layout curato a mano (31/07). Il ventaglio generato
+     resta la base di sinfonica/orchband/orchcoro, che dai conteggi non possono prescindere. */
+  if(f==="camera"){ var ca=presetCounts("camera"); return { out:buildOrchCameraOut(), inp:orchInputs(ca), outp:orchOutputs(), stage:{w:1100,d:1450} }; }
   if(f==="sinfonica_ridotta"){ var sr=presetCounts("ridotta"); return { out:buildOrchestraOut(sr), inp:orchInputs(sr), outp:orchOutputs() }; }
   if(f==="jazzcombo") return { out:buildJazzComboOut(), inp:jazzComboInputs(), outp:jazzComboOutputs() };
   if(f==="bigband") return { out:buildBigBandOut(), inp:bigbandInputs(), outp:bigbandOutputs() };
@@ -16795,7 +16837,8 @@ function formationData(f){
       inp:orchInputs(cp).concat([ch("Kick","D6"),ch("Rullante","SM57"),ch("Overhead L","KM184"),ch("Overhead R","KM184"),
         ch("Chitarra","SM57"),ch("Tastiere L","DI"),ch("Tastiere R","DI")]),
       outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Batteria","IEM","beltpack"),
-        outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")] };
+        outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")],
+      stage:{w:1500,d:1150} };
   }
   if(f==="tributo")    return { out:buildTributoOut(),    inp:tributoInputs(), outp:tributoOutputs() };
   return null;

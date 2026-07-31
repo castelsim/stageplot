@@ -8473,6 +8473,26 @@ t("Orchestra pop: l'organico è quello del modello, senza nomi di persona", () =
   ok(!/cozza|valerio/i.test(etichette), "nessun nome di persona finito nel repo pubblico");
 });
 
+t("Orchestra da camera: il layout curato, non il ventaglio generato", () => {
+  const fd = A.formationData("camera");
+  const conta = (t) => fd.out.filter((i) => i.type === t).length;
+  eq(fd.out.length, 21, "21 elementi");
+  eq(conta("vlnpost"), 8, "otto violini, quattro per sezione");
+  eq(conta("podio"), 1, "il podio del direttore");
+  ok(fd.out.every((i) => !i.doppia), "postazioni singole: in un organico da camera ogni leggio è un musicista");
+  ok(fd.out.filter((i) => i.type === "vlnpost").every((i) => i.rot !== undefined || i.x === 0),
+    "le rotazioni sono quelle curate a mano");
+});
+
+t("le formazioni possono dichiarare il loro palco, e non viene riadattato", () => {
+  const band = A.formationData("band"), cam = A.formationData("camera");
+  eq(band.stage.w, 1600, "la band nasce larga 16 m, non sul quadrato 12×8");
+  eq(band.stage.d, 650, "e profonda 6,5");
+  ok(cam.stage && cam.stage.d > cam.stage.w, "l'orchestra da camera è più profonda che larga");
+  // chi non lo dichiara continua ad adattarsi al contenuto, come prima
+  ok(!A.formationData("acoustic").stage, "l'acustica non dichiara nulla: si adatta");
+});
+
 t("Orchestra pop non calpesta Orchestra e band: sono due cose diverse", () => {
   const pop = A.formationData("orchpop"), ob = A.formationData("orchband");
   ok(pop.out.length !== ob.out.length, "organici diversi");
