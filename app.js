@@ -5503,6 +5503,127 @@ function micZoneLabel(zone){
    Campi engine-critici: proto[] (protocollo), in (ingressi mic/line), out (uscite).
    Specifiche verificate sui datasheet dei produttori (07/2026); modulari (DX32/Stage32) = capacità max. */
 var AUDIO_PROTO = { dante:"Dante", aes50:"AES50", dsnake:"dSNAKE", gigaace:"gigaACE", optocore:"Optocore", madi:"MADI", avb:"AVB" };
+/* ===== SCHEDE AUDIO (31/07) ==============================================================
+   Il percorso più comune di tutti — computer → scheda audio → mixer — non era modellabile: la
+   scheda sul palco era un oggetto muto, zero canali. Qui ci sono i modelli con i DATI DI TARGA
+   presi dai manuali/spec ufficiali dei costruttori, una fonte per riga. Dove il costruttore non
+   dichiara un dato c'è null: nessun numero deve essere dedotto o stimato.
+   Campi: port = come ci arriva il computer · in/mic/line/hiz = ingressi analogici (line e hiz sono
+   spesso GLI STESSI connettori dei mic, non canali in più) · out = uscite analogiche escluse le
+   cuffie · phones = prese cuffie · dig = I/O digitali con formato e canali · comp = canali verso il
+   computer alla frequenza base [in, out], e alle frequenze alte dove il costruttore lo dichiara. */
+var IFACE_DB = {
+  /* — RME (rme-audio.de). RME dichiara solo la versione del protocollo USB, mai il tipo di presa → port senza connettore. */
+  "bfprofs":{brand:"RME", model:"Babyface Pro FS", port:"USB 2.0", in:4, mic:2, line:2, hiz:2, out:2, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io", alt:"S/PDIF ottico 2 ch"}], comp:{48:[12,12], 96:[8,8], 192:[6,6]},
+    src:"RME Babyface Pro FS, manuale ufficiale (rme-audio.de)"},
+  "ucx2":{brand:"RME", model:"Fireface UCX II", port:"USB 2.0", in:8, mic:2, line:6, hiz:2, out:6, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io"},{fmt:"S/PDIF coax", ch:2, dir:"io"},{fmt:"AES/EBU", ch:2, dir:"io"}], comp:{48:[20,20], 96:[16,16], 192:[14,14]},
+    src:"RME Fireface UCX II, manuale ufficiale"},
+  "ufx3":{brand:"RME", model:"Fireface UFX III", port:"USB 3.0", in:12, mic:4, line:8, hiz:4, out:8, phones:2, phantom:true,
+    dig:[{fmt:"MADI", ch:64, dir:"io"},{fmt:"ADAT", ch:16, dir:"io"},{fmt:"AES/EBU", ch:2, dir:"io"}], comp:{48:[94,94], 96:[54,54], 192:[34,34]},
+    src:"RME Fireface UFX III, manuale ufficiale"},
+  "dfdante":{brand:"RME", model:"Digiface Dante", port:"USB 3.0", in:0, mic:0, line:0, hiz:0, out:0, phones:1, phantom:false,
+    dig:[{fmt:"Dante/AES67", ch:64, dir:"io"},{fmt:"MADI coax", ch:64, dir:"io"}], comp:{48:[128,128], 96:[64,64], 192:[32,32]},
+    src:"RME Digiface Dante, manuale ufficiale — su USB 2.0 scende a 64 canali, solo Dante"},
+  /* — Focusrite (focusrite.com). Nota: lo Scarlett 18i8 di 4ª generazione NON esiste: la linea 4th Gen
+       passa dal 4i4 al 16i16/18i16/18i20. Qui c'è il 18i16 4th Gen, che ne prende il posto. */
+  "sc2i2g4":{brand:"Focusrite", model:"Scarlett 2i2 4th Gen", port:"USB-C (USB 2.0)", in:2, mic:2, line:2, hiz:2, out:2, phones:1, phantom:true,
+    dig:[], comp:{48:[4,2]}, src:"Scarlett 2i2 4th Gen User Guide v4 — 4 in include 2 canali di Loopback"},
+  "sc4i4g4":{brand:"Focusrite", model:"Scarlett 4i4 4th Gen", port:"USB-C (USB 2.0)", in:4, mic:2, line:4, hiz:2, out:4, phones:1, phantom:true,
+    dig:[], comp:{48:[6,6]}, src:"Scarlett 4i4 4th Gen User Guide v2 — 6 in include 2 canali di Loopback"},
+  "sc18i16g4":{brand:"Focusrite", model:"Scarlett 18i16 4th Gen", port:"USB-C", in:8, mic:4, line:8, hiz:2, out:4, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io", alt:"S/PDIF ottico 2 ch"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[18,16], 96:[16,null]},
+    src:"Scarlett 18i16 4th Gen User Guide v3 — a 192 kHz le porte ottiche si disattivano"},
+  "sc18i20g4":{brand:"Focusrite", model:"Scarlett 18i20 4th Gen", port:"USB-C", in:8, mic:8, line:8, hiz:2, out:10, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[18,20]},
+    src:"Scarlett 18i20 4th Gen User Guide v3 — a 192 kHz le porte ottiche si disattivano"},
+  "clarett8pre":{brand:"Focusrite", model:"Clarett+ 8Pre", port:"USB-C", in:8, mic:8, line:8, hiz:2, out:10, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[18,20], 96:[14,null]},
+    src:"Clarett+ 8Pre User Guide v4"},
+  /* — MOTU (motu.com) */
+  "motum4":{brand:"MOTU", model:"M4", port:"USB-C (USB 2.0)", in:4, mic:2, line:4, hiz:2, out:4, phones:1, phantom:true,
+    dig:[], comp:{48:[4,4], 96:[4,4], 192:[4,4]}, src:"MOTU M4, specifiche ufficiali"},
+  "ultralitemk5":{brand:"MOTU", model:"UltraLite-mk5", port:"USB-C (USB 2.0)", in:8, mic:2, line:8, hiz:2, out:10, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io", alt:"S/PDIF ottico 2 ch"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[18,22], 96:[14,18], 192:[8,12]},
+    src:"MOTU UltraLite-mk5, specifiche ufficiali"},
+  "motu828":{brand:"MOTU", model:"828", port:"USB-C 3.2 Gen 1", in:10, mic:2, line:8, hiz:2, out:10, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:16, dir:"io"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[28,32], 96:[20,24], 192:[10,14]},
+    src:"MOTU 828, specifiche ufficiali — le uscite verso il computer comprendono le cuffie"},
+  /* — Audient (audient.com). GOTCHA dichiarato: sull'iD14 il manuale V1.3 scrive 2 in/2 out e il sito 10 in/6 out;
+       qui vale il sito, ma il dato è in disaccordo alla fonte e va riverificato prima di darlo per definitivo. */
+  "id14":{brand:"Audient", model:"iD14 MkII", port:"USB-C", in:2, mic:2, line:2, hiz:1, out:4, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"in", alt:"S/PDIF ottico 2 ch"}], comp:{48:[10,6]},
+    src:"Audient iD14 MkII, tech specs sito ufficiale (il manuale V1.3 p.46 dichiara 2/2: dato in disaccordo)"},
+  "id44":{brand:"Audient", model:"iD44 MkII", port:"USB-C (USB 2.0)", in:4, mic:4, line:4, hiz:2, out:4, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:16, dir:"io"}], comp:{48:[20,24]},
+    src:"Audient iD44 MkII, tech specs sito ufficiale"},
+  /* — Solid State Logic (solidstatelogic.com) */
+  "ssl2plus":{brand:"Solid State Logic", model:"SSL 2+ MkII", port:"USB-C (USB 2.0)", in:2, mic:2, line:2, hiz:2, out:4, phones:2, phantom:true,
+    dig:[], comp:{48:[2,4]}, src:"SSL 2+ MkII User Guide"},
+  "ssl12":{brand:"Solid State Logic", model:"SSL 12", port:"USB-C (audio su USB 2.0)", in:4, mic:4, line:4, hiz:2, out:4, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"in"}], comp:{48:[12,8]}, src:"SSL 12 User Guide — nessuna uscita digitale"},
+  /* — Universal Audio (uaudio.com). Twin X: la porta ottica è SOLO ingresso, nessuna uscita digitale. */
+  "apollotwinx":{brand:"Universal Audio", model:"Apollo Twin X", port:"Thunderbolt 3", in:2, mic:2, line:2, hiz:1, out:4, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"in", alt:"S/PDIF ottico 2 ch"}], comp:{48:[10,6]},
+    src:"Apollo Twin X Gen 2 Hardware Manual — porta ottica dichiarata «One input»"},
+  "apollotwinxusb":{brand:"Universal Audio", model:"Apollo Twin X USB", port:"USB 3 (USB-C)", in:2, mic:2, line:2, hiz:1, out:4, phones:1, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"in", alt:"S/PDIF ottico 2 ch"}], comp:{48:[10,6]},
+    src:"Apollo Twin X USB Hardware Manual — solo Windows"},
+  "apollox8":{brand:"Universal Audio", model:"Apollo x8", port:"Thunderbolt 3", in:8, mic:4, line:8, hiz:2, out:10, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[18,24]},
+    src:"Apollo x8 Gen 2 Hardware Manual — nessun AES dichiarato"},
+  "volt476p":{brand:"Universal Audio", model:"Volt 476P", port:"USB-C (USB 2.0)", in:4, mic:4, line:4, hiz:4, out:4, phones:2, phantom:true,
+    dig:[], comp:{48:[4,4]}, src:"UA Volt Specifications — 6 jack d'uscita, ma 4 stream (Monitor e Line portano lo stesso)"},
+  /* — PreSonus / Steinberg / Behringer */
+  "studio68c":{brand:"PreSonus", model:"Studio 68c", port:"USB-C (USB 2.0)", in:4, mic:4, line:4, hiz:2, out:4, phones:1, phantom:true,
+    dig:[{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[6,6], 192:[4,4]},
+    src:"PreSonus Studio 68c, manuale ufficiale — fuori produzione"},
+  "ur22c":{brand:"Steinberg", model:"UR22C", port:"USB-C (USB 3.0)", in:2, mic:2, line:2, hiz:1, out:2, phones:1, phantom:true,
+    dig:[], comp:{48:[2,2], 96:[2,2], 192:[2,2]}, src:"Steinberg UR22C Operation Manual, Technical Specifications"},
+  "umc1820":{brand:"Behringer", model:"U-PHORIA UMC1820", port:"USB 2.0 Type-B", in:8, mic:8, line:8, hiz:null, out:10, phones:2, phantom:true,
+    dig:[{fmt:"ADAT", ch:8, dir:"io"},{fmt:"S/PDIF coax", ch:2, dir:"io"}], comp:{48:[18,20], 96:[14,16]},
+    src:"Behringer UMC1820 QSG ufficiale — quanti canali commutino su strumento non è dichiarato"}
+};
+function ifaceHwOf(it){ return (it && it.hw && IFACE_DB[it.hw]) ? it.hw : null; }
+function ifaceModelOf(it){ var id=ifaceHwOf(it); return id?IFACE_DB[id]:null; }
+/* Come la scheda esce verso il mixer: le sue uscite analogiche e i formati digitali che ha davvero.
+   Senza modello scelto non si sa niente di lei → nessuna opzione inventata. */
+/* Il computer che passa da questa scheda (e viceversa). Legame esplicito: lo dice l'utente nel
+   pannello del computer, non lo indovina la vicinanza — una scheda in un rack può servire un
+   computer dall'altra parte del palco. */
+function ifaceOf(comp){ return (comp && comp.ifaceId) ? (state.items||[]).filter(function(x){ return x.id===comp.ifaceId && x.type==="audiointerface"; })[0] : null; }
+function ifaceCompOf(ifc){ return (ifc && ifc.type==="audiointerface") ? (state.items||[]).filter(function(x){ return COMP_SRC[x.type] && x.ifaceId===ifc.id; })[0] : null; }
+/* La via d'uscita scelta per la scheda, ricadendo sulla prima che ha davvero. */
+function ifaceViaOf(ifc){
+  var opts=ifaceOutOpts(ifc); if(!opts.length) return null;
+  var v=ifc&&ifc.oVia;
+  return opts.some(function(o){ return o.id===v; }) ? v : opts[0].id;
+}
+/* I canali che la scheda porta al mixer: tanti quante le tracce del computer, ma non più di quanti
+   ne regge la via scelta — promettere 16 tracce su due jack sarebbe una bugia scritta nel rider. */
+function ifaceInputs(ifc){
+  var comp=ifaceCompOf(ifc); if(!comp) return [];
+  var opts=ifaceOutOpts(ifc), via=ifaceViaOf(ifc);
+  var o=opts.filter(function(x){ return x.id===via; })[0]; if(!o) return [];
+  var n=Math.max(1, Math.min(compChNum(comp), o.cap||1));
+  var mic=(via==="an") ? "Line bal." : via;
+  var base=(ifc.label && ifc.label.trim()) ? ifc.label.trim() : (comp.label || "Playback");
+  if(n===2) return [{name:base+" L", mic:mic},{name:base+" R", mic:mic}];
+  if(n===1) return [{name:base, mic:mic}];
+  var a=[]; for(var i=1;i<=n;i++) a.push({name:base+" "+i, mic:mic});
+  return a;
+}
+function ifaceOutOpts(it){
+  var m=ifaceModelOf(it); if(!m) return [];
+  var o=[];
+  if(m.out>0) o.push({id:"an", name:"Analogico", hint:m.out+" uscite di linea", cap:m.out});
+  (m.dig||[]).forEach(function(d){
+    if(d.dir==="in") return;   /* porta di solo ingresso: da lì al mixer non ci va niente */
+    o.push({id:d.fmt, name:d.fmt, hint:d.ch+" canali", cap:d.ch});
+  });
+  return o;
+}
 var STAGEBOX_DB = {
   /* Yamaha — Dante, preamplificatori remoti */
   "tio1608d":{brand:"Yamaha", model:"Tio1608-D", proto:["dante"], in:16, out:8, pre:true, casc:true, power:"AC", v:true},
@@ -5703,6 +5824,22 @@ var MIX_CONN = { an:{name:"Analogico", tag:"", desc:"due jack negli ingressi mic
 function normVia(v){ return MIX_CONN[v] ? v : "an"; }
 /* i tipi che si collegano a una console anche in digitale: un computer, non un microfono */
 var COMP_SRC = { laptop:1 };
+/* Cosa scrive la colonna «Mic / DI» del computer, per via. In analogico dalle cuffie la DI serve
+   davvero; in USB e in Dante è un cavo solo e la DI non c'entra (31/07). */
+var COMP_VIA_MIC = { an:"DI", usb:"USB", dante:"Dante" };
+/* Quante tracce manda il computer. Due (L/R) è il caso normale — un playback stereo — ma un
+   multitraccia ne manda otto o sedici, e finora la lista ne scriveva comunque due. */
+var COMP_CH_DEF = 2, COMP_CH_MAX = 64;
+function compChNum(it){ var n=parseInt(it&&it.plCh,10); if(!isFinite(n)||n<1) n=COMP_CH_DEF;
+  return Math.min(COMP_CH_MAX, n); }
+/* La via del computer letta SENZA passare da cabItemRouteKey: quella chiama cabItemInputs, che ora
+   ha bisogno della via → ricorsione infinita. La chiave si ricostruisce dal numero di tracce, che
+   dalla via non dipende. */
+function compViaOf(it){
+  var n=compChNum(it), key=(n>=2 ? "grp:"+it.id : it.id+"#0");
+  var cm=(state.cab&&state.cab.manual)||{}, o=cm[key];
+  return normVia(o&&o.via);
+}
 function mixerConnOpts(it){   /* it = elemento console sul palco → opzioni REALI di quel modello */
   var m=mixerModelOf(it); if(!m) return [];
   var o=[];
@@ -6220,6 +6357,21 @@ function cabItemInputs(it){
      della lista canali (chitarra classica + DI = 2 ingressi invece di 1). Una DI aggiunta a mano
      dal catalogo NON ha diFor: resta una sorgente con i suoi canali. */
   if(it.diFor && typeof diSourceOf==="function" && diSourceOf(it)) return [];
+  /* COMPUTER (31/07): la via scelta non era solo un'etichetta sul cavo — cambia cosa chiedi al
+     service. In analogico dalle cuffie serve davvero una DI stereo; in USB o Dante NO, e scriverlo
+     lo stesso metteva nel rider una DI che non esiste. Il numero di canali resta quello di it.plCh. */
+  /* SCHEDA AUDIO (31/07): quando un computer ci passa dentro, è LEI che esce verso il mixer — i
+     canali sono le sue uscite, col formato che ha davvero. Senza computer collegato è un oggetto
+     sul palco e basta, come prima. */
+  if(it.type==="audiointerface") return ifaceInputs(it);
+  if(COMP_SRC[it.type]){
+    if(ifaceOf(it)) return [];   /* passa da una scheda: i canali li dichiara lei, non due volte */
+    var _cv=compViaOf(it), _cn=compChNum(it), _cm=COMP_VIA_MIC[_cv]||"DI", _co=[];
+    if(_cn===2) return [{name:labelPrefix(it,"Playback L"), mic:_cm},{name:labelPrefix(it,"Playback R"), mic:_cm}];
+    if(_cn===1) return [{name:(it.label||TYPES[it.type].nome), mic:_cm}];
+    for(var _ci=1;_ci<=_cn;_ci++) _co.push({name:labelPrefix(it,"Play "+_ci), mic:_cm});
+    return _co;
+  }
   if(VOCE[it.type]){   /* voci (cantante/corista): il canale lo decide la modalità mic — panoramico = 0 (coperto dal mic di sezione) */
     var _vm=micModeOf(it);
     if(_vm==="pano") return [];
@@ -6931,6 +7083,9 @@ function cabSetVia(it, via){
   var cm=cabManual(cabItemRouteKey(it));
   via=normVia(via);
   if(via==="an") delete cm.via; else cm.via=via;
+  /* passando a USB/Dante la DI non serve più (e tornando all'analogico riappare): senza questo
+     restava sul palco una scatoletta che nessuno porterà (31/07). */
+  if(COMP_SRC[it.type] && typeof diApply==="function") diApply(it);
   __cabRes=null; save(); render();
   if(typeof renderProps==="function") renderProps();
 }
@@ -9015,6 +9170,62 @@ function renderProps(){
         var soSel=document.getElementById("pSbOut"), capo=String(cabBoxCapOut(it));
         if(![].some.call(soSel.options,function(o){ return o.value===capo; })){ var op2=document.createElement("option"); op2.value=capo; op2.textContent=capo; soSel.appendChild(op2); }
         soSel.value=capo; } } }
+  /* ── SCHEDA AUDIO e COMPUTER CHE CI PASSA (31/07) ───────────────────────────────────────────
+     Il percorso vero è computer → scheda → mixer: qui si sceglie il modello (i suoi I/O vengono dal
+     registro, con la fonte) e con che cosa esce. Senza modello la scheda resta muta: meglio niente
+     che ingressi inventati — stessa regola delle console. */
+  (function(){
+    var iw=document.getElementById("pIfaceWrap");
+    if(iw){
+      var isI=(it.type==="audiointerface");
+      iw.style.display = isI ? "block" : "none";
+      if(isI){
+        var sel=document.getElementById("pIfaceHw"); sel.innerHTML="";
+        var vuoto=document.createElement("option"); vuoto.value=""; vuoto.textContent="— scegli il modello —"; sel.appendChild(vuoto);
+        Object.keys(IFACE_DB).forEach(function(id){ var m=IFACE_DB[id];
+          var o=document.createElement("option"); o.value=id; o.textContent=m.brand+" "+m.model; sel.appendChild(o); });
+        sel.value=ifaceHwOf(it)||"";
+        sel.onchange=function(){ if(sel.value) it.hw=sel.value; else delete it.hw; __cabRes=null; save(); render(); renderProps(); };
+        var m=ifaceModelOf(it), opts=ifaceOutOpts(it), row=document.getElementById("pIfaceOutRow");
+        row.style.display = opts.length>1 ? "block" : "none";
+        if(opts.length>1){
+          var seg=document.getElementById("pIfaceOutSeg"); seg.innerHTML="";
+          var cur=ifaceViaOf(it);
+          opts.forEach(function(o){
+            var b=document.createElement("button"); b.type="button"; b.className="adv-btn"+(o.id===cur?" on":"");
+            b.textContent=o.name; b.title=o.hint;
+            b.onclick=function(){ if(o.id===ifaceOutOpts(it)[0].id) delete it.oVia; else it.oVia=o.id; __cabRes=null; save(); render(); renderProps(); };
+            seg.appendChild(b);
+          });
+        }
+        document.getElementById("pIfaceHint").textContent = m
+          ? (m.port+" · "+m.in+" ingressi analogici"+(m.mic?" ("+m.mic+" mic)":"")+" · "+m.out+" uscite"
+             +((m.dig||[]).length ? " · "+m.dig.map(function(d){ return d.fmt+" "+d.ch+"ch"; }).join(" · ") : "")
+             +" — "+m.src)
+          : "Scelto il modello, gli ingressi e le uscite arrivano dai suoi dati di targa.";
+      }
+    }
+    var cw=document.getElementById("pCompIfaceWrap");
+    if(cw){
+      var isC=!!COMP_SRC[it.type];
+      var schede=(state.items||[]).filter(function(x){ return x.type==="audiointerface"; });
+      cw.style.display = (isC && schede.length) ? "block" : "none";
+      if(isC && schede.length){
+        var cs=document.getElementById("pCompIface"); cs.innerHTML="";
+        var no=document.createElement("option"); no.value=""; no.textContent="No — va diretto al mixer"; cs.appendChild(no);
+        schede.forEach(function(s){ var o=document.createElement("option"); o.value=s.id;
+          var mm=ifaceModelOf(s); o.textContent=(s.label||"Scheda")+(mm?" — "+mm.brand+" "+mm.model:""); cs.appendChild(o); });
+        cs.value=it.ifaceId||"";
+        cs.onchange=function(){ if(cs.value) it.ifaceId=cs.value; else delete it.ifaceId;
+          if(typeof diApply==="function") diApply(it);   /* con la scheda in mezzo la DI non serve; togliendola torna */
+          __cabRes=null; save(); render(); renderProps(); };
+        var sc=ifaceOf(it), sm=sc?ifaceModelOf(sc):null;
+        document.getElementById("pCompIfaceHint").textContent = sc
+          ? (sm ? "Il computer entra "+sm.port+"; al mixer ci arriva la scheda." : "Scegli il modello della scheda: senza, non si sa quante uscite abbia.")
+          : "";
+      }
+    }
+  })();
   /* ── CONSOLE: variante del modello + I/O di targa (29/07) ────────────────────────────────────
      Il DM3 esiste con e senza Dante: qui si dice quale dei due è, e il riquadro sotto elenca gli
      ingressi/uscite/connessioni che quel modello ha DAVVERO, con la fonte del dato. */
@@ -9058,6 +9269,20 @@ function renderProps(){
     var mmv=mixerModelOf(mixIt), h=opts.filter(function(o){ return o.id===cur; })[0];
     document.getElementById("pViaHint").textContent =
       (mmv?mmv.brand+" "+mmv.model+" · ":"")+(h?h.hint:"")+(cur==="an"?"" : " — non occupa ingressi mic/line");
+    /* Tracce: il tetto è quello che la via regge davvero su QUESTO modello (2 jack in analogico,
+       i canali dichiarati in USB/Dante) — così non si promette un multitraccia che non passa. */
+    var _pr=document.getElementById("pPlChRow"), _ps=document.getElementById("pPlCh");
+    if(_pr && _ps){
+      var _max=(cur==="an") ? 2 : Math.max(2, Math.min(COMP_CH_MAX, (h&&h.cap)||2));
+      var _n=Math.min(compChNum(it), _max);
+      _ps.max=_max; _ps.value=_n; document.getElementById("pPlChVal").textContent=_n;
+      _pr.style.display = _max>2 ? "grid" : "none";   /* con un tetto di 2 non c'è niente da scegliere */
+      _ps.oninput=function(){
+        var v=Math.max(1, Math.min(_max, parseInt(_ps.value,10)||2));
+        document.getElementById("pPlChVal").textContent=v;
+        mutSelSoon(function(x){ if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });
+      };
+    }
   })();
   var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": dove il segnale passerebbe da una DI */
   if(balw){
@@ -9969,7 +10194,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
+  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
@@ -17247,6 +17472,10 @@ function mayNeedDi(it){
 }
 function diUsesBox(it){   /* questo elemento passa da una DI? (catena dei prelievi, tendina microfonazione, o mic di default "DI") */
   if(!it || it.balOut) return false;
+  /* COMPUTER (31/07): la DI serve SOLO quando esce dal jack cuffie e va analogico diretto al mixer.
+     Se passa da una scheda audio, o entra in USB/Dante, di DI non ce n'è nessuna — e lasciargliela
+     accanto metteva nel rider una scatola che nessuno porterà. */
+  if(COMP_SRC[it.type]) return !ifaceOf(it) && compViaOf(it)==="an";
   if(hasChain(it)) return chainOf(it).needDi;   /* serve solo se il prelievo di linea è ancora sbilanciato */
   if(MIKING[it.type]) return !!DI_MIKING[it.miking || MIKING[it.type].def];
   if(it.type==="dimono" || it.type==="distereo") return false;   /* la DI non passa da sé stessa */
