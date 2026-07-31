@@ -15388,16 +15388,20 @@ function buildOrchBandOut(){
    il ventaglio generato: archi in file concentriche con le rotazioni una per una, legni in colonna
    dietro sull'asse, corni in fondo, podio del direttore davanti. Postazioni SINGOLE, non doppie:
    in un organico da camera ogni leggio è un musicista.
+   PALCO GIRATO (31/07, conferma di Simone): 14,5 × 11 e non 11 × 14,5 — nei teatri l'orchestra sta
+   su palchi larghi, la verticale del modello veniva dal lavorare in verticale sullo schermo.
+   Con 11 m di profondità i fiati sono stati avvicinati agli archi: fra il contrabbasso (-623) e i
+   legni (-930) c'erano TRE METRI di vuoto, che su un palco vero non esistono.
    Il generatore parametrico (buildOrchestraOut) resta e serve alle sinfoniche e alle combinazioni. */
 function buildOrchCameraOut(){
   return [
     /* — fiati, in colonna sull'asse, dal fondo verso il podio — */
-    {type:"corno",      x:-65, y:-1280, rot:-5, label:"Corno 1"},
-    {type:"corno",      x:65,  y:-1280, rot:5,  label:"Corno 2"},
-    {type:"clarinetto", x:-112, y:-1105, rot:-5, label:"Clarinetto"},
-    {type:"fagotto",    x:113,  y:-1105, rot:5,  label:"Fagotto"},
-    {type:"flauto",     x:-112, y:-930, rot:-10, label:"Flauto"},
-    {type:"oboe",       x:113,  y:-930, rot:10,  label:"Oboe"},
+    {type:"corno",      x:-65, y:-980, rot:-5, label:"Corno 1"},
+    {type:"corno",      x:65,  y:-980, rot:5,  label:"Corno 2"},
+    {type:"clarinetto", x:-112, y:-850, rot:-5, label:"Clarinetto"},
+    {type:"fagotto",    x:113,  y:-850, rot:5,  label:"Fagotto"},
+    {type:"flauto",     x:-112, y:-720, rot:-10, label:"Flauto"},
+    {type:"oboe",       x:113,  y:-720, rot:10,  label:"Oboe"},
     /* — archi, file concentriche attorno al podio: V1 a sinistra, V2 al centro, viole e celli a destra — */
     {type:"contrabbasso", x:353, y:-623, rot:35, label:"Contrabbasso"},
     {type:"vlnpost", x:-85, y:-582, rot:-10, vsec:2, label:"Violino II 3"},
@@ -16814,7 +16818,7 @@ function formationData(f){
   if(f==="quartetto") return { out:buildQuartettoOut(), inp:quartettoInputs(), outp:quartettoOutputs() };
   /* «Orchestra da camera» in vetrina = il layout curato a mano (31/07). Il ventaglio generato
      resta la base di sinfonica/orchband/orchcoro, che dai conteggi non possono prescindere. */
-  if(f==="camera"){ var ca=presetCounts("camera"); return { out:buildOrchCameraOut(), inp:orchInputs(ca), outp:orchOutputs(), stage:{w:1100,d:1450} }; }
+  if(f==="camera"){ var ca=presetCounts("camera"); return { out:buildOrchCameraOut(), inp:orchInputs(ca), outp:orchOutputs(), stage:{w:1450,d:1200} }; }
   if(f==="sinfonica_ridotta"){ var sr=presetCounts("ridotta"); return { out:buildOrchestraOut(sr), inp:orchInputs(sr), outp:orchOutputs() }; }
   if(f==="jazzcombo") return { out:buildJazzComboOut(), inp:jazzComboInputs(), outp:jazzComboOutputs() };
   if(f==="bigband") return { out:buildBigBandOut(), inp:bigbandInputs(), outp:bigbandOutputs() };
