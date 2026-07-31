@@ -8274,6 +8274,35 @@ function netEngine(){
     issues.push({lvl:"warn", msg:"Più box "+runs.filter(function(r){return r.spec.switchable;}).map(function(r){return AUDIO_PROTO[r.proto];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join("/")+" in rete: trascina uno «Switch rete» dal catalogo (QoS/DSCP attivo) al punto principale."});
   if(!sw && runs.some(function(r){ return r.spec.redundant; }))
     issues.push({lvl:"info", msg:"Protocollo con ridondanza: prevedi rete primaria + secondaria (doppio cavo e porte dedicate)."});
+  /* COMPUTER IN DANTE (31/07): un portatile col Dante Virtual Soundcard è un nodo di rete a tutti
+     gli effetti — occupa una porta dello switch e vuole il suo cavo, esattamente come una stage box.
+     Finora nella lista Rete non compariva, e la tratta più delicata di tutte (quella che pretende
+     una porta Gigabit CABLATA) restava fuori dal rider. */
+  var _dspec=NET_PROTO_SPEC["dante"];
+  /* GOTCHA: qui NON si può chiamare cabMixerTargetOf — quella passa da cabResult, e cabResult chiama
+     netEngine: ricorsione infinita, pagina bloccata. La console si ricava da quello che netEngine ha
+     già in mano (R.boxes) e dall'override manuale, senza rientrare nel motore audio. */
+  var _mixBox=((R.boxes||[]).filter(function(b){ return b.isMixer && b.it; })[0]||{}).it || null;
+  if(_dspec) (state.items||[]).filter(dvsOn).forEach(function(pc){
+    var _rk=(compChNum(pc)>=2 ? "grp:"+pc.id : pc.id+"#0");
+    var _bid=(((state.cab&&state.cab.manual)||{})[_rk]||{}).box;
+    var mixIt=_bid ? ((state.items||[]).filter(function(x){ return x.id===_bid; })[0]||_mixBox) : _mixBox;
+    var dest = (sw && _dspec.switchable) ? sw : mixIt;
+    if(!dest) return;                                  /* non collegato a niente: nessuna tratta da dichiarare */
+    var exd={}; if(pc.id) exd[pc.id]=1; if(dest.id) exd[dest.id]=1;
+    var dpts=orthExpand(cabRoutePts([[pc.x,pc.y],[dest.x,dest.y]], OBS, exd));
+    var dlen=polyLen(dpts)/100*mgn;
+    var dmed=_dspec.fiberOnly ? "fibra" : (dlen<=_dspec.maxCat ? _dspec.media : (_dspec.fiber?"fibra":_dspec.media));
+    if(dest===sw){ swUsed += (red && _dspec.redundant) ? 2 : 1; }
+    if(dlen>_dspec.maxCat && !_dspec.fiberOnly)
+      issues.push({lvl:"warn", msg:"Tratta Dante del computer ("+(pc.label||"portatile")+") di "+dlen.toFixed(0)+" m: oltre il limite rame ("+_dspec.maxCat+" m) — prevista in fibra."});
+    var C=dvsCfg(pc);
+    runs.push({box:null, sw:(dest===sw?sw:null), comp:pc, kind:"dvs", proto:"dante", spec:_dspec, lenM:dlen,
+               medium:dmed, pts:dpts, red:(dest===sw&&red&&_dspec.redundant), dvs:C});
+    /* Il vincolo del manuale Audinate va detto qui, dove si guarda la rete. */
+    issues.push({lvl:"info", msg:(pc.label||"Computer")+" in Dante: serve una porta Ethernet "
+      +(C.net==="100"?"100 Mbps":"Gigabit")+" cablata sul portatile — il Wi-Fi non è supportato."});
+  });
   var swPorts=sw?Math.max(4,Math.min(48,+sw.swPorts||8)):0;
   if(sw && swUsed>swPorts)
     issues.push({lvl:"err", msg:"Switch "+(sw.label||"rete")+": servono "+swUsed+" porte ("+(red?"Primary+Secondary":"Primary")+"), il modello ne ha "+swPorts+"."});
@@ -8293,7 +8322,9 @@ function netMarkup(){
     if(r.red) ni+='<path class="net-line net-sec" d="'+orthPathD(r.pts)+'" transform="translate(4,4)"/>';   /* F3: Secondary */
     if(LBL && state.cab.showLabels!==false){
       var mid=cabMidpoint(r.pts);
-      var lb=(r.kind==="trunk" ? AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+(r.red?'Primary+Secondary':'trunk console') : AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(r.red?' · P+S':''))+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
+      var lb=(r.kind==="trunk" ? AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+(r.red?'Primary+Secondary':'trunk console')
+             : r.kind==="dvs" ? AUDIO_PROTO[r.proto]+' · '+r.medium+' · Virtual Soundcard'+(r.red?' · P+S':'')
+             : AUDIO_PROTO[r.proto]+' · '+r.medium+' · '+r.box.used+' ch'+(r.red?' · P+S':''))+(state.cab.showLengths!==false?' · '+r.lenM.toFixed(0)+' m':'');
       ni+='<text class="net-lbl" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-5).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>';
     }
     s+='<g class="cabgrp" data-own="'+esc(r.box&&r.box.id||(r.sw&&r.sw.id)||'')+'">'+ni+'</g>';
@@ -20287,8 +20318,15 @@ function netListPdf(shared){
     trow("TRATTA","PROTOCOLLO","MEZZO","LUNGHEZZA","NOTE", true, "#4338ca");
     doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
     N.runs.forEach(function(r){
-      var da = r.kind==="trunk" ? "switch → console" : ("box "+(r.box.sbId?("ID"+r.box.sbId):r.box.letter)+(N.sw&&r.sw?" → switch":" → console"));
-      trow(da, AUDIO_PROTO[r.proto]||r.proto, r.medium, Math.ceil(r.lenM)+" m"+(r.red?" ×2":""), r.red?"Primary + Secondary":(r.kind==="trunk"?"trunk":""), false, "#111827");
+      var da = r.kind==="trunk" ? "switch \u2192 console"
+             : r.kind==="dvs" ? ((r.comp && r.comp.label ? r.comp.label : "Computer")+(r.sw?" \u2192 switch":" \u2192 console"))
+             : ("box "+(r.box.sbId?("ID"+r.box.sbId):r.box.letter)+(N.sw&&r.sw?" \u2192 switch":" \u2192 console"));
+      /* Sul computer la nota dice quello che il disegno non sa: che software gira, con quanti
+         canali, e che la porta di rete dev'essere cablata (manuale Audinate). */
+      var note = r.kind==="dvs"
+        ? ("Virtual Soundcard"+(r.dvs.pro?" Pro":"")+" \u00b7 "+r.dvs.ch+" ch @"+r.dvs.sr+" kHz \u00b7 "+r.dvs.lat+" ms \u00b7 porta "+(r.dvs.net==="100"?"100 Mbps":"Gigabit")+" cablata")
+        : (r.red?"Primary + Secondary":(r.kind==="trunk"?"trunk":""));
+      trow(da, AUDIO_PROTO[r.proto]||r.proto, r.medium, Math.ceil(r.lenM)+" m"+(r.red?" \u00d72":""), note, false, "#111827");
     });
     y+=3;
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#9a948b");

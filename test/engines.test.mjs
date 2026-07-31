@@ -8358,5 +8358,76 @@ t("i default non si scrivono nel documento", () => {
   eq(mac.dvsLat, undefined, "");
 });
 
+// ── LE TRATTE DANTE DEL COMPUTER NELLA LISTA RETE (31/07) ──────────────────────────────────────
+// Un portatile col Virtual Soundcard è un nodo di rete come una stage box: vuole il suo cavo e una
+// porta dello switch. Nella lista Rete non compariva, e la tratta più delicata — quella che pretende
+// una porta Gigabit cablata — restava fuori dal rider.
+console.log("\n— Rete: tratte Dante del computer —");
+
+function scenaRete(opts) {
+  opts = opts || {};
+  reset();
+  const mac = add("laptop", 300, 620); mac.label = "MacBook";
+  const mix = add("dm7", 1200, 200); mix.label = "DM7";
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.mixer = "dm7";
+  const m = A.cabManual(A.cabItemRouteKey(mac)); m.box = mix.id; m.via = "dante";
+  let sw = null;
+  if (opts.switch) { sw = add("netswitch", 900, 400); sw.label = "Switch"; }
+  A.__cabRes = null;
+  return { mac, mix, sw };
+}
+
+t("il computer in Dante genera la sua tratta di rete", () => {
+  const { mac } = scenaRete();
+  const N = A.netEngine();
+  const dvs = N.runs.filter((r) => r.kind === "dvs");
+  eq(dvs.length, 1, "una tratta per il computer");
+  eq(dvs[0].proto, "dante", "protocollo Dante");
+  eq(dvs[0].comp.id, mac.id, "ed è la sua");
+  ok(dvs[0].lenM > 0, "con una lunghezza vera: " + dvs[0].lenM.toFixed(1) + " m");
+  ok(/Cat/.test(dvs[0].medium), "su rame entro il limite: " + dvs[0].medium);
+});
+
+t("col switch in scena il computer ci va, e occupa una porta", () => {
+  const { sw } = scenaRete({ switch: true });
+  const N = A.netEngine();
+  const dvs = N.runs.filter((r) => r.kind === "dvs")[0];
+  eq(dvs.sw && dvs.sw.id, sw.id, "va allo switch, non alla console");
+  ok(N.swUsed >= 1, "e una porta se la prende: " + N.swUsed + "/" + N.swPorts);
+});
+
+t("la lista Rete dice il vincolo della porta cablata", () => {
+  scenaRete();
+  const N = A.netEngine();
+  ok(N.issues.some((i) => /Wi-Fi non è supportato/.test(i.msg)),
+    "l'avviso c'è: " + N.issues.map((i) => i.msg).join(" | "));
+});
+
+t("in USB o analogico nessuna tratta di rete: non è un nodo Dante", () => {
+  const { mac } = scenaRete();
+  A.cabSetVia(mac, "usb"); A.__cabRes = null;
+  eq(A.netEngine().runs.filter((r) => r.kind === "dvs").length, 0, "USB non fa rete");
+  A.cabSetVia(mac, "an"); A.__cabRes = null;
+  eq(A.netEngine().runs.filter((r) => r.kind === "dvs").length, 0, "analogico nemmeno");
+});
+
+t("un computer in Dante senza console né switch non inventa una tratta", () => {
+  reset();
+  const mac = add("laptop", 300, 620);
+  A.state.cab.on = true; A.state.cab.mode = "manual";
+  A.cabManual(A.cabItemRouteKey(mac)).via = "dante";
+  A.__cabRes = null;
+  eq(A.netEngine().runs.filter((r) => r.kind === "dvs").length, 0, "niente destinazione, niente cavo");
+});
+
+t("la lista Rete non va in ricorsione (cabResult chiama netEngine)", () => {
+  const { mac } = scenaRete({ switch: true });
+  // se netEngine rientrasse in cabResult qui si bloccherebbe: il test esiste per questo
+  const N = A.netEngine();
+  const R = A.cabResult(true);
+  ok(N && R, "entrambi i motori rispondono");
+  eq(A.netEngine().runs.filter((r) => r.kind === "dvs").length, 1, "e il risultato è stabile");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
