@@ -2871,6 +2871,26 @@ body.dark .ask-all .btn{background:transparent}
         <input type="range" id="pPlCh" min="1" max="16" step="1">
         <output id="pPlChVal">2</output>
       </div>
+      <!-- DANTE VIRTUAL SOUNDCARD: in Dante il computer non ha una scheda, ha un software — e
+           quanti canali porta lo decidono licenza, rete e frequenza, non l'utente. -->
+      <div id="pDvsWrap" style="display:none;margin-top:10px">
+        <div class="prop-card__head">Dante Virtual Soundcard</div>
+        <label class="chk"><input type="checkbox" id="pDvsPro"> Licenza Pro</label>
+        <label>Rete</label>
+        <div class="seg" id="pDvsNet" role="group" aria-label="Velocità di rete">
+          <button type="button" class="adv-btn" data-net="gb">Gigabit</button>
+          <button type="button" class="adv-btn" data-net="100">100 Mbps</button>
+        </div>
+        <label>Frequenza</label>
+        <div class="seg" id="pDvsSr" role="group" aria-label="Frequenza di campionamento">
+          <button type="button" class="adv-btn" data-sr="48">48 kHz</button>
+          <button type="button" class="adv-btn" data-sr="96">96 kHz</button>
+          <button type="button" class="adv-btn" data-sr="192">192 kHz</button>
+        </div>
+        <label>Latenza</label>
+        <div class="seg" id="pDvsLat" role="group" aria-label="Latenza Dante"></div>
+        <div id="pDvsHint" class="prop-hint"></div>
+      </div>
     </div>
     <!-- SCHEDA AUDIO: che modello è (i suoi I/O vengono dal registro, non si inventano) e con che
          cosa esce verso il mixer. Sul computer, invece, da quale scheda passa. -->

@@ -8293,5 +8293,70 @@ t("il carico della ciabatta risale davvero sul quadro", () => {
   ok(quadro.loadW > 0, "il quadro vede i watt delle ciabatte a valle: " + quadro.loadW + " W");
 });
 
+// ── DANTE VIRTUAL SOUNDCARD (31/07) ────────────────────────────────────────────────────────────
+// I numeri sono quelli del Dante Virtual Soundcard User Guide 4.5.x (Audinate): quanti canali porta
+// non è una scelta libera, lo decidono licenza, velocità di rete e frequenza.
+console.log("\n— Dante Virtual Soundcard —");
+
+function macDante() {
+  reset();
+  const mac = add("laptop", 400, 400); mac.label = "MacBook";
+  const mix = add("dm7", 900, 300);
+  A.state.cab.on = true; A.state.cab.mode = "manual";
+  const m = A.cabManual(A.cabItemRouteKey(mac)); m.box = mix.id; m.via = "dante";
+  A.__cabRes = null;
+  return { mac, mix };
+}
+
+t("i canali sono quelli del manuale, per rete e frequenza", () => {
+  const { mac } = macDante();
+  eq(A.dvsCfg(mac).ch, 64, "Gigabit a 48 kHz: 64×64");
+  mac.dvsSr = 96;  eq(A.dvsCfg(mac).ch, 32, "a 96 kHz scende a 32");
+  mac.dvsSr = 192; eq(A.dvsCfg(mac).ch, 8,  "a 192 kHz restano 8");
+  mac.dvsSr = 48; mac.dvsNet = "100";
+  eq(A.dvsCfg(mac).ch, 32, "su 100 Mbps la metà: 32");
+  mac.dvsNet = "gb"; mac.dvsPro = true;
+  eq(A.dvsCfg(mac).ch, 128, "con la licenza Pro si arriva a 128");
+  mac.dvsSr = 192; eq(A.dvsCfg(mac).ch, 16, "Pro a 192 kHz: 16");
+});
+
+t("le latenze in più esistono solo con la licenza Pro", () => {
+  const { mac } = macDante();
+  eq(A.dvsCfg(mac).lats.join(","), "4,6,10", "standard");
+  mac.dvsPro = true;
+  eq(A.dvsCfg(mac).lats.join(","), "4,6,10,20,40", "Pro aggiunge 20 e 40 ms");
+});
+
+t("il DVS esiste solo in Dante, non nelle altre vie", () => {
+  const { mac } = macDante();
+  ok(A.dvsOn(mac), "in Dante c'è");
+  A.cabSetVia(mac, "usb");
+  eq(A.dvsOn(mac), false, "in USB no");
+  A.cabSetVia(mac, "an");
+  eq(A.dvsOn(mac), false, "in analogico nemmeno");
+});
+
+t("la nota per il rider dice il vincolo che conta: rete cablata", () => {
+  const { mac } = macDante();
+  const n = A.dvsNote(mac);
+  ok(/64 canali/.test(n), "i canali: " + n);
+  ok(/Gigabit/.test(n), "la rete");
+  ok(/Wi-Fi non è supportato/.test(n), "e che il Wi-Fi non basta — è il dato che salva un soundcheck");
+  mac.dvsNet = "100";
+  ok(/100 Mbps/.test(A.dvsNote(mac)), "segue la rete dichiarata");
+});
+
+t("i default non si scrivono nel documento", () => {
+  const { mac } = macDante();
+  const c = A.dvsCfg(mac);
+  eq(c.net, "gb", "Gigabit");
+  eq(c.sr, 48, "48 kHz");
+  eq(c.lat, 10, "10 ms");
+  eq(c.pro, false, "licenza standard");
+  eq(mac.dvsNet, undefined, "e nessuna chiave scritta");
+  eq(mac.dvsSr, undefined, "");
+  eq(mac.dvsLat, undefined, "");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

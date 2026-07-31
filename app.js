@@ -4749,7 +4749,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","lblDist","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","lblDist","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -5831,6 +5831,35 @@ var COMP_SRC = { laptop:1 };
 /* Cosa scrive la colonna «Mic / DI» del computer, per via. In analogico dalle cuffie la DI serve
    davvero; in USB e in Dante è un cavo solo e la DI non c'entra (31/07). */
 var COMP_VIA_MIC = { an:"DI", usb:"USB", dante:"Dante" };
+/* ===== DANTE VIRTUAL SOUNDCARD (31/07) ==================================================
+   In Dante il computer non ha una scheda: ha il DVS, che è software. Quanti canali porta non è
+   una scelta libera — dipende da licenza, velocità di rete e frequenza di campionamento, e i
+   numeri sono quelli del costruttore.
+   Fonte: Dante Virtual Soundcard User Guide 4.5.x (Audinate), «Audio Channels» e «Supported
+   Audio Formats». Il vincolo che conta in un rider sta lì dentro: serve una porta Ethernet
+   GIGABIT CABLATA — «Wireless LAN (Wi-Fi) Ethernet interfaces are not supported» — ed è ammesso
+   solo un adattatore USB 3.0→Ethernet conforme CDC-NCM. */
+var DVS_CH = {   /* [rete][kHz] = canali per direzione */
+  "100": { 48:32,  96:16,  192:8  },
+  "gb":  { 48:64,  96:32,  192:8  },
+  "gbpro":{48:128, 96:128, 192:16 }
+};
+var DVS_LAT = { std:[4,6,10], pro:[4,6,10,20,40] };   /* ms; 20 e 40 solo con DVS Pro */
+var DVS_SRC = "Dante Virtual Soundcard User Guide 4.5.x (Audinate)";
+function dvsOn(it){ return !!(it && COMP_SRC[it.type] && compViaOf(it)==="dante"); }
+function dvsCfg(it){
+  var pro=(it&&it.dvsPro)===true, net=(it&&it.dvsNet==="100") ? "100" : "gb";
+  var sr=[48,96,192].indexOf(+(it&&it.dvsSr)) >= 0 ? +it.dvsSr : 48;
+  var key=(net==="100") ? "100" : (pro ? "gbpro" : "gb");
+  var lats=DVS_LAT[pro?"pro":"std"], lat=(lats.indexOf(+(it&&it.dvsLat))>=0) ? +it.dvsLat : 10;
+  return { pro:pro, net:net, sr:sr, lat:lat, lats:lats, ch:DVS_CH[key][sr] };
+}
+/* La riga da mettere nel rider: cosa gira sul computer e che rete gli serve. */
+function dvsNote(it){
+  var c=dvsCfg(it);
+  return "Dante Virtual Soundcard"+(c.pro?" Pro":"")+" · "+c.ch+" canali a "+c.sr+" kHz · latenza "+c.lat+" ms · "
+       + (c.net==="100" ? "rete 100 Mbps" : "rete Gigabit")+" cablata (il Wi-Fi non è supportato)";
+}
 /* Quante tracce manda il computer. Due (L/R) è il caso normale — un playback stereo — ma un
    multitraccia ne manda otto o sedici, e finora la lista ne scriveva comunque due. */
 var COMP_CH_DEF = 2, COMP_CH_MAX = 64;
@@ -9293,15 +9322,44 @@ function renderProps(){
        i canali dichiarati in USB/Dante) — così non si promette un multitraccia che non passa. */
     var _pr=document.getElementById("pPlChRow"), _ps=document.getElementById("pPlCh");
     if(_pr && _ps){
-      var _max=(cur==="an") ? 2 : Math.max(2, Math.min(COMP_CH_MAX, (h&&h.cap)||2));
+      var _cap=(h&&h.cap)||2;
+      /* In Dante il tetto è il PIÙ BASSO fra quello che la console riceve e quello che il Dante
+         Virtual Soundcard porta con la licenza e la rete dichiarate: promettere 64 canali su una
+         rete a 100 Mbps sarebbe un rider che non sta in piedi. */
+      if(cur==="dante") _cap=Math.min(_cap, dvsCfg(it).ch);
+      var _max=(cur==="an") ? 2 : Math.max(2, Math.min(COMP_CH_MAX, _cap));
       var _n=Math.min(compChNum(it), _max);
       _ps.max=_max; _ps.value=_n; document.getElementById("pPlChVal").textContent=_n;
-      _pr.style.display = _max>2 ? "grid" : "none";   /* con un tetto di 2 non c'è niente da scegliere */
+      _pr.style.display = _max>2 ? "flex" : "none";   /* .sldrow è flex: forzare grid sfasciava la riga (label, cursore e valore su tre livelli) */
       _ps.oninput=function(){
         var v=Math.max(1, Math.min(_max, parseInt(_ps.value,10)||2));
         document.getElementById("pPlChVal").textContent=v;
         mutSelSoon(function(x){ if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });
       };
+    }
+    /* I controlli del DVS vivono dentro la scelta della via: esistono solo se la via è Dante. */
+    var _dw=document.getElementById("pDvsWrap");
+    if(_dw){
+      _dw.style.display = (cur==="dante") ? "block" : "none";
+      if(cur==="dante"){
+        var C=dvsCfg(it);
+        document.getElementById("pDvsPro").checked = C.pro;
+        [["pDvsNet","net",C.net],["pDvsSr","sr",String(C.sr)]].forEach(function(g){
+          [].forEach.call(document.getElementById(g[0]).children, function(b){
+            b.classList.toggle("on", b.getAttribute("data-"+g[1])===g[2]); });
+        });
+        var lseg=document.getElementById("pDvsLat"); lseg.innerHTML="";
+        C.lats.forEach(function(ms){
+          var b=document.createElement("button"); b.type="button";
+          b.className="adv-btn"+(ms===C.lat?" on":""); b.textContent=ms+" ms";
+          b.onclick=function(){ mutSel(function(x){ if(ms===10) delete x.dvsLat; else x.dvsLat=ms; }); renderProps(); };
+          lseg.appendChild(b);
+        });
+        document.getElementById("pDvsHint").innerHTML =
+          "<b>"+C.ch+" canali</b> per direzione a "+C.sr+" kHz"+(C.pro?"":" — con la licenza Pro si arriva a 128")
+          +". Serve una porta Ethernet "+(C.net==="100"?"a 100 Mbps":"Gigabit")
+          +" <b>cablata</b>: il Wi-Fi non è supportato.<br><span class=\"lbl-note\">"+esc(DVS_SRC)+"</span>";
+      }
     }
   })();
   var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": dove il segnale passerebbe da una DI */
@@ -9848,6 +9906,19 @@ function renderLblDistAsk(){
                      : ("Altri "+altri.length+" elementi come questo hanno il nome a un'altra distanza.");
   document.getElementById("pLblDistAllYes").textContent = altri.length===1 ? "Applica anche a quello" : "Applica a tutti";
 }
+(function(){   /* Dante Virtual Soundcard: licenza, rete e frequenza cambiano il tetto dei canali */
+  var pro=document.getElementById("pDvsPro");
+  if(pro) pro.addEventListener("change", function(){ mutSel(function(x){ if(pro.checked) x.dvsPro=true; else delete x.dvsPro; }); renderProps(); });
+  [["pDvsNet","net","gb","dvsNet"],["pDvsSr","sr","48","dvsSr"]].forEach(function(g){
+    var el=document.getElementById(g[0]); if(!el) return;
+    el.addEventListener("click", function(e){
+      var b=e.target.closest("[data-"+g[1]+"]"); if(!b) return;
+      var v=b.getAttribute("data-"+g[1]);
+      mutSel(function(x){ if(v===g[2]) delete x[g[3]]; else x[g[3]]=(g[1]==="sr"? +v : v); });   /* il default non si memorizza */
+      renderProps();
+    });
+  });
+})();
 document.getElementById("pLblDist").addEventListener("input", function(){
   var v=+document.getElementById("pLblDist").value;
   document.getElementById("pLblDistVal").textContent=v;
@@ -18044,6 +18115,11 @@ function renderInspectorB(){
       s+=ir("Multiprese", pparts.join(" · ")); }   /* come i cavi: quante multiprese per numero di prese */
     if(nPrese)  s+=ir("Prese 220 V", nPrese);
     if(nQuadri) s+=ir("Quadri / distro", nQuadri);
+    /* Un computer in Dante porta con sé una richiesta che nessun altro dato del plot esprime: una
+       porta di rete Gigabit CABLATA. Se resta implicita, si scopre in soundcheck (31/07). */
+    (state.items||[]).filter(dvsOn).forEach(function(pc){
+      s+=ir((pc.label||"Computer")+" · Dante", dvsNote(pc));
+    });
     var _ramp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });
     if(_ramp.length){ var _rmod=_ramp.reduce(function(a,it){ return a+rampModules(it); },0), _rlen=_ramp.reduce(function(a,it){ return a+(it.w||0); },0);
       s+=ir("Passacavi", _rmod+" moduli · "+(_rlen/100).toFixed(1).replace(".",",")+" m"); }   /* il service sa quanti pezzi servono */
