@@ -8488,7 +8488,13 @@ t("le formazioni possono dichiarare il loro palco, e non viene riadattato", () =
   const band = A.formationData("band"), cam = A.formationData("camera");
   eq(band.stage.w, 1600, "la band nasce larga 16 m, non sul quadrato 12×8");
   eq(band.stage.d, 650, "e profonda 6,5");
-  ok(cam.stage && cam.stage.d > cam.stage.w, "l'orchestra da camera è più profonda che larga");
+  // girato il 31/07 su conferma di Simone: nei teatri l'orchestra sta su palchi LARGHI, e questa era
+  // l'unica formazione della serie a nascere in verticale.
+  ok(cam.stage && cam.stage.w > cam.stage.d, "anche l'orchestra da camera nasce più larga che profonda");
+  ok(A.START_MODELS.every(function (m) {
+    const st = A.formationData(m[0]).stage;
+    return !st || st.w >= st.d;
+  }), "nessun modello nasce su un palco più profondo che largo");
   // chi non lo dichiara continua ad adattarsi al contenuto, come prima
   ok(!A.formationData("acoustic").stage, "l'acustica non dichiara nulla: si adatta");
 });
