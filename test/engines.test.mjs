@@ -8182,5 +8182,55 @@ t("ogni scheda del registro porta la sua fonte", () => {
   });
 });
 
+// ── DISTANZA DEL NOME DALL'ELEMENTO (31/07) ────────────────────────────────────────────────────
+// Simone: «stessa interfaccia della dimensione etichetta, ma per la distanza dallo strumento».
+// Misurata in cm reali dal bordo; 9 è il valore con cui il nome è sempre stato disegnato.
+console.log("\n— Distanza del nome —");
+
+t("il default è quello di sempre e non si scrive nel documento", () => {
+  reset();
+  const it = add("wedge", 400, 300);
+  eq(A.lblDistOf(it), 9, "9 cm dal bordo");
+  eq(it.lblDist, undefined, "e la chiave non c'è: i progetti vecchi non cambiano di un pixel");
+});
+
+t("la distanza si legge, si limita e regge i valori sballati", () => {
+  reset();
+  const it = add("wedge", 400, 300);
+  it.lblDist = 40; eq(A.lblDistOf(it), 40, "40 cm");
+  it.lblDist = 999; eq(A.lblDistOf(it), 80, "il massimo è 80");
+  it.lblDist = -5; eq(A.lblDistOf(it), 0, "sotto zero non si va");
+  it.lblDist = "boh"; eq(A.lblDistOf(it), 9, "un valore non numerico torna al default");
+});
+
+t("una nota altrui con distanza fuori scala viene riportata nei limiti", () => {
+  const s = A.normalizeState({ _v: 5, items: [
+    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 5000 },
+    { id: "d2", type: "wedge", x: 200, y: 100, lblDist: "x" },
+  ], stage: { w: 1200, d: 800 } });
+  eq(s.items[0].lblDist, 80, "tagliata a 80");
+  eq(s.items[1].lblDist, undefined, "il non-numero viene buttato");
+});
+
+t("«applica a tutti» vede solo gli elementi dello stesso tipo con distanza diversa", () => {
+  reset();
+  const a = add("wedge", 200, 300), b = add("wedge", 400, 300), c = add("wedge", 600, 300);
+  add("sedia", 800, 300);                                  // altro tipo: non c'entra
+  eq(A.lblDistSiblings(a).length, 0, "all'inizio sono tutti uguali: niente da chiedere");
+  a.lblDist = 30;
+  eq(A.lblDistSiblings(a).length, 2, "ora gli altri due sono diversi");
+  b.lblDist = 30; c.lblDist = 30;
+  eq(A.lblDistSiblings(a).length, 0, "allineati, la domanda decade");
+});
+
+t("la distanza segue l'elemento quando lo si duplica", () => {
+  reset();
+  const it = add("quinta", 300, 300); it.lblDist = 35; it.label = "Quinta";
+  A.selectOne(it.id); A.duplicateSel();
+  const copia = A.state.items.filter((x) => x.type === "quinta" && x.id !== it.id)[0];
+  ok(copia, "la copia c'è");
+  eq(A.lblDistOf(copia), 35, "e porta con sé la distanza");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

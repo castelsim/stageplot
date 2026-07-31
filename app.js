@@ -4351,6 +4351,7 @@ function normalizeLoadedItems(arr){
       if(it[k]==null) return; n=Number(it[k]); if(isFinite(n)) it[k]=n; else delete it[k];
     });
     if(it.lblSize!=null){ n=Number(it.lblSize); if(isFinite(n)) it.lblSize=Math.max(0,Math.min(34,n)); else delete it.lblSize; }
+    if(it.lblDist!=null){ n=Number(it.lblDist); if(isFinite(n)) it.lblDist=Math.max(0,Math.min(80,n)); else delete it.lblDist; }
     if(it.opacity!=null){ n=Number(it.opacity); if(isFinite(n)) it.opacity=Math.max(0,Math.min(100,n)); else delete it.opacity; }
     if(it.pts!=null){
       if(Array.isArray(it.pts) && it.pts.length>=3 && it.pts.every(function(p){ return Array.isArray(p)&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1]); }))
@@ -4748,7 +4749,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","lblDist","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -5215,7 +5216,10 @@ function itemMarkup(it){
     /* Voci con microfono su asta: la base dell'asta sporge sotto il footprint, e il nome ci finiva
        sopra (audit 27/07, emerso quando le voci hanno smesso di nascere anonime). */
     if(VOCE[it.type]){ var _mm=micModeOf(it); if(_mm==="tonda"||_mm==="giraffa") benchExtra += 26; }
-    var ly  = lblAbove ? -52.5 - fsz*0.35 : it.d/2 + 9 + fsz*0.72 + benchExtra;   /* sotto: superare il selbox (bordo a d/2+9) così il testo non ci finisce dentro */
+    /* 9 cm dal bordo è il default storico (superano il selbox, così il testo non ci finisce dentro);
+       da qui in poi lo decide l'utente, in cm reali. Sopra la sedia la distanza si applica in su. */
+    var _ld = lblDistOf(it);
+    var ly  = lblAbove ? -52.5 - fsz*0.35 - (_ld-9) : it.d/2 + _ld + fsz*0.72 + benchExtra;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
@@ -9380,7 +9384,11 @@ function renderProps(){
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
   document.getElementById("pLblSizeVal").textContent = lblv;
+  var lbld=lblDistOf(it);
+  document.getElementById("pLblDist").value = lbld;
+  document.getElementById("pLblDistVal").textContent = lbld;
   if(typeof renderLblSizeAsk==="function") renderLblSizeAsk();   /* la domanda «anche alle altre?» vive quanto la selezione che l'ha originata */
+  if(typeof renderLblDistAsk==="function") renderLblDistAsk();
   var _lm = it.labelMode||"full";   /* modalità nome per-elemento (default = nome intero) */
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
@@ -9781,6 +9789,8 @@ document.getElementById("pLblSize").addEventListener("change", function(){ var i
    esistono altri elementi dello stesso tipo con una dimensione diversa da quella appena scelta. */
 var _lblSizeAsk=null;   /* id dell'elemento su cui si è appena cambiata la dimensione: runtime, non si salva */
 function lblSizeOf(it){ return (it && it.lblSize!=null) ? +it.lblSize : 14; }
+var LBL_DIST_DEF=9;   /* cm dal bordo dell'elemento: il valore con cui il nome è sempre stato disegnato */
+function lblDistOf(it){ var v=(it && it.lblDist!=null) ? +it.lblDist : LBL_DIST_DEF; return isFinite(v) ? Math.max(0, Math.min(80, v)) : LBL_DIST_DEF; }
 function lblSizeSiblings(it){
   if(!it || !TYPES[it.type]) return [];
   var v=lblSizeOf(it);
@@ -9804,6 +9814,38 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
   altri.forEach(function(o){ o.lblSize=v; });
   _lblSizeAsk=null; render(); save(); renderProps();
   if(typeof toast==="function") toast("Dimensione "+v+" applicata a "+n+" element"+(n===1?"o":"i")+".");
+});
+/* DISTANZA del nome: stessa meccanica della dimensione, domanda «a tutte?» compresa. */
+var _lblDistAsk=null;
+function lblDistSiblings(it){
+  if(!it || !TYPES[it.type]) return [];
+  var v=lblDistOf(it);
+  return (state.items||[]).filter(function(o){ return o!==it && o.type===it.type && lblDistOf(o)!==v; });
+}
+function renderLblDistAsk(){
+  var row=document.getElementById("pLblDistAll"); if(!row) return;
+  var it=getSel(), altri=(it && _lblDistAsk===it.id) ? lblDistSiblings(it) : [];
+  row.hidden = !altri.length;
+  if(!altri.length) return;
+  document.getElementById("pLblDistAllMsg").textContent =
+    altri.length===1 ? "Un altro elemento come questo ha il nome a un'altra distanza."
+                     : ("Altri "+altri.length+" elementi come questo hanno il nome a un'altra distanza.");
+  document.getElementById("pLblDistAllYes").textContent = altri.length===1 ? "Applica anche a quello" : "Applica a tutti";
+}
+document.getElementById("pLblDist").addEventListener("input", function(){
+  var v=+document.getElementById("pLblDist").value;
+  document.getElementById("pLblDistVal").textContent=v;
+  var it=getSel(); if(!it) return;
+  if(v===LBL_DIST_DEF) delete it.lblDist; else it.lblDist=v;   /* il default non si memorizza */
+  redrawItemNode(it); saveSoon();
+});
+document.getElementById("pLblDist").addEventListener("change", function(){ var it=getSel(); if(it){ _lblDistAsk=it.id; render(); save(); renderLblDistAsk(); } });
+document.getElementById("pLblDistAllYes").addEventListener("click", function(){
+  var it=getSel(); if(!it) return;
+  var v=lblDistOf(it), altri=lblDistSiblings(it), n=altri.length;
+  altri.forEach(function(o){ if(v===LBL_DIST_DEF) delete o.lblDist; else o.lblDist=v; });
+  _lblDistAsk=null; render(); save(); renderProps();
+  if(typeof toast==="function") toast("Distanza "+v+" cm applicata a "+n+" element"+(n===1?"o":"i")+".");
 });
 (function(){   /* allineamento del testo (testo libero e forma) */
   var w=document.getElementById("pAlignWrap"); if(!w) return;
@@ -10189,7 +10231,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
   muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap");
-  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
+  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pLblSizeAll","pLblDistWrap","pLblDistAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
   group("Microfono", null, ["pOutCard","pStereoWrap","pHeadMicWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
