@@ -1318,6 +1318,9 @@
   .nudge.ok{background:var(--surface-raised);border-color:var(--border);color:var(--text-2)}
   .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
   .pdf-optrow label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin:0 0 5px}
+  /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
+  .pdf-area-line{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text)}
+  .pdf-area-line .btn{padding:4px 10px;font-size:11.5px;margin:0}
   .pdf-optrow .chips button{padding:5px 8px;font-size:11.5px}
   .pdf-optrow select{font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);width:128px}
   #prodInline{margin-top:8px}
@@ -3520,8 +3523,8 @@ body.dark .ask-all .btn{background:transparent}
   <div id="framePanel" hidden>
     <div class="exp-card">
     <div class="exp-head"><h4>Esporta</h4><button type="button" class="exp-close" id="expClose" aria-label="Chiudi">✕</button></div>
-    <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Scarica PDF in scala</button>
-    <p class="hint" style="font-size:11.5px;color:var(--text-2);margin:6px 0 12px">Esporta tutto il palco, pronto da stampare o inviare al service.</p>
+    <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Imposta ed esporta il PDF…</button>
+    <p class="hint" style="font-size:11.5px;color:var(--text-2);margin:6px 0 12px">Formato, scala e pagine da allegare si scelgono nella finestra che si apre.</p>
     <div id="frameSummary" style="margin-bottom:14px">
       <div class="hint" style="font-size:11.5px;color:var(--text-2);margin:0 0 7px">Area stampata: <b id="frameSummaryTxt">tutto il palco</b></div>
       <button class="btn" id="frameEditBtn" style="width:100%;font-size:12px">▣ Scegli l'area di stampa</button>
@@ -3987,6 +3990,16 @@ body.dark .ask-all .btn{background:transparent}
         </div>
         <div id="prodNudge"></div>
         <div id="prodInline" hidden></div>
+        <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
+             per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
+             serve, senza uscire. -->
+        <div class="pdf-optrow" id="pdfAreaRow">
+          <div style="flex:1">
+            <label>Area stampata</label>
+            <div class="pdf-area-line"><b id="pdfAreaTxt">tutto il palco</b>
+              <button type="button" class="btn" id="pdfAreaBtn">Cambia…</button></div>
+          </div>
+        </div>
         <div class="pdf-optrow">
           <div>
             <label>Formato</label>
@@ -4052,6 +4065,11 @@ body.dark .ask-all .btn{background:transparent}
     <div class="pdf-exp-foot">
       <div class="mstatus" id="pdfInfo"></div>
       <div class="pdf-exp-actions">
+        <!-- ALTRI FORMATI (31/07): stavano nella finestra precedente, e chi arrivava qui non li
+             trovava più. Sono qui, secondari come devono essere. -->
+        <button class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">PNG</button>
+        <button class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">CSV</button>
+        <span style="flex:1"></span>
         <button class="btn" id="pdfCancel">Annulla</button>
         <button class="btn primary" id="pdfGo">Esporta PDF</button>
       </div>

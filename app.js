@@ -11716,9 +11716,14 @@ svg.addEventListener("pointerdown", function(e){
       else if(isMobile()){ document.body.classList.add("props-expanded"); }
       else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
-      var _sp2=svgPoint(e), _onStage=(state.stage.blocks||[]).some(function(b){ return _sp2.x>=b.x&&_sp2.x<=b.x+b.w&&_sp2.y>=b.y&&_sp2.y<=b.y+b.d; });
-      if(!_onStage && venueHitTest(_sp2)){ if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit(); }   /* doppio click sulla planimetria fuori dal palco (anche bloccata) → le sue opzioni */
-      else if(stageEdit) toggleStageEdit();   /* già in modifica palco → esci */
+      var _sp2=svgPoint(e);
+      /* IL VUOTO È VUOTO, ANCHE SOPRA LA PLANIMETRIA (Simone 31/07): «se c'è la planimetria devo
+         comunque poter cercare un elemento col doppio click sopra». Prima il doppio clic fuori dal
+         palco ma sull'immagine apriva le OPZIONI della planimetria — e siccome la planimetria è quasi
+         sempre più grande del palco, era proprio lì che si vuole posare la regia o un fuori-palco.
+         Un gesto che cambia effetto perché sotto c'è un'immagine è un confine invisibile: la
+         planimetria si apre dal suo comando nel catalogo, che è sempre lì. */
+      if(stageEdit) toggleStageEdit();   /* già in modifica palco → esci */
       else openQuickAdd(_sp2, e.clientX, e.clientY);   /* vuoto → quick-add stile Max (digiti il nome) */
     }   /* mobile: doppio-tap sul vuoto non entra in modifica palco */
     return;
@@ -18504,12 +18509,9 @@ function normalizeVenue(v){
 }
 
 /* il punto (mondo) cade sulla planimetria? — hit-test geometrico, indipendente da pointer-events/lock */
-function venueHitTest(sp){
-  var v=state.venue; if(!v || v.enabled===false || !v._dataUrl) return false;
-  var a=-(v.rot||0)*Math.PI/180, dx=sp.x-v.x, dy=sp.y-v.y;
-  var px=dx*Math.cos(a)-dy*Math.sin(a), py=dx*Math.sin(a)+dy*Math.cos(a);
-  return Math.abs(px)<=v.w/2 && Math.abs(py)<=v.h/2;
-}
+/* venueHitTest RIMOSSA (31/07): serviva solo a far cambiare effetto al doppio clic quando sotto
+   c'era la planimetria. Tolto quel comportamento non la chiamava più nessuno, e una funzione senza
+   chiamanti è debito che il prossimo legge come se contasse ancora. */
 function venueMarkup(){
   var v=state.venue; if(!v) return '';
   var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return '';   /* seconda barriera: rivalida al render */
@@ -19529,8 +19531,14 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   document.getElementById("shareClose").addEventListener("click", closeShare);
   /* — pulsanti header: Save as / Importa — */
   document.getElementById("bHdrPdf").addEventListener("click", function(){
-    var open=!(saveAsOpen||frameEdit);
-    saveAsOpen=open; if(!open) frameEdit=false;
+    /* UN PASSAGGIO SOLO (31/07): «Esporta» apriva un pannello il cui bottone principale diceva
+       «Scarica PDF in scala» — e non scaricava niente, apriva la finestra vera. Chi si fermava lì
+       non scopriva mai le pagine tecniche da allegare. Ora si va dritti dove si decide tutto:
+       area di stampa, pagine, formato e gli altri formati stanno tutti in quella finestra. */
+    var mdl=document.getElementById("pdfModal");
+    if(mdl && !mdl.hidden){ mdl.hidden=true; return; }   /* secondo clic: chiude, come faceva prima */
+    var open=true;
+    saveAsOpen=false; frameEdit=false;
     if(open){ exitHubModes("save"); clearSelection();
       /* C (ciclo primo-PDF-completo): se la channel list è VUOTA, generala dagli strumenti sul palco
          (instrument-driven, come "Auto" — NON attiva il cablaggio/cavi). Così il PDF non esce mai senza
@@ -19540,6 +19548,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       preloadRespData();
     }
     renderFramePanel(); render();
+    if(window.openPdfExportModal) window.openPdfExportModal();
   });
   /* Decisione 5A: pre-carica la responsabilità (account-only) per la pagina PDF, poi rinfresca le
      pillole. Chiamata da ENTRAMBI gli ingressi dell'export: header (bHdrPdf) e menu File/Condividi
@@ -22400,7 +22409,23 @@ function pdfChannelPage(doc, L, paperKey){
     });
     document.addEventListener("click", closeMenu);
   })();
+  /* Area di stampa e altri formati, ora dentro questa finestra (31/07): si legge cosa verrà
+     stampato senza uscire, e PNG/CSV non si perdono per strada com'era prima. */
+  (function(){
+    var ab=document.getElementById("pdfAreaBtn");
+    if(ab) ab.addEventListener("click", function(){
+      modal.hidden=true;                       /* la scelta dell'area lavora sul canvas: la finestra si toglie di mezzo */
+      saveAsOpen=true; frameEdit=false; renderFramePanel();
+      if(typeof activateFrameEdit==="function") activateFrameEdit();
+    });
+    var pg=document.getElementById("pdfAltPng");
+    if(pg) pg.addEventListener("click", function(){ ensurePrintFrame(); exportPng(); });
+    var cs=document.getElementById("pdfAltCsv");
+    if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
+  })();
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
+    var _at=document.getElementById("pdfAreaTxt");
+    if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
     _pdfTechPages=pdfComputeTechPages();
     _pdfPillSel={}; _prodOpen=false;   /* default: solo palco — le pagine tecniche si aggiungono con un click */
     pdfRenderPills();
@@ -22413,7 +22438,11 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.production && !state.production.asked){ state.production.asked=true; save(); }
   }
   window.openPdfExportModal=_pdfExportModalCore;
-  document.getElementById("bPdf").addEventListener("click", function(){ if(window.preloadRespData) preloadRespData(); (window.openPrintAreaStep||window.openPdfExportModal)(); });
+  /* UN PASSAGGIO SOLO (31/07): prima si passava dalla finestra «Esporta» e da lì si cliccava
+   «Scarica PDF in scala» — che non scaricava niente, apriva QUESTA. Un bottone che promette un
+   download e apre un dialogo è una promessa non mantenuta, e chi si fermava lì non scopriva mai le
+   pagine tecniche. Ora il bottone Esporta apre direttamente il posto dove si decide tutto. */
+document.getElementById("bPdf").addEventListener("click", function(){ if(window.preloadRespData) preloadRespData(); window.openPdfExportModal(); });
   document.getElementById("pdfCancel").addEventListener("click", function(){ modal.hidden=true; window.__pdfScope="full"; });
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
