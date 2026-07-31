@@ -15384,6 +15384,57 @@ function buildOrchBandOut(){
   ];
   return out.concat(band);
 }
+/* ORCHESTRA POP (31/07) — dal modello di Simone, disposizione presa da una produzione vera:
+   archi in ventaglio davanti al direttore, legni e ottoni su due pedane digradanti in fondo, ritmica
+   pop (batteria, chitarra, stage piano) sui lati. È il caso che il repertorio orchestra + band
+   incontra più spesso, e nessuna formazione lo copriva: buildOrchBandOut mette una band rock DAVANTI
+   a un'orchestra da camera, che è un'altra cosa.
+   Le etichette sono di ruolo, mai di persona (regola sul repo pubblico). */
+function buildOrchestraPopOut(){
+  return [
+    /* — fondo: ottoni sulla pedana alta (40 cm) — */
+    {type:"pedana", x:175, y:-735, w:600, d:100, h:40, label:"Pedana ottoni"},
+    {type:"tromba",   x:-72, y:-745, label:"Tromba 1"},
+    {type:"tromba",   x:48,  y:-745, label:"Tromba 2"},
+    {type:"trombone", x:168, y:-745, label:"Trombone 1"},
+    {type:"trombone", x:288, y:-745, label:"Trombone 2"},
+    {type:"trombone", x:408, y:-745, label:"Trombone 3"},
+    /* — pedana bassa (20 cm): corni, clarinetti, fagotti — */
+    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:"Pedana legni"},
+    {type:"corno",      x:-77, y:-617, label:"Corno 1"},
+    {type:"corno",      x:23,  y:-617, label:"Corno 2"},
+    {type:"clarinetto", x:123, y:-617, label:"Clarinetto 1"},
+    {type:"clarinetto", x:222, y:-617, label:"Clarinetto 2"},
+    {type:"fagotto",    x:322, y:-617, label:"Fagotto 1"},
+    {type:"fagotto",    x:422, y:-617, label:"Fagotto 2"},
+    /* — legni alti + ritmica — */
+    {type:"flauto", x:-47, y:-475, label:"Flauto 1"},
+    {type:"flauto", x:44,  y:-475, label:"Flauto 2"},
+    {type:"oboe",   x:134, y:-475, label:"Oboe 1"},
+    {type:"oboe",   x:225, y:-475, label:"Oboe 2"},
+    {type:"timpani", x:500, y:-475, rot:45, label:"Timpani"},
+    {type:"stagepiano", x:-330, y:-511, rot:325, label:"Tastiere"},
+    {type:"gtstand", x:350, y:-425, rot:45, label:"Chitarra"},
+    {type:"batteria", x:475, y:-300, rot:55, label:"Batteria"},
+    {type:"arpa", x:-485, y:-359, rot:355, label:"Arpa"},
+    /* — archi, a ventaglio attorno al direttore — */
+    {type:"vlnpost", x:-185, y:-400, rot:330, vsec:2, doppia:true, label:"Violino 2 5"},
+    {type:"vlnpost", x:-300, y:-290, rot:305, vsec:2, doppia:true, label:"Violino 2 3"},
+    {type:"vlnpost", x:-97,  y:-267, rot:315, vsec:2, doppia:true, label:"Violino 2 1"},
+    {type:"vlnpost", x:-507, y:-130, rot:270, vsec:1, doppia:true, label:"Violino 1 5"},
+    {type:"vlnpost", x:-360, y:-125, rot:270, vsec:1, doppia:true, label:"Violino 1 3"},
+    {type:"vlnpost", x:-185, y:-126, rot:270, vsec:1, doppia:true, label:"Violino 1 1"},
+    {type:"violapost", x:78,  y:-301, rot:15, doppia:true, label:"Viola 1"},
+    {type:"violapost", x:250, y:-300, rot:50, doppia:true, label:"Viola 3"},
+    {type:"violoncello", x:225, y:-126, rot:90, doppia:true, label:"Violoncello 1"},
+    {type:"violoncello", x:375, y:-125, rot:90, doppia:true, label:"Violoncello 3"},
+    {type:"contrabbasso", x:575, y:-120, rot:90, doppia:true, label:"Contrabbasso"},
+    /* — direttore, fronte palco — */
+    {type:"direttore", x:0, y:-100, label:"Direttore"},
+    /* — accesso al palco — */
+    {type:"scala", x:-450, y:-850, rot:180, label:"Scala"}
+  ];
+}
 function buildOrchCoroOut(){
   var out=buildOrchestraOut(presetCounts("ridotta"));
   var m=measureOrchestraOut(out), back=m.minY-30;
@@ -15565,12 +15616,20 @@ var FORM_TITLES = {
   quartetto:"Quartetto d'archi", camera:"Orchestra da camera", sinfonica_ridotta:"Sinfonica ridotta",
   sinfonica:"Sinfonica completa", orchband:"Orchestra e band", orchcoro:"Orchestra e coro",
   jazzcombo:"Jazz combo", bigband:"Big band",
-  matrimonio:"Matrimonio", dj:"DJ set", tributo:"Tributo / cover"
+  matrimonio:"Matrimonio", dj:"DJ set", tributo:"Tributo / cover",
+  orchpop:"Orchestra pop"
 };
 
 /* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
    Fonte unica per i chip del welcome e per il sottomenu "Nuovo da modello". */
-var START_MODELS = [["band","Band"],["acoustic","Acustica"],["jazzcombo","Jazz combo"],["coro","Coro"],["camera","Orchestra"],["bigband","Big band"],["matrimonio","Matrimonio"],["dj","DJ set"],["tributo","Tributo"]];
+/* I MODELLI OFFERTI (curati il 31/07, richiesta di Simone: «lasciare le formazioni più
+   professionali, tipo dj o matrimonio vanno tolti — devono essere professionali, coerenti e facili
+   da capire»). Fuori «Matrimonio» e «DJ set»: sono occasioni, non formazioni, e chi arriva qui
+   cerca un organico da cui partire. L'ordine va dal piccolo al grande, così la lista si legge.
+   Le funzioni buildMatrimonioOut/buildDjOut restano: i vecchi link /stage-plot/?model=… non si
+   rompono, semplicemente non sono più in vetrina. */
+var START_MODELS = [["acoustic","Acustica"],["band","Band"],["tributo","Tributo"],["jazzcombo","Jazz combo"],
+  ["bigband","Big band"],["coro","Coro"],["camera","Orchestra da camera"],["orchpop","Orchestra pop"]];
 /* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
    NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
 function detachCloudDoc(epochAlreadyChanged){
@@ -16589,6 +16648,22 @@ function bandInputs(){
     ch("Voce","Beta 58A"), ch("Cori","SM58")
   ];
 }
+/* TRIBUTO / cover rock (31/07): il layout c'era da sempre, la sua channel list no — era l'unico
+   modello in vetrina a partire con zero canali, mentre tutti gli altri arrivano con la loro lista.
+   È la band con DUE chitarre e i cori: la lista lo dice. */
+function tributoInputs(){
+  return bandInputs().slice(0, 13)                        /* batteria, basso, prima chitarra, tastiere */
+    .concat([ ch("Chitarra 2","SM57/e906"), ch("Voce","Beta 58A"), ch("Cori","SM58") ]);
+}
+function tributoOutputs(){
+  return [
+    outch("Voce","IEM","beltpack","mix personale"), outch("Batteria","IEM","beltpack","click/cue"),
+    outch("Basso","wedge","lato basso"), outch("Chitarra 1","wedge","lato chitarra 1"),
+    outch("Chitarra 2","wedge","lato chitarra 2"), outch("Tastiere","wedge","lato tastiere"),
+    outch("Cori","wedge","lato cori"),
+    outch("Side fill DX","side fill","lato DX palco"), outch("Side fill SX","side fill","lato SX palco")
+  ];
+}
 function bandOutputs(){
   return [
     outch("Voce","IEM","beltpack", "mix personale"), outch("Batteria","IEM","beltpack", "click/cue se necessario"),
@@ -16708,9 +16783,21 @@ function formationData(f){
   if(f==="orchcoro"){ var cc=presetCounts("ridotta"); return { out:buildOrchCoroOut(),
       inp:orchInputs(cc).concat(choirInputs()).concat([ch("Solista 1","SM58"),ch("Solista 2","SM58")]),
       outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Solisti","wedge","fronte palco"),outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")] }; }
+  /* Matrimonio e DJ non sono più in vetrina (START_MODELS), ma il dispatcher resta: i link
+     /stage-plot/?model=matrimonio già in giro devono continuare ad aprire quello che promettono. */
   if(f==="matrimonio") return { out:buildMatrimonioOut(), inp:[], outp:[] };
   if(f==="dj")         return { out:buildDjOut(),         inp:[], outp:[] };
-  if(f==="tributo")    return { out:buildTributoOut(),    inp:[], outp:[] };
+  if(f==="orchpop"){
+    /* La lista canali segue quello che c'è davvero sul palco: archi/legni/ottoni/timpani/arpa
+       dell'orchestra, più batteria, chitarra e tastiere della ritmica pop. */
+    var cp={v1:6, v2:6, vle:4, vc:4, cb:2, fl:2, ob:2, cl:2, fg:2, cor:2, tr:2, tbn:3, tim:1, arp:1};
+    return { out:buildOrchestraPopOut(),
+      inp:orchInputs(cp).concat([ch("Kick","D6"),ch("Rullante","SM57"),ch("Overhead L","KM184"),ch("Overhead R","KM184"),
+        ch("Chitarra","SM57"),ch("Tastiere L","DI"),ch("Tastiere R","DI")]),
+      outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Batteria","IEM","beltpack"),
+        outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")] };
+  }
+  if(f==="tributo")    return { out:buildTributoOut(),    inp:tributoInputs(), outp:tributoOutputs() };
   return null;
 }
 
