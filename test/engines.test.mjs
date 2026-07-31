@@ -8232,5 +8232,66 @@ t("la distanza segue l'elemento quando lo si duplica", () => {
   eq(A.lblDistOf(copia), 35, "e porta con sé la distanza");
 });
 
+// ── CIABATTE ELETTRICHE (31/07) ────────────────────────────────────────────────────────────────
+// Verifica a schermo su richiesta di Simone: i capi dei cavi cadevano FUORI dalla ciabatta, e la
+// lista diceva «✓ tutti i carichi collegati» con metà catena elettrica aperta.
+console.log("\n— Ciabatte elettriche —");
+
+function scenaElec() {
+  reset();
+  A.state.elec.on = true; A.state.elec.mode = "manual"; A.state.elec.manual = {}; A.state.elec.uplinks = {};
+  const q = add("quadro", 1000, 150);
+  const c = add("ciabatta", 400, 300);
+  const carichi = [add("comboamp", 250, 200), add("comboamp", 560, 200), add("stagepiano", 300, 430)];
+  carichi.forEach((l) => { A.state.elec.manual[l.id] = { distro: c.id }; });
+  A.__elecRes = null;
+  return { q, c, carichi };
+}
+
+t("i capi dei cavi stanno DENTRO la ciabatta, non nel vuoto accanto", () => {
+  const { c } = scenaElec();
+  const R = A.elecResult(true);
+  eq(R.loadLinks.length, 3, "tre cavi");
+  const meta = { x: c.w / 2, y: c.d / 2 };
+  R.loadLinks.forEach(function (l) {
+    const p = l.pts[0];
+    ok(Math.abs(p[0] - c.x) <= meta.x, "capo dentro in larghezza: " + p[0] + " vs " + c.x + "±" + meta.x);
+    ok(Math.abs(p[1] - c.y) <= meta.y, "capo dentro in profondità: " + p[1] + " vs " + c.y + "±" + meta.y);
+  });
+});
+
+t("e convergono tutti nello stesso punto, come i cavi audio", () => {
+  const { c } = scenaElec();
+  const R = A.elecResult(true);
+  const partenze = R.loadLinks.map((l) => l.pts[0][0] + "," + l.pts[0][1]);
+  eq(new Set(partenze).size, 1, "un solo punto d'arrivo: " + partenze.join(" · "));
+  eq(partenze[0], c.x + "," + c.y, "ed è il centro della ciabatta");
+});
+
+t("una ciabatta senza linea al quadro viene contata: la lista non può dire «tutto a posto»", () => {
+  const { c } = scenaElec();
+  const R = A.elecResult(true);
+  eq(R.upPend, 1, "una ciabatta da alimentare");
+  ok(R.issues.some((i) => /da collegare al quadro/.test(i.msg)), "e il motore lo dice");
+});
+
+t("collegata al quadro, il conto torna a zero", () => {
+  const { q, c } = scenaElec();
+  A.state.elec.uplinks[c.id] = { to: q.id };
+  A.__elecRes = null;
+  const R = A.elecResult(true);
+  eq(R.upPend, 0, "niente più ciabatte scoperte");
+  eq(R.uplinks.length, 1, "e la linea verso il quadro esiste");
+});
+
+t("il carico della ciabatta risale davvero sul quadro", () => {
+  const { q, c } = scenaElec();
+  A.state.elec.uplinks[c.id] = { to: q.id };
+  A.__elecRes = null;
+  const R = A.elecResult(true);
+  const quadro = R.distros.filter((d) => d.it && d.it.id === q.id)[0];
+  ok(quadro.loadW > 0, "il quadro vede i watt delle ciabatte a valle: " + quadro.loadW + " W");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
