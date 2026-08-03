@@ -8675,5 +8675,53 @@ t("Orchestra pop non calpesta Orchestra e band: sono due cose diverse", () => {
   ok(popH >= 2, "la pop ha le pedane digradanti per legni e ottoni: " + popH);
 });
 
+/* --- SEO: la guida «scheda tecnica della band» (03/08) ---
+   Perché esiste: in italiano le band cercano «scheda tecnica», i service dicono «rider tecnico».
+   Su 21 pagine il sito aveva 687 occorrenze di «stage plot» e 15 di «scheda tecnica», nessun title
+   che la nominasse, e nessuna delle 24 query GSC la conteneva: non eravamo in gara. Questi test
+   presidiano l'aggancio (una pagina orfana non si indicizza — era il difetto dell'Ondata 1) e la
+   separazione d'intento da /guida/rider-tecnico/, per non cannibalizzarci da soli. */
+const schedaHtml = readFileSync(join(root, "guida/scheda-tecnica-band/index.html"), "utf8");
+
+t("scheda tecnica: la pagina è agganciata, non orfana", () => {
+  ok(readFileSync(join(root, "sitemap.xml"), "utf8").indexOf("https://stageplot.it/guida/scheda-tecnica-band/") > -1, "è in sitemap");
+  const hub = readFileSync(join(root, "guida/index.html"), "utf8");
+  ok(hub.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "l'hub della guida la linka");
+  ok(hub.indexOf('"url":"https://stageplot.it/guida/scheda-tecnica-band/"') > -1, "ed è nell'ItemList del CollectionPage");
+  /* almeno tre link entranti da pagine diverse: è il segnale che ha risolto le orfane dell'Ondata 1 */
+  const entranti = ["guida/rider-tecnico/index.html", "guida/channel-list-input-list/index.html", "stage-plot/band/index.html"]
+    .filter((p) => readFileSync(join(root, p), "utf8").indexOf('href="/guida/scheda-tecnica-band/"') > -1);
+  eq(entranti.length, 3, "link entranti dalle pagine sorelle: " + entranti.join(", "));
+  ok(schedaHtml.indexOf('<link rel="canonical" href="https://stageplot.it/guida/scheda-tecnica-band/">') > -1, "canonical su sé stessa");
+  ok(schedaHtml.indexOf('name="robots" content="index,follow') > -1, "indicizzabile");
+});
+
+t("scheda tecnica: non cannibalizza il rider tecnico", () => {
+  const rider = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const title = (s) => (s.match(/<title>([^<]*)<\/title>/) || ["", ""])[1];
+  const h1 = (s) => (s.match(/<h1>([^<]*)<\/h1>/) || ["", ""])[1];
+  ok(title(schedaHtml) !== title(rider), "title distinti");
+  ok(h1(schedaHtml) !== h1(rider), "H1 distinti");
+  /* l'intento è la differenza: qui «come compilare» (procedura), là «cos'è» (definizione) */
+  ok(/come compilare/i.test(title(schedaHtml)), "la nuova punta alla procedura: " + title(schedaHtml));
+  ok(/cos'è|cosa contiene/i.test(title(rider)), "il rider resta la definizione: " + title(rider));
+  ok(rider.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "e il rider manda esplicitamente alla procedura");
+});
+
+t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", () => {
+  /* convenzione del sito dall'Ondata 3: se divergono, Google vede un rich result che la pagina non ha */
+  const ld = JSON.parse((schedaHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const faq = ld["@graph"].find((n) => n["@type"] === "FAQPage");
+  ok(faq, "c'è il blocco FAQPage");
+  const inLd = faq.mainEntity.map((q) => q.name);
+  const visibili = [...schedaHtml.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
+  eq(inLd.length, visibili.length, "stesso numero di domande (" + inLd.length + " vs " + visibili.length + ")");
+  const mancanti = inLd.filter((q) => !visibili.includes(q));
+  eq(mancanti.length, 0, "ogni domanda dello schema è anche visibile in pagina: " + mancanti.join(" | "));
+  const article = ld["@graph"].find((n) => n["@type"] === "Article");
+  ok(article && article.author && article.author["@id"] === "https://simonecastellan.com/#person",
+    "l'autore riusa lo stesso @id delle altre guide (anello E-E-A-T)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
