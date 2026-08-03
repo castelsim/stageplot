@@ -927,6 +927,105 @@ t("quota planimetria non committa un root che renda irraggiungibile l'ultima cop
     A.loadDoc(JSON.parse(before));
   }
 });
+/* PUNTO DI RECUPERO E PLANIMETRIE PESANTI (bug in produzione 03/08/2026).
+   Simone non riusciva più ad aprire NESSUN progetto: «Impossibile creare il punto di recupero.»
+   Il documento aperto aveva una planimetria PNG da 8,3 MB già in localStorage; il recovery la
+   RIDUPLICAVA dentro la riga della versione (docToJSONFull) e la quota, ormai piena, rifiutava la
+   scrittura. Il salvataggio manuale della stessa versione costava 15 KB, perché punta al blob. */
+function withVenueStore(A, cap, body) {
+  const before = A.docToJSON();
+  const old = {
+    storage: A.localStorage, cloud: A.__cloud, document: A.document, consult: A.__consultMode,
+    conflict: A.__localConflict, unavailable: A.__localStorageUnavailable,
+    bootVenue: A.__bootVenueUnavailable, persistedSig: A.venuePersistedSig,
+    persistedKey: A.venuePersistedKey, stageFailed: A.venueStageFailedSig,
+    expectedRevision: A.localExpectedRevision, blocked: A.__docLoadBlocked,
+  };
+  const store = new Map();
+  const size = () => [...store.entries()].reduce((n, [k, v]) => n + k.length + String(v).length, 0);
+  const writes = [];
+  try {
+    A.localStorage = {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => {
+        writes.push([key, String(value).length]);
+        const grown = size() - (store.has(key) ? key.length + String(store.get(key)).length : 0)
+          + key.length + String(value).length;
+        if (grown > cap) { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; }
+        store.set(key, String(value));
+      },
+      removeItem: (key) => store.delete(key),
+    };
+    A.__cloud = { currentId: () => "prj-noale", currentRev: () => "rev-1", user: () => null };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__consultMode = false; A.__localConflict = false; A.__localStorageUnavailable = false;
+    A.__bootVenueUnavailable = false; A.__docLoadBlocked = null;
+    A.venuePersistedSig = null; A.venuePersistedKey = null; A.venueStageFailedSig = null;
+    A.localExpectedRevision = null;
+    return body({ store, writes, size });
+  } finally {
+    A.localStorage = old.storage; A.__cloud = old.cloud; A.document = old.document;
+    A.__consultMode = old.consult; A.__localConflict = old.conflict;
+    A.__localStorageUnavailable = old.unavailable; A.__bootVenueUnavailable = old.bootVenue;
+    A.venuePersistedSig = old.persistedSig; A.venuePersistedKey = old.persistedKey;
+    A.venueStageFailedSig = old.stageFailed; A.localExpectedRevision = old.expectedRevision;
+    A.__docLoadBlocked = old.blocked;
+    A.loadDoc(JSON.parse(before));
+  }
+}
+/* planimetria "pesante": base64 finto ma della stessa scala del caso reale, in proporzione al cap */
+function heavyVenue(kb) {
+  return { name: "planimetria.png", _dataUrl: "data:image/png;base64," + "Q".repeat(kb * 1024),
+    _imgW: 1476, _imgH: 1190, x: 0, y: 0, w: 10072, h: 8121 };
+}
+t("punto di recupero: la planimetria già in archivio si referenzia, non si riduplica", () => {
+  withVenueStore(A, 200 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "noale morricone", venue: heavyVenue(150),
+      items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
+    eq(A.persistLocalState(), true, "documento e planimetria persistiti");
+    const venueKeys = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."));
+    eq(venueKeys.length, 1, "un solo blob planimetria in archivio");
+
+    /* lo spazio residuo non basta a una SECONDA copia dell'immagine: è il caso di Simone */
+    eq(A.saveVersion("Prima di aprire un progetto", true), true,
+      "il punto di recupero riesce comunque");
+    const rows = JSON.parse(store.get(A.VER_KEY) || "[]");
+    eq(rows.length, 1, "la versione è stata scritta");
+    eq(rows[0].venueKey, venueKeys[0], "punta al blob esistente");
+    ok(String(rows[0].data).indexOf("_dataUrl") < 0, "nessuna copia della bitmap dentro la riga");
+    ok(String(rows[0].data).length < 40 * 1024, "la riga resta piccola (era ~la dimensione dell'immagine)");
+  });
+});
+t("punto di recupero: se l'archivio è pieno, pota le versioni vecchie e ritenta", () => {
+  withVenueStore(A, 210 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "pieno", items: [{ id: "a", type: "cantante" }],
+      inputs: [], outputs: [] });
+    /* 30 versioni vecchie ingombranti già in archivio, come nel caso reale: da sole superano il cap */
+    const zavorra = [];
+    for (let i = 0; i < 30; i++) zavorra.push({ name: "Versione " + i, date: 1000 + i, data: JSON.stringify({ _doc: 1, pad: "z".repeat(8 * 1024) }) });
+    store.set(A.VER_KEY, JSON.stringify(zavorra));
+    eq(A.saveVersion("Prima di aprire un progetto", true), true,
+      "il recupero riesce facendo spazio");
+    const rows = JSON.parse(store.get(A.VER_KEY) || "[]");
+    eq(rows[0].name, "Prima di aprire un progetto", "il recupero è la riga più recente");
+    ok(rows.length < 31, "qualche versione vecchia è stata sacrificata");
+    ok(rows.length > 1, "non è stato buttato tutto lo storico");
+  });
+});
+t("punto di recupero: senza blob referenziabile resta autosufficiente", () => {
+  withVenueStore(A, 4 * 1024 * 1024, ({ store }) => {
+    const oldConsult = A.__consultMode;
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "consulenza", venue: heavyVenue(20),
+      items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
+    try {
+      A.__consultMode = true;   /* foreignDoc(): stageVenueImg() non scrive nulla in locale */
+      eq(A.saveVersion("Recupero consulenza", true), true, "il recupero riesce");
+      const rows = JSON.parse(store.get(A.VER_KEY) || "[]");
+      ok(!rows[0].venueKey, "nessun riferimento a un blob che non esiste");
+      ok(String(rows[0].data).indexOf("_dataUrl") >= 0, "la bitmap viaggia dentro la riga");
+    } finally { A.__consultMode = oldConsult; }
+  });
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;

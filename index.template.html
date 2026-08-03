@@ -15719,6 +15719,17 @@ function hasMeaningfulDocument(){
     return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state); });
   }catch(e){ return true; }   /* se non riusciamo a classificare il documento, trattalo come lavoro da proteggere */
 }
+/* Copia completa su file (documento intero, planimetria inclusa): stessa sostanza dell'export dal
+   menu, richiamabile dai percorsi d'emergenza in cui lo storage locale non può più ospitare nulla. */
+function downloadProjectCopy(){
+  try{
+    var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
+    var url=URL.createObjectURL(new Blob([docToJSONFull()],{type:"application/json"}));
+    dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
+    if(window.__toast) window.__toast("Copia scaricata: "+name);
+    return true;
+  }catch(e){ return false; }
+}
 var documentReplacementSeq=0;
 function guardDocumentReplacement(options,action){
   options=options||{};
@@ -15735,10 +15746,32 @@ function guardDocumentReplacement(options,action){
     }
     if(meaningful){
       var recoveryName="Prima di "+String(options.reason||"cambiare progetto").slice(0,80);
-      if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){
-        abort("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo."); return;
-      }
+      if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){ offerDownloadInstead(); return; }
     }
+    finishReplacement();
+  }
+  /* Uscita REALE quando il punto di recupero non entra nello storage. Prima si diceva «Esporta il
+     progetto prima di sostituirlo» e si tornava al chiamante: ma esportare non cambiava nulla, al
+     tentativo successivo si ritrovava lo stesso muro e nessun progetto era più apribile (03/08/2026,
+     archivio pieno per una planimetria da 8,3 MB). La copia su file è la stessa rete di sicurezza
+     del punto di recupero — solo fuori dal browser — quindi dopo il download si può procedere. */
+  function offerDownloadInstead(){
+    var ask={icon:"warn", title:"Niente spazio per il punto di recupero",
+      message:"L'archivio del browser è pieno. Scarica una copia completa del progetto aperto — planimetria inclusa — e si prosegue con quella come rete di sicurezza.",
+      confirmText:"Scarica e continua"};
+    if(typeof window.confirmDialog!=="function"){
+      abort("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo."); return;
+    }
+    window.confirmDialog(ask).then(function(ok){
+      if(!ok||!current()) return;
+      if(!downloadProjectCopy()){
+        abort("Impossibile creare il punto di recupero e nemmeno scaricare la copia. Libera spazio nel browser prima di continuare."); return;
+      }
+      finishReplacement();
+    });
+  }
+  function finishReplacement(){
+    if(!current()) return;
     /* Forza nello snapshot locale anche l'ultimo input e arma l'autosave. Il recovery appena creato
        resta comunque la rete di sicurezza se la quota locale è esaurita. */
     if(!window.__docLoadBlocked && typeof save==="function") save();
@@ -20456,27 +20489,45 @@ function renderFramePanel(){
 /* ===== Versioni salvate ===== */
 var VER_KEY='stageplot_versions';
 function loadVersions(){ try{ return JSON.parse(localStorage.getItem(VER_KEY)||'[]'); }catch(e){ return []; } }
+/* Riferimento al blob della planimetria, quando esiste ed è raggiungibile. La chiave è indirizzata
+   dal CONTENUTO (venueStorageKey = hash della firma), quindi due documenti con la stessa immagine
+   condividono lo stesso blob e una versione può puntarci senza duplicare megabyte. */
+function venueRefForVersion(sig){
+  if(!sig) return null;
+  var staged=(sig===venuePersistedSig&&venuePersistedKey)?{sig:sig,key:venuePersistedKey}:stageVenueImg();
+  if(!staged||!staged.key||staged.sig!==sig) return null;
+  try{ if(!localStorage.getItem(staged.key)) return null; }catch(_venueReadErr){ return null; }
+  return {sig:sig,key:staged.key};
+}
 function saveVersion(name,includeImages){
   var vs=loadVersions();
   var C=window.__cloud, cid=(C&&typeof C.currentId==="function")?(C.currentId()||null):(window.__bootCloudId||null);
   var row={name:name||'Versione', date:Date.now(), cloudId:cid};
-  if(includeImages || foreignDoc()){
-    /* Recovery prima di un'azione distruttiva e sessioni consulenza devono essere autosufficienti:
-       se la quota non basta, il caller riceve false e non procede. */
-    row.data=docToJSONFull();
-  } else {
-    row.data=docToJSON();
-    var sig=venueImageBundleSig();
-    if(sig){
-      var staged=(sig===venuePersistedSig&&venuePersistedKey)?{sig:sig,key:venuePersistedKey}:stageVenueImg();
-      if(!staged||!staged.key||staged.sig!==sig) return false;
-      try{ if(!localStorage.getItem(staged.key)) return false; }catch(_venueReadErr){ return false; }
-      row.venueSig=sig; row.venueKey=staged.key;
-    }
-  }
+  var sig=venueImageBundleSig(), ref=venueRefForVersion(sig);
+  /* PRIMA il riferimento, POI la copia. Il recovery dev'essere autosufficiente solo dove non può
+     esistere un blob locale (consulenza/viewer: stageVenueImg() non scrive). Bug del 03/08/2026:
+     con una planimetria da 8,3 MB già in archivio il punto di recupero ne pretendeva una SECONDA
+     copia, la quota la rifiutava e restava impossibile aprire qualsiasi progetto. */
+  if(ref){ row.data=docToJSON(); row.venueSig=ref.sig; row.venueKey=ref.key; }
+  else if(includeImages||foreignDoc()) row.data=docToJSONFull();
+  else if(sig) return false;   /* planimetria non referenziabile: non salvare una versione monca */
+  else row.data=docToJSON();
   vs.unshift(row);
   if(vs.length>30) vs=vs.slice(0,30);
-  try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); }catch(e){ return false; }
+  /* Se non entra, sacrifica le versioni più VECCHIE e ritenta: il punto di recupero appena creato
+     vale più dello storico, e arrendersi qui blocca l'apertura dei progetti. Mai in silenzio. */
+  var potate=0;
+  for(;;){
+    try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); break; }
+    catch(e){
+      if(vs.length<=1) return false;
+      var tieni=Math.max(1, vs.length-Math.max(1, Math.ceil(vs.length/4)));
+      potate+=vs.length-tieni; vs=vs.slice(0,tieni);
+    }
+  }
+  if(potate && window.__toast) window.__toast("Spazio esaurito sul dispositivo: "+potate+
+    (potate===1?" versione salvata è stata eliminata":" versioni salvate sono state eliminate")+
+    " per creare il punto di recupero.",true);
   renderVersionPanel();
   return true;
 }
