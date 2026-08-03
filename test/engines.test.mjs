@@ -1096,6 +1096,46 @@ t("pulizia planimetrie: non tocca nulla su documento altrui o non caricato", () 
     ok(store.has(A.LS_KEY_VENUE + ".orfano_9"), "l'orfano è ancora lì: nessuna rimozione azzardata");
   });
 });
+/* ANTEPRIMA/VIEWER CONTRO PDF — due catene che divergevano (caccia ai bug 03/08/2026).
+   (1) la colonna «#» dell'input list mostrava sempre il progressivo, mentre PDF e CSV mostrano il
+       canale FOH: la stessa sorgente era «17» sul PDF e «10» nel link condiviso;
+   (2) l'ordine delle pagine tecniche era scritto DUE volte e le due copie erano già divergenti. */
+t("input list: il numero è quello del banco, in anteprima come nel PDF", () => {
+  const col = A.pdfListConfig().inputlist.cols[0];
+  const righe = [{ n: 1, foh: 17, name: "Kick" }, { n: 2, foh: 18, name: "Snare" }];
+  eq(righe.map((r) => col.f(r, { hasFoh: true })), [17, 18], "col FOH disponibile vince il canale FOH");
+  eq(righe.map((r) => col.f(r, { hasFoh: false })), [1, 2], "senza FOH resta il progressivo");
+  eq(col.f({ n: 3, foh: null }, { hasFoh: true }), 3, "riga senza FOH proprio: progressivo");
+  eq(col.f({ n: 4, foh: 20 }), 4, "nessun dataset passato: nessun numero inventato");
+});
+t("input list: le righe riservate dicono RISERVATO anche in anteprima e nel link", () => {
+  const cols = A.pdfListConfig().inputlist.cols;
+  const ris = { n: 5, foh: 21, name: "", reserved: true, mic: "SM58", p48: true, patch: "B·5" };
+  eq(cols[1].f(ris), "RISERVATO", "la sorgente non è una casella vuota");
+  eq(cols[2].f(ris), "", "e non si inventa un microfono per un canale riservato");
+  eq(cols[1].f({ name: "Voce", reserved: false }), "Voce", "le righe normali restano com'erano");
+});
+t("pagine tecniche: una sola sequenza per anteprima, pillole e PDF", () => {
+  const ord = A.PDF_TECH_ORDER;
+  ok(Array.isArray(ord) && ord.length > 10, "la sequenza esiste ed è unica");
+  eq(new Set(ord).size, ord.length, "nessuna chiave ripetuta");
+  ok(A.pdfTechRank("lightslist") > A.pdfTechRank("monitorlist"), "la Lista luci segue la Lista monitor");
+  ok(A.pdfTechRank("lightslist") < A.pdfTechRank("racklist"), "e precede la Lista rack: un ordine solo");
+  eq(A.pdfTechRank("view-luci"), -1, "le pagine-vista non sono liste tecniche");
+});
+t("pagine tecniche: l'elenco spuntato viene riordinato come sarà stampato", () => {
+  const pagine = [
+    { key: "view-cabin", label: "Vista: Ingressi" },
+    { key: "view-luci", label: "Vista: Luci" },
+    { key: "racklist", label: "Lista rack" },
+    { key: "lightslist", label: "Lista luci" },
+    { key: "inputlist", label: "Lista ingressi" },
+  ];
+  eq(A.pdfSortTechPages(pagine).map((p) => p.key),
+    ["view-cabin", "view-luci", "inputlist", "lightslist", "racklist"],
+    "viste in testa nell'ordine originale, liste nell'ordine di stampa");
+  eq(A.pdfSortTechPages([]).length, 0, "elenco vuoto: nessun errore");
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;

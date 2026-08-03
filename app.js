@@ -20841,7 +20841,7 @@ function pdfListGeneric(doc, key, shared){
   riga(cfg.cols.map(function(c){ return c.h; }), true);
   doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
   d.rows.forEach(function(r){
-    var vals=cfg.cols.map(function(c){ return c.f(r); });
+    var vals=cfg.cols.map(function(c){ return c.f(r,d); });   /* d: alcune colonne dipendono dal dataset (es. hasFoh) */
     var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
     riga(vals, false, colori);
   });
@@ -21415,6 +21415,23 @@ function lightsList(){
   return { rows:out, tot:out.reduce(function(a,r){ return a+r.n; },0),
            blackout:L.blackout, mood:String(L.mood||"") };
 }
+/* ORDINE UNICO delle pagine tecniche del PDF (dopo le pagine-vista, che restano in testa).
+   Era scritto DUE volte — nell'elenco che alimenta pillole e anteprima (pdfComputeTechPages) e nella
+   catena che costruisce il PDF (buildPdfDoc) — e le due copie erano già divergenti: la Lista luci
+   usciva dopo la Lista monitor nel PDF e dopo la Lista rack in anteprima. Chi diceva al service
+   «guarda a pagina 2» lo mandava sul foglio sbagliato. Chi aggiunge una pagina tocca SOLO qui. */
+var PDF_TECH_ORDER=["rider","responsabilita","inputlist","monitorlist","lightslist","loadlist",
+  "eleclines","backline","rf","notelist","pmlist","racklist","dantepatch","netlist","outputlist",
+  "cabmap","elecmap","todefine"];
+function pdfTechRank(key){ var i=PDF_TECH_ORDER.indexOf(key); return i<0?-1:i; }
+/* Riordina un elenco di pagine secondo l'ordine canonico, lasciando in testa e nell'ordine originale
+   ciò che non è una lista tecnica (le pagine-vista del palco). */
+function pdfSortTechPages(pages){
+  var viste=[], liste=[];
+  (pages||[]).forEach(function(p){ (pdfTechRank(p.key)<0?viste:liste).push(p); });
+  liste.sort(function(a,b){ return pdfTechRank(a.key)-pdfTechRank(b.key); });
+  return viste.concat(liste);
+}
 function pdfListConfig(){
   return {
     lightslist:{ title:"Lista luci", color:"#db2777", data:(typeof lightsList==="function"?lightsList:null),
@@ -21433,7 +21450,15 @@ function pdfListConfig(){
             {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
     inputlist:{ title:"Input list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
       sub:function(d){ return d.R&&d.R.boxes?("Stage box: "+d.R.boxes.map(function(b){return b.letter;}).join(", ")):""; },
-      cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Sorgente",f:function(r){return r.name;}},{h:"Mic / DI",f:function(r){return r.mic+(r.p48?" · 48V":"");}},{h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
+      /* Il numero DEVE essere quello che il fonico troverà al banco: col FOH disponibile (più stage
+         box, o un Device ID) è il canale FOH, esattamente come in patchListPdf e nel CSV. Qui si
+         stampava sempre il progressivo: la stessa sorgente era «17» sul PDF e «10» nel link
+         condiviso, e chi riceveva il link cercava il canale sbagliato. Idem per le riservate, che
+         uscivano con la casella vuota invece di dire RISERVATO. */
+      cols:[{h:"#",num:1,f:function(r,d){return (d&&d.hasFoh&&r.foh)?r.foh:r.n;}},
+            {h:"Sorgente",f:function(r){return r.reserved?"RISERVATO":r.name;}},
+            {h:"Mic / DI",f:function(r){return r.reserved?"":(r.mic+(r.p48?" · 48V":""));}},
+            {h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     monitorlist:{ title:"Monitor list", color:"#0891b2", data:(typeof monitorList==="function"?monitorList:null),
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Mix",f:function(r){return r.mix;}},{h:"Tipo",f:function(r){return r.tipo+(r.stereo?" · st":"");}},{h:"Monitor",f:function(r){return r.name;}},{h:"Uscita",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     loadlist:{ title:"Lista carichi", color:"#d97706", data:(typeof loadList==="function"?loadList:null),
@@ -21456,7 +21481,7 @@ function listPreviewHtml(key){
   var d; try{ d=cfg.data(); }catch(e){ return null; }
   if(!d || !d.rows || !d.rows.length) return '<div class="pdf-list-sheet"><div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'</div><div class="pdf-list-empty">Nessun dato</div></div>';
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
-  var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
+  var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
   return '<div class="pdf-list-sheet">'+
     '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
     (state.titolo?'<div class="pdf-list-tt">'+esc(state.titolo+(state.luogo?" — "+state.luogo:""))+'</div>':'')+
@@ -22126,24 +22151,30 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.addPage(paperKey, L.orient);
         pdfChannelPage(doc, L, paperKey);
       }
-      if(want("rider")) riderPdf(doc);   /* T2: il rider apre le pagine tecniche */
-      if(want("responsabilita")) responsabilitaPdf(doc);   /* Decisione 5A */
-      if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
-      if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
-      if(want("lightslist")) lightsListPdf(doc);   /* era offerta e mostrata in anteprima, ma non usciva */
-      if(want("loadlist")) loadListPdf(doc);
-      if(want("eleclines")) elecLinesPdf(doc);
-      if(want("backline")) backlineListPdf(doc);
-      if(want("rf")) rfListPdf(doc);
-      if(want("notelist")) noteListPdf(doc);   /* le note scritte sui singoli elementi: sul disegno il puntino, qui cosa dice */
-      if(want("pmlist")) pmListPdf(doc);
-      if(want("racklist")) rackListPdf(doc);
-      if(want("dantepatch")) dantePatchPdf(doc);
-      if(want("netlist")) netListPdf(doc);
-      if(want("outputlist")) outputListPdf(doc);
-      if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
-      if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
-      if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
+      /* Una sequenza sola, PDF_TECH_ORDER, condivisa con pillole e anteprima: prima erano due
+         elenchi scritti a mano e la Lista luci usciva in una posizione diversa da quella annunciata. */
+      var STAMPA={
+        rider:function(){ riderPdf(doc); },                       /* T2: il rider apre le pagine tecniche */
+        responsabilita:function(){ responsabilitaPdf(doc); },      /* Decisione 5A */
+        /* in consulenza input+monitor sono già nella channel list manuale */
+        inputlist:function(){ if(!window.__consultMode) patchListPdf(doc); },
+        monitorlist:function(){ if(!window.__consultMode) monitorListPdf(doc); },
+        lightslist:function(){ lightsListPdf(doc); },
+        loadlist:function(){ loadListPdf(doc); },
+        eleclines:function(){ elecLinesPdf(doc); },
+        backline:function(){ backlineListPdf(doc); },
+        rf:function(){ rfListPdf(doc); },
+        notelist:function(){ noteListPdf(doc); },                  /* sul disegno il puntino, qui cosa dice */
+        pmlist:function(){ pmListPdf(doc); },
+        racklist:function(){ rackListPdf(doc); },
+        dantepatch:function(){ dantePatchPdf(doc); },
+        netlist:function(){ netListPdf(doc); },
+        outputlist:function(){ outputListPdf(doc); },
+        cabmap:function(){ if(state.cab && state.cab.on) cabReportPdf(doc); },
+        elecmap:function(){ if(state.elec && state.elec.on) elecReportPdf(doc); },
+        todefine:function(){ if(typeof todefinePdf==="function") todefinePdf(doc); }
+      };
+      PDF_TECH_ORDER.forEach(function(k){ if(want(k) && STAMPA[k]) STAMPA[k](); });
       pdfCredit(doc);
       return doc;
     });
@@ -22468,7 +22499,9 @@ function pdfChannelPage(doc, L, paperKey){
     try{ var Aq=auditEngine(); var deleg=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return ["venue","service","produzione"].indexOf((state.production.systems[r.key]||{}).ans)>=0;}):[];
       if(Aq.errs+Aq.warns+(Aq.todefs||0)>0 || deleg.length) pages.push({key:"todefine", label:"Criticità e aspetti da definire"});
     }catch(_e){}
-    return pages;
+    /* L'ordine con cui si spuntano qui sopra NON è l'ordine di stampa: lo decide PDF_TECH_ORDER,
+       la stessa sequenza su cui buildPdfDoc costruisce il documento. */
+    return pdfSortTechPages(pages);
   }
   var _pdfTechPages=[];
   var _pdfPillSel={}, _prodOpen=false;   /* pillole + stato UI (si resettano a ogni apertura) */
@@ -22499,13 +22532,13 @@ function pdfChannelPage(doc, L, paperKey){
     _pdfTechPages.forEach(function(p){
       if(_pdfPillSel[p.key]){
         nSel++;
-        var pill=mk(p.label,"pill");
+        var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
         var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
         x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRenderPills(); pdfUpdateTechNote(); });
         pill.appendChild(x); host.appendChild(pill);
       } else {
         var isSugg=!!sugg[p.key]; if(isSugg) nSugg++;
-        var g=mk(p.label,"pill ghost"+(isSugg?" sugg":""));
+        var g=mk(p.label,"pill ghost"+(isSugg?" sugg":"")); g.dataset.key=p.key;
         g.title=isSugg?"Suggerita dagli elementi sul palco — click per aggiungerla":"Aggiungi al PDF";
         g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRenderPills(); pdfUpdateTechNote(); });
         host.appendChild(g);
