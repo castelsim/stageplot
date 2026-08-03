@@ -2570,6 +2570,98 @@ function venueImageBundleSig(bundle){
   }).filter(Boolean).join("|");
 }
 function venueStorageKey(sig){ return LS_KEY_VENUE+"."+venueDataHash(sig).replace(":","_"); }
+/* ===== Peso della planimetria =====
+   La ricompressione all'import guardava SOLO i pixel (lato > 2000). Ma il peso non discende dai
+   pixel: una scansione 1476×1190 può occupare 8,3 MB in PNG, mentre un JPEG 3000×2000 ne occupa
+   0,5. Il 03/08/2026 una planimetria del genere ha riempito l'archivio del browser e reso
+   impossibile aprire qualsiasi progetto. Si decide sul peso, e i pixel restano un secondo limite. */
+var VENUE_MAXSIDE=2000, VENUE_MAXBYTES=600*1024, VENUE_MINGAIN=0.25;
+function venueDataUrlBytes(durl){
+  var s=String(durl||""), i=s.indexOf(","); if(i<0) return 0;
+  var b64=s.slice(i+1), pad=(b64.slice(-2).match(/=/g)||[]).length;
+  return Math.max(0, Math.floor(b64.length*3/4)-pad);
+}
+function venueNeedsCompression(durl,iw,ih){
+  return Math.max(Number(iw)||0,Number(ih)||0)>VENUE_MAXSIDE || venueDataUrlBytes(durl)>VENUE_MAXBYTES;
+}
+/* Fra i candidati vince il più leggero, ma solo se il guadagno ripaga la perdita di qualità:
+   ricomprimere un disegno tecnico per limare il 5% non ha senso. null = tieni l'originale. */
+function venuePickSmallest(cands,sourceBytes){
+  var best=null, bestBytes=Infinity;
+  (cands||[]).forEach(function(c){
+    if(!c||!c.durl) return;
+    var b=venueDataUrlBytes(c.durl);
+    if(b>0&&b<bestBytes){ best=c; bestBytes=b; }
+  });
+  if(!best) return null;
+  if(!(sourceBytes>0)) return best;
+  return bestBytes<=sourceBytes*(1-VENUE_MINGAIN) ? best : null;
+}
+function fmtPeso(bytes){
+  var b=Number(bytes)||0;
+  return b>=1024*1024 ? (b/1024/1024).toFixed(1).replace(".",",")+" MB" : Math.round(b/1024)+" KB";
+}
+/* Un PNG con trasparenza non può diventare JPEG (il fondo diventerebbe nero e coprirebbe il palco):
+   si campiona il canale alpha e, se c'è, restano solo i formati che la conservano. In caso di
+   dubbio — canvas illeggibile — si assume che la trasparenza ci sia. */
+function venueHasAlpha(cg,w,h){
+  try{
+    var d=cg.getImageData(0,0,w,h).data;
+    for(var i=3;i<d.length;i+=4*17) if(d[i]<255) return true;
+    return false;
+  }catch(e){ return true; }
+}
+/* Ridimensiona (se serve) e prova più codifiche, tenendo la più leggera. WebP prima del JPEG:
+   su un disegno al tratto il JPEG lascia aloni attorno alle linee. */
+function venueRecompress(img,iw,ih,source){
+  if(typeof document==="undefined"||!document.createElement) return null;
+  var maxs=Math.max(iw,ih), sc=(maxs>VENUE_MAXSIDE&&maxs>0)?VENUE_MAXSIDE/maxs:1;
+  var cw=Math.max(1,Math.round(iw*sc)), ch=Math.max(1,Math.round(ih*sc));
+  var cv=document.createElement("canvas"); if(!cv) return null;
+  cv.width=cw; cv.height=ch;
+  var cg=cv.getContext&&cv.getContext("2d"); if(!cg) return null;
+  try{ cg.drawImage(img,0,0,cw,ch); }catch(e){ return null; }
+  /* Safari non ha WebP in canvas (toDataURL torna un PNG): lì resta il JPEG, che però non può
+     portare la trasparenza — un PNG trasparente su Safari resta quindi com'è, ed è giusto così. */
+  var formati=[["image/webp",0.92],["image/webp",0.82]];
+  if(!venueHasAlpha(cg,cw,ch)) formati.push(["image/jpeg",0.85]);
+  var cands=[];
+  formati.forEach(function(f){
+    try{
+      var d=cv.toDataURL(f[0],f[1]);
+      /* formato non supportato dal browser → toDataURL torna un PNG: non è un candidato valido */
+      if(d && d.indexOf("data:"+f[0])===0) cands.push({durl:d,w:cw,h:ch});
+    }catch(e){}
+  });
+  if(!cands.length) return null;
+  var best=venuePickSmallest(cands,venueDataUrlBytes(source));
+  /* col solo ridimensionamento i pixel cambiano comunque: va applicato anche senza guadagno di peso */
+  return best || (sc<1 ? cands[0] : null);
+}
+/* ===== Blob planimetria orfani =====
+   Le chiavi sono indirizzate dal CONTENUTO e non venivano mai rimosse: sostituendo la planimetria
+   se ne accumulava una nuova da megabyte e la vecchia restava in archivio per sempre. */
+function orphanVenueKeys(allKeys,keepKeys){
+  var pref=LS_KEY_VENUE+".";
+  return (allKeys||[]).filter(function(k){
+    return typeof k==="string" && k.indexOf(pref)===0 && (keepKeys||[]).indexOf(k)<0;
+  });
+}
+function sweepVenueBlobs(){
+  /* Mai su documento altrui (consulenza/viewer) né su documento non caricato: lì non si sa cosa sia
+     ancora vivo, e una rimozione azzardata costerebbe la planimetria di un progetto vero. */
+  if(foreignDoc() || window.__docLoadBlocked || window.__localStorageUnavailable) return 0;
+  try{
+    var keep=[];
+    if(venuePersistedKey) keep.push(venuePersistedKey);
+    var sig=venueImageBundleSig(); if(sig) keep.push(venueStorageKey(sig));
+    loadVersions().forEach(function(v){ if(v&&typeof v.venueKey==="string") keep.push(v.venueKey); });
+    var all=[]; for(var i=0;i<localStorage.length;i++) all.push(localStorage.key(i));
+    var orfani=orphanVenueKeys(all,keep), n=0;
+    orfani.forEach(function(k){ try{ localStorage.removeItem(k); n++; }catch(_e){} });
+    return n;
+  }catch(e){ return 0; }
+}
 function normalizeVenueImageBundle(raw,legacyActive){
   var parsed=raw;
   if(typeof raw==="string"){ try{ parsed=JSON.parse(raw); }catch(e){ return null; } }
@@ -18593,6 +18685,24 @@ function renderVenuePanel(){
   var alt=document.getElementById("vstep2alt");
   if(alt){ alt.hidden = !hasImg || cal;
     if(hasImg && !cal){ var rw=document.getElementById("venueRealW"); if(rw && !rw.value) rw.value=(v.w/100).toFixed(1); } }
+  /* Il peso si mostra solo quando è un problema: una planimetria pesante riempie l'archivio del
+     browser e, oltre una certa soglia, impedisce di creare i punti di recupero (03/08/2026). */
+  var wr=document.getElementById("venueWeightRow");
+  if(wr){
+    var pesante=hasImg && venueNeedsCompression(v._dataUrl, v._imgW, v._imgH);
+    wr.hidden=!pesante;
+    if(pesante){
+      /* Se è già compressa e dentro il lato massimo, ricomprimerla non guadagna nulla: si toglie il
+         bottone invece di lasciarne uno che al clic non fa niente. */
+      var gia=/^data:image\/(webp|jpeg)/i.test(String(v._dataUrl)) &&
+        Math.max(Number(v._imgW)||0,Number(v._imgH)||0)<=VENUE_MAXSIDE;
+      var wt=document.getElementById("venueWeightTxt");
+      if(wt) wt.textContent="Occupa "+fmtPeso(venueDataUrlBytes(v._dataUrl))+" sul dispositivo"+
+        (gia?": è già compressa al meglio, per alleggerirla serve un'immagine di partenza più piccola."
+            :": tanto spazio per una pianta di sfondo.");
+      var bl=document.getElementById("venueBtnLighten"); if(bl) bl.hidden=gia;
+    }
+  }
   document.getElementById("venueReload").hidden = !(v&&v.name&&!v._dataUrl);
   if(v&&v.name&&!v._dataUrl) document.getElementById("venueReloadName").textContent=v.name;
   document.getElementById("venueOpacity").value = v?v.opacity:40;
@@ -18838,14 +18948,17 @@ function venueLoadFile(file){
     var img=new Image();
     img.onload=function(){
       if(!stillCurrent()) return;
-      /* downscale a ~2000px lato lungo + ricompressione JPEG: tiene l'immagine salvabile (quota localStorage, payload cloud) */
-      var MAXS=2000, iw=img.naturalWidth, ih=img.naturalHeight, durl=source;
-      if(Math.max(iw,ih)>MAXS){
-        var sc=MAXS/Math.max(iw,ih), cw=Math.round(iw*sc), ch=Math.round(ih*sc);
-        var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
-        var cg=cv.getContext("2d");
-        if(cg){ cg.drawImage(img,0,0,cw,ch);
-          try{ durl=cv.toDataURL("image/jpeg",0.85); iw=cw; ih=ch; }catch(e){}
+      /* Downscale oltre il lato massimo E ricompressione oltre il peso massimo: tiene l'immagine
+         salvabile (quota localStorage, payload cloud). La soglia di solo-pixel lasciava passare
+         intatte le scansioni pesanti — vedi venueNeedsCompression. */
+      var iw=img.naturalWidth, ih=img.naturalHeight, durl=source;
+      if(venueNeedsCompression(source,iw,ih)){
+        var got=venueRecompress(img,iw,ih,source);
+        if(got){
+          var primaKB=Math.round(venueDataUrlBytes(source)/1024), dopoKB=Math.round(venueDataUrlBytes(got.durl)/1024);
+          durl=got.durl; iw=got.w; ih=got.h;
+          if(primaKB-dopoKB>200 && window.__toast)
+            window.__toast("Planimetria alleggerita: "+fmtPeso(primaKB*1024)+" → "+fmtPeso(dopoKB*1024)+".");
         }
       }
       if(!stillCurrent()) return;   /* il downscale può essere costoso: ricontrolla prima del commit */
@@ -18987,6 +19100,32 @@ document.getElementById("venueRealWApply").addEventListener("click", function(){
 /* listener pannello venue */
 document.getElementById("svg").addEventListener("pointermove", venueLensUpdate);
 document.getElementById("venueCalibDist").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); venueCalibApply(); } });
+/* Alleggerisce la planimetria GIÀ caricata: l'import ricomprime solo ciò che passa da lì, ma le
+   planimetrie importate prima (o arrivate dal cloud) restano pesanti quanto erano. */
+function venueLightenCurrent(){
+  var v=state.venue;
+  if(!v||!v._dataUrl){ if(window.__toast) window.__toast("Nessuna planimetria da alleggerire.",true); return; }
+  var prima=venueDataUrlBytes(v._dataUrl), src=v._dataUrl;
+  var img=new Image();
+  img.onload=function(){
+    if(state.venue!==v || v._dataUrl!==src) return;   /* cambiata nel frattempo: non sovrascrivere */
+    var got=venueRecompress(img, img.naturalWidth||v._imgW, img.naturalHeight||v._imgH, src);
+    if(!got){ if(window.__toast) window.__toast("Questa planimetria è già al minimo: non si guadagna nulla a ricomprimerla."); return; }
+    var durl=safeVenueDataUrl(got.durl);
+    if(!durl){ if(window.__toast) window.__toast("Ricompressione non riuscita.",true); return; }
+    /* La scala sul palco NON cambia: si toccano i pixel della bitmap, non w/h in centimetri. */
+    v._dataUrl=durl; v._imgW=got.w; v._imgH=got.h;
+    cacheVenueImg(v,activeVar);
+    save(); renderVenuePanel(); render();
+    var dopo=venueDataUrlBytes(durl);
+    if(window.__toast) window.__toast("Planimetria alleggerita: "+fmtPeso(prima)+" → "+fmtPeso(dopo)+
+      ". La scala sul palco non è cambiata.");
+    sweepVenueBlobs();   /* il blob vecchio non è più referenziato da nessuno */
+  };
+  img.onerror=function(){ if(window.__toast) window.__toast("Impossibile rileggere la planimetria.",true); };
+  img.src=src;
+}
+document.getElementById("venueBtnLighten").addEventListener("click", venueLightenCurrent);
 document.getElementById("venueBtnImport").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
 document.getElementById("venueFile").addEventListener("change", function(e){ venueLoadFile(e.target.files&&e.target.files[0]); e.target.value=""; });
 document.getElementById("venueBtnReload").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
@@ -22889,6 +23028,9 @@ var sharedLoaded=!/[?&]view=/.test(location.search) && loadFromHash();   /* ?vie
    Il foglio pulito ora è un gesto esplicito: File → Nuovo. Niente ripristino per link condivisi (#p=)
    e sessioni consulenza (?view=), che portano il proprio stato. */
 if(!sharedLoaded && !/[?&]view=/.test(location.search) && !localBootDone) load();
+/* Documento caricato: ora si sa quali planimetrie sono vive e si possono buttare quelle che nessuno
+   referenzia più. Prima del load NON si può: si cancellerebbe la bitmap che sta per essere letta. */
+try{ var _vSwept=sweepVenueBlobs(); if(_vSwept) console.info("[planimetrie] rimossi "+_vSwept+" blob non più referenziati"); }catch(_e){}
 /* Parametri di scenario/demo e link documento sono mutuamente esclusivi. Un URL combinato non deve
    mutare lo state transitorio mentre il viewer o il guard del link stanno ancora caricando. */
 var allowStartupScenario=!/[?&]view=/.test(location.search) && !hasSharedHash;

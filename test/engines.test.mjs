@@ -946,6 +946,8 @@ function withVenueStore(A, cap, body) {
   const writes = [];
   try {
     A.localStorage = {
+      get length() { return store.size; },
+      key: (i) => [...store.keys()][i] ?? null,
       getItem: (key) => (store.has(key) ? store.get(key) : null),
       setItem: (key, value) => {
         writes.push([key, String(value).length]);
@@ -1024,6 +1026,74 @@ t("punto di recupero: senza blob referenziabile resta autosufficiente", () => {
       ok(!rows[0].venueKey, "nessun riferimento a un blob che non esiste");
       ok(String(rows[0].data).indexOf("_dataUrl") >= 0, "la bitmap viaggia dentro la riga");
     } finally { A.__consultMode = oldConsult; }
+  });
+});
+/* PLANIMETRIE PESANTI E BLOB ORFANI — le due cause a monte del blocco del 03/08/2026.
+   (a) la ricompressione scattava solo sopra i 2000 px di lato: una scansione 1476×1190 da 8,3 MB
+       passava intatta, perché il PESO non veniva mai guardato;
+   (b) i blob della planimetria non venivano MAI rimossi: cambiando immagine se ne accumulava una
+       nuova da megabyte e la vecchia restava in archivio per sempre. */
+t("planimetria: si ricomprime per PESO, non solo per numero di pixel", () => {
+  const b64 = (kb) => "data:image/png;base64," + "Q".repeat(Math.round(kb * 1024 * 4 / 3));
+  ok(A.venueDataUrlBytes(b64(100)) > 95 * 1024 && A.venueDataUrlBytes(b64(100)) < 105 * 1024,
+    "il peso di un data URL è stimato dai byte reali, non dai caratteri");
+  eq(A.venueNeedsCompression(b64(8300), 1476, 1190), true,
+    "la scansione di Simone: piccola di lato, enorme di peso");
+  eq(A.venueNeedsCompression(b64(40), 1476, 1190), false, "una planimetria leggera si lascia stare");
+  eq(A.venueNeedsCompression(b64(40), 4000, 2500), true, "restano fuori scala anche i lati enormi");
+});
+t("planimetria: fra i candidati vince il più piccolo, e mai uno peggiore dell'originale", () => {
+  const orig = { durl: "data:image/png;base64," + "Q".repeat(4000), w: 1476, h: 1190 };
+  const origBytes = A.venueDataUrlBytes(orig.durl);
+  const piccolo = { durl: "data:image/webp;base64," + "Q".repeat(400), w: 1476, h: 1190 };
+  const medio = { durl: "data:image/jpeg;base64," + "Q".repeat(1200), w: 1476, h: 1190 };
+  eq(A.venuePickSmallest([medio, piccolo], origBytes).durl, piccolo.durl, "vince il più leggero");
+  eq(A.venuePickSmallest([], origBytes), null, "nessun candidato: si tiene l'originale");
+  const grasso = { durl: "data:image/webp;base64," + "Q".repeat(9000), w: 1476, h: 1190 };
+  eq(A.venuePickSmallest([grasso], origBytes), null, "un candidato più pesante non sostituisce nulla");
+  const appena = { durl: "data:image/webp;base64," + "Q".repeat(3700), w: 1476, h: 1190 };
+  eq(A.venuePickSmallest([appena], origBytes), null,
+    "guadagno irrisorio: non vale la perdita di qualità");
+});
+t("planimetrie orfane: si rimuove solo ciò che nessuno referenzia più", () => {
+  const K = A.LS_KEY_VENUE;
+  const tutte = [K + ".aaa_1", K + ".bbb_2", K + ".ccc_3", K, "stageplot_v1", "stageplot_versions"];
+  eq(A.orphanVenueKeys(tutte, [K + ".bbb_2"]), [K + ".aaa_1", K + ".ccc_3"],
+    "orfani solo i blob indirizzati per contenuto e non referenziati");
+  eq(A.orphanVenueKeys(tutte, []).indexOf(K), -1, "la chiave legacy senza suffisso non si tocca mai");
+  eq(A.orphanVenueKeys(tutte, []).indexOf("stageplot_v1"), -1, "il documento non si tocca mai");
+});
+t("pulizia planimetrie: tiene quella in uso e quelle delle versioni salvate", () => {
+  withVenueStore(A, 4 * 1024 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "con planimetria", venue: heavyVenue(20),
+      items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
+    eq(A.persistLocalState(), true, "documento e planimetria in archivio");
+    const inUso = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."))[0];
+    ok(inUso, "il blob in uso esiste");
+    eq(A.saveVersion("Una versione"), true, "una versione salvata punta a quel blob");
+
+    /* due blob di planimetrie sostituite in passato, che nessuno referenzia più */
+    store.set(A.LS_KEY_VENUE + ".vecchia1_9", "{\"_venueDoc\":2,\"assets\":{}}");
+    store.set(A.LS_KEY_VENUE + ".vecchia2_9", "{\"_venueDoc\":2,\"assets\":{}}");
+    eq(A.sweepVenueBlobs(), 2, "due orfani rimossi");
+    const rimasti = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."));
+    eq(rimasti, [inUso], "resta solo il blob vivo");
+    eq(A.sweepVenueBlobs(), 0, "una seconda passata non trova più nulla");
+  });
+});
+t("pulizia planimetrie: non tocca nulla su documento altrui o non caricato", () => {
+  withVenueStore(A, 4 * 1024 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "x", venue: heavyVenue(20), items: [], inputs: [], outputs: [] });
+    A.persistLocalState();
+    store.set(A.LS_KEY_VENUE + ".orfano_9", "{}");
+    const oldConsult = A.__consultMode, oldBlocked = A.__docLoadBlocked;
+    try {
+      A.__consultMode = true;
+      eq(A.sweepVenueBlobs(), 0, "in consulenza/viewer non si tocca l'archivio dell'utente");
+      A.__consultMode = false; A.__docLoadBlocked = { code: "FUTURE_SCHEMA" };
+      eq(A.sweepVenueBlobs(), 0, "con documento non caricato non si sa cosa sia vivo");
+    } finally { A.__consultMode = oldConsult; A.__docLoadBlocked = oldBlocked; }
+    ok(store.has(A.LS_KEY_VENUE + ".orfano_9"), "l'orfano è ancora lì: nessuna rimozione azzardata");
   });
 });
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
