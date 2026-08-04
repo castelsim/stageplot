@@ -9,10 +9,8 @@ function cloneJson<T>(value: T): T {
   return encoded === undefined ? value : JSON.parse(encoded) as T;
 }
 
-function redactState(state: unknown, allowContacts: boolean): void {
+function stripContacts(state: unknown): void {
   if (!isRecord(state)) return;
-  const opts = isRecord(state.shareOpts) ? state.shareOpts : null;
-  if (allowContacts && opts?.contacts === true) return;
   delete state.contacts;
   delete state.techContact;
   delete state.pdfHeader;
@@ -20,11 +18,37 @@ function redactState(state: unknown, allowContacts: boolean): void {
 }
 
 /**
+ * Il consenso a pubblicare i contatti è UNO, del documento — perché di link ce n'è uno.
+ *
+ * Era un opt-in della singola variante: lo stesso indirizzo pubblicava o nascondeva nome, telefono
+ * ed email dei collaboratori a seconda di quale scena fosse attiva, e l'utente vedeva
+ * l'interruttore della sola scena aperta (caccia ai bug 03/08/2026).
+ *
+ * Ordine di lettura: il `shareOpts` di documento comanda. I documenti creati prima — che lo hanno
+ * solo dentro le varianti — acconsentono soltanto se TUTTE le varianti acconsentono: se anche una
+ * sola diceva no, quel no l'utente l'ha visto e vale per il link intero. Sono dati personali di
+ * terzi, quindi ogni caso incerto sta dalla parte del no.
+ */
+function contactsAllowedByDocument(doc: JsonRecord): boolean {
+  const docOpts = isRecord(doc.shareOpts) ? doc.shareOpts : null;
+  if (docOpts) return docOpts.contacts === true;
+  if (Array.isArray(doc.variants)) {
+    const withOpts = doc.variants.filter((v) => isRecord(v) && isRecord(v.state) && isRecord(v.state.shareOpts));
+    if (!withOpts.length) return false;
+    return withOpts.every((v) => {
+      const st = (v as JsonRecord).state as JsonRecord;
+      return (st.shareOpts as JsonRecord).contacts === true;
+    });
+  }
+  return false;
+}
+
+/**
  * Produce la sola proiezione pubblicabile di un progetto.
  *
- * Il link pubblico rappresenta soltanto la variante attiva mostrata dalla UI.
- * Il toggle contatti è un opt-in di quella variante. La funzione lavora su una
- * copia JSON e non modifica mai il record letto dal database.
+ * Il link pubblico rappresenta soltanto la variante attiva mostrata dalla UI, ma il PERMESSO è del
+ * documento (vedi contactsAllowedByDocument). La funzione lavora su una copia JSON e non modifica
+ * mai il record letto dal database.
  */
 export function projectDataForPublicShare(
   data: unknown,
@@ -35,6 +59,8 @@ export function projectDataForPublicShare(
   const out = cloneJson(data);
   if (!isRecord(out)) return out;
 
+  const consenso = allowContacts && contactsAllowedByDocument(out);
+
   if (Array.isArray(out.variants)) {
     const active = typeof out.active === "string" ? out.active : "";
     const selected = out.variants.find((variant) =>
@@ -42,10 +68,10 @@ export function projectDataForPublicShare(
       isRecord(variant.state)
     );
     const state = isRecord(selected) ? cloneJson(selected.state) : {};
-    redactState(state, allowContacts);
+    if (!consenso) stripContacts(state);
     return state;
   }
-  redactState(out, allowContacts);
+  if (!consenso) stripContacts(out);
   return out;
 }
 
@@ -62,10 +88,10 @@ export function redactSnapshotForFeedback(snapshot: unknown): unknown {
   if (!isRecord(out)) return out;
   if (Array.isArray(out.variants)) {
     for (const v of out.variants) {
-      if (isRecord(v) && isRecord(v.state)) redactState(v.state, false);
+      if (isRecord(v) && isRecord(v.state)) stripContacts(v.state);
     }
   }
-  redactState(out, false);
+  stripContacts(out);
   return out;
 }
 
