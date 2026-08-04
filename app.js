@@ -2721,10 +2721,42 @@ function docToJSON(){ syncActiveVariant(); return JSON.stringify(documentEnvelop
   VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:v.state }; }))); }
 /* come docToJSON ma la variante attiva porta lo state COMPLETO con la planimetria (_dataUrl) — export su file.
    Le altre varianti condividono l'immagine per nome: all'import viene messa in cache e riagganciata al primo switch. */
-function docToJSONFull(){ syncActiveVariant();
+function docToJSONFull(){
+  syncActiveVariant();
+  /* La scena attiva porta la planimetria per intero; le gemelle — una scena nasce come copia
+     dell'altra — la dichiarano con `_sameAs` invece di ripeterne il base64. È quello che il
+     commento di questa funzione prometteva da sempre («le altre varianti condividono l'immagine»)
+     mentre il codice ne scriveva una copia per scena: 488 KB diventavano 1954 KB con quattro scene,
+     nel file esportato e in ogni punto di recupero. Le scene con una pianta DIVERSA se la portano
+     tutta: qui non si perde niente. */
+  var attivaKey=String(activeVar||"");
+  /* Ogni immagine viene scritta UNA volta, dalla prima scena che la porta; chi ha la stessa la
+     dichiara con `_sameAs`. L'attiva va per prima e scrive sempre per intero, così chi apre il file
+     vede subito ciò che stava guardando chi l'ha esportato. */
+  var padrone={};   /* firma immagine → id della scena che la contiene davvero */
+  var ordine=VARIANTS.slice().sort(function(a,b){
+    return (String(a.id)===attivaKey?0:1)-(String(b.id)===attivaKey?0:1);
+  });
+  var scritte={};
+  ordine.forEach(function(v){
+    var c=venueImgCache[String(v.id)];
+    var du=(c&&c._dataUrl)?c._dataUrl:((v.state&&v.state.venue&&v.state.venue._dataUrl)||null);
+    if(!du) return;
+    var sig=(c&&c._sig)?c._sig:venueDataHash(du);
+    if(padrone[sig]==null) padrone[sig]=String(v.id);
+    scritte[String(v.id)]=sig;
+  });
   return JSON.stringify(documentEnvelope(activeVar,
-    VARIANTS.map(function(v){ var full=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(full,v.id); full._v=SCHEMA_VERSION;
-      return { id:v.id, name:v.name, state:full }; }))); }
+    VARIANTS.map(function(v){
+      var full=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(full,v.id); full._v=SCHEMA_VERSION;
+      var sig=scritte[String(v.id)];
+      if(sig && full.venue && full.venue._dataUrl && padrone[sig]!==String(v.id)){
+        delete full.venue._dataUrl; delete full.venue._imgW; delete full.venue._imgH;
+        full.venue._sameAs=padrone[sig];
+      }
+      return { id:v.id, name:v.name, state:full };
+    })));
+}
 /* applica uno stato piatto al `state` vivo (nessun undo, nessuno stacco id cloud): riuso guidato da chi chiama.
    I documenti persistiti passano SOLO dal normalizzatore versionato: sanitizeItems è riservato agli input AI grezzi
    e la sua whitelist non rappresenta lo schema completo del progetto. */
@@ -2818,8 +2850,17 @@ function commitPreparedDoc(prepared){
   window.__respLoadSeq=(window.__respLoadSeq||0)+1; window.__respData=null;   /* nessun contatto account attraversa il progetto */
   VARIANTS=prepared.variants; activeVar=prepared.active; DOC_EXTRA=prepared.extra||{};
   venueImgCache=Object.create(null);   /* confine documento: nessuna bitmap del progetto precedente può attraversarlo */
+  VARIANTS.forEach(function(v){ cacheVenueImg(v.state&&v.state.venue,v.id); });
+  /* Secondo giro: le scene che dichiarano `_sameAs` riprendono la bitmap dalla scena indicata.
+     Va fatto DOPO il primo, o dipenderebbe dall'ordine delle varianti nel file. */
   VARIANTS.forEach(function(v){
-    cacheVenueImg(v.state&&v.state.venue,v.id);
+    var ve=v.state&&v.state.venue;
+    if(!ve || ve._dataUrl || typeof ve._sameAs!=="string") return;
+    var src=venueImgCache[String(ve._sameAs)];
+    if(src&&src._dataUrl){ venueImgCache[String(v.id)]={name:ve.name||src.name,_dataUrl:src._dataUrl,
+      _imgW:src._imgW,_imgH:src._imgH,_sig:src._sig}; }
+  });
+  VARIANTS.forEach(function(v){
     v.state=JSON.parse(JSON.stringify(v.state,stateReplacer));   /* il blob leggero resta privo delle bitmap */
   });
   bumpDocumentEpoch();   /* invalida callback cloud asincrone appartenenti al documento precedente */
@@ -18720,6 +18761,9 @@ function normalizeVenue(v){
   var iw=Number(v._imgW), ih=Number(v._imgH);
   if(isFinite(iw)&&iw>0&&iw<=100000) o._imgW=Math.round(iw);
   if(isFinite(ih)&&ih>0&&ih<=100000) o._imgH=Math.round(ih);
+  /* «la mia pianta è quella della scena X»: nei file esportati le scene gemelle non ripetono il
+     base64 (vedi docToJSONFull). Va conservato o l'immagine non si riaggancia alla riapertura. */
+  if(!du && typeof v._sameAs==="string" && v._sameAs && v._sameAs.length<=80) o._sameAs=v._sameAs;
   return o;
 }
 
