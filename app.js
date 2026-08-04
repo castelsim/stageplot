@@ -3275,7 +3275,7 @@ function cloudAutosaveNow(){
   var saveEpoch=window.__docEpoch||0, saveSeq=_cloudChangeSeq;
   _cloudSaving=true;
   setDocState("saving");
-  C.save(function(id){
+  C.save(function(id, motivo){
     _cloudSaving=false;
     if((window.__docEpoch||0)!==saveEpoch){
       resolveCloudFlush(false);
@@ -3287,6 +3287,15 @@ function cloudAutosaveNow(){
       if(saveSeq===_cloudChangeSeq) _cloudDirty=false;
       setDocState("online"); _cloudRetryStep=0;
       if(_cloudDirty) cloudAutosaveNow(); else resolveCloudFlushWhenIdle(true);   /* modifiche durante il volo → secondo snapshot */
+    } else if(motivo==="empty"){
+      /* Documento ancora vuoto: saveProject ha deciso di non depositare un guscio nell'elenco e ha
+         già messo «Salvato sul dispositivo». Non è un fallimento: niente pastiglia rossa, niente
+         retry, e chi aspetta per cambiare progetto ha via libera — non c'è nulla da mettere al
+         sicuro. Prima questo `null` veniva letto come errore e l'utente restava chiuso fuori dai
+         propri progetti finché non posava un elemento sul palco. */
+      if(saveSeq===_cloudChangeSeq) _cloudDirty=false;
+      _cloudRetryStep=0;
+      resolveCloudFlushWhenIdle(true);
     } else {
       setDocState("error"); resolveCloudFlush(false); scheduleCloudRetry();
     }
@@ -14149,10 +14158,18 @@ function stateHasMeaningfulWork(s){
     Number(blocks[0]&&blocks[0].w)!==1200 || Number(blocks[0]&&blocks[0].d)!==800 ||
     !!(blocks[0]&&blocks[0].h);
 }
+/* Chiavi di SERVIZIO del documento: impostazioni, non lavoro dell'utente. `shareOpts` dal 04/08
+   viene scritta SEMPRE da prepareDoc (permesso unico del link), quindi contarla come contenuto
+   renderebbe «pieno» ogni documento appena creato — e tornerebbero i gusci «Senza titolo»
+   nell'elenco cloud che il ramo del documento vuoto esiste apposta per evitare. */
+var DOC_EXTRA_SERVIZIO={shareOpts:1};
+function docExtraHasWork(){
+  return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
+}
 function hasMeaningfulDocument(){
   try{
     syncActiveVariant();
-    if(Object.keys(DOC_EXTRA||{}).length || VARIANTS.length>1) return true;
+    if(docExtraHasWork() || VARIANTS.length>1) return true;
     return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state); });
   }catch(e){ return true; }   /* se non riusciamo a classificare il documento, trattalo come lavoro da proteggere */
 }
@@ -23820,10 +23837,14 @@ function maybeAskStageSize(explicit){
   function saveProject(onSaved, silent, lockHeld){
     /* silent=true → autosave (V2): niente toast, niente prompt nome (default "Senza titolo"), esito via onSaved(id|null) */
     var hasLock=!!lockHeld, finished=false;
-    function done(id){
+    /* Il secondo argomento è il MOTIVO del mancato salvataggio: `null` da solo non distingue
+       «non c'era niente da salvare» (documento vuoto: va benissimo) da «ho provato e non ci sono
+       riuscito». Chi ascolta li trattava allo stesso modo, e un documento appena creato faceva
+       comparire «Salvataggio interrotto» chiudendo l'utente fuori dai propri progetti (04/08). */
+    function done(id, motivo){
       if(finished) return; finished=true;
       if(hasLock){ cloudWriteBusy=false; hasLock=false; }
-      try{ if(typeof onSaved==="function") onSaved(id||null); }catch(e){}
+      try{ if(typeof onSaved==="function") onSaved(id||null, motivo||null); }catch(e){}
       if(!cloudWriteBusy) drainCloudWriteQueue();
     }
     function fail(msg){
@@ -23844,7 +23865,7 @@ function maybeAskStageSize(explicit){
        se l'utente preme Salva, il progetto lo vuole anche vuoto. */
     if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument()){
       try{ setDocState("local"); }catch(_e){}   /* «Salvato sul dispositivo»: è la verità finché è vuoto */
-      done(null); return;
+      done(null, "empty"); return;
     }
     if(!sb){ fail("Cloud non disponibile."); return; }
     if(!cloudUser){ if(!silent){ toast("Accedi per salvare online."); signIn(); } done(null); return; }
