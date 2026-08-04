@@ -1391,6 +1391,73 @@ t("export: riaprendo il file, la scena gemella RIVEDE la sua planimetria", () =>
     ok(String(file2).length < String(file).length * 1.6, "e non si rigonfia");
   } finally { A.loadDoc(JSON.parse(before)); }
 });
+/* DANTE APPICCICATO AL COMPUTER — ultimo reperto della prima caccia (03/08/2026).
+   Si collega il computer a una console con Dante, si sceglie Dante, poi si ritrascina lo stesso cavo
+   su una stage box. La scelta restava: la Lista canali diceva «Mic/DI = Dante» con «Patch = B·1»
+   (un canale Dante su una porta mic/line), nessuna DI veniva proposta benché il collegamento fosse
+   tornato analogico, e il pannello — che mostra il selettore della via solo se il computer è su un
+   mixer — non lasciava più correggere. Tre viste della stessa connessione, tre risposte diverse. */
+function scenaComputerVia(A, opzioni) {
+  const before = A.docToJSON();
+  A.loadDoc({
+    _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+    stage: { w: 1400, d: 900, blocks: [{ x: 0, y: 0, w: 1400, d: 900 }] },
+    items: [
+      { id: "pc", type: "laptop", x: 400, y: 400 },
+      { id: "mix", type: "mixer", x: 1000, y: 800, hw: "dm3" },   /* DM3-D: ha il Dante */
+      { id: "sb", type: "stagebox", x: 200, y: 800 },
+    ],
+    cab: { on: true, mode: "manual", manual: {} },
+  });
+  const pc = A.state.items.filter((i) => i.id === "pc")[0];
+  A.cabSetItemBox(pc, "mix");
+  A.cabSetVia(pc, "dante");
+  const dopoScelta = { via: A.compViaOf(pc), dvs: A.dvsOn(pc),
+    mic: (A.cabItemInputs(pc)[0] || {}).mic };
+  if (opzioni && opzioni.spostaSuBox) A.cabSetItemBox(pc, "sb");
+  const fine = { via: A.compViaOf(pc), dvs: A.dvsOn(pc), mic: (A.cabItemInputs(pc)[0] || {}).mic };
+  A.loadDoc(JSON.parse(before));
+  return { dopoScelta, fine };
+}
+t("computer: la scelta Dante vale finché il cavo è sulla console che ce l'ha", () => {
+  const r = scenaComputerVia(A, { spostaSuBox: false });
+  eq(r.dopoScelta.via, "dante", "scelta registrata");
+  eq(r.dopoScelta.mic, "Dante", "e la Lista canali la riporta");
+  eq(r.dopoScelta.dvs, true, "la scheda virtuale Dante è in scena");
+  eq(r.fine.via, "dante", "restando sulla console, niente cambia");
+});
+t("computer: spostando il cavo su una stage box il Dante decade, e le tre viste concordano", () => {
+  const r = scenaComputerVia(A, { spostaSuBox: true });
+  eq(r.dopoScelta.via, "dante", "si parte da Dante scelto davvero");
+  eq(r.fine.via, "an", "sulla stage box la via torna analogica: quella porta è mic/line");
+  eq(r.fine.mic, "DI", "la Lista canali dice DI, non più Dante");
+  eq(r.fine.dvs, false, "e la scheda virtuale Dante sparisce dalla lista Rete");
+});
+t("computer: spostandosi su una console SENZA Dante la scelta decade lo stesso", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc({
+      _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+      stage: { w: 1400, d: 900, blocks: [{ x: 0, y: 0, w: 1400, d: 900 }] },
+      items: [
+        { id: "pc", type: "laptop", x: 400, y: 400 },
+        { id: "conD", type: "mixer", x: 1000, y: 800, hw: "dm3" },       /* DM3-D: col Dante */
+        { id: "conStd", type: "mixer", x: 700, y: 800, hw: "dm3std" },   /* DM3 STANDARD: senza */
+      ],
+      cab: { on: true, mode: "manual", manual: {} },
+    });
+    const pc = A.state.items.filter((i) => i.id === "pc")[0];
+    A.cabSetItemBox(pc, "conD"); A.cabSetVia(pc, "dante");
+    eq(A.compViaOf(pc), "dante", "sulla console col Dante la scelta vale");
+    A.cabSetItemBox(pc, "conStd");
+    eq(A.compViaOf(pc), "an", "su quella senza, decade: offrirlo sarebbe una bugia");
+
+    /* la via USB, che entrambe hanno, invece sopravvive allo spostamento */
+    A.cabSetVia(pc, "usb");
+    A.cabSetItemBox(pc, "conD");
+    eq(A.compViaOf(pc), "usb", "una via che il nuovo modello HA non viene buttata");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;

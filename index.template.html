@@ -7872,10 +7872,30 @@ function compChNum(it){ var n=parseInt(it&&it.plCh,10); if(!isFinite(n)||n<1) n=
 /* La via del computer letta SENZA passare da cabItemRouteKey: quella chiama cabItemInputs, che ora
    ha bisogno della via → ricorsione infinita. La chiave si ricostruisce dal numero di tracce, che
    dalla via non dipende. */
+/* La chiave dell'override della via, ricostruita dal numero di tracce invece che da
+   cabItemRouteKey: quella chiama cabItemInputs, che chiama questa — e si rientrerebbe all'infinito
+   (già successo due volte). Fonte unica: chi legge e chi cancella devono usare la stessa formula. */
+function compViaKey(it){ var n=compChNum(it); return (n>=2 ? "grp:"+it.id : it.id+"#0"); }
 function compViaOf(it){
-  var n=compChNum(it), key=(n>=2 ? "grp:"+it.id : it.id+"#0");
-  var cm=(state.cab&&state.cab.manual)||{}, o=cm[key];
+  var cm=(state.cab&&state.cab.manual)||{}, o=cm[compViaKey(it)];
   return normVia(o&&o.via);
+}
+/* La via digitale era di QUEL mixer. Se il cavo viene spostato su una stage box — o su una console
+   che quella connessione non ce l'ha — decade ad analogico, esattamente come decade la porta scelta
+   a mano. Senza, la Lista canali continuava a dire «Dante» su un cavo che finiva in una porta
+   mic/line, la DI non veniva più proposta, e il pannello (che mostra il selettore solo quando il
+   computer è su un mixer) non lasciava più correggere: tre viste, tre risposte diverse.
+   Qui NON si può interrogare il motore: si guarda solo il modello dell'elemento di destinazione. */
+function compViaDecay(it, targetId){
+  if(!it || !COMP_SRC[it.type]) return false;
+  var via=compViaOf(it); if(via==="an") return false;
+  var t=(state.items||[]).filter(function(x){ return x.id===targetId; })[0];
+  var ok=!!(t && cabMixerIn(t) && mixerConnOpts(t).some(function(o){ return o.id===via; }));
+  if(ok) return false;
+  var cm=(state.cab&&state.cab.manual)||{}, o=cm[compViaKey(it)];
+  if(o) delete o.via;
+  if(typeof diApply==="function") diApply(it);   /* tornando analogico la DI serve di nuovo */
+  return true;
 }
 function mixerConnOpts(it){   /* it = elemento console sul palco → opzioni REALI di quel modello */
   var m=mixerModelOf(it); if(!m) return [];
@@ -9180,6 +9200,7 @@ function cabSetItemBox(it, boxId){
   /* cambiando box la porta scelta a mano decade: il numero era di QUELLA box (29/07) */
   if(isPerMusicianMulti(it)){ for(var i=0;i<n;i++){ var cmi=cabManual(it.id+"#"+i); if(cmi.box!==boxId) delete cmi.port; cmi.box=boxId; delete cmi.auto; } return; }   /* postazione: ogni musicista alla stessa box, ma cavi separati */
   var cm=cabManual(cabItemRouteKey(it)); if(cm.box!==boxId) delete cm.port; cm.box=boxId; delete cm.auto;   /* scelto a mano: non si ridistribuisce più */
+  compViaDecay(it, boxId);   /* la via digitale era di quel mixer: sulla stage box non esiste */
 }
 /* ── Shift+trascina un elemento SOPRA un cavo (stile Max: inserire un oggetto nel patch cord) ──
    Rilasci con Shift una stage box/sub-snake su un cavo audio → quello strumento si ricollega alla
