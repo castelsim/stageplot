@@ -2847,7 +2847,7 @@ var TYPES = {
   woodblock:{nome:"Wood block", dim:"20×5 · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:22,d:10, defLabel:"Wbk",
              draw:function(){   /* blocco pieno di legno con la fenditura longitudinale */
                return lin(0,5,0,2,'ic thin')+bar(0,-1,18,7,'ic fWoodL',2)+lin(-6,-1,6,-1,'ic thin'); }},
-  flexaton: {nome:"Flexaton", dim:"35×12 · a mano", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:12, defLabel:"Flx",
+  flexaton: {nome:"Flexaton", dim:"35×12 · a mano", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:12, defLabel:"Flx", qaCede:"flex",
              draw:function(){   /* lamella flessibile nel telaio a molla, due batacchi di legno su lamine */
                return lin(-16,0,-12,0,'ic thin')+'<path class="ic thin" fill="none" d="M -12,-4 Q -4,0 -12,4"/>'
                  +bar(3,0,24,5,'ic fSilver',2)
@@ -13431,7 +13431,7 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaSrc=false;
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
@@ -13439,7 +13439,7 @@ function qaIndex(){
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
-  _qaName=[]; _qaStrong=[]; _qaAll=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
@@ -13448,6 +13448,7 @@ function qaIndex(){
     _qaName.push(nome);
     _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
     _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
+    _qaCede.push(t&&t.qaCede ? _deacc(t.qaCede) : null);
   });
 }
 /* la query cade all'inizio di una parola? "mic" sta a inizio parola in "Mic coro" e "microfoniche",
@@ -13474,6 +13475,13 @@ function qaSearch(q){
     else if(n.indexOf(q)>-1) r=3;
     else if(s.indexOf(q)>-1) r=4;
     else r=5;
+    /* `qaCede`: query che l'elemento LASCIA a chi le aveva già, anche se per nome vincerebbe.
+       Serve quando un nome nuovo copre per intero una query storica altrui: "flex" era del LED
+       flessibile prima che esistesse il Flexaton. Va in CODA (6, dietro anche a chi matcha solo
+       per categoria) e non declassato di qualche gradino: pareggiare non basta, perché a parità
+       di rango il tie-break manda avanti le categorie musicali. Resta comunque nei risultati,
+       e le query più lunghe non sono toccate — "flexa" continua a dare il Flexaton per primo. */
+    if(_qaCede[i] && (" "+_qaCede[i]+" ").indexOf(" "+q+" ")>-1) r=6;
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
