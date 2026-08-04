@@ -1458,6 +1458,97 @@ t("computer: spostandosi su una console SENZA Dante la scelta decade lo stesso",
     eq(A.compViaOf(pc), "usb", "una via che il nuovo modello HA non viene buttata");
   } finally { A.loadDoc(JSON.parse(before)); }
 });
+/* DOCUMENTO NUOVO E ANCORA VUOTO — seconda ondata (04/08/2026), il reperto più grave.
+   Loggato, File → Nuovo, si conferma il popup dimensioni palco con i valori di default: l'autosave
+   parte, saveProject riconosce il guscio vuoto e risponde `null` — che significa «non c'era niente
+   da salvare», non «salvataggio fallito». Il chiamante lo leggeva come errore: pastiglia rossa
+   «Salvataggio interrotto», retry all'infinito, e ogni «Apri» rispondeva «Apertura sospesa: le
+   modifiche correnti non sono ancora al sicuro nel cloud». Utente chiuso fuori dai propri progetti
+   finché non posava un elemento. Nessun dato a rischio: il documento è vuoto per definizione. */
+function conCloudFinto(A, save, body) {
+  const old = { cloud: A.__cloud, doc: A.document, dirty: A._cloudDirty, saving: A._cloudSaving,
+    blocked: A.__docLoadBlocked, conflict: A.__localConflict, cloudConflict: A.__cloudConflict,
+    locked: A.__projLocked, venue: A.__bootVenueUnavailable, unavailable: A.__localStorageUnavailable };
+  const stati = [];
+  A.document = { body: { classList: { contains: () => false, add() {}, remove() {}, toggle() {} } },
+    getElementById: () => null };
+  A.__docLoadBlocked = null; A.__localConflict = false; A.__cloudConflict = false;
+  A.__projLocked = false; A.__bootVenueUnavailable = false; A.__localStorageUnavailable = false;
+  A.__cloud = { user: () => ({ id: "u" }), currentId: () => null, save, isWriting: () => false };
+  const setDoc = A.setDocState;
+  A.setDocState = (m) => { stati.push(m); };
+  try { return body(stati); }
+  finally {
+    A.setDocState = setDoc;
+    A.__cloud = old.cloud; A.document = old.doc; A._cloudDirty = old.dirty; A._cloudSaving = old.saving;
+    A.__docLoadBlocked = old.blocked; A.__localConflict = old.conflict; A.__cloudConflict = old.cloudConflict;
+    A.__projLocked = old.locked; A.__bootVenueUnavailable = old.venue;
+    A.__localStorageUnavailable = old.unavailable;
+  }
+}
+t("documento vuoto: «niente da salvare» non è un errore, e non chiude fuori dai progetti", () => {
+  const before = A.docToJSON();
+  try {
+    /* palco ai valori di default e nessun elemento: esattamente ciò che resta dopo File → Nuovo */
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "", luogo: "", items: [], inputs: [], outputs: [],
+      stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+    eq(A.hasMeaningfulDocument(), false, "il documento è davvero un guscio vuoto");
+
+    /* il finto cloud prende la STESSA decisione di saveProject: guscio vuoto → «niente da
+       salvare» (secondo argomento "empty"), altrimenti esito di fallimento nudo */
+    let tentativi = 0;
+    const comeSaveProject = (cb) => {
+      tentativi++;
+      if (!A.hasMeaningfulDocument()) cb(null, "empty"); else cb(null);
+    };
+    const r = conCloudFinto(A, comeSaveProject, (stati) => {
+      A._cloudDirty = true; A._cloudSaving = false;
+      let esito = null;
+      A.flushCloudAutosave((ok) => { esito = ok; });
+      return { esito, stati: stati.slice(), needsFlush: A.__cloudNeedsFlush(), tentativi };
+    });
+
+    ok(r.stati.indexOf("error") < 0, "nessuna pastiglia rossa: non è successo niente di sbagliato");
+    eq(r.esito, true, "chi aspetta di poter cambiare progetto riceve via libera");
+    eq(r.needsFlush, false, "non resta nulla «da mettere al sicuro»: il documento è vuoto");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("il permesso del link non è «lavoro»: un documento vuoto resta vuoto", () => {
+  const before = A.docToJSON();
+  try {
+    /* Regressione del 04/08 scoperta scrivendo il test qui sopra: da quando il permesso del link
+       è del documento, prepareDoc scrive SEMPRE shareOpts in DOC_EXTRA. Contandolo come contenuto,
+       nessun documento risultava più vuoto — e tornavano i gusci «Senza titolo» nell'elenco cloud
+       che il ramo del documento vuoto esiste apposta per evitare. */
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "", items: [], inputs: [], outputs: [],
+      stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+    ok(A.DOC_EXTRA && A.DOC_EXTRA.shareOpts, "shareOpts c'è, come deve");
+    eq(A.hasMeaningfulDocument(), false, "ma non rende «pieno» un documento vuoto");
+
+    /* qualunque ALTRA cosa a livello documento è invece lavoro dell'utente */
+    A.DOC_EXTRA.qualcosaDiSuo = { x: 1 };
+    eq(A.hasMeaningfulDocument(), true, "un contenuto vero a livello documento conta ancora");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("documento con lavoro dentro: un salvataggio fallito resta un errore", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "Concerto", items: [{ id: "a", type: "cantante" }],
+      inputs: [], outputs: [], stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+    ok(A.hasMeaningfulDocument(), "qui c'è lavoro vero");
+    const r = conCloudFinto(A, (cb) => {
+      if (!A.hasMeaningfulDocument()) cb(null, "empty"); else cb(null);   /* qui NON è vuoto */
+    }, (stati) => {
+      A._cloudDirty = true; A._cloudSaving = false;
+      let esito = null;
+      A.flushCloudAutosave((ok) => { esito = ok; });
+      return { esito, stati: stati.slice(), needsFlush: A.__cloudNeedsFlush() };
+    });
+    ok(r.stati.indexOf("error") >= 0, "questo sì che è un errore, e si vede");
+    eq(r.esito, false, "e chi aspetta NON riceve via libera: il lavoro non è al sicuro");
+    eq(r.needsFlush, true, "resta da sincronizzare");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;
