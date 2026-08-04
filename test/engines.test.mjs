@@ -1295,6 +1295,102 @@ t("permessi del link: «crea una copia» segue la regola più restrittiva fra le
     eq(A.shareOptsDoc().copy, false, "se una scena vietava la copia, il link non la consente");
   } finally { A.loadDoc(JSON.parse(before)); }
 });
+/* PLANIMETRIA DUPLICATA PER SCENA — nel file esportato e nel punto di recupero ogni variante
+   portava una copia INTERA del base64 (caccia ai bug 03/08/2026): 488 KB diventavano 1954 KB con
+   quattro scene. docToJSONFull ha nel proprio commento scritto che «le altre varianti condividono
+   l'immagine per nome», e poi faceva il contrario — è una regressione, non una scelta.
+   Le scene con una planimetria DIVERSA devono continuare a portarsela: qui non si perde nulla. */
+function docConScenePlanimetria(A, piante) {
+  const id = (i) => "v" + (i + 1);
+  return {
+    _doc: 1, active: id(0),
+    variants: piante.map((p, i) => ({
+      id: id(i), name: "Scena " + (i + 1),
+      state: {
+        _v: A.SCHEMA_VERSION, titolo: "S" + i, items: [], inputs: [], outputs: [],
+        venue: p == null ? null : { x: 0, y: 0, w: 100, h: 80, rot: 0, opacity: 40, enabled: true,
+          name: p.nome, _dataUrl: "data:image/png;base64," + p.dati, _imgW: 100, _imgH: 80 },
+      },
+    })),
+  };
+}
+t("export: la stessa planimetria su più scene viene scritta una volta sola", () => {
+  const before = A.docToJSON();
+  try {
+    const grande = "Q".repeat(20000);
+    A.loadDoc(docConScenePlanimetria(A, [{ nome: "pianta.png", dati: grande }]));
+    const conUna = A.docToJSONFull().length;
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "pianta.png", dati: grande }, { nome: "pianta.png", dati: grande },
+      { nome: "pianta.png", dati: grande }, { nome: "pianta.png", dati: grande },
+    ]));
+    const conQuattro = A.docToJSONFull().length;
+    ok(conQuattro < conUna * 1.5,
+      "quattro scene con la stessa pianta non pesano quattro volte (era ~4×): " +
+      Math.round(conUna / 1024) + " KB → " + Math.round(conQuattro / 1024) + " KB");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("export: la scena attiva porta sempre la sua planimetria per intero", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "a.png", dati: "AAAA" }, { nome: "a.png", dati: "AAAA" },
+    ]));
+    const doc = JSON.parse(A.docToJSONFull());
+    const attiva = doc.variants.find((v) => v.id === doc.active);
+    ok(attiva.state.venue && attiva.state.venue._dataUrl, "l'attiva è autosufficiente");
+    const altra = doc.variants.find((v) => v.id !== doc.active);
+    ok(!altra.state.venue._dataUrl, "la gemella non ripete il base64");
+    eq(altra.state.venue.name, "a.png", "ma conserva il nome per riagganciarla");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("export: planimetrie DIVERSE non si perdono, ognuna viaggia con la sua scena", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "a.png", dati: "AAAA" }, { nome: "b.png", dati: "BBBB" }, { nome: "a.png", dati: "AAAA" },
+    ]));
+    const doc = JSON.parse(A.docToJSONFull());
+    const perId = {};
+    doc.variants.forEach((v) => { perId[v.id] = v.state.venue; });
+    ok(perId.v1._dataUrl, "scena 1 (attiva): la sua pianta");
+    ok(perId.v2._dataUrl && perId.v2._dataUrl.indexOf("BBBB") > 0,
+      "scena 2 ha una pianta DIVERSA e se la porta: nessuna perdita");
+    ok(!perId.v3._dataUrl, "scena 3 ripete quella dell'attiva: non la duplica");
+    /* riaperto, il documento deve tornare completo */
+    A.loadDoc(doc);
+    eq(A.VARIANTS.length, 3, "tre scene");
+    ok(String(A.docToJSONFull()).indexOf("BBBB") > 0, "la pianta diversa sopravvive al giro completo");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("export: riaprendo il file, la scena gemella RIVEDE la sua planimetria", () => {
+  const before = A.docToJSON();
+  try {
+    const dati = "ZZZZQQQQ";
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "comune.png", dati }, { nome: "comune.png", dati }, { nome: "altra.png", dati: "XXXX" },
+    ]));
+    const file = A.docToJSONFull();
+    ok(String(file).indexOf("_sameAs") > 0, "il file dichiara la gemella invece di ripetere i dati");
+
+    /* il giro completo: salvo, riapro, e vado sulla scena che NON portava la bitmap */
+    A.loadDoc(JSON.parse(file));
+    A.switchVariant("v2");
+    ok(A.state.venue, "la scena gemella ha ancora una planimetria");
+    ok(A.state.venue._dataUrl && A.state.venue._dataUrl.indexOf(dati) > 0,
+      "ed è la bitmap giusta, riagganciata dalla scena sorella");
+    eq(A.state.venue.name, "comune.png", "col suo nome");
+
+    /* e la scena con la pianta diversa non è stata contaminata */
+    A.switchVariant("v3");
+    ok(A.state.venue._dataUrl.indexOf("XXXX") > 0, "la terza scena conserva la SUA pianta");
+
+    /* riesportando, il documento resta completo e ancora deduplicato */
+    const file2 = A.docToJSONFull();
+    ok(String(file2).indexOf("XXXX") > 0, "nessuna pianta persa al secondo giro");
+    ok(String(file2).length < String(file).length * 1.6, "e non si rigonfia");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;
