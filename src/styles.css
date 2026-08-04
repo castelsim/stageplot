@@ -1656,7 +1656,20 @@
     --text:#e5e7eb;--text-2:#96a5a1;--text-3:#6b7280;
     --canvas-bg:#0e1214;--sheet:#fff;
     --focus-ring:rgba(20,184,166,.32);   /* glow accent-bright per il focus su scuro */
+    /* SUPERFICI «TINTA» (04/08): erano dichiarate solo in :root e restavano quasi bianche in tema
+       scuro, col testo chiaro sopra. La riga SELEZIONATA della channel list dava 1,08:1 — il nome
+       del canale spariva — e la barra «Sala oscurabile» del pannello Luci 1,43:1, un interruttore
+       senza nome. Qui vanno insieme sfondo e colore d'accento, perché --warning nasce per fondo
+       chiaro. NON si tocca --accent-strong: è anche lo sfondo dei bottoni primari (testo bianco),
+       schiarirlo li renderebbe illeggibili — i pochi punti che lo usavano come TESTO sopra la tinta
+       sono corretti subito sotto. */
+    --accent-tint:#12312e;
+    --warning-bg:#33270f;--warning-border:#5a4415;--warning:#fbbf24;
     background:var(--bg);color:var(--text)}
+  /* testo che stava sopra la tinta CHIARA: in scuro serve l'accento chiaro, non quello scuro */
+  body.dark .btn.tint{color:var(--accent-bright)}
+  body.dark .bus-chip:hover{color:var(--accent-bright)}
+  body.dark #catalog .sub-head{color:var(--accent-bright)}
   /* opzione "foglio attenuato" per chi lavora in sala buia (opt-in via classe) */
   body.dark header{background:#1b2327;border-bottom-color:#2c3a3f}
   body.dark .hdr-stage{background:#20292e;border-color:#314046}
