@@ -1210,6 +1210,91 @@ t("uplink ad anello: la linea non si conta e l'errore si vede", () => {
   ok(R.distros.every((d) => d.loadW < 1200), "nessun carico gonfiato dal giro su se stesso");
   A.loadDoc(JSON.parse(before));
 });
+/* PERMESSI DEL LINK — «Mostra i contatti nel link» era per-SCENA, ma di link ce n'è UNO
+   (caccia ai bug 03/08/2026). Lo stesso link pubblicava o nasconceva nome, telefono ed email dei
+   collaboratori a seconda di quale scena fosse attiva in quel momento: l'utente vedeva
+   l'interruttore spento e bastava tornare all'altra scena perché ricominciasse a pubblicarli.
+   Sono dati personali di terzi, quindi ogni default e ogni caso incerto stanno dalla parte del NO. */
+function docConScene(A, scene, extra) {
+  const doc = { _doc: 1, active: scene[0].id,
+    variants: scene.map((s) => ({ id: s.id, name: s.id, state: {
+      _v: A.SCHEMA_VERSION, titolo: s.id, items: [], inputs: [], outputs: [],
+      contacts: [{ role: "Riferimento tecnico", name: "Mario", contact: "m@example.test", note: "" }],
+      shareOpts: s.shareOpts,
+    } })) };
+  if (extra) Object.keys(extra).forEach((k) => { doc[k] = extra[k]; });
+  return doc;
+}
+t("permessi del link: sono del documento, non della scena attiva", () => {
+  const before = A.docToJSON();
+  try {
+    /* documento vecchio: una scena diceva sì, l'altra no — il valore dipendeva da quale fosse aperta */
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: true, contacts: false } },
+      { id: "s2", shareOpts: { copy: true, contacts: true } },
+    ]));
+    eq(A.shareOptsDoc().contacts, false,
+      "scene discordi: vince il NO — nessuno ha mai acconsentito per l'intero link");
+    const suS1 = JSON.parse(A.publicShareStateJSON());
+    A.switchVariant("s2");
+    const suS2 = JSON.parse(A.publicShareStateJSON());
+    eq(suS1.contacts, undefined, "niente contatti sulla prima scena");
+    eq(suS2.contacts, undefined, "e niente contatti nemmeno cambiando scena: è lo stesso link");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: se tutte le scene erano d'accordo, il consenso si conserva", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: true, contacts: true } },
+      { id: "s2", shareOpts: { copy: true, contacts: true } },
+    ]));
+    eq(A.shareOptsDoc().contacts, true, "consenso unanime: resta acceso");
+    ok(JSON.parse(A.publicShareStateJSON()).contacts, "e i contatti vengono pubblicati");
+    A.switchVariant("s2");
+    ok(JSON.parse(A.publicShareStateJSON()).contacts, "su qualunque scena");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: cambiarlo vale per tutto il documento, subito", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: true, contacts: true } },
+      { id: "s2", shareOpts: { copy: true, contacts: true } },
+    ]));
+    A.setShareOpt("contacts", false);
+    eq(A.shareOptsDoc().contacts, false, "spento");
+    eq(JSON.parse(A.publicShareStateJSON()).contacts, undefined, "niente contatti sulla scena attiva");
+    A.switchVariant("s2");
+    eq(JSON.parse(A.publicShareStateJSON()).contacts, undefined, "né sulle altre");
+    /* la stessa decisione va scritta in OGNI scena: il server pubblica la scena attiva e non deve
+       poter trovare un consenso che l'utente ha revocato */
+    ok(A.VARIANTS.every((v) => v.state.shareOpts.contacts === false),
+      "nessuna scena conserva un sì revocato");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: la scena nuova non si porta dietro un permesso diverso", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [{ id: "s1", shareOpts: { copy: true, contacts: true } }]));
+    A.setShareOpt("contacts", false);
+    A.createVariant();
+    ok(A.VARIANTS.length > 1, "la scena è stata creata");
+    ok(A.VARIANTS.every((v) => v.state.shareOpts.contacts === false),
+      "e nasce con il permesso del documento, non con un valore suo");
+    eq(A.shareOptsDoc().contacts, false, "il permesso del link non cambia creando scene");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: «crea una copia» segue la regola più restrittiva fra le scene", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: false, contacts: false } },
+      { id: "s2", shareOpts: { copy: true, contacts: false } },
+    ]));
+    eq(A.shareOptsDoc().copy, false, "se una scena vietava la copia, il link non la consente");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;

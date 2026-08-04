@@ -122,7 +122,9 @@ Deno.test("share pubblico multi-variante: espone soltanto lo stato attivo", () =
   assertEquals(shared.variants, undefined);
 });
 
-Deno.test("share pubblico multi-variante: opt-in della sola attiva preserva i suoi contatti", () => {
+/* Era: «opt-in della sola attiva preserva i suoi contatti» — cioè il difetto, scritto come regola.
+   Di link ce n'è UNO: se una scena diceva no, quel no l'utente l'ha visto e vale per tutto. */
+Deno.test("share pubblico multi-variante: scene discordi → i contatti NON si pubblicano", () => {
   const shared = projectDataForPublicShare({
     _doc: 1,
     active: "b",
@@ -146,8 +148,50 @@ Deno.test("share pubblico multi-variante: opt-in della sola attiva preserva i su
     ],
   }) as Record<string, unknown>;
   assertEquals(shared.titolo, "B");
-  assertEquals(shared.contacts, [{ contact: "shown@example.test" }]);
+  assertEquals(shared.contacts, undefined);
+  assertEquals(shared.techContact, undefined);
+});
+
+Deno.test("share pubblico multi-variante: consenso unanime → i contatti si pubblicano", () => {
+  const shared = projectDataForPublicShare({
+    _doc: 1,
+    active: "b",
+    variants: [
+      { id: "a", state: { contacts: [{ contact: "a@example.test" }], shareOpts: { contacts: true } } },
+      { id: "b", state: { titolo: "B", contacts: [{ contact: "b@example.test" }],
+        techContact: "Shown", shareOpts: { contacts: true } } },
+    ],
+  }) as Record<string, unknown>;
+  assertEquals(shared.contacts, [{ contact: "b@example.test" }]);
   assertEquals(shared.techContact, "Shown");
+});
+
+Deno.test("share pubblico: il permesso di DOCUMENTO comanda sulle varianti", () => {
+  const base = {
+    _doc: 1,
+    active: "a",
+    variants: [
+      { id: "a", state: { contacts: [{ contact: "a@example.test" }], techContact: "T",
+        shareOpts: { contacts: true } } },
+    ],
+  };
+  /* il documento revoca: le varianti non possono resuscitare il consenso */
+  const revocato = projectDataForPublicShare({ ...base, shareOpts: { copy: true, contacts: false } }) as Record<string, unknown>;
+  assertEquals(revocato.contacts, undefined);
+  assertEquals(revocato.techContact, undefined);
+  /* il documento acconsente */
+  const concesso = projectDataForPublicShare({ ...base, shareOpts: { copy: true, contacts: true } }) as Record<string, unknown>;
+  assertEquals(concesso.contacts, [{ contact: "a@example.test" }]);
+});
+
+Deno.test("share pubblico: senza alcun permesso dichiarato non si pubblica nulla", () => {
+  const shared = projectDataForPublicShare({
+    _doc: 1,
+    active: "a",
+    variants: [{ id: "a", state: { contacts: [{ contact: "a@example.test" }], techContact: "T" } }],
+  }) as Record<string, unknown>;
+  assertEquals(shared.contacts, undefined);
+  assertEquals(shared.techContact, undefined);
 });
 
 Deno.test("share pubblico multi-variante: planimetria limitata all'attiva", () => {

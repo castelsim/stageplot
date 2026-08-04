@@ -2765,7 +2765,52 @@ function prepareDoc(parsed){
     var id=newVarId(), normalized=normalizeState(parsed); normalized._v=SCHEMA_VERSION;
     nextVariants=[{ id:id, name:"Variante 1", state:normalized }]; nextActive=id;   /* legacy piatto → variante singola */
   }
+  /* Permesso del link: se il documento non lo dichiara, si deriva dalle scene prendendo il MINORE
+     (vedi shareOptsFromVariants) e si riscrive uguale ovunque, così non può più divergere. */
+  var so=normShareOpts(nextExtra.shareOpts && typeof nextExtra.shareOpts==="object"
+    ? nextExtra.shareOpts : shareOptsFromVariants(nextVariants));
+  nextExtra.shareOpts={copy:so.copy, contacts:so.contacts};
+  nextVariants.forEach(function(v){ v.state.shareOpts={copy:so.copy, contacts:so.contacts}; });
   return {variants:nextVariants, active:nextActive, extra:nextExtra};
+}
+/* ===== PERMESSI DEL LINK — uno solo, del DOCUMENTO =====
+   `shareOpts` è nato dentro lo state della variante, ma di link ce n'è uno: lo stesso indirizzo
+   pubblicava o nascondeva nome, telefono ed email dei collaboratori a seconda di quale scena fosse
+   attiva in quel momento. L'utente vedeva l'interruttore spento e bastava tornare all'altra scena
+   perché ricominciasse a pubblicarli (caccia ai bug 03/08/2026). Sono dati personali di terzi:
+   ogni caso incerto sta dalla parte del NO.
+   Il valore resta scritto ANCHE in ogni variante perché la Edge Function pubblica la scena attiva:
+   così il permesso è coerente qualunque scena sia aperta, senza dipendere dal deploy del server. */
+function shareOptsFromVariants(variants){
+  /* Documenti creati prima di questo cambiamento: si prende il permesso MINORE fra le scene. Se
+     anche una sola diceva no, l'utente quel no l'ha visto e vale per il link intero. */
+  var copy=true, contacts=true, trovate=0;
+  (variants||[]).forEach(function(v){
+    var so=v&&v.state&&v.state.shareOpts; if(!so||typeof so!=="object") return;
+    trovate++;
+    if(so.copy===false) copy=false;
+    if(so.contacts!==true) contacts=false;
+  });
+  return trovate ? {copy:copy, contacts:contacts} : {copy:true, contacts:false};
+}
+function normShareOpts(so){ return {copy:!(so&&so.copy===false), contacts:!!(so&&so.contacts===true)}; }
+function shareOptsDoc(){
+  if(DOC_EXTRA && DOC_EXTRA.shareOpts && typeof DOC_EXTRA.shareOpts==="object") return normShareOpts(DOC_EXTRA.shareOpts);
+  return normShareOpts(shareOptsFromVariants(VARIANTS));
+}
+/* Scrive il permesso una volta sola: sul documento e su OGNI scena, presente e futura. */
+function setShareOpt(key,value){
+  if(key!=="copy" && key!=="contacts") return shareOptsDoc();
+  var next=shareOptsDoc(); next[key]=(key==="copy") ? value!==false : value===true;
+  applyShareOptsEverywhere(next);
+  return next;
+}
+function applyShareOptsEverywhere(opts){
+  var o=normShareOpts(opts);
+  DOC_EXTRA=DOC_EXTRA||{}; DOC_EXTRA.shareOpts={copy:o.copy, contacts:o.contacts};
+  (VARIANTS||[]).forEach(function(v){ if(v&&v.state) v.state.shareOpts={copy:o.copy, contacts:o.contacts}; });
+  if(state) state.shareOpts={copy:o.copy, contacts:o.contacts};
+  return o;
 }
 function bumpDocumentEpoch(){ window.__docEpoch=(window.__docEpoch||0)+1; return window.__docEpoch; }
 function commitPreparedDoc(prepared){
@@ -4791,7 +4836,9 @@ function load(){
 var LZString=(function(){var f=String.fromCharCode;var keyStrUriSafe="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";var baseReverseDic={};function getBaseValue(alphabet,character){if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i}}return baseReverseDic[alphabet][character]}var LZString={compressToEncodedURIComponent:function(input){if(input==null)return"";return LZString._compress(input,6,function(a){return keyStrUriSafe.charAt(a)})},decompressFromEncodedURIComponent:function(input){if(input==null)return"";if(input=="")return null;input=input.replace(/ /g,"+");return LZString._decompress(input.length,32,function(index){return getBaseValue(keyStrUriSafe,input.charAt(index))})},_compress:function(uncompressed,bitsPerChar,getCharFromInt){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break}else context_data_position++}return context_data.join("")},_decompress:function(length,resetValue,getNextValue){var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};for(i=0;i<3;i+=1){dictionary[i]=i}bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(next=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 2:return""}dictionary[3]=c;w=c;result.push(c);while(true){if(data.index>length){return""}bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(c=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[c]){entry=dictionary[c]}else{if(c===dictSize){entry=w+w.charAt(0)}else{return null}}result.push(entry);dictionary[dictSize++]=w+entry.charAt(0);enlargeIn--;w=entry;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}}}};return LZString})();
 function stateForPublicShare(input){
   var out=JSON.parse(JSON.stringify(input||{}));
-  var opts=out.shareOpts&&typeof out.shareOpts==="object"?out.shareOpts:null;
+  /* il permesso è del LINK, quindi del documento: la scena mostrata non lo decide */
+  var opts=(typeof shareOptsDoc==="function") ? shareOptsDoc()
+    : (out.shareOpts&&typeof out.shareOpts==="object"?out.shareOpts:null);
   if(window.__projLocked || !(opts&&opts.contacts===true)){
     delete out.contacts; delete out.techContact; delete out.pdfHeader;
     if(out.approval&&typeof out.approval==="object") delete out.approval.by;
@@ -19575,13 +19622,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   }
   function commitShareOption(control,key,value){
     if(sharePermissionsBusy) return;
-    var old=state.shareOpts[key], oldUrl=urlEl.value, C=window.__cloud, optionEpoch=window.__docEpoch||0;
+    var old=shareOptsDoc()[key], oldUrl=urlEl.value, C=window.__cloud, optionEpoch=window.__docEpoch||0;
     if(window.__projLocked){
       control.checked=old===true || (key==="copy"&&old!==false);
       status("Sblocca il progetto prima di modificare i permessi del link.");
       return;
     }
-    state.shareOpts[key]=value; sharePermissionsBusy=true; setShareActionsEnabled(false); urlEl.value=""; qrSeq++;
+    setShareOpt(key,value); sharePermissionsBusy=true; setShareActionsEnabled(false); urlEl.value=""; qrSeq++;
     var qr=document.getElementById("shareQrImg"), qrWrap=document.getElementById("shareQrWrap");
     if(qr){ qr.src=""; qr.style.display="none"; } if(qrWrap) qrWrap.style.display="none";
     status("Aggiornamento permessi…");
@@ -19612,8 +19659,9 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     if(!_shareIsCurrent) return;
     if(mini){ try{ mini.innerHTML=stageSceneSvg(null,{focus:"clean"}); var sv=mini.querySelector("svg"); if(sv){ sv.setAttribute("width","120"); sv.setAttribute("height","84"); sv.style.maxWidth="100%"; sv.style.maxHeight="100%"; } }catch(_e){ mini.textContent=""; } }
     var oc=document.getElementById("shareOptCopy"), ok=document.getElementById("shareOptContacts");
-    if(oc){ oc.checked=state.shareOpts.copy!==false; oc.onchange=function(){ commitShareOption(oc,"copy",oc.checked); }; }
-    if(ok){ ok.checked=state.shareOpts.contacts===true; ok.onchange=function(){ commitShareOption(ok,"contacts",ok.checked); }; }
+    var _so=shareOptsDoc();   /* permesso del LINK (documento intero), non della scena aperta */
+    if(oc){ oc.checked=_so.copy!==false; oc.onchange=function(){ commitShareOption(oc,"copy",oc.checked); }; }
+    if(ok){ ok.checked=_so.contacts===true; ok.onchange=function(){ commitShareOption(ok,"contacts",ok.checked); }; }
     if(window.__projLocked){ if(oc) oc.disabled=true; if(ok) ok.disabled=true; }
   }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
