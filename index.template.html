@@ -2841,6 +2841,18 @@ var TYPES = {
                return s; }},
   triangoloperc:{nome:"Triangolo", dim:"8\" · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:24,d:24, defLabel:"Trg",
              draw:function(){ return lin(0,-12,0,-4,'ic thin')+'<path class="ic thin" fill="none" d="M -9,7 L 0,-8 L 9,7 M -7.4,7 L 7.4,7"/>'; }},
+  crotali:  {nome:"Crotali / Cimbalino", dim:"Ø13 · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:18,d:18, defLabel:"Crt",
+             draw:function(){   /* disco d'ottone spesso, vite di fissaggio al centro, su stativo */
+               return lin(0,9,0,3,'ic thin')+circ(0,-1,7.5,'ic fBrass')+circ(0,-1,5,'ic thin')+circ(0,-1,1.6,'ic fGrey'); }},
+  woodblock:{nome:"Wood block", dim:"20×5 · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:22,d:10, defLabel:"Wbk",
+             draw:function(){   /* blocco pieno di legno con la fenditura longitudinale */
+               return lin(0,5,0,2,'ic thin')+bar(0,-1,18,7,'ic fWoodL',2)+lin(-6,-1,6,-1,'ic thin'); }},
+  flexaton: {nome:"Flexaton", dim:"35×12 · a mano", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:12, defLabel:"Flx",
+             draw:function(){   /* lamella flessibile nel telaio a molla, due batacchi di legno su lamine */
+               return lin(-16,0,-12,0,'ic thin')+'<path class="ic thin" fill="none" d="M -12,-4 Q -4,0 -12,4"/>'
+                 +bar(3,0,24,5,'ic fSilver',2)
+                 +lin(-1,-2,-1,-4,'ic thin')+lin(-1,2,-1,4,'ic thin')   /* lamine dei batacchi */
+                 +circ(-1,-4,2,'ic fWoodD')+circ(-1,4,2,'ic fWoodD'); }},
   timbales: {nome:"Timbales", dim:"110×60", cat:"Batteria e percussioni", sub:"Percussioni", w:115,d:65,
              draw:function(){
                /* macho 13" + hembra 14" su stand, campanaccio montato al centro */
@@ -3451,7 +3463,10 @@ var SEARCH_ALIAS = {
   percussioni:"congas bongos latin perc set percussioni", conga:"congas tumbadora latin perc",
   djembe:"djembe djembè percussione africana perc", surdo:"surdo samba batucada percussione brasiliana perc",
   tamburello:"tamburello tamburino tambourine tamb perc", campanaccio:"campanaccio cowbell campana perc",
-  templeblocks:"temple blocks blocchi di legno woodblock legnetti perc", triangoloperc:"triangolo strumento percussione perc",
+  templeblocks:"temple blocks blocchi di legno legnetti perc", triangoloperc:"triangolo strumento percussione perc",
+  crotali:"crotali crotalo cimbalino cimbali antichi antique cymbals dischi ottone perc",
+  woodblock:"wood block woodblock blocco di legno cassa cinese legnetto perc",
+  flexaton:"flexaton flexatone lamella lamina flessibile perc",
   tavolopercussioni:"tavolo percussioni appoggio piccoli perc trap table",   /* niente "piano d'appoggio": la ricerca è a sottostringa e "piano" deve dare il pianoforte */
   quinto:"congas latin perc", tumba:"congas tumbadora latin perc", bongos:"bongo macho hembra latin perc",
   micover:"oh",
@@ -16563,7 +16578,8 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
    compare. L'opzione "pan" le rende anche assorbibili da una zona di microfonazione (zoneAbsorbable).
    I tamburi grandi (congas, cajon, timbales…) restano fuori di proposito: si microfonano quasi
    sempre da vicino e dentro una zona TENGONO il loro mic, com'è già stabilito in zoneAbsorbable. */
-var PERC_PICCOLE={ djembe:"e904", surdo:"D6", tamburello:"KM184", campanaccio:"SM57", templeblocks:"KM184", triangoloperc:"KM184" };
+var PERC_PICCOLE={ djembe:"e904", surdo:"D6", tamburello:"KM184", campanaccio:"SM57", templeblocks:"KM184", triangoloperc:"KM184",
+  crotali:"KM184", woodblock:"KM184", flexaton:"KM184" };
 Object.keys(PERC_PICCOLE).forEach(function(t){ var mic=PERC_PICCOLE[t];
   MIKING[t]={ options:[["pan","Panoramico — lo prende il mic d'insieme"],["close","Ravvicinato ("+mic+")"]], def:"pan",
     chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
@@ -21259,6 +21275,7 @@ var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
+  crotali:120,woodblock:95,flexaton:92,
   timpani:90,timpani3:90,timpani2:90,
   grancassa:130,piatto:140,piatticoppia:40,campane:170,tamtam:180,glockenspiel:90,xilofono:95,vibrafono:95,marimba:95,
   comboamp:45,stack:110,bassamp:120,keysamp:50,leslie:105,
