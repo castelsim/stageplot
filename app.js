@@ -22853,10 +22853,12 @@ function gallery(){
   var SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
   var ADMIN_ID="4b899cba-3cc2-4b26-9ef0-c3e915929277";
 
+  var rispostaArrivata=false;
   fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.error){ document.body.classList.add("viewmode"); showBar("viewer","— progetto non disponibile"); return; }
+      rispostaArrivata=true;   /* da qui in poi un errore NON è la rete: dirlo come se lo fosse manda a cercare il wifi */
+      if(d.error){ viewerFailed("Il link non corrisponde a nessun progetto: può essere stato revocato o essere scaduto."); return; }
       if(d.kind==="project"){ startSharedProject(vt, d); return; }   /* condivisione generica: read-only statico + copia */
       whenSupabase(function(){
         var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});
@@ -22872,11 +22874,13 @@ function gallery(){
           }).then(function(r){ if(!r.ok) throw new Error("admin load"); return r.json(); })
             .then(function(full){ if(!full||full.error||full.kind!=="consultation") throw new Error("admin load");
               startSession(sb,vt,full,true);
-            }).catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— accesso consulente non disponibile"); });
+            }).catch(function(){ viewerFailed("Accesso da consulente non riuscito: il documento completo non è stato caricato."); });
         });
       });
     })
-    .catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— errore di caricamento"); });
+    .catch(function(){ viewerFailed(rispostaArrivata
+      ? "Il progetto è arrivato ma non è stato possibile aprirlo: può essere stato creato con una versione più recente di StagePlot."
+      : "Il server non ha risposto: può essere la connessione di rete."); });
 
   function startSession(sb, token, d, isEditor){
     document.body.classList.remove("consult-pending","consult-viewer","consult-editor");
@@ -22963,6 +22967,25 @@ function gallery(){
   }
   function whenSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var t=setInterval(function(){ if(window.supabase&&window.supabase.createClient){ clearInterval(t); cb(); } },80); }
 
+  /* Il documento condiviso non è arrivato. Il palco di default NON deve restare in vista: un 12×8
+     vuoto disegnato bene, con «FONDO PALCO» e la legenda dei layer, un tecnico di sala lo legge come
+     «il gruppo non ha bisogno di niente». E la barra non deve promettere una diretta inesistente. */
+  function viewerFailed(perche){
+    document.body.classList.add("viewmode","view-failed");
+    document.body.classList.remove("consult-pending");
+    var box=document.getElementById("viewFail"); if(box) box.hidden=false;
+    var why=document.getElementById("viewFailWhy"); if(why) why.textContent=perche||"";
+    var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
+    document.body.classList.add("livesession");
+    var rl=document.getElementById("viewRole"); if(rl) rl.textContent="Progetto non caricato";
+    var m=document.getElementById("viewMeta"); if(m) m.textContent="";
+    ["viewSave","viewCopy","viewBadge","viewStatus","viewExport"].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.hidden=true;
+    });
+    var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
+    var rt=document.getElementById("viewFailRetry");
+    if(rt && !rt.__wired){ rt.__wired=true; rt.addEventListener("click", function(){ location.reload(); }); }
+  }
   function showBar(role, meta){
     document.body.classList.add("livesession");
     var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";

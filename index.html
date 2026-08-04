@@ -1959,6 +1959,41 @@ body.viewmode #viewBar {
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
 
+/* Documento condiviso non arrivato: al posto del disegno, non sopra. Finché il palco resta visibile
+   sotto un avviso, c'è sempre chi legge il palco e non l'avviso. */
+body.view-failed main,
+body.view-failed #viewLists,
+body.view-failed #viewToggle,
+body.view-failed > header,
+body.view-failed #mTop,
+body.view-failed #catalog,
+body.view-failed #props,
+body.view-failed #mDock,
+body.view-failed #mActions,
+body.view-failed #mPeek,
+body.view-failed > footer { display: none !important; }
+#viewFail {
+  position: fixed; inset: 44px 0 0 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--bg); overflow: auto;
+}
+#viewFail[hidden] { display: none; }
+#viewFail .vf-card {
+  max-width: 460px; width: 100%; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px 24px; color: var(--text);
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+/* dimensione ESPLICITA: senza, la regola svg{width:100%} dei pannelli stira l'icona a tutta la card */
+#viewFail svg { width: 34px; height: 34px; flex: 0 0 auto; color: #b45309; display: block; margin: 0 auto 10px; }
+#viewFail b { display: block; font-size: 17px; margin-bottom: 10px; }
+#viewFail p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+#viewFail p b { display: inline; font-size: inherit; color: var(--text); }
+#viewFail .vf-why { font-size: 12.5px; color: var(--text-3); }
+#viewFail .vf-why:empty { display: none; }
+#viewFail button { margin: 6px 0 12px; min-width: 140px; }
+#viewFail small { display: block; font-size: 12px; color: var(--text-3); line-height: 1.45; }
+
 /* Blocco progetti: sola-lettura del progetto cloud bloccato. Superfici di editing NON interattive;
    restano usabili header (esporta/condividi/File/duplica/sblocca), pan/zoom e la barra di blocco. */
 body.proj-ro #catalog,
@@ -2446,6 +2481,19 @@ body.dark .ask-all .btn{background:transparent}
 <body>
 <div id="viewBar"><a class="vb-brand" href="/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
+<!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
+     si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
+     tecnico di sala (caccia ai bug 03/08/2026). -->
+<div id="viewFail" hidden role="alert" aria-live="assertive">
+  <div class="vf-card">
+    <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+    <b id="viewFailTitle">Il progetto non è stato caricato</b>
+    <p>Quello che vedi <b>non è il contenuto del link</b>: i dati non sono arrivati. Non è uno stage plot vuoto.</p>
+    <p class="vf-why" id="viewFailWhy"></p>
+    <button class="btn primary" id="viewFailRetry" type="button">Riprova</button>
+    <small>Se non funziona nemmeno riprovando, chiedi un link aggiornato a chi te l'ha mandato.</small>
+  </div>
+</div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
