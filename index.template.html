@@ -9479,19 +9479,62 @@ function electricEngine(){
   /* 3b. TIER 2 (Simone 08/07): ciabatta/distro → quadro, SOLO manuale (pallino ambra sulla ciabatta).
      Il carico della ciabatta risale sul quadro (fase meno carica) con verifica di sovraccarico. */
   var ups=(state.elec&&state.elec.uplinks)||{}, uplinks=[], upPend=0;
-  distros.forEach(function(d){
-    if(!d.it) return;
-    var u=ups[d.it.id];
-    if(!u || !u.to){ if(manualModeE && d.loadW>0) upPend++; return; }
-    var T=distros.filter(function(x){ return x.it && x.it.id===u.to; })[0];
-    if(!T || T===d){ upPend++; return; }
-    var amps=d.loadW/ELEC_VOLT, mp=0;
-    for(var p2=1;p2<T.ph;p2++){ if(T.phLoad[p2]<T.phLoad[mp]) mp=p2; }
-    T.phLoad[mp]+=amps; T.loadW+=d.loadW;
-    if(T.phLoad[mp]>T.a) issues.push({lvl:"err", msg:"Quadro "+T.letter+" sovraccarico con la linea da "+d.letter+" ("+T.phLoad[mp].toFixed(0)+"/"+T.a+" A)."});
-    var upts=[[d.x,d.y]].concat(u.pts||[]).concat([[T.x,T.y]]);
-    uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(u.pts&&u.pts.length)});
-  });
+  (function(){
+    var byId={}; distros.forEach(function(d){ if(d.it) byId[d.it.id]=d; });
+    function upOf(d){ var u=d&&d.it&&ups[d.it.id]; if(!u||!u.to) return null; var T=byId[u.to]; return (!T||T===d)?null:T; }
+    /* Anello fra ciabatte (A→B→A): senza questa guardia la propagazione a valle non avrebbe fine.
+       Prima non serviva solo perché ogni distro veniva toccato una volta sola — e infatti i conti
+       erano sbagliati. */
+    function risaleFinoA(from,target){
+      var visti={}, cur=from;
+      while(cur&&cur.it){
+        if(cur===target) return true;
+        if(visti[cur.it.id]) return false;
+        visti[cur.it.id]=1; cur=upOf(cur);
+      }
+      return false;
+    }
+    function salti(d){   /* quanti gradini mancano alla consegna: le foglie hanno il numero più alto */
+      var n=0, cur=d, visti={};
+      while(cur&&cur.it&&!visti[cur.it.id]){ visti[cur.it.id]=1; var T=upOf(cur); if(!T) break; n++; cur=T; }
+      return n;
+    }
+    var linee=[], anelliVisti={};
+    distros.forEach(function(d){
+      if(!d.it) return;
+      var u=ups[d.it.id];
+      if(!u || !u.to){ if(manualModeE && d.loadW>0) upPend++; return; }
+      var T=byId[u.to];
+      if(!T || T===d){ upPend++; return; }
+      if(risaleFinoA(T,d)){
+        upPend++;
+        /* Un anello si vede da entrambi i capi: va detto UNA volta sola, o il fonico legge due
+           volte lo stesso problema con i nomi invertiti. */
+        var kAnello=[d.it.id,T.it.id].sort().join("|");
+        if(!anelliVisti[kAnello]){
+          anelliVisti[kAnello]=1;
+          issues.push({lvl:"err", msg:"Collegamento ad anello fra "+d.letter+" e "+T.letter+": la linea non è stata contata. Scollega uno dei due e ricollegalo al quadro."});
+        }
+        return;
+      }
+      linee.push({d:d, T:T, u:u});
+    });
+    /* ORDINE TOPOLOGICO, non l'ordine in cui gli oggetti sono finiti sul palco. Una ciabatta va
+       sommata al suo quadro DOPO aver ricevuto tutto ciò che risale a lei, altrimenti propaga un
+       totale ancora incompleto: con A→B→Q, se B era stata messa sul palco prima di A, i 1000 W di
+       A non arrivavano MAI al quadro (che diceva 0,8 kW invece di 1,8) mentre la Lista carichi
+       nello stesso rider diceva il totale giusto. Su quel numero girano anche la verifica di
+       sovraccarico e la sezione del cavo di risalita. */
+    linee.sort(function(a,b){ return salti(b.d)-salti(a.d); });
+    linee.forEach(function(L){
+      var d=L.d, T=L.T, amps=d.loadW/ELEC_VOLT, mp=0;
+      for(var p2=1;p2<T.ph;p2++){ if(T.phLoad[p2]<T.phLoad[mp]) mp=p2; }
+      T.phLoad[mp]+=amps; T.loadW+=d.loadW;
+      if(T.phLoad[mp]>T.a) issues.push({lvl:"err", msg:"Quadro "+T.letter+" sovraccarico con la linea da "+d.letter+" ("+T.phLoad[mp].toFixed(0)+"/"+T.a+" A)."});
+      var upts=[[d.x,d.y]].concat(L.u.pts||[]).concat([[T.x,T.y]]);
+      uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(L.u.pts&&L.u.pts.length)});
+    });
+  })();
   /* Chi «pende» davvero (31/07): non tutto ciò che è senza uplink va collegato a monte — il quadro
      di testa è il punto di consegna, e contarlo faceva dire «1 ciabatta da alimentare» con l'unico
      quadro in scena. Fuori dal conto: chi RICEVE un uplink (sta a monte, non a valle) e il distro

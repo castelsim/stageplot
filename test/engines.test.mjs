@@ -1136,6 +1136,80 @@ t("pagine tecniche: l'elenco spuntato viene riordinato come sarà stampato", () 
     "viste in testa nell'ordine originale, liste nell'ordine di stampa");
   eq(A.pdfSortTechPages([]).length, 0, "elenco vuoto: nessun errore");
 });
+/* CIABATTE IN CATENA — il quadro contava metà del carico (caccia ai bug 03/08/2026).
+   Il ciclo degli uplink iterava i distro nell'ordine di state.items: con A→B→Q, se B era stato
+   messo sul palco PRIMA di A, B risaliva al quadro con un totale che non conteneva ancora i watt
+   di A, e quei watt non arrivavano mai. Il numero dipendeva dall'ordine di inserimento, e su quel
+   numero girano la verifica di sovraccarico e la sezione del cavo di risalita. */
+function scenaCatena(A, ordine) {
+  const before = A.docToJSON();
+  const mk = (id, type, x, y) => ({ id, type, x, y });
+  const items = [];
+  const map = {
+    A: mk("cia-A", "ciabatta", 200, 400),
+    B: mk("cia-B", "ciabatta", 600, 400),
+    Q: mk("quadro-Q", "distro63", 1000, 400),
+    /* un carico da 1000 W su A e uno da 800 W su B */
+    LA: { id: "load-A", type: "amprack", x: 210, y: 300, watt: 1000 },
+    LB: { id: "load-B", type: "amprack", x: 610, y: 300, watt: 800 },
+  };
+  ordine.forEach((k) => items.push(map[k]));
+  A.loadDoc({
+    _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [],
+    stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    elec: {
+      on: true, mode: "manual",
+      manual: { "load-A": { distro: "cia-A" }, "load-B": { distro: "cia-B" } },
+      uplinks: { "cia-A": { to: "cia-B" }, "cia-B": { to: "quadro-Q" } },   /* A → B → Q */
+    },
+  });
+  const R = A.elecResult(true);
+  const q = R.distros.filter((d) => d.it && d.it.id === "quadro-Q")[0];
+  const b = R.distros.filter((d) => d.it && d.it.id === "cia-B")[0];
+  const out = {
+    quadroW: q ? q.loadW : null,
+    ciabattaBW: b ? b.loadW : null,
+    lineaVersoQuadro: (R.uplinks || []).filter((u) => u.to && u.to.it && u.to.it.id === "quadro-Q")
+      .map((u) => Math.round(u.a * 10) / 10)[0],
+    totW: R.totW,
+  };
+  A.loadDoc(JSON.parse(before));
+  return out;
+}
+t("ciabatte in catena: il quadro conta tutto il carico, non metà", () => {
+  const attesoW = 1800;
+  const dritto = scenaCatena(A, ["A", "B", "Q", "LA", "LB"]);
+  const invertito = scenaCatena(A, ["B", "A", "Q", "LB", "LA"]);   /* B messa sul palco per prima */
+  eq(dritto.quadroW, attesoW, "ordine naturale: il quadro vede 1800 W");
+  eq(invertito.quadroW, attesoW, "ordine invertito: vede gli STESSI 1800 W");
+  eq(dritto.totW, invertito.totW, "il totale della Lista carichi non dipende dall'ordine");
+  eq(invertito.totW, attesoW, "e coincide con quello che dice il quadro");
+});
+t("ciabatte in catena: la linea di risalita porta gli ampere di tutta la catena", () => {
+  const invertito = scenaCatena(A, ["B", "A", "Q", "LB", "LA"]);
+  eq(invertito.ciabattaBW, 1800, "la ciabatta di mezzo somma il proprio carico e quello a valle");
+  ok(invertito.lineaVersoQuadro > 7 && invertito.lineaVersoQuadro < 8.5,
+    "la linea verso il quadro porta ~7,8 A (1800 W), non ~3,5 — è su questo che si sceglie la sezione");
+});
+t("uplink ad anello: la linea non si conta e l'errore si vede", () => {
+  const before = A.docToJSON();
+  A.loadDoc({
+    _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+    stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [
+      { id: "cia-A", type: "ciabatta", x: 200, y: 400 },
+      { id: "cia-B", type: "ciabatta", x: 600, y: 400 },
+      { id: "load-A", type: "amprack", x: 210, y: 300, watt: 500 },
+    ],
+    elec: { on: true, mode: "manual", manual: { "load-A": { distro: "cia-A" } },
+      uplinks: { "cia-A": { to: "cia-B" }, "cia-B": { to: "cia-A" } } },   /* anello */
+  });
+  const R = A.elecResult(true);
+  ok(R.totW === 500, "il totale resta quello dei carichi veri");
+  ok((R.issues || []).some((i) => /anello/i.test(i.msg || "")), "l'anello viene segnalato");
+  ok(R.distros.every((d) => d.loadW < 1200), "nessun carico gonfiato dal giro su se stesso");
+  A.loadDoc(JSON.parse(before));
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;
