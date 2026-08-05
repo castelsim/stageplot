@@ -2991,6 +2991,9 @@ function applyProjLock(locked){
     if(lockUnlock) lockUnlock.hidden=consultationLock;
     bar.hidden=false;
   } else if(bar){ bar.hidden=true; }
+  /* La pastiglia di stato va allineata subito: col lucchetto messo mentre si lavora restava su
+     «Salvataggio…» fino al tentativo successivo — che con __projLocked non arriva mai. */
+  if(locked && typeof docStateForLock==="function") docStateForLock();
 }
 window.applyProjLock=applyProjLock;
 /* Nudge cloud-only (spec 2026-07-03): al primo export riuscito della sessione, se anonimo, ricorda
@@ -3243,11 +3246,20 @@ function setDocState(mode){
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
   else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Modificato altrove — scegli come continuare"; htmlM=CHIP_SVG.warn+"Modificato altrove"; }
+  else if(mode==="locked"){ cls+=" warn"; html=CHIP_SVG.warn+"Progetto bloccato — le modifiche restano su questo dispositivo"; htmlM=CHIP_SVG.warn+"Bloccato — non salvo online"; }   /* il lucchetto ferma l'autosave: senza questo la pastiglia restava su «Salvataggio…» per sempre */
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
 }
 window.setDocState=setDocState;
+/* Che cosa dice la pastiglia quando il progetto è bloccato (lucchetto messo qui o da un altro
+   dispositivo): se c'era qualcosa in volo o in attesa, quel qualcosa online non ci va più e va detto;
+   se non c'era niente in sospeso, il documento è quello del cloud e la pastiglia lo racconta. */
+function docStateForLock(){
+  if(_cloudDirty || _cloudSaving){ setDocState("locked"); return; }
+  var C=window.__cloud;
+  setDocState(C && C.user && C.user() ? (C.currentId&&C.currentId() ? "online" : "local") : "offline-warn");
+}
 var _cloudAsT=null, _cloudRetryT=null, _cloudRetryStep=0;
 var _cloudDirty=false, _cloudSaving=false, _cloudChangeSeq=0, _cloudFlushWaiters=[];
 function resolveCloudFlush(ok){
@@ -3283,7 +3295,7 @@ function cloudAutosaveNow(){
   if(window.__docLoadBlocked){ setDocState("blocked"); resolveCloudFlush(false); return; }   /* documento incompatibile: mai sovrascrivere il cloud */
   if(window.__localConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* un'altra tab ha una revisione locale concorrente */
   if(window.__bootVenueUnavailable){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* pointer locale mancante: attendi il recupero autorevole, mai inviare venue_image=null */
-  if(window.__projLocked){ resolveCloudFlushWhenIdle(true); return; }
+  if(window.__projLocked){ docStateForLock(); resolveCloudFlushWhenIdle(true); return; }   /* bloccato: si esce, ma dicendolo — non lasciando «Salvataggio…» acceso a vuoto */
   if(!C || !C.user()){ setDocState(window.__localStorageUnavailable?"local-error":"offline-warn"); _cloudRetryStep=0; resolveCloudFlush(false); return; }
   if(window.__cloudConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   if(!_cloudDirty){ resolveCloudFlushWhenIdle(true); return; }
@@ -3330,7 +3342,7 @@ function scheduleCloudAutosave(){
 function flushCloudAutosave(done){
   if(window.__docLoadBlocked){ setDocState("blocked"); if(done) done(false); return; }
   if(window.__bootVenueUnavailable){ setDocState("conflict"); if(done) done(false); return; }
-  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked){ if(done) done(true); return; }
+  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked){ if(window.__projLocked) docStateForLock(); if(done) done(true); return; }
   if(done) _cloudFlushWaiters.push(done);
   if(!_cloudDirty && !_cloudSaving){ resolveCloudFlushWhenIdle(true); return; }
   clearTimeout(_cloudAsT); _cloudAsT=null;
@@ -13221,9 +13233,28 @@ document.addEventListener("keydown", function(e){
       }
     }
   }
-  if(window.__projLocked && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){   /* progetto bloccato: blocca le scorciatoie che modificano, MA non dentro i campi di testo (dialoghi permessi: Esporta PDF, ecc.) */
-    if(e.key!=="Escape" && (e.key==="Delete"||e.key==="Backspace"||/^Arrow/.test(e.key) || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|s|x)$/i.test(e.key)))){
-      e.preventDefault(); if(window.__toast) window.__toast("Il progetto è bloccato. Sbloccalo per modificarlo."); return;
+  /* SOLA LETTURA — progetto bloccato (__projLocked) OPPURE documento di qualcun altro aperto da link
+     condiviso / consulenza lato cliente (body.viewmode). Il viewer si difendeva col solo
+     `pointer-events:none` sul palco: il mouse non lo toccava, la TASTIERA sì — Tab dava il fuoco
+     all'SVG, le frecce spostavano gli elementi, Canc li cancellava, ⌘D duplicava. Qui si legge.
+     Restano fuori dal blocco: Tab/Esc (navigazione e accessibilità), ⌘C (copia, non modifica) e ⌘S
+     in consulenza, che è il salvataggio autorizzato del consulente, non una scrittura sul documento. */
+  var _soloLettura = window.__projLocked || document.body.classList.contains("viewmode");
+  if(_soloLettura && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){
+    var _modifica = e.key==="Delete" || e.key==="Backspace" || /^Arrow/.test(e.key)
+      || (!e.metaKey && !e.ctrlKey && !e.altKey && /^[rd]$/i.test(e.key))            /* r/R ruota, d/D duplica */
+      || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|x)$/i.test(e.key))
+      || ((e.metaKey||e.ctrlKey) && /^s$/i.test(e.key) && window.__projLocked);
+    if(e.key!=="Escape" && _modifica){
+      e.preventDefault();
+      /* col tasto tenuto premuto il keydown si ripete: un toast al secondo basta a spiegarlo */
+      if(window.__toast && (!window.__roToastAt || (e.timeStamp - window.__roToastAt) > 1000)){
+        window.__roToastAt = e.timeStamp;
+        window.__toast(window.__projLocked
+          ? "Il progetto è bloccato. Sbloccalo per modificarlo."
+          : "Questo è un link in sola lettura: il progetto si legge, non si modifica.");
+      }
+      return;
     }
   }
   if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault();
@@ -19770,6 +19801,9 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     if(oc){ oc.checked=_so.copy!==false; oc.onchange=function(){ commitShareOption(oc,"copy",oc.checked); }; }
     if(ok){ ok.checked=_so.contacts===true; ok.onchange=function(){ commitShareOption(ok,"contacts",ok.checked); }; }
     if(window.__projLocked){ if(oc) oc.disabled=true; if(ok) ok.disabled=true; }
+    /* la casella spuntata non basta: col progetto bloccato il server pubblica il link senza contatti */
+    var _pl=document.getElementById("sharePermLock");
+    if(_pl) _pl.hidden = !(window.__projLocked && _so.contacts===true);
   }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
