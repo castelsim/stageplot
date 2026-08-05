@@ -49,6 +49,16 @@
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
   header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px}
+  /* GRUPPO AZIONI SEMPRE IN VISTA (04/08). L'header scorre in orizzontale (overflow-x:auto) e sotto i
+     ~1400 px trabocca: i primi comandi a uscire di vista sono gli ULTIMI della fila, cioè «Condividi»
+     e «Accedi» — i due che servono di più, e su macOS senza barra di scorrimento visibile nessuno
+     immagina di doverli andare a cercare. Il gruppo resta agganciato a destra; a scorrere sono i
+     controlli centrali. Lo sfondo è quello del body (l'header non ne dichiara uno proprio) e la
+     sfumatura a sinistra dice che sotto c'è dell'altro. */
+  .hdr-actions{display:flex;gap:8px;align-items:center;position:sticky;right:-14px;z-index:3;
+    background:var(--surface);padding:0 14px 0 10px;margin-right:-14px;flex:0 0 auto}
+  .hdr-actions::before{content:"";position:absolute;left:0;top:0;bottom:0;width:14px;pointer-events:none;
+    transform:translateX(-100%);background:linear-gradient(90deg,rgba(0,0,0,0),var(--surface))}
   header input[type=text]{flex:1;max-width:340px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:14px}
   .btn-icon{padding:7px 11px;font-size:16px;min-width:36px}
   /* icon-button toolbar (ghost): per le icone-funzione a linea (undo/redo, ecc.) */
@@ -1196,6 +1206,8 @@
   label.share-perm{cursor:pointer}
   .share-perm .pd{flex:1}
   .share-perm .pd small{display:block;color:var(--text-3);font-size:10.5px}
+  .share-permnote{font-size:11px;line-height:1.35;color:var(--warning);background:var(--warning-bg);
+    border:1px solid var(--warning-border);border-radius:8px;padding:7px 9px;margin-top:6px}
   .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
   .share-revoke:hover{background:var(--danger-bg)}
   body.mus-lock .mus-item{pointer-events:none}   /* lucchetto Musicisti: le persone non si toccano */
@@ -1394,7 +1406,15 @@
   .pdf-exp-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
   .pdf-exp-foot .mstatus{flex:1;min-height:16px}
   .pdf-exp-actions{display:flex;gap:8px;flex:0 0 auto}
-  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-optrow{flex-wrap:wrap} }
+  /* PIEDE DELL'EXPORT SU TELEFONO (04/08): stato e bottoni stavano sulla stessa riga. Su iPhone lo
+     stato («Scala risultante 1:100 · disegno 120×80 mm…») si stringeva in una colonna di due parole e
+     spingeva fuori il bottone principale: «Esporta PDF» arrivava tagliato a «Espor», e la finestra ha
+     overflow:hidden, quindi non c'era modo di raggiungerlo. Sotto i 720 px lo stato prende una riga
+     sua e i bottoni la successiva. */
+  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-optrow{flex-wrap:wrap}
+    .pdf-exp-foot{flex-wrap:wrap;gap:10px} .pdf-exp-foot .mstatus{flex:1 0 100%}
+    .pdf-exp-actions{width:100%;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+    .pdf-exp-actions>span{flex:1 1 0;min-width:0} }   /* lo spazio fra i formati e i due bottoni si comprime invece di mandare «Esporta PDF» a capo da solo */
   body.dark .pdf-sheet{background:#161d22}
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
@@ -1665,7 +1685,28 @@
        sono corretti subito sotto. */
     --accent-tint:#12312e;
     --warning-bg:#33270f;--warning-border:#5a4415;--warning:#fbbf24;
+    /* SEMANTICHE DI STATO (04/08, stessa radice del giro precedente): rosso, verde e teal scuro sono
+       nati per fondo chiaro e in scuro restavano tali dove servono come TESTO — «Elimina» del pannello
+       elemento a 2,47:1, il «sempre» del pannello Condividi a 2,95:1, la nota delle pagine PDF a
+       2,84:1: si vede che c'è scritto qualcosa, non cosa. Qui si schiariscono; i punti in cui le
+       stesse variabili fanno da SFONDO con testo bianco sopra sono rimappati subito sotto. */
+    --danger:#f87171;--danger-bg:#3a1d1f;
+    --success:#4ade80;--success-bg:#0f2d1a;--success-border:#166534;
+    --accent-strong:#5eead4;
     background:var(--bg);color:var(--text)}
+  /* gli sfondi che usavano il teal scuro: in scuro passano ad --accent/--accent-deep, che col bianco
+     sopra restano leggibili (--accent-strong ora è chiaro e servirebbe testo scuro) */
+  body.dark #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  body.dark #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+  body.dark .adv-btn.on:hover,body.dark .wl-cta:hover,body.dark #viewBar #viewCopy:hover,
+  body.dark #conflictBar #cbLoad:hover,body.dark #updToast #updGo:hover,
+  body.dark #pDivide:hover,body.dark #pGtrSplit:hover,body.dark #pCompSplit:hover,body.dark #pSplit:hover,
+  body.dark #grpUngroup:hover{background:var(--accent-deep);color:#fff}
+  /* il rosso pieno resta scuro: sopra ci va il bianco */
+  body.dark .btn.danger-solid{background:var(--danger-solid);color:#fff}
+  body.dark .share-revoke{border-color:#7f3b3b;color:var(--danger)}
+  /* etichetta del telaio sul PALCO, che resta chiaro anche in tema scuro: qui serve il teal scuro */
+  body.dark .frame-lbl{fill:#0b7a70}
   /* testo che stava sopra la tinta CHIARA: in scuro serve l'accento chiaro, non quello scuro */
   body.dark .btn.tint{color:var(--accent-bright)}
   body.dark .bus-chip:hover{color:var(--accent-bright)}
@@ -1679,8 +1720,7 @@
   body.dark .btn:hover{background:#2c3848}
   /* le varianti vanno ri-dichiarate in dark: `body.dark .btn` (0,2,1) batte `.btn.primary` (0,2,0) */
   body.dark .btn.primary{background:var(--accent)}                 /* teal, non grigio */
-  body.dark .btn.primary:hover{background:var(--accent-strong)}
-  body.dark .btn.danger-solid{background:var(--danger);color:#fff}
+  body.dark .btn.primary:hover{background:var(--accent-deep)}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}
   body.dark #catalog{background:#1b2327;border-right-color:#2c3a3f}
   body.dark #catalog .cat-head{background:#20292e;border-color:#314046;color:#cbd5e1}
@@ -1908,10 +1948,12 @@ body.chan-edit #mActions { display: none !important; }
 .clsec-head{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;-webkit-user-select:none;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:7px 10px;margin:8px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-2,#374151);background:var(--surface-2,#f8fafc)}
 .clsec-head:hover{background:var(--surface-3,#eceef1)}
 .clsec-head.open{background:#1f2937;border-color:#1f2937;color:#fff}
-.clsec-head .cl-caret{font-size:10px;color:#9ca3af;transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 10px}
+/* contatore e freccetta erano grigio-chiaro su bianco: 2,2:1 e 2,4:1, sotto la soglia in TUTTI E DUE
+   i temi — il numero di canali della sezione non si leggeva (sonda contrasti 04/08) */
+.clsec-head .cl-caret{font-size:10px;color:#6b7280;transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 10px}
 .clsec-head.open .cl-caret{transform:rotate(90deg);color:#cbd5e1}
 .clsec-head .cl-lbl{flex:1}
-.clsec-head .cl-count{font-size:10px;font-weight:700;color:#aab0b8;background:#fff;border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
+.clsec-head .cl-count{font-size:10px;font-weight:700;color:#6b7280;background:#fff;border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
 .clsec-head.open .cl-count{background:#374151;color:#cbd5e1}
 .clsec-head .btn{padding:3px 8px;font-size:11px;margin-left:2px}
 .clsec-head.open .btn{background:#374151;border-color:#4b5563;color:#e5e7eb}
@@ -2085,6 +2127,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Testo dei bottoni in riga: si tronca invece di sfondare il pannello */
   #props .btn{min-width:0}
   #props .row .btn,#props .btns .btn{overflow:hidden;text-overflow:ellipsis}
+  /* AZIONI SULL'ELEMENTO (04/08): `flex:1 1 0` dava a tutti e quattro la STESSA larghezza, e «⇋ Specchia»
+     — la più lunga — arrivava tagliata a «⇋ Specchi». Qui ognuno parte dalla propria larghezza e cresce
+     da lì; se la colonna si stringe vanno a capo, invece di mangiarsi le lettere. */
+  #props .btns#pActRow{flex-wrap:wrap}
+  #props .btns#pActRow .btn{flex:1 1 auto;padding:6px 8px}
   #pDivide,#pGtrSplit,#pCompSplit,#pSplit,#grpUngroup{background:var(--accent);border:1px solid var(--accent);
     color:#fff;font-weight:600}
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
