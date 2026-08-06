@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.07.31";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.08.05";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -182,6 +182,9 @@
     --danger:#b91c1c;--danger-solid:#dc2626;--danger-bg:#fee2e2;
     /* superfici & overlay (chrome) */
     --bg:var(--n-50);--surface:#fff;--surface-raised:var(--n-100);--border:var(--n-200);--border-strong:var(--n-300);
+    /* --surface-2/-3 erano USATE (intestazioni del pannello consulenza) senza essere mai dichiarate:
+       vinceva sempre il fallback chiaro, anche in tema scuro. Ora esistono, e in scuro sono scure. */
+    --surface-2:#f8fafc;--surface-3:#eceef1;
     --text:var(--n-800);--text-2:var(--n-500);--text-3:var(--n-400);--text-on-accent:#fff;
     --canvas-bg:#edebe4;--sheet:#fff;
     --select:var(--accent);--select-fill:rgba(13,148,136,.05);--focus-ring:rgba(13,148,136,.32);
@@ -214,6 +217,16 @@
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
   header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px}
+  /* GRUPPO AZIONI SEMPRE IN VISTA (04/08). L'header scorre in orizzontale (overflow-x:auto) e sotto i
+     ~1400 px trabocca: i primi comandi a uscire di vista sono gli ULTIMI della fila, cioè «Condividi»
+     e «Accedi» — i due che servono di più, e su macOS senza barra di scorrimento visibile nessuno
+     immagina di doverli andare a cercare. Il gruppo resta agganciato a destra; a scorrere sono i
+     controlli centrali. Lo sfondo è quello del body (l'header non ne dichiara uno proprio) e la
+     sfumatura a sinistra dice che sotto c'è dell'altro. */
+  .hdr-actions{display:flex;gap:8px;align-items:center;position:sticky;right:-14px;z-index:3;
+    background:var(--surface);padding:0 14px 0 10px;margin-right:-14px;flex:0 0 auto}
+  .hdr-actions::before{content:"";position:absolute;left:0;top:0;bottom:0;width:14px;pointer-events:none;
+    transform:translateX(-100%);background:linear-gradient(90deg,rgba(0,0,0,0),var(--surface))}
   header input[type=text]{flex:1;max-width:340px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:14px}
   .btn-icon{padding:7px 11px;font-size:16px;min-width:36px}
   /* icon-button toolbar (ghost): per le icone-funzione a linea (undo/redo, ecc.) */
@@ -1361,6 +1374,8 @@
   label.share-perm{cursor:pointer}
   .share-perm .pd{flex:1}
   .share-perm .pd small{display:block;color:var(--text-3);font-size:10.5px}
+  .share-permnote{font-size:11px;line-height:1.35;color:var(--warning);background:var(--warning-bg);
+    border:1px solid var(--warning-border);border-radius:8px;padding:7px 9px;margin-top:6px}
   .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
   .share-revoke:hover{background:var(--danger-bg)}
   body.mus-lock .mus-item{pointer-events:none}   /* lucchetto Musicisti: le persone non si toccano */
@@ -1559,7 +1574,15 @@
   .pdf-exp-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
   .pdf-exp-foot .mstatus{flex:1;min-height:16px}
   .pdf-exp-actions{display:flex;gap:8px;flex:0 0 auto}
-  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-optrow{flex-wrap:wrap} }
+  /* PIEDE DELL'EXPORT SU TELEFONO (04/08): stato e bottoni stavano sulla stessa riga. Su iPhone lo
+     stato («Scala risultante 1:100 · disegno 120×80 mm…») si stringeva in una colonna di due parole e
+     spingeva fuori il bottone principale: «Esporta PDF» arrivava tagliato a «Espor», e la finestra ha
+     overflow:hidden, quindi non c'era modo di raggiungerlo. Sotto i 720 px lo stato prende una riga
+     sua e i bottoni la successiva. */
+  @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-optrow{flex-wrap:wrap}
+    .pdf-exp-foot{flex-wrap:wrap;gap:10px} .pdf-exp-foot .mstatus{flex:1 0 100%}
+    .pdf-exp-actions{width:100%;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+    .pdf-exp-actions>span{flex:1 1 0;min-width:0} }   /* lo spazio fra i formati e i due bottoni si comprime invece di mandare «Esporta PDF» a capo da solo */
   body.dark .pdf-sheet{background:#161d22}
   .pa-card{border:2px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
   .pa-card.sel{border-color:var(--accent);background:var(--accent-tint)}
@@ -1816,12 +1839,46 @@
      dove un valore NON passa da un token theme-aware (testi su neutri fissi, pannelli
      feedback con tinte proprie, input/bottoni con superfici dedicate). */
   body.dark{
-    --bg:#12181b;--surface:#1b2327;--surface-raised:#20292e;
+    --bg:#12181b;--surface:#1b2327;--surface-raised:#20292e;--surface-2:#20292e;--surface-3:#253036;
     --border:#2c3a3f;--border-strong:#314046;
     --text:#e5e7eb;--text-2:#96a5a1;--text-3:#6b7280;
     --canvas-bg:#0e1214;--sheet:#fff;
     --focus-ring:rgba(20,184,166,.32);   /* glow accent-bright per il focus su scuro */
+    /* SUPERFICI «TINTA» (04/08): erano dichiarate solo in :root e restavano quasi bianche in tema
+       scuro, col testo chiaro sopra. La riga SELEZIONATA della channel list dava 1,08:1 — il nome
+       del canale spariva — e la barra «Sala oscurabile» del pannello Luci 1,43:1, un interruttore
+       senza nome. Qui vanno insieme sfondo e colore d'accento, perché --warning nasce per fondo
+       chiaro. NON si tocca --accent-strong: è anche lo sfondo dei bottoni primari (testo bianco),
+       schiarirlo li renderebbe illeggibili — i pochi punti che lo usavano come TESTO sopra la tinta
+       sono corretti subito sotto. */
+    --accent-tint:#12312e;
+    --warning-bg:#33270f;--warning-border:#5a4415;--warning:#fbbf24;
+    /* SEMANTICHE DI STATO (04/08, stessa radice del giro precedente): rosso, verde e teal scuro sono
+       nati per fondo chiaro e in scuro restavano tali dove servono come TESTO — «Elimina» del pannello
+       elemento a 2,47:1, il «sempre» del pannello Condividi a 2,95:1, la nota delle pagine PDF a
+       2,84:1: si vede che c'è scritto qualcosa, non cosa. Qui si schiariscono; i punti in cui le
+       stesse variabili fanno da SFONDO con testo bianco sopra sono rimappati subito sotto. */
+    --danger:#f87171;--danger-bg:#3a1d1f;
+    --success:#4ade80;--success-bg:#0f2d1a;--success-border:#166534;
+    --accent-strong:#5eead4;
     background:var(--bg);color:var(--text)}
+  /* gli sfondi che usavano il teal scuro: in scuro passano ad --accent/--accent-deep, che col bianco
+     sopra restano leggibili (--accent-strong ora è chiaro e servirebbe testo scuro) */
+  body.dark #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  body.dark #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+  body.dark .adv-btn.on:hover,body.dark .wl-cta:hover,body.dark #viewBar #viewCopy:hover,
+  body.dark #conflictBar #cbLoad:hover,body.dark #updToast #updGo:hover,
+  body.dark #pDivide:hover,body.dark #pGtrSplit:hover,body.dark #pCompSplit:hover,body.dark #pSplit:hover,
+  body.dark #grpUngroup:hover{background:var(--accent-deep);color:#fff}
+  /* il rosso pieno resta scuro: sopra ci va il bianco */
+  body.dark .btn.danger-solid{background:var(--danger-solid);color:#fff}
+  body.dark .share-revoke{border-color:#7f3b3b;color:var(--danger)}
+  /* etichetta del telaio sul PALCO, che resta chiaro anche in tema scuro: qui serve il teal scuro */
+  body.dark .frame-lbl{fill:#0b7a70}
+  /* testo che stava sopra la tinta CHIARA: in scuro serve l'accento chiaro, non quello scuro */
+  body.dark .btn.tint{color:var(--accent-bright)}
+  body.dark .bus-chip:hover{color:var(--accent-bright)}
+  body.dark #catalog .sub-head{color:var(--accent-bright)}
   /* opzione "foglio attenuato" per chi lavora in sala buia (opt-in via classe) */
   body.dark header{background:#1b2327;border-bottom-color:#2c3a3f}
   body.dark .hdr-stage{background:#20292e;border-color:#314046}
@@ -1831,8 +1888,7 @@
   body.dark .btn:hover{background:#2c3848}
   /* le varianti vanno ri-dichiarate in dark: `body.dark .btn` (0,2,1) batte `.btn.primary` (0,2,0) */
   body.dark .btn.primary{background:var(--accent)}                 /* teal, non grigio */
-  body.dark .btn.primary:hover{background:var(--accent-strong)}
-  body.dark .btn.danger-solid{background:var(--danger);color:#fff}
+  body.dark .btn.primary:hover{background:var(--accent-deep)}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}
   body.dark #catalog{background:#1b2327;border-right-color:#2c3a3f}
   body.dark #catalog .cat-head{background:#20292e;border-color:#314046;color:#cbd5e1}
@@ -1959,6 +2015,41 @@ body.viewmode #viewBar {
 }
 body.viewmode main { position: fixed; inset: 44px 0 0 0; }
 
+/* Documento condiviso non arrivato: al posto del disegno, non sopra. Finché il palco resta visibile
+   sotto un avviso, c'è sempre chi legge il palco e non l'avviso. */
+body.view-failed main,
+body.view-failed #viewLists,
+body.view-failed #viewToggle,
+body.view-failed > header,
+body.view-failed #mTop,
+body.view-failed #catalog,
+body.view-failed #props,
+body.view-failed #mDock,
+body.view-failed #mActions,
+body.view-failed #mPeek,
+body.view-failed > footer { display: none !important; }
+#viewFail {
+  position: fixed; inset: 44px 0 0 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--bg); overflow: auto;
+}
+#viewFail[hidden] { display: none; }
+#viewFail .vf-card {
+  max-width: 460px; width: 100%; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px 24px; color: var(--text);
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+/* dimensione ESPLICITA: senza, la regola svg{width:100%} dei pannelli stira l'icona a tutta la card */
+#viewFail svg { width: 34px; height: 34px; flex: 0 0 auto; color: #b45309; display: block; margin: 0 auto 10px; }
+#viewFail b { display: block; font-size: 17px; margin-bottom: 10px; }
+#viewFail p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+#viewFail p b { display: inline; font-size: inherit; color: var(--text); }
+#viewFail .vf-why { font-size: 12.5px; color: var(--text-3); }
+#viewFail .vf-why:empty { display: none; }
+#viewFail button { margin: 6px 0 12px; min-width: 140px; }
+#viewFail small { display: block; font-size: 12px; color: var(--text-3); line-height: 1.45; }
+
 /* Blocco progetti: sola-lettura del progetto cloud bloccato. Superfici di editing NON interattive;
    restano usabili header (esporta/condividi/File/duplica/sblocca), pan/zoom e la barra di blocco. */
 body.proj-ro #catalog,
@@ -2025,10 +2116,12 @@ body.chan-edit #mActions { display: none !important; }
 .clsec-head{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;-webkit-user-select:none;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:7px 10px;margin:8px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-2,#374151);background:var(--surface-2,#f8fafc)}
 .clsec-head:hover{background:var(--surface-3,#eceef1)}
 .clsec-head.open{background:#1f2937;border-color:#1f2937;color:#fff}
-.clsec-head .cl-caret{font-size:10px;color:#9ca3af;transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 10px}
+/* contatore e freccetta erano grigio-chiaro su bianco: 2,2:1 e 2,4:1, sotto la soglia in TUTTI E DUE
+   i temi — il numero di canali della sezione non si leggeva (sonda contrasti 04/08) */
+.clsec-head .cl-caret{font-size:10px;color:#6b7280;transition:transform .15s ease;display:inline-block;width:10px;flex:0 0 10px}
 .clsec-head.open .cl-caret{transform:rotate(90deg);color:#cbd5e1}
 .clsec-head .cl-lbl{flex:1}
-.clsec-head .cl-count{font-size:10px;font-weight:700;color:#aab0b8;background:#fff;border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
+.clsec-head .cl-count{font-size:10px;font-weight:700;color:#6b7280;background:var(--surface);border-radius:999px;padding:1px 8px;min-width:20px;text-align:center}
 .clsec-head.open .cl-count{background:#374151;color:#cbd5e1}
 .clsec-head .btn{padding:3px 8px;font-size:11px;margin-left:2px}
 .clsec-head.open .btn{background:#374151;border-color:#4b5563;color:#e5e7eb}
@@ -2055,6 +2148,21 @@ body.chan-edit #mActions { display: none !important; }
 .clactions{display:flex;gap:6px;margin:5px 0 4px}
 .clactions .btn{padding:5px 9px;font-size:11.5px}
 .clempty{font-size:11.5px;color:#b6bbc2;margin:2px 0 4px}
+/* PANNELLO DELLA CONSULENZA IN TEMA SCURO (05/08, scelta A2 di Simone sul mockup). Era un'isola
+   chiara dentro l'app scura: i campi del rider avevano il bianco scritto NEL MARKUP (nessun CSS
+   poteva toglierlo, per questo sono passati a .rd-i), le intestazioni usavano --surface-2, che non
+   era mai stata dichiarata, e il contatore un #fff fisso. Le righe della channel list erano già a
+   posto: sono input, e `body.dark #props input` le prendeva. */
+.rd-i{padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--text);font-family:var(--font-ui)}
+.rd-ta{width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;resize:vertical}
+.rd-pub{font-weight:700;color:var(--canvas-tech);background:var(--warning-bg);border:1px solid var(--warning-border);
+  border-radius:999px;padding:0 7px;font-size:9.5px}
+body.dark .rd-pub{color:var(--warning)}
+body.dark .clrow .n.grip:hover{background:#253036;color:#cbd5e1}
+body.dark .clrow.dragging{background:#1e2a3a}
+body.dark .clrow .del{color:#5b6672}
+body.dark .clempty{color:var(--text-3)}
 /* Modalità channel list = pannello LARGO come una tabella professionale (M1/M2), solo desktop.
    Nasconde il catalogo (non serve al consulente qui) e allarga #props; colonne generose = niente troncamenti. */
 @media (min-width:881px){
@@ -2202,6 +2310,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Testo dei bottoni in riga: si tronca invece di sfondare il pannello */
   #props .btn{min-width:0}
   #props .row .btn,#props .btns .btn{overflow:hidden;text-overflow:ellipsis}
+  /* AZIONI SULL'ELEMENTO (04/08): `flex:1 1 0` dava a tutti e quattro la STESSA larghezza, e «⇋ Specchia»
+     — la più lunga — arrivava tagliata a «⇋ Specchi». Qui ognuno parte dalla propria larghezza e cresce
+     da lì; se la colonna si stringe vanno a capo, invece di mangiarsi le lettere. */
+  #props .btns#pActRow{flex-wrap:wrap}
+  #props .btns#pActRow .btn{flex:1 1 auto;padding:6px 8px}
   #pDivide,#pGtrSplit,#pCompSplit,#pSplit,#grpUngroup{background:var(--accent);border:1px solid var(--accent);
     color:#fff;font-weight:600}
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
@@ -2446,6 +2559,19 @@ body.dark .ask-all .btn{background:transparent}
 <body>
 <div id="viewBar"><a class="vb-brand" href="/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
+<!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
+     si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
+     tecnico di sala (caccia ai bug 03/08/2026). -->
+<div id="viewFail" hidden role="alert" aria-live="assertive">
+  <div class="vf-card">
+    <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+    <b id="viewFailTitle">Il progetto non è stato caricato</b>
+    <p>Quello che vedi <b>non è il contenuto del link</b>: i dati non sono arrivati. Non è uno stage plot vuoto.</p>
+    <p class="vf-why" id="viewFailWhy"></p>
+    <button class="btn primary" id="viewFailRetry" type="button">Riprova</button>
+    <small>Se non funziona nemmeno riprovando, chiedi un link aggiornato a chi te l'ha mandato.</small>
+  </div>
+</div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
@@ -2507,7 +2633,7 @@ body.dark .ask-all .btn{background:transparent}
   </span>
   <!-- bottone "Nomi" rimosso dall'header: la visibilità e l'abbreviazione del nome sono ora per-elemento (pannello dettagli a destra). Il nascondere a scala minima resta automatico e silenzioso. -->
   <span class="tbdiv"></span>
-  <div style="display:flex;gap:8px;align-items:center">
+  <div class="hdr-actions">
     <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
     <a class="btn tint" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="text-decoration:none">Consulenza</a>
     <button class="btn primary" id="bShareHdr" title="Condividi con un link (contiene anche Scarica PDF)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
@@ -2659,6 +2785,10 @@ body.dark .ask-all .btn{background:transparent}
             </div>
             <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Importa immagine</button>
+            <div id="venueWeightRow" hidden style="margin-top:7px">
+              <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:11.5px"></small>
+              <button class="btn" id="venueBtnLighten" style="width:100%;margin-top:4px">Alleggerisci immagine</button>
+            </div>
           </div>
         </div>
         <div class="vstep" id="vstep2">
@@ -3432,7 +3562,7 @@ body.dark .ask-all .btn{background:transparent}
   <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
   <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
     <div class="cl-contacts" style="margin:0 0 12px">
-      <div style="font-size:11px;color:var(--text-2,#374151);font-weight:600;margin-bottom:2px">Contatti e ruoli <span style="font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;padding:0 7px;font-size:9.5px" title="Questi contatti vanno stampati sul rider e viaggiano con il link e le copie. Metti solo ciò che vuoi far leggere a chi riceve il progetto.">🌐 sul rider · pubblici</span></div>
+      <div style="font-size:11px;color:var(--text-2,#374151);font-weight:600;margin-bottom:2px">Contatti e ruoli <span class="rd-pub" title="Questi contatti vanno stampati sul rider e viaggiano con il link e le copie. Metti solo ciò che vuoi far leggere a chi riceve il progetto.">🌐 sul rider · pubblici</span></div>
       <div style="font-size:10px;color:var(--text-3,#6b7280);margin-bottom:6px;line-height:1.4">Viaggiano con link e copie. Aziende, reparti e responsabili di produzione resteranno invece nel tuo account (privati).</div>
       <div id="contactRows"></div>
       <button type="button" id="contactAdd" class="btn" style="font-size:12px;margin-top:5px">+ Contatto</button>
@@ -3445,11 +3575,11 @@ body.dark .ask-all .btn{background:transparent}
       <summary style="font-size:11px;color:var(--text-2,#374151);cursor:pointer;font-weight:600">Rider tecnico — testo (opzionale)</summary>
       <div style="margin-top:7px;display:grid;gap:7px">
         <div style="font-size:10.5px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" style="width:74px;margin-left:6px;padding:3px 6px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111"></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" class="rd-i" style="width:74px;margin-left:6px"></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
       </div>
     </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
@@ -3794,8 +3924,12 @@ body.dark .ask-all .btn{background:transparent}
       </div>
       <div id="sharePerms" style="border-top:1px solid var(--border);margin-top:14px;padding-top:8px">
         <div class="share-perm"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
-        <label class="share-perm" for="shareOptCopy"><span class="pd">Può creare una copia <small>il destinatario riparte dal tuo palco sul suo account</small></span><input type="checkbox" id="shareOptCopy"></label>
+        <label class="share-perm" for="shareOptCopy"><span class="pd">Mostra il pulsante «Crea una copia» <small>chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF</small></span><input type="checkbox" id="shareOptCopy"></label>
         <label class="share-perm" for="shareOptContacts"><span class="pd">Contatti visibili nel link <small>nomi e recapiti della rubrica del progetto — spento di default</small></span><input type="checkbox" id="shareOptContacts"></label>
+        <!-- Col progetto bloccato il server taglia i contatti comunque (get-shared-project:
+             allowContacts = !is_locked): la casella resta spuntata e disabilitata, e senza questa
+             riga il pannello prometteva una cosa e il link ne faceva un'altra. -->
+        <div id="sharePermLock" class="share-permnote" hidden>Il progetto è bloccato: finché resta bloccato i contatti <b>non</b> vengono pubblicati nel link, anche se la casella è spuntata.</div>
       </div>
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>

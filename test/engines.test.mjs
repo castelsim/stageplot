@@ -927,6 +927,628 @@ t("quota planimetria non committa un root che renda irraggiungibile l'ultima cop
     A.loadDoc(JSON.parse(before));
   }
 });
+/* PUNTO DI RECUPERO E PLANIMETRIE PESANTI (bug in produzione 03/08/2026).
+   Simone non riusciva più ad aprire NESSUN progetto: «Impossibile creare il punto di recupero.»
+   Il documento aperto aveva una planimetria PNG da 8,3 MB già in localStorage; il recovery la
+   RIDUPLICAVA dentro la riga della versione (docToJSONFull) e la quota, ormai piena, rifiutava la
+   scrittura. Il salvataggio manuale della stessa versione costava 15 KB, perché punta al blob. */
+function withVenueStore(A, cap, body) {
+  const before = A.docToJSON();
+  const old = {
+    storage: A.localStorage, cloud: A.__cloud, document: A.document, consult: A.__consultMode,
+    conflict: A.__localConflict, unavailable: A.__localStorageUnavailable,
+    bootVenue: A.__bootVenueUnavailable, persistedSig: A.venuePersistedSig,
+    persistedKey: A.venuePersistedKey, stageFailed: A.venueStageFailedSig,
+    expectedRevision: A.localExpectedRevision, blocked: A.__docLoadBlocked,
+  };
+  const store = new Map();
+  const size = () => [...store.entries()].reduce((n, [k, v]) => n + k.length + String(v).length, 0);
+  const writes = [];
+  try {
+    A.localStorage = {
+      get length() { return store.size; },
+      key: (i) => [...store.keys()][i] ?? null,
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => {
+        writes.push([key, String(value).length]);
+        const grown = size() - (store.has(key) ? key.length + String(store.get(key)).length : 0)
+          + key.length + String(value).length;
+        if (grown > cap) { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; }
+        store.set(key, String(value));
+      },
+      removeItem: (key) => store.delete(key),
+    };
+    A.__cloud = { currentId: () => "prj-noale", currentRev: () => "rev-1", user: () => null };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__consultMode = false; A.__localConflict = false; A.__localStorageUnavailable = false;
+    A.__bootVenueUnavailable = false; A.__docLoadBlocked = null;
+    A.venuePersistedSig = null; A.venuePersistedKey = null; A.venueStageFailedSig = null;
+    A.localExpectedRevision = null;
+    return body({ store, writes, size });
+  } finally {
+    A.localStorage = old.storage; A.__cloud = old.cloud; A.document = old.document;
+    A.__consultMode = old.consult; A.__localConflict = old.conflict;
+    A.__localStorageUnavailable = old.unavailable; A.__bootVenueUnavailable = old.bootVenue;
+    A.venuePersistedSig = old.persistedSig; A.venuePersistedKey = old.persistedKey;
+    A.venueStageFailedSig = old.stageFailed; A.localExpectedRevision = old.expectedRevision;
+    A.__docLoadBlocked = old.blocked;
+    A.loadDoc(JSON.parse(before));
+  }
+}
+/* planimetria "pesante": base64 finto ma della stessa scala del caso reale, in proporzione al cap */
+function heavyVenue(kb) {
+  return { name: "planimetria.png", _dataUrl: "data:image/png;base64," + "Q".repeat(kb * 1024),
+    _imgW: 1476, _imgH: 1190, x: 0, y: 0, w: 10072, h: 8121 };
+}
+t("punto di recupero: la planimetria già in archivio si referenzia, non si riduplica", () => {
+  withVenueStore(A, 200 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "noale morricone", venue: heavyVenue(150),
+      items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
+    eq(A.persistLocalState(), true, "documento e planimetria persistiti");
+    const venueKeys = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."));
+    eq(venueKeys.length, 1, "un solo blob planimetria in archivio");
+
+    /* lo spazio residuo non basta a una SECONDA copia dell'immagine: è il caso di Simone */
+    eq(A.saveVersion("Prima di aprire un progetto", true), true,
+      "il punto di recupero riesce comunque");
+    const rows = JSON.parse(store.get(A.VER_KEY) || "[]");
+    eq(rows.length, 1, "la versione è stata scritta");
+    eq(rows[0].venueKey, venueKeys[0], "punta al blob esistente");
+    ok(String(rows[0].data).indexOf("_dataUrl") < 0, "nessuna copia della bitmap dentro la riga");
+    ok(String(rows[0].data).length < 40 * 1024, "la riga resta piccola (era ~la dimensione dell'immagine)");
+  });
+});
+t("punto di recupero: se l'archivio è pieno, pota le versioni vecchie e ritenta", () => {
+  withVenueStore(A, 210 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "pieno", items: [{ id: "a", type: "cantante" }],
+      inputs: [], outputs: [] });
+    /* 30 versioni vecchie ingombranti già in archivio, come nel caso reale: da sole superano il cap */
+    const zavorra = [];
+    for (let i = 0; i < 30; i++) zavorra.push({ name: "Versione " + i, date: 1000 + i, data: JSON.stringify({ _doc: 1, pad: "z".repeat(8 * 1024) }) });
+    store.set(A.VER_KEY, JSON.stringify(zavorra));
+    eq(A.saveVersion("Prima di aprire un progetto", true), true,
+      "il recupero riesce facendo spazio");
+    const rows = JSON.parse(store.get(A.VER_KEY) || "[]");
+    eq(rows[0].name, "Prima di aprire un progetto", "il recupero è la riga più recente");
+    ok(rows.length < 31, "qualche versione vecchia è stata sacrificata");
+    ok(rows.length > 1, "non è stato buttato tutto lo storico");
+  });
+});
+t("punto di recupero: senza blob referenziabile resta autosufficiente", () => {
+  withVenueStore(A, 4 * 1024 * 1024, ({ store }) => {
+    const oldConsult = A.__consultMode;
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "consulenza", venue: heavyVenue(20),
+      items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
+    try {
+      A.__consultMode = true;   /* foreignDoc(): stageVenueImg() non scrive nulla in locale */
+      eq(A.saveVersion("Recupero consulenza", true), true, "il recupero riesce");
+      const rows = JSON.parse(store.get(A.VER_KEY) || "[]");
+      ok(!rows[0].venueKey, "nessun riferimento a un blob che non esiste");
+      ok(String(rows[0].data).indexOf("_dataUrl") >= 0, "la bitmap viaggia dentro la riga");
+    } finally { A.__consultMode = oldConsult; }
+  });
+});
+/* PLANIMETRIE PESANTI E BLOB ORFANI — le due cause a monte del blocco del 03/08/2026.
+   (a) la ricompressione scattava solo sopra i 2000 px di lato: una scansione 1476×1190 da 8,3 MB
+       passava intatta, perché il PESO non veniva mai guardato;
+   (b) i blob della planimetria non venivano MAI rimossi: cambiando immagine se ne accumulava una
+       nuova da megabyte e la vecchia restava in archivio per sempre. */
+t("planimetria: si ricomprime per PESO, non solo per numero di pixel", () => {
+  const b64 = (kb) => "data:image/png;base64," + "Q".repeat(Math.round(kb * 1024 * 4 / 3));
+  ok(A.venueDataUrlBytes(b64(100)) > 95 * 1024 && A.venueDataUrlBytes(b64(100)) < 105 * 1024,
+    "il peso di un data URL è stimato dai byte reali, non dai caratteri");
+  eq(A.venueNeedsCompression(b64(8300), 1476, 1190), true,
+    "la scansione di Simone: piccola di lato, enorme di peso");
+  eq(A.venueNeedsCompression(b64(40), 1476, 1190), false, "una planimetria leggera si lascia stare");
+  eq(A.venueNeedsCompression(b64(40), 4000, 2500), true, "restano fuori scala anche i lati enormi");
+});
+t("planimetria: fra i candidati vince il più piccolo, e mai uno peggiore dell'originale", () => {
+  const orig = { durl: "data:image/png;base64," + "Q".repeat(4000), w: 1476, h: 1190 };
+  const origBytes = A.venueDataUrlBytes(orig.durl);
+  const piccolo = { durl: "data:image/webp;base64," + "Q".repeat(400), w: 1476, h: 1190 };
+  const medio = { durl: "data:image/jpeg;base64," + "Q".repeat(1200), w: 1476, h: 1190 };
+  eq(A.venuePickSmallest([medio, piccolo], origBytes).durl, piccolo.durl, "vince il più leggero");
+  eq(A.venuePickSmallest([], origBytes), null, "nessun candidato: si tiene l'originale");
+  const grasso = { durl: "data:image/webp;base64," + "Q".repeat(9000), w: 1476, h: 1190 };
+  eq(A.venuePickSmallest([grasso], origBytes), null, "un candidato più pesante non sostituisce nulla");
+  const appena = { durl: "data:image/webp;base64," + "Q".repeat(3700), w: 1476, h: 1190 };
+  eq(A.venuePickSmallest([appena], origBytes), null,
+    "guadagno irrisorio: non vale la perdita di qualità");
+});
+t("planimetrie orfane: si rimuove solo ciò che nessuno referenzia più", () => {
+  const K = A.LS_KEY_VENUE;
+  const tutte = [K + ".aaa_1", K + ".bbb_2", K + ".ccc_3", K, "stageplot_v1", "stageplot_versions"];
+  eq(A.orphanVenueKeys(tutte, [K + ".bbb_2"]), [K + ".aaa_1", K + ".ccc_3"],
+    "orfani solo i blob indirizzati per contenuto e non referenziati");
+  eq(A.orphanVenueKeys(tutte, []).indexOf(K), -1, "la chiave legacy senza suffisso non si tocca mai");
+  eq(A.orphanVenueKeys(tutte, []).indexOf("stageplot_v1"), -1, "il documento non si tocca mai");
+});
+t("pulizia planimetrie: tiene quella in uso e quelle delle versioni salvate", () => {
+  withVenueStore(A, 4 * 1024 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "con planimetria", venue: heavyVenue(20),
+      items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
+    eq(A.persistLocalState(), true, "documento e planimetria in archivio");
+    const inUso = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."))[0];
+    ok(inUso, "il blob in uso esiste");
+    eq(A.saveVersion("Una versione"), true, "una versione salvata punta a quel blob");
+
+    /* due blob di planimetrie sostituite in passato, che nessuno referenzia più */
+    store.set(A.LS_KEY_VENUE + ".vecchia1_9", "{\"_venueDoc\":2,\"assets\":{}}");
+    store.set(A.LS_KEY_VENUE + ".vecchia2_9", "{\"_venueDoc\":2,\"assets\":{}}");
+    eq(A.sweepVenueBlobs(), 2, "due orfani rimossi");
+    const rimasti = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."));
+    eq(rimasti, [inUso], "resta solo il blob vivo");
+    eq(A.sweepVenueBlobs(), 0, "una seconda passata non trova più nulla");
+  });
+});
+t("pulizia planimetrie: non tocca nulla su documento altrui o non caricato", () => {
+  withVenueStore(A, 4 * 1024 * 1024, ({ store }) => {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "x", venue: heavyVenue(20), items: [], inputs: [], outputs: [] });
+    A.persistLocalState();
+    store.set(A.LS_KEY_VENUE + ".orfano_9", "{}");
+    const oldConsult = A.__consultMode, oldBlocked = A.__docLoadBlocked;
+    try {
+      A.__consultMode = true;
+      eq(A.sweepVenueBlobs(), 0, "in consulenza/viewer non si tocca l'archivio dell'utente");
+      A.__consultMode = false; A.__docLoadBlocked = { code: "FUTURE_SCHEMA" };
+      eq(A.sweepVenueBlobs(), 0, "con documento non caricato non si sa cosa sia vivo");
+    } finally { A.__consultMode = oldConsult; A.__docLoadBlocked = oldBlocked; }
+    ok(store.has(A.LS_KEY_VENUE + ".orfano_9"), "l'orfano è ancora lì: nessuna rimozione azzardata");
+  });
+});
+/* ANTEPRIMA/VIEWER CONTRO PDF — due catene che divergevano (caccia ai bug 03/08/2026).
+   (1) la colonna «#» dell'input list mostrava sempre il progressivo, mentre PDF e CSV mostrano il
+       canale FOH: la stessa sorgente era «17» sul PDF e «10» nel link condiviso;
+   (2) l'ordine delle pagine tecniche era scritto DUE volte e le due copie erano già divergenti. */
+t("input list: il numero è quello del banco, in anteprima come nel PDF", () => {
+  const col = A.pdfListConfig().inputlist.cols[0];
+  const righe = [{ n: 1, foh: 17, name: "Kick" }, { n: 2, foh: 18, name: "Snare" }];
+  eq(righe.map((r) => col.f(r, { hasFoh: true })), [17, 18], "col FOH disponibile vince il canale FOH");
+  eq(righe.map((r) => col.f(r, { hasFoh: false })), [1, 2], "senza FOH resta il progressivo");
+  eq(col.f({ n: 3, foh: null }, { hasFoh: true }), 3, "riga senza FOH proprio: progressivo");
+  eq(col.f({ n: 4, foh: 20 }), 4, "nessun dataset passato: nessun numero inventato");
+});
+t("input list: le righe riservate dicono RISERVATO anche in anteprima e nel link", () => {
+  const cols = A.pdfListConfig().inputlist.cols;
+  const ris = { n: 5, foh: 21, name: "", reserved: true, mic: "SM58", p48: true, patch: "B·5" };
+  eq(cols[1].f(ris), "RISERVATO", "la sorgente non è una casella vuota");
+  eq(cols[2].f(ris), "", "e non si inventa un microfono per un canale riservato");
+  eq(cols[1].f({ name: "Voce", reserved: false }), "Voce", "le righe normali restano com'erano");
+});
+t("pagine tecniche: una sola sequenza per anteprima, pillole e PDF", () => {
+  const ord = A.PDF_TECH_ORDER;
+  ok(Array.isArray(ord) && ord.length > 10, "la sequenza esiste ed è unica");
+  eq(new Set(ord).size, ord.length, "nessuna chiave ripetuta");
+  ok(A.pdfTechRank("lightslist") > A.pdfTechRank("monitorlist"), "la Lista luci segue la Lista monitor");
+  ok(A.pdfTechRank("lightslist") < A.pdfTechRank("racklist"), "e precede la Lista rack: un ordine solo");
+  eq(A.pdfTechRank("view-luci"), -1, "le pagine-vista non sono liste tecniche");
+});
+t("pagine tecniche: l'elenco spuntato viene riordinato come sarà stampato", () => {
+  const pagine = [
+    { key: "view-cabin", label: "Vista: Ingressi" },
+    { key: "view-luci", label: "Vista: Luci" },
+    { key: "racklist", label: "Lista rack" },
+    { key: "lightslist", label: "Lista luci" },
+    { key: "inputlist", label: "Lista ingressi" },
+  ];
+  eq(A.pdfSortTechPages(pagine).map((p) => p.key),
+    ["view-cabin", "view-luci", "inputlist", "lightslist", "racklist"],
+    "viste in testa nell'ordine originale, liste nell'ordine di stampa");
+  eq(A.pdfSortTechPages([]).length, 0, "elenco vuoto: nessun errore");
+});
+/* CIABATTE IN CATENA — il quadro contava metà del carico (caccia ai bug 03/08/2026).
+   Il ciclo degli uplink iterava i distro nell'ordine di state.items: con A→B→Q, se B era stato
+   messo sul palco PRIMA di A, B risaliva al quadro con un totale che non conteneva ancora i watt
+   di A, e quei watt non arrivavano mai. Il numero dipendeva dall'ordine di inserimento, e su quel
+   numero girano la verifica di sovraccarico e la sezione del cavo di risalita. */
+function scenaCatena(A, ordine) {
+  const before = A.docToJSON();
+  const mk = (id, type, x, y) => ({ id, type, x, y });
+  const items = [];
+  const map = {
+    A: mk("cia-A", "ciabatta", 200, 400),
+    B: mk("cia-B", "ciabatta", 600, 400),
+    Q: mk("quadro-Q", "distro63", 1000, 400),
+    /* un carico da 1000 W su A e uno da 800 W su B */
+    LA: { id: "load-A", type: "amprack", x: 210, y: 300, watt: 1000 },
+    LB: { id: "load-B", type: "amprack", x: 610, y: 300, watt: 800 },
+  };
+  ordine.forEach((k) => items.push(map[k]));
+  A.loadDoc({
+    _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [],
+    stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    elec: {
+      on: true, mode: "manual",
+      manual: { "load-A": { distro: "cia-A" }, "load-B": { distro: "cia-B" } },
+      uplinks: { "cia-A": { to: "cia-B" }, "cia-B": { to: "quadro-Q" } },   /* A → B → Q */
+    },
+  });
+  const R = A.elecResult(true);
+  const q = R.distros.filter((d) => d.it && d.it.id === "quadro-Q")[0];
+  const b = R.distros.filter((d) => d.it && d.it.id === "cia-B")[0];
+  const out = {
+    quadroW: q ? q.loadW : null,
+    ciabattaBW: b ? b.loadW : null,
+    lineaVersoQuadro: (R.uplinks || []).filter((u) => u.to && u.to.it && u.to.it.id === "quadro-Q")
+      .map((u) => Math.round(u.a * 10) / 10)[0],
+    totW: R.totW,
+  };
+  A.loadDoc(JSON.parse(before));
+  return out;
+}
+t("ciabatte in catena: il quadro conta tutto il carico, non metà", () => {
+  const attesoW = 1800;
+  const dritto = scenaCatena(A, ["A", "B", "Q", "LA", "LB"]);
+  const invertito = scenaCatena(A, ["B", "A", "Q", "LB", "LA"]);   /* B messa sul palco per prima */
+  eq(dritto.quadroW, attesoW, "ordine naturale: il quadro vede 1800 W");
+  eq(invertito.quadroW, attesoW, "ordine invertito: vede gli STESSI 1800 W");
+  eq(dritto.totW, invertito.totW, "il totale della Lista carichi non dipende dall'ordine");
+  eq(invertito.totW, attesoW, "e coincide con quello che dice il quadro");
+});
+t("ciabatte in catena: la linea di risalita porta gli ampere di tutta la catena", () => {
+  const invertito = scenaCatena(A, ["B", "A", "Q", "LB", "LA"]);
+  eq(invertito.ciabattaBW, 1800, "la ciabatta di mezzo somma il proprio carico e quello a valle");
+  ok(invertito.lineaVersoQuadro > 7 && invertito.lineaVersoQuadro < 8.5,
+    "la linea verso il quadro porta ~7,8 A (1800 W), non ~3,5 — è su questo che si sceglie la sezione");
+});
+t("uplink ad anello: la linea non si conta e l'errore si vede", () => {
+  const before = A.docToJSON();
+  A.loadDoc({
+    _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+    stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [
+      { id: "cia-A", type: "ciabatta", x: 200, y: 400 },
+      { id: "cia-B", type: "ciabatta", x: 600, y: 400 },
+      { id: "load-A", type: "amprack", x: 210, y: 300, watt: 500 },
+    ],
+    elec: { on: true, mode: "manual", manual: { "load-A": { distro: "cia-A" } },
+      uplinks: { "cia-A": { to: "cia-B" }, "cia-B": { to: "cia-A" } } },   /* anello */
+  });
+  const R = A.elecResult(true);
+  ok(R.totW === 500, "il totale resta quello dei carichi veri");
+  ok((R.issues || []).some((i) => /anello/i.test(i.msg || "")), "l'anello viene segnalato");
+  ok(R.distros.every((d) => d.loadW < 1200), "nessun carico gonfiato dal giro su se stesso");
+  A.loadDoc(JSON.parse(before));
+});
+/* PERMESSI DEL LINK — «Mostra i contatti nel link» era per-SCENA, ma di link ce n'è UNO
+   (caccia ai bug 03/08/2026). Lo stesso link pubblicava o nasconceva nome, telefono ed email dei
+   collaboratori a seconda di quale scena fosse attiva in quel momento: l'utente vedeva
+   l'interruttore spento e bastava tornare all'altra scena perché ricominciasse a pubblicarli.
+   Sono dati personali di terzi, quindi ogni default e ogni caso incerto stanno dalla parte del NO. */
+function docConScene(A, scene, extra) {
+  const doc = { _doc: 1, active: scene[0].id,
+    variants: scene.map((s) => ({ id: s.id, name: s.id, state: {
+      _v: A.SCHEMA_VERSION, titolo: s.id, items: [], inputs: [], outputs: [],
+      contacts: [{ role: "Riferimento tecnico", name: "Mario", contact: "m@example.test", note: "" }],
+      shareOpts: s.shareOpts,
+    } })) };
+  if (extra) Object.keys(extra).forEach((k) => { doc[k] = extra[k]; });
+  return doc;
+}
+t("permessi del link: sono del documento, non della scena attiva", () => {
+  const before = A.docToJSON();
+  try {
+    /* documento vecchio: una scena diceva sì, l'altra no — il valore dipendeva da quale fosse aperta */
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: true, contacts: false } },
+      { id: "s2", shareOpts: { copy: true, contacts: true } },
+    ]));
+    eq(A.shareOptsDoc().contacts, false,
+      "scene discordi: vince il NO — nessuno ha mai acconsentito per l'intero link");
+    const suS1 = JSON.parse(A.publicShareStateJSON());
+    A.switchVariant("s2");
+    const suS2 = JSON.parse(A.publicShareStateJSON());
+    eq(suS1.contacts, undefined, "niente contatti sulla prima scena");
+    eq(suS2.contacts, undefined, "e niente contatti nemmeno cambiando scena: è lo stesso link");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: se tutte le scene erano d'accordo, il consenso si conserva", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: true, contacts: true } },
+      { id: "s2", shareOpts: { copy: true, contacts: true } },
+    ]));
+    eq(A.shareOptsDoc().contacts, true, "consenso unanime: resta acceso");
+    ok(JSON.parse(A.publicShareStateJSON()).contacts, "e i contatti vengono pubblicati");
+    A.switchVariant("s2");
+    ok(JSON.parse(A.publicShareStateJSON()).contacts, "su qualunque scena");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: cambiarlo vale per tutto il documento, subito", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: true, contacts: true } },
+      { id: "s2", shareOpts: { copy: true, contacts: true } },
+    ]));
+    A.setShareOpt("contacts", false);
+    eq(A.shareOptsDoc().contacts, false, "spento");
+    eq(JSON.parse(A.publicShareStateJSON()).contacts, undefined, "niente contatti sulla scena attiva");
+    A.switchVariant("s2");
+    eq(JSON.parse(A.publicShareStateJSON()).contacts, undefined, "né sulle altre");
+    /* la stessa decisione va scritta in OGNI scena: il server pubblica la scena attiva e non deve
+       poter trovare un consenso che l'utente ha revocato */
+    ok(A.VARIANTS.every((v) => v.state.shareOpts.contacts === false),
+      "nessuna scena conserva un sì revocato");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: la scena nuova non si porta dietro un permesso diverso", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [{ id: "s1", shareOpts: { copy: true, contacts: true } }]));
+    A.setShareOpt("contacts", false);
+    A.createVariant();
+    ok(A.VARIANTS.length > 1, "la scena è stata creata");
+    ok(A.VARIANTS.every((v) => v.state.shareOpts.contacts === false),
+      "e nasce con il permesso del documento, non con un valore suo");
+    eq(A.shareOptsDoc().contacts, false, "il permesso del link non cambia creando scene");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("permessi del link: «crea una copia» segue la regola più restrittiva fra le scene", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [
+      { id: "s1", shareOpts: { copy: false, contacts: false } },
+      { id: "s2", shareOpts: { copy: true, contacts: false } },
+    ]));
+    eq(A.shareOptsDoc().copy, false, "se una scena vietava la copia, il link non la consente");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+/* PLANIMETRIA DUPLICATA PER SCENA — nel file esportato e nel punto di recupero ogni variante
+   portava una copia INTERA del base64 (caccia ai bug 03/08/2026): 488 KB diventavano 1954 KB con
+   quattro scene. docToJSONFull ha nel proprio commento scritto che «le altre varianti condividono
+   l'immagine per nome», e poi faceva il contrario — è una regressione, non una scelta.
+   Le scene con una planimetria DIVERSA devono continuare a portarsela: qui non si perde nulla. */
+function docConScenePlanimetria(A, piante) {
+  const id = (i) => "v" + (i + 1);
+  return {
+    _doc: 1, active: id(0),
+    variants: piante.map((p, i) => ({
+      id: id(i), name: "Scena " + (i + 1),
+      state: {
+        _v: A.SCHEMA_VERSION, titolo: "S" + i, items: [], inputs: [], outputs: [],
+        venue: p == null ? null : { x: 0, y: 0, w: 100, h: 80, rot: 0, opacity: 40, enabled: true,
+          name: p.nome, _dataUrl: "data:image/png;base64," + p.dati, _imgW: 100, _imgH: 80 },
+      },
+    })),
+  };
+}
+t("export: la stessa planimetria su più scene viene scritta una volta sola", () => {
+  const before = A.docToJSON();
+  try {
+    const grande = "Q".repeat(20000);
+    A.loadDoc(docConScenePlanimetria(A, [{ nome: "pianta.png", dati: grande }]));
+    const conUna = A.docToJSONFull().length;
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "pianta.png", dati: grande }, { nome: "pianta.png", dati: grande },
+      { nome: "pianta.png", dati: grande }, { nome: "pianta.png", dati: grande },
+    ]));
+    const conQuattro = A.docToJSONFull().length;
+    ok(conQuattro < conUna * 1.5,
+      "quattro scene con la stessa pianta non pesano quattro volte (era ~4×): " +
+      Math.round(conUna / 1024) + " KB → " + Math.round(conQuattro / 1024) + " KB");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("export: la scena attiva porta sempre la sua planimetria per intero", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "a.png", dati: "AAAA" }, { nome: "a.png", dati: "AAAA" },
+    ]));
+    const doc = JSON.parse(A.docToJSONFull());
+    const attiva = doc.variants.find((v) => v.id === doc.active);
+    ok(attiva.state.venue && attiva.state.venue._dataUrl, "l'attiva è autosufficiente");
+    const altra = doc.variants.find((v) => v.id !== doc.active);
+    ok(!altra.state.venue._dataUrl, "la gemella non ripete il base64");
+    eq(altra.state.venue.name, "a.png", "ma conserva il nome per riagganciarla");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("export: planimetrie DIVERSE non si perdono, ognuna viaggia con la sua scena", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "a.png", dati: "AAAA" }, { nome: "b.png", dati: "BBBB" }, { nome: "a.png", dati: "AAAA" },
+    ]));
+    const doc = JSON.parse(A.docToJSONFull());
+    const perId = {};
+    doc.variants.forEach((v) => { perId[v.id] = v.state.venue; });
+    ok(perId.v1._dataUrl, "scena 1 (attiva): la sua pianta");
+    ok(perId.v2._dataUrl && perId.v2._dataUrl.indexOf("BBBB") > 0,
+      "scena 2 ha una pianta DIVERSA e se la porta: nessuna perdita");
+    ok(!perId.v3._dataUrl, "scena 3 ripete quella dell'attiva: non la duplica");
+    /* riaperto, il documento deve tornare completo */
+    A.loadDoc(doc);
+    eq(A.VARIANTS.length, 3, "tre scene");
+    ok(String(A.docToJSONFull()).indexOf("BBBB") > 0, "la pianta diversa sopravvive al giro completo");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("export: riaprendo il file, la scena gemella RIVEDE la sua planimetria", () => {
+  const before = A.docToJSON();
+  try {
+    const dati = "ZZZZQQQQ";
+    A.loadDoc(docConScenePlanimetria(A, [
+      { nome: "comune.png", dati }, { nome: "comune.png", dati }, { nome: "altra.png", dati: "XXXX" },
+    ]));
+    const file = A.docToJSONFull();
+    ok(String(file).indexOf("_sameAs") > 0, "il file dichiara la gemella invece di ripetere i dati");
+
+    /* il giro completo: salvo, riapro, e vado sulla scena che NON portava la bitmap */
+    A.loadDoc(JSON.parse(file));
+    A.switchVariant("v2");
+    ok(A.state.venue, "la scena gemella ha ancora una planimetria");
+    ok(A.state.venue._dataUrl && A.state.venue._dataUrl.indexOf(dati) > 0,
+      "ed è la bitmap giusta, riagganciata dalla scena sorella");
+    eq(A.state.venue.name, "comune.png", "col suo nome");
+
+    /* e la scena con la pianta diversa non è stata contaminata */
+    A.switchVariant("v3");
+    ok(A.state.venue._dataUrl.indexOf("XXXX") > 0, "la terza scena conserva la SUA pianta");
+
+    /* riesportando, il documento resta completo e ancora deduplicato */
+    const file2 = A.docToJSONFull();
+    ok(String(file2).indexOf("XXXX") > 0, "nessuna pianta persa al secondo giro");
+    ok(String(file2).length < String(file).length * 1.6, "e non si rigonfia");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+/* DANTE APPICCICATO AL COMPUTER — ultimo reperto della prima caccia (03/08/2026).
+   Si collega il computer a una console con Dante, si sceglie Dante, poi si ritrascina lo stesso cavo
+   su una stage box. La scelta restava: la Lista canali diceva «Mic/DI = Dante» con «Patch = B·1»
+   (un canale Dante su una porta mic/line), nessuna DI veniva proposta benché il collegamento fosse
+   tornato analogico, e il pannello — che mostra il selettore della via solo se il computer è su un
+   mixer — non lasciava più correggere. Tre viste della stessa connessione, tre risposte diverse. */
+function scenaComputerVia(A, opzioni) {
+  const before = A.docToJSON();
+  A.loadDoc({
+    _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+    stage: { w: 1400, d: 900, blocks: [{ x: 0, y: 0, w: 1400, d: 900 }] },
+    items: [
+      { id: "pc", type: "laptop", x: 400, y: 400 },
+      { id: "mix", type: "mixer", x: 1000, y: 800, hw: "dm3" },   /* DM3-D: ha il Dante */
+      { id: "sb", type: "stagebox", x: 200, y: 800 },
+    ],
+    cab: { on: true, mode: "manual", manual: {} },
+  });
+  const pc = A.state.items.filter((i) => i.id === "pc")[0];
+  A.cabSetItemBox(pc, "mix");
+  A.cabSetVia(pc, "dante");
+  const dopoScelta = { via: A.compViaOf(pc), dvs: A.dvsOn(pc),
+    mic: (A.cabItemInputs(pc)[0] || {}).mic };
+  if (opzioni && opzioni.spostaSuBox) A.cabSetItemBox(pc, "sb");
+  const fine = { via: A.compViaOf(pc), dvs: A.dvsOn(pc), mic: (A.cabItemInputs(pc)[0] || {}).mic };
+  A.loadDoc(JSON.parse(before));
+  return { dopoScelta, fine };
+}
+t("computer: la scelta Dante vale finché il cavo è sulla console che ce l'ha", () => {
+  const r = scenaComputerVia(A, { spostaSuBox: false });
+  eq(r.dopoScelta.via, "dante", "scelta registrata");
+  eq(r.dopoScelta.mic, "Dante", "e la Lista canali la riporta");
+  eq(r.dopoScelta.dvs, true, "la scheda virtuale Dante è in scena");
+  eq(r.fine.via, "dante", "restando sulla console, niente cambia");
+});
+t("computer: spostando il cavo su una stage box il Dante decade, e le tre viste concordano", () => {
+  const r = scenaComputerVia(A, { spostaSuBox: true });
+  eq(r.dopoScelta.via, "dante", "si parte da Dante scelto davvero");
+  eq(r.fine.via, "an", "sulla stage box la via torna analogica: quella porta è mic/line");
+  eq(r.fine.mic, "DI", "la Lista canali dice DI, non più Dante");
+  eq(r.fine.dvs, false, "e la scheda virtuale Dante sparisce dalla lista Rete");
+});
+t("computer: spostandosi su una console SENZA Dante la scelta decade lo stesso", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc({
+      _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+      stage: { w: 1400, d: 900, blocks: [{ x: 0, y: 0, w: 1400, d: 900 }] },
+      items: [
+        { id: "pc", type: "laptop", x: 400, y: 400 },
+        { id: "conD", type: "mixer", x: 1000, y: 800, hw: "dm3" },       /* DM3-D: col Dante */
+        { id: "conStd", type: "mixer", x: 700, y: 800, hw: "dm3std" },   /* DM3 STANDARD: senza */
+      ],
+      cab: { on: true, mode: "manual", manual: {} },
+    });
+    const pc = A.state.items.filter((i) => i.id === "pc")[0];
+    A.cabSetItemBox(pc, "conD"); A.cabSetVia(pc, "dante");
+    eq(A.compViaOf(pc), "dante", "sulla console col Dante la scelta vale");
+    A.cabSetItemBox(pc, "conStd");
+    eq(A.compViaOf(pc), "an", "su quella senza, decade: offrirlo sarebbe una bugia");
+
+    /* la via USB, che entrambe hanno, invece sopravvive allo spostamento */
+    A.cabSetVia(pc, "usb");
+    A.cabSetItemBox(pc, "conD");
+    eq(A.compViaOf(pc), "usb", "una via che il nuovo modello HA non viene buttata");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+/* DOCUMENTO NUOVO E ANCORA VUOTO — seconda ondata (04/08/2026), il reperto più grave.
+   Loggato, File → Nuovo, si conferma il popup dimensioni palco con i valori di default: l'autosave
+   parte, saveProject riconosce il guscio vuoto e risponde `null` — che significa «non c'era niente
+   da salvare», non «salvataggio fallito». Il chiamante lo leggeva come errore: pastiglia rossa
+   «Salvataggio interrotto», retry all'infinito, e ogni «Apri» rispondeva «Apertura sospesa: le
+   modifiche correnti non sono ancora al sicuro nel cloud». Utente chiuso fuori dai propri progetti
+   finché non posava un elemento. Nessun dato a rischio: il documento è vuoto per definizione. */
+function conCloudFinto(A, save, body) {
+  const old = { cloud: A.__cloud, doc: A.document, dirty: A._cloudDirty, saving: A._cloudSaving,
+    blocked: A.__docLoadBlocked, conflict: A.__localConflict, cloudConflict: A.__cloudConflict,
+    locked: A.__projLocked, venue: A.__bootVenueUnavailable, unavailable: A.__localStorageUnavailable };
+  const stati = [];
+  A.document = { body: { classList: { contains: () => false, add() {}, remove() {}, toggle() {} } },
+    getElementById: () => null };
+  A.__docLoadBlocked = null; A.__localConflict = false; A.__cloudConflict = false;
+  A.__projLocked = false; A.__bootVenueUnavailable = false; A.__localStorageUnavailable = false;
+  A.__cloud = { user: () => ({ id: "u" }), currentId: () => null, save, isWriting: () => false };
+  const setDoc = A.setDocState;
+  A.setDocState = (m) => { stati.push(m); };
+  try { return body(stati); }
+  finally {
+    A.setDocState = setDoc;
+    A.__cloud = old.cloud; A.document = old.doc; A._cloudDirty = old.dirty; A._cloudSaving = old.saving;
+    A.__docLoadBlocked = old.blocked; A.__localConflict = old.conflict; A.__cloudConflict = old.cloudConflict;
+    A.__projLocked = old.locked; A.__bootVenueUnavailable = old.venue;
+    A.__localStorageUnavailable = old.unavailable;
+  }
+}
+t("documento vuoto: «niente da salvare» non è un errore, e non chiude fuori dai progetti", () => {
+  const before = A.docToJSON();
+  try {
+    /* palco ai valori di default e nessun elemento: esattamente ciò che resta dopo File → Nuovo */
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "", luogo: "", items: [], inputs: [], outputs: [],
+      stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+    eq(A.hasMeaningfulDocument(), false, "il documento è davvero un guscio vuoto");
+
+    /* il finto cloud prende la STESSA decisione di saveProject: guscio vuoto → «niente da
+       salvare» (secondo argomento "empty"), altrimenti esito di fallimento nudo */
+    let tentativi = 0;
+    const comeSaveProject = (cb) => {
+      tentativi++;
+      if (!A.hasMeaningfulDocument()) cb(null, "empty"); else cb(null);
+    };
+    const r = conCloudFinto(A, comeSaveProject, (stati) => {
+      A._cloudDirty = true; A._cloudSaving = false;
+      let esito = null;
+      A.flushCloudAutosave((ok) => { esito = ok; });
+      return { esito, stati: stati.slice(), needsFlush: A.__cloudNeedsFlush(), tentativi };
+    });
+
+    ok(r.stati.indexOf("error") < 0, "nessuna pastiglia rossa: non è successo niente di sbagliato");
+    eq(r.esito, true, "chi aspetta di poter cambiare progetto riceve via libera");
+    eq(r.needsFlush, false, "non resta nulla «da mettere al sicuro»: il documento è vuoto");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("il permesso del link non è «lavoro»: un documento vuoto resta vuoto", () => {
+  const before = A.docToJSON();
+  try {
+    /* Regressione del 04/08 scoperta scrivendo il test qui sopra: da quando il permesso del link
+       è del documento, prepareDoc scrive SEMPRE shareOpts in DOC_EXTRA. Contandolo come contenuto,
+       nessun documento risultava più vuoto — e tornavano i gusci «Senza titolo» nell'elenco cloud
+       che il ramo del documento vuoto esiste apposta per evitare. */
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "", items: [], inputs: [], outputs: [],
+      stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+    ok(A.DOC_EXTRA && A.DOC_EXTRA.shareOpts, "shareOpts c'è, come deve");
+    eq(A.hasMeaningfulDocument(), false, "ma non rende «pieno» un documento vuoto");
+
+    /* qualunque ALTRA cosa a livello documento è invece lavoro dell'utente */
+    A.DOC_EXTRA.qualcosaDiSuo = { x: 1 };
+    eq(A.hasMeaningfulDocument(), true, "un contenuto vero a livello documento conta ancora");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
+t("documento con lavoro dentro: un salvataggio fallito resta un errore", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "Concerto", items: [{ id: "a", type: "cantante" }],
+      inputs: [], outputs: [], stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] } });
+    ok(A.hasMeaningfulDocument(), "qui c'è lavoro vero");
+    const r = conCloudFinto(A, (cb) => {
+      if (!A.hasMeaningfulDocument()) cb(null, "empty"); else cb(null);   /* qui NON è vuoto */
+    }, (stati) => {
+      A._cloudDirty = true; A._cloudSaving = false;
+      let esito = null;
+      A.flushCloudAutosave((ok) => { esito = ok; });
+      return { esito, stati: stati.slice(), needsFlush: A.__cloudNeedsFlush() };
+    });
+    ok(r.stati.indexOf("error") >= 0, "questo sì che è un errore, e si vede");
+    eq(r.esito, false, "e chi aspetta NON riceve via libera: il lavoro non è al sicuro");
+    eq(r.needsFlush, true, "resta da sincronizzare");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("errore di accesso a localStorage non viene scambiato per documento incompatibile", () => {
   const oldStorage = A.localStorage, oldDocument = A.document, oldConsult = A.__consultMode;
   const oldBlocked = A.__docLoadBlocked, oldUnavailable = A.__localStorageUnavailable;
@@ -8504,6 +9126,54 @@ t("Orchestra pop non calpesta Orchestra e band: sono due cose diverse", () => {
   ok(pop.out.length !== ob.out.length, "organici diversi");
   const popH = pop.out.filter((i) => i.type === "pedana").length;
   ok(popH >= 2, "la pop ha le pedane digradanti per legni e ottoni: " + popH);
+});
+
+/* --- SEO: la guida «scheda tecnica della band» (03/08) ---
+   Perché esiste: in italiano le band cercano «scheda tecnica», i service dicono «rider tecnico».
+   Su 21 pagine il sito aveva 687 occorrenze di «stage plot» e 15 di «scheda tecnica», nessun title
+   che la nominasse, e nessuna delle 24 query GSC la conteneva: non eravamo in gara. Questi test
+   presidiano l'aggancio (una pagina orfana non si indicizza — era il difetto dell'Ondata 1) e la
+   separazione d'intento da /guida/rider-tecnico/, per non cannibalizzarci da soli. */
+const schedaHtml = readFileSync(join(root, "guida/scheda-tecnica-band/index.html"), "utf8");
+
+t("scheda tecnica: la pagina è agganciata, non orfana", () => {
+  ok(readFileSync(join(root, "sitemap.xml"), "utf8").indexOf("https://stageplot.it/guida/scheda-tecnica-band/") > -1, "è in sitemap");
+  const hub = readFileSync(join(root, "guida/index.html"), "utf8");
+  ok(hub.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "l'hub della guida la linka");
+  ok(hub.indexOf('"url":"https://stageplot.it/guida/scheda-tecnica-band/"') > -1, "ed è nell'ItemList del CollectionPage");
+  /* almeno tre link entranti da pagine diverse: è il segnale che ha risolto le orfane dell'Ondata 1 */
+  const entranti = ["guida/rider-tecnico/index.html", "guida/channel-list-input-list/index.html", "stage-plot/band/index.html"]
+    .filter((p) => readFileSync(join(root, p), "utf8").indexOf('href="/guida/scheda-tecnica-band/"') > -1);
+  eq(entranti.length, 3, "link entranti dalle pagine sorelle: " + entranti.join(", "));
+  ok(schedaHtml.indexOf('<link rel="canonical" href="https://stageplot.it/guida/scheda-tecnica-band/">') > -1, "canonical su sé stessa");
+  ok(schedaHtml.indexOf('name="robots" content="index,follow') > -1, "indicizzabile");
+});
+
+t("scheda tecnica: non cannibalizza il rider tecnico", () => {
+  const rider = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const title = (s) => (s.match(/<title>([^<]*)<\/title>/) || ["", ""])[1];
+  const h1 = (s) => (s.match(/<h1>([^<]*)<\/h1>/) || ["", ""])[1];
+  ok(title(schedaHtml) !== title(rider), "title distinti");
+  ok(h1(schedaHtml) !== h1(rider), "H1 distinti");
+  /* l'intento è la differenza: qui «come compilare» (procedura), là «cos'è» (definizione) */
+  ok(/come compilare/i.test(title(schedaHtml)), "la nuova punta alla procedura: " + title(schedaHtml));
+  ok(/cos'è|cosa contiene/i.test(title(rider)), "il rider resta la definizione: " + title(rider));
+  ok(rider.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "e il rider manda esplicitamente alla procedura");
+});
+
+t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", () => {
+  /* convenzione del sito dall'Ondata 3: se divergono, Google vede un rich result che la pagina non ha */
+  const ld = JSON.parse((schedaHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const faq = ld["@graph"].find((n) => n["@type"] === "FAQPage");
+  ok(faq, "c'è il blocco FAQPage");
+  const inLd = faq.mainEntity.map((q) => q.name);
+  const visibili = [...schedaHtml.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
+  eq(inLd.length, visibili.length, "stesso numero di domande (" + inLd.length + " vs " + visibili.length + ")");
+  const mancanti = inLd.filter((q) => !visibili.includes(q));
+  eq(mancanti.length, 0, "ogni domanda dello schema è anche visibile in pagina: " + mancanti.join(" | "));
+  const article = ld["@graph"].find((n) => n["@type"] === "Article");
+  ok(article && article.author && article.author["@id"] === "https://simonecastellan.com/#person",
+    "l'autore riusa lo stesso @id delle altre guide (anello E-E-A-T)");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
