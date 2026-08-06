@@ -1,0 +1,251 @@
+<!doctype html>
+<!--
+  CONCEPT C — «Documento vivo»
+  Palette: carta avorio #f6f3ec, inchiostro #1a1815, righe nere nette, accento teal scuro #0f766e
+  Tipografia: display serif (Georgia) per i titoli, grotesk per il corpo, mono per i dati.
+    Gerarchia da rivista tecnica: numeri grandi, filetti, colonne.
+  Atmosfera: la scheda tecnica come oggetto editoriale — il documento che mette d'accordo band e service
+  Minimalismo: editoriale svizzero — griglia visibile, molto bianco, nessun effetto
+  Linguaggio visivo: il rider stampato è il protagonista; il software è "la tipografia" che lo produce
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StagePlot — La scheda tecnica che il service prende sul serio</title>
+<style>
+  :root{
+    --paper:#f6f3ec; --card:#fdfcf9; --ink:#1a1815; --mut:#6e675c; --line:#d9d3c6; --rule:#1a1815;
+    --teal:#0f766e; --teal-l:#0d9488;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.55}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+  a{color:inherit}
+
+  nav{position:sticky;top:0;background:rgba(246,243,236,.9);backdrop-filter:blur(12px);border-bottom:2px solid var(--rule);z-index:10}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:62px}
+  .logo{font-family:var(--serif);font-weight:700;font-size:20px;letter-spacing:-.01em;text-decoration:none}
+  .logo i{font-style:normal;color:var(--teal)}
+  .nav-cta{font-size:14px;font-weight:600;text-decoration:none;border:1.5px solid var(--rule);padding:9px 18px;border-radius:999px;transition:all .15s}
+  .nav-cta:hover{background:var(--ink);color:var(--paper)}
+
+  header{padding:96px 0 84px;border-bottom:2px solid var(--rule)}
+  .masthead{display:flex;justify-content:space-between;gap:16px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:56px;flex-wrap:wrap}
+  .masthead b{color:var(--teal);font-weight:500}
+  h1{font-family:var(--serif);font-size:clamp(44px,7.6vw,96px);line-height:1.02;letter-spacing:-.022em;font-weight:700;max-width:18ch}
+  h1 em{font-style:italic;color:var(--teal)}
+  .sub{margin-top:28px;font-size:clamp(17px,2vw,20px);color:var(--mut);max-width:52ch}
+  .sub b{color:var(--ink);font-weight:600}
+  .cta-row{margin-top:38px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .btn{display:inline-block;background:var(--ink);color:var(--paper);font-weight:600;font-size:16.5px;padding:15px 32px;border-radius:999px;text-decoration:none;transition:background .15s}
+  .btn:hover{background:var(--teal)}
+  .ghost{font-size:15px;color:var(--mut);text-decoration:none;border-bottom:1px solid var(--line)}
+  .ghost:hover{color:var(--ink)}
+  .trust{margin-top:20px;font-family:var(--mono);font-size:13px;color:var(--mut)}
+  .trust b{color:var(--teal);font-weight:500}
+
+  .sheet-wrap{margin-top:72px;display:grid;grid-template-columns:1.5fr 1fr;gap:28px;align-items:start}
+  @media(max-width:900px){.sheet-wrap{grid-template-columns:1fr}}
+  .sheet{background:var(--card);border:1px solid var(--line);box-shadow:0 2px 0 var(--line), 12px 14px 0 rgba(26,24,21,.06);padding:34px 38px}
+  .sheet-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--rule);padding-bottom:12px;flex-wrap:wrap;gap:6px}
+  .sheet-head h3{font-family:var(--serif);font-size:22px}
+  .sheet-head span{font-family:var(--mono);font-size:11.5px;color:var(--mut)}
+  .sheet svg{display:block;width:100%;height:auto;margin-top:20px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:20px}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:left;padding:8px 10px;border-bottom:1.5px solid var(--rule);font-weight:500}
+  td{padding:7.5px 10px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:0}
+  td.n{font-family:var(--mono);color:var(--teal);width:30px}
+  td.m{font-family:var(--mono);font-size:12px;color:var(--mut)}
+  .sheet-foot{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--mut)}
+
+  .side-note{padding:6px 0 0}
+  .side-note .num{font-family:var(--serif);font-size:clamp(60px,7vw,92px);line-height:1;color:var(--teal)}
+  .side-note h3{font-family:var(--serif);font-size:24px;margin-top:14px}
+  .side-note p{margin-top:12px;color:var(--mut);font-size:15.5px;max-width:38ch}
+  .side-note .rule{height:1px;background:var(--line);margin:26px 0}
+
+  section{padding:100px 0;border-bottom:2px solid var(--rule)}
+  .sec-head{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:baseline}
+  .sec-num{font-family:var(--serif);font-size:20px;color:var(--teal);white-space:nowrap}
+  h2{font-family:var(--serif);font-size:clamp(30px,4.4vw,52px);letter-spacing:-.018em;line-height:1.06;font-weight:700;max-width:24ch}
+  .lead{margin-top:18px;color:var(--mut);font-size:17.5px;max-width:56ch}
+
+  .cols{margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0}
+  .col{padding:26px 28px 30px;border-left:1px solid var(--line)}
+  .col:first-child{border-left:0;padding-left:0}
+  .col .cn{font-family:var(--mono);font-size:12px;color:var(--teal)}
+  .col h3{font-family:var(--serif);font-size:21px;margin-top:10px}
+  .col p{margin-top:10px;color:var(--mut);font-size:15px}
+  @media(max-width:820px){.col{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:24px}.col:first-child{border-top:0}}
+
+  .index{margin-top:56px;border-top:2px solid var(--rule)}
+  .idx-row{display:grid;grid-template-columns:56px 1fr auto;gap:18px;align-items:baseline;padding:20px 0;border-bottom:1px solid var(--line);text-decoration:none}
+  .idx-row:hover h3{color:var(--teal)}
+  .idx-n{font-family:var(--mono);font-size:13px;color:var(--teal)}
+  .idx-row h3{font-family:var(--serif);font-size:clamp(20px,2.6vw,28px);font-weight:700;letter-spacing:-.01em}
+  .idx-d{font-family:var(--mono);font-size:12px;color:var(--mut);text-align:right}
+  @media(max-width:640px){.idx-d{display:none}}
+
+  .quote-band{padding:100px 0;border-bottom:2px solid var(--rule);text-align:center}
+  .quote-band p{font-family:var(--serif);font-style:italic;font-size:clamp(24px,3.6vw,40px);line-height:1.25;max-width:26ch;margin:0 auto}
+  .quote-band em{font-style:italic;color:var(--teal)}
+  .quote-band p.quote-src{margin-top:22px;font-family:var(--mono);font-style:normal;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+
+  .share{margin-top:56px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  @media(max-width:860px){.share{grid-template-columns:1fr}}
+  .share-card{background:var(--card);border:1px solid var(--line);padding:32px}
+  .share-card h3{font-family:var(--serif);font-size:22px}
+  .share-card p{margin-top:12px;color:var(--mut);font-size:15px}
+  .pill{margin-top:20px;display:inline-block;font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:999px;padding:8px 16px;color:var(--teal);background:var(--paper)}
+
+  .final{padding:130px 0;text-align:center;border-bottom:0}
+  .final h2{margin:0 auto;max-width:18ch}
+  .final .btn{margin-top:38px;font-size:17.5px;padding:16px 40px}
+  .final .trust{margin-top:20px}
+
+  footer{border-top:2px solid var(--rule);padding:40px 0 60px;font-size:14px;color:var(--mut)}
+  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .foot a{color:var(--mut);text-decoration:none;margin-right:22px}
+  .foot a:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav-in">
+  <a class="logo" href="#">Stage<i>Plot</i></a>
+  <a class="nav-cta" href="https://stageplot.it/">Apri l'editor</a>
+</div></nav>
+
+<header><div class="wrap">
+  <div class="masthead">
+    <span>StagePlot — <b>stageplot.it</b></span>
+    <span>Stage plot · Scheda tecnica · Rider</span>
+    <span>Gratis, nel browser</span>
+  </div>
+  <h1>La scheda tecnica che il service <em>prende sul serio.</em></h1>
+  <p class="sub">Disegni il palco nel browser; StagePlot impagina da solo <b>channel list, monitor, schema elettrico e rider PDF</b>. Un documento solo, sempre aggiornato, che parla la lingua del fonico.</p>
+  <div class="cta-row">
+    <a class="btn" href="https://stageplot.it/">Apri l'editor</a>
+    <a class="ghost" href="#doc">Sfoglia il documento ↓</a>
+  </div>
+  <p class="trust"><b>Gratis</b> · si inizia senza registrazione</p>
+
+  <div class="sheet-wrap" id="doc">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3>Scheda tecnica — Quartetto</h3>
+        <span>esempio · v3 · agg. automatico</span>
+      </div>
+      <svg viewBox="0 0 640 300" role="img" aria-label="Stage plot in miniatura: batteria al centro, amplificatori ai lati, tre microfoni e quattro monitor sul fronte palco">
+        <rect x="20" y="16" width="600" height="240" fill="none" stroke="#1a1815" stroke-width="1.4"/>
+        <rect x="250" y="34" width="140" height="86" fill="none" stroke="#0f766e" stroke-width="1" stroke-dasharray="4 3"/>
+        <g stroke="#1a1815" fill="none" stroke-width="1.2">
+          <circle cx="320" cy="82" r="21"/>
+          <circle cx="294" cy="62" r="9"/><circle cx="346" cy="62" r="9"/>
+          <rect x="96" y="66" width="48" height="32"/>
+          <rect x="496" y="66" width="48" height="32"/>
+        </g>
+        <g stroke="#0f766e" stroke-width="1.4" fill="none">
+          <circle cx="320" cy="196" r="8"/><path d="M315 191 L325 201 M325 191 L315 201"/>
+          <circle cx="170" cy="184" r="8"/><path d="M165 179 L175 189 M175 179 L165 189"/>
+          <circle cx="470" cy="184" r="8"/><path d="M465 179 L475 189 M475 179 L465 189"/>
+        </g>
+        <g fill="none" stroke="#1a1815" stroke-width="1.2">
+          <path d="M116 250 L144 250 L138 234 L122 234 Z"/>
+          <path d="M236 250 L264 250 L258 234 L242 234 Z"/>
+          <path d="M376 250 L404 250 L398 234 L382 234 Z"/>
+          <path d="M496 250 L524 250 L518 234 L502 234 Z"/>
+        </g>
+        <text x="320" y="284" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#6e675c">PALCO 10 × 6 m — SCALA 1:50 — 4 WEDGE / 3 MIX</text>
+      </svg>
+      <table>
+        <tr><th>CH</th><th>Sorgente</th><th>Mic / DI</th><th>Asta</th></tr>
+        <tr><td class="n">1</td><td>Cassa</td><td class="m">Beta 52A</td><td class="m">corta</td></tr>
+        <tr><td class="n">2</td><td>Rullante</td><td class="m">SM57</td><td class="m">corta</td></tr>
+        <tr><td class="n">3</td><td>Hi-hat</td><td class="m">SM81</td><td class="m">corta</td></tr>
+        <tr><td class="n">⋮</td><td style="color:var(--mut)">4–6 · batteria (segue)</td><td class="m"></td><td class="m"></td></tr>
+        <tr><td class="n">7</td><td>Basso</td><td class="m">DI attiva</td><td class="m">—</td></tr>
+        <tr><td class="n">8</td><td>Chitarra</td><td class="m">SM57</td><td class="m">corta</td></tr>
+        <tr><td class="n">9</td><td>Voce</td><td class="m">SM58</td><td class="m">alta</td></tr>
+      </table>
+      <div class="sheet-foot"><span>pag. 1–2 di 5 · rider.pdf</span><span>generato con stageplot.it</span></div>
+    </div>
+    <div class="side-note">
+      <p class="num">5<span style="font-size:.4em"> pagine</span></p>
+      <h3>Un PDF che si impagina da solo</h3>
+      <p>Stage plot in scala, channel list, monitor, schema elettrico, lista luci. Non lo componi: lo esporti. E quando cambi il disegno, il documento è già cambiato con lui.</p>
+      <div class="rule"></div>
+      <p style="font-family:var(--mono);font-size:12.5px;color:var(--teal)">niente più «versione_finale_2_DEF.pdf»</p>
+    </div>
+  </div>
+</div></header>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="sec-num">№ 1</span><h2>Dal disegno al documento, senza passaggi a mano.</h2></div>
+  <div class="cols">
+    <div class="col"><p class="cn">01 — DISEGNI</p><h3>Il palco, com'è davvero</h3><p>Oltre 200 elementi reali da trascinare: strumenti, 155 microfoni, DI, monitor, 42 fari. Planimetria della venue importabile e calibrabile in scala.</p></div>
+    <div class="col"><p class="cn">02 — SI STRUTTURA</p><h3>Ogni elemento porta i suoi dati</h3><p>Canali che si numerano da soli, consumi che si sommano sul quadro, cavi con il loro percorso. Il disegno e i dati sono la stessa cosa.</p></div>
+    <div class="col"><p class="cn">03 — ESPORTI</p><h3>Il rider, impaginato</h3><p>PDF multipagina con anteprima navigabile. Oppure un link di sola lettura: chi lo apre vede sempre l'ultima versione.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="sec-num">№ 2</span><h2>Indice dei contenuti. Cioè: cosa sa fare.</h2></div>
+  <div class="index">
+    <a class="idx-row" href="https://stageplot.it/"><span class="idx-n">01</span><h3>Channel list con numerazione viva</h3><span class="idx-d">si aggiorna col disegno</span></a>
+    <a class="idx-row" href="https://stageplot.it/"><span class="idx-n">02</span><h3>Monitor: wedge, in-ear, mix per musicista</h3><span class="idx-d">richieste incluse</span></a>
+    <a class="idx-row" href="https://stageplot.it/"><span class="idx-n">03</span><h3>Schema elettrico con carichi e fasi</h3><span class="idx-d">somma automatica</span></a>
+    <a class="idx-row" href="https://stageplot.it/"><span class="idx-n">04</span><h3>Cablaggio con percorsi reali</h3><span class="idx-d">segmentabile</span></a>
+    <a class="idx-row" href="https://stageplot.it/"><span class="idx-n">05</span><h3>Luci: 42 modelli, montaggio, DMX</h3><span class="idx-d">lista nel PDF</span></a>
+    <a class="idx-row" href="https://stageplot.it/"><span class="idx-n">06</span><h3>RF &amp; rete, varianti di scena, planimetrie</h3><span class="idx-d">per le produzioni</span></a>
+  </div>
+</div></section>
+
+<div class="quote-band"><div class="wrap">
+  <p>Il rider non è un allegato. È <em>l'accordo</em> fra chi suona e chi mette il suono.</p>
+  <p class="quote-src">— il principio dietro StagePlot</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="sec-num">№ 3</span><h2>Tutti sulla stessa versione. Letteralmente.</h2></div>
+  <div class="share">
+    <div class="share-card">
+      <h3>Per il service: un link, non un allegato</h3>
+      <p>Il link di sola lettura mostra sempre l'ultima versione del palco, da qualunque dispositivo, senza installare niente e senza account.</p>
+      <p class="pill">stageplot.it/?view=…</p>
+    </div>
+    <div class="share-card">
+      <h3>Per i musicisti: si compila da soli</h3>
+      <p>Ognuno riceve un link anonimo e indica strumenti e richieste monitor. Le risposte tornano nel progetto già in ordine.</p>
+      <p class="pill">senza registrazione</p>
+    </div>
+  </div>
+</div></section>
+
+<section class="final"><div class="wrap">
+  <h2>La prossima data merita un documento <em style="color:var(--teal)">fatto bene.</em></h2>
+  <a class="btn" href="https://stageplot.it/">Apri l'editor</a>
+  <p class="trust"><b>Gratis</b> · nel browser · senza registrazione</p>
+</div></section>
+
+<footer><div class="wrap foot">
+  <div>
+    <a href="https://stageplot.it/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a>
+    <a href="https://stageplot.it/guida/scheda-tecnica-band/">Scheda tecnica</a>
+    <a href="https://stageplot.it/guida/rider-tecnico/">Rider tecnico</a>
+  </div>
+  <div>
+    <a href="https://stageplot.it/termini/">Termini</a>
+    <a href="https://stageplot.it/privacy/">Privacy</a>
+    <span>© 2026 StagePlot — Simone Castellan</span>
+  </div>
+</div></footer>
+
+</body>
+</html>
