@@ -13378,7 +13378,17 @@ document.addEventListener("keydown", function(e){
     if(e.key==="Enter"){ e.preventDefault(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); toggleStageEdit(); return; }
     if((e.key==="Backspace"||e.key==="Delete") && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ e.preventDefault(); delSelBlock(); return; }
   }
-  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ if(e.key==="Escape"){ endCatSearch(); e.target.blur(); clearSelection(); render(); } return; }
+  /* Esc dentro un campo: chiude la ricerca del catalogo e lascia il campo. Ma se il campo sta DENTRO
+     una finestra (il link di Condividi, un nome nel pannello…), il palco sotto non si tocca: lì Esc
+     vale per la finestra, e portarsi via anche la selezione era il terzo livello chiuso a tradimento
+     dallo stesso tasto (06/08). */
+  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){
+    if(e.key==="Escape"){
+      var _inFinestra=e.target.closest && e.target.closest(".modal,#learn,#clDlg,.hdrmenu,#prodModal,#rubModal,#versPanel,#props");
+      if(_inFinestra){ e.target.blur(); return; }
+      endCatSearch(); e.target.blur(); clearSelection(); render();
+    }
+    return; }
   /* cavo selezionato: Backspace/Canc lo toglie (richiesta Simone). In manual-first = SCOLLEGA
      (la sorgente torna "da collegare"); in auto = eliminato col fantasma ripristinabile. */
   if((selCab || Object.keys(selCabSet).length) && (e.key==="Backspace"||e.key==="Delete")){
@@ -13407,6 +13417,15 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fit(); return; }   /* "a" → adatta la vista al contenuto (palco + elementi, anche fuori palco), come il bottone Adatta */
   var it=getSel(), step = e.shiftKey?25:5;
+  /* Esc chiude UN livello per volta: se sopra il palco c'è ancora qualcosa di aperto (una finestra
+     che ha già i suoi gestori, o un menu), il palco sotto non si tocca — prima lo stesso Esc chiudeva
+     la finestra E deselezionava E azzerava la ricerca nel catalogo, tre stati in un colpo (06/08). */
+  if(e.key==="Escape"){
+    /* «aperta» si misura sulla visibilità reale: alcune finestre non usano l'attributo hidden */
+    var _apri=Array.prototype.slice.call(document.querySelectorAll(".modal,#learn,#clDlg,.hdrmenu,#prodModal,#rubModal,#versPanel"))
+      .filter(function(x){ return !x.hidden && x.getClientRects().length; });
+    if(_apri.length) return;
+  }
   if(e.key==="Escape"){ exitHubModes(); clearSelection(); if(!endCatSearch()) collapseCats();   /* con una ricerca aperta, Esc riporta la colonna in stato di partenza (campo vuoto, in cima) */
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
@@ -16046,6 +16065,21 @@ function layerSummary(L){
   }catch(e){}
   return "";
 }
+/* Le righe dei layer sono la navigazione principale della colonna destra e si premevano solo col
+   mouse: sono <div> con onclick, senza tabindex né ruolo, quindi il Tab le saltava e Invio non
+   faceva niente. Stessa cura per le altre righe cliccabili dell'app. (06/08) */
+function premibile(el, onAttiva, etichetta){
+  if(!el) return el;
+  el.setAttribute("tabindex","0");
+  if(!el.getAttribute("role")) el.setAttribute("role","button");
+  if(etichetta && !el.getAttribute("aria-label")) el.setAttribute("aria-label", etichetta);
+  el.addEventListener("keydown", function(e){
+    if(e.key!=="Enter" && e.key!==" " && e.key!=="Spacebar") return;
+    if(e.target!==el) return;                       /* un bottone dentro la riga si difende da sé */
+    e.preventDefault(); onAttiva.call(el, e);
+  });
+  return el;
+}
 function renderLayerRow(L, container){
   var focus=(layerAccOpen===L.id), accKey=LAYER_ACC[L.id]||null;
   /* D-L1A: motore spento → riga-invito. Il clic ATTIVA il motore e mette il layer a fuoco. */
@@ -16053,7 +16087,9 @@ function renderLayerRow(L, container){
     var offRow=document.createElement("div"); offRow.className="layer-row layer-clickable layer-offrow";
     offRow.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span><span class="layer-actbadge">attiva</span>';
     offRow.title="Attiva: "+L.name;
-    offRow.addEventListener("click", function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); });
+    var _attiva=function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); };
+    offRow.addEventListener("click", _attiva);
+    premibile(offRow, _attiva, "Attiva il layer "+L.name);
     container.appendChild(offRow);
     return;
   }
@@ -16062,12 +16098,15 @@ function renderLayerRow(L, container){
   row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>'
     +(_sum?'<span class="layer-cnt">'+esc(_sum)+'</span>':'');
   row.title=focus?"Clicca per mostrare tutte le liste":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
-  row.addEventListener("click", function(e){
-    if(e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
+  var _apriChiudi=function(e){
+    if(e && e.target && e.target.closest && e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
     else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="focus"; }   /* tendina = fuoco: contesto sfumato */
     render();
-  });
+  };
+  row.addEventListener("click", _apriChiudi);
+  premibile(row, _apriChiudi, (focus?"Chiudi":"Apri")+" il layer "+L.name);
+  row.setAttribute("aria-expanded", focus?"true":"false");
   /* Controlli SEMPRE inline (scelta Simone) su GRIGLIA A SLOT FISSI [S][occhio][lucchetto][cestino]:
      i bottoni uguali stanno in colonne verticali allineate tra le righe (slot vuoto dove il layer
      non ha quel controllo). Lo slider opacità vive solo sulla Planimetria, nel corpo del fuoco. */
@@ -16923,11 +16962,25 @@ function clDragRenumber(host){
     var td=tr.querySelector("td.cl-num"); if(td) td.textContent=n;   /* riservati e spare occupano un numero anche loro */
   });
 }
+var clReturnFocus=null;
 function clShow(v){
-  clOpen=(v!==false);
+  var apro=(v!==false);
+  /* chiudendo, il fuoco torna al comando che l'ha aperta: senza, finiva su <body> e chi naviga a
+     Tab ripartiva dall'inizio della pagina (06/08) */
+  if(apro && !clOpen){
+    var af=document.activeElement;
+    if(af && af!==document.body && (!af.closest || !af.closest("#clDlg"))){
+      var mn=af.closest && af.closest(".hdrmenu");
+      clReturnFocus = mn ? (document.getElementById(mn.id==="helpMenu"?"helpBtn":"fileBtn")||af) : af;
+    } else clReturnFocus=document.getElementById("bChanList");
+  }
+  clOpen=apro;
   if(clOpen && !(state.cab&&state.cab.on)){ state.cab.on=true; __cabRes=null; }
   clRender();
   if(clOpen){ var c=document.getElementById("clClose"); if(c) c.focus(); }
+  else if(clReturnFocus && clReturnFocus.focus && document.contains(clReturnFocus) && clReturnFocus.getClientRects().length){
+    var _r=clReturnFocus; clReturnFocus=null; setTimeout(function(){ try{ _r.focus(); }catch(_e){} },0);
+  }
 }
 var patchActive=false, patchOpen=true;   /* Input list: attiva (dal catalogo) + menu a tendina */
 /* Liste tecniche MODIFICABILI: click su una riga = seleziona l'elemento sul palco (per spostarlo),
@@ -17241,9 +17294,12 @@ function makeListRow(cells, ids, sels, delTitle, onDelete, onMove, onRename, dra
       nameEl.title="Premi: la sorgente si accende sul palco · doppio click per rinominare";
       nameEl.addEventListener("click", function(e){ e.stopPropagation(); flashItem(opts.flashId); });
       nameEl.addEventListener("dblclick", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); });
+      /* da tastiera il doppio click non esiste: Invio rinomina, che è l'azione utile */
+      if(typeof premibile==="function") premibile(nameEl, function(){ startInlineRename(nameEl, nameEl.textContent, onRename); }, "Rinomina "+nameEl.textContent);
     } else {
       nameEl.title="Click per rinominare";
       nameEl.addEventListener("click", function(e){ e.stopPropagation(); startInlineRename(nameEl, nameEl.textContent, onRename); });
+      if(typeof premibile==="function") premibile(nameEl, function(){ startInlineRename(nameEl, nameEl.textContent, onRename); }, "Rinomina "+nameEl.textContent);
     } } }
   var acts=document.createElement("div"); acts.className="rowacts";
   /* ▲▼ tolte (Simone 08/07): le righe si riordinano trascinandole (enableRowDrag) */
@@ -17397,10 +17453,12 @@ function renderPatchPanel(){
     nameEl.addEventListener("click", function(e){ e.stopPropagation(); flashItem(iid); });
     nameEl.addEventListener("dblclick", function(e){ e.stopPropagation();
       startInlineRename(nameEl, r.name, function(v){ cabRenameItem(iid, v); }); });
+    if(typeof premibile==="function") premibile(nameEl, function(){ startInlineRename(nameEl, r.name, function(v){ cabRenameItem(iid, v); }); }, "Rinomina "+r.name);
     /* la patch resta il punto d'accesso a porta fisica e nome breve */
     var pEl=row.querySelector(".ppatch");
     if(r.box){ pEl.classList.add("editable-cell"); pEl.title="Click: porta fisica e nome breve console";
-      pEl.addEventListener("click", function(e){ e.stopPropagation(); openPortPop(e, r); }); }
+      pEl.addEventListener("click", function(e){ e.stopPropagation(); openPortPop(e, r); });
+      if(typeof premibile==="function") premibile(pEl, function(e){ openPortPop(e, r); }, "Porta fisica e nome breve del canale "+(r.name||"")); }
     row.addEventListener("click", function(e){ if(e.target.closest(".pact")||e.target.closest(".rowedit")) return; flashItem(iid); });
     host.appendChild(row);
   });
@@ -18549,7 +18607,8 @@ function renderLoadPanel(){
     /* F4: la pillola resta il punto d'accesso a numero di linea e connettore */
     var pEl=row.querySelector(".ppatch");
     if(r.linked && r.line){ pEl.title="Click: numero di linea e connettore";
-      pEl.addEventListener("click", function(e){ e.stopPropagation(); openLinePop(e, lid); }); }
+      pEl.addEventListener("click", function(e){ e.stopPropagation(); openLinePop(e, lid); });
+      if(typeof premibile==="function") premibile(pEl, function(e){ openLinePop(e, lid); }, "Numero di linea e connettore"); }
     row.addEventListener("click", function(e){ if(e.target.closest(".pact")||e.target.closest(".rowedit")) return; flashItem(lid); });
     host.appendChild(row);
   });
@@ -19209,8 +19268,11 @@ function renderVersionPanel(){
   var d=document.getElementById('versList');
   if(!vs.length){ d.innerHTML='<div style="color:var(--text-2);font-size:12px;padding:6px 0">Nessuna versione salvata.</div>'; return; }
   d.innerHTML=vs.map(function(v,i){
-    var dt=new Date(v.date);
-    var ds=dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    var dt=new Date(v.date), ds='';
+    /* un record senza data valida (archivio di una versione vecchia, o toccato a mano) stampava
+       «Invalid Date Invalid Date» accanto al nome: meglio niente che una scritta rotta */
+    if(dt && isFinite(dt.getTime()))
+      ds=dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     return '<div class="ver-row"><span class="ver-name">'+esc(v.name)+'</span><span class="ver-date">'+ds+'</span>'+
       '<button class="btn" style="font-size:11px;padding:3px 7px" onclick="restoreVersion('+i+')">Ripristina</button>'+
       '<button class="btn danger" style="font-size:11px;padding:3px 7px" onclick="deleteVersion('+i+')">✕</button></div>';
@@ -22311,6 +22373,7 @@ function renderProdHub(){
   DEPT_SUGGEST.filter(function(n){ return !have[n.toLowerCase()]; }).forEach(function(n){
     var c=document.createElement("span"); c.className="prod-chip"; c.textContent=n;
     c.addEventListener("click", function(){ addProdDept(n); });
+    if(typeof premibile==="function") premibile(c, function(){ addProdDept(n); }, "Aggiungi il reparto "+n);
     add.appendChild(c);
   });
   var inp=document.createElement("input"); inp.type="text"; inp.maxLength=40; inp.placeholder="reparto personalizzato…"; inp.className="prod-inp";
@@ -22822,6 +22885,8 @@ function pdfChannelPage(doc, L, paperKey){
     }
     var arr=document.createElement("span"); arr.className="arr"; arr.textContent="▸"; nud.appendChild(arr);
     nud.onclick=function(){ _prodOpen=!_prodOpen; renderProdInline(); };
+    if(typeof premibile==="function") premibile(nud, function(){ _prodOpen=!_prodOpen; renderProdInline(); }, "Apri il Controllo tecnico");
+    nud.setAttribute("aria-expanded", _prodOpen?"true":"false");
     host.hidden=!_prodOpen;
     if(!_prodOpen) return;
     PRODUCTION_SYSTEMS.forEach(function(sy){
@@ -22930,13 +22995,17 @@ function pdfChannelPage(doc, L, paperKey){
         nSel++;
         var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
         var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
-        x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); });
+        var _togli=function(){ delete _pdfPillSel[p.key]; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+        x.addEventListener("click", _togli);
+        if(typeof premibile==="function") premibile(x, _togli, "Togli dal PDF: "+p.label);
         pill.appendChild(x); host.appendChild(pill);
       } else {
         var isSugg=!!sugg[p.key]; if(isSugg) nSugg++;
         var g=mk(p.label,"pill ghost"+(isSugg?" sugg":"")); g.dataset.key=p.key;
         g.title=isSugg?"Suggerita dagli elementi sul palco — click per aggiungerla":"Aggiungi al PDF";
-        g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); });
+        var _aggiungi=function(){ _pdfPillSel[p.key]=true; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+        g.addEventListener("click", _aggiungi);
+        if(typeof premibile==="function") premibile(g, _aggiungi, "Aggiungi al PDF: "+p.label);
         host.appendChild(g);
       }
     });
@@ -22947,7 +23016,9 @@ function pdfChannelPage(doc, L, paperKey){
     var rest=_pdfTechPages.length-nSel;
     if(rest>1){
       var all=mk("Tutte le pagine","pill ghost");
-      all.addEventListener("click", function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); });
+      var _tutte=function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+      all.addEventListener("click", _tutte);
+      if(typeof premibile==="function") premibile(all, _tutte, "Aggiungi al PDF tutte le pagine tecniche");
       host.appendChild(all);
     }
     var tt=document.getElementById("pdfPillsTitle");
@@ -23567,7 +23638,12 @@ else { window.addEventListener("resize", render); fit();
    chiusura, e sfondo `inert` (non focalizzabile né leggibile dallo screen reader) mentre è aperta.
    confirmModal e welcome hanno già i propri role/aria-labelledby; qui si copre il resto in un colpo. */
 (function(){ try{
-  var mods=Array.prototype.slice.call(document.querySelectorAll(".modal"));
+  /* #learn (Guida) e #clDlg (Channel list a schermo intero) sono finestre a tutti gli effetti ma
+     stanno fuori dalla classe .modal, quindi restavano fuori dal contratto di dialogo: niente
+     trappola del fuoco (il Tab usciva e atterrava sull'header COPERTO dall'overlay) e niente
+     ritorno al comando. Entrano dal selettore, senza toccarne gli stili. (06/08) */
+  var MODAL_SEL=".modal,#learn,#clDlg";
+  var mods=Array.prototype.slice.call(document.querySelectorAll(MODAL_SEL));
   mods.forEach(function(m){
     if(!m.getAttribute("role")) m.setAttribute("role","dialog");
     if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
@@ -23582,7 +23658,7 @@ else { window.addEventListener("resize", render); fit();
   var lastOutsideFocus=null;
   document.addEventListener("focusin", function(e){
     var el=e.target; if(!el || el===document.body) return;
-    if(el.closest && el.closest(".modal")) return;
+    if(el.closest && el.closest(MODAL_SEL)) return;
     lastOutsideFocus=el;
   }, true);
   function isVisible(m){ if(m.hidden) return false; var cs=getComputedStyle(m); if(cs.display==="none"||cs.visibility==="hidden") return false; var r=m.getBoundingClientRect(); return r.width>0 && r.height>0; }
@@ -23590,7 +23666,8 @@ else { window.addEventListener("resize", render); fit();
   function setBgInert(on){
     if(on){ if(bgInert.length) return;
       Array.prototype.forEach.call(document.body.children, function(el){
-        if(!el.classList || el.classList.contains("modal")) return;      /* le modali sono gestite a parte */
+        if(!el.classList || el.matches(MODAL_SEL)) return;                /* le finestre sono gestite a parte */
+        if(el.querySelector && el.querySelector(MODAL_SEL)) return;       /* né i contenitori che ne portano una dentro */
         if(el.getAttribute && el.getAttribute("aria-live")) return;       /* la regione di annunci resta viva */
         if(el.hasAttribute("inert")) return;
         el.setAttribute("inert",""); bgInert.push(el);
@@ -23605,7 +23682,15 @@ else { window.addEventListener("resize", render); fit();
        ripristinare. Alla chiusura quel bottone era nascosto → il focus finiva su <body>. Se il focus
        è già dentro, la modale si gestisce da sé: non c'è nulla da ricordare. */
     var af=document.activeElement;
-    var trigger=(af && !m.contains(af) && af!==document.body && !(af.closest&&af.closest(".modal"))) ? af : lastOutsideFocus;
+    var trigger=(af && !m.contains(af) && af!==document.body && !(af.closest&&af.closest(MODAL_SEL))) ? af : lastOutsideFocus;
+    /* Aperta da una voce di menu, il trigger è la voce — che bindMenu nasconde un istante dopo: alla
+       chiusura la guardia (giustamente) rifiuta di focalizzare un elemento invisibile e il fuoco
+       finisce su <body>, cioè chi naviga a Tab riparte dall'inizio della pagina. Si risale al bottone
+       che comanda il menu, che è lì e visibile. 6 finestre su 7 lo facevano (06/08). */
+    if(trigger && trigger.closest){
+      var mn=trigger.closest(".hdrmenu");
+      if(mn) trigger=document.getElementById(mn.id==="helpMenu"?"helpBtn":"fileBtn")||trigger;
+    }
     returnFocus.set(m, trigger || null);
     openStack.push(m); setBgInert(true);
     var f=focusables(m), target=f[0]||m;
@@ -24915,6 +25000,10 @@ function maybeAskStageSize(explicit){
   function onKey(e){ if(e.key==="Escape") close(); }
   function open(){
     lastFocus=document.activeElement;
+    /* aperta dalla voce del menu «?», che si chiude subito dopo: il fuoco da riprendere è il bottone
+       del menu, non la voce che nel frattempo è sparita (06/08) */
+    if(lastFocus && lastFocus.closest && lastFocus.closest(".hdrmenu"))
+      lastFocus=document.getElementById("bLearnM")||document.getElementById("helpBtn")||lastFocus;
     panel.hidden=false;
     panel.classList.add("open");
     var c=document.getElementById("bLearnClose");
@@ -24925,7 +25014,7 @@ function maybeAskStageSize(explicit){
     panel.classList.remove("open");
     panel.hidden=true;
     document.removeEventListener("keydown",onKey);
-    if(lastFocus&&lastFocus.focus) lastFocus.focus();
+    if(lastFocus && lastFocus.focus && document.contains(lastFocus) && lastFocus.getClientRects().length) lastFocus.focus();
   }
   openBtns.forEach(function(b){ b.addEventListener("click",open); });
   var cb=document.getElementById("bLearnClose"); if(cb) cb.addEventListener("click",close);
