@@ -127,6 +127,9 @@
   body.dark .btn.tint:hover{background:#17262f}
   header input.hdr-name{flex:0 0 auto;border:1px solid transparent;border-radius:8px;padding:6px 9px;font-size:14px;font-weight:600;
     color:var(--text);background:transparent;width:200px;min-width:90px;max-width:240px}
+  /* «Esporta» tiene la sua parola a ogni larghezza: il difetto era proprio che nessun comando visibile
+     dicesse dove si esporta, e un'icona sola lo ripristinerebbe a metà. L'header può scorrere di
+     qualche pixel nei casi estremi — il gruppo azioni è sticky, quindi resta comunque raggiungibile. */
   header input.hdr-name:hover{border-color:var(--border)}
   header input.hdr-name:focus{outline:none;border-color:var(--accent);box-shadow:none}
   header input.hdr-name::placeholder{color:var(--text-3);font-weight:400}
