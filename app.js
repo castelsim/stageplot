@@ -1017,6 +1017,18 @@ var TYPES = {
                return s; }},
   triangoloperc:{nome:"Triangolo", dim:"8\" · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:24,d:24, defLabel:"Trg",
              draw:function(){ return lin(0,-12,0,-4,'ic thin')+'<path class="ic thin" fill="none" d="M -9,7 L 0,-8 L 9,7 M -7.4,7 L 7.4,7"/>'; }},
+  crotali:  {nome:"Crotali / Cimbalino", dim:"Ø13 · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:18,d:18, defLabel:"Crt",
+             draw:function(){   /* disco d'ottone spesso, vite di fissaggio al centro, su stativo */
+               return lin(0,9,0,3,'ic thin')+circ(0,-1,7.5,'ic fBrass')+circ(0,-1,5,'ic thin')+circ(0,-1,1.6,'ic fGrey'); }},
+  woodblock:{nome:"Wood block", dim:"20×5 · su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:22,d:10, defLabel:"Wbk",
+             draw:function(){   /* blocco pieno di legno con la fenditura longitudinale */
+               return lin(0,5,0,2,'ic thin')+bar(0,-1,18,7,'ic fWoodL',2)+lin(-6,-1,6,-1,'ic thin'); }},
+  flexaton: {nome:"Flexaton", dim:"35×12 · a mano", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:12, defLabel:"Flx", qaCede:"flex",
+             draw:function(){   /* lamella flessibile nel telaio a molla, due batacchi di legno su lamine */
+               return lin(-16,0,-12,0,'ic thin')+'<path class="ic thin" fill="none" d="M -12,-4 Q -4,0 -12,4"/>'
+                 +bar(3,0,24,5,'ic fSilver',2)
+                 +lin(-1,-2,-1,-4,'ic thin')+lin(-1,2,-1,4,'ic thin')   /* lamine dei batacchi */
+                 +circ(-1,-4,2,'ic fWoodD')+circ(-1,4,2,'ic fWoodD'); }},
   timbales: {nome:"Timbales", dim:"110×60", cat:"Batteria e percussioni", sub:"Percussioni", w:115,d:65,
              draw:function(){
                /* macho 13" + hembra 14" su stand, campanaccio montato al centro */
@@ -1627,7 +1639,10 @@ var SEARCH_ALIAS = {
   percussioni:"congas bongos latin perc set percussioni", conga:"congas tumbadora latin perc",
   djembe:"djembe djembè percussione africana perc", surdo:"surdo samba batucada percussione brasiliana perc",
   tamburello:"tamburello tamburino tambourine tamb perc", campanaccio:"campanaccio cowbell campana perc",
-  templeblocks:"temple blocks blocchi di legno woodblock legnetti perc", triangoloperc:"triangolo strumento percussione perc",
+  templeblocks:"temple blocks blocchi di legno legnetti perc", triangoloperc:"triangolo strumento percussione perc",
+  crotali:"crotali crotalo cimbalino cimbali antichi antique cymbals dischi ottone perc",
+  woodblock:"wood block woodblock blocco di legno cassa cinese legnetto perc",
+  flexaton:"flexaton flexatone lamella lamina flessibile perc",
   tavolopercussioni:"tavolo percussioni appoggio piccoli perc trap table",   /* niente "piano d'appoggio": la ricerca è a sottostringa e "piano" deve dare il pianoforte */
   quinto:"congas latin perc", tumba:"congas tumbadora latin perc", bongos:"bongo macho hembra latin perc",
   micover:"oh",
@@ -2570,6 +2585,98 @@ function venueImageBundleSig(bundle){
   }).filter(Boolean).join("|");
 }
 function venueStorageKey(sig){ return LS_KEY_VENUE+"."+venueDataHash(sig).replace(":","_"); }
+/* ===== Peso della planimetria =====
+   La ricompressione all'import guardava SOLO i pixel (lato > 2000). Ma il peso non discende dai
+   pixel: una scansione 1476×1190 può occupare 8,3 MB in PNG, mentre un JPEG 3000×2000 ne occupa
+   0,5. Il 03/08/2026 una planimetria del genere ha riempito l'archivio del browser e reso
+   impossibile aprire qualsiasi progetto. Si decide sul peso, e i pixel restano un secondo limite. */
+var VENUE_MAXSIDE=2000, VENUE_MAXBYTES=600*1024, VENUE_MINGAIN=0.25;
+function venueDataUrlBytes(durl){
+  var s=String(durl||""), i=s.indexOf(","); if(i<0) return 0;
+  var b64=s.slice(i+1), pad=(b64.slice(-2).match(/=/g)||[]).length;
+  return Math.max(0, Math.floor(b64.length*3/4)-pad);
+}
+function venueNeedsCompression(durl,iw,ih){
+  return Math.max(Number(iw)||0,Number(ih)||0)>VENUE_MAXSIDE || venueDataUrlBytes(durl)>VENUE_MAXBYTES;
+}
+/* Fra i candidati vince il più leggero, ma solo se il guadagno ripaga la perdita di qualità:
+   ricomprimere un disegno tecnico per limare il 5% non ha senso. null = tieni l'originale. */
+function venuePickSmallest(cands,sourceBytes){
+  var best=null, bestBytes=Infinity;
+  (cands||[]).forEach(function(c){
+    if(!c||!c.durl) return;
+    var b=venueDataUrlBytes(c.durl);
+    if(b>0&&b<bestBytes){ best=c; bestBytes=b; }
+  });
+  if(!best) return null;
+  if(!(sourceBytes>0)) return best;
+  return bestBytes<=sourceBytes*(1-VENUE_MINGAIN) ? best : null;
+}
+function fmtPeso(bytes){
+  var b=Number(bytes)||0;
+  return b>=1024*1024 ? (b/1024/1024).toFixed(1).replace(".",",")+" MB" : Math.round(b/1024)+" KB";
+}
+/* Un PNG con trasparenza non può diventare JPEG (il fondo diventerebbe nero e coprirebbe il palco):
+   si campiona il canale alpha e, se c'è, restano solo i formati che la conservano. In caso di
+   dubbio — canvas illeggibile — si assume che la trasparenza ci sia. */
+function venueHasAlpha(cg,w,h){
+  try{
+    var d=cg.getImageData(0,0,w,h).data;
+    for(var i=3;i<d.length;i+=4*17) if(d[i]<255) return true;
+    return false;
+  }catch(e){ return true; }
+}
+/* Ridimensiona (se serve) e prova più codifiche, tenendo la più leggera. WebP prima del JPEG:
+   su un disegno al tratto il JPEG lascia aloni attorno alle linee. */
+function venueRecompress(img,iw,ih,source){
+  if(typeof document==="undefined"||!document.createElement) return null;
+  var maxs=Math.max(iw,ih), sc=(maxs>VENUE_MAXSIDE&&maxs>0)?VENUE_MAXSIDE/maxs:1;
+  var cw=Math.max(1,Math.round(iw*sc)), ch=Math.max(1,Math.round(ih*sc));
+  var cv=document.createElement("canvas"); if(!cv) return null;
+  cv.width=cw; cv.height=ch;
+  var cg=cv.getContext&&cv.getContext("2d"); if(!cg) return null;
+  try{ cg.drawImage(img,0,0,cw,ch); }catch(e){ return null; }
+  /* Safari non ha WebP in canvas (toDataURL torna un PNG): lì resta il JPEG, che però non può
+     portare la trasparenza — un PNG trasparente su Safari resta quindi com'è, ed è giusto così. */
+  var formati=[["image/webp",0.92],["image/webp",0.82]];
+  if(!venueHasAlpha(cg,cw,ch)) formati.push(["image/jpeg",0.85]);
+  var cands=[];
+  formati.forEach(function(f){
+    try{
+      var d=cv.toDataURL(f[0],f[1]);
+      /* formato non supportato dal browser → toDataURL torna un PNG: non è un candidato valido */
+      if(d && d.indexOf("data:"+f[0])===0) cands.push({durl:d,w:cw,h:ch});
+    }catch(e){}
+  });
+  if(!cands.length) return null;
+  var best=venuePickSmallest(cands,venueDataUrlBytes(source));
+  /* col solo ridimensionamento i pixel cambiano comunque: va applicato anche senza guadagno di peso */
+  return best || (sc<1 ? cands[0] : null);
+}
+/* ===== Blob planimetria orfani =====
+   Le chiavi sono indirizzate dal CONTENUTO e non venivano mai rimosse: sostituendo la planimetria
+   se ne accumulava una nuova da megabyte e la vecchia restava in archivio per sempre. */
+function orphanVenueKeys(allKeys,keepKeys){
+  var pref=LS_KEY_VENUE+".";
+  return (allKeys||[]).filter(function(k){
+    return typeof k==="string" && k.indexOf(pref)===0 && (keepKeys||[]).indexOf(k)<0;
+  });
+}
+function sweepVenueBlobs(){
+  /* Mai su documento altrui (consulenza/viewer) né su documento non caricato: lì non si sa cosa sia
+     ancora vivo, e una rimozione azzardata costerebbe la planimetria di un progetto vero. */
+  if(foreignDoc() || window.__docLoadBlocked || window.__localStorageUnavailable) return 0;
+  try{
+    var keep=[];
+    if(venuePersistedKey) keep.push(venuePersistedKey);
+    var sig=venueImageBundleSig(); if(sig) keep.push(venueStorageKey(sig));
+    loadVersions().forEach(function(v){ if(v&&typeof v.venueKey==="string") keep.push(v.venueKey); });
+    var all=[]; for(var i=0;i<localStorage.length;i++) all.push(localStorage.key(i));
+    var orfani=orphanVenueKeys(all,keep), n=0;
+    orfani.forEach(function(k){ try{ localStorage.removeItem(k); n++; }catch(_e){} });
+    return n;
+  }catch(e){ return 0; }
+}
 function normalizeVenueImageBundle(raw,legacyActive){
   var parsed=raw;
   if(typeof raw==="string"){ try{ parsed=JSON.parse(raw); }catch(e){ return null; } }
@@ -2629,10 +2736,42 @@ function docToJSON(){ syncActiveVariant(); return JSON.stringify(documentEnvelop
   VARIANTS.map(function(v){ return { id:v.id, name:v.name, state:v.state }; }))); }
 /* come docToJSON ma la variante attiva porta lo state COMPLETO con la planimetria (_dataUrl) — export su file.
    Le altre varianti condividono l'immagine per nome: all'import viene messa in cache e riagganciata al primo switch. */
-function docToJSONFull(){ syncActiveVariant();
+function docToJSONFull(){
+  syncActiveVariant();
+  /* La scena attiva porta la planimetria per intero; le gemelle — una scena nasce come copia
+     dell'altra — la dichiarano con `_sameAs` invece di ripeterne il base64. È quello che il
+     commento di questa funzione prometteva da sempre («le altre varianti condividono l'immagine»)
+     mentre il codice ne scriveva una copia per scena: 488 KB diventavano 1954 KB con quattro scene,
+     nel file esportato e in ogni punto di recupero. Le scene con una pianta DIVERSA se la portano
+     tutta: qui non si perde niente. */
+  var attivaKey=String(activeVar||"");
+  /* Ogni immagine viene scritta UNA volta, dalla prima scena che la porta; chi ha la stessa la
+     dichiara con `_sameAs`. L'attiva va per prima e scrive sempre per intero, così chi apre il file
+     vede subito ciò che stava guardando chi l'ha esportato. */
+  var padrone={};   /* firma immagine → id della scena che la contiene davvero */
+  var ordine=VARIANTS.slice().sort(function(a,b){
+    return (String(a.id)===attivaKey?0:1)-(String(b.id)===attivaKey?0:1);
+  });
+  var scritte={};
+  ordine.forEach(function(v){
+    var c=venueImgCache[String(v.id)];
+    var du=(c&&c._dataUrl)?c._dataUrl:((v.state&&v.state.venue&&v.state.venue._dataUrl)||null);
+    if(!du) return;
+    var sig=(c&&c._sig)?c._sig:venueDataHash(du);
+    if(padrone[sig]==null) padrone[sig]=String(v.id);
+    scritte[String(v.id)]=sig;
+  });
   return JSON.stringify(documentEnvelope(activeVar,
-    VARIANTS.map(function(v){ var full=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(full,v.id); full._v=SCHEMA_VERSION;
-      return { id:v.id, name:v.name, state:full }; }))); }
+    VARIANTS.map(function(v){
+      var full=JSON.parse(JSON.stringify(v.state)); reattachVenueImg(full,v.id); full._v=SCHEMA_VERSION;
+      var sig=scritte[String(v.id)];
+      if(sig && full.venue && full.venue._dataUrl && padrone[sig]!==String(v.id)){
+        delete full.venue._dataUrl; delete full.venue._imgW; delete full.venue._imgH;
+        full.venue._sameAs=padrone[sig];
+      }
+      return { id:v.id, name:v.name, state:full };
+    })));
+}
 /* applica uno stato piatto al `state` vivo (nessun undo, nessuno stacco id cloud): riuso guidato da chi chiama.
    I documenti persistiti passano SOLO dal normalizzatore versionato: sanitizeItems è riservato agli input AI grezzi
    e la sua whitelist non rappresenta lo schema completo del progetto. */
@@ -2673,7 +2812,52 @@ function prepareDoc(parsed){
     var id=newVarId(), normalized=normalizeState(parsed); normalized._v=SCHEMA_VERSION;
     nextVariants=[{ id:id, name:"Variante 1", state:normalized }]; nextActive=id;   /* legacy piatto → variante singola */
   }
+  /* Permesso del link: se il documento non lo dichiara, si deriva dalle scene prendendo il MINORE
+     (vedi shareOptsFromVariants) e si riscrive uguale ovunque, così non può più divergere. */
+  var so=normShareOpts(nextExtra.shareOpts && typeof nextExtra.shareOpts==="object"
+    ? nextExtra.shareOpts : shareOptsFromVariants(nextVariants));
+  nextExtra.shareOpts={copy:so.copy, contacts:so.contacts};
+  nextVariants.forEach(function(v){ v.state.shareOpts={copy:so.copy, contacts:so.contacts}; });
   return {variants:nextVariants, active:nextActive, extra:nextExtra};
+}
+/* ===== PERMESSI DEL LINK — uno solo, del DOCUMENTO =====
+   `shareOpts` è nato dentro lo state della variante, ma di link ce n'è uno: lo stesso indirizzo
+   pubblicava o nascondeva nome, telefono ed email dei collaboratori a seconda di quale scena fosse
+   attiva in quel momento. L'utente vedeva l'interruttore spento e bastava tornare all'altra scena
+   perché ricominciasse a pubblicarli (caccia ai bug 03/08/2026). Sono dati personali di terzi:
+   ogni caso incerto sta dalla parte del NO.
+   Il valore resta scritto ANCHE in ogni variante perché la Edge Function pubblica la scena attiva:
+   così il permesso è coerente qualunque scena sia aperta, senza dipendere dal deploy del server. */
+function shareOptsFromVariants(variants){
+  /* Documenti creati prima di questo cambiamento: si prende il permesso MINORE fra le scene. Se
+     anche una sola diceva no, l'utente quel no l'ha visto e vale per il link intero. */
+  var copy=true, contacts=true, trovate=0;
+  (variants||[]).forEach(function(v){
+    var so=v&&v.state&&v.state.shareOpts; if(!so||typeof so!=="object") return;
+    trovate++;
+    if(so.copy===false) copy=false;
+    if(so.contacts!==true) contacts=false;
+  });
+  return trovate ? {copy:copy, contacts:contacts} : {copy:true, contacts:false};
+}
+function normShareOpts(so){ return {copy:!(so&&so.copy===false), contacts:!!(so&&so.contacts===true)}; }
+function shareOptsDoc(){
+  if(DOC_EXTRA && DOC_EXTRA.shareOpts && typeof DOC_EXTRA.shareOpts==="object") return normShareOpts(DOC_EXTRA.shareOpts);
+  return normShareOpts(shareOptsFromVariants(VARIANTS));
+}
+/* Scrive il permesso una volta sola: sul documento e su OGNI scena, presente e futura. */
+function setShareOpt(key,value){
+  if(key!=="copy" && key!=="contacts") return shareOptsDoc();
+  var next=shareOptsDoc(); next[key]=(key==="copy") ? value!==false : value===true;
+  applyShareOptsEverywhere(next);
+  return next;
+}
+function applyShareOptsEverywhere(opts){
+  var o=normShareOpts(opts);
+  DOC_EXTRA=DOC_EXTRA||{}; DOC_EXTRA.shareOpts={copy:o.copy, contacts:o.contacts};
+  (VARIANTS||[]).forEach(function(v){ if(v&&v.state) v.state.shareOpts={copy:o.copy, contacts:o.contacts}; });
+  if(state) state.shareOpts={copy:o.copy, contacts:o.contacts};
+  return o;
 }
 function bumpDocumentEpoch(){ window.__docEpoch=(window.__docEpoch||0)+1; return window.__docEpoch; }
 function commitPreparedDoc(prepared){
@@ -2681,8 +2865,17 @@ function commitPreparedDoc(prepared){
   window.__respLoadSeq=(window.__respLoadSeq||0)+1; window.__respData=null;   /* nessun contatto account attraversa il progetto */
   VARIANTS=prepared.variants; activeVar=prepared.active; DOC_EXTRA=prepared.extra||{};
   venueImgCache=Object.create(null);   /* confine documento: nessuna bitmap del progetto precedente può attraversarlo */
+  VARIANTS.forEach(function(v){ cacheVenueImg(v.state&&v.state.venue,v.id); });
+  /* Secondo giro: le scene che dichiarano `_sameAs` riprendono la bitmap dalla scena indicata.
+     Va fatto DOPO il primo, o dipenderebbe dall'ordine delle varianti nel file. */
   VARIANTS.forEach(function(v){
-    cacheVenueImg(v.state&&v.state.venue,v.id);
+    var ve=v.state&&v.state.venue;
+    if(!ve || ve._dataUrl || typeof ve._sameAs!=="string") return;
+    var src=venueImgCache[String(ve._sameAs)];
+    if(src&&src._dataUrl){ venueImgCache[String(v.id)]={name:ve.name||src.name,_dataUrl:src._dataUrl,
+      _imgW:src._imgW,_imgH:src._imgH,_sig:src._sig}; }
+  });
+  VARIANTS.forEach(function(v){
     v.state=JSON.parse(JSON.stringify(v.state,stateReplacer));   /* il blob leggero resta privo delle bitmap */
   });
   bumpDocumentEpoch();   /* invalida callback cloud asincrone appartenenti al documento precedente */
@@ -2798,6 +2991,9 @@ function applyProjLock(locked){
     if(lockUnlock) lockUnlock.hidden=consultationLock;
     bar.hidden=false;
   } else if(bar){ bar.hidden=true; }
+  /* La pastiglia di stato va allineata subito: col lucchetto messo mentre si lavora restava su
+     «Salvataggio…» fino al tentativo successivo — che con __projLocked non arriva mai. */
+  if(locked && typeof docStateForLock==="function") docStateForLock();
 }
 window.applyProjLock=applyProjLock;
 /* Nudge cloud-only (spec 2026-07-03): al primo export riuscito della sessione, se anonimo, ricorda
@@ -3050,11 +3246,20 @@ function setDocState(mode){
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
   else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Modificato altrove — scegli come continuare"; htmlM=CHIP_SVG.warn+"Modificato altrove"; }
+  else if(mode==="locked"){ cls+=" warn"; html=CHIP_SVG.warn+"Progetto bloccato — le modifiche restano su questo dispositivo"; htmlM=CHIP_SVG.warn+"Bloccato — non salvo online"; }   /* il lucchetto ferma l'autosave: senza questo la pastiglia restava su «Salvataggio…» per sempre */
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
 }
 window.setDocState=setDocState;
+/* Che cosa dice la pastiglia quando il progetto è bloccato (lucchetto messo qui o da un altro
+   dispositivo): se c'era qualcosa in volo o in attesa, quel qualcosa online non ci va più e va detto;
+   se non c'era niente in sospeso, il documento è quello del cloud e la pastiglia lo racconta. */
+function docStateForLock(){
+  if(_cloudDirty || _cloudSaving){ setDocState("locked"); return; }
+  var C=window.__cloud;
+  setDocState(C && C.user && C.user() ? (C.currentId&&C.currentId() ? "online" : "local") : "offline-warn");
+}
 var _cloudAsT=null, _cloudRetryT=null, _cloudRetryStep=0;
 var _cloudDirty=false, _cloudSaving=false, _cloudChangeSeq=0, _cloudFlushWaiters=[];
 function resolveCloudFlush(ok){
@@ -3090,14 +3295,14 @@ function cloudAutosaveNow(){
   if(window.__docLoadBlocked){ setDocState("blocked"); resolveCloudFlush(false); return; }   /* documento incompatibile: mai sovrascrivere il cloud */
   if(window.__localConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* un'altra tab ha una revisione locale concorrente */
   if(window.__bootVenueUnavailable){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* pointer locale mancante: attendi il recupero autorevole, mai inviare venue_image=null */
-  if(window.__projLocked){ resolveCloudFlushWhenIdle(true); return; }
+  if(window.__projLocked){ docStateForLock(); resolveCloudFlushWhenIdle(true); return; }   /* bloccato: si esce, ma dicendolo — non lasciando «Salvataggio…» acceso a vuoto */
   if(!C || !C.user()){ setDocState(window.__localStorageUnavailable?"local-error":"offline-warn"); _cloudRetryStep=0; resolveCloudFlush(false); return; }
   if(window.__cloudConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   if(!_cloudDirty){ resolveCloudFlushWhenIdle(true); return; }
   var saveEpoch=window.__docEpoch||0, saveSeq=_cloudChangeSeq;
   _cloudSaving=true;
   setDocState("saving");
-  C.save(function(id){
+  C.save(function(id, motivo){
     _cloudSaving=false;
     if((window.__docEpoch||0)!==saveEpoch){
       resolveCloudFlush(false);
@@ -3109,6 +3314,15 @@ function cloudAutosaveNow(){
       if(saveSeq===_cloudChangeSeq) _cloudDirty=false;
       setDocState("online"); _cloudRetryStep=0;
       if(_cloudDirty) cloudAutosaveNow(); else resolveCloudFlushWhenIdle(true);   /* modifiche durante il volo → secondo snapshot */
+    } else if(motivo==="empty"){
+      /* Documento ancora vuoto: saveProject ha deciso di non depositare un guscio nell'elenco e ha
+         già messo «Salvato sul dispositivo». Non è un fallimento: niente pastiglia rossa, niente
+         retry, e chi aspetta per cambiare progetto ha via libera — non c'è nulla da mettere al
+         sicuro. Prima questo `null` veniva letto come errore e l'utente restava chiuso fuori dai
+         propri progetti finché non posava un elemento sul palco. */
+      if(saveSeq===_cloudChangeSeq) _cloudDirty=false;
+      _cloudRetryStep=0;
+      resolveCloudFlushWhenIdle(true);
     } else {
       setDocState("error"); resolveCloudFlush(false); scheduleCloudRetry();
     }
@@ -3128,7 +3342,7 @@ function scheduleCloudAutosave(){
 function flushCloudAutosave(done){
   if(window.__docLoadBlocked){ setDocState("blocked"); if(done) done(false); return; }
   if(window.__bootVenueUnavailable){ setDocState("conflict"); if(done) done(false); return; }
-  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked){ if(done) done(true); return; }
+  if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked){ if(window.__projLocked) docStateForLock(); if(done) done(true); return; }
   if(done) _cloudFlushWaiters.push(done);
   if(!_cloudDirty && !_cloudSaving){ resolveCloudFlushWhenIdle(true); return; }
   clearTimeout(_cloudAsT); _cloudAsT=null;
@@ -4699,7 +4913,9 @@ function load(){
 var LZString=(function(){var f=String.fromCharCode;var keyStrUriSafe="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";var baseReverseDic={};function getBaseValue(alphabet,character){if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i}}return baseReverseDic[alphabet][character]}var LZString={compressToEncodedURIComponent:function(input){if(input==null)return"";return LZString._compress(input,6,function(a){return keyStrUriSafe.charAt(a)})},decompressFromEncodedURIComponent:function(input){if(input==null)return"";if(input=="")return null;input=input.replace(/ /g,"+");return LZString._decompress(input.length,32,function(index){return getBaseValue(keyStrUriSafe,input.charAt(index))})},_compress:function(uncompressed,bitsPerChar,getCharFromInt){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break}else context_data_position++}return context_data.join("")},_decompress:function(length,resetValue,getNextValue){var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};for(i=0;i<3;i+=1){dictionary[i]=i}bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(next=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 2:return""}dictionary[3]=c;w=c;result.push(c);while(true){if(data.index>length){return""}bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(c=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[c]){entry=dictionary[c]}else{if(c===dictSize){entry=w+w.charAt(0)}else{return null}}result.push(entry);dictionary[dictSize++]=w+entry.charAt(0);enlargeIn--;w=entry;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}}}};return LZString})();
 function stateForPublicShare(input){
   var out=JSON.parse(JSON.stringify(input||{}));
-  var opts=out.shareOpts&&typeof out.shareOpts==="object"?out.shareOpts:null;
+  /* il permesso è del LINK, quindi del documento: la scena mostrata non lo decide */
+  var opts=(typeof shareOptsDoc==="function") ? shareOptsDoc()
+    : (out.shareOpts&&typeof out.shareOpts==="object"?out.shareOpts:null);
   if(window.__projLocked || !(opts&&opts.contacts===true)){
     delete out.contacts; delete out.techContact; delete out.pdfHeader;
     if(out.approval&&typeof out.approval==="object") delete out.approval.by;
@@ -5868,10 +6084,30 @@ function compChNum(it){ var n=parseInt(it&&it.plCh,10); if(!isFinite(n)||n<1) n=
 /* La via del computer letta SENZA passare da cabItemRouteKey: quella chiama cabItemInputs, che ora
    ha bisogno della via → ricorsione infinita. La chiave si ricostruisce dal numero di tracce, che
    dalla via non dipende. */
+/* La chiave dell'override della via, ricostruita dal numero di tracce invece che da
+   cabItemRouteKey: quella chiama cabItemInputs, che chiama questa — e si rientrerebbe all'infinito
+   (già successo due volte). Fonte unica: chi legge e chi cancella devono usare la stessa formula. */
+function compViaKey(it){ var n=compChNum(it); return (n>=2 ? "grp:"+it.id : it.id+"#0"); }
 function compViaOf(it){
-  var n=compChNum(it), key=(n>=2 ? "grp:"+it.id : it.id+"#0");
-  var cm=(state.cab&&state.cab.manual)||{}, o=cm[key];
+  var cm=(state.cab&&state.cab.manual)||{}, o=cm[compViaKey(it)];
   return normVia(o&&o.via);
+}
+/* La via digitale era di QUEL mixer. Se il cavo viene spostato su una stage box — o su una console
+   che quella connessione non ce l'ha — decade ad analogico, esattamente come decade la porta scelta
+   a mano. Senza, la Lista canali continuava a dire «Dante» su un cavo che finiva in una porta
+   mic/line, la DI non veniva più proposta, e il pannello (che mostra il selettore solo quando il
+   computer è su un mixer) non lasciava più correggere: tre viste, tre risposte diverse.
+   Qui NON si può interrogare il motore: si guarda solo il modello dell'elemento di destinazione. */
+function compViaDecay(it, targetId){
+  if(!it || !COMP_SRC[it.type]) return false;
+  var via=compViaOf(it); if(via==="an") return false;
+  var t=(state.items||[]).filter(function(x){ return x.id===targetId; })[0];
+  var ok=!!(t && cabMixerIn(t) && mixerConnOpts(t).some(function(o){ return o.id===via; }));
+  if(ok) return false;
+  var cm=(state.cab&&state.cab.manual)||{}, o=cm[compViaKey(it)];
+  if(o) delete o.via;
+  if(typeof diApply==="function") diApply(it);   /* tornando analogico la DI serve di nuovo */
+  return true;
 }
 function mixerConnOpts(it){   /* it = elemento console sul palco → opzioni REALI di quel modello */
   var m=mixerModelOf(it); if(!m) return [];
@@ -7176,6 +7412,7 @@ function cabSetItemBox(it, boxId){
   /* cambiando box la porta scelta a mano decade: il numero era di QUELLA box (29/07) */
   if(isPerMusicianMulti(it)){ for(var i=0;i<n;i++){ var cmi=cabManual(it.id+"#"+i); if(cmi.box!==boxId) delete cmi.port; cmi.box=boxId; delete cmi.auto; } return; }   /* postazione: ogni musicista alla stessa box, ma cavi separati */
   var cm=cabManual(cabItemRouteKey(it)); if(cm.box!==boxId) delete cm.port; cm.box=boxId; delete cm.auto;   /* scelto a mano: non si ridistribuisce più */
+  compViaDecay(it, boxId);   /* la via digitale era di quel mixer: sulla stage box non esiste */
 }
 /* ── Shift+trascina un elemento SOPRA un cavo (stile Max: inserire un oggetto nel patch cord) ──
    Rilasci con Shift una stage box/sub-snake su un cavo audio → quello strumento si ricollega alla
@@ -7576,19 +7813,62 @@ function electricEngine(){
   /* 3b. TIER 2 (Simone 08/07): ciabatta/distro → quadro, SOLO manuale (pallino ambra sulla ciabatta).
      Il carico della ciabatta risale sul quadro (fase meno carica) con verifica di sovraccarico. */
   var ups=(state.elec&&state.elec.uplinks)||{}, uplinks=[], upPend=0;
-  distros.forEach(function(d){
-    if(!d.it) return;
-    var u=ups[d.it.id];
-    if(!u || !u.to){ if(manualModeE && d.loadW>0) upPend++; return; }
-    var T=distros.filter(function(x){ return x.it && x.it.id===u.to; })[0];
-    if(!T || T===d){ upPend++; return; }
-    var amps=d.loadW/ELEC_VOLT, mp=0;
-    for(var p2=1;p2<T.ph;p2++){ if(T.phLoad[p2]<T.phLoad[mp]) mp=p2; }
-    T.phLoad[mp]+=amps; T.loadW+=d.loadW;
-    if(T.phLoad[mp]>T.a) issues.push({lvl:"err", msg:"Quadro "+T.letter+" sovraccarico con la linea da "+d.letter+" ("+T.phLoad[mp].toFixed(0)+"/"+T.a+" A)."});
-    var upts=[[d.x,d.y]].concat(u.pts||[]).concat([[T.x,T.y]]);
-    uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(u.pts&&u.pts.length)});
-  });
+  (function(){
+    var byId={}; distros.forEach(function(d){ if(d.it) byId[d.it.id]=d; });
+    function upOf(d){ var u=d&&d.it&&ups[d.it.id]; if(!u||!u.to) return null; var T=byId[u.to]; return (!T||T===d)?null:T; }
+    /* Anello fra ciabatte (A→B→A): senza questa guardia la propagazione a valle non avrebbe fine.
+       Prima non serviva solo perché ogni distro veniva toccato una volta sola — e infatti i conti
+       erano sbagliati. */
+    function risaleFinoA(from,target){
+      var visti={}, cur=from;
+      while(cur&&cur.it){
+        if(cur===target) return true;
+        if(visti[cur.it.id]) return false;
+        visti[cur.it.id]=1; cur=upOf(cur);
+      }
+      return false;
+    }
+    function salti(d){   /* quanti gradini mancano alla consegna: le foglie hanno il numero più alto */
+      var n=0, cur=d, visti={};
+      while(cur&&cur.it&&!visti[cur.it.id]){ visti[cur.it.id]=1; var T=upOf(cur); if(!T) break; n++; cur=T; }
+      return n;
+    }
+    var linee=[], anelliVisti={};
+    distros.forEach(function(d){
+      if(!d.it) return;
+      var u=ups[d.it.id];
+      if(!u || !u.to){ if(manualModeE && d.loadW>0) upPend++; return; }
+      var T=byId[u.to];
+      if(!T || T===d){ upPend++; return; }
+      if(risaleFinoA(T,d)){
+        upPend++;
+        /* Un anello si vede da entrambi i capi: va detto UNA volta sola, o il fonico legge due
+           volte lo stesso problema con i nomi invertiti. */
+        var kAnello=[d.it.id,T.it.id].sort().join("|");
+        if(!anelliVisti[kAnello]){
+          anelliVisti[kAnello]=1;
+          issues.push({lvl:"err", msg:"Collegamento ad anello fra "+d.letter+" e "+T.letter+": la linea non è stata contata. Scollega uno dei due e ricollegalo al quadro."});
+        }
+        return;
+      }
+      linee.push({d:d, T:T, u:u});
+    });
+    /* ORDINE TOPOLOGICO, non l'ordine in cui gli oggetti sono finiti sul palco. Una ciabatta va
+       sommata al suo quadro DOPO aver ricevuto tutto ciò che risale a lei, altrimenti propaga un
+       totale ancora incompleto: con A→B→Q, se B era stata messa sul palco prima di A, i 1000 W di
+       A non arrivavano MAI al quadro (che diceva 0,8 kW invece di 1,8) mentre la Lista carichi
+       nello stesso rider diceva il totale giusto. Su quel numero girano anche la verifica di
+       sovraccarico e la sezione del cavo di risalita. */
+    linee.sort(function(a,b){ return salti(b.d)-salti(a.d); });
+    linee.forEach(function(L){
+      var d=L.d, T=L.T, amps=d.loadW/ELEC_VOLT, mp=0;
+      for(var p2=1;p2<T.ph;p2++){ if(T.phLoad[p2]<T.phLoad[mp]) mp=p2; }
+      T.phLoad[mp]+=amps; T.loadW+=d.loadW;
+      if(T.phLoad[mp]>T.a) issues.push({lvl:"err", msg:"Quadro "+T.letter+" sovraccarico con la linea da "+d.letter+" ("+T.phLoad[mp].toFixed(0)+"/"+T.a+" A)."});
+      var upts=[[d.x,d.y]].concat(L.u.pts||[]).concat([[T.x,T.y]]);
+      uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(L.u.pts&&L.u.pts.length)});
+    });
+  })();
   /* Chi «pende» davvero (31/07): non tutto ciò che è senza uplink va collegato a monte — il quadro
      di testa è il punto di consegna, e contarlo faceva dire «1 ciabatta da alimentare» con l'unico
      quadro in scena. Fuori dal conto: chi RICEVE un uplink (sta a monte, non a valle) e il distro
@@ -11339,7 +11619,7 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaSrc=false;
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
@@ -11347,7 +11627,7 @@ function qaIndex(){
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
-  _qaName=[]; _qaStrong=[]; _qaAll=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
@@ -11356,6 +11636,7 @@ function qaIndex(){
     _qaName.push(nome);
     _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
     _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
+    _qaCede.push(t&&t.qaCede ? _deacc(t.qaCede) : null);
   });
 }
 /* la query cade all'inizio di una parola? "mic" sta a inizio parola in "Mic coro" e "microfoniche",
@@ -11382,6 +11663,13 @@ function qaSearch(q){
     else if(n.indexOf(q)>-1) r=3;
     else if(s.indexOf(q)>-1) r=4;
     else r=5;
+    /* `qaCede`: query che l'elemento LASCIA a chi le aveva già, anche se per nome vincerebbe.
+       Serve quando un nome nuovo copre per intero una query storica altrui: "flex" era del LED
+       flessibile prima che esistesse il Flexaton. Va in CODA (6, dietro anche a chi matcha solo
+       per categoria) e non declassato di qualche gradino: pareggiare non basta, perché a parità
+       di rango il tie-break manda avanti le categorie musicali. Resta comunque nei risultati,
+       e le query più lunghe non sono toccate — "flexa" continua a dare il Flexaton per primo. */
+    if(_qaCede[i] && (" "+_qaCede[i]+" ").indexOf(" "+q+" ")>-1) r=6;
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
@@ -12945,9 +13233,28 @@ document.addEventListener("keydown", function(e){
       }
     }
   }
-  if(window.__projLocked && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){   /* progetto bloccato: blocca le scorciatoie che modificano, MA non dentro i campi di testo (dialoghi permessi: Esporta PDF, ecc.) */
-    if(e.key!=="Escape" && (e.key==="Delete"||e.key==="Backspace"||/^Arrow/.test(e.key) || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|s|x)$/i.test(e.key)))){
-      e.preventDefault(); if(window.__toast) window.__toast("Il progetto è bloccato. Sbloccalo per modificarlo."); return;
+  /* SOLA LETTURA — progetto bloccato (__projLocked) OPPURE documento di qualcun altro aperto da link
+     condiviso / consulenza lato cliente (body.viewmode). Il viewer si difendeva col solo
+     `pointer-events:none` sul palco: il mouse non lo toccava, la TASTIERA sì — Tab dava il fuoco
+     all'SVG, le frecce spostavano gli elementi, Canc li cancellava, ⌘D duplicava. Qui si legge.
+     Restano fuori dal blocco: Tab/Esc (navigazione e accessibilità), ⌘C (copia, non modifica) e ⌘S
+     in consulenza, che è il salvataggio autorizzato del consulente, non una scrittura sul documento. */
+  var _soloLettura = window.__projLocked || document.body.classList.contains("viewmode");
+  if(_soloLettura && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){
+    var _modifica = e.key==="Delete" || e.key==="Backspace" || /^Arrow/.test(e.key)
+      || (!e.metaKey && !e.ctrlKey && !e.altKey && /^[rd]$/i.test(e.key))            /* r/R ruota, d/D duplica */
+      || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|x)$/i.test(e.key))
+      || ((e.metaKey||e.ctrlKey) && /^s$/i.test(e.key) && window.__projLocked);
+    if(e.key!=="Escape" && _modifica){
+      e.preventDefault();
+      /* col tasto tenuto premuto il keydown si ripete: un toast al secondo basta a spiegarlo */
+      if(window.__toast && (!window.__roToastAt || (e.timeStamp - window.__roToastAt) > 1000)){
+        window.__roToastAt = e.timeStamp;
+        window.__toast(window.__projLocked
+          ? "Il progetto è bloccato. Sbloccalo per modificarlo."
+          : "Questo è un link in sola lettura: il progetto si legge, non si modifica.");
+      }
+      return;
     }
   }
   if((e.metaKey||e.ctrlKey) && (e.key==="s"||e.key==="S")){ e.preventDefault();
@@ -13905,12 +14212,31 @@ function stateHasMeaningfulWork(s){
     Number(blocks[0]&&blocks[0].w)!==1200 || Number(blocks[0]&&blocks[0].d)!==800 ||
     !!(blocks[0]&&blocks[0].h);
 }
+/* Chiavi di SERVIZIO del documento: impostazioni, non lavoro dell'utente. `shareOpts` dal 04/08
+   viene scritta SEMPRE da prepareDoc (permesso unico del link), quindi contarla come contenuto
+   renderebbe «pieno» ogni documento appena creato — e tornerebbero i gusci «Senza titolo»
+   nell'elenco cloud che il ramo del documento vuoto esiste apposta per evitare. */
+var DOC_EXTRA_SERVIZIO={shareOpts:1};
+function docExtraHasWork(){
+  return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
+}
 function hasMeaningfulDocument(){
   try{
     syncActiveVariant();
-    if(Object.keys(DOC_EXTRA||{}).length || VARIANTS.length>1) return true;
+    if(docExtraHasWork() || VARIANTS.length>1) return true;
     return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state); });
   }catch(e){ return true; }   /* se non riusciamo a classificare il documento, trattalo come lavoro da proteggere */
+}
+/* Copia completa su file (documento intero, planimetria inclusa): stessa sostanza dell'export dal
+   menu, richiamabile dai percorsi d'emergenza in cui lo storage locale non può più ospitare nulla. */
+function downloadProjectCopy(){
+  try{
+    var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
+    var url=URL.createObjectURL(new Blob([docToJSONFull()],{type:"application/json"}));
+    dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
+    if(window.__toast) window.__toast("Copia scaricata: "+name);
+    return true;
+  }catch(e){ return false; }
 }
 var documentReplacementSeq=0;
 function guardDocumentReplacement(options,action){
@@ -13928,10 +14254,32 @@ function guardDocumentReplacement(options,action){
     }
     if(meaningful){
       var recoveryName="Prima di "+String(options.reason||"cambiare progetto").slice(0,80);
-      if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){
-        abort("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo."); return;
-      }
+      if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){ offerDownloadInstead(); return; }
     }
+    finishReplacement();
+  }
+  /* Uscita REALE quando il punto di recupero non entra nello storage. Prima si diceva «Esporta il
+     progetto prima di sostituirlo» e si tornava al chiamante: ma esportare non cambiava nulla, al
+     tentativo successivo si ritrovava lo stesso muro e nessun progetto era più apribile (03/08/2026,
+     archivio pieno per una planimetria da 8,3 MB). La copia su file è la stessa rete di sicurezza
+     del punto di recupero — solo fuori dal browser — quindi dopo il download si può procedere. */
+  function offerDownloadInstead(){
+    var ask={icon:"warn", title:"Niente spazio per il punto di recupero",
+      message:"L'archivio del browser è pieno. Scarica una copia completa del progetto aperto — planimetria inclusa — e si prosegue con quella come rete di sicurezza.",
+      confirmText:"Scarica e continua"};
+    if(typeof window.confirmDialog!=="function"){
+      abort("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo."); return;
+    }
+    window.confirmDialog(ask).then(function(ok){
+      if(!ok||!current()) return;
+      if(!downloadProjectCopy()){
+        abort("Impossibile creare il punto di recupero e nemmeno scaricare la copia. Libera spazio nel browser prima di continuare."); return;
+      }
+      finishReplacement();
+    });
+  }
+  function finishReplacement(){
+    if(!current()) return;
     /* Forza nello snapshot locale anche l'ultimo input e arma l'autosave. Il recovery appena creato
        resta comunque la rete di sicurezza se la quota locale è esaurita. */
     if(!window.__docLoadBlocked && typeof save==="function") save();
@@ -14445,7 +14793,8 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
    compare. L'opzione "pan" le rende anche assorbibili da una zona di microfonazione (zoneAbsorbable).
    I tamburi grandi (congas, cajon, timbales…) restano fuori di proposito: si microfonano quasi
    sempre da vicino e dentro una zona TENGONO il loro mic, com'è già stabilito in zoneAbsorbable. */
-var PERC_PICCOLE={ djembe:"e904", surdo:"D6", tamburello:"KM184", campanaccio:"SM57", templeblocks:"KM184", triangoloperc:"KM184" };
+var PERC_PICCOLE={ djembe:"e904", surdo:"D6", tamburello:"KM184", campanaccio:"SM57", templeblocks:"KM184", triangoloperc:"KM184",
+  crotali:"KM184", woodblock:"KM184", flexaton:"KM184" };
 Object.keys(PERC_PICCOLE).forEach(function(t){ var mic=PERC_PICCOLE[t];
   MIKING[t]={ options:[["pan","Panoramico — lo prende il mic d'insieme"],["close","Ravvicinato ("+mic+")"]], def:"pan",
     chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
@@ -18505,6 +18854,9 @@ function normalizeVenue(v){
   var iw=Number(v._imgW), ih=Number(v._imgH);
   if(isFinite(iw)&&iw>0&&iw<=100000) o._imgW=Math.round(iw);
   if(isFinite(ih)&&ih>0&&ih<=100000) o._imgH=Math.round(ih);
+  /* «la mia pianta è quella della scena X»: nei file esportati le scene gemelle non ripetono il
+     base64 (vedi docToJSONFull). Va conservato o l'immagine non si riaggancia alla riapertura. */
+  if(!du && typeof v._sameAs==="string" && v._sameAs && v._sameAs.length<=80) o._sameAs=v._sameAs;
   return o;
 }
 
@@ -18560,6 +18912,24 @@ function renderVenuePanel(){
   var alt=document.getElementById("vstep2alt");
   if(alt){ alt.hidden = !hasImg || cal;
     if(hasImg && !cal){ var rw=document.getElementById("venueRealW"); if(rw && !rw.value) rw.value=(v.w/100).toFixed(1); } }
+  /* Il peso si mostra solo quando è un problema: una planimetria pesante riempie l'archivio del
+     browser e, oltre una certa soglia, impedisce di creare i punti di recupero (03/08/2026). */
+  var wr=document.getElementById("venueWeightRow");
+  if(wr){
+    var pesante=hasImg && venueNeedsCompression(v._dataUrl, v._imgW, v._imgH);
+    wr.hidden=!pesante;
+    if(pesante){
+      /* Se è già compressa e dentro il lato massimo, ricomprimerla non guadagna nulla: si toglie il
+         bottone invece di lasciarne uno che al clic non fa niente. */
+      var gia=/^data:image\/(webp|jpeg)/i.test(String(v._dataUrl)) &&
+        Math.max(Number(v._imgW)||0,Number(v._imgH)||0)<=VENUE_MAXSIDE;
+      var wt=document.getElementById("venueWeightTxt");
+      if(wt) wt.textContent="Occupa "+fmtPeso(venueDataUrlBytes(v._dataUrl))+" sul dispositivo"+
+        (gia?": è già compressa al meglio, per alleggerirla serve un'immagine di partenza più piccola."
+            :": tanto spazio per una pianta di sfondo.");
+      var bl=document.getElementById("venueBtnLighten"); if(bl) bl.hidden=gia;
+    }
+  }
   document.getElementById("venueReload").hidden = !(v&&v.name&&!v._dataUrl);
   if(v&&v.name&&!v._dataUrl) document.getElementById("venueReloadName").textContent=v.name;
   document.getElementById("venueOpacity").value = v?v.opacity:40;
@@ -18649,27 +19019,45 @@ function renderFramePanel(){
 /* ===== Versioni salvate ===== */
 var VER_KEY='stageplot_versions';
 function loadVersions(){ try{ return JSON.parse(localStorage.getItem(VER_KEY)||'[]'); }catch(e){ return []; } }
+/* Riferimento al blob della planimetria, quando esiste ed è raggiungibile. La chiave è indirizzata
+   dal CONTENUTO (venueStorageKey = hash della firma), quindi due documenti con la stessa immagine
+   condividono lo stesso blob e una versione può puntarci senza duplicare megabyte. */
+function venueRefForVersion(sig){
+  if(!sig) return null;
+  var staged=(sig===venuePersistedSig&&venuePersistedKey)?{sig:sig,key:venuePersistedKey}:stageVenueImg();
+  if(!staged||!staged.key||staged.sig!==sig) return null;
+  try{ if(!localStorage.getItem(staged.key)) return null; }catch(_venueReadErr){ return null; }
+  return {sig:sig,key:staged.key};
+}
 function saveVersion(name,includeImages){
   var vs=loadVersions();
   var C=window.__cloud, cid=(C&&typeof C.currentId==="function")?(C.currentId()||null):(window.__bootCloudId||null);
   var row={name:name||'Versione', date:Date.now(), cloudId:cid};
-  if(includeImages || foreignDoc()){
-    /* Recovery prima di un'azione distruttiva e sessioni consulenza devono essere autosufficienti:
-       se la quota non basta, il caller riceve false e non procede. */
-    row.data=docToJSONFull();
-  } else {
-    row.data=docToJSON();
-    var sig=venueImageBundleSig();
-    if(sig){
-      var staged=(sig===venuePersistedSig&&venuePersistedKey)?{sig:sig,key:venuePersistedKey}:stageVenueImg();
-      if(!staged||!staged.key||staged.sig!==sig) return false;
-      try{ if(!localStorage.getItem(staged.key)) return false; }catch(_venueReadErr){ return false; }
-      row.venueSig=sig; row.venueKey=staged.key;
-    }
-  }
+  var sig=venueImageBundleSig(), ref=venueRefForVersion(sig);
+  /* PRIMA il riferimento, POI la copia. Il recovery dev'essere autosufficiente solo dove non può
+     esistere un blob locale (consulenza/viewer: stageVenueImg() non scrive). Bug del 03/08/2026:
+     con una planimetria da 8,3 MB già in archivio il punto di recupero ne pretendeva una SECONDA
+     copia, la quota la rifiutava e restava impossibile aprire qualsiasi progetto. */
+  if(ref){ row.data=docToJSON(); row.venueSig=ref.sig; row.venueKey=ref.key; }
+  else if(includeImages||foreignDoc()) row.data=docToJSONFull();
+  else if(sig) return false;   /* planimetria non referenziabile: non salvare una versione monca */
+  else row.data=docToJSON();
   vs.unshift(row);
   if(vs.length>30) vs=vs.slice(0,30);
-  try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); }catch(e){ return false; }
+  /* Se non entra, sacrifica le versioni più VECCHIE e ritenta: il punto di recupero appena creato
+     vale più dello storico, e arrendersi qui blocca l'apertura dei progetti. Mai in silenzio. */
+  var potate=0;
+  for(;;){
+    try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); break; }
+    catch(e){
+      if(vs.length<=1) return false;
+      var tieni=Math.max(1, vs.length-Math.max(1, Math.ceil(vs.length/4)));
+      potate+=vs.length-tieni; vs=vs.slice(0,tieni);
+    }
+  }
+  if(potate && window.__toast) window.__toast("Spazio esaurito sul dispositivo: "+potate+
+    (potate===1?" versione salvata è stata eliminata":" versioni salvate sono state eliminate")+
+    " per creare il punto di recupero.",true);
   renderVersionPanel();
   return true;
 }
@@ -18787,14 +19175,17 @@ function venueLoadFile(file){
     var img=new Image();
     img.onload=function(){
       if(!stillCurrent()) return;
-      /* downscale a ~2000px lato lungo + ricompressione JPEG: tiene l'immagine salvabile (quota localStorage, payload cloud) */
-      var MAXS=2000, iw=img.naturalWidth, ih=img.naturalHeight, durl=source;
-      if(Math.max(iw,ih)>MAXS){
-        var sc=MAXS/Math.max(iw,ih), cw=Math.round(iw*sc), ch=Math.round(ih*sc);
-        var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
-        var cg=cv.getContext("2d");
-        if(cg){ cg.drawImage(img,0,0,cw,ch);
-          try{ durl=cv.toDataURL("image/jpeg",0.85); iw=cw; ih=ch; }catch(e){}
+      /* Downscale oltre il lato massimo E ricompressione oltre il peso massimo: tiene l'immagine
+         salvabile (quota localStorage, payload cloud). La soglia di solo-pixel lasciava passare
+         intatte le scansioni pesanti — vedi venueNeedsCompression. */
+      var iw=img.naturalWidth, ih=img.naturalHeight, durl=source;
+      if(venueNeedsCompression(source,iw,ih)){
+        var got=venueRecompress(img,iw,ih,source);
+        if(got){
+          var primaKB=Math.round(venueDataUrlBytes(source)/1024), dopoKB=Math.round(venueDataUrlBytes(got.durl)/1024);
+          durl=got.durl; iw=got.w; ih=got.h;
+          if(primaKB-dopoKB>200 && window.__toast)
+            window.__toast("Planimetria alleggerita: "+fmtPeso(primaKB*1024)+" → "+fmtPeso(dopoKB*1024)+".");
         }
       }
       if(!stillCurrent()) return;   /* il downscale può essere costoso: ricontrolla prima del commit */
@@ -18936,6 +19327,32 @@ document.getElementById("venueRealWApply").addEventListener("click", function(){
 /* listener pannello venue */
 document.getElementById("svg").addEventListener("pointermove", venueLensUpdate);
 document.getElementById("venueCalibDist").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); venueCalibApply(); } });
+/* Alleggerisce la planimetria GIÀ caricata: l'import ricomprime solo ciò che passa da lì, ma le
+   planimetrie importate prima (o arrivate dal cloud) restano pesanti quanto erano. */
+function venueLightenCurrent(){
+  var v=state.venue;
+  if(!v||!v._dataUrl){ if(window.__toast) window.__toast("Nessuna planimetria da alleggerire.",true); return; }
+  var prima=venueDataUrlBytes(v._dataUrl), src=v._dataUrl;
+  var img=new Image();
+  img.onload=function(){
+    if(state.venue!==v || v._dataUrl!==src) return;   /* cambiata nel frattempo: non sovrascrivere */
+    var got=venueRecompress(img, img.naturalWidth||v._imgW, img.naturalHeight||v._imgH, src);
+    if(!got){ if(window.__toast) window.__toast("Questa planimetria è già al minimo: non si guadagna nulla a ricomprimerla."); return; }
+    var durl=safeVenueDataUrl(got.durl);
+    if(!durl){ if(window.__toast) window.__toast("Ricompressione non riuscita.",true); return; }
+    /* La scala sul palco NON cambia: si toccano i pixel della bitmap, non w/h in centimetri. */
+    v._dataUrl=durl; v._imgW=got.w; v._imgH=got.h;
+    cacheVenueImg(v,activeVar);
+    save(); renderVenuePanel(); render();
+    var dopo=venueDataUrlBytes(durl);
+    if(window.__toast) window.__toast("Planimetria alleggerita: "+fmtPeso(prima)+" → "+fmtPeso(dopo)+
+      ". La scala sul palco non è cambiata.");
+    sweepVenueBlobs();   /* il blob vecchio non è più referenziato da nessuno */
+  };
+  img.onerror=function(){ if(window.__toast) window.__toast("Impossibile rileggere la planimetria.",true); };
+  img.src=src;
+}
+document.getElementById("venueBtnLighten").addEventListener("click", venueLightenCurrent);
 document.getElementById("venueBtnImport").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
 document.getElementById("venueFile").addEventListener("change", function(e){ venueLoadFile(e.target.files&&e.target.files[0]); e.target.value=""; });
 document.getElementById("venueBtnReload").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
@@ -19073,6 +19490,7 @@ var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
+  crotali:120,woodblock:95,flexaton:92,
   timpani:90,timpani3:90,timpani2:90,
   grancassa:130,piatto:140,piatticoppia:40,campane:170,tamtam:180,glockenspiel:90,xilofono:95,vibrafono:95,marimba:95,
   comboamp:45,stack:110,bassamp:120,keysamp:50,leslie:105,
@@ -19342,13 +19760,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   }
   function commitShareOption(control,key,value){
     if(sharePermissionsBusy) return;
-    var old=state.shareOpts[key], oldUrl=urlEl.value, C=window.__cloud, optionEpoch=window.__docEpoch||0;
+    var old=shareOptsDoc()[key], oldUrl=urlEl.value, C=window.__cloud, optionEpoch=window.__docEpoch||0;
     if(window.__projLocked){
       control.checked=old===true || (key==="copy"&&old!==false);
       status("Sblocca il progetto prima di modificare i permessi del link.");
       return;
     }
-    state.shareOpts[key]=value; sharePermissionsBusy=true; setShareActionsEnabled(false); urlEl.value=""; qrSeq++;
+    setShareOpt(key,value); sharePermissionsBusy=true; setShareActionsEnabled(false); urlEl.value=""; qrSeq++;
     var qr=document.getElementById("shareQrImg"), qrWrap=document.getElementById("shareQrWrap");
     if(qr){ qr.src=""; qr.style.display="none"; } if(qrWrap) qrWrap.style.display="none";
     status("Aggiornamento permessi…");
@@ -19379,9 +19797,13 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     if(!_shareIsCurrent) return;
     if(mini){ try{ mini.innerHTML=stageSceneSvg(null,{focus:"clean"}); var sv=mini.querySelector("svg"); if(sv){ sv.setAttribute("width","120"); sv.setAttribute("height","84"); sv.style.maxWidth="100%"; sv.style.maxHeight="100%"; } }catch(_e){ mini.textContent=""; } }
     var oc=document.getElementById("shareOptCopy"), ok=document.getElementById("shareOptContacts");
-    if(oc){ oc.checked=state.shareOpts.copy!==false; oc.onchange=function(){ commitShareOption(oc,"copy",oc.checked); }; }
-    if(ok){ ok.checked=state.shareOpts.contacts===true; ok.onchange=function(){ commitShareOption(ok,"contacts",ok.checked); }; }
+    var _so=shareOptsDoc();   /* permesso del LINK (documento intero), non della scena aperta */
+    if(oc){ oc.checked=_so.copy!==false; oc.onchange=function(){ commitShareOption(oc,"copy",oc.checked); }; }
+    if(ok){ ok.checked=_so.contacts===true; ok.onchange=function(){ commitShareOption(ok,"contacts",ok.checked); }; }
     if(window.__projLocked){ if(oc) oc.disabled=true; if(ok) ok.disabled=true; }
+    /* la casella spuntata non basta: col progetto bloccato il server pubblica il link senza contatti */
+    var _pl=document.getElementById("sharePermLock");
+    if(_pl) _pl.hidden = !(window.__projLocked && _so.contacts===true);
   }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
@@ -20651,7 +21073,7 @@ function pdfListGeneric(doc, key, shared){
   riga(cfg.cols.map(function(c){ return c.h; }), true);
   doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
   d.rows.forEach(function(r){
-    var vals=cfg.cols.map(function(c){ return c.f(r); });
+    var vals=cfg.cols.map(function(c){ return c.f(r,d); });   /* d: alcune colonne dipendono dal dataset (es. hasFoh) */
     var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
     riga(vals, false, colori);
   });
@@ -21225,6 +21647,23 @@ function lightsList(){
   return { rows:out, tot:out.reduce(function(a,r){ return a+r.n; },0),
            blackout:L.blackout, mood:String(L.mood||"") };
 }
+/* ORDINE UNICO delle pagine tecniche del PDF (dopo le pagine-vista, che restano in testa).
+   Era scritto DUE volte — nell'elenco che alimenta pillole e anteprima (pdfComputeTechPages) e nella
+   catena che costruisce il PDF (buildPdfDoc) — e le due copie erano già divergenti: la Lista luci
+   usciva dopo la Lista monitor nel PDF e dopo la Lista rack in anteprima. Chi diceva al service
+   «guarda a pagina 2» lo mandava sul foglio sbagliato. Chi aggiunge una pagina tocca SOLO qui. */
+var PDF_TECH_ORDER=["rider","responsabilita","inputlist","monitorlist","lightslist","loadlist",
+  "eleclines","backline","rf","notelist","pmlist","racklist","dantepatch","netlist","outputlist",
+  "cabmap","elecmap","todefine"];
+function pdfTechRank(key){ var i=PDF_TECH_ORDER.indexOf(key); return i<0?-1:i; }
+/* Riordina un elenco di pagine secondo l'ordine canonico, lasciando in testa e nell'ordine originale
+   ciò che non è una lista tecnica (le pagine-vista del palco). */
+function pdfSortTechPages(pages){
+  var viste=[], liste=[];
+  (pages||[]).forEach(function(p){ (pdfTechRank(p.key)<0?viste:liste).push(p); });
+  liste.sort(function(a,b){ return pdfTechRank(a.key)-pdfTechRank(b.key); });
+  return viste.concat(liste);
+}
 function pdfListConfig(){
   return {
     lightslist:{ title:"Lista luci", color:"#db2777", data:(typeof lightsList==="function"?lightsList:null),
@@ -21243,7 +21682,15 @@ function pdfListConfig(){
             {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
     inputlist:{ title:"Input list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
       sub:function(d){ return d.R&&d.R.boxes?("Stage box: "+d.R.boxes.map(function(b){return b.letter;}).join(", ")):""; },
-      cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Sorgente",f:function(r){return r.name;}},{h:"Mic / DI",f:function(r){return r.mic+(r.p48?" · 48V":"");}},{h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
+      /* Il numero DEVE essere quello che il fonico troverà al banco: col FOH disponibile (più stage
+         box, o un Device ID) è il canale FOH, esattamente come in patchListPdf e nel CSV. Qui si
+         stampava sempre il progressivo: la stessa sorgente era «17» sul PDF e «10» nel link
+         condiviso, e chi riceveva il link cercava il canale sbagliato. Idem per le riservate, che
+         uscivano con la casella vuota invece di dire RISERVATO. */
+      cols:[{h:"#",num:1,f:function(r,d){return (d&&d.hasFoh&&r.foh)?r.foh:r.n;}},
+            {h:"Sorgente",f:function(r){return r.reserved?"RISERVATO":r.name;}},
+            {h:"Mic / DI",f:function(r){return r.reserved?"":(r.mic+(r.p48?" · 48V":""));}},
+            {h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     monitorlist:{ title:"Monitor list", color:"#0891b2", data:(typeof monitorList==="function"?monitorList:null),
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Mix",f:function(r){return r.mix;}},{h:"Tipo",f:function(r){return r.tipo+(r.stereo?" · st":"");}},{h:"Monitor",f:function(r){return r.name;}},{h:"Uscita",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     loadlist:{ title:"Lista carichi", color:"#d97706", data:(typeof loadList==="function"?loadList:null),
@@ -21266,7 +21713,7 @@ function listPreviewHtml(key){
   var d; try{ d=cfg.data(); }catch(e){ return null; }
   if(!d || !d.rows || !d.rows.length) return '<div class="pdf-list-sheet"><div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'</div><div class="pdf-list-empty">Nessun dato</div></div>';
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
-  var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
+  var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
   return '<div class="pdf-list-sheet">'+
     '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
     (state.titolo?'<div class="pdf-list-tt">'+esc(state.titolo+(state.luogo?" — "+state.luogo:""))+'</div>':'')+
@@ -21936,24 +22383,30 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.addPage(paperKey, L.orient);
         pdfChannelPage(doc, L, paperKey);
       }
-      if(want("rider")) riderPdf(doc);   /* T2: il rider apre le pagine tecniche */
-      if(want("responsabilita")) responsabilitaPdf(doc);   /* Decisione 5A */
-      if(!window.__consultMode && want("inputlist")) patchListPdf(doc);
-      if(!window.__consultMode && want("monitorlist")) monitorListPdf(doc);   /* in consulenza input+monitor sono già nella channel list manuale */
-      if(want("lightslist")) lightsListPdf(doc);   /* era offerta e mostrata in anteprima, ma non usciva */
-      if(want("loadlist")) loadListPdf(doc);
-      if(want("eleclines")) elecLinesPdf(doc);
-      if(want("backline")) backlineListPdf(doc);
-      if(want("rf")) rfListPdf(doc);
-      if(want("notelist")) noteListPdf(doc);   /* le note scritte sui singoli elementi: sul disegno il puntino, qui cosa dice */
-      if(want("pmlist")) pmListPdf(doc);
-      if(want("racklist")) rackListPdf(doc);
-      if(want("dantepatch")) dantePatchPdf(doc);
-      if(want("netlist")) netListPdf(doc);
-      if(want("outputlist")) outputListPdf(doc);
-      if(want("cabmap") && state.cab && state.cab.on) cabReportPdf(doc);
-      if(want("elecmap") && state.elec && state.elec.on) elecReportPdf(doc);
-      if(want("todefine") && typeof todefinePdf==="function") todefinePdf(doc);   /* PRODUZIONE: ultima pagina */
+      /* Una sequenza sola, PDF_TECH_ORDER, condivisa con pillole e anteprima: prima erano due
+         elenchi scritti a mano e la Lista luci usciva in una posizione diversa da quella annunciata. */
+      var STAMPA={
+        rider:function(){ riderPdf(doc); },                       /* T2: il rider apre le pagine tecniche */
+        responsabilita:function(){ responsabilitaPdf(doc); },      /* Decisione 5A */
+        /* in consulenza input+monitor sono già nella channel list manuale */
+        inputlist:function(){ if(!window.__consultMode) patchListPdf(doc); },
+        monitorlist:function(){ if(!window.__consultMode) monitorListPdf(doc); },
+        lightslist:function(){ lightsListPdf(doc); },
+        loadlist:function(){ loadListPdf(doc); },
+        eleclines:function(){ elecLinesPdf(doc); },
+        backline:function(){ backlineListPdf(doc); },
+        rf:function(){ rfListPdf(doc); },
+        notelist:function(){ noteListPdf(doc); },                  /* sul disegno il puntino, qui cosa dice */
+        pmlist:function(){ pmListPdf(doc); },
+        racklist:function(){ rackListPdf(doc); },
+        dantepatch:function(){ dantePatchPdf(doc); },
+        netlist:function(){ netListPdf(doc); },
+        outputlist:function(){ outputListPdf(doc); },
+        cabmap:function(){ if(state.cab && state.cab.on) cabReportPdf(doc); },
+        elecmap:function(){ if(state.elec && state.elec.on) elecReportPdf(doc); },
+        todefine:function(){ if(typeof todefinePdf==="function") todefinePdf(doc); }
+      };
+      PDF_TECH_ORDER.forEach(function(k){ if(want(k) && STAMPA[k]) STAMPA[k](); });
       pdfCredit(doc);
       return doc;
     });
@@ -22278,7 +22731,9 @@ function pdfChannelPage(doc, L, paperKey){
     try{ var Aq=auditEngine(); var deleg=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return ["venue","service","produzione"].indexOf((state.production.systems[r.key]||{}).ans)>=0;}):[];
       if(Aq.errs+Aq.warns+(Aq.todefs||0)>0 || deleg.length) pages.push({key:"todefine", label:"Criticità e aspetti da definire"});
     }catch(_e){}
-    return pages;
+    /* L'ordine con cui si spuntano qui sopra NON è l'ordine di stampa: lo decide PDF_TECH_ORDER,
+       la stessa sequenza su cui buildPdfDoc costruisce il documento. */
+    return pdfSortTechPages(pages);
   }
   var _pdfTechPages=[];
   var _pdfPillSel={}, _prodOpen=false;   /* pillole + stato UI (si resettano a ogni apertura) */
@@ -22309,13 +22764,13 @@ function pdfChannelPage(doc, L, paperKey){
     _pdfTechPages.forEach(function(p){
       if(_pdfPillSel[p.key]){
         nSel++;
-        var pill=mk(p.label,"pill");
+        var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
         var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
         x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRenderPills(); pdfUpdateTechNote(); });
         pill.appendChild(x); host.appendChild(pill);
       } else {
         var isSugg=!!sugg[p.key]; if(isSugg) nSugg++;
-        var g=mk(p.label,"pill ghost"+(isSugg?" sugg":""));
+        var g=mk(p.label,"pill ghost"+(isSugg?" sugg":"")); g.dataset.key=p.key;
         g.title=isSugg?"Suggerita dagli elementi sul palco — click per aggiungerla":"Aggiungi al PDF";
         g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRenderPills(); pdfUpdateTechNote(); });
         host.appendChild(g);
@@ -22587,10 +23042,12 @@ function gallery(){
   var SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
   var ADMIN_ID="4b899cba-3cc2-4b26-9ef0-c3e915929277";
 
+  var rispostaArrivata=false;
   fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.error){ document.body.classList.add("viewmode"); showBar("viewer","— progetto non disponibile"); return; }
+      rispostaArrivata=true;   /* da qui in poi un errore NON è la rete: dirlo come se lo fosse manda a cercare il wifi */
+      if(d.error){ viewerFailed("Il link non corrisponde a nessun progetto: può essere stato revocato o essere scaduto."); return; }
       if(d.kind==="project"){ startSharedProject(vt, d); return; }   /* condivisione generica: read-only statico + copia */
       whenSupabase(function(){
         var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});
@@ -22606,11 +23063,13 @@ function gallery(){
           }).then(function(r){ if(!r.ok) throw new Error("admin load"); return r.json(); })
             .then(function(full){ if(!full||full.error||full.kind!=="consultation") throw new Error("admin load");
               startSession(sb,vt,full,true);
-            }).catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— accesso consulente non disponibile"); });
+            }).catch(function(){ viewerFailed("Accesso da consulente non riuscito: il documento completo non è stato caricato."); });
         });
       });
     })
-    .catch(function(){ document.body.classList.add("viewmode"); showBar("viewer","— errore di caricamento"); });
+    .catch(function(){ viewerFailed(rispostaArrivata
+      ? "Il progetto è arrivato ma non è stato possibile aprirlo: può essere stato creato con una versione più recente di StagePlot."
+      : "Il server non ha risposto: può essere la connessione di rete."); });
 
   function startSession(sb, token, d, isEditor){
     document.body.classList.remove("consult-pending","consult-viewer","consult-editor");
@@ -22697,6 +23156,25 @@ function gallery(){
   }
   function whenSupabase(cb){ if(window.supabase&&window.supabase.createClient) return cb(); var t=setInterval(function(){ if(window.supabase&&window.supabase.createClient){ clearInterval(t); cb(); } },80); }
 
+  /* Il documento condiviso non è arrivato. Il palco di default NON deve restare in vista: un 12×8
+     vuoto disegnato bene, con «FONDO PALCO» e la legenda dei layer, un tecnico di sala lo legge come
+     «il gruppo non ha bisogno di niente». E la barra non deve promettere una diretta inesistente. */
+  function viewerFailed(perche){
+    document.body.classList.add("viewmode","view-failed");
+    document.body.classList.remove("consult-pending");
+    var box=document.getElementById("viewFail"); if(box) box.hidden=false;
+    var why=document.getElementById("viewFailWhy"); if(why) why.textContent=perche||"";
+    var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
+    document.body.classList.add("livesession");
+    var rl=document.getElementById("viewRole"); if(rl) rl.textContent="Progetto non caricato";
+    var m=document.getElementById("viewMeta"); if(m) m.textContent="";
+    ["viewSave","viewCopy","viewBadge","viewStatus","viewExport"].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.hidden=true;
+    });
+    var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
+    var rt=document.getElementById("viewFailRetry");
+    if(rt && !rt.__wired){ rt.__wired=true; rt.addEventListener("click", function(){ location.reload(); }); }
+  }
   function showBar(role, meta){
     document.body.classList.add("livesession");
     var bar=document.getElementById("viewBar"); if(bar) bar.style.display="flex";
@@ -22838,6 +23316,9 @@ var sharedLoaded=!/[?&]view=/.test(location.search) && loadFromHash();   /* ?vie
    Il foglio pulito ora è un gesto esplicito: File → Nuovo. Niente ripristino per link condivisi (#p=)
    e sessioni consulenza (?view=), che portano il proprio stato. */
 if(!sharedLoaded && !/[?&]view=/.test(location.search) && !localBootDone) load();
+/* Documento caricato: ora si sa quali planimetrie sono vive e si possono buttare quelle che nessuno
+   referenzia più. Prima del load NON si può: si cancellerebbe la bitmap che sta per essere letta. */
+try{ var _vSwept=sweepVenueBlobs(); if(_vSwept) console.info("[planimetrie] rimossi "+_vSwept+" blob non più referenziati"); }catch(_e){}
 /* Parametri di scenario/demo e link documento sono mutuamente esclusivi. Un URL combinato non deve
    mutare lo state transitorio mentre il viewer o il guard del link stanno ancora caricando. */
 var allowStartupScenario=!/[?&]view=/.test(location.search) && !hasSharedHash;
@@ -23415,10 +23896,14 @@ function maybeAskStageSize(explicit){
   function saveProject(onSaved, silent, lockHeld){
     /* silent=true → autosave (V2): niente toast, niente prompt nome (default "Senza titolo"), esito via onSaved(id|null) */
     var hasLock=!!lockHeld, finished=false;
-    function done(id){
+    /* Il secondo argomento è il MOTIVO del mancato salvataggio: `null` da solo non distingue
+       «non c'era niente da salvare» (documento vuoto: va benissimo) da «ho provato e non ci sono
+       riuscito». Chi ascolta li trattava allo stesso modo, e un documento appena creato faceva
+       comparire «Salvataggio interrotto» chiudendo l'utente fuori dai propri progetti (04/08). */
+    function done(id, motivo){
       if(finished) return; finished=true;
       if(hasLock){ cloudWriteBusy=false; hasLock=false; }
-      try{ if(typeof onSaved==="function") onSaved(id||null); }catch(e){}
+      try{ if(typeof onSaved==="function") onSaved(id||null, motivo||null); }catch(e){}
       if(!cloudWriteBusy) drainCloudWriteQueue();
     }
     function fail(msg){
@@ -23439,7 +23924,7 @@ function maybeAskStageSize(explicit){
        se l'utente preme Salva, il progetto lo vuole anche vuoto. */
     if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument()){
       try{ setDocState("local"); }catch(_e){}   /* «Salvato sul dispositivo»: è la verità finché è vuoto */
-      done(null); return;
+      done(null, "empty"); return;
     }
     if(!sb){ fail("Cloud non disponibile."); return; }
     if(!cloudUser){ if(!silent){ toast("Accedi per salvare online."); signIn(); } done(null); return; }
