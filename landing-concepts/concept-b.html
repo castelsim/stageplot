@@ -1,11 +1,16 @@
 <!doctype html>
 <!--
-  CONCEPT B — «Regia di notte»
-  Palette: nero fumo #0a0e0e, pannelli #101616, testo #e9f1ef, teal luminoso #14b8a6 con alone
+  CONCEPT B v2 — «Regia di notte» (interattivo)
+  Palette: nero fumo #0a0e0e, pannelli #101616, testo #e9f1ef, teal luminoso #14b8a6 con alone,
+           ambra tenue #d4a72c riservata al layer Luci
   Tipografia: system grotesk, display bianco enorme; mono ovunque ci sono dati (come su una console)
   Atmosfera: il banco FOH a luci spente — controllo, precisione, palco che brilla nel buio
-  Minimalismo: alto, ma con profondità: bagliori teal discreti, bordi luminosi, nessuna texture
-  Linguaggio visivo: il palco come schermata di regia — layer sovrapposti, dati vivi
+  Interattività (vanilla JS, zero dipendenze, rispetta prefers-reduced-motion):
+    1. hero: chip CAVI/ELETTRICO/MONITOR accendono i layer nel plot + tooltip sugli elementi
+    2. rider.pdf che si «digita» riga per riga quando entra in vista
+    3. documenti a schede: Channel list / Elettrico / Luci
+    4. pila isometrica con interruttori veri: 6 layer + palco, contatore vivo
+    5. reveal delle sezioni allo scroll
 -->
 <html lang="it">
 <head>
@@ -15,7 +20,8 @@
 <style>
   :root{
     --bg:#0a0e0e; --panel:#101616; --panel2:#0d1313; --line:#1f2a29; --line2:#2b3a38;
-    --text:#e9f1ef; --mut:#8ca39e; --teal:#14b8a6; --teal-d:#0d9488; --glow:rgba(20,184,166,.16);
+    --text:#e9f1ef; --mut:#8ca39e; --teal:#14b8a6; --teal-l:#2dd4bf; --teal-d:#0d9488;
+    --amber:#d4a72c; --glow:rgba(20,184,166,.16);
     --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
@@ -24,6 +30,16 @@
   body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;line-height:1.55}
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
   a{color:inherit}
+  button{font-family:inherit}
+
+  /* reveal allo scroll */
+  .rv{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease}
+  .rv.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion: reduce){
+    .rv{opacity:1;transform:none;transition:none}
+    .tl{opacity:1 !important;transform:none !important}
+    html{scroll-behavior:auto}
+  }
 
   nav{position:sticky;top:0;background:rgba(10,14,14,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);z-index:10}
   .nav-in{display:flex;align-items:center;justify-content:space-between;height:60px}
@@ -41,19 +57,34 @@
   .sub{margin-top:30px;font-size:clamp(17px,2vw,20px);color:var(--mut);max-width:54ch}
   .sub b{color:var(--text);font-weight:600}
   .cta-row{margin-top:40px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-  .btn{display:inline-block;background:var(--teal);color:#04211d;font-weight:700;font-size:17px;padding:15px 30px;border-radius:10px;text-decoration:none;box-shadow:0 0 34px rgba(20,184,166,.28);transition:filter .15s}
-  .btn:hover{filter:brightness(1.1)}
+  .btn{display:inline-block;background:var(--teal);color:#04211d;font-weight:700;font-size:17px;padding:15px 30px;border-radius:10px;text-decoration:none;box-shadow:0 0 34px rgba(20,184,166,.28);transition:filter .15s,transform .15s}
+  .btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
   .ghost{font-size:15px;color:var(--mut);text-decoration:none;border-bottom:1px solid var(--line2)}
   .ghost:hover{color:var(--text)}
   .trust{margin-top:22px;font-family:var(--mono);font-size:13px;color:var(--mut)}
   .trust span{color:var(--teal)}
 
   .console{margin-top:78px;border:1px solid var(--line2);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(20,184,166,.06)}
-  .con-bar{display:flex;justify-content:space-between;align-items:center;padding:11px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--mut)}
+  .con-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--mut);flex-wrap:wrap}
   .con-bar em{font-style:normal;color:var(--teal)}
   .dots{display:flex;gap:6px}
   .dots i{width:9px;height:9px;border-radius:50%;background:#223230;display:block}
+  .chips{display:flex;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .chips .lab{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--mut);margin-right:6px}
+  .chip{font-family:var(--mono);font-size:12px;letter-spacing:.06em;background:#0a1211;color:var(--mut);border:1px solid var(--line2);border-radius:999px;padding:7px 16px;cursor:pointer;transition:all .18s}
+  .chip:hover{color:var(--text)}
+  .chip[aria-pressed="true"]{background:rgba(20,184,166,.12);border-color:var(--teal-d);color:var(--teal-l)}
+  .chip[aria-pressed="true"]::before{content:"● ";font-size:9px;vertical-align:1px}
   .console svg{display:block;width:100%;height:auto}
+  .hint{font-family:var(--mono);font-size:11.5px;color:var(--mut);margin-left:auto}
+  #ly-cavi,#ly-elet,#ly-mon{transition:opacity .35s ease}
+  .off{opacity:0 !important;pointer-events:none}
+  [data-tip]{cursor:pointer}
+  [data-tip]:hover{filter:brightness(1.3)}
+  #tip{position:fixed;z-index:50;background:#0c1514;border:1px solid var(--teal-d);color:var(--text);
+    font-family:var(--mono);font-size:12px;padding:8px 12px;border-radius:8px;pointer-events:none;
+    box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:0;transition:opacity .12s;max-width:260px;line-height:1.5}
+  #tip b{color:var(--teal-l);font-weight:500}
 
   section{padding:110px 0;border-top:1px solid var(--line)}
   .sec-k{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
@@ -61,7 +92,8 @@
   .lead{margin-top:18px;color:var(--mut);font-size:18px;max-width:56ch}
 
   .steps{margin-top:60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px 28px 34px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px 28px 34px;transition:border-color .2s,transform .2s}
+  .step:hover{border-color:var(--line2);transform:translateY(-2px)}
   .step-n{font-family:var(--mono);font-size:13px;color:var(--teal)}
   .step h3{margin-top:12px;font-size:20px;letter-spacing:-.014em}
   .step p{margin-top:10px;color:var(--mut);font-size:15px}
@@ -72,28 +104,68 @@
   .term-b b{color:var(--text);font-weight:500}
   .term-b .t{color:var(--teal)}
   .ok{color:var(--teal)}
+  .tl{opacity:0;transform:translateX(-8px);transition:opacity .3s ease,transform .3s ease;white-space:nowrap}
+  .tl.on{opacity:1;transform:none}
+  .cursor::after{content:"▌";color:var(--teal);animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion: reduce){.cursor::after{animation:none}}
+
+  /* documenti a schede */
+  .tabs{margin-top:60px}
+  .tab-row{display:flex;gap:8px;flex-wrap:wrap}
+  .tab{font-family:var(--mono);font-size:13px;background:transparent;color:var(--mut);border:1px solid var(--line2);border-radius:10px 10px 0 0;border-bottom:none;padding:11px 22px;cursor:pointer;transition:all .18s;position:relative;top:1px}
+  .tab:hover{color:var(--text)}
+  .tab[aria-selected="true"]{background:var(--panel);color:var(--teal-l);border-color:var(--line2)}
+  .panel{display:none;border:1px solid var(--line2);border-radius:0 14px 14px 14px;background:var(--panel);overflow:hidden}
+  .panel.show{display:block}
+  .panel-h{padding:12px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:10px 16px;border-bottom:1px solid #151f1e}
+  tr:last-child td{border-bottom:0}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:#131b1a}
+  td.n{font-family:var(--mono);color:var(--teal-l);width:38px}
+  td.m{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .kw{padding:26px 22px}
+  .kw-row{display:grid;grid-template-columns:110px 1fr 70px;align-items:center;gap:14px;margin-bottom:18px;font-size:13.5px}
+  .kw-row:last-child{margin-bottom:0}
+  .kw-lab{font-family:var(--mono);font-size:12px;color:var(--mut)}
+  .kw-bar{height:10px;border-radius:5px;background:#0a1211;border:1px solid var(--line);overflow:hidden}
+  .kw-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal-d),var(--teal-l));border-radius:5px;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+  .show .kw-bar i{width:var(--w)}
+  @media (prefers-reduced-motion: reduce){.kw-bar i{transition:none;width:var(--w)}}
+  .kw-val{font-family:var(--mono);font-size:12.5px;text-align:right}
+  .kw-tot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px}
+  .kw-tot b{color:var(--teal-l)}
 
   .layer-grid{margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
   @media(max-width:900px){.layer-grid{grid-template-columns:1fr}}
   .layer-list{display:flex;flex-direction:column;gap:6px}
-  .lrow{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid transparent;border-radius:12px;font-size:15.5px}
-  .lrow.on{background:var(--panel);border-color:var(--line2)}
-  .lrow .sw{width:34px;height:19px;border-radius:10px;background:#1c2827;position:relative;flex:0 0 auto}
-  .lrow .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;background:#4a5f5c}
-  .lrow.on .sw{background:var(--teal-d)}
-  .lrow.on .sw::after{left:17px;background:#eafffb}
+  .lrow{display:flex;align-items:center;gap:14px;padding:15px 18px;background:transparent;border:1px solid transparent;border-radius:12px;font-size:15.5px;color:var(--text);cursor:pointer;text-align:left;width:100%;transition:all .2s}
+  .lrow:hover{border-color:var(--line)}
+  .lrow[aria-pressed="true"]{background:var(--panel);border-color:var(--line2)}
+  .lrow .sw{width:34px;height:19px;border-radius:10px;background:#1c2827;position:relative;flex:0 0 auto;transition:background .2s}
+  .lrow .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;background:#4a5f5c;transition:left .2s,background .2s}
+  .lrow[aria-pressed="true"] .sw{background:var(--teal-d)}
+  .lrow[aria-pressed="true"] .sw::after{left:17px;background:#eafffb}
   .lrow small{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--mut)}
+  .lcount{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--teal-l)}
   .stack svg{display:block;width:100%;height:auto}
+  .plane .fader{transition:opacity .4s ease}
+  .plane.ghost .fader{opacity:.1}
 
   .share{margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:860px){.share{grid-template-columns:1fr}}
-  .share-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:32px}
+  .share-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:32px;transition:border-color .2s}
+  .share-card:hover{border-color:var(--line2)}
   .share-card h3{font-size:20px;letter-spacing:-.014em}
   .share-card p{margin-top:12px;color:var(--mut);font-size:15px}
   .pill{margin-top:22px;display:inline-block;font-family:var(--mono);font-size:12.5px;background:#0a1211;border:1px solid var(--line2);border-radius:999px;padding:8px 16px;color:var(--teal)}
 
   .who{margin-top:60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
-  .who div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
+  .who div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;transition:border-color .2s,transform .2s}
+  .who div:hover{border-color:var(--line2);transform:translateY(-2px)}
   .who em{font-style:normal;color:var(--teal);font-family:var(--mono);font-size:12.5px;letter-spacing:.08em}
   .who h3{font-size:18px;margin-top:12px}
   .who p{margin-top:10px;color:var(--mut);font-size:14.5px}
@@ -110,6 +182,8 @@
 </style>
 </head>
 <body>
+
+<div id="tip" role="tooltip"></div>
 
 <nav><div class="wrap nav-in">
   <a class="logo" href="#">
@@ -133,9 +207,16 @@
     <div class="con-bar">
       <span class="dots"><i></i><i></i><i></i></span>
       <span>quartetto-rock.stageplot — <em>esempio</em></span>
-      <span>10 CH · 8,6 kW · 4 wedge</span>
+      <span id="con-sum">10 CH · 8,6 kW · 4 wedge</span>
     </div>
-    <svg viewBox="0 0 960 500" role="img" aria-label="Stage plot su sfondo scuro: palco con batteria, amplificatori, microfoni, monitor e percorsi cavi evidenziati">
+    <div class="chips" role="group" aria-label="Layer del disegno">
+      <span class="lab">LAYER</span>
+      <button class="chip" data-layer="ly-cavi" aria-pressed="true">CAVI</button>
+      <button class="chip" data-layer="ly-elet" aria-pressed="true">ELETTRICO</button>
+      <button class="chip" data-layer="ly-mon" aria-pressed="true">MONITOR</button>
+      <span class="hint">passa il mouse sugli elementi ↓</span>
+    </div>
+    <svg viewBox="0 0 960 500" role="img" aria-label="Stage plot interattivo: batteria, amplificatori, microfoni, monitor; i layer cavi, elettrico e monitor si accendono e spengono">
       <defs>
         <pattern id="gridB" width="40" height="40" patternUnits="userSpaceOnUse">
           <path d="M40 0H0V40" fill="none" stroke="#152020" stroke-width="1"/>
@@ -147,55 +228,83 @@
       </defs>
       <rect x="0" y="0" width="960" height="500" fill="#0c1212"/>
       <rect x="80" y="34" width="800" height="392" fill="url(#gridB)" stroke="#33443f" stroke-width="1.4"/>
-      <!-- percorsi cavi -->
-      <g fill="none" stroke="#0f766e" stroke-width="1.3" opacity=".75">
+
+      <!-- LAYER CAVI -->
+      <g id="ly-cavi" fill="none" stroke="#0f766e" stroke-width="1.3" opacity=".8">
         <path d="M212 162 L212 250 L480 250 L480 426"/>
         <path d="M738 162 L738 250 L520 250 L520 426"/>
         <path d="M480 200 L480 250"/>
         <path d="M260 336 L260 386 L480 386"/>
         <path d="M700 336 L700 386 L520 386"/>
+        <path d="M812 120 L812 250 L738 250" stroke-dasharray="4 3"/>
       </g>
-      <!-- pedana -->
+
+      <!-- LAYER ELETTRICO -->
+      <g id="ly-elet">
+        <rect x="790" y="76" width="44" height="44" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
+        <path d="M806 86 L800 100 L810 100 L804 112" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
+        <text x="812" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">32A · 8,6 kW</text>
+        <text x="212" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,3 kW</text>
+        <text x="738" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,4 kW</text>
+        <text x="480" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,2 kW</text>
+      </g>
+
+      <!-- LAYER MONITOR -->
+      <g id="ly-mon">
+        <path d="M212 424 L248 424 L240 402 L220 402 Z" fill="rgba(45,212,191,.22)"/>
+        <path d="M392 424 L428 424 L420 402 L400 402 Z" fill="rgba(94,234,212,.28)"/>
+        <path d="M532 424 L568 424 L560 402 L540 402 Z" fill="rgba(94,234,212,.28)"/>
+        <path d="M712 424 L748 424 L740 402 L720 402 Z" fill="rgba(45,212,191,.22)"/>
+        <text x="230" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 1</text>
+        <text x="410" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
+        <text x="550" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
+        <text x="730" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 3</text>
+      </g>
+
+      <!-- PALCO (sempre acceso) -->
       <rect x="390" y="62" width="180" height="128" fill="none" stroke="#2dd4bf" stroke-width="1.1" stroke-dasharray="5 4" opacity=".7"/>
-      <!-- batteria -->
       <g stroke="#d7e6e2" fill="none" stroke-width="1.4">
         <circle cx="480" cy="136" r="29"/>
         <circle cx="444" cy="108" r="12"/><circle cx="516" cy="108" r="12"/>
         <circle cx="424" cy="142" r="13" stroke-dasharray="3 3"/><circle cx="536" cy="142" r="13" stroke-dasharray="3 3"/>
       </g>
       <text x="480" y="208" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">BATTERIA</text>
-      <!-- amp -->
       <rect x="180" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
       <text x="212" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP BASSO</text>
       <rect x="706" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
       <text x="738" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP CHITARRA</text>
-      <!-- mic -->
       <g stroke="#2dd4bf" stroke-width="1.6" filter="url(#glow)">
         <circle cx="480" cy="330" r="10" fill="none"/><path d="M474 324 L486 336 M486 324 L474 336"/>
         <circle cx="260" cy="310" r="10" fill="none"/><path d="M254 304 L266 316 M266 304 L254 316"/>
         <circle cx="700" cy="310" r="10" fill="none"/><path d="M694 304 L706 316 M706 304 L694 316"/>
       </g>
       <text x="480" y="362" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2dd4bf">VOCE · SM58</text>
-      <!-- wedge -->
       <g fill="none" stroke="#d7e6e2" stroke-width="1.4">
         <path d="M212 424 L248 424 L240 402 L220 402 Z"/>
         <path d="M392 424 L428 424 L420 402 L400 402 Z"/>
         <path d="M532 424 L568 424 L560 402 L540 402 Z"/>
         <path d="M712 424 L748 424 L740 402 L720 402 Z"/>
       </g>
-      <!-- barra dati -->
-      <g font-family="ui-monospace,monospace" font-size="11.5">
-        <rect x="80" y="448" width="800" height="34" rx="8" fill="#101817" stroke="#1f2a29"/>
-        <text x="102" y="470" fill="#8ca39e">CH <tspan fill="#2dd4bf">10/10 ✓</tspan></text>
-        <text x="240" y="470" fill="#8ca39e">ELETTRICO <tspan fill="#2dd4bf">8,6 kW su 32A ✓</tspan></text>
-        <text x="500" y="470" fill="#8ca39e">CAVI <tspan fill="#2dd4bf">tutti collegati ✓</tspan></text>
-        <text x="710" y="470" fill="#8ca39e">MONITOR <tspan fill="#2dd4bf">3 MIX ✓</tspan></text>
+
+      <!-- zone sensibili per i tooltip -->
+      <g fill="transparent" stroke="none">
+        <rect x="400" y="80" width="160" height="120" data-tip="<b>Batteria</b> · CH 1–6<br>Beta 52A · SM57 · SM81 · e604 · 2× C214"/>
+        <rect x="176" y="100" width="76" height="70" data-tip="<b>Amp basso</b> · CH 7 · DI attiva<br>0,3 kW sul quadro"/>
+        <rect x="702" y="100" width="76" height="70" data-tip="<b>Amp chitarra</b> · CH 8 · SM57<br>0,4 kW sul quadro"/>
+        <circle cx="480" cy="330" r="18" data-tip="<b>Voce</b> · CH 9 · SM58 · asta alta<br>ascolta MIX 2"/>
+        <circle cx="260" cy="310" r="18" data-tip="<b>Coro L</b> · CH 10 · SM58<br>ascolta MIX 1"/>
+        <circle cx="700" cy="310" r="18" data-tip="<b>Coro R</b> · CH 10 · SM58<br>ascolta MIX 3"/>
+        <rect x="208" y="398" width="46" height="32" data-tip="<b>Wedge 1</b> · MIX 1 · coro L"/>
+        <rect x="388" y="398" width="46" height="32" data-tip="<b>Wedge 2</b> · MIX 2 · voce"/>
+        <rect x="528" y="398" width="46" height="32" data-tip="<b>Wedge 3</b> · MIX 2 · voce"/>
+        <rect x="708" y="398" width="46" height="32" data-tip="<b>Wedge 4</b> · MIX 3 · coro R"/>
+        <rect x="786" y="72" width="52" height="64" data-tip="<b>Quadro 32A</b><br>8,6 kW totali · somma automatica"/>
       </g>
     </svg>
   </figure>
 </div></header>
 
-<section><div class="wrap">
+<section class="rv"><div class="wrap">
   <p class="sec-k">Come funziona</p>
   <h2>Un disegno solo. Tutta la documentazione.</h2>
   <div class="steps">
@@ -204,64 +313,133 @@
     <div class="step"><p class="step-n">03</p><h3>Esporti il rider</h3><p>PDF multipagina con stage plot, channel list, lista luci e schema elettrico. Coerente per costruzione.</p></div>
   </div>
 
-  <div class="term">
+  <div class="term" id="term">
     <div class="term-h"><span>rider.pdf — generato dall'editor</span><span>5 pagine</span></div>
     <div class="term-b">
-      <b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue<br>
-      <b>PAG 2</b> · Channel list <span class="t">10 CH</span> — mic, aste, note per il fonico<br>
-      <b>PAG 3</b> · Monitor <span class="t">4 wedge / 3 mix</span> + richieste dei musicisti<br>
-      <b>PAG 4</b> · Schema elettrico <span class="t">8,6 kW</span> — carichi per zona, quadro 32A <span class="ok">✓</span><br>
-      <b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — modello, montaggio, canale DMX
+      <div class="tl"><b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue</div>
+      <div class="tl"><b>PAG 2</b> · Channel list <span class="t">10 CH</span> — mic, aste, note per il fonico</div>
+      <div class="tl"><b>PAG 3</b> · Monitor <span class="t">4 wedge / 3 mix</span> + richieste dei musicisti</div>
+      <div class="tl"><b>PAG 4</b> · Schema elettrico <span class="t">8,6 kW</span> — carichi per zona, quadro 32A <span class="ok">✓</span></div>
+      <div class="tl"><b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — modello, montaggio, canale DMX</div>
     </div>
   </div>
 </div></section>
 
-<section id="layers"><div class="wrap">
+<section class="rv" id="output"><div class="wrap">
+  <p class="sec-k">L'output</p>
+  <h2>Documenti che il service prende sul serio.</h2>
+  <p class="lead">Non allegati composti a mano: sono lo stesso dato del disegno. Cambi un microfono sul palco, è già cambiato qui.</p>
+  <div class="tabs">
+    <div class="tab-row" role="tablist" aria-label="Documenti generati">
+      <button class="tab" role="tab" aria-selected="true" data-panel="p-ch">CHANNEL LIST</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="p-kw">ELETTRICO</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="p-lx">LUCI</button>
+    </div>
+    <div class="panel show" id="p-ch" role="tabpanel">
+      <div class="panel-h"><span>CHANNEL LIST — quartetto (esempio)</span><span>10 CH · numerazione viva</span></div>
+      <table>
+        <thead><tr><th>CH</th><th>Sorgente</th><th>Mic / DI</th><th>Asta</th><th>Monitor</th></tr></thead>
+        <tbody>
+        <tr><td class="n">1</td><td>Cassa</td><td class="m">Beta 52A</td><td class="m">corta</td><td class="m">—</td></tr>
+        <tr><td class="n">2</td><td>Rullante</td><td class="m">SM57</td><td class="m">corta</td><td class="m">—</td></tr>
+        <tr><td class="n">3</td><td>Hi-hat</td><td class="m">SM81</td><td class="m">corta</td><td class="m">—</td></tr>
+        <tr><td class="n">4</td><td>Timpano</td><td class="m">e604</td><td class="m">clip</td><td class="m">—</td></tr>
+        <tr><td class="n">5</td><td>Panoramico L</td><td class="m">C214</td><td class="m">alta</td><td class="m">—</td></tr>
+        <tr><td class="n">6</td><td>Panoramico R</td><td class="m">C214</td><td class="m">alta</td><td class="m">—</td></tr>
+        <tr><td class="n">7</td><td>Basso</td><td class="m">DI attiva</td><td class="m">—</td><td class="m">MIX 1</td></tr>
+        <tr><td class="n">8</td><td>Chitarra</td><td class="m">SM57</td><td class="m">corta</td><td class="m">MIX 3</td></tr>
+        <tr><td class="n">9</td><td>Voce</td><td class="m">SM58</td><td class="m">alta</td><td class="m">MIX 2</td></tr>
+        <tr><td class="n">10</td><td>Coro</td><td class="m">SM58</td><td class="m">alta</td><td class="m">MIX 1·3</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel" id="p-kw" role="tabpanel">
+      <div class="panel-h"><span>SCHEMA ELETTRICO</span><span>somma automatica sul quadro</span></div>
+      <div class="kw">
+        <div class="kw-row"><span class="kw-lab">BACKLINE</span><span class="kw-bar"><i style="--w:18%"></i></span><span class="kw-val">1,2 kW</span></div>
+        <div class="kw-row"><span class="kw-lab">AUDIO</span><span class="kw-bar"><i style="--w:38%"></i></span><span class="kw-val">2,8 kW</span></div>
+        <div class="kw-row"><span class="kw-lab">LUCI</span><span class="kw-bar"><i style="--w:62%"></i></span><span class="kw-val">4,6 kW</span></div>
+        <div class="kw-tot"><span>TOTALE SU QUADRO 32A</span><b>8,6 kW ✓ dentro i margini</b></div>
+      </div>
+    </div>
+    <div class="panel" id="p-lx" role="tabpanel">
+      <div class="panel-h"><span>LISTA LUCI</span><span>12 fari · 3 tipologie</span></div>
+      <table>
+        <thead><tr><th>Q.tà</th><th>Faro</th><th>Montaggio</th><th>DMX</th><th>Carico</th></tr></thead>
+        <tbody>
+        <tr><td class="n">8</td><td>PAR LED RGBW</td><td class="m">su stativo</td><td class="m">1–32</td><td class="m">0,8 kW</td></tr>
+        <tr><td class="n">2</td><td>Fresnel 650 W</td><td class="m">appeso</td><td class="m">33–34</td><td class="m">1,3 kW</td></tr>
+        <tr><td class="n">2</td><td>Sagomatore</td><td class="m">appeso</td><td class="m">35–36</td><td class="m">1,3 kW</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div></section>
+
+<section class="rv" id="layers"><div class="wrap">
   <p class="sec-k">Layer professionali</p>
   <h2>Accendi solo quello che ti serve.</h2>
-  <p class="lead">Una band accende poco e parte. Una produzione accende tutto e controlla ogni dettaglio. Il disegno è lo stesso.</p>
+  <p class="lead">Una band accende poco e parte. Una produzione accende tutto e controlla ogni dettaglio. Il disegno è lo stesso. <b style="color:var(--text)">Prova gli interruttori:</b></p>
   <div class="layer-grid">
-    <div class="layer-list">
-      <div class="lrow on"><span class="sw"></span>Ingressi &amp; Uscite<small>channel list</small></div>
-      <div class="lrow on"><span class="sw"></span>Monitoraggio<small>wedge · in-ear</small></div>
-      <div class="lrow on"><span class="sw"></span>Elettrico<small>carichi · fasi</small></div>
-      <div class="lrow"><span class="sw"></span>Cablaggio<small>percorsi cavi</small></div>
-      <div class="lrow"><span class="sw"></span>Luci<small>DMX · montaggio</small></div>
-      <div class="lrow"><span class="sw"></span>RF &amp; Rete<small>frequenze · Dante</small></div>
+    <div>
+      <div class="layer-list" role="group" aria-label="Interruttori dei layer">
+        <button class="lrow" data-plane="pl-in" aria-pressed="true"><span class="sw"></span>Ingressi &amp; Uscite<small>channel list</small></button>
+        <button class="lrow" data-plane="pl-mon" aria-pressed="true"><span class="sw"></span>Monitoraggio<small>wedge · in-ear</small></button>
+        <button class="lrow" data-plane="pl-elet" aria-pressed="true"><span class="sw"></span>Elettrico<small>carichi · fasi</small></button>
+        <button class="lrow" data-plane="pl-cavi" aria-pressed="false"><span class="sw"></span>Cablaggio<small>percorsi cavi</small></button>
+        <button class="lrow" data-plane="pl-luci" aria-pressed="false"><span class="sw"></span>Luci<small>DMX · montaggio</small></button>
+        <button class="lrow" data-plane="pl-rf" aria-pressed="false"><span class="sw"></span>RF &amp; Rete<small>frequenze · Dante</small></button>
+      </div>
+      <p class="lcount" id="lcount">3 layer accesi + il palco</p>
     </div>
     <div class="stack">
-      <svg viewBox="0 0 480 400" role="img" aria-label="Tre layer del palco sovrapposti in prospettiva: audio, elettrico e cablaggio">
+      <svg viewBox="0 0 520 640" role="img" aria-label="Pila dei layer del palco in prospettiva: si accendono e spengono con gli interruttori">
         <defs>
           <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#14b8a6" stop-opacity=".16"/><stop offset="1" stop-color="#14b8a6" stop-opacity=".04"/>
           </linearGradient>
         </defs>
-        <!-- layer 3 -->
-        <g transform="translate(0,40)">
-          <path d="M90 240 L240 170 L390 240 L240 310 Z" fill="#101817" stroke="#2b3a38" stroke-width="1.3"/>
-          <text x="404" y="245" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">CABLAGGIO</text>
-          <path d="M170 240 L240 208 L310 240" fill="none" stroke="#0f766e" stroke-width="1.3"/>
-        </g>
-        <!-- layer 2 -->
-        <g transform="translate(0,-25)">
-          <path d="M90 240 L240 170 L390 240 L240 310 Z" fill="url(#lg1)" stroke="#14b8a6" stroke-width="1.3" opacity=".95"/>
-          <text x="404" y="245" font-family="ui-monospace,monospace" font-size="11" fill="#2dd4bf">ELETTRICO</text>
-          <circle cx="200" cy="238" r="4" fill="#2dd4bf"/><circle cx="280" cy="238" r="4" fill="#2dd4bf"/><circle cx="240" cy="210" r="4" fill="#2dd4bf"/>
-        </g>
-        <!-- layer 1 -->
-        <g transform="translate(0,-90)">
-          <path d="M90 240 L240 170 L390 240 L240 310 Z" fill="#121b1a" stroke="#d7e6e2" stroke-width="1.3"/>
-          <text x="404" y="245" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">PALCO</text>
-          <circle cx="240" cy="216" r="13" fill="none" stroke="#d7e6e2" stroke-width="1.2"/>
-          <rect x="160" y="230" width="26" height="16" fill="none" stroke="#d7e6e2" stroke-width="1.2" transform="skewY(-8)"/>
-          <rect x="296" y="192" width="26" height="16" fill="none" stroke="#d7e6e2" stroke-width="1.2" transform="skewY(8)"/>
-        </g>
+        <!-- dal basso verso l'alto -->
+        <g class="plane ghost" id="pl-rf" transform="translate(0,330)"><g class="fader">
+          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#0f1615" stroke="#2b3a38" stroke-width="1.2"/>
+          <circle cx="200" cy="150" r="3" fill="#5eead4"/><circle cx="320" cy="150" r="3" fill="#5eead4"/>
+          <path d="M200 150 Q260 110 320 150" fill="none" stroke="#2b3a38" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">RF &amp; RETE</text>
+        </g></g>
+        <g class="plane ghost" id="pl-luci" transform="translate(0,264)"><g class="fader">
+          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#141310" stroke="#4a4128" stroke-width="1.2"/>
+          <circle cx="180" cy="150" r="4" fill="#d4a72c"/><circle cx="260" cy="112" r="4" fill="#d4a72c"/><circle cx="340" cy="150" r="4" fill="#d4a72c"/>
+          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#d4a72c">LUCI</text>
+        </g></g>
+        <g class="plane ghost" id="pl-cavi" transform="translate(0,198)"><g class="fader">
+          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#0f1615" stroke="#2b3a38" stroke-width="1.2"/>
+          <path d="M160 155 L260 108 L360 155 M210 178 L310 130" fill="none" stroke="#0f766e" stroke-width="1.3"/>
+          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">CABLAGGIO</text>
+        </g></g>
+        <g class="plane" id="pl-elet" transform="translate(0,132)"><g class="fader">
+          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="url(#lg1)" stroke="#14b8a6" stroke-width="1.2"/>
+          <circle cx="215" cy="150" r="4" fill="#2dd4bf"/><circle cx="305" cy="150" r="4" fill="#2dd4bf"/><circle cx="260" cy="122" r="4" fill="#2dd4bf"/>
+          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#2dd4bf">ELETTRICO</text>
+        </g></g>
+        <g class="plane" id="pl-mon" transform="translate(0,66)"><g class="fader">
+          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#0f1615" stroke="#2b3a38" stroke-width="1.2"/>
+          <path d="M190 190 L214 190 L208 176 L196 176 Z M250 214 L274 214 L268 200 L256 200 Z M310 190 L334 190 L328 176 L316 176 Z" fill="none" stroke="#5eead4" stroke-width="1.2"/>
+          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">MONITOR</text>
+        </g></g>
+        <g class="plane" id="pl-in" transform="translate(0,0)"><g class="fader">
+          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#121b1a" stroke="#d7e6e2" stroke-width="1.2"/>
+          <circle cx="260" cy="130" r="13" fill="none" stroke="#d7e6e2" stroke-width="1.2"/>
+          <rect x="170" y="146" width="26" height="16" fill="none" stroke="#d7e6e2" stroke-width="1.2" transform="skewY(-8)"/>
+          <rect x="316" y="104" width="26" height="16" fill="none" stroke="#d7e6e2" stroke-width="1.2" transform="skewY(8)"/>
+          <circle cx="260" cy="196" r="5" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
+          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">PALCO + I/O</text>
+        </g></g>
       </svg>
     </div>
   </div>
 </div></section>
 
-<section><div class="wrap">
+<section class="rv"><div class="wrap">
   <p class="sec-k">Condivisione</p>
   <h2>La versione giusta ce l'hanno tutti.</h2>
   <div class="share">
@@ -278,7 +456,7 @@
   </div>
 </div></section>
 
-<section><div class="wrap">
+<section class="rv"><div class="wrap">
   <p class="sec-k">Per chi è</p>
   <h2>Dalla sala prove al festival.</h2>
   <div class="who">
@@ -288,7 +466,7 @@
   </div>
 </div></section>
 
-<section class="final"><div class="wrap">
+<section class="final rv"><div class="wrap">
   <p class="sec-k">Pronto quando lo sei tu</p>
   <h2>Stasera il palco. Domani il rider è già fatto.</h2>
   <a class="btn" href="https://stageplot.it/">Apri l'editor</a>
@@ -307,6 +485,93 @@
     <span>© 2026 StagePlot — Simone Castellan</span>
   </div>
 </div></footer>
+
+<script>
+(function(){
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* 1 — chip layer nell'hero */
+  document.querySelectorAll('.chip').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var on = chip.getAttribute('aria-pressed') === 'true';
+      chip.setAttribute('aria-pressed', String(!on));
+      var g = document.getElementById(chip.dataset.layer);
+      if (g) g.classList.toggle('off', on);
+    });
+  });
+
+  /* 2 — tooltip sugli elementi del plot */
+  var tip = document.getElementById('tip');
+  document.querySelectorAll('[data-tip]').forEach(function(el){
+    el.addEventListener('mouseenter', function(){ tip.innerHTML = el.dataset.tip; tip.style.opacity = 1; });
+    el.addEventListener('mousemove', function(e){
+      var x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10);
+      tip.style.left = x + 'px';
+      tip.style.top = (e.clientY + 16) + 'px';
+    });
+    el.addEventListener('mouseleave', function(){ tip.style.opacity = 0; });
+  });
+
+  /* 3 — rider.pdf che si digita */
+  var lines = document.querySelectorAll('#term .tl');
+  function typeLines(){
+    lines.forEach(function(l, i){
+      setTimeout(function(){
+        l.classList.add('on');
+        if (i === lines.length - 1) l.classList.add('cursor');
+        else if (i > 0) lines[i-1].classList.remove('cursor');
+      }, reduced ? 0 : 260 * i);
+    });
+    if (!reduced && lines.length) lines[0].classList.add('cursor');
+  }
+
+  /* 4 — documenti a schede */
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.setAttribute('aria-selected','false'); });
+      document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('show'); });
+      tab.setAttribute('aria-selected','true');
+      document.getElementById(tab.dataset.panel).classList.add('show');
+    });
+  });
+
+  /* 5 — interruttori della pila layer */
+  function refreshCount(){
+    var n = document.querySelectorAll('.lrow[aria-pressed="true"]').length;
+    document.getElementById('lcount').textContent =
+      n === 0 ? 'solo il palco: il disegno resta pulito'
+      : n + (n === 1 ? ' layer acceso' : ' layer accesi') + ' + il palco';
+  }
+  document.querySelectorAll('.lrow').forEach(function(row){
+    row.addEventListener('click', function(){
+      var on = row.getAttribute('aria-pressed') === 'true';
+      row.setAttribute('aria-pressed', String(!on));
+      var pl = document.getElementById(row.dataset.plane);
+      if (pl) pl.classList.toggle('ghost', on);
+      refreshCount();
+    });
+  });
+  refreshCount();
+
+  /* 6 — reveal allo scroll (+ innesco del typewriter) */
+  var typed = false;
+  if ('IntersectionObserver' in window && !reduced){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (!en.isIntersecting) return;
+        en.target.classList.add('in');
+        if (!typed && en.target.querySelector('#term')){ typed = true; typeLines(); }
+        io.unobserve(en.target);
+      });
+    }, {threshold:.12});
+    document.querySelectorAll('.rv').forEach(function(s){ io.observe(s); });
+  } else {
+    document.querySelectorAll('.rv').forEach(function(s){ s.classList.add('in'); });
+    typeLines();
+  }
+})();
+</script>
 
 </body>
 </html>
