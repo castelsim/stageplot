@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Come compilare la scheda tecnica della tua band (2026) | StagePlot</title>
+  <meta name="description" content="Come compilare la scheda tecnica della band passo per passo: stage plot, channel list, monitor, backline e contatti. Con esempio completo e gli errori da evitare, spiegati da un fonico.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/scheda-tecnica-band/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Come compilare la scheda tecnica della tua band">
+  <meta property="og:description" content="Passo per passo: stage plot, channel list, monitor, backline e contatti. Con esempio completo e gli errori che fanno scartare una scheda tecnica.">
+  <meta property="og:url" content="https://stageplot.it/guida/scheda-tecnica-band/">
+  <meta property="og:image" content="https://stageplot.it/preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Come compilare la scheda tecnica della tua band">
+  <meta name="twitter:description" content="Passo per passo, con esempio completo e gli errori da evitare. Spiegato da un fonico.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Scheda tecnica della band","item":"https://stageplot.it/guida/scheda-tecnica-band/"}
+      ]},
+      {"@type":"Article","headline":"Come compilare la scheda tecnica della tua band","inLanguage":"it","datePublished":"2026-08-03","dateModified":"2026-08-03","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/scheda-tecnica-band/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Quanto deve essere lunga la scheda tecnica di una band?","acceptedAnswer":{"@type":"Answer","text":"Da una a due pagine PDF per una band fino a sei elementi. Una pagina con lo stage plot, una con channel list, monitor, backline e contatti. Se supera le tre pagine, quasi sempre contiene cose che il locale non leggerà."}},
+        {"@type":"Question","name":"«Scheda tecnica» e «rider tecnico» sono la stessa cosa?","acceptedAnswer":{"@type":"Answer","text":"Sì: sono lo stesso documento. In Italia le band dicono più spesso «scheda tecnica», mentre «rider tecnico» (o «tech rider» in inglese) è il termine più usato da service e agenzie."}},
+        {"@type":"Question","name":"Chi la scrive, la band o il fonico?","acceptedAnswer":{"@type":"Answer","text":"La scrive la band, idealmente insieme al proprio fonico se ne ha uno. Chi la riceve è il fonico del locale o del service, che la usa per preparare il patch e capire cosa serve."}},
+        {"@type":"Question","name":"Devo indicare i modelli esatti dei microfoni?","acceptedAnswer":{"@type":"Answer","text":"Meglio indicare il tipo (dinamico, condensatore, DI) e citare un modello solo come riferimento, aggiungendo «o equivalente». Chiedere modelli specifici come obbligatori restringe le opzioni del service senza migliorare il risultato."}},
+        {"@type":"Question","name":"Serve una scheda tecnica diversa per ogni locale?","acceptedAnswer":{"@type":"Answer","text":"Di solito bastano due versioni: una completa per palchi grandi e una ridotta per club e pub, con meno mix monitor e meno canali. Averle pronte evita di improvvisare tagli la sera stessa."}},
+        {"@type":"Question","name":"In che formato va inviata?","acceptedAnswer":{"@type":"Answer","text":"Sempre in PDF, con il nome del file che contiene nome della band, anno e versione. Documenti Word, Pages o foto dello schema scritto a mano vengono spesso ignorati o stampati male."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Scheda tecnica della band
+    </nav>
+
+    <h1>Come compilare la scheda tecnica della tua band</h1>
+    <p class="lead">Passo per passo, con un esempio completo e gli errori che me la fanno mettere da parte quando la ricevo. In cinque punti, senza gergo inutile.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 03/08/2026</p>
+
+    <h2>Cos'è la scheda tecnica di una band</h2>
+    <p>La <strong>scheda tecnica</strong> è il documento che una band invia al locale, al festival o al service audio prima del concerto per dire cosa suona, come va ripreso e di cosa ha bisogno sul palco. Contiene quattro cose: lo <a href="/guida/cos-e-uno-stage-plot/">stage plot</a> (la pianta del palco con le posizioni di musicisti, amplificatori e monitor), la <a href="/guida/channel-list-input-list/">channel list</a> (l'elenco numerato dei canali che entrano nel mixer), le richieste di monitor e impianto, e i contatti del referente tecnico. È lo stesso documento che service e agenzie chiamano <a href="/guida/rider-tecnico/">rider tecnico</a>, o <em>tech rider</em> in inglese: cambia il nome, non il contenuto. Serve a una cosa sola — permettere a chi ti ospita di preparare tutto <em>prima</em> che tu arrivi, invece di scoprire alle 18 che servono due DI in più.</p>
+
+    <h2>Perché conviene farla bene</h2>
+    <p>Una scheda tecnica chiara non è burocrazia: è tempo che ti torna indietro. Chi la riceve la usa per assegnare i canali, decidere quanti mix monitor mandare in palco, capire se il suo impianto basta e preparare i cavi giusti. Se è chiara, quando arrivi trovi il palco già patchato e il soundcheck comincia. Se manca o è confusa, il soundcheck comincia con venti minuti di domande — e quei venti minuti li perdi tu, non il locale.</p>
+    <p>C'è anche un effetto meno ovvio: una scheda fatta bene cambia il modo in cui ti trattano. Un documento ordinato dice che sai come funziona un palco, e chi lavora lì lo nota subito.</p>
+
+    <h2>I 5 passi</h2>
+
+    <h3>1. Lo stage plot</h3>
+    <p>È la prima cosa che il fonico guarda, spesso l'unica se ha fretta. Disegna il palco visto dall'alto, con il pubblico in basso, e metti ogni musicista dove sta davvero. Segna gli amplificatori, la batteria, i leggii, i monitor a pavimento e le prese di corrente che ti servono.</p>
+    <p>Il punto che fa la differenza è la <a href="/guida/stage-plot-in-scala/">scala reale</a>: se il tuo disegno dice che la batteria occupa due metri e mezzo di larghezza, chi allestisce sa se ci sta sulla pedana. Uno schema fuori scala, con le icone tutte della stessa dimensione, è grafica — non informazione.</p>
+    <p>Indica anche il fronte palco e la posizione del pubblico. Sembra ovvio, ma metà degli stage plot che ricevo non lo dice, e destra e sinistra cambiano a seconda di chi guarda.</p>
+
+    <h3>2. La channel list</h3>
+    <p>È l'elenco numerato di tutto ciò che entra nel mixer, nell'ordine in cui vuoi che sia patchato. Per ogni riga servono tre informazioni: <strong>numero</strong>, <strong>sorgente</strong> (kick, snare, basso, voce lead…) e <strong>tipo di ripresa</strong> (microfono dinamico, condensatore, DI). Una quarta colonna di note serve per phantom 48V, stereo, o «porta lui il microfono».</p>
+    <p>Due regole che valgono più di tutto il resto: la numerazione deve essere coerente con lo stage plot, e l'ordine deve seguire la convenzione — prima la batteria, poi le percussioni, poi bassi e chitarre, poi tastiere, poi le voci. Non è un capriccio: è l'ordine in cui il fonico si aspetta di trovare i canali sul banco, e rispettarlo dimezza il tempo di patch.</p>
+    <p>Sul modello dei microfoni: indica il <em>tipo</em>, e se citi un modello aggiungi «o equivalente». Chiedere un modello preciso come obbligatorio non migliora il suono e crea solo un problema a chi quel microfono non ce l'ha.</p>
+
+    <h3>3. I monitor</h3>
+    <p>Scrivi quanti <strong>mix monitor indipendenti</strong> ti servono e cosa vuole sentire ognuno. «4 spie» non basta: quattro spie con un unico mix sono una cosa, quattro mix separati sono un'altra e non tutti i locali possono darteli.</p>
+    <p>Il formato che funziona è una riga per mix: «Mix 1 — voce: voce, un po' di kick e basso». Se usate in-ear, dillo esplicitamente e specifica se il sistema lo portate voi. E se sai di essere flessibile — per esempio che in un club puoi stare con due mix invece di quattro — scrivilo: è l'informazione che rende una scheda accettabile invece che problematica.</p>
+
+    <h3>4. Il backline</h3>
+    <p>Qui si generano quasi tutti i malintesi, e si risolvono con una sola accortezza: per ogni voce, dire se la <strong>porti tu</strong> o la <strong>chiedi al locale</strong>. Scrivere «batteria» in mezzo a un elenco non dice niente — e la sera del concerto è tardi per scoprirlo.</p>
+    <p>Fai due colonne, o due liste separate: «Portiamo noi» e «Chiediamo». Nella seconda sii realistico su cosa un locale può avere: un ampli per basso e un ampli chitarra sì, un pianoforte a coda accordato no.</p>
+
+    <h3>5. Contatti, data e versione</h3>
+    <p>In fondo, tre righe che sembrano banali e che valgono quanto tutto il resto: <strong>nome e telefono del referente tecnico</strong> raggiungibile il giorno dell'evento, la <strong>data</strong> dell'ultimo aggiornamento e un <strong>numero di versione</strong>.</p>
+    <p>La data e la versione servono a un problema molto concreto: i service archiviano le schede. Se l'anno scorso hai mandato una scheda con cinque elementi e quest'anno siete in quattro, senza una data chi la ripesca prepara il palco sbagliato.</p>
+
+    <h2>Un esempio completo</h2>
+    <p>Una band di quattro elementi: voce con chitarra acustica, chitarra elettrica, basso, batteria. Questo è il livello di dettaglio che basta per il 90% dei locali.</p>
+
+    <h3>Stage plot</h3>
+    <p>Batteria al centro sul fondo, basso a sinistra guardando il palco, chitarra elettrica a destra, voce con acustica in fronte al centro. Quattro monitor a pavimento, uno per postazione. Prese di corrente vicino ai tre amplificatori.</p>
+    <figure style="margin:18px 0"><img src="/stage-plot/previews/band.svg" width="1520" height="615" alt="Esempio di scheda tecnica: stage plot in scala di una band di quattro elementi con batteria, basso, chitarra, voce e quattro monitor" loading="lazy" style="width:100%;height:auto;border:1px solid #e6e1d8;border-radius:12px;background:#f4f1ea"><figcaption style="font-size:13px;color:#5b6675;margin-top:8px;text-align:center">Lo stage plot dell'esempio, disegnato in scala reale.</figcaption></figure>
+
+    <h3>Channel list</h3>
+    <table class="ch-table">
+      <caption>Esempio: channel list di una band di quattro elementi</caption>
+      <thead><tr><th>#</th><th>Sorgente</th><th>Ripresa</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Kick</td><td>Dinamico</td><td></td></tr>
+        <tr><td>2</td><td>Snare</td><td>Dinamico</td><td></td></tr>
+        <tr><td>3</td><td>Hi-hat</td><td>Condensatore</td><td>Phantom 48V</td></tr>
+        <tr><td>4-5</td><td>Overhead L/R</td><td>Condensatore</td><td>Stereo, phantom 48V</td></tr>
+        <tr><td>6</td><td>Basso</td><td>DI</td><td>Portiamo noi la DI</td></tr>
+        <tr><td>7</td><td>Chitarra elettrica</td><td>Microfono su ampli</td><td></td></tr>
+        <tr><td>8</td><td>Chitarra acustica</td><td>DI</td><td></td></tr>
+        <tr><td>9</td><td>Voce lead</td><td>Dinamico</td><td></td></tr>
+        <tr><td>10</td><td>Cori (chitarra elettrica)</td><td>Dinamico</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Monitor</h3>
+    <ul>
+      <li><strong>Mix 1 — Voce</strong>: voce lead, un po' di kick e basso.</li>
+      <li><strong>Mix 2 — Chitarra</strong>: chitarra elettrica, voce, cori.</li>
+      <li><strong>Mix 3 — Basso</strong>: basso e kick.</li>
+      <li><strong>Mix 4 — Batteria</strong>: kick, voce e un po' di basso.</li>
+      <li>In un club possiamo scendere a <strong>2 mix</strong>: uno fronte palco condiviso, uno per la batteria.</li>
+    </ul>
+
+    <h3>Backline</h3>
+    <table class="ch-table">
+      <caption>Cosa portiamo e cosa chiediamo</caption>
+      <thead><tr><th>Portiamo noi</th><th>Chiediamo al locale</th></tr></thead>
+      <tbody>
+        <tr><td>Chitarre, basso, testata basso, pedaliere, DI del basso</td><td>Ampli chitarra (combo valvolare o equivalente)</td></tr>
+        <tr><td>Rullante, piatti, pedale</td><td>Batteria completa senza rullante e piatti</td></tr>
+        <tr><td>—</td><td>4 aste microfoniche a giraffa, 2 diritte</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Impianto e contatti</h3>
+    <ul>
+      <li>PA adeguato alla sala, mixer FOH digitale da almeno 16 canali.</li>
+      <li>Prese di corrente sul palco per i tre amplificatori.</li>
+      <li>Referente tecnico: nome, telefono, email. Raggiungibile il giorno del concerto.</li>
+      <li>Scheda tecnica v2.1 — aggiornata al 03/08/2026.</li>
+    </ul>
+
+    <h2>Gli errori che fanno scartare una scheda tecnica</h2>
+    <p>Questi li vedo arrivare da chi organizza, non da chi scrive. Sono i motivi per cui una scheda finisce in fondo alla pila.</p>
+    <ul>
+      <li><strong>Nessuna data e nessuna versione.</strong> Il service ripesca quella dell'anno scorso e prepara il palco per una formazione che non esiste più.</li>
+      <li><strong>Stage plot fuori scala.</strong> Tutte le icone della stessa dimensione: bello da vedere, inutile per capire se la batteria ci sta sulla pedana.</li>
+      <li><strong>Channel list che non corrisponde allo stage plot.</strong> Nove canali nella lista, sette elementi nel disegno: qualcuno dovrà chiamarti per capire.</li>
+      <li><strong>Backline ambiguo.</strong> Un elenco di strumenti senza dire chi li porta. È il singolo errore che genera più telefonate.</li>
+      <li><strong>Richieste non negoziabili senza alternativa.</strong> Un modello di microfono obbligatorio o sei mix monitor in un pub da cento posti: chi legge non può dire di sì, e spesso non risponde nemmeno.</li>
+      <li><strong>Formato sbagliato.</strong> File Word, Pages, o la foto di un foglio scritto a mano. Va in PDF, sempre.</li>
+      <li><strong>Dodici pagine per una band da quattro.</strong> Nessuno le legge tutte, e le informazioni che contano si perdono in mezzo.</li>
+      <li><strong>Nessun contatto raggiungibile.</strong> Una email guardata una volta a settimana non è un contatto tecnico.</li>
+    </ul>
+
+    <h2>Quante versioni tenere pronte</h2>
+    <p>Due bastano quasi sempre. Una <strong>completa</strong>, per palchi grandi e festival, con tutti i canali e tutti i mix. Una <strong>ridotta</strong> per club e pub: meno mix monitor, batteria con meno microfoni, magari senza cori. Tenerle già pronte evita di fare tagli improvvisati la sera stessa — che è il momento peggiore per decidere a cosa rinunciare.</p>
+    <p>Se suonate anche in formazione acustica, quella è una terza scheda, non una nota a piè di pagina della prima.</p>
+
+    <h2>Come inviarla</h2>
+    <p>PDF allegato, non link a Drive che scadono o richiedono accesso. Nome del file leggibile: <strong>NomeBand_SchedaTecnica_2026_v2.pdf</strong>. Inviala insieme alla conferma della data, non il giorno prima: chi deve procurarti qualcosa ha bisogno di tempo per farlo.</p>
+    <p>Se il locale non risponde, non darlo per scontato: una telefonata di due minuti al tecnico il giorno prima vale più di tre email.</p>
+
+    <div class="cta-box">
+      <h2>Fai la tua scheda tecnica adesso</h2>
+      <p>Stage plot in scala, channel list e PDF: gratis nel browser, senza registrazione.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+        <a class="btn consul" href="/consulenza/">Fatti revisionare da un fonico</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Quanto deve essere lunga la scheda tecnica di una band?</summary><p>Da una a due pagine PDF per una band fino a sei elementi. Una pagina con lo stage plot, una con channel list, monitor, backline e contatti. Se supera le tre pagine, quasi sempre contiene cose che il locale non leggerà.</p></details>
+      <details><summary>«Scheda tecnica» e «rider tecnico» sono la stessa cosa?</summary><p>Sì: sono lo stesso documento. In Italia le band dicono più spesso «scheda tecnica», mentre «rider tecnico» (o «tech rider» in inglese) è il termine più usato da service e agenzie.</p></details>
+      <details><summary>Chi la scrive, la band o il fonico?</summary><p>La scrive la band, idealmente insieme al proprio fonico se ne ha uno. Chi la riceve è il fonico del locale o del service, che la usa per preparare il patch e capire cosa serve.</p></details>
+      <details><summary>Devo indicare i modelli esatti dei microfoni?</summary><p>Meglio indicare il tipo (dinamico, condensatore, DI) e citare un modello solo come riferimento, aggiungendo «o equivalente». Chiedere modelli specifici come obbligatori restringe le opzioni del service senza migliorare il risultato.</p></details>
+      <details><summary>Serve una scheda tecnica diversa per ogni locale?</summary><p>Di solito bastano due versioni: una completa per palchi grandi e una ridotta per club e pub, con meno mix monitor e meno canali. Averle pronte evita di improvvisare tagli la sera stessa.</p></details>
+      <details><summary>In che formato va inviata?</summary><p>Sempre in PDF, con il nome del file che contiene nome della band, anno e versione. Documenti Word, Pages o foto dello schema scritto a mano vengono spesso ignorati o stampati male.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/rider-tecnico/"><strong>Rider tecnico</strong><span>Cos'è e cosa contiene, in dettaglio</span></a>
+        <a href="/guida/channel-list-input-list/"><strong>Channel list e input list</strong><span>Cosa sono e come si compilano</span></a>
+        <a href="/stage-plot/band/"><strong>Stage plot per band</strong><span>Il modello pronto da aprire</span></a>
+      </div>
+    </div>
+
+  <aside class="author-card">
+    <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+    <p class="ac-bio">Fonico per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato StagePlot per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+    <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+  </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
