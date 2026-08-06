@@ -76,7 +76,7 @@ function reset() {
      (hasMeaningfulDocument → isFreshBlankProject). */
   A.VARIANTS = []; A.activeVar = null; A.DOC_EXTRA = {}; A.ensureVariants();
 }
-function add(type, x, y) { return A.addItem(type, { x, y }) || A.state.items[A.state.items.length - 1]; }   /* addItem puo' creare anche la DI: vale il valore restituito */
+function add(type, x, y, opts) { return A.addItem(type, Object.assign({ x, y }, opts || {})) || A.state.items[A.state.items.length - 1]; }   /* addItem puo' creare anche la DI: vale il valore restituito */
 function chans(it) { return A.cabItemInputs(it); }
 
 console.log("StagePlot — test motori\n");
@@ -2525,8 +2525,8 @@ t("lifecycle cloud: snapshot immutabile, revision guard e cambio progetto fail-c
     autosaveFlow.includes('setDocState("conflict")') &&
     autosaveFlow.includes("resolveCloudFlush(false)"),
   "una planimetria locale mancante non può propagare venue_image=null al cloud");
-  ok(appjs.includes('window.addEventListener("beforeunload",function(e){\n  if(!window.__localConflict) return;'),
-    "gli edit sospesi dopo conflitto multi-tab attivano l'avviso di uscita");
+  ok(/beforeunload",function\(e\)\{[\s\S]{0,400}?if\(!window\.__localConflict && !window\.__localStorageUnavailable\) return;/.test(appjs),
+    "gli edit sospesi attivano l'avviso di uscita: conflitto multi-tab E archivio pieno (entrambi lasciano il lavoro in sola memoria)");
   const openFlow = appjs.slice(appjs.indexOf("function openProject"), appjs.indexOf("function dupProject"));
   ok(openFlow.includes("window.flushCloudAutosave(function(ok)"), "il cambio progetto attende il flush");
   ok(openFlow.includes("window.__cloudNeedsFlush()"), "gli edit durante la lettura remota bloccano il commit");
@@ -2658,10 +2658,19 @@ t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B
 });
 
 console.log("\nAudit — voci senza mic (L8) + nomi canale duplicati (B4):");
-t("audit L8: cantante senza mic → avviso azionabile", () => {
-  reset(); add("cantante", 400, 400); A.__cabRes = null;
+/* Il criterio è UNO: la voce produce canali? Dal 27/07 il cantante nasce col suo microfono (micMode
+   "tonda"), quindi il cantante appena posato È in channel list e l'avviso «la voce non entra nella
+   channel list» era falso — falsificato dalla lista che l'audit stesso legge. Il caso vero è la voce
+   in panoramica senza zona né asta: zero canali, e sparisce davvero (06/08). */
+t("audit L8: voce senza canali (panoramica, nessuna zona) → avviso azionabile", () => {
+  reset(); add("cantante", 400, 400, { micMode: "pano" }); A.__cabRes = null;
   const f = A.auditEngine().findings.filter((x) => /senza microfono/.test(x.msg));
   ok(f.length === 1 && f[0].act && /radiomic/i.test(f[0].act.label), "atteso avviso con fix; findings: " + auditMsgs().join(" | "));
+});
+t("audit L8: il cantante col suo microfono NON è un allarme (è già in channel list)", () => {
+  reset(); const c = add("cantante", 400, 400); A.__cabRes = null;
+  ok(A.cabItemInputs(c).length === 1, "presupposto: il cantante di default produce il suo canale");
+  ok(!hasMsg(/senza microfono/), "findings: " + auditMsgs().join(" | "));
 });
 t("audit L8: cantante con radiomic entro 1,5 m → nessun avviso", () => {
   reset(); add("cantante", 400, 400); add("wireless", 440, 400); A.__cabRes = null;
@@ -2672,7 +2681,7 @@ t("audit L8: corista NON triggera l'avviso (vive nel mic di sezione)", () => {
   ok(!hasMsg(/senza microfono/), "findings: " + auditMsgs().join(" | "));
 });
 t("audit L8: il fix piazza un radiomic col nome del cantante e spegne l'avviso", () => {
-  reset(); const c = add("cantante", 400, 400); c.label = "Vocalist 2"; A.__cabRes = null;
+  reset(); const c = add("cantante", 400, 400, { micMode: "pano" }); c.label = "Vocalist 2"; A.__cabRes = null;
   const f = A.auditEngine().findings.find((x) => /senza microfono/.test(x.msg));
   try { f.act.run(); } catch (e) { /* render/save toccano il DOM stub */ }
   A.__cabRes = null;
@@ -5466,9 +5475,9 @@ t("e' presente in tutte le tabelle che elencano le aste", () => {
 });
 t("una gigante accanto a un cantante conta come il suo microfono (audit)", () => {
   reset();
-  add("cantante", 400, 400);
+  add("cantante", 400, 400, { micMode: "pano" });   /* in panoramica non produce canali: è il caso in cui l'avviso è vero */
   const msg = () => A.auditEngine().findings.filter(f => /senza microfono/i.test(f.msg)).length;
-  eq(msg(), 1, "il cantante da solo va segnalato");
+  eq(msg(), 1, "la voce senza canali va segnalata");
   add("astagigante", 400, 470);   /* 70 cm: dentro il raggio di 150 della regola */
   eq(msg(), 0, "con la gigante davanti la voce entra in lista: niente avviso");
 });
