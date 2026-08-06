@@ -114,8 +114,10 @@
   .lead{margin-top:18px;color:var(--mut);font-size:18px;max-width:56ch}
   .lead b{color:var(--text)}
 
-  .steps{margin-top:60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px 28px 34px;transition:border-color .2s,transform .2s}
+  .steps{margin-top:60px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media(max-width:1080px){.steps{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.steps{grid-template-columns:1fr}}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 24px 30px;transition:border-color .2s,transform .2s}
   .step:hover{border-color:var(--line2);transform:translateY(-2px)}
   .step-n{font-family:var(--mono);font-size:13px;color:var(--teal)}
   .step h3{margin-top:12px;font-size:20px;letter-spacing:-.014em}
@@ -378,20 +380,26 @@
 <section class="rv" id="come"><div class="wrap">
   <p class="sec-k">Come funziona</p>
   <h2>Un disegno solo. Tutta la documentazione.</h2>
+  <p class="lead">Quattro passaggi, una fonte sola: il disegno. Tutto quello che il service ti chiederà <b>ne discende da solo</b>.</p>
   <div class="steps">
-    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali: strumenti, 155 microfoni, DI, mixer, 42 fari. Li trascini, sono già «intelligenti».</p></div>
-    <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, consumi, percorsi cavi: ogni elemento sa cosa gli serve. Tu disegni, il progetto si struttura.</p></div>
-    <div class="step"><p class="step-n">03</p><h3>Esporti il rider</h3><p>PDF multipagina con stage plot, channel list, lista luci e schema elettrico. Coerente per costruzione.</p></div>
+    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, 155 microfoni, DI, mixer, 42 fari. Niente rettangoli anonimi.</p></div>
+    <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve. Sposti la batteria, la channel list si aggiorna.</p></div>
+    <div class="step"><p class="step-n">03</p><h3>Il progetto si controlla</h3><p>Un microfono senza canale, un carico senza distro, un mix dimenticato: te lo dice l'editor prima che te lo chieda il service.</p></div>
+    <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
   </div>
 
   <div class="term" id="term">
-    <div class="term-h"><span>rider.pdf — generato dall'editor</span><span>5 pagine</span></div>
+    <div class="term-h"><span>rider.pdf — generato dall'editor</span><span>8 pagine</span></div>
     <div class="term-b">
       <div class="tl"><b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue</div>
-      <div class="tl"><b>PAG 2</b> · Channel list <span class="t">10 CH</span> — mic, aste, note per il fonico</div>
+      <div class="tl"><b>PAG 2</b> · Input list <span class="t">10 CH</span> — mic, 48V, patch della stage box</div>
       <div class="tl"><b>PAG 3</b> · Monitor <span class="t">4 wedge / 3 mix</span> + richieste dei musicisti</div>
-      <div class="tl"><b>PAG 4</b> · Schema elettrico <span class="t">8,6 kW</span> — carichi per zona, quadro 32A <span class="ok">✓</span></div>
-      <div class="tl"><b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — modello, montaggio, canale DMX</div>
+      <div class="tl"><b>PAG 4</b> · Schema elettrico <span class="t">8,6 kW</span> — carichi, distro, quadro 32A <span class="ok">✓</span></div>
+      <div class="tl"><b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — apparecchio, colore, posizione</div>
+      <div class="tl"><b>PAG 6</b> · Backline — <span class="t">chi porta cosa</span>, band o service</div>
+      <div class="tl"><b>PAG 7</b> · Note per il fonico — appuntate sugli elementi del disegno</div>
+      <div class="tl"><b>PAG 8</b> · Responsabilità — <span class="t">chi fa cosa</span> in produzione, con i referenti</div>
+      <div class="tl">— e se domani aggiungi un radiomicrofono, compare la lista RF. Da sola.</div>
     </div>
   </div>
 </div></section>
