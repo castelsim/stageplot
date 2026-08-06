@@ -135,14 +135,14 @@
 
   /* ---------- PRIMA / DOPO ---------- */
   .ba{margin-top:60px;position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line2);
-    height:clamp(340px,46vw,460px);user-select:none;-webkit-user-select:none}
+    height:clamp(400px,54vw,620px);user-select:none;-webkit-user-select:none}
   .ba-pane{position:absolute;inset:0}
   .ba-before{background:
       radial-gradient(120px 90px at 78% 84%, rgba(139,94,60,.16), transparent 70%),
       linear-gradient(160deg,#efe8d6,#e6ddc6)}
   .ba-before svg{display:block;width:100%;height:100%}
   .ba-after{background:var(--panel2);clip-path:inset(0 0 0 var(--cut,45%))}
-  .ba-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%}
+  .ba-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
   .ba-made{position:absolute;right:14px;bottom:14px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;
     background:rgba(10,18,17,.82);border:1px solid var(--teal-d);color:var(--teal-l);border-radius:999px;padding:6px 12px}
   .ba-divider{position:absolute;top:0;bottom:0;left:var(--cut,45%);width:2px;background:var(--teal);z-index:3;
@@ -389,7 +389,7 @@
 <section class="rv" id="confronto"><div class="wrap">
   <p class="sec-k">Prima / Dopo</p>
   <h2>Dal foglietto delle prove al documento.</h2>
-  <p class="lead">A sinistra: la scheda tecnica come gira davvero nelle band. A destra: <b>uno screenshot reale dell'editor</b> — il modello «Band pop/rock» incluso, non un mockup. <b>Trascina il cursore.</b></p>
+  <p class="lead">A sinistra: gli appunti come girano davvero prima di un concerto. A destra: <b>un progetto vero</b> fatto con StagePlot per un'orchestra in piazza — 33 musicisti, pedane, hearback, FOH. Non un mockup: uno screenshot dell'editor. <b>Trascina il cursore.</b></p>
 
   <div class="ba" id="ba" style="--cut:45%">
     <div class="ba-pane ba-before" aria-hidden="true">
@@ -409,14 +409,14 @@
           <path d="M735 235 L728 243 L740 244 Z" fill="#3a3428"/>
         </g>
         <g font-family="Bradley Hand,Segoe Print,Comic Sans MS,cursive" fill="#3a3428">
-          <text x="150" y="60" font-size="26" transform="rotate(-2 150 60)">palco sabato?!?</text>
-          <text x="400" y="215" font-size="15" transform="rotate(-1 400 215)">batteria (?)</text>
-          <text x="185" y="205" font-size="14">ampli</text>
-          <text x="585" y="205" font-size="14">ampli Gigi</text>
-          <text x="390" y="335" font-size="14">voce qui??</text>
-          <text x="300" y="245" font-size="14" transform="rotate(-2 300 245)">e le tastiere dove?</text>
-          <text x="745" y="255" font-size="15" transform="rotate(3 745 255)">manca la DI!!</text>
-          <text x="150" y="395" font-size="16" transform="rotate(-1 150 395)">3 monitor? chiedere al fonico</text>
+          <text x="150" y="60" font-size="26" transform="rotate(-2 150 60)">piazza sabato?!?</text>
+          <text x="400" y="215" font-size="15" transform="rotate(-1 400 215)">percussioni (?)</text>
+          <text x="185" y="205" font-size="14">fiati dietro?</text>
+          <text x="585" y="205" font-size="14">archi qua??</text>
+          <text x="390" y="335" font-size="14">solista qui??</text>
+          <text x="300" y="245" font-size="14" transform="rotate(-2 300 245)">e il piano dove?</text>
+          <text x="745" y="255" font-size="15" transform="rotate(3 745 255)">19 hearback?!</text>
+          <text x="150" y="395" font-size="16" transform="rotate(-1 150 395)">33 sedie? 33 leggii? chiedere</text>
           <text x="560" y="395" font-size="16" fill="#7a3b2e" transform="rotate(1 560 395)">CORRENTE???</text>
         </g>
         <g fill="none" stroke="rgba(139,94,60,.35)" stroke-width="3">
@@ -427,9 +427,9 @@
     </div>
 
     <div class="ba-pane ba-after" aria-hidden="true">
-      <img class="ba-shot" src="dopo-editor.jpg" width="1556" height="763"
-           alt="Il modello «Band pop/rock» aperto nell'editor StagePlot: palco 16 × 7 m in scala con pedana batteria, ampli, tastiere, cori, side fill e in-ear">
-      <span class="ba-made">modello «Band pop/rock» — screenshot reale dell'editor</span>
+      <img class="ba-shot" src="dopo-editor.jpg" width="1462" height="1011"
+           alt="Progetto reale nell'editor StagePlot: orchestra ritmico-sinfonica su palco 12 × 12 m con pedane per fiati e percussioni, 33 musicisti, hearback, subwoofer, passacavi e postazione FOH">
+      <span class="ba-made">progetto reale · orchestra su palco 12 × 12 m — screenshot dell'editor</span>
     </div>
 
     <span class="ba-tag prima">PRIMA</span>
@@ -438,8 +438,8 @@
     <input class="ba-range" type="range" min="4" max="96" value="45" step="0.5" aria-label="Confronto prima e dopo: trascina per rivelare il rider generato">
   </div>
   <div class="ba-caption">
-    <span>il foglietto scattato in sala prove e girato su WhatsApp</span>
-    <span><b>la stessa band dentro l'editor vero</b> — apri e parti da qui: <a class="ghost" href="https://stageplot.it/?model=band">stageplot.it/?model=band</a></span>
+    <span>gli appunti girati su WhatsApp prima del montaggio</span>
+    <span><b>concerto reale, estate 2026</b> — 100+ elementi in scala · per la tua band c'è il modello pronto: <a class="ghost" href="https://stageplot.it/?model=band">stageplot.it/?model=band</a></span>
   </div>
 </div></section>
 
@@ -694,15 +694,18 @@
     var raw = el.dataset.n, dec = raw.indexOf(',') > -1;
     var target = parseFloat(raw.replace(',', '.'));
     if (reduced) { el.textContent = raw; return; }
-    var t0 = null, dur = 950;
+    var t0 = null, dur = 950, done = false;
     function fmt(v){ return dec ? v.toFixed(1).replace('.', ',') : String(Math.round(v)); }
     function step(t){
+      if (done) return;
       if (!t0) t0 = t;
       var p = Math.min(1, (t - t0) / dur);
       el.textContent = fmt(target * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) requestAnimationFrame(step); else el.textContent = raw;
+      if (p < 1) requestAnimationFrame(step); else { done = true; el.textContent = raw; }
     }
     requestAnimationFrame(step);
+    /* rete di sicurezza: nelle schede in background il rAF non scatta — il valore finale arriva comunque */
+    setTimeout(function(){ if (!done) { done = true; el.textContent = raw; } }, dur + 400);
   }
   document.querySelectorAll('#con-sum b').forEach(countUp);
 
