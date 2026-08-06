@@ -1175,7 +1175,7 @@
   <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
   <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
     <div class="cl-contacts" style="margin:0 0 12px">
-      <div style="font-size:11px;color:var(--text-2,#374151);font-weight:600;margin-bottom:2px">Contatti e ruoli <span style="font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;padding:0 7px;font-size:9.5px" title="Questi contatti vanno stampati sul rider e viaggiano con il link e le copie. Metti solo ciò che vuoi far leggere a chi riceve il progetto.">🌐 sul rider · pubblici</span></div>
+      <div style="font-size:11px;color:var(--text-2,#374151);font-weight:600;margin-bottom:2px">Contatti e ruoli <span class="rd-pub" title="Questi contatti vanno stampati sul rider e viaggiano con il link e le copie. Metti solo ciò che vuoi far leggere a chi riceve il progetto.">🌐 sul rider · pubblici</span></div>
       <div style="font-size:10px;color:var(--text-3,#6b7280);margin-bottom:6px;line-height:1.4">Viaggiano con link e copie. Aziende, reparti e responsabili di produzione resteranno invece nel tuo account (privati).</div>
       <div id="contactRows"></div>
       <button type="button" id="contactAdd" class="btn" style="font-size:12px;margin-top:5px">+ Contatto</button>
@@ -1188,11 +1188,11 @@
       <summary style="font-size:11px;color:var(--text-2,#374151);cursor:pointer;font-weight:600">Rider tecnico — testo (opzionale)</summary>
       <div style="margin-top:7px;display:grid;gap:7px">
         <div style="font-size:10.5px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" style="width:74px;margin-left:6px;padding:3px 6px;font-size:12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111"></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" style="width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;color:#111;resize:vertical"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" class="rd-i" style="width:74px;margin-left:6px"></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
       </div>
     </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
