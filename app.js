@@ -2434,9 +2434,9 @@ var COMP = {
   COMP.timpani=timpCfg(2); COMP.timpani3=timpCfg(3); COMP.timpani2=timpCfg(2);
 })();
 var DEFAULT_LABELS = {
-  pedana:"PED", scala:"Scala", rampa:"Rampa", parapetto:"Parap.", fondale:"Backdrop", quinta:"Quinta", truss:"Truss", transenna:"Transenna",
+  pedana:"PED", scala:"Scala", rampa:"Rampa", parapetto:"Parap.", fondale:"Fondale", quinta:"Quinta", truss:"Truss", transenna:"Transenna",
   tappeto:"Tappeto", tavolo:"Tavolo", sedia:"Sedia", sediabianca:"Sedia", sedialeggio:"Sedia+leggio", leggio:"Leggio", podio:"Podio", pedanacoro:"Coro riser",
-  sgabello:"Sgab.", ventilatore:"Fan", metro:"", testo:"Testo",
+  sgabello:"Sgab.", ventilatore:"Ventilatore", metro:"", testo:"Testo",
   corno:"Corno", tromba:"Tr", trombone:"Tbn", tuba:"Tuba",
   flauto:"Fl", oboe:"Ob", clarinetto:"Cl", fagotto:"Fg", saxalto:"Sax A", saxtenore:"Sax T", saxbaritono:"Sax Bar",
   batteria:"Drums", edrums:"E-drums", drumshield:"Shield", rullante:"Snare", percussioni:"Perc.", cajon:"Cajon", timbales:"Timbales",
@@ -2448,7 +2448,7 @@ var DEFAULT_LABELS = {
   gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"Direttore",
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
-  astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", astagigante:"Boom XL", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Speaker", cantante:"Voce", corista:"Coro",
+  astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", astagigante:"Boom XL", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Podio relatore", cantante:"Voce", corista:"Coro",
   wedge:"MIX", sidefill:"SIDE", drumfill:"DRUM FILL", iem:"IEM", iemant:"TX IEM", hearback:"PM",
   dimono:"DI", distereo:"DI st", stagebox:"STAGEBOX", splitter:"SPLIT", multicore:"SUB", corrente:"220V", ciabatta:"Power",
   quadro:"POWER", foh:"FOH", monmix:"MON MIX", laptop:"MAC", audiointerface:"I/O",
@@ -4738,6 +4738,10 @@ function normalizeState(s){
   s.evDate=(typeof s.evDate==="string" && /^\d{4}-\d{2}-\d{2}$/.test(s.evDate)) ? s.evDate : "";   /* evento: giorno e orario (header, 17/07) — facoltativi */
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  /* Pagine scelte nella finestra Esporta: erano azzerate a ogni riapertura, anche solo andando a
+     ritagliare l'area di stampa e tornando indietro — chi aveva aggiunto la Lista ingressi la perdeva
+     senza nessun avviso, e l'anteprima riapriva su pagina 1, identica nei due casi (06/08). */
+  s.pdfPages = Array.isArray(s.pdfPages) ? s.pdfPages.filter(function(k){ return typeof k==="string"; }).slice(0,20) : null;
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
@@ -8307,6 +8311,10 @@ function auditEngine(){
   if(audioSrc>0 && !(state.contacts||[]).some(function(c){ return /service/i.test(c.role||"") && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }))
     add("info","Nessun contatto per il Service locale nella rubrica del rider: serve per coordinare la data.","Contatti");
   /* T5 — stato: un documento ancora in bozza non è pronto da inviare */
+  /* «segnato come da confermare» era una promessa che nessuno manteneva: _provisional veniva scritto
+     e mai più letto da nessuna parte — passati i 3 secondi del toast, l'informazione era persa e il
+     service riceveva un palco standard come se fosse una misura dichiarata (06/08). */
+  if(state.stage && state.stage._provisional) add("warn","Le misure del palco sono ancora quelle standard 8 × 6 m, da confermare.","Palco","Apri «Forma del palco» e inserisci le misure reali: il service le legge dal disegno.");
   if(items.length && (state.status||"bozza")==="bozza") add("info","Il progetto è ancora una «Bozza»: portalo ad «Approvato» quando è pronto da inviare al service.","Stato");
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
@@ -9361,7 +9369,7 @@ function renderSbF2(it){
         if(names[po]) d2.title=names[po];
         oh.appendChild(d2);
       }
-      document.getElementById("pSbPortsOutHint").textContent=usedOut+" in uso · "+(outCap-usedOut)+" libere — assegna dalle «Uscite console» (layer Monitor)";
+      document.getElementById("pSbPortsOutHint").textContent=usedOut+" in uso · "+(outCap-usedOut)+" libere — assegna dalle «Uscite console» (layer Output)";
     }
   }
 }
@@ -10378,7 +10386,16 @@ document.getElementById("pRamp").addEventListener("change", function(){ var v=th
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; lookReset(o,lk); recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Tutto il progetto disegnato come «Strumento solo»":"Tutto il progetto disegnato come «Postazione»"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
-document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=it.labelMode||"full"; state.items.forEach(function(o){ if(o.type===it.type){ if(m==="abbr") delete o.labelMode; else o.labelMode=m; } }); render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
+/* «Applica a tutti» faceva l'OPPOSTO in modalità Sigla: `if(m==="abbr") delete o.labelMode` spegneva
+   la sigla su tutti gli elementi dello stesso tipo — compreso quello selezionato, che è anche lui in
+   state.items. E la sigla scritta a mano non veniva mai copiata, benché il tooltip la promettesse. */
+document.getElementById("pLblApplyType").addEventListener("click", function(){ var it=getSel(); if(!it) return;
+  var m=it.labelMode||"full", ab=it.abbr;
+  state.items.forEach(function(o){ if(o.type!==it.type) return;
+    if(m==="full") delete o.labelMode; else o.labelMode=m;
+    if(m==="abbr" && ab && o.id!==it.id) o.abbr=ab;   /* la sigla scritta a mano si propaga davvero */
+  });
+  render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
 document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
@@ -13258,8 +13275,33 @@ function applyTheme(dark){
 function a11yAnnounce(msg){ var el=document.getElementById("a11yLive"); if(!el) return; el.textContent=""; setTimeout(function(){ el.textContent=msg; }, 30); }
 function a11yDesc(it){ if(!it) return ""; var nm=(it.label!=null&&it.label!=="")?String(it.label):(typeof defaultLabel==="function"?defaultLabel(it.type):String(it.type||"elemento")); return nm+", posizione "+Math.round(it.x)+", "+Math.round(it.y)+(it.rot?(", ruotato "+Math.round(it.rot)+" gradi"):""); }
 function a11yItemIndex(id){ var a=state.items||[]; for(var i=0;i<a.length;i++){ if(a[i].id===id) return i; } return -1; }
+/* Finestre costruite fuori dal motore di dialogo: nessuna aveva un gestore di Esc, e «Produzione —
+   reparti» restava perfino a intercettare i click. In più un solo Esc chiudeva TRE livelli insieme
+   (finestra + selezione sul palco + ricerca nel catalogo): ora chiude un livello per volta. (06/08) */
+var ESC_MODALS=["prodModal","rubModal","learn","clDlg","csvPicker","cloudModal"];
+function escCloseTopModal(target){
+  var inField=target && /INPUT|SELECT|TEXTAREA/.test(target.tagName||"");
+  for(var i=ESC_MODALS.length-1;i>=0;i--){
+    var m=document.getElementById(ESC_MODALS[i]);
+    /* «aperta» = si vede davvero: alcune di queste finestre non usano l'attributo hidden ma il CSS,
+       e fidarsi del solo hidden faceva mangiare l'Esc a una finestra invisibile */
+    if(!m || m.hidden || !m.getClientRects().length) continue;
+    /* Esc dentro un campo della finestra chiude la finestra: molte si aprono col fuoco già in un
+       input (Produzione), e lasciarle aperte significava lasciarle a intercettare i click. */
+    if(inField && !m.contains(target)) continue;
+    m.hidden=true; return true;
+  }
+  return false;
+}
 document.addEventListener("keydown", function(e){
   if(clOpen && e.key==="Escape"){ clShow(false); return; }   /* channel list a schermo intero */
+  if(e.key==="Escape" && escCloseTopModal(e.target)) return;
+  /* durante la scelta dell'area di stampa Esc vale «annulla questo passo»: riporta alla finestra
+     Esporta da cui si è partiti, invece di lasciare sul canvas senza né finestra né pannello */
+  if(e.key==="Escape" && typeof frameEdit!=="undefined" && frameEdit && typeof finishFrameEdit==="function"){
+    /* stopImmediatePropagation: più avanti c'è il listener che chiude la finestra Esporta con Esc, e
+       nello stesso evento richiuderebbe quella che stiamo riaprendo qui */
+    e.stopImmediatePropagation(); finishFrameEdit(); return; }
   var modal=document.getElementById("orchModal");
   if(!modal.hidden && e.key==="Escape"){ modal.hidden=true; return; }
   var strModal=document.getElementById("stringModal");
@@ -17382,7 +17424,10 @@ function techScrollTo(id){
 (function(){
   var head=document.getElementById("patchSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#patchTrash")) return; if(patchOpen) patchOpen=false; else techAccordionOpen("patch"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); patchActive=false; render(); });   /* cestino: rimuove l'input list */
+  /* Chiudeva patchActive… che il render successivo ricalcola da layerAccOpen: la lista tornava su da
+     sola e il comando sembrava rotto. Si chiude il layer che la tiene aperta — che è la stessa cosa
+     che l'utente vede, cioè «via questa lista dallo schermo» (06/08). */
+  document.getElementById("patchTrash").addEventListener("click", function(e){ e.stopPropagation(); layerAccOpen=null; layerSoloUI={}; patchActive=false; render(); });
   /* «Esporta input list (PDF)» tolto dalla colonna (Simone 28/07): l'export vive nella channel list,
      insieme al CSV. patchListPdf resta — la chiama il bottone PDF della finestra. */
   /* ── channel list a schermo intero ── */
@@ -18386,7 +18431,7 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
 (function(){
   var head=document.getElementById("monSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#monTrash")) return; if(monOpen) monOpen=false; else techAccordionOpen("mon"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("monTrash").addEventListener("click", function(e){ e.stopPropagation(); monActive=false; render(); });
+  document.getElementById("monTrash").addEventListener("click", function(e){ e.stopPropagation(); layerAccOpen=null; layerSoloUI={}; monActive=false; render(); });
   document.getElementById("monPdf").addEventListener("click", function(){ monitorListPdf(); });
   document.getElementById("monPropose").addEventListener("click", function(){
     var n=monProposeWedges();
@@ -18544,7 +18589,7 @@ function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordion
 (function(){
   var head=document.getElementById("loadSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#loadTrash")) return; if(loadOpen) loadOpen=false; else techAccordionOpen("load"); renderAccessoriCount(); });   /* accordion */
-  document.getElementById("loadTrash").addEventListener("click", function(e){ e.stopPropagation(); loadActive=false; render(); });
+  document.getElementById("loadTrash").addEventListener("click", function(e){ e.stopPropagation(); layerAccOpen=null; layerSoloUI={}; loadActive=false; render(); });
   document.getElementById("loadPdf").addEventListener("click", function(){ loadListPdf(); });
 })();
 /* ===== Pannello CABLAGGIO ELETTRICO ===== */
@@ -19043,7 +19088,11 @@ function toggleFrameEdit(){ frameEdit=!frameEdit; if(frameEdit){ exitHubModes("f
 function fmtMnum(cm){ return (cm/100).toFixed(2).replace(/\.?0+$/,""); }
 function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; saveAsOpen=false; clearSelection(); ensurePrintFrame(); renderFramePanel(); render(); } }
 /* fine della scelta: si torna alla finestra Esporta, da dove si era partiti */
-function finishFrameEdit(){ frameEdit=false; saveAsOpen=true; renderFramePanel(); render(); }
+/* «Torna a Esporta» tornava a un'ALTRA cosa: il pannello laterale Esporta, cioè proprio il passaggio
+   intermedio che il 31/07 era stato tolto dall'andata — sopravviveva sulla via del ritorno. E con Esc
+   non si tornava affatto: niente finestra, niente pannello, in mezzo al canvas (06/08). */
+function finishFrameEdit(){ frameEdit=false; saveAsOpen=false; renderFramePanel(); render();
+  if(typeof window.openPdfExportModal==="function") window.openPdfExportModal(); }
 /* riassunto dell'area nella finestra Esporta: dice sempre cosa verrà stampato */
 function frameSummaryText(){
   var f=state.printFrame;
@@ -20016,6 +20065,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       else if(a==="feedback"){ if(typeof window.openFeedbackBox==="function") window.openFeedbackBox(); else proxyClick("fbTrigger"); }
     }); });
   })();
+  /* Su desktop NESSUN comando visibile diceva PDF/Esporta/Scarica: l'export viveva solo dentro il menu
+     File, mentre sul telefono il dock ce l'ha a vista. Chi apre l'app pensa «mando il PDF» e trovava
+     solo «Condividi» (06/08). ⌘P resta la scorciatoia, ora annunciata dal title. */
+  (function(){ var b=document.getElementById("bExportHdr");
+    if(b) b.addEventListener("click", function(){ document.getElementById("bHdrPdf").click(); }); })();
   document.getElementById("shareClose").addEventListener("click", closeShare);
   /* — pulsanti header: Save as / Importa — */
   document.getElementById("bHdrPdf").addEventListener("click", function(){
@@ -22843,7 +22897,10 @@ function pdfChannelPage(doc, L, paperKey){
     return pdfSortTechPages(pages);
   }
   var _pdfTechPages=[];
-  var _pdfPillSel={}, _prodOpen=false;   /* pillole + stato UI (si resettano a ogni apertura) */
+  var _pdfPillSel={}, _prodOpen=false;   /* pillole + stato UI */
+  /* la scelta delle pagine è del DOCUMENTO, non della finestra: sopravvive alla chiusura, al giro
+     dall'area di stampa e alla riapertura (06/08) */
+  function pdfRememberPages(){ try{ state.pdfPages=Object.keys(_pdfPillSel); save(); }catch(_e){} }
   function pdfSelectedPages(){   /* Set delle chiavi selezionate (pillole) → letto da buildPdfDoc via window.__pdfPages */
     var sel={};
     _pdfTechPages.forEach(function(p){ if(_pdfPillSel[p.key]) sel[p.key]=true; });
@@ -22873,13 +22930,13 @@ function pdfChannelPage(doc, L, paperKey){
         nSel++;
         var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
         var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
-        x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRenderPills(); pdfUpdateTechNote(); });
+        x.addEventListener("click", function(){ delete _pdfPillSel[p.key]; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); });
         pill.appendChild(x); host.appendChild(pill);
       } else {
         var isSugg=!!sugg[p.key]; if(isSugg) nSugg++;
         var g=mk(p.label,"pill ghost"+(isSugg?" sugg":"")); g.dataset.key=p.key;
         g.title=isSugg?"Suggerita dagli elementi sul palco — click per aggiungerla":"Aggiungi al PDF";
-        g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRenderPills(); pdfUpdateTechNote(); });
+        g.addEventListener("click", function(){ _pdfPillSel[p.key]=true; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); });
         host.appendChild(g);
       }
     });
@@ -22890,7 +22947,7 @@ function pdfChannelPage(doc, L, paperKey){
     var rest=_pdfTechPages.length-nSel;
     if(rest>1){
       var all=mk("Tutte le pagine","pill ghost");
-      all.addEventListener("click", function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRenderPills(); pdfUpdateTechNote(); });
+      all.addEventListener("click", function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); });
       host.appendChild(all);
     }
     var tt=document.getElementById("pdfPillsTitle");
@@ -22989,7 +23046,13 @@ function pdfChannelPage(doc, L, paperKey){
     var _at=document.getElementById("pdfAreaTxt");
     if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
     _pdfTechPages=pdfComputeTechPages();
-    _pdfPillSel={}; _prodOpen=false;   /* default: solo palco — le pagine tecniche si aggiungono con un click */
+    /* Prima apertura del documento: partono selezionate le pagine che l'app stessa marca come suggerite
+       (bordo verde) — una «scheda tecnica» senza channel list non è una scheda tecnica, e il bottone
+       verde non fermava nessuno. Dalla seconda in poi vale ciò che ha scelto l'utente. */
+    _pdfPillSel={};
+    if(Array.isArray(state.pdfPages)) state.pdfPages.forEach(function(k){ _pdfPillSel[k]=true; });
+    else if(typeof pdfSuggestedKeys==="function") pdfSuggestedKeys(_pdfTechPages).forEach(function(k){ _pdfPillSel[k]=true; });
+    _prodOpen=false;
     pdfRenderPills();
     renderProdInline();
     pdfHeaderInit();
@@ -23627,12 +23690,20 @@ function applyStageSize(wM, dM, provisional){
   var w=Math.max(100,Math.round(wM*100)), d=Math.max(100,Math.round(dM*100));   /* metri → cm (min 1 m) */
   state.stage={w:w, d:d, blocks:[{x:0,y:0,w:w,d:d}]};
   if(provisional) state.stage._provisional=true;   /* "dimensioni da confermare" (additivo, retro-compatibile) */
+  else delete state.stage._provisional;             /* misure dichiarate: il rilievo d'audit si spegne */
   if(typeof recalcStageBBox==="function") recalcStageBBox();
   save(); render();
   if(typeof fitStage==="function") fitStage(); else if(typeof fit==="function") fit();   /* zoom per mostrare tutto il palco */
 }
 var __stageSizeOpen=false;
-function closeStageSize(){ var m=document.getElementById("stageSize"); if(m) m.hidden=true; __stageSizeOpen=false; }
+function closeStageSize(){ var m=document.getElementById("stageSize"); if(m) m.hidden=true; __stageSizeOpen=false;
+  /* Chiusa l'ultima finestra d'ingresso, il fuoco va nella ricerca del catalogo: a riposo le 11
+     categorie sono chiuse e a vista ci sono due soli elementi: senza ricerca il primo passo
+     («posa uno strumento») costa tre clic e due indovinelli di categoria (06/08). */
+  /* differito: chi chiama questa funzione fa subito dopo render()/fit(), che ricostruiscono la colonna
+     del catalogo — dando il fuoco qui e ora andrebbe perso col nodo vecchio */
+  setTimeout(function(){ var q=document.getElementById("catSearch");
+    if(q && typeof isMobile==="function" && !isMobile()) try{ q.focus(); }catch(_e){} }, 0); }
 function showStageSizeModal(){
   var m=document.getElementById("stageSize"); if(!m) return;
   var wIn=document.getElementById("ssW"), dIn=document.getElementById("ssD"), err=document.getElementById("ssErr");
@@ -23669,8 +23740,13 @@ function maybeAskStageSize(explicit){
     if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Forma del palco».");
   });
   m.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); confirm(); } });
-  m.addEventListener("click", function(e){ if(e.target===m) closeStageSize(); });   /* click fuori = tieni il default */
-  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !m.hidden) closeStageSize(); });
+  /* Esc e click sul velo sono l'altro modo di dire «non lo so», e consegnavano il palco DOPPIO
+     (12×8) senza dirlo né marcarlo, mentre il bottone dà 8×6 marcato e lo dichiara. Due modi di non
+     rispondere non possono avere due esiti opposti, e il più silenzioso non può essere il peggiore. */
+  function stageSizeSkip(){ if(m.hidden) return; applyStageSize(8, 6, true); closeStageSize();
+    if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Forma del palco»."); }
+  m.addEventListener("click", function(e){ if(e.target===m) stageSizeSkip(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !m.hidden) stageSizeSkip(); });
   [wIn,dIn].forEach(function(i){ i.addEventListener("input", function(){ if(err) err.hidden=true; }); });
 })();
 
