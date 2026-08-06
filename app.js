@@ -1720,6 +1720,10 @@ var WATT = {
   dm3:45, dm7c:110, dm7:150, csr3:280, csr5:350, csr10:600,
   sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
   q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
+  /* La console generica non dichiarava consumo: sul palco c'era un mixer e nella Lista carichi
+     mancava. 80 W è il taglio di una digitale media senza modello scelto — appena si sceglie il
+     modello reale vale il suo numero (dm3:45, sq5:90, avantis:180…). (06/08) */
+  mixer:80,
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
@@ -6807,7 +6811,12 @@ function audioCablingEngine(){
   /* il MIXER è il capolinea: non ha una coda da mandare a monte né una snake verso il punto
      principale — è lui il punto principale (29/07). */
   boxes.forEach(function(b){ b.wantUp = !b.digital && !b.isMixer && _hasDig && sbToOf(b)!=="main"; b.up=null; });
-  var _sorted=boxes.slice().sort(function(a,b2){ return (a.eid-b2.eid) || (a.letter<b2.letter?-1:1); });
+  /* Il banco viene per primo: i suoi ingressi locali SONO i canali 1..N della console, e le stage box
+     continuano da lì. Ordinando solo per posizione nell'array, sostituire il mixer all'ultimo minuto
+     rinumerava l'intera input list (16 canali su 16 misurati) perché il nuovo elemento finiva in fondo
+     — il numero di canale seguiva l'ordine di POSA invece della gerarchia del sistema. (06/08) */
+  var _sorted=boxes.slice().sort(function(a,b2){
+    return ((b2.isMixer?1:0)-(a.isMixer?1:0)) || (a.eid-b2.eid) || (a.letter<b2.letter?-1:1); });
   var _base=0; _sorted.forEach(function(b){ if(b.wantUp){ b.fohBase=null; return; } b.fohBase=_base; _base+=b.cap; });
   var _seenId={}; boxes.forEach(function(b){ if(b.sbId){ if(_seenId[b.sbId]) issues.push({lvl:"warn", msg:"Device ID duplicato: due stage box con ID "+b.sbId+" — cambia l'ID di una."}); _seenId[b.sbId]=b; } });
   var _dupPorts=[];
@@ -7949,7 +7958,15 @@ function electricEngine(){
     /* sbilanciamento: solo se abbastanza carichi da poter bilanciare e squilibrio davvero grosso */
     if(d.ph>1 && (d.nLoads||0)>=3 && mx>8 && (mx-mn)>0.5*mx) issues.push({lvl:"warn", msg:"Fasi sbilanciate sul distro "+d.letter+" (L1/L2/L3 = "+d.phLoad.slice(0,3).map(function(x){return x.toFixed(0);}).join("/")+" A): ridistribuisci i carichi."});
   });
-  unassigned.forEach(function(l){ issues.push({lvl:"err", msg:"Carico senza distro: "+(l.it.label||TYPES[l.it.type].nome)+" ("+elecKW(l.w)+")."}); });
+  /* «Carico senza distro» diceva il fatto, non il motivo: con una multipresa da 16 A e 8 kW di
+     teste mobili, l'app rifiuta l'aggancio (giustamente) e l'utente vede solo «trascina il pallino».
+     Quando sul palco un distro c'è ma nessuno ha margine, si dice quello. (06/08) */
+  var _capLibera=distros.reduce(function(m,d){ var mx=Math.max.apply(null, d.phLoad||[0]); return Math.max(m, (d.a-mx)); }, 0);
+  unassigned.forEach(function(l){
+    var stretto = distros.length && l.a > _capLibera;
+    issues.push({lvl:"err", msg:"Carico senza distro: "+(l.it.label||TYPES[l.it.type].nome)+" ("+elecKW(l.w)+")."
+      +(stretto?" Nessun quadro ha margine: servono "+l.a.toFixed(0)+" A e il più libero ne ha "+Math.max(0,_capLibera).toFixed(0)+". Aggiungi un quadro con più portata o dividi i carichi.":"")});
+  });
   loadLinks.forEach(function(l){ if(l.cee) issues.push({lvl:"warn", msg:"«"+(l.load.it.label||TYPES[l.load.it.type].nome)+"» "+l.load.a.toFixed(0)+" A: serve una linea dedicata (CEE), non una Schuko."}); });
   loadLinks.forEach(function(l){ if(l.lenM>25) issues.push({lvl:"warn", msg:"Carico lontano dal distro ("+(l.load.it.label||TYPES[l.load.it.type].nome)+", "+l.lenM.toFixed(0)+" m): valuta la caduta di tensione / sezione maggiore."}); });
   if(supply && supply.kva && totW>supply.kva*1000*0.9) issues.push({lvl:"err", msg:"Generatore "+supply.kva+" kVA sottodimensionato: carico "+elecKW(totW)+" (> 90% della resa)."});
@@ -7957,7 +7974,14 @@ function electricEngine(){
      In scala (audit 27/07): sotto AUDIT_MIN_W siamo nell'ordine dell'ampli attaccato alla Schuko che
      c'è già — non manca niente, quindi non si segnala niente. I totali restano nel pannello. */
   if(!distros.length && loads.length && totW>AUDIT_MIN_W) issues.push({lvl:"err", rule:"nodistro", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
-  if(pendingE.length) issues.push({lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
+  if(pendingE.length){
+    /* Se quello che resta da collegare NON CI STA su nessun quadro, dirlo qui: altrimenti l'utente
+       trascina il pallino ambra e non capisce perché l'aggancio viene rifiutato. (06/08) */
+    var _troppo=pendingE.filter(function(l){ return distros.length && l.a > _capLibera; });
+    issues.push(_troppo.length
+      ? {lvl:"err", msg:pendingE.length+" carichi da collegare, ma "+(_troppo.length===1?"uno non ci sta":_troppo.length+" non ci stanno")+" su nessun quadro: il più libero ha "+Math.max(0,_capLibera).toFixed(0)+" A liberi. Aggiungi un quadro con più portata o dividi i carichi."}
+      : {lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
+  }
   return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply,
           upPend:upPend,   /* ciabatte/distro con carico ma senza linea verso il quadro: la lista deve dirlo (31/07) */
           totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
@@ -8262,6 +8286,20 @@ function auditEngine(){
     && !(typeof cabItemInputs==="function" && cabItemInputs(it).length)
     && !items.some(function(m){ return AUDIT_VOICE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<150; }); });
   if(voxless.length) add("warn", voxless.length+(voxless.length===1?" cantante è":" cantanti sono")+" senza microfono: la voce non entra nella channel list.","Audio","Ogni voce ha bisogno di un mic accanto (radiomic, asta o headset) oppure di una zona mic.",{label:"Aggiungi radiomic",run:function(){ auditFixAddVoiceMics(voxless); }});
+  /* Un chitarrista con la sua postazione (che porta già il canale «mic ampli») più un combo posato
+     dal catalogo accanto: due SM57 in channel list per una chitarra sola. Sul palco può essere vero
+     (due ampli), ma nel documento consegnato è quasi sempre una svista. (06/08) */
+  var AMPLI_STAND={gtstand:"chitarra", bassstand:"basso"}, AMPLI_REALI={comboamp:1, stack:1, bassamp:1, keysamp:1, leslie:1};
+  var _doppioAmpli=items.filter(function(it){
+    if(!AMPLI_STAND[it.type]) return false;
+    var mk=micModeOf?null:null; var m=(it.miking||"ampli");
+    if(String(m).indexOf("ampli")<0) return false;             /* la postazione non porta il mic sul cono */
+    return items.some(function(a){ return AMPLI_REALI[a.type] && Math.hypot(a.x-it.x, a.y-it.y)<200; });
+  });
+  if(_doppioAmpli.length) add("warn", _doppioAmpli.length===1
+      ? "Una postazione «"+(TYPES[_doppioAmpli[0].type].nome)+"» ha già il microfono sull'ampli e accanto c'è un ampli dal catalogo: in lista escono due canali per lo stesso strumento."
+      : _doppioAmpli.length+" postazioni hanno il microfono sull'ampli con un altro ampli accanto: in lista escono due canali per lo stesso strumento.",
+    "Audio","Se l'ampli è uno solo: sul pannello della postazione scegli «DI» al posto di «Mic ampli», oppure togli l'ampli del catalogo. Se sono due davvero, rinominali (es. «Gtr ampli A» / «Gtr ampli B»).","dueampli");
   /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
      la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
      altrimenti quella derivata dagli elementi. */
@@ -16089,7 +16127,7 @@ function renderLayerRow(L, container){
     offRow.title="Attiva: "+L.name;
     var _attiva=function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); };
     offRow.addEventListener("click", _attiva);
-    premibile(offRow, _attiva, "Attiva il layer "+L.name);
+    premibile(offRow, _attiva, "Attiva la lista "+L.name);
     container.appendChild(offRow);
     return;
   }
@@ -16105,7 +16143,7 @@ function renderLayerRow(L, container){
     render();
   };
   row.addEventListener("click", _apriChiudi);
-  premibile(row, _apriChiudi, (focus?"Chiudi":"Apri")+" il layer "+L.name);
+  premibile(row, _apriChiudi, (focus?"Chiudi":"Apri")+" la lista "+L.name);
   row.setAttribute("aria-expanded", focus?"true":"false");
   /* Controlli SEMPRE inline (scelta Simone) su GRIGLIA A SLOT FISSI [S][occhio][lucchetto][cestino]:
      i bottoni uguali stanno in colonne verticali allineate tra le righe (slot vuoto dove il layer
