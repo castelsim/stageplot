@@ -2636,6 +2636,7 @@ body.dark .ask-all .btn{background:transparent}
   <div class="hdr-actions">
     <button class="btn" id="bChanList" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
     <a class="btn tint" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="text-decoration:none">Consulenza</a>
+    <button class="btn" id="bExportHdr" title="Esporta il PDF (⌘P)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Esporta</button>
     <button class="btn primary" id="bShareHdr" title="Condividi con un link (contiene anche Scarica PDF)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
     <button class="avatar-btn" id="accountBtn" title="Accedi per salvare online">Accedi</button>
   </div>
@@ -2876,11 +2877,11 @@ body.dark .ask-all .btn{background:transparent}
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Etichetta</label>
-        <button class="btn" id="pLblApplyType" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline;white-space:nowrap" title="Applica questa modalità nome (e la sigla) a tutti gli elementi dello stesso tipo">Applica a tutti</button>
+        <button class="btn" id="pLblApplyType" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline;white-space:nowrap" title="Dà a tutti gli elementi dello stesso tipo la stessa modalità nome — e, in Sigla, la stessa sigla">Applica a tutti</button>
       </div>
       <div style="display:flex;gap:4px">
         <button class="btn" id="pLblFull" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra il nome completo">Intero</button>
-        <button class="btn" id="pLblAbbr" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra una sigla breve (il PDF resta col nome completo)">Sigla</button>
+        <button class="btn" id="pLblAbbr" style="flex:1;font-size:12px;padding:5px 2px" title="Mostra una sigla breve al posto del nome, anche sul disegno stampato — le liste tengono il nome intero">Sigla</button>
         <button class="btn" id="pLblHidden" style="flex:1;font-size:12px;padding:5px 2px" title="Nascondi il nome per questo elemento">Nascosto</button>
       </div>
       <div id="pAbbrWrap" style="display:none;margin-top:6px">
@@ -3511,7 +3512,7 @@ body.dark .ask-all .btn{background:transparent}
       <div class="cab-sechead" id="patchSecHead">
         <span class="caret" id="patchCaret">▾</span>
         <span class="cab-sectitle"><b>Input list</b></span>
-        <button type="button" class="cab-trash" id="patchTrash" title="Rimuovi l'input list" aria-label="Rimuovi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi l'input list" aria-label="Chiudi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div id="patchBody" style="margin-top:8px">
         <div id="patchSummary" hidden></div>
@@ -3524,7 +3525,7 @@ body.dark .ask-all .btn{background:transparent}
       <div class="cab-sechead" id="monSecHead">
         <span class="caret" id="monCaret">▾</span>
         <span class="cab-sectitle"><b>Monitor list</b></span>
-        <button type="button" class="cab-trash" id="monTrash" title="Rimuovi la monitor list" aria-label="Rimuovi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div id="monBody" style="margin-top:8px">
         <div id="monSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
@@ -3540,7 +3541,7 @@ body.dark .ask-all .btn{background:transparent}
       <div class="cab-sechead" id="loadSecHead">
         <span class="caret" id="loadCaret">▾</span>
         <span class="cab-sectitle"><b>Lista carichi</b></span>
-        <button type="button" class="cab-trash" id="loadTrash" title="Rimuovi la lista carichi" aria-label="Rimuovi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <!-- 29/07: via il riepilogo a frase (#loadSummary) e la didascalia in piede — la barra in cima a
            #loadRows dice a che punto sei e quanto è carica la fase più carica, e ogni riga porta la sua
@@ -3959,7 +3960,7 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div class="wl-body">
       <div class="wl-steps">
-        <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Trascina</strong> gli elementi dal catalogo sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
+        <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Cerca</strong> lo strumento nel catalogo a sinistra, o aprilo per categoria: un clic lo posa sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
         <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + lista ingressi, monitor e carichi</span></div>
       </div>
