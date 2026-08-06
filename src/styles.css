@@ -618,6 +618,10 @@
   .qa-ghost{position:absolute;inset:0;padding:11px 0;font-size:14.5px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
   .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:11px 0;font-size:14.5px;background:transparent;color:var(--text,#111827);outline:none}
   .quick-add input{border:0!important;outline:0!important;box-shadow:none!important;background-image:none!important}   /* nessun bordo iniettato da estensioni o temi */
+  /* …ma i tre !important vietavano anche l'anello del fuoco, che qui serve: chi arriva col Tab non
+     vedeva dove stava scrivendo. Il fuoco da tastiera lo rimette, senza riaprire la porta ai bordi
+     iniettati da estensioni e temi (che non usano :focus-visible). (06/08) */
+  .quick-add input:focus-visible{outline:2px solid var(--accent)!important;outline-offset:-2px!important}
   .qa-body{overflow-y:auto;flex:1;min-height:0;border-top:1px solid #ece7de}
   .quick-add.qa-collapsed .qa-body,.quick-add.qa-collapsed .qa-foot{display:none}   /* campo vuoto: solo la barra di ricerca */
   .qa-list{list-style:none;margin:0;padding:5px 6px;display:flex;flex-direction:column;gap:1px}
@@ -1783,10 +1787,15 @@
   #versBox{background:var(--success-bg);border:1px solid var(--success-border);border-radius:10px;padding:11px 12px;margin-bottom:12px}
   #versBox h3{margin:0 0 8px;color:var(--success)}
   #versBox input[type=text]{width:100%;border:1px solid var(--success-border);border-radius:7px;padding:5px 7px;font-size:13px;background:var(--surface);box-sizing:border-box}
-  .ver-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--success-border);font-size:12px}
+  /* Il nome del punto è l'unica cosa che distingue un ripristino da un altro («Prima di eliminare
+     «Scena B»» ≠ «Prima di aprire altro.json»), e in una riga sola con data e due bottoni finiva
+     troncato a «Prima di ...»: tutti i punti sembravano lo stesso. Ora sta su una riga sua. (06/08) */
+  .ver-row{display:grid;grid-template-columns:1fr auto auto;gap:4px 6px;align-items:center;
+    padding:7px 0;border-bottom:1px solid var(--success-border);font-size:12px}
   .ver-row:last-child{border:none}
-  .ver-name{flex:1;font-weight:600;color:var(--success);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ver-date{color:var(--text-2);font-size:11px;flex-shrink:0}
+  .ver-name{grid-column:1 / -1;font-weight:600;color:var(--success);line-height:1.35;
+    overflow-wrap:anywhere;white-space:normal}
+  .ver-date{color:var(--text-2);font-size:11px;flex-shrink:0;justify-self:start}
   body.dark #versBox{background:#052e16;border-color:#14532d}
   body.dark #versBox h3{color:#4ade80}
   body.dark #versBox input[type=text]{background:#111;border-color:#14532d;color:#e5e7eb}
