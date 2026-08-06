@@ -271,6 +271,7 @@
 <div class="hdrmenu" id="fileMenu" hidden role="menu">
   <button class="mi" data-file="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nuovo</button>
   <button class="mi" data-file="model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 10.5h16M10 5v14"/></svg>Nuovo da modello…</button>
+  <button class="mi" data-file="open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Apri progetto…</button>
   <button class="mi" data-file="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 6.5 19z"/></svg>I miei progetti…</button>
   <button class="mi" data-file="rubrica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="15" height="18" rx="2"/><path d="M22 7h-3M22 12h-3M22 17h-3"/><circle cx="11.5" cy="10" r="2.2"/><path d="M7.8 17c.8-1.9 2.2-2.8 3.7-2.8s2.9.9 3.7 2.8"/></svg>La mia rubrica…</button>
   <button class="mi" data-file="richieste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 3z"/><path d="M8 9h8M8 12.5h5"/></svg><span>Richieste ai musicisti…</span></button>
@@ -280,6 +281,8 @@
   <button class="mi" data-file="rename"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Rinomina</button>
   <button class="mi" data-file="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Crea una copia</button>
   <button class="mi" data-file="variant-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="8.5" y="14" width="7" height="7" rx="1"/><path d="M6.5 10v2M17.5 10v2M12 12v2"/></svg>Nuova variante (scena)</button>
+  <button class="mi" data-file="download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 19h16"/></svg>Scarica il progetto (file)</button>
+  <button class="mi" data-file="versioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 1.8"/></svg>Punti di ripristino…</button>
   <hr>
   <button class="mi" data-file="pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Esporta PDF…</button>
   <button class="mi" data-file="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Esporta PNG</button>
@@ -2744,7 +2747,9 @@ var TYPES = {
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
                bar(0,-38,52,13,'ic fBlack',2)+circ(0,-27,2.5,'ic fill'); }},
-  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", alias:"coro cori coristi choir chorus pedana gradoni riser postazione", w:400,d:120, resizable:true, z:0,
+  /* riser:true — è una pedana a tutti gli effetti: senza il flag restava fuori dal rider («Stage e
+     pedane: —» con due gradoni sul palco), non aveva l'altezza e non si agganciava alle altre (06/08) */
+  pedanacoro:{nome:"Pedana coro", dim:"3 gradoni · 4×1,2 m", cat:"Palco e strutture", alias:"coro cori coristi choir chorus pedana gradoni riser postazione", w:400,d:120, resizable:true, z:0, riser:true, h:20,
              draw:function(it){ var s=bar(0,0,it.w,it.d,'ic fFloor',2), n=3, step=it.d/n;
                for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*step,it.w/2,-it.d/2+i*step,'ic'); }
                return s; }},
@@ -4740,10 +4745,16 @@ function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
 function deleteVariant(id){ if(VARIANTS.length<=1) return;   /* guardia: mai eliminare l'ultima variante */
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return;
+  /* La cronologia è per-scena (applyHistory non tocca VARIANTS): ⌘Z dopo questa riga non riporta la
+     scena, annulla l'ultima modifica fatta ALTROVE. L'unica rete possibile è il punto di ripristino,
+     come già fanno import e File→Nuovo — e ora si può anche riaprire, dal menu File (06/08). */
+  try{ if(typeof saveVersion==="function") saveVersion("Prima di eliminare «"+((VARIANTS[idx]||{}).name||"scena")+"»",true); }catch(_delVerErr){}
   var wasActive=(id===activeVar); VARIANTS.splice(idx,1);
   delete venueImgCache[String(id)];
   if(wasActive){ var nv=VARIANTS[Math.min(idx, VARIANTS.length-1)]; activeVar=nv.id; applyVariantState(nv.state,true,nv.id);
-    ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs(); resetHistory(); }
+    ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs(); }
+  resetHistory();   /* anche cancellando una scena NON attiva: ⌘Z è il gesto istintivo dopo un Elimina, e
+                       trovandosi la cronologia dell'altra scena annullava lavoro buono al posto di rimediare */
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   if(window.__consultDirty) window.__consultDirty();
   render(); renderChannels(); fit(); renderVariantBar(); }
@@ -4783,7 +4794,7 @@ function confirmDeleteVariant(id){
   var v=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) v=VARIANTS[i]; } if(!v) return;
   if(typeof window.confirmDialog==="function"){
     window.confirmDialog({ icon:"trash", title:"Eliminare la variante «"+(v.name||"")+"»?",
-      message:"Questa scena verrà rimossa dal progetto. Al prossimo salvataggio l'azione non è più reversibile.", confirmText:"Elimina" })
+      message:"Questa scena esce subito dal progetto e «Annulla» non la riporta indietro. Resta un punto di ripristino: File → Punti di ripristino…", confirmText:"Elimina" })
       .then(function(ok){ if(ok) deleteVariant(id); });
   } else deleteVariant(id);
 }
@@ -4986,7 +4997,10 @@ window.addEventListener("storage",function(e){
   if(localExpectedRevision!=null && incoming!==localExpectedRevision) markLocalConflict();
 });
 window.addEventListener("beforeunload",function(e){
-  if(!window.__localConflict) return;
+  /* Due modi diversi di finire con il lavoro solo in RAM: il conflitto fra schede e l'archivio del
+     browser pieno. La guardia nasceva per il primo; il secondo lasciava chiudere senza fiatare e
+     spariva tutto ciò che era stato fatto dopo il primo errore di quota (06/08). */
+  if(!window.__localConflict && !window.__localStorageUnavailable) return;
   e.preventDefault(); e.returnValue="";
 });   /* dopo un conflitto multi-tab gli edit restano solo in memoria: non chiudere senza esportarli */
 /* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
@@ -5065,6 +5079,12 @@ var CHIP_SVG={
   warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>'
 };
 function setDocState(mode){
+  /* Due stati sono DEFINITIVI finché non si ricarica: il conflitto fra schede e l'archivio pieno.
+     In entrambi il salvataggio è fermo, ma il primo save() successivo rimetteva la pastiglia su
+     «Salvato su questo dispositivo» — una bugia sopra un avviso vero, e l'unico segnale rimasto
+     spariva. Da qui in avanti l'avviso non si può più coprire con un «tutto a posto» (06/08). */
+  if(window.__localConflict && mode!=="conflict" && mode!=="blocked") mode="conflict";
+  else if(window.__localStorageUnavailable && (mode==="local"||mode==="offline-warn"||!mode)) mode="local-error";
   var el=document.getElementById("docState"), elM=document.getElementById("docStateM");
   var cls="doc-chip", html="", htmlM="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
@@ -5073,7 +5093,7 @@ function setDocState(mode){
   else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
-  else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Modificato altrove — scegli come continuare"; htmlM=CHIP_SVG.warn+"Modificato altrove"; }
+  else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Aperto in un'altra scheda — salvataggio sospeso, scarica il progetto o ricarica"; htmlM=CHIP_SVG.warn+"Altra scheda — non salvo"; }   /* «scegli come continuare» prometteva una scelta che non compare da nessuna parte: la pastiglia dice le due vie vere (06/08) */
   else if(mode==="locked"){ cls+=" warn"; html=CHIP_SVG.warn+"Progetto bloccato — le modifiche restano su questo dispositivo"; htmlM=CHIP_SVG.warn+"Bloccato — non salvo online"; }   /* il lucchetto ferma l'autosave: senza questo la pastiglia restava su «Salvataggio…» per sempre */
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
@@ -5258,10 +5278,18 @@ function recordHistory(){
   if(sameHistorySnapshot(s,lastSnap)) return;
   if(lastSnap!=null){ undoStack.push(lastSnap); if(undoStack.length>120) undoStack.shift(); }
   lastSnap=s; redoStack.length=0;
-  pruneVenueHistoryAssets();
+  pruneVenueHistoryAssets(); syncHistoryButtons();
   if(window.__rtBroadcast) window.__rtBroadcast(s.json);   /* Fase 3: sessione live, solo editor */
 }
-function resetHistory(){ venueHistoryAssets=Object.create(null); undoStack.length=0; redoStack.length=0; lastSnap=historySnapshot(); }
+function resetHistory(){ venueHistoryAssets=Object.create(null); undoStack.length=0; redoStack.length=0; lastSnap=historySnapshot(); syncHistoryButtons(); }
+/* Annulla/Ripeti si spengono quando non c'è niente da annullare. Serve soprattutto dopo un cambio di
+   scena, che azzera la cronologia (è per-variante): prima i due bottoni restavano accesi e premerli
+   non faceva nulla, senza che niente lo dicesse (06/08). Lo stile :disabled esisteva già, inutilizzato. */
+function syncHistoryButtons(){
+  var u=document.getElementById("bUndo"), r=document.getElementById("bRedo");
+  if(u) u.disabled = !undoStack.length;
+  if(r) r.disabled = !redoStack.length;
+}
 function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); return isFinite(n)?n:0; }
 function syncNextId(){
   nextId=1;
@@ -5306,8 +5334,8 @@ function applyRemoteState(json){
     setEventInputs(); render(); renderChannels(); fit();
   }catch(e){ /* stato remoto non valido: ignora */ }
 }
-function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); }
-function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); }
+function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
 /* ===== Importa progetto da file .json (annullabile) ===== */
 function activatePreparedProject(prepared, opts){
   opts=opts||{};
@@ -7444,6 +7472,7 @@ function itemInMicZone(it){
    tastiere, percussioni. `ownMic` resta come override esplicito (it.ownMic!=null vince). */
 function zoneAbsorbable(it){
   if(it.type==="crashR" || it.type==="rideR") return true;   /* piatti kit → overhead */
+  if(VOCE[it.type]) return micModeOf(it)==="pano";   /* una voce in panoramica ha già DICHIARATO di non avere un mic suo: è esattamente ciò che una zona assorbe (il coro, 06/08) */
   var mk=MIKING[it.type];
   return !!(mk && mk.options && mk.options.some(function(o){ return /^pan/.test(o[0]); }));
 }
@@ -7460,7 +7489,13 @@ function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (c
    c'è qualcosa da cablare deve chiedere i CANALI, che è quello che la lista mostra. */
 function hasChannels(it){ return !!(it && cabItemInputs(it).length); }
 /* sorgenti coperte da una zona (contano per UNA sola zona: identità restituita da itemInMicZone) */
-function micZoneSources(zone){ return state.items.filter(function(it){ return isAudioSource(it) && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
+/* Le voci sono il caso capovolto: isAudioSource le esclude PROPRIO quando sono in panoramica (i canali
+   sono della zona, non loro) — ma è quello il momento in cui la zona le copre. Con la sola isAudioSource
+   un coro non è mai risultato sorgente di zona: l'etichetta restava «Zona panoramica», il mic restava il
+   generico, e FAM_PAN["Persone e voci"] era codice irraggiungibile (06/08). */
+function micZoneSources(zone){ return state.items.filter(function(it){
+  var copribile = VOCE[it.type] ? micModeOf(it)==="pano" : isAudioSource(it);
+  return copribile && itemInMicZone(it)===zone && !effOwnMic(it); }); }   /* i "kept" (close-obligati/ownMic) non inquinano l'inferenza mic/label */
 /* famiglia (per inferenza mic + etichetta) → [mic, parola per l'etichetta] */
 var FAM_PAN = { "Archi":["KM184","archi"], "Legni":["KM184","legni"], "Ottoni":["KM184","ottoni"],
   "Percussioni":["KM184","percussioni"], "Persone e voci":["KM184","coro"] };
@@ -7522,7 +7557,9 @@ var SECTION_PLURAL={ "Violino":"Violini","Violino I":"Violini I","Violino II":"V
   "Contrabbasso":"Contrabbassi","Corno":"Corni","Tromba":"Trombe","Trombone":"Tromboni",
   "Flauto":"Flauti","Ottavino":"Ottavini","Oboe":"Oboi","Corno inglese":"Corni inglesi","Clarinetto":"Clarinetti",
   "Clarinetto basso":"Clarinetti bassi","Fagotto":"Fagotti","Controfagotto":"Controfagotti","Arpa":"Arpe",
-  "Corista":"Coro","Soprano":"Soprani","Contralto":"Contralti","Tenore":"Tenori","Basso":"Bassi" };
+  "Corista":"Coro","Voce":"Coro","Soprano":"Soprani","Contralto":"Contralti","Tenore":"Tenori","Basso":"Bassi" };
+/* «Voce» perché il tipo corista si chiama così nel catalogo: la chiave "Corista" non agganciava più
+   nulla e una zona su otto voci senza etichetta si intitolava «Voce». In panoramica sono un coro. */
 function micZoneSection(zone){
   var s=micZoneSources(zone); if(!s.length) return null;
   var counts={}, tot=0;
@@ -10005,6 +10042,11 @@ function auditEngine(){
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add("err","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* "Alimentazione non definita" rimosso: nel modello a 2 livelli il quadro è un elemento piazzato,
      il "da collegare al quadro" lo segnala già il motore sui carichi scoperti. */
+  /* Ma un quadro POSATO e non collegato spegneva il rilievo qui sopra e ne accendeva nessuno: la Lista
+     carichi usciva con tutte le righe «ok», distro e fase assegnate, su un palco dove non arriva
+     corrente. Il documento consegnato diceva risolto un impianto inesistente (06/08). */
+  if((Re.distros||[]).length && !(Re.feeds||[]).length && Re.totW>AUDIT_MIN_W)
+    add("err","I quadri sul palco non hanno alimentazione a monte: la Lista carichi esce come se tutto fosse alimentato.","Elettrico","Collega il quadro alla presa di rete o al generatore, e le ciabatte al quadro: trascina il pallino ambra del distro sulla sorgente.",null,"nofeed");
   if(audioSrc>AUDIT_MIN_CH && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
@@ -10039,7 +10081,12 @@ function auditEngine(){
      entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (nei casi reali analizzati mancavano fino a 11 canali voce).
      Solo "cantante": il corista vive tipicamente nel mic di sezione/coro o in una zona. */
   var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,astagigante:1,podiosp:1};
+  /* La prima domanda è la più semplice e mancava: questa voce PRODUCE GIÀ un canale? Il cantante in
+     modalità «tonda»/«mano» porta il suo microfono con sé, quindi era in channel list mentre l'audit
+     scriveva «la voce non entra nella channel list» — un allarme falsificato dalla lista che l'audit
+     stesso legge, e stampato nella pagina «Criticità» del PDF consegnato al service (06/08). */
   var voxless=items.filter(function(it){ return it.type==="cantante" && !itemInMicZone(it)
+    && !(typeof cabItemInputs==="function" && cabItemInputs(it).length)
     && !items.some(function(m){ return AUDIT_VOICE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<150; }); });
   if(voxless.length) add("warn", voxless.length+(voxless.length===1?" cantante è":" cantanti sono")+" senza microfono: la voce non entra nella channel list.","Audio","Ogni voce ha bisogno di un mic accanto (radiomic, asta o headset) oppure di una zona mic.",{label:"Aggiungi radiomic",run:function(){ auditFixAddVoiceMics(voxless); }});
   /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
@@ -10051,7 +10098,9 @@ function auditEngine(){
   else items.forEach(function(it){ (cabItemInputs(it)||[]).forEach(function(ch){ var k=String(ch.name||"").trim(); if(k) chNames.push(k); }); });
   var chCnt={}; chNames.forEach(function(k){ var lk=k.toLowerCase(); chCnt[lk]=(chCnt[lk]||0)+1; });
   var dupCh=Object.keys(chCnt).filter(function(k){ return chCnt[k]>1; });
-  if(dupCh.length) add("warn", (dupCh.length===1?("Due canali si chiamano «"+dupCh[0]+"»"):(dupCh.length+" nomi di canale compaiono più volte ("+dupCh.slice(0,3).join(", ")+"…"+")"))+": patch ambiguo per il service.","Audio","Se è uno spare, dichiaralo nel nome (es. «VOX LEAD spare»); se sono due sorgenti diverse, rinominane una.");
+  /* «Due canali» era scritto a mano e restava «due» anche con tre o otto omonimi (i cori, gli overhead):
+     il numero lo dà il conteggio, non la frase (06/08). */
+  if(dupCh.length) add("warn", (dupCh.length===1?(chCnt[dupCh[0]]+" canali si chiamano «"+dupCh[0]+"»"):(dupCh.length+" nomi di canale compaiono più volte ("+dupCh.slice(0,3).join(", ")+"…"+")"))+": patch ambiguo per il service.","Audio","Se è uno spare, dichiaralo nel nome (es. «VOX LEAD spare»); se sono due sorgenti diverse, rinominane una.");
   /* Convenzione console: coppie stereo su una coppia dispari-pari (L=dispari) per il link stereo. Opt-in. */
   (function(){ var plr=patchList().rows, pairs=0, mis=0;
     for(var i=0;i<plr.length-1;i++){ if(isStereoPairStart(plr[i],plr[i+1])){ pairs++; if(!(state.cab&&state.cab.stereoOdd) && plr[i].n%2===0) mis++; } }
@@ -11981,6 +12030,13 @@ function lblText(raw, it, isPrimary){
   return raw;
 }
 function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
+/* Come mutSel, ma vale per TUTTA la selezione dello stesso tipo. Il pannello mostrava i campi anche
+   con 24 coristi selezionati e poi ne cambiava uno solo: 72 gesti per mettere in panoramica un coro
+   (misurato). Solo per i campi che hanno senso in blocco — l'etichetta resta per elemento (06/08). */
+function mutSelAll(fn){ var it=getSel(); if(!it) return;
+  var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && x.type===it.type; });
+  if(!tutti.length) tutti=[it];
+  tutti.forEach(fn); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
 document.getElementById("pNote").addEventListener("input", function(){ mutSelSoon(function(it){
@@ -12246,8 +12302,8 @@ document.getElementById("pSep").addEventListener("input", function(){
   applySep(false);
 });
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
-document.getElementById("pDonna").addEventListener("change", function(){ mutSel(function(it){ it.donna=document.getElementById("pDonna").checked; }); });
-document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); });
+document.getElementById("pDonna").addEventListener("change", function(){ var c=document.getElementById("pDonna").checked; mutSelAll(function(it){ it.donna=c; }); });
+document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); __cabRes=null; render(); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
   it.leggio=document.getElementById("pLeggioV").checked;
   if(it.type==="cantante") it.d = cantanteDepth(it);   /* footprint = figura + mic in scala */
@@ -15917,7 +15973,9 @@ function buildVoiceOrganicoOut(counts, opts){
     if(opts.riser) out.push({type:"pedanacoro", x:0, y:y-12, w:Math.max(400,totW+150), d:120, h:20+ri*20, label:""});
     singers.forEach(function(s,idx){ out.push({type:"corista", x:Math.round(x0+idx*sp), y:y, rot:0, label:s.lbl, donna:s.donna, micMode:"pano"}); });   /* coro d'insieme: overhead, non un mic a testa */
   });
-  if(opts.mics) [-260,0,260].forEach(function(x){ out.push({type:"giraffa", x:x, y:frontY+70, rot:180, label:"Coro"}); });
+  /* tre aste con lo stesso nome davano tre righe identiche «Coro» nella Input list: al banco non si
+     capisce quale sia quale, ed è il patch ambiguo che l'audit del prodotto stesso segnala (06/08) */
+  if(opts.mics) [-260,0,260].forEach(function(x,i){ out.push({type:"giraffa", x:x, y:frontY+70, rot:180, label:"Coro "+["L","C","R"][i]}); });
   if(opts.director) out.push({type:"podio", x:0, y:frontY+150, label:"Direttore"});
   return out;
 }
@@ -18494,7 +18552,14 @@ function patchList(){
     rows.push(r0); });
   R.unassigned.forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });
   (R.pending||[]).forEach(function(s){ rows.push(row(s.name, s.mic, s.key, "—", null, s.it.id)); });   /* manual-first: la LISTA è completa anche senza cavi */
+  /* Quando i canali portano un numero FOH (più box, o box con Device ID) le righe vanno ordinate per
+     QUEL numero: l'ordine di posa degli elementi non ha niente a che vedere con l'ordine del banco, e
+     la lista usciva «17…24, 1…5, 25…27» — al banco si scorre per numero. L'ordine manuale, se c'è,
+     resta l'ultima parola (06/08). */
+  if(hasFoh && !(state.cab && state.cab.order && state.cab.order.length))
+    rows.sort(function(a,b){ var fa=(a.foh!=null?a.foh:1e9), fb=(b.foh!=null?b.foh:1e9); return fa-fb; });
   applyListOrder(rows, state.cab&&state.cab.order, function(r){ return r.key; });
+  rows.forEach(function(r,i){ r.n=i+1; });   /* il progressivo segue sempre la riga, comunque si sia ordinato */
   if(state.cab && state.cab.stereoOdd) rows=alignStereoOdd(rows);   /* convenzione L=dispari/R=pari (opt-in via audit) */
   rows=insertReserved(rows, R);
   return {rows:rows, R:R, hasFoh:hasFoh};
@@ -21770,6 +21835,10 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       "copy":fileMakeCopy, "variant-new":function(){ if(typeof createVariant==="function") createVariant(); }, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
       "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
       "share":function(){openShare();}, "produzione":function(){ if(window.openProdHub) window.openProdHub(); },
+      /* I punti di ripristino esistevano già — li scrivono import, File→Nuovo, conflitto fra schede e
+         aggiornamento — ma l'unico comando che apriva il pannello era agganciato a #frameVers, un id
+         sparito da una vecchia barra: la rete di sicurezza era scritta e irraggiungibile (06/08). */
+      "versioni":function(){ if(typeof toggleVersionEdit==="function") toggleVersionEdit(); },
       "richieste":function(){ if(window.openRequestsPanel) window.openRequestsPanel(); } };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
@@ -21877,7 +21946,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     if(navigator.share) navigator.share({title:shareText(), text:shareText(), url:urlEl.value}).catch(function(){});
   });
   /* ----- Salva / Importa progetto (.json) ----- */
-  function io(m,err){ var el=document.getElementById("ioStatus"); el.textContent=m||""; el.style.color=err?"#dc2626":"#16a34a"; }
+  /* #ioStatus è il resto di un vecchio pannello: nel markup è <div hidden> e nessuna riga lo mostra,
+     quindi ogni esito di apertura/salvataggio del file finiva scritto dove nessuno può leggerlo —
+     un progetto rotto veniva rifiutato in silenzio assoluto. L'esito ora passa dal toast (06/08). */
+  function io(m,err){ var el=document.getElementById("ioStatus"); if(el){ el.textContent=m||""; el.style.color=err?"#dc2626":"#16a34a"; }
+    if(m && window.__toast) window.__toast(m,!!err); }
   document.getElementById("saveJson").addEventListener("click", function(){
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
@@ -21905,7 +21978,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
         var parsed=JSON.parse(String(rd.result));
         if(!parsed||typeof parsed!=="object") throw new Error("Formato non valido");
         prepared=prepareDoc(parsed);   /* valida interamente prima di chiedere di sostituire il documento */
-      }catch(err){ io("✗ File non valido: non è un progetto Stage Plot.", true); return; }
+      }catch(err){
+        /* prepareDoc sa già DIRE cosa non va («richiede una versione più recente», «la variante 1 non
+           è valida»…): buttare la diagnosi mandava a cestinare file buoni salvati da una versione più
+           nuova. Il messaggio generico resta solo per il JSON illeggibile, che parla inglese. */
+        io("✗ "+((err&&err.code&&err.message)||"File non valido: non è un progetto Stage Plot."), true); return; }
       guardDocumentReplacement({reason:"aprire "+String(f.name||"un file").slice(0,60),
         title:"Aprire questo progetto?",confirmText:"Apri progetto"},function(){
         activatePreparedProject(prepared);
@@ -22042,7 +22119,29 @@ function channelListCsv(opts){
        Nomi max 8 caratteri ALFANUMERICI senza accenti (vincolo A&H: äöüéß non ammessi, >8 char troncati);
        "-" = cella ignorata all'import; valori yes/no minuscoli. Fonte: doc A&H + tool community dlive-midi-tools.
        DA VERIFICARE sulla console prima dell'evento. */
-    var ah=pl.rows.map(function(r){ return ["yes", r.reserved?"SPARE":ahName(r.name), "-", "-", "-", "-", "-", r.p48?"yes":"no"]; });
+    /* Il nome che conta è in CODA, non in testa: «Batteria 1 - Kick», «Batteria 1 - Rullante top»…
+       troncando gli 8 caratteri dall'inizio uscivano otto canali chiamati tutti «Batteria», e il CSV
+       serve proprio a NON ridigitare i nomi in console. Si prende la sigla (r.short, la stessa della
+       colonna FOH del PDF) o l'ultimo segmento; gli omonimi residui prendono un progressivo (06/08). */
+    var ahSeen={};
+    var ah=pl.rows.map(function(r){
+      if(r.reserved) return ["yes","SPARE","-","-","-","-","-",r.p48?"yes":"no"];
+      var base=String(r.short||"").trim() || String(r.name||"").split(" - ").pop();
+      var nm=ahName(base) || ahName(r.name) || "CH";
+      if(ahSeen[nm]){ var k=++ahSeen[nm], sfx=String(k); nm=nm.slice(0,8-sfx.length)+sfx; }
+      else ahSeen[nm]=1;
+      var out=["yes", nm, "-", "-", "-", "-", "-", r.p48?"yes":"no"]; out._foh=r.foh; return out; });
+    /* Nel formato A&H non esiste una colonna «canale»: il canale È la posizione della riga. Con più
+       box i numeri FOH partono da 17 e il file caricava il Kick sul canale 1 mentre il PDF consegnato
+       diceva 17 — due documenti dello stesso progetto che si contraddicono. Le posizioni non usate
+       escono disabilitate, così la riga N è il canale N. */
+    if(pl.hasFoh && ah.some(function(x){ return x._foh; })){
+      var maxFoh=0; ah.forEach(function(x){ if(x._foh>maxFoh) maxFoh=x._foh; });
+      var slots=[], coda=[];
+      ah.forEach(function(x){ if(x._foh) slots[x._foh-1]=x; else coda.push(x); });
+      var full=[]; for(var i=0;i<maxFoh;i++) full.push(slots[i]||["no","-","-","-","-","-","-","no"]);
+      ah=full.concat(coda);
+    }
     return { csv: rowsToCsv(["Enabled","Name","Color","Source","Socket","Gain","Pad","Phantom"], ah, ",").replace(/^﻿/,""), count:count };
   }
   var sep = opts.format==="intl" ? "," : ";";
@@ -23643,7 +23742,15 @@ function riderData(){
     status: state.status||"bozza", approvedBy:(state.approval&&state.approval.by)||"", approvedAt:(state.approval&&state.approval.at)||"",
     sistema: pick("sistema"), luci: (typeof productionLuciText==="function"?productionLuciText(state):pick("luci")), personale: pick("personale"),   /* luci: mai default implicito (fase 4) */
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
+    /* Chi sta sul palco è metà del lavoro del service (gradoni, sedie, leggii): un coro da 24 non
+       compariva da nessuna parte nel documento consegnato, mentre il pannello dei layer lo contava. */
+    persone: cnt("corista")+cnt("cantante"), leggii: cnt("leggio")+cnt("sedialeggio"),
     pesoKg: (typeof totalWeightKg==="function") ? totalWeightKg() : 0,
+    /* Quanta corrente serve è una domanda che il service fa SEMPRE, e il rider non la nominava mai:
+       i watt erano solo nella Lista carichi, una pagina tecnica separata e facoltativa (06/08). */
+    elettrico: (function(){ try{ var E=(typeof elecResult==="function")?elecResult(true):null;
+      if(!E || !E.totW) return null;
+      return { w:E.totW, a:E.totA, distro:(E.distros||[]).map(function(d){ return d.letter+" "+d.a+"A"; }), fasi:!!E.phase3 }; }catch(_e){ return null; } })(),
     note: r.note||""
   };
 }
@@ -23669,8 +23776,11 @@ function riderHtml(){
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
     sec("Microfoni", esc(mic), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
-    sec("Stage e pedane", esc(riderPedaneText(d.pedane))+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
+    sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+
+    (d.elettrico?sec("Alimentazione", esc("Assorbimento stimato "+elecKW(d.elettrico.w)+" · "+Math.ceil(d.elettrico.a)+" A"+
+      (d.elettrico.distro.length?" · quadri: "+d.elettrico.distro.join(", "):"")+
+      (d.elettrico.fasi?" · distribuzione trifase":"")+". Alimentazione a cura dell'organizzazione, presa di corrente disponibile a bordo palco."), true):"")+
     sec("Sistema audio", esct(d.sistema))+
     /* Luci: se la lista dichiara delle richieste, la sezione esce STRUTTURATA (intestazione
        per funzione + voci), come in un rider vero. Il testo scritto a mano resta prosa. */
