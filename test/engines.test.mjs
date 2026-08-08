@@ -1,13 +1,13 @@
 /* StagePlot — test dei MOTORI (cablaggio audio, elettrico, monitoraggio digitale, microfonazione, zona).
  *
  * Perché: i motori sono la logica critica del tool; in sviluppo diverse regressioni si prendevano solo
- * col test manuale nel browser. Questa suite carica il codice REALE di index.html in un sandbox node
+ * col test manuale nel browser. Questa suite carica il codice REALE dell'app (app.js + app/index.html) in un sandbox node
  * (stub DOM universale) e asserisce sui risultati dei motori puri. Zero dipendenze (solo node:vm).
  *
  * Uso:  node build.mjs && node test/engines.test.mjs
  *       (exit 1 se un test fallisce → usabile in pre-merge/CI)
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
@@ -41,7 +41,7 @@ function loadApp() {
   vm.createContext(ctx);
   try { vm.runInContext(appjs, ctx, { timeout: 20000 }); } catch (e) { /* il boot tocca il DOM (stub): ok, i motori sono gia' definiti (function-hoisting) */ }
   if (typeof ctx.TYPES !== "object" || typeof ctx.audioCablingEngine !== "function") {
-    throw new Error("Sandbox non caricato: TYPES/motori mancanti (index.html cambiato struttura?)");
+    throw new Error("Sandbox non caricato: TYPES/motori mancanti (app/index.html cambiato struttura?)");
   }
   return ctx;
 }
@@ -2861,7 +2861,7 @@ t("etichetta: il campo sta staccato dai bottoni in TUTTE le modalità", () => {
   /* 28/07 — il riordino B3 ha messo i bottoni Intero/Sigla/Nascosto SOPRA il campo, ma il margine di
      stacco stava sul blocco dei bottoni: con «Intero» il riquadro finiva incollato, con «Sigla» il
      margin-top di pAbbrWrap lo salvava. Lo stacco ora sta sul campo. */
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   const mode = (html.match(/<div id="pLblModeWrap"[^>]*>/) || [""])[0];
   eq(mode.indexOf("margin-top"), -1, "niente margine inline sul blocco dei bottoni: " + mode);
   ok(stylesCss.indexOf("#props #pLabelWrap{margin-top:6px}") > -1, "lo stacco sta sul campo nome");
@@ -2873,7 +2873,7 @@ t("dimensione, rotazione e distanza fra i due: slider su una riga", () => {
      28/07 sera — stessa richiesta per la distanza della postazione a 2 («deve avere sempre lo
      slider»): era l'unica misura continua del pannello rimasta a campo numerico, e allontanare i
      due leggii si capisce guardandoli muoversi. */
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   const size = (html.match(/<div id="pLblSizeWrap"[^>]*>/) || [""])[0];
   ok(size.indexOf('class="sldrow"') > -1, "Dimensione: etichetta, slider e valore sulla stessa riga");
   ok(html.indexOf('<input type="range" id="pLblSize"') > -1, "e resta uno slider");
@@ -2941,7 +2941,7 @@ t("CAT-01: «cassa» al singolare trova le casse PA", () => {
   ok(/(^|\s)cassa(\s|$)/.test(A.TYPES.sub218.alias || ""), "e sul sub");
 });
 t("A11Y-SEL: i select orfani di label visibile hanno il nome accessibile", () => {
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(html.indexOf('<select id="pMike" aria-label="Microfonazione">') > -1);
   ok(/<select id="pAscolto" aria-label="Ascolto[^"]*">/.test(html));
 });
@@ -3116,7 +3116,7 @@ t("la rotazione non salta a 0 mentre stai digitando", () => {
      "campo vuoto a metà digitazione: non deve ruotare l'elemento a 0");
 });
 t("il toggle si chiama «Postazione» / «Strumento solo», non più «Illustrato» / «Schematico»", () => {
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(html.indexOf(">Postazione</button>") > -1, "il primo bottone dice cosa disegna");
   ok(html.indexOf(">Strumento solo</button>") > -1, "il secondo pure");
   eq(html.indexOf(">Illustrato</button>"), -1, "il vecchio nome descriveva lo stile, non il contenuto");
@@ -5005,7 +5005,7 @@ t("le maniglie portano con se' il reparto, cosi' i lucchetti dei layer valgono a
    musicisti illustrati. ---- */
 console.log("\nSpecchia (azione di riga):");
 t("il comando sta nella riga di Duplica ed Elimina, non piu' in una spunta sepolta", () => {
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   const riga = /<div class="btns" id="pActRow">([^]*?)<\/div>/.exec(html);
   ok(riga, "la riga azioni c'e'");
   ["pMirror", "pDup", "pDel"].forEach((id) => ok(riga[1].indexOf('id="' + id + '"') > -1, "manca " + id + " nella riga"));
@@ -5128,7 +5128,7 @@ t("il cartiglio si alza quando c'e' la riga dei totali", () => {
   ok(pieno > vuoto, "va contata, o la scala automatica sceglie una scala che poi non entra");
 });
 t("il costruttore lavora SOLO la forma del palco", () => {
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   eq(/id="bAddPedana"/.test(html), false, "«+ Pedana» non deve stare nel costruttore");
   ok(/id="bAddBlock"/.test(html) && /id="bAddSemi"/.test(html), "blocchi e semicerchio restano");
   ok((A.__catEntries || []).some(e => e.k === "pedana"), "la pedana si prende dal catalogo");
@@ -6260,7 +6260,7 @@ t("ogni parola del vocabolario funziona su ENTRAMBE le ricerche", () => {
    marcava "vista": non era mai utilmente visibile, e la welcome card dice gia' le stesse cose.
    Questi test presidiano la rimozione completa: niente markup, CSS o script orfani. */
 console.log("\nStriscia value-proposition (#homePromo, rimossa):");
-const indexHtml = readFileSync(join(root, "index.html"), "utf8");
+const indexHtml = readFileSync(join(root, "app/index.html"), "utf8");
 t("nessun residuo nell'HTML generato", () => {
   ["homePromo", "hp-text", "hp-cta", "hpStart", "hpClose", "hpSeen", "hpDismiss"].forEach(s =>
     ok(indexHtml.indexOf(s) === -1, "residuo in index.html: " + s));
@@ -7136,7 +7136,7 @@ t("un elemento solo del suo tipo non fa domande", () => {
   eq(A.lblSizeSiblings(q).length, 0);
 });
 t("la riga della domanda esiste nel pannello, accanto allo slider", () => {
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(html.indexOf('id="pLblSizeAll"') > -1, "la riga c'e'");
   ok(html.indexOf('id="pLblSizeAllYes"') > -1, "col suo comando");
   ok(/id="pLblSizeAll"[^>]*hidden/.test(html), "e nasce nascosta: compare solo dopo il gesto");
@@ -7268,7 +7268,7 @@ t("i close-obligati nascono gia' con il loro microfono, anche dentro la zona", (
   ok(A.effOwnMic(kick), "un kick dentro una panoramica tiene il suo mic: nessuno lo riprende da lontano");
 });
 t("il pannello dice cosa entra in channel list, invece di una spunta da interpretare", () => {
-  const html = readFileSync(join(root, "index.html"), "utf8");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(html.indexOf('id="pOwnMicMode"') > -1, "il controllo a due scelte c'e'");
   ok(html.indexOf("Solo panoramico") > -1 && html.indexOf("Mic strumento + panoramico") > -1, "coi nomi giusti");
   eq(html.indexOf('id="pOwnMic"'), -1, "la vecchia spunta e' sparita: un comando solo");
@@ -9184,6 +9184,94 @@ t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", (
   const article = ld["@graph"].find((n) => n["@type"] === "Article");
   ok(article && article.author && article.author["@id"] === "https://simonecastellan.com/#person",
     "l'autore riusa lo stesso @id delle altre guide (anello E-E-A-T)");
+});
+
+/* --- La radice è la landing, l'editor sta su /app/ (08/08) ---
+   Perché esistono: lo spostamento tocca sette file scollegati fra loro (build, service worker, manifest,
+   workflow, landing, link interni, sitemap) e ognuno rompe in silenzio. I due modi tipici: un link
+   «Apri il tool» che finisce sulla landing invece che sull'editor (l'utente gira a vuoto), e un link
+   già distribuito — ?view= al service, #p= in chat, la PWA installata — che atterra su una pagina di
+   marketing invece che sul suo progetto. */
+const landing = readFileSync(join(root, "index.html"), "utf8");
+const shell = readFileSync(join(root, "app/index.html"), "utf8");
+
+t("radice e editor sono due pagine diverse, e ognuna dice di esserlo", () => {
+  ok(landing.indexOf("__BUILD_SHA_PLACEHOLDER__") === -1 && landing.indexOf('src="/app.js"') === -1,
+    "la radice NON è la shell dell'app");
+  ok(shell.indexOf("__BUILD_SHA_PLACEHOLDER__") > -1 && shell.indexOf('src="/app.js"') > -1,
+    "la shell dell'app è quella generata dal build");
+  ok(landing.indexOf('<link rel="canonical" href="https://stageplot.it/">') > -1, "landing: canonical sulla radice");
+  ok(/name="robots" content="index,follow/.test(landing), "landing: indicizzabile");
+  ok(shell.indexOf('<link rel="canonical" href="https://stageplot.it/app/">') > -1, "editor: canonical su /app/");
+  ok(/name="robots" content="noindex,follow"/.test(shell), "editor: noindex (niente doppione in SERP)");
+  /* i dati strutturati vivono dove c'è la pagina indicizzata, e in un posto solo */
+  ok(landing.indexOf('"@type": "FAQPage"') > -1, "landing: FAQ in JSON-LD");
+  ok(shell.indexOf("application/ld+json") === -1, "editor: nessun JSON-LD duplicato");
+});
+
+t("i link già distribuiti sopravvivono allo spostamento", () => {
+  /* GitHub Pages non ha redirect lato server: il rimbalzo è lo script sincrono in testa alla landing */
+  const boot = (landing.match(/<script>\(function\(\)\{function go\(\)\{[\s\S]*?<\/script>/) || [])[0] || "";
+  ok(boot, "c'è lo script di rimando in testa alla landing");
+  ok(boot.indexOf('addEventListener("hashchange", go)') > -1, "e riscatta anche su un hash incollato a pagina aperta");
+  ok(boot.indexOf('location.replace("/app/"+s+h)') > -1, "rimanda a /app/ conservando query E hash");
+  for (const p of ["view", "model", "export"]) ok(new RegExp("\\b" + p + "\\b").test(boot), "copre ?" + p + "=");
+  ok(/\[#&\]\[pd\]=/.test(boot), "copre i progetti dentro l'hash (#p= / #d=)");
+  ok(boot.indexOf("utm_source=pwa") > -1, "copre la PWA già installata (start_url vecchia)");
+  ok(boot.indexOf("access_token") > -1, "copre il ritorno dal login Google (sessione nell'hash)");
+  /* e la landing non può rimandare a sé stessa: sarebbe un ciclo infinito */
+  ok(shell.indexOf('location.replace("/app/"') === -1, "l'editor non rimbalza a sua volta");
+});
+
+t("chi cerca il tool arriva al tool, chi cerca il sito arriva alla landing", () => {
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name.endsWith(".html"))
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => !/index\.template\.html$|[\\/]app[\\/]index\.html$|[\\/]index\.html$/.test(p) || /guida|stage-plot|consulenza|privacy|termini|richiesta/.test(p));
+  ok(pagine.length >= 20, "trovate le pagine di contenuto: " + pagine.length);
+  const sbagliati = [];
+  for (const p of pagine) {
+    const s = readFileSync(p, "utf8");
+    for (const m of s.matchAll(/<a\b[^>]*href="\/"[^>]*>([\s\S]*?)<\/a>/g)) {
+      const testo = m[1].replace(/<[^>]+>/g, "").trim();
+      if (/tool|editor/i.test(testo)) sbagliati.push(p.replace(root, "") + " → «" + testo + "»");
+    }
+    for (const m of s.matchAll(/href="\/\?[^"]*"/g)) sbagliati.push(p.replace(root, "") + " → " + m[0]);
+  }
+  eq(sbagliati.length, 0, "nessuna CTA verso il tool punta ancora alla radice: " + sbagliati.slice(0, 5).join(" | "));
+});
+
+t("service worker, manifest e deploy sanno dov'è finito l'editor", () => {
+  const sw = readFileSync(join(root, "sw.js"), "utf8");
+  ok(sw.indexOf('"/app/"') > -1, "il SW precacha la shell in /app/");
+  ok(!/PRECACHE = \[\s*"\/",/.test(sw), "e non precacha più la radice come se fosse l'app");
+  ok(/CACHE_PREFIX \+ "v[3-9]"/.test(sw), "cache bumpata: la v2 conteneva la vecchia app sotto la chiave /");
+  const man = JSON.parse(readFileSync(join(root, "manifest.webmanifest"), "utf8"));
+  ok(man.start_url.indexOf("/app/") === 0, "la PWA parte dall'editor, non dalla landing: " + man.start_url);
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  ok(/\bindex\.html app\b/.test(wf), "il deploy pubblica anche la cartella app/");
+  ok(wf.indexOf("_site/app/index.html") > -1, "e timbra il build ID nella shell, non nella landing");
+  /* /app/ è noindex: in sitemap non ci va, la radice sì */
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  ok(sm.indexOf("<loc>https://stageplot.it/</loc>") > -1, "la radice è in sitemap");
+  ok(sm.indexOf("stageplot.it/app/") === -1, "una pagina noindex non va in sitemap");
+});
+
+t("l'anteprima social ha la forma che i social pretendono", () => {
+  /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
+     morto da mesi — e nessuno se n'era accorto, perché l'immagine la vede solo chi riceve il link.
+     Il contenuto non è verificabile da qui: GUARDALA se la cambi. Le dimensioni sì: fuori dal
+     1200×630 i social ritagliano o scartano l'anteprima. */
+  const png = readFileSync(join(root, "preview.png"));
+  eq(png.readUInt32BE(16), 1200, "larghezza");
+  eq(png.readUInt32BE(20), 630, "altezza");
+  /* i social cachano per URL: senza bump della versione, chi ha già condiviso il link continua
+     a mostrare l'immagine vecchia per sempre */
+  const og = (landing.match(/<meta property="og:image" content="([^"]+)"/) || [])[1] || "";
+  ok(/preview\.png\?v=\d+/.test(og), "l'og:image è versionato: " + og);
+  const guida = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  ok(/preview\.png\?v=\d+/.test((guida.match(/<meta property="og:image" content="([^"]+)"/) || [])[1] || ""),
+    "e lo sono anche le pagine di contenuto, che condividono la stessa immagine");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
