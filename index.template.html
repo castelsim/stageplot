@@ -47,9 +47,11 @@
 <!-- Stage Plot · © 2026 Simone Castellan · simonecastellan.com · uso libero, paternità riservata -->
 <meta name="author" content="Simone Castellan">
 <meta name="description" content="Crea stage plot gratis online in italiano: editor in scala reale, organici per band, orchestra e coro, export PDF e link condivisibile. Senza registrazione.">
-<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<!-- L'editor vive su /app/ ed è un'applicazione, non un contenuto: la pagina indicizzabile è la landing in
+     radice (index.html), che porta qui. noindex,follow → niente doppione in SERP, i link vengono comunque seguiti. -->
+<meta name="robots" content="noindex,follow">
 <meta name="theme-color" content="#111827">
-<link rel="canonical" href="https://stageplot.it/">
+<link rel="canonical" href="https://stageplot.it/app/">
 <link rel="icon" href="/favicon.ico?v=3" sizes="48x48">
 <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
@@ -60,7 +62,7 @@
 <meta property="og:locale" content="it_IT">
 <meta property="og:title" content="StagePlot — Stage Plot Creator gratis per spettacoli dal vivo">
 <meta property="og:description" content="Crea stage plot in scala online e gratis: genera input, monitor, carichi e channel list, esporta PDF e condividi via link. Consulenza opzionale per la verifica e il rider completo.">
-<meta property="og:url" content="https://stageplot.it/">
+<meta property="og:url" content="https://stageplot.it/app/">
 <meta property="og:site_name" content="StagePlot">
 <meta property="og:image" content="https://stageplot.it/preview.png?v=2">
 <meta property="og:image:width" content="1200">
@@ -71,97 +73,8 @@
 <meta name="twitter:description" content="Crea stage plot in scala gratis: input, monitor, carichi e channel list, export PDF e link condivisibile. Consulenza opzionale per verifica e rider completo.">
 <meta name="twitter:image" content="https://stageplot.it/preview.png?v=2">
 <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebSite",
-      "@id": "https://stageplot.it/#website",
-      "url": "https://stageplot.it/",
-      "name": "StagePlot",
-      "description": "Editor gratuito per creare stage plot in scala e generare le liste tecniche di base — input, monitor, carichi e channel list. Consulenza opzionale per la verifica professionale e il rider completo.",
-      "inLanguage": "it",
-      "publisher": { "@id": "https://stageplot.it/#org" }
-    },
-    {
-      "@type": "Organization",
-      "@id": "https://stageplot.it/#org",
-      "name": "StagePlot",
-      "url": "https://stageplot.it/",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://stageplot.it/logo-512.png",
-        "width": 512,
-        "height": 512
-      },
-      "sameAs": [ "https://www.instagram.com/stageplot.it/" ],
-      "founder": {
-        "@type": "Person",
-        "@id": "https://simonecastellan.com/#person",
-        "name": "Simone Castellan",
-        "jobTitle": "Sound engineer",
-        "url": "https://simonecastellan.com"
-      }
-    },
-    {
-      "@type": "SoftwareApplication",
-      "@id": "https://stageplot.it/#app",
-      "name": "StagePlot — Stage Plot Creator",
-      "applicationCategory": "DesignApplication",
-      "operatingSystem": "Web",
-      "url": "https://stageplot.it/",
-      "inLanguage": "it",
-      "description": "Web app gratuita per creare stage plot in scala per spettacoli dal vivo: palco modulare a pedane, organici per band, orchestra e coro, generazione di input, monitor, carichi e channel list, export PDF/PNG e condivisione via link. Consulenza opzionale per la verifica professionale e il rider completo.",
-      "browserRequirements": "Requires JavaScript. Requires HTML5.",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
-      "featureList": [
-        "Stage plot in scala 1:N",
-        "Quote, griglia e misure in scala reale",
-        "Generatori di organico per band, orchestra, coro e banda",
-        "Export PDF e PNG in scala reale",
-        "Condivisione del progetto via link",
-        "Area di stampa e note tecniche"
-      ],
-      "screenshot": "https://stageplot.it/preview.png",
-      "author": { "@id": "https://stageplot.it/#org" },
-      "publisher": { "@id": "https://stageplot.it/#org" }
-    },
-    {
-      "@type": "FAQPage",
-      "@id": "https://stageplot.it/#faq",
-      "inLanguage": "it",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Cos'è uno stage plot?",
-          "acceptedAnswer": { "@type": "Answer", "text": "È lo schema in scala del palco che mostra la disposizione di musicisti, strumenti, monitor, microfoni e prese durante uno spettacolo dal vivo. Serve a service audio e teatro per allestire l'evento." }
-        },
-        {
-          "@type": "Question",
-          "name": "Qual è la differenza tra stage plot e channel list?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Lo stage plot è il disegno del palco; la channel list (o input list) è l'elenco numerato dei canali audio in ingresso al mixer. Con StagePlot crei lo stage plot in scala e generi ed esporti gratis anche la channel list; la consulenza aggiunge la verifica professionale e il rider completo." }
-        },
-        {
-          "@type": "Question",
-          "name": "StagePlot è davvero gratis?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Sì. Creare, esportare in PDF e condividere lo stage plot è gratuito e senza registrazione. È disponibile, a parte, una consulenza facoltativa in cui un sound engineer revisiona il tuo materiale." }
-        },
-        {
-          "@type": "Question",
-          "name": "Devo registrarmi o installare qualcosa?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. StagePlot funziona nel browser e salva il lavoro sul tuo dispositivo. Il login con Google è opzionale e serve solo a salvare i progetti online." }
-        },
-        {
-          "@type": "Question",
-          "name": "Posso esportare lo stage plot in PDF?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Sì: puoi esportare in PDF e PNG in scala reale, con un'area di stampa dedicata, pronti da inviare al service o da stampare." }
-        }
-      ]
-    }
-  ]
-}
-</script>
+<!-- Dati strutturati (WebSite/Organization/SoftwareApplication/FAQ): stanno sulla landing in radice,
+     che è la pagina indicizzata. Qui sarebbero un doppione su una pagina noindex. -->
 <style>
 /*__STAGEPLOT_STYLES__*/</style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
@@ -170,7 +83,7 @@
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
 </head>
 <body>
-<div id="viewBar"><a class="vb-brand" href="/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
 <!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
      si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
@@ -1499,7 +1412,7 @@
       <button class="btn" id="aiCopy">Copia prompt</button>
     </div>
     <label style="display:block;margin-top:14px;font-size:12px;color:var(--text-2)">Incolla qui il link (o il JSON) che ti dà ChatGPT:</label>
-    <textarea id="aiPaste" rows="3" style="width:100%;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:Menlo,monospace;background:var(--surface);color:var(--text)" placeholder="https://stageplot.it/#d=…  oppure  {…JSON…}"></textarea>
+    <textarea id="aiPaste" rows="3" style="width:100%;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:Menlo,monospace;background:var(--surface);color:var(--text)" placeholder="https://stageplot.it/app/#d=…  oppure  {…JSON…}"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn primary" id="aiLoad">Carica nel palco</button>
       <button class="btn" id="aiClose" style="margin-left:auto">Chiudi</button>
@@ -22190,7 +22103,7 @@ function aiSpecPrompt(){
 "COME RISPONDERE:",
 "1) A QUESTO messaggio rispondi SOLO: \"Pronto — descrivimi il tuo palco: strumenti, posizioni, palco, microfoni…\". Non generare altro adesso.",
 "2) Quando l'utente descrive il palco, costruisci un JSON con lo schema sotto, codificalo in base64 URL-safe (usa lo strumento di codice) e restituisci SOLO un link cliccabile, senza altro testo dopo:",
-"   https://stageplot.it/#d=<BASE64URL_DEL_JSON>",
+"   https://stageplot.it/app/#d=<BASE64URL_DEL_JSON>",
 "",
 "SCHEMA JSON (unità = cm, scala reale):",
 "{\"titolo\":\"\",\"luogo\":\"\",\"stage\":{\"blocks\":[{\"x\":0,\"y\":0,\"w\":1200,\"d\":800,\"h\":0}]},\"items\":[{\"type\":\"<chiave>\",\"x\":0,\"y\":0,\"rot\":0,\"label\":\"\"}],\"inputs\":[],\"outputs\":[]}",

@@ -2,17 +2,21 @@
 /* Build StagePlot: assembla i moduli sorgente negli artefatti di deploy.
  *
  * Output:
- *   index.html  → shell leggera (HTML + CSS + versione + <script defer src="/app.js"> + <script async src="/icons.js">)
- *   app.js      → tutto il JS dell'app (i blocchi <script data-app> del template, concatenati) — caricato DEFER
+ *   app/index.html → shell leggera (HTML + CSS + versione + <script defer src="/app.js"> + <script async src="/icons.js">)
+ *   app.js         → tutto il JS dell'app (i blocchi <script data-app> del template, concatenati) — caricato DEFER
  *   (icons.js e' un asset statico a se', non generato qui: libreria icone caricata ASYNC)
+ *
+ * NB: l'editor vive su /app/, la root e' la landing di prodotto (index.html, scritta a mano, NON generata qui).
+ *     Gli asset dell'app restano in radice (/app.js, /icons.js, /vendor/…) e sono referenziati con path assoluti,
+ *     quindi il livello di annidamento della shell non conta.
  *
  * Perche': local-first + deploy semplice su GitHub Pages, ma per l'LCP la shell HTML deve restare piccola e
  * dipingere PRIMA di eseguire ~1,4 MB di JS. Lo sviluppo resta modulare (template + src/), lo script ricompone.
  *
- * Uso:  node build.mjs        → genera index.html + app.js da index.template.html + src/*
- *       node build.mjs --check → verifica che index.html e app.js siano allineati ai sorgenti (CI/pre-merge)
+ * Uso:  node build.mjs        → genera app/index.html + app.js da index.template.html + src/*
+ *       node build.mjs --check → verifica che app/index.html e app.js siano allineati ai sorgenti (CI/pre-merge)
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -53,16 +57,18 @@ const { html, appjs } = build();
 const stripVer = (s) => s.replace(/window\.__APP_VERSION__="[^"]*"/g, 'window.__APP_VERSION__="__VER__"');
 
 if (check) {
-  const curHtml = readFileSync(r("index.html"), "utf8");
+  let curHtml = "__MISSING__";
+  try { curHtml = readFileSync(r("app/index.html"), "utf8"); } catch (e) { /* shell mancante → disallineata */ }
   let curApp = "__MISSING__";
   try { curApp = readFileSync(r("app.js"), "utf8"); } catch (e) { /* app.js mancante → disallineato */ }
   if (stripVer(curHtml) !== stripVer(html) || stripVer(curApp) !== stripVer(appjs)) {
-    console.error("✗ index.html/app.js NON allineati ai sorgenti. Esegui: node build.mjs");
+    console.error("✗ app/index.html o app.js NON allineati ai sorgenti. Esegui: node build.mjs");
     process.exit(1);
   }
-  console.log("✓ index.html + app.js allineati ai sorgenti.");
+  console.log("✓ app/index.html + app.js allineati ai sorgenti.");
 } else {
-  writeFileSync(r("index.html"), html);
+  mkdirSync(r("app"), { recursive: true });
+  writeFileSync(r("app/index.html"), html);
   writeFileSync(r("app.js"), appjs);
-  console.log("✓ index.html + app.js generati dai sorgenti.");
+  console.log("✓ app/index.html + app.js generati dai sorgenti.");
 }

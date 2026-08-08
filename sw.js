@@ -19,9 +19,11 @@
    manuale: bump = precache pulito su una release. La freschezza a ogni visita è già garantita
    dallo stale-while-revalidate sotto, quindi non serve versionare a ogni commit. */
 var CACHE_PREFIX = "stageplot-";
-var CACHE = CACHE_PREFIX + "v2";
+/* v3: l'editor è passato da "/" a "/app/". Il bump è OBBLIGATORIO, non cosmetico — senza, la cache v2
+   continuerebbe a servire la vecchia shell dell'app sotto la chiave "/", dove ora c'è la landing. */
+var CACHE = CACHE_PREFIX + "v3";
 var PRECACHE = [
-  "/",
+  "/app/",                     /* shell dell'editor (la root è la landing, servita dalla rete) */
   "/app.js",                   /* bundle JS dell'app (caricato defer) — serve offline */
   "/icons.js",                 /* libreria icone estratta dal monolite (caricata async) — serve offline */
   "/vendor/pdf.min.js",
@@ -53,10 +55,10 @@ self.addEventListener("fetch", function (e) {
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return;         /* Supabase ecc.: rete pura */
 
-  /* Le navigazioni verso la home (anche /?view=…, /?utm_source=pwa) usano la stessa
-     shell cachata sotto la chiave "/": il single-file è l'app intera. */
-  var key = (req.mode === "navigate" && (url.pathname === "/" || url.pathname === "/index.html"))
-    ? "/" : req;
+  /* Le navigazioni verso l'editor (anche /app/?view=…, /app/?utm_source=pwa) usano la stessa
+     shell cachata sotto la chiave "/app/": la shell è l'app intera. */
+  var key = (req.mode === "navigate" && (url.pathname === "/app/" || url.pathname === "/app/index.html"))
+    ? "/app/" : req;
 
   e.respondWith(
     caches.open(CACHE).then(function (cache) {
@@ -69,7 +71,7 @@ self.addEventListener("fetch", function (e) {
                Confronto per header (ETag → Last-Modified → Content-Length): zero costo, niente body. */
             /* key è la stringa "/" per le navigazioni, ma un Request per gli asset → si confronta il pathname */
             var kPath = (typeof key === "string") ? key : new URL(key.url).pathname;
-            var isShell = (kPath === "/" || kPath === "/app.js" || kPath === "/icons.js");
+            var isShell = (kPath === "/app/" || kPath === "/app.js" || kPath === "/icons.js");
             var changed = false;
             if (cached && isShell) {
               var a = cached.headers.get("etag") || cached.headers.get("last-modified") || cached.headers.get("content-length");
@@ -94,8 +96,10 @@ self.addEventListener("fetch", function (e) {
           return cached;
         }
         return fresh.catch(function () {
-          /* offline e mai cachato: per le navigazioni si ripiega sulla shell */
-          if (req.mode === "navigate") return cache.match("/");
+          /* offline e mai cachato: per le navigazioni dentro l'editor si ripiega sulla shell.
+             La landing e le pagine di contenuto non hanno un fallback: offline mostrano l'errore
+             del browser, che è la verità (non sono l'app). */
+          if (req.mode === "navigate" && url.pathname.indexOf("/app") === 0) return cache.match("/app/");
           return Response.error();
         });
       });

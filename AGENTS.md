@@ -11,14 +11,19 @@ right-sized per la realtà del progetto, non un framework enterprise. Leggilo pr
   **GitHub Pages da `main`** (un file servito staticamente). Nessun backend obbligatorio.
 - Storicamente è **un solo `index.html`** (~7.500 righe). Per permettere a più persone/agenti di
   lavorare in parallelo senza conflitti, lo stiamo **modularizzando**: si sviluppa in `src/`, e un
-  build ricompone il **single-file** `index.html` per il deploy. Vedi `docs/MODULARIZATION.md`.
+  build ricompone la **shell** dell'app per il deploy. Vedi `docs/MODULARIZATION.md`.
+- **Due pagine diverse, non confonderle** (dall'08/08/2026):
+  - `/` → `index.html` in radice = **landing di prodotto**, scritta a mano, indicizzata. Il build NON la tocca.
+  - `/app/` → `app/index.html` = **l'editor**, generato da `index.template.html`. È `noindex`.
+  - I link storici alla radice (`?view=`, `?model=`, `#p=`, `#d=`, PWA) rimbalzano su `/app/` con uno
+    script sincrono in testa alla landing: GitHub Pages non ha redirect lato server.
 - Niente framework, niente bundler pesante. Build = un solo script Node senza dipendenze (`build.mjs`).
 
 ## 2. Fonte di verità e build
 
-- **Si modifica `src/` e `index.template.html`, NON `index.html` a mano.** `index.html` è **generato**.
-- Dopo ogni modifica ai sorgenti: `node build.mjs` (rigenera `index.html`).
-- Prima di un merge/commit di release: `node build.mjs --check` deve passare (index.html allineato ai sorgenti).
+- **Si modifica `src/` e `index.template.html`, NON `app/index.html` a mano.** `app/index.html` è **generato**.
+- Dopo ogni modifica ai sorgenti: `node build.mjs` (rigenera `app/index.html` + `app.js`).
+- Prima di un merge/commit di release: `node build.mjs --check` deve passare (shell allineata ai sorgenti).
 - Finché un modulo non è ancora estratto, vive ancora dentro `index.template.html` (modularizzazione incrementale).
 
 ## 3. Rami (Git)
@@ -81,8 +86,9 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
 
 ## 7. Regole assolute
 
-- Non modificare `index.html` a mano (è generato — perderesti le modifiche al prossimo build).
-- Non committare `index.html` disallineato dai sorgenti (gira `node build.mjs` prima).
+- Non modificare `app/index.html` a mano (è generato — perderesti le modifiche al prossimo build).
+  L'`index.html` in radice è invece la landing: quello si modifica a mano ed è il build a non toccarlo.
+- Non committare `app/index.html` disallineato dai sorgenti (gira `node build.mjs` prima).
 - Non pushare/pubblicare senza l'OK dell'utente.
 - Non cambiare la logica di business mentre fai lavoro UI (e viceversa).
 - In dubbio su una scelta architetturale: fermati, spiega i trade-off, chiedi.
