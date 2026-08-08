@@ -9257,5 +9257,22 @@ t("service worker, manifest e deploy sanno dov'è finito l'editor", () => {
   ok(sm.indexOf("stageplot.it/app/") === -1, "una pagina noindex non va in sitemap");
 });
 
+t("l'anteprima social ha la forma che i social pretendono", () => {
+  /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
+     morto da mesi — e nessuno se n'era accorto, perché l'immagine la vede solo chi riceve il link.
+     Il contenuto non è verificabile da qui: GUARDALA se la cambi. Le dimensioni sì: fuori dal
+     1200×630 i social ritagliano o scartano l'anteprima. */
+  const png = readFileSync(join(root, "preview.png"));
+  eq(png.readUInt32BE(16), 1200, "larghezza");
+  eq(png.readUInt32BE(20), 630, "altezza");
+  /* i social cachano per URL: senza bump della versione, chi ha già condiviso il link continua
+     a mostrare l'immagine vecchia per sempre */
+  const og = (landing.match(/<meta property="og:image" content="([^"]+)"/) || [])[1] || "";
+  ok(/preview\.png\?v=\d+/.test(og), "l'og:image è versionato: " + og);
+  const guida = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  ok(/preview\.png\?v=\d+/.test((guida.match(/<meta property="og:image" content="([^"]+)"/) || [])[1] || ""),
+    "e lo sono anche le pagine di contenuto, che condividono la stessa immagine");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
