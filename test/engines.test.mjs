@@ -8815,14 +8815,15 @@ t("ogni scheda del registro porta la sua fonte", () => {
 
 // ── DISTANZA DEL NOME DALL'ELEMENTO (31/07) ────────────────────────────────────────────────────
 // Simone: «stessa interfaccia della dimensione etichetta, ma per la distanza dallo strumento».
-// Misurata in cm reali dal bordo; 9 è il valore con cui il nome è sempre stato disegnato.
+// Misurata in cm reali dal bordo. Era 9, e a 9 il disegno di quel che sta sotto (la DI generata da
+// uno strumento) spuntava in mezzo alle parole del nome: dal 07/08 il default è 22.
 console.log("\n— Distanza del nome —");
 
-t("il default è quello di sempre e non si scrive nel documento", () => {
+t("il default stacca il nome dal disegno e non si scrive nel documento", () => {
   reset();
   const it = add("wedge", 400, 300);
-  eq(A.lblDistOf(it), 9, "9 cm dal bordo");
-  eq(it.lblDist, undefined, "e la chiave non c'è: i progetti vecchi non cambiano di un pixel");
+  eq(A.lblDistOf(it), 22, "22 cm dal bordo");
+  eq(it.lblDist, undefined, "e la chiave non c'è: chi ha scelto la sua distanza se la tiene");
 });
 
 t("la distanza si legge, si limita e regge i valori sballati", () => {
@@ -8831,7 +8832,7 @@ t("la distanza si legge, si limita e regge i valori sballati", () => {
   it.lblDist = 40; eq(A.lblDistOf(it), 40, "40 cm");
   it.lblDist = 999; eq(A.lblDistOf(it), 80, "il massimo è 80");
   it.lblDist = -5; eq(A.lblDistOf(it), 0, "sotto zero non si va");
-  it.lblDist = "boh"; eq(A.lblDistOf(it), 9, "un valore non numerico torna al default");
+  it.lblDist = "boh"; eq(A.lblDistOf(it), 22, "un valore non numerico torna al default");
 });
 
 t("una nota altrui con distanza fuori scala viene riportata nei limiti", () => {
