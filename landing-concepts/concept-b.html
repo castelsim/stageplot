@@ -44,7 +44,7 @@
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
   a{color:inherit}
   button{font-family:inherit}
-  .chip:focus-visible,.lrow:focus-visible,.tab:focus-visible,.btn:focus-visible,.nav-cta:focus-visible,.ba-range:focus-visible ~ .ba-divider{outline:2px solid var(--teal);outline-offset:2px}
+  a:focus-visible,button:focus-visible,.ba-range:focus-visible ~ .ba-divider{outline:2px solid var(--teal);outline-offset:3px;border-radius:4px}
 
   .rv{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease}
   .rv.in{opacity:1;transform:none}
@@ -76,6 +76,8 @@
   .cta-row{margin-top:40px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
   .btn{display:inline-block;background:var(--teal);color:#04211d;font-weight:700;font-size:17px;padding:15px 30px;border-radius:10px;text-decoration:none;box-shadow:0 0 34px rgba(20,184,166,.28);transition:filter .15s,transform .15s}
   .btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .btn2{display:inline-block;background:transparent;color:var(--text);font-weight:600;font-size:16px;padding:14px 26px;border:1px solid var(--line2);border-radius:10px;text-decoration:none;transition:border-color .18s,color .18s}
+  .btn2:hover{border-color:var(--teal-d);color:var(--teal-l)}
   .ghost{font-size:15px;color:var(--mut);text-decoration:none;border-bottom:1px solid var(--line2)}
   .ghost:hover{color:var(--text)}
   .trust{margin-top:22px;font-family:var(--mono);font-size:13px;color:var(--mut)}
@@ -97,7 +99,8 @@
   .chip[aria-pressed="true"]{background:rgba(20,184,166,.12);border-color:var(--teal-d);color:var(--teal-l)}
   .chip[aria-pressed="true"]::before{content:"● ";font-size:9px;vertical-align:1px}
   .hint{font-family:var(--mono);font-size:11.5px;color:var(--mut);margin-left:auto}
-  @media(max-width:700px){.hint{display:none}}
+  .hint .touch{display:none}
+  @media(max-width:700px){.hint{margin-left:0;width:100%}.hint .mouse{display:none}.hint .touch{display:inline}}
   .console svg{display:block;width:100%;height:auto}
   #ly-cavi,#ly-elet,#ly-mon{transition:opacity .35s ease}
   .off{opacity:0 !important;pointer-events:none}
@@ -108,7 +111,9 @@
     box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:0;transition:opacity .12s;max-width:260px;line-height:1.5}
   #tip b{color:var(--teal-l);font-weight:500}
 
-  section{padding:110px 0;border-top:1px solid var(--line)}
+  section{padding:110px 0;border-top:1px solid var(--line);scroll-margin-top:60px}
+  .tinted{background:#0c1211}
+  @media(max-width:760px){section{padding:72px 0}}
   .sec-k{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
   h2{font-size:clamp(30px,4.4vw,50px);letter-spacing:-.028em;line-height:1.06;font-weight:800;margin-top:14px;max-width:24ch}
   .lead{margin-top:18px;color:var(--mut);font-size:18px;max-width:56ch}
@@ -126,6 +131,7 @@
   .term{margin-top:60px;border:1px solid var(--line2);border-radius:14px;background:var(--panel2);overflow:hidden;font-family:var(--mono)}
   .term-h{padding:11px 18px;border-bottom:1px solid var(--line);font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
   .term-b{padding:26px 28px;font-size:13.5px;line-height:2.05;color:var(--mut);overflow-x:auto}
+  @media(max-width:760px){.term-b{padding:20px 18px;font-size:12px;line-height:1.95}}
   .term-b b{color:var(--text);font-weight:500}
   .term-b .t{color:var(--teal)}
   .ok{color:var(--teal)}
@@ -166,7 +172,9 @@
   .ba-tag{position:absolute;top:14px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;padding:6px 12px;border-radius:999px;z-index:2}
   .ba-tag.prima{left:14px;background:rgba(58,52,40,.85);color:#efe8d6}
   .ba-tag.dopo{right:14px;background:rgba(20,184,166,.15);border:1px solid var(--teal-d);color:var(--teal-l)}
-  .ba-caption{margin-top:16px;display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:12.5px;color:var(--mut);flex-wrap:wrap}
+  .ba-caption{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .ba-caption span:last-child{text-align:right}
+  @media(max-width:760px){.ba-caption{grid-template-columns:1fr}.ba-caption span:last-child{text-align:left}}
   .ba-caption b{color:var(--teal-l);font-weight:500}
 
   /* ---------- documenti a schede ---------- */
@@ -234,12 +242,34 @@
   .share-card p{margin-top:12px;color:var(--mut);font-size:15px}
   .pill{margin-top:22px;display:inline-block;font-family:var(--mono);font-size:12.5px;background:#0a1211;border:1px solid var(--line2);border-radius:999px;padding:8px 16px;color:var(--teal)}
 
-  .who{margin-top:60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .who{margin-top:60px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:860px){.who{grid-template-columns:1fr}}
   .who div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;transition:border-color .2s,transform .2s}
   .who div:hover{border-color:var(--line2);transform:translateY(-2px)}
   .who em{font-style:normal;color:var(--teal);font-family:var(--mono);font-size:12.5px;letter-spacing:.08em}
   .who h3{font-size:18px;margin-top:12px}
   .who p{margin-top:10px;color:var(--mut);font-size:14.5px}
+
+  /* ---------- chi lo fa ---------- */
+  .maker{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px;align-items:start}
+  @media(max-width:900px){.maker{grid-template-columns:1fr;gap:32px}}
+  .maker-txt p{color:var(--mut);font-size:17px;max-width:56ch}
+  .maker-txt p + p{margin-top:16px}
+  .maker-txt b{color:var(--text);font-weight:600}
+  .sign{margin-top:26px;padding-left:18px;border-left:2px solid var(--teal-d);font-family:var(--mono);font-size:13px;color:var(--mut);line-height:1.7}
+  .sign b{display:block;color:var(--text);font-weight:500;letter-spacing:.01em}
+  .maker-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:24px 26px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .maker-card div{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #151f1e}
+  .maker-card div:last-child{border-bottom:0;padding-bottom:0}
+  .maker-card b{color:var(--teal-l);font-weight:500}
+
+  /* ---------- domande ---------- */
+  .faq{margin-top:56px;display:grid;grid-template-columns:1fr 1fr;gap:0 56px}
+  @media(max-width:860px){.faq{grid-template-columns:1fr;gap:0}}
+  .faq div{padding:22px 0;border-top:1px solid var(--line)}
+  .faq h3{font-size:16.5px;font-weight:600;letter-spacing:-.008em}
+  .faq p{margin-top:8px;color:var(--mut);font-size:15px;max-width:46ch}
+  .faq a{color:var(--teal-l)}
 
   .final{padding:140px 0;text-align:center;position:relative;overflow:hidden;
     background:radial-gradient(700px 340px at 50% 115%, var(--glow), transparent 70%)}
@@ -266,17 +296,18 @@
     <a href="#confronto">Prima / Dopo</a>
     <a href="#output">L'output</a>
     <a href="#layers">Layer</a>
+    <a href="#domande">Domande</a>
   </div>
   <a class="nav-cta" href="https://stageplot.it/">Apri l'editor</a>
 </div></nav>
 
 <header><div class="wrap">
-  <p class="kicker">L'OS della produzione live</p>
+  <p class="kicker">Stage plot · scheda tecnica · rider</p>
   <h1>Ogni canale.<br>Ogni cavo.<br><span class="dim">Ogni watt.</span></h1>
   <p class="sub">Lo stage plot che tiene insieme tutto il palco: disegni una volta e <b>channel list, schema elettrico e rider PDF restano allineati da soli</b>. Nel browser, gratis.</p>
   <div class="cta-row">
     <a class="btn" href="https://stageplot.it/">Apri l'editor</a>
-    <a class="ghost" href="#confronto">Guarda il prima e il dopo ↓</a>
+    <a class="btn2" href="https://stageplot.it/?model=band">Parti da un palco già fatto</a>
   </div>
   <p class="trust"><span>Gratis</span> · nel browser · si inizia senza registrazione</p>
 
@@ -292,7 +323,7 @@
       <button class="chip" data-layer="ly-cavi" aria-pressed="true">CAVI</button>
       <button class="chip" data-layer="ly-elet" aria-pressed="true">ELETTRICO</button>
       <button class="chip" data-layer="ly-mon" aria-pressed="true">MONITOR</button>
-      <span class="hint">passa il mouse sugli elementi ↓</span>
+      <span class="hint"><span class="mouse">passa il mouse sugli elementi ↓</span><span class="touch">tocca gli elementi del palco ↓</span></span>
     </div>
     <svg viewBox="0 0 960 500" role="img" aria-label="Stage plot interattivo: batteria, amplificatori, microfoni, monitor; i layer cavi, elettrico e monitor si accendono e spengono">
       <defs>
@@ -404,7 +435,7 @@
   </div>
 </div></section>
 
-<section class="rv" id="confronto"><div class="wrap">
+<section class="rv tinted" id="confronto"><div class="wrap">
   <p class="sec-k">Prima / Dopo</p>
   <h2>Dal foglietto delle prove al documento.</h2>
   <p class="lead">A sinistra: la scheda tecnica come gira davvero nelle band. A destra: lo stesso palco, uscito da StagePlot. <b>Trascina il cursore.</b></p>
@@ -670,13 +701,63 @@
   </div>
 </div></section>
 
-<section class="rv"><div class="wrap">
+<section class="rv" id="perchi"><div class="wrap">
   <p class="sec-k">Per chi è</p>
   <h2>Dalla sala prove al festival.</h2>
   <div class="who">
     <div><em>BAND</em><h3>La scheda tecnica in una sera</h3><p>Arrivi al locale con un documento che il fonico capisce al primo sguardo.</p></div>
     <div><em>FONICI &amp; SERVICE</em><h3>Rider leggibili, zero sorprese</h3><p>Canali numerati, carichi sommati, monitor chiari: il soundcheck parte prima.</p></div>
     <div><em>PRODUZIONE</em><h3>Uno standard per ogni data</h3><p>Planimetrie in scala, varianti per scenario, un formato solo per tutta la stagione.</p></div>
+  </div>
+</div></section>
+
+<section class="rv" id="chi"><div class="wrap">
+  <p class="sec-k">Chi lo fa</p>
+  <h2>Lo scrive un fonico, non un'agenzia.</h2>
+  <div class="maker" style="margin-top:46px">
+    <div class="maker-txt">
+      <p>StagePlot nasce da troppe serate passate a ricostruire un palco da una foto di un foglietto: <b>i dati c'erano già, solo non erano in un posto solo</b>. L'editor è il tentativo di metterli lì.</p>
+      <p>Lo sviluppo da solo e lo uso sul lavoro: quando in sala serve una cosa che manca, quella cosa finisce nella lista. Se ti manca qualcosa, il box «Cosa manca?» dentro l'editor arriva direttamente a me.</p>
+      <p class="sign"><b>Simone Castellan</b>audio engineer · studio e live</p>
+    </div>
+    <div class="maker-card">
+      <div><span>Elementi nel catalogo</span><b>200+</b></div>
+      <div><span>Microfoni riconosciuti</span><b>155</b></div>
+      <div><span>Modelli di faro</span><b>42</b></div>
+      <div><span>Lingua</span><b>italiano</b></div>
+      <div><span>Prezzo</span><b>gratis</b></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="rv tinted" id="domande"><div class="wrap">
+  <p class="sec-k">Domande</p>
+  <h2>Quello che chiedono tutti.</h2>
+  <div class="faq">
+    <div>
+      <h3>Devo registrarmi?</h3>
+      <p>No. Apri l'editor e disegni: il progetto resta salvato su questo dispositivo. L'account serve solo se lo vuoi ritrovare da un altro computer.</p>
+    </div>
+    <div>
+      <h3>Il service riesce ad aprirlo?</h3>
+      <p>Gli mandi un PDF, o un link di sola lettura che si apre nel browser. Dall'altra parte non deve installare né imparare niente.</p>
+    </div>
+    <div>
+      <h3>Funziona dal telefono?</h3>
+      <p>Sì per guardare, ritoccare e mostrarlo in sala. Per disegnare un palco da zero uno schermo grande resta più comodo.</p>
+    </div>
+    <div>
+      <h3>È davvero gratis?</h3>
+      <p>Sì: editor, PDF ed export. Niente carta di credito, niente prova a tempo, nessuna filigrana sui documenti.</p>
+    </div>
+    <div>
+      <h3>Serve saperci fare col disegno tecnico?</h3>
+      <p>No. Trascini strumenti veri sul palco; canali, watt e monitor li mette in fila l'editor. Se qualcosa manca, te lo segnala.</p>
+    </div>
+    <div>
+      <h3>Non so da dove partire.</h3>
+      <p>Apri un <a href="https://stageplot.it/?model=band">palco già fatto</a> e cambialo. Otto formazioni pronte: acustica, band, tributo, jazz combo, big band, coro, orchestra da camera, orchestra pop.</p>
+    </div>
   </div>
 </div></section>
 
