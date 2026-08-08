@@ -692,9 +692,13 @@ addEventListener("hashchange", go);})();</script>
             <rect x="14" y="12" width="392" height="212" fill="none" stroke="#33443f" stroke-width="1.2"/>
             <g class="el" data-el="drums">
               <rect x="150" y="24" width="120" height="76" fill="none" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/>
+              <!-- kick + due tom + i piatti come ellissi: con i soli tre cerchi la batteria vista
+                   dall'alto sembrava un topolino, ed è la prima cosa che un fonico nota -->
               <g class="shape" fill="none" stroke-width="1.3" stroke="#d7e6e2">
-                <circle cx="210" cy="62" r="18"/>
-                <circle cx="188" cy="45" r="8"/><circle cx="232" cy="45" r="8"/>
+                <circle cx="210" cy="68" r="16"/>
+                <circle cx="198" cy="46" r="7"/><circle cx="222" cy="46" r="7"/>
+                <ellipse cx="174" cy="42" rx="9.5" ry="4" stroke="#7f938f"/>
+                <ellipse cx="246" cy="42" rx="9.5" ry="4" stroke="#7f938f"/>
               </g>
               <text x="210" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BATTERIA · CH 1–6</text>
             </g>
@@ -767,7 +771,10 @@ addEventListener("hashchange", go);})();</script>
       <p class="lcount" id="lcount">3 layer accesi + il palco</p>
     </div>
     <div class="stack">
-      <svg viewBox="0 0 520 640" role="img" aria-label="Pila dei layer del palco in prospettiva: si accendono e spengono con gli interruttori">
+      <!-- viewBox più largo del disegno (520): le etichette a fine linea sporgevano fino a 23px e
+           l'overflow:hidden dell'SVG le tagliava («PALCO +», «ELETTRIC…»). Allargare qui scala tutto
+           insieme, quindi regge a qualsiasi larghezza di finestra. -->
+      <svg viewBox="0 0 556 640" role="img" aria-label="Pila dei layer del palco in prospettiva: si accendono e spengono con gli interruttori">
         <defs>
           <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#14b8a6" stop-opacity=".16"/><stop offset="1" stop-color="#14b8a6" stop-opacity=".04"/>
