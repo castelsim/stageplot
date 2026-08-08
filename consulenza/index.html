@@ -15,14 +15,14 @@
   <meta property="og:title" content="Revisione rider tecnico e stage plot, da un fonico">
   <meta property="og:description" content="Un fonico revisiona e completa il tuo stage plot: verifica tecnica, correzioni, channel list, input list, rider ed email tecnica pronti per il service. Da 29 €.">
   <meta property="og:url" content="https://stageplot.it/consulenza/">
-  <meta property="og:image" content="https://stageplot.it/preview.png">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Revisione rider tecnico e stage plot | StagePlot">
   <meta name="twitter:description" content="Un fonico revisiona stage plot, input list e rider e ti dà la documentazione pronta per il service. Da 29 €.">
-  <meta name="twitter:image" content="https://stageplot.it/preview.png">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
   <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <meta name="theme-color" content="#111827">
@@ -524,7 +524,7 @@
   <header class="topbar">
     <a class="brand" href="/"><img src="/favicon.svg" width="460" height="460" alt=""><span>StagePlot</span></a>
     <nav class="authArea" id="authArea">
-      <a href="/">Tool gratuito</a>
+      <a href="/app/">Tool gratuito</a>
       <button class="btn small" type="button" id="loginBtn">Accedi con Google</button>
     </nav>
   </header>
@@ -537,7 +537,7 @@
           <p class="lead">Crea gratuitamente il tuo stage plot. Quando ti serve la certezza che sia corretto e completo, un sound engineer revisiona stage plot, input list e rider e ti consegna la documentazione pronta per musicisti, service e produzione.</p>
           <div class="hero-actions">
             <a class="btn primary" href="#offerte">Vedi le offerte</a>
-            <a class="btn" href="/">Apri il Tool gratuito</a>
+            <a class="btn" href="/app/">Apri il Tool gratuito</a>
           </div>
         </div>
         <div class="hero-right">
@@ -623,7 +623,7 @@
       <div class="faq">
         <details>
           <summary>Devo creare io lo stage plot?</summary>
-          <p>Crei il tuo Stage Plot col <a href="/">tool gratuito</a>, che disegna il palco in scala. Con la Consulenza Tecnica un sound engineer lo trasforma in documentazione pronta per service e produzione.</p>
+          <p>Crei il tuo Stage Plot col <a href="/app/">tool gratuito</a>, che disegna il palco in scala. Con la Consulenza Tecnica un sound engineer lo trasforma in documentazione pronta per service e produzione.</p>
         </details>
         <details>
           <summary>Cosa ricevo con la Consulenza Tecnica?</summary>
@@ -657,7 +657,7 @@
     <div class="inner">
       <p class="links">
         <a href="mailto:castellansimone@gmail.com">Assistenza: castellansimone@gmail.com</a>
-        <a href="/">Tool gratuito</a>
+        <a href="/app/">Tool gratuito</a>
         <a href="#faq">FAQ</a>
       </p>
       <p>Pagamenti gestiti da Stripe: i dati della carta non passano né restano su questo sito. Ogni Consulenza Tecnica è personalizzata sulla richiesta.</p>
@@ -676,7 +676,7 @@
       <label for="odProject">Per quale Stage Plot?</label>
       <select id="odProject"></select>
       <div id="odEmpty" hidden style="margin-top:8px;color:var(--muted);font-size:14px">
-        Non hai ancora uno Stage Plot salvato. <a href="/">Aprilo nel tool gratuito</a> e salvalo col suo nome, poi torna qui.
+        Non hai ancora uno Stage Plot salvato. <a href="/app/">Aprilo nel tool gratuito</a> e salvalo col suo nome, poi torna qui.
       </div>
     </div>
 
@@ -746,9 +746,9 @@
       if (!authArea) return;
       if (session) {
         var nm = (session.user.user_metadata && (session.user.user_metadata.name || session.user.user_metadata.full_name)) || session.user.email || "";
-        authArea.innerHTML = '<a href="/">Tool gratuito</a><span class="hi">Ciao, ' + esc(nm) + '</span>';
+        authArea.innerHTML = '<a href="/app/">Tool gratuito</a><span class="hi">Ciao, ' + esc(nm) + '</span>';
       } else {
-        authArea.innerHTML = '<a href="/">Tool gratuito</a><button class="btn small" type="button" id="loginBtn">Accedi con Google</button>';
+        authArea.innerHTML = '<a href="/app/">Tool gratuito</a><button class="btn small" type="button" id="loginBtn">Accedi con Google</button>';
         var lb = document.getElementById("loginBtn");
         if (lb) lb.addEventListener("click", function(){ startLogin(null); });
       }
@@ -843,7 +843,7 @@
             heroPicker.hidden = true;
             showLogoState();
             heroCaption.hidden = false;
-            heroCaption.innerHTML = '<span>Non hai ancora uno Stage Plot.</span> <a class="btn small" href="/">Crealo nel tool gratuito</a>';
+            heroCaption.innerHTML = '<span>Non hai ancora uno Stage Plot.</span> <a class="btn small" href="/app/">Crealo nel tool gratuito</a>';
             return;
           }
           heroProject.innerHTML = r.data.map(function(p){ return '<option value="' + p.id + '">' + projLabel(p) + "</option>"; }).join("");
