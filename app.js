@@ -20358,7 +20358,7 @@ function aiSpecPrompt(){
 "COME RISPONDERE:",
 "1) A QUESTO messaggio rispondi SOLO: \"Pronto — descrivimi il tuo palco: strumenti, posizioni, palco, microfoni…\". Non generare altro adesso.",
 "2) Quando l'utente descrive il palco, costruisci un JSON con lo schema sotto, codificalo in base64 URL-safe (usa lo strumento di codice) e restituisci SOLO un link cliccabile, senza altro testo dopo:",
-"   https://stageplot.it/#d=<BASE64URL_DEL_JSON>",
+"   https://stageplot.it/app/#d=<BASE64URL_DEL_JSON>",
 "",
 "SCHEMA JSON (unità = cm, scala reale):",
 "{\"titolo\":\"\",\"luogo\":\"\",\"stage\":{\"blocks\":[{\"x\":0,\"y\":0,\"w\":1200,\"d\":800,\"h\":0}]},\"items\":[{\"type\":\"<chiave>\",\"x\":0,\"y\":0,\"rot\":0,\"label\":\"\"}],\"inputs\":[],\"outputs\":[]}",
