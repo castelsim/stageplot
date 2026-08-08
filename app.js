@@ -5482,7 +5482,9 @@ function itemMarkup(it){
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
          «Chitarra acustica 1» + «DI 1» = «Chitarrala…stica 1», al primo elemento aggiunto. Qui il nome
          esce di lato, dove non c'è nient'altro. */
-      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+7)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
+         si leggeva come parte del nome («⊏DI 1»). */
+      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
       else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
@@ -10273,7 +10275,12 @@ document.getElementById("pLblSize").addEventListener("change", function(){ var i
    esistono altri elementi dello stesso tipo con una dimensione diversa da quella appena scelta. */
 var _lblSizeAsk=null;   /* id dell'elemento su cui si è appena cambiata la dimensione: runtime, non si salva */
 function lblSizeOf(it){ return (it && it.lblSize!=null) ? +it.lblSize : 14; }
-var LBL_DIST_DEF=9;   /* cm dal bordo dell'elemento: il valore con cui il nome è sempre stato disegnato */
+/* cm dal bordo dell'elemento. Era 9, e a 9 il nome finiva addosso a quel che gli sta sotto: la DI
+   generata da uno strumento sporge proprio lì, e il suo disegno spuntava IN MEZZO alle parole
+   («Chitarra|acustica 1» — P2-01 dell'audit 27/07). Il testo era già disegnato sopra, con il suo
+   alone: il difetto non era l'ordine di disegno, era la distanza. Chi ha già scelto la sua distanza
+   tiene la propria: lblDist salvato vince sempre su questo default. */
+var LBL_DIST_DEF=22;
 function lblDistOf(it){ var v=(it && it.lblDist!=null) ? +it.lblDist : LBL_DIST_DEF; return isFinite(v) ? Math.max(0, Math.min(80, v)) : LBL_DIST_DEF; }
 function lblSizeSiblings(it){
   if(!it || !TYPES[it.type]) return [];
