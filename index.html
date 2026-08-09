@@ -369,6 +369,8 @@ addEventListener("hashchange", go);})();</script>
   .shot img{display:block;width:100%;height:auto}
   .shot figcaption{padding:12px 18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--mut)}
   .shot figcaption a{font-size:inherit}   /* il .ghost ereditava 15px e sballava la riga */
+  .shots{margin-top:56px;display:grid;grid-template-columns:.85fr 1.15fr;gap:20px;align-items:start}
+  @media(max-width:860px){.shots{grid-template-columns:1fr;gap:16px}}
   /* Su telefono l'app intera a 342px diventa una macchia: si inquadra il palco (la parte che si
      capisce) invece di rimpicciolire anche i pannelli, che lì non si leggerebbero comunque. */
   @media(max-width:700px){
@@ -487,7 +489,7 @@ addEventListener("hashchange", go);})();</script>
     <a href="#domande">Domande</a>
     <a href="/guida/">Guide</a>
   </div>
-  <a class="nav-cta" href="/app/">Apri l'editor</a>
+  <a class="nav-cta" href="/app/?from=nav">Apri l'editor</a>
 </div></nav>
 
 <header><div class="wrap">
@@ -495,8 +497,8 @@ addEventListener("hashchange", go);})();</script>
   <h1>Disegna il palco.<br><span class="dim">Il rider si costruisce da solo.</span></h1>
   <p class="sub">Stage plot, channel list, monitor, cablaggi, elettrico e luci <b>restano collegati nello stesso progetto</b>: sposti un microfono e i documenti si aggiornano insieme a lui.</p>
   <div class="cta-row">
-    <a class="btn" href="/app/">Apri l'editor gratis</a>
-    <a class="btn2" href="/app/?model=band">Prova un palco già fatto</a>
+    <a class="btn" href="/app/?from=hero">Apri l'editor gratis</a>
+    <a class="btn2" href="/app/?model=band&amp;from=hero-modello">Prova un palco già fatto</a>
   </div>
   <p class="trust"><span>Gratis</span> · nel browser · nessuna registrazione</p>
 
@@ -857,12 +859,19 @@ addEventListener("hashchange", go);})();</script>
     </div>
   </div>
 
-  <!-- La finestra vera dell'export: dice quante pagine escono e da dove, meglio di qualunque elenco -->
-  <figure class="shot" style="margin-top:56px">
-    <img src="/img/export.jpg" width="1200" height="632" loading="lazy" decoding="async"
-         alt="La finestra «Esporta PDF in scala» di StagePlot: le pagine da includere (rider tecnico, lista ingressi, monitor, carichi elettrici, backline, RF, criticità), formato A4, scala 1:100 e l'anteprima della pagina del palco.">
-    <figcaption>Le pagine le scegli tu, la scala è vera: 1:100 su A4, stampabile a 100%.</figcaption>
-  </figure>
+  <!-- Una pagina vera del PDF accanto alla finestra da cui esce: il documento e il modo di ottenerlo -->
+  <div class="shots">
+    <figure class="shot">
+      <img src="/img/rider.jpg" width="710" height="720" loading="lazy" decoding="async"
+           alt="Pagina «Input list» del rider generato da StagePlot per il modello Band pop/rock: undici canali numerati con sorgente e microfono — Kick D6, Rullante top SM57, Hi-Hat SM81 con phantom, Overhead KM184, Ampli basso DI e MD421, Ampli chitarra SM57/e906.">
+      <figcaption>Una pagina vera del PDF, così come esce.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="/img/export.jpg" width="1200" height="632" loading="lazy" decoding="async"
+           alt="La finestra «Esporta PDF in scala» di StagePlot: le pagine da includere (rider tecnico, lista ingressi, monitor, carichi elettrici, backline, RF, criticità), formato A4, scala 1:100 e l'anteprima della pagina del palco.">
+      <figcaption>Le pagine le scegli tu; la scala è vera, 1:100 su A4.</figcaption>
+    </figure>
+  </div>
 </div></section>
 <section class="rv" id="condivisione"><div class="wrap">
   <p class="sec-k">Condivisione</p>
@@ -1124,7 +1133,7 @@ addEventListener("hashchange", go);})();</script>
 <section class="final rv"><div class="wrap">
   <p class="sec-k">Pronto quando lo sei tu</p>
   <h2>Stasera il palco. Domani il rider è già fatto.</h2>
-  <a class="btn" href="/app/">Apri l'editor</a>
+  <a class="btn" href="/app/?from=finale">Apri l'editor</a>
   <p class="trust"><span>Gratis</span> · nel browser · senza registrazione</p>
 </div></section>
 
