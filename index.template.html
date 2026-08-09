@@ -4832,7 +4832,10 @@ function track(event, props){
   }catch(e){}
 }
 window.track=track;
-track("app_open");
+/* `from` dice da quale porta è entrato l'utente (i CTA della landing lo marcano: hero, hero-modello,
+   nav, finale). Serve a sapere se «parti da un palco già fatto» viene davvero usato. NB: gli eventi
+   restano quelli dei soli utenti loggati — qui non si apre nessun canale anonimo. */
+track("app_open", {from:(location.search.match(/[?&]from=([\w-]{1,24})/)||[])[1]||""});
 /* UNICO punto di scrittura del documento locale (stato + aggancio al progetto cloud). La chiave _cloudid
    fa sopravvivere l'associazione online TRA le sessioni: senza, ogni riapertura creerebbe un duplicato
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
