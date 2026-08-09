@@ -43,8 +43,8 @@ addEventListener("hashchange", go);})();</script>
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#0a0e0e">
 <meta name="author" content="Simone Castellan">
-<meta name="description" content="Disegni il palco nel browser e channel list, schema elettrico e rider PDF escono da soli. Editor gratuito in italiano per stage plot e scheda tecnica, senza registrazione.">
-<title>StagePlot — stage plot, scheda tecnica e rider da un disegno solo</title>
+<meta name="description" content="Disegna lo stage plot nel browser: channel list, monitor, elettrico e rider PDF si costruiscono da soli e restano allineati al disegno. Gratis, in italiano, senza registrazione.">
+<title>StagePlot — disegna il palco, il rider si costruisce da solo</title>
 <link rel="canonical" href="https://stageplot.it/">
 <link rel="icon" href="/favicon.ico?v=3" sizes="48x48">
 <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml">
@@ -53,16 +53,16 @@ addEventListener("hashchange", go);})();</script>
 <meta property="og:type" content="website">
 <meta property="og:locale" content="it_IT">
 <meta property="og:site_name" content="StagePlot">
-<meta property="og:title" content="StagePlot — stage plot, scheda tecnica e rider da un disegno solo">
-<meta property="og:description" content="Disegni il palco nel browser e channel list, schema elettrico e rider PDF escono da soli. Gratis, in italiano, senza registrazione.">
+<meta property="og:title" content="StagePlot — disegna il palco, il rider si costruisce da solo">
+<meta property="og:description" content="Stage plot, channel list, monitor, elettrico e luci restano collegati nello stesso progetto. Gratis, nel browser, senza registrazione.">
 <meta property="og:url" content="https://stageplot.it/">
 <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="StagePlot — stage plot, scheda tecnica e rider da un disegno solo">
-<meta name="twitter:description" content="Disegni il palco nel browser e channel list, schema elettrico e rider PDF escono da soli. Gratis, in italiano, senza registrazione.">
+<meta name="twitter:title" content="StagePlot — disegna il palco, il rider si costruisce da solo">
+<meta name="twitter:description" content="Stage plot, channel list, monitor, elettrico e luci restano collegati nello stesso progetto. Gratis, nel browser, senza registrazione.">
 <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
 <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <script type="application/ld+json">
@@ -191,16 +191,18 @@ addEventListener("hashchange", go);})();</script>
   .nav-cta{font-size:14px;font-weight:600;text-decoration:none;background:var(--teal);color:#04211d;padding:9px 18px;border-radius:8px;transition:filter .15s;flex:0 0 auto}
   .nav-cta:hover{filter:brightness(1.12)}
 
-  header{padding:110px 0 90px;position:relative;overflow:hidden;
+  header{padding:72px 0 84px;position:relative;overflow:hidden;
     background:
       radial-gradient(900px 420px at 50% -160px, var(--glow), transparent 70%),
       radial-gradient(700px 300px at 85% 30%, rgba(20,184,166,.05), transparent 70%)}
-  .kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:26px}
-  h1{font-size:clamp(42px,7.8vw,96px);line-height:1.0;letter-spacing:-.033em;font-weight:800;max-width:14ch}
+  .kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:20px}
+  /* il claim è più lungo del precedente: se resta a 96px occupa tre righe e spinge la schermata
+     dell'editor sotto la piega, che è esattamente quello che NON deve succedere */
+  h1{font-size:clamp(38px,5.6vw,68px);line-height:1.04;letter-spacing:-.028em;font-weight:800;max-width:19ch}
   h1 .dim{color:var(--mut)}
-  .sub{margin-top:30px;font-size:clamp(17px,2vw,20px);color:var(--mut);max-width:54ch}
+  .sub{margin-top:24px;font-size:clamp(17px,2vw,20px);color:var(--mut);max-width:54ch}
   .sub b{color:var(--text);font-weight:600}
-  .cta-row{margin-top:40px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .cta-row{margin-top:32px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
   .btn{display:inline-block;background:var(--teal);color:#04211d;font-weight:700;font-size:17px;padding:15px 30px;border-radius:10px;text-decoration:none;box-shadow:0 0 34px rgba(20,184,166,.28);transition:filter .15s,transform .15s}
   .btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
   .btn2{display:inline-block;background:transparent;color:var(--text);font-weight:600;font-size:16px;padding:14px 26px;border:1px solid var(--line2);border-radius:10px;text-decoration:none;transition:border-color .18s,color .18s}
@@ -361,6 +363,65 @@ addEventListener("hashchange", go);})();</script>
   .plane .fader{transition:opacity .4s ease}
   .plane.ghost .fader{opacity:.1}
 
+  /* --- Hero: schermata vera dell'editor --- */
+  .shot{margin-top:42px;border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--panel);
+        box-shadow:0 30px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(20,184,166,.06)}
+  .shot img{display:block;width:100%;height:auto}
+  .shot figcaption{padding:12px 18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .shot figcaption a{font-size:inherit}   /* il .ghost ereditava 15px e sballava la riga */
+  /* Su telefono l'app intera a 342px diventa una macchia: si inquadra il palco (la parte che si
+     capisce) invece di rimpicciolire anche i pannelli, che lì non si leggerebbero comunque. */
+  @media(max-width:700px){
+    .shot{margin-top:40px}
+    .shot figcaption{font-size:11.5px;padding:10px 14px}
+    .shot img{aspect-ratio:5/4;object-fit:cover;object-position:52% 78%}
+  }
+
+  /* --- «Una modifica, tutto aggiornato»: la dimostrazione, non la promessa --- */
+  .sy{margin-top:46px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:26px;align-items:start}
+  @media(max-width:900px){.sy{grid-template-columns:1fr;gap:20px}}
+  .sy-acts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .sbtn{font-family:var(--mono);font-size:12.5px;background:#0a1211;color:var(--text);border:1px solid var(--line2);
+        border-radius:999px;padding:10px 18px;cursor:pointer;transition:border-color .18s,color .18s,background .18s}
+  .sbtn:hover{border-color:var(--teal-d);color:var(--teal-l)}
+  .sbtn[data-done="1"]{background:rgba(20,184,166,.1);border-color:var(--teal-d);color:var(--teal-l);cursor:default}
+  .sbtn[data-done="1"]::after{content:" ✓"}
+  .sbtn.reset{color:var(--mut)}
+  .sy-plot{border:1px solid var(--line2);border-radius:14px;background:var(--panel2);overflow:hidden}
+  .sy-plot svg{display:block;width:100%;height:auto}
+  .sy-add{opacity:0;transform:scale(.82);transform-origin:center;transition:opacity .45s ease,transform .45s cubic-bezier(.2,1.3,.4,1)}
+  .sy-add.on{opacity:1;transform:none}
+  .sy-doc{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px 16px 12px;transition:border-color .35s,box-shadow .35s}
+  .sy-doc + .sy-doc{margin-top:12px}
+  .sy-doc.hit{border-color:var(--teal-d);box-shadow:0 0 0 1px rgba(20,184,166,.18),0 10px 30px rgba(20,184,166,.07)}
+  .sy-doc h3{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);font-weight:500;
+             display:flex;justify-content:space-between;gap:10px}
+  .sy-doc.hit h3{color:var(--teal-l)}
+  .sy-rows{margin-top:9px;font-family:var(--mono);font-size:12.5px;color:var(--mut);line-height:1.85}
+  .sy-rows div{display:flex;gap:12px}
+  .sy-rows i{font-style:normal;color:#4d635f;min-width:34px}
+  .sy-rows .new{max-height:0;opacity:0;overflow:hidden;transition:max-height .4s ease,opacity .4s ease .1s}
+  .sy-rows .new.on{max-height:32px;opacity:1;color:var(--teal-l)}
+  .sy-rows .new.on i{color:var(--teal)}
+  .sy-sum{margin-top:16px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .sy-sum b{color:var(--text);font-weight:500;transition:color .3s}
+  .sy-sum b.up{color:var(--teal-l)}
+  .sy-note{margin-top:14px;font-size:14.5px;color:var(--mut);max-width:52ch}
+  @media(prefers-reduced-motion:reduce){.sy-add,.sy-rows .new{transition:none}}
+
+  /* --- Due profili: la band non deve spaventarsi davanti al Dante --- */
+  .prof{margin-top:52px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:860px){.prof{grid-template-columns:1fr}}
+  .prof-c{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:26px 26px 28px}
+  .prof-c.pro{background:var(--panel2);border-color:var(--line2)}
+  .prof-k{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--teal)}
+  .prof-c.pro .prof-k{color:var(--amber)}
+  .prof-c h3{margin-top:12px;font-size:21px;letter-spacing:-.016em}
+  .prof-c p{margin-top:10px;color:var(--mut);font-size:15px}
+  .tags{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .tags span{font-family:var(--mono);font-size:12px;border:1px solid var(--line2);border-radius:999px;padding:6px 13px;color:var(--mut)}
+  .prof-c.pro .tags span{border-color:#3a3320;color:#c9b98a}
+
   .share{margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:860px){.share{grid-template-columns:1fr}}
   .share-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:32px;transition:border-color .2s}
@@ -419,10 +480,10 @@ addEventListener("hashchange", go);})();</script>
     StagePlot
   </a>
   <div class="nav-links">
-    <a href="#come">Come funziona</a>
     <a href="#confronto">Prima / Dopo</a>
+    <a href="#sync">Una modifica</a>
     <a href="#output">L'output</a>
-    <a href="#layers">Layer</a>
+    <a href="#layers">Professionale</a>
     <a href="#domande">Domande</a>
     <a href="/guida/">Guide</a>
   </div>
@@ -431,137 +492,30 @@ addEventListener("hashchange", go);})();</script>
 
 <header><div class="wrap">
   <p class="kicker">Stage plot · scheda tecnica · rider</p>
-  <h1>Ogni canale.<br>Ogni cavo.<br><span class="dim">Ogni watt.</span></h1>
-  <p class="sub">Lo stage plot che tiene insieme tutto il palco: disegni una volta e <b>channel list, schema elettrico e rider PDF restano allineati da soli</b>. Nel browser, gratis.</p>
+  <h1>Disegna il palco.<br><span class="dim">Il rider si costruisce da solo.</span></h1>
+  <p class="sub">Stage plot, channel list, monitor, cablaggi, elettrico e luci <b>restano collegati nello stesso progetto</b>: sposti un microfono e i documenti si aggiornano insieme a lui.</p>
   <div class="cta-row">
-    <a class="btn" href="/app/">Apri l'editor</a>
-    <a class="btn2" href="/app/?model=band">Parti da un palco già fatto</a>
+    <a class="btn" href="/app/">Apri l'editor gratis</a>
+    <a class="btn2" href="/app/?model=band">Prova un palco già fatto</a>
   </div>
-  <p class="trust"><span>Gratis</span> · nel browser · si inizia senza registrazione</p>
+  <p class="trust"><span>Gratis</span> · nel browser · nessuna registrazione</p>
 
-  <figure class="console" id="console">
-    <div class="spot"></div>
-    <div class="con-bar">
-      <span class="dots"><i></i><i></i><i></i></span>
-      <span>quartetto-rock.stageplot — <em>esempio</em></span>
-      <span id="con-sum"><b data-n="10">0</b> CH · <b data-n="8,6">0</b> kW · <b data-n="4">0</b> wedge</span>
-    </div>
-    <div class="chips" role="group" aria-label="Layer del disegno">
-      <span class="lab">LAYER</span>
-      <button class="chip" data-layer="ly-cavi" aria-pressed="true">CAVI</button>
-      <button class="chip" data-layer="ly-elet" aria-pressed="true">ELETTRICO</button>
-      <button class="chip" data-layer="ly-mon" aria-pressed="true">MONITOR</button>
-      <span class="hint"><span class="mouse">passa il mouse sugli elementi ↓</span><span class="touch">tocca gli elementi del palco ↓</span></span>
-    </div>
-    <svg viewBox="0 0 960 500" role="img" aria-label="Stage plot interattivo: batteria, amplificatori, microfoni, monitor; i layer cavi, elettrico e monitor si accendono e spengono">
-      <defs>
-        <pattern id="gridB" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M40 0H0V40" fill="none" stroke="#152020" stroke-width="1"/>
-        </pattern>
-        <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="2.4" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <rect x="0" y="0" width="960" height="500" fill="#0c1212"/>
-      <rect x="80" y="34" width="800" height="392" fill="url(#gridB)" stroke="#33443f" stroke-width="1.4"/>
-
-      <g id="ly-cavi" fill="none" stroke="#0f766e" stroke-width="1.3" opacity=".8">
-        <path d="M212 162 L212 250 L480 250 L480 426"/>
-        <path d="M738 162 L738 250 L520 250 L520 426"/>
-        <path d="M480 200 L480 250"/>
-        <path d="M260 336 L260 386 L480 386"/>
-        <path d="M700 336 L700 386 L520 386"/>
-        <path d="M812 120 L812 250 L738 250" stroke-dasharray="4 3"/>
-      </g>
-
-      <g id="ly-elet">
-        <rect x="790" y="76" width="44" height="44" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
-        <path d="M806 86 L800 100 L810 100 L804 112" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
-        <text x="812" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">32A · 8,6 kW</text>
-        <text x="212" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,3 kW</text>
-        <text x="738" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,4 kW</text>
-        <text x="480" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,2 kW</text>
-      </g>
-
-      <g id="ly-mon">
-        <path d="M212 424 L248 424 L240 402 L220 402 Z" fill="rgba(45,212,191,.22)"/>
-        <path d="M392 424 L428 424 L420 402 L400 402 Z" fill="rgba(94,234,212,.28)"/>
-        <path d="M532 424 L568 424 L560 402 L540 402 Z" fill="rgba(94,234,212,.28)"/>
-        <path d="M712 424 L748 424 L740 402 L720 402 Z" fill="rgba(45,212,191,.22)"/>
-        <text x="230" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 1</text>
-        <text x="410" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
-        <text x="550" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
-        <text x="730" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 3</text>
-      </g>
-
-      <rect x="390" y="62" width="180" height="128" fill="none" stroke="#2dd4bf" stroke-width="1.1" stroke-dasharray="5 4" opacity=".7"/>
-      <g stroke="#d7e6e2" fill="none" stroke-width="1.4">
-        <circle cx="480" cy="136" r="29"/>
-        <circle cx="444" cy="108" r="12"/><circle cx="516" cy="108" r="12"/>
-        <circle cx="424" cy="142" r="13" stroke-dasharray="3 3"/><circle cx="536" cy="142" r="13" stroke-dasharray="3 3"/>
-      </g>
-      <text x="480" y="208" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">BATTERIA</text>
-      <rect x="180" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
-      <text x="212" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP BASSO</text>
-      <rect x="706" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
-      <text x="738" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP CHITARRA</text>
-      <g stroke="#2dd4bf" stroke-width="1.6" filter="url(#glow)">
-        <circle cx="480" cy="330" r="10" fill="none"/><path d="M474 324 L486 336 M486 324 L474 336"/>
-        <circle cx="260" cy="310" r="10" fill="none"/><path d="M254 304 L266 316 M266 304 L254 316"/>
-        <circle cx="700" cy="310" r="10" fill="none"/><path d="M694 304 L706 316 M706 304 L694 316"/>
-      </g>
-      <text x="480" y="362" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2dd4bf">VOCE · SM58</text>
-      <g fill="none" stroke="#d7e6e2" stroke-width="1.4">
-        <path d="M212 424 L248 424 L240 402 L220 402 Z"/>
-        <path d="M392 424 L428 424 L420 402 L400 402 Z"/>
-        <path d="M532 424 L568 424 L560 402 L540 402 Z"/>
-        <path d="M712 424 L748 424 L740 402 L720 402 Z"/>
-      </g>
-
-      <g fill="transparent" stroke="none">
-        <rect x="400" y="80" width="160" height="120" data-tip="<b>Batteria</b> · CH 1–6<br>Beta 52A · SM57 · SM81 · e604 · 2× C214"/>
-        <rect x="176" y="100" width="76" height="70" data-tip="<b>Amp basso</b> · CH 7 · DI attiva<br>0,3 kW sul quadro"/>
-        <rect x="702" y="100" width="76" height="70" data-tip="<b>Amp chitarra</b> · CH 8 · SM57<br>0,4 kW sul quadro"/>
-        <circle cx="480" cy="330" r="18" data-tip="<b>Voce</b> · CH 9 · SM58 · asta alta<br>ascolta MIX 2"/>
-        <circle cx="260" cy="310" r="18" data-tip="<b>Coro L</b> · CH 10 · SM58<br>ascolta MIX 1"/>
-        <circle cx="700" cy="310" r="18" data-tip="<b>Coro R</b> · CH 10 · SM58<br>ascolta MIX 3"/>
-        <rect x="208" y="398" width="46" height="32" data-tip="<b>Wedge 1</b> · MIX 1 · coro L"/>
-        <rect x="388" y="398" width="46" height="32" data-tip="<b>Wedge 2</b> · MIX 2 · voce"/>
-        <rect x="528" y="398" width="46" height="32" data-tip="<b>Wedge 3</b> · MIX 2 · voce"/>
-        <rect x="708" y="398" width="46" height="32" data-tip="<b>Wedge 4</b> · MIX 3 · coro R"/>
-        <rect x="786" y="72" width="52" height="64" data-tip="<b>Quadro 32A</b><br>8,6 kW totali · somma automatica"/>
-      </g>
-    </svg>
+  <!-- Schermata vera dell'editor (modello «Band pop/rock» incluso), non un'illustrazione: chi arriva
+       deve riconoscere il prodotto che sta per aprire. È l'LCP della pagina → niente lazy. -->
+  <figure class="shot">
+    <img src="/img/editor.jpg" width="1400" height="643" fetchpriority="high" decoding="async"
+         alt="L'editor di StagePlot con lo stage plot di una band pop/rock: batteria su pedana, ampli, tastiere, tre voci, monitor spia e side fill, catalogo degli elementi a sinistra e layer del progetto a destra.">
+    <figcaption>Il modello «Band pop/rock» incluso, aperto nell'editor. <a class="ghost" href="/app/?model=band">provalo</a></figcaption>
   </figure>
 </div></header>
 
-<section class="rv" id="come"><div class="wrap">
-  <p class="sec-k">Come funziona</p>
-  <h2>Un disegno solo. Tutta la documentazione.</h2>
-  <p class="lead">Quattro passaggi, una fonte sola: il disegno. Tutto quello che il service ti chiederà <b>ne discende da solo</b>.</p>
-  <div class="steps">
-    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, 155 microfoni, DI, mixer, 42 fari. Niente rettangoli anonimi.</p></div>
-    <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve. Sposti la batteria, la channel list si aggiorna.</p></div>
-    <div class="step"><p class="step-n">03</p><h3>Il progetto si controlla</h3><p>Un microfono senza canale, un carico senza distro, un mix dimenticato: te lo dice l'editor prima che te lo chieda il service.</p></div>
-    <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
-  </div>
 
-  <div class="term" id="term">
-    <div class="term-h"><span>rider.pdf — generato dall'editor</span><span>8 pagine</span></div>
-    <div class="term-b">
-      <div class="tl"><b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue</div>
-      <div class="tl"><b>PAG 2</b> · Input list <span class="t">10 CH</span> — mic, 48V, patch della stage box</div>
-      <div class="tl"><b>PAG 3</b> · Monitor <span class="t">4 wedge / 3 mix</span> + richieste dei musicisti</div>
-      <div class="tl"><b>PAG 4</b> · Schema elettrico <span class="t">8,6 kW</span> — carichi, distro, quadro 32A <span class="ok">✓</span></div>
-      <div class="tl"><b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — apparecchio, colore, posizione</div>
-      <div class="tl"><b>PAG 6</b> · Backline — <span class="t">chi porta cosa</span>, band o service</div>
-      <div class="tl"><b>PAG 7</b> · Note per il fonico — appuntate sugli elementi del disegno</div>
-      <div class="tl"><b>PAG 8</b> · Responsabilità — <span class="t">chi fa cosa</span> in produzione, con i referenti</div>
-      <div class="tl">— e se domani aggiungi un radiomicrofono, compare la lista RF. Da sola.</div>
-    </div>
-  </div>
-</div></section>
+
+
+
+
+
+
 
 <section class="rv tinted" id="confronto"><div class="wrap">
   <p class="sec-k">Prima / Dopo</p>
@@ -655,6 +609,156 @@ addEventListener("hashchange", go);})();</script>
     <span>il foglietto scattato in sala prove e girato su WhatsApp</span>
     <span><b>lo stesso palco, esportato da StagePlot</b> — parti da un modello pronto: <a class="ghost" href="/app/?model=band">stageplot.it/app/?model=band</a></span>
   </div>
+</div></section>
+<!-- La sezione più importante della pagina: la promessa «i documenti si aggiornano da soli» non si
+     capisce leggendola, si capisce vedendola. Tre azioni, tre effetti visibili. -->
+<section class="rv" id="sync"><div class="wrap">
+  <p class="sec-k">Una modifica</p>
+  <h2>Cambi il palco. I documenti cambiano con lui.</h2>
+  <!-- «la colonna a destra» sarebbe sbagliato su telefono, dove i documenti finiscono sotto -->
+  <p class="lead">Il disegno è la fonte: canali, mix monitor e watt non si scrivono a mano da nessuna parte. <b>Aggiungi qualcosa al palco e guarda i documenti.</b></p>
+
+  <div class="sy">
+    <div>
+      <div class="sy-acts">
+        <button class="sbtn" type="button" data-add="mic">+ Microfono voce</button>
+        <button class="sbtn" type="button" data-add="mon">+ Monitor spia</button>
+        <button class="sbtn" type="button" data-add="par">+ Faro PC</button>
+        <button class="sbtn reset" type="button" id="syReset" hidden>Ricomincia</button>
+      </div>
+      <div class="sy-plot">
+        <svg viewBox="0 0 560 360" role="img" aria-label="Mini stage plot: batteria, ampli, due voci e due monitor; aggiungendo elementi compaiono sul palco">
+          <rect x="0" y="0" width="560" height="360" fill="#0b1111"/>
+          <rect x="20" y="20" width="520" height="290" fill="none" stroke="#33443f" stroke-width="1.3"/>
+          <!-- batteria su pedana -->
+          <rect x="228" y="48" width="104" height="70" fill="none" stroke="#2b3a38" stroke-width="1.1" stroke-dasharray="4 3"/>
+          <g fill="none" stroke="#d7e6e2" stroke-width="1.3">
+            <circle cx="280" cy="92" r="15"/><circle cx="269" cy="70" r="6.5"/><circle cx="291" cy="70" r="6.5"/>
+            <ellipse cx="246" cy="66" rx="9" ry="3.8" stroke="#7f938f"/><ellipse cx="314" cy="66" rx="9" ry="3.8" stroke="#7f938f"/>
+          </g>
+          <text x="280" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BATTERIA</text>
+          <!-- ampli -->
+          <g fill="none" stroke="#d7e6e2" stroke-width="1.3"><rect x="112" y="76" width="42" height="26"/><rect x="406" y="76" width="42" height="26"/></g>
+          <text x="133" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">CHITARRA</text>
+          <text x="427" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BASSO</text>
+          <!-- voci -->
+          <g fill="none" stroke="#2dd4bf" stroke-width="1.5">
+            <circle cx="190" cy="196" r="8"/><path d="M190 204v16"/>
+            <circle cx="370" cy="196" r="8"/><path d="M370 204v16"/>
+          </g>
+          <text x="190" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">VOCE 1</text>
+          <text x="370" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">VOCE 2</text>
+          <!-- wedge esistenti -->
+          <g fill="none" stroke="#d4a72c" stroke-width="1.5">
+            <path d="M166 258h48l-9 15h-30z"/><path d="M346 258h48l-9 15h-30z"/>
+          </g>
+          <!-- quadro elettrico -->
+          <g fill="none" stroke="#e0574a" stroke-width="1.3"><rect x="480" y="40" width="26" height="26" rx="3"/><path d="M494 46l-5 8h7l-5 8"/></g>
+          <!-- fronte palco -->
+          <path d="M20 310h520" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/>
+          <text x="280" y="332" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#5c706d" letter-spacing="1.6">PUBBLICO</text>
+
+          <!-- elementi che compaiono -->
+          <g class="sy-add" id="add-mic">
+            <g fill="none" stroke="#2dd4bf" stroke-width="1.5"><circle cx="280" cy="196" r="8"/><path d="M280 204v16"/></g>
+            <text x="280" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">VOCE 3</text>
+          </g>
+          <g class="sy-add" id="add-mon">
+            <path d="M256 258h48l-9 15h-30z" fill="none" stroke="#d4a72c" stroke-width="1.5"/>
+          </g>
+          <g class="sy-add" id="add-par">
+            <g fill="none" stroke="#d4a72c" stroke-width="1.4">
+              <rect x="60" y="26" width="30" height="16" rx="2"/><path d="M75 42l-14 24M75 42l14 24"/>
+            </g>
+            <text x="75" y="80" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#d4a72c">PC 1 kW</text>
+          </g>
+        </svg>
+      </div>
+      <p class="sy-sum" aria-live="polite">Totali del progetto: <b id="syCh">6</b> canali · <b id="syMix">2</b> mix monitor · <b id="syKw">3,6</b> kW</p>
+    </div>
+
+    <div class="sy-docs">
+      <div class="sy-doc" id="doc-mic">
+        <h3><span>Channel list</span><span id="docChN">6 CH</span></h3>
+        <div class="sy-rows">
+          <div><i>1</i><span>Cassa · Beta 52A</span></div>
+          <div><i>2</i><span>Rullante · SM57</span></div>
+          <div><i>3</i><span>Chitarra · SM57</span></div>
+          <div><i>4</i><span>Basso · DI attiva</span></div>
+          <div><i>5</i><span>Voce 1 · SM58</span></div>
+          <div><i>6</i><span>Voce 2 · SM58</span></div>
+          <div class="new" id="row-mic"><i>7</i><span>Voce 3 · SM58</span></div>
+        </div>
+      </div>
+      <div class="sy-doc" id="doc-mon">
+        <h3><span>Lista monitor</span><span id="docMonN">2 mix</span></h3>
+        <div class="sy-rows">
+          <div><i>M1</i><span>Voce 1 · wedge</span></div>
+          <div><i>M2</i><span>Voce 2 · wedge</span></div>
+          <div class="new" id="row-mon"><i>M3</i><span>Voce 3 · wedge</span></div>
+        </div>
+      </div>
+      <div class="sy-doc" id="doc-par">
+        <h3><span>Carichi elettrici</span><span id="docKwN">3,6 kW</span></h3>
+        <div class="sy-rows">
+          <div><i>—</i><span>Backline · 1,4 kW</span></div>
+          <div><i>—</i><span>Impianto e FOH · 2,2 kW</span></div>
+          <div class="new" id="row-par"><i>—</i><span>Faro PC · 1,0 kW</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sy-note">Nell'editor vero vale per tutto il resto allo stesso modo: sposti la batteria e cambiano i percorsi dei cavi, aggiungi un radiomicrofono e nasce la lista RF, togli le luci e la pagina luci sparisce dal PDF.</p>
+</div></section>
+
+<section class="rv" id="come"><div class="wrap">
+  <p class="sec-k">Come funziona</p>
+  <h2>Dalla prima pedana al PDF, in quattro passaggi.</h2>
+  <p class="lead">Nessuna configurazione da fare prima di cominciare: si apre e si trascina. <b>Il resto viene dopo, e solo se serve.</b></p>
+  <div class="steps">
+    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, 155 microfoni, DI, mixer, 42 fari. Niente rettangoli anonimi.</p></div>
+    <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve. Sposti la batteria, la channel list si aggiorna.</p></div>
+    <div class="step"><p class="step-n">03</p><h3>Il progetto si controlla</h3><p>Un microfono senza canale, un carico senza distro, un mix dimenticato: te lo dice l'editor prima che te lo chieda il service.</p></div>
+    <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
+  </div>
+
+  <div class="term" id="term">
+    <div class="term-h"><span>rider.pdf — generato dall'editor</span><span>8 pagine</span></div>
+    <div class="term-b">
+      <div class="tl"><b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue</div>
+      <div class="tl"><b>PAG 2</b> · Input list <span class="t">10 CH</span> — mic, 48V, patch della stage box</div>
+      <div class="tl"><b>PAG 3</b> · Monitor <span class="t">4 wedge / 3 mix</span> + richieste dei musicisti</div>
+      <div class="tl"><b>PAG 4</b> · Schema elettrico <span class="t">8,6 kW</span> — carichi, distro, quadro 32A <span class="ok">✓</span></div>
+      <div class="tl"><b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — apparecchio, colore, posizione</div>
+      <div class="tl"><b>PAG 6</b> · Backline — <span class="t">chi porta cosa</span>, band o service</div>
+      <div class="tl"><b>PAG 7</b> · Note per il fonico — appuntate sugli elementi del disegno</div>
+      <div class="tl"><b>PAG 8</b> · Responsabilità — <span class="t">chi fa cosa</span> in produzione, con i referenti</div>
+      <div class="tl">— e se domani aggiungi un radiomicrofono, compare la lista RF. Da sola.</div>
+    </div>
+  </div>
+</div></section>
+<!-- Il rischio dell'editor «professionale» è che un chitarrista veda Dante, DMX e distro 32A e concluda
+     che non è roba per lui. Qui i due mondi sono separati e dichiarati: il secondo è spento finché non serve. -->
+<section class="rv tinted" id="profili"><div class="wrap">
+  <p class="sec-k">Due modi di usarlo</p>
+  <h2>Semplice o professionale, quanto ti serve.</h2>
+  <p class="lead">Una band accende poco e parte in dieci minuti. Una produzione accende tutto e controlla ogni dettaglio. <b>Il disegno è lo stesso</b>: cambia solo quanto ne chiedi.</p>
+  <div class="prof">
+    <div class="prof-c">
+      <p class="prof-k">Band e setup semplici</p>
+      <h3>Il palco, i canali, il PDF.</h3>
+      <p>Trascini gli strumenti veri, l'editor conta i canali e i monitor, esporti il documento da mandare al locale. Non devi sapere niente di quello che c'è nell'altra colonna.</p>
+      <div class="tags"><span>Stage plot in scala</span><span>Channel list</span><span>Monitor</span><span>PDF e PNG</span><span>Link di sola lettura</span></div>
+    </div>
+    <div class="prof-c pro">
+      <p class="prof-k">Produzione e service</p>
+      <h3>Quando la sera si complica.</h3>
+      <p>Gli stessi elementi portano con sé cavi, assorbimenti, frequenze e indirizzi. Si accende quello che serve, e ogni layer acceso diventa una pagina del rider.</p>
+      <div class="tags"><span>Cablaggi e percorsi</span><span>Elettrico, fasi e distro</span><span>RF e intermodulazione</span><span>Dante e rete</span><span>Luci e DMX</span><span>Personal monitor</span><span>Varianti di scena</span></div>
+    </div>
+  </div>
+  <p class="sy-note">Si comincia sempre dalla colonna di sinistra: l'altra resta spenta finché non la accendi tu.</p>
 </div></section>
 
 <section class="rv" id="output"><div class="wrap">
@@ -752,12 +856,130 @@ addEventListener("hashchange", go);})();</script>
       </div>
     </div>
   </div>
-</div></section>
 
+  <!-- La finestra vera dell'export: dice quante pagine escono e da dove, meglio di qualunque elenco -->
+  <figure class="shot" style="margin-top:56px">
+    <img src="/img/export.jpg" width="1200" height="632" loading="lazy" decoding="async"
+         alt="La finestra «Esporta PDF in scala» di StagePlot: le pagine da includere (rider tecnico, lista ingressi, monitor, carichi elettrici, backline, RF, criticità), formato A4, scala 1:100 e l'anteprima della pagina del palco.">
+    <figcaption>Le pagine le scegli tu, la scala è vera: 1:100 su A4, stampabile a 100%.</figcaption>
+  </figure>
+</div></section>
+<section class="rv" id="condivisione"><div class="wrap">
+  <p class="sec-k">Condivisione</p>
+  <h2>La versione giusta ce l'hanno tutti.</h2>
+  <div class="share">
+    <div class="share-card">
+      <h3>Link di sola lettura per il service</h3>
+      <p>Niente allegati che invecchiano nella posta: chi apre il link vede l'ultima versione del palco, da qualsiasi dispositivo.</p>
+      <p class="pill">stageplot.it/app/?view=…</p>
+    </div>
+    <div class="share-card">
+      <h3>Richieste musicisti senza account</h3>
+      <p>Ogni musicista riceve un link anonimo, indica strumenti e monitor, e le risposte tornano già ordinate nel progetto.</p>
+      <p class="pill">3/4 richieste ricevute ✓</p>
+    </div>
+  </div>
+</div></section>
 <section class="rv" id="layers"><div class="wrap">
-  <p class="sec-k">Layer professionali</p>
-  <h2>Accendi solo quello che ti serve.</h2>
-  <p class="lead">Una band accende poco e parte. Una produzione accende tutto e controlla ogni dettaglio. Il disegno è lo stesso. <b>Prova gli interruttori:</b></p>
+  <p class="sec-k">Profondità</p>
+  <h2>Sette livelli sopra lo stesso palco.</h2>
+  <p class="lead">Un layer acceso è insieme una cosa che vedi sul disegno e una pagina che compare nel rider. <b>Accendi i primi tre qui sotto</b>, poi guarda la pila: sono gli stessi.</p>
+  <figure class="console" id="console">
+    <div class="spot"></div>
+    <div class="con-bar">
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>quartetto-rock.stageplot — <em>esempio</em></span>
+      <span id="con-sum"><b data-n="10">0</b> CH · <b data-n="8,6">0</b> kW · <b data-n="4">0</b> wedge</span>
+    </div>
+    <div class="chips" role="group" aria-label="Layer del disegno">
+      <span class="lab">LAYER</span>
+      <button class="chip" data-layer="ly-cavi" aria-pressed="true">CAVI</button>
+      <button class="chip" data-layer="ly-elet" aria-pressed="true">ELETTRICO</button>
+      <button class="chip" data-layer="ly-mon" aria-pressed="true">MONITOR</button>
+      <span class="hint"><span class="mouse">passa il mouse sugli elementi ↓</span><span class="touch">tocca gli elementi del palco ↓</span></span>
+    </div>
+    <svg viewBox="0 0 960 500" role="img" aria-label="Stage plot interattivo: batteria, amplificatori, microfoni, monitor; i layer cavi, elettrico e monitor si accendono e spengono">
+      <defs>
+        <pattern id="gridB" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0H0V40" fill="none" stroke="#152020" stroke-width="1"/>
+        </pattern>
+        <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <rect x="0" y="0" width="960" height="500" fill="#0c1212"/>
+      <rect x="80" y="34" width="800" height="392" fill="url(#gridB)" stroke="#33443f" stroke-width="1.4"/>
+
+      <g id="ly-cavi" fill="none" stroke="#0f766e" stroke-width="1.3" opacity=".8">
+        <path d="M212 162 L212 250 L480 250 L480 426"/>
+        <path d="M738 162 L738 250 L520 250 L520 426"/>
+        <path d="M480 200 L480 250"/>
+        <path d="M260 336 L260 386 L480 386"/>
+        <path d="M700 336 L700 386 L520 386"/>
+        <path d="M812 120 L812 250 L738 250" stroke-dasharray="4 3"/>
+      </g>
+
+      <g id="ly-elet">
+        <rect x="790" y="76" width="44" height="44" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
+        <path d="M806 86 L800 100 L810 100 L804 112" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
+        <text x="812" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">32A · 8,6 kW</text>
+        <text x="212" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,3 kW</text>
+        <text x="738" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,4 kW</text>
+        <text x="480" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,2 kW</text>
+      </g>
+
+      <g id="ly-mon">
+        <path d="M212 424 L248 424 L240 402 L220 402 Z" fill="rgba(45,212,191,.22)"/>
+        <path d="M392 424 L428 424 L420 402 L400 402 Z" fill="rgba(94,234,212,.28)"/>
+        <path d="M532 424 L568 424 L560 402 L540 402 Z" fill="rgba(94,234,212,.28)"/>
+        <path d="M712 424 L748 424 L740 402 L720 402 Z" fill="rgba(45,212,191,.22)"/>
+        <text x="230" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 1</text>
+        <text x="410" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
+        <text x="550" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
+        <text x="730" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 3</text>
+      </g>
+
+      <rect x="390" y="62" width="180" height="128" fill="none" stroke="#2dd4bf" stroke-width="1.1" stroke-dasharray="5 4" opacity=".7"/>
+      <g stroke="#d7e6e2" fill="none" stroke-width="1.4">
+        <circle cx="480" cy="136" r="29"/>
+        <circle cx="444" cy="108" r="12"/><circle cx="516" cy="108" r="12"/>
+        <circle cx="424" cy="142" r="13" stroke-dasharray="3 3"/><circle cx="536" cy="142" r="13" stroke-dasharray="3 3"/>
+      </g>
+      <text x="480" y="208" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">BATTERIA</text>
+      <rect x="180" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
+      <text x="212" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP BASSO</text>
+      <rect x="706" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
+      <text x="738" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP CHITARRA</text>
+      <g stroke="#2dd4bf" stroke-width="1.6" filter="url(#glow)">
+        <circle cx="480" cy="330" r="10" fill="none"/><path d="M474 324 L486 336 M486 324 L474 336"/>
+        <circle cx="260" cy="310" r="10" fill="none"/><path d="M254 304 L266 316 M266 304 L254 316"/>
+        <circle cx="700" cy="310" r="10" fill="none"/><path d="M694 304 L706 316 M706 304 L694 316"/>
+      </g>
+      <text x="480" y="362" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2dd4bf">VOCE · SM58</text>
+      <g fill="none" stroke="#d7e6e2" stroke-width="1.4">
+        <path d="M212 424 L248 424 L240 402 L220 402 Z"/>
+        <path d="M392 424 L428 424 L420 402 L400 402 Z"/>
+        <path d="M532 424 L568 424 L560 402 L540 402 Z"/>
+        <path d="M712 424 L748 424 L740 402 L720 402 Z"/>
+      </g>
+
+      <g fill="transparent" stroke="none">
+        <rect x="400" y="80" width="160" height="120" data-tip="<b>Batteria</b> · CH 1–6<br>Beta 52A · SM57 · SM81 · e604 · 2× C214"/>
+        <rect x="176" y="100" width="76" height="70" data-tip="<b>Amp basso</b> · CH 7 · DI attiva<br>0,3 kW sul quadro"/>
+        <rect x="702" y="100" width="76" height="70" data-tip="<b>Amp chitarra</b> · CH 8 · SM57<br>0,4 kW sul quadro"/>
+        <circle cx="480" cy="330" r="18" data-tip="<b>Voce</b> · CH 9 · SM58 · asta alta<br>ascolta MIX 2"/>
+        <circle cx="260" cy="310" r="18" data-tip="<b>Coro L</b> · CH 10 · SM58<br>ascolta MIX 1"/>
+        <circle cx="700" cy="310" r="18" data-tip="<b>Coro R</b> · CH 10 · SM58<br>ascolta MIX 3"/>
+        <rect x="208" y="398" width="46" height="32" data-tip="<b>Wedge 1</b> · MIX 1 · coro L"/>
+        <rect x="388" y="398" width="46" height="32" data-tip="<b>Wedge 2</b> · MIX 2 · voce"/>
+        <rect x="528" y="398" width="46" height="32" data-tip="<b>Wedge 3</b> · MIX 2 · voce"/>
+        <rect x="708" y="398" width="46" height="32" data-tip="<b>Wedge 4</b> · MIX 3 · coro R"/>
+        <rect x="786" y="72" width="52" height="64" data-tip="<b>Quadro 32A</b><br>8,6 kW totali · somma automatica"/>
+      </g>
+    </svg>
+  </figure>
+
   <div class="layer-grid">
     <div>
       <div class="layer-list" role="group" aria-label="Interruttori dei layer">
@@ -818,24 +1040,6 @@ addEventListener("hashchange", go);})();</script>
     </div>
   </div>
 </div></section>
-
-<section class="rv" id="condivisione"><div class="wrap">
-  <p class="sec-k">Condivisione</p>
-  <h2>La versione giusta ce l'hanno tutti.</h2>
-  <div class="share">
-    <div class="share-card">
-      <h3>Link di sola lettura per il service</h3>
-      <p>Niente allegati che invecchiano nella posta: chi apre il link vede l'ultima versione del palco, da qualsiasi dispositivo.</p>
-      <p class="pill">stageplot.it/app/?view=…</p>
-    </div>
-    <div class="share-card">
-      <h3>Richieste musicisti senza account</h3>
-      <p>Ogni musicista riceve un link anonimo, indica strumenti e monitor, e le risposte tornano già ordinate nel progetto.</p>
-      <p class="pill">3/4 richieste ricevute ✓</p>
-    </div>
-  </div>
-</div></section>
-
 <section class="rv" id="perchi"><div class="wrap">
   <p class="sec-k">Per chi è</p>
   <h2>Dalla sala prove al festival.</h2>
@@ -845,14 +1049,13 @@ addEventListener("hashchange", go);})();</script>
     <div><em>PRODUZIONE</em><h3>Uno standard per ogni data</h3><p>Planimetrie in scala, varianti per scenario, un formato solo per tutta la stagione.</p></div>
   </div>
 </div></section>
-
 <section class="rv" id="chi"><div class="wrap">
   <p class="sec-k">Chi lo fa</p>
   <h2>Lo scrive un fonico, non un'agenzia.</h2>
   <div class="maker" style="margin-top:46px">
     <div class="maker-txt">
-      <p>StagePlot nasce da troppe serate passate a ricostruire un palco da una foto di un foglietto: <b>i dati c'erano già, solo non erano in un posto solo</b>. L'editor è il tentativo di metterli lì.</p>
-      <p>Lo sviluppo da solo e lo uso sul lavoro: quando in sala serve una cosa che manca, quella cosa finisce nella lista. Se ti manca qualcosa, il box «Cosa manca?» dentro l'editor arriva direttamente a me.</p>
+      <p>StagePlot nasce da troppe serate passate a ricostruire un palco dalla foto di un foglietto: <b>i dati c'erano già, solo non erano in un posto solo</b>.</p>
+      <p>Lo sviluppo da solo e lo uso al lavoro, in studio e in sala: quello che manca la sera stessa finisce nella lista. Il box «Cosa manca?» dentro l'editor arriva a me.</p>
       <p class="sign"><b>Simone Castellan</b>audio engineer · studio e live</p>
     </div>
     <div class="maker-card">
@@ -864,6 +1067,29 @@ addEventListener("hashchange", go);})();</script>
     </div>
   </div>
 </div></section>
+<!-- ========================= PROVA SOCIALE — STRUTTURA PRONTA, DISATTIVATA =========================
+     Deliberatamente NON pubblicata: al 09/08/2026 non ci sono numeri che aiutino (la home fa ~21 clic
+     in 28 giorni) e non esistono testimonianze raccolte. Un «3 progetti creati» farebbe più danno del
+     silenzio, e numeri inventati non sono un'opzione.
+
+     Quando accenderla: quando esiste almeno UNA delle due cose —
+       a) un numero vero e non imbarazzante (progetti creati / rider esportati, letti dal DB, aggregati);
+       b) due o tre frasi di persone reali che hanno dato il consenso, con nome e ruolo veri.
+     Per accenderla: togliere questo commento attorno alla sezione e riempire i valori. I numeri vanno
+     scritti a mano al momento della pubblicazione (nessun conteggio automatico in pagina: la landing
+     è statica e non deve interrogare il database).
+
+<section class="rv" id="prova"><div class="wrap">
+  <p class="sec-k">Chi lo usa</p>
+  <h2>Non è un prototipo: gira sui palchi.</h2>
+  <div class="who" style="margin-top:46px">
+    <div class="w-c"><h3>—</h3><p>progetti creati</p></div>
+    <div class="w-c"><h3>—</h3><p>rider esportati</p></div>
+    <div class="w-c"><h3>—</h3><p>link mandati ai service</p></div>
+  </div>
+</div></section>
+
+================================================================================================ -->
 
 <section class="rv tinted" id="domande"><div class="wrap">
   <p class="sec-k">Domande</p>
@@ -895,7 +1121,6 @@ addEventListener("hashchange", go);})();</script>
     </div>
   </div>
 </div></section>
-
 <section class="final rv"><div class="wrap">
   <p class="sec-k">Pronto quando lo sei tu</p>
   <h2>Stasera il palco. Domani il rider è già fatto.</h2>
@@ -1085,6 +1310,45 @@ addEventListener("hashchange", go);})();</script>
     sections.forEach(function(s){ s.classList.add('in'); });
     typeLines();
   }
+
+  /* --- demo «una modifica, tutto aggiornato» ---
+     Ogni azione accende l'elemento sul palco E la riga del documento che ne discende, così il nesso
+     causa-effetto si vede invece di doverlo leggere. I numeri sono quelli che l'editor calcolerebbe. */
+  var syTot = {ch:6, mix:2, kw:36};      /* kW per 10, per evitare i decimali in virgola mobile */
+  var SY = {
+    mic: {doc:'doc-mic', out:'docChN',  fx:function(){ syTot.ch++;  return syTot.ch + ' CH'; },  sum:'syCh',  val:function(){ return syTot.ch; }},
+    mon: {doc:'doc-mon', out:'docMonN', fx:function(){ syTot.mix++; return syTot.mix + ' mix'; }, sum:'syMix', val:function(){ return syTot.mix; }},
+    par: {doc:'doc-par', out:'docKwN',  fx:function(){ syTot.kw+=10; return (syTot.kw/10).toFixed(1).replace('.',',') + ' kW'; }, sum:'syKw', val:function(){ return (syTot.kw/10).toFixed(1).replace('.',','); }}
+  };
+  var syReset = document.getElementById('syReset');
+  function syFlash(el){ if(!el) return; el.classList.add('up'); setTimeout(function(){ el.classList.remove('up'); }, 1400); }
+
+  document.querySelectorAll('.sbtn[data-add]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var k = b.dataset.add, cfg = SY[k];
+      if (b.dataset.done === '1' || !cfg) return;
+      b.dataset.done = '1';
+      var g = document.getElementById('add-' + k); if (g) g.classList.add('on');
+      var row = document.getElementById('row-' + k); if (row) row.classList.add('on');
+      var doc = document.getElementById(cfg.doc);
+      if (doc) { doc.classList.add('hit'); setTimeout(function(){ doc.classList.remove('hit'); }, 2600); }
+      var out = document.getElementById(cfg.out); if (out) { out.textContent = cfg.fx(); }
+      var sum = document.getElementById(cfg.sum); if (sum) { sum.textContent = cfg.val(); syFlash(sum); }
+      if (syReset) syReset.hidden = false;
+    });
+  });
+
+  if (syReset) syReset.addEventListener('click', function(){
+    syTot = {ch:6, mix:2, kw:36};
+    ['mic','mon','par'].forEach(function(k){
+      var g = document.getElementById('add-' + k); if (g) g.classList.remove('on');
+      var row = document.getElementById('row-' + k); if (row) row.classList.remove('on');
+    });
+    var t = {docChN:'6 CH', docMonN:'2 mix', docKwN:'3,6 kW', syCh:'6', syMix:'2', syKw:'3,6'};
+    Object.keys(t).forEach(function(id){ var e = document.getElementById(id); if (e) e.textContent = t[id]; });
+    document.querySelectorAll('.sbtn[data-add]').forEach(function(b){ b.dataset.done = '0'; });
+    syReset.hidden = true;
+  });
 })();
 </script>
 
