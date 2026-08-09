@@ -64,7 +64,7 @@ jobs:
             robots.txt sitemap.xml llms.txt \
             favicon.ico favicon.svg favicon-48.png favicon-96.png \
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
-            consulenza guida privacy richiesta stage-plot termini vendor \
+            consulenza guida img privacy richiesta stage-plot termini vendor \
             ./_site/
       - name: Timbra il build ID (SHA del commit) negli asset pubblicati (audit L-03)
         # il placeholder sta nella shell dell'editor (app/index.html), non nella landing
