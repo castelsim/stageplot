@@ -9257,6 +9257,39 @@ t("service worker, manifest e deploy sanno dov'è finito l'editor", () => {
   ok(sm.indexOf("stageplot.it/app/") === -1, "una pagina noindex non va in sitemap");
 });
 
+t("la landing mostra il prodotto vero, e il prodotto vero arriva in produzione", () => {
+  /* Perché esiste: l'hero è una schermata reale dell'editor servita da /img/. Il modo silenzioso in cui
+     si rompe è il deploy: il workflow pubblica una ALLOWLIST di cartelle, e una cartella dimenticata
+     non dà errore da nessuna parte — la landing va online con i buchi al posto delle immagini. */
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  const srcs = [...landing.matchAll(/<img[^>]+src="(\/[^"]+)"/g)].map((m) => m[1]);
+  ok(srcs.length >= 2, "la landing usa immagini vere: " + srcs.join(", "));
+  for (const s of srcs) {
+    const dir = s.split("/")[1];
+    ok(new RegExp("\\b" + dir.replace(/\..*$/, "") + "\\b").test(wf), s + " sta in una cartella che il deploy pubblica");
+    ok(readFileSync(join(root, s.slice(1))).length > 1000, s + " esiste ed è un file vero");
+  }
+  /* width+height espliciti: senza, l'immagine più grande della pagina fa saltare il layout mentre carica */
+  for (const tag of landing.match(/<img[^>]*>/g) || []) {
+    ok(/width="\d+"/.test(tag) && /height="\d+"/.test(tag), "ogni immagine dichiara le sue dimensioni: " + tag.slice(0, 70));
+  }
+  ok(!/<img[^>]+fetchpriority="high"[^>]+loading="lazy"/.test(landing), "l'immagine dell'hero non è lazy (è l'LCP)");
+});
+
+t("la dimostrazione «una modifica, tutto aggiornato» è completa", () => {
+  /* È la sezione che porta il messaggio della pagina: se un pezzo si scollega, resta un bottone che
+     non fa niente — e nessun test di layout se ne accorgerebbe. */
+  for (const k of ["mic", "mon", "par"]) {
+    ok(landing.indexOf('data-add="' + k + '"') > -1, "c'è il bottone " + k);
+    ok(landing.indexOf('id="add-' + k + '"') > -1, "c'è l'elemento che compare sul palco per " + k);
+    ok(landing.indexOf('id="row-' + k + '"') > -1, "c'è la riga di documento che ne discende per " + k);
+    ok(landing.indexOf("'" + k + "'") > -1 || landing.indexOf('add-' + k) > -1, "il JS collega " + k);
+  }
+  ok(landing.indexOf('id="syReset"') > -1, "si può ricominciare");
+  /* il claim dell'hero e la promessa della sezione devono dire la stessa cosa */
+  ok(/il rider si costruisce da solo/i.test(landing), "l'H1 porta la promessa");
+});
+
 t("l'anteprima social ha la forma che i social pretendono", () => {
   /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
      morto da mesi — e nessuno se n'era accorto, perché l'immagine la vede solo chi riceve il link.
