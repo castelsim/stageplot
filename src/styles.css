@@ -1176,7 +1176,12 @@
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
   .pdf-area-line{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text)}
   .pdf-area-line .btn{padding:4px 10px;font-size:11.5px;margin:0}
-  .pdf-optrow .chips button{padding:5px 8px;font-size:11.5px}
+  /* I chip di questa riga NON vanno a capo: sono tre gruppi affiancati (formato · orientamento ·
+     scala) e una colonna che si spezza fa leggere «A2» come se appartenesse all'orientamento.
+     Col terzo chip «Auto» (11/08) lo spazio è diventato stretto: qui i chip si compattano e la riga
+     resta una riga. Sotto i 720 px il wrap torna, ed è giusto: lì le colonne si impilano. */
+  .pdf-optrow .chips{flex-wrap:nowrap}
+  .pdf-optrow .chips button{padding:5px 7px;font-size:11.5px;white-space:nowrap}
   .pdf-optrow select{font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);width:128px}
   #prodInline{margin-top:8px}
   /* Riferimento nel cartiglio (variante B): campo persistente + tendina Rubrica */
@@ -1422,6 +1427,7 @@
      overflow:hidden, quindi non c'era modo di raggiungerlo. Sotto i 720 px lo stato prende una riga
      sua e i bottoni la successiva. */
   @media(max-width:720px){ .pdf-exp-grid{grid-template-columns:1fr;gap:14px} .pdf-sheet svg{max-height:34vh} .pdf-sheet{min-height:200px} .pdf-optrow{flex-wrap:wrap}
+    .pdf-optrow .chips{flex-wrap:wrap}   /* qui le colonne si impilano: i chip possono andare a capo */
     .pdf-exp-foot{flex-wrap:wrap;gap:10px} .pdf-exp-foot .mstatus{flex:1 0 100%}
     .pdf-exp-actions{width:100%;flex-wrap:wrap;justify-content:flex-end;gap:6px}
     .pdf-exp-actions>span{flex:1 1 0;min-width:0} }   /* lo spazio fra i formati e i due bottoni si comprime invece di mandare «Esporta PDF» a capo da solo */

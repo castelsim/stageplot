@@ -20685,9 +20685,15 @@ function pdfLayout(paperKey, orient, cartH){
   var p=PAPER[paperKey], pw=p.w, ph=p.h;
   if(orient==="portrait"){ pw=p.h; ph=p.w; }
   var M=10, topLbl=7, botLbl=5;
-  return { pw:pw, ph:ph, M:M, cartH:cartH, orient:orient||"landscape",
+  return { pw:pw, ph:ph, M:M, cartH:cartH, orient:orient||"landscape", paper:paperKey,
     drawX:M+10, drawY:M+topLbl,
     drawW:pw-2*M-20, drawH:ph-M-cartH-botLbl-(M+topLbl) };
+}
+/* Nome per esteso del foglio, per il cartiglio: senza il formato la scala non basta a stampare —
+   1:100 su A3 e 1:100 su A4 sono due fogli diversi, e chi riceve il PDF non ha modo di sapere quale
+   caricare in stampante (Simone, 11/08: «c'è la scala ma non so se stamparlo in A3 o A4»). */
+function paperLabel(paperKey, orient){
+  return String(paperKey||"a4").toUpperCase()+" "+(orient==="portrait" ? "verticale" : "orizzontale");
 }
 /* Altezza del cartiglio per foglio+orientamento: la stessa formula che usano anteprima e PDF, in un
    posto solo. Prima ogni chiamante la ricalcolava a modo suo e la scala automatica usava 22 fisso. */
@@ -20731,6 +20737,39 @@ function autoScale(paperKey, orient, cartH){
 function resolveScale(paperKey, scaleSel, orient, cartH){
   return scaleSel==="auto" ? autoScale(paperKey, orient, cartH) : parseInt(scaleSel,10);
 }
+/* ORIENTAMENTO AUTOMATICO (11/08, chiesto da Simone): un palco largo e poco profondo vuole il foglio
+   orizzontale, uno stretto e profondo quello verticale — e sbagliarlo costa una scala intera (1:200
+   invece di 1:100 significa il disegno a metà). Non si guarda la proporzione del palco ma il RISULTATO:
+   si prova il foglio in tutti e due i versi e si tiene quello che stampa il disegno più grande.
+   Nell'ordine: chi non ritaglia batte chi ritaglia · scala più grande (N minore) · a parità, chi
+   riempie meglio la pagina. Resta una SCELTA dell'utente: i chip Orizz./Vert. vincono sempre. */
+function pdfBestOrient(paperKey, scaleSel, header){
+  var best=null;
+  /* landscape per primo: è il verso di partenza, e a parità di risultato resta lui — uno stage plot
+     si legge come lo si guarda dal pubblico, e a parità di scala il disegno stampato è IDENTICO nei
+     due versi, quindi girare il foglio non darebbe niente in cambio. (Un primo tentativo pesava
+     anche quanto si riempie la pagina: premiava il foglio più stretto e mandava in verticale un palco
+     quadrato, che alla stessa scala non ci guadagnava nulla.) */
+  ["landscape","portrait"].forEach(function(o){
+    var ch=cartHFor(header, paperKey, o);
+    var N=resolveScale(paperKey, scaleSel, o, ch);
+    var box=pdfStageBox(N, paperKey, o, ch);
+    /* quando NESSUNO dei due versi ce la fa, vince chi lascia vedere più palco */
+    var visto=box.mmW*box.mmH;
+    var c={o:o, N:N, cropped:!!box.cropped, visto:visto};
+    if(!best){ best=c; return; }
+    if(c.cropped!==best.cropped){ if(!c.cropped) best=c; return; }   /* chi entra intero batte chi ritaglia */
+    if(c.N!==best.N){ if(c.N<best.N) best=c; return; }               /* scala più grande = N minore */
+    if(best.cropped && c.visto>best.visto+0.5) best=c;               /* pari e tutti e due ritagliati: più palco visibile */
+  });
+  return best ? best.o : "landscape";
+}
+/* Orientamento effettivo: "auto" risolto sul progetto di adesso, altrimenti quello scelto a mano. */
+function pdfOrientValue(paperKey, scaleSel, header){
+  var s=document.getElementById("pdfOrient");
+  var v=s ? s.value : "auto";
+  return v==="auto" ? pdfBestOrient(paperKey, scaleSel, header) : v;
+}
 /* Scala personalizzata, valore effettivo (10–500). Number() e non parseInt: "1e3" con parseInt
    diventava 1 → 1:10 mentre si chiedeva 1:1000, e i decimali sparivano senza dirlo. Vuoto o non
    numerico → 75, il valore di partenza; 0 e i negativi vanno al minimo, non al default. */
@@ -20740,13 +20779,16 @@ function pdfScaleClamp(raw){
   if(!isFinite(n)) n=75;
   return Math.round(Math.max(10, Math.min(500, n)));
 }
-/* M-scala: valore di scala effettivo — se "Personalizzata", legge l'input 1:N (10–500) */
+/* M-scala: valore di scala effettivo — se "Personalizzata", legge l'input 1:N (10–500).
+   NON riscrive il campo: lo faceva, e siccome l'anteprima si aggiorna a ogni tasto (`input`), il
+   valore veniva rimesso nei limiti PRIMA che si finisse di scrivere — digitando «150» il campo
+   diventava «10» sulla prima cifra e il cursore saltava in fondo, così i numeri di mezzo erano
+   irraggiungibili: sembrava che l'app rifiutasse le scale volute (11/08). Ora i limiti si applicano
+   quando si esce dal campo (`change`/blur), che è quando l'utente ha finito. */
 function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) return "auto";
   if(s.value==="custom"){
     var c=document.getElementById("pdfScaleCustom");
-    var n=pdfScaleClamp(c && c.value);
-    if(c && String(c.value)!==String(n)) c.value=n;   /* il campo mostra la scala davvero usata */
-    return String(n);
+    return String(pdfScaleClamp(c && c.value));
   }
   return s.value;
 }
@@ -21900,8 +21942,17 @@ function pdfCartiglio(doc, L, N, header){
   /* SCALA a destra — colonna riservata scW */
   doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(17,24,39);
   doc.text("SCALA 1:"+N, L.pw-M, y+10, {align:"right"});
+  /* IL FORMATO, accanto alla scala. Da solo «1:100» non basta per stampare: 1:100 su A3 e 1:100 su A4
+     sono due fogli diversi, e chi riceve il PDF non sa quale caricare in stampante. Scritto in nero
+     accanto all'avvertenza, non dentro: è un dato del disegno, non un consiglio. Composto in due
+     pezzi allineati a destra perché jsPDF non ha stili dentro una riga. */
+  var _avv=" — stampare a 100%, non adattare alla pagina";
+  var _fmt=paperLabel(L.paper, L.orient);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(180,83,9);
-  doc.text("Stampare a 100% / dimensioni reali — non adattare alla pagina", L.pw-M, y+16, {align:"right"});
+  var _wAvv=doc.getTextWidth(_avv);
+  doc.text(_avv, L.pw-M, y+16, {align:"right"});
+  doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(17,24,39);
+  doc.text(_fmt, L.pw-M-_wAvv, y+16, {align:"right"});
 }
 function pdfScaleBar(doc, x, y, N){
   var bm=niceBarMeters(N), len=bm*1000/N;     /* mm */
@@ -21960,6 +22011,8 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     '<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+12.5)+'" font-size="3.6" fill="#4b5563">'+esc(sub.join("  ·  "))+'</text>'+
     headerSvg+
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
+    /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
+    '<text x="'+(L.pw-L.M)+'" y="'+(cy+13.5)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
     '<text x="'+(L.pw-10)+'" y="'+(L.ph-2.8)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
     (opts.pageLabel ? '<text x="'+L.M+'" y="8.5" font-size="6.4" font-weight="800" letter-spacing="0.4" fill="#111827">'+esc(opts.pageLabel)+'</text>' : '')+
     '</svg>';
@@ -22951,7 +23004,8 @@ function pdfChannelPage(doc, L, paperKey){
     var host=document.getElementById("pdfPreview"); if(!host) return;
     /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
        una scala e la riga di stato dichiararne un'altra */
-    var N=resolveScale(paper.value, pdfScaleValue(), orient.value, cartHFor(header.value, paper.value, orient.value));
+    var _or=pdfOrientValue(paper.value, pdfScaleValue(), header.value);   /* «auto» risolto: l'anteprima mostra il foglio che uscirà */
+    var N=resolveScale(paper.value, pdfScaleValue(), _or, cartHFor(header.value, paper.value, _or));
     var pages=previewPages();
     if(prevIdx>=pages.length) prevIdx=pages.length-1; if(prevIdx<0) prevIdx=0;
     var p=pages[prevIdx];
@@ -22960,7 +23014,7 @@ function pdfChannelPage(doc, L, paperKey){
         var lh=(typeof viewerHtmlFor==="function") ? viewerHtmlFor(p.key) : null;
         host.innerHTML = lh || '<div class="pdf-sheet-ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/></svg><div class="pdf-sheet-ph-t">'+esc(p.title)+'</div><div class="pdf-sheet-ph-s">Pagina di testo — nel PDF esportato</div></div>';
       }
-      else host.innerHTML = pdfPreviewSvg(paper.value, N, orient.value, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
+      else host.innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
     }catch(e){}
     var lbl=document.getElementById("pdfPageLabel"); if(lbl) lbl.textContent="Pag "+(prevIdx+1)+"/"+pages.length+" · "+p.title;
     var pv=document.getElementById("pdfPrev"), nx=document.getElementById("pdfNext");
@@ -22969,13 +23023,14 @@ function pdfChannelPage(doc, L, paperKey){
   function refresh(){
     var info=document.getElementById("pdfInfo");
     document.getElementById("pdfScaleCustomRow").hidden = scl.value!=="custom";   /* M-scala: input custom visibile solo se "Personalizzata" */
-    var _cartH=cartHFor(header.value, paper.value, orient.value);   /* la stessa che userà il PDF */
-    var N=resolveScale(paper.value, pdfScaleValue(), orient.value, _cartH);
-    var oTxt=orient.value==="portrait"?"verticale":"orizzontale";
+    var _or=pdfOrientValue(paper.value, pdfScaleValue(), header.value);
+    var _cartH=cartHFor(header.value, paper.value, _or);   /* la stessa che userà il PDF */
+    var N=resolveScale(paper.value, pdfScaleValue(), _or, _cartH);
+    var oTxt=(_or==="portrait"?"verticale":"orizzontale")+(orient.value==="auto"?" (scelto in automatico)":"");
     if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500 su "+paper.value.toUpperCase()+" "+oTxt+" — prova un foglio più grande o l'altro orientamento."; }
     else {
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
-      var box=pdfStageBox(N, paper.value, orient.value, _cartH);
+      var box=pdfStageBox(N, paper.value, _or, _cartH);
       info.className="mstatus"+(box.cropped?" warn":"");
       info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
         (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala. Scegli <b>Automatica</b> o un foglio più grande per averlo tutto." : "");
@@ -23274,6 +23329,13 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
   paper.addEventListener("change", refresh); scl.addEventListener("change", refresh);
   document.getElementById("pdfScaleCustom").addEventListener("input", refresh);   /* M-scala: aggiorna la preview mentre digiti la scala custom */
+  /* …e SOLO qui il valore viene riportato nei limiti: uscendo dal campo, o premendo Invio. Farlo a
+     ogni tasto rendeva impossibile scrivere «150», perché la prima cifra veniva già corretta in «10». */
+  document.getElementById("pdfScaleCustom").addEventListener("change", function(){
+    var n=pdfScaleClamp(this.value);
+    if(String(this.value)!==String(n)) this.value=n;
+    refresh();
+  });
   orient.addEventListener("change", refresh); header.addEventListener("input", refresh);
   document.getElementById("pdfPrev").addEventListener("click", function(){ prevIdx--; renderPreview(); });
   document.getElementById("pdfNext").addEventListener("click", function(){ prevIdx++; renderPreview(); });
@@ -23282,7 +23344,7 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
     if(b.disabled) return;                       /* niente due export in parallelo: erano due file e due passate di svg2pdf sul main thread */
     function run(){
       b.disabled=true; var _t=b.textContent; b.textContent="Genero…";
-      try{ exportPdf(paper.value, pdfScaleValue(), orient.value, header.value); }
+      try{ exportPdf(paper.value, pdfScaleValue(), pdfOrientValue(paper.value, pdfScaleValue(), header.value), header.value); }
       finally { setTimeout(function(){ b.disabled=false; b.textContent=_t; }, 2500); }
     }
     /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
