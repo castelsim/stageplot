@@ -5480,12 +5480,25 @@ function itemMarkup(it){
     /* 9 cm dal bordo è il default storico (superano il selbox, così il testo non ci finisce dentro);
        da qui in poi lo decide l'utente, in cm reali. Sopra la sedia la distanza si applica in su. */
     var _ld = lblDistOf(it);
-    var ly  = lblAbove ? -52.5 - fsz*0.35 - (_ld-9) : it.d/2 + _ld + fsz*0.72 + benchExtra;
+    /* Corpo con cui il testo verrà davvero STAMPATO: a schermo K vale 1, nel PDF cresce con la scala
+       (pdfTextK). Tutto ciò che dipende dall'altezza delle lettere — lo stacco dal bordo, la riga del
+       montaggio sotto, la colonna della doppia postazione — va calcolato su questo, non sul corpo
+       nominale: se no il testo ingrandito scende sopra l'elemento che dovrebbe nominare.
+       La distanza scelta dall'utente (_ld) NON si tocca: è una misura in centimetri reali di palco,
+       e deve restare quella a ogni scala. Cresce solo la parte che è "alta quanto una lettera". */
+    var K = (window.__sceneTextK>0 ? window.__sceneTextK : 1);
+    var fszK = fsz*K;
+    var ly  = lblAbove ? -52.5 - fszK*0.35 - (_ld-9) : it.d/2 + _ld + fszK*0.72 + benchExtra;
+    /* e se questo nome finisce addosso a quello del vicino, scende (solo in stampa: lblNudges).
+       Vale anche per la DI, che scrive di lato su un ramo suo: è proprio la coppia che si scontra
+       più spesso — lo strumento e la DI che genera stanno a mezzo metro l'uno dall'altra. */
+    var _nudge = (!lblAbove && window.__lblNudge && window.__lblNudge[it.id]) ? window.__lblNudge[it.id] : 0;
+    ly += _nudge;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
-      var lx=Math.max(dhalf, 40, fsz*1.4);      /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
+      var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
       var tilt=12;                              /* le sedute della doppia convergono di ±12°: l'etichetta segue lo schienale */
       if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(-tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
       if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+tilt+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
@@ -5496,7 +5509,7 @@ function itemMarkup(it){
          esce di lato, dove non c'è nient'altro. */
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
-      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fsz*0.36)+'" text-anchor="start"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
       else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
@@ -5506,7 +5519,7 @@ function itemMarkup(it){
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
     var _mn = mountNote(it);
-    if(_mn) s += '<text class="lbl sub" y="'+(ly+fsz*0.95)+'" style="font-size:'+(fsz*0.8)+'px">'+esc(_mn)+'</text>';
+    if(_mn) s += '<text class="lbl sub" y="'+(ly+fszK*0.95)+'" style="font-size:'+(fsz*0.8)+'px">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
@@ -11623,6 +11636,65 @@ function findFreeSpot(x,y,w,d){
    41 % e «Chitarra 1» sotto il wedge al 69 % — anche su un palco 16×12, quindi non è mancanza di
    spazio: è il criterio. Questa è la stessa formula del render (:7219), tenuta al minimo: serve a
    sapere QUANTO SPAZIO tenere libero, non a disegnare. */
+/* DUE NOMI CHE SI SCRIVONO ADDOSSO (11/08). Lo sbraccio tiene l'etichetta staccata dall'elemento che
+   nomina, ma non sa niente del vicino: un corista e la DI che genera stanno a 40 cm l'uno dall'altra e
+   i loro nomi finiscono sulla stessa riga — «Voce 1» con «DI 1» dentro. Alla POSA questo è già evitato
+   (findFreeSpotFor), ma chi sposta gli elementi a mano rifà il nodo, e sul foglio non si può zoomare.
+   Qui le etichette si accorgono l'una dell'altra: chi arriva dopo scende sotto chi c'era già.
+   Vale nel DISEGNO PER LA STAMPA, non sul canvas: a schermo si zooma e si trascina, e un nome che si
+   sposta da solo mentre lavori è più disorientante di due nomi vicini.
+   La larghezza del testo è stimata (0,52 em per carattere), come già si fa per FONDO PALCO: non serve
+   precisione tipografica, serve sapere se due parole si toccano. */
+function lblTextW(txt, fsz){ return String(txt||"").length * fsz * 0.58; }
+/* Riquadro occupato dal nome, in coordinate di palco. null = questa etichetta non entra nella passata:
+   nomi dentro la sagoma, coperture, postazioni a due nomi, elementi ruotati (l'etichetta gira con
+   loro) e nomi scritti SOPRA — che scendendo andrebbero addosso all'elemento invece che via. */
+function lblRectOf(it, K){
+  if(!it || it.labelMode==="hidden") return null;
+  var t=TYPES[it.type]||{};
+  if(t.innerLabel || GAZ_TYPES[it.type]) return null;
+  if(it.doppia===true || DOUBLE_TYPES[it.type]) return null;
+  if(it.rot) return null;
+  if(!!POSTAZ[it.type] && optSedia(it) && it.lblAbove!==false) return null;
+  var txt=lblText(it.label, it, true); if(!txt) return null;
+  var fsz=lblSizeOf(it); if(!(fsz>0)) return null;
+  var fszK=fsz*(K>0?K:1);
+  var extra=(KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;
+  if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") extra+=26; }
+  var w=lblTextW(txt, fszK);
+  /* la DI generata da uno strumento scrive di lato, non sotto: il suo riquadro parte dal bordo destro */
+  var by = it.diFor ? (it.y + fszK*0.36) : (it.y + it.d/2 + lblDistOf(it) + fszK*0.72 + extra);
+  var cx = it.diFor ? (it.x + it.w/2 + 18 + w/2) : it.x;
+  return {id:it.id, x0:cx-w/2, x1:cx+w/2, y0:by-fszK*0.8, y1:by+fszK*0.2, h:fszK};
+}
+/* Di quanto scendere, per ogni etichetta che ne incontra un'altra. Si procede dall'alto: chi è già
+   sistemato non si muove più, così l'ordine è stabile e due esecuzioni danno lo stesso disegno. */
+function lblNudges(K){
+  var rs=[];
+  (state.items||[]).forEach(function(it){ var r=lblRectOf(it, K); if(r) rs.push(r); });
+  rs.sort(function(a,b){ return (a.y0-b.y0) || (a.x0-b.x0) || String(a.id).localeCompare(String(b.id)); });
+  var map={}, fatti=[];
+  rs.forEach(function(r){
+    var dy=0, tetto=r.h*3;   /* oltre, il nome sarebbe così lontano da non dire più di chi è: si lascia dov'è */
+    for(var giro=0; giro<12; giro++){
+      var urto=null;
+      for(var i=0;i<fatti.length;i++){ var o=fatti[i];
+        /* l'aria fra due nomi va misurata in LETTERE, non in centimetri di palco: 2 cm sembrano tanti,
+           ma a 1:200 sono un decimo di millimetro e due parole restano attaccate. Un terzo di lettera
+           è lo spazio che l'occhio riconosce come "due scritte separate" a qualunque scala. */
+        var aria=Math.max(r.h, o.h)*0.35;
+        if(r.x0 < o.x1+aria && o.x0 < r.x1+aria && (r.y0+dy) < o.y1+aria && o.y0 < (r.y1+dy)+aria){ urto=o; break; }
+      }
+      if(!urto) break;
+      var nuovo = (urto.y1 + Math.max(r.h, urto.h)*0.35) - r.y0;
+      if(nuovo<=dy || nuovo>tetto){ dy = (nuovo>tetto) ? 0 : dy; break; }
+      dy = nuovo;
+    }
+    if(dy>0) map[r.id]=Math.round(dy);
+    fatti.push({x0:r.x0, x1:r.x1, y0:r.y0+dy, y1:r.y1+dy, h:r.h});
+  });
+  return map;
+}
 function lblBandOf(it){
   var vuoto={sopra:0,sotto:0};
   if(!it || it.labelMode==="hidden") return vuoto;
@@ -20733,10 +20805,16 @@ function pdfStageBox(N, paperKey, orient, cartH){
 /* Quanto ingrandire le scritte del disegno perché sulla carta restino della dimensione che avevano
    a 1:100 (~1,4 mm): il disegno rimpicciolisce di N, il testo cresce di N/100. Sopra 1:250 il testo
    non cresce più — sarebbe più grande degli elementi che nomina, e a quelle scale (piazze, aree
-   grandi) i nomi non si leggono comunque: si guarda l'ingombro. */
+   grandi) i nomi non si leggono comunque: si guarda l'ingombro.
+   CORPO_RIF e' LA manopola della leggibilita' del PDF: 100 da' 1,4 mm sulla carta (quanto si vedeva a
+   1:100, la resa storica), 80 da' 1,75 mm. Piu' in giu' si puo' andare — la passata anti-collisione
+   regge fino a 2,45 mm — ma il prezzo e' che i nomi si allontanano dall'elemento per schivarsi: su una
+   band stretta, a 2,45 mm uno scende di mezzo metro di palco e non si capisce piu' di chi sia. 80 e' il
+   punto in cui si guadagna un quarto di corpo e gli spostamenti restano sotto i 20 cm. */
+var CORPO_RIF=80;
 function pdfTextK(N){
   var n=+N; if(!isFinite(n) || n<=0) return 1;
-  return Math.min(n, 250)/100;
+  return Math.min(n, 250)/CORPO_RIF;
 }
 function autoScale(paperKey, orient, cartH){
   for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH)) return SCALES[i]; }
@@ -20816,6 +20894,13 @@ function stageSceneSvg(cropVb, opts){
      dettaglio. Va acceso PRIMA di costruire gli item — __cabStatic arriva più sotto, quando ormai
      sarebbe tardi. Ripristinato nel finally in fondo alla funzione. */
   var _keepPrint=window.__scenePrint; window.__scenePrint=true;
+  /* Di quanto le scritte verranno ingrandite (scaleSvgFonts, più sotto). Serve QUI, mentre si
+     disegna, perché lo sbraccio dell'etichetta — quanto sta staccata dall'elemento che nomina —
+     si calcola sul corpo del testo: ingrandire il testo dopo, a coordinata già scritta, lo fa
+     scendere addosso all'elemento. Il font invece resta scritto com'è: lo moltiplica la regex,
+     e moltiplicarlo anche qui darebbe k². */
+  var _keepK=window.__sceneTextK; window.__sceneTextK=(opts.textK>0?opts.textK:1);
+  var _keepNudge=window.__lblNudge; window.__lblNudge=lblNudges(window.__sceneTextK);
   /* classifica ogni elemento per la vista a fuoco (fg) o sfumato (bg) — layerFgItem = STESSA
      classificazione del SOLO sul canvas: la vista "cabaudio" include ritorni e P.M. → fg anche
      monitor/mixerini; la vista "elec" include i CARICHI (wattOf>0), come chiesto da Simone */
@@ -20883,6 +20968,7 @@ function stageSceneSvg(cropVb, opts){
     body = stageFloorMarkup()+dims+zones+zoneGroup+bgGroup+fgItems+audioCab+elecCab;
   }
   window.__scenePrint=_keepPrint;   /* fine del disegno per la stampa: si torna alle regole dello schermo */
+  window.__sceneTextK=_keepK; window.__lblNudge=_keepNudge;
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+scaleSvgTextHalos(scaleSvgFonts(css, opts.textK), opts.textK)+'</style>'+DEFS+
     '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
@@ -21777,6 +21863,54 @@ function loadSvg2Pdf(){ return loadJsPDF().then(function(){ return new Promise(f
 /* svg2pdf non applica il CSS <style>: appiattisco gli stili del testo (font, colore, allineamento)
    in attributi inline leggendo lo stile calcolato. Niente stroke → niente contorno bianco sopra il testo. */
 function rgbToHex(c){ var m=c&&c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return m?'#'+[+m[1],+m[2],+m[3]].map(function(v){return('0'+v.toString(16)).slice(-2)}).join(''):c; }
+/* SECONDA PASSATA sui nomi, con le misure VERE (11/08). lblNudges lavora prima che l'SVG esista, e
+   deve quindi STIMARE quanto è largo un nome: la stima sbaglia il centro di qualche centimetro, e su
+   un foglio a 1:200 bastano per far finire «Basso 1» attaccato a «DI 1» — zero sovrapposizione ma
+   zero spazio, che si legge come una parola sola. Qui l'SVG è già nel DOM per svg2pdf, quindi i
+   riquadri si MISURANO (getBBox) invece di indovinarli, e chi resta troppo vicino scende.
+   Va chiamata prima di flattenTextStyles, che sposta i nomi in cloni per l'alone. */
+function nudgeLabelsInDom(svgEl){
+  if(!svgEl || typeof svgEl.querySelectorAll!=="function") return;
+  var nodi=[];
+  Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(el){
+    if(el.classList && el.classList.contains("sub")) return;   /* la riga del montaggio segue il suo nome */
+    var b; try{ b=el.getBBox(); }catch(_e){ return; }
+    if(!b || !(b.width>0) || !(b.height>0)) return;
+    var m; try{ m=el.getCTM ? el.getCTM() : null; }catch(_e2){ m=null; }
+    if(!m) return;
+    /* dal sistema dell'elemento a quello del disegno: basta l'angolo alto-sinistro e la dimensione,
+       perché le etichette che entrano qui non sono ruotate (chi ruota porta il nome con sé) */
+    if(Math.abs(m.b)>0.01 || Math.abs(m.c)>0.01) return;
+    nodi.push({el:el, x0:m.a*b.x+m.e, x1:m.a*(b.x+b.width)+m.e,
+               y0:m.d*b.y+m.f, y1:m.d*(b.y+b.height)+m.f, h:m.d*b.height, sy:m.d});
+  });
+  nodi.sort(function(a,b){ return (a.y0-b.y0) || (a.x0-b.x0); });
+  var fatti=[];
+  nodi.forEach(function(r){
+    var dy=0, tetto=r.h*3;
+    for(var giro=0; giro<12; giro++){
+      var urto=null;
+      for(var i=0;i<fatti.length;i++){ var o=fatti[i];
+        var aria=Math.max(r.h,o.h)*0.35;   /* l'aria si misura in lettere: vedi lblNudges */
+        if(r.x0 < o.x1+aria && o.x0 < r.x1+aria && (r.y0+dy) < o.y1+aria && o.y0 < (r.y1+dy)+aria){ urto=o; break; }
+      }
+      if(!urto) break;
+      var nuovo=(urto.y1 + Math.max(r.h,urto.h)*0.35) - r.y0;
+      if(nuovo<=dy){ break; }
+      if(nuovo>tetto){ dy=0; break; }   /* troppo lontano: il nome non direbbe più di chi è */
+      dy=nuovo;
+    }
+    if(dy>0 && r.sy){
+      var loc=dy/r.sy;   /* lo spostamento torna nelle coordinate in cui il nome è scritto */
+      var y=parseFloat(r.el.getAttribute("y")||"0");
+      r.el.setAttribute("y", (y+loc).toFixed(2));
+      /* la riga del montaggio, se c'è, segue il suo nome: sta subito sotto ed è dello stesso gruppo */
+      var sub=r.el.parentNode ? r.el.parentNode.querySelector("text.lbl.sub") : null;
+      if(sub){ var ys=parseFloat(sub.getAttribute("y")||"0"); sub.setAttribute("y",(ys+loc).toFixed(2)); }
+    }
+    fatti.push({x0:r.x0, x1:r.x1, y0:r.y0+dy, y1:r.y1+dy, h:r.h});
+  });
+}
 function flattenTextStyles(rootEl){
   /* svg2pdf ignora paint-order:stroke, quindi disegnerebbe il bordo bianco sopra il fill.
      Soluzione: clona ogni <text> con alone chiaro come elemento halo (solo stroke, fill=none)
@@ -21897,6 +22031,7 @@ function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus, sceneOpts){
     var _o=Object.assign({focus:focus||null}, sceneOpts||{});
     root.innerHTML=stageSceneSvg(cropVb, _o);
     var svgEl=root.querySelector("svg");
+    nudgeLabelsInDom(svgEl);   /* i nomi che si toccano scendono, misurati sul disegno vero */
     flattenTextStyles(svgEl);
     flattenGradients(svgEl);
     flattenCssToAttrs(svgEl);
