@@ -6144,6 +6144,49 @@ t("la scala personalizzata regge vuoto, zero, decimali e notazione esponenziale"
   [["", 75], ["0", 10], ["5", 10], ["800", 500], ["1e3", 500], ["62.5", 63], ["abc", 75], [null, 75], ["-20", 10]]
     .forEach(c => eq(A.pdfScaleClamp(c[0]), c[1], "input " + JSON.stringify(c[0])));
 });
+// ── FORMATO E VERSO DEL FOGLIO (11/08) ─────────────────────────────────────────────────────────
+// «Nel PDF c'è la scala ma non so se stamparlo in A3 o A4»: 1:100 su A3 e 1:100 su A4 sono due fogli
+// diversi, e senza il formato la scala non basta per stampare. E il verso del foglio, finora sempre
+// orizzontale di partenza, costa una scala intera quando il palco è più profondo che largo.
+t("il cartiglio dice anche su che foglio si stampa", () => {
+  eq(A.paperLabel("a4", "landscape"), "A4 orizzontale");
+  eq(A.paperLabel("a3", "portrait"), "A3 verticale");
+  /* e il PDF lo scrive davvero, accanto all'avvertenza sulla stampa al 100% */
+  const src = readFileSync(join(root, "app.js"), "utf8");
+  ok(/paperLabel\(L\.paper, L\.orient\)/.test(src), "pdfCartiglio non compone il formato dal layout");
+  ok(src.indexOf('SCALA 1:"+N') > -1, "e la scala resta dov'era");
+});
+
+t("il verso del foglio si sceglie da solo, e sceglie quello che stampa più grande", () => {
+  reset();
+  const setStage = (w, d) => { A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; };
+  const scala = (o) => A.autoScale("a4", o, A.cartHFor("", "a4", o));
+
+  setStage(600, 1600);   /* stretto e profondo: in orizzontale ci sta solo a 1:200, in verticale a 1:100 */
+  eq(A.pdfBestOrient("a4", "auto", ""), "portrait", "orizz 1:" + scala("landscape") + " · vert 1:" + scala("portrait"));
+  ok(scala("portrait") < scala("landscape"), "e il verticale guadagna davvero una scala");
+
+  setStage(1600, 600);   /* largo e basso: il caso opposto */
+  eq(A.pdfBestOrient("a4", "auto", ""), "landscape");
+
+  /* a parità di scala il disegno stampato è IDENTICO nei due versi: non c'è ragione di girare il
+     foglio, e si resta su orizzontale — il verso in cui uno stage plot si guarda. */
+  setStage(1000, 1000);
+  eq(scala("landscape"), scala("portrait"), "il quadrato entra uguale in tutti e due");
+  eq(A.pdfBestOrient("a4", "auto", ""), "landscape", "quindi resta orizzontale");
+  setStage(800, 600);
+  eq(A.pdfBestOrient("a4", "auto", ""), "landscape", "il palco da club resta orizzontale");
+});
+
+t("la scelta automatica vale anche con una scala fissata a mano", () => {
+  reset();
+  A.state.stage = { w: 600, d: 1600, blocks: [{ x: 0, y: 0, w: 600, d: 1600 }] };
+  /* a 1:100 il palco profondo 16 m entra solo in verticale: chi non entra ritaglia, e chi ritaglia perde */
+  eq(A.pdfBestOrient("a4", "100", ""), "portrait");
+  const box = A.pdfStageBox(100, "a4", "portrait", A.cartHFor("", "a4", "portrait"));
+  eq(box.cropped, false, "e in verticale ci sta tutto");
+});
+
 t("l'altezza del cartiglio e' una sola per anteprima, avviso ed export", () => {
   const corto = A.cartHFor("", "a4", "landscape");
   const lungo = A.cartHFor("x".repeat(120), "a4", "portrait");
