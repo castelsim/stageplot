@@ -9388,5 +9388,57 @@ t("la description sta dentro quello che Google mostra", () => {
   ok(/stage plot/i.test(d) && /gratis/i.test(d), "e dice ancora cos'è e quanto costa");
 });
 
+/* --- Leggibile da un motore generativo (11/08) ------------------------------------------------
+   ChatGPT, Perplexity e le risposte AI di Google citano blocchi autocontenuti, e li pescano quasi
+   sempre dall'inizio della pagina. Fino all'11/08 la home non conteneva UNA frase che dicesse cos'è
+   StagePlot: c'erano il claim e le funzioni, mai la definizione. Questi test presidiano i segnali
+   che rendono la pagina citabile — e la coerenza fra i documenti che le AI leggono. */
+const ldLanding = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+const nodo = (tipo) => ldLanding["@graph"].find((n) => n["@type"] === tipo);
+
+t("la home dice cos'è StagePlot, in chiaro e all'inizio", () => {
+  const testo = landing.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const def = testo.match(/StagePlot è [^.]{40,400}\./);
+  ok(def, "esiste una frase «StagePlot è …»");
+  const dove = testo.indexOf(def[0]) / testo.length;
+  ok(dove < 0.25, "e sta nel primo quarto della pagina (sta al " + Math.round(dove * 100) + "%)");
+  const parole = def[0].split(/\s+/).length;
+  ok(parole >= 25 && parole <= 90, "lunga " + parole + " parole: si cita intera senza contesto");
+  for (const k of ["channel list", "rider", "gratuito", "browser"])
+    ok(def[0].toLowerCase().indexOf(k) > -1, "la definizione contiene «" + k + "»");
+});
+
+t("la home dichiara quando è stata aggiornata, e lo dice una volta sola", () => {
+  /* La freschezza pesa parecchio nelle citazioni AI. Due punti la dichiarano — schema e sitemap —
+     e se divergono uno dei due mente: il test li tiene legati. */
+  const wp = nodo("WebPage");
+  ok(wp && /^\d{4}-\d{2}-\d{2}$/.test(wp.dateModified || ""), "il WebPage ha dateModified");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const lastmod = (sm.match(/<loc>https:\/\/stageplot\.it\/<\/loc>\s*<lastmod>([^<]+)</) || [])[1];
+  eq(lastmod, wp.dateModified, "sitemap e schema dicono la stessa data");
+  ok(wp.datePublished <= wp.dateModified, "e la pubblicazione non è successiva all'ultima modifica");
+});
+
+t("l'autore è un'entità collegabile, non un nome scritto", () => {
+  /* «Lo scrive un fonico, non un'agenzia» è il differenziatore del progetto: per una AI vale solo
+     se la persona è agganciata a profili verificabili. */
+  const f = nodo("Organization").founder;
+  ok(Array.isArray(f.sameAs) && f.sameAs.length >= 2, "il fondatore ha almeno due profili in sameAs");
+  for (const u of f.sameAs) ok(/^https:\/\//.test(u), "profilo con URL assoluto: " + u);
+  ok(f["@id"].indexOf("simonecastellan.com/#person") > -1, "e punta all'entità canonica sul suo sito");
+});
+
+t("llms.txt racconta il prodotto di oggi, non quello di due versioni fa", () => {
+  /* Il file è la versione che le AI leggono per prima. Diceva ancora che il rider completo si
+     ottiene «su consulenza», mentre l'editor lo genera da solo: un LLM avrebbe riferito quello. */
+  const l = readFileSync(join(root, "llms.txt"), "utf8");
+  ok(!/rider completo disponibil\w* su consulenza/i.test(l), "non dice più che il rider completo è solo su consulenza");
+  ok(/le genera l'app dal disegno/i.test(l), "dice chi genera i documenti");
+  const cartelle = readdirSync(join(root, "stage-plot"), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "previews").map((d) => d.name);
+  for (const c of cartelle) ok(l.indexOf("/stage-plot/" + c + "/") > -1, "llms.txt elenca " + c);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
