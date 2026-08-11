@@ -8,17 +8,28 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 ## Funzioni principali
 - Palco modulare a pedane, in scala reale (1:N)
 - Generatori di organico per band, orchestra, coro e banda
-- Input list, monitor, carichi e channel list generati dall'app (channel list esportabile in CSV); versione verificata e rider completo disponibili su consulenza
+- Channel list e input list numerate, lista monitor, carichi elettrici e lista luci: **le genera l'app dal disegno, gratis** (la channel list si esporta anche in CSV)
+- Rider tecnico in PDF multipagina generato dall'app: le pagine nascono dai layer accesi, quindi un progetto senza luci non ha la pagina luci
+- Sette layer sopra lo stesso palco: ingressi/uscite, monitoraggio, elettrico, cablaggio, luci, RF e rete, più varianti di scena
 - Libreria di icone realistiche di strumenti e attrezzature
 - Export in PDF e PNG in scala, area di stampa dedicata
-- Condivisione del progetto tramite link (il destinatario apre il progetto già caricato)
+- Condivisione del progetto tramite link di sola lettura (il destinatario apre il progetto già caricato, senza account)
+- Richieste ai musicisti tramite link anonimo: le risposte tornano già ordinate nel progetto
 - Salvataggio locale automatico; salvataggio cloud opzionale con login Google
+
+## Fatti chiave
+- Prezzo: gratis, senza registrazione e senza filigrana sui documenti (la consulenza è un servizio umano a parte, da 29 €)
+- Catalogo: oltre 200 elementi trascinabili, 155 microfoni riconosciuti, 42 modelli di faro
+- Modelli pronti: 8 formazioni (acustico, band, tributo, jazz combo, big band, coro, orchestra da camera, orchestra pop)
+- Lingua dell'interfaccia e dei documenti: italiano
+- Dove girano i dati: nel browser, sul dispositivo di chi disegna (local-first)
+- Chi lo sviluppa: Simone Castellan, sound engineer per spettacoli dal vivo, da solo
 
 ## Pagine
 - [Home](https://stageplot.it/): cos'è StagePlot, come funziona e cosa produce
 - [Editor gratuito](https://stageplot.it/app/): l'app dove si disegna il palco (nessuna registrazione)
 - [Guida](https://stageplot.it/guida/): indice delle guide su stage plot, channel list e rider tecnico
-- [Stage plot per formazione](https://stageplot.it/stage-plot/): indice per band, orchestra, coro, chiesa e festival
+- [Stage plot per formazione](https://stageplot.it/stage-plot/): indice delle undici formazioni (band, orchestra, coro, big band, jazz, acustico, tributo, chiesa, matrimonio, DJ set, festival)
 - [Consulenza tecnica](https://stageplot.it/consulenza/): un sound engineer revisiona e completa il tuo stage plot, input list ed email tecnica in PDF (da 29 €)
 - [Privacy policy](https://stageplot.it/privacy/)
 
@@ -35,7 +46,13 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Stage plot per band](https://stageplot.it/stage-plot/band/)
 - [Stage plot per orchestra](https://stageplot.it/stage-plot/orchestra/)
 - [Stage plot per coro](https://stageplot.it/stage-plot/coro/)
+- [Stage plot per big band](https://stageplot.it/stage-plot/bigband/)
+- [Stage plot per jazz combo](https://stageplot.it/stage-plot/jazz/)
+- [Stage plot per set acustico](https://stageplot.it/stage-plot/acustica/)
+- [Stage plot per tribute band](https://stageplot.it/stage-plot/tributo/)
 - [Stage plot per chiesa e worship](https://stageplot.it/stage-plot/chiesa/)
+- [Stage plot per matrimonio](https://stageplot.it/stage-plot/matrimonio/)
+- [Stage plot per DJ set](https://stageplot.it/stage-plot/dj/)
 - [Stage plot per festival](https://stageplot.it/stage-plot/festival/)
 
 ## A chi serve

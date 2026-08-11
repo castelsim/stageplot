@@ -43,7 +43,7 @@ addEventListener("hashchange", go);})();</script>
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="theme-color" content="#0a0e0e">
 <meta name="author" content="Simone Castellan">
-<meta name="description" content="Disegna lo stage plot nel browser: channel list, monitor, elettrico e rider PDF si costruiscono da soli e restano allineati al disegno. Gratis, in italiano, senza registrazione.">
+<meta name="description" content="Disegna lo stage plot nel browser: channel list, monitor, elettrico e rider PDF nascono dal disegno e restano allineati. Gratis, in italiano, senza account.">
 <title>StagePlot — disegna il palco, il rider si costruisce da solo</title>
 <link rel="canonical" href="https://stageplot.it/">
 <link rel="icon" href="/favicon.ico?v=3" sizes="48x48">
@@ -90,7 +90,12 @@ addEventListener("hashchange", go);})();</script>
         "@id": "https://simonecastellan.com/#person",
         "name": "Simone Castellan",
         "jobTitle": "Sound engineer",
-        "url": "https://simonecastellan.com"
+        "url": "https://simonecastellan.com",
+        "sameAs": [
+          "https://www.linkedin.com/in/simonecastellan",
+          "https://www.instagram.com/simonecastellan_/",
+          "https://www.facebook.com/castellansimone/"
+        ]
       }
     },
     {
@@ -115,6 +120,19 @@ addEventListener("hashchange", go);})();</script>
       "screenshot": "https://stageplot.it/preview.png",
       "author": { "@id": "https://stageplot.it/#org" },
       "publisher": { "@id": "https://stageplot.it/#org" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://stageplot.it/#webpage",
+      "url": "https://stageplot.it/",
+      "name": "StagePlot — disegna il palco, il rider si costruisce da solo",
+      "description": "Editor gratuito nel browser per disegnare lo stage plot in scala di un concerto e ricavarne channel list, monitor, carichi elettrici, luci e rider tecnico in PDF.",
+      "inLanguage": "it",
+      "isPartOf": { "@id": "https://stageplot.it/#website" },
+      "about": { "@id": "https://stageplot.it/#app" },
+      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/editor.jpg", "width": 1400, "height": 643 },
+      "datePublished": "2026-08-08",
+      "dateModified": "2026-08-11"
     },
     {
       "@type": "FAQPage",
@@ -210,6 +228,11 @@ addEventListener("hashchange", go);})();</script>
   .ghost{font-size:15px;color:var(--mut);text-decoration:none;border-bottom:1px solid var(--line2)}
   .ghost:hover{color:var(--text)}
   .trust{margin-top:22px;font-family:var(--mono);font-size:13px;color:var(--mut)}
+  /* la definizione sotto la schermata: deve leggersi come una didascalia lunga, non come un secondo
+     sottotitolo che compete con l'H1 */
+  .def{margin-top:34px;max-width:74ch;color:var(--mut);font-size:15.5px;line-height:1.75}
+  .def b{color:var(--text);font-weight:600}
+  @media(max-width:700px){.def{margin-top:26px;font-size:14.5px}}
   .trust span{color:var(--teal)}
 
   .console{margin-top:78px;border:1px solid var(--line2);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(20,184,166,.06);position:relative}
@@ -228,8 +251,8 @@ addEventListener("hashchange", go);})();</script>
   .chip[aria-pressed="true"]{background:rgba(20,184,166,.12);border-color:var(--teal-d);color:var(--teal-l)}
   .chip[aria-pressed="true"]::before{content:"● ";font-size:9px;vertical-align:1px}
   .hint{font-family:var(--mono);font-size:11.5px;color:var(--mut);margin-left:auto}
-  .hint .touch{display:none}
-  @media(max-width:700px){.hint{margin-left:0;width:100%}.hint .mouse{display:none}.hint .touch{display:inline}}
+  .touch{display:none}
+  @media(max-width:700px){.hint{margin-left:0;width:100%}.mouse{display:none}.touch{display:inline}}
   .console svg{display:block;width:100%;height:auto}
   #ly-cavi,#ly-elet,#ly-mon{transition:opacity .35s ease}
   .off{opacity:0 !important;pointer-events:none}
@@ -260,7 +283,12 @@ addEventListener("hashchange", go);})();</script>
   .term{margin-top:60px;border:1px solid var(--line2);border-radius:14px;background:var(--panel2);overflow:hidden;font-family:var(--mono)}
   .term-h{padding:11px 18px;border-bottom:1px solid var(--line);font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
   .term-b{padding:26px 28px;font-size:13.5px;line-height:2.05;color:var(--mut);overflow-x:auto}
-  @media(max-width:760px){.term-b{padding:20px 18px;font-size:12px;line-height:1.95}}
+  /* su telefono le righe erano 523px dentro 336: si leggeva «…patch de» e il resto stava in uno
+     scroll orizzontale che nessuno vede. Vanno a capo, rientrate sotto il «PAG n · ». */
+  @media(max-width:760px){
+    .term-b{padding:20px 16px;font-size:11.5px;line-height:1.9;overflow-x:hidden}
+    .term-b .tl{white-space:normal;padding-left:4.8em;text-indent:-4.8em}
+  }
   .term-b b{color:var(--text);font-weight:500}
   .term-b .t{color:var(--teal)}
   .ok{color:var(--teal)}
@@ -290,7 +318,17 @@ addEventListener("hashchange", go);})();</script>
   .mr-row b{color:var(--text);font-weight:500;width:104px;flex:0 0 auto}
   .mr-foot{margin-top:12px;font-size:11px;color:var(--mut)}
   .mr-foot .ok{color:var(--teal-l)}
-  @media(max-width:760px){.mini-rider{grid-template-columns:1fr}.mini-rider .mr-r{display:none}.mini-rider .mr-l{border-right:0}}
+  /* «pag. 1/5» finiva esattamente sotto il badge DOPO, che sta in alto a destra: su telefono
+     resta solo «SCHEDA TECNICA», che è l'unica parte che serve leggere lì. */
+  @media(max-width:760px){
+    .mini-rider{grid-template-columns:1fr}
+    .mini-rider .mr-r{display:none}
+    /* l'intestazione scende sotto il badge DOPO e si allinea a destra: a sinistra del cursore
+       finirebbe sotto il foglietto, cioè invisibile. */
+    .mini-rider .mr-l{border-right:0;padding-top:46px}
+    .mr-h{justify-content:flex-end}
+    .mr-meta{display:none}
+  }
   .ba-after{background:var(--panel2);clip-path:inset(0 0 0 var(--cut,45%))}
   .ba-divider{position:absolute;top:0;bottom:0;left:var(--cut,45%);width:2px;background:var(--teal);z-index:3;
     box-shadow:0 0 18px rgba(20,184,166,.55)}
@@ -324,6 +362,14 @@ addEventListener("hashchange", go);})();</script>
   tbody tr:hover,tbody tr.hl{background:#152321}
   td.n{font-family:var(--mono);color:var(--teal-l);width:38px}
   td.m{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  /* a 390px la tabella misurava 385px dentro 336: la colonna «Monitor» restava mozzata oltre il
+     bordo, e lo scroll orizzontale che l'avrebbe recuperata non si vede. Celle più strette. */
+  @media(max-width:760px){
+    th,td{padding-left:8px;padding-right:8px}
+    table{font-size:12.5px}
+    td.m,th{font-size:11px}
+    td.n{width:22px}
+  }
   .ch-split{display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
   .ch-plot{border-left:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:10px}
   .ch-plot svg{display:block;width:100%;height:auto}
@@ -360,8 +406,12 @@ addEventListener("hashchange", go);})();</script>
   .lrow small{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--mut)}
   .lcount{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--teal-l)}
   .stack svg{display:block;width:100%;height:auto}
-  .plane .fader{transition:opacity .4s ease}
-  .plane.ghost .fader{opacity:.1}
+  /* spegnere l'intero gruppo al 10% rendeva illeggibili anche le etichette (CABLAGGIO, LUCI,
+     RF & RETE): sembrava un errore di rendering, non un layer spento. Il disegno si spegne,
+     il nome resta leggibile — è così che si legge una pila di livelli. */
+  .plane .fader>*{transition:opacity .4s ease}
+  .plane.ghost .fader>:not(text){opacity:.12}
+  .plane.ghost .fader>text{opacity:.45}
 
   /* --- Hero: schermata vera dell'editor --- */
   .shot{margin-top:42px;border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--panel);
@@ -369,6 +419,11 @@ addEventListener("hashchange", go);})();</script>
   .shot img{display:block;width:100%;height:auto}
   .shot figcaption{padding:12px 18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--mut)}
   .shot figcaption a{font-size:inherit}   /* il .ghost ereditava 15px e sballava la riga */
+  .exp-m{display:none;padding:20px 18px;font-family:var(--mono);font-size:12px}
+  .exp-r{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #151f1e}
+  .exp-r:last-child{border-bottom:0}
+  .exp-r span{color:var(--mut);flex:0 0 auto}
+  .exp-r b{color:var(--text);font-weight:500;text-align:right}
   .shots{margin-top:56px;display:grid;grid-template-columns:.85fr 1.15fr;gap:20px;align-items:start}
   @media(max-width:860px){.shots{grid-template-columns:1fr;gap:16px}}
   /* Su telefono l'app intera a 342px diventa una macchia: si inquadra il palco (la parte che si
@@ -376,7 +431,13 @@ addEventListener("hashchange", go);})();</script>
   @media(max-width:700px){
     .shot{margin-top:40px}
     .shot figcaption{font-size:11.5px;padding:10px 14px}
-    .shot img{aspect-ratio:5/4;object-fit:cover;object-position:52% 78%}
+    /* il ritaglio sul palco vale SOLO per la schermata dell'hero: applicato a tutte le .shot
+       tagliava l'intestazione della pagina del rider e schiacciava la finestra di export. */
+    .shot-hero img{aspect-ratio:5/4;object-fit:cover;object-position:52% 78%}
+    /* 1200px di finestra dentro 336 sono testo a 3px: illeggibile e inutile. Al suo posto,
+       su telefono, le stesse scelte scritte in chiaro. */
+    .shot-exp img{display:none}
+    .exp-m{display:block}
   }
 
   /* --- «Una modifica, tutto aggiornato»: la dimostrazione, non la promessa --- */
@@ -460,6 +521,9 @@ addEventListener("hashchange", go);})();</script>
   .faq h3{font-size:16.5px;font-weight:600;letter-spacing:-.008em}
   .faq p{margin-top:8px;color:var(--mut);font-size:15px;max-width:46ch}
   .faq a{color:var(--teal-l)}
+  /* le undici pagine per formazione esistono da giugno e dalla home non le linkava nessuno:
+     ci arrivava solo chi passava dall'indice nel footer. */
+  .faq .q-more{margin-top:10px;font-size:14px;line-height:1.85;max-width:52ch}
 
   .final{padding:140px 0;text-align:center;position:relative;overflow:hidden;
     background:radial-gradient(700px 340px at 50% 115%, var(--glow), transparent 70%)}
@@ -504,11 +568,19 @@ addEventListener("hashchange", go);})();</script>
 
   <!-- Schermata vera dell'editor (modello «Band pop/rock» incluso), non un'illustrazione: chi arriva
        deve riconoscere il prodotto che sta per aprire. È l'LCP della pagina → niente lazy. -->
-  <figure class="shot">
+  <figure class="shot shot-hero">
     <img src="/img/editor.jpg" width="1400" height="643" fetchpriority="high" decoding="async"
          alt="L'editor di StagePlot con lo stage plot di una band pop/rock: batteria su pedana, ampli, tastiere, tre voci, monitor spia e side fill, catalogo degli elementi a sinistra e layer del progetto a destra.">
     <figcaption>Il modello «Band pop/rock» incluso, aperto nell'editor. <a class="ghost" href="/app/?model=band">provalo</a></figcaption>
   </figure>
+
+  <!-- Una frase che dice cos'è, in chiaro e per intero. Serve a chi arriva senza contesto e ai
+       motori generativi, che citano volentieri un blocco autocontenuto e quasi sempre lo prendono
+       dall'inizio della pagina: prima di questa riga la home non conteneva un solo «StagePlot è…». -->
+  <p class="def"><b>StagePlot è l'editor gratuito, nel browser, per disegnare lo stage plot in scala di un concerto</b>
+     e ricavarne i documenti che il service chiede: channel list, lista monitor, carichi elettrici, lista luci
+     e il rider tecnico in PDF, tutti allineati al disegno. In italiano, senza registrazione, con i progetti
+     salvati sul tuo dispositivo. <a class="ghost" href="/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a></p>
 </div></header>
 
 
@@ -562,7 +634,7 @@ addEventListener("hashchange", go);})();</script>
     <div class="ba-pane ba-after" aria-hidden="true">
       <div class="mini-rider">
         <div class="mr-l">
-          <div class="mr-h"><span><b>SCHEDA TECNICA</b> — Quartetto (esempio) · v3</span><span>pag. 1/5</span></div>
+          <div class="mr-h"><span><b>SCHEDA TECNICA</b><span class="mr-meta"> — Quartetto (esempio) · v3</span></span><span class="mr-meta">pag. 1/5</span></div>
           <svg viewBox="0 0 560 320">
             <rect x="30" y="24" width="500" height="240" fill="none" stroke="#33443f" stroke-width="1.3"/>
             <rect x="220" y="40" width="120" height="80" fill="none" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="4 3" opacity=".7"/>
@@ -766,7 +838,7 @@ addEventListener("hashchange", go);})();</script>
 <section class="rv" id="output"><div class="wrap">
   <p class="sec-k">L'output</p>
   <h2>Documenti che il service prende sul serio.</h2>
-  <p class="lead">Non allegati composti a mano: sono lo stesso dato del disegno. <b>Passa il mouse sulla channel list</b> — la riga e l'elemento sul palco sono la stessa cosa.</p>
+  <p class="lead">Non allegati composti a mano: sono lo stesso dato del disegno. <b><span class="mouse">Passa il mouse sulla channel list</span><span class="touch">Tocca una riga della channel list</span></b> — la riga e l'elemento sul palco sono la stessa cosa.</p>
   <div class="tabs">
     <div class="tab-row" role="tablist" aria-label="Documenti generati">
       <button class="tab" role="tab" aria-selected="true" data-panel="p-ch">CHANNEL LIST</button>
@@ -866,9 +938,16 @@ addEventListener("hashchange", go);})();</script>
            alt="Pagina «Input list» del rider generato da StagePlot per il modello Band pop/rock: undici canali numerati con sorgente e microfono — Kick D6, Rullante top SM57, Hi-Hat SM81 con phantom, Overhead KM184, Ampli basso DI e MD421, Ampli chitarra SM57/e906.">
       <figcaption>Una pagina vera del PDF, così come esce.</figcaption>
     </figure>
-    <figure class="shot">
+    <figure class="shot shot-exp">
       <img src="/img/export.jpg" width="1200" height="632" loading="lazy" decoding="async"
            alt="La finestra «Esporta PDF in scala» di StagePlot: le pagine da includere (rider tecnico, lista ingressi, monitor, carichi elettrici, backline, RF, criticità), formato A4, scala 1:100 e l'anteprima della pagina del palco.">
+      <div class="exp-m">
+        <div class="exp-r"><span>Pagine</span><b>palco + liste accese</b></div>
+        <div class="exp-r"><span>Liste</span><b>ingressi · monitor · elettrico · RF</b></div>
+        <div class="exp-r"><span>Formato</span><b>A4 · A3 · A2, oriz. o vert.</b></div>
+        <div class="exp-r"><span>Scala</span><b>1:100 — 160×65 mm su A4</b></div>
+        <div class="exp-r"><span>Esce come</span><b>PDF · PNG · CSV</b></div>
+      </div>
       <figcaption>Le pagine le scegli tu; la scala è vera, 1:100 su A4.</figcaption>
     </figure>
   </div>
@@ -1127,6 +1206,7 @@ addEventListener("hashchange", go);})();</script>
     <div>
       <h3>Non so da dove partire.</h3>
       <p>Apri un <a href="/app/?model=band">palco già fatto</a> e cambialo. Otto formazioni pronte: acustica, band, tributo, jazz combo, big band, coro, orchestra da camera, orchestra pop.</p>
+      <p class="q-more">Come si imposta il palco, formazione per formazione: <a href="/stage-plot/band/">band</a>, <a href="/stage-plot/jazz/">jazz combo</a>, <a href="/stage-plot/coro/">coro</a>, <a href="/stage-plot/bigband/">big band</a>, <a href="/stage-plot/acustica/">acustico</a>, <a href="/stage-plot/tributo/">tribute band</a>, <a href="/stage-plot/orchestra/">orchestra</a>, <a href="/stage-plot/chiesa/">chiesa</a>, <a href="/stage-plot/matrimonio/">matrimonio</a>, <a href="/stage-plot/dj/">DJ set</a>, <a href="/stage-plot/festival/">festival</a>.</p>
     </div>
   </div>
 </div></section>
@@ -1239,6 +1319,24 @@ addEventListener("hashchange", go);})();</script>
     ba.style.setProperty('--cut', this.value + '%');
   });
 
+  /* Il foglietto è un viewBox 960×440 con «slice»: dentro un riquadro largo va bene, ma su un
+     telefono (quasi quadrato) slice tagliava i lati e spariva proprio quello che fa ridere —
+     il titolo «palco sabato?!?» e il «CORRENTE???» in fondo. Su schermo stretto si inquadra la
+     parte scritta e si entra tutti dentro. Il fondo è già color carta, le bande non si vedono. */
+  var foglio = ba.querySelector('.ba-before svg');
+  var stretto = matchMedia('(max-width:760px)');
+  function inquadra(){
+    if (stretto.matches) {
+      foglio.setAttribute('viewBox', '125 20 730 410');
+      foglio.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    } else {
+      foglio.setAttribute('viewBox', '0 0 960 440');
+      foglio.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    }
+  }
+  inquadra();
+  stretto.addEventListener('change', inquadra);
+
   /* 7 — documenti a schede */
   var tabs = document.querySelectorAll('.tab');
   tabs.forEach(function(tab){
@@ -1262,13 +1360,23 @@ addEventListener("hashchange", go);})();</script>
       tr.classList.toggle('hl', on && tr.dataset.el === key);
     });
   }
+  /* col dito non esiste «passare sopra»: si tocca, e il legame resta acceso finché
+     non si tocca altrove. Senza questo, su telefono l'invito era una promessa vuota. */
+  var held = null;
+  function tap(key){
+    if (held === key) { light(key, false); held = null; return; }
+    if (held) light(held, false);
+    light(key, true); held = key;
+  }
   document.querySelectorAll('#chlist tbody tr').forEach(function(tr){
-    tr.addEventListener('mouseenter', function(){ light(tr.dataset.el, true); });
-    tr.addEventListener('mouseleave', function(){ light(tr.dataset.el, false); });
+    tr.addEventListener('mouseenter', function(){ if (!held) light(tr.dataset.el, true); });
+    tr.addEventListener('mouseleave', function(){ if (!held) light(tr.dataset.el, false); });
+    tr.addEventListener('click', function(){ tap(tr.dataset.el); });
   });
   mini.querySelectorAll('.el').forEach(function(el){
-    el.addEventListener('mouseenter', function(){ light(el.dataset.el, true); });
-    el.addEventListener('mouseleave', function(){ light(el.dataset.el, false); });
+    el.addEventListener('mouseenter', function(){ if (!held) light(el.dataset.el, true); });
+    el.addEventListener('mouseleave', function(){ if (!held) light(el.dataset.el, false); });
+    el.addEventListener('click', function(){ tap(el.dataset.el); });
   });
 
   /* 9 — interruttori della pila layer */
