@@ -22487,6 +22487,14 @@ function pdfStageBox(N, paperKey, orient, cartH){
 /* cartH: altezza REALE del cartiglio (cresce se il riferimento va a capo). Passarla è indispensabile:
    col default 22 "Automatica" sceglieva una scala che nel PDF non entrava più, e il disegno veniva
    ritagliato in silenzio — l'anteprima, che usa l'altezza vera, mostrava un'altra cosa (27/07). */
+/* Quanto ingrandire le scritte del disegno perché sulla carta restino della dimensione che avevano
+   a 1:100 (~1,4 mm): il disegno rimpicciolisce di N, il testo cresce di N/100. Sopra 1:250 il testo
+   non cresce più — sarebbe più grande degli elementi che nomina, e a quelle scale (piazze, aree
+   grandi) i nomi non si leggono comunque: si guarda l'ingombro. */
+function pdfTextK(N){
+  var n=+N; if(!isFinite(n) || n<=0) return 1;
+  return Math.min(n, 250)/100;
+}
 function autoScale(paperKey, orient, cartH){
   for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH)) return SCALES[i]; }
   return SCALES[SCALES.length-1];  /* non entra nemmeno a 1:500 → usa la scala più piccola e ritaglia ciò che ci sta */
@@ -22588,7 +22596,12 @@ function stageSceneSvg(cropVb, opts){
     ? '<clipPath id="paClip"><rect x="'+A.x+'" y="'+A.y+'" width="'+A.w+'" height="'+A.h+'"/></clipPath>'+
       '<g clip-path="url(#paClip)">'+venueMarkup()+'</g>'   /* planimetria di sfondo, ritagliata all'area di stampa */
     : '';
-  var dims = A.custom ? '' : stageDimsMarkup();
+  /* Le quote per blocco restano, TRANNE quando chi esporta le disegna già di suo (opts.noBlockDims):
+     su un palco di un pezzo solo «6 m» finiva scritto due volte — una qui, dentro il disegno e in
+     scala, e una da jsPDF fuori dal riquadro a corpo fisso. Stessa misura, due grafie, e le due si
+     accavallavano sopra FONDO PALCO. Su un palco composto invece queste quotano i singoli blocchi e
+     dicono qualcosa che l'ingombro totale non dice: lì restano. */
+  var dims = (A.custom || opts.noBlockDims) ? '' : stageDimsMarkup();
   var W=state.stage.w, D=state.stage.d;
   var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="-42">FONDO PALCO</text>'+
             '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+(D+38)+'">PUBBLICO</text>';
@@ -22628,9 +22641,38 @@ function stageSceneSvg(cropVb, opts){
   }
   window.__scenePrint=_keepPrint;   /* fine del disegno per la stampa: si torna alle regole dello schermo */
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
-    '<style>'+css+'</style>'+DEFS+
+    '<style>'+scaleSvgTextHalos(scaleSvgFonts(css, opts.textK), opts.textK)+'</style>'+DEFS+
     '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
-    venue+body+'</svg>';
+    venue+scaleSvgFonts(body, opts.textK)+'</svg>';
+}
+/* TESTO A DIMENSIONE FISSA SUL FOGLIO (11/08). Le scritte del disegno — nomi, quote, FONDO PALCO —
+   sono espresse nelle unità dell'SVG, che sono CENTIMETRI REALI: un corpo 14 diventa 14 cm di palco,
+   cioè 140/N mm sulla carta. A 1:50 sono 2,8 mm e si leggono; a 1:200 sono 0,7 mm e sono puntini, e
+   un rider di un palco da festival esce illeggibile. Nei disegni tecnici vale l'opposto: la geometria
+   scala, il testo no — si quota in millimetri-carta. Qui compenso moltiplicando ogni corpo per N/100,
+   così il testo mantiene a OGNI scala la dimensione fisica che aveva a 1:100 (~1,4 mm), che è quella
+   su cui sono tarati gli sbracci delle etichette (lblBandOf): ingrandirlo di più le fa collidere.
+   Un punto solo, e per costruzione vale sia per il PDF sia per l'anteprima, che passano di qui. */
+function scaleSvgFonts(s, k){
+  if(!s || !(k>0) || Math.abs(k-1)<0.001) return s;
+  var mul=function(n){ return (+n*k).toFixed(2); };
+  return String(s)
+    .replace(/font-size:\s*([\d.]+)px/g, function(m,n){ return "font-size:"+mul(n)+"px"; })
+    .replace(/letter-spacing:\s*([\d.]+)px/g, function(m,n){ return "letter-spacing:"+mul(n)+"px"; })
+    /* i corpi scritti come attributo di presentazione (FONDO PALCO, PUBBLICO, i nomi col corpo
+       scelto a mano dall'utente): il CSS non li vede, vanno moltiplicati nel markup */
+    .replace(/font-size="([\d.]+)"/g, function(m,n){ return 'font-size="'+mul(n)+'"'; })
+    .replace(/letter-spacing="([\d.]+)"/g, function(m,n){ return 'letter-spacing="'+mul(n)+'"'; });
+}
+/* L'alone bianco che stacca le scritte dallo sfondo deve crescere col testo, o a scale piccole
+   sparisce. Ma `stroke-width` nel CSS è quasi tutto TRATTO DEI DISEGNI: moltiplicarlo alla cieca
+   ingrosserebbe cavi, bordi e griglia. Quindi si tocca solo dentro le regole che parlano di testo. */
+function scaleSvgTextHalos(css, k){
+  if(!css || !(k>0) || Math.abs(k-1)<0.001) return css;
+  return String(css).replace(/\{[^{}]*\}/g, function(blocco){
+    if(blocco.indexOf("font-size")<0) return blocco;
+    return blocco.replace(/stroke-width:\s*([\d.]+)px/g, function(m,n){ return "stroke-width:"+(+n*k).toFixed(2)+"px"; });
+  });
 }
 function svgToDataUrl(svgStr, pxW, pxH, type){
   /* iOS Safari rasterizza l'SVG SOLO se il root ha width/height espliciti (non basta il viewBox) */
@@ -23603,13 +23645,14 @@ function flattenCssToAttrs(rootEl){
 /* disegna la planimetria come VETTORE puro nel PDF (qualità infinita). Style isolato in shadow DOM per non toccare la pagina.
    Se l'SVG è troppo complesso (icone persone ad alta fedeltà, archi numerosi) rigetta subito così buildPdfDoc
    cade nel catch raster — evita che svg2pdf blocchi il main thread fino a far crashare Chrome. */
-function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus){
+function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus, sceneOpts){
   return loadSvg2Pdf().then(function(){
     var host=document.createElement("div");
     host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
     document.body.appendChild(host);
     var root=host.attachShadow ? host.attachShadow({mode:"open"}) : host;
-    root.innerHTML=stageSceneSvg(cropVb, {focus:focus||null});
+    var _o=Object.assign({focus:focus||null}, sceneOpts||{});
+    root.innerHTML=stageSceneSvg(cropVb, _o);
     var svgEl=root.querySelector("svg");
     flattenTextStyles(svgEl);
     flattenGradients(svgEl);
@@ -23741,7 +23784,10 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var Ng = N || 500;
   var box=pdfStageBox(Ng, paperKey, orient, ch), L=box.L, A=box.A;
   var stMmW=box.mmW, stMmH=box.mmH, ix=box.ix, iy=box.iy;
-  var scene = stageSceneSvg(box.vb, {focus:opts.focus||null}).replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
+  /* l'anteprima deve dire le stesse cose del file che uscirà: stesso corpo del testo, stesse quote */
+  var scene = stageSceneSvg(box.vb, {focus:opts.focus||null, textK:pdfTextK(Ng),
+      noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2})
+    .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   var cy=L.ph-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
@@ -24488,17 +24534,21 @@ function buildPdfDoc(paperKey, N, orient, header){
   var cartH=cartHForHeader(header, baseL.pw-2*baseL.M-90);
   var box=pdfStageBox(N, paperKey, orient, cartH), L=box.L, A=box.A;
   var stMmW=box.mmW, stMmH=box.mmH, ix=box.ix, iy=box.iy;
+  /* il disegno viene rimpicciolito di N volte: le scritte vanno ingrandite altrettanto per restare
+     della stessa dimensione sulla carta a ogni scala (vedi scaleSvgFonts). Le quote per blocco si
+     spengono quando qui sotto ne disegniamo già di nostre — cioè su palco di un pezzo solo. */
+  var scena={textK:pdfTextK(N), noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2};
   return loadJsPDF().then(function(){
     var jsPDF=window.jspdf.jsPDF;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
     /* --- PAG 1: planimetria in scala — sempre vettore (svg2pdf). Se sfora, ritaglia (box.vb) tenendo la scala --- */
-    return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, "clean")
+    return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, "clean", scena)
       .catch(function(e){
         /* svg2pdf ha lanciato un'eccezione (non dovrebbe succedere) → raster come ultima spiaggia */
         var pxW=Math.round(stMmW/25.4*300), pxH=Math.round(stMmH/25.4*300);
         var scale=Math.min(1, 4000/Math.max(pxW,pxH,1));
         pxW=Math.round(pxW*scale); pxH=Math.round(pxH*scale);
-        return svgToDataUrl(stageSceneSvg(box.vb, {focus:"clean"}), pxW, pxH, "image/png").then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
+        return svgToDataUrl(stageSceneSvg(box.vb, Object.assign({focus:"clean"}, scena)), pxW, pxH, "image/png").then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
       })
       .then(function(){
     if(!A.custom && !box.cropped){
@@ -24527,7 +24577,9 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.addPage(paperKey, L.orient);
         doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(17,24,39);
         doc.text(v[1], L.M, 11);
-        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0])
+        /* stesso corpo del testo di pag. 1; le quote per blocco qui RESTANO: in queste pagine
+           jsPDF non ne disegna, quindi sono l'unica quotatura e non fanno doppione */
+        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0], {textK:scena.textK})
           .catch(function(e){   /* se svg2pdf fallisce la pagina resta col solo titolo: non blocca l'export, ma va detto */
             try{ console.error("[stageplot] pagina-vista non disegnata:", v[1], e); }catch(_){}
             _viewFails.push(v[1]);
