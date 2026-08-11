@@ -6001,7 +6001,14 @@ t("livello di dettaglio: export sempre al massimo, misura assente non degrada", 
   A.vb = vb0; A.__cabStatic = true;
 });
 t("nel PDF il dettaglio non dipende dallo zoom dello schermo", () => {
-  const fn = appjs.slice(appjs.indexOf("function stageSceneSvg"), appjs.indexOf("function stageSceneSvg") + 6000);
+  /* La funzione va delimitata dove FINISCE, non dopo N caratteri: con una finestra fissa basta
+     aggiungere due righe di commento perché l'ultima riga cercata resti fuori — l'11/08 la finestra
+     di 6000 ha tagliato a metà `window.__scenePrint=_keepPrint` e il test è diventato rosso senza
+     che il codice fosse cambiato. Un test che misura la lunghezza del sorgente invece del suo
+     contenuto è un allarme che suona da solo. */
+  const _i = appjs.indexOf("function stageSceneSvg");
+  const _f = appjs.indexOf("\nfunction ", _i + 1);
+  const fn = appjs.slice(_i, _f > -1 ? _f : undefined);
   const iFlag = fn.indexOf("window.__scenePrint=true"), iItems = fn.indexOf("sortedItems().forEach");
   ok(iFlag > -1, "manca il flag di disegno per la stampa");
   ok(iItems > -1 && iFlag < iItems, "il flag stampa si accende dopo aver gia' disegnato gli elementi");
@@ -9734,6 +9741,64 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/Ultimo aggiornamento: 11 agosto 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta");
   ok(!/senza accesso non si attivano autenticazione, salvataggio cloud o statistiche d'uso/.test(p),
     "la frase che ora sarebbe falsa non c'è più");
+});
+
+// ── IL TESTO DEL DISEGNO SUL FOGLIO (11/08) ────────────────────────────────────────────────────
+// Trovato APRENDO un PDF esportato, non leggendolo: `pdftotext` mostrava le scritte giuste, ma
+// sull'immagine erano puntini. Le scritte stanno nelle unità dell'SVG, che sono centimetri reali:
+// un corpo 14 vale 140/N mm sulla carta — 2,8 mm a 1:50, 0,7 mm a 1:200. Un palco da festival
+// usciva con nomi, FONDO PALCO e quote illeggibili. E ogni quota era scritta due volte.
+t("le scritte del disegno restano leggibili a ogni scala", () => {
+  /* il fattore compensa esattamente il rimpicciolimento: a 1:100 non cambia niente */
+  eq(A.pdfTextK(100), 1, "1:100 è il riferimento e non si tocca");
+  eq(A.pdfTextK(50), 0.5, "a 1:50 il disegno è già grande: il testo rimpicciolisce");
+  eq(A.pdfTextK(200), 2, "a 1:200 raddoppia, così sulla carta resta 1,4 mm");
+  eq(A.pdfTextK(250), 2.5);
+  eq(A.pdfTextK(500), 2.5, "oltre 1:250 si ferma: sarebbe più grande di ciò che nomina");
+  [0, -3, NaN, null, undefined, "boh"].forEach((v) => eq(A.pdfTextK(v), 1, "valore inutilizzabile: " + v));
+  /* il corpo sulla CARTA, che è ciò che conta davvero */
+  const mmSulFoglio = (corpo, N) => corpo * A.pdfTextK(N) * 10 / N;
+  [50, 100, 200, 250].forEach((N) => {
+    const mm = mmSulFoglio(14, N);
+    ok(mm >= 1.35 && mm <= 2.85, "a 1:" + N + " il corpo sul foglio è " + mm.toFixed(2) + " mm");
+  });
+  ok(mmSulFoglio(14, 200) > mmSulFoglio(14, 200) / 2, "controprova: senza compensazione a 1:200 sarebbe 0,70 mm");
+  eq(+(14 * 10 / 200).toFixed(2), 0.7, "ed è proprio la misura che rendeva illeggibile il PDF");
+});
+t("il fattore ingrandisce i corpi, non i tratti del disegno", () => {
+  const css = ".lbl{font-size:14px;stroke-width:3.5px}.cavo{stroke-width:2px}.griglia{stroke-width:0.5px}";
+  const out = A.scaleSvgTextHalos(A.scaleSvgFonts(css, 2), 2);
+  ok(/\.lbl\{font-size:28\.00px/.test(out), "il corpo raddoppia: " + out);
+  ok(/\.lbl\{[^}]*stroke-width:7\.00px/.test(out), "e con lui l'alone che lo stacca dallo sfondo");
+  ok(/\.cavo\{stroke-width:2px\}/.test(out), "ma il tratto dei cavi NON si tocca: " + out);
+  ok(/\.griglia\{stroke-width:0\.5px\}/.test(out), "né quello della griglia");
+  /* i corpi scritti come attributo (FONDO PALCO, PUBBLICO, i nomi col corpo scelto a mano) */
+  const mk = '<text font-size="16" letter-spacing="2">FONDO PALCO</text>';
+  ok(/font-size="32\.00"/.test(A.scaleSvgFonts(mk, 2)), "anche quelli inline");
+  ok(/letter-spacing="4\.00"/.test(A.scaleSvgFonts(mk, 2)), "spaziatura compresa, o le lettere si accavallano");
+  /* e senza fattore non deve cambiare NIENTE: è il caso del canvas e dell'export SVG */
+  [1, 0, undefined, null, NaN].forEach((k) => eq(A.scaleSvgFonts(css, k), css, "k=" + k));
+});
+t("nel PDF ogni quota è scritta una volta sola", () => {
+  reset();
+  A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  const conQuote = A.stageSceneSvg(null, { focus: "clean" });
+  const senza = A.stageSceneSvg(null, { focus: "clean", noBlockDims: true });
+  ok(/dim-edge/.test(conQuote), "di suo la scena quota i blocchi");
+  ok(!/dim-edge/.test(senza), "e le toglie quando chi esporta le disegna già");
+  /* il PDF le spegne SOLO sul palco di un pezzo solo: su un palco composto dicono qualcosa in più —
+     l'ingombro totale non racconta com'è fatta una L, i singoli blocchi sì */
+  A.state.stage = { w: 1600, d: 1000, blocks: [{ x: 0, y: 0, w: 1600, d: 600 }, { x: 0, y: 600, w: 800, d: 400 }] };
+  eq(A.stageBlocks().length, 2, "il palco a L deve avere due blocchi");
+  const aElle = (A.stageSceneSvg(null, { focus: "clean" }).match(/dim-edge/g) || []).length;
+  eq(aElle, 4, "due quote per blocco: larghezza e profondità");
+  const src = readFileSync(join(root, "app.js"), "utf8");
+  ok(/noBlockDims:!A\.custom && !box\.cropped && stageBlocks\(\)\.length<2/.test(src),
+    "la condizione del doppione non è quella attesa");
+  /* e l'anteprima deve dire le stesse cose del file che uscirà */
+  const prev = src.slice(src.indexOf("function pdfPreviewSvg"), src.indexOf("function pdfPreviewSvg") + 2000);
+  ok(/textK:pdfTextK\(Ng\)/.test(prev), "l'anteprima non compensa il testo come il PDF");
+  ok(/noBlockDims:/.test(prev), "l'anteprima non toglie il doppione come il PDF");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
