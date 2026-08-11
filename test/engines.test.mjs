@@ -9569,6 +9569,38 @@ t("llms.txt racconta il prodotto di oggi, non quello di due versioni fa", () => 
   for (const c of cartelle) ok(l.indexOf("/stage-plot/" + c + "/") > -1, "llms.txt elenca " + c);
 });
 
+/* --- Title e description dentro quello che Google mostra (11/08) ------------------------------
+   Otto title su ventiquattro superavano i 60 caratteri e venivano troncati nei risultati, quattro
+   description superavano i 160. Nessuno se ne accorge guardando il sito: si vede solo in SERP, e
+   il pezzo che sparisce è sempre la coda — dove sta il marchio. Il suffisso « | StagePlot» da solo
+   pesa 12 caratteri, quindi la parte descrittiva deve stare in 48. */
+t("nessuna pagina ha un title o una description che Google taglierebbe", () => {
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]|[\\/]app[\\/]|landing-concepts/.test(p.slice(root.length)));
+  ok(pagine.length >= 20, "pagine esaminate: " + pagine.length);
+
+  const titoli = new Map(), descr = new Map();
+  const lunghi = [];
+  for (const p of pagine) {
+    const h = readFileSync(p, "utf8");
+    if (/name="robots" content="noindex/.test(h)) continue;      /* le noindex non finiscono in SERP */
+    const nome = p.slice(root.length);
+    const t_ = (h.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || "";
+    const d_ = (h.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+    if (t_.length > 60) lunghi.push(nome + " title " + t_.length);
+    if (d_.length > 160) lunghi.push(nome + " description " + d_.length);
+    ok(t_.length > 0 && d_.length > 0, nome + ": ha title e description");
+    titoli.set(t_, (titoli.get(t_) || 0) + 1);
+    descr.set(d_, (descr.get(d_) || 0) + 1);
+  }
+  eq(lunghi.length, 0, "fuori misura: " + lunghi.join(", "));
+  /* due pagine con lo stesso title si fanno concorrenza da sole */
+  eq([...titoli].filter(([, n]) => n > 1).map(([t_]) => t_).join(" | "), "", "nessun title duplicato");
+  eq([...descr].filter(([, n]) => n > 1).map(([d_]) => d_.slice(0, 40)).join(" | "), "", "nessuna description duplicata");
+});
+
 /* --- Contatore della landing (11/08) ----------------------------------------------------------
    Fino a oggi dei visitatori non si sapeva niente: gli eventi dell'app partono solo per gli utenti
    loggati, e chi arriva dalla landing quasi mai lo è. Il contatore risponde a due domande — quanti
