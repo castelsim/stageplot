@@ -22,3 +22,7 @@ verify_jwt = false
 
 [functions.submit-feedback]
 verify_jwt = false
+
+# La landing è una pagina pubblica senza login: chi la visita non ha nessun token da mostrare.
+[functions.track-landing]
+verify_jwt = false
