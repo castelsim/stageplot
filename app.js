@@ -1264,7 +1264,9 @@ var TYPES = {
                s+=bar(0,-7.5,9,4,'sil',1);                                                             /* display */
                for(var r=0;r<3;r++)for(var c=0;c<2;c++){ s+=circ(-3+c*6,0+r*5.5,1.5,'mon fill'); }     /* manopole */
                return s; }},
-  mixhub: {nome:"Hub monitoraggio", dim:"distributore mixerini", cat:"Monitor da palco", w:60,d:34, defLabel:"HUB",
+  /* «monitor» la lascia al wedge: per nome vincerebbe («monitoraggio» inizia con la query) e usciva
+     primo su una query che, detta da un fonico davanti a un palco, vuol dire spia a terra (11/08). */
+  mixhub: {nome:"Hub monitoraggio", dim:"distributore mixerini", cat:"Monitor da palco", w:60,d:34, defLabel:"HUB", qaCede:"monitor",
              draw:function(it){ var w=it.w,d=it.d; var s=bar(0,0,w,d,"ic fGrey",4);
                for(var i=0;i<5;i++){ var x=-w/2+9+i*((w-14)/4); s+=bar(x,d/2-6,7,6,"ic thin",1); }   /* fila di porte RJ45 sul fronte */
                return s; }},
@@ -1321,7 +1323,7 @@ var TYPES = {
   mixer:    {nome:"Console / mixer", dim:"generica", cat:"Regia e console", sub:"Postazioni regia", w:120,d:70, resizable:true, ess:true, defLabel:"MIXER",
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fGrey',4)+bar(0,-8,it.w-16,it.d-24,'ic thin',1)
                +lin(-it.w/2+16,it.d/2-11,it.w/2-16,it.d/2-11,'ic thin')+lin(-it.w/2+16,it.d/2-19,it.w/2-16,it.d/2-19,'ic thin'); }},
-  monmix:   {nome:"Mixer monitor", dim:"~90×60", cat:"Cablaggio e segnale", w:95,d:70, defLabel:"MON MIX",
+  monmix:   {nome:"Mixer monitor", dim:"~90×60", cat:"Cablaggio e segnale", w:95,d:70, defLabel:"MON MIX", qaCede:"monitor",
              draw:function(it){ return drawLibFit("mixermonitor",it,95,65); }},
   laptop:   {nome:"Mac portatile", dim:"38×28", cat:"Regia e console", sub:"Postazioni regia", w:44,d:34, defLabel:"MAC",
              draw:function(it){ return drawLibFit("laptopstand",it,45,40); }},
@@ -1595,7 +1597,10 @@ var SEARCH_ALIAS = {
   musChitElettrica:"chitarrista chitarristi guitarist gtr gt", musChitAcustica:"chitarrista chitarristi guitarist",
   musChitClassica:"chitarrista chitarristi guitarist gtr gt",
   bassstand:"bassista bassisti bass player bs", musBasso:"bassista bassisti bass player",
-  bassamp:"bassista bassisti amplificatore amplificatori bs bass cab",
+  /* «bassista» non è più dell'ampli: a pari rango il tie-break è alfabetico, e «Ampli basso» usciva
+     davanti a «Postazione basso» a chi cercava la persona (11/08). L'ampli resta a un dito di
+     distanza con «ampli», «amplificatore», «bass cab». */
+  bassamp:"amplificatore amplificatori bass cab",
   comboamp:"amplificatore amplificatori gtr cab guitar cab", stack:"amplificatore amplificatori",
   batteria:"drummer batterista batteristi kick cassa charleston hi hat hihat piatti tom tamburo dr drs drms drum kit drumkit bd sn snr sd hh ft oh cym crash ride",
   batteristaR:"drummer batteristi dr drs drms", musBatteria:"drummer batterista batteristi",
@@ -1623,7 +1628,11 @@ var SEARCH_ALIAS = {
      «Palco e pedane», che porta al costruttore — vedi entries più sotto */
   transenna:"transenne barriera barriere",
   cableramp:"cavo cavi passacavo canalina",
-  mcorereel:"cavo cavi cablaggio xlr", patchpt:"cavo cavi xlr jack connettore connettori",
+  /* «multicavo» e «frusta» sono i nomi da furgone del multicore: prima non davano NIENTE, in nessuna
+     delle due ricerche — e il multicore vero (`multicore`) è fuori catalogo, quindi non li copriva. */
+  mcorereel:"cavo cavi cablaggio xlr multicavo multicore snake frusta bobina",
+  stagebox:"multicavo multicore snake sub snake frusta scatola palco",
+  patchpt:"cavo cavi xlr jack connettore connettori",
   netswitch:"router wifi rete lan ethernet",
   ciabatta:"alimentazione corrente elettricita", quadro:"alimentazione corrente elettricita",
   distro63:"alimentazione corrente", distro32:"alimentazione corrente", distro125:"alimentazione corrente",
@@ -11098,14 +11107,22 @@ function updateHeaderStage(){
   ["stD","mD"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.d/100; });
 }
 /* Titolo/Luogo: campi nell'header (desktop) + pannello Evento (mobile), sincronizzati con lo stato */
+/* I campi che mostrano il nome del progetto: header (desktop), pannello Evento (mobile), finestra
+   Esporta. Lista UNICA perché era già scritta in cinque punti, e il quarto campo aggiunto l'11/08
+   avrebbe dovuto essere ricordato in tutti e cinque — è esattamente il modo in cui due copie della
+   stessa regola divergono (già visto con l'ordine delle pagine PDF). */
+var TITLE_INPUTS=["titolo","titoloEv","mTitle","pdfTitolo"];
 function setEventInputs(){
-  ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
+  TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
+  /* come si chiamerà il file: la stessa `fileName()` che usa l'export, così la promessa è verificabile */
+  var _fn=document.getElementById("pdfFileName");
+  if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+fileName()+".pdf";
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
   var _ed=document.getElementById("evDate"); if(_ed && document.activeElement!==_ed) _ed.value=state.evDate||"";
   var _et=document.getElementById("evTime"); if(_et && document.activeElement!==_et) _et.value=state.evTime||"";
   if(typeof renderEvChip==="function") renderEvChip();
 }
-["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
+TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
 /* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
 function evChipLabel(){
@@ -11529,6 +11546,7 @@ function refreshCatalogArt(){
     e._nname=_deacc(e.nome);
     e._kwStrong=_deacc(strong.filter(Boolean).join(" "));
     e._kw=_deacc(strong.concat(weak).filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi */
+    e._cede=(t&&t.qaCede) ? _deacc(t.qaCede) : null;   /* query che questo elemento lascia a chi le aveva già */
   });
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
@@ -11542,6 +11560,11 @@ function refreshCatalogArt(){
       var n=e._nname;
       e._rank = n.indexOf(nq)===0 ? 0 : (qaWordStart(n,nq) ? 1 : (qaWordStart(e._kwStrong,nq) ? 2
              : (n.indexOf(nq)>-1 ? 3 : (e._kwStrong.indexOf(nq)>-1 ? 4 : 5))));
+      /* …e anche `qaCede`, che qui mancava: il commento qui sopra prometteva «STESSO ordinamento»
+         della finestrella del doppio clic, e invece una query ceduta là continuava a essere vinta
+         qui. Si vedeva su «monitor»: nel quick-add usciva il wedge, nella barra l'Hub monitoraggio
+         (11/08). Due copie della stessa regola divergono sempre: ora la seconda copia c'è. */
+      if(e._cede && (" "+e._cede+" ").indexOf(" "+nq+" ")>-1) e._rank=6;
     });
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     return m;
@@ -11593,6 +11616,65 @@ function findFreeSpot(x,y,w,d){
     var nx=Math.round(x+Math.cos(ang)*step*r), ny=Math.round(y+Math.sin(ang)*step*r);
     if(!itemsCollide(nx,ny,w,d,15)) return {x:nx,y:ny}; } }
   return {x:x,y:y};
+}
+/* Un elemento sul palco non occupa solo il suo disegno: occupa anche la striscia dove sta scritto il
+   suo NOME. Misurato l'11/08 posando sette voci dal catalogo su un palco vuoto: nessun corpo si
+   sovrapponeva (findFreeSpot fa il suo lavoro) e però «Batteria 1» finiva sotto l'ampli del basso al
+   41 % e «Chitarra 1» sotto il wedge al 69 % — anche su un palco 16×12, quindi non è mancanza di
+   spazio: è il criterio. Questa è la stessa formula del render (:7219), tenuta al minimo: serve a
+   sapere QUANTO SPAZIO tenere libero, non a disegnare. */
+function lblBandOf(it){
+  var vuoto={sopra:0,sotto:0};
+  if(!it || it.labelMode==="hidden") return vuoto;
+  var t=TYPES[it.type]||{};
+  if(t.innerLabel || GAZ_TYPES[it.type]) return vuoto;   /* nome dentro la sagoma o etichetta unica: niente striscia fuori */
+  if(!lblText(it.label, it, true) && !lblText(it.label2, it, false)) return vuoto;   /* senza nome non c'è niente da proteggere */
+  var fsz=(it.lblSize==null) ? 14 : (+it.lblSize||14);
+  if(!(fsz>0)) return vuoto;
+  var ld=lblDistOf(it);
+  if(!!POSTAZ[it.type] && optSedia(it) && it.lblAbove!==false) return {sopra:Math.max(0, 52.5+(ld-9)+fsz*1.1-it.d/2), sotto:0};
+  var extra=(KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* sgabello */
+  if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") extra+=26; }   /* base dell'asta */
+  return {sopra:0, sotto:ld+fsz*1.1+extra};
+}
+/* Posto libero per un elemento NUOVO, nome compreso — suo e di chi c'è già. Vale solo per la POSA
+   automatica (catalogo, ricerca rapida, correzioni dell'audit): il TRASCINAMENTO resta libero di
+   avvicinare quel che si vuole, che è una scelta dell'utente e non un errore da impedire. */
+function findFreeSpotFor(it,x,y){
+  var mio=lblBandOf(it);
+  function occupato(cx,cy){
+    return state.items.some(function(o){
+      var suo=lblBandOf(o);
+      var t1=cy-it.d/2-mio.sopra, b1=cy+it.d/2+mio.sotto;
+      var t2=o.y-o.d/2-suo.sopra,  b2=o.y+o.d/2+suo.sotto;
+      return Math.abs(cx-o.x) < (it.w+o.w)/2+15 && t1 < b2+15 && t2 < b1+15;
+    });
+  }
+  /* …e dentro il palco. La spirale da sola sconfina: cercando più lontano per fare posto al nome, la
+     voce è finita mezza sotto la linea del boccascena — e un elemento fuori dal perimetro sparisce
+     dall'export senza dirlo (SE-01). Chi trascina resta libero di uscire: questo vale per la posa. */
+  function dentro(cx,cy){
+    /* Il nome fa parte dell'ingombro anche qui, e 20 cm di cortesia dal bordo tengono conto del fatto
+       che parecchi disegni (una voce con l'asta, un chitarrista) sporgono dal footprint dichiarato. */
+    var l=cx-it.w/2-20, r2=cx+it.w/2+20, t=cy-it.d/2-mio.sopra-20, b2=cy+it.d/2+mio.sotto+20;
+    return stageBlocks().some(function(b){
+      var x0=b.x, y0=b.y, x1=b.x+b.w, y1=b.y+b.d;
+      if(b.pts && b.pts.length){ var xs=b.pts.map(function(p){return p[0];}), ys=b.pts.map(function(p){return p[1];});
+        x0=b.x+Math.min.apply(null,xs); x1=b.x+Math.max.apply(null,xs);
+        y0=b.y+Math.min.apply(null,ys); y1=b.y+Math.max.apply(null,ys); }
+      return l>=x0 && r2<=x1 && t>=y0 && b2<=y1;
+    });
+  }
+  if(!occupato(x,y) && dentro(x,y)) return {x:x,y:y};
+  var step=Math.max(45, Math.round((it.w+it.d)/4));
+  var ripiego=null;
+  for(var r=1;r<48;r++){ for(var a=0;a<8;a++){ var ang=a*Math.PI/4;
+    var nx=Math.round(x+Math.cos(ang)*step*r), ny=Math.round(y+Math.sin(ang)*step*r);
+    if(occupato(nx,ny)) continue;
+    if(dentro(nx,ny)) return {x:nx,y:ny};
+    if(!ripiego) ripiego={x:nx,y:ny};   /* libero ma fuori: si usa solo se dentro non c'è più posto */
+  } }
+  return ripiego || findFreeSpot(x,y,it.w,it.d);   /* palco pieno: meglio il vecchio criterio che una pila al centro */
 }
 /* strumenti/persone con nome progressivo automatico (Flauto 1, Tromba 2, …) */
 /* hardware numerato + cascata (Simone 08/07 sera): monitor, DI, multiprese, distro, aste →
@@ -11666,8 +11748,8 @@ function addItem(type, over){
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
   if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
-  if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero */
-    var fs=findFreeSpot(it.x, it.y, it.w, it.d); it.x=fs.x; it.y=fs.y;
+  if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero, nome compreso */
+    var fs=findFreeSpotFor(it, it.x, it.y); it.x=fs.x; it.y=fs.y;
   }
   if(MON_DIG_NODE[type] && state.mond && !state.mond.on){ state.mond.on=true; state.mond.visible=true; __mondRes=null; }   /* personal mixer/hub digitale → attiva in automatico il layer P.M. (monitoraggio) */
   addCascade=(addCascade+25)%150;
@@ -23864,6 +23946,11 @@ function maybeAskStageSize(explicit){
     if(w===null){ fail("Inserisci una larghezza valida: solo numeri positivi."); try{ wIn.focus(); }catch(_e){} return; }
     if(d===null){ fail("Inserisci una profondità valida: solo numeri positivi."); try{ dIn.focus(); }catch(_e){} return; }
     applyStageSize(w, d, false); closeStageSize();
+    /* Chi ha misurato il suo palco e l'ha scritto non è più al primo impatto: il benvenuto si spegne
+       anche senza la spunta «Non mostrare più». Prima si accendeva solo posando un elemento
+       (`sp_onboarded`), quindi chi impostava il palco e tornava il giorno dopo si ribeccava il modale
+       a schermo intero — misurato su 3 avvii, 3 volte su 3 (ATTRITO-09, 06/08). */
+    try{ localStorage.setItem("sp_welcome","1"); }catch(_e){}
   }
   document.getElementById("ssGo").addEventListener("click", confirm);
   /* «Non conosco le misure» applicava 8×6 in silenzio: chi dichiara di non saperle è proprio quello
@@ -24198,7 +24285,7 @@ function maybeAskStageSize(explicit){
       var v=inp.value.trim();
       if(!v){ inp.style.borderColor="var(--danger-solid)"; inp.focus(); return; }
       state.titolo=v;
-      ["titolo","titoloEv","mTitle"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=v; });
+      TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.value=v; });
       if(typeof setEventInputs==="function") setEventInputs();
       if(typeof saveSoon==="function") saveSoon();
       close();
@@ -24423,7 +24510,7 @@ function maybeAskStageSize(explicit){
             activatePreparedProject(prepared,{autosave:false});   /* commit soltanto dopo validazione, recovery e flush */
             cloudCurrentId=id; setRev(r.data.updated_at);
             if(r.data.title!=null){ state.titolo=String(r.data.title).slice(0,120);
-              ["titolo","titoloEv","mTitle"].forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=state.titolo; });
+              TITLE_INPUTS.forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=state.titolo; });
               if(typeof setEventInputs==="function") setEventInputs();
             }   /* la colonna title è autorevole: evita read-modify-write del blob durante una rinomina */
             var gotImg=applyVenueImage(r.data.venue_image,true);   /* immagine planimetria dalla colonna dedicata */
@@ -24498,7 +24585,7 @@ function maybeAskStageSize(explicit){
         /* Progetto APERTO: rinomina = SALVATAGGIO CLOUD COMPLETO come ⌘S (title+data+thumbnail+planimetria,
            con guardia di versione). Aggiorna anche il blob (data.titolo via stateToJSON) → il nome regge alla riapertura. */
         state.titolo=v;
-        ["titolo","titoloEv","mTitle"].forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=v; });
+        TITLE_INPUTS.forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=v; });
         if(typeof setEventInputs==="function") setEventInputs();
         if(typeof render==="function") render();
         save();   /* la rinomina resta almeno sul dispositivo anche se la rete fallisce */
