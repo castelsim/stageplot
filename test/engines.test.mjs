@@ -9307,5 +9307,86 @@ t("l'anteprima social ha la forma che i social pretendono", () => {
     "e lo sono anche le pagine di contenuto, che condividono la stessa immagine");
 });
 
+/* --- La landing letta da un telefono (11/08) -------------------------------------------------
+   Il redesign era stato verificato a 390px guardando lo scrollWidth: nessun overflow, verde. Ma
+   `body{overflow-x:hidden}` rende quella misura sempre verde per costruzione, e intanto quattro
+   blocchi erano tagliati dentro il loro contenitore. Si vedeva solo guardando lo screenshot.
+   Questi test presidiano le cause, che sono tutte nel CSS. */
+const mq = (maxpx) => {          /* TUTTI i blocchi @media(max-width:Npx): nel file sono più d'uno */
+  const tag = "@media(max-width:" + maxpx + "px)";
+  let out = "", i = landing.indexOf(tag);
+  while (i > -1) {
+    const s = landing.indexOf("{", i);
+    let d = 1, j = s + 1;
+    while (j < landing.length && d) { if (landing[j] === "{") d++; else if (landing[j] === "}") d--; j++; }
+    out += landing.slice(s + 1, j - 1) + "\n";
+    i = landing.indexOf(tag, j);
+  }
+  return out;
+};
+
+t("su un telefono il rider a otto pagine si legge fino in fondo", () => {
+  /* Le righe erano 523px dentro 336 con white-space:nowrap: si leggeva «PAG 2 · Input list 10 CH —
+     mic, 48V, patch de» e il resto viveva in uno scroll orizzontale invisibile. */
+  ok(/\.tl\{[^}]*white-space:\s*normal/.test(mq(760)), "sotto i 760px le righe del terminale vanno a capo");
+  ok(/\.tl\{[^}]*text-indent:\s*-/.test(mq(760)), "e la seconda riga rientra sotto il «PAG n ·»");
+});
+
+t("la colonna «Monitor» della channel list entra nello schermo di un telefono", () => {
+  /* 385px in 336: MIX 1 / MIX 3 restavano oltre il bordo. Il difetto vero però era l'ORDINE: la
+     media query stava PRIMA di th{padding:11px 16px}, che la sovrascriveva senza dire niente. */
+  const stretta = landing.search(/@media\(max-width:760px\)\{[^@]*th,td\{padding-left:/);
+  const larga = landing.search(/\n\s*th\{[^}]*padding:\s*11px 16px/);
+  ok(stretta > -1, "esiste la regola che stringe le celle su telefono");
+  ok(larga > -1 && stretta > larga, "e viene DOPO quella base, altrimenti perde la cascata");
+});
+
+t("le immagini della landing sono ritagliate ognuna per quello che deve mostrare", () => {
+  /* Un solo `.shot img{object-position:52% 78%}` valeva per tutte e tre: buono per l'editor,
+     tagliava l'intestazione della pagina del rider e riduceva la finestra di export a 3px. */
+  ok(/\.shot-hero img\{[^}]*object-position/.test(landing), "il ritaglio sul palco è agganciato all'hero");
+  ok(!/[^-]\.shot img\{[^}]*object-fit/.test(landing), "e non alla classe generica .shot");
+  ok(/<figure class="shot shot-hero">/.test(landing), "l'hero porta davvero quella classe");
+  ok(/\.shot-exp img\{display:none\}/.test(mq(700)), "su telefono la finestra di export non si mostra illeggibile");
+  ok(/class="exp-m"/.test(landing) && /Scala<\/span><b>1:100/.test(landing),
+    "al suo posto ci sono le stesse scelte scritte in chiaro");
+});
+
+t("chi ha un dito e non un mouse riceve un invito che può accettare", () => {
+  ok(/<span class="mouse">Passa il mouse sulla channel list<\/span><span class="touch">Tocca/.test(landing),
+    "l'invito ha le sue due versioni");
+  ok(/\n\s*\.touch\{display:none\}/.test(landing), "la variante per il dito è nascosta di default");
+  ok(/\.mouse\{display:none\}[^}]*\.touch\{display:inline\}/.test(mq(700)), "e si scambiano sotto i 700px");
+  /* e soprattutto: toccare deve fare qualcosa, altrimenti è una promessa vuota */
+  ok(/tr\.addEventListener\('click'/.test(landing), "toccare una riga accende il legame");
+  ok(/el\.addEventListener\('click'/.test(landing), "e vale anche toccando l'elemento sul palco");
+});
+
+t("un layer spento resta leggibile: si spegne il disegno, non il suo nome", () => {
+  /* opacity .1 sull'intero gruppo rendeva «CABLAGGIO» e «RF & RETE» invisibili: sembrava un
+     errore di rendering. L'opacità di un gruppo SVG è un tetto, non si recupera dai figli. */
+  ok(!/\.plane\.ghost \.fader\{opacity:\.1\}/.test(landing), "l'opacità non è più sul gruppo intero");
+  const et = (landing.match(/\.plane\.ghost \.fader>text\{opacity:([\d.]+)\}/) || [])[1];
+  ok(et && parseFloat(et) >= 0.3, "l'etichetta di un layer spento resta leggibile (opacity " + et + ")");
+});
+
+t("dalla home si arriva a ogni pagina per formazione", () => {
+  /* Le pagine esistono da giugno; la home linkava solo l'indice nel footer, e le otto formazioni
+     citate nelle domande erano testo morto. Se ne nasce una nuova, questo test la reclama. */
+  const cartelle = readdirSync(join(root, "stage-plot"), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "previews")
+    .map((d) => d.name);
+  ok(cartelle.length >= 10, "ci sono le pagine per formazione: " + cartelle.length);
+  for (const c of cartelle) {
+    ok(landing.indexOf('href="/stage-plot/' + c + '/"') > -1, "la home linka /stage-plot/" + c + "/");
+  }
+});
+
+t("la description sta dentro quello che Google mostra", () => {
+  const d = (landing.match(/<meta name="description" content="([^"]+)"/) || [])[1] || "";
+  ok(d.length > 110 && d.length <= 160, "description di " + d.length + " caratteri (tetto 160)");
+  ok(/stage plot/i.test(d) && /gratis/i.test(d), "e dice ancora cos'è e quanto costa");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
