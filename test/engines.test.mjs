@@ -9601,5 +9601,107 @@ t("nessuna pagina ha un title o una description che Google taglierebbe", () => {
   eq([...descr].filter(([, n]) => n > 1).map(([d_]) => d_.slice(0, 40)).join(" | "), "", "nessuna description duplicata");
 });
 
+/* --- Contatore della landing (11/08) ----------------------------------------------------------
+   Fino a oggi dei visitatori non si sapeva niente: gli eventi dell'app partono solo per gli utenti
+   loggati, e chi arriva dalla landing quasi mai lo è. Il contatore risponde a due domande — quanti
+   arrivano e da dove, quanti aprono l'editor e da quale bottone — senza cookie, senza terze parti
+   e senza riaprire l'INSERT anonimo che la migration 0026 aveva chiuso.
+   Qui si presidiano le tre cose che si romperebbero in silenzio: la CSP che blocca la chiamata,
+   la porta del database lasciata aperta, e il documento che promette agli utenti altro. */
+const migCounters = readFileSync(join(root, "supabase/migrations/0036_landing_counters.sql"), "utf8");
+
+t("il contatore non riapre la porta che la 0026 aveva chiuso", () => {
+  /* Il repo è pubblico e la anon key con lui: se la tabella avesse una policy di insert per anon,
+     chiunque potrebbe scrivere righe a volontà. Deve scrivere SOLO la funzione con service_role. */
+  ok(/alter table public\.landing_counters\s+enable row level security/.test(migCounters), "RLS attiva sui contatori");
+  ok(!/create policy[^;]*landing_counters[^;]*to (anon|authenticated|public)/is.test(migCounters),
+    "nessuna policy di scrittura dal browser sui contatori");
+  for (const fn of ["landing_counter_hit", "landing_throttle_hit"]) {
+    ok(new RegExp("revoke execute on function public\\." + fn + "[^;]*from public, anon, authenticated", "s").test(migCounters),
+      fn + ": revocata a tutti");
+    /* «to service_role» da solo non basta: matcherebbe anche «to service_role, anon», che
+       rimetterebbe la RPC in mano a chiunque abbia la anon key — cioè a chiunque legga il repo */
+    const grant = (migCounters.match(new RegExp("grant execute on function public\\." + fn + "[^;]*;", "s")) || [])[0] || "";
+    const beneficiari = (grant.match(/to ([^;]+);/s) || [])[1] || "";
+    eq(beneficiari.trim(), "service_role", fn + ": concessa a service_role e a nessun altro");
+  }
+  /* current_date compare anche nelle query di lettura in fondo al file: qui serve sapere che è
+     l'INSERT a usarlo, cioè che la data la decide il server e non arriva dal browser */
+  ok(/values \(current_date, p_event, p_source, p_ref, 1\)/.test(migCounters),
+    "il giorno dell'incremento lo mette il server, non il client");
+  ok(/check \(\s*event in \('view', 'app_click'\)/.test(migCounters), "il database ricontrolla l'allowlist degli eventi");
+});
+
+t("la CSP della landing lascia passare il contatore, e niente altro", () => {
+  /* Senza connect-src la chiamata viene rifiutata dal browser e il contatore resta a zero per
+     sempre, senza che nessuno se ne accorga: la pagina funziona lo stesso. */
+  const csp = (landing.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
+  const connect = (csp.match(/connect-src ([^;]+)/) || [])[1] || "";
+  ok(connect.indexOf("'self'") > -1, "connect-src dichiarato");
+  ok(/https:\/\/\w+\.supabase\.co/.test(connect), "e include il progetto Supabase: " + connect);
+  ok(csp.indexOf("default-src 'self'") > -1, "il resto della CSP resta chiuso");
+  ok(!/connect-src[^;]*\*/.test(csp), "nessun jolly in connect-src");
+});
+
+t("il beacon parte davvero: text/plain, non application/json", () => {
+  /* Con application/json il browser pretende una preflight, che sendBeacon non sa fare: la
+     chiamata fallisce in silenzio. È il modo tipico in cui questi contatori non contano niente. */
+  const blocco = landing.slice(landing.indexOf("CONTATORE DELLA LANDING"));
+  ok(/type:\s*"text\/plain/.test(blocco), "il Blob del beacon è text/plain");
+  /* cerca l'USO, non la parola: il commento qui sopra spiega proprio perché application/json
+     sarebbe sbagliato, e un test che grepasse la stringa nuda diventerebbe rosso per quello */
+  ok(!/(?:type|"Content-Type")\s*:\s*"application\/json/.test(blocco),
+    "application/json non è usato come tipo del corpo");
+  ok(/navigator\.sendBeacon\(API, blob\)/.test(blocco) && /fetch\(API/.test(blocco),
+    "c'è il beacon e il ripiego con fetch");
+  ok(/doNotTrack/.test(blocco), "chi ha Do Not Track non viene contato");
+  ok(/location\.hostname !== "stageplot\.it"/.test(blocco), "in locale non si conta nulla");
+  ok(/sessionStorage/.test(blocco), "una visita per sessione, non una per ricarica");
+});
+
+t("gli ingressi verso l'editor sono gli stessi in pagina, nel codice e nel database", () => {
+  /* Tre elenchi che devono coincidere. Se in pagina nasce un from= che il database non conosce,
+     il CHECK rifiuta la riga e quel clic sparisce senza un errore visibile da nessuna parte:
+     il contatore continuerebbe a funzionare, contando meno del vero. */
+  const inPagina = new Set([...landing.matchAll(/href="\/app\/[^"]*?from=([\w-]{1,24})/g)].map((m) => m[1]));
+  ok(inPagina.size >= 4, "la landing marca i suoi ingressi: " + [...inPagina].join(", "));
+
+  const ts = readFileSync(join(root, "supabase/functions/_shared/landing-metrics.ts"), "utf8");
+  const blocco = (ts.match(/export const SORGENTI = \[([\s\S]*?)\] as const/) || [])[1] || "";
+  const nelCodice = new Set([...blocco.matchAll(/"([\w-]*)"/g)].map((m) => m[1]).filter(Boolean));
+
+  const check = (migCounters.match(/and source in \(([^)]*)\)/s) || [])[1] || "";
+  const nelDb = new Set([...check.matchAll(/'([\w-]*)'/g)].map((m) => m[1]).filter(Boolean));
+
+  for (const s of inPagina) {
+    ok(nelCodice.has(s), "«" + s + "» è previsto dalla validazione");
+    ok(nelDb.has(s), "«" + s + "» è accettato dal database");
+  }
+  eq([...nelCodice].sort().join(","), [...nelDb].sort().join(","), "codice e database elencano gli stessi ingressi");
+  /* i link verso l'editor che NON portano un from= sono clic che non vedremo mai */
+  const versoApp = [...landing.matchAll(/href="(\/app\/[^"]*)"/g)].map((m) => m[1]);
+  const senzaMarca = versoApp.filter((h) => !/from=/.test(h));
+  eq(senzaMarca.length, 0, "nessun ingresso all'editor resta senza marca: " + senzaMarca.join(" "));
+});
+
+t("la funzione è raggiungibile da una pagina senza login", () => {
+  const cfg = readFileSync(join(root, "supabase/config.toml"), "utf8");
+  ok(/\[functions\.track-landing\]\s*\nverify_jwt = false/.test(cfg),
+    "track-landing accetta chiamate senza token: la landing non ne ha uno");
+});
+
+t("la privacy racconta i conteggi, e la data lo dice", () => {
+  /* Il sito prometteva «senza accesso non si attivano statistiche d'uso»: da oggi non è più
+     vero alla lettera, e il documento deve dirlo prima che lo scopra qualcun altro. */
+  const p = readFileSync(join(root, "privacy/index.html"), "utf8");
+  ok(/Conteggi della pagina iniziale/.test(p), "c'è la sezione sui conteggi");
+  ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
+  ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
+  ok(/impronta anonima \(hash\) dell'indirizzo IP/.test(p), "dichiara l'impronta dell'IP per il rate limit");
+  ok(/Ultimo aggiornamento: 11 agosto 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta");
+  ok(!/senza accesso non si attivano autenticazione, salvataggio cloud o statistiche d'uso/.test(p),
+    "la frase che ora sarebbe falsa non c'è più");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
