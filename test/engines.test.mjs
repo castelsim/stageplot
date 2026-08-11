@@ -9388,5 +9388,138 @@ t("l'anteprima social ha la forma che i social pretendono", () => {
     "e lo sono anche le pagine di contenuto, che condividono la stessa immagine");
 });
 
+/* --- La landing letta da un telefono (11/08) -------------------------------------------------
+   Il redesign era stato verificato a 390px guardando lo scrollWidth: nessun overflow, verde. Ma
+   `body{overflow-x:hidden}` rende quella misura sempre verde per costruzione, e intanto quattro
+   blocchi erano tagliati dentro il loro contenitore. Si vedeva solo guardando lo screenshot.
+   Questi test presidiano le cause, che sono tutte nel CSS. */
+const mq = (maxpx) => {          /* TUTTI i blocchi @media(max-width:Npx): nel file sono più d'uno */
+  const tag = "@media(max-width:" + maxpx + "px)";
+  let out = "", i = landing.indexOf(tag);
+  while (i > -1) {
+    const s = landing.indexOf("{", i);
+    let d = 1, j = s + 1;
+    while (j < landing.length && d) { if (landing[j] === "{") d++; else if (landing[j] === "}") d--; j++; }
+    out += landing.slice(s + 1, j - 1) + "\n";
+    i = landing.indexOf(tag, j);
+  }
+  return out;
+};
+
+t("su un telefono il rider a otto pagine si legge fino in fondo", () => {
+  /* Le righe erano 523px dentro 336 con white-space:nowrap: si leggeva «PAG 2 · Input list 10 CH —
+     mic, 48V, patch de» e il resto viveva in uno scroll orizzontale invisibile. */
+  ok(/\.tl\{[^}]*white-space:\s*normal/.test(mq(760)), "sotto i 760px le righe del terminale vanno a capo");
+  ok(/\.tl\{[^}]*text-indent:\s*-/.test(mq(760)), "e la seconda riga rientra sotto il «PAG n ·»");
+});
+
+t("la colonna «Monitor» della channel list entra nello schermo di un telefono", () => {
+  /* 385px in 336: MIX 1 / MIX 3 restavano oltre il bordo. Il difetto vero però era l'ORDINE: la
+     media query stava PRIMA di th{padding:11px 16px}, che la sovrascriveva senza dire niente. */
+  const stretta = landing.search(/@media\(max-width:760px\)\{[^@]*th,td\{padding-left:/);
+  const larga = landing.search(/\n\s*th\{[^}]*padding:\s*11px 16px/);
+  ok(stretta > -1, "esiste la regola che stringe le celle su telefono");
+  ok(larga > -1 && stretta > larga, "e viene DOPO quella base, altrimenti perde la cascata");
+});
+
+t("le immagini della landing sono ritagliate ognuna per quello che deve mostrare", () => {
+  /* Un solo `.shot img{object-position:52% 78%}` valeva per tutte e tre: buono per l'editor,
+     tagliava l'intestazione della pagina del rider e riduceva la finestra di export a 3px. */
+  ok(/\.shot-hero img\{[^}]*object-position/.test(landing), "il ritaglio sul palco è agganciato all'hero");
+  ok(!/[^-]\.shot img\{[^}]*object-fit/.test(landing), "e non alla classe generica .shot");
+  ok(/<figure class="shot shot-hero">/.test(landing), "l'hero porta davvero quella classe");
+  ok(/\.shot-exp img\{display:none\}/.test(mq(700)), "su telefono la finestra di export non si mostra illeggibile");
+  ok(/class="exp-m"/.test(landing) && /Scala<\/span><b>1:100/.test(landing),
+    "al suo posto ci sono le stesse scelte scritte in chiaro");
+});
+
+t("chi ha un dito e non un mouse riceve un invito che può accettare", () => {
+  ok(/<span class="mouse">Passa il mouse sulla channel list<\/span><span class="touch">Tocca/.test(landing),
+    "l'invito ha le sue due versioni");
+  ok(/\n\s*\.touch\{display:none\}/.test(landing), "la variante per il dito è nascosta di default");
+  ok(/\.mouse\{display:none\}[^}]*\.touch\{display:inline\}/.test(mq(700)), "e si scambiano sotto i 700px");
+  /* e soprattutto: toccare deve fare qualcosa, altrimenti è una promessa vuota */
+  ok(/tr\.addEventListener\('click'/.test(landing), "toccare una riga accende il legame");
+  ok(/el\.addEventListener\('click'/.test(landing), "e vale anche toccando l'elemento sul palco");
+});
+
+t("un layer spento resta leggibile: si spegne il disegno, non il suo nome", () => {
+  /* opacity .1 sull'intero gruppo rendeva «CABLAGGIO» e «RF & RETE» invisibili: sembrava un
+     errore di rendering. L'opacità di un gruppo SVG è un tetto, non si recupera dai figli. */
+  ok(!/\.plane\.ghost \.fader\{opacity:\.1\}/.test(landing), "l'opacità non è più sul gruppo intero");
+  const et = (landing.match(/\.plane\.ghost \.fader>text\{opacity:([\d.]+)\}/) || [])[1];
+  ok(et && parseFloat(et) >= 0.3, "l'etichetta di un layer spento resta leggibile (opacity " + et + ")");
+});
+
+t("dalla home si arriva a ogni pagina per formazione", () => {
+  /* Le pagine esistono da giugno; la home linkava solo l'indice nel footer, e le otto formazioni
+     citate nelle domande erano testo morto. Se ne nasce una nuova, questo test la reclama. */
+  const cartelle = readdirSync(join(root, "stage-plot"), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "previews")
+    .map((d) => d.name);
+  ok(cartelle.length >= 10, "ci sono le pagine per formazione: " + cartelle.length);
+  for (const c of cartelle) {
+    ok(landing.indexOf('href="/stage-plot/' + c + '/"') > -1, "la home linka /stage-plot/" + c + "/");
+  }
+});
+
+t("la description sta dentro quello che Google mostra", () => {
+  const d = (landing.match(/<meta name="description" content="([^"]+)"/) || [])[1] || "";
+  ok(d.length > 110 && d.length <= 160, "description di " + d.length + " caratteri (tetto 160)");
+  ok(/stage plot/i.test(d) && /gratis/i.test(d), "e dice ancora cos'è e quanto costa");
+});
+
+/* --- Leggibile da un motore generativo (11/08) ------------------------------------------------
+   ChatGPT, Perplexity e le risposte AI di Google citano blocchi autocontenuti, e li pescano quasi
+   sempre dall'inizio della pagina. Fino all'11/08 la home non conteneva UNA frase che dicesse cos'è
+   StagePlot: c'erano il claim e le funzioni, mai la definizione. Questi test presidiano i segnali
+   che rendono la pagina citabile — e la coerenza fra i documenti che le AI leggono. */
+const ldLanding = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+const nodo = (tipo) => ldLanding["@graph"].find((n) => n["@type"] === tipo);
+
+t("la home dice cos'è StagePlot, in chiaro e all'inizio", () => {
+  const testo = landing.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const def = testo.match(/StagePlot è [^.]{40,400}\./);
+  ok(def, "esiste una frase «StagePlot è …»");
+  const dove = testo.indexOf(def[0]) / testo.length;
+  ok(dove < 0.25, "e sta nel primo quarto della pagina (sta al " + Math.round(dove * 100) + "%)");
+  const parole = def[0].split(/\s+/).length;
+  ok(parole >= 25 && parole <= 90, "lunga " + parole + " parole: si cita intera senza contesto");
+  for (const k of ["channel list", "rider", "gratuito", "browser"])
+    ok(def[0].toLowerCase().indexOf(k) > -1, "la definizione contiene «" + k + "»");
+});
+
+t("la home dichiara quando è stata aggiornata, e lo dice una volta sola", () => {
+  /* La freschezza pesa parecchio nelle citazioni AI. Due punti la dichiarano — schema e sitemap —
+     e se divergono uno dei due mente: il test li tiene legati. */
+  const wp = nodo("WebPage");
+  ok(wp && /^\d{4}-\d{2}-\d{2}$/.test(wp.dateModified || ""), "il WebPage ha dateModified");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const lastmod = (sm.match(/<loc>https:\/\/stageplot\.it\/<\/loc>\s*<lastmod>([^<]+)</) || [])[1];
+  eq(lastmod, wp.dateModified, "sitemap e schema dicono la stessa data");
+  ok(wp.datePublished <= wp.dateModified, "e la pubblicazione non è successiva all'ultima modifica");
+});
+
+t("l'autore è un'entità collegabile, non un nome scritto", () => {
+  /* «Lo scrive un fonico, non un'agenzia» è il differenziatore del progetto: per una AI vale solo
+     se la persona è agganciata a profili verificabili. */
+  const f = nodo("Organization").founder;
+  ok(Array.isArray(f.sameAs) && f.sameAs.length >= 2, "il fondatore ha almeno due profili in sameAs");
+  for (const u of f.sameAs) ok(/^https:\/\//.test(u), "profilo con URL assoluto: " + u);
+  ok(f["@id"].indexOf("simonecastellan.com/#person") > -1, "e punta all'entità canonica sul suo sito");
+});
+
+t("llms.txt racconta il prodotto di oggi, non quello di due versioni fa", () => {
+  /* Il file è la versione che le AI leggono per prima. Diceva ancora che il rider completo si
+     ottiene «su consulenza», mentre l'editor lo genera da solo: un LLM avrebbe riferito quello. */
+  const l = readFileSync(join(root, "llms.txt"), "utf8");
+  ok(!/rider completo disponibil\w* su consulenza/i.test(l), "non dice più che il rider completo è solo su consulenza");
+  ok(/le genera l'app dal disegno/i.test(l), "dice chi genera i documenti");
+  const cartelle = readdirSync(join(root, "stage-plot"), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "previews").map((d) => d.name);
+  for (const c of cartelle) ok(l.indexOf("/stage-plot/" + c + "/") > -1, "llms.txt elenca " + c);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
