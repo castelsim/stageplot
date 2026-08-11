@@ -21,7 +21,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- stessa CSP delle pagine di contenuto (/guida/, /stage-plot/): la landing è tutta self-contained -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- Fino al 2026-08 la radice ERA l'editor: in giro ci sono link di sola lettura (?view=), progetti
      dentro l'URL (#p=/#d=), modelli (?model=) e la PWA installata (?utm_source=pwa). Quei link devono
      continuare a funzionare, quindi rimbalzano su /app/ con query e hash intatti. Sincrono e prima di
@@ -571,7 +571,7 @@ addEventListener("hashchange", go);})();</script>
   <figure class="shot shot-hero">
     <img src="/img/editor.jpg" width="1400" height="643" fetchpriority="high" decoding="async"
          alt="L'editor di StagePlot con lo stage plot di una band pop/rock: batteria su pedana, ampli, tastiere, tre voci, monitor spia e side fill, catalogo degli elementi a sinistra e layer del progetto a destra.">
-    <figcaption>Il modello «Band pop/rock» incluso, aperto nell'editor. <a class="ghost" href="/app/?model=band">provalo</a></figcaption>
+    <figcaption>Il modello «Band pop/rock» incluso, aperto nell'editor. <a class="ghost" href="/app/?model=band&amp;from=hero-didascalia">provalo</a></figcaption>
   </figure>
 
   <!-- Una frase che dice cos'è, in chiaro e per intero. Serve a chi arriva senza contesto e ai
@@ -681,7 +681,7 @@ addEventListener("hashchange", go);})();</script>
   </div>
   <div class="ba-caption">
     <span>il foglietto scattato in sala prove e girato su WhatsApp</span>
-    <span><b>lo stesso palco, esportato da StagePlot</b> — parti da un modello pronto: <a class="ghost" href="/app/?model=band">stageplot.it/app/?model=band</a></span>
+    <span><b>lo stesso palco, esportato da StagePlot</b> — parti da un modello pronto: <a class="ghost" href="/app/?model=band&amp;from=confronto">stageplot.it/app/?model=band</a></span>
   </div>
 </div></section>
 <!-- La sezione più importante della pagina: la promessa «i documenti si aggiornano da soli» non si
@@ -1205,7 +1205,7 @@ addEventListener("hashchange", go);})();</script>
     </div>
     <div>
       <h3>Non so da dove partire.</h3>
-      <p>Apri un <a href="/app/?model=band">palco già fatto</a> e cambialo. Otto formazioni pronte: acustica, band, tributo, jazz combo, big band, coro, orchestra da camera, orchestra pop.</p>
+      <p>Apri un <a href="/app/?model=band&amp;from=domande">palco già fatto</a> e cambialo. Otto formazioni pronte: acustica, band, tributo, jazz combo, big band, coro, orchestra da camera, orchestra pop.</p>
       <p class="q-more">Come si imposta il palco, formazione per formazione: <a href="/stage-plot/band/">band</a>, <a href="/stage-plot/jazz/">jazz combo</a>, <a href="/stage-plot/coro/">coro</a>, <a href="/stage-plot/bigband/">big band</a>, <a href="/stage-plot/acustica/">acustico</a>, <a href="/stage-plot/tributo/">tribute band</a>, <a href="/stage-plot/orchestra/">orchestra</a>, <a href="/stage-plot/chiesa/">chiesa</a>, <a href="/stage-plot/matrimonio/">matrimonio</a>, <a href="/stage-plot/dj/">DJ set</a>, <a href="/stage-plot/festival/">festival</a>.</p>
     </div>
   </div>
@@ -1466,6 +1466,56 @@ addEventListener("hashchange", go);})();</script>
     document.querySelectorAll('.sbtn[data-add]').forEach(function(b){ b.dataset.done = '0'; });
     syReset.hidden = true;
   });
+})();
+</script>
+
+<!-- ============================================================================================
+     CONTATORE DELLA LANDING
+     Due domande a cui finora si rispondeva a sensazione: quanta gente arriva e da dove, e se
+     poi apre davvero l'editor (e da quale dei quattro ingressi). Manda tre parole a una nostra
+     funzione, che le riconduce a un elenco chiuso e incrementa un contatore giornaliero:
+     nessun cookie, nessun identificatore, nessuna terza parte, nessun dato individuale — solo
+     numeri aggregati. Chi ha «Do Not Track» acceso non manda niente.
+     Il browser NON scrive nel database: quella porta resta chiusa (vedi migration 0036).
+     ========================================================================================= -->
+<script>
+(function(){
+  try{
+    if (location.hostname !== "stageplot.it") return;                    /* in locale non si conta */
+    if (navigator.doNotTrack === "1" || window.doNotTrack === "1") return;
+    var API = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/track-landing";
+
+    function manda(event, source){
+      var ref = "";
+      try{ ref = document.referrer ? new URL(document.referrer).hostname : ""; }catch(e){}
+      var corpo = JSON.stringify({ event:event, source:source||"", ref:ref });
+      try{
+        /* text/plain di proposito: con application/json il browser vorrebbe una preflight, che
+           sendBeacon non sa fare — la chiamata fallirebbe in silenzio. Il server legge comunque
+           il corpo come JSON. */
+        var blob = new Blob([corpo], { type:"text/plain;charset=UTF-8" });
+        if (navigator.sendBeacon && navigator.sendBeacon(API, blob)) return;
+        fetch(API, { method:"POST", body:corpo, keepalive:true,
+                     headers:{ "Content-Type":"text/plain;charset=UTF-8" } });
+      }catch(e){}
+    }
+
+    /* una visita per sessione: ricaricare la pagina non è arrivare una seconda volta */
+    var nuova = true;
+    try{
+      nuova = !sessionStorage.getItem("sp_visto");
+      if (nuova) sessionStorage.setItem("sp_visto", "1");
+    }catch(e){}
+    if (nuova) manda("view", "");
+
+    /* i quattro ingressi verso l'editor portano già ?from=…: si conta quello, non il bersaglio */
+    document.addEventListener("click", function(e){
+      var a = e.target && e.target.closest ? e.target.closest('a[href*="/app/"]') : null;
+      if (!a) return;
+      var m = (a.getAttribute("href") || "").match(/[?&]from=([\w-]{1,24})/);
+      if (m) manda("app_click", m[1]);
+    }, true);
+  }catch(e){}
 })();
 </script>
 
