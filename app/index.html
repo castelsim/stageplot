@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.08.09";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.08.11";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -4053,6 +4053,14 @@ body.dark .ask-all .btn{background:transparent}
         </div>
         <div id="prodNudge"></div>
         <div id="prodInline" hidden></div>
+        <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
+             nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
+             il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
+             tre file con lo stesso nome. Qui è il momento giusto per chiederlo: è lo stesso
+             `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
+        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del rider e nome del file</span></label>
+        <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
+        <div class="hdr-saved" id="pdfFileName"></div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->

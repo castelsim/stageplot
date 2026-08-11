@@ -4554,6 +4554,33 @@ t("normalizzazione accenti (_deacc riusato)", () => { eq(A._deacc("À la Séance
 t("nessun duplicato nei risultati (k|nome unico per query)", () => {
   const seen = {}; A.__spSearch("mic").forEach(function (r) { const id = (r.k || "") + "|" + r.nome; ok(!seen[id], "duplicato: " + id); seen[id] = 1; });
 });
+/* Tre parole di mestiere misurate l'11/08 percorrendo il catalogo come lo percorre un fonico. */
+t("'monitor' dà per primo il wedge, in ENTRAMBE le ricerche", () => {
+  /* «Hub monitoraggio» e «Mixer monitor» vincevano per nome (la query inizia una parola) e il tie-break
+     alfabetico li metteva davanti: chi digita «monitor» davanti a un palco vuole la spia a terra. */
+  eq(searchKeys("monitor")[0], "wedge", "barra del catalogo: " + searchKeys("monitor").slice(0, 3).join(", "));
+  eq(qaKeys("monitor")[0], "wedge", "ricerca rapida: " + qaKeys("monitor").slice(0, 3).join(", "));
+});
+t("'bassista' dà il bassista, non il suo ampli", () => {
+  eq(searchKeys("bassista")[0], "bassstand", "primo: " + searchKeys("bassista").slice(0, 3).join(", "));
+  ok(searchKeys("amplificatore").indexOf("bassamp") > -1, "e l'ampli resta a un dito con «amplificatore»");
+});
+t("'multicavo' e 'frusta' trovano qualcosa: prima non davano niente", () => {
+  ok(searchKeys("multicavo").length > 0, "multicavo: nessun risultato");
+  ok(searchKeys("frusta").length > 0, "frusta: nessun risultato");
+  ok(qaKeys("multicavo").length > 0, "multicavo nella ricerca rapida: nessun risultato");
+});
+t("una query ceduta vale in tutte e due le ricerche, non solo nel quick-add", () => {
+  /* il difetto di classe: due copie dello stesso ordinamento che divergono in silenzio */
+  Object.keys(A.TYPES).filter((k) => A.TYPES[k] && A.TYPES[k].qaCede).forEach((k) => {
+    A.TYPES[k].qaCede.split(/\s+/).filter(Boolean).forEach((q) => {
+      const sp = searchKeys(q), qa = qaKeys(q);
+      if (sp.indexOf(k) > -1) ok(sp[0] !== k, k + " vince ancora «" + q + "» nella barra del catalogo");
+      if (qa.indexOf(k) > -1) ok(qa[0] !== k, k + " vince ancora «" + q + "» nella ricerca rapida");
+    });
+  });
+});
+
 t("priorità al nome: 'tastiera' → il primo risultato matcha sul nome", () => {
   const res = A.__spSearch("tastiera"); ok(res.length > 0);
   ok(A._deacc(res[0].nome).indexOf("tastiera") > -1, "il primo non matcha sul nome: " + res[0].nome);
@@ -8835,6 +8862,54 @@ t("la distanza si legge, si limita e regge i valori sballati", () => {
   it.lblDist = "boh"; eq(A.lblDistOf(it), 22, "un valore non numerico torna al default");
 });
 
+// ── DOVE NASCE UN ELEMENTO POSATO DAL CATALOGO (11/08) ─────────────────────────────────────────
+// Un elemento occupa il suo disegno E la striscia dove sta scritto il suo nome. Fino all'11/08 la
+// ricerca del posto libero guardava solo il footprint: sette voci posate dal catalogo su un palco
+// vuoto davano zero corpi sovrapposti e però due nomi su sette illeggibili, coperti dal disegno del
+// vicino — anche su un palco 16×12, quindi non era mancanza di spazio.
+console.log("\n— Dove nasce un elemento posato —");
+
+t("la striscia del nome è ingombro: sotto per un wedge, sopra per chi ha la sedia", () => {
+  reset();
+  const w = add("wedge", 400, 300);
+  const bw = A.lblBandOf(w);
+  ok(bw.sotto >= A.lblDistOf(w), "sotto il wedge si tiene almeno la distanza del nome: " + bw.sotto);
+  eq(bw.sopra, 0, "e niente sopra");
+  const g = add("vlnpost", 900, 300);   /* postazione d'orchestra: nasce con la sedia */
+  const bg = A.lblBandOf(g);
+  ok(bg.sopra > 0 && bg.sotto === 0, "la postazione con sedia porta il nome sopra lo schienale: " + JSON.stringify(bg));
+  const muto = add("wedge", 700, 600);
+  muto.labelMode = "hidden";
+  eq(A.lblBandOf(muto).sotto, 0, "un nome nascosto non occupa niente");
+});
+
+t("su un palco stretto il posto si cerca oltre la striscia del nome, non a ridosso del disegno", () => {
+  reset();
+  /* Palco a corridoio: destra e sinistra non offrono niente, quindi la scelta si legge sull'asse dove
+     il nome vive davvero. Col criterio vecchio (solo footprint + 15 cm) il secondo wedge nasceva
+     dentro la striscia del nome del primo. */
+  A.state.stage = { w: 260, d: 1400, blocks: [{ x: 0, y: 0, w: 260, d: 1400 }] };
+  const a = add("wedge", 130, 300);
+  const banda = A.lblBandOf(a).sotto;
+  ok(banda > 20, "il wedge porta il nome sotto di sé: " + banda);
+  const p = A.findFreeSpotFor({ type: "wedge", w: a.w, d: a.d }, 130, 300);
+  const dy = Math.abs(p.y - a.y);
+  ok(dy >= a.d + banda, "il secondo sta oltre la striscia del nome del primo (" + Math.round(dy) + " cm ≥ " + Math.round(a.d + banda) + ")");
+  ok(p.y - a.d / 2 >= 0 && p.y + a.d / 2 <= 1400, "e dentro il palco: y=" + p.y);
+});
+
+/* Questo protegge il rimedio, non un difetto storico: cercare più lontano per fare posto al nome
+   faceva nascere la voce mezza sotto il boccascena (visto a schermo l'11/08). Il vincolo di perimetro
+   è nato lì, e senza questo test sparirebbe alla prima riscrittura della spirale. */
+t("la posa automatica non manda nessuno fuori dal palco", () => {
+  reset();
+  A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };   /* il palco del primo avvio è 8×6 */
+  ["batteria", "bassamp", "gtstand", "stagepiano", "cantante", "wedge", "mixer"].forEach((t2) => A.addItem(t2));
+  const fuori = A.state.items.filter((o) => o.x - o.w / 2 < 0 || o.x + o.w / 2 > A.state.stage.w
+    || o.y - o.d / 2 < 0 || o.y + o.d / 2 > A.state.stage.d);
+  eq(fuori.length, 0, "nessuno nasce fuori dal palco: " + fuori.map((o) => o.label || o.type).join(", "));
+});
+
 t("una nota altrui con distanza fuori scala viene riportata nei limiti", () => {
   const s = A.normalizeState({ _v: 5, items: [
     { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 5000 },
@@ -9227,6 +9302,12 @@ t("chi cerca il tool arriva al tool, chi cerca il sito arriva alla landing", () 
   const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((d) => d.isFile() && d.name.endsWith(".html"))
     .map((d) => join(d.parentPath || d.path, d.name))
+    /* Solo ciò che viene PUBBLICATO. `.claude/worktrees/` contiene copie di lavoro del sito, anche
+       abbandonate e vecchie di settimane: leggerle rendeva questo test rosso per pagine che nessuno
+       vedrà mai (l'11/08 accusava 220 CTA sbagliate, tutte dentro tre worktree dimenticati, mentre le
+       52 pagine vere erano a posto). Un test che dipende da cosa c'è nelle cartelle di lavoro non
+       protegge niente: il suo verde smette di voler dire qualcosa. */
+    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]/.test(p))
     .filter((p) => !/index\.template\.html$|[\\/]app[\\/]index\.html$|[\\/]index\.html$/.test(p) || /guida|stage-plot|consulenza|privacy|termini|richiesta/.test(p));
   ok(pagine.length >= 20, "trovate le pagine di contenuto: " + pagine.length);
   const sbagliati = [];
