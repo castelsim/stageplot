@@ -9350,7 +9350,12 @@ t("chi cerca il tool arriva al tool, chi cerca il sito arriva alla landing", () 
        vedrà mai (l'11/08 accusava 220 CTA sbagliate, tutte dentro tre worktree dimenticati, mentre le
        52 pagine vere erano a posto). Un test che dipende da cosa c'è nelle cartelle di lavoro non
        protegge niente: il suo verde smette di voler dire qualcosa. */
-    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]/.test(p))
+    /* Il filtro va applicato al percorso RELATIVO alla radice: la suite gira spesso DENTRO
+       .claude/worktrees/<nome>/, e su un percorso assoluto questa riga escludeva l'intero
+       repository — zero pagine esaminate e test rosso per un motivo che non c'entra niente
+       con quello che presidia. Escludere i worktree annidati resta giusto; escludere se
+       stessi no. */
+    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]/.test(p.slice(root.length)))
     .filter((p) => !/index\.template\.html$|[\\/]app[\\/]index\.html$|[\\/]index\.html$/.test(p) || /guida|stage-plot|consulenza|privacy|termini|richiesta/.test(p));
   ok(pagine.length >= 20, "trovate le pagine di contenuto: " + pagine.length);
   const sbagliati = [];
@@ -9562,6 +9567,38 @@ t("llms.txt racconta il prodotto di oggi, non quello di due versioni fa", () => 
   const cartelle = readdirSync(join(root, "stage-plot"), { withFileTypes: true })
     .filter((d) => d.isDirectory() && d.name !== "previews").map((d) => d.name);
   for (const c of cartelle) ok(l.indexOf("/stage-plot/" + c + "/") > -1, "llms.txt elenca " + c);
+});
+
+/* --- Title e description dentro quello che Google mostra (11/08) ------------------------------
+   Otto title su ventiquattro superavano i 60 caratteri e venivano troncati nei risultati, quattro
+   description superavano i 160. Nessuno se ne accorge guardando il sito: si vede solo in SERP, e
+   il pezzo che sparisce è sempre la coda — dove sta il marchio. Il suffisso « | StagePlot» da solo
+   pesa 12 caratteri, quindi la parte descrittiva deve stare in 48. */
+t("nessuna pagina ha un title o una description che Google taglierebbe", () => {
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]|[\\/]app[\\/]|landing-concepts/.test(p.slice(root.length)));
+  ok(pagine.length >= 20, "pagine esaminate: " + pagine.length);
+
+  const titoli = new Map(), descr = new Map();
+  const lunghi = [];
+  for (const p of pagine) {
+    const h = readFileSync(p, "utf8");
+    if (/name="robots" content="noindex/.test(h)) continue;      /* le noindex non finiscono in SERP */
+    const nome = p.slice(root.length);
+    const t_ = (h.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || "";
+    const d_ = (h.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+    if (t_.length > 60) lunghi.push(nome + " title " + t_.length);
+    if (d_.length > 160) lunghi.push(nome + " description " + d_.length);
+    ok(t_.length > 0 && d_.length > 0, nome + ": ha title e description");
+    titoli.set(t_, (titoli.get(t_) || 0) + 1);
+    descr.set(d_, (descr.get(d_) || 0) + 1);
+  }
+  eq(lunghi.length, 0, "fuori misura: " + lunghi.join(", "));
+  /* due pagine con lo stesso title si fanno concorrenza da sole */
+  eq([...titoli].filter(([, n]) => n > 1).map(([t_]) => t_).join(" | "), "", "nessun title duplicato");
+  eq([...descr].filter(([, n]) => n > 1).map(([d_]) => d_.slice(0, 40)).join(" | "), "", "nessuna description duplicata");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
