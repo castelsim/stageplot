@@ -9601,6 +9601,36 @@ t("nessuna pagina ha un title o una description che Google taglierebbe", () => {
   eq([...descr].filter(([, n]) => n > 1).map(([d_]) => d_.slice(0, 40)).join(" | "), "", "nessuna description duplicata");
 });
 
+t("una pagina dice lo stesso titolo a Google, ai social e ai dati strutturati", () => {
+  /* Il titolo di una pagina è scritto in quattro punti: <title>, og:title, twitter:title e la
+     headline dell'Article. Venti pagine su ventiquattro li tenevano già allineati — era una
+     convenzione, non una regola, e le quattro che la violavano l'avevano fatto in silenzio:
+     una di queste l'ho disallineata io accorciando i title, perché il twitter:title conteneva
+     la variante col marchio e la sostituzione non l'ha intercettata.
+     La headline è quella che pesa: è il titolo che Google legge nei dati strutturati. */
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]|[\\/]app[\\/]|landing-concepts/.test(p.slice(root.length)));
+  const disallineate = [];
+  for (const p of pagine) {
+    const h = readFileSync(p, "utf8");
+    if (/name="robots" content="noindex/.test(h)) continue;
+    const nome = p.slice(root.length);
+    const t_ = ((h.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || "").trim();
+    const base = t_.replace(" | StagePlot", "");
+    for (const [dove, patt] of [["og:title", /og:title" content="([^"]*)"/],
+                                ["twitter:title", /twitter:title" content="([^"]*)"/],
+                                ["headline", /"headline":"([^"]*)"/]]) {
+      const m = h.match(patt);
+      if (m && m[1] !== base) disallineate.push(`${nome} ${dove}=«${m[1]}» ≠ «${base}»`);
+    }
+    /* un anno nel title invecchia da solo: a gennaio la pagina dichiara la data sbagliata */
+    ok(!/\((19|20)\d\d\)/.test(t_), nome + ": nessun anno fisso nel title (" + t_ + ")");
+  }
+  eq(disallineate.length, 0, "titoli che non coincidono: " + disallineate.slice(0, 4).join(" || "));
+});
+
 /* --- Contatore della landing (11/08) ----------------------------------------------------------
    Fino a oggi dei visitatori non si sapeva niente: gli eventi dell'app partono solo per gli utenti
    loggati, e chi arriva dalla landing quasi mai lo è. Il contatore risponde a due domande — quanti
