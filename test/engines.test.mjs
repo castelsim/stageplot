@@ -9350,7 +9350,12 @@ t("chi cerca il tool arriva al tool, chi cerca il sito arriva alla landing", () 
        vedrà mai (l'11/08 accusava 220 CTA sbagliate, tutte dentro tre worktree dimenticati, mentre le
        52 pagine vere erano a posto). Un test che dipende da cosa c'è nelle cartelle di lavoro non
        protegge niente: il suo verde smette di voler dire qualcosa. */
-    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]/.test(p))
+    /* Il filtro va applicato al percorso RELATIVO alla radice: la suite gira spesso DENTRO
+       .claude/worktrees/<nome>/, e su un percorso assoluto questa riga escludeva l'intero
+       repository — zero pagine esaminate e test rosso per un motivo che non c'entra niente
+       con quello che presidia. Escludere i worktree annidati resta giusto; escludere se
+       stessi no. */
+    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]/.test(p.slice(root.length)))
     .filter((p) => !/index\.template\.html$|[\\/]app[\\/]index\.html$|[\\/]index\.html$/.test(p) || /guida|stage-plot|consulenza|privacy|termini|richiesta/.test(p));
   ok(pagine.length >= 20, "trovate le pagine di contenuto: " + pagine.length);
   const sbagliati = [];
