@@ -90,7 +90,12 @@ addEventListener("hashchange", go);})();</script>
         "@id": "https://simonecastellan.com/#person",
         "name": "Simone Castellan",
         "jobTitle": "Sound engineer",
-        "url": "https://simonecastellan.com"
+        "url": "https://simonecastellan.com",
+        "sameAs": [
+          "https://www.linkedin.com/in/simonecastellan",
+          "https://www.instagram.com/simonecastellan_/",
+          "https://www.facebook.com/castellansimone/"
+        ]
       }
     },
     {
@@ -115,6 +120,19 @@ addEventListener("hashchange", go);})();</script>
       "screenshot": "https://stageplot.it/preview.png",
       "author": { "@id": "https://stageplot.it/#org" },
       "publisher": { "@id": "https://stageplot.it/#org" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://stageplot.it/#webpage",
+      "url": "https://stageplot.it/",
+      "name": "StagePlot — disegna il palco, il rider si costruisce da solo",
+      "description": "Editor gratuito nel browser per disegnare lo stage plot in scala di un concerto e ricavarne channel list, monitor, carichi elettrici, luci e rider tecnico in PDF.",
+      "inLanguage": "it",
+      "isPartOf": { "@id": "https://stageplot.it/#website" },
+      "about": { "@id": "https://stageplot.it/#app" },
+      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/editor.jpg", "width": 1400, "height": 643 },
+      "datePublished": "2026-08-08",
+      "dateModified": "2026-08-11"
     },
     {
       "@type": "FAQPage",
@@ -210,6 +228,11 @@ addEventListener("hashchange", go);})();</script>
   .ghost{font-size:15px;color:var(--mut);text-decoration:none;border-bottom:1px solid var(--line2)}
   .ghost:hover{color:var(--text)}
   .trust{margin-top:22px;font-family:var(--mono);font-size:13px;color:var(--mut)}
+  /* la definizione sotto la schermata: deve leggersi come una didascalia lunga, non come un secondo
+     sottotitolo che compete con l'H1 */
+  .def{margin-top:34px;max-width:74ch;color:var(--mut);font-size:15.5px;line-height:1.75}
+  .def b{color:var(--text);font-weight:600}
+  @media(max-width:700px){.def{margin-top:26px;font-size:14.5px}}
   .trust span{color:var(--teal)}
 
   .console{margin-top:78px;border:1px solid var(--line2);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(20,184,166,.06);position:relative}
@@ -550,6 +573,14 @@ addEventListener("hashchange", go);})();</script>
          alt="L'editor di StagePlot con lo stage plot di una band pop/rock: batteria su pedana, ampli, tastiere, tre voci, monitor spia e side fill, catalogo degli elementi a sinistra e layer del progetto a destra.">
     <figcaption>Il modello «Band pop/rock» incluso, aperto nell'editor. <a class="ghost" href="/app/?model=band">provalo</a></figcaption>
   </figure>
+
+  <!-- Una frase che dice cos'è, in chiaro e per intero. Serve a chi arriva senza contesto e ai
+       motori generativi, che citano volentieri un blocco autocontenuto e quasi sempre lo prendono
+       dall'inizio della pagina: prima di questa riga la home non conteneva un solo «StagePlot è…». -->
+  <p class="def"><b>StagePlot è l'editor gratuito, nel browser, per disegnare lo stage plot in scala di un concerto</b>
+     e ricavarne i documenti che il service chiede: channel list, lista monitor, carichi elettrici, lista luci
+     e il rider tecnico in PDF, tutti allineati al disegno. In italiano, senza registrazione, con i progetti
+     salvati sul tuo dispositivo. <a class="ghost" href="/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a></p>
 </div></header>
 
 
