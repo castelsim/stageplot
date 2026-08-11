@@ -9749,21 +9749,22 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
 // un corpo 14 vale 140/N mm sulla carta — 2,8 mm a 1:50, 0,7 mm a 1:200. Un palco da festival
 // usciva con nomi, FONDO PALCO e quote illeggibili. E ogni quota era scritta due volte.
 t("le scritte del disegno restano leggibili a ogni scala", () => {
-  /* il fattore compensa esattamente il rimpicciolimento: a 1:100 non cambia niente */
-  eq(A.pdfTextK(100), 1, "1:100 è il riferimento e non si tocca");
-  eq(A.pdfTextK(50), 0.5, "a 1:50 il disegno è già grande: il testo rimpicciolisce");
-  eq(A.pdfTextK(200), 2, "a 1:200 raddoppia, così sulla carta resta 1,4 mm");
-  eq(A.pdfTextK(250), 2.5);
-  eq(A.pdfTextK(500), 2.5, "oltre 1:250 si ferma: sarebbe più grande di ciò che nomina");
+  /* Il fattore compensa esattamente il rimpicciolimento del disegno. Non si controlla il VALORE del
+     fattore — è una manopola (CORPO_RIF) e può cambiare — ma la proprietà che deve valere sempre:
+     raddoppiando la scala raddoppia il fattore, così sulla carta il corpo resta lo stesso. */
+  eq(A.pdfTextK(200) / A.pdfTextK(100), 2, "da 1:100 a 1:200 il fattore deve raddoppiare");
+  eq(A.pdfTextK(100) / A.pdfTextK(50), 2, "e da 1:50 a 1:100 pure");
+  eq(A.pdfTextK(500), A.pdfTextK(250), "oltre 1:250 si ferma: sarebbe più grande di ciò che nomina");
+  ok(A.pdfTextK(250) >= A.pdfTextK(100), "il fattore non può calare al crescere della scala");
   [0, -3, NaN, null, undefined, "boh"].forEach((v) => eq(A.pdfTextK(v), 1, "valore inutilizzabile: " + v));
   /* il corpo sulla CARTA, che è ciò che conta davvero */
   const mmSulFoglio = (corpo, N) => corpo * A.pdfTextK(N) * 10 / N;
-  [50, 100, 200, 250].forEach((N) => {
-    const mm = mmSulFoglio(14, N);
-    ok(mm >= 1.35 && mm <= 2.85, "a 1:" + N + " il corpo sul foglio è " + mm.toFixed(2) + " mm");
-  });
-  ok(mmSulFoglio(14, 200) > mmSulFoglio(14, 200) / 2, "controprova: senza compensazione a 1:200 sarebbe 0,70 mm");
-  eq(+(14 * 10 / 200).toFixed(2), 0.7, "ed è proprio la misura che rendeva illeggibile il PDF");
+  const misure = [50, 100, 200, 250].map((N) => +mmSulFoglio(14, N).toFixed(3));
+  eq(new Set(misure).size, 1, "il corpo sulla carta deve essere lo STESSO a ogni scala: " + misure);
+  /* e deve stare nella fascia in cui un nome si legge davvero su un foglio stampato: sotto 1,2 mm
+     si perde, sopra 2,5 mm i nomi si scansano tanto da non dire più di chi sono */
+  misure.forEach((mm) => ok(mm >= 1.2 && mm <= 2.5, "corpo sul foglio: " + mm + " mm"));
+  eq(+(14 * 10 / 200).toFixed(2), 0.7, "senza compensazione a 1:200 sarebbero 0,70 mm: la misura che rendeva illeggibile il PDF");
 });
 t("il fattore ingrandisce i corpi, non i tratti del disegno", () => {
   const css = ".lbl{font-size:14px;stroke-width:3.5px}.cavo{stroke-width:2px}.griglia{stroke-width:0.5px}";
@@ -9799,6 +9800,115 @@ t("nel PDF ogni quota è scritta una volta sola", () => {
   const prev = src.slice(src.indexOf("function pdfPreviewSvg"), src.indexOf("function pdfPreviewSvg") + 2000);
   ok(/textK:pdfTextK\(Ng\)/.test(prev), "l'anteprima non compensa il testo come il PDF");
   ok(/noBlockDims:/.test(prev), "l'anteprima non toglie il doppione come il PDF");
+});
+
+t("due nomi vicini non si scrivono addosso", () => {
+  reset();
+  A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  A.state.items = [];
+  /* il caso vero: un corista e la DI che genera stanno a mezzo metro l-uno dall-altra, e i loro
+     nomi finivano sulla stessa riga — «Voce 1» con «DI 1» dentro */
+  A.addItem("corista"); A.addItem("tastiera"); A.addItem("bassstand");
+  ok(A.state.items.length >= 3, "scena costruita: " + A.state.items.length + " elementi");
+  /* La posa automatica li tiene già distanti (findFreeSpotFor): il nodo lo rifà chi li avvicina a
+     MANO, ed è il caso da riprodurre — sul foglio non si può zoomare per districare due nomi. */
+  A.state.items.forEach((it, i) => { it.x = 600 + i * 45; it.y = 400 + i * 30; });
+
+  const sovrapposte = (K, conNudge) => {
+    const nud = conNudge ? A.lblNudges(K) : {};
+    const rs = A.state.items.map((it) => A.lblRectOf(it, K)).filter(Boolean)
+      .map((r) => ({ ...r, y0: r.y0 + (nud[r.id] || 0), y1: r.y1 + (nud[r.id] || 0) }));
+    const coppie = [];
+    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+      const a = rs[i], b = rs[j];
+      if (a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1) coppie.push(a.id + "/" + b.id);
+    }
+    return coppie;
+  };
+
+  /* per accorgersi che serve, bisogna prima vedere il difetto: gli elementi nascono vicini e
+     senza la passata i riquadri si toccano davvero */
+  const prima = sovrapposte(1, false);
+  ok(prima.length > 0, "la scena di prova non ha nomi che si toccano: non prova niente");
+  eq(sovrapposte(1, true).length, 0, "restano sovrapposte anche con la passata: " + sovrapposte(1, true));
+  /* e vale anche col testo ingrandito per la stampa, dove i nomi occupano più spazio */
+  [1.5, 2, 2.5].forEach((K) => eq(sovrapposte(K, true).length, 0, "a K=" + K + ": " + sovrapposte(K, true)));
+
+  /* chi non entra nella passata non viene spostato: nomi dentro la sagoma, elementi ruotati */
+  const uno = A.state.items[0];
+  const rot = { ...uno, id: "x1", rot: 90 };
+  eq(A.lblRectOf(rot, 1), null, "un elemento ruotato porta il nome con sé: fuori dalla passata");
+  eq(A.lblRectOf({ ...uno, id: "x2", labelMode: "hidden" }, 1), null, "senza nome non c-è niente da spostare");
+
+  /* lo spostamento è stabile: due esecuzioni danno lo stesso disegno */
+  eq(JSON.stringify(A.lblNudges(2)), JSON.stringify(A.lblNudges(2)), "la passata non è deterministica");
+  /* e non sposta all-infinito: un nome troppo lontano non direbbe più di chi è */
+  const tutti = Object.values(A.lblNudges(2));
+  tutti.forEach((d) => ok(d <= 14 * 2 * 3 + 1, "spostamento fuori misura: " + d));
+});
+t("lo sbraccio del nome cresce col corpo con cui verrà stampato", () => {
+  reset();
+  A.state.items = [];
+  A.addItem("tastiera");
+  const it = A.state.items[A.state.items.length - 1];
+  /* si misura il bordo BASSO: la baseline si allontana dall-elemento, mentre il bordo alto scende
+     appena perché il testo cresce anche verso l-alto */
+  const y = (K) => A.lblRectOf(it, K).y1;
+  /* il nome sta staccato dall-elemento di una quantità che dipende dall-altezza delle lettere:
+     ingrandire il testo a coordinata già scritta lo faceva scendere SOPRA l-elemento */
+  ok(y(2) > y(1), "col testo doppio il nome deve stare più in basso, non nello stesso posto");
+  /* ma la distanza scelta dall-utente è in centimetri reali di palco e non si tocca */
+  const d0 = A.lblDistOf(it), prima = y(1);
+  it.lblDist = d0 + 20;
+  eq(Math.round(y(1) - prima), 20, "i cm scelti a mano valgono tali e quali");
+  it.lblDist = d0;
+});
+
+t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo di prova", () => {
+  /* I due controlli qui sopra interrogano lblRectOf, che RIPETE la formula del disegno: da soli
+     restavano verdi anche rimettendo il difetto nel disegno. Questo legge il markup che esce. */
+  reset();
+  A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  A.state.items = [];
+  A.addItem("tastiera");
+  /* nel sandbox la posa automatica non ha un SVG da misurare e lascia x indefinita: le posizioni
+     vanno messe a mano, o i riquadri non si intersecano mai e il controllo non prova niente */
+  A.state.items.forEach((it) => { it.x = 600; it.y = 400; });
+  const yDi = (svg) => {
+    const m = svg.match(/<text class="lbl" x="[\d.-]+" y="([\d.-]+)" text-anchor="start"/);
+    return m ? +m[1] : null;
+  };
+  const yLbl = (svg) => (svg.match(/<text class="lbl" y="([\d.-]+)"/g) || []).map((x) => +x.match(/y="([\d.-]+)"/)[1]);
+
+  const a = yLbl(A.stageSceneSvg(null, { focus: "clean", textK: 1 }));
+  const b = yLbl(A.stageSceneSvg(null, { focus: "clean", textK: 2.5 }));
+  ok(a.length > 0 && b.length === a.length, "stesse etichette nei due disegni: " + a.length + "/" + b.length);
+  ok(b.some((y, i) => y > a[i] + 1), "col testo ingrandito nessun nome si è staccato di più: " + a + " → " + b);
+
+  /* e lo spostamento deve arrivare anche alla DI, che scrive di lato su un ramo suo */
+  const strum = A.state.items[0];
+  A.state.items.push({ id: "di-prova", type: "dimono", diFor: strum.id, x: strum.x + 20, y: strum.y + 70, w: 30, d: 24, label: "DI 1" });
+  /* la DI va messa PIÙ IN BASSO dello strumento: chi sta più in alto viene sistemato per primo e
+     resta fermo, quindi con la DI in cima si sarebbe spostata la tastiera e non lei */
+  const vicina = yDi(A.stageSceneSvg(null, { focus: "clean", textK: 2.5 }));
+  A.state.items[A.state.items.length - 1].y = strum.y + 600;   /* lontano: nessuno da schivare */
+  const lontana = yDi(A.stageSceneSvg(null, { focus: "clean", textK: 2.5 }));
+  ok(vicina !== null && lontana !== null, "l-etichetta della DI non è nel disegno");
+  ok(vicina > lontana, "la DI addosso allo strumento non scende: " + vicina + " contro " + lontana);
+
+  /* e lo stesso deve valere per i nomi scritti SOTTO l-elemento, che sono la maggioranza */
+  A.state.items = [];
+  A.addItem("tastiera"); A.addItem("tastiera");
+  const due = A.state.items;
+  /* affiancati alla STESSA altezza: è così che due nomi finiscono sulla stessa riga. Sfalsandoli
+     in verticale di 40 cm non si toccavano nemmeno, perché lo sbraccio ne vale già una quarantina
+     — e il controllo restava verde senza provare niente. */
+  due[0].x = 600; due[0].y = 400;
+  due[1].x = 650; due[1].y = 400;
+  const insieme = Math.max.apply(null, yLbl(A.stageSceneSvg(null, { focus: "clean", textK: 1 })));
+  due[1].y = 1400;                            /* lontanissimo: nessuno da schivare */
+  const separati = Math.max.apply(null, yLbl(A.stageSceneSvg(null, { focus: "clean", textK: 1 })));
+  ok(insieme > separati, "due nomi addosso non si scansano nel disegno: " + insieme + " contro " + separati);
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
