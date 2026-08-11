@@ -16,6 +16,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const appjs = readFileSync(join(root, "app.js"), "utf8");   /* l'app e' nel bundle defer app.js (build.mjs) */
 const stylesCss = readFileSync(join(root, "src/styles.css"), "utf8");   /* il CSS e' sorgente: alcuni comportamenti (lock delle pedane) vivono li' */
 
+/* Un percorso e' PUBBLICATO se nessun pezzo del suo cammino e' una cartella di lavoro. Il criterio e'
+   "segmento che inizia con un punto", non una lista di nomi: le cartelle di servizio nascono in
+   continuazione (.claude/worktrees l'11/08, .superpowers lo stesso giorno) e ogni volta che se ne
+   aggiunge una a mano i test camminano su HTML che nessuno vedra' mai — rossi che non parlano del
+   prodotto. Il percorso va passato RELATIVO alla radice: la suite gira spesso dentro
+   .claude/worktrees/<nome>/, e su un percorso assoluto questa regola escluderebbe se stessa. */
+const pubblicata = (rel) => !/(^|[\\/])\.[^\\/]+[\\/]|[\\/]node_modules[\\/]/.test(rel);
+
 /* ---- sandbox: carica gli <script> inline reali con uno stub DOM che ingoia tutto ---- */
 function loadApp() {
   const mkU = () => { const f = function () { return U; }; const U = new Proxy(f, {
@@ -9350,12 +9358,7 @@ t("chi cerca il tool arriva al tool, chi cerca il sito arriva alla landing", () 
        vedrà mai (l'11/08 accusava 220 CTA sbagliate, tutte dentro tre worktree dimenticati, mentre le
        52 pagine vere erano a posto). Un test che dipende da cosa c'è nelle cartelle di lavoro non
        protegge niente: il suo verde smette di voler dire qualcosa. */
-    /* Il filtro va applicato al percorso RELATIVO alla radice: la suite gira spesso DENTRO
-       .claude/worktrees/<nome>/, e su un percorso assoluto questa riga escludeva l'intero
-       repository — zero pagine esaminate e test rosso per un motivo che non c'entra niente
-       con quello che presidia. Escludere i worktree annidati resta giusto; escludere se
-       stessi no. */
-    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]/.test(p.slice(root.length)))
+    .filter((p) => pubblicata(p.slice(root.length)))
     .filter((p) => !/index\.template\.html$|[\\/]app[\\/]index\.html$|[\\/]index\.html$/.test(p) || /guida|stage-plot|consulenza|privacy|termini|richiesta/.test(p));
   ok(pagine.length >= 20, "trovate le pagine di contenuto: " + pagine.length);
   const sbagliati = [];
@@ -9578,7 +9581,7 @@ t("nessuna pagina ha un title o una description che Google taglierebbe", () => {
   const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((d) => d.isFile() && d.name === "index.html")
     .map((d) => join(d.parentPath || d.path, d.name))
-    .filter((p) => !/[\\/]\.claude[\\/]|[\\/]node_modules[\\/]|[\\/]app[\\/]|landing-concepts/.test(p.slice(root.length)));
+    .filter((p) => pubblicata(p.slice(root.length)) && !/[\\/]app[\\/]|landing-concepts/.test(p.slice(root.length)));
   ok(pagine.length >= 20, "pagine esaminate: " + pagine.length);
 
   const titoli = new Map(), descr = new Map();
