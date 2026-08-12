@@ -19,7 +19,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 
 ## Fatti chiave
 - Prezzo: gratis, senza registrazione e senza filigrana sui documenti (la consulenza è un servizio umano a parte, da 29 €)
-- Catalogo: oltre 200 elementi trascinabili, 155 microfoni riconosciuti, 42 modelli di faro
+- Catalogo: oltre 200 elementi trascinabili, 223 microfoni riconosciuti (tipo, polare, phantom e asta presi dalle schede dei costruttori), 42 modelli di faro
 - Modelli pronti: 8 formazioni (acustico, band, tributo, jazz combo, big band, coro, orchestra da camera, orchestra pop)
 - Lingua dell'interfaccia e dei documenti: italiano
 - Dove girano i dati: nel browser, sul dispositivo di chi disegna (local-first)

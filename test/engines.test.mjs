@@ -9976,5 +9976,76 @@ t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo d
   ok(insieme > separati, "due nomi addosso non si scansano nel disegno: " + insieme + " contro " + separati);
 });
 
+/* --- Il lato venue, e i numeri che non devono mentire (12/08) ---------------------------------
+   Una squadra di agenti ha guardato la landing da fuori. Due cose sono venute fuori con la prova in
+   mano: la sezione che parla a chi i rider LI RICEVE era la più corta della pagina (59 parole) benché
+   sia il fronte dichiarato, e il sito dichiarava 155 microfoni mentre il catalogo ne conteneva 223. */
+
+t("il numero di microfoni in pagina è quello del catalogo vero", () => {
+  /* Il difetto non era il numero: era che NESSUNO legava la pagina al catalogo, così l'ampliamento
+     del 12/08 (155 → 223) ha lasciato indietro home, llms.txt e la sezione «Disegni il palco».
+     Qui il legame c'è: se domani il catalogo cresce ancora, questo test lo reclama. */
+  const veri = Object.keys(A.MIC_DB).length;
+  ok(veri > 100, "il catalogo è caricato: " + veri + " microfoni");
+  const inPagina = [...landing.matchAll(/(\d{2,4})\s*microfoni/gi)].map((m) => +m[1]);
+  ok(inPagina.length >= 2, "la home cita il numero di microfoni: " + inPagina.join(", "));
+  for (const n of inPagina) eq(n, veri, "un numero in pagina non coincide col catalogo");
+  const dichiarato = +((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
+  eq(dichiarato, veri, "la scheda numeri dice quanti ne ha davvero");
+  const l = readFileSync(join(root, "llms.txt"), "utf8");
+  const inLlms = [...l.matchAll(/(\d{2,4}) microfoni/gi)].map((m) => +m[1]);
+  for (const n of inLlms) eq(n, veri, "llms.txt racconta lo stesso numero alle AI");
+});
+
+t("la pagina promette un tempo solo", () => {
+  /* Diceva «parte in dieci minuti», «la scheda tecnica in una sera» e «domani il rider è già fatto»:
+     per una band «una sera» e «domani» sono un costo, non una promessa, e tre numeri diversi non
+     sono una promessa affatto. */
+  const testo = landing.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  ok(/dieci minuti/.test(testo), "il tempo promesso c'è");
+  ok(!/scheda tecnica in una sera/i.test(testo), "non convive con «in una sera»");
+  ok(!/Domani il rider è già fatto/i.test(testo), "né con «domani»");
+});
+
+t("chi i rider li riceve trova qualcosa da usare, non da leggere", () => {
+  /* La sezione era 59 parole e trattava il service come destinatario. Ora ha un testo pronto da
+     mandare alle band: è l'unico pezzo della pagina che può portare visite invece di convertirle. */
+  const sez = landing.slice(landing.indexOf('id="condivisione"'), landing.indexOf('id="layers"'));
+  ok(sez.length > 1500, "la sezione non è più un francobollo");
+  ok(/Se i rider li ricevi tu/i.test(sez), "parla a chi li riceve");
+  const msg = (sez.match(/<blockquote class="venue-msg" id="venueMsg">([\s\S]*?)<\/blockquote>/) || [])[1] || "";
+  ok(msg.length > 150, "c'è il messaggio da copiare (" + msg.length + " caratteri)");
+  ok(msg.indexOf("stageplot.it") > -1, "il messaggio contiene il link");
+  ok(/gratis/.test(msg) && /non serve registrarsi/.test(msg), "dice le due cose che convincono una band");
+  /* i due bottoni devono esistere E avere il codice che li raccoglie: un bottone che non copia
+     è peggio di nessun bottone */
+  ok((sez.match(/class="btn2 copia"/g) || []).length === 2, "ci sono i due bottoni");
+  ok(/data-copia="venueMsg"/.test(sez), "il primo copia il testo del messaggio");
+  ok(/data-copia-testo="https:\/\/stageplot\.it\/"/.test(sez), "il secondo copia il link");
+  ok(/querySelectorAll\('\.copia'\)/.test(landing), "il JS aggancia i bottoni");
+  ok(/execCommand\('copy'\)/.test(landing), "c'è il ripiego per quando la clipboard è negata");
+  ok(/copia a mano/.test(landing), "e se fallisce anche quello lo dice, invece di fingere");
+});
+
+t("dalla prima schermata si parte da un palco pieno, non da un foglio bianco", () => {
+  const cta = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
+  const primo = (cta.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
+  ok(/palco già pronto/i.test(primo), "il bottone primario apre un modello: «" + primo + "»");
+  ok(/model=band/.test(cta.split("</a>")[0]), "e porta davvero a un modello");
+  ok(/Palco vuoto/.test(cta), "il foglio bianco resta, in seconda battuta");
+  ok(/rider finito/i.test(cta), "e c'è la porta per chi vuole solo vedere il documento");
+});
+
+t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
+  /* Tutti i concorrenti dichiarano il prezzo in home. Il gratis non spiegato, su un professionista,
+     genera sospetto invece che gratitudine. */
+  const corpo = landing.slice(landing.indexOf('id="chi"'), landing.indexOf('id="domande"'));
+  ok(/resta gratis/.test(corpo), "dice che l'editor resta gratis");
+  ok(/29 €/.test(corpo), "e dove sta il pagamento");
+  ok(/href="\/consulenza\/"/.test(corpo), "con il link alla consulenza fuori dal piede");
+  ok(/È nuovo, e te lo dico/.test(landing), "e c'è la dichiarazione di novità al posto della prova che non c'è");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
