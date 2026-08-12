@@ -50,10 +50,14 @@ def sq(v):
     return "'" + str(v).replace("'", "''") + "'"
 
 def main():
-    prod = json.load(open(os.path.join(TMP, "prodotti.json")))
-    voci = {v["id"]: v for v in json.load(open(os.path.join(TMP, "voci.json")))}
+    # argomenti: <prodotti.json> <voci.json> <nome-del-seed.sql>
+    f_prod = sys.argv[1] if len(sys.argv) > 1 else os.path.join(TMP, "prodotti.json")
+    f_voci = sys.argv[2] if len(sys.argv) > 2 else os.path.join(TMP, "voci.json")
+    nome   = sys.argv[3] if len(sys.argv) > 3 else "equip-seed-mic-2026-08.sql"
+    prod = json.load(open(f_prod))
+    voci = {v["id"]: v for v in json.load(open(f_voci))}
     man = manifest()
-    righe = ["-- equip-seed-mic-2026-08.sql — i 30 microfoni più usati nei rider, per il campo «Modello reale».",
+    righe = ["-- " + nome + " — microfoni per il campo «Modello reale» (equip_product).",
              "-- Ogni valore porta la CITAZIONE del documento da cui è stato letto (doc, pagina, frase):",
              "-- è quella che fa comparire «dati verificati» nell'app, e permette di ricontrollare senza fidarsi.",
              "-- Estratti da PDF ufficiali in MANUALI_PDF/microfoni con tmp/estrai.py, che scarta ogni valore",
@@ -99,7 +103,7 @@ def main():
           "on conflict do nothing;"]
 
     righe.append("commit;")
-    out = os.path.join(os.path.dirname(TMP), "equip-seed-mic-2026-08.sql")
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), nome)
     open(out, "w").write("\n".join(righe) + "\n")
     print("scritto", out, "·", len(prod), "prodotti")
 

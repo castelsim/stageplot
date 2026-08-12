@@ -27219,7 +27219,10 @@ function maybeAskStageSize(explicit){
     byCat: function(cats, cb){ if(!sb || !cats || !cats.length){ cb([]); return; }
       var key="cat:"+cats.join(",");
       if(equipCache[key]){ cb(equipCache[key]); return; }
-      sb.from("equip_product").select("id,brand,model,category").in("category",cats).order("brand").order("model").limit(60)
+      /* 12/08: il tetto era 60, e con 105 microfoni in catalogo la tendina si troncava in silenzio —
+         mancavano gli ultimi marchi in ordine alfabetico senza che niente lo dicesse. Qui si scarica
+         solo id+marca+modello (poche decine di byte a riga): 300 sta largo e non pesa. */
+      sb.from("equip_product").select("id,brand,model,category").in("category",cats).order("brand").order("model").limit(300)
         .then(function(r){ var rows=(r && r.data)||[]; equipCache[key]=rows; cb(rows); }, function(){ cb([]); }); }
   };
 
