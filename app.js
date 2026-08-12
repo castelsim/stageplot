@@ -15173,7 +15173,8 @@ var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"
 
    SCELTA DEI MODELLI: i piu' COMMERCIALI — quelli che si incontrano davvero nei rider e nei parchi
    noleggio, non le rarita' da collezione. Meglio 130 modelli che il fonico riconosce a colpo d'occhio
-   che 300 con dentro pezzi da museo.
+   che 300 con dentro pezzi da museo. Restano fuori per scelta gli hobbistici e i pezzi da studio
+   raro: chi scrive «Bock 251» sul rider non ha bisogno del completamento.
 
    CAMPI: brand · model (nome di targa) · type (dinamico|condensatore|nastro) · caps (solo condensatori)
           · pol (direttivita') · p48 · stand · uso · alias (come lo si scrive a mano, varianti)
@@ -15194,10 +15195,23 @@ var OUT_SET = { wedge:"wedge", sidefill:"side fill", drumfill:"drum fill", iem:"
    telefunken-elektroakustik.com, seelectronics.com, warmaudio.com, schoeps.de,
    coleselectroacoustics.com), consultate il 29-30/07/2026.
    Dove il costruttore non dichiara, il campo NON C'E' (es. `caps` assente su parecchi palmari:
-   la dimensione del diaframma non e' pubblicata). E dove NEMMENO LA DIRETTIVITA' era verificabile
-   il microfono e' rimasto FUORI, per quanto famoso: AKG C414 XLII / C314 / D12 VR / C519 M /
-   C516 ML (pagine ufficiali 403/410), Sennheiser e 602-II, Audix OM2/OM3, DPA d:facto 4018V.
-   Meglio un buco che una riga che sembra un dato. ============================================== */
+   la dimensione del diaframma non e' pubblicata; il C411 e' senza `pol` perche' AKG non la dichiara).
+   E dove NEMMENO LA DIRETTIVITA' era verificabile il microfono e' rimasto FUORI, per quanto famoso.
+   Meglio un buco che una riga che sembra un dato.
+
+   AMPLIAMENTO 12/08/2026 (155 -> 216 modelli). I buchi del 29/07 si sono chiusi cambiando STRADA,
+   non fonte: le PAGINE PRODOTTO di AKG e Audio-Technica rispondono 403, ma i loro PDF stanno su un
+   CDN che serve tutti (akg.com/on/demandware.static/…/AKG_<MODELLO>_Cutsheet.pdf — l'hash `dw…`
+   nel percorso e' decorativo, un valore qualsiasi va bene; docs.audio-technica.com/us/<m>_submittal_
+   sheet.pdf; pubs.shure.com/view/guide/<M>/en-US.pdf; cdn1.rode.com/<m>_datasheet.pdf). Sono cosi'
+   entrati C414 XLII, C314, D12 VR, e 602-II, OM2/OM3. Restano fuori AKG C519 M / C516 ML (nessun
+   documento ufficiale in rete) e DPA d:facto 4018V (il sito e' un'app, le specifiche non sono nel
+   codice della pagina e il portale documenti non le espone).
+   Per EV la fonte e' il CATALOGO MICROFONI ufficiale (31 pagine con le tabelle di targa): un solo
+   PDF copre l'intera gamma, ed e' la via piu' corta quando il costruttore lo pubblica.
+   Manuali archiviati in COWORK/STAGEPLOT/STAGE PLOT/MANUALI_PDF/microfoni (fuori dal repo pubblico:
+   sono documenti dei costruttori, si conservano come fonte, non si ridistribuiscono).
+   ============================================================================================== */
 var MIC_DB = {
   /* ══ SHURE ══ (pubs.shure.com, user guide ufficiali — sezione Specifications) ═══════════════ */
   /* voce */
@@ -15229,6 +15243,32 @@ var MIC_DB = {
   "KSM137":     {brand:"Shure", model:"KSM137", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici, archi"},
   "KSM32":      {brand:"Shure", model:"KSM32", type:"condensatore", caps:"3/4\" side-address", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"panoramico, voce studio"},
   "Beta 181":   {brand:"Shure", model:"Beta 181", type:"condensatore", caps:"electret diaframma piccolo, capsule intercambiabili", pol:"per capsula: cardioide, supercardioide, omni, figura di 8", p48:true, stand:"asta giraffa", uso:"overhead, rullante, spazi stretti"},
+  /* — aggiunte 12/08, sempre dalle user guide di pubs.shure.com — */
+  "565SD":      {brand:"Shure", model:"565SD", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"565 sd unisphere"},
+  "PGA48":      {brand:"Shure", model:"PGA48", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "SM63":       {brand:"Shure", model:"SM63", type:"dinamico", pol:"omnidirezionale", p48:false, stand:"asta dritta", uso:"interviste, speakeraggio", alias:"sm63l sm63lb"},
+  "SM7dB":      {brand:"Shure", model:"SM7dB", type:"dinamico", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce, broadcast (col preamp interno acceso vuole il +48V)", alias:"sm7db"},
+  "MV7+":       {brand:"Shure", model:"MV7+", type:"dinamico", pol:"cardioide", p48:false, stand:"asta giraffa", uso:"speakeraggio, podcast", alias:"mv7 plus mv7plus"},
+  "Beta 56A":   {brand:"Shure", model:"Beta 56A", type:"dinamico", pol:"supercardioide", p48:false, stand:"clip/asta bassa", uso:"rullante, tom", alias:"beta56a beta 56"},
+  "PGA52":      {brand:"Shure", model:"PGA52", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa"},
+  "PGA81":      {brand:"Shure", model:"PGA81", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, hi-hat, acustici"},
+  "KSM141":     {brand:"Shure", model:"KSM141", type:"condensatore", caps:"electret diaframma piccolo", pol:"commutabile: cardioide / omnidirezionale", p48:true, stand:"asta giraffa", uso:"overhead, acustici, ambienza"},
+  "KSM44A":     {brand:"Shure", model:"KSM44A", type:"condensatore", caps:"doppio diaframma, polarizzato esterno", pol:"commutabile: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"voce studio, panoramico"},
+  "KSM42":      {brand:"Shure", model:"KSM42", type:"condensatore", caps:"doppio diaframma grande, polarizzato esterno", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio"},
+  "SM27":       {brand:"Shure", model:"SM27", type:"condensatore", caps:"diaframma grande, polarizzato esterno", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio, ampli, overhead"},
+  "VP88":       {brand:"Shure", model:"VP88", type:"condensatore", caps:"stereo M-S in un corpo solo", pol:"M-S: cardioide (mid) + figura di 8 (side)", p48:true, stand:"asta giraffa", uso:"ripresa stereo, ambienza"},
+  "Beta 98H/C": {brand:"Shure", model:"Beta 98H/C", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"fiati, sax", alias:"beta98hc beta98h"},
+  "Beta 98AMP/C":{brand:"Shure", model:"Beta 98AMP/C", type:"condensatore", caps:"electret miniatura con preamp in linea", pol:"cardioide", p48:true, stand:"clip strumento", uso:"tom, percussioni", alias:"beta98amp"},
+  "PGA98H":     {brand:"Shure", model:"PGA98H", type:"condensatore", caps:"electret miniatura su collo d'oca", pol:"cardioide", p48:true, stand:"clip strumento", uso:"fiati"},
+  /* nastri passivi: il +48V non serve e va tolto (l'audit lo controlla) */
+  "KSM313":     {brand:"Shure", model:"KSM313/NE", type:"nastro", pol:"figura di 8", p48:false, stand:"asta bassa", uso:"ampli chitarra, ottoni, rullante", alias:"ksm313ne"},
+  "KSM353":     {brand:"Shure", model:"KSM353/ED", type:"nastro", pol:"figura di 8", p48:false, stand:"asta giraffa", uso:"overhead, ottoni, ambienza", alias:"ksm353ed"},
+  /* podio e conferenza: `stand` VUOTO non e' una dimenticanza — un collo d'oca sta sulla sua base e
+     al service non si chiede nessuna asta. Stessa scelta gia' fatta per DI e lavalier. */
+  "MX412":      {brand:"Shure", model:"MX412/C", type:"condensatore", caps:"electret su collo d'oca", pol:"cardioide", p48:true, stand:"", uso:"podio, conferenza (collo d'oca)", alias:"mx418 mx424 microflex"},
+  "CVG18":      {brand:"Shure", model:"CVG18", type:"condensatore", caps:"electret su collo d'oca", pol:"cardioide", p48:true, stand:"", uso:"podio, conferenza", alias:"centraverse cvg12 cvg18d"},
+  "MX391":      {brand:"Shure", model:"MX391/C", type:"condensatore", caps:"electret boundary", pol:"cardioide", p48:true, stand:"interno/terra", uso:"boundary da tavolo, teatro"},
+  "TL47":       {brand:"Shure", model:"TwinPlex TL47", type:"condensatore", caps:"electret subminiatura a doppio diaframma", pol:"omnidirezionale", p48:false, stand:"", uso:"lavalier da bodypack, teatro", alias:"twinplex tl45 tl46 tl48"},
 
   /* ══ SENNHEISER ══ (sennheiser.com + docs.cloud.sennheiser.com) ═════════════════════════════ */
   "e835":       {brand:"Sennheiser", model:"e 835", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce", alias:"e 835"},
@@ -15260,6 +15300,10 @@ var MIC_DB = {
   "MME 865":    {brand:"Sennheiser", model:"MME 865", type:"condensatore", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"mme865"},
   "ME 2":       {brand:"Sennheiser", model:"ME 2", type:"condensatore", caps:"electret miniatura", pol:"omnidirezionale", p48:false, stand:"", uso:"lavalier da bodypack", alias:"me2"},
   "ME 3":       {brand:"Sennheiser", model:"ME 3", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:false, stand:"headset", uso:"archetto da bodypack", alias:"me3"},
+  /* — aggiunte 12/08 (product specification ufficiali) — */
+  "e602-II":    {brand:"Sennheiser", model:"e 602-II", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa, ampli basso", alias:"e602 e 602 ii"},
+  "MKH 416":    {brand:"Sennheiser", model:"MKH 416-P48 U3", type:"condensatore", caps:"a radiofrequenza (RF), tubo d'interferenza", pol:"supercardioide/lobare", p48:true, stand:"asta giraffa", uso:"fucile: teatro, ripresa a distanza", alias:"mkh416 416"},
+  "MKE 600":    {brand:"Sennheiser", model:"MKE 600", type:"condensatore", caps:"tubo d'interferenza", pol:"supercardioide/lobare", p48:true, stand:"asta giraffa", uso:"fucile: video, teatro", alias:"mke600"},
 
   /* ══ NEUMANN ══ (neumann.com) ══════════════════════════════════════════════════════════════ */
   "U87":        {brand:"Neumann", model:"U 87 Ai", type:"condensatore", caps:"diaframma grande (doppio K87)", pol:"multipattern: omni / cardioide / figura di 8", p48:true, stand:"asta giraffa", uso:"voce, panoramico, overhead", alias:"u 87 u87ai u 87 ai"},
@@ -15274,6 +15318,7 @@ var MIC_DB = {
   "KMS 104":    {brand:"Neumann", model:"KMS 104", type:"condensatore", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce palmare", alias:"kms104"},
   "KMS 105":    {brand:"Neumann", model:"KMS 105", type:"condensatore", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce palmare", alias:"kms105"},
   "KK 105 S":   {brand:"Neumann", model:"KK 105 S", type:"condensatore", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce, capsula wireless", alias:"kk105s kk 105"},
+  "TLM 49":     {brand:"Neumann", model:"TLM 49", type:"condensatore", caps:"diaframma grande (K 47)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio", alias:"tlm49"},
 
   /* ══ AUDIX ══ (audixusa.com, spec sheet PDF) ═══════════════════════════════════════════════ */
   "OM5":        {brand:"Audix", model:"OM5", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
@@ -15285,6 +15330,10 @@ var MIC_DB = {
   "D6":         {brand:"Audix", model:"D6", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa"},
   "ADX51":      {brand:"Audix", model:"ADX51", type:"condensatore", caps:"diaframma piccolo (14 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, hi-hat, acustici"},
   "SCX25A":     {brand:"Audix", model:"SCX25A", type:"condensatore", caps:"diaframma grande (25 mm)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"pianoforte, overhead"},
+  /* la serie OM e' tutta ipercardioide: cambia la voce, non la figura (spec sheet Audix) */
+  "OM2":        {brand:"Audix", model:"OM2", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "OM3":        {brand:"Audix", model:"OM3", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "OM6":        {brand:"Audix", model:"OM6", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
 
   /* ══ ELECTRO-VOICE ══ (products.electrovoice.com) ══════════════════════════════════════════ */
   "RE20":       {brand:"Electro-Voice", model:"RE20", type:"dinamico", pol:"cardioide (Variable-D)", p48:false, stand:"asta giraffa", uso:"voce broadcast, cassa, ampli basso"},
@@ -15297,6 +15346,17 @@ var MIC_DB = {
   "ND46":       {brand:"Electro-Voice", model:"ND46", type:"dinamico", pol:"supercardioide", p48:false, stand:"clip strumento", uso:"tom, strumenti"},
   "ND68":       {brand:"Electro-Voice", model:"ND68", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"cassa"},
   "ND66":       {brand:"Electro-Voice", model:"ND66", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici"},
+  /* — aggiunte 12/08 dal catalogo microfoni ufficiale EV (tabelle «Element type / Polar pattern») — */
+  "RE27N/D":    {brand:"Electro-Voice", model:"RE27N/D", type:"dinamico", pol:"cardioide (Variable-D)", p48:false, stand:"asta giraffa", uso:"voce broadcast, cassa, ampli basso", alias:"re27 re27nd"},
+  "RE420":      {brand:"Electro-Voice", model:"RE420", type:"condensatore", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "RE520":      {brand:"Electro-Voice", model:"RE520", type:"condensatore", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  /* RE920: la alimenta il bodypack a 5 V, non il +48V della console */
+  "RE920":      {brand:"Electro-Voice", model:"RE920", type:"condensatore", caps:"back-electret miniatura", pol:"cardioide", p48:false, stand:"clip strumento", uso:"tom, fiati, archi da bodypack"},
+  "PL24S":      {brand:"Electro-Voice", model:"PL24S", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce (con interruttore)", alias:"pl24"},
+  "PL44":       {brand:"Electro-Voice", model:"PL44", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "PL33":       {brand:"Electro-Voice", model:"PL33", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"cassa"},
+  "PL35":       {brand:"Electro-Voice", model:"PL35", type:"dinamico", pol:"supercardioide", p48:false, stand:"clip strumento", uso:"rullante, tom"},
+  "PL37":       {brand:"Electro-Voice", model:"PL37", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide stretto", p48:true, stand:"asta giraffa", uso:"overhead, hi-hat, percussioni"},
 
   /* ══ BEYERDYNAMIC ══ (europe.beyerdynamic.com) ═════════════════════════════════════════════
      Il suffisso «TG» resta solo sulla serie TG: i due classici oggi si chiamano M 88 e M 201. */
@@ -15330,6 +15390,16 @@ var MIC_DB = {
   "WA-87 R2":   {brand:"Warm Audio", model:"WA-87 R2", type:"condensatore", caps:"diaframma grande (tipo K87)", pol:"multipattern: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"voce studio, panoramico", alias:"wa87"},
   "WA-84":      {brand:"Warm Audio", model:"WA-84", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici", alias:"wa84"},
 
+  /* ══ HEIL ══ (heilsound.com, spec sheet PDF) — dinamici da cassa e da speakeraggio ═══════════ */
+  "PR 40":      {brand:"Heil", model:"PR 40", type:"dinamico", pol:"cardioide", p48:false, stand:"asta giraffa", uso:"cassa, ampli basso, speakeraggio", alias:"pr40"},
+  "PR 30":      {brand:"Heil", model:"PR 30", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta bassa", uso:"rullante, ampli chitarra, ottoni", alias:"pr30"},
+  "PR 22":      {brand:"Heil", model:"PR 22", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce, rullante", alias:"pr22"},
+  "PR 20":      {brand:"Heil", model:"PR 20", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce, rullante", alias:"pr20"},
+
+  /* ══ AUSTRIAN AUDIO ══ (austrian.audio, spec sheet PDF) — capsula CKR12, dagli ex AKG ════════ */
+  "OC18":       {brand:"Austrian Audio", model:"OC18", type:"condensatore", caps:"diaframma grande (CKR12)", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio, panoramico, overhead"},
+  "OC818":      {brand:"Austrian Audio", model:"OC818", type:"condensatore", caps:"diaframma grande (CKR12), doppia uscita", pol:"commutabile: cardioide / supercardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"voce studio, panoramico, overhead"},
+
   /* ══ AKG ══ (my.akg.com / au.akg.com + cutsheet PDF ufficiali) ═════════════════════════════ */
   "D5":         {brand:"AKG", model:"D5", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
   "D7":         {brand:"AKG", model:"D7", type:"dinamico", pol:"supercardioide", p48:false, stand:"asta dritta", uso:"voce"},
@@ -15342,6 +15412,20 @@ var MIC_DB = {
   "P420":       {brand:"AKG", model:"P420", type:"condensatore", caps:"diaframma grande (doppia capsula)", pol:"multipattern: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"overhead, ampli, voce"},
   "PZM 30D":    {brand:"AKG", model:"PZM30 D", type:"condensatore", caps:"electret su piastra (boundary)", pol:"emisferico", p48:true, stand:"interno/terra", uso:"boundary, pianoforte, palco teatro", alias:"pzm30d crown pzm"},
   "PCC 160":    {brand:"AKG", model:"PCC160", type:"condensatore", caps:"electret diaframma piccolo (boundary)", pol:"semi-supercardioide", p48:true, stand:"interno/terra", uso:"boundary da teatro, ribalta", alias:"pcc160 crown pcc"},
+  /* — aggiunte 12/08: i cutsheet AKG si scaricano, le pagine prodotto no (403). Cadono cosi' quattro
+     dei microfoni «famosi ma non verificabili» che il 29/07 erano rimasti fuori. — */
+  "C414 XLII":  {brand:"AKG", model:"C414 XLII", type:"condensatore", caps:"diaframma grande 1\"", pol:"multipattern (9 figure)", p48:true, stand:"asta giraffa", uso:"voce, panoramico (curva a presenza: e' questa la differenza dalla XLS)", alias:"c414xlii c 414 xlii"},
+  "C314":       {brand:"AKG", model:"C314", type:"condensatore", caps:"diaframma grande (doppio)", pol:"commutabile: cardioide / supercardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"panoramico, overhead, studio"},
+  "D12 VR":     {brand:"AKG", model:"D12 VR", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa (il +48V accende solo i filtri attivi: senza, suona lo stesso)", alias:"d12vr d 12 vr"},
+  "C1000 S":    {brand:"AKG", model:"C1000 S", type:"condensatore", caps:"electret diaframma piccolo", pol:"commutabile: cardioide / ipercardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici, coro (va anche a pile)", alias:"c1000s c 1000"},
+  "C535 EB":    {brand:"AKG", model:"C535 EB", type:"condensatore", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce", alias:"c535eb c 535"},
+  "C7":         {brand:"AKG", model:"C7", type:"condensatore", caps:"back-electret 3/4\"", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "C555 L":     {brand:"AKG", model:"C555 L", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:false, stand:"headset", uso:"archetto voce da bodypack", alias:"c555l"},
+  /* pickup a CONTATTO: si incolla alla cassa dello strumento e legge la vibrazione del legno, non
+     l'aria — AKG lo chiama «Körperschallwandler». Per questo non ha figura polare: non e' un dato
+     mancante, e' una grandezza che per un trasduttore di contatto non esiste. `contatto:true` lo
+     dichiara al controllo che pretende la direttivita' da tutti gli altri. Niente asta: si incolla. */
+  "C411":       {brand:"AKG", model:"C411", type:"condensatore", caps:"pickup a contatto (condensatore)", contatto:true, p48:true, stand:"", uso:"contatto su archi, mandolino, chitarra", alias:"c411pp c411l"},
 
   /* ══ AUDIO-TECHNICA ══ (docs.audio-technica.com, submittal sheet ufficiali) ═════════════════ */
   "AE6100":     {brand:"Audio-Technica", model:"AE6100", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta dritta", uso:"voce"},
@@ -15359,6 +15443,16 @@ var MIC_DB = {
   "AT4033a":    {brand:"Audio-Technica", model:"AT4033a", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio"},
   "AT2035":     {brand:"Audio-Technica", model:"AT2035", type:"condensatore", caps:"diaframma grande", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce e acustici in studio"},
   "AT2020":     {brand:"Audio-Technica", model:"AT2020", type:"condensatore", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"home studio"},
+  /* — aggiunte 12/08 dai submittal sheet di docs.audio-technica.com — */
+  "AT4041":     {brand:"Audio-Technica", model:"AT4041", type:"condensatore", caps:"diaframma piccolo, carica fissa", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici, hi-hat"},
+  "AT4051b":    {brand:"Audio-Technica", model:"AT4051b", type:"condensatore", caps:"diaframma piccolo, polarizzato esterno", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, archi, pianoforte"},
+  "ATM450":     {brand:"Audio-Technica", model:"ATM450", type:"condensatore", caps:"diaframma piccolo, ripresa laterale", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"hi-hat, rullante, overhead in spazi stretti"},
+  "AE4100":     {brand:"Audio-Technica", model:"AE4100", type:"dinamico", pol:"cardioide", p48:false, stand:"asta dritta", uso:"voce"},
+  "AE3300":     {brand:"Audio-Technica", model:"AE3300", type:"condensatore", caps:"diaframma grande, carica fissa", pol:"cardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  "BP40":       {brand:"Audio-Technica", model:"BP40", type:"dinamico", pol:"ipercardioide", p48:false, stand:"asta giraffa", uso:"voce broadcast, speakeraggio"},
+  "AT8004":     {brand:"Audio-Technica", model:"AT8004", type:"dinamico", pol:"omnidirezionale", p48:false, stand:"asta dritta", uso:"interviste, cronaca", alias:"at8004l"},
+  "ATM75":      {brand:"Audio-Technica", model:"ATM75", type:"condensatore", caps:"electret miniatura", pol:"cardioide", p48:true, stand:"headset", uso:"archetto voce"},
+  "AT2050":     {brand:"Audio-Technica", model:"AT2050", type:"condensatore", caps:"diaframma grande, polarizzato esterno", pol:"commutabile: cardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"voce e acustici in studio"},
 
   /* ══ RODE ══ (rode.com) ════════════════════════════════════════════════════════════════════ */
   "NT1":        {brand:"RODE", model:"NT1 5th Generation", type:"condensatore", caps:"diaframma grande (1\")", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"voce studio"},
@@ -15368,6 +15462,15 @@ var MIC_DB = {
   "NT55":       {brand:"RODE", model:"NT55", type:"condensatore", caps:"diaframma piccolo, capsule intercambiabili", pol:"cardioide (capsula omni in dotazione)", p48:true, stand:"asta giraffa", uso:"overhead, acustici"},
   "M5":         {brand:"RODE", model:"M5", type:"condensatore", caps:"diaframma piccolo", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"overhead, coro"},
   "Procaster":  {brand:"RODE", model:"Procaster", type:"dinamico", pol:"cardioide", p48:false, stand:"asta giraffa", uso:"speakeraggio, podcast"},
+  /* — aggiunte 12/08 dai datasheet di cdn1.rode.com — */
+  "NTG5":       {brand:"RODE", model:"NTG5", type:"condensatore", caps:"a radiofrequenza (RF), tubo d'interferenza", pol:"supercardioide lobare", p48:true, stand:"asta giraffa", uso:"fucile: teatro, video, ripresa a distanza"},
+  "NTG3":       {brand:"RODE", model:"NTG3", type:"condensatore", caps:"a radiofrequenza (RF), tubo d'interferenza", pol:"supercardioide", p48:true, stand:"asta giraffa", uso:"fucile: teatro, video"},
+  "M2":         {brand:"RODE", model:"M2", type:"condensatore", pol:"supercardioide", p48:true, stand:"asta dritta", uso:"voce"},
+  /* il K2 e' valvolare: ha il SUO alimentatore, e il +48V della console non c'entra */
+  "K2":         {brand:"RODE", model:"K2", type:"condensatore", caps:"valvolare, diaframma grande 1\"", pol:"variabile con continuita': omni / cardioide / figura di 8", p48:false, stand:"asta giraffa", uso:"voce studio (alimentatore dedicato, non phantom)"},
+  "PodMic":     {brand:"RODE", model:"PodMic", type:"dinamico", pol:"cardioide", p48:false, stand:"asta giraffa", uso:"speakeraggio, podcast", alias:"pod mic"},
+  "Broadcaster":{brand:"RODE", model:"Broadcaster", type:"condensatore", caps:"diaframma grande 1\"", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"speakeraggio, broadcast"},
+  "M3":         {brand:"RODE", model:"M3", type:"condensatore", caps:"electret 1/2\"", pol:"cardioide", p48:true, stand:"asta giraffa", uso:"acustici, coro, ambienza (va anche a pila da 9V)"},
 
   /* ══ DPA ══ (dpamicrophones.com) — nomi di targa ATTUALI: le sigle d:vote / d:fine non sono piu'
      sul sito, oggi e' «numero + descrizione». Gli alias tengono viva la vecchia dicitura, che sui
