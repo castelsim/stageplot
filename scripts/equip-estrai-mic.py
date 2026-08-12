@@ -10,12 +10,14 @@ BASE = os.environ.get("MANUALI_MIC", os.path.expanduser("~/manuali/microfoni"))
 
 def pagine(f):
     out = []
-    n = subprocess.run(["pdfinfo", os.path.join(BASE, f)], capture_output=True, text=True).stdout
+    n = subprocess.run(["pdfinfo", os.path.join(BASE, f)], capture_output=True, text=True, errors="replace").stdout
     m = re.search(r"Pages:\s+(\d+)", n)
     tot = int(m.group(1)) if m else 1
-    for p in range(1, min(tot, 12) + 1):
+    # I manuali multilingua mettono le «Technische Daten» in fondo: fermarsi a pagina 12 faceva
+    # perdere la scheda del C535 EB e del MKE 600, che pure ce l'hanno.
+    for p in range(1, min(tot, 40) + 1):
         t = subprocess.run(["pdftotext", "-layout", "-f", str(p), "-l", str(p),
-                            os.path.join(BASE, f), "-"], capture_output=True, text=True).stdout
+                            os.path.join(BASE, f), "-"], capture_output=True, text=True, errors="replace").stdout
         out.append(t)
     return out
 
@@ -96,7 +98,6 @@ def testo_sv(valore, trovato, doc, nota=None):
     if not trovato:
         return None
     testo, p, q = trovato
-    piatto = lambda x: re.sub(r"[\s\-]", "", x.lower())
     if testo and piatto(testo)[:6] not in piatto(q):
         print("  ⚠ citazione che non prova il valore («%s»): %s" % (testo, q[:80]), file=sys.stderr)
         return None
@@ -106,12 +107,21 @@ def testo_sv(valore, trovato, doc, nota=None):
         o["note"] = nota
     return o
 
+# Le chiavi si confrontano SENZA spazi né trattini: «Super Cardioid», «super-cardioid» e
+# «supercardioid» sono la stessa figura scritta in tre modi (il Heil PR 30 usa il primo).
+# In coda i termini tedeschi: i manuali AKG storici sono in tedesco e la scheda dice «Niere».
 POLARI = [("supercardioid", "supercardioid"), ("hypercardioid", "hypercardioid"),
           ("hyper-cardioid", "hypercardioid"), ("super-cardioid", "supercardioid"),
           ("half-cardioid", "half-cardioid"), ("semi-cardioid", "half-cardioid"),
           ("omnidirectional", "omni"), ("bidirectional", "figure-8"),
           ("figure-of-eight", "figure-8"), ("figure of eight", "figure-8"),
-          ("cardioid", "cardioid")]
+          ("cardioid", "cardioid"),
+          ("superniere", "supercardioid"), ("hyperniere", "hypercardioid"),
+          ("nierenformig", "cardioid"), ("niere", "cardioid"),
+          ("kugel", "omni"), ("acht", "figure-8")]
+
+def piatto(x):
+    return re.sub(r"[\s\-]", "", str(x).lower()).replace("ö", "o").replace("ü", "u").replace("ä", "a")
 
 def estrai(voce):
     f, doc = voce["file"], voce["doc"]
@@ -126,14 +136,81 @@ def estrai(voce):
     if princ and tr:
         d["principle"] = testo_sv(princ, tr, doc)
 
-    # figura polare: la prima parola nota che compare in una riga che parla di pattern
+    # Figura polare. Due trappole imparate a spese mie:
+    # 1. cercare «pattern» ovunque pesca la PROSA, non la scheda: sul Heil PR 30 aveva agganciato
+    #    «…producing a very linear cardioid pattern» per un microfono che a targa è supercardioide.
+    #    Quindi prima si guardano solo le righe con l'ETICHETTA vera, e la prosa viene dopo.
+    # 2. il valore che scriviamo non è sempre la parola del documento: «figure-8» dove c'è scritto
+    #    «bidirectional», «multi» dove sono elencate quattro figure. Sono classificazioni legittime,
+    #    ma vanno DICHIARATE in nota — non spacciate per citazione letterale.
     pol = voce.get("polar")
     if pol:
         alternative = "|".join(k for k, _ in POLARI)
-        cerca_pol = cerca_blocco(pg, r"polar|pattern|directional|Richtcharakteristik",
-                                 r"\b(" + alternative + r")\b")
-        if cerca_pol:
-            d["polar"] = testo_sv(pol, cerca_pol, doc)
+        ETICH = r"polar pattern|polar patterns|pick-?up pattern|directional pattern|directional characteristic|Richtcharakteristik|polar:"
+        SINONIMI = {"figure-8": ["bidirectional", "figure-of-eight", "figure of eight"],
+                    "omni": ["omnidirectional"], "half-cardioid": ["semi-cardioid", "hemispherical"]}
+        nota = voce.get("polar_note")
+        trovata = None
+        if pol == "multi":
+            # per un multipattern la prova è la MOLTEPLICITÀ: due figure sulla stessa riga, o la
+            # parola che dice che si commuta. Una figura sola non dimostrerebbe niente.
+            tutte_m = list(righe(pg))
+            for i, (p, r0) in enumerate(tutte_m):
+                if not re.search(ETICH + r"|selectable|switchable|patterns", r0, re.I):
+                    continue
+                # le figure possono stare sulla riga dell'etichetta o subito sotto, una per riga
+                # (VP88: «Polar Pattern ⏎ Mid Cartridge Cardioid ⏎ Side Cartridge Bidirectional»)
+                seguito = [tutte_m[j][1] for j in range(i + 1, min(i + 4, len(tutte_m)))
+                           if tutte_m[j][0] == p]
+                r = " ⏎ ".join([r0] + seguito) if seguito else r0
+                figure = {en for chiave, en in POLARI if piatto(chiave) in piatto(r)}
+                # «nine, selectable» sotto l'etichetta polare è prova di molteplicità anche senza
+                # che le figure siano nominate (è il caso del C414)
+                if re.search(ETICH, r0, re.I) and re.search(r"\bnine\b|selectable|switchable|multiple", r, re.I):
+                    figure = figure | {"dichiarate", "molteplici"}
+                # «switchable» da solo non prova niente: sul VP88 la riga commutabile era quella del
+                # FILTRO passa-alto, non delle figure. La parola vale solo se la riga parla di polari.
+                commuta = (re.search(r"selectable|switchable|nine|multi-?pattern|variable", r, re.I)
+                           and re.search(r"polar|pattern", r, re.I) and figure)
+                if len(figure) >= 2 or commuta:
+                    m = re.search(r"\b(" + alternative + r"|selectable|switchable)\b", r, re.I)
+                    trovata = (r.strip()[:0] or "multi", p, finestra(r, m) if m else r[:300])
+                    nota = nota or ("Il documento elenca le figure una per una: qui è classificato «multi».")
+                    break
+        else:
+            attese = [pol] + SINONIMI.get(pol, [])
+            tutte = list(righe(pg))
+            # passata 1: solo le righe con l'etichetta della scheda (la figura può stare lì o subito
+            # sotto — le guide Shure la scrivono a capo). Passata 2: il resto del documento.
+            for passata in (ETICH, r"polar|pattern|directional"):
+                for i, (p, r) in enumerate(tutte):
+                    if not re.search(passata, r, re.I):
+                        continue
+                    blocco = [r] + [tutte[j][1] for j in range(i + 1, min(i + 4, len(tutte)))
+                                    if tutte[j][0] == p]
+                    for k, testo in enumerate(blocco):
+                        for chiave, en in POLARI:
+                            if piatto(chiave) in piatto(testo) and (en == pol or chiave in attese):
+                                unita = r if k == 0 else (r + " ⏎ " + testo)
+                                # la riga può scriverla spaziata: si ricostruisce il punto esatto
+                                m = (re.search(re.escape(chiave), unita, re.I)
+                                     or re.search(r"[\s\-]*".join(map(re.escape, chiave)), unita, re.I))
+                                trovata = (chiave, p, finestra(unita, m) if m else unita[:300])
+                                if chiave != pol:
+                                    nota = nota or ("Il documento scrive «%s»: è la stessa figura." % chiave)
+                                break
+                        if trovata:
+                            break
+                    if trovata:
+                        break
+                if trovata:
+                    break
+        if trovata:
+            _, p, q = trovata
+            d["polar"] = {"value": pol, "unit_orig": None, "reliability": "official",
+                          "source": {"doc": doc, "page": p, "quote": q}}
+            if nota:
+                d["polar"]["note"] = nota
 
     # phantom
     ph = voce.get("phantom")
