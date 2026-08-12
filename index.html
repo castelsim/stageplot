@@ -142,7 +142,7 @@ addEventListener("hashchange", go);})();</script>
         {
           "@type": "Question",
           "name": "Devo registrarmi?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. Apri l'editor e disegni: il progetto resta salvato su questo dispositivo. L'account serve solo se lo vuoi ritrovare da un altro computer." }
+          "acceptedAnswer": { "@type": "Answer", "text": "No: apri e disegni, e il progetto resta su questo computer anche se chiudi il browser. Prima di mandarlo scarica il PDF — quello è tuo e non dipende da noi. L'account, con Google, serve solo per ritrovare il progetto da un altro computer." }
         },
         {
           "@type": "Question",
@@ -493,6 +493,38 @@ addEventListener("hashchange", go);})();</script>
   .share-card p{margin-top:12px;color:var(--mut);font-size:15px}
   .pill{margin-top:22px;display:inline-block;font-family:var(--mono);font-size:12.5px;background:#0a1211;border:1px solid var(--line2);border-radius:999px;padding:8px 16px;color:var(--teal)}
 
+  /* --- Condivisione: la tabella «chi tocca cosa» e il blocco per chi i rider li riceve --- */
+  .who-table{width:100%;border-collapse:collapse;font-size:14.5px}
+  .who-table th{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--mut);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:500}
+  .who-table td{padding:14px;border-bottom:1px solid #151f1e;vertical-align:top}
+  .who-table tbody tr:last-child td{border-bottom:0}
+  .who-table td.m{color:var(--mut)}
+  @media(max-width:760px){
+    .who-table{font-size:13px}
+    .who-table th,.who-table td{padding:10px 8px}
+  }
+  /* il blocco venue si distingue dal resto: è l'unico pezzo di pagina rivolto a chi RICEVE i rider */
+  .venue{margin-top:52px;border:1px solid #4a4128;border-radius:16px;background:#12110c;padding:34px}
+  @media(max-width:700px){.venue{padding:24px 20px}}
+  .venue-h{font-size:clamp(21px,2.4vw,26px);letter-spacing:-.018em;margin-bottom:12px}
+  .venue p{color:var(--mut);font-size:16px;max-width:64ch}
+  .venue-msg{margin:20px 0 0;padding:20px 22px;background:#0d1313;border:1px solid var(--line2);
+    border-left:3px solid var(--amber);border-radius:12px;color:var(--text);font-size:15.5px;line-height:1.75}
+  .venue-act{margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .venue-act .btn2{cursor:pointer;font-family:var(--font)}
+  .copia-ok{font-family:var(--mono);font-size:13px;color:var(--teal-l)}
+  .venue-out{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+
+  /* --- «È nuovo, e te lo dico»: il posto della prova sociale, finché non ce n'è una vera --- */
+  .onesto{border:1px solid var(--line2);border-left:3px solid var(--teal);border-radius:14px;
+          background:var(--panel);padding:34px}
+  @media(max-width:700px){.onesto{padding:24px 20px}}
+  .onesto-h{font-size:clamp(22px,2.6vw,28px);letter-spacing:-.02em;margin-bottom:16px}
+  .onesto p{color:var(--mut);font-size:16px;max-width:68ch}
+  .onesto p+p{margin-top:14px}
+  .onesto b{color:var(--text);font-weight:600}
+
   .who{margin-top:60px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   @media(max-width:860px){.who{grid-template-columns:1fr}}
   .who div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;transition:border-color .2s,transform .2s}
@@ -560,11 +592,18 @@ addEventListener("hashchange", go);})();</script>
   <p class="kicker">Stage plot · scheda tecnica · rider</p>
   <h1>Disegna il palco.<br><span class="dim">Il rider si costruisce da solo.</span></h1>
   <p class="sub">Stage plot, channel list, monitor, cablaggi, elettrico e luci <b>restano collegati nello stesso progetto</b>: sposti un microfono e i documenti si aggiornano insieme a lui.</p>
+  <!-- Tre porte, non due, e il palco pronto è la prima. Il bottone primario apriva l'editor VUOTO: il
+       foglio bianco è il modo più efficiente di perdere chi arriva la prima volta — e che il problema
+       esistesse lo diceva già la pagina, con una domanda intitolata «Non so da dove partire».
+       La terza porta è per il fonico di service, che al primo giro non disegna niente: vuole vedere che
+       documento esce. I marcatori `from=` restano quelli di prima (hero-modello, hero) perché il
+       contatore li conosce già: cambia quale bottone li porta, non l'elenco. -->
   <div class="cta-row">
-    <a class="btn" href="/app/?from=hero">Apri l'editor gratis</a>
-    <a class="btn2" href="/app/?model=band&amp;from=hero-modello">Prova un palco già fatto</a>
+    <a class="btn" href="/app/?model=band&amp;from=hero-modello">Parti da un palco già pronto</a>
+    <a class="btn2" href="/app/?from=hero">Palco vuoto</a>
+    <a class="btn2" href="#output">Guarda prima un rider finito ↓</a>
   </div>
-  <p class="trust"><span>Gratis</span> · nel browser · nessuna registrazione</p>
+  <p class="trust">Otto formazioni pronte da cambiare · <span>gratis</span> · nessuna registrazione</p>
 
   <!-- Schermata vera dell'editor (modello «Band pop/rock» incluso), non un'illustrazione: chi arriva
        deve riconoscere il prodotto che sta per aprire. È l'LCP della pagina → niente lazy. -->
@@ -791,7 +830,7 @@ addEventListener("hashchange", go);})();</script>
   <h2>Dalla prima pedana al PDF, in quattro passaggi.</h2>
   <p class="lead">Nessuna configurazione da fare prima di cominciare: si apre e si trascina. <b>Il resto viene dopo, e solo se serve.</b></p>
   <div class="steps">
-    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, 155 microfoni, DI, mixer, 42 fari. Niente rettangoli anonimi.</p></div>
+    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, 223 microfoni, DI, mixer, 42 fari. Niente rettangoli anonimi.</p></div>
     <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve. Sposti la batteria, la channel list si aggiorna.</p></div>
     <div class="step"><p class="step-n">03</p><h3>Il progetto si controlla</h3><p>Un microfono senza canale, un carico senza distro, un mix dimenticato: te lo dice l'editor prima che te lo chieda il service.</p></div>
     <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
@@ -952,20 +991,49 @@ addEventListener("hashchange", go);})();</script>
     </figure>
   </div>
 </div></section>
+<!-- ================================================================================================
+     CONDIVISIONE — la sezione che parla al lato venue, cioè al fronte che conta.
+     Fino al 12/08 erano 59 parole, le meno di tutta la pagina, e trattavano il service come oggetto
+     («link di sola lettura PER il service»). Qui la frase è ribaltata: chi riceve i rider diventa
+     il soggetto, e riceve una cosa da usare — un testo da mandare alle band prima della data.
+     È l'unico pezzo della pagina che può portare visite invece di limitarsi a convertirle.
+     ============================================================================================ -->
 <section class="rv" id="condivisione"><div class="wrap">
   <p class="sec-k">Condivisione</p>
-  <h2>La versione giusta ce l'hanno tutti.</h2>
-  <div class="share">
-    <div class="share-card">
-      <h3>Link di sola lettura per il service</h3>
-      <p>Niente allegati che invecchiano nella posta: chi apre il link vede l'ultima versione del palco, da qualsiasi dispositivo.</p>
-      <p class="pill">stageplot.it/app/?view=…</p>
+  <h2>Un link solo, e tutti guardano lo stesso palco.</h2>
+  <p class="lead">Il PDF girato su WhatsApp invecchia il giorno dopo, e nessuno sa più quale sia l'ultimo.
+    Il link no: chi lo apre vede il palco com'è adesso. E le versioni restano — <b>la v3 che hai mandato
+    a marzo resta la v3</b>, anche se intanto il palco è cambiato.</p>
+
+  <div class="tblwrap" style="margin-top:34px">
+    <table class="who-table">
+      <thead><tr><th>Chi apre il link</th><th>Cosa vede</th><th>Cosa può fare</th><th>Cosa non può fare</th></tr></thead>
+      <tbody>
+        <tr><td><b>Il service o il locale</b></td><td>Palco, liste, rider</td>
+            <td>Guardare, stampare, scaricare il PDF, farne una copia sua</td>
+            <td class="m">Modificare il tuo progetto</td></tr>
+        <tr><td><b>I musicisti della band</b></td><td>Solo la loro parte</td>
+            <td>Dire strumenti, canali e cosa vogliono nel monitor</td>
+            <td class="m">Vedere o spostare il resto del palco</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sy-note">Nessuno installa niente, e nessuno si registra per guardare.</p>
+
+  <!-- Il ribaltamento: qui il service smette di essere il destinatario e diventa chi usa lo strumento -->
+  <div class="venue">
+    <p class="sec-k" style="color:var(--amber)">Se i rider li ricevi tu</p>
+    <h3 class="venue-h">Dodici schede tecniche fatte in dodici modi diversi.</h3>
+    <p>Se gestisci un locale, un festival o un service, il problema non è disegnare: è che arriva di tutto,
+      e tre volte su dodici è la foto di un foglio. Manda alle band questo, prima della data:</p>
+    <blockquote class="venue-msg" id="venueMsg">Per la serata ci serve la scheda tecnica. Se non ce l'hai, falla qui in dieci minuti — è gratis e non serve registrarsi: stageplot.it — e rimandaci il link o il PDF. Se hai già la tua va benissimo lo stesso: ci basta che ci sia il palco, i canali e cosa vuoi nei monitor.</blockquote>
+    <div class="venue-act">
+      <button class="btn2 copia" type="button" data-copia="venueMsg">Copia il testo</button>
+      <button class="btn2 copia" type="button" data-copia-testo="https://stageplot.it/">Copia solo il link</button>
+      <span class="copia-ok" id="copiaOk" role="status" aria-live="polite"></span>
     </div>
-    <div class="share-card">
-      <h3>Richieste musicisti senza account</h3>
-      <p>Ogni musicista riceve un link anonimo, indica strumenti e monitor, e le risposte tornano già ordinate nel progetto.</p>
-      <p class="pill">3/4 richieste ricevute ✓</p>
-    </div>
+    <p class="venue-out">Tornano indietro documenti che si assomigliano tutti, con i canali numerati e i
+      carichi già sommati. Il soundcheck parte prima.</p>
   </div>
 </div></section>
 <section class="rv" id="layers"><div class="wrap">
@@ -1132,7 +1200,7 @@ addEventListener("hashchange", go);})();</script>
   <p class="sec-k">Per chi è</p>
   <h2>Dalla sala prove al festival.</h2>
   <div class="who">
-    <div><em>BAND</em><h3>La scheda tecnica in una sera</h3><p>Arrivi al locale con un documento che il fonico capisce al primo sguardo.</p></div>
+    <div><em>BAND</em><h3>La scheda tecnica in dieci minuti</h3><p>Arrivi al locale con un documento che il fonico capisce al primo sguardo.</p></div>
     <div><em>FONICI &amp; SERVICE</em><h3>Rider leggibili, zero sorprese</h3><p>Canali numerati, carichi sommati, monitor chiari: il soundcheck parte prima.</p></div>
     <div><em>PRODUZIONE</em><h3>Uno standard per ogni data</h3><p>Planimetrie in scala, varianti per scenario, un formato solo per tutta la stagione.</p></div>
   </div>
@@ -1144,11 +1212,17 @@ addEventListener("hashchange", go);})();</script>
     <div class="maker-txt">
       <p>StagePlot nasce da troppe serate passate a ricostruire un palco dalla foto di un foglietto: <b>i dati c'erano già, solo non erano in un posto solo</b>.</p>
       <p>Lo sviluppo da solo e lo uso al lavoro, in studio e in sala: quello che manca la sera stessa finisce nella lista. Il box «Cosa manca?» dentro l'editor arriva a me.</p>
+      <!-- 4B: il modello di business detto in chiaro. Tutti i concorrenti dichiarano il prezzo in home;
+           qui i 29 € vivevano solo in un link nel piede, e su un professionista il gratis non spiegato
+           genera sospetto invece che gratitudine. -->
+      <p><b>L'editor è gratis e resta gratis</b>: nessuna versione a pagamento, nessuna filigrana sui
+        documenti, nessun limite al numero di palchi. Campo sulla revisione dei rider — 29 €, facoltativa,
+        e la gran parte di chi usa StagePlot non ne ha bisogno. <a class="ghost" href="/consulenza/">Come funziona</a></p>
       <p class="sign"><b>Simone Castellan</b>audio engineer · studio e live</p>
     </div>
     <div class="maker-card">
       <div><span>Elementi nel catalogo</span><b>200+</b></div>
-      <div><span>Microfoni riconosciuti</span><b>155</b></div>
+      <div><span>Microfoni riconosciuti</span><b>223</b></div>
       <div><span>Modelli di faro</span><b>42</b></div>
       <div><span>Lingua</span><b>italiano</b></div>
       <div><span>Prezzo</span><b>gratis</b></div>
@@ -1179,13 +1253,29 @@ addEventListener("hashchange", go);})();</script>
 
 ================================================================================================ -->
 
+<!-- Finché quei numeri non esistono, il posto non resta vuoto: si dice come stanno le cose. A un
+     professionista diffidente «è nuovo e te lo dico» vale più di dodici stelline non verificabili,
+     e soprattutto è vero. Quando arriveranno numeri o testimonianze, questa cede il posto. -->
+<section class="rv" id="novita"><div class="wrap">
+  <div class="onesto">
+    <p class="sec-k">Trasparenza</p>
+    <h2 class="onesto-h">È nuovo, e te lo dico.</h2>
+    <p>StagePlot è online da poco e non ho testimonianze da farti leggere. Non me le invento.
+      Quello che posso mostrarti sono tre cose che verifichi da solo: <b>il rider qui sopra</b>, che
+      scarichi e giudichi; <b>il catalogo</b>, che apri e cerchi prima di registrare qualsiasi cosa
+      (223 microfoni con tipo, polare, phantom e asta, presi dalle schede dei costruttori); e il fatto
+      che dietro c'è <b>una persona sola, con nome, cognome e mail</b> — non un modulo di contatto.</p>
+    <p>Se lo provi e non funziona, il box «Cosa manca?» dentro l'editor arriva a me, e rispondo io.</p>
+  </div>
+</div></section>
+
 <section class="rv tinted" id="domande"><div class="wrap">
   <p class="sec-k">Domande</p>
   <h2>Quello che chiedono tutti.</h2>
   <div class="faq">
     <div>
       <h3>Devo registrarmi?</h3>
-      <p>No. Apri l'editor e disegni: il progetto resta salvato su questo dispositivo. L'account serve solo se lo vuoi ritrovare da un altro computer.</p>
+      <p>No: apri e disegni, e il progetto resta su questo computer anche se chiudi il browser. Prima di mandarlo scarica il PDF — quello è tuo e non dipende da noi. L'account, con Google, serve solo per ritrovare il progetto da un altro computer.</p>
     </div>
     <div>
       <h3>Il service riesce ad aprirlo?</h3>
@@ -1212,7 +1302,7 @@ addEventListener("hashchange", go);})();</script>
 </div></section>
 <section class="final rv"><div class="wrap">
   <p class="sec-k">Pronto quando lo sei tu</p>
-  <h2>Stasera il palco. Domani il rider è già fatto.</h2>
+  <h2>Il palco lo disegni stasera. Il rider esce con lui.</h2>
   <a class="btn" href="/app/?from=finale">Apri l'editor</a>
   <p class="trust"><span>Gratis</span> · nel browser · senza registrazione</p>
 </div></section>
@@ -1312,6 +1402,43 @@ addEventListener("hashchange", go);})();</script>
     });
     if (!reduced && lines.length) lines[0].classList.add('cursor');
   }
+
+  /* 5-bis — «copia il testo» per chi i rider li riceve.
+     Nessuna dipendenza: clipboard API dove c'è (serve HTTPS), altrimenti il vecchio execCommand su
+     una textarea temporanea, che funziona anche dove la API è negata. Se fallisce tutto, si dice —
+     un bottone che finge di aver copiato è peggio di un bottone che non c'è. */
+  var okMsg = document.getElementById('copiaOk');
+  function segnala(testo){
+    if (!okMsg) return;
+    okMsg.textContent = testo;
+    clearTimeout(okMsg.__t);
+    okMsg.__t = setTimeout(function(){ okMsg.textContent = ''; }, 2600);
+  }
+  function copiaTesto(testo){
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(testo).then(function(){ segnala('copiato ✓'); },
+                                                function(){ ripiego(testo); });
+    } else ripiego(testo);
+  }
+  function ripiego(testo){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = testo; ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      var fatto = document.execCommand('copy');
+      document.body.removeChild(ta);
+      segnala(fatto ? 'copiato ✓' : 'copia a mano: il testo è qui sopra');
+    }catch(e){ segnala('copia a mano: il testo è qui sopra'); }
+  }
+  document.querySelectorAll('.copia').forEach(function(b){
+    b.addEventListener('click', function(){
+      var diretto = b.dataset.copiaTesto;
+      if (diretto) return copiaTesto(diretto);
+      var el = document.getElementById(b.dataset.copia);
+      if (el) copiaTesto(el.textContent.trim());
+    });
+  });
 
   /* 6 — comparatore prima/dopo */
   var ba = document.getElementById('ba');
