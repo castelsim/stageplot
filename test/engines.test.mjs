@@ -9987,7 +9987,9 @@ t("il numero di microfoni in pagina è quello del catalogo vero", () => {
      Qui il legame c'è: se domani il catalogo cresce ancora, questo test lo reclama. */
   const veri = Object.keys(A.MIC_DB).length;
   ok(veri > 100, "il catalogo è caricato: " + veri + " microfoni");
-  const inPagina = [...landing.matchAll(/(\d{2,4})\s*microfoni/gi)].map((m) => +m[1]);
+  /* Solo i numeri che dichiarano il TOTALE: «68 microfoni in più» nel registro delle modifiche è
+     una differenza, non un totale, e sarebbe sbagliato pretendere che coincida col catalogo. */
+  const inPagina = [...landing.matchAll(/(\d{2,4})\s*microfoni(?!\s+in\s+più)/gi)].map((m) => +m[1]);
   ok(inPagina.length >= 2, "la home cita il numero di microfoni: " + inPagina.join(", "));
   for (const n of inPagina) eq(n, veri, "un numero in pagina non coincide col catalogo");
   const dichiarato = +((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
@@ -10045,6 +10047,34 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/29 €/.test(corpo), "e dove sta il pagamento");
   ok(/href="\/consulenza\/"/.test(corpo), "con il link alla consulenza fuori dal piede");
   ok(/È nuovo, e te lo dico/.test(landing), "e c'è la dichiarazione di novità al posto della prova che non c'è");
+});
+
+t("il registro delle modifiche dice il vero, ed è ancora fresco", () => {
+  /* Una sezione «cosa è cambiato» è prova che il prodotto è vivo — ma solo finché è aggiornata.
+     Ferma da mesi dimostra l'opposto di quello per cui esiste, ed è il modo tipico in cui questa
+     idea si ritorce contro: nessuno se ne accorge, perché la pagina continua a funzionare.
+     Qui il test fa da promemoria: oltre i 120 giorni o si aggiorna o si toglie. */
+  const sez = landing.slice(landing.indexOf('class="registro"'));
+  const voci = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">([^<]+)<\/time>\s*<p>([\s\S]*?)<\/p>/g)]
+    .map((m) => ({ iso: m[1], mostrata: m[2], testo: m[3].replace(/<[^>]+>/g, "").trim() }));
+  ok(voci.length >= 4, "il registro ha almeno quattro voci: " + voci.length);
+
+  const oggi = new Date();
+  for (const v of voci) {
+    const d = new Date(v.iso + "T12:00:00Z");
+    ok(!isNaN(d), "data leggibile dalla macchina: " + v.iso);
+    ok(d <= oggi, "nessuna voce datata nel futuro: " + v.iso);
+    ok(v.testo.length > 30, "ogni voce dice cosa è cambiato, non solo che è cambiato: «" + v.testo.slice(0, 40) + "…»");
+    /* la data mostrata deve corrispondere a quella leggibile dalla macchina: due date diverse
+       nello stesso elemento sono una bugia che nessuno noterebbe */
+    const mese = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"][d.getUTCMonth()];
+    eq(v.mostrata.trim(), d.getUTCDate() + " " + mese, "la data scritta è quella del datetime");
+  }
+  const piuRecente = voci.map((v) => new Date(v.iso + "T12:00:00Z")).sort((a, b) => b - a)[0];
+  const giorni = Math.floor((oggi - piuRecente) / 86400000);
+  ok(giorni <= 120,
+    "il registro è fermo da " + giorni + " giorni: aggiornalo con le ultime modifiche, o togli la sezione " +
+    "(una pagina che si vanta di essere viva e non lo è dimostra il contrario)");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
