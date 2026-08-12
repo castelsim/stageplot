@@ -3590,10 +3590,18 @@ function equipCatsFor(it){
   if(EQUIP_CATS_BY_TYPE[it.type]) return EQUIP_CATS_BY_TYPE[it.type];
   var c=EQUIP_CATS_BY_CATALOG[TYPES[it.type].cat];
   return (c&&c.length)?c:null; }
-function equipFieldLabel(cats){
+function equipFieldLabel(cats, it){
   if(!cats||!cats.length) return "Modello reale";
   if(cats[0]==="di") return "Modello DI";
-  if(cats[0]==="microfono") return "Microfono reale";
+  /* Un elemento come la «Coppia stereo» sono DUE microfoni, ma il campo è uno solo — ed è giusto,
+     perché una coppia si compra appaiata. Al singolare però sembrava di poterne dichiarare uno solo
+     dei due (segnalato il 12/08): qui il plurale dice che vale per tutti i canali dell'elemento.
+     Per una coppia mista si scrivono microfoni diversi nella channel list, che ha la precedenza. */
+  if(cats[0]==="microfono"){
+    var n=0;
+    try{ n=(typeof cabItemInputs==="function" && it) ? (cabItemInputs(it)||[]).length : 0; }catch(_e){ n=0; }
+    return n>1 ? ("Microfoni reali (tutti e "+n+")") : "Microfono reale";
+  }
   if(cats[0]==="console") return "Modello console";
   if(cats[0]==="stagebox") return "Modello stagebox";
   if(cats[0]==="line_array") return "Modello diffusore / ampli";
@@ -12577,7 +12585,7 @@ function renderModelField(it){
   var nm=(typeof equipName==="function")?equipName(it):null;
   if(nm){
     wrap.style.display="block"; sel.style.display="none"; cur.style.display="flex";
-    if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats)+" ";
+    if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats, it)+" ";
     cur.innerHTML='<span style="color:var(--accent,#0d9488);font-weight:600">✓ '+esc(nm)+'</span>'
       +'<small style="color:var(--text-3,#9ca3af)">dati verificati</small>'
       +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">×</button>';
@@ -12592,7 +12600,7 @@ function renderModelField(it){
     if(wrap.dataset.forItem !== String(it.id)) return;
     if(!rows.length){ wrap.style.display="none"; return; }
     wrap.style.display="block"; sel.style.display="block";
-    if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats)+" ";
+    if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats, it)+" ";
     sel.innerHTML="";
     var o0=document.createElement("option"); o0.value=""; o0.textContent="— Generico (predefinito) —"; sel.appendChild(o0);
     rows.forEach(function(r){ var o=document.createElement("option"); o.value=r.id; o.textContent=(r.brand||"")+" "+(r.model||""); sel.appendChild(o); });
@@ -17268,8 +17276,31 @@ var MIC_DEFAULTS = {
   "SM57/e906":{stand:"asta bassa",p48:false}
 };
 Object.keys(MIC_DB).forEach(function(k){ MIC_DEFAULTS[k]={stand:MIC_DB[k].stand, p48:!!MIC_DB[k].p48}; });
+/* Lo STESSO microfono si scrive in due modi: sul rider «C451», sul datasheet «C451 B» — e il campo
+   «Microfono reale» scrive proprio il nome di targa. Finché il confronto era esatto, un canale con
+   scritto «C451 B» non trovava niente nel catalogo e usciva SENZA ASTA: il fonico assegnava il
+   modello vero e il rider smetteva di chiedere l'asta al service (visto il 12/08 su una coppia
+   stereo; toccava 27 dei 105 modelli del DB prodotti, fra cui KM 184, DPA 4099 ed e 904, cioè da
+   prima di questo ampliamento). Qui si aggancia per forma normalizzata: via spazi, trattini e punti.
+   Nessuna indulgenza sulle sigle vere — «SM57» e «SM7» restano diversi, perché il confronto resta
+   sull'INTERO nome, non su un pezzo. */
+var _micNorm=null;
+function _micFlatKey(s){ return String(s||"").toLowerCase().replace(/[\s\-._/]+/g, ""); }
+function micNormIndex(){
+  if(_micNorm) return _micNorm;
+  _micNorm=Object.create(null);
+  Object.keys(MIC_DEFAULTS).forEach(function(k){ _micNorm[_micFlatKey(k)]=MIC_DEFAULTS[k]; });
+  /* il nome di targa («C451 B», «MD 421-II») porta alla stessa voce della chiave da rider */
+  Object.keys(MIC_DB).forEach(function(k){
+    var f=_micFlatKey(MIC_DB[k].model);
+    if(f && !_micNorm[f]) _micNorm[f]=MIC_DEFAULTS[k];
+  });
+  return _micNorm;
+}
 function micInfo(mic){
   if(MIC_DEFAULTS[mic]) return MIC_DEFAULTS[mic];
+  var n=micNormIndex()[_micFlatKey(mic)];
+  if(n) return n;
   if(String(mic).indexOf("DI")>-1) return {stand:"",p48:false};
   return {stand:"",p48:false};
 }
@@ -18827,7 +18858,11 @@ function patchList(){
       if(realMic && !o && !(mm&&mm.mic)){ mic=String(realMic); fromModel=true; }
       eqPh=equipPhantom(srcIt);
     }
-    var p48=(o||!mic)?false:(eqPh!=null ? eqPh==="required" : !!micInfo(mic).p48);
+    /* Il phantom del modello reale vale SOLO per i canali che quel modello lo usano davvero. Su una
+       coppia stereo con un microfono diverso scritto a mano sulla R, prima il +48V del modello si
+       spalmava anche lì: bastava scriverci un M130 — nastro PASSIVO — e il rider chiedeva phantom su
+       un nastro, che è il caso che l'audit tratta come errore grave. */
+    var p48=(o||!mic)?false:((fromModel && eqPh!=null) ? eqPh==="required" : !!micInfo(mic).p48);
     var stand=(o||!mic)?"":(micInfo(mic).stand||"");
     /* Se il canale nasce dal mic di DEFAULT di un'asta, l'asta la dice l'oggetto sul palco: una
        gigante monta il KM184 come la giraffa, ma resta una gigante. Col modello reale assegnato

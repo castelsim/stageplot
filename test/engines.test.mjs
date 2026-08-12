@@ -238,6 +238,25 @@ t("colonna Asta: micInfo espone lo stand; patchList lo porta nella riga", () => 
   const rows = A.patchList().rows;
   ok(rows.length >= 1 && rows[0].stand === "asta giraffa", "la riga patchList porta lo stand del mic (KM184 → asta giraffa)");
 });
+t("il +48V del «Microfono reale» non si spalma sui canali che usano un altro microfono", () => {
+  // Una coppia stereo fa DUE canali. Se all'elemento si assegna un modello reale a condensatore e
+  // sulla R si scrive a mano un NASTRO PASSIVO, il phantom del modello finiva anche lì: il rider
+  // chiedeva +48V su un nastro, cioè l'errore che l'audit tratta come grave.
+  reset();
+  add("coppiast", 300, 300);
+  const it = A.state.items[A.state.items.length - 1];
+  it.modelId = "akg-c451b";
+  it.modelData = { brand: "AKG", model: "C451 B", category: "microfono",
+                   phantom: { value: "required", reliability: "official" } };
+  A.state.cab = A.state.cab || {}; A.state.cab.manual = A.state.cab.manual || {};
+  A.state.cab.manual[it.id + "#1"] = { mic: "M130" };      // beyerdynamic M 130: nastro passivo
+  const rows = A.patchList().rows.filter((r) => r.itemId === it.id);
+  eq(rows.length, 2, "la coppia stereo fa due canali");
+  eq(rows[0].mic, "C451 B", "sulla L vale il modello reale");
+  eq(rows[0].p48, true, "il C451 B il phantom lo vuole davvero");
+  eq(rows[1].mic, "M130", "sulla R vale il microfono scritto a mano");
+  eq(rows[1].p48, false, "un nastro passivo NON deve ricevere il +48V del modello dell'elemento");
+});
 t("Galleria Modelli: le 3 formazioni IT esistono e producono elementi", () => {
   ["matrimonio", "dj", "tributo"].forEach((k) => {
     const fd = A.formationData(k);
@@ -5405,6 +5424,24 @@ t("i condensatori che NON vogliono il +48V della console restano a phantom spent
     eq(A.MIC_DB[k].type, "condensatore", k + ": la prova ha senso solo su un condensatore");
     eq(A.micInfo(k).p48, false, k + ": " + spenti[k] + " — il +48V della console non c'entra");
   });
+});
+t("il nome di targa del microfono trova la stessa asta della sigla da rider", () => {
+  // Lo stesso microfono si scrive «C451» sul rider e «C451 B» sul datasheet — ed è il secondo che
+  // finisce nel canale quando si assegna il «Microfono reale». Col confronto esatto quel canale
+  // usciva SENZA ASTA: il fonico dichiarava il modello vero e il rider smetteva di chiederla al
+  // service. Qui si verifica sulle coppie che il campo `model` scrive davvero diverse dalla chiave.
+  const diverse = Object.keys(A.MIC_DB)
+    .filter((k) => A.MIC_DB[k].model && A.MIC_DB[k].model !== k)
+    .map((k) => [k, A.MIC_DB[k].model]);
+  ok(diverse.length > 20, "la prova ha senso solo se molti nomi di targa differiscono dalla chiave");
+  const rotti = [];
+  diverse.forEach(([k, model]) => {
+    const a = A.micInfo(k), b = A.micInfo(model);
+    if (a.stand !== b.stand || a.p48 !== b.p48) rotti.push(k + " ≠ «" + model + "»");
+  });
+  eq(rotti, [], "col nome di targa il canale perde asta o phantom");
+  // e non deve diventare indulgente: due modelli diversi restano diversi
+  eq(A.micInfo("SM7B").stand !== A.micInfo("SM57").stand, true, "SM7B e SM57 non sono lo stesso microfono");
 });
 t("ogni microfono usato dai default del palco sta nel catalogo", () => {
   // IN_SRC / IN_MULTI / MIKING assegnano un mic per tipo: se quel nome non e' nel catalogo,
