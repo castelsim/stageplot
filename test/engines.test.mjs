@@ -5353,7 +5353,11 @@ t("ogni voce del catalogo ha marca, modello, tipo, direttivita' e phantom dichia
     const d = A.MIC_DB[k];
     if (!d.brand || !d.model) rotti.push(k + ": marca/modello");
     else if (!TIPI.has(d.type)) rotti.push(k + ": tipo «" + d.type + "»");
-    else if (!d.pol) rotti.push(k + ": direttivita'");
+    // i pickup a CONTATTO leggono la vibrazione del legno, non l'aria: una figura polare non ce
+    // l'hanno per costruzione. L'eccezione vale solo se il dato la dichiara (contatto:true), cosi'
+    // resta una scelta scritta e non un campo dimenticato che passa inosservato.
+    else if (!d.pol && !d.contatto) rotti.push(k + ": direttivita'");
+    else if (d.contatto && d.pol) rotti.push(k + ": dichiarato a contatto ma con una direttivita'");
     else if (typeof d.p48 !== "boolean") rotti.push(k + ": phantom non dichiarato");
   });
   eq(rotti, [], "voci incomplete (una specifica assente e' meglio di una inventata, ma questi campi sono di targa)");
@@ -5376,6 +5380,30 @@ t("i microfoni che c'erano prima non cambiano ne' asta ne' phantom", () => {
     "DPA 4099": ["clip strumento", true], "DPA 4066": ["headset", true], "DPA 4088": ["headset", true] };
   Object.keys(storiche).forEach((k) => {
     eq([A.micInfo(k).stand, A.micInfo(k).p48], storiche[k], k);
+  });
+});
+t("i condensatori che NON vogliono il +48V della console restano a phantom spento", () => {
+  // «condensatore ⇒ phantom» e' la regola, e proprio per questo le eccezioni sono fragili: sembrano
+  // sviste, e chi passa di qui e' tentato di «correggerle». Se qualcuna diventa true, l'audit chiede
+  // un +48V che non serve — e su una capsula wireless o su un valvolare col suo alimentatore quel
+  // 48V non arriva nemmeno dove crede. Ogni riga qui sotto ha il motivo scritto accanto.
+  const spenti = {
+    "K2": "valvolare: lo alimenta il suo alimentatore dedicato",
+    "RE920": "lo alimenta il bodypack a 5 V",
+    "C555 L": "archetto da bodypack",
+    "TL47": "lavalier da bodypack",
+    "MME 865": "capsula wireless",
+    "KK 105 S": "capsula wireless",
+    "E6": "miniatura da bodypack",
+    "B3": "miniatura da bodypack",
+    "B6": "miniatura da bodypack",
+    "ME 2": "lavalier da bodypack",
+    "ME 3": "archetto da bodypack",
+  };
+  Object.keys(spenti).forEach((k) => {
+    ok(A.MIC_DB[k], k + ": la voce deve esistere nel catalogo");
+    eq(A.MIC_DB[k].type, "condensatore", k + ": la prova ha senso solo su un condensatore");
+    eq(A.micInfo(k).p48, false, k + ": " + spenti[k] + " — il +48V della console non c'entra");
   });
 });
 t("ogni microfono usato dai default del palco sta nel catalogo", () => {
