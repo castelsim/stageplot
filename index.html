@@ -861,7 +861,7 @@ addEventListener("hashchange", go);})();</script>
   <h2>Dalla prima pedana al PDF, in quattro passaggi.</h2>
   <p class="lead">Nessuna configurazione da fare prima di cominciare: si apre e si trascina. <b>Il resto viene dopo, e solo se serve.</b></p>
   <div class="steps">
-    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, 223 microfoni, DI, mixer, 42 fari. Niente rettangoli anonimi.</p></div>
+    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, DI, mixer, 42 fari. Niente rettangoli anonimi. E quando dichiari il modello del microfono, l'editor ne riconosce 223.</p></div>
     <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve. Sposti la batteria, la channel list si aggiorna.</p></div>
     <div class="step"><p class="step-n">03</p><h3>Il progetto si controlla</h3><p>Un microfono senza canale, un carico senza distro, un mix dimenticato: te lo dice l'editor prima che te lo chieda il service.</p></div>
     <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
@@ -1247,7 +1247,7 @@ addEventListener("hashchange", go);})();</script>
            qui i 29 € vivevano solo in un link nel piede, e su un professionista il gratis non spiegato
            genera sospetto invece che gratitudine. -->
       <p><b>L'editor è gratis e resta gratis</b>: nessuna versione a pagamento, nessuna filigrana sui
-        documenti, nessun limite al numero di palchi. Campo sulla revisione dei rider — 29 €, facoltativa,
+        documenti, nessun limite al numero di palchi. Ci campo con la revisione dei rider — 29 €, facoltativa,
         e la gran parte di chi usa StagePlot non ne ha bisogno. <a class="ghost" href="/consulenza/">Come funziona</a></p>
       <p class="sign"><b>Simone Castellan</b>audio engineer · studio e live</p>
     </div>
@@ -1291,11 +1291,16 @@ addEventListener("hashchange", go);})();</script>
   <div class="onesto">
     <p class="sec-k">Trasparenza</p>
     <h2 class="onesto-h">È nuovo, e te lo dico.</h2>
+    <!-- Le tre «verifiche» devono essere davvero raggiungibili da qui. Nella prima stesura erano
+         parole: prometteva un rider «da scaricare» che non esiste, un catalogo senza link e una
+         mail che in tutta la pagina non compariva. Chi va a cliccare e non trova niente capisce
+         che era retorica, e il riquadro ottiene il contrario di quello che vuole. -->
     <p>StagePlot è online da poco e non ho testimonianze da farti leggere. Non me le invento.
-      Quello che posso mostrarti sono tre cose che verifichi da solo: <b>il rider qui sopra</b>, che
-      scarichi e giudichi; <b>il catalogo</b>, che apri e cerchi prima di registrare qualsiasi cosa
-      (223 microfoni con tipo, polare, phantom e asta, presi dalle schede dei costruttori); e il fatto
-      che dietro c'è <b>una persona sola, con nome, cognome e mail</b> — non un modulo di contatto.</p>
+      Quello che posso mostrarti sono tre cose che verifichi da solo, adesso:
+      <b><a class="ghost" href="#output">una pagina vera del rider</a></b>, da leggere riga per riga;
+      <b><a class="ghost" href="#registro">cosa ho sistemato negli ultimi giorni</a></b>, con le date;
+      e il fatto che dietro c'è <b>una persona sola, con nome, cognome e indirizzo</b> — non un modulo
+      di contatto: <a class="ghost" href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>
     <p>Se lo provi e non funziona, il box «Cosa manca?» dentro l'editor arriva a me, e rispondo io.</p>
 
     <!-- Il registro. Non è un changelog per sviluppatori: sono cose che un fonico riconosce, prese
@@ -1303,7 +1308,7 @@ addEventListener("hashchange", go);})();</script>
          clienti — che il prodotto è vivo e che chi lo scrive lo usa. Ogni voce dev'essere vera e
          datata: se un giorno resta ferma per mesi, questa sezione dice il contrario di quello che
          deve dire, e un test lo ricorda. -->
-    <div class="registro">
+    <div class="registro" id="registro">
       <p class="reg-k">Le ultime cose sistemate</p>
       <div class="reg-r"><time datetime="2026-08-12">12 ago</time>
         <p>68 microfoni in più nel catalogo — <b>223 in tutto</b> — letti uno per uno sui documenti dei costruttori.</p></div>
