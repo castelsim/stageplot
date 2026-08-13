@@ -10047,5 +10047,70 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/È nuovo, e te lo dico/.test(landing), "e c'è la dichiarazione di novità al posto della prova che non c'è");
 });
 
+/* --- Entità e markup delle guide (13/08) ------------------------------------------------------
+   L'analisi GEO diceva: per un modello «StagePlot» non è un'entità, collide con StagePlot Guru e
+   Stageplot Pro. Il markup da solo non crea un marchio, ma è il prerequisito perché le menzioni
+   che arriveranno abbiano dove attaccarsi. */
+
+t("il sito si àncora a entità vere, non a identificativi inventati", () => {
+  /* L'analisi proponeva Q1754117 per «stage plot»: verificato, è il campionato mondiale di hockey
+     su ghiaccio junior. Un sameAs sbagliato è peggio di nessun sameAs — questi tre sono stati
+     controllati uno per uno sull'API di Wikidata. */
+  const ld = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const nodo = (t_) => ld["@graph"].find((n) => n["@type"] === t_);
+  const wikidata = JSON.stringify(ld).match(/wikidata\.org\/wiki\/(Q\d+)/g) || [];
+  ok(wikidata.length >= 2, "ci sono ancoraggi a Wikidata: " + wikidata.join(", "));
+  ok(!/Q1754117/.test(JSON.stringify(ld)), "e non c'è l'ID sbagliato del torneo di hockey");
+  const app = nodo("SoftwareApplication");
+  ok(Array.isArray(app.about) && app.about.length >= 2, "l'app dichiara di cosa parla");
+  /* TUTTI gli ancoraggi del documento, non solo quelli di `about`: gli stessi riferimenti vivono
+     anche in `knowsAbout` dell'autore, e un URL storto lì passerebbe inosservato. */
+  const ancoraggi = [];
+  JSON.stringify(ld, (k, v) => {
+    if (k === "sameAs") (Array.isArray(v) ? v : [v]).forEach((u) => { if (/wikidata/i.test(u)) ancoraggi.push(u); });
+    return v;
+  });
+  ok(ancoraggi.length >= 4, "gli ancoraggi sono " + ancoraggi.length + " in tutto il grafo");
+  for (const u of ancoraggi) ok(/^https:\/\/www\.wikidata\.org\/wiki\/Q\d+$/.test(u), "ancoraggio ben formato: " + u);
+  ok(Array.isArray(app.alternateName) && app.alternateName.length >= 1, "l'app ha nomi alternativi");
+  const org = nodo("Organization");
+  ok(org.sameAs.length >= 2, "l'organizzazione ha più di un profilo: " + org.sameAs.length);
+  ok(org.sameAs.some((u) => /github\.com/.test(u)), "fra cui il repository pubblico");
+  ok(Array.isArray(org.alternateName), "e un nome alternativo");
+});
+
+t("l'HowTo racconta i passi che stanno davvero nella guida", () => {
+  /* Il modo in cui questo markup mente: qualcuno riscrive i passi in pagina e il JSON-LD resta
+     indietro, continuando a dichiarare a Google una procedura che il testo non contiene più. */
+  const guida = readFileSync(join(root, "guida/come-fare-uno-stage-plot/index.html"), "utf8");
+  const ld = JSON.parse((guida.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const howto = ld["@graph"].find((n) => n["@type"] === "HowTo");
+  ok(howto, "la guida procedurale dichiara un HowTo");
+
+  const blocco = guida.slice(guida.indexOf('id="passi"'), guida.indexOf('id="channel"'));
+  const inPagina = [...blocco.matchAll(/<li[^>]*>\s*<strong>([\s\S]*?)<\/strong>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  eq(howto.step.length, inPagina.length, "stesso numero di passi in pagina e nel markup");
+  howto.step.forEach((s, i) => {
+    eq(s.name, inPagina[i], "il passo " + (i + 1) + " ha lo stesso nome");
+    ok(s.text && s.text.length > 40, "e un testo che spiega cosa fare");
+    eq(s.position, i + 1, "le posizioni sono in ordine");
+  });
+  ok(howto.estimatedCost && howto.estimatedCost.value === "0", "dichiara che è gratis");
+});
+
+t("la differenza fra i quattro documenti è in una tabella, non solo in prosa", () => {
+  /* «Che differenza c'è fra rider tecnico e hospitality rider» è una domanda che si fa chiunque
+     organizzi una serata: i modelli citano volentieri le tabelle, la prosa molto meno. */
+  const g = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const tab = (g.match(/<table class="ch-table">[\s\S]*?<\/table>/) || [""])[0];
+  ok(/Chi lo legge/.test(tab), "la tabella dice anche chi legge ciascun documento");
+  ok(/Serve sempre\?/.test(tab), "e se serve sempre");
+  for (const doc of ["Rider tecnico", "Stage plot", "Channel list", "Hospitality rider"])
+    ok(tab.indexOf(doc) > -1, "la tabella confronta anche: " + doc);
+  const righe = (tab.match(/<tr>/g) || []).length - 1;      /* meno l'intestazione */
+  eq(righe, 4, "quattro documenti a confronto");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
