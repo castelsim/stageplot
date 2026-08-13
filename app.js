@@ -12122,7 +12122,7 @@ function closeMobileDrawers(){
       else if(a==="download") proxy("saveJson");
       else if(a==="cloud") proxy("bCloud");
       else if(a==="theme") proxy("bTheme");
-      else if(a==="new") proxy("bNew");
+      else if(a==="new"){ if(window.openNewDialog) window.openNewDialog(); else proxy("bNew"); }   /* stessa finestra a due strade del menu File */
     });
   });
   /* dock azioni primarie */
@@ -18250,14 +18250,40 @@ function requestsRefresh(cb){
 function requestBadgeFor(it){
   var n=document.getElementById("pReqState"); if(!n||!it) return;
   function paint(){
-    var sum=document.getElementById("pRespSum");
+    var sum=document.getElementById("pRespSum"), acts=document.getElementById("pReqActs");
     var mine=(_reqCache||[]).filter(function(r){ return r.item_id===it.id; });
+    if(acts){ acts.innerHTML=""; acts.style.display="none"; }
     if(!mine.length){ n.textContent="Setup non ancora richiesto."; if(sum) sum.textContent=""; return; }
     var r=mine[0];
     n.textContent = (REQ_STATUS_LABEL[r.status]||r.status) +
       (r.submitted_at ? " · risposta del "+new Date(r.submitted_at).toLocaleDateString("it-IT") : "") +
       (r.current_version>1 ? " · versione "+r.current_version : "");
     if(sum) sum.textContent = " \u00b7 "+(REQ_STATUS_LABEL[r.status]||r.status).toLowerCase();   /* nel titolo, senza aprire */
+    if(acts) paintActs(acts, r);
+  }
+  /* Le tre azioni che stavano nell'elenco del menu File, ma per QUESTA postazione: la risposta si
+     legge dove la richiesta è nata. Compaiono solo quando hanno senso — «Vedi risposta» solo se è
+     arrivata, «Riapri» solo su una richiesta già consegnata. */
+  function paintActs(host, r){
+    var C=window.__cloud, out=[];
+    if(r.submitted_at) out.push(["see","Vedi risposta","btn primary"]);
+    if(r.status==="submitted") out.push(["reopen","Riapri","btn"]);
+    if(r.status!=="revoked" && r.status!=="closed") out.push(["revoke","Annulla link","btn"]);
+    if(!out.length) return;
+    host.style.display="flex";
+    host.innerHTML=out.map(function(a){
+      return '<button type="button" class="'+a[2]+'" data-act="'+a[0]+'" style="flex:1;font-size:12px;padding:6px 8px">'+a[1]+'</button>';
+    }).join("");
+    /* onclick e non addEventListener: paint() gira a ogni selezione e i listener si accumulerebbero,
+       sparando l'azione N volte all'ennesima apertura del pannello. */
+    host.onclick=function(e){
+      var b=e.target.closest("[data-act]"); if(!b) return;
+      var act=b.getAttribute("data-act");
+      if(act==="see"){ openRequestAnswer(r.id); return; }
+      if(!(C&&C.requests)) return;
+      if(act==="reopen") C.requests.reopen(r.id, function(){ _reqCache=null; showToast("Richiesta riaperta: il musicista può aggiornarla"); requestBadgeFor(it); });
+      else if(act==="revoke") C.requests.revoke(r.id, function(){ _reqCache=null; showToast("Link annullato"); requestBadgeFor(it); });
+    };
   }
   if(_reqCache) paint(); else requestsRefresh(paint);
 }
@@ -18310,38 +18336,10 @@ function openRequestLink(reqId, nome, token){
       box.querySelector("#rqCopyText").addEventListener("click", function(){ copia(testo,"Messaggio copiato"); });
     });
 }
-/* ---------------------------------------------------------------- finestra: elenco e risposte */
-function openRequestsPanel(){
-  var C=window.__cloud;
-  if(!C || !C.user() || !C.currentId()){ showToast("Accedi e salva il progetto per vedere le richieste","err"); return; }
-  var ov=reqModal("Richieste ai musicisti", '<div id="rqList" class="prop-hint">Carico…</div>', [["Chiudi","",null]]);
-  requestsRefresh(function(rows){
-    var box=ov.querySelector("#rqList");
-    if(!rows || !rows.length){ box.textContent="Nessuna richiesta. Seleziona un musicista sul palco e usa «Richiedi setup»."; return; }
-    box.className="";
-    box.innerHTML=rows.map(function(r){
-      var quando = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString("it-IT") : "";
-      return '<div class="prop-card" data-req="'+esc(r.id)+'">'+
-        '<div class="prop-card__head">'+esc(r.recipient_name||"Senza nome")+
-          ' <span class="muted">'+esc(r.recipient_role||"")+'</span></div>'+
-        '<div class="prop-hint" style="margin-top:0">'+esc(REQ_STATUS_LABEL[r.status]||r.status)+
-          (quando?" · risposta del "+quando:"")+(r.current_version>1?" · versione "+r.current_version:"")+'</div>'+
-        '<div class="btns" style="margin-top:8px">'+
-          (r.submitted_at?'<button type="button" class="btn primary" data-act="see">Vedi risposta</button>':'')+
-          (r.status==="submitted"?'<button type="button" class="btn" data-act="reopen">Riapri</button>':'')+
-          (r.status!=="revoked"&&r.status!=="closed"?'<button type="button" class="btn" data-act="revoke">Annulla</button>':'')+
-        '</div></div>';
-    }).join("");
-    box.addEventListener("click", function(e){
-      var b=e.target.closest("[data-act]"); if(!b) return;
-      var id=b.closest("[data-req]").getAttribute("data-req");
-      var act=b.getAttribute("data-act");
-      if(act==="see") openRequestAnswer(id);
-      else if(act==="reopen") C.requests.reopen(id, function(){ _reqCache=null; showToast("Richiesta riaperta: il musicista può aggiornarla"); ov.remove(); openRequestsPanel(); });
-      else if(act==="revoke") C.requests.revoke(id, function(){ _reqCache=null; showToast("Link annullato"); ov.remove(); openRequestsPanel(); });
-    });
-  });
-}
+/* L'ELENCO delle richieste (finestra a sé, aperta dal menu File) è stato tolto il 13/08: le sue
+   tre azioni — vedi risposta, riapri, annulla il link — sono ora sotto la postazione a cui la
+   richiesta appartiene, nel pannello dell'elemento. Una richiesta senza il suo musicista non
+   voleva dire niente, e l'elenco costava una voce di menu per non aggiungere nulla. */
 /* ---------------------------------------------------------------- finestra: risposta + proposta */
 function openRequestAnswer(reqId){
   var C=window.__cloud;
@@ -18410,7 +18408,6 @@ function reqModal(titolo, html, azioni, onReady){
   if(onReady) onReady(card);
   return ov;
 }
-window.openRequestsPanel=openRequestsPanel;
 /* ===== PROPOSTA OPERATIVA dalle risposte del musicista (spec docs/richieste/SPEC_R1.md) =====
    Le risposte NON toccano il palco: entrano qui e diventano un elenco di cose da fare, che il
    tecnico applica una per una. Il motore è puro (niente DOM, niente rete): riceve le risposte e
@@ -19949,11 +19946,15 @@ document.getElementById("bNew").addEventListener("click", function(){
     if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Usa Esporta recupero se ti serve una copia.",true);
     return;
   }
-  confirmDialog({
+  /* Conferma solo se c'è davvero qualcosa da perdere (13/08): su un palco ancora vuoto l'avviso
+     «verrà chiuso» parlava di un lavoro che non esisteva, e ora che «Nuovo…» è già una finestra di
+     scelta sarebbero state due finestre di fila per non azzerare niente. */
+  var chiedi = (typeof hasMeaningfulDocument==="function") ? hasMeaningfulDocument() : true;
+  (chiedi ? confirmDialog({
     icon:"warn", title:"Nuovo stage plot?",
     message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato, esportalo o salvalo prima: verrà chiuso.",
     confirmText:"Azzera e ricomincia"
-  }).then(function(ok){
+  }) : Promise.resolve(true)).then(function(ok){
     if(!ok) return;
     guardDocumentReplacement({skipConfirm:true,allowBlockedDiscard:true,reason:"nuovo progetto"},function(){
       window.__docLoadBlocked=null;   /* scelta esplicita: abbandona l'eventuale documento locale incompatibile */
@@ -20435,31 +20436,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     }
   }
   window.fileSaveVersion=fileSaveCloud;   /* alias legacy: ⌘S e vecchi call site puntano qui */
-  function fileMakeCopy(){
-    var C=window.__cloud;
-    if(!(C&&C.user())){ proxyClick("bCloud"); return; }   /* la copia è un concetto cloud: prima accedi */
-    detachCloudDoc();   /* nuova identità: invalida anche un eventuale INSERT senza ID ancora in volo */
-    state.titolo=(state.titolo||"Senza titolo")+" — copia";
-    setEventInputs(); save();
-    if(window.flushCloudAutosave) window.flushCloudAutosave(function(ok){
-      if(window.__toast) window.__toast(ok?"✓ Copia creata nel cloud.":"Copia non ancora salvata nel cloud; resta sul dispositivo.",!ok);
-    });
-  }
+  /* «Crea una copia» tolta dal menu (13/08): duplicare un progetto si fa da «I miei progetti», dove
+     il pulsante Duplica agisce su QUALSIASI riga e non solo sul documento aperto. */
   bindMenu("fileBtn","fileMenu"); bindMenu("helpBtn","helpMenu");
   (function(){
-    var acts={ "new":function(){proxyClick("bNew");}, "open":function(){proxyClick("bHdrImport");},
-      "model":function(){ if(window.openModelPicker) window.openModelPicker(); },
+    var acts={ "new":function(){ if(window.openNewDialog) window.openNewDialog(); else proxyClick("bNew"); },
       "projects":function(){proxyClick("bCloud");},
       "rubrica":function(){ var C=window.__cloud; if(C&&C.user()){ if(window.__openRubricaModal) window.__openRubricaModal(); } else { proxyClick("bCloud"); } },   /* rubrica account: da loggato la modale, altrimenti prima l'accesso */
-      "rename":function(){var t=document.getElementById("titolo"); t.focus(); t.select();},
-      "copy":fileMakeCopy, "variant-new":function(){ if(typeof createVariant==="function") createVariant(); }, "download":function(){proxyClick("saveJson");}, "pdf":function(){proxyClick("bHdrPdf");},
-      "png":function(){proxyClick("frameSavePng");}, "csv":function(){ if(window.openCsvExport) window.openCsvExport(); }, "save":fileSaveCloud,
-      "share":function(){openShare();}, "produzione":function(){ if(window.openProdHub) window.openProdHub(); },
-      /* I punti di ripristino esistevano già — li scrivono import, File→Nuovo, conflitto fra schede e
-         aggiornamento — ma l'unico comando che apriva il pannello era agganciato a #frameVers, un id
-         sparito da una vecchia barra: la rete di sicurezza era scritta e irraggiungibile (06/08). */
-      "versioni":function(){ if(typeof toggleVersionEdit==="function") toggleVersionEdit(); },
-      "richieste":function(){ if(window.openRequestsPanel) window.openRequestsPanel(); } };
+      "variant-new":function(){ if(typeof createVariant==="function") createVariant(); },
+      "save":fileSaveCloud };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
       var a=x.getAttribute("data-help");
@@ -20472,6 +20457,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      solo «Condividi» (06/08). ⌘P resta la scorciatoia, ora annunciata dal title. */
   (function(){ var b=document.getElementById("bExportHdr");
     if(b) b.addEventListener("click", function(){ document.getElementById("bHdrPdf").click(); }); })();
+  (function(){ var b=document.getElementById("bProdHdr");
+    if(b) b.addEventListener("click", function(){ if(window.openProdHub) window.openProdHub(); }); })();
   document.getElementById("shareClose").addEventListener("click", closeShare);
   /* — pulsanti header: Save as / Importa — */
   document.getElementById("bHdrPdf").addEventListener("click", function(){
@@ -24261,9 +24248,12 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     /* NB: modelli "per tipo di sala" e "venue famose" tolti dal picker su richiesta (13/07): resta solo "per formazione".
        Le funzioni startFromVenue/startFromFamousVenue/makeVenueBackdrop/drawVenuePlan restano nel codice (dormienti) per riprendere l'argomento in futuro. */
     var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });
+    var mpe=document.getElementById("mpEmpty");   /* la strada "da zero": chiude la finestra e passa al comando di azzeramento */
+    if(mpe) mpe.addEventListener("click", function(){ mp.hidden=true; if(window.proxyClick) window.proxyClick("bNew"); });
     mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
     document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });
-    window.openModelPicker=function(){ mp.hidden=false; };   /* aperto dalla voce File "Nuovo da modello…" */
+    window.openModelPicker=function(){ mp.hidden=false; };
+    window.openNewDialog=window.openModelPicker;   /* unico ingresso di "Nuovo…": menu File e sheet mobile */
   }
 })();
 /* ===== Dimensioni del primo palco (progetto nuovo, ancora senza palco) =====
@@ -24573,6 +24563,15 @@ function maybeAskStageSize(explicit){
   }
   function projTitle(){ return (state.titolo||state.luogo||"").trim() || "Senza titolo"; }
 
+  /* «Punti di ripristino…» è uscito dal menu File (13/08) e vive qui, accanto alle altre azioni sul
+     progetto. Il pannello si apre nella colonna destra: il modale va chiuso prima, o lo coprirebbe. */
+  function bindVersioniLink(){
+    var v=document.getElementById("cloudVersioni"); if(!v) return;
+    v.addEventListener("click", function(e){
+      e.preventDefault(); closeModal();
+      if(typeof window.toggleVersionEdit==="function") window.toggleVersionEdit();
+    });
+  }
   function modalOpen(){ return modalEl && modalEl.style.display!=="none"; }
   function openModal(){ if(!modalEl) return; modalEl.style.display="flex"; renderModal(); if(cloudUser) loadProjects(); }
   function closeModal(){ if(modalEl) modalEl.style.display="none"; }
@@ -24586,8 +24585,12 @@ function maybeAskStageSize(explicit){
         '<button id="cloudSignin" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid #dadce0;border-radius:9px;background:#fff;color:#3c4043;font-weight:600;font-size:15px;cursor:pointer">'+
           '<svg width="18" height="18" viewBox="0 0 48 48" style="width:18px;height:18px;flex:none"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'+
           'Accedi con Google</button>'+
-        '<p style="margin:13px 0 0;font-size:12px;color:var(--text-3);text-align:center;line-height:1.5">Accedendo accetti la <a href="/privacy/" target="_blank" rel="noopener" style="color:var(--text-3);text-decoration:underline">Privacy Policy</a>.</p>';
+        '<p style="margin:13px 0 0;font-size:12px;color:var(--text-3);text-align:center;line-height:1.5">Accedendo accetti la <a href="/privacy/" target="_blank" rel="noopener" style="color:var(--text-3);text-decoration:underline">Privacy Policy</a>.</p>'+
+        /* I punti di ripristino sono LOCALI (li scrivono salvataggio, import e File→Nuovo): servono
+           anche — e soprattutto — a chi non ha un account, quindi il link sta in entrambi i rami. */
+        '<a href="#" id="cloudVersioni" style="display:block;margin-top:14px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Punti di ripristino…</a>';
       var b=document.getElementById("cloudSignin"); if(b) b.addEventListener("click", signIn);
+      bindVersioniLink();
       return;
     }
     var rows="";
@@ -24618,9 +24621,11 @@ function maybeAskStageSize(explicit){
       '<p style="color:var(--text-3);font-size:12px;margin:0 0 8px">I tuoi progetti si salvano online automaticamente mentre lavori (V. stato accanto al nome del progetto).</p>'+
       '<div style="margin-top:10px">'+rows+'</div>'+
       '<a href="#" id="cloudRubrica" style="display:block;margin-top:12px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">La mia rubrica…</a>'+
+      '<a href="#" id="cloudVersioni" style="display:block;margin-top:6px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Punti di ripristino…</a>'+
       '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:6px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     var rubL=document.getElementById("cloudRubrica"); if(rubL) rubL.addEventListener("click", function(e){ e.preventDefault(); if(window.__openRubricaModal) window.__openRubricaModal(); });
+    bindVersioniLink();
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudRename"), function(b){ b.addEventListener("click", function(){ renameProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDel"), function(b){ b.addEventListener("click", function(){ delProject(b.getAttribute("data-id")); }); });

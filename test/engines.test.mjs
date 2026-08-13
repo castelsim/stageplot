@@ -10054,6 +10054,60 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/È nuovo, e te lo dico/.test(landing), "e c'è la dichiarazione di novità al posto della prova che non c'è");
 });
 
+/* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
+t("il menu File resta essenziale, e ogni voce ha la sua azione", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const menu = html.slice(html.indexOf('id="fileMenu"'), html.indexOf('id="helpMenu"'));
+  const voci = [...menu.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]);
+  eq(voci.length, 5, "cinque voci, non una di più: " + voci.join(", "));
+  ["new", "projects", "rubrica", "save", "variant-new"].forEach(v =>
+    ok(voci.indexOf(v) > -1, "c'è la voce «" + v + "»"));
+  /* Il difetto storico di questo menu è la voce che resta scritta e perde il suo comando
+     (stageplot_menu_file_comandi_persi): qui si pretende che ogni data-file compaia nella mappa
+     `acts`, e che la mappa non contenga chiavi senza voce — codice morto in agguato. */
+  const acts = appjs.slice(appjs.indexOf("var acts={"), appjs.indexOf("#fileMenu .mi"));
+  const chiavi = [...acts.matchAll(/"([a-z-]+)":/g)].map(m => m[1]);
+  voci.forEach(v => ok(chiavi.indexOf(v) > -1, "la voce «" + v + "» ha un'azione"));
+  chiavi.forEach(k => ok(voci.indexOf(k) > -1, "l'azione «" + k + "» ha la sua voce"));
+});
+
+t("niente di quello che è uscito dal menu è diventato irraggiungibile", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* Ogni riga: cosa è uscito → dove si trova adesso. È il test che discrimina davvero — cancellare
+     una voce è facile, il costo è la funzione che nessuno raggiunge più. */
+  ok(/id="bProdHdr"/.test(html), "Produzione: pulsante nell'header");
+  ok(/getElementById\("bProdHdr"\)[\s\S]{0,120}openProdHub/.test(appjs), "e apre davvero l'hub");
+  ok(/id="cloudVersioni"/.test(appjs), "Punti di ripristino: link in «I miei progetti»");
+  ok(/cloudVersioni[\s\S]{0,300}toggleVersionEdit/.test(appjs), "e apre davvero il pannello versioni");
+  eq(appjs.split('id="cloudVersioni"').length - 1, 2, "in ENTRAMBI i rami: le versioni sono locali, servono anche senza account");
+  ok(/id="pReqActs"/.test(html), "Risposte dei musicisti: azioni sull'elemento");
+  ok(/openRequestAnswer\(r\.id\)/.test(appjs), "e «Vedi risposta» la apre davvero");
+  ok(/id="mpEmpty"/.test(html), "Palco vuoto: scelta dentro la finestra «Nuovo…»");
+  ok(/mpEmpty[\s\S]{0,300}proxyClick\("bNew"\)/.test(appjs), "e azzera davvero");
+  ok(/data-j="imp"/.test(appjs) && /data-j="exp"/.test(appjs), "Apri/Scarica progetto: restano dietro «json» nella ricerca");
+  ok(/class="cloudDup"/.test(appjs), "Crea una copia: Duplica in «I miei progetti»");
+  /* le sole ETICHETTE del menu: il commento che spiega il taglio nomina le voci tolte, e cercarle
+     nel blocco intero farebbe fallire il test sulla propria motivazione */
+  const menu = html.slice(html.indexOf('id="fileMenu"'), html.indexOf('id="helpMenu"'));
+  const etichette = [...menu.matchAll(/<button class="mi"[^>]*>([\s\S]*?)<\/button>/g)]
+    .map(m => m[1].replace(/<[^>]*>/g, " ")).join(" | ");   /* via i tag: una voce senza icona non deve sfuggire */
+  ["Esporta PDF", "Esporta PNG", "Condividi", "Rinomina", "Crea una copia"].forEach(x =>
+    eq(etichette.indexOf(x), -1, "«" + x + "» non è più nel menu: era già a un clic nell'header"));
+});
+
+t("«Nuovo…» apre la scelta, e non avvisa di un lavoro che non c'è", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const picker = html.slice(html.indexOf('id="modelPicker"'), html.indexOf('id="csvPicker"'));
+  ok(/Nuovo stage plot/.test(picker), "la finestra si chiama come il comando che la apre");
+  ok(/Palco vuoto/.test(picker) && /id="mpMods"/.test(picker), "le due strade stanno una accanto all'altra");
+  /* Prima la conferma di azzeramento partiva SEMPRE: su un palco ancora vuoto annunciava la perdita
+     di un lavoro inesistente, e con la nuova finestra sarebbero state due finestre di fila. */
+  const nuovo = appjs.slice(appjs.indexOf('getElementById("bNew").addEventListener'), appjs.indexOf('getElementById("bNew").addEventListener') + 1200);
+  ok(/hasMeaningfulDocument\(\)/.test(nuovo), "la conferma è condizionata al documento");
+  ok(/Promise\.resolve\(true\)/.test(nuovo), "e su un palco vuoto si prosegue diritti");
+  ok(/Azzera e ricomincia/.test(nuovo), "quando invece c'è del lavoro, l'avviso resta");
+});
+
 /* --- Entità e markup delle guide (13/08) ------------------------------------------------------
    L'analisi GEO diceva: per un modello «StagePlot» non è un'entità, collide con StagePlot Guru e
    Stageplot Pro. Il markup da solo non crea un marchio, ma è il prerequisito perché le menzioni
