@@ -10082,7 +10082,8 @@ t("niente di quello che è uscito dal menu è diventato irraggiungibile", () => 
   /* le sole ETICHETTE del menu: il commento che spiega il taglio nomina le voci tolte, e cercarle
      nel blocco intero farebbe fallire il test sulla propria motivazione */
   const menu = html.slice(html.indexOf('id="fileMenu"'), html.indexOf('id="helpMenu"'));
-  const etichette = [...menu.matchAll(/<button class="mi"[^>]*>[\s\S]*?<\/svg>([^<]*)/g)].map(m => m[1]).join(" | ");
+  const etichette = [...menu.matchAll(/<button class="mi"[^>]*>([\s\S]*?)<\/button>/g)]
+    .map(m => m[1].replace(/<[^>]*>/g, " ")).join(" | ");   /* via i tag: una voce senza icona non deve sfuggire */
   ["Esporta PDF", "Esporta PNG", "Condividi", "Rinomina", "Crea una copia"].forEach(x =>
     eq(etichette.indexOf(x), -1, "«" + x + "» non è più nel menu: era già a un clic nell'header"));
 });
