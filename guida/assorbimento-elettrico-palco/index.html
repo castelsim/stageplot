@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assorbimento elettrico di un palco: quanti kW | StagePlot</title>
+  <meta name="description" content="Come calcolare l'assorbimento elettrico di un palco: da watt ad ampere, le prese CEE, quando serve un generatore e come dimensionarlo in kVA.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/assorbimento-elettrico-palco/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Assorbimento elettrico di un palco: quanti kW">
+  <meta property="og:description" content="Da watt ad ampere, le prese CEE che trovi sul palco, quando serve un generatore e come dimensionarlo in kVA. Con tabelle e formule spiegate da un fonico.">
+  <meta property="og:url" content="https://stageplot.it/guida/assorbimento-elettrico-palco/">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Assorbimento elettrico di un palco: quanti kW">
+  <meta name="twitter:description" content="Da watt ad ampere, prese CEE, generatore in kVA. Con tabelle e formule, spiegate da un fonico.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Assorbimento elettrico del palco","item":"https://stageplot.it/guida/assorbimento-elettrico-palco/"}
+      ]},
+      {"@type":"Article","headline":"Assorbimento elettrico di un palco: quanti kW","inLanguage":"it","datePublished":"2026-08-13","dateModified":"2026-08-13","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/assorbimento-elettrico-palco/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
+      {"@type":"HowTo","name":"Come stimare l'assorbimento elettrico di un palco","inLanguage":"it","step":[
+        {"@type":"HowToStep","name":"Elenca gli apparecchi","text":"Fai la lista di tutto ciò che consuma corrente sul palco: PA, monitor attivi, backline amplificato, luci e macchine del fumo."},
+        {"@type":"HowToStep","name":"Somma gli assorbimenti","text":"Assegna a ogni apparecchio il suo assorbimento tipico in watt e somma il totale. Luci e PA pesano più di tutto il resto."},
+        {"@type":"HowToStep","name":"Aggiungi un margine","text":"Aumenta il totale del 20-30% per gli spunti dei finali di potenza e delle macchine del fumo, che assorbono a impulsi."},
+        {"@type":"HowToStep","name":"Converti in ampere e scegli l'alimentazione","text":"Dividi i watt per la tensione per ottenere gli ampere e scegli la presa, il quadro o il generatore adeguato al carico."}
+      ]},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Quanti kW servono per un concerto?","acceptedAnswer":{"@type":"Answer","text":"Dipende dalla scala. Un piccolo live in un club (PA attiva, backline, poche luci) sta spesso sotto i 5-6 kW e basta una linea monofase da 32A. Un palco medio con impianto e luci LED arriva a 10-20 kW su una trifase da 32A. Un festival supera facilmente i 40-60 kW e richiede quadri e generatore dedicati."}},
+        {"@type":"Question","name":"Quanti watt regge una presa da palco standard?","acceptedAnswer":{"@type":"Answer","text":"Una presa civile o una CEE monofase da 16A a 230V regge circa 3,6 kW (230 per 16). Una CEE monofase da 32A arriva a circa 7,4 kW e una CEE trifase da 32A a 400V a circa 22 kW. In continuo conviene non superare l'80% di questi valori."}},
+        {"@type":"Question","name":"Come si calcolano gli ampere dai watt?","acceptedAnswer":{"@type":"Answer","text":"In monofase dividi i watt per la tensione: 3.680 W diviso 230 V fa 16 A. In trifase dividi per la tensione di linea moltiplicata per la radice di tre: 22.000 W diviso (400 per 1,732) fa circa 32 A. Per una stima veloce si assume il fattore di potenza vicino a 1."}},
+        {"@type":"Question","name":"Quando serve un generatore per un evento?","acceptedAnswer":{"@type":"Answer","text":"Quando il locale non ha una linea con potenza o presa adeguata al carico, o per eventi all'aperto senza allaccio di rete. Il generatore va dimensionato lasciando margine: non dovrebbe superare il 70-80% del suo carico nominale in continuo."}},
+        {"@type":"Question","name":"Come si dimensiona un generatore in kVA?","acceptedAnswer":{"@type":"Answer","text":"Converti il carico da kW a kVA dividendo per il fattore di potenza (per un impianto audio e luci misto, circa 0,9). Poi aggiungi margine per gli spunti e per non far lavorare il gruppo oltre l'80%: in pratica scegli un generatore con kVA pari a circa 1,4 volte il carico in kW."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/app/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/app/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Assorbimento elettrico del palco
+    </nav>
+
+    <h1>Assorbimento elettrico di un palco: quanti kW e ampere servono</h1>
+    <p class="lead">Prima di ogni concerto qualcuno deve rispondere a una domanda semplice e spesso rimandata: la corrente basta? Qui c'è come calcolarla — da watt ad ampere, senza gergo — e come evitare che salti a metà set.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 13/08/2026</p>
+
+    <h2>Cos'è l'assorbimento elettrico di un palco?</h2>
+    <p>L'<strong>assorbimento elettrico</strong> di un palco è la somma della potenza, in watt, che tutti gli apparecchi assorbono quando lavorano insieme: impianto audio, monitor, backline amplificato, luci e macchine sceniche. Serve a una cosa concreta — sapere se la presa o il quadro del locale reggono, e se no, quanta corrente procurarsi o quanto grande deve essere il generatore. È il conto che nessuno ama fare e che, quando manca, si fa da solo la sera del concerto facendo saltare l'interruttore nel momento peggiore.</p>
+    <p>Non è un dato che compare quasi mai su uno stage plot o su una <a href="/guida/scheda-tecnica-band/">scheda tecnica</a>, eppure è ciò che distingue un palco che regge da uno che si spegne. In un <a href="/guida/rider-tecnico/">rider tecnico</a> completo l'assorbimento e la distribuzione elettrica sono una sezione a sé, e chi organizza li legge prima ancora della channel list.</p>
+
+    <h2>Da watt ad ampere: la formula</h2>
+    <p>Le prese e i quadri si misurano in <strong>ampere</strong> (la corrente), gli apparecchi in <strong>watt</strong> (la potenza). Per capire se un carico ci sta in una presa devi passare dagli uni agli altri. Sono due formule, secondo il tipo di alimentazione.</p>
+    <ul>
+      <li><strong>Monofase (230V)</strong> — la corrente in ampere è i watt divisi per la tensione: <code>A = W ÷ 230</code>. Esempio: 3.680 W ÷ 230 V = 16 A. È il caso delle prese civili e delle CEE monofase.</li>
+      <li><strong>Trifase (400V)</strong> — la corrente per ogni fase è i watt divisi per la tensione di linea moltiplicata per la radice di tre: <code>A = W ÷ (400 × 1,732)</code>. Esempio: 22.000 W ÷ 693 ≈ 32 A. È il caso dei quadri e delle CEE rosse dei palchi medi e grandi.</li>
+    </ul>
+    <p>In entrambe si assume, per una stima da campo, un fattore di potenza (cosφ) vicino a 1: per audio e luci moderne con alimentatori corretti è un'approssimazione ragionevole e prudente.</p>
+
+    <h2>Le prese che trovi sul palco: quanti kW reggono</h2>
+    <p>Questi sono i valori di riferimento delle prese e degli allacci più comuni, calcolati con le formule sopra. In continuo conviene <strong>non superare l'80%</strong> di questi massimi, per lasciare respiro agli spunti.</p>
+    <table class="ch-table">
+      <caption>Potenza indicativa delle prese e degli allacci più comuni sul palco</caption>
+      <thead><tr><th>Presa / allaccio</th><th>Sistema</th><th>Corrente</th><th>Potenza indicativa</th></tr></thead>
+      <tbody>
+        <tr><td>Presa civile / Schuko</td><td>Monofase 230V</td><td>16A</td><td>~3,6 kW</td></tr>
+        <tr><td>CEE blu</td><td>Monofase 230V</td><td>16A</td><td>~3,6 kW</td></tr>
+        <tr><td>CEE blu</td><td>Monofase 230V</td><td>32A</td><td>~7,4 kW</td></tr>
+        <tr><td>CEE rossa</td><td>Trifase 400V</td><td>16A</td><td>~11 kW</td></tr>
+        <tr><td>CEE rossa</td><td>Trifase 400V</td><td>32A</td><td>~22 kW</td></tr>
+        <tr><td>CEE rossa</td><td>Trifase 400V</td><td>63A</td><td>~44 kW</td></tr>
+      </tbody>
+    </table>
+    <p>Una nota che evita la sera storta: la potenza trifase è divisa sulle tre fasi. Un quadro da 32A trifase regge ~22 kW <em>solo se</em> il carico è bilanciato tra le fasi; se attacchi tutto l'impianto a una fase sola, quella fase salta a un terzo del totale. Distribuire i carichi in modo equilibrato è metà del lavoro.</p>
+
+    <h2>Quanto assorbe ogni apparecchio: valori tipici</h2>
+    <p>Ecco gli ordini di grandezza con cui fare il conto. Sono <strong>valori indicativi a livello di programma musicale</strong>, non i massimi di targa: un finale di potenza raramente lavora a piena potenza in continuo, e quasi sempre assorbe molto meno del suo numero sul retro. Il conto vero lo fanno luci e PA; la strumentazione da palco pesa poco.</p>
+    <table class="ch-table">
+      <caption>Assorbimento tipico degli apparecchi di un palco</caption>
+      <thead><tr><th>Apparecchio</th><th>Assorbimento tipico</th></tr></thead>
+      <tbody>
+        <tr><td>Mixer digitale</td><td>40–100 W</td></tr>
+        <tr><td>Diffusore attivo (top)</td><td>150–400 W cad.</td></tr>
+        <tr><td>Subwoofer attivo</td><td>300–800 W cad.</td></tr>
+        <tr><td>Monitor spia attivo</td><td>150–400 W cad.</td></tr>
+        <tr><td>Testata / combo per basso</td><td>300–600 W</td></tr>
+        <tr><td>Combo valvolare per chitarra</td><td>50–150 W</td></tr>
+        <tr><td>Tastiera / synth</td><td>20–60 W cad.</td></tr>
+        <tr><td>Faro LED (PAR)</td><td>50–200 W cad.</td></tr>
+        <tr><td>Faro tradizionale PAR64</td><td>500–1000 W cad.</td></tr>
+        <tr><td>Testa mobile LED</td><td>200–500 W cad.</td></tr>
+        <tr><td>Macchina del fumo / hazer</td><td>400–1500 W (a impulsi)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fattore di contemporaneità e margine di sicurezza</h2>
+    <p>Sommare tutti i massimi dà un numero più alto della realtà, perché non tutto va al picco nello stesso istante: la batteria di fari non lampeggia tutta insieme, il basso non è sempre a fondo. Questo è il <strong>fattore di contemporaneità</strong>. Ma non è una scusa per tirare via: le macchine del fumo e gli spunti dei finali assorbono a strappi, e sono proprio quegli strappi a far scattare la protezione.</p>
+    <p>La regola pratica che uso: somma gli assorbimenti tipici, aggiungi un <strong>margine del 20–30%</strong>, e dimensiona la linea perché quel totale stia sotto l'80% della sua portata. Meglio una presa più grande e mai usata al limite che una al limite che ti lascia a piedi.</p>
+
+    <h2>Quando serve un generatore e come si dimensiona in kVA</h2>
+    <p>Serve un generatore quando il locale non ha una linea con potenza o presa adeguata al carico, oppure per eventi all'aperto senza allaccio di rete. I generatori si misurano in <strong>kVA</strong> (potenza apparente), non in kW: per passare dal carico in kW ai kVA si divide per il fattore di potenza, che per un impianto audio e luci misto vale circa 0,9.</p>
+    <p>Poi va aggiunto margine, per due motivi: gli spunti all'accensione e il fatto che un gruppo elettrogeno non va fatto lavorare oltre il 70–80% del suo nominale in continuo. In pratica: scegli un generatore con <strong>kVA pari a circa 1,4 volte il carico in kW</strong>. Un palco che assorbe 15 kW vuole un gruppo da almeno 20–22 kVA, non da 15.</p>
+
+    <h2>Come StagePlot calcola l'assorbimento</h2>
+    <p>Questo è il conto che l'editor fa per te. Quando metti sul palco impianto, monitor, backline e luci, <a href="/app/">StagePlot</a> assegna a ogni elemento il suo assorbimento, li somma, li raggruppa per fase e ti mostra il totale rispetto al quadro che hai scelto — segnalando se sei dentro i margini o se stai chiedendo troppo a una presa. Da lì propone la distribuzione (la <em>distro</em>) e una stima del generatore, così l'assorbimento smette di essere il numero che scopri la sera e diventa una riga del tuo rider, decisa a tavolino.</p>
+    <p>È la parte che i comuni disegnatori di stage plot non hanno: loro fermano al dove-sta-cosa, qui il palco sa anche quanta corrente chiede.</p>
+
+    <div class="cta-box">
+      <h2>Calcola l'assorbimento del tuo palco</h2>
+      <p>Metti gli apparecchi sul palco e leggi il totale in watt e ampere, con la distribuzione già pronta. Gratis, nel browser.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/app/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+        <a class="btn consul" href="/consulenza/">Fatti revisionare da un fonico</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Quanti kW servono per un concerto?</summary><p>Dipende dalla scala. Un piccolo live in un club (PA attiva, backline, poche luci) sta spesso sotto i 5-6 kW e basta una linea monofase da 32A. Un palco medio con impianto e luci LED arriva a 10-20 kW su una trifase da 32A. Un festival supera facilmente i 40-60 kW e richiede quadri e generatore dedicati.</p></details>
+      <details><summary>Quanti watt regge una presa da palco standard?</summary><p>Una presa civile o una CEE monofase da 16A a 230V regge circa 3,6 kW (230 per 16). Una CEE monofase da 32A arriva a circa 7,4 kW e una CEE trifase da 32A a 400V a circa 22 kW. In continuo conviene non superare l'80% di questi valori.</p></details>
+      <details><summary>Come si calcolano gli ampere dai watt?</summary><p>In monofase dividi i watt per la tensione: 3.680 W diviso 230 V fa 16 A. In trifase dividi per la tensione di linea moltiplicata per la radice di tre: 22.000 W diviso (400 per 1,732) fa circa 32 A. Per una stima veloce si assume il fattore di potenza vicino a 1.</p></details>
+      <details><summary>Quando serve un generatore per un evento?</summary><p>Quando il locale non ha una linea con potenza o presa adeguata al carico, o per eventi all'aperto senza allaccio di rete. Il generatore va dimensionato lasciando margine: non dovrebbe superare il 70-80% del suo carico nominale in continuo.</p></details>
+      <details><summary>Come si dimensiona un generatore in kVA?</summary><p>Converti il carico da kW a kVA dividendo per il fattore di potenza (per un impianto audio e luci misto, circa 0,9). Poi aggiungi margine per gli spunti e per non far lavorare il gruppo oltre l'80%: in pratica scegli un generatore con kVA pari a circa 1,4 volte il carico in kW.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/rider-tecnico/"><strong>Rider tecnico</strong><span>Cos'è, cosa contiene e come si prepara</span></a>
+        <a href="/guida/scheda-tecnica-band/"><strong>Scheda tecnica della band</strong><span>Come compilarla passo per passo</span></a>
+        <a href="/guida/stage-plot-in-scala/"><strong>Stage plot in scala reale</strong><span>Da dove partono distanze e carichi</span></a>
+      </div>
+    </div>
+
+  <aside class="author-card">
+    <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+    <p class="ac-bio">Fonico per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato StagePlot per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+    <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+  </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/app/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
