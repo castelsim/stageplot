@@ -540,6 +540,21 @@ addEventListener("hashchange", go);})();</script>
   .onesto p{color:var(--mut);font-size:16px;max-width:68ch}
   .onesto p+p{margin-top:14px}
   .onesto b{color:var(--text);font-weight:600}
+  /* il registro sta dentro il riquadro della trasparenza: è la prosecuzione dello stesso discorso */
+  .registro{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+  .reg-k{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;
+         color:var(--mut);margin-bottom:14px}
+  .reg-r{display:flex;gap:16px;padding:9px 0;border-bottom:1px solid #151f1e;align-items:baseline}
+  .reg-r:last-of-type{border-bottom:0}
+  .reg-r time{font-family:var(--mono);font-size:12.5px;color:var(--teal-l);flex:0 0 54px}
+  .reg-r p{margin:0;font-size:15px;color:var(--mut);max-width:62ch}
+  .reg-r b{color:var(--text);font-weight:600}
+  .mono-s{font-family:var(--mono);font-size:13.5px}
+  .reg-note{margin-top:16px;font-size:14px;color:var(--mut);opacity:.85}
+  @media(max-width:700px){
+    .reg-r{flex-direction:column;gap:2px;padding:11px 0}
+    .reg-r time{flex:none}
+  }
 
   .who{margin-top:60px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   @media(max-width:860px){.who{grid-template-columns:1fr}}
@@ -1282,6 +1297,27 @@ addEventListener("hashchange", go);})();</script>
       (223 microfoni con tipo, polare, phantom e asta, presi dalle schede dei costruttori); e il fatto
       che dietro c'è <b>una persona sola, con nome, cognome e mail</b> — non un modulo di contatto.</p>
     <p>Se lo provi e non funziona, il box «Cosa manca?» dentro l'editor arriva a me, e rispondo io.</p>
+
+    <!-- Il registro. Non è un changelog per sviluppatori: sono cose che un fonico riconosce, prese
+         dai commit veri e tradotte. Serve a dimostrare l'unica cosa che si può dimostrare senza
+         clienti — che il prodotto è vivo e che chi lo scrive lo usa. Ogni voce dev'essere vera e
+         datata: se un giorno resta ferma per mesi, questa sezione dice il contrario di quello che
+         deve dire, e un test lo ricorda. -->
+    <div class="registro">
+      <p class="reg-k">Le ultime cose sistemate</p>
+      <div class="reg-r"><time datetime="2026-08-12">12 ago</time>
+        <p>68 microfoni in più nel catalogo — <b>223 in tutto</b> — letti uno per uno sui documenti dei costruttori.</p></div>
+      <div class="reg-r"><time datetime="2026-08-12">12 ago</time>
+        <p>Scegliere il modello reale del microfono non faceva più sparire l'asta, e spalmava il +48V dove non serviva.</p></div>
+      <div class="reg-r"><time datetime="2026-08-11">11 ago</time>
+        <p>Nel PDF le scritte del disegno si leggono a ogni scala, e ogni quota è scritta una volta sola.</p></div>
+      <div class="reg-r"><time datetime="2026-08-11">11 ago</time>
+        <p>Il PDF esportato prende il nome del lavoro: prima si chiamava sempre <span class="mono-s">stage-plot.pdf</span>.</p></div>
+      <div class="reg-r"><time datetime="2026-08-11">11 ago</time>
+        <p>Il nome di un elemento non resta più coperto da quello del vicino.</p></div>
+      <p class="reg-note">Sono le voci degli ultimi giorni. Nascono dalle serate in cui è mancato qualcosa —
+        le mie, per ora.</p>
+    </div>
   </div>
 </div></section>
 
