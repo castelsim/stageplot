@@ -42,6 +42,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Scheda tecnica della band](https://stageplot.it/guida/scheda-tecnica-band/): come compilarla passo per passo, con esempio completo e gli errori da evitare
 - [Esempi di stage plot](https://stageplot.it/guida/esempi-stage-plot/): band, orchestra, coro e jazz
 - [Assorbimento elettrico del palco](https://stageplot.it/guida/assorbimento-elettrico-palco/): come calcolare i kW e gli ampere che assorbe un palco, le prese CEE e la loro potenza, quando serve un generatore e come dimensionarlo in kVA
+- [I microfoni riconosciuti](https://stageplot.it/guida/microfoni/): tabella di 223 microfoni con tipo, diagramma polare, phantom 48 V e asta consigliata, presi dalle schede dei costruttori
 
 ## Stage plot per formazione
 - [Stage plot per band](https://stageplot.it/stage-plot/band/)
