@@ -10344,5 +10344,28 @@ t("il catalogo è raggiungibile, e chi non ha JavaScript lo vede comunque", () =
   ok(l.indexOf("/guida/microfoni/") > -1, "llms.txt: la pagina c'è");
 });
 
+/* ===== UNA DATA SOLA PER PAGINA, IN TUTTI E TRE I POSTI (13/08) ========================== */
+t("sitemap, schema e byline dicono la stessa data, e la byline la dice in italiano", () => {
+  /* Le date stanno in tre posti scritti a mano e finora `allinea-date.mjs` ne guardava due: la terza
+     — la riga «aggiornato il …» sotto il titolo, l'unica che legge il visitatore — era ferma a
+     luglio su 11 pagine su 26. Qui si pretende che i tre coincidano, pagina per pagina. */
+  const sitemap = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const blocchi = [...sitemap.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)];
+  ok(blocchi.length >= 26, "la sitemap ha i suoi URL con lastmod: " + blocchi.length);
+  for (const [, url, lastmod] of blocchi) {
+    const p = url.replace("https://stageplot.it/", "");
+    const rel = p === "" ? "index.html" : p.replace(/\/$/, "") + "/index.html";
+    const html = readFileSync(join(root, rel), "utf8");
+    const dm = (html.match(/"dateModified"\s*:\s*"([^"]+)"/) || [])[1];
+    if (dm) eq(dm, lastmod, rel + ": lo schema e la sitemap devono dire la stessa data");
+    const by = html.match(/<p class="byline">[\s\S]{0,400}?aggiornat[oa] (il |l')(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!by) continue;
+    const [, art, g, m, a] = by;
+    eq([a, m, g].join("-"), lastmod, rel + ": la byline visibile deve dire la data del sitemap");
+    /* «il 16/07» ma «l'8» e «l'11»: la data la legge un umano, e va letta come si parla. */
+    eq(art, g === "08" || g === "11" ? "l'" : "il ", rel + ": l'articolo davanti al " + g);
+  }
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

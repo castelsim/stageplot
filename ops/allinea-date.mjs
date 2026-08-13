@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 /**
- * ALLINEA LE DATE DI MODIFICA — sitemap.xml e JSON-LD, da una fonte sola: git.
+ * ALLINEA LE DATE DI MODIFICA — sitemap.xml, JSON-LD e byline, da una fonte sola: git.
  *
- * Il problema che risolve: la data di ogni pagina è scritta a mano in DUE posti — `<lastmod>` nella
- * sitemap e `dateModified` nel JSON-LD — e due fonti separate divergono sempre. Al 13/08 divergevano
- * su cinque pagine, e su una il sitemap era più NUOVO del contenuto: Google usa `lastmod` per
- * decidere quando ripassare, e quando lo trova inaffidabile smette di fidarsene per tutto il sito.
+ * Il problema che risolve: la data di ogni pagina è scritta a mano in TRE posti — `<lastmod>` nella
+ * sitemap, `dateModified` nel JSON-LD e la riga «aggiornato il …» sotto il titolo — e tre fonti
+ * separate divergono sempre. Al 13/08 divergevano su cinque pagine, e su una il sitemap era più
+ * NUOVO del contenuto: Google usa `lastmod` per decidere quando ripassare, e quando lo trova
+ * inaffidabile smette di fidarsene per tutto il sito.
+ *
+ * La byline è entrata il 13/08, dopo aver scoperto che su QUINDICI pagine diceva un'altra cosa
+ * ancora (`come-fare-uno-stage-plot`: schema 13/08, byline 28/06; le 11 formazioni ferme a luglio).
+ * È la data più esposta delle tre — la leggono il visitatore e le AI che citano la pagina — ed era
+ * l'unica che nessuno controllava.
  *
  * La fonte diventa `git log -1` sul file: non è un'opinione, è quando la pagina è cambiata davvero.
  *
@@ -45,7 +51,11 @@ function dataGit(rel) {
         .toString();
     } catch { return data; }
     const righe = diff.split("\n").filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
-    const soloDate = righe.length > 0 && righe.every((l) => /dateModified|<lastmod>/.test(l));
+    /* La riga della byline porta con sé anche il testo che le sta intorno («A cura di…»): se un
+       commit cambiasse quel testo E la data insieme, verrebbe scambiato per un commit di sole date.
+       L'errore è dalla parte giusta — al più la pagina tiene una data un po' più vecchia — mentre
+       ignorare la byline qui farebbe rincorrere la coda a ogni esecuzione. */
+    const soloDate = righe.length > 0 && righe.every((l) => /dateModified|<lastmod>|aggiornat[oa] (?:il |l')\d{2}\/\d{2}\/\d{4}/.test(l));
     if (!soloDate) return data;          /* questo commit ha toccato il contenuto: è la data buona */
   }
   return (storia[0] || "").split(" ")[1] || null;
@@ -60,27 +70,46 @@ const fileDi = (url) => {
   return p === "" ? "index.html" : p.replace(/\/$/, "") + "/index.html";
 };
 
+/**
+ * La byline nella lingua in cui è scritta: «aggiornato il 16/07/2026», ma «aggiornato l'11/08/2026».
+ * L'articolo si elide davanti a otto e undici — le uniche due cifre del mese che cominciano per
+ * vocale — ed è così che sono scritte a mano le pagine già in produzione.
+ */
+const bylineIt = (iso) => {
+  const [a, m, g] = iso.split("-");
+  return `${g === "08" || g === "11" ? "l'" : "il "}${g}/${m}/${a}`;
+};
+/* Solo dentro `<p class="byline">`: nel corpo delle guide ci sono altre frasi con una data
+   («rider aggiornato al 03/08/2026») che non c'entrano con la modifica della pagina. E l'articolo
+   sta DENTRO il gruppo catturato, non fuori: confrontando la sola data, una pagina con la data
+   giusta e l'articolo sbagliato («il 11/08») risultava a posto e restava com'era. */
+const RE_BYLINE = /(<p class="byline">[\s\S]{0,400}?aggiornat[oa] )((?:il |l')\d{2}\/\d{2}\/\d{4})/;
+
 const blocchi = [...sitemap.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)];
 const cambi = [];
 
 for (const [, url, lastmod] of blocchi) {
   const rel = fileDi(url);
-  if (!existsSync(join(root, rel))) { cambi.push([url, "FILE MANCANTE", rel, ""]); continue; }
+  if (!existsSync(join(root, rel))) { cambi.push([url, "FILE MANCANTE", rel, "", ""]); continue; }
   const vera = dataGit(rel);
   if (!vera) continue;
 
   const html = readFileSync(join(root, rel), "utf8");
   const dm = (html.match(/"dateModified"\s*:\s*"([^"]+)"/) || [])[1] || null;
+  const by = (html.match(RE_BYLINE) || [])[2] || null;      /* «il GG/MM/AAAA», come la legge il visitatore */
+  const byAttesa = bylineIt(vera);
 
-  if (lastmod !== vera || (dm && dm !== vera)) {
-    cambi.push([url, lastmod, dm ?? "—", vera]);
+  if (lastmod !== vera || (dm && dm !== vera) || (by && by !== byAttesa)) {
+    cambi.push([url, lastmod, dm ?? "—", by ?? "—", vera]);
     if (scrivi) {
       sitemap = sitemap.replace(
         new RegExp(`(<loc>${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</loc>\\s*<lastmod>)[^<]+`),
         `$1${vera}`);
-      if (dm) {
-        writeFileSync(join(root, rel),
-          html.replace(/("dateModified"\s*:\s*")[^"]+/g, `$1${vera}`));
+      if (dm || by) {
+        let out = html;
+        if (dm) out = out.replace(/("dateModified"\s*:\s*")[^"]+/g, `$1${vera}`);
+        if (by) out = out.replace(RE_BYLINE, `$1${bylineIt(vera)}`);
+        writeFileSync(join(root, rel), out);
       }
     }
   }
@@ -90,9 +119,9 @@ if (scrivi && cambi.length) writeFileSync(sitemapPath, sitemap);
 
 console.log(`\n${cambi.length} pagine ${scrivi ? "allineate" : "da allineare"} su ${blocchi.length}\n`);
 if (cambi.length) {
-  console.log("pagina".padEnd(46) + "sitemap".padEnd(13) + "schema".padEnd(13) + "git");
-  console.log("-".repeat(84));
-  for (const [url, sm, dm, vera] of cambi)
-    console.log(url.replace("https://stageplot.it", "").padEnd(46) + String(sm).padEnd(13) + String(dm).padEnd(13) + vera);
+  console.log("pagina".padEnd(46) + "sitemap".padEnd(13) + "schema".padEnd(13) + "byline".padEnd(16) + "git");
+  console.log("-".repeat(100));
+  for (const [url, sm, dm, by, vera] of cambi)
+    console.log(url.replace("https://stageplot.it", "").padEnd(46) + String(sm).padEnd(13) + String(dm).padEnd(13) + String(by).padEnd(16) + vera);
   if (!scrivi) console.log("\n(nessun file toccato: rilancia con --scrivi)");
 }
