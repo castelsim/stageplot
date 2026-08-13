@@ -10179,5 +10179,30 @@ t("gli alt descrivono l'immagine che c'è, non quella che vorremmo", () => {
   }
 });
 
+t("nel prima/dopo il disegno regge il paragone con lo scarabocchio", () => {
+  /* Il foglietto di sinistra ha nove annotazioni a mano; il disegno di destra ne aveva UNA, e per
+     giunta stava nella metà coperta dal cursore. Chi non trascinava vedeva una colonna di testo, e
+     il confronto su cui poggia la pagina argomentava contro il prodotto. */
+  const ba = landing.slice(landing.indexOf('id="ba"'), landing.indexOf('class="ba-caption"'));
+  const prima = ba.slice(0, ba.indexOf("ba-after"));
+  const dopo = ba.slice(ba.indexOf("ba-after"));
+  const conta = (s) => (s.match(/<text[^>]*>[^<]{2,}<\/text>/g) || []).length;
+  ok(conta(dopo) >= conta(prima) - 2,
+    "il «dopo» ha etichette quanto il «prima» (" + conta(dopo) + " contro " + conta(prima) + ")");
+
+  /* i numeri sul disegno devono essere quelli della lista accanto: è il punto del prodotto */
+  const canaliDisegno = [...dopo.matchAll(/<text[^>]*>[^<]*?·\s*(?:CH\s*)?(\d+)(?:–(\d+))?<\/text>/g)]
+    .flatMap((m) => (m[2] ? [+m[1], +m[2]] : [+m[1]]));
+  ok(canaliDisegno.length >= 4, "il disegno porta i numeri di canale: " + canaliDisegno.join(", "));
+  const inLista = [...dopo.matchAll(/<div class="mr-row"><i>(\d+)<\/i>/g)].map((m) => +m[1]);
+  ok(inLista.length >= 8, "la lista accanto ha i suoi canali: " + inLista.length);
+  for (const c of canaliDisegno)
+    ok(inLista.includes(c), "il canale " + c + " scritto sul disegno esiste anche nella lista");
+
+  /* e il disegno deve stare nella metà che si vede senza trascinare */
+  ok(/\.mini-rider \.mr-l\{order:2/.test(landing), "il disegno è nella colonna di destra");
+  ok(/\.mini-rider \.mr-r\{order:1\}/.test(landing), "la lista in quella di sinistra");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
