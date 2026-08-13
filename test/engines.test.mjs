@@ -9987,9 +9987,14 @@ t("il numero di microfoni in pagina è quello del catalogo vero", () => {
      Qui il legame c'è: se domani il catalogo cresce ancora, questo test lo reclama. */
   const veri = Object.keys(A.MIC_DB).length;
   ok(veri > 100, "il catalogo è caricato: " + veri + " microfoni");
-  /* Solo i numeri che dichiarano il TOTALE: «68 microfoni in più» nel registro delle modifiche è
-     una differenza, non un totale, e sarebbe sbagliato pretendere che coincida col catalogo. */
-  const inPagina = [...landing.matchAll(/(\d{2,4})\s*microfoni(?!\s+in\s+più)/gi)].map((m) => +m[1]);
+  /* Solo i numeri che dichiarano il TOTALE, in tutti i modi in cui la pagina lo scrive: «223
+     microfoni», «Microfoni riconosciuti | 223», «ne riconosce 223». Escluso «68 microfoni in più»
+     del registro, che è una differenza e non un totale. */
+  const inPagina = [
+    ...[...landing.matchAll(/(\d{2,4})\s*microfoni(?!\s+in\s+più)/gi)].map((m) => +m[1]),
+    ...[...landing.matchAll(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/g)].map((m) => +m[1]),
+    ...[...landing.matchAll(/ne riconosce (\d{2,4})/g)].map((m) => +m[1]),
+  ];
   ok(inPagina.length >= 2, "la home cita il numero di microfoni: " + inPagina.join(", "));
   for (const n of inPagina) eq(n, veri, "un numero in pagina non coincide col catalogo");
   const dichiarato = +((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
@@ -10140,6 +10145,38 @@ t("il registro delle modifiche dice il vero, ed è ancora fresco", () => {
   ok(giorni <= 120,
     "il registro è fermo da " + giorni + " giorni: aggiornalo con le ultime modifiche, o togli la sezione " +
     "(una pagina che si vanta di essere viva e non lo è dimostra il contrario)");
+});
+
+t("quello che il riquadro «È nuovo» promette di far verificare, si può verificare", () => {
+  /* Nella prima stesura (mia, del 12/08) diceva «il rider che scarichi», «il catalogo che apri» e
+     «una persona con nome, cognome e mail» — e nella sezione non c'era UN link, in tutta la pagina
+     zero PDF e zero indirizzi. Chi va a cliccare capisce che era retorica, e il riquadro ottiene
+     l'opposto di quello per cui esiste. */
+  const sez = landing.slice(landing.indexOf('id="novita"'), landing.indexOf('id="domande"'));
+  const link = [...sez.matchAll(/<a[^>]+href="([^"]+)"/g)].map((m) => m[1]);
+  ok(link.length >= 3, "le verifiche promesse sono raggiungibili: " + link.join(", "));
+  ok(link.some((h) => h.startsWith("mailto:")), "l'indirizzo c'è davvero, non è solo nominato");
+  for (const a of link.filter((h) => h.startsWith("#"))) {
+    ok(landing.indexOf('id="' + a.slice(1) + '"') > -1, "l'ancora «" + a + "» punta a qualcosa che esiste");
+  }
+  ok(!/che\s+scarichi/.test(sez) || /\.pdf/.test(landing),
+    "non si promette un file da scaricare se in pagina non c'è");
+});
+
+t("gli alt descrivono l'immagine che c'è, non quella che vorremmo", () => {
+  /* Due anteprime per formazione sono lo stesso file byte per byte (band=festival, chiesa=coro):
+     finché non saranno disegnate a parte, l'alt non può promettere contenuti che nel file non ci
+     sono — è il testo su cui Google indicizza l'immagine. */
+  const casi = [
+    ["stage-plot/festival/index.html", /cambi rapidi/],
+    ["stage-plot/chiesa/index.html", /worship band/],
+  ];
+  for (const [f, vietato] of casi) {
+    const h = readFileSync(join(root, f), "utf8");
+    const alt = (h.match(/<img[^>]+previews[^>]+alt="([^"]*)"/) || h.match(/alt="([^"]*Anteprima[^"]*)"/) || [])[1] || "";
+    ok(alt.length > 20, f + ": l'anteprima ha un alt descrittivo");
+    ok(!vietato.test(alt), f + ": l'alt non promette quello che nel file non c'è — «" + alt + "»");
+  }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
