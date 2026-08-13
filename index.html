@@ -84,13 +84,22 @@ addEventListener("hashchange", go);})();</script>
       "name": "StagePlot",
       "url": "https://stageplot.it/",
       "logo": { "@type": "ImageObject", "url": "https://stageplot.it/logo-512.png", "width": 512, "height": 512 },
-      "sameAs": [ "https://www.instagram.com/stageplot.it/" ],
+      "alternateName": [ "StagePlot.it" ],
+      "sameAs": [
+        "https://www.instagram.com/stageplot.it/",
+        "https://github.com/castelsim/stageplot"
+      ],
       "founder": {
         "@type": "Person",
         "@id": "https://simonecastellan.com/#person",
         "name": "Simone Castellan",
         "jobTitle": "Sound engineer",
         "url": "https://simonecastellan.com",
+        "knowsAbout": [
+          { "@type": "Thing", "name": "Sound reinforcement system", "sameAs": "https://www.wikidata.org/wiki/Q829504" },
+          { "@type": "Thing", "name": "Live sound mixing", "sameAs": "https://www.wikidata.org/wiki/Q6658081" },
+          { "@type": "Thing", "name": "Audio engineering", "sameAs": "https://www.wikidata.org/wiki/Q128124" }
+        ],
         "sameAs": [
           "https://www.linkedin.com/in/simonecastellan",
           "https://www.instagram.com/simonecastellan_/",
@@ -102,10 +111,17 @@ addEventListener("hashchange", go);})();</script>
       "@type": "SoftwareApplication",
       "@id": "https://stageplot.it/#app",
       "name": "StagePlot — Stage Plot Creator",
+      "alternateName": [ "StagePlot", "Editor di stage plot" ],
       "applicationCategory": "DesignApplication",
       "operatingSystem": "Web",
       "url": "https://stageplot.it/app/",
       "inLanguage": "it",
+      "countriesSupported": "IT",
+      "isAccessibleForFree": true,
+      "about": [
+        { "@type": "Thing", "name": "Sound reinforcement system", "sameAs": "https://www.wikidata.org/wiki/Q829504" },
+        { "@type": "Thing", "name": "Live sound mixing", "sameAs": "https://www.wikidata.org/wiki/Q6658081" }
+      ],
       "description": "Web app gratuita per disegnare stage plot in scala e generare i documenti tecnici del concerto: channel list, monitor, schema elettrico, lista luci e rider PDF. Export PDF/PNG e condivisione via link.",
       "browserRequirements": "Requires JavaScript. Requires HTML5.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
