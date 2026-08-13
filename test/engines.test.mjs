@@ -10233,7 +10233,10 @@ t("lo strumento che allinea le date esiste e sa dire cosa farebbe", () => {
   /* Senza uno strumento, la prossima volta le date verranno riscritte a mano e ridivergeranno.
      Deve anche essere innocuo per difetto: si esegue e dice, scrive solo se glielo chiedi. */
   const s = readFileSync(join(root, "ops/allinea-date.mjs"), "utf8");
-  ok(/git.*log.*-1.*--format=%cs/s.test(s), "prende la data da git, non da un'opinione");
+  ok(/"log".*"--format=%cs"|"--format=%H %cs"/s.test(s), "prende la data da git, non da un'opinione");
+  /* deve saltare i propri commit di manutenzione, o a ogni esecuzione le date si sposterebbero
+     a «oggi» per colpa dell'esecuzione precedente: una rincorsa senza fine */
+  ok(/soloDate|dateModified\|<lastmod>/.test(s), "ignora i commit che hanno cambiato solo le date");
   /* cercare la stringa «--scrivi» non basta: resta nei commenti anche se qualcuno mette
      `const scrivi = true`. Va verificato che la scrittura dipenda DAVVERO dagli argomenti. */
   ok(/const scrivi\s*=\s*process\.argv\.includes\("--scrivi"\)/.test(s),

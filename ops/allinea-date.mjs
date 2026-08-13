@@ -13,9 +13,10 @@
  *   node ops/allinea-date.mjs            → dice cosa cambierebbe, senza toccare niente
  *   node ops/allinea-date.mjs --scrivi   → applica
  *
- * NOTA sul giorno dopo: applicando le modifiche si crea un commit, quindi da quel momento il file
- * risulta cambiato «oggi» mentre la data scritta dentro è di ieri. È inevitabile e innocuo: il test
- * tollera uno scarto, e quello che conta — le due fonti che dicono la stessa cosa — resta vero.
+ * NOTA sul giorno dopo: applicando le modifiche si crea un commit che tocca i file. Se contassimo
+ * anche quello, alla prossima esecuzione ogni pagina risulterebbe «cambiata oggi» per colpa
+ * dell'esecuzione precedente — una rincorsa senza fine. Per questo `dataGit` salta i commit che su
+ * quel file hanno toccato SOLO le date: dopo aver allineato, rieseguire dice zero.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -25,11 +26,29 @@ import { dirname, join } from "node:path";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scrivi = process.argv.includes("--scrivi");
 
-/** ultima modifica del file secondo git, in AAAA-MM-GG */
+/**
+ * Ultima modifica VERA del file secondo git, in AAAA-MM-GG.
+ *
+ * Salta i commit che su quel file hanno cambiato soltanto la data: sono i commit di questo stesso
+ * strumento, e contarli farebbe rincorrere la coda — ogni esecuzione sposterebbe la data a «oggi»
+ * per via dell'esecuzione precedente, all'infinito. La data giusta è quella dell'ultima modifica
+ * di CONTENUTO.
+ */
 function dataGit(rel) {
-  const out = execFileSync("git", ["log", "-1", "--format=%cs", "--", rel], { cwd: root })
-    .toString().trim();
-  return out || null;
+  const storia = execFileSync("git", ["log", "-12", "--format=%H %cs", "--", rel], { cwd: root })
+    .toString().trim().split("\n").filter(Boolean);
+  for (const riga of storia) {
+    const [hash, data] = riga.split(" ");
+    let diff = "";
+    try {
+      diff = execFileSync("git", ["show", "--format=", "--unified=0", hash, "--", rel], { cwd: root })
+        .toString();
+    } catch { return data; }
+    const righe = diff.split("\n").filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
+    const soloDate = righe.length > 0 && righe.every((l) => /dateModified|<lastmod>/.test(l));
+    if (!soloDate) return data;          /* questo commit ha toccato il contenuto: è la data buona */
+  }
+  return (storia[0] || "").split(" ")[1] || null;
 }
 
 const sitemapPath = join(root, "sitemap.xml");
