@@ -10244,5 +10244,51 @@ t("lo strumento che allinea le date esiste e sa dire cosa farebbe", () => {
   ok(/dateModified/.test(s) && /lastmod/.test(s), "aggiorna entrambe le fonti");
 });
 
+t("il catalogo pubblico dei microfoni coincide con quello del programma", () => {
+  /* Il numero dei microfoni è già stato dichiarato sbagliato una volta (155 in pagina, 223 nel
+     programma) perché pagina e catalogo erano due cose separate. Questa pagina è GENERATA da
+     MIC_DB con ops/genera-catalogo-mic.mjs: qui si verifica che nessuno l'abbia poi modificata a
+     mano, e che i dati mostrati siano quelli veri. */
+  const cat = readFileSync(join(root, "guida/microfoni/index.html"), "utf8");
+  const veri = Object.keys(A.MIC_DB);
+  const righe = [...cat.matchAll(/<tr data-cerca="[^"]*" data-p48="(\d)" data-tipo="([^"]*)">\s*<td><strong>([^<]+)<\/strong>/g)]
+    .map((m) => ({ p48: m[1] === "1", tipo: m[2], model: m[3] }));
+  eq(righe.length, veri.length, "una riga per microfono");
+
+  /* i dati di ogni riga devono essere quelli del catalogo, non una copia invecchiata */
+  const perModello = new Map(veri.map((k) => [A.MIC_DB[k].model, A.MIC_DB[k]]));
+  let controllati = 0;
+  for (const r of righe) {
+    const v = perModello.get(r.model);
+    if (!v) continue;                       /* modelli con lo stesso nome: saltati, non è il punto */
+    eq(r.p48, !!v.p48, r.model + ": il phantom in pagina è quello del catalogo");
+    eq(r.tipo, v.type, r.model + ": il tipo in pagina è quello del catalogo");
+    controllati++;
+  }
+  ok(controllati > veri.length * 0.9, "controllati " + controllati + " microfoni su " + veri.length);
+
+  /* i numeri scritti in prosa devono tornare con la tabella */
+  const conPhantom = veri.filter((k) => A.MIC_DB[k].p48).length;
+  ok(cat.indexOf(`${conPhantom} dei ${veri.length} modelli richiedono`) > -1,
+    `la pagina dice quanti vogliono il phantom (${conPhantom} su ${veri.length})`);
+  ok(cat.indexOf(`I ${veri.length} microfoni riconosciuti`) > -1, "il titolo dichiara il numero giusto");
+});
+
+t("il catalogo è raggiungibile, e chi non ha JavaScript lo vede comunque", () => {
+  const cat = readFileSync(join(root, "guida/microfoni/index.html"), "utf8");
+  /* le righe stanno nell'HTML servito: se fossero caricate da JS, per un crawler la pagina
+     sarebbe una tabella vuota — ed è il contenuto l'unica ragione per cui esiste */
+  ok(cat.indexOf("SM58") > -1 && cat.indexOf("Beta 52A") > -1, "i microfoni sono nell'HTML, non caricati dopo");
+  ok(/id="micQ"/.test(cat) && /aria-pressed/.test(cat), "ricerca e filtri hanno gli attributi di accessibilità");
+  for (const [dove, file] of [["hub delle guide", "guida/index.html"], ["home", "index.html"]]) {
+    const h = readFileSync(join(root, file), "utf8");
+    ok(h.indexOf('href="/guida/microfoni/"') > -1, dove + ": linka il catalogo");
+  }
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  ok(sm.indexOf("<loc>https://stageplot.it/guida/microfoni/</loc>") > -1, "sitemap: la pagina c'è");
+  const l = readFileSync(join(root, "llms.txt"), "utf8");
+  ok(l.indexOf("/guida/microfoni/") > -1, "llms.txt: la pagina c'è");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
