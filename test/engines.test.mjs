@@ -9987,7 +9987,14 @@ t("il numero di microfoni in pagina è quello del catalogo vero", () => {
      Qui il legame c'è: se domani il catalogo cresce ancora, questo test lo reclama. */
   const veri = Object.keys(A.MIC_DB).length;
   ok(veri > 100, "il catalogo è caricato: " + veri + " microfoni");
-  const inPagina = [...landing.matchAll(/(\d{2,4})\s*microfoni/gi)].map((m) => +m[1]);
+  /* Solo i numeri che dichiarano il TOTALE, in tutti i modi in cui la pagina lo scrive: «223
+     microfoni», «Microfoni riconosciuti | 223», «ne riconosce 223». Escluso «68 microfoni in più»
+     del registro, che è una differenza e non un totale. */
+  const inPagina = [
+    ...[...landing.matchAll(/(\d{2,4})\s*microfoni(?!\s+in\s+più)/gi)].map((m) => +m[1]),
+    ...[...landing.matchAll(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/g)].map((m) => +m[1]),
+    ...[...landing.matchAll(/ne riconosce (\d{2,4})/g)].map((m) => +m[1]),
+  ];
   ok(inPagina.length >= 2, "la home cita il numero di microfoni: " + inPagina.join(", "));
   for (const n of inPagina) eq(n, veri, "un numero in pagina non coincide col catalogo");
   const dichiarato = +((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
@@ -10045,6 +10052,193 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/29 €/.test(corpo), "e dove sta il pagamento");
   ok(/href="\/consulenza\/"/.test(corpo), "con il link alla consulenza fuori dal piede");
   ok(/È nuovo, e te lo dico/.test(landing), "e c'è la dichiarazione di novità al posto della prova che non c'è");
+});
+
+/* --- Entità e markup delle guide (13/08) ------------------------------------------------------
+   L'analisi GEO diceva: per un modello «StagePlot» non è un'entità, collide con StagePlot Guru e
+   Stageplot Pro. Il markup da solo non crea un marchio, ma è il prerequisito perché le menzioni
+   che arriveranno abbiano dove attaccarsi. */
+
+t("il sito si àncora a entità vere, non a identificativi inventati", () => {
+  /* L'analisi proponeva Q1754117 per «stage plot»: verificato, è il campionato mondiale di hockey
+     su ghiaccio junior. Un sameAs sbagliato è peggio di nessun sameAs — questi tre sono stati
+     controllati uno per uno sull'API di Wikidata. */
+  const ld = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const nodo = (t_) => ld["@graph"].find((n) => n["@type"] === t_);
+  const wikidata = JSON.stringify(ld).match(/wikidata\.org\/wiki\/(Q\d+)/g) || [];
+  ok(wikidata.length >= 2, "ci sono ancoraggi a Wikidata: " + wikidata.join(", "));
+  ok(!/Q1754117/.test(JSON.stringify(ld)), "e non c'è l'ID sbagliato del torneo di hockey");
+  const app = nodo("SoftwareApplication");
+  ok(Array.isArray(app.about) && app.about.length >= 2, "l'app dichiara di cosa parla");
+  /* TUTTI gli ancoraggi del documento, non solo quelli di `about`: gli stessi riferimenti vivono
+     anche in `knowsAbout` dell'autore, e un URL storto lì passerebbe inosservato. */
+  const ancoraggi = [];
+  JSON.stringify(ld, (k, v) => {
+    if (k === "sameAs") (Array.isArray(v) ? v : [v]).forEach((u) => { if (/wikidata/i.test(u)) ancoraggi.push(u); });
+    return v;
+  });
+  ok(ancoraggi.length >= 4, "gli ancoraggi sono " + ancoraggi.length + " in tutto il grafo");
+  for (const u of ancoraggi) ok(/^https:\/\/www\.wikidata\.org\/wiki\/Q\d+$/.test(u), "ancoraggio ben formato: " + u);
+  ok(Array.isArray(app.alternateName) && app.alternateName.length >= 1, "l'app ha nomi alternativi");
+  const org = nodo("Organization");
+  ok(org.sameAs.length >= 2, "l'organizzazione ha più di un profilo: " + org.sameAs.length);
+  ok(org.sameAs.some((u) => /github\.com/.test(u)), "fra cui il repository pubblico");
+  ok(Array.isArray(org.alternateName), "e un nome alternativo");
+});
+
+t("l'HowTo racconta i passi che stanno davvero nella guida", () => {
+  /* Il modo in cui questo markup mente: qualcuno riscrive i passi in pagina e il JSON-LD resta
+     indietro, continuando a dichiarare a Google una procedura che il testo non contiene più. */
+  const guida = readFileSync(join(root, "guida/come-fare-uno-stage-plot/index.html"), "utf8");
+  const ld = JSON.parse((guida.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const howto = ld["@graph"].find((n) => n["@type"] === "HowTo");
+  ok(howto, "la guida procedurale dichiara un HowTo");
+
+  const blocco = guida.slice(guida.indexOf('id="passi"'), guida.indexOf('id="channel"'));
+  const inPagina = [...blocco.matchAll(/<li[^>]*>\s*<strong>([\s\S]*?)<\/strong>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  eq(howto.step.length, inPagina.length, "stesso numero di passi in pagina e nel markup");
+  howto.step.forEach((s, i) => {
+    eq(s.name, inPagina[i], "il passo " + (i + 1) + " ha lo stesso nome");
+    ok(s.text && s.text.length > 40, "e un testo che spiega cosa fare");
+    eq(s.position, i + 1, "le posizioni sono in ordine");
+  });
+  ok(howto.estimatedCost && howto.estimatedCost.value === "0", "dichiara che è gratis");
+});
+
+t("la differenza fra i quattro documenti è in una tabella, non solo in prosa", () => {
+  /* «Che differenza c'è fra rider tecnico e hospitality rider» è una domanda che si fa chiunque
+     organizzi una serata: i modelli citano volentieri le tabelle, la prosa molto meno. */
+  const g = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const tab = (g.match(/<table class="ch-table">[\s\S]*?<\/table>/) || [""])[0];
+  ok(/Chi lo legge/.test(tab), "la tabella dice anche chi legge ciascun documento");
+  ok(/Serve sempre\?/.test(tab), "e se serve sempre");
+  for (const doc of ["Rider tecnico", "Stage plot", "Channel list", "Hospitality rider"])
+    ok(tab.indexOf(doc) > -1, "la tabella confronta anche: " + doc);
+  const righe = (tab.match(/<tr>/g) || []).length - 1;      /* meno l'intestazione */
+  eq(righe, 4, "quattro documenti a confronto");
+});
+
+t("il registro delle modifiche dice il vero, ed è ancora fresco", () => {
+  /* Una sezione «cosa è cambiato» è prova che il prodotto è vivo — ma solo finché è aggiornata.
+     Ferma da mesi dimostra l'opposto di quello per cui esiste, ed è il modo tipico in cui questa
+     idea si ritorce contro: nessuno se ne accorge, perché la pagina continua a funzionare.
+     Qui il test fa da promemoria: oltre i 120 giorni o si aggiorna o si toglie. */
+  const sez = landing.slice(landing.indexOf('class="registro"'));
+  const voci = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">([^<]+)<\/time>\s*<p>([\s\S]*?)<\/p>/g)]
+    .map((m) => ({ iso: m[1], mostrata: m[2], testo: m[3].replace(/<[^>]+>/g, "").trim() }));
+  ok(voci.length >= 4, "il registro ha almeno quattro voci: " + voci.length);
+
+  const oggi = new Date();
+  for (const v of voci) {
+    const d = new Date(v.iso + "T12:00:00Z");
+    ok(!isNaN(d), "data leggibile dalla macchina: " + v.iso);
+    ok(d <= oggi, "nessuna voce datata nel futuro: " + v.iso);
+    ok(v.testo.length > 30, "ogni voce dice cosa è cambiato, non solo che è cambiato: «" + v.testo.slice(0, 40) + "…»");
+    /* la data mostrata deve corrispondere a quella leggibile dalla macchina: due date diverse
+       nello stesso elemento sono una bugia che nessuno noterebbe */
+    const mese = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"][d.getUTCMonth()];
+    eq(v.mostrata.trim(), d.getUTCDate() + " " + mese, "la data scritta è quella del datetime");
+  }
+  const piuRecente = voci.map((v) => new Date(v.iso + "T12:00:00Z")).sort((a, b) => b - a)[0];
+  const giorni = Math.floor((oggi - piuRecente) / 86400000);
+  ok(giorni <= 120,
+    "il registro è fermo da " + giorni + " giorni: aggiornalo con le ultime modifiche, o togli la sezione " +
+    "(una pagina che si vanta di essere viva e non lo è dimostra il contrario)");
+});
+
+t("quello che il riquadro «È nuovo» promette di far verificare, si può verificare", () => {
+  /* Nella prima stesura (mia, del 12/08) diceva «il rider che scarichi», «il catalogo che apri» e
+     «una persona con nome, cognome e mail» — e nella sezione non c'era UN link, in tutta la pagina
+     zero PDF e zero indirizzi. Chi va a cliccare capisce che era retorica, e il riquadro ottiene
+     l'opposto di quello per cui esiste. */
+  const sez = landing.slice(landing.indexOf('id="novita"'), landing.indexOf('id="domande"'));
+  const link = [...sez.matchAll(/<a[^>]+href="([^"]+)"/g)].map((m) => m[1]);
+  ok(link.length >= 3, "le verifiche promesse sono raggiungibili: " + link.join(", "));
+  ok(link.some((h) => h.startsWith("mailto:")), "l'indirizzo c'è davvero, non è solo nominato");
+  for (const a of link.filter((h) => h.startsWith("#"))) {
+    ok(landing.indexOf('id="' + a.slice(1) + '"') > -1, "l'ancora «" + a + "» punta a qualcosa che esiste");
+  }
+  ok(!/che\s+scarichi/.test(sez) || /\.pdf/.test(landing),
+    "non si promette un file da scaricare se in pagina non c'è");
+});
+
+t("gli alt descrivono l'immagine che c'è, non quella che vorremmo", () => {
+  /* Due anteprime per formazione sono lo stesso file byte per byte (band=festival, chiesa=coro):
+     finché non saranno disegnate a parte, l'alt non può promettere contenuti che nel file non ci
+     sono — è il testo su cui Google indicizza l'immagine. */
+  const casi = [
+    ["stage-plot/festival/index.html", /cambi rapidi/],
+    ["stage-plot/chiesa/index.html", /worship band/],
+  ];
+  for (const [f, vietato] of casi) {
+    const h = readFileSync(join(root, f), "utf8");
+    const alt = (h.match(/<img[^>]+previews[^>]+alt="([^"]*)"/) || h.match(/alt="([^"]*Anteprima[^"]*)"/) || [])[1] || "";
+    ok(alt.length > 20, f + ": l'anteprima ha un alt descrittivo");
+    ok(!vietato.test(alt), f + ": l'alt non promette quello che nel file non c'è — «" + alt + "»");
+  }
+});
+
+t("nel prima/dopo il disegno regge il paragone con lo scarabocchio", () => {
+  /* Il foglietto di sinistra ha nove annotazioni a mano; il disegno di destra ne aveva UNA, e per
+     giunta stava nella metà coperta dal cursore. Chi non trascinava vedeva una colonna di testo, e
+     il confronto su cui poggia la pagina argomentava contro il prodotto. */
+  const ba = landing.slice(landing.indexOf('id="ba"'), landing.indexOf('class="ba-caption"'));
+  const prima = ba.slice(0, ba.indexOf("ba-after"));
+  const dopo = ba.slice(ba.indexOf("ba-after"));
+  const conta = (s) => (s.match(/<text[^>]*>[^<]{2,}<\/text>/g) || []).length;
+  ok(conta(dopo) >= conta(prima) - 2,
+    "il «dopo» ha etichette quanto il «prima» (" + conta(dopo) + " contro " + conta(prima) + ")");
+
+  /* i numeri sul disegno devono essere quelli della lista accanto: è il punto del prodotto */
+  const canaliDisegno = [...dopo.matchAll(/<text[^>]*>[^<]*?·\s*(?:CH\s*)?(\d+)(?:–(\d+))?<\/text>/g)]
+    .flatMap((m) => (m[2] ? [+m[1], +m[2]] : [+m[1]]));
+  ok(canaliDisegno.length >= 4, "il disegno porta i numeri di canale: " + canaliDisegno.join(", "));
+  const inLista = [...dopo.matchAll(/<div class="mr-row"><i>(\d+)<\/i>/g)].map((m) => +m[1]);
+  ok(inLista.length >= 8, "la lista accanto ha i suoi canali: " + inLista.length);
+  for (const c of canaliDisegno)
+    ok(inLista.includes(c), "il canale " + c + " scritto sul disegno esiste anche nella lista");
+
+  /* e il disegno deve stare nella metà che si vede senza trascinare */
+  ok(/\.mini-rider \.mr-l\{order:2/.test(landing), "il disegno è nella colonna di destra");
+  ok(/\.mini-rider \.mr-r\{order:1\}/.test(landing), "la lista in quella di sinistra");
+});
+
+t("le due date di ogni pagina dicono la stessa cosa", () => {
+  /* La data di modifica è scritta in due posti — <lastmod> nella sitemap e dateModified nel JSON-LD —
+     e due fonti separate divergono sempre: al 13/08 erano sbagliate su TUTTE e 24 le pagine, con il
+     sitemap fermo a luglio mentre i file erano cambiati ad agosto, e in un caso il sitemap più
+     NUOVO del contenuto. Google usa lastmod per decidere quando ripassare, e quando lo trova
+     inaffidabile smette di fidarsene per l'intero sito. Le riallinea `ops/allinea-date.mjs`. */
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const oggi = new Date();
+  const coppie = [...sm.matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)];
+  ok(coppie.length >= 20, "il sitemap elenca le pagine con la loro data: " + coppie.length);
+
+  const divergenti = [], future = [];
+  for (const [, url, lastmod] of coppie) {
+    const rel = url.replace("https://stageplot.it/", "");
+    const file = join(root, rel === "" ? "index.html" : rel.replace(/\/$/, "") + "/index.html");
+    ok(/^\d{4}-\d{2}-\d{2}$/.test(lastmod), url + ": data in formato ISO");
+    if (new Date(lastmod + "T12:00:00Z") > oggi) future.push(url + " " + lastmod);
+    const html = readFileSync(file, "utf8");
+    const dm = (html.match(/"dateModified"\s*:\s*"([^"]+)"/) || [])[1];
+    if (dm && dm !== lastmod) divergenti.push(`${rel || "/"} sitemap=${lastmod} schema=${dm}`);
+  }
+  eq(divergenti.join(" | "), "", "sitemap e schema concordano su ogni pagina");
+  eq(future.join(" | "), "", "nessuna data nel futuro");
+});
+
+t("lo strumento che allinea le date esiste e sa dire cosa farebbe", () => {
+  /* Senza uno strumento, la prossima volta le date verranno riscritte a mano e ridivergeranno.
+     Deve anche essere innocuo per difetto: si esegue e dice, scrive solo se glielo chiedi. */
+  const s = readFileSync(join(root, "ops/allinea-date.mjs"), "utf8");
+  ok(/git.*log.*-1.*--format=%cs/s.test(s), "prende la data da git, non da un'opinione");
+  /* cercare la stringa «--scrivi» non basta: resta nei commenti anche se qualcuno mette
+     `const scrivi = true`. Va verificato che la scrittura dipenda DAVVERO dagli argomenti. */
+  ok(/const scrivi\s*=\s*process\.argv\.includes\("--scrivi"\)/.test(s),
+    "la scrittura è condizionata all'argomento, non attiva per difetto");
+  ok(/dateModified/.test(s) && /lastmod/.test(s), "aggiorna entrambe le fonti");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
