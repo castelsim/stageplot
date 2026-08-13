@@ -10204,5 +10204,42 @@ t("nel prima/dopo il disegno regge il paragone con lo scarabocchio", () => {
   ok(/\.mini-rider \.mr-r\{order:1\}/.test(landing), "la lista in quella di sinistra");
 });
 
+t("le due date di ogni pagina dicono la stessa cosa", () => {
+  /* La data di modifica è scritta in due posti — <lastmod> nella sitemap e dateModified nel JSON-LD —
+     e due fonti separate divergono sempre: al 13/08 erano sbagliate su TUTTE e 24 le pagine, con il
+     sitemap fermo a luglio mentre i file erano cambiati ad agosto, e in un caso il sitemap più
+     NUOVO del contenuto. Google usa lastmod per decidere quando ripassare, e quando lo trova
+     inaffidabile smette di fidarsene per l'intero sito. Le riallinea `ops/allinea-date.mjs`. */
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const oggi = new Date();
+  const coppie = [...sm.matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)];
+  ok(coppie.length >= 20, "il sitemap elenca le pagine con la loro data: " + coppie.length);
+
+  const divergenti = [], future = [];
+  for (const [, url, lastmod] of coppie) {
+    const rel = url.replace("https://stageplot.it/", "");
+    const file = join(root, rel === "" ? "index.html" : rel.replace(/\/$/, "") + "/index.html");
+    ok(/^\d{4}-\d{2}-\d{2}$/.test(lastmod), url + ": data in formato ISO");
+    if (new Date(lastmod + "T12:00:00Z") > oggi) future.push(url + " " + lastmod);
+    const html = readFileSync(file, "utf8");
+    const dm = (html.match(/"dateModified"\s*:\s*"([^"]+)"/) || [])[1];
+    if (dm && dm !== lastmod) divergenti.push(`${rel || "/"} sitemap=${lastmod} schema=${dm}`);
+  }
+  eq(divergenti.join(" | "), "", "sitemap e schema concordano su ogni pagina");
+  eq(future.join(" | "), "", "nessuna data nel futuro");
+});
+
+t("lo strumento che allinea le date esiste e sa dire cosa farebbe", () => {
+  /* Senza uno strumento, la prossima volta le date verranno riscritte a mano e ridivergeranno.
+     Deve anche essere innocuo per difetto: si esegue e dice, scrive solo se glielo chiedi. */
+  const s = readFileSync(join(root, "ops/allinea-date.mjs"), "utf8");
+  ok(/git.*log.*-1.*--format=%cs/s.test(s), "prende la data da git, non da un'opinione");
+  /* cercare la stringa «--scrivi» non basta: resta nei commenti anche se qualcuno mette
+     `const scrivi = true`. Va verificato che la scrittura dipenda DAVVERO dagli argomenti. */
+  ok(/const scrivi\s*=\s*process\.argv\.includes\("--scrivi"\)/.test(s),
+    "la scrittura è condizionata all'argomento, non attiva per difetto");
+  ok(/dateModified/.test(s) && /lastmod/.test(s), "aggiorna entrambe le fonti");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
