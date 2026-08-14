@@ -11,6 +11,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
+import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const appjs = readFileSync(join(root, "app.js"), "utf8");   /* l'app e' nel bundle defer app.js (build.mjs) */
@@ -49,6 +50,15 @@ function loadApp() {
   vm.createContext(ctx);
   try { vm.runInContext(appjs, ctx, { timeout: 20000 }); } catch (e) { /* il boot tocca il DOM (stub): ok, i motori sono gia' definiti (function-hoisting) */ }
   if (typeof ctx.TYPES !== "object" || typeof ctx.audioCablingEngine !== "function") {
+    /* Prima di dare la colpa alla struttura, chiedilo al parser: il 14/08 una funzione rimasta senza
+       la sua testa ha prodotto un app.js che non compilava, e l'unico segnale era questo messaggio —
+       che mandava a cercare nel posto sbagliato. `build.mjs --check` intanto diceva verde: controlla
+       che i generati corrispondano ai sorgenti, non che siano codice valido. */
+    try { execFileSync(process.execPath, ["--check", join(root, "app.js")], { stdio: "pipe" }); }
+    catch (e) {
+      const dove = String(e.stderr || "").split("\n").slice(0, 5).join("\n");
+      throw new Error("app.js NON COMPILA — è un errore di sintassi, non di struttura:\n" + dove);
+    }
     throw new Error("Sandbox non caricato: TYPES/motori mancanti (app/index.html cambiato struttura?)");
   }
   return ctx;
@@ -10417,6 +10427,24 @@ t("il link senza account non promette la sincronia che non ha", () => {
   ok(/copia/.test(ist), "dice che è una copia");
   ok(/shareIntroTxt/.test(appjs) && /mode==="istantanea"\s*\)\s*\?\s*SHARE_INTRO\.istantanea/.test(appjs),
      "ed è il badge a scegliere quale testo mostrare");
+});
+
+/* ===== IL PANNELLO PERMESSI SEGUE IL LINK CHE DESCRIVE (14/08) ============================= */
+t("il pannello dei permessi non contraddice l'intro due righe sopra", () => {
+  /* Correggere il solo testo dell'intro non era bastato: restava il badge verde «Sola lettura ·
+     sempre», e nella stessa finestra si leggeva «chi lo riceve può modificarla» accanto a «nessuno
+     può modificare il tuo progetto». Il badge, che pesa di più, era quello falso. */
+  ok(/function sharePermsPerModo\(mode\)/.test(appjs), "i permessi hanno un testo per modo");
+  ok(/sharePermsPerModo\(mode\)/.test(appjs.slice(appjs.indexOf("function shareBadge("), appjs.indexOf("function shareBadge(") + 400)),
+     "e il badge lo aggiorna insieme all'intro");
+  const f = appjs.slice(appjs.indexOf("function sharePermsPerModo("), appjs.indexOf("function sharePermsPerModo(") + 1400);
+  ok(/Copia modificabile/.test(f), "sull'istantanea dice che è una copia modificabile");
+  ok(/il tuo progetto non cambia/.test(f), "e che il progetto di chi condivide resta intatto");
+  /* la casella «Crea una copia» sul link locale non tocca niente: quel link apre l'editor, non un
+     viewer con un pulsante da nascondere. Se resta lì senza dirlo, promette un controllo che non c'è. */
+  ok(/Vale per i link con account/.test(f), "e dichiara che la casella «Crea una copia» lì non agisce");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="sharePermRead"/.test(html) && /id="sharePermCopyHint"/.test(html), "le due righe hanno l'aggancio nel markup");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
