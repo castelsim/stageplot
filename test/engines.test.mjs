@@ -10469,5 +10469,32 @@ t("chiudere la scheda non lascia l'ultima modifica in coda", () => {
   eq(/__cloudNeedsFlush/.test(cond), false, "e l'avviso di uscita non si allarga a chi ha il locale sano");
 });
 
+/* ===== L'ILLUSTRAZIONE SI DEFINISCE UNA VOLTA, MA SOLO A VIDEO (14/08) ==================== */
+t("sul palco le illustrazioni si richiamano, nell'export si scrivono per intero", () => {
+  /* Misurato: su 132 elementi le illustrazioni erano il 67% dei nodi ma i disegni distinti dodici.
+     A video una copia sola in <defs> + <use>: markup da 3,2 MB a 933 KB, nodi da 10.009 a 5.703.
+     Nell'export NO: il PNG appiattisce il CSS camminando il DOM, e i nodi dentro un <use> stanno in
+     uno shadow tree che querySelectorAll non attraversa. Misurato anche quello, rimettendo il
+     difetto: col <use> nell'export si perde il 59% dei pixel colorati. */
+  ok(/function libIconScene\(key\)/.test(appjs), "esiste il richiamo di scena");
+  const f = appjs.slice(appjs.indexOf("function libIconScene(key)"), appjs.indexOf("function sceneArtDefs"));
+  ok(/if\(!_sceneArt\) return libIcon\(key\);/.test(f), "fuori dalla scena si comporta come prima");
+  ok(/<use href="#sa_/.test(f), "dentro la scena richiama la definizione");
+  ok(/libIconCon\(key, "SA_"\+key\+"_"\)/.test(f), "con un prefisso STABILE per chiave, non il contatore del catalogo");
+
+  /* il pezzo che regge tutto: l'export deve chiedere il markup espanso. Se qualcuno «semplifica»
+     togliendo questo argomento, il PNG esce scolorito e nessuno se ne accorge finché non lo apre. */
+  ok(/sceneMarkup\(\{espandi:true\}\)/.test(appjs), "l'export chiede esplicitamente il markup autonomo");
+  const sm = appjs.slice(appjs.indexOf("function sceneMarkup(opts)"), appjs.indexOf("function sceneMarkup(opts)") + 600);
+  ok(/_sceneArt = \(opts && opts\.espandi\) \? null : \{\}/.test(sm), "ed è l'argomento a spegnere la raccolta");
+
+  /* i due centralizzatori: 156 usi passano di qui, e devono passare dal richiamo */
+  const fit = appjs.slice(appjs.indexOf("function drawLibFit(key,it,bw,bd)"), appjs.indexOf("function drawLibFit(key,it,bw,bd)") + 320);
+  eq(/libIcon\(key\)/.test(fit.replace(/libIconScene\(key\)/g, "")), false, "drawLibFit non chiama più la copia piena");
+  ok(/libIconScene\(key\)/.test(fit), "ma il richiamo");
+  /* la scala resta FUORI dal richiamo: è la regola della scala reale, il disegno non si tocca */
+  ok(/transform="scale\('\+k\+'\)">'\+libIconScene\(key\)/.test(fit), "e il fattore di scala resta sul gruppo che avvolge");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

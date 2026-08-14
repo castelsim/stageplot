@@ -34,16 +34,52 @@ window.__onIconsReady = function(){ try{ window.__iconsLoaded=true;
 }catch(_e){} };
 var _libN=0;
 var _pdfMode=false;   /* true SOLO in drawStageVector() (percorso svg2pdf) → singer/conductor geometrici; false nel percorso raster → icone reali */
-function libIcon(key){ var L=LIB_ICONS[key]; if(!L) return ''; var cx=L.vb[0]+L.vb[2]/2, cy=L.vb[1]+L.vb[3]/2;
-  /* ID gradienti/clip UNICI per ogni istanza: l'anteprima nel catalogo non "ruba" più il riferimento al palco
-     (chiudendo la categoria il colore non si perde) */
-  var p="L"+(++_libN)+"_";
+function libIcon(key){ return libIconCon(key, "L"+(++_libN)+"_"); }
+/**
+ * Il disegno di un'icona con un prefisso DICHIARATO per i suoi id interni.
+ *
+ * Il prefisso esiste perché ogni copia porta con sé i propri gradienti, clip e `<style>`: senza,
+ * l'anteprima nel catalogo "ruba" il riferimento al palco e chiudendo la categoria il colore si
+ * perde. `libIcon()` continua a usarne uno nuovo a ogni chiamata; la scena invece ne usa uno STABILE
+ * per chiave, perché lì la copia è una sola e viene richiamata con <use> (vedi libIconScene).
+ */
+function libIconCon(key, p){ var L=LIB_ICONS[key]; if(!L) return ''; var cx=L.vb[0]+L.vb[2]/2, cy=L.vb[1]+L.vb[3]/2;
   var body=L.body.replace(/id="([^"]+)"/g,'id="'+p+'$1"')
                  .replace(/url\(#([^)]+)\)/g,'url(#'+p+'$1)')
                  .replace(/(xlink:href|href)="#([^"]+)"/g,'$1="#'+p+'$2"')
                  .replace(/\.([\w-]+_cls-[\w-]+)/g,'.'+p+'$1')
                  .replace(/\bclass="([^"]+)"/g,function(_,cs){ return 'class="'+cs.split(/\s+/).map(function(c){ return /[\w-]+_cls-[\w-]+/.test(c)?p+c:c; }).join(' ')+'"'; });
   return '<g transform="translate('+(-cx)+','+(-cy)+')">'+body+'</g>'; }
+
+/**
+ * L'illustrazione sul palco: definita una volta, richiamata quante volte serve.
+ *
+ * Misurato il 14/08 su un palco da 132 elementi: le illustrazioni erano il 67% dei nodi (6.683 su
+ * 10.009), ma i disegni DISTINTI erano dodici — dodici wedge identici, undici stagebox identici,
+ * ognuno ricostruito da capo con il proprio `<style>` e i propri gradienti. Un render riscriveva
+ * 3,2 MB di markup e il browser doveva riparsarli tutti.
+ *
+ * Qui la copia diventa una sola, dentro <defs>, e ogni elemento la richiama con <use>. La geometria
+ * non cambia di un millimetro: il <use> non porta né x/y né transform, quindi il contenuto compare
+ * esattamente dove sarebbe comparso il markup che sostituisce.
+ *
+ * NON si usa nell'export: là il markup resta espanso, perché il PNG/PDF appiattisce il CSS in
+ * attributi camminando il DOM (flattenCssToAttrs), e i nodi che stanno dentro un <use> vivono in uno
+ * shadow tree che querySelectorAll non attraversa — le illustrazioni uscirebbero senza colori.
+ * A video il costo si paga a ogni gesto, nell'export una volta sola: la scelta è facile.
+ */
+var _sceneArt=null;   /* attivo SOLO dentro sceneMarkup() per il video: {chiave: markup} */
+function libIconScene(key){
+  if(!_sceneArt) return libIcon(key);                 /* export, anteprime, catalogo: espanso come sempre */
+  if(!LIB_ICONS[key]) return '';
+  if(!_sceneArt[key]) _sceneArt[key]=libIconCon(key, "SA_"+key+"_");
+  return '<use href="#sa_'+key+'"/>';
+}
+function sceneArtDefs(){
+  if(!_sceneArt) return '';
+  var out=''; for(var k in _sceneArt){ if(_sceneArt.hasOwnProperty(k)) out+='<g id="sa_'+k+'">'+_sceneArt[k]+'</g>'; }
+  return out ? '<defs id="sceneArt">'+out+'</defs>' : '';
+}
 
 
 /* ============ HELPER GRAFICI (unità = cm, vista dall'alto, origine al centro, fronte palco = giù) ============ */
@@ -2229,11 +2265,14 @@ function sbAutoSize(it){
   if(it.w!=null && it.d!=null && !sbIsCanonSize(it.w,it.d)) return;   /* misura personalizzata o da datasheet: non si tocca */
   var L=sbLayout(it); it.w=L.w; it.d=L.d;
 }
+/* libIconScene e non libIcon: sul palco l'illustrazione si definisce una volta e si richiama (vedi
+   libIconScene). Il fattore di scala resta FUORI, sul gruppo che avvolge, quindi la geometria non si
+   muove di un millimetro. Fuori dalla scena — catalogo, anteprime, export — si comporta come prima. */
 function drawLibFit(key,it,bw,bd){ var k=Math.min((it&&it.w||bw)/bw,(it&&it.d||bd)/bd); k=Math.round(k*1000)/1000;
-  return (k===1)?libIcon(key):'<g transform="scale('+k+')">'+libIcon(key)+'</g>'; }
+  return (k===1)?libIconScene(key):'<g transform="scale('+k+')">'+libIconScene(key)+'</g>'; }
 /* come drawLibFit ma con stiramento LIBERO su w e d (coperture: pianta vista dall'alto, deformabile) */
 function drawLibStretch(key,it,bw,bd){ var sx=((it&&it.w||bw)/bw).toFixed(4), sy=((it&&it.d||bd)/bd).toFixed(4);
-  return (sx==1&&sy==1)?libIcon(key):'<g transform="scale('+sx+' '+sy+')">'+libIcon(key)+'</g>'; }
+  return (sx==1&&sy==1)?libIconScene(key):'<g transform="scale('+sx+' '+sy+')">'+libIconScene(key)+'</g>'; }
 var DRUM_PARTS={ kick:{icon:"cassa22",w:66,d:62}, snare:{icon:"rullante14",w:46,d:46},
   tom:{icon:"tom12",w:30,d:34}, floor:{icon:"floortom16",w:46,d:46}, hihat:{icon:"hihat_kit",w:36,d:52},
   crash:{icon:"crash16",w:44,d:44}, ride:{icon:"ride20",w:54,d:54}, stool:{icon:"sgabellobatt",w:40,d:40} };
@@ -5465,7 +5504,7 @@ function itemMarkup(it){
   if(isMountable(it)) s += _md ? '<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+mountUnderSvg(_md.it)+'</g>' : mountUnderSvg(it);
   /* lucchettino sull'elemento bloccato che non se lo disegna da sé: nell'angolo del suo ingombro,
      stesso segno degli altri — così aggiungere un bloccabile non vuol dire riscriverne il disegno */
-  var _la=look2Art(it), _drawn=_la?libIcon(_la):t.draw(_md?_md.it:it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
+  var _la=look2Art(it), _drawn=_la?libIconScene(_la):t.draw(_md?_md.it:it);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   if(_md) _drawn='<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+_drawn+'</g>';
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(_md) s += '<g transform="translate(0 '+_md.modY.toFixed(1)+')">'+modOverSvg(it)+'</g>';   /* il softbox davanti: simmetrico, non lo tocca lo specchio */
@@ -8974,11 +9013,13 @@ function itemPickable(it){
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
    trascinamento dei blocchi senza ricostruire tutti gli elementi (perf su progetti grandi). */
-function sceneMarkup(){
+function sceneMarkup(opts){
+  /* `opts.espandi` = export: niente <use>, il markup deve reggere da solo fuori da questo documento. */
+  _sceneArt = (opts && opts.espandi) ? null : {};
   recalcStageBBox();
   var venue = (state.venue && layerShown("venue") ? venueMarkup() : '');   /* layer 0: planimetria (partecipa al solo) */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
-  if(venueCalibMode>0) return '<g id="layVenue">'+venue+'</g>';
+  if(venueCalibMode>0){ _sceneArt=null; return '<g id="layVenue">'+venue+'</g>'; }
   /* SOLO attivo: elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto.
      Il solo del Palco = vista d'insieme (tutto a fuoco: layerFgItem("stage") è sempre true). */
   var soloSplit = anySolo();
@@ -9006,7 +9047,9 @@ function sceneMarkup(){
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
   var mzAttr=(mzShown?'':' display="none"');
-  return '<g id="layVenue">'+venue+'</g>'+
+  var _defs=sceneArtDefs(); _sceneArt=null;   /* i <defs> vanno PRIMA di chi li usa e la raccolta finisce qui */
+  return _defs+
+         '<g id="layVenue">'+venue+'</g>'+
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
@@ -20895,7 +20938,7 @@ function buildExportSvg(){
   var tableSections = (state.inputs.length?1:0) + (state.outputs.length?1:0);
   var tableH = hasCL ? 16 + tableSections*90 + tableRows*34 : 0;
   var keepEdit=stageEdit; stageEdit=false;          /* mai l'overlay di "modifica palco" nell'export */
-  var inner = sceneMarkup(); stageEdit=keepEdit; sel=keep; selSet=keepSet;
+  var inner = sceneMarkup({espandi:true}); stageEdit=keepEdit;   /* export: markup autonomo, vedi libIconScene */ sel=keep; selSet=keepSet;
   var css = document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
   var titolo = esc(state.titolo||"Stage plot");
   var luogo = esc(state.luogo||"");
