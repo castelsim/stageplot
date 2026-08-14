@@ -10367,5 +10367,57 @@ t("sitemap, schema e byline dicono la stessa data, e la byline la dice in italia
   }
 });
 
+/* ===== QUELLO CHE IL PRODOTTO DICHIARA DEV'ESSERE VERO (14/08) ============================ */
+
+t("il feedback non si porta dietro il progetto nascosto nell'indirizzo", () => {
+  /* `#p=` contiene il PROGETTO INTERO compresso e `?view=`/`?t=` il token che lo apre: mandare
+     `location.href` significava allegarli a ogni segnalazione, anche a chi aveva lasciato vuota la
+     casella «Allega il mio progetto», mentre la riga sotto il bottone promette «dati anonimi». */
+  const corpo = appjs.slice(appjs.indexOf("function collectAndSend("), appjs.indexOf("function collectAndSend(") + 900);
+  ok(/page_url:\s*pageUrlSicuro\(\)/.test(corpo), "l'URL passa dalla ripulitura");
+  eq(/page_url:\s*location\.href/.test(corpo), false, "e non è più l'indirizzo grezzo");
+
+  /* Non basta che la funzione esista: qui viene ESEGUITA su un indirizzo che porta un token e un
+     progetto, e si pretende che di quei valori non resti niente. */
+  const src = appjs.slice(appjs.indexOf("function pageUrlSicuro()"));
+  const fn = src.slice(0, src.indexOf("\n  }") + 4);
+  ok(fn.length > 80 && fn.includes("searchParams"), "la funzione è stata ritagliata intera");
+  const finto = { href: "https://stageplot.it/app/?view=TOKEN_SEGRETO&t=ALTRO#p=PROGETTOCOMPRESSO",
+                  origin: "https://stageplot.it", pathname: "/app/" };
+  const out = new Function("location", "URL", fn + "; return pageUrlSicuro();")(finto, URL);
+  eq(out.indexOf("TOKEN_SEGRETO"), -1, "il token di condivisione non esce: " + out);
+  eq(out.indexOf("ALTRO"), -1, "nessun valore di query esce: " + out);
+  eq(out.indexOf("PROGETTOCOMPRESSO"), -1, "e nemmeno il progetto nel fragment: " + out);
+  ok(out.indexOf("https://stageplot.it/app/") === 0, "resta la pagina, che è l'unica cosa utile");
+  ok(/view/.test(out) && /#p/.test(out), "restano i NOMI, per sapere da dove scriveva: " + out);
+});
+
+t("gli ampere del pannello dicono da dove viene il numero", () => {
+  /* Lo stesso dato era «reale» nel pannello e «stimato» nel PDF. Chi dimensiona un quadro su un
+     numero che si dichiara reale sta credendo a una misura che nessuno ha fatto. */
+  eq(appjs.indexOf('title="Assorbimento reale'), -1, "nessuno chiama «reale» un valore di catalogo");
+  ok(/function wattFonte\(it\)/.test(appjs), "la provenienza si calcola");
+  const f = appjs.slice(appjs.indexOf("function wattFonte(it)"), appjs.indexOf("function wattFonte(it)") + 420);
+  ok(/it\.watt[\s\S]{0,60}"dichiarato"/.test(f), "quello che scrive l'utente è dichiarato");
+  ok(/lightModelWatt[\s\S]{0,120}"targa"/.test(f) && /equipWatt[\s\S]{0,80}"targa"/.test(f), "i modelli hanno il dato di targa");
+  ok(/return "stima"/.test(f), "il resto è una stima, e va detto");
+  ok(/wattFonteTxt\(r\.fonte\)/.test(appjs), "e il pannello lo dice davvero");
+  ok(/fonte:wattFonte\(/.test(appjs), "la riga porta con sé la provenienza");
+});
+
+t("il link senza account non promette la sincronia che non ha", () => {
+  /* Due meccanismi diversi con la stessa promessa: quello cloud (?view=) è vivo e in sola lettura,
+     quello locale (#p=) è una copia che il destinatario può modificare e che non si aggiorna. */
+  const s = appjs.slice(appjs.indexOf("var SHARE_INTRO="), appjs.indexOf("var SHARE_INTRO=") + 700);
+  ok(/istantanea:/.test(s) && /vivo:/.test(s), "due testi, uno per meccanismo");
+  const ist = (s.match(/istantanea:\s*'([^']*(?:\\'[^']*)*)'/) || [])[1] || "";
+  ok(ist.length > 40, "il testo dell'istantanea esiste: " + ist);
+  eq(/sempre aggiornat/.test(ist), false, "l'istantanea non promette aggiornamenti");
+  eq(/sola lettura/.test(ist), false, "né la sola lettura, visto che la copia è modificabile");
+  ok(/copia/.test(ist), "dice che è una copia");
+  ok(/shareIntroTxt/.test(appjs) && /mode==="istantanea"\s*\)\s*\?\s*SHARE_INTRO\.istantanea/.test(appjs),
+     "ed è il badge a scegliere quale testo mostrare");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
