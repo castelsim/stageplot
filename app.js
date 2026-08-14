@@ -3211,10 +3211,13 @@ window.addEventListener("storage",function(e){
   if(localExpectedRevision!=null && incoming!==localExpectedRevision) markLocalConflict();
 });
 window.addEventListener("beforeunload",function(e){
-  /* Due modi diversi di finire con il lavoro solo in RAM: il conflitto fra schede e l'archivio del
-     browser pieno. La guardia nasceva per il primo; il secondo lasciava chiudere senza fiatare e
-     spariva tutto ciò che era stato fatto dopo il primo errore di quota (06/08). */
-  if(!window.__localConflict && !window.__localStorageUnavailable) return;
+  /* TRE modi diversi di finire con il lavoro solo in RAM: il conflitto fra schede, l'archivio del
+     browser pieno, e il documento salvato che questa versione non sa aprire. La guardia nasceva per
+     il primo; il secondo lasciava chiudere senza fiatare e spariva tutto ciò che era stato fatto
+     dopo il primo errore di quota (06/08); il terzo era rimasto fuori (14/08) ed è il più insidioso,
+     perché lì NON salva né in locale né sul cloud (`__docLoadBlocked` ferma entrambi) e l'unico
+     segnale è una pastiglia in un angolo. Chi monta uno stage plot di corsa non la guarda. */
+  if(!window.__localConflict && !window.__localStorageUnavailable && !window.__docLoadBlocked) return;
   e.preventDefault(); e.returnValue="";
 });   /* dopo un conflitto multi-tab gli edit restano solo in memoria: non chiudere senza esportarli */
 /* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
@@ -3412,7 +3415,17 @@ function flushCloudAutosave(done){
 }
 /* ritenta SUBITO quando la rete torna o quando l'utente riapre la scheda — ma solo se c'è un salvataggio in sospeso */
 window.addEventListener("online", function(){ if(_cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } });
-document.addEventListener("visibilitychange", function(){ if(!document.hidden && _cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } });
+document.addEventListener("visibilitychange", function(){
+  if(!document.hidden){ if(_cloudRetryT){ _cloudRetryStep=0; cloudAutosaveNow(); } return; }
+  /* La pagina se ne va: qui il debounce da 10 secondi diventa una scommessa. Chi sposta un elemento
+     e chiude subito il portatile, o passa a un'altra app dal telefono, lasciava la modifica in coda
+     e la ritrovava mancante aprendo il progetto dall'altro dispositivo — il lavoro non è perso (il
+     locale c'è) ma il cloud resta indietro senza che nessuno lo dica.
+     Si salva SUBITO invece di avvisare: un «vuoi davvero uscire?» dopo ogni modifica sarebbe un
+     dazio continuo su un rischio che si può togliere in silenzio. E su iOS `beforeunload` spesso non
+     scatta affatto: `visibilitychange` è l'ultimo evento su cui si possa contare. */
+  if(window.__cloudNeedsFlush && window.__cloudNeedsFlush()){ clearTimeout(_cloudAsT); _cloudAsT=null; cloudAutosaveNow(); }
+});
 window.scheduleCloudAutosave=scheduleCloudAutosave; window.flushCloudAutosave=flushCloudAutosave;
 window.__markCloudClean=markCloudClean;
 window.__cloudNeedsFlush=function(){ var C=window.__cloud; return _cloudDirty||_cloudSaving||!!(C&&C.isWriting&&C.isWriting()); };

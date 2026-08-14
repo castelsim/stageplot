@@ -2562,8 +2562,8 @@ t("lifecycle cloud: snapshot immutabile, revision guard e cambio progetto fail-c
     autosaveFlow.includes('setDocState("conflict")') &&
     autosaveFlow.includes("resolveCloudFlush(false)"),
   "una planimetria locale mancante non può propagare venue_image=null al cloud");
-  ok(/beforeunload",function\(e\)\{[\s\S]{0,400}?if\(!window\.__localConflict && !window\.__localStorageUnavailable\) return;/.test(appjs),
-    "gli edit sospesi attivano l'avviso di uscita: conflitto multi-tab E archivio pieno (entrambi lasciano il lavoro in sola memoria)");
+  ok(/beforeunload",function\(e\)\{[\s\S]{0,900}?if\(!window\.__localConflict && !window\.__localStorageUnavailable && !window\.__docLoadBlocked\) return;/.test(appjs),
+    "gli edit sospesi attivano l'avviso di uscita: conflitto multi-tab, archivio pieno E documento incompatibile (tutti e tre lasciano il lavoro in sola memoria)");
   const openFlow = appjs.slice(appjs.indexOf("function openProject"), appjs.indexOf("function dupProject"));
   ok(openFlow.includes("window.flushCloudAutosave(function(ok)"), "il cambio progetto attende il flush");
   ok(openFlow.includes("window.__cloudNeedsFlush()"), "gli edit durante la lettura remota bloccano il commit");
@@ -10445,6 +10445,28 @@ t("il pannello dei permessi non contraddice l'intro due righe sopra", () => {
   ok(/Vale per i link con account/.test(f), "e dichiara che la casella «Crea una copia» lì non agisce");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="sharePermRead"/.test(html) && /id="sharePermCopyHint"/.test(html), "le due righe hanno l'aggancio nel markup");
+});
+
+/* ===== QUANDO LA PAGINA SE NE VA, LA CODA NON RESTA IN SOSPESO (14/08) ==================== */
+t("chiudere la scheda non lascia l'ultima modifica in coda", () => {
+  /* L'autosave cloud aspetta 10 secondi. Chi sposta un elemento e chiude subito il portatile, o
+     passa a un'altra app dal telefono, lasciava quella modifica nella coda: il locale ce l'ha, il
+     cloud no, e riaprendo il progetto dall'altro dispositivo manca l'ultima cosa fatta. */
+  const vis = appjs.slice(appjs.indexOf('document.addEventListener("visibilitychange", function(){'),
+                          appjs.indexOf('window.scheduleCloudAutosave=scheduleCloudAutosave'));
+  ok(/document\.hidden/.test(vis), "il ramo «la pagina se ne va» esiste");
+  ok(/__cloudNeedsFlush\(\)/.test(vis), "e chiede se c'è qualcosa in sospeso");
+  ok(/clearTimeout\(_cloudAsT\)[\s\S]{0,60}cloudAutosaveNow\(\)/.test(vis),
+     "salta il debounce e salva subito, invece di sperare nei 10 secondi");
+  /* Deliberatamente NON si aggiunge __cloudNeedsFlush al beforeunload: il lavoro è comunque nel
+     locale, e un «vuoi davvero uscire?» dopo ogni modifica sarebbe un dazio continuo. L'avviso
+     resta per i tre casi in cui il locale NON c'è. */
+  /* la CONDIZIONE, non una finestra di caratteri dopo l'inizio della funzione: il commento sopra la
+     riga è lungo, e misurare a caratteri faceva leggere al test il commento invece del codice —
+     scoperto sabotando, perché il controllo restava verde col difetto rimesso. */
+  const cond = (appjs.match(/if\(!window\.__localConflict[^\n]*return;/) || [""])[0];
+  ok(cond.length > 40, "la guardia di uscita è stata trovata: " + cond);
+  eq(/__cloudNeedsFlush/.test(cond), false, "e l'avviso di uscita non si allarga a chi ha il locale sano");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
