@@ -1456,8 +1456,11 @@
         <div id="shareQrWarn" style="display:none;font-size:12px;color:var(--text-2);padding:8px 0">Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b></div>
       </div>
       <div id="sharePerms" style="border-top:1px solid var(--border);margin-top:14px;padding-top:8px">
-        <div class="share-perm"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
-        <label class="share-perm" for="shareOptCopy"><span class="pd">Mostra il pulsante «Crea una copia» <small>chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF</small></span><input type="checkbox" id="shareOptCopy"></label>
+        <!-- Queste due righe descrivono il link CLOUD. Col link senza account (#p=) le scrive
+             shareBadge(): là non c'è nessun viewer da mettere in sola lettura e la casella qui sotto
+             non tocca niente, perché chi apre riceve comunque una copia da modificare. -->
+        <div class="share-perm" id="sharePermRead"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span class="share-perm-badge" style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
+        <label class="share-perm" for="shareOptCopy" id="sharePermCopyRow"><span class="pd">Mostra il pulsante «Crea una copia» <small id="sharePermCopyHint">chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF</small></span><input type="checkbox" id="shareOptCopy"></label>
         <label class="share-perm" for="shareOptContacts"><span class="pd">Contatti visibili nel link <small>nomi e recapiti della rubrica del progetto — spento di default</small></span><input type="checkbox" id="shareOptContacts"></label>
         <!-- Col progetto bloccato il server taglia i contatti comunque (get-shared-project:
              allowContacts = !is_locked): la casella resta spuntata e disabilitata, e senza questa
@@ -5309,13 +5312,8 @@ function applyHistory(snapshot){
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels();
 }
-function applyRemoteState(json){
-  try{
-    state=reattachVenueImg(normalizeState(JSON.parse(json)),activeVar);
-    cacheVenueImg(state.venue,activeVar); ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
-    setEventInputs(); render(); renderChannels(); fit();
-  }catch(e){ /* stato remoto non valido: ignora */ }
-}
+/* applyRemoteState RIMOSSA (14/08): la collaborazione live non passa più di qui — lo stato
+   arriva dall'Edge Function e lo applica importProject(). Era rimasta indietro di un'architettura. */
 function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
 function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
 /* ===== Importa progetto da file .json (annullabile) ===== */
@@ -10383,7 +10381,7 @@ function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el &
   if(el){ try{ el.focus(); el.select(); }catch(e){} } }
 function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
 function auditFixStereoOdd(on){ if(!state.cab) state.cab={}; state.cab.stereoOdd=!!on; __cabRes=null; save(); render(); }   /* attiva/disattiva la convenzione L=dispari/R=pari */
-function auditFixOpenChan(){ var b=document.getElementById("bChanList")||document.getElementById("bChanListHdr"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
+function auditFixOpenChan(){ var b=document.getElementById("bChanList"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()
@@ -10819,7 +10817,6 @@ function render(){
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
-  var _nt=document.getElementById("bNamesTxt"); if(_nt) _nt.textContent=({auto:"Nomi: auto",on:"Nomi: sì",off:"Nomi: no"})[nMode];
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
@@ -19597,12 +19594,6 @@ function renderPatchPanel(){
   enableRowDrag(host, function(){ return patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).map(function(r){ return r.key; }); },
     function(o){ state.cab.order=o; }, null, { blocksFn:cabPairBlocks });   /* stesso ordine, stessa regola sulle coppie stereo */
 }
-function togglePatchView(){   /* dal catalogo a sinistra: attiva/disattiva la sezione */
-  patchActive=!patchActive;
-  if(patchActive){ techAccordionOpen("patch"); closeMobileDrawers(); clearSelection(); }
-  render();   /* mobile: body.tech-open (sincronizzata in updateSelPanel) apre il drawer con la lista */
-  if(patchActive) techScrollTo("patchSec");
-}
 /* mobile: il drawer si apre su LAYER/STATO — porta la sezione attivata in vista (ciclo 4) */
 function techScrollTo(id){
   if(!isMobile()) return;
@@ -20638,6 +20629,10 @@ function loadList(){
     rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   return {rows:rows, R:R};
 }
+/* toggleLoadView / togglePatchView RIMOSSE (14/08): definite e mai chiamate da nessuna parte, e
+   comunque inefficaci — render() ricalcola patchActive/monActive/loadActive da layerAccOpen (una
+   riga sola, più sopra), quindi l'effetto del toggle spariva al primo disegno. Le liste si aprono
+   dal pannello Layer, che è la strada vera: LAYER_ACC.cabin/cabout/elec. */
 var loadActive=false, loadOpen=true;
 function renderLoadPanel(){
   var sec=document.getElementById("loadSec"); if(!sec) return;
@@ -20770,7 +20765,6 @@ function openLinePop(ev, loadId){
   document.getElementById("lpConn").addEventListener("change", commit);
   setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
 }
-function toggleLoadView(){ loadActive=!loadActive; if(loadActive){ techAccordionOpen("load"); closeMobileDrawers(); clearSelection(); } render(); if(loadActive) techScrollTo("loadSec"); }
 (function(){
   var head=document.getElementById("loadSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#loadTrash")) return; if(loadOpen) loadOpen=false; else techAccordionOpen("load"); renderAccessoriCount(); });   /* accordion */
@@ -22053,9 +22047,40 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     vivo:'Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all\'ultima modifica.',
     istantanea:'Il link porta con sé una <b>copia di oggi</b>: chi lo riceve può modificarla, ma le sue modifiche non tornano a te e non vedrà quelle che farai da adesso.'
   };
+  /**
+   * Il pannello dei permessi dice la verità DEL LINK che si sta guardando.
+   *
+   * Correggere il solo testo dell'intro non bastava: due righe più sotto restava un badge verde
+   * «Sola lettura · sempre», e nella stessa finestra si leggeva «chi lo riceve può modificarla» e
+   * «nessuno può modificare il tuo progetto». Il badge, che pesa di più, era quello falso.
+   *
+   * E la casella «Crea una copia» sul link locale non tocca niente: quel link non apre un viewer con
+   * un pulsante da mostrare o nascondere, apre l'editor (loadFromHash → «Apri come copia»). Resta
+   * visibile perché il permesso è del documento e vale per il link cloud, ma qui lo dichiara.
+   * La riga dei contatti invece funziona in tutti e due i casi: stateForPublicShare la rispetta
+   * anche nel link locale, e infatti non si tocca.
+   */
+  function sharePermsPerModo(mode){
+    var ist=(mode==="istantanea");
+    var read=document.getElementById("sharePermRead");
+    if(read){
+      var pd=read.querySelector(".pd"), bd=read.querySelector(".share-perm-badge");
+      if(pd) pd.innerHTML = ist
+        ? 'Copia modificabile <small>chi riceve il link lavora su una copia sua: il tuo progetto non cambia, e le sue modifiche non ti arrivano</small>'
+        : 'Sola lettura <small>nessuno può modificare il tuo progetto</small>';
+      if(bd){ bd.textContent = ist ? "copia" : "sempre"; bd.style.color = ist ? "var(--text-3)" : "var(--success,#15803d)"; }
+    }
+    var hint=document.getElementById("sharePermCopyHint");
+    if(hint) hint.textContent = ist
+      ? "Vale per i link con account: qui chi apre riceve comunque una copia da modificare."
+      : "chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF";
+    var row=document.getElementById("sharePermCopyRow");
+    if(row) row.style.opacity = ist ? ".55" : "";
+  }
   function shareBadge(mode){
     var tx=document.getElementById("shareIntroTxt");
     if(tx) tx.innerHTML = (mode==="istantanea") ? SHARE_INTRO.istantanea : SHARE_INTRO.vivo;
+    sharePermsPerModo(mode);
     var el=document.getElementById("shareState"); if(!el) return;
     if(mode==="attivo"){ el.textContent="● Link attivo"; el.className="share-state on"; }
     else if(mode==="istantanea"){ el.textContent="Istantanea locale"; el.className="share-state"; }
@@ -22300,7 +22325,6 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     return rd&&ux&&rd.userId===ux.id&&rd.projectId===px?rd:null;
   };
   /* frameSaveJson rimosso (A′): il download del progetto vive in File → Scarica file progetto */
-  (function(){ var fv=document.getElementById("frameVers"); if(fv) fv.addEventListener("click", toggleVersionEdit); })();
   /* Export come modale: chiusura con X e click sullo sfondo */
   (function(){
     function closeExp(){ saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); }
@@ -22313,7 +22337,6 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     saveVersion(n);
     document.getElementById("versName").value="";
   });
-  (function(){ var fs=document.getElementById("frameShare"); if(fs) fs.addEventListener("click", function(){ openShare(); }); })();
   document.getElementById("bHdrImport").addEventListener("click", function(){ document.getElementById("importJson").click(); });
   document.getElementById("shareTabLink").addEventListener("click", function(){ openShare(); });
   document.getElementById("shareTabPdf").addEventListener("click", function(){ closeShare(); document.getElementById("bPdf").click(); });
