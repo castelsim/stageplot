@@ -3861,8 +3861,11 @@ body.dark .ask-all .btn{background:transparent}
         <div id="shareQrWarn" style="display:none;font-size:12px;color:var(--text-2);padding:8px 0">Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b></div>
       </div>
       <div id="sharePerms" style="border-top:1px solid var(--border);margin-top:14px;padding-top:8px">
-        <div class="share-perm"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
-        <label class="share-perm" for="shareOptCopy"><span class="pd">Mostra il pulsante «Crea una copia» <small>chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF</small></span><input type="checkbox" id="shareOptCopy"></label>
+        <!-- Queste due righe descrivono il link CLOUD. Col link senza account (#p=) le scrive
+             shareBadge(): là non c'è nessun viewer da mettere in sola lettura e la casella qui sotto
+             non tocca niente, perché chi apre riceve comunque una copia da modificare. -->
+        <div class="share-perm" id="sharePermRead"><span class="pd">Sola lettura <small>nessuno può modificare il tuo progetto</small></span><span class="share-perm-badge" style="font-size:11px;color:var(--success,#15803d);font-weight:700">sempre</span></div>
+        <label class="share-perm" for="shareOptCopy" id="sharePermCopyRow"><span class="pd">Mostra il pulsante «Crea una copia» <small id="sharePermCopyHint">chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF</small></span><input type="checkbox" id="shareOptCopy"></label>
         <label class="share-perm" for="shareOptContacts"><span class="pd">Contatti visibili nel link <small>nomi e recapiti della rubrica del progetto — spento di default</small></span><input type="checkbox" id="shareOptContacts"></label>
         <!-- Col progetto bloccato il server taglia i contatti comunque (get-shared-project:
              allowContacts = !is_locked): la casella resta spuntata e disabilitata, e senza questa
