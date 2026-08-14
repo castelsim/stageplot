@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.08.13";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.08.14";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3840,7 +3840,10 @@ body.dark .ask-all .btn{background:transparent}
     <div id="shareLinkBox">
       <div id="shareIntro" style="display:flex;gap:14px;margin:12px 0 0;align-items:flex-start">
         <div id="shareMini" style="width:120px;height:84px;flex:0 0 auto;background:var(--surface-raised);border-radius:9px;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
-        <div style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
+        <!-- Il testo lo scrive shareBadge(): i due link non sono la stessa cosa e non possono
+             promettere la stessa cosa. Quello cloud è vivo e in sola lettura; quello senza account
+             porta con sé una copia di oggi, che chi la riceve può modificare. -->
+        <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
       </div>
       <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
         <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">

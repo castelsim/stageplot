@@ -1903,6 +1903,27 @@ function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) retu
 function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return a+weightOf(it); },0); }
 function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
 function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t" : Math.round(kg)+" kg"; }
+/**
+ * Da DOVE viene il numero che wattOf() restituisce. Stessa scala di priorità, una parola per gradino.
+ *
+ * Serve perché il pannello dei carichi chiamava «reale» qualunque assorbimento, anche quando era il
+ * valore tipico di catalogo di WATT{} — e il PDF, sullo stesso identico dato, scriveva «stimato».
+ * Un fonico che legge «reale» dimensiona il quadro su quel numero: se è la media di categoria di un
+ * ampli per basso, la parola sta promettendo una misura che nessuno ha fatto.
+ */
+function wattFonte(it){
+  if(!it) return "stima";
+  if(it.watt!=null && isFinite(it.watt)) return "dichiarato";
+  if(typeof lightModelWatt==="function" && lightModelWatt(it)!=null) return "targa";
+  if(typeof equipWatt==="function" && equipWatt(it)!=null) return "targa";
+  return "stima";
+}
+/** La stessa provenienza, detta a chi legge. */
+function wattFonteTxt(f){
+  if(f==="dichiarato") return "Assorbimento dichiarato da te, a 230 V";
+  if(f==="targa") return "Assorbimento di targa del modello, a 230 V";
+  return "Stima tipica per questo tipo di attrezzatura, a 230 V: non è una misura";
+}
 function powerTotalW(){ return (state.items||[]).reduce(function(a,it){ return a+wattOf(it); },0); }
 /* distanza interna MINIMA per le postazioni doppie (limite fisico dello slider): la più stretta possibile.
    Gli strumenti larghi (contrabbasso, violoncello) hanno un minimo maggiore per non sovrapporsi. */
@@ -18837,16 +18858,16 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
 function loadList(){
   var R=elecResult(true), rows=[], n=0;
   R.loadLinks.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
+    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, fonte:wattFonte(l.load.it), distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
       line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id}); });
   /* Anche il carico NON ancora collegato dichiara la sua spina (29/07): il connettore si deduce
      dall'elemento e dall'assorbimento, non dalla linea — chi allestisce vuole sapere che serve una
      CEE PRIMA di tirare il cavo, non dopo. Stessa funzione del motore: nessun secondo criterio. */
   function _conn(it,a){ var c=elecConnOf(it,a,null); return (c&&c.label)||""; }
   R.unassigned.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   (R.pending||[]).forEach(function(l){ n++;   /* manual-first: la lista carichi è completa anche senza cavi */
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
+    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   return {rows:rows, R:R};
 }
 var loadActive=false, loadOpen=true;
@@ -18906,7 +18927,7 @@ function renderLoadPanel(){
         + (r.linked ? esc(lineTxt) : '<span class="nopatch">—</span>')   /* stessa casella vuota dell'Input: manca la linea, il fulmine è lì accanto */
       + '</span>'
       + '<span class="pload"><span class="pw">'+pot+'</span>'
-        + '<b class="pamp" title="Assorbimento reale a 230 V">'+r.a.toFixed(1).replace(".",",")+' A</b>'
+        + '<b class="pamp" title="'+esc(wattFonteTxt(r.fonte))+'">'+r.a.toFixed(1).replace(".",",")+' A</b>'
         + (r.conn?'<span class="pconn">'+esc(r.conn)+'</span>':'')
       + '</span>'
       + '<span class="pact"></span>';
@@ -20257,7 +20278,16 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     setTimeout(function(){ try{ urlEl.focus(); urlEl.select(); }catch(e){} },40);
   }
   function showUnshare(on){ var b=document.getElementById("shareUnshare"); if(b) b.hidden=!on; shareBadge(on?"attivo":null); }
+  /* Il testo dell'intro segue il badge: senza account il link non è «sola lettura sempre aggiornato»
+     — è un'istantanea che viaggia dentro l'indirizzo e si apre come copia modificabile. Prometteva
+     comunque la sincronia, e chi la riceveva aspettava aggiornamenti che non sarebbero mai arrivati. */
+  var SHARE_INTRO={
+    vivo:'Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all\'ultima modifica.',
+    istantanea:'Il link porta con sé una <b>copia di oggi</b>: chi lo riceve può modificarla, ma le sue modifiche non tornano a te e non vedrà quelle che farai da adesso.'
+  };
   function shareBadge(mode){
+    var tx=document.getElementById("shareIntroTxt");
+    if(tx) tx.innerHTML = (mode==="istantanea") ? SHARE_INTRO.istantanea : SHARE_INTRO.vivo;
     var el=document.getElementById("shareState"); if(!el) return;
     if(mode==="attivo"){ el.textContent="● Link attivo"; el.className="share-state on"; }
     else if(mode==="istantanea"){ el.textContent="Istantanea locale"; el.className="share-state"; }
@@ -25596,12 +25626,33 @@ function maybeAskStageSize(explicit){
       selected_object_type: sel?sel.type:null };
   }
 
+  /**
+   * L'indirizzo della pagina, senza quello che l'indirizzo si porta dietro.
+   *
+   * `location.href` qui era un allegato non dichiarato: nel fragment `#p=` viaggia il PROGETTO INTERO
+   * compresso (buildShareUrl), e in `?view=`/`?t=` il token che apre un progetto condiviso. Chi
+   * scriveva un feedback lasciando vuota la casella «Allega il mio progetto» lo spediva lo stesso,
+   * mentre la riga sotto il bottone prometteva «alcuni dati tecnici anonimi».
+   *
+   * Restano il percorso e i NOMI dei parametri presenti: bastano a sapere da dove scrive (l'app, un
+   * link di sola lettura, una richiesta a un musicista) e non contengono niente di suo.
+   */
+  function pageUrlSicuro(){
+    try{
+      var u=new URL(location.href), nomi=[];
+      u.searchParams.forEach(function(_,k){ if(nomi.indexOf(k)<0) nomi.push(k); });
+      var h=(u.hash||"").replace(/^#/,"");
+      if(h) nomi.push("#"+h.split("=")[0]);
+      return u.origin+u.pathname+(nomi.length?" ["+nomi.join(", ")+"]":"");
+    }catch(e){ return (location.origin||"")+(location.pathname||""); }
+  }
+
   function collectAndSend(projectId){
     /* Niente user_id/user_email nel body: l'identità la ricava il server dal JWT (audit S5). */
     var body={
       message: msg.value.trim(), hint: hint, honeypot: hp.value,
       tech_context: techContext(),
-      meta:{ app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: location.href,
+      meta:{ app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: pageUrlSicuro(),
         user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
       project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
       project_id: (projectId||null)
