@@ -11938,7 +11938,10 @@ function showDragHintOnce(){
   }catch(_storageErr){}   /* storage negato: mostra comunque l'aiuto, senza interrompere addItem */
   var m=document.querySelector("main"); if(!m) return;
   var t=document.createElement("div"); t.id="dragHint";
-  var s=document.createElement("span"); s.textContent="Trascinalo per spostarlo · maniglia in alto per ruotarlo · pannello a destra per nome, copia, elimina";
+  /* Il pannello delle proprietà sta a destra sul computer e IN BASSO sul telefono: un solo testo per
+     due layout mandava metà degli utenti a cercare una colonna che sullo schermo non c'è. */
+  var _dove=(typeof isMobile==="function" && isMobile()) ? "pannello in basso" : "pannello a destra";
+  var s=document.createElement("span"); s.textContent="Trascinalo per spostarlo · maniglia in alto per ruotarlo · "+_dove+" per nome, copia, elimina";
   var x=document.createElement("button"); x.type="button"; x.setAttribute("aria-label","Chiudi"); x.textContent="✕";
   x.addEventListener("click", function(){ if(t.parentNode) t.remove(); });
   t.appendChild(s); t.appendChild(x); m.appendChild(t);
@@ -16009,7 +16012,7 @@ function chanRow(kind, row, i){
     who.addEventListener("input", function(){ row.who=who.value; saveSoon(); });
     d.appendChild(who);
   }
-  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da";
+  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da: chi porta l'attrezzatura (band o service). Finisce nella backline list del rider.";
   ["","Band","Service"].forEach(function(t){ var o=document.createElement("option"); o.value=t; o.textContent=t||"forn."; if(t===(row.by||""))o.selected=true; by.appendChild(o); });
   by.addEventListener("change", function(){ row.by=by.value; saveSoon(); });
   d.appendChild(by);
@@ -23587,7 +23590,10 @@ function pdfChannelPage(doc, L, paperKey){
   }
   function pdfRenderPills(){
     /* Pagine come pillole: TUTTE le disponibili (attivate dagli elementi del progetto) sono visibili —
-       piene = nel PDF (× toglie), tratteggiate = click per aggiungere. Default: nessuna (solo palco). */
+       piene = nel PDF (× toglie), tratteggiate = click per aggiungere.
+       Alla prima apertura NON sono vuote: pdfSuggestedKeys() preseleziona le pagine suggerite, per
+       mantenere quello che il benvenuto promette («stage plot + liste»). Il commento diceva ancora
+       «default: nessuna» ed era rimasto indietro (14/08). */
     var host=document.getElementById("pdfPills"); if(!host) return;
     host.innerHTML="";
     var nSel=0, nSugg=0;
