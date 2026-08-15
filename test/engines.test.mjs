@@ -10517,5 +10517,36 @@ t("«Fornito da» si spiega senza dover passarci sopra col mouse", () => {
   ok(/Fornito da: chi porta l'attrezzatura/.test(appjs), "e nella channel list il tooltip non ripete solo l'etichetta");
 });
 
+/* ===== IL MODELLO DICHIARA COSA HA DECISO AL POSTO TUO (14/08) ============================ */
+t("dopo un modello il riepilogo delle ipotesi si calcola dal palco, non è un testo fisso", () => {
+  /* Un modello posa ventuno oggetti e decide quante voci ci sono, chi ha l'in-ear, quanti cori.
+     Erano decisioni invisibili che finivano nel PDF con l'aria di essere requisiti verificati. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="assunzioni"/.test(html) && /id="asRows"/.test(html), "il riepilogo esiste nel markup");
+  ok(/function ipotesiDelPalco\(\)/.test(appjs), "e le righe hanno un motore");
+  const f = appjs.slice(appjs.indexOf("function ipotesiDelPalco()"), appjs.indexOf("function aggiungiCorista"));
+  ok(/state\.items/.test(f) && /patchList\(\)/.test(f), "che legge il palco e la channel list veri");
+  /* se le frasi fossero scritte a mano, il riepilogo potrebbe dire una cosa mentre il palco ne dice
+     un'altra: è il difetto che stiamo correggendo, non uno da introdurre */
+  ok(/corista/.test(f) && /canHeadMic/.test(f) && /iem/.test(f), "e copre voci, chi può cantare e l'ascolto");
+  ok(/mostraAssunzioni\(\)/.test(appjs.slice(appjs.indexOf("function startFromTemplate"), appjs.indexOf("function startFromTemplate") + 1800)),
+     "il riepilogo si apre dopo aver posato un modello");
+  ok(/sp_noAssunzioni/.test(appjs), "e «non mostrarlo più» viene ricordato");
+});
+
+t("il corista aggiunto dal riepilogo non diventa una voce solista", () => {
+  /* Trovato provandolo: `addItem("corista")` etichetta in automatico «Voce 1», e il nuovo arrivato
+     compariva in channel list come VOCE SOLISTA — il riepilogo che deve chiarire le ipotesi ne
+     creava una falsa, e il conteggio saliva a «2 voci soliste» dopo aver aggiunto UN CORISTA. */
+  const f = appjs.slice(appjs.indexOf("function aggiungiCorista()"), appjs.indexOf("function togliCorista"));
+  ok(/nuovo\.label/.test(f), "il nuovo corista riceve la sua etichetta");
+  ok(/replace\(\/\\s\*\\d\+\$\/,""\)/.test(f) || /\\s\*\\d\+\$/.test(f), "presa da quella dei cori già presenti, senza il numero");
+  ok(/"Cori"/.test(f), "con «Cori» come ripiego");
+  /* e il conteggio non si fida dei soli nomi dei canali */
+  const c = appjs.slice(appjs.indexOf("function ipotesiDelPalco()"), appjs.indexOf("function aggiungiCorista"));
+  ok(/etichetteCori/.test(c) && /indexOf\(String\(n\)\.toLowerCase\(\)\)<0/.test(c),
+     "le voci soliste escludono le etichette dei coristi");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

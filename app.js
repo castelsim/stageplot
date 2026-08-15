@@ -14721,6 +14721,136 @@ function beginNewDocument(initialState,options){
 }
 /* Piazza una formazione PRONTA sul palco (band/acustica/coro/…), riusando le formazioni esistenti
    con force=true → niente modale di review. Aggancia welcome-chips e menu "Nuovo da modello". */
+/* ===================== COSA ABBIAMO IPOTIZZATO ==========================================
+ * Un modello posa ventuno oggetti in un colpo e decide al posto tuo chi canta, quanti sono i cori,
+ * chi sente in cuffia e chi dalla spia. Sono decisioni giuste per la band media e sbagliate per la
+ * tua, e finora restavano invisibili: finivano nel PDF con l'aria di essere requisiti verificati.
+ *
+ * Le righe si CALCOLANO dal palco appena posato, non si scrivono a mano. Vale per ogni modello —
+ * Band, Coro, Tributo, Jazz — e soprattutto non può succedere che il riepilogo dica una cosa e il
+ * palco ne dica un'altra, che è il difetto che stiamo correggendo, non uno da introdurre.
+ */
+function ipotesiDelPalco(){
+  var items=state.items||[], righe=[];
+  function conta(t){ return items.filter(function(it){ return it.type===t; }).length; }
+  var canali=(typeof patchList==="function") ? patchList().rows.map(function(r){ return r.name||""; }) : [];
+  /* le voci soliste si contano sui canali che NON vengono dai coristi: l'elemento corista è la
+     fonte certa del numero di cori, il nome del canale no (si può rinominare a mano). */
+  var etichetteCori=items.filter(function(it){ return it.type==="corista"; })
+                         .map(function(it){ return String(it.label||"").toLowerCase(); });
+  var vociSolo=canali.filter(function(n){
+    return /^voce\b/i.test(n) && etichetteCori.indexOf(String(n).toLowerCase())<0;
+  }).length;
+  var cori=conta("corista");
+  var coriCh=canali.filter(function(n){ return /^cori\b/i.test(n); }).length;
+
+  /* 1. CHI CANTA — il difetto originale: il modello decide quante voci ci sono, e il rider parte così.
+        Le due azioni stanno sulla stessa riga: sono la stessa domanda («quanti cantano?»), e due
+        righe separate facevano crescere il pannello fin sopra il palco appena creato. */
+  if(vociSolo||cori||coriCh){
+    var azioni=[];
+    if(cori>0) azioni.push({ act:"− corista", fn:function(){ togliCorista(); } });
+    azioni.push({ act:"+ corista", fn:function(){ aggiungiCorista(); } });
+    righe.push({ txt:(vociSolo||1)+" "+((vociSolo||1)===1?"voce solista":"voci soliste")+
+        (cori?" e "+cori+" "+(cori===1?"corista":"coristi"):(coriCh?" e un canale cori":"")),
+      sub:"se cantate in più persone, aggiungi chi manca", azioni:azioni });
+  }
+
+  /* 2. GLI STRUMENTISTI CHE POTREBBERO CANTARE e che il modello ha dato per muti */
+  items.filter(function(it){ return typeof canHeadMic==="function" && canHeadMic(it) && !(typeof headMicOf==="function" && headMicOf(it)); })
+    .slice(0,3).forEach(function(it){
+      var nome=it.label||((TYPES[it.type]||{}).nome)||"strumentista";
+      righe.push({ txt:nome+": non canta", sub:"un clic e prende il suo canale voce",
+        act:"canta anche", fn:function(){ it.headMic="asta"; salvaERidisegna(); } });
+    });
+
+  /* 3. CHI È SUL PALCO SENZA UNA PERSONA — l'ampli c'è, il musicista no: il conto delle voci non torna
+        mai per chitarra e basso, e chi legge il rider non sa quante persone salgono */
+  var soloAttrezzatura=[];
+  if(conta("stack")||conta("comboamp")) soloAttrezzatura.push("chitarra");
+  if(conta("bassamp")) soloAttrezzatura.push("basso");
+  if(soloAttrezzatura.length) righe.push({
+    txt:soloAttrezzatura.join(" e ").replace(/^./,function(c){ return c.toUpperCase(); })+": sul palco c'è l'attrezzatura, non la persona",
+    sub:"va bene per il service; se ti serve il conto delle persone, aggiungile dal catalogo" });
+
+  /* 4. COME SI SENTONO — la scelta più personale di tutte, decisa da un modello */
+  var iem=conta("iem"), wed=conta("wedge"), sf=conta("sidefill");
+  if(iem||wed) righe.push({ txt:"Ascolto: "+(iem?iem+" in-ear":"")+(iem&&wed?" e ":"")+(wed?wed+" spie":"")+(sf?" (+"+sf+" side fill)":""),
+    sub:"si cambia dal pannello «Ascolto» di ogni musicista" });
+  return righe;
+}
+/**
+ * Un corista in più, accanto a quelli che ci sono.
+ *
+ * L'etichetta non si lascia a `addItem`: il tipo «corista» prende in automatico «Voce N», e il nuovo
+ * arrivato compariva in channel list come una VOCE SOLISTA — il riepilogo che deve chiarire le
+ * ipotesi ne creava una falsa. Prende invece il nome di chi c'è già («Cori» → «Cori 2»), che è anche
+ * quello che il fonico si aspetta di leggere sul rider.
+ */
+function aggiungiCorista(){
+  var esistenti=(state.items||[]).filter(function(it){ return it.type==="corista"; });
+  var mod=esistenti[esistenti.length-1];
+  var x=mod?mod.x+90:120, y=mod?mod.y:-70;
+  if(typeof addItem!=="function") return;
+  addItem("corista", x, y);
+  var nuovo=(state.items||[]).filter(function(it){ return it.type==="corista"; }).pop();
+  if(nuovo){
+    var base=(mod && mod.label ? String(mod.label).replace(/\s*\d+$/,"") : "Cori") || "Cori";
+    nuovo.label = esistenti.length ? base+" "+(esistenti.length+1) : base;
+  }
+  salvaERidisegna();
+}
+function togliCorista(){
+  var l=(state.items||[]).filter(function(it){ return it.type==="corista"; });
+  if(!l.length) return;
+  var ultimo=l[l.length-1];
+  state.items=(state.items||[]).filter(function(it){ return it.id!==ultimo.id; });
+  salvaERidisegna();
+}
+function salvaERidisegna(){
+  if(typeof pushHistory==="function") pushHistory();
+  if(typeof save==="function") save();
+  render(); if(typeof renderChannels==="function") renderChannels();
+  mostraAssunzioni(true);   /* le righe si ricalcolano: sono un ritratto del palco, non un testo fisso */
+}
+function mostraAssunzioni(soloAggiorna){
+  var box=document.getElementById("assunzioni"), host=document.getElementById("asRows");
+  if(!box||!host) return;
+  if(!soloAggiorna){ try{ if(localStorage.getItem("sp_noAssunzioni")) return; }catch(_e){} }
+  var righe=ipotesiDelPalco();
+  if(!righe.length){ box.hidden=true; return; }
+  host.textContent="";
+  righe.forEach(function(r){
+    var row=document.createElement("div"); row.className="as-row";
+    var t=document.createElement("div"); t.className="as-txt";
+    t.textContent=r.txt;
+    if(r.sub){ var s=document.createElement("small"); s.textContent=r.sub; t.appendChild(s); }
+    row.appendChild(t);
+    var azioni = r.azioni || (r.act && r.fn ? [{act:r.act, fn:r.fn}] : []);
+    if(azioni.length){
+      var wrap=document.createElement("div"); wrap.className="as-acts";
+      azioni.forEach(function(a){
+        var b=document.createElement("button"); b.type="button"; b.className="as-act"; b.textContent=a.act;
+        b.addEventListener("click", a.fn);
+        wrap.appendChild(b);
+      });
+      row.appendChild(wrap);
+    }
+    host.appendChild(row);
+  });
+  box.hidden=false;
+}
+function chiudiAssunzioni(){
+  var box=document.getElementById("assunzioni"); if(box) box.hidden=true;
+  var mai=document.getElementById("asMai");
+  if(mai && mai.checked){ try{ localStorage.setItem("sp_noAssunzioni","1"); }catch(_e){} }
+}
+(function(){
+  var ok=document.getElementById("asOk"), x=document.getElementById("asClose");
+  if(ok) ok.addEventListener("click", chiudiAssunzioni);
+  if(x) x.addEventListener("click", chiudiAssunzioni);
+})();
+
 function startFromTemplate(f,options){
   options=options||{};
   var qd = (typeof formationData==="function") ? formationData(f) : null;
@@ -14742,6 +14872,8 @@ function startFromTemplate(f,options){
     var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
     render(); if(typeof fitStage==="function") fitStage(); render();
     if(typeof options.after==="function") options.after();
+    /* il riepilogo delle ipotesi arriva DOPO che il palco è a video: prima non c'è niente da leggere */
+    setTimeout(function(){ try{ mostraAssunzioni(); }catch(_e){} }, 350);
   });
   return true;
 }
