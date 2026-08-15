@@ -10496,5 +10496,26 @@ t("sul palco le illustrazioni si richiamano, nell'export si scrivono per intero"
   ok(/transform="scale\('\+k\+'\)">'\+libIconScene\(key\)/.test(fit), "e il fattore di scala resta sul gruppo che avvolge");
 });
 
+/* ===== L'AIUTO DICE LA VERITÀ SULLO SCHERMO CHE HAI DAVANTI (14/08) ======================= */
+t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () => {
+  /* Le proprietà stanno a destra sul computer e IN BASSO sul telefono: un solo testo per due layout
+     mandava metà degli utenti a cercare una colonna che non esiste. */
+  const h = appjs.slice(appjs.indexOf('t.id="dragHint"'), appjs.indexOf('t.id="dragHint"') + 700);
+  ok(/isMobile\(\)/.test(h), "l'aiuto guarda che schermo è");
+  ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
+});
+
+t("«Fornito da» si spiega senza dover passarci sopra col mouse", () => {
+  /* La spiegazione c'era, ma solo come tooltip `title`: al tocco non esiste. Ora è la nota accanto
+     all'etichetta, lo stesso `lbl-note` che il prodotto usa già per «Installazione». */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const w = html.slice(html.indexOf('id="pByWrap"'), html.indexOf('id="pByWrap"') + 400);
+  ok(/class="lbl-note"/.test(w), "la spiegazione è visibile, non appesa all'hover");
+  ok(/backline list del rider/.test(w), "e dice a cosa serve il campo");
+  eq(/<label title=/.test(w), false, "niente più spiegazione nascosta nel title dell'etichetta");
+  /* la stessa voce ricompare nella channel list: lì almeno il tooltip deve dire qualcosa */
+  ok(/Fornito da: chi porta l'attrezzatura/.test(appjs), "e nella channel list il tooltip non ripete solo l'etichetta");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
