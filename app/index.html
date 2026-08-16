@@ -349,10 +349,12 @@
     width:min(430px,94%);max-height:min(46vh,380px);
     background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--r-lg,12px);
     box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px 13px 10px}
-  #assunzioni .as-head{display:grid;grid-template-columns:1fr auto;grid-template-areas:"t x" "s x";gap:2px 8px;align-items:start;margin-bottom:8px}
+  /* l'intestazione è la maniglia: si vede dal cursore, e il testo non si seleziona mentre trascini */
+  #assunzioni .as-head{cursor:move;touch-action:none;-webkit-user-select:none;user-select:none;display:grid;grid-template-columns:1fr auto;grid-template-areas:"t x" "s x";gap:2px 8px;align-items:start;margin-bottom:8px}
   #assunzioni .as-head b{grid-area:t;font-size:14px}
   #assunzioni .as-sub{grid-area:s;font-size:11.5px;color:var(--text-2);line-height:1.35}
-  #assunzioni .as-x{grid-area:x;justify-self:end;background:none;border:0;color:var(--text-3);cursor:pointer;font-size:15px;line-height:1;padding:2px 0 0}
+  #assunzioni.as-drag{box-shadow:0 16px 40px rgba(0,0,0,.28);opacity:.97}
+  #assunzioni .as-x{cursor:pointer;grid-area:x;justify-self:end;background:none;border:0;color:var(--text-3);cursor:pointer;font-size:15px;line-height:1;padding:2px 0 0}
   #assunzioni #asRows{overflow:auto;min-height:0}
   #assunzioni .as-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)}
   #assunzioni .as-txt{flex:1;font-size:12.5px;line-height:1.35}
