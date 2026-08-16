@@ -10603,25 +10603,27 @@ t("il programma posiziona senza far salire due persone sullo stesso metro quadro
   });
 });
 
-t("la finestra della band esiste, e non si mette in mezzo agli altri percorsi", () => {
+t("ogni modello chiede il suo organico, con la stessa finestra", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="bandSetup"/.test(html), "la finestra c'è");
-  ok(/id="bsRuoli"/.test(html), "con la griglia dei ruoli");
-  /* i ruoli si dichiarano nel codice, non nel markup: la stessa finestra serve gli altri modelli
-     cambiando solo i numeri di partenza */
-  const r = appjs.slice(appjs.indexOf("var RUOLI=["), appjs.indexOf("var RUOLI=[") + 400);
+  ok(/id="bsRuoli"/.test(html) && /id="bsTitolo"/.test(html) && /id="bsNota"/.test(html),
+     "la finestra c'è, con titolo e nota che cambiano col modello");
+  /* una tabella sola: aggiungere un modello è aggiungere una riga, non scrivere un'altra finestra */
+  const t = appjs.slice(appjs.indexOf("var ORGANICI = {"), appjs.indexOf("function chiediOrganico"));
   ["voce","cori","chitarra","basso","batteria","tastiere","fiati"].forEach(k =>
-    ok(new RegExp('"' + k + '"').test(r), "c'è il ruolo «" + k + "»"));
-  ok(/id="bsStd"/.test(html), "e la via d'uscita per chi non vuole rispondere");
-  /* si apre SOLO dalla vetrina: sui link diretti (?model=band) il palco standard è quello che ci si
-     aspetta, e una finestra a sorpresa sarebbe un ostacolo */
-  ok(/m\[0\]==="band" && typeof chiediFormazioneBand==="function"/.test(appjs), "si apre dalla vetrina");
+    ok(new RegExp('"' + k + '"').test(t), "la band chiede «" + k + "»"));
+  ["sop","con","ten","bas"].forEach(k =>
+    ok(new RegExp('"' + k + '"').test(t), "il coro chiede «" + k + "»"));
+  ok(/buildVoiceOrganicoOut\(o, \{mics:true, director:true, riser:true\}\)/.test(t),
+     "e il coro riusa il generatore per sezioni che era rimasto senza ingresso");
+  ok(/max: 40/.test(t), "con il suo tetto: quaranta voci in una sezione, non sei");
+  /* si apre SOLO per i modelli che hanno un organico: sugli altri il palco parte com'era */
+  ok(/ORGANICI\[m\[0\]\] && typeof chiediOrganico==="function"/.test(appjs), "si apre dalla vetrina");
   ok(/formazione:scelte/.test(appjs), "e le risposte arrivano al modello");
-  /* il benvenuto contiene la vetrina: senza toglierlo di mezzo la finestra gli nasce dietro */
-  const f = appjs.slice(appjs.indexOf("function chiediFormazioneBand"), appjs.indexOf("function startFromTemplate"));
+  const f = appjs.slice(appjs.indexOf("function chiediOrganico"), appjs.indexOf("function startFromTemplate"));
   ok(/wlEraAperto/.test(f) && /wl\.hidden=false/.test(f), "il benvenuto si sposta e torna se annulli");
+  /* con quaranta soprani, quaranta clic sarebbero una punizione */
+  ok(/setInterval\(function\(\)\{ cambia\(d\); \}/.test(f), "tenendo premuto il numero scorre");
 });
-
 /* ===== IL RIEPILOGO SI SPOSTA (16/08) ==================================================== */
 t("il riepilogo si trascina, e la ✕ resta un pulsante", () => {
   /* Sta sul palco appena creato, e proprio le righe che parlano dei cori coprono i cori di cui
