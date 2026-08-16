@@ -14094,80 +14094,93 @@ function genOrchestra(counts, fitStage, clearFirst, force){
  * rispondere a niente lo ottiene con un clic.
  */
 function buildBandOut(o){
+  /* ORGANICO: chi sale sul palco. I valori mancanti sono la formazione tipica, così il modello
+     standard resta quello di sempre per chi non risponde a niente. */
   o = o || {};
-  var cori    = Math.max(0, Math.min(4, o.cori==null ? 1 : (o.cori|0)));
-  var chitarre= Math.max(1, Math.min(2, o.chitarre==null ? 1 : (o.chitarre|0)));
-  var inEar   = (o.ascolto === "iem");   /* tutti in-ear: niente spie e niente side fill da coprire */
-  var out = [
-    /* batteria su pedana, centro fondo */
-    {type:"pedana", x:0, y:-310, w:300, d:200, h:40, label:"Pedana batteria"},
-    {type:"batteria", x:0, y:-310, label:""},
-    {type:"iem", x:150, y:-360, label:"IEM batteria"},      /* il batterista sta in cuffia in ogni caso: click e cue */
-    /* lato DX palco (sx pubblico): basso + ampli basso */
-    {type:"bassamp", x:-490, y:-290, label:"Ampli basso"},
-    {type:"astamic", x:-460, y:-95, label:"Basso"},
-    /* keys, lato DX interno */
-    {type:"stagepiano", x:-250, y:-150, rot:12, label:"Tastiere"}
-  ];
-  function ascolto(x, y, chi){
-    out.push(inEar ? {type:"iem", x:x+48, y:y-25, label:"IEM "+chi.toLowerCase()}
-                   : {type:"wedge", x:x, y:y, rot:0, label:chi});
-  }
-  ascolto(-460, 5, "Basso");
-  ascolto(-250, -42, "Tastiere");
-  /* CHITARRE — con due postazioni si usano le stesse misure del modello Tributo, che è la band a due
-     chitarre già disegnata: ampli in fondo, asta davanti, ascolto sotto. */
-  var postiChit = (chitarre===2) ? [[530,500,"Chitarra 1"],[310,300,"Chitarra 2"]] : [[490,450,"Chitarra"]];
-  postiChit.forEach(function(p){
-    out.push({type:"stack", x:p[0], y:-290, label:"Ampli "+p[2].toLowerCase()});
-    out.push({type:"astamic", x:p[1], y:-95, label:p[2]});
-    ascolto(p[1], 5, p[2]);
-  });
-  /* CORI — passo 95 cm, la distanza a cui due persone che cantano su due aste non si danno di gomito.
-     Ma la fila non basta: con tre cori e due chitarre il terzo finiva ADDOSSO al cantante (35 cm di
-     distanza, misurati). Le posizioni si provano in ordine e si scarta quella già occupata, così il
-     palco si riempie verso lo spazio libero invece che verso il centro. */
-  /* la voce lead entra PRIMA dei cori: è il centro del fronte palco, e se la si aggiungesse dopo
-     occupato() non la vedrebbe — i cori le finivano addosso a 35 cm (misurato). */
-  out.push({type:"astamic", x:0, y:-70, label:"Voce"});
-  out.push({type:"iem", x:48, y:-70, label:"IEM voce"});
-  var x0 = (chitarre===2) ? 130 : 220;
-  /* Contano solo gli ingombri che una persona non può attraversare: chi sta in piedi, la batteria,
-     gli ampli. NON le spie e i pacchetti in-ear — la spia di un corista sta davanti a lui, e
-     considerarla un ostacolo spingeva il corista successivo in seconda fila invece che accanto. */
-  var NON_OSTACOLI={wedge:1, iem:1, corrente:1, sidefill:1, iemant:1};
-  function occupato(x, y){
+  function n(k, d){ var v = (o[k]==null) ? d : (o[k]|0); return Math.max(0, Math.min(6, v)); }
+  var voce=n("voce",1), cori=n("cori",1), chit=n("chitarra",1), basso=n("basso",1),
+      batt=n("batteria",1), tast=n("tastiere",1), fiati=n("fiati",0);
+  var inEar = (o.ascolto === "iem");
+  var out=[];
+
+  /* Il posto migliore è quello che il modello propone; se è già occupato si prova il successivo.
+     Contano solo gli ingombri che una persona non può attraversare: le spie stanno davanti a chi
+     suona e non impediscono al collega di stargli accanto. */
+  var NON_OSTACOLI={wedge:1, iem:1};
+  function occupato(x, y, w, d){
+    w=w||90; d=d||90;
     return out.some(function(e){
       if(NON_OSTACOLI[e.type]) return false;
-      var ew=e.w||90, ed=e.d||90;   /* ingombro noto o stima prudente di una persona con l'asta */
-      return Math.abs(e.x-x) < (ew+90)/2 && Math.abs((e.y||0)-y) < (ed+90)/2;
+      var ew=e.w||90, ed=e.d||90;
+      return Math.abs(e.x-x) < (ew+w)/2 && Math.abs((e.y||0)-y) < (ed+d)/2;
     });
   }
-  for(var i=0;i<cori;i++){
-    var etichetta = (cori===1) ? "Cori" : "Cori "+(i+1);
-    var cx = x0 - i*95, cy = -70;
-    /* prima verso il lato da cui si è partiti, poi dall'altra parte del cantante, infine arretrando:
-       è l'ordine in cui li sistemerebbe uno stage manager che guarda il palco. */
-    var prove = [[cx,cy], [x0 + i*95, cy], [-(x0) - (i-1)*95, cy], [cx, cy-95], [x0 + i*95, cy-95]];
-    var posto = prove.find(function(pp){ return !occupato(pp[0], pp[1]); }) || [cx, cy-190];
-    out.push({type:"corista", x:posto[0], y:posto[1], label: etichetta});
-    ascolto(posto[0], posto[1]+102, etichetta);
+  function posa(tipo, prove, extra){
+    var t=TYPES[tipo]||{}, w=t.w||90, d=t.d||90;
+    var p = prove.find(function(pp){ return !occupato(pp[0], pp[1], w, d); });
+    /* Se nessuna delle posizioni preferite è libera si CERCA, invece di posare comunque sopra
+       qualcuno: col quarto corista il ripiego finiva addosso al bassista (40 cm fra due ingombri
+       che ne vogliono 58). Si allarga a cerchi dal punto preferito, un passo alla volta. */
+    if(!p){
+      var base=prove[0];
+      cerca: for(var raggio=100; raggio<=700; raggio+=100){
+        for(var ang=0; ang<8; ang++){
+          var a=ang*Math.PI/4;
+          var cx=Math.round(base[0]+Math.cos(a)*raggio), cy=Math.round(base[1]+Math.sin(a)*raggio*0.6);
+          if(!occupato(cx, cy, w, d)){ p=[cx,cy]; break cerca; }
+        }
+      }
+    }
+    if(!p) p=prove[prove.length-1];   /* palco davvero pieno: meglio un elemento da spostare che nessuno */
+    var el = {type:tipo, x:p[0], y:p[1]};
+    if(extra) for(var k in extra) if(extra.hasOwnProperty(k)) el[k]=extra[k];
+    out.push(el);
+    return el;
   }
-  /* side fill: coprono chi sta lontano dalle spie. Con tutti in-ear non servono. */
-  if(!inEar){
-    out.push({type:"sidefill", x:-660, y:30, rot:35, label:"Side fill DX"});
-    out.push({type:"sidefill", x:660, y:30, rot:-35, label:"Side fill SX"});
+  function ascolto(el, chi){
+    if(!el) return;
+    out.push(inEar ? {type:"iem", x:el.x+52, y:el.y-20, label:"IEM "+chi.toLowerCase()}
+                   : {type:"wedge", x:el.x, y:el.y+92, rot:0, label:chi});
   }
-  out.push({type:"iemant", x:-590, y:-260, label:"TX in-ear"});
-  /* la stagebox cresce col numero di canali: due chitarre e tre cori non stanno in una da 24 */
-  var canali = 14 + (chitarre-1)*1 + cori;
-  /* la stagebox cerca posto come i cori: con due chitarre l'ampli della prima arriva a 530 e le
-     finiva addosso (60 cm fra due ingombri che ne vogliono 76) — trovato dal controllo, non a occhio. */
-  var sbProve = [[590,-260], [680,-260], [590,-340], [700,-340]];
-  var sbPosto = sbProve.find(function(pp){ return !occupato(pp[0], pp[1]); }) || [700,-340];
-  out.push({type:"stagebox", x:sbPosto[0], y:sbPosto[1], label:"Stage box", ch:(canali>24?32:24), outCh:12});
-  out.push({type:"corrente", x:-580, y:-340, label:""});
-  out.push({type:"corrente", x:580, y:-340, label:""});
+
+  /* FONDO — la batteria, che è il volume più grosso e sta al centro */
+  for(var b=0;b<batt;b++) posa("batteria", [[0,-300],[-300,-300],[300,-300]], {label:""});
+  /* LATO E CENTRO — basso e tastiere a sinistra, chitarre a destra: la disposizione classica di una
+     band, quella che un fonico si aspetta di vedere aprendo il PDF. */
+  for(var s2=0;s2<basso;s2++){
+    var el=posa("bassstand", [[-430,-110],[-560,-110],[-430,-210]], {ampli:true, label: basso===1?"Basso":"Basso "+(s2+1)});
+    ascolto(el, basso===1?"Basso":"Basso "+(s2+1));
+  }
+  for(var k2=0;k2<tast;k2++){
+    var el2=posa("stagepiano", [[-230,-190],[-330,-250],[-130,-250]], {label: tast===1?"Tastiere":"Tastiere "+(k2+1)});
+    ascolto(el2, tast===1?"Tastiere":"Tastiere "+(k2+1));
+  }
+  for(var g=0;g<chit;g++){
+    var nomeG = chit===1 ? "Chitarra" : "Chitarra "+(g+1);
+    var el3=posa("gtstand", [[430 - g*180, -110],[560,-110],[430,-210],[300,-210]], {ampli:true, label:nomeG});
+    ascolto(el3, nomeG);
+  }
+  /* FIATI — in seconda fila, dove non coprono chi sta davanti: alternati come una sezione vera */
+  var STRUM_FIATI=["saxalto","tromba","saxtenore","trombone","saxbaritono","tromba"];
+  for(var f=0;f<fiati;f++){
+    var tf=STRUM_FIATI[f % STRUM_FIATI.length];
+    var el4=posa(tf, [[220 + f*120, -250],[-220 - f*120, -250],[220 + f*120, -330]], {});
+    ascolto(el4, (TYPES[tf]||{}).nome || "Fiati");
+  }
+  /* FRONTE — la voce al centro, i cori accanto: entrano per ultimi ma con la priorità del centro,
+     quindi la voce si posa PRIMA dei cori, o i cori le finirebbero addosso. */
+  for(var v=0;v<voce;v++){
+    var el5=posa("cantante", [[0,-60],[-160,-60],[160,-60]], {label: voce===1?"Voce":"Voce "+(v+1)});
+    ascolto(el5, voce===1?"Voce":"Voce "+(v+1));
+  }
+  for(var c=0;c<cori;c++){
+    var nomeC = cori===1 ? "Cori" : "Cori "+(c+1);
+    var el6=posa("corista", [[190 + c*100, -60],[-190 - c*100, -60],[190 + c*100, -160],[-190 - c*100,-160]], {label:nomeC});
+    ascolto(el6, nomeC);
+  }
+  /* NIENTE allestimento tecnico: pedana, side fill, TX in-ear, stage box e prese dipendono dal
+     locale e dal service, non dalla band. Il modello è una base di partenza (decisione 16/08):
+     chi ne ha bisogno li aggiunge dal catalogo, chi no non deve cancellarli. */
   return out;
 }
 /* Matrimonio / cerimonia: band versatile all'italiana — batteria, basso, tastiere, chitarra, sax, 2 voci. */
@@ -14974,21 +14987,36 @@ function chiudiAssunzioni(){
  * aspetta, e una finestra a sorpresa sarebbe un ostacolo.
  */
 function chiediFormazioneBand(dopo){
-  var m=document.getElementById("bandSetup"); if(!m){ dopo(null); return; }
-  var scelte={cori:1, chitarre:1, ascolto:"wedge"};
-  [["bsCori","cori"],["bsChit","chitarre"],["bsAscolto","ascolto"]].forEach(function(par){
-    var g=document.getElementById(par[0]); if(!g) return;
-    g.onclick=function(ev){
-      var b=ev.target.closest("button[data-v]"); if(!b) return;
-      [].forEach.call(g.querySelectorAll("button"), function(x){ x.classList.remove("on"); });
-      b.classList.add("on");
-      var v=b.getAttribute("data-v");
-      scelte[par[1]] = (par[1]==="ascolto") ? v : parseInt(v,10);
-    };
+  var m=document.getElementById("bandSetup"), host=document.getElementById("bsRuoli");
+  if(!m||!host){ dopo(null); return; }
+  /* I ruoli e la formazione tipica di partenza. Stessa finestra per gli altri modelli: cambiano
+     solo i numeri iniziali (Tributo due chitarre, Jazz niente cori, e via così). */
+  var RUOLI=[["voce","Voce solista",1],["cori","Cori",1],["chitarra","Chitarra",1],["basso","Basso",1],
+             ["batteria","Batteria",1],["tastiere","Tastiere",1],["fiati","Fiati",0]];
+  var org={};
+  host.textContent="";
+  RUOLI.forEach(function(r){
+    org[r[0]]=r[2];
+    var riga=document.createElement("div"); riga.className="bs-riga";
+    var nome=document.createElement("span"); nome.className="bs-nome"; nome.textContent=r[1];
+    var meno=document.createElement("button"); meno.type="button"; meno.className="bs-pm"; meno.textContent="−";
+    meno.setAttribute("aria-label","Togli un "+r[1]);
+    var num=document.createElement("output"); num.className="bs-num"; num.textContent=r[2];
+    var piu=document.createElement("button"); piu.type="button"; piu.className="bs-pm"; piu.textContent="+";
+    piu.setAttribute("aria-label","Aggiungi un "+r[1]);
+    function cambia(d){
+      org[r[0]] = Math.max(0, Math.min(6, org[r[0]] + d));
+      num.textContent = org[r[0]];
+      riga.classList.toggle("bs-zero", org[r[0]]===0);   /* a zero la riga si spegne: si vede a colpo d'occhio chi non c'è */
+    }
+    meno.addEventListener("click", function(){ cambia(-1); });
+    piu.addEventListener("click", function(){ cambia(1); });
+    riga.appendChild(nome); riga.appendChild(meno); riga.appendChild(num); riga.appendChild(piu);
+    riga.classList.toggle("bs-zero", r[2]===0);
+    host.appendChild(riga);
   });
   /* il benvenuto si toglie di mezzo: la vetrina dei modelli sta dentro di lui, e questa finestra gli
-     nascerebbe dietro. Se l'utente esce senza scegliere torna dov'era, altrimenti si ritroverebbe
-     nell'editor vuoto senza aver chiesto niente. */
+     nascerebbe dietro. Se l'utente esce senza scegliere torna dov'era. */
   var wl=document.getElementById("welcome"), wlEraAperto = wl && !wl.hidden;
   if(wlEraAperto) wl.hidden=true;
   function chiudi(annullato){
@@ -14996,8 +15024,8 @@ function chiediFormazioneBand(dopo){
     if(annullato && wlEraAperto && wl) wl.hidden=false;
   }
   function esc(ev){ if(ev.key==="Escape"){ chiudi(true); } }
-  document.getElementById("bsGo").onclick=function(){ chiudi(); dopo(scelte); };
-  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = il modello di prima, identico */
+  document.getElementById("bsGo").onclick=function(){ chiudi(); dopo(org); };
+  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = la formazione tipica */
   m.onclick=function(ev){ if(ev.target===m) chiudi(true); };
   document.addEventListener("keydown", esc);
   m.hidden=false;
