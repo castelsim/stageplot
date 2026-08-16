@@ -15009,6 +15009,30 @@ var ORGANICI = {
             ["batteria","Batteria",1],["tastiere","Tastiere",1],["fiati","Fiati",0]],
     build: function(o){ return buildBandOut(o); }
   },
+  /* TRIBUTO — è una band a due chitarre: stesso generatore, altri numeri di partenza. Il valore di
+     una tabella sola è tutto qui: un modello in più costa una riga. */
+  tributo: {
+    titolo: "Chi sale sul palco?",
+    nota: "La band da cover: due chitarre di partenza. Il resto — pedane, stage box, prese — lo aggiungi dove serve.",
+    standard: "Formazione tipica",
+    max: 6,
+    ruoli: [["voce","Voce solista",1],["cori","Cori",1],["chitarra","Chitarra",2],["basso","Basso",1],
+            ["batteria","Batteria",1],["tastiere","Tastiere",1],["fiati","Fiati",0]],
+    build: function(o){ return buildBandOut(o); }
+  },
+  /* ORCHESTRA DA CAMERA — le sezioni le sa già ORCH_DEF, con i loro nomi e i loro tipi: la finestra
+     si genera da lì e i numeri di partenza dal preset del modello. Nessun elenco duplicato. */
+  camera: {
+    titolo: "Quanti in orchestra?",
+    nota: "Archi in file concentriche attorno al podio, fiati dietro. Una sezione a zero non compare.",
+    standard: "Organico da camera",
+    max: 30,
+    ruoli: function(){
+      var pre = (typeof presetCounts==="function") ? presetCounts("camera") : {};
+      return ORCH_DEF.map(function(sec){ return [sec.id, sec.nome, pre[sec.id]||0]; });
+    },
+    build: function(o){ return buildOrchestraOut(o); }
+  },
   coro: {
     titolo: "Quante voci per sezione?",
     nota: "Soprani e contralti davanti, tenori e bassi dietro, sui gradoni. Con i microfoni d'insieme e il podio del direttore: il pianoforte e il resto si aggiungono dopo.",
@@ -15031,11 +15055,12 @@ function chiediOrganico(chiave, dopo){
   var m=document.getElementById("bandSetup"), host=document.getElementById("bsRuoli");
   if(!cfg || !m || !host){ dopo(null); return; }
   var org={};
+  var ruoli = (typeof cfg.ruoli==="function") ? cfg.ruoli() : cfg.ruoli;
   document.getElementById("bsTitolo").textContent = cfg.titolo;
   document.getElementById("bsNota").textContent = cfg.nota;
   document.getElementById("bsStd").textContent = cfg.standard;
   host.textContent="";
-  cfg.ruoli.forEach(function(r){
+  ruoli.forEach(function(r){
     org[r[0]]=r[2];
     var riga=document.createElement("div"); riga.className="bs-riga";
     var nome=document.createElement("span"); nome.className="bs-nome"; nome.textContent=r[1];
@@ -16278,6 +16303,26 @@ function orchOutputs(){
   return [ outch("Direttore (cue)","IEM","beltpack"), outch("Side fill L","side fill","lato DX palco"), outch("Side fill R","side fill","lato SX palco") ];
 }
 /* dispatch: per ogni voce del menu, layout + channel list coerenti */
+/**
+ * Riporta dentro il palco quello che sfonda.
+ *
+ * Il generatore orchestrale posa arpa e pianoforte su un raggio calcolato dagli archi: con un
+ * organico insolito — un quartetto con pianoforte, per dire — quel raggio finisce oltre il bordo, e
+ * il piano usciva dal palco di 99 cm (visto nello screenshot, poi misurato). Invece di riscrivere il
+ * calcolo del ventaglio, che è delicato e regge bene gli organici veri, si rientra: un elemento
+ * accostato al bordo è una cosa che il fonico sposta in due secondi, uno fuori dal palco no.
+ */
+function dentroIlPalco(out, w, d){
+  var mx=w/2, my=d/2;
+  (out||[]).forEach(function(e){
+    var t=TYPES[e.type]||{}, hw=(e.w||t.w||90)/2, hd=(e.d||t.d||90)/2;
+    if(e.x-hw < -mx) e.x = -mx+hw;
+    if(e.x+hw >  mx) e.x =  mx-hw;
+    if(e.y-hd < -my) e.y = -my+hd;
+    if(e.y+hd >  my) e.y =  my-hd;
+  });
+  return out;
+}
 function formationData(f, opz){
   /* 16 × 6,5 m: la misura del modello di Simone, che è la proporzione di un palco da concerto —
      i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
@@ -16287,7 +16332,11 @@ function formationData(f, opz){
   if(f==="quartetto") return { out:buildQuartettoOut(), inp:quartettoInputs(), outp:quartettoOutputs() };
   /* «Orchestra da camera» in vetrina = il layout curato a mano (31/07). Il ventaglio generato
      resta la base di sinfonica/orchband/orchcoro, che dai conteggi non possono prescindere. */
-  if(f==="camera"){ var ca=presetCounts("camera"); return { out:buildOrchCameraOut(), inp:orchInputs(ca), outp:orchOutputs(), stage:{w:1450,d:1200} }; }
+  if(f==="camera"){ var ca=opz||presetCounts("camera");
+    /* col ventaglio dichiarato dall'utente si usa il generatore per organico; senza, resta il layout
+       curato a mano che sta in vetrina da sempre. */
+    return { out:(opz ? dentroIlPalco(buildOrchestraOut(opz), 1450, 1200) : buildOrchCameraOut()),
+             inp:orchInputs(ca), outp:orchOutputs(), stage:{w:1450,d:1200} }; }
   if(f==="sinfonica_ridotta"){ var sr=presetCounts("ridotta"); return { out:buildOrchestraOut(sr), inp:orchInputs(sr), outp:orchOutputs() }; }
   if(f==="jazzcombo") return { out:buildJazzComboOut(), inp:jazzComboInputs(), outp:jazzComboOutputs() };
   if(f==="bigband") return { out:buildBigBandOut(), inp:bigbandInputs(), outp:bigbandOutputs() };
@@ -16313,7 +16362,7 @@ function formationData(f, opz){
         outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")],
       stage:{w:1500,d:1150} };
   }
-  if(f==="tributo")    return { out:buildTributoOut(),    inp:tributoInputs(), outp:tributoOutputs() };
+  if(f==="tributo")    return { out:(opz ? buildBandOut(opz) : buildTributoOut()),    inp:tributoInputs(), outp:tributoOutputs() };
   return null;
 }
 
