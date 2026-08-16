@@ -10606,5 +10606,31 @@ t("la finestra della band esiste, e non si mette in mezzo agli altri percorsi", 
   ok(/wlEraAperto/.test(f) && /wl\.hidden=false/.test(f), "il benvenuto si sposta e torna se annulli");
 });
 
+/* ===== IL RIEPILOGO SI SPOSTA (16/08) ==================================================== */
+t("il riepilogo si trascina, e la ✕ resta un pulsante", () => {
+  /* Sta sul palco appena creato, e proprio le righe che parlano dei cori coprono i cori di cui
+     parlano: va potuto spostare per guardarci sotto. */
+  ok(/head\.addEventListener\("pointerdown"/.test(appjs), "si prende dall'intestazione");
+  const d = appjs.slice(appjs.indexOf('head.addEventListener("pointerdown"'), appjs.indexOf('head.addEventListener("pointerup"'));
+  ok(/e\.target\.closest\("button"\)\) return;/.test(d), "ma non quando il dito è su un bottone: la ✕ deve chiudere, non trascinare");
+  ok(/setPointerCapture/.test(d), "il puntatore resta agganciato anche uscendo dal pannello");
+  ok(/e\.preventDefault\(\)/.test(d), "e il testo non si seleziona mentre trascini");
+  /* mouse e dito con lo stesso codice: pointer events, e touch-action none o il dito scrolla la pagina */
+  ok(/#assunzioni \.as-head\{cursor:move;touch-action:none/.test(stylesCss), "l'intestazione si vede che è una maniglia");
+});
+
+t("la posizione scelta si ricorda, e non porta il pannello fuori dallo schermo", () => {
+  ok(/sp_assPos/.test(appjs), "la posizione viene salvata");
+  ok(/window\.__assRipristinaPos/.test(appjs) && /box\.hidden=false;\s*\n\s*if\(window\.__assRipristinaPos\)/.test(appjs),
+     "e riapplicata quando il riepilogo torna");
+  /* il clamp non è un vezzo: la finestra può rimpicciolirsi fra una sessione e l'altra, e un
+     pannello ricordato in basso a destra sparirebbe senza modo di riprenderlo */
+  const c = appjs.slice(appjs.indexOf("function dentro(x, y)"), appjs.indexOf("function metti(x, y)"));
+  ok(/Math\.max\(6, Math\.min\(innerWidth-w-6, x\)\)/.test(c) && /Math\.max\(6, Math\.min\(innerHeight-h-6, y\)\)/.test(c),
+     "resta sempre dentro la finestra");
+  ok(/addEventListener\("resize"/.test(appjs.slice(appjs.indexOf("function su(e)"), appjs.indexOf("function su(e)") + 900)),
+     "e si ricontrolla quando la finestra cambia misura");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
