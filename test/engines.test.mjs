@@ -2188,8 +2188,17 @@ t("progetto grande: le stesse regole tornano, e «nessun quadro» esce UNA volta
   ok(hasMsg(/nessuna stage box reale/), "sopra soglia la stage box torna a mancare davvero");
   const q = auditFind(/nessun quadro\/distro/);
   eq(q.length, 1, "la regola del quadro deve comparire una volta sola; findings: " + auditMsgs().join(" | "));
-  eq(q[0].lvl, "err", "sopra soglia resta un errore critico: la dedup non deve declassarlo");
-  ok(q[0].act, "e deve conservare il fix a un click (è la voce di auditEngine a sopravvivere)");
+  /* Su un progetto in cui l'elettrico non è ancora stato aperto la mancanza è un «non hai ancora
+     fatto»: sei modelli su otto nascevano con un errore critico, e un errore che compare sempre
+     smette di essere letto (decisione 16/08). */
+  eq(q[0].lvl, "warn", "finché l'elettrico non è stato aperto, il quadro mancante è un avviso");
+  /* appena l'utente dichiara l'alimentazione, torna quello che è: un errore critico */
+  A.state.elec.supply = { kind: "rete", x: 0, y: 0 };
+  A.__cabRes = null; A.__elecRes = null;
+  const q2 = auditFind(/nessun quadro\/distro/);
+  eq(q2.length, 1, "e resta una voce sola");
+  eq(q2[0].lvl, "err", "aperto l'elettrico è un errore critico: la dedup non deve declassarlo");
+  ok(q2[0].act, "e deve conservare il fix a un click (è la voce di auditEngine a sopravvivere)");
   ok(A.auditEngine().errs > 0, "il conteggio errori deve vederlo");
 });
 t("monitor scoperto (wedge lontano, no IEM) → avviso", () => {
