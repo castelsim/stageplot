@@ -292,6 +292,20 @@
     #assunzioni .as-x{min-width:44px;min-height:44px}
     #assunzioni .as-foot .btn{min-height:44px}   /* anche «Va bene così»: è il bersaglio che chiude */
   }
+  /* Com'è fatta la band: tre domande, non un questionario. */
+  #bandSetup .bs-q{margin-top:14px}
+  #bandSetup .bs-q label{display:block;font-size:13px;margin-bottom:6px}
+  #bandSetup .bs-q .seg{display:flex;gap:6px;flex-wrap:wrap}
+  #bandSetup .bs-q .seg button{flex:1;min-width:64px;min-height:38px;padding:8px 10px;font-size:13px;
+    border:1px solid var(--border);border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer}
+  #bandSetup .bs-q .seg button.on{border-color:var(--accent);background:var(--accent-tint);color:var(--accent);font-weight:600}
+  #bandSetup .bs-q .lbl-note{display:block;margin-top:5px;color:var(--text-3);font-size:11px}
+  #bandSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #bandSetup .bs-q .seg button{min-height:44px}
+    #bandSetup .bs-foot .btn{min-height:44px}
+    #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
+  }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}

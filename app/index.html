@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.08.15";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.08.16";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -369,6 +369,20 @@
     #assunzioni .as-act{min-height:44px;padding:9px 12px}
     #assunzioni .as-x{min-width:44px;min-height:44px}
     #assunzioni .as-foot .btn{min-height:44px}   /* anche «Va bene così»: è il bersaglio che chiude */
+  }
+  /* Com'è fatta la band: tre domande, non un questionario. */
+  #bandSetup .bs-q{margin-top:14px}
+  #bandSetup .bs-q label{display:block;font-size:13px;margin-bottom:6px}
+  #bandSetup .bs-q .seg{display:flex;gap:6px;flex-wrap:wrap}
+  #bandSetup .bs-q .seg button{flex:1;min-width:64px;min-height:38px;padding:8px 10px;font-size:13px;
+    border:1px solid var(--border);border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer}
+  #bandSetup .bs-q .seg button.on{border-color:var(--accent);background:var(--accent-tint);color:var(--accent);font-weight:600}
+  #bandSetup .bs-q .lbl-note{display:block;margin-top:5px;color:var(--text-3);font-size:11px}
+  #bandSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #bandSetup .bs-q .seg button{min-height:44px}
+    #bandSetup .bs-foot .btn{min-height:44px}
+    #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
@@ -2663,6 +2677,46 @@ body.dark .ask-all .btn{background:transparent}
      Prima restavano invisibili e finivano nel PDF con l'aria di essere requisiti verificati.
      Le righe qui dentro NON sono scritte a mano: le calcola ipotesiDelPalco() dallo stato reale, così
      valgono per ogni modello e non possono raccontare una cosa mentre il palco ne dice un'altra. -->
+<!-- COM'È FATTA LA BAND (14/08) — la finestra che il modello si merita: tre domande, quelle che
+     spostano gli elementi sul palco. Il resto (microfoni, chi porta cosa) si corregge dopo
+     sull'elemento: se finisse qui dentro diventerebbe un questionario e nessuno lo compilerebbe.
+     Chi non vuole rispondere preme «Vai col modello standard» e ottiene esattamente quello che il
+     modello faceva prima — un solista, un corista, una chitarra, spie. -->
+<div class="modal" id="bandSetup" hidden>
+  <div class="mcard" style="width:430px;max-width:94vw">
+    <h2>Com'è fatta la band?</h2>
+    <div class="hint">Serve per posizionare gli elementi al posto giusto: dopo sposti tutto come vuoi.</div>
+    <div class="bs-q">
+      <label>Oltre a chi canta davanti, quanti fanno i <b>cori</b>?</label>
+      <div class="seg" id="bsCori" role="group" aria-label="Numero di coristi">
+        <button type="button" data-v="0">nessuno</button>
+        <button type="button" data-v="1" class="on">1</button>
+        <button type="button" data-v="2">2</button>
+        <button type="button" data-v="3">3</button>
+      </div>
+    </div>
+    <div class="bs-q">
+      <label>Quante <b>chitarre</b> elettriche?</label>
+      <div class="seg" id="bsChit" role="group" aria-label="Numero di chitarre">
+        <button type="button" data-v="1" class="on">1</button>
+        <button type="button" data-v="2">2</button>
+      </div>
+    </div>
+    <div class="bs-q">
+      <label>Come si sente il palco?</label>
+      <div class="seg" id="bsAscolto" role="group" aria-label="Tipo di ascolto">
+        <button type="button" data-v="wedge" class="on">Spie a terra</button>
+        <button type="button" data-v="iem">Tutti in-ear</button>
+      </div>
+      <small class="lbl-note">voce e batteria restano in cuffia in entrambi i casi</small>
+    </div>
+    <div class="bs-foot">
+      <button class="btn" id="bsStd">Vai col modello standard</button>
+      <button class="btn primary" id="bsGo">Crea il palco</button>
+    </div>
+  </div>
+</div>
+
 <div id="assunzioni" hidden>
   <div class="as-head">
     <b>Abbiamo ipotizzato questo</b>
