@@ -9534,6 +9534,32 @@ var ELEC_VOLT=230;
    elettrico e monitor di palco non mancano: semplicemente non servono. */
 var AUDIT_MIN_CH=4;      /* canali audio: fino a 4 si va diretti al banco, senza stage box */
 var AUDIT_MIN_W=1000;    /* watt: sotto 1 kW non si tira un quadro, si usa la Schuko che c'è */
+/**
+ * L'elettrico è stato aperto, oppure il progetto è ancora quello che il modello ha posato?
+ *
+ * Sei modelli su otto nascevano con un ERRORE CRITICO — «carichi presenti ma nessun quadro» — perché
+ * una band fa 2,6 kW di soli ampli e la soglia è 1 kW. Formalmente giusto, praticamente rumore: chi
+ * lo vede a ogni progetto impara a premere «Esporta comunque» e smette di leggerlo, e allora il
+ * giorno che l'errore è vero non lo ferma nessuno.
+ *
+ * Finché il layer elettrico non è mai stato attivato e non c'è un quadro né un cavo, la mancanza è
+ * un «non hai ancora fatto»: resta un avviso. Appena l'utente apre l'elettrico torna un errore.
+ * (decisione di Simone, 16/08)
+ */
+function elettricoIniziato(){
+  try{
+    var e=state.elec||{};
+    /* NON `e.on`: il layer elettrico nasce acceso, quindi sarebbe vero sempre e non distinguerebbe
+       niente (provato: su un modello appena creato dava «iniziato»). Le tracce vere di lavoro
+       sull'elettrico sono l'alimentazione dichiarata, un cavo tirato a mano, un quadro sul palco. */
+    if(e.supply) return true;
+    if(e.manual && Object.keys(e.manual).length) return true;
+    if(e.uplinks && Object.keys(e.uplinks).length) return true;
+    return (state.items||[]).some(function(it){
+      return (typeof elecIsDistro==="function" && elecIsDistro(it)) || (typeof elecIsGen==="function" && elecIsGen(it));
+    });
+  }catch(_e){ return true; }   /* nel dubbio la severità resta quella piena */
+}
 /* Il DIMMER RACK e' una destinazione, non un carico (Simone 29/07): i fari dimmerabili si
    attaccano a lui e lui al quadro — prima era un carico da 3600 W fissi e i PAR gli passavano
    accanto per andare dritti al quadro, che e' il contrario di come si cabla davvero.
@@ -9882,7 +9908,7 @@ function electricEngine(){
   /* Stessa `rule` della regola gemella in auditEngine: una sola voce, non due formulazioni.
      In scala (audit 27/07): sotto AUDIT_MIN_W siamo nell'ordine dell'ampli attaccato alla Schuko che
      c'è già — non manca niente, quindi non si segnala niente. I totali restano nel pannello. */
-  if(!distros.length && loads.length && totW>AUDIT_MIN_W) issues.push({lvl:"err", rule:"nodistro", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
+  if(!distros.length && loads.length && totW>AUDIT_MIN_W) issues.push({lvl:(elettricoIniziato()?"err":"warn"), rule:"nodistro", msg:"Ci sono carichi ("+elecKW(totW)+") ma nessun quadro/distro."});
   if(pendingE.length){
     /* Se quello che resta da collegare NON CI STA su nessun quadro, dirlo qui: altrimenti l'utente
        trascina il pallino ambra e non capisce perché l'aggancio viene rifiutato. (06/08) */
@@ -10145,7 +10171,9 @@ function auditEngine(){
   if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
-  if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add("err","Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro.","Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
+  if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
+    "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
+    "Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* "Alimentazione non definita" rimosso: nel modello a 2 livelli il quadro è un elemento piazzato,
      il "da collegare al quadro" lo segnala già il motore sui carichi scoperti. */
   /* Ma un quadro POSATO e non collegato spegneva il rilievo qui sopra e ne accendeva nessuno: la Lista
