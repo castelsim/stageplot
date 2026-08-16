@@ -10549,30 +10549,41 @@ t("il corista aggiunto dal riepilogo non diventa una voce solista", () => {
 });
 
 /* ===== IL MODELLO CHIEDE COM'È FATTA LA BAND, E POSIZIONA (14/08) ======================== */
-t("il modello standard resta identico a prima: chi non risponde non paga niente", () => {
-  /* La finestra è un guadagno solo se «Vai col modello standard» dà esattamente il palco di prima.
-     Un default diverso avrebbe cambiato sotto i piedi il modello a chi lo usa da mesi. */
+t("il modello è una base di partenza: chi suona, i suoi strumenti, il suo ascolto", () => {
+  /* Decisione del 16/08: il modello posava ventuno elementi, e una decina erano allestimento deciso
+     al posto dell'utente. Pedana, side fill, TX in-ear, stage box e prese dipendono dal locale e dal
+     service, non dalla band: chi ne ha bisogno li aggiunge, chi no non deve cancellarli. */
   const std = A.buildBandOut();
-  eq(std.length, 21, "ventuno elementi, come il modello storico");
+  ["pedana", "sidefill", "iemant", "stagebox", "corrente"].forEach(t =>
+    eq(std.filter(e => e.type === t).length, 0, "«" + t + "» non fa parte della base di partenza"));
+  /* ci sono le PERSONE, non solo la loro attrezzatura: era il rilievo dell'audit — chitarra e basso
+     esistevano come ampli e asta, e il conto di chi sale sul palco non tornava mai */
+  eq(std.filter(e => e.type === "cantante").length, 1, "il cantante c'è come persona");
+  eq(std.filter(e => e.type === "gtstand").length, 1, "e il chitarrista");
+  eq(std.filter(e => e.type === "bassstand").length, 1, "e il bassista");
   eq(std.filter(e => e.type === "corista").length, 1, "un corista");
-  eq(std.filter(e => e.type === "stack").length, 1, "una chitarra");
-  eq(std.filter(e => e.type === "wedge").length, 4, "quattro spie");
-  eq(std.filter(e => e.type === "sidefill").length, 2, "e i due side fill");
-  eq(A.bandInputs().length, 15, "e la stessa channel list");
+  eq(std.filter(e => e.type === "batteria").length, 1, "una batteria");
+  ok(std.filter(e => e.type === "wedge").length >= 5, "e ognuno ha il suo ascolto");
+  /* l'ampli è un flag dello strumentista, non un oggetto a parte: così la catena
+     strumento → ampli → microfono genera i canali da sola */
+  ok(std.filter(e => e.type === "gtstand")[0].ampli === true, "il chitarrista ha il suo ampli");
+  ok(std.filter(e => e.type === "bassstand")[0].ampli === true, "e il bassista pure");
 });
 
 t("la formazione dichiarata cambia palco, canali e mix insieme", () => {
-  const g2 = A.buildBandOut({ cori: 3, chitarre: 2, ascolto: "wedge" });
+  const g2 = A.buildBandOut({ cori: 3, chitarra: 2, fiati: 2 });
   eq(g2.filter(e => e.type === "corista").length, 3, "tre coristi sul palco");
-  eq(g2.filter(e => e.type === "stack").length, 2, "due ampli chitarra");
-  eq(A.bandInputs({ cori: 3, chitarre: 2 }).filter(c => /^Cori/.test(c.src || "")).length, 3,
-    "tre canali cori nella lista");
-  ok(A.bandInputs({ cori: 3, chitarre: 2 }).some(c => /Chitarra 2/.test(c.src || "")),
-    "e il canale della seconda chitarra");
-  /* in-ear per tutti: spariscono le spie E i side fill, che coprono chi non ha la spia */
-  const iem = A.buildBandOut({ cori: 2, chitarre: 1, ascolto: "iem" });
+  eq(g2.filter(e => e.type === "gtstand").length, 2, "due chitarristi");
+  ok(g2.filter(e => ["saxalto","tromba","saxtenore","trombone","saxbaritono"].indexOf(e.type) > -1).length === 2,
+    "e i due fiati, con strumenti diversi come in una sezione vera");
+  /* un ruolo a zero non lascia tracce: chi non ha tastiere non deve cancellarle */
+  const senza = A.buildBandOut({ tastiere: 0, cori: 0, basso: 0 });
+  eq(senza.filter(e => e.type === "stagepiano").length, 0, "niente tastiere se non ci sono");
+  eq(senza.filter(e => e.type === "corista").length, 0, "niente cori");
+  eq(senza.filter(e => e.type === "bassstand").length, 0, "niente basso");
+  /* in-ear per tutti: al posto delle spie */
+  const iem = A.buildBandOut({ cori: 2, ascolto: "iem" });
   eq(iem.filter(e => e.type === "wedge").length, 0, "con tutti in-ear non restano spie");
-  eq(iem.filter(e => e.type === "sidefill").length, 0, "né side fill");
   ok(iem.filter(e => e.type === "iem").length >= 4, "ma i pacchetti ci sono");
 });
 
@@ -10581,13 +10592,13 @@ t("il programma posiziona senza far salire due persone sullo stesso metro quadro
      quattro cori e due chitarre — perché con la fila fissa il terzo corista finiva ADDOSSO al
      cantante, a 35 cm (misurato nel browser prima di correggere). */
   const NONOSTACOLI = { wedge: 1, iem: 1, corrente: 1, sidefill: 1, iemant: 1, pedana: 1 };   /* la pedana sta SOTTO la batteria: è il suo mestiere */
-  [[4, 2], [3, 2], [3, 1], [2, 2], [1, 1], [0, 1]].forEach(([cori, chitarre]) => {
-    const out = A.buildBandOut({ cori, chitarre }).filter(e => !NONOSTACOLI[e.type]);
+  [[4, 2], [3, 2], [3, 1], [2, 2], [1, 1], [0, 1]].forEach(([cori, chitarra]) => {
+    const out = A.buildBandOut({ cori, chitarra }).filter(e => !NONOSTACOLI[e.type]);
     for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
       const a = out[i], b = out[j];
       const aw = a.w || 90, ad = a.d || 90, bw = b.w || 90, bd = b.d || 90;
       const addosso = Math.abs(a.x - b.x) < (aw + bw) / 2 && Math.abs((a.y || 0) - (b.y || 0)) < (ad + bd) / 2;
-      ok(!addosso, cori + " cori/" + chitarre + " chit: «" + (a.label || a.type) + "» e «" + (b.label || b.type) + "» si sovrappongono");
+      ok(!addosso, cori + " cori/" + chitarra + " chit: «" + (a.label || a.type) + "» e «" + (b.label || b.type) + "» si sovrappongono");
     }
   });
 });
@@ -10595,7 +10606,12 @@ t("il programma posiziona senza far salire due persone sullo stesso metro quadro
 t("la finestra della band esiste, e non si mette in mezzo agli altri percorsi", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="bandSetup"/.test(html), "la finestra c'è");
-  ok(/id="bsCori"/.test(html) && /id="bsChit"/.test(html) && /id="bsAscolto"/.test(html), "con le sue tre domande");
+  ok(/id="bsRuoli"/.test(html), "con la griglia dei ruoli");
+  /* i ruoli si dichiarano nel codice, non nel markup: la stessa finestra serve gli altri modelli
+     cambiando solo i numeri di partenza */
+  const r = appjs.slice(appjs.indexOf("var RUOLI=["), appjs.indexOf("var RUOLI=[") + 400);
+  ["voce","cori","chitarra","basso","batteria","tastiere","fiati"].forEach(k =>
+    ok(new RegExp('"' + k + '"').test(r), "c'è il ruolo «" + k + "»"));
   ok(/id="bsStd"/.test(html), "e la via d'uscita per chi non vuole rispondere");
   /* si apre SOLO dalla vetrina: sui link diretti (?model=band) il palco standard è quello che ci si
      aspetta, e una finestra a sorpresa sarebbe un ostacolo */

@@ -372,17 +372,19 @@
     #assunzioni .as-x{min-width:44px;min-height:44px}
     #assunzioni .as-foot .btn{min-height:44px}   /* anche «Va bene così»: è il bersaglio che chiude */
   }
-  /* Com'è fatta la band: tre domande, non un questionario. */
-  #bandSetup .bs-q{margin-top:14px}
-  #bandSetup .bs-q label{display:block;font-size:13px;margin-bottom:6px}
-  #bandSetup .bs-q .seg{display:flex;gap:6px;flex-wrap:wrap}
-  #bandSetup .bs-q .seg button{flex:1;min-width:64px;min-height:38px;padding:8px 10px;font-size:13px;
-    border:1px solid var(--border);border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer}
-  #bandSetup .bs-q .seg button.on{border-color:var(--accent);background:var(--accent-tint);color:var(--accent);font-weight:600}
-  #bandSetup .bs-q .lbl-note{display:block;margin-top:5px;color:var(--text-3);font-size:11px}
+  /* Chi sale sul palco: una riga per ruolo, con meno e più. */
+  #bandSetup .bs-ruoli{margin-top:14px}
+  #bandSetup .bs-riga{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)}
+  #bandSetup .bs-riga:first-child{border-top:0}
+  #bandSetup .bs-nome{font-size:13.5px}
+  #bandSetup .bs-riga.bs-zero .bs-nome,#bandSetup .bs-riga.bs-zero .bs-num{color:var(--text-3)}
+  #bandSetup .bs-pm{width:34px;height:34px;font-size:17px;line-height:1;border:1px solid var(--border);
+    border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer}
+  #bandSetup .bs-pm:hover{border-color:var(--accent);color:var(--accent)}
+  #bandSetup .bs-num{min-width:26px;text-align:center;font-size:14px;font-weight:600}
   #bandSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
   @media (max-width:880px), (pointer:coarse){
-    #bandSetup .bs-q .seg button{min-height:44px}
+    #bandSetup .bs-pm{width:44px;height:44px}
     #bandSetup .bs-foot .btn{min-height:44px}
     #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
@@ -2685,35 +2687,12 @@ body.dark .ask-all .btn{background:transparent}
      Chi non vuole rispondere preme «Vai col modello standard» e ottiene esattamente quello che il
      modello faceva prima — un solista, un corista, una chitarra, spie. -->
 <div class="modal" id="bandSetup" hidden>
-  <div class="mcard" style="width:430px;max-width:94vw">
-    <h2>Com'è fatta la band?</h2>
-    <div class="hint">Serve per posizionare gli elementi al posto giusto: dopo sposti tutto come vuoi.</div>
-    <div class="bs-q">
-      <label>Oltre a chi canta davanti, quanti fanno i <b>cori</b>?</label>
-      <div class="seg" id="bsCori" role="group" aria-label="Numero di coristi">
-        <button type="button" data-v="0">nessuno</button>
-        <button type="button" data-v="1" class="on">1</button>
-        <button type="button" data-v="2">2</button>
-        <button type="button" data-v="3">3</button>
-      </div>
-    </div>
-    <div class="bs-q">
-      <label>Quante <b>chitarre</b> elettriche?</label>
-      <div class="seg" id="bsChit" role="group" aria-label="Numero di chitarre">
-        <button type="button" data-v="1" class="on">1</button>
-        <button type="button" data-v="2">2</button>
-      </div>
-    </div>
-    <div class="bs-q">
-      <label>Come si sente il palco?</label>
-      <div class="seg" id="bsAscolto" role="group" aria-label="Tipo di ascolto">
-        <button type="button" data-v="wedge" class="on">Spie a terra</button>
-        <button type="button" data-v="iem">Tutti in-ear</button>
-      </div>
-      <small class="lbl-note">voce e batteria restano in cuffia in entrambi i casi</small>
-    </div>
+  <div class="mcard" style="width:400px;max-width:94vw">
+    <h2>Chi sale sul palco?</h2>
+    <div class="hint">Il modello posa le persone con i loro strumenti, al posto giusto. Il resto — pedane, stage box, prese, side fill — lo aggiungi dove ti serve: dipende dal locale, non dalla band.</div>
+    <div id="bsRuoli" class="bs-ruoli"></div>
     <div class="bs-foot">
-      <button class="btn" id="bsStd">Vai col modello standard</button>
+      <button class="btn" id="bsStd">Formazione tipica</button>
       <button class="btn primary" id="bsGo">Crea il palco</button>
     </div>
   </div>
