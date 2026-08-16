@@ -10517,5 +10517,94 @@ t("«Fornito da» si spiega senza dover passarci sopra col mouse", () => {
   ok(/Fornito da: chi porta l'attrezzatura/.test(appjs), "e nella channel list il tooltip non ripete solo l'etichetta");
 });
 
+/* ===== IL MODELLO DICHIARA COSA HA DECISO AL POSTO TUO (14/08) ============================ */
+t("dopo un modello il riepilogo delle ipotesi si calcola dal palco, non è un testo fisso", () => {
+  /* Un modello posa ventuno oggetti e decide quante voci ci sono, chi ha l'in-ear, quanti cori.
+     Erano decisioni invisibili che finivano nel PDF con l'aria di essere requisiti verificati. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="assunzioni"/.test(html) && /id="asRows"/.test(html), "il riepilogo esiste nel markup");
+  ok(/function ipotesiDelPalco\(gia\)/.test(appjs), "e le righe hanno un motore");
+  const f = appjs.slice(appjs.indexOf("function ipotesiDelPalco(gia)"), appjs.indexOf("function aggiungiCorista"));
+  ok(/state\.items/.test(f) && /patchList\(\)/.test(f), "che legge il palco e la channel list veri");
+  /* se le frasi fossero scritte a mano, il riepilogo potrebbe dire una cosa mentre il palco ne dice
+     un'altra: è il difetto che stiamo correggendo, non uno da introdurre */
+  ok(/corista/.test(f) && /canHeadMic/.test(f) && /iem/.test(f), "e copre voci, chi può cantare e l'ascolto");
+  ok(/mostraAssunzioni\(false, _gia\)/.test(appjs.slice(appjs.indexOf("function startFromTemplate"), appjs.indexOf("function startFromTemplate") + 2400)),
+     "il riepilogo si apre dopo aver posato un modello");
+  ok(/sp_noAssunzioni/.test(appjs), "e «non mostrarlo più» viene ricordato");
+});
+
+t("il corista aggiunto dal riepilogo non diventa una voce solista", () => {
+  /* Trovato provandolo: `addItem("corista")` etichetta in automatico «Voce 1», e il nuovo arrivato
+     compariva in channel list come VOCE SOLISTA — il riepilogo che deve chiarire le ipotesi ne
+     creava una falsa, e il conteggio saliva a «2 voci soliste» dopo aver aggiunto UN CORISTA. */
+  const f = appjs.slice(appjs.indexOf("function aggiungiCorista()"), appjs.indexOf("function togliCorista"));
+  ok(/nuovo\.label/.test(f), "il nuovo corista riceve la sua etichetta");
+  ok(/replace\(\/\\s\*\\d\+\$\/,""\)/.test(f) || /\\s\*\\d\+\$/.test(f), "presa da quella dei cori già presenti, senza il numero");
+  ok(/"Cori"/.test(f), "con «Cori» come ripiego");
+  /* e il conteggio non si fida dei soli nomi dei canali */
+  const c = appjs.slice(appjs.indexOf("function ipotesiDelPalco(gia)"), appjs.indexOf("function aggiungiCorista"));
+  ok(/etichetteCori/.test(c) && /indexOf\(String\(n\)\.toLowerCase\(\)\)<0/.test(c),
+     "le voci soliste escludono le etichette dei coristi");
+});
+
+/* ===== IL MODELLO CHIEDE COM'È FATTA LA BAND, E POSIZIONA (14/08) ======================== */
+t("il modello standard resta identico a prima: chi non risponde non paga niente", () => {
+  /* La finestra è un guadagno solo se «Vai col modello standard» dà esattamente il palco di prima.
+     Un default diverso avrebbe cambiato sotto i piedi il modello a chi lo usa da mesi. */
+  const std = A.buildBandOut();
+  eq(std.length, 21, "ventuno elementi, come il modello storico");
+  eq(std.filter(e => e.type === "corista").length, 1, "un corista");
+  eq(std.filter(e => e.type === "stack").length, 1, "una chitarra");
+  eq(std.filter(e => e.type === "wedge").length, 4, "quattro spie");
+  eq(std.filter(e => e.type === "sidefill").length, 2, "e i due side fill");
+  eq(A.bandInputs().length, 15, "e la stessa channel list");
+});
+
+t("la formazione dichiarata cambia palco, canali e mix insieme", () => {
+  const g2 = A.buildBandOut({ cori: 3, chitarre: 2, ascolto: "wedge" });
+  eq(g2.filter(e => e.type === "corista").length, 3, "tre coristi sul palco");
+  eq(g2.filter(e => e.type === "stack").length, 2, "due ampli chitarra");
+  eq(A.bandInputs({ cori: 3, chitarre: 2 }).filter(c => /^Cori/.test(c.src || "")).length, 3,
+    "tre canali cori nella lista");
+  ok(A.bandInputs({ cori: 3, chitarre: 2 }).some(c => /Chitarra 2/.test(c.src || "")),
+    "e il canale della seconda chitarra");
+  /* in-ear per tutti: spariscono le spie E i side fill, che coprono chi non ha la spia */
+  const iem = A.buildBandOut({ cori: 2, chitarre: 1, ascolto: "iem" });
+  eq(iem.filter(e => e.type === "wedge").length, 0, "con tutti in-ear non restano spie");
+  eq(iem.filter(e => e.type === "sidefill").length, 0, "né side fill");
+  ok(iem.filter(e => e.type === "iem").length >= 4, "ma i pacchetti ci sono");
+});
+
+t("il programma posiziona senza far salire due persone sullo stesso metro quadro", () => {
+  /* È la promessa della finestra: «li metto io al posto giusto». Provato sul caso peggiore —
+     quattro cori e due chitarre — perché con la fila fissa il terzo corista finiva ADDOSSO al
+     cantante, a 35 cm (misurato nel browser prima di correggere). */
+  const NONOSTACOLI = { wedge: 1, iem: 1, corrente: 1, sidefill: 1, iemant: 1, pedana: 1 };   /* la pedana sta SOTTO la batteria: è il suo mestiere */
+  [[4, 2], [3, 2], [3, 1], [2, 2], [1, 1], [0, 1]].forEach(([cori, chitarre]) => {
+    const out = A.buildBandOut({ cori, chitarre }).filter(e => !NONOSTACOLI[e.type]);
+    for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
+      const a = out[i], b = out[j];
+      const aw = a.w || 90, ad = a.d || 90, bw = b.w || 90, bd = b.d || 90;
+      const addosso = Math.abs(a.x - b.x) < (aw + bw) / 2 && Math.abs((a.y || 0) - (b.y || 0)) < (ad + bd) / 2;
+      ok(!addosso, cori + " cori/" + chitarre + " chit: «" + (a.label || a.type) + "» e «" + (b.label || b.type) + "» si sovrappongono");
+    }
+  });
+});
+
+t("la finestra della band esiste, e non si mette in mezzo agli altri percorsi", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="bandSetup"/.test(html), "la finestra c'è");
+  ok(/id="bsCori"/.test(html) && /id="bsChit"/.test(html) && /id="bsAscolto"/.test(html), "con le sue tre domande");
+  ok(/id="bsStd"/.test(html), "e la via d'uscita per chi non vuole rispondere");
+  /* si apre SOLO dalla vetrina: sui link diretti (?model=band) il palco standard è quello che ci si
+     aspetta, e una finestra a sorpresa sarebbe un ostacolo */
+  ok(/m\[0\]==="band" && typeof chiediFormazioneBand==="function"/.test(appjs), "si apre dalla vetrina");
+  ok(/formazione:scelte/.test(appjs), "e le risposte arrivano al modello");
+  /* il benvenuto contiene la vetrina: senza toglierlo di mezzo la finestra gli nasce dietro */
+  const f = appjs.slice(appjs.indexOf("function chiediFormazioneBand"), appjs.indexOf("function startFromTemplate"));
+  ok(/wlEraAperto/.test(f) && /wl\.hidden=false/.test(f), "il benvenuto si sposta e torna se annulli");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
