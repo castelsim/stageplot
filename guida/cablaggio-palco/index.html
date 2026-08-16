@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schema di cablaggio del palco audio | StagePlot</title>
+  <meta name="description" content="Come cablare l'audio di un palco: cavi bilanciati, multicore (snake), stagebox, split e patch. Il percorso del segnale dal microfono al mixer, da un fonico.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/cablaggio-palco/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Schema di cablaggio del palco audio">
+  <meta property="og:description" content="Cavi bilanciati, multicore (snake), stagebox, split e patch: il percorso del segnale audio dal microfono al mixer, spiegato da un fonico.">
+  <meta property="og:url" content="https://stageplot.it/guida/cablaggio-palco/">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Schema di cablaggio del palco audio">
+  <meta name="twitter:description" content="Cavi bilanciati, multicore, stagebox, split e patch: il segnale dal microfono al mixer, da un fonico.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Schema di cablaggio del palco","item":"https://stageplot.it/guida/cablaggio-palco/"}
+      ]},
+      {"@type":"Article","headline":"Schema di cablaggio del palco audio","inLanguage":"it","datePublished":"2026-08-15","dateModified":"2026-08-15","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/cablaggio-palco/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Che differenza c'è tra stage plot e schema di cablaggio?","acceptedAnswer":{"@type":"Answer","text":"Lo stage plot mostra dove sta ogni cosa sul palco; lo schema di cablaggio mostra come le cose sono collegate fra loro. Il primo risponde a «chi va dove», il secondo a «cosa entra in cosa»: quale microfono va in quale linea dello stagebox, e da lì al mixer."}},
+        {"@type":"Question","name":"Cos'è uno snake (multicore) audio?","acceptedAnswer":{"@type":"Answer","text":"Uno snake, o multicore, è un cavo unico che raccoglie molte linee audio (per esempio 24 mandate e 4 ritorni) e le porta dal palco al mixer con un solo tiraggio. Termina su uno stagebox a bordo palco, dove si collegano i singoli cavi microfonici."}},
+        {"@type":"Question","name":"Perché i cavi audio del palco sono bilanciati?","acceptedAnswer":{"@type":"Answer","text":"Perché la linea bilanciata (XLR, tre poli) cancella il rumore captato lungo il cavo: i disturbi si sommano uguali sui due conduttori e all'arrivo si annullano. È ciò che permette a un segnale di microfono debole di correre decine di metri fino al mixer senza raccogliere ronzio."}},
+        {"@type":"Question","name":"Quanto può essere lungo un cavo microfonico?","acceptedAnswer":{"@type":"Answer","text":"Un cavo microfonico bilanciato di buona qualità regge tranquillamente 50-100 metri senza perdita udibile, proprio grazie al segnale bilanciato. Il limite pratico non è la lunghezza ma la vicinanza ai cavi di potenza: tenerli separati evita il ronzio indotto."}},
+        {"@type":"Question","name":"Come si evita il ronzio (hum) sul palco?","acceptedAnswer":{"@type":"Answer","text":"Tre accorgimenti: usare linee bilanciate e DI con ground lift per gli strumenti, alimentare tutto l'audio da un'unica presa (una sola massa), e tenere i cavi audio lontani da quelli di corrente, incrociandoli a 90 gradi quando è inevitabile passarci sopra."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/app/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/app/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Schema di cablaggio del palco
+    </nav>
+
+    <h1>Schema di cablaggio del palco: come collegare l'audio dal microfono al mixer</h1>
+    <p class="lead">Lo stage plot dice dove sta ogni cosa. Il cablaggio dice come le colleghi. È la parte che non si vede nel disegno ma che decide se, la sera, il segnale arriva pulito al banco — o non arriva.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 15/08/2026</p>
+
+    <h2>Che cos'è lo schema di cablaggio di un palco?</h2>
+    <p>Lo <strong>schema di cablaggio</strong> è la mappa del percorso del segnale audio: da ogni sorgente sul palco — un microfono, una DI, un'uscita di linea — fino all'ingresso del mixer, passando per i cavi, il multicore e lo stagebox. Mentre lo <a href="/guida/cos-e-uno-stage-plot/">stage plot</a> risponde a «dove sta cosa», il cablaggio risponde a «cosa entra in cosa»: quale microfono finisce in quale linea, e con quale numero arriva al banco. È l'anello che tiene insieme il disegno del palco e la <a href="/guida/channel-list-input-list/">channel list</a>.</p>
+    <p>Qui parliamo solo del <strong>segnale audio analogico</strong> — i cavi, non la corrente. Per l'alimentazione, i carichi e i quadri c'è una guida a parte: <a href="/guida/assorbimento-elettrico-palco/">l'assorbimento elettrico del palco</a>. Le due cose viaggiano vicine ma non vanno confuse, e soprattutto i loro cavi non vanno mai stesi insieme.</p>
+
+    <h2>Il percorso del segnale, passo per passo</h2>
+    <p>In un palco tipico il segnale fa sempre lo stesso viaggio:</p>
+    <ol class="steps">
+      <li><strong>La sorgente</strong>Un microfono, una DI (per basso, tastiere, acustica col pickup) o un'uscita di linea. È il punto in cui il suono diventa segnale elettrico.</li>
+      <li><strong>Il cavo microfonico</strong>Un cavo bilanciato con connettori XLR porta la singola sorgente fino allo stagebox più vicino. Deve avere un po' di lasco: un cavo teso è un cavo che si stacca.</li>
+      <li><strong>Lo stagebox</strong>La scatola a bordo palco dove tutte le linee si raccolgono. Ogni ingresso è numerato: quel numero è lo stesso della channel list.</li>
+      <li><strong>Il multicore (snake)</strong>Il cavo unico che porta tutte le linee dallo stagebox al mixer, con un solo tiraggio invece di venti cavi sparsi.</li>
+      <li><strong>Il mixer</strong>Al banco, ogni linea del multicore entra nel canale che le corrisponde. Se la numerazione è coerente, il patch è già fatto.</li>
+    </ol>
+    <div class="callout">
+      <p>La regola che fa risparmiare più tempo: <strong>lo stesso numero deve valere ovunque</strong>. Il canale 3 sullo stage plot è la linea 3 dello stagebox, è il canale 3 in channel list, è il fader 3 al banco. Quando questa catena si spezza, qualcuno passa il soundcheck a inseguire un cavo.</p>
+    </div>
+
+    <h2>Cavi bilanciati: perché il palco funziona così</h2>
+    <p>Quasi tutto l'audio di palco viaggia su <strong>linee bilanciate</strong> (XLR a tre poli, o TRS). Il motivo è uno solo, ed è il cuore del cablaggio: un segnale bilanciato <strong>cancella il rumore</strong> che raccoglie lungo la strada. I disturbi elettromagnetici si inducono uguali sui due conduttori; all'ingresso, il mixer li sottrae l'uno dall'altro e il rumore si annulla, mentre il suono resta. È per questo che un segnale di microfono, debolissimo, può correre cinquanta o cento metri fino al banco senza arrivare pieno di ronzio.</p>
+    <p>Lo sbilanciato (il jack di una chitarra, un cavo RCA) non ha questa protezione: oltre i pochi metri raccoglie disturbo. Ecco perché uno strumento a livello di linea sbilanciato si porta al banco con una <a href="/guida/channel-list-input-list/">DI box</a>, che lo trasforma in un segnale bilanciato prima del tiraggio lungo.</p>
+
+    <h2>Multicore, stagebox e sub-snake</h2>
+    <p>Su un palco con molti canali non si stendono venti cavi singoli fino al banco: si usa un <strong>multicore</strong> (o snake), un cavo unico che raccoglie tutte le linee. Si descrive con due numeri: le <strong>mandate</strong> (dal palco al mixer) e i <strong>ritorni</strong> (dal mixer al palco, per i monitor). Un multicore «24/4» porta 24 sorgenti al banco e riporta 4 linee sul palco.</p>
+    <p>Il multicore termina sullo <strong>stagebox</strong>, la scatola a bordo palco. Da lì, per le zone dense, si usano <strong>sub-snake</strong>: un piccolo multicore che serve solo la batteria (otto, dieci linee da un punto solo) evita una matassa di cavi attorno alle pedane. Meno cavi liberi in giro significa meno inciampi, meno errori e un palco che si smonta in metà tempo.</p>
+
+    <h2>Lo split: quando le console sono due</h2>
+    <p>Se il monitoraggio ha una console dedicata sul palco, la stessa sorgente deve arrivare a <strong>due</strong> banchi — FOH (sala) e monitor. Non si sdoppia con una Y qualsiasi: si usa uno <strong>split</strong>. Uno split <em>passivo</em> usa un trasformatore per separare le due uscite senza disturbi; uno <em>attivo</em> le alimenta separatamente ed è più stabile su tiraggi lunghi o con molte uscite. È un dettaglio che, sullo schema di cablaggio, va indicato: chi allestisce deve sapere in partenza se il segnale va splittato e dove.</p>
+
+    <h2>Ronzio e loop di massa: la causa e i rimedi</h2>
+    <p>Il ronzio (<em>hum</em>) sul palco quasi sempre nasce da un <strong>loop di massa</strong>: due apparecchi collegati a masse diverse creano un anello in cui si induce corrente, e la senti come un brusio a 50 Hz. I tre rimedi, in ordine:</p>
+    <ul>
+      <li><strong>Linee bilanciate</strong> ovunque, e <strong>DI con ground lift</strong> per gli strumenti: interrompe il loop senza staccare la terra di sicurezza.</li>
+      <li><strong>Un'unica alimentazione</strong> per tutto l'audio, così c'è una sola massa di riferimento. È il punto in cui il cablaggio incontra <a href="/guida/assorbimento-elettrico-palco/">l'impianto elettrico</a>: alimentare l'audio e le luci da prese diverse è una delle cause di ronzio più comuni.</li>
+      <li><strong>Cavi audio lontani da quelli di potenza.</strong> Se un cavo audio deve incrociare uno di corrente, farlo a 90 gradi: l'induzione è minima quando si tagliano perpendicolari, massima quando corrono paralleli e vicini.</li>
+    </ul>
+
+    <h2>Gli errori di cablaggio che si pagano la sera</h2>
+    <ul>
+      <li><strong>Cavi troppo corti o tesi.</strong> Senza un lasco, il primo che inciampa stacca un canale. Lascia sempre un'ansa di servizio a ogni estremità.</li>
+      <li><strong>Audio e corrente nella stessa canalina.</strong> È la ricetta del ronzio: vanno separati, sempre.</li>
+      <li><strong>Numerazione incoerente</strong> tra stagebox, channel list e stage plot. Ogni scarto è una telefonata al soundcheck.</li>
+      <li><strong>Niente etichette.</strong> Un cavo non etichettato, in mezzo a cinquanta, è mezz'ora persa quando qualcosa non suona.</li>
+      <li><strong>Nessun margine sul multicore.</strong> Un 16/4 per sedici canali esatti non lascia spazio a un microfono in più: dimensiona con un po' d'aria.</li>
+    </ul>
+
+    <h2>Come StagePlot disegna il cablaggio</h2>
+    <p>Questo è il punto in cui l'editor va oltre il disegno. Quando gli elementi sono in scala reale, <a href="/app/">StagePlot</a> traccia i <strong>percorsi dei cavi</strong> dal palco allo stagebox e al mixer seguendo le distanze vere, e ne stima le lunghezze — così il multicore lo dimensioni sui metri effettivi, non a occhio. È la funzione che i comuni disegnatori di stage plot non hanno: loro mettono le icone, qui il palco sa anche come è collegato.</p>
+
+    <div class="cta-box">
+      <h2>Disegna il cablaggio del tuo palco</h2>
+      <p>Metti gli elementi in scala e traccia i percorsi dei cavi con le lunghezze reali. Gratis, nel browser.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/app/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+        <a class="btn consul" href="/consulenza/">Fatti revisionare da un fonico</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Che differenza c'è tra stage plot e schema di cablaggio?</summary><p>Lo stage plot mostra dove sta ogni cosa sul palco; lo schema di cablaggio mostra come le cose sono collegate fra loro. Il primo risponde a «chi va dove», il secondo a «cosa entra in cosa»: quale microfono va in quale linea dello stagebox, e da lì al mixer.</p></details>
+      <details><summary>Cos'è uno snake (multicore) audio?</summary><p>Uno snake, o multicore, è un cavo unico che raccoglie molte linee audio (per esempio 24 mandate e 4 ritorni) e le porta dal palco al mixer con un solo tiraggio. Termina su uno stagebox a bordo palco, dove si collegano i singoli cavi microfonici.</p></details>
+      <details><summary>Perché i cavi audio del palco sono bilanciati?</summary><p>Perché la linea bilanciata (XLR, tre poli) cancella il rumore captato lungo il cavo: i disturbi si sommano uguali sui due conduttori e all'arrivo si annullano. È ciò che permette a un segnale di microfono debole di correre decine di metri fino al mixer senza raccogliere ronzio.</p></details>
+      <details><summary>Quanto può essere lungo un cavo microfonico?</summary><p>Un cavo microfonico bilanciato di buona qualità regge tranquillamente 50-100 metri senza perdita udibile, proprio grazie al segnale bilanciato. Il limite pratico non è la lunghezza ma la vicinanza ai cavi di potenza: tenerli separati evita il ronzio indotto.</p></details>
+      <details><summary>Come si evita il ronzio (hum) sul palco?</summary><p>Tre accorgimenti: usare linee bilanciate e DI con ground lift per gli strumenti, alimentare tutto l'audio da un'unica presa (una sola massa), e tenere i cavi audio lontani da quelli di corrente, incrociandoli a 90 gradi quando è inevitabile passarci sopra.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/channel-list-input-list/"><strong>Channel list e input list</strong><span>I numeri che il cablaggio deve rispettare</span></a>
+        <a href="/guida/assorbimento-elettrico-palco/"><strong>Assorbimento elettrico del palco</strong><span>La corrente, non il segnale: kW, ampere e prese</span></a>
+        <a href="/guida/come-fare-uno-stage-plot/"><strong>Come fare uno stage plot</strong><span>La guida pratica passo per passo</span></a>
+        <a href="/guida/rack-audio-dante/"><strong>Rete Dante e rack audio</strong><span>Quando il multicore diventa un cavo di rete</span></a>
+      </div>
+    </div>
+
+  <aside class="author-card">
+    <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+    <p class="ac-bio">Fonico per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato StagePlot per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+    <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+  </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/app/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>

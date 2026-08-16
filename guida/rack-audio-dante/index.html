@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rete Dante e rack audio sul palco | StagePlot</title>
+  <meta name="description" content="Cos'è la rete Dante e come si documenta un rack audio nel rider: un cavo di rete al posto del multicore, device, routing, clock e ridondanza. Da un fonico.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/rack-audio-dante/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Rete Dante e rack audio sul palco">
+  <meta property="og:description" content="Un cavo di rete al posto del multicore: cos'è Dante, come si compone un rack audio e come si documenta nel rider. Spiegato da un fonico.">
+  <meta property="og:url" content="https://stageplot.it/guida/rack-audio-dante/">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rete Dante e rack audio sul palco">
+  <meta name="twitter:description" content="Un cavo di rete al posto del multicore: Dante, rack, routing e ridondanza, da un fonico.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Rete Dante e rack audio","item":"https://stageplot.it/guida/rack-audio-dante/"}
+      ]},
+      {"@type":"Article","headline":"Rete Dante e rack audio sul palco","inLanguage":"it","datePublished":"2026-08-15","dateModified":"2026-08-15","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/rack-audio-dante/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Cos'è la rete Dante?","acceptedAnswer":{"@type":"Answer","text":"Dante è un protocollo che fa viaggiare molti canali audio digitali su una normale rete Ethernet. Un solo cavo di rete porta decine o centinaia di canali tra palco e mixer, al posto del multicore analogico, e l'instradamento si decide via software invece che ricablando."}},
+        {"@type":"Question","name":"Che differenza c'è tra Dante e cablaggio analogico?","acceptedAnswer":{"@type":"Answer","text":"Nell'analogico ogni canale ha il suo cavo fino allo stagebox; con Dante un unico cavo di rete trasporta tutti i canali e il routing si fa nel software. Dante conviene con molti canali, tratte lunghe o setup che cambiano spesso; l'analogico resta più semplice e robusto per palchi piccoli."}},
+        {"@type":"Question","name":"Cosa contiene un rack audio da palco?","acceptedAnswer":{"@type":"Answer","text":"Di solito lo stagebox (o l'interfaccia I/O di rete), lo switch di rete, e a volte la console monitor, i ricevitori wireless e il computer di playback. È l'armadio in cui il palco si collega alla rete e da cui parte il cavo verso il mixer di sala."}},
+        {"@type":"Question","name":"Cos'è il Device ID in una rete Dante?","acceptedAnswer":{"@type":"Answer","text":"È il nome con cui ogni apparecchio si presenta sulla rete: stagebox, mixer, registratore. Il routing si fa abbinando i canali per nome nel Dante Controller, quindi dare a ogni device un nome chiaro (per esempio «Palco-IO» o «FOH») evita errori quando si collegano gli ingressi."}},
+        {"@type":"Question","name":"Serve la rete ridondante per un concerto?","acceptedAnswer":{"@type":"Answer","text":"Per un evento importante sì: Dante prevede una rete primaria e una secondaria su switch e cavi separati, così se un cavo si rompe l'audio non cade. Per un club o un palco piccolo una rete singola ben fatta è di solito sufficiente."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/app/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/app/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Rete Dante e rack audio
+    </nav>
+
+    <h1>Rete Dante e rack audio sul palco: un cavo al posto del multicore</h1>
+    <p class="lead">Quando i canali diventano tanti, il multicore analogico lascia il posto a un cavo di rete solo. Ecco cos'è Dante, come si compone il rack che lo ospita e come lo scrivi nel rider senza far storcere il naso al service.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 15/08/2026</p>
+
+    <h2>Cos'è la rete Dante?</h2>
+    <p><strong>Dante</strong> è un protocollo che fa viaggiare l'audio digitale su una normale rete <strong>Ethernet</strong>. In pratica: invece di stendere un multicore con decine di coppie di rame, colleghi il palco al mixer con un <strong>solo cavo di rete</strong> che porta decine o centinaia di canali insieme al controllo. È la stessa idea del <a href="/guida/cablaggio-palco/">cablaggio del palco</a> — portare il segnale da qui a lì — ma spostata dal rame all'informatica: qui parliamo di <strong>rete, non di cavi analogici</strong>, e l'instradamento si decide via software invece di ricablare.</p>
+    <p>Il vantaggio non è solo il cavo unico. Con Dante il <strong>routing</strong> — chi manda cosa a chi — si fa in un programma (il Dante Controller), abbinando i canali per nome. Aggiungere un ingresso o rimandare un canale alla console monitor non richiede di toccare un cavo: si cambia una riga nel software.</p>
+
+    <h2>Dante o analogico: quando conviene</h2>
+    <p>Non è che il digitale batta sempre l'analogico — dipende dal palco. Ecco come scelgo:</p>
+    <ul>
+      <li><strong>Dante conviene</strong> con molti canali (oltre i 16-24), tratte lunghe, palchi che cambiano configurazione spesso, o quando servono più destinazioni (sala, monitor, registrazione, broadcast) dallo stesso segnale.</li>
+      <li><strong>L'analogico resta meglio</strong> per palchi piccoli, service leggeri, situazioni dove semplicità e robustezza contano più della flessibilità: un multicore non ha bisogno di uno switch che funzioni.</li>
+    </ul>
+    <p>Nella maggior parte dei live medi la scelta è già fatta dai mixer: le console digitali moderne parlano Dante di serie, e usarla è spesso più comodo che stendere rame.</p>
+
+    <h2>Cosa contiene un rack audio da palco</h2>
+    <p>Il <strong>rack</strong> è l'armadio in cui il palco si aggancia alla rete. Cosa ci sta dentro dipende dal setup, ma lo schema tipico è:</p>
+    <ul>
+      <li><strong>Stagebox / interfaccia I/O di rete</strong>: dove entrano i microfoni e le linee del palco e diventano canali Dante.</li>
+      <li><strong>Switch di rete</strong>: lo snodo che tiene insieme i device. Deve essere adatto all'audio (gestione delle priorità, funzioni di risparmio energetico disattivate), non uno switch qualsiasi da ufficio.</li>
+      <li><strong>Console monitor</strong>, se il monitoraggio è gestito dal palco.</li>
+      <li><strong>Ricevitori wireless e computer di playback</strong>, quando ci sono.</li>
+    </ul>
+    <p>Da questo rack parte il cavo di rete verso il mixer di sala. È il cuore fisico del sistema, e nel rider va descritto per quello che è: cosa contiene e come si collega.</p>
+
+    <h2>Device, nomi e routing: il Device ID</h2>
+    <p>Ogni apparecchio sulla rete Dante si presenta con un <strong>nome</strong> — il <em>Device ID</em>. Il routing si fa abbinando i canali per nome nel Dante Controller: «l'uscita 1 del device Palco-IO va all'ingresso 1 del device FOH». Sembra un dettaglio da informatici, ma è il punto in cui si fanno gli errori: due device chiamati entrambi «Mixer» o «Stagebox-1» e «Stagebox-01» sono la ricetta per collegare il canale sbagliato.</p>
+    <p>La regola pratica: <strong>nomi chiari e univoci</strong> — «Palco-IO», «FOH», «Monitor», «Rec» — scritti anche sul rider. Chi allestisce deve poter capire la topologia della rete leggendo il documento, non provando a indovinare.</p>
+
+    <h2>Clock e latenza</h2>
+    <p>In una rete digitale tutti gli apparecchi devono battere lo <strong>stesso tempo</strong>: uno solo fa da riferimento (il <em>leader</em> del clock) e gli altri si allineano. Se il clock non è stabile, l'audio ha disturbi. Di norma se ne occupa il sistema in automatico, ma è bene sapere quale device fa da leader — di solito il mixer o lo stagebox principale.</p>
+    <p>La <strong>latenza</strong> di Dante è selezionabile ed è molto bassa (frazioni di millisecondo su una rete piccola). Non è un problema pratico nel live: conta saperla impostare coerente su tutti i device, non inseguirla.</p>
+
+    <h2>Ridondanza: quando la rete non può cadere</h2>
+    <p>Per un evento importante, un cavo di rete che si stacca non può spegnere il concerto. Dante prevede la <strong>ridondanza</strong>: una rete <em>primaria</em> e una <em>secondaria</em> su switch e cavi separati, che portano lo stesso audio in parallelo. Se una via cade, l'altra continua senza che nessuno se ne accorga. Per un club o un palco piccolo una rete singola ben fatta basta; per un festival o una produzione seria la ridondanza è la norma, e va indicata nel rider.</p>
+
+    <h2>Come StagePlot documenta il rack</h2>
+    <p>Nel <a href="/guida/rider-tecnico/">rider tecnico</a> il rack e la rete non sono un dettaglio: chi allestisce deve sapere in anticipo cosa colleghi e come. <a href="/app/">StagePlot</a> tratta il rack come un elemento del palco — con i device, le porte e la rete — così lo schema esce dal disegno invece di essere descritto a parole in fondo a un PDF. È la parte che i comuni disegnatori di stage plot non hanno: si fermano alle icone sul palco, mentre qui il progetto include anche come il palco è connesso.</p>
+
+    <div class="cta-box">
+      <h2>Metti il rack nel tuo stage plot</h2>
+      <p>Device, porte e rete come parte del disegno, non come una nota a fondo pagina. Gratis, nel browser.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/app/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+        <a class="btn consul" href="/consulenza/">Fatti revisionare da un fonico</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Cos'è la rete Dante?</summary><p>Dante è un protocollo che fa viaggiare molti canali audio digitali su una normale rete Ethernet. Un solo cavo di rete porta decine o centinaia di canali tra palco e mixer, al posto del multicore analogico, e l'instradamento si decide via software invece che ricablando.</p></details>
+      <details><summary>Che differenza c'è tra Dante e cablaggio analogico?</summary><p>Nell'analogico ogni canale ha il suo cavo fino allo stagebox; con Dante un unico cavo di rete trasporta tutti i canali e il routing si fa nel software. Dante conviene con molti canali, tratte lunghe o setup che cambiano spesso; l'analogico resta più semplice e robusto per palchi piccoli.</p></details>
+      <details><summary>Cosa contiene un rack audio da palco?</summary><p>Di solito lo stagebox (o l'interfaccia I/O di rete), lo switch di rete, e a volte la console monitor, i ricevitori wireless e il computer di playback. È l'armadio in cui il palco si collega alla rete e da cui parte il cavo verso il mixer di sala.</p></details>
+      <details><summary>Cos'è il Device ID in una rete Dante?</summary><p>È il nome con cui ogni apparecchio si presenta sulla rete: stagebox, mixer, registratore. Il routing si fa abbinando i canali per nome nel Dante Controller, quindi dare a ogni device un nome chiaro (per esempio «Palco-IO» o «FOH») evita errori quando si collegano gli ingressi.</p></details>
+      <details><summary>Serve la rete ridondante per un concerto?</summary><p>Per un evento importante sì: Dante prevede una rete primaria e una secondaria su switch e cavi separati, così se un cavo si rompe l'audio non cade. Per un club o un palco piccolo una rete singola ben fatta è di solito sufficiente.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/cablaggio-palco/"><strong>Schema di cablaggio del palco</strong><span>L'analogico: cavi, multicore e stagebox</span></a>
+        <a href="/guida/assorbimento-elettrico-palco/"><strong>Assorbimento elettrico del palco</strong><span>La corrente che alimenta il rack</span></a>
+        <a href="/guida/rider-tecnico/"><strong>Rider tecnico</strong><span>Dove il rack e la rete vanno documentati</span></a>
+      </div>
+    </div>
+
+  <aside class="author-card">
+    <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+    <p class="ac-bio">Fonico per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato StagePlot per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+    <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+  </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/app/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
