@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rider tecnico per DJ set | StagePlot</title>
+  <meta name="description" content="Come scrivere il rider tecnico di un DJ set: consolle e lettori, mixer, monitor da booth, uscita stereo e alimentazione pulita. Con esempio, da un fonico.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/rider-tecnico-dj/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Rider tecnico per DJ set">
+  <meta property="og:description" content="Consolle e lettori, mixer, monitor da booth, uscita stereo e alimentazione pulita: come scrivere il rider di un DJ set, con esempio.">
+  <meta property="og:url" content="https://stageplot.it/guida/rider-tecnico-dj/">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rider tecnico per DJ set">
+  <meta name="twitter:description" content="Consolle, mixer, monitor da booth e uscita stereo: come scrivere il rider di un DJ set.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Guida","item":"https://stageplot.it/guida/"},
+        {"@type":"ListItem","position":3,"name":"Rider tecnico per DJ set","item":"https://stageplot.it/guida/rider-tecnico-dj/"}
+      ]},
+      {"@type":"Article","headline":"Rider tecnico per DJ set","inLanguage":"it","datePublished":"2026-08-15","dateModified":"2026-08-15","image":"https://stageplot.it/preview.png","mainEntityOfPage":"https://stageplot.it/guida/rider-tecnico-dj/","author":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"publisher":{"@type":"Organization","name":"StagePlot","logo":{"@type":"ImageObject","url":"https://stageplot.it/logo-512.png","width":512,"height":512}}},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Cosa scrivere nel rider tecnico di un DJ?","acceptedAnswer":{"@type":"Answer","text":"Le poche cose che contano: quali lettori e mixer servono (o che porti i tuoi), il monitor da booth, l'uscita stereo verso l'impianto, una presa di corrente pulita e il tavolo o la postazione all'altezza giusta. Un rider DJ chiaro sta in una pagina."}},
+        {"@type":"Question","name":"Che mixer serve per un DJ set?","acceptedAnswer":{"@type":"Answer","text":"Dipende dal formato: un mixer da DJ a due o quattro canali con gli ingressi giusti per i tuoi lettori o il tuo controller. Indica il modello che usi come riferimento aggiungendo «o equivalente», così il locale sa cosa procurarti senza doverti chiamare."}},
+        {"@type":"Question","name":"Cos'è il monitor da booth?","acceptedAnswer":{"@type":"Answer","text":"È la cassa spia rivolta verso il DJ, separata dall'impianto di sala, che serve a sentire bene il mix e ad andare a tempo. Nel rider va chiesto esplicitamente: senza monitor da booth mixare al buio, con il solo ritorno della sala in ritardo, è quasi impossibile."}},
+        {"@type":"Question","name":"Il DJ porta la sua attrezzatura o la chiede al locale?","acceptedAnswer":{"@type":"Answer","text":"Va scritto voce per voce. Molti DJ portano lettori e mixer o almeno il controller e la scheda audio, e chiedono al locale solo l'impianto, il monitor da booth, il tavolo e la corrente. L'importante è che il rider dica chi porta cosa, per evitare sorprese la sera."}},
+        {"@type":"Question","name":"Che differenza c'è tra rider DJ e scheda tecnica di una band?","acceptedAnswer":{"@type":"Answer","text":"La scheda tecnica di una band gestisce molti canali, monitor multipli e backline; il rider di un DJ è molto più semplice: una postazione, un'uscita stereo, un monitor da booth. Cambiano gli ingredienti, non lo scopo: dire al locale cosa serve prima di arrivare."}}
+      ]}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/app/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/app/?model=dj">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Rider tecnico per DJ set
+    </nav>
+
+    <h1>Rider tecnico per DJ set: cosa scrivere (e cosa no)</h1>
+    <p class="lead">Il rider di un DJ non è quello di una band: meno canali, meno monitor, ma qualche dettaglio che, se manca, ti fa mixare al buio. Ecco cosa serve davvero, in una pagina.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 15/08/2026</p>
+
+    <h2>Cos'è il rider tecnico di un DJ</h2>
+    <p>Il <strong>rider tecnico</strong> di un DJ è il documento che mandi al locale prima della serata per dire cosa ti serve in consolle. È lo stesso tipo di documento del <a href="/guida/rider-tecnico/">rider tecnico</a> di una band — cambia il contenuto, non lo scopo — ma molto più leggero: dove una band gestisce venti canali e quattro monitor, un DJ ha una postazione, un'uscita stereo e una spia. Proprio perché è semplice, quando manca qualcosa si nota subito.</p>
+    <p>Se suoni una band <em>e</em> fai DJ set, sono due documenti diversi: per la formazione con strumenti serve la <a href="/guida/scheda-tecnica-band/">scheda tecnica della band</a>, che gestisce backline e monitor multipli. Questa pagina è per il DJ set.</p>
+
+    <h2>Cosa serve in consolle</h2>
+    <p>Le voci che contano, in ordine di quanto se ne accorge il pubblico se mancano:</p>
+    <ul>
+      <li><strong>Lettori o controller</strong>: quali usi — coppia di lettori multimediali, controller con laptop, giradischi. Di' se li porti tu.</li>
+      <li><strong>Mixer</strong>: da DJ, due o quattro canali, con gli ingressi adatti ai tuoi lettori. Cita un modello «o equivalente» come riferimento.</li>
+      <li><strong>Monitor da booth</strong>: la spia rivolta verso di te, separata dalla sala. È la voce che i locali dimenticano più spesso, ed è quella senza cui non vai a tempo.</li>
+      <li><strong>Uscita verso l'impianto</strong>: un'uscita <strong>stereo</strong> (di solito XLR bilanciata) dal mixer alla PA. Se il tuo mixer esce sbilanciato, serve una <a href="/guida/cablaggio-palco/">DI</a>.</li>
+      <li><strong>Postazione</strong>: un tavolo stabile all'altezza giusta, spazio per i lettori, e una <a href="/guida/assorbimento-elettrico-palco/">presa di corrente</a> pulita e vicina.</li>
+    </ul>
+
+    <h2>Il monitor da booth: il dettaglio che fa la serata</h2>
+    <p>Se c'è una cosa da non dare per scontata è il <strong>monitor da booth</strong>. In sala il suono torna in ritardo e riverberato: mixare ascoltando solo quello significa andare fuori tempo agli attacchi. Una spia dedicata in consolle, con il suo livello indipendente, è ciò che ti permette di cuffiare e andare a tempo. Chiedila esplicitamente e di' che deve essere separata dall'impianto di sala — non «un ritorno qualsiasi».</p>
+
+    <h2>Un esempio compatto</h2>
+    <p>Il livello di dettaglio che basta al 90% dei locali per un DJ set solista:</p>
+    <table class="ch-table">
+      <caption>Esempio: rider tecnico di un DJ set</caption>
+      <thead><tr><th>Voce</th><th>Richiesta</th><th>Chi la porta</th></tr></thead>
+      <tbody>
+        <tr><td>Lettori</td><td>2 lettori multimediali standard (o equivalente)</td><td>Locale</td></tr>
+        <tr><td>Mixer</td><td>Mixer DJ 4 canali (o equivalente)</td><td>Locale</td></tr>
+        <tr><td>Controller + scheda</td><td>Controller e scheda audio personali via USB</td><td>DJ</td></tr>
+        <tr><td>Monitor booth</td><td>1 spia attiva in consolle, livello indipendente</td><td>Locale</td></tr>
+        <tr><td>Uscita PA</td><td>Stereo XLR bilanciata dal mixer all'impianto</td><td>Locale</td></tr>
+        <tr><td>Postazione</td><td>Tavolo stabile ~1 m, presa 230V pulita vicina</td><td>Locale</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Gli errori che si pagano la serata</h2>
+    <ul>
+      <li><strong>Nessun monitor da booth.</strong> È l'errore numero uno: senza spia si mixa a orecchio con la sala in ritardo.</li>
+      <li><strong>Non dire chi porta cosa.</strong> «Serve un mixer» senza specificare se lo porti tu genera la telefonata delle 18.</li>
+      <li><strong>Uscita sbilanciata sottovalutata.</strong> Se il mixer esce sbilanciato e la regia è lontana, senza DI arriva ronzio.</li>
+      <li><strong>Corrente lontana o condivisa con le luci.</strong> Una presa pulita e vicina evita ronzii e prolunghe volanti.</li>
+      <li><strong>Rider lungo tre pagine.</strong> Un DJ set sta in una pagina: se è più lungo, contiene cose che il locale non leggerà.</li>
+    </ul>
+
+    <h2>Disegna la consolle con StagePlot</h2>
+    <p>Anche un DJ set ha uno <a href="/stage-plot/dj/">stage plot</a>: dove sta la consolle, da che lato entra la corrente, dove va il monitor da booth. <a href="/app/?model=dj">StagePlot</a> parte da un modello DJ già pronto: lo adatti, aggiungi le note ed esporti il PDF del rider in un passaggio. Gratis, nel browser.</p>
+
+    <div class="cta-box">
+      <h2>Fai il rider del tuo DJ set adesso</h2>
+      <p>Parti dal modello DJ, disegna la consolle ed esporta il PDF. Gratis, senza registrazione.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/app/?model=dj" style="background:#fff;color:#101820;border-color:#fff">Apri il modello DJ</a>
+        <a class="btn consul" href="/consulenza/">Fatti revisionare da un fonico</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Cosa scrivere nel rider tecnico di un DJ?</summary><p>Le poche cose che contano: quali lettori e mixer servono (o che porti i tuoi), il monitor da booth, l'uscita stereo verso l'impianto, una presa di corrente pulita e il tavolo o la postazione all'altezza giusta. Un rider DJ chiaro sta in una pagina.</p></details>
+      <details><summary>Che mixer serve per un DJ set?</summary><p>Dipende dal formato: un mixer da DJ a due o quattro canali con gli ingressi giusti per i tuoi lettori o il tuo controller. Indica il modello che usi come riferimento aggiungendo «o equivalente», così il locale sa cosa procurarti senza doverti chiamare.</p></details>
+      <details><summary>Cos'è il monitor da booth?</summary><p>È la cassa spia rivolta verso il DJ, separata dall'impianto di sala, che serve a sentire bene il mix e ad andare a tempo. Nel rider va chiesto esplicitamente: senza monitor da booth mixare al buio, con il solo ritorno della sala in ritardo, è quasi impossibile.</p></details>
+      <details><summary>Il DJ porta la sua attrezzatura o la chiede al locale?</summary><p>Va scritto voce per voce. Molti DJ portano lettori e mixer o almeno il controller e la scheda audio, e chiedono al locale solo l'impianto, il monitor da booth, il tavolo e la corrente. L'importante è che il rider dica chi porta cosa, per evitare sorprese la sera.</p></details>
+      <details><summary>Che differenza c'è tra rider DJ e scheda tecnica di una band?</summary><p>La scheda tecnica di una band gestisce molti canali, monitor multipli e backline; il rider di un DJ è molto più semplice: una postazione, un'uscita stereo, un monitor da booth. Cambiano gli ingredienti, non lo scopo: dire al locale cosa serve prima di arrivare.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/rider-tecnico/"><strong>Rider tecnico</strong><span>Cos'è e cosa contiene, in generale</span></a>
+        <a href="/stage-plot/dj/"><strong>Stage plot per DJ set</strong><span>Il modello della consolle, pronto da aprire</span></a>
+        <a href="/guida/scheda-tecnica-band/"><strong>Scheda tecnica della band</strong><span>Se invece suoni con una band</span></a>
+      </div>
+    </div>
+
+  <aside class="author-card">
+    <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+    <p class="ac-bio">Fonico per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato StagePlot per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+    <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+  </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/app/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
