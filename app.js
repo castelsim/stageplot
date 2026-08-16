@@ -14558,8 +14558,14 @@ function buildVoiceOrganicoOut(counts, opts){
   });
   /* tre aste con lo stesso nome davano tre righe identiche «Coro» nella Input list: al banco non si
      capisce quale sia quale, ed è il patch ambiguo che l'audit del prodotto stesso segnala (06/08) */
-  if(opts.mics) [-260,0,260].forEach(function(x,i){ out.push({type:"giraffa", x:x, y:frontY+70, rot:180, label:"Coro "+["L","C","R"][i]}); });
-  if(opts.director) out.push({type:"podio", x:0, y:frontY+150, label:"Direttore"});
+  /* le aste d'insieme stanno a un metro dalla prima fila (era 70 cm): fisicamente andava bene, ma i
+     nomi «Coro L/C/R» si scrivevano addosso a quelli dei coristi. Lo spazio fino al podio c'è. */
+  /* rot 0 e non 180: con l'asta ruotata l'etichetta usciva CAPOVOLTA («ꞁ oɹoƆ»). Lo stesso commento
+     sta in buildCoroOut dal giorno in cui fu scritto — questo generatore non l'aveva recepito. */
+  if(opts.mics) [-260,0,260].forEach(function(x,i){ out.push({type:"giraffa", x:x, y:frontY+105, rot:0, label:"Coro "+["L","C","R"][i]}); });
+  /* il podio va oltre le aste d'insieme: a frontY+150 finiva SOPRA quella centrale (45 cm fra due
+     ingombri che ne vogliono 81 — misurato). Il direttore sta davanti al coro e ai suoi microfoni. */
+  if(opts.director) out.push({type:"podio", x:0, y:frontY+(opts.mics?230:150), label:"Direttore"});
   return out;
 }
 function genVoiceOrganico(counts, opts, fitStage, clearFirst, force){
@@ -14986,31 +14992,74 @@ function chiudiAssunzioni(){
  * quando il modello arriva da un percorso automatico: là il palco standard è quello che ci si
  * aspetta, e una finestra a sorpresa sarebbe un ostacolo.
  */
-function chiediFormazioneBand(dopo){
+/**
+ * ORGANICI — che cosa chiede ogni modello, e come si costruisce il palco con la risposta.
+ *
+ * Una tabella sola: aggiungere un modello vuol dire aggiungere una riga qui, non scrivere un'altra
+ * finestra. I `ruoli` sono [chiave, etichetta, quanti di partenza]; `max` è il tetto per ruolo
+ * (sei persone in una band, quaranta in una sezione di coro).
+ */
+var ORGANICI = {
+  band: {
+    titolo: "Chi sale sul palco?",
+    nota: "Il modello posa le persone con i loro strumenti, al posto giusto. Il resto — pedane, stage box, prese, side fill — lo aggiungi dove ti serve: dipende dal locale, non dalla band.",
+    standard: "Formazione tipica",
+    max: 6,
+    ruoli: [["voce","Voce solista",1],["cori","Cori",1],["chitarra","Chitarra",1],["basso","Basso",1],
+            ["batteria","Batteria",1],["tastiere","Tastiere",1],["fiati","Fiati",0]],
+    build: function(o){ return buildBandOut(o); }
+  },
+  coro: {
+    titolo: "Quante voci per sezione?",
+    nota: "Soprani e contralti davanti, tenori e bassi dietro, sui gradoni. Con i microfoni d'insieme e il podio del direttore: il pianoforte e il resto si aggiungono dopo.",
+    standard: "Coro medio (8.8.6.6)",
+    max: 40,
+    ruoli: [["sop","Soprani",8],["con","Contralti",8],["ten","Tenori",6],["bas","Bassi",6]],
+    /* il generatore per sezioni c'era già e disponeva le file: era rimasto senza un ingresso
+       nell'interfaccia, raggiungibile solo con ?form= (16/08). */
+    build: function(o){ return buildVoiceOrganicoOut(o, {mics:true, director:true, riser:true}); }
+  }
+};
+
+/**
+ * La finestra dell'organico: una riga per ruolo, meno e più.
+ * Stessa finestra per tutti i modelli che hanno una voce in ORGANICI; per gli altri il palco parte
+ * com'era, senza domande.
+ */
+function chiediOrganico(chiave, dopo){
+  var cfg = ORGANICI[chiave];
   var m=document.getElementById("bandSetup"), host=document.getElementById("bsRuoli");
-  if(!m||!host){ dopo(null); return; }
-  /* I ruoli e la formazione tipica di partenza. Stessa finestra per gli altri modelli: cambiano
-     solo i numeri iniziali (Tributo due chitarre, Jazz niente cori, e via così). */
-  var RUOLI=[["voce","Voce solista",1],["cori","Cori",1],["chitarra","Chitarra",1],["basso","Basso",1],
-             ["batteria","Batteria",1],["tastiere","Tastiere",1],["fiati","Fiati",0]];
+  if(!cfg || !m || !host){ dopo(null); return; }
   var org={};
+  document.getElementById("bsTitolo").textContent = cfg.titolo;
+  document.getElementById("bsNota").textContent = cfg.nota;
+  document.getElementById("bsStd").textContent = cfg.standard;
   host.textContent="";
-  RUOLI.forEach(function(r){
+  cfg.ruoli.forEach(function(r){
     org[r[0]]=r[2];
     var riga=document.createElement("div"); riga.className="bs-riga";
     var nome=document.createElement("span"); nome.className="bs-nome"; nome.textContent=r[1];
     var meno=document.createElement("button"); meno.type="button"; meno.className="bs-pm"; meno.textContent="−";
-    meno.setAttribute("aria-label","Togli un "+r[1]);
+    meno.setAttribute("aria-label","Togli: "+r[1]);
     var num=document.createElement("output"); num.className="bs-num"; num.textContent=r[2];
     var piu=document.createElement("button"); piu.type="button"; piu.className="bs-pm"; piu.textContent="+";
-    piu.setAttribute("aria-label","Aggiungi un "+r[1]);
+    piu.setAttribute("aria-label","Aggiungi: "+r[1]);
     function cambia(d){
-      org[r[0]] = Math.max(0, Math.min(6, org[r[0]] + d));
+      org[r[0]] = Math.max(0, Math.min(cfg.max||6, org[r[0]] + d));
       num.textContent = org[r[0]];
       riga.classList.toggle("bs-zero", org[r[0]]===0);   /* a zero la riga si spegne: si vede a colpo d'occhio chi non c'è */
     }
     meno.addEventListener("click", function(){ cambia(-1); });
     piu.addEventListener("click", function(){ cambia(1); });
+    /* tenendo premuto si scorre: con quaranta soprani, quaranta clic sarebbero una punizione */
+    var tRip=null;
+    function ripeti(d){ clearInterval(tRip); tRip=setInterval(function(){ cambia(d); }, 110); }
+    function stop(){ clearInterval(tRip); tRip=null; }
+    if((cfg.max||6) > 8){
+      meno.addEventListener("pointerdown", function(){ ripeti(-1); });
+      piu.addEventListener("pointerdown", function(){ ripeti(1); });
+      ["pointerup","pointerleave","pointercancel"].forEach(function(ev){ meno.addEventListener(ev, stop); piu.addEventListener(ev, stop); });
+    }
     riga.appendChild(nome); riga.appendChild(meno); riga.appendChild(num); riga.appendChild(piu);
     riga.classList.toggle("bs-zero", r[2]===0);
     host.appendChild(riga);
@@ -15025,7 +15074,7 @@ function chiediFormazioneBand(dopo){
   }
   function esc(ev){ if(ev.key==="Escape"){ chiudi(true); } }
   document.getElementById("bsGo").onclick=function(){ chiudi(); dopo(org); };
-  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = la formazione tipica */
+  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = i valori di partenza */
   m.onclick=function(ev){ if(ev.target===m) chiudi(true); };
   document.addEventListener("keydown", esc);
   m.hidden=false;
@@ -16234,7 +16283,7 @@ function formationData(f, opz){
      i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
   if(f==="band")  return { out:buildBandOut(opz),  inp:bandInputs(opz), outp:bandOutputs(opz), stage:{w:1600,d:650} };
   if(f==="acoustic") return { out:buildAcousticOut(), inp:acousticInputs(), outp:acousticOutputs() };
-  if(f==="coro")  return { out:buildCoroOut(),  inp:coroInputs(), outp:coroOutputs() };
+  if(f==="coro")  return { out:(opz ? ORGANICI.coro.build(opz) : buildCoroOut()),  inp:coroInputs(), outp:coroOutputs() };
   if(f==="quartetto") return { out:buildQuartettoOut(), inp:quartettoInputs(), outp:quartettoOutputs() };
   /* «Orchestra da camera» in vetrina = il layout curato a mano (31/07). Il ventaglio generato
      resta la base di sinfonica/orchband/orchcoro, che dai conteggi non possono prescindere. */
@@ -24684,8 +24733,10 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
       b.addEventListener("click", function(){
         /* «Band» è l'unico modello che oggi sa fare domande: per gli altri il palco parte com'era.
            Gli altri modelli arriveranno riesumando i generatori per organico (voiceModal & co.). */
-        if(m[0]==="band" && typeof chiediFormazioneBand==="function"){
-          chiediFormazioneBand(function(scelte){ startFromTemplate(m[0],{after:after, formazione:scelte}); });
+        /* i modelli che sanno fare domande sono quelli in ORGANICI: per gli altri il palco parte
+           com'era, senza finestre a sorpresa. */
+        if(typeof ORGANICI!=="undefined" && ORGANICI[m[0]] && typeof chiediOrganico==="function"){
+          chiediOrganico(m[0], function(scelte){ startFromTemplate(m[0],{after:after, formazione:scelte}); });
         } else startFromTemplate(m[0],{after:after});
       });
       host.appendChild(b);
