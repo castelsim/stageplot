@@ -373,7 +373,8 @@
     #assunzioni .as-foot .btn{min-height:44px}   /* anche «Va bene così»: è il bersaglio che chiude */
   }
   /* Chi sale sul palco: una riga per ruolo, con meno e più. */
-  #bandSetup .bs-ruoli{margin-top:14px}
+  /* l'orchestra ha quindici sezioni: l'elenco scorre, i due bottoni in fondo restano fermi */
+  #bandSetup .bs-ruoli{margin-top:14px;max-height:min(46vh,360px);overflow:auto}
   #bandSetup .bs-riga{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)}
   #bandSetup .bs-riga:first-child{border-top:0}
   #bandSetup .bs-nome{font-size:13.5px}
