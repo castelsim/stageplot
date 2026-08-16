@@ -14082,37 +14082,93 @@ function genOrchestra(counts, fitStage, clearFirst, force){
 /* ============ FORMAZIONI TIPO (band, coro, combinazioni) ============ */
 /* convenzione coord.: origine = centro fronte palco; -y = verso il fondo, +y = verso il pubblico;
    -x = lato DX palco, +x = lato SX palco (come la scena). */
-function buildBandOut(){
-  return [
+/**
+ * Il palco della band, sulla formazione che l'utente ha dichiarato.
+ *
+ * Prima era un elenco fisso: una voce, un corista, una chitarra, e chi aveva due chitarre o tre
+ * coristi doveva aggiungerli a mano e — soprattutto — decidere DOVE metterli. Il posizionamento è
+ * la cosa che il programma sa fare e l'utente no: i cori in fila con la spaziatura giusta, la
+ * seconda chitarra col suo ampli e la sua spia, tutto dentro la profondità del palco.
+ *
+ * Senza opzioni fa esattamente quello che faceva prima: è il modello standard, e chi non vuole
+ * rispondere a niente lo ottiene con un clic.
+ */
+function buildBandOut(o){
+  o = o || {};
+  var cori    = Math.max(0, Math.min(4, o.cori==null ? 1 : (o.cori|0)));
+  var chitarre= Math.max(1, Math.min(2, o.chitarre==null ? 1 : (o.chitarre|0)));
+  var inEar   = (o.ascolto === "iem");   /* tutti in-ear: niente spie e niente side fill da coprire */
+  var out = [
     /* batteria su pedana, centro fondo */
     {type:"pedana", x:0, y:-310, w:300, d:200, h:40, label:"Pedana batteria"},
     {type:"batteria", x:0, y:-310, label:""},
-    {type:"iem", x:150, y:-360, label:"IEM batteria"},      /* batterista in-ear */
+    {type:"iem", x:150, y:-360, label:"IEM batteria"},      /* il batterista sta in cuffia in ogni caso: click e cue */
     /* lato DX palco (sx pubblico): basso + ampli basso */
     {type:"bassamp", x:-490, y:-290, label:"Ampli basso"},
     {type:"astamic", x:-460, y:-95, label:"Basso"},
-    {type:"wedge", x:-460, y:5, rot:0, label:"Basso"},
     /* keys, lato DX interno */
-    {type:"stagepiano", x:-250, y:-150, rot:12, label:"Tastiere"},
-    {type:"wedge", x:-250, y:-42, rot:0, label:"Tastiere"},
-    /* lato SX palco (dx pubblico): chitarra + ampli */
-    {type:"stack", x:490, y:-290, label:"Ampli chitarra"},
-    {type:"astamic", x:450, y:-95, label:"Chitarra"},
-    {type:"wedge", x:450, y:5, rot:0, label:"Chitarra"},
-    /* corista, lato SX interno */
-    {type:"corista", x:220, y:-70, label:"Cori"},
-    {type:"wedge", x:220, y:32, rot:0, label:"Cori"},
-    /* voce lead, centro fronte: in-ear */
-    {type:"astamic", x:0, y:-70, label:"Voce"},
-    {type:"iem", x:48, y:-70, label:"IEM voce"},
-    /* side fill + tecnica */
-    {type:"sidefill", x:-660, y:30, rot:35, label:"Side fill DX"},
-    {type:"sidefill", x:660, y:30, rot:-35, label:"Side fill SX"},
-    {type:"iemant", x:-590, y:-260, label:"TX in-ear"},
-    {type:"stagebox", x:590, y:-260, label:"Stage box", ch:24, outCh:12},   /* band ~17 canali → box da 24 */
-    {type:"corrente", x:-580, y:-340, label:""},
-    {type:"corrente", x:580, y:-340, label:""}
+    {type:"stagepiano", x:-250, y:-150, rot:12, label:"Tastiere"}
   ];
+  function ascolto(x, y, chi){
+    out.push(inEar ? {type:"iem", x:x+48, y:y-25, label:"IEM "+chi.toLowerCase()}
+                   : {type:"wedge", x:x, y:y, rot:0, label:chi});
+  }
+  ascolto(-460, 5, "Basso");
+  ascolto(-250, -42, "Tastiere");
+  /* CHITARRE — con due postazioni si usano le stesse misure del modello Tributo, che è la band a due
+     chitarre già disegnata: ampli in fondo, asta davanti, ascolto sotto. */
+  var postiChit = (chitarre===2) ? [[530,500,"Chitarra 1"],[310,300,"Chitarra 2"]] : [[490,450,"Chitarra"]];
+  postiChit.forEach(function(p){
+    out.push({type:"stack", x:p[0], y:-290, label:"Ampli "+p[2].toLowerCase()});
+    out.push({type:"astamic", x:p[1], y:-95, label:p[2]});
+    ascolto(p[1], 5, p[2]);
+  });
+  /* CORI — passo 95 cm, la distanza a cui due persone che cantano su due aste non si danno di gomito.
+     Ma la fila non basta: con tre cori e due chitarre il terzo finiva ADDOSSO al cantante (35 cm di
+     distanza, misurati). Le posizioni si provano in ordine e si scarta quella già occupata, così il
+     palco si riempie verso lo spazio libero invece che verso il centro. */
+  /* la voce lead entra PRIMA dei cori: è il centro del fronte palco, e se la si aggiungesse dopo
+     occupato() non la vedrebbe — i cori le finivano addosso a 35 cm (misurato). */
+  out.push({type:"astamic", x:0, y:-70, label:"Voce"});
+  out.push({type:"iem", x:48, y:-70, label:"IEM voce"});
+  var x0 = (chitarre===2) ? 130 : 220;
+  /* Contano solo gli ingombri che una persona non può attraversare: chi sta in piedi, la batteria,
+     gli ampli. NON le spie e i pacchetti in-ear — la spia di un corista sta davanti a lui, e
+     considerarla un ostacolo spingeva il corista successivo in seconda fila invece che accanto. */
+  var NON_OSTACOLI={wedge:1, iem:1, corrente:1, sidefill:1, iemant:1};
+  function occupato(x, y){
+    return out.some(function(e){
+      if(NON_OSTACOLI[e.type]) return false;
+      var ew=e.w||90, ed=e.d||90;   /* ingombro noto o stima prudente di una persona con l'asta */
+      return Math.abs(e.x-x) < (ew+90)/2 && Math.abs((e.y||0)-y) < (ed+90)/2;
+    });
+  }
+  for(var i=0;i<cori;i++){
+    var etichetta = (cori===1) ? "Cori" : "Cori "+(i+1);
+    var cx = x0 - i*95, cy = -70;
+    /* prima verso il lato da cui si è partiti, poi dall'altra parte del cantante, infine arretrando:
+       è l'ordine in cui li sistemerebbe uno stage manager che guarda il palco. */
+    var prove = [[cx,cy], [x0 + i*95, cy], [-(x0) - (i-1)*95, cy], [cx, cy-95], [x0 + i*95, cy-95]];
+    var posto = prove.find(function(pp){ return !occupato(pp[0], pp[1]); }) || [cx, cy-190];
+    out.push({type:"corista", x:posto[0], y:posto[1], label: etichetta});
+    ascolto(posto[0], posto[1]+102, etichetta);
+  }
+  /* side fill: coprono chi sta lontano dalle spie. Con tutti in-ear non servono. */
+  if(!inEar){
+    out.push({type:"sidefill", x:-660, y:30, rot:35, label:"Side fill DX"});
+    out.push({type:"sidefill", x:660, y:30, rot:-35, label:"Side fill SX"});
+  }
+  out.push({type:"iemant", x:-590, y:-260, label:"TX in-ear"});
+  /* la stagebox cresce col numero di canali: due chitarre e tre cori non stanno in una da 24 */
+  var canali = 14 + (chitarre-1)*1 + cori;
+  /* la stagebox cerca posto come i cori: con due chitarre l'ampli della prima arriva a 530 e le
+     finiva addosso (60 cm fra due ingombri che ne vogliono 76) — trovato dal controllo, non a occhio. */
+  var sbProve = [[590,-260], [680,-260], [590,-340], [700,-340]];
+  var sbPosto = sbProve.find(function(pp){ return !occupato(pp[0], pp[1]); }) || [700,-340];
+  out.push({type:"stagebox", x:sbPosto[0], y:sbPosto[1], label:"Stage box", ch:(canali>24?32:24), outCh:12});
+  out.push({type:"corrente", x:-580, y:-340, label:""});
+  out.push({type:"corrente", x:580, y:-340, label:""});
+  return out;
 }
 /* Matrimonio / cerimonia: band versatile all'italiana — batteria, basso, tastiere, chitarra, sax, 2 voci. */
 function buildMatrimonioOut(){
@@ -14730,7 +14786,9 @@ function beginNewDocument(initialState,options){
  * Band, Coro, Tributo, Jazz — e soprattutto non può succedere che il riepilogo dica una cosa e il
  * palco ne dica un'altra, che è il difetto che stiamo correggendo, non uno da introdurre.
  */
-function ipotesiDelPalco(){
+function ipotesiDelPalco(gia){
+  gia = gia || {};   /* quello che l'utente ha già dichiarato nella finestra del modello: ripeterlo qui
+                        farebbe sembrare un'ipotesi del programma una scelta sua */
   var items=state.items||[], righe=[];
   function conta(t){ return items.filter(function(it){ return it.type===t; }).length; }
   var canali=(typeof patchList==="function") ? patchList().rows.map(function(r){ return r.name||""; }) : [];
@@ -14747,7 +14805,7 @@ function ipotesiDelPalco(){
   /* 1. CHI CANTA — il difetto originale: il modello decide quante voci ci sono, e il rider parte così.
         Le due azioni stanno sulla stessa riga: sono la stessa domanda («quanti cantano?»), e due
         righe separate facevano crescere il pannello fin sopra il palco appena creato. */
-  if(vociSolo||cori||coriCh){
+  if((vociSolo||cori||coriCh) && !gia.voci){
     var azioni=[];
     if(cori>0) azioni.push({ act:"− corista", fn:function(){ togliCorista(); } });
     azioni.push({ act:"+ corista", fn:function(){ aggiungiCorista(); } });
@@ -14775,7 +14833,7 @@ function ipotesiDelPalco(){
 
   /* 4. COME SI SENTONO — la scelta più personale di tutte, decisa da un modello */
   var iem=conta("iem"), wed=conta("wedge"), sf=conta("sidefill");
-  if(iem||wed) righe.push({ txt:"Ascolto: "+(iem?iem+" in-ear":"")+(iem&&wed?" e ":"")+(wed?wed+" spie":"")+(sf?" (+"+sf+" side fill)":""),
+  if((iem||wed) && !gia.ascolto) righe.push({ txt:"Ascolto: "+(iem?iem+" in-ear":"")+(iem&&wed?" e ":"")+(wed?wed+" spie":"")+(sf?" (+"+sf+" side fill)":""),
     sub:"si cambia dal pannello «Ascolto» di ogni musicista" });
   return righe;
 }
@@ -14813,11 +14871,13 @@ function salvaERidisegna(){
   render(); if(typeof renderChannels==="function") renderChannels();
   mostraAssunzioni(true);   /* le righe si ricalcolano: sono un ritratto del palco, non un testo fisso */
 }
-function mostraAssunzioni(soloAggiorna){
+var _assGia=null;   /* le domande a cui l'utente ha già risposto per questo palco */
+function mostraAssunzioni(soloAggiorna, gia){
   var box=document.getElementById("assunzioni"), host=document.getElementById("asRows");
   if(!box||!host) return;
+  if(gia!==undefined) _assGia=gia;
   if(!soloAggiorna){ try{ if(localStorage.getItem("sp_noAssunzioni")) return; }catch(_e){} }
-  var righe=ipotesiDelPalco();
+  var righe=ipotesiDelPalco(_assGia);
   if(!righe.length){ box.hidden=true; return; }
   host.textContent="";
   righe.forEach(function(r){
@@ -14851,9 +14911,46 @@ function chiudiAssunzioni(){
   if(x) x.addEventListener("click", chiudiAssunzioni);
 })();
 
+/**
+ * La finestra della band: raccoglie le tre risposte e le passa al modello.
+ *
+ * Si apre solo quando l'utente SCEGLIE «Band» dalla vetrina — non sui link diretti (?model=band) né
+ * quando il modello arriva da un percorso automatico: là il palco standard è quello che ci si
+ * aspetta, e una finestra a sorpresa sarebbe un ostacolo.
+ */
+function chiediFormazioneBand(dopo){
+  var m=document.getElementById("bandSetup"); if(!m){ dopo(null); return; }
+  var scelte={cori:1, chitarre:1, ascolto:"wedge"};
+  [["bsCori","cori"],["bsChit","chitarre"],["bsAscolto","ascolto"]].forEach(function(par){
+    var g=document.getElementById(par[0]); if(!g) return;
+    g.onclick=function(ev){
+      var b=ev.target.closest("button[data-v]"); if(!b) return;
+      [].forEach.call(g.querySelectorAll("button"), function(x){ x.classList.remove("on"); });
+      b.classList.add("on");
+      var v=b.getAttribute("data-v");
+      scelte[par[1]] = (par[1]==="ascolto") ? v : parseInt(v,10);
+    };
+  });
+  /* il benvenuto si toglie di mezzo: la vetrina dei modelli sta dentro di lui, e questa finestra gli
+     nascerebbe dietro. Se l'utente esce senza scegliere torna dov'era, altrimenti si ritroverebbe
+     nell'editor vuoto senza aver chiesto niente. */
+  var wl=document.getElementById("welcome"), wlEraAperto = wl && !wl.hidden;
+  if(wlEraAperto) wl.hidden=true;
+  function chiudi(annullato){
+    m.hidden=true; m.onclick=null; document.removeEventListener("keydown", esc);
+    if(annullato && wlEraAperto && wl) wl.hidden=false;
+  }
+  function esc(ev){ if(ev.key==="Escape"){ chiudi(true); } }
+  document.getElementById("bsGo").onclick=function(){ chiudi(); dopo(scelte); };
+  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = il modello di prima, identico */
+  m.onclick=function(ev){ if(ev.target===m) chiudi(true); };
+  document.addEventListener("keydown", esc);
+  m.hidden=false;
+}
+
 function startFromTemplate(f,options){
   options=options||{};
-  var qd = (typeof formationData==="function") ? formationData(f) : null;
+  var qd = (typeof formationData==="function") ? formationData(f, options.formazione) : null;
   if(!qd || !qd.out) return;
   var title=FORM_TITLES[f]||f;
   guardDocumentReplacement({skipConfirm:!!options.skipConfirm,reason:"modello "+title,
@@ -14873,7 +14970,10 @@ function startFromTemplate(f,options){
     render(); if(typeof fitStage==="function") fitStage(); render();
     if(typeof options.after==="function") options.after();
     /* il riepilogo delle ipotesi arriva DOPO che il palco è a video: prima non c'è niente da leggere */
-    setTimeout(function(){ try{ mostraAssunzioni(); }catch(_e){} }, 350);
+    /* se il modello ha fatto le sue domande, il riepilogo non le ripete: resta per ciò che il
+       programma ha deciso da solo (side fill, stagebox, chi è attrezzatura e chi persona). */
+    var _gia = options.formazione ? {voci:true, ascolto:true} : null;
+    setTimeout(function(){ try{ mostraAssunzioni(false, _gia); }catch(_e){} }, 350);
   });
   return true;
 }
@@ -15900,15 +16000,22 @@ function labelPrefix(it, src){
   if(src.toLowerCase().indexOf(base.toLowerCase())===0) return src;
   return base+" - "+src;
 }
-function bandInputs(){
-  return [
+function bandInputs(o){
+  o = o || {};
+  var cori = Math.max(0, Math.min(4, o.cori==null ? 1 : (o.cori|0)));
+  var chit = Math.max(1, Math.min(2, o.chitarre==null ? 1 : (o.chitarre|0)));
+  var l = [
     ch("Kick","D6"), ch("Rullante top","SM57"), ch("Rullante btm","e904"), ch("Hi-Hat","SM81"),
     ch("Tom 1","e904"), ch("Tom floor","e904"), ch("Overhead L","KM184"), ch("Overhead R","KM184"),
-    ch("Basso DI","DI"), ch("Basso ampli","MD421"),
-    ch("Chitarra","SM57/e906"),
-    ch("Tastiere L","DI"), ch("Tastiere R","DI"),
-    ch("Voce","Beta 58A"), ch("Cori","SM58")
+    ch("Basso DI","DI"), ch("Basso ampli","MD421")
   ];
+  /* la lista segue la formazione: due chitarre = due canali, e i cori sono tanti quante le persone
+     che cantano. Con una lista fissa il fonico riceveva un rider che non corrispondeva al palco. */
+  if(chit===1) l.push(ch("Chitarra","SM57/e906"));
+  else for(var g=1; g<=chit; g++) l.push(ch("Chitarra "+g,"SM57/e906"));
+  l.push(ch("Tastiere L","DI"), ch("Tastiere R","DI"), ch("Voce","Beta 58A"));
+  for(var i=0;i<cori;i++) l.push(ch(cori===1 ? "Cori" : "Cori "+(i+1), "SM58"));
+  return l;
 }
 /* TRIBUTO / cover rock (31/07): il layout c'era da sempre, la sua channel list no — era l'unico
    modello in vetrina a partire con zero canali, mentre tutti gli altri arrivano con la loro lista.
@@ -15926,12 +16033,22 @@ function tributoOutputs(){
     outch("Side fill DX","side fill","lato DX palco"), outch("Side fill SX","side fill","lato SX palco")
   ];
 }
-function bandOutputs(){
-  return [
-    outch("Voce","IEM","beltpack", "mix personale"), outch("Batteria","IEM","beltpack", "click/cue se necessario"),
-    outch("Basso","wedge","lato basso"), outch("Chitarra","wedge","lato chitarra"), outch("Tastiere","wedge","lato tastiere"), outch("Cori","wedge","lato cori"),
-    outch("Side fill DX","side fill","lato DX palco"), outch("Side fill SX","side fill","lato SX palco")
-  ];
+function bandOutputs(o){
+  o = o || {};
+  var cori = Math.max(0, Math.min(4, o.cori==null ? 1 : (o.cori|0)));
+  var chit = Math.max(1, Math.min(2, o.chitarre==null ? 1 : (o.chitarre|0)));
+  var iem  = (o.ascolto === "iem");
+  var via = iem ? "IEM" : "wedge", dove = iem ? "beltpack" : null;
+  /* voce e batteria restano in cuffia comunque: sono le due postazioni che non possono lavorare
+     su una spia (una si muove, l'altra ha bisogno del click). */
+  var l = [ outch("Voce","IEM","beltpack","mix personale"), outch("Batteria","IEM","beltpack","click/cue se necessario"),
+            outch("Basso",via, dove||"lato basso") ];
+  if(chit===1) l.push(outch("Chitarra",via, dove||"lato chitarra"));
+  else for(var g=1; g<=chit; g++) l.push(outch("Chitarra "+g, via, dove||"lato chitarra "+g));
+  l.push(outch("Tastiere",via, dove||"lato tastiere"));
+  for(var i=0;i<cori;i++) l.push(outch(cori===1?"Cori":"Cori "+(i+1), via, dove||"lato cori"));
+  if(!iem) l.push(outch("Side fill DX","side fill","lato DX palco"), outch("Side fill SX","side fill","lato SX palco"));
+  return l;
 }
 function acousticInputs(){
   return [
@@ -16029,10 +16146,10 @@ function orchOutputs(){
   return [ outch("Direttore (cue)","IEM","beltpack"), outch("Side fill L","side fill","lato DX palco"), outch("Side fill R","side fill","lato SX palco") ];
 }
 /* dispatch: per ogni voce del menu, layout + channel list coerenti */
-function formationData(f){
+function formationData(f, opz){
   /* 16 × 6,5 m: la misura del modello di Simone, che è la proporzione di un palco da concerto —
      i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
-  if(f==="band")  return { out:buildBandOut(),  inp:bandInputs(), outp:bandOutputs(), stage:{w:1600,d:650} };
+  if(f==="band")  return { out:buildBandOut(opz),  inp:bandInputs(opz), outp:bandOutputs(opz), stage:{w:1600,d:650} };
   if(f==="acoustic") return { out:buildAcousticOut(), inp:acousticInputs(), outp:acousticOutputs() };
   if(f==="coro")  return { out:buildCoroOut(),  inp:coroInputs(), outp:coroOutputs() };
   if(f==="quartetto") return { out:buildQuartettoOut(), inp:quartettoInputs(), outp:quartettoOutputs() };
@@ -24481,7 +24598,13 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     host.innerHTML="";
     START_MODELS.forEach(function(m){
       var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
-      b.addEventListener("click", function(){ startFromTemplate(m[0],{after:after}); });
+      b.addEventListener("click", function(){
+        /* «Band» è l'unico modello che oggi sa fare domande: per gli altri il palco parte com'era.
+           Gli altri modelli arriveranno riesumando i generatori per organico (voiceModal & co.). */
+        if(m[0]==="band" && typeof chiediFormazioneBand==="function"){
+          chiediFormazioneBand(function(scelte){ startFromTemplate(m[0],{after:after, formazione:scelte}); });
+        } else startFromTemplate(m[0],{after:after});
+      });
       host.appendChild(b);
     });
   }
