@@ -10650,5 +10650,33 @@ t("la posizione scelta si ricorda, e non porta il pannello fuori dallo schermo",
      "e si ricontrolla quando la finestra cambia misura");
 });
 
+/* ===== ORCHESTRA E TRIBUTO ENTRANO NELLA STESSA TABELLA (16/08) ========================== */
+t("un modello in più costa una riga, non un'altra finestra", () => {
+  const t = appjs.slice(appjs.indexOf("var ORGANICI = {"), appjs.indexOf("function chiediOrganico"));
+  ["band","tributo","camera","coro"].forEach(k => ok(new RegExp("^\\s*" + k + ": \\{", "m").test(t), "c'è il modello «" + k + "»"));
+  /* il tributo È una band a due chitarre: stesso generatore, altri numeri di partenza */
+  ok(/\["chitarra","Chitarra",2\]/.test(t), "il tributo parte da due chitarre");
+  /* l'orchestra non duplica l'elenco delle sezioni: se lo generasse a mano, aggiungere uno
+     strumento a ORCH_DEF lascerebbe la finestra indietro senza che nessuno se ne accorga */
+  ok(/ORCH_DEF\.map\(function\(sec\)\{ return \[sec\.id, sec\.nome/.test(t),
+     "le sezioni dell'orchestra vengono da ORCH_DEF, non riscritte");
+  ok(/presetCounts\("camera"\)/.test(t), "e i numeri di partenza dal preset del modello");
+  ok(/typeof cfg\.ruoli==="function"/.test(appjs), "i ruoli possono essere calcolati all'apertura");
+});
+
+t("il generatore orchestrale non lascia nessuno fuori dal palco", () => {
+  /* Con un quartetto e il pianoforte, il piano finiva 99 cm OLTRE il bordo sinistro: il raggio su
+     cui è posato si calcola dagli archi, e con un organico insolito cade fuori. Visto nello
+     screenshot, poi misurato. Un elemento accostato al bordo si sposta in due secondi, uno fuori no. */
+  ok(/function dentroIlPalco\(out, w, d\)/.test(appjs), "esiste il rientro");
+  ok(/dentroIlPalco\(buildOrchestraOut\(opz\), 1450, 1200\)/.test(appjs), "e l'orchestra ci passa");
+  const out = A.dentroIlPalco([
+    { type: "grancoda", x: -740, y: 0, w: 156, d: 274 },   /* il caso vero: piano oltre il bordo */
+    { type: "podio", x: 0, y: 0, w: 100, d: 100 }
+  ], 1450, 1200);
+  ok(out[0].x - 78 >= -725, "il piano rientra: " + Math.round(out[0].x));
+  eq(out[1].x, 0, "e chi era già dentro non si muove");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
