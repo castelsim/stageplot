@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.08.15";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.08.16";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -339,6 +339,51 @@
   }
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
   #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
+  /* «Abbiamo ipotizzato questo»: sta sul palco senza bloccarlo — chi ha già capito lo chiude e va
+     avanti, chi no lo legge riga per riga. Non è un modale: bloccare qui vorrebbe dire fermare
+     qualcuno che ha appena fatto due clic per vedere un palco. */
+  /* colonna: solo l'elenco scorre. Con l'overflow sul contenitore finivano nello scroll anche
+     «Va bene così» e «Non mostrarlo più», e restavano invisibili proprio i due comandi per uscire. */
+  #assunzioni{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:31;
+    display:flex;flex-direction:column;
+    width:min(430px,94%);max-height:min(46vh,380px);
+    background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--r-lg,12px);
+    box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px 13px 10px}
+  #assunzioni .as-head{display:grid;grid-template-columns:1fr auto;grid-template-areas:"t x" "s x";gap:2px 8px;align-items:start;margin-bottom:8px}
+  #assunzioni .as-head b{grid-area:t;font-size:14px}
+  #assunzioni .as-sub{grid-area:s;font-size:11.5px;color:var(--text-2);line-height:1.35}
+  #assunzioni .as-x{grid-area:x;justify-self:end;background:none;border:0;color:var(--text-3);cursor:pointer;font-size:15px;line-height:1;padding:2px 0 0}
+  #assunzioni #asRows{overflow:auto;min-height:0}
+  #assunzioni .as-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)}
+  #assunzioni .as-txt{flex:1;font-size:12.5px;line-height:1.35}
+  #assunzioni .as-txt small{display:block;color:var(--text-3);font-size:11px;margin-top:1px}
+  /* i bersagli restano da dito anche qui: 44 px dove si tocca */
+  #assunzioni .as-acts{flex:none;display:flex;gap:6px}
+  #assunzioni .as-act{flex:none;font-size:12px;padding:6px 9px;min-height:32px;border:1px solid var(--border);
+    border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer;white-space:nowrap}
+  #assunzioni .as-act:hover{border-color:var(--accent);color:var(--accent)}
+  #assunzioni .as-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
+  #assunzioni .as-mai{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-2);cursor:pointer;min-height:44px}
+  @media (max-width:880px), (pointer:coarse){
+    #assunzioni{bottom:calc(var(--dock-h,64px) + 12px);width:96%;max-height:52vh}
+    #assunzioni .as-act{min-height:44px;padding:9px 12px}
+    #assunzioni .as-x{min-width:44px;min-height:44px}
+    #assunzioni .as-foot .btn{min-height:44px}   /* anche «Va bene così»: è il bersaglio che chiude */
+  }
+  /* Com'è fatta la band: tre domande, non un questionario. */
+  #bandSetup .bs-q{margin-top:14px}
+  #bandSetup .bs-q label{display:block;font-size:13px;margin-bottom:6px}
+  #bandSetup .bs-q .seg{display:flex;gap:6px;flex-wrap:wrap}
+  #bandSetup .bs-q .seg button{flex:1;min-width:64px;min-height:38px;padding:8px 10px;font-size:13px;
+    border:1px solid var(--border);border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer}
+  #bandSetup .bs-q .seg button.on{border-color:var(--accent);background:var(--accent-tint);color:var(--accent);font-weight:600}
+  #bandSetup .bs-q .lbl-note{display:block;margin-top:5px;color:var(--text-3);font-size:11px}
+  #bandSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #bandSetup .bs-q .seg button{min-height:44px}
+    #bandSetup .bs-foot .btn{min-height:44px}
+    #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
+  }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -2624,6 +2669,64 @@ body.dark .ask-all .btn{background:transparent}
     <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10">
     <button class="btn primary" id="venueCalibApply">Applica</button>
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
+  </div>
+</div>
+
+<!-- COSA ABBIAMO IPOTIZZATO (14/08) — un modello posa ventuno oggetti e decide al posto tuo chi canta,
+     chi ha l'in-ear, quanti sono i cori: decisioni giuste per la band media e sbagliate per la tua.
+     Prima restavano invisibili e finivano nel PDF con l'aria di essere requisiti verificati.
+     Le righe qui dentro NON sono scritte a mano: le calcola ipotesiDelPalco() dallo stato reale, così
+     valgono per ogni modello e non possono raccontare una cosa mentre il palco ne dice un'altra. -->
+<!-- COM'È FATTA LA BAND (14/08) — la finestra che il modello si merita: tre domande, quelle che
+     spostano gli elementi sul palco. Il resto (microfoni, chi porta cosa) si corregge dopo
+     sull'elemento: se finisse qui dentro diventerebbe un questionario e nessuno lo compilerebbe.
+     Chi non vuole rispondere preme «Vai col modello standard» e ottiene esattamente quello che il
+     modello faceva prima — un solista, un corista, una chitarra, spie. -->
+<div class="modal" id="bandSetup" hidden>
+  <div class="mcard" style="width:430px;max-width:94vw">
+    <h2>Com'è fatta la band?</h2>
+    <div class="hint">Serve per posizionare gli elementi al posto giusto: dopo sposti tutto come vuoi.</div>
+    <div class="bs-q">
+      <label>Oltre a chi canta davanti, quanti fanno i <b>cori</b>?</label>
+      <div class="seg" id="bsCori" role="group" aria-label="Numero di coristi">
+        <button type="button" data-v="0">nessuno</button>
+        <button type="button" data-v="1" class="on">1</button>
+        <button type="button" data-v="2">2</button>
+        <button type="button" data-v="3">3</button>
+      </div>
+    </div>
+    <div class="bs-q">
+      <label>Quante <b>chitarre</b> elettriche?</label>
+      <div class="seg" id="bsChit" role="group" aria-label="Numero di chitarre">
+        <button type="button" data-v="1" class="on">1</button>
+        <button type="button" data-v="2">2</button>
+      </div>
+    </div>
+    <div class="bs-q">
+      <label>Come si sente il palco?</label>
+      <div class="seg" id="bsAscolto" role="group" aria-label="Tipo di ascolto">
+        <button type="button" data-v="wedge" class="on">Spie a terra</button>
+        <button type="button" data-v="iem">Tutti in-ear</button>
+      </div>
+      <small class="lbl-note">voce e batteria restano in cuffia in entrambi i casi</small>
+    </div>
+    <div class="bs-foot">
+      <button class="btn" id="bsStd">Vai col modello standard</button>
+      <button class="btn primary" id="bsGo">Crea il palco</button>
+    </div>
+  </div>
+</div>
+
+<div id="assunzioni" hidden>
+  <div class="as-head">
+    <b>Abbiamo ipotizzato questo</b>
+    <span class="as-sub">controlla le righe che non tornano: il palco e la channel list si aggiornano subito</span>
+    <button type="button" class="as-x" id="asClose" aria-label="Chiudi">✕</button>
+  </div>
+  <div id="asRows"></div>
+  <div class="as-foot">
+    <label class="as-mai"><input type="checkbox" id="asMai"> Non mostrarlo più</label>
+    <button class="btn primary" id="asOk">Va bene così</button>
   </div>
 </div>
 </main>
