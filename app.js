@@ -14899,6 +14899,7 @@ function mostraAssunzioni(soloAggiorna, gia){
     host.appendChild(row);
   });
   box.hidden=false;
+  if(window.__assRipristinaPos) window.__assRipristinaPos();
 }
 function chiudiAssunzioni(){
   var box=document.getElementById("assunzioni"); if(box) box.hidden=true;
@@ -14909,6 +14910,60 @@ function chiudiAssunzioni(){
   var ok=document.getElementById("asOk"), x=document.getElementById("asClose");
   if(ok) ok.addEventListener("click", chiudiAssunzioni);
   if(x) x.addEventListener("click", chiudiAssunzioni);
+
+  /* SPOSTABILE — il riepilogo sta sul palco appena creato, e proprio le righe che parlano dei cori
+     coprono i cori di cui parlano. Si trascina dall'intestazione, e la posizione se la ricorda:
+     chi lo mette in un angolo non deve rimetterlo lì a ogni modello.
+     `position:fixed` durante il trascinamento: così left/top sono le coordinate del puntatore senza
+     doverle convertire rispetto al contenitore, e restano valide anche se il palco scorre. */
+  var box=document.getElementById("assunzioni");
+  var head=box && box.querySelector(".as-head");
+  if(!box || !head) return;
+  var giu=false, offX=0, offY=0;
+
+  function dentro(x, y){
+    var w=box.offsetWidth, h=box.offsetHeight;
+    return [ Math.max(6, Math.min(innerWidth-w-6, x)), Math.max(6, Math.min(innerHeight-h-6, y)) ];
+  }
+  function metti(x, y){
+    var p=dentro(x,y);
+    box.style.position="fixed"; box.style.transform="none"; box.style.bottom="auto"; box.style.right="auto";
+    box.style.left=p[0]+"px"; box.style.top=p[1]+"px";
+    return p;
+  }
+  window.__assRipristinaPos=function(){
+    try{
+      var v=JSON.parse(localStorage.getItem("sp_assPos")||"null");
+      if(v && isFinite(v.x) && isFinite(v.y)) metti(v.x, v.y);   /* dentro() rimette in vista se la finestra è cambiata */
+    }catch(_e){}
+  };
+  head.addEventListener("pointerdown", function(e){
+    if(e.target.closest("button")) return;            /* la ✕ resta un bottone, non una maniglia */
+    var r=box.getBoundingClientRect();
+    offX=e.clientX-r.left; offY=e.clientY-r.top;
+    metti(r.left, r.top);
+    giu=true; box.classList.add("as-drag");
+    try{ head.setPointerCapture(e.pointerId); }catch(_e){}
+  });
+  head.addEventListener("pointermove", function(e){
+    if(!giu) return;
+    e.preventDefault();                                /* niente selezione del testo mentre si trascina */
+    metti(e.clientX-offX, e.clientY-offY);
+  });
+  function su(e){
+    if(!giu) return;
+    giu=false; box.classList.remove("as-drag");
+    try{ head.releasePointerCapture(e.pointerId); }catch(_e){}
+    var r=box.getBoundingClientRect();
+    try{ localStorage.setItem("sp_assPos", JSON.stringify({x:Math.round(r.left), y:Math.round(r.top)})); }catch(_e){}
+  }
+  head.addEventListener("pointerup", su);
+  head.addEventListener("pointercancel", su);
+  /* la finestra cambia misura: un pannello lasciato in basso a destra non deve finire fuori campo */
+  window.addEventListener("resize", function(){
+    if(box.hidden || box.style.position!=="fixed") return;
+    var r=box.getBoundingClientRect(); metti(r.left, r.top);
+  });
 })();
 
 /**
