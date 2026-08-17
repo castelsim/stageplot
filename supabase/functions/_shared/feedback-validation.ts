@@ -7,6 +7,7 @@ export type FeedbackInput = {
   tech_context: Record<string, unknown>;
   meta: FeedbackMeta;
   project_snapshot: unknown | null;
+  screenshot: string | null;      // data URL già ridotto e compresso dal client
   user_id: string | null;
   user_email: string | null;
   project_id: string | null;
@@ -15,6 +16,8 @@ export type ValidationResult =
   | { ok: true; value: FeedbackInput }
   | { ok: false; error: string };
 
+/* 2,8 milioni di caratteri base64 ≈ 2 MB di immagine: lo stesso tetto del bucket. */
+const MAX_SHOT_CHARS = 2_800_000;
 const HINTS = ["bug", "missing", "idea"];
 
 // Cap anti-abuso su un endpoint pubblico non autenticato: oltre il limite il campo
@@ -47,6 +50,14 @@ export function validateFeedback(payload: unknown): ValidationResult {
       meta: obj(p.meta) as FeedbackMeta,
       project_snapshot: (p.project_snapshot != null && jsonSize(p.project_snapshot) <= MAX_SNAPSHOT_BYTES)
         ? p.project_snapshot
+        : null,
+      // Schermata allegata: solo un data URL di immagine, e solo se sta nel limite. Il client la
+      // riduce già a 1600 px e la comprime in JPEG (~200 KB il caso peggiore); questo tetto è la
+      // rete di sicurezza contro un client modificato, non la misura attesa.
+      screenshot: (typeof p.screenshot === "string" &&
+                   /^data:image\/(jpeg|png|webp);base64,/.test(p.screenshot) &&
+                   p.screenshot.length <= MAX_SHOT_CHARS)
+        ? p.screenshot
         : null,
       // Identità NON dal client (audit S5): l'endpoint è pubblico, un client potrebbe
       // spoofare user_id/user_email. Vengono derivati dal JWT verificato in index.ts.
