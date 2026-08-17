@@ -28048,6 +28048,18 @@ function maybeAskStageSize(explicit){
       <button type="button" class="fb-chip" data-hint="missing">Manca qualcosa</button>
       <button type="button" class="fb-chip" data-hint="idea">Idea</button>
     </div>
+    <!-- SCHERMATA (17/08) — un difetto si spiega meglio mostrandolo. Il ritaglio sta dentro l'app
+         perché «guarda in alto a destra» non basta: si trascina il rettangolo sul punto che non va.
+         La cattura passa da getDisplayMedia con preferCurrentTab, così Chrome propone già «Questa
+         scheda»: un clic. Dove l'API non esiste (iPhone, iPad) restano incolla, trascina e scegli
+         file, che NON sono un ripiego — sono l'unica strada da telefono. -->
+    <button type="button" class="fb-shotbtn" id="fbShotBtn">⛶ Seleziona una porzione dello schermo</button>
+    <div class="fb-shot" id="fbShot" tabindex="0" role="button"
+         aria-label="Allega un'immagine: incolla, trascina o scegli un file">
+      <span class="t">…oppure allega un'immagine</span>
+      <span class="s">Incolla · trascinala qui · o tocca per sceglierla</span>
+    </div>
+    <input type="file" id="fbShotFile" accept="image/*" hidden>
     <label class="fb-attach" id="fbAttachRow" style="display:none">
       <input type="checkbox" id="fbAttach"> Allega il mio progetto</label>
     <!-- honeypot anti-bot: nascosto agli umani -->
@@ -28056,6 +28068,16 @@ function maybeAskStageSize(explicit){
     <button class="fb-send" id="fbSend">Invia</button>
     <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
     <p class="fb-msg" id="fbResult" style="display:none"></p>
+  </div>
+</div>
+<!-- Ritaglio a schermo intero: la schermata congelata, e sopra il rettangolo che si trascina. -->
+<div id="fbCrop" hidden>
+  <canvas id="fbCropCv"></canvas>
+  <div class="sel" id="fbCropSel"></div>
+  <div class="barra">
+    <span id="fbCropTxt">Trascina sul punto che non va</span>
+    <button type="button" class="ann" id="fbCropAnn">Annulla</button>
+    <button type="button" class="ok" id="fbCropOk">Allega la selezione</button>
   </div>
 </div>
 <script data-app>
@@ -28122,6 +28144,158 @@ function maybeAskStageSize(explicit){
     }catch(e){ return (location.origin||"")+(location.pathname||""); }
   }
 
+  /* ===================== LA SCHERMATA ALLEGATA (17/08) ==========================================
+   * Un difetto si spiega meglio mostrandolo, e «guarda in alto a destra» non basta: si ritaglia il
+   * punto che non va. Tre strade, perché una sola lascerebbe fuori qualcuno:
+   *   1. cattura + ritaglio  — getDisplayMedia con preferCurrentTab: Chrome propone già «Questa
+   *                            scheda», poi si trascina il rettangolo. NON esiste su iPhone/iPad;
+   *   2. incolla / trascina  — chi ha già fatto lo screenshot col sistema;
+   *   3. scegli un file      — da telefono apre galleria e fotocamera, ed è lì l'unica strada.
+   * Quello che parte è ridotto a 1600 px e compresso in JPEG: una schermata da 800 KB scende sotto
+   * i 200, e un ritaglio stretto pesa pochi KB.
+   */
+  var _fbShotData = null;                      /* data URL pronto per l'invio, o null */
+  var shotBtn = document.getElementById("fbShotBtn");
+  var shotBox = document.getElementById("fbShot");
+  var shotFile = document.getElementById("fbShotFile");
+  var fbNote  = document.querySelector("#fbBox .fb-note");
+  var NOTE_BASE = fbNote ? fbNote.innerHTML : "";
+
+  function shotVuoto(){
+    _fbShotData = null;
+    if(!shotBox) return;
+    shotBox.className = "fb-shot";
+    shotBox.innerHTML = '<span class="t">…oppure allega un\'immagine</span>'
+      + '<span class="s">Incolla · trascinala qui · o tocca per sceglierla</span>';
+    if(fbNote) fbNote.innerHTML = NOTE_BASE;
+  }
+  /* Ridotta e compressa PRIMA di partire: il peso che si vede è quello che viaggia davvero. */
+  async function shotPrepara(blob){
+    var img = await createImageBitmap(blob);
+    var max = 1600, k = Math.min(1, max/Math.max(img.width, img.height));
+    var c = document.createElement("canvas");
+    c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    var url = c.toDataURL("image/jpeg", 0.75);
+    return { url:url, kb: Math.round(url.length*0.75/1024), w:c.width, h:c.height };
+  }
+  async function shotMetti(blob){
+    if(!blob || !/^image\//.test(blob.type||"") || !shotBox) return;
+    var r;
+    try{ r = await shotPrepara(blob); }catch(_e){ return; }
+    _fbShotData = r.url;
+    shotBox.className = "fb-shot pieno";
+    shotBox.textContent = "";
+    var im = document.createElement("img"); im.src = r.url; im.alt = "Schermata allegata";
+    shotBox.appendChild(im);
+    var riga = document.createElement("div"); riga.className = "riga";
+    var peso = document.createElement("span"); peso.className = "peso";
+    peso.textContent = r.w + "×" + r.h + " · " + r.kb + " KB";
+    var via = document.createElement("button"); via.type = "button"; via.className = "via"; via.textContent = "Togli";
+    via.addEventListener("click", function(ev){ ev.stopPropagation(); shotVuoto(); });
+    riga.appendChild(peso); riga.appendChild(via); shotBox.appendChild(riga);
+    /* la riga in fondo cambia: con un'immagine dentro, «dati tecnici anonimi» sarebbe una promessa
+       falsa — ed è chi segnala a doversi accorgere di cosa sta mandando. */
+    if(fbNote) fbNote.innerHTML = 'Inviando, accetti che il messaggio, <b>la schermata allegata</b> e alcuni dati tecnici vengano usati per migliorare StagePlot. Controlla che la schermata non contenga cose tue. <a href="/privacy/">Privacy</a>';
+  }
+
+  if(shotBox){
+    shotBox.addEventListener("click", function(){ if(!shotBox.classList.contains("pieno") && shotFile) shotFile.click(); });
+    shotBox.addEventListener("keydown", function(e){ if((e.key==="Enter"||e.key===" ") && !shotBox.classList.contains("pieno")){ e.preventDefault(); shotFile.click(); } });
+    ["dragenter","dragover"].forEach(function(ev){ shotBox.addEventListener(ev, function(e){ e.preventDefault(); shotBox.classList.add("dragover"); }); });
+    ["dragleave","drop"].forEach(function(ev){ shotBox.addEventListener(ev, function(e){ e.preventDefault(); shotBox.classList.remove("dragover"); }); });
+    shotBox.addEventListener("drop", function(e){ var f=e.dataTransfer && e.dataTransfer.files[0]; if(f) shotMetti(f); });
+  }
+  if(shotFile) shotFile.addEventListener("change", function(){ if(shotFile.files[0]) shotMetti(shotFile.files[0]); });
+  /* l'incolla vale solo col box aperto: fuori di lì ⌘V è dell'editor */
+  document.addEventListener("paste", function(e){
+    var box=document.getElementById("fbBox");
+    if(!box || !box.classList.contains("open")) return;
+    var it = [].slice.call((e.clipboardData||{}).items||[]).filter(function(i){ return i.type && i.type.indexOf("image/")===0; })[0];
+    if(it) shotMetti(it.getAsFile());
+  });
+
+  /* ---- cattura della scheda + ritaglio ---- */
+  var crop = document.getElementById("fbCrop"), cropCv = document.getElementById("fbCropCv"),
+      cropSel = document.getElementById("fbCropSel"), cropTxt = document.getElementById("fbCropTxt");
+  var _scatto = null, _giu = false, _x0 = 0, _y0 = 0, _rect = null;
+
+  if(shotBtn && !(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)){
+    shotBtn.disabled = true;
+    shotBtn.textContent = "⛶ Il ritaglio non è disponibile qui";
+    shotBtn.title = "Su iPhone e iPad questa funzione del browser non esiste: fai lo screenshot col telefono e allegalo qui sotto";
+  }
+  if(shotBtn && !shotBtn.disabled) shotBtn.addEventListener("click", async function(){
+    var stream;
+    var _t = shotBtn.textContent;
+    try{
+      stream = await navigator.mediaDevices.getDisplayMedia({ video:{displaySurface:"browser"}, audio:false, preferCurrentTab:true });
+    }catch(_e){ return; }                        /* annullato dall'utente: nessun rumore */
+    try{
+      shotBtn.disabled = true; shotBtn.textContent = "Preparo la schermata…";
+      var v = document.createElement("video");
+      v.srcObject = stream; v.muted = true; await v.play();
+      await new Promise(function(r){ setTimeout(r, 220); });   /* un attimo, o il primo fotogramma esce nero */
+      var c = document.createElement("canvas");
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext("2d").drawImage(v, 0, 0);
+      _scatto = c;
+      cropCv.width = c.width; cropCv.height = c.height;
+      cropCv.getContext("2d").drawImage(c, 0, 0);
+      cropSel.style.display = "none"; _rect = null;
+      cropTxt.textContent = "Trascina sul punto che non va";
+      crop.hidden = false;
+    } finally {
+      stream.getTracks().forEach(function(t){ t.stop(); });   /* si spegne SUBITO: non resta niente acceso */
+      shotBtn.disabled = false; shotBtn.textContent = _t;
+    }
+  });
+  /* dalle coordinate dello schermo a quelle del canvas: object-fit contain lascia bande ai lati */
+  function cropMappa(ev){
+    var r = cropCv.getBoundingClientRect();
+    var k = Math.min(r.width/cropCv.width, r.height/cropCv.height);
+    var ox = r.left + (r.width - cropCv.width*k)/2, oy = r.top + (r.height - cropCv.height*k)/2;
+    return { x:(ev.clientX-ox)/k, y:(ev.clientY-oy)/k, k:k, ox:ox, oy:oy };
+  }
+  if(cropCv){
+    cropCv.addEventListener("pointerdown", function(ev){
+      var p = cropMappa(ev); _giu = true; _x0 = p.x; _y0 = p.y;
+      cropSel.style.display = "block";
+      try{ cropCv.setPointerCapture(ev.pointerId); }catch(_e){}
+    });
+    cropCv.addEventListener("pointermove", function(ev){
+      if(!_giu) return;
+      ev.preventDefault();
+      var p = cropMappa(ev);
+      var x = Math.min(_x0,p.x), y = Math.min(_y0,p.y), w = Math.abs(p.x-_x0), h = Math.abs(p.y-_y0);
+      _rect = {x:x, y:y, w:w, h:h};
+      cropSel.style.left = (p.ox + x*p.k)+"px"; cropSel.style.top = (p.oy + y*p.k)+"px";
+      cropSel.style.width = (w*p.k)+"px";       cropSel.style.height = (h*p.k)+"px";
+      cropTxt.textContent = Math.round(w)+" × "+Math.round(h)+" px";
+    });
+    cropCv.addEventListener("pointerup", function(){ _giu = false; });
+    cropCv.addEventListener("pointercancel", function(){ _giu = false; });
+  }
+  function cropChiudi(){ if(crop) crop.hidden = true; _scatto = null; _giu = false; }
+  var cropAnn = document.getElementById("fbCropAnn"), cropOk = document.getElementById("fbCropOk");
+  if(cropAnn) cropAnn.addEventListener("click", cropChiudi);
+  if(cropOk) cropOk.addEventListener("click", async function(){
+    if(!_scatto) return;
+    /* senza selezione si allega tutta la schermata: meglio qualcosa che un clic che non fa niente */
+    var r = (_rect && _rect.w>12 && _rect.h>12) ? _rect : {x:0,y:0,w:_scatto.width,h:_scatto.height};
+    var _t = cropOk.textContent;
+    cropOk.disabled = true; cropOk.textContent = "Ritaglio…";   /* la compressione impiega un attimo: niente doppi clic */
+    try{
+      var c = document.createElement("canvas");
+      c.width = Math.round(r.w); c.height = Math.round(r.h);
+      c.getContext("2d").drawImage(_scatto, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height);
+      var blob = await new Promise(function(res){ c.toBlob(res, "image/png"); });
+      cropChiudi();
+      await shotMetti(blob);
+    } finally { cropOk.disabled = false; cropOk.textContent = _t; }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && crop && !crop.hidden) cropChiudi(); });
+
   function collectAndSend(projectId){
     /* Niente user_id/user_email nel body: l'identità la ricava il server dal JWT (audit S5). */
     var body={
@@ -28129,6 +28303,7 @@ function maybeAskStageSize(explicit){
       tech_context: techContext(),
       meta:{ app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: pageUrlSicuro(),
         user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
+      screenshot: _fbShotData || null,     /* JPEG data URL, già ridotto: il server lo mette su Storage */
       project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
       project_id: (projectId||null)
     };
@@ -28143,7 +28318,9 @@ function maybeAskStageSize(explicit){
         send.disabled=false;
         if(res.status===200 && res.j.ok){
           result.style.display="block"; result.style.color="var(--accent)"; result.textContent="Ricevuto, grazie!";
-          msg.value=""; count.textContent="0"; setTimeout(closeBox,1400);
+          msg.value=""; count.textContent="0";
+          shotVuoto();   /* anche la schermata: il box che riapre con dentro l'immagine di ieri è una trappola */
+          setTimeout(closeBox,1400);
         } else {
           result.style.display="block"; result.style.color="var(--danger)";
           result.textContent=res.status===429 ? "Hai inviato troppi feedback, riprova più tardi." : "Non è stato possibile inviare, riprova.";

@@ -2136,6 +2136,41 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   background:var(--bg);border:1px solid var(--border);color:var(--text-2);cursor:pointer}
 #fbBox .fb-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 #fbBox .fb-attach{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);margin-bottom:12px}
+/* ==== SCHERMATA nel feedback (17/08) ==== */
+#fbBox .fb-shotbtn{width:100%;margin-bottom:8px;padding:9px 0;font-size:12.5px;font-weight:600;cursor:pointer;
+  background:var(--accent-tint);color:var(--accent-strong);border:1px solid var(--accent-soft);border-radius:var(--r-md)}
+#fbBox .fb-shotbtn:hover{background:var(--accent-soft)}
+#fbBox .fb-shotbtn:disabled{opacity:.55;cursor:default}
+#fbBox .fb-shot{display:block;border:1.5px dashed var(--border);border-radius:var(--r-md);padding:10px 12px;
+  margin-bottom:12px;text-align:center;cursor:pointer;background:var(--bg)}
+#fbBox .fb-shot:hover,#fbBox .fb-shot.dragover{border-color:var(--accent);background:var(--accent-tint)}
+#fbBox .fb-shot .t{display:block;font-size:12.5px;font-weight:600;color:var(--text)}
+#fbBox .fb-shot .s{display:block;font-size:11px;color:var(--text-3);margin-top:2px}
+#fbBox .fb-shot.pieno{border-style:solid;border-color:var(--accent-soft);background:var(--surface);padding:8px;text-align:left;cursor:default}
+#fbBox .fb-shot img{display:block;width:100%;border-radius:6px;border:1px solid var(--border)}
+#fbBox .fb-shot .riga{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px}
+#fbBox .fb-shot .peso{font-size:10.5px;color:var(--text-3)}
+#fbBox .fb-shot .via{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-2);
+  font-size:11px;padding:4px 9px;cursor:pointer;min-height:28px}
+#fbBox .fb-shot .via:hover{border-color:#dc2626;color:#dc2626}
+/* il ritaglio sta sopra tutto, anche sopra il box del feedback (z-index 900) */
+#fbCrop{position:fixed;inset:0;z-index:1400;background:#0f172a}
+#fbCrop[hidden]{display:none}
+#fbCrop canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;cursor:crosshair;touch-action:none}
+#fbCrop .sel{position:absolute;border:2px solid var(--accent-bright);
+  box-shadow:0 0 0 9999px rgba(15,23,42,.55);pointer-events:none;display:none}
+#fbCrop .barra{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:10px;
+  align-items:center;background:var(--surface);border-radius:999px;padding:9px 14px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+#fbCrop .barra span{font-size:12.5px;color:var(--text-2);min-width:150px;text-align:center}
+#fbCrop .barra button{border:none;border-radius:999px;padding:9px 17px;font-size:13px;font-weight:700;cursor:pointer;min-height:38px}
+#fbCrop .ok{background:var(--accent);color:#fff}
+#fbCrop .ann{background:var(--surface-raised);color:var(--text-2)}
+@media (max-width:880px), (pointer:coarse){
+  #fbBox .fb-shotbtn{min-height:44px}
+  #fbBox .fb-shot .via{min-height:44px}
+  #fbCrop .barra{flex-direction:column;bottom:16px;border-radius:16px}
+  #fbCrop .barra button{width:100%;min-height:44px}
+}
 #fbBox .fb-send{width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 0;
   font-size:14px;font-weight:700;cursor:pointer}
 #fbBox .fb-send:disabled{opacity:.5;cursor:default}

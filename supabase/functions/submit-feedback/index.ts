@@ -57,12 +57,32 @@ Deno.serve(async (req) => {
   // audit M-13: minimizza i contatti di terzi nello snapshot prima di archiviarlo (e prima dell'email)
   f.project_snapshot = redactSnapshotForFeedback(f.project_snapshot);
 
+  // Schermata: prima sul bucket, poi il riferimento nella riga. Se il caricamento fallisce la
+  // segnalazione parte lo stesso senza allegato — il messaggio di chi scrive vale più della foto.
+  let screenshotPath: string | null = null;
+  if (f.screenshot) {
+    try {
+      const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(f.screenshot);
+      if (m) {
+        const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
+        const est = m[1].split("/")[1].replace("jpeg", "jpg");
+        // nome che non dice niente di chi lo manda, e non collide
+        const nome = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${est}`;
+        const { error: upErr } = await supabase.storage.from("feedback-shots")
+          .upload(nome, bin, { contentType: m[1], upsert: false });
+        if (upErr) console.error("upload schermata:", upErr.message);
+        else screenshotPath = nome;
+      }
+    } catch (e) { console.error("schermata non caricata:", String(e)); }
+  }
+
   const { data: row, error } = await supabase.from("feedback").insert({
     message: f.message, hint: f.hint,
     user_id: f.user_id, user_email: f.user_email, project_id: f.project_id,
     app_version: f.meta.app_version ?? null, page_url: f.meta.page_url ?? null,
     user_agent: f.meta.user_agent ?? null, viewport: f.meta.viewport ?? null, language: f.meta.language ?? null,
     tech_context: f.tech_context, project_snapshot: f.project_snapshot,
+    screenshot_path: screenshotPath,
   }).select("id").single();
   if (error) { console.error("insert feedback:", error.message); return json({ error: "errore interno" }, 500); }
 
