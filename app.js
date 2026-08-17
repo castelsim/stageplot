@@ -21018,7 +21018,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
       var a=x.getAttribute("data-help");
       if(a==="learn") proxyClick("bLearn");
-      else if(a==="feedback"){ if(typeof window.openFeedbackBox==="function") window.openFeedbackBox(); else proxyClick("fbTrigger"); }
+      else if(a==="feedback"){ if(typeof window.openFeedbackBox==="function") window.openFeedbackBox();   /* il pulsante galleggiante non esiste più: la card sta nella colonna */ }
     }); });
   })();
   /* Su desktop NESSUN comando visibile diceva PDF/Esporta/Scarica: l'export viveva solo dentro il menu
@@ -26134,27 +26134,52 @@ function maybeAskStageSize(explicit){
 
 (function(){
   var SUBMIT_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/submit-feedback";
-  var box=document.getElementById("fbBox"), trigger=document.getElementById("fbTrigger"),
+  var box=document.getElementById("fbBox"), testa=document.getElementById("fbHead"),
       msg=document.getElementById("fbMsg"), count=document.getElementById("fbCount"),
       send=document.getElementById("fbSend"), result=document.getElementById("fbResult"),
       attachRow=document.getElementById("fbAttachRow"), attach=document.getElementById("fbAttach"),
-      hp=document.getElementById("fbHp"), close=document.getElementById("fbClose");
+      hp=document.getElementById("fbHp");
   var hint=null;
+  var casaSua=box.parentNode;   /* la colonna di destra: là torna quando si chiude su mobile */
+
+  /* Su telefono #props è un drawer NASCOSTO: la card dentro non si vedrebbe, quindi il box esce
+     dalla colonna e si ancora in basso. Alla chiusura torna al suo posto, o al giro dopo su desktop
+     si troverebbe fuori dalla colonna. */
+  function mobile(){ return window.matchMedia("(max-width:880px)").matches; }
+  function fuoriSeMobile(){
+    if(mobile()){ if(box.parentNode!==document.body) document.body.appendChild(box); }
+    else if(box.parentNode!==casaSua) casaSua.appendChild(box);
+  }
 
   window.openFeedbackBox=function(){
     hint=null;
     Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){ c.classList.remove("on"); });
     attach.checked=false;
     result.style.display="none";
-    box.classList.add("open"); trigger.classList.add("hide");
+    fuoriSeMobile();
+    box.classList.add("open");
+    if(testa) testa.setAttribute("aria-expanded","true");
     // mostra "allega progetto" solo se c'è un progetto con oggetti
     attachRow.style.display=(window.state&&state.items&&state.items.length)?"flex":"none";
     setTimeout(function(){ msg.focus(); },50);
+    /* nella colonna la card cresce verso il basso: portala in vista, o resta sotto il bordo */
+    if(!mobile()) setTimeout(function(){ try{ box.scrollIntoView({block:"nearest", behavior:"smooth"}); }catch(_e){} },60);
   };
-  function closeBox(){ box.classList.remove("open"); trigger.classList.remove("hide"); }
-
-  trigger.addEventListener("click", window.openFeedbackBox);
-  close.addEventListener("click", closeBox);
+  function closeBox(){
+    box.classList.remove("open");
+    if(testa) testa.setAttribute("aria-expanded","false");
+    if(mobile() && box.parentNode===document.body) casaSua.appendChild(box);
+  }
+  /* Sul desktop la testata è l'interruttore della fisarmonica. Sul telefono NO: là il box è il
+     pannello di sempre, si apre dal menu «?» e si chiude con la ✕ — toccare l'intestazione mentre
+     si scrive non deve farlo sparire. */
+  if(testa) testa.addEventListener("click", function(){
+    if(mobile()) return;
+    if(box.classList.contains("open")) closeBox(); else window.openFeedbackBox();
+  });
+  var chiudi=document.getElementById("fbClose");
+  if(chiudi) chiudi.addEventListener("click", closeBox);
+  window.addEventListener("resize", function(){ if(box.classList.contains("open")) fuoriSeMobile(); });
   msg.addEventListener("input", function(){ count.textContent=msg.value.length; });
   Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){
     c.addEventListener("click", function(){
