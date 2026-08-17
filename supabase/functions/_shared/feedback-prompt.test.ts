@@ -6,7 +6,7 @@ const base: FeedbackInput = {
   message: "Manca il sax baritono", hint: "missing",
   tech_context: { stage_w: 1200, stage_d: 800, total_objects: 12, object_types: { microfono: 4 }, inputs_count: 8, outputs_count: 4, selected_object_type: "microfono" },
   meta: { app_version: "2026.07.01", page_url: "https://stageplot.it/", user_agent: "UA", viewport: "1440x900", language: "it" },
-  project_snapshot: null, user_id: null, user_email: null, project_id: null,
+  project_snapshot: null, screenshot: null, user_id: null, user_email: null, project_id: null,
 };
 
 Deno.test("prompt include messaggio e chip", () => {
