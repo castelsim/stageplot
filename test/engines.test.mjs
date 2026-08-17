@@ -10731,5 +10731,31 @@ t("quello che parte è ridotto e compresso, e l'utente vede quanto pesa", () => 
   ok(/count\.textContent="0";\s*\n\s*shotVuoto\(\)/.test(appjs), "dopo l'invio la schermata si svuota");
 });
 
+/* ===== «COSA MANCA?» VIVE NELLA COLONNA (17/08) =========================================== */
+t("il box del feedback sta dentro la colonna, e la testata è il suo interruttore", () => {
+  /* Prima galleggiava sopra il contenuto: 326 px di larghezza contro i 310 della colonna, cioè per
+     forza fuori. Ora è una card in fondo alle Liste (variante scelta da Simone). */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const props = html.slice(html.indexOf('<aside id="props"'), html.indexOf("</aside>", html.indexOf('<aside id="props"')));
+  ok(/id="fbBox"/.test(props), "il box è dentro la colonna di destra");
+  ok(/Cosa manca\? Bug\? Idea\?/.test(props), "e la testata fa le tre domande");
+  ok(/id="fbHead"/.test(props) && /aria-expanded/.test(props), "la testata è un comando dichiarato");
+  eq(/id="fbTrigger"/.test(html), false, "il pulsante galleggiante non serve più");
+  ok(/testa\.addEventListener\("click"/.test(appjs), "e apre e chiude");
+});
+
+t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
+  /* `#props` sotto gli 880 px è un drawer con display:none: lasciandoci dentro il box, chi segnala
+     dal telefono non lo vedrebbe mai. Esce, e chiudendosi torna al suo posto — o al giro dopo su
+     desktop si troverebbe fuori dalla colonna. */
+  const f = appjs.slice(appjs.indexOf("function fuoriSeMobile"), appjs.indexOf("function fuoriSeMobile") + 420);
+  ok(/document\.body\.appendChild\(box\)/.test(f), "su mobile va nel body");
+  ok(/casaSua\.appendChild\(box\)/.test(f), "e torna nella colonna quando lo schermo è largo");
+  ok(/max-width:880px/.test(appjs.slice(appjs.indexOf("function mobile()"), appjs.indexOf("function mobile()") + 140)),
+     "la soglia è la stessa del CSS che nasconde la colonna");
+  ok(/#props #fbBox input\[type="checkbox"\]\{width:auto/.test(stylesCss),
+     "e la casella non si prende tutta la riga: dentro la colonna vale #props input{width:100%}");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
