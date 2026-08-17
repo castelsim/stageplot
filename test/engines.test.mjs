@@ -10687,5 +10687,21 @@ t("il generatore orchestrale non lascia nessuno fuori dal palco", () => {
   eq(out[1].x, 0, "e chi era già dentro non si muove");
 });
 
+/* ===== IL PDF PARTE A UNA PAGINA (16/08) ================================================== */
+t("l'export parte dal solo palco: le pagine tecniche si suggeriscono, non si aggiungono da sole", () => {
+  /* Decisione di Simone: chi preme Esporta di fretta non deve ritrovarsi un PDF di cinque pagine
+     che non ha chiesto — il costo di quell'errore lo paga chi lo riceve. Il suggerimento resta
+     (bordo verde), la scelta no. */
+  const ap = appjs.slice(appjs.indexOf("_pdfPillSel={};"), appjs.indexOf("_pdfPillSel={};") + 400);
+  ok(/state\.pdfPages\)\) state\.pdfPages\.forEach/.test(ap), "se l'utente ha già scelto, si rispetta la sua scelta");
+  eq(/pdfSuggestedKeys\(_pdfTechPages\)\.forEach\(function\(k\)\{ _pdfPillSel\[k\]=true/.test(ap), false,
+     "ma alla prima apertura NON si preseleziona niente");
+  /* il suggerimento dev'essere ancora visibile, o si perde l'informazione utile */
+  ok(/pdfSuggestedKeys/.test(appjs.slice(appjs.indexOf("function pdfRenderPills"), appjs.indexOf("function pdfRenderPills") + 900)),
+     "le pillole sanno ancora quali pagine sono suggerite");
+  ok(/pill ghost"\+\(isSugg\?" sugg":""\)/.test(appjs), "e le marcano col bordo verde");
+  ok(/Suggerita dagli elementi sul palco/.test(appjs), "spiegando perché lo sono");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
