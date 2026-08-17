@@ -10703,5 +10703,33 @@ t("l'export parte dal solo palco: le pagine tecniche si suggeriscono, non si agg
   ok(/Suggerita dagli elementi sul palco/.test(appjs), "spiegando perché lo sono");
 });
 
+/* ===== LA SCHERMATA ALLEGATA ALLA SEGNALAZIONE (17/08) =================================== */
+t("chi segnala può allegare il ritaglio del punto che non va", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="fbShotBtn"/.test(html), "c'è il pulsante del ritaglio");
+  ok(/id="fbShot"/.test(html) && /id="fbShotFile"/.test(html), "e la zona per incollare, trascinare o scegliere");
+  ok(/id="fbCrop"/.test(html) && /id="fbCropCv"/.test(html), "con l'overlay di ritaglio");
+  /* le tre strade servono tutte: su iPhone la cattura non esiste, e resterebbe fuori chi segnala dal telefono */
+  ok(/getDisplayMedia/.test(appjs), "la cattura passa dall'API dello schermo");
+  ok(/preferCurrentTab:true/.test(appjs), "e propone già «Questa scheda», per non far scegliere");
+  ok(/Il ritaglio non è disponibile qui/.test(appjs), "dove l'API manca, il pulsante lo dice invece di fallire");
+  ok(/addEventListener\("paste"/.test(appjs) && /dataTransfer/.test(appjs), "restano incolla e trascina");
+});
+
+t("quello che parte è ridotto e compresso, e l'utente vede quanto pesa", () => {
+  /* Una schermata da 800 KB in base64 diventa più di un mega dentro il JSON: si riduce prima. */
+  const f = appjs.slice(appjs.indexOf("async function shotPrepara"), appjs.indexOf("async function shotMetti"));
+  ok(/max = 1600/.test(f), "si riduce a 1600 px");
+  ok(/toDataURL\("image\/jpeg", 0\.75\)/.test(f), "e si comprime in JPEG");
+  ok(/kb: Math\.round/.test(f), "il peso si calcola");
+  ok(/r\.w \+ "×" \+ r\.h \+ " · " \+ r\.kb \+ " KB"/.test(appjs), "e si mostra accanto all'anteprima");
+  /* la promessa in fondo al box deve seguire quello che parte davvero */
+  ok(/la schermata allegata<\/b>/.test(appjs), "con un'immagine dentro la nota lo dichiara");
+  ok(/Controlla che la schermata non contenga cose tue/.test(appjs), "e avverte chi segnala");
+  ok(/screenshot: _fbShotData \|\| null/.test(appjs), "l'immagine entra nel payload");
+  /* il box che riapre con dentro l'immagine di ieri è una trappola */
+  ok(/count\.textContent="0";\s*\n\s*shotVuoto\(\)/.test(appjs), "dopo l'invio la schermata si svuota");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
