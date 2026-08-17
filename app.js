@@ -26170,10 +26170,15 @@ function maybeAskStageSize(explicit){
     if(testa) testa.setAttribute("aria-expanded","false");
     if(mobile() && box.parentNode===document.body) casaSua.appendChild(box);
   }
-  /* la testata è l'interruttore: un clic apre, un altro chiude */
+  /* Sul desktop la testata è l'interruttore della fisarmonica. Sul telefono NO: là il box è il
+     pannello di sempre, si apre dal menu «?» e si chiude con la ✕ — toccare l'intestazione mentre
+     si scrive non deve farlo sparire. */
   if(testa) testa.addEventListener("click", function(){
+    if(mobile()) return;
     if(box.classList.contains("open")) closeBox(); else window.openFeedbackBox();
   });
+  var chiudi=document.getElementById("fbClose");
+  if(chiudi) chiudi.addEventListener("click", closeBox);
   window.addEventListener("resize", function(){ if(box.classList.contains("open")) fuoriSeMobile(); });
   msg.addEventListener("input", function(){ count.textContent=msg.value.length; });
   Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){

@@ -10755,6 +10755,15 @@ t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
      "la soglia è la stessa del CSS che nasconde la colonna");
   ok(/#props #fbBox input\[type="checkbox"\]\{width:auto/.test(stylesCss),
      "e la casella non si prende tutta la riga: dentro la colonna vale #props input{width:100%}");
+  /* Sul telefono il box resta quello di sempre (richiesta di Simone): pannello in basso, si apre dal
+     menu «?» e si chiude con la ✕. Non è una fisarmonica — toccare l'intestazione mentre si scrive
+     non deve farlo sparire. */
+  const t = appjs.slice(appjs.indexOf('testa.addEventListener("click"'), appjs.indexOf('testa.addEventListener("click"') + 260);
+  ok(/if\(mobile\(\)\) return;/.test(t), "su telefono la testata non apre e non chiude");
+  ok(/chiudi\.addEventListener\("click", closeBox\)/.test(appjs), "e la ✕ chiude");
+  ok(/#fbBox \.fb-close\{display:none\}/.test(stylesCss), "sul desktop la ✕ è nascosta: chiude la testata");
+  ok(/#fbBox \.fb-freccia\{display:none\}/.test(stylesCss.slice(stylesCss.indexOf("@media (max-width:880px)"))),
+     "e sul telefono sparisce la freccia della fisarmonica");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

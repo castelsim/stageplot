@@ -2126,8 +2126,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
    326 px di larghezza contro i 310 della colonna, cioè per forza fuori. */
 #fbBox{margin:14px -12px -12px;border-top:1px solid var(--border);background:var(--surface);
   color:var(--text);display:block}
-#fbBox .fb-head{display:flex;align-items:center;gap:8px;width:100%;padding:11px 14px;
+#fbBox .fb-testata{display:flex;align-items:stretch}
+#fbBox .fb-head{display:flex;align-items:center;gap:8px;flex:1;padding:11px 14px;
   background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+#fbBox .fb-close{display:none}   /* sul desktop chiude la testata: una ✕ sarebbe un secondo comando per la stessa cosa */
 #fbBox .fb-head:hover{background:var(--bg)}
 #fbBox .fb-head strong{font-size:13px;flex:1;font-weight:600}
 #fbBox .fb-freccia{color:var(--text-3);font-size:12px;transition:transform var(--dur-fast) var(--ease)}
@@ -2200,7 +2202,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #fbBox{position:fixed;left:0;right:0;bottom:0;margin:0;z-index:900;border-radius:14px 14px 0 0;
     border:1px solid var(--border);box-shadow:0 -10px 40px rgba(0,0,0,.28);display:none;max-height:86vh;overflow:auto}
   #fbBox.open{display:block}
-  #fbBox .fb-head{min-height:44px}
+  #fbBox .fb-head{min-height:44px;cursor:default}
+  #fbBox .fb-freccia{display:none}            /* niente fisarmonica: qui il box si apre dal menu «?» */
+  #fbBox .fb-close{display:block;background:none;border:0;color:var(--text-2);font-size:22px;
+    line-height:1;padding:0 14px;cursor:pointer;min-width:44px}
 }
 
 /* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover; teal + pallino "acceso" quando il progetto è già condiviso */

@@ -1174,9 +1174,14 @@
 <div id="fbBox" role="dialog" aria-label="Cosa manca?">
   <!-- La testata È il comando: un clic apre e chiude. Nella colonna il box non ha bisogno di un
        pulsante che lo evochi — sta lì, e si vede sempre dov'è. -->
-  <button type="button" class="fb-head" id="fbHead" aria-expanded="false" aria-controls="fbBody">
-    <strong>Cosa manca? Bug? Idea?</strong><span class="fb-freccia" aria-hidden="true">▾</span>
-  </button>
+  <div class="fb-testata">
+    <button type="button" class="fb-head" id="fbHead" aria-expanded="false" aria-controls="fbBody">
+      <strong>Cosa manca? Bug? Idea?</strong><span class="fb-freccia" aria-hidden="true">▾</span>
+    </button>
+    <!-- La ✕ è per il telefono, dove il box NON è una fisarmonica nella colonna ma il pannello
+         ancorato in basso di sempre: là si apre dal menu «?» e si chiude da qui, com'era. -->
+    <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">×</button>
+  </div>
   <div class="fb-body" id="fbBody">
     <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
     <div class="fb-count"><span id="fbCount">0</span>/1000</div>
@@ -28123,10 +28128,15 @@ function maybeAskStageSize(explicit){
     if(testa) testa.setAttribute("aria-expanded","false");
     if(mobile() && box.parentNode===document.body) casaSua.appendChild(box);
   }
-  /* la testata è l'interruttore: un clic apre, un altro chiude */
+  /* Sul desktop la testata è l'interruttore della fisarmonica. Sul telefono NO: là il box è il
+     pannello di sempre, si apre dal menu «?» e si chiude con la ✕ — toccare l'intestazione mentre
+     si scrive non deve farlo sparire. */
   if(testa) testa.addEventListener("click", function(){
+    if(mobile()) return;
     if(box.classList.contains("open")) closeBox(); else window.openFeedbackBox();
   });
+  var chiudi=document.getElementById("fbClose");
+  if(chiudi) chiudi.addEventListener("click", closeBox);
   window.addEventListener("resize", function(){ if(box.classList.contains("open")) fuoriSeMobile(); });
   msg.addEventListener("input", function(){ count.textContent=msg.value.length; });
   Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){

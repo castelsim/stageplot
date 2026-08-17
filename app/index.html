@@ -2204,8 +2204,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
    326 px di larghezza contro i 310 della colonna, cioè per forza fuori. */
 #fbBox{margin:14px -12px -12px;border-top:1px solid var(--border);background:var(--surface);
   color:var(--text);display:block}
-#fbBox .fb-head{display:flex;align-items:center;gap:8px;width:100%;padding:11px 14px;
+#fbBox .fb-testata{display:flex;align-items:stretch}
+#fbBox .fb-head{display:flex;align-items:center;gap:8px;flex:1;padding:11px 14px;
   background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+#fbBox .fb-close{display:none}   /* sul desktop chiude la testata: una ✕ sarebbe un secondo comando per la stessa cosa */
 #fbBox .fb-head:hover{background:var(--bg)}
 #fbBox .fb-head strong{font-size:13px;flex:1;font-weight:600}
 #fbBox .fb-freccia{color:var(--text-3);font-size:12px;transition:transform var(--dur-fast) var(--ease)}
@@ -2278,7 +2280,10 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #fbBox{position:fixed;left:0;right:0;bottom:0;margin:0;z-index:900;border-radius:14px 14px 0 0;
     border:1px solid var(--border);box-shadow:0 -10px 40px rgba(0,0,0,.28);display:none;max-height:86vh;overflow:auto}
   #fbBox.open{display:block}
-  #fbBox .fb-head{min-height:44px}
+  #fbBox .fb-head{min-height:44px;cursor:default}
+  #fbBox .fb-freccia{display:none}            /* niente fisarmonica: qui il box si apre dal menu «?» */
+  #fbBox .fb-close{display:block;background:none;border:0;color:var(--text-2);font-size:22px;
+    line-height:1;padding:0 14px;cursor:pointer;min-width:44px}
 }
 
 /* Icona "Condividi con un link" nelle righe del modale Cloud: ghost, grigia a riposo → teal all'hover; teal + pallino "acceso" quando il progetto è già condiviso */
@@ -3682,9 +3687,14 @@ body.dark .ask-all .btn{background:transparent}
 <div id="fbBox" role="dialog" aria-label="Cosa manca?">
   <!-- La testata È il comando: un clic apre e chiude. Nella colonna il box non ha bisogno di un
        pulsante che lo evochi — sta lì, e si vede sempre dov'è. -->
-  <button type="button" class="fb-head" id="fbHead" aria-expanded="false" aria-controls="fbBody">
-    <strong>Cosa manca? Bug? Idea?</strong><span class="fb-freccia" aria-hidden="true">▾</span>
-  </button>
+  <div class="fb-testata">
+    <button type="button" class="fb-head" id="fbHead" aria-expanded="false" aria-controls="fbBody">
+      <strong>Cosa manca? Bug? Idea?</strong><span class="fb-freccia" aria-hidden="true">▾</span>
+    </button>
+    <!-- La ✕ è per il telefono, dove il box NON è una fisarmonica nella colonna ma il pannello
+         ancorato in basso di sempre: là si apre dal menu «?» e si chiude da qui, com'era. -->
+    <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">×</button>
+  </div>
   <div class="fb-body" id="fbBody">
     <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
     <div class="fb-count"><span id="fbCount">0</span>/1000</div>
