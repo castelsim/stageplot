@@ -24049,9 +24049,8 @@ function pdfChannelPage(doc, L, paperKey){
   function pdfRenderPills(){
     /* Pagine come pillole: TUTTE le disponibili (attivate dagli elementi del progetto) sono visibili —
        piene = nel PDF (× toglie), tratteggiate = click per aggiungere.
-       Alla prima apertura NON sono vuote: pdfSuggestedKeys() preseleziona le pagine suggerite, per
-       mantenere quello che il benvenuto promette («stage plot + liste»). Il commento diceva ancora
-       «default: nessuna» ed era rimasto indietro (14/08). */
+       Alla prima apertura sono TUTTE tratteggiate: il PDF parte a una pagina e le tecniche si
+       aggiungono con un clic (16/08). Il bordo verde dice quali servirebbero, senza deciderlo. */
     var host=document.getElementById("pdfPills"); if(!host) return;
     host.innerHTML="";
     var nSel=0, nSugg=0;
@@ -24184,12 +24183,13 @@ function pdfChannelPage(doc, L, paperKey){
     var _at=document.getElementById("pdfAreaTxt");
     if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
     _pdfTechPages=pdfComputeTechPages();
-    /* Prima apertura del documento: partono selezionate le pagine che l'app stessa marca come suggerite
-       (bordo verde) — una «scheda tecnica» senza channel list non è una scheda tecnica, e il bottone
-       verde non fermava nessuno. Dalla seconda in poi vale ciò che ha scelto l'utente. */
+    /* IL PDF PARTE A UNA PAGINA (decisione di Simone, 16/08): il palco, e basta. Le pagine tecniche
+       restano SUGGERITE — bordo verde, un clic per aggiungerle — ma nessuna è già dentro.
+       Prima si partiva con le suggerite già selezionate: chi premeva Esporta di fretta si ritrovava
+       un PDF di cinque pagine che non aveva chiesto, e il costo di quell'errore lo paga chi lo riceve.
+       Chi le vuole tutte ha «Aggiungi tutte» lì accanto; dalla seconda apertura vale la sua scelta. */
     _pdfPillSel={};
     if(Array.isArray(state.pdfPages)) state.pdfPages.forEach(function(k){ _pdfPillSel[k]=true; });
-    else if(typeof pdfSuggestedKeys==="function") pdfSuggestedKeys(_pdfTechPages).forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;
     pdfRenderPills();
     renderProdInline();
