@@ -11644,10 +11644,11 @@ function refreshCatalogArt(){
   var PEDANA_ICON=miniSvg("pedana", {w:200,d:100});
   pin.appendChild(makeActionBtn("Pedana","2×1 m · si allunga e ruota", null, function(){ addItem("pedana"); }, PEDANA_ICON));
   pin.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON));
-  /* Audit progetto: ingresso ripristinato (era nella categoria "Liste tecniche", rimossa il 17/07 →
-     rimasto orfano). toggleAuditView accende auditActive, l'unico gate del pannello #auditSec. */
+  /* Audit progetto: NON è una card fissa (segnalazione 6458fdd9, 18/08). Il catalogo di sinistra è
+     la roba che si posa sul palco; l'audit è un controllo, e stava lì solo perché la categoria che
+     lo ospitava era stata rimossa. Resta nell'indice: si scrive "audit" (o verifica, controlla,
+     manca…) nella ricerca del catalogo e compare, cliccabile come prima. */
   var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  pin.appendChild(makeActionBtn("Audit progetto","controlla se manca qualcosa", null, toggleAuditView, AUDIT_ICON));
   entries.push({nome:"Forma del palco", dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
                 kw:"palco stage forma blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
   entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
@@ -21014,6 +21015,10 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var acts={ "new":function(){ if(window.openNewDialog) window.openNewDialog(); else proxyClick("bNew"); },
       "projects":function(){proxyClick("bCloud");},
       "rubrica":function(){ var C=window.__cloud; if(C&&C.user()){ if(window.__openRubricaModal) window.__openRubricaModal(); } else { proxyClick("bCloud"); } },   /* rubrica account: da loggato la modale, altrimenti prima l'accesso */
+      /* Produzione: era un pulsante nell'header (segnalazione 570478a6, 18/08). L'app diceva già
+         «assegnalo in File → Produzione» in un messaggio dell'hub: la promessa c'era, il comando
+         stava altrove. Adesso è dove il prodotto dichiarava che fosse. */
+      "produzione":function(){ if(window.openProdHub) window.openProdHub(); },
       "variant-new":function(){ if(typeof createVariant==="function") createVariant(); },
       "save":fileSaveCloud };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
@@ -21028,8 +21033,6 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      solo «Condividi» (06/08). ⌘P resta la scorciatoia, ora annunciata dal title. */
   (function(){ var b=document.getElementById("bExportHdr");
     if(b) b.addEventListener("click", function(){ document.getElementById("bHdrPdf").click(); }); })();
-  (function(){ var b=document.getElementById("bProdHdr");
-    if(b) b.addEventListener("click", function(){ if(window.openProdHub) window.openProdHub(); }); })();
   document.getElementById("shareClose").addEventListener("click", closeShare);
   /* — pulsanti header: Save as / Importa — */
   document.getElementById("bHdrPdf").addEventListener("click", function(){
