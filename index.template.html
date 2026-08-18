@@ -28086,7 +28086,14 @@ function maybeAskStageSize(explicit){
 <!-- Ritaglio a schermo intero: la schermata congelata, e sopra il rettangolo che si trascina. -->
 <div id="fbCrop" hidden>
   <canvas id="fbCropCv"></canvas>
-  <div class="sel" id="fbCropSel"></div>
+  <!-- Il rettangolo c'è già all'apertura, al centro della schermata: da vuoto non si capiva che si
+       potesse fare qualcosa. Otto maniglie (angoli E lati): i lati servono quando devi solo
+       allungare un po' da una parte. Si sposta prendendolo dentro, si ridisegna trascinando fuori. -->
+  <div class="sel" id="fbCropSel">
+    <b class="m" data-p="nw"></b><b class="m" data-p="ne"></b><b class="m" data-p="sw"></b><b class="m" data-p="se"></b>
+    <b class="m" data-p="n"></b><b class="m" data-p="s"></b><b class="m" data-p="w"></b><b class="m" data-p="e"></b>
+    <span class="misura" id="fbCropMis"></span>
+  </div>
   <div class="barra">
     <span id="fbCropTxt">Trascina sul punto che non va</span>
     <button type="button" class="ann" id="fbCropAnn">Annulla</button>
@@ -28256,7 +28263,7 @@ function maybeAskStageSize(explicit){
   /* ---- cattura della scheda + ritaglio ---- */
   var crop = document.getElementById("fbCrop"), cropCv = document.getElementById("fbCropCv"),
       cropSel = document.getElementById("fbCropSel"), cropTxt = document.getElementById("fbCropTxt");
-  var _scatto = null, _giu = false, _x0 = 0, _y0 = 0, _rect = null;
+  var _scatto = null, _rect = null, _modo = null, _p0 = null, _R0 = null;
 
   if(shotBtn && !(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)){
     shotBtn.disabled = true;
@@ -28280,46 +28287,105 @@ function maybeAskStageSize(explicit){
       _scatto = c;
       cropCv.width = c.width; cropCv.height = c.height;
       cropCv.getContext("2d").drawImage(c, 0, 0);
-      cropSel.style.display = "none"; _rect = null;
-      cropTxt.textContent = "Trascina sul punto che non va";
-      crop.hidden = false;
+      _rect = CROP.iniziale(c.width, c.height);   /* già lì, al centro: da vuoto non si capiva */
+      cropTxt.textContent = "Sposta il rettangolo sul punto che non va";
+      crop.hidden = false;                        /* prima si accende, poi si misura: dentro un hidden ogni rettangolo è a zero */
+      cropDisegna();
     } finally {
       stream.getTracks().forEach(function(t){ t.stop(); });   /* si spegne SUBITO: non resta niente acceso */
       shotBtn.disabled = false; shotBtn.textContent = _t;
     }
   });
-  /* dalle coordinate dello schermo a quelle del canvas: object-fit contain lascia bande ai lati */
-  function cropMappa(ev){
+  /* ---- la geometria del ritaglio, senza DOM: così si prova con i numeri ----
+     Tutte le coordinate qui dentro sono PIXEL DELLA SCHERMATA catturata, non dello schermo: la
+     conversione la fa cropVista(), perché object-fit:contain lascia bande ai lati. */
+  var CROP = window.CROP = {
+    MIN: 24,
+    /* Il rettangolo di partenza: poco meno di metà schermata, centrato. Non tutta: deve VEDERSI
+       che è un rettangolo dentro qualcosa di più grande, o nessuno pensa a spostarlo. */
+    iniziale: function(W, H){
+      var w = Math.round(W*0.46), h = Math.round(H*0.42);
+      return this.clamp({ x:Math.round((W-w)/2), y:Math.round((H-h)/2), w:w, h:h }, W, H);
+    },
+    clamp: function(r, W, H){
+      var w = Math.max(this.MIN, Math.min(r.w, W)), h = Math.max(this.MIN, Math.min(r.h, H));
+      return { x: Math.max(0, Math.min(r.x, W-w)), y: Math.max(0, Math.min(r.y, H-h)), w:w, h:h };
+    },
+    sposta: function(R0, dx, dy, W, H){
+      return this.clamp({ x:R0.x+dx, y:R0.y+dy, w:R0.w, h:R0.h }, W, H);
+    },
+    /* Trascinando una maniglia si muove SOLO il suo lato. Tirando oltre il lato opposto il
+       rettangolo non si rovescia: si ferma al minimo, ancorato dalla parte che non stai toccando. */
+    ridimensiona: function(R0, p, dx, dy, W, H){
+      var r = { x:R0.x, y:R0.y, w:R0.w, h:R0.h };
+      if(p.indexOf("w")>=0){ r.x = R0.x+dx; r.w = R0.w-dx; }
+      if(p.indexOf("e")>=0){ r.w = R0.w+dx; }
+      if(p.indexOf("n")>=0){ r.y = R0.y+dy; r.h = R0.h-dy; }
+      if(p.indexOf("s")>=0){ r.h = R0.h+dy; }
+      if(r.w < this.MIN){ r.w = this.MIN; if(p.indexOf("w")>=0) r.x = R0.x+R0.w-this.MIN; }
+      if(r.h < this.MIN){ r.h = this.MIN; if(p.indexOf("n")>=0) r.y = R0.y+R0.h-this.MIN; }
+      return this.clamp(r, W, H);
+    },
+    /* Trascinare sul fondo ne disegna uno nuovo: il gesto che c'era prima, che resta. */
+    nuovo: function(x0, y0, x1, y1, W, H){
+      return this.clamp({ x:Math.min(x0,x1), y:Math.min(y0,y1),
+                          w:Math.abs(x1-x0), h:Math.abs(y1-y0) }, W, H);
+    }
+  };
+  /* dove sta la schermata sullo schermo: object-fit contain la centra e lascia bande ai lati */
+  function cropVista(){
     var r = cropCv.getBoundingClientRect();
     var k = Math.min(r.width/cropCv.width, r.height/cropCv.height);
-    var ox = r.left + (r.width - cropCv.width*k)/2, oy = r.top + (r.height - cropCv.height*k)/2;
-    return { x:(ev.clientX-ox)/k, y:(ev.clientY-oy)/k, k:k, ox:ox, oy:oy };
+    return { k:k, ox:r.left + (r.width - cropCv.width*k)/2, oy:r.top + (r.height - cropCv.height*k)/2 };
+  }
+  function cropMappa(ev){ var v = cropVista(); return { x:(ev.clientX-v.ox)/v.k, y:(ev.clientY-v.oy)/v.k }; }
+  function cropDisegna(){
+    if(!_rect) return;
+    var v = cropVista();
+    cropSel.style.left = (v.ox + _rect.x*v.k)+"px"; cropSel.style.top = (v.oy + _rect.y*v.k)+"px";
+    cropSel.style.width = (_rect.w*v.k)+"px";       cropSel.style.height = (_rect.h*v.k)+"px";
+    var t = Math.round(_rect.w)+" × "+Math.round(_rect.h)+" px";
+    var mis = document.getElementById("fbCropMis");
+    if(mis) mis.textContent = t;
+    cropSel.classList.toggle("alto", v.oy + _rect.y*v.k < 30);   /* la targhetta rientra o esce dallo schermo */
+    cropTxt.textContent = t;
   }
   if(cropCv){
-    cropCv.addEventListener("pointerdown", function(ev){
-      var p = cropMappa(ev); _giu = true; _x0 = p.x; _y0 = p.y;
-      cropSel.style.display = "block";
+    cropSel.addEventListener("pointerdown", function(ev){
+      if(!_rect) return;
+      var p = ev.target.getAttribute && ev.target.getAttribute("data-p");
+      _modo = p ? "ridim:"+p : "sposta";
+      _p0 = cropMappa(ev); _R0 = { x:_rect.x, y:_rect.y, w:_rect.w, h:_rect.h };
+      ev.preventDefault();
+      try{ ev.target.setPointerCapture(ev.pointerId); }catch(_e){}
+    });
+    cropCv.addEventListener("pointerdown", function(ev){      /* fuori dal rettangolo: se ne disegna uno nuovo */
+      _modo = "nuovo"; _p0 = cropMappa(ev); _R0 = null;
+      _rect = CROP.nuovo(_p0.x, _p0.y, _p0.x, _p0.y, cropCv.width, cropCv.height);
+      cropDisegna();
       try{ cropCv.setPointerCapture(ev.pointerId); }catch(_e){}
     });
-    cropCv.addEventListener("pointermove", function(ev){
-      if(!_giu) return;
+    /* move e up sul documento: il dito esce spesso dall'elemento da cui è partito */
+    document.addEventListener("pointermove", function(ev){
+      if(!_modo || !_rect) return;
       ev.preventDefault();
-      var p = cropMappa(ev);
-      var x = Math.min(_x0,p.x), y = Math.min(_y0,p.y), w = Math.abs(p.x-_x0), h = Math.abs(p.y-_y0);
-      _rect = {x:x, y:y, w:w, h:h};
-      cropSel.style.left = (p.ox + x*p.k)+"px"; cropSel.style.top = (p.oy + y*p.k)+"px";
-      cropSel.style.width = (w*p.k)+"px";       cropSel.style.height = (h*p.k)+"px";
-      cropTxt.textContent = Math.round(w)+" × "+Math.round(h)+" px";
-    });
-    cropCv.addEventListener("pointerup", function(){ _giu = false; });
-    cropCv.addEventListener("pointercancel", function(){ _giu = false; });
+      var p = cropMappa(ev), W = cropCv.width, H = cropCv.height;
+      if(_modo === "nuovo")        _rect = CROP.nuovo(_p0.x, _p0.y, p.x, p.y, W, H);
+      else if(_modo === "sposta")  _rect = CROP.sposta(_R0, p.x-_p0.x, p.y-_p0.y, W, H);
+      else                         _rect = CROP.ridimensiona(_R0, _modo.slice(6), p.x-_p0.x, p.y-_p0.y, W, H);
+      cropDisegna();
+    }, {passive:false});
+    document.addEventListener("pointerup", function(){ _modo = null; });
+    document.addEventListener("pointercancel", function(){ _modo = null; });
+    addEventListener("resize", function(){ if(crop && !crop.hidden) cropDisegna(); });
   }
-  function cropChiudi(){ if(crop) crop.hidden = true; _scatto = null; _giu = false; }
+  function cropChiudi(){ if(crop) crop.hidden = true; _scatto = null; _modo = null; }
   var cropAnn = document.getElementById("fbCropAnn"), cropOk = document.getElementById("fbCropOk");
   if(cropAnn) cropAnn.addEventListener("click", cropChiudi);
   if(cropOk) cropOk.addEventListener("click", async function(){
     if(!_scatto) return;
-    /* senza selezione si allega tutta la schermata: meglio qualcosa che un clic che non fa niente */
+    /* un rettangolo c'è sempre (si apre già disegnato); se qualcuno lo riduce a un punto, si
+       allega tutta la schermata: meglio qualcosa che un pulsante che non fa niente */
     var r = (_rect && _rect.w>12 && _rect.h>12) ? _rect : {x:0,y:0,w:_scatto.width,h:_scatto.height};
     var _t = cropOk.textContent;
     cropOk.disabled = true; cropOk.textContent = "Ritaglio…";   /* la compressione impiega un attimo: niente doppi clic */
