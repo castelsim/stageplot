@@ -1,5 +1,5 @@
-import { assertStringIncludes } from "jsr:@std/assert@1";
-import { buildFeedbackPrompt, buildFeedbackEmail } from "./feedback-prompt.ts";
+import { assertStringIncludes, assertEquals } from "jsr:@std/assert@1";
+import { buildFeedbackPrompt, buildFeedbackEmail, feedbackAttachment } from "./feedback-prompt.ts";
 import type { FeedbackInput } from "./feedback-validation.ts";
 
 const base: FeedbackInput = {
@@ -34,4 +34,23 @@ Deno.test("email: html contiene il blocco prompt", () => {
   const { html } = buildFeedbackEmail(base);
   assertStringIncludes(html, "<pre");
   assertStringIncludes(html, "Manca il sax baritono");
+});
+
+Deno.test("la mail dice che la schermata c'è, e la porta con sé", () => {
+  /* Il difetto (18/08): la schermata finiva nel bucket e la mail non la nominava mai. Chi la
+     riceveva pensava fosse andata persa. Ora è ALLEGATA, e la mail lo dice sopra al prompt. */
+  const senza = buildFeedbackEmail(base);
+  assertStringIncludes(senza.html, "Nessuna schermata allegata");
+  assertEquals(feedbackAttachment(base), null);
+
+  const con = { ...base, screenshot: "data:image/jpeg;base64,QUJD" };
+  assertStringIncludes(buildFeedbackEmail(con).html, "Schermata allegata a questa email");
+  assertStringIncludes(buildFeedbackPrompt(con), "Schermata allegata: sì");
+  assertStringIncludes(buildFeedbackPrompt(base), "Schermata allegata: no");
+
+  const a = feedbackAttachment(con)!;
+  assertEquals(a.filename, "segnalazione.jpg");   // jpeg → jpg, come nel bucket
+  assertEquals(a.content, "QUJD");                // solo base64: il prefisso data: lo mangia Resend
+  assertEquals(feedbackAttachment({ ...base, screenshot: "data:image/png;base64,Rk9P" })!.filename, "segnalazione.png");
+  assertEquals(feedbackAttachment({ ...base, screenshot: "non un data url" }), null);
 });

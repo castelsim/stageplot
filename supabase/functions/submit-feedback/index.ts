@@ -2,7 +2,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validateFeedback } from "../_shared/feedback-validation.ts";
-import { buildFeedbackEmail } from "../_shared/feedback-prompt.ts";
+import { buildFeedbackEmail, feedbackAttachment } from "../_shared/feedback-prompt.ts";
 import { sendEmail } from "../_shared/email.ts";
 import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
 
@@ -89,7 +89,11 @@ Deno.serve(async (req) => {
   // Email best-effort col prompt Claude (se fallisce, la riga è già salvata)
   try {
     const { subject, html } = buildFeedbackEmail(f);
-    await sendEmail({ apiKey: Deno.env.get("RESEND_API_KEY")!, to: Deno.env.get("NOTIFY_EMAIL")!, subject, html });
+    const shot = feedbackAttachment(f);   // la schermata viaggia con la mail: nel bucket scade a 30 giorni
+    await sendEmail({
+      apiKey: Deno.env.get("RESEND_API_KEY")!, to: Deno.env.get("NOTIFY_EMAIL")!, subject, html,
+      ...(shot ? { attachments: [shot] } : {}),
+    });
   } catch (e) { console.error("email feedback fallita:", e); }
 
   return json({ ok: true, id: row.id });

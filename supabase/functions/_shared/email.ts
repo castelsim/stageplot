@@ -38,12 +38,15 @@ export function buildEmailHtml(
   return { subject, html };
 }
 
+export type EmailAttachment = { filename: string; content: string };   // content = base64, senza il prefisso data:
+
 export async function sendEmail(args: {
   apiKey: string;
   to: string;
   subject: string;
   html: string;
   idempotencyKey?: string;
+  attachments?: EmailAttachment[];
 }): Promise<{ ok: boolean; status: number }> {
   const headers: Record<string, string> = {
     "Authorization": `Bearer ${args.apiKey}`,
@@ -58,6 +61,9 @@ export async function sendEmail(args: {
       to: [args.to],
       subject: args.subject,
       html: args.html,
+      // Gli allegati esistono per la schermata delle segnalazioni: nella posta si guarda subito,
+      // senza andare a ripescarla dal bucket — che a 30 giorni la cancella.
+      ...(args.attachments?.length ? { attachments: args.attachments } : {}),
     }),
   });
   return { ok: res.ok, status: res.status };
