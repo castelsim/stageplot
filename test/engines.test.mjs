@@ -10745,6 +10745,7 @@ t("il box del feedback sta dentro la colonna, e la testata è il suo interruttor
 });
 
 t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
   /* `#props` sotto gli 880 px è un drawer con display:none: lasciandoci dentro il box, chi segnala
      dal telefono non lo vedrebbe mai. Esce, e chiudendosi torna al suo posto — o al giro dopo su
      desktop si troverebbe fuori dalla colonna. */
@@ -10753,8 +10754,25 @@ t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
   ok(/casaSua\.appendChild\(box\)/.test(f), "e torna nella colonna quando lo schermo è largo");
   ok(/max-width:880px/.test(appjs.slice(appjs.indexOf("function mobile()"), appjs.indexOf("function mobile()") + 140)),
      "la soglia è la stessa del CSS che nasconde la colonna");
-  ok(/#props #fbBox input\[type="checkbox"\]\{width:auto/.test(stylesCss),
-     "e la casella non si prende tutta la riga: dentro la colonna vale #props input{width:100%}");
+  /* «Allega il mio progetto» è un interruttore, e nel pannello destro gli interruttori si vestono
+     con `.chk`. Il tampone `width:auto` che avevo messo prima era un difetto peggiore del difetto:
+     su un `appearance:none` la larghezza andava a ZERO e restava solo il pallino sospeso. */
+  ok(/class="fb-attach chk"/.test(html),
+     "la casella «Allega il mio progetto» porta la classe chk del pannello destro");
+  ok(!/#fbBox input\[type="checkbox"\]\{width:auto/.test(stylesCss),
+     "e nessuno le rimette width:auto: su appearance:none vuol dire larghezza zero");
+  ok(/#props \.chk input\{[^}]*width:36px/.test(stylesCss),
+     "perché è `.chk input` a dare la misura dell'interruttore");
+  /* Su telefono il box esce da #props, dove `.chk` non lo raggiunge più: senza questa ripetizione
+     l'interruttore starebbe a sinistra sul telefono e a destra sul computer. */
+  ok(/#fbBox \.fb-attach\{display:flex;flex-direction:row-reverse/.test(stylesCss),
+     "e l'interruttore sta a destra anche fuori dalla colonna, come ogni opzione del pannello");
+  ok(/#props #fbBox \.fb-attach\{[^}]*margin-bottom:12px/.test(stylesCss),
+     "e «Invia» non resta incollato alla riga: `.chk` porta margin:0 e vince");
+  /* In fondo alla colonna vuol dire appoggiato al bordo basso, non appena sotto l'ultima sezione. */
+  ok(/#props\{display:flex;flex-direction:column\}/.test(stylesCss) &&
+     /#props #fbBox\{margin-top:auto\}/.test(stylesCss),
+     "e la card sta IN FONDO alla colonna, non a metà quando le Liste sono corte");
   /* Sul telefono il box resta quello di sempre (richiesta di Simone): pannello in basso, si apre dal
      menu «?» e si chiude con la ✕. Non è una fisarmonica — toccare l'intestazione mentre si scrive
      non deve farlo sparire. */

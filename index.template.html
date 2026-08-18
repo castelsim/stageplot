@@ -1202,7 +1202,11 @@
       <span class="s">Incolla · trascinala qui · o tocca per sceglierla</span>
     </div>
     <input type="file" id="fbShotFile" accept="image/*" hidden>
-    <label class="fb-attach" id="fbAttachRow" style="display:none">
+    <!-- `chk` è la classe con cui il pannello destro veste i suoi interruttori (36×20, pillola piena).
+         Senza, vinceva #props input{width:100%} e la casella si prendeva tutta la riga; il tampone
+         `width:auto` che avevo messo era peggio del male: su un appearance:none la larghezza andava a
+         ZERO e dell'interruttore restava solo il pallino. -->
+    <label class="fb-attach chk" id="fbAttachRow" style="display:none">
       <input type="checkbox" id="fbAttach"> Allega il mio progetto</label>
     <!-- honeypot anti-bot: nascosto agli umani -->
     <input type="text" id="fbHp" tabindex="-1" autocomplete="off"

@@ -2123,9 +2123,17 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 /* «Cosa manca?» vive DENTRO la colonna di destra (scelta di Simone, 17/08, variante B): una card in
    fondo alle Liste. Da chiusa è una riga; aprendosi spinge l'elenco verso l'alto invece di coprirlo
    — così non si sovrappone mai a quello che stavi guardando. Prima galleggiava sopra il contenuto:
-   326 px di larghezza contro i 310 della colonna, cioè per forza fuori. */
+   326 px di larghezza contro i 310 della colonna, cioè per forza fuori.
+
+   IN FONDO alla colonna, non appena sotto l'ultima sezione: con le Liste corte restavano 417 px di
+   colonna vuota SOTTO la card, e «in fondo» letto da un occhio vuol dire appoggiato al bordo basso.
+   Ci vuole il `margin-top:auto` di un contenitore flex — `#props` diventa una colonna flex, e i suoi
+   figli restano larghi uguale (align-items:stretch è il default). Su telefono #props torna `block`
+   (regola del bottom sheet), quindi là questo non si applica e il box esce comunque nel body. */
+#props{display:flex;flex-direction:column}
+#props #fbBox{margin-top:auto}
 #fbBox{margin:14px -12px -12px;border-top:1px solid var(--border);background:var(--surface);
-  color:var(--text);display:block}
+  color:var(--text);display:block;flex:0 0 auto}
 #fbBox .fb-testata{display:flex;align-items:stretch}
 #fbBox .fb-head{display:flex;align-items:center;gap:8px;flex:1;padding:11px 14px;
   background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -2145,13 +2153,17 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #fbBox .fb-chip{flex:1;text-align:center;font-size:12px;font-weight:600;padding:6px 0;border-radius:8px;
   background:var(--bg);border:1px solid var(--border);color:var(--text-2);cursor:pointer}
 #fbBox .fb-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
-#fbBox .fb-attach{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);margin-bottom:12px}
-/* Dentro la colonna vale `#props input{width:100%}`: la casella si prendeva tutta la riga e
-   spingeva «Allega il mio progetto» FUORI dal pannello (visto nello screenshot, non nel calcolo —
-   il testo che sborda è un nodo di testo, e misurando i soli elementi risultava tutto dentro).
-   Serve la doppia id per vincere: #props #fbBox. */
-#props #fbBox input[type="checkbox"]{width:auto;flex:0 0 auto;margin:0}
-#props #fbBox .fb-attach{flex-wrap:nowrap}
+/* Etichetta a sinistra, interruttore a destra: la forma che hanno tutte le opzioni del pannello
+   (`#props .chk`, row-reverse). La ripeto qui perché su telefono il box esce dalla colonna, e fuori
+   da #props quella regola non lo raggiunge: senza, la stessa riga avrebbe l'interruttore a sinistra
+   sul telefono e a destra sul computer. */
+#fbBox .fb-attach{display:flex;flex-direction:row-reverse;justify-content:space-between;
+  align-items:center;gap:10px;font-size:12.5px;color:var(--text-2);margin-bottom:12px}
+/* La casella «Allega il mio progetto» si veste con `.chk` nel markup, come ogni interruttore del
+   pannello destro: quella classe porta già width:36px e batte `#props input{width:100%}`. Qui resta
+   solo il gap del flex (`.chk` è pensata per un layout in flusso, dove il margine lo dà l'input). */
+#props #fbBox .fb-attach{flex-wrap:nowrap;margin-bottom:12px}   /* `.chk` porta margin:0 e vinceva: «Invia» finiva incollato alla riga, 0 px di respiro */
+#props #fbBox .fb-attach input[type="checkbox"]{margin:0}
 #props #fbBox textarea{width:100%}
 /* ==== SCHERMATA nel feedback (17/08) ==== */
 #fbBox .fb-shotbtn{width:100%;margin-bottom:8px;padding:9px 0;font-size:12.5px;font-weight:600;cursor:pointer;
