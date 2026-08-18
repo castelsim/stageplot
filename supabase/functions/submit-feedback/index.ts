@@ -59,6 +59,14 @@ Deno.serve(async (req) => {
 
   // Schermata: prima sul bucket, poi il riferimento nella riga. Se il caricamento fallisce la
   // segnalazione parte lo stesso senza allegato — il messaggio di chi scrive vale più della foto.
+  //
+  // DUE COPIE, DI PROPOSITO (decisione di Simone, 18/08). Il bucket e l'allegato della mail sono
+  // strade indipendenti: l'allegato si costruisce da f.screenshot, cioè dal corpo di QUESTA
+  // richiesta, non rileggendo il bucket. Se il caricamento qui sotto fallisce, la mail parte lo
+  // stesso con l'immagine attaccata. La copia nel bucket serve perché la mail è best-effort (sta
+  // in un try che al massimo scrive nel log): senza bucket, una mail non consegnata porterebbe via
+  // la schermata per sempre. E il triage da riga di comando (ops/segnalazioni.sh) legge da lì.
+  // Il bucket scade a 30 giorni, la mail dura quanto la tieni.
   let screenshotPath: string | null = null;
   if (f.screenshot) {
     try {
