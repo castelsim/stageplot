@@ -8326,7 +8326,9 @@ function guideDialog(o){
   function close(){ document.removeEventListener("keydown", onKey, true); ov.remove(); }
   function onKey(e){ if(e.key==="Escape"){ e.stopPropagation(); close(); } }
   var cancel=document.createElement("button"); cancel.type="button"; cancel.className="btn";
-  cancel.textContent=o.action?"Annulla":"Ho capito";
+  /* «Ho capito» è la parola giusta quando la finestra spiega che manca qualcosa; per una conferma
+     («inviato») serve un congedo, non un'ammissione: o.okLabel lo lascia scegliere a chi chiama. */
+  cancel.textContent=o.okLabel || (o.action?"Annulla":"Ho capito");
   cancel.addEventListener("click", close);
   row.appendChild(cancel);
   if(o.action){
@@ -28421,10 +28423,21 @@ function maybeAskStageSize(explicit){
       .then(function(res){
         send.disabled=false;
         if(res.status===200 && res.j.ok){
-          result.style.display="block"; result.style.color="var(--accent)"; result.textContent="Ricevuto, grazie!";
+          /* Prima la conferma era una riga dentro il box, e il box si chiudeva da solo dopo 1,4 s:
+             chi guardava altrove non vedeva NIENTE e restava col dubbio di aver inviato. Ora è una
+             finestra, che resta finché non la chiudi tu (richiesta di Simone, 18/08). */
+          var conSchermata = !!_fbShotData;
+          result.style.display="none";
           msg.value=""; count.textContent="0";
           shotVuoto();   /* anche la schermata: il box che riapre con dentro l'immagine di ieri è una trappola */
-          setTimeout(closeBox,1400);
+          closeBox();
+          if(typeof guideDialog==="function") guideDialog({
+            title:"Segnalazione inviata",
+            msg:"Grazie: è arrivata." + (conSchermata ? " Con la schermata che hai allegato." : "") +
+                " Le leggiamo una per una.",
+            okLabel:"Chiudi"
+          });
+          else { result.style.display="block"; result.style.color="var(--accent)"; result.textContent="Ricevuto, grazie!"; }
         } else {
           result.style.display="block"; result.style.color="var(--danger)";
           result.textContent=res.status===429 ? "Hai inviato troppi feedback, riprova più tardi." : "Non è stato possibile inviare, riprova.";

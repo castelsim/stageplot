@@ -10747,6 +10747,20 @@ t("il box del feedback sta dentro la colonna, e la testata è il suo interruttor
 /* ============ il ritaglio della schermata: geometria ============
    Provata coi numeri, non col DOM: le coordinate sono pixel della SCHERMATA catturata (l'immagine
    che si vede è la stessa scalata da object-fit:contain, e quella conversione è a parte). */
+t("a invio riuscito la conferma è una finestra, non una riga che sparisce", () => {
+  /* Prima: «Ricevuto, grazie!» dentro il box, e il box si chiudeva da solo dopo 1,4 s. Chi
+     guardava altrove non vedeva niente e restava col dubbio di aver inviato (Simone, 18/08). */
+  const i = appjs.indexOf("res.status===200 && res.j.ok");
+  const blocco = appjs.slice(i, i + 900);   // «ok» avrebbe oscurato la funzione ok() del file
+  ok(/guideDialog\(\{/.test(blocco), "la conferma passa dalla finestra del progetto, non da un avviso nuovo");
+  ok(/title:"Segnalazione inviata"/.test(blocco), "e dice che è inviata");
+  ok(!/setTimeout\(closeBox,\s*1400\)/.test(blocco), "il box non si chiude più da solo dopo 1,4 s: chiude subito e resta la finestra");
+  ok(/conSchermata\s*\?/.test(blocco), "e nomina la schermata solo se davvero ne è partita una");
+  ok(/okLabel:"Chiudi"/.test(blocco), "il pulsante è un congedo, non «Ho capito»");
+  /* guideDialog deve davvero saper leggere okLabel, o l'etichetta resterebbe quella di default */
+  ok(/cancel\.textContent=o\.okLabel \|\|/.test(appjs), "e guideDialog onora okLabel");
+});
+
 t("il ritaglio si apre con un rettangolo già disegnato, al centro", () => {
   const C = A.CROP;
   const r = C.iniziale(1600, 900);
