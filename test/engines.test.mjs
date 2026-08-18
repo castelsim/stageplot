@@ -10074,12 +10074,33 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
 });
 
 /* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
+t("l'audit non è una card del catalogo, ma si trova cercandolo", () => {
+  /* Segnalazione 6458fdd9: il catalogo di sinistra è quello che si POSA sul palco; l'audit è un
+     controllo, e stava fra le card solo perché la categoria che lo ospitava era stata rimossa.
+     Toglierlo è facile: il costo sarebbe una funzione che nessuno raggiunge più, quindi qui si
+     pretende che resti nell'indice della ricerca, con le parole con cui uno lo cerca davvero. */
+  const i = appjs.indexOf('makeActionBtn("Pedana"');
+  const zona = appjs.slice(i, appjs.indexOf('["metro","testo"]', i));
+  ok(!/pin\.appendChild\(makeActionBtn\("Audit progetto"/.test(zona),
+     "l'audit non è più una card fissa del catalogo");
+  ok(/pin\.appendChild\(makeActionBtn\("Planimetria"/.test(zona),
+     "ma le altre card ci sono ancora: non ho svuotato la sezione");
+  const voce = appjs.slice(appjs.indexOf('entries.push({nome:"Audit progetto"'), appjs.indexOf('entries.push({nome:"Audit progetto"') + 320);
+  ok(/action:toggleAuditView/.test(voce), "la voce cercabile porta ancora all'audit");
+  ["audit", "verifica", "controlla", "manca"].forEach(k =>
+    ok(voce.includes(k), `e si trova cercando «${k}»`));
+});
+
 t("il menu File resta essenziale, e ogni voce ha la sua azione", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const menu = html.slice(html.indexOf('id="fileMenu"'), html.indexOf('id="helpMenu"'));
   const voci = [...menu.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]);
-  eq(voci.length, 5, "cinque voci, non una di più: " + voci.join(", "));
-  ["new", "projects", "rubrica", "save", "variant-new"].forEach(v =>
+  /* Il 13/08 questo menu è passato da 17 voci a 5, e il numero era il punto. Il 18/08 Simone ha
+     chiesto Produzione qui dentro: sono sei, e la sesta si giustifica da sola — l'app diceva GIÀ
+     «assegnalo in File → Produzione» mentre il comando stava nell'header. Il numero resta bloccato
+     perché è quello che tiene lontane le altre sedici. */
+  eq(voci.length, 6, "sei voci, non una di più: " + voci.join(", "));
+  ["new", "projects", "produzione", "rubrica", "save", "variant-new"].forEach(v =>
     ok(voci.indexOf(v) > -1, "c'è la voce «" + v + "»"));
   /* Il difetto storico di questo menu è la voce che resta scritta e perde il suo comando
      (stageplot_menu_file_comandi_persi): qui si pretende che ogni data-file compaia nella mappa
@@ -10094,8 +10115,11 @@ t("niente di quello che è uscito dal menu è diventato irraggiungibile", () => 
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   /* Ogni riga: cosa è uscito → dove si trova adesso. È il test che discrimina davvero — cancellare
      una voce è facile, il costo è la funzione che nessuno raggiunge più. */
-  ok(/id="bProdHdr"/.test(html), "Produzione: pulsante nell'header");
-  ok(/getElementById\("bProdHdr"\)[\s\S]{0,120}openProdHub/.test(appjs), "e apre davvero l'hub");
+  /* Produzione è tornata nel menu File (segnalazione 570478a6): il pulsante nell'header non c'è
+     più, e quello che conta è che l'hub resti raggiungibile — la voce del menu deve chiamarlo. */
+  ok(!/id="bProdHdr"/.test(html), "Produzione: il pulsante nell'header è sparito");
+  ok(/data-file="produzione"/.test(html), "ed è una voce del menu File");
+  ok(/"produzione":function\(\)\{[^}]*openProdHub/.test(appjs), "che apre davvero l'hub");
   ok(/id="cloudVersioni"/.test(appjs), "Punti di ripristino: link in «I miei progetti»");
   ok(/cloudVersioni[\s\S]{0,300}toggleVersionEdit/.test(appjs), "e apre davvero il pannello versioni");
   eq(appjs.split('id="cloudVersioni"').length - 1, 2, "in ENTRAMBI i rami: le versioni sono locali, servono anche senza account");
