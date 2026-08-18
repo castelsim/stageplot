@@ -10744,6 +10744,97 @@ t("il box del feedback sta dentro la colonna, e la testata è il suo interruttor
   ok(/testa\.addEventListener\("click"/.test(appjs), "e apre e chiude");
 });
 
+/* ============ il ritaglio della schermata: geometria ============
+   Provata coi numeri, non col DOM: le coordinate sono pixel della SCHERMATA catturata (l'immagine
+   che si vede è la stessa scalata da object-fit:contain, e quella conversione è a parte). */
+t("il ritaglio si apre con un rettangolo già disegnato, al centro", () => {
+  const C = A.CROP;
+  const r = C.iniziale(1600, 900);
+  eq(Math.round(r.x + r.w/2), 800, "centrato in orizzontale");
+  eq(Math.round(r.y + r.h/2), 450, "e in verticale");
+  ok(r.w < 1600 && r.h < 900, "e più piccolo della schermata: si deve vedere che è un rettangolo dentro qualcosa");
+  ok(r.w > 1600*0.3 && r.h > 900*0.3, "ma non un francobollo");
+  /* schermate strette (un telefono in verticale) e larghissime (due monitor): resta dentro comunque */
+  for(const [W,H] of [[390,844],[3840,1080],[100,100]]){
+    const q = C.iniziale(W,H);
+    ok(q.x>=0 && q.y>=0 && q.x+q.w<=W && q.y+q.h<=H, `dentro anche su ${W}×${H}`);
+  }
+});
+
+t("il rettangolo si sposta prendendolo dentro, e non esce dalla schermata", () => {
+  const C = A.CROP, W = 1000, H = 800;
+  const R0 = {x:100, y:100, w:400, h:300};
+  const a = C.sposta(R0, 50, -40, W, H);
+  eq(a.x, 150, "segue il dito in orizzontale");
+  eq(a.y, 60,  "e in verticale");
+  eq(a.w, 400, "senza cambiare misura");
+  const fuga = C.sposta(R0, 9999, 9999, W, H);
+  eq(fuga.x, W - R0.w, "spinto oltre il bordo destro si ferma lì");
+  eq(fuga.y, H - R0.h, "e sul bordo basso");
+  eq(fuga.w + fuga.x, W, "restando largo uguale");
+  const fuga2 = C.sposta(R0, -9999, -9999, W, H);
+  eq(fuga2.x, 0, "e a sinistra"); eq(fuga2.y, 0, "e in alto");
+});
+
+t("ogni maniglia muove SOLO il suo lato", () => {
+  const C = A.CROP, W = 1000, H = 800;
+  const R0 = {x:200, y:200, w:400, h:300};
+  const se = C.ridimensiona(R0, "se", 60, 40, W, H);
+  eq(se.x, 200, "l'angolo in basso a destra non sposta l'origine");
+  eq(se.w, 460, "allarga"); eq(se.h, 340, "e allunga");
+  const nw = C.ridimensiona(R0, "nw", 60, 40, W, H);
+  eq(nw.x, 260, "quello in alto a sinistra sposta l'origine");
+  eq(nw.w, 340, "e stringe"); eq(nw.y, 240, ""); eq(nw.h, 260, "");
+  const e = C.ridimensiona(R0, "e", 60, 999, W, H);
+  eq(e.h, 300, "il lato destro non tocca l'altezza");
+  eq(e.w, 460, "solo la larghezza");
+  const n = C.ridimensiona(R0, "n", 999, -50, W, H);
+  eq(n.w, 400, "il lato alto non tocca la larghezza");
+  eq(n.y, 150, "alza il bordo"); eq(n.h, 350, "e allunga di conseguenza");
+});
+
+t("tirando una maniglia oltre il lato opposto il rettangolo non si rovescia", () => {
+  const C = A.CROP, W = 1000, H = 800;
+  const R0 = {x:200, y:200, w:400, h:300};
+  const q = C.ridimensiona(R0, "nw", 9999, 9999, W, H);
+  ok(q.w >= C.MIN && q.h >= C.MIN, "resta almeno grande quanto il minimo");
+  eq(q.x + q.w, R0.x + R0.w, "ancorato al lato che non stai toccando (destro)");
+  eq(q.y + q.h, R0.y + R0.h, "e a quello basso");
+  const z = C.ridimensiona(R0, "se", -9999, -9999, W, H);
+  eq(z.x, R0.x, "dall'altra parte è l'origine a restare ferma");
+  eq(z.w, C.MIN, "e la larghezza si ferma al minimo");
+});
+
+t("trascinando fuori dal rettangolo se ne disegna uno nuovo, in qualunque verso", () => {
+  const C = A.CROP, W = 1000, H = 800;
+  const giu = C.nuovo(100, 100, 300, 250, W, H);
+  eq(giu.x, 100, ""); eq(giu.w, 200, ""); eq(giu.h, 150, "");
+  const su = C.nuovo(300, 250, 100, 100, W, H);   /* trascinato all'indietro: stesso rettangolo */
+  eq(su.x, giu.x, "partendo dall'angolo opposto viene lo stesso rettangolo");
+  eq(su.y, giu.y, ""); eq(su.w, giu.w, ""); eq(su.h, giu.h, "");
+  const oltre = C.nuovo(900, 700, 5000, 5000, W, H);
+  ok(oltre.x + oltre.w <= W && oltre.y + oltre.h <= H, "e non sfonda i bordi della schermata");
+});
+
+t("il ritaglio ha maniglie vere, e sul telefono sono larghe un dito", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const sel = html.slice(html.indexOf('id="fbCropSel"'), html.indexOf('id="fbCropSel"') + 700);
+  for(const p of ["nw","ne","sw","se","n","s","w","e"])
+    ok(new RegExp('data-p="'+p+'"').test(sel), `c'è la maniglia ${p}`);
+  ok(/#fbCrop \.sel\{[^}]*box-shadow:0 0 0 9999px/.test(stylesCss),
+     "il fuori è oscurato dall'ombra del rettangolo, così il dentro resta pulito");
+  ok(!/#fbCrop[^{]*\.terzi/.test(stylesCss), "niente griglia dei terzi (scelta di Simone: serve alla fotografia, non a un ritaglio)");
+  const tocco = stylesCss.slice(stylesCss.indexOf("@media (max-width:880px), (pointer:coarse)"));
+  /* `[data-p]` e non `.m`: le regole per singola maniglia portano un attributo e vincerebbero.
+     Il primo tentativo passava questo test e nel browser il bersaglio restava di 13 px — un test
+     sul testo del CSS non vede la specificità, e va letto sapendolo. */
+  ok(/#fbCrop \.sel \.m\[data-p\]\{[^}]*width:44px;height:44px/.test(tocco),
+     "dove si tocca la maniglia misura 44 px, con la specificità giusta per vincere");
+  ok(/#fbCrop \.sel \.m::before\{[^}]*width:13px/.test(tocco), "ma il quadratino disegnato resta piccolo: cresce l'area, non il disegno");
+  ok(/data-p=n\],#fbCrop \.sel \.m\[data-p=s\][\s\S]{0,90}display:none/.test(tocco),
+     "e sul telefono restano i 4 angoli: otto bersagli da 44 px si toccherebbero fra loro");
+});
+
 t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   /* `#props` sotto gli 880 px è un drawer con display:none: lasciandoci dentro il box, chi segnala
