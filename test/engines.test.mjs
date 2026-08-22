@@ -10084,6 +10084,32 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
 });
 
 /* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
+t("l'email personale non finisce nella LOGICA del codice", () => {
+  /* Distinzione che conta. Nella landing l'indirizzo è pubblicato APPOSTA — «dietro c'è una persona
+     sola, con nome, cognome e indirizzo, non un modulo di contatto»: è l'argomento della sezione, e
+     un `mailto:` è lì per essere usato. Nel codice no: serviva a marcare gli eventi del fondatore
+     nelle metriche, dove un id fa lo stesso lavoro. Un indirizzo dentro la logica non lo legge
+     nessun umano, solo gli scraper.
+     Quindi: vietato ovunque TRANNE che in un mailto o in un link a un profilo pubblico. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const landing = readFileSync(join(root, "index.html"), "utf8");
+  const mail = /[a-zA-Z0-9._%+-]+@(?!stageplot\.it|esempio\.it|x\.it|example\.)[a-zA-Z0-9.-]+\.[a-z]{2,}/g;
+  const dichiarata = (testo, e, i) => {
+    const intorno = testo.slice(Math.max(0, i - 120), i + e.length + 40);
+    return /mailto:/.test(intorno) || />\s*$/.test(testo.slice(Math.max(0, i - 2), i));
+  };
+  for (const [nome, testo] of [["app.js", appjs], ["app/index.html", html], ["index.html", landing]]) {
+    const nascoste = [...testo.matchAll(mail)]
+      .filter(m => !/schema\.org|@type|@id|@context|w3\.org|noreply|sentry|googleapis/.test(m[0]))
+      .filter(m => !dichiarata(testo, m[0], m.index))
+      .map(m => m[0]);
+    eq(nascoste.join(", "), "", `email dentro la logica di ${nome}`);
+  }
+  ok(/cloudUser\.id === FOUNDER_ID/.test(appjs), "il fondatore si riconosce dall'id dell'account");
+  ok(/var FOUNDER_ID = "[0-9a-f-]{36}"/.test(appjs), "e l'id è un uuid, non un indirizzo");
+  ok(!/toLowerCase\(\)==="[a-z.]+@/.test(appjs), "nessun confronto con un indirizzo scritto a mano");
+});
+
 t("l'audit non è una card del catalogo, ma si trova cercandolo", () => {
   /* Segnalazione 6458fdd9: il catalogo di sinistra è quello che si POSA sul palco; l'audit è un
      controllo, e stava fra le card solo perché la categoria che lo ospitava era stata rimossa.
