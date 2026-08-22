@@ -9509,8 +9509,15 @@ t("la dimostrazione «una modifica, tutto aggiornato» è completa", () => {
     ok(landing.indexOf("'" + k + "'") > -1 || landing.indexOf('add-' + k) > -1, "il JS collega " + k);
   }
   ok(landing.indexOf('id="syReset"') > -1, "si può ricominciare");
-  /* il claim dell'hero e la promessa della sezione devono dire la stessa cosa */
-  ok(/il rider si costruisce da solo/i.test(landing), "l'H1 porta la promessa");
+  /* Il claim dell'hero e la promessa di questa sezione devono dire la stessa cosa. Dal 22/08 l'H1
+     porta il differenziatore — «in scala», parola che compariva dodici volte in pagina e mai nel
+     titolo — e la promessa del rider è scesa nel sottotitolo. Vanno presidiati SEPARATAMENTE: un
+     test sull'intera pagina resterebbe verde anche se il sottotitolo perdesse la promessa, perché
+     la frase ricorre altrove. */
+  const h1 = (landing.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1] || "";
+  ok(/in scala/i.test(h1), "l'H1 porta il differenziatore: " + h1.replace(/<[^>]*>/g, " ").trim());
+  const subHero = (landing.match(/<p class="sub">([\s\S]*?)<\/p>/) || [])[1] || "";
+  ok(/il rider si costruisce da solo/i.test(subHero), "e il sottotitolo dell'hero porta la promessa");
 });
 
 t("l'anteprima social ha la forma che i social pretendono", () => {
