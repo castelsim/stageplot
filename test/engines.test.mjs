@@ -9509,8 +9509,15 @@ t("la dimostrazione «una modifica, tutto aggiornato» è completa", () => {
     ok(landing.indexOf("'" + k + "'") > -1 || landing.indexOf('add-' + k) > -1, "il JS collega " + k);
   }
   ok(landing.indexOf('id="syReset"') > -1, "si può ricominciare");
-  /* il claim dell'hero e la promessa della sezione devono dire la stessa cosa */
-  ok(/il rider si costruisce da solo/i.test(landing), "l'H1 porta la promessa");
+  /* Il claim dell'hero e la promessa di questa sezione devono dire la stessa cosa. Dal 22/08 l'H1
+     porta il differenziatore — «in scala», parola che compariva dodici volte in pagina e mai nel
+     titolo — e la promessa del rider è scesa nel sottotitolo. Vanno presidiati SEPARATAMENTE: un
+     test sull'intera pagina resterebbe verde anche se il sottotitolo perdesse la promessa, perché
+     la frase ricorre altrove. */
+  const h1 = (landing.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1] || "";
+  ok(/in scala/i.test(h1), "l'H1 porta il differenziatore: " + h1.replace(/<[^>]*>/g, " ").trim());
+  const subHero = (landing.match(/<p class="sub">([\s\S]*?)<\/p>/) || [])[1] || "";
+  ok(/il rider si costruisce da solo/i.test(subHero), "e il sottotitolo dell'hero porta la promessa");
 });
 
 t("l'anteprima social ha la forma che i social pretendono", () => {
@@ -9535,6 +9542,9 @@ t("l'anteprima social ha la forma che i social pretendono", () => {
    `body{overflow-x:hidden}` rende quella misura sempre verde per costruzione, e intanto quattro
    blocchi erano tagliati dentro il loro contenitore. Si vedeva solo guardando lo screenshot.
    Questi test presidiano le cause, che sono tutte nel CSS. */
+const giornoLocale = (d = new Date()) =>
+  d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+
 const mq = (maxpx) => {          /* TUTTI i blocchi @media(max-width:Npx): nel file sono più d'uno */
   const tag = "@media(max-width:" + maxpx + "px)";
   let out = "", i = landing.indexOf(tag);
@@ -10221,6 +10231,11 @@ t("il registro delle modifiche dice il vero, ed è ancora fresco", () => {
      Ferma da mesi dimostra l'opposto di quello per cui esiste, ed è il modo tipico in cui questa
      idea si ritorce contro: nessuno se ne accorge, perché la pagina continua a funzionare.
      Qui il test fa da promemoria: oltre i 120 giorni o si aggiorna o si toglie. */
+  /* Le date del sito sono GIORNI LOCALI: `allinea-date.mjs` le prende da `git log --format=%cs`,
+     che stampa la data del committer nel suo fuso. Confrontarle con un istante UTC — com'era
+     fatto qui, `new Date(iso + "T12:00:00Z") > new Date()` — rende «futura» qualunque pagina
+     toccata oggi fino alle 12:00 UTC: la suite diventava rossa ogni mattina, per un difetto suo.
+     Si confrontano giorni con giorni, come stringhe ISO, che sono ordinabili così come sono. */
   const sez = landing.slice(landing.indexOf('class="registro"'));
   const voci = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">([^<]+)<\/time>\s*<p>([\s\S]*?)<\/p>/g)]
     .map((m) => ({ iso: m[1], mostrata: m[2], testo: m[3].replace(/<[^>]+>/g, "").trim() }));
@@ -10230,7 +10245,7 @@ t("il registro delle modifiche dice il vero, ed è ancora fresco", () => {
   for (const v of voci) {
     const d = new Date(v.iso + "T12:00:00Z");
     ok(!isNaN(d), "data leggibile dalla macchina: " + v.iso);
-    ok(d <= oggi, "nessuna voce datata nel futuro: " + v.iso);
+    ok(v.iso <= giornoLocale(oggi), "nessuna voce datata nel futuro: " + v.iso);
     ok(v.testo.length > 30, "ogni voce dice cosa è cambiato, non solo che è cambiato: «" + v.testo.slice(0, 40) + "…»");
     /* la data mostrata deve corrispondere a quella leggibile dalla macchina: due date diverse
        nello stesso elemento sono una bugia che nessuno noterebbe */
@@ -10317,7 +10332,7 @@ t("le due date di ogni pagina dicono la stessa cosa", () => {
     const rel = url.replace("https://stageplot.it/", "");
     const file = join(root, rel === "" ? "index.html" : rel.replace(/\/$/, "") + "/index.html");
     ok(/^\d{4}-\d{2}-\d{2}$/.test(lastmod), url + ": data in formato ISO");
-    if (new Date(lastmod + "T12:00:00Z") > oggi) future.push(url + " " + lastmod);
+    if (lastmod > giornoLocale(oggi)) future.push(url + " " + lastmod);
     const html = readFileSync(file, "utf8");
     const dm = (html.match(/"dateModified"\s*:\s*"([^"]+)"/) || [])[1];
     if (dm && dm !== lastmod) divergenti.push(`${rel || "/"} sitemap=${lastmod} schema=${dm}`);

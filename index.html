@@ -44,7 +44,7 @@ addEventListener("hashchange", go);})();</script>
 <meta name="theme-color" content="#0a0e0e">
 <meta name="author" content="Simone Castellan">
 <meta name="description" content="Disegna lo stage plot nel browser: channel list, monitor, elettrico e rider PDF nascono dal disegno e restano allineati. Gratis, in italiano, senza account.">
-<title>StagePlot — disegna il palco, il rider si costruisce da solo</title>
+<title>StagePlot — disegna il palco in scala, il rider esce con lui</title>
 <link rel="canonical" href="https://stageplot.it/">
 <link rel="icon" href="/favicon.ico?v=3" sizes="48x48">
 <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml">
@@ -53,7 +53,7 @@ addEventListener("hashchange", go);})();</script>
 <meta property="og:type" content="website">
 <meta property="og:locale" content="it_IT">
 <meta property="og:site_name" content="StagePlot">
-<meta property="og:title" content="StagePlot — disegna il palco, il rider si costruisce da solo">
+<meta property="og:title" content="StagePlot — disegna il palco in scala, il rider esce con lui">
 <meta property="og:description" content="Stage plot, channel list, monitor, elettrico e luci restano collegati nello stesso progetto. Gratis, nel browser, senza registrazione.">
 <meta property="og:url" content="https://stageplot.it/">
 <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
@@ -61,7 +61,7 @@ addEventListener("hashchange", go);})();</script>
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="StagePlot — disegna il palco, il rider si costruisce da solo">
+<meta name="twitter:title" content="StagePlot — disegna il palco in scala, il rider esce con lui">
 <meta name="twitter:description" content="Stage plot, channel list, monitor, elettrico e luci restano collegati nello stesso progetto. Gratis, nel browser, senza registrazione.">
 <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
 <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
@@ -141,14 +141,14 @@ addEventListener("hashchange", go);})();</script>
       "@type": "WebPage",
       "@id": "https://stageplot.it/#webpage",
       "url": "https://stageplot.it/",
-      "name": "StagePlot — disegna il palco, il rider si costruisce da solo",
+      "name": "StagePlot — disegna il palco in scala, il rider esce con lui",
       "description": "Editor gratuito nel browser per disegnare lo stage plot in scala di un concerto e ricavarne channel list, monitor, carichi elettrici, luci e rider tecnico in PDF.",
       "inLanguage": "it",
       "isPartOf": { "@id": "https://stageplot.it/#website" },
       "about": { "@id": "https://stageplot.it/#app" },
       "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/editor.jpg", "width": 1400, "height": 643 },
       "datePublished": "2026-08-08",
-      "dateModified": "2026-08-13"
+      "dateModified": "2026-08-22"
     },
     {
       "@type": "FAQPage",
@@ -230,10 +230,15 @@ addEventListener("hashchange", go);})();</script>
       radial-gradient(900px 420px at 50% -160px, var(--glow), transparent 70%),
       radial-gradient(700px 300px at 85% 30%, rgba(20,184,166,.05), transparent 70%)}
   .kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:20px}
-  /* il claim è più lungo del precedente: se resta a 96px occupa tre righe e spinge la schermata
-     dell'editor sotto la piega, che è esattamente quello che NON deve succedere */
-  h1{font-size:clamp(38px,5.6vw,68px);line-height:1.04;letter-spacing:-.028em;font-weight:800;max-width:19ch}
-  h1 .dim{color:var(--mut)}
+  /* Il claim era stato abbassato a 68px perché quello vecchio («Il rider si costruisce da solo»)
+     a 96px faceva tre righe e spingeva la schermata dell'editor sotto la piega. Da oggi è corto —
+     due righe da 17 e 9 caratteri — e può risalire senza rischio: misurato a 390px, 768px e 1440px.
+     «in scala» è scritto MINUSCOLO nel sorgente e reso maiuscolo dal CSS, per tre motivi: il
+     letter-spacing negativo dell'h1 chiuderebbe le lettere maiuscole fino a impastarle (qui è
+     riaperto), alcuni screen reader compitano le parole tutte maiuscole nel testo, e la resa
+     resta una scelta grafica che si cambia in una riga. */
+  h1{font-size:clamp(40px,6.2vw,84px);line-height:1.02;letter-spacing:-.028em;font-weight:800;max-width:19ch}
+  h1 .scala{color:var(--teal-l);text-transform:uppercase;letter-spacing:.012em}
   .sub{margin-top:24px;font-size:clamp(17px,2vw,20px);color:var(--mut);max-width:54ch}
   .sub b{color:var(--text);font-weight:600}
   .cta-row{margin-top:32px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
@@ -630,8 +635,8 @@ addEventListener("hashchange", go);})();</script>
 
 <header><div class="wrap">
   <p class="kicker">Stage plot · scheda tecnica · rider</p>
-  <h1>Disegna il palco.<br><span class="dim">Il rider si costruisce da solo.</span></h1>
-  <p class="sub">Stage plot, channel list, monitor, cablaggi, elettrico e luci <b>restano collegati nello stesso progetto</b>: sposti un microfono e i documenti si aggiornano insieme a lui.</p>
+  <h1>Disegna il palco.<br><span class="scala">in scala.</span></h1>
+  <p class="sub"><b>Il rider si costruisce da solo</b>: channel list, monitor, cablaggi, elettrico e luci restano collegati al disegno. Sposti un microfono e i documenti si aggiornano con lui — in metri veri, non icone su una griglia.</p>
   <!-- Tre porte, non due, e il palco pronto è la prima. Il bottone primario apriva l'editor VUOTO: il
        foglio bianco è il modo più efficiente di perdere chi arriva la prima volta — e che il problema
        esistesse lo diceva già la pagina, con una domanda intitolata «Non so da dove partire».
