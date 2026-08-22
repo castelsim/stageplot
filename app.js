@@ -25101,6 +25101,9 @@ function maybeAskStageSize(explicit){
     }catch(e){ s="ephemeral"; }
     return s;
   }
+  /* L'account di chi sviluppa: i suoi eventi restano marcati e si filtrano dalle metriche.
+     È un id, non un'email: questo file è pubblico su GitHub. */
+  var FOUNDER_ID = "4b899cba-3cc2-4b26-9ef0-c3e915929277";
   window.__sendEvent=function(row){
     try{
       if(/[?&](view|export)=/.test(location.search)) return;   /* mai in viewer/consulenza */
@@ -25110,7 +25113,12 @@ function maybeAskStageSize(explicit){
       props.app_version=window.__APP_VERSION__||"";
       props.build_id=window.__BUILD_ID__||"";   /* audit L-03: identità immutabile della release (commit) */
       props.env=analyticsEnv();   /* prod / localhost / other — per filtrare il rumore di sviluppo nelle metriche */
-      props.founder=!!(cloudUser && cloudUser.email && String(cloudUser.email).toLowerCase()==="castellansimone@gmail.com");   /* SEO-05: marca i test del fondatore (email pubblica) → filtrabili con props->>'founder' nelle metriche, senza perdere il dato */
+      /* SEO-05: marca i test del fondatore, per non sporcare le metriche con le proprie prove.
+         Il confronto era sull'EMAIL, scritta in chiaro qui dentro — e questo file è pubblico su
+         GitHub: un indirizzo personale leggibile da chiunque, e raccolto dagli scraper di spam.
+         Ora si confronta l'id dell'account: identifica la stessa persona, ma non è un recapito —
+         non si può scrivere a un UUID, e senza password non apre niente. */
+      props.founder = !!(cloudUser && cloudUser.id === FOUNDER_ID);   /* filtrabili con props->>'founder' nelle metriche, senza perdere il dato */
       /* Nessun endpoint INSERT anonimo: evita spam/bulk write sul database pubblico.
          Gli eventi pre-login restano solo in memoria e vengono scartati se l'utente non accede. */
       if(!sb || !cloudUser) return;
