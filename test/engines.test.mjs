@@ -10268,6 +10268,27 @@ t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e i
   ok(/riderAlimentazioneText\(d\.elettrico\)/.test(html), "e l'HTML la prende dalla stessa funzione");
 });
 
+/* ============ audit esterno del 23/08 (Manuale operativo): i due P0, riprodotti e corretti ============ */
+t("ORC-01: dal picker «Nuovo stage plot», il configuratore dell'organico resta solo in primo piano", () => {
+  /* Riprodotto con click veri: «Quanti in orchestra?» si apriva DIETRO «Nuovo stage plot», e bisognava
+     premere Annulla su quella sopra per raggiungere quella sotto. Un dialogo modale alla volta. */
+  const i = appjs.indexOf("function fillMods(host, after)");
+  const f = appjs.slice(i, i + 1400);
+  const chiudi = f.indexOf("if(after) after();"), apri = f.indexOf("chiediOrganico(m[0]");
+  ok(chiudi > -1 && apri > -1 && chiudi < apri, "il picker si chiude PRIMA di aprire il configuratore");
+});
+
+t("ORC-02: il parametro ?model= si consuma dopo l'uso", () => {
+  /* Riprodotto: /app/?model=band → poi Orchestra da camera → ricarica → «Creare il modello Band
+     pop/rock?» sul lavoro che hai davanti. Il link fa il suo lavoro una volta; poi l'URL è del progetto. */
+  const i = appjs.indexOf('var qModel=');
+  const f = appjs.slice(i, i + 1500);
+  ok(/history\.replaceState/.test(f), "dopo l'uso, history.replaceState");
+  ok(/searchParams\.delete\("model"\)/.test(f) && /searchParams\.delete\("form"\)/.test(f), "toglie model e form");
+  ok(/_u\.pathname\+\(_u\.search\|\|""\)\+_u\.hash/.test(f), "e conserva gli altri parametri e l'hash");
+  ok(f.indexOf("startFromTemplate(mkResolved)") < f.indexOf("history.replaceState"), "solo DOPO aver usato il parametro");
+});
+
 t("l'email personale non finisce nella LOGICA del codice", () => {
   /* Distinzione che conta. Nella landing l'indirizzo è pubblicato APPOSTA — «dietro c'è una persona
      sola, con nome, cognome e indirizzo, non un modulo di contatto»: è l'argomento della sezione, e
