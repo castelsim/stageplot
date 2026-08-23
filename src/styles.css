@@ -51,7 +51,12 @@
     grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
-  header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px}
+  /* Il wordmark non va MAI a capo. L'header scorre in orizzontale quando è pieno (sotto), ma i figli
+     flessibili si stringono PRIMA che il contenitore trabocchi — e il primo a cedere era proprio
+     «STAGE PLOT», che ha uno spazio in mezzo e finiva su due righe appena compariva lo stato del
+     salvataggio (306 px). Visto da un utente nuovo al primo palco (23/08). */
+  header .brand{font-weight:700;font-size:var(--t-title);letter-spacing:.2px;margin-right:14px;
+    white-space:nowrap;flex:0 0 auto}
   /* GRUPPO AZIONI SEMPRE IN VISTA (04/08). L'header scorre in orizzontale (overflow-x:auto) e sotto i
      ~1400 px trabocca: i primi comandi a uscire di vista sono gli ULTIMI della fila, cioè «Condividi»
      e «Accedi» — i due che servono di più, e su macOS senza barra di scorrimento visibile nessuno

@@ -10084,6 +10084,88 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
 });
 
 /* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
+t("la finestra Esporta rilegge il nome del progetto quando si apre", () => {
+  /* Visto da utente nuovo (23/08): il modello «Band» scrive state.titolo, l'header lo mostra, ma il
+     campo «Nome del progetto» dell'export restava vuoto e la riga sotto prometteva «stage-plot.pdf».
+     Due verità nella stessa schermata. La sincronia si fa all'APERTURA, così vale per ogni strada
+     che imposta un titolo — modello, cloud, copia, import — senza che ognuna debba ricordarsene. */
+  const core = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 1600);
+  ok(/setEventInputs\(\)/.test(core), "l'apertura dell'export chiama setEventInputs()");
+  ok(core.indexOf("setEventInputs()") < core.indexOf("pdfRenderPills"), "prima di disegnare il resto della finestra");
+  /* e setEventInputs deve davvero riempire pdfTitolo e la riga del nome file */
+  const sei = appjs.slice(appjs.indexOf("function setEventInputs"), appjs.indexOf("function setEventInputs") + 600);
+  ok(/TITLE_INPUTS\.forEach/.test(sei) && /"pdfTitolo"/.test(appjs.slice(appjs.indexOf("var TITLE_INPUTS"), appjs.indexOf("var TITLE_INPUTS")+90)),
+     "e pdfTitolo è fra i campi che riempie");
+  ok(/Il file uscirà come "\+fileName\(\)/.test(sei), "con la riga del nome file presa da fileName()");
+});
+
+t("il wordmark dell'header non va a capo", () => {
+  /* A palco pieno compare lo stato del salvataggio (306 px) e l'header è al limite: i figli flessibili
+     si stringono PRIMA che il contenitore scorra, e «STAGE PLOT» — che ha uno spazio in mezzo —
+     finiva su due righe. L'header è fatto per scorrere in orizzontale, non per schiacciare il brand. */
+  ok(/header \.brand\{[^}]*white-space:nowrap/.test(stylesCss), "white-space:nowrap sul brand");
+  ok(/header \.brand\{[^}]*flex:0 0 auto/.test(stylesCss), "e non si stringe: a scorrere sono i controlli centrali");
+});
+
+/* ============ il rider letto da chi lo riceve (23/08) ============ */
+t("il rider di una band non parla del Direttore, quello di un'orchestra sì", () => {
+  /* Il testo del rider era una costante scritta per la prima orchestra, e usciva uguale per ogni
+     palco: una band da 14 canali chiedeva «basse attenuate presso la postazione del Direttore» e
+     sei persone di personale. Chi riceve un rider così smette di fidarsi anche delle righe giuste. */
+  reset();
+  const band = A.formationData("band");
+  A.state.items = band.out.map((it, i) => Object.assign({ id: "b" + i }, it));
+  let D = A.riderDefaults();
+  ok(!D.orchestrale, "la band non è orchestrale");
+  ok(!/Direttore/.test(D.sistema), "e il sistema audio non nomina il Direttore");
+  ok(!/orchestra/i.test(D.luci), "né le luci parlano di orchestra");
+  ok(!/2 tecnici microfonisti/.test(D.personale), "niente due microfonisti per 14 canali");
+  ok(!/responsabile impianto/.test(D.personale), "né un responsabile impianto");
+  ok(/1 fonico di sala/.test(D.personale), "ma il fonico di sala c'è sempre");
+  ok(!/responsabile luci/.test(D.personale), "e senza luci sul palco non si chiede un responsabile luci");
+  /* e riderData usa DAVVERO questi default: si controlla sulla band, dove il testo derivato e la
+     vecchia costante orchestrale differiscono (sull'orchestra coincidono e il test non vedrebbe) */
+  let d = A.riderData();
+  ok(!/Direttore/.test(d.sistema), "riderData prende il sistema derivato dal palco, non la costante");
+  ok(!/2 tecnici microfonisti/.test(d.personale), "e il personale derivato");
+
+  reset();
+  const orch = A.formationData("orchpop");
+  A.state.items = orch.out.map((it, i) => Object.assign({ id: "o" + i }, it));
+  D = A.riderDefaults();
+  ok(D.orchestrale, "l'orchestra pop è orchestrale (ha il direttore)");
+  ok(/Direttore/.test(D.sistema), "e il sistema audio lo nomina");
+  ok(/2 tecnici microfonisti/.test(D.personale) && /responsabile impianto/.test(D.personale), "con il personale pieno");
+  d = A.riderData();
+  ok(d.sistemaAuto && d.personaleAuto, "riderData li marca come «dai dati»");
+  A.state.rider = { personale: "testo mio" };
+  ok(!A.riderData().personaleAuto && A.riderData().personale === "testo mio", "quello scritto dall'utente vince e non è più «dai dati»");
+  reset();
+});
+
+t("nella Lista carichi si capisce cos'è ogni carico, non solo di chi è", () => {
+  /* «Basso 400 W» due volte: la spia del bassista e il suo ampli. Chi prepara le prese deve
+     distinguerle. L'etichetta resta, il tipo va accanto. */
+  const wedge = { type: "wedge", label: "Basso" }, amp = { type: "bassamp", label: "Basso" };
+  ok(A.loadName(wedge) !== A.loadName(amp), "spia e ampli del basso non hanno lo stesso nome");
+  ok(/Wedge monitor/.test(A.loadName(wedge)), "la spia dice che è una spia");
+  ok(/Ampli basso/.test(A.loadName(amp)), "l'ampli dice che è un ampli");
+  eq(A.loadName({ type: "wedge", label: "" }), "Wedge monitor", "senza etichetta resta il tipo");
+  eq(A.loadName({ type: "wedge", label: "Wedge monitor batterista" }), "Wedge monitor batterista", "e se l'etichetta contiene già il tipo non lo ripete");
+});
+
+t("nelle liste PDF il buco colora la sua cella, non la riga", () => {
+  /* Un canale senza stage box dipingeva di rosso l'intera riga: su una band appena creata TUTTA la
+     input list usciva rossa. Il dato (mic, 48V, asta) è giusto; il buco è solo il patch. */
+  const inp = appjs.slice(appjs.indexOf("function patchListPdf"), appjs.indexOf("function patchListPdf") + 3400);
+  ok(/function trow\(a,b,c,d,e,f,bold,color,lastColor\)/.test(inp), "la riga della input list ha un colore per l'ultima cella");
+  ok(!/r\.box\?"#111827":"#dc2626"/.test(inp), "e non dipinge più la riga di rosso");
+  ok(/\(r\.spare\|\|r\.reserved\|\|r\.box\)\?null:"#b45309"/.test(inp), "il patch mancante è ambra, nella sua cella");
+  const mon = appjs.slice(appjs.indexOf("function monitorListPdf"), appjs.indexOf("function monitorListPdf") + 3000);
+  ok(!/r\.box\?"#111827":"#dc2626"/.test(mon), "stessa cosa nella monitor list");
+  ok(/Uscite usate: "\+R\.mixChTot\+\(R\.capOutTot\?/.test(mon), "e «5 / 0» non si scrive più quando la capacità è zero");
+});
+
 t("l'email personale non finisce nella LOGICA del codice", () => {
   /* Distinzione che conta. Nella landing l'indirizzo è pubblicato APPOSTA — «dietro c'è una persona
      sola, con nome, cognome e indirizzo, non un modulo di contatto»: è l'argomento della sezione, e
