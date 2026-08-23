@@ -5617,7 +5617,7 @@ function productionLuciText(s){
     return head+lightsRiderText(s&&s.lights);
   }
   if(o&&o.ans){
-    if(o.ans==="piazzato_bianco") return RIDER_DEFAULTS.luci+(o.note?(" "+o.note):"");
+    if(o.ans==="piazzato_bianco") return ((typeof riderDefaults==="function")?riderDefaults().luci:RIDER_DEFAULTS.luci)+(o.note?(" "+o.note):"");
     var T={venue:"Luci a cura della venue.",service:"Luci a cura del service tecnico.",
       produzione:"Luci a cura della produzione.",disegno_dedicato:"Disegno luci dedicato.",
       da_concordare:"Indicazioni artistiche da concordare.",plot_allegato:"Vedi plot luci allegato.",
@@ -20478,7 +20478,7 @@ function renderMonitorPanel(){
   var pl=monitorList(), R=pl.R;
   renderBusSec();   /* OUTPUT LIST: la sezione «Uscite console» vive anche senza monitor sul palco */
   if(!pl.rows.length){ host.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px 2px">Nessun monitor sul palco: aggiungi wedge, side/drum fill o IEM.</div>'; sum.textContent=""; return; }
-  sum.innerHTML='<b>'+pl.rows.length+'</b> monitor · '+R.mixes.length+' mix<br>Uscite usate: <b>'+R.mixChTot+' / '+R.capOutTot+'</b>';
+  sum.innerHTML='<b>'+pl.rows.length+'</b> monitor · '+R.mixes.length+' mix<br>Uscite usate: <b>'+R.mixChTot+(R.capOutTot?' / '+R.capOutTot:'')+'</b>';
   host.innerHTML="";
   var hd=document.createElement("div"); hd.className="patch-row patch-hd editable";
   hd.innerHTML='<span>#</span><span>Monitor</span><span>Tipo</span><span>Uscita</span><span></span>';
@@ -21215,19 +21215,29 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
   });
 })();
 /* ===== LISTA CARICHI automatica — derivata dal motore elettrico ===== */
+/* Il nome del carico dice COSA È, non solo di chi è. L'etichetta da sola («Basso») compariva due
+   volte nella Lista carichi — la spia del bassista e il suo ampli, 400 W l'una — e chi prepara le
+   prese non poteva distinguerle. Quando l'etichetta è un nome di persona o di postazione, il tipo
+   va accanto: «Basso · Wedge monitor», «Basso · Ampli basso» (visto nel PDF, 23/08). */
+function loadName(it){
+  var tipo=(TYPES[it.type]||{}).nome||it.type, lab=String(it.label||"").trim();
+  if(!lab) return tipo;
+  if(lab.toLowerCase()===tipo.toLowerCase() || lab.toLowerCase().indexOf(tipo.toLowerCase())>=0) return lab;
+  return lab+" · "+tipo;
+}
 function loadList(){
   var R=elecResult(true), rows=[], n=0;
   R.loadLinks.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.load.it.label||TYPES[l.load.it.type].nome), w:l.load.w, a:l.load.a, fonte:wattFonte(l.load.it), distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
+    rows.push({n:n, name:loadName(l.load.it), w:l.load.w, a:l.load.a, fonte:wattFonte(l.load.it), distro:l.distro.letter, phase:"L"+(l.phase+1), cee:l.cee, ok:true, linked:true,
       line:l.line, linePinned:!!l.linePinned, conn:(l.conn&&l.conn.label)||"", connK:(l.conn&&l.conn.k)||"sk", loadId:l.load.it.id}); });
   /* Anche il carico NON ancora collegato dichiara la sua spina (29/07): il connettore si deduce
      dall'elemento e dall'assorbimento, non dalla linea — chi allestisce vuole sapere che serve una
      CEE PRIMA di tirare il cavo, non dopo. Stessa funzione del motore: nessun secondo criterio. */
   function _conn(it,a){ var c=elecConnOf(it,a,null); return (c&&c.label)||""; }
   R.unassigned.forEach(function(l){ n++;
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
+    rows.push({n:n, name:loadName(l.it), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:false, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   (R.pending||[]).forEach(function(l){ n++;   /* manual-first: la lista carichi è completa anche senza cavi */
-    rows.push({n:n, name:(l.it.label||TYPES[l.it.type].nome), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
+    rows.push({n:n, name:loadName(l.it), w:l.w, a:l.a, fonte:wattFonte(l.it), distro:"—", phase:"—", cee:l.a>16, ok:true, linked:false, conn:_conn(l.it,l.a), loadId:l.it.id}); });
   return {rows:rows, R:R};
 }
 /* toggleLoadView / togglePatchView RIMOSSE (14/08): definite e mai chiamate da nessuna parte, e
@@ -21607,8 +21617,9 @@ function renderChannels(){
   (function(){ var r=state.rider||{};   /* T2: popola i campi rider dallo state + placeholder = default */
     function setv(id,key){ var el=document.getElementById(id); if(!el) return; var want=(r[key]!=null?String(r[key]):""); if(el.value!==want) el.value=want; }
     setv("rdSedie","sedie"); setv("rdSistema","sistema"); setv("rdLuci","luci"); setv("rdPersonale","personale"); setv("rdNote","note");
-    var ph={rdSistema:RIDER_DEFAULTS.sistema, rdLuci:RIDER_DEFAULTS.luci, rdPersonale:RIDER_DEFAULTS.personale};
-    Object.keys(ph).forEach(function(id){ var el=document.getElementById(id); if(el && !el.getAttribute("placeholder")) el.setAttribute("placeholder","Standard: "+ph[id].slice(0,54)+"…"); });
+    var DD=(typeof riderDefaults==="function")?riderDefaults():RIDER_DEFAULTS;
+    var ph={rdSistema:DD.sistema, rdLuci:DD.luci, rdPersonale:DD.personale};
+    Object.keys(ph).forEach(function(id){ var el=document.getElementById(id); if(el) el.setAttribute("placeholder","Dal palco: "+ph[id].slice(0,54)+"…"); });   /* si riscrive a ogni render: il default segue il palco */
   })();
   updateChanDatalists();
   /* aggiorna badge conteggio negli header a scomparsa */
@@ -23671,12 +23682,16 @@ function patchListPdf(shared){
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
-    doc.text("Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  "), M, y); y+=8;
-    function trow(a,b,c,d,e,f,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827");
-      doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
+    doc.text(R.boxes.length ? "Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  ") : "Nessuna stage box dichiarata: il patch lo assegna il service", M, y); y+=8;
+    /* Il buco si vede nella SUA cella — il patch — e la riga resta nera. Prima un canale senza stage
+       box dipingeva di rosso l'intera riga: su una band appena creata (stage box quasi mai dichiarata)
+       TUTTA la input list usciva rossa, e chi la riceveva leggeva «errore» su dati giusti (23/08). */
+    function trow(a,b,c,d,e,f,bold,color,lastColor){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827");
+      doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y);
+      doc.setTextColor(lastColor||color||"#111827"); doc.text(String(f),cols[5],y); y+=5.4; }
     trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488");
     doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":(r.box?"#111827":"#dc2626")); });
+    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
     /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
     try{ cabResult().boxes.forEach(function(b){
       if(!b.res.length) return;
@@ -23809,11 +23824,13 @@ function monitorListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
-    doc.text("Uscite usate: "+R.mixChTot+" / "+R.capOutTot+"   ·   Stage box: "+R.boxes.map(function(b){ return b.letter+" (out "+b.usedOut+"/"+b.outCap+")"; }).join("  ·  "), M, y); y+=8;
-    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    /* «5 / 0» con nessuna stage box dichiarata sembrava un errore: la capacità si scrive solo se c'è */
+    doc.text("Uscite usate: "+R.mixChTot+(R.capOutTot?" / "+R.capOutTot:"")+(R.boxes.length?"   ·   Stage box: "+R.boxes.map(function(b){ return b.letter+" (out "+b.usedOut+"/"+b.outCap+")"; }).join("  ·  "):"   ·   nessuna stage box dichiarata"), M, y); y+=8;
+    function trow(a,b,c,d,e,bold,color,lastColor){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
+      doc.setTextColor(lastColor||color||"#111827"); doc.text(String(e),cols[4],y); y+=5.4; }   /* l'uscita mancante si vede nella sua cella, non su tutta la riga */
     trow("#","MIX","TIPO","MONITOR","USCITA", true, "#0891b2");
     doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.name, r.patch, false, r.box?"#111827":"#dc2626"); });
+    pl.rows.forEach(function(r){ trow(r.n, r.mix, r.tipo+(r.stereo?" (stereo)":""), r.name, r.patch, false, "#111827", r.box?null:"#b45309"); });
     if(shared) return;
     pdfCredit(doc);
     if(window.__monPdfTest){ window.__monPdfTest={name:fileName()+"-monitor-list.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
@@ -23833,11 +23850,12 @@ function loadListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
-    doc.text("Totale: "+elecKW(R.totW)+" · "+R.totA.toFixed(0)+" A   ·   Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  "), M, y); y+=8;
-    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
+    doc.text("Totale: "+elecKW(R.totW)+" · "+R.totA.toFixed(0)+" A   ·   "+(R.distros.length ? "Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  ") : "nessun quadro dichiarato: lo fornisce il service"), M, y); y+=8;
+    function trow(a,b,c,d,e,bold,color,lastColor){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
+      doc.setTextColor(lastColor||color||"#111827"); doc.text(String(e),cols[4],y); y+=5.4; }   /* «senza distro» si vede nella sua cella */
     trow("#","CARICO","W","A","DISTRO/FASE", true, "#b45309");
     doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6);
-    pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, r.ok?"#111827":"#dc2626"); });
+    pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, "#111827", r.ok?null:"#b45309"); });
     var _rmp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });   /* passacavi: il service sa quanti moduli servono */
     if(_rmp.length){ var _rm=_rmp.reduce(function(a,it){ return a+rampModules(it); },0), _rl=_rmp.reduce(function(a,it){ return a+(it.w||0); },0);
       y+=4; doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text("Passacavi: "+_rm+" moduli · "+(_rl/100).toFixed(1).replace(".",",")+" m", M, y); y+=6; }
@@ -24857,11 +24875,42 @@ function viewerHtmlFor(key){ return key==="rider" ? riderHtml() : (key==="todefi
 /* ===== T2 — Rider tecnico GENERATO dai dati (coerenza: i numeri non possono contraddire le liste). =====
    I quantitativi (canali, monitor, pedane, console) sono DERIVATI; le preferenze non derivabili
    (sistema audio/PA, luci, personale, sedie, note) sono testo editabile con default, in state.rider. */
+/* RIDER_DEFAULTS è la forma ORCHESTRALE dei tre testi: è nata così perché il primo rider era di
+   un'orchestra, e per mesi è uscita uguale per qualsiasi palco. Una band pop/rock da 14 canali si
+   ritrovava «soprattutto presso la postazione del Direttore» e sei persone di personale — e chi
+   riceve un rider così smette di fidarsi anche delle righe giuste (visto nel PDF, 23/08).
+   Da oggi i default li calcola riderDefaults() dal palco; questa costante resta per chi la cita. */
 var RIDER_DEFAULTS = {
   sistema: "Sistema line array professionale, montato e messo in fase, processato e finalizzato come da specifiche del costruttore, in grado di coprire in modo uniforme l'area di ascolto. Emissione delle basse frequenze il più possibile attenuata nella zona del palcoscenico, soprattutto presso la postazione del Direttore.",
   luci: "Piazzato bianco diffuso per la corretta lettura delle parti musicali. Nessun movimento luce o colore sull'orchestra; illuminazione frontale non fastidiosa per la visione del direttore da parte dei musicisti.",
   personale: "1 fonico di sala · 1 fonico di palco · 2 tecnici microfonisti · 1 responsabile impianto audio · 1 responsabile luci."
 };
+/* I default del rider DERIVATI dal palco, come i numeri. Il criterio è quello che userebbe un
+   fonico leggendo il plot: c'è un direttore e ci sono leggii → è un'orchestra (o un coro con
+   partiture), e il testo può nominarli; altrimenti no. Il personale cresce coi canali e con le
+   uscite monitor — non è una tabella di un sindacato, è un punto di partenza ragionevole che
+   l'utente può riscrivere dal pannello Rider. */
+function riderDefaults(){
+  var items=state.items||[];
+  function cnt(t){ return items.filter(function(x){ return x.type===t; }).length; }
+  var orchestrale = cnt("direttore")>0 || (cnt("leggio")+cnt("sedialeggio"))>=4;
+  var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixChTot:0};
+  var inCh=Rc.totIn||0, outCh=Rc.mixChTot||0;
+  var luci = items.some(function(it){ var T=TYPES[it.type]; return T && /^Luci/i.test(T.cat||""); });
+  var sistema = "Sistema line array professionale, montato e messo in fase, processato e finalizzato come da specifiche del costruttore, in grado di coprire in modo uniforme l'area di ascolto. Emissione delle basse frequenze il più possibile attenuata nella zona del palcoscenico"
+    + (orchestrale ? ", soprattutto presso la postazione del Direttore." : ".");
+  var lucitxt = orchestrale
+    ? RIDER_DEFAULTS.luci
+    : "Piazzato bianco diffuso sul palco per soundcheck e cambio palco; il disegno luci dello spettacolo si concorda con il responsabile luci.";
+  var p=["1 fonico di sala"];
+  if(outCh>=6 || inCh>=24 || orchestrale) p.push("1 fonico di palco");
+  if(inCh>32 || orchestrale) p.push("2 tecnici microfonisti");
+  else if(inCh>16) p.push("1 tecnico microfonista");
+  else p.push("1 tecnico di palco");
+  if(inCh>32 || orchestrale) p.push("1 responsabile impianto audio");
+  if(luci || orchestrale) p.push("1 responsabile luci");
+  return { sistema:sistema, luci:lucitxt, personale:p.join(" · ")+".", orchestrale:orchestrale };
+}
 /* ===== T4 — Rubrica contatti/ruoli del progetto (i contatti critici vivono nel dato, non nelle email) ===== */
 var CONTACT_ROLES = ["Riferimento tecnico","Fonico di sala","Fonico di palco","Service locale","Stage manager","Produzione","Organizzatore","Luci","Backline"];
 /* ===== Rubrica contatti account (spec 15/07) — logica pura, testata in engines.test.mjs =====
@@ -24928,7 +24977,9 @@ function riderData(){
   var pedane=items.filter(function(x){ return TYPES[x.type] && TYPES[x.type].riser; }).map(function(x){
     var T=TYPES[x.type];
     return { w:Math.round((x.w||T.w)/10)/10, d:Math.round((x.d||T.d)/10)/10, h:x.h||T.h||40 }; });   /* px→m (100px=1m, 1 decimale) */
-  var pick=function(k){ return (r[k]!=null && String(r[k]).trim()!=="") ? r[k] : RIDER_DEFAULTS[k]; };
+  var D=(typeof riderDefaults==="function")?riderDefaults():RIDER_DEFAULTS;
+  var pick=function(k){ return (r[k]!=null && String(r[k]).trim()!=="") ? r[k] : D[k]; };
+  var scritto=function(k){ return !!(r[k]!=null && String(r[k]).trim()!==""); };
   return {
     titolo: state.titolo||"", luogo: state.luogo||"",
     inCh: Rc.totIn||0, outCh: Rc.mixChTot||0, boxes:(Rc.boxes||[]).map(function(b){ return b.letter; }),
@@ -24939,6 +24990,7 @@ function riderData(){
     contatto: primaryContactStr(),
     status: state.status||"bozza", approvedBy:(state.approval&&state.approval.by)||"", approvedAt:(state.approval&&state.approval.at)||"",
     sistema: pick("sistema"), luci: (typeof productionLuciText==="function"?productionLuciText(state):pick("luci")), personale: pick("personale"),   /* luci: mai default implicito (fase 4) */
+    sistemaAuto: !scritto("sistema"), personaleAuto: !scritto("personale"),   /* il rider dice «dai dati» quando il testo non l'ha scritto l'utente */
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
     /* Chi sta sul palco è metà del lavoro del service (gradoni, sedie, leggii): un coro da 24 non
        compariva da nessuna parte nel documento consegnato, mentre il pannello dei layer lo contava. */
@@ -24958,7 +25010,7 @@ function riderMonitorText(m){
   return a.length ? a.join(" · ") : "—";
 }
 function riderPedaneText(pedane){
-  if(!pedane.length) return "—";
+  if(!pedane.length) return "nessuna pedana";   /* «—» accanto al peso sembrava una riga lasciata a metà */
   var g={}, order=[]; pedane.forEach(function(p){ var k=p.w+"×"+p.d+" m · h"+p.h+" cm"; if(g[k]==null){g[k]=0;order.push(k);} g[k]++; });
   return order.map(function(k){ return g[k]+"× pedana "+k; }).join(" · ");
 }
@@ -24979,7 +25031,7 @@ function riderHtml(){
     (d.elettrico?sec("Alimentazione", esc("Assorbimento stimato "+elecKW(d.elettrico.w)+" · "+Math.ceil(d.elettrico.a)+" A"+
       (d.elettrico.distro.length?" · quadri: "+d.elettrico.distro.join(", "):"")+
       (d.elettrico.fasi?" · distribuzione trifase":"")+". Alimentazione a cura dell'organizzazione, presa di corrente disponibile a bordo palco."), true):"")+
-    sec("Sistema audio", esct(d.sistema))+
+    sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto)+
     /* Luci: se la lista dichiara delle richieste, la sezione esce STRUTTURATA (intestazione
        per funzione + voci), come in un rider vero. Il testo scritto a mano resta prosa. */
     sec("Luci", (function(){
@@ -24994,7 +25046,7 @@ function riderHtml(){
     })(), !(state.rider&&state.rider.luci!=null&&String(state.rider.luci).trim()!==""))+
     (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
       return pm.length ? sec("Produzione e media", pm.map(function(r){ return esc(r.label)+": "+esct(r.text); }).join("<br>")) : ""; })()+
-    sec("Personale richiesto al service", esct(d.personale))+
+    sec("Personale richiesto al service", esct(d.personale), !!d.personaleAuto)+
     (d.note?sec("Note", esct(d.note)):"")+
     (d.contatti.length
       ? sec("Contatti e ruoli", d.contatti.map(function(c){
@@ -26037,6 +26089,11 @@ function pdfChannelPage(doc, L, paperKey){
     if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
   })();
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
+    /* Il nome del progetto si rilegge dallo STATO ogni volta che la finestra si apre. Un modello
+       scrive state.titolo («Band pop/rock») e l'header lo mostrava, ma questo campo restava vuoto e
+       la riga sotto prometteva «stage-plot.pdf»: due verità nella stessa schermata. Chi imposta il
+       titolo non deve ricordarsi di avvisare l'export — è l'export che guarda, quando serve. */
+    if(typeof setEventInputs==="function") setEventInputs();
     var _at=document.getElementById("pdfAreaTxt");
     if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
     _pdfTechPages=pdfComputeTechPages();
