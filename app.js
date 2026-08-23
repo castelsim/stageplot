@@ -184,6 +184,13 @@ var DI_CH_LABEL={mono:"Mono", stereo:"Stereo", multi:"Multicanale"};
 var DI_TYPE_LABEL={passiva:"Passiva", attiva:"Attiva"};
 function diCh(it){ return (it&&DI_CH_LABEL[it.diCh])?it.diCh : ((it&&it.type==="distereo")?"stereo":"mono"); }
 function diType(it){ return (it&&it.diType==="attiva")?"attiva":"passiva"; }
+/* Quale DI per quale strumento — la regola dei costruttori (Radial, guida JDI/J48): la PASSIVA per gli
+   strumenti alimentati (tastiere, batterie elettroniche, bassi attivi) perché isola a trasformatore
+   e regge i livelli alti; l'ATTIVA per i pickup passivi e i piezo (chitarra acustica, contrabbasso,
+   archi e mandolino con pickup) perché ha l'impedenza d'ingresso altissima che quei pickup
+   pretendono, e col 48V. Prima qui nasceva sempre passiva. L'utente può sempre cambiarla. */
+var DI_ATTIVA_PER = { gtacustica:1, contrabbasso:1, vlnpost:1, violapost:1, violoncello:1 };   /* i tipi che il catalogo ha davvero; gli altri (mandolino, banjo…) quando arriveranno */
+function diTipoConsigliato(src){ return (src && DI_ATTIVA_PER[src.type]) ? "attiva" : "passiva"; }
 function diMultiN(it){ return (it&&it.diMultiCh===6)?6:8; }
 function diChannels(it){ var c=diCh(it); return c==="stereo"?2:(c==="multi"?diMultiN(it):1); }
 /* INGOMBRO REALE (cm, misure di catalogo — Simone 27/07: "dev'essere reale"):
@@ -10596,7 +10603,7 @@ document.getElementById("pDiFor").addEventListener("change", function(e){
   if(src && diAdopt(it, src)){ save(); render(); renderChannels(); renderProps();
     showToast("DI associata a "+((src.label&&String(src.label).trim())||TYPES[src.type].nome)); }
 });
-document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); __cabRes=null; }); });
+document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); it.diTypeUtente=true; __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
 document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
@@ -19213,6 +19220,7 @@ function diAdopt(di, src){
     if(vecchia.diFor===src.id) state.items=(state.items||[]).filter(function(x){ return x.id!==vecchia.id; });
   }
   di.diFor=src.id; src.diId=di.id;
+  if(!di.diTypeUtente) di.diType=diTipoConsigliato(src);   /* la scelta esplicita dell'utente resta sua */
   diSaveOff(di);            /* memorizza dove sta ORA, così non salta al posto di default */
   __cabRes=null;
   return true;
@@ -19237,7 +19245,7 @@ function diApply(it, opts){
   var off=diDefaultOff(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
   var st=STEREO_TOGGLE[it.type];
   var di={ id:uid(), type:"dimono", x:Math.round(it.x+off[0]*c-off[1]*sn), y:Math.round(it.y+off[0]*sn+off[1]*c),
-    rot:it.rot||0, w:TYPES.dimono.w, d:TYPES.dimono.d, label:"", diFor:it.id };
+    rot:it.rot||0, w:TYPES.dimono.w, d:TYPES.dimono.d, label:"", diFor:it.id, diType:diTipoConsigliato(it) };
   if((st && it.stereo!==false && st.def!==false) || it.stereo===true) di.diCh="stereo";   /* strumento stereo = DI stereo (2 canali sulla box) */
   var fp=(typeof diFootprint==="function") ? diFootprint(di) : null;
   if(fp){ di.w=fp[0]; di.d=fp[1]; }
@@ -21939,6 +21947,7 @@ function riderPdf(shared){
     function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
       lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
     heading("MICROFONI"); body(d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):""));
+    (function(){ var D=riderDotazione(); if(D.testo) body(D.testo); if(D.aste) body("Aste: "+D.aste); })();   /* la dotazione per modello, come nei rider veri */
     heading("MONITOR"); body(riderMonitorText(d.monitor));
     heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
     if(d.console){ heading("CONSOLE"); body(d.console); }
@@ -22355,6 +22364,36 @@ function rfAssign(){
   return {byTx:byTx, byRx:byRx, orphans:orphans, rxs:rxs, txs:txs};
 }
 function rfTxName(tx){ return (tx.label&&tx.label.trim()) ? tx.label.trim() : (TYPES[tx.type]?TYPES[tx.type].nome:tx.type); }
+/* Compatibilità fra portanti RF: restituisce gli avvisi. txs = [{rf:"606.250", label,type}], frequenze in MHz.
+   MARGINE_IM = 0.25 MHz dal prodotto di intermodulazione; SPAZIO_MIN = 0.3 MHz fra due portanti
+   (il minimo della forchetta 300 kHz–1,5 MHz indicata da Shure: sotto i 300 kHz nessun ricevitore ce la fa). */
+var RF_MARGINE_IM=0.25, RF_SPAZIO_MIN=0.3;
+function rfIntermod(txs){
+  var out=[], f=[];
+  (txs||[]).forEach(function(tx){ var v=parseFloat(String(tx.rf||"").replace(",",".")); if(isFinite(v)&&v>0) f.push({v:v, tx:tx}); });
+  if(f.length<2) return out;
+  var nome=function(x){ return (typeof rfTxName==="function") ? rfTxName(x.tx) : (x.tx.label||x.tx.type||"?"); };
+  var mhz=function(v){ return (Math.round(v*1000)/1000).toString(); };
+  /* 1) portanti troppo vicine */
+  for(var i=0;i<f.length;i++) for(var j=i+1;j<f.length;j++){
+    var d=Math.abs(f[i].v-f[j].v);
+    if(d>0 && d<RF_SPAZIO_MIN) out.push({lvl:"warn", kind:"rf-vicine", msg:nome(f[i])+" ("+mhz(f[i].v)+" MHz) e "+nome(f[j])+" ("+mhz(f[j].v)+" MHz) distano "+Math.round(d*1000)+" kHz: sotto i 300 kHz i ricevitori non le separano."});
+  }
+  /* 2) prodotti del 3° ordine di ogni coppia contro ogni altra portante */
+  if(f.length<3) return out;
+  var visti={};
+  for(var a=0;a<f.length;a++) for(var b=0;b<f.length;b++){ if(a===b) continue;
+    var im=2*f[a].v-f[b].v;   /* 2·fa−fb (copre entrambi i prodotti scorrendo a,b in entrambi gli ordini) */
+    for(var k=0;k<f.length;k++){ if(k===a||k===b) continue;
+      var dist=Math.abs(f[k].v-im);
+      if(dist<RF_MARGINE_IM){
+        var key=[a,b,k].sort().join("-"); if(visti[key]) continue; visti[key]=1;
+        out.push({lvl:"err", kind:"rf-im3", msg:"Intermodulazione: 2×"+mhz(f[a].v)+"−"+mhz(f[b].v)+" = "+mhz(im)+" MHz cade a "+Math.round(dist*1000)+" kHz da "+nome(f[k])+" ("+mhz(f[k].v)+" MHz) — "+nome(f[a])+" e "+nome(f[b])+" insieme lo disturbano. Servono almeno 250 kHz: cambia una delle tre frequenze."});
+      }
+    }
+  }
+  return out;
+}
 function rfIssues(){
   var A=rfAssign(), out=[];
   try{ rfChain().issues.forEach(function(i){ out.push(i); }); }catch(_e){}
@@ -22364,6 +22403,17 @@ function rfIssues(){
   A.txs.forEach(function(tx){ var f=(tx.rf||"").trim(); if(!f) return;
     if(seen[f]) out.push({lvl:"err", msg:"Frequenza RF duplicata "+f+" MHz: "+seen[f]+" e "+rfTxName(tx)+" — due trasmettitori sulla stessa frequenza si disturbano."});
     else seen[f]=rfTxName(tx); });
+  /* Intermodulazione del 3° ordine (Shure, «Selection and Operation of Wireless Microphone Systems»):
+     due trasmettitori a f1 e f2 generano prodotti a 2·f1−f2 e 2·f2−f1, e i costruttori chiedono almeno
+     250 kHz fra ogni prodotto e ogni portante in uso; fra due portanti, almeno 300 kHz. Con tre o più
+     radiomicrofoni coordinati a occhio è l'errore più frequente — e non si sente in soundcheck, si
+     sente quando cantano in due. Qui i numeri sono puri: niente DOM. */
+  /* TUTTI i trasmettitori: radiomic E trasmettitori in-ear (rack TX / beltpack con frequenza). Il
+     manuale PSM di Shure lo dice esplicitamente: gli IEM vanno coordinati insieme ai radiomicrofoni,
+     perché intermodulano fra loro — e un TX IEM da 50 mW a un metro dall'antenna è il disturbatore
+     più forte sul palco. rfAssign() guarda solo i mic (porte dei ricevitori); qui no. */
+  var tuttiTx=(state.items||[]).filter(function(x){ return RF_TX[x.type] || x.type==="iemant" || x.type==="iem"; });
+  rfIntermod(tuttiTx).forEach(function(i){ out.push(i); });
   A.rxs.forEach(function(r){ var rng=RF_BANDS[(r.band||"").trim()]; if(!rng) return;
     (A.byRx[r.id]||[]).forEach(function(a){ var f=parseFloat(a.tx.rf); if(!isFinite(f)) return;
       if(f<rng[0]||f>rng[1]) out.push({lvl:"warn", msg:"Frequenza "+a.tx.rf+" MHz di "+rfTxName(a.tx)+" fuori dalla banda "+r.band.trim()+" ("+rng[0]+"–"+rng[1]+" MHz) del ricevitore."}); }); });
@@ -23152,6 +23202,32 @@ function riderData(){
     note: r.note||""
   };
 }
+/* Il riepilogo che il service usa per preparare il palco: QUANTI microfoni di ciascun modello, quante
+   aste di ogni tipo, quante DI, quanti 48V. È la lingua dei rider professionali («(6) SM58, (6) Beta57,
+   (5) aste dritte base tonda») e delle schede tecniche dei locali («16 round-base stands, 12 boom,
+   15 DI boxes»): i due documenti si confrontano per conteggi, non per righe. Derivato dalla input
+   list: non può contraddirla. Letto nei rider veri il 23/08. */
+function riderDotazione(rows){
+  rows = rows || ((typeof patchList==="function") ? patchList().rows : []);
+  var mics={}, aste={}, di=0, p48=0, nMic=0;
+  var ordine=function(o){ return Object.keys(o).sort(function(a,b){ return o[b]-o[a] || a.localeCompare(b); }); };
+  rows.forEach(function(r){
+    if(r.reserved || r.spare) return;
+    var m=String(r.mic||"").trim();
+    if(!m) return;
+    if(/^DI\b/i.test(m) || /\bDI\b/.test(m) && !/\d{2,}/.test(m)){ di++; }
+    else { nMic++; mics[m]=(mics[m]||0)+1; }
+    if(r.p48) p48++;
+    var st=String(r.stand||"").trim();
+    if(st && !r.standShared && !/^(interno|clip)/i.test(st)) aste[st]=(aste[st]||0)+1;   /* le clip stanno sullo strumento: non sono aste da portare */
+  });
+  var parti=[];
+  if(nMic) parti.push(ordine(mics).map(function(k){ return mics[k]+"× "+k; }).join(", "));
+  if(di) parti.push(di+" DI");
+  if(p48) parti.push(p48+" con 48V");
+  var asteTxt=ordine(aste).map(function(k){ return aste[k]+"× "+k; }).join(", ");
+  return { testo: parti.join(" · "), aste: asteTxt, nMic:nMic, nDI:di, n48:p48, mics:mics, asteMap:aste };
+}
 function riderMonitorText(m){
   var a=[]; if(m.wedge)a.push(m.wedge+" wedge"); if(m.side)a.push(m.side+" side fill"); if(m.drumfill)a.push(m.drumfill+" drum fill");
   if(m.iem)a.push(m.iem+" IEM"); if(m.personal)a.push(m.personal+" personal monitor");
@@ -23172,7 +23248,10 @@ function riderHtml(){
     (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
     '<div class="pdf-rider-status" style="background:'+statusInfo(d.status).color+'">'+esc(statusInfo(d.status).label.toUpperCase())+
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
-    sec("Microfoni", esc(mic), true)+
+    sec("Microfoni", esc(mic)+(function(){ var D=riderDotazione(); var extra=[];
+        if(D.testo) extra.push(D.testo);
+        if(D.aste) extra.push("Aste: "+D.aste);
+        return extra.length ? "<br>"+esc(extra.join(" · ")) : ""; })(), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
     sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+

@@ -10166,6 +10166,92 @@ t("nelle liste PDF il buco colora la sua cella, non la riga", () => {
   ok(/Uscite usate: "\+R\.mixChTot\+\(R\.capOutTot\?/.test(mon), "e «5 / 0» non si scrive più quando la capacità è zero");
 });
 
+/* ============ dai manuali (23/08): Shure wireless, Radial DI ============ */
+t("RF: l'intermodulazione del 3° ordine si vede prima del soundcheck", () => {
+  /* Shure, «Selection and Operation of Wireless Microphone Systems», cap. Intermodulation: con f1 e
+     f2 nascono 2·f1−f2 e 2·f2−f1; i costruttori chiedono ≥250 kHz fra ogni prodotto e ogni portante.
+     L'esempio del manuale: f1=180, f2=190 → prodotti a 170 e 200 MHz. */
+  const T = (rf, label) => ({ rf, label, type: "hhwireless" });
+  let iss = A.rfIntermod([T("180", "Voce"), T("190", "Cori"), T("200", "Sax")]);
+  ok(iss.some(i => i.kind === "rf-im3" && /200/.test(i.msg) && /Sax/.test(i.msg)), "il terzo a 200 MHz cade esattamente sul prodotto 2×190−180: errore");
+  iss = A.rfIntermod([T("180", "Voce"), T("190", "Cori"), T("170.2", "Sax")]);
+  ok(iss.some(i => i.kind === "rf-im3"), "a 200 kHz dal prodotto (sotto i 250) è ancora errore");
+  iss = A.rfIntermod([T("180", "Voce"), T("190", "Cori"), T("170.3", "Sax")]);
+  ok(!iss.some(i => i.kind === "rf-im3"), "a 300 kHz dal prodotto è accettato");
+  /* coppie troppo vicine */
+  iss = A.rfIntermod([T("606.250", "A"), T("606.450", "B")]);
+  ok(iss.some(i => i.kind === "rf-vicine" && /200 kHz/.test(i.msg)), "due portanti a 200 kHz si segnalano: i ricevitori non le separano");
+  iss = A.rfIntermod([T("606.250", "A"), T("606.650", "B")]);
+  ok(!iss.length, "a 400 kHz, due portanti sole, niente da dire");
+  /* robustezza: virgole, vuoti, uno solo */
+  ok(!A.rfIntermod([T("606,250", "A")]).length, "una portante sola non può intermodulare");
+  ok(!A.rfIntermod([T("", "A"), T("", "B"), T("", "C")]).length, "senza frequenze niente falsi allarmi");
+  /* e i TX in-ear entrano nel controllo insieme ai radiomic (manuale PSM: si coordinano insieme) */
+  ok(/x\.type==="iemant"/.test(appjs.slice(appjs.indexOf("function rfIssues"), appjs.indexOf("function rfIssues") + 2600)),
+     "rfIssues passa a rfIntermod anche i TX in-ear, non solo i radiomic");
+  /* e il set coordinato di un kit vero a 4 canali non deve gridare */
+  iss = A.rfIntermod([T("606.500", "1"), T("607.500", "2"), T("609.000", "3"), T("611.750", "4")]);
+  ok(!iss.some(i => i.kind === "rf-im3"), "un set coordinato (prodotti a 605.5, 608.5, 604, 610, …) passa");
+});
+
+t("DI: attiva per i pickup passivi, passiva per gli strumenti alimentati (Radial)", () => {
+  /* Radial, guide JDI/J48: «passive direct boxes are preferred for electrically powered devices such
+     as keyboards and electronic drums»; l'attiva per pickup passivi/piezo, che vogliono un'impedenza
+     d'ingresso altissima. Prima ogni DI nasceva passiva, anche per la chitarra acustica. */
+  eq(A.diTipoConsigliato({ type: "gtacustica" }), "attiva", "chitarra acustica (piezo) → attiva");
+  eq(A.diTipoConsigliato({ type: "contrabbasso" }), "attiva", "contrabbasso con pickup → attiva");
+  eq(A.diTipoConsigliato({ type: "vlnpost" }), "attiva", "violino con pickup → attiva");
+  eq(A.diTipoConsigliato({ type: "stagepiano" }), "passiva", "stage piano → passiva");
+  eq(A.diTipoConsigliato({ type: "laptop" }), "passiva", "computer → passiva");
+  eq(A.diTipoConsigliato(null), "passiva", "senza sorgente: il default di sempre");
+  /* la scelta dell'utente vince sull'adozione */
+  reset();
+  const src = { id: "s1", type: "gtacustica", x: 100, y: 100 };
+  const di = { id: "d1", type: "dimono", x: 140, y: 100, diType: "passiva", diTypeUtente: true };
+  A.state.items = [src, di];
+  ok(A.diAdopt(di, src), "la DI si lascia adottare dall'acustica (diUsesBox)");
+  eq(di.diType, "passiva", "l'utente ha scelto passiva: resta passiva");
+  const di2 = { id: "d2", type: "dimono", x: 140, y: 100 };
+  A.state.items = [src, di2];
+  ok(A.diAdopt(di2, src), "anche la seconda");
+  eq(di2.diType, "attiva", "senza scelta esplicita, l'acustica prende l'attiva");
+  reset();
+});
+
+t("il rider riassume la dotazione per modello: microfoni, DI, 48V, aste", () => {
+  /* I rider professionali e le schede dei locali si parlano per CONTEGGI — «(6) SM58, (5) aste
+     dritte», «15 DI boxes, 12 boom stands» — non per righe. Il nostro diceva solo «14 canali». */
+  const righe = [
+    { name: "Kick", mic: "D6", stand: "asta bassa", p48: false },
+    { name: "Rullante", mic: "SM57", stand: "asta bassa", p48: false },
+    { name: "Hi-Hat", mic: "SM81", stand: "asta giraffa", p48: true },
+    { name: "OH L", mic: "KM184", stand: "asta giraffa", p48: true },
+    { name: "OH R", mic: "KM184", stand: "asta giraffa", p48: true },
+    { name: "Tom 1", mic: "e904", stand: "clip strumento", p48: false },
+    { name: "Basso", mic: "DI", stand: "", p48: false },
+    { name: "Tastiere L", mic: "DI", stand: "", p48: false },
+    { name: "Voce", mic: "SM58", stand: "asta dritta", p48: false },
+    { name: "Cori", mic: "SM58", stand: "asta dritta", p48: false, standShared: false },
+    { name: "Spare", mic: "SM58", stand: "asta dritta", spare: true },
+    { name: "RIS", mic: "", reserved: true },
+  ];
+  const D = A.riderDotazione(righe);
+  eq(D.nMic, 8, "otto microfoni veri (DI, spare e riservate escluse)");
+  eq(D.nDI, 2, "due DI");
+  eq(D.n48, 3, "tre con 48V");
+  eq(D.mics["SM58"], 2, "due SM58 (lo spare non conta: non si porta se non serve)");
+  eq(D.mics["KM184"], 2, "due KM184");
+  ok(/2× SM58/.test(D.testo) && /2× KM184/.test(D.testo) && /2 DI/.test(D.testo) && /3 con 48V/.test(D.testo), "il testo li elenca: " + D.testo);
+  ok(D.testo.indexOf("2× SM58") < D.testo.indexOf("1× D6"), "i più numerosi prima");
+  eq(D.asteMap["asta giraffa"], 3, "tre giraffe");
+  eq(D.asteMap["asta dritta"], 2, "due dritte (lo spare no)");
+  ok(!D.asteMap["clip strumento"], "le clip non sono aste da portare");
+  ok(/Aste: 3× asta giraffa/.test("Aste: " + D.aste), "e le aste si leggono: " + D.aste);
+  /* e il rider HTML e PDF la scrivono davvero */
+  ok(/riderDotazione\(\)/.test(appjs.slice(appjs.indexOf("function riderHtml"), appjs.indexOf("function riderHtml") + 3000)), "nel rider HTML");
+  ok(/riderDotazione\(\)/.test(appjs.slice(appjs.indexOf("function riderPdf"), appjs.indexOf("function riderPdf") + 3000)), "e nel rider PDF");
+});
+
 t("l'email personale non finisce nella LOGICA del codice", () => {
   /* Distinzione che conta. Nella landing l'indirizzo è pubblicato APPOSTA — «dietro c'è una persona
      sola, con nome, cognome e indirizzo, non un modulo di contatto»: è l'argomento della sezione, e
