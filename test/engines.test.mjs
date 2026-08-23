@@ -10289,6 +10289,56 @@ t("ORC-02: il parametro ?model= si consuma dopo l'uso", () => {
   ok(f.indexOf("startFromTemplate(mkResolved)") < f.indexOf("history.replaceState"), "solo DOPO aver usato il parametro");
 });
 
+/* ============ export console: snippet X32/M32 (23/08) ============ */
+t("lo snippet X32/M32 ha il formato dei file veri: intestazione, config per canale, headamp per il 48V", () => {
+  /* Formato letto da scene pubbliche (GitHub) e dalla doc OSC di Maillot: «#4.0# "nome" 1 1 1 1 1»,
+     «/ch/NN/config "Nome" icona COLORE sorgente», «/headamp/NNN +0.0 ON|OFF» con /headamp/000 =
+     ingresso locale 1. Snippet, non scena: applica SOLO questi parametri. */
+  const righe = [
+    { n: 1, name: "Kick", short: "Kick", mic: "D6", p48: false },
+    { n: 2, name: "Batteria 1 - Rullante top", short: "Sn top", mic: "SM57", p48: false },
+    { n: 3, name: "Overhead L", mic: "KM184", p48: true },
+    { n: 4, name: "Basso", mic: "DI", p48: false },
+    { n: 5, name: "Chitarra elettrica «lead» ÀÈÌ", mic: "SM57", p48: false },
+    { n: 6, name: "Tastiere L", mic: "DI", p48: false },
+    { n: 7, name: "Voce", mic: "SM58", p48: false },
+    { n: 8, name: "Cori", mic: "SM58", p48: false, reserved: true },
+  ];
+  const r = A.x32Snippet(righe, "Band pop/rock");
+  const L = r.snp.split("\n");
+  eq(L[0], '#4.0# "Band pop/rock" 1 1 1 1 1', "intestazione dello snippet");
+  eq(L[1], '/ch/01/config "Kick" 1 RD 1', "canale 1: nome, icona 1, rosso per la batteria, sorgente locale 1");
+  eq(L[2], '/headamp/000 +0.0 OFF', "headamp 000 = ingresso 1, phantom OFF");
+  eq(L[3], '/ch/02/config "Sn top" 1 RD 2', "il nome breve (la sigla FOH) vince sul nome lungo");
+  ok(/\/ch\/03\/config "Overhead L" 1 RD 3/.test(r.snp) && /\/headamp\/002 \+0\.0 ON/.test(r.snp), "overhead: rosso e 48V ON su headamp 002");
+  ok(/\/ch\/04\/config "Basso" 1 BL 4/.test(r.snp), "basso blu");
+  ok(/\/ch\/05\/config "Chitarra ele" 1 GN 5/.test(r.snp), "chitarra: verde, accenti e virgolette tolti, 12 caratteri");
+  ok(/\/ch\/06\/config "Tastiere L" 1 YE 6/.test(r.snp), "tastiere gialle");
+  ok(/\/ch\/07\/config "Voce" 1 CY 7/.test(r.snp), "voce ciano");
+  ok(/\/ch\/08\/config "SPARE" 1 WHi 8/.test(r.snp), "una riservata esce SPARE in bianco invertito");
+  eq(r.count, 8, "otto canali");
+  ok(r.snp.endsWith("\n"), "file terminato da newline");
+  ok(!/[^\x00-\x7f]/.test(r.snp), "solo ASCII: la console non legge altro");
+  /* i non-ASCII DENTRO i 12 caratteri: «» e ♪ spariscono, gli accenti perdono il segno */
+  const r3 = A.x32Snippet([{ n: 1, name: "Sax «solo» ♪ più", mic: "SM57" }], "x");
+  ok(/\/ch\/01\/config "Sax solo piu" 1 MG 1/.test(r3.snp), "«» e ♪ tolti (e gli spazi doppi che lasciano), ù → u, sax magenta: " + r3.snp.split("\n")[1]);
+});
+
+t("lo snippet X32 rispetta i 32 canali e usa il numero FOH quando c'è", () => {
+  const molte = []; for (let i = 1; i <= 40; i++) molte.push({ n: i, name: "Ch " + i, mic: "SM57" });
+  const r = A.x32Snippet(molte, "x");
+  eq(r.count, 32, "al massimo 32 canali");
+  eq(r.skipped.length, 8, "e dice quanti sono rimasti fuori");
+  const foh = [{ n: 1, foh: 17, name: "Kick", mic: "D6" }, { n: 2, foh: 18, name: "Rullante", mic: "SM57" }];
+  const r2 = A.x32Snippet(foh, "x");
+  ok(/\/ch\/17\/config "Kick" 1 RD 17/.test(r2.snp) && /\/headamp\/016 /.test(r2.snp), "con più box vale il canale FOH (17), headamp 016");
+  ok(!/\/ch\/01\//.test(r2.snp), "e non il progressivo di riga");
+  /* e la voce sta nel selettore dei formati */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/data-fmt="x32snp"/.test(html), "la voce «Behringer X32 / Midas M32» è nel selettore");
+  ok(/fmt==="x32snp" \? exportX32Snippet\(\)/.test(appjs), "e il click la chiama");
+});
+
 t("l'email personale non finisce nella LOGICA del codice", () => {
   /* Distinzione che conta. Nella landing l'indirizzo è pubblicato APPOSTA — «dietro c'è una persona
      sola, con nome, cognome e indirizzo, non un modulo di contatto»: è l'argomento della sezione, e
