@@ -9610,6 +9610,62 @@ t("la channel list dice quali canali vogliono il phantom, e lo dice giusto", () 
   ok(!/<td>Timpan[oi]<\/td>/.test(tab), "nella batteria si chiama «Tom», non «Timpano»");
 });
 
+t("la dimostrazione parte dagli stessi numeri in cui è scritta", () => {
+  /* La sezione «Cambi il palco» ha i totali scritti DUE volte: una nell'HTML che si vede al primo
+     sguardo (syCh/syMix/syKw) e una nel JS che li fa salire al clic (syTot). Sono due posti, e
+     nessuno li teneva insieme: cambiando l'uno e non l'altro la dimostrazione parte da un numero
+     e ne mostra un altro appena tocchi un bottone — proprio nella sezione che serve a far vedere
+     che i conti si aggiornano da soli.
+
+     Stesso discorso per le liste sotto: le righe dei carichi devono sommare al totale dichiarato,
+     comprese quelle nascoste che compaiono al clic. È il difetto trovato altrove il 22/08 nello
+     schema elettrico, dove LUCI diceva 4,6 e la lista sommava 3,4. */
+  const num = (t) => parseFloat(String(t).replace(",", "."));
+
+  const html = {
+    ch:  +((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]),
+    mix: +((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]),
+    kw:  num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]),
+  };
+  const js = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/) || []);
+  ok(js.length, "il JS dichiara i suoi totali di partenza");
+  eq(html.ch, +js[1], "i canali di partenza: quelli scritti e quelli del JS");
+  eq(html.mix, +js[2], "i mix di partenza");
+  eq(html.kw, +js[3] / 10, "i kW di partenza (nel JS stanno moltiplicati per 10)");
+
+  /* il reset deve riportare esattamente lì, o «Ricomincia» lascia la pagina in un altro stato */
+  const reset = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/g) || []);
+  ok(reset.length >= 2 && reset[0] === reset[1],
+    "«Ricomincia» riporta ai numeri di partenza, non ad altri: " + reset.join(" ≠ "));
+
+  /* le righe dei carichi elettrici sommano al totale mostrato, faro nascosto incluso */
+  const blocco = landing.slice(landing.indexOf("Carichi elettrici"), landing.indexOf("Nell'editor vero"));
+  const righe = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => num(m[1]));
+  ok(righe.length >= 3, "le voci dei carichi ci sono: " + righe.join(" + "));
+  const visibili = righe.filter((_, i) => i < righe.length - 1);   /* l'ultima compare al clic */
+  eq(Math.round(visibili.reduce((a, b) => a + b, 0) * 10) / 10, html.kw,
+    "le voci visibili sommano al totale di partenza: " + visibili.join(" + "));
+  eq(Math.round(righe.reduce((a, b) => a + b, 0) * 10) / 10,
+     Math.round((html.kw + 1) * 10) / 10,
+     "e con il faro acceso fanno il kW in più che il bottone promette");
+});
+
+t("le cifre che la landing rivendica sono quelle che il programma ha davvero", () => {
+  /* Il precedente è del 12/08: la home dichiarava 155 microfoni e il programma ne aveva 223, perché
+     erano due cose separate. I microfoni da allora sono presidiati; i FARI no, e sono l'altra cifra
+     che la pagina mette in vetrina nella tabella «Elementi nel catalogo / Microfoni / Modelli di
+     faro». Una cifra sbagliata lì è una promessa che l'editor non mantiene. */
+  const fari = Object.keys(A.LIGHT_MODEL_DB || {}).length;
+  ok(fari > 0, "il catalogo dei fari si legge: " + fari);
+  const dichiarati = +((landing.match(/Modelli di faro<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
+  eq(dichiarati, fari, "i modelli di faro dichiarati sono quelli di LIGHT_MODEL_DB");
+
+  /* i microfoni: stessa verifica, nello stesso posto, così le due cifre non si separano di nuovo */
+  const mic = Object.keys(A.MIC_DB || {}).length;
+  eq(+((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0), mic,
+    "e i microfoni sono quelli di MIC_DB");
+});
+
 t("l'anteprima social ha la forma che i social pretendono", () => {
   /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
      morto da mesi — e nessuno se n'era accorto, perché l'immagine la vede solo chi riceve il link.
