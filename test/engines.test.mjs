@@ -9520,6 +9520,152 @@ t("la dimostrazione «una modifica, tutto aggiornato» è completa", () => {
   ok(/il rider si costruisce da solo/i.test(subHero), "e il sottotitolo dell'hero porta la promessa");
 });
 
+t("i numeri elettrici della landing tornano, e il quadro dice di che tipo è", () => {
+  /* Trovato il 22/08 leggendo la pagina come la leggerebbe un fonico. Due difetti veri:
+
+     1. lo schema elettrico dichiarava LUCI 4,6 kW, ma la lista sotto — 8 PAR LED 0,8 + 2 Fresnel
+        1,3 + 2 sagomatori 1,3 — somma 3,4 kW. Due numeri diversi per la stessa cosa, nella stessa
+        sezione. È esattamente il difetto che la pagina promette di NON fare («non allegati composti
+        a mano: sono lo stesso dato del disegno»).
+
+     2. «8,6 kW su 32A ✓ dentro i margini» non diceva se il quadro è mono o trifase. A 230V
+        monofase un 32A porta 7,36 kW (IEC 60309), quindi 8,6 kW era OLTRE il limite e il ✓ una
+        bugia; a 400V trifase porta ~22 kW e il ✓ è giusto. L'editor usa il trifase —
+        `distro32:{a:32, ph:3}` in app.js — ma la landing non lo scriveva.
+
+     Il test rifà i conti invece di controllare le stringhe: così vale anche per i numeri di domani. */
+  const num = (t) => parseFloat(String(t).replace(",", "."));
+
+  /* la somma della lista luci */
+  const righeLuci = [...landing.matchAll(/<tr>\s*<td[^>]*>(\d+)<\/td>[\s\S]{0,220}?<td[^>]*>([\d,]+) kW<\/td>\s*<\/tr>/g)]
+    .map((m) => num(m[2]));
+  ok(righeLuci.length >= 3, "la lista luci ha le sue righe: " + righeLuci.length);
+  const sommaLuci = Math.round(righeLuci.reduce((a, b) => a + b, 0) * 10) / 10;
+
+  /* le tre voci dello schema elettrico e il totale dichiarato */
+  const voci = {};
+  for (const m of landing.matchAll(/<span class="kw-lab">([^<]+)<\/span>[\s\S]{0,120}?<span class="kw-val">([\d,]+) kW<\/span>/g))
+    voci[m[1].trim()] = num(m[2]);
+  const tot = num((landing.match(/<b>([\d,]+) kW ✓ dentro i margini<\/b>/) || [])[1]);
+
+  eq(voci["LUCI"], sommaLuci, "la voce LUCI dello schema è la somma della lista luci");
+  const sommaVoci = Math.round(Object.values(voci).reduce((a, b) => a + b, 0) * 10) / 10;
+  eq(tot, sommaVoci, "e il totale sul quadro è la somma delle tre voci");
+
+  /* il ✓ regge solo se il quadro e' quello giusto: 32A monofase a 230V porta 7,36 kW */
+  const quadro = (landing.match(/TOTALE SU QUADRO (\d+)A( trifase)?/) || []);
+  const ampere = +quadro[1], trifase = !!quadro[2];
+  const monofaseMax = ampere * 230 / 1000;
+  ok(trifase || tot <= monofaseMax,
+    `${tot} kW su ${ampere}A: oltre i ${monofaseMax.toFixed(2)} kW del monofase, quindi va detto «trifase»`);
+  ok(!trifase || tot <= ampere * 400 * Math.sqrt(3) / 1000, "e sta dentro il trifase");
+
+  /* la stessa potenza va scritta uguale ovunque: compariva in cinque punti */
+  const scritti = [...landing.matchAll(/([\d,]+) kW/g)].map((m) => m[1]);
+  ok(scritti.filter((x) => num(x) === tot).length >= 4,
+    "il totale è ripetuto identico nei punti in cui la pagina lo cita: " + scritti.join(" "));
+});
+
+t("la channel list dice quali canali vogliono il phantom, e lo dice giusto", () => {
+  /* Aggiunta il 22/08. Fra gli essenziali di un input list secondo ProSoundWeb («Simple Yet Vital:
+     Best Practices In Developing Input Lists And Stage Plots») e SoundGirls («How to Make an
+     Awesome Audio Rider») c'è dire QUALI canali richiedono l'alimentazione phantom: chi riceve il
+     rider deve saperlo prima di arrivare. L'editor la colonna ce l'ha dal 28/07, la landing no.
+
+     Il test non si fida di quello che ho scritto a mano: confronta riga per riga con MIC_DB, che è
+     il database del programma, compilato sulle schede dei costruttori. Un dinamico che risultasse
+     col 48V acceso è un errore che sul palco costa — su un nastro passivo costa il microfono. */
+  const dentro = (h) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const tab = (landing.match(/<table id="chlist">([\s\S]*?)<\/table>/) || [])[1] || "";
+  ok(tab, "la channel list c'è");
+  ok(/<th class="p48h">48V<\/th>/.test(tab), "e ha la colonna 48V");
+
+  const righe = [...tab.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].slice(1)
+    .map((m) => [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => dentro(c[1])));
+  eq(righe.length, 10, "dieci canali");
+
+  let conPhantom = 0;
+  for (const [ch, sorgente, mic, p48] of righe) {
+    const acceso = /48V/.test(p48);
+    if (acceso) conPhantom++;
+    const info = A.MIC_DB[mic] || Object.values(A.MIC_DB).find((m) => m.model === mic);
+    if (info) {
+      eq(acceso, !!info.p48,
+        `CH${ch} ${sorgente} (${mic}): il 48V dichiarato deve essere quello di MIC_DB`);
+    } else {
+      /* Non è un microfono del catalogo: l'unico caso qui è la DI. Una DI ATTIVA richiede
+         alimentazione per definizione — phantom o batteria (Radial Engineering «DI Questions»;
+         Countryman Type 85: col phantom presente stacca da sola la batteria). Una PASSIVA no:
+         è un trasformatore. */
+      if (/DI attiva/i.test(mic)) ok(acceso, `CH${ch}: una DI attiva va alimentata, il 48V va acceso`);
+      else if (/^DI$/i.test(mic)) ok(!acceso, `CH${ch}: una DI passiva non vuole il phantom`);
+    }
+  }
+  ok(conPhantom > 0 && conPhantom < righe.length,
+    "l'esempio mostra sia canali col phantom sia senza: " + conPhantom + "/10");
+
+  /* «Timpano» era il nome dato al tom: ma nel catalogo dell'editor «Timpani» sono lo strumento
+     ORCHESTRALE (Ø81/74/66, categoria Percussioni) e MIC_DB dichiara per l'e604 uso:"tom,
+     rullante". Su un editor che supporta le orchestre quella parola è già presa. */
+  ok(!/<td>Timpan[oi]<\/td>/.test(tab), "nella batteria si chiama «Tom», non «Timpano»");
+});
+
+t("la dimostrazione parte dagli stessi numeri in cui è scritta", () => {
+  /* La sezione «Cambi il palco» ha i totali scritti DUE volte: una nell'HTML che si vede al primo
+     sguardo (syCh/syMix/syKw) e una nel JS che li fa salire al clic (syTot). Sono due posti, e
+     nessuno li teneva insieme: cambiando l'uno e non l'altro la dimostrazione parte da un numero
+     e ne mostra un altro appena tocchi un bottone — proprio nella sezione che serve a far vedere
+     che i conti si aggiornano da soli.
+
+     Stesso discorso per le liste sotto: le righe dei carichi devono sommare al totale dichiarato,
+     comprese quelle nascoste che compaiono al clic. È il difetto trovato altrove il 22/08 nello
+     schema elettrico, dove LUCI diceva 4,6 e la lista sommava 3,4. */
+  const num = (t) => parseFloat(String(t).replace(",", "."));
+
+  const html = {
+    ch:  +((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]),
+    mix: +((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]),
+    kw:  num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]),
+  };
+  const js = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/) || []);
+  ok(js.length, "il JS dichiara i suoi totali di partenza");
+  eq(html.ch, +js[1], "i canali di partenza: quelli scritti e quelli del JS");
+  eq(html.mix, +js[2], "i mix di partenza");
+  eq(html.kw, +js[3] / 10, "i kW di partenza (nel JS stanno moltiplicati per 10)");
+
+  /* il reset deve riportare esattamente lì, o «Ricomincia» lascia la pagina in un altro stato */
+  const reset = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/g) || []);
+  ok(reset.length >= 2 && reset[0] === reset[1],
+    "«Ricomincia» riporta ai numeri di partenza, non ad altri: " + reset.join(" ≠ "));
+
+  /* le righe dei carichi elettrici sommano al totale mostrato, faro nascosto incluso */
+  const blocco = landing.slice(landing.indexOf("Carichi elettrici"), landing.indexOf("Nell'editor vero"));
+  const righe = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => num(m[1]));
+  ok(righe.length >= 3, "le voci dei carichi ci sono: " + righe.join(" + "));
+  const visibili = righe.filter((_, i) => i < righe.length - 1);   /* l'ultima compare al clic */
+  eq(Math.round(visibili.reduce((a, b) => a + b, 0) * 10) / 10, html.kw,
+    "le voci visibili sommano al totale di partenza: " + visibili.join(" + "));
+  eq(Math.round(righe.reduce((a, b) => a + b, 0) * 10) / 10,
+     Math.round((html.kw + 1) * 10) / 10,
+     "e con il faro acceso fanno il kW in più che il bottone promette");
+});
+
+t("le cifre che la landing rivendica sono quelle che il programma ha davvero", () => {
+  /* Il precedente è del 12/08: la home dichiarava 155 microfoni e il programma ne aveva 223, perché
+     erano due cose separate. I microfoni da allora sono presidiati; i FARI no, e sono l'altra cifra
+     che la pagina mette in vetrina nella tabella «Elementi nel catalogo / Microfoni / Modelli di
+     faro». Una cifra sbagliata lì è una promessa che l'editor non mantiene. */
+  const fari = Object.keys(A.LIGHT_MODEL_DB || {}).length;
+  ok(fari > 0, "il catalogo dei fari si legge: " + fari);
+  const dichiarati = +((landing.match(/Modelli di faro<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
+  eq(dichiarati, fari, "i modelli di faro dichiarati sono quelli di LIGHT_MODEL_DB");
+
+  /* i microfoni: stessa verifica, nello stesso posto, così le due cifre non si separano di nuovo */
+  const mic = Object.keys(A.MIC_DB || {}).length;
+  eq(+((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0), mic,
+    "e i microfoni sono quelli di MIC_DB");
+});
+
 t("l'anteprima social ha la forma che i social pretendono", () => {
   /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
      morto da mesi — e nessuno se n'era accorto, perché l'immagine la vede solo chi riceve il link.
