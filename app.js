@@ -21311,6 +21311,64 @@ function downloadCsv(text, name){
   toastDownloaded(name);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
 }
+/* ===== Behringer X32 / Midas M32: SNIPPET (.snp) con nomi, colori e 48V dei canali =====
+   Perché uno snippet e non una scena: la scena (.scn) è l'istantanea di TUTTI i ~2000 parametri della
+   console; lo snippet è il formato che la X32 ha apposta per applicare SOLO alcuni parametri senza
+   toccare il resto — qui /ch/NN/config (nome ≤12 caratteri, icona, colore, sorgente) e /headamp/NNN
+   (gain, phantom). Formato letto da file reali (scene pubbliche su GitHub) e dalla documentazione
+   OSC non ufficiale di Patrick-Gilles Maillot: intestazione «#4.0# "nome" 1 1 1 1 1», poi una riga
+   per comando OSC. Sorgente = ingresso locale NN (1–32); /headamp/000 è l'ingresso locale 1.
+   Colori X32: OFF RD GN YE BL MG CY WH (+ «i» = invertito). I colori qui sono un DEFAULT sensato per
+   famiglia (batteria rossa, basso blu, chitarre verdi, tastiere gialle, voci ciano…): il fonico li
+   cambia in un tocco, ma 32 nomi non li ridigita. StageOn e Stageplot Pro lo fanno; da oggi anche
+   noi. ⚠️ Da verificare su una console o su X32-Edit prima dello show: il formato è quello, ma qui
+   nessuno ha una X32 sotto mano (23/08). */
+var X32_MAX_CH=32, X32_NAME_MAX=12;
+function x32Color(nome){
+  var n=String(nome||"").toLowerCase();
+  if(/kick|cassa|rullant|snare|tom|floor|hi.?hat|charl|over|oh |^oh|ride|crash|batter|drum|timpan|percuss|cong|bong|cajon/.test(n)) return "RD";
+  if(/bass|contrab/.test(n)) return "BL";
+  if(/chit|guit|gtr|ampli/.test(n)) return "GN";
+  if(/tast|keys|piano|synth|organ|clav|rhodes|wurl|celest|arpa|harp|sequen|click|laptop|comput|track/.test(n)) return "YE";
+  if(/voce|vox|voc|cori|coro|cantant|solist|speech|parl|mc\b/.test(n)) return "CY";
+  if(/sax|tromb|tromba|trumpet|corno|horn|flaut|flute|oboe|clarin|fagott|fiati|brass/.test(n)) return "MG";
+  if(/viol|cello|archi|string/.test(n)) return "WH";
+  return "WH";
+}
+function x32Name(s, max){   /* ASCII, ≤12 per i canali, senza virgolette (il nome sta fra doppi apici nel file) */
+  return String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/["\\]/g,"").replace(/[^\x20-\x7e]/g,"").replace(/\s+/g," ").trim().slice(0,max||X32_NAME_MAX);
+}
+/* rows = le righe della patch list; restituisce {snp, count, skipped}. Puro: niente DOM. */
+function x32Snippet(rows, titolo){
+  rows=rows||[];
+  var lines=[], used={}, count=0, skipped=[];
+  rows.forEach(function(r){
+    var ch=(r.foh!=null && r.foh>0) ? r.foh : r.n;   /* il numero che il fonico ha sul banco (FOH se c'è) */
+    if(!(ch>=1 && ch<=X32_MAX_CH)){ skipped.push(ch); return; }
+    if(used[ch]) return; used[ch]=1;
+    var nome = r.reserved ? "SPARE" : x32Name(r.short||r.name||("CH "+ch));
+    var col  = r.reserved ? "WHi" : x32Color(r.name);
+    var nn=("0"+ch).slice(-2), ha=("00"+(ch-1)).slice(-3);
+    lines.push("/ch/"+nn+"/config \""+nome+"\" 1 "+col+" "+ch);
+    lines.push("/headamp/"+ha+" +0.0 "+(r.p48?"ON":"OFF"));
+    count++;
+  });
+  var head='#4.0# "'+x32Name(titolo||"StagePlot", 16)+'" 1 1 1 1 1';   /* il nome dello snippet non ha il limite dei canali: una scena reale ne aveva 13 */
+  return { snp: [head].concat(lines).join("\n")+"\n", count:count, skipped:skipped };
+}
+function exportX32Snippet(){
+  var pl=(typeof patchList==="function")?patchList():{rows:[]};
+  var r=x32Snippet(pl.rows, state.titolo);
+  if(!r.count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return false; }
+  var name=fileName()+"-x32.snp";
+  var blob=new Blob([r.snp], {type:"text/plain;charset=us-ascii"});
+  var url=URL.createObjectURL(blob); dl(url, name); toastDownloaded(name);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  if(r.skipped.length && window.__toast) window.__toast(r.skipped.length+" canali oltre il 32 non entrano in una X32: lo snippet ha i primi 32.", true);
+  try{ if(window.__sendEvent) window.__sendEvent({event:"export_csv",props:{rows:r.count, format:"x32snp"}}); }catch(e){}
+  return true;
+}
+window.exportX32Snippet=exportX32Snippet;
 /* Channel list (ingressi) in CSV, formato scelto. Fonte: la lista instrument-driven (stessa del PDF/pannello).
    opts.format: "excel-it" (sep ;) | "intl" (sep ,) | "ah" (Allen & Heath Director, best-effort). */
 function channelListCsv(opts){
@@ -21374,7 +21432,10 @@ function openCsvExport(){
 window.exportChannelCsv=exportChannelCsv; window.openCsvExport=openCsvExport;
 (function(){
   var m=document.getElementById("csvPicker"); if(!m) return;
-  m.querySelectorAll(".csvfmt").forEach(function(b){ b.addEventListener("click", function(){ if(exportChannelCsv({format:b.getAttribute("data-fmt")})) m.hidden=true; }); });
+  m.querySelectorAll(".csvfmt").forEach(function(b){ b.addEventListener("click", function(){
+    var fmt=b.getAttribute("data-fmt");
+    var ok = fmt==="x32snp" ? exportX32Snippet() : exportChannelCsv({format:fmt});
+    if(ok) m.hidden=true; }); });
   var c=document.getElementById("csvClose"); if(c) c.addEventListener("click", function(){ m.hidden=true; });
   m.addEventListener("click", function(e){ if(e.target===m) m.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!m.hidden && e.key==="Escape") m.hidden=true; });

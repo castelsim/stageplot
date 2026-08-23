@@ -4208,8 +4208,8 @@ body.dark .ask-all .btn{background:transparent}
 <!-- Export channel list CSV: scelta formato (#4 preset console) -->
 <div class="modal" id="csvPicker" hidden>
   <div class="mcard" style="width:440px;max-width:94vw">
-    <h2>Esporta channel list (CSV)</h2>
-    <div class="hint">Per aprirla in Excel o importarla nella console. Scegli il formato:</div>
+    <h2>Esporta channel list</h2>
+    <div class="hint">Per aprirla in Excel o portarla sulla console senza ridigitare i nomi. Scegli il formato:</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0 4px">
       <button type="button" class="pa-card csvfmt" data-fmt="excel-it" style="text-align:left">
         <b>Excel (Italia)</b><br><small style="color:var(--text-2)">Separatore «;» — Excel italiano apre subito in colonne</small></button>
@@ -4217,6 +4217,8 @@ body.dark .ask-all .btn{background:transparent}
         <b>Internazionale / console</b><br><small style="color:var(--text-2)">Separatore «,» — standard CSV, Excel EN e import console</small></button>
       <button type="button" class="pa-card csvfmt" data-fmt="ah" style="text-align:left">
         <b>Allen &amp; Heath Director</b><br><small style="color:var(--text-2)">Sezione [Channels] con nomi + phantom. <b style="color:var(--warning)">Verifica l'import sulla tua console.</b></small></button>
+      <button type="button" class="pa-card csvfmt" data-fmt="x32snp" style="text-align:left">
+        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Nomi, colori e 48V dei canali: si carica da USB (Scenes → Snippets) o da X32-Edit, senza toccare il resto. <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
     </div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="csvClose" style="margin-left:auto">Annulla</button></div>
   </div>
