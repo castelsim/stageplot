@@ -10252,6 +10252,22 @@ t("il rider riassume la dotazione per modello: microfoni, DI, 48V, aste", () => 
   ok(/riderDotazione\(\)/.test(appjs.slice(appjs.indexOf("function riderPdf"), appjs.indexOf("function riderPdf") + 3000)), "e nel rider PDF");
 });
 
+t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e in PDF", () => {
+  /* La sezione Alimentazione c'era solo nell'anteprima HTML: il PDF che si consegna non diceva
+     quanta corrente serve. E nessuno dei due nominava il differenziale 30 mA, la prima riga di ogni
+     richiesta elettrica seria (HSE GS50, 2017). Una frase sola per entrambi: non possono divergere. */
+  const t = A.riderAlimentazioneText({ w: 2600, a: 11.3, distro: ["A 32A"], fasi: false });
+  ok(/2,6 kW/.test(t) && /12 A/.test(t), "kW e ampere (arrotondati per eccesso)");
+  ok(/quadri: A 32A/.test(t), "i quadri dichiarati");
+  ok(/differenziale 30 mA/.test(t), "il differenziale 30 mA");
+  ok(/prolunghe completamente svolte/.test(t) && /ciabatte multipresa/.test(t), "prolunghe svolte e ciabatte, non adattatori");
+  eq(A.riderAlimentazioneText(null), "", "senza carichi niente sezione");
+  const pdf = appjs.slice(appjs.indexOf("function riderPdf"), appjs.indexOf("function riderPdf") + 4000);
+  ok(/heading\("ALIMENTAZIONE"\)/.test(pdf) && /riderAlimentazioneText\(d\.elettrico\)/.test(pdf), "il PDF ha la sezione, dalla stessa frase");
+  const html = appjs.slice(appjs.indexOf("function riderHtml"), appjs.indexOf("function riderHtml") + 4000);
+  ok(/riderAlimentazioneText\(d\.elettrico\)/.test(html), "e l'HTML la prende dalla stessa funzione");
+});
+
 t("l'email personale non finisce nella LOGICA del codice", () => {
   /* Distinzione che conta. Nella landing l'indirizzo è pubblicato APPOSTA — «dietro c'è una persona
      sola, con nome, cognome e indirizzo, non un modulo di contatto»: è l'argomento della sezione, e

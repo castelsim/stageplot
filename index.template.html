@@ -23803,6 +23803,7 @@ function riderPdf(shared){
     heading("MONITOR"); body(riderMonitorText(d.monitor));
     heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
     if(d.console){ heading("CONSOLE"); body(d.console); }
+    if(d.elettrico){ heading("ALIMENTAZIONE"); body(riderAlimentazioneText(d.elettrico)); }   /* mancava nel PDF: c'era solo nell'anteprima HTML */
     heading("SISTEMA AUDIO"); body(d.sistema);
     heading("LUCI"); body(d.luci);
     (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
@@ -25080,6 +25081,17 @@ function riderDotazione(rows){
   var asteTxt=ordine(aste).map(function(k){ return aste[k]+"× "+k; }).join(", ");
   return { testo: parti.join(" · "), aste: asteTxt, nMic:nMic, nDI:di, n48:p48, mics:mics, asteMap:aste };
 }
+/* La frase dell'alimentazione, UNA sola per rider HTML e PDF (prima il PDF non aveva proprio la
+   sezione: il documento che si consegna non diceva quanta corrente serve, mentre l'anteprima sì).
+   Il differenziale 30 mA, le prolunghe svolte e le ciabatte al posto degli adattatori vengono da
+   HSE GS50 «Electrical safety at places of entertainment» (2017): sono le tre cose che ogni
+   elettricista di palco dà per scontate e che nessun rider dovrebbe tacere. */
+function riderAlimentazioneText(e){
+  if(!e) return "";
+  return "Assorbimento stimato "+elecKW(e.w)+" · "+Math.ceil(e.a)+" A"+
+    (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.fasi?" · distribuzione trifase":"")+
+    ". Alimentazione a cura dell'organizzazione, presa di corrente disponibile a bordo palco; tutte le linee di palco protette da interruttore differenziale 30 mA (HSE GS50 / CEI 64-8), prolunghe completamente svolte, ciabatte multipresa e non adattatori multipli.";
+}
 function riderMonitorText(m){
   var a=[]; if(m.wedge)a.push(m.wedge+" wedge"); if(m.side)a.push(m.side+" side fill"); if(m.drumfill)a.push(m.drumfill+" drum fill");
   if(m.iem)a.push(m.iem+" IEM"); if(m.personal)a.push(m.personal+" personal monitor");
@@ -25107,9 +25119,7 @@ function riderHtml(){
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
     sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+
-    (d.elettrico?sec("Alimentazione", esc("Assorbimento stimato "+elecKW(d.elettrico.w)+" · "+Math.ceil(d.elettrico.a)+" A"+
-      (d.elettrico.distro.length?" · quadri: "+d.elettrico.distro.join(", "):"")+
-      (d.elettrico.fasi?" · distribuzione trifase":"")+". Alimentazione a cura dell'organizzazione, presa di corrente disponibile a bordo palco."), true):"")+
+    (d.elettrico?sec("Alimentazione", esc(riderAlimentazioneText(d.elettrico)), true):"")+
     sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto)+
     /* Luci: se la lista dichiara delle richieste, la sezione esce STRUTTURATA (intestazione
        per funzione + voci), come in un rider vero. Il testo scritto a mano resta prosa. */
