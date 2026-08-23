@@ -24816,6 +24816,12 @@ if(qForm){
 var MODEL_ALIAS={orchestra:"camera", chiesa:"coro", festival:"band", acustica:"acoustic", jazz:"jazzcombo"};
 var qModel=allowStartupScenario?(location.search.match(/model=([\w-]+)/)||[])[1]:null;
 if(qModel){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(typeof formationData==="function" && formationData(mkResolved)) startFromTemplate(mkResolved); }
+/* ORC-02 (audit esterno 23/08, riprodotto): il parametro restava nell'URL dopo l'uso. Chi entrava da
+   /app/?model=band, poi creava un'Orchestra, e ricaricava, si vedeva chiedere «Creare il modello Band
+   pop/rock?» sul lavoro che aveva davanti — la finestra si poteva annullare, ma la fiducia nel
+   salvataggio no. Il link ha fatto il suo lavoro una volta: dopo, l'URL torna a essere quello del
+   progetto. replaceState, senza ricaricare, lasciando gli altri parametri (view, ecc.). */
+if(qModel || qForm){ try{ var _u=new URL(location.href); _u.searchParams.delete("model"); _u.searchParams.delete("form"); history.replaceState(history.state, "", _u.pathname+(_u.search||"")+_u.hash); }catch(_e){} }
 setEventInputs();
 normalizeState(state); renderChannels();
 if(allowStartupScenario && location.search.indexOf("inputaudit=1")>-1){   /* QA: un esemplare di ogni sorgente + Auto */
@@ -24964,6 +24970,10 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
         /* i modelli che sanno fare domande sono quelli in ORGANICI: per gli altri il palco parte
            com'era, senza finestre a sorpresa. */
         if(typeof ORGANICI!=="undefined" && ORGANICI[m[0]] && typeof chiediOrganico==="function"){
+          /* ORC-01 (audit esterno 23/08, riprodotto): la finestra «Nuovo stage plot» restava DAVANTI al
+             configuratore «Quanti in orchestra?» appena richiesto, e bisognava premere Annulla su quella
+             sopra per raggiungere quella sotto. Un dialogo modale alla volta: il picker si chiude PRIMA. */
+          if(after) after();
           chiediOrganico(m[0], function(scelte){ startFromTemplate(m[0],{after:after, formazione:scelte}); });
         } else startFromTemplate(m[0],{after:after});
       });
