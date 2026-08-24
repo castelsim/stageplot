@@ -9607,7 +9607,40 @@ t("la channel list dice quali canali vogliono il phantom, e lo dice giusto", () 
   /* «Timpano» era il nome dato al tom: ma nel catalogo dell'editor «Timpani» sono lo strumento
      ORCHESTRALE (Ø81/74/66, categoria Percussioni) e MIC_DB dichiara per l'e604 uso:"tom,
      rullante". Su un editor che supporta le orchestre quella parola è già presa. */
-  ok(!/<td>Timpan[oi]<\/td>/.test(tab), "nella batteria si chiama «Tom», non «Timpano»");
+  ok(!/Timpan[oi]/.test(landing), "nella batteria si chiama «Tom», non «Timpano»");
+});
+
+t("le due channel list della pagina raccontano lo stesso palco", () => {
+  /* Il 22/08 ho corretto «Timpano» → «Tom» nella channel list della sezione «L'output» e l'ho dato
+     per fatto: le liste erano DUE. L'altra è il mini-rider del prima/dopo, che mostra lo stesso
+     progetto esempio in forma di documento, e lì «Timpano» è rimasto — pubblicato. Il test di
+     allora non se n'è accorto perché guardava dentro <table id="chlist"> e basta.
+
+     La lezione è la stessa che avevo scritto nel commit e che non ho applicato a me stesso: il
+     difetto è il dato ripetuto in due posti che nessuno tiene insieme. Quindi qui non si cerca una
+     parola: si confrontano le DUE liste riga per riga. Sono lo stesso quartetto d'esempio, devono
+     dire le stesse cose — o il prima/dopo mostra un palco e la sezione dopo un altro. */
+  const pulisci = (h) => h.replace(/<[^>]*>/g, "\u0000").split("\u0000").filter((x) => x.trim()).map((x) => x.trim());
+
+  const tab = (landing.match(/<table id="chlist">([\s\S]*?)<\/table>/) || [])[1] || "";
+  const grande = [...tab.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].slice(1).map((m) => {
+    const c = [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((x) => x[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+    return { n: c[0], sorgente: c[1], mic: c[2] };
+  });
+
+  const mini = [...landing.matchAll(/<div class="mr-row"><i>(\d+)<\/i><b>([^<]*)<\/b>([^<]*)<\/div>/g)]
+    .map((m) => ({ n: m[1], sorgente: m[2].trim(), mic: m[3].trim() }));
+
+  ok(grande.length >= 10, "la channel list grande ha le sue righe: " + grande.length);
+  ok(mini.length >= 10, "il mini-rider ha le sue righe: " + mini.length);
+  eq(mini.length, grande.length, "e sono lo stesso numero di canali");
+
+  for (let i = 0; i < mini.length; i++) {
+    eq(mini[i].n, grande[i].n, `riga ${i + 1}: stesso numero di canale`);
+    eq(mini[i].sorgente, grande[i].sorgente,
+      `CH${mini[i].n}: la sorgente è la stessa nelle due liste`);
+    eq(mini[i].mic, grande[i].mic, `CH${mini[i].n}: il microfono è lo stesso nelle due liste`);
+  }
 });
 
 t("la dimostrazione parte dagli stessi numeri in cui è scritta", () => {
