@@ -9628,8 +9628,17 @@ function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
 function elecSection(a){ for(var i=0;i<ELEC_SECTIONS.length;i++){ if(a<=ELEC_SECTIONS[i][0]) return ELEC_SECTIONS[i][1]; } return "95 mm²"; }
 /* F4: connettore della linea — dedotto (audio rack → PowerCON, >16A → CEE, altrimenti Schuko) o override */
 var ELEC_POWERCON={ rack:1, amprack:1 };
+/* Il powerCON è un connettore da 20 A (TRUE1: 16 A) — sopra quella soglia non esiste, e un rack ampli
+   da 7 kW ne chiede 30. Prima il tipo vinceva sulla corrente: il PDF «Alimentazioni» stampava
+   «PowerCON» per una linea da 30 A mentre due righe sotto l'avviso diceva «serve una linea dedicata
+   (CEE)» — due indicazioni opposte nello stesso foglio, e chi prepara i cavi segue quella sbagliata.
+   La corrente comanda: oltre i 16 A si passa a CEE anche per rack e amp rack (25/08). */
+var ELEC_POWERCON_MAX_A=16;
 function elecConnOf(it, a, ov){
-  var k = (ov==="schuko"||ov==="cee"||ov==="powercon") ? ov : (ELEC_POWERCON[it.type] ? "powercon" : (a>16 ? "cee" : "schuko"));
+  var pcOk = ELEC_POWERCON[it.type] && !(a>ELEC_POWERCON_MAX_A);
+  var k = (ov==="schuko"||ov==="cee"||ov==="powercon") ? ov : (pcOk ? "powercon" : (a>16 ? "cee" : "schuko"));
+  /* Anche scelto a mano: un powerCON su 30 A resta un errore, non una preferenza. */
+  if(k==="powercon" && a>ELEC_POWERCON_MAX_A) k="cee";
   if(k==="powercon") return {k:"pc", label:"PowerCON"};
   if(k==="cee") return {k:"cee", label:"CEE"+(a>32?"63":(a>16?"32":"16"))};
   return {k:"sk", label:"Schuko"};
@@ -23200,7 +23209,10 @@ function x32Snippet(rows, titolo){
     var ch=(r.foh!=null && r.foh>0) ? r.foh : r.n;   /* il numero che il fonico ha sul banco (FOH se c'è) */
     if(!(ch>=1 && ch<=X32_MAX_CH)){ skipped.push(ch); return; }
     if(used[ch]) return; used[ch]=1;
-    var nome = r.reserved ? "SPARE" : x32Name(r.short||r.name||("CH "+ch));
+    /* Il ripiego «CH n» va scelto DOPO la pulizia ASCII, non prima: un nome tutto fuori dall'ASCII
+       (cinese, cirillico, sole emoji) è una stringa non vuota, quindi vinceva l'OR, ma x32Name la
+       riduceva a niente e in console arrivava un canale senza nome — «"" 1 WH 1» (25/08). */
+    var nome = r.reserved ? "SPARE" : (x32Name(r.short||r.name) || x32Name("CH "+ch));
     var col  = r.reserved ? "WHi" : x32Color(r.name);
     var nn=("0"+ch).slice(-2), ha=("00"+(ch-1)).slice(-3);
     lines.push("/ch/"+nn+"/config \""+nome+"\" 1 "+col+" "+ch);
@@ -24315,10 +24327,17 @@ function rfIssues(){
   try{ rfChain().issues.forEach(function(i){ out.push(i); }); }catch(_e){}
   if(!A.rxs.length) return out;
   if(A.orphans.length) out.push({lvl:"warn", msg:A.orphans.length+" radiomic senza ricevitore ("+A.orphans.map(rfTxName).join(", ")+"): capienza RF esaurita — aggiungi un ricevitore."});
+  /* Il duplicato si cerca sul VALORE della portante, non su come è scritta: «606.25» e «606.250» sono
+     la stessa frequenza, e chi compila la lista copiandola da due ricevitori diversi le scrive come
+     gliele mostra il display. Confrontando le stringhe l'errore più banale del mestiere — due bodypack
+     sullo stesso canale — passava senza una parola (25/08). Chiave = kHz interi: sotto il kHz nessun
+     ricevitore separa comunque, e si evita il confronto fra decimali in virgola mobile. */
   var seen={};
   A.txs.forEach(function(tx){ var f=(tx.rf||"").trim(); if(!f) return;
-    if(seen[f]) out.push({lvl:"err", msg:"Frequenza RF duplicata "+f+" MHz: "+seen[f]+" e "+rfTxName(tx)+" — due trasmettitori sulla stessa frequenza si disturbano."});
-    else seen[f]=rfTxName(tx); });
+    var v=parseFloat(f.replace(",","."));  /* qualcuno la scrive all'italiana: 606,250 */
+    var k=isFinite(v) ? String(Math.round(v*1000)) : f.toLowerCase();
+    if(seen[k]) out.push({lvl:"err", msg:"Frequenza RF duplicata "+f+" MHz: "+seen[k]+" e "+rfTxName(tx)+" — due trasmettitori sulla stessa frequenza si disturbano."});
+    else seen[k]=rfTxName(tx); });
   /* Intermodulazione del 3° ordine (Shure, «Selection and Operation of Wireless Microphone Systems»):
      due trasmettitori a f1 e f2 generano prodotti a 2·f1−f2 e 2·f2−f1, e i costruttori chiedono almeno
      250 kHz fra ogni prodotto e ogni portante in uso; fra due portanti, almeno 300 kHz. Con tre o più
@@ -25127,22 +25146,46 @@ function riderDotazione(rows){
   rows = rows || ((typeof patchList==="function") ? patchList().rows : []);
   var mics={}, aste={}, di=0, p48=0, nMic=0;
   var ordine=function(o){ return Object.keys(o).sort(function(a,b){ return o[b]-o[a] || a.localeCompare(b); }); };
+  /* Il campo microfono è testo libero: la stessa capsula entra come «SM58», «sm58», «Sm 58» a seconda
+     di chi ha compilato la riga. Contandole come modelli diversi il rider chiedeva al service «1× SM58,
+     1× sm58, 1× Sm58» invece di «3× SM58» — tre righe che sembrano tre modelli da preparare (25/08).
+     Si raggruppa su una chiave normalizzata (maiuscole e spazi ignorati) e si mostra la grafia più
+     frequente, a parità la prima vista: è quella che l'utente riconosce come sua. */
+  var micGrafie={};
+  function conta(mappa, grafie, s){
+    var k=s.toUpperCase().replace(/\s+/g,"");
+    mappa[k]=(mappa[k]||0)+1;
+    var g=grafie[k]||(grafie[k]={});
+    g[s]=(g[s]||0)+1;
+  }
+  function etichetta(grafie, k){
+    var g=grafie[k]||{}, best=null;
+    Object.keys(g).forEach(function(s){ if(best===null || g[s]>g[best]) best=s; });
+    return best===null ? k : best;
+  }
+  var asteGrafie={};
   rows.forEach(function(r){
     if(r.reserved || r.spare) return;
     var m=String(r.mic||"").trim();
     if(!m) return;
     if(/^DI\b/i.test(m) || /\bDI\b/.test(m) && !/\d{2,}/.test(m)){ di++; }
-    else { nMic++; mics[m]=(mics[m]||0)+1; }
+    else { nMic++; conta(mics, micGrafie, m); }
     if(r.p48) p48++;
     var st=String(r.stand||"").trim();
-    if(st && !r.standShared && !/^(interno|clip)/i.test(st)) aste[st]=(aste[st]||0)+1;   /* le clip stanno sullo strumento: non sono aste da portare */
+    if(st && !r.standShared && !/^(interno|clip)/i.test(st)) conta(aste, asteGrafie, st);   /* le clip stanno sullo strumento: non sono aste da portare */
   });
   var parti=[];
-  if(nMic) parti.push(ordine(mics).map(function(k){ return mics[k]+"× "+k; }).join(", "));
+  if(nMic) parti.push(ordine(mics).map(function(k){ return mics[k]+"× "+etichetta(micGrafie,k); }).join(", "));
   if(di) parti.push(di+" DI");
   if(p48) parti.push(p48+" con 48V");
-  var asteTxt=ordine(aste).map(function(k){ return aste[k]+"× "+k; }).join(", ");
-  return { testo: parti.join(" · "), aste: asteTxt, nMic:nMic, nDI:di, n48:p48, mics:mics, asteMap:aste };
+  var asteTxt=ordine(aste).map(function(k){ return aste[k]+"× "+etichetta(asteGrafie,k); }).join(", ");
+  /* Fuori dalla funzione le mappe escono con la grafia MOSTRATA come chiave, non con quella
+     normalizzata: chi legge `D.mics["SM58"]` sta leggendo il rider, non l'indice interno. */
+  function perEtichetta(mappa, grafie){
+    var o={}; Object.keys(mappa).forEach(function(k){ o[etichetta(grafie,k)]=mappa[k]; }); return o;
+  }
+  return { testo: parti.join(" · "), aste: asteTxt, nMic:nMic, nDI:di, n48:p48,
+           mics:perEtichetta(mics,micGrafie), asteMap:perEtichetta(aste,asteGrafie) };
 }
 /* La frase dell'alimentazione, UNA sola per rider HTML e PDF (prima il PDF non aveva proprio la
    sezione: il documento che si consegna non diceva quanta corrente serve, mentre l'anteprima sì).
