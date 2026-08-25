@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.08.23";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.08.25";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -98,7 +98,12 @@
     /* --surface-2/-3 erano USATE (intestazioni del pannello consulenza) senza essere mai dichiarate:
        vinceva sempre il fallback chiaro, anche in tema scuro. Ora esistono, e in scuro sono scure. */
     --surface-2:#f8fafc;--surface-3:#eceef1;
-    --text:var(--n-800);--text-2:var(--n-500);--text-3:var(--n-400);--text-on-accent:#fff;
+    /* --text-3 non è più --n-400: quel grigio dà 2,73:1 sul bianco e 2,48:1 sul fondo pagina, sotto
+       il minimo di 4,5:1 per il testo di 10-12px — ed è il colore dei conteggi del catalogo, delle
+       note sotto i campi e del segnaposto del titolo, 102 usi. Su un portatile in penombra dietro il
+       banco spariva. #7b7568 = 4,58:1 sul bianco, il gradino più vicino all'originale fra quelli che
+       passano; la scala --n-* resta intatta perché la usano anche bordi e fondi (25/08). */
+    --text:var(--n-800);--text-2:var(--n-500);--text-3:#7b7568;--text-on-accent:#fff;
     --canvas-bg:#edebe4;--sheet:#fff;
     --select:var(--accent);--select-fill:rgba(13,148,136,.05);--focus-ring:rgba(13,148,136,.32);
     --guide:var(--accent);--guide-center:#f59e0b;--axis:#c8c3b4;--grid-line:#e9e6db;--grid-major:#dbd6c8;
@@ -1822,7 +1827,7 @@
   body.dark{
     --bg:#12181b;--surface:#1b2327;--surface-raised:#20292e;--surface-2:#20292e;--surface-3:#253036;
     --border:#2c3a3f;--border-strong:#314046;
-    --text:#e5e7eb;--text-2:#96a5a1;--text-3:#6b7280;
+    --text:#e5e7eb;--text-2:#96a5a1;--text-3:#7d8794;   /* era #6b7280 = 3,30:1 sul fondo scuro; ora 4,38:1 e resta distinto da --text-2 */
     --canvas-bg:#0e1214;--sheet:#fff;
     --focus-ring:rgba(20,184,166,.32);   /* glow accent-bright per il focus su scuro */
     /* SUPERFICI «TINTA» (04/08): erano dichiarate solo in :root e restavano quasi bianche in tema
