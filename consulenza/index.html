@@ -262,7 +262,6 @@
 
     .card h3 { margin: 14px 0 0; font-size: 21px; }
     .price { margin: 6px 0 4px; font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
-    .social { margin: 0 0 10px; color: var(--accent); font-size: 13px; font-weight: 600; }
     .card .desc { margin: 0; color: var(--muted); font-size: 15px; }
     .card .plus { margin: 16px 0 6px; font-weight: 700; font-size: 14px; }
 
@@ -301,6 +300,14 @@
       font-size: 13px;
       text-align: center;
     }
+
+    .presale {
+      max-width: 860px;
+      margin: 12px auto 0;
+      font-size: 15px;
+      text-align: center;
+    }
+    .presale a { color: var(--accent-strong); }
 
     /* COME FUNZIONA */
     .dark-band { background: var(--dark); border-color: rgba(255,255,255,.12); }
@@ -507,7 +514,7 @@
           {
             "@type": "Question",
             "name": "In quanto tempo ricevo la documentazione?",
-            "acceptedAnswer": { "@type": "Answer", "text": "In genere entro pochi giorni lavorativi dalla richiesta. I tempi esatti dipendono dalla complessità del progetto e dalla data dell'evento: te li confermo appena ricevo il tuo Stage Plot." }
+            "acceptedAnswer": { "@type": "Answer", "text": "Entro 3 giorni lavorativi dalla conferma della richiesta. Se l'evento è vicino, indicalo nella prima email: i progetti con una data ravvicinata hanno la precedenza." }
           },
           {
             "@type": "Question",
@@ -556,9 +563,9 @@
 
     <section id="confirm" class="confirm-section" hidden>
       <div class="confirm">
-        <h2>Pagamento in verifica.</h2>
-        <p>Stripe sta verificando il pagamento e l’associazione alla richiesta di Consulenza Tecnica.</p>
-        <p>Riceverai conferma dopo la validazione; se l’associazione non riesce, il pagamento viene segnalato al supporto per la gestione manuale.</p>
+        <h2>Richiesta ricevuta.</h2>
+        <p>Il pagamento è in elaborazione: la ricevuta arriva via email da Stripe.</p>
+        <p>Il fonico riceve subito il tuo Stage Plot e ti contatta entro un giorno lavorativo per confermare tempi e dettagli della consegna. Per qualsiasi dubbio: <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>
       </div>
     </section>
 
@@ -584,7 +591,7 @@
           <span class="tag">Essenziale</span>
           <h3>Consulenza Tecnica</h3>
           <p class="price">29 &euro;</p>
-          <p class="desc">Per chi ha gia creato il palco e desidera una verifica professionale.</p>
+          <p class="desc">Per chi ha già creato il palco e desidera una verifica professionale.</p>
           <ul>
             <li>Verifica tecnica</li>
             <li>Correzioni</li>
@@ -598,9 +605,8 @@
           <span class="tag">&#11088; Consigliato</span>
           <h3>Produzione Tecnica Completa</h3>
           <p class="price">149 &euro;</p>
-          <p class="social">Il piu scelto da chi ha una data.</p>
-          <p class="desc">Tutto il pacchetto Consulenza Tecnica, piu la documentazione completa dell'evento.</p>
-          <p class="plus">Include tutto il pacchetto base, piu:</p>
+          <p class="desc">Tutto il pacchetto Consulenza Tecnica, più la documentazione completa dell'evento.</p>
+          <p class="plus">Include tutto il pacchetto base, più:</p>
           <ul>
             <li>Channel List</li>
             <li>Input List</li>
@@ -612,7 +618,8 @@
           <button class="btn primary" type="button" data-product="production-pack">Ottieni il pacchetto completo</button>
         </article>
       </div>
-      <p class="reassure">Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Consegna in genere entro pochi giorni lavorativi. Fattura su richiesta. Documentazione tecnica pronta per il service.</p>
+      <p class="reassure">Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Consegna entro 3 giorni lavorativi dalla conferma della richiesta. Fattura su richiesta. Documentazione tecnica pronta per il service.</p>
+      <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20sulla%20Consulenza%20Tecnica">Scrivi al fonico che fa le revisioni</a>: risposta diretta, senza impegno.</p>
     </section>
 
     <section id="faq">
@@ -643,7 +650,7 @@
         </details>
         <details>
           <summary>In quanto tempo ricevo la documentazione?</summary>
-          <p>In genere entro pochi giorni lavorativi dalla richiesta. I tempi esatti dipendono dalla complessità del progetto e dalla data dell'evento: te li confermo appena ricevo il tuo Stage Plot.</p>
+          <p>Entro 3 giorni lavorativi dalla conferma della richiesta. Se l'evento è vicino, indicalo nella prima email: i progetti con una data ravvicinata hanno la precedenza.</p>
         </details>
         <details>
           <summary>Cosa non è incluso nella consulenza?</summary>
@@ -686,7 +693,7 @@
     </div>
 
     <div class="od-upsell od-sec" id="odUpsell" hidden style="border-top:none">
-      <strong>Con 120 &euro; in piu ricevi anche</strong>
+      <strong>Con 120 &euro; in più ricevi anche</strong>
       <ul>
         <li>Rider Tecnico</li>
         <li>Channel List</li>
