@@ -6499,7 +6499,7 @@ function normalizeCompositeParts(it){
 function normalizeLoadedItems(arr){
   if(arr==null) return [];
   if(!Array.isArray(arr)) throw documentLoadError("INVALID_ITEMS","La lista elementi non è valida.");
-  var provided=Object.create(null), used=Object.create(null), seq=1;
+  var provided=Object.create(null), used=Object.create(null), seq=1, dupIds=0;
   arr.forEach(function(it,idx){
     if(!itemTypeDef(it)) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
     if(it.id==null || it.id==="") return;
@@ -6510,13 +6510,19 @@ function normalizeLoadedItems(arr){
     if(!safeItemId(id) || provided[id]) return;
     provided[id]=used[id]=true;
   });
-  return arr.map(function(it){
+  var out=arr.map(function(it){
     var t=itemTypeDef(it), n;
     ["__proto__","prototype","constructor"].forEach(function(k){ if(Object.prototype.hasOwnProperty.call(it,k)) delete it[k]; });
     var _id=(it.id==null||it.id==="")?"":itemIdString(it.id);
     if(_id && safeItemId(_id) && provided[_id]===true){   /* id valido, unico e non ancora consumato → si conserva */
       it.id=_id; provided[_id]=false;   /* consuma: un eventuale duplicato successivo viene riassegnato */
     } else {   /* vuoto, non-safe o duplicato → riassegnato (come il vecchio ensureItemIds): nessun lockout */
+      /* Un id DUPLICATO non è come un id vuoto: c'era qualcosa che ci puntava. Riassegnandolo, chi
+         puntava a quell'id resta agganciato all'omonimo — che quasi sempre è di un altro tipo, e a
+         quel punto il riferimento viene buttato via. Un apparecchio smetteva di essere montato nel
+         rack, e nessuno lo diceva (25/08). Riagganciarlo non si può (a quale dei due omonimi?), ma
+         tacerlo no: si contano e si avvisa. Casi reali: file uniti a mano, import, merge cloud. */
+      if(_id && safeItemId(_id) && provided[_id]===false) dupIds++;
       do{ it.id="i"+(seq++); }while(used[it.id]);
       used[it.id]=true;
     }
@@ -6578,6 +6584,9 @@ function normalizeLoadedItems(arr){
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
     return it;
   });
+  /* Il conteggio esce dalla funzione: chi carica il documento decide se e come dirlo. */
+  normalizeLoadedItems.lastDupIds=dupIds;
+  return out;
 }
 function normalizeItemRefField(o,k,allowMain){
   if(!o || o[k]==null) return;
@@ -6616,6 +6625,15 @@ function normalizeState(s){
   s=migrate(s);
   ["__proto__","prototype","constructor"].forEach(function(k){ if(Object.prototype.hasOwnProperty.call(s,k)) delete s[k]; });
   s.items=normalizeLoadedItems(s.items);
+  /* Se il file portava identificativi ripetuti, i collegamenti che ci puntavano non sono più
+     ricostruibili: si dice, invece di lasciare l'utente davanti a un rack vuoto senza sapere perché.
+     Il messaggio arriva dopo il disegno — durante il caricamento non c'è ancora niente da leggere. */
+  if(normalizeLoadedItems.lastDupIds>0 && typeof setTimeout==="function"){
+    var _nDup=normalizeLoadedItems.lastDupIds;
+    setTimeout(function(){ try{
+      if(window.__toast) window.__toast("Il file conteneva "+_nDup+" identificativi ripetuti: alcuni collegamenti (rack, DI, ascolto) potrebbero essersi persi. Controlla i montaggi.", true);
+    }catch(_e){} }, 600);
+  }
   normalizePersistedItemRefs(s);
   var itemById=Object.create(null); s.items.forEach(function(it){ itemById[it.id]=it; });
   /* Luci come reparto (v6): se il progetto non le aveva, si costruiscono dalle icone già sul
@@ -25650,6 +25668,9 @@ window.__openRubricaModal=function(){
     ov.addEventListener("click", function(e){ if(e.target===ov) ov.style.display="none"; });
     ov.querySelector("#rubClose").addEventListener("click", function(){ ov.style.display="none"; });
     ov.querySelector("#rubImport").addEventListener("click", rubImportFlow);
+    /* Nasce dopo la scansione delle finestre, quindi va registrata a mano: senza, Tab esce dalla
+       rubrica e finisce sulla pagina coperta dall'overlay, ed Esc non la chiude (25/08). */
+    if(typeof window.__a11yModal==="function") window.__a11yModal(ov);
   }
   ov.style.display="flex"; rubPaintRows();
 };
@@ -26831,15 +26852,14 @@ else { window.addEventListener("resize", render); fit();
      stanno fuori dalla classe .modal, quindi restavano fuori dal contratto di dialogo: niente
      trappola del fuoco (il Tab usciva e atterrava sull'header COPERTO dall'overlay) e niente
      ritorno al comando. Entrano dal selettore, senza toccarne gli stili. (06/08) */
-  var MODAL_SEL=".modal,#learn,#clDlg";
+  /* «I tuoi progetti» (#cloudModal) restava fuori per lo stesso motivo, e si apre con style.display
+     invece che con hidden: l'osservatore qui sotto guarda già `style`, quindi bastava il selettore.
+     È il dialogo da cui si comincia a lavorare — chi naviga a Tab ne usciva sopra una toolbar
+     coperta dall'overlay, e alla chiusura ripartiva da capo (25/08). */
+  var MODAL_SEL=".modal,#learn,#clDlg,#cloudModal,#rubModal";
   var mods=Array.prototype.slice.call(document.querySelectorAll(MODAL_SEL));
-  mods.forEach(function(m){
-    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
-    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
-    if(!m.getAttribute("aria-label") && !m.getAttribute("aria-labelledby")){
-      var h=m.querySelector("h2,h3,h4"); if(h){ if(!h.id) h.id="mtitle-"+(m.id||Math.random().toString(36).slice(2)); m.setAttribute("aria-labelledby", h.id); }
-    }
-  });
+  /* semantica e sorveglianza stanno insieme in sorveglia(), più sotto: un solo posto che decide
+     cosa vuol dire «finestra», così una registrata a runtime non nasce con meno attributi. */
   var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   var openStack=[], returnFocus=new WeakMap(), bgInert=[];
   /* Ultimo focus FUORI da ogni modale: è il trigger da riprendere alla chiusura. Serve perché il
@@ -26897,11 +26917,25 @@ else { window.addEventListener("resize", render); fit();
       if(ret && ret.focus && document.contains(ret) && ret.getClientRects().length) ret.focus();
     }catch(_){} }, 0);
   }
-  mods.forEach(function(m){
+  function sorveglia(m){
+    if(!m || m.__a11yWatched) return; m.__a11yWatched=true;
+    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
+    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
+    if(!m.getAttribute("aria-label") && !m.getAttribute("aria-labelledby")){
+      /* Non tutte le finestre intitolano con un <h*>: «I tuoi progetti» usa uno <strong>, e restava
+         un dialogo senza nome — lo screen reader annunciava solo «dialog» (25/08). */
+      var h=m.querySelector("h2,h3,h4") || m.querySelector("strong,b");
+      if(h){ if(!h.id) h.id="mtitle-"+(m.id||Math.random().toString(36).slice(2)); m.setAttribute("aria-labelledby", h.id); }
+    }
     var wasVis=isVisible(m);
     try{ new MutationObserver(function(){ var v=isVisible(m); if(v&&!wasVis) onOpen(m); else if(!v&&wasVis) onClose(m); wasVis=v; }).observe(m, {attributes:true, attributeFilter:["hidden","style","class"]}); }catch(_){}
     if(wasVis) onOpen(m);
-  });
+  }
+  mods.forEach(sorveglia);
+  /* Le finestre costruite a runtime (la rubrica nasce con appendChild al primo uso) arrivano DOPO
+     questa scansione, che gira una volta sola al caricamento: senza un aggancio esplicito restano
+     fuori dal contratto per sempre, qualunque classe abbiano. Chi ne crea una la registra qui. */
+  window.__a11yModal=sorveglia;
   document.addEventListener("keydown", function(e){
     if(e.key!=="Tab" || !openStack.length) return;
     var m=openStack[openStack.length-1], f=focusables(m);

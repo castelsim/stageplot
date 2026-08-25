@@ -2214,6 +2214,41 @@ t("quadro sovraccarico: oltre la portata è un ERRORE, non un silenzio", () => {
   ok(!(A.electricEngine().issues || []).some((i) => /sovraccarico/.test(i.msg)),
     "1,5 kW su una ciabatta da 16 A non è un sovraccarico");
 });
+t("un id ripetuto nel file non fa sparire un montaggio in silenzio", () => {
+  /* Due elementi con lo stesso id: il secondo viene rinominato, e chi ci puntava resta agganciato
+     all'omonimo — di tipo diverso — quindi il riferimento viene buttato. Un apparecchio smetteva di
+     essere montato nel rack e nessuno lo diceva (25/08). Riagganciarlo non si può (a quale dei due?),
+     dichiararlo sì. */
+  const s = {
+    titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [
+      { id: "rack1", type: "dimono", x: 100, y: 100 },
+      { id: "rack1", type: "rack", x: 300, y: 300, rackU: 12 },
+      { id: "amp1", type: "dimono", x: 500, y: 500, rackId: "rack1" },
+    ], inputs: [], outputs: [],
+  };
+  A.normalizeState(s);
+  eq(A.normalizeLoadedItems.lastDupIds, 1, "un id ripetuto contato");
+  /* e un documento sano non deve accusare nessuno */
+  A.normalizeState({
+    titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [{ id: "a1", type: "rack", x: 10, y: 10 }, { id: "a2", type: "dimono", x: 20, y: 20 }],
+    inputs: [], outputs: [],
+  });
+  eq(A.normalizeLoadedItems.lastDupIds, 0, "nessun falso allarme su un file sano");
+});
+
+t("le finestre «I tuoi progetti» e «La mia rubrica» stanno dentro il contratto di dialogo", () => {
+  /* Trappola del fuoco, sfondo inert e ritorno al comando valgono per le finestre elencate in
+     MODAL_SEL. #cloudModal — da cui si comincia a lavorare — ne era fuori, e la rubrica nasce a
+     runtime DOPO la scansione, quindi non basta il selettore: va registrata a mano (25/08). */
+  const blocco = appjs.slice(appjs.indexOf("var MODAL_SEL="), appjs.indexOf("var MODAL_SEL=") + 200);
+  ok(/#cloudModal/.test(blocco), "«I tuoi progetti» nel selettore: " + blocco.split("\n")[0]);
+  ok(/window.__a11yModal\s*=/.test(appjs), "esiste l'aggancio per le finestre create a runtime");
+  const rub = appjs.slice(appjs.indexOf("window.__openRubricaModal=function"), appjs.indexOf("window.__openRubricaModal=function") + 1800);
+  ok(/__a11yModal\(ov\)/.test(rub), "e la rubrica lo chiama alla creazione");
+});
+
 t("il +48V sopravvive al salvataggio della riga di canale", () => {
   /* normalizeChannelRow passa su ogni riga caricata da disco: azzerando il p48 la suite restava
      verde, e un rider consegnato prometteva phantom dove non c'era (25/08). */
