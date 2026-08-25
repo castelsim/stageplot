@@ -2214,6 +2214,35 @@ t("quadro sovraccarico: oltre la portata è un ERRORE, non un silenzio", () => {
   ok(!(A.electricEngine().issues || []).some((i) => /sovraccarico/.test(i.msg)),
     "1,5 kW su una ciabatta da 16 A non è un sovraccarico");
 });
+t("il testo secondario si legge davvero: contrasto calcolato, non a occhio", () => {
+  /* --text-3 è il colore dei conteggi del catalogo, delle note sotto i campi e del segnaposto del
+     titolo: 100+ usi a 10-12px. Era 2,73:1 sul bianco (minimo WCAG AA per testo normale: 4,5:1) e
+     2,48:1 sul fondo pagina — su un portatile in penombra dietro il banco spariva (25/08).
+     Questo test CALCOLA il rapporto: se qualcuno ritocca la tinta sotto soglia, diventa rosso. */
+  const lum = (hex) => {
+    const c = hex.replace("#", "").match(/../g).map((x) => parseInt(x, 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => { const l1 = lum(a), l2 = lum(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+  /* i valori si leggono dal CSS sorgente, non si riscrivono qui: il test deve seguire il file */
+  const leggi = (da) => (stylesCss.slice(da, da + 32).match(/^--text-3:\s*(#[0-9a-f]{6})/i) || [])[1];
+  const t3 = leggi(stylesCss.indexOf("--text-3:"));   /* la PRIMA dichiarazione = tema chiaro */
+  ok(t3, "--text-3 dev'essere un colore esplicito nel tema chiaro (un var() qui non è verificabile): " + t3);
+  const rBianco = ratio(t3, "#ffffff"), rFondo = ratio(t3, "#f5f4f0");   /* --surface e --bg (--n-50) */
+  ok(rBianco >= 4.5, "sul bianco delle superfici serve 4,5:1, è " + rBianco.toFixed(2));
+  ok(rFondo >= 4.0, "e sul fondo pagina almeno 4:1, è " + rFondo.toFixed(2));
+  /* tema scuro: stessa misura sul suo fondo */
+  /* il tema scuro qui è `body.dark`, non un @media prefers-color-scheme: la sua dichiarazione di
+     --text-3 è l'ultima del file */
+  const t3d = leggi(stylesCss.lastIndexOf("--text-3:"));
+  ok(t3d, "--text-3 dichiarato anche nel tema scuro: " + t3d);
+  const rScuro = ratio(t3d, "#1b2327");   /* --surface del tema scuro */
+  ok(rScuro >= 4.0, "sul fondo scuro almeno 4:1, è " + rScuro.toFixed(2));
+  /* e deve restare DISTINGUIBILE dal testo primario, o la gerarchia sparisce */
+  ok(ratio(t3, "#292620") > 1.5, "resta più chiaro del testo principale");
+});
+
 t("un id ripetuto nel file non fa sparire un montaggio in silenzio", () => {
   /* Due elementi con lo stesso id: il secondo viene rinominato, e chi ci puntava resta agganciato
      all'omonimo — di tipo diverso — quindi il riferimento viene buttato. Un apparecchio smetteva di
