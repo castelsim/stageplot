@@ -2156,6 +2156,138 @@ t("radiomic con frequenza RF → nessun avviso RF", () => {
   reset(); const w = add("wireless", 400, 400); w.rf = "606.500"; A.__cabRes = null;
   ok(!hasMsg(/senza frequenza RF/), "findings: " + auditMsgs().join(" | "));
 });
+t("due radio sulla STESSA frequenza scritta in due modi → errore lo stesso", () => {
+  /* «606.25» e «606.250» sono la stessa portante: chi compila la lista copia dai display di due
+     ricevitori diversi, che la scrivono con decimali diversi. Confrontando le stringhe, l'errore più
+     banale del mestiere — due bodypack sullo stesso canale — passava senza una parola (25/08). */
+  reset();
+  const a = add("wireless", 300, 300); a.rf = "606.25"; a.label = "Voce 1";
+  const b = add("wireless", 500, 300); b.rf = "606.250"; b.label = "Voce 2";
+  add("rxrf", 700, 700);
+  const msg = A.rfIssues().map((i) => i.msg).join(" | ");
+  ok(/duplicata/.test(msg), "atteso errore di frequenza duplicata; avvisi: " + msg);
+  /* la virgola all'italiana è la stessa frequenza */
+  b.rf = "606,25";
+  ok(/duplicata/.test(A.rfIssues().map((i) => i.msg).join(" | ")), "606,25 = 606.25");
+  /* e due frequenze davvero diverse non devono diventare un falso allarme */
+  b.rf = "612.100";
+  ok(!/duplicata/.test(A.rfIssues().map((i) => i.msg).join(" | ")), "612.1 e 606.25 sono diverse");
+});
+t("il connettore segue la CORRENTE, non il tipo: niente PowerCON su 30 A", () => {
+  /* Il powerCON è un connettore da 20 A (TRUE1: 16). Il PDF «Alimentazioni» stampava «PowerCON» per
+     una linea da 30 A mentre l'avviso, due righe sotto, chiedeva una CEE: chi prepara i cavi segue il
+     connettore stampato (25/08). */
+  eq(A.elecConnOf({ type: "amprack" }, 8).label, "PowerCON", "sotto i 16 A il rack resta PowerCON");
+  eq(A.elecConnOf({ type: "amprack" }, 30).k, "cee", "a 30 A diventa CEE");
+  eq(A.elecConnOf({ type: "amprack" }, 30).label, "CEE32", "e con la portata giusta");
+  eq(A.elecConnOf({ type: "rack" }, 45).label, "CEE63", "45 A → CEE63");
+  eq(A.elecConnOf({ type: "amprack" }, 30, "powercon").k, "cee", "nemmeno scelto a mano: a 30 A il PowerCON non esiste");
+  eq(A.elecConnOf({ type: "amprack" }, 12, "powercon").k, "pc", "ma sotto soglia la scelta a mano vale");
+});
+t("quadro sovraccarico: oltre la portata è un ERRORE, non un silenzio", () => {
+  /* Una mutazione che invertiva questa soglia lasciava la suite tutta verde: il caso limite più
+     pericoloso del motore elettrico non era provato da nessuno (25/08). Il sovraccarico non nasce dai
+     carichi diretti — quelli il motore li rifiuta se non entrano — ma dalla RISALITA. Qui il caso da
+     palco: due ciabatte piene infilate in una terza, che è da 16 A e ne riceve 31. */
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const madre = add("ciabatta", 600, 600);
+  A.state.elec.uplinks = {};
+  A.state.elec.manual = {};
+  [0, 1].forEach((i) => {
+    const c = add("ciabatta", 300 + i * 300, 300);
+    const r = add("amprack", 300 + i * 300, 200); r.watt = 3600;   /* ~15,6 A: entra in una ciabatta da 16 */
+    A.state.elec.manual[r.id] = { distro: c.id };
+    A.state.elec.uplinks[c.id] = { to: madre.id };
+  });
+  A.__elecRes = null;
+  const msgs = (A.electricEngine().issues || []).map((i) => i.lvl + ":" + i.msg);
+  ok(msgs.some((m) => /^err:/.test(m) && /sovraccarico/.test(m) && /su una fase \(max/.test(m)),
+    "atteso «sovraccarico … su una fase (max N A)»; avvisi: " + msgs.join(" | "));
+  /* e una ciabatta sola sotto la sua portata NON deve gridare al sovraccarico */
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  const m2 = add("ciabatta", 600, 600);
+  const c2 = add("ciabatta", 300, 300);
+  const r2 = add("amprack", 300, 200); r2.watt = 1500;
+  A.state.elec.manual = { [r2.id]: { distro: c2.id } };
+  A.state.elec.uplinks = { [c2.id]: { to: m2.id } };
+  A.__elecRes = null;
+  ok(!(A.electricEngine().issues || []).some((i) => /sovraccarico/.test(i.msg)),
+    "1,5 kW su una ciabatta da 16 A non è un sovraccarico");
+});
+t("il testo secondario si legge davvero: contrasto calcolato, non a occhio", () => {
+  /* --text-3 è il colore dei conteggi del catalogo, delle note sotto i campi e del segnaposto del
+     titolo: 100+ usi a 10-12px. Era 2,73:1 sul bianco (minimo WCAG AA per testo normale: 4,5:1) e
+     2,48:1 sul fondo pagina — su un portatile in penombra dietro il banco spariva (25/08).
+     Questo test CALCOLA il rapporto: se qualcuno ritocca la tinta sotto soglia, diventa rosso. */
+  const lum = (hex) => {
+    const c = hex.replace("#", "").match(/../g).map((x) => parseInt(x, 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => { const l1 = lum(a), l2 = lum(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+  /* i valori si leggono dal CSS sorgente, non si riscrivono qui: il test deve seguire il file */
+  const leggi = (da) => (stylesCss.slice(da, da + 32).match(/^--text-3:\s*(#[0-9a-f]{6})/i) || [])[1];
+  const t3 = leggi(stylesCss.indexOf("--text-3:"));   /* la PRIMA dichiarazione = tema chiaro */
+  ok(t3, "--text-3 dev'essere un colore esplicito nel tema chiaro (un var() qui non è verificabile): " + t3);
+  const rBianco = ratio(t3, "#ffffff"), rFondo = ratio(t3, "#f5f4f0");   /* --surface e --bg (--n-50) */
+  ok(rBianco >= 4.5, "sul bianco delle superfici serve 4,5:1, è " + rBianco.toFixed(2));
+  ok(rFondo >= 4.0, "e sul fondo pagina almeno 4:1, è " + rFondo.toFixed(2));
+  /* tema scuro: stessa misura sul suo fondo */
+  /* il tema scuro qui è `body.dark`, non un @media prefers-color-scheme: la sua dichiarazione di
+     --text-3 è l'ultima del file */
+  const t3d = leggi(stylesCss.lastIndexOf("--text-3:"));
+  ok(t3d, "--text-3 dichiarato anche nel tema scuro: " + t3d);
+  const rScuro = ratio(t3d, "#1b2327");   /* --surface del tema scuro */
+  ok(rScuro >= 4.0, "sul fondo scuro almeno 4:1, è " + rScuro.toFixed(2));
+  /* e deve restare DISTINGUIBILE dal testo primario, o la gerarchia sparisce */
+  ok(ratio(t3, "#292620") > 1.5, "resta più chiaro del testo principale");
+});
+
+t("un id ripetuto nel file non fa sparire un montaggio in silenzio", () => {
+  /* Due elementi con lo stesso id: il secondo viene rinominato, e chi ci puntava resta agganciato
+     all'omonimo — di tipo diverso — quindi il riferimento viene buttato. Un apparecchio smetteva di
+     essere montato nel rack e nessuno lo diceva (25/08). Riagganciarlo non si può (a quale dei due?),
+     dichiararlo sì. */
+  const s = {
+    titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [
+      { id: "rack1", type: "dimono", x: 100, y: 100 },
+      { id: "rack1", type: "rack", x: 300, y: 300, rackU: 12 },
+      { id: "amp1", type: "dimono", x: 500, y: 500, rackId: "rack1" },
+    ], inputs: [], outputs: [],
+  };
+  A.normalizeState(s);
+  eq(A.normalizeLoadedItems.lastDupIds, 1, "un id ripetuto contato");
+  /* e un documento sano non deve accusare nessuno */
+  A.normalizeState({
+    titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [{ id: "a1", type: "rack", x: 10, y: 10 }, { id: "a2", type: "dimono", x: 20, y: 20 }],
+    inputs: [], outputs: [],
+  });
+  eq(A.normalizeLoadedItems.lastDupIds, 0, "nessun falso allarme su un file sano");
+});
+
+t("le finestre «I tuoi progetti» e «La mia rubrica» stanno dentro il contratto di dialogo", () => {
+  /* Trappola del fuoco, sfondo inert e ritorno al comando valgono per le finestre elencate in
+     MODAL_SEL. #cloudModal — da cui si comincia a lavorare — ne era fuori, e la rubrica nasce a
+     runtime DOPO la scansione, quindi non basta il selettore: va registrata a mano (25/08). */
+  const blocco = appjs.slice(appjs.indexOf("var MODAL_SEL="), appjs.indexOf("var MODAL_SEL=") + 200);
+  ok(/#cloudModal/.test(blocco), "«I tuoi progetti» nel selettore: " + blocco.split("\n")[0]);
+  ok(/window.__a11yModal\s*=/.test(appjs), "esiste l'aggancio per le finestre create a runtime");
+  const rub = appjs.slice(appjs.indexOf("window.__openRubricaModal=function"), appjs.indexOf("window.__openRubricaModal=function") + 1800);
+  ok(/__a11yModal\(ov\)/.test(rub), "e la rubrica lo chiama alla creazione");
+});
+
+t("il +48V sopravvive al salvataggio della riga di canale", () => {
+  /* normalizeChannelRow passa su ogni riga caricata da disco: azzerando il p48 la suite restava
+     verde, e un rider consegnato prometteva phantom dove non c'era (25/08). */
+  const on = A.normalizeChannelRow({ src: "voce", mic: "KM184", p48: true });
+  const off = A.normalizeChannelRow({ src: "basso", mic: "DI", p48: false });
+  eq(on.p48, true, "il phantom acceso resta acceso");
+  eq(off.p48, false, "e quello spento resta spento");
+  eq(A.normalizeChannelRow({ src: "x", p48: 1 }).p48, true, "un 1 da JSON diventa true");
+  eq(A.normalizeChannelRow({ src: "x" }).p48, false, "assente = spento");
+});
 t("capienza stage box superata → err con fix a un click", () => {
   reset(); A.state.cab.on = true;
   const b = add("stagebox", 600, 600); b.ch = 2; b.outCh = 2; A.__cabRes = null;
@@ -10429,6 +10561,36 @@ t("il rider riassume la dotazione per modello: microfoni, DI, 48V, aste", () => 
   /* e il rider HTML e PDF la scrivono davvero */
   ok(/riderDotazione\(\)/.test(appjs.slice(appjs.indexOf("function riderHtml"), appjs.indexOf("function riderHtml") + 3000)), "nel rider HTML");
   ok(/riderDotazione\(\)/.test(appjs.slice(appjs.indexOf("function riderPdf"), appjs.indexOf("function riderPdf") + 3000)), "e nel rider PDF");
+});
+
+t("la dotazione unisce lo stesso microfono scritto in modi diversi", () => {
+  /* Il campo mic è testo libero: la stessa capsula entra come «SM58», «sm58», «Sm 58» a seconda di chi
+     compila. Contandole separate il rider chiedeva al service tre modelli invece di tre pezzi dello
+     stesso (25/08). La grafia mostrata è quella più frequente — la sua, non una forma inventata. */
+  const D = A.riderDotazione([{ mic: "SM58" }, { mic: "sm58" }, { mic: "Sm 58" }]);
+  eq(D.nMic, 3, "tre microfoni");
+  eq(D.mics["SM58"], 3, "tutti e tre sotto la stessa voce");
+  ok(/3× SM58/.test(D.testo), "e il testo dice 3× SM58: " + D.testo);
+  ok(!/1×/.test(D.testo), "nessuna riga da uno");
+  /* la grafia più usata vince, anche quando non è la maiuscola */
+  const E = A.riderDotazione([{ mic: "beta 58" }, { mic: "beta 58" }, { mic: "BETA 58" }]);
+  ok(/3× beta 58/.test(E.testo), "vince la grafia più frequente: " + E.testo);
+  /* stessa cosa per le aste, che nel rider sono la riga che il service deve caricare sul furgone */
+  const F = A.riderDotazione([{ mic: "SM57", stand: "Asta giraffa" }, { mic: "SM57", stand: "asta giraffa" }]);
+  eq(F.asteMap["asta giraffa"] || F.asteMap["Asta giraffa"], 2, "due giraffe, non una e una");
+});
+
+t("nel file X32 un canale ha SEMPRE un nome, anche se il suo è tutto non-ASCII", () => {
+  /* Un nome cinese o di sole emoji è una stringa non vuota, quindi vinceva il fallback «CH n», ma la
+     pulizia ASCII lo riduceva a niente: in console arrivava un canale senza nome (25/08). */
+  const cinese = A.x32Snippet([{ n: 1, name: "陈明", short: "" }], "Show").snp;
+  ok(/\/ch\/01\/config "CH 1"/.test(cinese), "ripiego «CH 1» invece del nome vuoto: " + cinese.split("\n").find(l => /ch\/01/.test(l)));
+  ok(!/config ""/.test(cinese), "nessun nome vuoto nel file");
+  const emoji = A.x32Snippet([{ n: 2, name: "🎤🎸", short: "" }], "Show").snp;
+  ok(!/config ""/.test(emoji), "vale anche per le sole emoji");
+  /* e un nome misto tiene la parte leggibile, non il ripiego */
+  const misto = A.x32Snippet([{ n: 3, name: "Voce 陈", short: "" }], "Show").snp;
+  ok(/config "Voce"/.test(misto), "la parte ASCII resta: " + misto.split("\n").find(l => /ch\/03/.test(l)));
 });
 
 t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e in PDF", () => {
