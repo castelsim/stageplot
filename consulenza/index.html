@@ -6,22 +6,22 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://buy.stripe.com">
   <script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Revisione stage plot e rider, da un fonico | StagePlot</title>
+  <title>Revisione stage plot e rider tecnico | StagePlot</title>
   <meta name="description" content="Fai revisionare stage plot, input list e rider tecnico da un sound engineer: verifica, correzioni e documenti pronti per il service. Da 29 €.">
   <meta name="author" content="Simone Castellan">
   <link rel="canonical" href="https://stageplot.it/consulenza/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="it_IT">
-  <meta property="og:title" content="Revisione stage plot e rider, da un fonico">
-  <meta property="og:description" content="Un fonico revisiona e completa il tuo stage plot: verifica tecnica, correzioni, channel list, input list, rider ed email tecnica pronti per il service. Da 29 €.">
+  <meta property="og:title" content="Revisione stage plot e rider tecnico">
+  <meta property="og:description" content="Un sound engineer revisiona e completa il tuo stage plot: verifica tecnica, correzioni, channel list, input list, rider ed email tecnica pronti per il service. Da 29 €.">
   <meta property="og:url" content="https://stageplot.it/consulenza/">
   <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Revisione stage plot e rider, da un fonico">
-  <meta name="twitter:description" content="Un fonico revisiona stage plot, input list e rider e ti dà la documentazione pronta per il service. Da 29 €.">
+  <meta name="twitter:title" content="Revisione stage plot e rider tecnico">
+  <meta name="twitter:description" content="Un sound engineer revisiona stage plot, input list e rider e ti dà la documentazione pronta per il service. Da 29 €.">
   <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
   <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
   <meta name="robots" content="index,follow,max-image-preview:large">
@@ -262,7 +262,6 @@
 
     .card h3 { margin: 14px 0 0; font-size: 21px; }
     .price { margin: 6px 0 4px; font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
-    .social { margin: 0 0 10px; color: var(--accent); font-size: 13px; font-weight: 600; }
     .card .desc { margin: 0; color: var(--muted); font-size: 15px; }
     .card .plus { margin: 16px 0 6px; font-weight: 700; font-size: 14px; }
 
@@ -300,6 +299,55 @@
       color: var(--muted);
       font-size: 13px;
       text-align: center;
+    }
+
+    .presale {
+      max-width: 860px;
+      margin: 12px auto 0;
+      font-size: 15px;
+      text-align: center;
+    }
+    .presale a { color: var(--accent-strong); }
+
+    /* CHI REVISIONA */
+    .who {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 28px;
+      align-items: start;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .who-avatar {
+      display: grid;
+      place-items: center;
+      width: 128px;
+      height: 128px;
+      border-radius: 999px;
+      background: var(--accent-tint);
+      color: var(--accent-strong);
+      font-weight: 800;
+      font-size: 40px;
+      letter-spacing: .02em;
+    }
+    .who h2 { font-size: clamp(24px, 2.6vw, 32px); }
+    .who .bio { margin: 10px 0 0; color: var(--muted); font-size: 16px; max-width: 560px; }
+    .who ul { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    .who li { position: relative; padding-left: 24px; font-size: 15px; }
+    .who li::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 8px;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .who .more { display: inline-block; margin-top: 14px; font-size: 14px; color: var(--accent-strong); }
+    @media (max-width: 680px) {
+      .who { grid-template-columns: 1fr; }
+      .who-avatar { width: 96px; height: 96px; font-size: 30px; }
     }
 
     /* COME FUNZIONA */
@@ -507,7 +555,7 @@
           {
             "@type": "Question",
             "name": "In quanto tempo ricevo la documentazione?",
-            "acceptedAnswer": { "@type": "Answer", "text": "In genere entro pochi giorni lavorativi dalla richiesta. I tempi esatti dipendono dalla complessità del progetto e dalla data dell'evento: te li confermo appena ricevo il tuo Stage Plot." }
+            "acceptedAnswer": { "@type": "Answer", "text": "Entro 3 giorni lavorativi dalla conferma della richiesta. Se l'evento è vicino, indicalo nella prima email: i progetti con una data ravvicinata hanno la precedenza." }
           },
           {
             "@type": "Question",
@@ -533,7 +581,7 @@
     <section class="hero-section">
       <div class="hero">
         <div>
-          <h1>Revisione del rider tecnico, da un fonico.</h1>
+          <h1>Revisione del rider tecnico, da un sound engineer.</h1>
           <p class="lead">Crea gratuitamente il tuo stage plot. Quando ti serve la certezza che sia corretto e completo, un sound engineer revisiona stage plot, input list e rider e ti consegna la documentazione pronta per musicisti, service e produzione.</p>
           <div class="hero-actions">
             <a class="btn primary" href="#offerte">Vedi le offerte</a>
@@ -556,9 +604,9 @@
 
     <section id="confirm" class="confirm-section" hidden>
       <div class="confirm">
-        <h2>Pagamento in verifica.</h2>
-        <p>Stripe sta verificando il pagamento e l’associazione alla richiesta di Consulenza Tecnica.</p>
-        <p>Riceverai conferma dopo la validazione; se l’associazione non riesce, il pagamento viene segnalato al supporto per la gestione manuale.</p>
+        <h2>Richiesta ricevuta.</h2>
+        <p>Il pagamento è in elaborazione: la ricevuta arriva via email da Stripe.</p>
+        <p>Simone riceve subito il tuo Stage Plot e ti contatta entro un giorno lavorativo per confermare tempi e dettagli della consegna. Per qualsiasi dubbio: <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>
       </div>
     </section>
 
@@ -574,6 +622,22 @@
       </div>
     </section>
 
+    <section id="chi-revisiona">
+      <div class="who">
+        <div class="who-avatar" aria-hidden="true">SC</div>
+        <div>
+          <h2>La revisione la fa una persona, non un algoritmo.</h2>
+          <p class="bio">Simone Castellan, sound engineer: registrazione, mixing e live sound. StagePlot l'ha costruito lui, partendo dai rider che riceve e corregge quando lavora dal vivo.</p>
+          <ul>
+            <li>Sound engineer di studio e di palco</li>
+            <li>Idoneo all'insegnamento AFAM in Elettroacustica</li>
+            <li>Ogni revisione è fatta a mano sul tuo progetto, con risposta diretta via email</li>
+          </ul>
+          <a class="more" href="https://simonecastellan.com">simonecastellan.com &rarr;</a>
+        </div>
+      </div>
+    </section>
+
     <section id="offerte">
       <div class="head">
         <h2>Scegli la consulenza tecnica</h2>
@@ -584,7 +648,7 @@
           <span class="tag">Essenziale</span>
           <h3>Consulenza Tecnica</h3>
           <p class="price">29 &euro;</p>
-          <p class="desc">Per chi ha gia creato il palco e desidera una verifica professionale.</p>
+          <p class="desc">Per chi ha già creato il palco e desidera una verifica professionale.</p>
           <ul>
             <li>Verifica tecnica</li>
             <li>Correzioni</li>
@@ -598,9 +662,8 @@
           <span class="tag">&#11088; Consigliato</span>
           <h3>Produzione Tecnica Completa</h3>
           <p class="price">149 &euro;</p>
-          <p class="social">Il piu scelto da chi ha una data.</p>
-          <p class="desc">Tutto il pacchetto Consulenza Tecnica, piu la documentazione completa dell'evento.</p>
-          <p class="plus">Include tutto il pacchetto base, piu:</p>
+          <p class="desc">Tutto il pacchetto Consulenza Tecnica, più la documentazione completa dell'evento.</p>
+          <p class="plus">Include tutto il pacchetto base, più:</p>
           <ul>
             <li>Channel List</li>
             <li>Input List</li>
@@ -612,7 +675,8 @@
           <button class="btn primary" type="button" data-product="production-pack">Ottieni il pacchetto completo</button>
         </article>
       </div>
-      <p class="reassure">Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Consegna in genere entro pochi giorni lavorativi. Fattura su richiesta. Documentazione tecnica pronta per il service.</p>
+      <p class="reassure">Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Consegna entro 3 giorni lavorativi dalla conferma della richiesta. Fattura su richiesta. Documentazione tecnica pronta per il service.</p>
+      <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20sulla%20Consulenza%20Tecnica">Scrivi direttamente a Simone</a>: risposta senza impegno.</p>
     </section>
 
     <section id="faq">
@@ -643,7 +707,7 @@
         </details>
         <details>
           <summary>In quanto tempo ricevo la documentazione?</summary>
-          <p>In genere entro pochi giorni lavorativi dalla richiesta. I tempi esatti dipendono dalla complessità del progetto e dalla data dell'evento: te li confermo appena ricevo il tuo Stage Plot.</p>
+          <p>Entro 3 giorni lavorativi dalla conferma della richiesta. Se l'evento è vicino, indicalo nella prima email: i progetti con una data ravvicinata hanno la precedenza.</p>
         </details>
         <details>
           <summary>Cosa non è incluso nella consulenza?</summary>
@@ -686,7 +750,7 @@
     </div>
 
     <div class="od-upsell od-sec" id="odUpsell" hidden style="border-top:none">
-      <strong>Con 120 &euro; in piu ricevi anche</strong>
+      <strong>Con 120 &euro; in più ricevi anche</strong>
       <ul>
         <li>Rider Tecnico</li>
         <li>Channel List</li>
