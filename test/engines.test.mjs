@@ -11242,6 +11242,21 @@ t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () =
   ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
 });
 
+t("la via senza finestra di consenso è scritta con la scorciatoia del sistema", () => {
+  /* Il consenso di Chrome alla cattura non si può togliere: lo impone il browser a ogni chiamata di
+     getDisplayMedia, e non esiste impostazione che lo salti — se un sito potesse fotografare la
+     scheda senza chiedere, qualunque pagina potrebbe spiare quelle accanto. Chi vuole evitarlo fa lo
+     screenshot col sistema e lo incolla: quella strada c'era già, ma la riga non diceva COME (27/08). */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="fbShotHow"/.test(html), "la riga ha un id, così il testo si adatta al sistema");
+  const blocco = appjs.slice(appjs.indexOf('getElementById("fbShotHow")'), appjs.indexOf('getElementById("fbShotHow")') + 700);
+  ok(/⌘⇧4/.test(blocco) && /⌘V/.test(blocco), "su Mac dice la scorciatoia e come incollare");
+  ok(/Win\+Maiusc\+S/.test(blocco) && /Ctrl\+V/.test(blocco), "su Windows la sua");
+  ok(/iPhone\|iPad/.test(blocco), "su iPhone e iPad NON si scrive una scorciatoia: lì è un gesto fisico");
+  /* e la cattura resta quella che chiede il consenso: non stiamo promettendo di averlo tolto */
+  ok(/preferCurrentTab:true/.test(appjs), "la cattura propone «Questa scheda», che è quanto si può fare");
+});
+
 t("lo screenshot si fa a schermo libero: il box si toglie e torna com'era", () => {
   /* Il box restava aperto durante la cattura e finiva dentro la foto — che serve proprio a mostrare
      quello che il box copriva. Ora si chiude prima di chiedere la condivisione e torna da solo
