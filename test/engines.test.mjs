@@ -11242,6 +11242,32 @@ t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () =
   ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
 });
 
+t("lo screenshot si fa a schermo libero: il box si toglie e torna com'era", () => {
+  /* Il box restava aperto durante la cattura e finiva dentro la foto — che serve proprio a mostrare
+     quello che il box copriva. Ora si chiude prima di chiedere la condivisione e torna da solo
+     quando il ritaglio è finito o annullato (27/08, segnalazione con schermata). */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const btn = html.slice(html.indexOf('id="fbShotBtn"') - 90, html.indexOf('id="fbShotBtn"') + 90);
+  ok(/>⛶ Screenshot</.test(btn), "il pulsante si chiama «Screenshot»: " + btn.slice(btn.indexOf(">") + 1, btn.indexOf("</")));
+  /* si chiude PRIMA di chiedere la condivisione, o la foto la contiene lo stesso */
+  const h = appjs.slice(appjs.indexOf("shotBtn.addEventListener"), appjs.indexOf("shotBtn.addEventListener") + 700);
+  const iVia = h.indexOf("boxViaPerLoScatto()"), iCattura = h.indexOf("getDisplayMedia");
+  ok(iVia > -1 && iVia < iCattura, "il box si toglie prima della cattura");
+  ok(/catch\(_e\)\{ boxTorna\(\); return; \}/.test(h), "e se annulli il permesso torna subito");
+  /* torna quando il ritaglio si chiude, in ENTRAMBI i casi: allegato o annullato */
+  ok(/function cropChiudi\(\)\{[^}]*boxTorna\(\);/.test(appjs), "cropChiudi lo fa tornare");
+  ok(/cropAnn\.addEventListener\("click", cropChiudi\)/.test(appjs), "«Annulla» passa da lì");
+  ok(/cropChiudi\(\);\s*await shotMetti/.test(appjs), "e «Allega la selezione» pure");
+  /* e torna SENZA azzerare: chi ha già scritto categoria e testo non li perde */
+  const torna = appjs.slice(appjs.indexOf("function boxTorna()"), appjs.indexOf("function boxTorna()") + 200);
+  ok(/mostraBox\(\)/.test(torna), "riapre con mostraBox");
+  eq(/openFeedbackBox\(\)/.test(torna), false, "NON con openFeedbackBox, che azzera i chip e la spunta");
+  /* mostraBox non deve contenere gli azzeramenti */
+  const mostra = appjs.slice(appjs.indexOf("function mostraBox()"), appjs.indexOf("function mostraBox()") + 500);
+  eq(/attach\.checked=false/.test(mostra), false, "mostraBox non tocca la spunta del progetto");
+  eq(/classList\.remove\("on"\)/.test(mostra), false, "né le categorie scelte");
+});
+
 t("Specchia/Duplica/Elimina restano l'ultima riga del pannello", () => {
   /* Il riordino finale era `querySelector(".btns")` al SINGOLARE: prendeva la prima barra e spostava
      solo quella. Aggiungendo «Primo piano / In fondo» con la stessa classe, in fondo finiva la nuova
