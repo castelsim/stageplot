@@ -2,6 +2,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { consultationShareIsActive } from "../_shared/consultation-access.ts";
 import { validateConsultationSave } from "../_shared/consultation-save.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 const ADMIN_ID = "4b899cba-3cc2-4b26-9ef0-c3e915929277";
 const MAX_REQUEST_BYTES = 22 * 1024 * 1024;
@@ -43,7 +44,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    serviceRoleKey(Deno.env),
   );
 
   // 1) Verifica che il chiamante sia l'admin (dal JWT)

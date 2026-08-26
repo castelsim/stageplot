@@ -10,6 +10,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validaColpo } from "../_shared/landing-metrics.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 /** Un contatore non deve MAI disturbare la pagina: qualunque cosa vada storta, esce 204. */
 function fine(status = 204) {
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      serviceRoleKey(Deno.env),
     );
 
     // Rate limit sull'impronta dell'IP (mai l'IP). Generoso: una persona che naviga fa una visita
