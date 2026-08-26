@@ -186,16 +186,24 @@ function diCh(it){ return (it&&DI_CH_LABEL[it.diCh])?it.diCh : ((it&&it.type==="
 function diType(it){ return (it&&it.diType==="attiva")?"attiva":"passiva"; }
 /* Quale DI per quale strumento — la regola dei costruttori (Radial, guida JDI/J48): la PASSIVA per gli
    strumenti alimentati (tastiere, batterie elettroniche, bassi attivi) perché isola a trasformatore
-   e regge i livelli alti; l'ATTIVA per i pickup passivi e i piezo (chitarra acustica, contrabbasso,
-   archi e mandolino con pickup) perché ha l'impedenza d'ingresso altissima che quei pickup
-   pretendono, e col 48V. Prima qui nasceva sempre passiva. L'utente può sempre cambiarla. */
+   e regge i livelli alti; l'ATTIVA per i pickup passivi e i piezo perché ha l'impedenza d'ingresso
+   altissima che quei pickup pretendono, e col 48V. Prima qui nasceva sempre passiva. L'utente può
+   sempre cambiarla. Quali strumenti ricadano nella seconda riga lo dice DI_ATTIVA_PER qui sotto:
+   vale per chi ha un pickup davvero, non per l'omonimo acustico d'orchestra. */
 /* Cosa deve succedere quando si preme il cestino su un progetto della finestra «I tuoi progetti».
    Pura, così il comportamento è provabile senza cloud né DOM: il resto (finestre, chiamate a
    Supabase) è impianto attorno a questa decisione. Un progetto bloccato NON si elimina — si offre
    lo sblocco, e l'eliminazione resta una scelta successiva. Progetto sconosciuto: si tratta come
    sbloccato, perché il cestino nasce dalla riga e quella riga esiste. (25/08) */
 function projectDeleteGuard(pj){ return (pj && pj.is_locked) ? "sblocca" : "elimina"; }
-var DI_ATTIVA_PER = { gtacustica:1, contrabbasso:1, vlnpost:1, violapost:1, violoncello:1 };   /* i tipi che il catalogo ha davvero; gli altri (mandolino, banjo…) quando arriveranno */
+/* Solo gli strumenti che nel catalogo hanno DAVVERO un pickup e possono andare in DI. Ci stavano
+   anche contrabbasso, violoncello, vlnpost e violapost: ma quelli sono POSTAZIONI D'ORCHESTRA
+   (categoria Orchestra, leggio + sedia + strumento acustico) e si riprendono con l'archetto o coi
+   panoramici di sezione — infatti MIKING non offre loro l'opzione «di», giustamente. Il consiglio
+   «attiva» non li raggiungeva mai: codice morto che prometteva una cosa impossibile (25/08).
+   Il contrabbasso jazz/pop col Realist o il Full Circle è un altro strumento e vuole un tipo suo
+   (categoria Band e backline), non una deroga qui. */
+var DI_ATTIVA_PER = { gtacustica:1 };
 function diTipoConsigliato(src){ return (src && DI_ATTIVA_PER[src.type]) ? "attiva" : "passiva"; }
 function diMultiN(it){ return (it&&it.diMultiCh===6)?6:8; }
 function diChannels(it){ var c=diCh(it); return c==="stereo"?2:(c==="multi"?diMultiN(it):1); }
