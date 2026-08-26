@@ -26504,11 +26504,11 @@ function maybeAskStageSize(explicit){
     else if(box.parentNode!==casaSua) casaSua.appendChild(box);
   }
 
-  window.openFeedbackBox=function(){
-    hint=null;
-    Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){ c.classList.remove("on"); });
-    attach.checked=false;
-    result.style.display="none";
+  /* Mostrare il box e RIPARTIRE DA ZERO sono due cose diverse. Serve dal 27/08, quando il box si
+     chiude per lasciare lo schermo libero durante lo screenshot e poi deve tornare com'era: se alla
+     riapertura si azzerassero categoria, spunta e testo, l'utente si ritroverebbe il modulo vuoto
+     proprio dopo aver fatto la foto. */
+  function mostraBox(){
     fuoriSeMobile();
     box.classList.add("open");
     if(testa) testa.setAttribute("aria-expanded","true");
@@ -26517,6 +26517,13 @@ function maybeAskStageSize(explicit){
     setTimeout(function(){ msg.focus(); },50);
     /* nella colonna la card cresce verso il basso: portala in vista, o resta sotto il bordo */
     if(!mobile()) setTimeout(function(){ try{ box.scrollIntoView({block:"nearest", behavior:"smooth"}); }catch(_e){} },60);
+  }
+  window.openFeedbackBox=function(){
+    hint=null;
+    Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){ c.classList.remove("on"); });
+    attach.checked=false;
+    result.style.display="none";
+    mostraBox();
   };
   function closeBox(){
     box.classList.remove("open");
@@ -26654,12 +26661,27 @@ function maybeAskStageSize(explicit){
     shotBtn.textContent = "⛶ Il ritaglio non è disponibile qui";
     shotBtn.title = "Su iPhone e iPad questa funzione del browser non esiste: fai lo screenshot col telefono e allegalo qui sotto";
   }
+  /* Il box si TOGLIE DI MEZZO prima di scattare (27/08). Restando aperto finiva dentro la foto —
+     e la foto serve proprio a mostrare quello che il box copriva. Si chiude prima di chiedere la
+     condivisione, così l'utente vede subito lo schermo libero; torna da solo appena il ritaglio è
+     finito o annullato, con dentro quello che aveva già scritto. */
+  var _boxDaRiaprire = false;
+  function boxViaPerLoScatto(){
+    _boxDaRiaprire = box.classList.contains("open");
+    if(_boxDaRiaprire) closeBox();
+  }
+  function boxTorna(){
+    if(!_boxDaRiaprire) return;
+    _boxDaRiaprire = false;
+    mostraBox();
+  }
   if(shotBtn && !shotBtn.disabled) shotBtn.addEventListener("click", async function(){
     var stream;
     var _t = shotBtn.textContent;
+    boxViaPerLoScatto();
     try{
       stream = await navigator.mediaDevices.getDisplayMedia({ video:{displaySurface:"browser"}, audio:false, preferCurrentTab:true });
-    }catch(_e){ return; }                        /* annullato dall'utente: nessun rumore */
+    }catch(_e){ boxTorna(); return; }            /* annullato dall'utente: nessun rumore, ma il box torna */
     try{
       shotBtn.disabled = true; shotBtn.textContent = "Preparo la schermata…";
       var v = document.createElement("video");
@@ -26763,7 +26785,7 @@ function maybeAskStageSize(explicit){
     document.addEventListener("pointercancel", function(){ _modo = null; });
     addEventListener("resize", function(){ if(crop && !crop.hidden) cropDisegna(); });
   }
-  function cropChiudi(){ if(crop) crop.hidden = true; _scatto = null; _modo = null; }
+  function cropChiudi(){ if(crop) crop.hidden = true; _scatto = null; _modo = null; boxTorna(); }
   var cropAnn = document.getElementById("fbCropAnn"), cropOk = document.getElementById("fbCropOk");
   if(cropAnn) cropAnn.addEventListener("click", cropChiudi);
   if(cropOk) cropOk.addEventListener("click", async function(){
