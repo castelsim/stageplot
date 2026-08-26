@@ -3184,13 +3184,10 @@ body.dark .ask-all .btn{background:transparent}
         <button type="button" class="adv-btn" id="pChainAmp" data-node="amp">Ampli</button>
       </div>
     </div>
-    <div id="pBalWrap" style="display:none">
-      <label>Tipo di uscita</label>
-      <div class="seg" role="group" aria-label="Tipo di uscita">
-        <button type="button" class="adv-btn" id="pOutJack" data-bal="0" title="Uscita jack sbilanciata: serve una DI per arrivare alla stage box">Jack <span class="lbl-note">sbilanciata</span></button>
-        <button type="button" class="adv-btn" id="pOutXlr" data-bal="1" title="Uscita XLR bilanciata (preamp/DI out a bordo): il cavo va diretto alla stage box">XLR <span class="lbl-note">bilanciata</span></button>
-      </div>
-    </div>
+    <!-- «Tipo di uscita» (Jack/XLR) TOLTO il 26/08 (segnalazione): diceva la stessa cosa della
+         microfonazione da un altro posto, e fra le due non si capiva quale comandasse. Ora la
+         scelta è una sola, in «Microfono»: mic, DI, o tutti e due. Il campo balOut resta letto per
+         i progetti che ce l'hanno. -->
       <div id="pOutHint" class="prop-hint"></div>
     </div>
     <div id="pStereoWrap" style="display:none">
@@ -3253,16 +3250,10 @@ body.dark .ask-all .btn{background:transparent}
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
     <!-- RICHIESTA SETUP: il tecnico chiede al musicista com'è fatta la sua postazione. La risposta
          torna nel progetto e diventa una proposta, non una modifica automatica del palco. -->
-    <!-- MICROFONO VOCE dello strumentista: archetto in testa (mani occupate), giraffa o palmare -->
-    <div id="pHeadMicWrap" style="display:none">
-      <label>Canta? <small class="lbl-note">— microfono voce del musicista</small></label>
-      <select id="pHeadMic">
-        <option value="">No</option>
-        <option value="archetto">Sì, archetto in testa (DPA 4088)</option>
-        <option value="asta">Sì, giraffa davanti alla bocca</option>
-        <option value="mano">Sì, palmare su asta</option>
-      </select>
-    </div>
+    <!-- «Canta?» TOLTO il 26/08 (segnalazione): se il musicista canta si aggiunge l'elemento
+         microfono, che si vede sul palco, si sposta e si punta dove serve. Il campo headMic resta
+         LETTO — disegno e canale voce — per i progetti che l'hanno già usato: toglierlo del tutto
+         avrebbe fatto sparire un canale dai loro rider senza dire niente. Non si imposta più. -->
     <div id="pReqWrap" style="display:none">
       <button type="button" class="btn" id="pReqBtn" style="width:100%">✉︎ Richiedi setup al musicista</button>
       <div id="pReqState" class="prop-hint"></div>
@@ -3292,14 +3283,10 @@ body.dark .ask-all .btn{background:transparent}
     <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
-    <div id="pByWrap" style="display:none"><label>Fornito da <small class="lbl-note">— chi la porta: band o service, finisce nella backline list del rider</small></label>
-      <div class="chips" data-chips="pBy">
-        <button type="button" data-v="">Non spec.</button>
-        <button type="button" data-v="Band">Band</button>
-        <button type="button" data-v="Service">Service</button>
-      </div>
-      <select id="pBy" hidden><option value="">Non specificato</option><option value="Band">Band</option><option value="Service">Service</option></select>
-    </div>
+    <!-- «Fornito da» TOLTO dal pannello dell'elemento il 26/08 (segnalazione): chi porta cosa si
+         scrive fra le note, e per chi lo vuole strutturato resta la colonna «forn.» nella channel
+         list — che è dove i rider veri lo mettono, riga per riga. Il campo it.by resta letto dalla
+         backline list, quindi i progetti che ce l'hanno non perdono niente. -->
     <div id="pMountWrap" style="display:none"><label>Installazione <small class="lbl-note">— come sta su, e a che altezza</small></label>
       <div class="seg" id="pMountMode" role="group" aria-label="Modalità di installazione">
         <button type="button" class="adv-btn" data-mnt="floor">A terra</button>
@@ -3487,6 +3474,10 @@ body.dark .ask-all .btn{background:transparent}
       <button type="button" class="btn" id="pRackFront" style="font-size:12px">Vista rack (fronte)</button>
     </div>
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
+    <div class="btns" id="pOrderRow">
+      <button class="btn" id="pFront" type="button" title="Porta questo elemento sopra gli altri">⬆ Primo piano</button>
+      <button class="btn" id="pBack" type="button" title="Mandalo dietro agli altri">⬇ In fondo</button>
+    </div>
     <div class="btns" id="pActRow">
       <button class="btn" id="pDivide" style="font-size:12px;display:none">⇱ Dividi</button>
       <button class="btn" id="pMirror" type="button" aria-pressed="false" title="Ribalta sinistra/destra">⇋ Specchia</button>

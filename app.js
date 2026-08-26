@@ -5559,7 +5559,12 @@ function itemMarkup(it){
   var _hm=headMicOf(it);
   if(_hm){   /* microfono voce del musicista: l'archetto si indossa, gli altri stanno davanti alla bocca */
     if(_hm==="archetto") s += '<g transform="translate(0,'+(-((it.d||60)/2)+14)+')">'+headMicGlyph()+'</g>';   /* sulla testa, appena dentro il bordo alto */
-    else s += '<g transform="translate(0,'+(-((it.d||60)/2+16))+')"><circle r="4.6" fill="#2b2e31"/><line x1="0" y1="4.6" x2="0" y2="16" class="ic thin"/></g>';
+    /* DAVANTI vuol dire verso il pubblico, cioè y POSITIVO: stava a -(d/2+16), sedici centimetri
+       oltre il bordo di FONDO, quindi dietro la nuca. In pianta il pallino sopra la testa si legge
+       come un archetto indossato, ed è esattamente quello che è stato segnalato il 26/08 («questo
+       dovrebbe essere il microfono con giraffa davanti alla bocca, non si capisce»). L'asta ora
+       arriva da davanti e la capsula punta INDIETRO, verso chi canta: il verso si vede. */
+    else s += '<g transform="translate(0,'+((it.d||60)/2+16)+')"><circle r="4.6" fill="#2b2e31"/><line x1="0" y1="-4.6" x2="0" y2="-16" class="ic thin"/></g>';
   }
   if(KEYS_BENCH[it.type] && it.panca!==false && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
   if(t.gtr && _la){   /* chitarre/basso in ILLUSTRATO: ampli/pedaliera/leggio NON sono nell'illustrazione del musicista → disegnati a parte (come nello schematico) */
@@ -5767,6 +5772,24 @@ function itemLiveOnStage(it){
 }
 function esc(x){ return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function fmtM(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; }
+/* PORTA IN PRIMO PIANO / IN FONDO (26/08, segnalazione). Il comando c'era solo per le forme libere,
+   e per giunta non faceva quello che prometteva: «Sopra» scriveva un 3 fisso — due elementi «sopra»
+   restavano nell'ordine d'inserimento — e «Sotto» cancellava il valore, cioè tornava al default del
+   tipo invece di andare sotto. Qui si calcola il z che serve DAVVERO rispetto agli altri elementi
+   presenti: uno più del massimo per salire, uno meno del minimo per scendere. Pura: niente DOM,
+   riceve la lista e restituisce il numero da scrivere. */
+function zDavantiA(items, escludi){
+  var mx=null;
+  (items||[]).forEach(function(it){ if(escludi && it.id===escludi.id) return;
+    var z=effZ(it); if(mx===null || z>mx) mx=z; });
+  return mx===null ? 2 : mx+1;
+}
+function zDietroA(items, escludi){
+  var mn=null;
+  (items||[]).forEach(function(it){ if(escludi && it.id===escludi.id) return;
+    var z=effZ(it); if(mn===null || z<mn) mn=z; });
+  return mn===null ? 2 : mn-1;
+}
 /* ordine di sovrapposizione: z per tipo, con override manuale it.z (Porta sopra/sotto); stabile sull'ordine d'inserimento */
 function effZ(it){ return it.z!=null ? it.z : ((TYPES[it.type] && TYPES[it.type].z!=null) ? TYPES[it.type].z : 2); }   /* z:0 valido (prima 0||2=2) */
 function sortedItems(){
@@ -9697,9 +9720,7 @@ function renderProps(){
   var pwWrap=document.getElementById("pWattWrap");
   if(pwWrap){ var powered=hasWattItem(it); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
-  var byWrap=document.getElementById("pByWrap");   /* backline: "Fornito da" solo per ampli/piani/tastiere/batteria (#3) */
-  if(byWrap){ var isBk=(typeof isBackline==="function") && isBackline(it); byWrap.style.display = isBk ? "block" : "none";
-    if(isBk){ var _pby=document.getElementById("pBy"); _pby.value = it.by||""; try{ _pby.dispatchEvent(new Event("chips-sync")); }catch(e){} } }
+
   var rfWrap=document.getElementById("pRfWrap");   /* RF: frequenza + banda solo per radiomic/in-ear (#2) */
   if(rfWrap){ var isRfEl=(typeof isRf==="function") && isRf(it); rfWrap.style.display = isRfEl ? "block" : "none";
     if(isRfEl){ document.getElementById("pRf").value = it.rf||""; document.getElementById("pBand").value = it.band||""; } }
@@ -9949,24 +9970,19 @@ function renderProps(){
       }
     }
   })();
-  var balw=document.getElementById("pBalWrap");   /* "esce già bilanciato": dove il segnale passerebbe da una DI */
-  if(balw){
+  /* Il selettore Jack/XLR non c'è più (26/08): restano la CATENA disegnata per chitarre e basso e
+     la card «Microfono», che è dove la scelta vive adesso. La nota sotto parla solo della catena —
+     quella sull'uscita sbilanciata spiegava un controllo che non esiste più. */
+  (function(){
     var _mayDi = mayNeedDi(it), _chain = hasChain(it);
-    /* chitarre/basso/acustica: al posto dei controlli sciolti c'è la CATENA disegnata (variante C) */
     var _cw=document.getElementById("pChainWrap");
     if(_cw) _cw.style.display=_chain?"block":"none";
-    balw.style.display=(_mayDi && !_chain)?"block":"none";
-    var _bx=document.getElementById("pOutXlr"), _bj=document.getElementById("pOutJack");
-    if(_bx&&_bj){ var _bal=!!it.balOut; _bx.classList.toggle("on",_bal); _bj.classList.toggle("on",!_bal);
-      _bx.setAttribute("aria-pressed",_bal?"true":"false"); _bj.setAttribute("aria-pressed",_bal?"false":"true"); }
     if(_chain) chainRender(it);
     var _h=document.getElementById("pOutHint");
-    if(_h) _h.textContent = _chain ? chainHint(it) : (!_mayDi ? "" :
-      (it.balOut ? "Uscita bilanciata: il cavo va diretto alla stage box, niente DI."
-                 : "Uscita sbilanciata: serve una DI, messa accanto allo strumento — il tratto jack resta corto."));
+    if(_h) _h.textContent = _chain ? chainHint(it) : "";
     var _card=document.getElementById("pOutCard");
     if(_card){ var _mkOn=!!(MIKING[it.type] && !VOCE[it.type] && !_chain); _card.style.display=(_mayDi||_mkOn||_chain)?"block":"none"; }
-  }
+  })();
   var mkw=document.getElementById("pMikeWrap");   /* microfonazione (archi a sezione, ecc.) */
   if(mkw){ var mk=MIKING[it.type]; mkw.style.display=(mk && !VOCE[it.type] && !hasChain(it))?"block":"none";   /* voci: chip pMicMode · chitarre/basso: la catena */
     if(mk){ var msel=document.getElementById("pMike");
@@ -10153,12 +10169,7 @@ function renderProps(){
   if(_isLegX) document.getElementById("pLeggioGen").checked = it.leggio===true;
   document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
   document.getElementById("pLucetta").checked = it.lucetta===true;
-  var hmW=document.getElementById("pHeadMicWrap");   /* microfono voce: solo su chi suona con le mani occupate */
-  if(hmW){
-    var _hmOk=canHeadMic(it);
-    hmW.style.display=_hmOk?"":"none";
-    if(_hmOk) document.getElementById("pHeadMic").value=headMicOf(it);
-  }
+
   var reqW=document.getElementById("pReqWrap");   /* richiesta setup: solo persone/postazioni, e solo su progetto cloud */
   if(reqW){
     var C0=window.__cloud, canReq = !!(C0 && C0.user && C0.user() && C0.currentId && C0.currentId());
@@ -10624,7 +10635,7 @@ document.getElementById("pLblApplyType").addEventListener("click", function(){ v
   });
   render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
-document.getElementById("pBy").addEventListener("change", function(){ var v=document.getElementById("pBy").value; mutSel(function(it){ if(v) it.by=v; else delete it.by; }); });   /* backline: chi fornisce (#3) */
+/* il select "pBy" non esiste più: «Fornito da» sta nella channel list (26/08) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
@@ -10817,6 +10828,14 @@ document.getElementById("pDivide").addEventListener("click", splitElement);
 document.getElementById("pSplit").addEventListener("click", splitDouble);
 document.getElementById("pCompSplit").addEventListener("click", explodeComposite);
 document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
+/* Primo piano / in fondo: il z si calcola sugli elementi presenti, così premendolo due volte su due
+   oggetti diversi il secondo finisce davvero sopra il primo (26/08, segnalazione). */
+document.getElementById("pFront").addEventListener("click", function(){
+  mutSel(function(it){ it.z=zDavantiA(state.items, it); }); save(); render(); renderProps();
+});
+document.getElementById("pBack").addEventListener("click", function(){
+  mutSel(function(it){ it.z=zDietroA(state.items, it); }); save(); render(); renderProps();
+});
 /* SPECCHIA (Simone 29/07): era una spunta sepolta nei Dettagli tecnici e solo per i musicisti
    illustrati — ma serve su quinte, scale, rampe, casse: si duplica un elemento e lo si ribalta per
    l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
@@ -10927,11 +10946,11 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
   muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap");
   group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pLblSizeAll","pLblDistWrap","pLblDistAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
-  group("Microfono", null, ["pOutCard","pStereoWrap","pHeadMicWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
+  group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pByWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
+  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
@@ -10948,7 +10967,13 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
     sp.appendChild(d);
   }
   var dv=document.createElement("hr"); dv.className="pdiv"; sp.appendChild(dv);
-  var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
+  /* Le barre di bottoni vanno in fondo, e Specchia/Duplica/Elimina restano l'ULTIMA riga: sono le
+     azioni sull'elemento, si cercano lì. Prima la riga era `querySelector(".btns")` al singolare —
+     prendeva la PRIMA barra e spostava solo quella: aggiungendone una seconda (Primo piano / In
+     fondo, 26/08) in fondo finiva la nuova e le azioni restavano appese in cima al pannello. */
+  Array.prototype.slice.call(sp.querySelectorAll(".btns"))
+    .sort(function(a,b){ return (a.id==="pActRow"?1:0)-(b.id==="pActRow"?1:0); })
+    .forEach(function(b){ sp.appendChild(b); });
 })();
 /* Un'intestazione di gruppo senza controlli visibili sotto è rumore: il gruppo sparisce con essa. */
 function syncPanelGroups(){
@@ -15683,8 +15708,12 @@ MIKING.tavolopercussioni={ options:[["no","Nessuno — è solo un piano d'appogg
   chans:function(m){ if(m==="didmic") return [["DI","DI"],["ampli","MD421"]]; if(m==="ampli") return [["","MD421"]]; return [["","DI"]]; } }; });
 ["gtacustica","musChitAcustica"].forEach(function(t){ MIKING[t]={ options:[["di","DI (pickup)"],["mic","Mic condensatore (KM184)"],["dimic","DI + mic"]], def:"di", grp:"Mic / DI", zona:false,
   chans:function(m){ if(m==="mic") return [["","KM184"]]; if(m==="dimic") return [["DI","DI"],["mic","KM184"]]; return [["","DI"]]; } }; });
-MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI"]], def:"mic", grp:"Mic / DI", zona:false,
-  chans:function(m){ return m==="di" ? [["","DI"]] : [["","KM184"]]; } };
+/* La classica ha il pickup solo se l'ha montato: mic da solo, DI da sola, o tutti e due — che è il
+   caso vero di chi suona amplificato e vuole anche il corpo dello strumento. L'acustica ce l'aveva
+   già («DI + mic»), la classica no, e la scelta finiva nel «Tipo di uscita», un posto dove nessuno
+   la cercava (segnalazione 26/08). */
+MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI (pickup)"],["dimic","DI + mic"]], def:"mic", grp:"Mic / DI", zona:false,
+  chans:function(m){ if(m==="dimic") return [["DI","DI"],["mic","KM184"]]; return m==="di" ? [["","DI"]] : [["","KM184"]]; } };
 /* Batteria: configurazioni tipiche (il tecnico può comunque "Dividere in elementi" per il controllo pezzo-per-pezzo). */
 MIKING.batteria={ options:[["full","Completa (8 mic)"],["reduced","Ridotta (kick + rullante + 2 OH)"],["oh","Solo overhead (2)"]], def:"full", grp:"Configurazione", zona:false,
   chans:function(m){
@@ -17430,26 +17459,13 @@ function renderCabPanel(){
   document.getElementById("cabSelDelete").addEventListener("click", function(){ if(!selCab) return; var m=cabManual(selCab); m.deleted=!m.deleted; __cabRes=null; save(); render(); });
   document.getElementById("cabSelResetPath").addEventListener("click", function(){ if(!selCab||!state.cab.manual[selCab]) return; delete state.cab.manual[selCab].pts; delete state.cab.manual[selCab].box; __cabRes=null; save(); render(); });   /* reset pieghe + riconnessione (torna alla box automatica) */
   var sb=document.getElementById("pSbCh");
-  /* Tipo di uscita (XLR bilanciata / jack sbilanciata): decide se ci vuole la DI. */
-  ["pOutXlr","pOutJack"].forEach(function(bid){
-    var b=document.getElementById(bid); if(!b) return;
-    b.addEventListener("click", function(){
-      var v=this.getAttribute("data-bal")==="1";
-      mutSel(function(it){ if(v) it.balOut=true; else delete it.balOut; delete it.diOff; diApply(it); });
-      __cabRes=null; save(); render(); renderProps();
-    });
-  });
+
   /* CATENA: i due anelli (pedaliera/ampli) e i pallini di prelievo dentro l'SVG. */
   function chainAct(what){ mutSel(function(it){ chainToggle(it, what); }); save(); render(); renderProps(); }
   ["pChainPed","pChainAmp"].forEach(function(bid){
     var b=document.getElementById(bid); if(b) b.addEventListener("click", function(){ chainAct(this.dataset.node); });
   });
-  var _hm=document.getElementById("pHeadMic");
-  if(_hm) _hm.addEventListener("change", function(){
-    var v=this.value;
-    mutSel(function(it){ if(v) it.headMic=v; else delete it.headMic; });
-    __cabRes=null; save(); render(); renderProps();
-  });
+
   var _reqBtn=document.getElementById("pReqBtn");
   if(_reqBtn) _reqBtn.addEventListener("click", function(){ var it=getSel(); if(it) openRequestCreate(it); });
   var _chainSvg=document.getElementById("pChain");
