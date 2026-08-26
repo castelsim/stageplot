@@ -11242,6 +11242,27 @@ t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () =
   ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
 });
 
+t("se la schermata non si prepara, il box torna lo stesso: mai lasciare l'utente senza finestra", () => {
+  /* Riprodotto in produzione il 27/08: premuto «Screenshot», il box si chiudeva, il ritaglio non si
+     apriva e il pulsante restava per sempre su «Preparo la schermata…». `play()` può non risolversi
+     MAI — traccia che non consegna fotogrammi, politica di autoplay, scheda in background — e il
+     `finally` rimetteva a posto il pulsante dimenticandosi del box: finestra sparita e nessun modo
+     di riaverla. */
+  const h = appjs.slice(appjs.indexOf("shotBtn.addEventListener"), appjs.indexOf("shotBtn.addEventListener") + 3000);
+  /* l'attesa ha un limite */
+  ok(/Promise\.race/.test(h), "play() non si aspetta all'infinito");
+  ok(/setTimeout\(r, 4000\)/.test(h), "il limite è esplicito: 4 secondi");
+  /* senza fotogramma non si finge che sia andata bene */
+  ok(/videoWidth > 0 && v\.videoHeight > 0/.test(h), "si controlla che un fotogramma ci sia davvero");
+  ok(/throw new Error\("nessun fotogramma"\)/.test(h), "e altrimenti si esce dall'errore");
+  /* qualunque cosa vada storta, la finestra torna */
+  ok(/catch\(_e\)\{[\s\S]{0,300}__toast/.test(h), "l'utente viene avvisato, non lasciato al buio");
+  const fin = h.slice(h.indexOf("} finally {"));
+  ok(/if\(crop\.hidden\) boxTorna\(\);/.test(fin), "e il box torna sempre, tranne se il ritaglio è aperto");
+  /* il pulsante non resta bloccato */
+  ok(/shotBtn\.disabled = false/.test(fin), "il pulsante si sblocca in ogni caso");
+});
+
 t("la via senza finestra di consenso è scritta con la scorciatoia del sistema", () => {
   /* Il consenso di Chrome alla cattura non si può togliere: lo impone il browser a ogni chiamata di
      getDisplayMedia, e non esiste impostazione che lo salti — se un sito potesse fotografare la

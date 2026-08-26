@@ -28661,8 +28661,18 @@ function maybeAskStageSize(explicit){
     try{
       shotBtn.disabled = true; shotBtn.textContent = "Preparo la schermata…";
       var v = document.createElement("video");
-      v.srcObject = stream; v.muted = true; await v.play();
+      v.srcObject = stream; v.muted = true;
+      /* `play()` può non risolversi MAI — una traccia che non consegna fotogrammi, una politica di
+         autoplay, una scheda che passa in background — e allora tutto si ferma qui: il box è già
+         chiuso, il ritaglio non si apre, il pulsante resta su «Preparo la schermata…» e l'utente non
+         ha più niente in mano. Succedeva davvero (27/08). Si aspetta al massimo 4 secondi, poi si
+         prosegue: se un fotogramma c'è lo si usa lo stesso, se non c'è si esce puliti. */
+      await Promise.race([
+        v.play().catch(function(){}),
+        new Promise(function(r){ setTimeout(r, 4000); })
+      ]);
       await new Promise(function(r){ setTimeout(r, 220); });   /* un attimo, o il primo fotogramma esce nero */
+      if(!(v.videoWidth > 0 && v.videoHeight > 0)) throw new Error("nessun fotogramma");
       var c = document.createElement("canvas");
       c.width = v.videoWidth; c.height = v.videoHeight;
       c.getContext("2d").drawImage(v, 0, 0);
@@ -28673,9 +28683,15 @@ function maybeAskStageSize(explicit){
       cropTxt.textContent = "Sposta il rettangolo sul punto che non va";
       crop.hidden = false;                        /* prima si accende, poi si misura: dentro un hidden ogni rettangolo è a zero */
       cropDisegna();
+    } catch(_e){
+      if(window.__toast) window.__toast("Non sono riuscito a preparare la schermata. Fai lo screenshot col sistema e incollalo qui.", true);
     } finally {
       stream.getTracks().forEach(function(t){ t.stop(); });   /* si spegne SUBITO: non resta niente acceso */
       shotBtn.disabled = false; shotBtn.textContent = _t;
+      /* Il box torna SEMPRE, tranne quando il ritaglio è davvero sullo schermo (lì tornerà alla sua
+         chiusura). Prima il finally rimetteva a posto il pulsante e si dimenticava del box: qualunque
+         intoppo lasciava l'utente con la finestra sparita e nessun modo di riaverla. */
+      if(crop.hidden) boxTorna();
     }
   });
   /* ---- la geometria del ritaglio, senza DOM: così si prova con i numeri ----
