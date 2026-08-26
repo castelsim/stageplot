@@ -11242,16 +11242,95 @@ t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () =
   ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
 });
 
-t("«Fornito da» si spiega senza dover passarci sopra col mouse", () => {
-  /* La spiegazione c'era, ma solo come tooltip `title`: al tocco non esiste. Ora è la nota accanto
-     all'etichetta, lo stesso `lbl-note` che il prodotto usa già per «Installazione». */
+t("Specchia/Duplica/Elimina restano l'ultima riga del pannello", () => {
+  /* Il riordino finale era `querySelector(".btns")` al SINGOLARE: prendeva la prima barra e spostava
+     solo quella. Aggiungendo «Primo piano / In fondo» con la stessa classe, in fondo finiva la nuova
+     e le azioni restavano appese in cima — segnalato con una schermata il 26/08. */
+  const coda = appjs.slice(appjs.indexOf('dv.className="pdiv"'), appjs.indexOf('dv.className="pdiv"') + 700);
+  ok(/querySelectorAll\("\.btns"\)/.test(coda), "si spostano TUTTE le barre, non solo la prima");
+  ok(/pActRow/.test(coda), "e pActRow ha una regola sua per restare ultima");
+  /* la CHIAMATA singolare non c'è più — il commento che la cita non conta, per questo cerco `sp.` */
+  eq(/sp\.querySelector\("\.btns"\)/.test(coda), false, "niente più querySelector singolare");
+});
+
+t("nessun comando cerca un elemento che non esiste più: il boot non deve fermarsi a metà", () => {
+  /* Togliendo tre sezioni dal pannello (26/08) è rimasta indietro una riga che faceva
+     getElementById("pBy").addEventListener(...) SENZA guardia: nel browser il boot moriva lì, in
+     silenzio — niente errore in console, ma MIKING e NUMBERED_HW restavano undefined e l'app era
+     inservibile. La suite era tutta verde, perché il sandbox non ha un DOM vero da cui sparire.
+     Questo test guarda gli id usati senza `if(el)` e chiede che esistano nell'HTML generato. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  const w = html.slice(html.indexOf('id="pByWrap"'), html.indexOf('id="pByWrap"') + 400);
-  ok(/class="lbl-note"/.test(w), "la spiegazione è visibile, non appesa all'hover");
-  ok(/backline list del rider/.test(w), "e dice a cosa serve il campo");
-  eq(/<label title=/.test(w), false, "niente più spiegazione nascosta nel title dell'etichetta");
-  /* la stessa voce ricompare nella channel list: lì almeno il tooltip deve dire qualcosa */
-  ok(/Fornito da: chi porta l'attrezzatura/.test(appjs), "e nella channel list il tooltip non ripete solo l'etichetta");
+  const usatiSenzaGuardia = [...appjs.matchAll(/getElementById\("([A-Za-z][\w-]*)"\)\s*\.(addEventListener|value|checked|textContent|style)/g)]
+    .map((m) => m[1]);
+  /* Un id vale se sta nell'HTML generato OPPURE se il codice stesso lo crea a runtime, scrivendolo
+     dentro una stringa di markup (`h+='<input id="ppShort" …'`). Quello che non sta né di qua né di
+     là è un comando che punta al vuoto. */
+  const mancanti = [...new Set(usatiSenzaGuardia)]
+    .filter((id) => !new RegExp(`id="${id}"`).test(html))
+    .filter((id) => !new RegExp(`id=\\\\?["']${id}["']`).test(appjs));
+  eq(mancanti.length, 0, "id cercati senza guardia e assenti dall'HTML: " + mancanti.join(", "));
+});
+
+t("«Primo piano» porta davvero sopra, anche premuto due volte su elementi diversi", () => {
+  /* Il comando c'era solo per le forme libere, e prometteva più di quello che faceva: «Sopra»
+     scriveva un 3 fisso — due elementi «sopra» restavano nell'ordine d'inserimento — e «Sotto»
+     cancellava il valore, cioè tornava al default del tipo invece di andare sotto (26/08). */
+  const a = { id: "a", type: "wedge", z: 2 };
+  const b = { id: "b", type: "wedge", z: 2 };
+  const c = { id: "c", type: "wedge", z: 5 };
+  const items = [a, b, c];
+  /* portare A davanti lo mette sopra al più alto, non a un numero fisso */
+  a.z = A.zDavantiA(items, a);
+  ok(a.z > A.effZ(c), `A davanti a tutti: ${a.z} > ${A.effZ(c)}`);
+  /* e ora B davanti deve superare A: è il caso che il vecchio comando sbagliava */
+  b.z = A.zDavantiA(items, b);
+  ok(b.z > a.z, `poi B supera A: ${b.z} > ${a.z}`);
+  /* in fondo, allo stesso modo */
+  c.z = A.zDietroA(items, c);
+  ok(c.z < A.effZ(a) && c.z < A.effZ(b), `C sotto tutti: ${c.z}`);
+  /* e l'ordine di disegno lo rispetta davvero */
+  A.state.items = [a, b, c];
+  const ordine = A.sortedItems().map((x) => x.id);
+  eq(ordine.join(""), "cab", "si disegna dal fondo al davanti: " + ordine.join(" → "));
+  /* lista vuota: nessun crash, si torna al default */
+  eq(A.zDavantiA([], null), 2, "senza altri elementi resta il default");
+  eq(A.zDietroA([], null), 2, "idem in fondo");
+});
+
+t("il microfono voce sta DAVANTI alla bocca, cioè verso il pubblico", () => {
+  /* Stava a -(d/2+16): sedici centimetri oltre il bordo di FONDO, quindi dietro la nuca. In pianta
+     il pallino sopra la testa si legge come un archetto indossato — segnalato il 26/08, «questo
+     dovrebbe essere il microfono con giraffa davanti alla bocca, non si capisce». Il campo non si
+     imposta più dal pannello, ma i progetti che l'hanno usato continuano a disegnarlo: per loro
+     dev'essere giusto. */
+  const blocco = appjs.slice(appjs.indexOf("var _hm=headMicOf(it);"), appjs.indexOf("var _hm=headMicOf(it);") + 1500);
+  const asta = blocco.slice(blocco.indexOf("else s +="), blocco.indexOf("else s +=") + 320);
+  ok(!/translate\(0,'\+\(-\(/.test(asta), "la y non è più negativa: " + asta.slice(0, 90));
+  ok(/\(it\.d\|\|60\)\/2\+16/.test(asta), "sta oltre il bordo verso il pubblico");
+  /* e l'asta punta all'indietro, verso chi canta, non in avanti nel vuoto */
+  ok(/y1="-4\.6" x2="0" y2="-16"/.test(asta), "il braccio torna verso il musicista: " + asta.slice(-110));
+  /* l'archetto invece resta dov'era: si indossa, non sta davanti */
+  ok(/archetto"\) s \+= '<g transform="translate\(0,'\+\(-\(/.test(blocco), "l'archetto resta sulla testa");
+});
+
+t("«Fornito da» vive nella channel list, non nel pannello dell'elemento", () => {
+  /* Tolto dal pannello il 26/08 (segnalazione): chi porta cosa si scrive fra le note, e chi lo
+     vuole strutturato ha la colonna «forn.» riga per riga — che è dove i rider veri lo mettono.
+     Il campo it.by resta LETTO dalla backline list, quindi i progetti che ce l'hanno non perdono
+     niente: è la differenza fra togliere un controllo e cancellare un dato. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  eq(/id="pByWrap"/.test(html), false, "la sezione non è più nel pannello dell'elemento");
+  eq(/id="pBalWrap"/.test(html), false, "né il selettore Jack/XLR");
+  eq(/id="pHeadMicWrap"/.test(html), false, "né «Canta?»");
+  /* e nessun codice rimasto a cercare quegli id: un `if(el)` su un id sparito non fallisce, tace */
+  ["pByWrap", "pBalWrap", "pHeadMicWrap", "pOutJack", "pOutXlr"].forEach((id) => {
+    eq(new RegExp(`getElementById\\("${id}"\\)`).test(appjs), false, `codice orfano che cerca ${id}`);
+  });
+  /* la funzione resta dove serve */
+  ok(/Fornito da: chi porta l'attrezzatura/.test(appjs), "la colonna «forn.» è ancora nella channel list");
+  ok(/\{h:"Fornito da"/.test(appjs), "e la backline list del rider la stampa ancora");
+  /* i dati dei progetti già salvati continuano a essere letti */
+  ok(/function headMicOf/.test(appjs), "headMic resta letto: i progetti che l'hanno usato tengono il canale voce");
 });
 
 /* ===== IL MODELLO DICHIARA COSA HA DECISO AL POSTO TUO (14/08) ============================ */
