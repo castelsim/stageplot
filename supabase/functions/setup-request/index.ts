@@ -19,6 +19,7 @@ import {
   statusAfterDraft,
   statusAfterOpen,
 } from "../_shared/setup-requests.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://stageplot.it",
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    serviceRoleKey(Deno.env),
     { auth: { persistSession: false } },
   );
 

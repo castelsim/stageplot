@@ -17,6 +17,7 @@ import {
   paymentLifecycleAction,
   validatePaidConsultation,
 } from "../_shared/payment-integrity.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
   apiVersion: "2024-06-20",
@@ -306,7 +307,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    serviceRoleKey(Deno.env),
   );
   const lifecycle = paymentLifecycleAction(event.type, event.data.object);
   if (lifecycle) {

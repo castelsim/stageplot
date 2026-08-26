@@ -2260,6 +2260,34 @@ t("un progetto BLOCCATO non si elimina: prima si sblocca", () => {
   ok(!/confirmText:"Elimina"[\s\S]{0,400}is_locked/.test(dp), "nessuna scorciatoia che elimini un bloccato");
 });
 
+t("nessuna Edge Function legge la service role da sé: passano tutte da serviceRoleKey()", () => {
+  /* Dal 26/08 le function usano _shared/service-role-key.ts, che sceglie la chiave legacy quando c'è:
+     serve contro «JWT issued at future», l'errore che teneva rosso il worker delle notifiche. Il
+     rimedio vale solo se lo usano TUTTE — una function nuova che scrive
+     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") dentro createClient si riprende l'errore, e per
+     stripe-webhook vorrebbe dire un pagamento non registrato. Il controllo sta qui e non nella suite
+     Deno perché lì leggere i file chiederebbe --allow-read, cioè cambiare il comando che si lancia
+     ogni volta. */
+  const dir = join(root, "supabase/functions");
+  const colpevoli = readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "_shared")
+    .filter((d) => {
+      let src = "";
+      try { src = readFileSync(join(dir, d.name, "index.ts"), "utf8"); } catch { return false; }
+      return /Deno\.env\.get\(\s*["']SUPABASE_SERVICE_ROLE_KEY["']\s*\)/.test(src);
+    })
+    .map((d) => d.name);
+  eq(colpevoli.length, 0, "leggono la chiave da sé: " + colpevoli.join(", "));
+  /* e almeno una la usa davvero, o il test sopra sarebbe verde anche a rimedio sparito */
+  const usano = readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "_shared")
+    .filter((d) => {
+      try { return /serviceRoleKey\(Deno\.env\)/.test(readFileSync(join(dir, d.name, "index.ts"), "utf8")); }
+      catch { return false; }
+    });
+  ok(usano.length >= 7, "tutte le function che parlano col database ci passano: " + usano.length);
+});
+
 t("il divieto vive anche nel database, non solo nella finestra", () => {
   /* Una regola che sta solo nel client protegge dallo sbaglio e non dal guasto: basta una richiesta
      malformata o una scheda vecchia rimasta aperta e il progetto se ne va lo stesso. */

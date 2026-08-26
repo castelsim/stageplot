@@ -5,6 +5,7 @@ import { validateFeedback } from "../_shared/feedback-validation.ts";
 import { buildFeedbackEmail, feedbackAttachment } from "../_shared/feedback-prompt.ts";
 import { sendEmail } from "../_shared/email.ts";
 import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    serviceRoleKey(Deno.env),
   );
 
   // Identità dal JWT verificato, non dal client (audit S5): l'endpoint è pubblico
