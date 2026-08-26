@@ -1,5 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), {
@@ -20,7 +21,7 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    Deno.env.get("SUPABASE_URL")!, serviceRoleKey(Deno.env),
   );
 
   // 1) Utente reale dal JWT
