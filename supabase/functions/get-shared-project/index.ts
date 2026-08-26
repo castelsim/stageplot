@@ -5,6 +5,7 @@ import {
   projectDataForPublicShare,
   projectVenueForPublicShare,
 } from "../_shared/project-sharing.ts";
+import { serviceRoleKey } from "../_shared/service-role-key.ts";
 
 const ADMIN_ID = "4b899cba-3cc2-4b26-9ef0-c3e915929277";
 const corsHeaders = {
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    serviceRoleKey(Deno.env),
   );
   // 1) prova come token di consulenza (comportamento storico)
   const { data: reqRow, error: reqErr } = await supabase.from(
