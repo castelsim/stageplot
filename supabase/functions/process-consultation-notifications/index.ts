@@ -3,6 +3,7 @@ import {
   type SupabaseClient,
 } from "jsr:@supabase/supabase-js@2.108.2";
 import { sendEmail } from "../_shared/email.ts";
+import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { buildPaidEmail } from "../_shared/paid-email.ts";
 import {
   nextOutboxAttempt,
@@ -444,10 +445,12 @@ Deno.serve(async (req) => {
   if (!resendKey || !notifyEmail) {
     return json({ error: "notification provider not configured" }, 503);
   }
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  /* La chiave: legacy se c'è (vedi _shared/service-role-key.ts — «JWT issued at future»), altrimenti
+     quella della piattaforma, cioè il comportamento di sempre. */
+  const roleKey = serviceRoleKey(Deno.env);
+  if (!roleKey) return json({ error: "service role key missing" }, 503);
+  if (usingLegacyKey(Deno.env)) console.info("worker notifiche: chiave service_role legacy in uso");
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, roleKey);
   const nowMs = Date.now();
   try {
     await resetStaleClaims(supabase, nowMs);
