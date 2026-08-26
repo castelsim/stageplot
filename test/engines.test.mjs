@@ -11242,6 +11242,17 @@ t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () =
   ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
 });
 
+t("Specchia/Duplica/Elimina restano l'ultima riga del pannello", () => {
+  /* Il riordino finale era `querySelector(".btns")` al SINGOLARE: prendeva la prima barra e spostava
+     solo quella. Aggiungendo «Primo piano / In fondo» con la stessa classe, in fondo finiva la nuova
+     e le azioni restavano appese in cima — segnalato con una schermata il 26/08. */
+  const coda = appjs.slice(appjs.indexOf('dv.className="pdiv"'), appjs.indexOf('dv.className="pdiv"') + 700);
+  ok(/querySelectorAll\("\.btns"\)/.test(coda), "si spostano TUTTE le barre, non solo la prima");
+  ok(/pActRow/.test(coda), "e pActRow ha una regola sua per restare ultima");
+  /* la CHIAMATA singolare non c'è più — il commento che la cita non conta, per questo cerco `sp.` */
+  eq(/sp\.querySelector\("\.btns"\)/.test(coda), false, "niente più querySelector singolare");
+});
+
 t("nessun comando cerca un elemento che non esiste più: il boot non deve fermarsi a metà", () => {
   /* Togliendo tre sezioni dal pannello (26/08) è rimasta indietro una riga che faceva
      getElementById("pBy").addEventListener(...) SENZA guardia: nel browser il boot moriva lì, in
