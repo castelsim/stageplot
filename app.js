@@ -10967,7 +10967,13 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
     sp.appendChild(d);
   }
   var dv=document.createElement("hr"); dv.className="pdiv"; sp.appendChild(dv);
-  var btns=sp.querySelector(".btns"); if(btns) sp.appendChild(btns);   /* barra azioni ultima */
+  /* Le barre di bottoni vanno in fondo, e Specchia/Duplica/Elimina restano l'ULTIMA riga: sono le
+     azioni sull'elemento, si cercano lì. Prima la riga era `querySelector(".btns")` al singolare —
+     prendeva la PRIMA barra e spostava solo quella: aggiungendone una seconda (Primo piano / In
+     fondo, 26/08) in fondo finiva la nuova e le azioni restavano appese in cima al pannello. */
+  Array.prototype.slice.call(sp.querySelectorAll(".btns"))
+    .sort(function(a,b){ return (a.id==="pActRow"?1:0)-(b.id==="pActRow"?1:0); })
+    .forEach(function(b){ sp.appendChild(b); });
 })();
 /* Un'intestazione di gruppo senza controlli visibili sotto è rumore: il gruppo sparisce con essa. */
 function syncPanelGroups(){
