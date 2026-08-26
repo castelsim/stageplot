@@ -2243,6 +2243,40 @@ t("il testo secondario si legge davvero: contrasto calcolato, non a occhio", () 
   ok(ratio(t3, "#292620") > 1.5, "resta più chiaro del testo principale");
 });
 
+t("un progetto BLOCCATO non si elimina: prima si sblocca", () => {
+  /* Il lucchetto rendeva il progetto read-only ma lasciava passare l'eliminazione, con una conferma
+     dal testo più severo e lo stesso identico gesto: cestino, Elimina, sparito. Il progetto bloccato
+     è per definizione quello che non deve sparire — la versione approvata, già mandata al service.
+     Ora il cestino porta allo SBLOCCO, e l'eliminazione resta una scelta successiva (25/08). */
+  eq(A.projectDeleteGuard({ id: "p1", is_locked: true }), "sblocca", "bloccato → si offre lo sblocco");
+  eq(A.projectDeleteGuard({ id: "p2", is_locked: false }), "elimina", "sbloccato → si elimina come sempre");
+  eq(A.projectDeleteGuard({ id: "p3" }), "elimina", "senza il campo: sbloccato");
+  eq(A.projectDeleteGuard(undefined), "elimina", "progetto sconosciuto: il cestino nasce dalla riga, e la riga esiste");
+  /* e la finestra deve OFFRIRE lo sblocco, non limitarsi a rifiutare */
+  const dp = appjs.slice(appjs.indexOf("function delProject"), appjs.indexOf("function delProject") + 3200);
+  ok(/projectDeleteGuard\(pj\)\s*===\s*"sblocca"/.test(dp), "delProject passa dalla guardia");
+  ok(/confirmOr\([^)]*Prima sblocca/.test(dp) || /Prima sblocca/.test(dp), "la finestra propone di sbloccare");
+  ok(/doLockUpdate\(id,\s*false\)/.test(dp), "e il pulsante sblocca davvero");
+  ok(!/confirmText:"Elimina"[\s\S]{0,400}is_locked/.test(dp), "nessuna scorciatoia che elimini un bloccato");
+});
+
+t("il divieto vive anche nel database, non solo nella finestra", () => {
+  /* Una regola che sta solo nel client protegge dallo sbaglio e non dal guasto: basta una richiesta
+     malformata o una scheda vecchia rimasta aperta e il progetto se ne va lo stesso. */
+  const dir = join(root, "supabase/migrations");
+  const nome = readdirSync(dir).filter((f) => /locked_no_delete\.sql$/.test(f))[0];
+  ok(nome, "esiste la migrazione che chiude l'eliminazione dei bloccati");
+  const sql = readFileSync(join(dir, nome), "utf8").replace(/\s+/g, " ");
+  const clausola = (sql.match(/for delete using[^;]*/) || [""])[0].trim();
+  ok(/is_locked/.test(clausola), "la policy di delete guarda is_locked: " + clausola);
+  ok(/=\s*false/.test(clausola), "e ammette solo i NON bloccati: " + clausola);
+  ok(/auth\.uid\(\) = user_id/.test(sql), "e continua a limitare ai propri progetti");
+  /* la migrazione dev'essere l'ULTIMA a toccare quella policy, o una successiva la riaprirebbe */
+  const dopo = readdirSync(dir).filter((f) => f > nome && /\.sql$/.test(f))
+    .filter((f) => /Elimina propri progetti/.test(readFileSync(join(dir, f), "utf8")));
+  eq(dopo.length, 0, "nessuna migrazione successiva ridefinisce la policy: " + dopo.join(", "));
+});
+
 t("un id ripetuto nel file non fa sparire un montaggio in silenzio", () => {
   /* Due elementi con lo stesso id: il secondo viene rinominato, e chi ci puntava resta agganciato
      all'omonimo — di tipo diverso — quindi il riferimento viene buttato. Un apparecchio smetteva di

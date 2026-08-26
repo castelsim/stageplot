@@ -189,6 +189,12 @@ function diType(it){ return (it&&it.diType==="attiva")?"attiva":"passiva"; }
    e regge i livelli alti; l'ATTIVA per i pickup passivi e i piezo (chitarra acustica, contrabbasso,
    archi e mandolino con pickup) perché ha l'impedenza d'ingresso altissima che quei pickup
    pretendono, e col 48V. Prima qui nasceva sempre passiva. L'utente può sempre cambiarla. */
+/* Cosa deve succedere quando si preme il cestino su un progetto della finestra «I tuoi progetti».
+   Pura, così il comportamento è provabile senza cloud né DOM: il resto (finestre, chiamate a
+   Supabase) è impianto attorno a questa decisione. Un progetto bloccato NON si elimina — si offre
+   lo sblocco, e l'eliminazione resta una scelta successiva. Progetto sconosciuto: si tratta come
+   sbloccato, perché il cestino nasce dalla riga e quella riga esiste. (25/08) */
+function projectDeleteGuard(pj){ return (pj && pj.is_locked) ? "sblocca" : "elimina"; }
 var DI_ATTIVA_PER = { gtacustica:1, contrabbasso:1, vlnpost:1, violapost:1, violoncello:1 };   /* i tipi che il catalogo ha davvero; gli altri (mandolino, banjo…) quando arriveranno */
 function diTipoConsigliato(src){ return (src && DI_ATTIVA_PER[src.type]) ? "attiva" : "passiva"; }
 function diMultiN(it){ return (it&&it.diMultiCh===6)?6:8; }
@@ -25492,7 +25498,10 @@ function maybeAskStageSize(explicit){
           '<button class="cloudDup" data-id="'+pid+'" title="Duplica" aria-label="Duplica" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'+
           '<button class="cloudShareRow'+(p.share_token?' is-shared':'')+'" data-id="'+pid+'" title="'+(p.share_token?'Condiviso · clicca per gestire':'Condividi con un link')+'" aria-label="Condividi con un link" style="border:none;background:none;cursor:pointer;display:inline-flex;align-items:center;padding:4px;border-radius:var(--r-md);position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>'+
           '<button class="cloudLock" data-id="'+pid+'" data-locked="'+(p.is_locked?1:0)+'" title="'+(p.is_locked?"Progetto bloccato · clicca per sbloccare":"Blocca progetto")+'" aria-label="'+(p.is_locked?"Sblocca progetto":"Blocca progetto")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--warning)":"var(--text-2)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="'+(p.is_locked?"M7 11V7a5 5 0 0 1 10 0v4":"M7 11V7a5 5 0 0 1 9.9-1")+'"/></svg></button>'+
-          '<button class="cloudDel" data-id="'+pid+'" title="Elimina" aria-label="Elimina" style="border:none;background:none;cursor:pointer;color:var(--danger);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
+          /* Sul progetto bloccato il cestino resta CLICCABILE — un bottone disabilitato e muto sembra
+             rotto e non insegna niente — ma si annuncia per quello che è: premendolo si arriva alla
+             finestra che offre lo sblocco, non all'eliminazione. */
+          '<button class="cloudDel" data-id="'+pid+'" title="'+(p.is_locked?"Bloccato · va sbloccato prima di eliminarlo":"Elimina")+'" aria-label="'+(p.is_locked?"Progetto bloccato: sbloccalo prima di eliminarlo":"Elimina")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--text-3)":"var(--danger)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
     } else {
@@ -25909,13 +25918,26 @@ function maybeAskStageSize(explicit){
         window.flushCloudAutosave(function(ok){ if(ok) performDelete(); else toast("Eliminazione sospesa: il salvataggio in corso non è concluso.",true); });
       } else performDelete();
     };
-    var pj=cloudProjects.filter(function(x){ return x.id===id; })[0], locked=pj&&pj.is_locked;
+    var pj=cloudProjects.filter(function(x){ return x.id===id; })[0];
+    /* Il lucchetto si contraddiceva: diceva «non si modifica» e intanto lasciava passare la cosa più
+       irreversibile di tutte, con una conferma dal testo più severo ma dallo stesso identico gesto —
+       cestino, Elimina, sparito. Una conferma in più sta sulla stessa traiettoria del dito e chi ha
+       sbagliato bersaglio non la legge; sbloccare è un gesto DIVERSO, e quello rompe l'automatismo.
+       Il progetto bloccato è per definizione quello che non deve sparire: la versione approvata, già
+       mandata al service. Non un cestino disabilitato e muto — che sembra rotto — ma una finestra che
+       dice cosa fare e lo fa lì: si esce sbloccati e NON cancellati, e se si voleva davvero il secondo
+       clic sul cestino è una decisione presa un momento dopo, non dentro lo stesso slancio. (25/08) */
+    if(projectDeleteGuard(pj)==="sblocca"){
+      confirmOr("Prima sblocca questo progetto",
+        "È bloccato, e i progetti bloccati non si eliminano: di solito sono la versione approvata, quella già mandata al service. Sbloccandolo torna modificabile — non viene eliminato. Per eliminarlo davvero, poi ripremi il cestino.",
+        "Sblocca", "warn", function(){ doLockUpdate(id, false); });
+      return;
+    }
     if(typeof window.confirmDialog==="function"){
-      window.confirmDialog({ icon:"trash", title: locked?"Eliminare un progetto BLOCCATO?":"Eliminare questo progetto?",
-        message: locked ? "Questo progetto è bloccato e potrebbe essere una versione approvata. Eliminarlo definitivamente? L'azione non è reversibile."
-                        : "Il progetto salvato online verrà rimosso definitivamente. L'azione non è reversibile.",
+      window.confirmDialog({ icon:"trash", title:"Eliminare questo progetto?",
+        message:"Il progetto salvato online verrà rimosso definitivamente. L'azione non è reversibile.",
         confirmText:"Elimina" }).then(function(ok){ if(ok) go(); });
-    } else if(typeof window.confirm!=="function" || window.confirm(locked?"Questo progetto è BLOCCATO. Eliminarlo definitivamente?":"Eliminare questo progetto salvato online?")){
+    } else if(typeof window.confirm!=="function" || window.confirm("Eliminare questo progetto salvato online?")){
       go();
     }
   }
