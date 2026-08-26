@@ -26651,6 +26651,20 @@ function maybeAskStageSize(explicit){
     if(it) shotMetti(it.getAsFile());
   });
 
+  /* La scorciatoia del sistema operativo, detta per esteso. È la via che NON passa dalla finestra di
+     consenso di Chrome: quel consenso il browser lo chiede per forza a ogni cattura — se un sito
+     potesse fotografare la scheda senza chiedere, qualunque pagina potrebbe spiare quelle accanto —
+     e non c'è impostazione che lo tolga. Fare lo screenshot col sistema e incollarlo qui salta il
+     passaggio del tutto, ma finora la riga non diceva COME (27/08). */
+  (function(){
+    var how = document.getElementById("fbShotHow"); if(!how) return;
+    var p = (navigator.platform||"") + " " + (navigator.userAgent||"");
+    var mac = /Mac|iPhone|iPad/i.test(p), win = /Win/i.test(p);
+    if(/iPhone|iPad/i.test(p)) return;                      /* lì lo screenshot è un gesto fisico: nessuna scorciatoia da scrivere */
+    if(mac) how.textContent = "⌘⇧4 e poi incolla qui con ⌘V · o trascinala · o tocca per sceglierla";
+    else if(win) how.textContent = "Win+Maiusc+S e poi incolla qui con Ctrl+V · o trascinala · o tocca per sceglierla";
+  })();
+
   /* ---- cattura della scheda + ritaglio ---- */
   var crop = document.getElementById("fbCrop"), cropCv = document.getElementById("fbCropCv"),
       cropSel = document.getElementById("fbCropSel"), cropTxt = document.getElementById("fbCropTxt");
