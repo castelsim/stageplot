@@ -10544,8 +10544,13 @@ t("DI: attiva per i pickup passivi, passiva per gli strumenti alimentati (Radial
      as keyboards and electronic drums»; l'attiva per pickup passivi/piezo, che vogliono un'impedenza
      d'ingresso altissima. Prima ogni DI nasceva passiva, anche per la chitarra acustica. */
   eq(A.diTipoConsigliato({ type: "gtacustica" }), "attiva", "chitarra acustica (piezo) → attiva");
-  eq(A.diTipoConsigliato({ type: "contrabbasso" }), "attiva", "contrabbasso con pickup → attiva");
-  eq(A.diTipoConsigliato({ type: "vlnpost" }), "attiva", "violino con pickup → attiva");
+  /* gli archi del catalogo sono postazioni d'ORCHESTRA: niente pickup, si microfonano con archetto o
+     panoramici, e MIKING non offre loro l'opzione «di». Consigliare una DI che non si può mettere era
+     una promessa a vuoto (25/08). */
+  eq(A.diTipoConsigliato({ type: "contrabbasso" }), "passiva", "contrabbasso d'orchestra: non va in DI");
+  eq(A.diTipoConsigliato({ type: "vlnpost" }), "passiva", "violino d'orchestra: idem");
+  ok(!A.diApply({ type: "contrabbasso", x: 0, y: 0, w: 150, d: 195 }, {}), "e infatti nessuna DI si può applicare");
+  ok(A.diApply({ type: "gtacustica", x: 0, y: 0, w: 46, d: 110 }, {}), "mentre sulla chitarra acustica sì");
   eq(A.diTipoConsigliato({ type: "stagepiano" }), "passiva", "stage piano → passiva");
   eq(A.diTipoConsigliato({ type: "laptop" }), "passiva", "computer → passiva");
   eq(A.diTipoConsigliato(null), "passiva", "senza sorgente: il default di sempre");
