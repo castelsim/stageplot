@@ -3628,12 +3628,17 @@ var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
   organohammond:250, spdsx:15, pedaliera:30,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
   stagepiano:50, doppiatastiera:100, celesta:40,
-  dm3:45, dm7c:110, dm7:150, csr3:280, csr5:350, csr10:600,
-  sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
-  q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
+  /* CONSOLE — questi non sono tipi generici ma MODELLI REALI, e per un modello reale il numero
+     onesto e' quello di TARGA del costruttore, non un "tipico" che nessuno ha misurato. Verificati
+     uno per uno il 29/08 aprendo i documenti ufficiali: dodici valori su quattordici erano sbagliati,
+     e i pesi lo erano TUTTI, sempre in difetto. Le citazioni riga per riga stanno in DATI_TARGA.md.
+     Chi dimensiona un quadro sulla console deve poter contare su questo numero. */
+  dm3:43, dm7c:240, dm7:240, csr3:200, csr5:300, csr10:380,
+  sq5:75, sq6:90, sq7:110, avantis:150, dlives5:300, dlives7:300,
+  q338:295, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
   /* La console generica non dichiarava consumo: sul palco c'era un mixer e nella Lista carichi
      mancava. 80 W è il taglio di una digitale media senza modello scelto — appena si sceglie il
-     modello reale vale il suo numero (dm3:45, sq5:90, avantis:180…). (06/08) */
+     modello reale vale il suo numero di targa (dm3:43, sq5:75, avantis:150…). (06/08) */
   mixer:80,
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
@@ -3659,6 +3664,13 @@ var WATT = {
   wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60, mixhub:60
   /* NB: ledwallmod/schermo NON qui — hanno potenza area-based in WATT_BY_AREA (wattOf la usa prima). */
 };
+/* I tipi qui sotto NON sono famiglie di attrezzatura ma modelli precisi, e i loro numeri in WATT e
+   WEIGHT vengono dal documento ufficiale del costruttore: assorbimento e peso di TARGA, non una
+   stima. Serve per non chiamare "stima tipica" un dato che invece si puo' citare (wattFonte), e per
+   sapere quali righe hanno una fonte da ricontrollare quando esce un modello nuovo.
+   Le citazioni riga per riga stanno in DATI_TARGA.md, in radice del repo. */
+var SPEC_TARGA = { dm3:1, dm7c:1, dm7:1, csr3:1, csr5:1, csr10:1,
+  sq5:1, sq6:1, sq7:1, avantis:1, dlives5:1, dlives7:1, q338:1, hd96:1 };
 var MON_DIG_NODE = { hearback:1, mixhub:1 };   /* nodi del cablaggio digitale monitoraggio (mixerini + hub) */
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
@@ -3784,8 +3796,12 @@ var WEIGHT = {
   /* monitor */
   wedge:22, sidefill:45, drumfill:30, sub18:45, iemant:12, hearback:2,
   /* regia/console */
-  dm3:5, dm7c:10, dm7:13, csr3:15, csr5:20, csr10:30, sq5:8, sq6:9, sq7:10, avantis:14,
-  dlives5:20, dlives7:24, q338:25, hd96:35, foh:25, monmix:22, laptop:2, audiointerface:2,
+  /* CONSOLE — pesi di targa, verificati sui documenti ufficiali il 29/08 (vedi WATT sopra). Erano
+     TUTTI sottostimati, alcuni di piu' del doppio: la CS-R10 pesa 85 kg e ne dichiaravamo 30, la
+     Quantum 338 ne pesa 70 e ne dichiaravamo 25. Il totale finisce nel rider e nel PDF che vanno al
+     locale ("peso allestimento"), quindi l'errore viaggiava fuori di qui. */
+  dm3:6.5, dm7c:16.5, dm7:23.5, csr3:38, csr5:42, csr10:85, sq5:10.5, sq6:14.5, sq7:17.8, avantis:26,
+  dlives5:35, dlives7:41, q338:70, hd96:43.2, foh:25, monmix:22, laptop:2, audiointerface:2,
   /* elettrico */
   distro125:40, distro63:25, distro32:15, quadro:30, gen20:500, gen60:1400, ciabatta:1,
   /* cablaggio/dispositivi */
@@ -3818,6 +3834,9 @@ function wattFonte(it){
   if(it.watt!=null && isFinite(it.watt)) return "dichiarato";
   if(typeof lightModelWatt==="function" && lightModelWatt(it)!=null) return "targa";
   if(typeof equipWatt==="function" && equipWatt(it)!=null) return "targa";
+  /* Il tipo E' gia' un modello preciso (le console): il numero viene dal documento del costruttore,
+     quindi chiamarlo "stima" era falso in difetto — vedi SPEC_TARGA. */
+  if(typeof SPEC_TARGA!=="undefined" && SPEC_TARGA[it.type]) return "targa";
   return "stima";
 }
 /** La stessa provenienza, detta a chi legge. */

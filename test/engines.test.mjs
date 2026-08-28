@@ -11758,5 +11758,87 @@ t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
      "e sul telefono sparisce la freccia della fisarmonica");
 });
 
+/* ═══ DATI DI TARGA DELLE CONSOLE (29/08) ═════════════════════════════════════════════════════════
+   Consumi e pesi venivano da una ricerca su fonti secondarie (blog, forum) e per meta' delle voci
+   la fonte era «—». Aprendo i documenti ufficiali: 12 consumi su 14 sbagliati, 13 pesi su 14, i pesi
+   sempre in DIFETTO e alcuni di piu' del doppio — e il peso totale finisce nel rider e nel PDF che
+   vanno al locale. Questi test cadono se qualcuno rimette un numero senza aprire un datasheet.
+   Citazioni: CONOSCENZA/DATI_ATTREZZATURA.md · PDF: CONOSCENZA/pdf/datasheet/ */
+t("console: i consumi sono quelli di targa del costruttore", () => {
+  eq(A.WATT.dm3, 43, "Yamaha DM3: «Power consumption: 43 W»");
+  eq(A.WATT.dm7, 240, "Yamaha DM7: «Power Consumption 240 W»");
+  eq(A.WATT.csr3, 200, "CS-R3: «Power consumption 200 W»");
+  eq(A.WATT.csr5, 300, "CS-R5: «Power consumption 300 W»");
+  eq(A.WATT.csr10, 380, "CS-R10: «Power Consumption 380 W»");
+  eq(A.WATT.sq5, 75, "SQ-5: «Max Power Consumption SQ-5/SQ-6/SQ-7 75W / 90W / 110W»");
+  eq(A.WATT.sq6, 90);
+  eq(A.WATT.sq7, 110);
+  eq(A.WATT.avantis, 150, "Avantis: «100-240V AC, 50-60Hz, 150W max»");
+  eq(A.WATT.q338, 295, "Quantum 338: «295VA» (VA≈W con PFC, ed e' il numero prudente)");
+  /* Il costruttore dichiara UN SOLO consumo per le due taglie di DM7. Averne due diversi era il
+     segno che il numero veniva dedotto dalla dimensione della console, non letto da un documento. */
+  eq(A.WATT.dm7c, A.WATT.dm7, "DM7 e DM7 Compact: stesso consumo dichiarato, e infatti stesso numero");
+  /* dLive S7000: il datasheet da' 300 W con l'alimentatore V1 e 250 con il V2. Chi dimensiona un
+     quadro non sa quale gli arriva, quindi vale il caso peggiore. */
+  eq(A.WATT.dlives7, 300, "dLive S7000: il caso peggiore fra i due alimentatori");
+});
+
+t("console: i pesi sono quelli di targa, e crescono con la taglia", () => {
+  eq(A.WEIGHT.dm3, 6.5, "DM3: «Net weight: 6.5 kg» (dichiaravamo 5)");
+  eq(A.WEIGHT.dm7c, 16.5, "DM7 COMPACT: 16.5 kg (dichiaravamo 10)");
+  eq(A.WEIGHT.dm7, 23.5, "DM7: 23.5 kg (dichiaravamo 13)");
+  eq(A.WEIGHT.csr10, 85, "CS-R10: 85kg (dichiaravamo 30: meno di un terzo)");
+  eq(A.WEIGHT.q338, 70, "Quantum 338: 70Kg senza flightcase (dichiaravamo 25)");
+  eq(A.WEIGHT.sq5, 10.5); eq(A.WEIGHT.sq6, 14.5); eq(A.WEIGHT.sq7, 17.8);
+  eq(A.WEIGHT.avantis, 26); eq(A.WEIGHT.dlives5, 35); eq(A.WEIGHT.dlives7, 41);
+  /* Dentro una stessa famiglia il peso deve salire con la taglia: e' la prova che i numeri vengono
+     da un documento e non da un'interpolazione a occhio. */
+  ok(A.WEIGHT.dm7c < A.WEIGHT.dm7, "la DM7 Compact pesa meno della DM7");
+  ok(A.WEIGHT.sq5 < A.WEIGHT.sq6 && A.WEIGHT.sq6 < A.WEIGHT.sq7, "SQ: 5 < 6 < 7");
+  ok(A.WEIGHT.csr3 < A.WEIGHT.csr5 && A.WEIGHT.csr5 < A.WEIGHT.csr10, "RIVAGE: R3 < R5 < R10");
+  ok(A.WEIGHT.dlives5 < A.WEIGHT.dlives7, "dLive: S5000 < S7000");
+  /* Il flightcase della Quantum 338 pesa 198 kg: se qualcuno lo confondesse col peso della console,
+     il totale del rider triplicherebbe. */
+  ok(A.WEIGHT.q338 < 100, "e' il peso della console, non quello col flightcase (198 kg)");
+});
+
+t("una console non e' una «stima tipica»: il pannello dice targa", () => {
+  /* Prima wattFonte guardava solo it.watt, il modello di luce e il modello reale: una DM7 posata
+     sul palco finiva in «Stima tipica per questo tipo di attrezzatura», che di un numero letto sul
+     manuale del costruttore e' falso in difetto. */
+  eq(A.wattFonte({ type: "dm7" }), "targa");
+  eq(A.wattFonte({ type: "csr10" }), "targa");
+  eq(A.wattFonte({ type: "q338" }), "targa");
+  /* Ma una FAMIGLIA resta una stima, e deve continuare a dirlo: nessuno pubblica l'assorbimento
+     «di un combo per chitarra». */
+  eq(A.wattFonte({ type: "comboamp" }), "stima", "le famiglie restano stime dichiarate");
+  eq(A.wattFonte({ type: "wedge" }), "stima");
+  /* E il valore scritto a mano dall'utente vince comunque su tutto. */
+  eq(A.wattFonte({ type: "dm7", watt: 500 }), "dichiarato");
+});
+
+t("ogni tipo dichiarato «di targa» ha davvero un consumo E un peso", () => {
+  /* Guardia contro il buco silenzioso: aggiungere una console a SPEC_TARGA senza darle i numeri
+     la farebbe apparire come dato certo mentre vale zero. */
+  const mancanti = Object.keys(A.SPEC_TARGA).filter(k => !(A.WATT[k] > 0) || !(A.WEIGHT[k] > 0));
+  eq(mancanti.length, 0, "senza numeri: " + mancanti.join(", "));
+  /* E nessun tipo di targa puo' pesare quanto un valore inventato tondo tondo: i pesi veri hanno
+     i decimali dove il costruttore li ha (6.5, 10.5, 17.8, 43.2). */
+  ok([A.WEIGHT.dm3, A.WEIGHT.sq5, A.WEIGHT.sq7, A.WEIGHT.hd96].some(v => v % 1 !== 0),
+     "almeno un peso porta il decimale del documento");
+});
+
+t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
+  /* Un numero senza la sua citazione fra un mese non e' piu' verificabile: e' tornato a essere una
+     stima, solo con l'aria di un dato certo. */
+  const doc = readFileSync(join(root, "DATI_TARGA.md"), "utf8");
+  for (const m of ["DM7", "CS-R10", "SQ-5", "Avantis", "Quantum 338", "HD96-24"])
+    ok(doc.includes(m), "il documento non cita " + m);
+  ok(/240 W/.test(doc) && /85kg|85 kg/.test(doc), "e riporta le righe lette, non solo i titoli");
+  /* La riserva aperta va detta: dell'HD96 abbiamo il peso ma NON l'assorbimento ufficiale. */
+  ok(/2 x 650 W/.test(doc) && /stima dichiarata/.test(doc),
+     "la riserva sul Midas HD96 resta scritta finche' non si trova il dato");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
