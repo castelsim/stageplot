@@ -11828,6 +11828,45 @@ t("ogni tipo dichiarato «di targa» ha davvero un consumo E un peso", () => {
      "almeno un peso porta il decimale del documento");
 });
 
+t("il modello reale scelto porta il SUO peso, non la stima di famiglia", () => {
+  /* Difetto trovato nel browser il 29/08: wattOf guardava il modello reale, weightOf no. Chi
+     sceglieva «L-Acoustics K2» vedeva il nome nel pannello e nel rider, e intanto il totale contava
+     i 34 kg della stima. Il DB conosceva i 56 kg ufficiali e nessuno li leggeva. */
+  const k2 = { type: "arraylarge", modelId: "lacoustics-k2",
+    modelData: { brand: "L-Acoustics", model: "K2", weight_kg: { value: 56, reliability: "official" } } };
+  eq(A.weightOf(k2), 56, "vince il peso del modello");
+  eq(A.weightOf({ type: "arraylarge" }), A.WEIGHT.arraylarge, "senza modello resta la stima di famiglia");
+  /* Il peso scritto a mano dall'utente vince su tutto, come gia' faceva. */
+  eq(A.weightOf({ ...k2, kg: 70 }), 70, "il valore dichiarato a mano vince anche sul modello");
+  /* Una modifica per-progetto (modelOverride) non tocca il DB globale ma deve valere qui. */
+  eq(A.weightOf({ ...k2, modelOverride: { weight_kg: { value: 58 } } }), 58);
+  /* Un modello che NON dichiara il peso non deve azzerare il conteggio: si torna alla stima. */
+  eq(A.weightOf({ type: "arraylarge", modelData: { brand: "X", model: "Y" } }), A.WEIGHT.arraylarge);
+  eq(A.weightOf({ type: "arraylarge", modelData: { weight_kg: { value: null } } }), A.WEIGHT.arraylarge,
+     "peso non disponibile nel DB = si torna alla stima, non zero");
+  /* I microfoni restano fuori dal peso di trasporto: il DB li tiene in grammi (weight_g) e sommare
+     solo quelli a cui l'utente ha dato un modello farebbe un totale che dipende da quanto ha
+     compilato, non da cosa c'e' sul palco. */
+  eq(A.weightOf({ type: "micvoce", modelData: { weight_g: { value: 284 } } }), A.WEIGHT.micvoce || 0,
+     "il peso in grammi dei microfoni non entra nel totale");
+});
+
+t("PA: un elemento e' un modulo, e pesa quanto un modulo vero", () => {
+  /* La larghezza in pianta dice quale famiglia e': 134 cm e' la misura di un K2 (1340 mm), di un
+     GSL8 (1300) e di un KS28 (1340). I 34 kg di prima erano il peso di un modulo MEDIO messo su
+     quello grande. */
+  eq(A.TYPES.arraylarge.w, 134, "l'array grande resta largo un modulo vero");
+  ok(A.WEIGHT.arraylarge >= 56 && A.WEIGHT.arraylarge <= 80,
+     "fra K2 (56) e GSL8 (80), i due estremi verificati");
+  ok(A.WEIGHT.arraymid >= 26 && A.WEIGHT.arraymid < A.WEIGHT.arraylarge,
+     "il modulo medio pesa almeno quanto un Kara II (26) e meno del grande");
+  ok(A.WEIGHT.sub218 >= 79 && A.WEIGHT.sub218 <= 106,
+     "il doppio 18 sta fra KS28 (79) e B22-SUB (106)");
+  /* Un modulo di array non puo' pesare meno di un wedge: se succede, qualcuno ha confuso il modulo
+     con la cassa da monitor. */
+  ok(A.WEIGHT.arraylarge > A.WEIGHT.wedge, "un modulo d'array pesa piu' di una spia");
+});
+
 t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
   /* Un numero senza la sua citazione fra un mese non e' piu' verificabile: e' tornato a essere una
      stima, solo con l'aria di un dato certo. */

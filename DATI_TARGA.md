@@ -118,7 +118,61 @@ rack. Chi mette una CS-R10 in un progetto sta dichiarando meno della metà del s
 
 ---
 
-## 2. Cosa NON è verificato (e perché resta una stima)
+## 2. PA e diffusione — verificate il 29/08/2026
+
+### Il difetto che stava sotto: il modello scelto non pesava
+
+Il pannello lascia scegliere il **modello reale** del diffusore, e il DB dei prodotti conosce il peso
+ufficiale di ognuno. Ma `weightOf()` non lo guardava: chi sceglieva «L-Acoustics K2» vedeva il nome
+del modello nel pannello e nel rider, e intanto il totale continuava a contare i **34 kg della stima
+di famiglia** invece dei **56 kg** che il DB aveva già dentro. Per la corrente l'equivalente
+(`equipWatt`) c'era dal 18/07; per il peso non era mai stato scritto.
+
+Ora c'è `equipWeight()`, con la stessa scala di priorità: valore scritto a mano dall'utente →
+modello reale → stima di famiglia.
+
+### Le stime di famiglia erano tarate su un modulo più piccolo
+
+Un elemento PA è **un modulo**, non l'array intero — lo dice la larghezza in pianta: 134 cm è la
+misura di un K2 (1340 mm), di un GSL8 (1300) e di un KS28 (1340).
+
+| tipo | kg prima | **kg ora** | i moduli veri di quella misura |
+|---|---|---|---|
+| `arraylarge` | 34 | **60** | K2 56 · JBL VTX A12 60,8 · d&b GSL8 80 |
+| `arraymid` | 22 | **26** | L-Acoustics Kara II 26 · Meyer LEOPARD 34 |
+| `sub218` | 85 | **90** | L-Acoustics KS28 79 · d&b B22-SUB 106 |
+
+I 34 kg erano il peso di un modulo **medio** applicato a quello grande. Un impianto da 12 moduli e
+8 sub passa da **1088 kg dichiarati a 1440 kg**: un terzo in più sul camion.
+
+Restano **stime**, e continuano a dichiararsi tali — ma ora sono ancorate a modelli veri e citati
+invece che a niente. Chi vuole il numero esatto sceglie il modello nel pannello.
+
+### Le citazioni
+
+Verificate aprendo io le pagine ufficiali dei costruttori, non i riassunti:
+
+- **L-Acoustics KS28**, pagina prodotto, *Physical specs*: «79 kg / 174 lb» · «1340 mm / 550 mm / 719 mm»
+- **L-Acoustics Kara II**, *Physical specs*: «26 kg / 57 lb» · «733 mm / 252 mm / 500 mm»
+- **d&b GSL8**, pagina prodotto: «80 kg / 176 lb» · «391 x 1300 x 627 mm»
+- **L-Acoustics K2**: 56 kg (User Manual p. 161, già nel DB prodotti)
+- **JBL VTX A12**: 60,8 kg (JBL_VTX-A12_Spec.pdf p. 2, già nel DB prodotti)
+
+### ⚠ Un problema di metodo nel DB prodotti
+
+Controllando i pesi ho trovato che alcune `quote` in `equip_product` **non sono citazioni ma
+parafrasi**: «weighs 26 kg (57 lb)», «weigh no more than 106 kg (234 lb)», «79 kg (or approximately
+174 lbs)». Nessun datasheet scrive «or approximately»: quelle righe sono state **riscritte**, non
+copiate.
+
+I tre valori che ho ricontrollato alla fonte (KS28, Kara II, GSL8) sono **giusti**, quindi non è un
+problema di dati sbagliati. Ma una citazione riscritta perde la sua unica funzione: permettere a
+chiunque di ritrovare la riga. Da sistemare in una passata sul DB — e da tenere presente come regola
+per chi lo alimenta: **la quote si copia, non si riassume.**
+
+---
+
+## 3. Cosa NON è verificato (e perché resta una stima)
 
 Va detto chiaro, perché il valore di questo documento sta anche in ciò che non promette.
 

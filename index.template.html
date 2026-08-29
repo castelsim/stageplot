@@ -3791,8 +3791,13 @@ var WEIGHT = {
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6,
   /* sedie (peso per il rider) */
   sediaorch:6, sediapubblico:3.5, sediabianca:3.5,
-  /* PA */
-  arraylarge:34, arraymid:22, sub218:85, delaytower:90, frontfill:12,
+  /* PA — un elemento e' UN MODULO, non l'array intero (la larghezza in pianta lo dice: 134 cm per
+     l'array grande, che e' la misura di un K2 1340 mm, di un GSL8 1300 e di un KS28 1340).
+     I 34 kg dell'array grande erano il peso di un modulo MEDIO: i moduli larghi 134 cm pesano
+     56 (L-Acoustics K2), 60,8 (JBL VTX A12) e 80 (d&b GSL8) — pesi ufficiali verificati il 29/08,
+     citati in DATI_TARGA.md. Restano stime di famiglia, ma ancorate a modelli veri invece che a
+     niente; e chi sceglie il modello reale nel pannello ora si prende il suo peso esatto. */
+  arraylarge:60, arraymid:26, sub218:90, delaytower:90, frontfill:12,
   /* monitor */
   wedge:22, sidefill:45, drumfill:30, sub18:45, iemant:12, hearback:2,
   /* regia/console */
@@ -3817,7 +3822,20 @@ var WEIGHT = {
   ledwallmod:8, schermo:40, proiettore:15, camera:5
 };
 var RACK_U = { rack2u:2, rack4u:4, amprack:12, iemant:6, splitter:4 };
-function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg); return WEIGHT[it.type]||0; }
+/* Peso REALE dal modello scelto dall'utente. Esisteva gia' l'equivalente per la corrente
+   (equipWatt) ma non per il peso: chi sceglieva «L-Acoustics K2» sul suo line array vedeva il nome
+   del modello nel pannello e nel rider, mentre il totale continuava a contare i 34 kg della stima di
+   famiglia invece dei 56 kg che il DB conosceva gia' (verificato nel browser il 29/08).
+   Solo weight_kg, non weight_g: quello e' il campo dei microfoni, e il peso di allestimento conta i
+   colli da caricare, non le capsule — sommare i mic col modello e non quelli senza darebbe un totale
+   che dipende da quanto l'utente ha compilato, che e' peggio di una stima onesta. */
+function equipWeight(it){ var r=equipResolve(it), v=r&&r.weight_kg; if(!v) return null;
+  var n=(typeof v==="object" && ("value" in v)) ? v.value : v;
+  if(n==null) return null; n=+n; if(!isFinite(n)||n<=0) return null; return n; }
+function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg);
+  var ew=(typeof equipWeight==="function")?equipWeight(it):null;   /* modello reale: peso di targa */
+  if(ew!=null) return ew;
+  return WEIGHT[it.type]||0; }
 function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return a+weightOf(it); },0); }
 function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
 function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t" : Math.round(kg)+" kg"; }
