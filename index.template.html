@@ -761,6 +761,13 @@
       </div>
       <div id="pPmActions" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
+    <div id="pBmWrap" style="display:none"><label title="Marca e modello del pezzo di backline: da qui arrivano l'assorbimento dichiarato dal costruttore e il peso di targa, al posto della stima di categoria">Modello del backline <small class="lbl-note">— quello vero: porta i watt e i chili</small></label>
+      <div class="row">
+        <span><select id="pBmBrand"></select></span>
+        <span><select id="pBmModel"></select></span>
+      </div>
+      <div id="pBmInfo" class="prop-hint"></div>
+    </div>
     <div id="pLmWrap" style="display:none"><label title="Marca e modello dell'apparecchio: da qui arrivano i watt assorbiti, l'attacco per i modificatori, l'alimentazione e il controllo">Modello della luce <small class="lbl-note">— quello vero: i watt li porta lui</small></label>
       <div class="row">
         <span><select id="pLmBrand"></select></span>
@@ -3628,12 +3635,17 @@ var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
   organohammond:250, spdsx:15, pedaliera:30,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
   stagepiano:50, doppiatastiera:100, celesta:40,
-  dm3:45, dm7c:110, dm7:150, csr3:280, csr5:350, csr10:600,
-  sq5:90, sq6:100, sq7:110, avantis:180, dlives5:250, dlives7:280,
-  q338:340, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
+  /* CONSOLE — questi non sono tipi generici ma MODELLI REALI, e per un modello reale il numero
+     onesto e' quello di TARGA del costruttore, non un "tipico" che nessuno ha misurato. Verificati
+     uno per uno il 29/08 aprendo i documenti ufficiali: dodici valori su quattordici erano sbagliati,
+     e i pesi lo erano TUTTI, sempre in difetto. Le citazioni riga per riga stanno in DATI_TARGA.md.
+     Chi dimensiona un quadro sulla console deve poter contare su questo numero. */
+  dm3:43, dm7c:240, dm7:240, csr3:200, csr5:300, csr10:380,
+  sq5:75, sq6:90, sq7:110, avantis:150, dlives5:300, dlives7:300,
+  q338:295, hd96:300, laptop:90, audiointerface:15, monmix:150, foh:200,
   /* La console generica non dichiarava consumo: sul palco c'era un mixer e nella Lista carichi
      mancava. 80 W è il taglio di una digitale media senza modello scelto — appena si sceglie il
-     modello reale vale il suo numero (dm3:45, sq5:90, avantis:180…). (06/08) */
+     modello reale vale il suo numero di targa (dm3:43, sq5:75, avantis:150…). (06/08) */
   mixer:80,
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
@@ -3659,6 +3671,77 @@ var WATT = {
   wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60, mixhub:60
   /* NB: ledwallmod/schermo NON qui — hanno potenza area-based in WATT_BY_AREA (wattOf la usa prima). */
 };
+/* I tipi qui sotto NON sono famiglie di attrezzatura ma modelli precisi, e i loro numeri in WATT e
+   WEIGHT vengono dal documento ufficiale del costruttore: assorbimento e peso di TARGA, non una
+   stima. Serve per non chiamare "stima tipica" un dato che invece si puo' citare (wattFonte), e per
+   sapere quali righe hanno una fonte da ricontrollare quando esce un modello nuovo.
+   Le citazioni riga per riga stanno in DATI_TARGA.md, in radice del repo. */
+var SPEC_TARGA = { dm3:1, dm7c:1, dm7:1, csr3:1, csr5:1, csr10:1,
+  sq5:1, sq6:1, sq7:1, avantis:1, dlives5:1, dlives7:1, q338:1, hd96:1 };
+/* ═══ BACKLINE REALE ══════════════════════════════════════════════════════════════════════════
+   L'ultima lacuna dichiarata in CONOSCENZA/FONTI.md: «un catalogo con dimensioni/pesi/assorbimenti
+   dei modelli reali» per il backline. Fino al 29/08 combo, testate, ampli basso, tastiere e organi
+   avevano SOLO la stima di famiglia: l'utente poteva scrivere il modello nell'etichetta, ma il
+   piano elettrico e il peso non ne sapevano niente.
+
+   Ogni riga viene dal documento del costruttore, aperto uno per uno (citazioni in DATI_TARGA.md).
+   Chi aggiunge una riga senza aprire un datasheet sta rimettendo il problema.
+
+   watt = ASSORBIMENTO a rete dichiarato. out = potenza di USCITA AUDIO, che sta qui solo per
+   scriverla nel pannello: NON diventa mai un carico elettrico. Per le luci si ripiega sulla potenza
+   nominale della sorgente quando l'assorbimento non e' pubblicato (lightModelWatt), ma per un
+   amplificatore quella strada e' sbagliata di brutto — il Roland KC-600 da' 200 W di uscita e ne
+   assorbe 50, quattro volte meno. La vecchia regola «circa 2x la potenza d'uscita» che stava nella
+   ricerca del 04/07 vale per i valvolari e non per la classe D di oggi.
+   Un campo assente = il costruttore non lo pubblica: null, e si torna alla stima del tipo. */
+var AMP_DB = {
+  /* — Roland (roland.com, pagine Specifications: pubblica SEMPRE assorbimento e peso) — */
+  "roland_jc120":  {brand:"Roland", model:"JC-120 Jazz Chorus", per:["comboamp"], watt:130, out:120, kg:28.7, v:true},
+  "roland_jc40":   {brand:"Roland", model:"JC-40 Jazz Chorus", per:["comboamp"], watt:43, out:40, kg:15.8, v:true},
+  "roland_kc600":  {brand:"Roland", model:"KC-600", per:["keysamp"], watt:50, out:200, kg:29, v:true,
+                    note:"200 W di uscita audio ma 50 assorbiti: e' l'esempio che smonta la regola del «doppio dell'uscita»"},
+  "roland_rd2000": {brand:"Roland", model:"RD-2000", per:["stagepiano","doppiatastiera"], watt:23, kg:21.7, v:true},
+  "roland_td27":   {brand:"Roland", model:"TD-27 (modulo)", per:["edrums"], watt:null, kg:1.1, v:true,
+                    note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso e' del SOLO modulo, senza rack ne' pad, quindi il tipo resta sulla sua stima per il kit"},
+  /* — Ampeg (ampeg.com + Owner's Manual) — */
+  "ampeg_svtcl":   {brand:"Ampeg", model:"SVT-CL (testata)", per:["bassamp"], watt:460, out:300, kg:36.3, v:true,
+                    note:"valvolare: 460 W assorbiti per 300 W di uscita. Il manuale li dichiara per tutte le tensioni, EU compresa"},
+  "ampeg_svt810e": {brand:"Ampeg", model:"SVT-810E (cassa)", per:["bassamp"], watt:0, kg:62, v:true,
+                    note:"cassa passiva: non assorbe niente, la corrente la prende la testata. Con l'SVT-CL sopra fanno 98 kg"},
+  /* — Nord / Clavia (nordkeyboards.com). Il peso e' dichiarato per ogni taglia, l'assorbimento no. — */
+  "nord_stage4_88":{brand:"Nord", model:"Stage 4 88", per:["stagepiano"], watt:null, kg:19.6, v:true},
+  "nord_stage4_73":{brand:"Nord", model:"Stage 4 73", per:["stagepiano"], watt:null, kg:16.7, v:true},
+  "nord_stage4_c": {brand:"Nord", model:"Stage 4 Compact", per:["stagepiano","doppiatastiera"], watt:null, kg:10.4, v:true},
+  /* — Hammond (hammondorganco.com) — */
+  "hammond_skxpro":{brand:"Hammond", model:"SkxPro", per:["organohammond","doppiatastiera"], watt:22, kg:16.9, v:true,
+                    note:"e' l'Hammond PORTATILE: un B3 vintage pesa piu' di dieci volte tanto e non si sposta in due"}
+};
+/* Su quali elementi si puo' scegliere un modello di backline: quelli che AMP_DB dichiara di coprire.
+   Niente elenco di tipi scritto a parte, che invecchierebbe da solo appena si aggiunge una riga. */
+function ampModelApplies(it){
+  if(!it||!it.type) return false;
+  for(var k in AMP_DB){ var d=AMP_DB[k]; if(d.per && d.per.indexOf(it.type)>=0) return true; }
+  return false;
+}
+function ampModelOf(it){ var d=(it && it.bm && AMP_DB[it.bm]) || null;
+  /* un modello scelto e poi rimasto appiccicato a un tipo che non copre non deve piu' contare */
+  return (d && d.per && it && d.per.indexOf(it.type)>=0) ? d : null; }
+/* Assorbimento del modello. Mai `out`: quella e' potenza audio. null = non dichiarato dal costruttore. */
+function ampModelWatt(it){ var d=ampModelOf(it); if(!d||d.watt==null) return null;
+  var n=+d.watt; return (isFinite(n)&&n>=0) ? n : null; }
+function ampModelKg(it){ var d=ampModelOf(it); if(!d||d.kg==null) return null;
+  var n=+d.kg; return (isFinite(n)&&n>0) ? n : null; }
+/* Quel che il pannello dice del modello: solo i campi dichiarati, e la distinzione fra i due watt. */
+function ampModelSpecText(d){
+  if(!d) return "";
+  var b=[];
+  if(d.watt!=null) b.push(d.watt===0 ? "passiva: nessun assorbimento" : d.watt+" W assorbiti");
+  else b.push("assorbimento non dichiarato dal costruttore");
+  if(d.out!=null) b.push(d.out+" W di uscita audio");
+  if(d.kg!=null) b.push(String(d.kg).replace(".",",")+" kg");
+  var t=b.join(" · ");
+  return d.note ? (t+" — "+d.note) : t;
+}
 var MON_DIG_NODE = { hearback:1, mixhub:1 };   /* nodi del cablaggio digitale monitoraggio (mixerini + hub) */
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
@@ -3669,6 +3752,8 @@ function wattOf(it){
   if(lw!=null) return lw;
   var ew=(typeof equipWatt==="function")?equipWatt(it):null;   /* modello reale: consumo elettrico di targa (≠ potenza audio) */
   if(ew!=null) return ew;
+  var aw=(typeof ampModelWatt==="function")?ampModelWatt(it):null;   /* backline reale (AMP_DB): assorbimento dichiarato */
+  if(aw!=null) return aw;
   var w = (WATT_BY_AREA[it.type]!=null) ? Math.round((it.w/100)*(it.d/100)*WATT_BY_AREA[it.type]) : (WATT[it.type]||0);
   /* chitarra/basso su stand: ampli e pedaliera OPZIONALI (flag) sono carichi elettrici (audit 14/07) */
   var g=(TYPES[it.type]||{}).gtr;
@@ -3779,13 +3864,22 @@ var WEIGHT = {
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6,
   /* sedie (peso per il rider) */
   sediaorch:6, sediapubblico:3.5, sediabianca:3.5,
-  /* PA */
-  arraylarge:34, arraymid:22, sub218:85, delaytower:90, frontfill:12,
+  /* PA — un elemento e' UN MODULO, non l'array intero (la larghezza in pianta lo dice: 134 cm per
+     l'array grande, che e' la misura di un K2 1340 mm, di un GSL8 1300 e di un KS28 1340).
+     I 34 kg dell'array grande erano il peso di un modulo MEDIO: i moduli larghi 134 cm pesano
+     56 (L-Acoustics K2), 60,8 (JBL VTX A12) e 80 (d&b GSL8) — pesi ufficiali verificati il 29/08,
+     citati in DATI_TARGA.md. Restano stime di famiglia, ma ancorate a modelli veri invece che a
+     niente; e chi sceglie il modello reale nel pannello ora si prende il suo peso esatto. */
+  arraylarge:60, arraymid:26, sub218:90, delaytower:90, frontfill:12,
   /* monitor */
   wedge:22, sidefill:45, drumfill:30, sub18:45, iemant:12, hearback:2,
   /* regia/console */
-  dm3:5, dm7c:10, dm7:13, csr3:15, csr5:20, csr10:30, sq5:8, sq6:9, sq7:10, avantis:14,
-  dlives5:20, dlives7:24, q338:25, hd96:35, foh:25, monmix:22, laptop:2, audiointerface:2,
+  /* CONSOLE — pesi di targa, verificati sui documenti ufficiali il 29/08 (vedi WATT sopra). Erano
+     TUTTI sottostimati, alcuni di piu' del doppio: la CS-R10 pesa 85 kg e ne dichiaravamo 30, la
+     Quantum 338 ne pesa 70 e ne dichiaravamo 25. Il totale finisce nel rider e nel PDF che vanno al
+     locale ("peso allestimento"), quindi l'errore viaggiava fuori di qui. */
+  dm3:6.5, dm7c:16.5, dm7:23.5, csr3:38, csr5:42, csr10:85, sq5:10.5, sq6:14.5, sq7:17.8, avantis:26,
+  dlives5:35, dlives7:41, q338:70, hd96:43.2, foh:25, monmix:22, laptop:2, audiointerface:2,
   /* elettrico */
   distro125:40, distro63:25, distro32:15, quadro:30, gen20:500, gen60:1400, ciabatta:1,
   /* cablaggio/dispositivi */
@@ -3801,7 +3895,22 @@ var WEIGHT = {
   ledwallmod:8, schermo:40, proiettore:15, camera:5
 };
 var RACK_U = { rack2u:2, rack4u:4, amprack:12, iemant:6, splitter:4 };
-function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg); return WEIGHT[it.type]||0; }
+/* Peso REALE dal modello scelto dall'utente. Esisteva gia' l'equivalente per la corrente
+   (equipWatt) ma non per il peso: chi sceglieva «L-Acoustics K2» sul suo line array vedeva il nome
+   del modello nel pannello e nel rider, mentre il totale continuava a contare i 34 kg della stima di
+   famiglia invece dei 56 kg che il DB conosceva gia' (verificato nel browser il 29/08).
+   Solo weight_kg, non weight_g: quello e' il campo dei microfoni, e il peso di allestimento conta i
+   colli da caricare, non le capsule — sommare i mic col modello e non quelli senza darebbe un totale
+   che dipende da quanto l'utente ha compilato, che e' peggio di una stima onesta. */
+function equipWeight(it){ var r=equipResolve(it), v=r&&r.weight_kg; if(!v) return null;
+  var n=(typeof v==="object" && ("value" in v)) ? v.value : v;
+  if(n==null) return null; n=+n; if(!isFinite(n)||n<=0) return null; return n; }
+function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg);
+  var ew=(typeof equipWeight==="function")?equipWeight(it):null;   /* modello reale: peso di targa */
+  if(ew!=null) return ew;
+  var aw=(typeof ampModelKg==="function")?ampModelKg(it):null;   /* backline reale (AMP_DB) */
+  if(aw!=null) return aw;
+  return WEIGHT[it.type]||0; }
 function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return a+weightOf(it); },0); }
 function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
 function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t" : Math.round(kg)+" kg"; }
@@ -3818,6 +3927,10 @@ function wattFonte(it){
   if(it.watt!=null && isFinite(it.watt)) return "dichiarato";
   if(typeof lightModelWatt==="function" && lightModelWatt(it)!=null) return "targa";
   if(typeof equipWatt==="function" && equipWatt(it)!=null) return "targa";
+  /* Il tipo E' gia' un modello preciso (le console): il numero viene dal documento del costruttore,
+     quindi chiamarlo "stima" era falso in difetto — vedi SPEC_TARGA. */
+  if(typeof ampModelWatt==="function" && ampModelWatt(it)!=null) return "targa";
+  if(typeof SPEC_TARGA!=="undefined" && SPEC_TARGA[it.type]) return "targa";
   return "stima";
 }
 /** La stessa provenienza, detta a chi legge. */
@@ -10203,6 +10316,27 @@ function pmFillProps(it){
 /* ── pannello «Modello della luce» (29/07): marca+modello da LIGHT_MODEL_DB ──
    Stesso gesto del blocco «Personal monitor»: due tendine (marca → modello) e una riga di
    specifiche. Niente testo libero: o è un modello del catalogo, o è generico. */
+/* Le due tendine del backline: stesso gesto di quelle della luce e del personal monitor. */
+function bmFillProps(it){
+  var bSel=document.getElementById("pBmBrand"), mSel=document.getElementById("pBmModel");
+  if(!bSel||!mSel) return;
+  var cur=ampModelOf(it), curBrand=cur?cur.brand:"";
+  /* si offrono SOLO i modelli che coprono questo tipo: su un ampli basso non compaiono le tastiere */
+  var chiavi=Object.keys(AMP_DB).filter(function(k){ return AMP_DB[k].per.indexOf(it.type)>=0; });
+  var brands={}; chiavi.forEach(function(k){ brands[AMP_DB[k].brand]=1; });
+  var bh='<option value="">Generico</option>';
+  Object.keys(brands).sort().forEach(function(b){ bh+='<option value="'+esc(b)+'"'+(b===curBrand?' selected':'')+'>'+esc(b)+'</option>'; });
+  bSel.innerHTML=bh;
+  if(curBrand){
+    var mh='';
+    chiavi.forEach(function(k){ var d=AMP_DB[k]; if(d.brand!==curBrand) return;
+      mh+='<option value="'+k+'"'+(it.bm===k?' selected':'')+'>'+esc(d.model)+'</option>'; });
+    mSel.innerHTML=mh; mSel.style.display="";
+  } else { mSel.innerHTML=""; mSel.style.display="none"; }
+  var info=document.getElementById("pBmInfo");
+  if(info) info.textContent = cur ? ampModelSpecText(cur)
+    : "Generico: valgono la stima di categoria e i chili medi, non un modello.";
+}
 function lmFillProps(it){
   var bSel=document.getElementById("pLmBrand"), mSel=document.getElementById("pLmModel");
   if(!bSel||!mSel) return;
@@ -11572,6 +11706,9 @@ function renderProps(){
   var pmWrap=document.getElementById("pPmWrap");   /* personal monitor model-driven (B1): marca/modello da PM_DB */
   if(pmWrap){ var isPm=(it.type==="hearback"||it.type==="mixhub"); pmWrap.style.display = isPm ? "block" : "none";
     if(isPm) pmFillProps(it); }
+  var bmWrap=document.getElementById("pBmWrap");   /* backline: marca/modello da AMP_DB (29/08) */
+  if(bmWrap){ var isBm=ampModelApplies(it); bmWrap.style.display = isBm ? "block" : "none";
+    if(isBm) bmFillProps(it); }
   var lmWrap=document.getElementById("pLmWrap");   /* luci continue: marca/modello da LIGHT_MODEL_DB (29/07) */
   if(lmWrap){ var isLm=lightModelApplies(it); lmWrap.style.display = isLm ? "block" : "none";
     if(isLm) lmFillProps(it); }
@@ -12795,7 +12932,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pUsoWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
+  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
@@ -19347,6 +19484,21 @@ function renderCabPanel(){
   if(pmMs) pmMs.addEventListener("change", function(){ var it=getSel(); if(!it||(it.type!=="hearback"&&it.type!=="mixhub")) return;
     if(this.value) it.pm=this.value; else delete it.pm;
     __mondRes=null; save(); render(); renderProps(); });
+  /* modello del backline (29/08): stesso gesto delle tendine della luce. */
+  var bmB=document.getElementById("pBmBrand");
+  if(bmB) bmB.addEventListener("change", function(){ var it=getSel(); if(!it||!ampModelApplies(it)) return;
+    var v=this.value;
+    if(!v){ mutSel(function(x){ if(ampModelApplies(x)) delete x.bm; }); }
+    else { var first=null; Object.keys(AMP_DB).some(function(k){ var d=AMP_DB[k];
+        if(d.brand===v && d.per.indexOf(it.type)>=0){ first=k; return true; } return false; });
+      if(first) mutSel(function(x){ if(ampModelApplies(x) && AMP_DB[first].per.indexOf(x.type)>=0) x.bm=first; }); }
+    __elecRes=null; save(); render(); renderProps(); });
+  var bmM=document.getElementById("pBmModel");
+  if(bmM) bmM.addEventListener("change", function(){ var it=getSel(); if(!it||!ampModelApplies(it)) return;
+    var v=this.value;
+    mutSel(function(x){ if(!ampModelApplies(x)) return;
+      if(v && AMP_DB[v] && AMP_DB[v].per.indexOf(x.type)>=0) x.bm=v; else delete x.bm; });
+    __elecRes=null; save(); render(); renderProps(); });
   /* modello della luce (29/07): la marca seleziona il primo modello; il modello scrive it.lm.
      Stesso identico gesto delle due tendine del personal monitor. */
   var lmB=document.getElementById("pLmBrand");
