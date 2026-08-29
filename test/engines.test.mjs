@@ -11867,6 +11867,95 @@ t("PA: un elemento e' un modulo, e pesa quanto un modulo vero", () => {
   ok(A.WEIGHT.arraylarge > A.WEIGHT.wedge, "un modulo d'array pesa piu' di una spia");
 });
 
+/* ═══ BACKLINE REALE (AMP_DB, 29/08) ══════════════════════════════════════════════════════════════
+   Era l'ultima lacuna dichiarata in CONOSCENZA/FONTI.md: combo, testate, ampli basso, tastiere e
+   organi avevano SOLO la stima di famiglia. Ora si sceglie il modello e porta i suoi numeri. */
+t("il backline reale porta assorbimento e peso del costruttore", () => {
+  const combo = { type: "comboamp", bm: "roland_jc120" };
+  eq(A.wattOf(combo), 130, "JC-120: «Power Consumption: 130 W»");
+  eq(A.weightOf(combo), 28.7, "«Weight: 28.7 kg»");
+  eq(A.wattFonte(combo), "targa", "e non e' piu' una stima");
+  /* senza modello si torna alla stima di categoria, che resta dichiarata come tale */
+  eq(A.wattOf({ type: "comboamp" }), A.WATT.comboamp);
+  eq(A.wattFonte({ type: "comboamp" }), "stima");
+});
+
+t("la potenza d'USCITA non diventa mai un carico elettrico", () => {
+  /* E' l'errore che stava nella ricerca del 04/07: «circa 2x la potenza d'uscita». Vale per i
+     valvolari e non per la classe D — il KC-600 da' 200 W di uscita audio e ne assorbe 50, quattro
+     volte meno. Se qualcuno facesse ripiegare wattOf su `out` (come fa lightModelWatt su wattRated
+     per le luci), quel combo diventerebbe un carico da 200 W che non esiste. */
+  eq(A.AMP_DB.roland_kc600.out, 200, "l'uscita audio resta scritta, per il pannello");
+  eq(A.wattOf({ type: "keysamp", bm: "roland_kc600" }), 50, "ma il carico e' l'assorbimento: 50 W");
+  /* Un modello che non dichiara l'assorbimento NON si fa dedurre dall'uscita: torna alla stima. */
+  eq(A.AMP_DB.nord_stage4_88.watt, null, "Nord non pubblica l'assorbimento");
+  eq(A.wattOf({ type: "stagepiano", bm: "nord_stage4_88" }), A.WATT.stagepiano,
+     "quindi vale la stima del tipo, non un numero inventato");
+  /* Nessuna riga del catalogo ha oggi «assorbimento assente + uscita dichiarata», quindi il divieto
+     va provato su un caso costruito apposta: senza questo, uno che aggiungesse il ripiego su `out`
+     passerebbe la suite indisturbato (mutazione provata: non la vedeva nessuno). */
+  A.AMP_DB.__prova_ripiego = { brand: "Prova", model: "Solo uscita", per: ["comboamp"], watt: null, out: 999, kg: 9 };
+  try {
+    eq(A.wattOf({ type: "comboamp", bm: "__prova_ripiego" }), A.WATT.comboamp,
+       "999 W di uscita NON diventano un carico: si torna alla stima");
+    eq(A.weightOf({ type: "comboamp", bm: "__prova_ripiego" }), 9, "il peso dichiarato invece vale");
+  } finally { delete A.AMP_DB.__prova_ripiego; }
+  eq(A.weightOf({ type: "stagepiano", bm: "nord_stage4_88" }), 19.6, "ma il peso, che e' dichiarato, vale");
+  /* Il valvolare invece assorbe piu' di quanto esce: e' il caso opposto, ed e' letto dal manuale. */
+  const svt = A.AMP_DB.ampeg_svtcl;
+  ok(svt.watt > svt.out, "SVT-CL: 460 W assorbiti per 300 di uscita");
+});
+
+t("una cassa passiva assorbe zero, e lo dice", () => {
+  /* watt:0 non e' «dato mancante»: e' un fatto, e va distinto. Se lo trattassimo come assente,
+     l'8x10 tornerebbe a portare i 400 W della stima di categoria — che pero' li assorbe la
+     TESTATA, e verrebbero contati due volte. */
+  const cassa = { type: "bassamp", bm: "ampeg_svt810e" };
+  eq(A.wattOf(cassa), 0, "la cassa non prende corrente");
+  eq(A.weightOf(cassa), 62, "ma pesa 62 kg, ed e' il punto");
+  eq(A.wattFonte(cassa), "targa", "e lo zero e' un dato, non una stima");
+});
+
+t("un modello appiccicato al tipo sbagliato non conta", () => {
+  /* Cambiando il tipo di un elemento (o incollando da un altro progetto) it.bm puo' restare li'.
+     Un piano da 23 W su un ampli basso falserebbe il quadro in silenzio. */
+  eq(A.wattOf({ type: "bassamp", bm: "roland_rd2000" }), A.WATT.bassamp, "torna alla stima del tipo");
+  eq(A.weightOf({ type: "bassamp", bm: "roland_rd2000" }), A.WEIGHT.bassamp);
+  eq(A.ampModelOf({ type: "bassamp", bm: "roland_rd2000" }), null);
+  eq(A.ampModelOf({ type: "comboamp", bm: "non_esiste" }), null, "e una chiave inventata non esplode");
+});
+
+t("ogni riga del catalogo backline e' completa e attaccata a tipi veri", () => {
+  const rotte = [];
+  Object.keys(A.AMP_DB).forEach(k => {
+    const d = A.AMP_DB[k];
+    if (!d.brand || !d.model) rotte.push(k + ": senza marca o modello");
+    if (!Array.isArray(d.per) || !d.per.length) rotte.push(k + ": non dice su quali elementi vale");
+    else d.per.forEach(t => { if (!A.TYPES[t]) rotte.push(k + ": tipo inesistente " + t); });
+    /* una riga che non porta ne' watt ne' kg non aggiunge niente a una stima: e' solo un nome */
+    if (d.watt == null && d.kg == null) rotte.push(k + ": nessun dato, solo il nome");
+  });
+  eq(rotte.length, 0, rotte.join(" | "));
+  /* e il campo si offre esattamente dove il catalogo copre qualcosa */
+  ok(A.ampModelApplies({ type: "comboamp" }) && A.ampModelApplies({ type: "bassamp" }));
+  ok(!A.ampModelApplies({ type: "wedge" }), "su una spia non si sceglie un backline");
+  ok(!A.ampModelApplies({ type: "musicista" }));
+});
+
+t("il modello scelto sopravvive al salvataggio", () => {
+  /* Un campo che il save filtra si perde riaprendo il progetto, e il difetto e' invisibile:
+     l'utente rivede la stima senza che nessuno gli dica che la sua scelta e' sparita. */
+  eq(A.stateReplacer("bm", "ampeg_svtcl"), "ampeg_svtcl");
+  /* e il giro completo: serializzato e riletto, il modello e' ancora li' */
+  A.state.items = [{ id: "x1", type: "bassamp", x: 0, y: 0, bm: "ampeg_svtcl" }];
+  const json = A.stateToJSON();
+  ok(json.includes('"bm":"ampeg_svtcl"'), "il modello finisce nel file salvato");
+  const riletti = A.normalizeLoadedItems(JSON.parse(json).items);
+  eq(riletti[0].bm, "ampeg_svtcl", "e sopravvive al caricamento");
+  eq(A.wattOf(riletti[0]), 460, "coi suoi numeri, non con la stima");
+  A.state.items = [];
+});
+
 t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
   /* Un numero senza la sua citazione fra un mese non e' piu' verificabile: e' tornato a essere una
      stima, solo con l'aria di un dato certo. */

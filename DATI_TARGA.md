@@ -172,7 +172,75 @@ per chi lo alimenta: **la quote si copia, non si riassume.**
 
 ---
 
-## 3. Cosa NON è verificato (e perché resta una stima)
+## 3. Backline — il catalogo dei modelli veri (29/08/2026)
+
+Era **l'ultima lacuna dichiarata** in `CONOSCENZA/FONTI.md`: «un catalogo professionale di noleggio
+backline (dimensioni/pesi/assorbimenti dei modelli reali) per il nostro DB di attrezzatura».
+
+Fino a oggi combo, testate, ampli basso, tastiere e organi avevano **solo la stima di famiglia**:
+l'utente poteva scrivere «Ampeg SVT» nell'etichetta, e il piano elettrico non ne sapeva niente. Ora
+c'è `AMP_DB` e il campo **«Modello del backline»** nel pannello, sullo stesso schema già usato per
+le luci e per il personal monitor.
+
+| chiave | modello | W assorbiti | W di uscita | kg | fonte |
+|---|---|---|---|---|---|
+| `roland_jc120` | Roland JC-120 Jazz Chorus | **130** | 120 | 28,7 | roland.com, *Specifications* |
+| `roland_jc40` | Roland JC-40 | **43** | 40 | 15,8 | idem |
+| `roland_kc600` | Roland KC-600 | **50** | 200 | 29 | idem |
+| `roland_rd2000` | Roland RD-2000 | **23** | — | 21,7 | idem |
+| `roland_td27` | Roland TD-27 (modulo) | non dich. | — | 1,1 | idem |
+| `ampeg_svtcl` | Ampeg SVT-CL (testata) | **460** | 300 | 36,3 | Owner's Manual + ampeg.com |
+| `ampeg_svt810e` | Ampeg SVT-810E (cassa) | **0** | — | 62 | ampeg.com |
+| `nord_stage4_88` | Nord Stage 4 88 | non dich. | — | 19,6 | nordkeyboards.com |
+| `nord_stage4_73` | Nord Stage 4 73 | non dich. | — | 16,7 | idem |
+| `nord_stage4_c` | Nord Stage 4 Compact | non dich. | — | 10,4 | idem |
+| `hammond_skxpro` | Hammond SkxPro | **22** | — | 16,9 | hammondorganco.com/skxpro-specs |
+
+### La regola che questo catalogo smonta
+
+La ricerca del 04/07 diceva: «regola pratica ampli: **~2× la potenza di uscita audio**». Vale per i
+valvolari e **non** per la classe D di oggi, e i numeri lo dimostrano da soli:
+
+- **Roland KC-600**: 200 W di uscita, **50 W assorbiti**. La regola avrebbe detto 400: otto volte tanto.
+- **Ampeg SVT-CL**: 300 W di uscita, **460 W assorbiti**. Qui è il contrario, ed è un valvolare.
+
+Per questo `ampModelWatt` **non ripiega mai** sulla potenza di uscita quando l'assorbimento non è
+pubblicato: torna alla stima di categoria, che almeno si dichiara stima. È una differenza voluta
+rispetto alle luci, dove `lightModelWatt` ripiega sulla potenza nominale della sorgente — lì è una
+derivazione ragionevole, qui sarebbe un errore di un fattore quattro.
+
+Nel catalogo non c'è oggi nessuna riga con «assorbimento assente + uscita dichiarata», quindi il
+divieto è provato nei test su un caso **costruito apposta**. Senza quello, la mutazione passava
+inosservata — provata, e infatti non la vedeva nessuno.
+
+### Le citazioni
+
+- **Roland** (tutte da `roland.com/global/products/<modello>/specifications/`, che pubblica sempre
+  sia l'assorbimento sia il peso): JC-120 «Power Consumption: 130 W» · «Weight: 28.7 kg»; JC-40
+  «43 W» · «15.8 kg»; KC-600 «50 W» · «29 kg» · «Rated Power Output: 200 W»; RD-2000 «23 W» ·
+  «21.7 kg»; TD-27 «770 mA» a «DC 9 V» — corrente in continua **dopo** l'alimentatore, non
+  l'assorbimento a rete, quindi resta `null`.
+- **Ampeg SVT-CL** — `CONOSCENZA/pdf/datasheet/ampeg-svtcl-om.pdf`, *Power Requirements*:
+  «EU/UK: 4A(Slo Blo), 220-240VAC, 50-60Hz, **460W**». Peso da ampeg.com: «80 lb / 36.3 kg».
+- **Ampeg SVT-810E** — ampeg.com: «137 lb / 62 kg». Cassa passiva: `watt:0` è **un fatto**, non un
+  dato mancante, e va distinto — se lo trattassimo come assente l'8×10 tornerebbe a portare i 400 W
+  della stima, che però li assorbe la testata: contati due volte.
+- **Nord Stage 4** — nordkeyboards.com: «19.6 kg (43.2 lb)» / «16.7 kg» / «10.4 kg». L'assorbimento
+  non è pubblicato per nessuna delle tre taglie.
+- **Hammond SkxPro** — hammondorganco.com/skxpro-specs: «Rated Power Consumption: 22W» ·
+  «SkxPRO: 16.9kg [37.25 lbs]». È l'Hammond **portatile**: un B3 vintage pesa più di dieci volte
+  tanto, e chi lo mette in un rider lo sa.
+
+### Cosa manca ancora
+
+Nessun modello per `stack` (testata + 4×12) e per `leslie`: **Marshall** e **Vox** non pubblicano
+l'assorbimento, e le loro pagine prodotto rispondono 403 o 404 alle richieste automatiche. Fender
+pubblica il peso ma non il consumo. Chi ha un manuale cartaceo di quelle marche può chiudere il
+buco in due minuti: serve solo la riga «Power Requirements» del retro.
+
+---
+
+## 4. Cosa NON è verificato (e perché resta una stima)
 
 Va detto chiaro, perché il valore di questo documento sta anche in ciò che non promette.
 
