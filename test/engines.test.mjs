@@ -11758,5 +11758,215 @@ t("su telefono il box esce dalla colonna, che lì è nascosta", () => {
      "e sul telefono sparisce la freccia della fisarmonica");
 });
 
+/* ═══ DATI DI TARGA DELLE CONSOLE (29/08) ═════════════════════════════════════════════════════════
+   Consumi e pesi venivano da una ricerca su fonti secondarie (blog, forum) e per meta' delle voci
+   la fonte era «—». Aprendo i documenti ufficiali: 12 consumi su 14 sbagliati, 13 pesi su 14, i pesi
+   sempre in DIFETTO e alcuni di piu' del doppio — e il peso totale finisce nel rider e nel PDF che
+   vanno al locale. Questi test cadono se qualcuno rimette un numero senza aprire un datasheet.
+   Citazioni: CONOSCENZA/DATI_ATTREZZATURA.md · PDF: CONOSCENZA/pdf/datasheet/ */
+t("console: i consumi sono quelli di targa del costruttore", () => {
+  eq(A.WATT.dm3, 43, "Yamaha DM3: «Power consumption: 43 W»");
+  eq(A.WATT.dm7, 240, "Yamaha DM7: «Power Consumption 240 W»");
+  eq(A.WATT.csr3, 200, "CS-R3: «Power consumption 200 W»");
+  eq(A.WATT.csr5, 300, "CS-R5: «Power consumption 300 W»");
+  eq(A.WATT.csr10, 380, "CS-R10: «Power Consumption 380 W»");
+  eq(A.WATT.sq5, 75, "SQ-5: «Max Power Consumption SQ-5/SQ-6/SQ-7 75W / 90W / 110W»");
+  eq(A.WATT.sq6, 90);
+  eq(A.WATT.sq7, 110);
+  eq(A.WATT.avantis, 150, "Avantis: «100-240V AC, 50-60Hz, 150W max»");
+  eq(A.WATT.q338, 295, "Quantum 338: «295VA» (VA≈W con PFC, ed e' il numero prudente)");
+  /* Il costruttore dichiara UN SOLO consumo per le due taglie di DM7. Averne due diversi era il
+     segno che il numero veniva dedotto dalla dimensione della console, non letto da un documento. */
+  eq(A.WATT.dm7c, A.WATT.dm7, "DM7 e DM7 Compact: stesso consumo dichiarato, e infatti stesso numero");
+  /* dLive S7000: il datasheet da' 300 W con l'alimentatore V1 e 250 con il V2. Chi dimensiona un
+     quadro non sa quale gli arriva, quindi vale il caso peggiore. */
+  eq(A.WATT.dlives7, 300, "dLive S7000: il caso peggiore fra i due alimentatori");
+});
+
+t("console: i pesi sono quelli di targa, e crescono con la taglia", () => {
+  eq(A.WEIGHT.dm3, 6.5, "DM3: «Net weight: 6.5 kg» (dichiaravamo 5)");
+  eq(A.WEIGHT.dm7c, 16.5, "DM7 COMPACT: 16.5 kg (dichiaravamo 10)");
+  eq(A.WEIGHT.dm7, 23.5, "DM7: 23.5 kg (dichiaravamo 13)");
+  eq(A.WEIGHT.csr10, 85, "CS-R10: 85kg (dichiaravamo 30: meno di un terzo)");
+  eq(A.WEIGHT.q338, 70, "Quantum 338: 70Kg senza flightcase (dichiaravamo 25)");
+  eq(A.WEIGHT.sq5, 10.5); eq(A.WEIGHT.sq6, 14.5); eq(A.WEIGHT.sq7, 17.8);
+  eq(A.WEIGHT.avantis, 26); eq(A.WEIGHT.dlives5, 35); eq(A.WEIGHT.dlives7, 41);
+  /* Dentro una stessa famiglia il peso deve salire con la taglia: e' la prova che i numeri vengono
+     da un documento e non da un'interpolazione a occhio. */
+  ok(A.WEIGHT.dm7c < A.WEIGHT.dm7, "la DM7 Compact pesa meno della DM7");
+  ok(A.WEIGHT.sq5 < A.WEIGHT.sq6 && A.WEIGHT.sq6 < A.WEIGHT.sq7, "SQ: 5 < 6 < 7");
+  ok(A.WEIGHT.csr3 < A.WEIGHT.csr5 && A.WEIGHT.csr5 < A.WEIGHT.csr10, "RIVAGE: R3 < R5 < R10");
+  ok(A.WEIGHT.dlives5 < A.WEIGHT.dlives7, "dLive: S5000 < S7000");
+  /* Il flightcase della Quantum 338 pesa 198 kg: se qualcuno lo confondesse col peso della console,
+     il totale del rider triplicherebbe. */
+  ok(A.WEIGHT.q338 < 100, "e' il peso della console, non quello col flightcase (198 kg)");
+});
+
+t("una console non e' una «stima tipica»: il pannello dice targa", () => {
+  /* Prima wattFonte guardava solo it.watt, il modello di luce e il modello reale: una DM7 posata
+     sul palco finiva in «Stima tipica per questo tipo di attrezzatura», che di un numero letto sul
+     manuale del costruttore e' falso in difetto. */
+  eq(A.wattFonte({ type: "dm7" }), "targa");
+  eq(A.wattFonte({ type: "csr10" }), "targa");
+  eq(A.wattFonte({ type: "q338" }), "targa");
+  /* Ma una FAMIGLIA resta una stima, e deve continuare a dirlo: nessuno pubblica l'assorbimento
+     «di un combo per chitarra». */
+  eq(A.wattFonte({ type: "comboamp" }), "stima", "le famiglie restano stime dichiarate");
+  eq(A.wattFonte({ type: "wedge" }), "stima");
+  /* E il valore scritto a mano dall'utente vince comunque su tutto. */
+  eq(A.wattFonte({ type: "dm7", watt: 500 }), "dichiarato");
+});
+
+t("ogni tipo dichiarato «di targa» ha davvero un consumo E un peso", () => {
+  /* Guardia contro il buco silenzioso: aggiungere una console a SPEC_TARGA senza darle i numeri
+     la farebbe apparire come dato certo mentre vale zero. */
+  const mancanti = Object.keys(A.SPEC_TARGA).filter(k => !(A.WATT[k] > 0) || !(A.WEIGHT[k] > 0));
+  eq(mancanti.length, 0, "senza numeri: " + mancanti.join(", "));
+  /* E nessun tipo di targa puo' pesare quanto un valore inventato tondo tondo: i pesi veri hanno
+     i decimali dove il costruttore li ha (6.5, 10.5, 17.8, 43.2). */
+  ok([A.WEIGHT.dm3, A.WEIGHT.sq5, A.WEIGHT.sq7, A.WEIGHT.hd96].some(v => v % 1 !== 0),
+     "almeno un peso porta il decimale del documento");
+});
+
+t("il modello reale scelto porta il SUO peso, non la stima di famiglia", () => {
+  /* Difetto trovato nel browser il 29/08: wattOf guardava il modello reale, weightOf no. Chi
+     sceglieva «L-Acoustics K2» vedeva il nome nel pannello e nel rider, e intanto il totale contava
+     i 34 kg della stima. Il DB conosceva i 56 kg ufficiali e nessuno li leggeva. */
+  const k2 = { type: "arraylarge", modelId: "lacoustics-k2",
+    modelData: { brand: "L-Acoustics", model: "K2", weight_kg: { value: 56, reliability: "official" } } };
+  eq(A.weightOf(k2), 56, "vince il peso del modello");
+  eq(A.weightOf({ type: "arraylarge" }), A.WEIGHT.arraylarge, "senza modello resta la stima di famiglia");
+  /* Il peso scritto a mano dall'utente vince su tutto, come gia' faceva. */
+  eq(A.weightOf({ ...k2, kg: 70 }), 70, "il valore dichiarato a mano vince anche sul modello");
+  /* Una modifica per-progetto (modelOverride) non tocca il DB globale ma deve valere qui. */
+  eq(A.weightOf({ ...k2, modelOverride: { weight_kg: { value: 58 } } }), 58);
+  /* Un modello che NON dichiara il peso non deve azzerare il conteggio: si torna alla stima. */
+  eq(A.weightOf({ type: "arraylarge", modelData: { brand: "X", model: "Y" } }), A.WEIGHT.arraylarge);
+  eq(A.weightOf({ type: "arraylarge", modelData: { weight_kg: { value: null } } }), A.WEIGHT.arraylarge,
+     "peso non disponibile nel DB = si torna alla stima, non zero");
+  /* I microfoni restano fuori dal peso di trasporto: il DB li tiene in grammi (weight_g) e sommare
+     solo quelli a cui l'utente ha dato un modello farebbe un totale che dipende da quanto ha
+     compilato, non da cosa c'e' sul palco. */
+  eq(A.weightOf({ type: "micvoce", modelData: { weight_g: { value: 284 } } }), A.WEIGHT.micvoce || 0,
+     "il peso in grammi dei microfoni non entra nel totale");
+});
+
+t("PA: un elemento e' un modulo, e pesa quanto un modulo vero", () => {
+  /* La larghezza in pianta dice quale famiglia e': 134 cm e' la misura di un K2 (1340 mm), di un
+     GSL8 (1300) e di un KS28 (1340). I 34 kg di prima erano il peso di un modulo MEDIO messo su
+     quello grande. */
+  eq(A.TYPES.arraylarge.w, 134, "l'array grande resta largo un modulo vero");
+  ok(A.WEIGHT.arraylarge >= 56 && A.WEIGHT.arraylarge <= 80,
+     "fra K2 (56) e GSL8 (80), i due estremi verificati");
+  ok(A.WEIGHT.arraymid >= 26 && A.WEIGHT.arraymid < A.WEIGHT.arraylarge,
+     "il modulo medio pesa almeno quanto un Kara II (26) e meno del grande");
+  ok(A.WEIGHT.sub218 >= 79 && A.WEIGHT.sub218 <= 106,
+     "il doppio 18 sta fra KS28 (79) e B22-SUB (106)");
+  /* Un modulo di array non puo' pesare meno di un wedge: se succede, qualcuno ha confuso il modulo
+     con la cassa da monitor. */
+  ok(A.WEIGHT.arraylarge > A.WEIGHT.wedge, "un modulo d'array pesa piu' di una spia");
+});
+
+/* ═══ BACKLINE REALE (AMP_DB, 29/08) ══════════════════════════════════════════════════════════════
+   Era l'ultima lacuna dichiarata in CONOSCENZA/FONTI.md: combo, testate, ampli basso, tastiere e
+   organi avevano SOLO la stima di famiglia. Ora si sceglie il modello e porta i suoi numeri. */
+t("il backline reale porta assorbimento e peso del costruttore", () => {
+  const combo = { type: "comboamp", bm: "roland_jc120" };
+  eq(A.wattOf(combo), 130, "JC-120: «Power Consumption: 130 W»");
+  eq(A.weightOf(combo), 28.7, "«Weight: 28.7 kg»");
+  eq(A.wattFonte(combo), "targa", "e non e' piu' una stima");
+  /* senza modello si torna alla stima di categoria, che resta dichiarata come tale */
+  eq(A.wattOf({ type: "comboamp" }), A.WATT.comboamp);
+  eq(A.wattFonte({ type: "comboamp" }), "stima");
+});
+
+t("la potenza d'USCITA non diventa mai un carico elettrico", () => {
+  /* E' l'errore che stava nella ricerca del 04/07: «circa 2x la potenza d'uscita». Vale per i
+     valvolari e non per la classe D — il KC-600 da' 200 W di uscita audio e ne assorbe 50, quattro
+     volte meno. Se qualcuno facesse ripiegare wattOf su `out` (come fa lightModelWatt su wattRated
+     per le luci), quel combo diventerebbe un carico da 200 W che non esiste. */
+  eq(A.AMP_DB.roland_kc600.out, 200, "l'uscita audio resta scritta, per il pannello");
+  eq(A.wattOf({ type: "keysamp", bm: "roland_kc600" }), 50, "ma il carico e' l'assorbimento: 50 W");
+  /* Un modello che non dichiara l'assorbimento NON si fa dedurre dall'uscita: torna alla stima. */
+  eq(A.AMP_DB.nord_stage4_88.watt, null, "Nord non pubblica l'assorbimento");
+  eq(A.wattOf({ type: "stagepiano", bm: "nord_stage4_88" }), A.WATT.stagepiano,
+     "quindi vale la stima del tipo, non un numero inventato");
+  /* Nessuna riga del catalogo ha oggi «assorbimento assente + uscita dichiarata», quindi il divieto
+     va provato su un caso costruito apposta: senza questo, uno che aggiungesse il ripiego su `out`
+     passerebbe la suite indisturbato (mutazione provata: non la vedeva nessuno). */
+  A.AMP_DB.__prova_ripiego = { brand: "Prova", model: "Solo uscita", per: ["comboamp"], watt: null, out: 999, kg: 9 };
+  try {
+    eq(A.wattOf({ type: "comboamp", bm: "__prova_ripiego" }), A.WATT.comboamp,
+       "999 W di uscita NON diventano un carico: si torna alla stima");
+    eq(A.weightOf({ type: "comboamp", bm: "__prova_ripiego" }), 9, "il peso dichiarato invece vale");
+  } finally { delete A.AMP_DB.__prova_ripiego; }
+  eq(A.weightOf({ type: "stagepiano", bm: "nord_stage4_88" }), 19.6, "ma il peso, che e' dichiarato, vale");
+  /* Il valvolare invece assorbe piu' di quanto esce: e' il caso opposto, ed e' letto dal manuale. */
+  const svt = A.AMP_DB.ampeg_svtcl;
+  ok(svt.watt > svt.out, "SVT-CL: 460 W assorbiti per 300 di uscita");
+});
+
+t("una cassa passiva assorbe zero, e lo dice", () => {
+  /* watt:0 non e' «dato mancante»: e' un fatto, e va distinto. Se lo trattassimo come assente,
+     l'8x10 tornerebbe a portare i 400 W della stima di categoria — che pero' li assorbe la
+     TESTATA, e verrebbero contati due volte. */
+  const cassa = { type: "bassamp", bm: "ampeg_svt810e" };
+  eq(A.wattOf(cassa), 0, "la cassa non prende corrente");
+  eq(A.weightOf(cassa), 62, "ma pesa 62 kg, ed e' il punto");
+  eq(A.wattFonte(cassa), "targa", "e lo zero e' un dato, non una stima");
+});
+
+t("un modello appiccicato al tipo sbagliato non conta", () => {
+  /* Cambiando il tipo di un elemento (o incollando da un altro progetto) it.bm puo' restare li'.
+     Un piano da 23 W su un ampli basso falserebbe il quadro in silenzio. */
+  eq(A.wattOf({ type: "bassamp", bm: "roland_rd2000" }), A.WATT.bassamp, "torna alla stima del tipo");
+  eq(A.weightOf({ type: "bassamp", bm: "roland_rd2000" }), A.WEIGHT.bassamp);
+  eq(A.ampModelOf({ type: "bassamp", bm: "roland_rd2000" }), null);
+  eq(A.ampModelOf({ type: "comboamp", bm: "non_esiste" }), null, "e una chiave inventata non esplode");
+});
+
+t("ogni riga del catalogo backline e' completa e attaccata a tipi veri", () => {
+  const rotte = [];
+  Object.keys(A.AMP_DB).forEach(k => {
+    const d = A.AMP_DB[k];
+    if (!d.brand || !d.model) rotte.push(k + ": senza marca o modello");
+    if (!Array.isArray(d.per) || !d.per.length) rotte.push(k + ": non dice su quali elementi vale");
+    else d.per.forEach(t => { if (!A.TYPES[t]) rotte.push(k + ": tipo inesistente " + t); });
+    /* una riga che non porta ne' watt ne' kg non aggiunge niente a una stima: e' solo un nome */
+    if (d.watt == null && d.kg == null) rotte.push(k + ": nessun dato, solo il nome");
+  });
+  eq(rotte.length, 0, rotte.join(" | "));
+  /* e il campo si offre esattamente dove il catalogo copre qualcosa */
+  ok(A.ampModelApplies({ type: "comboamp" }) && A.ampModelApplies({ type: "bassamp" }));
+  ok(!A.ampModelApplies({ type: "wedge" }), "su una spia non si sceglie un backline");
+  ok(!A.ampModelApplies({ type: "musicista" }));
+});
+
+t("il modello scelto sopravvive al salvataggio", () => {
+  /* Un campo che il save filtra si perde riaprendo il progetto, e il difetto e' invisibile:
+     l'utente rivede la stima senza che nessuno gli dica che la sua scelta e' sparita. */
+  eq(A.stateReplacer("bm", "ampeg_svtcl"), "ampeg_svtcl");
+  /* e il giro completo: serializzato e riletto, il modello e' ancora li' */
+  A.state.items = [{ id: "x1", type: "bassamp", x: 0, y: 0, bm: "ampeg_svtcl" }];
+  const json = A.stateToJSON();
+  ok(json.includes('"bm":"ampeg_svtcl"'), "il modello finisce nel file salvato");
+  const riletti = A.normalizeLoadedItems(JSON.parse(json).items);
+  eq(riletti[0].bm, "ampeg_svtcl", "e sopravvive al caricamento");
+  eq(A.wattOf(riletti[0]), 460, "coi suoi numeri, non con la stima");
+  A.state.items = [];
+});
+
+t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
+  /* Un numero senza la sua citazione fra un mese non e' piu' verificabile: e' tornato a essere una
+     stima, solo con l'aria di un dato certo. */
+  const doc = readFileSync(join(root, "DATI_TARGA.md"), "utf8");
+  for (const m of ["DM7", "CS-R10", "SQ-5", "Avantis", "Quantum 338", "HD96-24"])
+    ok(doc.includes(m), "il documento non cita " + m);
+  ok(/240 W/.test(doc) && /85kg|85 kg/.test(doc), "e riporta le righe lette, non solo i titoli");
+  /* La riserva aperta va detta: dell'HD96 abbiamo il peso ma NON l'assorbimento ufficiale. */
+  ok(/2 x 650 W/.test(doc) && /stima dichiarata/.test(doc),
+     "la riserva sul Midas HD96 resta scritta finche' non si trova il dato");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
