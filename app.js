@@ -1853,19 +1853,19 @@ var AMP_DB = {
                     note:"200 W di uscita audio ma 50 assorbiti: e' l'esempio che smonta la regola del «doppio dell'uscita»"},
   "roland_kc400":  {brand:"Roland", model:"KC-400", per:["keysamp"], watt:40, out:150, kg:22, v:true},
   "roland_rd2000": {brand:"Roland", model:"RD-2000", per:["stagepiano","doppiatastiera"], watt:23, kg:21.7, v:true},
-  "roland_td27":   {brand:"Roland", model:"TD-27 (modulo)", per:["edrums"], watt:null, kg:1.1, v:true,
+  "roland_td27":   {brand:"Roland", model:"TD-27", ruolo:"modulo", per:["edrums"], watt:null, kg:1.1, v:true,
                     note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso e' del SOLO modulo, senza rack ne' pad, quindi il tipo resta sulla sua stima per il kit"},
   /* — Ampeg (ampeg.com + Owner's Manual) — */
-  "ampeg_svtcl":   {brand:"Ampeg", model:"SVT-CL (testata)", per:["bassamp"], watt:460, out:300, kg:36.3, v:true,
+  "ampeg_svtcl":   {brand:"Ampeg", model:"SVT-CL", ruolo:"testata", per:["bassamp"], watt:460, out:300, kg:36.3, v:true,
                     note:"valvolare: 460 W assorbiti per 300 W di uscita. Il manuale li dichiara per tutte le tensioni, EU compresa"},
-  "ampeg_svt810e": {brand:"Ampeg", model:"SVT-810E (cassa)", per:["bassamp"], watt:0, kg:62, v:true,
+  "ampeg_svt810e": {brand:"Ampeg", model:"SVT-810E", ruolo:"cassa", per:["bassamp"], watt:0, kg:62, v:true,
                     note:"cassa passiva: non assorbe niente, la corrente la prende la testata. Con l'SVT-CL sopra fanno 98 kg"},
   /* — Markbass (markbass.it). Pubblica peso e potenza d'uscita, mai l'assorbimento. Sta qui perche'
        e' l'altro estremo del basso: testata + cassa fanno 21 kg contro i 98 di un rig SVT, e una
        stima di famiglia unica non puo' rappresentare tutti e due. — */
-  "markbass_lm4":  {brand:"Markbass", model:"Little Mark IV (testata)", per:["bassamp"], watt:null, out:500, kg:2.45, v:true,
+  "markbass_lm4":  {brand:"Markbass", model:"Little Mark IV", ruolo:"testata", per:["bassamp"], watt:null, out:500, kg:2.45, v:true,
                     note:"2,45 kg di sola testata: si porta a mano insieme al basso"},
-  "markbass_ny122":{brand:"Markbass", model:"New York 122 (cassa)", per:["bassamp"], watt:0, kg:18.8, v:true},
+  "markbass_ny122":{brand:"Markbass", model:"New York 122", ruolo:"cassa", per:["bassamp"], watt:0, kg:18.8, v:true},
   /* — Nord / Clavia (nordkeyboards.com). Il peso e' dichiarato per ogni taglia, l'assorbimento no. — */
   "nord_stage4_88":{brand:"Nord", model:"Stage 4 88", per:["stagepiano"], watt:null, kg:19.6, v:true},
   "nord_stage4_73":{brand:"Nord", model:"Stage 4 73", per:["stagepiano"], watt:null, kg:16.7, v:true},
@@ -1895,7 +1895,7 @@ function ampModelKg(it){ var d=ampModelOf(it); if(!d||d.kg==null) return null;
 /* Quel che il pannello dice del modello: solo i campi dichiarati, e la distinzione fra i due watt. */
 function ampModelSpecText(d){
   if(!d) return "";
-  var b=[];
+  var b=[d.brand+" "+d.model+(d.ruolo?" — "+d.ruolo:"")];   /* per esteso: la tendina puo' troncare */
   if(d.watt!=null) b.push(d.watt===0 ? "passiva: nessun assorbimento" : d.watt+" W assorbiti");
   else b.push("assorbimento non dichiarato dal costruttore");
   if(d.out!=null) b.push(d.out+" W di uscita audio");
@@ -8499,7 +8499,12 @@ function bmFillProps(it){
   if(curBrand){
     var mh='';
     chiavi.forEach(function(k){ var d=AMP_DB[k]; if(d.brand!==curBrand) return;
-      mh+='<option value="'+k+'"'+(it.bm===k?' selected':'')+'>'+esc(d.model)+'</option>'; });
+      /* Il ruolo PRIMA del nome: la tendina e' larga 134 px e «Little Mark IV (testata)» ci arriva
+         troncato a «Little Mark IV (te…», cioe' perde proprio la parola che distingue la testata
+         dalla cassa — che su un rig di basso e' l'unica cosa che conta davvero (misurato nel
+         browser il 29/08: tutti e due i Markbass venivano tagliati). Davanti, sopravvive. */
+      var et=d.ruolo ? (d.ruolo+" · "+d.model) : d.model;
+      mh+='<option value="'+k+'"'+(it.bm===k?' selected':'')+'>'+esc(et)+'</option>'; });
     mSel.innerHTML=mh; mSel.style.display="";
   } else { mSel.innerHTML=""; mSel.style.display="none"; }
   var info=document.getElementById("pBmInfo");
