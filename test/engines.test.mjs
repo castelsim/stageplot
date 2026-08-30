@@ -2133,6 +2133,44 @@ function auditMsgs() { return A.auditEngine().findings.map((f) => f.msg); }
 function hasMsg(re) { return auditMsgs().some((m) => re.test(m)); }
 function auditFind(re) { return A.auditEngine().findings.filter((f) => re.test(f.msg)); }
 
+t("una superficie di controllo senza rack: manca meta' del sistema", () => {
+  /* Rivage e dLive S-Class non sono console intere ma SUPERFICI: il DSP sta in un rack a parte, che
+     pesa 20 kg e assorbe 190 W. Chi porta una CS-R10 senza il suo motore arriva con un banco che non
+     fa suono, e il rider e' incompleto. Il nostro dato di targa e' giusto ma dice meta' della storia,
+     quindi l'altra meta' la dice l'audit. */
+  reset(); add("csr10", 400, 400);
+  ok(hasMsg(/superficie di controllo/), "atteso il promemoria; findings: " + auditMsgs().join(" | "));
+  ok(hasMsg(/RIVAGE PM: motore DSP/), "e dice QUALE motore, non «un rack» generico");
+  /* Basta un rack sul palco e tace: e' un promemoria, non un rimprovero che non si puo' chiudere. */
+  add("rack4u", 500, 400);
+  ok(!hasMsg(/superficie di controllo/), "col rack posato non insiste");
+  /* Una console INTERA non lo fa scattare: la DM7 il suo DSP ce l'ha dentro. */
+  reset(); add("dm7", 400, 400);
+  ok(!hasMsg(/superficie di controllo/), "la DM7 e' una console intera, non una superficie");
+  /* E la dLive nomina il suo, che si chiama in un altro modo. */
+  reset(); add("dlives7", 400, 400);
+  ok(hasMsg(/MixRack/), "per la dLive il motore si chiama MixRack; findings: " + auditMsgs().join(" | "));
+  /* E deve avere un livello che ARRIVA SULLO SCHERMO. Il pannello filtra err/warn/todef: un
+     rilievo "info" si calcola e non lo vede nessuno — l'avevo scritto proprio cosi', e questa
+     suite restava verde perche' guarda i findings del motore, non la lista che si vede. */
+  reset(); add("csr10", 400, 400);
+  const f = A.auditEngine().findings.find(x => /superficie di controllo/.test(x.msg));
+  ok(f && ["err", "warn", "todef"].includes(f.lvl),
+     "livello «" + (f && f.lvl) + "»: il pannello mostra solo err/warn/todef");
+});
+
+t("i rilievi usano categorie che esistono davvero", () => {
+  /* La categoria finisce stampata tale e quale nel pannello (nessuna lista la filtra), quindi una
+     inventata non da' errore: crea una sezione nuova da sola, con dentro un rilievo solo. Ci sono
+     cascato scrivendo «Regia», che non era mai stata usata da nessuno. */
+  const note = ["Progetto", "Audio", "Elettrico", "Monitor", "Luci", "Palco", "Produzione",
+                "Rider", "Contatti", "Stato", "Generale", "Sicurezza e site"];
+  reset();
+  ["csr10", "dm7", "wedge", "comboamp", "astamic", "batteria", "testamobile", "quadro"].forEach((t, i) => add(t, 200 + i * 60, 300));
+  const fuori = [...new Set(A.auditEngine().findings.map(f => f.cat))].filter(c => !note.includes(c));
+  eq(fuori.length, 0, "categorie mai viste prima: " + fuori.join(", "));
+});
+
 t("48V forzato su mic dinamico (SM58) → avviso", () => {
   reset(); add("astamic", 400, 400);
   A.state.inputs = [{ src: "Voce", mic: "SM58", p48: true }];
@@ -11940,6 +11978,20 @@ t("ogni riga del catalogo backline e' completa e attaccata a tipi veri", () => {
   ok(A.ampModelApplies({ type: "comboamp" }) && A.ampModelApplies({ type: "bassamp" }));
   ok(!A.ampModelApplies({ type: "wedge" }), "su una spia non si sceglie un backline");
   ok(!A.ampModelApplies({ type: "musicista" }));
+});
+
+t("il catalogo copre i due estremi, non solo la media", () => {
+  /* Il senso di un catalogo, contro una stima di famiglia unica: sul basso il rig SVT (testata 36,3
+     + cassa 62 = 98,3 kg) e quello leggero moderno (Little Mark IV 2,45 + New York 122 = 21,25 kg)
+     stanno a QUATTRO VOLTE E MEZZA di distanza. Nessun numero solo puo' rappresentarli entrambi:
+     se il catalogo si restringesse alla sola fascia media, tornerebbe a essere una stima. */
+  const svt = A.weightOf({ type: "bassamp", bm: "ampeg_svtcl" }) + A.weightOf({ type: "bassamp", bm: "ampeg_svt810e" });
+  const leggero = A.weightOf({ type: "bassamp", bm: "markbass_lm4" }) + A.weightOf({ type: "bassamp", bm: "markbass_ny122" });
+  ok(svt > leggero * 4, "i due rig di basso restano a piu' di quattro volte di distanza");
+  /* E la stima di famiglia deve stare IN MEZZO ai due, non fuori: se cadesse oltre un estremo,
+     sarebbe una stima che sbaglia sempre, in un verso solo. */
+  const stima = A.WEIGHT.bassamp;
+  ok(stima > leggero / 2 && stima < svt, "la stima dell'ampli basso sta fra i due estremi veri");
 });
 
 t("il modello scelto sopravvive al salvataggio", () => {
