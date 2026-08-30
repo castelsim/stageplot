@@ -501,6 +501,11 @@
      contenuto e la riga sfonda il pannello — era la causa degli elementi che uscivano dallo schermo. */
   #props .row{display:flex;flex-wrap:wrap;gap:6px}
   #props .row>*{flex:1 1 118px;min-width:0}
+  /* Marca + modello: la marca e' una parola («Roland», «Markbass»), il modello e' una sigla lunga.
+     Diviso a meta' il modello arrivava troncato dopo tre parole — misurato nel browser il 29/08:
+     126 px di testo per 108 disponibili. Qui la marca cede spazio a chi ne ha bisogno. */
+  #props .row-modello>*:first-child{flex:1 1 84px}
+  #props .row-modello>*:last-child{flex:1.7 1 140px}
   #props .chk{display:block;font-size:13px;color:var(--n-700);margin:6px 0;cursor:pointer;line-height:1.3}
   #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:#c9c5bb;border-radius:999px}   /* v2.2: pillola piena come il prototipo — senza radius esplicito vinceva #props input{border-radius:8px} (id>attr) */
   #props .chk input:checked{background:var(--accent)}
@@ -3327,7 +3332,7 @@ body.dark .ask-all .btn{background:transparent}
       <div id="pPmActions" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
     <div id="pBmWrap" style="display:none"><label title="Marca e modello del pezzo di backline: da qui arrivano l'assorbimento dichiarato dal costruttore e il peso di targa, al posto della stima di categoria">Modello del backline <small class="lbl-note">— quello vero: porta i watt e i chili</small></label>
-      <div class="row">
+      <div class="row row-modello">
         <span><select id="pBmBrand"></select></span>
         <span><select id="pBmModel"></select></span>
       </div>

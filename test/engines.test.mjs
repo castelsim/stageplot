@@ -11980,6 +11980,23 @@ t("ogni riga del catalogo backline e' completa e attaccata a tipi veri", () => {
   ok(!A.ampModelApplies({ type: "musicista" }));
 });
 
+t("nella tendina il ruolo sta davanti al nome", () => {
+  /* La tendina dei modelli e' larga 134 px: «Little Mark IV (testata)» ci arrivava troncato a
+     «Little Mark IV (te…», perdendo proprio la parola che distingue la testata dalla cassa — che su
+     un rig di basso e' l'unica che conta. Misurato nel browser il 29/08: tutti e due i Markbass
+     venivano tagliati. Davanti, sopravvive al taglio. */
+  const conRuolo = Object.keys(A.AMP_DB).filter(k => A.AMP_DB[k].ruolo);
+  ok(conRuolo.length >= 4, "testate, casse e moduli dichiarano il ruolo a parte");
+  conRuolo.forEach(k => {
+    ok(!/\(/.test(A.AMP_DB[k].model),
+       k + ": il ruolo non deve stare fra parentesi dentro il nome, ma nel suo campo");
+  });
+  /* E la riga sotto la tendina dice il nome per esteso, perche' li' spazio ce n'e'. */
+  const t = A.ampModelSpecText(A.AMP_DB.markbass_ny122);
+  ok(/Markbass New York 122/.test(t) && /cassa/.test(t), "riga di specifiche: " + t);
+  ok(/18,8 kg/.test(t), "e i numeri restano");
+});
+
 t("il catalogo copre i due estremi, non solo la media", () => {
   /* Il senso di un catalogo, contro una stima di famiglia unica: sul basso il rig SVT (testata 36,3
      + cassa 62 = 98,3 kg) e quello leggero moderno (Little Mark IV 2,45 + New York 122 = 21,25 kg)
