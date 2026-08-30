@@ -3695,11 +3695,15 @@ var SPEC_TARGA = { dm3:1, dm7c:1, dm7:1, csr3:1, csr5:1, csr10:1,
    ricerca del 04/07 vale per i valvolari e non per la classe D di oggi.
    Un campo assente = il costruttore non lo pubblica: null, e si torna alla stima del tipo. */
 var AMP_DB = {
-  /* — Roland (roland.com, pagine Specifications: pubblica SEMPRE assorbimento e peso) — */
+  /* — Roland e Boss (roland.com e boss.info, pagine Specifications: pubblicano SEMPRE
+       assorbimento e peso, ed e' il motivo per cui sono la parte piu' fitta di questo catalogo) — */
   "roland_jc120":  {brand:"Roland", model:"JC-120 Jazz Chorus", per:["comboamp"], watt:130, out:120, kg:28.7, v:true},
   "roland_jc40":   {brand:"Roland", model:"JC-40 Jazz Chorus", per:["comboamp"], watt:43, out:40, kg:15.8, v:true},
+  "boss_katana100":{brand:"Boss", model:"Katana-100 MkII", per:["comboamp"], watt:77, out:100, kg:14.8, v:true},
+  "boss_katana50": {brand:"Boss", model:"Katana-50 MkII", per:["comboamp"], watt:47, out:50, kg:11.6, v:true},
   "roland_kc600":  {brand:"Roland", model:"KC-600", per:["keysamp"], watt:50, out:200, kg:29, v:true,
                     note:"200 W di uscita audio ma 50 assorbiti: e' l'esempio che smonta la regola del «doppio dell'uscita»"},
+  "roland_kc400":  {brand:"Roland", model:"KC-400", per:["keysamp"], watt:40, out:150, kg:22, v:true},
   "roland_rd2000": {brand:"Roland", model:"RD-2000", per:["stagepiano","doppiatastiera"], watt:23, kg:21.7, v:true},
   "roland_td27":   {brand:"Roland", model:"TD-27 (modulo)", per:["edrums"], watt:null, kg:1.1, v:true,
                     note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso e' del SOLO modulo, senza rack ne' pad, quindi il tipo resta sulla sua stima per il kit"},
@@ -3708,10 +3712,19 @@ var AMP_DB = {
                     note:"valvolare: 460 W assorbiti per 300 W di uscita. Il manuale li dichiara per tutte le tensioni, EU compresa"},
   "ampeg_svt810e": {brand:"Ampeg", model:"SVT-810E (cassa)", per:["bassamp"], watt:0, kg:62, v:true,
                     note:"cassa passiva: non assorbe niente, la corrente la prende la testata. Con l'SVT-CL sopra fanno 98 kg"},
+  /* — Markbass (markbass.it). Pubblica peso e potenza d'uscita, mai l'assorbimento. Sta qui perche'
+       e' l'altro estremo del basso: testata + cassa fanno 21 kg contro i 98 di un rig SVT, e una
+       stima di famiglia unica non puo' rappresentare tutti e due. — */
+  "markbass_lm4":  {brand:"Markbass", model:"Little Mark IV (testata)", per:["bassamp"], watt:null, out:500, kg:2.45, v:true,
+                    note:"2,45 kg di sola testata: si porta a mano insieme al basso"},
+  "markbass_ny122":{brand:"Markbass", model:"New York 122 (cassa)", per:["bassamp"], watt:0, kg:18.8, v:true},
   /* — Nord / Clavia (nordkeyboards.com). Il peso e' dichiarato per ogni taglia, l'assorbimento no. — */
   "nord_stage4_88":{brand:"Nord", model:"Stage 4 88", per:["stagepiano"], watt:null, kg:19.6, v:true},
   "nord_stage4_73":{brand:"Nord", model:"Stage 4 73", per:["stagepiano"], watt:null, kg:16.7, v:true},
   "nord_stage4_c": {brand:"Nord", model:"Stage 4 Compact", per:["stagepiano","doppiatastiera"], watt:null, kg:10.4, v:true},
+  /* — Yamaha (yamaha.com, pagine Specs). Il peso c'e' per ogni taglia, l'assorbimento no. — */
+  "yamaha_cp88":   {brand:"Yamaha", model:"CP88", per:["stagepiano"], watt:null, kg:18.6, v:true},
+  "yamaha_cp73":   {brand:"Yamaha", model:"CP73", per:["stagepiano"], watt:null, kg:13.1, v:true},
   /* — Hammond (hammondorganco.com) — */
   "hammond_skxpro":{brand:"Hammond", model:"SkxPro", per:["organohammond","doppiatastiera"], watt:22, kg:16.9, v:true,
                     note:"e' l'Hammond PORTATILE: un B3 vintage pesa piu' di dieci volte tanto e non si sposta in due"}
@@ -3742,6 +3755,14 @@ function ampModelSpecText(d){
   var t=b.join(" · ");
   return d.note ? (t+" — "+d.note) : t;
 }
+/* Console che sono SOLO la superficie: il DSP sta in un rack separato, che il progetto deve
+   comprendere. Il valore e' il nome del motore, per poterlo dire a chi legge invece di parlare in
+   astratto. Numeri di targa dei motori, per chi li cerca: Yamaha DSP-R10 190 W / 20 kg,
+   DSP-RX 190 W / 19 kg (datasheet ufficiali, citati in DATI_TARGA.md). */
+var SUPERFICIE_CON_MOTORE = {
+  csr3:"RIVAGE PM: motore DSP", csr5:"RIVAGE PM: motore DSP", csr10:"RIVAGE PM: motore DSP",
+  dlives5:"dLive: MixRack", dlives7:"dLive: MixRack"
+};
 var MON_DIG_NODE = { hearback:1, mixhub:1 };   /* nodi del cablaggio digitale monitoraggio (mixerini + hub) */
 var WATT_BY_AREA = { schermo:500, ledwallmod:500 };   /* LED wall: W/m² media di dimensionamento (picco 1200) */
 var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi */
@@ -10420,6 +10441,25 @@ function auditEngine(){
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
     "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
     "Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
+  /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
+     DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
+     parte. Il nostro dato di targa e' quello della sola superficie — giusto, ma dice meta' del
+     sistema: chi porta una CS-R10 senza il DSP-R10 arriva con un banco che non fa suono, e nel
+     rider mancano 190 W e 20 kg. Si spegne appena c'e' un rack sul palco.
+     LIVELLO: "todef", non "info". Il pannello mostra solo err/warn/todef e il PDF solo err/warn:
+     un rilievo "info" si calcola e NON LO VEDE NESSUNO — l'avevo scritto cosi', e i test restavano
+     verdi perche' guardano i findings del motore, non la lista che finisce sullo schermo. «Da
+     definire» e' anche la semantica giusta: e' un pezzo del sistema da decidere, non un errore, e
+     non deve pesare sul punteggio ne' finire nel PDF che va al locale. */
+  (function(){
+    var sup=items.filter(function(it){ return it && SUPERFICIE_CON_MOTORE[it.type]; });
+    if(!sup.length) return;
+    if(items.some(function(it){ return it && RACK_U[it.type]; })) return;   /* il rack c'e': niente da dire */
+    var nomi={}; sup.forEach(function(it){ nomi[SUPERFICIE_CON_MOTORE[it.type]]=1; });
+    add("todef","Sul palco c'è una superficie di controllo ("+Object.keys(nomi).join(", ")+") ma nessun rack: "+
+        "il DSP è un apparecchio a sé, che pesa e assorbe. Il sistema completo vuole anche quello.",
+      "Audio","Aggiungi un rack dal catalogo e chiamalo col nome del motore.",null,"superficie_senza_motore");
+  })();
   /* "Alimentazione non definita" rimosso: nel modello a 2 livelli il quadro è un elemento piazzato,
      il "da collegare al quadro" lo segnala già il motore sui carichi scoperti. */
   /* Ma un quadro POSATO e non collegato spegneva il rilievo qui sopra e ne accendeva nessuno: la Lista

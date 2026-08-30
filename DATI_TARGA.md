@@ -231,12 +231,60 @@ inosservata — provata, e infatti non la vedeva nessuno.
   «SkxPRO: 16.9kg [37.25 lbs]». È l'Hammond **portatile**: un B3 vintage pesa più di dieci volte
   tanto, e chi lo mette in un rider lo sa.
 
+### Ampliamento del 29/08 sera — da 11 a 18 modelli
+
+| chiave | modello | W assorbiti | W di uscita | kg |
+|---|---|---|---|---|
+| `boss_katana100` | Boss Katana-100 MkII | **77** | 100 | 14,8 |
+| `boss_katana50` | Boss Katana-50 MkII | **47** | 50 | 11,6 |
+| `roland_kc400` | Roland KC-400 | **40** | 150 | 22 |
+| `yamaha_cp88` | Yamaha CP88 | non dich. | — | 18,6 |
+| `yamaha_cp73` | Yamaha CP73 | non dich. | — | 13,1 |
+| `markbass_lm4` | Markbass Little Mark IV (testata) | non dich. | 500 | **2,45** |
+| `markbass_ny122` | Markbass New York 122 (cassa) | **0** | — | 18,8 |
+
+Boss e Roland pubblicano sempre entrambi i dati (`boss.info` e `roland.com`, pagine
+*Specifications*), ed è il motivo per cui sono la parte più fitta del catalogo. Yamaha dà il peso
+per ogni taglia ma non l'assorbimento. Markbass (`markbass.it`) dà peso e potenza d'uscita.
+
+**Perché servono i due estremi e non la media.** Sul basso un rig SVT pesa **98,3 kg** (testata 36,3
++ cassa 62) e uno leggero moderno **21,25 kg** (Little Mark IV 2,45 + New York 122 18,8):
+**quattro volte e mezza di differenza**. Nessuna stima di famiglia può rappresentarli entrambi, ed è
+questo che rende un catalogo diverso da una stima più precisa. C'è un test che cade se il catalogo
+si restringe alla sola fascia media.
+
+### Il pezzo che il dato di targa non dice: le superfici di controllo
+
+`csr3/csr5/csr10` e `dlives5/dlives7` **non sono console intere**: il DSP sta in un rack a parte, che
+si alimenta e si trasporta. I nostri numeri di targa sono giusti e dicono **metà del sistema**.
+
+- Yamaha **DSP-R10**: «Power consumption: 190 W · Net weight: 20 kg» (`CONOSCENZA/pdf/datasheet/DSP-R10_data_sheet.pdf`)
+- Yamaha **DSP-RX**: 190 W · 19 kg
+- Yamaha **RPio622** (I/O rack): 300 W · 30 kg
+
+Invece di inventare un tipo nuovo, l'audit lo **ricorda**: se sul palco c'è una superficie e nessun
+rack, compare un rilievo che nomina il motore giusto (RIVAGE PM o dLive MixRack) e si spegne appena
+un rack viene posato.
+
+⚠️ **Difetto trovato mentre lo scrivevo**: l'avevo messo a livello `info`, e **il pannello dell'audit
+mostra solo `err`, `warn` e `todef`** — il PDF solo `err` e `warn`. Un rilievo `info` si calcola e
+non lo vede nessuno, con la suite verde, perché i test guardano i findings del motore e non la lista
+che finisce sullo schermo. Ora è `todef`, che è anche la semantica giusta: un pezzo da definire, che
+non pesa sul punteggio e non finisce nel PDF che va al locale.
+
+**Restano otto rilievi `info` invisibili** già in casa da prima, fra cui «Nessun contatto per il
+Service locale», «Il progetto è ancora una Bozza», «Alcune luci non dicono la temperatura o il
+colore», «Una luce su struttura non dice a che altezza». Non li ho toccati — cambiare il livello di
+un rilievo altrui è una decisione di prodotto, non una correzione — ma vanno guardati: gli ultimi
+tre sembrano proprio «da definire».
+
 ### Cosa manca ancora
 
-Nessun modello per `stack` (testata + 4×12) e per `leslie`: **Marshall** e **Vox** non pubblicano
-l'assorbimento, e le loro pagine prodotto rispondono 403 o 404 alle richieste automatiche. Fender
-pubblica il peso ma non il consumo. Chi ha un manuale cartaceo di quelle marche può chiudere il
-buco in due minuti: serve solo la riga «Power Requirements» del retro.
+Nessun modello per `stack` (testata + 4×12) e per `leslie`: **Marshall**, **Vox** e **Orange** non
+pubblicano l'assorbimento, e le loro pagine rispondono 403 o 404 alle richieste automatiche. Fender
+pubblica il peso solo tramite rivenditori, e la regola qui è **fonte ufficiale o niente**. Chi ha un
+manuale cartaceo di quelle marche chiude il buco in due minuti: serve solo la riga «Power
+Requirements» stampata sul retro.
 
 ---
 
