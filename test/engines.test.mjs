@@ -12346,5 +12346,42 @@ t("«Produzione avanzata» è un bottone vero, raggiungibile da tastiera", () =>
      "col fuoco da tastiera si vede");
 });
 
+/* ═══ A CHE PUNTO È IL RIDER (31/08) ══════════════════════════════════════════════════════════════
+   Il programma sapeva già dire se il documento sta in piedi — auditEngine calcola punteggio, errori
+   e avvisi in un millesimo e mezzo — e non lo diceva a nessuno: la sezione «Audit progetto» nasce
+   display:none e si trova SOLO cercando «audit» nel catalogo. Su un modello band appena creato erano
+   88/100 con due avvisi veri (14 ingressi senza stage box, 2,6 kW senza quadro) che l'utente non
+   vedeva mai — e in export non lo ferma nessuno, perché gli avvisi giustamente non bloccano. */
+t("la colonna dice a che punto è il rider, e apre il controllo", () => {
+  ok(/function renderStatoRider\(rows\)/.test(appjs), "c'è la riga di stato");
+  const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1800);
+  ok(/auditEngine\(\)/.test(fn), "usa il calcolo che già esiste, non ne inventa un altro");
+  ok(/renderStatoRider\(rows\);/.test(appjs), "ed è chiamata dal render delle liste");
+  /* Il click porta dove si può agire. */
+  ok(/toggleAuditView/.test(fn), "il click apre l'audit");
+  /* Su un palco vuoto non c'è niente da controllare: la riga non deve comparire. */
+  ok(/if\(!rows \|\| !\(state\.items\|\|\[\]\)\.length\) return;/.test(fn),
+     "sul palco vuoto sparisce");
+  /* Se l'audit esplode, la colonna delle liste non deve sparire con lui. */
+  ok(/try\{ A=auditEngine\(\); \}catch\(_e\)\{ return; \}/.test(fn),
+     "un errore nell'audit non porta giù le liste");
+});
+
+t("lo stato del rider si legge senza distinguere i colori", () => {
+  /* Il pallino porta il colore, ma il testo dice la stessa cosa da solo: chi non distingue l'ambra
+     dal verde legge «2 cose da guardare» e capisce lo stesso. È la regola che vale per ogni segnale
+     di stato — il colore aggiunge, non sostituisce. */
+  const fn = appjs.slice(appjs.indexOf("function renderStatoRider"), appjs.indexOf("function renderStatoRider") + 1800);
+  ok(/errori da sistemare/.test(fn) && /cose da guardare/.test(fn) && /Rider pronto/.test(fn),
+     "i tre stati hanno tre testi diversi");
+  ok(/A\.errs===1 \? "1 errore da sistemare"/.test(fn), "e il singolare è al singolare");
+  ok(/\.sr-ok \.sr-pallino\{background/.test(stylesCss) && /\.sr-warn \.sr-pallino\{background/.test(stylesCss),
+     "il colore c'è, ma è in aggiunta al testo");
+  /* Ed è un bottone vero, raggiungibile da tastiera come tutto il resto. */
+  ok(/createElement\("button"\)/.test(fn), "è un <button>");
+  ok(/\.stato-rider:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss),
+     "col fuoco da tastiera si vede");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
