@@ -10501,7 +10501,12 @@ t("dalla prima schermata si parte da un palco pieno, non da un foglio bianco", (
   const primo = (cta.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
   ok(/palco già pronto/i.test(primo), "il bottone primario apre un modello: «" + primo + "»");
   ok(/model=band/.test(cta.split("</a>")[0]), "e porta davvero a un modello");
-  ok(/Palco vuoto/.test(cta), "il foglio bianco resta, in seconda battuta");
+  /* Il testo del secondo bottone e' passato da «Palco vuoto» a «Parti da un palco vuoto» il 31/08:
+     le due CTA ora dicono la stessa cosa in tutta la pagina, hero e finale, con lo stesso verbo.
+     Il test guarda la SOSTANZA — che il foglio bianco resti disponibile in seconda battuta — e non
+     la formulazione esatta, che e' materia di prodotto e puo' cambiare. */
+  ok(/palco vuoto/i.test(cta), "il foglio bianco resta, in seconda battuta");
+  ok(/class="btn2"/.test(cta), "ed e' un bottone secondario, non il primario");
   ok(/rider finito/i.test(cta), "e c'è la porta per chi vuole solo vedere il documento");
 });
 
@@ -12190,6 +12195,37 @@ t("il pulsante principale dice dove porta", () => {
   /* E la scelta «Non mostrarlo più» deve essere ricordata: provata nel browser il 31/08. */
   ok(/localStorage\.setItem\("sp_noAssunzioni","1"\)/.test(appjs), "la scelta si scrive");
   ok(/localStorage\.getItem\("sp_noAssunzioni"\)/.test(appjs), "e si rilegge all'apertura");
+});
+
+t("la CTA finale porta dove porta quella iniziale", () => {
+  /* Fino al 31/08 l'ultima spinta della pagina diceva «Apri l'editor» e portava a un palco VUOTO:
+     chi era arrivato in fondo senza sapere da dove cominciare veniva mandato esattamente dove ci si
+     blocca, dopo che tutta la pagina gli aveva detto di partire da un modello. */
+  const finale = landing.slice(landing.indexOf('<section class="final'));
+  const primario = (finale.match(/<a class="btn"[^>]*href="([^"]+)"[^>]*>([^<]+)</) || []);
+  ok(/model=band/.test(primario[1] || ""), "il bottone primario del finale apre un modello: " + primario[1]);
+  ok(/palco già pronto/i.test(primario[2] || ""), "e lo dice: «" + primario[2] + "»");
+  /* Stesse parole all'inizio e alla fine: una CTA che cambia nome a metà pagina sembra un'altra cosa. */
+  const hero = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
+  const testoHero = (hero.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
+  eq((primario[2] || "").trim(), testoHero.trim(), "la CTA principale è la stessa in cima e in fondo");
+  /* E il palco vuoto resta raggiungibile anche dal finale, come seconda scelta. */
+  ok(/class="btn2"[^>]*>[^<]*palco vuoto/i.test(finale), "il foglio bianco resta, in seconda battuta");
+});
+
+t("il registro non si contraddice: dice «ultimi giorni» e lo è", () => {
+  /* C'era già un presidio, ma la soglia è 120 giorni: il registro poteva restare fermo quattro mesi
+     mentre la sezione prometteva «le ultime cose sistemate… degli ultimi giorni». Il 31/08 era
+     fermo da 19 giorni, con tre PR importanti nel mezzo che nessuno raccontava. Trenta giorni è il
+     punto in cui quella frase comincia a essere una bugia. */
+  const sez = landing.slice(landing.indexOf('class="registro"'));
+  const date = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((m) => m[1]).sort();
+  ok(date.length >= 4, "il registro ha le sue voci: " + date.length);
+  const ultima = date[date.length - 1];
+  const giorni = Math.floor((Date.now() - new Date(ultima + "T12:00:00Z")) / 86400000);
+  ok(giorni <= 30,
+    "il registro è fermo da " + giorni + " giorni ma la sezione promette «gli ultimi giorni»: " +
+    "aggiungi le ultime cose fatte, o cambia quella promessa");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

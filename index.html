@@ -577,13 +577,9 @@ addEventListener("hashchange", go);})();</script>
     .reg-r time{flex:none}
   }
 
-  .who{margin-top:60px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  @media(max-width:860px){.who{grid-template-columns:1fr}}
-  .who div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;transition:border-color .2s,transform .2s}
-  .who div:hover{border-color:var(--line2);transform:translateY(-2px)}
-  .who em{font-style:normal;color:var(--teal);font-family:var(--mono);font-size:12.5px;letter-spacing:.08em}
-  .who h3{font-size:18px;margin-top:12px}
-  .who p{margin-top:10px;color:var(--mut);font-size:14.5px}
+  /* .who — regole della sezione «Per chi è», tolte insieme alla sezione il 31/08.
+     Il CSS di una sezione che non esiste più non è innocuo: resta a far peso e il prossimo che
+     legge non sa se serva ancora. (.who-table, più sotto, è un'altra cosa e resta.) */
 
   /* ---------- chi lo fa ---------- */
   .maker{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px;align-items:start}
@@ -651,8 +647,10 @@ addEventListener("hashchange", go);})();</script>
        documento esce. I marcatori `from=` restano quelli di prima (hero-modello, hero) perché il
        contatore li conosce già: cambia quale bottone li porta, non l'elenco. -->
   <div class="cta-row">
-    <a class="btn" href="/app/?model=band&amp;from=hero-modello">Parti da un palco già pronto</a>
-    <a class="btn2" href="/app/?from=hero">Palco vuoto</a>
+    <!-- Le CTA sono le stesse in tutta la pagina: principale = un palco gia' pronto (che e' il modo
+         in cui un musicista arriva a un PDF in dieci minuti), secondaria = il palco vuoto. -->
+    <a class="btn" href="/app/?model=band&amp;from=hero-modello">Prova un palco già pronto</a>
+    <a class="btn2" href="/app/?from=hero">Parti da un palco vuoto</a>
     <a class="btn2" href="#output">Guarda prima un rider finito ↓</a>
   </div>
   <p class="trust">Otto formazioni pronte da cambiare · <span>gratis</span> · nessuna registrazione</p>
@@ -899,13 +897,15 @@ addEventListener("hashchange", go);})();</script>
 
 <section class="rv" id="come"><div class="wrap">
   <p class="sec-k">Come funziona</p>
-  <h2>Dalla prima pedana al PDF, in quattro passaggi.</h2>
+  <h2>Dalla prima pedana al PDF, in tre passaggi.</h2>
   <p class="lead">Nessuna configurazione da fare prima di cominciare: si apre e si trascina. <b>Il resto viene dopo, e solo se serve.</b></p>
+  <!-- Erano quattro, ma «i dati si collegano» e «il progetto si controlla» sono la stessa cosa
+       raccontata due volte: l'editor tiene insieme i dati, e quando qualcosa non torna lo dice.
+       Tre passaggi sono anche il numero che una persona tiene a mente. -->
   <div class="steps">
     <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, DI, mixer, 42 fari. Niente rettangoli anonimi. E quando dichiari il modello del microfono, l'editor ne riconosce 223.</p></div>
-    <div class="step"><p class="step-n">02</p><h3>I dati si collegano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve. Sposti la batteria, la channel list si aggiorna.</p></div>
-    <div class="step"><p class="step-n">03</p><h3>Il progetto si controlla</h3><p>Un microfono senza canale, un carico senza distro, un mix dimenticato: te lo dice l'editor prima che te lo chieda il service.</p></div>
-    <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
+    <div class="step"><p class="step-n">02</p><h3>I dati si collegano, e si controllano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve, e sposti la batteria mentre la channel list si aggiorna. Un microfono senza canale o un mix dimenticato te lo dice l'editor, prima che te lo chieda il service.</p></div>
+    <div class="step"><p class="step-n">03</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
   </div>
 
   <!-- Questo è un progetto DIVERSO e più grande di quello della demo qui sopra (che ha 6 canali e
@@ -931,7 +931,7 @@ addEventListener("hashchange", go);})();</script>
 <section class="rv tinted" id="profili"><div class="wrap">
   <p class="sec-k">Due modi di usarlo</p>
   <h2>Semplice o professionale, quanto ti serve.</h2>
-  <p class="lead">Una band accende poco e parte in dieci minuti. Una produzione accende tutto e controlla ogni dettaglio. <b>Il disegno è lo stesso</b>: cambia solo quanto ne chiedi.</p>
+  <p class="lead">Una band accende poco e parte in dieci minuti. Una produzione accende tutto e controlla ogni dettaglio. <b>Il disegno è lo stesso</b>: cambia solo quanto ne chiedi. E chi il rider lo riceve — fonico o service — trova canali numerati, carichi sommati e monitor chiari: il soundcheck parte prima.</p>
   <div class="prof">
     <div class="prof-c">
       <p class="prof-k">Band e setup semplici</p>
@@ -1271,15 +1271,9 @@ addEventListener("hashchange", go);})();</script>
     </div>
   </div>
 </div></section>
-<section class="rv" id="perchi"><div class="wrap">
-  <p class="sec-k">Per chi è</p>
-  <h2>Dalla sala prove al festival.</h2>
-  <div class="who">
-    <div><em>BAND</em><h3>La scheda tecnica in dieci minuti</h3><p>Arrivi al locale con un documento che il fonico capisce al primo sguardo.</p></div>
-    <div><em>FONICI &amp; SERVICE</em><h3>Rider leggibili, zero sorprese</h3><p>Canali numerati, carichi sommati, monitor chiari: il soundcheck parte prima.</p></div>
-    <div><em>PRODUZIONE</em><h3>Uno standard per ogni data</h3><p>Planimetrie in scala, varianti per scenario, un formato solo per tutta la stagione.</p></div>
-  </div>
-</div></section>
+<!-- «Per chi è» (BAND / FONICI & SERVICE / PRODUZIONE) tolta il 31/08: diceva gli STESSI tre
+     pubblici della sezione «Due modi di usarlo» qui sopra, subito dopo averli già letti. La sua
+     unica informazione nuova — cosa ci guadagna chi RICEVE il rider — è passata lì dentro. -->
 <section class="rv" id="chi"><div class="wrap">
   <p class="sec-k">Chi lo fa</p>
   <h2>Lo scrive un fonico, non un'agenzia.</h2>
@@ -1356,16 +1350,21 @@ addEventListener("hashchange", go);})();</script>
          deve dire, e un test lo ricorda. -->
     <div class="registro" id="registro">
       <p class="reg-k">Le ultime cose sistemate</p>
+      <!-- Aggiornato il 31/08: le voci si erano fermate al 12 agosto mentre la sezione diceva
+           «le ultime cose sistemate… degli ultimi giorni». Una pagina che si vanta di essere viva
+           e mostra date di venti giorni prima dimostra il contrario di quello per cui esiste. -->
+      <div class="reg-r"><time datetime="2026-08-31">31 ago</time>
+        <p>Aprendo un modello, il riepilogo delle ipotesi non copre più il palco appena creato: era finito proprio sopra le voci e i cori di cui parla.</p></div>
+      <div class="reg-r"><time datetime="2026-08-30">30 ago</time>
+        <p>Il backline porta marca e modello veri: un <b>Ampeg SVT-CL</b> dichiara i suoi 460 W letti sul manuale, non una media di categoria.</p></div>
+      <div class="reg-r"><time datetime="2026-08-29">29 ago</time>
+        <p>Consumi e pesi delle console presi dai documenti dei costruttori: la <b>CS-R10 pesa 85 kg</b>, e il rider ne dichiarava 30. Sul camion è una differenza che si sente.</p></div>
+      <div class="reg-r"><time datetime="2026-08-29">29 ago</time>
+        <p>Scegliendo il modello reale di un diffusore, il peso è il suo: un K2 conta 56 kg, non i 34 della stima.</p></div>
+      <div class="reg-r"><time datetime="2026-08-26">26 ago</time>
+        <p>Un progetto bloccato non si elimina per sbaglio: prima va sbloccato, e il cestino lo dice.</p></div>
       <div class="reg-r"><time datetime="2026-08-12">12 ago</time>
         <p>68 microfoni in più nel catalogo — <b>223 in tutto</b> — letti uno per uno sui documenti dei costruttori.</p></div>
-      <div class="reg-r"><time datetime="2026-08-12">12 ago</time>
-        <p>Scegliere il modello reale del microfono non faceva più sparire l'asta, e spalmava il +48V dove non serviva.</p></div>
-      <div class="reg-r"><time datetime="2026-08-11">11 ago</time>
-        <p>Nel PDF le scritte del disegno si leggono a ogni scala, e ogni quota è scritta una volta sola.</p></div>
-      <div class="reg-r"><time datetime="2026-08-11">11 ago</time>
-        <p>Il PDF esportato prende il nome del lavoro: prima si chiamava sempre <span class="mono-s">stage-plot.pdf</span>.</p></div>
-      <div class="reg-r"><time datetime="2026-08-11">11 ago</time>
-        <p>Il nome di un elemento non resta più coperto da quello del vicino.</p></div>
       <p class="reg-note">Sono le voci degli ultimi giorni. Nascono dalle serate in cui è mancato qualcosa —
         le mie, per ora.</p>
     </div>
@@ -1406,7 +1405,13 @@ addEventListener("hashchange", go);})();</script>
 <section class="final rv"><div class="wrap">
   <p class="sec-k">Pronto quando lo sei tu</p>
   <h2>Il palco lo disegni stasera. Il rider esce con lui.</h2>
-  <a class="btn" href="/app/?from=finale">Apri l'editor</a>
+  <!-- Portava a un palco vuoto: l'ultima spinta della pagina mandava chi non sa da dove
+       cominciare esattamente dove ci si blocca. Ora e' la stessa CTA dell'inizio. -->
+  <a class="btn" href="/app/?model=band&amp;from=finale">Prova un palco già pronto</a>
+  <!-- «finale» per tutti e due: le sorgenti sono un elenco chiuso, vincolato anche da un CHECK sul
+       database (migration 0036). Un nome nuovo qui vorrebbe dire una migrazione, e non vale la
+       pena per distinguere due bottoni della stessa sezione. -->
+  <a class="btn2" href="/app/?from=finale">Parti da un palco vuoto</a>
   <p class="trust"><span>Gratis</span> · nel browser · senza registrazione</p>
 </div></section>
 
