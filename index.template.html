@@ -19189,6 +19189,14 @@ function renderLayerRow(L, container){
     container.appendChild(body);
   }
 }
+/* Se il gruppo «Produzione avanzata» sta aperto. Vive su QUESTO dispositivo: è una preferenza di
+   come si guarda, non un dato del progetto — un rider aperto su un altro computer non deve
+   ereditare le abitudini di chi l'ha disegnato. Chiuso alla prima apertura. */
+function advAperta(v){
+  if(v===undefined){ try{ return localStorage.getItem("sp_advListe")==="1"; }catch(_e){ return false; } }
+  try{ localStorage.setItem("sp_advListe", v ? "1" : "0"); }catch(_e){}
+  return v;
+}
 function renderLayerManager(){
   var sec=document.getElementById("layerSec"); if(!sec) return;
   /* prima del rebuild: riporta le sezioni nel parcheggio (rows.innerHTML="" le distruggerebbe) */
@@ -19206,7 +19214,34 @@ function renderLayerManager(){
      lavora su Input list, Monitor list, carichi… I nomi interni (layerRows, layerAccOpen) restano. */
   var rows=document.getElementById("layerRows"); rows.innerHTML="";
   var hdr=document.createElement("div"); hdr.className="layer-group-label"; hdr.textContent="Liste"; rows.appendChild(hdr);
-  LS.forEach(function(L){ renderLayerRow(L, rows); });
+  /* PRODUZIONE AVANZATA (31/08). «Power» e «Luci» sono le uniche due liste con active:true fisso:
+     compaiono sempre, anche a una band che non ha né quadri né fari, e sono le prime due parole che
+     dicono a un chitarrista «questo non è roba per te». Le altre avanzate (P.M., Mic zone,
+     Coperture) sono già progressive: nascono solo se sul palco c'è l'elemento.
+     Qui finiscono sotto un'intestazione che si apre e si chiude, e lo stato resta su questo
+     dispositivo. NON si nasconde mai qualcosa che è già in uso: se il motore è acceso o la lista ha
+     contenuto, il gruppo si apre da solo — nascondere il lavoro di qualcuno è peggio che mostrargli
+     una parola in più.
+     NOTA: il 21/07 Simone aveva chiesto «un solo header, elenco piatto, niente divisore». Questa è
+     una richiesta successiva e opposta (complessità progressiva), e vince la più recente. */
+  var AVANZATE={elec:1, luci:1, mond:1, miczone:1, cover:1};
+  var base=LS.filter(function(L){ return !AVANZATE[L.id]; });
+  var avanz=LS.filter(function(L){ return AVANZATE[L.id]; });
+  base.forEach(function(L){ renderLayerRow(L, rows); });
+  if(avanz.length){
+    /* in uso = motore acceso, oppure la lista è visibile/aperta: allora non si chiude niente */
+    var inUso=avanz.some(function(L){ return L.engineOn || layerAccOpen===L.id; });
+    var aperto=inUso || advAperta();
+    var t=document.createElement("button");
+    t.type="button"; t.className="layer-group-label adv-head"; t.setAttribute("aria-expanded", String(aperto));
+    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Produzione avanzata';
+    t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un rider";
+    t.addEventListener("click", function(){ advAperta(!aperto); renderLayerManager(); });
+    rows.appendChild(t);
+    if(aperto) avanz.forEach(function(L){ renderLayerRow(L, rows); });
+    else { var n=document.createElement("div"); n.className="adv-quante";
+      n.textContent = avanz.length===1 ? "1 lista" : avanz.length+" liste"; rows.appendChild(n); }
+  }
   renderPmAccList();
   renderMusAccList();
   renderCoverList();
