@@ -55,6 +55,9 @@
     color:var(--text);background:var(--surface);display:grid;
     grid-template-rows:52px 1fr 26px;grid-template-columns:var(--cat,220px) 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
+  /* Modalità cattura screenshot (?shot=1): pannello liste via + colonna destra azzerata → plot pulito per shot.mjs */
+  body.shot-capture{--rail:0px}
+  body.shot-capture #props{display:none}
   /* SCHERMI STRETTI, ma non ancora telefono (31/08). Le due colonne restavano a 220+310 = 530 px
      fissi fino al passaggio a mobile: su un laptop 1366 sono il 39% dello schermo mangiato prima
      ancora di disegnare, e il palco da 16 m del modello band ci finiva dentro a 753 px — un

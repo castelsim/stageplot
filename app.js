@@ -9374,7 +9374,7 @@ function render(){
   renderFramePanel();
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
-  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
+  svg.classList.toggle("names-hidden", !window.__shotCapture && (nMode==='off' || (nMode==='auto' && ppm<46)));
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
@@ -24878,6 +24878,14 @@ function gallery(){
 /* Nuovo progetto a OGNI apertura: non si ripristina automaticamente la sessione
    precedente. Per inviare/conservare un progetto usare "Condividi" (link auto-caricante)
    o il salvataggio su cloud. */
+/* ---- Modalità cattura per screenshot (?shot=1) ----
+   Rende il plot pulito e catturabile con shot.mjs: nomi elemento sempre visibili
+   (bypassa la soglia di zoom che li nasconde senza hover) e pannello liste nascosto.
+   Classe dedicata: NON riusare "viewmode" (porta autosave off + UI di sessione condivisa). */
+if(/[?&]shot=1(&|$)/.test(location.search)){
+  window.__shotCapture = true;
+  document.body.classList.add("shot-capture");
+}
 /* ---- Sessione live (?view=TOKEN): ruolo + Realtime (Fase 3) ---- */
 (function(){
   var vt = new URLSearchParams(location.search).get("view");
