@@ -12105,5 +12105,92 @@ t("niente promette a pagamento quello che e' gratis", () => {
   ok(/29 €, facoltativa/.test(home), "e dichiara il prezzo della revisione, dicendo che e' facoltativa");
 });
 
+t("su uno schermo stretto le colonne cedono spazio al palco", () => {
+  /* Le due colonne restavano a 220 + 310 = 530 px FISSI da 881 px in su, cioè fino al passaggio a
+     mobile. Su un laptop 1366 sono il 39% dello schermo mangiato prima ancora di disegnare: il
+     palco da 16 m del modello band ci finiva dentro a 753 px, e un musicista era alto 28 pixel.
+     Misurato nel browser il 31/08, non stimato. */
+  const largh = (query, nome) => {
+    const i = stylesCss.indexOf(query);
+    ok(i > 0, "manca la regola per " + nome);
+    const blocco = stylesCss.slice(i, i + 220);
+    ok(/body\{/.test(blocco), nome + ": la regola deve stare su body, che è il contenitore della griglia");
+    return {
+      cat: +((blocco.match(/--cat: *(\d+)px/) || [])[1] || 0),
+      rail: +((blocco.match(/--rail: *(\d+)px/) || [])[1] || 0),
+    };
+  };
+  const stretto = largh("@media (min-width:881px) and (max-width:1180px)", "schermi molto stretti");
+  const medio = largh("@media (min-width:1181px) and (max-width:1440px)", "laptop");
+  ok(stretto.cat > 0 && stretto.rail > 0 && medio.cat > 0 && medio.rail > 0, "i valori ci sono");
+  /* Più stretto lo schermo, più strette le colonne: se si invertisse, il rimedio peggiorerebbe
+     proprio il caso che deve curare. */
+  ok(stretto.cat < medio.cat, "catalogo: più stretto sullo schermo più piccolo");
+  ok(stretto.rail < medio.rail, "colonna liste: idem");
+  ok(medio.cat < 220 && medio.rail < 310, "e su laptop restano sotto i valori pieni del desktop");
+  /* La griglia deve leggere le variabili, altrimenti le media query non toccano niente. */
+  ok(/grid-template-columns:var\(--cat,220px\) 1fr var\(--rail,310px\)/.test(stylesCss),
+     "la griglia legge --cat e --rail");
+  /* La maniglia di ridimensionamento scrive --rail inline: deve continuare a vincere sulla media
+     query, o l'utente non potrebbe più allargare la colonna su un laptop. */
+  ok(/#railHandle\{[^}]*right:calc\(var\(--rail,310px\)/.test(stylesCss),
+     "la maniglia segue la stessa variabile");
+});
+
+/* ═══ IL RIEPILOGO NON DEVE COPRIRE IL PALCO (31/08) ══════════════════════════════════════════════
+   All'apertura di un modello il riepilogo «Abbiamo ipotizzato questo» stava sopra il fronte del
+   palco appena creato — cioè proprio sulle voci, sui cori e sulle spie di cui parla. Misurato nel
+   browser: 380 px di altezza, il 12% del palco coperto. Il rimedio che c'era («trascinalo tu») è
+   lavoro scaricato sull'utente nel minuto in cui non sa ancora cosa sta guardando. */
+t("il riepilogo del modello fa una riga sola per la stessa domanda", () => {
+  /* Faceva «Batteria: non canta», «Basso: non canta», «Tastiere: non canta»: la stessa domanda
+     scritta tre volte, una sessantina di pixel che spingevano il pannello sul palco. È la stessa
+     lezione già scritta nel codice per le voci — «due righe separate facevano crescere il pannello
+     fin sopra il palco appena creato» — e non applicata qui. */
+  const fn = appjs.slice(appjs.indexOf("function ipotesiDelPalco"), appjs.indexOf("function ipotesiDelPalco") + 4200);
+  ok(/var muti=items\.filter/.test(fn), "gli strumentisti muti si raccolgono in un elenco solo");
+  ok(/righe\.push\(\{[\s\S]{0,400}azioni: muti\.map/.test(fn),
+     "e diventano UNA riga con un bottone per ciascuno");
+  ok(!/\.slice\(0,3\)\.forEach\(function\(it\)\{[\s\S]{0,200}righe\.push/.test(fn),
+     "non c'è più il ciclo che spingeva una riga per strumentista");
+});
+
+t("una constatazione non occupa quanto una decisione", () => {
+  /* «Ascolto: 5 spie» non è una scelta da fare qui (si cambia dal pannello del musicista, e il
+     testo stesso lo diceva): da riga piena a nota compatta. */
+  ok(/azioni\.length \? "as-row" : "as-row as-nota"/.test(appjs),
+     "le righe senza bottoni prendono la classe della nota");
+  ok(/if\(r\.sub && azioni\.length\)/.test(appjs),
+     "e non portano il sottotitolo, che raddoppierebbe l'altezza");
+  ok(/#assunzioni \.as-row\.as-nota\{[^}]*padding:4px/.test(stylesCss), "la nota ha un respiro suo, più stretto");
+  ok(/#assunzioni \.as-row\.as-nota \.as-txt\{[^}]*font-size:11\.5px/.test(stylesCss), "e un corpo più piccolo");
+});
+
+t("il riepilogo si mette dove non copre, se ci sta", () => {
+  ok(/function sottoIlPalco\(\)/.test(appjs), "c'è il calcolo dello spazio libero sotto il palco");
+  /* La fetta va presa DOPO l'inizio della funzione: «window.__assRipristinaPos» compare anche
+     prima nel file (dove viene chiamata), e cercarlo dall'inizio dava una fetta vuota. */
+  const iSotto = appjs.indexOf("function sottoIlPalco");
+  const fn = appjs.slice(iSotto, appjs.indexOf("window.__assRipristinaPos", iSotto));
+  ok(/giuDelPalco \+ margine \+ h \+ 6 > area\.bottom/.test(fn),
+     "se sotto non ci sta, non ci si mette: meglio coprire un po' che finire fuori schermo");
+  ok(/return null/.test(fn), "e in quel caso lascia la posizione di prima");
+  /* Una posizione scelta a mano è una decisione dell'utente e deve vincere sempre. */
+  const iRip = appjs.indexOf("window.__assRipristinaPos", iSotto);
+  const rip = appjs.slice(iRip, appjs.indexOf("head.addEventListener", iRip));
+  ok(/if\(salvata && isFinite\(salvata\.x\)[\s\S]{0,80}return;/.test(rip),
+     "la posizione salvata dall'utente vince e si esce subito");
+  ok(rip.indexOf("sottoIlPalco()") > rip.indexOf("salvata"),
+     "il calcolo automatico viene DOPO, solo se l'utente non ha scelto");
+});
+
+t("il pulsante principale dice dove porta", () => {
+  const app = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="asOk">Inizia da questo palco</.test(app), "«Va bene così» diceva cosa pensi, non cosa succede");
+  /* E la scelta «Non mostrarlo più» deve essere ricordata: provata nel browser il 31/08. */
+  ok(/localStorage\.setItem\("sp_noAssunzioni","1"\)/.test(appjs), "la scelta si scrive");
+  ok(/localStorage\.getItem\("sp_noAssunzioni"\)/.test(appjs), "e si rilegge all'apertura");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

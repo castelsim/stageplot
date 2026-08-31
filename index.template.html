@@ -250,13 +250,17 @@
 <div id="assunzioni" hidden>
   <div class="as-head">
     <b>Abbiamo ipotizzato questo</b>
-    <span class="as-sub">controlla le righe che non tornano: il palco e la channel list si aggiornano subito</span>
+    <!-- Il sottotitolo occupava due righe e allungava il riepilogo proprio verso il palco: la
+         seconda meta' ripeteva quello che ogni riga dice gia' da se'. -->
+    <span class="as-sub">correggi quello che non torna, o vai avanti</span>
     <button type="button" class="as-x" id="asClose" aria-label="Chiudi">✕</button>
   </div>
   <div id="asRows"></div>
   <div class="as-foot">
     <label class="as-mai"><input type="checkbox" id="asMai"> Non mostrarlo più</label>
-    <button class="btn primary" id="asOk">Va bene così</button>
+    <!-- «Va bene così» diceva cosa pensi, non cosa succede. Il pulsante principale deve dire dove
+         porta: da qui si comincia a lavorare sul palco che si vede dietro (31/08). -->
+    <button class="btn primary" id="asOk">Inizia da questo palco</button>
   </div>
 </div>
 </main>
@@ -16941,6 +16945,8 @@ function beginNewDocument(initialState,options){
  * Band, Coro, Tributo, Jazz — e soprattutto non può succedere che il riepilogo dica una cosa e il
  * palco ne dica un'altra, che è il difetto che stiamo correggendo, non uno da introdurre.
  */
+/* Come si chiama uno strumentista nel riepilogo: l'etichetta che gli ha dato l'utente, se c'è. */
+function nomeStrumentista(it){ return it.label||((TYPES[it.type]||{}).nome)||"strumentista"; }
 function ipotesiDelPalco(gia){
   gia = gia || {};   /* quello che l'utente ha già dichiarato nella finestra del modello: ripeterlo qui
                         farebbe sembrare un'ipotesi del programma una scelta sua */
@@ -16969,13 +16975,24 @@ function ipotesiDelPalco(gia){
       sub:"se cantate in più persone, aggiungi chi manca", azioni:azioni });
   }
 
-  /* 2. GLI STRUMENTISTI CHE POTREBBERO CANTARE e che il modello ha dato per muti */
-  items.filter(function(it){ return typeof canHeadMic==="function" && canHeadMic(it) && !(typeof headMicOf==="function" && headMicOf(it)); })
-    .slice(0,3).forEach(function(it){
-      var nome=it.label||((TYPES[it.type]||{}).nome)||"strumentista";
-      righe.push({ txt:nome+": non canta", sub:"un clic e prende il suo canale voce",
-        act:"canta anche", fn:function(){ it.headMic="asta"; salvaERidisegna(); } });
+  /* 2. GLI STRUMENTISTI CHE POTREBBERO CANTARE e che il modello ha dato per muti.
+        UNA RIGA SOLA, con un bottone per ciascuno (31/08): prima ne faceva una per strumentista —
+        «Batteria: non canta», «Basso: non canta», «Tastiere: non canta» — cioè la stessa domanda
+        scritta tre volte, che da sola allungava il pannello di una sessantina di pixel e lo faceva
+        arrivare sopra le voci e i cori di cui parla. È la stessa lezione già imparata al punto 1
+        («due righe separate facevano crescere il pannello fin sopra il palco appena creato») e non
+        applicata qui. Il palco che si vede vale più dell'elenco che lo copre. */
+  var muti=items.filter(function(it){ return typeof canHeadMic==="function" && canHeadMic(it) && !(typeof headMicOf==="function" && headMicOf(it)); }).slice(0,3);
+  if(muti.length){
+    righe.push({
+      txt: muti.length===1 ? (nomeStrumentista(muti[0])+": non canta") : "Canta anche qualcun altro?",
+      sub: muti.length===1 ? "un clic e prende il suo canale voce" : "un clic e prende il suo canale voce",
+      azioni: muti.map(function(it){
+        return { act: muti.length===1 ? "canta anche" : nomeStrumentista(it),
+                 fn: function(){ it.headMic="asta"; salvaERidisegna(); } };
+      })
     });
+  }
 
   /* 3. CHI È SUL PALCO SENZA UNA PERSONA — l'ampli c'è, il musicista no: il conto delle voci non torna
         mai per chitarra e basso, e chi legge il rider non sa quante persone salgono */
@@ -17036,12 +17053,16 @@ function mostraAssunzioni(soloAggiorna, gia){
   if(!righe.length){ box.hidden=true; return; }
   host.textContent="";
   righe.forEach(function(r){
-    var row=document.createElement("div"); row.className="as-row";
+    var azioni = r.azioni || (r.act && r.fn ? [{act:r.act, fn:r.fn}] : []);
+    /* Le righe SENZA un bottone non sono decisioni da prendere ma constatazioni («Ascolto: 5 spie»,
+       e si cambia dal pannello del musicista, non da qui): occupano quanto una decisione e
+       allungano il riepilogo fin sopra il palco. Diventano una nota compatta in fondo — l'informazione
+       resta, lo spazio no. Chi deve decidere qualcosa vede solo quello (31/08). */
+    var row=document.createElement("div"); row.className = azioni.length ? "as-row" : "as-row as-nota";
     var t=document.createElement("div"); t.className="as-txt";
     t.textContent=r.txt;
-    if(r.sub){ var s=document.createElement("small"); s.textContent=r.sub; t.appendChild(s); }
+    if(r.sub && azioni.length){ var s=document.createElement("small"); s.textContent=r.sub; t.appendChild(s); }
     row.appendChild(t);
-    var azioni = r.azioni || (r.act && r.fn ? [{act:r.act, fn:r.fn}] : []);
     if(azioni.length){
       var wrap=document.createElement("div"); wrap.className="as-acts";
       azioni.forEach(function(a){
@@ -17086,11 +17107,32 @@ function chiudiAssunzioni(){
     box.style.left=p[0]+"px"; box.style.top=p[1]+"px";
     return p;
   }
+  /* SI METTE DOVE NON COPRE (31/08). Il default CSS lo ancora in basso al centro dell'area di
+     disegno, cioè sopra il fronte del palco — e li' stanno proprio le voci, i cori e le spie di cui
+     parla: misurato, copriva il 12% del palco. Il rimedio era «trascinalo tu», che e' lavoro
+     scaricato sull'utente al primo minuto in cui non sa ancora cosa sta guardando.
+     Qui, se sotto il palco disegnato c'e' abbastanza spazio, ci si mette. Se non ce n'e' (palco
+     profondo, finestra bassa) resta dov'e': meglio un riepilogo che copre un po' che uno fuori
+     dallo schermo. Una posizione scelta a mano vince sempre: e' una decisione dell'utente. */
+  function sottoIlPalco(){
+    var svg=document.getElementById("svg"); if(!svg) return null;
+    var area=svg.getBoundingClientRect();
+    var giuDelPalco=0;
+    svg.querySelectorAll("rect,path,polygon").forEach(function(e){
+      var b=e.getBoundingClientRect();
+      if(b.width>200 && b.height>80 && b.bottom>giuDelPalco) giuDelPalco=b.bottom;
+    });
+    if(!giuDelPalco) return null;
+    var h=box.offsetHeight||0, margine=12;
+    if(giuDelPalco + margine + h + 6 > area.bottom) return null;   /* non ci sta: si lascia stare */
+    return { x: area.left + (area.width - (box.offsetWidth||0))/2, y: giuDelPalco + margine };
+  }
   window.__assRipristinaPos=function(){
-    try{
-      var v=JSON.parse(localStorage.getItem("sp_assPos")||"null");
-      if(v && isFinite(v.x) && isFinite(v.y)) metti(v.x, v.y);   /* dentro() rimette in vista se la finestra è cambiata */
-    }catch(_e){}
+    var salvata=null;
+    try{ salvata=JSON.parse(localStorage.getItem("sp_assPos")||"null"); }catch(_e){}
+    if(salvata && isFinite(salvata.x) && isFinite(salvata.y)){ metti(salvata.x, salvata.y); return; }   /* dentro() rimette in vista se la finestra è cambiata */
+    var libero=sottoIlPalco();
+    if(libero) metti(libero.x, libero.y);
   };
   head.addEventListener("pointerdown", function(e){
     if(e.target.closest("button")) return;            /* la ✕ resta un bottone, non una maniglia */
