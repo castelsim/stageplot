@@ -9875,44 +9875,65 @@ t("le due channel list della pagina raccontano lo stesso palco", () => {
   }
 });
 
-t("la dimostrazione parte dagli stessi numeri in cui è scritta", () => {
-  /* La sezione «Cambi il palco» ha i totali scritti DUE volte: una nell'HTML che si vede al primo
-     sguardo (syCh/syMix/syKw) e una nel JS che li fa salire al clic (syTot). Sono due posti, e
-     nessuno li teneva insieme: cambiando l'uno e non l'altro la dimostrazione parte da un numero
-     e ne mostra un altro appena tocchi un bottone — proprio nella sezione che serve a far vedere
-     che i conti si aggiornano da soli.
+t("la dimostrazione non tiene i suoi numeri da nessuna parte: li conta", () => {
+  /* STORIA. I totali della sezione «Cambi il palco» stavano scritti in TRE posti: l'HTML che si
+     vede al primo sguardo, un oggetto `syTot` nel JS che li faceva salire al clic, e la tabella di
+     testi del pulsante «rimetti com'era». Tre copie che nessuno teneva insieme — e su una pagina
+     che promette «il rider si aggiorna da solo», due numeri che non tornano smentiscono il
+     prodotto proprio mentre lo si sta dimostrando. Segnalato da Simone il 31/08.
 
-     Stesso discorso per le liste sotto: le righe dei carichi devono sommare al totale dichiarato,
-     comprese quelle nascoste che compaiono al clic. È il difetto trovato altrove il 22/08 nello
-     schema elettrico, dove LUCI diceva 4,6 e la lista sommava 3,4. */
+     Fino ad allora questo test verificava che le tre copie COINCIDESSERO. Ora le copie non ci sono
+     più: i totali si contano dalle righe che si vedono, e i kW si sommano da quello che ogni riga
+     dichiara. Quindi qui si presidia che non tornino. */
   const num = (t) => parseFloat(String(t).replace(",", "."));
 
-  const html = {
-    ch:  +((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]),
-    mix: +((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]),
-    kw:  num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]),
+  ok(!/var syTot/.test(landing), "nessun totale tenuto a parte nel JS");
+  ok(!/docChN: *'6 CH'/.test(landing), "nessuna tabella di testi fissi nel «rimetti com'era»");
+  ok(/function syAggiorna/.test(landing), "c'è una sola funzione che decide i numeri");
+  ok(/syRighe\('doc-mic'\)\.length/.test(landing), "i canali si contano dalle righe");
+  ok(/syRighe\('doc-mon'\)\.length/.test(landing), "e così i mix");
+
+  /* Le righe si contano dalla CLASSE, non dall'altezza: in una scheda in secondo piano le
+     transizioni CSS non avanzano e l'altezza resta 0 — misurarla darebbe totali sbagliati proprio
+     mentre l'utente non sta guardando. */
+  const fn = landing.slice(landing.indexOf("function syRighe"), landing.indexOf("function syNum"));
+  ok(/classList\.contains\('new'\)/.test(fn) && !/getBoundingClientRect/.test(fn),
+    "si guarda la classe della riga, non quanto è alta");
+
+  /* Lo stato di partenza scritto nell'HTML deve comunque essere quello giusto: senza JS è l'unico
+     che si vede, e con JS è il primo fotogramma. */
+  const righe = (docId) => {
+    /* Il blocco finisce dove comincia il documento successivo: una fetta a lunghezza fissa
+       sconfinava e contava anche le righe del vicino (visto: 10 canali invece di 7). */
+    const i = landing.indexOf('id="' + docId + '"');
+    const dopo = landing.indexOf('class="sy-doc"', i + 10);
+    const blocco = landing.slice(i, dopo > 0 ? dopo : landing.indexOf("Nell'editor vero"));
+    const tutte = (blocco.match(/<div[^>]*>\s*<i>/g) || []).length;
+    const nuove = (blocco.match(/<div class="new"/g) || []).length;
+    return { tutte, iniziali: tutte - nuove };
   };
-  const js = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/) || []);
-  ok(js.length, "il JS dichiara i suoi totali di partenza");
-  eq(html.ch, +js[1], "i canali di partenza: quelli scritti e quelli del JS");
-  eq(html.mix, +js[2], "i mix di partenza");
-  eq(html.kw, +js[3] / 10, "i kW di partenza (nel JS stanno moltiplicati per 10)");
+  const ch = righe("doc-mic"), mon = righe("doc-mon");
+  eq(+((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]), ch.iniziali, "canali dichiarati = righe iniziali");
+  eq(+((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]), mon.iniziali, "mix dichiarati = righe iniziali");
+  eq(+((landing.match(/id="docChN">(\d+) CH/) || [])[1]), ch.iniziali, "e lo dice anche l'intestazione");
+  eq(+((landing.match(/id="docMonN">(\d+) mix/) || [])[1]), mon.iniziali);
+  eq(ch.tutte, ch.iniziali + 1, "col clic si aggiunge una riga sola");
+  eq(mon.tutte, mon.iniziali + 1);
 
-  /* il reset deve riportare esattamente lì, o «Ricomincia» lascia la pagina in un altro stato */
-  const reset = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/g) || []);
-  ok(reset.length >= 2 && reset[0] === reset[1],
-    "«Ricomincia» riporta ai numeri di partenza, non ad altri: " + reset.join(" ≠ "));
-
-  /* le righe dei carichi elettrici sommano al totale mostrato, faro nascosto incluso */
-  const blocco = landing.slice(landing.indexOf("Carichi elettrici"), landing.indexOf("Nell'editor vero"));
-  const righe = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => num(m[1]));
-  ok(righe.length >= 3, "le voci dei carichi ci sono: " + righe.join(" + "));
-  const visibili = righe.filter((_, i) => i < righe.length - 1);   /* l'ultima compare al clic */
-  eq(Math.round(visibili.reduce((a, b) => a + b, 0) * 10) / 10, html.kw,
-    "le voci visibili sommano al totale di partenza: " + visibili.join(" + "));
-  eq(Math.round(righe.reduce((a, b) => a + b, 0) * 10) / 10,
-     Math.round((html.kw + 1) * 10) / 10,
-     "e con il faro acceso fanno il kW in più che il bottone promette");
+  /* I carichi: ogni riga dichiara il suo valore in data-kw (centesimi), e il totale è la somma.
+     È il difetto trovato il 22/08 nello schema elettrico, dove LUCI diceva 4,6 e la lista 3,4. */
+  const blocco = landing.slice(landing.indexOf('id="doc-par"'), landing.indexOf("Nell'editor vero"));
+  const dichiarati = [...blocco.matchAll(/data-kw="(\d+)"/g)].map((m) => +m[1]);
+  const scritti = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => Math.round(num(m[1]) * 100));
+  eq(dichiarati.length, scritti.length, "ogni riga dei carichi dichiara il suo valore");
+  ok(dichiarati.length >= 3, "le voci dei carichi ci sono: " + dichiarati.length);
+  for (let i = 0; i < dichiarati.length; i++)
+    eq(dichiarati[i], scritti[i], "riga " + (i + 1) + ": data-kw e testo devono dire la stessa cosa");
+  const kwHtml = num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]);
+  const visibili = dichiarati.slice(0, -1).reduce((a, b) => a + b, 0);   /* l'ultima compare al clic */
+  eq(visibili / 100, kwHtml, "le voci visibili sommano al totale di partenza");
+  eq(dichiarati.reduce((a, b) => a + b, 0) / 100, kwHtml + 1,
+    "e col faro acceso fanno il kW in più che il bottone promette");
 });
 
 t("le cifre che la landing rivendica sono quelle che il programma ha davvero", () => {
@@ -12035,6 +12056,53 @@ t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
   /* La riserva aperta va detta: dell'HD96 abbiamo il peso ma NON l'assorbimento ufficiale. */
   ok(/2 x 650 W/.test(doc) && /stima dichiarata/.test(doc),
      "la riserva sul Midas HD96 resta scritta finche' non si trova il dato");
+});
+
+/* ═══ HOMEPAGE — i numeri che si vedono ═══════════════════════════════════════════════════════════
+   La suite finora guardava solo l'app: la homepage, che e' quello che legge chi non ci e' ancora
+   entrato, non la controllava nessuno. E li' i numeri stavano scritti a mano in piu' copie.
+   Segnalato da Simone il 31/08: «viene dichiarato 6 canali, ma la channel list arriva a 7». */
+console.log("\nHomepage (index.html):");
+const home = readFileSync(join(root, "index.html"), "utf8");
+
+/* Conta le righe di uno dei tre documenti della demo. Una riga «new» e' quella che compare al
+   clic: nello stato iniziale non va contata. */
+function righeDemo(docId, soloIniziali) {
+  const i = home.indexOf('id="' + docId + '"');
+  if (i < 0) return null;
+  const fine = home.indexOf("</div>\n      </div>", i);
+  const blocco = home.slice(i, fine > 0 ? fine : i + 2000);
+  const righe = blocco.match(/<div[^>]*>\s*<i>/g) || [];
+  const nuove = blocco.match(/<div class="new"/g) || [];
+  return soloIniziali ? righe.length - nuove.length : righe.length;
+}
+
+t("il PDF d'esempio dichiara tante pagine quante ne elenca", () => {
+  const i = home.indexOf('id="term"');
+  const blocco = home.slice(i, home.indexOf("</section>", i));
+  const dichiarate = (blocco.match(/id="termPag">(\d+) pagine/) || [])[1];
+  const elencate = (blocco.match(/<b>PAG \d+<\/b>/g) || []).length;
+  eq(+dichiarate, elencate, "«" + dichiarate + " pagine» ma ne elenca " + elencate);
+  /* E deve dire che e' un progetto DIVERSO da quello della demo: ha altri numeri (10 CH, 3 mix)
+     e chi scorre la pagina li confrontava con quelli della demo trovandoli incoerenti. */
+  ok(/non quello della demo/.test(blocco), "il testo distingue i due progetti");
+});
+
+t("niente promette a pagamento quello che e' gratis", () => {
+  /* «rider completo su consulenza» stava in uno sr-only dell'editor: lo leggono gli screen reader e
+     i motori di ricerca, cioe' proprio chi non puo' verificare. Il rider PDF e' gratis; a pagamento
+     c'e' solo la revisione, facoltativa. */
+  const app = readFileSync(join(root, "app/index.html"), "utf8");
+  for (const [dove, testo] of [["editor", app], ["homepage", home]]) {
+    ok(!/rider completo su consulenza/i.test(testo), dove + ": promette il rider a pagamento");
+    ok(!/consulenza[^.<]{0,40}rider completo/i.test(testo), dove + ": lega il rider completo alla consulenza");
+  }
+  /* La channel list non e' riservata a nessuno: verificato nel browser il 31/08, si apre a chiunque. */
+  ok(!/Channel list \(input patch \/ monitor\) — consulenza/.test(app),
+     "il tooltip diceva che la channel list e' «consulenza»");
+  /* E la homepage deve continuare a dirlo chiaro. */
+  ok(/L'editor è gratis e resta gratis/.test(home), "la homepage dichiara il gratis");
+  ok(/29 €, facoltativa/.test(home), "e dichiara il prezzo della revisione, dicendo che e' facoltativa");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

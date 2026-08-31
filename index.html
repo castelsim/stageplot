@@ -883,10 +883,12 @@ addEventListener("hashchange", go);})();</script>
       </div>
       <div class="sy-doc" id="doc-par">
         <h3><span>Carichi elettrici</span><span id="docKwN">3,6 kW</span></h3>
+        <!-- I watt li dichiara OGNI RIGA (data-kw, in centesimi di kW per non fare i conti in
+             virgola mobile): il totale è la loro somma, non un numero scritto a parte. -->
         <div class="sy-rows">
-          <div><i>—</i><span>Backline · 1,4 kW</span></div>
-          <div><i>—</i><span>Impianto e FOH · 2,2 kW</span></div>
-          <div class="new" id="row-par"><i>—</i><span>Faro PC · 1,0 kW</span></div>
+          <div data-kw="140"><i>—</i><span>Backline · 1,4 kW</span></div>
+          <div data-kw="220"><i>—</i><span>Impianto e FOH · 2,2 kW</span></div>
+          <div class="new" id="row-par" data-kw="100"><i>—</i><span>Faro PC · 1,0 kW</span></div>
         </div>
       </div>
     </div>
@@ -906,8 +908,11 @@ addEventListener("hashchange", go);})();</script>
     <div class="step"><p class="step-n">04</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
   </div>
 
+  <!-- Questo è un progetto DIVERSO e più grande di quello della demo qui sopra (che ha 6 canali e
+       2 mix): è un rider completo da otto pagine. Prima non lo diceva, e chi scorreva la pagina
+       trovava due serie di numeri che non tornavano fra loro — segnalato da Simone il 31/08. -->
   <div class="term" id="term">
-    <div class="term-h"><span>rider.pdf — generato dall'editor</span><span>8 pagine</span></div>
+    <div class="term-h"><span>rider.pdf — un progetto completo, non quello della demo</span><span id="termPag">8 pagine</span></div>
     <div class="term-b">
       <div class="tl"><b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue</div>
       <div class="tl"><b>PAG 2</b> · Input list <span class="t">10 CH</span> — mic, 48V, patch della stage box</div>
@@ -1659,42 +1664,74 @@ addEventListener("hashchange", go);})();</script>
 
   /* --- demo «una modifica, tutto aggiornato» ---
      Ogni azione accende l'elemento sul palco E la riga del documento che ne discende, così il nesso
-     causa-effetto si vede invece di doverlo leggere. I numeri sono quelli che l'editor calcolerebbe. */
-  var syTot = {ch:6, mix:2, kw:36};      /* kW per 10, per evitare i decimali in virgola mobile */
-  var SY = {
-    mic: {doc:'doc-mic', out:'docChN',  fx:function(){ syTot.ch++;  return syTot.ch + ' CH'; },  sum:'syCh',  val:function(){ return syTot.ch; }},
-    mon: {doc:'doc-mon', out:'docMonN', fx:function(){ syTot.mix++; return syTot.mix + ' mix'; }, sum:'syMix', val:function(){ return syTot.mix; }},
-    par: {doc:'doc-par', out:'docKwN',  fx:function(){ syTot.kw+=10; return (syTot.kw/10).toFixed(1).replace('.',',') + ' kW'; }, sum:'syKw', val:function(){ return (syTot.kw/10).toFixed(1).replace('.',','); }}
-  };
+     causa-effetto si vede invece di doverlo leggere.
+
+     UNA SOLA FONTE (31/08). Prima i numeri stavano scritti a mano in TRE posti — l'HTML iniziale, un
+     oggetto `syTot` nel JS e la tabella del pulsante «rimetti com'era» — e nulla impediva alle tre
+     copie di divergere: bastava aggiungere una riga alla channel list e dimenticarsi di ritoccare il
+     contatore. Su una pagina che promette «il rider si aggiorna da solo», due numeri che non tornano
+     smentiscono il prodotto proprio mentre lo si dimostra.
+     Ora i totali NON sono memorizzati da nessuna parte: si CONTANO dalle righe visibili, e i kW si
+     sommano da quello che ogni riga dichiara in data-kw. Se un giorno qualcuno aggiunge una riga, il
+     numero la segue senza che nessuno debba ricordarsene. */
   var syReset = document.getElementById('syReset');
   function syFlash(el){ if(!el) return; el.classList.add('up'); setTimeout(function(){ el.classList.remove('up'); }, 1400); }
 
+  /* Una riga conta se non è una di quelle «nuove» ancora spente. Si guarda la classe e non
+     l'altezza: in una scheda in secondo piano le transizioni non avanzano e l'altezza resta 0 —
+     misurarla darebbe totali sbagliati proprio mentre l'utente non sta guardando. */
+  function syRighe(doc){
+    return [].filter.call(document.querySelectorAll('#' + doc + ' .sy-rows > div'), function(r){
+      return !r.classList.contains('new') || r.classList.contains('on');
+    });
+  }
+  function syNum(v){ return (v/100).toFixed(1).replace('.', ','); }
+
+  /* L'unico posto dove i numeri della demo vengono decisi. */
+  function syAggiorna(flash){
+    var ch = syRighe('doc-mic').length;
+    var mix = syRighe('doc-mon').length;
+    var kw = syRighe('doc-par').reduce(function(a, r){ return a + (parseInt(r.dataset.kw, 10) || 0); }, 0);
+    var testi = {
+      docChN: ch + ' CH', docMonN: mix + ' mix', docKwN: syNum(kw) + ' kW',
+      syCh: String(ch), syMix: String(mix), syKw: syNum(kw)
+    };
+    Object.keys(testi).forEach(function(id){
+      var e = document.getElementById(id); if (!e || e.textContent === testi[id]) return;
+      e.textContent = testi[id];
+      if (flash && id.indexOf('sy') === 0) syFlash(e);
+    });
+  }
+
+  var SY_DOC = { mic:'doc-mic', mon:'doc-mon', par:'doc-par' };
+
   document.querySelectorAll('.sbtn[data-add]').forEach(function(b){
     b.addEventListener('click', function(){
-      var k = b.dataset.add, cfg = SY[k];
-      if (b.dataset.done === '1' || !cfg) return;
+      var k = b.dataset.add;
+      if (b.dataset.done === '1' || !SY_DOC[k]) return;
       b.dataset.done = '1';
       var g = document.getElementById('add-' + k); if (g) g.classList.add('on');
       var row = document.getElementById('row-' + k); if (row) row.classList.add('on');
-      var doc = document.getElementById(cfg.doc);
+      var doc = document.getElementById(SY_DOC[k]);
       if (doc) { doc.classList.add('hit'); setTimeout(function(){ doc.classList.remove('hit'); }, 2600); }
-      var out = document.getElementById(cfg.out); if (out) { out.textContent = cfg.fx(); }
-      var sum = document.getElementById(cfg.sum); if (sum) { sum.textContent = cfg.val(); syFlash(sum); }
+      syAggiorna(true);
       if (syReset) syReset.hidden = false;
     });
   });
 
   if (syReset) syReset.addEventListener('click', function(){
-    syTot = {ch:6, mix:2, kw:36};
     ['mic','mon','par'].forEach(function(k){
       var g = document.getElementById('add-' + k); if (g) g.classList.remove('on');
       var row = document.getElementById('row-' + k); if (row) row.classList.remove('on');
     });
-    var t = {docChN:'6 CH', docMonN:'2 mix', docKwN:'3,6 kW', syCh:'6', syMix:'2', syKw:'3,6'};
-    Object.keys(t).forEach(function(id){ var e = document.getElementById(id); if (e) e.textContent = t[id]; });
     document.querySelectorAll('.sbtn[data-add]').forEach(function(b){ b.dataset.done = '0'; });
+    syAggiorna(false);
     syReset.hidden = true;
   });
+
+  /* All'avvio si riallinea comunque: se l'HTML statico e le righe non tornassero, vince ciò che si
+     vede. Senza JS resta l'HTML, che è scritto coerente. */
+  syAggiorna(false);
 })();
 </script>
 

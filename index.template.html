@@ -61,7 +61,7 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="it_IT">
 <meta property="og:title" content="StagePlot — Stage Plot Creator gratis per spettacoli dal vivo">
-<meta property="og:description" content="Crea stage plot in scala online e gratis: genera input, monitor, carichi e channel list, esporta PDF e condividi via link. Consulenza opzionale per la verifica e il rider completo.">
+<meta property="og:description" content="Crea gratuitamente stage plot in scala, liste tecniche e rider PDF: input, monitor, carichi e channel list, export PDF/PNG/CSV e link condivisibile. Revisione professionale facoltativa.">
 <meta property="og:url" content="https://stageplot.it/app/">
 <meta property="og:site_name" content="StagePlot">
 <meta property="og:image" content="https://stageplot.it/preview.png?v=3">
@@ -70,7 +70,7 @@
 <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="StagePlot — Stage Plot Creator gratis per spettacoli dal vivo">
-<meta name="twitter:description" content="Crea stage plot in scala gratis: input, monitor, carichi e channel list, export PDF e link condivisibile. Consulenza opzionale per verifica e rider completo.">
+<meta name="twitter:description" content="Crea gratuitamente stage plot in scala, liste tecniche e rider PDF: input, monitor, carichi, channel list, export PDF/PNG/CSV e link condivisibile. Revisione professionale facoltativa.">
 <meta name="twitter:image" content="https://stageplot.it/preview.png?v=3">
 <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <!-- Dati strutturati (WebSite/Organization/SoftwareApplication/FAQ): stanno sulla landing in radice,
@@ -117,7 +117,10 @@
   </div>
 </div>
 <header>
-  <h1 class="brand">STAGE PLOT<span class="sr-only"> — crea stage plot in scala online e gratis · genera input, monitor, carichi e channel list · rider completo su consulenza</span></h1>
+  <!-- Questo testo lo leggono gli screen reader e i motori di ricerca, non gli occhi: fino al 31/08
+       legava il rider alla consulenza, cioe' prometteva il falso proprio a chi non poteva
+       verificarlo. Il rider PDF completo e' gratis; a pagamento c'e' solo la revisione, facoltativa. -->
+  <h1 class="brand">STAGE PLOT<span class="sr-only"> — crea gratuitamente stage plot in scala, liste tecniche e rider PDF · revisione professionale facoltativa</span></h1>
   <button class="btn ghost" id="fileBtn" aria-haspopup="menu" aria-expanded="false">File <span class="chev">▾</span></button>
   <span class="tbdiv"></span>
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
@@ -160,10 +163,10 @@
   <!-- bottone "Nomi" rimosso dall'header: la visibilità e l'abbreviazione del nome sono ora per-elemento (pannello dettagli a destra). Il nascondere a scala minima resta automatico e silenzioso. -->
   <span class="tbdiv"></span>
   <div class="hdr-actions">
-    <button class="btn" id="bChanList" aria-haspopup="dialog" title="Channel list (input patch / monitor) — consulenza"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
+    <button class="btn" id="bChanList" aria-haspopup="dialog" title="Channel list: input patch e monitor, con export CSV e PDF. Gratis, come tutto l'editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
     <!-- Produzione uscita dal menu File (13/08): non è un comando sul documento ma un'area di lavoro,
          sorella della Channel list — chi fa cosa, reparto per reparto. Sta accanto a lei. -->
-    <a class="btn tint" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Consulenza tecnica: un sound engineer revisiona e valida il tuo stage plot" style="text-decoration:none">Consulenza</a>
+    <a class="btn tint" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Facoltativa: un sound engineer revisiona e valida il rider che hai gia' fatto. L'editor e gli export restano gratis" style="text-decoration:none">Consulenza</a>
     <button class="btn" id="bExportHdr" title="Esporta il PDF (⌘P)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="btn-lbl-wide">Esporta</span></button>
     <button class="btn primary" id="bShareHdr" aria-haspopup="dialog" title="Condividi con un link (contiene anche Scarica PDF)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
     <button class="avatar-btn" id="accountBtn" title="Accedi per salvare online">Accedi</button>
@@ -1122,7 +1125,9 @@
       <div id="versList"></div>
     </div>
   </div>
-  <!-- Channel list (input patch / monitor): riservata alla consulenza, si apre col pulsante Channel list (audit/roadmap 1B) -->
+  <!-- Channel list (input patch / monitor): si apre col pulsante Channel list (audit/roadmap 1B).
+       NON e' riservata alla consulenza — lo diceva questo commento, ed era falso: si apre a chiunque,
+       con CSV e PDF compresi. Verificato nel browser il 31/08. -->
   <div class="sec" id="chanlist" style="border-top:1px solid var(--border,#e5e7eb);padding-top:6px;margin-top:8px">
     <div class="cl-contacts" style="margin:0 0 12px">
       <div style="font-size:11px;color:var(--text-2,#374151);font-weight:600;margin-bottom:2px">Contatti e ruoli <span class="rd-pub" title="Questi contatti vanno stampati sul rider e viaggiano con il link e le copie. Metti solo ciò che vuoi far leggere a chi riceve il progetto.">🌐 sul rider · pubblici</span></div>
@@ -27346,7 +27351,7 @@ function maybeAskStageSize(explicit){
       <li><strong>Organici pronti</strong> per band, orchestra, coro e banda</li>
       <li><strong>Export in PDF e PNG</strong> in scala, con area di stampa dedicata</li>
       <li><strong>Condivisione via link</strong>: chi lo riceve apre il progetto già caricato</li>
-      <li><strong>Channel list e liste tecniche</strong>: generate ed esportabili gratis; il rider completo e la verifica professionale sono su <a href="/consulenza/">consulenza</a></li>
+      <li><strong>Channel list e liste tecniche</strong>: generate ed esportabili gratis, come il <strong>rider PDF completo</strong>. A pagamento c'è solo la <a href="/consulenza/">revisione professionale</a>, ed è facoltativa</li>
     </ul>
 
     <h3>Come creare uno stage plot in 4 passi</h3>
