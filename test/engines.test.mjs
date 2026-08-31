@@ -10501,7 +10501,12 @@ t("dalla prima schermata si parte da un palco pieno, non da un foglio bianco", (
   const primo = (cta.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
   ok(/palco già pronto/i.test(primo), "il bottone primario apre un modello: «" + primo + "»");
   ok(/model=band/.test(cta.split("</a>")[0]), "e porta davvero a un modello");
-  ok(/Palco vuoto/.test(cta), "il foglio bianco resta, in seconda battuta");
+  /* Il testo del secondo bottone e' passato da «Palco vuoto» a «Parti da un palco vuoto» il 31/08:
+     le due CTA ora dicono la stessa cosa in tutta la pagina, hero e finale, con lo stesso verbo.
+     Il test guarda la SOSTANZA — che il foglio bianco resti disponibile in seconda battuta — e non
+     la formulazione esatta, che e' materia di prodotto e puo' cambiare. */
+  ok(/palco vuoto/i.test(cta), "il foglio bianco resta, in seconda battuta");
+  ok(/class="btn2"/.test(cta), "ed e' un bottone secondario, non il primario");
   ok(/rider finito/i.test(cta), "e c'è la porta per chi vuole solo vedere il documento");
 });
 
@@ -12190,6 +12195,106 @@ t("il pulsante principale dice dove porta", () => {
   /* E la scelta «Non mostrarlo più» deve essere ricordata: provata nel browser il 31/08. */
   ok(/localStorage\.setItem\("sp_noAssunzioni","1"\)/.test(appjs), "la scelta si scrive");
   ok(/localStorage\.getItem\("sp_noAssunzioni"\)/.test(appjs), "e si rilegge all'apertura");
+});
+
+t("la CTA finale porta dove porta quella iniziale", () => {
+  /* Fino al 31/08 l'ultima spinta della pagina diceva «Apri l'editor» e portava a un palco VUOTO:
+     chi era arrivato in fondo senza sapere da dove cominciare veniva mandato esattamente dove ci si
+     blocca, dopo che tutta la pagina gli aveva detto di partire da un modello. */
+  const finale = landing.slice(landing.indexOf('<section class="final'));
+  const primario = (finale.match(/<a class="btn"[^>]*href="([^"]+)"[^>]*>([^<]+)</) || []);
+  ok(/model=band/.test(primario[1] || ""), "il bottone primario del finale apre un modello: " + primario[1]);
+  ok(/palco già pronto/i.test(primario[2] || ""), "e lo dice: «" + primario[2] + "»");
+  /* Stesse parole all'inizio e alla fine: una CTA che cambia nome a metà pagina sembra un'altra cosa. */
+  const hero = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
+  const testoHero = (hero.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
+  eq((primario[2] || "").trim(), testoHero.trim(), "la CTA principale è la stessa in cima e in fondo");
+  /* E il palco vuoto resta raggiungibile anche dal finale, come seconda scelta. */
+  ok(/class="btn2"[^>]*>[^<]*palco vuoto/i.test(finale), "il foglio bianco resta, in seconda battuta");
+});
+
+t("il registro non si contraddice: dice «ultimi giorni» e lo è", () => {
+  /* C'era già un presidio, ma la soglia è 120 giorni: il registro poteva restare fermo quattro mesi
+     mentre la sezione prometteva «le ultime cose sistemate… degli ultimi giorni». Il 31/08 era
+     fermo da 19 giorni, con tre PR importanti nel mezzo che nessuno raccontava. Trenta giorni è il
+     punto in cui quella frase comincia a essere una bugia. */
+  const sez = landing.slice(landing.indexOf('class="registro"'));
+  const date = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((m) => m[1]).sort();
+  ok(date.length >= 4, "il registro ha le sue voci: " + date.length);
+  const ultima = date[date.length - 1];
+  const giorni = Math.floor((Date.now() - new Date(ultima + "T12:00:00Z")) / 86400000);
+  ok(giorni <= 30,
+    "il registro è fermo da " + giorni + " giorni ma la sezione promette «gli ultimi giorni»: " +
+    "aggiungi le ultime cose fatte, o cambia quella promessa");
+});
+
+/* ═══ ACCESSIBILITÀ MISURATA (31/08) ══════════════════════════════════════════════════════════════
+   Non «sembra leggibile»: i contrasti si calcolano con la formula WCAG, come si fa per i dati di
+   targa. Due difetti trovati così, che a occhio non si vedevano. */
+console.log("\nAccessibilità:");
+
+/* La formula ufficiale. Gli sfondi semitrasparenti vanno COMPOSTI su quello sotto: trattandoli come
+   opachi avevo dato per rosso un contrasto che era buono (il primo giro sulla homepage diceva
+   1,34:1 su un'etichetta perfettamente leggibile). */
+function _lum(c) {
+  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+}
+function _hex(h) {
+  h = h.replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((x) => x + x).join("");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function _sopra(f, a, s) { return [f[0]*a + s[0]*(1-a), f[1]*a + s[1]*(1-a), f[2]*a + s[2]*(1-a)]; }
+function _contrasto(a, b) {
+  const l1 = _lum(a), l2 = _lum(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+t("l'anello di focus si vede: 3:1 in tutti e due i temi", () => {
+  /* Era rgba(13,148,136,.32): composto sul bianco diventa rgb(178,221,217), che contro il bianco fa
+     1,48:1 — meno della metà del 3:1 che WCAG 1.4.11 chiede a un indicatore di focus. Chi naviga da
+     tastiera non vedeva dove si trovava, e la cosa non si nota mai perché chi disegna usa il mouse. */
+  const m = stylesCss.match(/--focus-ring:rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+  ok(m, "l'anello di focus è dichiarato una volta sola, come variabile");
+  const teal = [+m[1], +m[2], +m[3]], alpha = +m[4];
+  for (const [tema, sfondo] of [["chiaro", "#ffffff"], ["scuro", "#1a1a1a"]]) {
+    const sf = _hex(sfondo);
+    const cr = _contrasto(_sopra(teal, alpha, sf), sf);
+    ok(cr >= 3, "tema " + tema + ": l'anello fa " + cr.toFixed(2) + ":1, serve 3:1");
+  }
+  /* E deve essere davvero usato dai controlli, non solo dichiarato. */
+  ok(/:focus-visible\{outline:none;box-shadow:0 0 0 3px var\(--focus-ring\)\}/.test(stylesCss),
+     "i controlli lo usano");
+});
+
+t("un testo piccolo non porta l'accent tenue", () => {
+  /* --accent (#0d9488) su bianco fa 3,74:1: va bene per una superficie, non per un testo di 10 px,
+     che ne chiede 4,5. Il conto era già stato fatto per il bottone primario e la risposta era
+     --accent-strong; l'etichetta dei gruppi di liste era rimasta indietro. */
+  const accent = _hex((stylesCss.match(/--accent:(#[0-9a-f]{6})/i) || [])[1] || "#0d9488");
+  const strong = _hex((stylesCss.match(/--accent-strong:(#[0-9a-f]{6})/i) || [])[1] || "#0b7a70");
+  const bianco = [255, 255, 255];
+  ok(_contrasto(accent, bianco) < 4.5, "l'accent tenue NON basta per un testo piccolo: " + _contrasto(accent, bianco).toFixed(2));
+  ok(_contrasto(strong, bianco) >= 4.5, "quello forte sì: " + _contrasto(strong, bianco).toFixed(2));
+  /* La regola dell'etichetta deve usare il secondo. */
+  const riga = (stylesCss.match(/\.layer-group-label\{[^}]*\}/) || [""])[0];
+  ok(/font-size:10px/.test(riga), "l'etichetta è davvero piccola: " + riga.slice(0, 40));
+  ok(/color:var\(--accent-strong\)/.test(riga), "e usa l'accent forte");
+});
+
+t("la homepage ha il salto al contenuto e il suo landmark", () => {
+  /* Senza <main> chi usa uno screen reader riattraversa la navigazione a ogni pagina. */
+  ok(/<main id="contenuto">/.test(landing), "c'è il landmark principale");
+  ok(landing.indexOf("<main") < landing.indexOf("<footer"), "e il piede sta fuori");
+  ok(/<a class="skip" href="#contenuto">/.test(landing), "c'è il salto al contenuto");
+  /* Deve essere nascosto finché non prende il fuoco, e allora vedersi: se restasse fuori schermo
+     anche col fuoco sarebbe peggio di non averlo — un bersaglio invisibile nel giro dei tab. */
+  ok(/\.skip\{[^}]*left:-9999px/.test(landing), "sta fuori schermo di suo");
+  ok(/\.skip:focus\{left:0\}/.test(landing), "e col fuoco rientra");
+  /* Ed è il PRIMO elemento raggiungibile: dopo la nav non servirebbe a niente. */
+  const corpo = landing.slice(landing.indexOf("<body>"));
+  ok(corpo.indexOf('class="skip"') < corpo.indexOf("<nav"), "viene prima della navigazione");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

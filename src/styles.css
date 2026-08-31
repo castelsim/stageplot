@@ -27,7 +27,13 @@
        passano; la scala --n-* resta intatta perché la usano anche bordi e fondi (25/08). */
     --text:var(--n-800);--text-2:var(--n-500);--text-3:#7b7568;--text-on-accent:#fff;
     --canvas-bg:#edebe4;--sheet:#fff;
-    --select:var(--accent);--select-fill:rgba(13,148,136,.05);--focus-ring:rgba(13,148,136,.32);
+    --select:var(--accent);--select-fill:rgba(13,148,136,.05);
+    /* ANELLO DI FOCUS — misurato il 31/08: al 32% di opacita' il teal composto sul bianco diventa
+       rgb(178,221,217), che contro il bianco fa 1,48:1. La soglia per un indicatore di focus e' 3:1
+       (WCAG 1.4.11): chi naviga da tastiera non vedeva dove si trovava. Serve almeno l'86% — qui
+       sta al 92%, che e' il primo valore comodo sopra la soglia in tutti e due i temi. Un anello di
+       focus deve essere visibile: e' esattamente il suo mestiere. */
+    --focus-ring:rgba(13,148,136,.92);
     --guide:var(--accent);--guide-center:#f59e0b;--axis:#c8c3b4;--grid-line:#e9e6db;--grid-major:#dbd6c8;
     /* tipografia */
     --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -861,7 +867,10 @@
   .layer-ico.layer-solo.on:hover{background:#fcd34d;color:#92400e}
   body.dark .layer-ico.layer-solo.on{color:#fbbf24;background:#78350f}
   .layer-icons .layer-ico{width:20px;height:20px;padding:2px;justify-content:center}
-  .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:8px 0 3px;padding-left:2px}
+  /* --accent (#0d9488) su bianco da' 3,74:1: sotto il 4,5:1 che serve a un testo di 10 px. E' lo
+     stesso conto gia' fatto per il bottone primario (vedi il commento sopra .btn.primary), e la
+     risposta e' la stessa: --accent-strong. Stesso colore, stessa identita', leggibile. */
+  .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-strong);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
   body.dark .layer-ico:hover{background:#222b38}
   /* Layer "lavora qui" (20/07): riga cliccabile = fuoco; occhio a destra; avanzati sotto quando a fuoco */
