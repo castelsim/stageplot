@@ -872,6 +872,14 @@
      risposta e' la stessa: --accent-strong. Stesso colore, stessa identita', leggibile. */
   .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-strong);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
+  /* «Produzione avanzata»: la stessa etichetta delle liste, ma è un bottone che apre e chiude.
+     Resta un'etichetta, non diventa un comando appariscente: dice che c'è dell'altro, non invita. */
+  .adv-head{display:flex;align-items:center;gap:5px;width:100%;background:none;border:0;cursor:pointer;
+    font-family:inherit;text-align:left;margin-top:10px}
+  .adv-head:hover{color:var(--accent-deep)}
+  .adv-head:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-radius:4px}
+  .adv-caret{font-size:9px;line-height:1;opacity:.75}
+  .adv-quante{font-size:11px;color:var(--text-3);padding-left:14px;margin:-1px 0 2px}
   body.dark .layer-ico:hover{background:#222b38}
   /* Layer "lavora qui" (20/07): riga cliccabile = fuoco; occhio a destra; avanzati sotto quando a fuoco */
   .layer-clickable{cursor:pointer;border-radius:7px}
