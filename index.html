@@ -531,6 +531,10 @@ addEventListener("hashchange", go);})();</script>
   .pill{margin-top:22px;display:inline-block;font-family:var(--mono);font-size:12.5px;background:#0a1211;border:1px solid var(--line2);border-radius:999px;padding:8px 16px;color:var(--teal)}
 
   /* --- Condivisione: la tabella «chi tocca cosa» e il blocco per chi i rider li riceve --- */
+  /* Skip link: fuori dallo schermo finché non prende il fuoco da tastiera. */
+  .skip{position:absolute;left:-9999px;top:0;z-index:100;background:var(--teal);color:#04110f;
+    padding:12px 18px;border-radius:0 0 8px 0;font-weight:700;text-decoration:none}
+  .skip:focus{left:0}
   .who-table{width:100%;border-collapse:collapse;font-size:14.5px}
   .who-table th{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;
     color:var(--mut);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:500}
@@ -617,6 +621,9 @@ addEventListener("hashchange", go);})();</script>
 </style>
 </head>
 <body>
+<!-- Salta al contenuto: la prima cosa che incontra chi naviga da tastiera o con uno screen reader.
+     Invisibile finché non prende il fuoco, e allora si vede eccome. -->
+<a class="skip" href="#contenuto">Salta al contenuto</a>
 
 <div id="tip" role="tooltip"></div>
 
@@ -636,6 +643,10 @@ addEventListener("hashchange", go);})();</script>
   <a class="nav-cta" href="/app/?from=nav">Apri l'editor</a>
 </div></nav>
 
+<!-- <main> mancava: senza questo landmark chi usa uno screen reader non ha il salto al contenuto
+     principale e deve attraversare la navigazione ogni volta. Nessuna regola CSS dipendeva da
+     «body >», quindi avvolgere non sposta niente di quello che si vede. -->
+<main id="contenuto">
 <header><div class="wrap">
   <p class="kicker">Stage plot · scheda tecnica · rider</p>
   <h1>Disegna il palco.<br><span class="scala">in scala.</span></h1>
@@ -1414,6 +1425,8 @@ addEventListener("hashchange", go);})();</script>
   <a class="btn2" href="/app/?from=finale">Parti da un palco vuoto</a>
   <p class="trust"><span>Gratis</span> · nel browser · senza registrazione</p>
 </div></section>
+
+</main>
 
 <footer><div class="wrap foot">
   <div>
