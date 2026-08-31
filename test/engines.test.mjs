@@ -12297,5 +12297,54 @@ t("la homepage ha il salto al contenuto e il suo landmark", () => {
   ok(corpo.indexOf('class="skip"') < corpo.indexOf("<nav"), "viene prima della navigazione");
 });
 
+/* ═══ COMPLESSITÀ PROGRESSIVA (31/08) ═════════════════════════════════════════════════════════════
+   «Power» e «Luci» erano le uniche due liste con active:true fisso: comparivano sempre, anche a una
+   band che non ha né quadri né fari. Sono le prime due parole che dicono a un chitarrista «questo
+   non è roba per te». Ora stanno sotto un'intestazione che si apre e si chiude. */
+t("le liste avanzate non si presentano da sole alla prima apertura", () => {
+  const fn = appjs.slice(appjs.indexOf("function renderLayerManager"), appjs.indexOf("function lightsRows"));
+  ok(/var AVANZATE=\{elec:1, luci:1, mond:1, miczone:1, cover:1\}/.test(fn),
+     "l'elenco di cosa è avanzato è scritto in un posto solo");
+  ok(/base\.forEach\(function\(L\)\{ renderLayerRow/.test(fn), "le liste di base si disegnano sempre");
+  ok(/if\(aperto\) avanz\.forEach/.test(fn), "le avanzate solo a gruppo aperto");
+  /* Palco, Musicisti, Input e Output NON sono avanzate: sono il mestiere di chi fa un rider. */
+  for (const id of ["stage", "mus", "cabin", "cabout"])
+    ok(!new RegExp(id + ":1").test((fn.match(/var AVANZATE=\{[^}]*\}/) || [""])[0]),
+       id + " deve restare fra le liste di base");
+});
+
+t("non si nasconde mai qualcosa che è già in uso", () => {
+  /* È la regola che rende accettabile nascondere: se il motore è acceso o la lista è aperta, il
+     gruppo si apre da solo. Nascondere il lavoro di qualcuno è peggio che mostrargli una parola in
+     più — e sarebbe il modo tipico in cui una «modalità semplice» fa danno. */
+  const fn = appjs.slice(appjs.indexOf("function renderLayerManager"), appjs.indexOf("function lightsRows"));
+  ok(/var inUso=avanz\.some\(function\(L\)\{ return L\.engineOn \|\| layerAccOpen===L\.id; \}\)/.test(fn),
+     "in uso = motore acceso oppure lista aperta");
+  ok(/var aperto=inUso \|\| advAperta\(\)/.test(fn),
+     "e «in uso» vince sulla preferenza: il gruppo si apre da solo");
+  /* Chiuso, deve comunque dire quante liste ci sono: un gruppo che non dice cosa contiene è una
+     porta chiusa senza targa. */
+  ok(/adv-quante/.test(fn) && /liste"/.test(fn), "e dice quante liste nasconde");
+});
+
+t("la scelta resta sul dispositivo, non nel progetto", () => {
+  /* È una preferenza di come si guarda, non un dato del rider: un progetto aperto su un altro
+     computer non deve ereditare le abitudini di chi l'ha disegnato. */
+  const fn = appjs.slice(appjs.indexOf("function advAperta"), appjs.indexOf("function renderLayerManager"));
+  ok(/localStorage\.getItem\("sp_advListe"\)/.test(fn), "si rilegge da localStorage");
+  ok(/localStorage\.setItem\("sp_advListe"/.test(fn), "e ci si scrive");
+  ok(/catch\(_e\)\{ return false; \}/.test(fn),
+     "se localStorage non risponde (finestra anonima) si parte chiusi, senza esplodere");
+  ok(!/state\.advListe/.test(appjs), "e non finisce nello stato del progetto");
+});
+
+t("«Produzione avanzata» è un bottone vero, raggiungibile da tastiera", () => {
+  const fn = appjs.slice(appjs.indexOf("function renderLayerManager"), appjs.indexOf("function lightsRows"));
+  ok(/createElement\("button"\)/.test(fn), "è un <button>, non un div cliccabile");
+  ok(/setAttribute\("aria-expanded"/.test(fn), "e dichiara se è aperto");
+  ok(/\.adv-head:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss),
+     "col fuoco da tastiera si vede");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
