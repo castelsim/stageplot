@@ -880,6 +880,20 @@
   .adv-head:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-radius:4px}
   .adv-caret{font-size:9px;line-height:1;opacity:.75}
   .adv-quante{font-size:11px;color:var(--text-3);padding-left:14px;margin:-1px 0 2px}
+  /* «A che punto è il rider»: una riga, non un pannello. Il pallino porta il colore, ma il testo
+     dice la stessa cosa da solo — chi non distingue i colori legge «2 cose da guardare». */
+  .stato-rider{display:flex;align-items:center;gap:7px;width:100%;margin-top:12px;padding:7px 8px;
+    background:none;border:1px solid var(--border);border-radius:8px;cursor:pointer;
+    font-family:inherit;font-size:12px;color:var(--text-2);text-align:left}
+  .stato-rider:hover{border-color:var(--text-3);color:var(--text)}
+  .stato-rider:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+  .stato-rider .sr-pallino{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .stato-rider .sr-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .stato-rider .sr-score{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text-3)}
+  .sr-ok .sr-pallino{background:var(--success,#15803d)}
+  .sr-warn .sr-pallino{background:#b45309}
+  .sr-err .sr-pallino{background:var(--danger,#dc2626)}
+  .sr-ok .sr-score{color:var(--success,#15803d)}
   body.dark .layer-ico:hover{background:#222b38}
   /* Layer "lavora qui" (20/07): riga cliccabile = fuoco; occhio a destra; avanzati sotto quando a fuoco */
   .layer-clickable{cursor:pointer;border-radius:7px}
