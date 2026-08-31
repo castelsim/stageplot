@@ -53,8 +53,19 @@
   #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
-    grid-template-rows:52px 1fr 26px;grid-template-columns:220px 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
+    grid-template-rows:52px 1fr 26px;grid-template-columns:var(--cat,220px) 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
+  /* SCHERMI STRETTI, ma non ancora telefono (31/08). Le due colonne restavano a 220+310 = 530 px
+     fissi fino al passaggio a mobile: su un laptop 1366 sono il 39% dello schermo mangiato prima
+     ancora di disegnare, e il palco da 16 m del modello band ci finiva dentro a 753 px — un
+     musicista alto 28 pixel. Misurato, non stimato. Qui le colonne cedono quel tanto che basta;
+     la maniglia continua a vincere, perché --rail impostata a mano è una var inline. */
+  @media (min-width:881px) and (max-width:1180px){
+    body{--cat:168px; --rail:236px}
+  }
+  @media (min-width:1181px) and (max-width:1440px){
+    body{--cat:190px; --rail:268px}
+  }
   header{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
   /* Il wordmark non va MAI a capo. L'header scorre in orizzontale quando è pieno (sotto), ma i figli
      flessibili si stringono PRIMA che il contenitore trabocchi — e il primo a cedere era proprio
@@ -285,10 +296,20 @@
   #assunzioni .as-head{cursor:move;touch-action:none;-webkit-user-select:none;user-select:none;display:grid;grid-template-columns:1fr auto;grid-template-areas:"t x" "s x";gap:2px 8px;align-items:start;margin-bottom:8px}
   #assunzioni .as-head b{grid-area:t;font-size:14px}
   #assunzioni .as-sub{grid-area:s;font-size:11.5px;color:var(--text-2);line-height:1.35}
+  /* Riga senza decisione da prendere: una nota, non un comando. Piu' piccola e senza il respiro
+     verticale di una riga d'azione — vedi il commento in mostraAssunzioni. */
+  #assunzioni .as-row.as-nota{padding:4px 0 2px;border-top:1px solid var(--border)}
+  #assunzioni .as-row.as-nota .as-txt{font-size:11.5px;color:var(--text-2);font-weight:400}
   #assunzioni.as-drag{box-shadow:0 16px 40px rgba(0,0,0,.28);opacity:.97}
   #assunzioni .as-x{cursor:pointer;grid-area:x;justify-self:end;background:none;border:0;color:var(--text-3);cursor:pointer;font-size:15px;line-height:1;padding:2px 0 0}
   #assunzioni #asRows{overflow:auto;min-height:0}
   #assunzioni .as-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)}
+  /* PROVATO E SCARTATO (31/08): mettere le due decisioni AFFIANCATE su schermo largo, per
+     abbassare il riepilogo sotto i 234 px liberi fra palco e fondo area. In due colonne da 260 px
+     «Canta anche qualcun altro?» andava a capo quattro volte e il riepilogo cresceva a 294 px:
+     peggio del problema che doveva curare. La larghezza qui serve a leggere, non si comprime.
+     Restano le altre due economie — una riga sola per gli strumentisti muti e la nota compatta per
+     le righe senza decisione — che da sole portano la copertura del palco dal 12% al 3%. */
   #assunzioni .as-txt{flex:1;font-size:12.5px;line-height:1.35}
   #assunzioni .as-txt small{display:block;color:var(--text-3);font-size:11px;margin-top:1px}
   /* i bersagli restano da dito anche qui: 44 px dove si tocca */

@@ -9875,44 +9875,65 @@ t("le due channel list della pagina raccontano lo stesso palco", () => {
   }
 });
 
-t("la dimostrazione parte dagli stessi numeri in cui è scritta", () => {
-  /* La sezione «Cambi il palco» ha i totali scritti DUE volte: una nell'HTML che si vede al primo
-     sguardo (syCh/syMix/syKw) e una nel JS che li fa salire al clic (syTot). Sono due posti, e
-     nessuno li teneva insieme: cambiando l'uno e non l'altro la dimostrazione parte da un numero
-     e ne mostra un altro appena tocchi un bottone — proprio nella sezione che serve a far vedere
-     che i conti si aggiornano da soli.
+t("la dimostrazione non tiene i suoi numeri da nessuna parte: li conta", () => {
+  /* STORIA. I totali della sezione «Cambi il palco» stavano scritti in TRE posti: l'HTML che si
+     vede al primo sguardo, un oggetto `syTot` nel JS che li faceva salire al clic, e la tabella di
+     testi del pulsante «rimetti com'era». Tre copie che nessuno teneva insieme — e su una pagina
+     che promette «il rider si aggiorna da solo», due numeri che non tornano smentiscono il
+     prodotto proprio mentre lo si sta dimostrando. Segnalato da Simone il 31/08.
 
-     Stesso discorso per le liste sotto: le righe dei carichi devono sommare al totale dichiarato,
-     comprese quelle nascoste che compaiono al clic. È il difetto trovato altrove il 22/08 nello
-     schema elettrico, dove LUCI diceva 4,6 e la lista sommava 3,4. */
+     Fino ad allora questo test verificava che le tre copie COINCIDESSERO. Ora le copie non ci sono
+     più: i totali si contano dalle righe che si vedono, e i kW si sommano da quello che ogni riga
+     dichiara. Quindi qui si presidia che non tornino. */
   const num = (t) => parseFloat(String(t).replace(",", "."));
 
-  const html = {
-    ch:  +((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]),
-    mix: +((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]),
-    kw:  num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]),
+  ok(!/var syTot/.test(landing), "nessun totale tenuto a parte nel JS");
+  ok(!/docChN: *'6 CH'/.test(landing), "nessuna tabella di testi fissi nel «rimetti com'era»");
+  ok(/function syAggiorna/.test(landing), "c'è una sola funzione che decide i numeri");
+  ok(/syRighe\('doc-mic'\)\.length/.test(landing), "i canali si contano dalle righe");
+  ok(/syRighe\('doc-mon'\)\.length/.test(landing), "e così i mix");
+
+  /* Le righe si contano dalla CLASSE, non dall'altezza: in una scheda in secondo piano le
+     transizioni CSS non avanzano e l'altezza resta 0 — misurarla darebbe totali sbagliati proprio
+     mentre l'utente non sta guardando. */
+  const fn = landing.slice(landing.indexOf("function syRighe"), landing.indexOf("function syNum"));
+  ok(/classList\.contains\('new'\)/.test(fn) && !/getBoundingClientRect/.test(fn),
+    "si guarda la classe della riga, non quanto è alta");
+
+  /* Lo stato di partenza scritto nell'HTML deve comunque essere quello giusto: senza JS è l'unico
+     che si vede, e con JS è il primo fotogramma. */
+  const righe = (docId) => {
+    /* Il blocco finisce dove comincia il documento successivo: una fetta a lunghezza fissa
+       sconfinava e contava anche le righe del vicino (visto: 10 canali invece di 7). */
+    const i = landing.indexOf('id="' + docId + '"');
+    const dopo = landing.indexOf('class="sy-doc"', i + 10);
+    const blocco = landing.slice(i, dopo > 0 ? dopo : landing.indexOf("Nell'editor vero"));
+    const tutte = (blocco.match(/<div[^>]*>\s*<i>/g) || []).length;
+    const nuove = (blocco.match(/<div class="new"/g) || []).length;
+    return { tutte, iniziali: tutte - nuove };
   };
-  const js = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/) || []);
-  ok(js.length, "il JS dichiara i suoi totali di partenza");
-  eq(html.ch, +js[1], "i canali di partenza: quelli scritti e quelli del JS");
-  eq(html.mix, +js[2], "i mix di partenza");
-  eq(html.kw, +js[3] / 10, "i kW di partenza (nel JS stanno moltiplicati per 10)");
+  const ch = righe("doc-mic"), mon = righe("doc-mon");
+  eq(+((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]), ch.iniziali, "canali dichiarati = righe iniziali");
+  eq(+((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]), mon.iniziali, "mix dichiarati = righe iniziali");
+  eq(+((landing.match(/id="docChN">(\d+) CH/) || [])[1]), ch.iniziali, "e lo dice anche l'intestazione");
+  eq(+((landing.match(/id="docMonN">(\d+) mix/) || [])[1]), mon.iniziali);
+  eq(ch.tutte, ch.iniziali + 1, "col clic si aggiunge una riga sola");
+  eq(mon.tutte, mon.iniziali + 1);
 
-  /* il reset deve riportare esattamente lì, o «Ricomincia» lascia la pagina in un altro stato */
-  const reset = (landing.match(/syTot *= *\{ *ch: *(\d+), *mix: *(\d+), *kw: *(\d+) *\}/g) || []);
-  ok(reset.length >= 2 && reset[0] === reset[1],
-    "«Ricomincia» riporta ai numeri di partenza, non ad altri: " + reset.join(" ≠ "));
-
-  /* le righe dei carichi elettrici sommano al totale mostrato, faro nascosto incluso */
-  const blocco = landing.slice(landing.indexOf("Carichi elettrici"), landing.indexOf("Nell'editor vero"));
-  const righe = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => num(m[1]));
-  ok(righe.length >= 3, "le voci dei carichi ci sono: " + righe.join(" + "));
-  const visibili = righe.filter((_, i) => i < righe.length - 1);   /* l'ultima compare al clic */
-  eq(Math.round(visibili.reduce((a, b) => a + b, 0) * 10) / 10, html.kw,
-    "le voci visibili sommano al totale di partenza: " + visibili.join(" + "));
-  eq(Math.round(righe.reduce((a, b) => a + b, 0) * 10) / 10,
-     Math.round((html.kw + 1) * 10) / 10,
-     "e con il faro acceso fanno il kW in più che il bottone promette");
+  /* I carichi: ogni riga dichiara il suo valore in data-kw (centesimi), e il totale è la somma.
+     È il difetto trovato il 22/08 nello schema elettrico, dove LUCI diceva 4,6 e la lista 3,4. */
+  const blocco = landing.slice(landing.indexOf('id="doc-par"'), landing.indexOf("Nell'editor vero"));
+  const dichiarati = [...blocco.matchAll(/data-kw="(\d+)"/g)].map((m) => +m[1]);
+  const scritti = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => Math.round(num(m[1]) * 100));
+  eq(dichiarati.length, scritti.length, "ogni riga dei carichi dichiara il suo valore");
+  ok(dichiarati.length >= 3, "le voci dei carichi ci sono: " + dichiarati.length);
+  for (let i = 0; i < dichiarati.length; i++)
+    eq(dichiarati[i], scritti[i], "riga " + (i + 1) + ": data-kw e testo devono dire la stessa cosa");
+  const kwHtml = num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]);
+  const visibili = dichiarati.slice(0, -1).reduce((a, b) => a + b, 0);   /* l'ultima compare al clic */
+  eq(visibili / 100, kwHtml, "le voci visibili sommano al totale di partenza");
+  eq(dichiarati.reduce((a, b) => a + b, 0) / 100, kwHtml + 1,
+    "e col faro acceso fanno il kW in più che il bottone promette");
 });
 
 t("le cifre che la landing rivendica sono quelle che il programma ha davvero", () => {
@@ -12035,6 +12056,140 @@ t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
   /* La riserva aperta va detta: dell'HD96 abbiamo il peso ma NON l'assorbimento ufficiale. */
   ok(/2 x 650 W/.test(doc) && /stima dichiarata/.test(doc),
      "la riserva sul Midas HD96 resta scritta finche' non si trova il dato");
+});
+
+/* ═══ HOMEPAGE — i numeri che si vedono ═══════════════════════════════════════════════════════════
+   La suite finora guardava solo l'app: la homepage, che e' quello che legge chi non ci e' ancora
+   entrato, non la controllava nessuno. E li' i numeri stavano scritti a mano in piu' copie.
+   Segnalato da Simone il 31/08: «viene dichiarato 6 canali, ma la channel list arriva a 7». */
+console.log("\nHomepage (index.html):");
+const home = readFileSync(join(root, "index.html"), "utf8");
+
+/* Conta le righe di uno dei tre documenti della demo. Una riga «new» e' quella che compare al
+   clic: nello stato iniziale non va contata. */
+function righeDemo(docId, soloIniziali) {
+  const i = home.indexOf('id="' + docId + '"');
+  if (i < 0) return null;
+  const fine = home.indexOf("</div>\n      </div>", i);
+  const blocco = home.slice(i, fine > 0 ? fine : i + 2000);
+  const righe = blocco.match(/<div[^>]*>\s*<i>/g) || [];
+  const nuove = blocco.match(/<div class="new"/g) || [];
+  return soloIniziali ? righe.length - nuove.length : righe.length;
+}
+
+t("il PDF d'esempio dichiara tante pagine quante ne elenca", () => {
+  const i = home.indexOf('id="term"');
+  const blocco = home.slice(i, home.indexOf("</section>", i));
+  const dichiarate = (blocco.match(/id="termPag">(\d+) pagine/) || [])[1];
+  const elencate = (blocco.match(/<b>PAG \d+<\/b>/g) || []).length;
+  eq(+dichiarate, elencate, "«" + dichiarate + " pagine» ma ne elenca " + elencate);
+  /* E deve dire che e' un progetto DIVERSO da quello della demo: ha altri numeri (10 CH, 3 mix)
+     e chi scorre la pagina li confrontava con quelli della demo trovandoli incoerenti. */
+  ok(/non quello della demo/.test(blocco), "il testo distingue i due progetti");
+});
+
+t("niente promette a pagamento quello che e' gratis", () => {
+  /* «rider completo su consulenza» stava in uno sr-only dell'editor: lo leggono gli screen reader e
+     i motori di ricerca, cioe' proprio chi non puo' verificare. Il rider PDF e' gratis; a pagamento
+     c'e' solo la revisione, facoltativa. */
+  const app = readFileSync(join(root, "app/index.html"), "utf8");
+  for (const [dove, testo] of [["editor", app], ["homepage", home]]) {
+    ok(!/rider completo su consulenza/i.test(testo), dove + ": promette il rider a pagamento");
+    ok(!/consulenza[^.<]{0,40}rider completo/i.test(testo), dove + ": lega il rider completo alla consulenza");
+  }
+  /* La channel list non e' riservata a nessuno: verificato nel browser il 31/08, si apre a chiunque. */
+  ok(!/Channel list \(input patch \/ monitor\) — consulenza/.test(app),
+     "il tooltip diceva che la channel list e' «consulenza»");
+  /* E la homepage deve continuare a dirlo chiaro. */
+  ok(/L'editor è gratis e resta gratis/.test(home), "la homepage dichiara il gratis");
+  ok(/29 €, facoltativa/.test(home), "e dichiara il prezzo della revisione, dicendo che e' facoltativa");
+});
+
+t("su uno schermo stretto le colonne cedono spazio al palco", () => {
+  /* Le due colonne restavano a 220 + 310 = 530 px FISSI da 881 px in su, cioè fino al passaggio a
+     mobile. Su un laptop 1366 sono il 39% dello schermo mangiato prima ancora di disegnare: il
+     palco da 16 m del modello band ci finiva dentro a 753 px, e un musicista era alto 28 pixel.
+     Misurato nel browser il 31/08, non stimato. */
+  const largh = (query, nome) => {
+    const i = stylesCss.indexOf(query);
+    ok(i > 0, "manca la regola per " + nome);
+    const blocco = stylesCss.slice(i, i + 220);
+    ok(/body\{/.test(blocco), nome + ": la regola deve stare su body, che è il contenitore della griglia");
+    return {
+      cat: +((blocco.match(/--cat: *(\d+)px/) || [])[1] || 0),
+      rail: +((blocco.match(/--rail: *(\d+)px/) || [])[1] || 0),
+    };
+  };
+  const stretto = largh("@media (min-width:881px) and (max-width:1180px)", "schermi molto stretti");
+  const medio = largh("@media (min-width:1181px) and (max-width:1440px)", "laptop");
+  ok(stretto.cat > 0 && stretto.rail > 0 && medio.cat > 0 && medio.rail > 0, "i valori ci sono");
+  /* Più stretto lo schermo, più strette le colonne: se si invertisse, il rimedio peggiorerebbe
+     proprio il caso che deve curare. */
+  ok(stretto.cat < medio.cat, "catalogo: più stretto sullo schermo più piccolo");
+  ok(stretto.rail < medio.rail, "colonna liste: idem");
+  ok(medio.cat < 220 && medio.rail < 310, "e su laptop restano sotto i valori pieni del desktop");
+  /* La griglia deve leggere le variabili, altrimenti le media query non toccano niente. */
+  ok(/grid-template-columns:var\(--cat,220px\) 1fr var\(--rail,310px\)/.test(stylesCss),
+     "la griglia legge --cat e --rail");
+  /* La maniglia di ridimensionamento scrive --rail inline: deve continuare a vincere sulla media
+     query, o l'utente non potrebbe più allargare la colonna su un laptop. */
+  ok(/#railHandle\{[^}]*right:calc\(var\(--rail,310px\)/.test(stylesCss),
+     "la maniglia segue la stessa variabile");
+});
+
+/* ═══ IL RIEPILOGO NON DEVE COPRIRE IL PALCO (31/08) ══════════════════════════════════════════════
+   All'apertura di un modello il riepilogo «Abbiamo ipotizzato questo» stava sopra il fronte del
+   palco appena creato — cioè proprio sulle voci, sui cori e sulle spie di cui parla. Misurato nel
+   browser: 380 px di altezza, il 12% del palco coperto. Il rimedio che c'era («trascinalo tu») è
+   lavoro scaricato sull'utente nel minuto in cui non sa ancora cosa sta guardando. */
+t("il riepilogo del modello fa una riga sola per la stessa domanda", () => {
+  /* Faceva «Batteria: non canta», «Basso: non canta», «Tastiere: non canta»: la stessa domanda
+     scritta tre volte, una sessantina di pixel che spingevano il pannello sul palco. È la stessa
+     lezione già scritta nel codice per le voci — «due righe separate facevano crescere il pannello
+     fin sopra il palco appena creato» — e non applicata qui. */
+  const fn = appjs.slice(appjs.indexOf("function ipotesiDelPalco"), appjs.indexOf("function ipotesiDelPalco") + 4200);
+  ok(/var muti=items\.filter/.test(fn), "gli strumentisti muti si raccolgono in un elenco solo");
+  ok(/righe\.push\(\{[\s\S]{0,400}azioni: muti\.map/.test(fn),
+     "e diventano UNA riga con un bottone per ciascuno");
+  ok(!/\.slice\(0,3\)\.forEach\(function\(it\)\{[\s\S]{0,200}righe\.push/.test(fn),
+     "non c'è più il ciclo che spingeva una riga per strumentista");
+});
+
+t("una constatazione non occupa quanto una decisione", () => {
+  /* «Ascolto: 5 spie» non è una scelta da fare qui (si cambia dal pannello del musicista, e il
+     testo stesso lo diceva): da riga piena a nota compatta. */
+  ok(/azioni\.length \? "as-row" : "as-row as-nota"/.test(appjs),
+     "le righe senza bottoni prendono la classe della nota");
+  ok(/if\(r\.sub && azioni\.length\)/.test(appjs),
+     "e non portano il sottotitolo, che raddoppierebbe l'altezza");
+  ok(/#assunzioni \.as-row\.as-nota\{[^}]*padding:4px/.test(stylesCss), "la nota ha un respiro suo, più stretto");
+  ok(/#assunzioni \.as-row\.as-nota \.as-txt\{[^}]*font-size:11\.5px/.test(stylesCss), "e un corpo più piccolo");
+});
+
+t("il riepilogo si mette dove non copre, se ci sta", () => {
+  ok(/function sottoIlPalco\(\)/.test(appjs), "c'è il calcolo dello spazio libero sotto il palco");
+  /* La fetta va presa DOPO l'inizio della funzione: «window.__assRipristinaPos» compare anche
+     prima nel file (dove viene chiamata), e cercarlo dall'inizio dava una fetta vuota. */
+  const iSotto = appjs.indexOf("function sottoIlPalco");
+  const fn = appjs.slice(iSotto, appjs.indexOf("window.__assRipristinaPos", iSotto));
+  ok(/giuDelPalco \+ margine \+ h \+ 6 > area\.bottom/.test(fn),
+     "se sotto non ci sta, non ci si mette: meglio coprire un po' che finire fuori schermo");
+  ok(/return null/.test(fn), "e in quel caso lascia la posizione di prima");
+  /* Una posizione scelta a mano è una decisione dell'utente e deve vincere sempre. */
+  const iRip = appjs.indexOf("window.__assRipristinaPos", iSotto);
+  const rip = appjs.slice(iRip, appjs.indexOf("head.addEventListener", iRip));
+  ok(/if\(salvata && isFinite\(salvata\.x\)[\s\S]{0,80}return;/.test(rip),
+     "la posizione salvata dall'utente vince e si esce subito");
+  ok(rip.indexOf("sottoIlPalco()") > rip.indexOf("salvata"),
+     "il calcolo automatico viene DOPO, solo se l'utente non ha scelto");
+});
+
+t("il pulsante principale dice dove porta", () => {
+  const app = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="asOk">Inizia da questo palco</.test(app), "«Va bene così» diceva cosa pensi, non cosa succede");
+  /* E la scelta «Non mostrarlo più» deve essere ricordata: provata nel browser il 31/08. */
+  ok(/localStorage\.setItem\("sp_noAssunzioni","1"\)/.test(appjs), "la scelta si scrive");
+  ok(/localStorage\.getItem\("sp_noAssunzioni"\)/.test(appjs), "e si rilegge all'apertura");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
