@@ -19242,10 +19242,41 @@ function renderLayerManager(){
     else { var n=document.createElement("div"); n.className="adv-quante";
       n.textContent = avanz.length===1 ? "1 lista" : avanz.length+" liste"; rows.appendChild(n); }
   }
+  renderStatoRider(rows);
   renderPmAccList();
   renderMusAccList();
   renderCoverList();
   renderLightsList();
+}
+/* A CHE PUNTO È IL RIDER (31/08). Il programma sa già dire se il documento sta in piedi — l'audit
+   calcola punteggio, errori e avvisi in un millesimo e mezzo — e non lo diceva a nessuno: la
+   sezione «Audit progetto» nasce display:none e si trova SOLO cercando «audit» nel catalogo. Con
+   un palco appena creato erano 88/100 e due avvisi veri (14 ingressi senza stage box, 2,6 kW senza
+   quadro) che l'utente non vedeva mai, e in export non lo ferma nessuno perché gli avvisi — a
+   ragione — non bloccano.
+   Qui c'è una riga sola in fondo alle liste: dice a che punto è e apre l'audit. Non insegna niente
+   e non blocca niente: e' la prossima azione, mostrata quando serve. Sparisce sul palco vuoto,
+   dove non c'e' ancora niente da controllare. */
+function renderStatoRider(rows){
+  if(!rows || !(state.items||[]).length) return;
+  var A; try{ A=auditEngine(); }catch(_e){ return; }
+  if(!A) return;
+  var b=document.createElement("button");
+  b.type="button"; b.className="stato-rider";
+  var quante=(A.errs||0)+(A.warns||0);
+  var stato = A.errs>0 ? "err" : (quante>0 ? "warn" : "ok");
+  b.classList.add("sr-"+stato);
+  var testo = A.errs>0 ? (A.errs===1 ? "1 errore da sistemare" : A.errs+" errori da sistemare")
+    : (quante>0 ? (quante===1 ? "1 cosa da guardare" : quante+" cose da guardare")
+    : "Rider pronto");
+  b.innerHTML='<span class="sr-pallino" aria-hidden="true"></span><span class="sr-txt">'+esc(testo)+'</span>'+
+              '<span class="sr-score">'+A.score+'</span>';
+  b.title = "Apri il controllo del progetto: ogni voce dice cosa manca, e molte si sistemano con un clic";
+  b.addEventListener("click", function(){
+    if(typeof toggleAuditView==="function" && typeof auditActive!=="undefined" && !auditActive) toggleAuditView();
+    else if(typeof techAccordionOpen==="function") techAccordionOpen("audit");
+  });
+  rows.appendChild(b);
 }
 /* ===== LUCI — la lista delle richieste (blocco A) ====================================
    Due livelli e non una tabella: il pannello è stretto e ridimensionabile, e il 28/07 su
