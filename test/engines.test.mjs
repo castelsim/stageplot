@@ -12383,5 +12383,72 @@ t("lo stato del rider si legge senza distinguere i colori", () => {
      "col fuoco da tastiera si vede");
 });
 
+/* ═══ TELEFONO: I BERSAGLI DA DITO (31/08) ════════════════════════════════════════════════════════
+   Misurato con le media query del telefono forzate attive (la finestra di Chrome non si lascia
+   ridimensionare e l'app esce dagli iframe per anti-clickjacking): 49 bersagli sotto i 44 px, e fra
+   quelli le undici intestazioni del catalogo — le porte da cui si prende OGNI elemento — a 28 px, le
+   righe delle liste a 28-32, il bottone «Solo» a 17×17, e le due cose aggiunte oggi: «Produzione
+   avanzata» a 11 px e la riga di stato a 30. 44 px è la misura di un polpastrello: sotto, si apre
+   la categoria sbagliata. */
+/* Tutti i blocchi @media (pointer:coarse), delimitati contando le graffe: una fetta a occhio
+   prenderebbe mezzo foglio di stile e il test smetterebbe di discriminare. */
+function bloccoCoarse(css) {
+  const out = [];
+  let i = 0;
+  while ((i = css.indexOf("@media (pointer:coarse)", i)) >= 0) {
+    const apre = css.indexOf("{", i);
+    let d = 0, j = apre;
+    for (; j < css.length; j++) {
+      if (css[j] === "{") d++;
+      else if (css[j] === "}") { d--; if (d === 0) { j++; break; } }
+    }
+    out.push(css.slice(apre, j));
+    i = j;
+  }
+  return out.join("\n");
+}
+
+t("sul telefono si toccano bersagli da dito, in tutta la catena", () => {
+  /* La regola c'era già ma copriva solo una manciata di classi. Questi sono i bersagli del percorso
+     principale: catalogo → sottocategoria → elemento → liste → esporta. */
+  /* Il blocco va estratto contando le graffe: `split(...).slice(1).join()` prendeva TUTTO il resto
+     del file (54 mila caratteri) e il test trovava i selettori ovunque, anche fuori dalla media
+     query — cioè non guardava niente. Scoperto rimettendo il difetto: la mutazione passava. */
+  const coarse = bloccoCoarse(stylesCss);
+  ok(coarse.length > 200 && coarse.length < 6000, "il blocco è quello vero: " + coarse.length + " caratteri");
+  for (const sel of [".cat-head", ".sub-head", ".cat-more", ".layer-row", ".adv-head",
+                     ".stato-rider", ".cat-sheet-close", ".chips button", ".pdf-navbtn"])
+    ok(coarse.includes(sel), "manca dai bersagli da dito: " + sel);
+  /* I campi di testo si toccano una volta e poi si scrive, ma 24 px per le misure del palco sono
+     pochi anche solo per centrarli. */
+  for (const sel of ["#catSearch", "#mW", "#mD", "#pdfTitolo"])
+    ok(coarse.includes(sel), "campo troppo basso su telefono: " + sel);
+  /* E l'avviso «c'è una versione nuova»: è quello che dice di ricaricare, l'ultimo posto dove si
+     vuole sbagliare tocco. */
+  ok(coarse.includes("#updGo") && coarse.includes("#updX"), "l'avviso di aggiornamento");
+});
+
+t("il bottone «Solo» resta piccolo da vedere e diventa grande da toccare", () => {
+  /* 17×17 px, e non porta la classe .layer-ico: restava fuori da ogni regola. Ingrandirlo
+     sposterebbe il nome della lista, quindi l'area cresce SOTTO, invisibile — la tecnica che si usa
+     per le X e i segni di spunta piccoli. Provato nel browser: al centro e a 18 px in ogni
+     direzione il tocco arriva, a 25 px no (non ruba i tocchi ai vicini). */
+  const coarse = bloccoCoarse(stylesCss);
+  ok(/\.layer-solo\{position:relative\}/.test(coarse), "l'ancora per l'area estesa");
+  ok(/\.layer-solo::after\{[^}]*width:44px;height:44px/.test(coarse), "l'area è 44×44");
+  ok(/\.layer-solo::after\{[^}]*transform:translate\(-50%,-50%\)/.test(coarse), "ed è centrata sul bottone");
+  /* Non deve cambiare l'aspetto: niente sfondo, niente bordo. */
+  const regola = (coarse.match(/\.layer-solo::after\{[^}]*\}/) || [""])[0];
+  ok(!/background:(?!none)/.test(regola) && !/border:/.test(regola), "resta invisibile: " + regola.slice(0, 60));
+});
+
+t("il desktop non cambia: le regole valgono solo per il dito", () => {
+  /* Tutte le misure nuove stanno dentro @media (pointer:coarse): col mouse non si applicano.
+     Verificato nel browser — col puntatore fine le altezze restano 28/32/11/30, quelle di sempre. */
+  const fuori = stylesCss.replace(/@media \(pointer:coarse\)\{[^@]*/g, "");
+  ok(!/\.cat-head[^{]*\{[^}]*min-height:44px/.test(fuori), "il catalogo non cresce col mouse");
+  ok(!/\.layer-row[^{]*\{[^}]*min-height:44px/.test(fuori), "né le righe delle liste");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

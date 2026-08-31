@@ -1935,6 +1935,36 @@
   /* ===== Accessibilità: motion ridotto + target touch ===== */
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
   @media (pointer:coarse){.btn,.btn-icon,.cnt-b,.mtbtn,.mact-grid button,.layer-ico,.adv-btn,.feed-seg{min-height:44px}}
+  /* Misurato col telefono simulato il 31/08: restavano fuori dalla riga qui sopra proprio i bersagli
+     che si toccano di più su un telefono — le intestazioni del catalogo (28 px, e sono le undici
+     porte da cui si prende OGNI elemento), le righe delle liste (28-32 px) e le due aggiunte oggi,
+     «Produzione avanzata» (11 px!) e la riga di stato del rider (30 px). 44 px è la misura di un
+     polpastrello: sotto, si sbaglia bersaglio e si apre la categoria sbagliata. */
+  @media (pointer:coarse){
+    .cat-head,.sub-head,.cat-more,.layer-row,.adv-head,.stato-rider,.cat-sheet-close{min-height:44px}
+    /* I campi si toccano una volta e poi si scrive, ma 24 px per le misure del palco sono pochi
+       anche solo per centrarli: qui sono i due che un utente tocca per primi. */
+    #catSearch,#mW,#mD,#mTitle{min-height:40px}
+    /* L'avviso «c'è una versione nuova» ha due bersagli da 30 e 22 px: è quello che dice a chi ha
+       la scheda aperta da ieri di ricaricare, ed è l'ultimo posto dove si vuole sbagliare tocco. */
+    #updGo,#updX{min-height:44px;min-width:44px}
+    /* Nella finestra Esporta i bottoni grossi (PDF, PNG, CSV, Annulla) erano già a 44, ma i chip
+       del formato (A4/A3/A2, Orizz./Vert.) stavano a 28 e le frecce dell'anteprima a 34: sono
+       l'ultimo passo del percorso, quello in cui si sbaglia meno volentieri. */
+    .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
+    .pdf-navbtn{width:44px;height:44px}
+    #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
+    .cat-sheet-close{min-width:44px}
+    /* le righe restano allineate al centro adesso che sono più alte */
+    .layer-row,.cat-head{align-items:center}
+    /* Il bottone «S» (Solo) è 17×17: non porta la classe .layer-ico e restava fuori da ogni regola.
+       Ingrandirlo sposterebbe il nome della lista, quindi resta piccolo da vedere e diventa grande
+       da toccare — l'area cresce sotto, invisibile. È la stessa tecnica che si usa per le X e i
+       segni di spunta piccoli. */
+    .layer-solo{position:relative}
+    .layer-solo::after{content:"";position:absolute;top:50%;left:50%;
+      width:44px;height:44px;transform:translate(-50%,-50%)}
+  }
   /* audit M-22: i controlli icona dei layer (S/occhio/lucchetto/cestino) erano ~20-22px → sotto la
      soglia touch. Su puntatore grosso allargo le colonne e alzo il target a 44px. */
   @media (pointer:coarse){.layer-icons{grid-template-columns:repeat(4,minmax(36px,1fr));gap:4px}.layer-ico{padding:6px}}
