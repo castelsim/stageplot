@@ -888,6 +888,13 @@
   /* --accent (#0d9488) su bianco da' 3,74:1: sotto il 4,5:1 che serve a un testo di 10 px. E' lo
      stesso conto gia' fatto per il bottone primario (vedi il commento sopra .btn.primary), e la
      risposta e' la stessa: --accent-strong. Stesso colore, stessa identita', leggibile. */
+  /* La misura del palco è un bersaglio: si vede che si può toccare, ma resta una didascalia — non
+     diventa un bottone in mezzo alla riga. */
+  .layer-cnt.cnt-apri{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
+    text-underline-offset:3px;text-decoration-color:var(--text-3)}
+  .layer-cnt.cnt-apri:hover{color:var(--accent-strong);text-decoration-color:var(--accent-strong)}
+  .layer-cnt.cnt-apri:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-radius:4px}
+  @media (pointer:coarse){ .layer-cnt.cnt-apri{min-height:44px;display:inline-flex;align-items:center} }
   .layer-group-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-strong);margin:8px 0 3px;padding-left:2px}
   .layer-group-label:first-child{margin-top:2px}
   /* «Produzione avanzata»: la stessa etichetta delle liste, ma è un bottone che apre e chiude.
