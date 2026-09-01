@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.08.31";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.09.01";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1360,6 +1360,11 @@
   .pill.ghost{background:var(--surface);border:1px dashed var(--border-strong);color:var(--text-2);cursor:pointer;font-weight:500}
   .pill.ghost:hover{background:var(--surface-raised)}
   .pill.ghost.sugg{border:1px dashed var(--accent);color:var(--accent-strong)}
+  /* «Aggiungi le N suggerite»: è un'AZIONE, non una pagina da scegliere. Bordo pieno per
+     distinguerla dalle pillole tratteggiate accanto, ma resta secondaria — la scelta è di chi
+     esporta, e questo è solo il modo veloce di prendere quelle che servono. */
+  .pill.ghost.sugg-all{border:1px solid var(--accent-strong);color:var(--accent-strong);font-weight:600}
+  .pill.ghost.sugg-all:hover{background:var(--accent-tint)}
   #pdfPillsHint{font-size:10.5px;color:var(--accent-strong);margin:2px 0 4px}
   .nudge{margin-top:12px;background:#eff6ff;border:1px solid #bfd3f8;border-radius:9px;padding:8px 11px;font-size:11.5px;color:#2563eb;cursor:pointer;user-select:none}
   .nudge b{font-weight:700}
