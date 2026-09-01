@@ -8677,6 +8677,45 @@ t("mixer e interfaccia sono destinazioni: chi non ha una stage box collega li'",
   ok(!A.cabIsDest(mon), "il mixer monitor non è una destinazione dei cavi di palco");
 });
 
+t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => {
+  /* Il seguito della segnalazione ed830b3e. Chi l'ha mandata aveva UN banco sul palco, rinominato
+     «MIXER»: era un «Mixer monitor». Restava con 17 canali e capienza zero, e l'unico segnale era
+     un «ingressi da collegare» di livello info — cioe' niente. Il divieto resta (un monitor
+     distribuisce gli ascolti, un personal mixer sta a valle di un rack, in rete): quello che
+     cambia e' che adesso si spiega. */
+  reset(); A.state.cab.on = true;
+  add("cantante", 300, 500); add("batteria", 500, 500);
+  const mon = add("monmix", 700, 900);
+  mon.label = "MIXER";                      /* com'era nel progetto vero */
+  A.__cabRes = null;
+  ok(!A.cabIsDest(mon), "resta fuori dalle destinazioni: e' la decisione, non una svista");
+  const R = A.auditEngine();
+  /* Il LIVELLO va verificato, non solo il testo: il pannello mostra err/warn/todef e basta, e un
+     avviso con un livello che non e' fra quelli sarebbe li' nei dati e invisibile sullo schermo.
+     E' gia' successo una volta con un finding «info» che non vedeva nessuno. */
+  const f = auditFind(/mixer monitor distribuisce gli ascolti/)[0];
+  ok(f, "e l'audit lo spiega: " + auditMsgs().join(" | "));
+  eq(f.lvl, "warn", "e a un livello che il pannello mostra davvero");
+  eq(R.errs, 0, "ma non e' un errore: il pezzo c'e', e' solo un altro apparecchio");
+  /* La guida del cablaggio porta all'elemento giusto invece che alla stage box. */
+  const g = A.autoConnectNeeds("cabin");
+  ok(g && /mixer monitor non riceve/i.test(g.title), "la guida parla del monitor: " + (g && g.title));
+  ok(g && /console/i.test(g.action.label), "e l'azione aggiunge una console, non una stage box");
+  /* Aggiunta la console, l'equivoco e' chiuso: niente piu' avviso. */
+  add("mixer", 900, 900); A.__cabRes = null;
+  A.auditEngine();
+  ok(!hasMsg(/mixer monitor distribuisce/), "con la console sul palco l'avviso sparisce");
+});
+
+t("chi disegna un duo non vede l'avviso del monitor", () => {
+  /* Non avere una stage box non e' un errore e non e' una mancanza: dal 31/08 «la porta il
+     service». L'avviso e' per chi STA cablando, non per chi butta giu' un palco al volo. */
+  reset(); A.state.cab.on = false;
+  add("cantante", 300, 500); add("monmix", 700, 900);
+  A.__cabRes = null; A.auditEngine();
+  ok(!hasMsg(/mixer monitor distribuisce/), "col cablaggio spento non si dice niente");
+});
+
 t("con un mixer sul palco l'audit non chiede piu' una stage box", () => {
   /* Il cuore della segnalazione: l'utente aveva il banco sul palco e l'app continuava a dirgli che
      mancava una stage box — un avviso che non poteva togliere se non comprando una scatola. */
