@@ -8936,11 +8936,27 @@ function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el &
 function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
 function auditFixStereoOdd(on){ if(!state.cab) state.cab={}; state.cab.stereoOdd=!!on; __cabRes=null; save(); render(); }   /* attiva/disattiva la convenzione L=dispari/R=pari */
 function auditFixOpenChan(){ var b=document.getElementById("bChanList"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
+/* PALCO VUOTO: dire cosa fare (01/09). Chiudendo il benvenuto senza scegliere un modello si resta
+   davanti a un rettangolo con scritto FONDO PALCO e PUBBLICO, e nient'altro: il catalogo e' li' a
+   sinistra ma niente dice di usarlo, e la spiegazione del benvenuto e' appena sparita per sempre.
+   Provato da utente nuovo: zero indicazioni a schermo.
+   Una riga sola dentro il palco, che sparisce al primo elemento e non entra mai nei documenti —
+   nel PDF e nel viewer un palco vuoto e' un palco vuoto, non un invito. */
+function stageEmptyHintMarkup(){
+  if((state.items||[]).length) return '';
+  if(window.__cabStatic || document.body.classList.contains("viewmode")) return '';   /* mai nel PDF ne' in sola lettura */
+  var W=state.stage.w, D=state.stage.d;
+  var testo = (typeof isMobile==="function" && isMobile())
+    ? 'Tocca «Aggiungi» qui sotto per mettere il primo elemento'
+    : 'Cerca o apri una categoria nel catalogo a sinistra: un clic posa l\'elemento sul palco';
+  return '<text class="stage-empty-hint" x="'+(W/2)+'" y="'+(D/2)+'" text-anchor="middle" dominant-baseline="middle">'+esc(testo)+'</text>';
+}
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>';
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>'
+    +stageEmptyHintMarkup();
 }
 /* Legenda dei colori dei cavi (C2, 08/07): i cavi sono già color-coded (audio-in teal, monitor ciano
    tratteggiato, elettrico ambra) ma chi guarda il palco non ha la chiave. Mostra solo i layer attivi,
@@ -11457,6 +11473,12 @@ function deleteSel(){
   Object.keys(vsecs).forEach(function(s){ renumberViolins(+s); });
   Object.keys(bases).forEach(function(b){ renumberInstr(b); });
   clearSelection(); render(); save();
+  /* Dire cosa e' successo e come tornare indietro, nel posto dove uno guarda dopo aver sbagliato. */
+  if(window.__toast){
+    var quanti=Object.keys(_delIds).length;
+    window.__toast(quanti===1 ? "Elemento eliminato" : quanti+" elementi eliminati", false,
+      { label:"Annulla", run:function(){ if(typeof undo==="function") undo(); } });
+  }
 }
 
 /* ============ PALCO / SNAP ============ */
@@ -25774,11 +25796,24 @@ function maybeAskStageSize(explicit){
   var toastEl=document.getElementById("cloudToast");
   var toastT=null;
 
-  function toast(msg, isErr){
+  /* Il messaggio puo' portare UN'AZIONE (01/09): «Eliminato · Annulla». Provato da utente nuovo:
+     cancellato un elemento non succedeva niente a schermo, e per rimediare bisognava indovinare che
+     l'iconcina da 19 px in alto fosse l'annulla. In qualunque programma di oggi, dopo un'azione che
+     toglie qualcosa, compare la scritta con «Annulla» accanto: e' li' che uno la cerca.
+     Terzo parametro facoltativo: le decine di chiamate esistenti non cambiano. */
+  function toast(msg, isErr, azione){
     if(!toastEl) return;
-    toastEl.textContent=msg; toastEl.style.background=isErr?"var(--danger)":"var(--n-900)"; toastEl.hidden=false;
+    toastEl.textContent=msg;
+    if(azione && typeof azione.run==="function"){
+      var b=document.createElement("button");
+      b.type="button"; b.className="toast-act"; b.textContent=azione.label||"Annulla";
+      b.addEventListener("click", function(){ toastEl.hidden=true; if(toastT) clearTimeout(toastT); azione.run(); });
+      toastEl.appendChild(b);
+    }
+    toastEl.style.background=isErr?"var(--danger)":"var(--n-900)"; toastEl.hidden=false;
     if(toastT) clearTimeout(toastT);
-    toastT=setTimeout(function(){ toastEl.hidden=true; }, 3200);
+    /* con un'azione da leggere e raggiungere serve piu' tempo dei 3,2 s del messaggio semplice */
+    toastT=setTimeout(function(){ toastEl.hidden=true; }, azione ? 7000 : 3200);
   }
   try{ window.__toast=toast; }catch(e){}   /* esposto al main scope per l'avviso quota planimetria */
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
