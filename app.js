@@ -6705,10 +6705,23 @@ function autoConnectNeeds(id){
     /* 01/09: il testo diceva solo «stage box», e chi collega al proprio mixer pensava di dover
        aggiungere per forza una scatola che non ha. La stage box resta il consiglio (accorcia i cavi),
        ma la strada breve va detta: basta il banco sul palco. */
-    if(!items.some(cabIsDest)) return {title:"I cavi non hanno dove arrivare",
+    if(!items.some(cabIsDest)){
+      /* 02/09 — il seguito della stessa segnalazione. Chi l'ha mandata aveva UN banco solo sul
+         palco, etichettato «MIXER»: era un «Mixer monitor». Quello e i personal mixer NON ricevono
+         i cavi di palco — un monitor distribuisce gli ascolti, e un personal mixer sta a valle di un
+         rack, in rete. Ma l'app taceva: 17 canali, capienza zero, e nessuno che dicesse perche'.
+         Il divieto resta; quello che cambia e' che adesso si spiega, e l'elemento giusto e' a un
+         clic invece che da cercare nel catalogo. */
+      var monitorFinti = items.filter(function(it){ return it.type==="monmix" || it.type==="hearback"; });
+      if(monitorFinti.length) return {title:"Il mixer monitor non riceve i cavi di palco",
+        msg:"Sul palco c'è "+(monitorFinti.length===1 ? "«"+(monitorFinti[0].label||TYPES[monitorFinti[0].type].nome)+"»" : monitorFinti.length+" banchi monitor")+", che distribuisce gli ascolti. I microfoni e le linee arrivano invece a una console con ingressi, a una stage box o all'interfaccia audio.",
+        steps:["Se il tuo banco fa tutto — sala e monitor — è una «Console / mixer»","Il mixer monitor resta: è un altro apparecchio, e sul rider conta"],
+        action:{label:"Aggiungi una console", run:function(){ var s=guideSpot(60); addItem("mixer", s); aggiunto(); }}};
+      return {title:"I cavi non hanno dove arrivare",
       msg:"Ogni cavo finisce da qualche parte: una stage box, oppure direttamente il mixer o l'interfaccia audio, se li tieni sul palco.",
       steps:["Con la console sul palco colleghi ai suoi ingressi: nessuna stage box","La stage box conviene quando il banco è in sala: porti un cavo solo invece di venti"],
       action:{label:"Aggiungi una stage box", run:function(){ var s=guideSpot(60); addItem("stagebox", s); aggiunto(); }}};
+    }
     return null;
   }
   if(id==="elec"){
@@ -7365,6 +7378,17 @@ function audioCablingEngine(){
   var _fohB=boxes.filter(function(b){ return b.foh; })[0];   /* la stage box del mixer, se marcata */
   var _mixHint=_fohB ? (" — collegali a mano alla stage box del mixer ("+_fohB.letter+").")
                      : " — aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano.";
+  /* 02/09 (segnalazione ed830b3e) — chi l'ha mandata aveva UN banco sul palco, etichettato
+     «MIXER»: era un «Mixer monitor». Quello distribuisce gli ascolti e non riceve i cavi, cosi'
+     restava con 17 canali e capienza zero senza che niente glielo dicesse.
+     NON e' un errore: non avere una stage box non lo e' mai stato (dal 31/08 «la porta il
+     service»), e qui il pezzo c'e' pure — e' solo un altro apparecchio. E' un equivoco, e si
+     chiarisce: livello warn, e solo col cablaggio acceso, cioe' a chi sta davvero collegando. */
+  if(totIn>0 && !boxes.length && state.cab && state.cab.on
+     && (state.items||[]).some(function(it){ return it.type==="monmix" || it.type==="hearback"; })){
+    issues.push({lvl:"warn", code:"monnondest",
+      msg:"Il mixer monitor distribuisce gli ascolti: i cavi di palco non arrivano lì. Se il tuo banco fa sala e monitor insieme, è una «Console / mixer»."});
+  }
   var _palcoCap=boxes.filter(function(b){ return !b.foh; }).reduce(function(a,b){ return a+b.cap; },0);
   var _viaN=links.filter(function(l){ return !l.deleted && l.via; }).length;   /* i canali entrati via USB/Dante non occupano ingressi mic/line */
   if((totIn-_viaN)>_palcoCap && boxes.some(function(b){ return !b.foh; })) issues.push({lvl:"err", code:"cap", msg:"Ingressi palco insufficienti: "+(totIn-_viaN)+" canali per "+_palcoCap+" disponibili sul palco"+_mixHint});
