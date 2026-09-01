@@ -2034,6 +2034,11 @@
     /* Nella finestra Esporta i bottoni grossi (PDF, PNG, CSV, Annulla) erano già a 44, ma i chip
        del formato (A4/A3/A2, Orizz./Vert.) stavano a 28 e le frecce dell'anteprima a 34: sono
        l'ultimo passo del percorso, quello in cui si sbaglia meno volentieri. */
+    /* I 40 menu a tendina del pannello proprietà stavano tutti a 28 px: sono il modo in cui si
+       dichiara un modello, una taglia, un numero di ingressi — cioè quasi tutto quello che rende
+       vero un rider — e sotto il dito erano tutti mezzi bersagli. Trovato l'01/09 misurando il
+       campo «Ingressi» nuovo: era un difetto di famiglia, non suo. */
+    #props select{min-height:44px}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
     .pdf-navbtn{width:44px;height:44px}
     #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
@@ -3180,6 +3185,10 @@ body.dark .ask-all .btn{background:transparent}
         <button class="btn" id="pLblPosTop" style="flex:1;font-size:12px;padding:5px 2px">↑ Sopra</button>
         <button class="btn" id="pLblPosBot" style="flex:1;font-size:12px;padding:5px 2px">↓ Sotto</button>
       </div>
+    </div>
+    <div id="pLocInWrap" style="display:none"><label for="pLocIn">Ingressi <small class="lbl-note">— quanti ne ha il tuo</small></label>
+      <select id="pLocIn"><option value="2">2</option><option value="4">4</option><option value="8">8</option><option value="12">12</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select>
+      <div id="pLocInHint" class="prop-hint"></div>
     </div>
     <div id="pSbChWrap" style="display:none">
       <label class="chk" id="pSbFohWrap"><input type="checkbox" id="pSbFoh"> Stage box del mixer <small class="lbl-note">— lato regia</small></label>

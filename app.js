@@ -6702,9 +6702,12 @@ function autoConnectNeeds(id){
     if(id==="cabout" && !srcOut) return {title:"Non ci sono ascolti da collegare",
       msg:"Le uscite collegano monitor, spie e sidefill alla stage box: al momento non ce ne sono sul palco.",
       steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi collega ogni monitor dalla Monitor list, col fulmine \u26a1 sulla riga"]};
-    if(!items.some(cabIsDest)) return {title:"Manca la stage box",
-      msg:"I cavi devono arrivare da qualche parte: senza una stage box (o un rack I/O) sul palco il cablaggio resta appeso.",
-      steps:["Una stage box generica ha 16 ingressi e 8 uscite","Puoi spostarla e scegliere il modello reale dal pannello"],
+    /* 01/09: il testo diceva solo «stage box», e chi collega al proprio mixer pensava di dover
+       aggiungere per forza una scatola che non ha. La stage box resta il consiglio (accorcia i cavi),
+       ma la strada breve va detta: basta il banco sul palco. */
+    if(!items.some(cabIsDest)) return {title:"I cavi non hanno dove arrivare",
+      msg:"Ogni cavo finisce da qualche parte: una stage box, oppure direttamente il mixer o l'interfaccia audio, se li tieni sul palco.",
+      steps:["Con la console sul palco colleghi ai suoi ingressi: nessuna stage box","La stage box conviene quando il banco è in sala: porti un cavo solo invece di venti"],
       action:{label:"Aggiungi una stage box", run:function(){ var s=guideSpot(60); addItem("stagebox", s); aggiunto(); }}};
     return null;
   }
@@ -6792,11 +6795,30 @@ function cabIsBox(it){ return it.type==="stagebox"||it.type==="substg"||it.type=
    lo è quando il suo modello dichiara ingressi locali (29/07). Predicato SEPARATO da cabIsBox
    apposta: la console non deve ereditare i comportamenti da stage box (pannello canali, Device ID,
    ridimensionamento automatico sul numero di porte — un DM3 ha le misure che ha). */
-function cabIsDest(it){ return cabIsBox(it) || !!cabMixerIn(it); }
+/* DESTINAZIONI LOCALI (01/09, segnalazione di un utente). «Possibilita' di connettere le sorgenti
+   audio agli ingressi locali del mixer (senza usare una stagebox)»: aveva sul palco un gruppo
+   acustico, un mixer e nessuna stage box, e i suoi 17 canali non avevano dove andare.
+   Riprodotto: con una console generica sul palco cabIsDest era false, zero destinazioni, e l'audit
+   gli chiedeva una stage box che non ha e non vuole. Erano destinazioni solo le stage box e gli
+   OTTO modelli di console con ingressi dichiarati (DM3, DM7, SQ, Avantis, dLive): chi ha un mixer
+   qualunque restava fuori — ed e' il caso piu' comune fuori dai grandi service.
+   Qui entrano la console generica e l'interfaccia audio: hanno ingressi propri, e chi non ha una
+   stage box collega li'. Il mixer MONITOR resta fuori di proposito (scelta di Simone): nel modello
+   e' un nodo che distribuisce gli ascolti, non che riceve i cavi di palco. */
+var CAB_DEST_LOCALE = { mixer:1, audiointerface:1 };
+function cabIsDest(it){ return cabIsBox(it) || !!cabMixerIn(it) || !!(it && CAB_DEST_LOCALE[it.type]); }
 function cabBoxCap(it){
   var mx=cabMixerIn(it); if(mx) return Math.max(1, mx.in);   /* mixer: ingressi mic/line di targa */
+  if(it.type==="audiointerface"){   /* col modello scelto vale il suo numero, che e' un dato di targa */
+    var im=(typeof ifaceModelOf==="function") ? ifaceModelOf(it) : null;
+    if(im && im.in>0) return Math.max(1, im.in);
+    return Math.min(64,Math.max(1,Math.round(it.ch||2)));   /* senza modello: due ingressi, il taglio piu' diffuso */
+  }
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(1, STAGEBOX_DB[it.hw].in||8);
-  var def=(it.type==="stagebox")?16:8; return Math.min(64,Math.max(1,Math.round(it.ch||def)));
+  /* La console generica: 16 e' il taglio di un mixer da palco (non i 32 di un banco grande, non gli
+     8 di una scatoletta). Si cambia dal pannello, come per le stage box generiche. */
+  var def=(it.type==="stagebox")?16:(it.type==="mixer"?16:8);
+  return Math.min(64,Math.max(1,Math.round(it.ch||def)));
 }
 function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
   var mxo=mixerModelOf(it); if(mxo && mxo.in>0) return Math.max(0, mxo.out||0);   /* mixer: uscite analogiche locali */
@@ -7361,7 +7383,7 @@ function audioCablingEngine(){
   if(mixChTot>capOutTot && boxes.length) issues.push({lvl:"err", msg:"Uscite monitor insufficienti ("+mixChTot+" richieste / "+capOutTot+" disponibili): serve una box con più uscite."});
   mixes.forEach(function(m){ if(!m.box && !m.pending) issues.push({lvl:"err", msg:"Monitor senza uscita: "+m.name+" (uscite esaurite)."}); });
   var mixPend=mixes.filter(function(m){ return m.pending; }).length;
-  if(pending.length) issues.push({lvl:"info", msg:pending.length+" ingressi da collegare: seleziona lo strumento e trascina dal pallino teal a una stage box."});
+  if(pending.length) issues.push({lvl:"info", msg:pending.length+" ingressi da collegare: seleziona lo strumento e trascina dal pallino teal alla stage box, o direttamente al mixer."});
   if(mixPend) issues.push({lvl:"info", msg:mixPend+" mix monitor da collegare (pallino ciano → stage box)."});
   mixes.forEach(function(m){ if(!m.box) return;
     var far=m.sinks.some(function(sk){ return Math.hypot(sk.x-m.box.x, sk.y-m.box.y)/100>8; });
@@ -9980,6 +10002,23 @@ function renderProps(){
       alw.querySelectorAll("[data-align]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-align")===al); }); }
   }
   if(isTxt) document.getElementById("pTxtColor").value = it.txtColor || "#1f2937";
+  /* Il numero di ingressi si dichiara anche sulle destinazioni locali (mixer generico, interfaccia):
+     senza il campo, il default resterebbe l'unica verita' e non ci sarebbe modo di correggerlo —
+     che e' proprio il difetto per cui le stage box generiche hanno sempre avuto questo campo. */
+  (function(){
+    var loc=document.getElementById("pLocInWrap");
+    if(!loc) return;
+    var mostra = !!(CAB_DEST_LOCALE[it.type]) && !(it.type==="audiointerface" && ifaceModelOf(it));
+    loc.style.display = mostra ? "block" : "none";
+    if(!mostra) return;
+    var sel=document.getElementById("pLocIn"), cap=String(cabBoxCap(it));
+    if(![].some.call(sel.options,function(o){ return o.value===cap; })){
+      var op=document.createElement("option"); op.value=cap; op.textContent=cap; sel.appendChild(op); }
+    sel.value=cap;
+    document.getElementById("pLocInHint").textContent = it.type==="mixer"
+      ? "Gli ingressi mic/line del banco: le sorgenti si collegano qui."
+      : "Gli ingressi della scheda. Scegliendo il modello vale il suo numero di targa.";
+  })();
   var sbw=document.getElementById("pSbChWrap");
   if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
     if(isBox){ cabFillSbHw();
@@ -11125,7 +11164,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
-  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
+  group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
@@ -17756,6 +17795,11 @@ function renderCabPanel(){
     });
   }
   if(sb) sb.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.ch=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
+  /* Ingressi delle destinazioni locali (mixer generico, interfaccia senza modello): stesso gesto del
+     campo delle stage box, ma senza sbAutoSize — mixer e interfaccia hanno un ingombro loro, che non
+     dipende dal numero di canali. */
+  var lin=document.getElementById("pLocIn");
+  if(lin) lin.addEventListener("change", function(){ var it=getSel(); if(it && CAB_DEST_LOCALE[it.type]){ it.ch=+this.value; __cabRes=null; save(); render(); renderProps(); } });
   var sbo=document.getElementById("pSbOut");
   if(sbo) sbo.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ it.outCh=+this.value; if(typeof sbAutoSize==="function") sbAutoSize(it); __cabRes=null; save(); render(); } });
   var pom=document.getElementById("pOwnMicMode");   /* dentro la zona: solo panoramico, oppure mic strumento + panoramico */

@@ -5986,7 +5986,9 @@ t("quando manca la stage box il cablaggio automatico guida invece di rispondere 
   reset(); A.state.cab.on = true; A.layerSoloUI = {}; A.__cabRes = null;
   add("cantante", 300, 400);
   const need = A.autoConnectNeeds("cabin");
-  ok(need && /stage box/i.test(need.title), "attesa la guida sulla stage box: " + JSON.stringify(need));
+  /* 01/09 il titolo non nomina piu' la stage box (ora vale anche il mixer sul palco): l'ancora
+     stabile e' l'AZIONE proposta, che e' quello che il test vuole davvero verificare. */
+  ok(need && need.action && /stage box/i.test(need.action.label), "attesa la guida sulla stage box: " + JSON.stringify(need));
   ok(need.action && typeof need.action.run === "function", "la guida deve poter aggiungere la stage box");
   need.action.run();
   ok(A.state.items.some(A.cabIsBox), "la stage box non e' stata aggiunta");
@@ -7487,7 +7489,7 @@ t("con i canali ma senza stage box la guida chiede la stage box", () => {
   const z = add("miczone", 500, 400); z.w = 220; z.d = 200;
   A.__cabRes = null;
   const g = A.autoConnectNeeds("cabin");
-  ok(g && /stage box/i.test(g.title), "il passo successivo e' quello giusto: " + (g && g.title));
+  ok(g && g.action && /stage box/i.test(g.action.label), "il passo successivo e' quello giusto: " + (g && g.title));
 });
 t("nella vista Ingressi la zona sta in primo piano: e' lei la sorgente", () => {
   reset();
@@ -8641,14 +8643,64 @@ t("il lucchetto ferma davvero i piani d'appoggio", () => {
    ═══════════════════════════════════════════════════════════════════════════ */
 console.log("\n— Il mixer e' una destinazione —");
 
-t("un DM3 sul palco e' una destinazione, una console generica senza modello no", () => {
+t("mixer e interfaccia sono destinazioni: chi non ha una stage box collega li'", () => {
+  /* CAMBIATO IL 01/09 su segnalazione di un utente: «possibilità di connettere le sorgenti audio
+     agli ingressi locali del mixer (senza usare una stagebox)». Aveva un gruppo acustico, un mixer
+     sul palco e nessuna stage box: i suoi 17 canali non avevano dove andare, e l'audit gli chiedeva
+     una stage box che non ha e non vuole.
+     Prima erano destinazioni solo le stage box e gli OTTO modelli di console con ingressi
+     dichiarati: chi ha un mixer qualunque restava fuori, ed è il caso più comune fuori dai grandi
+     service.
+
+     PERCHÉ NON CONTRADDICE «nessun dato inventato». La regola vale sui MODELLI REALI: di un DM3 il
+     numero o sta nel manuale o non si scrive. Un elemento GENERICO non ha un costruttore da
+     smentire — è un segnaposto che dice «qui c'è un mixer», e quanti ingressi abbia lo sa l'utente.
+     È esattamente il trattamento che le stage box generiche hanno sempre avuto: default 16, campo
+     «Ingressi» nel pannello per correggerlo. */
   reset();
   const dm3 = add("dm3", 600, 700);
   const gen = add("mixer", 200, 700);
+  const ifc = add("audiointerface", 400, 700);
   ok(A.cabIsDest(dm3), "il DM3 dichiara 16 ingressi mic/line: e' una destinazione");
-  ok(!A.cabIsDest(gen), "la console generica non ha un modello: nessun ingresso inventato");
   eq(A.cabBoxCap(dm3), 16, "capienza dal modello");
   eq(A.cabBoxCapOut(dm3), 8, "uscite dal modello");
+  ok(A.cabIsDest(gen), "e ora lo e' anche la console generica");
+  eq(A.cabBoxCap(gen), 16, "col taglio di un mixer da palco, che si cambia dal pannello");
+  ok(A.cabIsDest(ifc), "e l'interfaccia audio, dove chi registra collega i microfoni");
+  eq(A.cabBoxCap(ifc), 2, "senza modello: due ingressi, il taglio più diffuso");
+  /* Col modello scelto vale il SUO numero, che è un dato di targa letto sul manuale. */
+  ifc.hw = "umc1820";
+  eq(A.cabBoxCap(ifc), 8, "col modello scelto valgono i suoi 8 ingressi, non il default");
+  /* Il mixer MONITOR resta fuori di proposito: nel modello è un nodo che distribuisce gli ascolti,
+     non che riceve i cavi di palco. */
+  const mon = add("monmix", 800, 700);
+  ok(!A.cabIsDest(mon), "il mixer monitor non è una destinazione dei cavi di palco");
+});
+
+t("con un mixer sul palco l'audit non chiede piu' una stage box", () => {
+  /* Il cuore della segnalazione: l'utente aveva il banco sul palco e l'app continuava a dirgli che
+     mancava una stage box — un avviso che non poteva togliere se non comprando una scatola. */
+  reset();
+  add("cantante", 300, 600);
+  const g = A.autoConnectNeeds("cabin");
+  ok(g && /non hanno dove arrivare/.test(g.title), "senza destinazioni l'avviso c'e' ancora: " + (g && g.title));
+  ok(/mixer|interfaccia/i.test(g.msg), "e dice che va bene anche il mixer, non solo la stage box");
+  add("mixer", 600, 800);
+  eq(A.autoConnectNeeds("cabin"), null, "col mixer sul palco l'avviso sparisce");
+});
+
+t("gli ingressi del mixer generico si dichiarano dal pannello", () => {
+  /* Il default e' un punto di partenza, non una verita': senza il campo per correggerlo saremmo noi
+     a decidere quanti ingressi ha il banco di un altro — vedi il commento del test qui sopra. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pLocInWrap"/.test(html), "il blocco del campo esiste nel markup pubblicato");
+  ok(/id="pLocIn"[\s\S]{0,400}value="32"/.test(html), "e arriva fino a 32 ingressi");
+  ok(/CAB_DEST_LOCALE\[it\.type\]\)\{ it\.ch=\+this\.value/.test(appjs),
+     "e il cambio scrive davvero it.ch: senza il gestore il campo sarebbe una decorazione");
+  reset();
+  const gen = add("mixer", 200, 700);
+  gen.ch = 24;
+  eq(A.cabBoxCap(gen), 24, "e la capienza segue quello che ha dichiarato l'utente");
 });
 
 t("col DM3 sul palco il motore NON propone piu' una drop box", () => {
@@ -12444,6 +12496,17 @@ t("il bottone «Solo» resta piccolo da vedere e diventa grande da toccare", () 
   /* Non deve cambiare l'aspetto: niente sfondo, niente bordo. */
   const regola = (coarse.match(/\.layer-solo::after\{[^}]*\}/) || [""])[0];
   ok(!/background:(?!none)/.test(regola) && !/border:/.test(regola), "resta invisibile: " + regola.slice(0, 60));
+});
+
+t("i menu a tendina del pannello reggono il dito", () => {
+  /* Misurati nel browser l'01/09: TUTTI E 40 i select di #props stavano a 28 px, sotto i 44 della
+     regola. Non e' il campo «Ingressi» nuovo ad essere sbagliato: lo era la famiglia intera, e il
+     campo nuovo l'ha solo fatta vedere. Da qui si dichiarano modello, taglia e numero di ingressi:
+     e' il pannello con cui si rende vero un rider. */
+  const coarse = bloccoCoarse(stylesCss);
+  ok(/#props select\{[^}]*min-height:44px/.test(coarse), "i select del pannello arrivano a 44 px col dito");
+  const fuori = stylesCss.replace(/@media \(pointer:coarse\)\{[^@]*/g, "");
+  ok(!/#props select\{[^}]*min-height:44px/.test(fuori), "e col mouse restano quelli di sempre");
 });
 
 t("il desktop non cambia: le regole valgono solo per il dito", () => {
