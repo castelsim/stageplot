@@ -10449,7 +10449,7 @@ function auditEngine(){
   /* Soglie (audit 27/07): sotto una certa dimensione questi rilievi sono fuori scala. Per 2 canali si
      tirano due cavi al banco, e 200 W sono un ampli in una Schuko: né stage box né quadro elettrico.
      Sopra la soglia tornano a essere quello che sono, cioè roba che manca davvero. */
-  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio ma nessuna stage box reale.","Audio","Attiva Cablaggio audio e trascina una stage box dal catalogo.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
+  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: attiva Cablaggio audio e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
@@ -20485,8 +20485,15 @@ function renderPatchPanel(){
   var bar=document.createElement("div"); bar.className="cab-bar"+(freeRows.length?"":" done");
   var txt=document.createElement("span"); txt.className="cab-bar-txt";
   if(freeRows.length){
-    txt.innerHTML='<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale da collegare":"canali da collegare")
-      + (boxReali.length ? "" : ' <span class="lbl-note">— manca una stage box</span>');
+    /* Senza NESSUNA stage box non e' una mancanza: e' il caso normale di una band che manda il
+       rider al locale, dove la box la porta il service. Dirle «manca una stage box» — per giunta
+       insieme al ⚡ su tutte e quattordici le righe e all'avviso dell'audit — la fa sentire in
+       errore mentre ha fatto tutto giusto. Quando invece UNA box c'e', chi sta cablando vuole
+       sapere quanti canali restano, e il testo resta quello di prima (31/08). */
+    txt.innerHTML = boxReali.length
+      ? ('<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale da collegare":"canali da collegare"))
+      : ('<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale":"canali")+
+         ' <span class="lbl-note">— li collega il service. Aggiungi una stage box se vuoi disegnarlo tu</span>');
   } else txt.innerHTML='\u2713 Tutti i canali sono cablati';
   bar.appendChild(txt);
   if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
@@ -26535,6 +26542,20 @@ function pdfChannelPage(doc, L, paperKey){
     if(!hintEl){ hintEl=document.createElement("div"); hintEl.id="pdfPillsHint"; host.parentNode.insertBefore(hintEl, host.nextSibling); }
     hintEl.textContent = nSugg ? "Le pagine col bordo verde sono suggerite dagli elementi sul palco." : "";
     hintEl.style.display = nSugg ? "" : "none";
+    /* «Aggiungi le suggerite» (31/08). Le pagine partono tutte spente per scelta — il programma non
+       decide al posto di chi esporta (16/08) — ma per prendere quelle che servono davvero bisognava
+       cliccarle una per una, oppure prendersi «Tutte le pagine», che ne aggiunge anche di inutili.
+       Usando il software da band: creato il modello e cliccato Esporta, il PDF era «solo palco» —
+       cioè senza la lista ingressi, che è la ragione per cui uno è venuto qui. Un clic solo per le
+       pagine che il palco stesso suggerisce toglie l'attrito senza decidere niente. */
+    if(nSugg>0){
+      var sug=mk("Aggiungi le "+nSugg+" suggerite","pill ghost sugg-all");
+      var _sugg=function(){ Object.keys(sugg).forEach(function(k){ _pdfPillSel[k]=true; });
+        pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+      sug.addEventListener("click", _sugg);
+      if(typeof premibile==="function") premibile(sug, _sugg, "Aggiungi al PDF le pagine suggerite dal palco");
+      host.appendChild(sug);
+    }
     var rest=_pdfTechPages.length-nSel;
     if(rest>1){
       var all=mk("Tutte le pagine","pill ghost");
