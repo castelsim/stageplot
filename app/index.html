@@ -345,6 +345,20 @@
   body.dark #conflictBar{background:#33270f;border-color:#5a4a1a;color:#e5e7eb}
   body.dark #conflictBar .cb-msg b{color:#fbbf24}
   body.dark #conflictBar #cbCopy{background:#222b38;border-color:#314046;color:#e5e7eb}
+  /* L'azione dentro il messaggio («Eliminato · Annulla»): un bottone vero, chiaro sul fondo scuro
+     del toast e con un bersaglio da dito. È l'unica via d'uscita offerta dopo un'eliminazione, e
+     deve essere raggiungibile anche da tastiera. */
+  .toast-act{background:none;border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;
+    padding:5px 12px;font:600 13px/1 inherit;cursor:pointer;flex:0 0 auto;min-height:32px;white-space:nowrap}
+  .toast-act:hover{background:rgba(255,255,255,.14);border-color:#fff}
+  .toast-act:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @media (pointer:coarse){ .toast-act{min-height:44px;padding:8px 16px} }
+  /* Dove sta il messaggio. Il «bottom» era scritto inline nell'HTML, dove nessuna media query
+     poteva toccarlo: su telefono l'avviso finiva SOPRA il dock, coprendo per 27 px i quattro
+     bottoni (Aggiungi · Esporta · Condividi · Menu) per i sette secondi in cui resta a schermo.
+     Misurato il 01/09. Qui sale sopra la barra, con la stessa variabile che usa il riepilogo. */
+  #cloudToast{bottom:26px}
+  @media (max-width:880px){ #cloudToast{bottom:calc(var(--dock-h,64px) + 12px)} }
   /* toast "nuova versione" (SW): barra fissa in basso, sopra tutto, entrambi i temi */
   #updToast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
     z-index:90;display:flex;align-items:center;gap:12px;background:var(--n-900);color:#f3f4f6;
@@ -616,6 +630,10 @@
   .grid line.m{stroke:var(--grid-major)}
   .cl{stroke:var(--axis);stroke-width:1.5;stroke-dasharray:22 16}
   .zone-lbl{fill:var(--text-3);font-size:16px;letter-spacing:2px}
+  /* Il suggerimento del palco vuoto: si legge, non grida. Non intercetta i clic — chi sa già cosa
+     fare deve poter cliccare il palco sotto senza incontrarlo. */
+  .stage-empty-hint{fill:var(--text-3);font-size:19px;pointer-events:none;font-style:italic}
+  body.dark .stage-empty-hint{fill:#94a3b8}
   /* Cablaggio audio calcolato (layer tecnico) — colore layer AUDIO = teal (architettura colori per layer) */
   .cab-line{fill:none;stroke:#0d9488;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
   .cab-line.cab-manual{stroke:#0e7490}
@@ -4605,7 +4623,7 @@ body.dark .ask-all .btn{background:transparent}
     <div id="cloudBody" style="padding:18px"></div>
   </div>
 </div>
-<div id="cloudToast" role="status" aria-live="polite" hidden style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:210;background:var(--n-900);color:#fff;padding:10px 16px;border-radius:var(--r-md);font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center"></div>
+<div id="cloudToast" role="status" aria-live="polite" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:210;background:var(--n-900);color:#fff;padding:10px 16px;border-radius:var(--r-md);font:14px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center;display:flex;align-items:center;gap:14px;justify-content:center"></div>
 
 <!-- ===================== DIALOGO DI CONFERMA (azioni distruttive) ===================== -->
 <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="cfmTitle" hidden>
