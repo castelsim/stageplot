@@ -1956,6 +1956,11 @@
     /* Nella finestra Esporta i bottoni grossi (PDF, PNG, CSV, Annulla) erano già a 44, ma i chip
        del formato (A4/A3/A2, Orizz./Vert.) stavano a 28 e le frecce dell'anteprima a 34: sono
        l'ultimo passo del percorso, quello in cui si sbaglia meno volentieri. */
+    /* I 40 menu a tendina del pannello proprietà stavano tutti a 28 px: sono il modo in cui si
+       dichiara un modello, una taglia, un numero di ingressi — cioè quasi tutto quello che rende
+       vero un rider — e sotto il dito erano tutti mezzi bersagli. Trovato l'01/09 misurando il
+       campo «Ingressi» nuovo: era un difetto di famiglia, non suo. */
+    #props select{min-height:44px}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
     .pdf-navbtn{width:44px;height:44px}
     #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
