@@ -2407,7 +2407,7 @@ t("progetto piccolo: niente stage box/distro/monitor richiesti, e nessun errore 
   A.__cabRes = null; A.__elecRes = null;
   const R = A.auditEngine();
   eq(R.errs, 0, "un duo non deve avere errori critici; findings: " + auditMsgs().join(" | "));
-  ok(!hasMsg(/nessuna stage box reale/), "sotto i 4 canali la stage box non serve");
+  ok(!hasMsg(/nessuna stage box/), "sotto i 4 canali la stage box non serve");
   ok(!hasMsg(/nessun quadro\/distro/), "sotto 1 kW il quadro non serve");
   ok(!hasMsg(/i musicisti non si sentono/), "sotto i 4 canali i monitor sono del locale");
   ok(amp && A.WATT.comboamp === 150, "il carico di prova deve restare piccolo");
@@ -2417,7 +2417,11 @@ t("progetto grande: le stesse regole tornano, e «nessun quadro» esce UNA volta
   add("batteria", 300, 300); add("astamic", 400, 400); add("astamic", 500, 400);
   for (let i = 0; i < 6; i++) add("stack", 200 + i * 60, 600);   /* 6 × 250 W = 1,5 kW */
   A.__cabRes = null; A.__elecRes = null;
-  ok(hasMsg(/nessuna stage box reale/), "sopra soglia la stage box torna a mancare davvero");
+  /* Il rilievo c'è ancora, ma dal 31/08 dice un'altra cosa: non «manca» — la porta il service —
+     ma «se vuoi disegnare tu dove entrano i canali, aggiungi una box». A una band che manda il
+     rider al locale il vecchio testo diceva che aveva sbagliato mentre aveva fatto tutto giusto. */
+  ok(hasMsg(/nessuna stage box/), "sopra soglia il rilievo torna");
+  ok(hasMsg(/la porta il service/), "e dice di chi è il pezzo, invece di dare la colpa a chi legge");
   const q = auditFind(/nessun quadro\/distro/);
   eq(q.length, 1, "la regola del quadro deve comparire una volta sola; findings: " + auditMsgs().join(" | "));
   /* Su un progetto in cui l'elettrico non è ancora stato aperto la mancanza è un «non hai ancora
@@ -12448,6 +12452,42 @@ t("il desktop non cambia: le regole valgono solo per il dito", () => {
   const fuori = stylesCss.replace(/@media \(pointer:coarse\)\{[^@]*/g, "");
   ok(!/\.cat-head[^{]*\{[^}]*min-height:44px/.test(fuori), "il catalogo non cresce col mouse");
   ok(!/\.layer-row[^{]*\{[^}]*min-height:44px/.test(fuori), "né le righe delle liste");
+});
+
+/* ═══ USATO DA BAND (31/08) ═══════════════════════════════════════════════════════════════════════
+   Percorso completo come lo farebbe una band: benvenuto → modello Band → «Formazione tipica» →
+   nome del progetto → liste → esporta. Due attriti trovati usandolo, non leggendo il codice. */
+t("a chi non ha la stage box non si dice che ha sbagliato", () => {
+  /* Il programma lo diceva TRE VOLTE a una band appena creato il palco: nell'audit, nella testata
+     della lista ingressi, e col ⚡ su tutte e quattordici le righe. Ma il rider di una band non
+     contiene la stage box: la porta il service. Il gemello sull'elettrico lo diceva già
+     («Lo aggiunge il service»), questo no. */
+  ok(!/nessuna stage box reale/.test(appjs), "sparita la formulazione che suonava come un errore");
+  ok(/la porta il service, se non la disegni tu/.test(appjs), "ora dice di chi è il pezzo");
+  /* E la testata della lista: con UNA box il conteggio serve a chi cabla e resta com'era; senza
+     NESSUNA box parla a chi il cablaggio non lo fa. */
+  const fn = appjs.slice(appjs.indexOf("txt.innerHTML = boxReali.length"), appjs.indexOf("txt.innerHTML = boxReali.length") + 600);
+  ok(/canali da collegare/.test(fn), "con la box: quanti canali restano");
+  ok(/li collega il service/.test(fn), "senza box: chi li collegherà");
+  ok(/Aggiungi una stage box se vuoi disegnarlo tu/.test(fn), "e la porta resta aperta");
+});
+
+t("le pagine suggerite si prendono con un clic solo", () => {
+  /* Le pagine del PDF partono tutte spente per scelta (16/08: «il bordo verde dice quali
+     servirebbero, senza deciderlo»), e quella scelta resta. Ma per prendere le suggerite bisognava
+     cliccarle una per una, o prendersi «Tutte le pagine» — che ne aggiunge anche di inutili.
+     Usandolo da band: creato il modello e cliccato Esporta, il PDF era «solo palco», cioè senza la
+     lista ingressi, che è la ragione per cui uno è venuto qui. */
+  ok(/Aggiungi le "\+nSugg\+" suggerite/.test(appjs), "il bottone c'è e dice quante sono");
+  const fn = appjs.slice(appjs.indexOf("if(nSugg>0){"), appjs.indexOf("var rest=_pdfTechPages.length-nSel;"));
+  ok(/Object\.keys\(sugg\)\.forEach/.test(fn), "aggiunge SOLO quelle suggerite dal palco");
+  ok(!/\_pdfTechPages\.forEach/.test(fn), "non tutte: «Tutte le pagine» è un altro bottone");
+  ok(/pdfRememberPages\(\)/.test(fn), "e la scelta si ricorda, come per le altre");
+  /* Compare solo se ci sono suggerimenti: un bottone «aggiungi le 0 suggerite» è rumore. */
+  ok(/if\(nSugg>0\)\{/.test(appjs), "senza suggerimenti non compare");
+  /* Resta un'azione secondaria: la decisione è di chi esporta. */
+  ok(/\.pill\.ghost\.sugg-all\{[^}]*border:1px solid/.test(stylesCss), "si distingue dalle pillole");
+  ok(!/\.pill\.ghost\.sugg-all\{[^}]*background:var\(--accent\)/.test(stylesCss), "ma non è un bottone primario");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
