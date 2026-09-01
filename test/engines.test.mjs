@@ -12556,5 +12556,36 @@ t("il messaggio può portare un'azione, e le chiamate di prima non cambiano", ()
   ok(!/id="cloudToast"[^>]*bottom:26px/.test(app), "niente più bottom inline che nessuna regola può battere");
 });
 
+/* ═══ LE MISURE DEL PALCO (01/09) ═════════════════════════════════════════════════════════════════
+   Scenario 3, con la domanda più ovvia che si possa fare: «il mio palco è 8×5, come lo cambio?».
+   Si clicca sulla riga che dice «12 × 8 m» e si apre il riepilogo di aste e leggii. Le misure stanno
+   in «Forma del palco», che vive nel CATALOGO — dove si prendono gli elementi, non dove si configura
+   il palco: nessuno ci arriva cercando un'impostazione. */
+t("la misura del palco porta dove si cambia", () => {
+  const fn = appjs.slice(appjs.indexOf('if(L.id==="stage"){\n    var cnt=row.querySelector(".layer-cnt")'),
+                          appjs.indexOf("var _apriChiudi=function(e)"));
+  ok(fn.length > 100, "la riga del palco tratta la sua misura in modo speciale");
+  ok(/cnt\.classList\.add\("cnt-apri"\)/.test(fn), "la misura è marcata come bersaglio");
+  ok(/toggleStageEdit/.test(fn), "e apre «Forma del palco», non una copia dei campi");
+  ok(/e\.stopPropagation\(\)/.test(fn), "senza far scattare anche l'apri/chiudi della riga");
+  /* Il resto della riga continua a fare quello che faceva: non si toglie niente. */
+  ok(/closest\(".layer-cnt.cnt-apri"\)\) return;/.test(appjs), "il click sulla misura non cambia il fuoco");
+  /* Si deve vedere che è toccabile, ma resta una didascalia, non un bottone in mezzo alla riga. */
+  ok(/\.layer-cnt\.cnt-apri\{cursor:pointer/.test(stylesCss), "ha il cursore giusto");
+  ok(/@media \(pointer:coarse\)\{ \.layer-cnt\.cnt-apri\{min-height:44px/.test(stylesCss),
+     "e su telefono è da dito");
+});
+
+t("il palco misura lo stesso in tutti i posti dove è scritto", () => {
+  /* «16 × 7 m» nella riga contro «16 m × 6,5 m» nel pannello, visibili INSIEME appena si clicca
+     sulla misura: Math.round(650/100) faceva sparire mezzo metro di palco su uno strumento che si
+     chiama «in scala». Ora la riga usa fmtM, la stessa funzione del pannello. */
+  const fn = appjs.slice(appjs.indexOf("function layerSummary"), appjs.indexOf("function layerSummary") + 900);
+  ok(/fmtM\(s\.w\|\|0\)/.test(fn) && /fmtM\(s\.d\|\|0\)/.test(fn), "usa fmtM, come il pannello");
+  ok(!/Math\.round\(\(s\.[wd]\|\|0\)\/100\)/.test(fn), "niente più arrotondamento all'intero");
+  /* fmtM tiene un decimale e non ne inventa: 6,5 resta 6,5 e 6 non diventa «6,0». */
+  ok(/maximumFractionDigits:1/.test(appjs), "un decimale quando serve, nessuno quando non serve");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

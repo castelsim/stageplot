@@ -17233,7 +17233,12 @@ var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"mon
    Usa le cache dei motori (niente force): la riga si ridisegna a ogni render. */
 function layerSummary(L){
   try{
-    if(L.id==="stage"){ var s=state.stage||{}; return Math.round((s.w||0)/100)+" × "+Math.round((s.d||0)/100)+" m"; }
+    /* Stessa funzione del pannello «Forma del palco» (01/09). Con Math.round un palco profondo 6,5 m
+       diventava «7 m»: mezzo metro sparito su uno strumento che si chiama «in scala», e per giunta
+       accanto al pannello che scriveva 6,5 — due numeri diversi per la stessa cosa, visibili
+       insieme appena si clicca sulla misura. */
+    if(L.id==="stage"){ var s=state.stage||{};
+      return fmtM(s.w||0).replace(" m","")+" × "+fmtM(s.d||0); }
     if(L.id==="mus"){ var n=(state.items||[]).filter(function(x){ return musLayerItem(x.type); }).length; return n?String(n):""; }
     /* Sotto un layer che si chiama «Input» il numero nudo basta: scrivere «11 canali» rubava spazio
        al nome, che finiva troncato in «Out…». L'unità resta dove non è deducibile (kW, metri). */
@@ -17281,7 +17286,27 @@ function renderLayerRow(L, container){
   row.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span>'
     +(_sum?'<span class="layer-cnt">'+esc(_sum)+'</span>':'');
   row.title=focus?"Clicca per mostrare tutte le liste":("Lavora su: "+L.name+" (mette a fuoco, sfuma gli altri)");
+  /* LA MISURA DEL PALCO PORTA DOVE SI CAMBIA (01/09). Provato da utente nuovo con la domanda piu'
+     ovvia — «il mio palco e' 8×5, come lo cambio?»: si clicca sulla riga che dice «12 × 8 m», e si
+     apre il riepilogo di aste e leggii. Le misure stanno in «Forma del palco», che pero' vive nel
+     CATALOGO, cioe' dove si prendono gli elementi, non dove si configura il palco: nessuno ci
+     arriva cercando un'impostazione.
+     Qui il numero stesso diventa il bersaglio: chi vede «16 × 6,5 m» e vuole cambiarlo ci clicca
+     sopra. Il resto della riga continua a fare quello che faceva. */
+  if(L.id==="stage"){
+    var cnt=row.querySelector(".layer-cnt");
+    if(cnt){
+      cnt.classList.add("cnt-apri");
+      cnt.title="Cambia le misure del palco";
+      /* Stessa porta del catalogo: apre «Forma del palco», non una copia dei campi. */
+      var _misure=function(e){ if(e) e.stopPropagation();
+        if(typeof toggleStageEdit==="function" && !stageEdit) toggleStageEdit(); };
+      cnt.addEventListener("click", _misure);
+      if(typeof premibile==="function") premibile(cnt, _misure, "Cambia le misure del palco");
+    }
+  }
   var _apriChiudi=function(e){
+    if(e && e.target && e.target.closest && e.target.closest(".layer-cnt.cnt-apri")) return;   /* la misura ha la sua azione */
     if(e && e.target && e.target.closest && e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
     else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="focus"; }   /* tendina = fuoco: contesto sfumato */
