@@ -823,6 +823,10 @@
   /* SEGMENTA (28/07): premi un cavo e la sua unica azione compare lì, sopra al punto premuto */
   .cab-pop{min-width:0}
   .cab-pop .cab-ctx-i{padding:6px 12px;font-weight:600;white-space:nowrap}
+  /* 02/09 — finora `.cab-ctx` si apriva SOLO col tasto destro, che su un telefono non esiste: le
+     voci a ~29 px erano piccole ma irraggiungibili, quindi innocue. Da oggi il menu del punto
+     d'arrivo si apre con un clic normale, e col dito ci si arriva davvero. */
+  @media (pointer:coarse){ .cab-ctx-i{min-height:44px;display:flex;align-items:center} }
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
