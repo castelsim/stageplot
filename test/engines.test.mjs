@@ -13141,6 +13141,60 @@ t("l'area di stampa si legge anche su un telefono", () => {
   ok(!/#printAreaModal \.pa-nums\{grid-template-columns:1fr 1fr\}/.test(fuori), "col mouse non cambia niente");
 });
 
+t("toccare un campo non fa zoomare Safari", () => {
+  /* IL DIFETTO PIU' SENTITO DEL TELEFONO. Un campo sotto i 16px fa zoomare Safari al focus, e il
+     telefono resta ingrandito finche' non si fa pinch a mano. L'app ha 31 campi sotto quella
+     soglia — quasi ogni modifica da telefono passa dal pannello proprieta', che sta a 13px.
+     C'era UNA difesa, `.stpr input{font-size:16px}`, e la riga SUBITO DOPO la annullava
+     rimettendo 15px: stesso selettore, stessa specificita', stesso blocco. Il commento dichiarava
+     un'intenzione che il CSS non eseguiva. */
+  const iReg = stylesCss.indexOf("input, select, textarea{font-size:16px}");
+  ok(iReg > 0, "sul telefono i campi sono a 16px, tutti insieme");
+  /* E nessuna regola DOPO, dentro lo stesso blocco, li riporta sotto: era esattamente il difetto —
+     `.stpr input{font-size:16px}` seguita da `.stpr input{...font-size:15px}`. Si guarda solo il
+     resto di quel blocco, non tutto il file: le misure del desktop stanno piu' su e sono giuste. */
+  const dopo = stylesCss.slice(iReg + 40, iReg + 900);
+  const colpevoli = (dopo.match(/[^\n]*\b(?:input|select|textarea)[^\n]*font-size:(?:[0-9]|1[0-5])(?:\.[0-9])?px[^\n]*/g) || []);
+  eq(colpevoli.length, 0, "nessuna riga dopo rimette i campi sotto i 16: " + colpevoli.join(" | "));
+  /* Col mouse restano le misure di sempre: 16px ovunque sul desktop sarebbe un altro font. */
+  const desk = stylesCss.slice(0, stylesCss.indexOf("@media (max-width:880px){"));
+  ok(!/input, select, textarea\{font-size:16px\}/.test(desk), "col mouse non cambia niente");
+});
+
+t("bottoni e campi hanno il font dell'app, non quello del browser", () => {
+  /* In HTML button/input/select/textarea NON ereditano il font: prendono quello dello UA — Arial su
+     Chrome e Android. Era rattoppato in una ventina di punti e dimenticato in 48 regole, fra cui
+     `.btn` (OGNI bottone) e i campi del pannello proprieta'. Su Mac quasi non si vede; su Android
+     e Windows sono due caratteri diversi nello stesso pannello. */
+  ok(/button, input, select, textarea\{font-family:inherit\}/.test(stylesCss),
+     "una riga sola, e vale per tutti");
+  /* Dichiarata prima del body, cosi' ogni regola successiva puo' ancora sovrascriverla. */
+  const iReset = stylesCss.indexOf("button, input, select, textarea{font-family:inherit}");
+  const iBody = stylesCss.indexOf("body{font-family:var(--font-ui)");
+  ok(iReset > 0 && iBody > iReset, "e sta prima del body");
+});
+
+t("i due dati che il fonico legge non sono i piu' piccoli dell'app", () => {
+  /* `.p48b` (il badge +48V) e `.pamp` (l'assorbimento in ampere) stavano a 8,5px: erano i due
+     testi piu' piccoli di tutta l'app, e sono i due che contano di piu' — il phantom su un
+     microfono a nastro passivo lo rompe, gli ampere dicono se la linea regge. */
+  ok(/\.patch-row \.p48b\{[^}]*font-size:11px/.test(stylesCss), "il +48V si legge");
+  ok(/\.patch-row \.pamp,\.pload \.pamp\{[^}]*font-size:11px/.test(stylesCss), "e gli ampere pure");
+  /* E la barra di navigazione del telefono, che era a 9,5px. */
+  ok(/#mDock button\{[^}]*font:600 11px/.test(stylesCss), "e il dock del telefono");
+});
+
+t("le icone della barra mobile hanno tutte lo stesso spessore", () => {
+  /* Nella stessa riga di quattro icone, «Aggiungi» era a stroke-width 2 e le altre a 1.8. E' la
+     cosa piu' visibile fra le incoerenze: quattro icone affiancate, una piu' grassa. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const i = html.indexOf('<button data-dock="add"');
+  ok(i > 0, "il dock esiste");
+  const dock = html.slice(i, html.indexOf("</nav>", i));
+  const sp = [...new Set((dock.match(/stroke-width="([0-9.]+)"/g) || []))];
+  eq(sp.length, 1, "uno spessore solo in tutta la barra: " + sp.join(", "));
+});
+
 t("nelle finestre, le X e i contatori reggono il dito", () => {
   /* «su mobile guarda e ottimizza ogni finestra» (Simone, 02/09). Cercando nel CSS i controlli con
      un'altezza dichiarata sotto i 44 px che nessuna regola per il dito ingrandiva, restavano le X
@@ -13213,6 +13267,17 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   ok(/id="pdfScaleRow"/.test(html), "la riga della scala ha un aggancio");
   ok(/id="pdfHdrRow"/.test(html), "e quella dell'intestazione pure");
   ok(/id="pdfProBtn"/.test(html), "e c'e' il bottone per rivelarle");
+  /* E IL BOTTONE SI VEDE DAVVERO. `.exp-pro{display:none}` era scritta DOPO la regola che lo mostra,
+     quindi vinceva sempre e il bottone non compariva mai — verificato sul simulatore iPhone il
+     02/09, dove semplicemente non c'era. È la quinta volta in un giorno che una regola nuova perde
+     per ordine o specificità: la dichiarazione base va PRIMA, e fuori da ogni media. */
+  const iBase = stylesCss.indexOf("#pdfModal .exp-pro, .exp-pro{display:none}");
+  const iMostra = stylesCss.indexOf("#pdfModal .exp-pro{display:block");
+  ok(iBase > 0 && iMostra > iBase, "la regola che lo nasconde viene PRIMA di quella che lo mostra");
+  /* Fuori da ogni media, o sul desktop non ci sarebbe niente a nasconderlo. */
+  const primaDiBase = stylesCss.slice(0, iBase);
+  const aperte = (primaDiBase.match(/\{/g) || []).length - (primaDiBase.match(/\}/g) || []).length;
+  eq(aperte, 0, "ed e' dichiarata fuori da ogni @media");
   /* L'anteprima e il bottone che scarica NON si toccano mai. */
   ["pdfPreview", "pdfGo"].forEach((id) => {
     ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre: e' il senso della finestra");
