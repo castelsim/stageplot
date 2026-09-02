@@ -13059,6 +13059,68 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
   ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
 });
 
+t("ruotando il telefono il pannello palco si rifà", () => {
+  /* Ruotando cambia anche COSA si vede, non solo quanto è largo: la griglia 3x3 compare solo
+     `if(isMobile())`, e `isMobile()` si legge al render. L'unico listener di resize chiamava
+     `render`, non `renderStagePanel`: la griglia restava com'era da prima della rotazione. (02/09) */
+  ok(!/addEventListener\("resize", render\)/.test(appjs), "il resize non chiama piu' solo render");
+  const i = appjs.indexOf('window.addEventListener("resize", function(){\n    render();');
+  ok(i > 0, "il gestore del resize fa piu' cose");
+  const blocco = appjs.slice(i, i + 400);
+  ok(/stageEdit && typeof renderStagePanel==="function"\) renderStagePanel\(\)/.test(blocco),
+     "e rifa' il pannello palco, se e' aperto");
+  ok(/syncPanelGroups\(\)/.test(blocco), "e i gruppi del pannello elemento");
+  /* Solo se e' aperto: rifare un pannello chiuso a ogni pixel di resize e' lavoro sprecato. */
+  ok(/if\(typeof stageEdit!=="undefined" && stageEdit/.test(blocco), "solo quando serve");
+});
+
+t("la riga che dice da che parte guarda il palco si legge", () => {
+  /* «fondo palco in alto · pubblico in basso» e' l'UNICA riga che spiega l'orientamento della
+     griglia 3x3, ed era il testo piu' piccolo del pannello — 10,5 px sotto una griglia di nove
+     bersagli da 117. Chi non la legge mette la batteria dalla parte del pubblico. (02/09) */
+  const m = /\.pg-hint\{font-size:([0-9.]+)px/.exec(stylesCss);
+  ok(m, "la riga ha una misura dichiarata");
+  ok(parseFloat(m[1]) >= 12, "e non e' il testo piu' piccolo del pannello: " + m[1] + "px");
+});
+
+t("la tipografia la decide il foglio di stile, non il browser", () => {
+  /* Senza questa riga WebKit applica il suo «text autosizing» sui blocchi piu' larghi del telefono
+     e riscrive le misure per conto suo: la gerarchia scelta qui non e' quella che l'utente vede.
+     E' una riga che nessuno nota se sparisce — finche' su un telefono non torna tutto storto. */
+  ok(/html\{-webkit-text-size-adjust:100%;text-size-adjust:100%\}/.test(stylesCss),
+     "il browser non riscrive le misure dei testi");
+  /* Su `html`, non su `body`: la proprieta' si eredita e va dichiarata sopra a tutto. */
+  const i = stylesCss.indexOf("html{-webkit-text-size-adjust");
+  const iRoot = stylesCss.indexOf(":root{");
+  ok(i > 0 && i < iRoot, "dichiarata prima di tutto il resto");
+  const prima = stylesCss.slice(0, i);
+  eq((prima.match(/\{/g) || []).length - (prima.match(/\}/g) || []).length, 0,
+     "e fuori da ogni @media: vale sempre");
+});
+
+t("prima di esportare, si viene avvisati se qualcosa è fuori dal palco", () => {
+  /* L'audit lo dice da sempre, ma l'audit vive dentro `#noSel`, che sul telefono non si apre mai:
+     chi disegna col dito esportava un PDF con mezzo gruppo fuori dal palco senza che nessuno
+     glielo dicesse. Nel progetto di un utente vero, il 01/09: palco 50×50 cm e TUTTI e 30 gli
+     elementi fuori, mai segnalato. Ora l'avviso sta nell'ultimo posto prima del file. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfFuoriPalco"/.test(html), "l'avviso ha il suo posto nella finestra Esporta");
+  const iPn = html.indexOf('id="prodNudge"'), iFp = html.indexOf('id="pdfFuoriPalco"');
+  ok(iPn > 0 && iFp > iPn && iFp - iPn < 900, "ed e' accanto all'invito del Controllo tecnico");
+  ok(/function renderFuoriPalco\(\)/.test(appjs), "qualcuno lo riempie");
+  ok(/renderFuoriPalco\(\);/.test(appjs.slice(appjs.indexOf("renderProdInline();\n    renderFuoriPalco"), appjs.indexOf("renderProdInline();\n    renderFuoriPalco") + 80)) ||
+     /renderProdInline\(\);\s*renderFuoriPalco\(\);/.test(appjs), "e viene chiamato all'apertura della finestra");
+  /* Se non c'e' niente fuori, non c'e' nemmeno l'avviso: un avviso sempre acceso non si legge piu'. */
+  ok(/if\(!fuori\.length\)\{ box\.hidden=true; return; \}/.test(appjs), "e sparisce quando non serve");
+  /* Il rimedio e' li' dentro, non altrove: «Adatta il palco» esiste gia' nell'audit. */
+  ok(/auditFixAdattaPalco\(\);/.test(appjs.slice(appjs.indexOf("function renderFuoriPalco"), appjs.indexOf("function renderProdInline"))),
+     "e porta il rimedio con se'");
+  ok(/fuori\.length===1 \? "1 elemento è fuori dal palco"/.test(appjs), "al singolare quando e' uno solo");
+  /* Colori del design system, non hex crudi. */
+  ok(/\.nudge\.warn\{background:var\(--warning-bg\);border-color:var\(--warning-border\);color:var\(--warning\)/.test(stylesCss),
+     "e usa i colori dell'avviso, non un arancione inventato");
+});
+
 t("la griglia 3x3 del palco sposta davvero, anche con un blocco largo", () => {
   /* Nove bersagli, e con un blocco piu' largo del palco base facevano tutti la stessa cosa:
      `Math.max(0, nx)` schiacciava le tre colonne sullo stesso numero. Ci si arriva senza sforzo —
@@ -13385,7 +13447,14 @@ t("da telefono si possono scrivere data, ora e aggancio", () => {
   /* Lo stesso dato, non due copie che divergono. */
   ok(/function setData\(v\)\{ state\.evDate=v\|\|"";[\s\S]{0,120}edM\.value=state\.evDate/.test(appjs),
      "scrivono nello stesso stato e riallineano l'altro campo");
-  ok(/function set\(v\)\{ snapMode=v;[\s\S]{0,60}b\.value=v/.test(appjs), "e l'aggancio pure");
+  /* I due select si allineavano solo l'uno all'altro, e solo su `change`: quello del telefono
+     partiva sempre da «25 cm» del markup anche con `snapMode` diverso — apri un progetto salvato
+     su «Libero» e il pannello ti diceva 25. Ora c'è un punto solo che li allinea allo STATO. */
+  ok(/function syncSnapSelects\(\)\{/.test(appjs), "e l'aggancio pure");
+  ok(/if\(a\) a\.value=snapMode; if\(b\) b\.value=snapMode;/.test(appjs), "e legge lo stato, non l'altro select");
+  const iRs = appjs.indexOf("function renderStagePanel");
+  ok(/syncSnapSelects\(\);/.test(appjs.slice(iRs, iRs + 900)),
+     "e si riallinea ogni volta che il pannello palco si apre");
   /* E all'apertura mostrano quello che c'e' gia' salvato. */
   ok(/\["evDate","evDateM"\]\.forEach/.test(appjs), "all'apertura mostrano il valore salvato");
   /* Il campo dell'aggancio si vede solo col dito: col mouse c'e' gia' nell'header. */
@@ -13695,6 +13764,251 @@ t("non restano bottoni che nessuno può premere", () => {
   ok(!/fabCat|fabProps/.test(appjs), "e il bundle non li nomina da nessuna parte");
   ok(!/^\s*\.fab\{/m.test(stylesCss), "la regola che li spegneva è sparita con loro");
 });
+
+/* ═══ QUELLO CHE FALLIVA IN SILENZIO (02/09) ══════════════════════════════════════════════════════
+   Sei punti in cui l'app faceva una cosa e ne raccontava un'altra — o non raccontava niente.
+   Non sono bug di calcolo: sono bugie. Il metro di questi test e' il comportamento, non il sorgente:
+   dove si puo', la funzione vera viene CHIAMATA e si guarda cosa fa. */
+
+/* Sostituisce temporaneamente un pezzo del sandbox e lo rimette a posto: senza il ripristino un
+   localStorage rotto resterebbe rotto per tutti i test successivi. */
+function conSandbox(mod, fn) {
+  const prima = {};
+  Object.keys(mod).forEach((k) => { prima[k] = A[k]; A[k] = mod[k]; });
+  try { return fn(); } finally { Object.keys(prima).forEach((k) => { A[k] = prima[k]; }); }
+}
+/* localStorage che rifiuta OGNI scrittura: e' quello di un archivio pieno, o di una pagina dove il
+   browser ha disattivato lo storage. saveVersion in quel caso torna false. */
+function storagePieno() {
+  return { getItem: () => null, removeItem: () => {},
+           setItem: () => { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; } };
+}
+
+t("cancellando una scena, il punto di ripristino promesso o c'è o non si elimina", () => {
+  /* La finestra di conferma dice testualmente «Resta un punto di ripristino: File → Punti di
+     ripristino…», ma deleteVariant chiamava saveVersion dentro un try/catch e ne BUTTAVA VIA il
+     valore. saveVersion torna false per davvero: archivio pieno anche dopo aver potato lo storico,
+     o planimetria non referenziabile. Quando succedeva, la scena spariva, resetHistory toglieva pure
+     il ⌘Z, e la rete promessa non esisteva. Misurato chiamando deleteVariant con un localStorage che
+     rifiuta ogni scrittura: prima la scena spariva lo stesso. */
+  ok(/Resta un punto di ripristino/.test(appjs), "la promessa è ancora scritta nella conferma");
+  const messaggi = [];
+  conSandbox({ localStorage: storagePieno(), __toast: (m, err) => messaggi.push({ m, err }) }, () => {
+    A.VARIANTS.push({ id: "__t_scena", name: "Scena B", state: { items: [] } });
+    const quante = A.VARIANTS.length;
+    const esito = A.deleteVariant("__t_scena");
+    eq(esito, false, "deleteVariant dichiara di non aver fatto niente:");
+    eq(A.VARIANTS.length, quante, "la scena è ancora lì:");
+    ok(messaggi.length === 1, "e l'utente lo viene a sapere");
+    ok(/non creato/.test(messaggi[0].m), "il messaggio dice qual è il problema");
+    ok(messaggi[0].err === true, "ed è un messaggio d'errore, non una nota di colore");
+  });
+  /* La guardia non deve bloccare il caso normale: con lo spazio a posto la scena se ne va davvero. */
+  conSandbox({ localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} }, __toast: () => {} }, () => {
+    const quante = A.VARIANTS.length;
+    eq(A.deleteVariant("__t_scena"), true, "con lo spazio a posto si elimina:");
+    eq(A.VARIANTS.length, quante - 1, "e la scena sparisce davvero:");
+  });
+});
+
+t("la versione salvata a mano dice quando non è stata salvata", () => {
+  /* Il bottone «Salva» del pannello «Punti di ripristino» chiamava saveVersion e ne ignorava il
+     ritorno: il campo del nome si svuotava comunque e nell'elenco non compariva nessuna riga nuova.
+     Il campo che si svuota È la conferma, per chi guarda: si esce di lì convinti di avere una copia.
+     Misurato chiamando saveNamedVersion con lo storage pieno. */
+  const messaggi = [];
+  conSandbox({ localStorage: storagePieno(), __toast: (m, err, az) => messaggi.push({ m, err, az }) }, () => {
+    eq(A.saveVersion("prova"), false, "premessa: qui saveVersion fallisce davvero");
+    eq(A.saveNamedVersion("prova"), false, "e saveNamedVersion lo riporta:");
+    ok(messaggi.length === 1 && messaggi[0].err === true, "l'utente lo viene a sapere");
+    /* Non basta dire che è andata male: il messaggio porta il gesto che salva il lavoro. */
+    ok(messaggi[0].az && typeof messaggi[0].az.run === "function", "e offre di scaricare una copia");
+  });
+  /* Il nome NON si cancella dopo un fallimento: chi riprova non deve ridigitarlo. */
+  const h = appjs.slice(appjs.indexOf('document.getElementById("versSave")'), appjs.indexOf('document.getElementById("versSave")') + 400);
+  ok(/if\(!saveNamedVersion\(n\)\) return;/.test(h), "il fallimento interrompe il gestore");
+  ok(h.indexOf("saveNamedVersion") < h.indexOf('.value=""'), "prima si controlla, poi si svuota il campo");
+});
+
+/* Carica l'app come la carica il browser di chi apre un link condiviso: `?view=TOKEN` e una rete che
+   accetta la richiesta e non risponde MAI. Serve uno stub DOM un po' meno cieco di quello dei
+   motori — le classi sul body e i figli aggiunti vanno osservati — e un setTimeout che REGISTRA
+   invece di eseguire, così la scadenza si può far scattare a comando. */
+function apriComeLinkCondiviso() {
+  const mkU = () => { const f = function () { return U; }; const U = new Proxy(f, {
+    get: (t, k) => { if (k === Symbol.toPrimitive) return () => 0; if (k === "length") return 0; return U; },
+    apply: () => U, construct: () => U, set: () => true, has: () => true }); return U; };
+  const U = mkU();
+  const classi = new Set(), timers = [], figli = [];
+  const body = {
+    classList: { add: (...a) => a.forEach((c) => classi.add(c)), remove: (...a) => a.forEach((c) => classi.delete(c)),
+                 contains: (c) => classi.has(c), toggle: () => {}, item: () => null },
+    appendChild: (n) => { figli.push(n); }, style: {}, dataset: {},
+    addEventListener: () => {}, removeEventListener: () => {},
+    querySelector: () => U, querySelectorAll: () => [], getAttribute: () => null, setAttribute: () => {},
+  };
+  const ctx = {
+    console: { log: () => {}, warn: () => {}, error: () => {} },
+    navigator: { serviceWorker: { register: () => ({ then: () => ({ catch: () => {} }) }) }, userAgent: "node" },
+    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    matchMedia: () => ({ matches: false, addEventListener: () => {}, addListener: () => {} }),
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimeout: () => {},
+    setInterval: () => 0, clearInterval: () => {}, requestAnimationFrame: () => 0,
+    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => true,
+    Event: function () {}, CustomEvent: function () {},
+    fetch: () => new Promise(function () {}),   /* accettata e mai risolta: il caso che non era coperto */
+    location: { search: "?view=TOK", href: "http://localhost/app/?view=TOK", pathname: "/app/" },
+    performance: { now: () => 0 }, atob: (s) => s, btoa: (s) => s,
+    URL, URLSearchParams, XMLSerializer: function () { this.serializeToString = () => ""; },
+  };
+  ctx.document = new Proxy({ body }, { get: (t, k) => {
+    if (k === "body") return body;
+    if (k === "createElement") return () => {
+      const base = { style: {}, classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
+        setAttribute(a, v) { base[a] = v; }, getAttribute() { return null; }, appendChild() {}, remove() {},
+        addEventListener() {}, removeEventListener() {}, querySelector: () => U, querySelectorAll: () => [],
+        attachShadow() { return { innerHTML: "", querySelector: () => U }; } };
+      return new Proxy(base, { get: (t2, k2) => (k2 in t2 ? t2[k2] : U), set: (t2, k2, v2) => { t2[k2] = v2; return true; } });
+    };
+    /* Solo il cartello d'attesa risponde "non c'è ancora": tutto il resto resta lo stub cieco, o il
+       boot muore molto prima di arrivare al ramo `?view=`. */
+    if (k === "getElementById") return (id) => (id === "viewWait" ? (figli.filter((f) => f.id === "viewWait")[0] || null) : U);
+    return U;
+  } });
+  ctx.window = new Proxy(ctx, { get: (t, k) => (k in t ? t[k] : U), set: (t, k, v) => { t[k] = v; return true; } });
+  ctx.self = ctx.window; ctx.globalThis = ctx;
+  vm.createContext(ctx);
+  try { vm.runInContext(appjs, ctx, { timeout: 20000 }); } catch (e) { /* il boot tocca il DOM: come in loadApp */ }
+  return { classi, timers, figli };
+}
+
+t("il link condiviso che non arriva non lascia un palco vuoto credibile", () => {
+  /* Le strade coperte erano due — «il server dice no» e «la rete cade» — e mancava la terza, che è
+     la peggiore: la richiesta accettata che non torna mai. Un fetch appeso non rifiuta e non
+     risolve, quindi né viewerFailed né startSession scattavano: chi apriva il link restava davanti
+     al palco di DEFAULT, 12×8 con FONDO PALCO e la legenda dei layer. Un fonico di sala lo legge
+     come «questo gruppo non ha bisogno di niente» — un documento credibile e falso, che è peggio
+     di un errore. Misurato caricando l'app con ?view= e una fetch che non risponde mai: prima
+     NESSUN timer veniva armato e il body restava sul palco di default. */
+  const { classi, timers, figli } = apriComeLinkCondiviso();
+  ok(classi.has("consult-pending"), "premessa: il ramo del link condiviso è stato eseguito");
+  /* L'attesa si VEDE: `consult-pending` da sola non aveva nessuna regola di stile, era una classe muta. */
+  const cartello = figli.filter((f) => f.id === "viewWait")[0];
+  ok(!!cartello, "c'è un cartello d'attesa a schermo");
+  ok(/Sto aprendo il progetto/.test(String(cartello.innerHTML || "")), "e dice cosa sta succedendo");
+  ok(cartello.role === "status", "annunciato anche a chi usa lo screen reader");
+  /* E ha una fine dichiarata: senza scadenza l'attesa durerebbe quanto la sessione. */
+  const scadenze = timers.filter((x) => x.ms >= 5000);
+  eq(scadenze.length, 1, "una scadenza sola, non zero e non tre:");
+  eq(scadenze[0].ms, 20000, "venti secondi:");
+  /* Far scattare la scadenza deve DAVVERO portare alla schermata di fallimento. */
+  scadenze[0].fn();
+  ok(classi.has("view-failed"), "scaduto il tempo, si dichiara il fallimento");
+  ok(!classi.has("consult-pending"), "e l'attesa finisce");
+  ok(/togliAttesa\(\);/.test(appjs) && /function togliAttesa\(\)\{ var w=document\.getElementById\("viewWait"\); if\(w&&w\.remove\) w\.remove\(\); \}/.test(appjs),
+     "e il cartello viene tolto di mezzo");
+});
+
+t("una risposta in ritardo non riscrive la schermata già letta", () => {
+  /* Con una scadenza in gioco compaiono due finali possibili per la stessa apertura. Se arrivassero
+     entrambi, il viewer passerebbe da «non caricato» a «in diretta» (o viceversa) sotto gli occhi di
+     chi sta leggendo. Chi arriva secondo non fa niente. */
+  const fn = appjs.slice(appjs.indexOf("var ATTESA_MAX=20000;"), appjs.indexOf("var ATTESA_MAX=20000;") + 900);
+  ok(/function concludi\(\)\{ if\(esito\) return false; esito=true;/.test(fn), "c'è un solo esito per apertura");
+  ok(/clearTimeout\(scadenza\)/.test(fn), "e chi conclude spegne la scadenza");
+  /* Tutte e tre le uscite passano di lì: fallimento, sessione live, progetto condiviso statico. */
+  ok(/function viewerFailed\(perche\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "il fallimento");
+  ok(/function startSession\(sb, token, d, isEditor\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "la sessione live");
+  ok(/function startSharedProject\(token, d\)\{\s*if\(!concludi\(\)\) return;/.test(appjs), "il link di sola lettura");
+});
+
+t("anche la richiesta al musicista ha un tempo massimo", () => {
+  /* Stessa storia su /richiesta/?t=: le due strade erano «risposta» e «errore di rete», e il fetch
+     appeso non è né l'una né l'altra. Si restava su «Un attimo…» per sempre, senza nemmeno il modo
+     di capire che era finita male. */
+  const rich = readFileSync(join(root, "richiesta/index.html"), "utf8");
+  ok(/Un attimo…/.test(rich), "premessa: l'attesa a schermo c'era già");
+  ok(/setTimeout\(function\(\)\{[\s\S]{0,200}denied\(/.test(rich), "ora scade e lo dice");
+  ok(/\}, 20000\);/.test(rich), "venti secondi, come nel viewer");
+  /* Un finale solo: la risposta in ritardo non deve ridipingere sopra il messaggio già letto. */
+  ok(/function primo\(\)\{ if\(apertura\) return false; apertura=true; clearTimeout\(scadenza\); return true; \}/.test(rich),
+     "chi arriva secondo non fa niente");
+  ok(/api\("GET"\)\.then\(function\(res\)\{\s*if\(!primo\(\)\) return;/.test(rich), "vale per la risposta");
+  ok(/\}\)\.catch\(function\(\)\{\s*if\(!primo\(\)\) return;/.test(rich), "e per l'errore di rete");
+});
+
+t("l'elenco dei progetti non dice «nessuno» mentre sta ancora cercando", () => {
+  /* openModal dipinge PRIMA e chiede la lista DOPO (`renderModal(); … loadProjects();`): per tutto
+     il tempo della query cloudProjects era [] e la finestra dichiarava «Nessun progetto salvato
+     online» a chi ne ha venti. Su rete lenta quegli istanti bastano per chiudere la finestra
+     convinti che il cloud abbia perso tutto. */
+  ok(/function openModal\(\)\{[^}]*renderModal\(\); if\(cloudUser\) loadProjects\(\);/.test(appjs),
+     "premessa: si dipinge prima di sapere");
+  ok(/var cloudProjectsStato="attesa";/.test(appjs), "esiste lo stato «non lo so ancora»");
+  /* Tre rami distinti, nell'ordine giusto: l'attesa e l'errore vengono PRIMA del verdetto «vuoto». */
+  const iAttesa = appjs.indexOf('cloudProjectsStato==="attesa"');
+  const iErrore = appjs.indexOf('cloudProjectsStato==="errore"');
+  const iVuoto = appjs.indexOf("Nessun progetto salvato online");
+  ok(iAttesa > 0 && iErrore > iAttesa && iVuoto > iErrore, "attesa ed errore vengono prima del «vuoto»");
+  ok(/Sto cercando i tuoi progetti…/.test(appjs), "durante la ricerca lo dice");
+  ok(/Elenco non disponibile: il server non ha risposto/.test(appjs), "e se non arriva, lo dice pure");
+  /* Lo stato deve chiudersi su ENTRAMBE le uscite della query, o l'attesa non finisce mai. */
+  const load = appjs.slice(appjs.indexOf("function loadProjects()"), appjs.indexOf("function openProject(id)"));
+  ok(/cloudProjectsStato="errore"; if\(modalOpen\(\)\) renderModal\(\);/.test(load), "sull'errore si ridipinge");
+  ok(/cloudProjectsStato="letta";/.test(load), "e sulla risposta buona si chiude l'attesa");
+  /* Cambio account: la lista di prima non descrive più nessuno, e non deve valere come «letta». */
+  ok(/cloudProjects=\[\]; cloudProjectsStato="attesa";/.test(appjs), "cambiando account si torna in attesa");
+});
+
+t("il bottone del PDF torna vivo alla fine dell'export, non a cronometro", () => {
+  /* Si riaccendeva con setTimeout(…, 2500): un numero scelto a occhio, non la fine del lavoro. Su un
+     progetto pesante svg2pdf è ancora sul main thread quando i 2,5 s scadono, il bottone torna
+     cliccabile e due clic fanno due file e due passate. Ora exportPdf TORNA la promessa dell'export
+     — misurato chiamandola: entrambi i rami rispondono con un thenable. */
+  ok(!/setTimeout\(function\(\)\{ b\.disabled=false; b\.textContent=_t; \}, 2500\)/.test(appjs),
+     "sparito il cronometro da 2500 ms");
+  const h = appjs.slice(appjs.indexOf("function run(){\n      b.disabled=true;"), appjs.indexOf("function run(){\n      b.disabled=true;") + 700);
+  ok(/p\.then\(fine, fine\)/.test(h), "il bottone si riaccende quando l'export ha finito");
+  ok(/if\(b\.disabled\) return;/.test(appjs), "e finché è spento non riparte");
+  /* Il ramo d'errore («non entra nemmeno a 1:500») esce presto: se tornasse undefined il bottone
+     resterebbe spento per sempre. Deve rispondere un thenable anche lì. */
+  conSandbox({ resolveScale: () => 0 }, () => {
+    const p = A.exportPdf("a4", "auto", "landscape", "");
+    ok(p && typeof p.then === "function", "anche il ramo «non ci sta nel foglio» torna un thenable");
+  });
+  conSandbox({ resolveScale: () => 100, buildPdfDoc: () => new Promise(function () {}) }, () => {
+    const p = A.exportPdf("a4", "auto", "landscape", "");
+    ok(p && typeof p.then === "function", "e il ramo normale torna la promessa dell'export vero");
+  });
+});
+
+t("il PNG dichiara l'attesa e non parte due volte", () => {
+  /* Si premeva «PNG» e non succedeva NIENTE di visibile per qualche secondo: flatten del disegno,
+     decodifica dell'SVG e un canvas da 4000 px passano tutti dal main thread. Chi non vede una
+     reazione ripreme, e due export sono due file. Misurato chiamando exportPng con una Image finta:
+     il messaggio d'attesa parte subito, la callback di fine NO, e il secondo giro viene rifiutato
+     finché il primo non ha chiuso. */
+  const messaggi = []; let img = null; let finiti = 0;
+  const FakeURL = function (u, b) { return new URL(u, b); };
+  FakeURL.createObjectURL = () => "blob:finto"; FakeURL.revokeObjectURL = () => {};
+  conSandbox({ __toast: (m) => messaggi.push(m), URL: FakeURL, Blob: function () {}, Image: function () { img = this; } }, () => {
+    eq(A.exportPng(() => finiti++), true, "il primo scatto parte:");
+    ok(messaggi.length === 1 && /Preparo il PNG/.test(messaggi[0]), "e si vede subito che sta lavorando");
+    eq(finiti, 0, "ma il lavoro NON è finito: la callback non è ancora scattata");
+    eq(A.exportPng(() => finiti++), false, "il secondo scatto viene rifiutato:");
+    eq(finiti, 0, "e non chiude l'attesa del primo:");
+    ok(!!img && typeof img.onerror === "function", "premessa: la Image finta è stata agganciata");
+    img.onerror();   /* fine reale, ramo fallito */
+    eq(finiti, 1, "finito il lavoro, il chiamante lo sa:");
+    eq(A.exportPng(() => finiti++), true, "e da lì si può riprovare:");
+    img.onerror();
+  });
+  /* Il bottone dentro la finestra Esporta usa quella callback per tornare vivo, come quello del PDF. */
+  const h = appjs.slice(appjs.indexOf('var pg=document.getElementById("pdfAltPng");'), appjs.indexOf('var cs=document.getElementById("pdfAltCsv");'));
+  ok(/b\.textContent="Genero…"/.test(h), "il bottone dice che sta generando");
+  ok(/exportPng\(fine\)/.test(h), "e si riaccende alla fine vera, non a tempo");
+});
+
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
