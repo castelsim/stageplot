@@ -8570,6 +8570,24 @@ function autoConnectNeeds(id){
     /* 01/09: il testo diceva solo «stage box», e chi collega al proprio mixer pensava di dover
        aggiungere per forza una scatola che non ha. La stage box resta il consiglio (accorcia i cavi),
        ma la strada breve va detta: basta il banco sul palco. */
+    /* Il capolinea manca ma le box ci sono: la guida lo crea, ed e' l'unico modo — il badge che si
+       trascina si disegna solo se il punto esiste GIA'. Lo mette in sala, davanti al palco, che e'
+       il caso stragrande («FOH ≤30 m davanti al palco», Pink Martini); da lì si trascina dove si
+       vuole, come si e' sempre fatto. */
+    if(items.some(cabIsDest) && !cabHomePoint() && (typeof cabResult==="function")){
+      var _R=null; try{ _R=cabResult(); }catch(e){}
+      if(_R && _R.boxes && _R.boxes.some(function(b){ return b.used && !b.isMixer && !b.up; }))
+        return {title:"I cavi non arrivano da nessuna parte",
+          msg:"Le stage box raccolgono i canali, ma il multipolare che li porta al banco non c'è: manca il punto dove finisce. Se il banco sta in sala, mettilo lì; se lo tieni sul palco, posa una console e i cavi ci arrivano da soli.",
+          steps:["Il punto compare davanti al palco: trascinalo dove sta davvero il banco","Con la console sul palco non serve: il capolinea è lei"],
+          action:{label:"Metti il punto d'arrivo", run:function(){
+            state.cab.home={kind:"foh", x:Math.round(state.stage.w/2), y:Math.round(state.stage.d+120)};
+            aggiunto();
+            /* Il punto nasce IN SALA, oltre il bordo del palco: con la vista stretta sul palco
+               finisce fuori schermo, e premere il bottone sembra non fare niente. `fit()` allarga
+               fino a comprenderlo — contentBounds() conta gia' l'ancora del cablaggio (15474). */
+            if(typeof fit==="function") fit(); }}};
+    }
     if(!items.some(cabIsDest)){
       /* 02/09 — il seguito della stessa segnalazione. Chi l'ha mandata aveva UN banco solo sul
          palco, etichettato «MIXER»: era un «Mixer monitor». Quello e i personal mixer NON ricevono
@@ -9232,6 +9250,12 @@ function audioCablingEngine(){
     if(b.isMixer) return;   /* la console È il capolinea: non si tira una snake dal mixer al mixer (29/07) */
     if(b.up){ snakes.push({box:b, x1:b.x, y1:b.y, x2:b.up.box.x, y2:b.up.box.y, lenM:b.up.lenM, up:b.up}); return; }
     if(home) snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); });
+  /* 02/09 — se le box hanno canali dentro e la snake non va da nessuna parte, il disegno mente per
+     omissione: sembra tutto collegato e invece il cavo piu' importante non c'e'. Prima questo caso
+     era MUTO, ed era il caso normale (`cab.home` nasceva null e non si poteva creare). */
+  if(!home && boxes.some(function(b){ return b.used && !b.isMixer && !b.up; }))
+    issues.push({lvl:"warn", code:"nohome",
+      msg:"I multipolari non arrivano da nessuna parte: manca il punto dove finiscono i cavi. Se il banco è in sala, dillo dalla guida del cablaggio; se è sul palco, posalo e ci arrivano da soli."});
   /* ── MONITOR / OUTPUT: mix per etichetta → uscita su box vicina → cavi di ritorno ── */
   var sinks=state.items.map(function(it,idx){ return {it:it,idx:idx}; })
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type))||(a.idx-b.idx); })
