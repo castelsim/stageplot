@@ -6712,11 +6712,21 @@ function autoConnectNeeds(id){
          rack, in rete. Ma l'app taceva: 17 canali, capienza zero, e nessuno che dicesse perche'.
          Il divieto resta; quello che cambia e' che adesso si spiega, e l'elemento giusto e' a un
          clic invece che da cercare nel catalogo. */
-      var monitorFinti = items.filter(function(it){ return it.type==="monmix" || it.type==="hearback"; });
-      if(monitorFinti.length) return {title:"Il mixer monitor non riceve i cavi di palco",
-        msg:"Sul palco c'è "+(monitorFinti.length===1 ? "«"+(monitorFinti[0].label||TYPES[monitorFinti[0].type].nome)+"»" : monitorFinti.length+" banchi monitor")+", che distribuisce gli ascolti. I microfoni e le linee arrivano invece a una console con ingressi, a una stage box o all'interfaccia audio.",
-        steps:["Se il tuo banco fa tutto — sala e monitor — è una «Console / mixer»","Il mixer monitor resta: è un altro apparecchio, e sul rider conta"],
-        action:{label:"Aggiungi una console", run:function(){ var s=guideSpot(60); addItem("mixer", s); aggiunto(); }}};
+      var banchiMon = items.filter(function(it){ return it.type==="monmix"; });
+      var personali = items.filter(function(it){ return it.type==="hearback"; });
+      if(banchiMon.length || personali.length){
+        var quale = banchiMon.length ? banchiMon[0] : personali[0];
+        var nome = quale.label || (TYPES[quale.type] && TYPES[quale.type].nome) || quale.type;
+        return banchiMon.length
+          ? {title:"Il mixer monitor non riceve i cavi di palco",
+             msg:"«"+nome+"» manda gli ascolti ai musicisti. I microfoni e le linee arrivano invece a una console con ingressi, a una stage box o all'interfaccia audio.",
+             steps:["Se il tuo banco fa tutto — sala e monitor — sul disegno è una «Console / mixer»","Il mixer monitor resta dov'è: è un altro apparecchio, e sul rider conta"],
+             action:{label:"Aggiungi una console", run:function(){ var s=guideSpot(60); addItem("mixer", s); aggiunto(); }}}
+          : {title:"I personal mixer arrivano in rete, non dai cavi di palco",
+             msg:"«"+nome+"» prende il segnale dal suo rack, in rete. I microfoni e le linee devono arrivare prima da qualche parte: una console, una stage box o l'interfaccia audio.",
+             steps:["Il rack dei personal mixer si alimenta dalle uscite del banco","Sul palco quello che riceve i cavi è la console o la stage box"],
+             action:{label:"Aggiungi una console", run:function(){ var s=guideSpot(60); addItem("mixer", s); aggiunto(); }}};
+      }
       return {title:"I cavi non hanno dove arrivare",
       msg:"Ogni cavo finisce da qualche parte: una stage box, oppure direttamente il mixer o l'interfaccia audio, se li tieni sul palco.",
       steps:["Con la console sul palco colleghi ai suoi ingressi: nessuna stage box","La stage box conviene quando il banco è in sala: porti un cavo solo invece di venti"],
@@ -7384,10 +7394,18 @@ function audioCablingEngine(){
      NON e' un errore: non avere una stage box non lo e' mai stato (dal 31/08 «la porta il
      service»), e qui il pezzo c'e' pure — e' solo un altro apparecchio. E' un equivoco, e si
      chiarisce: livello warn, e solo col cablaggio acceso, cioe' a chi sta davvero collegando. */
-  if(totIn>0 && !boxes.length && state.cab && state.cab.on
-     && (state.items||[]).some(function(it){ return it.type==="monmix" || it.type==="hearback"; })){
-    issues.push({lvl:"warn", code:"monnondest",
-      msg:"Il mixer monitor distribuisce gli ascolti: i cavi di palco non arrivano lì. Se il tuo banco fa sala e monitor insieme, è una «Console / mixer»."});
+  /* 02/09, corretto da Simone: il MIXER MONITOR e il PERSONAL MIXER non sono la stessa cosa, e
+     dirlo con la stessa frase e' sbagliato. Il banco monitor e' un banco vero, con i suoi ingressi,
+     che sta a lato palco; il personal mixer (Hear Back, Aviom, PM-16) e' un mixerino da musicista,
+     a valle di un rack, raggiunto in rete. Nessuno dei due riceve i cavi di palco, ma per ragioni
+     diverse — e chi legge riconosce il proprio apparecchio, non una categoria inventata. */
+  if(totIn>0 && !boxes.length && state.cab && state.cab.on){
+    var _mon = (state.items||[]).some(function(it){ return it.type==="monmix"; });
+    var _pm  = (state.items||[]).some(function(it){ return it.type==="hearback"; });
+    if(_mon) issues.push({lvl:"warn", code:"monnondest",
+      msg:"Il mixer monitor manda gli ascolti ai musicisti: i cavi di palco non arrivano lì. Se il tuo banco fa sala e monitor insieme, sul disegno è una «Console / mixer»."});
+    else if(_pm) issues.push({lvl:"warn", code:"pmnondest",
+      msg:"I personal mixer arrivano in rete dal loro rack, non dai cavi di palco: i microfoni vanno a una console, a una stage box o all'interfaccia audio."});
   }
   var _palcoCap=boxes.filter(function(b){ return !b.foh; }).reduce(function(a,b){ return a+b.cap; },0);
   var _viaN=links.filter(function(l){ return !l.deleted && l.via; }).length;   /* i canali entrati via USB/Dante non occupano ingressi mic/line */
@@ -26885,13 +26903,10 @@ function maybeAskStageSize(explicit){
   }
 
   function mostra(r, tok){
-    /* Segnata letta appena si apre, non alla chiusura: se qualcuno chiude col tasto destro del
-       mouse o ricarica la pagina, l'avviso non deve tornare a ogni avvio per sempre. */
-    segnaLetta(r.id, tok);
     var quando = "";
     try{ quando = new Date(r.risposta_il).toLocaleDateString("it-IT",{day:"numeric",month:"long"}); }catch(e){}
     if(typeof guideDialog !== "function") return;
-    guideDialog({
+    var ov = guideDialog({
       title: "Abbiamo lavorato sulla tua segnalazione",
       msg: (r.richiamo ? "Avevi scritto: «"+r.richiamo+"»\n\n" : "") + r.risposta
            + (quando ? "\n\n— Simone, "+quando : ""),
@@ -26904,6 +26919,15 @@ function maybeAskStageSize(explicit){
                var m=document.getElementById("fbMsg"); if(m){ try{ m.focus(); }catch(e){} } }
       }}
     });
+    /* SEGNATA LETTA SOLO SE LA FINESTRA C'E' DAVVERO, e subito dopo — non prima, e non alla
+       chiusura.
+       Non PRIMA: il 02/09, in produzione, una risposta e' stata segnata letta senza che nessuno
+       l'avesse vista. La finestra non e' comparsa e il testo e' sparito per sempre: nessuno se ne
+       accorge, perche' non resta traccia di una cosa che non e' mai apparsa.
+       Non alla CHIUSURA: chi ricarica o chiude di scatto se la ritroverebbe a ogni avvio.
+       Se la finestra non compare la risposta resta li' e torna al prossimo giro, che e' il verso
+       giusto in cui sbagliare. */
+    if(ov && document.getElementById("guideDlg")) segnaLetta(r.id, tok);
   }
 
   function controlla(){

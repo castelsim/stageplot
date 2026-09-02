@@ -8709,11 +8709,17 @@ t("la risposta a una segnalazione si legge nell'app, e una volta sola", () => {
      Qui si guarda il codice del bundle: il giro intero (chiamata → finestra → «letta» → box) e'
      provato nel browser, dove esiste un DOM e una fetch. */
   ok(/my-feedback-replies/.test(appjs), "l'app chiede se c'e' una risposta per chi e' loggato");
-  /* Segnata letta PRIMA di mostrarla: se qualcuno ricarica o chiude di scatto, l'avviso non deve
-     tornare a ogni avvio per sempre. */
+  /* SEGNATA LETTA SOLO SE LA FINESTRA E' DAVVERO NEL DOM. Questo test difendeva l'ordine opposto
+     («prima di mostrarla»), e l'ordine opposto ha fatto danno: il 02/09, in PRODUZIONE, una
+     risposta e' stata segnata letta senza che nessuno l'avesse vista — la finestra non e' comparsa
+     e il testo e' sparito per sempre. Di una cosa che non e' mai apparsa non resta traccia, quindi
+     nessuno se ne accorge: e' il tipo di guasto che non si segnala da solo.
+     Resta invece giusto non aspettare la chiusura, o chi ricarica se la ritroverebbe ogni volta. */
   const mostra = appjs.slice(appjs.indexOf("function mostra(r, tok)"), appjs.indexOf("function controlla()"));
-  ok(mostra.indexOf("segnaLetta") < mostra.indexOf("guideDialog"),
-     "«letta» parte prima della finestra, non alla chiusura");
+  ok(mostra.indexOf("guideDialog(") < mostra.lastIndexOf("segnaLetta"),
+     "«letta» viene DOPO aver aperto la finestra");
+  ok(/if\(ov && document\.getElementById\("guideDlg"\)\) segnaLetta/.test(mostra),
+     "e solo se la finestra e' davvero comparsa: se non compare, la risposta torna al prossimo giro");
   /* Senza login non si chiede niente: chi non ha un account non ha segnalazioni proprie. */
   ok(/if\(!tok\) return;/.test(appjs), "nessun token, nessuna chiamata");
   /* E non si mette una finestra sopra un'altra: il benvenuto e la guida vengono prima. */
@@ -8759,7 +8765,7 @@ t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => 
   /* Il LIVELLO va verificato, non solo il testo: il pannello mostra err/warn/todef e basta, e un
      avviso con un livello che non e' fra quelli sarebbe li' nei dati e invisibile sullo schermo.
      E' gia' successo una volta con un finding «info» che non vedeva nessuno. */
-  const f = auditFind(/mixer monitor distribuisce gli ascolti/)[0];
+  const f = auditFind(/mixer monitor manda gli ascolti/)[0];
   ok(f, "e l'audit lo spiega: " + auditMsgs().join(" | "));
   eq(f.lvl, "warn", "e a un livello che il pannello mostra davvero");
   eq(R.errs, 0, "ma non e' un errore: il pezzo c'e', e' solo un altro apparecchio");
@@ -8770,7 +8776,24 @@ t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => 
   /* Aggiunta la console, l'equivoco e' chiuso: niente piu' avviso. */
   add("mixer", 900, 900); A.__cabRes = null;
   A.auditEngine();
-  ok(!hasMsg(/mixer monitor distribuisce/), "con la console sul palco l'avviso sparisce");
+  ok(!hasMsg(/mixer monitor manda gli ascolti/), "con la console sul palco l'avviso sparisce");
+});
+
+t("un personal mixer non e' un mixer monitor, e non gli si dice la stessa frase", () => {
+  /* Corretto da Simone il 02/09: il codice metteva monmix e hearback nella stessa condizione, e la
+     frase parlava solo di «mixer monitor» — anche a chi ha un Hear Back. Sono due apparecchi
+     diversi: il banco monitor sta a lato palco e ha i suoi ingressi; il personal mixer e' il
+     mixerino del musicista, a valle di un rack, raggiunto in RETE. Nessuno dei due riceve i cavi
+     di palco, ma per ragioni diverse — e chi legge deve riconoscere il proprio, non una categoria
+     che non esiste. */
+  reset(); A.state.cab.on = true;
+  add("cantante", 300, 500); add("batteria", 500, 500);
+  add("hearback", 700, 600);
+  A.__cabRes = null; A.auditEngine();
+  ok(hasMsg(/personal mixer arrivano in rete/), "al personal mixer si parla di rete: " + auditMsgs().join(" | "));
+  ok(!hasMsg(/mixer monitor/), "e non lo si chiama mixer monitor");
+  const g = A.autoConnectNeeds("cabin");
+  ok(g && /in rete/i.test(g.title), "e anche la guida dice la cosa giusta: " + (g && g.title));
 });
 
 t("chi disegna un duo non vede l'avviso del monitor", () => {
@@ -8779,7 +8802,7 @@ t("chi disegna un duo non vede l'avviso del monitor", () => {
   reset(); A.state.cab.on = false;
   add("cantante", 300, 500); add("monmix", 700, 900);
   A.__cabRes = null; A.auditEngine();
-  ok(!hasMsg(/mixer monitor distribuisce/), "col cablaggio spento non si dice niente");
+  ok(!hasMsg(/mixer monitor manda gli ascolti/), "col cablaggio spento non si dice niente");
 });
 
 t("con un mixer sul palco l'audit non chiede piu' una stage box", () => {
