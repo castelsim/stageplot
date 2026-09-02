@@ -14010,5 +14010,80 @@ t("il PNG dichiara l'attesa e non parte due volte", () => {
 });
 
 
+/* ═══ MISURATO SUL TELEFONO E SUL TABLET (02/09) ══════════════════════════════════════════════════
+   Tre difetti che nessuna lettura del CSS avrebbe trovato: si vedono solo aprendo le finestre su un
+   iPhone e su un iPad simulati e misurando quello che c'è davvero a schermo. */
+
+t("in «Condividi» le tre righe dei permessi hanno la stessa forma", () => {
+  /* Misurato sull'iPhone: la prima riga (un `<div>`) era a due colonne, testo a sinistra e
+     interruttore a destra; le altre DUE (dei `<label>`) avevano l'interruttore sotto il testo,
+     perche' `.mcard label{display:block}` (specificita' 0,2,0) batte `.share-perm` (0,1,0).
+     Tre righe che dicono la stessa cosa, due fatte diversamente. */
+  ok(/\.mcard label\.share-perm\{display:flex/.test(stylesCss),
+     "le righe-etichetta ritrovano la forma a due colonne");
+  const iGen = stylesCss.indexOf(".mcard label{display:block");
+  const iFix = stylesCss.indexOf(".mcard label.share-perm{display:flex");
+  ok(iGen > 0 && iFix > 0, "le due regole esistono tutte e due");
+  /* Non basta che ci sia: deve PESARE di piu'. `.mcard label.share-perm` e' (0,3,0) contro (0,2,0),
+     quindi vince ovunque sia scritta — ma il controllo resta, perche' qui dentro una regola nuova
+     ha gia' perso sette volte in due giorni. */
+  ok(/\.mcard label\.share-perm/.test(stylesCss), "e con un peso che batte la regola generica");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  eq((html.match(/class="share-perm"/g) || []).length, 3, "le righe dei permessi sono tre");
+  eq((html.match(/<label class="share-perm"/g) || []).length, 2, "e due di quelle sono `<label>`");
+});
+
+t("data e ora dell'evento stanno nella loro colonna", () => {
+  /* Misurati sull'iPhone: i due campi erano larghi 188 px dentro colonne da 170, e la data entrava
+     nella colonna dell'ora. Un campo data/ora ha una larghezza minima sua, e con `1fr` la colonna
+     non scende sotto: serve `minmax(0,1fr)`, come per `.pa-nums`. */
+  ok(/#eventoSec \.ev-datetime\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(stylesCss),
+     "le colonne possono davvero rimpicciolire");
+  /* E la larghezza NON puo' essere `width:100%`: i campi `type=date`/`type=time` su iOS ignorano
+     `box-sizing`, anche con `!important`. Provate una per una sull'iPhone: border-box → 188 px,
+     !important → 188, max-width → 188, stiramento flex → 188. Si toglie a mano quello che il
+     box-sizing avrebbe tolto: 18 = i 2×8 di padding piu' i 2×1 di bordo. */
+  ok(/#eventoSec \.ev-datetime input\{width:calc\(100% - 18px\);min-width:0\}/.test(stylesCss),
+     "e i campi stanno dentro la loro colonna");
+  ok(/#eventoSec \.ev-datetime > div\{min-width:0\}/.test(stylesCss), "con la casella che puo' rimpicciolire");
+});
+
+t("un tablet è dito, ma non è un telefono", () => {
+  /* `isMobile()` e' 880 px: su un iPad Pro da 1032 vale l'interfaccia del mouse, usata col dito.
+     Misurati 13 bersagli sotto i 44 sull'iPad simulato — i quattro bottoni dell'intestazione a
+     18×32, il menu dell'aggancio a 48×17, le icone dei layer larghe 27. Un tablet appoggiato al
+     banco e' un posto normale da cui aprire un rider. */
+  const coarse = stylesCss.slice(stylesCss.indexOf(".tbar-ico{min-width:44px") - 400,
+                                 stylesCss.indexOf(".tbar-ico{min-width:44px") + 400);
+  ok(/@media \(pointer:coarse\)/.test(coarse), "la regola vale solo dove si tocca");
+  ["\\.tbar-ico\\{min-width:44px;min-height:44px\\}",
+   "\\.hdr-name\\{min-height:44px\\}",
+   "#snapSel\\{min-height:44px\\}",
+   "\\.layer-ico\\{min-width:44px\\}",
+   "#evChip\\{min-height:44px\\}",
+   "#fbHead\\{min-height:44px\\}"].forEach((r) => {
+    ok(new RegExp(r).test(stylesCss), "coperto: " + r.replace(/\\\\/g, ""));
+  });
+  /* `min-height` da sola non bastava: sui bottoni dell'intestazione il problema era la LARGHEZZA
+     (18 px), e la regola generica dei 44 tocca solo l'altezza. */
+  ok(/\.tbar-ico\{min-width:44px/.test(stylesCss), "e sulla larghezza, non solo sull'altezza");
+  /* Col mouse non cambia niente: 44 px di bottone in un'intestazione da desktop sono goffi. */
+  const fuoriCoarse = stylesCss.replace(/@media \(pointer:coarse\)\{[\s\S]*?\n  \}/g, "");
+  ok(!/\.tbar-ico\{min-width:44px/.test(fuoriCoarse), "col mouse l'intestazione resta com'era");
+  /* `#catSearch` sta gia' a 40 px per scelta, in un blocco piu' in basso: aggiungerlo qui non lo
+     alzava (stessa specificita', vince l'ultima scritta) e lasciava una regola morta. */
+  const iMio = stylesCss.indexOf(".tbar-ico{min-width:44px");
+  const iAltro = stylesCss.indexOf("#catSearch,#mW,#mD,#mTitle{min-height:40px}");
+  ok(iAltro > iMio, "e il campo di ricerca resta ai suoi 40, decisi altrove");
+  ok(!/#catSearch\{min-height:44px\}/.test(stylesCss), "senza una regola morta che dica il contrario");
+});
+
+t("i campi del pannello Area di stampa reggono il dito", () => {
+  /* Misurati 170×37 sul telefono: gli stessi quattro numeri della finestra, che invece era gia' a
+     posto. Il pannello era rimasto indietro. */
+  ok(/#areaEditPanel input, #areaEditPanel select\{min-height:44px\}/.test(stylesCss),
+     "i campi del pannello sono alti come un bersaglio");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

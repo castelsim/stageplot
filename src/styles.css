@@ -1465,6 +1465,12 @@
   .share-state.on{background:var(--success-bg);border-color:var(--success-border);color:var(--success)}
   .share-chan{flex:1}
   .share-perm{display:flex;align-items:center;gap:10px;font-size:12px;padding:5px 0;cursor:default}
+  /* `.mcard label{display:block}` (specificità 0,2,0) batteva `.share-perm` (0,1,0): DUE righe su
+     tre — quelle che sono `<label>` — perdevano la forma a due colonne e l'interruttore finiva
+     sotto il testo, mentre la prima (un `<div>`) restava a posto. Tre righe uguali, due diverse.
+     Misurato sull'iPhone il 02/09. */
+  .mcard label.share-perm{display:flex;align-items:center;gap:10px;font-size:12px;
+    font-weight:400;margin:0;padding:5px 0;color:var(--text)}
   label.share-perm{cursor:pointer}
   .share-perm .pd{flex:1}
   .share-perm .pd small{display:block;color:var(--text-3);font-size:11px}
@@ -2105,6 +2111,25 @@
   /* ===== Accessibilità: motion ridotto + target touch ===== */
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
   @media (pointer:coarse){.btn,.btn-icon,.cnt-b,.mtbtn,.mact-grid button,.layer-ico,.adv-btn,.feed-seg{min-height:44px}}
+  /* IL TABLET (02/09). `isMobile()` è 880 px: su un iPad Pro da 1032 vale l'interfaccia del mouse,
+     usata col dito. Misurati 13 bersagli sotto i 44 — i quattro bottoni dell'intestazione a 18×32,
+     il menu dell'aggancio a 48×17, le icone dei layer larghe 27. `min-height` da sola non basta:
+     lì il problema è la LARGHEZZA. */
+  @media (pointer:coarse){
+    .tbar-ico{min-width:44px;min-height:44px}
+    .hdr-name{min-height:44px}
+    header select, #snapSel{min-height:44px}
+    .layer-ico{min-width:44px}
+    #evChip{min-height:44px}          /* «📅 Data e ora»: 102×23 */
+    #fbHead{min-height:44px}          /* «Cosa manca? Bug? Idea?»: 227×39 */
+    /* RESTA FUORI `.layer-solo` (17×17), e non per dimenticanza: ce n'è uno per ogni fetta di ogni
+       riga del pannello layer, e portarli a 44 raddoppierebbe l'altezza di quel pannello. È un
+       comando dell'interfaccia densa, che sul telefono non c'è: su un tablet resta scomodo, e
+       sistemarlo vuol dire ridisegnare la riga, non allargare un bottone. */
+    /* `#catSearch` NON è qui: più sotto sta già a 40 px, per scelta — «i campi si toccano una
+       volta e poi si scrive». Metterlo anche qui non lo alzava (stessa specificità, vince la riga
+       più in basso) e lasciava una regola morta a far credere il contrario. */
+  }
   /* Misurato col telefono simulato il 31/08: restavano fuori dalla riga qui sopra proprio i bersagli
      che si toccano di più su un telefono — le intestazioni del catalogo (28 px, e sono le undici
      porte da cui si prende OGNI elemento), le righe delle liste (28-32 px) e le due aggiunte oggi,
@@ -2865,6 +2890,10 @@ body.dark .ask-all .btn{background:transparent}
 .pa-pre .btn{flex:1;font-size:12px}
 @media (max-width:880px){
   #printAreaModal .pa-nums{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* Il PANNELLO «Area di stampa» (non la finestra): i suoi quattro campi misuravano 170×37 sotto
+     il dito, contro i 44 della regola. Sono gli stessi numeri della finestra, nello stesso momento
+     della lavorazione. (02/09) */
+  #areaEditPanel input, #areaEditPanel select{min-height:44px}
   #printAreaModal .pa-pre{flex-wrap:wrap}
   #printAreaModal .pa-pre .btn{flex:1 1 100%}
   #printAreaModal .pa-nums input{min-height:44px}
@@ -2905,7 +2934,19 @@ body.dark .ask-all .btn{background:transparent}
 #eventoSec h3{margin-bottom:2px}
 #eventoSec .ev-intro{font-size:12px;color:var(--text-2);margin:0 0 12px;line-height:1.4}
 #eventoSec label{margin-top:12px}
-#eventoSec .ev-datetime{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* `minmax(0,1fr)` e i campi al 100%: un campo data/ora ha una larghezza minima sua, e con `1fr`
+   la colonna non scende sotto — misurati 188 px dentro colonne da 170, con la data che entrava
+   nella colonna dell'ora. Stessa famiglia del difetto di `.pa-nums`. (02/09) */
+#eventoSec .ev-datetime{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* I campi `type=date` e `type=time` su iOS NON obbediscono a `box-sizing`. Provate sull'iPhone,
+   una per una: `box-sizing:border-box` → 188 px, con `!important` → 188, `max-width:100%` → 188,
+   stiramento flex → 188. Restavano 170 di contenuto più padding e bordo dentro colonne da 170, e
+   la data entrava nella colonna dell'ora. Solo `-webkit-appearance:none` li piega (→ 170), ma
+   quello cambia anche il modo in cui il telefono disegna il campo, e per una misura non vale.
+   Quindi si toglie a mano quello che il box-sizing avrebbe tolto da solo: 18 = i 2×8 di padding
+   più i 2×1 di bordo. Se cambiano quelli, cambia anche questo numero. */
+#eventoSec .ev-datetime > div{min-width:0}
+#eventoSec .ev-datetime input{width:calc(100% - 18px);min-width:0}
 #eventoSec .ev-datetime label{margin-top:12px}
 #eventoSec #bEventoDone{width:100%;margin-top:18px}
 @media (pointer:coarse){
