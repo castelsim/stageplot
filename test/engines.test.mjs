@@ -12776,6 +12776,62 @@ t("il bottone «Solo» resta piccolo da vedere e diventa grande da toccare", () 
   ok(!/background:(?!none)/.test(regola) && !/border:/.test(regola), "resta invisibile: " + regola.slice(0, 60));
 });
 
+t("sul telefono il pannello mostra quello che si vede, e il resto sta dietro un bottone", () => {
+  /* 02/09, Simone: «da telefono dev'essere possibile inserire icone ed esportare in modo semplice,
+     senza tutte le opzioni della versione pro». Su uno schermo da telefono il pannello e' un
+     cassetto alto 46vh con dentro 288 controlli.
+     Restano in vista i gruppi che descrivono quello che si VEDE sul palco; vanno dietro il bottone
+     quelli che alimentano i motori. «Microfono» resta perche' li' dentro c'e' anche come si tiene
+     il microfono (asta, palmare, archetto): e' il primo errore che si nota in un plot, non una
+     questione da fonico. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* L'aggancio: il .pgrp nasceva senza id ne' attributi, quindi da CSS non lo si raggiungeva. */
+  ok(/g\.setAttribute\("data-grp"/.test(appjs), "i gruppi portano un aggancio per il CSS");
+  const coarse880 = stylesCss.slice(stylesCss.indexOf("@media(max-width:880px)"));
+  ok(/body:not\(\.props-pro\) #selProps \.pgrp\[data-grp="ascolto"\]/.test(stylesCss),
+     "«Ascolto» sta dietro il bottone");
+  ok(/body:not\(\.props-pro\) #selProps \.pgrp\[data-grp="dettagli-tecnici"\]/.test(stylesCss),
+     "e «Dettagli tecnici» pure");
+  /* Ma NON i gruppi che descrivono il disegno. */
+  ["etichetta", "accessori", "nota", "disegno", "microfono"].forEach((g) => {
+    ok(!new RegExp('props-pro\\) #selProps \\.pgrp\\[data-grp="' + g + '"\\]').test(stylesCss),
+       "«" + g + "» resta in vista: descrive quello che si vede");
+  });
+  /* Via CSS e non inline: syncPanelGroups riscrive lo style a ogni render (13191). */
+  const regola = (stylesCss.match(/body:not\(\.props-pro\) #selProps[^}]*\}/) || [""])[0];
+  ok(/!important/.test(regola), "con !important, o syncPanelGroups lo riapre");
+  /* La regola dev'essere ALMENO specifica quanto `#props .btn{display:flex}`, che gia' esiste:
+     con la sola classe il bottone compariva anche col mouse. Misurato nel browser il 02/09 — ed e'
+     la stessa trappola di `.guide-actions .btn`, la terza in un giorno. */
+  /* Non basta la specificita' UGUALE: a parita' vince l'ultima scritta, e `#props .btn{display:flex}`
+     stava piu' in basso. La regola dev'essere DOPO di quella. Misurato nel browser il 02/09 — ed e'
+     la terza volta in un giorno che questo pannello vince su una regola nuova. */
+  ok(/#props \.adv-mob\{display:none\}/.test(stylesCss), "col mouse il bottone non c'e'");
+  const iBtn = stylesCss.indexOf("#props .btn,#grpProps .btn{width:100%;display:flex");
+  const iAdv = stylesCss.indexOf("#props .adv-mob{display:none}");
+  ok(iBtn > 0 && iAdv > iBtn, "e la regola viene DOPO «#props .btn», o quella la sovrascrive");
+});
+
+t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
+  /* Trenta controlli, e su un telefono serve premere «Scarica». Restano l'anteprima, il nome, il
+     formato e l'orientamento; il resto sta dietro la STESSA preferenza del pannello elemento —
+     chi accende «tecnico» lo accende una volta, non due. */
+  ["pdfTechBox", "pdfAreaRow", "pdfScaleRow", "pdfHdrRow", "pdfTechRow"].forEach((id) => {
+    ok(new RegExp("body:not\\(\\.props-pro\\) #" + id).test(stylesCss), id + " sta dietro il bottone");
+  });
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* I due contenitori non avevano un id: senza, dal CSS non si potevano raggiungere. */
+  ok(/id="pdfScaleRow"/.test(html), "la riga della scala ha un aggancio");
+  ok(/id="pdfHdrRow"/.test(html), "e quella dell'intestazione pure");
+  ok(/id="pdfProBtn"/.test(html), "e c'e' il bottone per rivelarle");
+  /* L'anteprima e il bottone che scarica NON si toccano mai. */
+  ["pdfPreview", "pdfGo"].forEach((id) => {
+    ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre: e' il senso della finestra");
+  });
+  /* Una sola preferenza per tutti e due i posti. */
+  ok((appjs.match(/sp_props_pro/g) || []).length >= 3, "la preferenza e' una sola, condivisa");
+});
+
 t("i menu a tendina del pannello reggono il dito", () => {
   /* Misurati nel browser l'01/09: TUTTI E 40 i select di #props stavano a 28 px, sotto i 44 della
      regola. Non e' il campo «Ingressi» nuovo ad essere sbagliato: lo era la famiglia intera, e il
