@@ -11086,7 +11086,12 @@ document.getElementById("pTastLeg1").addEventListener("change", function(){
   document.getElementById("pTastLeg2").disabled = !document.getElementById("pTastLeg1").checked;
 });
 document.getElementById("pTastLeg2").addEventListener("change", function(){ mutSel(function(it){ it.leggio2=document.getElementById("pTastLeg2").checked; }); });
-document.getElementById("snapSel").addEventListener("change", function(){ snapMode=this.value; });
+(function(){   /* due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono) */
+  var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
+  function set(v){ snapMode=v; if(a) a.value=v; if(b) b.value=v; }
+  if(a) a.addEventListener("change", function(){ set(this.value); });
+  if(b) b.addEventListener("change", function(){ set(this.value); });
+})();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
 /* Dividi una postazione doppia (×2 del generatore o doppia-da-flag) in 2 postazioni singole */
@@ -11689,8 +11694,8 @@ function setEventInputs(){
   var _fn=document.getElementById("pdfFileName");
   if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+fileName()+".pdf";
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
-  var _ed=document.getElementById("evDate"); if(_ed && document.activeElement!==_ed) _ed.value=state.evDate||"";
-  var _et=document.getElementById("evTime"); if(_et && document.activeElement!==_et) _et.value=state.evTime||"";
+  ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
+  ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
   if(typeof renderEvChip==="function") renderEvChip();
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
@@ -11725,9 +11730,16 @@ function renderEvChip(){
   pop.addEventListener("click", function(e){ e.stopPropagation(); });   /* i click sui campi NON chiudono */
   document.addEventListener("click", function(e){ if(!pop.hidden && !pop.contains(e.target)) close(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") close(); });
+  /* Due campi per lo stesso dato: quello dell'header (mouse) e quello del pannello Evento
+     (telefono, dove l'header non c'è). Scrivono nello stesso posto e si riallineano a vicenda. */
   var ed=document.getElementById("evDate"), et=document.getElementById("evTime");
-  if(ed) ed.addEventListener("change", function(){ state.evDate=this.value||""; renderEvChip(); saveSoon(); });
-  if(et) et.addEventListener("change", function(){ state.evTime=this.value||""; renderEvChip(); saveSoon(); });
+  var edM=document.getElementById("evDateM"), etM=document.getElementById("evTimeM");
+  function setData(v){ state.evDate=v||""; if(ed) ed.value=state.evDate; if(edM) edM.value=state.evDate; renderEvChip(); saveSoon(); }
+  function setOra(v){ state.evTime=v||""; if(et) et.value=state.evTime; if(etM) etM.value=state.evTime; renderEvChip(); saveSoon(); }
+  if(ed) ed.addEventListener("change", function(){ setData(this.value); });
+  if(et) et.addEventListener("change", function(){ setOra(this.value); });
+  if(edM) edM.addEventListener("change", function(){ setData(this.value); });
+  if(etM) etM.addEventListener("change", function(){ setOra(this.value); });
 })();
 renderEvChip();
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
@@ -20738,6 +20750,10 @@ function renderVersionPanel(){
 function toggleVersionEdit(){
   versEdit=!versEdit;
   if(versEdit){ exitHubModes('vers'); clearSelection(); }
+  /* La classe sul body serve al TELEFONO: là `#props` è un cassetto che si apre solo per gli stati
+     elencati in styles.css. Senza questa riga il pannello restava chiuso e «Punti di ripristino»
+     non mostrava niente — la voce c'era nel menu e non faceva nulla. */
+  document.body.classList.toggle("vers-edit", versEdit);
   renderVersionPanel(); render();
 }
 /* ===== SVG Export ===== */
