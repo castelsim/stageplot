@@ -8759,6 +8759,46 @@ t("gli a capo della finestra si vedono davvero", () => {
   ok(/\.guide-msg\{[^}]*white-space:pre-line/.test(stylesCss), "il messaggio rispetta gli a capo");
 });
 
+t("la snake della stage box arriva al banco che sta sul palco", () => {
+  /* 02/09, su domanda di Simone: «non posso collegare la stage box al mixer?».
+     No, e c'era di peggio: `state.cab.home` nasceva null e restava null — l'unico codice che lo
+     scrive e' il trascinamento del badge, e il badge si disegna solo se home esiste GIA'. Circolo
+     chiuso. E siccome la snake si spinge solo `if(home)`, ogni stage box restava collegata a
+     NIENTE: nove canali dentro e nessun cavo che ne esce, con un DM3 disegnato lì accanto.
+     Ora, se il banco e' sul palco, e' lui il capolinea — come lo dichiarano i documenti veri
+     (Music Box SD: «2× CL5 + RIO1606 + RIO3224, all Dante enabled»: console e rack I/O insieme). */
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto";
+  add("cantante", 300, 400); add("batteria", 500, 400);
+  add("stagebox", 400, 700);
+  const dm3 = add("dm3", 900, 750);
+  A.__cabRes = null;
+  const h = A.cabHomePoint();
+  ok(h, "il capolinea esiste anche senza che l'utente lo scelga");
+  eq(h.x, 900, "ed e' dove sta il banco");
+  eq(h.y, 750, "sulle sue coordinate, non su un punto inventato");
+  const R = A.audioCablingEngine();
+  eq(R.snakes.length, 1, "la snake dalla box al banco c'e': prima erano zero");
+  eq(Math.round(R.snakes[0].x2), dm3.x, "e finisce sul DM3");
+  /* Il banco non tira una snake verso se stesso. */
+  ok(!R.snakes.some((s) => s.box.isMixer), "dal mixer non parte nessuna snake");
+});
+
+t("con piu' banchi vince quello con piu' ingressi, e senza banco resta la scelta all'utente", () => {
+  reset();
+  A.state.cab.on = true;
+  add("stagebox", 400, 700);
+  const piccolo = add("mixer", 800, 750); piccolo.ch = 8; piccolo.label = "PICCOLO";
+  const grande = add("dm3", 1000, 750); grande.label = "DM3";
+  A.__cabRes = null;
+  eq(A.cabHomePoint().id, grande.id, "il banco principale e' quello con piu' ingressi");
+  /* Senza nessun banco sul palco (console in sala) non si inventa un capolinea: la snake va dove
+     lo dice l'utente, ed e' il caso che resta da coprire. */
+  A.state.items = A.state.items.filter((x) => x.type === "stagebox");
+  A.__cabRes = null;
+  eq(A.cabHomePoint(), null, "senza banco sul palco non si inventa niente");
+});
+
 t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => {
   /* Il seguito della segnalazione ed830b3e. Chi l'ha mandata aveva UN banco sul palco, rinominato
      «MIXER»: era un «Mixer monitor». Restava con 17 canali e capienza zero, e l'unico segnale era

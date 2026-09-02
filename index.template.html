@@ -8934,8 +8934,32 @@ function cabItemInputs(it){
 }
 /* punto principale di connessione (FOH / stage rack / lato palco / personalizzato) → coordinate sul palco */
 var HOME_LABELS={foh:"FOH mixer", monitor:"Monitor mixer", stagerack:"Stage rack / I/O rack", right:"Uscita palco DX", left:"Uscita palco SX", custom:"Punto personalizzato"};
+/* Il banco sul palco È il capolinea delle snake.
+   Prima di oggi (02/09) `state.cab.home` nasceva null e restava null: l'unico codice che lo scrive
+   e' il trascinamento del badge, e il badge si disegna solo `if(R.home)` — cioe' solo se esiste
+   gia'. Circolo chiuso: in un progetto nuovo il punto principale non si poteva creare, e siccome
+   la snake si spinge solo `if(home)`, le stage box restavano collegate a NIENTE. Nove canali dentro
+   la box e nessun cavo che ne esce, con un DM3 disegnato lì accanto.
+   Le fonti dicono la stessa cosa che dice il buon senso: console e rack I/O si dichiarano come un
+   sistema (Music Box SD: «2× CL5 + RIO1606 + RIO3224, all Dante enabled»). Se il banco e' sul
+   palco, la box entra lì — non serve chiedere niente a nessuno. */
+function cabMainDesk(){
+  var cand=(state.items||[]).filter(function(it){
+    return !!(cabMixerIn(it) || (CAB_DEST_LOCALE[it.type] && it.type!=="audiointerface")); });
+  if(!cand.length) cand=(state.items||[]).filter(function(it){ return it.type==="audiointerface"; });
+  if(!cand.length) return null;
+  /* Con piu' banchi vince quello con piu' ingressi: e' il principale. A pari ingressi, il primo
+     posato — cosi' il disegno non cambia da solo riordinando gli elementi. */
+  return cand.slice().sort(function(a,b){ return (cabBoxCap(b)-cabBoxCap(a)); })[0];
+}
 function cabHomePoint(){
-  var h=state.cab&&state.cab.home; if(!h) return null;
+  var h=state.cab&&state.cab.home;
+  if(!h){
+    var desk=cabMainDesk();
+    if(desk) return {kind:"desk", id:desk.id, x:Math.round(desk.x), y:Math.round(desk.y),
+                     name:(desk.label&&String(desk.label).trim()) || (TYPES[desk.type]&&TYPES[desk.type].nome) || "Console"};
+    return null;
+  }
   var W=state.stage.w, D=state.stage.d, p={kind:h.kind, name:HOME_LABELS[h.kind]||"Punto principale"};
   if(h.kind==="custom"){ p.x=h.x; p.y=h.y; }
   else if(h.kind==="right"){ p.x=W-30; p.y=D-40; }
