@@ -6846,7 +6846,16 @@ function cabIsBox(it){ return it.type==="stagebox"||it.type==="substg"||it.type=
    Qui entrano la console generica e l'interfaccia audio: hanno ingressi propri, e chi non ha una
    stage box collega li'. Il mixer MONITOR resta fuori di proposito (scelta di Simone): nel modello
    e' un nodo che distribuisce gli ascolti, non che riceve i cavi di palco. */
-var CAB_DEST_LOCALE = { mixer:1, audiointerface:1 };
+/* 02/09, secondo giro — Simone: «perché non accetta canali in ingresso e in uscita? dall'icona è
+   un mixer analogico». Aveva ragione, e la causa era piu' profonda della regola: il monmix usa
+   l'illustrazione dettagliata di un banco coi fader, mentre la «Console / mixer» — quella che DEVE
+   ricevere i cavi — e' un rettangolo schematico. L'icona piu' credibile stava sull'elemento
+   sbagliato, ed e' per questo che l'utente della segnalazione ed830b3e l'aveva scelto.
+   E il fatto tecnico gli dava ragione: un banco monitor analogico HA ingressi — riceve lo split dal
+   palco. «Non riceve» descriveva il flusso di un sistema con FOH e monitor separati, non
+   l'apparecchio. Ora accetta canali come ogni altro banco: l'inganno sparisce alla radice invece di
+   essere spiegato. */
+var CAB_DEST_LOCALE = { mixer:1, audiointerface:1, monmix:1 };
 function cabIsDest(it){ return cabIsBox(it) || !!cabMixerIn(it) || !!(it && CAB_DEST_LOCALE[it.type]); }
 function cabBoxCap(it){
   var mx=cabMixerIn(it); if(mx) return Math.max(1, mx.in);   /* mixer: ingressi mic/line di targa */
@@ -6858,7 +6867,8 @@ function cabBoxCap(it){
   if(it.hw && STAGEBOX_DB[it.hw]) return Math.max(1, STAGEBOX_DB[it.hw].in||8);
   /* La console generica: 16 e' il taglio di un mixer da palco (non i 32 di un banco grande, non gli
      8 di una scatoletta). Si cambia dal pannello, come per le stage box generiche. */
-  var def=(it.type==="stagebox")?16:(it.type==="mixer"?16:8);
+  /* Un banco parte da 16 ingressi, che siano di sala o di monitor: il monmix e' un banco (02/09). */
+  var def=(it.type==="stagebox"||it.type==="mixer"||it.type==="monmix")?16:8;
   return Math.min(64,Math.max(1,Math.round(it.ch||def)));
 }
 function cabBoxCapOut(it){   /* uscite line della box (per i ritorni monitor) */
@@ -7760,7 +7770,12 @@ function cablingMarkup(){
         });
       }
     }
-    if(R.home){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
+    /* IL BADGE NON SI DISEGNA SOPRA IL BANCO (02/09, segnalazione 05322f1a: «cos'è quel rettangolo
+       verde? è un bug?»). Quando il capolinea e' un ELEMENTO sul palco — kind "desk" — il badge
+       finiva esattamente sulle sue coordinate, coprendolo con un rettangolo verde che sembrava un
+       artefatto. E non serviva: il banco si vede gia', col suo nome sotto. Il badge resta per i
+       punti GEOMETRICI (FOH, uscite, personalizzato), che non hanno un elemento a rappresentarli. */
+    if(R.home && R.home.kind!=="desk"){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
       if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
       s+='</g>'; }
     R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
@@ -10155,9 +10170,14 @@ function renderProps(){
     if(![].some.call(sel.options,function(o){ return o.value===cap; })){
       var op=document.createElement("option"); op.value=cap; op.textContent=cap; sel.appendChild(op); }
     sel.value=cap;
-    document.getElementById("pLocInHint").textContent = it.type==="mixer"
+    document.getElementById("pLocInHint").textContent = (it.type==="mixer"||it.type==="monmix")
       ? "Gli ingressi mic/line del banco: le sorgenti si collegano qui."
       : "Gli ingressi della scheda. Scegliendo il modello vale il suo numero di targa.";
+    var hr=document.getElementById("pIsHomeRow");
+    if(hr){
+      var hp=(typeof cabHomePoint==="function")?cabHomePoint():null;
+      hr.style.display=(hp && hp.kind==="desk" && hp.id===it.id) ? "block" : "none";
+    }
   })();
   var sbw=document.getElementById("pSbChWrap");
   if(sbw){ var isBox=cabIsBox(it); sbw.style.display = isBox ? "block" : "none";
@@ -18024,6 +18044,10 @@ function renderCabPanel(){
   /* Ingressi delle destinazioni locali (mixer generico, interfaccia senza modello): stesso gesto del
      campo delle stage box, ma senza sbAutoSize — mixer e interfaccia hanno un ingombro loro, che non
      dipende dal numero di canali. */
+  var hchg=document.getElementById("pHomeChange");
+  if(hchg) hchg.addEventListener("click", function(e){
+    if(typeof showHomeMenu==="function") showHomeMenu(e.clientX, e.clientY);
+  });
   var lin=document.getElementById("pLocIn");
   if(lin) lin.addEventListener("change", function(){ var it=getSel(); if(it && CAB_DEST_LOCALE[it.type]){ it.ch=+this.value; __cabRes=null; save(); render(); renderProps(); } });
   var sbo=document.getElementById("pSbOut");

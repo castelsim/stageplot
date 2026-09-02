@@ -8704,10 +8704,20 @@ t("mixer e interfaccia sono destinazioni: chi non ha una stage box collega li'",
   /* Col modello scelto vale il SUO numero, che è un dato di targa letto sul manuale. */
   ifc.hw = "umc1820";
   eq(A.cabBoxCap(ifc), 8, "col modello scelto valgono i suoi 8 ingressi, non il default");
-  /* Il mixer MONITOR resta fuori di proposito: nel modello è un nodo che distribuisce gli ascolti,
-     non che riceve i cavi di palco. */
+  /* IL MIXER MONITOR RICEVE ANCHE LUI, dal 02/09. Questo test difendeva l'opposto — «distribuisce
+     gli ascolti, non riceve i cavi» — e la regola e' caduta per due motivi, in quest'ordine:
+     · l'icona: il monmix usa l'illustrazione di un banco coi FADER, mentre la «Console / mixer» e'
+       un rettangolo schematico. L'elemento che promette ingressi era quello che non li aveva, ed e'
+       per questo che l'utente della segnalazione ed830b3e l'aveva scelto — e ci e' cascato anche
+       chi la regola l'aveva scritta il mattino stesso;
+     · il fatto tecnico: un banco monitor analogico HA ingressi, riceve lo split dal palco. «Non
+       riceve» descriveva il flusso di un sistema con FOH e monitor separati, non l'apparecchio. */
   const mon = add("monmix", 800, 700);
-  ok(!A.cabIsDest(mon), "il mixer monitor non è una destinazione dei cavi di palco");
+  ok(A.cabIsDest(mon), "anche il mixer monitor riceve i cavi: e' un banco");
+  eq(A.cabBoxCap(mon), 16, "col taglio di un banco da palco, che si cambia dal pannello");
+  /* I PERSONAL MIXER no, e per una ragione diversa: arrivano in rete dal loro rack. */
+  const pm = add("hearback", 900, 700);
+  ok(!A.cabIsDest(pm), "il personal mixer no: arriva in rete dal suo rack, non dai cavi di palco");
 });
 
 t("la risposta a una segnalazione si legge nell'app, e una volta sola", () => {
@@ -8899,36 +8909,54 @@ t("con piu' banchi vince quello con piu' ingressi, e senza banco resta la scelta
   eq(A.cabHomePoint(), null, "senza banco sul palco non si inventa niente");
 });
 
-t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => {
-  /* Il seguito della segnalazione ed830b3e. Chi l'ha mandata aveva UN banco sul palco, rinominato
-     «MIXER»: era un «Mixer monitor». Restava con 17 canali e capienza zero, e l'unico segnale era
-     un «ingressi da collegare» di livello info — cioe' niente. Il divieto resta (un monitor
-     distribuisce gli ascolti, un personal mixer sta a valle di un rack, in rete): quello che
-     cambia e' che adesso si spiega. */
+t("il badge non si disegna sopra il banco", () => {
+  /* Segnalazione 05322f1a: «cos'è quel rettangolo verde? è un bug?». Sì, mio, del mattino stesso:
+     col capolinea su un ELEMENTO il badge finiva esattamente sulle sue coordinate, coprendolo con
+     un rettangolo verde che sembrava un artefatto. E non serviva — il banco si vede già, col nome
+     sotto. Resta per i punti GEOMETRICI, che non hanno un elemento a rappresentarli. */
+  reset(); A.state.cab.on = true;
+  add("cantante", 300, 400); add("stagebox", 400, 700);
+  const sq = add("sq6", 900, 750); sq.label = "A&H SQ-6";
+  A.__cabRes = null;
+  const h = A.cabHomePoint();
+  eq(h.kind, "desk", "il capolinea e' il banco");
+  eq(h.x, sq.x, "e sta sulle sue coordinate — per questo il badge lo coprirebbe");
+  ok(/if\(R\.home && R\.home\.kind!=="desk"\)/.test(appjs), "quindi non si disegna");
+  /* Ma per un punto geometrico il badge serve, o non c'e' niente da vedere ne' da trascinare. */
+  A.state.cab.home = { kind: "foh", x: 600, y: 920 };
+  A.__cabRes = null;
+  eq(A.cabHomePoint().kind, "foh", "col punto in sala il badge torna");
+});
+
+t("il capolinea si cambia dal pannello del banco, visto che il badge non c'e'", () => {
+  /* Senza badge sul disegno serviva un altro accesso al menu: sta nel pannello del banco, dove si
+     sta gia' guardando quando ci si chiede dove finiscono i cavi. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pIsHomeRow"/.test(html), "la riga esiste");
+  ok(/id="pHomeChange"/.test(html), "col bottone che apre il menu");
+  ok(/hp\.kind==="desk" && hp\.id===it\.id/.test(appjs),
+     "e compare SOLO sull'elemento che e' davvero il capolinea, non su ogni banco");
+  ok(/showHomeMenu\(e\.clientX, e\.clientY\)/.test(appjs), "il bottone apre lo stesso menu del badge");
+});
+
+t("col mixer monitor sul palco i canali hanno dove andare", () => {
+  /* Questo test difendeva l'avviso «il mixer monitor non riceve i cavi», scritto il mattino del
+     02/09 e CADUTO la sera stessa: ora il monmix riceve come ogni banco, e un cartello che spiega
+     un divieto tolto sarebbe solo rumore.
+     Il caso della segnalazione ed830b3e — un banco solo, rinominato «MIXER» — ora funziona e basta,
+     senza che nessuno debba cambiare elemento. */
   reset(); A.state.cab.on = true;
   add("cantante", 300, 500); add("batteria", 500, 500);
   const mon = add("monmix", 700, 900);
   mon.label = "MIXER";                      /* com'era nel progetto vero */
   A.__cabRes = null;
-  ok(!A.cabIsDest(mon), "resta fuori dalle destinazioni: e' la decisione, non una svista");
+  ok(A.cabIsDest(mon), "e' una destinazione");
   const R = A.auditEngine();
-  /* Il LIVELLO va verificato, non solo il testo: il pannello mostra err/warn/todef e basta, e un
-     avviso con un livello che non e' fra quelli sarebbe li' nei dati e invisibile sullo schermo.
-     E' gia' successo una volta con un finding «info» che non vedeva nessuno. */
-  const f = auditFind(/mixer monitor manda gli ascolti/)[0];
-  ok(f, "e l'audit lo spiega: " + auditMsgs().join(" | "));
-  eq(f.lvl, "warn", "e a un livello che il pannello mostra davvero");
-  eq(R.errs, 0, "ma non e' un errore: il pezzo c'e', e' solo un altro apparecchio");
-  /* La guida del cablaggio porta all'elemento giusto invece che alla stage box. */
-  const g = A.autoConnectNeeds("cabin");
-  ok(g && /mixer monitor non riceve/i.test(g.title), "la guida parla del monitor: " + (g && g.title));
-  ok(g && /console/i.test(g.action.label), "e l'azione aggiunge una console, non una stage box");
-  /* Aggiunta la console, l'equivoco e' chiuso: niente piu' avviso. */
-  add("mixer", 900, 900); A.__cabRes = null;
-  A.auditEngine();
-  ok(!hasMsg(/mixer monitor manda gli ascolti/), "con la console sul palco l'avviso sparisce");
+  ok(!hasMsg(/mixer monitor/i), "e non si dice piu' niente: " + auditMsgs().join(" | "));
+  eq(R.errs, 0, "nessun errore");
+  const cab = A.audioCablingEngine();
+  ok(cab.capTot >= cab.totIn, "i canali ci stanno: " + cab.totIn + " su " + cab.capTot);
 });
-
 t("un personal mixer non e' un mixer monitor, e non gli si dice la stessa frase", () => {
   /* Corretto da Simone il 02/09: il codice metteva monmix e hearback nella stessa condizione, e la
      frase parlava solo di «mixer monitor» — anche a chi ha un Hear Back. Sono due apparecchi
