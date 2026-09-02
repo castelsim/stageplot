@@ -3292,6 +3292,12 @@ body.dark .ask-all .btn{background:transparent}
     <div id="pLocInWrap" style="display:none"><label for="pLocIn">Ingressi <small class="lbl-note">— quanti ne ha il tuo</small></label>
       <select id="pLocIn"><option value="2">2</option><option value="4">4</option><option value="8">8</option><option value="12">12</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select>
       <div id="pLocInHint" class="prop-hint"></div>
+      <!-- Se questo banco e' il capolinea delle snake, il badge sul disegno non c'e' (coprirebbe
+           l'elemento): la scelta si fa da qui, che e' dove si sta gia' guardando. (02/09) -->
+      <div id="pIsHomeRow" style="display:none;margin-top:6px">
+        <div class="prop-hint" style="margin-bottom:4px">I cavi di palco arrivano <b>qui</b>.</div>
+        <button type="button" class="btn" id="pHomeChange" style="width:100%">Il banco è in sala…</button>
+      </div>
     </div>
     <div id="pSbChWrap" style="display:none">
       <label class="chk" id="pSbFohWrap"><input type="checkbox" id="pSbFoh"> Stage box del mixer <small class="lbl-note">— lato regia</small></label>
