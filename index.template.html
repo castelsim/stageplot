@@ -295,8 +295,8 @@
     <div id="stageBlocksSec">
     <h3 style="margin-bottom:6px">Forma del palco</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
-    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
-    <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola la misura con + / −, poi scegli dove metterlo.</div>
+    <div class="hint desk-hint" id="stageDragHint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
+    <div class="hint mob-hint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola la misura con + / −, poi scegli dove metterlo.</div>
     <!-- Aggancio: sull'header c'è da sempre, ma l'header su mobile è display:none — da telefono
          restava inchiodato a 25 cm senza modo di cambiarlo. Qui perché è la stessa domanda del
          palco: come si posizionano le cose sopra. (02/09) -->
@@ -346,7 +346,7 @@
       </div>
       <p class="hint" id="blkHint" style="font-size:11px;color:var(--text-2);margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza</button>
-      <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
+      <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px">Elimina blocco</button>
     </div>
     <!-- Il bottone che apre semicerchio, altezza e lato curvo: sul telefono il CSS li nasconde
          dietro `props-pro`, e qui dentro non c'era niente da premere per accenderla. (02/09) -->
@@ -369,7 +369,7 @@
             <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Importa immagine</button>
             <div id="venueWeightRow" hidden style="margin-top:7px">
-              <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:11.5px"></small>
+              <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
               <button class="btn" id="venueBtnLighten" style="width:100%;margin-top:4px">Alleggerisci immagine</button>
             </div>
           </div>
@@ -381,7 +381,7 @@
             <small id="vstep2sub">Traccia sulla mappa una misura che conosci</small>
             <button class="btn primary" id="venueBtnCalib" style="width:100%;margin-top:7px">📐 Inizia la calibrazione</button>
             <div id="vstep2alt" hidden style="margin-top:8px">
-              <small style="display:block;color:var(--text-2);font-size:11.5px">…oppure, se conosci la larghezza reale dell'immagine:</small>
+              <small style="display:block;color:var(--text-2);font-size:12px">…oppure, se conosci la larghezza reale dell'immagine:</small>
               <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
                 <input type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
                 <span style="font-size:12px;color:var(--text-2);flex:0 0 auto">m</span>
@@ -562,7 +562,7 @@
       <label class="chk" id="pSbFohWrap"><input type="checkbox" id="pSbFoh"> Stage box del mixer <small class="lbl-note">— lato regia</small></label>
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbEquip" style="display:none;font-size:11px;margin-top:3px"></div>
-      <div id="pSbKind" style="font-size:10.5px;font-weight:600;margin:3px 0 2px"></div>
+      <div id="pSbKind" style="font-size:11px;font-weight:600;margin:3px 0 2px"></div>
       <div id="pSbToRow" style="display:none;margin-top:4px">
         <label>Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
         <select id="pSbToSel"></select>
@@ -750,7 +750,7 @@
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
     <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
-    <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
+    <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
@@ -792,13 +792,13 @@
         <span><select id="pPmModel"></select></span>
       </div>
       <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
-      <div id="pPmState" style="font-size:11.5px;font-weight:600;margin-top:3px"></div>
+      <div id="pPmState" style="font-size:12px;font-weight:600;margin-top:3px"></div>
       <div id="pPmFeedWrap" style="display:none;margin-top:8px">
         <label>Alimentato da <small style="color:var(--text-3);font-weight:400">— sorgente dei canali cuffia</small></label>
         <div id="pPmFeedSeg" class="feed-seg"><div data-v="console">Omni out console</div><div data-v="dante">Rete Dante</div></div>
         <div id="pPmFeedChRow" style="margin-top:6px"><label>Canali dalla console</label>
           <select id="pPmFeedCh"></select></div>
-        <div id="pPmFeedHint" style="font-size:10.5px;color:var(--text-3);margin-top:3px"></div>
+        <div id="pPmFeedHint" style="font-size:11px;color:var(--text-3);margin-top:3px"></div>
       </div>
       <div id="pPmActions" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
@@ -882,7 +882,7 @@
           <option value="palmare">Palmare con interruttore (gelato) — es. SM58S</option>
           <option value="collodoca">Collo d'oca talkback da podio — es. ATR3M</option>
         </select>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Diventa un canale collegabile alla stage box.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">Diventa un canale collegabile alla stage box.</div>
       </div>
     </div>
     <div id="pTastiera" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
@@ -915,7 +915,7 @@
       <select id="pModelSel" style="width:100%;font-size:12px"></select>
       <div id="pModelCur" style="display:none;align-items:center;gap:6px;font-size:12px;margin-top:2px"></div>
     </div>
-    <div id="pInRack" style="display:none;font-size:11.5px;margin:6px 0"></div>
+    <div id="pInRack" style="display:none;font-size:12px;margin:6px 0"></div>
     <div id="pRxWrap" style="display:none">
       <label>Marca e modello</label><select id="pRxHw"></select>
       <div id="pRxNRow" style="display:none"><label>Canali RF</label><select id="pRxN"></select></div>
@@ -923,7 +923,7 @@
       <input id="pRxBand" type="text" maxlength="12" placeholder="—">
       <label>Canali <small style="color:var(--text-3);font-weight:400">— associazione automatica, cambia dalla tendina</small></label>
       <div id="pRxChs"></div>
-      <div id="pRxKv" style="margin-top:4px;font-size:11.5px;color:var(--text-2)"></div>
+      <div id="pRxKv" style="margin-top:4px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pAntWrap" style="display:none">
       <label>Marca e modello</label><select id="pAntHw"></select>
@@ -932,7 +932,7 @@
         <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="100">100° (paddle larga)</option><option value="360">Omnidirezionale</option></select></div>
       <label>Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
       <input id="pAntH" type="number" min="0" max="10" step="0.5" placeholder="2.5">
-      <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
     </div>
     <div id="pSwWrap" style="display:none">
       <label>Porte</label><select id="pSwPorts">
@@ -940,7 +940,7 @@
         <option value="16">16</option><option value="24">24</option></select>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:6px">
         <input type="checkbox" id="pSwRed" style="width:auto"> Ridondanza Dante (Primary + Secondary)</label>
-      <div id="pSwKv" style="margin-top:6px;font-size:11.5px;color:var(--text-2)"></div>
+      <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pRackWrap" style="display:none">
       <label>Funzione</label><select id="pRackFn"></select>
@@ -952,8 +952,8 @@
         <button type="button" class="btn primary" id="pRackAddBtn" style="width:auto;margin-top:0;padding:6px 12px">+</button>
       </div>
       <div class="rack-ubar"><i id="pRackUbar"></i></div>
-      <div id="pRackUsub" style="font-size:10.5px;color:var(--text-2)"></div>
-      <div id="pRackKv" style="margin-top:4px;font-size:11.5px;color:var(--text-2)"></div>
+      <div id="pRackUsub" style="font-size:11px;color:var(--text-2)"></div>
+      <div id="pRackKv" style="margin-top:4px;font-size:12px;color:var(--text-2)"></div>
       <button type="button" class="btn" id="pRackFront" style="font-size:12px">Vista rack (fronte)</button>
     </div>
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
@@ -1030,11 +1030,11 @@
   </div>
   <div class="sec" id="cabPropsSec" hidden style="border-bottom:1px solid var(--border,#e5e7eb);padding-bottom:12px;margin-bottom:10px">
     <div id="cabPropsTitle" style="font-weight:700;font-size:13px"></div>
-    <div id="cabPropsSub" style="font-size:11.5px;color:var(--text-2);margin:1px 0 8px"></div>
+    <div id="cabPropsSub" style="font-size:12px;color:var(--text-2);margin:1px 0 8px"></div>
     <div id="cabPropsRows"></div>
     <div id="cabPropsActs" style="margin-top:10px"></div>
   </div>
-  <div class="sec" id="noSel" style="font-size:12.5px;color:var(--text-3)">
+  <div class="sec" id="noSel" style="font-size:13px;color:var(--text-3)">
     <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
     <!-- Layer: sempre visibili, niente tendina (Simone 08/07: una volta attivati restano nell'inspector) -->
     <div id="layerSec" style="display:none">
@@ -1090,10 +1090,10 @@
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Cavo selezionato</div>
         <label class="cabfld" style="margin-top:0">Etichetta<input type="text" id="cabSelLabel" placeholder="es. Voce lead"></label>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
-          <button class="btn" id="cabSelDelete" style="flex:1">Elimina cavo</button>
+          <button class="btn danger" id="cabSelDelete" style="flex:1">Elimina cavo</button>
           <button class="btn" id="cabSelResetPath" style="flex:1">Reset percorso</button>
         </div>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare il cavo; l'estremo su un'altra stage box per riconnettere.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare il cavo; l'estremo su un'altra stage box per riconnettere.</div>
       </div>
     </div>
     <!-- Cablaggio elettrico: pannello TOLTO come l'audio; resta solo "Linea selezionata" al click. -->
@@ -1101,10 +1101,10 @@
       <div id="elecSel" style="display:none;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Linea selezionata</div>
         <div class="row" style="display:flex;gap:6px">
-          <button class="btn" id="elecSelDelete" style="flex:1">Elimina linea</button>
+          <button class="btn danger" id="elecSelDelete" style="flex:1">Elimina linea</button>
           <button class="btn" id="elecSelResetPath" style="flex:1">Reset percorso</button>
         </div>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare; l'estremo su un altro distro per riconnettere.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare; l'estremo su un altro distro per riconnettere.</div>
       </div>
     </div>
     <!-- Input / Patch list (auto, derivata dal motore): sezione a tendina con cestino, come il cablaggio -->
@@ -1128,12 +1128,12 @@
         <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div id="monBody" style="margin-top:8px">
-        <div id="monSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
+        <div id="monSummary" style="font-size:12px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
         <div id="monRows"></div>
         <div id="busSec" style="margin-top:12px"></div>
         <button class="btn" id="monPropose" style="width:100%;margin-top:10px" title="Propone wedge/drum-fill per i musicisti ancora scoperti (li premi tu: niente piazzamenti automatici)">Proponi monitor</button>
         <button class="btn primary" id="monPdf" style="width:100%;margin-top:8px">Esporta monitor list (PDF)</button>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">I mix si raggruppano per <b>etichetta</b> dei monitor (es. "MIX 1"). IEM/hearback = stereo.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:8px">I mix si raggruppano per <b>etichetta</b> dei monitor (es. "MIX 1"). IEM/hearback = stereo.</div>
       </div>
     </div>
     <!-- Lista carichi (auto, dal motore elettrico): sezione a tendina con cestino -->
@@ -1180,12 +1180,12 @@
     <details class="cl-rider" style="margin:0 0 12px">
       <summary style="font-size:11px;color:var(--text-2,#374151);cursor:pointer;font-weight:600">Rider tecnico — testo (opzionale)</summary>
       <div style="margin-top:7px;display:grid;gap:7px">
-        <div style="font-size:10.5px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" class="rd-i" style="width:74px;margin-left:6px"></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" class="rd-i rd-ta"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
+        <div style="font-size:11px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" class="rd-i" style="width:74px;margin-left:6px"></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
       </div>
     </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
@@ -1221,7 +1221,7 @@
     </button>
     <!-- La ✕ è per il telefono, dove il box NON è una fisarmonica nella colonna ma il pannello
          ancorato in basso di sempre: là si apre dal menu «?» e si chiude da qui, com'era. -->
-    <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">×</button>
+    <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">✕</button>
   </div>
   <div class="fb-body" id="fbBody">
     <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
@@ -1269,8 +1269,11 @@
   <button type="button" class="mpk-exp" id="mPeekExp" aria-label="Mostra tutte le specifiche" title="Specifiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
 </div>
 
-<button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">+</button>
-<button class="fab props" id="fabProps" title="Proprietà" aria-label="Apri pannello">≡</button>
+<!-- Qui stavano #fabCat e #fabProps, i due bottoni tondi del vecchio mobile. Erano FANTASMI:
+     nel markup ma spenti da `.fab{display:none}` (nessuna regola li riaccendeva) e ribaditi da
+     `#fabCat,#fabProps{display:none!important}` sotto gli 880px; nessuna riga di JS li cercava,
+     li ascoltava o li mostrava. Il loro mestiere lo fanno da tempo il dock (#mDock) e il menu
+     (#mActions). Tolti, con le due regole del foglio. (02/09) -->
 <div id="mobBackdrop"></div>
 <div id="railHandle" title="Trascina per allargare il pannello · doppio click per reimpostare" aria-hidden="true"></div>
 <!-- Mobile A′: dock azioni primarie (sempre visibile ≤880px) + menu a un livello -->
@@ -1304,9 +1307,9 @@
     <div class="exp-card">
     <div class="exp-head"><h4>Esporta</h4><button type="button" class="exp-close" id="expClose" aria-label="Chiudi">✕</button></div>
     <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Imposta ed esporta il PDF…</button>
-    <p class="hint" style="font-size:11.5px;color:var(--text-2);margin:6px 0 12px">Formato, scala e pagine da allegare si scelgono nella finestra che si apre.</p>
+    <p class="hint" style="font-size:12px;color:var(--text-2);margin:6px 0 12px">Formato, scala e pagine da allegare si scelgono nella finestra che si apre.</p>
     <div id="frameSummary" style="margin-bottom:14px">
-      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin:0 0 7px">Area stampata: <b id="frameSummaryTxt">tutto il palco</b></div>
+      <div class="hint" style="font-size:12px;color:var(--text-2);margin:0 0 7px">Area stampata: <b id="frameSummaryTxt">tutto il palco</b></div>
       <button class="btn" id="frameEditBtn" style="width:100%;font-size:12px">▣ Scegli l'area di stampa</button>
     </div>
     <p class="hint" style="font-size:11px;color:var(--text-3);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em">Altri formati</p>
@@ -1522,7 +1525,7 @@
 <div class="modal" id="aiModal" hidden>
   <div class="mcard" style="width:520px;max-width:94vw">
     <h2>🤖 Crea con l'AI</h2>
-    <ol class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 12px 18px;line-height:1.5">
+    <ol class="hint" style="font-size:13px;color:var(--text-2);margin:0 0 12px 18px;line-height:1.5">
       <li>Premi <b>Apri ChatGPT</b>: si apre con il prompt già pronto. <b>Invia</b> quel messaggio.</li>
       <li>Nel messaggio successivo <b>descrivi il tuo palco</b> (strumenti, posizioni, microfoni…). Puoi anche partire da un template salvato: es. <i>"come il mio template orchestra e aggiungi la tastiera"</i>.</li>
       <li>ChatGPT ti restituisce un <b>link</b>: cliccalo (o incollalo qui sotto) e il palco si apre già pronto.</li>
@@ -1676,7 +1679,7 @@
     <div class="hint">Il progetto aperto viene chiuso: se ha del lavoro dentro, ti verrà chiesto conferma e ne resta comunque un punto di ripristino. I progetti salvati non si toccano.</div>
     <button type="button" class="btn" id="mpEmpty" style="width:100%;margin:14px 0 4px;justify-content:flex-start;text-align:left;height:auto;padding:11px 13px;flex-direction:column;align-items:flex-start;gap:2px">
       <span style="font-weight:700">Palco vuoto</span>
-      <span style="font-size:11.5px;color:var(--text-2);font-weight:400">Parti da zero e componi tu la formazione</span>
+      <span style="font-size:12px;color:var(--text-2);font-weight:400">Parti da zero e componi tu la formazione</span>
     </button>
     <div class="hint" style="margin-top:12px;text-transform:uppercase;letter-spacing:.04em;font-size:11px;color:var(--text-3)">Oppure parti da un modello</div>
     <div class="wl-mods" id="mpMods" style="margin:8px 0 4px"></div>
@@ -1728,7 +1731,7 @@
       <label class="rnd-f">Persone<select id="rndPeople"><option>Mostrare i musicisti</option><option>Mostrare solo gli strumenti e l'attrezzatura</option><option>Automatico</option></select></label>
     </div>
     <div id="rndWarn" class="hint" style="color:var(--warning);display:none;margin:8px 0 0"></div>
-    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
+    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;align-items:center">
       <button class="btn primary" id="rndCopy" style="flex:1;min-width:130px">Copia prompt</button>
       <button class="btn" id="rndShow">Mostra prompt</button>
@@ -1860,7 +1863,7 @@
         <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
           <span style="font-size:13px;color:var(--text-2)">1:</span>
           <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
-          <span style="font-size:11.5px;color:var(--text-3)">(10–500)</span>
+          <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
         </div>
         <div id="pdfHdrRow">
         <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
@@ -11729,7 +11732,7 @@ function renderRxPanel(it){
     (function(ch){
       var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;gap:6px;margin-bottom:4px";
       var lab=document.createElement("span"); lab.style.cssText="flex:0 0 18px;font-size:11px;font-weight:700;color:var(--text-2)"; lab.textContent=ch;
-      var sel=document.createElement("select"); sel.style.cssText="flex:1;min-width:0;font-size:11.5px";
+      var sel=document.createElement("select"); sel.style.cssText="flex:1;min-width:0;font-size:12px";
       var o0=document.createElement("option"); o0.value=""; o0.textContent="— (auto)"; sel.appendChild(o0);
       A.txs.forEach(function(tx){ var o=document.createElement("option"); o.value=tx.id;
         var whr=A.byTx[tx.id]; o.textContent=rfTxName(tx)+(whr&&whr.rx.id!==it.id?" (su altro RX)":"");
@@ -11784,13 +11787,13 @@ function renderRackPanel(it){
     up.addEventListener("click", function(ev){ ev.stopPropagation(); if(i>0){ var o=cont[i-1]; o.rackPos=i; x.rackPos=i-1; save(); renderProps(); } });
     var dn=document.createElement("button"); dn.type="button"; dn.className="rmv"; dn.textContent="▼";
     dn.addEventListener("click", function(ev){ ev.stopPropagation(); if(i<cont.length-1){ var o2=cont[i+1]; o2.rackPos=i; x.rackPos=i+1; save(); renderProps(); } });
-    var rm=document.createElement("button"); rm.type="button"; rm.className="rx"; rm.textContent="×"; rm.title="Togli dal rack (torna sul palco)";
+    var rm=document.createElement("button"); rm.type="button"; rm.className="rx"; rm.textContent="✕"; rm.title="Togli dal rack (torna sul palco)";
     rm.addEventListener("click", function(ev){ ev.stopPropagation(); rackFreeItem(x, it); __cabRes=null; __mondRes=null; __elecRes=null; save(); render(); });
     d.appendChild(uh); d.appendChild(nm); d.appendChild(up); d.appendChild(dn); d.appendChild(rm);
     d.addEventListener("click", function(){ selectOne(x.id); render(); });   /* riga = apri le proprietà dell'apparecchio */
     rows.appendChild(d);
   });
-  if(!cont.length){ rows.innerHTML='<div style="font-size:11.5px;color:var(--text-3);padding:4px 0">Vuoto — aggiungi dal palco o crea un apparecchio nuovo.</div>'; }
+  if(!cont.length){ rows.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:4px 0">Vuoto — aggiungi dal palco o crea un apparecchio nuovo.</div>'; }
   var add=document.getElementById("pRackAdd"); add.innerHTML="";
   var o0=document.createElement("option"); o0.value=""; o0.textContent="— aggiungi apparecchio —"; add.appendChild(o0);
   var free=(state.items||[]).filter(function(x){ return RACK_ELIGIBLE[x.type] && !x.rackId; });
@@ -12578,7 +12581,7 @@ function renderProps(){
     if(kitMuted){
       document.getElementById("pCompCtl").innerHTML =
         '<div class="comp-dim">Ingombro: '+it.w+'×'+it.d+' cm</div>'+
-        '<div class="hint" style="font-size:11.5px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
+        '<div class="hint" style="font-size:12px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
         '<button type="button" class="btn" id="pKitToSchem" style="width:100%;margin-top:6px;font-size:12px;padding:6px 2px">Configura in dettaglio (Schematico)</button>';
       var kb=document.getElementById("pKitToSchem"); if(kb) kb.onclick=function(){ mutSel(function(x){ x.look="schematico"; }); renderProps(); };
     } else buildCompCtl(comp, it, reduced);
@@ -13432,7 +13435,7 @@ function renderModelField(it){
     if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats, it)+" ";
     cur.innerHTML='<span style="color:var(--accent,#0d9488);font-weight:600">✓ '+esc(nm)+'</span>'
       +'<small style="color:var(--text-3,#9ca3af)">dati verificati</small>'
-      +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">×</button>';
+      +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">✕</button>';
     var rm=document.getElementById("pModelRm");
     if(rm) rm.onclick=function(){ mutSel(function(x){ delete x.modelId; delete x.modelData; delete x.modelOverride; }); renderProps(); };
     return;
@@ -14226,7 +14229,7 @@ function refreshCatalogArt(){
     }
     if(q==="render"){   /* funzione INTERNA nascosta: solo con "render" ESATTO. Non è un elemento del palco. */
       var rb=document.createElement("button"); rb.type="button"; rb.className="btn"; rb.style.cssText="width:100%;justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;height:auto";
-      rb.innerHTML='<span style="font-weight:700">Genera prompt render 3D</span><span style="font-size:11.5px;color:var(--text-2);font-weight:400">Crea un prompt realistico basato sullo stage plot corrente</span>';
+      rb.innerHTML='<span style="font-weight:700">Genera prompt render 3D</span><span style="font-size:12px;color:var(--text-2);font-weight:400">Crea un prompt realistico basato sullo stage plot corrente</span>';
       rb.addEventListener("click", function(){ if(window.__openRender) window.__openRender(); });
       results.appendChild(rb); return;
     }
@@ -14788,9 +14791,19 @@ function fogliChiudibiliColDito(){
     card.__grab=1;
     card.classList.add("card-grab");   /* la barretta in cima: dice che si può prendere */
     chiudiTrascinando(card, card, function(){
-      var b=[].slice.call(m.querySelectorAll("button")).filter(function(x){
-        return x.offsetParent!==null && /^(annulla|chiudi|✕|×|x)$/i.test((x.textContent||"").trim()); })[0]
-        || m.querySelector(".exp-close,[data-close]");
+      /* Il bottone da premere si riconosce dal NOME, non dal segno. Prima si prendeva il primo
+         bottone visibile il cui testo fosse «✕» o «×»: ma dentro le finestre quei due segni
+         marcano anche i «togli questa riga» (togli dal rack, togli dal PDF, elimina dalla
+         rubrica, togli la nota), e in ordine di DOM uno di quelli può venire prima della
+         chiusura — buttare giù il foglio avrebbe cancellato qualcosa invece di chiuderlo.
+         Il nome accessibile li distingue: una ✕ che chiude porta sempre aria-label «Chiudi» o
+         «Annulla…», una ✕ che toglie porta un title che dice cosa toglie. Il segno resta solo
+         come ultima spiaggia, quando in quella finestra non c'è niente di meglio. (02/09) */
+      var vis=[].slice.call(m.querySelectorAll("button")).filter(function(x){ return x.offsetParent!==null; });
+      function nomeAcc(x){ return ((x.getAttribute("aria-label")||x.textContent)||"").trim(); }
+      var b=vis.filter(function(x){ return /^(annulla|chiudi)/i.test(nomeAcc(x)); })[0]
+        || m.querySelector(".exp-close,[data-close]")
+        || vis.filter(function(x){ return /^(✕|×|x)$/i.test((x.textContent||"").trim()); })[0];
       if(b) b.click(); else m.hidden=true;
     }, "input,select,textarea,button,a,label", 44);
   });
@@ -19918,7 +19931,7 @@ function renderLightsList(){
   if(nh){
     var ns=Array.isArray(L.notes)?L.notes:[];
     nh.innerHTML = ns.length ? ('<div class="lights-notes-h">Note delle luci</div>'+ns.map(function(t,i){
-      return '<div class="lights-note"><span>'+esc(t)+'</span><button type="button" class="lights-note-x" data-lnote="'+i+'" title="Togli la nota" aria-label="Togli la nota">×</button></div>';
+      return '<div class="lights-note"><span>'+esc(t)+'</span><button type="button" class="lights-note-x" data-lnote="'+i+'" title="Togli la nota" aria-label="Togli la nota">✕</button></div>';
     }).join("")) : "";
   }
   var mood=document.getElementById("lightsMood");
@@ -19978,9 +19991,9 @@ function renderLightsCard(){
     '<label class="lights-lbl">Nota</label>'+
     '<input type="text" class="lights-inp" id="lcNote" value="'+esc(r.note)+'" placeholder="finisce nel rider sotto la richiesta">'+
     '<div class="lights-acts">'+
-      (r.n>1?'<button type="button" class="btn sm" id="lcSplit">Dividi</button>':'')+
-      '<button type="button" class="btn sm" id="lcShow">Mostra sul palco</button>'+
-      '<button type="button" class="btn sm danger" id="lcDel">Elimina</button>'+
+      (r.n>1?'<button type="button" class="btn" id="lcSplit">Dividi</button>':'')+
+      '<button type="button" class="btn" id="lcShow">Mostra sul palco</button>'+
+      '<button type="button" class="btn danger" id="lcDel">Elimina</button>'+
     '</div></div>';
   host.innerHTML=h;
 }
@@ -21366,11 +21379,11 @@ function renderBusSec(){
   host.innerHTML="";
   var L; try{ L=busList(); }catch(_e){ return; }
   var hd=document.createElement("div");
-  hd.style.cssText="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px";
+  hd.style.cssText="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px";
   hd.textContent="Uscite console";
   host.appendChild(hd);
   var sub=document.createElement("div");
-  sub.style.cssText="font-size:10.5px;color:var(--text-3);margin-bottom:6px";
+  sub.style.cssText="font-size:11px;color:var(--text-3);margin-bottom:6px";
   sub.textContent="TV, REC, main, matrici, cuffie — quello che non deriva dal palco. Porta out automatica, click sulla pillola per box/porta/destinazione.";
   host.appendChild(sub);
   (L.auto||[]).filter(function(a){ return a.cuf; }).forEach(function(a){
@@ -21385,7 +21398,7 @@ function renderBusSec(){
     var pill = r.box ? ((r.box.sbId?("ID"+r.box.sbId):r.box.letter)+" out "+r.ports[0]+(r.ports.length>1?"–"+r.ports[r.ports.length-1]:"")+(r.pinned?" 📌":"")) : "senza out";
     row.innerHTML='<span class="bus-tag">'+esc(r.tag)+'</span><span class="bus-nm" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'+
       '<span class="bus-out'+(r.box?'':' miss')+(r.pinned?' pin':'')+'">'+esc(pill)+'</span>'+
-      '<span class="bus-dst" title="'+esc(r.dest||'')+'">'+esc(r.dest||"")+'</span><span class="bus-x" title="Elimina">×</span>';
+      '<span class="bus-dst" title="'+esc(r.dest||'')+'">'+esc(r.dest||"")+'</span><span class="bus-x" title="Elimina">✕</span>';
     row.querySelector(".bus-out").addEventListener("click", function(e){ e.stopPropagation(); openBusPop(e, r); });
     row.querySelector(".bus-x").addEventListener("click", function(){
       state.buses=state.buses.filter(function(x){ return x.id!==r.bus.id; });
@@ -21421,7 +21434,7 @@ function renderBusSec(){
     });
     host.appendChild(cw);
   }
-  if(L.hub){ var hb=document.createElement("div"); hb.style.cssText="font-size:10.5px;color:var(--text-3);margin-top:6px";
+  if(L.hub){ var hb=document.createElement("div"); hb.style.cssText="font-size:11px;color:var(--text-3);margin-top:6px";
     hb.textContent="ℹ C'è un hub personal monitor sul palco: se i canali cuffie escono dalla console, aggiungi un bus «Macchina cuffie»."; host.appendChild(hb); }
 }
 var monActive=false, monOpen=true;
@@ -22377,7 +22390,7 @@ function renderAuditPanel(){
   document.getElementById("auditScore").innerHTML =
     '<div style="display:flex;align-items:center;gap:12px">'
     +'<div style="width:52px;height:52px;border-radius:50%;border:3px solid '+col+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:'+col+'">'+A.score+'</div>'
-    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:11.5px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+((A.todefs||0)>0?(' · '+A.todefs+' da definire'):'')+'</div></div></div>';
+    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:12px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+((A.todefs||0)>0?(' · '+A.todefs+' da definire'):'')+'</div></div></div>';
   document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
     +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
   var host=document.getElementById("auditFindings");
@@ -26231,7 +26244,7 @@ function renderContacts(){
       if(ro) el.readOnly=true; else el.addEventListener("input", function(){ var lim=field==="note"?120:(field==="contact"?80:(field==="name"?60:40)); state.contacts[i][field]=el.value.slice(0,lim); if(field==="name"||field==="contact") refreshStar(); syncTechContact(); saveSoon(); });
       return el; }
     row.appendChild(inp("role","Ruolo (es. Service locale)",2,"roleList"));
-    var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Rimuovi contatto";
+    var del=document.createElement("button"); del.type="button"; del.textContent="✕"; del.title="Rimuovi contatto";
     del.style.cssText="border:1px solid var(--border,#e5e7eb);background:#fff;border-radius:6px;cursor:pointer;color:#dc2626;font-size:16px;line-height:1;padding:0 9px";
     if(ro) del.style.visibility="hidden"; else del.addEventListener("click", function(){ state.contacts.splice(i,1); syncTechContact(); saveSoon(); renderContacts(); });
     row.appendChild(del);
@@ -26336,11 +26349,11 @@ function openItemContactModal(it){
     ov.style.cssText="position:fixed;inset:0;z-index:350;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
     ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:460px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:var(--elev-4)">'+
       '<h3 id="icTitle" style="margin:0 0 2px;font-size:15px"></h3>'+
-      '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:12px">Il contatto resta nel tuo account: non entra nel progetto, nei link condivisi né nei PDF.</div>'+
+      '<div style="font-size:12px;color:var(--text-2);margin-bottom:12px">Il contatto resta nel tuo account: non entra nel progetto, nei link condivisi né nei PDF.</div>'+
       '<div id="icPick">'+
         '<input id="icQ" type="text" placeholder="Cerca nella tua rubrica…" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-size:13px">'+
         '<div id="icList" style="margin-top:6px;border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:180px;overflow-y:auto"></div>'+
-        '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:10.5px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
+        '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:11px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
           '<div><label class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
           '<div><label class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
@@ -26354,7 +26367,7 @@ function openItemContactModal(it){
         '<div style="border:1px solid var(--accent);background:var(--accent-tint);border-radius:10px;padding:11px 13px">'+
           '<div id="icAName" style="font-size:14px;font-weight:700;color:var(--accent-strong)"></div>'+
           '<div id="icADet" style="font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.5"></div>'+
-          '<span id="icARole" style="display:inline-block;background:var(--surface);border:1px solid var(--accent);color:var(--accent-strong);font-size:10.5px;font-weight:600;border-radius:999px;padding:1px 8px;margin-top:6px"></span>'+
+          '<span id="icARole" style="display:inline-block;background:var(--surface);border:1px solid var(--accent);color:var(--accent-strong);font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;margin-top:6px"></span>'+
         '</div>'+
         '<div style="margin-top:12px;font-size:11px;color:var(--text-2)">🔒 Visibile solo a te, qui nel pannello. Palco, PDF e link condivisi restano senza nomi.</div>'+
         '<div style="display:flex;margin-top:14px;justify-content:space-between;align-items:center">'+
@@ -26391,17 +26404,17 @@ function openItemContactModal(it){
                  : base.filter(function(c){ return icRoleMatch(elemRole, c.role); });
       if(!f && elemRole){
         var hint=document.createElement("div");
-        hint.style.cssText="font-size:10.5px;color:var(--text-3);padding:6px 11px;border-bottom:1px solid var(--n-100,#edebe4)";
+        hint.style.cssText="font-size:11px;color:var(--text-3);padding:6px 11px;border-bottom:1px solid var(--n-100,#edebe4)";
         hint.textContent="Ruoli affini a \u201c"+elemRole+"\u201d \u00b7 cerca per vedere tutta la rubrica";
         listEl.appendChild(hint);
       }
-      if(!cs.length){ var em=document.createElement("div"); em.style.cssText="font-size:11.5px;color:var(--text-3);padding:8px 11px";
+      if(!cs.length){ var em=document.createElement("div"); em.style.cssText="font-size:12px;color:var(--text-3);padding:8px 11px";
         em.textContent=(rows||[]).length ? (f?"Nessun contatto corrisponde.":"Nessun \u201c"+elemRole+"\u201d in rubrica \u2014 cerca per nome o compila il nuovo contatto.") : "Rubrica vuota \u2014 compila il nuovo contatto qui sotto.";
         listEl.appendChild(em); return; }
       cs.slice(0,30).forEach(function(c){
         var taken=takenLabel(c.id);
         var d=document.createElement("div"); d.style.cssText="display:flex;flex-direction:column;gap:1px;padding:8px 11px;border-bottom:1px solid var(--n-100,#edebe4);"+(taken?"opacity:.55;cursor:default":"cursor:pointer");
-        var r1=document.createElement("span"); r1.style.cssText="font-size:12.5px;font-weight:600";
+        var r1=document.createElement("span"); r1.style.cssText="font-size:13px;font-weight:600";
         r1.textContent=[(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
         d.appendChild(r1);
         var det=(c.contact||"").trim();
@@ -26524,9 +26537,9 @@ function renderRespField(it){
     var exc=(amap[elKey]||[]).filter(function(a){ return a.role==="__azienda__"; })[0];
     body.innerHTML="";
     if(exc && byId[exc.contact_id]){
-      var p=daPill("az", "🏢 "+esc(byId[exc.contact_id].name)+' <b style="font-size:8.5px;opacity:.75">ECCEZIONE</b>', function(){ C.deptAssign.remove(pid, elKey, exc.contact_id, function(){ renderProps(); }); });
+      var p=daPill("az", "🏢 "+esc(byId[exc.contact_id].name)+' <b style="font-size:9px;opacity:.75">ECCEZIONE</b>', function(){ C.deptAssign.remove(pid, elKey, exc.contact_id, function(){ renderProps(); }); });
       body.appendChild(p);
-      var note=document.createElement("div"); note.className="pd-hint"; note.style.marginTop="4px"; note.textContent="rimuovi × per tornare a ereditare"; body.appendChild(note);
+      var note=document.createElement("div"); note.className="pd-hint"; note.style.marginTop="4px"; note.textContent="rimuovi ✕ per tornare a ereditare"; body.appendChild(note);
     } else {
       var line=document.createElement("div"); line.style.cssText="font-size:12px;margin-bottom:6px";
       line.innerHTML = inh && byId[inh.contact_id]
@@ -26545,7 +26558,7 @@ function daFindOrCreate(rubrica, name, kind, role, cb){
 }
 function daPill(cls, html, onx){
   var s=document.createElement("span"); s.className="da-pill "+cls; s.innerHTML=html;
-  if(onx){ var x=document.createElement("span"); x.className="da-x"; x.textContent="×"; x.title="Rimuovi"; x.addEventListener("click", function(e){ e.stopPropagation(); onx(); }); s.appendChild(x); }
+  if(onx){ var x=document.createElement("span"); x.className="da-x"; x.textContent="✕"; x.title="Rimuovi"; x.addEventListener("click", function(e){ e.stopPropagation(); onx(); }); s.appendChild(x); }
   return s;
 }
 function daAddForm(host, deptKey, kind, rubrica, pid){
@@ -26602,7 +26615,7 @@ window.__openRubricaModal=function(){
     ov.style.cssText="position:fixed;inset:0;z-index:340;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
     ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)">'+
       '<h3 style="margin:0 0 4px;font-size:18px">La mia rubrica</h3>'+
-      '<div id="rubCount" style="font-size:11.5px;color:var(--text-3);margin-bottom:10px"></div>'+
+      '<div id="rubCount" style="font-size:12px;color:var(--text-3);margin-bottom:10px"></div>'+
       '<div id="rubRows"></div>'+
       '<div style="display:flex;gap:10px;margin-top:14px;justify-content:space-between">'+
         '<button id="rubImport" type="button" class="btn">Importa dai progetti</button>'+
@@ -26628,7 +26641,7 @@ function rubPaintRows(){
     rows.forEach(function(c){
       var row=document.createElement("div"); row.style.cssText="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center;margin-bottom:6px;font-size:12px";
       row.innerHTML='<div><b>'+esc(c.name||"—")+'</b>'+(c.role?' · '+esc(c.role):'')+'</div><div style="color:var(--text-3);overflow:hidden;text-overflow:ellipsis">'+esc(c.contact||"")+(c.note?' · '+esc(c.note):'')+'</div>';
-      var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Elimina dalla rubrica";
+      var del=document.createElement("button"); del.type="button"; del.textContent="✕"; del.title="Elimina dalla rubrica";
       del.style.cssText="border:1px solid var(--border,#e5e7eb);background:var(--surface,#fff);border-radius:6px;cursor:pointer;color:#dc2626;font-size:14px;line-height:1;padding:2px 8px";
       del.addEventListener("click", function(){ window.__cloud.rubrica.remove(c.id, function(){ rubPaintRows(); }); });
       row.appendChild(del); host.appendChild(row);
@@ -27171,7 +27184,7 @@ function pdfChannelPage(doc, L, paperKey){
       if(_pdfPillSel[p.key]){
         nSel++;
         var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
-        var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
+        var x=document.createElement("span"); x.className="x"; x.textContent="✕"; x.title="Togli dal PDF";
         var _togli=function(){ delete _pdfPillSel[p.key]; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
         x.addEventListener("click", _togli);
         if(typeof premibile==="function") premibile(x, _togli, "Togli dal PDF: "+p.label);
