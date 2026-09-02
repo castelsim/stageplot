@@ -297,6 +297,19 @@
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
     <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
     <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco o una pedana, regola misura e altezza con + / −, poi scegli dove metterla.</div>
+    <!-- Aggancio: sull'header c'è da sempre, ma l'header su mobile è display:none — da telefono
+         restava inchiodato a 25 cm senza modo di cambiarlo. Qui perché è la stessa domanda del
+         palco: come si posizionano le cose sopra. (02/09) -->
+    <div class="mob-hint" id="snapRowM" style="margin-bottom:10px">
+      <label>Aggancio <small class="lbl-note">— come si posizionano gli elementi</small></label>
+      <select id="snapSelM" aria-label="Aggancio alla griglia">
+        <option value="0">Libero</option>
+        <option value="25" selected>25 cm</option>
+        <option value="50">50 cm</option>
+        <option value="100">1 m</option>
+        <option value="obj">Oggetti</option>
+      </select>
+    </div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock">+ Blocco</button>
       <button class="btn" id="bAddSemi">+ Semicerchio</button>
@@ -406,7 +419,13 @@
     <h3 style="margin-bottom:6px">Evento</h3>
     <label>Titolo</label><input type="text" id="titoloEv" placeholder="Es. Concerto in villa">
     <label>Luogo</label><input type="text" id="luogoEv" placeholder="Es. Teatro Comunale, Vicenza">
-    <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:5px">Titolo e luogo compaiono nell'intestazione dell'export.</div>
+    <!-- Data e orario stavano SOLO nell'header, che su mobile è display:none: da telefono non si
+         potevano né vedere né scrivere, e finiscono nell'intestazione del rider. (02/09) -->
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label>Data</label><input type="date" id="evDateM"></div>
+      <div style="flex:1"><label>Orario</label><input type="time" id="evTimeM"></div>
+    </div>
+    <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:5px">Titolo, luogo, data e orario compaiono nell'intestazione dell'export.</div>
     <button class="btn primary" id="bEventoDone" style="width:100%;margin-top:10px">Fatto</button>
   </div>
   <div class="sec" id="selProps" hidden>
@@ -12956,7 +12975,12 @@ document.getElementById("pTastLeg1").addEventListener("change", function(){
   document.getElementById("pTastLeg2").disabled = !document.getElementById("pTastLeg1").checked;
 });
 document.getElementById("pTastLeg2").addEventListener("change", function(){ mutSel(function(it){ it.leggio2=document.getElementById("pTastLeg2").checked; }); });
-document.getElementById("snapSel").addEventListener("change", function(){ snapMode=this.value; });
+(function(){   /* due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono) */
+  var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
+  function set(v){ snapMode=v; if(a) a.value=v; if(b) b.value=v; }
+  if(a) a.addEventListener("change", function(){ set(this.value); });
+  if(b) b.addEventListener("change", function(){ set(this.value); });
+})();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
 /* Dividi una postazione doppia (×2 del generatore o doppia-da-flag) in 2 postazioni singole */
@@ -13559,8 +13583,8 @@ function setEventInputs(){
   var _fn=document.getElementById("pdfFileName");
   if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+fileName()+".pdf";
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
-  var _ed=document.getElementById("evDate"); if(_ed && document.activeElement!==_ed) _ed.value=state.evDate||"";
-  var _et=document.getElementById("evTime"); if(_et && document.activeElement!==_et) _et.value=state.evTime||"";
+  ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
+  ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
   if(typeof renderEvChip==="function") renderEvChip();
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
@@ -13595,9 +13619,16 @@ function renderEvChip(){
   pop.addEventListener("click", function(e){ e.stopPropagation(); });   /* i click sui campi NON chiudono */
   document.addEventListener("click", function(e){ if(!pop.hidden && !pop.contains(e.target)) close(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") close(); });
+  /* Due campi per lo stesso dato: quello dell'header (mouse) e quello del pannello Evento
+     (telefono, dove l'header non c'è). Scrivono nello stesso posto e si riallineano a vicenda. */
   var ed=document.getElementById("evDate"), et=document.getElementById("evTime");
-  if(ed) ed.addEventListener("change", function(){ state.evDate=this.value||""; renderEvChip(); saveSoon(); });
-  if(et) et.addEventListener("change", function(){ state.evTime=this.value||""; renderEvChip(); saveSoon(); });
+  var edM=document.getElementById("evDateM"), etM=document.getElementById("evTimeM");
+  function setData(v){ state.evDate=v||""; if(ed) ed.value=state.evDate; if(edM) edM.value=state.evDate; renderEvChip(); saveSoon(); }
+  function setOra(v){ state.evTime=v||""; if(et) et.value=state.evTime; if(etM) etM.value=state.evTime; renderEvChip(); saveSoon(); }
+  if(ed) ed.addEventListener("change", function(){ setData(this.value); });
+  if(et) et.addEventListener("change", function(){ setOra(this.value); });
+  if(edM) edM.addEventListener("change", function(){ setData(this.value); });
+  if(etM) etM.addEventListener("change", function(){ setOra(this.value); });
 })();
 renderEvChip();
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
@@ -22608,6 +22639,10 @@ function renderVersionPanel(){
 function toggleVersionEdit(){
   versEdit=!versEdit;
   if(versEdit){ exitHubModes('vers'); clearSelection(); }
+  /* La classe sul body serve al TELEFONO: là `#props` è un cassetto che si apre solo per gli stati
+     elencati in styles.css. Senza questa riga il pannello restava chiuso e «Punti di ripristino»
+     non mostrava niente — la voce c'era nel menu e non faceva nulla. */
+  document.body.classList.toggle("vers-edit", versEdit);
   renderVersionPanel(); render();
 }
 /* ===== SVG Export ===== */

@@ -12812,6 +12812,50 @@ t("sul telefono il pannello mostra quello che si vede, e il resto sta dietro un 
   ok(iBtn > 0 && iAdv > iBtn, "e la regola viene DOPO «#props .btn», o quella la sovrascrive");
 });
 
+t("ogni voce del menu mobile apre davvero il suo pannello", () => {
+  /* 02/09 — «Area stampa» e «Punti di ripristino» erano nel menu mobile e NON FACEVANO NIENTE.
+     Su telefono `#props` è un cassetto `display:none` che si apre solo per gli stati elencati in
+     una riga del CSS, e i loro due non c'erano: si premeva la voce, il palco sbiadiva
+     (`body.area-edit .item{opacity:.4}`) e non compariva nulla. Provato rimettendo il difetto nel
+     browser: il cassetto resta chiuso in entrambi i casi.
+     Questo test è la guardia per chi aggiunge la terza voce. */
+  const porta = (stylesCss.match(/body\.stage-edit #props[^{]*\{display:block\}/) || [""])[0];
+  ok(porta, "la riga che apre il cassetto esiste");
+  ["stage-edit", "evento-edit", "chan-edit", "tech-open", "area-edit", "vers-edit"].forEach((st) => {
+    ok(porta.indexOf("body." + st + " #props") >= 0, "«" + st + "» apre il cassetto: " + porta.slice(0, 90));
+  });
+  /* E il canvas si accorcia, o il pannello ci finisce sopra. */
+  const main = (stylesCss.match(/body\.stage-edit main[^{]*\{bottom:calc\(46vh[^}]*\}/) || [""])[0];
+  ["area-edit", "vers-edit"].forEach((st) => {
+    ok(main.indexOf("body." + st + " main") >= 0, "«" + st + "» accorcia anche il canvas");
+  });
+  /* La classe `vers-edit` non esisteva proprio: `toggleVersionEdit` non la metteva. */
+  ok(/classList\.toggle\("vers-edit", versEdit\)/.test(appjs), "e «Punti di ripristino» mette la sua classe");
+  /* Come «Area stampa», mostra solo il suo pannello. */
+  ok(/body\.vers-edit #selProps[^{]*\{display:none !important\}/.test(stylesCss),
+     "con solo la lista delle versioni in vista");
+});
+
+t("da telefono si possono scrivere data, ora e aggancio", () => {
+  /* Tre controlli vivevano SOLO nell'header, che su mobile è display:none:
+     · data e orario dell'evento — che finiscono nell'intestazione del rider;
+     · l'aggancio alla griglia, inchiodato a 25 cm senza modo di cambiarlo.
+     Ora ci sono due campi per lo stesso dato — header (mouse) e pannello (telefono) — che scrivono
+     nello stesso posto e si riallineano a vicenda. Provato nel browser: scritti dal pannello
+     mobile finiscono in `state.evDate`/`evTime` e nel chip dell'evento. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="evDateM"/.test(html) && /id="evTimeM"/.test(html), "data e orario ci sono nel pannello Evento");
+  ok(/id="snapSelM"/.test(html), "e l'aggancio nel pannello Palco");
+  /* Lo stesso dato, non due copie che divergono. */
+  ok(/function setData\(v\)\{ state\.evDate=v\|\|"";[\s\S]{0,120}edM\.value=state\.evDate/.test(appjs),
+     "scrivono nello stesso stato e riallineano l'altro campo");
+  ok(/function set\(v\)\{ snapMode=v;[\s\S]{0,60}b\.value=v/.test(appjs), "e l'aggancio pure");
+  /* E all'apertura mostrano quello che c'e' gia' salvato. */
+  ok(/\["evDate","evDateM"\]\.forEach/.test(appjs), "all'apertura mostrano il valore salvato");
+  /* Il campo dell'aggancio si vede solo col dito: col mouse c'e' gia' nell'header. */
+  ok(/class="mob-hint" id="snapRowM"/.test(html), "e col mouse non si duplica");
+});
+
 t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   /* Trenta controlli, e su un telefono serve premere «Scarica». Restano l'anteprima, il nome, il
      formato e l'orientamento; il resto sta dietro la STESSA preferenza del pannello elemento —
