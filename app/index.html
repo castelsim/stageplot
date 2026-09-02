@@ -125,7 +125,19 @@
     /* tipografia */
     --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-    --t-micro:10px;--t-caption:11px;--t-label:12px;--t-body:13px;--t-title:15px;--t-heading:18px;--t-display:24px;
+    /* SCALA TIPOGRAFICA — gradini interi, mai mezzi passi (02/09).
+       Nel foglio c'erano 197 misure a mezzo pixel (8,5 · 9,5 · 10,5 · 11,5 · 12,5 · 13,5 · 14,5):
+       non sono una scala, sono la sedimentazione di venti ritocchi a occhio. Mezzo pixel non si
+       vede — su schermo non integer-scaled diventa antialiasing, cioe' testo piu' sfocato del
+       vicino a parita' di grandezza percepita — ma moltiplica i gradini fino a renderli 16.
+       I gradini veri sono questi. Ogni mezzo passo e' stato portato al gradino SUPERIORE: cosi'
+       nessun testo rimpicciolisce (i piu' piccoli erano gia' al limite del leggibile) e l'ordine
+       non si inverte mai. Dove due valori distavano 0,5px sono finiti sullo stesso gradino: quella
+       differenza non era una gerarchia, era rumore — la gerarchia la portano colore e peso.
+       ATTENZIONE: le etichette dentro l'SVG (.cab-lbl, .net-lbl, .elec-lbl, .secdot-lbl) sono in
+       unita' del disegno, non pixel di schermo: restano a 9,5 e non vanno toccate. */
+    --t-nano:9px;--t-micro:10px;--t-caption:11px;--t-label:12px;--t-body:13px;--t-md:14px;
+    --t-title:15px;--t-base:16px;--t-heading:18px;--t-xl:20px;--t-display:24px;
     --lh-tight:1.25;--lh-snug:1.4;--lh-normal:1.5;--lh-relaxed:1.6;
     /* spazio / raggi / ombre / motion / z */
     --s-05:2px;--s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--s-8:32px;
@@ -150,7 +162,14 @@
      proprieta'. Su Mac lo scarto quasi non si vede; su Android e Windows sono due caratteri
      diversi nello stesso pannello. Una riga, e vale per tutti. */
   button, input, select, textarea{font-family:inherit}
-  body{font-family:var(--font-ui);
+  /* `body` non dichiarava NESSUNA misura del testo: tutto quello che non ha un font-size proprio
+     — e nel pannello proprieta' sono decine di <div> e <span> — ereditava il default del browser.
+     Quel default e' 16px su Chrome/Safari/Firefox appena installati, ma e' una preferenza
+     dell'utente: chi l'ha alzato a 18 o 20 (o usa Android con «Dimensione carattere» grande)
+     vedeva il pannello sfasato rispetto a tutto il resto, che invece e' in px fissi. Dichiarato
+     16px = quello che l'app gia' assumeva senza dirlo: nessun cambiamento visivo dove il default
+     e' intatto, e nessuna deriva dove non lo e'. (02/09) */
+  body{font-family:var(--font-ui);font-size:var(--t-base);
     color:var(--text);background:var(--surface);display:grid;
     grid-template-rows:52px 1fr 26px;grid-template-columns:var(--cat,220px) 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
     grid-template-areas:"top top top" "cat main props" "foot foot foot";overflow:hidden}
@@ -230,7 +249,22 @@
   #selProps .btn:hover{background:var(--n-100)}
   #selProps .btn.primary{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
   #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
-  #selProps .btn.danger{background:var(--surface);border-color:var(--border);color:var(--danger)}
+  /* «ELIMINA» AVEVA SEI ASPETTI (02/09). Contati sul markup: «Elimina cavo» e «Elimina linea»
+     erano `.btn` SENZA `.danger` — grigi identici al «Reset percorso» che sta loro accanto, cioe'
+     un'azione che distrugge vestita da azione neutra; «Elimina blocco» portava un `font-size:12px`
+     inline che lo rimpiccioliva rispetto agli altri; l'«Elimina» del pannello luci portava una
+     classe `.sm` che nel foglio NON ESISTE (cercata: zero regole) e prendeva il rosso PIENO di
+     `.btn.danger`, mentre nel pannello elemento lo stesso «Elimina» e' rosso CONTORNATO.
+     Un'azione distruttiva deve avere un aspetto solo. Questa e' la definizione unica per tutta la
+     colonna destra: era `#selProps .btn.danger`, cioe' valeva solo per il pannello elemento e
+     lasciava fuori luci e cablaggio. Sta DOPO `#selProps .btn` e ha specificita' (1,2,0): dentro
+     `#props` una regola nuova perde se scritta prima di quella che le fa concorrenza. */
+  /* La MISURA non sta qui: nelle righe `#props .btns` i bottoni stanno a 12px per starci in tre
+     nella colonna, ed e' una decisione della riga, uguale per Duplica/Specchia/Elimina. Scriverla
+     anche qui sarebbe una dichiarazione morta (stessa specificita', ma `#props .btns .btn` viene
+     dopo e vince). Quello che deve essere uguale ovunque e' il COLORE dell'azione distruttiva. */
+  #props .btn.danger{background:var(--surface);border:1px solid var(--border);color:var(--danger)}
+  #props .btn.danger:hover{background:var(--danger-bg);border-color:var(--danger)}
   /* Opzione 2: niente linee tratteggiate tra toggle/slider nel pannello (copre anche i controlli COMP dinamici, es. batteria) */
   #props #selProps .chk{border-bottom:none;padding:4px 0}
   #props #selProps .sldrow{border-bottom:none;padding:5px 0}
@@ -302,19 +336,19 @@
   #catResults .nores{font-size:12px;color:var(--text-3);padding:8px 4px}
   /* azioni tecniche nascoste (ricerca "json"): backup/migrazione/supporto */
   .json-tools{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
-  .json-tools .json-act{width:100%;justify-content:center;gap:7px;font-size:12.5px}
-  .json-tools .json-note{font-size:10.5px;color:var(--text-3);margin-top:3px;text-align:center}
-  #catalog h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);font-weight:700;
+  .json-tools .json-act{width:100%;justify-content:center;gap:7px;font-size:13px}
+  .json-tools .json-note{font-size:11px;color:var(--text-3);margin-top:3px;text-align:center;line-height:var(--lh-snug)}
+  #catalog h4{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);font-weight:700;
     margin:13px 2px 7px;padding-left:9px;border-left:3px solid var(--accent-soft)}
   #catalog button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);
-    border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12.5px;color:var(--text);
+    border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:13px;color:var(--text);
     cursor:pointer;margin-bottom:4px;line-height:1.25}
   #catalog button:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
-  #catalog button small{color:var(--text-3);font-size:10.5px;display:block}
+  #catalog button small{color:var(--text-3);font-size:11px;display:block}
   #catalog .mini{flex:0 0 auto;display:block;width:34px;height:34px}
   #catalog .sub-head{display:flex;align-items:center;gap:7px;width:100%;text-align:left;
     border:1px solid var(--accent-soft);border-radius:8px;margin:10px 0 6px;padding:8px 10px;
-    font-size:10.5px;text-transform:uppercase;letter-spacing:.65px;color:var(--accent);font-weight:700;background:var(--accent-tint)}
+    font-size:11px;text-transform:uppercase;letter-spacing:.65px;color:var(--accent);font-weight:700;background:var(--accent-tint)}
   #catalog .sub-head:hover{background:var(--accent-tint)}
   #catalog .sub-head.open{background:var(--accent);border-color:var(--accent);color:#fff}
   #catalog .sub-head.open .caret,#catalog .sub-head.open .count{color:var(--accent-soft)}
@@ -328,9 +362,9 @@
   #catalog .sub-body button span{color:var(--accent)}   /* voci dentro un sottomenù: testo colorato */
   #catalog .sub-body button small{color:var(--accent)}
   main{grid-area:main;position:relative;background:var(--canvas-bg);overflow:hidden}
-  .cov-head{font-size:11.5px;color:var(--text-3);font-weight:600;margin:2px 0 6px}
+  .cov-head{font-size:12px;color:var(--text-3);font-weight:600;margin:2px 0 6px}
   .cov-list{display:flex;flex-direction:column;gap:4px}
-  .cov-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);font-size:12.5px;cursor:pointer}
+  .cov-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);font-size:13px;cursor:pointer}
   .cov-item:hover{border-color:var(--accent)}
   .cov-item.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
   .cov-nm{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -341,9 +375,9 @@
   .cov-ok{font-size:11px;color:#0f766e;margin-top:8px}
   .cov-add{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:9px}
   .cov-add>span{font-size:11px;color:var(--text-3)}
-  .cov-add button{font-size:11.5px;padding:3px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text-2);cursor:pointer}
+  .cov-add button{font-size:12px;padding:3px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text-2);cursor:pointer}
   .cov-add button:hover{border-color:var(--accent);color:var(--accent)}
-  .cov-note{font-size:10.5px;color:var(--text-3);margin-top:8px;line-height:1.45}
+  .cov-note{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.45}
   /* palco vuoto: nessun overlay (la guida ai primi passi la fa la finestra di benvenuto;
      eventuale reintroduzione futura guidata dai dati d'uso) */
   /* barra conflitto cloud (guardia di versione): fissa in basso, MAI sovrascrivere in silenzio.
@@ -353,7 +387,7 @@
     background:var(--warning-bg);color:var(--n-800);border:1px solid var(--warning-border);
     font-size:13px;padding:10px 14px;border-radius:12px;box-shadow:var(--elev-3);max-width:calc(100vw - 24px)}
   #conflictBar .cb-msg b{color:var(--warning)}
-  #conflictBar button{appearance:none;font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;flex:none}
+  #conflictBar button{appearance:none;font:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;flex:none}
   #conflictBar #cbLoad{background:var(--accent);border:1px solid var(--accent);color:var(--text-on-accent)}
   #conflictBar #cbLoad:hover{background:var(--accent-strong)}
   #conflictBar #cbCopy{background:var(--surface);border:1px solid var(--border);color:var(--text)}
@@ -382,7 +416,7 @@
   /* toast "nuova versione" (SW): barra fissa in basso, sopra tutto, entrambi i temi */
   #updToast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
     z-index:90;display:flex;align-items:center;gap:12px;background:var(--n-900);color:#f3f4f6;
-    font-size:13.5px;padding:10px 12px 10px 16px;border-radius:12px;box-shadow:var(--elev-3);
+    font-size:14px;padding:10px 12px 10px 16px;border-radius:12px;box-shadow:var(--elev-3);
     max-width:calc(100vw - 24px);white-space:nowrap}
   #updToast span{overflow:hidden;text-overflow:ellipsis}
   #updToast button{appearance:none;border:0;font:inherit;cursor:pointer}
@@ -413,11 +447,11 @@
   /* l'intestazione è la maniglia: si vede dal cursore, e il testo non si seleziona mentre trascini */
   #assunzioni .as-head{cursor:move;touch-action:none;-webkit-user-select:none;user-select:none;display:grid;grid-template-columns:1fr auto;grid-template-areas:"t x" "s x";gap:2px 8px;align-items:start;margin-bottom:8px}
   #assunzioni .as-head b{grid-area:t;font-size:14px}
-  #assunzioni .as-sub{grid-area:s;font-size:11.5px;color:var(--text-2);line-height:1.35}
+  #assunzioni .as-sub{grid-area:s;font-size:12px;color:var(--text-2);line-height:1.35}
   /* Riga senza decisione da prendere: una nota, non un comando. Piu' piccola e senza il respiro
      verticale di una riga d'azione — vedi il commento in mostraAssunzioni. */
   #assunzioni .as-row.as-nota{padding:4px 0 2px;border-top:1px solid var(--border)}
-  #assunzioni .as-row.as-nota .as-txt{font-size:11.5px;color:var(--text-2);font-weight:400}
+  #assunzioni .as-row.as-nota .as-txt{font-size:12px;color:var(--text-2);font-weight:400}
   #assunzioni.as-drag{box-shadow:0 16px 40px rgba(0,0,0,.28);opacity:.97}
   #assunzioni .as-x{cursor:pointer;grid-area:x;justify-self:end;background:none;border:0;color:var(--text-3);cursor:pointer;font-size:15px;line-height:1;padding:2px 0 0}
   #assunzioni #asRows{overflow:auto;min-height:0}
@@ -428,15 +462,15 @@
      peggio del problema che doveva curare. La larghezza qui serve a leggere, non si comprime.
      Restano le altre due economie — una riga sola per gli strumentisti muti e la nota compatta per
      le righe senza decisione — che da sole portano la copertura del palco dal 12% al 3%. */
-  #assunzioni .as-txt{flex:1;font-size:12.5px;line-height:1.35}
-  #assunzioni .as-txt small{display:block;color:var(--text-3);font-size:11px;margin-top:1px}
+  #assunzioni .as-txt{flex:1;font-size:13px;line-height:1.35}
+  #assunzioni .as-txt small{display:block;color:var(--text-3);font-size:11px;margin-top:1px;line-height:var(--lh-snug)}
   /* i bersagli restano da dito anche qui: 44 px dove si tocca */
   #assunzioni .as-acts{flex:none;display:flex;gap:6px}
   #assunzioni .as-act{flex:none;font-size:12px;padding:6px 9px;min-height:32px;border:1px solid var(--border);
     border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer;white-space:nowrap}
   #assunzioni .as-act:hover{border-color:var(--accent);color:var(--accent)}
   #assunzioni .as-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
-  #assunzioni .as-mai{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-2);cursor:pointer;min-height:44px}
+  #assunzioni .as-mai{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);cursor:pointer;min-height:44px}
   @media (max-width:880px), (pointer:coarse){
     #assunzioni{bottom:calc(var(--dock-h,64px) + 12px);width:96%;max-height:52vh}
     #assunzioni .as-act{min-height:44px;padding:9px 12px}
@@ -448,7 +482,7 @@
   #bandSetup .bs-ruoli{margin-top:14px;max-height:min(46vh,360px);overflow:auto}
   #bandSetup .bs-riga{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)}
   #bandSetup .bs-riga:first-child{border-top:0}
-  #bandSetup .bs-nome{font-size:13.5px}
+  #bandSetup .bs-nome{font-size:14px}
   #bandSetup .bs-riga.bs-zero .bs-nome,#bandSetup .bs-riga.bs-zero .bs-num{color:var(--text-3)}
   #bandSetup .bs-pm{width:34px;height:34px;font-size:17px;line-height:1;border:1px solid var(--border);
     border-radius:var(--r-md,8px);background:var(--surface-raised);color:var(--text);cursor:pointer}
@@ -503,7 +537,9 @@
   .pg-cells button.on::before{background:var(--accent)}
   .pg-cells button:active{background:rgba(13,148,136,.16)}
   body.dark .pg-cells button{background:#141a1d;border-color:#314046}
-  .pg-hint{font-size:12px;color:var(--text-3);margin-top:6px}
+  /* 12, non 11: è l'UNICA riga che dice l'orientamento della griglia, sotto nove bersagli da 117
+     px, e chi non la legge mette la batteria dalla parte del pubblico. (02/09) */
+  .pg-hint{font-size:12px;color:var(--text-3);margin-top:6px;line-height:var(--lh-snug)}
   .snap-guide{stroke:var(--guide);stroke-width:1.2px;stroke-dasharray:8 5;opacity:.75;pointer-events:none}
   .snap-guide.center{stroke:var(--guide-center)}
   #props h3{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text);margin:0 0 6px}
@@ -522,7 +558,7 @@
   /* B3 (27/07) — gruppi del pannello elemento: intestazione col termine del mestiere e separazione
      affidata allo SPAZIO BIANCO, non a riquadri e linee tratteggiate. Stesse righe, molto meno rumore. */
   #props #selProps .pgrp{margin:0 0 2px}
-  #props #selProps .pgrp>.pgh{font-size:11.5px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:13px 0 5px}
+  #props #selProps .pgrp>.pgh{font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:13px 0 5px}
   #props #selProps .pgrp:first-of-type>.pgh{margin-top:2px}
   #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
   /* dentro un gruppo intitolato, il riquadro è un doppio incapsulamento: resta il contenuto */
@@ -548,7 +584,7 @@
   #props .numrow>label{margin:0;flex:0 0 auto;color:var(--text-2)}
   #props .numwrap{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px}
   #props .numwrap>input[type=number]{width:66px;text-align:right;padding:4px 7px}
-  #props .numwrap>i{font-style:normal;font-size:11.5px;color:var(--text-3)}
+  #props .numwrap>i{font-style:normal;font-size:12px;color:var(--text-3)}
   #props .prop-card{border:1px solid var(--border);border-radius:var(--r-lg);padding:11px 12px;margin:0 0 9px;background:var(--surface-raised);
     transition:border-color var(--dur-fast) var(--ease)}
   #props .prop-card:hover{border-color:var(--border-strong)}
@@ -587,7 +623,7 @@
     background:var(--border);pointer-events:none}
   #props #pRotVal{min-width:34px;text-align:right}
   footer{grid-area:foot;display:flex;align-items:center;gap:18px;padding:0 14px;border-top:1px solid var(--border);
-    font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden}
+    font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden}
   /* SVG — palco */
   .stage-fill{fill:#fff;stroke:none}
   .stageblk{fill:var(--select-fill);stroke:var(--accent);stroke-width:2;stroke-dasharray:7 5;cursor:move}
@@ -704,20 +740,20 @@
   .cat-rest{display:none}
   .cat-rest.open{display:block}
   /* Inspector B "lista piatta" — righe chiave-valore (scelta Simone 08/07) */
-  .insp-hd{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-3);margin:14px 0 2px}
-  .insp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
+  .insp-hd{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-3);margin:14px 0 2px}
+  .insp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:13px}
   .insp-row b{font-weight:600;color:var(--text)}
   .insp-row small{color:var(--text-3);font-size:12px;text-align:right}
   .insp-row.insp-over small{color:var(--danger,#c0392b);font-weight:600}   /* Ingressi > capacità stage box: avviso al tecnico */
-  .insp-fix{font-size:11.5px;color:var(--accent);cursor:pointer;padding:5px 2px 7px;border-bottom:1px solid var(--border);line-height:1.35}
+  .insp-fix{font-size:12px;color:var(--accent);cursor:pointer;padding:5px 2px 7px;border-bottom:1px solid var(--border);line-height:1.35}
   .insp-fix:hover{color:var(--accent-strong)}
   .insp-fix-static{color:var(--text-2);cursor:default}
   .insp-fix-static:hover{color:var(--text-2)}
   .insp-row.link{cursor:pointer}
   .insp-row.link:hover b{color:var(--accent)}
-  #inspMixer{max-width:150px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:11.5px;background:var(--surface);color:var(--text)}
+  #inspMixer{max-width:150px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:12px;background:var(--surface);color:var(--text)}
   /* Bolla assist stile Max sul cavo in hover (probing) */
-  .cab-tip{position:fixed;z-index:70;background:#111827;color:#f9fafb;font-size:11.5px;font-weight:600;letter-spacing:.2px;padding:5px 10px;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.28);pointer-events:none;white-space:nowrap}
+  .cab-tip{position:fixed;z-index:70;background:#111827;color:#f9fafb;font-size:12px;font-weight:600;letter-spacing:.2px;padding:5px 10px;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.28);pointer-events:none;white-space:nowrap}
   body.dark .cab-tip{background:#f3f4f6;color:#111827}
   /* C3 · declutter stile Max: i cavi non collegati all'elemento in hover sfumano */
   .cabgrp{transition:opacity .16s ease}
@@ -735,17 +771,17 @@
   .bus-row{display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid var(--n-100);font-size:12px}
   .bus-tag{flex:0 0 auto;font-size:9px;font-weight:700;border-radius:999px;padding:1px 7px;background:var(--n-100);color:var(--text-2)}
   .bus-nm{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bus-out{flex:0 0 auto;font-family:ui-monospace,monospace;font-size:10.5px;background:var(--n-100);border-radius:5px;padding:1px 6px;cursor:pointer;white-space:nowrap}
+  .bus-out{flex:0 0 auto;font-family:ui-monospace,monospace;font-size:11px;background:var(--n-100);border-radius:5px;padding:1px 6px;cursor:pointer;white-space:nowrap}
   .bus-out.pin{background:var(--n-800);color:#fff}
   .bus-out.miss{background:var(--danger-bg,#fee2e2);color:var(--danger,#b91c1c);font-weight:700}
-  .bus-dst{flex:0 1 auto;max-width:110px;font-size:10.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bus-dst{flex:0 1 auto;max-width:110px;font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bus-x{flex:0 0 auto;color:var(--text-3);cursor:pointer;padding:0 3px;font-size:14px}
   .bus-x:hover{color:var(--danger,#b91c1c)}
   .bus-add{display:flex;gap:6px;margin-top:8px}
-  .bus-add select{flex:0 0 auto;font-size:11.5px;max-width:132px}
+  .bus-add select{flex:0 0 auto;font-size:12px;max-width:132px}
   .bus-add input{flex:1;min-width:0;font-size:12px}
   .bus-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-  .bus-chip{font-size:10.5px;border:1px solid var(--border);color:var(--text-2);background:var(--surface);border-radius:var(--r-pill);padding:3px 10px;cursor:pointer;
+  .bus-chip{font-size:11px;border:1px solid var(--border);color:var(--text-2);background:var(--surface);border-radius:var(--r-pill);padding:3px 10px;cursor:pointer;
     transition:background var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
   .bus-chip::before{content:"+ ";color:var(--text-3);font-weight:700}   /* affordance: la pillola AGGIUNGE quel bus */
   .bus-chip:hover{border-color:var(--accent);color:var(--accent-strong);background:var(--accent-tint)}
@@ -754,15 +790,15 @@
   .sbp.snk{background:#0b7a70;border-color:#0b7a70;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);cursor:default}
   /* .loadrow rimossa (29/07): la lista Power non è più una tabella a colonne — vedi .patch-lite.load-lite */
   .feed-seg{display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .feed-seg>div{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:6px 4px;font-size:11.5px;cursor:pointer;background:var(--surface);color:var(--text-2);transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+  .feed-seg>div{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:6px 4px;font-size:12px;cursor:pointer;background:var(--surface);color:var(--text-2);transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
   .feed-seg>div:hover:not(.on){background:var(--n-100)}
   .feed-seg>div.on{background:#c026d3;color:#fff;font-weight:600}
   /* Hub produzione: reparti */
-  .prod-dept{display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid var(--n-100);font-size:12.5px}
+  .prod-dept{display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid var(--n-100);font-size:13px}
   .prod-dept:last-child{border-bottom:none}
   .pd-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
   .pd-nm{font-weight:600;flex:0 0 auto}
-  .pd-src{font-size:9.5px;font-weight:700;border-radius:999px;padding:1px 8px;flex:0 0 auto}
+  .pd-src{font-size:10px;font-weight:700;border-radius:999px;padding:1px 8px;flex:0 0 auto}
   .pd-src.plot{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
   .pd-src.extra{background:var(--n-100);color:var(--text-2)}
   .pd-el{margin-left:auto;font-size:11px;color:var(--text-3);text-align:right}
@@ -776,11 +812,11 @@
   .prod-dept{display:block}
   .prod-dept .pd-hd{display:flex;align-items:center;gap:9px}
   .pd-assign{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0 2px 19px}
-  .pd-hint{font-size:10.5px;color:var(--text-3);font-style:italic}
+  .pd-hint{font-size:11px;color:var(--text-3);font-style:italic;line-height:var(--lh-snug)}
   .da-pill{font-size:11px;border-radius:999px;padding:2px 9px;display:inline-flex;align-items:center;gap:5px}
   .da-pill.az{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
   .da-pill.pe{background:#fdf4ff;color:#c026d3;border:1px solid #f5d0fe}
-  .da-pill.pe .r{font-size:8.5px;opacity:.75}
+  .da-pill.pe .r{font-size:9px;opacity:.75}
   .da-pill.add{border:1px dashed var(--n-300);color:var(--text-2);cursor:pointer;background:var(--surface)}
   .da-pill.add:hover{border-color:var(--accent);color:var(--accent-strong)}
   .da-x{cursor:pointer;opacity:.6;font-size:13px;margin-left:1px}
@@ -796,14 +832,14 @@
   .di-opt:hover{border-color:var(--n-300)}
   .di-opt.sel{border-color:var(--accent);background:var(--accent-tint)}
   .di-opt svg{display:block;margin:0 auto 4px;width:52px;height:40px}   /* dimensione fissa: batte la regola globale svg{width:100%} che stirerebbe l'icona (come nel mockup) */
-  .di-nm{font-size:9.5px;color:var(--text-2);font-weight:600;line-height:1.15}
+  .di-nm{font-size:10px;color:var(--text-2);font-weight:600;line-height:1.15}
   .di-opt.sel .di-nm{color:var(--accent-strong)}
-  .di-note{font-size:10.5px;color:var(--text-3);margin-top:9px;line-height:1.5}
+  .di-note{font-size:11px;color:var(--text-3);margin-top:9px;line-height:1.5}
   .di-prev{display:flex;justify-content:center;align-items:center;height:52px;margin:0 0 4px}
   .di-prev svg{width:64px;height:44px}   /* dimensione esplicita: batte la regola globale svg{width:100%} */
   .di-lbl{font-size:11px;color:var(--text-2);font-weight:600;margin:8px 0 4px;display:block}
   .di-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .di-seg button{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11.5px;font-weight:600;padding:6px 4px;cursor:pointer;transition:.12s}
+  .di-seg button{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;border-left:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;padding:6px 4px;cursor:pointer;transition:.12s}
   .di-seg button:first-child{border-left:none}
   .di-seg button:hover{background:var(--accent-tint)}
   .di-seg button.on{background:var(--accent);color:#fff}
@@ -824,8 +860,8 @@
   .qa-top{display:flex;align-items:center;gap:9px;padding:0 13px;flex:none}
   .qa-mag{flex:none;width:15px;height:15px;color:#a8a196}   /* la regola globale svg{width:100%} la gonfiava a tutta la finestrella */
   .qa-inpwrap{position:relative;flex:1;min-width:0}
-  .qa-ghost{position:absolute;inset:0;padding:11px 0;font-size:14.5px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
-  .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:11px 0;font-size:14.5px;background:transparent;color:var(--text,#111827);outline:none}
+  .qa-ghost{position:absolute;inset:0;padding:11px 0;font-size:15px;line-height:normal;color:#c4beb4;white-space:nowrap;overflow:hidden;pointer-events:none}
+  .qa-input{position:relative;width:100%;box-sizing:border-box;border:0;padding:11px 0;font-size:15px;background:transparent;color:var(--text,#111827);outline:none}
   .quick-add input{border:0!important;outline:0!important;box-shadow:none!important;background-image:none!important}   /* nessun bordo iniettato da estensioni o temi */
   /* …ma i tre !important vietavano anche l'anello del fuoco, che qui serve: chi arriva col Tab non
      vedeva dove stava scrivendo. Il fuoco da tastiera lo rimette, senza riaprire la porta ai bordi
@@ -838,8 +874,8 @@
   .qa-item{position:relative;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;border-radius:9px;cursor:pointer}
   .qa-ico{flex:none;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:rgba(141,134,123,.10);overflow:hidden}
   .qa-ico svg{display:block;width:24px!important;height:24px!important}   /* idem: batte svg{width:100%;height:100%} del canvas */
-  .qa-name{font-size:13.5px;font-weight:500;color:var(--text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
-  .qa-pill{flex:none;font-size:9.5px;font-weight:700;letter-spacing:.03em;color:#8d867b;background:#f3efe9;padding:3px 8px;border-radius:99px;
+  .qa-name{font-size:14px;font-weight:500;color:var(--text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .qa-pill{flex:none;font-size:10px;font-weight:700;letter-spacing:.03em;color:#8d867b;background:#f3efe9;padding:3px 8px;border-radius:99px;
     max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .qa-item:hover{background:rgba(13,148,136,.06)}
   .qa-item.sel{background:rgba(13,148,136,.09)}
@@ -847,14 +883,14 @@
   .qa-item.sel .qa-name{color:#0f766e;font-weight:640}
   .qa-item.sel .qa-pill{background:rgba(13,148,136,.13);color:#0f766e}
   .qa-item.sel .qa-ico{background:rgba(13,148,136,.14)}
-  .qa-foot{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid #ece7de;font-size:10.5px;color:#8d867b;flex:none}
+  .qa-foot{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid #ece7de;font-size:11px;color:#8d867b;flex:none}
   .qa-foot .qa-sp{margin-left:auto}
-  .qa-kbd{font-size:9.5px;font-weight:700;border:1px solid #e7e2da;border-radius:5px;padding:1px 5px;
+  .qa-kbd{font-size:10px;font-weight:700;border:1px solid #e7e2da;border-radius:5px;padding:1px 5px;
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#8d867b}
   body.dark .quick-add{background:#141a1f;border-color:#2a3138}
   /* menu contestuale sul cavo (tasto destro) */
   .cab-ctx{position:fixed;z-index:200;background:var(--panel,#fff);border:1px solid #e7e2da;border-radius:10px;box-shadow:0 12px 34px rgba(31,41,55,.18);padding:4px;min-width:158px;display:flex;flex-direction:column;gap:1px}
-  .cab-ctx-i{appearance:none;background:none;border:0;text-align:left;padding:7px 11px;border-radius:6px;font-size:12.5px;color:var(--text);cursor:pointer;font-family:inherit}
+  .cab-ctx-i{appearance:none;background:none;border:0;text-align:left;padding:7px 11px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer;font-family:inherit}
   .cab-ctx-i:hover{background:var(--accent-tint)}
   .cab-ctx-i.danger{color:#dc2626}
   .cab-ctx-i.danger:hover{background:rgba(220,38,38,.1)}
@@ -922,8 +958,8 @@
     background:var(--panel,#fff);border:1px solid var(--border,#e7e2da);border-radius:11px;
     box-shadow:0 12px 34px rgba(31,41,55,.17)}
   .mic-ac-item{display:flex;align-items:baseline;gap:8px;padding:6px 9px 6px 11px;border-radius:8px;cursor:pointer;position:relative}
-  .mic-ac-k{flex:none;font-size:12.5px;font-weight:650;color:var(--text,#111827)}
-  .mic-ac-sub{flex:1;min-width:0;font-size:10.5px;color:var(--text-3,#8d867b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mic-ac-k{flex:none;font-size:13px;font-weight:650;color:var(--text,#111827)}
+  .mic-ac-sub{flex:1;min-width:0;font-size:11px;color:var(--text-3,#8d867b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mic-ac-48{flex:none;font-size:9px;font-weight:700;letter-spacing:.03em;color:var(--accent-strong,#0f766e);
     background:var(--accent-tint,rgba(13,148,136,.11));padding:2px 6px;border-radius:99px}
   .mic-ac-item:hover{background:rgba(13,148,136,.06)}
@@ -997,7 +1033,7 @@
   .layer-name{flex:1 1 auto;min-width:0;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* Riassunto in riga (27/07): «11 canali», «0,4 kW» — il dato che si cercava aprendo il layer.
      Sta fra il nome e i controlli, in tabellare così le cifre restano incolonnate fra le righe. */
-  .layer-cnt{flex:0 0 auto;font-size:10.5px;color:var(--text-3);font-variant-numeric:tabular-nums;
+  .layer-cnt{flex:0 0 auto;font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums;
     margin-left:auto;padding-right:7px;white-space:nowrap;max-width:56px;overflow:hidden;text-overflow:ellipsis}
   .layer-row.focus .layer-cnt{color:var(--accent-strong)}
   /* Azzera i percorsi: in fondo al corpo del layer, non più un cestino accanto all'occhio */
@@ -1005,7 +1041,7 @@
      mano, ma è un'azione rara: comando testuale discreto, allineato a sinistra sotto la lista. */
   .layer-reset{margin-top:9px;padding-top:0;border-top:0}
   .layer-reset .adv-reset{width:auto;justify-content:flex-start;border:0;background:none;padding:4px 0;
-    color:var(--text-2);font-weight:500;font-size:11.5px}
+    color:var(--text-2);font-weight:500;font-size:12px}
   .layer-reset .adv-reset:hover{background:none;border:0;color:var(--danger);text-decoration:underline}
   .layer-reset .adv-reset:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-radius:4px}
   .layer-ico{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;padding:3px;border-radius:6px;display:flex;align-items:center}
@@ -1016,7 +1052,7 @@
   .layer-controls{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto}   /* tutto inline nella riga: slider + icone */
   .layer-controls .layer-opacity{width:66px;flex:0 0 66px;margin:0}
   .layer-icons{display:grid;grid-template-columns:repeat(4,20px);gap:3px;align-items:center;flex:0 0 auto}   /* S | occhio | lucchetto | cestino, slot fissi allineati */
-  .layer-ico.layer-solo{font-size:10.5px;font-weight:800;line-height:1;color:var(--text-3)}
+  .layer-ico.layer-solo{font-size:11px;font-weight:800;line-height:1;color:var(--text-3)}
   .layer-ico.layer-solo.on{color:#b45309;background:#fde68a}   /* solo attivo = ambra da console */
   .layer-ico.layer-solo.on:hover{background:#fcd34d;color:#92400e}
   body.dark .layer-ico.layer-solo.on{color:#fbbf24;background:#78350f}
@@ -1107,12 +1143,12 @@
   .layer-tab.on{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
   .cab-sechead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
   .cab-sechead .caret{font-size:11px;color:var(--text-3);width:10px;flex:0 0 auto}
-  .cab-sectitle{flex:1 1 auto;font-size:12.5px;color:var(--text)}
+  .cab-sectitle{flex:1 1 auto;font-size:13px;color:var(--text)}
   .cab-trash{flex:0 0 auto;border:none;background:none;color:var(--text-3);cursor:pointer;padding:3px 4px;border-radius:6px;display:flex;align-items:center}
   .cab-trash:hover{color:var(--danger,#dc2626);background:var(--n-100)}
   body.dark .cab-trash:hover{background:#2a1416}
   /* Audit azionabile: criticità + fix a un click */
-  .audit-find{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:11.5px;line-height:1.4}
+  .audit-find{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:12px;line-height:1.4}
   .audit-find-txt{flex:1 1 auto;min-width:0}
   .audit-find-txt b{color:var(--text-2)}
   .audit-hint{color:var(--text-3);margin-left:14px}
@@ -1138,7 +1174,7 @@
   /* col. 2 e 3 flessibili (minmax 0 = si restringono con ellipsis quando stretto, e crescono allargando la
      colonna destra fino a mostrare tutto il contenuto); # e ultima (patch/uscita/Q-L, contenuto corto)
      a larghezza fissa → tutte le righe restano allineate tra loro e con l'intestazione */
-  .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100)}
+  .patch-row{display:grid;grid-template-columns:24px minmax(0,1.5fr) minmax(0,1fr) 46px;gap:6px;align-items:center;padding:5px 8px;font-size:12px;border-bottom:1px solid var(--n-100)}
   /* liste modificabili (Input/Monitor) — DUE LIVELLI (28/07): in 220 px cinque colonne troncavano le
      sorgenti a «Bat…», «Chi…», «Vo…», illeggibili proprio nel dato che il fonico viene a leggere.
      Ora il canale occupa due righe — nome intero sopra, mic e 48V sotto — con numero a sinistra e
@@ -1148,7 +1184,7 @@
     gap:1px 7px;padding:6px 8px}
   .patch-row.editable>.pn{grid-area:1/1/3/2;align-self:center}
   .patch-row.editable>.psrc{grid-area:1/2/2/3}
-  .patch-row.editable>.pmic{grid-area:2/2/3/3;font-size:10.5px}
+  .patch-row.editable>.pmic{grid-area:2/2/3/3;font-size:11px}
   .patch-row.editable>.ppatch{grid-area:1/3/3/4;align-self:center;justify-self:end}
   .patch-row.editable>.rowacts{grid-area:1/4/3/5;align-self:center}
   /* l'intestazione resta a una riga: sono etichette, non dati */
@@ -1158,7 +1194,7 @@
   /* Barra del cablaggio in cima alla lista: il comando principale (28/07) */
   .cab-bar{display:flex;align-items:center;gap:8px;background:var(--accent-tint);
     border:1px solid var(--accent-soft);border-radius:8px;padding:6px 9px;margin:0 0 8px;
-    font-size:11.5px;color:var(--accent-strong)}
+    font-size:12px;color:var(--accent-strong)}
   .cab-bar-txt{flex:1 1 auto;line-height:1.35;min-width:0}
   .cab-bar.done{background:var(--success-bg);border-color:#bbf7d0;color:var(--success)}
   body.dark .cab-bar.done{background:#052e16;border-color:#166534}
@@ -1179,7 +1215,7 @@
   .rowedit{width:100%;font-size:11px;padding:1px 4px;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--text);font-family:inherit}
   body.dark .rowedit{background:#141a1d;color:#e5e7eb}
   .patch-row:last-child{border-bottom:none}
-  .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
+  .patch-row.patch-hd{background:var(--n-100);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-3)}
   /* Le celle della TESTATA non avevano troncamento: col pannello stretto «SORGENTE» sbordava e finiva
      stampata sopra «MIC / DI» — si leggeva «SORGEИTE/DI» (audit 27/07). */
   .patch-row.patch-hd>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -1187,12 +1223,12 @@
      riservato dal design system a placeholder e decorazioni, non a un'informazione operativa. */
   .patch-row .pn{color:var(--text-2);font-weight:700}
   .patch-row .psrc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-  .patch-row .pmic{color:var(--text-2);font-size:10.5px;display:flex;align-items:center;gap:4px;min-width:0}
+  .patch-row .pmic{color:var(--text-2);font-size:11px;display:flex;align-items:center;gap:4px;min-width:0}
   .patch-row .pmic .micname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}   /* tronca il NOME mic, non il badge */
   .patch-row .p48b,.patch-row .pamp{flex:0 0 auto}   /* 48V/Ampere sempre visibili (mai troncati) */
   /* Asta e nome sul banco (caso reale 28/07): due delle nove colonne della channel list vera. In 220 px
      non possono essere colonne, quindi vivono sulla seconda riga del canale, con un peso minore del mic. */
-  .patch-row .pstand{flex:0 0 auto;font-size:9.5px;color:var(--text-3);white-space:nowrap}
+  .patch-row .pstand{flex:0 0 auto;font-size:10px;color:var(--text-3);white-space:nowrap}
   .patch-row .pstand::before{content:"· "}
   .patch-row .pfoh{flex:0 1 auto;min-width:0;font-size:9px;font-weight:700;letter-spacing:.2px;
     color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;
@@ -1217,7 +1253,7 @@
   .patch-lite>.psrc{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .patch-lite>.psrc.renamable{cursor:pointer}
   .patch-lite>.psrc.renamable:hover{color:var(--accent-strong)}
-  .patch-lite>.ppatch{font-size:10.5px;font-weight:700;background:var(--accent-tint);color:var(--accent-strong);
+  .patch-lite>.ppatch{font-size:11px;font-weight:700;background:var(--accent-tint);color:var(--accent-strong);
     padding:2px 7px;border-radius:var(--r-pill);white-space:nowrap;justify-self:end}
   .patch-lite>.ppatch.editable-cell{cursor:pointer;text-decoration:none}
   .patch-lite>.ppatch.editable-cell:hover{background:var(--accent-soft)}
@@ -1239,9 +1275,9 @@
   .cab-one{color:var(--accent-strong);font-size:11px;border-color:var(--accent-soft);background:var(--accent-tint)}
   .cab-one:hover{background:var(--accent);border-color:var(--accent);color:#fff}
   .lite-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
-  .patch-empty{color:var(--text-3);font-size:12px;padding:8px 2px}
+  .patch-empty{color:var(--text-3);font-size:12px;padding:8px 2px;line-height:var(--lh-snug)}
   /* la barra dice a che punto sei, e a destra quanto è piena la stage box (o, sul Power, la fase più carica) */
-  .cab-bar-cap{flex:0 0 auto;font-size:10.5px;font-weight:700;opacity:.8;font-variant-numeric:tabular-nums}
+  .cab-bar-cap{flex:0 0 auto;font-size:11px;font-weight:700;opacity:.8;font-variant-numeric:tabular-nums}
   @media (hover:none){
     .lite-btn{width:30px;height:28px}   /* bersaglio per il dito */
     .cab-one{font-size:12px}
@@ -1259,7 +1295,7 @@
   .patch-lite.load-lite>.pact{grid-area:1/4/3/5;align-self:center}
   /* la targa del carico: quanto tira e con che spina ci arrivi. Non è un sottotitolo decorativo,
      è il dato con cui si sceglie la ciabatta — per questo l'ampere resta un badge e non testo. */
-  .pload{display:flex;align-items:center;gap:5px;min-width:0;font-size:10.5px;color:var(--text-2);
+  .pload{display:flex;align-items:center;gap:5px;min-width:0;font-size:11px;color:var(--text-2);
     overflow:hidden;white-space:nowrap}
   .pload>.pw{flex:0 0 auto;font-variant-numeric:tabular-nums}
   .pload>.pamp{flex:0 0 auto}
@@ -1406,17 +1442,17 @@
   .modal[hidden]{display:none}
   .mcard{background:var(--surface);border-radius:var(--r-xl);padding:18px 20px;width:600px;max-height:88vh;overflow:auto;box-shadow:var(--elev-4)}
   .mcard h2{font-size:16px;margin-bottom:4px}
-  .mcard .hint{font-size:12px;color:var(--text-2);margin-bottom:12px}
+  .mcard .hint{font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:var(--lh-snug)}
   .ogrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 22px}
   .ogrid label{display:flex;justify-content:space-between;align-items:center;font-size:13px}
   .ogrid input{width:58px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:13px}
-  .ochk{display:block;font-size:12.5px;color:var(--n-700);margin-top:10px}
+  .ochk{display:block;font-size:13px;color:var(--n-700);margin-top:10px}
   .opreset{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:center;margin:12px 0}
   .opreset label{font-size:12px;color:var(--text-2)}
   .opreset select{border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:13px;background:var(--surface)}
   .mcard label{display:block;font-size:12px;color:var(--text-2);margin:9px 0 3px;font-weight:600}
   .mcard select{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface)}
-  .mcard .mstatus{font-size:12.5px}
+  .mcard .mstatus{font-size:13px}
   .mcard .mstatus.ok{color:var(--success)}  .mcard .mstatus.err{color:var(--danger)}  .mcard .mstatus.warn{color:var(--warning)}
   /* ===== Finestra Esporta PDF — compatta, anteprima integrata multipagina (Simone 14/07) ===== */
   /* La card scorre come un foglio unico: aprendo il Controllo tecnico (che aggiunge sei righe) le
@@ -1428,13 +1464,13 @@
   .pdf-export .pdf-exp-foot{flex:0 0 auto;border-top:1px solid var(--border);padding-top:12px;background:var(--surface)}
   .pdf-exp-head{display:flex;align-items:baseline;gap:12px;margin:0 0 15px}
   .pdf-exp-head h2{margin:0}
-  .pdf-exp-hint{font-size:12px;color:var(--text-3)}
+  .pdf-exp-hint{font-size:12px;color:var(--text-3);line-height:var(--lh-snug)}
   .pdf-exp-grid{display:grid;grid-template-columns:1fr 240px;gap:22px;align-items:start}
-  .pdf-exp-side>label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin:12px 0 5px}
+  .pdf-exp-side>label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:12px 0 5px}
   .pdf-exp-side>label:first-child{margin-top:0}
   .pdf-exp-side .chips{margin:0}
-  .pdf-exp-side input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13.5px;background:var(--surface);color:var(--text)}
-  .pdf-side-h{font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:7px}
+  .pdf-exp-side input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface);color:var(--text)}
+  .pdf-side-h{font-size:12px;font-weight:700;color:var(--text);margin-bottom:7px}
   #pdfTechBox{margin-top:0;padding-top:0;border-top:none}
   #pdfTechNote{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.45}
   /* Controllo tecnico inline nell'export (variante C 17/07): riepilogo + modifica al volo */
@@ -1451,34 +1487,34 @@
      esporta, e questo è solo il modo veloce di prendere quelle che servono. */
   .pill.ghost.sugg-all{border:1px solid var(--accent-strong);color:var(--accent-strong);font-weight:600}
   .pill.ghost.sugg-all:hover{background:var(--accent-tint)}
-  #pdfPillsHint{font-size:10.5px;color:var(--accent-strong);margin:2px 0 4px}
-  .nudge{margin-top:12px;background:#eff6ff;border:1px solid #bfd3f8;border-radius:9px;padding:8px 11px;font-size:11.5px;color:#2563eb;cursor:pointer;user-select:none}
+  #pdfPillsHint{font-size:11px;color:var(--accent-strong);margin:2px 0 4px;line-height:var(--lh-snug)}
+  .nudge{margin-top:12px;background:#eff6ff;border:1px solid #bfd3f8;border-radius:9px;padding:8px 11px;font-size:12px;color:#2563eb;cursor:pointer;user-select:none}
   .nudge b{font-weight:700}
   .nudge .arr{float:right;transition:transform var(--dur-fast) var(--ease)}
   .nudge.open .arr{transform:rotate(90deg)}
   .nudge.ok{background:var(--surface-raised);border-color:var(--border);color:var(--text-2)}
   /* Non è un invito, è un avviso: qualcosa nel disegno non torna, e il PDF lo mostrerà così. */
   .nudge.warn{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning);cursor:default}
-  .nudge.warn .btn{margin-left:6px;padding:4px 10px;font-size:11.5px;vertical-align:baseline}
+  .nudge.warn .btn{margin-left:6px;padding:4px 10px;font-size:12px;vertical-align:baseline}
   .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
-  .pdf-optrow label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin:0 0 5px}
+  .pdf-optrow label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 5px}
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
-  .pdf-area-line{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text)}
-  .pdf-area-line .btn{padding:4px 10px;font-size:11.5px;margin:0}
+  .pdf-area-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text)}
+  .pdf-area-line .btn{padding:4px 10px;font-size:12px;margin:0}
   /* I chip di questa riga NON vanno a capo: sono tre gruppi affiancati (formato · orientamento ·
      scala) e una colonna che si spezza fa leggere «A2» come se appartenesse all'orientamento.
      Col terzo chip «Auto» (11/08) lo spazio è diventato stretto: qui i chip si compattano e la riga
      resta una riga. Sotto i 720 px il wrap torna, ed è giusto: lì le colonne si impilano. */
   .pdf-optrow .chips{flex-wrap:nowrap}
-  .pdf-optrow .chips button{padding:5px 7px;font-size:11.5px;white-space:nowrap}
+  .pdf-optrow .chips button{padding:5px 7px;font-size:12px;white-space:nowrap}
   .pdf-optrow select{font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);width:128px}
   #prodInline{margin-top:8px}
   /* Riferimento nel cartiglio (variante B): campo persistente + tendina Rubrica */
-  .hdr-why{font-weight:400;font-size:10.5px;color:var(--text-3)}
+  .hdr-why{font-weight:400;font-size:11px;color:var(--text-3);line-height:var(--lh-snug)}
   .hdr-wrap{position:relative;display:flex;gap:6px}
   .hdr-wrap input[type=text]{flex:1;width:auto;min-width:0}
-  .hdr-saved{font-size:10.5px;color:var(--text-3);margin-top:3px}
-  .rub-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:0 10px;font-size:11.5px;font-weight:600;color:var(--accent-strong);cursor:pointer;white-space:nowrap}
+  .hdr-saved{font-size:11px;color:var(--text-3);margin-top:3px}
+  .rub-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:0 10px;font-size:12px;font-weight:600;color:var(--accent-strong);cursor:pointer;white-space:nowrap}
   .rub-btn:hover{background:var(--accent-tint)}
   .rub-menu{position:absolute;right:0;bottom:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--elev-2);min-width:270px;max-width:330px;z-index:5;padding:5px}
   .rub-item{display:flex;flex-direction:column;gap:1px;padding:7px 9px;border-radius:7px;cursor:pointer}
@@ -1486,30 +1522,30 @@
   .rub-item .r1{font-size:12px;font-weight:600}
   .rub-item .r2{font-size:11px;color:var(--text-2)}
   .rub-sep{border-top:1px solid var(--border);margin:4px 2px}
-  .rub-manage{padding:7px 9px;font-size:11.5px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
+  .rub-manage{padding:7px 9px;font-size:12px;color:var(--accent-strong);cursor:pointer;border-radius:7px}
   .rub-manage:hover{background:var(--surface-raised)}
   .rub-cap{font-size:10px;font-weight:700;color:var(--text-3);padding:4px 9px 2px;text-transform:uppercase;letter-spacing:.04em}
   /* chip data/ora evento nell'header (17/07) */
-  .hdr-evchip{border:1px solid var(--border);background:var(--surface);color:var(--text-3);border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .hdr-evchip{border:1px solid var(--border);background:var(--surface);color:var(--text-3);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .hdr-evchip:hover{background:var(--surface-raised)}
   .hdr-evchip.set{color:var(--text);border-color:var(--border-strong)}
   .ev-pop{padding:10px 12px;min-width:230px}
-  .ev-l{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:8px 0 3px}
+  .ev-l{display:block;font-size:11px;font-weight:600;color:var(--text-2);margin:8px 0 3px}
   .ev-l:first-child{margin-top:0}
-  .ev-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12.5px;background:var(--surface);color:var(--text)}
-  .ev-hint{font-size:10.5px;color:var(--text-3);margin-top:8px;line-height:1.4}
+  .ev-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)}
+  .ev-hint{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.4}
   @media(max-width:900px){ .hdr-evchip{display:none} }
   /* finestra Contatto musicista (17/07) */
-  .ic-l{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:0 0 3px}
-  .ic-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-size:12.5px;background:var(--surface);color:var(--text)}
+  .ic-l{display:block;font-size:11px;font-weight:600;color:var(--text-2);margin:0 0 3px}
+  .ic-i{width:100%;border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-size:13px;background:var(--surface);color:var(--text)}
   /* Condividi — variante A (17/07): stato, permessi, revoca visibile */
-  .share-state{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-2);white-space:nowrap}
+  .share-state{display:inline-flex;align-items:center;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-2);white-space:nowrap}
   .share-state.on{background:var(--success-bg);border-color:var(--success-border);color:var(--success)}
   .share-chan{flex:1}
   .share-perm{display:flex;align-items:center;gap:10px;font-size:12px;padding:5px 0;cursor:default}
   label.share-perm{cursor:pointer}
   .share-perm .pd{flex:1}
-  .share-perm .pd small{display:block;color:var(--text-3);font-size:10.5px}
+  .share-perm .pd small{display:block;color:var(--text-3);font-size:11px}
   .share-permnote{font-size:11px;line-height:1.35;color:var(--warning);background:var(--warning-bg);
     border:1px solid var(--warning-border);border-radius:8px;padding:7px 9px;margin-top:6px}
   .share-revoke{background:none;border:1px solid #fca5a5;color:#b91c1c;font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer}
@@ -1521,7 +1557,7 @@
   .rack-ubar i{display:block;height:100%;background:var(--accent);width:0;transition:width var(--dur-fast) var(--ease)}
   .rack-row{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;padding:5px 7px;margin-bottom:4px;font-size:12px;cursor:pointer}
   .rack-row:hover{background:var(--surface-raised)}
-  .rack-row .uh{flex:0 0 30px;text-align:center;background:var(--n-100);border-radius:5px;font-size:10.5px;font-weight:700;padding:2px 0;cursor:pointer}
+  .rack-row .uh{flex:0 0 30px;text-align:center;background:var(--n-100);border-radius:5px;font-size:11px;font-weight:700;padding:2px 0;cursor:pointer}
   .rack-row .rn{flex:1;min-width:0;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rack-row .rmv,.rack-row .rx{border:none;background:none;color:var(--text-3);cursor:pointer;font-size:10px;padding:0 2px}
   .rack-row .rx{font-size:13px}
@@ -1529,11 +1565,11 @@
   .rack-uslot{height:26px;border-bottom:1px dashed #3a3a40;position:relative;display:flex;align-items:center}
   .rack-uslot:last-child{border-bottom:none}
   .rack-unum{position:absolute;left:-13px;font-size:8px;color:#8b8b93}
-  .rack-dev{position:absolute;left:0;right:0;top:2px;border-radius:4px;background:#0d9488;color:#fff;font-size:10.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.28);overflow:hidden;white-space:nowrap}
+  .rack-dev{position:absolute;left:0;right:0;top:2px;border-radius:4px;background:#0d9488;color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.28);overflow:hidden;white-space:nowrap}
   .rack-dev small{font-weight:400;opacity:.75;font-size:9px;margin-left:8px}
   /* F2: griglia porte stagebox + popover porta/nome breve */
   .sbports{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-top:3px}
-  .sbp{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text-3);background:var(--surface)}
+  .sbp{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text-3);background:var(--surface)}
   .sbp.uso{background:var(--accent);border-color:var(--accent);color:#fff;cursor:default}
   .sbp.pin{background:var(--n-800);border-color:var(--n-800);color:#fff;cursor:default}
   .sbp.ris{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning)}
@@ -1554,14 +1590,14 @@
     width:min(1180px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden}
   .cl-top{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);
     background:var(--n-50);flex:0 0 auto}
-  .cl-t{font-weight:700;font-size:13.5px}
+  .cl-t{font-weight:700;font-size:14px}
   .cl-s{color:var(--text-2);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cl-sp{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
   .cl-sp .btn{width:auto;margin:0;padding:6px 12px;font-size:12px}
   .cl-split{display:flex;min-height:0;flex:1 1 auto}
   .cl-stage{width:236px;flex:0 0 auto;border-right:1px solid var(--border);background:var(--n-50);
     padding:12px;display:flex;flex-direction:column;gap:6px}
-  .cl-lbl{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);text-align:center}
+  .cl-lbl{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);text-align:center}
   .cl-mini{background:#fff;border:1px solid var(--border-strong);border-radius:5px;flex:0 0 auto;
     width:100%;aspect-ratio:3/2;max-height:min(46vh,340px)}
   .cl-mini svg{width:100%;height:100%;display:block}
@@ -1571,10 +1607,10 @@
   .cl-mini-dot.free{fill:#fff;stroke:var(--danger-solid)}
   .cl-mini-dot.on{fill:var(--accent-strong);stroke:var(--accent-soft)}
   .cl-mini-name{fill:var(--text);font-weight:700;paint-order:stroke;stroke:#fff}
-  .cl-hint{font-size:10.5px;color:var(--text-3);line-height:1.4;margin-top:auto}
+  .cl-hint{font-size:11px;color:var(--text-3);line-height:1.4;margin-top:auto}
   .cl-tablewrap{flex:1 1 auto;min-width:0;overflow:auto}
-  .cl-table{border-collapse:collapse;width:100%;font-size:12.5px}
-  .cl-table th{position:sticky;top:0;z-index:1;background:var(--n-50);text-align:left;font-size:9.5px;font-weight:700;
+  .cl-table{border-collapse:collapse;width:100%;font-size:13px}
+  .cl-table th{position:sticky;top:0;z-index:1;background:var(--n-50);text-align:left;font-size:10px;font-weight:700;
     letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);padding:8px 10px;
     border-bottom:1px solid var(--border);white-space:nowrap}
   .cl-table td{padding:6px 10px;border-bottom:1px solid var(--n-100);vertical-align:middle}
@@ -1620,7 +1656,7 @@
     cursor:pointer;text-align:left;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
   .cl-name:hover{color:var(--accent-strong);text-decoration:underline}
   .cl-name:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
-  .cl-short{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;
+  .cl-short{display:inline-block;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;
     background:var(--n-100);color:var(--text-2);margin-top:2px}
   /* altezza esplicita: l'altezza «naturale» di un <select> cambia da motore a motore, e la cella
      «↳ stessa asta» (che tendina non è) deve stare nella stessa scatola — se no su Safari la riga
@@ -1664,11 +1700,11 @@
     .cl-stage{display:none}   /* su schermo stretto la tabella si prende tutto */
   }
   .port-pop{position:fixed;z-index:120;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--elev-2);padding:10px 12px;min-width:200px}
-  .port-pop label{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);margin:6px 0 3px}
+  .port-pop label{display:block;font-size:11px;font-weight:600;color:var(--text-2);margin:6px 0 3px}
   .port-pop label:first-child{margin-top:0}
   .port-pop select,.port-pop input{width:100%;border:1px solid var(--border);border-radius:7px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text)}
   /* Popup della porta: la conseguenza della scelta, scritta sotto la tendina */
-  .port-pop .pp-note{font-size:10.5px;color:var(--text-3);line-height:1.4;margin-top:5px;max-width:240px}
+  .port-pop .pp-note{font-size:11px;color:var(--text-3);line-height:1.4;margin-top:5px;max-width:240px}
   .ppatch.editable-cell{cursor:pointer;text-decoration:underline dotted var(--text-3)}
   body.viewmode.share-hidecontacts .cl-contacts{display:none!important}
   body.viewmode.share-hidecontacts .pdf-rider-contact{display:none!important}
@@ -1678,7 +1714,7 @@
   #cabPropsRows .r .v{flex:1;color:var(--text);min-width:0;overflow-wrap:anywhere}
   #cabPropsActs .btn[disabled]{opacity:.45;cursor:default}
   .ctrow{display:flex;align-items:center;gap:7px;margin-bottom:4px}
-  .ctrow .k{flex:0 0 90px;font-size:10.5px;color:var(--text-2);line-height:1.2}
+  .ctrow .k{flex:0 0 90px;font-size:11px;color:var(--text-2);line-height:1.2}
   .ctrow select{flex:1;font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);min-width:0;height:22px}
   .ctrow select.missing{color:#2563eb;border-color:#bfd3f8}
   .ctrow input[type=text]{flex:1;font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;height:22px;color:var(--text);background:var(--surface)}
@@ -1687,26 +1723,26 @@
   .pdf-sheet svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}
   .pdf-sheet-ph{display:flex;flex-direction:column;align-items:center;gap:9px;color:var(--text-3);text-align:center;padding:30px}
   .pdf-sheet-ph-t{font-size:14px;font-weight:700;color:var(--text-2)}
-  .pdf-sheet-ph-s{font-size:11.5px}
+  .pdf-sheet-ph-s{font-size:12px}
   /* anteprima VERA delle liste: foglio bianco (come il PDF) con tabella dai dati reali */
   .pdf-list-sheet{background:#fff;color:#111827;border-radius:6px;width:100%;max-height:46vh;overflow:auto;box-shadow:0 2px 14px rgba(0,0,0,.14);font-family:var(--font-ui)}
-  .pdf-list-hd{display:flex;align-items:center;justify-content:space-between;color:#fff;font-weight:700;font-size:12.5px;padding:8px 12px;position:sticky;top:0}
+  .pdf-list-hd{display:flex;align-items:center;justify-content:space-between;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;position:sticky;top:0}
   .pdf-list-date{font-weight:400;font-size:11px;opacity:.9}
   .pdf-list-tt{font-weight:700;font-size:13px;color:#111827;padding:9px 12px 2px}
-  .pdf-list-sub{font-size:11px;color:#6b7280;padding:0 12px 7px}
-  .pdf-list-tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+  .pdf-list-sub{font-size:11px;color:#6b7280;padding:0 12px 7px;line-height:var(--lh-snug)}
+  .pdf-list-tbl{width:100%;border-collapse:collapse;font-size:12px}
   .pdf-list-tbl th{text-align:left;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:#6b7280;padding:5px 12px;border-bottom:1px solid #e5e7eb;background:#fff;position:sticky;top:33px}
   .pdf-list-tbl td{padding:5px 12px;border-bottom:1px solid #f1f2f4;color:#111827;white-space:nowrap}
   .pdf-list-tbl tr:nth-child(even) td{background:#fafbfc}
   .pdf-list-tbl .n{text-align:right;font-variant-numeric:tabular-nums;color:#6b7280}
   .pdf-list-tbl td.n{color:#374151}
   .pdf-list-tbl td[data-w="1"]{color:#dc2626;font-weight:600}
-  .pdf-list-empty{padding:26px;text-align:center;color:#9ca3af;font-size:12px}
+  .pdf-list-empty{padding:26px;text-align:center;color:#9ca3af;font-size:12px;line-height:var(--lh-snug)}
   .pdf-nav{display:flex;align-items:center;justify-content:center;gap:14px}
   .pdf-navbtn{border:1px solid var(--border);background:var(--surface);color:var(--text);width:34px;height:34px;border-radius:9px;font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
   .pdf-navbtn:hover:not(:disabled){background:var(--surface-raised);border-color:var(--border-strong)}
   .pdf-navbtn:disabled{opacity:.32;cursor:default}
-  .pdf-pagelbl{font-size:12.5px;font-weight:600;color:var(--text-2);min-width:160px;text-align:center}
+  .pdf-pagelbl{font-size:13px;font-weight:600;color:var(--text-2);min-width:160px;text-align:center}
   .pdf-exp-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
   .pdf-exp-foot .mstatus{flex:1;min-height:16px}
   .pdf-exp-actions{display:flex;gap:8px;flex:0 0 auto}
@@ -1730,7 +1766,7 @@
   .mv-card{width:460px;max-width:94vw}
   .mv-opts{display:flex;flex-direction:column;gap:8px;margin:14px 0 4px}
   .mv-opt{text-align:left;display:block;width:100%;font:inherit;color:inherit;background:var(--surface)}
-  .mv-opt b{font-size:14.5px}
+  .mv-opt b{font-size:15px}
   .mv-opt small{color:var(--text-2)}
   .mv-foot{display:flex;margin-top:14px}
   .mv-foot .btn{margin-left:auto}
@@ -1749,29 +1785,29 @@
   /* finestra di benvenuto (prima apertura): card con testata brand tinta */
   .wl-card{background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--elev-4);width:440px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto}
   .wl-head{background:linear-gradient(135deg,var(--accent-tint),#f2faf8);padding:24px 28px 18px;border-bottom:1px solid var(--border)}
-  .wl-badge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.09em;color:var(--accent-strong);background:var(--surface);border:1px solid var(--accent-soft);border-radius:var(--r-pill);padding:3px 9px;margin-bottom:10px;text-transform:uppercase}
+  .wl-badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--accent-strong);background:var(--surface);border:1px solid var(--accent-soft);border-radius:var(--r-pill);padding:3px 9px;margin-bottom:10px;text-transform:uppercase}
   .wl-title{font-size:21px;font-weight:800;letter-spacing:-.01em;margin-bottom:2px;color:var(--text)}
   .wl-title span{color:var(--accent)}
   .wl-tag{font-size:13px;color:var(--text-2)}
   .wl-body{padding:18px 28px}
   .wl-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
-  .wl-step{display:flex;gap:11px;align-items:flex-start;font-size:13.5px;line-height:1.4;color:var(--text-2)}
+  .wl-step{display:flex;gap:11px;align-items:flex-start;font-size:14px;line-height:1.4;color:var(--text-2)}
   .wl-step b{flex:0 0 auto;width:22px;height:22px;border-radius:7px;background:var(--surface-raised);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:750}
   .wl-step strong{color:var(--text);font-weight:650}
   .wl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .wl-skip{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-3);cursor:pointer;user-select:none}
+  .wl-skip{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-3);cursor:pointer;user-select:none}
   .wl-skip input{accent-color:var(--accent);width:14px;height:14px;margin:0}
   .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
   .wl-cta:hover{background:var(--accent-strong)}
   .wl-mob{display:none}
   /* Popup dimensioni palco (#stageSize): riusa .wl-card/.wl-head/.wl-body/.wl-cta */
   .ss-fields{display:flex;gap:12px;margin:2px 0}
-  .ss-field{flex:1;display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+  .ss-field{flex:1;display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--text-2)}
   .ss-inwrap{position:relative;display:flex;align-items:center}
   .ss-inwrap input{width:100%;padding:10px 30px 10px 12px;font:inherit;font-size:16px;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-sizing:border-box;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)}
   .ss-inwrap input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--focus-ring)}
   .ss-inwrap i{position:absolute;right:11px;font-style:normal;font-size:13px;font-weight:600;color:var(--text-3);pointer-events:none}
-  .ss-err{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--danger)}
+  .ss-err{margin:10px 0 0;font-size:13px;font-weight:600;color:var(--danger);line-height:var(--lh-snug)}
   .ss-foot{margin-top:16px}
   .wl-ghost{appearance:none;background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast)}
   .wl-ghost:hover{background:var(--accent-tint);color:var(--accent)}
@@ -1782,7 +1818,7 @@
   .wl-mods-lbl{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 9px;display:flex;align-items:center;gap:8px}
   .wl-mods-lbl::before,.wl-mods-lbl::after{content:"";height:1px;background:var(--border);flex:1}
   .wl-mods{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
-  .wl-mods button{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:var(--r-pill);cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast),color var(--dur-fast)}
+  .wl-mods button{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:var(--r-pill);cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast),color var(--dur-fast)}
   .wl-mods button:hover{background:var(--accent-tint);border-color:var(--accent-soft);color:var(--accent)}
   body.dark .wl-mods button{background:#141a1d;border-color:#2a3138}
   body.dark .wl-mods button:hover{border-color:var(--accent);color:var(--accent-bright)}
@@ -1813,7 +1849,7 @@
   #venueReload{background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:8px;padding:7px 9px;font-size:12px;margin-bottom:8px}
   #venueReload b{display:block;font-size:11px;color:var(--warning);margin-bottom:4px;word-break:break-all}
   /* hint di calibrazione (verde): tinta in light, scura in dark */
-  #venueCalibHint{font-size:11.5px;color:var(--success);background:var(--success-bg);border-radius:7px;padding:6px 8px;margin-top:6px}
+  #venueCalibHint{font-size:12px;color:var(--success);background:var(--success-bg);border-radius:7px;padding:6px 8px;margin-top:6px;line-height:var(--lh-snug)}
   /* planimetria in dark: mantiene l'identità verde ma con fondi scuri leggibili (success-bg/warning-bg sono chiari e non si adattano) */
   body.dark #venuePanel{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.24)}
   body.dark #venuePanel h3{color:#4ade80}
@@ -1840,8 +1876,7 @@
   body.dark #frameBox{background:#0c1e3a;border-color:#1e3a8a}
   body.dark #frameBox h3{color:#60a5fa}
   body.dark #frameBox label{color:#cdd9ee}
-  /* ===== FAB + drawer mobile ===== */
-  .fab{display:none}
+  /* ===== drawer mobile ===== */
   #mobBackdrop{display:none;position:fixed;inset:0;background:rgba(17,24,39,.42);z-index:55}
   /* ===== CHROME MOBILE (visibile solo < 880px) ===== */
   #mTop{display:none;position:fixed;top:0;left:0;right:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--border);padding:7px 12px 8px}
@@ -1855,7 +1890,7 @@
   .avatar-btn-m.logged{width:36px;min-width:36px}
   .mtop-r2{display:flex;align-items:center;gap:9px;margin-top:7px}
   .mtop-r2 .mlab{font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text-3)}
-  .mtop-r2 label{display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--text-2)}
+  .mtop-r2 label{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text-2)}
   .mtop-r2 input{width:50px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px}
   .mtop-r2 select{border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;background:var(--surface)}
   /* A′: dock azioni primarie + menu-sheet a un livello — visibili solo ≤880px */
@@ -1939,7 +1974,7 @@
       align-items:center;gap:6px;padding:7px 10px 7px 14px;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(0,0,0,.08)}
     body.m-has-sel:not(.props-expanded) #mPeek{display:flex}
     #mPeek .mpk-dot{width:9px;height:9px;border-radius:999px;background:var(--accent);flex:0 0 auto}
-    #mPeek .mpk-name{flex:1;min-width:0;text-align:left;border:none;background:none;font:600 14.5px var(--font-ui);color:var(--text);
+    #mPeek .mpk-name{flex:1;min-width:0;text-align:left;border:none;background:none;font:600 15px var(--font-ui);color:var(--text);
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:0}
     #mPeek button:not(.mpk-name){flex:0 0 auto;width:38px;height:38px;border:none;background:none;border-radius:9px;color:var(--text-2);
       display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s var(--ease)}
@@ -2001,7 +2036,6 @@
     #mActions.open{transform:none}
     #mActions::before{content:"";display:block;width:38px;height:4px;border-radius:3px;background:var(--border-strong);margin:0 auto 12px}
     .doc-chip-m{font-size:10px;padding:3px 7px;max-width:34vw;overflow:hidden;text-overflow:ellipsis}
-    #fabCat,#fabProps{display:none!important}
     body.viewmode #mDock,body.viewmode #mActions,body.viewmode #mPeek{display:none!important}
     /* CATALOGO = bottom sheet (overlay) aperto da "Aggiungi" */
     #catalog{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;height:auto;max-height:80vh;display:block;
@@ -2264,7 +2298,7 @@ body.view-failed > footer { display: none !important; }
 #viewFail b { display: block; font-size: 17px; margin-bottom: 10px; }
 #viewFail p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
 #viewFail p b { display: inline; font-size: inherit; color: var(--text); }
-#viewFail .vf-why { font-size: 12.5px; color: var(--text-3); }
+#viewFail .vf-why { font-size: 13px; color: var(--text-3);line-height:var(--lh-snug)}
 #viewFail .vf-why:empty { display: none; }
 #viewFail button { margin: 6px 0 12px; min-width: 140px; }
 #viewFail small { display: block; font-size: 12px; color: var(--text-3); line-height: 1.45; }
@@ -2365,8 +2399,8 @@ body.chan-edit #mActions { display: none !important; }
 .clrow .del{border:none;background:none;color:#cbd0d6;cursor:pointer;font-size:15px;line-height:1;padding:0}
 .clrow .del:hover{color:#b91c1c}
 .clactions{display:flex;gap:6px;margin:5px 0 4px}
-.clactions .btn{padding:5px 9px;font-size:11.5px}
-.clempty{font-size:11.5px;color:#b6bbc2;margin:2px 0 4px}
+.clactions .btn{padding:5px 9px;font-size:12px}
+.clempty{font-size:12px;color:#b6bbc2;margin:2px 0 4px;line-height:var(--lh-snug)}
 /* PANNELLO DELLA CONSULENZA IN TEMA SCURO (05/08, scelta A2 di Simone sul mockup). Era un'isola
    chiara dentro l'app scura: i campi del rider avevano il bianco scritto NEL MARKUP (nessun CSS
    poteva toglierlo, per questo sono passati a .rd-i), le intestazioni usavano --surface-2, che non
@@ -2374,9 +2408,9 @@ body.chan-edit #mActions { display: none !important; }
    posto: sono input, e `body.dark #props input` le prendeva. */
 .rd-i{padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:6px;
   background:var(--surface);color:var(--text);font-family:var(--font-ui)}
-.rd-ta{width:100%;margin-top:2px;padding:5px 8px;font-size:11.5px;resize:vertical}
+.rd-ta{width:100%;margin-top:2px;padding:5px 8px;font-size:12px;resize:vertical}
 .rd-pub{font-weight:700;color:var(--canvas-tech);background:var(--warning-bg);border:1px solid var(--warning-border);
-  border-radius:999px;padding:0 7px;font-size:9.5px}
+  border-radius:999px;padding:0 7px;font-size:10px}
 body.dark .rd-pub{color:var(--warning)}
 body.dark .clrow .n.grip:hover{background:#253036;color:#cbd5e1}
 body.dark .clrow.dragging{background:#1e2a3a}
@@ -2402,9 +2436,9 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 /* T2 — foglio Rider tecnico (documento: sezioni derivate + testo editabile) */
 .pdf-rider-sheet .pdf-rider-sec{ padding:9px 14px; border-top:1px solid #eef1f4; }
 .pdf-rider-sheet .pdf-rider-h{ font-size:11px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:#4338ca; margin-bottom:3px; }
-.pdf-rider-sheet .pdf-rider-auto{ font-size:9.5px; font-weight:700; color:#0d9488; background:#e6fffb; border-radius:4px; padding:1px 5px; letter-spacing:0; text-transform:none; vertical-align:1px; }
-.pdf-rider-sheet .pdf-rider-b{ font-size:12.5px; color:#111827; line-height:1.5; }
-.pdf-rider-sheet .pdf-rider-contact{ padding:10px 14px; border-top:1px solid #eef1f4; font-size:11.5px; color:#374151; font-style:italic; }
+.pdf-rider-sheet .pdf-rider-auto{ font-size:10px; font-weight:700; color:#0d9488; background:#e6fffb; border-radius:4px; padding:1px 5px; letter-spacing:0; text-transform:none; vertical-align:1px; }
+.pdf-rider-sheet .pdf-rider-b{ font-size:13px; color:#111827; line-height:1.5; }
+.pdf-rider-sheet .pdf-rider-contact{ padding:10px 14px; border-top:1px solid #eef1f4; font-size:12px; color:#374151; font-style:italic; }
 .pdf-rider-sheet .pdf-rider-crow{ font-size:12px; color:#111827; line-height:1.55; }
 .pdf-rider-sheet .pdf-rider-crow b{ color:#111827; }
 .pdf-rider-sheet .pdf-rider-status{ display:inline-block; margin:0 14px 8px; padding:3px 11px; border-radius:12px; color:#fff; font-size:11px; font-weight:800; letter-spacing:.4px; }
@@ -2474,7 +2508,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
    da #props quella regola non lo raggiunge: senza, la stessa riga avrebbe l'interruttore a sinistra
    sul telefono e a destra sul computer. */
 #fbBox .fb-attach{display:flex;flex-direction:row-reverse;justify-content:space-between;
-  align-items:center;gap:10px;font-size:12.5px;color:var(--text-2);margin-bottom:12px}
+  align-items:center;gap:10px;font-size:13px;color:var(--text-2);margin-bottom:12px}
 /* La casella «Allega il mio progetto» si veste con `.chk` nel markup, come ogni interruttore del
    pannello destro: quella classe porta già width:36px e batte `#props input{width:100%}`. Qui resta
    solo il gap del flex (`.chk` è pensata per un layout in flusso, dove il margine lo dà l'input). */
@@ -2482,19 +2516,19 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props #fbBox .fb-attach input[type="checkbox"]{margin:0}
 #props #fbBox textarea{width:100%}
 /* ==== SCHERMATA nel feedback (17/08) ==== */
-#fbBox .fb-shotbtn{width:100%;margin-bottom:8px;padding:9px 0;font-size:12.5px;font-weight:600;cursor:pointer;
+#fbBox .fb-shotbtn{width:100%;margin-bottom:8px;padding:9px 0;font-size:13px;font-weight:600;cursor:pointer;
   background:var(--accent-tint);color:var(--accent-strong);border:1px solid var(--accent-soft);border-radius:var(--r-md)}
 #fbBox .fb-shotbtn:hover{background:var(--accent-soft)}
 #fbBox .fb-shotbtn:disabled{opacity:.55;cursor:default}
 #fbBox .fb-shot{display:block;border:1.5px dashed var(--border);border-radius:var(--r-md);padding:10px 12px;
   margin-bottom:12px;text-align:center;cursor:pointer;background:var(--bg)}
 #fbBox .fb-shot:hover,#fbBox .fb-shot.dragover{border-color:var(--accent);background:var(--accent-tint)}
-#fbBox .fb-shot .t{display:block;font-size:12.5px;font-weight:600;color:var(--text)}
+#fbBox .fb-shot .t{display:block;font-size:13px;font-weight:600;color:var(--text)}
 #fbBox .fb-shot .s{display:block;font-size:11px;color:var(--text-3);margin-top:2px}
 #fbBox .fb-shot.pieno{border-style:solid;border-color:var(--accent-soft);background:var(--surface);padding:8px;text-align:left;cursor:default}
 #fbBox .fb-shot img{display:block;width:100%;border-radius:6px;border:1px solid var(--border)}
 #fbBox .fb-shot .riga{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px}
-#fbBox .fb-shot .peso{font-size:10.5px;color:var(--text-3)}
+#fbBox .fb-shot .peso{font-size:11px;color:var(--text-3)}
 #fbBox .fb-shot .via{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-2);
   font-size:11px;padding:4px 9px;cursor:pointer;min-height:28px}
 #fbBox .fb-shot .via:hover{border-color:#dc2626;color:#dc2626}
@@ -2518,11 +2552,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #fbCrop .sel .m[data-p=w]{top:50%;left:-5px;margin-top:-12px;width:9px;height:24px;cursor:ew-resize}
 #fbCrop .sel .m[data-p=e]{top:50%;right:-5px;margin-top:-12px;width:9px;height:24px;cursor:ew-resize}
 #fbCrop .sel .misura{position:absolute;left:0;top:-25px;background:var(--accent);color:#fff;
-  font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;white-space:nowrap;pointer-events:none}
+  font-size:12px;font-weight:700;padding:2px 8px;border-radius:5px;white-space:nowrap;pointer-events:none}
 #fbCrop .sel.alto .misura{top:4px;left:4px;background:rgba(15,23,42,.75)}   /* attaccato al bordo alto: la targhetta rientra, o finisce fuori dallo schermo */
 #fbCrop .barra{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:10px;
   align-items:center;background:var(--surface);border-radius:999px;padding:9px 14px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
-#fbCrop .barra span{font-size:12.5px;color:var(--text-2);min-width:150px;text-align:center}
+#fbCrop .barra span{font-size:13px;color:var(--text-2);min-width:150px;text-align:center}
 #fbCrop .barra button{border:none;border-radius:999px;padding:9px 17px;font-size:13px;font-weight:700;cursor:pointer;min-height:38px}
 #fbCrop .ok{background:var(--accent);color:#fff}
 #fbCrop .ann{background:var(--surface-raised);color:var(--text-2)}
@@ -2549,9 +2583,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #fbBox .fb-send{width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 0;
   font-size:14px;font-weight:700;cursor:pointer}
 #fbBox .fb-send:disabled{opacity:.5;cursor:default}
-#fbBox .fb-note{margin:11px 2px 0;font-size:10.5px;line-height:1.4;color:var(--text-2)}
+#fbBox .fb-note{margin:11px 2px 0;font-size:11px;line-height:1.4;color:var(--text-2)}
 #fbBox .fb-note a{color:inherit;text-decoration:underline}
-#fbBox .fb-msg{font-size:12.5px;margin:10px 2px 0}
+#fbBox .fb-msg{font-size:13px;margin:10px 2px 0;line-height:var(--lh-snug)}
 #fbBox .fb-close{background:none;border:none;color:var(--text-2);font-size:20px;cursor:pointer;line-height:1}
 /* Su mobile #props è un drawer nascosto: là la card non si vedrebbe, quindi il box torna a essere un
    pannello ancorato in basso — lo apre la voce «Cosa manca? Scrivici» del menu «?», che su telefono
@@ -2575,7 +2609,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 /* Barra "sola lettura" del destinatario: brand + badge + CTA teal */
 /* Barra viewer scura (#111827): il brand è la vetrina virale → deve essere LEGGIBILE (bianco, non var(--text) scuro). Ciclo 10. */
 #viewBar .vb-brand{font-weight:800;color:#fff;letter-spacing:.01em;text-decoration:none;display:inline-flex;align-items:baseline;gap:9px}
-#viewBar .vb-brand .vb-cta{font-weight:600;font-size:11.5px;color:var(--accent-bright);transition:color .12s;white-space:nowrap}   /* CTA virale: il viewer condiviso invita a creare il proprio — teal chiaro, visibile su scuro */
+#viewBar .vb-brand .vb-cta{font-weight:600;font-size:12px;color:var(--accent-bright);transition:color .12s;white-space:nowrap}   /* CTA virale: il viewer condiviso invita a creare il proprio — teal chiaro, visibile su scuro */
 #viewBar .vb-brand:hover .vb-cta{color:#fff}
 @media(max-width:560px){ #viewBar .vb-brand .vb-cta::after{content:none} #viewBar .vb-brand .vb-cta{font-size:11px} #viewBar #viewMeta{display:none} }   /* mobile: il CTA RESTA (è la leva di trazione); a lasciar spazio si nasconde il titolo, non il CTA */
 #viewBar .vb-badge{font-size:11px;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:2px 9px;white-space:nowrap}
@@ -2600,7 +2634,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
     gap:10px;margin:0;padding:8px 0;border-bottom:1px dashed var(--border)}
   #props .chk:last-of-type{border-bottom:none}
   /* Slider con nome a fianco e valore */
-  .sldrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:8px 0;
+  .sldrow{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
   .sldrow label{flex:0 0 auto;color:var(--text-2)}
   .sldrow input[type="range"]{flex:1;min-width:0}
@@ -2608,7 +2642,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Chips: scelte esclusive 2-4 opzioni */
   .chips{display:flex;gap:7px;flex-wrap:wrap}
   .chips button{border:1px solid var(--border);background:var(--surface);color:var(--text);
-    border-radius:var(--r-md);padding:6px 12px;font-size:12.5px;cursor:pointer;flex:1;white-space:nowrap}
+    border-radius:var(--r-md);padding:6px 12px;font-size:13px;cursor:pointer;flex:1;white-space:nowrap}
   .chips button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   .chips button:hover:not(.on){background:var(--surface-raised)}
   /* Azioni di pannello: full-width; "Dividi" & co. = primario pieno */
@@ -2656,11 +2690,11 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* le chips vanno a capo quando la colonna è stretta: prima restavano su una riga e le etichette
      ("Base tonda", "Panoramico") venivano tagliate a metà */
   #props .chips{flex-wrap:wrap}
-  #props .chips button{flex:1 1 84px;padding:6px 4px;font-size:11.5px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}   /* base 84px: sotto quella misura vanno a capo invece di tagliarsi */
+  #props .chips button{flex:1 1 84px;padding:6px 4px;font-size:12px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}   /* base 84px: sotto quella misura vanno a capo invece di tagliarsi */
   #selProps{display:flex;flex-direction:column}
   #selProps > *{flex:0 0 auto}
   #selProps.comp-first h3{order:-2}
-  .comp-dim{color:var(--accent);font-weight:600;font-size:12.5px;margin:0 0 8px}
+  .comp-dim{color:var(--accent);font-weight:600;font-size:13px;margin:0 0 8px}
   #selProps.comp-first #pComp{order:-1;border-top:none;margin-top:2px;padding-top:0;
     border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:10px}
 
@@ -2669,7 +2703,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .vstep .vdot{flex:0 0 auto;width:20px;height:20px;border-radius:999px;background:var(--n-300);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
   .vstep .vbody{flex:1;min-width:0}
   .vstep .vbody>b{display:block;font-size:13px;color:var(--text)}
-  .vstep .vbody>small{display:block;color:var(--text-2);font-size:11.5px;margin-top:1px}
+  .vstep .vbody>small{display:block;color:var(--text-2);font-size:12px;margin-top:1px}
   .vstep.pending{opacity:.5}
   .vstep.pending .btn{display:none}
   .vstep.active{border-color:var(--accent);background:var(--surface)}
@@ -2800,14 +2834,14 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
    entrambe le righe, funzione sopra, apparecchio/colore/posizione sotto, pallino a destra. */
 .lights-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:6px}
 .lrow{display:grid;grid-template-columns:26px minmax(0,1fr) 24px;grid-template-rows:auto auto;
-  gap:1px 7px;padding:6px 8px;font-size:11.5px;border-bottom:1px solid var(--n-100);cursor:pointer}
+  gap:1px 7px;padding:6px 8px;font-size:12px;border-bottom:1px solid var(--n-100);cursor:pointer}
 .lrow:last-child{border-bottom:none}
 .lrow:hover{background:var(--accent-tint)}
 .lrow.sel{background:var(--accent-tint)}
 .lrow>.ln{grid-area:1/1/3/2;align-self:center;font-weight:700;font-size:12px;
   color:var(--layer-luci,#db2777);font-variant-numeric:tabular-nums}
 .lrow>.lfn{grid-area:1/2/2/3;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lrow>.lsub{grid-area:2/2/3/4;font-size:10.5px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow>.lsub{grid-area:2/2/3/4;font-size:11px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrow>.lpin{grid-area:1/3/2/4;align-self:center;justify-self:end;border:none;background:none;
   color:var(--layer-luci,#db2777);font-size:11px;cursor:pointer;padding:2px 3px;border-radius:5px;
   font-variant-numeric:tabular-nums}
@@ -2815,19 +2849,19 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
 /* Richiesta incompleta: e' un'assenza dichiarata, non un errore — colore d'avviso, mai rosso */
 .lrow.todo>.lfn{color:var(--warning);font-style:italic}
 .lrow.todo>.ln{color:var(--warning)}
-.lights-empty{font-size:11.5px;color:var(--text-3);padding:8px 2px}
+.lights-empty{font-size:12px;color:var(--text-3);padding:8px 2px;line-height:var(--lh-snug)}
 /* Testata: SOLO l'oscurabilita' (un interruttore su una riga). Il clima luminoso vive
    nella sua card piu' sotto, dove un campo di testo ha lo spazio per respirare. */
 .lights-venue{display:flex;align-items:center;gap:8px;background:var(--accent-tint);
   border:1px solid var(--accent-soft);border-radius:8px;padding:6px 9px;margin:0 0 2px;
-  font-size:11.5px;color:var(--accent-strong)}
+  font-size:12px;color:var(--accent-strong)}
 .lights-venue.undecided{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning)}
 .lights-venue.off{background:var(--surface-raised);border-color:var(--border);color:var(--text-2)}
 /* .chk e' il componente del progetto per gli interruttori nel pannello: porta display:flex
    row-reverse e vince su #props input{width:100%} (la battaglia di specificita' gia' risolta
    alla riga 348). Qui resta solo il compito di stare nella barra senza schiacciare «non serve». */
-#luciSec .chk.lights-sw{flex:1 1 auto;min-width:0;margin:0;font-size:11.5px;color:inherit;gap:8px}
-.lights-nd{border:1px solid transparent;background:none;color:inherit;opacity:.7;font-size:10.5px;
+#luciSec .chk.lights-sw{flex:1 1 auto;min-width:0;margin:0;font-size:12px;color:inherit;gap:8px}
+.lights-nd{border:1px solid transparent;background:none;color:inherit;opacity:.7;font-size:11px;
   cursor:pointer;padding:1px 6px;border-radius:999px;flex:0 0 auto}
 .lights-nd:hover{opacity:1;border-color:currentColor}
 .lights-nd[aria-pressed="true"]{opacity:1;border-color:currentColor;font-weight:600}
@@ -2849,8 +2883,9 @@ body.dark .riser-lock{fill:#e8eef0} body.dark .riser-lock .rl-arc{stroke:#e8eef0
 .lights-two{display:flex;gap:8px;margin-top:9px}
 .lights-two>div{flex:1 1 0;min-width:0}
 .lights-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.lights-acts .btn.danger{color:var(--danger);border-color:var(--border-strong)}
-.lights-acts .btn.danger:hover{border-color:var(--danger)}
+/* Qui c'erano due regole per l'«Elimina» delle luci: `color:var(--danger)` (lo diceva gia'
+   `.btn.danger`) e `border-color`, che su un bottone con `border:none` non disegna niente.
+   Non cambiavano un pixel. L'aspetto ora lo detta `#props .btn.danger`, uguale per tutti. */
 body.dark .lrow:hover,body.dark .lrow.sel{background:#0d3b38}
 body.dark .lrow>.lpin:hover{background:#20292e}
 /* Sezione LUCI del rider: intestazione per funzione + voci, come in un rider vero */
@@ -2879,16 +2914,16 @@ body.dark .lights-lab text{fill:#96a5a1;stroke:#fff}
    il controllo, non un modale che ferma il lavoro. Stessa scocca dei suggerimenti del pannello. */
 .ask-all{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 2px;padding:7px 9px;
   border:1px solid var(--accent);border-radius:8px;background:color-mix(in srgb, var(--accent) 7%, transparent);
-  font-size:11.5px;color:var(--text-2);line-height:1.35}
+  font-size:12px;color:var(--text-2);line-height:1.35}
 .ask-all[hidden]{display:none}
 .ask-all span{flex:1 1 120px;min-width:0}
-.ask-all .btn{flex:0 0 auto;font-size:11.5px;padding:4px 9px;border-color:var(--accent);color:var(--accent);background:#fff;font-weight:600}
+.ask-all .btn{flex:0 0 auto;font-size:12px;padding:4px 9px;border-color:var(--accent);color:var(--accent);background:#fff;font-weight:600}
 .ask-all .btn:hover{background:var(--accent);color:#fff}
 body.dark .ask-all .btn{background:transparent}
 
 /* Riassunto nel titolo di una tendina del pannello: dice cosa c'e' dentro senza doverla aprire
    (per esempio lo stato della richiesta di setup al musicista). Secondario, mai in grassetto. */
-#props .pdetails > summary .pdet-sum{font-weight:400;color:var(--accent);font-size:11.5px}
+#props .pdetails > summary .pdet-sum{font-weight:400;color:var(--accent);font-size:12px}
 
 /* ── AREA DI STAMPA COL DITO (02/09, Simone: «controllala perché è parecchio incasinata») ────────
    Nella finestra c'erano QUATTRO campi numerici affiancati — «Larghezza (m)», «Profondità (m)»,
@@ -3211,8 +3246,8 @@ body.dark .ask-all .btn{background:transparent}
     <div id="stageBlocksSec">
     <h3 style="margin-bottom:6px">Forma del palco</h3>
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
-    <div class="hint desk-hint" id="stageDragHint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
-    <div class="hint mob-hint" style="font-size:11.5px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola la misura con + / −, poi scegli dove metterlo.</div>
+    <div class="hint desk-hint" id="stageDragHint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
+    <div class="hint mob-hint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola la misura con + / −, poi scegli dove metterlo.</div>
     <!-- Aggancio: sull'header c'è da sempre, ma l'header su mobile è display:none — da telefono
          restava inchiodato a 25 cm senza modo di cambiarlo. Qui perché è la stessa domanda del
          palco: come si posizionano le cose sopra. (02/09) -->
@@ -3262,7 +3297,7 @@ body.dark .ask-all .btn{background:transparent}
       </div>
       <p class="hint" id="blkHint" style="font-size:11px;color:var(--text-2);margin:7px 0 0">Trascina gli <b>angoli</b> sul palco per deformare il blocco in una forma libera (trapezio, ecc.).</p>
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza</button>
-      <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
+      <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px">Elimina blocco</button>
     </div>
     <!-- Il bottone che apre semicerchio, altezza e lato curvo: sul telefono il CSS li nasconde
          dietro `props-pro`, e qui dentro non c'era niente da premere per accenderla. (02/09) -->
@@ -3285,7 +3320,7 @@ body.dark .ask-all .btn{background:transparent}
             <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Importa immagine</button>
             <div id="venueWeightRow" hidden style="margin-top:7px">
-              <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:11.5px"></small>
+              <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
               <button class="btn" id="venueBtnLighten" style="width:100%;margin-top:4px">Alleggerisci immagine</button>
             </div>
           </div>
@@ -3297,7 +3332,7 @@ body.dark .ask-all .btn{background:transparent}
             <small id="vstep2sub">Traccia sulla mappa una misura che conosci</small>
             <button class="btn primary" id="venueBtnCalib" style="width:100%;margin-top:7px">📐 Inizia la calibrazione</button>
             <div id="vstep2alt" hidden style="margin-top:8px">
-              <small style="display:block;color:var(--text-2);font-size:11.5px">…oppure, se conosci la larghezza reale dell'immagine:</small>
+              <small style="display:block;color:var(--text-2);font-size:12px">…oppure, se conosci la larghezza reale dell'immagine:</small>
               <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
                 <input type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
                 <span style="font-size:12px;color:var(--text-2);flex:0 0 auto">m</span>
@@ -3478,7 +3513,7 @@ body.dark .ask-all .btn{background:transparent}
       <label class="chk" id="pSbFohWrap"><input type="checkbox" id="pSbFoh"> Stage box del mixer <small class="lbl-note">— lato regia</small></label>
       <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbEquip" style="display:none;font-size:11px;margin-top:3px"></div>
-      <div id="pSbKind" style="font-size:10.5px;font-weight:600;margin:3px 0 2px"></div>
+      <div id="pSbKind" style="font-size:11px;font-weight:600;margin:3px 0 2px"></div>
       <div id="pSbToRow" style="display:none;margin-top:4px">
         <label>Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
         <select id="pSbToSel"></select>
@@ -3666,7 +3701,7 @@ body.dark .ask-all .btn{background:transparent}
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
     <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
-    <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
+    <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
@@ -3708,13 +3743,13 @@ body.dark .ask-all .btn{background:transparent}
         <span><select id="pPmModel"></select></span>
       </div>
       <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
-      <div id="pPmState" style="font-size:11.5px;font-weight:600;margin-top:3px"></div>
+      <div id="pPmState" style="font-size:12px;font-weight:600;margin-top:3px"></div>
       <div id="pPmFeedWrap" style="display:none;margin-top:8px">
         <label>Alimentato da <small style="color:var(--text-3);font-weight:400">— sorgente dei canali cuffia</small></label>
         <div id="pPmFeedSeg" class="feed-seg"><div data-v="console">Omni out console</div><div data-v="dante">Rete Dante</div></div>
         <div id="pPmFeedChRow" style="margin-top:6px"><label>Canali dalla console</label>
           <select id="pPmFeedCh"></select></div>
-        <div id="pPmFeedHint" style="font-size:10.5px;color:var(--text-3);margin-top:3px"></div>
+        <div id="pPmFeedHint" style="font-size:11px;color:var(--text-3);margin-top:3px"></div>
       </div>
       <div id="pPmActions" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
@@ -3798,7 +3833,7 @@ body.dark .ask-all .btn{background:transparent}
           <option value="palmare">Palmare con interruttore (gelato) — es. SM58S</option>
           <option value="collodoca">Collo d'oca talkback da podio — es. ATR3M</option>
         </select>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Diventa un canale collegabile alla stage box.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">Diventa un canale collegabile alla stage box.</div>
       </div>
     </div>
     <div id="pTastiera" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
@@ -3831,7 +3866,7 @@ body.dark .ask-all .btn{background:transparent}
       <select id="pModelSel" style="width:100%;font-size:12px"></select>
       <div id="pModelCur" style="display:none;align-items:center;gap:6px;font-size:12px;margin-top:2px"></div>
     </div>
-    <div id="pInRack" style="display:none;font-size:11.5px;margin:6px 0"></div>
+    <div id="pInRack" style="display:none;font-size:12px;margin:6px 0"></div>
     <div id="pRxWrap" style="display:none">
       <label>Marca e modello</label><select id="pRxHw"></select>
       <div id="pRxNRow" style="display:none"><label>Canali RF</label><select id="pRxN"></select></div>
@@ -3839,7 +3874,7 @@ body.dark .ask-all .btn{background:transparent}
       <input id="pRxBand" type="text" maxlength="12" placeholder="—">
       <label>Canali <small style="color:var(--text-3);font-weight:400">— associazione automatica, cambia dalla tendina</small></label>
       <div id="pRxChs"></div>
-      <div id="pRxKv" style="margin-top:4px;font-size:11.5px;color:var(--text-2)"></div>
+      <div id="pRxKv" style="margin-top:4px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pAntWrap" style="display:none">
       <label>Marca e modello</label><select id="pAntHw"></select>
@@ -3848,7 +3883,7 @@ body.dark .ask-all .btn{background:transparent}
         <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="100">100° (paddle larga)</option><option value="360">Omnidirezionale</option></select></div>
       <label>Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
       <input id="pAntH" type="number" min="0" max="10" step="0.5" placeholder="2.5">
-      <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
     </div>
     <div id="pSwWrap" style="display:none">
       <label>Porte</label><select id="pSwPorts">
@@ -3856,7 +3891,7 @@ body.dark .ask-all .btn{background:transparent}
         <option value="16">16</option><option value="24">24</option></select>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:6px">
         <input type="checkbox" id="pSwRed" style="width:auto"> Ridondanza Dante (Primary + Secondary)</label>
-      <div id="pSwKv" style="margin-top:6px;font-size:11.5px;color:var(--text-2)"></div>
+      <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pRackWrap" style="display:none">
       <label>Funzione</label><select id="pRackFn"></select>
@@ -3868,8 +3903,8 @@ body.dark .ask-all .btn{background:transparent}
         <button type="button" class="btn primary" id="pRackAddBtn" style="width:auto;margin-top:0;padding:6px 12px">+</button>
       </div>
       <div class="rack-ubar"><i id="pRackUbar"></i></div>
-      <div id="pRackUsub" style="font-size:10.5px;color:var(--text-2)"></div>
-      <div id="pRackKv" style="margin-top:4px;font-size:11.5px;color:var(--text-2)"></div>
+      <div id="pRackUsub" style="font-size:11px;color:var(--text-2)"></div>
+      <div id="pRackKv" style="margin-top:4px;font-size:12px;color:var(--text-2)"></div>
       <button type="button" class="btn" id="pRackFront" style="font-size:12px">Vista rack (fronte)</button>
     </div>
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
@@ -3946,11 +3981,11 @@ body.dark .ask-all .btn{background:transparent}
   </div>
   <div class="sec" id="cabPropsSec" hidden style="border-bottom:1px solid var(--border,#e5e7eb);padding-bottom:12px;margin-bottom:10px">
     <div id="cabPropsTitle" style="font-weight:700;font-size:13px"></div>
-    <div id="cabPropsSub" style="font-size:11.5px;color:var(--text-2);margin:1px 0 8px"></div>
+    <div id="cabPropsSub" style="font-size:12px;color:var(--text-2);margin:1px 0 8px"></div>
     <div id="cabPropsRows"></div>
     <div id="cabPropsActs" style="margin-top:10px"></div>
   </div>
-  <div class="sec" id="noSel" style="font-size:12.5px;color:var(--text-3)">
+  <div class="sec" id="noSel" style="font-size:13px;color:var(--text-3)">
     <!-- Layer Manager: in cima, compare SOLO quando c'è ≥1 layer attivo (invisibile al musicista) -->
     <!-- Layer: sempre visibili, niente tendina (Simone 08/07: una volta attivati restano nell'inspector) -->
     <div id="layerSec" style="display:none">
@@ -4006,10 +4041,10 @@ body.dark .ask-all .btn{background:transparent}
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Cavo selezionato</div>
         <label class="cabfld" style="margin-top:0">Etichetta<input type="text" id="cabSelLabel" placeholder="es. Voce lead"></label>
         <div class="row" style="display:flex;gap:6px;margin-top:6px">
-          <button class="btn" id="cabSelDelete" style="flex:1">Elimina cavo</button>
+          <button class="btn danger" id="cabSelDelete" style="flex:1">Elimina cavo</button>
           <button class="btn" id="cabSelResetPath" style="flex:1">Reset percorso</button>
         </div>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare il cavo; l'estremo su un'altra stage box per riconnettere.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare il cavo; l'estremo su un'altra stage box per riconnettere.</div>
       </div>
     </div>
     <!-- Cablaggio elettrico: pannello TOLTO come l'audio; resta solo "Linea selezionata" al click. -->
@@ -4017,10 +4052,10 @@ body.dark .ask-all .btn{background:transparent}
       <div id="elecSel" style="display:none;padding:8px;border:1px solid var(--accent-soft);border-radius:8px;background:var(--accent-tint)">
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px">Linea selezionata</div>
         <div class="row" style="display:flex;gap:6px">
-          <button class="btn" id="elecSelDelete" style="flex:1">Elimina linea</button>
+          <button class="btn danger" id="elecSelDelete" style="flex:1">Elimina linea</button>
           <button class="btn" id="elecSelResetPath" style="flex:1">Reset percorso</button>
         </div>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare; l'estremo su un altro distro per riconnettere.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Trascina i lati per piegare; l'estremo su un altro distro per riconnettere.</div>
       </div>
     </div>
     <!-- Input / Patch list (auto, derivata dal motore): sezione a tendina con cestino, come il cablaggio -->
@@ -4044,12 +4079,12 @@ body.dark .ask-all .btn{background:transparent}
         <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div id="monBody" style="margin-top:8px">
-        <div id="monSummary" style="font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
+        <div id="monSummary" style="font-size:12px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
         <div id="monRows"></div>
         <div id="busSec" style="margin-top:12px"></div>
         <button class="btn" id="monPropose" style="width:100%;margin-top:10px" title="Propone wedge/drum-fill per i musicisti ancora scoperti (li premi tu: niente piazzamenti automatici)">Proponi monitor</button>
         <button class="btn primary" id="monPdf" style="width:100%;margin-top:8px">Esporta monitor list (PDF)</button>
-        <div style="font-size:10.5px;color:var(--text-3);margin-top:8px">I mix si raggruppano per <b>etichetta</b> dei monitor (es. "MIX 1"). IEM/hearback = stereo.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:8px">I mix si raggruppano per <b>etichetta</b> dei monitor (es. "MIX 1"). IEM/hearback = stereo.</div>
       </div>
     </div>
     <!-- Lista carichi (auto, dal motore elettrico): sezione a tendina con cestino -->
@@ -4096,12 +4131,12 @@ body.dark .ask-all .btn{background:transparent}
     <details class="cl-rider" style="margin:0 0 12px">
       <summary style="font-size:11px;color:var(--text-2,#374151);cursor:pointer;font-weight:600">Rider tecnico — testo (opzionale)</summary>
       <div style="margin-top:7px;display:grid;gap:7px">
-        <div style="font-size:10.5px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" class="rd-i" style="width:74px;margin-left:6px"></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" class="rd-i rd-ta"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
-        <label style="font-size:10.5px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
+        <div style="font-size:11px;color:var(--text-3,#6b7280);line-height:1.4">Microfoni, monitor, pedane e console sono <b>generati dai dati</b> del palco. Qui solo le preferenze: se lasci vuoto viene usato un testo standard.</div>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Sedie da orchestra <input type="number" id="rdSedie" min="0" max="300" placeholder="—" class="rd-i" style="width:74px;margin-left:6px"></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Sistema audio (PA)<textarea id="rdSistema" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
       </div>
     </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
@@ -4137,7 +4172,7 @@ body.dark .ask-all .btn{background:transparent}
     </button>
     <!-- La ✕ è per il telefono, dove il box NON è una fisarmonica nella colonna ma il pannello
          ancorato in basso di sempre: là si apre dal menu «?» e si chiude da qui, com'era. -->
-    <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">×</button>
+    <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">✕</button>
   </div>
   <div class="fb-body" id="fbBody">
     <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
@@ -4185,8 +4220,11 @@ body.dark .ask-all .btn{background:transparent}
   <button type="button" class="mpk-exp" id="mPeekExp" aria-label="Mostra tutte le specifiche" title="Specifiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
 </div>
 
-<button class="fab cat" id="fabCat" title="Catalogo elementi" aria-label="Apri catalogo">+</button>
-<button class="fab props" id="fabProps" title="Proprietà" aria-label="Apri pannello">≡</button>
+<!-- Qui stavano #fabCat e #fabProps, i due bottoni tondi del vecchio mobile. Erano FANTASMI:
+     nel markup ma spenti da `.fab{display:none}` (nessuna regola li riaccendeva) e ribaditi da
+     `#fabCat,#fabProps{display:none!important}` sotto gli 880px; nessuna riga di JS li cercava,
+     li ascoltava o li mostrava. Il loro mestiere lo fanno da tempo il dock (#mDock) e il menu
+     (#mActions). Tolti, con le due regole del foglio. (02/09) -->
 <div id="mobBackdrop"></div>
 <div id="railHandle" title="Trascina per allargare il pannello · doppio click per reimpostare" aria-hidden="true"></div>
 <!-- Mobile A′: dock azioni primarie (sempre visibile ≤880px) + menu a un livello -->
@@ -4220,9 +4258,9 @@ body.dark .ask-all .btn{background:transparent}
     <div class="exp-card">
     <div class="exp-head"><h4>Esporta</h4><button type="button" class="exp-close" id="expClose" aria-label="Chiudi">✕</button></div>
     <button class="btn primary" id="frameSavePdf" style="width:100%;margin:0;padding:13px;font-size:15px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Imposta ed esporta il PDF…</button>
-    <p class="hint" style="font-size:11.5px;color:var(--text-2);margin:6px 0 12px">Formato, scala e pagine da allegare si scelgono nella finestra che si apre.</p>
+    <p class="hint" style="font-size:12px;color:var(--text-2);margin:6px 0 12px">Formato, scala e pagine da allegare si scelgono nella finestra che si apre.</p>
     <div id="frameSummary" style="margin-bottom:14px">
-      <div class="hint" style="font-size:11.5px;color:var(--text-2);margin:0 0 7px">Area stampata: <b id="frameSummaryTxt">tutto il palco</b></div>
+      <div class="hint" style="font-size:12px;color:var(--text-2);margin:0 0 7px">Area stampata: <b id="frameSummaryTxt">tutto il palco</b></div>
       <button class="btn" id="frameEditBtn" style="width:100%;font-size:12px">▣ Scegli l'area di stampa</button>
     </div>
     <p class="hint" style="font-size:11px;color:var(--text-3);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em">Altri formati</p>
@@ -4438,7 +4476,7 @@ body.dark .ask-all .btn{background:transparent}
 <div class="modal" id="aiModal" hidden>
   <div class="mcard" style="width:520px;max-width:94vw">
     <h2>🤖 Crea con l'AI</h2>
-    <ol class="hint" style="font-size:12.5px;color:var(--text-2);margin:0 0 12px 18px;line-height:1.5">
+    <ol class="hint" style="font-size:13px;color:var(--text-2);margin:0 0 12px 18px;line-height:1.5">
       <li>Premi <b>Apri ChatGPT</b>: si apre con il prompt già pronto. <b>Invia</b> quel messaggio.</li>
       <li>Nel messaggio successivo <b>descrivi il tuo palco</b> (strumenti, posizioni, microfoni…). Puoi anche partire da un template salvato: es. <i>"come il mio template orchestra e aggiungi la tastiera"</i>.</li>
       <li>ChatGPT ti restituisce un <b>link</b>: cliccalo (o incollalo qui sotto) e il palco si apre già pronto.</li>
@@ -4592,7 +4630,7 @@ body.dark .ask-all .btn{background:transparent}
     <div class="hint">Il progetto aperto viene chiuso: se ha del lavoro dentro, ti verrà chiesto conferma e ne resta comunque un punto di ripristino. I progetti salvati non si toccano.</div>
     <button type="button" class="btn" id="mpEmpty" style="width:100%;margin:14px 0 4px;justify-content:flex-start;text-align:left;height:auto;padding:11px 13px;flex-direction:column;align-items:flex-start;gap:2px">
       <span style="font-weight:700">Palco vuoto</span>
-      <span style="font-size:11.5px;color:var(--text-2);font-weight:400">Parti da zero e componi tu la formazione</span>
+      <span style="font-size:12px;color:var(--text-2);font-weight:400">Parti da zero e componi tu la formazione</span>
     </button>
     <div class="hint" style="margin-top:12px;text-transform:uppercase;letter-spacing:.04em;font-size:11px;color:var(--text-3)">Oppure parti da un modello</div>
     <div class="wl-mods" id="mpMods" style="margin:8px 0 4px"></div>
@@ -4644,7 +4682,7 @@ body.dark .ask-all .btn{background:transparent}
       <label class="rnd-f">Persone<select id="rndPeople"><option>Mostrare i musicisti</option><option>Mostrare solo gli strumenti e l'attrezzatura</option><option>Automatico</option></select></label>
     </div>
     <div id="rndWarn" class="hint" style="color:var(--warning);display:none;margin:8px 0 0"></div>
-    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
+    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;align-items:center">
       <button class="btn primary" id="rndCopy" style="flex:1;min-width:130px">Copia prompt</button>
       <button class="btn" id="rndShow">Mostra prompt</button>
@@ -4776,7 +4814,7 @@ body.dark .ask-all .btn{background:transparent}
         <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
           <span style="font-size:13px;color:var(--text-2)">1:</span>
           <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
-          <span style="font-size:11.5px;color:var(--text-3)">(10–500)</span>
+          <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
         </div>
         <div id="pdfHdrRow">
         <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>

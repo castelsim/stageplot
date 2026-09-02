@@ -12589,7 +12589,12 @@ t("una constatazione non occupa quanto una decisione", () => {
   ok(/if\(r\.sub && azioni\.length\)/.test(appjs),
      "e non portano il sottotitolo, che raddoppierebbe l'altezza");
   ok(/#assunzioni \.as-row\.as-nota\{[^}]*padding:4px/.test(stylesCss), "la nota ha un respiro suo, più stretto");
-  ok(/#assunzioni \.as-row\.as-nota \.as-txt\{[^}]*font-size:11\.5px/.test(stylesCss), "e un corpo più piccolo");
+  /* Il test inchiodava la misura al valore letterale «11.5px», e la scala tipografica del 02/09 —
+     che dai mezzi passi porta ai gradini interi — lo faceva fallire pur restando vera la cosa che
+     voleva difendere. Ora confronta le DUE misure: la nota deve restare più piccola della riga. */
+  const corpo = (s) => parseFloat((stylesCss.match(new RegExp(s + "\\{[^}]*font-size:([0-9.]+)px")) || [])[1]);
+  const nota = corpo("#assunzioni \\.as-row\\.as-nota \\.as-txt"), riga = corpo("#assunzioni \\.as-txt");
+  ok(isFinite(nota) && isFinite(riga) && nota < riga, "e un corpo più piccolo della riga piena (" + nota + " < " + riga + ")");
 });
 
 t("il riepilogo si mette dove non copre, se ci sta", () => {
@@ -13652,6 +13657,114 @@ t("il palco misura lo stesso in tutti i posti dove è scritto", () => {
   ok(/maximumFractionDigits:1/.test(appjs), "un decimale quando serve, nessuno quando non serve");
 });
 
+console.log("\nTipografia e controlli (02/09):");
+
+/* Il foglio portava 197 misure a mezzo pixel (8,5 · 9,5 · 10,5 · 11,5 · 12,5 · 13,5 · 14,5),
+   contate con `grep -oE 'font-size: ?[0-9]+\.5px'` su src/styles.css e index.template.html.
+   Mezzo pixel non è un gradino: su uno schermo non integer-scaled diventa antialiasing, cioè
+   testo più sfocato del vicino a parità di grandezza percepita — e intanto moltiplica i corpi
+   fino a renderli sedici. Ora i gradini sono interi. Le uniche eccezioni ammesse sono le
+   etichette DENTRO l'SVG, che non sono pixel di schermo ma unità del disegno: cambiarle
+   cambierebbe la pianta, e la pianta è in scala. */
+const SVG_LBL = ["cab-lbl", "net-lbl", "elec-lbl", "secdot-lbl"];
+t("nessun corpo del testo sta a mezzo passo", () => {
+  const tplTipo = readFileSync(join(root, "index.template.html"), "utf8");
+  const mezzi = [];
+  for (const [file, src] of [["src/styles.css", stylesCss], ["index.template.html", tplTipo]]) {
+    src.split("\n").forEach((l, i) => {
+      if (!/font-size: ?[0-9]+\.5px/.test(l)) return;
+      if (SVG_LBL.some((c) => l.includes("." + c + "{"))) return;   /* unità del disegno, non del testo */
+      mezzi.push(file + ":" + (i + 1) + " " + l.trim().slice(0, 70));
+    });
+  }
+  ok(mezzi.length === 0, "mezzi passi rimasti:\n      " + mezzi.join("\n      "));
+  /* E le quattro etichette SVG NON vanno "sistemate": restano dove sono. */
+  for (const c of SVG_LBL) ok(new RegExp("\\." + c + "\\{[^}]*font-size:9\\.5px").test(stylesCss),
+    "." + c + " è dentro l'SVG: la sua misura è in unità del disegno e resta 9,5");
+  /* La scala dichiarata deve esistere davvero, o il prossimo ritocco riparte a occhio. */
+  for (const [nome, px] of [["nano", 9], ["micro", 10], ["caption", 11], ["label", 12], ["body", 13],
+                            ["md", 14], ["title", 15], ["base", 16], ["heading", 18], ["xl", 20], ["display", 24]])
+    ok(new RegExp("--t-" + nome + ":" + px + "px").test(stylesCss), "il gradino --t-" + nome + " vale " + px + "px");
+});
+
+/* `body` non dichiarava nessuna misura: tutto ciò che non ha un font-size proprio ereditava il
+   default del BROWSER. È 16px su un browser appena installato, ma è una preferenza dell'utente:
+   chi l'ha alzato vedeva il pannello sfasato rispetto al resto, che è in px fissi. */
+t("il corpo del testo non dipende dalle preferenze del browser", () => {
+  const b = (stylesCss.match(/\n  body\{font-family:var\(--font-ui\);([^}]*)/) || [])[1] || "";
+  ok(/font-size:var\(--t-base\)/.test(b), "body dichiara la sua misura (--t-base = 16px)");
+});
+
+/* Blocchi di prosa che vanno a capo e non dichiaravano interlinea: prendevano `normal`, cioè
+   ~1,18 col font di sistema — righe attaccate, proprio dove il testo è lungo e spiega qualcosa. */
+t("i testi che spiegano hanno un'interlinea, non quella di sistema", () => {
+  const prosa = ["\\.mcard \\.hint", "\\.pg-hint", "\\.pd-hint", "\\.pdf-exp-hint", "#pdfPillsHint",
+                 "\\.hdr-why", "\\.pdf-list-sub", "\\.pdf-list-empty", "#venueCalibHint",
+                 "\\.clempty", "\\.lights-empty", "\\.patch-empty", "#fbBox \\.fb-msg"];
+  const senza = prosa.filter((s) => {
+    const m = stylesCss.match(new RegExp(s + "\\{([^}]*)\\}"));
+    return !m || !/line-height/.test(m[1]);
+  });
+  ok(senza.length === 0, "senza interlinea: " + senza.join(", "));
+});
+
+/* «✕» (U+2715) e «×» (U+00D7, il segno di MOLTIPLICAZIONE) erano usati come se fossero lo stesso
+   segno: dieci bottoni portavano il secondo. Il moltiplicatore resta dov'è il suo mestiere — le
+   misure, «90×114 cm» — e i bottoni che chiudono o tolgono portano tutti ✕. */
+t("chiudere e togliere si scrivono con un segno solo", () => {
+  const tplX = readFileSync(join(root, "index.template.html"), "utf8");
+  const cattivi = [];
+  tplX.split("\n").forEach((l, i) => {
+    if (/>×<|textContent ?= ?"×"|textContent="×"/.test(l)) cattivi.push((i + 1) + " " + l.trim().slice(0, 80));
+  });
+  ok(cattivi.length === 0, "bottoni ancora col segno di moltiplicazione:\n      " + cattivi.join("\n      "));
+  /* E la ricerca che lo usa non deve premere un «togli» al posto di un «chiudi»: buttando giù il
+     foglio col dito si prendeva il PRIMO bottone col segno, e dentro le finestre quel segno marca
+     anche «togli dal rack», «togli dal PDF», «elimina dalla rubrica». Ora si guarda il nome. */
+  const fn = appjs.slice(appjs.indexOf("function fogliChiudibiliColDito"),
+                         appjs.indexOf("function pannelliChiudibiliColDito"));
+  ok(fn.length > 100, "la funzione c'è");
+  ok(/aria-label"\)\|\|x\.textContent/.test(fn), "il bottone si riconosce dal nome accessibile");
+  ok(/\/\^\(annulla\|chiudi\)\/i\.test\(nomeAcc\(x\)\)/.test(fn), "e il nome deve dire chiudi o annulla");
+  /* Il segno da solo resta, ma DOPO: è l'ultima spiaggia, non il primo criterio. */
+  ok(fn.indexOf("nomeAcc(x)") < fn.lastIndexOf("✕"), "il segno viene consultato per ultimo");
+});
+
+/* «Elimina» compariva con sei aspetti. Contati sul markup: due erano `.btn` SENZA `.danger`
+   («Elimina cavo», «Elimina linea»: grigi identici al «Reset percorso» accanto), uno portava un
+   `font-size:12px` inline, tre portavano una classe `.sm` che nel foglio non esiste — cercata con
+   `grep '\.btn\.sm'`: zero regole — e nel pannello luci il rosso era pieno mentre nel pannello
+   elemento lo stesso «Elimina» è rosso contornato. */
+t("un'azione che distrugge ha un aspetto solo", () => {
+  const tplD = readFileSync(join(root, "index.template.html"), "utf8");
+  for (const id of ["pDel", "grpDel", "bDelBlock", "cabSelDelete", "elecSelDelete", "lcDel"]) {
+    const m = tplD.match(new RegExp("<button[^>]*id=\"" + id + "\"[^>]*>|<button[^>]*id=\\\\?'?" + id + "[^>]*>"));
+    ok(m, "il bottone " + id + " esiste");
+    ok(/class="btn[^"]*\bdanger\b/.test(m[0]), id + " si dichiara distruttivo (.danger)");
+    ok(!/font-size/.test(m[0]), id + " non si porta una misura sua nello style inline");
+  }
+  ok(!/class="btn sm/.test(tplD), "nessuno usa più .sm, che nel foglio non è mai esistita");
+  ok(!/\.btn\.sm\{/.test(stylesCss), "e .sm non è stata inventata adesso per coprire il buco");
+  /* La definizione è una sola e vale per tutta la colonna destra, non per il solo #selProps. */
+  ok(/#props \.btn\.danger\{[^}]*color:var\(--danger\)/.test(stylesCss), "c'è la regola unica #props .btn.danger");
+  ok(!/#selProps \.btn\.danger\{/.test(stylesCss), "e non c'è più quella che valeva per metà pannello");
+  ok(!/\.lights-acts \.btn\.danger\{/.test(stylesCss), "né l'eccezione del pannello luci");
+  /* Dentro #props una regola nuova perde se sta PRIMA di quella che le fa concorrenza:
+     stessa specificità (1,2,0) vuol dire che decide l'ordine nel file. */
+  ok(stylesCss.indexOf("#props .btn.danger{") > stylesCss.indexOf("#selProps .btn{"),
+     "e sta dopo #selProps .btn, altrimenti il contorno del pannello elemento la coprirebbe");
+});
+
+/* #fabCat e #fabProps erano nel markup ma spenti da `.fab{display:none}` senza nessuna regola che
+   li riaccendesse, e ribaditi da `#fabCat,#fabProps{display:none!important}` sotto gli 880px.
+   Cercati nel JS (`getElementById`, `querySelector`, listener): zero. Bottoni fantasma. */
+t("non restano bottoni che nessuno può premere", () => {
+  const tplF = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(!/id="fabCat"|id="fabProps"/.test(tplF), "il markup non li dichiara più");
+  ok(!/fabCat|fabProps/.test(appjs), "e il bundle non li nomina da nessuna parte");
+  ok(!/^\s*\.fab\{/m.test(stylesCss), "la regola che li spegneva è sparita con loro");
+});
+
 /* ═══ QUELLO CHE FALLIVA IN SILENZIO (02/09) ══════════════════════════════════════════════════════
    Sei punti in cui l'app faceva una cosa e ne raccontava un'altra — o non raccontava niente.
    Non sono bug di calcolo: sono bugie. Il metro di questi test e' il comportamento, non il sorgente:
@@ -13895,6 +14008,7 @@ t("il PNG dichiara l'attesa e non parte due volte", () => {
   ok(/b\.textContent="Genero…"/.test(h), "il bottone dice che sta generando");
   ok(/exportPng\(fine\)/.test(h), "e si riaccende alla fine vera, non a tempo");
 });
+
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
