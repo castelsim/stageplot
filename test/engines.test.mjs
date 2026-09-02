@@ -8677,6 +8677,47 @@ t("mixer e interfaccia sono destinazioni: chi non ha una stage box collega li'",
   ok(!A.cabIsDest(mon), "il mixer monitor non è una destinazione dei cavi di palco");
 });
 
+t("la risposta a una segnalazione si legge nell'app, e una volta sola", () => {
+  /* 02/09 — la home promette «il box arriva a me, e rispondo io», ma un canale per rispondere non
+     c'era: il box non chiede la mail, e quella dell'account Google non e' stata lasciata per essere
+     ricontattati. Simone ha scelto di rispondere DENTRO il prodotto, al rientro di quella persona.
+     Qui si guarda il codice del bundle: il giro intero (chiamata → finestra → «letta» → box) e'
+     provato nel browser, dove esiste un DOM e una fetch. */
+  ok(/my-feedback-replies/.test(appjs), "l'app chiede se c'e' una risposta per chi e' loggato");
+  /* Segnata letta PRIMA di mostrarla: se qualcuno ricarica o chiude di scatto, l'avviso non deve
+     tornare a ogni avvio per sempre. */
+  const mostra = appjs.slice(appjs.indexOf("function mostra(r, tok)"), appjs.indexOf("function controlla()"));
+  ok(mostra.indexOf("segnaLetta") < mostra.indexOf("guideDialog"),
+     "«letta» parte prima della finestra, non alla chiusura");
+  /* Senza login non si chiede niente: chi non ha un account non ha segnalazioni proprie. */
+  ok(/if\(!tok\) return;/.test(appjs), "nessun token, nessuna chiamata");
+  /* E non si mette una finestra sopra un'altra: il benvenuto e la guida vengono prima. */
+  ok(/guideDlg[\s\S]{0,120}\.modal:not\(\[hidden\]\)/.test(appjs),
+     "aspetta che lo schermo sia libero invece di sovrapporsi");
+  /* Rete giu' o function ferma: si tace. Un avviso rotto non deve rompere l'editor. */
+  const blocco = appjs.slice(appjs.indexOf("function controlla()"), appjs.indexOf("function quandoLibero"));
+  ok(/catch\(function\(\)\{\}\)/.test(blocco), "se la chiamata fallisce non succede niente");
+});
+
+t("i bottoni delle finestre guida reggono il dito", () => {
+  /* Misurato l'02/09: stavano a 38 px anche col dito. La regola generale non li prendeva —
+     `.guide-actions .btn` e' piu' specifico di `.btn`, e una @media non aggiunge specificita'.
+     Riguarda ogni finestra guida, «Segnalazione inviata» e la guida del cablaggio comprese. */
+  const coarse = bloccoCoarse(stylesCss);
+  ok(/\.guide-actions \.btn\{[^}]*min-height:44px/.test(coarse) ||
+     /@media \(pointer:coarse\)\{ \.guide-actions \.btn\{min-height:44px\} \}/.test(stylesCss),
+     "col dito arrivano a 44");
+  /* E col mouse restano i 38 di sempre. */
+  const fuori = stylesCss.replace(/@media \(pointer:coarse\)\{[^@]*/g, "");
+  ok(/\.guide-actions \.btn\{min-height:38px\}/.test(fuori), "col mouse non cambia niente");
+});
+
+t("gli a capo della finestra si vedono davvero", () => {
+  /* guideDialog scrive il messaggio con textContent: senza white-space nel CSS i paragrafi
+     collassano in una riga sola. La risposta a una segnalazione ne ha tre: richiamo, testo, firma. */
+  ok(/\.guide-msg\{[^}]*white-space:pre-line/.test(stylesCss), "il messaggio rispetta gli a capo");
+});
+
 t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => {
   /* Il seguito della segnalazione ed830b3e. Chi l'ha mandata aveva UN banco sul palco, rinominato
      «MIXER»: era un «Mixer monitor». Restava con 17 canali e capienza zero, e l'unico segnale era
