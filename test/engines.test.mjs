@@ -12943,13 +12943,19 @@ t("i fogli che salgono dal basso si chiudono trascinandoli giu'", () => {
   ok(/function chiudiTrascinando\(foglio, maniglia, chiudi, escludi, fascia\)/.test(appjs),
      "il gesto e' una funzione sola, non copiata due volte");
   ok(/chiudiTrascinando\(document\.getElementById\("catalog"\)/.test(appjs), "il catalogo lo usa");
-  /* Il menu ha gia' la sua maniglia come `#mActions::before`, e uno pseudo-elemento non riceve
-     eventi: la presa e' il foglio intero, ma solo nei primi 44 px. Piu' giu' ci sono le voci. */
-  ok(/chiudiTrascinando\(ms, ms, closeAll, "\[data-act\],a", 44\)/.test(appjs), "e il menu pure, dalla fascia in cima");
+  /* Il menu si prende da QUALUNQUE punto (Simone, 02/09: «anche se lo scroll inizia in un punto a
+     caso della finestra»): le sue voci non scorrono, quindi non c'e' niente da confondere. */
+  ok(/chiudiTrascinando\(ms, ms, closeAll\);/.test(appjs), "il menu si prende da ovunque");
+  /* Quello che evita di rubare i clic non e' piu' la fascia, ma la SOGLIA: il gesto si sveglia solo
+     dopo 12 px di dito. Sotto, un tocco resta un tocco e il bottone funziona. */
+  ok(/var SVEGLIA=12, attivo=false;/.test(appjs), "il gesto si sveglia dopo 12 px");
+  ok(/if\(dy < SVEGLIA\) return;/.test(appjs), "prima di quelli non si muove niente");
+  ok(/if\(attivo && dy>70\) chiudi\(\);/.test(appjs), "e si chiude solo se il gesto era davvero partito");
+  /* La fascia resta per i fogli il cui contenuto SCORRE, dove prendere in mezzo vuol dire scorrere. */
   ok(/if\(fascia && \(e\.clientY - maniglia\.getBoundingClientRect\(\)\.top\) > fascia\) return;/.test(appjs),
-     "sotto la fascia il gesto non parte: trascinare una voce non chiude il menu");
+     "e per chi scorre resta la presa in cima");
   /* Solo dalla maniglia: dal corpo, scorrere l'elenco degli strumenti chiuderebbe il foglio. */
-  ok(/if\(dy>70\) chiudi\(\)/.test(appjs), "sotto i 70 px torna su: uno scatto, non un tocco storto");
+  ok(/if\(attivo && dy>70\) chiudi\(\)/.test(appjs), "sotto i 70 px torna su: uno scatto, non un tocco storto");
   ok(/dy=Math\.max\(0, e\.clientY-y0\)/.test(appjs), "e si trascina solo verso il basso");
   /* La barretta del menu esisteva GIA' come pseudo-elemento: il div che avevo aggiunto era un
      doppione, ed e' stato tolto. */
@@ -13015,6 +13021,58 @@ t("ogni finestra si chiude buttandola giu', non solo il catalogo", () => {
   ok(/\.card-grab::before\{content:""/.test(stylesCss), "la barretta e' uno pseudo-elemento");
   ok(/@media \(pointer:coarse\)\{\s*\.card-grab/.test(stylesCss.replace(/\n\s*/g, m => m.includes("\n") ? "\n  " : m)) ||
      bloccoCoarse(stylesCss).indexOf(".card-grab") >= 0, "e c'e' solo col dito");
+});
+
+t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
+  /* Togliendo Planimetria e Channel list erano rimaste due righe vuote e due bottoni orfani a
+     mezza larghezza — «Area stampa» e «Tema» — con un buco accanto. (Simone, 02/09) */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const iMenu = html.indexOf('<div id="mActions">');
+  const menu = html.slice(iMenu, html.indexOf("mact-consul", iMenu));
+  ok(!/<\/button>\s*\n\s*\n\s*<button/.test(menu), "niente righe vuote fra i bottoni");
+  ok(/\.mact-grid button:last-child:nth-child\(odd\)\{grid-column:1 \/ -1\}/.test(stylesCss),
+     "il bottone rimasto solo prende tutta la riga");
+  ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
+});
+
+t("anche i pannelli del cassetto si buttano giu'", () => {
+  /* Simone: «anche la finestra evento stessa cosa». Non sono modali: vivono dentro #props, e ognuno
+     ha il suo «Fatto» che oltre a chiudere spegne la modalita' — quindi si preme quello. */
+  ok(/function pannelliChiudibiliColDito\(\)/.test(appjs), "il giro sui pannelli esiste");
+  /* Dalla funzione in avanti, non «fino all'altra»: nel bundle `pannelli…` viene DOPO `fogli…`, e
+     una slice al contrario e' vuota. E la si controlla, invece di fidarsi: oggi due test hanno
+     guardato il nulla restando verdi. */
+  const iPan = appjs.indexOf("function pannelliChiudibiliColDito");
+  ok(iPan > 0, "la funzione e' nel bundle");
+  const blocco = appjs.slice(iPan, iPan + 900);
+  ok(/eventoSec/.test(blocco), "e il blocco letto e' davvero il suo: " + blocco.length + " caratteri");
+  ["eventoSec", "stageEditPanel", "areaEditPanel", "venuePanel"].forEach((id) => {
+    ok(blocco.indexOf(id) > 0, id + " e' fra quelli agganciati");
+  });
+  /* I bottoni «Fatto» devono ESISTERE, o l'aggancio non fa niente in silenzio: al primo giro
+     avevo scritto «stageDone», che non esiste. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ["bEventoDone", "bStageDone", "areaDone", "venueBtnDone"].forEach((id) => {
+    ok(html.indexOf('id="' + id + '"') > 0, "il bottone " + id + " esiste davvero");
+    ok(blocco.indexOf(id) > 0, "ed e' quello che il gesto preme");
+  });
+  /* Escluso solo quello che si scrive: trascinare per selezionare del testo non deve chiudere. */
+  ok(/\}, "input,select,textarea"\)/.test(blocco), "il gesto non parte dai campi di testo");
+});
+
+t("la finestra Evento si legge prima di compilarla", () => {
+  /* «graficamente dev'essere sistemata» (Simone, 02/09). Prima: quattro etichette in fila senz'aria,
+     data e orario appiccicati, e la spiegazione in grigio chiaro da 11px SOTTO a tutto — dove la
+     leggi dopo aver compilato, cioe' mai. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const sec = html.slice(html.indexOf('id="eventoSec"'), html.indexOf('id="selProps"'));
+  ok(/class="ev-intro"/.test(sec), "la frase che spiega a cosa servono i campi");
+  ok(sec.indexOf("ev-intro") < sec.indexOf("titoloEv"), "e sta PRIMA dei campi, non dopo");
+  ok(!/class="hint"[^>]*font-size:11px/.test(sec), "non c'e' piu' il grigio chiaro da 11px in fondo");
+  ok(/class="ev-datetime"/.test(sec), "data e orario sono un blocco solo");
+  /* Le etichette hanno un `for`: toccare l'etichetta porta nel campo, che su un telefono conta. */
+  ok(/<label for="titoloEv">/.test(sec) && /<label for="evDateM">/.test(sec), "le etichette portano al campo");
+  ok(/#eventoSec input\{min-height:44px\}/.test(bloccoCoarse(stylesCss)), "e i campi reggono il dito");
 });
 
 t("l'area di stampa si legge anche su un telefono", () => {

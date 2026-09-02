@@ -12774,24 +12774,34 @@ function chiudiTrascinando(foglio, maniglia, chiudi, escludi, fascia){
   if(!foglio || !maniglia) return;
   var y0=null, dy=0;
   maniglia.style.touchAction="none";
+  /* SOGLIA: il gesto si sveglia solo dopo 12 px di dito verso il basso. Sotto quella soglia non
+     succede niente, quindi un tocco sui bottoni resta un tocco — è così che la presa può essere
+     TUTTO il foglio senza rubare i clic (Simone, 02/09: «allo scroll verso il basso si deve
+     chiudere, anche se lo scroll inizia in un punto a caso della finestra»). */
+  var SVEGLIA=12, attivo=false;
   maniglia.addEventListener("pointerdown", function(e){
-    if(escludi && e.target.closest(escludi)) return;   /* la X, e le voci del menu, fanno già il loro */
-    /* `fascia`: quando la presa è tutto il foglio, il gesto parte solo dalla striscia in cima —
-       dove sta la maniglia disegnata. Più giù si tocca il contenuto. */
+    if(escludi && e.target.closest(escludi)) return;   /* la X fa già il suo */
+    /* `fascia`: quando la presa è tutto il foglio ma il contenuto SCORRE, il gesto parte solo dalla
+       striscia in cima. Con `fascia` a 0 si prende da qualunque punto. */
     if(fascia && (e.clientY - maniglia.getBoundingClientRect().top) > fascia) return;
+    attivo=false;
     y0=e.clientY; dy=0; foglio.style.transition="none";
     try{ maniglia.setPointerCapture(e.pointerId); }catch(_e){}
   });
   maniglia.addEventListener("pointermove", function(e){
     if(y0===null) return;
     dy=Math.max(0, e.clientY-y0);                      /* solo verso il basso */
+    if(!attivo){
+      if(dy < SVEGLIA) return;                         /* ancora un tocco, non un trascinamento */
+      attivo=true;
+    }
     foglio.style.transform="translateY("+dy+"px)";
   });
   function fine(){
     if(y0===null) return;
     foglio.style.transition=""; foglio.style.transform="";
-    if(dy>70) chiudi();
-    y0=null; dy=0;
+    if(attivo && dy>70) chiudi();
+    y0=null; dy=0; attivo=false;
   }
   maniglia.addEventListener("pointerup", fine);
   maniglia.addEventListener("pointercancel", fine);
@@ -12821,10 +12831,26 @@ function fogliChiudibiliColDito(){
     }, "input,select,textarea,button,a,label", 44);
   });
 }
+/* Anche i PANNELLI del cassetto — Evento, Palco, Area di stampa — si buttano giù (Simone, 02/09:
+   «anche la finestra evento stessa cosa»). Non sono modali: vivono dentro `#props`, e ognuno ha il
+   suo «Fatto» che oltre a chiudere spegne la modalità. Si preme quello.
+   Presa su tutto il pannello, con la stessa soglia dei 12 px: sotto, un tocco su un campo resta un
+   tocco. Escluso solo quello che si scrive, o trascinare per selezionare del testo chiuderebbe. */
+function pannelliChiudibiliColDito(){
+  if(!isMobile()) return;
+  [["eventoSec","bEventoDone"],["stageEditPanel","bStageDone"],["areaEditPanel","areaDone"],["venuePanel","venueBtnDone"]]
+    .forEach(function(par){
+      var sec=document.getElementById(par[0]); if(!sec || sec.__grab) return;
+      sec.__grab=1;
+      chiudiTrascinando(sec, sec, function(){
+        var b=document.getElementById(par[1]); if(b) b.click();
+      }, "input,select,textarea");
+    });
+}
 /* Agganciato dopo il boot: i 22 modali stanno tutti nel markup fin dall'inizio, quindi basta un
    giro solo. Se un domani se ne aggiunge uno a runtime, questa riga va richiamata. */
-if(document.readyState==="complete") setTimeout(function(){ try{ fogliChiudibiliColDito(); }catch(_e){} }, 800);
-else window.addEventListener("load", function(){ setTimeout(function(){ try{ fogliChiudibiliColDito(); }catch(_e){} }, 800); });
+if(document.readyState==="complete") setTimeout(function(){ try{ fogliChiudibiliColDito(); pannelliChiudibiliColDito(); }catch(_e){} }, 800);
+else window.addEventListener("load", function(){ setTimeout(function(){ try{ fogliChiudibiliColDito(); pannelliChiudibiliColDito(); }catch(_e){} }, 800); });
 function closeMobileDrawers(){
   if(!isMobile()) return;
   document.getElementById("catalog").classList.remove("open");
@@ -12839,7 +12865,7 @@ function closeMobileDrawers(){
      dito scende nei primi 44 px — la fascia della maniglia. Più giù ci sono le voci, e trascinarle
      non deve chiudere niente. */
   (function(){ var ms=document.getElementById("mActions");
-    if(ms) chiudiTrascinando(ms, ms, closeAll, "[data-act],a", 44); })();
+    if(ms) chiudiTrascinando(ms, ms, closeAll); })();   /* da qualunque punto: le voci non scorrono */
   function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
