@@ -12993,6 +12993,32 @@ t("dal telefono spariscono le due voci che non si usano in piedi", () => {
   ok(/id="bChanList"/.test(html), "la channel list resta raggiungibile col mouse");
 });
 
+t("nelle finestre, le X e i contatori reggono il dito", () => {
+  /* «su mobile guarda e ottimizza ogni finestra» (Simone, 02/09). Cercando nel CSS i controlli con
+     un'altezza dichiarata sotto i 44 px che nessuna regola per il dito ingrandiva, restavano le X
+     che chiudono e i +/− dei contatori — quelli che si premono più volte di fila, dove sbagliare
+     tocco costa. */
+  const coarse = bloccoCoarse(stylesCss);
+  const attesi = {
+    ".exp-close": "la X di Esporta",
+    ".avatar-btn": "l'avatar",
+    ".avatar-btn-m": "l'avatar su mobile",
+    ".learn-card .learn-close": "la X delle card",
+    ".lite-btn": "i bottoni leggeri",
+    "#props .btn.cnt-b": "i +/− dei contatori",
+  };
+  Object.keys(attesi).forEach((sel) => {
+    const re = new RegExp(sel.replace(/[.#*+?^${}()|[\]\\]/g, "\\$&") + "\\{[^}]*(?:min-)?(?:width|height):44px");
+    ok(re.test(coarse), attesi[sel] + " arriva a 44 px col dito (" + sel + ")");
+  });
+  /* Col mouse restano le misure di sempre. */
+  const fuori = stylesCss.replace(/@media \(pointer:coarse\)\{[^@]*/g, "");
+  ok(/\.exp-close\{[^}]*width:30px/.test(fuori), "col mouse la X resta a 30 px");
+  /* E la regola sta IN FONDO: dentro #props e .learn-card serve la stessa specificita' E l'ordine. */
+  ok(stylesCss.lastIndexOf("#props .btn.cnt-b{width:44px") > stylesCss.indexOf("#props .btn.cnt-b{width:26px"),
+     "e viene dopo quella che li dimensiona, o non vincerebbe");
+});
+
 t("i bottoni che chiudono senza fare niente sono rossi", () => {
   /* Simone dal telefono: «su esporta il pulsante annulla dev'esser in rosso», «anche su condividi
      il bottone chiudi», «la X in alto a destra di quella finestra dev'essere rossa». */
