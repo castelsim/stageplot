@@ -12891,6 +12891,27 @@ t("sul telefono il pannello mostra quello che si vede, e il resto sta dietro un 
   ok(iBtn > 0 && iAdv > iBtn, "e la regola viene DOPO «#props .btn», o quella la sovrascrive");
 });
 
+t("su telefono il pannello delle liste e' DAVVERO nascosto", () => {
+  /* 02/09 — il difetto che teneva le Liste in mezzo allo schermo, e che nessuna prova aveva visto.
+     `#props{display:none}` sta nel blocco mobile, ma piu' in basso nel file c'e'
+     `#props{display:flex}` SENZA media query e con la stessa specificita': a parita' vince l'ultima
+     scritta. Su telefono il pannello non si e' mai nascosto — restava lì con dentro Palco,
+     Musicisti, Input, Output e Produzione avanzata, 384 px su 834, col palco tagliato a meta'.
+     Il commento accanto alla regola globale diceva «su telefono #props torna block»: un'assunzione,
+     non quello che il CSS faceva.
+     E la simulazione via CSS iniettato lo MASCHERAVA, perche' copiava le regole mobile in fondo e
+     quindi le faceva vincere. Visto solo misurando a 767 px veri, con la finestra ridimensionata. */
+  const iMob = stylesCss.indexOf("body #props{display:none;position:fixed");
+  ok(iMob > 0, "la regola mobile esiste ed e' scritta `body #props`, non `#props`");
+  const iGlob = stylesCss.indexOf("#props{display:flex;flex-direction:column}");
+  ok(iGlob > 0, "e quella globale c'e' ancora");
+  /* Il punto: `body #props` (1,0,1) batte `#props` (1,0,0) a prescindere dall'ordine. */
+  ok(iGlob > iMob, "la globale sta DOPO: senza il peso in piu' vincerebbe lei");
+  /* E gli stati che aprono il cassetto restano piu' specifici di `body #props`. */
+  ok(/body\.stage-edit #props[^{]*\{display:block\}/.test(stylesCss),
+     "gli stati che lo aprono lo battono ancora");
+});
+
 t("ogni voce del menu mobile apre davvero il suo pannello", () => {
   /* 02/09 — «Area stampa» e «Punti di ripristino» erano nel menu mobile e NON FACEVANO NIENTE.
      Su telefono `#props` è un cassetto `display:none` che si apre solo per gli stati elencati in
@@ -12913,6 +12934,37 @@ t("ogni voce del menu mobile apre davvero il suo pannello", () => {
   /* Come «Area stampa», mostra solo il suo pannello. */
   ok(/body\.vers-edit #selProps[^{]*\{display:none !important\}/.test(stylesCss),
      "con solo la lista delle versioni in vista");
+});
+
+t("i fogli che salgono dal basso si chiudono trascinandoli giu'", () => {
+  /* Simone dal telefono, 02/09: «se premo aggiungi e trascino verso il basso la finestra deve
+     chiudersi», e poi «anche la finestra menu». È il gesto che ci si aspetta da un foglio che sale
+     dal basso, e su un telefono la X sta lontana dal pollice. */
+  ok(/function chiudiTrascinando\(foglio, maniglia, chiudi, escludi\)/.test(appjs),
+     "il gesto e' una funzione sola, non copiata due volte");
+  ok(/chiudiTrascinando\(document\.getElementById\("catalog"\)/.test(appjs), "il catalogo lo usa");
+  ok(/chiudiTrascinando\(ms, ms\.querySelector\("\.sheet-grab"\)/.test(appjs), "e il menu pure");
+  /* Solo dalla maniglia: dal corpo, scorrere l'elenco degli strumenti chiuderebbe il foglio. */
+  ok(/if\(dy>70\) chiudi\(\)/.test(appjs), "sotto i 70 px torna su: uno scatto, non un tocco storto");
+  ok(/dy=Math\.max\(0, e\.clientY-y0\)/.test(appjs), "e si trascina solo verso il basso");
+  /* La barretta che dice «prendimi»: c'e' solo col dito. */
+  ok(/\.sheet-grab\{display:none\}/.test(stylesCss), "col mouse la maniglia non c'e'");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<div class="sheet-grab"/.test(html), "e nel menu c'e'");
+});
+
+t("i bottoni che chiudono senza fare niente sono rossi", () => {
+  /* Simone dal telefono: «su esporta il pulsante annulla dev'esser in rosso», «anche su condividi
+     il bottone chiudi», «la X in alto a destra di quella finestra dev'essere rossa». */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/class="btn danger" id="pdfCancel"/.test(html), "Esporta → Annulla");
+  ok(/class="btn danger" id="shareClose"/.test(html), "Condividi → Chiudi");
+  ok(/class="cat-sheet-close danger"/.test(appjs), "catalogo → la X");
+  /* La X aveva gia' `#catalog .cat-sheet-close` che imposta background e color: la sola classe
+     non basta, serve la stessa specificita' E venire dopo. */
+  const iBase = stylesCss.indexOf("#catalog .cat-sheet-close{width:32px");
+  const iRosso = stylesCss.indexOf("#catalog .cat-sheet-close.danger");
+  ok(iBase > 0 && iRosso > iBase, "e la regola rossa viene dopo quella che la colora");
 });
 
 t("da telefono si possono scrivere data, ora e aggancio", () => {
