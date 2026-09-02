@@ -294,7 +294,18 @@
 
   /* ------------------------------------------------------------------ avvio */
   if(!token) { denied("Manca il codice della richiesta. Apri il link che ti ha mandato il tecnico."); return; }
+  /* Un tempo massimo all'apertura (02/09). Le due strade coperte erano «risposta» e «errore di
+     rete»: mancava la terza, la richiesta che non torna MAI. Un fetch appeso non rifiuta e non
+     risolve, quindi il .catch non scatta e si resta su «Un attimo…» per sempre — un'attesa senza
+     fine e senza modo di capire che è finita male. */
+  var apertura=false;
+  var scadenza=setTimeout(function(){
+    if(apertura) return; apertura=true;
+    denied("Il server non ha risposto entro venti secondi. Controlla la connessione e riapri il link.");
+  }, 20000);
+  function primo(){ if(apertura) return false; apertura=true; clearTimeout(scadenza); return true; }
   api("GET").then(function(res){
+    if(!primo()) return;
     if(!res.ok || !res.d || res.d.error){
       denied((res.d && res.d.message) || "Questo link non è valido. Chiedi al tecnico di inviartene uno nuovo.");
       return;
@@ -309,6 +320,7 @@
     for(var i=0;i<qs.length;i++){ if(S.answers[qs[i].key]===undefined){ S.idx=i; break; } S.idx=i; }
     paint();
   }).catch(function(){
+    if(!primo()) return;
     denied("Non riesco a raggiungere il server. Controlla la connessione e riapri il link.");
   });
 })();
