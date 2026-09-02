@@ -1858,6 +1858,12 @@
       background:var(--n-100);border-radius:999px;color:var(--text-2);font-size:14px;cursor:pointer;
       display:inline-flex;align-items:center;justify-content:center}
     body.dark #catalog .cat-sheet-close{background:#222b38;color:#e5e7eb}
+    /* La X che chiude il catalogo, in rosso (Simone, 02/09). Scritta `#catalog .cat-sheet-close`
+       e DOPO le due righe qui sopra: quelle impostano gia' background e color con specificita'
+       (1,1,0), e la sola classe `.danger` non le batte. È la quarta regola in un giorno che perde
+       contro una piu' specifica scritta prima — qui era prevista. */
+    #catalog .cat-sheet-close.danger,
+    body.dark #catalog .cat-sheet-close.danger{background:var(--danger-bg);color:var(--danger)}
   }
   @media (max-width:880px){
     header,footer{display:none}
@@ -1866,7 +1872,15 @@
     /* A′: bande = barra alta (titolo+chip+? · palco+↶↷⤢) | palco a tutta altezza | dock */
     main{position:fixed;top:86px;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));background:var(--canvas-bg)}
     /* PANNELLO-HUB: nascosto di default (canvas pieno); appare con selezione o pannelli (palco/evento/channel list) */
-    #props{display:none;position:fixed;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));top:auto;width:auto;max-width:none;height:46vh;z-index:30;
+    /* `body #props` e non `#props`: più in basso nel file c'è `#props{display:flex}` (riga ~2310),
+       senza media query e con la stessa specificità — e a parità vince l'ultima scritta. Risultato:
+       su telefono il pannello NON si è mai nascosto. Restava lì con dentro le Liste (Palco,
+       Musicisti, Input, Output, Produzione avanzata), 384 px su 834, col palco tagliato a metà.
+       Trovato il 02/09 misurando a 767 px veri: la simulazione via CSS iniettato lo mascherava,
+       perché copiava le regole mobile IN FONDO e quindi le faceva vincere.
+       Il commento accanto a quella riga diceva «su telefono #props torna block (regola del bottom
+       sheet)»: era un'assunzione, non quello che il CSS faceva. */
+    body #props{display:none;position:fixed;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));top:auto;width:auto;max-width:none;height:46vh;z-index:30;
       background:var(--surface);border:none;border-top:1px solid var(--border);transform:none;overflow-y:auto;padding:10px 14px 22px;box-shadow:0 -4px 16px rgba(0,0,0,.08)}
     /* pannelli aperti esplicitamente (palco/evento/channel list) + selezione ESPANSA = pannello pieno */
     /* 02/09 — questo elenco è la porta del cassetto: `#props` su mobile è `display:none` e si apre
@@ -2550,7 +2564,16 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
      pareggia, e a parita' vince l'ultima scritta. Messa prima — dov'era — il bottone compariva
      anche col mouse. Misurato nel browser il 02/09, ed e' la terza volta in un giorno che questo
      pannello vince per specificita' su una regola nuova. */
-  #props .adv-mob{display:none}
+  #props /* La barretta in cima ai fogli che salgono dal basso: dice «prendimi e buttami giù» senza scriverlo.
+   È la convenzione, e su un telefono la X sta lontana dal pollice. (02/09) */
+.sheet-grab{display:none}
+@media (max-width:880px){
+  .sheet-grab{display:block;width:38px;height:4px;border-radius:999px;background:var(--border);
+    margin:8px auto 4px;flex:0 0 auto}
+  /* L'area di presa è più alta della barretta: 4 px non si prendono col dito. */
+  #mActions .sheet-grab{padding:10px 0;background-clip:content-box;height:24px;box-sizing:border-box}
+}
+#props .adv-mob{display:none}
   @media (max-width:880px){ #props .adv-mob{display:block;width:100%;margin:14px 0 4px;min-height:44px;font-weight:600} }
   /* Dividi/Duplica/Elimina su UNA riga (Simone 17/07) */
   #pActRow{display:flex;gap:6px;margin-top:10px}
@@ -4022,6 +4045,7 @@ body.dark .ask-all .btn{background:transparent}
   <button data-dock="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/></svg>Menu</button>
 </nav>
 <div id="mActions">
+  <div class="sheet-grab" aria-hidden="true"></div>
   <div class="sh">Progetto</div>
   <div class="mact-grid">
     <button data-act="new" class="danger">Nuovo</button>
@@ -4340,7 +4364,7 @@ body.dark .ask-all .btn{background:transparent}
     <button id="shareGoPdf" hidden></button>
     <div style="display:flex;margin-top:14px;align-items:center;gap:10px">
       <button type="button" id="shareUnshare" hidden class="share-revoke">Smetti di condividere</button>
-      <button class="btn" id="shareClose" style="margin-left:auto">Chiudi</button>
+      <button class="btn danger" id="shareClose" style="margin-left:auto">Chiudi</button>
     </div>
   </div>
 </div>
@@ -4630,7 +4654,9 @@ body.dark .ask-all .btn{background:transparent}
         <button class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">PNG</button>
         <button class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">CSV</button>
         <span style="flex:1"></span>
-        <button class="btn" id="pdfCancel">Annulla</button>
+        <!-- Rosso perché è l'uscita: in una finestra dove l'azione è «Esporta PDF», l'altro bottone
+             chiude senza fare niente, e va distinto a colpo d'occhio. (Simone, 02/09) -->
+        <button class="btn danger" id="pdfCancel">Annulla</button>
         <button class="btn primary" id="pdfGo">Esporta PDF</button>
       </div>
     </div>

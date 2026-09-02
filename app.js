@@ -12054,9 +12054,10 @@ function refreshCatalogArt(){
 
   /* mobile: intestazione sticky del bottom-sheet (titolo + chiudi) */
   var mHead=document.createElement("div"); mHead.className="cat-sheet-head";
-  mHead.innerHTML='<span class="cat-sheet-title">Aggiungi elemento</span><button type="button" class="cat-sheet-close" aria-label="Chiudi">✕</button>';
+  mHead.innerHTML='<span class="cat-sheet-title">Aggiungi elemento</span><button type="button" class="cat-sheet-close danger" aria-label="Chiudi">✕</button>';
   el.appendChild(mHead);
   mHead.querySelector(".cat-sheet-close").addEventListener("click", closeMobileDrawers);
+  chiudiTrascinando(document.getElementById("catalog"), mHead, closeMobileDrawers, ".cat-sheet-close");
 
   // campo di ricerca + contenitori (accordion / risultati)
   var search=document.createElement("input");
@@ -12764,6 +12765,34 @@ function syncDrawerA11y(){
     else if(el.hasAttribute("data-drawer-inert")){ el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); el.removeAttribute("data-drawer-inert"); }
   });
 }
+/* TRASCINA GIÙ PER CHIUDERE (Simone, 02/09). È il gesto che ci si aspetta da un foglio che sale dal
+   basso, e su un telefono la X sta lontana dal pollice: si prende la maniglia e si butta giù.
+   Solo dalla MANIGLIA, non dal corpo — o scorrere l'elenco degli strumenti chiuderebbe il foglio.
+   Il foglio segue il dito, così si vede cosa sta per succedere; sotto i 70 px torna su, che è la
+   differenza fra uno scatto del pollice e un tocco storto. */
+function chiudiTrascinando(foglio, maniglia, chiudi, escludi){
+  if(!foglio || !maniglia) return;
+  var y0=null, dy=0;
+  maniglia.style.touchAction="none";
+  maniglia.addEventListener("pointerdown", function(e){
+    if(escludi && e.target.closest(escludi)) return;   /* la X fa già il suo */
+    y0=e.clientY; dy=0; foglio.style.transition="none";
+    try{ maniglia.setPointerCapture(e.pointerId); }catch(_e){}
+  });
+  maniglia.addEventListener("pointermove", function(e){
+    if(y0===null) return;
+    dy=Math.max(0, e.clientY-y0);                      /* solo verso il basso */
+    foglio.style.transform="translateY("+dy+"px)";
+  });
+  function fine(){
+    if(y0===null) return;
+    foglio.style.transition=""; foglio.style.transform="";
+    if(dy>70) chiudi();
+    y0=null; dy=0;
+  }
+  maniglia.addEventListener("pointerup", fine);
+  maniglia.addEventListener("pointercancel", fine);
+}
 function closeMobileDrawers(){
   if(!isMobile()) return;
   document.getElementById("catalog").classList.remove("open");
@@ -12773,6 +12802,9 @@ function closeMobileDrawers(){
 (function(){
   var cat=document.getElementById("catalog"), bd=document.getElementById("mobBackdrop");
   function closeAll(){ cat.classList.remove("open"); var ms=document.getElementById("mActions"); if(ms) ms.classList.remove("open"); bd.classList.remove("show"); syncDrawerA11y(); }
+  /* Anche il menu si butta giù: stesso gesto del catalogo, presa sulla maniglia in cima. */
+  (function(){ var ms=document.getElementById("mActions");
+    if(ms) chiudiTrascinando(ms, ms.querySelector(".sheet-grab"), closeAll); })();
   function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
