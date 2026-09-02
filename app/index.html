@@ -2568,7 +2568,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
    toast muto ("Tutto già collegato") ma con questa finestra: dice cosa serve e lo aggiunge.
    Design system: superficie/bordi/ombre dai token, bottoni .btn/.btn.primary condivisi. */
 .guide-ov{position:fixed;inset:0;z-index:330;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px}
-.guide-card{background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:420px;width:100%;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)}
+/* max-height + scroll: finche' queste finestre dicevano due righe («manca la stage box») non
+   serviva. Dal 02/09 ci passa anche la RISPOSTA a una segnalazione, che e' un testo vero: misurata
+   a 529 px, su un telefono piccolo (~550 px utili) i due bottoni finivano FUORI dallo schermo — e
+   quella finestra si chiude solo da li' o con Esc, che sul telefono non c'e'. Cioe' restava
+   bloccata. Ora la card non supera l'85% dell'altezza e il testo scorre dentro. */
+.guide-card{background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:420px;width:100%;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui);max-height:85dvh;max-height:85vh;overflow-y:auto;overscroll-behavior:contain}
 .guide-title{margin:0 0 8px;font-size:17px;line-height:1.3}
 /* pre-line: il testo arriva da textContent, e senza questo gli a capo di un messaggio a piu'
    paragrafi collassano in spazi — tutto attaccato, come un blocco solo. Serve alla risposta a una
