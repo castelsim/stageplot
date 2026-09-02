@@ -12546,8 +12546,14 @@ function showDragHintOnce(){
   var t=document.createElement("div"); t.id="dragHint";
   /* Il pannello delle proprietà sta a destra sul computer e IN BASSO sul telefono: un solo testo per
      due layout mandava metà degli utenti a cercare una colonna che sullo schermo non c'è. */
-  var _dove=(typeof isMobile==="function" && isMobile()) ? "pannello in basso" : "pannello a destra";
-  var s=document.createElement("span"); s.textContent="Trascinalo per spostarlo · maniglia in alto per ruotarlo · "+_dove+" per nome, copia, elimina";
+  /* Sul telefono il testo lungo diventa CINQUE righe e copre il palco — visto sul simulatore
+     iPhone il 02/09, che è la prima volta che ho potuto guardarlo davvero. Là si dice la cosa che
+     serve subito e basta: le altre si scoprono toccando. */
+  var _mob=(typeof isMobile==="function" && isMobile());
+  var s=document.createElement("span");
+  s.textContent = _mob
+    ? "Trascinalo per spostarlo. Toccalo per il nome e il resto."
+    : "Trascinalo per spostarlo · maniglia in alto per ruotarlo · pannello a destra per nome, copia, elimina";
   var x=document.createElement("button"); x.type="button"; x.setAttribute("aria-label","Chiudi"); x.textContent="✕";
   x.addEventListener("click", function(){ if(t.parentNode) t.remove(); });
   t.appendChild(s); t.appendChild(x); m.appendChild(t);
@@ -12842,9 +12848,14 @@ function pannelliChiudibiliColDito(){
     .forEach(function(par){
       var sec=document.getElementById(par[0]); if(!sec || sec.__grab) return;
       sec.__grab=1;
+      /* PRESA IN CIMA, non su tutto il pannello (Simone, 02/09: «l'opzione palco è meglio se me la
+         lasci scorrere normalmente senza la cosa che se scrollo giù si chiude»). Questi pannelli
+         hanno dentro più di quanto ci stia in 46vh — la forma del palco ha 33 bottoni — quindi si
+         scorrono, e il gesto di chiusura rubava lo scroll. La striscia dei primi 44 px basta per
+         buttarli giù, e sotto il dito scorre come deve. */
       chiudiTrascinando(sec, sec, function(){
         var b=document.getElementById(par[1]); if(b) b.click();
-      }, "input,select,textarea");
+      }, "input,select,textarea", 44);
     });
 }
 /* Agganciato dopo il boot: i 22 modali stanno tutti nel markup fin dall'inizio, quindi basta un
