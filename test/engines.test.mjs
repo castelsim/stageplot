@@ -85,10 +85,18 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
-  A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {};
+  /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
+     d'arrivo dei cavi, e se resta scritto il test dopo trova un capolinea che non ha messo lui —
+     e vede il ramo sbagliato di cabHomePoint(). */
+  A.state.cab.on = false; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.state.cab.home = null;
   A.state.elec.on = false; A.state.elec.manual = {}; A.state.elec.uplinks = {};
   A.state.mond.on = false; A.state.mond.manual = {};
   A.__cabRes = null; A.__elecRes = null; A.__mondRes = null;
+  /* La VISTA va riportata sul palco: `addItem` senza coordinate posa al centro di `vb`
+     (14144), quindi un test che sposta o allarga la vista fa nascere gli elementi altrove in
+     quelli dopo. Succede dal 02/09, da quando «Metti il punto d'arrivo» chiama fit() per mostrare
+     il punto che ha appena creato — giusto per l'utente, contaminante per la suite. */
+  try { A.fit(); } catch (e) { /* vb esiste solo col DOM finto: se manca, i test non lo usano */ }
   /* confine documento: i test che caricano documenti multi-variante (loadDoc) lasciavano VARIANTS e
      DOC_EXTRA popolati, contaminando chi legge il DOCUMENTO e non la sola variante attiva
      (hasMeaningfulDocument → isFreshBlankProject). */
@@ -8782,6 +8790,61 @@ t("la snake della stage box arriva al banco che sta sul palco", () => {
   eq(Math.round(R.snakes[0].x2), dm3.x, "e finisce sul DM3");
   /* Il banco non tira una snake verso se stesso. */
   ok(!R.snakes.some((s) => s.box.isMixer), "dal mixer non parte nessuna snake");
+});
+
+t("col banco in sala il punto d'arrivo si puo' finalmente creare", () => {
+  /* Il seguito del circolo chiuso: senza console sul palco il capolinea resta nullo, e il badge che
+     lo sposta si disegna solo se esiste GIA'. Prima non c'era nessun modo di uscirne, e il caso era
+     pure MUTO: le box raccoglievano i canali e il disegno taceva sul fatto che il multipolare non
+     andava da nessuna parte. Il punto nasce in sala davanti al palco («FOH ≤30 m davanti al palco»,
+     rider Pink Martini); da lì si trascina come si e' sempre fatto. */
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto";
+  add("cantante", 300, 400); add("batteria", 500, 400);
+  add("stagebox", 400, 700);
+  A.__cabRes = null;
+  let R = A.audioCablingEngine();
+  eq(R.snakes.length, 0, "di partenza la snake non va da nessuna parte");
+  const avviso = R.issues.filter((i) => i.code === "nohome")[0];
+  ok(avviso, "e adesso l'audit lo dice invece di tacere: " + R.issues.map((i) => i.msg).join(" | "));
+  eq(avviso.lvl, "warn", "a un livello che il pannello mostra");
+  const g = A.autoConnectNeeds("cabin");
+  ok(g && /non arrivano da nessuna parte/.test(g.title), "e la guida propone di rimediare: " + (g && g.title));
+  ok(g && g.action, "con un'azione, non solo con un rimprovero");
+  try { g.action.run(); } catch (e) { /* aggiunto() tocca il DOM: lo stato pero' e' scritto */ }
+  eq(A.state.cab.home.kind, "foh", "il punto nasce in sala");
+  eq(A.state.cab.home.x, Math.round(A.state.stage.w / 2), "in mezzo alla larghezza");
+  ok(A.state.cab.home.y > A.state.stage.d, "e oltre il bordo del palco, dove sta il pubblico");
+  A.__cabRes = null; R = A.audioCablingEngine();
+  eq(R.snakes.length, 1, "ora la snake c'e'");
+  ok(!R.issues.some((i) => i.code === "nohome"), "e l'avviso sparisce da se'");
+  /* IL PUNTO DEV'ESSERE VISIBILE. Nasce oltre il bordo del palco: con la vista stretta finisce
+     fuori schermo, e premere il bottone sembra non fare niente. Qui si verifica il presupposto —
+     che l'ancora entri nei bounds del contenuto — e che l'azione chiami fit(). La vista vera
+     (`vb`) non e' misurabile in questo sandbox: `vb.x` resta null senza un DOM, e l'ho verificata
+     nel browser. */
+  const b = A.contentBounds();
+  ok(b.y1 >= A.state.cab.home.y, "il punto sta dentro i bounds del contenuto: " + b.y1 + " ≥ " + A.state.cab.home.y);
+  const i0 = appjs.indexOf("Metti il punto d'arrivo");
+  ok(i0 > 0, "l'azione esiste nel bundle");
+  const azione = appjs.slice(i0, i0 + 800);
+  /* Ancorato a `typeof fit===` e non a `fit()`: il commento accanto DICE «fit() allarga fino a
+     comprenderlo», quindi cercando `fit()` il test trovava il commento e restava verde anche con
+     la riga tolta. Provato rimettendo il difetto: prima passava, ora cade. */
+  ok(/typeof fit===/.test(azione), "e l'azione adatta la vista, o il punto nasce fuori schermo");
+});
+
+t("col banco sul palco non si chiede niente a nessuno", () => {
+  /* L'avviso e la guida NON devono comparire quando il capolinea c'e' gia' per conto suo: sarebbe
+     un cartello che chiede una cosa gia' fatta. */
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto";
+  add("cantante", 300, 400); add("stagebox", 400, 700); add("dm3", 900, 750);
+  A.__cabRes = null;
+  const R = A.audioCablingEngine();
+  ok(!R.issues.some((i) => i.code === "nohome"), "nessun avviso: il banco e' li'");
+  const g = A.autoConnectNeeds("cabin");
+  ok(!(g && /non arrivano da nessuna parte/.test(g.title)), "e nessuna guida: " + (g && g.title));
 });
 
 t("con piu' banchi vince quello con piu' ingressi, e senza banco resta la scelta all'utente", () => {
