@@ -1752,13 +1752,13 @@
       </div>
     </div>
     <div id="paCustomSection" hidden>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="pa-nums" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
         <div><label>Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
         <div><label>Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
         <div><label>X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
         <div><label>Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
       </div>
-      <div style="display:flex;gap:6px">
+      <div class="pa-pre" style="display:flex;gap:6px">
         <button class="btn" id="paPreStage" style="flex:1;font-size:12px">= Palco</button>
         <button class="btn" id="paPreAll" style="flex:1;font-size:12px">Tutto il contenuto</button>
         <button class="btn" id="paPreCenter" style="flex:1;font-size:12px">⊕ Centra</button>
@@ -14693,6 +14693,35 @@ function chiudiTrascinando(foglio, maniglia, chiudi, escludi, fascia){
   maniglia.addEventListener("pointerup", fine);
   maniglia.addEventListener("pointercancel", fine);
 }
+/* OGNI finestra si chiude buttandola giù (Simone, 02/09: «tutte le finestre devono chiudersi con
+   trascinamento verso il basso»). Sono 22 modali, e attaccare il gesto a mano su ognuno vuol dire
+   dimenticarsene al 23°: qui si aggancia a tutti in un giro solo, alla card.
+   Come si chiude: si cerca il bottone che chiude DAVVERO (Annulla, Chiudi, ✕) e lo si preme, perché
+   spesso quel bottone fa altro oltre a nascondere — rimette a posto uno stato, spegne una modalità.
+   Solo se non c'è si nasconde la finestra a mano. */
+function fogliChiudibiliColDito(){
+  if(!isMobile()) return;
+  document.querySelectorAll(".modal").forEach(function(m){
+    /* Quattro finestre non usano `.mcard`: il benvenuto, le misure del palco e l'invito ad
+       accedere hanno `.wl-card`, la conferma ha `.cfm-card`. Verificato aprendole tutte e 22 —
+       col solo `.mcard` ne restavano fuori quattro.
+       Sulla conferma il gesto preme «Annulla», che è la scelta sicura: buttare giù una domanda
+       non deve mai voler dire «sì». */
+    var card=m.querySelector(".mcard,.pdf-export,.wl-card,.cfm-card"); if(!card || card.__grab) return;
+    card.__grab=1;
+    card.classList.add("card-grab");   /* la barretta in cima: dice che si può prendere */
+    chiudiTrascinando(card, card, function(){
+      var b=[].slice.call(m.querySelectorAll("button")).filter(function(x){
+        return x.offsetParent!==null && /^(annulla|chiudi|✕|×|x)$/i.test((x.textContent||"").trim()); })[0]
+        || m.querySelector(".exp-close,[data-close]");
+      if(b) b.click(); else m.hidden=true;
+    }, "input,select,textarea,button,a,label", 44);
+  });
+}
+/* Agganciato dopo il boot: i 22 modali stanno tutti nel markup fin dall'inizio, quindi basta un
+   giro solo. Se un domani se ne aggiunge uno a runtime, questa riga va richiamata. */
+if(document.readyState==="complete") setTimeout(function(){ try{ fogliChiudibiliColDito(); }catch(_e){} }, 800);
+else window.addEventListener("load", function(){ setTimeout(function(){ try{ fogliChiudibiliColDito(); }catch(_e){} }, 800); });
 function closeMobileDrawers(){
   if(!isMobile()) return;
   document.getElementById("catalog").classList.remove("open");
