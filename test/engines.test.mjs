@@ -12931,5 +12931,71 @@ t("le pagine suggerite si prendono con un clic solo", () => {
   ok(!/\.pill\.ghost\.sugg-all\{[^}]*background:var\(--accent\)/.test(stylesCss), "ma non è un bottone primario");
 });
 
+/* ═══ IL PALCO VUOTO DICE COSA FARE (01/09) ═══════════════════════════════════════════════════════
+   Provato da utente nuovo: chiuso il benvenuto senza scegliere un modello si resta davanti a un
+   rettangolo con FONDO PALCO e PUBBLICO, e nient'altro. Il catalogo e' li' a sinistra ma niente
+   dice di usarlo, e la spiegazione del benvenuto e' appena sparita per sempre. Zero indicazioni. */
+t("il palco vuoto dice come si comincia", () => {
+  ok(/function stageEmptyHintMarkup\(\)/.test(appjs), "c'è il suggerimento dello stato vuoto");
+  const fn = appjs.slice(appjs.indexOf("function stageEmptyHintMarkup"), appjs.indexOf("function stageLayerMarkup"));
+  /* Sparisce al primo elemento: da lì in poi sarebbe rumore sopra il lavoro di qualcuno. */
+  ok(/if\(\(state\.items\|\|\[\]\)\.length\) return '';/.test(fn), "col primo elemento sparisce");
+  /* Non entra MAI nei documenti: nel PDF e in sola lettura un palco vuoto è un palco vuoto, non
+     un invito rivolto a chi sta solo guardando. */
+  ok(/__cabStatic \|\| document\.body\.classList\.contains\("viewmode"\)/.test(fn),
+     "fuori dal PDF e dalla vista condivisa");
+  /* Dice il gesto giusto per il dispositivo: sul telefono il catalogo non è «a sinistra», è dietro
+     il bottone «Aggiungi» del dock. */
+  ok(/isMobile\(\)/.test(fn), "distingue telefono e desktop");
+  ok(/Tocca «Aggiungi» qui sotto/.test(fn), "su telefono nomina il bottone del dock");
+  ok(/catalogo a sinistra/.test(fn), "su desktop indica il catalogo");
+  /* È scritto nel markup del palco, quindi segue lo zoom e resta al centro. */
+  ok(/stageLayerMarkup[\s\S]{0,400}stageEmptyHintMarkup\(\)/.test(appjs), "vive nel layer del palco");
+  /* Non deve rubare i clic: chi sa già cosa fare clicca il palco sotto. */
+  ok(/\.stage-empty-hint\{[^}]*pointer-events:none/.test(stylesCss), "non intercetta i clic");
+});
+
+/* ═══ SBAGLIARE E TORNARE INDIETRO (01/09) ════════════════════════════════════════════════════════
+   Provato da utente nuovo: selezionato un elemento e premuto «Elimina», a schermo non succedeva
+   NIENTE — nessuna conferma di cosa fosse successo, e per rimediare bisognava indovinare che
+   l'iconcina da 19×32 px in alto (solo tooltip «Annulla (⌘Z)») fosse l'annulla. In qualunque
+   programma di oggi, dopo un'azione che toglie qualcosa compare la scritta con «Annulla» accanto:
+   è lì che uno la cerca. È la categoria «rischio di perdere il lavoro». */
+t("dopo un'eliminazione si vede cosa è successo, e come tornare indietro", () => {
+  const fn = appjs.slice(appjs.indexOf("function deleteSel()"), appjs.indexOf("function applyStageWidth"));
+  ok(/window\.__toast\(/.test(fn), "l'eliminazione lo dice");
+  ok(/label:"Annulla"/.test(fn), "e offre la via d'uscita");
+  ok(/typeof undo==="function"\) undo\(\)/.test(fn), "che è l'annulla vero, non un rimedio a parte");
+  /* Singolare e plurale: «1 elementi eliminati» è il genere di sciatteria che fa sembrare rotto
+     tutto il resto. */
+  ok(/quanti===1 \? "Elemento eliminato" : quanti\+" elementi eliminati"/.test(fn), "conta bene");
+});
+
+t("il messaggio può portare un'azione, e le chiamate di prima non cambiano", () => {
+  const fn = appjs.slice(appjs.indexOf("function toast(msg, isErr, azione)"), appjs.indexOf("try{ window.__toast=toast"));
+  ok(fn.length > 100, "il toast accetta un'azione");
+  /* Terzo parametro FACOLTATIVO: nel programma ci sono decine di toast semplici, e nessuno deve
+     cambiare. */
+  ok(/if\(azione && typeof azione\.run==="function"\)/.test(fn), "senza azione si comporta come prima");
+  /* Un messaggio con un bottone da leggere e raggiungere vuole più dei 3,2 s di uno semplice. */
+  ok(/azione \? 7000 : 3200/.test(fn), "e resta a schermo più a lungo");
+  /* Cliccando l'azione il messaggio se ne va: lasciarlo lì farebbe credere che non sia successo nulla. */
+  ok(/toastEl\.hidden=true; if\(toastT\) clearTimeout\(toastT\); azione\.run\(\)/.test(fn),
+     "il clic chiude il messaggio ed esegue");
+  /* È un bottone vero: raggiungibile da tastiera e da dito. */
+  ok(/createElement\("button"\)/.test(fn), "è un <button>");
+  ok(/\.toast-act:focus-visible\{outline:2px solid #fff/.test(stylesCss), "col fuoco si vede");
+  ok(/@media \(pointer:coarse\)\{ \.toast-act\{min-height:44px/.test(stylesCss), "e su telefono è da dito");
+  /* Su telefono il messaggio finiva SOPRA il dock, coprendo per 27 px i quattro bottoni (Aggiungi ·
+     Esporta · Condividi · Menu) per tutti i sette secondi in cui resta. Il «bottom» stava inline
+     nell'HTML, dove nessuna media query poteva toccarlo: ora è nel foglio di stile e sul telefono
+     sale sopra la barra, con la stessa variabile che usa il riepilogo del modello. */
+  ok(/#cloudToast\{bottom:26px\}/.test(stylesCss), "la posizione è nel CSS, non inline");
+  ok(/@media \(max-width:880px\)\{ #cloudToast\{bottom:calc\(var\(--dock-h,64px\) \+ 12px\)\} \}/.test(stylesCss),
+     "e su telefono sta sopra il dock");
+  const app = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(!/id="cloudToast"[^>]*bottom:26px/.test(app), "niente più bottom inline che nessuna regola può battere");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
