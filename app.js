@@ -9810,7 +9810,7 @@ function renderRxPanel(it){
     (function(ch){
       var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;gap:6px;margin-bottom:4px";
       var lab=document.createElement("span"); lab.style.cssText="flex:0 0 18px;font-size:11px;font-weight:700;color:var(--text-2)"; lab.textContent=ch;
-      var sel=document.createElement("select"); sel.style.cssText="flex:1;min-width:0;font-size:11.5px";
+      var sel=document.createElement("select"); sel.style.cssText="flex:1;min-width:0;font-size:12px";
       var o0=document.createElement("option"); o0.value=""; o0.textContent="— (auto)"; sel.appendChild(o0);
       A.txs.forEach(function(tx){ var o=document.createElement("option"); o.value=tx.id;
         var whr=A.byTx[tx.id]; o.textContent=rfTxName(tx)+(whr&&whr.rx.id!==it.id?" (su altro RX)":"");
@@ -9865,13 +9865,13 @@ function renderRackPanel(it){
     up.addEventListener("click", function(ev){ ev.stopPropagation(); if(i>0){ var o=cont[i-1]; o.rackPos=i; x.rackPos=i-1; save(); renderProps(); } });
     var dn=document.createElement("button"); dn.type="button"; dn.className="rmv"; dn.textContent="▼";
     dn.addEventListener("click", function(ev){ ev.stopPropagation(); if(i<cont.length-1){ var o2=cont[i+1]; o2.rackPos=i; x.rackPos=i+1; save(); renderProps(); } });
-    var rm=document.createElement("button"); rm.type="button"; rm.className="rx"; rm.textContent="×"; rm.title="Togli dal rack (torna sul palco)";
+    var rm=document.createElement("button"); rm.type="button"; rm.className="rx"; rm.textContent="✕"; rm.title="Togli dal rack (torna sul palco)";
     rm.addEventListener("click", function(ev){ ev.stopPropagation(); rackFreeItem(x, it); __cabRes=null; __mondRes=null; __elecRes=null; save(); render(); });
     d.appendChild(uh); d.appendChild(nm); d.appendChild(up); d.appendChild(dn); d.appendChild(rm);
     d.addEventListener("click", function(){ selectOne(x.id); render(); });   /* riga = apri le proprietà dell'apparecchio */
     rows.appendChild(d);
   });
-  if(!cont.length){ rows.innerHTML='<div style="font-size:11.5px;color:var(--text-3);padding:4px 0">Vuoto — aggiungi dal palco o crea un apparecchio nuovo.</div>'; }
+  if(!cont.length){ rows.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:4px 0">Vuoto — aggiungi dal palco o crea un apparecchio nuovo.</div>'; }
   var add=document.getElementById("pRackAdd"); add.innerHTML="";
   var o0=document.createElement("option"); o0.value=""; o0.textContent="— aggiungi apparecchio —"; add.appendChild(o0);
   var free=(state.items||[]).filter(function(x){ return RACK_ELIGIBLE[x.type] && !x.rackId; });
@@ -10659,7 +10659,7 @@ function renderProps(){
     if(kitMuted){
       document.getElementById("pCompCtl").innerHTML =
         '<div class="comp-dim">Ingombro: '+it.w+'×'+it.d+' cm</div>'+
-        '<div class="hint" style="font-size:11.5px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
+        '<div class="hint" style="font-size:12px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
         '<button type="button" class="btn" id="pKitToSchem" style="width:100%;margin-top:6px;font-size:12px;padding:6px 2px">Configura in dettaglio (Schematico)</button>';
       var kb=document.getElementById("pKitToSchem"); if(kb) kb.onclick=function(){ mutSel(function(x){ x.look="schematico"; }); renderProps(); };
     } else buildCompCtl(comp, it, reduced);
@@ -11505,7 +11505,7 @@ function renderModelField(it){
     if(lbl) lbl.firstChild.textContent=equipFieldLabel(cats, it)+" ";
     cur.innerHTML='<span style="color:var(--accent,#0d9488);font-weight:600">✓ '+esc(nm)+'</span>'
       +'<small style="color:var(--text-3,#9ca3af)">dati verificati</small>'
-      +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">×</button>';
+      +'<button type="button" id="pModelRm" title="Torna al generico" aria-label="Rimuovi modello" style="margin-left:auto;border:none;background:none;cursor:pointer;color:var(--text-3,#9ca3af);font-size:14px;padding:0 4px">✕</button>';
     var rm=document.getElementById("pModelRm");
     if(rm) rm.onclick=function(){ mutSel(function(x){ delete x.modelId; delete x.modelData; delete x.modelOverride; }); renderProps(); };
     return;
@@ -12299,7 +12299,7 @@ function refreshCatalogArt(){
     }
     if(q==="render"){   /* funzione INTERNA nascosta: solo con "render" ESATTO. Non è un elemento del palco. */
       var rb=document.createElement("button"); rb.type="button"; rb.className="btn"; rb.style.cssText="width:100%;justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;height:auto";
-      rb.innerHTML='<span style="font-weight:700">Genera prompt render 3D</span><span style="font-size:11.5px;color:var(--text-2);font-weight:400">Crea un prompt realistico basato sullo stage plot corrente</span>';
+      rb.innerHTML='<span style="font-weight:700">Genera prompt render 3D</span><span style="font-size:12px;color:var(--text-2);font-weight:400">Crea un prompt realistico basato sullo stage plot corrente</span>';
       rb.addEventListener("click", function(){ if(window.__openRender) window.__openRender(); });
       results.appendChild(rb); return;
     }
@@ -12861,9 +12861,19 @@ function fogliChiudibiliColDito(){
     card.__grab=1;
     card.classList.add("card-grab");   /* la barretta in cima: dice che si può prendere */
     chiudiTrascinando(card, card, function(){
-      var b=[].slice.call(m.querySelectorAll("button")).filter(function(x){
-        return x.offsetParent!==null && /^(annulla|chiudi|✕|×|x)$/i.test((x.textContent||"").trim()); })[0]
-        || m.querySelector(".exp-close,[data-close]");
+      /* Il bottone da premere si riconosce dal NOME, non dal segno. Prima si prendeva il primo
+         bottone visibile il cui testo fosse «✕» o «×»: ma dentro le finestre quei due segni
+         marcano anche i «togli questa riga» (togli dal rack, togli dal PDF, elimina dalla
+         rubrica, togli la nota), e in ordine di DOM uno di quelli può venire prima della
+         chiusura — buttare giù il foglio avrebbe cancellato qualcosa invece di chiuderlo.
+         Il nome accessibile li distingue: una ✕ che chiude porta sempre aria-label «Chiudi» o
+         «Annulla…», una ✕ che toglie porta un title che dice cosa toglie. Il segno resta solo
+         come ultima spiaggia, quando in quella finestra non c'è niente di meglio. (02/09) */
+      var vis=[].slice.call(m.querySelectorAll("button")).filter(function(x){ return x.offsetParent!==null; });
+      function nomeAcc(x){ return ((x.getAttribute("aria-label")||x.textContent)||"").trim(); }
+      var b=vis.filter(function(x){ return /^(annulla|chiudi)/i.test(nomeAcc(x)); })[0]
+        || m.querySelector(".exp-close,[data-close]")
+        || vis.filter(function(x){ return /^(✕|×|x)$/i.test((x.textContent||"").trim()); })[0];
       if(b) b.click(); else m.hidden=true;
     }, "input,select,textarea,button,a,label", 44);
   });
@@ -17990,7 +18000,7 @@ function renderLightsList(){
   if(nh){
     var ns=Array.isArray(L.notes)?L.notes:[];
     nh.innerHTML = ns.length ? ('<div class="lights-notes-h">Note delle luci</div>'+ns.map(function(t,i){
-      return '<div class="lights-note"><span>'+esc(t)+'</span><button type="button" class="lights-note-x" data-lnote="'+i+'" title="Togli la nota" aria-label="Togli la nota">×</button></div>';
+      return '<div class="lights-note"><span>'+esc(t)+'</span><button type="button" class="lights-note-x" data-lnote="'+i+'" title="Togli la nota" aria-label="Togli la nota">✕</button></div>';
     }).join("")) : "";
   }
   var mood=document.getElementById("lightsMood");
@@ -18050,9 +18060,9 @@ function renderLightsCard(){
     '<label class="lights-lbl">Nota</label>'+
     '<input type="text" class="lights-inp" id="lcNote" value="'+esc(r.note)+'" placeholder="finisce nel rider sotto la richiesta">'+
     '<div class="lights-acts">'+
-      (r.n>1?'<button type="button" class="btn sm" id="lcSplit">Dividi</button>':'')+
-      '<button type="button" class="btn sm" id="lcShow">Mostra sul palco</button>'+
-      '<button type="button" class="btn sm danger" id="lcDel">Elimina</button>'+
+      (r.n>1?'<button type="button" class="btn" id="lcSplit">Dividi</button>':'')+
+      '<button type="button" class="btn" id="lcShow">Mostra sul palco</button>'+
+      '<button type="button" class="btn danger" id="lcDel">Elimina</button>'+
     '</div></div>';
   host.innerHTML=h;
 }
@@ -19438,11 +19448,11 @@ function renderBusSec(){
   host.innerHTML="";
   var L; try{ L=busList(); }catch(_e){ return; }
   var hd=document.createElement("div");
-  hd.style.cssText="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px";
+  hd.style.cssText="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px";
   hd.textContent="Uscite console";
   host.appendChild(hd);
   var sub=document.createElement("div");
-  sub.style.cssText="font-size:10.5px;color:var(--text-3);margin-bottom:6px";
+  sub.style.cssText="font-size:11px;color:var(--text-3);margin-bottom:6px";
   sub.textContent="TV, REC, main, matrici, cuffie — quello che non deriva dal palco. Porta out automatica, click sulla pillola per box/porta/destinazione.";
   host.appendChild(sub);
   (L.auto||[]).filter(function(a){ return a.cuf; }).forEach(function(a){
@@ -19457,7 +19467,7 @@ function renderBusSec(){
     var pill = r.box ? ((r.box.sbId?("ID"+r.box.sbId):r.box.letter)+" out "+r.ports[0]+(r.ports.length>1?"–"+r.ports[r.ports.length-1]:"")+(r.pinned?" 📌":"")) : "senza out";
     row.innerHTML='<span class="bus-tag">'+esc(r.tag)+'</span><span class="bus-nm" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'+
       '<span class="bus-out'+(r.box?'':' miss')+(r.pinned?' pin':'')+'">'+esc(pill)+'</span>'+
-      '<span class="bus-dst" title="'+esc(r.dest||'')+'">'+esc(r.dest||"")+'</span><span class="bus-x" title="Elimina">×</span>';
+      '<span class="bus-dst" title="'+esc(r.dest||'')+'">'+esc(r.dest||"")+'</span><span class="bus-x" title="Elimina">✕</span>';
     row.querySelector(".bus-out").addEventListener("click", function(e){ e.stopPropagation(); openBusPop(e, r); });
     row.querySelector(".bus-x").addEventListener("click", function(){
       state.buses=state.buses.filter(function(x){ return x.id!==r.bus.id; });
@@ -19493,7 +19503,7 @@ function renderBusSec(){
     });
     host.appendChild(cw);
   }
-  if(L.hub){ var hb=document.createElement("div"); hb.style.cssText="font-size:10.5px;color:var(--text-3);margin-top:6px";
+  if(L.hub){ var hb=document.createElement("div"); hb.style.cssText="font-size:11px;color:var(--text-3);margin-top:6px";
     hb.textContent="ℹ C'è un hub personal monitor sul palco: se i canali cuffie escono dalla console, aggiungi un bus «Macchina cuffie»."; host.appendChild(hb); }
 }
 var monActive=false, monOpen=true;
@@ -20449,7 +20459,7 @@ function renderAuditPanel(){
   document.getElementById("auditScore").innerHTML =
     '<div style="display:flex;align-items:center;gap:12px">'
     +'<div style="width:52px;height:52px;border-radius:50%;border:3px solid '+col+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:'+col+'">'+A.score+'</div>'
-    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:11.5px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+((A.todefs||0)>0?(' · '+A.todefs+' da definire'):'')+'</div></div></div>';
+    +'<div><div style="font-weight:700;color:'+col+'">'+esc(A.grade)+'</div><div style="font-size:12px;color:var(--text-3)">'+A.errs+' error'+(A.errs===1?'e':'i')+' · '+A.warns+' avvis'+(A.warns===1?'o':'i')+((A.todefs||0)>0?(' · '+A.todefs+' da definire'):'')+'</div></div></div>';
   document.getElementById("auditMetrics").innerHTML = A.audioSrc+' ingressi · '+A.monitors+' mix monitor · '+(A.totW/1000).toFixed(1).replace(".",",")+' kW · cavo ~'+A.totCableM.toFixed(0)+' m'
     +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
   var host=document.getElementById("auditFindings");
@@ -24291,7 +24301,7 @@ function renderContacts(){
       if(ro) el.readOnly=true; else el.addEventListener("input", function(){ var lim=field==="note"?120:(field==="contact"?80:(field==="name"?60:40)); state.contacts[i][field]=el.value.slice(0,lim); if(field==="name"||field==="contact") refreshStar(); syncTechContact(); saveSoon(); });
       return el; }
     row.appendChild(inp("role","Ruolo (es. Service locale)",2,"roleList"));
-    var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Rimuovi contatto";
+    var del=document.createElement("button"); del.type="button"; del.textContent="✕"; del.title="Rimuovi contatto";
     del.style.cssText="border:1px solid var(--border,#e5e7eb);background:#fff;border-radius:6px;cursor:pointer;color:#dc2626;font-size:16px;line-height:1;padding:0 9px";
     if(ro) del.style.visibility="hidden"; else del.addEventListener("click", function(){ state.contacts.splice(i,1); syncTechContact(); saveSoon(); renderContacts(); });
     row.appendChild(del);
@@ -24396,11 +24406,11 @@ function openItemContactModal(it){
     ov.style.cssText="position:fixed;inset:0;z-index:350;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
     ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:460px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:var(--elev-4)">'+
       '<h3 id="icTitle" style="margin:0 0 2px;font-size:15px"></h3>'+
-      '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:12px">Il contatto resta nel tuo account: non entra nel progetto, nei link condivisi né nei PDF.</div>'+
+      '<div style="font-size:12px;color:var(--text-2);margin-bottom:12px">Il contatto resta nel tuo account: non entra nel progetto, nei link condivisi né nei PDF.</div>'+
       '<div id="icPick">'+
         '<input id="icQ" type="text" placeholder="Cerca nella tua rubrica…" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-size:13px">'+
         '<div id="icList" style="margin-top:6px;border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:180px;overflow-y:auto"></div>'+
-        '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:10.5px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
+        '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:11px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
           '<div><label class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
           '<div><label class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
@@ -24414,7 +24424,7 @@ function openItemContactModal(it){
         '<div style="border:1px solid var(--accent);background:var(--accent-tint);border-radius:10px;padding:11px 13px">'+
           '<div id="icAName" style="font-size:14px;font-weight:700;color:var(--accent-strong)"></div>'+
           '<div id="icADet" style="font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.5"></div>'+
-          '<span id="icARole" style="display:inline-block;background:var(--surface);border:1px solid var(--accent);color:var(--accent-strong);font-size:10.5px;font-weight:600;border-radius:999px;padding:1px 8px;margin-top:6px"></span>'+
+          '<span id="icARole" style="display:inline-block;background:var(--surface);border:1px solid var(--accent);color:var(--accent-strong);font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;margin-top:6px"></span>'+
         '</div>'+
         '<div style="margin-top:12px;font-size:11px;color:var(--text-2)">🔒 Visibile solo a te, qui nel pannello. Palco, PDF e link condivisi restano senza nomi.</div>'+
         '<div style="display:flex;margin-top:14px;justify-content:space-between;align-items:center">'+
@@ -24451,17 +24461,17 @@ function openItemContactModal(it){
                  : base.filter(function(c){ return icRoleMatch(elemRole, c.role); });
       if(!f && elemRole){
         var hint=document.createElement("div");
-        hint.style.cssText="font-size:10.5px;color:var(--text-3);padding:6px 11px;border-bottom:1px solid var(--n-100,#edebe4)";
+        hint.style.cssText="font-size:11px;color:var(--text-3);padding:6px 11px;border-bottom:1px solid var(--n-100,#edebe4)";
         hint.textContent="Ruoli affini a \u201c"+elemRole+"\u201d \u00b7 cerca per vedere tutta la rubrica";
         listEl.appendChild(hint);
       }
-      if(!cs.length){ var em=document.createElement("div"); em.style.cssText="font-size:11.5px;color:var(--text-3);padding:8px 11px";
+      if(!cs.length){ var em=document.createElement("div"); em.style.cssText="font-size:12px;color:var(--text-3);padding:8px 11px";
         em.textContent=(rows||[]).length ? (f?"Nessun contatto corrisponde.":"Nessun \u201c"+elemRole+"\u201d in rubrica \u2014 cerca per nome o compila il nuovo contatto.") : "Rubrica vuota \u2014 compila il nuovo contatto qui sotto.";
         listEl.appendChild(em); return; }
       cs.slice(0,30).forEach(function(c){
         var taken=takenLabel(c.id);
         var d=document.createElement("div"); d.style.cssText="display:flex;flex-direction:column;gap:1px;padding:8px 11px;border-bottom:1px solid var(--n-100,#edebe4);"+(taken?"opacity:.55;cursor:default":"cursor:pointer");
-        var r1=document.createElement("span"); r1.style.cssText="font-size:12.5px;font-weight:600";
+        var r1=document.createElement("span"); r1.style.cssText="font-size:13px;font-weight:600";
         r1.textContent=[(c.name||"").trim(),(c.role||"").trim()].filter(function(x){ return x; }).join(" — ");
         d.appendChild(r1);
         var det=(c.contact||"").trim();
@@ -24584,9 +24594,9 @@ function renderRespField(it){
     var exc=(amap[elKey]||[]).filter(function(a){ return a.role==="__azienda__"; })[0];
     body.innerHTML="";
     if(exc && byId[exc.contact_id]){
-      var p=daPill("az", "🏢 "+esc(byId[exc.contact_id].name)+' <b style="font-size:8.5px;opacity:.75">ECCEZIONE</b>', function(){ C.deptAssign.remove(pid, elKey, exc.contact_id, function(){ renderProps(); }); });
+      var p=daPill("az", "🏢 "+esc(byId[exc.contact_id].name)+' <b style="font-size:9px;opacity:.75">ECCEZIONE</b>', function(){ C.deptAssign.remove(pid, elKey, exc.contact_id, function(){ renderProps(); }); });
       body.appendChild(p);
-      var note=document.createElement("div"); note.className="pd-hint"; note.style.marginTop="4px"; note.textContent="rimuovi × per tornare a ereditare"; body.appendChild(note);
+      var note=document.createElement("div"); note.className="pd-hint"; note.style.marginTop="4px"; note.textContent="rimuovi ✕ per tornare a ereditare"; body.appendChild(note);
     } else {
       var line=document.createElement("div"); line.style.cssText="font-size:12px;margin-bottom:6px";
       line.innerHTML = inh && byId[inh.contact_id]
@@ -24605,7 +24615,7 @@ function daFindOrCreate(rubrica, name, kind, role, cb){
 }
 function daPill(cls, html, onx){
   var s=document.createElement("span"); s.className="da-pill "+cls; s.innerHTML=html;
-  if(onx){ var x=document.createElement("span"); x.className="da-x"; x.textContent="×"; x.title="Rimuovi"; x.addEventListener("click", function(e){ e.stopPropagation(); onx(); }); s.appendChild(x); }
+  if(onx){ var x=document.createElement("span"); x.className="da-x"; x.textContent="✕"; x.title="Rimuovi"; x.addEventListener("click", function(e){ e.stopPropagation(); onx(); }); s.appendChild(x); }
   return s;
 }
 function daAddForm(host, deptKey, kind, rubrica, pid){
@@ -24662,7 +24672,7 @@ window.__openRubricaModal=function(){
     ov.style.cssText="position:fixed;inset:0;z-index:340;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px";
     ov.innerHTML='<div style="background:var(--surface);color:var(--text);border-radius:var(--r-xl);max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:22px;box-shadow:var(--elev-4);font-family:var(--font-ui)">'+
       '<h3 style="margin:0 0 4px;font-size:18px">La mia rubrica</h3>'+
-      '<div id="rubCount" style="font-size:11.5px;color:var(--text-3);margin-bottom:10px"></div>'+
+      '<div id="rubCount" style="font-size:12px;color:var(--text-3);margin-bottom:10px"></div>'+
       '<div id="rubRows"></div>'+
       '<div style="display:flex;gap:10px;margin-top:14px;justify-content:space-between">'+
         '<button id="rubImport" type="button" class="btn">Importa dai progetti</button>'+
@@ -24688,7 +24698,7 @@ function rubPaintRows(){
     rows.forEach(function(c){
       var row=document.createElement("div"); row.style.cssText="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center;margin-bottom:6px;font-size:12px";
       row.innerHTML='<div><b>'+esc(c.name||"—")+'</b>'+(c.role?' · '+esc(c.role):'')+'</div><div style="color:var(--text-3);overflow:hidden;text-overflow:ellipsis">'+esc(c.contact||"")+(c.note?' · '+esc(c.note):'')+'</div>';
-      var del=document.createElement("button"); del.type="button"; del.textContent="×"; del.title="Elimina dalla rubrica";
+      var del=document.createElement("button"); del.type="button"; del.textContent="✕"; del.title="Elimina dalla rubrica";
       del.style.cssText="border:1px solid var(--border,#e5e7eb);background:var(--surface,#fff);border-radius:6px;cursor:pointer;color:#dc2626;font-size:14px;line-height:1;padding:2px 8px";
       del.addEventListener("click", function(){ window.__cloud.rubrica.remove(c.id, function(){ rubPaintRows(); }); });
       row.appendChild(del); host.appendChild(row);
@@ -25188,7 +25198,7 @@ function pdfChannelPage(doc, L, paperKey){
       if(_pdfPillSel[p.key]){
         nSel++;
         var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
-        var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Togli dal PDF";
+        var x=document.createElement("span"); x.className="x"; x.textContent="✕"; x.title="Togli dal PDF";
         var _togli=function(){ delete _pdfPillSel[p.key]; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
         x.addEventListener("click", _togli);
         if(typeof premibile==="function") premibile(x, _togli, "Togli dal PDF: "+p.label);
