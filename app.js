@@ -18112,6 +18112,25 @@ function cabPairBlocks(){
   }
   return m;
 }
+/* «FORNITO DA» — il ponte fra le due liste (02/09).
+   La channel list che si compila a mano (`state.inputs`) e la input list del PDF (`patchList`) sono
+   due binari: la prima e' scritta dall'utente, la seconda e' derivata dal palco. Il 26/08 e' stata
+   aggiunta la colonna «forn.» alla prima — «dove i rider veri lo mettono, riga per riga» — ma il
+   PDF non la leggeva: si compilava un campo che non usciva da nessuna parte.
+   L'aggancio e' per ELEMENTO e per NOME della sorgente insieme: l'id da solo non basta quando un
+   elemento fa piu' canali (la batteria ne fa otto, e non e' detto che li porti la stessa persona).
+   Se il nome non combacia non si indovina: meglio niente che un'attribuzione sbagliata su un rider. */
+function _riderBy(itemId, name){
+  var righe=state.inputs; if(!righe || !righe.length) return "";
+  var n=String(name||"").trim().toLowerCase();
+  for(var i=0;i<righe.length;i++){
+    var r=righe[i]; if(!r || !r.by) continue;
+    if(itemId && r.linked_item_id === itemId && String(r.src||"").trim().toLowerCase() === n) return r.by;
+  }
+  /* senza aggancio all'elemento (righe scritte a mano) vale il solo nome, se e' univoco */
+  var trovate=righe.filter(function(r){ return r && r.by && String(r.src||"").trim().toLowerCase()===n; });
+  return trovate.length===1 ? trovate[0].by : "";
+}
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
   var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
@@ -18152,7 +18171,7 @@ function patchList(){
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
             micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
-            stereoPair:_pair, standShared:_shared,
+            stereoPair:_pair, standShared:_shared, by:_riderBy(itemId, name),
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
   R.links.forEach(function(l){ if(l.deleted) return;
