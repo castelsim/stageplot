@@ -11236,6 +11236,18 @@ document.getElementById("pMountSafety").addEventListener("change", function(){
   mutSel(function(it){ if(isMountable(it)) mountSet(it, {safety:(v==="unspecified")?null:v}); });
   save();
 });
+(function(){   /* «Altre opzioni» nella finestra Esporta: stessa preferenza del pannello elemento */
+  var b=document.getElementById("pdfProBtn"); if(!b) return;
+  function sync(){ b.textContent=document.body.classList.contains("props-pro") ? "Meno opzioni" : "Altre opzioni"; }
+  b.addEventListener("click", function(){
+    var on=document.body.classList.toggle("props-pro");
+    try{ localStorage.setItem("sp_props_pro", on?"1":"0"); }catch(e){}
+    sync();
+    var pa=document.getElementById("pAdvMob");
+    if(pa) pa.textContent=on ? "Nascondi le opzioni tecniche" : "Opzioni tecniche";
+  });
+  sync();
+})();
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
 document.getElementById("grpMirror").addEventListener("click", mirrorSel);
 /* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
@@ -11272,8 +11284,11 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
     postaz.appendChild(nest2);
   }
 
+  /* `data-grp` e' l'aggancio che mancava: il .pgrp nasceva senza id ne' attributi, quindi da CSS
+     non lo si poteva raggiungere. Serve al taglio base/professionale del telefono (02/09). */
   function group(title, note, ids){
     var g=document.createElement("div"); g.className="pgrp";
+    g.setAttribute("data-grp", String(title).toLowerCase().replace(/[^a-z]+/g,"-"));
     var h=document.createElement("div"); h.className="pgh"; h.textContent=title;
     if(note){ var s=document.createElement("span"); s.className="pgh-note"; s.textContent=" — "+note; h.appendChild(s); }
     g.appendChild(h);
@@ -11291,6 +11306,29 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
+
+  /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono
+     dev'essere possibile inserire icone ed esportare in modo semplice, senza tutte le opzioni
+     della versione pro»).
+     Restano SEMPRE in vista i gruppi che descrivono quello che si VEDE sul palco — Etichetta,
+     Accessori, Installazione, Nota, Disegno — piu' «Microfono», perche' li' dentro c'e' anche come
+     si tiene il microfono (asta, palmare, archetto), che e' il primo errore che si nota in un plot
+     e non e' una questione da fonico.
+     Vanno dietro il bottone «Ascolto» e «Dettagli tecnici»: alimentano la monitor list e i motori,
+     e sono decisioni che si prendono davanti alla console.
+     Nascosto NON vuol dire tolto: il bottone è lì sotto, e una volta aperto RESTA aperto — chi
+     lavora in modo professionale lo apre una volta e non ci pensa più. */
+  var adv=document.createElement("button");
+  adv.type="button"; adv.id="pAdvMob"; adv.className="btn adv-mob";
+  adv.addEventListener("click", function(){
+    var on=document.body.classList.toggle("props-pro");
+    try{ localStorage.setItem("sp_props_pro", on?"1":"0"); }catch(e){}
+    adv.textContent=on ? "Nascondi le opzioni tecniche" : "Opzioni tecniche";
+    if(typeof syncPanelGroups==="function") syncPanelGroups();
+  });
+  try{ if(localStorage.getItem("sp_props_pro")==="1") document.body.classList.add("props-pro"); }catch(e){}
+  adv.textContent=document.body.classList.contains("props-pro") ? "Nascondi le opzioni tecniche" : "Opzioni tecniche";
+  sp.appendChild(adv);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
   if(resp || cont || req){
     var d=document.createElement("details"); d.className="pdetails";
