@@ -81,6 +81,9 @@
      Regola: nessun hex grezzo fuori da qui (e dalle classi oggetto-palco/canvas).
      ========================================================================= */
   :root{
+    /* Altezza del dock del telefono: 52px di bottone più la safe-area del telefono. Era usata in
+       due calc() e non dichiarata da nessuna parte: valeva sempre il fallback 64px. (02/09) */
+    --dock-h:calc(52px + env(safe-area-inset-bottom, 0px));
     /* neutri (warm stone/avorio — DS v2.0) */
     --n-50:#f5f4f0;--n-100:#edebe4;--n-200:#ddd9cd;--n-300:#c8c3b4;--n-400:#a29c8e;
     --n-500:#746e60;--n-600:#59544a;--n-700:#423e36;--n-800:#292620;--n-900:#1a1815;
@@ -1856,8 +1859,10 @@
      buco accanto: succede a «Area stampa» e a «Tema», e dopo aver tolto Planimetria e Channel list
      succedeva due volte su tre gruppi. (02/09) */
   .mact-grid button:last-child:nth-child(odd){grid-column:1 / -1}
-  /* Alti come un bersaglio, e con lo stesso respiro fra i gruppi: sono l'unico menu del telefono. */
-  .mact-grid button{min-height:48px}
+  /* Alti come un bersaglio, e con lo stesso respiro fra i gruppi: sono l'unico menu del telefono.
+     Con `min-height:48px` e basta perdeva contro la riga generica dei 44 px scritta più in basso
+     (stessa specificità, vince l'ultima): il commento diceva 48, il browser faceva 44. (02/09) */
+  #mActions .mact-grid button{min-height:48px}
   #mActions .sh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding:8px 2px 6px}
   .mact-consul{display:block;text-align:center;color:var(--accent);font-weight:600;font-size:13px;text-decoration:none;padding:10px;margin-top:4px}
   .mact-consul:hover{text-decoration:underline}
@@ -1958,8 +1963,13 @@
        C'era UNA difesa, `.stpr input{font-size:16px}`, e la riga SUBITO DOPO la annullava
        rimettendo 15px: stesso selettore, stessa specificita', stesso blocco. Il commento
        dichiarava un'intenzione che il CSS non eseguiva.
-       Qui vale per tutti i campi, in una riga sola. Il canvas non c'entra: la' e' SVG. */
-    input, select, textarea{font-size:16px}
+       E la riga generica non bastava: `input,select,textarea` ha specificita' (0,0,1) e perdeva
+       contro VENTIQUATTRO regole su venticinque — `#props input` (13px), `.stpr input` (13px),
+       `.qa-input` della ricerca (14,5px), `.mcard select` (14px), `.mtop-r2 input` della barra alta.
+       Cioe' proprio i campi che si toccano da telefono. Serve `!important`: qui non e' pigrizia, e'
+       l'unico modo di battere un id, ed e' una difesa del browser, non una scelta grafica.
+       Il canvas non c'entra: la' e' SVG. */
+    input, select, textarea{font-size:16px !important}
     .stpr input{padding:9px 2px}
     .pg-cells{max-width:none}
     #props #eventoSec{display:none}                 /* di norma nascosto: si apre dal bottone Evento */
@@ -2597,16 +2607,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
      pareggia, e a parita' vince l'ultima scritta. Messa prima — dov'era — il bottone compariva
      anche col mouse. Misurato nel browser il 02/09, ed e' la terza volta in un giorno che questo
      pannello vince per specificita' su una regola nuova. */
-  #props /* La barretta in cima ai fogli che salgono dal basso: dice «prendimi e buttami giù» senza scriverlo.
-   È la convenzione, e su un telefono la X sta lontana dal pollice. (02/09) */
-.sheet-grab{display:none}
-@media (max-width:880px){
-  .sheet-grab{display:block;width:38px;height:4px;border-radius:999px;background:var(--border);
-    margin:8px auto 4px;flex:0 0 auto}
-  /* L'area di presa è più alta della barretta: 4 px non si prendono col dito. */
-  #mActions .sheet-grab{padding:10px 0;background-clip:content-box;height:24px;box-sizing:border-box}
-}
-#props .adv-mob{display:none}
+  #props .adv-mob{display:none}
   @media (max-width:880px){ #props .adv-mob{display:block;width:100%;margin:14px 0 4px;min-height:44px;font-weight:600} }
   /* Dividi/Duplica/Elimina su UNA riga (Simone 17/07) */
   #pActRow{display:flex;gap:6px;margin-top:10px}
@@ -2886,20 +2887,27 @@ body.dark .ask-all .btn{background:transparent}
    fila. Qui vanno a due per riga e i bottoni a capo: le stesse cose, leggibili.
    Le due card «Solo palco / Area personalizzata» stanno affiancate anche su mobile: sono due, e
    una accanto all'altra si confrontano — che è il senso di quella scelta. */
+/* La forma di base, che prima stava negli attributi `style` del markup — dove vinceva su qualunque
+   regola per il telefono, e le due qui sotto non hanno mai avuto effetto. (02/09) */
+/* `minmax(0,1fr)` e non `1fr`: un campo numerico ha una larghezza minima sua, e con `1fr` la
+   colonna non scende sotto quella — a 16px (la difesa contro lo zoom di Safari) le due colonne
+   uscivano dalla finestra di 28 px, misurati sull'iPhone. (02/09) */
+.pa-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.pa-nums input{width:100%;min-width:0;box-sizing:border-box}
+.pa-pre{display:flex;gap:6px}
+.pa-pre .btn{flex:1;font-size:12px}
 @media (max-width:880px){
-  #printAreaModal .pa-nums{grid-template-columns:1fr 1fr}
+  #printAreaModal .pa-nums{grid-template-columns:repeat(2,minmax(0,1fr))}
   #printAreaModal .pa-pre{flex-wrap:wrap}
   #printAreaModal .pa-pre .btn{flex:1 1 100%}
   #printAreaModal .pa-nums input{min-height:44px}
 }
 
-/* I pannelli del cassetto scorrono: la presa per buttarli giù è la striscia in cima, e lì si
-   disegna la barretta che lo dice. Sotto, il dito scorre. (02/09) */
+/* I pannelli del cassetto scorrono: la presa per buttarli giù è la striscia in cima. (02/09)
+   `#venuePanel` non ce l'ha: vive dentro `#stageEditPanel` e la sua maniglia sarebbe la seconda
+   nello stesso punto — vedi `pannelliChiudibiliColDito`. */
 @media (max-width:880px){
-  #eventoSec, #stageEditPanel, #areaEditPanel, #venuePanel{position:relative;padding-top:22px}
-  #eventoSec::before, #stageEditPanel::before, #areaEditPanel::before, #venuePanel::before{
-    content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);
-    width:38px;height:4px;border-radius:999px;background:var(--border-strong)}
+  #eventoSec, #stageEditPanel, #areaEditPanel{position:relative;padding-top:26px}
 }
 
 /* ── FORMA DEL PALCO, SUL TELEFONO (02/09, Simone: «controlla la finestra palco su mobile, non
@@ -2944,11 +2952,17 @@ body.dark .ask-all .btn{background:transparent}
    scritta) e il bottone non compariva mai: verificato sul simulatore iPhone il 02/09, dove
    semplicemente non c'era. Quinta volta in un giorno che una regola nuova perde per ordine. */
 
-/* La barretta in cima a ogni finestra, col dito: dice «prendimi e buttami giù» senza scriverlo.
-   Disegnata come pseudo-elemento, così non serve toccare il markup di ventidue modali. (02/09) */
-@media (pointer:coarse){
+/* LA MANIGLIA, col dito: dice «prendimi e buttami giù» senza scriverlo, ed è l'UNICO punto che
+   vieta lo scorrimento al browser (`touch-action:none`). Era uno pseudo-elemento, e il divieto
+   stava su tutto il foglio: nessuna delle finestre che scorrono si scorreva più. (02/09)
+   Larga 140 px e centrata, non tutta la riga: negli angoli in alto ci sono le ✕ da premere.
+   Stessa soglia del JS (`isMobile()` = 880 px), o si vedrebbe una barretta che non prende niente. */
+.sheet-hand{display:none}
+@media (max-width:880px){
   .card-grab{position:relative;padding-top:26px !important}
-  .card-grab::before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);
+  .sheet-hand{display:block;position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:140px;height:26px;touch-action:none;z-index:6;cursor:grab}
+  .sheet-hand::before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);
     width:38px;height:4px;border-radius:999px;background:var(--border-strong)}
 }
 
@@ -3210,8 +3224,8 @@ body.dark .ask-all .btn{background:transparent}
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
       <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
       <div class="stpr-grid">
-        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
-        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
+        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
+        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
         <div class="stpr-f" id="blkHWrap"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
         <div class="stpr-f" id="blkFlatWrap" style="display:none;grid-column:1/-1"><label>Lato curvo verso</label>
           <div class="chips" data-chips="blkFlat">
@@ -3240,6 +3254,9 @@ body.dark .ask-all .btn{background:transparent}
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza</button>
       <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
     </div>
+    <!-- Il bottone che apre semicerchio, altezza e lato curvo: sul telefono il CSS li nasconde
+         dietro `props-pro`, e qui dentro non c'era niente da premere per accenderla. (02/09) -->
+    <button class="btn adv-mob" type="button" id="stageAdvMob">Opzioni tecniche</button>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
@@ -4644,16 +4661,18 @@ body.dark .ask-all .btn{background:transparent}
       </div>
     </div>
     <div id="paCustomSection" hidden>
-      <div class="pa-nums" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <!-- Griglia e larghezze stanno nel CSS, non qui: inline vincevano su ogni regola del
+           telefono, e i quattro campi restavano quattro per riga anche a 390 px. (02/09) -->
+      <div class="pa-nums">
         <div><label>Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
         <div><label>Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
         <div><label>X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
         <div><label>Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
       </div>
-      <div class="pa-pre" style="display:flex;gap:6px">
-        <button class="btn" id="paPreStage" style="flex:1;font-size:12px">= Palco</button>
-        <button class="btn" id="paPreAll" style="flex:1;font-size:12px">Tutto il contenuto</button>
-        <button class="btn" id="paPreCenter" style="flex:1;font-size:12px">⊕ Centra</button>
+      <div class="pa-pre">
+        <button class="btn" id="paPreStage">= Palco</button>
+        <button class="btn" id="paPreAll">Tutto il contenuto</button>
+        <button class="btn" id="paPreCenter">⊕ Centra</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">

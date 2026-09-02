@@ -318,8 +318,8 @@
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
       <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
       <div class="stpr-grid">
-        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
-        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
+        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
+        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
         <div class="stpr-f" id="blkHWrap"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
         <div class="stpr-f" id="blkFlatWrap" style="display:none;grid-column:1/-1"><label>Lato curvo verso</label>
           <div class="chips" data-chips="blkFlat">
@@ -348,6 +348,9 @@
       <button class="btn" id="bResetBlock" style="width:100%;margin-top:6px;font-size:12px;display:none">⊞ Raddrizza</button>
       <button class="btn danger" id="bDelBlock" style="width:100%;margin-top:7px;font-size:12px">Elimina blocco</button>
     </div>
+    <!-- Il bottone che apre semicerchio, altezza e lato curvo: sul telefono il CSS li nasconde
+         dietro `props-pro`, e qui dentro non c'era niente da premere per accenderla. (02/09) -->
+    <button class="btn adv-mob" type="button" id="stageAdvMob">Opzioni tecniche</button>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
@@ -1752,16 +1755,18 @@
       </div>
     </div>
     <div id="paCustomSection" hidden>
-      <div class="pa-nums" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <!-- Griglia e larghezze stanno nel CSS, non qui: inline vincevano su ogni regola del
+           telefono, e i quattro campi restavano quattro per riga anche a 390 px. (02/09) -->
+      <div class="pa-nums">
         <div><label>Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
         <div><label>Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
         <div><label>X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
         <div><label>Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
       </div>
-      <div class="pa-pre" style="display:flex;gap:6px">
-        <button class="btn" id="paPreStage" style="flex:1;font-size:12px">= Palco</button>
-        <button class="btn" id="paPreAll" style="flex:1;font-size:12px">Tutto il contenuto</button>
-        <button class="btn" id="paPreCenter" style="flex:1;font-size:12px">⊕ Centra</button>
+      <div class="pa-pre">
+        <button class="btn" id="paPreStage">= Palco</button>
+        <button class="btn" id="paPreAll">Tutto il contenuto</button>
+        <button class="btn" id="paPreCenter">⊕ Centra</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
@@ -13245,18 +13250,37 @@ document.getElementById("pMountSafety").addEventListener("change", function(){
   mutSel(function(it){ if(isMountable(it)) mountSet(it, {safety:(v==="unspecified")?null:v}); });
   save();
 });
-(function(){   /* «Altre opzioni» nella finestra Esporta: stessa preferenza del pannello elemento */
-  var b=document.getElementById("pdfProBtn"); if(!b) return;
-  function sync(){ b.textContent=document.body.classList.contains("props-pro") ? "Meno opzioni" : "Altre opzioni"; }
+/* «OPZIONI TECNICHE»: UNA preferenza, TRE bottoni (02/09, secondo giro).
+   Erano due copie della stessa logica che si aggiornavano a vicenda a mano, e nel pannello «Forma
+   del palco» il bottone non c'era affatto — mentre il CSS ci nasconde dietro `props-pro` altezza,
+   semicerchio e lato curvo. Da telefono quei blocchi si creavano su desktop e non si potevano più
+   correggere: si usciva dal palco, si selezionava un elemento a caso, si apriva lì, si tornava.
+   In più l'etichetta della finestra Esporta si leggeva PRIMA del ripristino da localStorage: chi
+   aveva acceso la preferenza rientrava con le opzioni aperte e il bottone che diceva «Altre
+   opzioni». Qui il ripristino è la prima cosa, e i testi si sincronizzano tutti insieme. */
+var PRO_BOTTONI=[];
+try{ if(localStorage.getItem("sp_props_pro")==="1") document.body.classList.add("props-pro"); }catch(e){}
+function proSyncTesti(){
+  if(!PRO_BOTTONI) PRO_BOTTONI=[];
+  var on=document.body.classList.contains("props-pro");
+  PRO_BOTTONI.forEach(function(b){ b.textContent = on ? b.getAttribute("data-pro-on") : b.getAttribute("data-pro-off"); });
+}
+function proRegistra(b, testoAcceso, testoSpento){
+  if(!b || b.__pro) return; b.__pro=1;
+  if(!PRO_BOTTONI) PRO_BOTTONI=[];   /* `arrangePanel` può registrare il suo bottone prima di qui */
+  b.setAttribute("data-pro-on", testoAcceso); b.setAttribute("data-pro-off", testoSpento);
+  PRO_BOTTONI.push(b);
   b.addEventListener("click", function(){
     var on=document.body.classList.toggle("props-pro");
     try{ localStorage.setItem("sp_props_pro", on?"1":"0"); }catch(e){}
-    sync();
-    var pa=document.getElementById("pAdvMob");
-    if(pa) pa.textContent=on ? "Nascondi le opzioni tecniche" : "Opzioni tecniche";
+    proSyncTesti();
+    if(typeof syncPanelGroups==="function") syncPanelGroups();
+    if(typeof renderStagePanel==="function" && stageEdit) renderStagePanel();
   });
-  sync();
-})();
+  proSyncTesti();
+}
+proRegistra(document.getElementById("pdfProBtn"), "Meno opzioni", "Altre opzioni");
+proRegistra(document.getElementById("stageAdvMob"), "Nascondi le opzioni tecniche", "Opzioni tecniche");
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
 document.getElementById("grpMirror").addEventListener("click", mirrorSel);
 /* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
@@ -13329,14 +13353,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
      lavora in modo professionale lo apre una volta e non ci pensa più. */
   var adv=document.createElement("button");
   adv.type="button"; adv.id="pAdvMob"; adv.className="btn adv-mob";
-  adv.addEventListener("click", function(){
-    var on=document.body.classList.toggle("props-pro");
-    try{ localStorage.setItem("sp_props_pro", on?"1":"0"); }catch(e){}
-    adv.textContent=on ? "Nascondi le opzioni tecniche" : "Opzioni tecniche";
-    if(typeof syncPanelGroups==="function") syncPanelGroups();
-  });
-  try{ if(localStorage.getItem("sp_props_pro")==="1") document.body.classList.add("props-pro"); }catch(e){}
-  adv.textContent=document.body.classList.contains("props-pro") ? "Nascondi le opzioni tecniche" : "Opzioni tecniche";
+  proRegistra(adv, "Nascondi le opzioni tecniche", "Opzioni tecniche");
   sp.appendChild(adv);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
   if(resp || cont || req){
@@ -14673,9 +14690,28 @@ function syncDrawerA11y(){
    Solo dalla MANIGLIA, non dal corpo — o scorrere l'elenco degli strumenti chiuderebbe il foglio.
    Il foglio segue il dito, così si vede cosa sta per succedere; sotto i 70 px torna su, che è la
    differenza fra uno scatto del pollice e un tocco storto. */
+/* LA PRESA È UNA STRISCIA VERA, NON TUTTO IL FOGLIO (02/09, secondo giro, misurato sull'iPhone).
+   `touch-action:none` non è una regola per il mio codice: è un ordine al browser, e vale per
+   l'elemento toccato e per ogni suo antenato fino al contenitore che scorre. Messo su tutto il
+   pannello impediva lo scorrimento DA QUALUNQUE PUNTO: la «Forma del palco» è alta 510 px dentro un
+   cassetto di 346 e non si muoveva di un pixel, e con lei le 22 finestre che scorrono da sole.
+   La `fascia` limitava solo dove PARTE il gesto — il divieto restava su tutto.
+   Quindi: quando serve una fascia si crea una maniglia vera in cima al foglio, e SOLO lei dice
+   `touch-action:none`. Sotto, il dito scorre come deve. */
+function manigliaDelFoglio(foglio){
+  var m=foglio.__hand;
+  if(m && m.parentNode===foglio) return m;
+  m=document.createElement("div");
+  m.className="sheet-hand"; m.setAttribute("aria-hidden","true");
+  foglio.insertBefore(m, foglio.firstChild);
+  foglio.__hand=m;
+  return m;
+}
 function chiudiTrascinando(foglio, maniglia, chiudi, escludi, fascia){
   if(!foglio || !maniglia) return;
   var y0=null, dy=0;
+  /* Con una fascia la maniglia è la striscia, non il foglio: il resto resta libero di scorrere. */
+  if(fascia){ maniglia=manigliaDelFoglio(foglio); fascia=0; }
   maniglia.style.touchAction="none";
   /* SOGLIA: il gesto si sveglia solo dopo 12 px di dito verso il basso. Sotto quella soglia non
      succede niente, quindi un tocco sui bottoni resta un tocco — è così che la presa può essere
@@ -14741,7 +14777,11 @@ function fogliChiudibiliColDito(){
    tocco. Escluso solo quello che si scrive, o trascinare per selezionare del testo chiuderebbe. */
 function pannelliChiudibiliColDito(){
   if(!isMobile()) return;
-  [["eventoSec","bEventoDone"],["stageEditPanel","bStageDone"],["areaEditPanel","areaDone"],["venuePanel","venueBtnDone"]]
+  /* La planimetria NON è in lista: `#venuePanel` vive DENTRO `#stageEditPanel`, e due maniglie
+     annidate nella stessa striscia significavano due chiusure in fila — la seconda riapriva quello
+     che la prima aveva chiuso, e il foglio scendeva del doppio del dito. Una maniglia sola, che
+     preme il «Fatto» della vista aperta. (02/09) */
+  [["eventoSec","bEventoDone"],["stageEditPanel",null],["areaEditPanel","areaDone"]]
     .forEach(function(par){
       var sec=document.getElementById(par[0]); if(!sec || sec.__grab) return;
       sec.__grab=1;
@@ -14751,7 +14791,8 @@ function pannelliChiudibiliColDito(){
          scorrono, e il gesto di chiusura rubava lo scroll. La striscia dei primi 44 px basta per
          buttarli giù, e sotto il dito scorre come deve. */
       chiudiTrascinando(sec, sec, function(){
-        var b=document.getElementById(par[1]); if(b) b.click();
+        var id=par[1] || (stagePanelView==="planimetria" ? "venueBtnDone" : "bStageDone");
+        var b=document.getElementById(id); if(b) b.click();
       }, "input,select,textarea", 44);
     });
 }
@@ -15879,7 +15920,11 @@ function fit(){ var b=contentBounds(); fitTo(b.x0,b.y0,b.x1,b.y1); }
 /* adatta al solo palco (nuovo documento, cambio misure): niente elementi, ma le scritte FONDO PALCO
    e PUBBLICO fanno parte del palco e devono restare leggibili. Il tasto "a" usa fit(), non questa. */
 function fitStage(){ recalcStageBBox(); var d=stageDecorBounds(); fitTo(d.x0,d.y0,d.x1,d.y1); }
-function ensureVisible(){}
+/* «Premo + Blocco e non succede niente»: il blocco nasce al centro del palco, ma se sei zoomato su
+   un angolo non lo vedi, e aprire il cassetto rimpicciolisce il disegno senza generare un resize —
+   quindi nessuno rifà l'inquadratura. Questa funzione era vuota, e chiamata in 19 punti. (02/09)
+   Solo col dito: sul desktop l'inquadratura è dell'utente e non gliela si sposta sotto il mouse. */
+function ensureVisible(){ if(isMobile()) fitStage(); }
 /* ===== Modifica palco (forma a blocchi) ===== */
 function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
@@ -15910,7 +15955,9 @@ function renderStagePanel(){
     list.appendChild(pb);
   });
   var bp=document.getElementById("blkProps");
-  if(selBlock==null || !b[selBlock]){ bp.hidden=true; return; }
+  /* La planimetria si ridisegna SEMPRE: uscire di qui prima la lasciava vecchia ogni volta che
+     nessun blocco è selezionato — cioè dopo ogni tocco su un chip Pedana. (02/09) */
+  if(selBlock==null || !b[selBlock]){ bp.hidden=true; renderVenuePanel(); return; }
   bp.hidden=false;
   var r=b[selBlock];
   document.getElementById("blkTitle").textContent = (selBlock===0 ? "Palco base" : "Blocco "+selBlock)+(r.shape==="semi"?" (semicerchio)":(hasPts(r)?" (deformato)":""));
@@ -15936,8 +15983,15 @@ function renderStagePanel(){
     pg.hidden = !showGrid;
     if(showGrid){
       var base0=b[0], bx0=base0.x||0, by0=base0.y||0, bw0=base0.w||1, bd0=base0.d||1;
-      var col = (r.w>=bw0) ? 1 : (r.x <= bx0+(bw0-r.w)*0.25 ? 0 : (r.x >= bx0+(bw0-r.w)*0.75 ? 2 : 1));
-      var row = (r.d>=bd0) ? 1 : (r.y <= by0+(bd0-r.d)*0.25 ? 0 : (r.y >= by0+(bd0-r.d)*0.75 ? 2 : 1));
+      /* Quanto è avanti il blocco nella corsa da sinistra a destra: 0 = a filo a sinistra,
+         1 = a filo a destra. Diviso per la corsa (che è NEGATIVA se il blocco è più largo del
+         palco), il conto vale in tutti e due i casi — prima l'accensione restava inchiodata al
+         centro e non diceva più dove fosse il blocco. (02/09) */
+      function cella(pos, base, corsa){
+        var t = corsa===0 ? 0.5 : (pos-base)/corsa;
+        return t<=0.25 ? 0 : (t>=0.75 ? 2 : 1);
+      }
+      var col = cella(r.x, bx0, bw0-r.w), row = cella(r.y, by0, bd0-r.d);
       Array.prototype.forEach.call(pg.querySelectorAll("button[data-pos]"), function(cell){
         var p=cell.getAttribute("data-pos").split(","); cell.classList.toggle("on", (+p[0]===col && +p[1]===row));
       });
@@ -16009,7 +16063,7 @@ function addStageBlock(){
     r={x:Math.round(state.stage.w), y:0, w:300, d:base?base.d:300};   /* desktop: a destra dell'ingombro, da trascinare */
   }
   state.stage.blocks.push(r); selBlock=state.stage.blocks.length-1;
-  recalcStageBBox(); renderStagePanel(); render(); save();
+  recalcStageBBox(); renderStagePanel(); render(); save(); ensureVisible();
 }
 function addSemicircle(){
   recalcStageBBox(); var W=state.stage.w, D=state.stage.d, w=400, d=200;
@@ -16081,8 +16135,12 @@ document.addEventListener("click", function(e){
     var base=bl[0], r=bl[selBlock], bx=base.x||0, by=base.y||0, bw=base.w||0, bd=base.d||0;
     var nx = col===0 ? bx : (col===2 ? bx+bw-r.w : bx+(bw-r.w)/2);
     var ny = row===0 ? by : (row===2 ? by+bd-r.d : by+(bd-r.d)/2);
-    r.x=Math.round(Math.max(0,nx)); r.y=Math.round(Math.max(0,ny));
-    normalizeStageBBox(); renderStagePanel(); render(); save();
+    /* Niente `Math.max(0, …)`: con un blocco più largo del palco base tutte e tre le colonne
+       finivano schiacciate sullo stesso numero, e nove bersagli facevano una cosa sola. Le
+       coordinate negative le rimette a posto `normalizeStageBBox()`, che sposta TUTTO insieme e
+       quindi conserva la posizione relativa al palco. (02/09) */
+    r.x=Math.round(nx); r.y=Math.round(ny);
+    normalizeStageBBox(); renderStagePanel(); render(); save(); ensureVisible();
   });
 })();
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
