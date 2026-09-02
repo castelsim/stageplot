@@ -13054,6 +13054,21 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
   ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
 });
 
+t("ruotando il telefono il pannello palco si rifà", () => {
+  /* Ruotando cambia anche COSA si vede, non solo quanto è largo: la griglia 3x3 compare solo
+     `if(isMobile())`, e `isMobile()` si legge al render. L'unico listener di resize chiamava
+     `render`, non `renderStagePanel`: la griglia restava com'era da prima della rotazione. (02/09) */
+  ok(!/addEventListener\("resize", render\)/.test(appjs), "il resize non chiama piu' solo render");
+  const i = appjs.indexOf('window.addEventListener("resize", function(){\n    render();');
+  ok(i > 0, "il gestore del resize fa piu' cose");
+  const blocco = appjs.slice(i, i + 400);
+  ok(/stageEdit && typeof renderStagePanel==="function"\) renderStagePanel\(\)/.test(blocco),
+     "e rifa' il pannello palco, se e' aperto");
+  ok(/syncPanelGroups\(\)/.test(blocco), "e i gruppi del pannello elemento");
+  /* Solo se e' aperto: rifare un pannello chiuso a ogni pixel di resize e' lavoro sprecato. */
+  ok(/if\(typeof stageEdit!=="undefined" && stageEdit/.test(blocco), "solo quando serve");
+});
+
 t("la riga che dice da che parte guarda il palco si legge", () => {
   /* «fondo palco in alto · pubblico in basso» e' l'UNICA riga che spiega l'orientamento della
      griglia 3x3, ed era il testo piu' piccolo del pannello — 10,5 px sotto una griglia di nove
