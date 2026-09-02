@@ -135,9 +135,48 @@ Le frizioni sono state trovate e chiuse nelle PR indicate.
 
 ---
 
+## Ciclo 2 — 01/09
+
+### 2.1 · «Il mio palco è 8×5, come lo cambio?»
+
+- **Scenario:** 3 (dimensioni del palco), con la domanda più ovvia che si possa fare.
+- **Osservato:** a schermo ci sono **due** strade plausibili — la riga «Palco 12 × 8 m» nella colonna
+  e «Forma del palco» nel catalogo. Si prova la prima, perché **dice già la misura**. Si apre… il
+  riepilogo di aste, leggii e sgabelli. Delle misure, niente.
+  Su palco vuoto è peggio: cliccando non succede **assolutamente nulla** (la sezione «Stato» è
+  nascosta finché non c'è almeno un elemento — ragionevole in sé, ma l'utente non riceve nessun
+  riscontro da una riga che si dichiara `layer-clickable`).
+- **Gravità:** media-alta. **Frequenza:** alta — è fra le prime cose che uno vuole cambiare.
+  **Impatto:** le misure si trovano solo scoprendo «Forma del palco» **nel catalogo**, cioè dove si
+  prendono gli elementi, non dove si configura il palco.
+- **Modifica:** **il numero stesso diventa il bersaglio.** Chi vede «16 × 6,5 m» e vuole cambiarlo ci
+  clicca sopra, e si apre «Forma del palco» — lo stesso pannello del catalogo, non una copia dei
+  campi. Il resto della riga continua a fare quello che faceva: non si toglie niente.
+- **File:** `index.template.html`, `src/styles.css`, `test/engines.test.mjs`.
+- **Verifica:** nel browser su desktop e su telefono (bersaglio da 44 px, apre il pannello).
+  **6 mutazioni su 6 viste.**
+- **Esito:** risolto.
+
+### 2.2 · Mezzo metro di palco sparito
+
+- **Scenario:** emerso subito dopo, aprendo il pannello dal punto 2.1.
+- **Osservato:** la riga diceva **«16 × 7 m»**, il pannello **«16 m × 6,5 m»** — due numeri diversi
+  per la stessa cosa, **visibili insieme** appena si clicca sulla misura.
+- **Gravità:** media-alta. Su uno strumento che si chiama «in scala», mezzo metro di palco non è un
+  dettaglio: è lo spazio di un musicista.
+- **Causa:** `layerSummary` usava `Math.round((s.d||0)/100)` — 650 cm → 6,5 → **7**.
+- **Modifica:** la riga usa `fmtM()`, **la stessa funzione del pannello**. Un decimale quando serve,
+  nessuno quando non serve: 6,5 resta 6,5 e 6 non diventa «6,0».
+- **Verifica:** provato con 8×5,5 e 10×6 dalla strada vera (`applyStageWidth/Depth`): entrambi
+  corretti, e la riga coincide col pannello. 998 test verdi.
+- **Esito:** risolto. **È la stessa famiglia dei numeri della demo in homepage:** un dato scritto in
+  due posti che nessuno tiene insieme.
+
+---
+
 ## Da fare nel prossimo ciclo
 
-Scenari non ancora percorsi: **3** (dimensioni del palco), **5** (rotazione e duplicazione),
+Scenari non ancora percorsi: **5** (rotazione e duplicazione),
 **7** (proprietà, nomi, numerazioni), **8** (elementi sovrapposti), **13** (aprire un progetto
 condiviso), **12** (export vero — bloccato dall'ambiente, vedi limiti).
 
