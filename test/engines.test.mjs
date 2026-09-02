@@ -12940,17 +12940,57 @@ t("i fogli che salgono dal basso si chiudono trascinandoli giu'", () => {
   /* Simone dal telefono, 02/09: «se premo aggiungi e trascino verso il basso la finestra deve
      chiudersi», e poi «anche la finestra menu». È il gesto che ci si aspetta da un foglio che sale
      dal basso, e su un telefono la X sta lontana dal pollice. */
-  ok(/function chiudiTrascinando\(foglio, maniglia, chiudi, escludi\)/.test(appjs),
+  ok(/function chiudiTrascinando\(foglio, maniglia, chiudi, escludi, fascia\)/.test(appjs),
      "il gesto e' una funzione sola, non copiata due volte");
   ok(/chiudiTrascinando\(document\.getElementById\("catalog"\)/.test(appjs), "il catalogo lo usa");
-  ok(/chiudiTrascinando\(ms, ms\.querySelector\("\.sheet-grab"\)/.test(appjs), "e il menu pure");
+  /* Il menu ha gia' la sua maniglia come `#mActions::before`, e uno pseudo-elemento non riceve
+     eventi: la presa e' il foglio intero, ma solo nei primi 44 px. Piu' giu' ci sono le voci. */
+  ok(/chiudiTrascinando\(ms, ms, closeAll, "\[data-act\],a", 44\)/.test(appjs), "e il menu pure, dalla fascia in cima");
+  ok(/if\(fascia && \(e\.clientY - maniglia\.getBoundingClientRect\(\)\.top\) > fascia\) return;/.test(appjs),
+     "sotto la fascia il gesto non parte: trascinare una voce non chiude il menu");
   /* Solo dalla maniglia: dal corpo, scorrere l'elenco degli strumenti chiuderebbe il foglio. */
   ok(/if\(dy>70\) chiudi\(\)/.test(appjs), "sotto i 70 px torna su: uno scatto, non un tocco storto");
   ok(/dy=Math\.max\(0, e\.clientY-y0\)/.test(appjs), "e si trascina solo verso il basso");
-  /* La barretta che dice «prendimi»: c'e' solo col dito. */
-  ok(/\.sheet-grab\{display:none\}/.test(stylesCss), "col mouse la maniglia non c'e'");
+  /* La barretta del menu esisteva GIA' come pseudo-elemento: il div che avevo aggiunto era un
+     doppione, ed e' stato tolto. */
+  ok(/#mActions::before\{content:""/.test(stylesCss), "la maniglia del menu e' quella che c'era gia'");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/<div class="sheet-grab"/.test(html), "e nel menu c'e'");
+  ok(!/<div class="sheet-grab"/.test(html), "e non ce n'e' una seconda");
+});
+
+t("il messaggio dopo un'eliminazione ha due bottoni, non uno", () => {
+  /* Simone, 02/09: «quando elimino un elemento esce un popup con scritto elemento eliminato
+     annulla, secondo me dovrebbe esserci anche l'ok oltre che l'annulla e l'annulla dovrebbe essere
+     in rosso». Prima c'era solo «Annulla»: chi voleva davvero eliminare non aveva niente da
+     premere e restava a guardare il messaggio finché spariva da solo. */
+  ok(/b\.className="toast-act toast-undo"/.test(appjs), "«Annulla» c'e' ancora");
+  ok(/ok\.className="toast-act toast-ok"; ok\.textContent="OK"/.test(appjs), "e adesso c'e' anche «OK»");
+  ok(/ok\.addEventListener\("click", function\(\)\{ toastEl\.hidden=true;[^}]*\}\)/.test(appjs),
+     "che chiude e basta, senza disfare niente");
+  /* Rosso chiaro: il toast ha lo sfondo scuro. */
+  ok(/\.toast-act\.toast-undo\{border-color:rgba\(248,113,113/.test(stylesCss), "«Annulla» e' rosso");
+  ok(/\.toast-act\.toast-ok\{border-color:rgba\(255,255,255/.test(stylesCss), "e «OK» resta neutro");
+});
+
+t("dal telefono spariscono le due voci che non si usano in piedi", () => {
+  /* Simone dal telefono: «da mobile non ha senso il bottone planimetria, troppo difficile» e
+     «neanche channel list». Caricare una pianta e allinearla in scala è lavoro da scrivania; una
+     channel list a otto colonne su uno schermo stretto non si legge, e chi la guarda sta al banco
+     con la console davanti. Restano nel menu File del desktop. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* La fine del blocco si cerca DOPO il suo inizio: `mact-consul` compare anche nel CSS inline,
+     molto piu' su, e la slice veniva vuota — un test che guardava il nulla e restava verde. */
+  const iMenu = html.indexOf('<div id="mActions">');
+  ok(iMenu > 0, "il menu mobile esiste nel markup");
+  const menu = html.slice(iMenu, html.indexOf("mact-consul", iMenu));
+  ok(menu.length > 100 && /data-act="new"/.test(menu), "e il blocco letto e' davvero il menu: " + menu.length + " caratteri");
+  ok(!/data-act="venue"/.test(menu), "planimetria via dal menu mobile");
+  ok(!/data-act="chan"/.test(menu), "e channel list pure");
+  /* Ma i pannelli restano nel documento: toglierli ucciderebbe il boot (#venuePanel e #chanlist
+     hanno listener nudi, 15704 e 15707). Nascosto non e' tolto. */
+  ok(/id="venuePanel"/.test(html) && /id="chanlist"/.test(html), "i pannelli restano: servono al desktop");
+  /* E sul desktop le due voci ci sono ancora. */
+  ok(/id="bChanList"/.test(html), "la channel list resta raggiungibile col mouse");
 });
 
 t("i bottoni che chiudono senza fare niente sono rossi", () => {

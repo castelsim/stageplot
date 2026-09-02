@@ -12770,12 +12770,15 @@ function syncDrawerA11y(){
    Solo dalla MANIGLIA, non dal corpo — o scorrere l'elenco degli strumenti chiuderebbe il foglio.
    Il foglio segue il dito, così si vede cosa sta per succedere; sotto i 70 px torna su, che è la
    differenza fra uno scatto del pollice e un tocco storto. */
-function chiudiTrascinando(foglio, maniglia, chiudi, escludi){
+function chiudiTrascinando(foglio, maniglia, chiudi, escludi, fascia){
   if(!foglio || !maniglia) return;
   var y0=null, dy=0;
   maniglia.style.touchAction="none";
   maniglia.addEventListener("pointerdown", function(e){
-    if(escludi && e.target.closest(escludi)) return;   /* la X fa già il suo */
+    if(escludi && e.target.closest(escludi)) return;   /* la X, e le voci del menu, fanno già il loro */
+    /* `fascia`: quando la presa è tutto il foglio, il gesto parte solo dalla striscia in cima —
+       dove sta la maniglia disegnata. Più giù si tocca il contenuto. */
+    if(fascia && (e.clientY - maniglia.getBoundingClientRect().top) > fascia) return;
     y0=e.clientY; dy=0; foglio.style.transition="none";
     try{ maniglia.setPointerCapture(e.pointerId); }catch(_e){}
   });
@@ -12802,9 +12805,12 @@ function closeMobileDrawers(){
 (function(){
   var cat=document.getElementById("catalog"), bd=document.getElementById("mobBackdrop");
   function closeAll(){ cat.classList.remove("open"); var ms=document.getElementById("mActions"); if(ms) ms.classList.remove("open"); bd.classList.remove("show"); syncDrawerA11y(); }
-  /* Anche il menu si butta giù: stesso gesto del catalogo, presa sulla maniglia in cima. */
+  /* Anche il menu si butta giù. La maniglia c'è già come `#mActions::before` (styles.css) e uno
+     pseudo-elemento non riceve eventi: il gesto si aggancia al menu intero, ma parte solo se il
+     dito scende nei primi 44 px — la fascia della maniglia. Più giù ci sono le voci, e trascinarle
+     non deve chiudere niente. */
   (function(){ var ms=document.getElementById("mActions");
-    if(ms) chiudiTrascinando(ms, ms.querySelector(".sheet-grab"), closeAll); })();
+    if(ms) chiudiTrascinando(ms, ms, closeAll, "[data-act],a", 44); })();
   function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
@@ -26184,10 +26190,17 @@ function maybeAskStageSize(explicit){
     if(!toastEl) return;
     toastEl.textContent=msg;
     if(azione && typeof azione.run==="function"){
+      /* Due bottoni (Simone, 02/09): «Annulla» torna indietro — ed è rosso perché disfa quello che
+         è appena successo — e «OK» chiude e basta. Prima c'era solo «Annulla»: chi voleva davvero
+         eliminare non aveva niente da premere e restava a guardare il messaggio finché spariva. */
       var b=document.createElement("button");
-      b.type="button"; b.className="toast-act"; b.textContent=azione.label||"Annulla";
+      b.type="button"; b.className="toast-act toast-undo"; b.textContent=azione.label||"Annulla";
       b.addEventListener("click", function(){ toastEl.hidden=true; if(toastT) clearTimeout(toastT); azione.run(); });
       toastEl.appendChild(b);
+      var ok=document.createElement("button");
+      ok.type="button"; ok.className="toast-act toast-ok"; ok.textContent="OK";
+      ok.addEventListener("click", function(){ toastEl.hidden=true; if(toastT) clearTimeout(toastT); });
+      toastEl.appendChild(ok);
     }
     toastEl.style.background=isErr?"var(--danger)":"var(--n-900)"; toastEl.hidden=false;
     if(toastT) clearTimeout(toastT);
