@@ -12993,6 +12993,46 @@ t("dal telefono spariscono le due voci che non si usano in piedi", () => {
   ok(/id="bChanList"/.test(html), "la channel list resta raggiungibile col mouse");
 });
 
+t("ogni finestra si chiude buttandola giu', non solo il catalogo", () => {
+  /* Simone, 02/09: «tutte le finestre devono chiudersi con trascinamento verso il basso». Sono 22
+     modali: attaccare il gesto a mano su ognuno vuol dire dimenticarsene al 23°, quindi si aggancia
+     a tutti in un giro solo. */
+  ok(/function fogliChiudibiliColDito\(\)/.test(appjs), "il giro esiste");
+  ok(/document\.querySelectorAll\("\.modal"\)\.forEach/.test(appjs), "e passa da tutti i modali");
+  /* TUTTE E 22, non solo quelle con `.mcard`: il benvenuto, le misure del palco e l'invito ad
+     accedere usano `.wl-card`, la conferma `.cfm-card`. Aprendole una per una nel browser ne
+     restavano fuori QUATTRO. */
+  ok(/querySelector\("\.mcard,\.pdf-export,\.wl-card,\.cfm-card"\)/.test(appjs),
+     "comprese le quattro che non usano .mcard");
+  ok(/if\(!isMobile\(\)\) return;/.test(appjs.slice(appjs.indexOf("function fogliChiudibiliColDito"), appjs.indexOf("function closeMobileDrawers"))),
+     "solo col dito: col mouse le finestre si chiudono col bottone");
+  /* Chiudere = premere il bottone che chiude DAVVERO: spesso fa altro oltre a nascondere. */
+  ok(/\/\^\(annulla\|chiudi/.test(appjs), "cerca il bottone di chiusura vero");
+  ok(/if\(b\) b\.click\(\); else m\.hidden=true;/.test(appjs), "e solo se non c'e' nasconde a mano");
+  /* Non deve partire dai campi: trascinare dentro un input non chiude la finestra. */
+  ok(/"input,select,textarea,button,a,label", 44/.test(appjs), "e non parte da un campo o da un bottone");
+  /* La barretta e' disegnata, non aggiunta al markup di ventidue finestre. */
+  ok(/\.card-grab::before\{content:""/.test(stylesCss), "la barretta e' uno pseudo-elemento");
+  ok(/@media \(pointer:coarse\)\{\s*\.card-grab/.test(stylesCss.replace(/\n\s*/g, m => m.includes("\n") ? "\n  " : m)) ||
+     bloccoCoarse(stylesCss).indexOf(".card-grab") >= 0, "e c'e' solo col dito");
+});
+
+t("l'area di stampa si legge anche su un telefono", () => {
+  /* «controllala perché è parecchio incasinata» (Simone, 02/09). C'erano QUATTRO campi numerici
+     affiancati — Larghezza, Profondità, X origine, Y origine — in `1fr 1fr 1fr 1fr`: su un telefono
+     quattro caselle da novanta pixel con dentro un decimale, e l'etichetta che non ci sta. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/class="pa-nums"/.test(html), "la griglia dei campi ha un aggancio");
+  ok(/class="pa-pre"/.test(html), "e la riga dei bottoni pure");
+  ok(/#printAreaModal \.pa-nums\{grid-template-columns:1fr 1fr\}/.test(stylesCss),
+     "col dito i campi vanno a due per riga, non quattro");
+  ok(/#printAreaModal \.pa-pre \.btn\{flex:1 1 100%\}/.test(stylesCss), "e i bottoni a capo");
+  ok(/#printAreaModal \.pa-nums input\{min-height:44px\}/.test(stylesCss), "coi campi che reggono il dito");
+  /* Col mouse restano quattro affiancati: lì lo spazio c'e'. */
+  const fuori = stylesCss.replace(/@media \(max-width:880px\)\{[\s\S]*?\n\}/g, "");
+  ok(!/#printAreaModal \.pa-nums\{grid-template-columns:1fr 1fr\}/.test(fuori), "col mouse non cambia niente");
+});
+
 t("nelle finestre, le X e i contatori reggono il dito", () => {
   /* «su mobile guarda e ottimizza ogni finestra» (Simone, 02/09). Cercando nel CSS i controlli con
      un'altezza dichiarata sotto i 44 px che nessuna regola per il dito ingrandiva, restavano le X
