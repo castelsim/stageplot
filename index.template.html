@@ -27887,7 +27887,18 @@ else if(allowStartupScenario && location.search.indexOf("json=1")>-1){   /* QA: 
   document.body.innerHTML='<pre style="font:11px/1.45 Menlo,monospace;padding:14px;white-space:pre-wrap">'+
     esc(JSON.stringify(buildProjectJson(),null,2))+'</pre>';
 }
-else { window.addEventListener("resize", render); fit();
+else {
+  /* RUOTANDO IL TELEFONO cambia anche COSA si vede, non solo quanto è largo: la griglia 3×3 del
+     pannello palco compare solo `if(isMobile())`, e `isMobile()` si legge al render. Con il solo
+     `render` la griglia restava com'era da prima della rotazione — accesa in orizzontale su un
+     tablet, o spenta sul telefono. Stessa cosa per il pannello elemento, che sul telefono mostra
+     meno gruppi. (02/09) */
+  window.addEventListener("resize", function(){
+    render();
+    if(typeof stageEdit!=="undefined" && stageEdit && typeof renderStagePanel==="function") renderStagePanel();
+    if(typeof syncPanelGroups==="function") syncPanelGroups();
+  });
+  fit();
 }
 /* A11y modali (audit M-22): oltre alla semantica (role/aria-modal/nome) ora un vero contratto di
    dialogo — focus trap (Tab ciclico dentro la modale in cima), restore del focus al trigger alla
