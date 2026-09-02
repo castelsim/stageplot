@@ -2326,6 +2326,31 @@ t("nessuna Edge Function legge la service role da sé: passano tutte da serviceR
   ok(usano.length >= 7, "tutte le function che parlano col database ci passano: " + usano.length);
 });
 
+t("una funzione SQL a cui si toglie l'execute lo ridà alla service_role", () => {
+  /* 02/09, trovato PRIMA di applicare la 0040 e non dopo. `revoke execute ... from public` toglie
+     il permesso a OGNI ruolo tranne l'owner — service_role compresa, che non è superuser. Senza il
+     grant che segue, la Edge Function chiama la sua RPC e si prende un errore di permessi: un
+     guasto che non si vede scrivendo il codice, solo in produzione a cose fatte.
+     Il pattern giusto è quello della 0025 (feedback_throttle_hit): revoke, poi grant. */
+  const dir = join(root, "supabase/migrations");
+  const mancanti = [];
+  for (const f of readdirSync(dir).filter((x) => /\.sql$/.test(x))) {
+    const sql = readFileSync(join(dir, f), "utf8");
+    /* i nomi delle funzioni a cui questa migrazione toglie l'execute */
+    for (const m of sql.matchAll(/revoke\s+(?:all|execute)\s+on\s+function\s+([\w.]+)\s*\([^)]*\)[\s\S]{0,120}?from[^;]*;/gi)) {
+      const fn = m[1];
+      /* Le funzioni TRIGGER non c'entrano: le esegue il trigger per conto dell'owner, e nessuno le
+         chiama via RPC. Toglier loro l'execute a tutti è anzi giusto — è il caso della 0023. */
+      const decl = new RegExp("create (?:or replace )?function\\s+" + fn.replace(".", "\\.") + "\\s*\\([^)]*\\)\\s*returns\\s+trigger", "i");
+      if (decl.test(sql)) continue;
+      const ridato = new RegExp("grant\\s+execute\\s+on\\s+function\\s+" + fn.replace(".", "\\.") + "\\s*\\([^)]*\\)[\\s\\S]{0,120}?to[^;]*service_role", "i");
+      if (!ridato.test(sql)) mancanti.push(f + " → " + fn);
+    }
+  }
+  eq(mancanti.length, 0,
+     "a queste funzioni è tolto l'execute e non è ridato a service_role: " + mancanti.join(" | "));
+});
+
 t("il divieto vive anche nel database, non solo nella finestra", () => {
   /* Una regola che sta solo nel client protegge dallo sbaglio e non dal guasto: basta una richiesta
      malformata o una scheda vecchia rimasta aperta e il progetto se ne va lo stesso. */
@@ -8675,6 +8700,47 @@ t("mixer e interfaccia sono destinazioni: chi non ha una stage box collega li'",
      non che riceve i cavi di palco. */
   const mon = add("monmix", 800, 700);
   ok(!A.cabIsDest(mon), "il mixer monitor non è una destinazione dei cavi di palco");
+});
+
+t("la risposta a una segnalazione si legge nell'app, e una volta sola", () => {
+  /* 02/09 — la home promette «il box arriva a me, e rispondo io», ma un canale per rispondere non
+     c'era: il box non chiede la mail, e quella dell'account Google non e' stata lasciata per essere
+     ricontattati. Simone ha scelto di rispondere DENTRO il prodotto, al rientro di quella persona.
+     Qui si guarda il codice del bundle: il giro intero (chiamata → finestra → «letta» → box) e'
+     provato nel browser, dove esiste un DOM e una fetch. */
+  ok(/my-feedback-replies/.test(appjs), "l'app chiede se c'e' una risposta per chi e' loggato");
+  /* Segnata letta PRIMA di mostrarla: se qualcuno ricarica o chiude di scatto, l'avviso non deve
+     tornare a ogni avvio per sempre. */
+  const mostra = appjs.slice(appjs.indexOf("function mostra(r, tok)"), appjs.indexOf("function controlla()"));
+  ok(mostra.indexOf("segnaLetta") < mostra.indexOf("guideDialog"),
+     "«letta» parte prima della finestra, non alla chiusura");
+  /* Senza login non si chiede niente: chi non ha un account non ha segnalazioni proprie. */
+  ok(/if\(!tok\) return;/.test(appjs), "nessun token, nessuna chiamata");
+  /* E non si mette una finestra sopra un'altra: il benvenuto e la guida vengono prima. */
+  ok(/guideDlg[\s\S]{0,120}\.modal:not\(\[hidden\]\)/.test(appjs),
+     "aspetta che lo schermo sia libero invece di sovrapporsi");
+  /* Rete giu' o function ferma: si tace. Un avviso rotto non deve rompere l'editor. */
+  const blocco = appjs.slice(appjs.indexOf("function controlla()"), appjs.indexOf("function quandoLibero"));
+  ok(/catch\(function\(\)\{\}\)/.test(blocco), "se la chiamata fallisce non succede niente");
+});
+
+t("i bottoni delle finestre guida reggono il dito", () => {
+  /* Misurato l'02/09: stavano a 38 px anche col dito. La regola generale non li prendeva —
+     `.guide-actions .btn` e' piu' specifico di `.btn`, e una @media non aggiunge specificita'.
+     Riguarda ogni finestra guida, «Segnalazione inviata» e la guida del cablaggio comprese. */
+  const coarse = bloccoCoarse(stylesCss);
+  ok(/\.guide-actions \.btn\{[^}]*min-height:44px/.test(coarse) ||
+     /@media \(pointer:coarse\)\{ \.guide-actions \.btn\{min-height:44px\} \}/.test(stylesCss),
+     "col dito arrivano a 44");
+  /* E col mouse restano i 38 di sempre. */
+  const fuori = stylesCss.replace(/@media \(pointer:coarse\)\{[^@]*/g, "");
+  ok(/\.guide-actions \.btn\{min-height:38px\}/.test(fuori), "col mouse non cambia niente");
+});
+
+t("gli a capo della finestra si vedono davvero", () => {
+  /* guideDialog scrive il messaggio con textContent: senza white-space nel CSS i paragrafi
+     collassano in una riga sola. La risposta a una segnalazione ne ha tre: richiamo, testo, firma. */
+  ok(/\.guide-msg\{[^}]*white-space:pre-line/.test(stylesCss), "il messaggio rispetta gli a capo");
 });
 
 t("il mixer monitor non riceve i cavi, e l'app lo dice invece di tacere", () => {

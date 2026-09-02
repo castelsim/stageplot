@@ -26868,6 +26868,75 @@ function maybeAskStageSize(explicit){
 
 ;
 
+/* ── LA RISPOSTA A CHI HA SEGNALATO (02/09) ──────────────────────────────────────────────────────
+   La home promette «il box arriva a me, e rispondo io», ma un canale per rispondere non c'era: il
+   box non chiede la mail, e quella dell'account Google non e' stata lasciata per essere
+   ricontattati. Cosi' chi segnalava non sapeva mai se era servito a qualcosa — e chi non lo sa
+   smette di segnalare.
+   La risposta si legge QUI, quando quella persona rientra. Una volta sola: appena mostrata viene
+   segnata letta, e non ricompare. Chi non torna non riceve niente, ed e' giusto cosi'. ── */
+(function(){
+  var REPLIES_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/my-feedback-replies";
+
+  function segnaLetta(id, tok){
+    try{ fetch(REPLIES_URL, { method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok },
+      body: JSON.stringify({ letta:id }) }); }catch(e){}
+  }
+
+  function mostra(r, tok){
+    /* Segnata letta appena si apre, non alla chiusura: se qualcuno chiude col tasto destro del
+       mouse o ricarica la pagina, l'avviso non deve tornare a ogni avvio per sempre. */
+    segnaLetta(r.id, tok);
+    var quando = "";
+    try{ quando = new Date(r.risposta_il).toLocaleDateString("it-IT",{day:"numeric",month:"long"}); }catch(e){}
+    if(typeof guideDialog !== "function") return;
+    guideDialog({
+      title: "Abbiamo lavorato sulla tua segnalazione",
+      msg: (r.richiamo ? "Avevi scritto: «"+r.richiamo+"»\n\n" : "") + r.risposta
+           + (quando ? "\n\n— Simone, "+quando : ""),
+      okLabel: "Chiudi",
+      action: { label:"Dimmi com'è adesso", run:function(){
+        /* Riporta al box da cui era partita: chiedere «com'e' adesso» ha senso solo se rispondere
+           costa un clic. */
+        var t=document.getElementById("fbHead");
+        if(t){ if(t.getAttribute("aria-expanded")!=="true") t.click();
+               var m=document.getElementById("fbMsg"); if(m){ try{ m.focus(); }catch(e){} } }
+      }}
+    });
+  }
+
+  function controlla(){
+    if(!(window.__cloud && window.__cloud.accessToken)) return;
+    window.__cloud.accessToken().then(function(tok){
+      if(!tok) return;                     /* nessun login: niente da leggere */
+      return fetch(REPLIES_URL, { method:"POST",
+        headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok },
+        body:"{}" }).then(function(res){ return res.ok ? res.json() : null; }).then(function(d){
+          var lista = d && d.risposte;
+          if(!lista || !lista.length) return;
+          /* Una alla volta, e la piu' recente: tre finestre in fila all'avvio sarebbero un agguato.
+             Le altre restano non lette e arrivano al prossimo giro. */
+          mostra(lista[0], tok);
+        });
+    }).catch(function(){});                /* rete giu' o function ferma: si tace, non si allarma */
+  }
+
+  /* Dopo il boot, e mai sopra un'altra finestra: il popup di benvenuto e la guida del cablaggio
+     hanno la precedenza, sono li' per il lavoro che l'utente sta facendo adesso. */
+  function quandoLibero(tentativi){
+    if(tentativi <= 0) return;
+    var occupato = document.getElementById("guideDlg")
+                || document.querySelector(".modal:not([hidden]), .guide-ov");
+    if(occupato) return setTimeout(function(){ quandoLibero(tentativi-1); }, 4000);
+    controlla();
+  }
+  /* 20 tentativi ogni 4 s = un minuto e venti: il benvenuto si legge con calma, e chi sta
+     scegliendo un modello non va interrotto. Se scade non si perde niente — la risposta non e'
+     stata segnata letta e torna al prossimo avvio. */
+  if(document.readyState === "complete") setTimeout(function(){ quandoLibero(20); }, 2500);
+  else window.addEventListener("load", function(){ setTimeout(function(){ quandoLibero(20); }, 2500); });
+})();
 (function(){
   var SUBMIT_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/submit-feedback";
   var box=document.getElementById("fbBox"), testa=document.getElementById("fbHead"),
