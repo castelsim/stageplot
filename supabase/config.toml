@@ -8,6 +8,12 @@ verify_jwt = true
 [functions.get-shared-project]
 verify_jwt = false
 
+# L'identita' la verifica la function stessa dal Bearer: verify_jwt=true qui rifiuterebbe con 401
+# la chiamata di chi non ha fatto login, e quella non e' una condizione d'errore — e' la normalita'
+# di chi apre l'editor senza account. Un anonimo riceve una lista vuota, non un errore.
+[functions.my-feedback-replies]
+verify_jwt = false
+
 [functions.process-consultation-notifications]
 verify_jwt = false
 
