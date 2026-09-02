@@ -1795,6 +1795,11 @@
         </div>
         <div id="prodNudge"></div>
         <div id="prodInline" hidden></div>
+        <!-- ELEMENTI FUORI DAL PALCO, DETTO DOVE SERVE (02/09). L'audit lo dice da sempre, ma
+             l'audit vive dentro `#noSel`, che sul telefono non si apre: chi disegna col dito
+             esportava un PDF con mezzo gruppo fuori dal palco senza che nessuno glielo dicesse.
+             Qui è nell'ultimo posto prima del file, dove la correzione costa un tocco. -->
+        <div id="pdfFuoriPalco" hidden></div>
         <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
              nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
@@ -5046,12 +5051,24 @@ function createVariant(name){
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
-function deleteVariant(id){ if(VARIANTS.length<=1) return;   /* guardia: mai eliminare l'ultima variante */
-  var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return;
+function deleteVariant(id){ if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima variante */
+  var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return false;
   /* La cronologia è per-scena (applyHistory non tocca VARIANTS): ⌘Z dopo questa riga non riporta la
      scena, annulla l'ultima modifica fatta ALTROVE. L'unica rete possibile è il punto di ripristino,
      come già fanno import e File→Nuovo — e ora si può anche riaprire, dal menu File (06/08). */
-  try{ if(typeof saveVersion==="function") saveVersion("Prima di eliminare «"+((VARIANTS[idx]||{}).name||"scena")+"»",true); }catch(_delVerErr){}
+  /* Il messaggio di conferma PROMETTE il punto di ripristino, ma qui il valore di ritorno di
+     saveVersion si buttava via: e saveVersion torna false per davvero (archivio pieno anche dopo
+     aver potato lo storico, oppure planimetria non referenziabile — vedi il ramo `else if(sig)`).
+     Quando falliva, la scena spariva senza rete e con la promessa già fatta. Ora o il punto c'è, o
+     non si elimina: la stessa politica di beginNewDocument, l'altro punto in cui il documento si
+     distrugge. Il messaggio porta il gesto che sblocca la situazione, non un consiglio generico. */
+  var punto=false;
+  try{ punto = typeof saveVersion==="function" && saveVersion("Prima di eliminare «"+((VARIANTS[idx]||{}).name||"scena")+"»",true)===true; }catch(_delVerErr){ punto=false; }
+  if(!punto){
+    if(window.__toast) window.__toast("Punto di ripristino non creato: la scena resta al suo posto.", true,
+      {label:"Scarica copia", run:function(){ if(typeof downloadProjectCopy==="function") downloadProjectCopy(); }});
+    return false;
+  }
   var wasActive=(id===activeVar); VARIANTS.splice(idx,1);
   delete venueImgCache[String(id)];
   if(wasActive){ var nv=VARIANTS[Math.min(idx, VARIANTS.length-1)]; activeVar=nv.id; applyVariantState(nv.state,true,nv.id);
@@ -5060,7 +5077,7 @@ function deleteVariant(id){ if(VARIANTS.length<=1) return;   /* guardia: mai eli
                        trovandosi la cronologia dell'altra scena annullava lavoro buono al posto di rimediare */
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   if(window.__consultDirty) window.__consultDirty();
-  render(); renderChannels(); fit(); renderVariantBar(); }
+  render(); renderChannels(); fit(); renderVariantBar(); return true; }
 /* Barra varianti: il viewer resta sulla sola variante pubblicata; il consulente editor deve invece
    poter navigare e salvare tutte le varianti del documento completo. */
 function renderVariantBar(){
@@ -13098,11 +13115,19 @@ document.getElementById("pTastLeg1").addEventListener("change", function(){
   document.getElementById("pTastLeg2").disabled = !document.getElementById("pTastLeg1").checked;
 });
 document.getElementById("pTastLeg2").addEventListener("change", function(){ mutSel(function(it){ it.leggio2=document.getElementById("pTastLeg2").checked; }); });
-(function(){   /* due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono) */
+/* Due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono). Si allineavano
+   solo l'uno all'altro, e solo su `change`: quello del telefono partiva sempre da «25 cm» anche
+   quando `snapMode` era altro — apri un progetto salvato su «Libero» e il pannello ti dice 25. */
+function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
-  function set(v){ snapMode=v; if(a) a.value=v; if(b) b.value=v; }
+  if(a) a.value=snapMode; if(b) b.value=snapMode;
+}
+(function(){
+  var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
+  function set(v){ snapMode=v; syncSnapSelects(); }
   if(a) a.addEventListener("change", function(){ set(this.value); });
   if(b) b.addEventListener("change", function(){ set(this.value); });
+  syncSnapSelects();
 })();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
@@ -15948,6 +15973,7 @@ function renderStagePanel(){
   if(_vs) _vs.hidden = stagePanelView!=="planimetria";
   if(!stageEdit) return;
   recalcStageBBox();
+  syncSnapSelects();   /* il select del telefono deve dire l'aggancio VERO, non quello di partenza */
   var b=stageBlocks();
   document.getElementById("stageTotal").textContent = fmtM(state.stage.w)+" × "+fmtM(state.stage.d);
   /* lista chip dei blocchi */
@@ -22914,6 +22940,18 @@ function saveVersion(name,includeImages){
   renderVersionPanel();
   return true;
 }
+/* Il punto di ripristino chiesto a mano (pannello «Punti di ripristino», bottone Salva) passava di
+   qui senza guardare niente: saveVersion tornava false — archivio pieno, o planimetria non
+   referenziabile — il campo del nome si svuotava lo stesso e nell'elenco non compariva nessuna riga
+   nuova. Chi ha appena premuto «Salva» legge quel campo vuoto come conferma, e crede di avere una
+   rete che non esiste. Estratto in funzione perché il fallimento va PROVATO, non solo letto. */
+function saveNamedVersion(nome){
+  var fatto=false;
+  try{ fatto = saveVersion(nome)!==false; }catch(_snvErr){ fatto=false; }
+  if(!fatto && window.__toast) window.__toast("Versione non salvata: sul dispositivo non c'è spazio.", true,
+    {label:"Scarica copia", run:function(){ if(typeof downloadProjectCopy==="function") downloadProjectCopy(); }});
+  return fatto;
+}
 function deleteVersion(idx){
   var vs=loadVersions(); vs.splice(idx,1);
   try{ localStorage.setItem(VER_KEY, JSON.stringify(vs)); }catch(e){}
@@ -23903,7 +23941,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   document.getElementById("versSave").addEventListener("click", function(){
     var n=document.getElementById("versName").value.trim();
     if(!n){ document.getElementById("versName").focus(); return; }
-    saveVersion(n);
+    if(!saveNamedVersion(n)) return;   /* il nome resta scritto: chi riprova non lo ridigita */
     document.getElementById("versName").value="";
   });
   document.getElementById("bHdrImport").addEventListener("click", function(){ document.getElementById("importJson").click(); });
@@ -26753,12 +26791,15 @@ function exportPdf(paperKey, scaleSel, orient, header){
   var N=resolveScale(paperKey, scaleSel, orient, cartHFor(header, paperKey, orient));
   var oTxt=(orient==="portrait"?"verticale":"orizzontale");
   var aTxt=printArea().custom?"L'area di stampa":"Il palco";
-  if(!N){ info.className="mstatus err"; info.textContent=aTxt+" non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+" "+oTxt+". Prova un foglio più grande, l'altro orientamento o riduci l'area."; return; }
+  if(!N){ info.className="mstatus err"; info.textContent=aTxt+" non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+" "+oTxt+". Prova un foglio più grande, l'altro orientamento o riduci l'area."; return Promise.resolve(false); }
   /* se a 1:N il disegno sfora il foglio NON è più un errore: si stampa la parte centrale che ci sta, in scala (vedi pdfStageBox) */
   info.className="mstatus"; info.textContent="Genero il PDF…";
   /* U2/U3: download AUTOMATICO del browser, niente più selettore "salva con nome" (la finestra extra) */
   var _boxChk=pdfStageBox(N, paperKey, orient, cartHFor(header, paperKey, orient));
-  buildPdfDoc(paperKey, N, orient, header).then(function(doc){
+  /* Restituisce la promessa: è l'UNICO modo per sapere quando l'export è davvero finito. Il bottone
+     si riaccendeva a cronometro (2500 ms fissi) e su un progetto pesante tornava cliccabile mentre
+     svg2pdf era ancora sul main thread — due clic, due file, due passate. */
+  return buildPdfDoc(paperKey, N, orient, header).then(function(doc){
     pdfSave(doc, fileName()+".pdf");
     /* dire la verità a valle: il ritaglio e le pagine non disegnate non devono sparire dietro un "✓" */
     var _avvisi=[];
@@ -26773,7 +26814,18 @@ function exportPdf(paperKey, scaleSel, orient, header){
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
   });
 }
-function exportPng(){
+/* IL PNG NON DICEVA NIENTE (02/09). Si premeva «PNG» e per qualche secondo non succedeva
+   assolutamente nulla di visibile: il flatten del disegno, la decodifica dell'SVG e un canvas da
+   4000 px passano tutti dal main thread, e nel frattempo il bottone restava lì, immobile e
+   ricliccabile. Chi non vede una reazione ripreme, e due export sono due file. Ora c'è l'attesa
+   dichiarata (messaggio), una guardia contro il doppio scatto, e `fatto` avvisa il chiamante alla
+   fine vera — riuscita o fallita — così il bottone può tornare vivo quando il lavoro è finito. */
+var _pngInCorso=false;
+function exportPng(fatto){
+  function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
+  if(_pngInCorso){ if(window.__toast) window.__toast("PNG già in preparazione."); return false; }
+  _pngInCorso=true;
+  if(window.__toast) window.__toast("Preparo il PNG…");
   var A=printArea();
   var PX=4000;
   var sc=PX/Math.max(A.w,A.h);
@@ -26796,18 +26848,24 @@ function exportPng(){
   var img=new Image();
   img.onload=function(){
     URL.revokeObjectURL(url);
-    var c=document.createElement("canvas"); c.width=pxW; c.height=pxH;
-    var ctx=c.getContext("2d");
-    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,pxW,pxH);
-    ctx.drawImage(img,0,0,pxW,pxH);
-    var a=document.createElement("a");
-    a.download=fileName()+".png"; a.href=c.toDataURL("image/png"); a.click();   /* audit L-01: nome canonico (= titolo progetto, come i PDF), non il legacy state.nome */
-    toastDownloaded(fileName()+".png");
-    track("export",{format:"png"});
+    /* finally: se il canvas esplode (memoria, tainted) l'attesa deve chiudersi lo stesso, altrimenti
+       il bottone resta spento per sempre e l'app sembra rotta senza dire perché. */
+    try{
+      var c=document.createElement("canvas"); c.width=pxW; c.height=pxH;
+      var ctx=c.getContext("2d");
+      ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,pxW,pxH);
+      ctx.drawImage(img,0,0,pxW,pxH);
+      var a=document.createElement("a");
+      a.download=fileName()+".png"; a.href=c.toDataURL("image/png"); a.click();   /* audit L-01: nome canonico (= titolo progetto, come i PDF), non il legacy state.nome */
+      toastDownloaded(fileName()+".png");
+      track("export",{format:"png"});
+    }
+    finally{ fine(); }
     maybeLoginNudge();
   };
-  img.onerror=function(){ URL.revokeObjectURL(url); showToast("PNG export fallito","err"); };
+  img.onerror=function(){ URL.revokeObjectURL(url); fine(); showToast("PNG non generato: riprova.","err"); };
   img.src=url;
+  return true;
 }
 /* Miniatura JPEG per l'anteprima in consulenza: SOLO il palco (perimetro/moduli),
    ritagliato ai suoi bordi, con gli elementi sopra, SENZA etichette (niente nomi degli
@@ -26971,6 +27029,29 @@ function pdfChannelPage(doc, L, paperKey){
     Object.keys(_pdfPillSel).forEach(function(k){ if(!avail[k]) delete _pdfPillSel[k]; });
     pdfRenderPills();
     pdfUpdateTechNote();
+  }
+  /* L'avviso «ci sono elementi fuori dal palco» nella finestra Esporta. Non è una diagnosi
+     tecnica: è quello che si vede guardando il foglio, e il rimedio è già scritto — «Adatta il
+     palco» allarga il palco fino a contenerli. Se non c'è niente fuori, non c'è nemmeno l'avviso. */
+  function renderFuoriPalco(){
+    var box=document.getElementById("pdfFuoriPalco"); if(!box) return;
+    box.innerHTML="";
+    var fuori = (typeof elementiFuoriDalPalco==="function") ? elementiFuoriDalPalco() : [];
+    if(!fuori.length){ box.hidden=true; return; }
+    box.hidden=false;
+    box.className="nudge warn";
+    var b=document.createElement("b");
+    b.textContent = fuori.length===1 ? "1 elemento è fuori dal palco" : fuori.length+" elementi sono fuori dal palco";
+    box.appendChild(b);
+    box.appendChild(document.createTextNode(" — nel PDF si vedranno lì dove sono. "));
+    var fix=document.createElement("button");
+    fix.type="button"; fix.className="btn"; fix.id="pdfFuoriFix"; fix.textContent="Adatta il palco";
+    fix.addEventListener("click", function(){
+      if(typeof auditFixAdattaPalco==="function") auditFixAdattaPalco();
+      renderFuoriPalco();
+      if(typeof refresh==="function") refresh();
+    });
+    box.appendChild(fix);
   }
   function renderProdInline(){
     /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
@@ -27232,7 +27313,15 @@ function pdfChannelPage(doc, L, paperKey){
       if(typeof activateFrameEdit==="function") activateFrameEdit();
     });
     var pg=document.getElementById("pdfAltPng");
-    if(pg) pg.addEventListener("click", function(){ ensurePrintFrame(); exportPng(); });
+    /* Come il bottone del PDF: spento e con l'etichetta cambiata finché il file non è pronto. Qui la
+       finestra resta aperta, quindi il bottone è il posto giusto dove far vedere l'attesa. */
+    if(pg) pg.addEventListener("click", function(){
+      var b=this; if(b.disabled) return;
+      ensurePrintFrame();
+      var _t=b.textContent; b.disabled=true; b.textContent="Genero…";
+      function fine(){ b.disabled=false; b.textContent=_t; }
+      if(exportPng(fine)===false) fine();
+    });
     var cs=document.getElementById("pdfAltCsv");
     if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
   })();
@@ -27255,6 +27344,7 @@ function pdfChannelPage(doc, L, paperKey){
     _prodOpen=false;
     pdfRenderPills();
     renderProdInline();
+    renderFuoriPalco();
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();
@@ -27288,8 +27378,14 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
     if(b.disabled) return;                       /* niente due export in parallelo: erano due file e due passate di svg2pdf sul main thread */
     function run(){
       b.disabled=true; var _t=b.textContent; b.textContent="Genero…";
-      try{ exportPdf(paper.value, pdfScaleValue(), pdfOrientValue(paper.value, pdfScaleValue(), header.value), header.value); }
-      finally { setTimeout(function(){ b.disabled=false; b.textContent=_t; }, 2500); }
+      /* Il bottone torna vivo alla FINE del lavoro vero, non dopo 2,5 s di cronometro: un progetto
+         pesante ci mette di più, e chi lo ricliccava si ritrovava due PDF identici e l'interfaccia
+         bloccata il doppio del tempo. exportPdf ora torna la promessa dell'export. */
+      function fine(){ b.disabled=false; b.textContent=_t; }
+      var p=null;
+      try{ p=exportPdf(paper.value, pdfScaleValue(), pdfOrientValue(paper.value, pdfScaleValue(), header.value), header.value); }
+      catch(e){ fine(); throw e; }
+      if(p && typeof p.then==="function") p.then(fine, fine); else fine();
     }
     /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
        Prima era un confirm() NATIVO del browser: chi spunta «impedisci a questa pagina di creare altre
@@ -27420,6 +27516,33 @@ function gallery(){
   var ADMIN_ID="4b899cba-3cc2-4b26-9ef0-c3e915929277";
 
   var rispostaArrivata=false;
+
+  /* ATTESA DICHIARATA, E UN TEMPO MASSIMO (02/09). Le due strade coperte erano «errore» e «arrivato»;
+     mancava la terza, che è anche la peggiore: la richiesta che non torna MAI. Un fetch appeso non
+     rifiuta e non risolve, quindi né viewerFailed né startSession venivano chiamati e chi ha aperto
+     il link restava davanti al palco di default — 12×8 vuoto, FONDO PALCO, legenda dei layer: un
+     documento credibile che dice «questo gruppo non ha bisogno di niente». Meglio un errore che una
+     bugia ben disegnata. `consult-pending` esisteva già ma non aveva nessuna regola: era una classe
+     muta. Ora la classe porta un cartello, e a 20 s si dichiara il fallimento. */
+  var ATTESA_MAX=20000;
+  var esito=false;
+  var scadenza=setTimeout(function(){
+    viewerFailed("Il progetto non è arrivato entro venti secondi: può essere la rete o il server.");
+  }, ATTESA_MAX);
+  /* Una sola conclusione: chi arriva secondo (la risposta in ritardo dopo il timeout, o il timeout
+     dopo la risposta) non deve riscrivere la schermata che l'utente sta già leggendo. */
+  function concludi(){ if(esito) return false; esito=true; clearTimeout(scadenza); togliAttesa(); return true; }
+  function mostraAttesa(){
+    if(document.getElementById("viewWait")) return;
+    var w=document.createElement("div"); w.id="viewWait"; w.setAttribute("role","status"); w.setAttribute("aria-live","polite");
+    w.style.cssText="position:fixed;inset:0;z-index:340;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg,#f8fafc);font-family:var(--font-ui,system-ui,sans-serif);color:var(--text,#0f172a);text-align:center";
+    w.innerHTML='<div style="max-width:320px"><b style="display:block;font-size:17px;margin-bottom:6px">Sto aprendo il progetto…</b>'+
+      '<span style="font-size:14px;color:var(--text-2,#475569)">Un momento: il documento arriva dal server.</span></div>';
+    document.body.appendChild(w);
+  }
+  function togliAttesa(){ var w=document.getElementById("viewWait"); if(w&&w.remove) w.remove(); }
+  mostraAttesa();
+
   fetch(SB_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(vt))
     .then(function(r){return r.json();})
     .then(function(d){
@@ -27449,6 +27572,7 @@ function gallery(){
       : "Il server non ha risposto: può essere la connessione di rete."); });
 
   function startSession(sb, token, d, isEditor){
+    if(!concludi()) return;
     document.body.classList.remove("consult-pending","consult-viewer","consult-editor");
     if(!isEditor){ document.body.classList.add("viewmode","consult-viewer"); }   /* 1C: il cliente vede la channel list live (read-only) — preserva i dati */
     if(isEditor){ document.body.classList.remove("viewmode"); document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
@@ -27508,6 +27632,8 @@ function gallery(){
   }
 
   function startSharedProject(token, d){
+    if(!concludi()) return;
+    document.body.classList.remove("consult-pending");
     document.body.classList.add("viewmode");
     importProject(JSON.stringify(d.data),{keepCloud:true,persist:false,autosave:false});
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
@@ -27537,6 +27663,7 @@ function gallery(){
      vuoto disegnato bene, con «FONDO PALCO» e la legenda dei layer, un tecnico di sala lo legge come
      «il gruppo non ha bisogno di niente». E la barra non deve promettere una diretta inesistente. */
   function viewerFailed(perche){
+    if(!concludi()) return;
     document.body.classList.add("viewmode","view-failed");
     document.body.classList.remove("consult-pending");
     var box=document.getElementById("viewFail"); if(box) box.hidden=false;
@@ -27773,7 +27900,18 @@ else if(allowStartupScenario && location.search.indexOf("json=1")>-1){   /* QA: 
   document.body.innerHTML='<pre style="font:11px/1.45 Menlo,monospace;padding:14px;white-space:pre-wrap">'+
     esc(JSON.stringify(buildProjectJson(),null,2))+'</pre>';
 }
-else { window.addEventListener("resize", render); fit();
+else {
+  /* RUOTANDO IL TELEFONO cambia anche COSA si vede, non solo quanto è largo: la griglia 3×3 del
+     pannello palco compare solo `if(isMobile())`, e `isMobile()` si legge al render. Con il solo
+     `render` la griglia restava com'era da prima della rotazione — accesa in orizzontale su un
+     tablet, o spenta sul telefono. Stessa cosa per il pannello elemento, che sul telefono mostra
+     meno gruppi. (02/09) */
+  window.addEventListener("resize", function(){
+    render();
+    if(typeof stageEdit!=="undefined" && stageEdit && typeof renderStagePanel==="function") renderStagePanel();
+    if(typeof syncPanelGroups==="function") syncPanelGroups();
+  });
+  fit();
 }
 /* A11y modali (audit M-22): oltre alla semantica (role/aria-modal/nome) ora un vero contratto di
    dialogo — focus trap (Tab ciclico dentro la modale in cima), restore del focus al trigger alla
@@ -28148,11 +28286,17 @@ function maybeAskStageSize(explicit){
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
 
   var sb=null, cloudUser=null, cloudCurrentId=(window.__bootCloudId||null), cloudProjects=[], cloudOpenSeq=0, cloudProjectsLoadSeq=0;   /* adotta l'aggancio persistito dal boot (load()) */
+  /* «Vuoto» e «non lo so ancora» non sono la stessa cosa. openModal() dipinge PRIMA e chiede la
+     lista DOPO: per tutto il tempo della query l'elenco era vuoto e la finestra dichiarava «Nessun
+     progetto salvato online» a chi ne ha venti. Una frase falsa per qualche istante è comunque una
+     frase falsa, e su rete lenta quegli istanti bastano per chiudere la finestra e non tornare.
+     Tre stati, non due: "attesa" finché la risposta non arriva, "errore" se non arriva. */
+  var cloudProjectsStato="attesa";
   var authGeneration=0, authUserId=null;
   function setCloudUser(next){
     var nextId=next&&next.id?String(next.id):null;
     if(nextId!==authUserId){
-      authGeneration++; authUserId=nextId; cloudProjects=[];
+      authGeneration++; authUserId=nextId; cloudProjects=[]; cloudProjectsStato="attesa";   /* cambio account: la lista di prima non descrive più nessuno */
       cloudOpenSeq++; cloudProjectsLoadSeq++;
       if(typeof authReconcileSeq==="number") authReconcileSeq++;
       if(Array.isArray(cloudWriteQueue) && cloudWriteQueue.length){
@@ -28406,6 +28550,10 @@ function maybeAskStageSize(explicit){
           '<button class="cloudDel" data-id="'+pid+'" title="'+(p.is_locked?"Bloccato · va sbloccato prima di eliminarlo":"Elimina")+'" aria-label="'+(p.is_locked?"Progetto bloccato: sbloccalo prima di eliminarlo":"Elimina")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--text-3)":"var(--danger)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
         '</div>';
       }).join("");
+    } else if(cloudProjectsStato==="attesa"){
+      rows='<p style="color:var(--text-3);margin:10px 0 0" role="status" aria-live="polite">Sto cercando i tuoi progetti…</p>';
+    } else if(cloudProjectsStato==="errore"){
+      rows='<p style="color:var(--text-3);margin:10px 0 0">Elenco non disponibile: il server non ha risposto. Riapri questa finestra fra poco.</p>';
     } else {
       rows='<p style="color:var(--text-3);margin:10px 0 0">Nessun progetto salvato online. Con l’accesso attivo, il progetto su cui lavori si salva online da solo.</p>';
     }
@@ -28664,7 +28812,8 @@ function maybeAskStageSize(explicit){
     sb.from("stageplot_projects").select("id,title,updated_at,share_token,is_locked").is("deleted_at",null).order("updated_at",{ascending:false})
       .then(function(r){
         if(request!==cloudProjectsLoadSeq || !authStill(requestUser,requestAuth)) return;
-        if(r.error){ toast("Impossibile leggere i progetti: "+r.error.message, true); return; }
+        if(r.error){ cloudProjectsStato="errore"; if(modalOpen()) renderModal(); toast("Impossibile leggere i progetti: "+r.error.message, true); return; }
+        cloudProjectsStato="letta";
         cloudProjects=r.data||[];
         if(cloudCurrentId){ var cur=cloudProjects.filter(function(x){ return x.id===cloudCurrentId; })[0];   /* boot/refresh: se il progetto agganciato è bloccato → sola-lettura */
           /* Una lista incompleta/non più contenente il progetto non è prova che sia sbloccato:

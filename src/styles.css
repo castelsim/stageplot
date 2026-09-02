@@ -2,6 +2,12 @@
      DESIGN SYSTEM — TOKEN (fonte di verità unica). Vedi STAGEPLOT_DESIGN_SYSTEM.md
      Regola: nessun hex grezzo fuori da qui (e dalle classi oggetto-palco/canvas).
      ========================================================================= */
+  /* IL BROWSER RISCRIVEVA LA TIPOGRAFIA (02/09, misurato sull'iPhone). Senza questa riga WebKit
+     applica il suo «text autosizing»: dentro i blocchi più larghi del telefono gonfia il testo per
+     conto suo, e le misure scelte qui non sono quelle che l'utente vede — etichette da 12,5 px
+     arrivate a 39, bottoni da 13 a 40,6. La gerarchia tipografica la decide il foglio di stile,
+     non un'euristica. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   :root{
     /* Altezza del dock del telefono: 52px di bottone più la safe-area del telefono. Era usata in
        due calc() e non dichiarata da nessuna parte: valeva sempre il fallback 64px. (02/09) */
@@ -453,7 +459,9 @@
   .pg-cells button.on::before{background:var(--accent)}
   .pg-cells button:active{background:rgba(13,148,136,.16)}
   body.dark .pg-cells button{background:#141a1d;border-color:#314046}
-  .pg-hint{font-size:11px;color:var(--text-3);margin-top:6px;line-height:var(--lh-snug)}
+  /* 12, non 11: è l'UNICA riga che dice l'orientamento della griglia, sotto nove bersagli da 117
+     px, e chi non la legge mette la batteria dalla parte del pubblico. (02/09) */
+  .pg-hint{font-size:12px;color:var(--text-3);margin-top:6px;line-height:var(--lh-snug)}
   .snap-guide{stroke:var(--guide);stroke-width:1.2px;stroke-dasharray:8 5;opacity:.75;pointer-events:none}
   .snap-guide.center{stroke:var(--guide-center)}
   #props h3{font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text);margin:0 0 6px}
@@ -550,10 +558,11 @@
   .blkchip{border:1px solid var(--accent-soft);background:var(--surface);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
   .blkchip.sel{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   body.dark .blkchip{background:#0f141c;border-color:#2c3a3f;color:#cbd5e1}
-  /* Le PEDANE sono parte del palco (Simone 25/07): si spostano e si modificano SOLO in modalità
-     "Palco e pedane". Fuori da lì restano ferme e trasparenti al clic, così non si spostano per sbaglio
-     mentre si lavora sugli elementi che ci stanno sopra. In modalità palco vale l'opposto: sono le
-     uniche a rispondere, tutto il resto passa in secondo piano. */
+  /* In modalità palco TUTTO quello che sta sopra passa in secondo piano e non risponde al clic:
+     lì si lavora la forma del palco, non chi ci sta sopra. Le pedane comprese — la riga sotto le
+     lascia solo un po' più leggibili. Si scelgono dai chip del pannello, che le selezionano sul
+     palco. (Il commento di prima diceva che erano «le uniche a rispondere»: non è mai stato vero,
+     `pointer-events` non viene ripristinato da nessuna parte. Corretto il 02/09.) */
   body.stage-edit .item{opacity:.35;pointer-events:none}
   /* La pedana è un elemento come gli altri (27/07): niente blocco fuori dalla modalità palco. In
      modalità palco resta visibile e attenuata come il resto, perché lì si lavora la forma del palco. */
@@ -1406,6 +1415,9 @@
   .nudge .arr{float:right;transition:transform var(--dur-fast) var(--ease)}
   .nudge.open .arr{transform:rotate(90deg)}
   .nudge.ok{background:var(--surface-raised);border-color:var(--border);color:var(--text-2)}
+  /* Non è un invito, è un avviso: qualcosa nel disegno non torna, e il PDF lo mostrerà così. */
+  .nudge.warn{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning);cursor:default}
+  .nudge.warn .btn{margin-left:6px;padding:4px 10px;font-size:12px;vertical-align:baseline}
   .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
   .pdf-optrow label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 5px}
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
