@@ -57,8 +57,14 @@ begin
   return v_toccate > 0;
 end $$;
 
-revoke all on function public.feedback_segna_risposta_letta(uuid, uuid) from public, anon, authenticated;
--- La chiama solo la Edge Function, che gira con la service_role dopo aver verificato il JWT.
+-- Il permesso si toglie a tutti e si ridà SOLO alla service_role: la chiama la Edge Function, dopo
+-- aver verificato il JWT. Senza il grant esplicito non la potrebbe chiamare nemmeno lei — `revoke
+-- from public` toglie l'execute a ogni ruolo tranne l'owner, service_role compresa. È il pattern
+-- della 0025 (feedback_throttle_hit), e va tenuto uguale.
+revoke execute on function public.feedback_segna_risposta_letta(uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.feedback_segna_risposta_letta(uuid, uuid)
+  to service_role;
 
 comment on function public.feedback_segna_risposta_letta(uuid, uuid) is
   'Segna letta UNA risposta, e solo se la segnalazione è di quell''utente. Il controllo sta qui e non nella Edge Function: è una riga sola da leggere invece di una condizione sparsa nel codice.';

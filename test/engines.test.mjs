@@ -2326,6 +2326,31 @@ t("nessuna Edge Function legge la service role da sé: passano tutte da serviceR
   ok(usano.length >= 7, "tutte le function che parlano col database ci passano: " + usano.length);
 });
 
+t("una funzione SQL a cui si toglie l'execute lo ridà alla service_role", () => {
+  /* 02/09, trovato PRIMA di applicare la 0040 e non dopo. `revoke execute ... from public` toglie
+     il permesso a OGNI ruolo tranne l'owner — service_role compresa, che non è superuser. Senza il
+     grant che segue, la Edge Function chiama la sua RPC e si prende un errore di permessi: un
+     guasto che non si vede scrivendo il codice, solo in produzione a cose fatte.
+     Il pattern giusto è quello della 0025 (feedback_throttle_hit): revoke, poi grant. */
+  const dir = join(root, "supabase/migrations");
+  const mancanti = [];
+  for (const f of readdirSync(dir).filter((x) => /\.sql$/.test(x))) {
+    const sql = readFileSync(join(dir, f), "utf8");
+    /* i nomi delle funzioni a cui questa migrazione toglie l'execute */
+    for (const m of sql.matchAll(/revoke\s+(?:all|execute)\s+on\s+function\s+([\w.]+)\s*\([^)]*\)[\s\S]{0,120}?from[^;]*;/gi)) {
+      const fn = m[1];
+      /* Le funzioni TRIGGER non c'entrano: le esegue il trigger per conto dell'owner, e nessuno le
+         chiama via RPC. Toglier loro l'execute a tutti è anzi giusto — è il caso della 0023. */
+      const decl = new RegExp("create (?:or replace )?function\\s+" + fn.replace(".", "\\.") + "\\s*\\([^)]*\\)\\s*returns\\s+trigger", "i");
+      if (decl.test(sql)) continue;
+      const ridato = new RegExp("grant\\s+execute\\s+on\\s+function\\s+" + fn.replace(".", "\\.") + "\\s*\\([^)]*\\)[\\s\\S]{0,120}?to[^;]*service_role", "i");
+      if (!ridato.test(sql)) mancanti.push(f + " → " + fn);
+    }
+  }
+  eq(mancanti.length, 0,
+     "a queste funzioni è tolto l'execute e non è ridato a service_role: " + mancanti.join(" | "));
+});
+
 t("il divieto vive anche nel database, non solo nella finestra", () => {
   /* Una regola che sta solo nel client protegge dallo sbaglio e non dal guasto: basta una richiesta
      malformata o una scheda vecchia rimasta aperta e il progetto se ne va lo stesso. */
