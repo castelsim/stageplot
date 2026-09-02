@@ -2793,6 +2793,15 @@ body.dark .ask-all .btn{background:transparent}
   #printAreaModal .pa-nums input{min-height:44px}
 }
 
+/* I pannelli del cassetto scorrono: la presa per buttarli giù è la striscia in cima, e lì si
+   disegna la barretta che lo dice. Sotto, il dito scorre. (02/09) */
+@media (max-width:880px){
+  #eventoSec, #stageEditPanel, #areaEditPanel, #venuePanel{position:relative;padding-top:22px}
+  #eventoSec::before, #stageEditPanel::before, #areaEditPanel::before, #venuePanel::before{
+    content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);
+    width:38px;height:4px;border-radius:999px;background:var(--border-strong)}
+}
+
 /* ── FORMA DEL PALCO, SUL TELEFONO (02/09, Simone: «controlla la finestra palco su mobile, non
    funziona bene») ────────────────────────────────────────────────────────────────────────────────
    Il pannello ha 33 bottoni, 10 campi e 11 etichette dentro un cassetto alto 46vh: è denso quanto
@@ -2807,6 +2816,11 @@ body.dark .ask-all .btn{background:transparent}
   body:not(.props-pro) #stageEditPanel #blkFlatWrap{display:none !important}
   /* Col semicerchio nascosto, «+ Blocco» resta solo: prende tutta la riga invece di mezza. */
   body:not(.props-pro) #stageEditPanel .row #bAddBlock{flex:1 1 100%}
+  /* «Palco base» compariva DUE volte: come chip verde selezionato nella lista, e come titolo
+     subito sotto. Sul telefono il chip basta — è lì e si vede che è quello scelto. Chi apre le
+     opzioni tecniche (dove vivono semicerchio e lato curvo) si riprende anche il titolo, che lì
+     porta le note «(semicerchio)» e «(deformato)». Visto sul simulatore iPhone il 02/09. */
+  body:not(.props-pro) #stageEditPanel #blkTitle{display:none}
 }
 
 /* ── FINESTRA EVENTO (02/09) ─────────────────────────────────────────────────────────────────────

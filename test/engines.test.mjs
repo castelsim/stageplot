@@ -11712,11 +11712,19 @@ t("sul palco le illustrazioni si richiamano, nell'export si scrivono per intero"
 
 /* ===== L'AIUTO DICE LA VERITÀ SULLO SCHERMO CHE HAI DAVANTI (14/08) ======================= */
 t("l'aiuto non manda a cercare un pannello che su quello schermo non c'è", () => {
-  /* Le proprietà stanno a destra sul computer e IN BASSO sul telefono: un solo testo per due layout
-     mandava metà degli utenti a cercare una colonna che non esiste. */
-  const h = appjs.slice(appjs.indexOf('t.id="dragHint"'), appjs.indexOf('t.id="dragHint"') + 700);
+  /* Le proprietà stanno a destra sul computer e in basso sul telefono: un solo testo per due layout
+     mandava metà degli utenti a cercare una colonna che non esiste.
+     Dal 02/09 sul telefono non si nomina NESSUN pannello: il testo lungo diventava CINQUE righe e
+     copriva il palco — visto sul simulatore iPhone, la prima volta che ho potuto guardarlo davvero.
+     Là si dice la cosa che serve subito; il resto si scopre toccando. */
+  const h = appjs.slice(appjs.indexOf('t.id="dragHint"'), appjs.indexOf('t.id="dragHint"') + 900);
   ok(/isMobile\(\)/.test(h), "l'aiuto guarda che schermo è");
-  ok(/pannello in basso/.test(h) && /pannello a destra/.test(h), "e ha la sua parola per ciascuno");
+  ok(/pannello a destra/.test(h), "col mouse dice dov'e' il pannello");
+  ok(/Toccalo per il nome/.test(h), "col dito dice cosa fare, senza nominare pannelli");
+  /* E il testo del telefono dev'essere corto, o torna a coprire il palco. */
+  const mob = (h.match(/\? "([^"]+)"/) || ["", ""])[1];
+  ok(mob.length > 0 && mob.length < 70, "e sta in due righe: " + mob.length + " caratteri — «" + mob + "»");
+  ok(!/pannello in basso/.test(h), "su telefono non si manda a cercare un pannello");
 });
 
 t("se la schermata non si prepara, il box torna lo stesso: mai lasciare l'utente senza finestra", () => {
@@ -13044,7 +13052,7 @@ t("anche i pannelli del cassetto si buttano giu'", () => {
      guardato il nulla restando verdi. */
   const iPan = appjs.indexOf("function pannelliChiudibiliColDito");
   ok(iPan > 0, "la funzione e' nel bundle");
-  const blocco = appjs.slice(iPan, iPan + 900);
+  const blocco = appjs.slice(iPan, iPan + 2200);   /* largo: i commenti dentro la funzione sono lunghi */
   ok(/eventoSec/.test(blocco), "e il blocco letto e' davvero il suo: " + blocco.length + " caratteri");
   ["eventoSec", "stageEditPanel", "areaEditPanel", "venuePanel"].forEach((id) => {
     ok(blocco.indexOf(id) > 0, id + " e' fra quelli agganciati");
@@ -13057,7 +13065,13 @@ t("anche i pannelli del cassetto si buttano giu'", () => {
     ok(blocco.indexOf(id) > 0, "ed e' quello che il gesto preme");
   });
   /* Escluso solo quello che si scrive: trascinare per selezionare del testo non deve chiudere. */
-  ok(/\}, "input,select,textarea"\)/.test(blocco), "il gesto non parte dai campi di testo");
+  /* PRESA IN CIMA (02/09): questi pannelli scorrono — la forma del palco ha 33 bottoni — e il
+     gesto su tutto rubava lo scroll. La striscia dei primi 44 px basta per buttarli giù, e sotto
+     il dito scorre come deve. È la differenza col menu, che non scorre e si prende da ovunque. */
+  ok(/\}, "input,select,textarea", 44\)/.test(blocco), "si prendono dalla striscia in cima, non da tutto");
+  ok(/#stageEditPanel::before\{|#stageEditPanel, #areaEditPanel/.test(stylesCss.replace(/\s+/g," ")) ||
+     /#eventoSec::before, #stageEditPanel::before/.test(stylesCss),
+     "e la barretta lo dice");
 });
 
 t("la forma del palco, sul telefono, chiede tre cose invece di trentatre", () => {
@@ -13082,6 +13096,15 @@ t("la forma del palco, sul telefono, chiede tre cose invece di trentatre", () =>
   /* L'altezza dei blocchi ha un id, o dal CSS non la si raggiunge. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="blkHWrap"/.test(html), "l'altezza ha un aggancio");
+  /* E l'aiuto non nomina l'altezza, che li' non c'e' piu': visto sul simulatore iPhone, diceva
+     «regola misura e ALTEZZA con + / −» accanto a un pannello dove l'altezza era nascosta. */
+  /* «Palco base» compariva DUE volte: chip verde selezionato nella lista, e titolo subito sotto.
+     Visto sul simulatore iPhone il 02/09 — dal codice sembravano due cose diverse. */
+  ok(/body:not\(\.props-pro\) #stageEditPanel #blkTitle\{display:none\}/.test(stylesCss),
+     "il titolo del blocco non ripete il chip gia' selezionato");
+  const html2 = readFileSync(join(root, "app/index.html"), "utf8");
+  const mob = (html2.match(/class="hint mob-hint"[^>]*>([^<]*)</) || ["", ""])[1];
+  ok(mob && !/altezza/i.test(mob), "l'aiuto non promette l'altezza: «" + mob + "»");
   /* Col mouse resta tutto: li' lo spazio c'e'. */
   const fuori = stylesCss.replace(/@media \(max-width:880px\)\{[\s\S]*?\n\}/g, "");
   ok(!/#stageEditPanel #bAddSemi/.test(fuori), "col mouse non si nasconde niente");
