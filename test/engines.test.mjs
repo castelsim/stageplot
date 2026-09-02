@@ -13025,10 +13025,21 @@ t("ogni finestra si chiude buttandola giu', non solo il catalogo", () => {
   ok(/if\(b\) b\.click\(\); else m\.hidden=true;/.test(appjs), "e solo se non c'e' nasconde a mano");
   /* Non deve partire dai campi: trascinare dentro un input non chiude la finestra. */
   ok(/"input,select,textarea,button,a,label", 44/.test(appjs), "e non parte da un campo o da un bottone");
-  /* La barretta e' disegnata, non aggiunta al markup di ventidue finestre. */
-  ok(/\.card-grab::before\{content:""/.test(stylesCss), "la barretta e' uno pseudo-elemento");
-  ok(/@media \(pointer:coarse\)\{\s*\.card-grab/.test(stylesCss.replace(/\n\s*/g, m => m.includes("\n") ? "\n  " : m)) ||
-     bloccoCoarse(stylesCss).indexOf(".card-grab") >= 0, "e c'e' solo col dito");
+  /* LA PRESA E' UNA STRISCIA VERA, e il divieto di scorrere sta SOLO li' dentro.
+     Il 02/09, misurato sull'iPhone: `touch-action:none` era su TUTTO il foglio, e siccome quel
+     divieto vale anche per gli antenati che scorrono, nessuna delle 22 finestre si scorreva piu'.
+     La `fascia` limitava dove PARTE il gesto, non il divieto. */
+  ok(/\.sheet-hand\{display:block[^}]*touch-action:none/.test(stylesCss.replace(/\n\s*/g, "")),
+     "il divieto di scorrere sta sulla maniglia");
+  ok(/\.sheet-hand::before\{content:""/.test(stylesCss), "ed e' lei a portare la barretta");
+  /* Il foglio NON deve avere il divieto: e' esattamente il difetto da cui si torna indietro. */
+  const corpoChiudi = appjs.slice(appjs.indexOf("function chiudiTrascinando"),
+                                  appjs.indexOf("function fogliChiudibiliColDito"));
+  ok(/if\(fascia\)\{ *maniglia=manigliaDelFoglio\(foglio\); *fascia=0; *\}/.test(corpoChiudi),
+     "con una fascia la maniglia diventa la striscia, non il foglio");
+  ok(/foglio\.insertBefore\(m, foglio\.firstChild\)/.test(appjs), "la striscia sta in cima al foglio");
+  ok(/\.card-grab\{position:relative;padding-top:26px !important\}/.test(stylesCss),
+     "e il foglio le lascia lo spazio");
 });
 
 t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
@@ -13043,6 +13054,108 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
   ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
 });
 
+t("la griglia 3x3 del palco sposta davvero, anche con un blocco largo", () => {
+  /* Nove bersagli, e con un blocco piu' largo del palco base facevano tutti la stessa cosa:
+     `Math.max(0, nx)` schiacciava le tre colonne sullo stesso numero. Ci si arriva senza sforzo —
+     «+ Semicerchio» nasce largo 4 m e il palco puo' essere piu' stretto. (02/09) */
+  const iStart = appjs.indexOf('(function(){ var g=document.getElementById("blkPosGrid")');
+  ok(iStart > 0, "il gestore della griglia c'e'");
+  const blocco = appjs.slice(iStart, iStart + 1400);
+  ok(/e\.target\.closest\("button\[data-pos\]"\)/.test(blocco), "ed e' davvero lui che risponde al tocco");
+  ok(blocco.length > 200, "e il blocco letto e' il suo: " + blocco.length + " caratteri");
+  ok(!/r\.x=Math\.round\(Math\.max\(0,nx\)\)/.test(blocco),
+     "niente clamp a zero: schiacciava le tre colonne su un solo risultato");
+  ok(/r\.x=Math\.round\(nx\); r\.y=Math\.round\(ny\);/.test(blocco), "le tre posizioni restano tre");
+  ok(/normalizeStageBBox\(\)/.test(blocco), "e le coordinate negative le rimette a posto la normalizzazione");
+
+  /* IL CONTO, provato sui numeri: palco base 8 m, blocco da 12 m. Le tre colonne devono dare tre
+     x diversi — prima ne davano uno solo. */
+  const bx = 0, bw = 800, rw = 1200;
+  const tre = [0, 1, 2].map((col) => Math.round(col === 0 ? bx : (col === 2 ? bx + bw - rw : bx + (bw - rw) / 2)));
+  eq(new Set(tre).size, 3, "tre colonne, tre posizioni: " + tre.join(" / "));
+  const vecchio = tre.map((x) => Math.max(0, x));
+  eq(new Set(vecchio).size, 1, "col clamp di prima erano tutte uguali: " + vecchio.join(" / "));
+
+  /* E la cella accesa deve seguire il blocco anche quando la corsa e' negativa, o resta inchiodata
+     al centro e non dice piu' dove sia. */
+  const cella = (pos, base, corsa) => { const t = corsa === 0 ? 0.5 : (pos - base) / corsa; return t <= 0.25 ? 0 : (t >= 0.75 ? 2 : 1); };
+  eq(cella(0, 0, -400), 0, "a filo a sinistra accende la sinistra");
+  eq(cella(-400, 0, -400), 2, "a filo a destra accende la destra");
+  eq(cella(-200, 0, -400), 1, "in mezzo accende il centro");
+  ok(/function cella\(pos, base, corsa\)/.test(appjs), "ed e' lo stesso conto che gira nell'app");
+  /* E che sia USATO, non solo dichiarato: la prima mutazione ha lasciato la funzione al suo posto
+     e cambiato solo la riga che la chiama — la suite e' rimasta verde. */
+  ok(/var col = cella\(r\.x, bx0, bw0-r\.w\), row = cella\(r\.y, by0, bd0-r\.d\);/.test(appjs),
+     "e che sia lui a decidere la cella accesa");
+});
+
+t("quando premi un bottone del palco, qualcosa si muove", () => {
+  /* `ensureVisible()` era una funzione VUOTA, chiamata in 19 punti. Il blocco nuovo nasce al centro
+     del palco: se eri zoomato su un angolo, premevi «+ Blocco» e non succedeva niente di visibile.
+     E aprire il cassetto rimpicciolisce il disegno senza generare un resize, quindi nessuno rifa'
+     l'inquadratura. (02/09) */
+  ok(!/function ensureVisible\(\)\{\}/.test(appjs), "non e' piu' vuota");
+  ok(/function ensureVisible\(\)\{ if\(isMobile\(\)\) fitStage\(\); \}/.test(appjs),
+     "rifa' l'inquadratura, ma solo col dito");
+  /* Col mouse l'inquadratura e' dell'utente: non gliela si sposta sotto. */
+  const iAdd = appjs.indexOf("function addStageBlock");
+  ok(/ensureVisible\(\);/.test(appjs.slice(iAdd, appjs.indexOf("function addSemicircle"))), "«+ Blocco» la chiama");
+});
+
+t("la planimetria si ridisegna anche senza un blocco selezionato", () => {
+  /* `renderStagePanel` usciva prima di `renderVenuePanel()` ogni volta che nessun blocco era
+     selezionato — cioe' dopo ogni tocco su un chip Pedana, che fa proprio `selBlock=null`. (02/09) */
+  ok(/bp\.hidden=true; renderVenuePanel\(\); return;/.test(appjs),
+     "prima di uscire ridisegna la planimetria");
+  ok(/selBlock=null; selectOne\(pd\.id\)/.test(appjs), "ed e' il caso del chip Pedana");
+});
+
+t("l'area di stampa: la forma sta nel CSS, non negli attributi style", () => {
+  /* Le regole per il telefono scritte il 02/09 non hanno mai avuto effetto: nel markup c'era
+     `style="grid-template-columns:1fr 1fr 1fr 1fr"`, e un inline batte qualunque foglio di stile.
+     I quattro campi restavano quattro per riga anche a 390 px. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const iPa = html.indexOf('class="pa-nums"');
+  ok(iPa > 0, "la griglia dei campi c'e'");
+  ok(!/class="pa-nums" style=/.test(html), "e non porta piu' uno style inline");
+  ok(!/class="pa-pre" style=/.test(html), "nemmeno la riga dei tre bottoni");
+  const iPre = html.indexOf('class="pa-pre"');
+  ok(!/style="flex:1/.test(html.slice(iPre, iPre + 500)), "ne' i bottoni dentro");
+  /* La forma di base e' passata al CSS, o col mouse la finestra si sfascia. */
+  ok(/\.pa-nums\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.test(stylesCss), "col mouse restano quattro");
+  /* `minmax(0,1fr)`, non `1fr`: un campo numerico ha una larghezza minima sua e la colonna non
+     scende sotto — a 16px le due colonne uscivano dalla finestra di 28 px, misurati sull'iPhone. */
+  ok(/#printAreaModal \.pa-nums\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/.test(stylesCss),
+     "e col dito due colonne che possono davvero rimpicciolire");
+  ok(/\.pa-nums input\{width:100%;min-width:0/.test(stylesCss), "coi campi che stanno nella loro colonna");
+  ok(/\.pa-pre \.btn\{flex:1;font-size:12px\}/.test(stylesCss), "e i tre bottoni in fila");
+  /* E adesso la regola del telefono vince, perche' non ha piu' un inline davanti. */
+});
+
+t("i bottoni del menu del telefono sono alti quanto dice il commento", () => {
+  /* `.mact-grid button{min-height:48px}` perdeva contro la riga generica dei 44 px scritta piu' in
+     basso: stessa specificita' (0,1,1), vince l'ultima. Il commento diceva 48, il browser faceva
+     44. Sesta volta in un giorno che una regola nuova perde per ordine. (02/09) */
+  const i48 = stylesCss.indexOf("#mActions .mact-grid button{min-height:48px}");
+  ok(i48 > 0, "i 48 px sono scritti con un id davanti");
+  const i44 = stylesCss.indexOf(".mact-grid button,");
+  const i44b = i44 > 0 ? i44 : stylesCss.indexOf(".mact-grid button{min-height:44px}");
+  const genericaDopo = stylesCss.indexOf("min-height:44px}", i48);
+  ok(genericaDopo > i48, "e la riga generica dei 44 viene DOPO: e' per questo che serve l'id");
+  ok(!/\n\s*\.mact-grid button\{min-height:48px\}/.test(stylesCss),
+     "nessuna copia senza id, che perderebbe di nuovo");
+});
+
+t("l'altezza del dock e' dichiarata, non indovinata", () => {
+  /* `calc(var(--dock-h,64px) + 12px)` in due punti, e `--dock-h` non dichiarata da nessuna parte:
+     valeva sempre il fallback 64 mentre il dock ne misura 52 piu' la safe-area. (02/09) */
+  ok(/--dock-h:calc\(52px \+ env\(safe-area-inset-bottom, 0px\)\)/.test(stylesCss), "e' un token vero");
+  const iRoot = stylesCss.indexOf(":root{");
+  const iTok = stylesCss.indexOf("--dock-h:calc");
+  ok(iRoot > 0 && iTok > iRoot && iTok < stylesCss.indexOf("}", iRoot), "dichiarata dentro :root");
+  ok(/#mDock button\{[^}]*min-height:52px/.test(stylesCss.replace(/\n\s*/g, "")), "e i 52 sono quelli veri del dock");
+});
+
 t("anche i pannelli del cassetto si buttano giu'", () => {
   /* Simone: «anche la finestra evento stessa cosa». Non sono modali: vivono dentro #props, e ognuno
      ha il suo «Fatto» che oltre a chiudere spegne la modalita' — quindi si preme quello. */
@@ -13054,9 +13167,15 @@ t("anche i pannelli del cassetto si buttano giu'", () => {
   ok(iPan > 0, "la funzione e' nel bundle");
   const blocco = appjs.slice(iPan, iPan + 2200);   /* largo: i commenti dentro la funzione sono lunghi */
   ok(/eventoSec/.test(blocco), "e il blocco letto e' davvero il suo: " + blocco.length + " caratteri");
-  ["eventoSec", "stageEditPanel", "areaEditPanel", "venuePanel"].forEach((id) => {
-    ok(blocco.indexOf(id) > 0, id + " e' fra quelli agganciati");
+  ["eventoSec", "stageEditPanel", "areaEditPanel"].forEach((id) => {
+    ok(new RegExp('\\["' + id + '"').test(blocco), id + " e' fra quelli agganciati");
   });
+  /* MA NON la planimetria: `#venuePanel` vive DENTRO `#stageEditPanel`, e due maniglie annidate
+     nella stessa striscia volevano dire due chiusure in fila — la seconda riapriva quello che la
+     prima aveva chiuso, e il foglio scendeva del doppio del dito. (02/09) */
+  ok(!/\["venuePanel"/.test(blocco), "la planimetria NON ha una maniglia sua: e' dentro il palco");
+  ok(/stagePanelView==="planimetria" \? "venueBtnDone" : "bStageDone"/.test(blocco),
+     "e la maniglia del palco preme il «Fatto» della vista aperta");
   /* I bottoni «Fatto» devono ESISTERE, o l'aggancio non fa niente in silenzio: al primo giro
      avevo scritto «stageDone», che non esiste. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
@@ -13064,6 +13183,11 @@ t("anche i pannelli del cassetto si buttano giu'", () => {
     ok(html.indexOf('id="' + id + '"') > 0, "il bottone " + id + " esiste davvero");
     ok(blocco.indexOf(id) > 0, "ed e' quello che il gesto preme");
   });
+  /* Nel markup i pannelli lasciano lo spazio alla striscia, e la planimetria NO: la sua barretta
+     sarebbe la seconda nello stesso punto. */
+  ok(/#eventoSec, #stageEditPanel, #areaEditPanel\{position:relative;padding-top:26px\}/.test(stylesCss),
+     "i tre pannelli fanno posto alla maniglia");
+  ok(!/#venuePanel\{position:relative/.test(stylesCss), "la planimetria no");
   /* Escluso solo quello che si scrive: trascinare per selezionare del testo non deve chiudere. */
   /* PRESA IN CIMA (02/09): questi pannelli scorrono — la forma del palco ha 33 bottoni — e il
      gesto su tutto rubava lo scroll. La striscia dei primi 44 px basta per buttarli giù, e sotto
@@ -13132,13 +13256,13 @@ t("l'area di stampa si legge anche su un telefono", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/class="pa-nums"/.test(html), "la griglia dei campi ha un aggancio");
   ok(/class="pa-pre"/.test(html), "e la riga dei bottoni pure");
-  ok(/#printAreaModal \.pa-nums\{grid-template-columns:1fr 1fr\}/.test(stylesCss),
+  ok(/#printAreaModal \.pa-nums\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/.test(stylesCss),
      "col dito i campi vanno a due per riga, non quattro");
   ok(/#printAreaModal \.pa-pre \.btn\{flex:1 1 100%\}/.test(stylesCss), "e i bottoni a capo");
   ok(/#printAreaModal \.pa-nums input\{min-height:44px\}/.test(stylesCss), "coi campi che reggono il dito");
   /* Col mouse restano quattro affiancati: lì lo spazio c'e'. */
   const fuori = stylesCss.replace(/@media \(max-width:880px\)\{[\s\S]*?\n\}/g, "");
-  ok(!/#printAreaModal \.pa-nums\{grid-template-columns:1fr 1fr\}/.test(fuori), "col mouse non cambia niente");
+  ok(!/#printAreaModal \.pa-nums\{grid-template-columns:repeat\(2/.test(fuori), "col mouse non cambia niente");
 });
 
 t("toccare un campo non fa zoomare Safari", () => {
@@ -13148,8 +13272,16 @@ t("toccare un campo non fa zoomare Safari", () => {
      C'era UNA difesa, `.stpr input{font-size:16px}`, e la riga SUBITO DOPO la annullava
      rimettendo 15px: stesso selettore, stessa specificita', stesso blocco. Il commento dichiarava
      un'intenzione che il CSS non eseguiva. */
-  const iReg = stylesCss.indexOf("input, select, textarea{font-size:16px}");
+  const iReg = stylesCss.indexOf("input, select, textarea{font-size:16px !important}");
   ok(iReg > 0, "sul telefono i campi sono a 16px, tutti insieme");
+  /* E DAVVERO: senza `!important` la riga ha specificita' (0,0,1) e perde contro QUALUNQUE regola
+     con una classe o un id — 24 su 25, misurate il 02/09: `#props input` a 13px, `.qa-input` della
+     ricerca a 14,5, `.mcard select` a 14, `.stpr input` a 13. Cioe' proprio i campi che si toccano
+     da telefono. Qui si contano i colpevoli: se qualcuno togliesse l'`!important`, questo numero
+     tornerebbe a essere quello vero e il test lo direbbe. */
+  const piuForti = (stylesCss.match(/[#.][^\n{]*\b(?:input|select|textarea)[^\n{]*\{[^}]*font-size:(?:[0-9]|1[0-5])(?:[.,][0-9])?px/g) || []);
+  ok(piuForti.length > 0 && /!important/.test(stylesCss.slice(iReg, iReg + 60)),
+     "e vince sulle " + piuForti.length + " regole piu' forti che li rimpicciolirebbero");
   /* E nessuna regola DOPO, dentro lo stesso blocco, li riporta sotto: era esattamente il difetto —
      `.stpr input{font-size:16px}` seguita da `.stpr input{...font-size:15px}`. Si guarda solo il
      resto di quel blocco, non tutto il file: le misure del desktop stanno piu' su e sono giuste. */
@@ -13282,8 +13414,21 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   ["pdfPreview", "pdfGo"].forEach((id) => {
     ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre: e' il senso della finestra");
   });
-  /* Una sola preferenza per tutti e due i posti. */
-  ok((appjs.match(/sp_props_pro/g) || []).length >= 3, "la preferenza e' una sola, condivisa");
+  /* UNA preferenza, TRE bottoni: pannello elemento, finestra Esporta e — dal 02/09 — «Forma del
+     palco», dove il CSS nasconde dietro `props-pro` altezza, semicerchio e lato curvo e non c'era
+     niente da premere: quei blocchi si creavano su desktop e da telefono non si correggevano piu'. */
+  ok(/function proRegistra\(/.test(appjs), "c'e' un solo posto che accende la preferenza");
+  const registrati = (appjs.match(/proRegistra\(/g) || []).length - 1;   /* meno la dichiarazione */
+  eq(registrati, 3, "e i bottoni registrati sono tre");
+  ["pdfProBtn", "stageAdvMob"].forEach((id) => {
+    ok(new RegExp('proRegistra\\(document\\.getElementById\\("' + id + '"\\)').test(appjs), id + " e' fra questi");
+  });
+  ok(/proRegistra\(adv, /.test(appjs), "e il terzo e' quello del pannello elemento");
+  /* L'etichetta si leggeva PRIMA del ripristino da localStorage: chi aveva acceso la preferenza
+     rientrava con le opzioni gia' aperte e il bottone che diceva «Altre opzioni». */
+  const iRipristino = appjs.indexOf('localStorage.getItem("sp_props_pro")');
+  const iPrimoUso = appjs.indexOf("proRegistra(document.getElementById");
+  ok(iRipristino > 0 && iRipristino < iPrimoUso, "il ripristino viene prima di ogni etichetta");
 });
 
 t("i menu a tendina del pannello reggono il dito", () => {
