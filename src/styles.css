@@ -57,6 +57,12 @@
      il canvas (#svg) resta touch-action:none, i pannelli scrollano normalmente. No-op su desktop. */
   button, a, select, summary, label, [role="button"],
   #mTop, #mDock, #mPeek, #mActions{touch-action:manipulation}
+  /* In HTML `button`, `input`, `select` e `textarea` NON ereditano il font: prendono quello del
+     browser (Arial su Chrome e Android). Nell'app era rattoppato in una ventina di punti e
+     dimenticato in 48 regole — fra cui `.btn`, cioe' OGNI bottone, e i campi del pannello
+     proprieta'. Su Mac lo scarto quasi non si vede; su Android e Windows sono due caratteri
+     diversi nello stesso pannello. Una riga, e vale per tutti. */
+  button, input, select, textarea{font-family:inherit}
   body{font-family:var(--font-ui);
     color:var(--text);background:var(--surface);display:grid;
     grid-template-rows:52px 1fr 26px;grid-template-columns:var(--cat,220px) 1fr var(--rail,310px);   /* panel-refine: colonne compatte come il prototipo (erano 250/360); --rail = colonna destra ridimensionabile con maniglia */
@@ -780,6 +786,12 @@
    Installazione, Nota, Disegno); vanno dietro il bottone quelli che alimentano i motori.
    Il bottone esiste solo qui: col mouse il pannello sta tutto in colonna e non da' fastidio. */
 
+/* «Altre opzioni» della finestra Esporta: c'è solo col dito. Dichiarata QUI — fuori da ogni media e
+   PRIMA della regola che la mostra. Scritta dopo, vinceva sempre (stessa specificità, ultima
+   scritta) e il bottone non compariva MAI: verificato sul simulatore iPhone il 02/09, dove
+   semplicemente non c'era. Quinta volta in un giorno che una regola nuova perde per ordine. */
+#pdfModal .exp-pro, .exp-pro{display:none}
+
 @media (max-width:880px){
   /* La classe sul BODY, e il display via CSS: syncPanelGroups riscrive lo style inline a ogni
      render (13191), quindi nascondere inline non terrebbe. */
@@ -797,9 +809,8 @@
   body:not(.props-pro) #pdfScaleCustomRow,
   body:not(.props-pro) #pdfHdrRow,
   body:not(.props-pro) #pdfTechRow{display:none !important}
-  .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
+  #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
-.exp-pro{display:none}
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
@@ -1171,10 +1182,13 @@
      resa, qui c'è solo il colore); oltre il nominale è rosso, perché lì il magnetotermico salta. */
   .cab-bar-cap.warn{color:var(--warning);opacity:1}
   .cab-bar-cap.over{color:var(--danger);opacity:1}
-  .patch-row .p48b{display:inline-block;font-size:8.5px;font-weight:700;color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;vertical-align:middle}   /* phantom 48V = badge teal */
+  /* 11px, non 8,5: il badge +48V e l'assorbimento in ampere erano i DUE TESTI PIU' PICCOLI
+     dell'app, e sono i due dati che un fonico legge per decidere. Il phantom su un microfono a
+     nastro passivo lo rompe; gli ampere dicono se la linea regge. (02/09) */
+  .patch-row .p48b{display:inline-block;font-size:11px;font-weight:700;color:var(--accent-strong);background:var(--accent-tint);border-radius:4px;padding:0 4px;vertical-align:middle}   /* phantom 48V = badge teal */
   /* assorbimento (A) = badge ambra (dominio potenza). Unico ambra ammesso nel chrome senza voler dire
      «attenzione» (DS §13): è una targa tecnica, non uno stato — e vale identico su Input e Power. */
-  .patch-row .pamp,.pload .pamp{display:inline-block;font-size:8.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}
+  .patch-row .pamp,.pload .pamp{display:inline-block;font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:0 4px;vertical-align:middle}
   body.dark .patch-row .p48b{color:#5eb8c7;background:#13202a}
   body.dark .patch-row .pamp,body.dark .pload .pamp{color:#fbbf24;background:#3a2c0a}
   .patch-row .ppatch{font-weight:700;color:var(--accent-strong);text-align:center}
@@ -1859,8 +1873,16 @@
     #props #blkXYRow{display:none} #blkHint{display:none} #stageDragHint{display:none}
     .stpr-grid{grid-template-columns:1fr}
     .stpr-b{width:44px;min-height:44px;height:auto;font-size:20px}
-    .stpr input{font-size:16px}   /* niente zoom iOS al focus */
-    .stpr input{padding:9px 2px;font-size:15px}
+    /* ── LO ZOOM DI SAFARI ────────────────────────────────────────────────────────────────────
+       Un campo con font-size sotto i 16px fa ZOOMARE Safari al focus, e il telefono resta
+       ingrandito finche' non si fa pinch a mano. L'app ha 31 campi sotto quella soglia — quasi
+       ogni modifica fatta da telefono passa dal pannello proprieta', che sta a 13px.
+       C'era UNA difesa, `.stpr input{font-size:16px}`, e la riga SUBITO DOPO la annullava
+       rimettendo 15px: stesso selettore, stessa specificita', stesso blocco. Il commento
+       dichiarava un'intenzione che il CSS non eseguiva.
+       Qui vale per tutti i campi, in una riga sola. Il canvas non c'entra: la' e' SVG. */
+    input, select, textarea{font-size:16px}
+    .stpr input{padding:9px 2px}
     .pg-cells{max-width:none}
     #props #eventoSec{display:none}                 /* di norma nascosto: si apre dal bottone Evento */
     body.evento-edit #props #eventoSec{display:block}
@@ -1868,7 +1890,7 @@
     #mDock{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--surface);
       border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom,0px)}
     #mDock button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;
-      padding:8px 0 9px;font:600 9.5px var(--font-ui);color:var(--text-2);min-height:52px;cursor:pointer}
+      padding:8px 0 9px;font:600 11px var(--font-ui);color:var(--text-2);min-height:52px;cursor:pointer}   /* 11px, non 9,5: e' la navigazione principale del telefono e lo spazio c'e' gia' (02/09) */
     #mDock button svg{width:20px;height:20px}
     #mDock button:first-child{color:var(--accent)}
     body.dark #mDock{background:#1b2327;border-top-color:#2c3a3f}
@@ -2838,6 +2860,11 @@ body.dark .ask-all .btn{background:transparent}
   #eventoSec input{min-height:44px}
   #eventoSec #bEventoDone{min-height:48px}
 }
+
+/* «Altre opzioni» della finestra Esporta: c'è solo col dito. Dichiarato QUI, fuori da ogni media e
+   PRIMA della regola che lo mostra — scritto dopo vinceva sempre (stessa specificità, ultima
+   scritta) e il bottone non compariva mai: verificato sul simulatore iPhone il 02/09, dove
+   semplicemente non c'era. Quinta volta in un giorno che una regola nuova perde per ordine. */
 
 /* La barretta in cima a ogni finestra, col dito: dice «prendimi e buttami giù» senza scriverlo.
    Disegnata come pseudo-elemento, così non serve toccare il markup di ventidue modali. (02/09) */
