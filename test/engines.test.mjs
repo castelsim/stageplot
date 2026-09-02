@@ -8909,6 +8909,57 @@ t("con piu' banchi vince quello con piu' ingressi, e senza banco resta la scelta
   eq(A.cabHomePoint(), null, "senza banco sul palco non si inventa niente");
 });
 
+t("se gli strumenti sono fuori dal palco l'app lo dice e sa rimediare", () => {
+  /* Segnalazione 2bb13cda: «non è possibile che faccia un palco così e tutti gli elementi fuori».
+     Il progetto vero: palco 0,5×0,5 m e TRENTA elementi fuori, disposti bene — tastiere in fondo,
+     chitarre a destra, mic del coro davanti. Non uno che non aveva capito l'editor: uno che non si
+     era accorto del rettangolo. E l'app, che le coordinate le conosce tutte, taceva. */
+  reset();
+  A.state.stage = { w: 50, d: 50, blocks: [{ x: 0, y: 0, w: 50, d: 50 }] };
+  const posati = [];
+  for (let i = 0; i < 6; i++) posati.push(add("cantante", 600 + i * 180, 400));
+  A.__cabRes = null;
+  eq(A.elementiFuoriDalPalco().length, 6, "stanno tutti fuori");
+  const f = A.auditEngine().findings.filter((x) => /fuori dal palco/.test(x.msg))[0];
+  ok(f, "e l'audit lo dice: " + auditMsgs().join(" | "));
+  eq(f.lvl, "err", "come errore: il rider esce con un palco vuoto e tutto disegnato accanto");
+  ok(/0,5 m × 0,5 m/.test(f.msg), "e dice quanto misura il palco, che e' la causa: " + f.msg);
+  ok(f.act && /Adatta/.test(f.act.label), "con l'azione che rimedia");
+  /* Le distanze fra gli elementi sono il lavoro fatto: non devono cambiare. */
+  const primaD = Math.round(Math.hypot(posati[0].x - posati[1].x, posati[0].y - posati[1].y));
+  f.act.run();
+  const dopoD = Math.round(Math.hypot(posati[0].x - posati[1].x, posati[0].y - posati[1].y));
+  eq(dopoD, primaD, "il blocco si sposta intero: le distanze restano");
+  eq(A.elementiFuoriDalPalco().length, 0, "e ora sono tutti dentro");
+  A.__cabRes = null;
+  ok(!A.auditEngine().findings.some((x) => /fuori dal palco/.test(x.msg)), "l'avviso sparisce");
+  ok(A.state.stage.w >= 200 && A.state.stage.d >= 200, "e il palco ha una misura vera");
+});
+
+t("uno o due elementi fuori sono una scelta, non un errore", () => {
+  /* Una cassa in platea, un tecnico a lato: succede e va bene. Si parla solo quando sono TANTI e
+     sono la MAGGIORANZA — trenta su trenta sono un equivoco sul rettangolo, due su venti no. */
+  reset();
+  for (let i = 0; i < 10; i++) add("cantante", 200 + i * 90, 400);   /* dentro il palco 12×8 */
+  add("wedge", 1400, 900); add("wedge", 1500, 900);                  /* due fuori, di proposito */
+  A.__cabRes = null;
+  eq(A.elementiFuoriDalPalco().length, 2, "due fuori");
+  ok(!A.auditEngine().findings.some((x) => /fuori dal palco/.test(x.msg)),
+     "e l'app non dice niente: " + auditMsgs().join(" | "));
+});
+
+t("un palco sotto i due metri non esiste, e l'app lo dice", () => {
+  reset();
+  A.state.stage = { w: 50, d: 50, blocks: [{ x: 0, y: 0, w: 50, d: 50 }] };
+  add("cantante", 25, 25);   /* dentro: cosi' non scatta l'altro avviso */
+  A.__cabRes = null;
+  const f = A.auditEngine().findings.filter((x) => /più piccolo di così non esiste/.test(x.msg))[0];
+  ok(f, "lo dice: " + auditMsgs().join(" | "));
+  /* Un palco vero non lo fa scattare. */
+  reset(); add("cantante", 300, 300); A.__cabRes = null;
+  ok(!A.auditEngine().findings.some((x) => /più piccolo di così/.test(x.msg)), "e su un palco normale tace");
+});
+
 t("il badge non si disegna sopra il banco", () => {
   /* Segnalazione 05322f1a: «cos'è quel rettangolo verde? è un bug?». Sì, mio, del mattino stesso:
      col capolinea su un ELEMENTO il badge finiva esattamente sulle sue coordinate, coprendolo con

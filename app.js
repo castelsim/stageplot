@@ -5310,6 +5310,41 @@ function gridMarkup(){
 }
 /* ===== Palco a blocchi: il palco è l'unione di rettangoli/semicerchi (passerelle, ali, fronte curvo, L) ===== */
 function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y:0,w:state.stage.w,d:state.stage.d}]; }
+/* CHI STA FUORI DAL PALCO (02/09, segnalazione 2bb13cda di Simone: «non è possibile che faccia un
+   palco così e tutti gli elementi fuori»).
+   Il progetto che l'ha fatta nascere: palco 0,5×0,5 m e TRENTA elementi fuori, disposti bene —
+   tastiere in fondo, chitarre a destra, mic del coro davanti. Non era uno che non aveva capito
+   l'editor: era uno che non si era accorto del rettangolo. E l'app, che le coordinate le conosce
+   tutte, taceva.
+   La postazione FOH sta in sala per definizione: non conta. */
+var FUORI_OK = { foh:1 };
+function elementiFuoriDalPalco(){
+  var bl=stageBlocks(), out=[];
+  (state.items||[]).forEach(function(it){
+    if(FUORI_OK[it.type]) return;
+    var t=TYPES[it.type]||{}, hw=(it.w||t.w||60)/2, hd=(it.d||t.d||60)/2;
+    /* Basta che il CENTRO sia dentro un blocco: un elemento che sborda di poco dal bordo è una cosa
+       che si sposta in due secondi, non un errore da segnalare. */
+    var dentro=bl.some(function(b){
+      return it.x>=b.x && it.x<=b.x+b.w && it.y>=b.y && it.y<=b.y+b.d; });
+    if(!dentro) out.push(it);
+  });
+  return out;
+}
+/* Il palco che contiene tutto, arrotondato al mezzo metro: le misure di un palco si dicono così. */
+function palcoCheContieneTutto(){
+  var its=(state.items||[]).filter(function(it){ return !FUORI_OK[it.type]; });
+  if(!its.length) return null;
+  var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  its.forEach(function(it){
+    var t=TYPES[it.type]||{}, hw=(it.w||t.w||60)/2, hd=(it.d||t.d||60)/2;
+    x0=Math.min(x0,it.x-hw); x1=Math.max(x1,it.x+hw);
+    y0=Math.min(y0,it.y-hd); y1=Math.max(y1,it.y+hd);
+  });
+  var M=50;   /* mezzo metro di margine: nessuno sta col piede sul bordo */
+  var w=Math.ceil((x1-x0+M*2)/50)*50, d=Math.ceil((y1-y0+M*2)/50)*50;
+  return { w:Math.max(200,w), d:Math.max(200,d), dx:M-x0, dy:M-y0 };
+}
 /* ===== ZONE DI CABLAGGIO (annotazione: raggruppa elementi per potenza/patch) ===== */
 /* [Zone Audio / Zone Alimentazione rimossi 06/07/2026 — superati dai motori audio/elettrico.
    Restano solo i campi di stato inerti (zones/layerAudio/layerPower) per compatibilità coi progetti salvati.] */
@@ -8749,6 +8784,28 @@ function auditEngine(){
   /* Soglie (audit 27/07): sotto una certa dimensione questi rilievi sono fuori scala. Per 2 canali si
      tirano due cavi al banco, e 200 W sono un ampli in una Schuko: né stage box né quadro elettrico.
      Sopra la soglia tornano a essere quello che sono, cioè roba che manca davvero. */
+  /* GLI STRUMENTI SONO FUORI DAL PALCO (02/09). Non un dettaglio: il rider esce con un palco vuoto
+     e tutto disegnato accanto, e chi lo riceve non capisce dove va la roba. Si dice solo quando
+     sono TANTI e sono la MAGGIORANZA — uno o due fuori sono una scelta (una cassa in platea, un
+     tecnico a lato), trenta su trenta sono un equivoco sul rettangolo. */
+  (function(){
+    var fuori=(typeof elementiFuoriDalPalco==="function") ? elementiFuoriDalPalco() : [];
+    var totali=items.filter(function(it){ return !FUORI_OK[it.type]; }).length;
+    if(fuori.length>=3 && totali && fuori.length >= totali/2){
+      var st=state.stage, mis=fmtM(st.w)+" × "+fmtM(st.d);
+      add("err", fuori.length+" element"+(fuori.length===1?"o è":"i sono")+" fuori dal palco, che misura "+mis+".",
+          "Palco",
+          "Sul rider esce un palco vuoto con tutto disegnato accanto. Se le misure del palco sono quelle vere, sposta gli elementi dentro; se invece è il palco a essere sbagliato, adattalo.",
+          {label:"Adatta il palco", run:auditFixAdattaPalco}, "fuoripalco");
+    }
+    /* Un palco sotto i 2 metri di lato non esiste: è una maniglia trascinata per sbaglio o una
+       misura battuta male. Si dice a parte, perché può capitare anche col palco pieno. */
+    else if(state.stage.w<200 || state.stage.d<200){
+      add("warn","Il palco misura "+fmtM(state.stage.w)+" × "+fmtM(state.stage.d)+": più piccolo di così non esiste.",
+          "Palco","Controlla le misure in alto, o adattalo a quello che hai disegnato.",
+          (items.length?{label:"Adatta il palco", run:auditFixAdattaPalco}:null), "palcomini");
+    }
+  })();
   if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: attiva Cablaggio audio e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
@@ -9094,6 +9151,20 @@ function auditFixAddDistro(){
 }
 function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el && el.offsetParent===null) el=document.getElementById("mTitle");
   if(el){ try{ el.focus(); el.select(); }catch(e){} } }
+/* Adatta il palco a quello che c'e' disegnato sopra, invece di chiedere all'utente di spostare
+   trenta elementi a mano. Sposta anche gli elementi in blocco, cosi' le distanze fra loro — che
+   sono il lavoro fatto — restano identiche: cambia solo dove passa il bordo. */
+function auditFixAdattaPalco(){
+  var p=(typeof palcoCheContieneTutto==="function") ? palcoCheContieneTutto() : null;
+  if(!p) return;
+  (state.items||[]).forEach(function(it){ it.x+=p.dx; it.y+=p.dy; });
+  state.stage.w=p.w; state.stage.d=p.d;
+  state.stage.blocks=[{x:0,y:0,w:p.w,d:p.d}];
+  __cabRes=null; __elecRes=null; __mondRes=null;
+  save(); render();
+  if(typeof fit==="function") fit();
+  if(typeof showToast==="function") showToast("Palco adattato: "+fmtM(p.w)+" × "+fmtM(p.d));
+}
 function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
 function auditFixStereoOdd(on){ if(!state.cab) state.cab={}; state.cab.stereoOdd=!!on; __cabRes=null; save(); render(); }   /* attiva/disattiva la convenzione L=dispari/R=pari */
 function auditFixOpenChan(){ var b=document.getElementById("bChanList"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
