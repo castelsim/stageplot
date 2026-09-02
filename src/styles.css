@@ -2793,6 +2793,22 @@ body.dark .ask-all .btn{background:transparent}
   #printAreaModal .pa-nums input{min-height:44px}
 }
 
+/* ── FORMA DEL PALCO, SUL TELEFONO (02/09, Simone: «controlla la finestra palco su mobile, non
+   funziona bene») ────────────────────────────────────────────────────────────────────────────────
+   Il pannello ha 33 bottoni, 10 campi e 11 etichette dentro un cassetto alto 46vh: è denso quanto
+   una schermata intera, mostrata un terzo alla volta.
+   Su un telefono il palco è un rettangolo, e le sue misure si cambiano dalla barra in alto. Quello
+   che resta qui è: quanto è grande in totale, aggiungere un blocco, dargli misura e posizione.
+   Dietro «Opzioni tecniche» vanno il semicerchio, il lato curvo e l'ALTEZZA dei blocchi — che è
+   rigging, si decide col service e non serve a chi disegna in piedi. */
+@media (max-width:880px){
+  body:not(.props-pro) #stageEditPanel #bAddSemi,
+  body:not(.props-pro) #stageEditPanel #blkHWrap,
+  body:not(.props-pro) #stageEditPanel #blkFlatWrap{display:none !important}
+  /* Col semicerchio nascosto, «+ Blocco» resta solo: prende tutta la riga invece di mezza. */
+  body:not(.props-pro) #stageEditPanel .row #bAddBlock{flex:1 1 100%}
+}
+
 /* ── FINESTRA EVENTO (02/09) ─────────────────────────────────────────────────────────────────────
    Quattro campi che finiscono tutti nella stessa riga del rider. Prima: etichette in fila senz'aria,
    data e orario appiccicati, e la spiegazione in grigio chiaro da 11px sotto a tutto — dove la

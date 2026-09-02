@@ -13060,6 +13060,33 @@ t("anche i pannelli del cassetto si buttano giu'", () => {
   ok(/\}, "input,select,textarea"\)/.test(blocco), "il gesto non parte dai campi di testo");
 });
 
+t("la forma del palco, sul telefono, chiede tre cose invece di trentatre", () => {
+  /* «controlla la finestra palco su mobile, non funziona bene» (Simone, 02/09). Misurato: il
+     pannello ha 33 bottoni, 10 campi e 11 etichette dentro un cassetto alto 46vh — denso quanto
+     una schermata intera, mostrata un terzo alla volta.
+     Su un telefono il palco è un rettangolo e le sue misure si cambiano dalla barra in alto: qui
+     restano il totale, «+ Blocco», misura e posizione. Dietro «Opzioni tecniche» vanno semicerchio,
+     lato curvo e ALTEZZA dei blocchi — che è rigging, si decide col service. */
+  ["#bAddSemi", "#blkHWrap", "#blkFlatWrap"].forEach((sel) => {
+    ok(new RegExp("body:not\\(\\.props-pro\\) #stageEditPanel " + sel.replace("#", "#")).test(stylesCss),
+       sel + " sta dietro le opzioni tecniche");
+  });
+  /* Quello che resta NON si tocca. */
+  ["bAddBlock", "blkW", "blkD", "blkPosGrid", "stageTotal"].forEach((id) => {
+    ok(!new RegExp("props-pro\\) #stageEditPanel #" + id + "\\b").test(stylesCss),
+       id + " resta sempre in vista: e' il minimo per fare un palco");
+  });
+  /* Col semicerchio nascosto «+ Blocco» resta solo: prende tutta la riga invece di mezza. */
+  ok(/body:not\(\.props-pro\) #stageEditPanel \.row #bAddBlock\{flex:1 1 100%\}/.test(stylesCss),
+     "e il bottone rimasto solo si allarga");
+  /* L'altezza dei blocchi ha un id, o dal CSS non la si raggiunge. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="blkHWrap"/.test(html), "l'altezza ha un aggancio");
+  /* Col mouse resta tutto: li' lo spazio c'e'. */
+  const fuori = stylesCss.replace(/@media \(max-width:880px\)\{[\s\S]*?\n\}/g, "");
+  ok(!/#stageEditPanel #bAddSemi/.test(fuori), "col mouse non si nasconde niente");
+});
+
 t("la finestra Evento si legge prima di compilarla", () => {
   /* «graficamente dev'essere sistemata» (Simone, 02/09). Prima: quattro etichette in fila senz'aria,
      data e orario appiccicati, e la spiegazione in grigio chiaro da 11px SOTTO a tutto — dove la
