@@ -274,6 +274,11 @@
     padding:5px 12px;font:600 13px/1 inherit;cursor:pointer;flex:0 0 auto;min-height:32px;white-space:nowrap}
   .toast-act:hover{background:rgba(255,255,255,.14);border-color:#fff}
   .toast-act:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  /* Due bottoni nel messaggio (02/09): «Annulla» disfa quello che è appena successo — rosso, perché
+     è quello che riporta indietro — e «OK» chiude e basta. Il toast ha lo sfondo scuro, quindi il
+     rosso è quello chiaro, o non si legge. */
+  .toast-act.toast-undo{border-color:rgba(248,113,113,.75);color:#fca5a5}
+  .toast-act.toast-ok{border-color:rgba(255,255,255,.45);color:#fff}
   @media (pointer:coarse){ .toast-act{min-height:44px;padding:8px 16px} }
   /* Dove sta il messaggio. Il «bottom» era scritto inline nell'HTML, dove nessuna media query
      poteva toccarlo: su telefono l'avviso finiva SOPRA il dock, coprendo per 27 px i quattro
