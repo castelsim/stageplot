@@ -13213,6 +13213,17 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   ok(/id="pdfScaleRow"/.test(html), "la riga della scala ha un aggancio");
   ok(/id="pdfHdrRow"/.test(html), "e quella dell'intestazione pure");
   ok(/id="pdfProBtn"/.test(html), "e c'e' il bottone per rivelarle");
+  /* E IL BOTTONE SI VEDE DAVVERO. `.exp-pro{display:none}` era scritta DOPO la regola che lo mostra,
+     quindi vinceva sempre e il bottone non compariva mai — verificato sul simulatore iPhone il
+     02/09, dove semplicemente non c'era. È la quinta volta in un giorno che una regola nuova perde
+     per ordine o specificità: la dichiarazione base va PRIMA, e fuori da ogni media. */
+  const iBase = stylesCss.indexOf("#pdfModal .exp-pro, .exp-pro{display:none}");
+  const iMostra = stylesCss.indexOf("#pdfModal .exp-pro{display:block");
+  ok(iBase > 0 && iMostra > iBase, "la regola che lo nasconde viene PRIMA di quella che lo mostra");
+  /* Fuori da ogni media, o sul desktop non ci sarebbe niente a nasconderlo. */
+  const primaDiBase = stylesCss.slice(0, iBase);
+  const aperte = (primaDiBase.match(/\{/g) || []).length - (primaDiBase.match(/\}/g) || []).length;
+  eq(aperte, 0, "ed e' dichiarata fuori da ogni @media");
   /* L'anteprima e il bottone che scarica NON si toccano mai. */
   ["pdfPreview", "pdfGo"].forEach((id) => {
     ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre: e' il senso della finestra");

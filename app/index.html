@@ -858,6 +858,12 @@
    Installazione, Nota, Disegno); vanno dietro il bottone quelli che alimentano i motori.
    Il bottone esiste solo qui: col mouse il pannello sta tutto in colonna e non da' fastidio. */
 
+/* «Altre opzioni» della finestra Esporta: c'è solo col dito. Dichiarata QUI — fuori da ogni media e
+   PRIMA della regola che la mostra. Scritta dopo, vinceva sempre (stessa specificità, ultima
+   scritta) e il bottone non compariva MAI: verificato sul simulatore iPhone il 02/09, dove
+   semplicemente non c'era. Quinta volta in un giorno che una regola nuova perde per ordine. */
+#pdfModal .exp-pro, .exp-pro{display:none}
+
 @media (max-width:880px){
   /* La classe sul BODY, e il display via CSS: syncPanelGroups riscrive lo style inline a ogni
      render (13191), quindi nascondere inline non terrebbe. */
@@ -875,9 +881,8 @@
   body:not(.props-pro) #pdfScaleCustomRow,
   body:not(.props-pro) #pdfHdrRow,
   body:not(.props-pro) #pdfTechRow{display:none !important}
-  .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
+  #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
-.exp-pro{display:none}
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
@@ -2916,6 +2921,11 @@ body.dark .ask-all .btn{background:transparent}
   #eventoSec input{min-height:44px}
   #eventoSec #bEventoDone{min-height:48px}
 }
+
+/* «Altre opzioni» della finestra Esporta: c'è solo col dito. Dichiarato QUI, fuori da ogni media e
+   PRIMA della regola che lo mostra — scritto dopo vinceva sempre (stessa specificità, ultima
+   scritta) e il bottone non compariva mai: verificato sul simulatore iPhone il 02/09, dove
+   semplicemente non c'era. Quinta volta in un giorno che una regola nuova perde per ordine. */
 
 /* La barretta in cima a ogni finestra, col dito: dice «prendimi e buttami giù» senza scriverlo.
    Disegnata come pseudo-elemento, così non serve toccare il markup di ventidue modali. (02/09) */
