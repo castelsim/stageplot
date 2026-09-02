@@ -827,6 +827,34 @@
      voci a ~29 px erano piccole ma irraggiungibili, quindi innocue. Da oggi il menu del punto
      d'arrivo si apre con un clic normale, e col dito ci si arriva davvero. */
   @media (pointer:coarse){ .cab-ctx-i{min-height:44px;display:flex;align-items:center} }
+
+/* ── TELEFONO: pannello elemento in due livelli (02/09) ──────────────────────────────────────────
+   Su uno schermo da telefono il pannello e' un cassetto alto 46vh con dentro 288 controlli: chi
+   vuole solo posare gli strumenti e mandare il PDF non deve attraversarli tutti.
+   Restano in vista i gruppi che descrivono quello che si VEDE (Etichetta, Microfono, Accessori,
+   Installazione, Nota, Disegno); vanno dietro il bottone quelli che alimentano i motori.
+   Il bottone esiste solo qui: col mouse il pannello sta tutto in colonna e non da' fastidio. */
+
+@media (max-width:880px){
+  /* La classe sul BODY, e il display via CSS: syncPanelGroups riscrive lo style inline a ogni
+     render (13191), quindi nascondere inline non terrebbe. */
+  body:not(.props-pro) #selProps .pgrp[data-grp="ascolto"],
+  body:not(.props-pro) #selProps .pgrp[data-grp="dettagli-tecnici"]{display:none !important}
+
+  /* ── ESPORTA: trenta controlli, e su un telefono serve premere «Scarica» ──────────────────────
+     Restano l'anteprima (vedere cosa esce), formato e orientamento, il nome del file e il bottone.
+     Vanno dietro la stessa preferenza: le pagine tecniche da allegare, l'area di stampa (che su
+     mobile per giunta NON funziona: apre uno stato che il CSS non conosce), la scala manuale — c'è
+     «automatica» — e l'intestazione col contatto, che si scrive meglio da fermi. */
+  body:not(.props-pro) #pdfTechBox,
+  body:not(.props-pro) #pdfAreaRow,
+  body:not(.props-pro) #pdfScaleRow,
+  body:not(.props-pro) #pdfScaleCustomRow,
+  body:not(.props-pro) #pdfHdrRow,
+  body:not(.props-pro) #pdfTechRow{display:none !important}
+  .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
+}
+.exp-pro{display:none}
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
   body.dark .qa-ghost{color:#4b5563}
   body.dark .qa-pill{background:#1f262c;color:#8b949e}
@@ -2486,6 +2514,12 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   .chips button:hover:not(.on){background:var(--surface-raised)}
   /* Azioni di pannello: full-width; "Dividi" & co. = primario pieno */
   #props .btn,#grpProps .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+  /* DOPO la riga qui sopra, e con la stessa specificita' (1,1,0): `#props .btn{display:flex}` la
+     pareggia, e a parita' vince l'ultima scritta. Messa prima — dov'era — il bottone compariva
+     anche col mouse. Misurato nel browser il 02/09, ed e' la terza volta in un giorno che questo
+     pannello vince per specificita' su una regola nuova. */
+  #props .adv-mob{display:none}
+  @media (max-width:880px){ #props .adv-mob{display:block;width:100%;margin:14px 0 4px;min-height:44px;font-weight:600} }
   /* Dividi/Duplica/Elimina su UNA riga (Simone 17/07) */
   #pActRow{display:flex;gap:6px;margin-top:10px}
   #pActRow .btn{width:auto;flex:1;margin-top:0;white-space:nowrap;padding:6px 8px}
@@ -4489,7 +4523,7 @@ body.dark .ask-all .btn{background:transparent}
               <button type="button" data-v="portrait">Vert.</button>
             </div>
           </div>
-          <div>
+          <div id="pdfScaleRow">
             <label>Scala</label>
             <select id="pdfScale">
               <option value="auto">Automatica</option>
@@ -4507,6 +4541,7 @@ body.dark .ask-all .btn{background:transparent}
           <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
           <span style="font-size:11.5px;color:var(--text-3)">(10–500)</span>
         </div>
+        <div id="pdfHdrRow">
         <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
         <div class="hdr-wrap">
           <input type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
@@ -4514,6 +4549,10 @@ body.dark .ask-all .btn{background:transparent}
           <div class="rub-menu" id="pdfHdrMenu" hidden></div>
         </div>
         <div class="hdr-saved" id="pdfHdrSaved"></div>
+        </div>
+        <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
+             pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
+        <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>
         <label class="chk" id="pdfTechRow" style="display:none"><input type="checkbox" id="pdfIncludeTech" checked></label>
       </div>
       <div class="pdf-exp-main">
