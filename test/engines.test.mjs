@@ -8743,6 +8743,16 @@ t("i bottoni delle finestre guida reggono il dito", () => {
   ok(/\.guide-actions \.btn\{min-height:38px\}/.test(fuori), "col mouse non cambia niente");
 });
 
+t("una finestra guida lunga scorre invece di uscire dallo schermo", () => {
+  /* 02/09: la risposta a una segnalazione e' un testo vero, non due righe. Misurata a 529 px: su un
+     telefono piccolo (~550 px utili) i due bottoni finivano FUORI, e quella finestra si chiude solo
+     da li' o con Esc — che sul telefono non c'e'. Restava bloccata. */
+  const card = (stylesCss.match(/\.guide-card\{[^}]*\}/) || [""])[0];
+  ok(/max-height:85vh/.test(card), "la card non supera l'altezza dello schermo: " + card.slice(0, 80));
+  ok(/overflow-y:auto/.test(card), "e il testo lungo scorre dentro");
+  ok(/max-height:85dvh/.test(card), "con dvh prima di vh: su mobile vh conta la barra del browser");
+});
+
 t("gli a capo della finestra si vedono davvero", () => {
   /* guideDialog scrive il messaggio con textContent: senza white-space nel CSS i paragrafi
      collassano in una riga sola. La risposta a una segnalazione ne ha tre: richiamo, testo, firma. */
