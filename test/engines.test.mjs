@@ -8834,6 +8834,43 @@ t("col banco in sala il punto d'arrivo si puo' finalmente creare", () => {
   ok(/typeof fit===/.test(azione), "e l'azione adatta la vista, o il punto nasce fuori schermo");
 });
 
+t("i cinque posti dove possono finire i cavi si possono finalmente scegliere", () => {
+  /* `HOME_LABELS` elenca sei destinazioni da sempre, ma CINQUE non erano raggiungibili da nessun
+     punto dell'interfaccia: l'unico modo di toccare il punto era trascinarlo, e trascinandolo
+     diventava sempre «personalizzato». Dove finiscono i cavi e' un'informazione del rider — «FOH
+     ≤30 m davanti al palco» la chiede Pink Martini — non una coordinata anonima. */
+  reset();
+  A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  const posti = {};
+  ["foh", "monitor", "stagerack", "right", "left"].forEach((k) => {
+    A.state.cab.home = { kind: k, x: 0, y: 0 };
+    const p = A.cabHomePoint();
+    ok(p, "«" + k + "» da' un punto");
+    eq(p.name, A.HOME_LABELS[k], "e si chiama come nel menu, non «Punto principale»");
+    posti[k] = p.x + "," + p.y;
+  });
+  eq(Object.keys(posti).length, 5, "cinque scelte");
+  eq(new Set(Object.values(posti)).size, 5, "e cinque posti DIVERSI: " + JSON.stringify(posti));
+  /* Il FOH sta in sala, oltre il palco: e' la sua definizione. Le uscite laterali stanno ai bordi. */
+  A.state.cab.home = { kind: "foh", x: 0, y: 0 };
+  ok(A.cabHomePoint().y > A.state.stage.d, "il FOH e' oltre il bordo del palco");
+  A.state.cab.home = { kind: "left", x: 0, y: 0 };
+  ok(A.cabHomePoint().x < A.state.stage.w / 2, "l'uscita SX sta a sinistra");
+  A.state.cab.home = { kind: "right", x: 0, y: 0 };
+  ok(A.cabHomePoint().x > A.state.stage.w / 2, "e la DX a destra");
+  /* Il menu esiste e le offre tutte e cinque, piu' il ritorno all'automatico. */
+  /* Con la parentesi: senza, `showHomeMenuX` passava lo stesso e la mutazione restava invisibile. */
+  ok(/function showHomeMenu\(/.test(appjs), "il menu esiste");
+  const menu = appjs.slice(appjs.indexOf("function showHomeMenu("), appjs.indexOf("function showCabMenu("));
+  ok(/\["foh","monitor","stagerack","right","left"\]/.test(menu), "e le elenca tutte e cinque");
+  ok(/state\.cab\.home=null/.test(menu), "col banco sul palco si puo' tornare all'automatico");
+  /* Il clic sul badge lo apre; il trascinamento resta com'era. */
+  ok(/else if\(typeof showHomeMenu==="function"\)/.test(appjs), "il clic senza trascinamento apre il menu");
+  /* Essendo il primo menu che si apre col clic NORMALE, col dito ci si arriva davvero: prima
+     `.cab-ctx` usciva solo col tasto destro, che sul telefono non esiste. */
+  ok(/\.cab-ctx-i\{[^}]*min-height:44px/.test(bloccoCoarse(stylesCss)), "e col dito le voci reggono");
+});
+
 t("col banco sul palco non si chiede niente a nessuno", () => {
   /* L'avviso e la guida NON devono comparire quando il capolinea c'e' gia' per conto suo: sarebbe
      un cartello che chiede una cosa gia' fatta. */

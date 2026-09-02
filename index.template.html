@@ -9382,6 +9382,40 @@ function polyHitsRect(poly, r){ var x1=r.x+r.w, y1=r.y+r.h;
 /* menu contestuale (tasto destro) sul cavo — Max style: Elimina / Reset percorso (ridà le azioni dopo la rimozione del box #24) */
 function closeCabMenu(){ var m=document.getElementById("cabCtxMenu"); if(m) m.remove(); document.removeEventListener("pointerdown", _cabMenuDismiss, true); }
 function _cabMenuDismiss(e){ var m=document.getElementById("cabCtxMenu"); if(m && !m.contains(e.target)) closeCabMenu(); }
+/* IL MENU DEL PUNTO D'ARRIVO (02/09).
+   `HOME_LABELS` elenca sei posti dove possono finire i cavi da quando esiste — FOH, monitor, stage
+   rack, uscita DX, uscita SX, personalizzato — ma CINQUE non erano raggiungibili da nessun punto
+   dell'interfaccia: l'unico modo di toccare il punto era trascinarlo, e trascinandolo diventava
+   sempre «personalizzato». Il posto dove finiscono i cavi e' un'informazione del rider («FOH ≤30 m
+   davanti al palco» la chiede Pink Martini), non una coordinata anonima.
+   Il clic sul badge apre la scelta; il trascinamento resta com'era e continua a fare il punto
+   personalizzato. */
+function showHomeMenu(cx, cy){
+  closeCabMenu();
+  var m=document.createElement("div"); m.id="cabCtxMenu"; m.className="cab-ctx";
+  var cur=(state.cab&&state.cab.home&&state.cab.home.kind)||"";
+  var desk=(typeof cabMainDesk==="function")?cabMainDesk():null;
+  function voce(label, fn, attiva){
+    var b=document.createElement("button"); b.className="cab-ctx-i"+(attiva?" on":"");
+    b.textContent=(attiva?"✓ ":"")+label;
+    b.addEventListener("click", function(ev){ ev.stopPropagation(); fn(); __cabRes=null; save(); render(); closeCabMenu(); });
+    m.appendChild(b);
+  }
+  /* Se un banco sta sul palco, «automatico» vuol dire: e' lui, e si sposta con lui. */
+  if(desk) voce("Il banco sul palco (" + ((desk.label&&String(desk.label).trim())||(TYPES[desk.type]&&TYPES[desk.type].nome)||"console") + ")",
+                function(){ state.cab.home=null; }, !cur);
+  ["foh","monitor","stagerack","right","left"].forEach(function(k){
+    voce(HOME_LABELS[k], function(){
+      state.cab.home={kind:k, x:0, y:0};
+      var p=cabHomePoint(); if(p){ state.cab.home.x=p.x; state.cab.home.y=p.y; }
+    }, cur===k);
+  });
+  if(cur==="custom") voce(HOME_LABELS.custom, function(){}, true);
+  document.body.appendChild(m);
+  m.style.left=Math.min(cx, innerWidth-m.offsetWidth-8)+"px";
+  m.style.top=Math.min(cy, innerHeight-m.offsetHeight-8)+"px";
+  setTimeout(function(){ document.addEventListener("pointerdown", closeCabMenu, {once:true, capture:true}); }, 0);
+}
 function showCabMenu(cx, cy, key){
   closeCabMenu();
   var m=document.createElement("div"); m.id="cabCtxMenu"; m.className="cab-ctx";
@@ -15217,7 +15251,12 @@ svg.addEventListener("pointerup", function(e){
   delete pointers[e.pointerId];
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
   if(drag && drag.mode==="cabseg"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
-  if(drag && drag.mode==="cabhome"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
+  if(drag && drag.mode==="cabhome"){
+    if(drag.moved){ save(); }
+    else if(typeof showHomeMenu==="function"){   /* premuto e rilasciato senza muovere = e' un clic */
+      showHomeMenu(e.clientX, e.clientY);
+    }
+    __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabreconnect"){   /* rilascio del capo: su una box = riconnetti, nel vuoto = scollega (come in Max) */
     var rp=svgPoint(e), tb=(state.items||[]).filter(cabIsDest).filter(function(it){ return Math.abs(rp.x-it.x)<=it.w/2+10 && Math.abs(rp.y-it.y)<=it.d/2+10; })[0];
     var isRet = drag.key.indexOf("ret:")===0;
