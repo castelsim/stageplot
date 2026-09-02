@@ -11193,11 +11193,19 @@ document.getElementById("pTastLeg1").addEventListener("change", function(){
   document.getElementById("pTastLeg2").disabled = !document.getElementById("pTastLeg1").checked;
 });
 document.getElementById("pTastLeg2").addEventListener("change", function(){ mutSel(function(it){ it.leggio2=document.getElementById("pTastLeg2").checked; }); });
-(function(){   /* due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono) */
+/* Due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono). Si allineavano
+   solo l'uno all'altro, e solo su `change`: quello del telefono partiva sempre da «25 cm» anche
+   quando `snapMode` era altro — apri un progetto salvato su «Libero» e il pannello ti dice 25. */
+function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
-  function set(v){ snapMode=v; if(a) a.value=v; if(b) b.value=v; }
+  if(a) a.value=snapMode; if(b) b.value=snapMode;
+}
+(function(){
+  var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
+  function set(v){ snapMode=v; syncSnapSelects(); }
   if(a) a.addEventListener("change", function(){ set(this.value); });
   if(b) b.addEventListener("change", function(){ set(this.value); });
+  syncSnapSelects();
 })();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
@@ -14033,6 +14041,7 @@ function renderStagePanel(){
   if(_vs) _vs.hidden = stagePanelView!=="planimetria";
   if(!stageEdit) return;
   recalcStageBBox();
+  syncSnapSelects();   /* il select del telefono deve dire l'aggancio VERO, non quello di partenza */
   var b=stageBlocks();
   document.getElementById("stageTotal").textContent = fmtM(state.stage.w)+" × "+fmtM(state.stage.d);
   /* lista chip dei blocchi */
@@ -25057,6 +25066,29 @@ function pdfChannelPage(doc, L, paperKey){
     pdfRenderPills();
     pdfUpdateTechNote();
   }
+  /* L'avviso «ci sono elementi fuori dal palco» nella finestra Esporta. Non è una diagnosi
+     tecnica: è quello che si vede guardando il foglio, e il rimedio è già scritto — «Adatta il
+     palco» allarga il palco fino a contenerli. Se non c'è niente fuori, non c'è nemmeno l'avviso. */
+  function renderFuoriPalco(){
+    var box=document.getElementById("pdfFuoriPalco"); if(!box) return;
+    box.innerHTML="";
+    var fuori = (typeof elementiFuoriDalPalco==="function") ? elementiFuoriDalPalco() : [];
+    if(!fuori.length){ box.hidden=true; return; }
+    box.hidden=false;
+    box.className="nudge warn";
+    var b=document.createElement("b");
+    b.textContent = fuori.length===1 ? "1 elemento è fuori dal palco" : fuori.length+" elementi sono fuori dal palco";
+    box.appendChild(b);
+    box.appendChild(document.createTextNode(" — nel PDF si vedranno lì dove sono. "));
+    var fix=document.createElement("button");
+    fix.type="button"; fix.className="btn"; fix.id="pdfFuoriFix"; fix.textContent="Adatta il palco";
+    fix.addEventListener("click", function(){
+      if(typeof auditFixAdattaPalco==="function") auditFixAdattaPalco();
+      renderFuoriPalco();
+      if(typeof refresh==="function") refresh();
+    });
+    box.appendChild(fix);
+  }
   function renderProdInline(){
     /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
        neutro quando è completo; click = apre/chiude le tendine qui sotto. Mai bloccante. */
@@ -25340,6 +25372,7 @@ function pdfChannelPage(doc, L, paperKey){
     _prodOpen=false;
     pdfRenderPills();
     renderProdInline();
+    renderFuoriPalco();
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();

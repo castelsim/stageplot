@@ -13054,6 +13054,53 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
   ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
 });
 
+t("la riga che dice da che parte guarda il palco si legge", () => {
+  /* «fondo palco in alto · pubblico in basso» e' l'UNICA riga che spiega l'orientamento della
+     griglia 3x3, ed era il testo piu' piccolo del pannello — 10,5 px sotto una griglia di nove
+     bersagli da 117. Chi non la legge mette la batteria dalla parte del pubblico. (02/09) */
+  const m = /\.pg-hint\{font-size:([0-9.]+)px/.exec(stylesCss);
+  ok(m, "la riga ha una misura dichiarata");
+  ok(parseFloat(m[1]) >= 12, "e non e' il testo piu' piccolo del pannello: " + m[1] + "px");
+});
+
+t("la tipografia la decide il foglio di stile, non il browser", () => {
+  /* Senza questa riga WebKit applica il suo «text autosizing» sui blocchi piu' larghi del telefono
+     e riscrive le misure per conto suo: la gerarchia scelta qui non e' quella che l'utente vede.
+     E' una riga che nessuno nota se sparisce — finche' su un telefono non torna tutto storto. */
+  ok(/html\{-webkit-text-size-adjust:100%;text-size-adjust:100%\}/.test(stylesCss),
+     "il browser non riscrive le misure dei testi");
+  /* Su `html`, non su `body`: la proprieta' si eredita e va dichiarata sopra a tutto. */
+  const i = stylesCss.indexOf("html{-webkit-text-size-adjust");
+  const iRoot = stylesCss.indexOf(":root{");
+  ok(i > 0 && i < iRoot, "dichiarata prima di tutto il resto");
+  const prima = stylesCss.slice(0, i);
+  eq((prima.match(/\{/g) || []).length - (prima.match(/\}/g) || []).length, 0,
+     "e fuori da ogni @media: vale sempre");
+});
+
+t("prima di esportare, si viene avvisati se qualcosa è fuori dal palco", () => {
+  /* L'audit lo dice da sempre, ma l'audit vive dentro `#noSel`, che sul telefono non si apre mai:
+     chi disegna col dito esportava un PDF con mezzo gruppo fuori dal palco senza che nessuno
+     glielo dicesse. Nel progetto di un utente vero, il 01/09: palco 50×50 cm e TUTTI e 30 gli
+     elementi fuori, mai segnalato. Ora l'avviso sta nell'ultimo posto prima del file. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfFuoriPalco"/.test(html), "l'avviso ha il suo posto nella finestra Esporta");
+  const iPn = html.indexOf('id="prodNudge"'), iFp = html.indexOf('id="pdfFuoriPalco"');
+  ok(iPn > 0 && iFp > iPn && iFp - iPn < 900, "ed e' accanto all'invito del Controllo tecnico");
+  ok(/function renderFuoriPalco\(\)/.test(appjs), "qualcuno lo riempie");
+  ok(/renderFuoriPalco\(\);/.test(appjs.slice(appjs.indexOf("renderProdInline();\n    renderFuoriPalco"), appjs.indexOf("renderProdInline();\n    renderFuoriPalco") + 80)) ||
+     /renderProdInline\(\);\s*renderFuoriPalco\(\);/.test(appjs), "e viene chiamato all'apertura della finestra");
+  /* Se non c'e' niente fuori, non c'e' nemmeno l'avviso: un avviso sempre acceso non si legge piu'. */
+  ok(/if\(!fuori\.length\)\{ box\.hidden=true; return; \}/.test(appjs), "e sparisce quando non serve");
+  /* Il rimedio e' li' dentro, non altrove: «Adatta il palco» esiste gia' nell'audit. */
+  ok(/auditFixAdattaPalco\(\);/.test(appjs.slice(appjs.indexOf("function renderFuoriPalco"), appjs.indexOf("function renderProdInline"))),
+     "e porta il rimedio con se'");
+  ok(/fuori\.length===1 \? "1 elemento è fuori dal palco"/.test(appjs), "al singolare quando e' uno solo");
+  /* Colori del design system, non hex crudi. */
+  ok(/\.nudge\.warn\{background:var\(--warning-bg\);border-color:var\(--warning-border\);color:var\(--warning\)/.test(stylesCss),
+     "e usa i colori dell'avviso, non un arancione inventato");
+});
+
 t("la griglia 3x3 del palco sposta davvero, anche con un blocco largo", () => {
   /* Nove bersagli, e con un blocco piu' largo del palco base facevano tutti la stessa cosa:
      `Math.max(0, nx)` schiacciava le tre colonne sullo stesso numero. Ci si arriva senza sforzo —
@@ -13380,7 +13427,14 @@ t("da telefono si possono scrivere data, ora e aggancio", () => {
   /* Lo stesso dato, non due copie che divergono. */
   ok(/function setData\(v\)\{ state\.evDate=v\|\|"";[\s\S]{0,120}edM\.value=state\.evDate/.test(appjs),
      "scrivono nello stesso stato e riallineano l'altro campo");
-  ok(/function set\(v\)\{ snapMode=v;[\s\S]{0,60}b\.value=v/.test(appjs), "e l'aggancio pure");
+  /* I due select si allineavano solo l'uno all'altro, e solo su `change`: quello del telefono
+     partiva sempre da «25 cm» del markup anche con `snapMode` diverso — apri un progetto salvato
+     su «Libero» e il pannello ti diceva 25. Ora c'è un punto solo che li allinea allo STATO. */
+  ok(/function syncSnapSelects\(\)\{/.test(appjs), "e l'aggancio pure");
+  ok(/if\(a\) a\.value=snapMode; if\(b\) b\.value=snapMode;/.test(appjs), "e legge lo stato, non l'altro select");
+  const iRs = appjs.indexOf("function renderStagePanel");
+  ok(/syncSnapSelects\(\);/.test(appjs.slice(iRs, iRs + 900)),
+     "e si riallinea ogni volta che il pannello palco si apre");
   /* E all'apertura mostrano quello che c'e' gia' salvato. */
   ok(/\["evDate","evDateM"\]\.forEach/.test(appjs), "all'apertura mostrano il valore salvato");
   /* Il campo dell'aggancio si vede solo col dito: col mouse c'e' gia' nell'header. */
