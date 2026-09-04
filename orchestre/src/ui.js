@@ -5,10 +5,12 @@ import { ROLES, STAFF } from "./config.js";
 export function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
+/* Da HTML a elemento. Con <template>, non con un div: dentro un div il parser butta via un <tr> o un
+   <td> senza tabella intorno (visto il 04/09: il registro restava vuoto senza errori in console). */
 export function el(html) {
-  const d = document.createElement("div");
-  d.innerHTML = html.trim();
-  return d.firstElementChild;
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
 }
 export function roleLabel(role) { return ROLES[role] || String(role || ""); }
 export function isStaff(role) { return STAFF.includes(role); }
