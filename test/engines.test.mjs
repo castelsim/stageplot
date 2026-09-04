@@ -10125,6 +10125,20 @@ t("service worker, manifest e deploy sanno dov'è finito l'editor", () => {
   ok(sm.indexOf("stageplot.it/app/") === -1, "una pagina noindex non va in sitemap");
 });
 
+t("Orchestre: il deploy la pubblica, la CI la prova, il service worker la lascia in pace", () => {
+  /* Perché: il workflow pubblica un'ALLOWLIST — una cartella dimenticata non dà errore, dà 404.
+     E il SW dell'editor ha scope "/": senza bypass servirebbe /orchestre/* dalla sua cache. */
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  const allow = wf.slice(wf.indexOf("rsync -a"), wf.indexOf("./_site/"));
+  ok(/\borchestre\b/.test(allow), "orchestre sta nell'allowlist rsync");
+  ok(wf.indexOf("node --test orchestre/test") > -1, "la CI lancia i test di Orchestre");
+  ok(wf.indexOf("deno lint orchestre/src") > -1, "e il lint dei suoi moduli");
+  const sw = readFileSync(join(root, "sw.js"), "utf8");
+  const fetchH = sw.slice(sw.indexOf('addEventListener("fetch"'));
+  const bypass = fetchH.indexOf('"/orchestre/"'), respond = fetchH.indexOf("e.respondWith");
+  ok(bypass > -1 && bypass < respond, "il fetch handler esce su /orchestre PRIMA di respondWith");
+});
+
 t("la landing mostra il prodotto vero, e il prodotto vero arriva in produzione", () => {
   /* Perché esiste: l'hero è una schermata reale dell'editor servita da /img/. Il modo silenzioso in cui
      si rompe è il deploy: il workflow pubblica una ALLOWLIST di cartelle, e una cartella dimenticata
