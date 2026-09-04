@@ -89,8 +89,8 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 revoke all on function public.orc_member_role(uuid) from public, anon;
 revoke all on function public.orc_is_staff(uuid) from public, anon;
-grant execute on function public.orc_member_role(uuid) to authenticated;
-grant execute on function public.orc_is_staff(uuid) to authenticated;
+grant execute on function public.orc_member_role(uuid) to authenticated, service_role;
+grant execute on function public.orc_is_staff(uuid) to authenticated, service_role;
 
 -- ---------------------------------------------------------------- RLS
 alter table public.orc_profiles enable row level security;
@@ -250,9 +250,10 @@ revoke all on function public.orc_org_members(uuid) from public, anon;
 revoke all on function public.orc_set_member_role(uuid, uuid, text) from public, anon;
 revoke all on function public.orc_add_member_by_email(uuid, text, text) from public, anon;
 revoke all on function public.orc_bootstrap_org(text, text, text) from public, anon, authenticated;
-grant execute on function public.orc_ensure_profile() to authenticated;
-grant execute on function public.orc_my_memberships() to authenticated;
-grant execute on function public.orc_org_members(uuid) to authenticated;
-grant execute on function public.orc_set_member_role(uuid, uuid, text) to authenticated;
-grant execute on function public.orc_add_member_by_email(uuid, text, text) to authenticated;
+-- service_role: gli script operativi e i worker devono poterle chiamare (regola del repo)
+grant execute on function public.orc_ensure_profile() to authenticated, service_role;
+grant execute on function public.orc_my_memberships() to authenticated, service_role;
+grant execute on function public.orc_org_members(uuid) to authenticated, service_role;
+grant execute on function public.orc_set_member_role(uuid, uuid, text) to authenticated, service_role;
+grant execute on function public.orc_add_member_by_email(uuid, text, text) to authenticated, service_role;
 grant execute on function public.orc_bootstrap_org(text, text, text) to service_role;

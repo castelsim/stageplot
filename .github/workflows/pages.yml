@@ -56,7 +56,7 @@ jobs:
       - name: Lint backend
         run: deno lint supabase/functions
       - name: Test Orchestre
-        run: node --test orchestre/test
+        run: node --test orchestre/test/*.test.mjs
       - name: Lint Orchestre
         run: deno lint orchestre/src
       - name: Prepara la cartella pubblica (allowlist)
