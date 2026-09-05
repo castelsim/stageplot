@@ -4,10 +4,11 @@ Spin-off di StagePlot per chi mette insieme un'orchestra: musicisti, organici pe
 richieste di disponibilità, conferme, storico. Vive a `stageplot.it/orchestre/` ed è un'applicazione
 distinta dall'editor: condivide con StagePlot solo il dominio, il login Google e il progetto Supabase.
 
-Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli, cataloghi, RLS, test) e
-**lotto 2** (roster: pool dei musicisti, strumenti, competenze, repertorio, tag, import CSV, dati demo).
-I lotti successivi (produzioni, matching, convocazioni, storico, candidature, collegamento a StagePlot)
-aggiungono cartelle e migrazioni con lo stesso schema.
+Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli, cataloghi, RLS, test),
+**lotto 2** (roster: pool dei musicisti, strumenti, competenze, repertorio, tag, import CSV, dati demo) e
+**lotto 3** (produzioni: date, repertorio, organico a sezioni/ruoli/posti, modelli, assegnazioni, storia).
+I lotti successivi (matching, convocazioni, storico, candidature, collegamento a StagePlot) aggiungono
+cartelle e migrazioni con lo stesso schema.
 
 ## Struttura
 
@@ -20,6 +21,8 @@ orchestre/
   admin/musicisti/            il pool: ricerca, filtri, lista
   admin/musicisti/scheda/     scheda di un musicista (?id= apre, ?new=1 crea)
   admin/musicisti/importa/    import da CSV con anteprima
+  admin/produzioni/           le produzioni: lista con date, stato, posti coperti
+  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Storia (?id=, ?new=1, ?t=)
   demo/musicisti-demo.csv     40 musicisti INVENTATI, nel formato dell'import
   ui.css                      token del design system di StagePlot + componenti
   src/config.js               URL e anon key di Supabase (pubblici), ruoli
@@ -29,16 +32,21 @@ orchestre/
   src/nav.js                  le schede dell'area admin
   src/api/org.js              chiamate per membri e organizzazione
   src/api/musicians.js        chiamate per il pool
+  src/api/productions.js      chiamate per produzioni e organico
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
+  src/domain/staffing.js      modelli di organico, etichette, raggruppamento posti (puro, testato)
   src/pages/*.js              un modulo per rotta
   test/pure.test.mjs          funzioni pure (Node, senza rete)
   test/pages.test.mjs         shell HTML, CSP, moduli, allowlist del deploy
   test/rls.test.mjs           scenario E contro un Supabase locale
   test/rls-roster.test.mjs    scenario E per il pool
   test/csv.test.mjs           il parser CSV e il file demo
+  test/staffing.test.mjs      modelli coerenti col catalogo, stati, raggruppamento
+  test/rls-productions.test.mjs  scenario E per produzioni, posti, storia append-only
 supabase/migrations/0041_orc_identity.sql   profili, organizzazioni, ruoli, RPC, RLS
 supabase/migrations/0042_orc_catalogs.sql   strumenti e competenze (seed)
 supabase/migrations/0043_orc_roster.sql     pool dei musicisti, import, lista
+supabase/migrations/0044_orc_productions.sql produzioni, date, organico, posti, eventi, RPC
 supabase/seed.sql                           dati demo per il LOCALE (generati da scripts/orc-demo.py)
 scripts/orc-demo.py                         genera seed.sql e musicisti-demo.csv (deterministico)
 ```
@@ -82,7 +90,9 @@ ci entra. `python3 scripts/orc-demo.py` rigenera in modo deterministico `supabas
 locale: `supabase db reset` lo applica e crea l'utente `demo@example.invalid` / `Prova-1234!`, owner di
 «Orchestra Demo» con 40 musicisti) e `orchestre/demo/musicisti-demo.csv` (lo stesso roster, da caricare in
 produzione dalla pagina Musicisti → Importa). Circa metà dei musicisti ha «Ennio Morricone» nel repertorio
-con fonte «dallo storico»: è il seme per il matching del lotto 4.
+con fonte «dallo storico», e il seed crea anche **tre produzioni concluse** (due Morricone, una Pooh) con
+i posti confermati e la loro storia, più una produzione 2026 con l'organico da modello e 42 posti scoperti:
+è il materiale su cui lavora il matching del lotto 4.
 
 ## Verifiche
 
@@ -109,6 +119,15 @@ codice non guarda niente. Per la RLS: aggiungere una policy permissiva nel local
    `./orc-bootstrap.sh "Nome" nome-org email@…` (usa la service_role dalla CLI, solo in memoria).
 4. Merge della PR: `main` pubblica in automatico; `orchestre` è nell'allowlist di `pages.yml`.
 
+## Organico: ruoli, posti, storia
+
+Un **ruolo** è l'esigenza aggregata («Violini secondi, 5 posti»); i **posti** nascono e muoiono con i
+`seats` del ruolo (trigger `orc_roles_sync_slots`): se ne tolgono solo di aperti, mai uno occupato.
+Le assegnazioni passano da `orc_assign_slot` / `orc_release_slot` (staff dell'org, controllo sul server);
+il client non ha policy di scrittura sui posti. Ogni cambio scrive in `orc_slot_events`, **append-only**:
+una rinuncia è un evento con chi e perché, non una cancellazione. `orc_apply_staffing_template` e
+`orc_duplicate_staffing` funzionano solo su una produzione senza ruoli.
+
 ## Modello dei ruoli
 
 `owner` · `admin` · `artistic` · `production` (staff: entrano nell'area admin) · `section` · `viewer`
@@ -116,10 +135,12 @@ codice non guarda niente. Per la RLS: aggiungere una policy permissiva nel local
 il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiunge per email con
 `orc_add_member_by_email`: la persona deve aver fatto almeno un accesso.
 
-## Limiti del lotto 1
+## Limiti (lotti 1-3)
 
 - Nessuna pagina per musicisti, `section`, `viewer`: chi entra senza un ruolo di staff vede la spiegazione.
-- Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è) né lo storico delle produzioni (lotto 3).
+- Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
+- I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella e API ma non ancora un'interfaccia: arrivano col matching.
+- L'assegnazione dall'organico è diretta (posto confermato): le convocazioni con risposta del musicista sono il lotto 5.
 - La home di Orchestre non è ancora in sitemap né linkata dalla landing di StagePlot.
 - Nessuna Edge Function nuova: tutto passa da PostgREST + RPC.
 - I test RLS coprono profili, organizzazioni, membership, cataloghi; le tabelle dei lotti successivi

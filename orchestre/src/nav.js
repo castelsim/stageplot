@@ -6,7 +6,7 @@ export function tabs(active) {
   const items = [
     ["home", "Home", BASE + "/admin/"],
     ["musicisti", "Musicisti", BASE + "/admin/musicisti/"],
-    ["produzioni", "Produzioni", null],
+    ["produzioni", "Produzioni", BASE + "/admin/produzioni/"],
     ["impostazioni", "Impostazioni", BASE + "/admin/impostazioni/"],
   ];
   return `<nav class="nav-tabs" aria-label="Sezioni">${items.map(([k, label, href]) =>
