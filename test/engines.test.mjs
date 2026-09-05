@@ -3376,11 +3376,43 @@ t("il fulmine non tocca un canale già cablato e non inventa destinazioni", () =
 t("il fulmine c'è solo sulle righe non cablate, ed è VISIBILE senza passarci sopra", () => {
   /* 28/07 — aveva opacity:0 e compariva solo in hover: con due canali da collegare non si vedeva
      nessun comando. Ora la riga non cablata mostra il fulmine al posto del cestino. */
-  ok(appjs.indexOf('zp.setAttribute("aria-label","Collega questo canale")') > -1, "nome accessibile");
+  ok(appjs.indexOf('zp.setAttribute("aria-label",_zt)') > -1 && appjs.indexOf("var _zt=cabZapTitle(r, pl.rows)") > -1,
+     "nome accessibile, e dice quanti canali muove davvero (SP-02)");
   ok(appjs.indexOf('if(r.box){') > -1 && appjs.indexOf('lite-trash') > -1, "cablato = cestino, non cablato = fulmine");
   eq(stylesCss.indexOf(".cab-one{border:none;background:none;color:var(--accent-strong);font-size:11px;cursor:pointer;\n    opacity:0"), -1,
      "niente più opacity:0 sul fulmine");
   ok(stylesCss.indexOf(".lite-btn") > -1, "i due bottoni di riga hanno uno stile comune");
+});
+
+/* SP-02 (audit esterno 05/09): «un comando dichiarato singolo collega un gruppo». Il fulmine sulla
+   riga Kick collegava tutti e otto i canali della batteria — giusto (un multipolare solo), ma non
+   annunciato: il tooltip diceva «Collega questo canale». */
+t("il fulmine dichiara quanti canali muove davvero", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.__cabRes = null;
+  const bat = add("batteria", 100, 100), voc = add("cantante", 300, 100);
+  add("stagebox", 500, 100); A.__cabRes = null;
+  const rows = A.patchList().rows;
+  const kick = rows.filter((r) => r.itemId === bat.id)[0];
+  const solo = rows.filter((r) => r.itemId === voc.id)[0];
+  eq(A.cabZapScope(kick, rows), 8, "la batteria muove otto canali");
+  eq(A.cabZapScope(solo, rows), 1, "il cantante ne muove uno");
+  ok(/8 canali insieme/.test(A.cabZapTitle(kick, rows)), "il tooltip non dice quanti sono: " + A.cabZapTitle(kick, rows));
+  ok(/Batteria/.test(A.cabZapTitle(kick, rows)), "il tooltip non nomina la sorgente: " + A.cabZapTitle(kick, rows));
+  eq(A.cabZapTitle(solo, rows), "Collega questo canale", "su una sorgente mono il testo resta quello semplice");
+});
+
+t("i canali già collegati non si contano nell'annuncio del fulmine", () => {
+  /* Se sei degli otto sono già in porta, il fulmine ne muove due: dirne otto sarebbe la stessa
+     bugia al contrario. */
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.__cabRes = null;
+  const bat = add("batteria", 100, 100);
+  add("stagebox", 500, 100); A.__cabRes = null;
+  const rows = A.patchList().rows.map((r) => Object.assign({}, r));
+  rows.forEach((r, i) => { if (r.itemId === bat.id && i < 6) r.box = { id: "b1" }; });
+  const libera = rows.filter((r) => r.itemId === bat.id && !r.box)[0];
+  eq(A.cabZapScope(libera, rows), 2, "conta anche quelli già in porta");
 });
 t("la Monitor list resta a due livelli (là il nome si troncava)", () => {
   ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
@@ -7467,6 +7499,82 @@ t("uscire dalle liste lascia andare anche i cavi selezionati", () => {
   A.layerAccOpen = "cabin"; A.selCab = "x"; A.selCabSet = { x: 1 };
   A.exitListMode();
   eq(A.selCab, null); eq(Object.keys(A.selCabSet).length, 0);
+});
+
+/* SP-01 (audit esterno 05/09): «le righe Input scompaiono durante il lavoro». Non era un render
+   rotto: `techAccordionOpen` spegneva TUTTI i cappelli delle liste tecniche, compreso quello della
+   lista che il layer aperto sta mostrando. Il layer restava aperto con la sua intestazione e il
+   bottone «Azzera percorsi Input», e sotto NIENTE — e richiudere l'audit non lo riapriva, perche'
+   il flag non si ripristina. Solo un reload. L'esclusivita' nacque quando le liste stavano tutte
+   nella stessa colonna; dal Layer v3 i layer si escludono gia' da soli. */
+/* SP-03 (audit esterno 05/09): «il modello cambia le dimensioni del palco senza una scelta iniziale
+   esplicita». Il palco vuoto e' 12 x 8, la Band ne fa 16 x 6,5, e nella finestra della formazione si
+   chiedono i MUSICISTI, non i metri disponibili. La misura non era sbagliata — e' la proporzione da
+   concerto — ma restava muta fino al PDF. */
+t("il palco deciso dal modello e' un'ipotesi dichiarata, con il comando per cambiarla", () => {
+  reset();
+  const righe = A.ipotesiDelPalco({ palco: { w: 1600, d: 650 } });
+  const r = righe.filter((x) => /Palco/.test(x.txt))[0];
+  ok(r, "il riepilogo non nomina il palco del modello");
+  ok(/16 . 6,5 m/.test(r.txt), "le misure non ci sono o non sono in italiano: " + r.txt);
+  ok(typeof r.fn === "function" && r.act, "manca il comando per cambiarle");
+  ok(A.ipotesiDelPalco({}).filter((x) => /Palco/.test(x.txt)).length === 0,
+     "la riga compare anche quando il palco NON viene da un modello");
+});
+
+t("il modello dichiara le sue misure al riepilogo", () => {
+  /* La riga vive solo se startFromTemplate passa il palco che ha appena imposto: senza quel
+     passaggio il test sopra proverebbe una funzione che nessuno chiama cosi'. */
+  ok(appjs.indexOf("_gia.palco={w:_sg.w,d:_sg.d}") > -1, "startFromTemplate non passa il palco del modello al riepilogo");
+});
+
+t("aprire l'audit non svuota la lista del layer aperto", () => {
+  reset();
+  A.layerAccOpen = "cabin"; A.patchOpen = true; A.auditActive = false;
+  A.toggleAuditView();
+  ok(A.auditActive === true, "l'audit non si e' aperto: il test non sta provando niente");
+  ok(A.patchOpen === true, "aprire l'audit ha chiuso la lista Input del layer aperto (SP-01)");
+  A.auditActive = false;
+});
+
+t("vale per tutte e tre le liste che sono il corpo di un layer", () => {
+  reset();
+  [["cabout", "monOpen"], ["elec", "loadOpen"]].forEach(([layer, flag]) => {
+    A.layerAccOpen = layer; A[flag] = true;
+    A.techAccordionOpen("audit");
+    ok(A[flag] === true, "il layer " + layer + " ha perso la sua lista (" + flag + ")");
+  });
+  A.layerAccOpen = null;
+});
+
+t("fuori dal layer aperto le liste restano esclusive", () => {
+  /* Il divieto non deve diventare «non chiudere mai piu' niente»: con un ALTRO layer aperto (o
+     nessuno), aprire una lista continua a chiudere le altre, che e' il senso dell'accordion. */
+  reset();
+  A.layerAccOpen = null; A.patchOpen = true; A.monOpen = true; A.loadOpen = true;
+  A.techAccordionOpen("audit");
+  ok(A.patchOpen === false && A.monOpen === false && A.loadOpen === false, "l'accordion non esclude piu' niente");
+  A.layerAccOpen = "cabin"; A.patchOpen = true; A.monOpen = true;
+  A.techAccordionOpen("mon");
+  ok(A.patchOpen === true, "la lista del layer aperto va protetta");
+  ok(A.monOpen === true, "la lista richiesta va aperta");
+  A.layerAccOpen = null;
+});
+
+t("aprire un layer apre la sua lista, anche se era stata chiusa a mano", () => {
+  /* L'altra meta' di SP-01: bastava aver chiuso una volta il cappello della lista perche' il layer
+     si riaprisse VUOTO. Il corpo del layer E' la lista: aprirlo vuol dire vederla. */
+  reset();
+  A.layerAccOpen = null; A.patchOpen = false; A.monOpen = false; A.loadOpen = false;
+  A.apriLayer("cabin");
+  eq(A.layerAccOpen, "cabin", "il layer non si e' aperto");
+  ok(A.patchOpen === true, "il layer Input si e' aperto senza la sua lista (SP-01)");
+  A.apriLayer("cabout");
+  ok(A.monOpen === true, "il layer Output si e' aperto senza la sua lista");
+  ok(A.patchOpen === false, "aprendo un altro layer la lista di prima doveva chiudersi");
+  A.apriLayer("elec");
+  ok(A.loadOpen === true, "il layer Power si e' aperto senza la sua lista");
+  A.layerAccOpen = null;
 });
 
 t("fuori da una lista l'uscita non ha niente da chiudere", () => {
