@@ -98,10 +98,81 @@ os.makedirs(os.path.join(ROOT, "orchestre", "demo"), exist_ok=True)
 with open(os.path.join(ROOT, "orchestre", "demo", "musicisti-demo.csv"), "w", newline="") as f:
     f.write(csv_rows(rows))
 
+DEMO_USER = "00000000-0000-4000-8000-00000000d3a0"
+DEMO_ORG = "00000000-0000-4000-8000-00000000d3a1"
+
+# ---- produzioni passate (storico) e una aperta
+def by_instr(parts):
+    """partecipanti → sezioni per famiglia, ruoli per strumento principale"""
+    FAM = {"violino":"Archi","viola":"Archi","violoncello":"Archi","contrabbasso":"Archi","arpa":"Archi",
+           "flauto":"Legni","oboe":"Legni","clarinetto":"Legni","fagotto":"Legni","sax_alto":"Legni","sax_tenore":"Legni",
+           "corno":"Ottoni","tromba":"Ottoni","trombone":"Ottoni","timpani":"Percussioni","percussioni":"Percussioni","batteria":"Percussioni",
+           "pianoforte":"Ritmica","tastiere":"Ritmica","chitarra_elettrica":"Ritmica","basso_elettrico":"Ritmica"}
+    NAMES = {"violino":"Violini","viola":"Viole","violoncello":"Violoncelli","contrabbasso":"Contrabbassi","arpa":"Arpa","flauto":"Flauti","oboe":"Oboe",
+             "clarinetto":"Clarinetti","fagotto":"Fagotto","sax_alto":"Sax alto","sax_tenore":"Sax tenore","corno":"Corni","tromba":"Trombe","trombone":"Tromboni",
+             "timpani":"Timpani","percussioni":"Percussioni","batteria":"Batteria","pianoforte":"Pianoforte","tastiere":"Tastiere","chitarra_elettrica":"Chitarra","basso_elettrico":"Basso"}
+    order = ["Archi","Legni","Ottoni","Percussioni","Ritmica"]
+    secs = {}
+    for r in parts:
+        code = r["instruments"][0]["code"]
+        secs.setdefault(FAM[code], {}).setdefault(code, []).append(r["email"])
+    return [(sec, [(code, NAMES[code], emails) for code, emails in secs[sec].items()]) for sec in order if sec in secs]
+
+def has_hist(r, name): return any(x["name"] == name and x["source"] == "history" for x in r["repertoire"])
+morricone = [r for r in rows if has_hist(r, "Ennio Morricone")]
+pooh = [r for r in rows if has_hist(r, "Pooh in sinfonia")]
+random.shuffle(morricone)
+PRODS = [
+    dict(title="Morricone in concerto", client="Comune di Vicenza", conductor="M. Fantasia", venue="Teatro Comunale, Vicenza", status="done",
+         dates=[("rehearsal","2024-06-13 15:00","2024-06-13 19:00"),("rehearsal","2024-06-14 15:00","2024-06-14 19:00"),("concert","2024-06-14 21:00","2024-06-14 23:00")],
+         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=morricone[: int(len(morricone) * 0.8)]),
+    dict(title="Morricone in concerto", client="Festival d'estate", conductor="M. Fantasia", venue="Arena, Padova", status="done",
+         dates=[("rehearsal","2025-07-03 15:00","2025-07-03 19:00"),("concert","2025-07-04 21:15","2025-07-04 23:15")],
+         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=morricone),
+    dict(title="Pooh in sinfonia", client="Teatro Nuovo", conductor="M. Immaginario", venue="Teatro Nuovo, Treviso", status="done",
+         dates=[("rehearsal","2025-11-20 14:00","2025-11-20 18:00"),("rehearsal","2025-11-21 14:00","2025-11-21 18:00"),("concert","2025-11-21 21:00","2025-11-21 23:30")],
+         rep=[("program","Pooh in sinfonia"),("genre","Pop sinfonico")], parts=pooh),
+    dict(title="Morricone in concerto 2026", client="Comune di Bassano del Grappa", conductor="M. Fantasia", venue="Teatro Remondini, Bassano del Grappa", status="planning",
+         dates=[("rehearsal","2026-10-15 15:00","2026-10-15 19:00"),("rehearsal","2026-10-16 15:00","2026-10-16 19:00"),("concert","2026-10-17 21:00","2026-10-17 23:00")],
+         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=None),
+]
+TEMPLATE_RS = [  # = TEMPLATES.ritmico_sinfonica in orchestre/src/domain/staffing.js
+    {"section":"Archi","roles":[{"instrument":"violino","name":"Violini primi","seats":6,"part":"principal"},{"instrument":"violino","name":"Violini secondi","seats":5},{"instrument":"viola","name":"Viole","seats":4},{"instrument":"violoncello","name":"Violoncelli","seats":3},{"instrument":"contrabbasso","name":"Contrabbassi","seats":2},{"instrument":"arpa","name":"Arpa","seats":1}]},
+    {"section":"Legni","roles":[{"instrument":"flauto","name":"Flauti","seats":2},{"instrument":"oboe","name":"Oboe","seats":1},{"instrument":"clarinetto","name":"Clarinetti","seats":2},{"instrument":"fagotto","name":"Fagotto","seats":1},{"instrument":"sax_alto","name":"Sax alto","seats":1},{"instrument":"sax_tenore","name":"Sax tenore","seats":1}]},
+    {"section":"Ottoni","roles":[{"instrument":"corno","name":"Corni","seats":2},{"instrument":"tromba","name":"Trombe","seats":2},{"instrument":"trombone","name":"Tromboni","seats":2}]},
+    {"section":"Percussioni","roles":[{"instrument":"timpani","name":"Timpani","seats":1},{"instrument":"percussioni","name":"Percussioni","seats":1},{"instrument":"batteria","name":"Batteria","seats":1}]},
+    {"section":"Ritmica","roles":[{"instrument":"pianoforte","name":"Pianoforte","seats":1},{"instrument":"tastiere","name":"Tastiere","seats":1},{"instrument":"chitarra_elettrica","name":"Chitarra","seats":1},{"instrument":"basso_elettrico","name":"Basso","seats":1}]},
+]
+
+def q(s): return "'" + str(s).replace("'", "''") + "'"
+
+def prod_sql(pr):
+    out = [f"  insert into public.orc_productions (org_id, title, client, kind, conductor, venue, status, created_by) values (org, {q(pr['title'])}, {q(pr['client'])}, 'concerto', {q(pr['conductor'])}, {q(pr['venue'])}, {q(pr['status'])}, '{DEMO_USER}') returning id into pid;"]
+    for kind, a, b in pr["dates"]:
+        out.append(f"  insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, '{kind}', '{a}+02', '{b}+02', {q(pr['venue'])});")
+    for kind, name in pr["rep"]:
+        out.append(f"  select x.id into rep from public.orc_repertoire x where x.org_id = org and x.kind = '{kind}' and lower(x.name) = lower({q(name)});")
+        out.append(f"  if rep is null then insert into public.orc_repertoire (org_id, kind, name) values (org, '{kind}', {q(name)}) returning id into rep; end if;")
+        out.append("  insert into public.orc_production_repertoire (production_id, repertoire_id) values (pid, rep) on conflict do nothing;")
+    if pr["parts"] is None:
+        out.append(f"  perform public.orc_apply_staffing_template(pid, {q(json.dumps(TEMPLATE_RS))}::jsonb);")
+        return out
+    for si, (sec, roles) in enumerate(by_instr(pr["parts"]), 1):
+        out.append(f"  insert into public.orc_staffing_sections (production_id, name, sort) values (pid, {q(sec)}, {si}) returning id into sid;")
+        for ri, (code, name, emails) in enumerate(roles, 1):
+            part = 'principal' if code == 'violino' else 'tutti'
+            out.append(f"  insert into public.orc_staffing_roles (production_id, section_id, instrument_code, name, seats, part, sort) values (pid, sid, '{code}', {q(name)}, {len(emails)}, '{part}', {si * 100 + ri}) returning id into rid;")
+            for em in emails:
+                out.append(f"  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = {q(em)};")
+                out.append("  perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.role_id = rid and s.status = 'open' order by s.seat_no limit 1), mid, 'storico importato');")
+    return out
+
+prod_block = "do $$\ndeclare org uuid := '" + DEMO_ORG + "'; pid uuid; sid uuid; rid uuid; mid uuid; rep uuid;\nbegin\n" + \
+    "\n".join(line for pr in PRODS for line in prod_sql(pr)) + "\nend $$;\n"
+
 # ---- seed.sql per il locale
 DEMO_USER = "00000000-0000-4000-8000-00000000d3a0"
 DEMO_ORG = "00000000-0000-4000-8000-00000000d3a1"
-def q(s): return "'" + str(s).replace("'", "''") + "'"
 seed = f"""-- supabase/seed.sql — dati DIMOSTRATIVI per il Supabase LOCALE (supabase db reset li applica).
 -- Generato da scripts/orc-demo.py: non modificare a mano, rigenerare. Tutto inventato.
 -- Mai in produzione: là il roster si carica dalla pagina Musicisti → Importa (orchestre/demo/musicisti-demo.csv).
@@ -124,7 +195,9 @@ insert into public.orc_memberships (org_id, user_id, role) values ('{DEMO_ORG}',
 -- roster: passa dalla stessa RPC dell'import, così il seed prova anche quella
 select set_config('request.jwt.claims', '{{"sub":"{DEMO_USER}","role":"authenticated"}}', false);
 select public.orc_import_musicians('{DEMO_ORG}', {q(json.dumps(rows, ensure_ascii=False))}::jsonb);
-"""
+
+-- produzioni: tre concluse (lo storico che alimenta il matching) e una aperta con l'organico da modello
+{prod_block}"""
 with open(os.path.join(ROOT, "supabase", "seed.sql"), "w") as f:
     f.write(seed)
-print(f"ok: {len(rows)} musicisti → supabase/seed.sql e orchestre/demo/musicisti-demo.csv")
+print(f"ok: {len(rows)} musicisti, {len(PRODS)} produzioni ({len(morricone)} con storico Morricone, {len(pooh)} Pooh) → supabase/seed.sql e orchestre/demo/musicisti-demo.csv")

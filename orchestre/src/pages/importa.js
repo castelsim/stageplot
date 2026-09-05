@@ -16,7 +16,7 @@ async function main() {
   mountTopbar(ctx, { active: "musicisti" });
   app.className = "o-wrap";
   app.innerHTML = tabs("musicisti") + `
-    <p class="small"><a href="${BASE}/admin/musicisti/">← Musicisti</a></p>
+    <p class="small"><a class="back" href="${BASE}/admin/musicisti/">← Musicisti</a></p>
     <h1>Importa musicisti</h1>
     <p class="muted">Un file CSV con una riga per musicista. Chi ha già la stessa email nell'organizzazione viene aggiornato, non duplicato.</p>
     <section class="card">
