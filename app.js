@@ -8026,6 +8026,24 @@ function cabConnectAll(){
    cabConnectAll — simula la modalità auto e prende la destinazione che il motore sceglierebbe — ma
    materializza solo la chiave chiesta. Gli altri canali restano come sono.
    Ritorna l'id della box scelta, o null se non c'è destinazione. */
+/* SP-02 (audit esterno 05/09): il fulmine diceva «Collega questo canale» e sulla batteria ne
+   collegava OTTO. Il motore ha ragione — uno strumento multicanale viaggia su UN multipolare e si
+   collega tutto insieme, che è quello che serve a chi cabla, e il messaggio DOPO dice già «8 canali
+   collegati» — ma il comando annunciava una cosa e ne faceva un'altra. Il numero ora c'è anche
+   PRIMA di premere, che è dove serve per non sentirsi scippati di sette righe. */
+function cabZapScope(r, rows){
+  if(!r || !r.itemId || !rows) return 1;
+  var n=0;
+  rows.forEach(function(x){ if(x.itemId===r.itemId && !x.box && !x.reserved && !x.spare) n++; });
+  return Math.max(1, n);
+}
+function cabZapTitle(r, rows){
+  var n=cabZapScope(r, rows);
+  if(n<2) return "Collega questo canale";
+  var it=(state.items||[]).filter(function(i){ return i.id===r.itemId; })[0];
+  var nome=(it&&it.label) || String(r.name||"").split(" - ")[0] || "questa sorgente";
+  return "Collega "+nome+": "+n+" canali insieme, su un multipolare solo";
+}
 function cabConnectOne(key){
   if(!key) return null;
   if(!state.cab.on) state.cab.on=true;
@@ -15621,6 +15639,21 @@ function ipotesiDelPalco(gia){
   var cori=conta("corista");
   var coriCh=canali.filter(function(n){ return /^cori\b/i.test(n); }).length;
 
+  /* 0. IL PALCO — SP-03 (audit esterno 05/09): «il modello cambia le dimensioni del palco senza una
+        scelta iniziale esplicita». Il palco vuoto dice 12 × 8, la Band ne fa 16 × 6,5, e nella
+        finestra della formazione si chiedono i MUSICISTI, non i metri disponibili. La misura non è
+        sbagliata — è la proporzione di un palco da concerto, ed è per questo che il modello la
+        dichiara — ma restava muta: un principiante se la porta fino al PDF credendo sia un dato del
+        suo locale. Qui diventa un'ipotesi come le altre, con il comando accanto. Sta per prima
+        perché è la cornice dentro cui stanno tutte le altre righe. */
+  if(gia.palco && gia.palco.w>0 && gia.palco.d>0){
+    var _m=function(cm){ return (Math.round(cm/10)/10).toString().replace(".",","); };
+    righe.push({ txt:"Palco "+_m(gia.palco.w)+" × "+_m(gia.palco.d)+" m — la misura del modello",
+      sub:"è la proporzione tipica di questa formazione, non il palco del tuo locale",
+      act:"Cambia le misure",
+      fn:function(){ if(typeof toggleStageEdit==="function" && !stageEdit) toggleStageEdit(); } });
+  }
+
   /* 1. CHI CANTA — il difetto originale: il modello decide quante voci ci sono, e il rider parte così.
         Le due azioni stanno sulla stessa riga: sono la stessa domanda («quanti cantano?»), e due
         righe separate facevano crescere il pannello fin sopra il palco appena creato. */
@@ -15965,7 +15998,8 @@ function startFromTemplate(f,options){
     /* il riepilogo delle ipotesi arriva DOPO che il palco è a video: prima non c'è niente da leggere */
     /* se il modello ha fatto le sue domande, il riepilogo non le ripete: resta per ciò che il
        programma ha deciso da solo (side fill, stagebox, chi è attrezzatura e chi persona). */
-    var _gia = options.formazione ? {voci:true, ascolto:true} : null;
+    var _gia = options.formazione ? {voci:true, ascolto:true} : {};
+    if(qd.stage) _gia.palco={w:_sg.w,d:_sg.d};   /* SP-03: la misura imposta dal modello si dichiara, non si subisce */
     setTimeout(function(){ try{ mostraAssunzioni(false, _gia); }catch(_e){} }, 350);
   });
   return true;
@@ -17721,6 +17755,18 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
 var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec", luci:"luciSec" };   /* Layer v3: ogni layer apre la SUA lista (Ingressi=channel list, Output=monitor list, P.M.=lista pm) */
+/* Tre di quelle sezioni hanno un SECONDO cappello richiudibile (patchOpen/monOpen/loadOpen), erede
+   di quando le liste stavano tutte nella stessa colonna e una sola alla volta poteva stare aperta.
+   Da qui in giu' quel cappello non e' piu' libero di chiudersi da solo: il corpo del layer E' la
+   lista, e un layer aperto senza righe non e' una lista chiusa, e' una lista persa. (SP-01, 05/09) */
+var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
+/* Apre un layer: fuoco sul layer E la sua lista aperta. Prima le due cose erano scollegate, e
+   bastava aver chiuso una volta il cappello perche' il layer si riaprisse con la sola intestazione
+   e il bottone «Azzera percorsi» — chi guardava credeva di aver perso i canali. */
+function apriLayer(id){
+  layerAccOpen=id; layerSoloUI={}; layerSoloUI[id]=true; layerSoloMode="focus";
+  if(ACC_DEL_LAYER[id] && typeof techAccordionOpen==="function") techAccordionOpen(ACC_DEL_LAYER[id]);
+}
 /* Layer "lavora qui" (Simone 20/07): la riga e' [pallino][nome]...[occhio]. CLIC sulla riga = mette
    a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
    Ri-clic = mostra tutto. L'occhio resta indipendente. Opacita'/lucchetto/reset compaiono SOTTO
@@ -17772,7 +17818,7 @@ function renderLayerRow(L, container){
     var offRow=document.createElement("div"); offRow.className="layer-row layer-clickable layer-offrow";
     offRow.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span><span class="layer-actbadge">attiva</span>';
     offRow.title="Attiva: "+L.name;
-    var _attiva=function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); };
+    var _attiva=function(){ apriLayer(L.id); L.activate(); };
     offRow.addEventListener("click", _attiva);
     premibile(offRow, _attiva, "Attiva la lista "+L.name);
     container.appendChild(offRow);
@@ -17806,7 +17852,7 @@ function renderLayerRow(L, container){
     if(e && e.target && e.target.closest && e.target.closest(".layer-cnt.cnt-apri")) return;   /* la misura ha la sua azione */
     if(e && e.target && e.target.closest && e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
-    else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="focus"; }   /* tendina = fuoco: contesto sfumato */
+    else apriLayer(L.id);   /* tendina = fuoco: contesto sfumato, e la lista aperta */
     render();
   };
   row.addEventListener("click", _apriChiudi);
@@ -18713,7 +18759,8 @@ function clRender(){
      + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
      + '<td class="cl-act">'+(r.box
          ? '<button type="button" class="cl-unlink" data-unlink="'+esc(r.key)+'" title="Scollega questo canale: libera la porta sulla stage box" aria-label="Scollega questo canale">\u00d7</button>'
-         : '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
+         : (function(){ var _zt=cabZapTitle(r, pl.rows);
+             return '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="'+esc(_zt)+'" aria-label="'+esc(_zt)+'">\u26a1</button>'; })())+'</td>'
      + '</tr>';
   });
   h+='</tbody>';
@@ -19226,7 +19273,8 @@ function renderPatchPanel(){
       act.appendChild(tr);
     } else {
       var zp=document.createElement("button"); zp.type="button"; zp.className="lite-btn cab-one";
-      zp.textContent="\u26a1"; zp.title="Collega questo canale"; zp.setAttribute("aria-label","Collega questo canale");
+      var _zt=cabZapTitle(r, pl.rows);
+      zp.textContent="\u26a1"; zp.title=_zt; zp.setAttribute("aria-label",_zt);
       zp.addEventListener("click", function(e){ e.stopPropagation();
         var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
         if(need){ guideDialog(need); return; }
@@ -20510,7 +20558,17 @@ function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ techAccor
 })();
 /* Progressive disclosure: un solo pannello tecnico espanso per volta (accordion) → niente colonna infinita */
 function techAccordionOpen(which){
-  auditOpen=cabOpen=elecOpen=patchOpen=monOpen=loadOpen=false;
+  /* SP-01 (audit esterno 05/09): «le righe Input scompaiono durante il lavoro». Non era il render:
+     era questa riga, che spegneva anche il cappello della lista mostrata dal layer aperto. Aprivi
+     l'audit e la channel list restava con l'intestazione, il bottone «Azzera percorsi Input» e
+     NIENTE sotto — con il conteggio della riga layer che continuava a dire 15. Richiudere l'audit
+     non la riportava (il flag non si ripristina): solo un reload. I layer si escludono gia' da
+     soli, quindi l'esclusivita' qui serve solo alle tre sezioni che NON sono corpo di un layer. */
+  var mia=ACC_DEL_LAYER[layerAccOpen]||null;   /* la lista che il layer aperto sta mostrando: intoccabile */
+  auditOpen=cabOpen=elecOpen=false;            /* questi tre non sono mai il corpo di un layer */
+  if(mia!=="patch") patchOpen=false;
+  if(mia!=="mon")   monOpen=false;
+  if(mia!=="load")  loadOpen=false;
   if(which==="audit")auditOpen=true; else if(which==="cab")cabOpen=true; else if(which==="elec")elecOpen=true;
   else if(which==="patch")patchOpen=true; else if(which==="mon")monOpen=true; else if(which==="load")loadOpen=true;
 }
