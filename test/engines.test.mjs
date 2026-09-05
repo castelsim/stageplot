@@ -7475,6 +7475,77 @@ t("le misure hanno una provenienza dichiarata nel sorgente: niente numeri invent
     ok(rx.test(blocco), "manca il riferimento da cui viene la misura: " + rx));
 });
 
+console.log("\n— Le istruzioni nominano comandi che esistono —");
+
+/* SP-09 (audit esterno 05/09): «l'audit invita ad attivare il cablaggio audio/elettrico mentre i
+   controlli principali usano altri nomi». Verificato: in tutta l'app non esiste nessun comando
+   chiamato «Cablaggio audio» ne' «Cablaggio elettrico» — le liste si chiamano Input, Output e
+   Power. Un'istruzione che nomina un comando inesistente non e' un'imprecisione: manda a cercare
+   una cosa che non c'e', e chi non la trova pensa di aver sbagliato lui. */
+t("l'audit manda a comandi che esistono davvero", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ["Attiva Cablaggio elettrico", "attiva Cablaggio audio"].forEach((frase) => {
+    eq(appjs.indexOf(frase), -1, "l'audit nomina un comando che non esiste: «" + frase + "»");
+  });
+  /* e i nomi citati sono quelli veri: le liste nel pannello layer */
+  ok(/apri la lista Input/.test(appjs), "il rimedio della stage box non nomina la lista Input");
+  ok(/Apri la lista Power/.test(appjs), "il rimedio del distro non nomina la lista Power");
+  ok(appjs.indexOf('name:"Input"') > -1 && appjs.indexOf('name:"Power"') > -1, "…e quelle liste si chiamano ancora cosi'");
+  ok(/id="clDlg"/.test(html) || appjs.indexOf("Channel list") > -1, "«Channel list», invece, esiste: quella citazione era giusta");
+});
+
+t("«Produzione avanzata» non si chiama come i reparti di produzione", () => {
+  /* Sotto quell'etichetta stanno Power, Luci e P.M.: impianti tecnici. I REPARTI di produzione
+     (catering, logistica, sicurezza, trasporti) esistono davvero e stanno altrove, in File →
+     Produzione. Due cose diverse con lo stesso nome, nella stessa app. */
+  eq(appjs.indexOf("</span>Produzione avanzata"), -1, "il gruppo si chiama ancora come i reparti");
+  ok(appjs.indexOf("</span>Impianti tecnici") > -1, "il gruppo delle liste tecniche ha perso il nome");
+});
+
+console.log("\n— Nomi accessibili dei campi —");
+
+/* SP-15 (audit esterno 05/09): «alcuni campi numerici e testuali risultano senza nome accessibile».
+   Misurati nel browser il 05/09: 87 controlli su 239 senza nessuna fonte di nome — chi naviga da
+   tastiera o con uno screen reader sentiva «casella di modifica» e basta. Ottantuno avevano gia'
+   l'etichetta A VIDEO, solo non collegata: il difetto non era la mancanza di parole, era il
+   `for` che non c'era. Dopo: zero su 225 raggiungibili.
+   Questo test guarda il markup STATICO: le righe generate dai motori hanno i loro aria-label
+   altrove nella suite. */
+t("ogni campo raggiungibile ha un nome accessibile", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* CSS e JS non sono markup: un commento che nomina un <select> non e' un campo (riga 1667). */
+  const bianca = (b) => b.replace(/[^\n]/g, " ");
+  const markup = html.replace(/<style[\s\S]*?<\/style>/g, bianca).replace(/<script[\s\S]*?<\/script>/g, bianca);
+  const righe = markup.split("\n");
+  const forSet = new Set([...markup.matchAll(/<label[^>]*\sfor="([^"]+)"/g)].map((m) => m[1]));
+  const senza = [];
+  let dentroLabel = 0;   /* <label class="chk"> si apre su una riga e si chiude su quella dopo */
+  righe.forEach((l, i) => {
+    const re = /<label\b|<\/label>|<(input|select|textarea)\b((?:[^>"]|"[^"]*")*)>/g;
+    let m;
+    while ((m = re.exec(l))) {
+      if (m[0] === "<label") { dentroLabel++; continue; }
+      if (m[0] === "</label>") { dentroLabel = Math.max(0, dentroLabel - 1); continue; }
+      const attr = m[2] || "";
+      if (/type="hidden"/.test(attr) || /\shidden(?=[\s>]|$)/.test(attr) || /aria-hidden="true"/.test(attr)) continue;
+      if (/aria-label=|aria-labelledby=|\stitle=/.test(attr)) continue;
+      if (dentroLabel > 0) continue;                       /* il controllo sta DENTRO la sua etichetta */
+      const id = (attr.match(/\sid="([^"]+)"/) || [])[1];
+      if (id && forSet.has(id)) continue;
+      senza.push((i + 1) + ": " + (id || m[1]));
+    }
+  });
+  eq(senza.length, 0, "campi senza nome accessibile:\n      " + senza.slice(0, 12).join("\n      "));
+});
+
+t("il campo trappola anti-spam non viene annunciato", () => {
+  /* fbHp e' l'honeypot: invisibile al mouse ma un lettore di schermo ci sarebbe entrato dentro
+     e avrebbe invitato a compilarlo — cioe' a farsi scartare il messaggio. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const riga = html.split("\n").filter((l) => /id="fbHp"/.test(l))[0] || "";
+  ok(/aria-hidden="true"/.test(riga), "l'honeypot e' ancora annunciato: " + riga.trim().slice(0, 120));
+});
+
 console.log("\n— Uscita dalle liste —");
 
 t("aprire una lista mette in «modo lista», uscire la chiude", () => {

@@ -8836,12 +8836,12 @@ function auditEngine(){
           (items.length?{label:"Adatta il palco", run:auditFixAdattaPalco}:null), "palcomini");
     }
   })();
-  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: attiva Cablaggio audio e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
+  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: apri la lista Input, nella colonna a destra, e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
     "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
-    "Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
+    "Elettrico","Apri la lista Power, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
      DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
      parte. Il nostro dato di targa e' quello della sola superficie — giusto, ma dice meta' del
@@ -17963,7 +17963,7 @@ function renderLayerManager(){
     var aperto=inUso || advAperta();
     var t=document.createElement("button");
     t.type="button"; t.className="layer-group-label adv-head"; t.setAttribute("aria-expanded", String(aperto));
-    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Produzione avanzata';
+    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Impianti tecnici';
     t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un rider";
     t.addEventListener("click", function(){ advAperta(!aperto); renderLayerManager(); });
     rows.appendChild(t);
@@ -18095,7 +18095,7 @@ function renderLightsCard(){
     '<label class="lights-lbl">Funzione</label>'+
     '<select class="lights-sel" id="lcFn">'+opts(LIGHT_FN, r.fn, "— da assegnare —")+'</select>'+
     '<div class="lights-two">'+
-      '<div><label class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
+      '<div><label for="lcN" class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
       '<div><label class="lights-lbl">Sul palco</label><input type="text" class="lights-inp num" value="'+shown+'" disabled></div>'+
     '</div>';
   if(shown && shown<r.n) h+='<p class="prop-hint">Ne hai disegnate '+shown+' delle '+r.n+' richieste. Il rider ne chiede '+r.n+': il disegno è un’illustrazione, non il conteggio.</p>';
@@ -18120,8 +18120,8 @@ function renderLightsCard(){
           '<p class="prop-hint">Lo dicono gli apparecchi disegnati: si cambia su di loro, in «Installazione». Cosi\' rider e disegno non possono contraddirsi.</p>';
       }
       return '<div class="lights-two">'+
-        '<div><label class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
-        (LIGHT_POS_H[r.pos]?'<div><label class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
+        '<div><label for="lcPos" class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
+        (LIGHT_POS_H[r.pos]?'<div><label for="lcH" class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
       '</div>';
     })()+
     '<label class="lights-lbl">Nota</label>'+
@@ -19166,7 +19166,7 @@ function openPortPop(ev, r){
        proprio quando serviva di più — cioè quando l'ingresso giusto era già preso. */
     var _chi={};
     (R.links||[]).forEach(function(l){ if(l.box && l.box.id===b.id && !l.deleted) _chi[l.ch]=(l.s&&l.s.name)||""; });
-    h+='<label>Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
+    h+='<label for="ppSel">Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
     for(var pn=1;pn<=b.cap;pn++){
       var nota="";
       if(b.resMap[pn]) nota=" — riservata";
@@ -19178,7 +19178,7 @@ function openPortPop(ev, r){
     h+='</select><div class="pp-note">Se la porta è già di un altro canale, quello torna automatico e si rimette in fila.</div>';
     if(String(rk).indexOf("grp:")===0) h+='<div class="pp-note">Questo strumento entra con un multipolare: la porta scelta è quella del primo canale, gli altri seguono consecutivi.</div>';
   }
-  h+='<label>Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
+  h+='<label for="ppShort">Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -19492,11 +19492,11 @@ function openBusPop(ev, row){
   var old=document.getElementById("busPop"); if(old) old.remove();
   var bu=row.bus, L=busList();
   var pop=document.createElement("div"); pop.id="busPop"; pop.className="port-pop";
-  var h='<label>Stage box</label><select id="bpBox"><option value="">Automatica</option>';
+  var h='<label for="bpBox">Stage box</label><select id="bpBox"><option value="">Automatica</option>';
   L.boxes.forEach(function(b){ h+='<option value="'+esc(b.id)+'"'+(bu.boxId===b.id?' selected':'')+'>'+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+' — out '+b.outCap+'</option>'; });
-  h+='</select><label>Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
+  h+='</select><label for="bpPort">Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
   for(var pn=1;pn<=64;pn++){ h+='<option value="'+pn+'"'+(bu.port===pn?' selected':'')+'>'+pn+'</option>'; }
-  h+='</select><label>Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
+  h+='</select><label for="bpDest">Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -19788,10 +19788,10 @@ function openRequestCreate(it){
   var nome="", ruolo=(it && TYPES[it.type]) ? TYPES[it.type].nome : "";
   if(it && it.label) nome=it.label;
   var ov=reqModal("Richiedi il setup",
-    '<label>Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
-    '<label>Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
-    '<label>Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
-    '<label>Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
+    '<label for="rqName">Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
+    '<label for="rqRole">Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
+    '<label for="rqSchema">Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
+    '<label for="rqMsg">Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
     '<label>Scade fra <small class="lbl-note">— dopo, il link non si apre più</small></label>'+
     '<select id="rqExp"><option value="30">30 giorni</option><option value="14">14 giorni</option><option value="7">7 giorni</option><option value="">Nessuna scadenza</option></select>',
     [["Annulla","",null],["Crea il link","primary",function(box){
@@ -19815,8 +19815,8 @@ function openRequestLink(reqId, nome, token){
   var link=requestLink(token), testo=requestShareText(nome, token);
   reqModal("Link pronto",
     '<p class="prop-hint" style="margin-top:0">Questo link si vede una volta sola: copialo adesso. Chi ce l\'ha può rispondere, ma non vede il resto del progetto.</p>'+
-    '<label>Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
-    '<label>Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
+    '<label for="rqLink">Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
+    '<label for="rqText">Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
     '<div class="btns" style="margin-top:10px">'+
       '<button type="button" class="btn" id="rqCopyLink">Copia link</button>'+
       '<button type="button" class="btn" id="rqCopyText">Copia messaggio</button>'+
@@ -20467,9 +20467,9 @@ function openLinePop(ev, loadId){
   var maxL=Math.max(ll.distro.maxLine||1, 12);
   var pop=document.createElement("div"); pop.id="linePop"; pop.className="port-pop";
   var man=(state.elec.manual||{})[loadId]||{};
-  var h='<label>Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
+  var h='<label for="lpNum">Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
   for(var pn=1;pn<=maxL;pn++){ h+='<option value="'+pn+'"'+(man.line===pn?' selected':'')+'>#'+pn+'</option>'; }
-  h+='</select><label>Connettore</label><select id="lpConn">'+
+  h+='</select><label for="lpConn">Connettore</label><select id="lpConn">'+
      '<option value=""'+(!man.conn?' selected':'')+'>Automatico ('+((ll.conn&&ll.conn.label)||"Schuko")+')</option>'+
      '<option value="schuko"'+(man.conn==="schuko"?' selected':'')+'>Schuko</option>'+
      '<option value="cee"'+(man.conn==="cee"?' selected':'')+'>CEE</option>'+
@@ -24503,10 +24503,10 @@ function openItemContactModal(it){
         '<div id="icList" style="margin-top:6px;border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:180px;overflow-y:auto"></div>'+
         '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:11px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-          '<div><label class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
-          '<div><label class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
-          '<div><label class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
-          '<div><label class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
+          '<div><label for="icN" class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
+          '<div><label for="icR" class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
+          '<div><label for="icT" class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
+          '<div><label for="icE" class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
         '</div>'+
         '<div style="margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:11px;color:var(--text-2);line-height:1.5">🔒 <b style="color:var(--accent-strong)">Solo nel tuo account.</b> Salvando, il contatto entra nella tua rubrica e viene assegnato a questa postazione. Condividerlo sarà sempre una scelta esplicita, spenta di default.</div>'+
         '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button id="icCancel" type="button" class="btn">Annulla</button><button id="icSave" type="button" class="btn primary">Salva e assegna</button></div>'+
