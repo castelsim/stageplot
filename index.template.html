@@ -21132,7 +21132,13 @@ function vistaAttivaId(){
 function renderVistaBanner(){
   var el=document.getElementById("vistaBanner"); if(!el) return;
   var id=vistaAttivaId();
-  if(!id){ el.hidden=true; el.innerHTML=""; return; }
+  /* Il banner parla del DISEGNO, quindi vale solo quando il disegno è davvero diviso in
+     primo piano e contesto — cioè quando `anySolo()`, la stessa condizione di `soloSplit`.
+     Trovato provandolo: con il motore del cablaggio spento la riga «Input» è solo un invito ad
+     attivare, `pruneSolo()` toglie il solo a ogni render, e il banner annunciava «il resto del
+     palco è in secondo piano» mentre a video non era cambiato niente. Un avviso che dichiara un
+     cambio che non c'è stato è peggio di nessun avviso. (06/09) */
+  if(!id || !anySolo()){ el.hidden=true; el.innerHTML=""; return; }
   var nome=id;
   try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
   var iso=soloOn(id) && layerSoloMode==="iso";
