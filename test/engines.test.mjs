@@ -7565,6 +7565,18 @@ t("la vista attiva ha sempre un nome, o non c'e'", () => {
   A.layerSoloUI = {};
 });
 
+t("il banner non annuncia un cambio che non c'e' stato", () => {
+  /* Con il motore del cablaggio spento la riga «Input» e' solo un invito ad attivare: pruneSolo()
+     toglie il solo a ogni render, il disegno resta intero — e il banner diceva lo stesso «il resto
+     del palco e' in secondo piano». Trovato provandolo a video, non leggendo il codice. */
+  const i = appjs.indexOf("function renderVistaBanner()");
+  ok(i > -1, "manca la funzione");
+  const corpo = appjs.slice(i, i + 1400);
+  ok(/if\(!id \|\| !anySolo\(\)\)/.test(corpo),
+     "il banner non controlla che il disegno sia davvero diviso: annuncerebbe un cambio inesistente");
+  ok(/soloSplit = anySolo\(\)/.test(appjs), "…e anySolo() dev'essere ancora la condizione che divide il disegno");
+});
+
 t("il banner della vista si disegna a ogni render", () => {
   ok(typeof A.renderVistaBanner === "function", "manca la funzione che disegna il banner");
   ok(/renderVistaBanner\(\);/.test(appjs), "nessuno la chiama");
