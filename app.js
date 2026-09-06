@@ -8026,6 +8026,24 @@ function cabConnectAll(){
    cabConnectAll — simula la modalità auto e prende la destinazione che il motore sceglierebbe — ma
    materializza solo la chiave chiesta. Gli altri canali restano come sono.
    Ritorna l'id della box scelta, o null se non c'è destinazione. */
+/* SP-02 (audit esterno 05/09): il fulmine diceva «Collega questo canale» e sulla batteria ne
+   collegava OTTO. Il motore ha ragione — uno strumento multicanale viaggia su UN multipolare e si
+   collega tutto insieme, che è quello che serve a chi cabla, e il messaggio DOPO dice già «8 canali
+   collegati» — ma il comando annunciava una cosa e ne faceva un'altra. Il numero ora c'è anche
+   PRIMA di premere, che è dove serve per non sentirsi scippati di sette righe. */
+function cabZapScope(r, rows){
+  if(!r || !r.itemId || !rows) return 1;
+  var n=0;
+  rows.forEach(function(x){ if(x.itemId===r.itemId && !x.box && !x.reserved && !x.spare) n++; });
+  return Math.max(1, n);
+}
+function cabZapTitle(r, rows){
+  var n=cabZapScope(r, rows);
+  if(n<2) return "Collega questo canale";
+  var it=(state.items||[]).filter(function(i){ return i.id===r.itemId; })[0];
+  var nome=(it&&it.label) || String(r.name||"").split(" - ")[0] || "questa sorgente";
+  return "Collega "+nome+": "+n+" canali insieme, su un multipolare solo";
+}
 function cabConnectOne(key){
   if(!key) return null;
   if(!state.cab.on) state.cab.on=true;
@@ -8818,12 +8836,12 @@ function auditEngine(){
           (items.length?{label:"Adatta il palco", run:auditFixAdattaPalco}:null), "palcomini");
     }
   })();
-  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: attiva Cablaggio audio e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
+  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: apri la lista Input, nella colonna a destra, e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
     "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
-    "Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
+    "Elettrico","Apri la lista Power, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
      DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
      parte. Il nostro dato di targa e' quello della sola superficie — giusto, ma dice meta' del
@@ -9575,7 +9593,11 @@ function sceneMarkup(opts){
     if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
     else items += m;
   });
-  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
+  /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
+     a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
+     sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
+     chiaramente dietro ai punti del layer su cui si sta lavorando. */
+  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -9632,6 +9654,7 @@ function render(){
   renderAccessoriCount();
   renderVenuePanel();
   renderFramePanel();
+  renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
@@ -15621,6 +15644,21 @@ function ipotesiDelPalco(gia){
   var cori=conta("corista");
   var coriCh=canali.filter(function(n){ return /^cori\b/i.test(n); }).length;
 
+  /* 0. IL PALCO — SP-03 (audit esterno 05/09): «il modello cambia le dimensioni del palco senza una
+        scelta iniziale esplicita». Il palco vuoto dice 12 × 8, la Band ne fa 16 × 6,5, e nella
+        finestra della formazione si chiedono i MUSICISTI, non i metri disponibili. La misura non è
+        sbagliata — è la proporzione di un palco da concerto, ed è per questo che il modello la
+        dichiara — ma restava muta: un principiante se la porta fino al PDF credendo sia un dato del
+        suo locale. Qui diventa un'ipotesi come le altre, con il comando accanto. Sta per prima
+        perché è la cornice dentro cui stanno tutte le altre righe. */
+  if(gia.palco && gia.palco.w>0 && gia.palco.d>0){
+    var _m=function(cm){ return (Math.round(cm/10)/10).toString().replace(".",","); };
+    righe.push({ txt:"Palco "+_m(gia.palco.w)+" × "+_m(gia.palco.d)+" m — la misura del modello",
+      sub:"è la proporzione tipica di questa formazione, non il palco del tuo locale",
+      act:"Cambia le misure",
+      fn:function(){ if(typeof toggleStageEdit==="function" && !stageEdit) toggleStageEdit(); } });
+  }
+
   /* 1. CHI CANTA — il difetto originale: il modello decide quante voci ci sono, e il rider parte così.
         Le due azioni stanno sulla stessa riga: sono la stessa domanda («quanti cantano?»), e due
         righe separate facevano crescere il pannello fin sopra il palco appena creato. */
@@ -15965,7 +16003,8 @@ function startFromTemplate(f,options){
     /* il riepilogo delle ipotesi arriva DOPO che il palco è a video: prima non c'è niente da leggere */
     /* se il modello ha fatto le sue domande, il riepilogo non le ripete: resta per ciò che il
        programma ha deciso da solo (side fill, stagebox, chi è attrezzatura e chi persona). */
-    var _gia = options.formazione ? {voci:true, ascolto:true} : null;
+    var _gia = options.formazione ? {voci:true, ascolto:true} : {};
+    if(qd.stage) _gia.palco={w:_sg.w,d:_sg.d};   /* SP-03: la misura imposta dal modello si dichiara, non si subisce */
     setTimeout(function(){ try{ mostraAssunzioni(false, _gia); }catch(_e){} }, 350);
   });
   return true;
@@ -17721,6 +17760,18 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
 var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec", luci:"luciSec" };   /* Layer v3: ogni layer apre la SUA lista (Ingressi=channel list, Output=monitor list, P.M.=lista pm) */
+/* Tre di quelle sezioni hanno un SECONDO cappello richiudibile (patchOpen/monOpen/loadOpen), erede
+   di quando le liste stavano tutte nella stessa colonna e una sola alla volta poteva stare aperta.
+   Da qui in giu' quel cappello non e' piu' libero di chiudersi da solo: il corpo del layer E' la
+   lista, e un layer aperto senza righe non e' una lista chiusa, e' una lista persa. (SP-01, 05/09) */
+var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
+/* Apre un layer: fuoco sul layer E la sua lista aperta. Prima le due cose erano scollegate, e
+   bastava aver chiuso una volta il cappello perche' il layer si riaprisse con la sola intestazione
+   e il bottone «Azzera percorsi» — chi guardava credeva di aver perso i canali. */
+function apriLayer(id){
+  layerAccOpen=id; layerSoloUI={}; layerSoloUI[id]=true; layerSoloMode="focus";
+  if(ACC_DEL_LAYER[id] && typeof techAccordionOpen==="function") techAccordionOpen(ACC_DEL_LAYER[id]);
+}
 /* Layer "lavora qui" (Simone 20/07): la riga e' [pallino][nome]...[occhio]. CLIC sulla riga = mette
    a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
    Ri-clic = mostra tutto. L'occhio resta indipendente. Opacita'/lucchetto/reset compaiono SOTTO
@@ -17772,7 +17823,7 @@ function renderLayerRow(L, container){
     var offRow=document.createElement("div"); offRow.className="layer-row layer-clickable layer-offrow";
     offRow.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span><span class="layer-actbadge">attiva</span>';
     offRow.title="Attiva: "+L.name;
-    var _attiva=function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); };
+    var _attiva=function(){ apriLayer(L.id); L.activate(); };
     offRow.addEventListener("click", _attiva);
     premibile(offRow, _attiva, "Attiva la lista "+L.name);
     container.appendChild(offRow);
@@ -17806,7 +17857,7 @@ function renderLayerRow(L, container){
     if(e && e.target && e.target.closest && e.target.closest(".layer-cnt.cnt-apri")) return;   /* la misura ha la sua azione */
     if(e && e.target && e.target.closest && e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
-    else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="focus"; }   /* tendina = fuoco: contesto sfumato */
+    else apriLayer(L.id);   /* tendina = fuoco: contesto sfumato, e la lista aperta */
     render();
   };
   row.addEventListener("click", _apriChiudi);
@@ -17819,20 +17870,24 @@ function renderLayerRow(L, container){
   function slot(el){ var sp=document.createElement("span"); sp.className="layer-slot"; if(el) sp.appendChild(el); slots.appendChild(sp); }
   /* S = solo ESCLUSIVO puro (come il solo exclusive di una console): evidenzia il layer senza
      aprire la lista. Ri-clic = mostra tutti. Il clic sulla riga resta il fuoco (solo + lista). */
-  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; sb.title=(soloOn(L.id)&&layerSoloMode==="iso")?"Togli il solo":"Solo: SOLTANTO questa lista (il resto sparisce)";
+  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; var _sOn=(soloOn(L.id)&&layerSoloMode==="iso");
+  sb.title=_sOn?("Togli il solo su "+L.name):("Solo: mostra soltanto "+L.name+", nascondi il resto del palco");
+  sb.setAttribute("aria-label", sb.title);
   sb.addEventListener("click", function(e){ e.stopPropagation();
     if(soloOn(L.id) && layerSoloMode==="iso"){ layerSoloUI={}; }
     else { layerAccOpen=null; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="iso"; }   /* S chiude la tendina: i due solo si escludono */
     render(); });
   slot(sb);
-  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questa lista":"Mostra questa lista"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
+  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?("Nascondi "+L.name+" nel disegno"):("Mostra "+L.name+" nel disegno");
+  eye.setAttribute("aria-label", eye.title); eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
     if(L.visible && (layerAccOpen===L.id || soloOn(L.id))){ layerAccOpen=null; layerSoloUI={}; }
     L.setVisible(!L.visible); });
   slot(eye);
-  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
+  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?("Sblocca le modifiche a "+L.name):("Blocca le modifiche a "+L.name);
+  lk.setAttribute("aria-label", lk.title); lk.innerHTML=_LM_LOCK;
     lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); slot(lk); } else slot(null);
   /* Il cestino NON sta più in riga (27/07): azzera tutti i percorsi del layer e stava a due pixel
      dall'occhio. Ora è in fondo al corpo del layer aperto, con l'etichetta che dice cosa fa. */
@@ -17917,7 +17972,7 @@ function renderLayerManager(){
     var aperto=inUso || advAperta();
     var t=document.createElement("button");
     t.type="button"; t.className="layer-group-label adv-head"; t.setAttribute("aria-expanded", String(aperto));
-    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Produzione avanzata';
+    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Impianti tecnici';
     t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un rider";
     t.addEventListener("click", function(){ advAperta(!aperto); renderLayerManager(); });
     rows.appendChild(t);
@@ -18049,7 +18104,7 @@ function renderLightsCard(){
     '<label class="lights-lbl">Funzione</label>'+
     '<select class="lights-sel" id="lcFn">'+opts(LIGHT_FN, r.fn, "— da assegnare —")+'</select>'+
     '<div class="lights-two">'+
-      '<div><label class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
+      '<div><label for="lcN" class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
       '<div><label class="lights-lbl">Sul palco</label><input type="text" class="lights-inp num" value="'+shown+'" disabled></div>'+
     '</div>';
   if(shown && shown<r.n) h+='<p class="prop-hint">Ne hai disegnate '+shown+' delle '+r.n+' richieste. Il rider ne chiede '+r.n+': il disegno è un’illustrazione, non il conteggio.</p>';
@@ -18074,8 +18129,8 @@ function renderLightsCard(){
           '<p class="prop-hint">Lo dicono gli apparecchi disegnati: si cambia su di loro, in «Installazione». Cosi\' rider e disegno non possono contraddirsi.</p>';
       }
       return '<div class="lights-two">'+
-        '<div><label class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
-        (LIGHT_POS_H[r.pos]?'<div><label class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
+        '<div><label for="lcPos" class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
+        (LIGHT_POS_H[r.pos]?'<div><label for="lcH" class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
       '</div>';
     })()+
     '<label class="lights-lbl">Nota</label>'+
@@ -18713,7 +18768,8 @@ function clRender(){
      + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
      + '<td class="cl-act">'+(r.box
          ? '<button type="button" class="cl-unlink" data-unlink="'+esc(r.key)+'" title="Scollega questo canale: libera la porta sulla stage box" aria-label="Scollega questo canale">\u00d7</button>'
-         : '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
+         : (function(){ var _zt=cabZapTitle(r, pl.rows);
+             return '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="'+esc(_zt)+'" aria-label="'+esc(_zt)+'">\u26a1</button>'; })())+'</td>'
      + '</tr>';
   });
   h+='</tbody>';
@@ -19119,7 +19175,7 @@ function openPortPop(ev, r){
        proprio quando serviva di più — cioè quando l'ingresso giusto era già preso. */
     var _chi={};
     (R.links||[]).forEach(function(l){ if(l.box && l.box.id===b.id && !l.deleted) _chi[l.ch]=(l.s&&l.s.name)||""; });
-    h+='<label>Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
+    h+='<label for="ppSel">Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
     for(var pn=1;pn<=b.cap;pn++){
       var nota="";
       if(b.resMap[pn]) nota=" — riservata";
@@ -19131,7 +19187,7 @@ function openPortPop(ev, r){
     h+='</select><div class="pp-note">Se la porta è già di un altro canale, quello torna automatico e si rimette in fila.</div>';
     if(String(rk).indexOf("grp:")===0) h+='<div class="pp-note">Questo strumento entra con un multipolare: la porta scelta è quella del primo canale, gli altri seguono consecutivi.</div>';
   }
-  h+='<label>Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
+  h+='<label for="ppShort">Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -19149,6 +19205,41 @@ function openPortPop(ev, r){
   var sv=document.getElementById("ppSel"); if(sv) sv.addEventListener("change", commit);
   document.getElementById("ppShort").addEventListener("change", commit);
   setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
+}
+/* SP-06 (audit esterno 05/09): «liste, livelli e modalità di lavoro sono mescolati». Aprire una
+   lista tecnica non apre solo una tabella: riduce musicisti e strumenti a PUNTI DI SEZIONE e manda
+   il resto in secondo piano. È la vista giusta per cablare — ma non lo diceva nessuno, e la via
+   d'uscita (Esc, o un clic sul vuoto) non si vede. Chi apriva «Input» per leggere una tabella si
+   trovava il palco svuotato e nessun modo evidente di riaverlo indietro: sembra una perdita di
+   dati, non un cambio di vista. Ora la vista attiva si DICHIARA, dice cosa ha cambiato, e si
+   annulla con un comando che si vede. */
+function vistaAttivaId(){
+  if(layerAccOpen) return layerAccOpen;
+  for(var k in layerSoloUI){ if(layerSoloUI[k]) return k; }
+  return null;
+}
+function renderVistaBanner(){
+  var el=document.getElementById("vistaBanner"); if(!el) return;
+  var id=vistaAttivaId();
+  /* Il banner parla del DISEGNO, quindi vale solo quando il disegno è davvero diviso in
+     primo piano e contesto — cioè quando `anySolo()`, la stessa condizione di `soloSplit`.
+     Trovato provandolo: con il motore del cablaggio spento la riga «Input» è solo un invito ad
+     attivare, `pruneSolo()` toglie il solo a ogni render, e il banner annunciava «il resto del
+     palco è in secondo piano» mentre a video non era cambiato niente. Un avviso che dichiara un
+     cambio che non c'è stato è peggio di nessun avviso. (06/09) */
+  if(!id || !anySolo()){ el.hidden=true; el.innerHTML=""; return; }
+  var nome=id;
+  try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
+  var iso=soloOn(id) && layerSoloMode==="iso";
+  var punti=(typeof techDotSoloId==="function") && techDotSoloId()===id;
+  var perche = iso ? "il resto del palco \u00e8 nascosto"
+             : punti ? "musicisti e strumenti sono ridotti a punti, per leggere il cablaggio"
+             : "il resto del palco \u00e8 in secondo piano";
+  el.innerHTML='<span class="vb-txt"><b>'+(iso?"Solo":"Vista")+' '+esc(nome)+'</b> \u2014 '+perche+'</span>'
+    + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
+  el.hidden=false;
+  var b=document.getElementById("vistaEsci");
+  if(b) b.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
 }
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
@@ -19226,7 +19317,8 @@ function renderPatchPanel(){
       act.appendChild(tr);
     } else {
       var zp=document.createElement("button"); zp.type="button"; zp.className="lite-btn cab-one";
-      zp.textContent="\u26a1"; zp.title="Collega questo canale"; zp.setAttribute("aria-label","Collega questo canale");
+      var _zt=cabZapTitle(r, pl.rows);
+      zp.textContent="\u26a1"; zp.title=_zt; zp.setAttribute("aria-label",_zt);
       zp.addEventListener("click", function(e){ e.stopPropagation();
         var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
         if(need){ guideDialog(need); return; }
@@ -19444,11 +19536,11 @@ function openBusPop(ev, row){
   var old=document.getElementById("busPop"); if(old) old.remove();
   var bu=row.bus, L=busList();
   var pop=document.createElement("div"); pop.id="busPop"; pop.className="port-pop";
-  var h='<label>Stage box</label><select id="bpBox"><option value="">Automatica</option>';
+  var h='<label for="bpBox">Stage box</label><select id="bpBox"><option value="">Automatica</option>';
   L.boxes.forEach(function(b){ h+='<option value="'+esc(b.id)+'"'+(bu.boxId===b.id?' selected':'')+'>'+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+' — out '+b.outCap+'</option>'; });
-  h+='</select><label>Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
+  h+='</select><label for="bpPort">Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
   for(var pn=1;pn<=64;pn++){ h+='<option value="'+pn+'"'+(bu.port===pn?' selected':'')+'>'+pn+'</option>'; }
-  h+='</select><label>Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
+  h+='</select><label for="bpDest">Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -19740,10 +19832,10 @@ function openRequestCreate(it){
   var nome="", ruolo=(it && TYPES[it.type]) ? TYPES[it.type].nome : "";
   if(it && it.label) nome=it.label;
   var ov=reqModal("Richiedi il setup",
-    '<label>Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
-    '<label>Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
-    '<label>Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
-    '<label>Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
+    '<label for="rqName">Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
+    '<label for="rqRole">Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
+    '<label for="rqSchema">Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
+    '<label for="rqMsg">Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
     '<label>Scade fra <small class="lbl-note">— dopo, il link non si apre più</small></label>'+
     '<select id="rqExp"><option value="30">30 giorni</option><option value="14">14 giorni</option><option value="7">7 giorni</option><option value="">Nessuna scadenza</option></select>',
     [["Annulla","",null],["Crea il link","primary",function(box){
@@ -19767,8 +19859,8 @@ function openRequestLink(reqId, nome, token){
   var link=requestLink(token), testo=requestShareText(nome, token);
   reqModal("Link pronto",
     '<p class="prop-hint" style="margin-top:0">Questo link si vede una volta sola: copialo adesso. Chi ce l\'ha può rispondere, ma non vede il resto del progetto.</p>'+
-    '<label>Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
-    '<label>Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
+    '<label for="rqLink">Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
+    '<label for="rqText">Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
     '<div class="btns" style="margin-top:10px">'+
       '<button type="button" class="btn" id="rqCopyLink">Copia link</button>'+
       '<button type="button" class="btn" id="rqCopyText">Copia messaggio</button>'+
@@ -20419,9 +20511,9 @@ function openLinePop(ev, loadId){
   var maxL=Math.max(ll.distro.maxLine||1, 12);
   var pop=document.createElement("div"); pop.id="linePop"; pop.className="port-pop";
   var man=(state.elec.manual||{})[loadId]||{};
-  var h='<label>Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
+  var h='<label for="lpNum">Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
   for(var pn=1;pn<=maxL;pn++){ h+='<option value="'+pn+'"'+(man.line===pn?' selected':'')+'>#'+pn+'</option>'; }
-  h+='</select><label>Connettore</label><select id="lpConn">'+
+  h+='</select><label for="lpConn">Connettore</label><select id="lpConn">'+
      '<option value=""'+(!man.conn?' selected':'')+'>Automatico ('+((ll.conn&&ll.conn.label)||"Schuko")+')</option>'+
      '<option value="schuko"'+(man.conn==="schuko"?' selected':'')+'>Schuko</option>'+
      '<option value="cee"'+(man.conn==="cee"?' selected':'')+'>CEE</option>'+
@@ -20510,7 +20602,17 @@ function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ techAccor
 })();
 /* Progressive disclosure: un solo pannello tecnico espanso per volta (accordion) → niente colonna infinita */
 function techAccordionOpen(which){
-  auditOpen=cabOpen=elecOpen=patchOpen=monOpen=loadOpen=false;
+  /* SP-01 (audit esterno 05/09): «le righe Input scompaiono durante il lavoro». Non era il render:
+     era questa riga, che spegneva anche il cappello della lista mostrata dal layer aperto. Aprivi
+     l'audit e la channel list restava con l'intestazione, il bottone «Azzera percorsi Input» e
+     NIENTE sotto — con il conteggio della riga layer che continuava a dire 15. Richiudere l'audit
+     non la riportava (il flag non si ripristina): solo un reload. I layer si escludono gia' da
+     soli, quindi l'esclusivita' qui serve solo alle tre sezioni che NON sono corpo di un layer. */
+  var mia=ACC_DEL_LAYER[layerAccOpen]||null;   /* la lista che il layer aperto sta mostrando: intoccabile */
+  auditOpen=cabOpen=elecOpen=false;            /* questi tre non sono mai il corpo di un layer */
+  if(mia!=="patch") patchOpen=false;
+  if(mia!=="mon")   monOpen=false;
+  if(mia!=="load")  loadOpen=false;
   if(which==="audit")auditOpen=true; else if(which==="cab")cabOpen=true; else if(which==="elec")elecOpen=true;
   else if(which==="patch")patchOpen=true; else if(which==="mon")monOpen=true; else if(which==="load")loadOpen=true;
 }
@@ -24445,10 +24547,10 @@ function openItemContactModal(it){
         '<div id="icList" style="margin-top:6px;border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:180px;overflow-y:auto"></div>'+
         '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:11px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-          '<div><label class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
-          '<div><label class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
-          '<div><label class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
-          '<div><label class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
+          '<div><label for="icN" class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
+          '<div><label for="icR" class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
+          '<div><label for="icT" class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
+          '<div><label for="icE" class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
         '</div>'+
         '<div style="margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:11px;color:var(--text-2);line-height:1.5">🔒 <b style="color:var(--accent-strong)">Solo nel tuo account.</b> Salvando, il contatto entra nella tua rubrica e viene assegnato a questa postazione. Condividerlo sarà sempre una scelta esplicita, spenta di default.</div>'+
         '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button id="icCancel" type="button" class="btn">Annulla</button><button id="icSave" type="button" class="btn primary">Salva e assegna</button></div>'+
