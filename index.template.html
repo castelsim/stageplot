@@ -216,6 +216,7 @@
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
+<div id="vistaBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
   <div style="display:flex;gap:6px;align-items:center">
@@ -11503,7 +11504,11 @@ function sceneMarkup(opts){
     if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
     else items += m;
   });
-  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
+  /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
+     a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
+     sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
+     chiaramente dietro ai punti del layer su cui si sta lavorando. */
+  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -11560,6 +11565,7 @@ function render(){
   renderAccessoriCount();
   renderVenuePanel();
   renderFramePanel();
+  renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
@@ -19775,20 +19781,24 @@ function renderLayerRow(L, container){
   function slot(el){ var sp=document.createElement("span"); sp.className="layer-slot"; if(el) sp.appendChild(el); slots.appendChild(sp); }
   /* S = solo ESCLUSIVO puro (come il solo exclusive di una console): evidenzia il layer senza
      aprire la lista. Ri-clic = mostra tutti. Il clic sulla riga resta il fuoco (solo + lista). */
-  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; sb.title=(soloOn(L.id)&&layerSoloMode==="iso")?"Togli il solo":"Solo: SOLTANTO questa lista (il resto sparisce)";
+  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; var _sOn=(soloOn(L.id)&&layerSoloMode==="iso");
+  sb.title=_sOn?("Togli il solo su "+L.name):("Solo: mostra soltanto "+L.name+", nascondi il resto del palco");
+  sb.setAttribute("aria-label", sb.title);
   sb.addEventListener("click", function(e){ e.stopPropagation();
     if(soloOn(L.id) && layerSoloMode==="iso"){ layerSoloUI={}; }
     else { layerAccOpen=null; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="iso"; }   /* S chiude la tendina: i due solo si escludono */
     render(); });
   slot(sb);
-  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questa lista":"Mostra questa lista"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
+  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?("Nascondi "+L.name+" nel disegno"):("Mostra "+L.name+" nel disegno");
+  eye.setAttribute("aria-label", eye.title); eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
     if(L.visible && (layerAccOpen===L.id || soloOn(L.id))){ layerAccOpen=null; layerSoloUI={}; }
     L.setVisible(!L.visible); });
   slot(eye);
-  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
+  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?("Sblocca le modifiche a "+L.name):("Blocca le modifiche a "+L.name);
+  lk.setAttribute("aria-label", lk.title); lk.innerHTML=_LM_LOCK;
     lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); slot(lk); } else slot(null);
   /* Il cestino NON sta più in riga (27/07): azzera tutti i percorsi del layer e stava a due pixel
      dall'occhio. Ora è in fondo al corpo del layer aperto, con l'etichetta che dice cosa fa. */
@@ -21106,6 +21116,35 @@ function openPortPop(ev, r){
   var sv=document.getElementById("ppSel"); if(sv) sv.addEventListener("change", commit);
   document.getElementById("ppShort").addEventListener("change", commit);
   setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
+}
+/* SP-06 (audit esterno 05/09): «liste, livelli e modalità di lavoro sono mescolati». Aprire una
+   lista tecnica non apre solo una tabella: riduce musicisti e strumenti a PUNTI DI SEZIONE e manda
+   il resto in secondo piano. È la vista giusta per cablare — ma non lo diceva nessuno, e la via
+   d'uscita (Esc, o un clic sul vuoto) non si vede. Chi apriva «Input» per leggere una tabella si
+   trovava il palco svuotato e nessun modo evidente di riaverlo indietro: sembra una perdita di
+   dati, non un cambio di vista. Ora la vista attiva si DICHIARA, dice cosa ha cambiato, e si
+   annulla con un comando che si vede. */
+function vistaAttivaId(){
+  if(layerAccOpen) return layerAccOpen;
+  for(var k in layerSoloUI){ if(layerSoloUI[k]) return k; }
+  return null;
+}
+function renderVistaBanner(){
+  var el=document.getElementById("vistaBanner"); if(!el) return;
+  var id=vistaAttivaId();
+  if(!id){ el.hidden=true; el.innerHTML=""; return; }
+  var nome=id;
+  try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
+  var iso=soloOn(id) && layerSoloMode==="iso";
+  var punti=(typeof techDotSoloId==="function") && techDotSoloId()===id;
+  var perche = iso ? "il resto del palco \u00e8 nascosto"
+             : punti ? "musicisti e strumenti sono ridotti a punti, per leggere il cablaggio"
+             : "il resto del palco \u00e8 in secondo piano";
+  el.innerHTML='<span class="vb-txt"><b>'+(iso?"Solo":"Vista")+' '+esc(nome)+'</b> \u2014 '+perche+'</span>'
+    + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
+  el.hidden=false;
+  var b=document.getElementById("vistaEsci");
+  if(b) b.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
 }
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
