@@ -2667,6 +2667,29 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
      Il banner qui sotto resta ancorato: anche position:fixed è containing block per gli absolute. */
   #venueCalibBanner{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--n-800);color:#fff;border-radius:999px;padding:8px 16px;font-size:13px;box-shadow:0 8px 24px rgba(38,33,24,.28);z-index:30;white-space:nowrap;pointer-events:none}
   #venueCalibBanner b{color:#7dd3c8}
+  /* SP-06 — LA VISTA ATTIVA SI DICHIARA (06/09). Aprire una lista tecnica cambia il disegno:
+     i musicisti diventano punti di sezione e il resto va in secondo piano. Senza una riga che lo
+     dica, e con l'uscita affidata a Esc o a un clic sul vuoto, la cosa si legge come «ho perso il
+     palco». Stesso ancoraggio del banner di calibrazione, ma questo si clicca. */
+  #vistaBanner{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:29;
+    display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px);
+    background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+    border-radius:999px;padding:6px 8px 6px 16px;font-size:13px;line-height:1.35;
+    box-shadow:0 6px 20px rgba(38,33,24,.16)}
+  #vistaBanner .vb-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+  #vistaBanner .vb-txt b{color:var(--text)}
+  #vistaBanner .vb-esci{flex:none;border:1px solid var(--border-strong);background:var(--surface);
+    color:var(--text);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;
+    cursor:pointer;min-height:32px;white-space:nowrap}
+  #vistaBanner .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
+  #vistaBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  body.dark #vistaBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  /* Sul telefono: stessa specificità (#vistaBanner) e SUBITO DOPO la regola base, o non vince —
+     è la lezione già pagata otto volte dentro #props. Il bottone resta un bersaglio da dito. */
+  @media (max-width:880px){
+    #vistaBanner{top:8px;gap:8px;padding:5px 6px 5px 12px;font-size:12px;max-width:calc(100% - 16px)}
+    #vistaBanner .vb-esci{padding:0 12px;min-height:44px;font-size:12px}
+  }
   #venueCalibPop{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px rgba(38,33,24,.22);z-index:31;width:240px}
   #venueCalibPop label{font-size:12px;color:var(--text-2);display:block;margin:0 0 5px}
   #venueCalibPop input{width:64px;text-align:center;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:14px;background:var(--surface);color:var(--text)}
