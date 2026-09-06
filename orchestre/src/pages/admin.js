@@ -1,9 +1,10 @@
 /* Dashboard dell'organizzazione. Nel lotto 1 mostra chi sei, dove sei e i membri; le liste di cose
    da fare (candidature, inviti senza risposta, posti scoperti) si riempiono nei lotti successivi. */
 import { BASE } from "../config.js";
-import { esc, roleLabel, setState, errMsg } from "../ui.js";
+import { esc, el, roleLabel, setState, errMsg } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers } from "../api/org.js";
+import { list as listProductions } from "../api/productions.js";
 import { tabs } from "../nav.js";
 
 const app = document.getElementById("app");
@@ -24,7 +25,21 @@ async function main() {
       </section>
     </div>`;
   const todo = app.querySelector("#todo");
-  setState(todo, "empty", "Niente da fare: l'elenco si popola con candidature, inviti e posti scoperti nei prossimi lotti.");
+  setState(todo, "loading");
+  try {
+    const prods = (await listProductions(ctx.org.org_id)).filter((p) => Number(p.n_open) > 0 && !["done", "cancelled", "archived"].includes(p.status));
+    if (!prods.length) setState(todo, "empty", "Nessun posto scoperto nelle produzioni aperte.");
+    else {
+      setState(todo, "");
+      todo.innerHTML = `<ul class="list compact"></ul>`;
+      for (const p of prods) {
+        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(p.id)}&t=matching"><div class="title"></div><div class="sub"></div></a></li>`);
+        li.querySelector(".title").textContent = p.title;
+        li.querySelector(".sub").textContent = p.n_open + (Number(p.n_open) === 1 ? " posto scoperto" : " posti scoperti") + " su " + p.n_seats;
+        todo.querySelector("ul").appendChild(li);
+      }
+    }
+  } catch (e) { setState(todo, "err", errMsg(e)); }
   const mem = app.querySelector("#members");
   try {
     const list = await listMembers(ctx.org.org_id);

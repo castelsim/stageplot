@@ -139,6 +139,14 @@ details.role summary .sub{font-size:var(--t-body);color:var(--text-2)}
 details.role .role-body{padding:0 var(--s-4) var(--s-3);border-top:1px solid var(--border)}
 details.role .role-body .form-row{margin:var(--s-3) 0}
 
+/* matching */
+.list-item.match{align-items:flex-start}
+.list-item.match .rank{width:28px;height:28px;border-radius:50%;background:var(--accent-tint);color:var(--accent-strong);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:2px}
+.list-item.match.off{opacity:.7}
+.list-item.match.off .rank{background:var(--surface-raised);color:var(--text-3)}
+.list-item.match .why{color:var(--text-2);margin-top:4px}
+.list-item.match .sub .pill{margin:2px 2px 0 0}
+
 /* form */
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:var(--s-4)}
 .field label{font-size:var(--t-body);font-weight:600;color:var(--text-2)}

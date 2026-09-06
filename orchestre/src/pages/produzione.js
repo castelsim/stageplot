@@ -6,12 +6,14 @@ import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, REP_KIND } from "../nav.js";
 import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
 import * as api from "../api/productions.js";
+import * as match from "../api/matching.js";
+import { rankCandidates, applyOverrides, explain, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
-const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["storia", "Storia"]];
+const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["storia", "Storia"]];
 
 async function main() {
   ctx = await requireStaff();
@@ -43,7 +45,7 @@ function paint() {
     a.onclick = (e) => { if (!p.id) { e.preventDefault(); return; } e.preventDefault(); tab = k; history.replaceState(null, "", "?id=" + p.id + "&t=" + k); paint(); };
     nav.appendChild(a);
   }
-  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, storia: paintStoria })[tab]();
+  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, storia: paintStoria })[tab]();
 }
 
 /* ---------------------------------------------------------------- Dati */
@@ -344,6 +346,112 @@ function addRoleCard() {
     } catch (e) { toast(errMsg(e), { err: true }); }
   };
   return c;
+}
+
+
+/* ---------------------------------------------------------------- Matching */
+let mRole = q.get("role") || "", mRun = null, mWeights = null, mRuleset = null;
+async function paintMatching() {
+  const panel = app.querySelector("#panel");
+  panel.innerHTML = `<div class="loading">Un attimo…</div>`;
+  try {
+    sections = groupStaffing(await api.staffing(p.id));
+    mRuleset = await match.activeRuleset(ctx.org.org_id);
+    mWeights = mRuleset.weights;
+  } catch (e) { setState(panel.firstElementChild, "err", errMsg(e)); return; }
+  const roles = sections.flatMap((s) => s.roles.map((r) => ({ ...r, section: s.name, open: r.slots.filter((x) => x.status === "open").length })));
+  panel.innerHTML = "";
+  if (!roles.length) { panel.appendChild(el(`<div class="empty">Prima definisci l'organico: il matching lavora su un ruolo alla volta.</div>`)); return; }
+  if (!mRole || !roles.find((r) => r.id === mRole)) mRole = (roles.find((r) => r.open > 0) || roles[0]).id;
+  const head = el(`<section class="card"><div class="form-row">
+    <div class="field"><label for="mRole">Ruolo</label><select id="mRole">${roles.map((r) => `<option value="${r.id}">${esc(r.section + " · " + r.name)} (${r.open} ${r.open === 1 ? "scoperto" : "scoperti"} su ${r.slots.length})</option>`).join("")}</select></div>
+    <div class="field"><label>Pesi</label><span class="pill">${esc(mRuleset.name || "Pesi")} · v${mRuleset.version}</span></div>
+    <button type="button" class="btn primary" id="mGo">Calcola</button></div>
+    <p class="small muted">Fase A: chi non ha i requisiti resta in fondo, con il motivo. Fase B: 50 punti di partenza più i contributi pesati, ognuno spiegato. Ogni calcolo resta salvato: la convocazione citerà questa proposta. I pesi si cambiano in <a href="${BASE}/admin/impostazioni/">Impostazioni</a>.</p></section>`);
+  head.querySelector("#mRole").value = mRole;
+  head.querySelector("#mRole").onchange = (e) => { mRole = e.target.value; history.replaceState(null, "", "?id=" + p.id + "&t=matching&role=" + mRole); loadLastRun(); };
+  head.querySelector("#mGo").onclick = compute;
+  panel.appendChild(head);
+  panel.appendChild(el(`<div id="mOut"></div>`));   /* el() rende UN elemento: il contenitore va appeso a parte */
+  await loadLastRun();
+}
+async function loadLastRun() {
+  const out = app.querySelector("#mOut");
+  out.innerHTML = `<div class="loading">Un attimo…</div>`;
+  try {
+    mRun = await match.lastRun(mRole);
+    if (!mRun) { out.innerHTML = ""; out.appendChild(el(`<div class="empty">Nessun calcolo ancora per questo ruolo. Premi «Calcola».</div>`)); return; }
+    paintResults(out);
+  } catch (e) { setState(out.firstElementChild, "err", errMsg(e)); }
+}
+async function compute() {
+  const out = app.querySelector("#mOut");
+  out.innerHTML = `<div class="loading">Calcolo…</div>`;
+  try {
+    const data = await match.candidates(p.id, mRole);
+    data.skillNames = Object.fromEntries(cat.skills.map((s) => [s.code, s.name]));
+    const results = rankCandidates(data, mWeights, new Date());
+    const runId = await match.saveRun(p.id, mRole, mWeights, results, ENGINE_VERSION);
+    toast(`${results.filter((r) => r.eligible).length} idonei su ${results.length}. Proposta salvata.`);
+    mRun = { id: runId, at: new Date().toISOString(), weights: mWeights, ruleset_version: mRuleset.version, results };
+    paintResults(out);
+  } catch (e) { out.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); out.appendChild(d); }
+}
+function paintResults(out) {
+  const role = sections.flatMap((s) => s.roles).find((r) => r.id === mRole);
+  const openSlots = role ? role.slots.filter((x) => x.status === "open") : [];
+  const ordered = applyOverrides(mRun.results.map((r) => ({ ...r })));
+  out.innerHTML = "";
+  out.appendChild(el(`<p class="small muted">Calcolato il ${esc(fmtDateTime(mRun.at))}${mRun.ruleset_version ? ", pesi v" + mRun.ruleset_version : ", pesi di partenza"}. ${openSlots.length ? openSlots.length + (openSlots.length === 1 ? " posto scoperto" : " posti scoperti") : "Nessun posto scoperto"}.</p>`));
+  const ul = el(`<ul class="list" id="mList"></ul>`);
+  ordered.forEach((r, i) => {
+    const pos = i + 1;
+    const li = el(`<li class="list-item match${r.eligible ? "" : " off"}"><div class="rank"></div><div class="grow"><div class="title"></div><div class="sub"></div><div class="why small"></div></div><div class="actions"></div></li>`);
+    li.querySelector(".rank").textContent = pos;
+    li.querySelector(".title").textContent = r.name;
+    li.querySelector(".sub").innerHTML = `<span class="pill ${r.eligible ? (r.score >= 70 ? "ok" : r.score >= 50 ? "accent" : "warn") : "danger"}">${r.eligible ? r.score + "/100" : "non idoneo"}</span>` +
+      (r.override_rank ? ` <span class="pill warn" title="${esc(r.override_reason)}">scelta manuale</span>` : "") +
+      (r.warnings || []).map((w) => ` <span class="pill">${esc(w)}</span>`).join("");
+    li.querySelector(".why").textContent = explain(r).replace(/^[^—]+— \d+\/100\.\s*/, "");
+    const act = li.querySelector(".actions");
+    if (r.eligible && openSlots.length) {
+      const b = el(`<button type="button" class="btn small primary">Assegna</button>`);
+      b.onclick = async () => {
+        const yes = await confirm({ title: "Assegnare " + r.name + "?", text: `${role.name}, posto ${openSlots[0].seat_no}. Assegnazione diretta: il posto risulta confermato.`, ok: "Assegna" });
+        if (!yes) return;
+        try { await api.assignSlot(openSlots[0].id, r.musician_id, "dal matching, posizione " + pos); toast("Assegnato."); sections = groupStaffing(await api.staffing(p.id)); paintResults(out); }
+        catch (e) { toast(errMsg(e), { err: true }); }
+      };
+      act.appendChild(b);
+    }
+    if (!r.override_rank && pos > 1) {
+      const up = el(`<button type="button" class="btn small ghost" title="Metti in cima, con un motivo">In cima</button>`);
+      up.onclick = () => overrideDialog(r, out);
+      act.appendChild(up);
+    }
+    ul.appendChild(li);
+  });
+  out.appendChild(ul);
+}
+function overrideDialog(r, out) {
+  const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2>Mettere ${esc(r.name)} in cima?</h2>
+    <p class="small muted">La proposta del sistema resta salvata; la tua scelta le si sovrappone con il motivo, che finisce nel registro.</p>
+    <div class="field"><label for="ovWhy">Motivo</label><input id="ovWhy" placeholder="es. richiesta del direttore"></div>
+    <div class="actions"><button type="button" class="btn" id="no">Annulla</button><button type="button" class="btn primary" id="ok">Conferma</button></div></div></div>`);
+  const close = () => ov.remove();
+  ov.querySelector("#no").onclick = close;
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#ok").onclick = async () => {
+    const why = ov.querySelector("#ovWhy").value.trim();
+    if (why.length < 3) return toast("Serve un motivo.", { err: true });
+    try {
+      await match.override(mRun.id, r.musician_id, 1, why);
+      for (const x of mRun.results) if (x.override_rank === 1) { x.override_rank = null; }
+      const me = mRun.results.find((x) => x.musician_id === r.musician_id); me.override_rank = 1; me.override_reason = why;
+      close(); toast("Scelta registrata."); paintResults(out);
+    } catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  document.body.appendChild(ov); ov.querySelector("#ovWhy").focus();
 }
 
 /* ---------------------------------------------------------------- Storia */
