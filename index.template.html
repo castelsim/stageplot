@@ -13383,14 +13383,26 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
   muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap");
-  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap","pLblSizeWrap","pLblSizeAll","pLblDistWrap","pLblDistAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
-  group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pSbChWrap","pZoneWrap"]);
+  /* SP-08 (audit esterno 05/09): «le proprietà danno priorità alla grafica rispetto al compito».
+     Il primo gruppo del pannello — quindi la prima cosa che si incontra su QUALUNQUE elemento —
+     teneva insieme come si chiama e come si vede: nome, sigla, poi dimensione del carattere,
+     distanza, allineamento e colore del testo. Chi apriva un violino per dire con che microfono
+     suona attraversava quattro comandi di tipografia prima di arrivarci.
+     «Etichetta» tiene ora l'IDENTITÀ (come si chiama); l'aspetto del nome scende in «Disegno»,
+     dove stanno già forma, misure e rotazione — e dove nessuno lo cerca per sbaglio. */
+  group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap"]);
+  /* …e una stage box non è un microfono. Modello, ingressi, uscite e porte fisiche stavano sotto
+     l'intestazione «Microfono» perché il gruppo era nato per tutto ciò che riguarda la ripresa:
+     ma chi legge un'intestazione la legge come una promessa sul contenuto. */
+  group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pZoneWrap"]);
+  group("Stage box", null, ["pSbChWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
-  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow"]);
+  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow",
+        "pLblSizeWrap","pLblSizeAll","pLblDistWrap","pLblDistAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
   /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono
      dev'essere possibile inserire icone ed esportare in modo semplice, senza tutte le opzioni
@@ -23778,12 +23790,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
         : 'Sola lettura <small>nessuno può modificare il tuo progetto</small>';
       if(bd){ bd.textContent = ist ? "copia" : "sempre"; bd.style.color = ist ? "var(--text-3)" : "var(--success,#15803d)"; }
     }
-    var hint=document.getElementById("sharePermCopyHint");
-    if(hint) hint.textContent = ist
-      ? "Vale per i link con account: qui chi apre riceve comunque una copia da modificare."
-      : "chi riceve il link riparte dal tuo palco sul suo account. Spento nasconde il pulsante: il palco resta comunque visibile e scaricabile in PDF";
     var row=document.getElementById("sharePermCopyRow");
-    if(row) row.style.opacity = ist ? ".55" : "";
+    /* SP-14 (audit esterno 05/09): questa casella sul link locale NON TOCCA NIENTE, e il rimedio
+       era abbassarla al 55% con accanto la spiegazione del perché fosse lì. Mezza misura: restava
+       accesa, cliccabile e raggiungibile col Tab, e un comando acceso che non fa niente è peggio
+       di un comando assente. Il permesso resta scritto nel documento e torna quando si guarda il
+       link cloud, dove ha un effetto: qui semplicemente non si mostra.
+       ⚠️ `style.display` e non l'attributo `hidden`: `.mcard label.share-perm{display:flex}` pesa
+       (0,0,2,2) e batterebbe `[hidden]` (0,0,1,0), lasciando la riga a video. */
+    if(row) row.style.display = ist ? "none" : "";
   }
   function shareBadge(mode){
     var tx=document.getElementById("shareIntroTxt");
