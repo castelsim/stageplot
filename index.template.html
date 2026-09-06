@@ -101,7 +101,7 @@
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
-    <input type="text" id="mTitle" placeholder="Senza titolo">
+    <input aria-label="Titolo del progetto" type="text" id="mTitle" placeholder="Senza titolo">
     <span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span>
     <button class="mtbtn" id="bLearnM" aria-label="Guida e feedback" title="Guida e feedback" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg></button>
     <button class="avatar-btn avatar-btn-m" id="accountBtnM" title="Accedi per salvare online">Accedi</button>
@@ -126,9 +126,9 @@
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
   <button type="button" id="evChip" class="hdr-evchip" aria-haspopup="dialog" title="Data, orario e luogo dell'evento"></button>
   <div id="evPop" class="hdrmenu ev-pop" hidden>
-    <label class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
-    <label class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
-    <label class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
+    <label for="evDate" class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
+    <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
+    <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
     <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
   </div>
   <select id="projStatus" class="hdr-status" title="Stato del progetto (bozza → in revisione → approvato)"></select>
@@ -216,10 +216,11 @@
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
+<div id="vistaBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
   <div style="display:flex;gap:6px;align-items:center">
-    <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10">
+    <input aria-label="Distanza reale fra i due punti, in metri" type="number" id="venueCalibDist" min="0.1" step="0.1" value="10">
     <button class="btn primary" id="venueCalibApply">Applica</button>
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
@@ -275,12 +276,12 @@
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Trascina o ridimensiona il rettangolo sul palco, oppure scrivi le misure.</div>
     <div id="frameBox">
       <div class="frame-row">
-        <div><label>Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
-        <div><label>Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
+        <div><label for="frameW">Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
+        <div><label for="frameH">Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
       </div>
       <div class="frame-row">
-        <div><label>X (m)</label><input type="number" id="frameX" step="0.1"></div>
-        <div><label>Y (m)</label><input type="number" id="frameY" step="0.1"></div>
+        <div><label for="frameX">X (m)</label><input type="number" id="frameX" step="0.1"></div>
+        <div><label for="frameY">Y (m)</label><input type="number" id="frameY" step="0.1"></div>
       </div>
       <div class="frame-row" style="margin-top:10px">
         <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
@@ -318,9 +319,9 @@
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
       <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
       <div class="stpr-grid">
-        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
-        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
-        <div class="stpr-f" id="blkHWrap"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
+        <div class="stpr-f"><label for="blkW">Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
+        <div class="stpr-f"><label for="blkD">Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
+        <div class="stpr-f" id="blkHWrap"><label for="blkH">Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
         <div class="stpr-f" id="blkFlatWrap" style="display:none;grid-column:1/-1"><label>Lato curvo verso</label>
           <div class="chips" data-chips="blkFlat">
             <button type="button" data-v="top">Pubblico</button>
@@ -332,8 +333,8 @@
         </div>
       </div>
       <div class="row" id="blkXYRow">
-        <span><label>X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
-        <span><label>Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
+        <span><label for="blkX">X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
+        <span><label for="blkY">Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
       </div>
       <div id="blkPosGrid" hidden>
         <label class="pg-lab">Posizione sul palco</label>
@@ -383,7 +384,7 @@
             <div id="vstep2alt" hidden style="margin-top:8px">
               <small style="display:block;color:var(--text-2);font-size:12px">…oppure, se conosci la larghezza reale dell'immagine:</small>
               <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
-                <input type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
+                <input aria-label="Larghezza reale della planimetria, in metri" type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
                 <span style="font-size:12px;color:var(--text-2);flex:0 0 auto">m</span>
                 <button class="btn" id="venueRealWApply" style="flex:0 0 auto;width:auto;margin-top:0">Applica</button>
               </div>
@@ -396,14 +397,14 @@
           <div class="vbody">
             <b>Rifinisci</b>
             <div id="venueOpacityRow" style="margin-top:6px">
-              <label>Opacità <span id="venueOpacityVal">40%</span></label>
+              <label for="venueOpacity">Opacità <span id="venueOpacityVal">40%</span></label>
               <input type="range" id="venueOpacity" min="5" max="100" step="5" value="40">
             </div>
             <div id="venueRotRow">
               <label>Rotazione <span id="venueRotVal">0°</span></label>
               <div style="display:flex;gap:6px;align-items:center">
-                <input type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
-                <input type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
+                <input aria-label="Rotazione della planimetria, in gradi" type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
+                <input aria-label="Rotazione della planimetria, in gradi" type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
               </div>
             </div>
             <div class="venue-row" style="margin-top:8px">
@@ -448,7 +449,7 @@
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
       <div id="pDiPrev" class="di-prev"></div>
       <div id="pDiForWrap" style="display:none">
-        <label class="di-lbl">Serve a</label>
+        <label for="pDiFor" class="di-lbl">Serve a</label>
         <select id="pDiFor"></select>
         <div class="di-note" id="pDiForNote"></div>
       </div>
@@ -460,8 +461,8 @@
       <label class="chk" style="margin-top:7px"><input type="checkbox" id="pDiSchema"> Icona schematica (simbolo)</label>
       <div class="di-note"><b>Passiva/Attiva</b>: le attive richiedono alimentazione (phantom 48V o batteria) — segnato in channel list. Modello reale qui sotto.</div>
     </div>
-    <div id="pLabelWrap"><input type="text" id="pLabel"></div>
-    <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
+    <div id="pLabelWrap"><input aria-label="Etichetta" type="text" id="pLabel"></div>
+    <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Etichetta</label>
@@ -473,7 +474,7 @@
         <button class="btn" id="pLblHidden" style="flex:1;font-size:12px;padding:5px 2px" title="Nascondi il nome per questo elemento">Nascosto</button>
       </div>
       <div id="pAbbrWrap" style="display:none;margin-top:6px">
-        <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
+        <input aria-label="Sigla" type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
     </div>
     <div id="pLblSizeWrap" class="sldrow">
@@ -503,7 +504,7 @@
          «ampli fornito dalla band», «da accordare». Sul palco resta un puntino accanto al nome:
          una nota che non si vede è una nota che nessuno legge. Il testo esce nella lista Note. -->
     <div id="pNoteWrap">
-      <textarea id="pNote" rows="2" maxlength="140" placeholder="es. shaker, claves, güiro"></textarea>
+      <textarea aria-label="Note" id="pNote" rows="2" maxlength="140" placeholder="es. shaker, claves, güiro"></textarea>
       <div class="prop-hint" id="pNoteHint">Va nella lista Note del rider; sul palco compare un puntino accanto al nome.</div>
     </div>
     <!-- FORMA: geometria, stile, colore, ordine. Testo/dimensione/colore-testo riusano i controlli
@@ -520,7 +521,7 @@
       <label>Colore</label>
       <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>
       <input type="color" id="pShapeFillFree" value="#0d9488" aria-label="Colore libero">
-      <label>Trasparenza <small class="lbl-note">— per usarla come area di sfondo</small></label>
+      <label for="pShapeOp">Trasparenza <small class="lbl-note">— per usarla come area di sfondo</small></label>
       <input type="range" id="pShapeOp" min="15" max="100" step="1" value="100">
       <label>Ordine <small class="lbl-note">— rispetto agli altri elementi</small></label>
       <div class="seg" role="group" aria-label="Ordine">
@@ -538,7 +539,7 @@
       </div>
     </div>
     <div id="pTxtColorWrap" style="display:none;margin-top:8px">
-      <label>Colore testo</label>
+      <label for="pTxtColor">Colore testo</label>
       <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
     </div>
     <div id="pLblPosWrap" style="display:none;margin-top:6px">
@@ -560,20 +561,20 @@
     </div>
     <div id="pSbChWrap" style="display:none">
       <label class="chk" id="pSbFohWrap"><input type="checkbox" id="pSbFoh"> Stage box del mixer <small class="lbl-note">— lato regia</small></label>
-      <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
+      <label for="pSbHw">Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbEquip" style="display:none;font-size:11px;margin-top:3px"></div>
       <div id="pSbKind" style="font-size:11px;font-weight:600;margin:3px 0 2px"></div>
       <div id="pSbToRow" style="display:none;margin-top:4px">
-        <label>Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
+        <label for="pSbToSel">Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
         <select id="pSbToSel"></select>
         <div id="pSbToHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
       </div>
-      <div id="pSbChRow"><label>Ingressi (input)</label>
+      <div id="pSbChRow"><label for="pSbCh">Ingressi (input)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
-      <div id="pSbOutRow"><label>Uscite (per i monitor)</label>
+      <div id="pSbOutRow"><label for="pSbOut">Uscite (per i monitor)</label>
         <select id="pSbOut"><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select></div>
       <div id="pSbIdRow" style="display:none;margin-top:6px">
-        <label>Device ID <small style="color:var(--text-3);font-weight:400">— ordina la numerazione FOH</small></label>
+        <label for="pSbIdSel">Device ID <small style="color:var(--text-3);font-weight:400">— ordina la numerazione FOH</small></label>
         <select id="pSbIdSel"></select>
       </div>
       <div id="pSbPortsWrap" style="display:none;margin-top:6px">
@@ -590,7 +591,7 @@
     <!-- IL MIXER È UNA DESTINAZIONE (29/07): il modello decide quanti ingressi ha davvero, e la
          VARIANTE conta — il DM3 esiste con e senza Dante, e offrirlo a tutti sarebbe una bugia. -->
     <div id="pMixWrap" style="display:none">
-      <label>Modello <small class="lbl-note">— decide gli ingressi</small></label>
+      <label for="pMixHw">Modello <small class="lbl-note">— decide gli ingressi</small></label>
       <select id="pMixHw"></select>
       <div id="pMixIo" class="prop-hint"></div>
     </div>
@@ -630,7 +631,7 @@
     <!-- SCHEDA AUDIO: che modello è (i suoi I/O vengono dal registro, non si inventano) e con che
          cosa esce verso il mixer. Sul computer, invece, da quale scheda passa. -->
     <div id="pIfaceWrap" style="display:none">
-      <label>Modello</label>
+      <label for="pIfaceHw">Modello</label>
       <select id="pIfaceHw"></select>
       <div id="pIfaceOutRow" style="display:none;margin-top:8px">
         <label>Uscita verso il mixer</label>
@@ -639,7 +640,7 @@
       <div id="pIfaceHint" class="prop-hint"></div>
     </div>
     <div id="pCompIfaceWrap" style="display:none">
-      <label>Passa da una scheda audio</label>
+      <label for="pCompIface">Passa da una scheda audio</label>
       <select id="pCompIface"></select>
       <div id="pCompIfaceHint" class="prop-hint"></div>
     </div>
@@ -685,11 +686,11 @@
       <div id="pOwnMicHint" class="prop-hint"></div>
     </div>
     <div id="pZoneWrap" style="display:none">
-      <label>Opacità area</label>
+      <label for="pZoneOp">Opacità area</label>
       <input type="range" id="pZoneOp" min="0" max="60" step="1">
-      <label style="margin-top:8px">Microfono <small id="pZoneMicHint" style="color:var(--text-3);font-weight:400"></small></label>
+      <label for="pZoneMic" style="margin-top:8px">Microfono <small id="pZoneMicHint" style="color:var(--text-3);font-weight:400"></small></label>
       <input type="text" id="pZoneMic" placeholder="es. KM184" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
-      <label style="margin-top:8px">Etichetta</label>
+      <label for="pZoneLabel" style="margin-top:8px">Etichetta</label>
       <input type="text" id="pZoneLabel" placeholder="Zona panoramica">
       <div id="pZoneCount" style="font-size:11px;color:var(--text-2);margin-top:6px"></div>
       <div id="pZoneEditHint" style="font-size:11px;color:var(--text-3);margin-top:7px;line-height:1.5">Trascina i vertici per modellare l'area. Tocca un <b>+</b> sul bordo per aggiungere un punto; <b>Alt‑clic</b> su un vertice per rimuoverlo.</div>
@@ -700,9 +701,9 @@
       <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
     </div>
     <div class="row" id="pDims">
-      <span><label>L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
-      <span><label>P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
-      <span id="pHwrap"><label>h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
+      <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
+      <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
+      <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
     </div>
     <div id="pDimSideWrap" style="display:none">
       <label id="pDimSideLbl">Lato quota</label>
@@ -749,14 +750,14 @@
       </select>
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
-    <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
-    <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
+    <div id="pRampWrap" style="display:none"><label for="pRamp">Formato</label><select id="pRamp"></select></div>
+    <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
       <input type="range" id="pRot" min="-180" max="180" step="1" value="0">
       <output id="pRotVal">0°</output></div>
-    <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
+    <div id="pWattWrap" style="display:none"><label for="pWatt">Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
     <!-- «Fornito da» TOLTO dal pannello dell'elemento il 26/08 (segnalazione): chi porta cosa si
@@ -781,22 +782,22 @@
     </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
       <div class="row">
-        <span><input type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
-        <span><input type="text" id="pBand" placeholder="banda (UHF…)" list="rfBandList"></span>
+        <span><input aria-label="Frequenza RF in MHz" type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
+        <span><input aria-label="Banda RF" type="text" id="pBand" placeholder="banda (UHF…)" list="rfBandList"></span>
       </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
     <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
       <div class="row">
-        <span><select id="pPmBrand"></select></span>
-        <span><select id="pPmModel"></select></span>
+        <span><select aria-label="Marca del personal monitor" id="pPmBrand"></select></span>
+        <span><select aria-label="Modello del personal monitor" id="pPmModel"></select></span>
       </div>
       <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
       <div id="pPmState" style="font-size:12px;font-weight:600;margin-top:3px"></div>
       <div id="pPmFeedWrap" style="display:none;margin-top:8px">
         <label>Alimentato da <small style="color:var(--text-3);font-weight:400">— sorgente dei canali cuffia</small></label>
         <div id="pPmFeedSeg" class="feed-seg"><div data-v="console">Omni out console</div><div data-v="dante">Rete Dante</div></div>
-        <div id="pPmFeedChRow" style="margin-top:6px"><label>Canali dalla console</label>
+        <div id="pPmFeedChRow" style="margin-top:6px"><label for="pPmFeedCh">Canali dalla console</label>
           <select id="pPmFeedCh"></select></div>
         <div id="pPmFeedHint" style="font-size:11px;color:var(--text-3);margin-top:3px"></div>
       </div>
@@ -804,15 +805,15 @@
     </div>
     <div id="pBmWrap" style="display:none"><label title="Marca e modello del pezzo di backline: da qui arrivano l'assorbimento dichiarato dal costruttore e il peso di targa, al posto della stima di categoria">Modello del backline <small class="lbl-note">— quello vero: porta i watt e i chili</small></label>
       <div class="row row-modello">
-        <span><select id="pBmBrand"></select></span>
-        <span><select id="pBmModel"></select></span>
+        <span><select aria-label="Marca del backline" id="pBmBrand"></select></span>
+        <span><select aria-label="Modello del backline" id="pBmModel"></select></span>
       </div>
       <div id="pBmInfo" class="prop-hint"></div>
     </div>
     <div id="pLmWrap" style="display:none"><label title="Marca e modello dell'apparecchio: da qui arrivano i watt assorbiti, l'attacco per i modificatori, l'alimentazione e il controllo">Modello della luce <small class="lbl-note">— quello vero: i watt li porta lui</small></label>
       <div class="row">
-        <span><select id="pLmBrand"></select></span>
-        <span><select id="pLmModel"></select></span>
+        <span><select aria-label="Marca della luce" id="pLmBrand"></select></span>
+        <span><select aria-label="Modello della luce" id="pLmModel"></select></span>
       </div>
       <div id="pLmInfo" class="prop-hint"></div>
     </div>
@@ -877,7 +878,7 @@
       <label class="chk"><input type="checkbox" id="pDirSgab"> Sgabello</label>
       <label class="chk"><input type="checkbox" id="pDirMic"> Microfono talkback (parla a tecnici e musicisti)</label>
       <div id="pDirMicWrap" style="display:none;margin-top:5px">
-        <label style="font-size:11px;color:var(--text-3)">Tipo microfono</label>
+        <label for="pDirMicType" style="font-size:11px;color:var(--text-3)">Tipo microfono</label>
         <select id="pDirMicType" style="width:100%">
           <option value="palmare">Palmare con interruttore (gelato) — es. SM58S</option>
           <option value="collodoca">Collo d'oca talkback da podio — es. ATR3M</option>
@@ -899,10 +900,10 @@
       <select id="pUsoSel" style="width:100%;font-size:12px"></select>
     </div>
     <div id="pSafetyWrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-      <label style="font-size:11px;color:#b45309;font-weight:600;display:block;margin-bottom:6px">🛟 Info sicurezza <small style="color:var(--text-3);font-weight:400">— per il piano di sicurezza</small></label>
+      <label for="pSafeDesc" style="font-size:11px;color:#b45309;font-weight:600;display:block;margin-bottom:6px">🛟 Info sicurezza <small style="color:var(--text-3);font-weight:400">— per il piano di sicurezza</small></label>
       <input id="pSafeDesc" type="text" placeholder="Descrizione (es. estintore CO₂)" style="width:100%;font-size:12px;margin-bottom:6px">
-      <input id="pSafeCap" type="text" placeholder="Capacità / portata (es. 6 kg · 500 pax)" style="width:100%;font-size:12px;margin-bottom:6px">
-      <input id="pSafeNote" type="text" placeholder="Note (verifica, scadenza, posizione…)" style="width:100%;font-size:12px">
+      <input aria-label="Capacità o portata" id="pSafeCap" type="text" placeholder="Capacità / portata (es. 6 kg · 500 pax)" style="width:100%;font-size:12px;margin-bottom:6px">
+      <input aria-label="Note sulla dotazione di sicurezza" id="pSafeNote" type="text" placeholder="Note (verifica, scadenza, posizione…)" style="width:100%;font-size:12px">
     </div>
     <div id="pRespWrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
       <label style="font-size:11px;color:var(--text-2);font-weight:600;display:block;margin-bottom:5px">Responsabile <small id="pRespDept" style="color:var(--text-3);font-weight:400"></small></label>
@@ -917,25 +918,25 @@
     </div>
     <div id="pInRack" style="display:none;font-size:12px;margin:6px 0"></div>
     <div id="pRxWrap" style="display:none">
-      <label>Marca e modello</label><select id="pRxHw"></select>
-      <div id="pRxNRow" style="display:none"><label>Canali RF</label><select id="pRxN"></select></div>
-      <label>Banda <small style="color:var(--text-3);font-weight:400">— es. R1-9 (facoltativa)</small></label>
+      <label for="pRxHw">Marca e modello</label><select id="pRxHw"></select>
+      <div id="pRxNRow" style="display:none"><label for="pRxN">Canali RF</label><select id="pRxN"></select></div>
+      <label for="pRxBand">Banda <small style="color:var(--text-3);font-weight:400">— es. R1-9 (facoltativa)</small></label>
       <input id="pRxBand" type="text" maxlength="12" placeholder="—">
       <label>Canali <small style="color:var(--text-3);font-weight:400">— associazione automatica, cambia dalla tendina</small></label>
       <div id="pRxChs"></div>
       <div id="pRxKv" style="margin-top:4px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pAntWrap" style="display:none">
-      <label>Marca e modello</label><select id="pAntHw"></select>
+      <label for="pAntHw">Marca e modello</label><select id="pAntHw"></select>
       <div id="pAntKv" style="font-size:11px;color:var(--text-2);margin:2px 0 6px"></div>
-      <div id="pAntAngRow"><label>Angolo di copertura</label><select id="pAntAng">
+      <div id="pAntAngRow"><label for="pAntAng">Angolo di copertura</label><select id="pAntAng">
         <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="100">100° (paddle larga)</option><option value="360">Omnidirezionale</option></select></div>
-      <label>Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
+      <label for="pAntH">Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
       <input id="pAntH" type="number" min="0" max="10" step="0.5" placeholder="2.5">
       <div style="font-size:11px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
     </div>
     <div id="pSwWrap" style="display:none">
-      <label>Porte</label><select id="pSwPorts">
+      <label for="pSwPorts">Porte</label><select id="pSwPorts">
         <option value="5">5</option><option value="8">8</option><option value="10">10</option>
         <option value="16">16</option><option value="24">24</option></select>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:6px">
@@ -943,12 +944,12 @@
       <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pRackWrap" style="display:none">
-      <label>Funzione</label><select id="pRackFn"></select>
-      <label>Dimensione</label><select id="pRackU"></select>
+      <label for="pRackFn">Funzione</label><select id="pRackFn"></select>
+      <label for="pRackU">Dimensione</label><select id="pRackU"></select>
       <label>Apparecchi <small style="color:var(--text-3);font-weight:400">— ordine dall'alto</small></label>
       <div id="pRackRows"></div>
       <div style="display:flex;gap:6px;margin-top:6px">
-        <select id="pRackAdd" style="flex:1;font-size:12px;min-width:0"></select>
+        <select aria-label="Apparecchio da aggiungere al rack" id="pRackAdd" style="flex:1;font-size:12px;min-width:0"></select>
         <button type="button" class="btn primary" id="pRackAddBtn" style="width:auto;margin-top:0;padding:6px 12px">+</button>
       </div>
       <div class="rack-ubar"><i id="pRackUbar"></i></div>
@@ -977,23 +978,23 @@
     </div>
     <div id="grpSbWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Stage box selezionate <span id="grpSbN" class="muted"></span></div>
-      <label>Modello (tutte)</label><select id="grpSbHw"></select>
+      <label for="grpSbHw">Modello (tutte)</label><select id="grpSbHw"></select>
       <div id="grpSbGenRows">
-        <label>Ingressi (input)</label>
+        <label for="grpSbCh">Ingressi (input)</label>
         <select id="grpSbCh"><option value="">— invariato —</option><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select>
-        <label>Uscite (per i monitor)</label>
+        <label for="grpSbOut">Uscite (per i monitor)</label>
         <select id="grpSbOut"><option value="">— invariato —</option><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select>
       </div>
       <div class="prop-hint">Le modifiche si applicano a tutte le stage box selezionate e restano salvate.</div>
     </div>
     <div id="grpZoneWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Microfonazione panoramica</div>
-      <input type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
+      <input aria-label="Microfono della zona" type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
       <button class="btn" id="bGrpZone" style="width:100%;margin-top:6px">Crea zona microfonazione</button>
       <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella input list.</div>
     </div>
     <div id="grpLblWrap" style="display:none;margin-bottom:8px">
-      <label style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
+      <label for="grpLblSize" style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
       <input type="range" id="grpLblSize" min="0" max="34" step="1" value="14" style="width:100%;padding:0">
       <div id="grpLblPosWrap" style="display:none;margin-top:6px">
         <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione etichetta</label>
@@ -1005,9 +1006,9 @@
     </div>
     <div id="grpDist" class="prop-card" style="display:none">
       <div class="prop-card__head"><span id="grpDistTitle">Distribuisci sulla pedana</span></div>
-      <label style="display:flex;justify-content:space-between;align-items:baseline">Numero <span id="grpDistNVal" style="color:var(--text);font-weight:600">8</span></label>
+      <label for="grpDistN" style="display:flex;justify-content:space-between;align-items:baseline">Numero <span id="grpDistNVal" style="color:var(--text);font-weight:600">8</span></label>
       <input type="number" id="grpDistN" min="1" max="120" value="8" style="width:100%">
-      <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">Equidistanza <span id="grpDistEqVal" style="color:var(--text);font-weight:600">100%</span></label>
+      <label for="grpDistEq" style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">Equidistanza <span id="grpDistEqVal" style="color:var(--text);font-weight:600">100%</span></label>
       <input type="range" id="grpDistEq" min="0" max="100" step="1" value="100" style="width:100%;padding:0">
     </div>
     <div class="row">
@@ -1059,7 +1060,7 @@
       <div id="lightsCard"></div>
       <div id="lightsMoodCard" class="prop-card" style="margin-top:9px">
         <div class="prop-card__head">Clima luminoso <span class="muted">tutto lo spettacolo</span></div>
-        <input type="text" id="lightsMood" class="lights-inp" placeholder="es. calda, morbida e teatrale">
+        <input aria-label="Clima luminoso" type="text" id="lightsMood" class="lights-inp" placeholder="es. calda, morbida e teatrale">
         <p class="prop-hint">Chiude la sezione LUCI del rider: «L'illuminazione dovrà essere…».</p>
       </div>
     </div>
@@ -1157,7 +1158,7 @@
     <div id="versBox">
       <h3>Punti di ripristino</h3>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <input type="text" id="versName" placeholder="Nome (es. prova suono)…">
+        <input aria-label="Nome della versione" type="text" id="versName" placeholder="Nome (es. prova suono)…">
         <button class="btn primary" id="versSave" style="white-space:nowrap;font-size:12px;flex-shrink:0">Salva</button>
       </div>
       <div id="versList"></div>
@@ -1224,7 +1225,7 @@
     <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">✕</button>
   </div>
   <div class="fb-body" id="fbBody">
-    <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
+    <textarea aria-label="Il tuo messaggio" id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
     <div class="fb-count"><span id="fbCount">0</span>/1000</div>
     <div class="fb-chips">
       <button type="button" class="fb-chip" data-hint="bug">Bug</button>
@@ -1250,7 +1251,7 @@
     <label class="fb-attach chk" id="fbAttachRow" style="display:none">
       <input type="checkbox" id="fbAttach"> Allega il mio progetto</label>
     <!-- honeypot anti-bot: nascosto agli umani -->
-    <input type="text" id="fbHp" tabindex="-1" autocomplete="off"
+    <input type="text" id="fbHp" tabindex="-1" aria-hidden="true" autocomplete="off"
       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
     <button class="fb-send" id="fbSend">Invia</button>
     <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
@@ -1329,7 +1330,7 @@
   <div class="mcard">
     <h2>Organico orchestra</h2>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="orchPreset">Preset</label>
       <select id="orchPreset"></select>
     </div>
     <p class="hint" id="orchHint">Postazioni per sezione (0 = assente). Disposizione standard: archi ad arco attorno al podio,
@@ -1402,7 +1403,7 @@
     <h2>Organico archi</h2>
     <p class="hint">Inserisci il numero di musicisti. L'app crea postazioni a leggio: 2 archi + 1 leggio dove possibile, con eventuale postazione singola per i numeri dispari.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="strPreset">Preset</label>
       <select id="strPreset">
         <option value="8,6,4,4,2">Orchestra d'archi — 8.6.4.4.2</option>
         <option value="6,5,4,3,2">Ridotta — 6.5.4.3.2</option>
@@ -1434,7 +1435,7 @@
     <h2>Organico coro</h2>
     <p class="hint">Inserisci il numero di coristi per sezione. L'app dispone le voci in file: Soprani e Contralti davanti, Tenori e Bassi dietro, con direttore e microfoni d'insieme.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="voicePreset">Preset</label>
       <select id="voicePreset">
         <option value="12,12,8,8">Coro sinfonico — 12.12.8.8</option>
         <option value="8,8,6,6">Coro medio — 8.8.6.6</option>
@@ -1466,7 +1467,7 @@
     <h2>Organico legni</h2>
     <p class="hint">Inserisci quanti strumenti per famiglia. Disposizione standard: flauti e oboi davanti, clarinetti e fagotti dietro. Ogni postazione ha sedia + leggio.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="legPreset">Preset</label>
       <select id="legPreset">
         <option value="2,2,2,2">Sinfonica standard — 2.2.2.2</option>
         <option value="3,3,3,3">Grande — 3.3.3.3</option>
@@ -1495,7 +1496,7 @@
     <h2>Organico ottoni</h2>
     <p class="hint">Inserisci quanti strumenti per famiglia. Disposizione standard: corni davanti, trombe/tromboni/tuba dietro (sax, se presenti, in prima fila). Ogni postazione ha sedia + leggio.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="ottPreset">Preset</label>
       <select id="ottPreset">
         <option value="4,3,3,1,0,0,0">Sinfonica — 4 corni · 3 trombe · 3 tromboni · 1 tuba</option>
         <option value="6,4,4,1,0,0,0">Grande — 6.4.4.1</option>
@@ -1534,7 +1535,7 @@
       <button class="btn primary" id="aiOpen">Apri ChatGPT (prompt pronto)</button>
       <button class="btn" id="aiCopy">Copia prompt</button>
     </div>
-    <label style="display:block;margin-top:14px;font-size:12px;color:var(--text-2)">Incolla qui il link (o il JSON) che ti dà ChatGPT:</label>
+    <label for="aiPaste" style="display:block;margin-top:14px;font-size:12px;color:var(--text-2)">Incolla qui il link (o il JSON) che ti dà ChatGPT:</label>
     <textarea id="aiPaste" rows="3" style="width:100%;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:Menlo,monospace;background:var(--surface);color:var(--text)" placeholder="https://stageplot.it/app/#d=…  oppure  {…JSON…}"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn primary" id="aiLoad">Carica nel palco</button>
@@ -1564,7 +1565,7 @@
         <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
       </div>
       <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
-        <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
+        <input aria-label="Link da copiare" type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn" id="shareNative" hidden>Condividi…</button>
         <button class="btn primary" id="shareCopy">Copia</button>
       </div>
@@ -1731,7 +1732,7 @@
       <label class="rnd-f">Persone<select id="rndPeople"><option>Mostrare i musicisti</option><option>Mostrare solo gli strumenti e l'attrezzatura</option><option>Automatico</option></select></label>
     </div>
     <div id="rndWarn" class="hint" style="color:var(--warning);display:none;margin:8px 0 0"></div>
-    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
+    <div id="rndPreview" style="display:none;margin-top:12px"><textarea aria-label="Testo del rider" id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;align-items:center">
       <button class="btn primary" id="rndCopy" style="flex:1;min-width:130px">Copia prompt</button>
       <button class="btn" id="rndShow">Mostra prompt</button>
@@ -1761,10 +1762,10 @@
       <!-- Griglia e larghezze stanno nel CSS, non qui: inline vincevano su ogni regola del
            telefono, e i quattro campi restavano quattro per riga anche a 390 px. (02/09) -->
       <div class="pa-nums">
-        <div><label>Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
-        <div><label>Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
-        <div><label>X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
-        <div><label>Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
+        <div><label for="paW2">Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
+        <div><label for="paH2">Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
+        <div><label for="paX2">X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
+        <div><label for="paY2">Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
       </div>
       <div class="pa-pre">
         <button class="btn" id="paPreStage">= Palco</button>
@@ -1820,7 +1821,7 @@
         </div>
         <div class="pdf-optrow">
           <div>
-            <label>Formato</label>
+            <label for="pdfPaper">Formato</label>
             <select id="pdfPaper" hidden>
               <option value="a4">A4 (29,7×21 cm)</option>
               <option value="a3">A3 (42×29,7 cm)</option>
@@ -1848,7 +1849,7 @@
             </div>
           </div>
           <div id="pdfScaleRow">
-            <label>Scala</label>
+            <label for="pdfScale">Scala</label>
             <select id="pdfScale">
               <option value="auto">Automatica</option>
               <option value="50">1:50</option>
@@ -1862,13 +1863,13 @@
         </div>
         <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
           <span style="font-size:13px;color:var(--text-2)">1:</span>
-          <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
+          <input aria-label="Scala personalizzata" type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
           <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
         </div>
         <div id="pdfHdrRow">
         <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
         <div class="hdr-wrap">
-          <input type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
+          <input aria-label="Contatto stampato in testata" type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
           <button type="button" class="rub-btn" id="pdfHdrRub">Rubrica ▾</button>
           <div class="rub-menu" id="pdfHdrMenu" hidden></div>
         </div>
@@ -9936,6 +9937,24 @@ function cabConnectAll(){
    cabConnectAll — simula la modalità auto e prende la destinazione che il motore sceglierebbe — ma
    materializza solo la chiave chiesta. Gli altri canali restano come sono.
    Ritorna l'id della box scelta, o null se non c'è destinazione. */
+/* SP-02 (audit esterno 05/09): il fulmine diceva «Collega questo canale» e sulla batteria ne
+   collegava OTTO. Il motore ha ragione — uno strumento multicanale viaggia su UN multipolare e si
+   collega tutto insieme, che è quello che serve a chi cabla, e il messaggio DOPO dice già «8 canali
+   collegati» — ma il comando annunciava una cosa e ne faceva un'altra. Il numero ora c'è anche
+   PRIMA di premere, che è dove serve per non sentirsi scippati di sette righe. */
+function cabZapScope(r, rows){
+  if(!r || !r.itemId || !rows) return 1;
+  var n=0;
+  rows.forEach(function(x){ if(x.itemId===r.itemId && !x.box && !x.reserved && !x.spare) n++; });
+  return Math.max(1, n);
+}
+function cabZapTitle(r, rows){
+  var n=cabZapScope(r, rows);
+  if(n<2) return "Collega questo canale";
+  var it=(state.items||[]).filter(function(i){ return i.id===r.itemId; })[0];
+  var nome=(it&&it.label) || String(r.name||"").split(" - ")[0] || "questa sorgente";
+  return "Collega "+nome+": "+n+" canali insieme, su un multipolare solo";
+}
 function cabConnectOne(key){
   if(!key) return null;
   if(!state.cab.on) state.cab.on=true;
@@ -10728,12 +10747,12 @@ function auditEngine(){
           (items.length?{label:"Adatta il palco", run:auditFixAdattaPalco}:null), "palcomini");
     }
   })();
-  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: attiva Cablaggio audio e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
+  if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: apri la lista Input, nella colonna a destra, e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
     "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
-    "Elettrico","Attiva Cablaggio elettrico e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
+    "Elettrico","Apri la lista Power, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
      DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
      parte. Il nostro dato di targa e' quello della sola superficie — giusto, ma dice meta' del
@@ -11485,7 +11504,11 @@ function sceneMarkup(opts){
     if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
     else items += m;
   });
-  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.15">'+bgItems+'</g>'+items;
+  /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
+     a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
+     sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
+     chiaramente dietro ai punti del layer su cui si sta lavorando. */
+  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -11542,6 +11565,7 @@ function render(){
   renderAccessoriCount();
   renderVenuePanel();
   renderFramePanel();
+  renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
@@ -17531,6 +17555,21 @@ function ipotesiDelPalco(gia){
   var cori=conta("corista");
   var coriCh=canali.filter(function(n){ return /^cori\b/i.test(n); }).length;
 
+  /* 0. IL PALCO — SP-03 (audit esterno 05/09): «il modello cambia le dimensioni del palco senza una
+        scelta iniziale esplicita». Il palco vuoto dice 12 × 8, la Band ne fa 16 × 6,5, e nella
+        finestra della formazione si chiedono i MUSICISTI, non i metri disponibili. La misura non è
+        sbagliata — è la proporzione di un palco da concerto, ed è per questo che il modello la
+        dichiara — ma restava muta: un principiante se la porta fino al PDF credendo sia un dato del
+        suo locale. Qui diventa un'ipotesi come le altre, con il comando accanto. Sta per prima
+        perché è la cornice dentro cui stanno tutte le altre righe. */
+  if(gia.palco && gia.palco.w>0 && gia.palco.d>0){
+    var _m=function(cm){ return (Math.round(cm/10)/10).toString().replace(".",","); };
+    righe.push({ txt:"Palco "+_m(gia.palco.w)+" × "+_m(gia.palco.d)+" m — la misura del modello",
+      sub:"è la proporzione tipica di questa formazione, non il palco del tuo locale",
+      act:"Cambia le misure",
+      fn:function(){ if(typeof toggleStageEdit==="function" && !stageEdit) toggleStageEdit(); } });
+  }
+
   /* 1. CHI CANTA — il difetto originale: il modello decide quante voci ci sono, e il rider parte così.
         Le due azioni stanno sulla stessa riga: sono la stessa domanda («quanti cantano?»), e due
         righe separate facevano crescere il pannello fin sopra il palco appena creato. */
@@ -17875,7 +17914,8 @@ function startFromTemplate(f,options){
     /* il riepilogo delle ipotesi arriva DOPO che il palco è a video: prima non c'è niente da leggere */
     /* se il modello ha fatto le sue domande, il riepilogo non le ripete: resta per ciò che il
        programma ha deciso da solo (side fill, stagebox, chi è attrezzatura e chi persona). */
-    var _gia = options.formazione ? {voci:true, ascolto:true} : null;
+    var _gia = options.formazione ? {voci:true, ascolto:true} : {};
+    if(qd.stage) _gia.palco={w:_sg.w,d:_sg.d};   /* SP-03: la misura imposta dal modello si dichiara, non si subisce */
     setTimeout(function(){ try{ mostraAssunzioni(false, _gia); }catch(_e){} }, 350);
   });
   return true;
@@ -19631,6 +19671,18 @@ var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider o
    e parcheggiate in #accPark quando chiuse (mai distrutte dal rebuild delle righe). */
 var layerAccOpen=null;   /* default: tutto chiuso — è l'utente ad aprire (Simone 17/07 sera) */
 var LAYER_ACC={ stage:"statoSec", mus:"musAccSec", cabin:"patchSec", cabout:"monSec", elec:"loadSec", mond:"pmAccSec", cover:"coverAccSec", luci:"luciSec" };   /* Layer v3: ogni layer apre la SUA lista (Ingressi=channel list, Output=monitor list, P.M.=lista pm) */
+/* Tre di quelle sezioni hanno un SECONDO cappello richiudibile (patchOpen/monOpen/loadOpen), erede
+   di quando le liste stavano tutte nella stessa colonna e una sola alla volta poteva stare aperta.
+   Da qui in giu' quel cappello non e' piu' libero di chiudersi da solo: il corpo del layer E' la
+   lista, e un layer aperto senza righe non e' una lista chiusa, e' una lista persa. (SP-01, 05/09) */
+var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
+/* Apre un layer: fuoco sul layer E la sua lista aperta. Prima le due cose erano scollegate, e
+   bastava aver chiuso una volta il cappello perche' il layer si riaprisse con la sola intestazione
+   e il bottone «Azzera percorsi» — chi guardava credeva di aver perso i canali. */
+function apriLayer(id){
+  layerAccOpen=id; layerSoloUI={}; layerSoloUI[id]=true; layerSoloMode="focus";
+  if(ACC_DEL_LAYER[id] && typeof techAccordionOpen==="function") techAccordionOpen(ACC_DEL_LAYER[id]);
+}
 /* Layer "lavora qui" (Simone 20/07): la riga e' [pallino][nome]...[occhio]. CLIC sulla riga = mette
    a FUOCO il layer (solo esclusivo: evidenzia i suoi elementi, sfuma gli altri) + apre la lista.
    Ri-clic = mostra tutto. L'occhio resta indipendente. Opacita'/lucchetto/reset compaiono SOTTO
@@ -19682,7 +19734,7 @@ function renderLayerRow(L, container){
     var offRow=document.createElement("div"); offRow.className="layer-row layer-clickable layer-offrow";
     offRow.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:'+L.color+'"></span><span class="layer-name">'+esc(L.name)+'</span><span class="layer-actbadge">attiva</span>';
     offRow.title="Attiva: "+L.name;
-    var _attiva=function(){ layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; L.activate(); };
+    var _attiva=function(){ apriLayer(L.id); L.activate(); };
     offRow.addEventListener("click", _attiva);
     premibile(offRow, _attiva, "Attiva la lista "+L.name);
     container.appendChild(offRow);
@@ -19716,7 +19768,7 @@ function renderLayerRow(L, container){
     if(e && e.target && e.target.closest && e.target.closest(".layer-cnt.cnt-apri")) return;   /* la misura ha la sua azione */
     if(e && e.target && e.target.closest && e.target.closest(".layer-slots")) return;   /* S/occhio/lucchetto/cestino inline: non cambiano il fuoco */
     if(layerAccOpen===L.id){ layerAccOpen=null; layerSoloUI={}; }
-    else { layerAccOpen=L.id; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="focus"; }   /* tendina = fuoco: contesto sfumato */
+    else apriLayer(L.id);   /* tendina = fuoco: contesto sfumato, e la lista aperta */
     render();
   };
   row.addEventListener("click", _apriChiudi);
@@ -19729,20 +19781,24 @@ function renderLayerRow(L, container){
   function slot(el){ var sp=document.createElement("span"); sp.className="layer-slot"; if(el) sp.appendChild(el); slots.appendChild(sp); }
   /* S = solo ESCLUSIVO puro (come il solo exclusive di una console): evidenzia il layer senza
      aprire la lista. Ri-clic = mostra tutti. Il clic sulla riga resta il fuoco (solo + lista). */
-  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; sb.title=(soloOn(L.id)&&layerSoloMode==="iso")?"Togli il solo":"Solo: SOLTANTO questa lista (il resto sparisce)";
+  var sb=document.createElement("button"); sb.type="button"; sb.className="layer-solo"+((soloOn(L.id)&&layerSoloMode==="iso")?" on":""); sb.textContent="S"; var _sOn=(soloOn(L.id)&&layerSoloMode==="iso");
+  sb.title=_sOn?("Togli il solo su "+L.name):("Solo: mostra soltanto "+L.name+", nascondi il resto del palco");
+  sb.setAttribute("aria-label", sb.title);
   sb.addEventListener("click", function(e){ e.stopPropagation();
     if(soloOn(L.id) && layerSoloMode==="iso"){ layerSoloUI={}; }
     else { layerAccOpen=null; layerSoloUI={}; layerSoloUI[L.id]=true; layerSoloMode="iso"; }   /* S chiude la tendina: i due solo si escludono */
     render(); });
   slot(sb);
-  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?"Nascondi questa lista":"Mostra questa lista"; eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
+  var eye=document.createElement("button"); eye.type="button"; eye.className="layer-ico layer-eye"+(L.visible?"":" off"); eye.title=L.visible?("Nascondi "+L.name+" nel disegno"):("Mostra "+L.name+" nel disegno");
+  eye.setAttribute("aria-label", eye.title); eye.innerHTML=L.visible?_LM_EYE:_LM_EYEOFF;
   eye.addEventListener("click", function(e){ e.stopPropagation();
     /* spegnere l'occhio di un layer A FUOCO deve anche togliere il fuoco: il solo vince sugli occhi
        (layerShown), quindi senza questo il layer resterebbe visibile con l'occhio barrato */
     if(L.visible && (layerAccOpen===L.id || soloOn(L.id))){ layerAccOpen=null; layerSoloUI={}; }
     L.setVisible(!L.visible); });
   slot(eye);
-  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?"Sblocca le modifiche":"Blocca le modifiche"; lk.innerHTML=_LM_LOCK;
+  if(L.lockable){ var lk=document.createElement("button"); lk.type="button"; lk.className="layer-ico"+(L.locked?" on":""); lk.title=L.locked?("Sblocca le modifiche a "+L.name):("Blocca le modifiche a "+L.name);
+  lk.setAttribute("aria-label", lk.title); lk.innerHTML=_LM_LOCK;
     lk.addEventListener("click", function(e){ e.stopPropagation(); L.setLocked(!L.locked); }); slot(lk); } else slot(null);
   /* Il cestino NON sta più in riga (27/07): azzera tutti i percorsi del layer e stava a due pixel
      dall'occhio. Ora è in fondo al corpo del layer aperto, con l'etichetta che dice cosa fa. */
@@ -19827,7 +19883,7 @@ function renderLayerManager(){
     var aperto=inUso || advAperta();
     var t=document.createElement("button");
     t.type="button"; t.className="layer-group-label adv-head"; t.setAttribute("aria-expanded", String(aperto));
-    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Produzione avanzata';
+    t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Impianti tecnici';
     t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un rider";
     t.addEventListener("click", function(){ advAperta(!aperto); renderLayerManager(); });
     rows.appendChild(t);
@@ -19959,7 +20015,7 @@ function renderLightsCard(){
     '<label class="lights-lbl">Funzione</label>'+
     '<select class="lights-sel" id="lcFn">'+opts(LIGHT_FN, r.fn, "— da assegnare —")+'</select>'+
     '<div class="lights-two">'+
-      '<div><label class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
+      '<div><label for="lcN" class="lights-lbl">Quantità</label><input type="number" min="1" class="lights-inp num" id="lcN" value="'+r.n+'"></div>'+
       '<div><label class="lights-lbl">Sul palco</label><input type="text" class="lights-inp num" value="'+shown+'" disabled></div>'+
     '</div>';
   if(shown && shown<r.n) h+='<p class="prop-hint">Ne hai disegnate '+shown+' delle '+r.n+' richieste. Il rider ne chiede '+r.n+': il disegno è un’illustrazione, non il conteggio.</p>';
@@ -19984,8 +20040,8 @@ function renderLightsCard(){
           '<p class="prop-hint">Lo dicono gli apparecchi disegnati: si cambia su di loro, in «Installazione». Cosi\' rider e disegno non possono contraddirsi.</p>';
       }
       return '<div class="lights-two">'+
-        '<div><label class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
-        (LIGHT_POS_H[r.pos]?'<div><label class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
+        '<div><label for="lcPos" class="lights-lbl">Posizione</label><select class="lights-sel" id="lcPos">'+opts(LIGHT_POS, r.pos, "— non dichiarata —")+'</select></div>'+
+        (LIGHT_POS_H[r.pos]?'<div><label for="lcH" class="lights-lbl">Altezza</label><input type="text" class="lights-inp num" id="lcH" value="'+esc(r.posH)+'" placeholder="m"></div>':'<div></div>')+
       '</div>';
     })()+
     '<label class="lights-lbl">Nota</label>'+
@@ -20623,7 +20679,8 @@ function clRender(){
      + '<td>'+(r.box?('<span class="cl-patch">'+esc(r.patch)+'</span>'):'<span class="cl-patch no">da collegare</span>')+'</td>'
      + '<td class="cl-act">'+(r.box
          ? '<button type="button" class="cl-unlink" data-unlink="'+esc(r.key)+'" title="Scollega questo canale: libera la porta sulla stage box" aria-label="Scollega questo canale">\u00d7</button>'
-         : '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="Collega questo canale" aria-label="Collega questo canale">\u26a1</button>')+'</td>'
+         : (function(){ var _zt=cabZapTitle(r, pl.rows);
+             return '<button type="button" class="cl-zap" data-zap="'+esc(r.key)+'" title="'+esc(_zt)+'" aria-label="'+esc(_zt)+'">\u26a1</button>'; })())+'</td>'
      + '</tr>';
   });
   h+='</tbody>';
@@ -21029,7 +21086,7 @@ function openPortPop(ev, r){
        proprio quando serviva di più — cioè quando l'ingresso giusto era già preso. */
     var _chi={};
     (R.links||[]).forEach(function(l){ if(l.box && l.box.id===b.id && !l.deleted) _chi[l.ch]=(l.s&&l.s.name)||""; });
-    h+='<label>Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
+    h+='<label for="ppSel">Porta fisica su '+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+'</label><select id="ppSel"><option value="">Automatica (ora '+r.port+')</option>';
     for(var pn=1;pn<=b.cap;pn++){
       var nota="";
       if(b.resMap[pn]) nota=" — riservata";
@@ -21041,7 +21098,7 @@ function openPortPop(ev, r){
     h+='</select><div class="pp-note">Se la porta è già di un altro canale, quello torna automatico e si rimette in fila.</div>';
     if(String(rk).indexOf("grp:")===0) h+='<div class="pp-note">Questo strumento entra con un multipolare: la porta scelta è quella del primo canale, gli altri seguono consecutivi.</div>';
   }
-  h+='<label>Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
+  h+='<label for="ppShort">Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -21059,6 +21116,41 @@ function openPortPop(ev, r){
   var sv=document.getElementById("ppSel"); if(sv) sv.addEventListener("change", commit);
   document.getElementById("ppShort").addEventListener("change", commit);
   setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
+}
+/* SP-06 (audit esterno 05/09): «liste, livelli e modalità di lavoro sono mescolati». Aprire una
+   lista tecnica non apre solo una tabella: riduce musicisti e strumenti a PUNTI DI SEZIONE e manda
+   il resto in secondo piano. È la vista giusta per cablare — ma non lo diceva nessuno, e la via
+   d'uscita (Esc, o un clic sul vuoto) non si vede. Chi apriva «Input» per leggere una tabella si
+   trovava il palco svuotato e nessun modo evidente di riaverlo indietro: sembra una perdita di
+   dati, non un cambio di vista. Ora la vista attiva si DICHIARA, dice cosa ha cambiato, e si
+   annulla con un comando che si vede. */
+function vistaAttivaId(){
+  if(layerAccOpen) return layerAccOpen;
+  for(var k in layerSoloUI){ if(layerSoloUI[k]) return k; }
+  return null;
+}
+function renderVistaBanner(){
+  var el=document.getElementById("vistaBanner"); if(!el) return;
+  var id=vistaAttivaId();
+  /* Il banner parla del DISEGNO, quindi vale solo quando il disegno è davvero diviso in
+     primo piano e contesto — cioè quando `anySolo()`, la stessa condizione di `soloSplit`.
+     Trovato provandolo: con il motore del cablaggio spento la riga «Input» è solo un invito ad
+     attivare, `pruneSolo()` toglie il solo a ogni render, e il banner annunciava «il resto del
+     palco è in secondo piano» mentre a video non era cambiato niente. Un avviso che dichiara un
+     cambio che non c'è stato è peggio di nessun avviso. (06/09) */
+  if(!id || !anySolo()){ el.hidden=true; el.innerHTML=""; return; }
+  var nome=id;
+  try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
+  var iso=soloOn(id) && layerSoloMode==="iso";
+  var punti=(typeof techDotSoloId==="function") && techDotSoloId()===id;
+  var perche = iso ? "il resto del palco \u00e8 nascosto"
+             : punti ? "musicisti e strumenti sono ridotti a punti, per leggere il cablaggio"
+             : "il resto del palco \u00e8 in secondo piano";
+  el.innerHTML='<span class="vb-txt"><b>'+(iso?"Solo":"Vista")+' '+esc(nome)+'</b> \u2014 '+perche+'</span>'
+    + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
+  el.hidden=false;
+  var b=document.getElementById("vistaEsci");
+  if(b) b.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
 }
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
@@ -21136,7 +21228,8 @@ function renderPatchPanel(){
       act.appendChild(tr);
     } else {
       var zp=document.createElement("button"); zp.type="button"; zp.className="lite-btn cab-one";
-      zp.textContent="\u26a1"; zp.title="Collega questo canale"; zp.setAttribute("aria-label","Collega questo canale");
+      var _zt=cabZapTitle(r, pl.rows);
+      zp.textContent="\u26a1"; zp.title=_zt; zp.setAttribute("aria-label",_zt);
       zp.addEventListener("click", function(e){ e.stopPropagation();
         var need=(typeof autoConnectNeeds==="function") ? autoConnectNeeds("cabin") : null;
         if(need){ guideDialog(need); return; }
@@ -21354,11 +21447,11 @@ function openBusPop(ev, row){
   var old=document.getElementById("busPop"); if(old) old.remove();
   var bu=row.bus, L=busList();
   var pop=document.createElement("div"); pop.id="busPop"; pop.className="port-pop";
-  var h='<label>Stage box</label><select id="bpBox"><option value="">Automatica</option>';
+  var h='<label for="bpBox">Stage box</label><select id="bpBox"><option value="">Automatica</option>';
   L.boxes.forEach(function(b){ h+='<option value="'+esc(b.id)+'"'+(bu.boxId===b.id?' selected':'')+'>'+esc(b.sbId?("ID "+b.sbId):("box "+b.letter))+' — out '+b.outCap+'</option>'; });
-  h+='</select><label>Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
+  h+='</select><label for="bpPort">Porta out iniziale</label><select id="bpPort"><option value="">Automatica</option>';
   for(var pn=1;pn<=64;pn++){ h+='<option value="'+pn+'"'+(bu.port===pn?' selected':'')+'>'+pn+'</option>'; }
-  h+='</select><label>Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
+  h+='</select><label for="bpDest">Destinazione</label><input id="bpDest" type="text" maxlength="40" placeholder="es. regia TV" value="'+esc(bu.dest||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -21650,10 +21743,10 @@ function openRequestCreate(it){
   var nome="", ruolo=(it && TYPES[it.type]) ? TYPES[it.type].nome : "";
   if(it && it.label) nome=it.label;
   var ov=reqModal("Richiedi il setup",
-    '<label>Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
-    '<label>Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
-    '<label>Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
-    '<label>Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
+    '<label for="rqName">Nome del musicista</label><input id="rqName" type="text" maxlength="80" placeholder="Come si chiama" value="'+esc(nome)+'">'+
+    '<label for="rqRole">Strumento o ruolo</label><input id="rqRole" type="text" maxlength="80" value="'+esc(ruolo)+'">'+
+    '<label for="rqSchema">Questionario</label><select id="rqSchema">'+REQ_SCHEMAS.map(function(x){ return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'; }).join("")+'</select>'+
+    '<label for="rqMsg">Messaggio (facoltativo)</label><textarea id="rqMsg" rows="2" maxlength="400" placeholder="Due righe per spiegare a cosa serve"></textarea>'+
     '<label>Scade fra <small class="lbl-note">— dopo, il link non si apre più</small></label>'+
     '<select id="rqExp"><option value="30">30 giorni</option><option value="14">14 giorni</option><option value="7">7 giorni</option><option value="">Nessuna scadenza</option></select>',
     [["Annulla","",null],["Crea il link","primary",function(box){
@@ -21677,8 +21770,8 @@ function openRequestLink(reqId, nome, token){
   var link=requestLink(token), testo=requestShareText(nome, token);
   reqModal("Link pronto",
     '<p class="prop-hint" style="margin-top:0">Questo link si vede una volta sola: copialo adesso. Chi ce l\'ha può rispondere, ma non vede il resto del progetto.</p>'+
-    '<label>Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
-    '<label>Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
+    '<label for="rqLink">Link</label><input id="rqLink" type="text" readonly value="'+esc(link)+'">'+
+    '<label for="rqText">Messaggio pronto</label><textarea id="rqText" rows="3" readonly>'+esc(testo)+'</textarea>'+
     '<div class="btns" style="margin-top:10px">'+
       '<button type="button" class="btn" id="rqCopyLink">Copia link</button>'+
       '<button type="button" class="btn" id="rqCopyText">Copia messaggio</button>'+
@@ -22329,9 +22422,9 @@ function openLinePop(ev, loadId){
   var maxL=Math.max(ll.distro.maxLine||1, 12);
   var pop=document.createElement("div"); pop.id="linePop"; pop.className="port-pop";
   var man=(state.elec.manual||{})[loadId]||{};
-  var h='<label>Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
+  var h='<label for="lpNum">Numero linea su '+esc(ll.distro.letter||"quadro")+'</label><select id="lpNum"><option value="">Automatico (ora #'+ll.line+')</option>';
   for(var pn=1;pn<=maxL;pn++){ h+='<option value="'+pn+'"'+(man.line===pn?' selected':'')+'>#'+pn+'</option>'; }
-  h+='</select><label>Connettore</label><select id="lpConn">'+
+  h+='</select><label for="lpConn">Connettore</label><select id="lpConn">'+
      '<option value=""'+(!man.conn?' selected':'')+'>Automatico ('+((ll.conn&&ll.conn.label)||"Schuko")+')</option>'+
      '<option value="schuko"'+(man.conn==="schuko"?' selected':'')+'>Schuko</option>'+
      '<option value="cee"'+(man.conn==="cee"?' selected':'')+'>CEE</option>'+
@@ -22420,7 +22513,17 @@ function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ techAccor
 })();
 /* Progressive disclosure: un solo pannello tecnico espanso per volta (accordion) → niente colonna infinita */
 function techAccordionOpen(which){
-  auditOpen=cabOpen=elecOpen=patchOpen=monOpen=loadOpen=false;
+  /* SP-01 (audit esterno 05/09): «le righe Input scompaiono durante il lavoro». Non era il render:
+     era questa riga, che spegneva anche il cappello della lista mostrata dal layer aperto. Aprivi
+     l'audit e la channel list restava con l'intestazione, il bottone «Azzera percorsi Input» e
+     NIENTE sotto — con il conteggio della riga layer che continuava a dire 15. Richiudere l'audit
+     non la riportava (il flag non si ripristina): solo un reload. I layer si escludono gia' da
+     soli, quindi l'esclusivita' qui serve solo alle tre sezioni che NON sono corpo di un layer. */
+  var mia=ACC_DEL_LAYER[layerAccOpen]||null;   /* la lista che il layer aperto sta mostrando: intoccabile */
+  auditOpen=cabOpen=elecOpen=false;            /* questi tre non sono mai il corpo di un layer */
+  if(mia!=="patch") patchOpen=false;
+  if(mia!=="mon")   monOpen=false;
+  if(mia!=="load")  loadOpen=false;
   if(which==="audit")auditOpen=true; else if(which==="cab")cabOpen=true; else if(which==="elec")elecOpen=true;
   else if(which==="patch")patchOpen=true; else if(which==="mon")monOpen=true; else if(which==="load")loadOpen=true;
 }
@@ -26355,10 +26458,10 @@ function openItemContactModal(it){
         '<div id="icList" style="margin-top:6px;border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:180px;overflow-y:auto"></div>'+
         '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text-3);font-size:11px;font-weight:700;letter-spacing:.05em"><span style="flex:1;border-top:1px solid var(--border)"></span>OPPURE NUOVO CONTATTO<span style="flex:1;border-top:1px solid var(--border)"></span></div>'+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-          '<div><label class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
-          '<div><label class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
-          '<div><label class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
-          '<div><label class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
+          '<div><label for="icN" class="ic-l">Nome e cognome</label><input id="icN" class="ic-i" type="text" maxlength="60"></div>'+
+          '<div><label for="icR" class="ic-l">Ruolo <span style="font-weight:400;color:var(--text-3)">(dallo strumento)</span></label><input id="icR" class="ic-i" type="text" maxlength="40"></div>'+
+          '<div><label for="icT" class="ic-l">Telefono</label><input id="icT" class="ic-i" type="text" maxlength="40" placeholder="+39 …"></div>'+
+          '<div><label for="icE" class="ic-l">Email</label><input id="icE" class="ic-i" type="text" maxlength="60" placeholder="nome@…"></div>'+
         '</div>'+
         '<div style="margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:11px;color:var(--text-2);line-height:1.5">🔒 <b style="color:var(--accent-strong)">Solo nel tuo account.</b> Salvando, il contatto entra nella tua rubrica e viene assegnato a questa postazione. Condividerlo sarà sempre una scelta esplicita, spenta di default.</div>'+
         '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button id="icCancel" type="button" class="btn">Annulla</button><button id="icSave" type="button" class="btn primary">Salva e assegna</button></div>'+
