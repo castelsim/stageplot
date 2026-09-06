@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.09.02";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.09.06";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -2745,6 +2745,29 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
      Il banner qui sotto resta ancorato: anche position:fixed è containing block per gli absolute. */
   #venueCalibBanner{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--n-800);color:#fff;border-radius:999px;padding:8px 16px;font-size:13px;box-shadow:0 8px 24px rgba(38,33,24,.28);z-index:30;white-space:nowrap;pointer-events:none}
   #venueCalibBanner b{color:#7dd3c8}
+  /* SP-06 — LA VISTA ATTIVA SI DICHIARA (06/09). Aprire una lista tecnica cambia il disegno:
+     i musicisti diventano punti di sezione e il resto va in secondo piano. Senza una riga che lo
+     dica, e con l'uscita affidata a Esc o a un clic sul vuoto, la cosa si legge come «ho perso il
+     palco». Stesso ancoraggio del banner di calibrazione, ma questo si clicca. */
+  #vistaBanner{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:29;
+    display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px);
+    background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+    border-radius:999px;padding:6px 8px 6px 16px;font-size:13px;line-height:1.35;
+    box-shadow:0 6px 20px rgba(38,33,24,.16)}
+  #vistaBanner .vb-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+  #vistaBanner .vb-txt b{color:var(--text)}
+  #vistaBanner .vb-esci{flex:none;border:1px solid var(--border-strong);background:var(--surface);
+    color:var(--text);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;
+    cursor:pointer;min-height:32px;white-space:nowrap}
+  #vistaBanner .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
+  #vistaBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  body.dark #vistaBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  /* Sul telefono: stessa specificità (#vistaBanner) e SUBITO DOPO la regola base, o non vince —
+     è la lezione già pagata otto volte dentro #props. Il bottone resta un bersaglio da dito. */
+  @media (max-width:880px){
+    #vistaBanner{top:8px;gap:8px;padding:5px 6px 5px 12px;font-size:12px;max-width:calc(100% - 16px)}
+    #vistaBanner .vb-esci{padding:0 12px;min-height:44px;font-size:12px}
+  }
   #venueCalibPop{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 10px 26px rgba(38,33,24,.22);z-index:31;width:240px}
   #venueCalibPop label{font-size:12px;color:var(--text-2);display:block;margin:0 0 5px}
   #venueCalibPop input{width:64px;text-align:center;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:14px;background:var(--surface);color:var(--text)}
@@ -3093,7 +3116,7 @@ body.dark .ask-all .btn{background:transparent}
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
   <div class="mtop-r1">
-    <input type="text" id="mTitle" placeholder="Senza titolo">
+    <input aria-label="Titolo del progetto" type="text" id="mTitle" placeholder="Senza titolo">
     <span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span>
     <button class="mtbtn" id="bLearnM" aria-label="Guida e feedback" title="Guida e feedback" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg></button>
     <button class="avatar-btn avatar-btn-m" id="accountBtnM" title="Accedi per salvare online">Accedi</button>
@@ -3118,9 +3141,9 @@ body.dark .ask-all .btn{background:transparent}
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
   <button type="button" id="evChip" class="hdr-evchip" aria-haspopup="dialog" title="Data, orario e luogo dell'evento"></button>
   <div id="evPop" class="hdrmenu ev-pop" hidden>
-    <label class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
-    <label class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
-    <label class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
+    <label for="evDate" class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
+    <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
+    <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
     <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
   </div>
   <select id="projStatus" class="hdr-status" title="Stato del progetto (bozza → in revisione → approvato)"></select>
@@ -3208,10 +3231,11 @@ body.dark .ask-all .btn{background:transparent}
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <div id="venueCalibBanner" hidden></div>
+<div id="vistaBanner" hidden></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
   <div style="display:flex;gap:6px;align-items:center">
-    <input type="number" id="venueCalibDist" min="0.1" step="0.1" value="10">
+    <input aria-label="Distanza reale fra i due punti, in metri" type="number" id="venueCalibDist" min="0.1" step="0.1" value="10">
     <button class="btn primary" id="venueCalibApply">Applica</button>
     <button class="btn" id="venueCalibCancel" aria-label="Annulla calibrazione">✕</button>
   </div>
@@ -3267,12 +3291,12 @@ body.dark .ask-all .btn{background:transparent}
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Trascina o ridimensiona il rettangolo sul palco, oppure scrivi le misure.</div>
     <div id="frameBox">
       <div class="frame-row">
-        <div><label>Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
-        <div><label>Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
+        <div><label for="frameW">Larghezza (m)</label><input type="number" id="frameW" min="0.5" step="0.1"></div>
+        <div><label for="frameH">Profondità (m)</label><input type="number" id="frameH" min="0.5" step="0.1"></div>
       </div>
       <div class="frame-row">
-        <div><label>X (m)</label><input type="number" id="frameX" step="0.1"></div>
-        <div><label>Y (m)</label><input type="number" id="frameY" step="0.1"></div>
+        <div><label for="frameX">X (m)</label><input type="number" id="frameX" step="0.1"></div>
+        <div><label for="frameY">Y (m)</label><input type="number" id="frameY" step="0.1"></div>
       </div>
       <div class="frame-row" style="margin-top:10px">
         <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
@@ -3310,9 +3334,9 @@ body.dark .ask-all .btn{background:transparent}
     <div id="blkProps" hidden style="border-top:1px solid var(--border);margin-top:11px;padding-top:9px">
       <label id="blkTitle" style="font-weight:600;color:var(--text)">Blocco</label>
       <div class="stpr-grid">
-        <div class="stpr-f"><label>Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
-        <div class="stpr-f"><label>Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
-        <div class="stpr-f" id="blkHWrap"><label>Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
+        <div class="stpr-f"><label for="blkW">Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
+        <div class="stpr-f"><label for="blkD">Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
+        <div class="stpr-f" id="blkHWrap"><label for="blkH">Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
         <div class="stpr-f" id="blkFlatWrap" style="display:none;grid-column:1/-1"><label>Lato curvo verso</label>
           <div class="chips" data-chips="blkFlat">
             <button type="button" data-v="top">Pubblico</button>
@@ -3324,8 +3348,8 @@ body.dark .ask-all .btn{background:transparent}
         </div>
       </div>
       <div class="row" id="blkXYRow">
-        <span><label>X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
-        <span><label>Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
+        <span><label for="blkX">X (m)</label><input type="number" id="blkX" min="0" step="0.25"></span>
+        <span><label for="blkY">Y (m)</label><input type="number" id="blkY" min="0" step="0.25"></span>
       </div>
       <div id="blkPosGrid" hidden>
         <label class="pg-lab">Posizione sul palco</label>
@@ -3375,7 +3399,7 @@ body.dark .ask-all .btn{background:transparent}
             <div id="vstep2alt" hidden style="margin-top:8px">
               <small style="display:block;color:var(--text-2);font-size:12px">…oppure, se conosci la larghezza reale dell'immagine:</small>
               <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
-                <input type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
+                <input aria-label="Larghezza reale della planimetria, in metri" type="number" id="venueRealW" min="1" step="0.5" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)">
                 <span style="font-size:12px;color:var(--text-2);flex:0 0 auto">m</span>
                 <button class="btn" id="venueRealWApply" style="flex:0 0 auto;width:auto;margin-top:0">Applica</button>
               </div>
@@ -3388,14 +3412,14 @@ body.dark .ask-all .btn{background:transparent}
           <div class="vbody">
             <b>Rifinisci</b>
             <div id="venueOpacityRow" style="margin-top:6px">
-              <label>Opacità <span id="venueOpacityVal">40%</span></label>
+              <label for="venueOpacity">Opacità <span id="venueOpacityVal">40%</span></label>
               <input type="range" id="venueOpacity" min="5" max="100" step="5" value="40">
             </div>
             <div id="venueRotRow">
               <label>Rotazione <span id="venueRotVal">0°</span></label>
               <div style="display:flex;gap:6px;align-items:center">
-                <input type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
-                <input type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
+                <input aria-label="Rotazione della planimetria, in gradi" type="range" id="venueRot" min="-180" max="180" step="1" value="0" style="flex:1;padding:0;margin:0">
+                <input aria-label="Rotazione della planimetria, in gradi" type="number" id="venueRotNum" min="-180" max="180" step="1" value="0" style="width:54px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px;background:var(--surface);color:var(--text)">
               </div>
             </div>
             <div class="venue-row" style="margin-top:8px">
@@ -3440,7 +3464,7 @@ body.dark .ask-all .btn{background:transparent}
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
       <div id="pDiPrev" class="di-prev"></div>
       <div id="pDiForWrap" style="display:none">
-        <label class="di-lbl">Serve a</label>
+        <label for="pDiFor" class="di-lbl">Serve a</label>
         <select id="pDiFor"></select>
         <div class="di-note" id="pDiForNote"></div>
       </div>
@@ -3452,8 +3476,8 @@ body.dark .ask-all .btn{background:transparent}
       <label class="chk" style="margin-top:7px"><input type="checkbox" id="pDiSchema"> Icona schematica (simbolo)</label>
       <div class="di-note"><b>Passiva/Attiva</b>: le attive richiedono alimentazione (phantom 48V o batteria) — segnato in channel list. Modello reale qui sotto.</div>
     </div>
-    <div id="pLabelWrap"><input type="text" id="pLabel"></div>
-    <div id="pLabel2Wrap" style="display:none"><label>Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
+    <div id="pLabelWrap"><input aria-label="Etichetta" type="text" id="pLabel"></div>
+    <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0;white-space:nowrap">Etichetta</label>
@@ -3465,7 +3489,7 @@ body.dark .ask-all .btn{background:transparent}
         <button class="btn" id="pLblHidden" style="flex:1;font-size:12px;padding:5px 2px" title="Nascondi il nome per questo elemento">Nascosto</button>
       </div>
       <div id="pAbbrWrap" style="display:none;margin-top:6px">
-        <input type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
+        <input aria-label="Sigla" type="text" id="pAbbr" maxlength="8" placeholder="sigla" style="width:100%">
       </div>
     </div>
     <div id="pLblSizeWrap" class="sldrow">
@@ -3495,7 +3519,7 @@ body.dark .ask-all .btn{background:transparent}
          «ampli fornito dalla band», «da accordare». Sul palco resta un puntino accanto al nome:
          una nota che non si vede è una nota che nessuno legge. Il testo esce nella lista Note. -->
     <div id="pNoteWrap">
-      <textarea id="pNote" rows="2" maxlength="140" placeholder="es. shaker, claves, güiro"></textarea>
+      <textarea aria-label="Note" id="pNote" rows="2" maxlength="140" placeholder="es. shaker, claves, güiro"></textarea>
       <div class="prop-hint" id="pNoteHint">Va nella lista Note del rider; sul palco compare un puntino accanto al nome.</div>
     </div>
     <!-- FORMA: geometria, stile, colore, ordine. Testo/dimensione/colore-testo riusano i controlli
@@ -3512,7 +3536,7 @@ body.dark .ask-all .btn{background:transparent}
       <label>Colore</label>
       <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>
       <input type="color" id="pShapeFillFree" value="#0d9488" aria-label="Colore libero">
-      <label>Trasparenza <small class="lbl-note">— per usarla come area di sfondo</small></label>
+      <label for="pShapeOp">Trasparenza <small class="lbl-note">— per usarla come area di sfondo</small></label>
       <input type="range" id="pShapeOp" min="15" max="100" step="1" value="100">
       <label>Ordine <small class="lbl-note">— rispetto agli altri elementi</small></label>
       <div class="seg" role="group" aria-label="Ordine">
@@ -3530,7 +3554,7 @@ body.dark .ask-all .btn{background:transparent}
       </div>
     </div>
     <div id="pTxtColorWrap" style="display:none;margin-top:8px">
-      <label>Colore testo</label>
+      <label for="pTxtColor">Colore testo</label>
       <input type="color" id="pTxtColor" value="#1f2937" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer">
     </div>
     <div id="pLblPosWrap" style="display:none;margin-top:6px">
@@ -3552,20 +3576,20 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div id="pSbChWrap" style="display:none">
       <label class="chk" id="pSbFohWrap"><input type="checkbox" id="pSbFoh"> Stage box del mixer <small class="lbl-note">— lato regia</small></label>
-      <label>Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
+      <label for="pSbHw">Modello stage box <small id="pSbHwHint" style="color:var(--text-3);font-weight:400"></small></label><select id="pSbHw"></select>
       <div id="pSbEquip" style="display:none;font-size:11px;margin-top:3px"></div>
       <div id="pSbKind" style="font-size:11px;font-weight:600;margin:3px 0 2px"></div>
       <div id="pSbToRow" style="display:none;margin-top:4px">
-        <label>Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
+        <label for="pSbToSel">Collega a <small style="color:var(--text-3);font-weight:400">— dove entra la coda</small></label>
         <select id="pSbToSel"></select>
         <div id="pSbToHint" style="font-size:10px;color:var(--text-3);margin-top:2px"></div>
       </div>
-      <div id="pSbChRow"><label>Ingressi (input)</label>
+      <div id="pSbChRow"><label for="pSbCh">Ingressi (input)</label>
         <select id="pSbCh"><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></div>
-      <div id="pSbOutRow"><label>Uscite (per i monitor)</label>
+      <div id="pSbOutRow"><label for="pSbOut">Uscite (per i monitor)</label>
         <select id="pSbOut"><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select></div>
       <div id="pSbIdRow" style="display:none;margin-top:6px">
-        <label>Device ID <small style="color:var(--text-3);font-weight:400">— ordina la numerazione FOH</small></label>
+        <label for="pSbIdSel">Device ID <small style="color:var(--text-3);font-weight:400">— ordina la numerazione FOH</small></label>
         <select id="pSbIdSel"></select>
       </div>
       <div id="pSbPortsWrap" style="display:none;margin-top:6px">
@@ -3582,7 +3606,7 @@ body.dark .ask-all .btn{background:transparent}
     <!-- IL MIXER È UNA DESTINAZIONE (29/07): il modello decide quanti ingressi ha davvero, e la
          VARIANTE conta — il DM3 esiste con e senza Dante, e offrirlo a tutti sarebbe una bugia. -->
     <div id="pMixWrap" style="display:none">
-      <label>Modello <small class="lbl-note">— decide gli ingressi</small></label>
+      <label for="pMixHw">Modello <small class="lbl-note">— decide gli ingressi</small></label>
       <select id="pMixHw"></select>
       <div id="pMixIo" class="prop-hint"></div>
     </div>
@@ -3622,7 +3646,7 @@ body.dark .ask-all .btn{background:transparent}
     <!-- SCHEDA AUDIO: che modello è (i suoi I/O vengono dal registro, non si inventano) e con che
          cosa esce verso il mixer. Sul computer, invece, da quale scheda passa. -->
     <div id="pIfaceWrap" style="display:none">
-      <label>Modello</label>
+      <label for="pIfaceHw">Modello</label>
       <select id="pIfaceHw"></select>
       <div id="pIfaceOutRow" style="display:none;margin-top:8px">
         <label>Uscita verso il mixer</label>
@@ -3631,7 +3655,7 @@ body.dark .ask-all .btn{background:transparent}
       <div id="pIfaceHint" class="prop-hint"></div>
     </div>
     <div id="pCompIfaceWrap" style="display:none">
-      <label>Passa da una scheda audio</label>
+      <label for="pCompIface">Passa da una scheda audio</label>
       <select id="pCompIface"></select>
       <div id="pCompIfaceHint" class="prop-hint"></div>
     </div>
@@ -3677,11 +3701,11 @@ body.dark .ask-all .btn{background:transparent}
       <div id="pOwnMicHint" class="prop-hint"></div>
     </div>
     <div id="pZoneWrap" style="display:none">
-      <label>Opacità area</label>
+      <label for="pZoneOp">Opacità area</label>
       <input type="range" id="pZoneOp" min="0" max="60" step="1">
-      <label style="margin-top:8px">Microfono <small id="pZoneMicHint" style="color:var(--text-3);font-weight:400"></small></label>
+      <label for="pZoneMic" style="margin-top:8px">Microfono <small id="pZoneMicHint" style="color:var(--text-3);font-weight:400"></small></label>
       <input type="text" id="pZoneMic" placeholder="es. KM184" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
-      <label style="margin-top:8px">Etichetta</label>
+      <label for="pZoneLabel" style="margin-top:8px">Etichetta</label>
       <input type="text" id="pZoneLabel" placeholder="Zona panoramica">
       <div id="pZoneCount" style="font-size:11px;color:var(--text-2);margin-top:6px"></div>
       <div id="pZoneEditHint" style="font-size:11px;color:var(--text-3);margin-top:7px;line-height:1.5">Trascina i vertici per modellare l'area. Tocca un <b>+</b> sul bordo per aggiungere un punto; <b>Alt‑clic</b> su un vertice per rimuoverlo.</div>
@@ -3692,9 +3716,9 @@ body.dark .ask-all .btn{background:transparent}
       <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
     </div>
     <div class="row" id="pDims">
-      <span><label>L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
-      <span><label>P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
-      <span id="pHwrap"><label>h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
+      <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
+      <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
+      <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
     </div>
     <div id="pDimSideWrap" style="display:none">
       <label id="pDimSideLbl">Lato quota</label>
@@ -3741,14 +3765,14 @@ body.dark .ask-all .btn{background:transparent}
       </select>
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
-    <div id="pRampWrap" style="display:none"><label>Formato</label><select id="pRamp"></select></div>
-    <div id="pGazWrap" style="display:none"><label>Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
+    <div id="pRampWrap" style="display:none"><label for="pRamp">Formato</label><select id="pRamp"></select></div>
+    <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
       <input type="range" id="pRot" min="-180" max="180" step="1" value="0">
       <output id="pRotVal">0°</output></div>
-    <div id="pWattWrap" style="display:none"><label>Potenza (W)</label>
+    <div id="pWattWrap" style="display:none"><label for="pWatt">Potenza (W)</label>
       <input type="number" id="pWatt" min="0" step="10" inputmode="numeric">
     </div>
     <!-- «Fornito da» TOLTO dal pannello dell'elemento il 26/08 (segnalazione): chi porta cosa si
@@ -3773,22 +3797,22 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
       <div class="row">
-        <span><input type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
-        <span><input type="text" id="pBand" placeholder="banda (UHF…)" list="rfBandList"></span>
+        <span><input aria-label="Frequenza RF in MHz" type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
+        <span><input aria-label="Banda RF" type="text" id="pBand" placeholder="banda (UHF…)" list="rfBandList"></span>
       </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
     <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
       <div class="row">
-        <span><select id="pPmBrand"></select></span>
-        <span><select id="pPmModel"></select></span>
+        <span><select aria-label="Marca del personal monitor" id="pPmBrand"></select></span>
+        <span><select aria-label="Modello del personal monitor" id="pPmModel"></select></span>
       </div>
       <div id="pPmInfo" style="font-size:11px;color:var(--text-3);margin-top:5px"></div>
       <div id="pPmState" style="font-size:12px;font-weight:600;margin-top:3px"></div>
       <div id="pPmFeedWrap" style="display:none;margin-top:8px">
         <label>Alimentato da <small style="color:var(--text-3);font-weight:400">— sorgente dei canali cuffia</small></label>
         <div id="pPmFeedSeg" class="feed-seg"><div data-v="console">Omni out console</div><div data-v="dante">Rete Dante</div></div>
-        <div id="pPmFeedChRow" style="margin-top:6px"><label>Canali dalla console</label>
+        <div id="pPmFeedChRow" style="margin-top:6px"><label for="pPmFeedCh">Canali dalla console</label>
           <select id="pPmFeedCh"></select></div>
         <div id="pPmFeedHint" style="font-size:11px;color:var(--text-3);margin-top:3px"></div>
       </div>
@@ -3796,15 +3820,15 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div id="pBmWrap" style="display:none"><label title="Marca e modello del pezzo di backline: da qui arrivano l'assorbimento dichiarato dal costruttore e il peso di targa, al posto della stima di categoria">Modello del backline <small class="lbl-note">— quello vero: porta i watt e i chili</small></label>
       <div class="row row-modello">
-        <span><select id="pBmBrand"></select></span>
-        <span><select id="pBmModel"></select></span>
+        <span><select aria-label="Marca del backline" id="pBmBrand"></select></span>
+        <span><select aria-label="Modello del backline" id="pBmModel"></select></span>
       </div>
       <div id="pBmInfo" class="prop-hint"></div>
     </div>
     <div id="pLmWrap" style="display:none"><label title="Marca e modello dell'apparecchio: da qui arrivano i watt assorbiti, l'attacco per i modificatori, l'alimentazione e il controllo">Modello della luce <small class="lbl-note">— quello vero: i watt li porta lui</small></label>
       <div class="row">
-        <span><select id="pLmBrand"></select></span>
-        <span><select id="pLmModel"></select></span>
+        <span><select aria-label="Marca della luce" id="pLmBrand"></select></span>
+        <span><select aria-label="Modello della luce" id="pLmModel"></select></span>
       </div>
       <div id="pLmInfo" class="prop-hint"></div>
     </div>
@@ -3869,7 +3893,7 @@ body.dark .ask-all .btn{background:transparent}
       <label class="chk"><input type="checkbox" id="pDirSgab"> Sgabello</label>
       <label class="chk"><input type="checkbox" id="pDirMic"> Microfono talkback (parla a tecnici e musicisti)</label>
       <div id="pDirMicWrap" style="display:none;margin-top:5px">
-        <label style="font-size:11px;color:var(--text-3)">Tipo microfono</label>
+        <label for="pDirMicType" style="font-size:11px;color:var(--text-3)">Tipo microfono</label>
         <select id="pDirMicType" style="width:100%">
           <option value="palmare">Palmare con interruttore (gelato) — es. SM58S</option>
           <option value="collodoca">Collo d'oca talkback da podio — es. ATR3M</option>
@@ -3891,10 +3915,10 @@ body.dark .ask-all .btn{background:transparent}
       <select id="pUsoSel" style="width:100%;font-size:12px"></select>
     </div>
     <div id="pSafetyWrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-      <label style="font-size:11px;color:#b45309;font-weight:600;display:block;margin-bottom:6px">🛟 Info sicurezza <small style="color:var(--text-3);font-weight:400">— per il piano di sicurezza</small></label>
+      <label for="pSafeDesc" style="font-size:11px;color:#b45309;font-weight:600;display:block;margin-bottom:6px">🛟 Info sicurezza <small style="color:var(--text-3);font-weight:400">— per il piano di sicurezza</small></label>
       <input id="pSafeDesc" type="text" placeholder="Descrizione (es. estintore CO₂)" style="width:100%;font-size:12px;margin-bottom:6px">
-      <input id="pSafeCap" type="text" placeholder="Capacità / portata (es. 6 kg · 500 pax)" style="width:100%;font-size:12px;margin-bottom:6px">
-      <input id="pSafeNote" type="text" placeholder="Note (verifica, scadenza, posizione…)" style="width:100%;font-size:12px">
+      <input aria-label="Capacità o portata" id="pSafeCap" type="text" placeholder="Capacità / portata (es. 6 kg · 500 pax)" style="width:100%;font-size:12px;margin-bottom:6px">
+      <input aria-label="Note sulla dotazione di sicurezza" id="pSafeNote" type="text" placeholder="Note (verifica, scadenza, posizione…)" style="width:100%;font-size:12px">
     </div>
     <div id="pRespWrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
       <label style="font-size:11px;color:var(--text-2);font-weight:600;display:block;margin-bottom:5px">Responsabile <small id="pRespDept" style="color:var(--text-3);font-weight:400"></small></label>
@@ -3909,25 +3933,25 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div id="pInRack" style="display:none;font-size:12px;margin:6px 0"></div>
     <div id="pRxWrap" style="display:none">
-      <label>Marca e modello</label><select id="pRxHw"></select>
-      <div id="pRxNRow" style="display:none"><label>Canali RF</label><select id="pRxN"></select></div>
-      <label>Banda <small style="color:var(--text-3);font-weight:400">— es. R1-9 (facoltativa)</small></label>
+      <label for="pRxHw">Marca e modello</label><select id="pRxHw"></select>
+      <div id="pRxNRow" style="display:none"><label for="pRxN">Canali RF</label><select id="pRxN"></select></div>
+      <label for="pRxBand">Banda <small style="color:var(--text-3);font-weight:400">— es. R1-9 (facoltativa)</small></label>
       <input id="pRxBand" type="text" maxlength="12" placeholder="—">
       <label>Canali <small style="color:var(--text-3);font-weight:400">— associazione automatica, cambia dalla tendina</small></label>
       <div id="pRxChs"></div>
       <div id="pRxKv" style="margin-top:4px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pAntWrap" style="display:none">
-      <label>Marca e modello</label><select id="pAntHw"></select>
+      <label for="pAntHw">Marca e modello</label><select id="pAntHw"></select>
       <div id="pAntKv" style="font-size:11px;color:var(--text-2);margin:2px 0 6px"></div>
-      <div id="pAntAngRow"><label>Angolo di copertura</label><select id="pAntAng">
+      <div id="pAntAngRow"><label for="pAntAng">Angolo di copertura</label><select id="pAntAng">
         <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="100">100° (paddle larga)</option><option value="360">Omnidirezionale</option></select></div>
-      <label>Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
+      <label for="pAntH">Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
       <input id="pAntH" type="number" min="0" max="10" step="0.5" placeholder="2.5">
       <div style="font-size:11px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
     </div>
     <div id="pSwWrap" style="display:none">
-      <label>Porte</label><select id="pSwPorts">
+      <label for="pSwPorts">Porte</label><select id="pSwPorts">
         <option value="5">5</option><option value="8">8</option><option value="10">10</option>
         <option value="16">16</option><option value="24">24</option></select>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:6px">
@@ -3935,12 +3959,12 @@ body.dark .ask-all .btn{background:transparent}
       <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
     <div id="pRackWrap" style="display:none">
-      <label>Funzione</label><select id="pRackFn"></select>
-      <label>Dimensione</label><select id="pRackU"></select>
+      <label for="pRackFn">Funzione</label><select id="pRackFn"></select>
+      <label for="pRackU">Dimensione</label><select id="pRackU"></select>
       <label>Apparecchi <small style="color:var(--text-3);font-weight:400">— ordine dall'alto</small></label>
       <div id="pRackRows"></div>
       <div style="display:flex;gap:6px;margin-top:6px">
-        <select id="pRackAdd" style="flex:1;font-size:12px;min-width:0"></select>
+        <select aria-label="Apparecchio da aggiungere al rack" id="pRackAdd" style="flex:1;font-size:12px;min-width:0"></select>
         <button type="button" class="btn primary" id="pRackAddBtn" style="width:auto;margin-top:0;padding:6px 12px">+</button>
       </div>
       <div class="rack-ubar"><i id="pRackUbar"></i></div>
@@ -3969,23 +3993,23 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div id="grpSbWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Stage box selezionate <span id="grpSbN" class="muted"></span></div>
-      <label>Modello (tutte)</label><select id="grpSbHw"></select>
+      <label for="grpSbHw">Modello (tutte)</label><select id="grpSbHw"></select>
       <div id="grpSbGenRows">
-        <label>Ingressi (input)</label>
+        <label for="grpSbCh">Ingressi (input)</label>
         <select id="grpSbCh"><option value="">— invariato —</option><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select>
-        <label>Uscite (per i monitor)</label>
+        <label for="grpSbOut">Uscite (per i monitor)</label>
         <select id="grpSbOut"><option value="">— invariato —</option><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select>
       </div>
       <div class="prop-hint">Le modifiche si applicano a tutte le stage box selezionate e restano salvate.</div>
     </div>
     <div id="grpZoneWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Microfonazione panoramica</div>
-      <input type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
+      <input aria-label="Microfono della zona" type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
       <button class="btn" id="bGrpZone" style="width:100%;margin-top:6px">Crea zona microfonazione</button>
       <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella input list.</div>
     </div>
     <div id="grpLblWrap" style="display:none;margin-bottom:8px">
-      <label style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
+      <label for="grpLblSize" style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
       <input type="range" id="grpLblSize" min="0" max="34" step="1" value="14" style="width:100%;padding:0">
       <div id="grpLblPosWrap" style="display:none;margin-top:6px">
         <label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Posizione etichetta</label>
@@ -3997,9 +4021,9 @@ body.dark .ask-all .btn{background:transparent}
     </div>
     <div id="grpDist" class="prop-card" style="display:none">
       <div class="prop-card__head"><span id="grpDistTitle">Distribuisci sulla pedana</span></div>
-      <label style="display:flex;justify-content:space-between;align-items:baseline">Numero <span id="grpDistNVal" style="color:var(--text);font-weight:600">8</span></label>
+      <label for="grpDistN" style="display:flex;justify-content:space-between;align-items:baseline">Numero <span id="grpDistNVal" style="color:var(--text);font-weight:600">8</span></label>
       <input type="number" id="grpDistN" min="1" max="120" value="8" style="width:100%">
-      <label style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">Equidistanza <span id="grpDistEqVal" style="color:var(--text);font-weight:600">100%</span></label>
+      <label for="grpDistEq" style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">Equidistanza <span id="grpDistEqVal" style="color:var(--text);font-weight:600">100%</span></label>
       <input type="range" id="grpDistEq" min="0" max="100" step="1" value="100" style="width:100%;padding:0">
     </div>
     <div class="row">
@@ -4051,7 +4075,7 @@ body.dark .ask-all .btn{background:transparent}
       <div id="lightsCard"></div>
       <div id="lightsMoodCard" class="prop-card" style="margin-top:9px">
         <div class="prop-card__head">Clima luminoso <span class="muted">tutto lo spettacolo</span></div>
-        <input type="text" id="lightsMood" class="lights-inp" placeholder="es. calda, morbida e teatrale">
+        <input aria-label="Clima luminoso" type="text" id="lightsMood" class="lights-inp" placeholder="es. calda, morbida e teatrale">
         <p class="prop-hint">Chiude la sezione LUCI del rider: «L'illuminazione dovrà essere…».</p>
       </div>
     </div>
@@ -4149,7 +4173,7 @@ body.dark .ask-all .btn{background:transparent}
     <div id="versBox">
       <h3>Punti di ripristino</h3>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <input type="text" id="versName" placeholder="Nome (es. prova suono)…">
+        <input aria-label="Nome della versione" type="text" id="versName" placeholder="Nome (es. prova suono)…">
         <button class="btn primary" id="versSave" style="white-space:nowrap;font-size:12px;flex-shrink:0">Salva</button>
       </div>
       <div id="versList"></div>
@@ -4216,7 +4240,7 @@ body.dark .ask-all .btn{background:transparent}
     <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">✕</button>
   </div>
   <div class="fb-body" id="fbBody">
-    <textarea id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
+    <textarea aria-label="Il tuo messaggio" id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
     <div class="fb-count"><span id="fbCount">0</span>/1000</div>
     <div class="fb-chips">
       <button type="button" class="fb-chip" data-hint="bug">Bug</button>
@@ -4242,7 +4266,7 @@ body.dark .ask-all .btn{background:transparent}
     <label class="fb-attach chk" id="fbAttachRow" style="display:none">
       <input type="checkbox" id="fbAttach"> Allega il mio progetto</label>
     <!-- honeypot anti-bot: nascosto agli umani -->
-    <input type="text" id="fbHp" tabindex="-1" autocomplete="off"
+    <input type="text" id="fbHp" tabindex="-1" aria-hidden="true" autocomplete="off"
       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
     <button class="fb-send" id="fbSend">Invia</button>
     <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
@@ -4321,7 +4345,7 @@ body.dark .ask-all .btn{background:transparent}
   <div class="mcard">
     <h2>Organico orchestra</h2>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="orchPreset">Preset</label>
       <select id="orchPreset"></select>
     </div>
     <p class="hint" id="orchHint">Postazioni per sezione (0 = assente). Disposizione standard: archi ad arco attorno al podio,
@@ -4394,7 +4418,7 @@ body.dark .ask-all .btn{background:transparent}
     <h2>Organico archi</h2>
     <p class="hint">Inserisci il numero di musicisti. L'app crea postazioni a leggio: 2 archi + 1 leggio dove possibile, con eventuale postazione singola per i numeri dispari.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="strPreset">Preset</label>
       <select id="strPreset">
         <option value="8,6,4,4,2">Orchestra d'archi — 8.6.4.4.2</option>
         <option value="6,5,4,3,2">Ridotta — 6.5.4.3.2</option>
@@ -4426,7 +4450,7 @@ body.dark .ask-all .btn{background:transparent}
     <h2>Organico coro</h2>
     <p class="hint">Inserisci il numero di coristi per sezione. L'app dispone le voci in file: Soprani e Contralti davanti, Tenori e Bassi dietro, con direttore e microfoni d'insieme.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="voicePreset">Preset</label>
       <select id="voicePreset">
         <option value="12,12,8,8">Coro sinfonico — 12.12.8.8</option>
         <option value="8,8,6,6">Coro medio — 8.8.6.6</option>
@@ -4458,7 +4482,7 @@ body.dark .ask-all .btn{background:transparent}
     <h2>Organico legni</h2>
     <p class="hint">Inserisci quanti strumenti per famiglia. Disposizione standard: flauti e oboi davanti, clarinetti e fagotti dietro. Ogni postazione ha sedia + leggio.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="legPreset">Preset</label>
       <select id="legPreset">
         <option value="2,2,2,2">Sinfonica standard — 2.2.2.2</option>
         <option value="3,3,3,3">Grande — 3.3.3.3</option>
@@ -4487,7 +4511,7 @@ body.dark .ask-all .btn{background:transparent}
     <h2>Organico ottoni</h2>
     <p class="hint">Inserisci quanti strumenti per famiglia. Disposizione standard: corni davanti, trombe/tromboni/tuba dietro (sax, se presenti, in prima fila). Ogni postazione ha sedia + leggio.</p>
     <div class="opreset">
-      <label>Preset</label>
+      <label for="ottPreset">Preset</label>
       <select id="ottPreset">
         <option value="4,3,3,1,0,0,0">Sinfonica — 4 corni · 3 trombe · 3 tromboni · 1 tuba</option>
         <option value="6,4,4,1,0,0,0">Grande — 6.4.4.1</option>
@@ -4526,7 +4550,7 @@ body.dark .ask-all .btn{background:transparent}
       <button class="btn primary" id="aiOpen">Apri ChatGPT (prompt pronto)</button>
       <button class="btn" id="aiCopy">Copia prompt</button>
     </div>
-    <label style="display:block;margin-top:14px;font-size:12px;color:var(--text-2)">Incolla qui il link (o il JSON) che ti dà ChatGPT:</label>
+    <label for="aiPaste" style="display:block;margin-top:14px;font-size:12px;color:var(--text-2)">Incolla qui il link (o il JSON) che ti dà ChatGPT:</label>
     <textarea id="aiPaste" rows="3" style="width:100%;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:Menlo,monospace;background:var(--surface);color:var(--text)" placeholder="https://stageplot.it/app/#d=…  oppure  {…JSON…}"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn primary" id="aiLoad">Carica nel palco</button>
@@ -4556,7 +4580,7 @@ body.dark .ask-all .btn{background:transparent}
         <div id="shareIntroTxt" style="flex:1;font-size:12px;color:var(--text-2);line-height:1.5">Chi apre il link vede il palco <b>in sola lettura</b>, sempre aggiornato all'ultima modifica.</div>
       </div>
       <div id="shareUrlRow" style="display:flex;gap:8px;align-items:stretch;margin-top:12px">
-        <input type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
+        <input aria-label="Link da copiare" type="text" id="shareUrl" readonly onclick="this.select()" style="flex:1;min-width:0;font-size:13px;padding:10px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-raised);color:var(--text)">
         <button class="btn" id="shareNative" hidden>Condividi…</button>
         <button class="btn primary" id="shareCopy">Copia</button>
       </div>
@@ -4723,7 +4747,7 @@ body.dark .ask-all .btn{background:transparent}
       <label class="rnd-f">Persone<select id="rndPeople"><option>Mostrare i musicisti</option><option>Mostrare solo gli strumenti e l'attrezzatura</option><option>Automatico</option></select></label>
     </div>
     <div id="rndWarn" class="hint" style="color:var(--warning);display:none;margin:8px 0 0"></div>
-    <div id="rndPreview" style="display:none;margin-top:12px"><textarea id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
+    <div id="rndPreview" style="display:none;margin-top:12px"><textarea aria-label="Testo del rider" id="rndText" readonly style="width:100%;height:230px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1.45;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface);color:var(--text);resize:vertical"></textarea></div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;align-items:center">
       <button class="btn primary" id="rndCopy" style="flex:1;min-width:130px">Copia prompt</button>
       <button class="btn" id="rndShow">Mostra prompt</button>
@@ -4753,10 +4777,10 @@ body.dark .ask-all .btn{background:transparent}
       <!-- Griglia e larghezze stanno nel CSS, non qui: inline vincevano su ogni regola del
            telefono, e i quattro campi restavano quattro per riga anche a 390 px. (02/09) -->
       <div class="pa-nums">
-        <div><label>Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
-        <div><label>Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
-        <div><label>X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
-        <div><label>Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
+        <div><label for="paW2">Larghezza (m)</label><input type="number" id="paW2" min="0.5" step="0.1"></div>
+        <div><label for="paH2">Profondità (m)</label><input type="number" id="paH2" min="0.5" step="0.1"></div>
+        <div><label for="paX2">X origine (m)</label><input type="number" id="paX2" step="0.1"></div>
+        <div><label for="paY2">Y origine (m)</label><input type="number" id="paY2" step="0.1"></div>
       </div>
       <div class="pa-pre">
         <button class="btn" id="paPreStage">= Palco</button>
@@ -4812,7 +4836,7 @@ body.dark .ask-all .btn{background:transparent}
         </div>
         <div class="pdf-optrow">
           <div>
-            <label>Formato</label>
+            <label for="pdfPaper">Formato</label>
             <select id="pdfPaper" hidden>
               <option value="a4">A4 (29,7×21 cm)</option>
               <option value="a3">A3 (42×29,7 cm)</option>
@@ -4840,7 +4864,7 @@ body.dark .ask-all .btn{background:transparent}
             </div>
           </div>
           <div id="pdfScaleRow">
-            <label>Scala</label>
+            <label for="pdfScale">Scala</label>
             <select id="pdfScale">
               <option value="auto">Automatica</option>
               <option value="50">1:50</option>
@@ -4854,13 +4878,13 @@ body.dark .ask-all .btn{background:transparent}
         </div>
         <div id="pdfScaleCustomRow" hidden style="display:flex;align-items:center;gap:6px;margin-top:6px">
           <span style="font-size:13px;color:var(--text-2)">1:</span>
-          <input type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
+          <input aria-label="Scala personalizzata" type="number" id="pdfScaleCustom" min="10" max="500" step="1" value="75" style="width:82px" inputmode="numeric">
           <span style="font-size:12px;color:var(--text-3)">(10–500)</span>
         </div>
         <div id="pdfHdrRow">
         <label>Riferimento nel cartiglio <span class="hdr-why">— stampato in basso su ogni pagina</span></label>
         <div class="hdr-wrap">
-          <input type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
+          <input aria-label="Contatto stampato in testata" type="text" id="pdfHeader" placeholder="Es. Fonico: Nome · +39 …" maxlength="120">
           <button type="button" class="rub-btn" id="pdfHdrRub">Rubrica ▾</button>
           <div class="rub-menu" id="pdfHdrMenu" hidden></div>
         </div>
