@@ -3376,11 +3376,43 @@ t("il fulmine non tocca un canale già cablato e non inventa destinazioni", () =
 t("il fulmine c'è solo sulle righe non cablate, ed è VISIBILE senza passarci sopra", () => {
   /* 28/07 — aveva opacity:0 e compariva solo in hover: con due canali da collegare non si vedeva
      nessun comando. Ora la riga non cablata mostra il fulmine al posto del cestino. */
-  ok(appjs.indexOf('zp.setAttribute("aria-label","Collega questo canale")') > -1, "nome accessibile");
+  ok(appjs.indexOf('zp.setAttribute("aria-label",_zt)') > -1 && appjs.indexOf("var _zt=cabZapTitle(r, pl.rows)") > -1,
+     "nome accessibile, e dice quanti canali muove davvero (SP-02)");
   ok(appjs.indexOf('if(r.box){') > -1 && appjs.indexOf('lite-trash') > -1, "cablato = cestino, non cablato = fulmine");
   eq(stylesCss.indexOf(".cab-one{border:none;background:none;color:var(--accent-strong);font-size:11px;cursor:pointer;\n    opacity:0"), -1,
      "niente più opacity:0 sul fulmine");
   ok(stylesCss.indexOf(".lite-btn") > -1, "i due bottoni di riga hanno uno stile comune");
+});
+
+/* SP-02 (audit esterno 05/09): «un comando dichiarato singolo collega un gruppo». Il fulmine sulla
+   riga Kick collegava tutti e otto i canali della batteria — giusto (un multipolare solo), ma non
+   annunciato: il tooltip diceva «Collega questo canale». */
+t("il fulmine dichiara quanti canali muove davvero", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.__cabRes = null;
+  const bat = add("batteria", 100, 100), voc = add("cantante", 300, 100);
+  add("stagebox", 500, 100); A.__cabRes = null;
+  const rows = A.patchList().rows;
+  const kick = rows.filter((r) => r.itemId === bat.id)[0];
+  const solo = rows.filter((r) => r.itemId === voc.id)[0];
+  eq(A.cabZapScope(kick, rows), 8, "la batteria muove otto canali");
+  eq(A.cabZapScope(solo, rows), 1, "il cantante ne muove uno");
+  ok(/8 canali insieme/.test(A.cabZapTitle(kick, rows)), "il tooltip non dice quanti sono: " + A.cabZapTitle(kick, rows));
+  ok(/Batteria/.test(A.cabZapTitle(kick, rows)), "il tooltip non nomina la sorgente: " + A.cabZapTitle(kick, rows));
+  eq(A.cabZapTitle(solo, rows), "Collega questo canale", "su una sorgente mono il testo resta quello semplice");
+});
+
+t("i canali già collegati non si contano nell'annuncio del fulmine", () => {
+  /* Se sei degli otto sono già in porta, il fulmine ne muove due: dirne otto sarebbe la stessa
+     bugia al contrario. */
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "manual"; A.state.cab.manual = {}; A.__cabRes = null;
+  const bat = add("batteria", 100, 100);
+  add("stagebox", 500, 100); A.__cabRes = null;
+  const rows = A.patchList().rows.map((r) => Object.assign({}, r));
+  rows.forEach((r, i) => { if (r.itemId === bat.id && i < 6) r.box = { id: "b1" }; });
+  const libera = rows.filter((r) => r.itemId === bat.id && !r.box)[0];
+  eq(A.cabZapScope(libera, rows), 2, "conta anche quelli già in porta");
 });
 t("la Monitor list resta a due livelli (là il nome si troncava)", () => {
   ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
@@ -7443,6 +7475,159 @@ t("le misure hanno una provenienza dichiarata nel sorgente: niente numeri invent
     ok(rx.test(blocco), "manca il riferimento da cui viene la misura: " + rx));
 });
 
+console.log("\n— Le istruzioni nominano comandi che esistono —");
+
+/* SP-09 (audit esterno 05/09): «l'audit invita ad attivare il cablaggio audio/elettrico mentre i
+   controlli principali usano altri nomi». Verificato: in tutta l'app non esiste nessun comando
+   chiamato «Cablaggio audio» ne' «Cablaggio elettrico» — le liste si chiamano Input, Output e
+   Power. Un'istruzione che nomina un comando inesistente non e' un'imprecisione: manda a cercare
+   una cosa che non c'e', e chi non la trova pensa di aver sbagliato lui. */
+t("l'audit manda a comandi che esistono davvero", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ["Attiva Cablaggio elettrico", "attiva Cablaggio audio"].forEach((frase) => {
+    eq(appjs.indexOf(frase), -1, "l'audit nomina un comando che non esiste: «" + frase + "»");
+  });
+  /* e i nomi citati sono quelli veri: le liste nel pannello layer */
+  ok(/apri la lista Input/.test(appjs), "il rimedio della stage box non nomina la lista Input");
+  ok(/Apri la lista Power/.test(appjs), "il rimedio del distro non nomina la lista Power");
+  ok(appjs.indexOf('name:"Input"') > -1 && appjs.indexOf('name:"Power"') > -1, "…e quelle liste si chiamano ancora cosi'");
+  ok(/id="clDlg"/.test(html) || appjs.indexOf("Channel list") > -1, "«Channel list», invece, esiste: quella citazione era giusta");
+});
+
+t("«Produzione avanzata» non si chiama come i reparti di produzione", () => {
+  /* Sotto quell'etichetta stanno Power, Luci e P.M.: impianti tecnici. I REPARTI di produzione
+     (catering, logistica, sicurezza, trasporti) esistono davvero e stanno altrove, in File →
+     Produzione. Due cose diverse con lo stesso nome, nella stessa app. */
+  eq(appjs.indexOf("</span>Produzione avanzata"), -1, "il gruppo si chiama ancora come i reparti");
+  ok(appjs.indexOf("</span>Impianti tecnici") > -1, "il gruppo delle liste tecniche ha perso il nome");
+});
+
+console.log("\n— Nomi accessibili dei campi —");
+
+/* SP-15 (audit esterno 05/09): «alcuni campi numerici e testuali risultano senza nome accessibile».
+   Misurati nel browser il 05/09: 87 controlli su 239 senza nessuna fonte di nome — chi naviga da
+   tastiera o con uno screen reader sentiva «casella di modifica» e basta. Ottantuno avevano gia'
+   l'etichetta A VIDEO, solo non collegata: il difetto non era la mancanza di parole, era il
+   `for` che non c'era. Dopo: zero su 225 raggiungibili.
+   Questo test guarda il markup STATICO: le righe generate dai motori hanno i loro aria-label
+   altrove nella suite. */
+t("ogni campo raggiungibile ha un nome accessibile", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* CSS e JS non sono markup: un commento che nomina un <select> non e' un campo (riga 1667). */
+  const bianca = (b) => b.replace(/[^\n]/g, " ");
+  const markup = html.replace(/<style[\s\S]*?<\/style>/g, bianca).replace(/<script[\s\S]*?<\/script>/g, bianca);
+  const righe = markup.split("\n");
+  const forSet = new Set([...markup.matchAll(/<label[^>]*\sfor="([^"]+)"/g)].map((m) => m[1]));
+  const senza = [];
+  let dentroLabel = 0;   /* <label class="chk"> si apre su una riga e si chiude su quella dopo */
+  righe.forEach((l, i) => {
+    const re = /<label\b|<\/label>|<(input|select|textarea)\b((?:[^>"]|"[^"]*")*)>/g;
+    let m;
+    while ((m = re.exec(l))) {
+      if (m[0] === "<label") { dentroLabel++; continue; }
+      if (m[0] === "</label>") { dentroLabel = Math.max(0, dentroLabel - 1); continue; }
+      const attr = m[2] || "";
+      if (/type="hidden"/.test(attr) || /\shidden(?=[\s>]|$)/.test(attr) || /aria-hidden="true"/.test(attr)) continue;
+      if (/aria-label=|aria-labelledby=|\stitle=/.test(attr)) continue;
+      if (dentroLabel > 0) continue;                       /* il controllo sta DENTRO la sua etichetta */
+      const id = (attr.match(/\sid="([^"]+)"/) || [])[1];
+      if (id && forSet.has(id)) continue;
+      senza.push((i + 1) + ": " + (id || m[1]));
+    }
+  });
+  eq(senza.length, 0, "campi senza nome accessibile:\n      " + senza.slice(0, 12).join("\n      "));
+});
+
+t("il campo trappola anti-spam non viene annunciato", () => {
+  /* fbHp e' l'honeypot: invisibile al mouse ma un lettore di schermo ci sarebbe entrato dentro
+     e avrebbe invitato a compilarlo — cioe' a farsi scartare il messaggio. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const riga = html.split("\n").filter((l) => /id="fbHp"/.test(l))[0] || "";
+  ok(/aria-hidden="true"/.test(riga), "l'honeypot e' ancora annunciato: " + riga.trim().slice(0, 120));
+});
+
+console.log("\n— La vista attiva si dichiara (SP-06) —");
+
+/* SP-06 (audit esterno 05/09): «liste, livelli e modalita' di lavoro sono mescolati». Provato a
+   video il 06/09 su una Band: aprire la lista Input non apre solo una tabella — riduce musicisti e
+   strumenti a PUNTI DI SEZIONE e manda le spie a .15 di opacita', cioe' a un fantasma. E' la vista
+   giusta per cablare, ma non lo diceva nessuno e la via d'uscita (Esc, o un clic sul vuoto) non si
+   vede: chi apriva «Input» per leggere una tabella si trovava il palco svuotato senza capire ne'
+   perche' ne' come tornare indietro. */
+t("la vista attiva ha sempre un nome, o non c'e'", () => {
+  reset();
+  A.layerAccOpen = null; A.layerSoloUI = {};
+  eq(A.vistaAttivaId(), null, "a palco intero non c'e' nessuna vista attiva");
+  A.layerAccOpen = "cabin";
+  eq(A.vistaAttivaId(), "cabin", "la lista aperta e' la vista attiva");
+  A.layerAccOpen = null; A.layerSoloUI = { elec: true };
+  eq(A.vistaAttivaId(), "elec", "anche il solo senza lista aperta e' una vista attiva");
+  A.layerSoloUI = {};
+});
+
+t("il banner non annuncia un cambio che non c'e' stato", () => {
+  /* Con il motore del cablaggio spento la riga «Input» e' solo un invito ad attivare: pruneSolo()
+     toglie il solo a ogni render, il disegno resta intero — e il banner diceva lo stesso «il resto
+     del palco e' in secondo piano». Trovato provandolo a video, non leggendo il codice. */
+  const i = appjs.indexOf("function renderVistaBanner()");
+  ok(i > -1, "manca la funzione");
+  const corpo = appjs.slice(i, i + 1400);
+  ok(/if\(!id \|\| !anySolo\(\)\)/.test(corpo),
+     "il banner non controlla che il disegno sia davvero diviso: annuncerebbe un cambio inesistente");
+  ok(/soloSplit = anySolo\(\)/.test(appjs), "…e anySolo() dev'essere ancora la condizione che divide il disegno");
+});
+
+t("il banner della vista si disegna a ogni render", () => {
+  ok(typeof A.renderVistaBanner === "function", "manca la funzione che disegna il banner");
+  ok(/renderVistaBanner\(\);/.test(appjs), "nessuno la chiama");
+  const iRender = appjs.indexOf("function render(){");
+  const iFine = appjs.indexOf("\n}", appjs.indexOf("scaleInfo", iRender));
+  ok(appjs.slice(iRender, iFine).indexOf("renderVistaBanner()") > -1, "non e' dentro render(): il banner resterebbe indietro");
+  ok(/id="vistaBanner"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "manca il nodo nel markup");
+});
+
+t("uscire dalla vista e' un comando che si vede", () => {
+  /* Prima si usciva solo con Esc o con un clic sul vuoto: due gesti che nessuno indovina. */
+  ok(/Mostra tutto il palco/.test(appjs), "manca il comando di ritorno");
+  const i = appjs.indexOf("vistaEsci");
+  ok(i > -1 && /exitListMode\(\); render\(\)/.test(appjs.slice(i, i + 400)),
+     "il comando non riporta davvero al palco intero");
+});
+
+t("il contesto sfumato resta leggibile: «fuoco» non e' «isolamento»", () => {
+  /* A .15 il contesto era invisibile, quindi il fuoco somigliava all'isolamento e il bottone S non
+     distingueva piu' niente da quello che faceva gia' il clic sulla riga. */
+  ok(/class="solo-bg" style="opacity:\.42"/.test(appjs), "l'opacita' del contesto non e' quella misurata a video");
+  eq(appjs.indexOf('class="solo-bg" style="opacity:.15"'), -1, "e' tornata l'opacita' che rendeva il contesto un fantasma");
+  ok(/layerSoloMode==="iso"\) return;/.test(appjs), "…e l'isolamento deve restare quello che il contesto lo toglie del tutto");
+});
+
+t("occhio e lucchetto non cambiano la vista", () => {
+  /* Il report chiedeva di «impedire che il clic sul lucchetto attivi anche il cambio vista».
+     Verificato a video il 06/09: gia' cosi' — il lucchetto blocca e basta, l'occhio nasconde e
+     basta, il fuoco resta dov'era. Il test c'e' perche' la guardia e' UNA riga, e senza di lei i
+     tre controlli tornerebbero a essere un comando solo. */
+  ok(/closest\(\"\.layer-slots\"\)\) return;/.test(appjs),
+     "manca la guardia: un clic sui controlli della riga cambierebbe anche il fuoco");
+  ["eye", "lk", "sb"].forEach((v) => {
+    ok(new RegExp(v + '\\.addEventListener\\("click", function\\(e\\)\\{ e\\.stopPropagation\\(\\);').test(appjs),
+       "il controllo " + v + " lascia passare il clic alla riga");
+  });
+});
+
+t("i tre controlli della riga layer dicono tre cose diverse", () => {
+  /* «Chiudi elenco», «nascondi livello» e «blocca modifica» sono tre azioni distinte: l'occhio
+     agisce sul DISEGNO e diceva «Nascondi questa lista» — proprio la confusione segnalata. */
+  eq(appjs.indexOf('"Nascondi questa lista"'), -1, "l'occhio dice ancora «lista» per una cosa che fa sul disegno");
+  ok(/Nascondi "\+L\.name\+" nel disegno/.test(appjs), "l'occhio non nomina il disegno");
+  ok(/Solo: mostra soltanto "\+L\.name/.test(appjs), "il solo non nomina il suo layer");
+  ok(/Blocca le modifiche a "\+L\.name/.test(appjs), "il lucchetto non nomina il suo layer");
+  ["sb", "eye", "lk"].forEach((v) => {
+    ok(new RegExp(v + "\\.setAttribute\\(\"aria-label\", " + v + "\\.title\\)").test(appjs),
+       "il controllo " + v + " non ha un nome accessibile");
+  });
+});
+
 console.log("\n— Uscita dalle liste —");
 
 t("aprire una lista mette in «modo lista», uscire la chiude", () => {
@@ -7467,6 +7652,82 @@ t("uscire dalle liste lascia andare anche i cavi selezionati", () => {
   A.layerAccOpen = "cabin"; A.selCab = "x"; A.selCabSet = { x: 1 };
   A.exitListMode();
   eq(A.selCab, null); eq(Object.keys(A.selCabSet).length, 0);
+});
+
+/* SP-01 (audit esterno 05/09): «le righe Input scompaiono durante il lavoro». Non era un render
+   rotto: `techAccordionOpen` spegneva TUTTI i cappelli delle liste tecniche, compreso quello della
+   lista che il layer aperto sta mostrando. Il layer restava aperto con la sua intestazione e il
+   bottone «Azzera percorsi Input», e sotto NIENTE — e richiudere l'audit non lo riapriva, perche'
+   il flag non si ripristina. Solo un reload. L'esclusivita' nacque quando le liste stavano tutte
+   nella stessa colonna; dal Layer v3 i layer si escludono gia' da soli. */
+/* SP-03 (audit esterno 05/09): «il modello cambia le dimensioni del palco senza una scelta iniziale
+   esplicita». Il palco vuoto e' 12 x 8, la Band ne fa 16 x 6,5, e nella finestra della formazione si
+   chiedono i MUSICISTI, non i metri disponibili. La misura non era sbagliata — e' la proporzione da
+   concerto — ma restava muta fino al PDF. */
+t("il palco deciso dal modello e' un'ipotesi dichiarata, con il comando per cambiarla", () => {
+  reset();
+  const righe = A.ipotesiDelPalco({ palco: { w: 1600, d: 650 } });
+  const r = righe.filter((x) => /Palco/.test(x.txt))[0];
+  ok(r, "il riepilogo non nomina il palco del modello");
+  ok(/16 . 6,5 m/.test(r.txt), "le misure non ci sono o non sono in italiano: " + r.txt);
+  ok(typeof r.fn === "function" && r.act, "manca il comando per cambiarle");
+  ok(A.ipotesiDelPalco({}).filter((x) => /Palco/.test(x.txt)).length === 0,
+     "la riga compare anche quando il palco NON viene da un modello");
+});
+
+t("il modello dichiara le sue misure al riepilogo", () => {
+  /* La riga vive solo se startFromTemplate passa il palco che ha appena imposto: senza quel
+     passaggio il test sopra proverebbe una funzione che nessuno chiama cosi'. */
+  ok(appjs.indexOf("_gia.palco={w:_sg.w,d:_sg.d}") > -1, "startFromTemplate non passa il palco del modello al riepilogo");
+});
+
+t("aprire l'audit non svuota la lista del layer aperto", () => {
+  reset();
+  A.layerAccOpen = "cabin"; A.patchOpen = true; A.auditActive = false;
+  A.toggleAuditView();
+  ok(A.auditActive === true, "l'audit non si e' aperto: il test non sta provando niente");
+  ok(A.patchOpen === true, "aprire l'audit ha chiuso la lista Input del layer aperto (SP-01)");
+  A.auditActive = false;
+});
+
+t("vale per tutte e tre le liste che sono il corpo di un layer", () => {
+  reset();
+  [["cabout", "monOpen"], ["elec", "loadOpen"]].forEach(([layer, flag]) => {
+    A.layerAccOpen = layer; A[flag] = true;
+    A.techAccordionOpen("audit");
+    ok(A[flag] === true, "il layer " + layer + " ha perso la sua lista (" + flag + ")");
+  });
+  A.layerAccOpen = null;
+});
+
+t("fuori dal layer aperto le liste restano esclusive", () => {
+  /* Il divieto non deve diventare «non chiudere mai piu' niente»: con un ALTRO layer aperto (o
+     nessuno), aprire una lista continua a chiudere le altre, che e' il senso dell'accordion. */
+  reset();
+  A.layerAccOpen = null; A.patchOpen = true; A.monOpen = true; A.loadOpen = true;
+  A.techAccordionOpen("audit");
+  ok(A.patchOpen === false && A.monOpen === false && A.loadOpen === false, "l'accordion non esclude piu' niente");
+  A.layerAccOpen = "cabin"; A.patchOpen = true; A.monOpen = true;
+  A.techAccordionOpen("mon");
+  ok(A.patchOpen === true, "la lista del layer aperto va protetta");
+  ok(A.monOpen === true, "la lista richiesta va aperta");
+  A.layerAccOpen = null;
+});
+
+t("aprire un layer apre la sua lista, anche se era stata chiusa a mano", () => {
+  /* L'altra meta' di SP-01: bastava aver chiuso una volta il cappello della lista perche' il layer
+     si riaprisse VUOTO. Il corpo del layer E' la lista: aprirlo vuol dire vederla. */
+  reset();
+  A.layerAccOpen = null; A.patchOpen = false; A.monOpen = false; A.loadOpen = false;
+  A.apriLayer("cabin");
+  eq(A.layerAccOpen, "cabin", "il layer non si e' aperto");
+  ok(A.patchOpen === true, "il layer Input si e' aperto senza la sua lista (SP-01)");
+  A.apriLayer("cabout");
+  ok(A.monOpen === true, "il layer Output si e' aperto senza la sua lista");
+  ok(A.patchOpen === false, "aprendo un altro layer la lista di prima doveva chiudersi");
+  A.apriLayer("elec");
+  ok(A.loadOpen === true, "il layer Power si e' aperto senza la sua lista");
+  A.layerAccOpen = null;
 });
 
 t("fuori da una lista l'uscita non ha niente da chiudere", () => {
