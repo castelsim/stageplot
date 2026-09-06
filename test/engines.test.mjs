@@ -7546,6 +7546,76 @@ t("il campo trappola anti-spam non viene annunciato", () => {
   ok(/aria-hidden="true"/.test(riga), "l'honeypot e' ancora annunciato: " + riga.trim().slice(0, 120));
 });
 
+console.log("\n— La vista attiva si dichiara (SP-06) —");
+
+/* SP-06 (audit esterno 05/09): «liste, livelli e modalita' di lavoro sono mescolati». Provato a
+   video il 06/09 su una Band: aprire la lista Input non apre solo una tabella — riduce musicisti e
+   strumenti a PUNTI DI SEZIONE e manda le spie a .15 di opacita', cioe' a un fantasma. E' la vista
+   giusta per cablare, ma non lo diceva nessuno e la via d'uscita (Esc, o un clic sul vuoto) non si
+   vede: chi apriva «Input» per leggere una tabella si trovava il palco svuotato senza capire ne'
+   perche' ne' come tornare indietro. */
+t("la vista attiva ha sempre un nome, o non c'e'", () => {
+  reset();
+  A.layerAccOpen = null; A.layerSoloUI = {};
+  eq(A.vistaAttivaId(), null, "a palco intero non c'e' nessuna vista attiva");
+  A.layerAccOpen = "cabin";
+  eq(A.vistaAttivaId(), "cabin", "la lista aperta e' la vista attiva");
+  A.layerAccOpen = null; A.layerSoloUI = { elec: true };
+  eq(A.vistaAttivaId(), "elec", "anche il solo senza lista aperta e' una vista attiva");
+  A.layerSoloUI = {};
+});
+
+t("il banner della vista si disegna a ogni render", () => {
+  ok(typeof A.renderVistaBanner === "function", "manca la funzione che disegna il banner");
+  ok(/renderVistaBanner\(\);/.test(appjs), "nessuno la chiama");
+  const iRender = appjs.indexOf("function render(){");
+  const iFine = appjs.indexOf("\n}", appjs.indexOf("scaleInfo", iRender));
+  ok(appjs.slice(iRender, iFine).indexOf("renderVistaBanner()") > -1, "non e' dentro render(): il banner resterebbe indietro");
+  ok(/id="vistaBanner"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "manca il nodo nel markup");
+});
+
+t("uscire dalla vista e' un comando che si vede", () => {
+  /* Prima si usciva solo con Esc o con un clic sul vuoto: due gesti che nessuno indovina. */
+  ok(/Mostra tutto il palco/.test(appjs), "manca il comando di ritorno");
+  const i = appjs.indexOf("vistaEsci");
+  ok(i > -1 && /exitListMode\(\); render\(\)/.test(appjs.slice(i, i + 400)),
+     "il comando non riporta davvero al palco intero");
+});
+
+t("il contesto sfumato resta leggibile: «fuoco» non e' «isolamento»", () => {
+  /* A .15 il contesto era invisibile, quindi il fuoco somigliava all'isolamento e il bottone S non
+     distingueva piu' niente da quello che faceva gia' il clic sulla riga. */
+  ok(/class="solo-bg" style="opacity:\.42"/.test(appjs), "l'opacita' del contesto non e' quella misurata a video");
+  eq(appjs.indexOf('class="solo-bg" style="opacity:.15"'), -1, "e' tornata l'opacita' che rendeva il contesto un fantasma");
+  ok(/layerSoloMode==="iso"\) return;/.test(appjs), "…e l'isolamento deve restare quello che il contesto lo toglie del tutto");
+});
+
+t("occhio e lucchetto non cambiano la vista", () => {
+  /* Il report chiedeva di «impedire che il clic sul lucchetto attivi anche il cambio vista».
+     Verificato a video il 06/09: gia' cosi' — il lucchetto blocca e basta, l'occhio nasconde e
+     basta, il fuoco resta dov'era. Il test c'e' perche' la guardia e' UNA riga, e senza di lei i
+     tre controlli tornerebbero a essere un comando solo. */
+  ok(/closest\(\"\.layer-slots\"\)\) return;/.test(appjs),
+     "manca la guardia: un clic sui controlli della riga cambierebbe anche il fuoco");
+  ["eye", "lk", "sb"].forEach((v) => {
+    ok(new RegExp(v + '\\.addEventListener\\("click", function\\(e\\)\\{ e\\.stopPropagation\\(\\);').test(appjs),
+       "il controllo " + v + " lascia passare il clic alla riga");
+  });
+});
+
+t("i tre controlli della riga layer dicono tre cose diverse", () => {
+  /* «Chiudi elenco», «nascondi livello» e «blocca modifica» sono tre azioni distinte: l'occhio
+     agisce sul DISEGNO e diceva «Nascondi questa lista» — proprio la confusione segnalata. */
+  eq(appjs.indexOf('"Nascondi questa lista"'), -1, "l'occhio dice ancora «lista» per una cosa che fa sul disegno");
+  ok(/Nascondi "\+L\.name\+" nel disegno/.test(appjs), "l'occhio non nomina il disegno");
+  ok(/Solo: mostra soltanto "\+L\.name/.test(appjs), "il solo non nomina il suo layer");
+  ok(/Blocca le modifiche a "\+L\.name/.test(appjs), "il lucchetto non nomina il suo layer");
+  ["sb", "eye", "lk"].forEach((v) => {
+    ok(new RegExp(v + "\\.setAttribute\\(\"aria-label\", " + v + "\\.title\\)").test(appjs),
+       "il controllo " + v + " non ha un nome accessibile");
+  });
+});
+
 console.log("\n— Uscita dalle liste —");
 
 t("aprire una lista mette in «modo lista», uscire la chiude", () => {
