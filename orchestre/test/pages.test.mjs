@@ -11,7 +11,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ROUTES = ["orchestre", "orchestre/login", "orchestre/admin", "orchestre/admin/impostazioni",
   "orchestre/admin/musicisti", "orchestre/admin/musicisti/scheda", "orchestre/admin/musicisti/importa",
   "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda"];
-const PUBLIC = new Set(["orchestre"]);
+/* Nessuna pagina di Orchestre va su Google finché è un cantiere (decisione di Simone, 06/09).
+   La home è l'unica che un giorno sarà pubblica: `noindex,follow` come /app/ — fuori dalla SERP,
+   ma i link a /privacy/ e /termini/, che pubbliche lo sono davvero, restano seguibili. Le altre
+   sono login e area riservata: `noindex,nofollow`. Quando Orchestre apre, questa riga cambia
+   INSIEME al sitemap, o si torna a una pagina indicizzabile che Google non sa di dover cercare. */
+const CANTIERE = new Set(["orchestre"]);
 
 test("ogni rotta è una cartella con index.html (GitHub Pages non riscrive nulla)", () => {
   for (const r of ROUTES) assert.ok(existsSync(join(root, r, "index.html")), r + "/index.html");
@@ -26,8 +31,9 @@ test("le shell: CSP senza inline, robots coerente, ui.css, supabase self-hosted,
     assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/, r + ": nessuno script inline");
     assert.doesNotMatch(html, /\sstyle="/, r + ": nessuno stile inline");
     assert.doesNotMatch(html, /\son[a-z]+="/, r + ": nessun handler inline");
-    if (PUBLIC.has(r)) assert.match(html, /name="robots" content="index,follow"/, r + " è pubblica");
+    if (CANTIERE.has(r)) assert.match(html, /name="robots" content="noindex,follow"/, r + ": cantiere, fuori dalla SERP ma coi link seguibili");
     else assert.match(html, /name="robots" content="noindex,nofollow"/, r + " è privata");
+    assert.doesNotMatch(html, /name="robots" content="index/, r + ": nessuna pagina di Orchestre va indicizzata finché è un cantiere");
     assert.match(html, /href="\/orchestre\/ui\.css"/, r);
     assert.match(html, /src="\/vendor\/supabase\.min\.js"/, r);
     const m = html.match(/type="module" src="(\/orchestre\/src\/pages\/[a-z]+\.js)"/);
