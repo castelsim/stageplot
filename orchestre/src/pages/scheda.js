@@ -35,7 +35,7 @@ function blank() {
 function paint() {
   const isNew = !m.id;
   app.innerHTML = tabs("musicisti") + `
-    <p class="small"><a href="${BASE}/admin/musicisti/">← Musicisti</a></p>
+    <p class="small"><a class="back" href="${BASE}/admin/musicisti/">← Musicisti</a></p>
     <div class="row"><h1 id="h"></h1><span class="spacer"></span><span id="stPill"></span></div>
     <div class="grid2">
       <section class="card" id="dati"><h3>Dati e contatti</h3></section>
