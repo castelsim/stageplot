@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="index,follow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0d9488">
+<title>StagePlot Orchestre — organici, disponibilità e convocazioni</title>
+<meta name="description" content="Per chi mette insieme un'orchestra: musicisti, organici per ogni produzione, richieste di disponibilità e conferme, con lo storico che suggerisce chi chiamare.">
+<link rel="canonical" href="https://stageplot.it/orchestre/">
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/orchestre/ui.css">
+</head>
+<body>
+<header class="o-top"><a class="o-brand" href="/orchestre/"><span>StagePlot</span><small>Orchestre</small></a><span class="spacer"></span><a class="btn small" href="/orchestre/login/" id="topLogin">Accedi</a></header>
+<main class="o-wrap" id="app">
+  <h1>L'organico giusto, in fretta.</h1>
+  <p class="lead">Chi mette insieme un'orchestra sa già chi vorrebbe chiamare. Orchestre tiene insieme i musicisti, le produzioni e le risposte, e suggerisce chi ha già suonato quel repertorio, con quel direttore, per quel cliente.</p>
+  <p class="row"><a class="btn primary" href="/orchestre/login/" id="ctaLogin">Accedi con Google</a><a class="btn ghost" href="/app/">StagePlot, l'editor del palco</a></p>
+
+  <h2>Come funziona</h2>
+  <ol class="steps">
+    <li><b>I musicisti e lo storico</b>L'organizzazione registra il proprio pool: strumenti, competenze, repertori già eseguiti, produzioni passate.</li>
+    <li><b>La produzione e l'organico</b>Per ogni concerto definisci sezioni e posti. Il sistema ordina i candidati e ti dice perché: nessun punteggio opaco.</li>
+    <li><b>La convocazione</b>Ogni musicista riceve un link e risponde dal telefono in due tocchi. Chi non risponde si vede subito, il posto scoperto pure.</li>
+  </ol>
+
+  <h2>Due strumenti, un solo palco</h2>
+  <p>StagePlot disegna il palco in scala: postazioni, microfoni, monitor, cablaggi. Orchestre decide <em>chi</em> ci suona. Una produzione può collegare i due, e le postazioni del palco diventano i posti dell'organico.</p>
+
+  <h2>Per i musicisti</h2>
+  <p class="muted">La candidatura aperta e l'area personale arrivano nei prossimi aggiornamenti. Per ora si entra su invito dell'organizzazione che ti conosce.</p>
+
+  <footer class="o-foot"><a href="/privacy/">Privacy</a><a href="/termini/">Termini</a><span>© StagePlot</span></footer>
+</main>
+<script src="/vendor/supabase.min.js"></script>
+<script type="module" src="/orchestre/src/pages/home.js"></script>
+</body>
+</html>
