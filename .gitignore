@@ -18,3 +18,6 @@ docs/
 # Una copia di lavoro dentro la worktree non deve poter finire in un commit.
 review/
 _prova.html
+
+# Supabase CLI: rami locali creati da db reset
+supabase/.branches/

@@ -54,6 +54,9 @@ self.addEventListener("fetch", function (e) {
   if (req.method !== "GET") return;                        /* POST/beacon: rete pura */
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return;         /* Supabase ecc.: rete pura */
+  /* Orchestre (/orchestre/*) è un'altra applicazione: pagine di login e dati di persone.
+     Il SW dell'editor non la cacha e non la serve: rete pura, sempre fresca. */
+  if (url.pathname === "/orchestre" || url.pathname.indexOf("/orchestre/") === 0) return;
 
   /* Le navigazioni verso l'editor (anche /app/?view=…, /app/?utm_source=pwa) usano la stessa
      shell cachata sotto la chiave "/app/": la shell è l'app intera. */
