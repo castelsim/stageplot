@@ -7,7 +7,7 @@
  * Uso:  node build.mjs && node test/engines.test.mjs
  *       (exit 1 se un test fallisce → usabile in pre-merge/CI)
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
@@ -10455,6 +10455,44 @@ t("service worker, manifest e deploy sanno dov'è finito l'editor", () => {
   const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
   ok(sm.indexOf("<loc>https://stageplot.it/</loc>") > -1, "la radice è in sitemap");
   ok(sm.indexOf("stageplot.it/app/") === -1, "una pagina noindex non va in sitemap");
+});
+
+/* Il sitemap e i tag robots devono dire LA STESSA COSA, in tutte e due le direzioni. Il 06/09
+   Google ha segnalato «nuovi motivi impediscono l'indicizzazione»: i motivi erano innocui, ma
+   controllando pagina per pagina è saltata fuori una cosa che nella mail non c'era —
+   `/orchestre/` era live, `index,follow`, con title e description curati, e NON stava nel
+   sitemap né era linkata da nessuna parte. Pubblica per caso: chiunque la trovi la vede, Google
+   no. Le due dichiarazioni vanno tenute in pari da un test, non dalla memoria. */
+t("il sitemap dice esattamente le pagine indicizzabili, né una in più né una in meno", () => {
+  const salta = (rel) => /(^|[\\/])[._]|[\\/]node_modules[\\/]/.test(rel);
+  const pagine = [];
+  (function scendi(dir, rel) {
+    for (const n of readdirSync(dir)) {
+      const p = join(dir, n), r = rel ? rel + "/" + n : n;
+      if (salta(r)) continue;
+      if (statSync(p).isDirectory()) scendi(p, r);
+      else if (n === "index.html") pagine.push({ url: "https://stageplot.it/" + (rel ? rel + "/" : ""), html: readFileSync(p, "utf8") });
+    }
+  })(root, "");
+  ok(pagine.length > 30, "il giro delle pagine non ha trovato niente: " + pagine.length);
+  const senzaTag = pagine.filter((x) => !/name="robots" content="/.test(x.html)).map((x) => x.url);
+  eq(senzaTag, [], "pagine senza tag robots: Google decide da solo");
+  const indicizzabili = pagine.filter((x) => !/name="robots" content="noindex/.test(x.html)).map((x) => x.url);
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const dichiarate = [...sm.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
+  const fuori = indicizzabili.filter((u) => dichiarate.indexOf(u) < 0);
+  const fantasma = dichiarate.filter((u) => indicizzabili.indexOf(u) < 0);
+  eq(fuori, [], "indicizzabili ma non nel sitemap: Google non sa di doverle cercare");
+  eq(fantasma, [], "nel sitemap ma non indicizzabili (o inesistenti): il sitemap promette il falso");
+});
+
+t("Orchestre resta fuori da Google finché è un cantiere", () => {
+  /* Decisione di Simone, 06/09. La home è `noindex,follow` come /app/ — fuori dalla SERP, ma i
+     link a /privacy/ e /termini/, che pubbliche lo sono, restano seguibili. */
+  const home = readFileSync(join(root, "orchestre/index.html"), "utf8");
+  ok(/name="robots" content="noindex,follow"/.test(home), "la home di Orchestre è tornata indicizzabile");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  eq(sm.indexOf("stageplot.it/orchestre"), -1, "…e non va dichiarata nel sitemap finché è così");
 });
 
 t("Orchestre: il deploy la pubblica, la CI la prova, il service worker la lascia in pace", () => {
