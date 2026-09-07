@@ -1,7 +1,7 @@
 /* Configurazione pubblica di Orchestre. La anon key è pubblica per costruzione (sta già nell'editor e
    in consulenza/): la sicurezza è nella RLS del database, non qui. */
 export const SB_URL = "https://vsodplqkuvnsdiikvmjb.supabase.co";
-export const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
+export const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 export const BASE = "/orchestre";
 export const ROLES = {
   owner: "Proprietario",

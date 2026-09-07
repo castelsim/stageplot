@@ -6,9 +6,10 @@ distinta dall'editor: condivide con StagePlot solo il dominio, il login Google e
 
 Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli, cataloghi, RLS, test),
 **lotto 2** (roster: pool dei musicisti, strumenti, competenze, repertorio, tag, import CSV, dati demo) e
-**lotto 3** (produzioni: date, repertorio, organico a sezioni/ruoli/posti, modelli, assegnazioni, storia).
-I lotti successivi (matching, convocazioni, storico, candidature, collegamento a StagePlot) aggiungono
-cartelle e migrazioni con lo stesso schema.
+**lotto 3** (produzioni: date, repertorio, organico a sezioni/ruoli/posti, modelli, assegnazioni, storia),
+**lotto 4** (matching: motore puro e spiegabile, pesi versionati, snapshot delle proposte, override con motivo).
+I lotti successivi (convocazioni, storico, candidature, collegamento a StagePlot) aggiungono cartelle e
+migrazioni con lo stesso schema.
 
 ## Struttura
 
@@ -22,7 +23,7 @@ orchestre/
   admin/musicisti/scheda/     scheda di un musicista (?id= apre, ?new=1 crea)
   admin/musicisti/importa/    import da CSV con anteprima
   admin/produzioni/           le produzioni: lista con date, stato, posti coperti
-  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Storia (?id=, ?new=1, ?t=)
+  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Storia (?id=, ?new=1, ?t=)
   demo/musicisti-demo.csv     40 musicisti INVENTATI, nel formato dell'import
   ui.css                      token del design system di StagePlot + componenti
   src/config.js               URL e anon key di Supabase (pubblici), ruoli
@@ -33,8 +34,10 @@ orchestre/
   src/api/org.js              chiamate per membri e organizzazione
   src/api/musicians.js        chiamate per il pool
   src/api/productions.js      chiamate per produzioni e organico
+  src/api/matching.js         fatti, pesi, snapshot, override
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
   src/domain/staffing.js      modelli di organico, etichette, raggruppamento posti (puro, testato)
+  src/domain/matching.js      IL MOTORE: fase A requisiti, fase B punteggio, spiegazioni (puro, testato)
   src/pages/*.js              un modulo per rotta
   test/pure.test.mjs          funzioni pure (Node, senza rete)
   test/pages.test.mjs         shell HTML, CSP, moduli, allowlist del deploy
@@ -43,10 +46,13 @@ orchestre/
   test/csv.test.mjs           il parser CSV e il file demo
   test/staffing.test.mjs      modelli coerenti col catalogo, stati, raggruppamento
   test/rls-productions.test.mjs  scenario E per produzioni, posti, storia append-only
+  test/matching.test.mjs      il motore: regola Morricone, cold start, rinunce, scala, determinismo
+  test/rls-matching.test.mjs  scenario E per fatti, snapshot, override, pesi
 supabase/migrations/0041_orc_identity.sql   profili, organizzazioni, ruoli, RPC, RLS
 supabase/migrations/0042_orc_catalogs.sql   strumenti e competenze (seed)
 supabase/migrations/0043_orc_roster.sql     pool dei musicisti, import, lista
 supabase/migrations/0044_orc_productions.sql produzioni, date, organico, posti, eventi, RPC
+supabase/migrations/0045_orc_matching.sql   pesi versionati, fatti per il matching, snapshot, override
 supabase/seed.sql                           dati demo per il LOCALE (generati da scripts/orc-demo.py)
 scripts/orc-demo.py                         genera seed.sql e musicisti-demo.csv (deterministico)
 ```
@@ -128,6 +134,25 @@ il client non ha policy di scrittura sui posti. Ogni cambio scrive in `orc_slot_
 una rinuncia è un evento con chi e perché, non una cancellazione. `orc_apply_staffing_template` e
 `orc_duplicate_staffing` funzionano solo su una produzione senza ruoli.
 
+## Matching
+
+Il punteggio lo calcola il browser con `src/domain/matching.js`; il database raccoglie i **fatti** in una
+sola lettura (`orc_matching_candidates`: strumenti, competenze, repertorio, storico per stessa produzione /
+repertorio / compositore / direttore / cliente / tipologia, rinunce, carico recente, conflitti di calendario,
+esclusioni) e conserva pesi e proposte.
+
+- **Fase A** (obbligatori): strumento, livello minimo, requisiti `required`, esclusioni, conflitti, già in
+  produzione, sospesi → non idoneo, in fondo, con il motivo.
+- **Fase B**: 50 punti neutri + contributi pesati e **saturati** (5 collaborazioni = 50), riscalati così che il
+  massimo possibile faccia 100. Chi non ha storico resta al neutro (più una piccola spinta di rotazione).
+  Le rinunce dopo conferma pesano, si dimezzano dopo 24 mesi, mai più di due. Ogni contributo porta la sua
+  frase: la spiegazione è la somma delle frasi.
+- **Pesi**: Impostazioni → «Pesi del matching»; ogni salvataggio è una nuova versione (`orc_save_ruleset`),
+  e ogni proposta salvata cita la sua (`orc_matching_runs.ruleset_version`).
+- **Snapshot e override**: «Calcola» salva la proposta (`orc_matching_save_run`); «In cima» registra una
+  scelta umana con il motivo (`orc_matching_override`, anche nel registro). La decisione resta umana:
+  «Assegna» conferma il posto.
+
 ## Modello dei ruoli
 
 `owner` · `admin` · `artistic` · `production` (staff: entrano nell'area admin) · `section` · `viewer`
@@ -139,7 +164,8 @@ il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiun
 
 - Nessuna pagina per musicisti, `section`, `viewer`: chi entra senza un ruolo di staff vede la spiegazione.
 - Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
-- I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella e API ma non ancora un'interfaccia: arrivano col matching.
+- I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella, API e peso nel motore, ma non ancora un'interfaccia per impostarli.
+- Il matching non conosce ancora le disponibilità dichiarate né il tasso di risposta: arrivano con le convocazioni (lotto 5). La distanza geografica non è calcolata (niente coordinate).
 - L'assegnazione dall'organico è diretta (posto confermato): le convocazioni con risposta del musicista sono il lotto 5.
 - La home di Orchestre non è ancora in sitemap né linkata dalla landing di StagePlot.
 - Nessuna Edge Function nuova: tutto passa da PostgREST + RPC.

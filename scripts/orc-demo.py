@@ -136,6 +136,11 @@ PRODS = [
          dates=[("rehearsal","2026-10-15 15:00","2026-10-15 19:00"),("rehearsal","2026-10-16 15:00","2026-10-16 19:00"),("concert","2026-10-17 21:00","2026-10-17 23:00")],
          rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=None),
 ]
+_viol_hist = [r for r in morricone if r["instruments"][0]["code"] == "violino"]
+_viol_new = [r for r in rows if r["instruments"][0]["code"] == "violino" and not has_hist(r, "Ennio Morricone")]
+if _viol_hist and _viol_new:
+    PRODS[1]["withdraw"] = (_viol_hist[0]["email"], _viol_new[0]["email"])
+
 TEMPLATE_RS = [  # = TEMPLATES.ritmico_sinfonica in orchestre/src/domain/staffing.js
     {"section":"Archi","roles":[{"instrument":"violino","name":"Violini primi","seats":6,"part":"principal"},{"instrument":"violino","name":"Violini secondi","seats":5},{"instrument":"viola","name":"Viole","seats":4},{"instrument":"violoncello","name":"Violoncelli","seats":3},{"instrument":"contrabbasso","name":"Contrabbassi","seats":2},{"instrument":"arpa","name":"Arpa","seats":1}]},
     {"section":"Legni","roles":[{"instrument":"flauto","name":"Flauti","seats":2},{"instrument":"oboe","name":"Oboe","seats":1},{"instrument":"clarinetto","name":"Clarinetti","seats":2},{"instrument":"fagotto","name":"Fagotto","seats":1},{"instrument":"sax_alto","name":"Sax alto","seats":1},{"instrument":"sax_tenore","name":"Sax tenore","seats":1}]},
@@ -157,6 +162,8 @@ def prod_sql(pr):
     if pr["parts"] is None:
         out.append(f"  perform public.orc_apply_staffing_template(pid, {q(json.dumps(TEMPLATE_RS))}::jsonb);")
         return out
+    if pr.get("withdraw"):
+        out.append("  -- una rinuncia dopo conferma, con sostituto: per provare la penalità del matching")
     for si, (sec, roles) in enumerate(by_instr(pr["parts"]), 1):
         out.append(f"  insert into public.orc_staffing_sections (production_id, name, sort) values (pid, {q(sec)}, {si}) returning id into sid;")
         for ri, (code, name, emails) in enumerate(roles, 1):
@@ -165,6 +172,12 @@ def prod_sql(pr):
             for em in emails:
                 out.append(f"  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = {q(em)};")
                 out.append("  perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.role_id = rid and s.status = 'open' order by s.seat_no limit 1), mid, 'storico importato');")
+    if pr.get("withdraw"):
+        who, sub = pr["withdraw"]
+        out.append(f"  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = {q(who)};")
+        out.append("  perform public.orc_release_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.musician_id = mid), 'withdrew', 'impegno sopraggiunto, avvisato dieci giorni prima');")
+        out.append(f"  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = {q(sub)};")
+        out.append("  perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.status = 'open' order by s.seat_no limit 1), mid, 'sostituto');")
     return out
 
 prod_block = "do $$\ndeclare org uuid := '" + DEMO_ORG + "'; pid uuid; sid uuid; rid uuid; mid uuid; rep uuid;\nbegin\n" + \

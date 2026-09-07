@@ -101,6 +101,7 @@ begin
   select x.id into rep from public.orc_repertoire x where x.org_id = org and x.kind = 'genre' and lower(x.name) = lower('Colonne sonore');
   if rep is null then insert into public.orc_repertoire (org_id, kind, name) values (org, 'genre', 'Colonne sonore') returning id into rep; end if;
   insert into public.orc_production_repertoire (production_id, repertoire_id) values (pid, rep) on conflict do nothing;
+  -- una rinuncia dopo conferma, con sostituto: per provare la penalità del matching
   insert into public.orc_staffing_sections (production_id, name, sort) values (pid, 'Archi', 1) returning id into sid;
   insert into public.orc_staffing_roles (production_id, section_id, instrument_code, name, seats, part, sort) values (pid, sid, 'violino', 'Violini', 6, 'principal', 101) returning id into rid;
   select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'camilla.ferraro@example.invalid';
@@ -165,6 +166,10 @@ begin
   insert into public.orc_staffing_roles (production_id, section_id, instrument_code, name, seats, part, sort) values (pid, sid, 'pianoforte', 'Pianoforte', 1, 'tutti', 502) returning id into rid;
   select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'giorgia.ravagnan@example.invalid';
   perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.role_id = rid and s.status = 'open' order by s.seat_no limit 1), mid, 'storico importato');
+  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'camilla.ferraro@example.invalid';
+  perform public.orc_release_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.musician_id = mid), 'withdrew', 'impegno sopraggiunto, avvisato dieci giorni prima');
+  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'luca.conti@example.invalid';
+  perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.status = 'open' order by s.seat_no limit 1), mid, 'sostituto');
   insert into public.orc_productions (org_id, title, client, kind, conductor, venue, status, created_by) values (org, 'Pooh in sinfonia', 'Teatro Nuovo', 'concerto', 'M. Immaginario', 'Teatro Nuovo, Treviso', 'done', '00000000-0000-4000-8000-00000000d3a0') returning id into pid;
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2025-11-20 14:00+02', '2025-11-20 18:00+02', 'Teatro Nuovo, Treviso');
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2025-11-21 14:00+02', '2025-11-21 18:00+02', 'Teatro Nuovo, Treviso');
