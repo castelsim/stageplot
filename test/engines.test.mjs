@@ -7546,6 +7546,77 @@ t("il campo trappola anti-spam non viene annunciato", () => {
   ok(/aria-hidden="true"/.test(riga), "l'honeypot e' ancora annunciato: " + riga.trim().slice(0, 120));
 });
 
+console.log("\n— Condivisione: solo le opzioni che valgono (SP-14) —");
+
+/* SP-14 (audit esterno 05/09): «opzioni non applicabili da eliminare». Visto a video il 06/09 in
+   sessione anonima: la finestra mostra l'interruttore «Mostra il pulsante Crea una copia» ACCESO,
+   con accanto scritto che vale per i link con account e che qui chi apre riceve comunque una copia.
+   Un comando acceso, raggiungibile da tastiera, che non tocca niente. Il codice lo sapeva gia'
+   («la casella sul link locale non tocca niente») e se n'era difeso abbassando l'opacita' al 55%:
+   una mezza misura, perche' il controllo restava operabile. */
+t("sul link locale la casella che non tocca niente non si mostra", () => {
+  const i = appjs.indexOf("function sharePermsPerModo");
+  ok(i > -1, "la funzione che adatta i permessi al tipo di link non c'e' piu'");
+  const corpo = appjs.slice(i, i + 1800);
+  ok(/row\.style\.display\s*=\s*ist \? "none"/.test(corpo),
+     "la riga «Crea una copia» compare ancora sul link locale");
+  eq(corpo.indexOf('row.style.opacity = ist ? ".55"'), -1, "e' rimasta la mezza misura dell'opacita'");
+  eq(appjs.indexOf("Vale per i link con account"), -1,
+     "c'e' ancora la scritta che spiega perche' un comando inutile sta li'");
+});
+
+t("si nasconde con lo style, non con l'attributo hidden", () => {
+  /* `.mcard label.share-perm{display:flex}` (0,0,2,2) batte `[hidden]` (0,0,1,0): la riga sarebbe
+     rimasta a video. E' la stessa lezione gia' pagata otto volte dentro #props. */
+  ok(/\.mcard label\.share-perm\{display:flex/.test(stylesCss), "la regola che batterebbe [hidden] non c'e' piu': ricontrollare");
+  const i = appjs.indexOf("function sharePermsPerModo");
+  eq(appjs.slice(i, i + 1800).indexOf("row.hidden"), -1, "usa hidden, che qui perde per specificita'");
+});
+
+console.log("\n— Il pannello proprieta' raggruppa per compito (SP-08) —");
+
+/* SP-08 (audit esterno 05/09): «le proprieta' danno priorita' alla grafica rispetto al compito» e
+   «la stage box eredita un'intestazione Microfono». Verificato il 06/09 leggendo le chiamate a
+   group(): erano vere tutt'e due, e il primo giro di prove me le aveva fatte mancare perche'
+   guardavo le <label> e non le intestazioni di gruppo (.pgh). */
+function gruppiProps() {
+  const out = [];
+  const re = /group\("([^"]+)",\s*(?:null|"[^"]*"),\s*\[([^\]]*)\]\)/g;
+  let m;
+  while ((m = re.exec(appjs))) out.push({ titolo: m[1], ids: m[2].split(",").map((x) => x.trim().replace(/"/g, "")) });
+  return out;
+}
+
+t("una stage box non sta sotto l'intestazione «Microfono»", () => {
+  const g = gruppiProps();
+  ok(g.length >= 6, "le chiamate a group() non si leggono piu': " + g.length);
+  const mic = g.filter((x) => x.titolo === "Microfono")[0];
+  ok(mic, "il gruppo Microfono non c'e' piu'");
+  ok(mic.ids.indexOf("pSbChWrap") < 0, "modello, ingressi e porte della stage box stanno ancora sotto «Microfono»");
+  const casa = g.filter((x) => x.ids.indexOf("pSbChWrap") > -1)[0];
+  ok(casa, "il blocco della stage box non sta in nessun gruppo");
+  ok(/stage box/i.test(casa.titolo), "il gruppo della stage box si chiama «" + casa.titolo + "»");
+});
+
+t("le opzioni tipografiche non stanno davanti al lavoro", () => {
+  /* «Il musicista configura ascolto e accessori senza attraversare opzioni tipografiche.»
+     Dimensione, distanza, allineamento e colore del testo sono l'ASPETTO del nome, non la sua
+     identita': stanno col disegno, in fondo, non nel primo gruppo del pannello. */
+  const g = gruppiProps();
+  const TIPO = ["pLblSizeWrap", "pLblDistWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
+  const et = g.filter((x) => x.titolo === "Etichetta")[0];
+  ok(et, "il gruppo Etichetta non c'e' piu'");
+  TIPO.forEach((id) => ok(et.ids.indexOf(id) < 0, id + " sta ancora nel primo gruppo del pannello"));
+  ok(et.ids.indexOf("pLabelWrap") > -1, "…ma il NOME deve restare li': quella e' l'identita', non l'aspetto");
+  const dis = g.filter((x) => x.titolo === "Disegno")[0];
+  ok(dis, "il gruppo Disegno non c'e' piu'");
+  TIPO.forEach((id) => ok(dis.ids.indexOf(id) > -1, id + " non e' finito nel gruppo Disegno"));
+  /* e l'ordine: la tipografia viene DOPO ascolto e accessori, non prima */
+  const iAsc = g.findIndex((x) => x.titolo === "Ascolto"), iAcc = g.findIndex((x) => x.titolo === "Accessori");
+  const iDis = g.findIndex((x) => x.titolo === "Disegno");
+  ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
+});
+
 console.log("\n— La vista attiva si dichiara (SP-06) —");
 
 /* SP-06 (audit esterno 05/09): «liste, livelli e modalita' di lavoro sono mescolati». Provato a
@@ -11916,8 +11987,10 @@ t("il pannello dei permessi non contraddice l'intro due righe sopra", () => {
   ok(/Copia modificabile/.test(f), "sull'istantanea dice che è una copia modificabile");
   ok(/il tuo progetto non cambia/.test(f), "e che il progetto di chi condivide resta intatto");
   /* la casella «Crea una copia» sul link locale non tocca niente: quel link apre l'editor, non un
-     viewer con un pulsante da nascondere. Se resta lì senza dirlo, promette un controllo che non c'è. */
-  ok(/Vale per i link con account/.test(f), "e dichiara che la casella «Crea una copia» lì non agisce");
+     viewer con un pulsante da nascondere. Prima la si dichiarava inerte lasciandola a video al 55%;
+     dal 06/09 (SP-14) non si mostra proprio — un comando acceso che non fa niente è peggio di un
+     comando assente. Il testo del riquadro resta quello del link cloud, dove l'effetto c'è. */
+  ok(/row\.style\.display = ist \? "none"/.test(f), "la casella «Crea una copia» resta a video sul link locale");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="sharePermRead"/.test(html) && /id="sharePermCopyHint"/.test(html), "le due righe hanno l'aggancio nel markup");
 });
