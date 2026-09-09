@@ -12,7 +12,9 @@ Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli,
 promemoria, revoche, scadenze), **lotto 6** (storico e affidabilità: feedback post-produzione, indicatori con il
 campione, tasso di risposta e valutazioni dentro il matching), **lotto 7** (candidature e area musicista: profilo
 globale con onboarding in otto passi, candidatura per organizzazione, valutazioni interne, accettazione che crea il
-musicista, file privati con URL firmati, consensi, export e cancellazione). Manca il lotto 8 (collegamento a StagePlot).
+musicista, file privati con URL firmati, consensi, export e cancellazione), **lotto 8** (collegamento a StagePlot: la
+produzione punta a un progetto dell'editor, le postazioni-persona del disegno diventano posti dell'organico, dal hub
+Produzione dell'editor si arriva alla produzione e da questa si apre il progetto).
 
 ## Struttura
 
@@ -46,6 +48,8 @@ orchestre/
   src/api/invitations.js      inviti, azioni dello staff, elenco
   src/api/feedback.js         feedback post-produzione, indicatori, storico del musicista
   src/api/applications.js     profilo, file, candidatura, inviti/incarichi via account, privacy; lato staff elenco/dettaglio/stato/valutazioni
+  src/api/stageplot.js        i miei progetti StagePlot (own-rows), documento, catalogo con le chiavi dell'editor, import, collegamenti, scollega
+  src/domain/stageplot-import.js  dal documento dell'editor alle postazioni: varianti, mappa tipo → strumento, proposta, differenze (puro, testato)
   src/domain/applications.js  stati (interni e pubblici), passi, completamento, versione dell'informativa (puro, testato)
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
   src/domain/staffing.js      modelli di organico, etichette, raggruppamento posti (puro, testato)
@@ -64,6 +68,8 @@ orchestre/
   test/rls-feedback.test.mjs  feedback per org, indicatori con campione, storico, affidabilità nel matching
   test/applications.test.mjs  stati e maschera pubblica allineati al DB, completamento, passi
   test/rls-applications.test.mjs  scenario A + E: profilo, file nel bucket, candidatura, valutazioni invisibili, accettazione, area
+  test/stageplot-import.test.mjs  varianti, doppie = 2 posti, tipi sconosciuti, proposta per famiglia, differenze, stale
+  test/rls-stageplot.test.mjs  il progetto lo legge chi lo possiede; import che allarga e mai restringe; collegamenti solo allo staff; scollega
 supabase/migrations/0041_orc_identity.sql   profili, organizzazioni, ruoli, RPC, RLS
 supabase/migrations/0042_orc_catalogs.sql   strumenti e competenze (seed)
 supabase/migrations/0043_orc_roster.sql     pool dei musicisti, import, lista
@@ -72,6 +78,7 @@ supabase/migrations/0045_orc_matching.sql   pesi versionati, fatti per il matchi
 supabase/migrations/0046_orc_invitations.sql inviti, date, segreti (solo service_role), eventi append-only, RPC
 supabase/migrations/0047_orc_feedback.sql   feedback, orc_musician_stats, orc_musician_history, fatti del matching con affidabilità
 supabase/migrations/0048_orc_applications.sql profili, candidature, eventi, valutazioni, consensi, file, bucket orc-files con policy, RPC
+supabase/migrations/0049_orc_stageplot.sql  orc_stageplot_links, orc_stageplot_import, orc_stageplot_unlink, orc_productions_for_project
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -223,6 +230,24 @@ di no per la produzione non viene riproposto.
   cancellazione). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
 - Le organizzazioni aprono le candidature da Impostazioni (`accepting_applications`, testo per i candidati).
 
+## Collegamento a StagePlot
+
+- **Il progetto resta dell'editor.** `orc_productions.stageplot_project_id` punta a `stageplot_projects` senza FK: chi
+  non è proprietario del progetto non lo legge (policy own-rows dell'editor). La scheda «StagePlot» della produzione
+  mostra i **miei** progetti, il documento lo legge il client, e nel blob del progetto **non si scrive nulla**: link
+  pubblici, copie e PDF di StagePlot non contengono dati di Orchestre (la funzione `get-shared-project` scarta comunque
+  ogni chiave `orc_*`, a test).
+- **Import** (`domain/stageplot-import.js` + RPC `orc_stageplot_import`): si sceglie la scena (variante), le
+  postazioni-persona si riconoscono con `orc_instruments.stageplot_types` (le postazioni a due valgono 2 posti), si
+  vede l'anteprima («ruolo nuovo», «+N posti», «già coperto») e si conferma. L'organico si **allarga** (ruolo per
+  strumento nella sezione della famiglia) e **non si restringe mai**: un disegno non toglie posti a persone assegnate.
+- **Collegamenti** (`orc_stageplot_links`, uno per postazione e scena): dopo una nuova lettura, le postazioni sparite
+  dal palco restano segnate «non più sul palco» (`stale`). Si leggono dallo staff, si scrivono solo via RPC.
+- **Andata e ritorno**: da Orchestre «Apri in StagePlot» apre `/app/?p=<uuid>` (con sessione apre il progetto e
+  pulisce l'URL; senza, aspetta il login in `sessionStorage`); nell'editor il hub «Produzione…» ha il riquadro
+  «Musicisti» che porta a `/orchestre/admin/produzioni/?p=<uuid>`: una produzione collegata → ci vai, nessuna → ne
+  crei una già collegata, più d'una → scegli. Il menu File resta a sei voci (decisione del 13/08).
+
 ## Modello dei ruoli
 
 `owner` · `admin` · `artistic` · `production` (staff: entrano nell'area admin) · `section` · `viewer`
@@ -230,11 +255,13 @@ di no per la produzione non viene riproposto.
 il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiunge per email con
 `orc_add_member_by_email`: la persona deve aver fatto almeno un accesso.
 
-## Limiti (lotti 1-7)
+## Limiti (lotti 1-8)
 
 - Chi entra senza un ruolo di staff finisce nell'area musicista; `section` e `viewer` non hanno ancora una pagina propria.
 - La cancellazione è una richiesta registrata (visibile allo staff): l'anonimizzazione vera è manuale.
 - Le notifiche interne (`orc_notifications`) non esistono ancora: il musicista vede gli inviti nell'area e via email.
+- L'import legge il palco, non le persone: i nomi dei musicisti nel disegno (rubrica dell'editor) non passano a
+  Orchestre, e i posti dell'organico non tornano sul disegno (niente scrittura nel progetto).
 - Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
 - I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella, API e peso nel motore, ma non ancora un'interfaccia per impostarli.
 - La distanza geografica non è calcolata (niente coordinate); il carico recente conta solo gli impegni confermati.

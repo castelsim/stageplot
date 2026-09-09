@@ -15,6 +15,17 @@ function stripContacts(state: unknown): void {
   delete state.techContact;
   delete state.pdfHeader;
   if (isRecord(state.approval)) delete state.approval.by;
+  stripOrchestre(state);
+}
+
+/**
+ * Orchestre (lotto 8) non scrive nulla nel documento: il collegamento produzione ↔ progetto vive nelle
+ * tabelle `orc_*`. Se un giorno una chiave `orc_…` finisse nel blob (per errore, o per un client vecchio),
+ * il link pubblico non deve comunque farla uscire: chi c'è in organico è un dato dell'orchestra.
+ */
+function stripOrchestre(node: unknown): void {
+  if (!isRecord(node)) return;
+  for (const key of Object.keys(node)) if (/^orc[_-]/i.test(key)) delete node[key];
 }
 
 /**
@@ -60,6 +71,7 @@ export function projectDataForPublicShare(
   if (!isRecord(out)) return out;
 
   const consenso = allowContacts && contactsAllowedByDocument(out);
+  stripOrchestre(out);
 
   if (Array.isArray(out.variants)) {
     const active = typeof out.active === "string" ? out.active : "";
@@ -69,9 +81,11 @@ export function projectDataForPublicShare(
     );
     const state = isRecord(selected) ? cloneJson(selected.state) : {};
     if (!consenso) stripContacts(state);
+    stripOrchestre(state);
     return state;
   }
   if (!consenso) stripContacts(out);
+  stripOrchestre(out);
   return out;
 }
 
