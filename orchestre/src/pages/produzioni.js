@@ -1,10 +1,13 @@
-/* Le produzioni dell'organizzazione: una card ciascuna con date, stato e posti coperti. */
+/* Le produzioni dell'organizzazione: una card ciascuna con date, stato e posti coperti.
+   ?p=<progetto StagePlot> arriva dal menu File dell'editor: porta alla produzione collegata, o propone di crearla. */
 import { BASE } from "../config.js";
-import { esc, el, setState, errMsg, fmtDate } from "../ui.js";
+import { esc, el, setState, errMsg, fmtDate, toast } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND } from "../domain/staffing.js";
 import { list } from "../api/productions.js";
+import { productionsForProject } from "../api/stageplot.js";
+import { isUuid } from "../domain/stageplot-import.js";
 
 const app = document.getElementById("app");
 let ctx = null, all = [];
@@ -25,8 +28,28 @@ async function main() {
     <ul class="list" id="list"><li class="loading">Un attimo…</li></ul>`;
   app.querySelector("#q").oninput = (e) => { F.q = e.target.value; paint(); };
   app.querySelector("#st").onchange = (e) => { F.status = e.target.value; paint(); };
+  const proj = new URLSearchParams(location.search).get("p");
+  if (isUuid(proj)) { try { if (await fromEditor(proj)) return; } catch (e) { toast(errMsg(e), { err: true }); } }
   try { all = await list(ctx.org.org_id); paint(); }
   catch (e) { const ul = app.querySelector("#list"); ul.innerHTML = ""; setState(ul, "err", errMsg(e)); }
+}
+
+/* dall'editor: una sola produzione collegata → ci vai; nessuna → la crei già collegata; più d'una → scegli */
+async function fromEditor(proj) {
+  const linked = await productionsForProject(proj);
+  if (linked.length === 1) { location.replace(BASE + "/admin/produzioni/scheda/?id=" + linked[0].id + "&t=stageplot"); return true; }
+  const b = el(`<section class="card banner"><h3></h3><p class="small muted"></p><div class="row" id="bAct"></div></section>`);
+  if (!linked.length) {
+    b.querySelector("h3").textContent = "Questo progetto StagePlot non è collegato a nessuna produzione";
+    b.querySelector("p").textContent = "Creane una: nasce già collegata, poi importi le postazioni del palco come posti dell'organico. Oppure apri una produzione esistente e collegala dalla scheda «StagePlot».";
+    b.querySelector("#bAct").appendChild(el(`<a class="btn primary" href="${BASE}/admin/produzioni/scheda/?new=1&p=${esc(proj)}">Nuova produzione collegata</a>`));
+  } else {
+    b.querySelector("h3").textContent = "Questo progetto è collegato a più produzioni";
+    b.querySelector("p").textContent = "Scegli quella su cui lavorare.";
+    for (const l of linked) b.querySelector("#bAct").appendChild(el(`<a class="btn" href="${BASE}/admin/produzioni/scheda/?id=${esc(l.id)}&t=stageplot">${esc(l.title)}</a>`));
+  }
+  app.querySelector("h1").parentNode.after(b);
+  return false;
 }
 
 function paint() {

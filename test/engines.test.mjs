@@ -14471,5 +14471,27 @@ t("i campi del pannello Area di stampa reggono il dito", () => {
      "i campi del pannello sono alti come un bersaglio");
 });
 
+console.log("Orchestre — ?p= apre il progetto, File → Organico:");
+t("orcProjectParam legge solo un uuid, mai insieme a ?view=", () => {
+  eq(A.orcProjectParam("?p=0F0E0D0C-1b1a-4c3d-8e2f-a1b2c3d4e5f6"), "0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6");
+  eq(A.orcProjectParam("?x=1&p=0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6&y=2"), "0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6");
+  eq(A.orcProjectParam("?p=abc"), null); eq(A.orcProjectParam("?p=0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f"), null);
+  eq(A.orcProjectParam("?view=tok&p=0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6"), null); eq(A.orcProjectParam(""), null); eq(A.orcProjectParam(undefined), null);
+});
+t("da «Produzione…» si va all'organico di Orchestre col progetto cloud (il menu File resta a sei voci)", () => {
+  ok(appjs.indexOf("function orcOrganicoLink(") > -1, "il link si costruisce in una funzione");
+  ok(appjs.indexOf('"organico":function') === -1, "nessuna settima voce nel menu File");
+  ok(appjs.indexOf('sessionStorage.setItem("orcOpenProject"') > -1, "senza sessione il progetto aspetta il login");
+  eq(A.orcOrganicoLink("0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6"), "/orchestre/admin/produzioni/?p=0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6");
+  eq(A.orcOrganicoLink(null), null); eq(A.orcOrganicoLink("x"), null);
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(html.indexOf('id="prodOrc"') > -1, "il hub Produzione ha il riquadro Orchestre");
+});
+t("il link pubblico (get-shared-project) non tocca tabelle né colonne orc_", () => {
+  const src = readFileSync(join(root, "supabase/functions/get-shared-project/index.ts"), "utf8");
+  ok(!/orc[_-]/i.test(src), "nessun riferimento a orc_");
+  ok(src.indexOf('select("data,title,updated_at,venue_image,is_locked")') > -1, "le colonne lette sono quelle di sempre");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

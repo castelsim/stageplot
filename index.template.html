@@ -1392,6 +1392,7 @@
     <p class="hint" style="margin:8px 0 2px">I reparti <b>tecnici</b> nascono dal palco che hai disegnato; aggiungi a mano quelli non-tecnici. I <b>responsabili e i contatti</b> (prossimo passo) resteranno privati nel tuo account, mai nei link condivisi.</p>
     <div id="prodDeptRows" style="margin-top:10px"></div>
     <div id="prodDeptAdd" class="prod-add" style="margin-top:12px"></div>
+    <div id="prodOrc" class="prod-dept" style="margin-top:14px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="btn primary" id="prodClose">Chiudi</button>
     </div>
@@ -26634,6 +26635,16 @@ function renderProdHub(){
   btn.addEventListener("click", go);
   inp.addEventListener("keydown", function(e){ if(e.key==="Enter") go(); });
   add.appendChild(inp); add.appendChild(btn);
+  /* Orchestre (lotto 8): chi SUONA è un reparto a sé e vive in /orchestre/, agganciato al progetto salvato
+     nel cloud (posti dell'organico dalle postazioni, convocazioni, sostituzioni). Sta qui, nel «chi fa cosa»,
+     e non nel menu File, che resta a sei voci per decisione del 13/08. */
+  var orc=document.getElementById("prodOrc");
+  if(orc){
+    orc.innerHTML='<div class="pd-hd"><span class="pd-dot" style="background:#0d9488"></span><span class="pd-nm">Musicisti</span><span class="pd-src extra">organico</span><span class="pd-el">Orchestre</span></div><div class="pd-assign"></div>';
+    var oa=orc.querySelector(".pd-assign"), olink=orcOrganicoLink(logged&&pid?pid:null);
+    if(olink){ var ol=document.createElement("a"); ol.className="btn"; ol.style.cssText="width:auto;margin:0;padding:5px 12px;display:inline-block"; ol.href=olink; ol.textContent="Organico e convocazioni \u2192"; oa.appendChild(ol); }
+    else { oa.innerHTML='<span class="pd-hint">\ud83d\udd12 '+(logged?"Salva il progetto nel cloud":"Accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre: posti dalle postazioni, convocazioni, sostituzioni.</span>'; }
+  }
 }
 var DEPT_ROLES=["Capo reparto","Tecnico","Assistente","Runner"];
 /* Decisione 4A: pannello Responsabile dell'elemento — eredita dal reparto o eccezione sul singolo.
@@ -27928,6 +27939,19 @@ function gallery(){
 
   window.__startSession=startSession;
 })();
+/* Orchestre (lotto 8): /app/?p=<uuid> apre QUEL progetto cloud (da «Apri in StagePlot» nella produzione).
+   Solo un uuid, e mai insieme a ?view= (che resta autorevole). Il parametro sparisce dall'URL appena letto. */
+function orcProjectParam(search){
+  var m=/[?&]p=([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:&|$)/i.exec(String(search||""));
+  if(!m || /[?&]view=/.test(String(search||""))) return null;
+  return m[1].toLowerCase();
+}
+/* …e la strada inversa: dal hub Produzione all'organico di Orchestre, col progetto cloud. Senza id niente link. */
+function orcOrganicoLink(projectId){
+  var id=String(projectId||"");
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return null;
+  return "/orchestre/admin/produzioni/?p="+id.toLowerCase();
+}
 var hasSharedHash=!!(location.hash&&/[#&][pd]=/.test(location.hash)), localBootDone=false;
 /* Per un link hash, carica prima l'eventuale lavoro locale: il guard può così crearne recovery e flush
    prima di aprire lo snapshot esterno come copia. */
@@ -29548,11 +29572,20 @@ function maybeAskStageSize(explicit){
     if(!window.supabase || !window.supabase.createClient){ updateBtn(); window.__flushEvents(); return; }   /* CDN non caricato: il tool resta pienamente usabile */
     sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
 
+    /* Orchestre: ?p=<uuid> letto una volta sola; se manca la sessione resta in sessionStorage fino al login */
+    var orcOpen=(typeof orcProjectParam==="function")?orcProjectParam(location.search):null;
+    if(orcOpen){ try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){} }
+    else { try{ orcOpen=sessionStorage.getItem("orcOpenProject")||null; }catch(e){} }
     sb.auth.getSession().then(function(r){
       setCloudUser((r && r.data && r.data.session)?r.data.session.user:null);
       window.__cloudAuthResolved=true;
       if(!oauthReturn) hadSessionAtBoot=!!cloudUser;
       updateBtn();
+      if(orcOpen){
+        if(cloudUser){ try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} var _oid=orcOpen; orcOpen=null; openProject(_oid); return; }
+        try{ sessionStorage.setItem("orcOpenProject", orcOpen); }catch(e){}
+        openModal();
+      }
       var copyTok=null; try{ copyTok=sessionStorage.getItem("copyFromToken"); }catch(e){}
       if(copyTok && cloudUser){
         try{ sessionStorage.removeItem("cloudReopen"); }catch(e){}   /* copyFromToken resta finché l'INSERT non è confermato */
@@ -29570,6 +29603,7 @@ function maybeAskStageSize(explicit){
       if(ev==="SIGNED_IN" && cloudUser && !loginTracked && !hadSessionAtBoot){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
+      if(cloudUser && orcOpen){ var _oid2=orcOpen; orcOpen=null; try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} openProject(_oid2); }
       updateBtn();
       if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
       if(typeof window.renderContacts==="function") window.renderContacts();   /* login/logout: i controlli rubrica (+ Dalla rubrica, ★, Gestisci) compaiono subito, non al prossimo re-render */

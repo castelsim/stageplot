@@ -209,3 +209,19 @@ Deno.test("share pubblico multi-variante: planimetria limitata all'attiva", () =
     _dataUrl: "data:image/png;base64,AAAA",
   });
 });
+
+Deno.test("Orchestre: il link pubblico non espone nessuna chiave orc_ (documento, variante attiva, stato piatto)", () => {
+  const doc = {
+    _doc: 1, active: "a", orc_link: { production: "x" }, shareOpts: { contacts: true },
+    variants: [{ id: "a", state: { titolo: "Live", items: [{ id: "i1", type: "vlnpost" }], orc_slots: [{ musician: "Ada" }], contacts: [{ name: "Ada" }] } }],
+  };
+  const out = projectDataForPublicShare(doc, { allowContacts: true }) as Record<string, unknown>;
+  assertEquals(out.orc_slots, undefined);
+  assertEquals(out.orc_link, undefined);
+  assertEquals(Array.isArray(out.items), true);                     // il palco passa
+  assertEquals(Array.isArray(out.contacts), true);                  // con consenso i contatti passano ancora
+  const flat = projectDataForPublicShare({ titolo: "Piatto", "orc-organico": 1, items: [] }) as Record<string, unknown>;
+  assertEquals(flat["orc-organico"], undefined);
+  assertEquals(flat.titolo, "Piatto");
+  assertEquals((doc.variants[0].state as Record<string, unknown>).orc_slots !== undefined, true);   // sorgente non mutata
+});

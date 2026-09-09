@@ -185,7 +185,7 @@ async function loadWeights() {
   } catch (e) { box.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); box.appendChild(d); }
 }
 
-const ACTIONS = { "org.bootstrap": "Organizzazione creata", "membership.add": "Persona aggiunta", "membership.role": "Ruolo cambiato", "musicians.import": "Musicisti importati", "matching.ruleset": "Pesi del matching salvati", "matching.override": "Scelta manuale nel matching", "application.status": "Candidatura: cambio di stato", "privacy.deletion_requested": "Richiesta di cancellazione" };
+const ACTIONS = { "org.bootstrap": "Organizzazione creata", "membership.add": "Persona aggiunta", "membership.role": "Ruolo cambiato", "musicians.import": "Musicisti importati", "matching.ruleset": "Pesi del matching salvati", "matching.override": "Scelta manuale nel matching", "application.status": "Candidatura: cambio di stato", "privacy.deletion_requested": "Richiesta di cancellazione", "stageplot.import": "Postazioni importate da StagePlot", "stageplot.unlink": "Progetto StagePlot scollegato" };
 
 async function loadAudit() {
   const box = app.querySelector("#audit");
@@ -215,6 +215,7 @@ function auditDetail(r) {
   if (r.action === "matching.ruleset") return "versione " + p.version;
   if (r.action === "matching.override") return "posizione " + p.rank + ": " + (p.reason || "");
   if (r.action === "application.status") return "→ " + (p.to || "");
+  if (r.action === "stageplot.import") return `${p.roles_created ?? 0} ruoli nuovi, ${p.roles_grown ?? 0} allargati, ${p.seats_added ?? 0} posti in più, ${p.linked ?? 0} postazioni` + (p.stale ? `, ${p.stale} non più sul palco` : "");
   return "";
 }
 
