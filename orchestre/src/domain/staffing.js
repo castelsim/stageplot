@@ -99,3 +99,11 @@ export function suggestedStatus(counts, current) {
   if (counts.filled > 0) return "partial";
   return current === "draft" ? "planning" : current;
 }
+
+export const INV_STATUS = {
+  draft: "Da spedire", sent: "Inviato", viewed: "Visualizzato", available: "Disponibile", partial: "Parzialmente disponibile",
+  unavailable: "Non disponibile", no_reply: "Nessuna risposta", expired: "Scaduto", confirmed: "Confermato", reserve: "Riserva",
+  replaced: "Sostituito", revoked: "Revocato", cancelled: "Annullato",
+};
+export const INV_PILL = { draft: "", sent: "accent", viewed: "accent", available: "ok", partial: "warn", unavailable: "danger", no_reply: "warn", expired: "warn", confirmed: "ok", reserve: "accent", replaced: "", revoked: "", cancelled: "" };
+export const INV_EVENT = { created: "Creato", sent: "Email inviata", reminder_queued: "Promemoria in coda", reminder_sent: "Promemoria inviato", viewed: "Link aperto", responded: "Ha risposto", confirmed: "Confermato", reserve_set: "Messo in riserva", cancelled: "Annullato", revoked: "Revocato", no_reply: "Scaduto senza risposta" };
