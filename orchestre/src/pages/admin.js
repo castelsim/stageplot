@@ -6,6 +6,7 @@ import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers } from "../api/org.js";
 import { list as listProductions } from "../api/productions.js";
 import { openCounts } from "../api/invitations.js";
+import { sb } from "../sb.js";
 import { tabs } from "../nav.js";
 
 const app = document.getElementById("app");
@@ -32,7 +33,15 @@ async function main() {
     const prods = all.filter((p) => Number(p.n_open) > 0 && !["done", "cancelled", "archived"].includes(p.status));
     const byProd = {};
     for (const i of invs) { const b = byProd[i.production_id] || (byProd[i.production_id] = { toConfirm: 0, waiting: 0, noReply: 0 }); if (["available", "partial"].includes(i.status)) b.toConfirm++; else if (i.status === "no_reply") b.noReply++; else b.waiting++; }
-    if (!prods.length) setState(todo, "empty", "Nessun posto scoperto nelle produzioni aperte.");
+    /* produzioni concluse senza feedback: lo storico si costruisce qui */
+    const doneProds = all.filter((p) => p.status === "done" && Number(p.n_filled) > 0);
+    let noFb = [];
+    if (doneProds.length) {
+      const { data: fbs } = await sb.from("orc_performance_feedback").select("production_id").in("production_id", doneProds.map((p) => p.id));
+      const has = new Set((fbs || []).map((f) => f.production_id));
+      noFb = doneProds.filter((p) => !has.has(p.id));
+    }
+    if (!prods.length && !noFb.length) setState(todo, "empty", "Nessun posto scoperto nelle produzioni aperte, nessun feedback da registrare.");
     else {
       setState(todo, "");
       todo.innerHTML = `<ul class="list compact"></ul>`;
@@ -42,6 +51,12 @@ async function main() {
         li.querySelector(".title").textContent = p.title;
         li.querySelector(".sub").textContent = [p.n_open + (Number(p.n_open) === 1 ? " posto scoperto" : " posti scoperti") + " su " + p.n_seats,
           b.toConfirm ? b.toConfirm + " da confermare" : "", b.waiting ? b.waiting + " in attesa" : "", b.noReply ? b.noReply + " senza risposta" : ""].filter(Boolean).join(" · ");
+        todo.querySelector("ul").appendChild(li);
+      }
+      for (const p of noFb) {
+        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(p.id)}&t=feedback"><div class="title"></div><div class="sub"></div></a></li>`);
+        li.querySelector(".title").textContent = p.title;
+        li.querySelector(".sub").textContent = "conclusa: feedback da registrare per " + p.n_filled + (Number(p.n_filled) === 1 ? " musicista" : " musicisti");
         todo.querySelector("ul").appendChild(li);
       }
     }

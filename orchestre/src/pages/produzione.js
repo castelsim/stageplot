@@ -8,13 +8,14 @@ import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS,
 import * as api from "../api/productions.js";
 import * as match from "../api/matching.js";
 import * as inv from "../api/invitations.js";
+import * as fb from "../api/feedback.js";
 import { rankCandidates, applyOverrides, explain, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
-const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["storia", "Storia"]];
+const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["storia", "Storia"]];
 
 async function main() {
   ctx = await requireStaff();
@@ -46,7 +47,7 @@ function paint() {
     a.onclick = (e) => { if (!p.id) { e.preventDefault(); return; } e.preventDefault(); tab = k; history.replaceState(null, "", "?id=" + p.id + "&t=" + k); paint(); };
     nav.appendChild(a);
   }
-  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, convocazioni: paintConvocazioni, storia: paintStoria })[tab]();
+  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, convocazioni: paintConvocazioni, feedback: paintFeedback, storia: paintStoria })[tab]();
 }
 
 /* ---------------------------------------------------------------- Dati */
@@ -569,6 +570,61 @@ function invitationRow(r, openSlots) {
   };
   act.appendChild(hist);
   return li;
+}
+
+
+/* ---------------------------------------------------------------- Feedback */
+const SCORES = [["punctuality", "Puntualità"], ["preparation", "Preparazione"], ["artistic", "Qualità artistica"], ["professionalism", "Professionalità"], ["overall", "Complessivo"]];
+async function paintFeedback() {
+  const panel = app.querySelector("#panel");
+  panel.innerHTML = `<p class="small muted">Per ogni musicista confermato: com'è andata davvero. I fatti (presenza, problemi) e il giudizio restano separati dallo storico dei posti, che non si tocca. Le medie che ne derivano dicono sempre su quante produzioni sono calcolate.</p>
+    <div id="fbState" class="row"></div><div id="fbList"><div class="loading">Un attimo…</div></div>`;
+  const state = panel.querySelector("#fbState");
+  if (!["done", "running", "confirmed", "complete"].includes(p.status)) {
+    state.appendChild(el(`<span class="pill warn">La produzione non è ancora conclusa</span>`));
+    const b = el(`<button type="button" class="btn small">Segna «Conclusa»</button>`);
+    b.onclick = async () => { try { await api.update(p.id, { status: "done" }); p.status = "done"; paint(); } catch (e) { toast(errMsg(e), { err: true }); } };
+    state.appendChild(b);
+  }
+  const box = panel.querySelector("#fbList");
+  try {
+    const rows = await fb.roster(p.id);
+    box.innerHTML = "";
+    if (!rows.length) { box.appendChild(el(`<div class="empty">Nessun musicista confermato in questa produzione.</div>`)); return; }
+    const done = rows.filter((r) => r.feedback_id).length;
+    state.appendChild(el(`<span class="pill ${done === rows.length ? "ok" : "accent"}">${done} feedback su ${rows.length}</span>`));
+    for (const r of rows) box.appendChild(feedbackRow(r));
+  } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
+}
+function feedbackRow(r) {
+  const d = el(`<details class="role fb"><summary><span class="title"></span><span class="pill ${r.feedback_id ? (r.attended === false ? "danger" : "ok") : ""}">${r.feedback_id ? (r.attended === false ? "assente" : (r.overall ? r.overall + "/5" : "registrato")) : "da fare"}</span><span class="sub"></span></summary><div class="role-body"></div></details>`);
+  d.querySelector(".title").textContent = r.musician_name;
+  d.querySelector(".sub").textContent = r.role_name + " · posto " + r.seat_no;
+  const body = d.querySelector(".role-body");
+  const form = el(`<div class="fb-form">
+    <div class="row"><label class="check-line"><input type="checkbox" class="att"> <span>Presente</span></label><label class="check-line"><input type="checkbox" class="rehire"> <span>Da richiamare</span></label></div>
+    <div class="scores"></div>
+    <div class="field"><label>Problemi verificati</label><input class="issues" placeholder="es. in ritardo alla prova generale"></div>
+    <div class="field"><label>Note private</label><textarea class="note" rows="2"></textarea></div>
+    <div class="row"><button type="button" class="btn primary save">Salva</button><span class="small muted saved"></span></div></div>`);
+  form.querySelector(".att").checked = r.attended !== false;
+  form.querySelector(".rehire").checked = r.rehire !== false;
+  form.querySelector(".issues").value = r.issues || ""; form.querySelector(".note").value = r.note || "";
+  const sc = form.querySelector(".scores");
+  for (const [k, label] of SCORES) {
+    const row = el(`<div class="score-row"><span></span><div class="seg"></div></div>`);
+    row.querySelector("span").textContent = label;
+    for (let n = 1; n <= 5; n++) { const b = el(`<button type="button" class="btn small" data-k="${k}" data-n="${n}">${n}</button>`); if (r[k] === n) b.classList.add("primary"); b.onclick = () => { row.querySelectorAll("button").forEach((x) => x.classList.remove("primary")); b.classList.add("primary"); }; row.querySelector(".seg").appendChild(b); }
+    sc.appendChild(row);
+  }
+  form.querySelector(".save").onclick = async () => {
+    const fields = { attended: form.querySelector(".att").checked, rehire: form.querySelector(".rehire").checked, issues: form.querySelector(".issues").value.trim(), note: form.querySelector(".note").value.trim() };
+    for (const [k] of SCORES) { const sel = sc.querySelector(`button.primary[data-k="${k}"]`); fields[k] = sel ? Number(sel.dataset.n) : null; }
+    try { await fb.save(ctx.org.org_id, p.id, r.musician_id, fields); toast("Feedback salvato."); form.querySelector(".saved").textContent = "Salvato"; d.querySelector("summary .pill").textContent = fields.attended === false ? "assente" : (fields.overall ? fields.overall + "/5" : "registrato"); d.querySelector("summary .pill").className = "pill " + (fields.attended === false ? "danger" : "ok"); }
+    catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  body.appendChild(form);
+  return d;
 }
 
 /* ---------------------------------------------------------------- Storia */
