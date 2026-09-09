@@ -53,6 +53,8 @@ jobs:
           supabase/functions/setup-request/index.ts
           supabase/functions/stripe-webhook/index.ts
           supabase/functions/submit-feedback/index.ts
+          supabase/functions/orc-respond/index.ts
+          supabase/functions/orc-notify/index.ts
       - name: Lint backend
         run: deno lint supabase/functions
       - name: Test Orchestre

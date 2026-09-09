@@ -4,16 +4,17 @@ import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, REP_KIND } from "../nav.js";
-import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
+import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, INV_STATUS, INV_PILL, INV_EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
 import * as api from "../api/productions.js";
 import * as match from "../api/matching.js";
+import * as inv from "../api/invitations.js";
 import { rankCandidates, applyOverrides, explain, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
-const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["storia", "Storia"]];
+const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["storia", "Storia"]];
 
 async function main() {
   ctx = await requireStaff();
@@ -45,7 +46,7 @@ function paint() {
     a.onclick = (e) => { if (!p.id) { e.preventDefault(); return; } e.preventDefault(); tab = k; history.replaceState(null, "", "?id=" + p.id + "&t=" + k); paint(); };
     nav.appendChild(a);
   }
-  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, storia: paintStoria })[tab]();
+  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, convocazioni: paintConvocazioni, storia: paintStoria })[tab]();
 }
 
 /* ---------------------------------------------------------------- Dati */
@@ -403,10 +404,18 @@ function paintResults(out) {
   const ordered = applyOverrides(mRun.results.map((r) => ({ ...r })));
   out.innerHTML = "";
   out.appendChild(el(`<p class="small muted">Calcolato il ${esc(fmtDateTime(mRun.at))}${mRun.ruleset_version ? ", pesi v" + mRun.ruleset_version : ", pesi di partenza"}. ${openSlots.length ? openSlots.length + (openSlots.length === 1 ? " posto scoperto" : " posti scoperti") : "Nessun posto scoperto"}.</p>`));
+  const bar = el(`<div class="row invite-bar"><span class="small muted" id="selCount">Seleziona chi convocare</span><span class="spacer"></span><button type="button" class="btn primary" id="inviteSel" disabled>Convoca i selezionati</button></div>`);
+  out.appendChild(bar);
   const ul = el(`<ul class="list" id="mList"></ul>`);
+  const selected = new Set();
+  const refreshBar = () => { bar.querySelector("#selCount").textContent = selected.size ? selected.size + (selected.size === 1 ? " selezionato" : " selezionati") : "Seleziona chi convocare"; bar.querySelector("#inviteSel").disabled = !selected.size; };
+  bar.querySelector("#inviteSel").onclick = () => inviteDialog([...selected]);
   ordered.forEach((r, i) => {
     const pos = i + 1;
-    const li = el(`<li class="list-item match${r.eligible ? "" : " off"}"><div class="rank"></div><div class="grow"><div class="title"></div><div class="sub"></div><div class="why small"></div></div><div class="actions"></div></li>`);
+    const li = el(`<li class="list-item match${r.eligible ? "" : " off"}"><label class="pick"><input type="checkbox" aria-label="Seleziona"></label><div class="rank"></div><div class="grow"><div class="title"></div><div class="sub"></div><div class="why small"></div></div><div class="actions"></div></li>`);
+    const cb = li.querySelector("input");
+    if (!r.eligible) cb.disabled = true;
+    cb.onchange = () => { if (cb.checked) selected.add(r.musician_id); else selected.delete(r.musician_id); refreshBar(); };
     li.querySelector(".rank").textContent = pos;
     li.querySelector(".title").textContent = r.name;
     li.querySelector(".sub").innerHTML = `<span class="pill ${r.eligible ? (r.score >= 70 ? "ok" : r.score >= 50 ? "accent" : "warn") : "danger"}">${r.eligible ? r.score + "/100" : "non idoneo"}</span>` +
@@ -452,6 +461,114 @@ function overrideDialog(r, out) {
     } catch (e) { toast(errMsg(e), { err: true }); }
   };
   document.body.appendChild(ov); ov.querySelector("#ovWhy").focus();
+}
+
+
+function inviteDialog(musicianIds) {
+  const role = sections.flatMap((s) => s.roles).find((r) => r.id === mRole);
+  const dflt = p.reply_deadline ? toLocalInput(p.reply_deadline) : toLocalInput(new Date(Date.now() + 7 * 86400000).toISOString());
+  const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2>Convocare ${musicianIds.length} ${musicianIds.length === 1 ? "musicista" : "musicisti"}?</h2>
+    <p class="small muted">Ruolo: ${esc(role?.name || "")}. Ognuno riceve un'email con un link per rispondere dal telefono: sì, no, o solo alcune date. La risposta arriva qui, nella scheda Convocazioni.</p>
+    <div class="field"><label for="invDl">Scadenza per rispondere</label><input id="invDl" type="datetime-local"></div>
+    <div class="field"><label for="invNote">Nota nell'email</label><textarea id="invNote" rows="2" placeholder="facoltativa, es. prove obbligatorie"></textarea></div>
+    <div class="actions"><button type="button" class="btn" id="no">Annulla</button><button type="button" class="btn primary" id="ok">Convoca</button></div></div></div>`);
+  ov.querySelector("#invDl").value = dflt;
+  const close = () => ov.remove();
+  ov.querySelector("#no").onclick = close;
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#ok").onclick = async () => {
+    const deadline = fromLocalInput(ov.querySelector("#invDl").value);
+    try {
+      const n = await inv.invite(p.id, mRole, musicianIds, { deadline, note: ov.querySelector("#invNote").value.trim(), runId: mRun?.id || null });
+      close(); toast(n + (n === 1 ? " convocazione creata" : " convocazioni create") + ": l'email parte entro dieci minuti.");
+      tab = "convocazioni"; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni"); paint();
+    } catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  document.body.appendChild(ov);
+}
+
+/* ---------------------------------------------------------------- Convocazioni */
+async function paintConvocazioni() {
+  const panel = app.querySelector("#panel");
+  panel.innerHTML = `<div id="cvSummary" class="row"></div><div id="cv"><div class="loading">Un attimo…</div></div>`;
+  await loadConvocazioni();
+}
+async function loadConvocazioni() {
+  const box = app.querySelector("#cv"), sum = app.querySelector("#cvSummary");
+  try {
+    const [rows, st] = await Promise.all([inv.list(p.id), api.staffing(p.id)]);
+    sections = groupStaffing(st);
+    const c = staffingCounts(sections);
+    const waiting = rows.filter((r) => ["draft", "sent", "viewed"].includes(r.status)).length;
+    const yes = rows.filter((r) => ["available", "partial"].includes(r.status)).length;
+    const noReply = rows.filter((r) => ["no_reply", "expired"].includes(r.status)).length;
+    sum.innerHTML = "";
+    if (c.seats) sum.appendChild(el(`<span class="pill ${c.open ? "warn" : "ok"}">${c.open ? c.open + (c.open === 1 ? " posto scoperto" : " posti scoperti") : "organico completo"}</span>`));
+    if (waiting) sum.appendChild(el(`<span class="pill accent">${waiting} in attesa</span>`));
+    if (yes) sum.appendChild(el(`<span class="pill ok">${yes} da confermare</span>`));
+    if (noReply) sum.appendChild(el(`<span class="pill warn">${noReply} senza risposta</span>`));
+    box.innerHTML = "";
+    if (!rows.length) {
+      box.appendChild(el(`<div class="empty">Nessuna convocazione ancora. Dal Matching scegli chi chiamare e premi «Convoca i selezionati».</div>`));
+      box.appendChild(el(`<p><a class="btn primary" href="?id=${esc(p.id)}&t=matching">Vai al Matching</a></p>`));
+      return;
+    }
+    const byRole = new Map();
+    for (const r of rows) { if (!byRole.has(r.role_id)) byRole.set(r.role_id, { name: r.role_name, rows: [] }); byRole.get(r.role_id).rows.push(r); }
+    for (const [roleId, g] of byRole) {
+      const role = sections.flatMap((s) => s.roles).find((r) => r.id === roleId);
+      const open = role ? role.slots.filter((x) => x.status === "open").length : 0;
+      const card = el(`<section class="card"><div class="row"><h3></h3><span class="pill ${open ? "warn" : "ok"}">${open ? open + " scoperti" : "completo"}</span><span class="spacer"></span><a class="btn small" href="?id=${esc(p.id)}&t=matching&role=${esc(roleId)}">Convoca altri</a></div><ul class="list compact"></ul></section>`);
+      card.querySelector("h3").textContent = g.name;
+      const ul = card.querySelector("ul");
+      for (const r of g.rows) ul.appendChild(invitationRow(r, open));
+      box.appendChild(card);
+    }
+  } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
+}
+function invitationRow(r, openSlots) {
+  const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
+  li.querySelector(".title").textContent = r.musician_name + (r.wave > 1 ? " · onda " + r.wave : "");
+  const bits = [];
+  if (r.deadline && ["draft", "sent", "viewed"].includes(r.status)) bits.push("entro " + fmtDateTime(r.deadline));
+  if (r.responded_at) bits.push("risposto " + fmtDateTime(r.responded_at));
+  if (r.status === "partial") bits.push(`${r.dates_yes} date su ${r.dates_total}`);
+  if (r.note_musician) bits.push("«" + r.note_musician + "»");
+  if (r.notification_status === "pending") bits.push("email in coda");
+  if (r.notification_status === "sending") bits.push("email in spedizione");
+  if (r.notification_status === "failed") bits.push("email NON consegnata" + (r.notification_last_error ? " (" + r.notification_last_error + ")" : ""));
+  if (r.slot_seat) bits.push("posto " + r.slot_seat);
+  li.querySelector(".sub").textContent = bits.join(" · ");
+  const act = li.querySelector(".actions");
+  act.appendChild(el(`<span class="pill ${INV_PILL[r.status] || ""}">${esc(INV_STATUS[r.status] || r.status)}</span>`));
+  const btn = (label, cls, fn) => { const b = el(`<button type="button" class="btn small ${cls}">${label}</button>`); b.onclick = fn; act.appendChild(b); };
+  const doAction = async (action, reason, okMsg) => { try { await inv.action(r.id, action, reason); toast(okMsg); await loadConvocazioni(); } catch (e) { toast(errMsg(e), { err: true }); } };
+  if (["available", "partial", "reserve"].includes(r.status) && openSlots > 0) btn("Conferma", "primary", async () => {
+    const yes = await confirm({ title: "Confermare " + r.musician_name + "?", text: "Prende il primo posto scoperto del ruolo. Il musicista non potrà più cambiare la risposta da solo.", ok: "Conferma" });
+    if (yes) doAction("confirm", "", "Confermato.");
+  });
+  if (["available", "partial"].includes(r.status)) btn("Riserva", "", () => doAction("reserve", "", "In riserva."));
+  if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria in coda: parte entro dieci minuti."));
+  if (r.status === "confirmed") btn("Revoca", "danger", () => {
+    const why = prompt("Motivo della revoca (resta nella storia):", ""); if (why === null) return;
+    doAction("revoke", why, "Conferma revocata: il posto è di nuovo scoperto.");
+  });
+  if (!["confirmed", "cancelled", "revoked", "replaced"].includes(r.status)) btn("Annulla", "ghost", async () => {
+    const yes = await confirm({ title: "Annullare la convocazione?", text: "Il link smette di funzionare. Se ha già risposto, la risposta resta nella storia.", ok: "Annulla convocazione", danger: true });
+    if (yes) doAction("cancel", "", "Annullata.");
+  });
+  const hist = el(`<button type="button" class="btn small ghost" title="Storia">…</button>`);
+  hist.onclick = async () => {
+    try {
+      const evs = await inv.events(r.id);
+      const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2>${esc(r.musician_name)}</h2><ul class="plain small" id="evl"></ul><div class="actions"><button type="button" class="btn" id="no">Chiudi</button></div></div></div>`);
+      for (const e of evs) { const li2 = document.createElement("li"); li2.textContent = fmtDateTime(e.at) + " · " + (INV_EVENT[e.event] || e.event) + (e.meta?.answer ? " (" + (INV_STATUS[e.meta.answer] || e.meta.answer) + ")" : "") + (e.meta?.reason ? " · " + e.meta.reason : ""); ov.querySelector("#evl").appendChild(li2); }
+      ov.querySelector("#no").onclick = () => ov.remove(); ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+      document.body.appendChild(ov);
+    } catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  act.appendChild(hist);
+  return li;
 }
 
 /* ---------------------------------------------------------------- Storia */
