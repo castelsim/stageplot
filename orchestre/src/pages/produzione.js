@@ -1,5 +1,5 @@
-/* Scheda di una produzione: Dati · Date · Repertorio · Organico · Storia. ?id= apre, ?new=1 crea,
-   ?t= sceglie la scheda (così il refresh resta dove eri). */
+/* Scheda di una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · StagePlot · Storia.
+   ?id= apre, ?new=1 crea (con ?p=<progetto> nasce già collegata a StagePlot), ?t= sceglie la scheda (così il refresh resta dove eri). */
 import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
@@ -11,11 +11,13 @@ import * as inv from "../api/invitations.js";
 import * as fb from "../api/feedback.js";
 import { rankCandidates, applyOverrides, explain, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
+import * as sp from "../api/stageplot.js";
+import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importSummary, isUuid } from "../domain/stageplot-import.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
-const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["storia", "Storia"]];
+const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["stageplot", "StagePlot"], ["storia", "Storia"]];
 
 async function main() {
   ctx = await requireStaff();
@@ -24,7 +26,7 @@ async function main() {
   app.className = "o-wrap";
   try {
     cat = await catalogs();
-    if (q.get("new")) { p = { id: null, title: "", client: "", description: "", kind: "concerto", conductor: "", manager: "", venue: "", address: "", status: "draft", fee_note: "", conditions: "", dress_code: "", reply_deadline: null, notes: "" }; tab = "dati"; paint(); return; }
+    if (q.get("new")) { p = { id: null, title: "", client: "", description: "", kind: "concerto", conductor: "", manager: "", venue: "", address: "", status: "draft", fee_note: "", conditions: "", dress_code: "", reply_deadline: null, notes: "", stageplot_project_id: isUuid(q.get("p")) ? q.get("p") : null }; tab = "dati"; paint(); return; }
     p = await api.get(q.get("id"));
     if (!p || p.org_id !== ctx.org.org_id) { location.replace(BASE + "/admin/produzioni/"); return; }
     paint();
@@ -47,7 +49,7 @@ function paint() {
     a.onclick = (e) => { if (!p.id) { e.preventDefault(); return; } e.preventDefault(); tab = k; history.replaceState(null, "", "?id=" + p.id + "&t=" + k); paint(); };
     nav.appendChild(a);
   }
-  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, convocazioni: paintConvocazioni, feedback: paintFeedback, storia: paintStoria })[tab]();
+  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, convocazioni: paintConvocazioni, feedback: paintFeedback, stageplot: paintStageplot, storia: paintStoria })[tab]();
 }
 
 /* ---------------------------------------------------------------- Dati */
@@ -84,6 +86,7 @@ function paintDati() {
   card.appendChild(field("description", "Descrizione", p.description, { type: "textarea" }));
   card.appendChild(field("conditions", "Condizioni", p.conditions, { type: "textarea" }));
   card.appendChild(field("notes", "Note interne", p.notes, { type: "textarea" }));
+  if (!p.id && p.stageplot_project_id) card.appendChild(el(`<p class="small muted">Nasce collegata al progetto StagePlot da cui arrivi: dopo il salvataggio potrai importare le postazioni.</p>`));
   const act = el(`<div class="row"><button type="button" class="btn primary" id="save">Salva</button></div>`);
   act.querySelector("#save").onclick = async () => {
     const f = {};
@@ -91,7 +94,11 @@ function paintDati() {
     f.reply_deadline = fromLocalInput(val("reply_deadline"));
     if (!f.title.trim()) return toast("Serve un titolo.", { err: true });
     try {
-      if (!p.id) { const id = await api.create(ctx.org.org_id, f); location.replace(BASE + "/admin/produzioni/scheda/?id=" + id + "&t=date"); return; }
+      if (!p.id) {
+        if (p.stageplot_project_id) f.stageplot_project_id = p.stageplot_project_id;
+        const id = await api.create(ctx.org.org_id, f);
+        location.replace(BASE + "/admin/produzioni/scheda/?id=" + id + "&t=" + (p.stageplot_project_id ? "stageplot" : "date")); return;
+      }
       await api.update(p.id, f); Object.assign(p, f);
       app.querySelector("#h").textContent = p.title; app.querySelector("#stPill").textContent = PROD_STATUS[p.status]; app.querySelector("#stPill").className = "pill " + (PROD_STATUS_PILL[p.status] || "");
       toast("Salvato.");
@@ -625,6 +632,111 @@ function feedbackRow(r) {
   };
   body.appendChild(form);
   return d;
+}
+
+/* ---------------------------------------------------------------- StagePlot */
+const editorUrl = (id) => "/app/?p=" + encodeURIComponent(id);
+async function paintStageplot() {
+  const panel = app.querySelector("#panel");
+  panel.innerHTML = `<div id="sp"><div class="loading">Un attimo…</div></div>`;
+  const box = panel.querySelector("#sp");
+  try {
+    if (!p.stageplot_project_id) { await paintSpLink(box); return; }
+    const [proj, lk] = await Promise.all([sp.project(p.stageplot_project_id).catch(() => null), sp.links(p.id)]);
+    box.innerHTML = "";
+    const card = el(`<section class="card"><div class="row"><h3>Progetto collegato</h3><span class="spacer"></span><span class="pill accent" id="spPill"></span></div><p id="spInfo"></p><p class="small muted" id="spHint"></p><div class="row" id="spAct"></div></section>`);
+    card.querySelector("#spPill").textContent = proj ? "tuo" : "di un altro account";
+    card.querySelector("#spInfo").textContent = proj ? proj.title + " · aggiornato il " + fmtDate(proj.updated_at) : "Il progetto non è nel tuo account StagePlot (o è stato eliminato): si apre solo da chi lo possiede, e solo da lì si importano le postazioni.";
+    const linked = lk.filter((l) => l.status === "linked"), stale = lk.filter((l) => l.status === "stale");
+    card.querySelector("#spHint").textContent = p.stageplot_synced_at
+      ? `Postazioni importate il ${fmtDateTime(p.stageplot_synced_at)}: ${linked.length} collegate` + (stale.length ? `, ${stale.length} non più sul palco` : "") + "."
+      : "Nessuna postazione importata ancora. Le postazioni-persona del disegno diventano posti dell'organico; i posti non si tolgono mai da qui.";
+    const act = card.querySelector("#spAct");
+    act.appendChild(el(`<a class="btn" href="${esc(editorUrl(p.stageplot_project_id))}" target="_blank" rel="noopener">Apri in StagePlot</a>`));
+    if (proj) { const b = el(`<button type="button" class="btn primary">Importa postazioni…</button>`); b.onclick = () => paintSpImport(box, proj); act.appendChild(b); }
+    const un = el(`<button type="button" class="btn small ghost">Scollega</button>`);
+    un.onclick = async () => {
+      const yes = await confirm({ title: "Scollegare il progetto?", text: "L'organico resta com'è; spariscono solo i collegamenti alle postazioni.", ok: "Scollega", danger: true });
+      if (!yes) return;
+      try { await sp.unlink(p.id); Object.assign(p, { stageplot_project_id: null, stageplot_variant_id: null, stageplot_synced_at: null }); toast("Scollegato."); paint(); } catch (e) { toast(errMsg(e), { err: true }); }
+    };
+    act.appendChild(un);
+    box.appendChild(card);
+    if (lk.length) {
+      const lc = el(`<section class="card"><h3>Postazioni collegate</h3><ul class="list" id="lk"></ul></section>`);
+      const ul = lc.querySelector("#lk");
+      const names = new Map((cat.instruments || []).map((i) => [i.code, i.name]));
+      for (const l of lk) {
+        const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
+        li.querySelector(".title").textContent = l.item_label || l.item_type;
+        li.querySelector(".sub").textContent = [names.get(l.instrument_code) || l.instrument_code, l.seats === 1 ? "1 posto" : l.seats + " posti", l.item_type].filter(Boolean).join(" · ");
+        li.querySelector(".actions").appendChild(el(l.status === "stale" ? `<span class="pill warn">non più sul palco</span>` : `<span class="pill ok">collegata</span>`));
+        ul.appendChild(li);
+      }
+      box.appendChild(lc);
+    }
+  } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
+}
+
+async function paintSpLink(box) {
+  const mine = await sp.myProjects();
+  box.innerHTML = "";
+  const c = el(`<section class="card"><h3>Collega un progetto StagePlot</h3>
+    <p class="small muted">Il disegno del palco e l'organico si parlano: le postazioni-persona del progetto diventano posti da coprire, e dall'editor arrivi qui con File → Organico (Orchestre).</p>
+    <div class="form-row"><div class="field"><label for="spSel">Progetto</label><select id="spSel"></select></div><div></div><button type="button" class="btn primary" id="spGo">Collega</button></div></section>`);
+  const sel = c.querySelector("#spSel");
+  if (!mine.length) { sel.appendChild(new Option("Nessun progetto nel tuo account StagePlot", "")); c.querySelector("#spGo").disabled = true; c.appendChild(el(`<p class="small muted">Disegna il palco nell'<a href="/app/" target="_blank" rel="noopener">editor</a> e salvalo nel cloud: comparirà qui.</p>`)); }
+  else { sel.appendChild(new Option("— scegli —", "")); for (const m of mine) sel.appendChild(new Option(m.title + " · " + fmtDate(m.updated_at), m.id)); }
+  c.querySelector("#spGo").onclick = async () => {
+    const id = sel.value; if (!id) return toast("Scegli un progetto.", { err: true });
+    try { await api.update(p.id, { stageplot_project_id: id }); p.stageplot_project_id = id; toast("Collegato."); paint(); } catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  box.appendChild(c);
+}
+
+async function paintSpImport(box, proj) {
+  const old = box.querySelector("#spImp"); if (old) old.remove();
+  const c = el(`<section class="card" id="spImp"><h3>Importa le postazioni</h3>
+    <div class="form-row"><div class="field"><label for="spVar">Scena del progetto</label><select id="spVar"></select></div><div></div><span></span></div>
+    <p class="small" id="spSum"></p><ul class="list" id="spDiff"></ul><ul class="list" id="spUn"></ul>
+    <div class="row"><button type="button" class="btn primary" id="spDo">Importa</button><button type="button" class="btn ghost" id="spNo">Annulla</button></div></section>`);
+  box.appendChild(c);
+  c.scrollIntoView({ block: "start", behavior: "smooth" });
+  const instr = await sp.instruments(), typeMap = typeMapFrom(instr);
+  const roles = groupStaffing(await api.staffing(p.id)).flatMap((s) => s.roles.map((r) => ({ instrument_code: r.instrument_code, seats: r.seats })));
+  const variants = docVariants(proj.data);
+  const sel = c.querySelector("#spVar");
+  for (const v of variants) sel.appendChild(new Option(v.name + (v.active ? " (attiva)" : ""), v.id));
+  sel.value = (variants.find((v) => v.id === p.stageplot_variant_id) || variants.find((v) => v.active) || variants[0] || {}).id || "";
+  let cur = null;
+  const preview = () => {
+    const ex = extractPositions(proj.data, sel.value, typeMap);
+    const diff = diffProposal(proposeRoles(ex.positions, instr), roles);
+    cur = { ...ex, diff };
+    c.querySelector("#spSum").textContent = "Se importi: " + importSummary(diff, ex.unmapped);
+    const ul = c.querySelector("#spDiff"); ul.innerHTML = "";
+    for (const d of diff) {
+      const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
+      li.querySelector(".title").textContent = d.name + " · " + (d.seats === 1 ? "1 posto sul palco" : d.seats + " posti sul palco");
+      li.querySelector(".sub").textContent = d.labels.join(", ");
+      li.querySelector(".actions").appendChild(el(d.action === "new" ? `<span class="pill accent">ruolo nuovo</span>` : d.action === "grow" ? `<span class="pill warn">+${d.add} ${d.add === 1 ? "posto" : "posti"} (ne hai ${d.current})</span>` : `<span class="pill ok">già coperto (${d.current})</span>`));
+      ul.appendChild(li);
+    }
+    const un = c.querySelector("#spUn"); un.innerHTML = "";
+    if (ex.unmapped.length) { const li = el(`<li class="empty"></li>`); li.textContent = "Fuori dall'organico (nessuno strumento in catalogo): " + ex.unmapped.map((u) => u.label || u.item_type).join(", ") + "."; un.appendChild(li); }
+    c.querySelector("#spDo").disabled = !ex.positions.length;
+  };
+  sel.onchange = preview; preview();
+  c.querySelector("#spNo").onclick = () => c.remove();
+  c.querySelector("#spDo").onclick = async () => {
+    if (!cur || !cur.positions.length) return;
+    try {
+      const r = await sp.importPositions(p.id, proj.id, sel.value, cur.positions);
+      Object.assign(p, { stageplot_variant_id: sel.value, stageplot_synced_at: new Date().toISOString() });
+      toast(`Importate: ${r.roles_created} ruoli nuovi, ${r.roles_grown} allargati, ${r.seats_added} posti in più, ${r.linked} postazioni collegate` + (r.stale ? `, ${r.stale} non più sul palco.` : "."));
+      paint();
+    } catch (e) { toast(errMsg(e), { err: true }); }
+  };
 }
 
 /* ---------------------------------------------------------------- Storia */
