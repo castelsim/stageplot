@@ -158,6 +158,13 @@ ul.plain{list-style:none;display:flex;flex-direction:column;gap:6px;margin-botto
 .date-row .grow{flex:1;min-width:200px;font-size:var(--t-md)}
 .date-row .seg{display:flex;gap:var(--s-1)}
 
+/* feedback */
+.fb-form .scores{margin:var(--s-3) 0}
+.score-row{display:flex;align-items:center;gap:var(--s-3);padding:6px 0;border-top:1px solid var(--border);flex-wrap:wrap}
+.score-row span{flex:1;min-width:140px;font-size:var(--t-md)}
+.score-row .seg{display:flex;gap:4px}
+.score-row .seg .btn{min-width:40px;padding:0}
+
 /* form */
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:var(--s-4)}
 .field label{font-size:var(--t-body);font-weight:600;color:var(--text-2)}

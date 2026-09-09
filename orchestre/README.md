@@ -9,8 +9,9 @@ Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli,
 **lotto 3** (produzioni: date, repertorio, organico a sezioni/ruoli/posti, modelli, assegnazioni, storia),
 **lotto 4** (matching: motore puro e spiegabile, pesi versionati, snapshot delle proposte, override con motivo),
 **lotto 5** (convocazioni: inviti con link e token, email via worker, risposta in due tocchi, conferme, riserve,
-promemoria, revoche, scadenze). I lotti successivi (storico, candidature, collegamento a StagePlot) aggiungono
-cartelle e migrazioni con lo stesso schema.
+promemoria, revoche, scadenze), **lotto 6** (storico e affidabilità: feedback post-produzione, indicatori con il
+campione, tasso di risposta e valutazioni dentro il matching). I lotti successivi (candidature, collegamento a
+StagePlot) aggiungono cartelle e migrazioni con lo stesso schema.
 
 ## Struttura
 
@@ -24,7 +25,7 @@ orchestre/
   admin/musicisti/scheda/     scheda di un musicista (?id= apre, ?new=1 crea)
   admin/musicisti/importa/    import da CSV con anteprima
   admin/produzioni/           le produzioni: lista con date, stato, posti coperti
-  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Storia
+  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · Storia
   rispondi/index.html         la pagina del musicista convocato (?t=TOKEN): niente account, niente supabase-js
   demo/musicisti-demo.csv     40 musicisti INVENTATI, nel formato dell'import
   ui.css                      token del design system di StagePlot + componenti
@@ -38,6 +39,7 @@ orchestre/
   src/api/productions.js      chiamate per produzioni e organico
   src/api/matching.js         fatti, pesi, snapshot, override
   src/api/invitations.js      inviti, azioni dello staff, elenco
+  src/api/feedback.js         feedback post-produzione, indicatori, storico del musicista
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
   src/domain/staffing.js      modelli di organico, etichette, raggruppamento posti (puro, testato)
   src/domain/matching.js      IL MOTORE: fase A requisiti, fase B punteggio, spiegazioni (puro, testato)
@@ -52,12 +54,14 @@ orchestre/
   test/matching.test.mjs      il motore: regola Morricone, cold start, rinunce, scala, determinismo
   test/rls-matching.test.mjs  scenario E per fatti, snapshot, override, pesi
   test/rls-invitations.test.mjs  il flusso completo delle convocazioni, con il worker e il musicista simulati
+  test/rls-feedback.test.mjs  feedback per org, indicatori con campione, storico, affidabilità nel matching
 supabase/migrations/0041_orc_identity.sql   profili, organizzazioni, ruoli, RPC, RLS
 supabase/migrations/0042_orc_catalogs.sql   strumenti e competenze (seed)
 supabase/migrations/0043_orc_roster.sql     pool dei musicisti, import, lista
 supabase/migrations/0044_orc_productions.sql produzioni, date, organico, posti, eventi, RPC
 supabase/migrations/0045_orc_matching.sql   pesi versionati, fatti per il matching, snapshot, override
 supabase/migrations/0046_orc_invitations.sql inviti, date, segreti (solo service_role), eventi append-only, RPC
+supabase/migrations/0047_orc_feedback.sql   feedback, orc_musician_stats, orc_musician_history, fatti del matching con affidabilità
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -178,6 +182,18 @@ esclusioni) e conserva pesi e proposte.
    il vecchio link muore), **Revoca**, **Annulla**. Ogni passo è in `orc_invitation_events`, append-only.
 5. Alla scadenza il worker porta gli inviti senza risposta a «nessuna risposta» (`orc_expire_invitations`).
 
+## Storico e affidabilità
+
+Dopo una produzione (scheda **Feedback**), per ogni musicista confermato lo staff registra presenza, puntualità,
+preparazione, qualità, professionalità, un complessivo 1-5, «da richiamare», problemi e note private
+(`orc_performance_feedback`, uno per produzione e musicista). Gli indicatori (`orc_musician_stats`) nascono da
+eventi e feedback e dicono **su quante osservazioni** sono calcolati: la scheda del musicista mostra
+collaborazioni, valutazione media «su N», assenze, rinunce, tasso di risposta (solo da 3 inviti), ultimo incarico,
+e lo storico produzione per produzione (`orc_musician_history`). Gli eventi originali restano: nessun punteggio
+li sovrascrive. Nel matching entrano tre fattori: **valutazione verificata** (3 = neutro; una sola pesa meno),
+**affidabilità** (tasso di risposta, da 3 inviti), **assenze** (tetto a due); chi è già convocato o ha già detto
+di no per la produzione non viene riproposto.
+
 ## Modello dei ruoli
 
 `owner` · `admin` · `artistic` · `production` (staff: entrano nell'area admin) · `section` · `viewer`
@@ -190,7 +206,7 @@ il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiun
 - Nessuna pagina per musicisti, `section`, `viewer`: chi entra senza un ruolo di staff vede la spiegazione.
 - Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
 - I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella, API e peso nel motore, ma non ancora un'interfaccia per impostarli.
-- Il matching non usa ancora il tasso di risposta né le disponibilità già dichiarate (arrivano con lo storico, lotto 6). La distanza geografica non è calcolata (niente coordinate).
+- La distanza geografica non è calcolata (niente coordinate); il carico recente conta solo gli impegni confermati.
 - Le convocazioni sono per ruolo e in onde; «passa al successivo» è manuale: dalla scheda Convocazioni si torna al Matching del ruolo.
 - Le notifiche interne all'area musicista arrivano con le candidature (lotto 7): oggi il musicista riceve solo l'email.
 - L'assegnazione dall'organico è diretta (posto confermato): le convocazioni con risposta del musicista sono il lotto 5.

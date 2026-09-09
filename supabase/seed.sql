@@ -89,6 +89,11 @@ begin
   insert into public.orc_staffing_roles (production_id, section_id, instrument_code, name, seats, part, sort) values (pid, sid, 'chitarra_elettrica', 'Chitarra', 1, 'tutti', 501) returning id into rid;
   select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'gabriele.bison@example.invalid';
   perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.role_id = rid and s.status = 'open' order by s.seat_no limit 1), mid, 'storico importato');
+  -- feedback post-produzione: presenza, punteggi, un'assenza e un «non richiamare» per provare gli indicatori
+  insert into public.orc_performance_feedback (org_id, production_id, musician_id, slot_id, attended, punctuality, preparation, artistic, professionalism, overall, rehire, issues, author_id)
+  select org, pid, s.musician_id, s.id, true, 4 + (abs(hashtext(s.musician_id::text)) % 2), 3 + (abs(hashtext(s.musician_id::text || 'p')) % 3), 3 + (abs(hashtext(s.musician_id::text || 'a')) % 3), 4 + (abs(hashtext(s.musician_id::text || 'x')) % 2), 3 + (abs(hashtext(s.musician_id::text || 'o')) % 3), true, '', '00000000-0000-4000-8000-00000000d3a0'
+  from public.orc_staffing_slots s where s.production_id = pid and s.status = 'confirmed' on conflict do nothing;
+  update public.orc_performance_feedback f set attended = false, overall = 1, rehire = false, issues = 'non si è presentato alla generale, avvisato il giorno stesso' where f.production_id = pid and f.musician_id = (select s.musician_id from public.orc_staffing_slots s where s.production_id = pid and s.status = 'confirmed' order by s.seat_no desc limit 1);
   insert into public.orc_productions (org_id, title, client, kind, conductor, venue, status, created_by) values (org, 'Morricone in concerto', 'Festival d''estate', 'concerto', 'M. Fantasia', 'Arena, Padova', 'done', '00000000-0000-4000-8000-00000000d3a0') returning id into pid;
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2025-07-03 15:00+02', '2025-07-03 19:00+02', 'Arena, Padova');
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'concert', '2025-07-04 21:15+02', '2025-07-04 23:15+02', 'Arena, Padova');
@@ -170,6 +175,10 @@ begin
   perform public.orc_release_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.musician_id = mid), 'withdrew', 'impegno sopraggiunto, avvisato dieci giorni prima');
   select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'luca.conti@example.invalid';
   perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.status = 'open' order by s.seat_no limit 1), mid, 'sostituto');
+  -- feedback post-produzione: presenza, punteggi, un'assenza e un «non richiamare» per provare gli indicatori
+  insert into public.orc_performance_feedback (org_id, production_id, musician_id, slot_id, attended, punctuality, preparation, artistic, professionalism, overall, rehire, issues, author_id)
+  select org, pid, s.musician_id, s.id, true, 4 + (abs(hashtext(s.musician_id::text)) % 2), 3 + (abs(hashtext(s.musician_id::text || 'p')) % 3), 3 + (abs(hashtext(s.musician_id::text || 'a')) % 3), 4 + (abs(hashtext(s.musician_id::text || 'x')) % 2), 3 + (abs(hashtext(s.musician_id::text || 'o')) % 3), true, '', '00000000-0000-4000-8000-00000000d3a0'
+  from public.orc_staffing_slots s where s.production_id = pid and s.status = 'confirmed' on conflict do nothing;
   insert into public.orc_productions (org_id, title, client, kind, conductor, venue, status, created_by) values (org, 'Pooh in sinfonia', 'Teatro Nuovo', 'concerto', 'M. Immaginario', 'Teatro Nuovo, Treviso', 'done', '00000000-0000-4000-8000-00000000d3a0') returning id into pid;
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2025-11-20 14:00+02', '2025-11-20 18:00+02', 'Teatro Nuovo, Treviso');
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2025-11-21 14:00+02', '2025-11-21 18:00+02', 'Teatro Nuovo, Treviso');
@@ -222,6 +231,10 @@ begin
   insert into public.orc_staffing_roles (production_id, section_id, instrument_code, name, seats, part, sort) values (pid, sid, 'pianoforte', 'Pianoforte', 1, 'tutti', 401) returning id into rid;
   select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = 'giorgia.ravagnan@example.invalid';
   perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.role_id = rid and s.status = 'open' order by s.seat_no limit 1), mid, 'storico importato');
+  -- feedback post-produzione: presenza, punteggi, un'assenza e un «non richiamare» per provare gli indicatori
+  insert into public.orc_performance_feedback (org_id, production_id, musician_id, slot_id, attended, punctuality, preparation, artistic, professionalism, overall, rehire, issues, author_id)
+  select org, pid, s.musician_id, s.id, true, 4 + (abs(hashtext(s.musician_id::text)) % 2), 3 + (abs(hashtext(s.musician_id::text || 'p')) % 3), 3 + (abs(hashtext(s.musician_id::text || 'a')) % 3), 4 + (abs(hashtext(s.musician_id::text || 'x')) % 2), 3 + (abs(hashtext(s.musician_id::text || 'o')) % 3), true, '', '00000000-0000-4000-8000-00000000d3a0'
+  from public.orc_staffing_slots s where s.production_id = pid and s.status = 'confirmed' on conflict do nothing;
   insert into public.orc_productions (org_id, title, client, kind, conductor, venue, status, created_by) values (org, 'Morricone in concerto 2026', 'Comune di Bassano del Grappa', 'concerto', 'M. Fantasia', 'Teatro Remondini, Bassano del Grappa', 'planning', '00000000-0000-4000-8000-00000000d3a0') returning id into pid;
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2026-10-15 15:00+02', '2026-10-15 19:00+02', 'Teatro Remondini, Bassano del Grappa');
   insert into public.orc_production_dates (production_id, kind, starts_at, ends_at, venue) values (pid, 'rehearsal', '2026-10-16 15:00+02', '2026-10-16 19:00+02', 'Teatro Remondini, Bassano del Grappa');

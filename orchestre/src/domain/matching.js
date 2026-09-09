@@ -21,6 +21,9 @@ export const DEFAULT_WEIGHTS = {
   rotation: 3,            // un nuovo musicista idoneo riceve una piccola spinta per entrare
   reserve: -4,            // stato «riserva»
   level: 6,               // livello sullo strumento del ruolo oltre il minimo
+  rating: 8,              // valutazione verificata dallo staff (media dei feedback, 3 = neutro)
+  reliability: 6,         // tasso di risposta alle convocazioni (conta da 3 inviti in su)
+  absence: -8,            // ogni assenza registrata nei feedback; tetto a 2
 };
 
 export const WEIGHT_LABELS = {
@@ -28,10 +31,11 @@ export const WEIGHT_LABELS = {
   same_conductor: "Stesso direttore", same_client: "Stesso cliente", same_kind: "Stessa tipologia", collabs: "Collaborazioni concluse",
   skills: "Competenze richieste", withdrawals: "Rinunce dopo conferma (per ciascuna)", recent_load: "Carico recente",
   rotation: "Rotazione: nuovi musicisti", reserve: "Stato riserva", level: "Livello sullo strumento",
+  rating: "Valutazione verificata (feedback)", reliability: "Affidabilità: tasso di risposta", absence: "Assenze registrate (per ciascuna)",
 };
 
 const sat = (n, cap) => Math.min(Math.max(Number(n) || 0, 0), cap) / cap;
-const POSITIVE = ["same_series", "same_repertoire", "same_composer", "same_conductor", "same_client", "same_kind", "collabs", "skills", "level", "rotation"];
+const POSITIVE = ["same_series", "same_repertoire", "same_composer", "same_conductor", "same_client", "same_kind", "collabs", "skills", "level", "rotation", "rating", "reliability"];
 /* Quanti punti grezzi vale il massimo possibile: la scala del punteggio. */
 export function maxPositive(W) { return POSITIVE.reduce((a, k) => a + Math.max(0, Number(W[k]) || 0), 0) || 1; }
 const months = (a, b) => (b - a) / (1000 * 60 * 60 * 24 * 30.44);
@@ -44,6 +48,8 @@ export function checkRequirements(cand, ctx) {
   if (cand.status === "suspended") missing.push({ code: "suspended", label: "Sospeso" });
   if (Array.isArray(cand.excluded) && cand.excluded.length) missing.push({ code: "excluded", label: "Escluso" + (cand.excluded[0] ? ": " + cand.excluded[0] : "") });
   if (cand.conflict) missing.push({ code: "conflict", label: "Conflitto di calendario con un'altra produzione" });
+  if (cand.invited_here) missing.push({ code: "invited", label: "Già convocato per questo ruolo: aspetta la risposta" });
+  if (cand.declined_here) missing.push({ code: "declined", label: "Ha già detto di no (o non ha risposto) per questa produzione" });
   const inst = role.instrument_code ? (cand.instruments || []).find((i) => i.code === role.instrument_code) : null;
   if (role.instrument_code && !inst) missing.push({ code: "instrument", label: "Non suona questo strumento" });
   if (inst && role.min_level && inst.level && inst.level < role.min_level) missing.push({ code: "level", label: `Livello ${inst.level}/5, richiesto ${role.min_level}` });
@@ -89,6 +95,24 @@ export function scoreCandidate(cand, ctx, weights = DEFAULT_WEIGHTS, now = new D
     const over = (inst.level - base) / 2;
     if (over !== 0) add("level", `Livello ${inst.level}/5 sullo strumento`, W.level * Math.max(-1, Math.min(1, over)));
     if (!inst.primary) warnings.push("Non è il suo strumento principale");
+  }
+
+  /* la valutazione verificata dallo staff: la media dei feedback, 3 = neutro, con il campione in chiaro */
+  const nfb = Number(cand.n_feedback) || 0;
+  if (nfb > 0 && cand.avg_overall != null) {
+    const avg = Number(cand.avg_overall);
+    add("rating", `Valutazione ${avg.toFixed(1)}/5 su ${nfb} ${nfb === 1 ? "produzione" : "produzioni"}`, W.rating * Math.max(-1, Math.min(1, (avg - 3) / 2)) * (nfb === 1 ? 0.6 : 1));
+    if (nfb === 1) warnings.push("Una sola valutazione: pesa meno");
+  }
+  const nAbs = Number(cand.n_absent) || 0;
+  if (nAbs > 0) { add("absence", `${nAbs} ${nAbs === 1 ? "assenza registrata" : "assenze registrate"}`, W.absence * Math.min(nAbs, 2)); warnings.push("Ha saltato una produzione confermata"); }
+  if ((Number(cand.n_rehire_no) || 0) > 0) warnings.push("Lo staff ha indicato «non richiamare» almeno una volta");
+  /* affidabilità: quanti inviti hanno avuto una risposta. Sotto tre inviti non si giudica. */
+  const ninv = Number(cand.n_invites) || 0;
+  if (ninv >= 3 && cand.reply_rate != null) {
+    const rate = Number(cand.reply_rate);
+    add("reliability", `Ha risposto a ${Math.round(rate * 100)}% delle convocazioni (${ninv})`, W.reliability * ((rate - 0.5) * 2));
+    if (rate < 0.5) warnings.push("Spesso non risponde alle convocazioni");
   }
 
   const wd = Array.isArray(cand.withdrawals) ? cand.withdrawals : [];
@@ -139,7 +163,7 @@ export function applyOverrides(results) {
 
 /* La frase per l'amministratore, come nella SPEC. */
 export function explain(r) {
-  const top = r.reasons.filter((x) => x.points > 0).slice(0, 3).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
+  const top = r.reasons.filter((x) => x.points > 0).slice(0, 4).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
   const neg = r.reasons.filter((x) => x.points < 0).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
   let s = `${r.name} — ${r.score}/100.`;
   if (!r.eligible) return s + " Non idoneo: " + r.missing.map((m) => m.label.toLowerCase()).join("; ") + ".";

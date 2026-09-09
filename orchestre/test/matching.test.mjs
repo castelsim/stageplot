@@ -85,7 +85,7 @@ test("saturazioni e neutralità: cinque collaborazioni valgono come cinquanta; i
 });
 
 test("scala: il candidato perfetto sfiora 100, la riserva resta sotto anche in cima, niente ammucchiata", () => {
-  const perfect = base({ n_same_series: 2, n_same_repertoire: 3, n_same_composer_prod: 3, composer_declared: ["history"], n_same_conductor: 2, n_same_client: 2, n_same_kind: 3, n_collab: 5, skills: [{ code: "lettura_prima_vista", level: 3 }, { code: "lettura_partitura", level: 3 }], instruments: [{ code: "violino", level: 5, primary: true }] });
+  const perfect = base({ n_same_series: 2, n_same_repertoire: 3, n_same_composer_prod: 3, composer_declared: ["history"], n_same_conductor: 2, n_same_client: 2, n_same_kind: 3, n_collab: 5, skills: [{ code: "lettura_prima_vista", level: 3 }, { code: "lettura_partitura", level: 3 }], instruments: [{ code: "violino", level: 5, primary: true }], n_feedback: 3, avg_overall: 5, n_invites: 4, reply_rate: 1 });
   const s = scoreCandidate(perfect, ctx, DEFAULT_WEIGHTS, NOW).score;
   assert.ok(s >= 95 && s <= 100, "perfetto: " + s);
   const reserve = scoreCandidate({ ...perfect, status: "reserve" }, ctx, DEFAULT_WEIGHTS, NOW).score;
@@ -116,4 +116,29 @@ test("explain produce la frase per l'amministratore", () => {
   assert.match(s, /Attenzione: 1 rinuncia dopo conferma/);
   const no = explain(rankCandidates({ ...ctx, candidates: [base({ id: "y", name: "Anna Prova", conflict: true })] }, DEFAULT_WEIGHTS, NOW)[0]);
   assert.match(no, /Non idoneo: conflitto di calendario/);
+});
+
+test("storico e affidabilità: valutazione (3 neutro, una sola pesa meno), assenze, tasso di risposta da 3 inviti", () => {
+  const scale = 50 / maxPositive(DEFAULT_WEIGHTS);
+  const none = scoreCandidate(base(), ctx, DEFAULT_WEIGHTS, NOW).score;
+  const top = scoreCandidate(base({ n_feedback: 3, avg_overall: 5 }), ctx, DEFAULT_WEIGHTS, NOW).score;
+  const mid = scoreCandidate(base({ n_feedback: 3, avg_overall: 3 }), ctx, DEFAULT_WEIGHTS, NOW).score;
+  const low = scoreCandidate(base({ n_feedback: 3, avg_overall: 1 }), ctx, DEFAULT_WEIGHTS, NOW).score;
+  const one = scoreCandidate(base({ n_feedback: 1, avg_overall: 5 }), ctx, DEFAULT_WEIGHTS, NOW);
+  assert.ok(Math.abs((top - none) - 8 * scale) <= 1, "5/5 su tre = +8 in scala");
+  assert.equal(mid, none, "3/5 è neutro");
+  assert.ok(low < none, "1/5 pesa in negativo");
+  assert.ok(one.score < top && one.warnings.includes("Una sola valutazione: pesa meno"));
+  const absent = scoreCandidate(base({ n_absent: 1 }), ctx, DEFAULT_WEIGHTS, NOW);
+  assert.ok(Math.abs((none - absent.score) - 8 * scale) <= 1); assert.ok(absent.warnings.some((w) => /saltato/.test(w)));
+  const twoAbs = scoreCandidate(base({ n_absent: 5 }), ctx, DEFAULT_WEIGHTS, NOW).score;
+  assert.ok(Math.abs((none - twoAbs) - 16 * scale) <= 1, "tetto a due assenze");
+  const fewInv = scoreCandidate(base({ n_invites: 2, reply_rate: 0 }), ctx, DEFAULT_WEIGHTS, NOW).score;
+  assert.equal(fewInv, none, "sotto tre inviti il tasso di risposta non si giudica");
+  const good = scoreCandidate(base({ n_invites: 4, reply_rate: 1 }), ctx, DEFAULT_WEIGHTS, NOW).score;
+  const bad = scoreCandidate(base({ n_invites: 4, reply_rate: 0.25 }), ctx, DEFAULT_WEIGHTS, NOW);
+  assert.ok(good > none && bad.score < none); assert.ok(bad.warnings.some((w) => /non risponde/.test(w)));
+  const inv = checkRequirements(base({ invited_here: true }), ctx);
+  assert.equal(inv.missing[0].code, "invited");
+  assert.equal(checkRequirements(base({ declined_here: true }), ctx).missing[0].code, "declined");
 });

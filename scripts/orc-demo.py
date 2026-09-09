@@ -125,13 +125,13 @@ random.shuffle(morricone)
 PRODS = [
     dict(title="Morricone in concerto", client="Comune di Vicenza", conductor="M. Fantasia", venue="Teatro Comunale, Vicenza", status="done",
          dates=[("rehearsal","2024-06-13 15:00","2024-06-13 19:00"),("rehearsal","2024-06-14 15:00","2024-06-14 19:00"),("concert","2024-06-14 21:00","2024-06-14 23:00")],
-         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=morricone[: int(len(morricone) * 0.8)]),
+         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=morricone[: int(len(morricone) * 0.8)], feedback="with_absence"),
     dict(title="Morricone in concerto", client="Festival d'estate", conductor="M. Fantasia", venue="Arena, Padova", status="done",
          dates=[("rehearsal","2025-07-03 15:00","2025-07-03 19:00"),("concert","2025-07-04 21:15","2025-07-04 23:15")],
-         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=morricone),
+         rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=morricone, feedback="plain"),
     dict(title="Pooh in sinfonia", client="Teatro Nuovo", conductor="M. Immaginario", venue="Teatro Nuovo, Treviso", status="done",
          dates=[("rehearsal","2025-11-20 14:00","2025-11-20 18:00"),("rehearsal","2025-11-21 14:00","2025-11-21 18:00"),("concert","2025-11-21 21:00","2025-11-21 23:30")],
-         rep=[("program","Pooh in sinfonia"),("genre","Pop sinfonico")], parts=pooh),
+         rep=[("program","Pooh in sinfonia"),("genre","Pop sinfonico")], parts=pooh, feedback="plain"),
     dict(title="Morricone in concerto 2026", client="Comune di Bassano del Grappa", conductor="M. Fantasia", venue="Teatro Remondini, Bassano del Grappa", status="planning",
          dates=[("rehearsal","2026-10-15 15:00","2026-10-15 19:00"),("rehearsal","2026-10-16 15:00","2026-10-16 19:00"),("concert","2026-10-17 21:00","2026-10-17 23:00")],
          rep=[("composer","Ennio Morricone"),("program","Morricone in concerto"),("genre","Colonne sonore")], parts=None),
@@ -178,6 +178,13 @@ def prod_sql(pr):
         out.append("  perform public.orc_release_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.musician_id = mid), 'withdrew', 'impegno sopraggiunto, avvisato dieci giorni prima');")
         out.append(f"  select m.id into mid from public.orc_musicians m where m.org_id = org and m.email = {q(sub)};")
         out.append("  perform public.orc_assign_slot((select s.id from public.orc_staffing_slots s where s.production_id = pid and s.status = 'open' order by s.seat_no limit 1), mid, 'sostituto');")
+    if pr.get("feedback"):
+        out.append("  -- feedback post-produzione: presenza, punteggi, un'assenza e un «non richiamare» per provare gli indicatori")
+        out.append("  insert into public.orc_performance_feedback (org_id, production_id, musician_id, slot_id, attended, punctuality, preparation, artistic, professionalism, overall, rehire, issues, author_id)")
+        out.append("  select org, pid, s.musician_id, s.id, true, 4 + (abs(hashtext(s.musician_id::text)) % 2), 3 + (abs(hashtext(s.musician_id::text || 'p')) % 3), 3 + (abs(hashtext(s.musician_id::text || 'a')) % 3), 4 + (abs(hashtext(s.musician_id::text || 'x')) % 2), 3 + (abs(hashtext(s.musician_id::text || 'o')) % 3), true, '', '" + DEMO_USER + "'")
+        out.append("  from public.orc_staffing_slots s where s.production_id = pid and s.status = 'confirmed' on conflict do nothing;")
+        if pr["feedback"] == "with_absence":
+            out.append("  update public.orc_performance_feedback f set attended = false, overall = 1, rehire = false, issues = 'non si è presentato alla generale, avvisato il giorno stesso' where f.production_id = pid and f.musician_id = (select s.musician_id from public.orc_staffing_slots s where s.production_id = pid and s.status = 'confirmed' order by s.seat_no desc limit 1);")
     return out
 
 prod_block = "do $$\ndeclare org uuid := '" + DEMO_ORG + "'; pid uuid; sid uuid; rid uuid; mid uuid; rep uuid;\nbegin\n" + \
