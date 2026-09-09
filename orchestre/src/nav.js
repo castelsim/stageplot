@@ -7,6 +7,7 @@ export function tabs(active) {
     ["home", "Home", BASE + "/admin/"],
     ["musicisti", "Musicisti", BASE + "/admin/musicisti/"],
     ["produzioni", "Produzioni", BASE + "/admin/produzioni/"],
+    ["candidature", "Candidature", BASE + "/admin/candidature/"],
     ["impostazioni", "Impostazioni", BASE + "/admin/impostazioni/"],
   ];
   return `<nav class="nav-tabs" aria-label="Sezioni">${items.map(([k, label, href]) =>

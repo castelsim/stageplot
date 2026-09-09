@@ -5,6 +5,7 @@ import { esc, el, toast, confirm, setState, roleLabel, fmtDateTime, errMsg } fro
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers, setRole, addByEmail, renameOrg, listAudit } from "../api/org.js";
 import { activeRuleset, saveRuleset } from "../api/matching.js";
+import { orgSettings, setAccepting } from "../api/applications.js";
 import { DEFAULT_WEIGHTS, WEIGHT_LABELS } from "../domain/matching.js";
 import { tabs } from "../nav.js";
 
@@ -27,6 +28,8 @@ async function main() {
     <p class="small muted">Chi può entrare in quest'area e con quale ruolo. Un ruolo si cambia solo da qui, e ogni cambio resta nel registro.</p>
     <div id="addBox"></div>
     <ul class="list" id="members"><li class="loading">Un attimo…</li></ul>
+    <h2>Candidature</h2>
+    <section class="card" id="applyBox"><div class="loading">Un attimo…</div></section>
     <h2>Pesi del matching</h2>
     <p class="small muted">Quanto conta ogni fattore nel punteggio (0-100, 50 = neutro). Ogni salvataggio crea una nuova versione: le proposte già calcolate ricordano la loro.</p>
     <section class="card" id="weights"><div class="loading">Un attimo…</div></section>
@@ -34,7 +37,7 @@ async function main() {
     <div id="audit" class="loading">Un attimo…</div>`;
   paintOrg();
   paintAdd();
-  await Promise.all([loadMembers(), loadAudit(), loadWeights()]);
+  await Promise.all([loadMembers(), loadAudit(), loadWeights(), loadApplying()]);
 }
 
 function paintOrg() {
@@ -144,6 +147,19 @@ function memberRow(m) {
   return li;
 }
 
+async function loadApplying() {
+  const box = app.querySelector("#applyBox");
+  try {
+    const s = await orgSettings(ctx.org.org_id);
+    box.innerHTML = `<p class="small muted">Se le candidature sono aperte, i musicisti trovano l'organizzazione in <code>/orchestre/candidatura/</code> e possono mandare il profilo. Le valutazioni restano interne.</p>`;
+    const l = el(`<label class="check-line"><input type="checkbox" id="accOn"> <span>Accetta candidature</span></label>`);
+    l.querySelector("input").checked = !!s.accepting_applications; if (!canManage) l.querySelector("input").disabled = true; box.appendChild(l);
+    const f = el(`<div class="field"><label for="accIntro">Testo per i candidati</label><input id="accIntro" maxlength="200" placeholder="es. Cerchiamo archi e fiati per la stagione 2027"></div>`);
+    f.querySelector("input").value = s.application_intro || ""; if (!canManage) f.querySelector("input").disabled = true; box.appendChild(f);
+    if (canManage) { const b = el(`<button type="button" class="btn">Salva</button>`); b.onclick = async () => { try { await setAccepting(ctx.org.org_id, box.querySelector("#accOn").checked, box.querySelector("#accIntro").value.trim()); toast("Salvato."); } catch (e) { toast(errMsg(e), { err: true }); } }; box.appendChild(b); }
+  } catch (e) { box.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); box.appendChild(d); }
+}
+
 async function loadWeights() {
   const box = app.querySelector("#weights");
   try {
@@ -169,7 +185,7 @@ async function loadWeights() {
   } catch (e) { box.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); box.appendChild(d); }
 }
 
-const ACTIONS = { "org.bootstrap": "Organizzazione creata", "membership.add": "Persona aggiunta", "membership.role": "Ruolo cambiato", "musicians.import": "Musicisti importati", "matching.ruleset": "Pesi del matching salvati", "matching.override": "Scelta manuale nel matching" };
+const ACTIONS = { "org.bootstrap": "Organizzazione creata", "membership.add": "Persona aggiunta", "membership.role": "Ruolo cambiato", "musicians.import": "Musicisti importati", "matching.ruleset": "Pesi del matching salvati", "matching.override": "Scelta manuale nel matching", "application.status": "Candidatura: cambio di stato", "privacy.deletion_requested": "Richiesta di cancellazione" };
 
 async function loadAudit() {
   const box = app.querySelector("#audit");
@@ -198,6 +214,7 @@ function auditDetail(r) {
   if (r.action === "musicians.import") return `${p.new} nuovi, ${p.updated} aggiornati` + (p.errors ? `, ${p.errors} scartati` : "");
   if (r.action === "matching.ruleset") return "versione " + p.version;
   if (r.action === "matching.override") return "posizione " + p.rank + ": " + (p.reason || "");
+  if (r.action === "application.status") return "→ " + (p.to || "");
   return "";
 }
 
