@@ -21,3 +21,6 @@ _prova.html
 
 # Supabase CLI: rami locali creati da db reset
 supabase/.branches/
+
+# env locale delle Edge Function (segreti di prova): mai nel repo
+supabase/functions/.env

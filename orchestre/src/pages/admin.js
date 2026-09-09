@@ -5,6 +5,7 @@ import { esc, el, roleLabel, setState, errMsg } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers } from "../api/org.js";
 import { list as listProductions } from "../api/productions.js";
+import { openCounts } from "../api/invitations.js";
 import { tabs } from "../nav.js";
 
 const app = document.getElementById("app");
@@ -27,15 +28,20 @@ async function main() {
   const todo = app.querySelector("#todo");
   setState(todo, "loading");
   try {
-    const prods = (await listProductions(ctx.org.org_id)).filter((p) => Number(p.n_open) > 0 && !["done", "cancelled", "archived"].includes(p.status));
+    const [all, invs] = await Promise.all([listProductions(ctx.org.org_id), openCounts(ctx.org.org_id)]);
+    const prods = all.filter((p) => Number(p.n_open) > 0 && !["done", "cancelled", "archived"].includes(p.status));
+    const byProd = {};
+    for (const i of invs) { const b = byProd[i.production_id] || (byProd[i.production_id] = { toConfirm: 0, waiting: 0, noReply: 0 }); if (["available", "partial"].includes(i.status)) b.toConfirm++; else if (i.status === "no_reply") b.noReply++; else b.waiting++; }
     if (!prods.length) setState(todo, "empty", "Nessun posto scoperto nelle produzioni aperte.");
     else {
       setState(todo, "");
       todo.innerHTML = `<ul class="list compact"></ul>`;
       for (const p of prods) {
-        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(p.id)}&t=matching"><div class="title"></div><div class="sub"></div></a></li>`);
+        const b = byProd[p.id] || { toConfirm: 0, waiting: 0, noReply: 0 };
+        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(p.id)}&t=${b.toConfirm || b.waiting || b.noReply ? "convocazioni" : "matching"}"><div class="title"></div><div class="sub"></div></a></li>`);
         li.querySelector(".title").textContent = p.title;
-        li.querySelector(".sub").textContent = p.n_open + (Number(p.n_open) === 1 ? " posto scoperto" : " posti scoperti") + " su " + p.n_seats;
+        li.querySelector(".sub").textContent = [p.n_open + (Number(p.n_open) === 1 ? " posto scoperto" : " posti scoperti") + " su " + p.n_seats,
+          b.toConfirm ? b.toConfirm + " da confermare" : "", b.waiting ? b.waiting + " in attesa" : "", b.noReply ? b.noReply + " senza risposta" : ""].filter(Boolean).join(" · ");
         todo.querySelector("ul").appendChild(li);
       }
     }

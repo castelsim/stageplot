@@ -10,7 +10,8 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ROUTES = ["orchestre", "orchestre/login", "orchestre/admin", "orchestre/admin/impostazioni",
   "orchestre/admin/musicisti", "orchestre/admin/musicisti/scheda", "orchestre/admin/musicisti/importa",
-  "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda"];
+  "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda", "orchestre/rispondi"];
+const NO_SB = new Set(["orchestre/rispondi"]);   /* parla solo con la Edge Function: niente supabase-js */
 const PUBLIC = new Set(["orchestre"]);
 
 test("ogni rotta è una cartella con index.html (GitHub Pages non riscrive nulla)", () => {
@@ -29,7 +30,8 @@ test("le shell: CSP senza inline, robots coerente, ui.css, supabase self-hosted,
     if (PUBLIC.has(r)) assert.match(html, /name="robots" content="index,follow"/, r + " è pubblica");
     else assert.match(html, /name="robots" content="noindex,nofollow"/, r + " è privata");
     assert.match(html, /href="\/orchestre\/ui\.css"/, r);
-    assert.match(html, /src="\/vendor\/supabase\.min\.js"/, r);
+    if (NO_SB.has(r)) assert.doesNotMatch(html, /supabase\.min\.js/, r + ": la pagina del musicista non carica supabase-js");
+    else assert.match(html, /src="\/vendor\/supabase\.min\.js"/, r);
     const m = html.match(/type="module" src="(\/orchestre\/src\/pages\/[a-z]+\.js)"/);
     assert.ok(m, r + ": modulo di pagina");
     assert.ok(existsSync(join(root, m[1].slice(1))), m[1]);

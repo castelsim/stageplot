@@ -7,9 +7,10 @@ distinta dall'editor: condivide con StagePlot solo il dominio, il login Google e
 Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli, cataloghi, RLS, test),
 **lotto 2** (roster: pool dei musicisti, strumenti, competenze, repertorio, tag, import CSV, dati demo) e
 **lotto 3** (produzioni: date, repertorio, organico a sezioni/ruoli/posti, modelli, assegnazioni, storia),
-**lotto 4** (matching: motore puro e spiegabile, pesi versionati, snapshot delle proposte, override con motivo).
-I lotti successivi (convocazioni, storico, candidature, collegamento a StagePlot) aggiungono cartelle e
-migrazioni con lo stesso schema.
+**lotto 4** (matching: motore puro e spiegabile, pesi versionati, snapshot delle proposte, override con motivo),
+**lotto 5** (convocazioni: inviti con link e token, email via worker, risposta in due tocchi, conferme, riserve,
+promemoria, revoche, scadenze). I lotti successivi (storico, candidature, collegamento a StagePlot) aggiungono
+cartelle e migrazioni con lo stesso schema.
 
 ## Struttura
 
@@ -23,7 +24,8 @@ orchestre/
   admin/musicisti/scheda/     scheda di un musicista (?id= apre, ?new=1 crea)
   admin/musicisti/importa/    import da CSV con anteprima
   admin/produzioni/           le produzioni: lista con date, stato, posti coperti
-  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Storia (?id=, ?new=1, ?t=)
+  admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Storia
+  rispondi/index.html         la pagina del musicista convocato (?t=TOKEN): niente account, niente supabase-js
   demo/musicisti-demo.csv     40 musicisti INVENTATI, nel formato dell'import
   ui.css                      token del design system di StagePlot + componenti
   src/config.js               URL e anon key di Supabase (pubblici), ruoli
@@ -35,6 +37,7 @@ orchestre/
   src/api/musicians.js        chiamate per il pool
   src/api/productions.js      chiamate per produzioni e organico
   src/api/matching.js         fatti, pesi, snapshot, override
+  src/api/invitations.js      inviti, azioni dello staff, elenco
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
   src/domain/staffing.js      modelli di organico, etichette, raggruppamento posti (puro, testato)
   src/domain/matching.js      IL MOTORE: fase A requisiti, fase B punteggio, spiegazioni (puro, testato)
@@ -48,11 +51,16 @@ orchestre/
   test/rls-productions.test.mjs  scenario E per produzioni, posti, storia append-only
   test/matching.test.mjs      il motore: regola Morricone, cold start, rinunce, scala, determinismo
   test/rls-matching.test.mjs  scenario E per fatti, snapshot, override, pesi
+  test/rls-invitations.test.mjs  il flusso completo delle convocazioni, con il worker e il musicista simulati
 supabase/migrations/0041_orc_identity.sql   profili, organizzazioni, ruoli, RPC, RLS
 supabase/migrations/0042_orc_catalogs.sql   strumenti e competenze (seed)
 supabase/migrations/0043_orc_roster.sql     pool dei musicisti, import, lista
 supabase/migrations/0044_orc_productions.sql produzioni, date, organico, posti, eventi, RPC
 supabase/migrations/0045_orc_matching.sql   pesi versionati, fatti per il matching, snapshot, override
+supabase/migrations/0046_orc_invitations.sql inviti, date, segreti (solo service_role), eventi append-only, RPC
+supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
+supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
+supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
 supabase/seed.sql                           dati demo per il LOCALE (generati da scripts/orc-demo.py)
 scripts/orc-demo.py                         genera seed.sql e musicisti-demo.csv (deterministico)
 ```
@@ -153,6 +161,23 @@ esclusioni) e conserva pesi e proposte.
   scelta umana con il motivo (`orc_matching_override`, anche nel registro). La decisione resta umana:
   «Assegna» conferma il posto.
 
+## Convocazioni
+
+1. Dal **Matching** si selezionano i candidati e si preme «Convoca i selezionati»: `orc_invite` crea un invito
+   per (ruolo, musicista) con un token casuale (24 byte); nel DB resta lo sha-256, il chiaro sta in
+   `orc_invitation_secrets`, tabella **senza grant** al client.
+2. Il **worker** `orc-notify` (GitHub Action ogni 10 minuti, stesso segreto del worker consulenze) spedisce via
+   Resend con `Idempotency-Key`, segna «inviato» e **cancella il segreto**. Gli indirizzi riservati
+   (`.invalid`, `example.*`) non vanno a Resend: i musicisti demo non producono errori. `ORC_EMAIL_MODE=log`
+   in locale (in `supabase/functions/.env`, non versionato).
+3. Il musicista apre `/orchestre/rispondi/?t=…`: la Edge Function `orc-respond` chiama `orc_invitation_open`
+   (marca «visualizzato») e `orc_respond` (sì / no / solo alcune date + nota). Può cambiare fino alla scadenza,
+   finché lo staff non conferma.
+4. Nella scheda **Convocazioni** lo staff vede risposte, note e date, e agisce: **Conferma** (assegna il primo
+   posto scoperto con `orc_assign_slot`: una sola storia dei posti), **Riserva**, **Promemoria** (token nuovo,
+   il vecchio link muore), **Revoca**, **Annulla**. Ogni passo è in `orc_invitation_events`, append-only.
+5. Alla scadenza il worker porta gli inviti senza risposta a «nessuna risposta» (`orc_expire_invitations`).
+
 ## Modello dei ruoli
 
 `owner` · `admin` · `artistic` · `production` (staff: entrano nell'area admin) · `section` · `viewer`
@@ -165,7 +190,9 @@ il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiun
 - Nessuna pagina per musicisti, `section`, `viewer`: chi entra senza un ruolo di staff vede la spiegazione.
 - Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
 - I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella, API e peso nel motore, ma non ancora un'interfaccia per impostarli.
-- Il matching non conosce ancora le disponibilità dichiarate né il tasso di risposta: arrivano con le convocazioni (lotto 5). La distanza geografica non è calcolata (niente coordinate).
+- Il matching non usa ancora il tasso di risposta né le disponibilità già dichiarate (arrivano con lo storico, lotto 6). La distanza geografica non è calcolata (niente coordinate).
+- Le convocazioni sono per ruolo e in onde; «passa al successivo» è manuale: dalla scheda Convocazioni si torna al Matching del ruolo.
+- Le notifiche interne all'area musicista arrivano con le candidature (lotto 7): oggi il musicista riceve solo l'email.
 - L'assegnazione dall'organico è diretta (posto confermato): le convocazioni con risposta del musicista sono il lotto 5.
 - La home di Orchestre non è ancora in sitemap né linkata dalla landing di StagePlot.
 - Nessuna Edge Function nuova: tutto passa da PostgREST + RPC.
