@@ -5,6 +5,8 @@ import { esc, el, toast, confirm, setState, errMsg, fmtDate } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, FAMILY, REP_KIND, REP_SOURCE } from "../nav.js";
 import * as api from "../api/musicians.js";
+import { history, stats } from "../api/feedback.js";
+import { PROD_STATUS, SLOT_STATUS, INV_STATUS } from "../domain/staffing.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
@@ -46,11 +48,12 @@ function paint() {
         <section class="card" id="tag"><h3>Tag</h3></section>
         <section class="card" id="note"><h3>Note private</h3><p class="small muted">Le vede solo lo staff dell'organizzazione. Mai il musicista.</p></section>
       </div>
-    </div>`;
+    </div>
+    <section class="card" id="storico"><h3>Storico e affidabilità</h3><div class="loading">Un attimo…</div></section>`;
   app.querySelector("#h").textContent = isNew ? "Nuovo musicista" : m.last_name + " " + m.first_name;
   paintDati();
-  if (!isNew) { paintStrumenti(); paintCompetenze(); paintRepertorio(); paintTag(); paintNote(); }
-  else for (const id of ["strum", "comp", "rep", "tag", "note"]) app.querySelector("#" + id).appendChild(el(`<p class="small muted">Disponibile dopo il primo salvataggio.</p>`));
+  if (!isNew) { paintStrumenti(); paintCompetenze(); paintRepertorio(); paintTag(); paintNote(); paintStorico(); }
+  else for (const id of ["strum", "comp", "rep", "tag", "note", "storico"]) { const n = app.querySelector("#" + id); n.querySelectorAll(".loading").forEach((x) => x.remove()); n.appendChild(el(`<p class="small muted">Disponibile dopo il primo salvataggio.</p>`)); }
 }
 
 function field(id, label, value, { type = "text", opts = null, hint = "" } = {}) {
@@ -227,6 +230,40 @@ function paintTag() {
   };
   box.appendChild(f); box.appendChild(b);
   s.appendChild(box);
+}
+
+async function paintStorico() {
+  const s = app.querySelector("#storico");
+  const box = s.querySelector(".loading");
+  try {
+    const [rows, all] = await Promise.all([history(m.id), stats(ctx.org.org_id)]);
+    const st = all.find((x) => x.musician_id === m.id) || {};
+    box.remove();
+    const pills = el(`<div class="row"></div>`);
+    const n = Number(st.n_collab || 0);
+    pills.appendChild(el(`<span class="pill accent">${n} ${n === 1 ? "collaborazione" : "collaborazioni"}</span>`));
+    if (Number(st.n_feedback)) pills.appendChild(el(`<span class="pill ${Number(st.avg_overall) >= 4 ? "ok" : Number(st.avg_overall) >= 3 ? "" : "warn"}">valutazione ${Number(st.avg_overall).toFixed(1)}/5 su ${st.n_feedback}</span>`));
+    if (Number(st.n_absent)) pills.appendChild(el(`<span class="pill danger">${st.n_absent} ${Number(st.n_absent) === 1 ? "assenza" : "assenze"}</span>`));
+    if (Number(st.n_withdrawals)) pills.appendChild(el(`<span class="pill warn">${st.n_withdrawals} ${Number(st.n_withdrawals) === 1 ? "rinuncia" : "rinunce"}</span>`));
+    if (Number(st.n_invites)) pills.appendChild(el(`<span class="pill">${Number(st.n_invites) >= 3 ? "risponde al " + Math.round(Number(st.reply_rate) * 100) + "% (" + st.n_invites + " inviti)" : st.n_invites + (Number(st.n_invites) === 1 ? " invito" : " inviti") + ", pochi per un tasso"}</span>`));
+    if (st.last_engagement) pills.appendChild(el(`<span class="pill">ultimo incarico ${esc(fmtDate(st.last_engagement))}</span>`));
+    s.appendChild(pills);
+    if (!rows.length) { s.appendChild(el(`<p class="small muted">Nessuna produzione ancora.</p>`)); return; }
+    const ul = el(`<ul class="list compact"></ul>`);
+    for (const r of rows) {
+      const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(r.production_id)}"><div class="title"></div><div class="sub"></div></a><div class="actions"></div></li>`);
+      li.querySelector(".title").textContent = r.title + (r.first_date ? " · " + fmtDate(r.first_date) : "");
+      li.querySelector(".sub").textContent = [r.role_name, PROD_STATUS[r.status] || r.status, r.feedback_issues ? "problemi: " + r.feedback_issues : ""].filter(Boolean).join(" · ");
+      const act = li.querySelector(".actions");
+      if (r.slot_status === "confirmed") act.appendChild(el(`<span class="pill ok">${esc(SLOT_STATUS.confirmed)}</span>`));
+      else if (r.invitation_status) act.appendChild(el(`<span class="pill">${esc(INV_STATUS[r.invitation_status] || r.invitation_status)}</span>`));
+      if (r.withdrew) act.appendChild(el(`<span class="pill warn">rinuncia</span>`));
+      if (r.feedback_attended === false) act.appendChild(el(`<span class="pill danger">assente</span>`));
+      else if (r.feedback_overall) act.appendChild(el(`<span class="pill ${r.feedback_overall >= 4 ? "ok" : ""}">${r.feedback_overall}/5</span>`));
+      ul.appendChild(li);
+    }
+    s.appendChild(ul);
+  } catch (e) { if (box) box.remove(); const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); s.appendChild(d); }
 }
 
 function paintNote() {
