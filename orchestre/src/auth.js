@@ -62,7 +62,7 @@ export async function requireStaff() {
   const [profile, memberships] = await Promise.all([ensureProfile(), myMemberships()]);
   const staffOrgs = memberships.filter((m) => STAFF.includes(m.role));
   const org = currentOrg(staffOrgs);
-  if (!org) { location.replace(BASE + "/login/?why=noorg"); return null; }
+  if (!org) { location.replace(BASE + "/musicista/"); return null; }
   setCurrentOrg(org.org_id);
   return { session, profile, memberships, org };
 }

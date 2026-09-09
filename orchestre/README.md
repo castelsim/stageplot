@@ -10,8 +10,9 @@ Coperti: **lotto 1** (fondazioni: pagine, login, profilo, organizzazioni, ruoli,
 **lotto 4** (matching: motore puro e spiegabile, pesi versionati, snapshot delle proposte, override con motivo),
 **lotto 5** (convocazioni: inviti con link e token, email via worker, risposta in due tocchi, conferme, riserve,
 promemoria, revoche, scadenze), **lotto 6** (storico e affidabilità: feedback post-produzione, indicatori con il
-campione, tasso di risposta e valutazioni dentro il matching). I lotti successivi (candidature, collegamento a
-StagePlot) aggiungono cartelle e migrazioni con lo stesso schema.
+campione, tasso di risposta e valutazioni dentro il matching), **lotto 7** (candidature e area musicista: profilo
+globale con onboarding in otto passi, candidatura per organizzazione, valutazioni interne, accettazione che crea il
+musicista, file privati con URL firmati, consensi, export e cancellazione). Manca il lotto 8 (collegamento a StagePlot).
 
 ## Struttura
 
@@ -27,6 +28,10 @@ orchestre/
   admin/produzioni/           le produzioni: lista con date, stato, posti coperti
   admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · Storia
   rispondi/index.html         la pagina del musicista convocato (?t=TOKEN): niente account, niente supabase-js
+  candidatura/index.html      pagina pubblica: cos'è, come funziona, chi accetta candidature → login
+  musicista/index.html        l'area del musicista: profilo in otto passi (?v=profilo&step=N), candidature, inviti, incarichi, privacy
+  privacy/index.html          l'informativa (versione in domain/applications.js: PRIVACY_VERSION)
+  admin/candidature/          le candidature ricevute; admin/candidature/scheda/ il dettaglio con valutazioni e stato
   demo/musicisti-demo.csv     40 musicisti INVENTATI, nel formato dell'import
   ui.css                      token del design system di StagePlot + componenti
   src/config.js               URL e anon key di Supabase (pubblici), ruoli
@@ -40,6 +45,8 @@ orchestre/
   src/api/matching.js         fatti, pesi, snapshot, override
   src/api/invitations.js      inviti, azioni dello staff, elenco
   src/api/feedback.js         feedback post-produzione, indicatori, storico del musicista
+  src/api/applications.js     profilo, file, candidatura, inviti/incarichi via account, privacy; lato staff elenco/dettaglio/stato/valutazioni
+  src/domain/applications.js  stati (interni e pubblici), passi, completamento, versione dell'informativa (puro, testato)
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
   src/domain/staffing.js      modelli di organico, etichette, raggruppamento posti (puro, testato)
   src/domain/matching.js      IL MOTORE: fase A requisiti, fase B punteggio, spiegazioni (puro, testato)
@@ -55,6 +62,8 @@ orchestre/
   test/rls-matching.test.mjs  scenario E per fatti, snapshot, override, pesi
   test/rls-invitations.test.mjs  il flusso completo delle convocazioni, con il worker e il musicista simulati
   test/rls-feedback.test.mjs  feedback per org, indicatori con campione, storico, affidabilità nel matching
+  test/applications.test.mjs  stati e maschera pubblica allineati al DB, completamento, passi
+  test/rls-applications.test.mjs  scenario A + E: profilo, file nel bucket, candidatura, valutazioni invisibili, accettazione, area
 supabase/migrations/0041_orc_identity.sql   profili, organizzazioni, ruoli, RPC, RLS
 supabase/migrations/0042_orc_catalogs.sql   strumenti e competenze (seed)
 supabase/migrations/0043_orc_roster.sql     pool dei musicisti, import, lista
@@ -62,6 +71,7 @@ supabase/migrations/0044_orc_productions.sql produzioni, date, organico, posti, 
 supabase/migrations/0045_orc_matching.sql   pesi versionati, fatti per il matching, snapshot, override
 supabase/migrations/0046_orc_invitations.sql inviti, date, segreti (solo service_role), eventi append-only, RPC
 supabase/migrations/0047_orc_feedback.sql   feedback, orc_musician_stats, orc_musician_history, fatti del matching con affidabilità
+supabase/migrations/0048_orc_applications.sql profili, candidature, eventi, valutazioni, consensi, file, bucket orc-files con policy, RPC
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -194,6 +204,25 @@ li sovrascrive. Nel matching entrano tre fattori: **valutazione verificata** (3 
 **affidabilità** (tasso di risposta, da 3 inviti), **assenze** (tetto a due); chi è già convocato o ha già detto
 di no per la produzione non viene riproposto.
 
+## Candidature e area musicista
+
+- **Il profilo è del musicista** (`orc_musician_profiles`, own-rows): nasce al primo accesso dal JWT, si compila in
+  otto passi con la bozza salvata a ogni passo (`step`), ha un completamento percentuale e un elenco di campi che
+  mancano per inviare (`orc_profile_missing`, stessa regola in `domain/applications.js`).
+- **La candidatura è verso un'organizzazione** (`orc_applications`, una per org e profilo): bozza → inviata (con
+  consenso privacy versionato) → stati interni dello staff. Il candidato vede solo la **maschera pubblica**
+  (`orc_public_status`): «in valutazione» copre colloqui e audizioni da programmare e le sospensioni.
+- **Le valutazioni** (`orc_evaluations`: colloquio, audizione, generale; punteggi 1-5, note private) sono dell'org:
+  il candidato non ha nessuna policy. Lo staff vede il profilo di chi si è candidato alla sua org e basta.
+- **Accettare** (`orc_application_set_status … 'accepted'`) crea o collega la riga in `orc_musicians` copiando i
+  dati dichiarati (strumenti, competenze, repertorio) e collega l'account: da lì in poi riceve convocazioni.
+- **File**: bucket privato `orc-files`, `profiles/<uid>/…`; policy su `storage.objects` per proprietario e staff
+  delle org candidate; URL firmati a 10 minuti dal client.
+- **Area musicista** (`/orchestre/musicista/`): candidature con stato, inviti a cui rispondere senza token
+  (`orc_respond_mine`), incarichi confermati, privacy (consenso alle richieste, export JSON, richiesta di
+  cancellazione). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
+- Le organizzazioni aprono le candidature da Impostazioni (`accepting_applications`, testo per i candidati).
+
 ## Modello dei ruoli
 
 `owner` · `admin` · `artistic` · `production` (staff: entrano nell'area admin) · `section` · `viewer`
@@ -201,9 +230,11 @@ di no per la produzione non viene riproposto.
 il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiunge per email con
 `orc_add_member_by_email`: la persona deve aver fatto almeno un accesso.
 
-## Limiti (lotti 1-3)
+## Limiti (lotti 1-7)
 
-- Nessuna pagina per musicisti, `section`, `viewer`: chi entra senza un ruolo di staff vede la spiegazione.
+- Chi entra senza un ruolo di staff finisce nell'area musicista; `section` e `viewer` non hanno ancora una pagina propria.
+- La cancellazione è una richiesta registrata (visibile allo staff): l'anonimizzazione vera è manuale.
+- Le notifiche interne (`orc_notifications`) non esistono ancora: il musicista vede gli inviti nell'area e via email.
 - Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
 - I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella, API e peso nel motore, ma non ancora un'interfaccia per impostarli.
 - La distanza geografica non è calcolata (niente coordinate); il carico recente conta solo gli impegni confermati.
