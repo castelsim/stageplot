@@ -10,14 +10,15 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ROUTES = ["orchestre", "orchestre/login", "orchestre/admin", "orchestre/admin/impostazioni",
   "orchestre/admin/musicisti", "orchestre/admin/musicisti/scheda", "orchestre/admin/musicisti/importa",
-  "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda", "orchestre/rispondi"];
+  "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda", "orchestre/rispondi",
+  "orchestre/musicista", "orchestre/candidatura", "orchestre/privacy", "orchestre/admin/candidature", "orchestre/admin/candidature/scheda"];
 const NO_SB = new Set(["orchestre/rispondi"]);   /* parla solo con la Edge Function: niente supabase-js */
 /* Nessuna pagina di Orchestre va su Google finché è un cantiere (decisione di Simone, 06/09).
    La home è l'unica che un giorno sarà pubblica: `noindex,follow` come /app/ — fuori dalla SERP,
    ma i link a /privacy/ e /termini/, che pubbliche lo sono davvero, restano seguibili. Le altre
    sono login e area riservata: `noindex,nofollow`. Quando Orchestre apre, questa riga cambia
    INSIEME al sitemap, o si torna a una pagina indicizzabile che Google non sa di dover cercare. */
-const CANTIERE = new Set(["orchestre"]);
+const CANTIERE = new Set(["orchestre", "orchestre/privacy"]);   /* la privacy: noindex,follow come la home, coi link seguibili */
 
 test("ogni rotta è una cartella con index.html (GitHub Pages non riscrive nulla)", () => {
   for (const r of ROUTES) assert.ok(existsSync(join(root, r, "index.html")), r + "/index.html");
@@ -38,7 +39,7 @@ test("le shell: CSP senza inline, robots coerente, ui.css, supabase self-hosted,
     assert.match(html, /href="\/orchestre\/ui\.css"/, r);
     if (NO_SB.has(r)) assert.doesNotMatch(html, /supabase\.min\.js/, r + ": la pagina del musicista non carica supabase-js");
     else assert.match(html, /src="\/vendor\/supabase\.min\.js"/, r);
-    const m = html.match(/type="module" src="(\/orchestre\/src\/pages\/[a-z]+\.js)"/);
+    const m = html.match(/type="module" src="(\/orchestre\/src\/pages\/[a-z-]+\.js)"/);
     assert.ok(m, r + ": modulo di pagina");
     assert.ok(existsSync(join(root, m[1].slice(1))), m[1]);
     assert.match(html, /viewport-fit=cover/, r);
