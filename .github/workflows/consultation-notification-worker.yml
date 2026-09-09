@@ -41,3 +41,20 @@ jobs:
             echo "::error::Il worker non ha restituito una conferma valida."
             exit 1
           fi
+      - name: Convocazioni Orchestre (orc-notify)
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(
+            curl --fail-with-body --silent --show-error \
+              --proto '=https' \
+              --max-redirs 0 \
+              --max-time 240 \
+              --request POST \
+              --header "x-stageplot-worker-secret: $WORKER_SECRET" \
+              "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/orc-notify"
+          )"
+          if ! jq -e '.ok == true' >/dev/null <<<"$response"; then
+            echo "::error::orc-notify non ha restituito una conferma valida: $response"
+            exit 1
+          fi

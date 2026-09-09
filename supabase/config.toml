@@ -32,3 +32,11 @@ verify_jwt = false
 # La landing è una pagina pubblica senza login: chi la visita non ha nessun token da mostrare.
 [functions.track-landing]
 verify_jwt = false
+
+# Orchestre: la porta del musicista convocato (token nel link, verifica dentro la function) e il worker
+# delle convocazioni (segreto nell'header, come il worker delle consulenze).
+[functions.orc-respond]
+verify_jwt = false
+
+[functions.orc-notify]
+verify_jwt = false
