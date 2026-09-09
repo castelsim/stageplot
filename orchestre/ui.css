@@ -165,6 +165,21 @@ ul.plain{list-style:none;display:flex;flex-direction:column;gap:6px;margin-botto
 .score-row .seg{display:flex;gap:4px}
 .score-row .seg .btn{min-width:40px;padding:0}
 
+/* area musicista */
+.bar{height:8px;border-radius:4px;background:var(--surface-raised);overflow:hidden;margin:var(--s-2) 0 var(--s-3)}
+.bar-fill{height:100%;background:var(--accent);border-radius:4px;transition:width var(--dur-base) var(--ease)}
+.steps-bar{display:flex;align-items:center;gap:var(--s-2)}
+.wizard-nav{margin-top:var(--s-4);position:sticky;bottom:0;background:var(--bg);padding:var(--s-3) 0 calc(var(--s-3) + env(safe-area-inset-bottom))}
+dl.review{display:grid;grid-template-columns:auto 1fr;gap:6px var(--s-3);font-size:var(--t-md)}
+dl.review dt{color:var(--text-3);font-size:var(--t-body)}
+dl.review dd{overflow-wrap:anywhere}
+.inv-card{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-3);margin-bottom:var(--s-3);background:var(--surface)}
+.inv-card .ans{margin-top:var(--s-2)}
+.list-item.hi{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-tint)}
+.steps.one{grid-template-columns:1fr}
+pre.export{font-family:var(--font-mono);font-size:var(--t-body);background:var(--surface-raised);padding:var(--s-3);border-radius:var(--r-md);overflow:auto;max-height:50vh;white-space:pre-wrap;margin-top:var(--s-3)}
+.eval-form{margin-top:var(--s-3)}
+
 /* form */
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:var(--s-4)}
 .field label{font-size:var(--t-body);font-weight:600;color:var(--text-2)}

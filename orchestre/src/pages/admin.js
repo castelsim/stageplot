@@ -6,6 +6,7 @@ import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers } from "../api/org.js";
 import { list as listProductions } from "../api/productions.js";
 import { openCounts } from "../api/invitations.js";
+import { list as listApplications } from "../api/applications.js";
 import { sb } from "../sb.js";
 import { tabs } from "../nav.js";
 
@@ -41,10 +42,17 @@ async function main() {
       const has = new Set((fbs || []).map((f) => f.production_id));
       noFb = doneProds.filter((p) => !has.has(p.id));
     }
-    if (!prods.length && !noFb.length) setState(todo, "empty", "Nessun posto scoperto nelle produzioni aperte, nessun feedback da registrare.");
+    const apps = (await listApplications(ctx.org.org_id).catch(() => [])).filter((a) => ["submitted", "evaluating", "interview_to_schedule", "audition_to_schedule"].includes(a.status));
+    if (!prods.length && !noFb.length && !apps.length) setState(todo, "empty", "Niente in sospeso: nessun posto scoperto, nessun feedback da registrare, nessuna candidatura da valutare.");
     else {
       setState(todo, "");
       todo.innerHTML = `<ul class="list compact"></ul>`;
+      if (apps.length) {
+        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/candidature/"><div class="title"></div><div class="sub"></div></a></li>`);
+        li.querySelector(".title").textContent = apps.length + (apps.length === 1 ? " candidatura da valutare" : " candidature da valutare");
+        li.querySelector(".sub").textContent = apps.slice(0, 3).map((a) => a.last_name + " " + a.first_name + (a.primary_instrument ? " · " + a.primary_instrument : "")).join(", ") + (apps.length > 3 ? "…" : "");
+        todo.querySelector("ul").appendChild(li);
+      }
       for (const p of prods) {
         const b = byProd[p.id] || { toConfirm: 0, waiting: 0, noReply: 0 };
         const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(p.id)}&t=${b.toConfirm || b.waiting || b.noReply ? "convocazioni" : "matching"}"><div class="title"></div><div class="sub"></div></a></li>`);
