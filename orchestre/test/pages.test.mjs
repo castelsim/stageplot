@@ -117,6 +117,7 @@ test("il lint di Orchestre gira PRIMA del merge, non solo nel deploy", () => {
      merge, e il sito restava indietro senza che nessuno se ne accorgesse (successo il 10/09). */
   const rls = readFileSync(join(root, ".github/workflows/orchestre-rls.yml"), "utf8");
   assert.match(rls, /deno lint orchestre\/src/, "il workflow delle PR deve fare anche il lint");
+  assert.match(rls, /denoland\/setup-deno/, "e deve installare Deno, o il passo muore con «command not found»");
 });
 
 test("le suite RLS girano davvero in CI, e il workflow le copre tutte", () => {
