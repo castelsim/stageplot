@@ -12,7 +12,18 @@
      generato in locale (vendor/qrcode.min.js): nessun dominio esterno in img-src.
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; frame-src 'self' blob:; base-uri 'self'; form-action 'self'">
-<script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
+<script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non
+   permette header X-Frame-Options, e frame-ancestors non vale via <meta>). Dentro un <iframe sandbox>
+   senza allow-top-navigation l'uscita LANCIA: prima il catch inghiottiva l'eccezione e la pagina si
+   disegnava lo stesso nel frame dell'attaccante. Se non possiamo uscire, non ci facciamo vedere:
+   quello che non si vede non si clicca. */
+try{if(window.self!==window.top){try{window.top.location.replace(window.location.href);}catch(e){
+  document.documentElement.style.visibility="hidden";
+  document.addEventListener("DOMContentLoaded",function(){
+    document.body.innerHTML='<p style="font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em">StagePlot non si apre dentro la pagina di un altro sito. <a href="https://stageplot.it/app/">Aprilo su stageplot.it</a>.</p>';
+    document.documentElement.style.visibility="";
+  });
+}}}catch(e){}</script>
 <script>/* SEO (audit SEO-02): un progetto condiviso via ?view= è un link con token e non va indicizzato/archiviato. Additivo: non tocca la logica di condivisione, aggiunge solo un meta robots noindex quando è presente il token. */try{if(/[?&]view=/.test(location.search)){var _r=document.createElement("meta");_r.name="robots";_r.content="noindex,nofollow,noarchive";document.head.appendChild(_r);}}catch(e){}</script>
 <!-- Referrer-Policy esplicita (audit M-08): non affidarsi al default del browser. Protegge i token
      dei link di condivisione (nell'URL) da leak via header Referer verso risorse/destinazioni. -->

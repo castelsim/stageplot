@@ -3,7 +3,22 @@
 import { ROLES, STAFF } from "./config.js";
 
 export function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+/* Un indirizzo scritto da un'altra persona, prima di finire in un href. `<input type="url">` accetta
+   `javascript:` — è una URL formalmente valida — e quel link, cliccato da chi guarda la scheda,
+   girerebbe con i suoi permessi. Qui passano solo http e https: tutto il resto torna stringa vuota,
+   e chi chiama mostra il testo senza renderlo cliccabile. */
+export function safeHttpUrl(u) {
+  const t = String(u == null ? "" : u).trim();
+  if (!t) return "";
+  try {
+    /* Senza base, apposta: `new URL(t, base)` risolverebbe qualsiasi cosa contro stageplot.it —
+       la stringa vuota diventava la home, e «evil.com» un percorso nostro. Qui passa solo
+       un indirizzo assoluto, e chi ha scritto «example.org» senza schema resta testo. */
+    const p = new URL(t);
+    return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
+  } catch (e) { return ""; }
 }
 /* Da HTML a elemento. Con <template>, non con un div: dentro un div il parser butta via un <tr> o un
    <td> senza tabella intorno (visto il 04/09: il registro restava vuoto senza errori in console). */

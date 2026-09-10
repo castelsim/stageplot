@@ -101,8 +101,9 @@
   var S = { schema:null, answers:{}, idx:0, mode:"denied", recipient:{}, message:"", submitted:false, version:1, review:false };
   var saveT = null, saving = false, dirty = false;
 
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){
-    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  /* Anche l'apice: un attributo con apici singoli è HTML legittimo, e senza questo si chiude da dentro. */
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
   function el(html){ var d=document.createElement("div"); d.innerHTML=html; return d.firstElementChild; }
 
   /* domande pertinenti alle risposte date: la stessa logica gira anche sul server */

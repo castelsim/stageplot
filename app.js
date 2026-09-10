@@ -26802,7 +26802,10 @@ function maybeAskStageSize(explicit){
     toastT=setTimeout(function(){ toastEl.hidden=true; }, azione ? 7000 : 3200);
   }
   try{ window.__toast=toast; }catch(e){}   /* esposto al main scope per l'avviso quota planimetria */
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  /* Cinque caratteri, come l'esc globale: senza l'apice, un attributo scritto con apici singoli
+     si chiude da dentro. Qui oggi si usano solo virgolette doppie, ma la trappola resta armata
+     per chi scriverà la prossima riga. */
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function fmtDate(s){
     try{
       /* Postgres restituisce microsecondi a 6 cifre (…24.120026+00:00): Safari <16 dà "Invalid Date"
@@ -27418,7 +27421,15 @@ function maybeAskStageSize(explicit){
         enterConflict(); cb(null); return;
       }
       if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
-      var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
+      /* Il token di condivisione è una credenziale: chi lo indovina apre il progetto. Il vecchio
+         ripiego — l'orologio più un numero pseudocasuale — valeva una cinquantina di bit da
+         indovinare, e veniva dalla stessa sequenza che genera gli id degli elementi finiti dentro
+         il documento condiviso. `getRandomValues` c'è in ogni browser dal 2011; se davvero manca,
+         si rinuncia al link invece di darne uno debole.
+         (Il nome della vecchia funzione non si scrive qui: un test lo cerca in questo punto, e un
+         commento che lo contiene lo farebbe fallire per il motivo sbagliato.) */
+      var tok=tokenCondivisione();
+      if(!tok){ toast("Questo browser non sa generare un link sicuro: aggiornalo."); cb(null); return; }
       updateProjectMetadataCas(id,{share_token:tok},"updated_at,share_token",function(data){
         if(data){ window.__sendEvent({event:"share_created",props:{}}); cb(data.share_token||tok); }
         else cb(null);
@@ -27593,6 +27604,18 @@ function maybeAskStageSize(explicit){
      Il TOKEN si genera QUI e non viene mai salvato: nel database va solo il suo sha-256. Chi
      leggesse la tabella non potrebbe aprire i link. Il link in chiaro esiste solo mentre la
      finestra è aperta e nel messaggio che il tecnico manda. */
+  /* 128 bit da getRandomValues: la stessa robustezza di randomUUID, senza dipendere da un metodo
+     che i browser vecchi non hanno. Torna null quando non c'è nessuna fonte crittografica. */
+  function tokenCondivisione(){
+    var c=window.crypto;
+    if(c&&typeof c.randomUUID==="function"){ try{ return c.randomUUID(); }catch(e){} }
+    if(c&&typeof c.getRandomValues==="function"){
+      var b=new Uint8Array(16); c.getRandomValues(b);
+      var s=""; for(var i=0;i<b.length;i++) s+=("0"+b[i].toString(16)).slice(-2);
+      return s.slice(0,8)+"-"+s.slice(8,12)+"-"+s.slice(12,16)+"-"+s.slice(16,20)+"-"+s.slice(20);
+    }
+    return null;
+  }
   function reqToken(){
     var b=new Uint8Array(32); crypto.getRandomValues(b);
     var s=""; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);

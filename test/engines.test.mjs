@@ -14910,5 +14910,47 @@ t("«Richiedi musicisti»: il pulsante c'è e porta con sé il progetto salvato"
   ok(appjs.indexOf("orcRichiediSync()") > -1);
 });
 
+/* ── Sicurezza: le tre difese che l'audit del 10/09 ha trovato scoperte ─────────────────────── */
+
+t("il token di condivisione nasce solo da una fonte crittografica", () => {
+  /* Era: crypto.randomUUID, e se manca Date.now()+Math.random() — ~52 bit indovinabili, per giunta
+     dalla stessa sequenza che genera gli id finiti dentro il documento condiviso. */
+  const gen = appjs.slice(appjs.indexOf("function tokenCondivisione("), appjs.indexOf("function tokenCondivisione(") + 700);
+  ok(gen.length > 100, "la funzione c'è");
+  ok(gen.indexOf("getRandomValues") > -1, "il ripiego è getRandomValues, non Math.random");
+  ok(gen.indexOf("Math.random") === -1, "niente Math.random per una credenziale");
+  ok(gen.indexOf("return null") > -1, "senza fonte crittografica si rinuncia al link");
+  const uso = appjs.slice(appjs.indexOf("function ensureShareTokenFor("), appjs.indexOf("function ensureShareTokenFor(") + 1400);
+  ok(uso.indexOf("tokenCondivisione()") > -1, "il token di condivisione passa di lì");
+  ok(uso.slice(0, uso.indexOf("tokenCondivisione()")).indexOf("Math.random") === -1, "e non se lo genera per conto suo");
+  ok(uso.indexOf("if(!tok)") > -1, "e se non arriva, non salva un token debole");
+});
+
+t("ogni esc del progetto copre anche l'apice singolo", () => {
+  /* Un attributo con apici singoli è HTML legittimo: un esc a quattro caratteri lo lascia chiudere
+     da dentro. Ce n'erano due più deboli del globale (modale Cloud e pagina /richiesta/). */
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const deboli = [];
+  for (const m of src.matchAll(/function esc\(([^)]*)\)\s*\{([\s\S]{0,320}?)\n/g)) {
+    if (m[2].indexOf("&amp;") === -1) continue;   /* un esc che non scappa niente è un altro esc: alla 17955 c'è un handler di tastiera */
+    if (m[2].indexOf("&#39;") === -1 && m[2].indexOf("&apos;") === -1) deboli.push(m[2].slice(0, 90));
+  }
+  eq(deboli.length, 0, "esc senza apice: " + deboli.join(" | "));
+  const rich = readFileSync(join(root, "richiesta/index.html"), "utf8");
+  ok(rich.indexOf("&#39;") > -1, "anche quello della pagina /richiesta/");
+});
+
+t("il frame-buster non si arrende dentro un iframe sandbox", () => {
+  /* window.top.location LANCIA in un <iframe sandbox> senza allow-top-navigation: prima il catch
+     inghiottiva l'eccezione e la pagina si disegnava lo stesso nel frame dell'attaccante. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const i = html.indexOf("anti-clickjacking");
+  ok(i > -1, "il frame-buster c'è");
+  const fb = html.slice(i, i + 1200);
+  ok(fb.indexOf("window.top.location.replace") > -1, "prima si prova a uscire");
+  ok(fb.indexOf('visibility="hidden"') > -1 || fb.indexOf('visibility = "hidden"') > -1, "se non si può uscire, non ci si fa vedere");
+  ok(/catch\(e\)\{\s*\n?\s*document/.test(fb), "il catch dell'uscita fa qualcosa, non è vuoto");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -1,6 +1,6 @@
 /* Una candidatura: il profilo dichiarato, i file, la storia, le valutazioni interne, il cambio di stato. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, errMsg, fmtDate, fmtDateTime } from "../ui.js";
+import { esc, el, toast, confirm, errMsg, fmtDate, fmtDateTime, safeHttpUrl } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { APP_STATUS, APP_PILL, EVAL_KIND, EVAL_SCORES, publicStatus, PUBLIC_STATUS } from "../domain/applications.js";
@@ -81,7 +81,18 @@ function paintDeclared() {
 function paintFiles() {
   const s = app.querySelector("#files"), p = D.profile;
   const links = [p.website && ["Sito", p.website], p.audio_url && ["Audio", p.audio_url], p.video_url && ["Video", p.video_url]].filter(Boolean);
-  for (const [k, u] of links) { const pp = el(`<p class="small"><b>${esc(k)}:</b> <a target="_blank" rel="noopener noreferrer"></a></p>`); pp.querySelector("a").href = u; pp.querySelector("a").textContent = u; s.appendChild(pp); }
+  /* L'indirizzo lo scrive il musicista e lo clicca lo staff: passa da safeHttpUrl, che ammette solo
+     http e https. Quello che non passa si vede lo stesso, come testo — chi legge deve sapere che
+     cosa ha scritto, senza che basti un clic per eseguirlo. */
+  for (const [k, u] of links) {
+    const href = safeHttpUrl(u);
+    const pp = href ? el(`<p class="small"><b>${esc(k)}:</b> <a target="_blank" rel="noopener noreferrer"></a></p>`)
+                    : el(`<p class="small"><b>${esc(k)}:</b> <span class="muted"></span> <span class="muted">(non è un indirizzo web)</span></p>`);
+    const dove = pp.querySelector(href ? "a" : "span");
+    if (href) dove.href = safeHttpUrl(u);   /* di nuovo, non la variabile: l'href si legge validato anche a colpo d'occhio */
+    dove.textContent = u;
+    s.appendChild(pp);
+  }
   if (!D.files.length && !links.length) s.appendChild(el(`<p class="small muted">Nessun materiale.</p>`));
   for (const f of D.files) {
     const row = el(`<p class="small"><b>${esc(f.kind === "cv" ? "CV" : f.kind)}:</b> <span></span> <button type="button" class="btn small">Apri</button></p>`);
