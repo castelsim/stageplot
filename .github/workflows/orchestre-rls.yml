@@ -41,7 +41,11 @@ jobs:
 
       # Solo i servizi che i test toccano: database, API REST, autenticazione (kong+meta) e storage
       # (il bucket privato orc-files del lotto 7). Niente studio, realtime, analytics, edge functions.
-      # lo stesso lint del deploy: se e rosso qui, dopo il merge il sito non si aggiorna
+      # lo stesso lint del deploy: se e rosso qui, dopo il merge il sito non si aggiorna.
+      # Deno qui non c'e per conto suo (a differenza di pages.yml): va installato, stessa versione.
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.7.5
       - name: Lint di Orchestre
         run: deno lint orchestre/src/
 
