@@ -12,7 +12,7 @@ import * as fb from "../api/feedback.js";
 import { rankCandidates, applyOverrides, explain, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
 import * as sp from "../api/stageplot.js";
-import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importSummary, isUuid } from "../domain/stageplot-import.js";
+import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importGroups, importSummary, isUuid } from "../domain/stageplot-import.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
@@ -275,7 +275,7 @@ function roleBlock(r) {
   for (const sl of r.slots) {
     const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
     li.querySelector(".title").textContent = sl.musician_name || "Posto " + sl.seat_no;
-    li.querySelector(".sub").textContent = sl.musician_name ? "Posto " + sl.seat_no : "";
+    li.querySelector(".sub").textContent = [sl.musician_name ? "Posto " + sl.seat_no : "", sl.item_label ? "postazione «" + sl.item_label + "»" : ""].filter(Boolean).join(" · ");
     const act = li.querySelector(".actions");
     act.appendChild(el(`<span class="pill ${SLOT_PILL[sl.status] || ""}">${esc(SLOT_STATUS[sl.status] || sl.status)}</span>`));
     if (sl.musician_id) {
@@ -663,14 +663,22 @@ async function paintStageplot() {
     act.appendChild(un);
     box.appendChild(card);
     if (lk.length) {
-      const lc = el(`<section class="card"><h3>Postazioni collegate</h3><ul class="list" id="lk"></ul></section>`);
+      const lc = el(`<section class="card"><h3>Postazioni collegate</h3><p class="small muted">Ogni postazione del disegno copre un posto dell'organico (una postazione a due ne copre due). Chi sparisce dal palco tiene il posto e la persona: ricollegalo a un'altra postazione o reimporta.</p><ul class="list" id="lk"></ul></section>`);
       const ul = lc.querySelector("#lk");
       const names = new Map((cat.instruments || []).map((i) => [i.code, i.name]));
+      const slotInfo = new Map(); for (const sec of groupStaffing(await api.staffing(p.id))) for (const r of sec.roles) for (const sl of r.slots) slotInfo.set(sl.id, { role: r.name, seat: sl.seat_no, who: sl.musician_name, status: sl.status });
       for (const l of lk) {
         const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
-        li.querySelector(".title").textContent = l.item_label || l.item_type;
-        li.querySelector(".sub").textContent = [names.get(l.instrument_code) || l.instrument_code, l.seats === 1 ? "1 posto" : l.seats + " posti", l.item_type].filter(Boolean).join(" · ");
-        li.querySelector(".actions").appendChild(el(l.status === "stale" ? `<span class="pill warn">non più sul palco</span>` : `<span class="pill ok">collegata</span>`));
+        const si = slotInfo.get(l.slot_id);
+        li.querySelector(".title").textContent = (l.item_label || l.item_type) + (l.seats === 2 ? " · " + (l.seat_index === 1 ? "sinistra" : "destra") : "");
+        li.querySelector(".sub").textContent = si ? [si.role + " · posto " + si.seat, si.who ? si.who + " (" + (SLOT_STATUS[si.status] || si.status).toLowerCase() + ")" : "scoperto"].join(" · ") : [names.get(l.instrument_code) || l.instrument_code, "senza posto"].join(" · ");
+        const act = li.querySelector(".actions");
+        act.appendChild(el(l.status === "stale" ? `<span class="pill warn">non più sul palco</span>` : `<span class="pill ok">collegata</span>`));
+        if (l.status === "stale") {
+          const rl = el(`<button type="button" class="btn small ghost">Ricollega…</button>`);
+          rl.onclick = () => relinkDialog(l, proj);
+          act.appendChild(rl);
+        }
         ul.appendChild(li);
       }
       box.appendChild(lc);
@@ -703,7 +711,7 @@ async function paintSpImport(box, proj) {
   box.appendChild(c);
   c.scrollIntoView({ block: "start", behavior: "smooth" });
   const instr = await sp.instruments(), typeMap = typeMapFrom(instr);
-  const roles = groupStaffing(await api.staffing(p.id)).flatMap((s) => s.roles.map((r) => ({ instrument_code: r.instrument_code, seats: r.seats })));
+  const roles = groupStaffing(await api.staffing(p.id)).flatMap((s) => s.roles.map((r) => ({ id: r.id, name: r.name, instrument_code: r.instrument_code, seats: r.seats, slots: r.slots.map((sl) => ({ item_id: sl.item_id })) })));
   const variants = docVariants(proj.data);
   const sel = c.querySelector("#spVar");
   for (const v of variants) sel.appendChild(new Option(v.name + (v.active ? " (attiva)" : ""), v.id));
@@ -715,27 +723,63 @@ async function paintSpImport(box, proj) {
     cur = { ...ex, diff };
     c.querySelector("#spSum").textContent = "Se importi: " + importSummary(diff, ex.unmapped);
     const ul = c.querySelector("#spDiff"); ul.innerHTML = "";
-    for (const d of diff) {
+    diff.forEach((d, n) => {
       const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
-      li.querySelector(".title").textContent = d.name + " · " + (d.seats === 1 ? "1 posto sul palco" : d.seats + " posti sul palco");
+      li.querySelector(".title").textContent = d.instrument_name + (d.part ? " · " + d.part : "") + " · " + (d.seats === 1 ? "1 posto sul palco" : d.seats + " posti sul palco");
       li.querySelector(".sub").textContent = d.labels.join(", ");
-      li.querySelector(".actions").appendChild(el(d.action === "new" ? `<span class="pill accent">ruolo nuovo</span>` : d.action === "grow" ? `<span class="pill warn">+${d.add} ${d.add === 1 ? "posto" : "posti"} (ne hai ${d.current})</span>` : `<span class="pill ok">già coperto (${d.current})</span>`));
+      const act = li.querySelector(".actions");
+      /* il ruolo di destinazione si può cambiare: gli altri ruoli dello strumento, o uno nuovo */
+      const sel = el(`<select class="small" aria-label="Ruolo di destinazione"></select>`);
+      for (const o of d.options) sel.appendChild(new Option(o.name, o.id));
+      sel.appendChild(new Option("Nuovo ruolo «" + d.name + "»", ""));
+      sel.value = d.role_id || "";
+      sel.onchange = () => { const chosen = roles.find((r) => r.id === sel.value) || null; const re = diffProposal([d], chosen ? [chosen] : []); Object.assign(cur.diff[n], re[0], { role_id: chosen ? chosen.id : null, role_name: chosen ? chosen.name : d.name, ambiguous: false }); paintPills(); };
+      act.appendChild(sel);
+      const pill = el(`<span class="pill"></span>`); act.appendChild(pill);
+      li._pill = pill; li._n = n;
       ul.appendChild(li);
-    }
+    });
+    const paintPills = () => {
+      for (const li of ul.children) { const d = cur.diff[li._n]; li._pill.className = "pill " + (d.ambiguous ? "danger" : d.action === "new" ? "accent" : d.action === "grow" ? "warn" : "ok"); li._pill.textContent = d.ambiguous ? "scegli il ruolo" : d.action === "new" ? "ruolo nuovo" : d.action === "grow" ? `+${d.add} ${d.add === 1 ? "posto" : "posti"} (ne hai ${d.current})` : `già coperto (${d.current})`; }
+      c.querySelector("#spSum").textContent = "Se importi: " + importSummary(cur.diff, cur.unmapped);
+      c.querySelector("#spDo").disabled = !cur.positions.length || cur.diff.some((d) => d.ambiguous);
+    };
+    paintPills();
     const un = c.querySelector("#spUn"); un.innerHTML = "";
     if (ex.unmapped.length) { const li = el(`<li class="empty"></li>`); li.textContent = "Fuori dall'organico (nessuno strumento in catalogo): " + ex.unmapped.map((u) => u.label || u.item_type).join(", ") + "."; un.appendChild(li); }
-    c.querySelector("#spDo").disabled = !ex.positions.length;
   };
   sel.onchange = preview; preview();
   c.querySelector("#spNo").onclick = () => c.remove();
   c.querySelector("#spDo").onclick = async () => {
     if (!cur || !cur.positions.length) return;
     try {
-      const r = await sp.importPositions(p.id, proj.id, sel.value, cur.positions);
+      const r = await sp.importGroups(p.id, proj.id, sel.value, importGroups(cur.diff));
       Object.assign(p, { stageplot_variant_id: sel.value, stageplot_synced_at: new Date().toISOString() });
-      toast(`Importate: ${r.roles_created} ruoli nuovi, ${r.roles_grown} allargati, ${r.seats_added} posti in più, ${r.linked} postazioni collegate` + (r.stale ? `, ${r.stale} non più sul palco.` : "."));
+      toast(`Importate: ${r.roles_created} ruoli nuovi, ${r.roles_grown} allargati, ${r.seats_added} posti in più, ${r.linked} posti collegati` + (r.stale ? `, ${r.stale} non più sul palco.` : "."));
       paint();
     } catch (e) { toast(errMsg(e), { err: true }); }
+  };
+}
+
+async function relinkDialog(l, proj) {
+  const wrap = el(`<div class="modal"><div class="box"><h3>Ricollega la postazione</h3><p class="small muted"></p><div class="field"><label for="rlSel">Postazione del disegno</label><select id="rlSel"></select></div><div class="actions"><button type="button" class="btn ghost">Annulla</button><button type="button" class="btn primary">Ricollega</button></div></div></div>`);
+  wrap.querySelector("p").textContent = "«" + (l.item_label || l.item_type) + "» non è più sul palco. Il suo posto e la persona restano: scegli quale postazione lo copre adesso.";
+  const sel = wrap.querySelector("#rlSel");
+  let cands = [];
+  if (proj) {
+    const instr = await sp.instruments(), typeMap = typeMapFrom(instr);
+    const ex = extractPositions(proj.data, p.stageplot_variant_id, typeMap);
+    const taken = new Set((await sp.links(p.id)).filter((x) => x.status === "linked").map((x) => x.item_id));
+    cands = ex.positions.filter((x) => x.instrument_code === l.instrument_code && !taken.has(x.item_id));
+  }
+  if (!cands.length) sel.appendChild(new Option("Nessuna postazione libera di questo strumento nel disegno", ""));
+  for (const c of cands) sel.appendChild(new Option((c.label || c.item_type) + " (" + c.item_type + ")", c.item_id));
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector(".btn.ghost").onclick = close;
+  wrap.querySelector(".btn.primary").onclick = async () => {
+    const it = cands.find((x) => x.item_id === sel.value); if (!it) return toast("Scegli una postazione.", { err: true });
+    try { await sp.relink(l.id, it.item_id, it.item_type, it.label); close(); toast("Ricollegata."); paint(); } catch (e) { toast(errMsg(e), { err: true }); }
   };
 }
 

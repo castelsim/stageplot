@@ -77,7 +77,7 @@ export function groupStaffing(rows) {
       sec.roles.set(r.role_id, { id: r.role_id, name: r.role_name, instrument_code: r.instrument_code, instrument_name: r.instrument_name,
         seats: r.seats, part: r.part, min_level: r.min_level, notes: r.notes, sort: r.role_sort, slots: [] });
     }
-    if (r.slot_id) sec.roles.get(r.role_id).slots.push({ id: r.slot_id, seat_no: r.seat_no, status: r.slot_status, musician_id: r.musician_id, musician_name: r.musician_name });
+    if (r.slot_id) sec.roles.get(r.role_id).slots.push({ id: r.slot_id, seat_no: r.seat_no, status: r.slot_status, musician_id: r.musician_id, musician_name: r.musician_name, item_id: r.item_id || null, item_label: r.item_label || "" });
   }
   const out = [...sections.values()].sort((a, b) => a.sort - b.sort);
   for (const s of out) { s.roles = [...s.roles.values()].sort((a, b) => a.sort - b.sort); for (const r of s.roles) r.slots.sort((a, b) => a.seat_no - b.seat_no); }

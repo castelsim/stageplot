@@ -14,7 +14,9 @@ campione, tasso di risposta e valutazioni dentro il matching), **lotto 7** (cand
 globale con onboarding in otto passi, candidatura per organizzazione, valutazioni interne, accettazione che crea il
 musicista, file privati con URL firmati, consensi, export e cancellazione), **lotto 8** (collegamento a StagePlot: la
 produzione punta a un progetto dell'editor, le postazioni-persona del disegno diventano posti dell'organico, dal hub
-Produzione dell'editor si arriva alla produzione e da questa si apre il progetto).
+Produzione dell'editor si arriva alla produzione e da questa si apre il progetto), **lotto 9** (integrazione V1/a: il
+legame scende al posto fisico con la parte dedotta dall'etichetta, ogni posto sa la sua postazione, l'editor mostra
+nome e stato sulla postazione e nel pannello, e chiede prima di cancellare una postazione con una persona sopra).
 
 ## Struttura
 
@@ -79,6 +81,7 @@ supabase/migrations/0046_orc_invitations.sql inviti, date, segreti (solo service
 supabase/migrations/0047_orc_feedback.sql   feedback, orc_musician_stats, orc_musician_history, fatti del matching con affidabilità
 supabase/migrations/0048_orc_applications.sql profili, candidature, eventi, valutazioni, consensi, file, bucket orc-files con policy, RPC
 supabase/migrations/0049_orc_stageplot.sql  orc_stageplot_links, orc_stageplot_import, orc_stageplot_unlink, orc_productions_for_project
+supabase/migrations/0050_orc_stageplot_seats.sql  legame → posto (slot_id, seat_index), import per gruppi, orc_stageplot_relink, orc_stage_view, orc_staffing con la postazione
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -237,12 +240,21 @@ di no per la produzione non viene riproposto.
   mostra i **miei** progetti, il documento lo legge il client, e nel blob del progetto **non si scrive nulla**: link
   pubblici, copie e PDF di StagePlot non contengono dati di Orchestre (la funzione `get-shared-project` scarta comunque
   ogni chiave `orc_*`, a test).
-- **Import** (`domain/stageplot-import.js` + RPC `orc_stageplot_import`): si sceglie la scena (variante), le
-  postazioni-persona si riconoscono con `orc_instruments.stageplot_types` (le postazioni a due valgono 2 posti), si
-  vede l'anteprima («ruolo nuovo», «+N posti», «già coperto») e si conferma. L'organico si **allarga** (ruolo per
-  strumento nella sezione della famiglia) e **non si restringe mai**: un disegno non toglie posti a persone assegnate.
-- **Collegamenti** (`orc_stageplot_links`, uno per postazione e scena): dopo una nuova lettura, le postazioni sparite
-  dal palco restano segnate «non più sul palco» (`stale`). Si leggono dallo staff, si scrivono solo via RPC.
+- **Import** (`domain/stageplot-import.js` + RPC `orc_stageplot_import`): si sceglie la scena (variante); le
+  postazioni-persona si riconoscono con `orc_instruments.stageplot_types`; la **parte** si legge dall'etichetta
+  («Vl I 3» → Violini primi, «Vl II» → Violini secondi) e l'anteprima mostra il **ruolo di destinazione** (si può
+  cambiare; se non si deduce e lo strumento ha più ruoli, chiede). Ogni postazione prende un **posto fisico**
+  (`orc_stageplot_links.slot_id`; una postazione a due ne prende due, `seat_index` 1 e 2): tiene quello che aveva,
+  altrimenti il primo libero del ruolo, e solo se mancano posti il ruolo si **allarga**. Non si restringe mai e un
+  posto con una persona sopra non cambia mano.
+- **Collegamenti**: dopo una nuova lettura, le postazioni sparite dal palco restano «non più sul palco» (`stale`,
+  senza posto); «Ricollega…» (`orc_stageplot_relink`) le rimette su un'altra postazione libera dello stesso
+  strumento. Si leggono dallo staff, si scrivono solo via RPC. L'Organico mostra per ogni posto la sua postazione.
+- **Nell'editor** (`orc_stage_view`, solo staff): sotto ogni postazione collegata compare chi c'è e in che stato
+  (layer SVG `layOrcSeats`, solo a schermo: `stageSceneSvg` accende `__scenePrint` e il layer non esiste in PDF,
+  PNG, miniatura, SVG scaricato; nel documento salvato non entra nulla). Il pannello dell'elemento ha la riga
+  «Organico» con il link all'organico (o «Importa le postazioni» se la produzione è collegata ma la postazione no).
+  Cancellare una postazione con una persona sopra chiede conferma: il posto in Orchestre resta.
 - **Andata e ritorno**: da Orchestre «Apri in StagePlot» apre `/app/?p=<uuid>` (con sessione apre il progetto e
   pulisce l'URL; senza, aspetta il login in `sessionStorage`); nell'editor il hub «Produzione…» ha il riquadro
   «Musicisti» che porta a `/orchestre/admin/produzioni/?p=<uuid>`: una produzione collegata → ci vai, nessuna → ne
@@ -255,13 +267,16 @@ di no per la produzione non viene riproposto.
 il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiunge per email con
 `orc_add_member_by_email`: la persona deve aver fatto almeno un accesso.
 
-## Limiti (lotti 1-8)
+## Limiti (lotti 1-9)
 
 - Chi entra senza un ruolo di staff finisce nell'area musicista; `section` e `viewer` non hanno ancora una pagina propria.
 - La cancellazione è una richiesta registrata (visibile allo staff): l'anonimizzazione vera è manuale.
 - Le notifiche interne (`orc_notifications`) non esistono ancora: il musicista vede gli inviti nell'area e via email.
 - L'import legge il palco, non le persone: i nomi dei musicisti nel disegno (rubrica dell'editor) non passano a
-  Orchestre, e i posti dell'organico non tornano sul disegno (niente scrittura nel progetto).
+  Orchestre; sul disegno tornano solo nome e stato, a schermo, per lo staff (niente scrittura nel progetto).
+- La parte dall'etichetta è dedotta solo per i violini (primi/secondi); gli altri strumenti hanno un ruolo per
+  strumento, e se ne hanno più d'uno l'anteprima chiede.
+- «Cerca musicista» dal pannello dell'elemento e la ricerca per più posti arrivano con i lotti successivi della V1.
 - Il pool non ha ancora esclusioni dall'interfaccia (la tabella c'è).
 - I requisiti di competenza per ruolo (`orc_role_requirements`) hanno tabella, API e peso nel motore, ma non ancora un'interfaccia per impostarli.
 - La distanza geografica non è calcolata (niente coordinate); il carico recente conta solo gli impegni confermati.
