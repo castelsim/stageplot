@@ -178,3 +178,24 @@ test("ogni finestra di dialogo ha il suo sfondo, altrimenti non si vede", () => 
   }
   assert.ok(dialoghi >= 6, "dialoghi controllati: " + dialoghi);
 });
+
+/* Il query builder di supabase-js si puo' attendere con await ma NON e' una Promise: non ha `.catch`.
+   Attaccarglielo lancia «.catch is not a function» a tempo di esecuzione, dove nessun test di struttura
+   arriva — a me e' successo in produzione sulla dashboard (collaudo 10/09/2026). */
+test("nessun .catch attaccato a una catena del query builder di Supabase (non e una Promise)", () => {
+  const dir = join(root, "orchestre/src");
+  const files = [];
+  (function walk(d) { for (const e of readdirSync(d)) { const f = join(d, e); if (statSync(f).isDirectory()) walk(f); else if (e.endsWith(".js")) files.push(f); } })(dir);
+  const re = /sb\s*\.\s*from\([^;]{0,300}?\.catch\(/g;
+  for (const f of files) {
+    const src = readFileSync(f, "utf8");
+    const m = src.match(re);
+    assert.equal(m, null, f.replace(root, "") + ": «" + (m && m[0].slice(0, 80)) + "» — il builder non ha .catch, serve try/catch attorno all'await");
+  }
+  /* e le RPC: sb.rpc(...).catch(...) ha lo stesso difetto */
+  for (const f of files) {
+    const src = readFileSync(f, "utf8");
+    const m = src.match(/sb\s*\.\s*rpc\([^;]{0,300}?\.catch\(/g);
+    assert.equal(m, null, f.replace(root, "") + ": «" + (m && m[0].slice(0, 80)) + "»");
+  }
+});
