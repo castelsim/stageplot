@@ -41,6 +41,9 @@ jobs:
 
       # Solo i servizi che i test toccano: database, API REST, autenticazione (kong+meta) e storage
       # (il bucket privato orc-files del lotto 7). Niente studio, realtime, analytics, edge functions.
+      - name: Lint di Orchestre (lo stesso del deploy: se fallisce qui, il sito non si aggiorna)
+        run: deno lint orchestre/src/
+
       - name: Avvia Supabase con le migrazioni applicate
         run: supabase start -x studio,imgproxy,realtime,vector,analytics,edge-runtime,functions,inbucket
 
