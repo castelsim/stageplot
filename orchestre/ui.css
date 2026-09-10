@@ -93,7 +93,9 @@ a.back:hover{text-decoration:underline}
 .list{list-style:none;display:flex;flex-direction:column;gap:var(--s-2)}
 .list-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-3) var(--s-4);
   display:flex;align-items:center;gap:var(--s-3);min-height:56px;flex-wrap:wrap}
-.list-item .grow{flex:1;min-width:0}
+/* Sul telefono i tag («disponibile weekend», «lettura veloce») stringevano il nome fino a spezzarlo una
+   lettera per riga: con una base minima il nome tiene la sua larghezza e sono i tag ad andare a capo. */
+.list-item .grow{flex:1 1 14rem;min-width:0}
 .list-item a.grow{text-decoration:none;color:inherit;min-height:var(--tap);display:flex;flex-direction:column;justify-content:center}
 .list-item a.grow:hover .title{color:var(--accent-strong)}
 .list-item .title{font-weight:600;overflow-wrap:anywhere}
@@ -206,6 +208,12 @@ pre.export{font-family:var(--font-mono);font-size:var(--t-body);background:var(-
 .toast.show{opacity:1;pointer-events:auto}
 .toast.err{background:var(--danger-solid)}
 .toast button{background:none;border:0;color:#fff;font:inherit;font-weight:700;min-height:var(--tap);padding:0 var(--s-2);cursor:pointer}
+/* Il link dell'invito: si legge una volta sola, quindi deve stare tutto sotto gli occhi e potersi
+   selezionare a mano se la copia automatica non va (succede fuori da https). */
+.link-box{width:100%;box-sizing:border-box;font-size:var(--t-body);padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text);resize:vertical}
+
+/* la fotografia del profilo: piccola, tonda, con un fondo che regge anche le immagini chiare */
+.foto-prev{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--surface-2,#eee);border:1px solid var(--border-strong)}
 .modal-ov{position:fixed;inset:0;background:rgba(26,24,21,.5);z-index:var(--z-modal);display:flex;align-items:flex-end;justify-content:center;padding:var(--s-4)}
 .modal{background:var(--surface);border-radius:var(--r-xl);padding:var(--s-5);width:100%;max-width:440px;box-shadow:var(--elev-3)}
 .modal h2{margin-top:0}

@@ -30,8 +30,16 @@ export async function get(id) {
     sb.from("orc_musician_tags").select("tag").eq("musician_id", id).order("tag"),
   ]);
   fail(ins.error); fail(sk.error); fail(rep.error); fail(tg.error);
+  /* Il ritratto vive sul profilo del musicista (quello che compila lui), non sulla sua riga in
+     organizzazione: chi è entrato da una candidatura o da un invito ce l'ha, chi è stato inserito a mano no. */
+  let photo_path = "";
+  if (m.data.profile_id) {
+    const pf = await sb.from("orc_musician_profiles").select("photo_path").eq("id", m.data.profile_id).maybeSingle();
+    photo_path = (pf.data && pf.data.photo_path) || "";
+  }
   return {
     ...m.data,
+    photo_path,
     instruments: (ins.data || []).sort((a, b) => Number(b.is_primary) - Number(a.is_primary)),
     skills: sk.data || [],
     repertoire: (rep.data || []).map((r) => ({ id: r.repertoire_id, source: r.source, note: r.note, kind: r.orc_repertoire?.kind, name: r.orc_repertoire?.name })),

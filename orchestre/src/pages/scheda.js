@@ -5,6 +5,7 @@ import { esc, el, toast, confirm, setState, errMsg, fmtDate } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, FAMILY, REP_KIND, REP_SOURCE } from "../nav.js";
 import * as api from "../api/musicians.js";
+import { signedUrl } from "../api/applications.js";   /* stesso archivio privato dei materiali */
 import { history, stats } from "../api/feedback.js";
 import { PROD_STATUS, SLOT_STATUS, INV_STATUS } from "../domain/staffing.js";
 
@@ -38,7 +39,7 @@ function paint() {
   const isNew = !m.id;
   app.innerHTML = tabs("musicisti") + `
     <p class="small"><a class="back" href="${BASE}/admin/musicisti/">← Musicisti</a></p>
-    <div class="row"><h1 id="h"></h1><span class="spacer"></span><span id="stPill"></span></div>
+    <div class="row"><span id="ritratto"></span><h1 id="h"></h1><span class="spacer"></span><span id="stPill"></span></div>
     <div class="grid2">
       <section class="card" id="dati"><h3>Dati e contatti</h3></section>
       <div class="stack">
@@ -51,9 +52,22 @@ function paint() {
     </div>
     <section class="card" id="storico"><h3>Storico e affidabilità</h3><div class="loading">Un attimo…</div></section>`;
   app.querySelector("#h").textContent = isNew ? "Nuovo musicista" : m.last_name + " " + m.first_name;
+  ritratto(app.querySelector("#ritratto"), m.photo_path, m.last_name + " " + m.first_name);
   paintDati();
   if (!isNew) { paintStrumenti(); paintCompetenze(); paintRepertorio(); paintTag(); paintNote(); paintStorico(); }
   else for (const id of ["strum", "comp", "rep", "tag", "note", "storico"]) { const n = app.querySelector("#" + id); n.querySelectorAll(".loading").forEach((x) => x.remove()); n.appendChild(el(`<p class="small muted">Disponibile dopo il primo salvataggio.</p>`)); }
+}
+
+/* La fotografia: sta nell'archivio privato, l'indirizzo firmato dura dieci minuti e non si può girare ad
+   altri. Se manca, o se non si riesce a firmarlo, la scheda resta leggibile lo stesso: è un di più. */
+async function ritratto(box, path, nome) {
+  if (!box || !path) return;
+  try {
+    const img = el(`<img class="foto-prev" alt="">`);
+    img.alt = "Fotografia di " + nome;
+    img.src = await signedUrl(path);
+    box.appendChild(img);
+  } catch { /* senza ritratto la scheda vale uguale */ }
 }
 
 function field(id, label, value, { type = "text", opts = null, hint = "" } = {}) {

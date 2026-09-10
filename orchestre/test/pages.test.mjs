@@ -219,3 +219,54 @@ test("l'invio immediato della richiesta è protetto e non salta la coda del work
   const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
   assert.match(wf, /orc-request-notify\/index\.ts/, "e la CI la controlla");
 });
+
+/* La fotografia serve a chi convoca: se si carica e poi non la vede nessuno, tanto vale non chiederla.
+   Queste due schede sono i due posti dove lo staff guarda una persona in faccia. Non basta che il file
+   nomini `signedUrl`: si guarda dentro la funzione che disegna il ritratto, e che qualcuno la chiami. */
+test("la fotografia caricata dal musicista si vede anche dalle schede dello staff", () => {
+  assert.match(readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8"), /setPhoto|upFoto/, "il musicista la carica");
+  for (const f of ["orchestre/src/pages/scheda.js", "orchestre/src/pages/candidatura-scheda.js"]) {
+    const src = readFileSync(join(root, f), "utf8");
+    const m = src.match(/async function ritratto\([^)]*\)\s*\{[\s\S]*?\n\}/);
+    assert.ok(m, f + ": manca la funzione che disegna il ritratto");
+    assert.match(m[0], /signedUrl\(/, f + ": il file sta nell'archivio privato, l'indirizzo va firmato");
+    assert.match(m[0], /\.src = await/, f + ": e l'indirizzo firmato è quello che finisce nell'immagine");
+    assert.match(m[0], /foto-prev/, f + ": con la classe del ritratto");
+    assert.ok(/\n\s{0,4}ritratto\(/.test(src), f + ": definirla non basta, va chiamata quando si disegna la scheda");
+  }
+  assert.match(readFileSync(join(root, "orchestre/src/api/musicians.js"), "utf8"), /photo_path/,
+    "la scheda del musicista non sa da sola che c'è una foto: sta sul profilo");
+  assert.match(readFileSync(join(root, "orchestre/ui.css"), "utf8"), /\.foto-prev\{/, "e la classe deve esistere davvero");
+});
+
+/* Il link personale è la promessa «entri diretto»: se la pagina del musicista smette di leggere ?inv=,
+   il link continua a funzionare come una candidatura qualsiasi e nessuno se ne accorge finché non
+   arriva qualcuno a lamentarsi di essere rimasto in attesa di valutazione. */
+test("la pagina del musicista raccoglie l'invito che arriva dal link", () => {
+  const src = readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8");
+  assert.match(src, /["']inv["']/, "legge il parametro ?inv=");
+  assert.match(src, /claimInvite/, "e lo presenta al database");
+  assert.ok(/\n\s{0,6}await apriInvito\(/.test(src), "e lo fa all'apertura della pagina: definirla e non chiamarla è come non averla");
+  const dom = readFileSync(join(root, "orchestre/src/domain/invites.js"), "utf8");
+  assert.match(dom, /crypto\.subtle\.digest\(\s*["']SHA-256["']/, "al database va l'impronta, mai il segreto del link");
+  const api = readFileSync(join(root, "orchestre/src/api/invites.js"), "utf8");
+  assert.doesNotMatch(api, /token:\s*token\b/, "il token in chiaro non si manda mai al database");
+});
+
+/* La fotografia arriva dall'archivio privato di Supabase con un indirizzo firmato: se la CSP della pagina
+   non lo ammette, il browser la blocca in silenzio e la foto non si vede da nessuna parte — successo il
+   10/09, e se n'e accorta solo la prova nel browser. Dove non serve, `img-src` resta stretta. */
+test("le pagine che mostrano una fotografia la lasciano passare nella CSP; le altre no", () => {
+  const CON_FOTO = new Set(["orchestre/musicista", "orchestre/admin/musicisti/scheda", "orchestre/admin/candidature/scheda"]);
+  for (const r of ROUTES) {
+    const html = readFileSync(join(root, r, "index.html"), "utf8");
+    const csp = (html.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
+    const img = (csp.match(/img-src ([^;]+)/) || [])[1] || "";
+    const con = (csp.match(/connect-src ([^;]+)/) || [])[1] || "";
+    if (CON_FOTO.has(r)) {
+      assert.ok(con.trim() && img.includes(con.trim()), r + ": qui si mostra una foto firmata, e img-src deve ammettere lo stesso archivio di connect-src");
+    } else {
+      assert.equal(img.trim(), "'self' data:", r + ": nessuna foto da mostrare, img-src resta stretta");
+    }
+  }
+});
