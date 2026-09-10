@@ -7617,6 +7617,51 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
   ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
 });
 
+console.log("\n— L'audit non parla di canali che non ci sono —");
+
+/* Trovato guardando morricone 99 (10/09). La channel list MANUALE (`state.inputs`) e' salvata per
+   VARIANTE, e le sue righe puntano all'elemento sul palco con `linked_item_id`. Se l'elemento
+   sparisce — cancellato, o perche' la variante e' stata svuotata e rifatta con altro — la riga
+   resta: 94 righe su 94 orfane nelle due varianti «luci» e «sedie» di quel progetto.
+   La channel list a video non se ne accorge (deriva dagli elementi, misurato: 0 canali su 94
+   righe orfane). L'AUDIT invece leggeva `state.inputs` cosi' com'e', e in una variante fatta di
+   sole luci avvisava «2 canali si chiamano "corno 2": patch ambiguo per il service» — un corno
+   che sul palco non c'e'. Misurato: 1 avviso falso e 6 punti di punteggio in meno per variante. */
+t("i nomi dei canali si contano solo su quelli che stanno sul palco", () => {
+  reset();
+  const a = add("cantante", 100, 100), b = add("cantante", 300, 100);
+  /* due righe manuali omonime, ma una punta a un elemento che non esiste piu' */
+  A.state.inputs = [
+    { src: "Voce", mic: "SM58", linked_item_id: a.id },
+    { src: "Voce", mic: "SM58", linked_item_id: "i999999" },
+  ];
+  A.__cabRes = null;
+  const f = A.auditEngine().findings.filter((x) => /si chiamano/.test(x.msg || ""));
+  eq(f.length, 0, "l'audit conta un canale che non sta sul palco: " + (f[0] || {}).msg);
+  /* e quando i due omonimi ci sono DAVVERO, l'avviso deve restare */
+  A.state.inputs = [
+    { src: "Voce", mic: "SM58", linked_item_id: a.id },
+    { src: "Voce", mic: "SM58", linked_item_id: b.id },
+  ];
+  A.__cabRes = null;
+  ok(A.auditEngine().findings.some((x) => /si chiamano/.test(x.msg || "")),
+     "l'avviso sui doppioni veri e' sparito: il filtro taglia troppo");
+});
+
+t("le righe scritte a mano, senza elemento, restano valide", () => {
+  /* Una riga senza `linked_item_id` e' una riga che il fonico ha scritto lui: non e' orfana,
+     e' semplicemente non collegata a niente sul palco. Non va tolta. */
+  reset();
+  add("cantante", 100, 100);
+  A.state.inputs = [
+    { src: "Talkback", mic: "SM58" },
+    { src: "Talkback", mic: "SM58" },
+  ];
+  A.__cabRes = null;
+  ok(A.auditEngine().findings.some((x) => /si chiamano/.test(x.msg || "")),
+     "due righe manuali omonime devono continuare a fare avviso");
+});
+
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
