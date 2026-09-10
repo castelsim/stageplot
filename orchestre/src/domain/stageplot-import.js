@@ -67,35 +67,65 @@ export function extractPositions(doc, variantId, typeMap) {
   return { positions, unmapped, empty: !st };
 }
 
-/* Un gruppo per strumento: quanti posti chiede il palco. */
+/* La PARTE dedotta dall'etichetta della postazione: «Vl I 3», «Vln 1», «Violini II», «V2» → il nome del ruolo
+   com'è nei modelli («Violini primi», «Violini secondi»). Solo per gli strumenti che si dividono in parti;
+   se l'etichetta non lo dice, null: l'anteprima chiede. Puro, testato. */
+const PARTS = {
+  violino: [["Violini primi", /\b(?:vl|vln|vn|viol(?:in[oi])?|v)\s*\.?\s*(?:i|1|1[°ºa]|primi?)\b(?!i)/i], ["Violini secondi", /\b(?:vl|vln|vn|viol(?:in[oi])?|v)\s*\.?\s*(?:ii|2|2[°ºa]|second[io])\b/i]],
+};
+export function partFromLabel(label, instrumentCode) {
+  const rules = PARTS[instrumentCode]; if (!rules) return null;
+  const t = String(label || "").trim(); if (!t) return null;
+  for (const [name, re] of rules) if (re.test(t)) return name;
+  return null;
+}
+
+/* Un gruppo per strumento e parte: quanti posti chiede il palco. */
 export function proposeRoles(positions, instruments) {
   const byCode = new Map((instruments || []).map((i) => [i.code, i]));
   const groups = new Map();
   for (const p of positions) {
-    const g = groups.get(p.instrument_code) || { instrument_code: p.instrument_code, seats: 0, items: [], labels: [] };
-    g.seats += p.seats; g.items.push(p.item_id); if (p.label) g.labels.push(p.label);
-    groups.set(p.instrument_code, g);
+    const part = partFromLabel(p.label, p.instrument_code);
+    const key = p.instrument_code + "|" + (part || "");
+    const g = groups.get(key) || { instrument_code: p.instrument_code, part, seats: 0, items: [], labels: [], positions: [] };
+    g.seats += p.seats; g.items.push(p.item_id); if (p.label) g.labels.push(p.label); g.positions.push(p);
+    groups.set(key, g);
   }
   const out = [...groups.values()].map((g) => {
     const i = byCode.get(g.instrument_code) || {};
-    return { ...g, name: i.name || g.instrument_code, family: i.family || "", sort: Number.isFinite(i.sort) ? i.sort : 0 };
+    return { ...g, name: g.part || i.name || g.instrument_code, instrument_name: i.name || g.instrument_code, family: i.family || "", sort: Number.isFinite(i.sort) ? i.sort : 0 };
   });
   out.sort((a, b) => famRank(a.family) - famRank(b.family) || a.sort - b.sort || a.name.localeCompare(b.name, "it"));
   return out;
 }
 function famRank(f) { const n = FAMILY_ORDER.indexOf(f); return n < 0 ? 99 : n; }
 
-/* Cosa cambia nell'organico se importo: per ogni gruppo `new` (nessun ruolo con quello strumento),
-   `grow` (il palco chiede più posti di quelli previsti: si aggiungono), `ok` (bastano già). I posti
-   non si tolgono mai da qui: un ruolo con persone assegnate non si restringe da un disegno. */
+/* Cosa cambia nell'organico se importo. `roles` sono i ruoli della produzione ({id, name, instrument_code, slots:[{item_id}]}).
+   Per ogni gruppo si sceglie il ruolo di destinazione: quello con lo stesso strumento e la stessa parte; se la parte
+   non è dedotta e lo strumento ha UN solo ruolo, quello; se ne ha più d'uno, `ambiguous` e l'anteprima chiede.
+   I posti che servono in più = quelli chiesti dal palco meno quelli del ruolo liberi o già di queste postazioni:
+   i posti non si tolgono mai da qui, e un posto con una persona sopra non cambia mano. */
 export function diffProposal(proposal, roles) {
-  const have = new Map();
-  for (const r of roles || []) if (r.instrument_code) have.set(r.instrument_code, (have.get(r.instrument_code) || 0) + Number(r.seats || 0));
   return proposal.map((g) => {
-    const cur = have.get(g.instrument_code) || 0;
-    const action = !have.has(g.instrument_code) ? "new" : g.seats > cur ? "grow" : "ok";
-    return { ...g, current: cur, add: action === "ok" ? 0 : g.seats - cur, action };
+    const same = (roles || []).filter((r) => r.instrument_code === g.instrument_code);
+    let target = same.find((r) => r.name === g.name) || null, ambiguous = false;
+    if (!target && !g.part && same.length === 1) target = same[0];
+    if (!target && !g.part && same.length > 1) ambiguous = true;
+    const options = same.map((r) => ({ id: r.id, name: r.name }));
+    if (!target) {
+      return { ...g, role_id: null, role_name: g.name, current: 0, add: g.seats, action: "new", ambiguous, options };
+    }
+    const slots = target.slots || [];
+    const mine = new Set(g.items);
+    const usable = slots.filter((sl) => !sl.item_id || mine.has(sl.item_id)).length;
+    const add = Math.max(0, g.seats - usable);
+    return { ...g, role_id: target.id, role_name: target.name, current: slots.length || Number(target.seats || 0), add, action: add ? "grow" : "ok", ambiguous: false, options };
   });
+}
+
+/* Il payload per l'RPC: un gruppo per ruolo di destinazione (scelto dall'anteprima). */
+export function importGroups(diff) {
+  return diff.map((d) => ({ instrument_code: d.instrument_code, role_id: d.role_id || null, role_name: d.role_name, positions: d.positions.map((p) => ({ item_id: p.item_id, item_type: p.item_type, label: p.label, seats: p.seats })) }));
 }
 
 export function importSummary(diff, unmapped) {
@@ -107,6 +137,8 @@ export function importSummary(diff, unmapped) {
   if (c.add) parts.push(c.add === 1 ? "1 posto in più" : c.add + " posti in più");
   if (!parts.length) parts.push(diff.length ? "l'organico copre già il palco" : "nessuna postazione riconosciuta");
   if (unmapped && unmapped.length) parts.push((unmapped.length === 1 ? "1 elemento" : unmapped.length + " elementi") + " senza strumento in catalogo");
+  const amb = diff.filter((d) => d.ambiguous).length;
+  if (amb) parts.push(amb === 1 ? "1 gruppo da assegnare a un ruolo" : amb + " gruppi da assegnare a un ruolo");
   return parts.join(", ") + ".";
 }
 
