@@ -7,7 +7,7 @@
  * Uso:  node build.mjs && node test/engines.test.mjs
  *       (exit 1 se un test fallisce → usabile in pre-merge/CI)
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
@@ -7654,6 +7654,50 @@ t("e quello che si risalva non se lo porta dietro", () => {
   eq(/"pdfPages"/.test(j), false, "il campo finisce ancora nel progetto salvato");
 });
 
+console.log("\n— Il tasto Consulenza e' via, l'infrastruttura no —");
+
+/* Simone, 10/09: «per ora togli il tasto consulenza in alto a destra, teniamo l'infrastruttura ma
+   per il momento togliamo il tasto». Quindi si toglie SOLO la porta d'ingresso dall'editor —
+   header e menu del telefono — mentre pagina, backend, worker e modalita' consulenza restano
+   intatti: chi ha gia' una consulenza in corso deve continuare a lavorare. */
+t("l'editor non offre piu' la consulenza", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* Si cerca il LINK, non il testo: il commento che spiega perche' e' stato tolto nomina il
+     bottone, e un test sulla stringa lo scambierebbe per il bottone stesso.
+     E si guardano i DUE punti indicati — header e menu del telefono — non tutto il file: nella
+     scheda Guida restano un link dentro un testo esplicativo e una CTA in fondo, che sono un'altra
+     cosa e un'altra decisione. */
+  const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  ok(header.length > 200, "l'header non si delimita piu': ricontrollare");
+  eq(/id="bConsulenza"/.test(header), false, "il bottone Consulenza e' ancora nell'header");
+  eq(/href="\/consulenza\/"/.test(header), false, "c'e' ancora un link alla consulenza nell'header");
+  /* ⚠️ Non una regex sull'ordine degli attributi: `<a href=… class=…>` e `<a class=… href=…>` sono
+     lo stesso link, e la prima versione di questo test vedeva solo uno dei due — provato con una
+     mutazione che rimetteva la voce scrivendo l'href per primo: restava verde. Si guardano le
+     RIGHE che nominano la classe del menu, e nessuna deve puntare alla consulenza. */
+  const righeMenu = html.split("\n").filter((l) => /mact-consul/.test(l) && /<a\b/.test(l));
+  eq(righeMenu.filter((l) => /\/consulenza\//.test(l)), [],
+     "e' rimasta la voce «Consulenza tecnica» nel menu del telefono");
+  ok(righeMenu.length > 0, "la classe del menu mobile non c'e' piu': il test non guarderebbe niente");
+});
+
+t("…ma l'infrastruttura resta tutta al suo posto", () => {
+  /* «Teniamo l'infrastruttura»: la pagina pubblica, il backend, la modalita' consulenza per chi
+     ce l'ha in corso. Togliere il tasto non deve diventare togliere il servizio. */
+  ok(existsSync(join(root, "consulenza/index.html")), "la pagina /consulenza/ e' sparita");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  ok(sm.indexOf("stageplot.it/consulenza/") > -1, "la pagina e' uscita dal sitemap");
+  ok(/__consultMode/.test(appjs), "la modalita' consulenza non c'e' piu' nell'editor");
+  ok(/consult-editor/.test(stylesCss), "sono sparite le regole dell'editor di consulenza");
+});
+
+t("e non resta nessun riferimento orfano al bottone tolto", () => {
+  /* La lezione del 27/08: un `getElementById` senza guardia su un id rimosso uccide il boot IN
+     SILENZIO — nessun errore in console, e meta' del programma resta undefined. */
+  eq(/getElementById\("bConsulenza"\)/.test(appjs), false, "c'e' ancora un getElementById sull'id tolto");
+  eq(/querySelector\([^)]*bConsulenza/.test(appjs), false, "c'e' ancora un querySelector sull'id tolto");
+});
+
 console.log("\n— Tornare al solo palco in un clic —");
 
 /* Simone, 10/09, con lo screenshot della finestra Esporta: «queste opzioni di default devono
@@ -13685,7 +13729,12 @@ t("dal telefono spariscono le due voci che non si usano in piedi", () => {
      molto piu' su, e la slice veniva vuota — un test che guardava il nulla e restava verde. */
   const iMenu = html.indexOf('<div id="mActions">');
   ok(iMenu > 0, "il menu mobile esiste nel markup");
-  const menu = html.slice(iMenu, html.indexOf("mact-consul", iMenu));
+  /* ⚠️ Il confine era `mact-consul`, cioe' il link «Consulenza tecnica». Tolto quel link (10/09) la
+     classe resta su «Richiedi musicisti» e il blocco si allunga: il test continua a passare, ma su
+     un pezzo diverso da quello che crede di guardare. Ora il confine e' la griglia stessa. */
+  const iFine = html.indexOf("</div>", html.indexOf("mact-grid", iMenu));
+  ok(iFine > iMenu, "la griglia delle azioni mobili non si delimita piu': ricontrollare");
+  const menu = html.slice(iMenu, iFine);
   ok(menu.length > 100 && /data-act="new"/.test(menu), "e il blocco letto e' davvero il menu: " + menu.length + " caratteri");
   ok(!/data-act="venue"/.test(menu), "planimetria via dal menu mobile");
   ok(!/data-act="chan"/.test(menu), "e channel list pure");
@@ -13736,7 +13785,12 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
      mezza larghezza — «Area stampa» e «Tema» — con un buco accanto. (Simone, 02/09) */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const iMenu = html.indexOf('<div id="mActions">');
-  const menu = html.slice(iMenu, html.indexOf("mact-consul", iMenu));
+  /* ⚠️ Il confine era `mact-consul`, cioe' il link «Consulenza tecnica». Tolto quel link (10/09) la
+     classe resta su «Richiedi musicisti» e il blocco si allunga: il test continua a passare, ma su
+     un pezzo diverso da quello che crede di guardare. Ora il confine e' la griglia stessa. */
+  const iFine = html.indexOf("</div>", html.indexOf("mact-grid", iMenu));
+  ok(iFine > iMenu, "la griglia delle azioni mobili non si delimita piu': ricontrollare");
+  const menu = html.slice(iMenu, iFine);
   ok(!/<\/button>\s*\n\s*\n\s*<button/.test(menu), "niente righe vuote fra i bottoni");
   ok(/\.mact-grid button:last-child:nth-child\(odd\)\{grid-column:1 \/ -1\}/.test(stylesCss),
      "il bottone rimasto solo prende tutta la riga");
