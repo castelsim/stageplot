@@ -16,6 +16,19 @@ const ROW = {
   org_name: "Orchestra Demo",
 };
 
+Deno.test("chi non sa che formazione serve non chiede zero musicisti", () => {
+  /* Senza questa distinzione l'email alla societa si intitolava «0 musicisti — Matrimonio Bianchi»,
+     che e il modo migliore per far cestinare una richiesta vera. */
+  const m = buildInternalEmail({ ...ROW, slots: [], formation_unknown: true }, "https://stageplot.it");
+  assertStringIncludes(m.subject, "Formazione da definire");
+  assertStringIncludes(m.text, "formazione da definire");
+  assertStringIncludes(m.html, "chiede una proposta");
+  /* e quando i posti ci sono, il conteggio resta quello di prima */
+  const n = buildInternalEmail({ ...ROW, formation_unknown: false }, "https://stageplot.it");
+  assertStringIncludes(n.subject, "musicist");
+  if (n.subject.includes("Formazione da definire")) throw new Error("il conteggio normale non deve sparire");
+});
+
 Deno.test("quanti musicisti: i posti non coperti, non le righe", () => {
   assertEquals(needed(ROW), 3);
   assertEquals(needed({ ...ROW, slots: [] }), 0);
