@@ -3,7 +3,7 @@
    Serve una sessione: chiunque abbia fatto login con Google, staff o no. */
 import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime } from "../ui.js";
-import { getSession, signOut } from "../auth.js";
+import { getSession, signOut, barraAree } from "../auth.js";
 import { STEPS, PASSI_PROFILO, GENRES, PRIVACY_VERSION, PUBLIC_STATUS, missingFields, completion, FIELD_LABEL } from "../domain/applications.js";
 import { DATE_KIND, INV_STATUS, INV_PILL, PROD_STATUS } from "../domain/staffing.js";
 import { FAMILY } from "../nav.js";
@@ -117,9 +117,9 @@ function bloccoFoto() {
 function go(v, s) { view = v; step = s || 0; history.replaceState(null, "", "?v=" + v + (s ? "&step=" + s : "")); paint(); }
 
 function paint() {
-  const who = P.first_name || session.user.email;
-  document.querySelector(".o-top").innerHTML = `<a class="o-brand" href="${BASE}/musicista/"><span>StagePlot</span><small>Orchestre</small></a><span class="spacer"></span><span class="who">${esc(who)}</span><button type="button" class="btn small ghost" id="oOut">Esci</button>`;
-  document.querySelector("#oOut").onclick = signOut;
+  /* la barra la disegna `barraAree` — e async, e attacca lei il pulsante «Esci»: cercarlo qui subito
+     dopo lo trovava ancora inesistente, e la pagina moriva prima di disegnare il resto */
+  barraAree("musicista");
   app.className = "o-wrap narrow";
   app.innerHTML = nav(view);
   app.querySelectorAll(".nav-tabs a").forEach((a) => { a.onclick = (e) => { e.preventDefault(); go(a.dataset.v); }; });
