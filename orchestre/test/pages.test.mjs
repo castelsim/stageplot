@@ -94,6 +94,32 @@ test("config.js parla col Supabase di produzione: la anon key è quella dell'edi
    suite `rls*.test.mjs` si SALTANO in silenzio e il modello di sicurezza è verde per assenza. È quello
    che succedeva in CI fino al 10/09/2026: 43 test su 87 non giravano mai. Questo test pretende che il
    workflow che le esegue esista, che renda obbligatorio il locale (ORC_RLS) e che le copra TUTTE. */
+test("i workflow non hanno due punti sciolti nei nomi degli step (rompono lo YAML)", () => {
+  /* «name: Lint (lo stesso del deploy: se fallisce...)» non e YAML valido: il secondo «:» apre una
+     mappa dentro un valore. GitHub non esegue nemmeno il file e non lascia un log — mostra il run col
+     percorso al posto del nome. Successo il 10/09, e la diagnosi costa piu del difetto. */
+  const dir = join(root, ".github/workflows");
+  const colpevoli = [];
+  for (const f of readdirSync(dir).filter((n) => n.endsWith(".yml") || n.endsWith(".yaml"))) {
+    readFileSync(join(dir, f), "utf8").split("\n").forEach((r, i) => {
+      const m = r.match(/^\s*-?\s*name:\s*(.+)$/);
+      if (!m) return;
+      const v = m[1].trim();
+      const quotato = (v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"));
+      if (!quotato && /:\s/.test(v)) colpevoli.push(f + ":" + (i + 1) + " → " + v.slice(0, 60));
+    });
+  }
+  assert.deepEqual(colpevoli, [], "nomi di step con due punti non quotati");
+});
+
+test("il lint di Orchestre gira PRIMA del merge, non solo nel deploy", () => {
+  /* Girava solo nel workflow di pubblicazione: una PR tutta verde poteva fermare il deploy dopo il
+     merge, e il sito restava indietro senza che nessuno se ne accorgesse (successo il 10/09). */
+  const rls = readFileSync(join(root, ".github/workflows/orchestre-rls.yml"), "utf8");
+  assert.match(rls, /deno lint orchestre\/src/, "il workflow delle PR deve fare anche il lint");
+  assert.match(rls, /denoland\/setup-deno/, "e deve installare Deno, o il passo muore con «command not found»");
+});
+
 test("le suite RLS girano davvero in CI, e il workflow le copre tutte", () => {
   const p = join(root, ".github/workflows/orchestre-rls.yml");
   assert.ok(existsSync(p), "manca .github/workflows/orchestre-rls.yml: senza, le RLS non si provano mai");
