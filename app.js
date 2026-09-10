@@ -8943,8 +8943,16 @@ function auditEngine(){
      la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
      altrimenti quella derivata dagli elementi. */
   var chNames=[];
-  if((state.inputs||[]).some(function(r){ return r && r.src && String(r.src).trim(); }))
-    (state.inputs||[]).forEach(function(r){ var k=String((r&&r.src)||"").trim(); if(k) chNames.push(k); });
+  /* ⚠️ Le righe ORFANE non si contano (10/09). `state.inputs` e' la lista manuale, e ogni riga
+     punta all'elemento del palco con `linked_item_id`. Se l'elemento sparisce — cancellato, o
+     perche' la variante e' stata svuotata e rifatta con altro — la riga resta li'. Su un progetto
+     vero: 94 righe su 94 orfane in due varianti su tre, e l'audit avvisava «2 canali si chiamano
+     "corno 2"» in una variante fatta di sole luci, dove un corno non c'e'.
+     Una riga SENZA `linked_item_id` invece e' scritta a mano dal fonico: non e' orfana, e resta. */
+  var _vivo=function(r){ return !r || !r.linked_item_id || (state.items||[]).some(function(it){ return it.id===r.linked_item_id; }); };
+  var _righe=(state.inputs||[]).filter(_vivo);
+  if(_righe.some(function(r){ return r && r.src && String(r.src).trim(); }))
+    _righe.forEach(function(r){ var k=String((r&&r.src)||"").trim(); if(k) chNames.push(k); });
   else items.forEach(function(it){ (cabItemInputs(it)||[]).forEach(function(ch){ var k=String(ch.name||"").trim(); if(k) chNames.push(k); }); });
   var chCnt={}; chNames.forEach(function(k){ var lk=k.toLowerCase(); chCnt[lk]=(chCnt[lk]||0)+1; });
   var dupCh=Object.keys(chCnt).filter(function(k){ return chCnt[k]>1; });
