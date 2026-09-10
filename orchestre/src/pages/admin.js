@@ -48,8 +48,11 @@ async function main() {
     if (!prods.length && !noFb.length && !apps.length) {
       /* «Niente in sospeso» e' la frase di chi ha finito. Un'orchestra appena aperta non ha finito: non ha
          cominciato, e va detto con il primo passo, non con una rassicurazione. */
-      const { count } = await sb.from("orc_musicians").select("id", { count: "exact", head: true }).eq("org_id", ctx.org.org_id).catch(() => ({ count: null }));
-      if (!all.length && !count) {
+      /* il query builder di supabase-js e' «thenable» ma NON ha .catch: attaccarglielo lancia
+         «.catch is not a function» e la dashboard mostra un errore rosso invece del primo passo. */
+      let quanti = null;
+      try { quanti = (await sb.from("orc_musicians").select("id", { count: "exact", head: true }).eq("org_id", ctx.org.org_id)).count; } catch { quanti = null; }
+      if (!all.length && !quanti) {
         setState(todo, "");
         todo.innerHTML = `<p class="small muted">L'orchestra e vuota. Si parte dai musicisti: importa l'elenco che hai gia (CSV) o aggiungine uno a mano, poi crea la prima produzione.</p>`;
         todo.querySelector("p").textContent = "L'orchestra è vuota. Si parte dai musicisti: importa l'elenco che hai già (CSV) o aggiungine uno a mano, poi crea la prima produzione.";
