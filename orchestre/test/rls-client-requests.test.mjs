@@ -70,8 +70,13 @@ run("il cliente vede solo la sua richiesta, e non i dati interni; un estraneo no
   assert.equal(mie[0].status, "ricevuta", "lo stato che vede è quello buono per lui");
   assert.equal(mie[0].n_needed, 3, "tre musicisti chiesti: la doppia vale due, quello coperto non conta");
   assert.ok(!("taken_by" in mie[0]) && !("notes" in mie[0]), "niente lavorazione interna");
-  const suoi = await rest(env, T.cliente, "orc_client_requests?select=id,contact_name");
-  assert.equal(suoi.status, 200); assert.equal(suoi.d.length, 2, "legge le proprie righe");
+  /* AUDIT 10/09 — prima il cliente aveva `select` sulla riga intera: dalla console leggeva lo stato
+     grezzo (`quoted`, `won`, `lost`), `taken_by` (chi in società l'ha presa in carico) e la
+     produzione collegata, mentre l'RPC gli mostra la maschera. La maschera dev'essere nel database,
+     non nel client: è la stessa correzione già fatta per orc_applications (0051, punto 4). */
+  const suoi = await rest(env, T.cliente, "orc_client_requests?select=id,status,taken_by");
+  assert.equal(suoi.status, 200);
+  assert.deepEqual(suoi.d, [], "nemmeno le proprie: per lui c'è l'RPC, che maschera");
   const altrui = await rest(env, T.estraneo, "orc_client_requests?select=id");
   assert.equal(altrui.status, 200); assert.deepEqual(altrui.d, [], "un altro cliente non vede le richieste");
   assert.deepEqual((await rpc(env, T.estraneo, "orc_my_client_requests")).d, []);
