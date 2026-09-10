@@ -195,7 +195,7 @@ async function loadOrganico() {
     const c = staffingCounts(sections);
     sum.innerHTML = "";
     if (c.seats) {
-      sum.appendChild(el(`<span class="pill ${c.open ? "warn" : "ok"}">${c.filled} confermati su ${c.seats}</span>`));
+      sum.appendChild(el(`<span class="pill ${c.open ? "warn" : "ok"}">${c.filled === 1 ? "1 confermato" : c.filled + " confermati"} su ${c.seats}</span>`));
       if (c.open) sum.appendChild(el(`<span class="pill warn">${c.open} ${c.open === 1 ? "posto scoperto" : "posti scoperti"}</span>`));
       const sug = suggestedStatus(c, p.status);
       if (sug !== p.status) {
@@ -302,7 +302,7 @@ async function assignDialog(role, slot) {
     <div class="field"><label for="asgSel">Musicista</label><select id="asgSel">
       ${same.length ? `<optgroup label="Con lo strumento">${same.map((m) => `<option value="${m.id}">${esc(m.last_name + " " + m.first_name)}${m.status === "reserve" ? " (riserva)" : ""}</option>`).join("")}</optgroup>` : ""}
       ${others.length ? `<optgroup label="Altri">${others.map((m) => `<option value="${m.id}">${esc(m.last_name + " " + m.first_name)} · ${esc(m.primary_instrument || "")}</option>`).join("")}</optgroup>` : ""}
-    </select><span class="hint">Assegnazione diretta, senza convocazione: il posto risulta confermato. Le convocazioni arrivano nel lotto 5.</span></div>
+    </select><span class="hint">Assegnazione diretta: il posto risulta confermato senza chiedere niente al musicista. Per chiedergli la disponibilità usa Matching → Convoca.</span></div>
     <div class="field"><label for="asgWhy">Nota</label><input id="asgWhy" placeholder="facoltativa"></div>
     <div class="actions"><button type="button" class="btn" id="no">Annulla</button><button type="button" class="btn primary" id="ok">Assegna</button></div></div></div>`);
   if (!same.length && !others.length) ov.querySelector("#asgSel").innerHTML = `<option value="">Nessun musicista disponibile nel pool</option>`;
@@ -762,7 +762,7 @@ async function paintSpImport(box, proj) {
 }
 
 async function relinkDialog(l, proj) {
-  const wrap = el(`<div class="modal"><div class="box"><h3>Ricollega la postazione</h3><p class="small muted"></p><div class="field"><label for="rlSel">Postazione del disegno</label><select id="rlSel"></select></div><div class="actions"><button type="button" class="btn ghost">Annulla</button><button type="button" class="btn primary">Ricollega</button></div></div></div>`);
+  const wrap = el(`<div class="modal-ov" role="dialog" aria-modal="true" aria-labelledby="rlT"><div class="modal"><h2 id="rlT">Ricollega la postazione</h2><p class="small muted"></p><div class="field"><label for="rlSel">Postazione del disegno</label><select id="rlSel"></select></div><div class="actions"><button type="button" class="btn ghost">Annulla</button><button type="button" class="btn primary">Ricollega</button></div></div></div>`);
   wrap.querySelector("p").textContent = "«" + (l.item_label || l.item_type) + "» non è più sul palco. Il suo posto e la persona restano: scegli quale postazione lo copre adesso.";
   const sel = wrap.querySelector("#rlSel");
   let cands = [];

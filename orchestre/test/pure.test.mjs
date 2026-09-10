@@ -28,10 +28,20 @@ test("fmtDate formatta all'italiana e tace su date rotte", () => {
   assert.equal(fmtDate(null), "");
 });
 
-test("errMsg estrae il messaggio da un errore PostgREST o da una stringa", () => {
+test("errMsg: le frasi nostre passano, la lingua del database no", () => {
+  /* le eccezioni delle nostre RPC sono già scritte per chi legge */
   assert.equal(errMsg({ message: "non autorizzato", code: "42501" }), "non autorizzato");
+  assert.equal(errMsg({ message: "posto già occupato: prima liberalo" }), "posto già occupato: prima liberalo");
   assert.equal(errMsg("secco"), "secco");
   assert.equal(errMsg(null), "Qualcosa non ha risposto. Riprova.");
+  /* quello che scrive Postgres non arriva mai negli occhi di chi organizza (collaudo 10/09) */
+  const rls = errMsg({ message: 'new row violates row-level security policy for table "orc_productions"', code: "42501" });
+  assert.equal(rls, "Non hai i permessi per questa operazione.");
+  const dup = errMsg({ message: 'duplicate key value violates unique constraint "orc_musicians_email_key"', code: "23505" });
+  assert.match(dup, /Esiste già/);
+  const ignoto = errMsg({ message: 'column "pippo" does not exist', code: "42703" });
+  assert.doesNotMatch(ignoto, /column|does not exist/, "nessun pezzo di SQL a schermo");
+  assert.match(errMsg({ message: "Failed to fetch" }), /rete/);
 });
 
 test("nextUrl accetta solo percorsi interni a /orchestre, mai il login, mai host esterni", () => {

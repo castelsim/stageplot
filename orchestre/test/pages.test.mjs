@@ -88,3 +88,93 @@ test("config.js parla col Supabase di produzione: la anon key è quella dell'edi
   assert.equal(key, editorKey, "stessa chiave dell'editor");
   assert.match(cfg, /SB_URL = "https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co"/);
 });
+
+/* Le regole di sicurezza si provano solo con un Postgres vero: se nessuno fa partire il locale, le 8
+   suite `rls*.test.mjs` si SALTANO in silenzio e il modello di sicurezza è verde per assenza. È quello
+   che succedeva in CI fino al 10/09/2026: 43 test su 87 non giravano mai. Questo test pretende che il
+   workflow che le esegue esista, che renda obbligatorio il locale (ORC_RLS) e che le copra TUTTE. */
+test("le suite RLS girano davvero in CI, e il workflow le copre tutte", () => {
+  const p = join(root, ".github/workflows/orchestre-rls.yml");
+  assert.ok(existsSync(p), "manca .github/workflows/orchestre-rls.yml: senza, le RLS non si provano mai");
+  const wf = readFileSync(p, "utf8");
+  assert.match(wf, /supabase start/, "serve un Supabase vero, non lo skip");
+  assert.match(wf, /ORC_RLS: "1"/, "senza ORC_RLS le suite si saltano invece di fallire");
+  const glob = wf.match(/node --test (\S*rls\S*)/);
+  assert.ok(glob, "il workflow deve eseguire le suite RLS");
+  const suites = readdirSync(join(root, "orchestre/test")).filter((f) => /^rls.*\.test\.mjs$/.test(f));
+  assert.ok(suites.length >= 8, "trovate " + suites.length + " suite RLS");
+  const re = new RegExp("^" + glob[1].replace("orchestre/test/", "").replace(/\*/g, ".*") + "$");
+  for (const s of suites) assert.match(s, re, s + " non e coperta dal comando del workflow");
+  assert.match(wf, /paths:[\s\S]*supabase\/migrations/, "una migrazione che cambia le policy deve far girare i test");
+});
+
+/* Un import con un nome sbagliato non rompe nessun test ma lascia la pagina BIANCA nel browser:
+   il modulo non fa il parse e l'errore resta in console. Qui ogni simbolo importato da un modulo
+   interno deve esistere davvero fra i suoi export. */
+test("ogni simbolo importato dai moduli di Orchestre esiste davvero", () => {
+  const dir = join(root, "orchestre/src");
+  const files = [];
+  (function walk(d) {
+    for (const e of readdirSync(d)) {
+      const f = join(d, e);
+      if (statSync(f).isDirectory()) walk(f);
+      else if (e.endsWith(".js")) files.push(f);
+    }
+  })(dir);
+  assert.ok(files.length >= 15, "moduli trovati: " + files.length);
+  const exportsOf = (file) => {
+    const src = readFileSync(file, "utf8");
+    const names = new Set();
+    for (const m of src.matchAll(/^export\s+(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z0-9_$]+)/gm)) names.add(m[1]);
+    for (const m of src.matchAll(/^export\s*\{([^}]+)\}/gm)) {
+      for (const part of m[1].split(",")) {
+        const as = part.trim().split(/\s+as\s+/);
+        if (as.length) names.add((as[1] || as[0]).trim());
+      }
+    }
+    return names;
+  };
+  const cache = new Map();
+  let checked = 0;
+  for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    for (const m of src.matchAll(/import\s*\{([^}]+)\}\s*from\s*"(\.[^"]+)"/g)) {
+      const target = join(dirname(file), m[2]);
+      assert.ok(existsSync(target), file.replace(root, "") + " importa un file che non esiste: " + m[2]);
+      if (!cache.has(target)) cache.set(target, exportsOf(target));
+      const have = cache.get(target);
+      for (const raw of m[1].split(",")) {
+        const name = raw.trim().split(/\s+as\s+/)[0].trim();
+        if (!name) continue;
+        checked++;
+        assert.ok(have.has(name), file.replace(root, "") + ' importa "' + name + '" da ' + m[2] + ", che non lo esporta");
+      }
+    }
+  }
+  assert.ok(checked > 60, "simboli controllati: " + checked);
+});
+
+/* Un dialogo costruito con la sola classe `.modal` non è una finestra: in `ui.css` solo `.modal-ov` è
+   `position:fixed` con lo sfondo. Senza, la scatola finisce in fondo alla pagina, sotto la piega, e il
+   bottone che l'ha aperta sembra rotto — è quello che faceva «Ricollega…» (collaudo 10/09/2026). */
+test("ogni finestra di dialogo ha il suo sfondo, altrimenti non si vede", () => {
+  const css = readFileSync(join(root, "orchestre/ui.css"), "utf8");
+  assert.match(css, /\.modal-ov\{[^}]*position:fixed/, "è .modal-ov a fare la finestra");
+  const dir = join(root, "orchestre/src");
+  const files = [];
+  (function walk(d) { for (const e of readdirSync(d)) { const f = join(d, e); if (statSync(f).isDirectory()) walk(f); else if (e.endsWith(".js")) files.push(f); } })(dir);
+  let dialoghi = 0;
+  for (const f of files) {
+    const src = readFileSync(f, "utf8");
+    for (const m of src.matchAll(/<div class="modal([^"]*)"/g)) {
+      dialoghi++;
+      const cls = m[1];
+      /* la scatola interna va bene: quello che conta è che la riga PRIMA apra un .modal-ov */
+      const i = m.index;
+      const prima = src.slice(Math.max(0, i - 400), i);
+      assert.ok(cls.includes("-ov") || prima.includes('class="modal-ov'),
+        f.replace(root, "") + ': un dialogo senza .modal-ov non si vede (vicino a "' + src.slice(i, i + 90).replace(/\n/g, " ") + '")');
+    }
+  }
+  assert.ok(dialoghi >= 6, "dialoghi controllati: " + dialoghi);
+});

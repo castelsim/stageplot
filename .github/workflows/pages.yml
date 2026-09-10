@@ -57,7 +57,9 @@ jobs:
           supabase/functions/orc-notify/index.ts
       - name: Lint backend
         run: deno lint supabase/functions
-      - name: Test Orchestre
+      # Le suite RLS (rls*.test.mjs) hanno bisogno di un Postgres vero: girano in orchestre-rls.yml, che
+      # con ORC_RLS=1 le fa FALLIRE se il locale manca. Qui restano i test puri, che non toccano la rete.
+      - name: Test Orchestre (puri; la sicurezza sta in orchestre-rls.yml)
         run: node --test orchestre/test/*.test.mjs
       - name: Lint Orchestre
         run: deno lint orchestre/src
