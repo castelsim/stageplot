@@ -238,8 +238,8 @@ di no per la produzione non viene riproposto.
 - **File**: bucket privato `orc-files`, `profiles/<uid>/…`; policy su `storage.objects` per proprietario e staff
   delle org candidate; URL firmati a 10 minuti dal client.
 - **Area musicista** (`/orchestre/musicista/`): candidature con stato, inviti a cui rispondere senza token
-  (`orc_respond_mine`), incarichi confermati, privacy (consenso alle richieste, export JSON, richiesta di
-  cancellazione). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
+  (`orc_respond_mine`), incarichi confermati, privacy (consenso alle richieste, richiesta di
+  cancellazione; la copia dei dati si chiede scrivendo — `orc_export_my_data` esiste ancora nel database, ma non ha più un pulsante: un JSON grezzo non dice niente a un musicista). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
 - Le organizzazioni aprono le candidature da Impostazioni (`accepting_applications`, testo per i candidati).
 
 ### L'invito personale, la fotografia, l'ingresso diretto

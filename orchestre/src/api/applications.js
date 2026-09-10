@@ -103,7 +103,6 @@ export async function myApplications() { const { data, error } = await sb.rpc("o
 export async function myInvitations() { const { data, error } = await sb.rpc("orc_my_invitations"); fail(error); return data || []; }
 export async function myEngagements() { const { data, error } = await sb.rpc("orc_my_engagements"); fail(error); return data || []; }
 export async function respondMine(invitationId, answer, dates, note) { const { data, error } = await sb.rpc("orc_respond_mine", { invitation: invitationId, answer, dates, note }); fail(error); return data; }
-export async function exportMyData() { const { data, error } = await sb.rpc("orc_export_my_data"); fail(error); return data; }
 export async function requestDeletion() { fail((await sb.rpc("orc_request_deletion")).error); }
 
 /* ---------------- staff */

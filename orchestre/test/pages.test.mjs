@@ -270,3 +270,17 @@ test("le pagine che mostrano una fotografia la lasciano passare nella CSP; le al
     }
   }
 });
+
+/* L'informativa e la pagina devono dire la stessa cosa: finche l'area del musicista non ha un pulsante
+   per scaricare i dati, l'informativa non puo prometterlo (e viceversa). Il 10/09 il pulsante e stato
+   tolto — un JSON grezzo non dice niente a un musicista, la copia si chiede scrivendo — e la frase
+   dell'informativa sarebbe rimasta li a promettere una cosa che non c'e piu. */
+test("l'informativa non promette quello che l'area del musicista non fa", () => {
+  const pagina = readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8");
+  const info = readFileSync(join(root, "orchestre/privacy/index.html"), "utf8");
+  const scarica = /Scarica i miei dati|exportMyData/.test(pagina);
+  const promette = /[Pp]uoi scaricare i tuoi dati/.test(info);
+  assert.equal(promette, scarica, scarica
+    ? "l'area sa scaricare i dati ma l'informativa non lo dice"
+    : "l'informativa promette un download che nell'area non esiste piu: la copia si chiede scrivendo");
+});
