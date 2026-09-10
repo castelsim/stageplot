@@ -60,6 +60,11 @@ p{margin-bottom:var(--s-3)}
 .nav-tabs a{padding:10px 12px;min-height:var(--tap);display:flex;align-items:center;text-decoration:none;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap}
 .nav-tabs a[aria-current="page"]{color:var(--accent-strong);border-color:var(--accent)}
 .nav-tabs a[aria-disabled="true"]{color:var(--text-3);pointer-events:none}
+/* La riga che dice cosa facciamo. È l'h1 della pagina — toglierlo lascerebbe la home senza titolo per
+   chi la legge con lo screen reader — ma pesa come una frase, non come un titolo: a comandare la pagina
+   sono le due porte. */
+.claim{font-size:var(--t-heading);font-weight:400;color:var(--text-2);max-width:34ch;margin:0 auto var(--s-2)}
+
 /* Le porte della home: «chi sei» prima di «cos'è». Chi gestisce l'orchestra entra dal pulsante in alto:
    in mezzo restano i due che arrivano senza sapere dove andare — chi suona e chi cerca musicisti. */
 .porte{display:grid;gap:var(--s-3);margin:var(--s-5) auto;max-width:760px}

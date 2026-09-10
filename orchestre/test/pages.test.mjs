@@ -297,6 +297,11 @@ test("la home apre le due porte e lascia entrare chi gestisce dal pulsante in al
   }
   assert.ok(/id="topLogin"/.test(html) && html.includes('href="/orchestre/login/"'), "il pulsante d'accesso in alto e l'unica porta di chi gestisce: deve esserci");
   assert.ok(html.includes('href="/app/"'), "e il rimando all'editor del palco");
+  /* la riga che dice cosa facciamo e l'h1 della pagina: senza, la home e muta per lo screen reader
+     e per chi la indicizza, per quanto piena di bottoni sia */
+  const h1 = (html.match(/<h1[^>]*>([^<]+)<\/h1>/) || [])[1] || "";
+  assert.ok(h1.trim().length > 25, "la home deve avere un titolo che dica cosa facciamo, non una domanda o niente");
+  assert.doesNotMatch(h1, /Che cosa ti serve/, "la domanda e stata tolta il 10/09: al suo posto il mestiere in una riga");
   assert.doesNotMatch(html, /Gestisco l'orchestra/, "la porta dello staff non sta in home: si entra dal pulsante in alto");
   /* le pagine di destinazione devono esistere davvero */
   for (const r of ["orchestre/candidatura", "orchestre/richiedi", "orchestre/login"]) {
