@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ROUTES = ["orchestre", "orchestre/login", "orchestre/admin", "orchestre/admin/impostazioni",
@@ -376,4 +376,53 @@ test("la revoca del consenso passa dalla RPC, non da un UPDATE che il database r
   assert.ok(fn.indexOf('rpc("orc_consent_revoke"') > -1, "chiama la RPC");
   assert.ok(!/from\("orc_consents"\)[\s\S]*\.update\(/.test(fn), "e non prova a scrivere la riga da sé");
   assert.ok(!/from\("orc_consents"\)[\s\S]*\.delete\(/.test(fn), "né a cancellarla");
+});
+
+/* Un modulo con una parentesi in meno non lo prende nessun test di struttura: il file si legge benissimo
+   come testo. Lo vede solo il browser, che smette di eseguire e lascia la pagina bianca — successo il
+   10/09 tagliando un vecchio passo dell'onboarding. Qui si prova a IMPORTARLO davvero: in Node mancano
+   document e le dipendenze, quindi un errore ci sta — ma un SyntaxError no. */
+test("ogni modulo di Orchestre si parsa: niente parentesi perse", async () => {
+  const dirs = ["orchestre/src", "orchestre/src/pages", "orchestre/src/api", "orchestre/src/domain"];
+  const rotti = [];
+  for (const d of dirs) {
+    for (const f of readdirSync(join(root, d)).filter((n) => n.endsWith(".js"))) {
+      try {
+        await import(pathToFileURL(join(root, d, f)).href);
+      } catch (e) {
+        if (e instanceof SyntaxError) rotti.push(d + "/" + f + ": " + e.message);
+      }
+    }
+  }
+  assert.deepEqual(rotti, [], "moduli che non si parsano");
+});
+
+/* La candidatura si manda dal PRIMO passo: i sei campi obbligatori (nome, cognome, email, telefono,
+   citta, strumento) piu il consenso stanno tutti li. Prima erano sparsi su quattro passi diversi e per
+   candidarsi bisognava attraversarli tutti — chi si fermava a meta non risultava candidato da nessuna
+   parte. Se qualcuno li rispande, questo test lo dice. */
+test("ci si candida dal primo passo, e il browser compila quello che sa", () => {
+  const src = readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8");
+  const i = src.indexOf('if (key === "candidatura")');
+  const j = src.indexOf('} else if (key === "strumenti")');
+  assert.ok(i > 0 && j > i, "il primo passo si chiama «candidatura»");
+  const passo = src.slice(i, j);
+  for (const campo of ["first_name", "last_name", "email", "phone", "city", "strPrinc"]) {
+    assert.ok(passo.includes(campo), "il primo passo deve chiedere " + campo);
+  }
+  assert.match(passo, /consent/, "e il consenso, senza il quale la candidatura non parte");
+  assert.match(passo, /bloccoInvio\(/, "e deve poter mandare da li, non alla fine di sette passi");
+  /* gli autocomplete: il telefono e la citta li mette il browser, non le dita su un telefono */
+  for (const a of ["given-name", "family-name", "tel", "address-level2"]) {
+    assert.ok(passo.includes('autocomplete: "' + a + '"'), "manca l'autocomplete " + a + " (attenzione: «tel» compare anche in type)");
+  }
+  /* il livello dello strumento va da 1 a 5 (vincolo del database), non sulla scala 0-3 delle competenze */
+  assert.doesNotMatch(passo, /lvl\("livello"/, "«lvl» e la scala 0-3 delle competenze: il livello sullo strumento e 1-5");
+  /* chi ha gia mandato torna qui per correggere il telefono, non per candidarsi due volte: provato nel
+     browser, col codice di prima partiva una seconda candidatura senza volerlo */
+  const invio = src.slice(src.indexOf("function bloccoInvio"), src.indexOf("async function manda("));
+  const iInviate = invio.indexOf("if (inviate.length");
+  assert.ok(iInviate > 0, "il caso «ha gia mandato» deve venire prima di riproporre l'invio");
+  assert.ok(invio.indexOf("Salva le modifiche") > iInviate, "e li il pulsante grande deve salvare, non mandare");
+  assert.ok(invio.indexOf("Salva le modifiche") < invio.indexOf("Manda la candidatura a"), "«Salva» prima di «Manda»: e il caso normale di chi torna");
 });
