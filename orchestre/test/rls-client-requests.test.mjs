@@ -159,6 +159,25 @@ run("quello che è arrivato non si modifica: nemmeno la formazione dichiarata", 
   assert.match(JSON.stringify(conChiave.d), /non si modifica/, JSON.stringify(conChiave.d));
 });
 
+run("«di che cosa sono io»: ognuno vede le proprie aree, mai quelle di un altro", async () => {
+  /* Serve al login per decidere dove mandare chi entra, e alla barra per il cambio d'area. Non è un
+     elenco di permessi: dice quali porte mostrare, e una porta di troppo non aprirebbe niente. */
+  const mie = (await rpc(env, T.cliente, "orc_my_areas", {})).d[0];
+  assert.equal(mie.cliente, true, "ha mandato richieste: è un cliente");
+  assert.equal(mie.staff, false, "ma non è dello staff");
+
+  const soc = (await rpc(env, T.societa, "orc_my_areas", {})).d[0];
+  assert.equal(soc.staff, true, "chi gestisce l'organizzazione lo è");
+
+  const estraneo = (await rpc(env, T.estraneo, "orc_my_areas", {})).d[0];
+  assert.deepEqual(estraneo, { musicista: false, cliente: false, staff: false },
+    "chi non ha fatto niente non ha aree: e non vede quelle degli altri");
+
+  /* la risposta riguarda chi chiama, non chi si nomina: non ci sono parametri da falsificare */
+  const anon = await rpc(env, env.ANON_KEY, "orc_my_areas", {});
+  assert.equal(anon.ok, false, "senza accesso non si chiede nemmeno");
+});
+
 run("si rimette com'era: una sola organizzazione riceve le richieste", async () => {
   await rest(env, admin(env), "orc_organizations?id=eq." + ORG, { method: "PATCH", body: { is_service_provider: false } });
   if (PRIMA) await rest(env, admin(env), "orc_organizations?id=eq." + PRIMA, { method: "PATCH", body: { is_service_provider: true } });

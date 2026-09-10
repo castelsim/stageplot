@@ -68,6 +68,38 @@ export async function requireStaff() {
 }
 
 /* Barra in alto delle pagine admin: brand, selettore org (se più di una), chi sei, Esci. */
+/* Le aree di chi sta guardando: musicista, cliente, gestionale. È una domanda sola al database
+   (`orc_my_areas`), e serve solo a decidere quali porte mostrare — chi entra lo decidono le policy,
+   come sempre. Una porta in più mostrata per errore non apre niente: manda su una pagina che rimbalza. */
+export async function mieAree() {
+  if (!sb) return { musicista: false, cliente: false, staff: false };
+  const { data, error } = await sb.rpc("orc_my_areas");
+  if (error) return { musicista: false, cliente: false, staff: false };
+  const r = (data || [])[0] || {};
+  return { musicista: !!r.musicista, cliente: !!r.cliente, staff: !!r.staff };
+}
+
+/* La barra delle pagine personali: il marchio, le aree che ha davvero, e «Esci». Si mostra solo quando
+   le aree sono più d'una: chi ne ha una sola non ha niente da scegliere e non deve vedere un menu. */
+export async function barraAree(attiva = "") {
+  const top = document.querySelector(".o-top");
+  if (!top) return;
+  const aree = await mieAree();
+  const voci = [];
+  if (aree.musicista) voci.push(["musicista", "Il mio profilo", BASE + "/musicista/"]);
+  if (aree.cliente) voci.push(["mie-richieste", "Le mie richieste", BASE + "/mie-richieste/"]);
+  if (aree.staff) voci.push(["admin", "Gestionale", BASE + "/admin/"]);
+  const link = voci.length > 1
+    ? `<nav class="o-aree" aria-label="Le tue aree">` + voci.map(([k, testo, href]) =>
+        `<a class="btn small${k === attiva ? " primary" : ""}"${k === attiva ? ' aria-current="page"' : ""} href="${href}">${esc(testo)}</a>`).join("") + `</nav>`
+    : "";
+  top.innerHTML = `<a class="o-brand" href="${BASE}/"><span>StagePlot</span><small>Orchestre</small></a><span class="spacer"></span>`
+    + `<button type="button" class="btn small ghost" id="oOut">Esci</button>` + link;
+  const out = top.querySelector("#oOut");
+  if (out) out.onclick = signOut;
+  return aree;
+}
+
 export function mountTopbar(ctx, { active = "" } = {}) {
   const top = document.querySelector(".o-top");
   if (!top) return;

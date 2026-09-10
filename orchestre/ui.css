@@ -37,7 +37,12 @@ a{color:var(--accent-strong)}
 
 /* struttura */
 .o-top{position:sticky;top:0;z-index:var(--z-menu);background:var(--surface);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-4);min-height:56px;padding-top:env(safe-area-inset-top)}
+  display:flex;align-items:center;gap:var(--s-2);padding:6px var(--s-4);min-height:56px;padding-top:env(safe-area-inset-top);flex-wrap:wrap}
+/* Le aree di chi ha più di un ruolo: una riga loro sotto il marchio. Infilate fra marchio ed «Esci»
+   non ci stavano in 390 px e andavano a capo a caso (provato). */
+.o-aree{flex-basis:100%;display:flex;gap:var(--s-2);flex-wrap:wrap;padding-bottom:2px}
+.o-aree .btn{white-space:nowrap}
+@media (min-width:640px){.o-aree{flex-basis:auto;order:-1;margin-inline-start:auto;padding-bottom:0}}
 .o-brand{font-weight:700;letter-spacing:-.01em;text-decoration:none;color:var(--text);display:flex;align-items:baseline;gap:6px;min-height:var(--tap)}
 .o-brand small{font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-strong);font-weight:700}
 .o-top .spacer{flex:1}

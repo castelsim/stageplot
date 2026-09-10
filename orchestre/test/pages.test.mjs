@@ -12,7 +12,7 @@ const ROUTES = ["orchestre", "orchestre/login", "orchestre/admin", "orchestre/ad
   "orchestre/admin/musicisti", "orchestre/admin/musicisti/scheda", "orchestre/admin/musicisti/importa",
   "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda", "orchestre/rispondi",
   "orchestre/musicista", "orchestre/candidatura", "orchestre/privacy", "orchestre/admin/candidature", "orchestre/admin/candidature/scheda",
-  "orchestre/richiedi", "orchestre/admin/richieste"];
+  "orchestre/richiedi", "orchestre/admin/richieste", "orchestre/mie-richieste"];
 const NO_SB = new Set(["orchestre/rispondi"]);   /* parla solo con la Edge Function: niente supabase-js */
 /* Nessuna pagina di Orchestre va su Google finché è un cantiere (decisione di Simone, 06/09).
    La home è l'unica che un giorno sarà pubblica: `noindex,follow` come /app/ — fuori dalla SERP,
@@ -451,4 +451,51 @@ test("ci si candida dal primo passo, e il browser compila quello che sa", () => 
   assert.ok(iInviate > 0, "il caso «ha gia mandato» deve venire prima di riproporre l'invio");
   assert.ok(invio.indexOf("Salva le modifiche") > iInviate, "e li il pulsante grande deve salvare, non mandare");
   assert.ok(invio.indexOf("Salva le modifiche") < invio.indexOf("Manda la candidatura a"), "«Salva» prima di «Manda»: e il caso normale di chi torna");
+});
+
+/* Un account puo essere due cose insieme: un musicista che si e candidato e un cliente che ha chiesto
+   musicisti per un evento. Prima il login smistava sempre all'area musicista e chi aveva mandato una
+   richiesta non aveva NESSUNA strada per rivederla — la funzione per leggerle esisteva dal lotto
+   «Richiedi musicisti», ma nessuna pagina la chiamava. */
+test("chi ha due aree le trova entrambe, e le cambia senza uscire", () => {
+  const auth = readFileSync(join(root, "orchestre/src/auth.js"), "utf8");
+  assert.match(auth, /orc_my_areas/, "le aree si chiedono al database, non si indovinano dal client");
+  const barra = auth.slice(auth.indexOf("export async function barraAree"), auth.indexOf("export function mountTopbar"));
+  assert.match(barra, /\/musicista\//, "la porta del musicista");
+  assert.match(barra, /\/mie-richieste\//, "quella delle proprie richieste");
+  assert.match(barra, /\/admin\//, "e il gestionale, per chi ce l'ha");
+  assert.match(barra, /voci\.length > 1/, "chi ha una sola area non deve vedere un menu da scegliere");
+
+  /* il login: staff al gestionale, cliente puro alle sue richieste, chi e tutte e due sceglie */
+  const login = readFileSync(join(root, "orchestre/src/pages/login.js"), "utf8");
+  assert.match(login, /aree\.cliente && !aree\.musicista/, "chi e solo cliente va alle sue richieste");
+  assert.match(login, /aree\.cliente && aree\.musicista/, "chi e tutte e due sceglie");
+  assert.match(login, /paintBivio/, "e il bivio esiste");
+
+  /* la pagina del cliente c'e ed e sua: legge le proprie richieste, non la coda della societa */
+  const mie = readFileSync(join(root, "orchestre/src/pages/mie-richieste.js"), "utf8");
+  assert.match(mie, /api\.mine\(\)/, "legge le PROPRIE richieste");
+  assert.doesNotMatch(mie, /client_requests_list|api\.list\(/, "non deve toccare la coda della societa");
+  assert.doesNotMatch(mie, /notes|taken_by|note interne/, "ne i dati di lavorazione");
+});
+
+/* ROUTES e l'elenco che TUTTE le guardie di struttura usano: CSP, robots, moduli importati, sitemap.
+   Una pagina nuova che non ci finisce dentro non viene controllata da nessuno — e non se ne accorge
+   nessuno, perche i test restano verdi. Qui si pretende che l'elenco sia completo: ogni cartella di
+   orchestre/ con dentro un index.html deve esserci. */
+test("l'elenco delle rotte sorvegliate copre ogni pagina che esiste", () => {
+  const trovate = [];
+  (function cerca(rel) {
+    const d = join(root, rel);
+    for (const n of readdirSync(d)) {
+      if (n === "src" || n === "test" || n === "demo" || n.startsWith(".")) continue;
+      const f = join(d, n);
+      if (!statSync(f).isDirectory()) continue;
+      if (existsSync(join(f, "index.html"))) trovate.push(rel + "/" + n);
+      cerca(rel + "/" + n);
+    }
+  })("orchestre");
+  if (existsSync(join(root, "orchestre/index.html"))) trovate.push("orchestre");
+  const mancanti = trovate.filter((r) => !ROUTES.includes(r)).sort();
+  assert.deepEqual(mancanti, [], "pagine che esistono ma nessuna guardia controlla");
 });
