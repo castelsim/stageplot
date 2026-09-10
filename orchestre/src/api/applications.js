@@ -49,9 +49,11 @@ export async function grantConsent(profileId, kind, version) {
   if (kind === "privacy") fail((await sb.from("orc_musician_profiles").update({ consent_privacy_version: version, consent_privacy_at: new Date().toISOString() }).eq("id", profileId)).error);
   if (kind === "requests") fail((await sb.from("orc_musician_profiles").update({ consent_requests: true }).eq("id", profileId)).error);
 }
+/* La revoca la scrive il database, non il client: `orc_consents` non accetta UPDATE da nessuno —
+   il consenso è una prova e la sua data non la sceglie l'interessato. Dal 09/09 al 10/09 questo
+   pulsante ha risposto 403: la policy era stata tolta, la chiamata no. */
 export async function revokeConsent(profileId, kind) {
-  const uid = (await sb.auth.getUser()).data.user.id;
-  fail((await sb.from("orc_consents").update({ revoked_at: new Date().toISOString() }).eq("user_id", uid).eq("kind", kind).is("revoked_at", null)).error);
+  fail((await sb.rpc("orc_consent_revoke", { kind_in: kind })).error);
   if (kind === "requests") fail((await sb.from("orc_musician_profiles").update({ consent_requests: false }).eq("id", profileId)).error);
 }
 /* file: bucket privato, percorso profiles/<uid>/<kind>/<nome> */

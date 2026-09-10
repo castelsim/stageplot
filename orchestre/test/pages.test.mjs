@@ -363,3 +363,17 @@ test("nessun href riceve una stringa esterna senza passare da safeHttpUrl", () =
   }
   assert.deepEqual(colpevoli, [], "href da valore non verificato");
 });
+
+/* Il consenso è una prova: `orc_consents` accetta INSERT e SELECT, mai UPDATE né DELETE (0051). Il
+   client però revocava con un UPDATE, e dal 09/09 al 10/09 il pulsante «Non ricevere più richieste»
+   ha risposto 403 — il diritto esisteva nell'interfaccia e non funzionava. Un test sulla policy non
+   lo avrebbe visto: guardava il database, non il pulsante. */
+test("la revoca del consenso passa dalla RPC, non da un UPDATE che il database rifiuta", () => {
+  const api = readFileSync(join(root, "orchestre/src/api/applications.js"), "utf8");
+  const i = api.indexOf("export async function revokeConsent(");
+  assert.ok(i > -1, "la funzione c'è");
+  const fn = api.slice(i, api.indexOf("\n}", i));
+  assert.ok(fn.indexOf('rpc("orc_consent_revoke"') > -1, "chiama la RPC");
+  assert.ok(!/from\("orc_consents"\)[\s\S]*\.update\(/.test(fn), "e non prova a scrivere la riga da sé");
+  assert.ok(!/from\("orc_consents"\)[\s\S]*\.delete\(/.test(fn), "né a cancellarla");
+});
