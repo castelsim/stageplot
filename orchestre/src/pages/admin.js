@@ -2,6 +2,7 @@
    da dove si comincia. Il riquadro «Prossimi passi» elencava i lotti di sviluppo: roba interna, sotto gli
    occhi di chi organizza, che per giunta diceva «arrivera'» di cose gia' fatte (collaudo 10/09/2026). */
 import { BASE } from "../config.js";
+import { quantiLabel } from "../domain/client-request.js";
 import { esc, el, roleLabel, setState, errMsg } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers } from "../api/org.js";
@@ -68,7 +69,7 @@ async function main() {
       if (nuove.length) {
         const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/richieste/"><div class="title"></div><div class="sub"></div></a></li>`);
         li.querySelector(".title").textContent = nuove.length === 1 ? "1 richiesta da un cliente" : nuove.length + " richieste dai clienti";
-        li.querySelector(".sub").textContent = nuove.slice(0, 2).map((r) => r.event_title + " · " + (r.n_needed === 1 ? "1 musicista" : r.n_needed + " musicisti")).join(", ") + (nuove.length > 2 ? "…" : "");
+        li.querySelector(".sub").textContent = nuove.slice(0, 2).map((r) => r.event_title + " · " + quantiLabel(r)).join(", ") + (nuove.length > 2 ? "…" : "");
         todo.querySelector("ul").appendChild(li);
       }
       if (apps.length) {
