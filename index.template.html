@@ -27356,7 +27356,15 @@ function pdfChannelPage(doc, L, paperKey){
   var _pdfPillSel={}, _prodOpen=false;   /* pillole + stato UI */
   /* la scelta delle pagine è del DOCUMENTO, non della finestra: sopravvive alla chiusura, al giro
      dall'area di stampa e alla riapertura (06/08) */
-  function pdfRememberPages(){ try{ state.pdfPages=Object.keys(_pdfPillSel); save(); }catch(_e){} }
+  /* LA SCELTA DELLE PAGINE NON SI RICORDA (10/09, Simone: «togli anche la memoria della scelta»).
+     C'era `pdfRememberPages()`, che scriveva le pagine scelte in `state.pdfPages` e le ripescava
+     alla riapertura. Su un progetto vero se n'erano accumulate diciassette — tutte quelle
+     disponibili — e chi riapriva Esporta trovava un PDF da quattordici pagine senza averlo chiesto
+     in quel momento. Ogni clic su una pillola faceva anche `save()`: guardare la finestra bastava
+     a marcare il documento come modificato.
+     Ora la selezione vive quanto la finestra: dentro la stessa apertura si aggiunge e si toglie,
+     alla riapertura si riparte dal solo palco. Il campo resta nello schema (i progetti salvati ce
+     l'hanno) ma non lo scrive né lo legge più nessuno. */
   function pdfSelectedPages(){   /* Set delle chiavi selezionate (pillole) → letto da buildPdfDoc via window.__pdfPages */
     var sel={};
     _pdfTechPages.forEach(function(p){ if(_pdfPillSel[p.key]) sel[p.key]=true; });
@@ -27388,7 +27396,7 @@ function pdfChannelPage(doc, L, paperKey){
         nSel++;
         var pill=mk(p.label,"pill"); pill.dataset.key=p.key;   /* chiave esposta: l'ordine è verificabile */
         var x=document.createElement("span"); x.className="x"; x.textContent="✕"; x.title="Togli dal PDF";
-        var _togli=function(){ delete _pdfPillSel[p.key]; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+        var _togli=function(){ delete _pdfPillSel[p.key]; pdfRenderPills(); pdfUpdateTechNote(); };
         x.addEventListener("click", _togli);
         if(typeof premibile==="function") premibile(x, _togli, "Togli dal PDF: "+p.label);
         pill.appendChild(x); host.appendChild(pill);
@@ -27396,7 +27404,7 @@ function pdfChannelPage(doc, L, paperKey){
         var isSugg=!!sugg[p.key]; if(isSugg) nSugg++;
         var g=mk(p.label,"pill ghost"+(isSugg?" sugg":"")); g.dataset.key=p.key;
         g.title=isSugg?"Suggerita dagli elementi sul palco — click per aggiungerla":"Aggiungi al PDF";
-        var _aggiungi=function(){ _pdfPillSel[p.key]=true; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+        var _aggiungi=function(){ _pdfPillSel[p.key]=true; pdfRenderPills(); pdfUpdateTechNote(); };
         g.addEventListener("click", _aggiungi);
         if(typeof premibile==="function") premibile(g, _aggiungi, "Aggiungi al PDF: "+p.label);
         host.appendChild(g);
@@ -27415,7 +27423,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(nSugg>0){
       var sug=mk("Aggiungi le "+nSugg+" suggerite","pill ghost sugg-all");
       var _sugg=function(){ Object.keys(sugg).forEach(function(k){ _pdfPillSel[k]=true; });
-        pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+        pdfRenderPills(); pdfUpdateTechNote(); };
       sug.addEventListener("click", _sugg);
       if(typeof premibile==="function") premibile(sug, _sugg, "Aggiungi al PDF le pagine suggerite dal palco");
       host.appendChild(sug);
@@ -27427,7 +27435,7 @@ function pdfChannelPage(doc, L, paperKey){
        e tornare al solo palco voleva dire tredici clic sulle ✕, una per una. */
     if(nSel>0){
       var nes=mk("Solo il palco","pill ghost");
-      var _nessuna=function(){ _pdfPillSel={}; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+      var _nessuna=function(){ _pdfPillSel={}; pdfRenderPills(); pdfUpdateTechNote(); };
       nes.addEventListener("click", _nessuna);
       if(typeof premibile==="function") premibile(nes, _nessuna, "Togli dal PDF tutte le pagine tecniche: resta il solo palco");
       host.appendChild(nes);
@@ -27435,7 +27443,7 @@ function pdfChannelPage(doc, L, paperKey){
     var rest=_pdfTechPages.length-nSel;
     if(rest>1){
       var all=mk("Tutte le pagine","pill ghost");
-      var _tutte=function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+      var _tutte=function(){ _pdfTechPages.forEach(function(p){ _pdfPillSel[p.key]=true; }); pdfRenderPills(); pdfUpdateTechNote(); };
       all.addEventListener("click", _tutte);
       if(typeof premibile==="function") premibile(all, _tutte, "Aggiungi al PDF tutte le pagine tecniche");
       host.appendChild(all);
@@ -27555,7 +27563,6 @@ function pdfChannelPage(doc, L, paperKey){
        un PDF di cinque pagine che non aveva chiesto, e il costo di quell'errore lo paga chi lo riceve.
        Chi le vuole tutte ha «Aggiungi tutte» lì accanto; dalla seconda apertura vale la sua scelta. */
     _pdfPillSel={};
-    if(Array.isArray(state.pdfPages)) state.pdfPages.forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;
     pdfRenderPills();
     renderProdInline();
