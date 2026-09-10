@@ -1,4 +1,4 @@
--- 0056 — Le sei cose che l'audit di sicurezza del 10/09 ha trovato aperte.
+-- 0057 — Le sette cose che l'audit di sicurezza del 10/09 ha trovato aperte.
 --
 -- Nessuna era una porta spalancata sull'esterno: l'anonimo continua a non poter leggere niente.
 -- Sono difese che mancavano dietro la prima, più una revoca che l'ultimo giro di collaudo ha rotto.
