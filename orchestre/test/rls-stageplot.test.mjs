@@ -138,3 +138,45 @@ run("scollegare toglie il puntatore e i collegamenti; l'organico e le persone re
   const log = (await rest(env, T.ownerA, "orc_audit_log?select=action&org_id=eq." + ORG_A + "&action=like.stageplot.*&order=at")).d;
   assert.deepEqual(log.map((x) => x.action), ["stageplot.import", "stageplot.import", "stageplot.relink", "stageplot.import", "stageplot.import", "stageplot.unlink"]);
 });
+
+/* Collaudo 10/09: il difetto peggiore trovato dalla revisione di correttezza. Una persona confermata
+   veniva SPOSTATA su un'altra sedia quando la sua postazione spariva dal disegno, mentre l'interfaccia
+   prometteva «il suo posto e la persona restano». Rimettendo il vecchio comportamento (azzerare slot_id
+   sui legami che lasciano il palco) questo test torna rosso. */
+run("una persona confermata non cambia sedia quando la sua postazione sparisce dal disegno", async () => {
+  const c = await rest(env, T.ownerA, "orc_productions", { method: "POST", body: { org_id: ORG_A, title: "Sedie", kind: "concerto" } });
+  const P2 = c.d[0].id;
+  const G = (pos) => [{ instrument_code: "violino", role_id: null, role_name: "Violini primi", positions: pos }];
+  const pos = (i, l) => ({ item_id: i, item_type: "vlnpost", label: l, seats: 1 });
+  const staff2 = async () => (await rpc(env, T.ownerA, "orc_staffing", { production: P2 })).d;
+  assert.ok((await rpc(env, T.ownerA, "orc_stageplot_import", { production: P2, project: PROJ, variant: "v", groups: G([pos("a1", "Vl I 1"), pos("a2", "Vl I 2"), pos("a3", "Vl I 3")]) })).ok);
+  const mid = (await staff2()).find((x) => x.item_id === "a2").slot_id;
+  assert.ok((await rpc(env, T.ownerA, "orc_assign_slot", { slot: mid, musician: M1, reason: "prova" })).ok);
+  /* la postazione di mezzo sparisce dal disegno, ne arriva una nuova */
+  assert.ok((await rpc(env, T.ownerA, "orc_stageplot_import", { production: P2, project: PROJ, variant: "v", groups: G([pos("a1", "Vl I 1"), pos("a3", "Vl I 3"), pos("a9", "Vl I 4")]) })).ok);
+  const st = await staff2();
+  const suo = st.find((x) => x.slot_id === mid);
+  assert.equal(suo.musician_name, "Prova Uno", "la persona è ancora sul suo posto");
+  assert.equal(suo.item_id, null, "e nessun'altra postazione si è presa la sua sedia");
+  assert.ok(!st.some((x) => x.item_id === "a9" && x.slot_id === mid), "la postazione nuova ha un posto suo");
+  const lk = (await rest(env, T.ownerA, "orc_stageplot_links?select=item_id,status,slot_id&production_id=eq." + P2)).d;
+  const uscito = lk.find((l) => l.item_id === "a2");
+  assert.equal(uscito.status, "stale"); assert.equal(uscito.slot_id, mid, "tiene il posto della persona, così «Ricollega» la recupera");
+});
+
+run("un posto annullato non viene mai dato a una postazione", async () => {
+  const c = await rest(env, T.ownerA, "orc_productions", { method: "POST", body: { org_id: ORG_A, title: "Annullati", kind: "concerto" } });
+  const P3 = c.d[0].id;
+  const G = (pos) => [{ instrument_code: "flauto", role_id: null, role_name: "Flauti", positions: pos }];
+  const pos = (i) => ({ item_id: i, item_type: "flauto", label: i, seats: 1 });
+  assert.ok((await rpc(env, T.ownerA, "orc_stageplot_import", { production: P3, project: PROJ, variant: "v", groups: G([pos("f1"), pos("f2")]) })).ok);
+  const st = (await rpc(env, T.ownerA, "orc_staffing", { production: P3 })).d;
+  const del = await rest(env, admin(env), "orc_stageplot_links?production_id=eq." + P3, { method: "DELETE" });
+  assert.ok(del.ok, JSON.stringify(del.d));
+  for (const sl of st) await rest(env, admin(env), "orc_staffing_slots?id=eq." + sl.slot_id, { method: "PATCH", body: { status: "cancelled" } });
+  assert.ok((await rpc(env, T.ownerA, "orc_stageplot_import", { production: P3, project: PROJ, variant: "v", groups: G([pos("f9")]) })).ok);
+  const dopo = (await rpc(env, T.ownerA, "orc_staffing", { production: P3 })).d;
+  const legata = dopo.find((x) => x.item_id === "f9");
+  assert.ok(legata, "la postazione ha un posto");
+  assert.notEqual(legata.slot_status, "cancelled", "e non è uno di quelli annullati");
+});
