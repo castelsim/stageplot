@@ -75,3 +75,16 @@ test("le pagine private non entrano in sitemap; la home di Orchestre non ancora"
   const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
   assert.doesNotMatch(sm, /orchestre\/(login|admin)/);
 });
+
+test("config.js parla col Supabase di produzione: la anon key è quella dell'editor, non quella locale", () => {
+  const cfg = readFileSync(join(root, "orchestre/src/config.js"), "utf8");
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const key = cfg.match(/export const SB_ANON = "([^"]+)"/)[1];
+  const editorKey = tpl.match(/var SUPABASE_ANON_KEY = "([^"]+)"/)[1];
+  const payload = JSON.parse(Buffer.from(key.split(".")[1], "base64url").toString());
+  assert.equal(payload.iss, "supabase", "non la chiave demo del Supabase locale (10/09: il login era rotto dal lotto 4)");
+  assert.equal(payload.ref, "vsodplqkuvnsdiikvmjb");
+  assert.equal(payload.role, "anon");
+  assert.equal(key, editorKey, "stessa chiave dell'editor");
+  assert.match(cfg, /SB_URL = "https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co"/);
+});
