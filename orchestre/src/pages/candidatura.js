@@ -1,11 +1,14 @@
 /* La pagina pubblica della candidatura.
 
-   Diceva «chi accetta candidature» e mostrava un elenco di organizzazioni, come se ci fosse un mercato di
-   orchestre fra cui scegliere; a chi la apriva rispondeva «Al momento nessuna organizzazione accetta
-   candidature» (segnalazione di Simone, 10/09/2026). Il modello vero è un altro: una società raccoglie i
-   musicisti e li propone ai suoi clienti. Qui si dice a chi ci si candida, con le sue parole, e lo si dice
-   anche a chi non ha ancora fatto l'accesso — prima era nascosto dietro il login, che è il modo più veloce
-   per far chiudere la pagina. */
+   Due passaggi di correzione, entrambi su segnalazione di Simone (10/09/2026):
+   1. Mostrava un elenco di organizzazioni fra cui scegliere, come se ci fosse un mercato di orchestre, e a
+      chi la apriva rispondeva «Al momento nessuna organizzazione accetta candidature».
+   2. Poi mostrava UNA organizzazione in un riquadro intitolato «A chi ti candidi». Ma una scelta con una
+      sola opzione non è una scelta: chi arriva qui si candida alla società che gestisce il servizio, e lo
+      sa già dal titolo della pagina. Il nome interno dell'organizzazione, per giunta, non gli dice niente.
+
+   Quello che resta utile è **cosa cercano**: se la società ha scritto una presentazione, quella va in alto,
+   dove uno decide se vale la pena di compilare. Il resto sparisce. */
 import { BASE } from "../config.js";
 import { sb } from "../sb.js";
 import { el, setState, errMsg } from "../ui.js";
@@ -25,7 +28,7 @@ const titolo = app.querySelector("#orgsTitle");
   try {
     const { data } = await sb.rpc("orc_service_org_public");
     const soc = (data || [])[0] || null;
-    if (soc) return paintSocieta(soc, session, cta);
+    if (soc) return paintSocieta(soc, cta);
     /* nessuna società di servizi: allora è davvero un elenco, e serve l'accesso per leggerlo */
     if (!session) { setState(box, "empty", "Accedi con Google per vedere chi raccoglie candidature."); return; }
     const orgs = await openOrganizations();
@@ -45,21 +48,21 @@ const titolo = app.querySelector("#orgsTitle");
   } catch (e) { setState(box, "err", errMsg(e)); }
 })();
 
-function paintSocieta(soc, session, cta) {
-  titolo.textContent = "A chi ti candidi";
-  setState(box, ""); box.innerHTML = "";
-  const card = el(`<section class="card"><h3 id="socNome"></h3><p id="socIntro" class="muted"></p><div class="row" id="socAz"></div></section>`);
-  card.querySelector("#socNome").textContent = soc.name;
-  card.querySelector("#socIntro").textContent = soc.accepting
-    ? (soc.application_intro || "Raccoglie i musicisti con cui lavora e li propone ai propri clienti: concerti, cerimonie, registrazioni. Il profilo che compili resta tuo.")
-    : "In questo momento non sta raccogliendo candidature. Puoi comunque compilare il profilo: quando riapre, lo mandi in due tocchi.";
-  const az = card.querySelector("#socAz");
-  const a = el(`<a class="btn primary"></a>`);
-  /* a candidature chiuse il profilo si compila lo stesso: il bottone non deve promettere quello che non c'è */
-  a.textContent = session ? "Vai alla tua area" : soc.accepting ? "Accedi con Google e candidati" : "Accedi e prepara il profilo";
-  a.href = BASE + "/musicista/";
-  if (!session) a.onclick = (e) => { e.preventDefault(); signIn(BASE + "/musicista/"); };
-  az.appendChild(a);
-  box.appendChild(card);
-  if (!soc.accepting) cta.textContent = session ? "Vai alla tua area" : "Accedi e compila il profilo";
+/* Una sola destinazione: niente sezione, niente riquadro, niente secondo bottone. Restano la presentazione
+   (se c'è) in cima, e l'avviso quando le candidature sono chiuse — che è l'unica cosa che cambia la
+   decisione di chi sta leggendo. */
+function paintSocieta(soc, cta) {
+  titolo.remove();
+  box.remove();
+  if (soc.application_intro) {
+    const p = el(`<p class="lead"></p>`);
+    p.textContent = soc.application_intro;
+    app.querySelector("p.lead").after(p);
+  }
+  if (!soc.accepting) {
+    const avviso = el(`<div class="banner"></div>`);
+    avviso.textContent = "In questo momento non stiamo raccogliendo candidature. Puoi compilare il profilo lo stesso: quando riapriamo, lo mandi in due tocchi.";
+    app.querySelector("p.lead").after(avviso);
+    cta.textContent = cta.textContent === "Vai alla tua area" ? cta.textContent : "Accedi e prepara il profilo";
+  }
 }
