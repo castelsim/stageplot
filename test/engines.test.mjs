@@ -7617,6 +7617,56 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
   ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
 });
 
+console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
+
+/* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
+   e succedeva SOLO col progetto morricone 99, su Mac diversi.
+   CAUSA, misurata: `stageSceneSvg` incorpora nell'SVG un <style> con l'INTERO foglio di stile
+   dell'app (`document.querySelector("style").textContent`) e ne moltiplica ogni `font-size` per
+   `pdfTextK(N)`, perche' sul foglio il testo deve tenere una dimensione fisica costante a
+   qualunque scala. Ma l'anteprima quell'SVG lo mette INLINE dentro #pdfPreview, e ⚠️ un <style>
+   dentro un <svg> inline NON e' confinato all'SVG: e' un foglio di stile del documento, e
+   arrivando dopo vince a parita' di specificita'. Risultato: `#props label` da 12 px a 30,
+   `header input.hdr-name` da 14 a 35 — tutta l'interfaccia.
+   Non era morricone 99 ad avere qualcosa di strano: era il primo palco cosi' grande da uscire a
+   1:200. Con CORPO_RIF=80 il fattore e' N/80, quindi ×2,5 a 1:200 — e ×1,25 gia' a 1:100.
+   Gli altri tre punti che usano stageSceneSvg (PDF vettoriale, PNG, miniatura) lo mettono in uno
+   SHADOW ROOT: li' il <style> resta dentro. Mancava solo l'anteprima. */
+t("il fattore di scala del testo e' quello che si e' misurato", () => {
+  eq(A.pdfTextK(200), 2.5, "1:200 deve ingrandire il testo del disegno di 2,5");
+  eq(A.pdfTextK(100), 1.25, "1:100 di 1,25");
+  eq(A.pdfTextK(80), 1, "a 1:80 il testo resta com'e': e' il riferimento");
+  eq(A.pdfTextK(400), 3.125, "oltre 1:250 il fattore si ferma");
+  eq(A.pdfTextK(0), 1, "scala non valida: nessun ingrandimento");
+});
+
+t("l'anteprima mette l'SVG in uno shadow root, non nella pagina", () => {
+  /* E' la stessa difesa che il codice usa gia' per PDF, PNG e miniatura. Senza, il <style>
+     dell'SVG veste tutta l'app. */
+  const i = appjs.indexOf("function renderPreview");
+  ok(i > -1, "renderPreview non c'e' piu': ricontrollare");
+  const corpo = appjs.slice(i, appjs.indexOf("\n  }", i) + 4);
+  ok(/ombraAnteprima\(host\)\.innerHTML\s*=\s*pdfPreviewSvg/.test(corpo),
+     "l'anteprima non passa piu' dall'ombra: il suo <style> tornerebbe a vestire l'interfaccia");
+  eq(/host\.innerHTML\s*=\s*pdfPreviewSvg/.test(corpo), false,
+     "c'e' ancora l'assegnazione diretta a host.innerHTML con l'SVG dell'anteprima");
+  /* …e l'ombra dev'essere un'ombra VERA: e' l'unica cosa che confina lo <style>. Senza questa
+     riga il test resterebbe verde anche togliendo attachShadow — provato, restava verde. */
+  const j = appjs.indexOf("function ombraAnteprima");
+  ok(j > -1, "ombraAnteprima non c'e' piu'");
+  ok(/attachShadow\(\{mode:"open"\}\)/.test(appjs.slice(j, j + 900)),
+     "ombraAnteprima non apre piu' uno shadow root: il confinamento e' saltato");
+});
+
+t("chi serializza l'SVG continua a portarsi dietro il CSS", () => {
+  /* Il <style> nell'SVG NON va tolto: fuori dalla pagina (PDF, PNG, file .svg) e' l'unica cosa
+     che veste il disegno. Il difetto era dove finiva, non che esistesse. */
+  ok(/'<style>'\+scaleSvgTextHalos\(scaleSvgFonts\(css, opts\.textK\), opts\.textK\)\+'<\/style>'/.test(appjs),
+     "lo <style> dell'SVG e' sparito: il PDF uscirebbe senza stili");
+  ok(/attachShadow/.test(appjs.slice(appjs.indexOf("function drawStageVector"), appjs.indexOf("function drawStageVector") + 2000)),
+     "drawStageVector non usa piu' lo shadow root");
+});
+
 console.log("\n— Annulla, CSV e i bottoni mobili (segnalazioni 10/09) —");
 
 /* BUG 1 (P2) — «Annulla accorpa rinomina e duplicazione». `saveSoon()` rinvia lo snapshot di 500 ms
