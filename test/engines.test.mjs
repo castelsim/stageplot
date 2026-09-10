@@ -14623,5 +14623,47 @@ t("il link pubblico (get-shared-project) non tocca tabelle né colonne orc_", ()
   ok(src.indexOf('select("data,title,updated_at,venue_image,is_locked")') > -1, "le colonne lette sono quelle di sempre");
 });
 
+console.log("Orchestre — chi c'è sul posto (lotto 9): overlay solo a schermo, mai nell'export:");
+t("orcSeatLine dice chi c'è e in che stato, senza dati riservati", () => {
+  eq(A.orcSeatLine({ slot_status: "confirmed", musician_name: "Ada Prova" }), "Ada Prova ✓");
+  eq(A.orcSeatLine({ slot_status: "invited", musician_name: "Ada Prova" }), "Ada Prova · in attesa");
+  eq(A.orcSeatLine({ slot_status: "open", seat_no: 3 }), "posto 3 · scoperto");
+  eq(A.orcSeatLine({ slot_status: "reserve", musician_name: "Bea" }), "Bea · riserva");
+  eq(A.orcSeatLine(null), "");
+  eq(A.orcSeatClass({ slot_status: "confirmed" }), "ok"); eq(A.orcSeatClass({ slot_status: "open" }), "open"); eq(A.orcSeatClass({ slot_status: "invited" }), "wait");
+});
+t("il layer layOrcSeats sta in sceneMarkup ma non nell'export né nel documento", () => {
+  const scene = appjs.slice(appjs.indexOf("function sceneMarkup("), appjs.indexOf("function reindexItemNodes("));
+  ok(scene.indexOf('id="layOrcSeats"') > -1, "a schermo c'è");
+  ok(scene.indexOf("(opts && opts.espandi) ? '' : orcSeatsMarkup()") > -1, "con espandi (export) il layer non c'è");
+  const exp = appjs.slice(appjs.indexOf("function stageSceneSvg("), appjs.indexOf("function stageSceneSvg(") + 12000);
+  ok(exp.indexOf("orcSeats") === -1 && exp.indexOf("layOrcSeats") === -1, "stageSceneSvg non tocca l'overlay");
+  const im = appjs.slice(appjs.indexOf("function itemMarkup("), appjs.indexOf("function itemMarkup(") + 20000);
+  ok(im.indexOf("orcSeat") === -1, "itemMarkup (usato dall'export) non disegna l'overlay");
+  reset(); A.orcSeats.pid = "x"; A.orcSeats.byItem = { zz: [{ slot_status: "confirmed", musician_name: "Ada" }] };
+  const v = add("vlnpost", 300, 300); A.orcSeats.byItem[v.id] = [{ slot_status: "confirmed", musician_name: "Ada Prova", seat_index: 1 }];
+  ok(A.orcSeatsMarkup().indexOf("Ada Prova ✓") > -1, "il markup a schermo la mostra");
+  ok(A.docToJSON().indexOf("Ada") === -1, "il documento salvato non la contiene");
+  /* la prova vera: l'export composto da stageSceneSvg (PDF/PNG) e la scena «espansa» (SVG scaricato) */
+  let expo = ""; try { const r = A.stageSceneSvg(); expo = typeof r === "string" ? r : String(r && r.outerHTML || ""); } catch (e) { expo = "ERR " + e.message; }
+  ok(expo.indexOf('class="orc-name') === -1 && expo.indexOf("layOrcSeats") === -1 && expo.indexOf("Ada") === -1, "stageSceneSvg non contiene il layer né il nome (" + expo.slice(0, 60) + ")");
+  ok(A.sceneMarkup().indexOf('id="layOrcSeats"') > -1, "a schermo il layer esiste");
+  ok(A.sceneMarkup({ espandi: true }).indexOf("Ada") === -1, "la scena espansa non contiene il nome");
+  ok(A.sceneMarkup().indexOf("Ada Prova ✓") > -1, "la scena a schermo sì");
+  ok(A.window.__scenePrint !== true, "il flag di stampa è tornato spento dopo l'export");
+  A.orcSeats.pid = null; A.orcSeats.byItem = {};
+});
+t("eliminare una postazione con una persona sopra passa dalla guardia (bottone e tastiera)", () => {
+  ok(appjs.indexOf('getElementById("pDel").addEventListener("click", deleteSelGuarded)') > -1, "bottone");
+  ok(/e\.key==="Delete"\)\{[^\n]*deleteSelGuarded\(\)/.test(appjs), "tastiera");
+  ok(appjs.indexOf("function deleteSelGuarded(") > -1);
+});
+t("la vista si ricarica quando cambia il progetto cloud e mai senza sessione", () => {
+  const cloud = appjs.slice(appjs.indexOf("function orcSeatsSync("), appjs.indexOf("function orcSeatsSync(") + 3000);
+  ok(cloud.indexOf("if(!sb || !cloudUser || !pid)") > -1, "senza sessione o progetto si svuota");
+  ok(cloud.indexOf('sb.rpc("orc_stage_view"') > -1, "legge dall'RPC, non da un blob");
+  ok((appjs.match(/orcSeatsSync\(\)/g) || []).length >= 5, "apertura, salvataggio nuovo, setCurrentId, avvio, cambio sessione");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

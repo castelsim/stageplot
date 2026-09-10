@@ -1,7 +1,7 @@
 /* Dal documento dell'editor alle postazioni: puro, senza rete. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importSummary, staleLinks, isUuid, seatsOf } from "../src/domain/stageplot-import.js";
+import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importSummary, staleLinks, isUuid, seatsOf, partFromLabel, importGroups } from "../src/domain/stageplot-import.js";
 
 const INSTR = [
   { code: "violino", name: "Violino", family: "archi", sort: 1, stageplot_types: ["vlnpost", "vln1x2", "vln2x2"] },
@@ -56,19 +56,43 @@ test("senza variante si legge quella attiva; una variante inesistente è vuota; 
   assert.equal(extractPositions({ items: [{ id: "x", type: "flauto" }] }, "legacy", MAP).positions[0].instrument_code, "flauto");
 });
 
-test("la proposta raggruppa per strumento nell'ordine delle famiglie", () => {
-  const prop = proposeRoles(extractPositions(DOC, "b", MAP).positions, INSTR);
-  assert.deepEqual(prop.map((g) => [g.name, g.seats, g.family]), [["Violino", 4, "archi"], ["Viola", 1, "archi"], ["Flauto", 1, "legni"], ["Pianoforte", 1, "tastiere"], ["Direttore", 1, "direzione"]]);
-  assert.deepEqual(prop[0].items, ["i1", "i2"]);
+test("la parte si legge dall'etichetta, solo per gli strumenti che si dividono", () => {
+  for (const l of ["Vl I 3", "Vl 1", "Vln I", "Violini I", "V1", "Violini primi", "vl.I", "Vl 1°"]) assert.equal(partFromLabel(l, "violino"), "Violini primi", l);
+  for (const l of ["Vl II 3", "Vl 2", "Vln II", "Violini secondi", "V2"]) assert.equal(partFromLabel(l, "violino"), "Violini secondi", l);
+  assert.equal(partFromLabel("Vl", "violino"), null); assert.equal(partFromLabel("Archi", "violino"), null); assert.equal(partFromLabel("", "violino"), null);
+  assert.equal(partFromLabel("Vla 1", "viola"), null, "le viole non si dividono");
+  assert.equal(partFromLabel("Vl III", "violino"), null, "una terza parte non esiste");
 });
 
-test("il confronto con l'organico: nuovo, allargato, già coperto; i posti non si tolgono mai", () => {
+test("la proposta raggruppa per strumento E parte, nell'ordine delle famiglie", () => {
   const prop = proposeRoles(extractPositions(DOC, "b", MAP).positions, INSTR);
-  const roles = [{ instrument_code: "violino", seats: 2 }, { instrument_code: "violino", seats: 1 }, { instrument_code: "viola", seats: 6 }, { instrument_code: null, seats: 3 }];
+  assert.deepEqual(prop.map((g) => [g.name, g.seats, g.family]), [["Violini primi", 4, "archi"], ["Viola", 1, "archi"], ["Flauto", 1, "legni"], ["Pianoforte", 1, "tastiere"], ["Direttore", 1, "direzione"]]);
+  assert.deepEqual(prop[0].items, ["i1", "i2"]); assert.equal(prop[0].part, "Violini primi"); assert.equal(prop[1].part, null);
+  const two = proposeRoles([{ item_id: "a", instrument_code: "violino", label: "Vl I 1", seats: 1 }, { item_id: "b", instrument_code: "violino", label: "Vl II 1", seats: 1 }, { item_id: "c", instrument_code: "violino", label: "Vl", seats: 1 }], INSTR);
+  assert.deepEqual(two.map((g) => [g.name, g.seats]), [["Violini primi", 1], ["Violini secondi", 1], ["Violino", 1]]);
+});
+
+test("il confronto con l'organico: ruolo per parte, posti liberi o già di queste postazioni, mai in meno", () => {
+  const prop = proposeRoles(extractPositions(DOC, "b", MAP).positions, INSTR);
+  const roles = [
+    { id: "r1", name: "Violini primi", instrument_code: "violino", seats: 3, slots: [{ item_id: "i1" }, { item_id: "zz" }, { item_id: null }] },
+    { id: "r2", name: "Violini secondi", instrument_code: "violino", seats: 2, slots: [{ item_id: null }, { item_id: null }] },
+    { id: "r3", name: "Viole", instrument_code: "viola", seats: 6, slots: Array.from({ length: 6 }, () => ({ item_id: null })) },
+    { id: "r4", name: "Altro", instrument_code: null, seats: 3, slots: [] },
+  ];
   const d = diffProposal(prop, roles);
-  assert.deepEqual(d.map((x) => [x.instrument_code, x.action, x.current, x.add]), [["violino", "grow", 3, 1], ["viola", "ok", 6, 0], ["flauto", "new", 0, 1], ["pianoforte", "new", 0, 1], ["direttore", "new", 0, 1]]);
-  assert.equal(importSummary(d, [{ item_id: "i6" }]), "3 ruoli nuovi, 1 ruolo allargato, 4 posti in più, 1 elemento senza strumento in catalogo.");
-  assert.equal(importSummary(diffProposal(prop, prop.map((g) => ({ instrument_code: g.instrument_code, seats: g.seats }))), []), "l'organico copre già il palco.");
+  assert.deepEqual(d.map((x) => [x.name, x.role_id, x.action, x.current, x.add]), [["Violini primi", "r1", "grow", 3, 2], ["Viola", "r3", "ok", 6, 0], ["Flauto", null, "new", 0, 1], ["Pianoforte", null, "new", 0, 1], ["Direttore", null, "new", 0, 1]]);
+  assert.equal(d[0].options.length, 2, "i ruoli dello stesso strumento sono le opzioni");
+  assert.equal(importSummary(d, [{ item_id: "i6" }]), "3 ruoli nuovi, 1 ruolo allargato, 5 posti in più, 1 elemento senza strumento in catalogo.");
+  /* parte non dedotta e due ruoli di violino: ambiguo, l'anteprima chiede */
+  const amb = diffProposal(proposeRoles([{ item_id: "c", instrument_code: "violino", label: "Vl", seats: 1 }], INSTR), roles);
+  assert.equal(amb[0].ambiguous, true); assert.equal(amb[0].role_id, null);
+  assert.equal(importSummary(amb, []), "1 ruolo nuovo, 1 posto in più, 1 gruppo da assegnare a un ruolo.");
+  /* parte non dedotta e UN solo ruolo: quello */
+  const one = diffProposal(proposeRoles([{ item_id: "c", instrument_code: "violino", label: "Vl", seats: 1 }], INSTR), [roles[1]]);
+  assert.equal(one[0].role_id, "r2"); assert.equal(one[0].action, "ok");
+  const g = importGroups(d);
+  assert.deepEqual(g[0], { instrument_code: "violino", role_id: "r1", role_name: "Violini primi", positions: [{ item_id: "i1", item_type: "vln1x2", label: "Vl I 1-2", seats: 2 }, { item_id: "i2", item_type: "vlnpost", label: "Vl I 3", seats: 2 }] });
   assert.equal(importSummary([], []), "nessuna postazione riconosciuta.");
 });
 

@@ -958,6 +958,7 @@
       <button type="button" class="btn" id="pRackFront" style="font-size:12px">Vista rack (fronte)</button>
     </div>
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
+    <div id="pOrcRow" class="orc-row" style="display:none"></div>
     <div class="btns" id="pOrderRow">
       <button class="btn" id="pFront" type="button" title="Porta questo elemento sopra gli altri">⬆ Primo piano</button>
       <button class="btn" id="pBack" type="button" title="Mandalo dietro agli altri">⬇ In fondo</button>
@@ -11535,6 +11536,7 @@ function sceneMarkup(opts){
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
+         (function(){ var m=(opts && opts.espandi) ? '' : orcSeatsMarkup(); return m ? '<g id="layOrcSeats">'+m+'</g>' : ''; })()+   /* Orchestre: chi c'è sul posto (solo schermo, solo staff); in stampa/export il layer non esiste */
          '<g id="layOverlay">'+overlayLayerMarkup()+'</g>'+
          '<g id="layHandles">'+selHandlesMarkup()+'</g>';   /* ULTIMO: le maniglie di ciò che è selezionato stanno sopra a tutto (anche ai blocchi del palco) */
 }
@@ -12631,6 +12633,7 @@ function renderProps(){
     var elig=(typeof contactEligible==="function") && contactEligible(it.type);
     cbtn.style.display=elig?"flex":"none";
     if(elig && typeof renderItemContactBtn==="function") renderItemContactBtn(it); })();
+  if(typeof renderOrcRow==="function") renderOrcRow(it);   /* Orchestre: chi c'è su questa postazione */
   if(typeof renderRackPanel==="function") renderRackPanel(it);   /* RACK: contenuti/U/fronte */
   if(typeof renderRxPanel==="function") renderRxPanel(it);   /* F3: ricevitore RF */
   (function(){ var w=document.getElementById("pDiWrap"); if(!w) return;
@@ -13568,7 +13571,7 @@ function renderUsoField(it){
     });
   });
 })();
-document.getElementById("pDel").addEventListener("click", deleteSel);
+document.getElementById("pDel").addEventListener("click", deleteSelGuarded);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });
 document.getElementById("grpLineDist").addEventListener("click", distributeSelInLine);
@@ -16481,7 +16484,7 @@ document.addEventListener("keydown", function(e){
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
   if(!it) return;
-  if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it); deleteSel(); a11yAnnounce(_dn+" eliminato"); }
+  if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it); deleteSelGuarded(); a11yAnnounce(_dn+" eliminato"); }
   else if(e.key==="r"){ rotateSel(15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
   else if(e.key==="R"){ rotateSel(-15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
   else if(e.key==="d"||e.key==="D"){ duplicateSel(); a11yAnnounce("Duplicato: "+a11yDesc(getSel())); }
@@ -27980,6 +27983,76 @@ function orcProjectParam(search){
   if(!m || /[?&]view=/.test(String(search||""))) return null;
   return m[1].toLowerCase();
 }
+/* ORCHESTRE — chi c'è sul posto (lotto 9). I dati arrivano dall'RPC orc_stage_view del progetto cloud aperto e
+   vivono SOLO qui: non in state, non nel blob, non nell'export (sceneMarkup li disegna, stageSceneSvg no).
+   orcSeats.byItem = { itemId: [ {seat_index, seat_no, slot_status, musician_name, role_name, production_id, variant_id}, … ] } */
+var orcSeats = { pid:null, byItem:{}, productions:[] };
+function orcSeatLine(row){
+  if(!row) return "";
+  var st=String(row.slot_status||"open"), who=String(row.musician_name||"").trim();
+  if(st==="confirmed") return who ? who+" \u2713" : "confermato";
+  if(st==="invited") return who ? who+" \u00b7 in attesa" : "in attesa di risposta";
+  if(st==="reserve") return who ? who+" \u00b7 riserva" : "riserva";
+  if(st==="replaced") return "da sostituire";
+  if(st==="cancelled") return "annullato";
+  return who ? who : "posto "+(row.seat_no!=null?row.seat_no:"?")+" \u00b7 scoperto";
+}
+function orcSeatClass(row){ var st=String(row&&row.slot_status||"open"); return st==="confirmed"?"ok":(st==="invited"||st==="reserve")?"wait":(st==="open"||st==="replaced")?"open":"off"; }
+function orcSeatsFor(it){
+  if(!it || !orcSeats.byItem) return null;
+  var av=(typeof activeVar==="string")?activeVar:""; var rows=orcSeats.byItem[it.id]; if(!rows||!rows.length) return null;
+  rows=rows.filter(function(r){ return !r.variant_id || !av || r.variant_id===av; });
+  return rows.length?rows:null;
+}
+function orcSeatsMarkup(){
+  /* MAI in stampa/export: stageSceneSvg accende window.__scenePrint prima di comporre la scena (PDF, PNG,
+     anteprima, miniatura passano tutti di lì); `espandi` copre l'SVG scaricato. Il nome di una persona è un
+     dato dell'orchestra, non del disegno. Provato dalla suite chiamando davvero stageSceneSvg(). */
+  if(window.__scenePrint===true) return "";
+  if(!orcSeats.pid || !orcSeats.byItem) return "";
+  var out="";
+  (state.items||[]).forEach(function(it){
+    var rows=orcSeatsFor(it); if(!rows) return;
+    var y0=(it.d||60)/2+(typeof lblDistOf==="function"?lblDistOf(it):9)+30;
+    out+='<g class="orc-seat" transform="translate('+it.x+' '+it.y+')">';
+    rows.forEach(function(r,i){ out+='<text class="orc-name '+orcSeatClass(r)+'" y="'+(y0+i*15)+'">'+esc(orcSeatLine(r))+'</text>'; });
+    out+='</g>';
+  });
+  return out;
+}
+function orcSeatsRedraw(){
+  var g=document.getElementById("layOrcSeats"), m=orcSeatsMarkup();
+  if(!g && m){   /* il layer nasce solo quando c'è qualcosa da mostrare: dopo layItems, sotto overlay e maniglie */
+    var li=document.getElementById("layItems"); if(!li){ if(typeof render==="function") render(); return; }
+    g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.setAttribute("id","layOrcSeats"); li.parentNode.insertBefore(g, li.nextSibling);
+  }
+  if(g){ if(typeof setSvgInner==="function") setSvgInner(g, m); else g.innerHTML=m; }
+  if(typeof renderProps==="function") renderProps();
+}
+/* la riga «Organico» nel pannello dell'elemento: cosa dice Orchestre di questa postazione */
+function renderOrcRow(it){
+  var row=document.getElementById("pOrcRow"); if(!row) return;
+  var elig=(typeof contactEligible==="function") && it && contactEligible(it.type);
+  var rows=elig?orcSeatsFor(it):null;
+  if(!elig || (!rows && !(orcSeats.productions&&orcSeats.productions.length))){ row.style.display="none"; row.innerHTML=""; return; }
+  row.style.display="block";
+  var prod=rows?rows[0]:orcSeats.productions[0];
+  var h='<div class="orc-hd">Organico <span class="orc-prod">'+esc(String(prod.production_title||""))+'</span></div>';
+  if(rows){ rows.forEach(function(r){ var who=String(r.musician_name||"").trim(); h+='<div class="orc-line '+orcSeatClass(r)+'">'+esc((r.role_name?r.role_name+" \u00b7 ":"")+((who && r.seat_no!=null)?"posto "+r.seat_no+" \u00b7 ":"")+orcSeatLine(r))+'</div>'; });
+    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l\u2019organico \u2192</a>'; }
+  else { h+='<div class="orc-line off">Postazione non ancora nell\u2019organico</div><a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=stageplot">Importa le postazioni \u2192</a>'; }
+  row.innerHTML=h;
+}
+/* eliminare una postazione con una persona sopra: il posto in Orchestre resta, si chiede prima */
+function deleteSelGuarded(){
+  var ids=(typeof selIds==="function")?selIds():[]; if(!ids.length) return;
+  var who=[];
+  (state.items||[]).forEach(function(it){ if(!selSet[it.id]) return; var rows=orcSeatsFor(it); if(rows) rows.forEach(function(r){ if(r.musician_name) who.push(r.musician_name); }); });
+  if(!who.length){ deleteSel(); return; }
+  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre \u2192 StagePlot.";
+  var p=(typeof confirmDialog==="function")?confirmDialog({icon:"warn",title:"Postazione con una persona in organico",message:msg,confirmText:"Elimina lo stesso",cancelText:"Annulla"}):Promise.resolve(window.confirm(msg));
+  p.then(function(ok){ if(ok) deleteSel(); });
+}
 /* …e la strada inversa: dal hub Produzione all'organico di Orchestre, col progetto cloud. Senza id niente link. */
 function orcOrganicoLink(projectId){
   var id=String(projectId||"");
@@ -28922,7 +28995,7 @@ function maybeAskStageSize(explicit){
         var stillCurrent=authStill(targetUserId,targetAuth) &&
           (window.__docEpoch||0)===saveEpoch && cloudCurrentId===targetId;
         if(stillCurrent){
-          cloudCurrentId=resultId;
+          cloudCurrentId=resultId; orcSeatsSync();
           if(r.data && r.data.updated_at) setRev(r.data.updated_at);
           if(writeImg) _lastCloudImgSig=snapshotImgSig;   /* immagine planimetria ora allineata nel cloud */
           window.__bootCloudSig=snapshotContentSig; window.__bootCloudSigKnown=true; window.__bootCloudPending=false;
@@ -29021,7 +29094,7 @@ function maybeAskStageSize(explicit){
           if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth)) return;
           try{
             activatePreparedProject(prepared,{autosave:false});   /* commit soltanto dopo validazione, recovery e flush */
-            cloudCurrentId=id; setRev(r.data.updated_at);
+            cloudCurrentId=id; setRev(r.data.updated_at); orcSeatsSync();
             if(r.data.title!=null){ state.titolo=String(r.data.title).slice(0,120);
               TITLE_INPUTS.forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=state.titolo; });
               if(typeof setEventInputs==="function") setEventInputs();
@@ -29375,6 +29448,27 @@ function maybeAskStageSize(explicit){
   }
   /* ── Contatto sul musicista (17/07): assegnazioni item↔contatto SOLO nell'account (mai nel blob) ── */
   var icCache={};   /* projectId → { itemId: contactId } */
+  /* Orchestre (lotto 9): chi c'è sui posti collegati a questo progetto. Solo con sessione e progetto cloud;
+     la risposta è vuota per chi non è staff di un'org collegata. Riletta a ogni apertura/salvataggio nuovo. */
+  var orcSeq=0;
+  function orcSeatsSync(){
+    var pid=cloudCurrentId; var my=++orcSeq;
+    if(!sb || !cloudUser || !pid){ orcSeats.pid=null; orcSeats.byItem={}; orcSeats.productions=[]; if(typeof orcSeatsRedraw==="function") orcSeatsRedraw(); return; }
+    var requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.rpc("orc_stage_view", { project: pid }).then(function(r){
+      if(my!==orcSeq || !authStill(requestUser,requestAuth) || cloudCurrentId!==pid) return;
+      var by={}, prods={}, list=[];
+      (r.data||[]).forEach(function(x){ (by[x.item_id]=by[x.item_id]||[]).push(x); if(!prods[x.production_id]){ prods[x.production_id]=1; list.push({production_id:x.production_id, production_title:x.production_title}); } });
+      Object.keys(by).forEach(function(k){ by[k].sort(function(a,b){ return (a.seat_index||1)-(b.seat_index||1); }); });
+      if(!list.length){
+        /* nessun posto collegato: c'è almeno una produzione collegata al progetto? (per la riga «Importa le postazioni») */
+        sb.rpc("orc_productions_for_project", { project: pid }).then(function(q){ if(my!==orcSeq || cloudCurrentId!==pid) return;
+          orcSeats.pid=pid; orcSeats.byItem={}; orcSeats.productions=(q.data||[]).map(function(p){ return {production_id:p.id, production_title:p.title}; }); if(typeof orcSeatsRedraw==="function") orcSeatsRedraw(); }, function(){});
+        return;
+      }
+      orcSeats.pid=pid; orcSeats.byItem=by; orcSeats.productions=list; if(typeof orcSeatsRedraw==="function") orcSeatsRedraw();
+    }, function(){});
+  }
   function itemContactsList(pid, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
     if(icCache[pid]){ cb(icCache[pid]); return; }
@@ -29505,7 +29599,8 @@ function maybeAskStageSize(explicit){
     currentRev: function(){ return cloudRev; },
     isWriting: function(){ return cloudWriteBusy||!!cloudWriteQueue.length; },
     whenIdle: function(cb){ if(!cloudWriteBusy&&!cloudWriteQueue.length) cb(); else cloudWriteIdleWaiters.push(cb); },
-    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); _lastCloudImgSig=null; exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } },   /* documento staccato/nuovo: mai bloccato; reset firma immagine → riscritta al 1° salvataggio */
+    setCurrentId: function(v){ cloudCurrentId=v; if(!v){ setRev(null); _lastCloudImgSig=null; exitConflict(); if(window.applyProjLock) window.applyProjLock(false); } orcSeatsSync(); },
+    orc: { sync: orcSeatsSync },   /* documento staccato/nuovo: mai bloccato; reset firma immagine → riscritta al 1° salvataggio */
     signIn: signIn,
     save: saveProject,
     unlockCurrent: unlockCurrent,   /* usato dalla barra "🔒 Progetto bloccato — Sblocca" */
@@ -29620,6 +29715,7 @@ function maybeAskStageSize(explicit){
         try{ sessionStorage.setItem("orcOpenProject", orcOpen); }catch(e){}
         openModal();
       }
+      orcSeatsSync();
       var copyTok=null; try{ copyTok=sessionStorage.getItem("copyFromToken"); }catch(e){}
       if(copyTok && cloudUser){
         try{ sessionStorage.removeItem("cloudReopen"); }catch(e){}   /* copyFromToken resta finché l'INSERT non è confermato */
@@ -29638,6 +29734,7 @@ function maybeAskStageSize(explicit){
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       if(cloudUser && orcOpen){ var _oid2=orcOpen; orcOpen=null; try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} openProject(_oid2); }
+      orcSeatsSync();
       updateBtn();
       if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
       if(typeof window.renderContacts==="function") window.renderContacts();   /* login/logout: i controlli rubrica (+ Dalla rubrica, ★, Gestisci) compaiono subito, non al prossimo re-render */
