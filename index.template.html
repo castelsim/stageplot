@@ -6936,10 +6936,13 @@ function normalizeState(s){
   s.evDate=(typeof s.evDate==="string" && /^\d{4}-\d{2}-\d{2}$/.test(s.evDate)) ? s.evDate : "";   /* evento: giorno e orario (header, 17/07) — facoltativi */
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
-  /* Pagine scelte nella finestra Esporta: erano azzerate a ogni riapertura, anche solo andando a
-     ritagliare l'area di stampa e tornando indietro — chi aveva aggiunto la Lista ingressi la perdeva
-     senza nessun avviso, e l'anteprima riapriva su pagina 1, identica nei due casi (06/08). */
-  s.pdfPages = Array.isArray(s.pdfPages) ? s.pdfPages.filter(function(k){ return typeof k==="string"; }).slice(0,20) : null;
+  /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
+     — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
+     scrittura di massa sul database: quella toccherebbe i progetti di tutti in un colpo solo e non
+     si torna indietro. Così se ne va progressivamente, e solo da chi il progetto lo tocca davvero.
+     `delete` e non `= null`: un campo che vale null è comunque un campo, e finirebbe nel salvataggio
+     come i riferimenti orfani che ci portiamo dietro da mesi. */
+  delete s.pdfPages;
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
