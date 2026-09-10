@@ -207,12 +207,14 @@ async function manda() {
   try {
     const snap = snapshotOf(progetto.data, variante, righe);
     const slots = righe.map((r) => ({ item_id: r.item_id || "", label: r.label || r.instrument_name || "", instrument_code: r.instrument_code || null, role_name: "", qty: r.qty, covered: !!r.covered, note: "" }));
-    await api.create(progetto.id, snap, F, slots);
-    paintFatto();
+    const id = await api.create(progetto.id, snap, F, slots);
+    /* la richiesta è salvata: da qui in poi non si perde più niente, nemmeno se l'invio non parte */
+    const inviata = await api.notifyNow(id).catch(() => ({ ok: false }));
+    paintFatto(inviata && inviata.ok);
   } catch (e) { b.disabled = false; b.textContent = "Manda la richiesta"; toast(errMsg(e), { err: true }); }
 }
 
-function paintFatto() {
+function paintFatto(subito) {
   app.innerHTML = "";
   app.appendChild(el(`<h1>Richiesta ricevuta</h1>`));
   const p = el(`<p class="lead"></p>`);
@@ -224,6 +226,7 @@ function paintFatto() {
     <li><b>Ti mandiamo il preventivo</b>Con i nomi e il costo. Confermi tu, e solo allora ingaggiamo.</li>
   </ol></section>`);
   app.appendChild(c);
+  if (!subito) app.appendChild(el(`<p class="small muted">L'avviso a ${esc(servizio.name)} parte entro pochi minuti: la richiesta è già salvata, non serve rimandarla.</p>`));
   app.appendChild(el(`<p><a class="btn" href="/app/">Torna al palco</a></p>`));
   app.appendChild(el(`<p class="small muted">Il progetto che continui a modificare non cambia la richiesta già mandata: quello che è arrivato resta com'era.</p>`));
 }
