@@ -12,6 +12,10 @@ export async function candidates(productionId, roleId) {
 }
 
 /* I pesi attivi dell'org: l'ultima versione salvata, altrimenti i default (versione 0). */
+/* I pesi si leggono (il motore ne ha bisogno) ma dall'interfaccia non si scrivono più: le sedici caselle
+   nelle impostazioni non le capiva nessuno — «non l'ho capita», 10/09 — e chi decide non è chi regola un
+   punteggio, è chi legge il perché accanto a ogni proposta. `orc_matching_ruleset_save` resta nel database
+   con le sue versioni: il giorno che servirà, si rimette qualcosa che si capisce. */
 export async function activeRuleset(orgId) {
   const { data, error } = await sb.from("orc_matching_rulesets").select("id, version, name, weights, created_at").eq("org_id", orgId).eq("active", true).order("version", { ascending: false }).limit(1).maybeSingle();
   fail(error);
@@ -19,11 +23,6 @@ export async function activeRuleset(orgId) {
   return { ...data, weights: { ...DEFAULT_WEIGHTS, ...(data.weights || {}) } };
 }
 
-export async function saveRuleset(orgId, name, weights) {
-  const { data, error } = await sb.rpc("orc_save_ruleset", { org: orgId, ruleset_name: name, weights });
-  fail(error);
-  return data;
-}
 
 export async function saveRun(productionId, roleId, weights, results, engine) {
   const rows = results.map((r) => ({ musician_id: r.musician_id, eligible: r.eligible, score: r.score, rank: r.rank, reasons: r.reasons, missing: r.missing, warnings: r.warnings }));

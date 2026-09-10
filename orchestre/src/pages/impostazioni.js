@@ -4,9 +4,7 @@ import { ROLES } from "../config.js";
 import { esc, el, toast, confirm, setState, roleLabel, fmtDateTime, errMsg } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers, setRole, addByEmail, renameOrg, listAudit } from "../api/org.js";
-import { activeRuleset, saveRuleset } from "../api/matching.js";
 import { orgSettings, setAccepting } from "../api/applications.js";
-import { DEFAULT_WEIGHTS, WEIGHT_LABELS } from "../domain/matching.js";
 import { tabs } from "../nav.js";
 
 const app = document.getElementById("app");
@@ -30,14 +28,11 @@ async function main() {
     <ul class="list" id="members"><li class="loading">Un attimo…</li></ul>
     <h2>Candidature</h2>
     <section class="card" id="applyBox"><div class="loading">Un attimo…</div></section>
-    <h2>Pesi del matching</h2>
-    <p class="small muted">Quanto conta ogni fattore nel punteggio (0-100, 50 = neutro). Ogni salvataggio crea una nuova versione: le proposte già calcolate ricordano la loro.</p>
-    <section class="card" id="weights"><div class="loading">Un attimo…</div></section>
     <h2>Registro</h2>
     <div id="audit" class="loading">Un attimo…</div>`;
   paintOrg();
   paintAdd();
-  await Promise.all([loadMembers(), loadAudit(), loadWeights(), loadApplying()]);
+  await Promise.all([loadMembers(), loadAudit(), loadApplying()]);
 }
 
 function paintOrg() {
@@ -157,31 +152,6 @@ async function loadApplying() {
     const f = el(`<div class="field"><label for="accIntro">Testo per i candidati</label><input id="accIntro" maxlength="200" placeholder="es. Cerchiamo archi e fiati per la stagione 2027"></div>`);
     f.querySelector("input").value = s.application_intro || ""; if (!canManage) f.querySelector("input").disabled = true; box.appendChild(f);
     if (canManage) { const b = el(`<button type="button" class="btn">Salva</button>`); b.onclick = async () => { try { await setAccepting(ctx.org.org_id, box.querySelector("#accOn").checked, box.querySelector("#accIntro").value.trim()); toast("Salvato."); } catch (e) { toast(errMsg(e), { err: true }); } }; box.appendChild(b); }
-  } catch (e) { box.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); box.appendChild(d); }
-}
-
-async function loadWeights() {
-  const box = app.querySelector("#weights");
-  try {
-    const rs = await activeRuleset(ctx.org.org_id);
-    box.innerHTML = `<p class="small"><span class="pill accent">v${rs.version}</span> ${esc(rs.name || "")}</p><div class="grid2 tight" id="wf"></div>`;
-    const wf = box.querySelector("#wf");
-    for (const [k, label] of Object.entries(WEIGHT_LABELS)) {
-      const f = el(`<div class="field"><label for="w_${k}">${esc(label)}</label><input id="w_${k}" type="number" min="-40" max="40" step="1"><span class="hint">di partenza: ${DEFAULT_WEIGHTS[k]}</span></div>`);
-      f.querySelector("input").value = rs.weights[k] ?? DEFAULT_WEIGHTS[k];
-      if (!canManage) f.querySelector("input").disabled = true;
-      wf.appendChild(f);
-    }
-    if (!canManage) return;
-    const act = el(`<div class="row"><div class="field"><label for="wName">Nome della versione</label><input id="wName" placeholder="es. più peso al repertorio"></div><button type="button" class="btn primary" id="wSave">Salva come nuova versione</button><button type="button" class="btn ghost" id="wReset">Riporta ai valori di partenza</button></div>`);
-    act.querySelector("#wReset").onclick = () => { for (const k of Object.keys(WEIGHT_LABELS)) box.querySelector("#w_" + k).value = DEFAULT_WEIGHTS[k]; };
-    act.querySelector("#wSave").onclick = async () => {
-      const w = {};
-      for (const k of Object.keys(WEIGHT_LABELS)) { const v = Number(box.querySelector("#w_" + k).value); if (!Number.isFinite(v)) return toast("Un peso non è un numero.", { err: true }); w[k] = v; }
-      try { await saveRuleset(ctx.org.org_id, box.querySelector("#wName").value.trim(), w); toast("Pesi salvati come nuova versione."); await Promise.all([loadWeights(), loadAudit()]); }
-      catch (e) { toast(errMsg(e), { err: true }); }
-    };
-    box.appendChild(act);
   } catch (e) { box.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); box.appendChild(d); }
 }
 
