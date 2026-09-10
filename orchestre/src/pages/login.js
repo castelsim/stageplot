@@ -3,7 +3,7 @@
 import { BASE, STAFF } from "../config.js";
 import { sb } from "../sb.js";
 import { el, setState, errMsg } from "../ui.js";
-import { getSession, signIn, ensureProfile, myMemberships, currentOrg, setCurrentOrg, nextUrl } from "../auth.js";
+import { getSession, signIn, ensureProfile, myMemberships, currentOrg, setCurrentOrg, nextUrl, mieAree } from "../auth.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
@@ -19,10 +19,20 @@ async function main() {
     await ensureProfile();
     const ms = await myMemberships();
     const staff = ms.filter((m) => STAFF.includes(m.role));
-    if (staff.length === 0) { location.replace(BASE + "/musicista/" + (q.get("org") ? "?org=" + encodeURIComponent(q.get("org")) : "")); return; }
-    const org = currentOrg(staff);
-    setCurrentOrg(org.org_id);
-    location.replace(next);
+    if (staff.length > 0) {
+      const org = currentOrg(staff);
+      setCurrentOrg(org.org_id);
+      location.replace(next);
+      return;
+    }
+    /* Non è dello staff: può essere musicista, cliente, o tutti e due. Chi ha due strade se le sceglie,
+       invece di finire sempre nella stessa — prima chi aveva chiesto musicisti veniva mandato all'area
+       musicista e non aveva nessun modo di rivedere le proprie richieste. */
+    const org = q.get("org") ? "?org=" + encodeURIComponent(q.get("org")) : "";
+    const aree = await mieAree();
+    if (aree.cliente && !aree.musicista) { location.replace(BASE + "/mie-richieste/"); return; }
+    if (aree.cliente && aree.musicista) return paintBivio(org);
+    location.replace(BASE + "/musicista/" + org);
   } catch (e) {
     paintError(errMsg(e));
   }
@@ -30,6 +40,7 @@ async function main() {
 
 function paintLogin() {
   const why = q.get("why");
+  app.className = "o-wrap narrow";   /* «Ti riconosco…» aveva vestito il contenitore da stato */
   app.innerHTML = "";
   app.appendChild(el(`<h1>Accedi</h1>`));
   if (why === "noorg") app.appendChild(el(`<div class="banner">Serve un account che faccia parte di un'organizzazione. Se sei un musicista, dopo l'accesso trovi la tua area.</div>`));
@@ -49,6 +60,19 @@ function paintLogin() {
 function paintError(msg) {
   app.innerHTML = `<h1>Accesso non riuscito</h1><div class="err"></div><p><a class="btn" href="${BASE}/login/">Riprova</a></p>`;
   app.querySelector(".err").textContent = msg;
+}
+
+/* Due strade, dichiarate. Non un menu a tendina: due porte grandi, come sulla home. */
+function paintBivio(org) {
+  app.className = "o-wrap narrow";   /* «Ti riconosco…» aveva vestito il contenitore da stato */
+  app.innerHTML = "";
+  app.appendChild(el(`<h1 class="mid">Dove vuoi andare?</h1>`));
+  const box = el(`<div class="porte due"></div>`);
+  const a = el(`<a class="porta" href="${BASE}/musicista/${org}"><b>Il mio profilo</b><span>Il tuo profilo di musicista, le convocazioni e le date a cui hai detto sì.</span><span class="vai">Entra &rarr;</span></a>`);
+  const b = el(`<a class="porta" href="${BASE}/mie-richieste/"><b>Le mie richieste</b><span>I musicisti che hai chiesto per i tuoi eventi, e a che punto sono.</span><span class="vai">Guarda &rarr;</span></a>`);
+  box.appendChild(a); box.appendChild(b);
+  app.appendChild(box);
+  app.appendChild(el(`<p class="small muted mid">Puoi passare dall'una all'altra quando vuoi, dalla barra in alto: non serve uscire.</p>`));
 }
 
 main();
