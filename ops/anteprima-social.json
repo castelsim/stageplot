@@ -1,0 +1,24 @@
+{
+  "righe": [
+    "Disegna il palco.",
+    "in scala."
+  ],
+  "forte": "Il rider si costruisce da solo",
+  "piano": "channel list, monitor, cablaggi, elettrico e luci restano collegati al disegno.",
+  "progetto": "quartetto-rock.stageplot",
+  "totali": [
+    {
+      "n": "10",
+      "unita": "CH"
+    },
+    {
+      "n": "7,4",
+      "unita": "kW"
+    },
+    {
+      "n": "4",
+      "unita": "wedge"
+    }
+  ],
+  "logo": "<svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"2\" y=\"4\" width=\"20\" height=\"14\" rx=\"2\" stroke=\"#14b8a6\" stroke-width=\"2\"/><circle cx=\"9\" cy=\"10\" r=\"2\" fill=\"#14b8a6\"/><path d=\"M14 14h4\" stroke=\"#14b8a6\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>"
+}
