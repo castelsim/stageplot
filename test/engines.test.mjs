@@ -7617,6 +7617,32 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
   ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
 });
 
+console.log("\n— Tornare al solo palco in un clic —");
+
+/* Simone, 10/09, con lo screenshot della finestra Esporta: «queste opzioni di default devono
+   essere deselezionate». Verificato: NON erano un default. Le pagine partono spente dal 16/08
+   («il PDF parte a una pagina: il palco, e basta») e la scelta si ricorda nel progetto — nel suo
+   c'erano 17 chiavi in `state.pdfPages`, cioe' tutte quelle disponibili: il risultato di un clic
+   su «Tutte le pagine».
+   Il difetto vero era l'ASIMMETRIA: c'erano «Aggiungi le N suggerite» e «Tutte le pagine», ma
+   niente per toglierle. Per tornare al solo palco servivano tredici clic sulle ✕, una per una. */
+t("c'e' un comando per tornare al solo palco, simmetrico a «Tutte le pagine»", () => {
+  ok(/Solo il palco/.test(appjs), "manca il comando per svuotare la selezione delle pagine");
+  const i = appjs.indexOf('mk("Solo il palco"');
+  ok(i > -1, "il comando non e' una pillola come le altre");
+  const corpo = appjs.slice(i, i + 400);
+  ok(/_pdfPillSel=\{\}/.test(corpo), "il comando non azzera davvero la selezione");
+  ok(/pdfRememberPages\(\)/.test(corpo), "…e non salva la scelta nel progetto, come fanno gli altri due");
+});
+
+t("compare solo quando c'e' qualcosa da togliere", () => {
+  /* Con il PDF gia' a una pagina sola sarebbe un comando che non fa niente — e un comando acceso
+     che non fa niente e' la stessa cosa contestata in SP-14. */
+  const i = appjs.indexOf('mk("Solo il palco"');
+  const prima = appjs.slice(Math.max(0, i - 260), i);
+  ok(/if\(nSel>0\)/.test(prima), "il comando compare anche quando non c'e' niente da togliere");
+});
+
 console.log("\n— L'audit non parla di canali che non ci sono —");
 
 /* Trovato guardando morricone 99 (10/09). La channel list MANUALE (`state.inputs`) e' salvata per
@@ -12657,7 +12683,11 @@ t("l'export parte dal solo palco: le pagine tecniche si suggeriscono, non si agg
   /* Decisione di Simone: chi preme Esporta di fretta non deve ritrovarsi un PDF di cinque pagine
      che non ha chiesto — il costo di quell'errore lo paga chi lo riceve. Il suggerimento resta
      (bordo verde), la scelta no. */
-  const ap = appjs.slice(appjs.indexOf("_pdfPillSel={};"), appjs.indexOf("_pdfPillSel={};") + 400);
+  /* Ancorato all'INIZIALIZZAZIONE, non alla prima occorrenza di `_pdfPillSel={}`: dal 10/09 ce
+     n'e' un'altra, dentro il comando «Solo il palco», e il test si agganciava a quella. */
+  const iInit = appjs.indexOf("_pdfPillSel={};\n    if(Array.isArray(state.pdfPages))");
+  ok(iInit > -1, "l'inizializzazione delle pillole non si trova piu': ricontrollare");
+  const ap = appjs.slice(iInit, iInit + 400);
   ok(/state\.pdfPages\)\) state\.pdfPages\.forEach/.test(ap), "se l'utente ha già scelto, si rispetta la sua scelta");
   eq(/pdfSuggestedKeys\(_pdfTechPages\)\.forEach\(function\(k\)\{ _pdfPillSel\[k\]=true/.test(ap), false,
      "ma alla prima apertura NON si preseleziona niente");
