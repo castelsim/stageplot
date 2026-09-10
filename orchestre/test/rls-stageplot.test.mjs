@@ -1,5 +1,6 @@
-/* Scenario E per il collegamento a StagePlot (lotto 8): il progetto è di chi lo possiede, l'importazione
-   allarga l'organico senza mai restringerlo, i collegamenti sono dello staff e basta. */
+/* Scenario E per il collegamento a StagePlot (lotti 8-9): il progetto è di chi lo possiede, l'importazione
+   lega ogni postazione a un POSTO FISICO, allarga l'organico senza mai restringerlo, tiene i posti con le
+   persone sopra; i collegamenti e la vista per l'editor sono dello staff e basta. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { localEnv, mkUser, login, rest, rpc, admin } from "./_local.mjs";
@@ -9,7 +10,7 @@ const run = env ? test : process.env.ORC_RLS ? (n) => test(n, () => { throw new 
 const stamp = "s" + Date.now().toString(36);
 const mail = (n) => `orc-sp-${n}-${stamp}@example.invalid`;
 const U = {}, T = {};
-let ORG_A, ORG_B, PID, PROJ;
+let ORG_A, ORG_B, PID, PROJ, M1;
 
 const DOC = { _doc: 1, active: "b", variants: [
   { id: "a", name: "Prove", state: { items: [{ id: "i1", type: "vlnpost", label: "Vl" }] } },
@@ -18,12 +19,14 @@ const DOC = { _doc: 1, active: "b", variants: [
     { id: "i3", type: "violapost", label: "Vla" }, { id: "i4", type: "flauto", label: "Fl" }, { id: "i5", type: "wedge", label: "Monitor" },
   ] } },
 ] };
-const POS = [
-  { item_id: "i1", item_type: "vln1x2", label: "Vl I 1-2", instrument_code: "violino", seats: 2 },
-  { item_id: "i2", item_type: "vln1x2", label: "Vl I 3-4", instrument_code: "violino", seats: 2 },
-  { item_id: "i3", item_type: "violapost", label: "Vla", instrument_code: "viola", seats: 1 },
-  { item_id: "i4", item_type: "flauto", label: "Fl", instrument_code: "flauto", seats: 1 },
+const P = (item_id, item_type, label, seats) => ({ item_id, item_type, label, seats });
+const GROUPS = [
+  { instrument_code: "violino", role_id: null, role_name: "Violini primi", positions: [P("i1", "vln1x2", "Vl I 1-2", 2), P("i2", "vln1x2", "Vl I 3-4", 2)] },
+  { instrument_code: "viola", role_id: null, role_name: "Viole", positions: [P("i3", "violapost", "Vla", 1)] },
+  { instrument_code: "flauto", role_id: null, role_name: "Flauti", positions: [P("i4", "flauto", "Fl", 1)] },
 ];
+const staffing = async (t) => (await rpc(env, t, "orc_staffing", { production: PID })).d;
+const links = async (t, extra = "") => (await rest(env, t, "orc_stageplot_links?select=id,item_id,seat_index,status,role_id,slot_id&production_id=eq." + PID + "&order=item_id,seat_index" + extra)).d;
 
 run("preparazione", async () => {
   for (const n of ["ownerA", "ownerB", "viewerA"]) { U[n] = await mkUser(env, mail(n)); T[n] = await login(env, mail(n)); }
@@ -32,6 +35,9 @@ run("preparazione", async () => {
   assert.ok((await rpc(env, T.ownerA, "orc_add_member_by_email", { org: ORG_A, member_email: mail("viewerA"), new_role: "viewer" })).ok);
   const c = await rest(env, T.ownerA, "orc_productions", { method: "POST", body: { org_id: ORG_A, title: "Concerto col palco", kind: "concerto" } });
   assert.ok(c.ok, JSON.stringify(c.d)); PID = c.d[0].id;
+  const imp = await rpc(env, T.ownerA, "orc_import_musicians", { org: ORG_A, rows: [{ first_name: "Uno", last_name: "Prova", email: "uno@example.invalid", instruments: [{ code: "violino", primary: true }] }] });
+  assert.equal(imp.d.new, 1);
+  M1 = (await rpc(env, T.ownerA, "orc_musicians_list", { org: ORG_A })).d[0].id;
   /* il progetto dell'editor: l'amministratore lo salva con le SUE policy own-rows */
   const pr = await rest(env, T.ownerA, "stageplot_projects", { method: "POST", body: { user_id: U.ownerA, title: "Palco di prova", data: DOC } });
   assert.ok(pr.ok, JSON.stringify(pr.d)); PROJ = pr.d[0].id;
@@ -46,20 +52,20 @@ run("il progetto lo legge solo chi lo possiede: lo staff di un'altra org (o un v
   assert.ok(!viewer.ok || viewer.d.length === 0);
 });
 
-run("importare crea sezioni e ruoli per famiglia, i posti seguono, i collegamenti si vedono solo dallo staff", async () => {
-  const r = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", positions: POS });
+run("importare crea ruoli per parte e lega ogni postazione a un posto (una doppia a due); i collegamenti solo allo staff", async () => {
+  const r = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", groups: GROUPS });
   assert.ok(r.ok, JSON.stringify(r.d));
-  assert.deepEqual(r.d, { roles_created: 3, roles_grown: 0, seats_added: 6, linked: 4, stale: 0 });
-  const st = (await rpc(env, T.ownerA, "orc_staffing", { production: PID })).d;
+  assert.deepEqual(r.d, { roles_created: 3, roles_grown: 0, seats_added: 6, linked: 6, stale: 0 });
+  const st = await staffing(T.ownerA);
   const vl = st.filter((x) => x.instrument_code === "violino");
-  assert.equal(vl[0].seats, 4); assert.equal(vl.length, 4, "quattro posti di violino");
+  assert.equal(vl.length, 4, "quattro posti di violini primi"); assert.equal(vl[0].role_name, "Violini primi"); assert.equal(vl[0].seats, 4);
+  assert.deepEqual(vl.map((x) => [x.seat_no, x.item_id]), [[1, "i1"], [2, "i1"], [3, "i2"], [4, "i2"]], "ogni posto sa la sua postazione");
   assert.deepEqual([...new Set(st.map((x) => x.section_name))].sort(), ["Archi", "Legni"]);
-  assert.equal(st.find((x) => x.instrument_code === "flauto").section_name, "Legni");
-  const p = (await rest(env, T.ownerA, "orc_productions?select=stageplot_project_id,stageplot_variant_id,stageplot_synced_at&id=eq." + PID)).d[0];
-  assert.equal(p.stageplot_project_id, PROJ); assert.equal(p.stageplot_variant_id, "b"); assert.ok(p.stageplot_synced_at);
-  const lk = await rest(env, T.ownerA, "orc_stageplot_links?select=item_id,status,role_id,seats&production_id=eq." + PID + "&order=item_id");
-  assert.equal(lk.d.length, 4); assert.ok(lk.d.every((l) => l.status === "linked" && l.role_id));
-  assert.equal(lk.d[0].seats, 2);
+  const lk = await links(T.ownerA);
+  assert.equal(lk.length, 6); assert.ok(lk.every((l) => l.status === "linked" && l.slot_id && l.role_id));
+  assert.deepEqual(lk.filter((l) => l.item_id === "i1").map((l) => l.seat_index), [1, 2]);
+  const p = (await rest(env, T.ownerA, "orc_productions?select=stageplot_project_id,stageplot_variant_id&id=eq." + PID)).d[0];
+  assert.equal(p.stageplot_project_id, PROJ); assert.equal(p.stageplot_variant_id, "b");
   const lkB = await rest(env, T.ownerB, "orc_stageplot_links?select=id&production_id=eq." + PID);
   assert.ok(!lkB.ok || lkB.d.length === 0, "un'altra org non vede i collegamenti");
   const lkV = await rest(env, T.viewerA, "orc_stageplot_links?select=id&production_id=eq." + PID);
@@ -68,44 +74,67 @@ run("importare crea sezioni e ruoli per famiglia, i posti seguono, i collegament
   assert.equal(ins.ok, false, "i collegamenti si scrivono solo via RPC");
 });
 
-run("reimportare con meno postazioni non restringe l'organico; ciò che è sparito dal palco diventa stale", async () => {
-  const r = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", positions: POS.filter((x) => x.item_id !== "i2") });
+run("la vista per l'editor: nome e stato per postazione, solo per lo staff dell'org", async () => {
+  /* una persona confermata sul posto 1 (postazione i1, seat 1) */
+  const slot1 = (await staffing(T.ownerA)).find((x) => x.instrument_code === "violino" && x.seat_no === 1).slot_id;
+  assert.ok((await rpc(env, T.ownerA, "orc_assign_slot", { slot: slot1, musician: M1, reason: "prova" })).ok);
+  const v = (await rpc(env, T.ownerA, "orc_stage_view", { project: PROJ })).d;
+  assert.equal(v.length, 6);
+  const i1 = v.filter((x) => x.item_id === "i1").sort((a, b) => a.seat_index - b.seat_index);
+  assert.deepEqual(i1.map((x) => [x.seat_index, x.seat_no, x.slot_status, x.musician_name, x.role_name]), [[1, 1, "confirmed", "Uno Prova", "Violini primi"], [2, 2, "open", null, "Violini primi"]]);
+  assert.equal(i1[0].production_title, "Concerto col palco");
+  assert.deepEqual((await rpc(env, T.ownerB, "orc_stage_view", { project: PROJ })).d, [], "un'altra org non vede nulla");
+  assert.deepEqual((await rpc(env, T.viewerA, "orc_stage_view", { project: PROJ })).d, [], "un viewer non vede nulla");
+  const keys = Object.keys(v[0]);
+  for (const k of ["notes", "fee", "private_note", "score"]) assert.ok(!keys.includes(k), "niente dati riservati: " + k);
+});
+
+run("reimportare tiene i posti (e la persona sopra), non restringe, marca stale ciò che sparisce; ricollegare rimette il posto su un'altra postazione", async () => {
+  /* i2 sparisce dal palco, arriva i9 (singola) */
+  const g2 = [{ ...GROUPS[0], role_id: null, positions: [P("i1", "vln1x2", "Vl I 1-2", 2), P("i9", "vlnpost", "Vl I 5", 1)] }, GROUPS[1], GROUPS[2]];
+  const r = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", groups: g2 });
   assert.ok(r.ok, JSON.stringify(r.d));
-  assert.deepEqual(r.d, { roles_created: 0, roles_grown: 0, seats_added: 0, linked: 3, stale: 1 });
-  const st = (await rpc(env, T.ownerA, "orc_staffing", { production: PID })).d;
-  assert.equal(st.filter((x) => x.instrument_code === "violino").length, 4, "i posti restano");
-  const lk = (await rest(env, T.ownerA, "orc_stageplot_links?select=item_id,status&production_id=eq." + PID + "&order=item_id")).d;
-  assert.deepEqual(lk.map((l) => [l.item_id, l.status]), [["i1", "linked"], ["i2", "stale"], ["i3", "linked"], ["i4", "linked"]]);
-  /* il palco cresce: solo la differenza si aggiunge */
-  const more = [...POS, { item_id: "i9", item_type: "vlnpost", label: "Vl I 5", instrument_code: "violino", seats: 1 }, { item_id: "i10", item_type: "tromba", label: "Tr", instrument_code: "tromba", seats: 1 }];
-  const r2 = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", positions: more });
-  assert.deepEqual(r2.d, { roles_created: 1, roles_grown: 1, seats_added: 2, linked: 6, stale: 0 });
-  const st2 = (await rpc(env, T.ownerA, "orc_staffing", { production: PID })).d;
-  assert.equal(st2.filter((x) => x.instrument_code === "violino").length, 5);
-  assert.equal(st2.find((x) => x.instrument_code === "tromba").section_name, "Ottoni");
-  const bad = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", positions: [{ item_id: "z", instrument_code: "strumento_inesistente", seats: 1 }] });
-  assert.ok(bad.ok); assert.equal(bad.d.linked, 0, "uno strumento fuori catalogo non crea nulla");
+  assert.deepEqual(r.d, { roles_created: 0, roles_grown: 0, seats_added: 0, linked: 5, stale: 2 });
+  const st = await staffing(T.ownerA);
+  const vl = st.filter((x) => x.instrument_code === "violino");
+  assert.equal(vl.length, 4, "i posti restano quattro");
+  assert.deepEqual(vl.map((x) => [x.seat_no, x.item_id, x.musician_name]), [[1, "i1", "Prova Uno"], [2, "i1", null], [3, "i9", null], [4, null, null]], "i1 tiene i suoi posti e la persona; i9 prende il primo libero");
+  const lk = await links(T.ownerA);
+  assert.deepEqual(lk.map((l) => [l.item_id, l.seat_index, l.status, !!l.slot_id]), [["i1", 1, "linked", true], ["i1", 2, "linked", true], ["i2", 1, "stale", false], ["i2", 2, "stale", false], ["i3", 1, "linked", true], ["i4", 1, "linked", true], ["i9", 1, "linked", true]]);
+  /* ricollega: il legame stale di i2 (seat 1) va su i10 → torna linked ma SENZA posto: il posto lo riprende al prossimo import */
+  const stale = lk.find((l) => l.item_id === "i2" && l.seat_index === 1);
+  assert.ok((await rpc(env, T.ownerA, "orc_stageplot_relink", { link: stale.id, new_item_id: "i10", new_item_type: "vlnpost", new_label: "Vl I 6" })).ok);
+  const after = (await links(T.ownerA)).find((l) => l.id === stale.id);
+  assert.equal(after.item_id, "i10"); assert.equal(after.status, "linked");
+  assert.equal((await rpc(env, T.ownerB, "orc_stageplot_relink", { link: stale.id, new_item_id: "zzz" })).ok, false, "un'altra org non ricollega");
+  /* una doppia che diventa singola: il secondo posto si libera */
+  const g3 = [{ ...GROUPS[0], positions: [P("i1", "vlnpost", "Vl I 1", 1), P("i9", "vlnpost", "Vl I 5", 1), P("i10", "vlnpost", "Vl I 6", 1)] }, GROUPS[1], GROUPS[2]];
+  const r3 = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", groups: g3 });
+  assert.deepEqual(r3.d, { roles_created: 0, roles_grown: 0, seats_added: 0, linked: 5, stale: 1 });
+  const vl3 = (await staffing(T.ownerA)).filter((x) => x.instrument_code === "violino");
+  assert.deepEqual(vl3.map((x) => [x.seat_no, x.item_id]), [[1, "i1"], [2, "i10"], [3, "i9"], [4, null]]);
+  /* uno strumento fuori catalogo non crea nulla; un ruolo di un'altra produzione non si usa */
+  const bad = await rpc(env, T.ownerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", groups: [{ instrument_code: "strumento_inesistente", role_id: null, role_name: "X", positions: [P("z", "x", "z", 1)] }] });
+  assert.ok(bad.ok); assert.equal(bad.d.linked, 0);
 });
 
 run("le produzioni collegate a un progetto le vede il suo staff; un'altra org non importa, non scollega, non le vede", async () => {
   const forA = (await rpc(env, T.ownerA, "orc_productions_for_project", { project: PROJ })).d;
   assert.deepEqual(forA.map((x) => x.id), [PID]);
-  const forB = (await rpc(env, T.ownerB, "orc_productions_for_project", { project: PROJ })).d;
-  assert.deepEqual(forB, []);
-  const imp = await rpc(env, T.ownerB, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", positions: POS });
-  assert.equal(imp.ok, false);
-  const impV = await rpc(env, T.viewerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", positions: POS });
-  assert.equal(impV.ok, false);
-  const un = await rpc(env, T.ownerB, "orc_stageplot_unlink", { production: PID });
-  assert.equal(un.ok, false);
+  assert.deepEqual((await rpc(env, T.ownerB, "orc_productions_for_project", { project: PROJ })).d, []);
+  assert.equal((await rpc(env, T.ownerB, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", groups: GROUPS })).ok, false);
+  assert.equal((await rpc(env, T.viewerA, "orc_stageplot_import", { production: PID, project: PROJ, variant: "b", groups: GROUPS })).ok, false);
+  assert.equal((await rpc(env, T.ownerB, "orc_stageplot_unlink", { production: PID })).ok, false);
 });
 
-run("scollegare toglie il puntatore e i collegamenti; l'organico resta", async () => {
+run("scollegare toglie il puntatore e i collegamenti; l'organico e le persone restano", async () => {
   assert.ok((await rpc(env, T.ownerA, "orc_stageplot_unlink", { production: PID })).ok);
   const p = (await rest(env, T.ownerA, "orc_productions?select=stageplot_project_id,stageplot_synced_at&id=eq." + PID)).d[0];
   assert.equal(p.stageplot_project_id, null); assert.equal(p.stageplot_synced_at, null);
-  assert.equal((await rest(env, T.ownerA, "orc_stageplot_links?select=id&production_id=eq." + PID)).d.length, 0);
-  assert.equal((await rpc(env, T.ownerA, "orc_staffing", { production: PID })).d.filter((x) => x.instrument_code === "violino").length, 5);
+  assert.equal((await links(T.ownerA)).length, 0);
+  const vl = (await staffing(T.ownerA)).filter((x) => x.instrument_code === "violino");
+  assert.equal(vl.length, 4); assert.equal(vl[0].musician_name, "Prova Uno");
+  assert.deepEqual((await rpc(env, T.ownerA, "orc_stage_view", { project: PROJ })).d, []);
   const log = (await rest(env, T.ownerA, "orc_audit_log?select=action&org_id=eq." + ORG_A + "&action=like.stageplot.*&order=at")).d;
-  assert.deepEqual(log.map((x) => x.action), ["stageplot.import", "stageplot.import", "stageplot.import", "stageplot.import", "stageplot.unlink"]);
+  assert.deepEqual(log.map((x) => x.action), ["stageplot.import", "stageplot.import", "stageplot.relink", "stageplot.import", "stageplot.import", "stageplot.unlink"]);
 });

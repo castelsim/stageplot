@@ -22,13 +22,22 @@ export async function instruments() {
   fail(error);
   return data || [];
 }
-export async function importPositions(pid, projectId, variantId, positions) {
-  const { data, error } = await sb.rpc("orc_stageplot_import", { production: pid, project: projectId, variant: variantId || "", positions });
+/* groups = [{instrument_code, role_id|null, role_name, positions:[{item_id,item_type,label,seats}]}] (domain/stageplot-import.js → importGroups) */
+export async function importGroups(pid, projectId, variantId, groups) {
+  const { data, error } = await sb.rpc("orc_stageplot_import", { production: pid, project: projectId, variant: variantId || "", groups });
   fail(error);
   return data;
 }
 export async function links(pid) {
-  const { data, error } = await sb.from("orc_stageplot_links").select("item_id, item_type, item_label, instrument_code, role_id, seats, status, variant_id, synced_at").eq("production_id", pid).order("item_label");
+  const { data, error } = await sb.from("orc_stageplot_links").select("id, item_id, seat_index, item_type, item_label, instrument_code, role_id, slot_id, seats, status, variant_id, synced_at").eq("production_id", pid).order("item_label").order("seat_index");
+  fail(error);
+  return data || [];
+}
+/* un legame «non più sul palco» torna su un'altra postazione */
+export async function relink(linkId, itemId, itemType = "", label = "") { fail((await sb.rpc("orc_stageplot_relink", { link: linkId, new_item_id: itemId, new_item_type: itemType, new_label: label })).error); }
+/* per l'editor: chi c'è su ogni postazione collegata di un progetto (solo staff) */
+export async function stageView(projectId) {
+  const { data, error } = await sb.rpc("orc_stage_view", { project: projectId });
   fail(error);
   return data || [];
 }

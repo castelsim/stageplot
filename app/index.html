@@ -1415,7 +1415,15 @@
   .rug{fill:rgba(176,58,58,.16);stroke:#8e2b26;stroke-width:2;stroke-dasharray:10 7}
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
-  .lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
+  /* Orchestre: chi c'è sul posto, sotto l'etichetta della postazione (solo schermo) */
+.orc-name{font-size:11px;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:2.6;pointer-events:none}
+.orc-name.ok{fill:#0d9488}.orc-name.wait{fill:#2563eb}.orc-name.open{fill:#b45309}.orc-name.off{fill:#6b7280}
+svg.names-hidden .orc-name{display:none}
+.orc-row{margin-top:8px;padding:8px 10px;border:1px solid var(--line,#e5e7eb);border-radius:8px;font-size:12px}
+.orc-row .orc-hd{font-weight:600;margin-bottom:4px}.orc-row .orc-prod{font-weight:400;color:var(--text-3,#6b7280);margin-left:4px}
+.orc-row .orc-line{padding:2px 0}.orc-row .orc-line.ok{color:#0d9488}.orc-row .orc-line.wait{color:#2563eb}.orc-row .orc-line.open{color:#b45309}.orc-row .orc-line.off{color:var(--text-3,#6b7280)}
+.orc-row .orc-link{display:inline-block;margin-top:6px;color:#0d9488;font-weight:600;text-decoration:none;min-height:24px}
+.lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
   /* «qui c'è una nota da leggere»: colore d'accento, sta al nome come un asterisco a una voce di
      tabella. Eredita lo stroke bianco del nome, quindi regge anche sui fondi scuri. */
   .lbl-dot{fill:#0d9488;font-weight:800}
@@ -3981,6 +3989,7 @@ body.dark .ask-all .btn{background:transparent}
       <button type="button" class="btn" id="pRackFront" style="font-size:12px">Vista rack (fronte)</button>
     </div>
     <button class="btn" id="pContactBtn" type="button" style="display:none;width:100%;margin-top:8px"></button>
+    <div id="pOrcRow" class="orc-row" style="display:none"></div>
     <div class="btns" id="pOrderRow">
       <button class="btn" id="pFront" type="button" title="Porta questo elemento sopra gli altri">⬆ Primo piano</button>
       <button class="btn" id="pBack" type="button" title="Mandalo dietro agli altri">⬇ In fondo</button>
