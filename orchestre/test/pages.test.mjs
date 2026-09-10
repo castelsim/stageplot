@@ -311,3 +311,33 @@ test("la home apre le due porte e lascia entrare chi gestisce dal pulsante in al
   assert.match(js, /getElementById\("pMusicista"\)/, "con la sessione la porta del musicista va ripuntata: senza, chi e gia dentro rilegge la spiegazione");
   assert.match(js, /BASE \+ "\/musicista\/"/, "e deve portarlo nella sua area");
 });
+
+/* «Pesi del matching» era il 38% delle impostazioni: sedici caselle numeriche che regolavano un punteggio,
+   con sopra una spiegazione che descriveva una scala inesistente («0-100, 50 = neutro» mentre i campi
+   andavano da -40 a 40). Tolta il 10/09 su segnalazione di Simone — «non l'ho capita». Il motore continua
+   con i valori di partenza e le proposte continuano a dire perche; nel database pesi e versioni restano.
+   Se un giorno torna, che torni comprensibile: questo test lo ricorda. */
+test("le impostazioni non chiedono di regolare i pesi del motore", () => {
+  const p = readFileSync(join(root, "orchestre/src/pages/impostazioni.js"), "utf8");
+  assert.doesNotMatch(p, /<h2>Pesi del matching<\/h2>|WEIGHT_LABELS|saveRuleset|loadWeights/, "le sedici caselle non tornano cosi come erano");
+  /* l'etichetta del registro resta: se in passato dei pesi sono stati salvati, la storia lo deve dire */
+  assert.match(p, /matching\.ruleset/, "il registro continua a saper leggere le azioni gia scritte");
+  const api = readFileSync(join(root, "orchestre/src/api/matching.js"), "utf8");
+  assert.match(api, /activeRuleset/, "i pesi si leggono ancora: il punteggio ne ha bisogno");
+  assert.doesNotMatch(api, /export async function saveRuleset/, "ma dall'interfaccia non si scrivono");
+});
+
+/* Le suite RLS girano in parallelo e ognuna si crea organizzazioni e utenti con un «stamp» nel nome.
+   Finche lo stamp era solo Date.now(), due suite avviate nello stesso millisecondo generavano lo STESSO
+   nome: `rls-inviti` e `rls-invitations` creano entrambe lo slug «inv-a-i<ms>», e la seconda sbatteva sul
+   vincolo di unicita portandosi giu otto test. Un rosso raro, che nessuno riesce a riprodurre a comando:
+   il peggior tipo. Da qui in avanti lo stamp porta anche del caso. */
+test("ogni suite RLS si prende nomi suoi, anche se parte insieme a un'altra", () => {
+  const dir = join(root, "orchestre/test");
+  for (const f of readdirSync(dir).filter((n) => n.startsWith("rls") && n.endsWith(".test.mjs"))) {
+    const src = readFileSync(join(dir, f), "utf8");
+    const riga = (src.match(/const stamp = .*/) || [])[0];
+    if (!riga) continue;
+    assert.match(riga, /Math\.random\(\)/, f + ": lo stamp e solo l'orologio — due suite nello stesso millisecondo si contendono lo stesso nome");
+  }
+});

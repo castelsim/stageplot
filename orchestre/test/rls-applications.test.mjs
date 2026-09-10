@@ -5,7 +5,7 @@ import { localEnv, mkUser, login, rest, rpc, admin } from "./_local.mjs";
 
 const env = localEnv();
 const run = env ? test : process.env.ORC_RLS ? (n) => test(n, () => { throw new Error("Supabase locale spento"); }) : test.skip;
-const stamp = "a" + Date.now().toString(36);
+const stamp = "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);   /* il caso serve: due suite avviate nello stesso millisecondo creerebbero la stessa organizzazione */
 const mail = (n) => `orc-app-${n}-${stamp}@example.invalid`;
 const U = {}, T = {};
 let ORG_A, ORG_B, PROF, APP, MID, FILEPATH;
