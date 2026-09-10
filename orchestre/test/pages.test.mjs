@@ -94,6 +94,13 @@ test("config.js parla col Supabase di produzione: la anon key è quella dell'edi
    suite `rls*.test.mjs` si SALTANO in silenzio e il modello di sicurezza è verde per assenza. È quello
    che succedeva in CI fino al 10/09/2026: 43 test su 87 non giravano mai. Questo test pretende che il
    workflow che le esegue esista, che renda obbligatorio il locale (ORC_RLS) e che le copra TUTTE. */
+test("il lint di Orchestre gira PRIMA del merge, non solo nel deploy", () => {
+  /* Girava solo nel workflow di pubblicazione: una PR tutta verde poteva fermare il deploy dopo il
+     merge, e il sito restava indietro senza che nessuno se ne accorgesse (successo il 10/09). */
+  const rls = readFileSync(join(root, ".github/workflows/orchestre-rls.yml"), "utf8");
+  assert.match(rls, /deno lint orchestre\/src/, "il workflow delle PR deve fare anche il lint");
+});
+
 test("le suite RLS girano davvero in CI, e il workflow le copre tutte", () => {
   const p = join(root, ".github/workflows/orchestre-rls.yml");
   assert.ok(existsSync(p), "manca .github/workflows/orchestre-rls.yml: senza, le RLS non si provano mai");
