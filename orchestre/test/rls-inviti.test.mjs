@@ -8,7 +8,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 const env = localEnv();
 const run = env ? test : process.env.ORC_RLS ? (n) => test(n, () => { throw new Error("Supabase locale spento"); }) : test.skip;
-const stamp = "i" + Date.now().toString(36);
+const stamp = "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);   /* il caso serve: due suite avviate nello stesso millisecondo creerebbero la stessa organizzazione */
 const mail = (n) => `orc-inv-${n}-${stamp}@example.invalid`;
 const U = {}, T = {};
 let ORG, ORG_B, INV, TOKEN, APP_BRUNO;
