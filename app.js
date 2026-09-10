@@ -25231,6 +25231,35 @@ function pdfChannelPage(doc, L, paperKey){
     });
     return pages;
   }
+  /* ⚠️ L'SVG dell'anteprima si porta dentro il CSS dell'app coi corpi moltiplicati per la scala
+     (`scaleSvgFonts`): sul foglio serve, perché lì non c'è nessun altro stile e il testo deve
+     tenere la stessa dimensione fisica a ogni scala. Ma uno `<style>` dentro un `<svg>` INLINE
+     non è confinato all'SVG: è un foglio di stile del DOCUMENTO, e arrivando dopo vince a parità
+     di specificità. A 1:200 `#props label` passava da 12 px a 30 e `header input.hdr-name` da 14
+     a 35 — si ingrandiva tutta l'interfaccia, non l'anteprima. Con CORPO_RIF=80 il fattore è
+     N/80: succede già a 1:100 (×1,25), ma si vede quando il palco è grande abbastanza da uscire a
+     1:200 o meno. (Segnalato il 10/09: «succede solo con morricone 99» — non era il progetto,
+     era la sua scala.)
+     Gli altri tre punti che usano `stageSceneSvg` — PDF vettoriale, PNG, miniatura — lo mettono
+     già in uno SHADOW ROOT, dove il `<style>` resta dentro. Mancava solo l'anteprima.
+     Le regole di dimensione vanno replicate qui: nello shadow il CSS della pagina non entra. */
+  function ombraAnteprima(host){
+    var d=host.__ombra;
+    if(!d || d.parentNode!==host){          /* il ramo «pagina di testo» riscrive host.innerHTML e se lo porta via */
+      host.innerHTML="";
+      d=document.createElement("div"); d.className="pdf-sheet-svg";
+      host.appendChild(d); host.__ombra=d;
+      d.__root = d.attachShadow ? d.attachShadow({mode:"open"}) : d;
+    }
+    var r=d.__root;
+    /* ⚠️ `insertAdjacentHTML` è un metodo di Element, NON di ShadowRoot: usarlo qui lancia, e il
+       try/catch che avvolge renderPreview se lo mangiava in silenzio — l'anteprima restava vuota
+       senza dire niente. Si riscrive tutto il contenuto, stile compreso. */
+    var STILE = (r===d) ? "" : '<style>:host{display:flex;align-items:center;justify-content:center;width:100%}'
+      + 'svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}'
+      + '@media(max-width:880px){svg{max-height:34vh}}</style>';
+    return { set innerHTML(v){ r.innerHTML = STILE + v; } };
+  }
   function renderPreview(){
     var host=document.getElementById("pdfPreview"); if(!host) return;
     /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
@@ -25245,7 +25274,7 @@ function pdfChannelPage(doc, L, paperKey){
         var lh=(typeof viewerHtmlFor==="function") ? viewerHtmlFor(p.key) : null;
         host.innerHTML = lh || '<div class="pdf-sheet-ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/></svg><div class="pdf-sheet-ph-t">'+esc(p.title)+'</div><div class="pdf-sheet-ph-s">Pagina di testo — nel PDF esportato</div></div>';
       }
-      else host.innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
+      else ombraAnteprima(host).innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
     }catch(e){}
     var lbl=document.getElementById("pdfPageLabel"); if(lbl) lbl.textContent="Pag "+(prevIdx+1)+"/"+pages.length+" · "+p.title;
     var pv=document.getElementById("pdfPrev"), nx=document.getElementById("pdfNext");
