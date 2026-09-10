@@ -7617,6 +7617,36 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
   ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
 });
 
+console.log("\n— La finestra Esporta non taglia l'anteprima —");
+
+/* Segnalazione di Simone (10/09, screenshot): «quando cerco di esportare c'e' una sorta di bug
+   nella dimensione del font». Il testo gigante veniva dalla DIMENSIONE MINIMA DEL CARATTERE del
+   suo browser — riprodotta a video alzando i font sotto soglia senza toccare le larghezze: la
+   schermata combacia riga per riga. Ma misurando e' venuto fuori un difetto che c'e' per TUTTI,
+   anche senza nessuna impostazione: `.pdf-exp-grid` chiedeva 702 px in 676 disponibili e
+   l'anteprima del PDF finiva 26 px oltre il bordo, tagliata in silenzio da `overflow-x:hidden`.
+   Causa: `1fr` porta con se' `min-width:auto`, quindi la colonna NON si restringe sotto la
+   larghezza minima del suo contenuto. E' la stessa lezione gia' pagata su `.pa-nums` (area di
+   stampa) e sui campi data/ora: dentro una griglia stretta si scrive `minmax(0,1fr)`. */
+t("le colonne della finestra Esporta possono restringersi", () => {
+  const m = stylesCss.match(/\.pdf-exp-grid\{[^}]*\}/);
+  ok(m, "la griglia della finestra Esporta non c'e' piu'");
+  ok(/grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(m[0]),
+     "la prima colonna e' ancora `1fr`: col contenuto largo sfonda invece di restringersi — " + m[0]);
+  eq(/grid-template-columns:\s*1fr\s+240px/.test(m[0]), false, "e' rimasto il `1fr` nudo");
+});
+
+t("chi sta dentro quelle colonne puo' restringersi a sua volta", () => {
+  /* `minmax(0,1fr)` sulla COLONNA non basta se il contenuto rifiuta di rimpicciolirsi: anche i
+     figli della griglia devono dichiarare `min-width:0`, o riportano dentro la larghezza minima
+     automatica da cui si voleva uscire. Vale per tutti e due — l'anteprima e le opzioni — quindi
+     la regola sta sui figli, non su un id per volta. */
+  ok(/\.pdf-exp-grid>\*\{[^}]*min-width:0/.test(stylesCss),
+     "i figli della griglia Esporta possono ancora imporre la loro larghezza minima");
+  ok(/\.pdf-sheet\{[^}]*min-width:0/.test(stylesCss),
+     "il foglio dell'anteprima ha una larghezza minima sua: e' quello che sfondava");
+});
+
 console.log("\n— La vista attiva si dichiara (SP-06) —");
 
 /* SP-06 (audit esterno 05/09): «liste, livelli e modalita' di lavoro sono mescolati». Provato a
