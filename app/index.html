@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.09.09";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.09.10";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1465,7 +1465,15 @@
   .pdf-exp-head{display:flex;align-items:baseline;gap:12px;margin:0 0 15px}
   .pdf-exp-head h2{margin:0}
   .pdf-exp-hint{font-size:12px;color:var(--text-3);line-height:var(--lh-snug)}
-  .pdf-exp-grid{display:grid;grid-template-columns:1fr 240px;gap:22px;align-items:start}
+  /* `minmax(0,1fr)` e non `1fr` (10/09): `1fr` porta con sé `min-width:auto`, quindi la colonna
+     NON si restringe sotto la larghezza minima del suo contenuto. Misurato: la griglia chiedeva
+     702 px in 676 disponibili e l'anteprima del PDF finiva 26 px oltre il bordo della finestra,
+     tagliata in silenzio da `overflow-x:hidden` — per tutti, anche senza alzare i caratteri.
+     Con la dimensione minima del carattere del browser a 24 px diventavano 112. È la stessa
+     lezione già pagata su `.pa-nums` e sui campi data/ora: in una griglia stretta si scrive
+     `minmax(0,1fr)`, e chi ci sta dentro dichiara `min-width:0`. */
+  .pdf-exp-grid{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:22px;align-items:start}
+  .pdf-exp-grid>*{min-width:0}
   .pdf-exp-side>label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:12px 0 5px}
   .pdf-exp-side>label:first-child{margin-top:0}
   .pdf-exp-side .chips{margin:0}
@@ -1725,7 +1733,7 @@
   .ctrow select.missing{color:#2563eb;border-color:#bfd3f8}
   .ctrow input[type=text]{flex:1;font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;height:22px;color:var(--text);background:var(--surface)}
   .pdf-exp-main{display:flex;flex-direction:column;gap:12px;min-width:0}
-  .pdf-sheet{background:var(--surface-raised);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:300px}
+  .pdf-sheet{background:var(--surface-raised);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:300px;min-width:0}
   .pdf-sheet svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}
   .pdf-sheet-ph{display:flex;flex-direction:column;align-items:center;gap:9px;color:var(--text-3);text-align:center;padding:30px}
   .pdf-sheet-ph-t{font-size:14px;font-weight:700;color:var(--text-2)}
