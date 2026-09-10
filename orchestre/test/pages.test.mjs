@@ -200,3 +200,22 @@ test("nessun .catch attaccato a una catena del query builder di Supabase (non e 
     assert.equal(m, null, f.replace(root, "") + ": «" + (m && m[0].slice(0, 80)) + "»");
   }
 });
+
+/* L'email della richiesta parte subito da una funzione chiamata dalla pagina; il worker resta la rete di
+   sicurezza. Le tre cose che non devono cambiare: la richiesta è di chi la fa spedire, la presa è atomica
+   (il worker non spedisce due volte), e un invio fallito torna in coda invece di perdersi. */
+test("l'invio immediato della richiesta è protetto e non salta la coda del worker", () => {
+  const src = readFileSync(join(root, "supabase/functions/orc-request-notify/index.ts"), "utf8");
+  assert.match(src, /row\.user_id !== user\.id/, "la richiesta dev'essere di chi chiama");
+  assert.match(src, /"non tua", 403|error: "non tua" \}, 403/, "e se non lo è, 403");
+  assert.match(src, /\.eq\("notification_status", "pending"\)/, "presa atomica: il worker non spedisce due volte");
+  assert.match(src, /notification_status: ok \? "sent" : "pending"/, "un invio fallito torna in coda");
+  assert.match(src, /serviceRoleKey\(Deno\.env\)/, "legge e scrive col servizio, non coi permessi del chiamante");
+  const cfg = readFileSync(join(root, "supabase/config.toml"), "utf8");
+  assert.match(cfg, /\[functions\.orc-request-notify\]\s*\n\s*(#[^\n]*\n\s*)*verify_jwt = true/, "la funzione chiede il JWT");
+  /* e la pagina la chiama davvero, altrimenti resta il ritardo del cron */
+  const pag = readFileSync(join(root, "orchestre/src/pages/richiedi.js"), "utf8");
+  assert.match(pag, /api\.notifyNow\(/, "la pagina manda subito dopo aver creato");
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  assert.match(wf, /orc-request-notify\/index\.ts/, "e la CI la controlla");
+});
