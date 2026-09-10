@@ -7627,16 +7627,31 @@ t("la scelta delle pagine non si scrive piu' nel progetto", () => {
   eq(/pdfRememberPages\(\);/.test(appjs), false, "restano CHIAMATE a pdfRememberPages (col punto e virgola: nel commento che la ricorda non c'e')");
 });
 
-t("il campo resta nello schema: i progetti vecchi non si rompono", () => {
-  /* `state.pdfPages` esiste nei progetti gia' salvati. Non lo si legge piu', ma normalizeState
-     deve continuare ad accettarlo senza inciampare — cancellarlo dai progetti degli utenti e'
-     un'altra decisione, e non e' stata presa. */
-  ok(/s\.pdfPages = Array\.isArray\(s\.pdfPages\)/.test(appjs),
-     "normalizeState non gestisce piu' pdfPages: un progetto vecchio potrebbe inciampare");
+t("il campo sparisce dai progetti che si aprono, senza romperli", () => {
+  /* Decisione di Simone (10/09): «pulisci anche il campo dai progetti salvati». Non con una
+     scrittura di massa sul database — quella toccherebbe i progetti di tutti in un colpo e non si
+     torna indietro — ma alla NORMALIZZAZIONE: chi apre un progetto e lo salva se lo lascia dietro.
+     Progressiva, e limitata a chi il progetto lo tocca davvero. */
   reset();
   A.state.pdfPages = ["rider", "backline", 42, null];
-  const ns = A.normalizeState(A.state);
+  const ns = A.normalizeState(A.state) || A.state;
   ok(ns !== undefined, "normalizeState e' caduto su un progetto con pdfPages");
+  eq("pdfPages" in ns, false, "il campo e' ancora li' dopo la normalizzazione");
+  /* e un progetto che non ce l'ha non deve guadagnarselo */
+  reset();
+  const ns2 = A.normalizeState(A.state) || A.state;
+  eq("pdfPages" in ns2, false, "normalizeState scrive un campo che non deve piu' esistere");
+});
+
+t("e quello che si risalva non se lo porta dietro", () => {
+  /* La prova che conta, sul percorso vero: un progetto vecchio si APRE (normalizeState) e poi si
+     SALVA. Il campo dev'essere sparito per strada, non filtrato al momento di scrivere — cosi' se
+     ne va davvero dal file, invece di restare in memoria e riaffiorare al prossimo salvataggio. */
+  reset();
+  A.state.pdfPages = ["rider", "backline"];
+  const ns = A.normalizeState(A.state); if (ns) A.state = ns;
+  const j = A.stateToJSON();
+  eq(/"pdfPages"/.test(j), false, "il campo finisce ancora nel progetto salvato");
 });
 
 console.log("\n— Tornare al solo palco in un clic —");
