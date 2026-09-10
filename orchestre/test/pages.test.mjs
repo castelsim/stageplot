@@ -341,3 +341,25 @@ test("ogni suite RLS si prende nomi suoi, anche se parte insieme a un'altra", ()
     assert.match(riga, /Math\.random\(\)/, f + ": lo stamp e solo l'orologio — due suite nello stesso millisecondo si contendono lo stesso nome");
   }
 });
+
+/* Un href non è un testo: se il valore lo scrive un'altra persona, `javascript:` è una URL valida e
+   il clic la esegue con i permessi di chi guarda. Le pagine di Orchestre non hanno 'unsafe-inline',
+   quindi oggi non esegue — ma quella difesa sta in un altro file e può cambiare. Qui si pretende che
+   ogni href nasca da una costante nostra, da encodeURIComponent, o da safeHttpUrl. */
+test("nessun href riceve una stringa esterna senza passare da safeHttpUrl", () => {
+  const src = join(root, "orchestre", "src");
+  const files = [];
+  (function walk(d) { for (const n of readdirSync(d)) { const f = join(d, n); if (statSync(f).isDirectory()) walk(f); else if (n.endsWith(".js")) files.push(f); } })(src);
+  assert.ok(files.length > 10, "i sorgenti si trovano");
+  const AMMESSO = /^\s*(safeHttpUrl\(|BASE\b|["'`]|.*encodeURIComponent\()/;
+  const colpevoli = [];
+  for (const f of files) {
+    const righe = readFileSync(f, "utf8").split("\n");
+    righe.forEach((r, i) => {
+      for (const m of r.matchAll(/(?<!location)\.href\s*=\s*([^;]+);/g)) {
+        if (!AMMESSO.test(m[1])) colpevoli.push(f.slice(root.length + 1) + ":" + (i + 1) + " → " + m[1].trim());
+      }
+    });
+  }
+  assert.deepEqual(colpevoli, [], "href da valore non verificato");
+});
