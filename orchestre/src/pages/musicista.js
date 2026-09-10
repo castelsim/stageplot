@@ -236,7 +236,7 @@ const check = (id, label, value) => { const l = el(`<label class="check-line"><i
 const lvl = (id, label, value) => field(id, label, String(value ?? 0), { opts: [["0", "No"], ["1", "Base"], ["2", "Buona"], ["3", "Ottima"]] });
 const val = (id) => { const n = app.querySelector("#" + id); return n.type === "checkbox" ? n.checked : n.value; };
 
-async function paintProfilo() {
+function paintProfilo() {
   const [key, title] = STEPS[step - 1];
   const pct = completion(P, P.instruments, P.files);
   /* tre elementi, tre append: el() ne rende uno solo */
@@ -335,6 +335,7 @@ async function paintProfilo() {
     card.appendChild(field("rehearsal_availability", "Disponibilità per le prove", P.rehearsal_availability, { type: "textarea", rows: 2, hint: "es. sere infrasettimanali e weekend" }));
     save = async () => { const f = { area: val("area").trim(), max_distance_km: val("max_distance_km"), has_car: val("has_car"), travel_ok: val("travel_ok"), tour_ok: val("tour_ok"), rehearsal_availability: val("rehearsal_availability").trim() }; await api.saveProfile(P.id, f); Object.assign(P, f, { max_distance_km: f.max_distance_km === "" ? null : Number(f.max_distance_km) }); };
   } else if (key === "materiali") {
+    card.appendChild(bloccoFoto());
     card.appendChild(field("website", "Sito o pagina", P.website, { type: "url" })); card.appendChild(field("audio_url", "Link audio", P.audio_url, { type: "url" })); card.appendChild(field("video_url", "Link video", P.video_url, { type: "url" }));
     const fl = el(`<div class="field"><label>Curriculum (PDF) e audio (mp3, m4a, wav), fino a 10 MB</label><ul class="list compact" id="files"></ul><div class="row"><input type="file" id="upCv" accept="application/pdf" hidden><button type="button" class="btn small" id="btnCv">Carica CV</button><input type="file" id="upAu" accept="audio/*" hidden><button type="button" class="btn small" id="btnAu">Carica audio</button></div></div>`);
     const paintFiles = () => { const ul = fl.querySelector("#files"); ul.innerHTML = ""; if (!P.files.length) ul.appendChild(el(`<li class="empty">Nessun file.</li>`)); for (const f of P.files) { const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`); li.querySelector(".title").textContent = f.name; li.querySelector(".sub").textContent = (f.kind === "cv" ? "CV" : f.kind) + " · " + Math.round(f.size / 1024) + " KB"; const rm = el(`<button type="button" class="btn small ghost">Togli</button>`); rm.onclick = async () => { try { await api.deleteFile(f); P.files = P.files.filter((x) => x !== f); paintFiles(); } catch (e) { toast(errMsg(e), { err: true }); } }; li.querySelector(".actions").appendChild(rm); ul.appendChild(li); } };
