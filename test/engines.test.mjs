@@ -7617,6 +7617,28 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
   ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
 });
 
+t("la scelta delle pagine non si scrive piu' nel progetto", () => {
+  /* Non basta non rileggerla: `pdfRememberPages()` faceva `save()` a ogni clic su una pillola,
+     quindi guardare la finestra Esporta bastava a marcare il documento come modificato e a
+     scrivere un campo che nessuno legge piu'. */
+  eq(appjs.indexOf("function pdfRememberPages"), -1, "la funzione che salvava le pagine e' ancora li'");
+  eq(appjs.indexOf("state.pdfPages=Object.keys"), -1, "qualcuno scrive ancora state.pdfPages");
+  /* e nessuno la chiama piu' */
+  eq(/pdfRememberPages\(\);/.test(appjs), false, "restano CHIAMATE a pdfRememberPages (col punto e virgola: nel commento che la ricorda non c'e')");
+});
+
+t("il campo resta nello schema: i progetti vecchi non si rompono", () => {
+  /* `state.pdfPages` esiste nei progetti gia' salvati. Non lo si legge piu', ma normalizeState
+     deve continuare ad accettarlo senza inciampare — cancellarlo dai progetti degli utenti e'
+     un'altra decisione, e non e' stata presa. */
+  ok(/s\.pdfPages = Array\.isArray\(s\.pdfPages\)/.test(appjs),
+     "normalizeState non gestisce piu' pdfPages: un progetto vecchio potrebbe inciampare");
+  reset();
+  A.state.pdfPages = ["rider", "backline", 42, null];
+  const ns = A.normalizeState(A.state);
+  ok(ns !== undefined, "normalizeState e' caduto su un progetto con pdfPages");
+});
+
 console.log("\n— Tornare al solo palco in un clic —");
 
 /* Simone, 10/09, con lo screenshot della finestra Esporta: «queste opzioni di default devono
@@ -7632,7 +7654,7 @@ t("c'e' un comando per tornare al solo palco, simmetrico a «Tutte le pagine»",
   ok(i > -1, "il comando non e' una pillola come le altre");
   const corpo = appjs.slice(i, i + 400);
   ok(/_pdfPillSel=\{\}/.test(corpo), "il comando non azzera davvero la selezione");
-  ok(/pdfRememberPages\(\)/.test(corpo), "…e non salva la scelta nel progetto, come fanno gli altri due");
+  ok(/pdfRenderPills\(\); pdfUpdateTechNote\(\)/.test(corpo), "…e non aggiorna la finestra, come fanno gli altri due");
 });
 
 t("compare solo quando c'e' qualcosa da togliere", () => {
@@ -12678,17 +12700,23 @@ t("il generatore orchestrale non lascia nessuno fuori dal palco", () => {
   eq(out[1].x, 0, "e chi era già dentro non si muove");
 });
 
-/* ===== IL PDF PARTE A UNA PAGINA (16/08) ================================================== */
+/* ===== IL PDF PARTE A UNA PAGINA, SEMPRE (16/08, esteso il 10/09) ========================== */
 t("l'export parte dal solo palco: le pagine tecniche si suggeriscono, non si aggiungono da sole", () => {
   /* Decisione di Simone: chi preme Esporta di fretta non deve ritrovarsi un PDF di cinque pagine
      che non ha chiesto — il costo di quell'errore lo paga chi lo riceve. Il suggerimento resta
-     (bordo verde), la scelta no. */
-  /* Ancorato all'INIZIALIZZAZIONE, non alla prima occorrenza di `_pdfPillSel={}`: dal 10/09 ce
-     n'e' un'altra, dentro il comando «Solo il palco», e il test si agganciava a quella. */
-  const iInit = appjs.indexOf("_pdfPillSel={};\n    if(Array.isArray(state.pdfPages))");
-  ok(iInit > -1, "l'inizializzazione delle pillole non si trova piu': ricontrollare");
-  const ap = appjs.slice(iInit, iInit + 400);
-  ok(/state\.pdfPages\)\) state\.pdfPages\.forEach/.test(ap), "se l'utente ha già scelto, si rispetta la sua scelta");
+     (bordo verde), la scelta no.
+     ⚠️ Dal 10/09 la scelta non si RICORDA piu' («togli anche la memoria della scelta»): prima le
+     pagine scelte una volta finivano in `state.pdfPages` e tornavano a ogni apertura. Su un
+     progetto vero se n'erano accumulate diciassette — tutte quelle disponibili — e chi riapriva
+     Esporta trovava un PDF da quattordici pagine senza averlo chiesto in quel momento. */
+  /* ⚠️ Ancorato al COMMENTO dell'inizializzazione, non alla prima occorrenza di `_pdfPillSel={}`:
+     ce n'e' un'altra dentro «Solo il palco», e agganciandosi a quella il test passava per il
+     motivo sbagliato — provato, restava verde anche col ripescaggio ancora al suo posto. */
+  const iInit = appjs.indexOf("IL PDF PARTE A UNA PAGINA");
+  ok(iInit > -1, "il punto dove si inizializzano le pillole non si trova piu': ricontrollare");
+  const ap = appjs.slice(iInit, iInit + 900);
+  ok(/_pdfPillSel=\{\};/.test(ap), "l'inizializzazione non e' piu' li' dentro");
+  eq(/state\.pdfPages/.test(ap), false, "l'apertura ripesca ancora le pagine scelte la volta prima");
   eq(/pdfSuggestedKeys\(_pdfTechPages\)\.forEach\(function\(k\)\{ _pdfPillSel\[k\]=true/.test(ap), false,
      "ma alla prima apertura NON si preseleziona niente");
   /* il suggerimento dev'essere ancora visibile, o si perde l'informazione utile */
@@ -14193,7 +14221,7 @@ t("le pagine suggerite si prendono con un clic solo", () => {
   const fn = appjs.slice(appjs.indexOf("if(nSugg>0){"), appjs.indexOf("var rest=_pdfTechPages.length-nSel;"));
   ok(/Object\.keys\(sugg\)\.forEach/.test(fn), "aggiunge SOLO quelle suggerite dal palco");
   ok(!/\_pdfTechPages\.forEach/.test(fn), "non tutte: «Tutte le pagine» è un altro bottone");
-  ok(/pdfRememberPages\(\)/.test(fn), "e la scelta si ricorda, come per le altre");
+  ok(/pdfRenderPills\(\); pdfUpdateTechNote\(\)/.test(fn), "e la finestra si aggiorna, come per le altre");
   /* Compare solo se ci sono suggerimenti: un bottone «aggiungi le 0 suggerite» è rumore. */
   ok(/if\(nSugg>0\)\{/.test(appjs), "senza suggerimenti non compare");
   /* Resta un'azione secondaria: la decisione è di chi esporta. */
