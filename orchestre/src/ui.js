@@ -26,11 +26,32 @@ export function fmtDateTime(iso) {
   if (isNaN(d)) return "";
   return d.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
-/* Il messaggio di un errore Supabase/PostgREST, in una riga leggibile. */
+/* Il messaggio di un errore, in una riga leggibile.
+
+   Le nostre funzioni sollevano eccezioni già in italiano («non autorizzato», «posto già occupato: prima
+   liberalo»): quelle passano come sono. Quando invece a parlare è il database — «new row violates
+   row-level security policy for table "orc_productions"» — chi organizza un concerto non deve leggerlo:
+   diventa una frase che dice cosa fare (collaudo 10/09/2026). */
+const DB_ERR = {
+  "42501": "Non hai i permessi per questa operazione.",
+  "23505": "Esiste già: controlla se l'hai inserito due volte.",
+  "23503": "Manca qualcosa a cui questo dato è collegato.",
+  "23514": "Un valore non è valido per questo campo.",
+  "22023": "Un dato non è valido.",
+  "PGRST301": "La sessione è scaduta: rientra e riprova.",
+  "PGRST116": "Non trovato: forse è stato eliminato nel frattempo.",
+};
+/* i modi in cui si riconosce che a parlare è Postgres e non noi */
+const TECNICO = /row-level security|policy|violates|constraint|duplicate key|relation "|column "|function [a-z_]+\(|permission denied|syntax error|invalid input|null value in/i;
 export function errMsg(e) {
   if (!e) return "Qualcosa non ha risposto. Riprova.";
   if (typeof e === "string") return e;
-  return e.message || e.error_description || e.details || "Qualcosa non ha risposto. Riprova.";
+  const m = e.message || e.error_description || e.details || "";
+  /* la rete che cade parla inglese: «Failed to fetch» non è una frase nostra */
+  if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return "Nessuna risposta dalla rete: controlla la connessione e riprova.";
+  if (m && !TECNICO.test(m)) return m;                       /* già una frase nostra, in italiano */
+  if (DB_ERR[e.code]) return DB_ERR[e.code];
+  return "Non è stato possibile completare l'operazione. Riprova, e se continua scrivici.";
 }
 
 let toastT = null;

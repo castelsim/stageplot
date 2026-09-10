@@ -149,3 +149,53 @@ run("l'area personale: inviti e incarichi via account, risposta senza token, exp
   const linked = (await rest(env, T.ownerB, "orc_musicians?select=user_id&email=eq." + encodeURIComponent(mail("altro")))).d[0];
   assert.equal(linked.user_id, U.altro);
 });
+
+/* Collaudo 10/09 (revisione di sicurezza): cinque invarianti che l'interfaccia prometteva ma il database
+   non imponeva. Rimettendo le vecchie policy ognuno di questi torna rosso. */
+run("il candidato non legge lo stato interno della sua candidatura, nemmeno via REST", async () => {
+  assert.ok((await rpc(env, T.ownerA, "orc_application_set_status", { app: APP, new_status: "interview_to_schedule", note: "" })).ok);
+  const grezzo = await rest(env, T.cand, "orc_applications?select=status,decided_by,musician_id");
+  assert.equal(grezzo.status, 200, "la richiesta deve arrivare al database, non fallire per sintassi");
+  assert.deepEqual(grezzo.d, [], "dalla console del browser non esce nessuna riga con lo stato interno");
+  const mie = (await rpc(env, T.cand, "orc_my_applications")).d;
+  assert.equal(mie.length, 1);
+  assert.equal(mie[0].public_status, "evaluating", "il candidato vede la maschera (in valutazione), non «colloquio da programmare»");
+  assert.ok(!("decided_by" in mie[0]), "e non chi ha deciso");
+});
+
+run("un file entra solo nel proprio dossier e nella propria cartella", async () => {
+  const suo = (await rpc(env, T.altro, "orc_ensure_musician_profile", {})).d.id;
+  const base = { kind: "cv", name: "CV.pdf", size: 10, mime: "application/pdf" };
+  const altrui = await rest(env, T.cand, "orc_files", { method: "POST", body: { ...base, owner_user_id: U.cand, profile_id: suo, path: "profiles/" + U.cand + "/cv/x.pdf" } });
+  assert.equal(altrui.ok, false, "un file infilato nel dossier di un altro candidato");
+  const fuori = await rest(env, T.cand, "orc_files", { method: "POST", body: { ...base, owner_user_id: U.cand, profile_id: PROF, path: "profiles/" + U.altro + "/cv/y.pdf" } });
+  assert.equal(fuori.ok, false, "un file che punta alla cartella di un altro");
+  const buono = await rest(env, T.cand, "orc_files", { method: "POST", body: { ...base, owner_user_id: U.cand, profile_id: PROF, path: "profiles/" + U.cand + "/cv/ok.pdf" } });
+  assert.ok(buono.ok, JSON.stringify(buono.d));
+});
+
+run("una valutazione non si scrive nel dossier di un'altra organizzazione", async () => {
+  const intrusa = await rest(env, T.ownerB, "orc_evaluations", { method: "POST", body: { org_id: ORG_B, application_id: APP, kind: "general", overall: 1, private_note: "inaffidabile" } });
+  assert.equal(intrusa.ok, false, "l'org B non scrive una valutazione dentro una candidatura dell'org A");
+  const mia = await rest(env, T.ownerA, "orc_evaluations", { method: "POST", body: { org_id: ORG_A, application_id: APP, kind: "general", overall: 4 } });
+  assert.ok(mia.ok, JSON.stringify(mia.d));
+});
+
+run("il consenso è una prova: si dà e si legge, non si cancella né si retrodata", async () => {
+  const miei = await rest(env, T.cand, "orc_consents?select=id,granted_at");
+  assert.equal(miei.status, 200);
+  assert.ok(miei.d.length > 0, "il consenso dell'invio è registrato");
+  const id = miei.d[0].id;
+  await rest(env, T.cand, "orc_consents?id=eq." + id, { method: "DELETE" });
+  assert.equal((await rest(env, T.cand, "orc_consents?select=id&id=eq." + id)).d.length, 1, "non si cancella");
+  await rest(env, T.cand, "orc_consents?id=eq." + id, { method: "PATCH", body: { granted_at: "2020-01-01T00:00:00Z" } });
+  const dopo = (await rest(env, T.cand, "orc_consents?select=granted_at&id=eq." + id)).d[0];
+  assert.notEqual(dopo.granted_at.slice(0, 4), "2020", "non si retrodata");
+});
+
+run("il registro delle candidature dice lo stato di partenza vero", async () => {
+  assert.ok((await rpc(env, T.ownerA, "orc_application_set_status", { app: APP, new_status: "evaluating", note: "" })).ok);
+  const ev = (await rest(env, T.ownerA, "orc_application_events?select=from_status,to_status&application_id=eq." + APP + "&order=at.desc&limit=1")).d[0];
+  assert.equal(ev.to_status, "evaluating");
+  assert.equal(ev.from_status, "interview_to_schedule", "da dove veniva, non dove è arrivata");
+});

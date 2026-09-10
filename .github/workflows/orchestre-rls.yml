@@ -1,0 +1,60 @@
+# Le regole di sicurezza di Orchestre, provate davvero.
+#
+# Perché un workflow a parte: le 8 suite RLS (43 test su 87) hanno bisogno di un Postgres vero con le
+# migrazioni applicate, e finora si SALTAVANO in silenzio in `pages.yml` — `localEnv()` non trovava il
+# locale e `test.skip` faceva passare tutto. Il modello di sicurezza era verde per assenza (collaudo
+# del 10/09/2026). Qui `ORC_RLS=1` rende obbligatorio il locale: se Supabase non parte, i test non si
+# saltano, falliscono.
+#
+# Sta fuori da `pages.yml` perché il deploy del sito non deve dipendere dal download di dodici immagini
+# Docker: se questo workflow è rosso la PR si vede rossa, ma stageplot.it continua a pubblicarsi.
+
+name: Sicurezza Orchestre (RLS)
+
+on:
+  push:
+    branches: [main]
+    paths: ["orchestre/**", "supabase/migrations/**", ".github/workflows/orchestre-rls.yml"]
+  pull_request:
+    paths: ["orchestre/**", "supabase/migrations/**", ".github/workflows/orchestre-rls.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orchestre-rls-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+
+      # Solo i servizi che i test toccano: database, API REST, autenticazione (kong+meta) e storage
+      # (il bucket privato orc-files del lotto 7). Niente studio, realtime, analytics, edge functions.
+      - name: Avvia Supabase con le migrazioni applicate
+        run: supabase start -x studio,imgproxy,realtime,vector,analytics,edge-runtime,functions,inbucket
+
+      # La prova che questo workflow serve a qualcosa: senza il locale i test devono FALLIRE, non saltarsi.
+      - name: Il locale risponde
+        run: |
+          supabase status -o json > /tmp/sb.json
+          node -e "const e=require('/tmp/sb.json'); if(!e.API_URL||!e.ANON_KEY||!e.SERVICE_ROLE_KEY) { console.error('Supabase locale incompleto'); process.exit(1); } console.log('locale pronto:', e.API_URL);"
+
+      - name: Scenari A-E — isolamento fra organizzazioni, ruoli, privacy
+        env:
+          ORC_RLS: "1"
+        run: node --test orchestre/test/rls*.test.mjs
+
+      - name: Cosa non ha funzionato
+        if: failure()
+        run: supabase status || true
