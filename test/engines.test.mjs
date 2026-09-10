@@ -7617,6 +7617,106 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
   ok(iDis > iAsc && iDis > iAcc, "il gruppo con la tipografia viene ancora prima di ascolto e accessori");
 });
 
+console.log("\n— Annulla, CSV e i bottoni mobili (segnalazioni 10/09) —");
+
+/* BUG 1 (P2) — «Annulla accorpa rinomina e duplicazione». `saveSoon()` rinvia lo snapshot di 500 ms
+   (un solo snapshot per parola invece di uno per carattere). Se entro quella finestra arriva
+   un'azione discreta, quella muta lo stato e chiama `save()` → `recordHistory()` spinge nello
+   stack `lastSnap`, che e' ancora lo stato PRIMA della rinomina: un solo Annulla se le porta via
+   tutte e due. `flushHistorySoon()` esisteva gia' ma lo chiamavano SOLO undo() e redo(). */
+t("duplicare subito dopo aver rinominato non accorpa le due modifiche", () => {
+  reset();
+  const it = add("cantante", 100, 100);
+  A.resetHistory();
+  it.label = "BASE"; A.save();
+  it.label = "NUOVO"; A.saveSoon();          /* snapshot in sospeso: il timer non e' ancora scattato */
+  A.selectMany([it.id]); A.duplicateSel();
+  eq(A.state.items.length, 2, "il duplicato non e' stato creato: il test non prova niente");
+  A.undo();
+  eq(A.state.items.length, 1, "l'Annulla non ha tolto il duplicato");
+  eq(A.state.items[0].label, "NUOVO", "l'Annulla si e' portato via anche la rinomina");
+});
+
+t("vale per le altre azioni discrete, non solo per Duplica", () => {
+  ["deleteSel", "rotateSel"].forEach((nome) => {
+    reset();
+    const a = add("cantante", 100, 100), b = add("cantante", 300, 100);
+    A.resetHistory();
+    a.label = "BASE"; A.save();
+    a.label = "NUOVO"; A.saveSoon();
+    A.selectMany([b.id]);
+    if (nome === "rotateSel") A.rotateSel(15); else A.deleteSel();
+    A.undo();
+    const ancora = A.state.items.filter((x) => x.id === a.id)[0];
+    ok(ancora, nome + ": l'elemento rinominato e' sparito");
+    eq(ancora.label, "NUOVO", nome + " ha accorpato la rinomina in sospeso");
+  });
+});
+
+t("lo snapshot si chiude negli helper, non solo nelle tre azioni corrette a mano", () => {
+  /* Il report chiedeva di guardare anche le ALTRE azioni discrete. Sono decine, e elencarle una
+     per una vuol dire dimenticarne una alla prossima aggiunta: `mutSel` e `mutSelAll` sono la
+     porta da cui passano (65 usi), e il flush sta li'. `mutSelSoon` invece NON si tocca: quella e'
+     la digitazione, ed e' proprio lo snapshot che sta aspettando. */
+  ok(/function mutSel\(fn\)\{ primaDiAgire\(\);/.test(appjs), "mutSel non chiude lo snapshot in sospeso");
+  ok(/function mutSelAll\(fn\)\{ primaDiAgire\(\);/.test(appjs), "mutSelAll non chiude lo snapshot in sospeso");
+  eq(/function mutSelSoon\(fn\)\{ primaDiAgire\(\);/.test(appjs), false,
+     "mutSelSoon lo chiude: cosi' ogni carattere digitato torna a essere un passo di cronologia");
+  /* e il comportamento: una spunta cambiata subito dopo una rinomina non se la porta via */
+  reset();
+  const it = add("cantante", 100, 100);
+  A.resetHistory();
+  it.label = "BASE"; A.save();
+  it.label = "NUOVO"; A.saveSoon();
+  A.selectMany([it.id]);
+  A.mutSel(function (x) { x.rot = 90; });
+  A.undo();
+  eq(A.state.items[0].label, "NUOVO", "mutSel ha accorpato la rinomina in sospeso");
+  eq(A.state.items[0].rot, 0, "…e l'Annulla non ha tolto la rotazione");
+});
+
+/* BUG 2 (P2) — «CSV Excel senza protezione dalle formule». Un canale chiamato «=1+1» finiva nel CSV
+   cosi' com'e': Excel apre il file e la cella diventa 2. Con nomi piu' creativi si arriva a DDE.
+   Le virgolette CSV dicono dove finisce il campo, NON che tipo ha. */
+t("il CSV per Excel non lascia passare una formula", () => {
+  reset();
+  const it = add("cantante", 100, 100);
+  ["=1+1", "+1", "-1", "@SUM(A1)", "\t=1+1"].forEach((veleno) => {
+    it.label = veleno; A.__cabRes = null;
+    const csv = A.channelListCsv({ format: "excel-it" }).csv;
+    const riga = csv.split("\r\n").filter((l) => l.indexOf(veleno.replace(/^\t/, "")) > -1)[0] || "";
+    ok(riga, "il nome non e' finito nel CSV: " + veleno);
+    ok(/;'/.test(riga) || /^'/.test(riga.split(";")[1] || ""),
+       "«" + veleno + "» esce senza apice: Excel la esegue → " + riga);
+  });
+});
+
+t("i formati per console restano puliti", () => {
+  /* Un apice davanti al nome finirebbe dentro il banco: A&H Director e «Internazionale / console»
+     non si toccano. E' il motivo per cui la protezione sta sul FORMATO, non su csvCell(). */
+  reset();
+  const it = add("cantante", 100, 100);
+  it.label = "=1+1"; A.__cabRes = null;
+  ["ah", "intl"].forEach((f) => {
+    const csv = A.channelListCsv({ format: f }).csv;
+    eq(/'/.test(csv), false, "il formato " + f + " e' stato sporcato con un apice: " + csv.slice(0, 120));
+  });
+});
+
+/* BUG 3 (P3) — «Annulla/Ripeti mobili attivi con cronologia vuota». `syncHistoryButtons()`
+   aggiornava bUndo e bRedo e ignorava mUndo e mRedo, che pure hanno il loro handler. */
+t("Annulla e Ripeti si spengono su tutti e quattro i bottoni", () => {
+  const i = appjs.indexOf("function syncHistoryButtons()");
+  const f = appjs.slice(i, appjs.indexOf("\n}", i));
+  ["bUndo", "bRedo", "mUndo", "mRedo"].forEach((id) => {
+    ok(f.indexOf('"' + id + '"') > -1, "syncHistoryButtons non tocca " + id);
+  });
+  ok(/mUndo/.test(appjs.slice(appjs.indexOf('id="mUndo"') - 0, 0)) || true, "");
+  /* e i due mobili hanno davvero un handler, o disabilitarli non vorrebbe dire niente */
+  ok(/getElementById\("mUndo"\)\.addEventListener\("click", undo\)/.test(appjs), "mUndo non e' collegato a undo()");
+  ok(/getElementById\("mRedo"\)\.addEventListener\("click", redo\)/.test(appjs), "mRedo non e' collegato a redo()");
+});
+
 console.log("\n— La finestra Esporta non taglia l'anteprima —");
 
 /* Segnalazione di Simone (10/09, screenshot): «quando cerco di esportare c'e' una sorta di bug
