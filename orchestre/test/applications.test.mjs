@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { APP_STATUS, PUBLIC_STATUS, publicStatus, missingFields, completion, STEPS } from "../src/domain/applications.js";
+import { APP_STATUS, PUBLIC_STATUS, publicStatus, missingFields, completion, STEPS, PASSI_PROFILO } from "../src/domain/applications.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -34,6 +34,12 @@ test("missingFields e completion seguono la stessa regola del DB", () => {
   assert.deepEqual(missingFields({ ...full, phone: " " }, [{ is_primary: false }]), ["phone", "instrument"]);
 });
 
-test("l'onboarding ha otto passi nell'ordine della SPEC", () => {
-  assert.deepEqual(STEPS.map((s) => s[0]), ["identita", "strumenti", "competenze", "esperienze", "geografia", "materiali", "revisione", "invio"]);
+test("il primo passo è la candidatura intera; gli altri sono il profilo, e vengono dopo", () => {
+  /* Prima i sei campi obbligatori stavano sparsi su quattro passi e per mandare la candidatura
+     bisognava attraversarli tutti. Adesso il passo 1 basta a candidarsi: se qualcuno lo spezza di
+     nuovo, questo test lo dice. */
+  assert.equal(STEPS[0][0], "candidatura", "la candidatura è il primo passo, non l'ottavo");
+  assert.deepEqual(STEPS.map((s) => s[0]), ["candidatura", "strumenti", "competenze", "esperienze", "geografia", "materiali", "revisione"]);
+  assert.equal(PASSI_PROFILO, STEPS.length - 1, "gli altri sono il completamento, contati a parte");
+  assert.ok(!STEPS.some((s) => s[0] === "invio"), "non c'è più un passo «invio» in fondo: si manda dal primo");
 });
