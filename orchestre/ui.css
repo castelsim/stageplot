@@ -60,6 +60,20 @@ p{margin-bottom:var(--s-3)}
 .nav-tabs a{padding:10px 12px;min-height:var(--tap);display:flex;align-items:center;text-decoration:none;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap}
 .nav-tabs a[aria-current="page"]{color:var(--accent-strong);border-color:var(--accent)}
 .nav-tabs a[aria-disabled="true"]{color:var(--text-3);pointer-events:none}
+/* Le porte della home: «chi sei» prima di «cos'è». Chi gestisce l'orchestra entra dal pulsante in alto:
+   in mezzo restano i due che arrivano senza sapere dove andare — chi suona e chi cerca musicisti. */
+.porte{display:grid;gap:var(--s-3);margin:var(--s-5) auto;max-width:760px}
+.porte.due .porta{display:flex;flex-direction:column;justify-content:center;text-align:center}
+.mid{text-align:center}
+.porta{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-md);padding:var(--s-4)}
+.porta:hover{border-color:var(--accent);box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.porta b{display:block;font-size:var(--t-heading);margin-bottom:4px}
+.porta span{display:block;color:var(--text-2);font-size:var(--t-body)}
+.porta .vai{color:var(--accent-strong);font-weight:600;margin-top:var(--s-3)}
+/* affiancate e alte uguali solo quando c'è spazio: sul telefono la simmetria è solo vuoto in più */
+@media (min-width:700px){.porte.due{grid-template-columns:1fr 1fr}.porte.due .porta{min-height:190px}}
+
 .o-foot{border-top:1px solid var(--border);margin-top:var(--s-8);padding:var(--s-4) 0;font-size:var(--t-body);color:var(--text-3);display:flex;gap:var(--s-4);flex-wrap:wrap}
 .o-foot a{color:inherit;min-height:var(--tap);display:inline-flex;align-items:center}
 a.back{display:inline-flex;align-items:center;min-height:var(--tap);text-decoration:none;font-weight:600}

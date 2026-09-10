@@ -19,25 +19,24 @@
 <body>
 <header class="o-top"><a class="o-brand" href="/orchestre/"><span>StagePlot</span><small>Orchestre</small></a><span class="spacer"></span><a class="btn small" href="/orchestre/login/" id="topLogin">Accedi</a></header>
 <main class="o-wrap" id="app">
-  <h1>L'organico giusto, in fretta.</h1>
-  <p class="lead">Chi mette insieme un'orchestra sa già chi vorrebbe chiamare. Orchestre tiene insieme i musicisti, le produzioni e le risposte, e suggerisce chi ha già suonato quel repertorio, con quel direttore, per quel cliente.</p>
-  <p class="row"><a class="btn primary" href="/orchestre/login/" id="ctaLogin">Accedi con Google</a><a class="btn ghost" href="/app/">StagePlot, l'editor del palco</a></p>
+  <h1 class="mid">Che cosa ti serve?</h1>
 
-  <h2>Come funziona</h2>
-  <ol class="steps">
-    <li><b>I musicisti e lo storico</b>L'organizzazione registra il proprio pool: strumenti, competenze, repertori già eseguiti, produzioni passate.</li>
-    <li><b>La produzione e l'organico</b>Per ogni concerto definisci sezioni e posti. Il sistema ordina i candidati e ti dice perché: nessun punteggio opaco.</li>
-    <li><b>La convocazione</b>Ogni musicista riceve un link e risponde dal telefono in due tocchi. Chi non risponde si vede subito, il posto scoperto pure.</li>
-  </ol>
+  <div class="porte due">
+    <a class="porta" href="/orchestre/candidatura/" id="pMusicista">
+      <b>Sono un musicista</b>
+      <span>Il tuo profilo, le convocazioni e le date a cui hai detto sì.</span>
+      <span class="vai" id="pMusicistaVai">Come funziona &rarr;</span>
+    </a>
+    <a class="porta" href="/orchestre/richiedi/">
+      <b>Cerco musicisti</b>
+      <span>Per un concerto, uno spettacolo, una registrazione: dicci cosa serve.</span>
+      <span class="vai">Chiedi un preventivo &rarr;</span>
+    </a>
+  </div>
 
-  <h2>Due strumenti, un solo palco</h2>
-  <p>StagePlot disegna il palco in scala: postazioni, microfoni, monitor, cablaggi. Orchestre decide <em>chi</em> ci suona. Una produzione può collegare i due, e le postazioni del palco diventano i posti dell'organico.</p>
+  <p class="mid"><a class="btn" href="/app/">Disegna il palco con stageplot.it</a></p>
 
-  <h2>Per i musicisti</h2>
-  <p>Un profilo solo, che resta tuo, da mandare alle organizzazioni che accettano candidature. Le convocazioni arrivano via email e nella tua area, e rispondi in due tocchi.</p>
-  <p><a class="btn" href="/orchestre/candidatura/">Candidati come musicista</a></p>
-
-  <footer class="o-foot"><a href="/privacy/">Privacy</a><a href="/termini/">Termini</a><span>© StagePlot</span></footer>
+  <footer class="o-foot"><a href="/privacy/">Privacy</a><a href="/termini/">Termini</a><span>&copy; StagePlot</span></footer>
 </main>
 <script src="/vendor/supabase.min.js"></script>
 <script type="module" src="/orchestre/src/pages/home.js"></script>

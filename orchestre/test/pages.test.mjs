@@ -284,3 +284,25 @@ test("l'informativa non promette quello che l'area del musicista non fa", () => 
     ? "l'area sa scaricare i dati ma l'informativa non lo dice"
     : "l'informativa promette un download che nell'area non esiste piu: la copia si chiede scrivendo");
 });
+
+/* La home non spiega piu il servizio: chiede «che cosa ti serve» e apre due porte. Chi gestisce
+   l'orchestra e Simone, e entra dal pulsante in alto — il login lo riconosce da se (staff → area
+   dell'organizzazione, altrimenti → area musicista). Se una di queste strade si rompe, dalla home
+   non ci si arriva piu: nessuna pagina lo direbbe, la home resterebbe bella e muta. */
+test("la home apre le due porte e lascia entrare chi gestisce dal pulsante in alto", () => {
+  const html = readFileSync(join(root, "orchestre/index.html"), "utf8");
+  for (const [chi, dove] of [["Sono un musicista", "/orchestre/candidatura/"], ["Cerco musicisti", "/orchestre/richiedi/"]]) {
+    assert.ok(html.includes(chi), "manca la porta «" + chi + "»");
+    assert.ok(html.includes('href="' + dove + '"'), "la porta «" + chi + "» non porta a " + dove);
+  }
+  assert.ok(/id="topLogin"/.test(html) && html.includes('href="/orchestre/login/"'), "il pulsante d'accesso in alto e l'unica porta di chi gestisce: deve esserci");
+  assert.ok(html.includes('href="/app/"'), "e il rimando all'editor del palco");
+  assert.doesNotMatch(html, /Gestisco l'orchestra/, "la porta dello staff non sta in home: si entra dal pulsante in alto");
+  /* le pagine di destinazione devono esistere davvero */
+  for (const r of ["orchestre/candidatura", "orchestre/richiedi", "orchestre/login"]) {
+    assert.ok(existsSync(join(root, r, "index.html")), r + ": la home ci manda ma la pagina non c'e");
+  }
+  const js = readFileSync(join(root, "orchestre/src/pages/home.js"), "utf8");
+  assert.match(js, /getElementById\("pMusicista"\)/, "con la sessione la porta del musicista va ripuntata: senza, chi e gia dentro rilegge la spiegazione");
+  assert.match(js, /BASE \+ "\/musicista\/"/, "e deve portarlo nella sua area");
+});
