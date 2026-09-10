@@ -6,6 +6,7 @@ export function tabs(active) {
   const items = [
     ["home", "Home", BASE + "/admin/"],
     ["musicisti", "Musicisti", BASE + "/admin/musicisti/"],
+    ["richieste", "Richieste", BASE + "/admin/richieste/"],
     ["produzioni", "Produzioni", BASE + "/admin/produzioni/"],
     ["candidature", "Candidature", BASE + "/admin/candidature/"],
     ["impostazioni", "Impostazioni", BASE + "/admin/impostazioni/"],
@@ -13,7 +14,7 @@ export function tabs(active) {
   return `<nav class="nav-tabs" aria-label="Sezioni">${items.map(([k, label, href]) =>
     href
       ? `<a href="${href}" data-tab="${k}"${k === active ? ' aria-current="page"' : ""}>${label}</a>`
-      : `<a data-tab="${k}" aria-disabled="true" title="In arrivo nei prossimi lotti">${label}</a>`).join("")}</nav>`;
+      : `<a data-tab="${k}" aria-disabled="true" title="In arrivo">${label}</a>`).join("")}</nav>`;
 }
 
 export const STATUS = { active: "Attivo", reserve: "Riserva", suspended: "Sospeso", archived: "Archiviato" };

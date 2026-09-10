@@ -14842,5 +14842,19 @@ t("la vista si ricarica quando cambia il progetto cloud e mai senza sessione", (
   ok((appjs.match(/orcSeatsSync\(\)/g) || []).length >= 5, "apertura, salvataggio nuovo, setCurrentId, avvio, cambio sessione");
 });
 
+t("«Richiedi musicisti»: il pulsante c'è e porta con sé il progetto salvato", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(html.indexOf('id="bRichiedi"') > -1, "nell'header, accanto a Consulenza");
+  ok(html.indexOf('id="mactRichiedi"') > -1, "e nel menu azioni del telefono");
+  ok(html.indexOf('id="prodOrc"') > -1, "il riquadro Musicisti del hub Produzione resta");
+  eq(A.orcRichiediLink("0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6"), "/orchestre/richiedi/?p=0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6");
+  eq(A.orcRichiediLink("0F0E0D0C-1B1A-4C3D-8E2F-A1B2C3D4E5F6"), "/orchestre/richiedi/?p=0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6");
+  /* senza progetto la pagina si apre lo stesso: sceglierà lì quale palco allegare */
+  eq(A.orcRichiediLink(null), "/orchestre/richiedi/");
+  eq(A.orcRichiediLink("mai-visto"), "/orchestre/richiedi/");
+  ok(appjs.indexOf("function orcRichiediSync(") > -1, "l'indirizzo si aggiorna quando cambia il progetto");
+  ok(appjs.indexOf("orcRichiediSync()") > -1);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

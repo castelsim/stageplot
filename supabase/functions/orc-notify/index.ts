@@ -11,6 +11,7 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2.1
 import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { nextOutboxAttempt, outboxStatusAfterAttempt } from "../_shared/notification-outbox.ts";
 import { buildInviteEmail, idempotencyKey, isReservedAddress, type InviteRow } from "../_shared/orc-invitations.ts";
+import { buildClientEmail, buildInternalEmail, type ClientRequestRow, isReservedAddress as isReservedClient, requestKey } from "../_shared/orc-client-requests.ts";
 
 const CLAIM_STALE_MS = 10 * 60 * 1000;
 const BATCH_SIZE = 20;
@@ -107,6 +108,66 @@ async function processPending(supabase: SupabaseClient, resendKey: string, mode:
   return counts;
 }
 
+/* «Richiedi musicisti»: due email per richiesta — una alla società (che deve poter decidere subito) e la
+   conferma al cliente (che deve sapere quanto aspettare). Sono due invii separati perché possono fallire
+   in modo indipendente: se salta la conferma al cliente, la società ha comunque ricevuto il lavoro. */
+async function processClientRequests(supabase: SupabaseClient, resendKey: string, mode: string, base: string, to: string) {
+  const counts = { reqSent: 0, reqFailed: 0 };
+  const { data: rows, error } = await supabase.from("orc_client_requests")
+    .select("id,contact_name,contact_company,contact_email,contact_phone,event_kind,event_title,event_when,event_place,schedule,repertoire,budget,notes,created_at,snapshot,notification_status,notification_attempts,ack_status,ack_attempts,orc_organizations(name),orc_client_request_slots(label,instrument_code,qty,covered)")
+    .or("notification_status.eq.pending,ack_status.eq.pending")
+    .order("created_at", { ascending: true }).limit(BATCH_SIZE);
+  if (error) throw new Error(error.message);
+  for (const raw of (rows ?? []) as unknown as Array<Record<string, unknown>>) {
+    const row = {
+      ...raw,
+      org_name: (raw.orc_organizations as { name?: string } | null)?.name ?? "StagePlot",
+      slots: (raw.orc_client_request_slots ?? []) as ClientRequestRow["slots"],
+    } as unknown as ClientRequestRow;
+    const id = String(raw.id);
+
+    /* 1. alla società */
+    if (raw.notification_status === "pending") {
+      const claim = await supabase.from("orc_client_requests")
+        .update({ notification_status: "sending", notification_claimed_at: new Date().toISOString() })
+        .eq("id", id).eq("notification_status", "pending").select("id");
+      if (!claim.error && (claim.data ?? []).length) {
+        const attempts = Number(raw.notification_attempts ?? 0) + 1;
+        const m = buildInternalEmail(row, base);
+        let ok = false;
+        if (!to) { ok = false; }
+        else if (mode === "log") { console.info("orc-notify [log] richiesta →", to, m.subject); ok = true; }
+        else ok = (await send(resendKey, to, m.subject, m.html, m.text, requestKey(id, "internal", attempts))).ok;
+        await supabase.from("orc_client_requests").update({
+          notification_status: outboxStatusAfterAttempt(ok, attempts),
+          notification_attempts: attempts, notification_claimed_at: null,
+          notification_last_error: ok ? null : (!to ? "no_notify_email" : "send_failed"),
+        }).eq("id", id);
+        if (ok) counts.reqSent++; else counts.reqFailed++;
+      }
+    }
+
+    /* 2. al cliente. Gli indirizzi dei dati di prova non ricevono niente: mai email vere dai test. */
+    if (raw.ack_status === "pending") {
+      const attempts = Number(raw.ack_attempts ?? 0) + 1;
+      const dest = String(raw.contact_email ?? "");
+      let ok = false;
+      if (!dest || isReservedClient(dest)) {
+        console.info("orc-notify: conferma non spedita (indirizzo riservato o assente)", dest);
+        await supabase.from("orc_client_requests").update({ ack_status: "none", ack_attempts: attempts }).eq("id", id);
+        continue;
+      }
+      const m = buildClientEmail(row, base);
+      if (mode === "log") { console.info("orc-notify [log] conferma →", dest, m.subject); ok = true; }
+      else ok = (await send(resendKey, dest, m.subject, m.html, m.text, requestKey(id, "client", attempts))).ok;
+      await supabase.from("orc_client_requests").update({
+        ack_status: outboxStatusAfterAttempt(ok, attempts), ack_attempts: attempts,
+      }).eq("id", id);
+    }
+  }
+  return counts;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   const expected = Deno.env.get("CONSULTATION_WORKER_SECRET") ?? "";
@@ -130,10 +191,11 @@ Deno.serve(async (req) => {
       .eq("notification_status", "sending").or(`notification_claimed_at.is.null,notification_claimed_at.lt.${staleBefore}`);
     if (stErr) throw new Error(stErr.message);
     const counts = await processPending(supabase, resendKey, mode, base);
+    const reqCounts = await processClientRequests(supabase, resendKey, mode, base, Deno.env.get("NOTIFY_EMAIL") ?? "");
     const { count: dead } = await supabase.from("orc_invitations").select("id", { count: "exact", head: true }).eq("notification_status", "failed");
     /* le spedizioni fallite restano visibili allo staff nella scheda Convocazioni: il worker risponde ok
        se ha girato; va rosso solo se non riesce a lavorare */
-    return json({ ok: true, expired: expired ?? 0, ...counts, deadLetters: dead ?? 0, mode });
+    return json({ ok: true, expired: expired ?? 0, ...counts, ...reqCounts, deadLetters: dead ?? 0, mode });
   } catch (e) {
     console.error("orc-notify fallito:", e instanceof Error ? e.message : "unknown");
     return json({ error: "worker failed" }, 500);
