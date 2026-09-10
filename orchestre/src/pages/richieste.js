@@ -4,7 +4,7 @@
 import { esc, el, toast, setState, errMsg, fmtDateTime } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
-import { EVENT_KINDS } from "../domain/client-request.js";
+import { EVENT_KINDS, quantiLabel } from "../domain/client-request.js";
 import * as api from "../api/client-requests.js";
 
 const app = document.getElementById("app");
@@ -21,7 +21,7 @@ async function main() {
   app.className = "o-wrap";
   app.innerHTML = tabs("richieste") + `
     <div class="row"><h1>Richieste dei clienti</h1></div>
-    <p class="small muted">Arrivano dal pulsante «Richiedi musicisti» dell'editor, con la copia del palco al momento dell'invio. Quello che è arrivato non si modifica: si lavora, non si riscrive.</p>
+    <p class="small muted">Arrivano dal pulsante «Richiedi musicisti» dell'editor — con la copia del palco al momento dell'invio — oppure dalla home di Orchestre, dove il palco non serve: in quel caso può esserci scritto «formazione da definire», e la proponiamo noi. Quello che è arrivato non si modifica: si lavora, non si riscrive.</p>
     <ul class="list" id="list"><li class="loading">Un attimo…</li></ul>`;
   try { tutte = await api.list(ctx.org.org_id); paint(); }
   catch (e) { const ul = app.querySelector("#list"); ul.innerHTML = ""; setState(ul, "err", errMsg(e)); }
@@ -39,7 +39,7 @@ function paint() {
     li.querySelector(".title").textContent = r.event_title;
     li.querySelector(".sub").textContent = [
       (EVENT_KINDS[r.event_kind] || r.event_kind),
-      r.n_needed === 1 ? "1 musicista" : r.n_needed + " musicisti",
+      quantiLabel(r),
       [r.event_when, r.event_place].filter(Boolean).join(" · "),
       [r.contact_name, r.contact_company].filter(Boolean).join(" · "),
     ].filter(Boolean).join(" · ");

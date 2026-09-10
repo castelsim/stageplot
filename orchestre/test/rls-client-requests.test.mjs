@@ -116,6 +116,44 @@ run("la lavorazione: solo la società, e solo stato ed evento collegato", async 
   assert.ok(log.length >= 1, "la lavorazione resta nel registro");
 });
 
+run("chi non ha disegnato niente manda lo stesso, e dice che la formazione è da definire", async () => {
+  /* Il caso che prima si fermava sulla soglia: nessun palco, nessun posto, «proponetemela voi».
+     Deve finire nella STESSA coda delle altre (decisione di Simone, 10/09) e dirlo a chiare lettere. */
+  const senza = await rpc(env, T.cliente, "orc_client_request_create", {
+    project: null, snap: {}, slots: [],
+    fields: { ...FIELDS, event_title: "Matrimonio senza palco", formation_unknown: true },
+  });
+  assert.ok(senza.ok && senza.d, JSON.stringify(senza.d));
+  const mie = (await rpc(env, T.cliente, "orc_my_client_requests", {})).d || [];
+  const mia = mie.find((r) => r.id === senza.d);
+  assert.ok(mia, "il cliente la ritrova fra le sue");
+  assert.equal(mia.formation_unknown, true, "e c'è scritto che la formazione è da definire");
+  assert.equal(mia.n_needed, 0, "nessun posto: è proprio la domanda che sta facendo");
+  const coda = (await rpc(env, T.societa, "orc_client_requests_list", { org: ORG })).d || [];
+  const vista = coda.find((r) => r.id === senza.d);
+  assert.ok(vista, "la società la trova nella stessa coda delle altre, non da un'altra parte");
+  assert.equal(vista.formation_unknown, true);
+  assert.equal(vista.project_id, null, "senza palco allegato");
+  /* e una richiesta normale non si trova marchiata per sbaglio */
+  const normale = coda.find((r) => r.id !== senza.d);
+  if (normale) assert.equal(normale.formation_unknown, false, "chi il palco ce l'ha non risulta «da definire»");
+});
+
+run("quello che è arrivato non si modifica: nemmeno la formazione dichiarata", async () => {
+  const rid = (await rpc(env, T.cliente, "orc_client_request_create", {
+    project: null, snap: {}, slots: [], fields: { ...FIELDS, event_title: "Da non toccare", formation_unknown: true },
+  })).d;
+  const tocca = await rest(env, T.societa, "orc_client_requests?id=eq." + rid, { method: "PATCH", body: { formation_unknown: false } });
+  assert.ok(!tocca.ok || JSON.stringify(tocca.d).includes("non si modifica"), "la società non riscrive quello che ha chiesto il cliente: " + JSON.stringify(tocca.d));
+  const dopo = (await rpc(env, T.societa, "orc_client_requests_list", { org: ORG })).d.find((r) => r.id === rid);
+  assert.equal(dopo.formation_unknown, true, "resta com'era");
+  /* sulla tabella ci sono solo policy di lettura, quindi la PATCH di sopra non arriva nemmeno al trigger:
+     il guard è la SECONDA difesa, e per provarlo davvero serve la chiave che scavalca la RLS. */
+  const conChiave = await rest(env, admin(env), "orc_client_requests?id=eq." + rid, { method: "PATCH", body: { formation_unknown: false } });
+  assert.equal(conChiave.ok, false, "nemmeno chi scavalca la RLS riscrive quello che ha dichiarato il cliente");
+  assert.match(JSON.stringify(conChiave.d), /non si modifica/, JSON.stringify(conChiave.d));
+});
+
 run("si rimette com'era: una sola organizzazione riceve le richieste", async () => {
   await rest(env, admin(env), "orc_organizations?id=eq." + ORG, { method: "PATCH", body: { is_service_provider: false } });
   if (PRIMA) await rest(env, admin(env), "orc_organizations?id=eq." + PRIMA, { method: "PATCH", body: { is_service_provider: true } });

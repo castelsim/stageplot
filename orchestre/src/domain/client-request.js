@@ -35,6 +35,26 @@ export function missingFields(fields) {
   if (mail && !EMAIL.test(mail) && !out.includes("contact_email")) out.push("contact_email");
   return out;
 }
+/* Si può mandare? Servono i campi obbligatori e, se il cliente non ha detto «non so quale formazione
+   serve», almeno un posto da coprire. Chi dichiara di non saperlo sta facendo una domanda, non
+   dimenticando una riga: la richiesta parte lo stesso e la formazione la propone la società. */
+/* Come si legge, in una riga, quanti musicisti sta chiedendo: «0 musicisti» sarebbe una bugia per chi
+   ha detto «non so quale formazione serve» — quello sta chiedendo una proposta. */
+export function quantiLabel(r) {
+  if ((r || {}).formation_unknown) return "formazione da definire";
+  const n = Number((r || {}).n_needed) || 0;
+  return n === 1 ? "1 musicista" : n + " musicisti";
+}
+
+export function motivoNonPronta(fields, righe) {
+  const miss = missingFields(fields);
+  if (miss.length) return missingLabel(miss);
+  if (!(fields || {}).formation_unknown && !countNeeded(righe || [])) {
+    return "Dicci chi ti serve: aggiungi almeno uno strumento, oppure spunta «non so quale formazione serve».";
+  }
+  return "";
+}
+
 export function missingLabel(missing) {
   const l = missing.map((k) => FIELD_LABEL[k] || k);
   if (!l.length) return "";
@@ -88,7 +108,9 @@ export function countNeeded(righe) {
 export function summaryLines(fields, righe) {
   const n = countNeeded(righe);
   const out = [];
-  out.push(n === 0 ? "Nessun musicista richiesto: spunta almeno una postazione." : n === 1 ? "Un musicista" : n + " musicisti");
+  /* chi ha detto «non so quale formazione serve» non ha dimenticato di spuntare: sta chiedendo altro */
+  out.push((fields || {}).formation_unknown ? "Formazione da definire: la proponiamo noi"
+    : n === 0 ? "Nessun musicista richiesto: spunta almeno una postazione." : n === 1 ? "Un musicista" : n + " musicisti");
   const kind = EVENT_KINDS[(fields || {}).event_kind] || EVENT_KINDS.concerto;
   out.push([kind, (fields || {}).event_title].filter(Boolean).join(": "));
   const quando = [(fields || {}).event_when, (fields || {}).event_place].filter(Boolean).join(" · ");
