@@ -9,10 +9,14 @@ import { DATE_KIND, INV_STATUS, INV_PILL, PROD_STATUS } from "../domain/staffing
 import { FAMILY } from "../nav.js";
 import * as api from "../api/applications.js";
 import { catalogs } from "../api/musicians.js";
+import { claimInvite, myInvite } from "../api/invites.js";
+import { isInviteToken } from "../domain/invites.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let session = null, P = null, cat = null, view = q.get("v") || "home", step = Number(q.get("step")) || 0;
+/* chi arriva da un invito personale: la società lo ha già scelto, quindi appena manda il profilo è dentro */
+let invito = null;
 
 async function main() {
   session = await getSession();
@@ -21,10 +25,40 @@ async function main() {
     await Promise.all([api.ensureProfile(), api.linkMusicianRows().catch(() => 0)]);
     [P, cat] = await Promise.all([api.getProfile(), catalogs()]);
     if (!P) throw new Error("profilo non trovato");
+    await apriInvito();
+    await invitoInCorso();
     if (!P.consent_privacy_version && view === "home" && !q.get("org")) view = "profilo";
     if (view === "profilo" && !step) step = Math.max(1, Math.min(P.step || 1, STEPS.length));
     paint();
   } catch (e) { app.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); app.appendChild(d); }
+}
+
+/* Il link personale: si prende in carico una volta sola, poi si toglie dall'indirizzo (un link che resta
+   nella barra finisce nella cronologia, nei preferiti e nei messaggi copiati). Se non è valido non si dice
+   perché: si continua come una candidatura normale. */
+async function apriInvito() {
+  const t = q.get("inv");
+  if (!isInviteToken(t)) return;
+  try {
+    const r = await claimInvite(t);
+    if (r && r.ok) {
+      invito = { org_id: r.org_id, org_name: r.org_name };
+      await api.apply(r.org_id).catch(() => null);   /* la bozza di candidatura per quella società */
+      view = "profilo"; step = Math.max(1, Math.min(P.step || 1, STEPS.length));
+    } else if (r && r.motivo === "scaduto") {
+      toast("Il link è scaduto: chiedine un altro a chi te l'ha mandato.", { err: true });
+    } else if (r && r.motivo === "gia usato") {
+      toast("Questo link è già stato usato da un altro account.", { err: true });
+    }
+  } catch { /* un invito che non va non deve impedire di usare l'area */ }
+  history.replaceState(null, "", location.pathname + (view === "profilo" ? "?v=profilo" : ""));
+}
+
+/* Chi è arrivato da un link e torna più tardi non ha più `?inv=` nell'indirizzo, ma l'invito è ancora suo:
+   lo si richiede al database, o la promessa «appena mandi sei dentro» sparirebbe proprio quando serve. */
+async function invitoInCorso() {
+  if (invito) return;
+  try { invito = await myInvite(); } catch { /* senza, si vede la candidatura normale */ }
 }
 
 function nav(active) {
@@ -33,6 +67,53 @@ function nav(active) {
     <a href="?v=profilo" data-v="profilo"${active === "profilo" ? ' aria-current="page"' : ""}>Profilo</a>
     <a href="?v=privacy" data-v="privacy"${active === "privacy" ? ' aria-current="page"' : ""}>Privacy e account</a></nav>`;
 }
+/* La fotografia. Una sola, sostituibile: serve a chi organizza per riconoscere chi ha davanti quando
+   sceglie fra venti nomi, e a chi si presenta per non essere solo una riga di elenco. */
+function bloccoFoto() {
+  const wrap = el(`<div class="field"><label for="upFoto">Fotografia</label>
+    <div class="row" id="fotoBox"><div id="fotoPrev"></div><div class="spacer"></div></div>
+    <input type="file" id="upFoto" accept="image/jpeg,image/png,image/webp" hidden>
+    <span class="hint">Facoltativa. Un ritratto normale, anche col telefono: aiuta chi ti convoca a ricordarsi di te.</span></div>`);
+  const box = wrap.querySelector("#fotoBox");
+  const prev = wrap.querySelector("#fotoPrev");
+  const input = wrap.querySelector("#upFoto");
+  const disegna = async () => {
+    prev.innerHTML = "";
+    if (P.photo_path) {
+      try {
+        const url = await api.signedUrl(P.photo_path);
+        const img = el(`<img alt="La tua fotografia" class="foto-prev">`);
+        img.src = url;
+        prev.appendChild(img);
+      } catch { prev.appendChild(el(`<span class="small muted">Foto caricata.</span>`)); }
+    } else prev.appendChild(el(`<span class="small muted">Nessuna foto.</span>`));
+  };
+  const b = el(`<button type="button" class="btn small"></button>`);
+  b.textContent = P.photo_path ? "Cambia" : "Carica una foto";
+  b.onclick = () => input.click();
+  box.appendChild(b);
+  const rm = el(`<button type="button" class="btn small ghost">Togli</button>`);
+  rm.hidden = !P.photo_path;
+  rm.onclick = async () => {
+    try { await api.removePhoto(P); P.photo_path = ""; rm.hidden = true; b.textContent = "Carica una foto"; disegna(); toast("Foto tolta."); }
+    catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  box.appendChild(rm);
+  input.onchange = async () => {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) return toast("La foto è troppo grande: sotto i 5 MB.", { err: true });
+    b.disabled = true; b.textContent = "Carico…";
+    try {
+      P.photo_path = await api.setPhoto(P, f);
+      b.textContent = "Cambia"; rm.hidden = false; await disegna(); toast("Foto salvata.");
+    } catch (e) { b.textContent = P.photo_path ? "Cambia" : "Carica una foto"; toast(errMsg(e), { err: true }); }
+    b.disabled = false; input.value = "";
+  };
+  disegna();
+  return wrap;
+}
+
 function go(v, s) { view = v; step = s || 0; history.replaceState(null, "", "?v=" + v + (s ? "&step=" + s : "")); paint(); }
 
 function paint() {
@@ -42,7 +123,9 @@ function paint() {
   app.className = "o-wrap narrow";
   app.innerHTML = nav(view);
   app.querySelectorAll(".nav-tabs a").forEach((a) => { a.onclick = (e) => { e.preventDefault(); go(a.dataset.v); }; });
-  ({ home: paintHome, profilo: paintProfilo, privacy: paintPrivacy })[view]();
+  /* un ?v= storto (link vecchio, refuso, copia-incolla) non deve rompere la pagina: si torna a casa */
+  const viste = { home: paintHome, profilo: paintProfilo, privacy: paintPrivacy };
+  (viste[view] || viste.home)();
 }
 
 /* ---------------------------------------------------------------- home */
@@ -167,6 +250,7 @@ async function paintProfilo() {
     card.appendChild(field("email", "Email", P.email, { type: "email" })); card.appendChild(field("phone", "Telefono", P.phone, { type: "tel" }));
     card.appendChild(field("city", "Città", P.city)); card.appendChild(field("province", "Provincia", P.province, { hint: "sigla, es. VI" }));
     card.appendChild(field("bio", "Breve presentazione", P.bio, { type: "textarea", hint: "due righe: chi sei e cosa suoni" }));
+    card.appendChild(bloccoFoto());
     save = async () => { const f = {}; for (const k of ["first_name", "last_name", "email", "phone", "city", "province", "bio"]) f[k] = val(k).trim(); await api.saveProfile(P.id, f); Object.assign(P, f); };
   } else if (key === "strumenti") {
     card.appendChild(el(`<p class="small muted">Il primo è lo strumento principale. Aggiungi doubling e strumenti secondari.</p>`));
@@ -234,6 +318,11 @@ async function paintProfilo() {
     const dl = el(`<dl class="review"></dl>`); for (const [k, v] of rows) { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.appendChild(dt); dl.appendChild(dd); } card.appendChild(dl);
   } else if (key === "invio") {
     const miss = missingFields(P, P.instruments);
+    if (invito) {
+      const b = el(`<div class="banner"></div>`);
+      b.textContent = invito.org_name + " ti ha invitato: appena mandi il profilo sei fra i loro musicisti, senza passare da nessuna valutazione. Riceverai le proposte di lavoro adatte a te; essere nell'elenco non è un impegno.";
+      card.appendChild(b);
+    }
     const consent = el(`<div class="stack"><p class="small">Per candidarti serve il consenso al trattamento dei dati (<a href="${BASE}/privacy/" target="_blank" rel="noopener">informativa, versione ${esc(PRIVACY_VERSION)}</a>). I dati li vede solo l'organizzazione a cui ti candidi; le valutazioni interne non ti vengono mostrate.</p></div>`);
     if (P.consent_privacy_version) consent.appendChild(el(`<p class="small muted">Consenso dato il ${esc(fmtDate(P.consent_privacy_at))} (versione ${esc(P.consent_privacy_version)}).</p>`));
     else { const l = check("consent", "Ho letto l'informativa e acconsento al trattamento dei miei dati", false); consent.appendChild(l); }

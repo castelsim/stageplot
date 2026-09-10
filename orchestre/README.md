@@ -88,6 +88,9 @@ supabase/migrations/0049_orc_stageplot.sql  orc_stageplot_links, orc_stageplot_i
 supabase/migrations/0050_orc_stageplot_seats.sql  legame → posto (slot_id, seat_index), import per gruppi, orc_stageplot_relink, orc_stage_view, orc_staffing con la postazione
 supabase/migrations/0052_orc_client_requests.sql  «Richiedi musicisti»: richieste dei clienti, posti chiesti, copia immutabile, chi riceve
 supabase/migrations/0051_orc_collaudo.sql   collaudo: il posto della persona non si sposta, i file solo nel proprio dossier, valutazioni e feedback legati al bersaglio, stato interno mascherato nel DB, consensi non cancellabili, registro con lo stato di partenza
+supabase/migrations/0053_orc_service_org.sql  la società che riceve le richieste (is_service_provider), accesa solo se non c'è dubbio
+supabase/migrations/0054_orc_candidature_societa.sql  a chi ci si candida, leggibile anche da fuori (orc_service_org_public)
+supabase/migrations/0055_orc_inviti_musicisti.sql  invito personale (impronta, mai il segreto), fotografia sul profilo, ingresso diretto, orc_application_accept
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -238,6 +241,27 @@ di no per la produzione non viene riproposto.
   (`orc_respond_mine`), incarichi confermati, privacy (consenso alle richieste, export JSON, richiesta di
   cancellazione). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
 - Le organizzazioni aprono le candidature da Impostazioni (`accepting_applications`, testo per i candidati).
+
+### L'invito personale, la fotografia, l'ingresso diretto
+
+- **Il link personale** (`orc_musician_invites`): la società manda un link a una persona che ha già scelto. Il
+  segreto del link **non passa dal server**: lo genera il browser di chi invita (`domain/invites.js`), che manda
+  solo l'impronta sha-256 e lo mostra una volta sola — stesso schema delle richieste di setup dell'editor. Chi lo
+  perde ne fa un altro; quello vecchio si revoca (`orc_musician_invite_revoke`). Scadenza a 30 giorni.
+- **Aprirlo** (`orc_musician_invite_claim`): risponde sempre allo stesso modo quando non è valido — scaduto,
+  revocato, inesistente o già di un altro account: non si scopre nemmeno di quale organizzazione si tratti. Chi
+  l'ha aperto se lo ritrova anche tornando dopo (`orc_my_invite`), perché la pagina si dimentica tutto a ogni
+  ricarica ma la promessa «appena mandi sei dentro» deve reggere fino al pulsante.
+- **L'ingresso diretto**: `orc_submit_application` guarda se chi manda ha un invito in corso per quell'org e, se sì,
+  accetta subito — niente valutazione, la fiducia gliel'ha data chi l'ha invitato. L'accettazione vera sta in
+  `orc_application_accept`, estratta da `orc_application_set_status`: **una sola strada** per creare la persona fra
+  i musicisti, e **non è chiamabile da fuori** (revocata a `authenticated`: la chiamano solo le due funzioni che
+  hanno già verificato chi sei).
+- **La fotografia** (`orc_musician_profiles.photo_path`): una sola, sostituibile, nello stesso archivio privato dei
+  materiali (`kind = 'photo'`). Si vede nell'area del musicista e nelle due schede dello staff (musicista e
+  candidatura) con URL firmato a 10 minuti. **La CSP di quelle tre pagine ammette l'archivio in `img-src`**: senza,
+  il browser blocca l'immagine in silenzio e la foto non si vede da nessuna parte (successo, e se n'è accorta solo
+  la prova nel browser — c'è un test che lo guarda).
 
 ## Collegamento a StagePlot
 
