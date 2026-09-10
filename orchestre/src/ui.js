@@ -18,7 +18,7 @@ export function safeHttpUrl(u) {
        un indirizzo assoluto, e chi ha scritto «example.org» senza schema resta testo. */
     const p = new URL(t);
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
-  } catch (e) { return ""; }
+  } catch { return ""; }   /* la variabile non serve: `deno lint` la conta come inutilizzata e ferma il deploy */
 }
 /* Da HTML a elemento. Con <template>, non con un div: dentro un div il parser butta via un <tr> o un
    <td> senza tabella intorno (visto il 04/09: il registro restava vuoto senza errori in console). */
