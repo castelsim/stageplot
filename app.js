@@ -24776,12 +24776,17 @@ function renderProdHub(){
   /* Orchestre (lotto 8): chi SUONA è un reparto a sé e vive in /orchestre/, agganciato al progetto salvato
      nel cloud (posti dell'organico dalle postazioni, convocazioni, sostituzioni). Sta qui, nel «chi fa cosa»,
      e non nel menu File, che resta a sei voci per decisione del 13/08. */
+  var el2=function(html){ var d=document.createElement("div"); d.innerHTML=html; return d.firstChild; };
   var orc=document.getElementById("prodOrc");
   if(orc){
     orc.innerHTML='<div class="pd-hd"><span class="pd-dot" style="background:#0d9488"></span><span class="pd-nm">Musicisti</span><span class="pd-src extra">organico</span><span class="pd-el">Orchestre</span></div><div class="pd-assign"></div>';
     var oa=orc.querySelector(".pd-assign"), olink=orcOrganicoLink(logged&&pid?pid:null);
-    if(olink){ var ol=document.createElement("a"); ol.className="btn"; ol.style.cssText="width:auto;margin:0;padding:0 14px;min-height:44px;display:inline-flex;align-items:center"; ol.href=olink; ol.textContent="Organico e convocazioni \u2192"; oa.appendChild(ol); }
-    else { oa.innerHTML='<span class="pd-hint">\ud83d\udd12 '+(logged?"Salva il progetto nel cloud":"Accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre: posti dalle postazioni, convocazioni, sostituzioni.</span>'; }
+    var mkA=function(href,label,primary){ var a=document.createElement("a"); a.className="btn"+(primary?" primary":""); a.style.cssText="width:auto;margin:0 8px 0 0;padding:0 14px;min-height:44px;display:inline-flex;align-items:center"; a.href=href; a.textContent=label; return a; };
+    /* chi compra i musicisti non ha un'organizzazione: per lui la porta è la richiesta, non l'organico */
+    oa.appendChild(mkA(orcRichiediLink(logged&&pid?pid:null), "Richiedi musicisti \u2192", !olink));
+    if(olink) oa.appendChild(mkA(olink, "Organico e convocazioni \u2192", false));
+    if(!olink) oa.appendChild(document.createElement("br"));
+    if(!olink) oa.appendChild(el2('<span class="pd-hint">Se gestisci tu l\u2019organico: '+(logged?"salva il progetto nel cloud":"accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre.</span>'));
   }
 }
 var DEPT_ROLES=["Capo reparto","Tecnico","Assistente","Runner"];
@@ -26170,6 +26175,7 @@ function orcSeatsMarkup(){
   return out;
 }
 function orcSeatsRedraw(){
+  if(typeof orcRichiediSync==="function") orcRichiediSync();
   var g=document.getElementById("layOrcSeats"), m=orcSeatsMarkup();
   if(!g && m){   /* il layer nasce solo quando c'è qualcosa da mostrare: dopo layItems, sotto overlay e maniglie */
     var li=document.getElementById("layItems"); if(!li){ if(typeof render==="function") render(); return; }
@@ -26202,6 +26208,18 @@ function deleteSelGuarded(){
   var p=(typeof confirmDialog==="function")?confirmDialog({icon:"warn",title:"Postazione con una persona in organico",message:msg,confirmText:"Elimina lo stesso",cancelText:"Annulla"}):Promise.resolve(window.confirm(msg));
   return p.then(function(ok){ if(ok) deleteSel(); return !!ok; });
 }
+/* Il cliente che chiede musicisti: la pagina è la stessa con o senza progetto, ma col progetto salvato
+   nel cloud parte già col palco allegato e non deve sceglierlo a mano. */
+function orcRichiediLink(projectId){
+  var id=String(projectId||"");
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+    ? "/orchestre/richiedi/?p="+id.toLowerCase() : "/orchestre/richiedi/";
+}
+function orcRichiediSync(){
+  var C=window.__cloud, id=(C&&C.currentId&&C.currentId())||null, href=orcRichiediLink(id);
+  ["bRichiedi","mactRichiedi"].forEach(function(k){ var a=document.getElementById(k); if(a) a.setAttribute("href", href); });
+}
+
 /* …e la strada inversa: dal hub Produzione all'organico di Orchestre, col progetto cloud. Senza id niente link. */
 function orcOrganicoLink(projectId){
   var id=String(projectId||"");
