@@ -1,5 +1,6 @@
-/* Dashboard dell'organizzazione. Nel lotto 1 mostra chi sei, dove sei e i membri; le liste di cose
-   da fare (candidature, inviti senza risposta, posti scoperti) si riempiono nei lotti successivi. */
+/* Dashboard dell'organizzazione: chi sei, cosa c'e' da fare adesso, e — finche' l'orchestra e' vuota —
+   da dove si comincia. Il riquadro «Prossimi passi» elencava i lotti di sviluppo: roba interna, sotto gli
+   occhi di chi organizza, che per giunta diceva «arrivera'» di cose gia' fatte (collaudo 10/09/2026). */
 import { BASE } from "../config.js";
 import { esc, el, roleLabel, setState, errMsg } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
@@ -23,10 +24,11 @@ async function main() {
     <div class="grid3">
       <section class="card"><h3>Da fare</h3><div id="todo"></div></section>
       <section class="card"><h3>Membri</h3><div id="members" class="loading">Un attimo…</div></section>
-      <section class="card"><h3>Prossimi passi</h3>
-        <p class="small muted">Lotto 2: il pool dei musicisti e lo storico. Lotto 3: produzioni e organico. Poi matching, convocazioni, storico, candidature, collegamento a StagePlot.</p>
-      </section>
+      <section class="card"><h3>Scorciatoie</h3><div class="stack" id="quick"></div></section>
     </div>`;
+  const quick = app.querySelector("#quick");
+  for (const [href, label] of [["/admin/produzioni/scheda/?new=1", "Nuova produzione"], ["/admin/musicisti/?new=1", "Aggiungi un musicista"], ["/admin/musicisti/importa/", "Importa un CSV"]])
+    quick.appendChild(el(`<a class="btn block" href="${BASE}${href}">${label}</a>`));
   const todo = app.querySelector("#todo");
   setState(todo, "loading");
   try {
@@ -43,7 +45,17 @@ async function main() {
       noFb = doneProds.filter((p) => !has.has(p.id));
     }
     const apps = (await listApplications(ctx.org.org_id).catch(() => [])).filter((a) => ["submitted", "evaluating", "interview_to_schedule", "audition_to_schedule"].includes(a.status));
-    if (!prods.length && !noFb.length && !apps.length) setState(todo, "empty", "Niente in sospeso: nessun posto scoperto, nessun feedback da registrare, nessuna candidatura da valutare.");
+    if (!prods.length && !noFb.length && !apps.length) {
+      /* «Niente in sospeso» e' la frase di chi ha finito. Un'orchestra appena aperta non ha finito: non ha
+         cominciato, e va detto con il primo passo, non con una rassicurazione. */
+      const { count } = await sb.from("orc_musicians").select("id", { count: "exact", head: true }).eq("org_id", ctx.org.org_id).catch(() => ({ count: null }));
+      if (!all.length && !count) {
+        setState(todo, "");
+        todo.innerHTML = `<p class="small muted">L'orchestra e vuota. Si parte dai musicisti: importa l'elenco che hai gia (CSV) o aggiungine uno a mano, poi crea la prima produzione.</p>`;
+        todo.querySelector("p").textContent = "L'orchestra è vuota. Si parte dai musicisti: importa l'elenco che hai già (CSV) o aggiungine uno a mano, poi crea la prima produzione.";
+        todo.appendChild(el(`<p><a class="btn primary" href="${BASE}/admin/musicisti/importa/">Importa i musicisti</a></p>`));
+      } else setState(todo, "empty", "Niente in sospeso: nessun posto scoperto, nessun feedback da registrare, nessuna candidatura da valutare.");
+    }
     else {
       setState(todo, "");
       todo.innerHTML = `<ul class="list compact"></ul>`;

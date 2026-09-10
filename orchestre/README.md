@@ -82,6 +82,7 @@ supabase/migrations/0047_orc_feedback.sql   feedback, orc_musician_stats, orc_mu
 supabase/migrations/0048_orc_applications.sql profili, candidature, eventi, valutazioni, consensi, file, bucket orc-files con policy, RPC
 supabase/migrations/0049_orc_stageplot.sql  orc_stageplot_links, orc_stageplot_import, orc_stageplot_unlink, orc_productions_for_project
 supabase/migrations/0050_orc_stageplot_seats.sql  legame → posto (slot_id, seat_index), import per gruppi, orc_stageplot_relink, orc_stage_view, orc_staffing con la postazione
+supabase/migrations/0051_orc_collaudo.sql   collaudo: il posto della persona non si sposta, i file solo nel proprio dossier, valutazioni e feedback legati al bersaglio, stato interno mascherato nel DB, consensi non cancellabili, registro con lo stato di partenza
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -266,6 +267,22 @@ di no per la produzione non viene riproposto.
 (nel modello, senza pagina per ora). I ruoli si cambiano solo con `orc_set_member_role` (owner/admin;
 il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiunge per email con
 `orc_add_member_by_email`: la persona deve aver fatto almeno un accesso.
+
+## Il collaudo del 10/09/2026
+
+Quattro revisioni indipendenti (sicurezza, correttezza, esperienza d'uso, qualità dei test) su tutto Orchestre.
+Le riparazioni sono nella migrazione `0051`, in `orchestre/src/` e in `.github/workflows/orchestre-rls.yml`;
+ognuna ha il suo test, e ogni test è stato provato **rimettendo il difetto**. Le tre cose che contavano:
+
+- **Le 8 suite RLS non giravano in CI**: `localEnv()` non trovava Supabase e `test.skip` faceva passare tutto.
+  43 test su 87 — cioè l'intero modello di sicurezza — erano verdi per assenza. Ora girano in un workflow
+  a parte con un Postgres vero e `ORC_RLS=1`, che li fa **fallire** invece di saltarli; un test in
+  `pages.test.mjs` pretende che quel workflow esista e copra tutte le suite.
+- **Una persona confermata poteva cambiare sedia**: se la sua postazione spariva dal disegno, il posto
+  tornava libero e la prima postazione nuova se lo prendeva. Ora un legame che lascia il palco tiene il
+  posto finché c'è qualcuno sopra: «Ricollega…» lo rimette dov'era.
+- **Lo stato interno di una candidatura si leggeva dalla console**: la maschera pubblica era solo nel client.
+  Ora il candidato passa da `orc_my_applications()` e la riga grezza non gli è più visibile.
 
 ## Limiti (lotti 1-9)
 

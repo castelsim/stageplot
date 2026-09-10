@@ -214,5 +214,9 @@ pre.export{font-family:var(--font-mono);font-size:var(--t-body);background:var(-
 @media (pointer:coarse),(max-width:880px){
   .btn,.field input,.field select,.list-item select{min-height:48px}
   .btn.small{min-height:var(--tap)}
+  /* collaudo 10/09: tre bersagli restavano sotto il dito perché non erano in questo elenco —
+     il selettore dell'organizzazione (36px) e i cinque voti 1-5 del feedback (40px di larghezza). */
+  .o-top select{min-height:var(--tap)}
+  .score-row .seg .btn{min-width:var(--tap)}
   .modal .actions{flex-direction:column-reverse}.modal .actions .btn{width:100%}
 }

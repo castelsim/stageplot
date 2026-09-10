@@ -14806,9 +14806,18 @@ t("il layer layOrcSeats sta in sceneMarkup ma non nell'export né nel documento"
   ok(A.window.__scenePrint !== true, "il flag di stampa è tornato spento dopo l'export");
   A.orcSeats.pid = null; A.orcSeats.byItem = {};
 });
-t("eliminare una postazione con una persona sopra passa dalla guardia (bottone e tastiera)", () => {
-  ok(appjs.indexOf('getElementById("pDel").addEventListener("click", deleteSelGuarded)') > -1, "bottone");
-  ok(/e\.key==="Delete"\)\{[^\n]*deleteSelGuarded\(\)/.test(appjs), "tastiera");
+t("eliminare una postazione con una persona sopra passa SEMPRE dalla guardia, e l'annuncio arriva dopo", () => {
+  ok(appjs.indexOf('getElementById("pDel").addEventListener("click", deleteSelGuarded)') > -1, "bottone dell'elemento");
+  /* il collaudo del 10/09 ha trovato questa scappatoia: «Elimina» sulla selezione multipla cancellava
+     6 leggii con 4 persone sopra senza chiedere niente, ed è proprio il caso del messaggio plurale. */
+  ok(appjs.indexOf('getElementById("grpDel").addEventListener("click", deleteSelGuarded)') > -1, "bottone della selezione multipla");
+  ok(appjs.indexOf("deleteSel);") === -1 || appjs.indexOf('addEventListener("click", deleteSel)') === -1, "nessun ingresso salta la guardia");
+  const anchor = 'if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it);';
+  const at = appjs.indexOf(anchor);
+  ok(at > -1, "il ramo tastiera dell'elemento selezionato");
+  const key = appjs.slice(at, at + 500);
+  ok(key.indexOf("deleteSelGuarded()") > -1, "tastiera: passa dalla guardia");
+  ok(key.indexOf("then(function(ok){ if(ok) a11yAnnounce") > -1, "l'annuncio «eliminato» aspetta la conferma");
   ok(appjs.indexOf("function deleteSelGuarded(") > -1);
 });
 t("la vista si ricarica quando cambia il progetto cloud e mai senza sessione", () => {

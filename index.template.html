@@ -13584,7 +13584,7 @@ document.getElementById("grpRotL").addEventListener("click", function(){ rotateS
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });
 document.getElementById("grpLineDist").addEventListener("click", distributeSelInLine);
 document.getElementById("grpDup").addEventListener("click", function(){ duplicateSel(); });
-document.getElementById("grpDel").addEventListener("click", deleteSel);
+document.getElementById("grpDel").addEventListener("click", deleteSelGuarded);   /* anche in gruppo: il messaggio plurale serviva a questo */
 document.getElementById("grpGroup").addEventListener("click", groupSel);
 document.getElementById("grpUngroup").addEventListener("click", ungroupSel);
 /* crea una zona di microfonazione attorno alla selezione: HULL poligonale dei footprint reali
@@ -16492,7 +16492,10 @@ document.addEventListener("keydown", function(e){
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
   if(!it) return;
-  if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it); deleteSelGuarded(); a11yAnnounce(_dn+" eliminato"); }
+  if(e.key==="Backspace"||e.key==="Delete"){ e.preventDefault(); var _dn=a11yDesc(it);
+    /* l'annuncio arriva DOPO la risposta: con una persona in organico si apre una conferma, e dire
+       «eliminato» mentre il dialogo è ancora aperto è una bugia per chi usa lo screen reader. */
+    Promise.resolve(deleteSelGuarded()).then(function(ok){ if(ok) a11yAnnounce(_dn+" eliminato"); }); }
   else if(e.key==="r"){ rotateSel(15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
   else if(e.key==="R"){ rotateSel(-15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
   else if(e.key==="d"||e.key==="D"){ duplicateSel(); a11yAnnounce("Duplicato: "+a11yDesc(getSel())); }
@@ -26687,7 +26690,7 @@ function renderProdHub(){
   if(orc){
     orc.innerHTML='<div class="pd-hd"><span class="pd-dot" style="background:#0d9488"></span><span class="pd-nm">Musicisti</span><span class="pd-src extra">organico</span><span class="pd-el">Orchestre</span></div><div class="pd-assign"></div>';
     var oa=orc.querySelector(".pd-assign"), olink=orcOrganicoLink(logged&&pid?pid:null);
-    if(olink){ var ol=document.createElement("a"); ol.className="btn"; ol.style.cssText="width:auto;margin:0;padding:5px 12px;display:inline-block"; ol.href=olink; ol.textContent="Organico e convocazioni \u2192"; oa.appendChild(ol); }
+    if(olink){ var ol=document.createElement("a"); ol.className="btn"; ol.style.cssText="width:auto;margin:0;padding:0 14px;min-height:44px;display:inline-flex;align-items:center"; ol.href=olink; ol.textContent="Organico e convocazioni \u2192"; oa.appendChild(ol); }
     else { oa.innerHTML='<span class="pd-hint">\ud83d\udd12 '+(logged?"Salva il progetto nel cloud":"Accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre: posti dalle postazioni, convocazioni, sostituzioni.</span>'; }
   }
 }
@@ -28101,13 +28104,13 @@ function renderOrcRow(it){
 }
 /* eliminare una postazione con una persona sopra: il posto in Orchestre resta, si chiede prima */
 function deleteSelGuarded(){
-  var ids=(typeof selIds==="function")?selIds():[]; if(!ids.length) return;
+  var ids=(typeof selIds==="function")?selIds():[]; if(!ids.length) return Promise.resolve(false);
   var who=[];
   (state.items||[]).forEach(function(it){ if(!selSet[it.id]) return; var rows=orcSeatsFor(it); if(rows) rows.forEach(function(r){ if(r.musician_name) who.push(r.musician_name); }); });
-  if(!who.length){ deleteSel(); return; }
+  if(!who.length){ deleteSel(); return Promise.resolve(true); }
   var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre \u2192 StagePlot.";
   var p=(typeof confirmDialog==="function")?confirmDialog({icon:"warn",title:"Postazione con una persona in organico",message:msg,confirmText:"Elimina lo stesso",cancelText:"Annulla"}):Promise.resolve(window.confirm(msg));
-  p.then(function(ok){ if(ok) deleteSel(); });
+  return p.then(function(ok){ if(ok) deleteSel(); return !!ok; });
 }
 /* …e la strada inversa: dal hub Produzione all'organico di Orchestre, col progetto cloud. Senza id niente link. */
 function orcOrganicoLink(projectId){
@@ -29519,11 +29522,17 @@ function maybeAskStageSize(explicit){
       if(!list.length){
         /* nessun posto collegato: c'è almeno una produzione collegata al progetto? (per la riga «Importa le postazioni») */
         sb.rpc("orc_productions_for_project", { project: pid }).then(function(q){ if(my!==orcSeq || cloudCurrentId!==pid) return;
-          orcSeats.pid=pid; orcSeats.byItem={}; orcSeats.productions=(q.data||[]).map(function(p){ return {production_id:p.id, production_title:p.title}; }); if(typeof orcSeatsRedraw==="function") orcSeatsRedraw(); }, function(){});
+          orcSeats.pid=pid; orcSeats.byItem={}; orcSeats.productions=(q.data||[]).map(function(p){ return {production_id:p.id, production_title:p.title}; }); if(typeof orcSeatsRedraw==="function") orcSeatsRedraw(); },
+          function(){ if(my!==orcSeq) return; orcSeats.pid=null; orcSeats.byItem={}; orcSeats.productions=[]; if(typeof orcSeatsRedraw==="function") orcSeatsRedraw(); });
         return;
       }
       orcSeats.pid=pid; orcSeats.byItem=by; orcSeats.productions=list; if(typeof orcSeatsRedraw==="function") orcSeatsRedraw();
-    }, function(){});
+    }, function(){
+      /* rete o sessione caduta: meglio nessun nome che i nomi del progetto di prima su questo palco */
+      if(my!==orcSeq) return;
+      orcSeats.pid=null; orcSeats.byItem={}; orcSeats.productions=[];
+      if(typeof orcSeatsRedraw==="function") orcSeatsRedraw();
+    });
   }
   function itemContactsList(pid, cb){
     if(!sb || !cloudUser || !pid){ cb(null); return; }
