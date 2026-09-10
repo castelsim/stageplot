@@ -8,6 +8,7 @@ import { listMembers } from "../api/org.js";
 import { list as listProductions } from "../api/productions.js";
 import { openCounts } from "../api/invitations.js";
 import { list as listApplications } from "../api/applications.js";
+import { list as listClientRequests } from "../api/client-requests.js";
 import { sb } from "../sb.js";
 import { tabs } from "../nav.js";
 
@@ -45,7 +46,8 @@ async function main() {
       noFb = doneProds.filter((p) => !has.has(p.id));
     }
     const apps = (await listApplications(ctx.org.org_id).catch(() => [])).filter((a) => ["submitted", "evaluating", "interview_to_schedule", "audition_to_schedule"].includes(a.status));
-    if (!prods.length && !noFb.length && !apps.length) {
+    const nuove = (await listClientRequests(ctx.org.org_id).catch(() => [])).filter((r) => r.status === "new");
+    if (!prods.length && !noFb.length && !apps.length && !nuove.length) {
       /* «Niente in sospeso» e' la frase di chi ha finito. Un'orchestra appena aperta non ha finito: non ha
          cominciato, e va detto con il primo passo, non con una rassicurazione. */
       /* il query builder di supabase-js e' «thenable» ma NON ha .catch: attaccarglielo lancia
@@ -62,6 +64,13 @@ async function main() {
     else {
       setState(todo, "");
       todo.innerHTML = `<ul class="list compact"></ul>`;
+      /* una richiesta di un cliente ha un'attesa dichiarata: viene prima di tutto il resto */
+      if (nuove.length) {
+        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/richieste/"><div class="title"></div><div class="sub"></div></a></li>`);
+        li.querySelector(".title").textContent = nuove.length === 1 ? "1 richiesta da un cliente" : nuove.length + " richieste dai clienti";
+        li.querySelector(".sub").textContent = nuove.slice(0, 2).map((r) => r.event_title + " · " + (r.n_needed === 1 ? "1 musicista" : r.n_needed + " musicisti")).join(", ") + (nuove.length > 2 ? "…" : "");
+        todo.querySelector("ul").appendChild(li);
+      }
       if (apps.length) {
         const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/candidature/"><div class="title"></div><div class="sub"></div></a></li>`);
         li.querySelector(".title").textContent = apps.length + (apps.length === 1 ? " candidatura da valutare" : " candidature da valutare");

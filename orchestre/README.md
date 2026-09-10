@@ -32,6 +32,8 @@ orchestre/
   admin/produzioni/           le produzioni: lista con date, stato, posti coperti
   admin/produzioni/scheda/    una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · Storia
   rispondi/index.html         la pagina del musicista convocato (?t=TOKEN): niente account, niente supabase-js
+  richiedi/index.html         «Richiedi musicisti»: il cliente che ha disegnato il palco chiede le persone (?p=progetto)
+  admin/richieste/            le richieste arrivate dai clienti, con la copia del palco al momento dell'invio
   candidatura/index.html      pagina pubblica: cos'è, come funziona, chi accetta candidature → login
   musicista/index.html        l'area del musicista: profilo in otto passi (?v=profilo&step=N), candidature, inviti, incarichi, privacy
   privacy/index.html          l'informativa (versione in domain/applications.js: PRIVACY_VERSION)
@@ -51,6 +53,8 @@ orchestre/
   src/api/feedback.js         feedback post-produzione, indicatori, storico del musicista
   src/api/applications.js     profilo, file, candidatura, inviti/incarichi via account, privacy; lato staff elenco/dettaglio/stato/valutazioni
   src/api/stageplot.js        i miei progetti StagePlot (own-rows), documento, catalogo con le chiavi dell'editor, import, collegamenti, scollega
+  src/api/client-requests.js  le richieste dei clienti: chi riceve, invio, le mie; lato società elenco, dettaglio, stato
+  src/domain/client-request.js  campi obbligatori, postazioni da spuntare, copia funzionale del palco, conteggio (puro, testato)
   src/domain/stageplot-import.js  dal documento dell'editor alle postazioni: varianti, mappa tipo → strumento, proposta, differenze (puro, testato)
   src/domain/applications.js  stati (interni e pubblici), passi, completamento, versione dell'informativa (puro, testato)
   src/domain/csv.js           CSV → righe per l'import (puro, testato)
@@ -82,6 +86,7 @@ supabase/migrations/0047_orc_feedback.sql   feedback, orc_musician_stats, orc_mu
 supabase/migrations/0048_orc_applications.sql profili, candidature, eventi, valutazioni, consensi, file, bucket orc-files con policy, RPC
 supabase/migrations/0049_orc_stageplot.sql  orc_stageplot_links, orc_stageplot_import, orc_stageplot_unlink, orc_productions_for_project
 supabase/migrations/0050_orc_stageplot_seats.sql  legame → posto (slot_id, seat_index), import per gruppi, orc_stageplot_relink, orc_stage_view, orc_staffing con la postazione
+supabase/migrations/0052_orc_client_requests.sql  «Richiedi musicisti»: richieste dei clienti, posti chiesti, copia immutabile, chi riceve
 supabase/migrations/0051_orc_collaudo.sql   collaudo: il posto della persona non si sposta, i file solo nel proprio dossier, valutazioni e feedback legati al bersaglio, stato interno mascherato nel DB, consensi non cancellabili, registro con lo stato di partenza
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
@@ -267,6 +272,30 @@ di no per la produzione non viene riproposto.
 (nel modello, senza pagina per ora). I ruoli si cambiano solo con `orc_set_member_role` (owner/admin;
 il ruolo owner lo tocca solo un owner; l'ultimo owner non si degrada). Si aggiunge per email con
 `orc_add_member_by_email`: la persona deve aver fatto almeno un accesso.
+
+## «Richiedi musicisti»: il cliente che chiede le persone
+
+È la porta d'ingresso commerciale: chi disegna un palco su StagePlot può chiedere alla società di trovargli i
+musicisti. Chi arriva **non è di un'organizzazione**: è un utente qualsiasi dell'editor.
+
+- **Il pulsante** sta nell'header dell'editor accanto a Consulenza, nel menu azioni del telefono e nel riquadro
+  «Musicisti» del hub Produzione. Porta con sé il progetto salvato nel cloud (`?p=`), così la richiesta nasce
+  col palco già allegato.
+- **Quello che parte non è il documento**: è una copia *funzionale* — titolo, luogo, misure del palco, elenco
+  delle postazioni-persona — costruita da `domain/client-request.js`. I contatti dei collaboratori del cliente
+  non entrano per costruzione, e la RPC toglie comunque le chiavi note. A test.
+- **La copia è immutabile**: un trigger vieta di modificare la richiesta ricevuta e i posti chiesti, a chiunque,
+  servizio compreso. Il cliente continua a disegnare; quello che è arrivato resta com'era.
+- **Chi riceve**: l'organizzazione con `is_service_provider` (una sola, indice unico; si accende a mano).
+- **Due email**, mandate dal worker `orc-notify`: alla società (basta per decidere: chi, quando, dove, quanti
+  posti, budget, orari) e la conferma al cliente, che promette un tempo e non un prezzo. Gli indirizzi dei dati
+  di prova non ricevono niente.
+- **Lato società**: scheda «Richieste» con elenco, dettaglio, copia del palco, link al progetto vivo e gli stati
+  (nuova, presa in carico, preventivo inviato, accettata, non andata, chiusa). Le richieste nuove sono la prima
+  riga di «Da fare».
+
+Non c'è ancora: caricamento di allegati (il cliente risponde all'email), trasformazione in evento con un tasto,
+preventivo con margine, presenze. Sono i passi successivi.
 
 ## Il collaudo del 10/09/2026
 
