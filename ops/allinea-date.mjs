@@ -55,7 +55,14 @@ function dataGit(rel) {
        commit cambiasse quel testo E la data insieme, verrebbe scambiato per un commit di sole date.
        L'errore è dalla parte giusta — al più la pagina tiene una data un po' più vecchia — mentre
        ignorare la byline qui farebbe rincorrere la coda a ogni esecuzione. */
-    const soloDate = righe.length > 0 && righe.every((l) => /dateModified|<lastmod>|aggiornat[oa] (?:il |l')\d{2}\/\d{2}\/\d{4}/.test(l));
+    /* Stessa ragione per il numero di versione dell'anteprima social: quando preview.png viene
+       ridisegnata bisogna alzare `?v=` su tutte e 29 le pagine, o i social continuano a servire
+       l'immagine vecchia dalla loro cache. Ma quel bump non riscrive una riga della guida, e la
+       byline è la data che LEGGE IL VISITATORE: portarla a oggi gli direbbe che il testo è nuovo
+       quando non lo è. (10/09: il primo bump di questo tipo dopo l'arrivo della byline.) */
+    const soloDate = righe.length > 0 && righe.every((l) =>
+      /dateModified|<lastmod>|aggiornat[oa] (?:il |l')\d{2}\/\d{2}\/\d{4}/.test(l) ||
+      /preview\.png\?v=\d+/.test(l));
     if (!soloDate) return data;          /* questo commit ha toccato il contenuto: è la data buona */
   }
   return (storia[0] || "").split(" ")[1] || null;
