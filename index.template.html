@@ -27420,6 +27420,18 @@ function pdfChannelPage(doc, L, paperKey){
       if(typeof premibile==="function") premibile(sug, _sugg, "Aggiungi al PDF le pagine suggerite dal palco");
       host.appendChild(sug);
     }
+    /* …e il suo contrario (10/09, Simone: «queste opzioni di default devono essere deselezionate»).
+       Non erano un default: le pagine partono spente dal 16/08, ma la scelta si RICORDA nel
+       progetto, e nel suo c'erano tutte e diciassette — un vecchio clic su «Tutte le pagine».
+       Il difetto era l'asimmetria: c'era il comando per prenderle tutte e nessuno per lasciarle,
+       e tornare al solo palco voleva dire tredici clic sulle ✕, una per una. */
+    if(nSel>0){
+      var nes=mk("Solo il palco","pill ghost");
+      var _nessuna=function(){ _pdfPillSel={}; pdfRememberPages(); pdfRenderPills(); pdfUpdateTechNote(); };
+      nes.addEventListener("click", _nessuna);
+      if(typeof premibile==="function") premibile(nes, _nessuna, "Togli dal PDF tutte le pagine tecniche: resta il solo palco");
+      host.appendChild(nes);
+    }
     var rest=_pdfTechPages.length-nSel;
     if(rest>1){
       var all=mk("Tutte le pagine","pill ghost");
