@@ -5397,7 +5397,17 @@ function saveSoon(){
 }
 /* registra SUBITO uno snapshot in sospeso nel debounce (digitazione): serve prima di undo/redo,
    altrimenti un ⌘Z entro 500ms dall'ultimo tasto non annulla ciò che hai appena scritto (ciclo 5). */
-function flushHistorySoon(){ if(_saveSoonT){ clearTimeout(_saveSoonT); _saveSoonT=null; recordHistory(); } }
+/* `!=null` e non il valore di verità: l'id di un timer è un numero qualunque, e uno `0` è un id
+   legittimo che qui sarebbe passato per «nessun timer armato». */
+function flushHistorySoon(){ if(_saveSoonT!=null){ clearTimeout(_saveSoonT); _saveSoonT=null; recordHistory(); } }
+/* Da chiamare in TESTA a un'azione discreta (duplica, elimina, ruota, aggiungi…), prima di toccare
+   lo stato. Perché: `saveSoon` rinvia lo snapshot di 500 ms — un solo passo di cronologia per
+   parola invece di uno per carattere — e se dentro quella finestra arriva un'azione, quella muta
+   lo stato e chiama `save()`; `recordHistory()` spinge nello stack `lastSnap`, che è ancora lo
+   stato PRIMA della rinomina. Un solo Annulla se le portava via tutt'e due: spariva il duplicato
+   E il nome tornava quello vecchio. Riprodotto e segnalato il 10/09.
+   `flushHistorySoon()` c'era già dal ciclo 5, ma lo chiamavano soltanto undo() e redo(). */
+function primaDiAgire(){ flushHistorySoon(); }
 /* ===== Stato documento + autosave online (V2, modello Docs — UI/UX A′) =====
    Loggato: ogni salvataggio locale arma un upsert cloud con debounce 10s (stesso ritmo
    dell'autosave consulenza). Non loggato: chip ambra cliccabile → login. */
@@ -5624,9 +5634,14 @@ function resetHistory(){ venueHistoryAssets=Object.create(null); undoStack.lengt
    scena, che azzera la cronologia (è per-variante): prima i due bottoni restavano accesi e premerli
    non faceva nulla, senza che niente lo dicesse (06/08). Lo stile :disabled esisteva già, inutilizzato. */
 function syncHistoryButtons(){
-  var u=document.getElementById("bUndo"), r=document.getElementById("bRedo");
-  if(u) u.disabled = !undoStack.length;
-  if(r) r.disabled = !redoStack.length;
+  /* I bottoni sono QUATTRO: due in header (desktop) e due nella barra del telefono, e hanno lo
+     stesso handler. Qui se ne aggiornavano due: sul telefono Annulla e Ripeti restavano accesi e
+     premibili con la cronologia vuota, e premerli non faceva niente — l'unico posto dove la
+     cronologia è vuota davvero è appena dopo aver ricaricato un progetto, cioè il momento in cui
+     uno ci prova. (segnalazione 10/09) */
+  var vuotoU=!undoStack.length, vuotoR=!redoStack.length;
+  ["bUndo","mUndo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.disabled=vuotoU; });
+  ["bRedo","mRedo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.disabled=vuotoR; });
 }
 function itemIdNum(id){ var n=parseInt(String(id||"").replace(/\D/g,""),10); return isFinite(n)?n:0; }
 function syncNextId(){
@@ -12757,7 +12772,7 @@ function setPart(it, key, val){
   render(); save();
 }
 /* "Dividi in elementi singoli": esplode un componibile nei suoi pezzi come item indipendenti */
-function explodeComposite(){
+function explodeComposite(){ primaDiAgire();
   var it=getSel(); if(!it) return; var comp=COMP[it.type]; if(!comp||!comp.explode) return;
   var pieces=comp.explode(it), rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), made=[], gid="g"+uid();
   pieces.forEach(function(pc){
@@ -12831,11 +12846,16 @@ function lblText(raw, it, isPrimary){
   if(mode==="abbr") return isPrimary ? abbrOf(it) : abbrOf({type:it.type, label:raw});   /* il 2° strumento della postazione a 2 usa la stessa logica (sigla + numero) */
   return raw;
 }
-function mutSel(fn){ var it=getSel(); if(!it) return; fn(it); render(); save(); }
+/* `primaDiAgire()` in testa ai due helper che salvano SUBITO: sono la porta da cui passano le
+   azioni discrete del pannello (specchia, primo piano, in fondo, rotazione, spunte…), 65 usi in
+   tutto. Metterlo qui invece che in ognuna è il modo per non doverselo ricordare la prossima
+   volta che se ne aggiunge una. `mutSelSoon` NON si tocca: quella è la digitazione, ed è proprio
+   lo snapshot che sta aspettando. */
+function mutSel(fn){ primaDiAgire(); var it=getSel(); if(!it) return; fn(it); render(); save(); }
 /* Come mutSel, ma vale per TUTTA la selezione dello stesso tipo. Il pannello mostrava i campi anche
    con 24 coristi selezionati e poi ne cambiava uno solo: 72 gesti per mettere in panoramica un coro
    (misurato). Solo per i campi che hanno senso in blocco — l'etichetta resta per elemento (06/08). */
-function mutSelAll(fn){ var it=getSel(); if(!it) return;
+function mutSelAll(fn){ primaDiAgire(); var it=getSel(); if(!it) return;
   var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && x.type===it.type; });
   if(!tutti.length) tutti=[it];
   tutti.forEach(fn); render(); save(); }
@@ -13158,7 +13178,7 @@ function syncSnapSelects(){
 document.getElementById("pGtrSplit").addEventListener("click", explodeGuitar);
 /* Dividi una postazione doppia (×2 del generatore o doppia-da-flag) in 2 postazioni singole */
 var SINGLE_OF_KIND={vln1:"vlnpost", vln2:"vlnpost", vla:"violapost", vc:"violoncello", cb:"contrabbasso"};
-function splitDouble(){
+function splitDouble(){ primaDiAgire();
   var it=getSel(); if(!it) return;
   var single;
   if(DOUBLE_TYPES[it.type]) single=SINGLE_OF_KIND[DOUBLE_TYPES[it.type].kind];
@@ -13253,7 +13273,7 @@ function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
    gruppo, e le rotazioni si ribaltano con lui. È il gesto vero — allestisci una metà del palco, la
    duplichi, la specchi e hai l'altra. Ribaltare solo le icone lascerebbe tutto dov'era.
    L'asse è il centro dell'ingombro della selezione: lo stesso pivot della rotazione di gruppo. */
-function mirrorSel(){
+function mirrorSel(){ primaDiAgire();
   var sel1=selItems();
   if(!sel1.length) return;
   var its=sel1.filter(canMirror), movable=sel1.filter(itemEditable);
@@ -13604,7 +13624,7 @@ function rotateGroupBy(its, deg, pivot){
   its.forEach(function(it){ var np=rotatePointAround(it.x,it.y,pivot[0],pivot[1],deg);
     it.x=Math.round(np[0]); it.y=Math.round(np[1]); it.rot=Math.round((((it.rot||0)+deg)%360+360)%360); });
 }
-function rotateSel(deg){ var its=selItems(); if(!its.length) return;
+function rotateSel(deg){ primaDiAgire(); var its=selItems(); if(!its.length) return;
   if(its.length>1) rotateGroupBy(its, deg, selBBoxCenter(its));   /* blocco: rigido attorno al centro */
   else its.forEach(function(it){ it.rot=((it.rot||0)+deg)%360; });
   render(); save(); }
@@ -13639,6 +13659,7 @@ function bumpItemLabels(c){
   if(c.label2 && (auto || num.test(c.label2))){ c.label2=bumpLabel(c.label2, reserved); reserved[c.label2]=true; }
 }
 function duplicateSel(noOffset){
+  primaDiAgire();
   var its=selItems(); if(!its.length) return;
   /* includi gli elementi che poggiano sulle pedane selezionate → la copia è completa e non "ruba" gli originali */
   var set=its.slice();
@@ -13731,6 +13752,7 @@ function applyDistribute(riser, template, n, eq){
   render(); save(); ensureVisible();
 }
 function deleteSel(){
+  primaDiAgire();
   if(!selIds().length) return;
   var vsecs={}, bases={};   /* sezioni violino + basi strumento toccate dall'eliminazione → rinumerare dopo, così i posti scalano */
   state.items.forEach(function(i){
@@ -24254,10 +24276,20 @@ function pdfSave(doc, name){ doc.save(name); toastDownloaded(name); }
 function csvCell(v, sep){ v=(v==null?"":String(v)); return (v.indexOf(sep)>-1 || /["\n\r]/.test(v)) ? '"'+v.replace(/"/g,'""')+'"' : v; }
 /* nome canale per Allen & Heath: accenti rimossi, solo alfanumerici+spazio, max 8 caratteri (vincolo console) */
 function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
-function rowsToCsv(headers, rows, sep){
+/* CSV INJECTION (segnalazione 10/09). Excel ESEGUE una cella che comincia con = + - @ (o con un
+   TAB / ritorno a capo) come se fosse una formula: un canale chiamato «=1+1» arriva al service e
+   nel foglio si legge 2; con nomi meno innocenti si arriva a DDE e a comandi di sistema.
+   ⚠️ Le virgolette CSV NON bastano: dicono dove finisce il campo, non di che tipo è. L'apice
+   singolo è il modo con cui Excel dichiara «questa cella è testo».
+   Si applica SOLO al formato Excel. Nei formati per console — A&H Director e «Internazionale /
+   console» — un apice davanti al nome finirebbe dentro il banco, quindi lì non si tocca niente:
+   per questo la protezione sta sul FORMATO e non dentro csvCell(). */
+function csvTesto(v){ v=(v==null?"":String(v)); return /^[=+\-@\t\r]/.test(v) ? "'"+v : v; }
+function rowsToCsv(headers, rows, sep, proteggi){
   sep=sep||";";
-  var out=[]; if(headers) out.push(headers.map(function(c){ return csvCell(c,sep); }).join(sep));
-  rows.forEach(function(r){ out.push(r.map(function(c){ return csvCell(c,sep); }).join(sep)); });
+  var cella=proteggi ? function(c){ return csvCell(csvTesto(c),sep); } : function(c){ return csvCell(c,sep); };
+  var out=[]; if(headers) out.push(headers.map(cella).join(sep));
+  rows.forEach(function(r){ out.push(r.map(cella).join(sep)); });
   return "﻿"+out.join("\r\n")+"\r\n";   /* BOM + CRLF: massima compatibilità Excel/console */
 }
 function downloadCsv(text, name){
@@ -24373,7 +24405,9 @@ function channelListCsv(opts){
        non una cella vuota da interpretare come «asta da decidere» */
     return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.mic||"", r.standShared?"stessa asta":(r.stand||""), r.p48?"48V":"", patch];
   });
-  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Asta","Phantom","Patch"], rows, sep), count: count };
+  /* la protezione dalle formule vale per il formato Excel; «intl» dichiara nella sua etichetta di
+     servire anche all'import in console, e lì l'apice sarebbe un danno */
+  return { csv: rowsToCsv(["Canale","Sorgente","Mic/DI","Asta","Phantom","Patch"], rows, sep, opts.format!=="intl"), count: count };
 }
 function exportChannelCsv(opts){
   var r=channelListCsv(opts);
