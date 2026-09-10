@@ -69,6 +69,28 @@ export async function deleteFile(f) {
   fail((await sb.storage.from("orc-files").remove([f.path])).error);
   fail((await sb.from("orc_files").delete().eq("id", f.id)).error);
 }
+/* La fotografia sta nello stesso archivio privato degli altri materiali, ma il profilo ne tiene UNA sola:
+   caricarne un'altra sostituisce quella di prima, così non restano ritratti orfani nell'archivio. */
+export async function setPhoto(profile, file) {
+  const vecchia = profile.photo_path || "";
+  const f = await uploadFile(profile, "photo", file);
+  fail((await sb.from("orc_musician_profiles").update({ photo_path: f.path }).eq("id", profile.id)).error);
+  /* la vecchia foto si toglie dopo: se il ripulisci fallisce, resta un file in più — non un profilo rotto.
+     (`sb.from(...)` si attende ma non è una Promise: niente `.catch` attaccato, serve try/catch) */
+  if (vecchia) {
+    try { await sb.storage.from("orc-files").remove([vecchia]); } catch { /* già sparita */ }
+    try { await sb.from("orc_files").delete().eq("path", vecchia); } catch { /* già sparita */ }
+  }
+  return f.path;
+}
+export async function removePhoto(profile) {
+  const p = profile.photo_path || "";
+  fail((await sb.from("orc_musician_profiles").update({ photo_path: "" }).eq("id", profile.id)).error);
+  if (p) {
+    try { await sb.storage.from("orc-files").remove([p]); } catch { /* già sparita */ }
+    try { await sb.from("orc_files").delete().eq("path", p); } catch { /* già sparita */ }
+  }
+}
 export async function signedUrl(path) {
   const { data, error } = await sb.storage.from("orc-files").createSignedUrl(path, 600);
   fail(error);

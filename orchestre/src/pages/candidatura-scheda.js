@@ -32,7 +32,7 @@ function paint() {
   const a = D.application, p = D.profile;
   app.innerHTML = tabs("candidature") + `
     <p class="small"><a class="back" href="${BASE}/admin/candidature/">← Candidature</a></p>
-    <div class="row"><h1 id="h"></h1><span class="spacer"></span><span class="pill ${APP_PILL[a.status] || ""}">${esc(APP_STATUS[a.status] || a.status)}</span></div>
+    <div class="row"><span id="ritratto"></span><h1 id="h"></h1><span class="spacer"></span><span class="pill ${APP_PILL[a.status] || ""}">${esc(APP_STATUS[a.status] || a.status)}</span></div>
     <p class="small muted">Il candidato vede: <b>${esc(PUBLIC_STATUS[publicStatus(a.status)])}</b>${a.note_to_candidate ? " · messaggio: «" + esc(a.note_to_candidate) + "»" : ""}${p.deletion_requested_at ? ` · <span class="pill danger">chiede la cancellazione dal ${esc(fmtDate(p.deletion_requested_at))}</span>` : ""}</p>
     <div class="grid2">
       <div class="stack">
@@ -46,7 +46,20 @@ function paint() {
       </div>
     </div>`;
   app.querySelector("#h").textContent = p.last_name + " " + p.first_name;
+  ritratto(p.photo_path, p.last_name + " " + p.first_name);
   paintDeclared(); paintFiles(); paintHistory(); paintStatus(); paintEvals();
+}
+
+/* Come nella scheda del musicista: il ritratto se c'è, e la pagina regge anche se non c'è. */
+async function ritratto(path, nome) {
+  const box = app.querySelector("#ritratto");
+  if (!box || !path) return;
+  try {
+    const img = el(`<img class="foto-prev" alt="">`);
+    img.alt = "Fotografia di " + nome;
+    img.src = await api.signedUrl(path);
+    box.appendChild(img);
+  } catch { /* senza ritratto la candidatura si valuta uguale */ }
 }
 
 function kv(k, v) { const pp = el(`<p class="small"><b></b> <span></span></p>`); pp.querySelector("b").textContent = k + ":"; pp.querySelector("span").textContent = v || "—"; return pp; }
