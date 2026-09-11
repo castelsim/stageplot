@@ -117,9 +117,20 @@ dl.review dd.strong{font-weight:700;color:var(--text)}
 /* Le righe del preventivo stanno nello schermo del telefono: la colonna del cachet è quella che si
    compila, e con la tabella che scorreva di lato era proprio quella a restare tagliata (provato). */
 .quote-lines{width:100%;table-layout:fixed}
-.quote-lines th:nth-child(2),.quote-lines td:nth-child(2){width:4.2em}
-.quote-lines th:nth-child(3),.quote-lines td:nth-child(3){width:6.4em}
-.quote-lines th:nth-child(4),.quote-lines td:nth-child(4){width:2.8em}
+/* Larghezze in rem, non in em: la tabella eredita un corpo più piccolo e 4,2em diventavano 50 px, di cui
+   ne restavano 26 per il numero — e la freccetta su/giù di Chrome se li mangiava tutti: il campo «Quanti»
+   conteneva «1» ma a schermo largo non si vedeva (visto da Simone provando, 11/09). */
+.quote-lines th:nth-child(2),.quote-lines td:nth-child(2){width:3.9rem}
+.quote-lines th:nth-child(3),.quote-lines td:nth-child(3){width:6.2rem}
+.quote-lines th:nth-child(4),.quote-lines td:nth-child(4){width:2.75rem}
+@media (min-width:640px){
+  .quote-lines th:nth-child(2),.quote-lines td:nth-child(2){width:5rem}
+  .quote-lines th:nth-child(3),.quote-lines td:nth-child(3){width:8rem}
+}
+/* niente frecce su/giù nei numeri: rubano lo spazio del numero, e con un dito non si usano */
+.quote-lines input[type=number]{appearance:textfield;-moz-appearance:textfield;text-align:right;padding-inline:4px}
+.quote-lines input[type=number]::-webkit-inner-spin-button,.quote-lines input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.quote-lines th{white-space:nowrap}
 .quote-lines input{width:100%;min-width:0;box-sizing:border-box;min-height:var(--tap);padding:0 6px;font:inherit;font-size:var(--t-base);
   border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text)}
 .quote-lines td,.quote-lines th{padding-inline:4px}
