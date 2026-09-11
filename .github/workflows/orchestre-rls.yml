@@ -49,6 +49,12 @@ jobs:
       - name: Lint di Orchestre
         run: deno lint orchestre/src/
 
+      # Le guardie delle pagine e i test di dominio non hanno bisogno del database, e prima giravano solo
+      # in pages.yml, cioe DOPO il merge: un rosso fermava il deploy invece della PR. Qui girano prima di
+      # avviare Supabase, quindi le suite RLS si saltano; le prova davvero lo step piu sotto.
+      - name: Test di Orchestre senza database
+        run: node --test orchestre/test/*.test.mjs
+
       - name: Avvia Supabase con le migrazioni applicate
         run: supabase start -x studio,imgproxy,realtime,vector,analytics,edge-runtime,functions,inbucket
 

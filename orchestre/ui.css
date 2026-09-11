@@ -187,6 +187,11 @@ code{font-family:var(--font-mono);font-size:.92em;background:var(--surface-raise
 /* organico */
 .nav-tabs.sub{margin-top:calc(-1 * var(--s-2))}
 .filters.two{grid-template-columns:2fr 1fr}
+/* «Altri filtri»: chiuso non occupa il telefono; aperto, i menu vanno a capo da soli */
+details.altri-filtri{margin-bottom:var(--s-3)}
+details.altri-filtri summary{display:inline-flex;align-items:center;gap:var(--s-2);min-height:var(--tap);cursor:pointer;color:var(--accent);font-weight:600}
+details.altri-filtri[open] summary{margin-bottom:var(--s-2)}
+.filters.cinque{grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))}
 .form-row.three{grid-template-columns:1fr 1fr 1fr auto auto}
 @media (max-width:880px){.form-row.three{grid-template-columns:1fr 1fr}}
 details.role{border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:var(--s-2);background:var(--surface)}

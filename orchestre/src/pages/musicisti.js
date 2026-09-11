@@ -1,4 +1,6 @@
-/* Il pool dei musicisti: ricerca immediata, filtri per famiglia e stato, lista a card. */
+/* Il pool dei musicisti: ricerca immediata, filtri per famiglia e stato, lista a card. «Altri filtri» —
+   genere, lettura a prima vista, esperienza, zona, tag — sta chiuso finché non serve, e si apre da solo
+   se l'indirizzo ne porta uno. La logica dei filtri è in domain/roster-filter.js. */
 import { BASE } from "../config.js";
 import { esc, el, setState, errMsg, toast, confirm } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
@@ -6,12 +8,11 @@ import { tabs, STATUS, STATUS_PILL, FAMILY } from "../nav.js";
 import { list } from "../api/musicians.js";
 import { createInvite, listInvites, revokeInvite } from "../api/invites.js";
 import { INVITE_PILL, INVITE_STATUS, inviteLink, inviteMessage, scadenza } from "../domain/invites.js";
+import { filtra, opzioni, vuoti, altriAttivi, daIndirizzo, aIndirizzo, LETTURA, ESPERIENZE } from "../domain/roster-filter.js";
 
 const app = document.getElementById("app");
 let ctx = null, all = [];
-const F = { q: "", family: "", status: "" };
-
-function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+let F = vuoti();
 
 async function main() {
   ctx = await requireStaff();
@@ -29,38 +30,64 @@ async function main() {
       <div class="field"><label for="fam">Famiglia</label><select id="fam"><option value="">Tutte</option>${Object.entries(FAMILY).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
       <div class="field"><label for="st">Stato</label><select id="st"><option value="">Tutti</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
     </div>
+    <details class="altri-filtri" id="altri"><summary>Altri filtri <span class="pill accent" id="nAltri" hidden></span></summary>
+      <div class="filters cinque">
+        <div class="field"><label for="gen">Genere</label><select id="gen"><option value="">Tutti</option></select></div>
+        <div class="field"><label for="let">Lettura a prima vista</label><select id="let">${LETTURA.map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+        <div class="field"><label for="esp">Esperienza</label><select id="esp"><option value="">Qualsiasi</option>${Object.entries(ESPERIENZE).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+        <div class="field"><label for="zona">Zona</label><select id="zona"><option value="">Ovunque</option></select></div>
+        <div class="field"><label for="tag">Tag</label><select id="tag"><option value="">Tutti</option></select></div>
+      </div>
+      <button type="button" class="btn small ghost" id="azzera">Togli tutti i filtri</button>
+    </details>
     <p class="small muted" id="count"></p>
     <ul class="list" id="list"><li class="loading">Un attimo…</li></ul>`;
-  try {
-    const q = new URLSearchParams(location.search);
-    F.q = q.get("q") || ""; F.family = q.get("fam") || ""; F.status = q.get("st") || "";
-    app.querySelector("#q").value = F.q; app.querySelector("#fam").value = F.family; app.querySelector("#st").value = F.status;
-  } catch { /* parametri assenti */ }
+  F = daIndirizzo(location.search);
   app.querySelector("#invita").onclick = () => dialogoInvito();
   paintInviti();
-  app.querySelector("#q").oninput = (e) => { F.q = e.target.value; paint(); };
-  app.querySelector("#fam").onchange = (e) => { F.family = e.target.value; paint(); };
-  app.querySelector("#st").onchange = (e) => { F.status = e.target.value; paint(); };
+  /* ogni controllo scrive il suo filtro; i menu con le scelte del pool si riempiono quando arriva */
+  for (const [id, k, ev] of [["q", "q", "oninput"], ["fam", "family", "onchange"], ["st", "status", "onchange"], ["gen", "genre", "onchange"],
+    ["let", "reading", "onchange"], ["esp", "exp", "onchange"], ["zona", "zone", "onchange"], ["tag", "tag", "onchange"]]) {
+    app.querySelector("#" + id)[ev] = (e) => { F[k] = e.target.value; paint(); };
+  }
+  app.querySelector("#azzera").onclick = () => { F = vuoti(); mostraFiltri(); paint(); };
+  if (altriAttivi(F)) app.querySelector("#altri").open = true;
   try {
     all = await list(ctx.org.org_id);
+    const o = opzioni(all);
+    const riempi = (id, valori, etichetta = (v) => v) => {
+      const sel = app.querySelector("#" + id);
+      for (const v of valori) { const op = document.createElement("option"); op.value = v; op.textContent = etichetta(v); sel.appendChild(op); }
+    };
+    riempi("gen", o.generi, (g) => g.charAt(0).toUpperCase() + g.slice(1));
+    riempi("zona", o.zone);
+    riempi("tag", o.tag);
+    mostraFiltri();
     paint();
   } catch (e) {
     const ul = app.querySelector("#list"); ul.innerHTML = ""; setState(ul, "err", errMsg(e));
   }
 }
 
+/* i controlli mostrano i filtri scelti; un valore arrivato dall'indirizzo che il pool non ha più resta
+   comunque scelto — altrimenti il menu direbbe «Tutti» mentre la lista è filtrata */
+function mostraFiltri() {
+  for (const [id, k] of [["q", "q"], ["fam", "family"], ["st", "status"], ["gen", "genre"], ["let", "reading"], ["esp", "exp"], ["zona", "zone"], ["tag", "tag"]]) {
+    const c = app.querySelector("#" + id);
+    if (c.tagName === "SELECT" && F[k] && ![...c.options].some((o) => o.value === F[k])) {
+      const op = document.createElement("option"); op.value = F[k]; op.textContent = F[k]; c.appendChild(op);
+    }
+    c.value = F[k];
+  }
+}
+
 function paint() {
   const ul = app.querySelector("#list");
-  const q = norm(F.q);
-  const rows = all.filter((m) => {
-    if (F.family && m.primary_family !== F.family) return false;
-    if (F.status && m.status !== F.status) return false;
-    if (!q) return true;
-    const hay = norm([m.first_name, m.last_name, m.city, m.province, ...(m.instruments || []), ...(m.tags || [])].join(" "));
-    return q.split(/\s+/).every((w) => hay.includes(w));
-  });
-  const p = new URLSearchParams(); if (F.q) p.set("q", F.q); if (F.family) p.set("fam", F.family); if (F.status) p.set("st", F.status);
-  history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : ""));
+  const rows = filtra(all, F);
+  const qs = aIndirizzo(F);
+  history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+  const n = altriAttivi(F), badge = app.querySelector("#nAltri");
+  badge.hidden = !n; badge.textContent = String(n);
   app.querySelector("#count").textContent = rows.length === all.length
     ? (all.length === 1 ? "1 musicista" : all.length + " musicisti")
     : rows.length + " su " + all.length;
