@@ -142,3 +142,15 @@ test("storico e affidabilità: valutazione (3 neutro, una sola pesa meno), assen
   assert.equal(inv.missing[0].code, "invited");
   assert.equal(checkRequirements(base({ declined_here: true }), ctx).missing[0].code, "declined");
 });
+
+test("la parte: per la prima parte avvisa chi non l'ha indicata, e il punteggio non cambia", () => {
+  const w = (parts, part = "principal") => scoreCandidate(base({ parts }), { ...ctx, role: { ...ctx.role, part } }, DEFAULT_WEIGHTS, NOW);
+  const si = w(["tutti", "principal"]), fila = w(["tutti"]), muto = w([]), vecchio = w(undefined);
+  assert.ok(!si.warnings.some((x) => /prima parte/.test(x)), "chi la fa non ha avvisi");
+  assert.ok(fila.warnings.includes("Non ha indicato la prima parte: fa la fila"), fila.warnings.join(" | "));
+  assert.ok(muto.warnings.includes("Non ha indicato se fa la prima parte"), muto.warnings.join(" | "));
+  assert.ok(vecchio.warnings.includes("Non ha indicato se fa la prima parte"), "una scheda senza il campo non rompe niente");
+  assert.equal(si.score, fila.score, "è un avviso, non un punteggio: decide chi legge");
+  assert.ok(w([], "solo").warnings.includes("Non ha indicato se fa il solista"));
+  assert.ok(!w([], "tutti").warnings.some((x) => /Non ha indicato/.test(x)), "per la fila non serve dichiarare niente");
+});
