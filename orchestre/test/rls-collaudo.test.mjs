@@ -67,3 +67,22 @@ run("il committente legge lo stato vero e i posti che ha chiesto — e solo le s
   assert.deepEqual((await rpc(env, T.si, "orc_my_client_requests", {})).d, [], "un altro utente non vede le richieste altrui");
   assert.equal((await rpc(env, env.ANON_KEY, "orc_my_client_requests", {})).ok, false, "e da anonimo la funzione non si chiama");
 });
+
+run("la conferma e la revoca avvisano il musicista, e l'elenco conta le risposte (se cambia idea si vede)", async () => {
+  const inv = (await rest(env, admin(env), "orc_invitations?select=id&role_id=eq." + ROLE + "&musician_id=eq." + SI)).d[0].id;
+  assert.ok((await rest(env, admin(env), "orc_invitations?id=eq." + inv, { method: "PATCH", body: { status: "sent", notification_status: "sent" } })).ok);
+  assert.equal((await rpc(env, T.si, "orc_link_my_musician_rows", {})).ok, true);
+  for (const risposta of ["yes", "no", "yes"]) {
+    const r = await rpc(env, T.si, "orc_respond_mine", { invitation: inv, answer: risposta, dates: [], note: "" });
+    assert.ok(r.ok, risposta + ": " + JSON.stringify(r.d));
+  }
+  const riga = (await rpc(env, T.owner, "orc_invitations_list", { production: PID })).d.find((x) => x.id === inv);
+  assert.equal(Number(riga.n_answers), 3, "tre risposte: ha cambiato idea due volte");
+  assert.ok((await rpc(env, T.owner, "orc_invitation_action", { invitation: inv, action: "confirm", reason: "" })).ok);
+  let x = (await rest(env, admin(env), "orc_invitations?select=status,notification_kind,notification_status&id=eq." + inv)).d[0];
+  assert.deepEqual([x.status, x.notification_kind, x.notification_status], ["confirmed", "confirmed", "pending"], "confermato, e l'avviso è in coda");
+  assert.ok((await rpc(env, T.owner, "orc_invitation_action", { invitation: inv, action: "revoke", reason: "prova" })).ok);
+  x = (await rest(env, admin(env), "orc_invitations?select=status,notification_kind,notification_status&id=eq." + inv)).d[0];
+  assert.deepEqual([x.status, x.notification_kind, x.notification_status], ["revoked", "revoked", "pending"], "revocato, e anche questo gli si dice");
+  assert.deepEqual((await rpc(env, T.si, "orc_invitations_list", { production: PID })).d, [], "l'elenco resta dello staff");
+});

@@ -724,3 +724,26 @@ test("chi arriva su http viene rimandato su https, su ogni pagina", () => {
     assert.ok(modulo > 0 && i < modulo, r + ": frame.js prima del modulo della pagina");
   }
 });
+
+/* Le convocazioni partivano solo col worker (il cron di GitHub, ore) e il confermato non riceveva niente
+   (collaudo 11/09). Ora la pagina chiede l'invio subito, e la funzione che lo fa è protetta come le altre. */
+test("le convocazioni partono subito, sono protette, e il confermato lo sa", () => {
+  const f = readFileSync(join(root, "supabase/functions/orc-invite-notify/index.ts"), "utf8");
+  assert.match(f, /from\("orc_memberships"\)\.select\("role"\)\.eq\("org_id", p\.org_id\)\.eq\("user_id", userData\.user\.id\)/, "controlla che chi chiama sia dello staff della produzione");
+  assert.match(f, /"non della tua organizzazione" \}, 403/);
+  assert.match(f, /productionId: id/, "spedisce solo la coda di quella produzione");
+  const cfg = readFileSync(join(root, "supabase/config.toml"), "utf8");
+  assert.match(cfg, /\[functions\.orc-invite-notify\]\s*\n\s*verify_jwt = true/);
+  assert.match(readFileSync(join(root, ".github/workflows/pages.yml"), "utf8"), /orc-invite-notify\/index\.ts/, "la CI ne controlla i tipi");
+  const w = readFileSync(join(root, "supabase/functions/orc-notify/index.ts"), "utf8");
+  assert.match(w, /await dispatchInvitations\(supabase, \{ resendKey, mode, base, limit: BATCH_SIZE \}\)/, "il worker usa la stessa spedizione");
+  const d = readFileSync(join(root, "supabase/functions/_shared/orc-invite-dispatch.ts"), "utf8");
+  assert.match(d, /\.eq\("id", row\.id\)\.eq\("notification_status", "pending"\)/, "presa atomica: worker e funzione non spediscono due volte");
+  assert.match(d, /conLink \? buildInviteEmail\(inv, token, opts\.base\) : buildStatusEmail\(inv, opts\.base\)/, "conferma e revoca senza token");
+  const prod = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  assert.match(prod, /const esito = n \? inv\.esitoEmail\(await inv\.notifyNow\(p\.id\)\) : "";/, "dopo aver convocato si spedisce subito");
+  assert.match(prod, /\["confirm", "revoke", "remind"\]\.includes\(action\) \? inv\.esitoEmail\(await inv\.notifyNow\(p\.id\)\)/, "e dopo conferma, revoca, promemoria");
+  assert.match(prod, /Number\(r\.n_answers\) > 1\) bits\.push\("ha cambiato risposta/, "una risposta cambiata si vede sulla riga");
+  const mig = readFileSync(join(root, "supabase/migrations/0068_orc_convocazioni_avvisi.sql"), "utf8");
+  assert.match(mig, /status = 'confirmed', slot_id = slot, notification_kind = 'confirmed', notification_status = 'pending'/, "la conferma mette in coda l'avviso");
+});
