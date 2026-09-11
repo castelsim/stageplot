@@ -41,6 +41,10 @@ verify_jwt = false
 [functions.orc-notify]
 verify_jwt = false
 
+# chiamata dal workflow retention-purge.yml con il segreto dei worker: niente JWT, lo verifica lei
+[functions.retention-purge]
+verify_jwt = false
+
 # Manda subito le email di una richiesta «Richiedi musicisti»: la chiama la pagina del cliente, quindi il
 # JWT lo verifica Supabase. Dentro si controlla comunque che la richiesta sia di chi chiama.
 [functions.orc-request-notify]
