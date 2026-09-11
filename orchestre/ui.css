@@ -250,6 +250,11 @@ dl.review dd{overflow-wrap:anywhere}
 .field textarea{padding:10px 12px;min-height:96px;resize:vertical}
 .field .hint{font-size:var(--t-body);color:var(--text-3)}
 .field.error input,.field.error select{border-color:var(--danger)}
+/* Una casella è una casella. Dentro un .field le regole degli input — larghezza 100%, padding, 48 px di
+   altezza sul telefono — la deformavano: 13×48 o 49×48 secondo quanto era lunga l'etichetta (11/09, scheda
+   del musicista e passi del profilo). Il bersaglio da 44 px lo dà già la .check-line che la contiene. */
+.field input[type=checkbox],.field input[type=radio]{width:20px;height:20px;min-height:0;padding:0;flex:none}
+.field .check-line{font-size:var(--t-md);font-weight:400;color:var(--text)}
 .field .msg{font-size:var(--t-body);color:var(--danger)}
 .form-row{display:grid;grid-template-columns:1fr 200px auto;gap:var(--s-3);align-items:end}
 .form-row .field{margin-bottom:0}

@@ -177,6 +177,14 @@ I dati arrivano da `orc_musicians_list` (`0063`): i **generi** uniscono quelli c
 nel suo profilo — letti dal profilo collegato, così restano aggiornati — e quelli del repertorio in scheda; la
 lettura e le esperienze vengono dalle competenze. La logica è pura, in `src/domain/roster-filter.js`.
 
+## Le parti: fila, prima parte, solista
+
+Un ruolo dell'organico ha la sua parte; dal `0064` ce l'ha anche il musicista (`parts`, gli stessi codici:
+`tutti`, `principal`, `solo`). La dichiara lui fra le competenze del profilo, passa alla scheda quando la
+candidatura è accettata, e lo staff la corregge nella scheda. Il matching la riceve e, per un posto di prima
+parte o di solista, **avvisa** chi non l'ha indicata; il punteggio non cambia (`ENGINE_VERSION` 2). Il
+database rifiuta codici diversi da quei tre.
+
 ## Organico: ruoli, posti, storia
 
 Un **ruolo** è l'esigenza aggregata («Violini secondi, 5 posti»); i **posti** nascono e muoiono con i
