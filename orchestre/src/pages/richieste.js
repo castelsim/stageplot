@@ -267,7 +267,9 @@ function disegnaBozza(qbox, r, slots, q) {
       const sent = await quotes.send(id);
       const avviso = await quotes.notifyNow(sent.id);
       toast("Preventivo mandato: " + euro(sent.total_cents) + ". "
-        + (avviso && avviso.client === "sent" ? "Il cliente riceve l'email." : "L'email al cliente parte fra poco."));
+        + ({ sent: "Il cliente riceve l'email.", riservato: "Nessuna email: l'indirizzo del cliente è di prova o manca. Avvisalo tu.",
+             "già in corso": "L'email al cliente è già in partenza.", "niente da fare": "L'email al cliente era già partita." }[avviso && avviso.client]
+           || "L'email non è partita adesso: il sistema la riprova da solo. Se è urgente, avvisa il cliente tu."));
       tutte = await api.list(ctx.org.org_id); paint();
     } catch (e) { toast(errMsg(e), { err: true }); }
   };

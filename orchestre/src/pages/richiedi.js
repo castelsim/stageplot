@@ -46,11 +46,11 @@ function caricaPostazioni() {
 function paintLogin() {
   app.innerHTML = "";
   app.appendChild(el(`<h1>Richiedi musicisti</h1>`));
-  app.appendChild(el(`<p class="lead">Hai disegnato il palco e ti servono i musicisti per suonarci. Descrivi l'evento e dicci quali posti non riesci a coprire: ti rispondiamo con i nomi e il preventivo.</p>`));
+  app.appendChild(el(`<p class="lead">Descrivi l'evento e i musicisti che ti servono — anche se non sai ancora quale formazione: te la proponiamo noi. Ti mandiamo un preventivo, e quando lo accetti troviamo e confermiamo i musicisti.</p>`));
   const b = el(`<button type="button" class="btn primary block">Accedi con Google e continua</button>`);
   b.onclick = async () => { b.disabled = true; b.textContent = "Ti porto su Google…"; try { await signIn(HERE); } catch (e) { b.disabled = false; b.textContent = "Accedi con Google e continua"; toast(errMsg(e), { err: true }); } };
   app.appendChild(b);
-  app.appendChild(el(`<p class="small muted">Serve l'accesso per collegare la richiesta al tuo palco e per risponderti. <a href="${BASE}/privacy/">Come trattiamo i dati</a>.</p>`));
+  app.appendChild(el(`<p class="small muted">Serve l'accesso per mandarti il preventivo e ritrovare le tue richieste. <a href="${BASE}/privacy/">Come trattiamo i dati</a>.</p>`));
 }
 
 function paintChiuso() {
@@ -188,7 +188,7 @@ function rigaPosto(r, n) {
     sel.onchange = () => { r.instrument_code = sel.value; r.instrument_name = (instr.find((i) => i.code === sel.value) || {}).name || ""; r.label = r.instrument_name; aggiornaConto(); };
     li.querySelector(".title").textContent = "";
     li.querySelector(".title").appendChild(sel);
-    const qty = el(`<input type="number" min="1" max="60" value="${r.qty}" aria-label="Quanti" style="width:5rem">`);
+    const qty = el(`<input type="number" min="1" max="60" value="${r.qty}" aria-label="Quanti" class="qty-in">`);
     qty.oninput = () => { r.qty = Math.max(1, Math.min(60, Number(qty.value) || 1)); aggiornaConto(); };
     act.appendChild(qty);
     const rm = el(`<button type="button" class="btn small ghost">Togli</button>`);

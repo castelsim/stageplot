@@ -147,10 +147,22 @@ test("la parte: per la prima parte avvisa chi non l'ha indicata, e il punteggio 
   const w = (parts, part = "principal") => scoreCandidate(base({ parts }), { ...ctx, role: { ...ctx.role, part } }, DEFAULT_WEIGHTS, NOW);
   const si = w(["tutti", "principal"]), fila = w(["tutti"]), muto = w([]), vecchio = w(undefined);
   assert.ok(!si.warnings.some((x) => /prima parte/.test(x)), "chi la fa non ha avvisi");
-  assert.ok(fila.warnings.includes("Non ha indicato la prima parte: fa la fila"), fila.warnings.join(" | "));
+  assert.ok(fila.warnings.includes("Ha indicato la fila, non la prima parte"), fila.warnings.join(" | "));
   assert.ok(muto.warnings.includes("Non ha indicato se fa la prima parte"), muto.warnings.join(" | "));
   assert.ok(vecchio.warnings.includes("Non ha indicato se fa la prima parte"), "una scheda senza il campo non rompe niente");
   assert.equal(si.score, fila.score, "è un avviso, non un punteggio: decide chi legge");
   assert.ok(w([], "solo").warnings.includes("Non ha indicato se fa il solista"));
   assert.ok(!w([], "tutti").warnings.some((x) => /Non ha indicato/.test(x)), "per la fila non serve dichiarare niente");
+});
+
+test("l'avviso sulla parte riguarda solo chi suona lo strumento del ruolo", () => {
+  const trombone = scoreCandidate(base({ parts: [], instruments: [{ code: "trombone", level: 4, primary: true }] }), ctx, DEFAULT_WEIGHTS, NOW);
+  assert.ok(!trombone.warnings.some((x) => /prima parte/.test(x)), "un trombone per un posto di violino non ha niente da dichiarare: " + trombone.warnings.join(" | "));
+});
+
+test("chi ha scelto di non ricevere proposte non si può convocare, e si dice perché", () => {
+  const r = checkRequirements(base({ no_requests: true }), ctx);
+  assert.equal(r.eligible, false);
+  assert.ok(r.missing.some((m) => m.code === "no_requests" && /non ricevere proposte/.test(m.label)), JSON.stringify(r.missing));
+  assert.equal(checkRequirements(base({ no_requests: false }), ctx).missing.some((m) => m.code === "no_requests"), false);
 });

@@ -644,3 +644,46 @@ test("l'apertura dell'invito manda il token, non l'impronta", () => {
   assert.ok(fn.indexOf("hashToken(") === -1, "e non si calcola l'impronta da sé");
 });
 
+
+/* Il collaudo a tre profili (11/09): un committente, una musicista e il fornitore hanno fatto il giro
+   completo. Queste guardie tengono chiusi i difetti che hanno trovato nelle pagine. */
+test("collaudo a tre profili: chi entra torna dove stava andando, e chi non è dello staff non finisce nell'area sbagliata", () => {
+  const login = readFileSync(join(root, "orchestre/src/pages/login.js"), "utf8");
+  const i = login.indexOf("const voleva"), j = login.indexOf("const aree = await mieAree()");
+  assert.ok(i > 0 && i < j, "per chi non è dello staff, il «next» si guarda PRIMA di smistare per aree");
+  assert.match(login.slice(i, j), /voleva === q\.get\("next"\) && !voleva\.startsWith\(BASE \+ "\/admin"\)/, "solo indirizzi di Orchestre accettati da nextUrl, e mai l'area di gestione");
+  const auth = readFileSync(join(root, "orchestre/src/auth.js"), "utf8");
+  const rs = auth.slice(auth.indexOf("export async function requireStaff"), auth.indexOf("export async function mieAree"));
+  assert.match(rs, /if \(!org\) \{ location\.replace\(BASE \+ "\/login\/"\)/, "l'area di gestione rimanda chi non è dello staff al login, che smista");
+  const home = readFileSync(join(root, "orchestre/src/pages/home.js"), "utf8");
+  assert.match(home, /top\.href = BASE \+ "\/login\/"/, "«La tua area» passa dal login");
+});
+
+test("collaudo a tre profili: il tab «Profilo» non apre un passo che non esiste", () => {
+  const mus = readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8");
+  const go = mus.slice(mus.indexOf("function go("), mus.indexOf("function go(") + 500);
+  assert.match(go, /if \(v === "profilo" && !step\) step = /, "senza passo si sceglie il primo che serve");
+});
+
+test("nessuno stile inline nelle pagine: la CSP lo blocca e il campo si deforma", () => {
+  const dir = join(root, "orchestre/src/pages");
+  for (const f of readdirSync(dir)) assert.doesNotMatch(readFileSync(join(dir, f), "utf8"), /\sstyle="/, f + ": uno style inline, bloccato dalla CSP");
+});
+
+test("collaudo a tre profili: i messaggi sulle email dicono quello che è successo davvero", () => {
+  const ric = readFileSync(join(root, "orchestre/src/pages/richieste.js"), "utf8");
+  assert.match(ric, /riservato: "Nessuna email/, "indirizzo di prova o assente: si dice che non parte niente");
+  assert.doesNotMatch(ric, /"L'email al cliente parte fra poco\."/, "il messaggio falso non c'è più");
+  const prod = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  assert.doesNotMatch(prod, /entro dieci minuti/, "nessuna promessa di tempi che il cron di GitHub non mantiene");
+  assert.match(prod, /const saltati = musicianIds\.length - n;/, "la convocazione dice quanti non sono stati convocati");
+});
+
+test("collaudo a tre profili: il primo ruolo si crea, e «Convoca altri» ricalcola", () => {
+  const prod = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  const card = prod.slice(prod.indexOf("function addRoleCard"), prod.indexOf("function addRoleCard") + 3000);
+  assert.match(card, /if \(!sections\.some\(\(s\) => s\.id\)\) sec\.value = "";\s*sec\.onchange\(\);/, "senza sezioni si parte da «Senza sezione» e il campo del nome segue la scelta");
+  assert.match(prod, /&ricalcola=1">Convoca altri</, "«Convoca altri» chiede un calcolo nuovo");
+  assert.match(prod, /if \(q\.get\("ricalcola"\)\) \{[^}]*await compute\(\);/, "e la pagina lo fa");
+  assert.doesNotMatch(prod, /I pesi si cambiano in/, "nessun rimando a pesi che le impostazioni non hanno più");
+});
