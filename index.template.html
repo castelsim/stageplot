@@ -12,18 +12,7 @@
      generato in locale (vendor/qrcode.min.js): nessun dominio esterno in img-src.
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; frame-src 'self' blob:; base-uri 'self'; form-action 'self'">
-<script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non
-   permette header X-Frame-Options, e frame-ancestors non vale via <meta>). Dentro un <iframe sandbox>
-   senza allow-top-navigation l'uscita LANCIA: prima il catch inghiottiva l'eccezione e la pagina si
-   disegnava lo stesso nel frame dell'attaccante. Se non possiamo uscire, non ci facciamo vedere:
-   quello che non si vede non si clicca. */
-try{if(window.self!==window.top){try{window.top.location.replace(window.location.href);}catch(e){
-  document.documentElement.style.visibility="hidden";
-  document.addEventListener("DOMContentLoaded",function(){
-    document.body.innerHTML='<p style="font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em">StagePlot non si apre dentro la pagina di un altro sito. <a href="https://stageplot.it/app/">Aprilo su stageplot.it</a>.</p>';
-    document.documentElement.style.visibility="";
-  });
-}}}catch(e){}</script>
+<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="StagePlot non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
 <script>/* SEO (audit SEO-02): un progetto condiviso via ?view= è un link con token e non va indicizzato/archiviato. Additivo: non tocca la logica di condivisione, aggiunge solo un meta robots noindex quando è presente il token. */try{if(/[?&]view=/.test(location.search)){var _r=document.createElement("meta");_r.name="robots";_r.content="noindex,nofollow,noarchive";document.head.appendChild(_r);}}catch(e){}</script>
 <!-- Referrer-Policy esplicita (audit M-08): non affidarsi al default del browser. Protegge i token
      dei link di condivisione (nell'URL) da leak via header Referer verso risorse/destinazioni. -->
