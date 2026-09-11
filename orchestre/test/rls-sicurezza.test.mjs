@@ -45,7 +45,7 @@ run("1. l'identità non si dichiara: l'email scritta a mano non prende la riga d
      l'indirizzo giusto per ereditare convocazioni, note dello staff e compensi di quella persona. */
   const tok = randomBytes(32).toString("hex");
   assert.ok((await rpc(env, T.societa, "orc_musician_invite_create", { org: ORG, hash: impronta(tok), label: "chiunque" })).ok);
-  assert.equal((await rpc(env, T.furbo, "orc_musician_invite_claim", { hash: impronta(tok) })).d[0].ok, true);
+  assert.equal((await rpc(env, T.furbo, "orc_musician_invite_claim", { token: tok })).d[0].ok, true);
   await compila(T.furbo, U.furbo, "Furbo", mail("giulia"));   /* dichiara l'email di Giulia */
   const app = await rpc(env, T.furbo, "orc_apply", { org: ORG });
   const inviata = await rpc(env, T.furbo, "orc_submit_application", { app: app.d.id, msg: "eccomi" });
@@ -60,12 +60,30 @@ run("1. l'identità non si dichiara: l'email scritta a mano non prende la riga d
      rubrica con la stessa email con cui accede si collega alla propria riga */
   const t2 = randomBytes(32).toString("hex");
   assert.ok((await rpc(env, T.societa, "orc_musician_invite_create", { org: ORG, hash: impronta(t2), label: "altro" })).ok);
-  assert.equal((await rpc(env, T.altro, "orc_musician_invite_claim", { hash: impronta(t2) })).d[0].ok, true);
+  assert.equal((await rpc(env, T.altro, "orc_musician_invite_claim", { token: t2 })).d[0].ok, true);
   await compila(T.altro, U.altro, "Altro", null);
   const app2 = await rpc(env, T.altro, "orc_apply", { org: ORG });
   const ok2 = await rpc(env, T.altro, "orc_submit_application", { app: app2.d.id, msg: "eccomi" });
   assert.ok(ok2.ok, "chi non dichiara l'indirizzo di un altro entra: " + JSON.stringify(ok2.d));
   assert.equal(ok2.d.status, "accepted");
+});
+
+run("l'impronta salvata non apre l'invito: serve il token (0065)", async () => {
+  /* Fino alla 0065 il browser calcolava lo sha-256 e il database riceveva l'IMPRONTA: chi leggeva
+     `token_hash` poteva rivendicare l'invito senza aver mai visto il link. Token e impronta hanno la
+     stessa forma (64 esadecimali): passata come token, l'impronta viene ricalcolata e non combacia. */
+  const tok = randomBytes(32).toString("hex");
+  const c = await rpc(env, T.societa, "orc_musician_invite_create", { org: ORG, hash: impronta(tok), label: "prova impronta" });
+  assert.ok(c.ok, JSON.stringify(c.d));
+  const salvata = (await rest(env, T.societa, "orc_musician_invites?select=token_hash&id=eq." + c.d)).d[0].token_hash;
+  assert.match(salvata, /^[0-9a-f]{64}$/, "l'impronta ha la stessa forma di un token");
+  const conImpronta = await rpc(env, T.altro, "orc_musician_invite_claim", { token: salvata });
+  assert.equal(conImpronta.d[0].ok, false, "chi ha letto la tabella non entra");
+  const firmaVecchia = await rpc(env, T.altro, "orc_musician_invite_claim", { hash: salvata });
+  assert.equal(firmaVecchia.ok, false, "e la vecchia firma, che accettava l'impronta, non esiste più: " + JSON.stringify(firmaVecchia.d));
+  const colToken = await rpc(env, T.altro, "orc_musician_invite_claim", { token: tok });
+  assert.equal(colToken.d[0].ok, true, "chi ha il link, invece, entra");
+  assert.ok((await rpc(env, T.societa, "orc_musician_invite_revoke", { inv: c.d })).ok);
 });
 
 run("2. la purga di retention non è di chiunque passi di lì", async () => {
