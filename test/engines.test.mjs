@@ -14940,16 +14940,84 @@ t("ogni esc del progetto copre anche l'apice singolo", () => {
   ok(rich.indexOf("&#39;") > -1, "anche quello della pagina /richiesta/");
 });
 
-t("il frame-buster non si arrende dentro un iframe sandbox", () => {
-  /* window.top.location LANCIA in un <iframe sandbox> senza allow-top-navigation: prima il catch
-     inghiottiva l'eccezione e la pagina si disegnava lo stesso nel frame dell'attaccante. */
-  const html = readFileSync(join(root, "app/index.html"), "utf8");
-  const i = html.indexOf("anti-clickjacking");
-  ok(i > -1, "il frame-buster c'è");
-  const fb = html.slice(i, i + 1200);
-  ok(fb.indexOf("window.top.location.replace") > -1, "prima si prova a uscire");
-  ok(fb.indexOf('visibility="hidden"') > -1 || fb.indexOf('visibility = "hidden"') > -1, "se non si può uscire, non ci si fa vedere");
-  ok(/catch\(e\)\{\s*\n?\s*document/.test(fb), "il catch dell'uscita fa qualcosa, non è vuoto");
+/* Il frame-buster si prova sul COMPORTAMENTO, non sulla forma: ciascuno dei quattro (l'editor, /richiesta/,
+   /consulenza/ e le 18 pagine di Orchestre) gira davvero, in una finestra finta, in cinque scenari.
+   frame-ancestors dentro un <meta> il browser lo ignora e GitHub Pages non manda header: sono l'unica
+   difesa dal clickjacking. Fino all'11/09 Orchestre non ne aveva nessuno, e /richiesta/ e /consulenza/
+   avevano il catch vuoto (dentro un sandbox la pagina si disegnava lo stesso). La scena «sandbox-muta» —
+   un browser che rifiuta l'uscita senza lanciare — non l'ho vista in Chrome, che lancia: è la ragione per
+   nascondersi PRIMA di provare, e il test la tiene coperta. */
+function busterSorgenti() {
+  const inline = (file) => {
+    const html = readFileSync(join(root, file), "utf8");
+    const i = html.indexOf("anti-clickjacking");
+    ok(i > -1, "il frame-buster c'è in " + file);
+    return html.slice(html.lastIndexOf("<script>", i) + 8, html.indexOf("</script>", i));
+  };
+  return {
+    "app/index.html": inline("app/index.html"),
+    "richiesta/index.html": inline("richiesta/index.html"),
+    "consulenza/index.html": inline("consulenza/index.html"),
+    "orchestre/src/frame.js": readFileSync(join(root, "orchestre/src/frame.js"), "utf8"),
+  };
+}
+function eseguiBuster(src, scena) {
+  const cronaca = { uscita: false, sostituito: null, pronto: null };
+  const html = { style: {} };
+  const doc = {
+    documentElement: html,
+    body: { replaceChildren: (x) => { cronaca.sostituito = x; } },
+    createElement: () => { const e = { style: {}, figli: [], textContent: "" }; e.appendChild = (c) => e.figli.push(c); return e; },
+    addEventListener: (ev, fn) => { if (ev === "DOMContentLoaded") cronaca.pronto = fn; },
+  };
+  const loc = { origin: "https://stageplot.it", href: "https://stageplot.it/orchestre/rispondi/?t=x" };
+  const w = { document: doc, location: loc };
+  w.self = w;
+  if (scena === "sola") w.top = w;
+  else {
+    const topLoc = {
+      replace: () => { if (scena === "sandbox-lancia") throw new Error("SecurityError"); if (scena === "esce") cronaca.uscita = true; /* «sandbox-muta»: rifiuta in silenzio */ },
+    };
+    Object.defineProperty(topLoc, "origin", { get: () => {
+      if (scena === "stessa-origine") return "https://stageplot.it";
+      throw new Error("SecurityError: cross-origin");
+    } });
+    w.top = { location: topLoc };
+  }
+  vm.runInNewContext(src, { window: w, document: doc, location: loc, self: w, top: w.top });
+  if (cronaca.pronto) cronaca.pronto();
+  return { nascosta: html.style.visibility === "hidden", ...cronaca };
+}
+t("il frame-buster: ognuno dei quattro, in cinque scene, fa la cosa giusta", () => {
+  for (const [nome, src] of Object.entries(busterSorgenti())) {
+    const sola = eseguiBuster(src, "sola");
+    ok(!sola.nascosta && !sola.sostituito, nome + ": da sola la pagina si vede");
+    const casa = eseguiBuster(src, "stessa-origine");
+    ok(!casa.nascosta && !casa.uscita, nome + ": incorniciata da una pagina nostra, lascia stare");
+    const esce = eseguiBuster(src, "esce");
+    ok(esce.uscita, nome + ": incorniciata da un altro sito, prova a uscire");
+    ok(esce.nascosta, nome + ": e intanto non si fa vedere");
+    for (const sc of ["sandbox-lancia", "sandbox-muta"]) {
+      const r = eseguiBuster(src, sc);
+      ok(r.nascosta, nome + " (" + sc + "): dentro un sandbox resta nascosta");
+      ok(r.sostituito && /non si apre dentro la pagina di un altro sito/.test(r.sostituito.textContent), nome + " (" + sc + "): e dice perché");
+      eq(r.sostituito.style.cssText.indexOf("visibility:visible"), 0, nome + " (" + sc + "): si vede solo il messaggio");
+    }
+  }
+});
+
+t("ogni pagina di Orchestre carica il frame-buster prima di qualsiasi altro script", () => {
+  /* Le pagine vengono lette dal disco, non da una lista: una pagina nuova senza protezione fa
+     fallire il test da sola. */
+  const pagine = [];
+  (function giro(d) { for (const n of readdirSync(d)) { const f = join(d, n); if (statSync(f).isDirectory()) giro(f); else if (n === "index.html") pagine.push(f); } })(join(root, "orchestre"));
+  ok(pagine.length >= 18, "le pagine si trovano: " + pagine.length);
+  for (const f of pagine) {
+    const html = readFileSync(f, "utf8");
+    const primo = html.search(/<script\b/);
+    eq(html.indexOf('<script src="/orchestre/src/frame.js"></script>'), primo, f.slice(root.length + 1) + ": il primo script è il frame-buster");
+    ok(primo < html.indexOf("</head>"), f.slice(root.length + 1) + ": e sta nella <head>");
+  }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

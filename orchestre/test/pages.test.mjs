@@ -377,7 +377,9 @@ test("nessun href riceve una stringa esterna senza passare da safeHttpUrl", () =
   const files = [];
   (function walk(d) { for (const n of readdirSync(d)) { const f = join(d, n); if (statSync(f).isDirectory()) walk(f); else if (n.endsWith(".js")) files.push(f); } })(src);
   assert.ok(files.length > 10, "i sorgenti si trovano");
-  const AMMESSO = /^\s*(safeHttpUrl\(|BASE\b|["'`]|.*encodeURIComponent\()/;
+  /* `location.href` è l'indirizzo della pagina stessa (lo usa il frame-buster per il link «Aprila da
+     sola»): è sempre http(s) e della nostra origine, non può diventare javascript:. */
+  const AMMESSO = /^\s*(safeHttpUrl\(|BASE\b|["'`]|.*encodeURIComponent\(|(w\.|window\.)?location\.href\s*$)/;
   const colpevoli = [];
   for (const f of files) {
     const righe = readFileSync(f, "utf8").split("\n");
