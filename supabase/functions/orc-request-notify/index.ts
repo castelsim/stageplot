@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   const user = userData.user;
 
   const { data: row, error } = await supabase.from("orc_client_requests")
-    .select("id,user_id,contact_name,contact_company,contact_email,contact_phone,event_kind,event_title,event_when,event_place,schedule,repertoire,budget,notes,created_at,snapshot,formation_unknown,notification_status,notification_attempts,ack_status,ack_attempts,orc_organizations(name),orc_client_request_slots(label,instrument_code,qty,covered)")
+    .select("id,user_id,contact_name,contact_company,contact_email,account_email,contact_phone,event_kind,event_title,event_when,event_place,schedule,repertoire,budget,notes,created_at,snapshot,formation_unknown,notification_status,notification_attempts,ack_status,ack_attempts,orc_organizations(name),orc_client_request_slots(label,instrument_code,qty,covered)")
     .eq("id", id).maybeSingle();
   if (error) { console.error("orc-request-notify lettura:", error.message); return json({ error: "errore" }, 500); }
   if (!row) return json({ error: "richiesta non trovata" }, 404);
@@ -84,7 +84,9 @@ Deno.serve(async (req) => {
 
   /* 2. al cliente. Gli indirizzi di prova non ricevono niente. */
   if (row.ack_status === "pending") {
-    const dest = String(row.contact_email ?? "");
+    /* all'indirizzo VERIFICATO dell'account (lo scrive il database dal login), mai a quello scritto nel
+       modulo: altrimenti chiunque faceva arrivare dal nostro dominio un testo suo a una persona qualsiasi */
+    const dest = String(row.account_email ?? "");
     if (!dest || isReservedAddress(dest)) {
       await supabase.from("orc_client_requests").update({ ack_status: "none" }).eq("id", id);
       out.client = "riservato";

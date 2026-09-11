@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
   /* solo i campi che il cliente può vedere: niente righe, niente margine, niente note */
   const { data: q, error } = await supabase.from("orc_quotes")
-    .select("id,org_id,status,description,net_cents,vat_cents,total_cents,vat_pct,notify_status,notify_attempts,orc_client_requests(contact_name,contact_email,event_title,event_when),orc_organizations(name)")
+    .select("id,org_id,status,description,net_cents,vat_cents,total_cents,vat_pct,notify_status,notify_attempts,orc_client_requests(contact_name,account_email,event_title,event_when),orc_organizations(name)")
     .eq("id", id).maybeSingle();
   if (error) { console.error("orc-quote-notify lettura:", error.message); return json({ error: "errore" }, 500); }
   if (!q) return json({ error: "preventivo non trovato" }, 404);
@@ -54,8 +54,10 @@ Deno.serve(async (req) => {
 
   if (q.status !== "sent" || q.notify_status !== "pending") return json({ ok: true, client: "niente da fare" });
 
-  const r = q.orc_client_requests as { contact_name?: string; contact_email?: string; event_title?: string; event_when?: string } | null;
-  const dest = String(r?.contact_email ?? "");
+  const r = q.orc_client_requests as { contact_name?: string; account_email?: string; event_title?: string; event_when?: string } | null;
+  /* all'indirizzo VERIFICATO dell'account (lo scrive il database dal login), mai a quello scritto nel
+       modulo: altrimenti chiunque faceva arrivare dal nostro dominio un testo suo a una persona qualsiasi */
+  const dest = String(r?.account_email ?? "");
   if (!dest || isReservedAddress(dest)) {
     await supabase.from("orc_quotes").update({ notify_status: "none" }).eq("id", id);
     return json({ ok: true, client: "riservato" });
