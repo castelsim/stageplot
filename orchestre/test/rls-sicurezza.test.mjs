@@ -90,6 +90,57 @@ run("2. la purga di retention non è di chiunque passi di lì", async () => {
   assert.notEqual(servizio.status, 404, "per il servizio la funzione esiste: " + JSON.stringify(servizio.d));
 });
 
+run("la purga di retention CANCELLA davvero: quello scaduto sparisce, quello recente resta", async () => {
+  /* Il test che mancava da luglio. Fino all'11/09 la funzione esisteva, i permessi erano giusti, e nessuno
+     aveva mai provato che togliesse qualcosa: in produzione non era mai partita (pg_cron assente), e
+     chiamata a mano falliva sul DELETE diretto in storage.objects, annullando anche gli analytics.
+     Il record più vecchio aveva 55 giorni contro i 30 promessi. */
+  const giorni = (n) => new Date(Date.now() - n * 86_400_000).toISOString();
+  const sid = "purga-" + stamp;
+  const ins = await rest(env, admin(env), "analytics_events", { method: "POST", body: [
+    { event: "prova_purga", session_id: sid, created_at: giorni(40), props: { quale: "vecchio" } },
+    { event: "prova_purga", session_id: sid, created_at: giorni(10), props: { quale: "recente" } },
+  ] });
+  assert.ok(ins.ok, JSON.stringify(ins.d));
+  const r = await rpc(env, admin(env), "stageplot_purge_expired", {});
+  assert.ok(r.ok, "la purga gira, e non cade su nessun trigger: " + JSON.stringify(r.d));
+  assert.ok(r.d && r.d.analytics_events >= 1, "e dice quante righe ha tolto: " + JSON.stringify(r.d));
+  const rimasti = (await rest(env, admin(env), "analytics_events?select=props&session_id=eq." + sid)).d;
+  assert.deepEqual(rimasti.map((x) => x.props.quale), ["recente"], "il vecchio è sparito, il recente è rimasto");
+  await rest(env, admin(env), "analytics_events?session_id=eq." + sid, { method: "DELETE" });
+});
+
+run("i riferimenti alle schermate si tolgono fino a un giorno vero, e solo dal servizio", async () => {
+  /* Il secondo passo della retention delle schermate (0061): la Edge Function toglie i file con la
+     Storage API e poi chiama questa, con l'ultimo giorno scaduto. È security definer e riceve un
+     confine: se accettasse qualsiasi stringa, o chiunque, sarebbe una cancellazione a comando. */
+  const forget = (tok, d) => rpc(env, tok, "stageplot_forget_screenshots", { until_day: d });
+  const a = await forget(env.ANON_KEY, "2026-08-11");
+  assert.equal(a.ok, false, "l'anonimo no");
+  const u = await forget(T.altro, "2026-08-11");
+  assert.equal(u.status, 403, "un account qualsiasi no: " + JSON.stringify(u.d));
+  assert.match(String(u.d.message || ""), /permission denied for function/);
+  for (const storto of ["%", "2026-02-31", "2026-8-1", "", "2026-08-11' or '1'='1", "2026-08-11/%"]) {
+    const r = await forget(admin(env), storto);
+    assert.equal(r.ok, false, "«" + storto + "» non è un giorno: " + JSON.stringify(r.d));
+  }
+  const tag = "confine-" + stamp;
+  const righe = [["2026-06-01/a.jpg", "vecchia"], ["2026-08-11/b.jpg", "sul confine"], ["2026-08-12/c.jpg", "il giorno dopo"], ["1999-strano/d.jpg", "percorso strano"]];
+  const ins = await rest(env, admin(env), "feedback", { method: "POST", body: righe.map(([p, q]) => ({ message: tag + " " + q, screenshot_path: p })) });
+  assert.ok(ins.ok, JSON.stringify(ins.d));
+  const r = await forget(admin(env), "2026-08-11");
+  assert.ok(r.ok, JSON.stringify(r.d));
+  const dopo = (await rest(env, admin(env), "feedback?select=message,screenshot_path&message=like." + encodeURIComponent(tag + "%") + "&order=message")).d;
+  const come = Object.fromEntries(dopo.map((x) => [x.message.slice(tag.length + 1), x.screenshot_path]));
+  assert.equal(come["vecchia"], null, "il giorno scaduto perde il riferimento");
+  assert.equal(come["sul confine"], null, "anche quello sul confine: è scaduto per intero");
+  assert.equal(come["il giorno dopo"], "2026-08-12/c.jpg", "il giorno dopo il confine resta");
+  /* «1999-strano» viene PRIMA del confine in ordine alfabetico: senza il filtro sulla forma del percorso
+     verrebbe toccato. Con «non-una-data/» il test passava anche senza filtro — trovato con la mutazione. */
+  assert.equal(come["percorso strano"], "1999-strano/d.jpg", "un percorso che non è una cartella-giorno non si tocca");
+  await rest(env, admin(env), "feedback?message=like." + encodeURIComponent(tag + "%"), { method: "DELETE" });
+});
+
 run("4. la revoca del consenso funziona, e non si può retrodatare", async () => {
   /* Regressione del collaudo di ieri: tolto l'UPDATE, il pulsante «Non ricevere più richieste»
      rispondeva 403 — il diritto di revoca c'era nell'interfaccia e non funzionava. */
