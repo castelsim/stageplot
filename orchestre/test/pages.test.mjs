@@ -600,3 +600,32 @@ test("l'elenco musicisti filtra per genere, lettura, esperienza, zona e tag, con
   assert.match(pag, /if \(altriAttivi\(F\)\) app\.querySelector\("#altri"\)\.open = true;/, "un filtro nascosto ma acceso si mostra");
   assert.match(pag, /history\.replaceState\(null, "", location\.pathname \+ \(qs \? "\?" \+ qs : ""\)\)/, "i filtri restano nell'indirizzo");
 });
+
+/* Le parti che un musicista sa coprire: le dichiara lui, le corregge lo staff, con gli stessi codici dei
+   ruoli dell'organico — se le due liste divergessero, il matching confronterebbe parole diverse. */
+test("le parti del musicista: dichiarate nel profilo, corrette nella scheda, con i codici dei ruoli", async () => {
+  const { PARTI, GENRES } = await import(pathToFileURL(join(root, "orchestre/src/domain/applications.js")).href);
+  const { PART } = await import(pathToFileURL(join(root, "orchestre/src/domain/staffing.js")).href);
+  assert.deepEqual(PARTI.map(([k]) => k).sort(), Object.keys(PART).sort(), "gli stessi codici dei ruoli");
+  const mig = readFileSync(join(root, "supabase/migrations/0064_orc_parti_musicisti.sql"), "utf8");
+  for (const k of Object.keys(PART)) assert.match(mig, new RegExp(`parts <@ array\\[[^\\]]*'${k}'`), "il vincolo del database conosce " + k);
+  assert.ok(GENRES.includes("sinfonica"), "il genere sinfonico si può dichiarare");
+  const mus = readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8");
+  assert.match(mus, /parts: PARTI\.map\(\(\[k\]\) => k\)\.filter\(\(k\) => val\("part_" \+ k\)\)/, "il musicista le salva nel profilo");
+  const sch = readFileSync(join(root, "orchestre/src/pages/scheda.js"), "utf8");
+  assert.match(sch, /fields\.parts = PARTI\.map/, "lo staff le salva nella scheda");
+  for (const [f, campo] of [["orchestre/src/api/applications.js", "PROFILE_FIELDS"], ["orchestre/src/api/musicians.js", "FIELDS"]]) {
+    const src = readFileSync(join(root, f), "utf8");
+    assert.match(src.slice(src.indexOf("const " + campo)).split(";")[0], /"parts"/, f + ": il campo passa");
+  }
+});
+
+/* Le caselle dentro un .field ereditavano larghezza, padding e altezza degli input di testo: sul telefono
+   uscivano 13×48 o 49×48 (11/09). La regola che le rimette a 20×20 deve battere anche quella del telefono. */
+test("una casella dentro un campo resta una casella, anche sul telefono", () => {
+  const css = readFileSync(join(root, "orchestre/ui.css"), "utf8");
+  const m = css.match(/\.field input\[type=checkbox\][^{]*\{([^}]*)\}/);
+  assert.ok(m, "la regola delle caselle nei campi c'è");
+  for (const d of ["width:20px", "height:20px", "min-height:0", "padding:0", "flex:none"]) assert.ok(m[1].includes(d), "manca " + d);
+  assert.match(css, /\.check-line\{[^}]*min-height:var\(--tap\)/, "e il bersaglio da 44 px resta sull'etichetta");
+});

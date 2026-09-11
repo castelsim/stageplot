@@ -4,7 +4,7 @@
 import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime } from "../ui.js";
 import { getSession, signOut, barraAree } from "../auth.js";
-import { STEPS, PASSI_PROFILO, GENRES, PRIVACY_VERSION, PUBLIC_STATUS, missingFields, completion, FIELD_LABEL } from "../domain/applications.js";
+import { STEPS, PASSI_PROFILO, GENRES, PARTI, PRIVACY_VERSION, PUBLIC_STATUS, missingFields, completion, FIELD_LABEL } from "../domain/applications.js";
 import { DATE_KIND, INV_STATUS, INV_PILL, PROD_STATUS } from "../domain/staffing.js";
 import { FAMILY } from "../nav.js";
 import * as api from "../api/applications.js";
@@ -313,7 +313,11 @@ function paintProfilo() {
   } else if (key === "competenze") {
     card.appendChild(lvl("reading_sight", "Lettura a prima vista", P.reading_sight)); card.appendChild(lvl("reading_score", "Lettura della partitura", P.reading_score)); card.appendChild(lvl("improvisation", "Improvvisazione", P.improvisation));
     const g = el(`<div class="stack"></div>`); g.appendChild(check("with_conductor", "Lavoro con direttore", P.with_conductor)); g.appendChild(check("click", "Suono a click", P.click)); g.appendChild(check("sequences", "Suono con sequenze", P.sequences)); g.appendChild(check("in_ear", "Uso in-ear monitor", P.in_ear)); card.appendChild(g);
-    save = async () => { const f = { reading_sight: Number(val("reading_sight")), reading_score: Number(val("reading_score")), improvisation: Number(val("improvisation")), with_conductor: val("with_conductor"), click: val("click"), sequences: val("sequences"), in_ear: val("in_ear") }; await api.saveProfile(P.id, f); Object.assign(P, f); };
+    /* la parte: chi cerca una spalla o un solista la guarda per prima */
+    const pt = el(`<div class="field"><label>Che parte fai</label><div class="row" id="parti"></div><span class="hint">Anche più di una.</span></div>`);
+    for (const [k, v] of PARTI) pt.querySelector("#parti").appendChild(check("part_" + k, v, (P.parts || []).includes(k)));
+    card.appendChild(pt);
+    save = async () => { const f = { reading_sight: Number(val("reading_sight")), reading_score: Number(val("reading_score")), improvisation: Number(val("improvisation")), with_conductor: val("with_conductor"), click: val("click"), sequences: val("sequences"), in_ear: val("in_ear"), parts: PARTI.map(([k]) => k).filter((k) => val("part_" + k)) }; await api.saveProfile(P.id, f); Object.assign(P, f); };
   } else if (key === "esperienze") {
     card.appendChild(field("education", "Formazione", P.education, { type: "textarea", rows: 2, hint: "conservatorio, diplomi, maestri" }));
     card.appendChild(field("years_experience", "Anni di esperienza", P.years_experience ?? "", { type: "number" }));
@@ -351,7 +355,7 @@ function paintProfilo() {
     else card.appendChild(el(`<div class="banner ok">Il profilo ha tutto quello che serve per candidarti.</div>`));
     const rows = [["Nome", P.first_name + " " + P.last_name], ["Contatti", [P.email, P.phone].filter(Boolean).join(" · ")], ["Città", [P.city, P.province].filter(Boolean).join(" ")],
       ["Strumenti", P.instruments.map((i) => (cat.instruments.find((x) => x.code === i.instrument_code)?.name || i.instrument_code) + (i.is_primary ? " (principale)" : "")).join(", ")],
-      ["Lettura", `prima vista ${P.reading_sight}/3 · partitura ${P.reading_score}/3`], ["Esperienze", ["orchestrale", "pop", "live", "studio", "teatro"].filter((_k, i) => [P.exp_orchestral, P.exp_pop, P.exp_live, P.exp_studio, P.exp_theatre][i]).join(", ") || "—"],
+      ["Lettura", `prima vista ${P.reading_sight}/3 · partitura ${P.reading_score}/3`], ["Parte", PARTI.filter(([k]) => (P.parts || []).includes(k)).map(([, v]) => v.toLowerCase()).join(", ") || "—"], ["Esperienze", ["orchestrale", "pop", "live", "studio", "teatro"].filter((_k, i) => [P.exp_orchestral, P.exp_pop, P.exp_live, P.exp_studio, P.exp_theatre][i]).join(", ") || "—"],
       ["Repertorio", (P.repertoire || []).map((r) => r.name).join(", ") || "—"], ["Trasferte", [P.travel_ok ? "trasferte sì" : "trasferte no", P.tour_ok ? "tournée sì" : "tournée no", P.has_car ? "auto" : ""].filter(Boolean).join(" · ")], ["Materiali", P.files.map((f) => f.name).concat([P.audio_url, P.video_url, P.website].filter(Boolean)).join(", ") || "—"]];
     const dl = el(`<dl class="review"></dl>`); for (const [k, v] of rows) { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.appendChild(dt); dl.appendChild(dd); } card.appendChild(dl);
 
