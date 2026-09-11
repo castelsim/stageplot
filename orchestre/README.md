@@ -88,6 +88,9 @@ supabase/migrations/0049_orc_stageplot.sql  orc_stageplot_links, orc_stageplot_i
 supabase/migrations/0050_orc_stageplot_seats.sql  legame → posto (slot_id, seat_index), import per gruppi, orc_stageplot_relink, orc_stage_view, orc_staffing con la postazione
 supabase/migrations/0052_orc_client_requests.sql  «Richiedi musicisti»: richieste dei clienti, posti chiesti, copia immutabile, chi riceve
 supabase/migrations/0051_orc_collaudo.sql   collaudo: il posto della persona non si sposta, i file solo nel proprio dossier, valutazioni e feedback legati al bersaglio, stato interno mascherato nel DB, consensi non cancellabili, registro con lo stato di partenza
+supabase/migrations/0053_orc_service_org.sql  la società che riceve le richieste (is_service_provider), accesa solo se non c'è dubbio
+supabase/migrations/0054_orc_candidature_societa.sql  a chi ci si candida, leggibile anche da fuori (orc_service_org_public)
+supabase/migrations/0055_orc_inviti_musicisti.sql  invito personale (impronta, mai il segreto), fotografia sul profilo, ingresso diretto, orc_application_accept
 supabase/functions/orc-respond/             la porta del musicista (GET apre, POST risponde), verify_jwt=false
 supabase/functions/orc-notify/              il worker: scadenze, prese stantie, email via Resend, segreti cancellati
 supabase/functions/_shared/orc-invitations.ts  email, parsing della risposta, token: puro, con test Deno
@@ -163,6 +166,25 @@ codice non guarda niente. Per la RLS: aggiungere una policy permissiva nel local
    `./orc-bootstrap.sh "Nome" nome-org email@…` (usa la service_role dalla CLI, solo in memoria).
 4. Merge della PR: `main` pubblica in automatico; `orchestre` è nell'allowlist di `pages.yml`.
 
+## Il pool e i suoi filtri
+
+L'elenco dei musicisti si filtra per famiglia e stato, con una ricerca libera su nome, strumento, città, area,
+tag e generi. «Altri filtri» — genere, lettura a prima vista (una soglia: «almeno buona»), esperienza, zona
+(sigla della provincia o area), tag — sta chiuso finché non serve e si apre da solo se l'indirizzo ne porta
+uno: i filtri restano nell'URL, così si ricaricano e si mandano. I menu offrono solo quello che c'è nel pool.
+
+I dati arrivano da `orc_musicians_list` (`0063`): i **generi** uniscono quelli che il musicista ha dichiarato
+nel suo profilo — letti dal profilo collegato, così restano aggiornati — e quelli del repertorio in scheda; la
+lettura e le esperienze vengono dalle competenze. La logica è pura, in `src/domain/roster-filter.js`.
+
+## Le parti: fila, prima parte, solista
+
+Un ruolo dell'organico ha la sua parte; dal `0064` ce l'ha anche il musicista (`parts`, gli stessi codici:
+`tutti`, `principal`, `solo`). La dichiara lui fra le competenze del profilo, passa alla scheda quando la
+candidatura è accettata, e lo staff la corregge nella scheda. Il matching la riceve e, per un posto di prima
+parte o di solista, **avvisa** chi non l'ha indicata; il punteggio non cambia (`ENGINE_VERSION` 2). Il
+database rifiuta codici diversi da quei tre.
+
 ## Organico: ruoli, posti, storia
 
 Un **ruolo** è l'esigenza aggregata («Violini secondi, 5 posti»); i **posti** nascono e muoiono con i
@@ -235,9 +257,30 @@ di no per la produzione non viene riproposto.
 - **File**: bucket privato `orc-files`, `profiles/<uid>/…`; policy su `storage.objects` per proprietario e staff
   delle org candidate; URL firmati a 10 minuti dal client.
 - **Area musicista** (`/orchestre/musicista/`): candidature con stato, inviti a cui rispondere senza token
-  (`orc_respond_mine`), incarichi confermati, privacy (consenso alle richieste, export JSON, richiesta di
-  cancellazione). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
+  (`orc_respond_mine`), incarichi confermati, privacy (consenso alle richieste, richiesta di
+  cancellazione; la copia dei dati si chiede scrivendo — `orc_export_my_data` esiste ancora nel database, ma non ha più un pulsante: un JSON grezzo non dice niente a un musicista). Chi era già nel rolodex per email viene collegato al login (`orc_link_my_musician_rows`).
 - Le organizzazioni aprono le candidature da Impostazioni (`accepting_applications`, testo per i candidati).
+
+### L'invito personale, la fotografia, l'ingresso diretto
+
+- **Il link personale** (`orc_musician_invites`): la società manda un link a una persona che ha già scelto. Il
+  segreto del link **non passa dal server**: lo genera il browser di chi invita (`domain/invites.js`), che manda
+  solo l'impronta sha-256 e lo mostra una volta sola — stesso schema delle richieste di setup dell'editor. Chi lo
+  perde ne fa un altro; quello vecchio si revoca (`orc_musician_invite_revoke`). Scadenza a 30 giorni.
+- **Aprirlo** (`orc_musician_invite_claim`): risponde sempre allo stesso modo quando non è valido — scaduto,
+  revocato, inesistente o già di un altro account: non si scopre nemmeno di quale organizzazione si tratti. Chi
+  l'ha aperto se lo ritrova anche tornando dopo (`orc_my_invite`), perché la pagina si dimentica tutto a ogni
+  ricarica ma la promessa «appena mandi sei dentro» deve reggere fino al pulsante.
+- **L'ingresso diretto**: `orc_submit_application` guarda se chi manda ha un invito in corso per quell'org e, se sì,
+  accetta subito — niente valutazione, la fiducia gliel'ha data chi l'ha invitato. L'accettazione vera sta in
+  `orc_application_accept`, estratta da `orc_application_set_status`: **una sola strada** per creare la persona fra
+  i musicisti, e **non è chiamabile da fuori** (revocata a `authenticated`: la chiamano solo le due funzioni che
+  hanno già verificato chi sei).
+- **La fotografia** (`orc_musician_profiles.photo_path`): una sola, sostituibile, nello stesso archivio privato dei
+  materiali (`kind = 'photo'`). Si vede nell'area del musicista e nelle due schede dello staff (musicista e
+  candidatura) con URL firmato a 10 minuti. **La CSP di quelle tre pagine ammette l'archivio in `img-src`**: senza,
+  il browser blocca l'immagine in silenzio e la foto non si vede da nessuna parte (successo, e se n'è accorta solo
+  la prova nel browser — c'è un test che lo guarda).
 
 ## Collegamento a StagePlot
 
@@ -294,8 +337,20 @@ musicisti. Chi arriva **non è di un'organizzazione**: è un utente qualsiasi de
   (nuova, presa in carico, preventivo inviato, accettata, non andata, chiusa). Le richieste nuove sono la prima
   riga di «Da fare».
 
-Non c'è ancora: caricamento di allegati (il cliente risponde all'email), trasformazione in evento con un tasto,
-preventivo con margine, presenze. Sono i passi successivi.
+- **Il preventivo** (`0059`, `0060`): per ogni posto il cachet, un margine unico, sopra l'IVA. I conti li fa il
+  browser mentre si scrive, ma quando si manda li **rifà il database** (`orc_quote_send`), e un preventivo mandato
+  non si tocca più: se ne fa uno nuovo, che sostituisce il vecchio. Al cliente arrivano solo descrizione, imponibile,
+  IVA e totale — lo legge con `orc_my_quotes()`, perché sulle tabelle non ha policy — e un'email «il preventivo è
+  pronto» mandata subito da `orc-quote-notify` (il worker ripassa quello che non è partito). Accetta o rifiuta con
+  `orc_quote_answer`, e la richiesta diventa «accettata» o «non andata».
+- **Dalla richiesta all'evento** (`0061`): nella scheda della richiesta, «Crea l'evento» fa nascere la produzione da
+  quello che la richiesta sa già — titolo, cliente, tipologia, luogo, e nelle note quando, orari, repertorio e budget
+  — con **un ruolo per ogni posto da coprire** (quelli coperti dal cliente restano fuori) e il suo strumento; i posti
+  li genera il trigger dei ruoli. Se la formazione era «da definire», i ruoli vengono dalle righe del preventivo.
+  `orc_production_from_request` è idempotente (premuto due volte restituisce la stessa produzione) e solo lo staff
+  di chi ha ricevuto la richiesta può chiamarla. Dopo si arriva sull'Organico, pronti per il matching.
+
+Non c'è ancora: caricamento di allegati (il cliente risponde all'email), presenze.
 
 ## Il collaudo del 10/09/2026
 

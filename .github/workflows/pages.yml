@@ -55,6 +55,9 @@ jobs:
           supabase/functions/submit-feedback/index.ts
           supabase/functions/orc-respond/index.ts
           supabase/functions/orc-notify/index.ts
+          supabase/functions/orc-request-notify/index.ts
+          supabase/functions/orc-quote-notify/index.ts
+          supabase/functions/retention-purge/index.ts
       - name: Lint backend
         run: deno lint supabase/functions
       # Le suite RLS (rls*.test.mjs) hanno bisogno di un Postgres vero: girano in orchestre-rls.yml, che

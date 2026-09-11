@@ -17,6 +17,7 @@ export type ClientRequestRow = {
   notes: string;
   created_at: string;
   snapshot: Record<string, unknown> | null;
+  formation_unknown?: boolean;
   slots?: Array<{ label: string; instrument_code: string | null; qty: number; covered: boolean }>;
   org_name?: string;
 };
@@ -49,7 +50,9 @@ export function buildInternalEmail(row: ClientRequestRow, base: string): { subje
   const n = needed(row);
   const chi = [row.contact_name, row.contact_company].filter(Boolean).join(" · ");
   const quando = [row.event_when, row.event_place].filter(Boolean).join(" · ");
-  const subject = `${n === 1 ? "1 musicista" : n + " musicisti"} — ${row.event_title}${row.event_when ? " (" + row.event_when + ")" : ""}`;
+  // Chi non sa che formazione gli serve non sta chiedendo «0 musicisti»: sta chiedendo una proposta.
+  const quanti = row.formation_unknown ? "Formazione da definire" : n === 1 ? "1 musicista" : n + " musicisti";
+  const subject = `${quanti} — ${row.event_title}${row.event_when ? " (" + row.event_when + ")" : ""}`;
   const lista = righe(row);
   const coperti = (row.slots ?? []).filter((s) => s.covered).length;
   const campi: Array<[string, string]> = [
@@ -67,13 +70,13 @@ export function buildInternalEmail(row: ClientRequestRow, base: string): { subje
   if (palco?.larghezza_cm) campi.push(["Palco", `${palco.larghezza_cm / 100} × ${palco.profondita_cm ? palco.profondita_cm / 100 : "?"} m`]);
   const html = `<div style="font-family:system-ui,sans-serif;max-width:600px">
 <h2 style="margin:0 0 4px">${esc(row.event_title)}</h2>
-<p style="margin:0 0 16px;color:#555">${esc(n === 1 ? "1 musicista da trovare" : n + " musicisti da trovare")}${coperti ? esc(` · ${coperti} ${coperti === 1 ? "posto coperto" : "posti coperti"} dal cliente`) : ""}</p>
+<p style="margin:0 0 16px;color:#555">${esc(row.formation_unknown ? "Formazione da definire: chiede una proposta" : n === 1 ? "1 musicista da trovare" : n + " musicisti da trovare")}${coperti ? esc(` · ${coperti} ${coperti === 1 ? "posto coperto" : "posti coperti"} dal cliente`) : ""}</p>
 <table style="border-collapse:collapse;width:100%">${campi.filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:4px 0">${esc(v).replace(/\n/g, "<br>")}</td></tr>`).join("")}</table>
 ${lista.length ? `<h3 style="margin:20px 0 6px">Posti da coprire</h3><ul style="margin:0;padding-left:20px">${lista.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
 <p style="margin:20px 0 0"><a href="${esc(base)}/orchestre/admin/richieste/?id=${esc(row.id)}" style="background:#0d9488;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Apri la richiesta</a></p>
 <p style="margin:16px 0 0;color:#888;font-size:12px">Il cliente aspetta una risposta entro un giorno lavorativo: gliel'abbiamo scritto nella conferma.</p>
 </div>`;
-  const text = [`${row.event_title} — ${n === 1 ? "1 musicista" : n + " musicisti"}`, "",
+  const text = [`${row.event_title} — ${quanti.toLowerCase()}`, "",
     ...campi.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`), "",
     ...(lista.length ? ["Posti da coprire:", ...lista.map((r) => "- " + r), ""] : []),
     `${base}/orchestre/admin/richieste/?id=${row.id}`].join("\n");

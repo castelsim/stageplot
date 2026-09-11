@@ -20,12 +20,21 @@ export const EVAL_SCORES = [["technical", "Tecnica"], ["intonation", "Intonazion
   ["preparation", "Preparazione"], ["experience", "Esperienza"], ["attitude", "Atteggiamento"], ["punctuality", "Puntualità"], ["communication", "Comunicazione"], ["reliability", "Affidabilità"], ["availability", "Disponibilità"]];
 
 /* Gli otto passi dell'onboarding. */
+/* Il primo passo è la candidatura intera: nome, contatti, città, strumento principale, consenso, e si
+   manda. Gli altri sei sono il profilo, che si completa dopo con calma — foto, curriculum, esperienze.
+   Prima i sei campi obbligatori erano sparsi su quattro passi diversi (identità, strumenti, geografia,
+   invio): per candidarsi bisognava attraversarli tutti, e sembravano tutti necessari. */
 export const STEPS = [
-  ["identita", "Chi sei"], ["strumenti", "Strumenti"], ["competenze", "Competenze"], ["esperienze", "Esperienze"],
-  ["geografia", "Dove e quando"], ["materiali", "Curriculum e materiali"], ["revisione", "Revisione"], ["invio", "Invio"],
+  ["candidatura", "Candidati"],
+  ["strumenti", "Strumenti"], ["competenze", "Competenze"], ["esperienze", "Esperienze"],
+  ["geografia", "Dove e quando"], ["materiali", "Curriculum e materiali"], ["revisione", "Revisione"],
 ];
+/* Quanti passi ci sono DOPO la candidatura: quelli facoltativi, da contare a parte nella barra. */
+export const PASSI_PROFILO = STEPS.length - 1;
 
-export const GENRES = ["classica", "colonne sonore", "pop", "rock", "jazz", "musical", "sacra", "folk", "elettronica", "altro"];
+export const GENRES = ["classica", "sinfonica", "colonne sonore", "pop", "rock", "jazz", "musical", "sacra", "folk", "elettronica", "altro"];
+/* le parti che un musicista sa coprire, con gli stessi codici dei ruoli dell'organico (orc_staffing_roles.part) */
+export const PARTI = [["tutti", "Fila"], ["principal", "Prima parte"], ["solo", "Solista"]];
 
 /* Che cosa manca per inviare (stessa regola di orc_profile_missing nel DB) e la percentuale. */
 export function missingFields(p, instruments) {

@@ -1,0 +1,48 @@
+name: Retention purge
+
+# La retention promessa nell'informativa: analytics dopo 30 giorni, schermate delle segnalazioni dopo 30,
+# stato dei rate-limit dopo 7. Fino all'11/09/2026 doveva farla pg_cron, che in produzione non c'è: la
+# purga non era mai partita. Qui una chiamata al giorno alla Edge Function retention-purge (0062).
+# Il cron di GitHub gira quando gli pare — per una soglia di 30 giorni un ritardo di ore non conta, e il
+# presidio del mattino controlla l'età del record più vecchio: se la purga si ferma di nuovo, suona.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: retention-purge
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WORKER_SECRET: ${{ secrets.CONSULTATION_WORKER_SECRET }}
+    steps:
+      - name: Applica la retention promessa
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$WORKER_SECRET" ]]; then
+            echo "::error::Segreto del worker assente (CONSULTATION_WORKER_SECRET)."
+            exit 1
+          fi
+          response="$(
+            curl --fail-with-body --silent --show-error \
+              --proto '=https' \
+              --max-redirs 0 \
+              --max-time 480 \
+              --request POST \
+              --header "x-stageplot-worker-secret: $WORKER_SECRET" \
+              "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/retention-purge"
+          )"
+          echo "$response"
+          if ! jq -e '.ok == true' >/dev/null <<<"$response"; then
+            echo "::error::La purga non ha confermato: $response"
+            exit 1
+          fi

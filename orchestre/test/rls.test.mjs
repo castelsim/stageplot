@@ -11,7 +11,7 @@ const run = env
   : process.env.ORC_RLS
     ? (name) => test(name, () => { throw new Error("Supabase locale spento (ORC_RLS=1 lo pretende)"); })
     : test.skip;
-const stamp = Date.now().toString(36);
+const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);   /* il caso serve: due suite avviate nello stesso millisecondo creerebbero la stessa organizzazione */
 const mail = (n) => `orc-test-${n}-${stamp}@example.invalid`;
 
 const U = {}; // id per nome

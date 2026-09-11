@@ -5,7 +5,8 @@
    Chi non ha storico resta al neutro sulle voci di storico: l'assenza di dati non è una bocciatura.
    Nessun evento singolo pesa più di un fattore. Ogni contributo porta la sua spiegazione. */
 
-export const ENGINE_VERSION = "1";
+/* 2 (11/09): avvisa se il ruolo chiede la prima parte o il solista e il candidato non l'ha indicato. */
+export const ENGINE_VERSION = "2";
 
 export const DEFAULT_WEIGHTS = {
   same_series: 20,        // ha già fatto questa stessa produzione (stesso titolo, altre edizioni)
@@ -95,6 +96,14 @@ export function scoreCandidate(cand, ctx, weights = DEFAULT_WEIGHTS, now = new D
     const over = (inst.level - base) / 2;
     if (over !== 0) add("level", `Livello ${inst.level}/5 sullo strumento`, W.level * Math.max(-1, Math.min(1, over)));
     if (!inst.primary) warnings.push("Non è il suo strumento principale");
+  }
+
+  /* la parte: per un posto di prima parte o di solista conta sapere se l'ha indicata. Solo un avviso —
+     chi non l'ha scritta non è bocciato, e chi decide legge il perché. */
+  if (role.part === "principal" || role.part === "solo") {
+    const sue = Array.isArray(cand.parts) ? cand.parts : [];
+    const nome = role.part === "principal" ? "la prima parte" : "il solista";
+    if (!sue.includes(role.part)) warnings.push(sue.length ? "Non ha indicato " + nome + (sue.includes("tutti") && sue.length === 1 ? ": fa la fila" : "") : "Non ha indicato se fa " + nome);
   }
 
   /* la valutazione verificata dallo staff: la media dei feedback, 3 = neutro, con il campione in chiaro */

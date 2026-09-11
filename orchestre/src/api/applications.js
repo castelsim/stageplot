@@ -21,7 +21,7 @@ export async function getProfile() {
 }
 const PROFILE_FIELDS = ["first_name", "last_name", "email", "phone", "city", "province", "area", "bio", "website", "audio_url", "video_url", "education", "years_experience",
   "exp_orchestral", "exp_pop", "exp_live", "exp_studio", "exp_theatre", "reading_sight", "reading_score", "with_conductor", "click", "sequences", "in_ear", "improvisation",
-  "genres", "rehearsal_availability", "travel_ok", "tour_ok", "has_car", "max_distance_km", "step", "consent_requests"];
+  "genres", "parts", "rehearsal_availability", "travel_ok", "tour_ok", "has_car", "max_distance_km", "step", "consent_requests"];
 export async function saveProfile(id, fields) {
   const row = {};
   for (const k of PROFILE_FIELDS) if (k in fields) row[k] = fields[k];
@@ -49,9 +49,11 @@ export async function grantConsent(profileId, kind, version) {
   if (kind === "privacy") fail((await sb.from("orc_musician_profiles").update({ consent_privacy_version: version, consent_privacy_at: new Date().toISOString() }).eq("id", profileId)).error);
   if (kind === "requests") fail((await sb.from("orc_musician_profiles").update({ consent_requests: true }).eq("id", profileId)).error);
 }
+/* La revoca la scrive il database, non il client: `orc_consents` non accetta UPDATE da nessuno —
+   il consenso è una prova e la sua data non la sceglie l'interessato. Dal 09/09 al 10/09 questo
+   pulsante ha risposto 403: la policy era stata tolta, la chiamata no. */
 export async function revokeConsent(profileId, kind) {
-  const uid = (await sb.auth.getUser()).data.user.id;
-  fail((await sb.from("orc_consents").update({ revoked_at: new Date().toISOString() }).eq("user_id", uid).eq("kind", kind).is("revoked_at", null)).error);
+  fail((await sb.rpc("orc_consent_revoke", { kind_in: kind })).error);
   if (kind === "requests") fail((await sb.from("orc_musician_profiles").update({ consent_requests: false }).eq("id", profileId)).error);
 }
 /* file: bucket privato, percorso profiles/<uid>/<kind>/<nome> */
@@ -69,6 +71,28 @@ export async function deleteFile(f) {
   fail((await sb.storage.from("orc-files").remove([f.path])).error);
   fail((await sb.from("orc_files").delete().eq("id", f.id)).error);
 }
+/* La fotografia sta nello stesso archivio privato degli altri materiali, ma il profilo ne tiene UNA sola:
+   caricarne un'altra sostituisce quella di prima, così non restano ritratti orfani nell'archivio. */
+export async function setPhoto(profile, file) {
+  const vecchia = profile.photo_path || "";
+  const f = await uploadFile(profile, "photo", file);
+  fail((await sb.from("orc_musician_profiles").update({ photo_path: f.path }).eq("id", profile.id)).error);
+  /* la vecchia foto si toglie dopo: se il ripulisci fallisce, resta un file in più — non un profilo rotto.
+     (`sb.from(...)` si attende ma non è una Promise: niente `.catch` attaccato, serve try/catch) */
+  if (vecchia) {
+    try { await sb.storage.from("orc-files").remove([vecchia]); } catch { /* già sparita */ }
+    try { await sb.from("orc_files").delete().eq("path", vecchia); } catch { /* già sparita */ }
+  }
+  return f.path;
+}
+export async function removePhoto(profile) {
+  const p = profile.photo_path || "";
+  fail((await sb.from("orc_musician_profiles").update({ photo_path: "" }).eq("id", profile.id)).error);
+  if (p) {
+    try { await sb.storage.from("orc-files").remove([p]); } catch { /* già sparita */ }
+    try { await sb.from("orc_files").delete().eq("path", p); } catch { /* già sparita */ }
+  }
+}
 export async function signedUrl(path) {
   const { data, error } = await sb.storage.from("orc-files").createSignedUrl(path, 600);
   fail(error);
@@ -81,7 +105,6 @@ export async function myApplications() { const { data, error } = await sb.rpc("o
 export async function myInvitations() { const { data, error } = await sb.rpc("orc_my_invitations"); fail(error); return data || []; }
 export async function myEngagements() { const { data, error } = await sb.rpc("orc_my_engagements"); fail(error); return data || []; }
 export async function respondMine(invitationId, answer, dates, note) { const { data, error } = await sb.rpc("orc_respond_mine", { invitation: invitationId, answer, dates, note }); fail(error); return data; }
-export async function exportMyData() { const { data, error } = await sb.rpc("orc_export_my_data"); fail(error); return data; }
 export async function requestDeletion() { fail((await sb.rpc("orc_request_deletion")).error); }
 
 /* ---------------- staff */

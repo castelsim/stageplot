@@ -5,7 +5,7 @@
 import { BASE } from "../config.js";
 import { esc, el, toast, setState, errMsg, fmtDate } from "../ui.js";
 import { getSession, signIn } from "../auth.js";
-import { EVENT_KINDS, missingFields, missingLabel, stagePositions, snapshotOf, countNeeded, summaryLines } from "../domain/client-request.js";
+import { EVENT_KINDS, motivoNonPronta, stagePositions, snapshotOf, countNeeded, summaryLines } from "../domain/client-request.js";
 import { typeMapFrom, docVariants, isUuid } from "../domain/stageplot-import.js";
 import * as sp from "../api/stageplot.js";
 import * as api from "../api/client-requests.js";
@@ -14,7 +14,7 @@ const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 const HERE = BASE + "/richiedi/" + (isUuid(q.get("p")) ? "?p=" + q.get("p") : "");
 
-let servizio = null, progetto = null, variante = "", righe = [], ignorate = [], instr = [], typeMap = {};
+let servizio = null, progetto = null, variante = "", righe = [], ignorate = [], instr = [], typeMap = {}, miei = [];
 const F = { contact_name: "", contact_company: "", contact_email: "", contact_phone: "", event_kind: "concerto", event_title: "", event_when: "", event_place: "", schedule: "", repertoire: "", budget: "", notes: "" };
 
 async function main() {
@@ -29,8 +29,8 @@ async function main() {
     typeMap = typeMapFrom(instr);
     const pid = q.get("p");
     if (isUuid(pid)) progetto = await sp.project(pid).catch(() => null);
-    if (!progetto) return paintScegliProgetto();
-    caricaPostazioni();
+    if (progetto) caricaPostazioni();
+    else miei = await sp.myProjects().catch(() => []);   /* i palchi che ha già: offerti, mai imposti */
     paintModulo();
   } catch (e) { paintErrore(errMsg(e)); }
 }
@@ -65,34 +65,16 @@ function paintErrore(msg) {
   const d = el(`<div class="err"></div>`); d.textContent = msg; app.appendChild(d);
 }
 
-async function paintScegliProgetto() {
-  app.innerHTML = "";
-  app.appendChild(el(`<h1>Richiedi musicisti</h1>`));
-  app.appendChild(el(`<p class="lead">Scegli il palco da allegare alla richiesta: serve a noi per capire quanti sono, dove stanno e cosa serve loro.</p>`));
-  const mine = await sp.myProjects().catch(() => []);
-  if (!mine.length) {
-    setState(app, "empty", "Non hai ancora progetti salvati nel cloud.");
-    app.appendChild(el(`<p><a class="btn primary" href="/app/">Disegna il palco</a></p>`));
-    app.appendChild(el(`<p class="small muted">Puoi anche chiedere musicisti senza palco: scrivici a <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>`));
-    return;
-  }
-  const ul = el(`<ul class="list"></ul>`);
-  for (const p of mine) {
-    const li = el(`<li class="list-item"><a class="grow" href="${BASE}/richiedi/?p=${esc(p.id)}"><div class="title"></div><div class="sub"></div></a></li>`);
-    li.querySelector(".title").textContent = p.title;
-    li.querySelector(".sub").textContent = "aggiornato il " + fmtDate(p.updated_at);
-    ul.appendChild(li);
-  }
-  app.appendChild(ul);
-}
-
 /* ------------------------------------------------------------------ il modulo */
+/* Quello che il browser sa già di chi scrive: compilarlo a mano su un telefono è la parte più noiosa. */
+const AUTO = { contact_name: "name", contact_company: "organization", contact_email: "email", contact_phone: "tel" };
+
 function campo(id, label, { type = "text", opts = null, hint = "", full = false } = {}) {
   const f = el(`<div class="field${full ? " full" : ""}"><label for="${id}">${esc(label)}</label></div>`);
   let inp;
   if (opts) { inp = el(`<select id="${id}">${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}</select>`); inp.value = F[id] || ""; }
   else if (type === "textarea") { inp = el(`<textarea id="${id}" rows="3"></textarea>`); inp.value = F[id] || ""; }
-  else { inp = el(`<input id="${id}" type="${type}" autocomplete="${id === "contact_email" ? "email" : id === "contact_phone" ? "tel" : "off"}">`); inp.value = F[id] || ""; }
+  else { inp = el(`<input id="${id}" type="${type}" autocomplete="${AUTO[id] || "off"}">`); inp.value = F[id] || ""; }
   inp.oninput = () => { F[id] = inp.value; aggiornaConto(); };
   inp.onchange = () => { F[id] = inp.value; aggiornaConto(); };
   f.appendChild(inp);
@@ -104,11 +86,13 @@ function paintModulo() {
   app.innerHTML = "";
   app.appendChild(el(`<h1>Richiedi musicisti</h1>`));
   const p = el(`<p class="lead"></p>`);
-  p.textContent = "La richiesta e una copia del palco «" + progetto.title + "» arrivano a " + servizio.name + ", che ti risponde con i nomi e il preventivo. Disponibilità e prezzo si confermano dopo.";
+  p.textContent = progetto
+    ? "La richiesta e una copia del palco «" + progetto.title + "» arrivano a " + servizio.name + ", che ti risponde con i nomi e il preventivo. Disponibilità e prezzo si confermano dopo."
+    : "Dicci che evento è e chi ti serve: " + servizio.name + " ti risponde con i nomi e il preventivo. Il disegno del palco non serve — se ce l'hai lo puoi allegare, ma è un di più.";
   app.appendChild(p);
 
   /* la scena, se il progetto ne ha più d'una */
-  const vs = docVariants(progetto.data);
+  const vs = progetto ? docVariants(progetto.data) : [];
   if (vs.length > 1) {
     const f = el(`<div class="field"><label for="scena">Scena del progetto</label><select id="scena"></select></div>`);
     for (const v of vs) f.querySelector("select").appendChild(new Option(v.name + (v.active ? " (attiva)" : ""), v.id));
@@ -119,17 +103,30 @@ function paintModulo() {
 
   /* i posti */
   const card = el(`<section class="card"><div class="row"><h3>Chi ti serve</h3><span class="spacer"></span><span class="pill" id="conto"></span></div>
-    <p class="small muted">Spunta i posti che copri già tu: per gli altri cerchiamo noi il musicista.</p>
+    <p class="small muted" id="chiHint"></p>
+    <label class="check" for="nonSo"><input type="checkbox" id="nonSo"><span>Non so quale formazione serve: proponetemela voi</span></label>
     <ul class="list compact" id="posti"></ul>
-    <div class="row"><button type="button" class="btn small ghost" id="add">Aggiungi una richiesta a mano</button></div></section>`);
+    <div class="row"><button type="button" class="btn small ghost" id="add">${progetto ? "Aggiungi una richiesta a mano" : "Aggiungi uno strumento"}</button></div></section>`);
+  card.querySelector("#chiHint").textContent = progetto
+    ? "Spunta i posti che copri già tu: per gli altri cerchiamo noi il musicista."
+    : "Dicci gli strumenti e quanti ne servono. Se non lo sai, spunta qui sotto e ce lo diciamo noi.";
+  const nonSo = card.querySelector("#nonSo");
+  nonSo.checked = !!F.formation_unknown;
+  nonSo.onchange = () => { F.formation_unknown = nonSo.checked; paintModulo(); };
   const ul = card.querySelector("#posti");
-  righe.forEach((r, n) => ul.appendChild(rigaPosto(r, n)));
-  if (!righe.length) ul.appendChild(el(`<li class="empty">Nel disegno non ci sono postazioni per musicisti: aggiungile a mano qui sotto.</li>`));
+  if (!F.formation_unknown) {
+    righe.forEach((r, n) => ul.appendChild(rigaPosto(r, n)));
+    if (!righe.length) ul.appendChild(el(`<li class="empty">${progetto ? "Nel disegno non ci sono postazioni per musicisti: aggiungile a mano qui sotto." : "Ancora nessuno strumento."}</li>`));
+  } else {
+    ul.appendChild(el(`<li class="empty">Ci pensiamo noi: descrivi l'evento qui sotto (che musica, quanta gente, che spazio) e ti proponiamo la formazione.</li>`));
+    card.querySelector("#add").hidden = true;
+  }
   card.querySelector("#add").onclick = () => {
     righe.push({ item_id: "", label: "", instrument_code: instr[0] ? instr[0].code : null, instrument_name: instr[0] ? instr[0].name : "", qty: 1, covered: false, manuale: true });
     paintModulo();
   };
   app.appendChild(card);
+  if (!progetto) app.appendChild(bloccoPalco());
   if (ignorate.length) app.appendChild(el(`<p class="small muted">Non contati come musicisti: ${esc(ignorate.join(", "))}.</p>`));
 
   /* l'evento */
@@ -163,6 +160,24 @@ function paintModulo() {
   aggiornaConto();
 }
 
+/* Il palco resta un di più: chi ce l'ha lo allega e ci risparmia domande, chi non l'ha manda lo stesso.
+   Prima questa era una schermata obbligatoria, e chi non aveva progetti salvati non poteva andare avanti. */
+function bloccoPalco() {
+  const c = el(`<section class="card"><h3>Hai il disegno del palco?</h3>
+    <p class="small muted">Non serve per mandare la richiesta. Se ce l'hai ci dice quanti stanno sul palco, come, e con quanto spazio.</p>
+    <ul class="list compact" id="miei"></ul></section>`);
+  const ul = c.querySelector("#miei");
+  for (const m of miei.slice(0, 5)) {
+    const li = el(`<li class="list-item"><a class="grow" href="${BASE}/richiedi/?p=${esc(m.id)}"><div class="title"></div><div class="sub"></div></a></li>`);
+    li.querySelector(".title").textContent = m.title;
+    li.querySelector(".sub").textContent = "aggiornato il " + fmtDate(m.updated_at);
+    ul.appendChild(li);
+  }
+  if (!miei.length) ul.remove();
+  c.appendChild(el(`<p class="small"><a href="/app/">${miei.length ? "Disegnane un altro" : "Disegna il palco"} con StagePlot</a></p>`));
+  return c;
+}
+
 function rigaPosto(r, n) {
   const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
   const act = li.querySelector(".actions");
@@ -193,39 +208,45 @@ function rigaPosto(r, n) {
 function aggiornaConto() {
   const n = countNeeded(righe);
   const pill = app.querySelector("#conto");
-  if (pill) { pill.textContent = n === 0 ? "nessuno" : n === 1 ? "1 musicista" : n + " musicisti"; pill.className = "pill " + (n ? "accent" : "warn"); }
+  if (pill) {
+    pill.textContent = F.formation_unknown ? "da definire" : n === 0 ? "nessuno" : n === 1 ? "1 musicista" : n + " musicisti";
+    pill.className = "pill " + (F.formation_unknown || n ? "accent" : "warn");
+  }
   const riep = app.querySelector("#riep");
   if (riep) { riep.innerHTML = ""; for (const l of summaryLines(F, righe)) { const li = document.createElement("li"); li.textContent = l; riep.appendChild(li); } }
 }
 
 async function manda() {
-  const miss = missingFields(F);
-  if (miss.length) { toast(missingLabel(miss), { err: true }); const first = app.querySelector("#" + miss[0]); if (first) first.focus(); return; }
-  if (!countNeeded(righe)) return toast("Spunta almeno un posto da coprire, o aggiungine uno a mano.", { err: true });
+  const motivo = motivoNonPronta(F, righe);
+  if (motivo) { toast(motivo, { err: true }); const primo = app.querySelector(".field input, .field select"); if (primo) primo.focus(); return; }
   const b = app.querySelector("#send");
   b.disabled = true; b.textContent = "Mando…";
   try {
-    const snap = snapshotOf(progetto.data, variante, righe);
-    const slots = righe.map((r) => ({ item_id: r.item_id || "", label: r.label || r.instrument_name || "", instrument_code: r.instrument_code || null, role_name: "", qty: r.qty, covered: !!r.covered, note: "" }));
-    await api.create(progetto.id, snap, F, slots);
-    paintFatto();
+    const snap = progetto ? snapshotOf(progetto.data, variante, righe) : {};
+    const slots = (F.formation_unknown ? [] : righe).map((r) => ({ item_id: r.item_id || "", label: r.label || r.instrument_name || "", instrument_code: r.instrument_code || null, role_name: "", qty: r.qty, covered: !!r.covered, note: "" }));
+    const id = await api.create(progetto ? progetto.id : null, snap, F, slots);
+    /* la richiesta è salvata: da qui in poi non si perde più niente, nemmeno se l'invio non parte */
+    const inviata = await api.notifyNow(id).catch(() => ({ ok: false }));
+    paintFatto(inviata && inviata.ok);
   } catch (e) { b.disabled = false; b.textContent = "Manda la richiesta"; toast(errMsg(e), { err: true }); }
 }
 
-function paintFatto() {
+function paintFatto(subito) {
   app.innerHTML = "";
   app.appendChild(el(`<h1>Richiesta ricevuta</h1>`));
   const p = el(`<p class="lead"></p>`);
-  p.textContent = "È arrivata a " + servizio.name + " con la copia del palco. Ti rispondiamo entro un giorno lavorativo con i nomi e il preventivo: disponibilità e prezzo si confermano lì, non adesso.";
+  p.textContent = "È arrivata a " + servizio.name + (progetto ? " con la copia del palco" : "") + ". Ti rispondiamo entro un giorno lavorativo con "
+    + (F.formation_unknown ? "una proposta di formazione e il preventivo" : "i nomi e il preventivo") + ": disponibilità e prezzo si confermano lì, non adesso.";
   app.appendChild(p);
   const c = el(`<section class="card"><h3>Cosa succede ora</h3><ol class="steps one">
-    <li><b>Guardiamo il palco</b>Quanti musicisti servono, che strumenti, dove e quando.</li>
+    <li><b>Guardiamo la richiesta</b>Quanti musicisti servono, che strumenti, dove e quando.</li>
     <li><b>Cerchiamo le persone</b>Chiediamo la disponibilità per le tue date: essere liberi non è ancora un impegno.</li>
     <li><b>Ti mandiamo il preventivo</b>Con i nomi e il costo. Confermi tu, e solo allora ingaggiamo.</li>
   </ol></section>`);
   app.appendChild(c);
-  app.appendChild(el(`<p><a class="btn" href="/app/">Torna al palco</a></p>`));
-  app.appendChild(el(`<p class="small muted">Il progetto che continui a modificare non cambia la richiesta già mandata: quello che è arrivato resta com'era.</p>`));
+  if (!subito) app.appendChild(el(`<p class="small muted">L'avviso a ${esc(servizio.name)} parte entro pochi minuti: la richiesta è già salvata, non serve rimandarla.</p>`));
+  app.appendChild(el(`<p><a class="btn" href="${progetto ? "/app/" : BASE + "/"}">${progetto ? "Torna al palco" : "Torna a Orchestre"}</a></p>`));
+  if (progetto) app.appendChild(el(`<p class="small muted">Il progetto che continui a modificare non cambia la richiesta già mandata: quello che è arrivato resta com'era.</p>`));
 }
 
 main();
