@@ -73,20 +73,20 @@ run("l'invito lo crea solo lo staff, e il segreto non finisce nel database", asy
 });
 
 run("un invito sbagliato non dice mai perché, e non lascia entrare", async () => {
-  const inventato = await rpc(env, T.anna, "orc_musician_invite_claim", { hash: impronta(nuovoToken()) });
+  const inventato = await rpc(env, T.anna, "orc_musician_invite_claim", { token: nuovoToken() });
   assert.equal(inventato.d[0].ok, false);
   assert.equal(inventato.d[0].org_id, null, "non si scopre nemmeno di quale organizzazione si tratta");
-  const storto = await rpc(env, T.anna, "orc_musician_invite_claim", { hash: "non-una-impronta" });
+  const storto = await rpc(env, T.anna, "orc_musician_invite_claim", { token: "non-un-token" });
   assert.equal(storto.d[0].ok, false);
 });
 
 run("chi ha il link entra: apre l'invito, compila e appena manda è fra i musicisti", async () => {
-  const apri = await rpc(env, T.anna, "orc_musician_invite_claim", { hash: impronta(TOKEN) });
+  const apri = await rpc(env, T.anna, "orc_musician_invite_claim", { token: TOKEN });
   assert.equal(apri.d[0].ok, true);
   assert.equal(apri.d[0].org_id, ORG);
   assert.equal(apri.d[0].org_name, "Inv A", "sa chi l'ha invitata");
   /* riaprirlo lei stessa va bene: il link si può cliccare due volte */
-  assert.equal((await rpc(env, T.anna, "orc_musician_invite_claim", { hash: impronta(TOKEN) })).d[0].ok, true);
+  assert.equal((await rpc(env, T.anna, "orc_musician_invite_claim", { token: TOKEN })).d[0].ok, true);
   await compila(T.anna, U.anna, "Anna");
   const app = await rpc(env, T.anna, "orc_apply", { org: ORG });
   assert.ok(app.ok && app.d && app.d.id, JSON.stringify(app.d));
@@ -110,7 +110,7 @@ run("l'invito me lo ricordo anch'io: chi è entrato dal link lo rilegge quando t
   const c = await rpc(env, T.societa, "orc_musician_invite_create", { org: ORG, hash: impronta(t), label: "Bruno, corno" });
   assert.ok(c.ok, JSON.stringify(c.d));
   assert.deepEqual((await rpc(env, T.bruno, "orc_my_invite", {})).d, [], "prima di aprirlo non c'è niente da ricordare");
-  assert.equal((await rpc(env, T.bruno, "orc_musician_invite_claim", { hash: impronta(t) })).d[0].ok, true);
+  assert.equal((await rpc(env, T.bruno, "orc_musician_invite_claim", { token: t })).d[0].ok, true);
   const mio = await rpc(env, T.bruno, "orc_my_invite", {});
   assert.equal((mio.d || []).length, 1, "aperto il link, l'invito è suo e se lo ricorda");
   assert.equal(mio.d[0].org_name, "Inv A", "e sa da chi arriva");
@@ -122,14 +122,14 @@ run("l'invito me lo ricordo anch'io: chi è entrato dal link lo rilegge quando t
 });
 
 run("un invito già usato non si gira a un altro, e uno revocato non vale più", async () => {
-  const altro = await rpc(env, T.bruno, "orc_musician_invite_claim", { hash: impronta(TOKEN) });
+  const altro = await rpc(env, T.bruno, "orc_musician_invite_claim", { token: TOKEN });
   assert.equal(altro.d[0].ok, false, "il link è personale");
   assert.equal(altro.d[0].motivo, "gia usato");
   /* un invito nuovo, revocato prima di essere aperto */
   const t2 = nuovoToken();
   const c = await rpc(env, T.societa, "orc_musician_invite_create", { org: ORG, hash: impronta(t2), label: "Bruno" });
   assert.ok((await rpc(env, T.societa, "orc_musician_invite_revoke", { inv: c.d })).ok);
-  assert.equal((await rpc(env, T.bruno, "orc_musician_invite_claim", { hash: impronta(t2) })).d[0].ok, false, "revocato: non entra");
+  assert.equal((await rpc(env, T.bruno, "orc_musician_invite_claim", { token: t2 })).d[0].ok, false, "revocato: non entra");
   assert.equal((await rpc(env, T.altraOrg, "orc_musician_invite_revoke", { inv: c.d })).ok, false, "e non lo revoca un'altra organizzazione");
 });
 
@@ -137,7 +137,7 @@ run("un invito scaduto non vale, e senza invito la candidatura resta da valutare
   const t3 = nuovoToken();
   const c = await rpc(env, T.societa, "orc_musician_invite_create", { org: ORG, hash: impronta(t3), label: "Vecchio" });
   await rest(env, admin(env), "orc_musician_invites?id=eq." + c.d, { method: "PATCH", body: { expires_at: "2020-01-01T00:00:00Z" } });
-  assert.equal((await rpc(env, T.bruno, "orc_musician_invite_claim", { hash: impronta(t3) })).d[0].ok, false, "scaduto");
+  assert.equal((await rpc(env, T.bruno, "orc_musician_invite_claim", { token: t3 })).d[0].ok, false, "scaduto");
   /* Bruno si candida senza invito: percorso normale, con la valutazione */
   await compila(T.bruno, U.bruno, "Bruno");
   const app = await rpc(env, T.bruno, "orc_apply", { org: ORG });

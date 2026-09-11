@@ -631,3 +631,16 @@ test("una casella dentro un campo resta una casella, anche sul telefono", () => 
   for (const d of ["width:20px", "height:20px", "min-height:0", "padding:0", "flex:none"]) assert.ok(m[1].includes(d), "manca " + d);
   assert.match(css, /\.check-line\{[^}]*min-height:var\(--tap\)/, "e il bersaglio da 44 px resta sull'etichetta");
 });
+
+/* Dalla 0065 `orc_musician_invite_claim` riceve il TOKEN e ne calcola lei l'impronta. Un client che tornasse
+   a mandare `{ hash }` non aprirebbe nessun invito — PostgREST sceglie la funzione per nome del parametro —
+   e i test del database non se ne accorgerebbero: guardano il database, non il bottone. */
+test("l'apertura dell'invito manda il token, non l'impronta", () => {
+  const api = readFileSync(join(root, "orchestre/src/api/invites.js"), "utf8");
+  const i = api.indexOf("export async function claimInvite(");
+  assert.ok(i > -1, "la funzione c'è");
+  const fn = api.slice(i, api.indexOf("\n}", i));
+  assert.ok(/rpc\("orc_musician_invite_claim", \{ token \}\)/.test(fn), "manda { token }");
+  assert.ok(fn.indexOf("hashToken(") === -1, "e non si calcola l'impronta da sé");
+});
+
