@@ -114,7 +114,14 @@ function bloccoFoto() {
   return wrap;
 }
 
-function go(v, s) { view = v; step = s || 0; history.replaceState(null, "", "?v=" + v + (s ? "&step=" + s : "")); paint(); }
+function go(v, s) {
+  view = v; step = s || 0;
+  /* senza passo si parte dal primo che serve: la candidatura se manca qualcosa, se no gli strumenti —
+     prima il passo 0 non esisteva e la pagina restava bianca */
+  if (v === "profilo" && !step) step = missingFields(P, P.instruments).length ? 1 : 2;
+  history.replaceState(null, "", "?v=" + v + (step && v === "profilo" ? "&step=" + step : ""));
+  paint();
+}
 
 function paint() {
   /* la barra la disegna `barraAree` — e async, e attacca lei il pulsante «Esci»: cercarlo qui subito
@@ -137,8 +144,17 @@ async function paintHome() {
     <div class="bar"><div class="bar-fill"></div></div><p class="small muted" id="missTxt"></p><a class="btn ${miss.length ? "primary" : ""}" id="goProf">${miss.length ? "Completa il profilo" : "Aggiorna il profilo"}</a></section>`);
   prof.querySelector(".bar-fill").style.width = pct + "%";
   prof.querySelector("#missTxt").textContent = miss.length ? "Mancano: " + miss.map((k) => FIELD_LABEL[k] || k).join(", ") + "." : "Tutto quello che serve per candidarti c'è.";
-  prof.querySelector("#goProf").onclick = () => go("profilo", miss.length ? 1 : STEPS.length - 1);
+  prof.querySelector("#goProf").onclick = () => go("profilo", miss.length ? 1 : 2);   /* dall'inizio del profilo, non dai materiali */
   app.appendChild(prof);
+  /* senza il consenso alle proposte nessuno può convocarti (lo dice l'informativa, lo fa il database): meglio saperlo qui */
+  if (!P.consent_requests && P.consent_privacy_version) {
+    const b = el(`<div class="banner">Non ricevi proposte di lavoro: le società non possono convocarti. <button type="button" class="btn small" id="attivaReq">Voglio riceverle</button></div>`);
+    b.querySelector("#attivaReq").onclick = async () => {
+      try { await api.grantConsent(P.id, "requests", PRIVACY_VERSION); P.consent_requests = true; toast("Da adesso ricevi proposte di lavoro."); paint(); }
+      catch (e) { toast(errMsg(e), { err: true }); }
+    };
+    app.appendChild(b);
+  }
 
   const apps = el(`<section class="card"><h3>Candidature</h3><div class="loading">Un attimo…</div></section>`);
   app.appendChild(apps);
@@ -274,7 +290,7 @@ function paintProfilo() {
       consent.appendChild(el(`<p class="small">Per candidarti serve il consenso al trattamento dei dati (<a href="${BASE}/privacy/" target="_blank" rel="noopener">informativa, versione ${esc(PRIVACY_VERSION)}</a>).</p>`));
       consent.appendChild(check("consent", "Ho letto l'informativa e acconsento al trattamento dei miei dati", false));
     }
-    consent.appendChild(check("consent_requests", "Voglio ricevere proposte di lavoro", P.consent_requests));
+    consent.appendChild(check("consent_requests", "Voglio ricevere proposte di lavoro (senza, le società non possono convocarmi)", P.consent_requests));
     card.appendChild(consent);
 
     save = async () => {

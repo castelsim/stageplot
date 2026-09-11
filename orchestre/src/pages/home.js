@@ -15,5 +15,5 @@ import { getSession } from "../auth.js";
     if (vai) vai.textContent = "La mia area →";
   }
   const top = document.getElementById("topLogin");
-  if (top) { top.href = BASE + "/admin/"; top.textContent = "La tua area"; }
+  if (top) { top.href = BASE + "/login/"; top.textContent = "La tua area"; }   /* il login smista: gestione, musicista, cliente */
 })();

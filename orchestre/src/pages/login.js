@@ -29,6 +29,10 @@ async function main() {
        invece di finire sempre nella stessa — prima chi aveva chiesto musicisti veniva mandato all'area
        musicista e non aveva nessun modo di rivedere le proprie richieste. */
     const org = q.get("org") ? "?org=" + encodeURIComponent(q.get("org")) : "";
+    /* chi stava andando da qualche parte ci torna: «Cerco musicisti» → Accedi → di nuovo al modulo della
+       richiesta. Solo le pagine fuori dall'area di gestione, e solo indirizzi di Orchestre (nextUrl). */
+    const voleva = q.get("next") ? nextUrl(q.get("next")) : "";
+    if (voleva && voleva === q.get("next") && !voleva.startsWith(BASE + "/admin")) { location.replace(voleva); return; }
     const aree = await mieAree();
     if (aree.cliente && !aree.musicista) { location.replace(BASE + "/mie-richieste/"); return; }
     if (aree.cliente && aree.musicista) return paintBivio(org);
@@ -53,7 +57,7 @@ function paintLogin() {
   };
   app.appendChild(b);
   const note = el(`<p class="small muted"></p>`);
-  note.textContent = "Accedendo accetti le condizioni di StagePlot. I tuoi dati restano nell'organizzazione che ti ha invitato.";
+  note.textContent = "Accedendo accetti le condizioni di StagePlot. I tuoi dati li vede solo la società con cui lavori: quella a cui ti candidi o a cui chiedi musicisti.";
   app.appendChild(note);
 }
 

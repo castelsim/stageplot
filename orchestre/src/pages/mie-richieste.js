@@ -52,14 +52,15 @@ function paint(righe, preventivi = []) {
     const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
     li.querySelector(".title").textContent = r.event_title;
     li.querySelector(".sub").textContent = [
-      quantiLabel(r),
+      r.slots_summary || quantiLabel(r),
       [r.event_when, r.event_place].filter(Boolean).join(" · "),
       "mandata il " + fmtDate(r.created_at),
       r.org_name ? "a " + r.org_name : "",
     ].filter(Boolean).join(" · ");
     const pill = el(`<span class="pill"></span>`);
     pill.textContent = r.status;                       /* già tradotto per il cliente da orc_my_client_requests */
-    if (r.status !== "ricevuta") pill.classList.add("accent");
+    const tono = { ricevuta: "", "in lavorazione": "accent", accettata: "ok", "non andata": "", chiusa: "" }[r.status];
+    if (tono) pill.classList.add(tono);
     li.querySelector(".actions").appendChild(pill);
     ul.appendChild(li);
     /* il preventivo, se è arrivato: solo la descrizione e il totale — il resto è della società */
@@ -90,8 +91,8 @@ function schedaPreventivo(q) {
     const [si, no] = az.querySelectorAll("button");
     const rispondi = async (accept) => {
       const ok = await confirm(accept
-        ? { title: "Accetti il preventivo?", text: "Totale " + euro(q.total_cents) + " IVA compresa. Da qui confermiamo i musicisti e ti ricontattiamo per i dettagli.", ok: "Accetto" }
-        : { title: "Rifiuti il preventivo?", text: "Lo segnaliamo a chi l'ha preparato. Se vuoi cambiare qualcosa, rispondi alla sua email prima di rifiutare.", ok: "Rifiuto", danger: true });
+        ? { title: "Accetti il preventivo?", text: "Totale " + euro(q.total_cents) + " IVA compresa. Da qui confermiamo i musicisti e ti ricontattiamo per i dettagli. La risposta è definitiva.", ok: "Accetto" }
+        : { title: "Rifiuti il preventivo?", text: "Lo segnaliamo a chi l'ha preparato, e la risposta è definitiva. Se vuoi solo cambiare qualcosa, rispondi all'email del preventivo invece di rifiutarlo.", ok: "Rifiuto", danger: true });
       if (!ok) return;
       try { await quotes.answer(q.id, accept); toast(accept ? "Preventivo accettato: ti ricontattiamo." : "Risposta registrata."); main(); }
       catch (e) { toast(errMsg(e), { err: true }); }

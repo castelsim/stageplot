@@ -47,6 +47,8 @@ export function checkRequirements(cand, ctx) {
   const role = ctx.role;
   if (cand.in_production) missing.push({ code: "in_production", label: "Ha già un posto in questa produzione" });
   if (cand.status === "suspended") missing.push({ code: "suspended", label: "Sospeso" });
+  /* l'informativa promette che le proposte arrivano solo a chi le ha scelte: il database non lo convoca, qui si dice perché */
+  if (cand.no_requests) missing.push({ code: "no_requests", label: "Ha scelto di non ricevere proposte di lavoro" });
   if (Array.isArray(cand.excluded) && cand.excluded.length) missing.push({ code: "excluded", label: "Escluso" + (cand.excluded[0] ? ": " + cand.excluded[0] : "") });
   if (cand.conflict) missing.push({ code: "conflict", label: "Conflitto di calendario con un'altra produzione" });
   if (cand.invited_here) missing.push({ code: "invited", label: "Già convocato per questo ruolo: aspetta la risposta" });
@@ -100,10 +102,11 @@ export function scoreCandidate(cand, ctx, weights = DEFAULT_WEIGHTS, now = new D
 
   /* la parte: per un posto di prima parte o di solista conta sapere se l'ha indicata. Solo un avviso —
      chi non l'ha scritta non è bocciato, e chi decide legge il perché. */
-  if (role.part === "principal" || role.part === "solo") {
+  /* solo per chi suona lo strumento del ruolo: su un trombone per un posto di violino era rumore */
+  if ((role.part === "principal" || role.part === "solo") && (inst || !role.instrument_code)) {
     const sue = Array.isArray(cand.parts) ? cand.parts : [];
     const nome = role.part === "principal" ? "la prima parte" : "il solista";
-    if (!sue.includes(role.part)) warnings.push(sue.length ? "Non ha indicato " + nome + (sue.includes("tutti") && sue.length === 1 ? ": fa la fila" : "") : "Non ha indicato se fa " + nome);
+    if (!sue.includes(role.part)) warnings.push(sue.length ? "Ha indicato " + sue.map((k) => ({ tutti: "la fila", principal: "la prima parte", solo: "il solista" }[k])).join(" e ") + ", non " + nome : "Non ha indicato se fa " + nome);
   }
 
   /* la valutazione verificata dallo staff: la media dei feedback, 3 = neutro, con il campione in chiaro */

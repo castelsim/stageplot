@@ -124,6 +124,9 @@ run("l'area personale: inviti e incarichi via account, risposta senza token, exp
   const PID = (await rest(env, T.ownerA, "orc_productions", { method: "POST", body: { org_id: ORG_A, title: "Concerto per Anna", status: "planning" } })).d[0].id;
   await rest(env, T.ownerA, "orc_production_dates", { method: "POST", body: { production_id: PID, kind: "concert", starts_at: "2026-12-01T21:00:00+01:00" } });
   const ROLE = (await rest(env, T.ownerA, "orc_staffing_roles", { method: "POST", body: { production_id: PID, instrument_code: "violino", name: "Violini", seats: 1 } })).d[0].id;
+  /* dal collaudo dell'11/09 si convoca solo chi ha scelto di ricevere proposte, come promette l'informativa: Anna le accetta, come fa l'interfaccia */
+  assert.ok((await rest(env, T.cand, "orc_consents", { method: "POST", body: { user_id: U.cand, kind: "requests", version: "2026-09-09" } })).ok);
+  assert.ok((await rest(env, T.cand, "orc_musician_profiles?id=eq." + PROF, { method: "PATCH", body: { consent_requests: true } })).ok);
   assert.equal((await rpc(env, T.ownerA, "orc_invite", { production: PID, role: ROLE, musicians: [MID], deadline: "2030-01-01T00:00:00Z" })).d, 1);
   const invId = (await rpc(env, T.ownerA, "orc_invitations_list", { production: PID })).d[0].id;
   await rest(env, admin(env), "orc_invitations?id=eq." + invId, { method: "PATCH", body: { status: "sent", notification_status: "sent" } });
@@ -138,7 +141,7 @@ run("l'area personale: inviti e incarichi via account, risposta senza token, exp
   const eng = (await rpc(env, T.cand, "orc_my_engagements", {})).d;
   assert.equal(eng.length, 1); assert.equal(eng[0].role_name, "Violini");
   const exp = (await rpc(env, T.cand, "orc_export_my_data", {})).d;
-  assert.equal(exp.profile.first_name, "Anna"); assert.equal(exp.applications[0].status, "accepted"); assert.equal(exp.engagements.length, 1); assert.equal(exp.consents.length, 1);
+  assert.equal(exp.profile.first_name, "Anna"); assert.equal(exp.applications[0].status, "accepted"); assert.equal(exp.engagements.length, 1); assert.equal(exp.consents.length, 2, "privacy e proposte di lavoro");
   assert.equal(JSON.stringify(exp).includes("private_note"), false, "l'export non contiene valutazioni interne");
   assert.ok((await rpc(env, T.cand, "orc_request_deletion", {})).ok);
   const flagged = (await rpc(env, T.ownerA, "orc_applications_list", { org: ORG_A })).d[0];
