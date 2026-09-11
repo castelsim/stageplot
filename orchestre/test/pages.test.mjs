@@ -541,3 +541,25 @@ test("l'avviso del preventivo e protetto, non salta la coda, e non legge i cache
   const worker = readFileSync(join(root, "supabase/functions/orc-notify/index.ts"), "utf8");
   assert.match(worker, /processQuotes\(/, "il worker riprende i preventivi rimasti in coda");
 });
+
+/* Dalla richiesta accettata all'evento con un tasto. La produzione la crea il database (le regole su chi
+   può e sul non crearne due stanno lì, e le prova rls-evento-dalla-richiesta); qui si pretende che la
+   pagina usi quella strada, chieda conferma, non offra un secondo evento quando il primo c'è già, e porti
+   dove si lavora dopo: l'Organico. */
+test("dalla richiesta si crea l'evento con un tasto, e il tasto porta all'Organico", () => {
+  const a = readFileSync(join(root, "orchestre/src/api/client-requests.js"), "utf8");
+  assert.match(a, /sb\.rpc\("orc_production_from_request", \{ req: reqId \}\)/, "la produzione la crea il database");
+  const pag = readFileSync(join(root, "orchestre/src/pages/richieste.js"), "utf8");
+  const corpo = (pag.match(/\nfunction bloccoEvento\([\s\S]*?\n\}\n/) || [""])[0];
+  assert.ok(corpo, "il blocco dell'evento si trova");
+  const dett = (pag.match(/\nfunction dettaglio\([\s\S]*?\n\}\n/) || [""])[0];
+  assert.match(dett, /box\.appendChild\(bloccoEvento\(r, slots\)\)/, "e la scheda della richiesta lo mostra");
+  assert.match(corpo, /if \(r\.production_id\) \{[\s\S]*?Apri l'evento[\s\S]*?return sez;/, "se l'evento c'è già, si apre quello: niente secondo tasto");
+  assert.match(corpo, /await confirm\(/, "si chiede conferma prima di creare");
+  assert.match(corpo, /await api\.toProduction\(r\.id\)/, "e si passa dalla RPC");
+  assert.match(corpo, /location\.href = BASE \+ "\/admin\/produzioni\/scheda\/\?id=" \+ encodeURIComponent\(pid\) \+ "&t=organico"/,
+    "appena creato si va all'Organico, dove si cercano i musicisti");
+  const mig = readFileSync(join(root, "supabase/migrations/0061_orc_evento_dalla_richiesta.sql"), "utf8");
+  assert.match(mig, /not public\.orc_is_staff\(r\.org_id\)/, "solo lo staff di chi ha ricevuto la richiesta");
+  assert.match(mig, /revoke all on function public\.orc_production_from_request\(uuid\) from public, anon;/, "e mai da anonimo");
+});

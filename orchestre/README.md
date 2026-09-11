@@ -318,8 +318,20 @@ musicisti. Chi arriva **non è di un'organizzazione**: è un utente qualsiasi de
   (nuova, presa in carico, preventivo inviato, accettata, non andata, chiusa). Le richieste nuove sono la prima
   riga di «Da fare».
 
-Non c'è ancora: caricamento di allegati (il cliente risponde all'email), trasformazione in evento con un tasto,
-preventivo con margine, presenze. Sono i passi successivi.
+- **Il preventivo** (`0059`, `0060`): per ogni posto il cachet, un margine unico, sopra l'IVA. I conti li fa il
+  browser mentre si scrive, ma quando si manda li **rifà il database** (`orc_quote_send`), e un preventivo mandato
+  non si tocca più: se ne fa uno nuovo, che sostituisce il vecchio. Al cliente arrivano solo descrizione, imponibile,
+  IVA e totale — lo legge con `orc_my_quotes()`, perché sulle tabelle non ha policy — e un'email «il preventivo è
+  pronto» mandata subito da `orc-quote-notify` (il worker ripassa quello che non è partito). Accetta o rifiuta con
+  `orc_quote_answer`, e la richiesta diventa «accettata» o «non andata».
+- **Dalla richiesta all'evento** (`0061`): nella scheda della richiesta, «Crea l'evento» fa nascere la produzione da
+  quello che la richiesta sa già — titolo, cliente, tipologia, luogo, e nelle note quando, orari, repertorio e budget
+  — con **un ruolo per ogni posto da coprire** (quelli coperti dal cliente restano fuori) e il suo strumento; i posti
+  li genera il trigger dei ruoli. Se la formazione era «da definire», i ruoli vengono dalle righe del preventivo.
+  `orc_production_from_request` è idempotente (premuto due volte restituisce la stessa produzione) e solo lo staff
+  di chi ha ricevuto la richiesta può chiamarla. Dopo si arriva sull'Organico, pronti per il matching.
+
+Non c'è ancora: caricamento di allegati (il cliente risponde all'email), presenze.
 
 ## Il collaudo del 10/09/2026
 

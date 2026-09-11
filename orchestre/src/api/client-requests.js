@@ -54,3 +54,10 @@ export async function detail(reqId) {
 export async function setStatus(reqId, status, productionId = null) {
   fail((await sb.rpc("orc_client_request_set_status", { req: reqId, new_status: status, production: productionId })).error);
 }
+/* Dalla richiesta all'evento: la produzione nasce con titolo, luogo e un ruolo per posto da coprire.
+   Premuto due volte restituisce la stessa produzione, non ne crea una seconda. */
+export async function toProduction(reqId) {
+  const { data, error } = await sb.rpc("orc_production_from_request", { req: reqId });
+  fail(error);
+  return data;
+}
