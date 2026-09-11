@@ -2,7 +2,7 @@ name: Retention purge
 
 # La retention promessa nell'informativa: analytics dopo 30 giorni, schermate delle segnalazioni dopo 30,
 # stato dei rate-limit dopo 7. Fino all'11/09/2026 doveva farla pg_cron, che in produzione non c'è: la
-# purga non era mai partita. Qui una chiamata al giorno alla Edge Function retention-purge (0061).
+# purga non era mai partita. Qui una chiamata al giorno alla Edge Function retention-purge (0062).
 # Il cron di GitHub gira quando gli pare — per una soglia di 30 giorni un ritardo di ore non conta, e il
 # presidio del mattino controlla l'età del record più vecchio: se la purga si ferma di nuovo, suona.
 

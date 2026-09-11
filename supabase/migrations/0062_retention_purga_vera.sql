@@ -1,4 +1,4 @@
--- 0061 — La retention promessa, eseguita davvero.
+-- 0062 — La retention promessa, eseguita davvero.
 --
 -- L'informativa promette: analytics cancellati dopo 30 giorni, schermate delle segnalazioni dopo 30,
 -- stato dei rate-limit dopo 7. La 0033 aveva scritto la funzione e provato a schedularla con pg_cron,
@@ -40,7 +40,7 @@ end;
 $$;
 
 comment on function public.stageplot_purge_expired() is
-  'Retention delle tabelle: analytics_events (>30gg), feedback_throttle e landing_throttle (>7gg). Le schermate delle segnalazioni NON sono qui: le cancella la Edge Function retention-purge con la Storage API (0061).';
+  'Retention delle tabelle: analytics_events (>30gg), feedback_throttle e landing_throttle (>7gg). Le schermate delle segnalazioni NON sono qui: le cancella la Edge Function retention-purge con la Storage API (0062).';
 
 revoke all on function public.stageplot_purge_expired() from public, anon, authenticated;
 grant execute on function public.stageplot_purge_expired() to service_role;
