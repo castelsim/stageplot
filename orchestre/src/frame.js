@@ -15,21 +15,21 @@
      silenzio lascerebbe la pagina visibile e cliccabile. Nascondersi prima non costa niente.
    Stili via CSSOM (element.style), che la CSP senza 'unsafe-inline' permette; testo via textContent. */
 (function () {
-  var w = window;
+  const w = window;
   if (w.self === w.top) return;
-  var stessaOrigine = false;
+  let stessaOrigine = false;
   try { stessaOrigine = w.top.location.origin === w.location.origin; } catch { stessaOrigine = false; }
   if (stessaOrigine) return;
-  var d = w.document;
+  const d = w.document;
   d.documentElement.style.visibility = "hidden";
   d.addEventListener("DOMContentLoaded", function () {
-    var p = d.createElement("p");
+    const p = d.createElement("p");
     /* la pagina resta nascosta: le pagine di Orchestre disegnano anche DOPO (toast, dati dalla rete), e
        riaccendere tutto riaccenderebbe anche quello. Si vede solo questo paragrafo — visibility si
        eredita, ma un figlio può riaccenderla per sé. */
     p.style.cssText = "visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";
     p.textContent = "StagePlot Orchestre non si apre dentro la pagina di un altro sito. ";
-    var a = d.createElement("a");
+    const a = d.createElement("a");
     a.href = w.location.href;
     a.target = "_top";
     a.rel = "noopener";
