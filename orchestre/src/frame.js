@@ -14,6 +14,17 @@
      <iframe sandbox> sia in un iframe normale di un'altra origine), ma un browser che la rifiutasse in
      silenzio lascerebbe la pagina visibile e cliccabile. Nascondersi prima non costa niente.
    Stili via CSSOM (element.style), che la CSP senza 'unsafe-inline' permette; testo via textContent. */
+
+/* Solo https (11/09). GitHub Pages serve anche http://stageplot.it in chiaro finché «Enforce HTTPS» è
+   spento, e su una rete aperta chi sta in mezzo può riscrivere la pagina. Questo NON ferma chi la
+   riscrive (può togliere anche questo script): è la rete per chi arriva da un link o da un indirizzo
+   scritto senza «s». La difesa vera è l'impostazione di Pages. Solo sul dominio vero: in locale si
+   prova su http://127.0.0.1. */
+(function () {
+  const l = window.location;
+  if (l.protocol === "http:" && /(^|\.)stageplot\.it$/.test(l.hostname)) l.replace("https://" + l.host + l.pathname + l.search + l.hash);
+})();
+
 (function () {
   const w = window;
   if (w.self === w.top) return;
