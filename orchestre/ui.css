@@ -250,6 +250,8 @@ dl.review dd{overflow-wrap:anywhere}
 .field textarea{padding:10px 12px;min-height:96px;resize:vertical}
 .field .hint{font-size:var(--t-body);color:var(--text-3)}
 .field.error input,.field.error select{border-color:var(--danger)}
+/* «Quanti» nella richiesta del cliente: prima uno style inline, bloccato dalla CSP → 23 px */
+.qty-in{width:5rem;flex:none;min-height:var(--tap);font-size:var(--t-base)}
 /* Una casella è una casella. Dentro un .field le regole degli input — larghezza 100%, padding, 48 px di
    altezza sul telefono — la deformavano: 13×48 o 49×48 secondo quanto era lunga l'etichetta (11/09, scheda
    del musicista e passi del profilo). Il bersaglio da 44 px lo dà già la .check-line che la contiene. */

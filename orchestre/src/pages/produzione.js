@@ -343,6 +343,9 @@ function addRoleCard() {
     </div><button type="button" class="btn" id="nrAdd">Aggiungi ruolo</button></section>`);
   const sec = c.querySelector("#nrSec");
   sec.onchange = () => { c.querySelector("#nrSecNameF").hidden = sec.value !== "__new"; };
+  /* senza sezioni si parte da «Senza sezione»; e il campo del nome segue la scelta fin da subito */
+  if (!sections.some((s) => s.id)) sec.value = "";
+  sec.onchange();
   c.querySelector("#nrInst").onchange = (e) => { const n = c.querySelector("#nrName"); if (!n.value) n.value = cat.instruments.find((i) => i.code === e.target.value)?.name || ""; };
   c.querySelector("#nrAdd").onclick = async () => {
     const name = c.querySelector("#nrName").value.trim(); if (!name) return toast("Serve il nome del ruolo.", { err: true });
@@ -376,13 +379,15 @@ async function paintMatching() {
     <div class="field"><label for="mRole">Ruolo</label><select id="mRole">${roles.map((r) => `<option value="${r.id}">${esc(r.section + " · " + r.name)} (${r.open} ${r.open === 1 ? "scoperto" : "scoperti"} su ${r.slots.length})</option>`).join("")}</select></div>
     <div class="field"><label>Pesi</label><span class="pill">${esc(mRuleset.name || "Pesi")} · v${mRuleset.version}</span></div>
     <button type="button" class="btn primary" id="mGo">Calcola</button></div>
-    <p class="small muted">Fase A: chi non ha i requisiti resta in fondo, con il motivo. Fase B: 50 punti di partenza più i contributi pesati, ognuno spiegato. Ogni calcolo resta salvato: la convocazione citerà questa proposta. I pesi si cambiano in <a href="${BASE}/admin/impostazioni/">Impostazioni</a>.</p></section>`);
+    <p class="small muted">In cima chi va bene per il ruolo, in ordine; accanto a ognuno il perché. Chi non si può convocare resta in fondo, con il motivo. Ogni calcolo resta salvato: la convocazione citerà questa proposta.</p></section>`);
   head.querySelector("#mRole").value = mRole;
   head.querySelector("#mRole").onchange = (e) => { mRole = e.target.value; history.replaceState(null, "", "?id=" + p.id + "&t=matching&role=" + mRole); loadLastRun(); };
   head.querySelector("#mGo").onclick = compute;
   panel.appendChild(head);
   panel.appendChild(el(`<div id="mOut"></div>`));   /* el() rende UN elemento: il contenitore va appeso a parte */
-  await loadLastRun();
+  /* da «Convoca altri»: un calcolo nuovo, non quello salvato prima delle risposte */
+  if (q.get("ricalcola")) { history.replaceState(null, "", "?id=" + p.id + "&t=matching&role=" + mRole); await compute(); }
+  else await loadLastRun();
 }
 async function loadLastRun() {
   const out = app.querySelector("#mOut");
@@ -488,7 +493,10 @@ function inviteDialog(musicianIds) {
     const deadline = fromLocalInput(ov.querySelector("#invDl").value);
     try {
       const n = await inv.invite(p.id, mRole, musicianIds, { deadline, note: ov.querySelector("#invNote").value.trim(), runId: mRun?.id || null });
-      close(); toast(n + (n === 1 ? " convocazione creata" : " convocazioni create") + ": l'email parte entro dieci minuti.");
+      const saltati = musicianIds.length - n;
+      close(); toast(n + (n === 1 ? " convocazione creata" : " convocazioni create")
+        + (saltati > 0 ? "; " + saltati + (saltati === 1 ? " non convocato" : " non convocati") + ": già convocati per questo ruolo o hanno scelto di non ricevere proposte" : "")
+        + ". Lo stato delle email è qui sotto, riga per riga.");
       tab = "convocazioni"; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni"); paint();
     } catch (e) { toast(errMsg(e), { err: true }); }
   };
@@ -526,7 +534,7 @@ async function loadConvocazioni() {
     for (const [roleId, g] of byRole) {
       const role = sections.flatMap((s) => s.roles).find((r) => r.id === roleId);
       const open = role ? role.slots.filter((x) => x.status === "open").length : 0;
-      const card = el(`<section class="card"><div class="row"><h3></h3><span class="pill ${open ? "warn" : "ok"}">${open ? open + " scoperti" : "completo"}</span><span class="spacer"></span><a class="btn small" href="?id=${esc(p.id)}&t=matching&role=${esc(roleId)}">Convoca altri</a></div><ul class="list compact"></ul></section>`);
+      const card = el(`<section class="card"><div class="row"><h3></h3><span class="pill ${open ? "warn" : "ok"}">${open ? open + (open === 1 ? " scoperto" : " scoperti") : "completo"}</span><span class="spacer"></span><a class="btn small" href="?id=${esc(p.id)}&t=matching&role=${esc(roleId)}&ricalcola=1">Convoca altri</a></div><ul class="list compact"></ul></section>`);
       card.querySelector("h3").textContent = g.name;
       const ul = card.querySelector("ul");
       for (const r of g.rows) ul.appendChild(invitationRow(r, open));
@@ -556,7 +564,7 @@ function invitationRow(r, openSlots) {
     if (yes) doAction("confirm", "", "Confermato.");
   });
   if (["available", "partial"].includes(r.status)) btn("Riserva", "", () => doAction("reserve", "", "In riserva."));
-  if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria in coda: parte entro dieci minuti."));
+  if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria in coda: lo stato della email è sulla riga."));
   if (r.status === "confirmed") btn("Revoca", "danger", () => {
     const why = prompt("Motivo della revoca (resta nella storia):", ""); if (why === null) return;
     doAction("revoke", why, "Conferma revocata: il posto è di nuovo scoperto.");
