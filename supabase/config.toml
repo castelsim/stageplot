@@ -45,3 +45,6 @@ verify_jwt = false
 # JWT lo verifica Supabase. Dentro si controlla comunque che la richiesta sia di chi chiama.
 [functions.orc-request-notify]
 verify_jwt = true
+
+[functions.orc-quote-notify]
+verify_jwt = true

@@ -60,13 +60,25 @@ run("i conti li fa il database, e sono gli stessi del browser al centesimo", asy
   assert.equal(req.status, "quoted", "la richiesta passa a «preventivo inviato»");
 });
 
+run("mandare il preventivo mette in coda l'avviso al cliente", async () => {
+  const q = (await rest(env, admin(env), "orc_quotes?select=notify_status,notify_attempts&id=eq." + Q1)).d[0];
+  assert.equal(q.notify_status, "pending", "l'email al cliente è da mandare: la prende la funzione subito, o il worker");
+  assert.equal(q.notify_attempts, 0);
+  /* una bozza nuova sulla stessa richiesta non avvisa nessuno (poi si toglie, per non disturbare i test dopo) */
+  const bozza = await rpc(env, T.societa, "orc_quote_save", { request: REQ, margin: 10, vat: 22, description: "", notes: "", lines: [] });
+  assert.ok(bozza.ok && bozza.d, JSON.stringify(bozza.d));
+  const b = (await rest(env, admin(env), "orc_quotes?select=notify_status&id=eq." + bozza.d)).d[0];
+  assert.equal(b.notify_status, "none", "una bozza non avvisa nessuno");
+  await rest(env, admin(env), "orc_quotes?id=eq." + bozza.d, { method: "DELETE" });
+});
+
 run("il cliente vede il totale — e MAI i cachet, il margine o le note interne", async () => {
   const mie = (await rpc(env, T.cliente, "orc_my_quotes", {})).d;
   assert.equal(mie.length, 1);
   const q = mie[0];
   assert.equal(Number(q.total_cents), calcola(RIGHE, 25, 22).totale, "il totale sì");
   assert.equal(q.description, "Trio d'archi per la cerimonia", "e la descrizione");
-  for (const vietato of ["margin_pct", "notes_internal", "fee_cents", "lines", "created_by"]) {
+  for (const vietato of ["margin_pct", "notes_internal", "fee_cents", "lines", "created_by", "notify_status", "notify_attempts"]) {
     assert.ok(!(vietato in q), "«" + vietato + "» non deve arrivare al cliente");
   }
   assert.doesNotMatch(JSON.stringify(q), /25000|28000|chiedere a Luca/, "nessun cachet e nessuna nota, nemmeno nascosti in un altro campo");

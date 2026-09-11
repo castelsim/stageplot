@@ -2,6 +2,7 @@
    contano sono quelli calcolati dal database all'invio: il browser li mostra mentre si scrive, ma la
    cifra che il cliente accetta non la decide lui. */
 import { sb } from "../sb.js";
+import { SB_URL, SB_ANON } from "../config.js";
 
 const fail = (error) => { if (error) throw error; };
 
@@ -27,6 +28,21 @@ export async function send(quoteId) {
   const { data, error } = await sb.rpc("orc_quote_send", { quote: quoteId });
   fail(error);
   return data;
+}
+
+/* L'avviso al cliente, subito: se non parte, il preventivo resta «da avvisare» e lo riprende il worker.
+   Per questo un errore qui non è un errore del preventivo — quello è già mandato e salvato. */
+export async function notifyNow(quoteId) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok: false };
+  try {
+    const r = await fetch(SB_URL + "/functions/v1/orc-quote-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SB_ANON, Authorization: "Bearer " + session.access_token },
+      body: JSON.stringify({ quote_id: quoteId }),
+    });
+    return r.ok ? await r.json().catch(() => ({ ok: true })) : { ok: false, status: r.status };
+  } catch { return { ok: false }; }
 }
 
 /* lato cliente: solo i preventivi mandati, e solo i campi che gli spettano — mai cachet né margine */
