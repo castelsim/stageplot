@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
 import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
+import { datiDallaLanding } from "../ops/anteprima-social.mjs";   /* l'anteprima social si pesca dalla landing: qui si verifica che sia ancora quella */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const appjs = readFileSync(join(root, "app.js"), "utf8");   /* l'app e' nel bundle defer app.js (build.mjs) */
@@ -11065,6 +11066,66 @@ t("la dimostrazione non tiene i suoi numeri da nessuna parte: li conta", () => {
     "e col faro acceso fanno il kW in più che il bottone promette");
 });
 
+t("il palco d'esempio è lo stesso in cima e in fondo alla pagina", () => {
+  /* STORIA (10/09, segnalato da Simone guardando il risultato su Google). La landing racconta UN
+     progetto d'esempio, quartetto-rock, e lo racconta in due punti lontani: la sezione «L'output»,
+     con la channel list e lo schema elettrico, e la barra della console interattiva più sotto.
+
+     Nella PR #59 avevo corretto il totale elettrico da 8,6 a 7,4 kW — la voce LUCI non sommava alla
+     lista dei fari — ma solo nell'output. Nella barra della console «8,6 kW» è rimasto, e ci è
+     rimasto venti giorni: la stessa pagina dichiarava due potenze diverse per lo stesso palco.
+
+     È la terza volta che lo stesso difetto torna nella stessa forma (channel list doppia il 22/08,
+     totali della dimostrazione il 31/08). Quindi qui non si controlla un numero: si controlla che i
+     due racconti coincidano, contando ogni volta dalle righe che si vedono. */
+  const num = (t) => parseFloat(String(t).replace(",", "."));
+  const barra = (landing.match(/<span id="con-sum">([\s\S]*?)<\/span>/) || [])[1] || "";
+  const dice = (unita) => {
+    const m = barra.match(new RegExp('<b data-n="([^"]+)">[^<]*<\\/b>\\s*' + unita));
+    ok(m, "la barra della console dichiara i " + unita);
+    return num(m[1]);
+  };
+
+  /* i canali: quanti ne ha davvero la channel list dell'output */
+  const tab = (landing.match(/<table id="chlist">([\s\S]*?)<\/table>/) || [])[1] || "";
+  eq(dice("CH"), (tab.match(/<tr[^>]*>\s*<td/g) || []).length, "i canali della barra sono le righe della channel list");
+
+  /* i kW: quelli che lo schema elettrico somma sul quadro */
+  eq(dice("kW"), num((landing.match(/<b>([\d,]+) kW ✓ dentro i margini<\/b>/) || [])[1]),
+    "i kW della barra sono il totale dello schema elettrico");
+
+  /* i wedge: quelli che il rider dichiara nella sua pagina monitor */
+  eq(dice("wedge"), num((landing.match(/Monitor <span class="t">(\d+) wedge/) || [])[1]),
+    "i wedge della barra sono quelli della pagina monitor del rider");
+});
+
+t("l'anteprima social è disegnata sulla landing di oggi", () => {
+  /* STORIA (10/09). preview.png è l'immagine che Google, WhatsApp e i social mostrano al posto del
+     sito, ed è referenziata da OGNI pagina. Era un PNG statico senza sorgente: l'8/08 qualcuno
+     l'aveva ridisegnata, e da allora non c'era modo di accorgersi che invecchiava. Il 10/09 diceva
+     ancora lo slogan sostituito il 22/08, il nome sbagliato del progetto d'esempio e «8,6 kW» — il
+     numero elettricamente falso corretto nella #59. Un errore ritirato dal sito ma ancora in vetrina
+     nei risultati di ricerca.
+
+     Ora l'immagine si genera da index.html (ops/anteprima-social.mjs) e accanto al PNG resta scritto
+     con quali dati è stata disegnata. Questo test rifà il pescaggio sulla landing di oggi e lo
+     confronta con quel foglio: se la landing cambia e nessuno rigenera, qui diventa rosso.
+     Si confrontano i DATI e non i pixel di proposito — il rendering vuole Chrome e i font di
+     macOS, e in CI non ci sono. */
+  const attuali = datiDallaLanding(landing);
+  const usati = JSON.parse(readFileSync(join(root, "ops/anteprima-social.json"), "utf8"));
+
+  eq(attuali.righe, usati.righe, "l'anteprima porta il titolo di adesso");
+  eq(attuali.forte + (attuali.piano ? ": " + attuali.piano : ""),
+    usati.forte + (usati.piano ? ": " + usati.piano : ""), "e la promessa di adesso");
+  eq(attuali.progetto, usati.progetto, "e chiama il progetto d'esempio col suo nome");
+  eq(attuali.totali, usati.totali, "e ne dichiara i totali di adesso");
+  eq(attuali.logo, usati.logo, "e porta il marchio dell'intestazione");
+
+  /* Se qualcuno cancella il PNG, o lo lascia a zero byte, il foglio dei dati resta verde da solo. */
+  ok(statSync(join(root, "preview.png")).size > 20000, "e il PNG c'è, e non è vuoto");
+});
+
 t("le cifre che la landing rivendica sono quelle che il programma ha davvero", () => {
   /* Il precedente è del 12/08: la home dichiarava 155 microfoni e il programma ne aveva 223, perché
      erano due cose separate. I microfoni da allora sono presidiati; i FARI no, e sono l'altra cifra
@@ -11084,8 +11145,11 @@ t("le cifre che la landing rivendica sono quelle che il programma ha davvero", (
 t("l'anteprima social ha la forma che i social pretendono", () => {
   /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
      morto da mesi — e nessuno se n'era accorto, perché l'immagine la vede solo chi riceve il link.
-     Il contenuto non è verificabile da qui: GUARDALA se la cambi. Le dimensioni sì: fuori dal
-     1200×630 i social ritagliano o scartano l'anteprima. */
+     «Il contenuto non è verificabile da qui: GUARDALA se la cambi», diceva questa riga. Nessuno l'ha
+     guardata per un mese, e l'immagine ha continuato a mostrare lo slogan vecchio e un numero di kW
+     ritirato dal sito. Delegare a un umano un controllo che si ripete non è un presidio: dal 10/09 il
+     contenuto è verificato dal test qui sopra, che lo confronta con la landing. Qui restano la forma
+     — fuori dal 1200×630 i social ritagliano o scartano l'anteprima — e la versione nell'URL. */
   const png = readFileSync(join(root, "preview.png"));
   eq(png.readUInt32BE(16), 1200, "larghezza");
   eq(png.readUInt32BE(20), 630, "altezza");
