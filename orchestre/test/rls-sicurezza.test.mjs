@@ -111,7 +111,7 @@ run("la purga di retention CANCELLA davvero: quello scaduto sparisce, quello rec
 });
 
 run("i riferimenti alle schermate si tolgono fino a un giorno vero, e solo dal servizio", async () => {
-  /* Il secondo passo della retention delle schermate (0061): la Edge Function toglie i file con la
+  /* Il secondo passo della retention delle schermate (0062): la Edge Function toglie i file con la
      Storage API e poi chiama questa, con l'ultimo giorno scaduto. È security definer e riceve un
      confine: se accettasse qualsiasi stringa, o chiunque, sarebbe una cancellazione a comando. */
   const forget = (tok, d) => rpc(env, tok, "stageplot_forget_screenshots", { until_day: d });
