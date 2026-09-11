@@ -47,7 +47,7 @@ export async function get(id) {
   };
 }
 
-const FIELDS = ["first_name", "last_name", "email", "phone", "city", "province", "area", "has_car", "max_distance_km", "travel_ok", "tour_ok", "status", "bio", "notes_private"];
+const FIELDS = ["first_name", "last_name", "email", "phone", "city", "province", "area", "has_car", "max_distance_km", "travel_ok", "tour_ok", "status", "bio", "notes_private", "parts"];
 function pick(fields) {
   const out = {};
   for (const k of FIELDS) if (k in fields) out[k] = fields[k];

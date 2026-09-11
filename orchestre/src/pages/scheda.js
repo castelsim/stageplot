@@ -8,6 +8,7 @@ import * as api from "../api/musicians.js";
 import { signedUrl } from "../api/applications.js";   /* stesso archivio privato dei materiali */
 import { history, stats } from "../api/feedback.js";
 import { PROD_STATUS, SLOT_STATUS, INV_STATUS } from "../domain/staffing.js";
+import { PARTI } from "../domain/applications.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
@@ -101,6 +102,10 @@ function paintDati() {
   checks.appendChild(field("travel_ok", "Disponibile a trasferte", m.travel_ok, { type: "checkbox" }));
   checks.appendChild(field("tour_ok", "Disponibile a tournée", m.tour_ok, { type: "checkbox" }));
   s.appendChild(checks);
+  /* le parti: le ha dichiarate il musicista, se si è candidato; lo staff le corregge */
+  const parti = el(`<div class="field"><label>Parte</label><div class="row" id="parti"></div></div>`);
+  for (const [k, v] of PARTI) parti.querySelector("#parti").appendChild(field("part_" + k, v, (m.parts || []).includes(k), { type: "checkbox" }));
+  s.appendChild(parti);
   s.appendChild(field("bio", "Presentazione", m.bio, { type: "textarea" }));
   const act = el(`<div class="row"><button type="button" class="btn primary" id="saveDati">Salva</button></div>`);
   if (m.id) act.appendChild(el(`<span class="small muted">Creato il ${esc(fmtDate(m.created_at))}</span>`));
@@ -108,6 +113,7 @@ function paintDati() {
   act.querySelector("#saveDati").onclick = async () => {
     const fields = {};
     for (const k of ["first_name", "last_name", "email", "phone", "city", "province", "area", "max_distance_km", "status", "has_car", "travel_ok", "tour_ok", "bio"]) fields[k] = val(k);
+    fields.parts = PARTI.map(([k]) => k).filter((k) => val("part_" + k));
     if (!fields.first_name.trim() || !fields.last_name.trim()) return toast("Servono nome e cognome.", { err: true });
     try {
       if (!m.id) {

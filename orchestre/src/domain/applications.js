@@ -32,7 +32,9 @@ export const STEPS = [
 /* Quanti passi ci sono DOPO la candidatura: quelli facoltativi, da contare a parte nella barra. */
 export const PASSI_PROFILO = STEPS.length - 1;
 
-export const GENRES = ["classica", "colonne sonore", "pop", "rock", "jazz", "musical", "sacra", "folk", "elettronica", "altro"];
+export const GENRES = ["classica", "sinfonica", "colonne sonore", "pop", "rock", "jazz", "musical", "sacra", "folk", "elettronica", "altro"];
+/* le parti che un musicista sa coprire, con gli stessi codici dei ruoli dell'organico (orc_staffing_roles.part) */
+export const PARTI = [["tutti", "Fila"], ["principal", "Prima parte"], ["solo", "Solista"]];
 
 /* Che cosa manca per inviare (stessa regola di orc_profile_missing nel DB) e la percentuale. */
 export function missingFields(p, instruments) {

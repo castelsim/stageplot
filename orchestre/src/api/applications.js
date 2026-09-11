@@ -21,7 +21,7 @@ export async function getProfile() {
 }
 const PROFILE_FIELDS = ["first_name", "last_name", "email", "phone", "city", "province", "area", "bio", "website", "audio_url", "video_url", "education", "years_experience",
   "exp_orchestral", "exp_pop", "exp_live", "exp_studio", "exp_theatre", "reading_sight", "reading_score", "with_conductor", "click", "sequences", "in_ear", "improvisation",
-  "genres", "rehearsal_availability", "travel_ok", "tour_ok", "has_car", "max_distance_km", "step", "consent_requests"];
+  "genres", "parts", "rehearsal_availability", "travel_ok", "tour_ok", "has_car", "max_distance_km", "step", "consent_requests"];
 export async function saveProfile(id, fields) {
   const row = {};
   for (const k of PROFILE_FIELDS) if (k in fields) row[k] = fields[k];
