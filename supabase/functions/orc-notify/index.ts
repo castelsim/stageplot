@@ -9,14 +9,14 @@
 // ORC_EMAIL_MODE=log non spedisce (sviluppo): segna «sent» e scrive nel log. Mai email reali nei test.
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
-import { nextOutboxAttempt, outboxStatusAfterAttempt } from "../_shared/notification-outbox.ts";
-import { buildInviteEmail, idempotencyKey, isReservedAddress, type InviteRow } from "../_shared/orc-invitations.ts";
+import { outboxStatusAfterAttempt } from "../_shared/notification-outbox.ts";
+import { dispatchInvitations } from "../_shared/orc-invite-dispatch.ts";
+import { send } from "../_shared/orc-send.ts";
 import { buildClientEmail, buildInternalEmail, type ClientRequestRow, isReservedAddress as isReservedClient, requestKey } from "../_shared/orc-client-requests.ts";
 import { buildQuoteEmail, quoteKey, type QuoteMailRow } from "../_shared/orc-quotes.ts";
 
 const CLAIM_STALE_MS = 10 * 60 * 1000;
 const BATCH_SIZE = 20;
-const FROM = "StagePlot Orchestre <feedback@stageplot.it>";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -33,80 +33,6 @@ async function secretMatches(received: string, expected: string): Promise<boolea
   let diff = a.length ^ b.length;
   for (let i = 0; i < Math.min(a.length, b.length); i++) diff |= a[i] ^ b[i];
   return diff === 0;
-}
-
-async function send(apiKey: string, to: string, subject: string, html: string, text: string, key: string): Promise<{ ok: boolean; status: number }> {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({ from: FROM, to: [to], subject, html, text }),
-  });
-  return { ok: res.ok, status: res.status };
-}
-
-type Row = {
-  id: string; notification_kind: "invite" | "reminder"; notification_attempts: number; deadline: string | null; note_admin: string | null; status: string;
-  orc_musicians: { first_name: string; email: string } | null;
-  orc_organizations: { name: string } | null;
-  orc_productions: { title: string; venue: string | null; conductor: string | null; fee_note: string | null; id: string } | null;
-  orc_staffing_roles: { name: string } | null;
-  orc_invitation_secrets: { token: string } | null;
-};
-
-async function processPending(supabase: SupabaseClient, resendKey: string, mode: string, base: string) {
-  const counts = { sent: 0, failed: 0, skipped: 0 };
-  const { data: rows, error } = await supabase.from("orc_invitations")
-    .select("id,notification_kind,notification_attempts,deadline,note_admin,status,orc_musicians(first_name,email),orc_organizations(name),orc_productions(id,title,venue,conductor,fee_note),orc_staffing_roles(name),orc_invitation_secrets(token)")
-    .eq("notification_status", "pending")
-    .order("notification_attempts", { ascending: true }).order("created_at", { ascending: true })
-    .limit(BATCH_SIZE);
-  if (error) throw new Error(error.message);
-  for (const row of (rows ?? []) as unknown as Row[]) {
-    const email = row.orc_musicians?.email ?? "";
-    const token = row.orc_invitation_secrets?.token ?? "";
-    if (!email || !token || !row.orc_productions) {
-      await supabase.from("orc_invitations").update({ notification_status: "failed", notification_last_error: !email ? "no_email" : !token ? "no_secret" : "no_production" }).eq("id", row.id);
-      counts.skipped++;
-      continue;
-    }
-    /* presa atomica: solo chi passa da pending a sending spedisce */
-    const attempts = nextOutboxAttempt(row.notification_attempts);
-    const { data: claimed } = await supabase.from("orc_invitations")
-      .update({ notification_status: "sending", notification_claimed_at: new Date().toISOString(), notification_attempts: attempts })
-      .eq("id", row.id).eq("notification_status", "pending").select("id").maybeSingle();
-    if (!claimed) { counts.skipped++; continue; }
-    const { data: dates } = await supabase.from("orc_invitation_dates").select("orc_production_dates(kind,starts_at,ends_at,venue,note)").eq("invitation_id", row.id);
-    const inv: InviteRow = {
-      id: row.id, notification_kind: row.notification_kind, notification_attempts: attempts, deadline: row.deadline, note_admin: row.note_admin,
-      musician_first_name: row.orc_musicians!.first_name, musician_email: email, organization: row.orc_organizations?.name ?? "Orchestre",
-      production_title: row.orc_productions.title, production_venue: row.orc_productions.venue, production_conductor: row.orc_productions.conductor,
-      production_fee_note: row.orc_productions.fee_note, role_name: row.orc_staffing_roles?.name ?? "",
-      dates: ((dates ?? []) as unknown as { orc_production_dates: InviteRow["dates"][number] | null }[]).map((d) => d.orc_production_dates).filter((d): d is InviteRow["dates"][number] => !!d)
-        .sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
-    };
-    const mail = buildInviteEmail(inv, token, base);
-    let delivered = false, lastError = "";
-    const effectiveMode = mode === "log" || isReservedAddress(email) ? "log" : "send";
-    if (effectiveMode === "log") {
-      console.info("orc-notify [log]", row.id, inv.notification_kind, "→", email.replace(/^(.).*@/, "$1***@"), mail.subject);
-      delivered = true;
-    } else {
-      try {
-        const r = await send(resendKey, email, mail.subject, mail.html, mail.text, idempotencyKey(inv));
-        delivered = r.ok; if (!r.ok) lastError = "resend_" + r.status;
-      } catch (e) { lastError = e instanceof Error ? e.message.slice(0, 200) : "send_failed"; }
-    }
-    const status = outboxStatusAfterAttempt(delivered, attempts);
-    const patch: Record<string, unknown> = { notification_status: status, notification_claimed_at: null, notification_last_error: lastError };
-    if (delivered) {
-      if (row.status === "draft") { patch.status = "sent"; patch.sent_at = new Date().toISOString(); }
-      await supabase.from("orc_invitation_secrets").delete().eq("invitation_id", row.id);
-      await supabase.from("orc_invitation_events").insert({ invitation_id: row.id, event: row.notification_kind === "reminder" ? "reminder_sent" : "sent", actor: "system", meta: { mode: effectiveMode } });
-    }
-    await supabase.from("orc_invitations").update(patch).eq("id", row.id);
-    if (delivered) counts.sent++; else counts.failed++;
-  }
-  return counts;
 }
 
 /* «Richiedi musicisti»: due email per richiesta — una alla società (che deve poter decidere subito) e la
@@ -234,7 +160,7 @@ Deno.serve(async (req) => {
     if (stErr) throw new Error(stErr.message);
     await supabase.from("orc_quotes").update({ notify_status: "pending", notify_claimed_at: null })
       .eq("notify_status", "sending").or(`notify_claimed_at.is.null,notify_claimed_at.lt.${staleBefore}`);
-    const counts = await processPending(supabase, resendKey, mode, base);
+    const counts = await dispatchInvitations(supabase, { resendKey, mode, base, limit: BATCH_SIZE });
     const reqCounts = await processClientRequests(supabase, resendKey, mode, base, Deno.env.get("NOTIFY_EMAIL") ?? "");
     const quoteCounts = await processQuotes(supabase, resendKey, mode, base);
     const { count: dead } = await supabase.from("orc_invitations").select("id", { count: "exact", head: true }).eq("notification_status", "failed");
