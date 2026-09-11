@@ -166,6 +166,17 @@ codice non guarda niente. Per la RLS: aggiungere una policy permissiva nel local
    `./orc-bootstrap.sh "Nome" nome-org email@…` (usa la service_role dalla CLI, solo in memoria).
 4. Merge della PR: `main` pubblica in automatico; `orchestre` è nell'allowlist di `pages.yml`.
 
+## Il pool e i suoi filtri
+
+L'elenco dei musicisti si filtra per famiglia e stato, con una ricerca libera su nome, strumento, città, area,
+tag e generi. «Altri filtri» — genere, lettura a prima vista (una soglia: «almeno buona»), esperienza, zona
+(sigla della provincia o area), tag — sta chiuso finché non serve e si apre da solo se l'indirizzo ne porta
+uno: i filtri restano nell'URL, così si ricaricano e si mandano. I menu offrono solo quello che c'è nel pool.
+
+I dati arrivano da `orc_musicians_list` (`0063`): i **generi** uniscono quelli che il musicista ha dichiarato
+nel suo profilo — letti dal profilo collegato, così restano aggiornati — e quelli del repertorio in scheda; la
+lettura e le esperienze vengono dalle competenze. La logica è pura, in `src/domain/roster-filter.js`.
+
 ## Organico: ruoli, posti, storia
 
 Un **ruolo** è l'esigenza aggregata («Violini secondi, 5 posti»); i **posti** nascono e muoiono con i
