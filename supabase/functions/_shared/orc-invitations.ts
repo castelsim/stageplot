@@ -13,7 +13,7 @@ export type InviteDate = {
 
 export type InviteRow = {
   id: string;
-  notification_kind: "invite" | "reminder";
+  notification_kind: "invite" | "reminder" | "confirmed" | "revoked";
   notification_attempts: number;
   deadline?: string | null;
   note_admin?: string | null;
@@ -111,6 +111,40 @@ ${inv.note_admin ? `<p>Nota: ${esc(inv.note_admin)}</p>` : ""}
 ${deadline ? `<p><strong>Rispondi entro ${esc(deadline)}.</strong></p>` : ""}
 <p style="margin:24px 0"><a href="${esc(url)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;font-weight:600;padding:14px 22px;border-radius:8px">Rispondi alla convocazione</a></p>
 <p style="color:#746e60;font-size:14px">Puoi dire sì, no, o solo alcune date. La risposta si può cambiare fino alla scadenza. Se il bottone non funziona: ${esc(url)}</p>
+</div>`;
+  return { subject, html, text };
+}
+
+/** l'area del musicista: dove ritrova convocazioni e incarichi, senza token */
+export function areaUrl(base = "https://stageplot.it"): string {
+  return `${base}/orchestre/musicista/?v=home`;
+}
+
+/** Com'è andata: il posto è confermato, o la conferma è stata ritirata. Niente link con token — la risposta
+    è già data — ma l'area del musicista, dove l'incarico si ritrova con le sue date. */
+export function buildStatusEmail(inv: InviteRow, base = "https://stageplot.it"): { subject: string; html: string; text: string } {
+  const confermato = inv.notification_kind === "confirmed";
+  const url = areaUrl(base);
+  const subject = confermato
+    ? `Confermato: ${inv.production_title}, ${inv.role_name}`
+    : `Non più confermato: ${inv.production_title}`;
+  const dates = inv.dates.map(fmtDate);
+  const lines: string[] = [`Ciao ${inv.musician_first_name},`];
+  lines.push(confermato
+    ? `${inv.organization} ti conferma come ${inv.role_name} in «${inv.production_title}». Il posto è tuo.`
+    : `${inv.organization} ha ritirato la conferma per «${inv.production_title}» (${inv.role_name}). Se non ti torna, scrivi a chi ti ha convocato.`);
+  if (confermato && inv.production_venue) lines.push(`Luogo: ${inv.production_venue}.`);
+  if (confermato && dates.length) lines.push("Date:\n" + dates.map((d) => "  • " + d).join("\n"));
+  lines.push(`La tua area: ${url}`);
+  const text = lines.join("\n\n");
+  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#292620">
+<p>Ciao ${esc(inv.musician_first_name)},</p>
+<p>${confermato
+    ? `<strong>${esc(inv.organization)}</strong> ti conferma come <strong>${esc(inv.role_name)}</strong> in <strong>${esc(inv.production_title)}</strong>. Il posto è tuo.`
+    : `<strong>${esc(inv.organization)}</strong> ha ritirato la conferma per <strong>${esc(inv.production_title)}</strong> (${esc(inv.role_name)}). Se non ti torna, scrivi a chi ti ha convocato.`}</p>
+${confermato && inv.production_venue ? `<p>Luogo: ${esc(inv.production_venue)}</p>` : ""}
+${confermato && dates.length ? `<p>Date:</p><ul>${dates.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}
+<p style="margin:24px 0"><a href="${esc(url)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;font-weight:600;padding:14px 22px;border-radius:8px">La tua area</a></p>
 </div>`;
   return { subject, html, text };
 }

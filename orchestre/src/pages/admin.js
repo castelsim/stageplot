@@ -37,7 +37,7 @@ async function main() {
     const [all, invs] = await Promise.all([listProductions(ctx.org.org_id), openCounts(ctx.org.org_id)]);
     const prods = all.filter((p) => Number(p.n_open) > 0 && !["done", "cancelled", "archived"].includes(p.status));
     const byProd = {};
-    for (const i of invs) { const b = byProd[i.production_id] || (byProd[i.production_id] = { toConfirm: 0, waiting: 0, noReply: 0 }); if (["available", "partial"].includes(i.status)) b.toConfirm++; else if (i.status === "no_reply") b.noReply++; else b.waiting++; }
+    for (const i of invs) { const b = byProd[i.production_id] || (byProd[i.production_id] = { toConfirm: 0, waiting: 0, noReply: 0, no: 0 }); if (["available", "partial"].includes(i.status)) b.toConfirm++; else if (i.status === "no_reply") b.noReply++; else if (i.status === "unavailable") b.no++; else b.waiting++; }
     /* produzioni concluse senza feedback: lo storico si costruisce qui */
     const doneProds = all.filter((p) => p.status === "done" && Number(p.n_filled) > 0);
     let noFb = [];
@@ -47,8 +47,11 @@ async function main() {
       noFb = doneProds.filter((p) => !has.has(p.id));
     }
     const apps = (await listApplications(ctx.org.org_id).catch(() => [])).filter((a) => ["submitted", "evaluating", "interview_to_schedule", "audition_to_schedule"].includes(a.status));
-    const nuove = (await listClientRequests(ctx.org.org_id).catch(() => [])).filter((r) => r.status === "new");
-    if (!prods.length && !noFb.length && !apps.length && !nuove.length) {
+    const tutteRic = await listClientRequests(ctx.org.org_id).catch(() => []);
+    const nuove = tutteRic.filter((r) => r.status === "new");
+    /* il cliente ha accettato il preventivo e l'evento non c'è ancora: è il passo dopo, va detto */
+    const daFare = tutteRic.filter((r) => r.status === "won" && !r.production_id);
+    if (!prods.length && !noFb.length && !apps.length && !nuove.length && !daFare.length) {
       /* «Niente in sospeso» e' la frase di chi ha finito. Un'orchestra appena aperta non ha finito: non ha
          cominciato, e va detto con il primo passo, non con una rassicurazione. */
       /* il query builder di supabase-js e' «thenable» ma NON ha .catch: attaccarglielo lancia
@@ -72,6 +75,12 @@ async function main() {
         li.querySelector(".sub").textContent = nuove.slice(0, 2).map((r) => r.event_title + " · " + quantiLabel(r)).join(", ") + (nuove.length > 2 ? "…" : "");
         todo.querySelector("ul").appendChild(li);
       }
+      for (const r of daFare) {
+        const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/richieste/?id=${esc(r.id)}"><div class="title"></div><div class="sub"></div></a></li>`);
+        li.querySelector(".title").textContent = "Preventivo accettato: crea l'evento";
+        li.querySelector(".sub").textContent = r.event_title + " · " + quantiLabel(r);
+        todo.querySelector("ul").appendChild(li);
+      }
       if (apps.length) {
         const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/candidature/"><div class="title"></div><div class="sub"></div></a></li>`);
         li.querySelector(".title").textContent = apps.length + (apps.length === 1 ? " candidatura da valutare" : " candidature da valutare");
@@ -79,11 +88,11 @@ async function main() {
         todo.querySelector("ul").appendChild(li);
       }
       for (const p of prods) {
-        const b = byProd[p.id] || { toConfirm: 0, waiting: 0, noReply: 0 };
+        const b = byProd[p.id] || { toConfirm: 0, waiting: 0, noReply: 0, no: 0 };
         const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/produzioni/scheda/?id=${esc(p.id)}&t=${b.toConfirm || b.waiting || b.noReply ? "convocazioni" : "matching"}"><div class="title"></div><div class="sub"></div></a></li>`);
         li.querySelector(".title").textContent = p.title;
         li.querySelector(".sub").textContent = [p.n_open + (Number(p.n_open) === 1 ? " posto scoperto" : " posti scoperti") + " su " + p.n_seats,
-          b.toConfirm ? b.toConfirm + " da confermare" : "", b.waiting ? b.waiting + " in attesa" : "", b.noReply ? b.noReply + " senza risposta" : ""].filter(Boolean).join(" · ");
+          b.toConfirm ? b.toConfirm + " da confermare" : "", b.waiting ? b.waiting + " in attesa" : "", b.noReply ? b.noReply + " senza risposta" : "", b.no ? (b.no === 1 ? "1 ha detto no" : b.no + " hanno detto no") : ""].filter(Boolean).join(" · ");
         todo.querySelector("ul").appendChild(li);
       }
       for (const p of noFb) {
