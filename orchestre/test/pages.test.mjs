@@ -687,3 +687,40 @@ test("collaudo a tre profili: il primo ruolo si crea, e «Convoca altri» ricalc
   assert.match(prod, /if \(q\.get\("ricalcola"\)\) \{[^}]*await compute\(\);/, "e la pagina lo fa");
   assert.doesNotMatch(prod, /I pesi si cambiano in/, "nessun rimando a pesi che le impostazioni non hanno più");
 });
+
+/* Sicurezza, 11/09: le email al cliente partivano verso l'indirizzo scritto nel modulo — chiunque con un
+   account faceva arrivare dal nostro dominio un testo suo a una persona qualsiasi. Ogni spedizione al
+   cliente deve usare l'indirizzo verificato dell'account, che scrive il database. */
+test("le email al cliente partono solo verso l'indirizzo verificato dell'account, mai all'indirizzo scritto nel modulo", () => {
+  const casi = [["supabase/functions/orc-request-notify/index.ts", 1], ["supabase/functions/orc-notify/index.ts", 2], ["supabase/functions/orc-quote-notify/index.ts", 1]];
+  for (const [f, n] of casi) {
+    const src = readFileSync(join(root, f), "utf8");
+    const dest = [...src.matchAll(/const dest = String\(([^)]*)\)/g)].map((m) => m[1]);
+    const alCliente = dest.filter((d) => /account_email|contact_email/.test(d));
+    assert.equal(alCliente.length, n, f + ": le spedizioni al cliente si trovano (" + dest.join(" | ") + ")");
+    for (const d of alCliente) assert.match(d, /account_email/, f + ": spedisce a " + d);
+  }
+  const mig = readFileSync(join(root, "supabase/migrations/0067_sicurezza_email_e_privilegi.sql"), "utf8");
+  assert.match(mig, /select lower\(coalesce\(u\.email, ''\)\) into verificata from auth\.users u where u\.id = uid;/, "l'indirizzo lo prende il database dall'account");
+  assert.match(mig, /or new\.account_email is distinct from old\.account_email then/, "e una richiesta ricevuta non cambia destinatario");
+});
+
+test("anonimi e utenti non hanno TRUNCATE, TRIGGER né REFERENCES sulle tabelle (neanche su quelle future)", () => {
+  const mig = readFileSync(join(root, "supabase/migrations/0067_sicurezza_email_e_privilegi.sql"), "utf8");
+  assert.match(mig, /revoke truncate, trigger, references on all tables in schema public from anon, authenticated;/);
+  assert.match(mig, /alter default privileges in schema public revoke truncate, trigger, references on tables from anon, authenticated;/);
+});
+
+/* Finché «Enforce HTTPS» è spento, stageplot.it risponde anche in chiaro: chi arriva su http viene
+   rimandato su https dal primo script di ogni pagina (una rete, non la difesa: quella è l'impostazione). */
+test("chi arriva su http viene rimandato su https, su ogni pagina", () => {
+  const f = readFileSync(join(root, "orchestre/src/frame.js"), "utf8");
+  assert.match(f, /if \(l\.protocol === "http:" && \/\(\^\|\\\.\)stageplot\\\.it\$\/\.test\(l\.hostname\)\) l\.replace\("https:\/\/"/, "il passaggio a https c'è, solo sul dominio vero");
+  for (const r of ROUTES) {
+    const html = readFileSync(join(root, r, "index.html"), "utf8");
+    const i = html.indexOf('src="/orchestre/src/frame.js"');
+    assert.ok(i > 0, r + ": carica frame.js");
+    const modulo = html.indexOf('type="module"');
+    assert.ok(modulo > 0 && i < modulo, r + ": frame.js prima del modulo della pagina");
+  }
+});
