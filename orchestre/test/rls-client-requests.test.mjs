@@ -178,6 +178,38 @@ run("«di che cosa sono io»: ognuno vede le proprie aree, mai quelle di un altr
   assert.equal(anon.ok, false, "senza accesso non si chiede nemmeno");
 });
 
+/* Sicurezza, 11/09 — le email al cliente partivano verso un indirizzo che sceglieva lui: chiunque con un
+   account faceva arrivare dal nostro dominio un testo suo a una persona qualsiasi. Qui (e non in una suite
+   a parte, perché servono con il servizio acceso da questa suite) si prova che l'indirizzo a cui si spedisce
+   lo scrive il database dall'account verificato, che dal modulo non si falsifica, che dopo non cambia, e che
+   le richieste hanno un limite. Un utente suo, così i suoi invii non si sommano a quelli del cliente sopra. */
+const campiMittente = (extra = {}) => ({ contact_name: "Vera Vittima", contact_email: "vittima-" + stamp + "@example.invalid",
+  event_title: "Clicca qui: https://esempio.invalid/truffa", notes: "testo scritto da chi manda", ...extra });
+let REQ_M;
+
+run("la conferma va all'indirizzo dell'account, non a quello scritto nel modulo — e non si falsifica", async () => {
+  U.mittente = await mkUser(env, mail("mittente")); T.mittente = await login(env, mail("mittente"));
+  const r = await rpc(env, T.mittente, "orc_client_request_create", { project: null, snap: {}, slots: [],
+    fields: campiMittente({ account_email: "altro-" + stamp + "@example.invalid" }) });
+  assert.ok(r.ok, JSON.stringify(r.d)); REQ_M = r.d;
+  const row = (await rest(env, admin(env), "orc_client_requests?select=account_email,contact_email&id=eq." + REQ_M)).d[0];
+  assert.equal(row.account_email, mail("mittente"), "l'indirizzo del login, preso dal database");
+  assert.equal(row.contact_email, "vittima-" + stamp + "@example.invalid", "quello del modulo resta, come informazione per lo staff");
+});
+
+run("una richiesta ricevuta non cambia destinatario, nemmeno con la chiave di servizio", async () => {
+  const x = await rest(env, admin(env), "orc_client_requests?id=eq." + REQ_M, { method: "PATCH", body: { account_email: "altro@example.invalid" } });
+  assert.equal(x.ok, false, "la guardia della richiesta vale anche per l'indirizzo: " + JSON.stringify(x.d));
+});
+
+run("cinque richieste al giorno per account, poi il database dice di no", async () => {
+  /* ne ha già mandata una: altre quattro passano, la sesta no */
+  for (let i = 0; i < 4; i++) assert.ok((await rpc(env, T.mittente, "orc_client_request_create", { project: null, snap: {}, slots: [], fields: campiMittente() })).ok, "la richiesta " + (i + 2));
+  const sesta = await rpc(env, T.mittente, "orc_client_request_create", { project: null, snap: {}, slots: [], fields: campiMittente() });
+  assert.equal(sesta.ok, false);
+  assert.match(JSON.stringify(sesta.d), /cinque richieste/);
+});
+
 run("si rimette com'era: una sola organizzazione riceve le richieste", async () => {
   await rest(env, admin(env), "orc_organizations?id=eq." + ORG, { method: "PATCH", body: { is_service_provider: false } });
   if (PRIMA) await rest(env, admin(env), "orc_organizations?id=eq." + PRIMA, { method: "PATCH", body: { is_service_provider: true } });
