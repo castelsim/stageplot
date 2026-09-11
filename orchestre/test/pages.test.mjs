@@ -563,3 +563,18 @@ test("dalla richiesta si crea l'evento con un tasto, e il tasto porta all'Organi
   assert.match(mig, /not public\.orc_is_staff\(r\.org_id\)/, "solo lo staff di chi ha ricevuto la richiesta");
   assert.match(mig, /revoke all on function public\.orc_production_from_request\(uuid\) from public, anon;/, "e mai da anonimo");
 });
+
+/* Supabase ordina le migrazioni per NUMERO, non per nome: due file con lo stesso prefisso fanno fallire
+   `supabase db push` (schema_migrations_pkey) e l'avvio del database nel CI. Con due sessioni che
+   lavorano in parallelo è successo due volte in due giorni (0056 il 10/09, 0061 l'11/09): ogni PR presa
+   da sola era pulita, la collisione nasceva solo in main, dopo il secondo merge — «CLEAN» per GitHub,
+   perché i nomi dei file erano diversi. Qui main diventa rosso subito, e il deploy si ferma. */
+test("ogni migrazione ha un numero suo", () => {
+  const dir = join(root, "supabase", "migrations");
+  const numeri = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => f.split("_")[0]);
+  assert.ok(numeri.length > 50, "le migrazioni si trovano");
+  const doppi = numeri.filter((n, i) => numeri.indexOf(n) !== i);
+  assert.deepEqual(doppi, [], "numeri usati due volte: " + doppi.join(", "));
+  assert.ok(numeri.every((n) => /^\d{4}$/.test(n)), "ogni file comincia con quattro cifre");
+});
+
