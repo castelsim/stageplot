@@ -21,7 +21,7 @@
    scritto senza «s». La difesa vera è l'impostazione di Pages. Solo sul dominio vero: in locale si
    prova su http://127.0.0.1. */
 (function () {
-  const l = window.location;
+  const l = globalThis.location;
   if (l.protocol === "http:" && /(^|\.)stageplot\.it$/.test(l.hostname)) l.replace("https://" + l.host + l.pathname + l.search + l.hash);
 })();
 
