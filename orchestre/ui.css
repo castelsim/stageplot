@@ -106,6 +106,25 @@ a.back:hover{text-decoration:underline}
 
 /* card, pill, liste, tabelle */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s-4);box-shadow:var(--elev-1)}
+/* Una scheda aperta dentro un elenco (una richiesta, un preventivo) è figlia di un contenitore flessibile:
+   senza un limite si allarga fino alla parola più lunga che contiene. Un indirizzo email di un cliente
+   non ha spazi, non va a capo, e sul telefono portava la pagina a 517 px — che il browser rimpicciolisce,
+   rendendo tutto minuscolo e i pulsanti imprendibili (misurato l'11/09). */
+.list-item.block>.card{flex:1 1 100%;min-width:0}
+/* la riga dell'elenco che contiene una scheda non disegna un secondo riquadro attorno: uno basta */
+.list-item.block{background:none;border:0;box-shadow:none;padding:0}
+dl.review dd.strong{font-weight:700;color:var(--text)}
+/* Le righe del preventivo stanno nello schermo del telefono: la colonna del cachet è quella che si
+   compila, e con la tabella che scorreva di lato era proprio quella a restare tagliata (provato). */
+.quote-lines{width:100%;table-layout:fixed}
+.quote-lines th:nth-child(2),.quote-lines td:nth-child(2){width:4.2em}
+.quote-lines th:nth-child(3),.quote-lines td:nth-child(3){width:6.4em}
+.quote-lines th:nth-child(4),.quote-lines td:nth-child(4){width:2.8em}
+.quote-lines input{width:100%;min-width:0;box-sizing:border-box;min-height:var(--tap);padding:0 6px;font:inherit;font-size:var(--t-base);
+  border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text)}
+.quote-lines td,.quote-lines th{padding-inline:4px}
+.quote-lines .btn{padding:0;min-width:0;width:100%}
+.card p,.card a{overflow-wrap:anywhere}
 .card h2,.card h3{margin-top:0}
 .card .num{font-size:var(--t-display);font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:var(--r-pill);font-size:var(--t-label);font-weight:600;

@@ -499,3 +499,20 @@ test("l'elenco delle rotte sorvegliate copre ogni pagina che esiste", () => {
   const mancanti = trovate.filter((r) => !ROUTES.includes(r)).sort();
   assert.deepEqual(mancanti, [], "pagine che esistono ma nessuna guardia controlla");
 });
+
+/* Il preventivo ha due facce. La societa lo prepara con i cachet dei musicisti e il margine; il cliente
+   lo legge con il totale e basta (scelta di Simone, 11/09). La difesa vera sta nel database — il cliente
+   non ha policy sulle tabelle — ma anche la pagina del cliente non deve nemmeno PROVARE a chiamare le
+   funzioni della societa: se un giorno una policy si allargasse, e lei le chiamasse, i cachet
+   comparirebbero. Qui si pretende che la pagina del cliente usi solo le sue. */
+test("la pagina del cliente legge il preventivo dal lato suo, mai da quello della societa", () => {
+  const cli = readFileSync(join(root, "orchestre/src/pages/mie-richieste.js"), "utf8");
+  assert.match(cli, /quotes\.mine\(\)/, "il cliente legge i SUOI preventivi");
+  assert.match(cli, /quotes\.answer\(/, "e risponde");
+  assert.doesNotMatch(cli, /quotes\.(ofRequest|save|send)\(/, "le funzioni della societa non le tocca");
+  assert.doesNotMatch(cli, /fee_cents|margin_pct|notes_internal|calcola\(/, "e non maneggia cachet, margine o note: non gli arrivano e non deve cercarli");
+  /* e dall'altra parte: la societa manda, ma i totali li congela il database */
+  const soc = readFileSync(join(root, "orchestre/src/pages/richieste.js"), "utf8");
+  assert.match(soc, /quotes\.send\(/, "la societa manda il preventivo");
+  assert.match(soc, /sent\.total_cents/, "e mostra il totale calcolato dal database, non quello del browser");
+});
