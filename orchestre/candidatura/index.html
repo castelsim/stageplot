@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+<script src="/orchestre/src/frame.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -15,16 +16,16 @@
 <header class="o-top"><a class="o-brand" href="/orchestre/"><span>StagePlot</span><small>Orchestre</small></a></header>
 <main class="o-wrap narrow" id="app">
   <h1>Candidati come musicista</h1>
-  <p class="lead">Un profilo solo, che resta tuo: strumenti, competenze, esperienze, repertorio, materiali. Lo mandi alle organizzazioni che accettano candidature; ognuna lo valuta per conto suo.</p>
+  <p class="lead">Un profilo solo, che resta tuo: strumenti, competenze, esperienze, repertorio, materiali. Lo compili una volta e lo mandi a chi cerca musicisti per concerti, cerimonie e registrazioni.</p>
   <ol class="steps one">
     <li><b>Accedi con Google</b>Niente password. Il profilo si salva passo per passo: puoi riprendere quando vuoi.</li>
     <li><b>Compila in otto passi</b>Chi sei, strumenti, competenze, esperienze, dove e quando, curriculum e materiali, revisione, invio.</li>
-    <li><b>Ricevi le convocazioni</b>Se vieni accettato, le proposte arrivano via email e nella tua area: rispondi in due tocchi.</li>
+    <li><b>Ricevi le convocazioni</b>Quando c'è un lavoro per te, la proposta arriva via email e nella tua area: rispondi in due tocchi. Essere nell'elenco non è una promessa di ingaggio.</li>
   </ol>
   <p><a class="btn primary block" id="cta" href="/orchestre/login/?next=%2Forchestre%2Fmusicista%2F">Accedi con Google e candidati</a></p>
-  <h2>Chi accetta candidature</h2>
+  <h2 id="orgsTitle">A chi ti candidi</h2>
   <div id="orgs" class="loading">Un attimo…</div>
-  <p class="small muted">Le valutazioni interne non ti vengono mostrate; vedi solo lo stato della candidatura. I dati restano nell'organizzazione a cui ti candidi. <a href="/orchestre/privacy/">Informativa privacy</a>.</p>
+  <p class="small muted">Le valutazioni interne non ti vengono mostrate: vedi solo lo stato della tua candidatura. Il profilo resta tuo e lo puoi aggiornare quando vuoi. <a href="/orchestre/privacy/">Come trattiamo i dati</a>.</p>
 </main>
 <script src="/vendor/supabase.min.js"></script>
 <script type="module" src="/orchestre/src/pages/candidatura.js"></script>

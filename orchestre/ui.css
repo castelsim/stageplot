@@ -37,7 +37,12 @@ a{color:var(--accent-strong)}
 
 /* struttura */
 .o-top{position:sticky;top:0;z-index:var(--z-menu);background:var(--surface);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-4);min-height:56px;padding-top:env(safe-area-inset-top)}
+  display:flex;align-items:center;gap:var(--s-2);padding:6px var(--s-4);min-height:56px;padding-top:env(safe-area-inset-top);flex-wrap:wrap}
+/* Le aree di chi ha più di un ruolo: una riga loro sotto il marchio. Infilate fra marchio ed «Esci»
+   non ci stavano in 390 px e andavano a capo a caso (provato). */
+.o-aree{flex-basis:100%;display:flex;gap:var(--s-2);flex-wrap:wrap;padding-bottom:2px}
+.o-aree .btn{white-space:nowrap}
+@media (min-width:640px){.o-aree{flex-basis:auto;order:-1;margin-inline-start:auto;padding-bottom:0}}
 .o-brand{font-weight:700;letter-spacing:-.01em;text-decoration:none;color:var(--text);display:flex;align-items:baseline;gap:6px;min-height:var(--tap)}
 .o-brand small{font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-strong);font-weight:700}
 .o-top .spacer{flex:1}
@@ -60,6 +65,25 @@ p{margin-bottom:var(--s-3)}
 .nav-tabs a{padding:10px 12px;min-height:var(--tap);display:flex;align-items:center;text-decoration:none;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap}
 .nav-tabs a[aria-current="page"]{color:var(--accent-strong);border-color:var(--accent)}
 .nav-tabs a[aria-disabled="true"]{color:var(--text-3);pointer-events:none}
+/* La riga che dice cosa facciamo. È l'h1 della pagina — toglierlo lascerebbe la home senza titolo per
+   chi la legge con lo screen reader — ma pesa come una frase, non come un titolo: a comandare la pagina
+   sono le due porte. */
+.claim{font-size:var(--t-heading);font-weight:400;color:var(--text-2);max-width:34ch;margin:0 auto var(--s-2)}
+
+/* Le porte della home: «chi sei» prima di «cos'è». Chi gestisce l'orchestra entra dal pulsante in alto:
+   in mezzo restano i due che arrivano senza sapere dove andare — chi suona e chi cerca musicisti. */
+.porte{display:grid;gap:var(--s-3);margin:var(--s-5) auto;max-width:760px}
+.porte.due .porta{display:flex;flex-direction:column;justify-content:center;text-align:center}
+.mid{text-align:center}
+.porta{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-md);padding:var(--s-4)}
+.porta:hover{border-color:var(--accent);box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.porta b{display:block;font-size:var(--t-heading);margin-bottom:4px}
+.porta span{display:block;color:var(--text-2);font-size:var(--t-body)}
+.porta .vai{color:var(--accent-strong);font-weight:600;margin-top:var(--s-3)}
+/* affiancate e alte uguali solo quando c'è spazio: sul telefono la simmetria è solo vuoto in più */
+@media (min-width:700px){.porte.due{grid-template-columns:1fr 1fr}.porte.due .porta{min-height:190px}}
+
 .o-foot{border-top:1px solid var(--border);margin-top:var(--s-8);padding:var(--s-4) 0;font-size:var(--t-body);color:var(--text-3);display:flex;gap:var(--s-4);flex-wrap:wrap}
 .o-foot a{color:inherit;min-height:var(--tap);display:inline-flex;align-items:center}
 a.back{display:inline-flex;align-items:center;min-height:var(--tap);text-decoration:none;font-weight:600}
@@ -82,7 +106,39 @@ a.back:hover{text-decoration:underline}
 
 /* card, pill, liste, tabelle */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s-4);box-shadow:var(--elev-1)}
+/* Una scheda aperta dentro un elenco (una richiesta, un preventivo) è figlia di un contenitore flessibile:
+   senza un limite si allarga fino alla parola più lunga che contiene. Un indirizzo email di un cliente
+   non ha spazi, non va a capo, e sul telefono portava la pagina a 517 px — che il browser rimpicciolisce,
+   rendendo tutto minuscolo e i pulsanti imprendibili (misurato l'11/09). */
+.list-item.block>.card{flex:1 1 100%;min-width:0}
+/* la riga dell'elenco che contiene una scheda non disegna un secondo riquadro attorno: uno basta */
+.list-item.block{background:none;border:0;box-shadow:none;padding:0}
+dl.review dd.strong{font-weight:700;color:var(--text)}
+/* Le righe del preventivo stanno nello schermo del telefono: la colonna del cachet è quella che si
+   compila, e con la tabella che scorreva di lato era proprio quella a restare tagliata (provato). */
+.quote-lines{width:100%;table-layout:fixed}
+/* Larghezze in rem, non in em: la tabella eredita un corpo più piccolo e 4,2em diventavano 50 px, di cui
+   ne restavano 26 per il numero — e la freccetta su/giù di Chrome se li mangiava tutti: il campo «Quanti»
+   conteneva «1» ma a schermo largo non si vedeva (visto da Simone provando, 11/09). */
+.quote-lines th:nth-child(2),.quote-lines td:nth-child(2){width:3.9rem}
+.quote-lines th:nth-child(3),.quote-lines td:nth-child(3){width:6.2rem}
+.quote-lines th:nth-child(4),.quote-lines td:nth-child(4){width:2.75rem}
+@media (min-width:640px){
+  .quote-lines th:nth-child(2),.quote-lines td:nth-child(2){width:5rem}
+  .quote-lines th:nth-child(3),.quote-lines td:nth-child(3){width:8rem}
+}
+/* niente frecce su/giù nei numeri: rubano lo spazio del numero, e con un dito non si usano */
+.quote-lines input[type=number]{appearance:textfield;-moz-appearance:textfield;text-align:right;padding-inline:4px}
+.quote-lines input[type=number]::-webkit-inner-spin-button,.quote-lines input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.quote-lines th{white-space:nowrap}
+.quote-lines input{width:100%;min-width:0;box-sizing:border-box;min-height:var(--tap);padding:0 6px;font:inherit;font-size:var(--t-base);
+  border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text)}
+.quote-lines td,.quote-lines th{padding-inline:4px}
+.quote-lines .btn{padding:0;min-width:0;width:100%}
+.card p,.card a{overflow-wrap:anywhere}
 .card h2,.card h3{margin-top:0}
+/* le schede dentro la scheda di una richiesta (preventivo, evento): staccate, non incollate */
+.dett>.card{margin-block:var(--s-4)}
 .card .num{font-size:var(--t-display);font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:var(--r-pill);font-size:var(--t-label);font-weight:600;
   background:var(--surface-raised);color:var(--text-2);border:1px solid var(--border)}
@@ -93,7 +149,9 @@ a.back:hover{text-decoration:underline}
 .list{list-style:none;display:flex;flex-direction:column;gap:var(--s-2)}
 .list-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-3) var(--s-4);
   display:flex;align-items:center;gap:var(--s-3);min-height:56px;flex-wrap:wrap}
-.list-item .grow{flex:1;min-width:0}
+/* Sul telefono i tag («disponibile weekend», «lettura veloce») stringevano il nome fino a spezzarlo una
+   lettera per riga: con una base minima il nome tiene la sua larghezza e sono i tag ad andare a capo. */
+.list-item .grow{flex:1 1 14rem;min-width:0}
 .list-item a.grow{text-decoration:none;color:inherit;min-height:var(--tap);display:flex;flex-direction:column;justify-content:center}
 .list-item a.grow:hover .title{color:var(--accent-strong)}
 .list-item .title{font-weight:600;overflow-wrap:anywhere}
@@ -129,6 +187,11 @@ code{font-family:var(--font-mono);font-size:.92em;background:var(--surface-raise
 /* organico */
 .nav-tabs.sub{margin-top:calc(-1 * var(--s-2))}
 .filters.two{grid-template-columns:2fr 1fr}
+/* «Altri filtri»: chiuso non occupa il telefono; aperto, i menu vanno a capo da soli */
+details.altri-filtri{margin-bottom:var(--s-3)}
+details.altri-filtri summary{display:inline-flex;align-items:center;gap:var(--s-2);min-height:var(--tap);cursor:pointer;color:var(--accent);font-weight:600}
+details.altri-filtri[open] summary{margin-bottom:var(--s-2)}
+.filters.cinque{grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))}
 .form-row.three{grid-template-columns:1fr 1fr 1fr auto auto}
 @media (max-width:880px){.form-row.three{grid-template-columns:1fr 1fr}}
 details.role{border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:var(--s-2);background:var(--surface)}
@@ -177,7 +240,6 @@ dl.review dd{overflow-wrap:anywhere}
 .inv-card .ans{margin-top:var(--s-2)}
 .list-item.hi{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-tint)}
 .steps.one{grid-template-columns:1fr}
-pre.export{font-family:var(--font-mono);font-size:var(--t-body);background:var(--surface-raised);padding:var(--s-3);border-radius:var(--r-md);overflow:auto;max-height:50vh;white-space:pre-wrap;margin-top:var(--s-3)}
 .eval-form{margin-top:var(--s-3)}
 
 /* form */
@@ -188,6 +250,11 @@ pre.export{font-family:var(--font-mono);font-size:var(--t-body);background:var(-
 .field textarea{padding:10px 12px;min-height:96px;resize:vertical}
 .field .hint{font-size:var(--t-body);color:var(--text-3)}
 .field.error input,.field.error select{border-color:var(--danger)}
+/* Una casella è una casella. Dentro un .field le regole degli input — larghezza 100%, padding, 48 px di
+   altezza sul telefono — la deformavano: 13×48 o 49×48 secondo quanto era lunga l'etichetta (11/09, scheda
+   del musicista e passi del profilo). Il bersaglio da 44 px lo dà già la .check-line che la contiene. */
+.field input[type=checkbox],.field input[type=radio]{width:20px;height:20px;min-height:0;padding:0;flex:none}
+.field .check-line{font-size:var(--t-md);font-weight:400;color:var(--text)}
 .field .msg{font-size:var(--t-body);color:var(--danger)}
 .form-row{display:grid;grid-template-columns:1fr 200px auto;gap:var(--s-3);align-items:end}
 .form-row .field{margin-bottom:0}
@@ -206,6 +273,12 @@ pre.export{font-family:var(--font-mono);font-size:var(--t-body);background:var(-
 .toast.show{opacity:1;pointer-events:auto}
 .toast.err{background:var(--danger-solid)}
 .toast button{background:none;border:0;color:#fff;font:inherit;font-weight:700;min-height:var(--tap);padding:0 var(--s-2);cursor:pointer}
+/* Il link dell'invito: si legge una volta sola, quindi deve stare tutto sotto gli occhi e potersi
+   selezionare a mano se la copia automatica non va (succede fuori da https). */
+.link-box{width:100%;box-sizing:border-box;font-size:var(--t-body);padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text);resize:vertical}
+
+/* la fotografia del profilo: piccola, tonda, con un fondo che regge anche le immagini chiare */
+.foto-prev{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--surface-2,#eee);border:1px solid var(--border-strong)}
 .modal-ov{position:fixed;inset:0;background:rgba(26,24,21,.5);z-index:var(--z-modal);display:flex;align-items:flex-end;justify-content:center;padding:var(--s-4)}
 .modal{background:var(--surface);border-radius:var(--r-xl);padding:var(--s-5);width:100%;max-width:440px;box-shadow:var(--elev-3)}
 .modal h2{margin-top:0}

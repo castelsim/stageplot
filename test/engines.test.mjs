@@ -7,7 +7,7 @@
  * Uso:  node build.mjs && node test/engines.test.mjs
  *       (exit 1 se un test fallisce → usabile in pre-merge/CI)
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
@@ -7655,6 +7655,50 @@ t("e quello che si risalva non se lo porta dietro", () => {
   eq(/"pdfPages"/.test(j), false, "il campo finisce ancora nel progetto salvato");
 });
 
+console.log("\n— Il tasto Consulenza e' via, l'infrastruttura no —");
+
+/* Simone, 10/09: «per ora togli il tasto consulenza in alto a destra, teniamo l'infrastruttura ma
+   per il momento togliamo il tasto». Quindi si toglie SOLO la porta d'ingresso dall'editor —
+   header e menu del telefono — mentre pagina, backend, worker e modalita' consulenza restano
+   intatti: chi ha gia' una consulenza in corso deve continuare a lavorare. */
+t("l'editor non offre piu' la consulenza", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  /* Si cerca il LINK, non il testo: il commento che spiega perche' e' stato tolto nomina il
+     bottone, e un test sulla stringa lo scambierebbe per il bottone stesso.
+     E si guardano i DUE punti indicati — header e menu del telefono — non tutto il file: nella
+     scheda Guida restano un link dentro un testo esplicativo e una CTA in fondo, che sono un'altra
+     cosa e un'altra decisione. */
+  const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  ok(header.length > 200, "l'header non si delimita piu': ricontrollare");
+  eq(/id="bConsulenza"/.test(header), false, "il bottone Consulenza e' ancora nell'header");
+  eq(/href="\/consulenza\/"/.test(header), false, "c'e' ancora un link alla consulenza nell'header");
+  /* ⚠️ Non una regex sull'ordine degli attributi: `<a href=… class=…>` e `<a class=… href=…>` sono
+     lo stesso link, e la prima versione di questo test vedeva solo uno dei due — provato con una
+     mutazione che rimetteva la voce scrivendo l'href per primo: restava verde. Si guardano le
+     RIGHE che nominano la classe del menu, e nessuna deve puntare alla consulenza. */
+  const righeMenu = html.split("\n").filter((l) => /mact-consul/.test(l) && /<a\b/.test(l));
+  eq(righeMenu.filter((l) => /\/consulenza\//.test(l)), [],
+     "e' rimasta la voce «Consulenza tecnica» nel menu del telefono");
+  ok(righeMenu.length > 0, "la classe del menu mobile non c'e' piu': il test non guarderebbe niente");
+});
+
+t("…ma l'infrastruttura resta tutta al suo posto", () => {
+  /* «Teniamo l'infrastruttura»: la pagina pubblica, il backend, la modalita' consulenza per chi
+     ce l'ha in corso. Togliere il tasto non deve diventare togliere il servizio. */
+  ok(existsSync(join(root, "consulenza/index.html")), "la pagina /consulenza/ e' sparita");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  ok(sm.indexOf("stageplot.it/consulenza/") > -1, "la pagina e' uscita dal sitemap");
+  ok(/__consultMode/.test(appjs), "la modalita' consulenza non c'e' piu' nell'editor");
+  ok(/consult-editor/.test(stylesCss), "sono sparite le regole dell'editor di consulenza");
+});
+
+t("e non resta nessun riferimento orfano al bottone tolto", () => {
+  /* La lezione del 27/08: un `getElementById` senza guardia su un id rimosso uccide il boot IN
+     SILENZIO — nessun errore in console, e meta' del programma resta undefined. */
+  eq(/getElementById\("bConsulenza"\)/.test(appjs), false, "c'e' ancora un getElementById sull'id tolto");
+  eq(/querySelector\([^)]*bConsulenza/.test(appjs), false, "c'e' ancora un querySelector sull'id tolto");
+});
+
 console.log("\n— Tornare al solo palco in un clic —");
 
 /* Simone, 10/09, con lo screenshot della finestra Esporta: «queste opzioni di default devono
@@ -13749,7 +13793,12 @@ t("dal telefono spariscono le due voci che non si usano in piedi", () => {
      molto piu' su, e la slice veniva vuota — un test che guardava il nulla e restava verde. */
   const iMenu = html.indexOf('<div id="mActions">');
   ok(iMenu > 0, "il menu mobile esiste nel markup");
-  const menu = html.slice(iMenu, html.indexOf("mact-consul", iMenu));
+  /* ⚠️ Il confine era `mact-consul`, cioe' il link «Consulenza tecnica». Tolto quel link (10/09) la
+     classe resta su «Richiedi musicisti» e il blocco si allunga: il test continua a passare, ma su
+     un pezzo diverso da quello che crede di guardare. Ora il confine e' la griglia stessa. */
+  const iFine = html.indexOf("</div>", html.indexOf("mact-grid", iMenu));
+  ok(iFine > iMenu, "la griglia delle azioni mobili non si delimita piu': ricontrollare");
+  const menu = html.slice(iMenu, iFine);
   ok(menu.length > 100 && /data-act="new"/.test(menu), "e il blocco letto e' davvero il menu: " + menu.length + " caratteri");
   ok(!/data-act="venue"/.test(menu), "planimetria via dal menu mobile");
   ok(!/data-act="chan"/.test(menu), "e channel list pure");
@@ -13800,7 +13849,12 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
      mezza larghezza — «Area stampa» e «Tema» — con un buco accanto. (Simone, 02/09) */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const iMenu = html.indexOf('<div id="mActions">');
-  const menu = html.slice(iMenu, html.indexOf("mact-consul", iMenu));
+  /* ⚠️ Il confine era `mact-consul`, cioe' il link «Consulenza tecnica». Tolto quel link (10/09) la
+     classe resta su «Richiedi musicisti» e il blocco si allunga: il test continua a passare, ma su
+     un pezzo diverso da quello che crede di guardare. Ora il confine e' la griglia stessa. */
+  const iFine = html.indexOf("</div>", html.indexOf("mact-grid", iMenu));
+  ok(iFine > iMenu, "la griglia delle azioni mobili non si delimita piu': ricontrollare");
+  const menu = html.slice(iMenu, iFine);
   ok(!/<\/button>\s*\n\s*\n\s*<button/.test(menu), "niente righe vuote fra i bottoni");
   ok(/\.mact-grid button:last-child:nth-child\(odd\)\{grid-column:1 \/ -1\}/.test(stylesCss),
      "il bottone rimasto solo prende tutta la riga");
@@ -14918,6 +14972,116 @@ t("«Richiedi musicisti»: il pulsante c'è e porta con sé il progetto salvato"
   eq(A.orcRichiediLink("mai-visto"), "/orchestre/richiedi/");
   ok(appjs.indexOf("function orcRichiediSync(") > -1, "l'indirizzo si aggiorna quando cambia il progetto");
   ok(appjs.indexOf("orcRichiediSync()") > -1);
+});
+
+/* ── Sicurezza: le tre difese che l'audit del 10/09 ha trovato scoperte ─────────────────────── */
+
+t("il token di condivisione nasce solo da una fonte crittografica", () => {
+  /* Era: crypto.randomUUID, e se manca Date.now()+Math.random() — ~52 bit indovinabili, per giunta
+     dalla stessa sequenza che genera gli id finiti dentro il documento condiviso. */
+  const gen = appjs.slice(appjs.indexOf("function tokenCondivisione("), appjs.indexOf("function tokenCondivisione(") + 700);
+  ok(gen.length > 100, "la funzione c'è");
+  ok(gen.indexOf("getRandomValues") > -1, "il ripiego è getRandomValues, non Math.random");
+  ok(gen.indexOf("Math.random") === -1, "niente Math.random per una credenziale");
+  ok(gen.indexOf("return null") > -1, "senza fonte crittografica si rinuncia al link");
+  const uso = appjs.slice(appjs.indexOf("function ensureShareTokenFor("), appjs.indexOf("function ensureShareTokenFor(") + 1400);
+  ok(uso.indexOf("tokenCondivisione()") > -1, "il token di condivisione passa di lì");
+  ok(uso.slice(0, uso.indexOf("tokenCondivisione()")).indexOf("Math.random") === -1, "e non se lo genera per conto suo");
+  ok(uso.indexOf("if(!tok)") > -1, "e se non arriva, non salva un token debole");
+});
+
+t("ogni esc del progetto copre anche l'apice singolo", () => {
+  /* Un attributo con apici singoli è HTML legittimo: un esc a quattro caratteri lo lascia chiudere
+     da dentro. Ce n'erano due più deboli del globale (modale Cloud e pagina /richiesta/). */
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const deboli = [];
+  for (const m of src.matchAll(/function esc\(([^)]*)\)\s*\{([\s\S]{0,320}?)\n/g)) {
+    if (m[2].indexOf("&amp;") === -1) continue;   /* un esc che non scappa niente è un altro esc: alla 17955 c'è un handler di tastiera */
+    if (m[2].indexOf("&#39;") === -1 && m[2].indexOf("&apos;") === -1) deboli.push(m[2].slice(0, 90));
+  }
+  eq(deboli.length, 0, "esc senza apice: " + deboli.join(" | "));
+  const rich = readFileSync(join(root, "richiesta/index.html"), "utf8");
+  ok(rich.indexOf("&#39;") > -1, "anche quello della pagina /richiesta/");
+});
+
+/* Il frame-buster si prova sul COMPORTAMENTO, non sulla forma: ciascuno dei quattro (l'editor, /richiesta/,
+   /consulenza/ e le 18 pagine di Orchestre) gira davvero, in una finestra finta, in cinque scenari.
+   frame-ancestors dentro un <meta> il browser lo ignora e GitHub Pages non manda header: sono l'unica
+   difesa dal clickjacking. Fino all'11/09 Orchestre non ne aveva nessuno, e /richiesta/ e /consulenza/
+   avevano il catch vuoto (dentro un sandbox la pagina si disegnava lo stesso). La scena «sandbox-muta» —
+   un browser che rifiuta l'uscita senza lanciare — non l'ho vista in Chrome, che lancia: è la ragione per
+   nascondersi PRIMA di provare, e il test la tiene coperta. */
+function busterSorgenti() {
+  const inline = (file) => {
+    const html = readFileSync(join(root, file), "utf8");
+    const i = html.indexOf("anti-clickjacking");
+    ok(i > -1, "il frame-buster c'è in " + file);
+    return html.slice(html.lastIndexOf("<script>", i) + 8, html.indexOf("</script>", i));
+  };
+  return {
+    "app/index.html": inline("app/index.html"),
+    "richiesta/index.html": inline("richiesta/index.html"),
+    "consulenza/index.html": inline("consulenza/index.html"),
+    "orchestre/src/frame.js": readFileSync(join(root, "orchestre/src/frame.js"), "utf8"),
+  };
+}
+function eseguiBuster(src, scena) {
+  const cronaca = { uscita: false, sostituito: null, pronto: null };
+  const html = { style: {} };
+  const doc = {
+    documentElement: html,
+    body: { replaceChildren: (x) => { cronaca.sostituito = x; } },
+    createElement: () => { const e = { style: {}, figli: [], textContent: "" }; e.appendChild = (c) => e.figli.push(c); return e; },
+    addEventListener: (ev, fn) => { if (ev === "DOMContentLoaded") cronaca.pronto = fn; },
+  };
+  const loc = { origin: "https://stageplot.it", href: "https://stageplot.it/orchestre/rispondi/?t=x" };
+  const w = { document: doc, location: loc };
+  w.self = w;
+  if (scena === "sola") w.top = w;
+  else {
+    const topLoc = {
+      replace: () => { if (scena === "sandbox-lancia") throw new Error("SecurityError"); if (scena === "esce") cronaca.uscita = true; /* «sandbox-muta»: rifiuta in silenzio */ },
+    };
+    Object.defineProperty(topLoc, "origin", { get: () => {
+      if (scena === "stessa-origine") return "https://stageplot.it";
+      throw new Error("SecurityError: cross-origin");
+    } });
+    w.top = { location: topLoc };
+  }
+  vm.runInNewContext(src, { window: w, document: doc, location: loc, self: w, top: w.top });
+  if (cronaca.pronto) cronaca.pronto();
+  return { nascosta: html.style.visibility === "hidden", ...cronaca };
+}
+t("il frame-buster: ognuno dei quattro, in cinque scene, fa la cosa giusta", () => {
+  for (const [nome, src] of Object.entries(busterSorgenti())) {
+    const sola = eseguiBuster(src, "sola");
+    ok(!sola.nascosta && !sola.sostituito, nome + ": da sola la pagina si vede");
+    const casa = eseguiBuster(src, "stessa-origine");
+    ok(!casa.nascosta && !casa.uscita, nome + ": incorniciata da una pagina nostra, lascia stare");
+    const esce = eseguiBuster(src, "esce");
+    ok(esce.uscita, nome + ": incorniciata da un altro sito, prova a uscire");
+    ok(esce.nascosta, nome + ": e intanto non si fa vedere");
+    for (const sc of ["sandbox-lancia", "sandbox-muta"]) {
+      const r = eseguiBuster(src, sc);
+      ok(r.nascosta, nome + " (" + sc + "): dentro un sandbox resta nascosta");
+      ok(r.sostituito && /non si apre dentro la pagina di un altro sito/.test(r.sostituito.textContent), nome + " (" + sc + "): e dice perché");
+      eq(r.sostituito.style.cssText.indexOf("visibility:visible"), 0, nome + " (" + sc + "): si vede solo il messaggio");
+    }
+  }
+});
+
+t("ogni pagina di Orchestre carica il frame-buster prima di qualsiasi altro script", () => {
+  /* Le pagine vengono lette dal disco, non da una lista: una pagina nuova senza protezione fa
+     fallire il test da sola. */
+  const pagine = [];
+  (function giro(d) { for (const n of readdirSync(d)) { const f = join(d, n); if (statSync(f).isDirectory()) giro(f); else if (n === "index.html") pagine.push(f); } })(join(root, "orchestre"));
+  ok(pagine.length >= 18, "le pagine si trovano: " + pagine.length);
+  for (const f of pagine) {
+    const html = readFileSync(f, "utf8");
+    const primo = html.search(/<script\b/);
+    eq(html.indexOf('<script src="/orchestre/src/frame.js"></script>'), primo, f.slice(root.length + 1) + ": il primo script è il frame-buster");
+    ok(primo < html.indexOf("</head>"), f.slice(root.length + 1) + ": e sta nella <head>");
+  }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- CSP: questa pagina parla SOLO con l'Edge Function. Nessuna libreria, nessun terzo. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
-<script>/* se qualcuno la incornicia, esce */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
+<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="StagePlot non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -101,8 +101,9 @@
   var S = { schema:null, answers:{}, idx:0, mode:"denied", recipient:{}, message:"", submitted:false, version:1, review:false };
   var saveT = null, saving = false, dirty = false;
 
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){
-    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  /* Anche l'apice: un attributo con apici singoli è HTML legittimo, e senza questo si chiude da dentro. */
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
   function el(html){ var d=document.createElement("div"); d.innerHTML=html; return d.firstElementChild; }
 
   /* domande pertinenti alle risposte date: la stessa logica gira anche sul server */

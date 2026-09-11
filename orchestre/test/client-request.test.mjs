@@ -1,7 +1,7 @@
 /* «Richiedi musicisti»: il pezzo puro. Niente rete. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { missingFields, missingLabel, stagePositions, snapshotOf, countNeeded, summaryLines, EVENT_KINDS } from "../src/domain/client-request.js";
+import { missingFields, missingLabel, motivoNonPronta, quantiLabel, stagePositions, snapshotOf, countNeeded, summaryLines, EVENT_KINDS } from "../src/domain/client-request.js";
 import { typeMapFrom } from "../src/domain/stageplot-import.js";
 
 const INSTR = [
@@ -75,4 +75,35 @@ test("il riepilogo prima dell'invio dice le cose in italiano", () => {
   assert.equal(summaryLines({}, [{ qty: 1, covered: false }])[0], "Un musicista");
   assert.match(summaryLines({}, [])[0], /Nessun musicista/);
   assert.equal(EVENT_KINDS.concerto, "Concerto");
+});
+
+test("il riepilogo prima di mandare non dice «spunta una postazione» a chi non sa quale formazione serve", () => {
+  const f = { contact_name: "Anna", contact_email: "a@example.invalid", event_title: "Matrimonio", event_kind: "matrimonio", formation_unknown: true };
+  const righe = summaryLines(f, []);
+  assert.match(righe[0], /Formazione da definire/);
+  assert.doesNotMatch(righe.join(" "), /spunta almeno una postazione/, "quel rimprovero vale per chi il palco ce l'ha");
+  assert.match(summaryLines({ ...f, formation_unknown: false }, [])[0], /spunta almeno una postazione/, "e per lui deve restare");
+});
+
+test("si manda anche senza sapere che formazione serve, ma non senza dire chi sei", () => {
+  /* Il cliente che organizza un matrimonio non sa se gli serve un quartetto o un trio: prima si fermava
+     sulla soglia, adesso lo dichiara e la richiesta parte lo stesso — nella stessa coda delle altre. */
+  const pieno = { contact_name: "Anna Bianchi", contact_email: "anna@example.invalid", event_title: "Matrimonio" };
+  assert.equal(motivoNonPronta({ ...pieno, formation_unknown: true }, []), "", "con «non so» i posti non servono");
+  assert.match(motivoNonPronta(pieno, []), /Dicci chi ti serve/, "senza «non so», invece, qualcuno da chiamare va detto");
+  assert.equal(motivoNonPronta(pieno, [{ qty: 2, covered: false }]), "", "due posti bastano");
+  assert.match(motivoNonPronta(pieno, [{ qty: 2, covered: true }]), /Dicci chi ti serve/, "i posti che copre lui non contano");
+  /* i campi obbligatori restano obbligatori anche dicendo «non so» */
+  assert.match(motivoNonPronta({ ...pieno, contact_email: "" }, []), /Manca|Mancano/);
+  assert.match(motivoNonPronta({ ...pieno, formation_unknown: true, event_title: "" }, []), /Manca|Mancano/);
+});
+
+test("nella coda della società «0 musicisti» non esiste: o sono numeri, o è una domanda", () => {
+  /* Una richiesta senza posti perché il cliente non sa che formazione serve non è una richiesta vuota:
+     letta come «0 musicisti» sembra un errore e finisce in fondo alla coda. */
+  assert.equal(quantiLabel({ n_needed: 0, formation_unknown: true }), "formazione da definire");
+  assert.equal(quantiLabel({ n_needed: 4, formation_unknown: true }), "formazione da definire", "vale anche se qualche posto c'è");
+  assert.equal(quantiLabel({ n_needed: 1 }), "1 musicista");
+  assert.equal(quantiLabel({ n_needed: 7 }), "7 musicisti");
+  assert.equal(quantiLabel({}), "0 musicisti", "senza dichiarazione resta il conteggio, per quanto brutto");
 });

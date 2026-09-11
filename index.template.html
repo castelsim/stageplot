@@ -12,7 +12,7 @@
      generato in locale (vendor/qrcode.min.js): nessun dominio esterno in img-src.
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; frame-src 'self' blob:; base-uri 'self'; form-action 'self'">
-<script>/* anti-clickjacking: se la pagina è caricata dentro un iframe di terzi, esce (GitHub Pages non permette header X-Frame-Options) */try{if(window.self!==window.top)window.top.location.replace(window.location.href);}catch(e){}</script>
+<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="StagePlot non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
 <script>/* SEO (audit SEO-02): un progetto condiviso via ?view= è un link con token e non va indicizzato/archiviato. Additivo: non tocca la logica di condivisione, aggiunge solo un meta robots noindex quando è presente il token. */try{if(/[?&]view=/.test(location.search)){var _r=document.createElement("meta");_r.name="robots";_r.content="noindex,nofollow,noarchive";document.head.appendChild(_r);}}catch(e){}</script>
 <!-- Referrer-Policy esplicita (audit M-08): non affidarsi al default del browser. Protegge i token
      dei link di condivisione (nell'URL) da leak via header Referer verso risorse/destinazioni. -->
@@ -166,7 +166,12 @@
     <button class="btn" id="bChanList" aria-haspopup="dialog" title="Channel list: input patch e monitor, con export CSV e PDF. Gratis, come tutto l'editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="3.5" y="7" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="9.5" y="12.3" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/><rect x="15.5" y="9" width="5" height="3.2" rx="1.6" fill="currentColor" stroke="none"/></svg>Channel list</button>
     <!-- Produzione uscita dal menu File (13/08): non è un comando sul documento ma un'area di lavoro,
          sorella della Channel list — chi fa cosa, reparto per reparto. Sta accanto a lei. -->
-    <a class="btn tint" id="bConsulenza" href="/consulenza/" target="_blank" rel="noopener" title="Facoltativa: un sound engineer revisiona e valida il rider che hai gia' fatto. L'editor e gli export restano gratis" style="text-decoration:none">Consulenza</a>
+    <!-- TASTO CONSULENZA TOLTO (10/09, Simone: «per ora togli il tasto consulenza in alto a destra,
+         teniamo l'infrastruttura ma per il momento togliamo il tasto»). Via SOLO la porta
+         d'ingresso dall'editor — qui e nel menu del telefono. Restano intatti la pagina
+         /consulenza/, il backend, il worker delle notifiche e la modalità consulenza: chi ne ha
+         una in corso continua a lavorare. Per rimetterlo: questa riga e la gemella nel menu.
+         La regola `body.consult-editor #bConsulenza` in styles.css resta apposta, serve al ritorno. -->
     <a class="btn tint" id="bRichiedi" href="/orchestre/richiedi/" title="Descrivi l'evento e dicci quali posti non copri: ti rispondiamo con i nomi e il preventivo" style="text-decoration:none">Richiedi musicisti</a>
     <button class="btn" id="bExportHdr" title="Esporta il PDF (⌘P)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="btn-lbl-wide">Esporta</span></button>
     <button class="btn primary" id="bShareHdr" aria-haspopup="dialog" title="Condividi con un link (contiene anche Scarica PDF)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
@@ -1302,7 +1307,7 @@
   <div class="mact-grid">
     <button data-act="theme">Tema chiaro/scuro</button>
   </div>
-  <a href="/consulenza/" target="_blank" rel="noopener" class="mact-consul">Consulenza tecnica →</a>
+  <!-- «Consulenza tecnica →» tolta col tasto in header (10/09): stessa decisione, stesso ritorno. -->
   <a href="/orchestre/richiedi/" class="mact-consul" id="mactRichiedi">Richiedi musicisti →</a>
 </div>
 
@@ -28819,7 +28824,10 @@ function maybeAskStageSize(explicit){
     toastT=setTimeout(function(){ toastEl.hidden=true; }, azione ? 7000 : 3200);
   }
   try{ window.__toast=toast; }catch(e){}   /* esposto al main scope per l'avviso quota planimetria */
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  /* Cinque caratteri, come l'esc globale: senza l'apice, un attributo scritto con apici singoli
+     si chiude da dentro. Qui oggi si usano solo virgolette doppie, ma la trappola resta armata
+     per chi scriverà la prossima riga. */
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function fmtDate(s){
     try{
       /* Postgres restituisce microsecondi a 6 cifre (…24.120026+00:00): Safari <16 dà "Invalid Date"
@@ -29435,7 +29443,15 @@ function maybeAskStageSize(explicit){
         enterConflict(); cb(null); return;
       }
       if(r.data && r.data.share_token){ cb(r.data.share_token); return; }
-      var tok=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(String(Date.now())+Math.random().toString(16).slice(2));
+      /* Il token di condivisione è una credenziale: chi lo indovina apre il progetto. Il vecchio
+         ripiego — l'orologio più un numero pseudocasuale — valeva una cinquantina di bit da
+         indovinare, e veniva dalla stessa sequenza che genera gli id degli elementi finiti dentro
+         il documento condiviso. `getRandomValues` c'è in ogni browser dal 2011; se davvero manca,
+         si rinuncia al link invece di darne uno debole.
+         (Il nome della vecchia funzione non si scrive qui: un test lo cerca in questo punto, e un
+         commento che lo contiene lo farebbe fallire per il motivo sbagliato.) */
+      var tok=tokenCondivisione();
+      if(!tok){ toast("Questo browser non sa generare un link sicuro: aggiornalo."); cb(null); return; }
       updateProjectMetadataCas(id,{share_token:tok},"updated_at,share_token",function(data){
         if(data){ window.__sendEvent({event:"share_created",props:{}}); cb(data.share_token||tok); }
         else cb(null);
@@ -29610,6 +29626,18 @@ function maybeAskStageSize(explicit){
      Il TOKEN si genera QUI e non viene mai salvato: nel database va solo il suo sha-256. Chi
      leggesse la tabella non potrebbe aprire i link. Il link in chiaro esiste solo mentre la
      finestra è aperta e nel messaggio che il tecnico manda. */
+  /* 128 bit da getRandomValues: la stessa robustezza di randomUUID, senza dipendere da un metodo
+     che i browser vecchi non hanno. Torna null quando non c'è nessuna fonte crittografica. */
+  function tokenCondivisione(){
+    var c=window.crypto;
+    if(c&&typeof c.randomUUID==="function"){ try{ return c.randomUUID(); }catch(e){} }
+    if(c&&typeof c.getRandomValues==="function"){
+      var b=new Uint8Array(16); c.getRandomValues(b);
+      var s=""; for(var i=0;i<b.length;i++) s+=("0"+b[i].toString(16)).slice(-2);
+      return s.slice(0,8)+"-"+s.slice(8,12)+"-"+s.slice(12,16)+"-"+s.slice(16,20)+"-"+s.slice(20);
+    }
+    return null;
+  }
   function reqToken(){
     var b=new Uint8Array(32); crypto.getRandomValues(b);
     var s=""; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);

@@ -5,8 +5,10 @@ import { esc, el, toast, confirm, setState, errMsg, fmtDate } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, FAMILY, REP_KIND, REP_SOURCE } from "../nav.js";
 import * as api from "../api/musicians.js";
+import { signedUrl } from "../api/applications.js";   /* stesso archivio privato dei materiali */
 import { history, stats } from "../api/feedback.js";
 import { PROD_STATUS, SLOT_STATUS, INV_STATUS } from "../domain/staffing.js";
+import { PARTI } from "../domain/applications.js";
 
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
@@ -38,7 +40,7 @@ function paint() {
   const isNew = !m.id;
   app.innerHTML = tabs("musicisti") + `
     <p class="small"><a class="back" href="${BASE}/admin/musicisti/">← Musicisti</a></p>
-    <div class="row"><h1 id="h"></h1><span class="spacer"></span><span id="stPill"></span></div>
+    <div class="row"><span id="ritratto"></span><h1 id="h"></h1><span class="spacer"></span><span id="stPill"></span></div>
     <div class="grid2">
       <section class="card" id="dati"><h3>Dati e contatti</h3></section>
       <div class="stack">
@@ -51,9 +53,22 @@ function paint() {
     </div>
     <section class="card" id="storico"><h3>Storico e affidabilità</h3><div class="loading">Un attimo…</div></section>`;
   app.querySelector("#h").textContent = isNew ? "Nuovo musicista" : m.last_name + " " + m.first_name;
+  ritratto(app.querySelector("#ritratto"), m.photo_path, m.last_name + " " + m.first_name);
   paintDati();
   if (!isNew) { paintStrumenti(); paintCompetenze(); paintRepertorio(); paintTag(); paintNote(); paintStorico(); }
   else for (const id of ["strum", "comp", "rep", "tag", "note", "storico"]) { const n = app.querySelector("#" + id); n.querySelectorAll(".loading").forEach((x) => x.remove()); n.appendChild(el(`<p class="small muted">Disponibile dopo il primo salvataggio.</p>`)); }
+}
+
+/* La fotografia: sta nell'archivio privato, l'indirizzo firmato dura dieci minuti e non si può girare ad
+   altri. Se manca, o se non si riesce a firmarlo, la scheda resta leggibile lo stesso: è un di più. */
+async function ritratto(box, path, nome) {
+  if (!box || !path) return;
+  try {
+    const img = el(`<img class="foto-prev" alt="">`);
+    img.alt = "Fotografia di " + nome;
+    img.src = await signedUrl(path);
+    box.appendChild(img);
+  } catch { /* senza ritratto la scheda vale uguale */ }
 }
 
 function field(id, label, value, { type = "text", opts = null, hint = "" } = {}) {
@@ -87,6 +102,10 @@ function paintDati() {
   checks.appendChild(field("travel_ok", "Disponibile a trasferte", m.travel_ok, { type: "checkbox" }));
   checks.appendChild(field("tour_ok", "Disponibile a tournée", m.tour_ok, { type: "checkbox" }));
   s.appendChild(checks);
+  /* le parti: le ha dichiarate il musicista, se si è candidato; lo staff le corregge */
+  const parti = el(`<div class="field"><label>Parte</label><div class="row" id="parti"></div></div>`);
+  for (const [k, v] of PARTI) parti.querySelector("#parti").appendChild(field("part_" + k, v, (m.parts || []).includes(k), { type: "checkbox" }));
+  s.appendChild(parti);
   s.appendChild(field("bio", "Presentazione", m.bio, { type: "textarea" }));
   const act = el(`<div class="row"><button type="button" class="btn primary" id="saveDati">Salva</button></div>`);
   if (m.id) act.appendChild(el(`<span class="small muted">Creato il ${esc(fmtDate(m.created_at))}</span>`));
@@ -94,6 +113,7 @@ function paintDati() {
   act.querySelector("#saveDati").onclick = async () => {
     const fields = {};
     for (const k of ["first_name", "last_name", "email", "phone", "city", "province", "area", "max_distance_km", "status", "has_car", "travel_ok", "tour_ok", "bio"]) fields[k] = val(k);
+    fields.parts = PARTI.map(([k]) => k).filter((k) => val("part_" + k));
     if (!fields.first_name.trim() || !fields.last_name.trim()) return toast("Servono nome e cognome.", { err: true });
     try {
       if (!m.id) {

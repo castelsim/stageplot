@@ -1,6 +1,6 @@
 /* Una candidatura: il profilo dichiarato, i file, la storia, le valutazioni interne, il cambio di stato. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, errMsg, fmtDate, fmtDateTime } from "../ui.js";
+import { esc, el, toast, confirm, errMsg, fmtDate, fmtDateTime, safeHttpUrl } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { APP_STATUS, APP_PILL, EVAL_KIND, EVAL_SCORES, publicStatus, PUBLIC_STATUS } from "../domain/applications.js";
@@ -32,7 +32,7 @@ function paint() {
   const a = D.application, p = D.profile;
   app.innerHTML = tabs("candidature") + `
     <p class="small"><a class="back" href="${BASE}/admin/candidature/">← Candidature</a></p>
-    <div class="row"><h1 id="h"></h1><span class="spacer"></span><span class="pill ${APP_PILL[a.status] || ""}">${esc(APP_STATUS[a.status] || a.status)}</span></div>
+    <div class="row"><span id="ritratto"></span><h1 id="h"></h1><span class="spacer"></span><span class="pill ${APP_PILL[a.status] || ""}">${esc(APP_STATUS[a.status] || a.status)}</span></div>
     <p class="small muted">Il candidato vede: <b>${esc(PUBLIC_STATUS[publicStatus(a.status)])}</b>${a.note_to_candidate ? " · messaggio: «" + esc(a.note_to_candidate) + "»" : ""}${p.deletion_requested_at ? ` · <span class="pill danger">chiede la cancellazione dal ${esc(fmtDate(p.deletion_requested_at))}</span>` : ""}</p>
     <div class="grid2">
       <div class="stack">
@@ -46,7 +46,20 @@ function paint() {
       </div>
     </div>`;
   app.querySelector("#h").textContent = p.last_name + " " + p.first_name;
+  ritratto(p.photo_path, p.last_name + " " + p.first_name);
   paintDeclared(); paintFiles(); paintHistory(); paintStatus(); paintEvals();
+}
+
+/* Come nella scheda del musicista: il ritratto se c'è, e la pagina regge anche se non c'è. */
+async function ritratto(path, nome) {
+  const box = app.querySelector("#ritratto");
+  if (!box || !path) return;
+  try {
+    const img = el(`<img class="foto-prev" alt="">`);
+    img.alt = "Fotografia di " + nome;
+    img.src = await api.signedUrl(path);
+    box.appendChild(img);
+  } catch { /* senza ritratto la candidatura si valuta uguale */ }
 }
 
 function kv(k, v) { const pp = el(`<p class="small"><b></b> <span></span></p>`); pp.querySelector("b").textContent = k + ":"; pp.querySelector("span").textContent = v || "—"; return pp; }
@@ -68,7 +81,18 @@ function paintDeclared() {
 function paintFiles() {
   const s = app.querySelector("#files"), p = D.profile;
   const links = [p.website && ["Sito", p.website], p.audio_url && ["Audio", p.audio_url], p.video_url && ["Video", p.video_url]].filter(Boolean);
-  for (const [k, u] of links) { const pp = el(`<p class="small"><b>${esc(k)}:</b> <a target="_blank" rel="noopener noreferrer"></a></p>`); pp.querySelector("a").href = u; pp.querySelector("a").textContent = u; s.appendChild(pp); }
+  /* L'indirizzo lo scrive il musicista e lo clicca lo staff: passa da safeHttpUrl, che ammette solo
+     http e https. Quello che non passa si vede lo stesso, come testo — chi legge deve sapere che
+     cosa ha scritto, senza che basti un clic per eseguirlo. */
+  for (const [k, u] of links) {
+    const href = safeHttpUrl(u);
+    const pp = href ? el(`<p class="small"><b>${esc(k)}:</b> <a target="_blank" rel="noopener noreferrer"></a></p>`)
+                    : el(`<p class="small"><b>${esc(k)}:</b> <span class="muted"></span> <span class="muted">(non è un indirizzo web)</span></p>`);
+    const dove = pp.querySelector(href ? "a" : "span");
+    if (href) dove.href = safeHttpUrl(u);   /* di nuovo, non la variabile: l'href si legge validato anche a colpo d'occhio */
+    dove.textContent = u;
+    s.appendChild(pp);
+  }
   if (!D.files.length && !links.length) s.appendChild(el(`<p class="small muted">Nessun materiale.</p>`));
   for (const f of D.files) {
     const row = el(`<p class="small"><b>${esc(f.kind === "cv" ? "CV" : f.kind)}:</b> <span></span> <button type="button" class="btn small">Apri</button></p>`);
