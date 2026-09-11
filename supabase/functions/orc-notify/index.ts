@@ -115,7 +115,7 @@ async function processPending(supabase: SupabaseClient, resendKey: string, mode:
 async function processClientRequests(supabase: SupabaseClient, resendKey: string, mode: string, base: string, to: string) {
   const counts = { reqSent: 0, reqFailed: 0 };
   const { data: rows, error } = await supabase.from("orc_client_requests")
-    .select("id,contact_name,contact_company,contact_email,contact_phone,event_kind,event_title,event_when,event_place,schedule,repertoire,budget,notes,created_at,snapshot,formation_unknown,notification_status,notification_attempts,ack_status,ack_attempts,orc_organizations(name),orc_client_request_slots(label,instrument_code,qty,covered)")
+    .select("id,contact_name,contact_company,contact_email,account_email,contact_phone,event_kind,event_title,event_when,event_place,schedule,repertoire,budget,notes,created_at,snapshot,formation_unknown,notification_status,notification_attempts,ack_status,ack_attempts,orc_organizations(name),orc_client_request_slots(label,instrument_code,qty,covered)")
     .or("notification_status.eq.pending,ack_status.eq.pending")
     .order("created_at", { ascending: true }).limit(BATCH_SIZE);
   if (error) throw new Error(error.message);
@@ -151,7 +151,9 @@ async function processClientRequests(supabase: SupabaseClient, resendKey: string
     /* 2. al cliente. Gli indirizzi dei dati di prova non ricevono niente: mai email vere dai test. */
     if (raw.ack_status === "pending") {
       const attempts = Number(raw.ack_attempts ?? 0) + 1;
-      const dest = String(raw.contact_email ?? "");
+      /* all'indirizzo VERIFICATO dell'account (lo scrive il database dal login), mai a quello scritto nel
+       modulo: altrimenti chiunque faceva arrivare dal nostro dominio un testo suo a una persona qualsiasi */
+      const dest = String(raw.account_email ?? "");
       let ok = false;
       if (!dest || isReservedClient(dest)) {
         console.info("orc-notify: conferma non spedita (indirizzo riservato o assente)", dest);
@@ -174,13 +176,15 @@ async function processClientRequests(supabase: SupabaseClient, resendKey: string
 async function processQuotes(supabase: SupabaseClient, resendKey: string, mode: string, base: string) {
   const counts = { quoteSent: 0, quoteFailed: 0 };
   const { data: rows, error } = await supabase.from("orc_quotes")
-    .select("id,description,net_cents,vat_cents,total_cents,vat_pct,notify_attempts,orc_client_requests(contact_name,contact_email,event_title,event_when),orc_organizations(name)")
+    .select("id,description,net_cents,vat_cents,total_cents,vat_pct,notify_attempts,orc_client_requests(contact_name,account_email,event_title,event_when),orc_organizations(name)")
     .eq("status", "sent").eq("notify_status", "pending").order("sent_at", { ascending: true }).limit(BATCH_SIZE);
   if (error) throw new Error(error.message);
   for (const q of (rows ?? []) as unknown as Array<Record<string, unknown>>) {
     const id = String(q.id);
-    const r = q.orc_client_requests as { contact_name?: string; contact_email?: string; event_title?: string; event_when?: string } | null;
-    const dest = String(r?.contact_email ?? "");
+    const r = q.orc_client_requests as { contact_name?: string; account_email?: string; event_title?: string; event_when?: string } | null;
+    /* all'indirizzo VERIFICATO dell'account (lo scrive il database dal login), mai a quello scritto nel
+       modulo: altrimenti chiunque faceva arrivare dal nostro dominio un testo suo a una persona qualsiasi */
+    const dest = String(r?.account_email ?? "");
     if (!dest || isReservedClient(dest)) {
       await supabase.from("orc_quotes").update({ notify_status: "none" }).eq("id", id);
       continue;
