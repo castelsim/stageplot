@@ -1,5 +1,5 @@
-/* Gli inviti personali ai musicisti. Il segreto del link vive solo nel browser di chi invita: al database
-   va l'impronta. Chi lo perde ne fa un altro. */
+/* Gli inviti personali ai musicisti. Il segreto del link nasce nel browser di chi invita: al database, alla
+   creazione, va solo l'impronta. Chi lo perde ne fa un altro. */
 import { sb } from "../sb.js";
 import { hashToken, newInviteToken, isInviteToken } from "../domain/invites.js";
 
@@ -24,8 +24,9 @@ export async function revokeInvite(id) { fail((await sb.rpc("orc_musician_invite
    è valido: la risposta è la stessa. */
 export async function claimInvite(token) {
   if (!isInviteToken(token)) return { ok: false, motivo: "non valido" };
-  const hash = await hashToken(token);
-  const { data, error } = await sb.rpc("orc_musician_invite_claim", { hash });
+  /* Al database va il token, non l'impronta: l'impronta la calcola lui (0065). Se la calcolasse il
+     browser, l'impronta salvata in tabella sarebbe essa stessa la chiave per entrare. */
+  const { data, error } = await sb.rpc("orc_musician_invite_claim", { token });
   if (error) return { ok: false, motivo: "non valido" };
   return (data || [])[0] || { ok: false, motivo: "non valido" };
 }
