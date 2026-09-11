@@ -494,9 +494,11 @@ function inviteDialog(musicianIds) {
     try {
       const n = await inv.invite(p.id, mRole, musicianIds, { deadline, note: ov.querySelector("#invNote").value.trim(), runId: mRun?.id || null });
       const saltati = musicianIds.length - n;
-      close(); toast(n + (n === 1 ? " convocazione creata" : " convocazioni create")
+      close();
+      const esito = n ? inv.esitoEmail(await inv.notifyNow(p.id)) : "";
+      toast(n + (n === 1 ? " convocazione creata" : " convocazioni create")
         + (saltati > 0 ? "; " + saltati + (saltati === 1 ? " non convocato" : " non convocati") + ": già convocati per questo ruolo o hanno scelto di non ricevere proposte" : "")
-        + ". Lo stato delle email è qui sotto, riga per riga.");
+        + ". " + esito);
       tab = "convocazioni"; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni"); paint();
     } catch (e) { toast(errMsg(e), { err: true }); }
   };
@@ -554,17 +556,26 @@ function invitationRow(r, openSlots) {
   if (r.notification_status === "sending") bits.push("email in spedizione");
   if (r.notification_status === "failed") bits.push("email NON consegnata" + (r.notification_last_error ? " (" + r.notification_last_error + ")" : ""));
   if (r.slot_seat) bits.push("posto " + r.slot_seat);
+  /* il link è una chiave: se inoltrato, qualcun altro può cambiare la risposta. Non si impedisce, si vede */
+  if (Number(r.n_answers) > 1) bits.push("ha cambiato risposta " + (r.n_answers - 1 === 1 ? "una volta" : (r.n_answers - 1) + " volte") + " (la storia è in «…»)");
   li.querySelector(".sub").textContent = bits.join(" · ");
   const act = li.querySelector(".actions");
   act.appendChild(el(`<span class="pill ${INV_PILL[r.status] || ""}">${esc(INV_STATUS[r.status] || r.status)}</span>`));
   const btn = (label, cls, fn) => { const b = el(`<button type="button" class="btn small ${cls}">${label}</button>`); b.onclick = fn; act.appendChild(b); };
-  const doAction = async (action, reason, okMsg) => { try { await inv.action(r.id, action, reason); toast(okMsg); await loadConvocazioni(); } catch (e) { toast(errMsg(e), { err: true }); } };
+  /* conferme, revoche e promemoria mettono un'email in coda: parte subito, e si dice com'è andata */
+  const doAction = async (action, reason, okMsg) => {
+    try {
+      await inv.action(r.id, action, reason);
+      const esito = ["confirm", "revoke", "remind"].includes(action) ? inv.esitoEmail(await inv.notifyNow(p.id)) : "";
+      toast((okMsg + " " + esito).trim()); await loadConvocazioni();
+    } catch (e) { toast(errMsg(e), { err: true }); }
+  };
   if (["available", "partial", "reserve"].includes(r.status) && openSlots > 0) btn("Conferma", "primary", async () => {
     const yes = await confirm({ title: "Confermare " + r.musician_name + "?", text: "Prende il primo posto scoperto del ruolo. Il musicista non potrà più cambiare la risposta da solo.", ok: "Conferma" });
-    if (yes) doAction("confirm", "", "Confermato.");
+    if (yes) doAction("confirm", "", "Confermato: il musicista riceve l'email con il posto e le date.");
   });
   if (["available", "partial"].includes(r.status)) btn("Riserva", "", () => doAction("reserve", "", "In riserva."));
-  if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria in coda: lo stato della email è sulla riga."));
+  if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria mandato."));
   if (r.status === "confirmed") btn("Revoca", "danger", () => {
     const why = prompt("Motivo della revoca (resta nella storia):", ""); if (why === null) return;
     doAction("revoke", why, "Conferma revocata: il posto è di nuovo scoperto.");

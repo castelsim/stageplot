@@ -1,5 +1,5 @@
 import { assertEquals, assertMatch, assertStringIncludes } from "jsr:@std/assert@1";
-import { buildInviteEmail, fmtDate, hashToken, idempotencyKey, isPlausibleToken, isReservedAddress, parseAnswer, responseUrl } from "./orc-invitations.ts";
+import { areaUrl, buildInviteEmail, buildStatusEmail, fmtDate, hashToken, idempotencyKey, isPlausibleToken, isReservedAddress, parseAnswer, responseUrl } from "./orc-invitations.ts";
 
 const inv = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -84,4 +84,27 @@ Deno.test("gli indirizzi riservati non vanno a Resend: i musicisti demo non prod
   assertEquals(isReservedAddress("x@orchestra-example.it"), false);
   assertEquals(isReservedAddress("x@gmail.com"), false);
   assertEquals(isReservedAddress(""), false);
+});
+
+Deno.test("la conferma dice che il posto è suo, con le date, e rimanda all'area: niente token, niente compenso", () => {
+  const { subject, html, text } = buildStatusEmail({ ...inv, notification_kind: "confirmed" as const });
+  assertEquals(subject, "Confermato: Morricone in concerto 2026, Violini primi");
+  assertStringIncludes(text, "Il posto è tuo");
+  assertStringIncludes(text, "Teatro Remondini");
+  assertStringIncludes(html, areaUrl());
+  assertEquals(html.includes("/rispondi/") || text.includes("/rispondi/"), false, "la risposta è già data: nessun link con il token");
+  assertEquals(text.includes("cachet standard"), false, "il compenso non viaggia in questa email");
+});
+
+Deno.test("la revoca lo dice, senza date e senza token", () => {
+  const { subject, text, html } = buildStatusEmail({ ...inv, notification_kind: "revoked" as const });
+  assertEquals(subject, "Non più confermato: Morricone in concerto 2026");
+  assertStringIncludes(text, "ha ritirato la conferma");
+  assertEquals(text.includes("Date:"), false);
+  assertEquals(html.includes("/rispondi/"), false);
+});
+
+Deno.test("anche la conferma neutralizza i testi", () => {
+  const { html } = buildStatusEmail({ ...inv, notification_kind: "confirmed" as const, production_title: "<img src=x onerror=alert(1)>" });
+  assertEquals(html.includes("<img src=x"), false);
 });

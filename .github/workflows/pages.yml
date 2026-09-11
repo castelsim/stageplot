@@ -57,6 +57,7 @@ jobs:
           supabase/functions/orc-notify/index.ts
           supabase/functions/orc-request-notify/index.ts
           supabase/functions/orc-quote-notify/index.ts
+          supabase/functions/orc-invite-notify/index.ts
           supabase/functions/retention-purge/index.ts
       - name: Lint backend
         run: deno lint supabase/functions
