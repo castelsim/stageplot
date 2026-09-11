@@ -76,6 +76,12 @@ export async function addRole(pid, role) {
   fail(error);
   return data.id;
 }
+/* i compensi per ruolo: orc_staffing non li porta, si leggono a parte (lo staff legge i suoi ruoli) */
+export async function roleFees(pid) {
+  const { data, error } = await sb.from("orc_staffing_roles").select("id, fee_note").eq("production_id", pid);
+  fail(error);
+  return Object.fromEntries((data || []).map((r) => [r.id, r.fee_note || ""]));
+}
 export async function updateRole(id, fields) { fail((await sb.from("orc_staffing_roles").update(fields).eq("id", id)).error); }
 export async function deleteRole(id) { fail((await sb.from("orc_staffing_roles").delete().eq("id", id)).error); }
 export async function listRequirements(roleId) {
