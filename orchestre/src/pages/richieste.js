@@ -130,7 +130,8 @@ async function bloccoPreventivo(r, slots) {
     /* mandato: si vede cosa ha ricevuto il cliente, e si può solo farne uno nuovo */
     const STQ = { sent: "Mandato, in attesa di risposta", accepted: "Accettato dal cliente", declined: "Rifiutato dal cliente" };
     const dl = el(`<dl class="review"></dl>`);
-    for (const [k, v] of [["Stato", STQ[q.status] || q.status], ["Al cliente", q.description || "—"], ["Imponibile", euro(q.net_cents)],
+    const AVV = { sent: "email mandata", pending: "email in partenza", sending: "email in partenza", none: "nessuna email (indirizzo di prova o assente)", failed: "email non partita" };
+    for (const [k, v] of [["Stato", STQ[q.status] || q.status], ["Avviso", AVV[q.notify_status] || "—"], ["Al cliente", q.description || "—"], ["Imponibile", euro(q.net_cents)],
       ["IVA " + Number(q.vat_pct) + "%", euro(q.vat_cents)], ["Totale", euro(q.total_cents)], ["Mandato il", fmtDateTime(q.sent_at)]]) {
       const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.appendChild(dt); dl.appendChild(dd);
     }
@@ -221,7 +222,9 @@ function disegnaBozza(qbox, r, slots, q) {
     try {
       const id = await salva();
       const sent = await quotes.send(id);
-      toast("Preventivo mandato: " + euro(sent.total_cents) + ".");
+      const avviso = await quotes.notifyNow(sent.id);
+      toast("Preventivo mandato: " + euro(sent.total_cents) + ". "
+        + (avviso && avviso.client === "sent" ? "Il cliente riceve l'email." : "L'email al cliente parte fra poco."));
       tutte = await api.list(ctx.org.org_id); paint();
     } catch (e) { toast(errMsg(e), { err: true }); }
   };

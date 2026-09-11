@@ -516,3 +516,28 @@ test("la pagina del cliente legge il preventivo dal lato suo, mai da quello dell
   assert.match(soc, /quotes\.send\(/, "la societa manda il preventivo");
   assert.match(soc, /sent\.total_cents/, "e mostra il totale calcolato dal database, non quello del browser");
 });
+
+/* L'avviso «il tuo preventivo è pronto» parte subito dalla pagina, non dal cron (che il 10/09 ha fatto
+   passare ore fra un giro e l'altro). Solo lo staff della societa puo farlo partire, la presa e atomica
+   col worker, e cachet e margine non vengono nemmeno letti: la funzione chiede al database solo i campi
+   che il cliente puo vedere. */
+test("l'avviso del preventivo e protetto, non salta la coda, e non legge i cachet", () => {
+  const src = readFileSync(join(root, "supabase/functions/orc-quote-notify/index.ts"), "utf8");
+  assert.match(src, /orc_memberships/, "controlla che chi chiama sia della societa");
+  assert.match(src, /"non della tua organizzazione" \}, 403/, "e se non lo e, 403");
+  assert.match(src, /\.eq\("notify_status", "pending"\)/, "presa atomica: il worker non spedisce due volte");
+  assert.match(src, /notify_status: ok \? "sent" : "pending"/, "un invio fallito torna in coda");
+  assert.match(src, /isReservedAddress\(dest\)/, "gli indirizzi di prova non ricevono niente");
+  const select = (src.match(/from\("orc_quotes"\)\s*\.select\("([^"]+)"/) || [])[1] || "";
+  assert.ok(select.length > 0, "la lettura del preventivo si trova");
+  assert.doesNotMatch(select, /margin|notes_internal|orc_quote_lines|fee/, "cachet, margine e note non si leggono nemmeno");
+  const cfg = readFileSync(join(root, "supabase/config.toml"), "utf8");
+  assert.match(cfg, /\[functions\.orc-quote-notify\]\s*\n\s*verify_jwt = true/, "la funzione chiede il JWT");
+  const pag = readFileSync(join(root, "orchestre/src/pages/richieste.js"), "utf8");
+  assert.match(pag, /quotes\.notifyNow\(/, "la pagina manda l'avviso appena il preventivo parte");
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  assert.match(wf, /orc-quote-notify\/index\.ts/, "e la CI ne controlla i tipi");
+  /* la rete di sicurezza: il worker ripassa quello che non e partito */
+  const worker = readFileSync(join(root, "supabase/functions/orc-notify/index.ts"), "utf8");
+  assert.match(worker, /processQuotes\(/, "il worker riprende i preventivi rimasti in coda");
+});
