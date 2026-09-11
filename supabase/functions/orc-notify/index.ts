@@ -12,6 +12,7 @@ import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { nextOutboxAttempt, outboxStatusAfterAttempt } from "../_shared/notification-outbox.ts";
 import { buildInviteEmail, idempotencyKey, isReservedAddress, type InviteRow } from "../_shared/orc-invitations.ts";
 import { buildClientEmail, buildInternalEmail, type ClientRequestRow, isReservedAddress as isReservedClient, requestKey } from "../_shared/orc-client-requests.ts";
+import { buildQuoteEmail, quoteKey, type QuoteMailRow } from "../_shared/orc-quotes.ts";
 
 const CLAIM_STALE_MS = 10 * 60 * 1000;
 const BATCH_SIZE = 20;
@@ -168,6 +169,43 @@ async function processClientRequests(supabase: SupabaseClient, resendKey: string
   return counts;
 }
 
+/* I preventivi mandati il cui avviso al cliente non è partito subito (la pagina chiusa, l'invio immediato
+   fallito). Si leggono solo i campi che il cliente può vedere: cachet, margine e note non passano di qui. */
+async function processQuotes(supabase: SupabaseClient, resendKey: string, mode: string, base: string) {
+  const counts = { quoteSent: 0, quoteFailed: 0 };
+  const { data: rows, error } = await supabase.from("orc_quotes")
+    .select("id,description,net_cents,vat_cents,total_cents,vat_pct,notify_attempts,orc_client_requests(contact_name,contact_email,event_title,event_when),orc_organizations(name)")
+    .eq("status", "sent").eq("notify_status", "pending").order("sent_at", { ascending: true }).limit(BATCH_SIZE);
+  if (error) throw new Error(error.message);
+  for (const q of (rows ?? []) as unknown as Array<Record<string, unknown>>) {
+    const id = String(q.id);
+    const r = q.orc_client_requests as { contact_name?: string; contact_email?: string; event_title?: string; event_when?: string } | null;
+    const dest = String(r?.contact_email ?? "");
+    if (!dest || isReservedClient(dest)) {
+      await supabase.from("orc_quotes").update({ notify_status: "none" }).eq("id", id);
+      continue;
+    }
+    const claim = await supabase.from("orc_quotes").update({ notify_status: "sending", notify_claimed_at: new Date().toISOString() })
+      .eq("id", id).eq("notify_status", "pending").select("id");
+    if (claim.error || !(claim.data ?? []).length) continue;
+    const attempts = Number(q.notify_attempts ?? 0) + 1;
+    const row: QuoteMailRow = {
+      id, description: String(q.description ?? ""), net_cents: Number(q.net_cents), vat_cents: Number(q.vat_cents), total_cents: Number(q.total_cents),
+      vat_pct: Number(q.vat_pct), event_title: r?.event_title ?? "", event_when: r?.event_when ?? "", contact_name: r?.contact_name ?? "",
+      org_name: (q.orc_organizations as { name?: string } | null)?.name ?? "StagePlot",
+    };
+    const m = buildQuoteEmail(row, base);
+    let ok = false;
+    if (mode === "log") { console.info("orc-notify [log] preventivo →", dest, m.subject); ok = true; }
+    else ok = (await send(resendKey, dest, m.subject, m.html, m.text, quoteKey(id, attempts))).ok;
+    await supabase.from("orc_quotes").update({
+      notify_status: outboxStatusAfterAttempt(ok, attempts), notify_attempts: attempts, notify_claimed_at: null,
+    }).eq("id", id);
+    if (ok) counts.quoteSent++; else counts.quoteFailed++;
+  }
+  return counts;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   const expected = Deno.env.get("CONSULTATION_WORKER_SECRET") ?? "";
@@ -190,12 +228,15 @@ Deno.serve(async (req) => {
       .update({ notification_status: "pending", notification_claimed_at: null, notification_last_error: "stale_claim_recovered" })
       .eq("notification_status", "sending").or(`notification_claimed_at.is.null,notification_claimed_at.lt.${staleBefore}`);
     if (stErr) throw new Error(stErr.message);
+    await supabase.from("orc_quotes").update({ notify_status: "pending", notify_claimed_at: null })
+      .eq("notify_status", "sending").or(`notify_claimed_at.is.null,notify_claimed_at.lt.${staleBefore}`);
     const counts = await processPending(supabase, resendKey, mode, base);
     const reqCounts = await processClientRequests(supabase, resendKey, mode, base, Deno.env.get("NOTIFY_EMAIL") ?? "");
+    const quoteCounts = await processQuotes(supabase, resendKey, mode, base);
     const { count: dead } = await supabase.from("orc_invitations").select("id", { count: "exact", head: true }).eq("notification_status", "failed");
     /* le spedizioni fallite restano visibili allo staff nella scheda Convocazioni: il worker risponde ok
        se ha girato; va rosso solo se non riesce a lavorare */
-    return json({ ok: true, expired: expired ?? 0, ...counts, ...reqCounts, deadLetters: dead ?? 0, mode });
+    return json({ ok: true, expired: expired ?? 0, ...counts, ...reqCounts, ...quoteCounts, deadLetters: dead ?? 0, mode });
   } catch (e) {
     console.error("orc-notify fallito:", e instanceof Error ? e.message : "unknown");
     return json({ error: "worker failed" }, 500);
