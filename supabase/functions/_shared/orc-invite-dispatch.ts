@@ -16,7 +16,7 @@ type Row = {
   orc_musicians: { first_name: string; email: string } | null;
   orc_organizations: { name: string } | null;
   orc_productions: { title: string; venue: string | null; conductor: string | null; fee_note: string | null; id: string } | null;
-  orc_staffing_roles: { name: string } | null;
+  orc_staffing_roles: { name: string; fee_note: string | null } | null;
   orc_invitation_secrets: { token: string } | null;
 };
 
@@ -28,7 +28,7 @@ export async function dispatchInvitations(
 ): Promise<{ sent: number; failed: number; skipped: number }> {
   const counts = { sent: 0, failed: 0, skipped: 0 };
   let q = supabase.from("orc_invitations")
-    .select("id,notification_kind,notification_attempts,deadline,note_admin,status,orc_musicians(first_name,email),orc_organizations(name),orc_productions(id,title,venue,conductor,fee_note),orc_staffing_roles(name),orc_invitation_secrets(token)")
+    .select("id,notification_kind,notification_attempts,deadline,note_admin,status,orc_musicians(first_name,email),orc_organizations(name),orc_productions(id,title,venue,conductor,fee_note),orc_staffing_roles(name,fee_note),orc_invitation_secrets(token)")
     .eq("notification_status", "pending");
   if (opts.productionId) q = q.eq("production_id", opts.productionId);
   const { data: rows, error } = await q.order("notification_attempts", { ascending: true }).order("created_at", { ascending: true }).limit(opts.limit);
@@ -53,7 +53,8 @@ export async function dispatchInvitations(
       id: row.id, notification_kind: row.notification_kind, notification_attempts: attempts, deadline: row.deadline, note_admin: row.note_admin,
       musician_first_name: row.orc_musicians!.first_name, musician_email: email, organization: row.orc_organizations?.name ?? "Orchestre",
       production_title: row.orc_productions.title, production_venue: row.orc_productions.venue, production_conductor: row.orc_productions.conductor,
-      production_fee_note: row.orc_productions.fee_note, role_name: row.orc_staffing_roles?.name ?? "",
+      /* il compenso del SUO ruolo; quello uguale per tutti solo se il ruolo non ne ha uno */
+      production_fee_note: row.orc_staffing_roles?.fee_note || row.orc_productions.fee_note, role_name: row.orc_staffing_roles?.name ?? "",
       dates: ((dates ?? []) as unknown as { orc_production_dates: InviteRow["dates"][number] | null }[]).map((d) => d.orc_production_dates).filter((d): d is InviteRow["dates"][number] => !!d)
         .sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
     };
