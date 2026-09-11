@@ -137,6 +137,8 @@ dl.review dd.strong{font-weight:700;color:var(--text)}
 .quote-lines .btn{padding:0;min-width:0;width:100%}
 .card p,.card a{overflow-wrap:anywhere}
 .card h2,.card h3{margin-top:0}
+/* le schede dentro la scheda di una richiesta (preventivo, evento): staccate, non incollate */
+.dett>.card{margin-block:var(--s-4)}
 .card .num{font-size:var(--t-display);font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:var(--r-pill);font-size:var(--t-label);font-weight:600;
   background:var(--surface-raised);color:var(--text-2);border:1px solid var(--border)}

@@ -1,6 +1,7 @@
 /* Le richieste che arrivano dai clienti di StagePlot: chi ha disegnato un palco e vuole i musicisti.
    Quello che è arrivato non si modifica (lo impedisce il database): qui si legge, si prende in carico e
-   si chiude. La trasformazione in evento con l'organico arriva col passo successivo. */
+   si chiude. Quando il cliente accetta, un tasto crea l'evento con i posti da coprire. */
+import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDateTime } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
@@ -44,6 +45,7 @@ function paint() {
       quantiLabel(r),
       [r.event_when, r.event_place].filter(Boolean).join(" · "),
       [r.contact_name, r.contact_company].filter(Boolean).join(" · "),
+      r.production_id ? "evento creato" : "",
     ].filter(Boolean).join(" · ");
     const act = li.querySelector(".actions");
     act.appendChild(el(`<span class="pill ${PILL[r.status] || ""}">${esc(STATO[r.status] || r.status)}</span>`));
@@ -56,7 +58,7 @@ function paint() {
 }
 
 function dettaglio(r) {
-  const li = el(`<li class="list-item block"><section class="card"><div id="d"><div class="loading">Un attimo…</div></div></section></li>`);
+  const li = el(`<li class="list-item block"><section class="card"><div id="d" class="dett"><div class="loading">Un attimo…</div></div></section></li>`);
   const box = li.querySelector("#d");
   (async () => {
     try {
@@ -95,11 +97,13 @@ function dettaglio(r) {
       if (full.project_id) box.appendChild(el(`<p><a class="btn small" href="/app/?p=${esc(full.project_id)}" target="_blank" rel="noopener">Apri il progetto vivo</a></p>`));
       /* il preventivo */
       box.appendChild(await bloccoPreventivo(r, slots));
+      /* l'evento */
+      box.appendChild(bloccoEvento(r, slots));
       /* la lavorazione */
       const act = el(`<div class="row" id="az"></div>`);
       for (const [st, label] of [["taken", "Prendi in carico"], ["quoted", "Preventivo inviato"], ["won", "Accettata"], ["lost", "Non andata"], ["closed", "Chiudi"]]) {
         if (st === r.status) continue;
-        const b = el(`<button type="button" class="btn small${st === "taken" ? " primary" : " ghost"}">${label}</button>`);
+        const b = el(`<button type="button" class="btn small${st === "taken" && r.status === "new" ? " primary" : " ghost"}">${label}</button>`);
         b.onclick = async () => {
           try { await api.setStatus(r.id, st); toast("Segnata: " + (STATO[st] || st).toLowerCase() + "."); tutte = await api.list(ctx.org.org_id); paint(); }
           catch (e) { toast(errMsg(e), { err: true }); }
@@ -113,6 +117,45 @@ function dettaglio(r) {
   return li;
 }
 
+
+/* ------------------------------------------------------------------ l'evento
+
+   La richiesta sa già cosa, dove, quando e chi serve: l'evento nasce da lì, con un ruolo per ogni posto
+   da coprire, e si va dritti all'Organico a cercare i musicisti. Il tasto c'è anche prima dell'accettazione
+   — a volte ci si accorda al telefono — ma è in evidenza solo quando il cliente ha detto sì. */
+function bloccoEvento(r, slots) {
+  const sez = el(`<section class="card"><h3>Evento</h3><div id="ebox"></div></section>`);
+  const ebox = sez.querySelector("#ebox");
+  if (r.production_id) {
+    ebox.appendChild(el(`<p class="small muted">L'evento c'è già: organico, date e convocazioni si seguono da lì.</p>`));
+    ebox.appendChild(el(`<p><a class="btn small primary" href="${BASE}/admin/produzioni/scheda/?id=${esc(r.production_id)}&amp;t=organico">Apri l'evento</a></p>`));
+    return sez;
+  }
+  if (r.status === "lost" || r.status === "closed") {
+    ebox.appendChild(el(`<p class="small muted">La richiesta è chiusa: niente evento da creare.</p>`));
+    return sez;
+  }
+  const posti = slots.filter((x) => !x.covered).reduce((n, x) => n + (Number(x.qty) || 0), 0);
+  const quali = posti ? (posti === 1 ? "1 posto da coprire" : posti + " posti da coprire") : "i posti del preventivo";
+  const p = el(`<p class="small muted"></p>`);
+  p.textContent = r.status === "won"
+    ? "Il cliente ha accettato. L'evento nasce con titolo, luogo e " + quali + "; poi cerchi i musicisti dall'Organico."
+    : "Se vi siete già accordati, puoi creare l'evento anche adesso: nasce con titolo, luogo e " + quali + ".";
+  ebox.appendChild(p);
+  const b = el(`<button type="button" class="btn small${r.status === "won" ? " primary" : ""}">Crea l'evento</button>`);
+  b.onclick = async () => {
+    const ok = await confirm({ title: "Creare l'evento?", text: "«" + r.event_title + "» diventa una produzione con " + quali + ". La richiesta resta com'è.", ok: "Crea l'evento" });
+    if (!ok) return;
+    b.disabled = true;
+    try {
+      const pid = await api.toProduction(r.id);
+      toast("Evento creato.");
+      location.href = BASE + "/admin/produzioni/scheda/?id=" + encodeURIComponent(pid) + "&t=organico";
+    } catch (e) { b.disabled = false; toast(errMsg(e), { err: true }); }
+  };
+  ebox.appendChild(b);
+  return sez;
+}
 
 /* ------------------------------------------------------------------ il preventivo
 
