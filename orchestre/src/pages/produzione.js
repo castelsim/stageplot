@@ -79,7 +79,7 @@ function paintDati() {
   g.appendChild(field("manager", "Responsabile", p.manager));
   g.appendChild(field("venue", "Luogo", p.venue));
   g.appendChild(field("address", "Indirizzo", p.address));
-  g.appendChild(field("fee_note", "Compenso o fascia", p.fee_note, { hint: "testo libero, es. «cachet standard» o «150 € a servizio»" }));
+  g.appendChild(field("fee_note", "Compenso uguale per tutti i ruoli", p.fee_note, { hint: "lo leggono tutti i convocati: se i ruoli sono pagati diversamente, scrivilo nel ruolo (Organico)" }));
   g.appendChild(field("dress_code", "Dress code", p.dress_code));
   g.appendChild(field("reply_deadline", "Scadenza per rispondere", toLocalInput(p.reply_deadline), { type: "datetime-local" }));
   card.appendChild(g);
@@ -191,7 +191,9 @@ async function paintOrganico() {
 async function loadOrganico() {
   const box = app.querySelector("#org"), sum = app.querySelector("#summary");
   try {
-    sections = groupStaffing(await api.staffing(p.id));
+    const [righe, compensi] = await Promise.all([api.staffing(p.id), api.roleFees(p.id).catch(() => ({}))]);
+    sections = groupStaffing(righe);
+    for (const s of sections) for (const r of s.roles) r.fee_note = compensi[r.id] || "";
     const c = staffingCounts(sections);
     sum.innerHTML = "";
     if (c.seats) {
@@ -259,10 +261,11 @@ function roleBlock(r) {
     <div class="field"><label>Posti</label><input type="number" min="0" max="200" class="seats"></div>
     <div class="field"><label>Parte</label><select class="part">${Object.entries(PART).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
     <div class="field"><label>Livello minimo</label><select class="lvl"><option value="">—</option>${[1, 2, 3, 4, 5].map((n) => `<option>${n}</option>`).join("")}</select></div>
+    <div class="field fee-f"><label>Compenso per questo ruolo</label><input class="fee" maxlength="200" placeholder="es. 250 € a persona"><span class="hint">Lo vede solo chi è convocato su questo ruolo.</span></div>
     <button type="button" class="btn small save">Salva</button><button type="button" class="btn small danger del">Togli ruolo</button></div>`);
-  edit.querySelector(".seats").value = r.seats; edit.querySelector(".part").value = r.part; edit.querySelector(".lvl").value = r.min_level || "";
+  edit.querySelector(".seats").value = r.seats; edit.querySelector(".part").value = r.part; edit.querySelector(".lvl").value = r.min_level || ""; edit.querySelector(".fee").value = r.fee_note || "";
   edit.querySelector(".save").onclick = async () => {
-    try { await api.updateRole(r.id, { seats: Number(edit.querySelector(".seats").value), part: edit.querySelector(".part").value, min_level: Number(edit.querySelector(".lvl").value) || null }); toast("Ruolo aggiornato."); await loadOrganico(); }
+    try { await api.updateRole(r.id, { seats: Number(edit.querySelector(".seats").value), part: edit.querySelector(".part").value, min_level: Number(edit.querySelector(".lvl").value) || null, fee_note: edit.querySelector(".fee").value.trim().slice(0, 200) }); toast("Ruolo aggiornato."); await loadOrganico(); }
     catch (e) { toast(errMsg(e), { err: true }); }
   };
   edit.querySelector(".del").onclick = async () => {

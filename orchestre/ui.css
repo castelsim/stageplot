@@ -194,6 +194,8 @@ details.altri-filtri[open] summary{margin-bottom:var(--s-2)}
 .filters.cinque{grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))}
 .form-row.three{grid-template-columns:1fr 1fr 1fr auto auto}
 @media (max-width:880px){.form-row.three{grid-template-columns:1fr 1fr}}
+/* il compenso del ruolo è una frase («280 € a persona, viaggio compreso»): una riga intera */
+.form-row.three .fee-f{grid-column:1/-1}
 details.role{border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:var(--s-2);background:var(--surface)}
 details.role summary{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) var(--s-4);min-height:var(--tap);cursor:pointer;list-style:none;flex-wrap:wrap}
 details.role summary::-webkit-details-marker{display:none}

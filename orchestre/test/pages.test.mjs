@@ -747,3 +747,13 @@ test("le convocazioni partono subito, sono protette, e il confermato lo sa", () 
   const mig = readFileSync(join(root, "supabase/migrations/0068_orc_convocazioni_avvisi.sql"), "utf8");
   assert.match(mig, /status = 'confirmed', slot_id = slot, notification_kind = 'confirmed', notification_status = 'pending'/, "la conferma mette in coda l'avviso");
 });
+
+/* Il compenso per ruolo (11/09): un campo solo per tutta la produzione lo leggevano tutti i convocati. */
+test("il compenso si scrive per ruolo, e le email mandano quello del ruolo", () => {
+  const prod = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  assert.match(prod, /<label>Compenso per questo ruolo<\/label><input class="fee"/, "il campo nel ruolo");
+  assert.match(prod, /fee_note: edit\.querySelector\("\.fee"\)\.value\.trim\(\)\.slice\(0, 200\)/, "e si salva");
+  assert.match(prod, /"Compenso uguale per tutti i ruoli"/, "quello della produzione dice che lo leggono tutti");
+  const d = readFileSync(join(root, "supabase/functions/_shared/orc-invite-dispatch.ts"), "utf8");
+  assert.match(d, /production_fee_note: row\.orc_staffing_roles\?\.fee_note \|\| row\.orc_productions\.fee_note/, "l'email porta il compenso del ruolo");
+});
