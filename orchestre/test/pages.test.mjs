@@ -578,3 +578,25 @@ test("ogni migrazione ha un numero suo", () => {
   assert.ok(numeri.every((n) => /^\d{4}$/.test(n)), "ogni file comincia con quattro cifre");
 });
 
+/* Le guardie e i test di dominio giravano solo nel deploy, dopo il merge: una PR poteva essere verde con
+   una guardia rossa, e il sito restava indietro (lo stesso difetto del lint, 10/09). */
+test("i test senza database girano anche nella PR, prima del merge", () => {
+  const wf = readFileSync(join(root, ".github/workflows/orchestre-rls.yml"), "utf8");
+  assert.match(wf, /pull_request:/, "il workflow gira sulle PR");
+  const i = wf.indexOf("node --test orchestre/test/*.test.mjs");
+  assert.ok(i > 0, "tutte le suite di Orchestre, non solo le rls");
+  assert.ok(i < wf.indexOf("supabase start"), "prima di avviare Supabase: senza database, e senza aspettarlo");
+});
+
+/* I filtri dell'elenco musicisti: la logica sta nel dominio (provata in roster-filter.test.mjs), la pagina
+   deve usarla — non rifarsela a metà — e offrire i cinque filtri; chiusi, ma aperti da soli se
+   l'indirizzo ne porta uno, o la lista sarebbe filtrata senza che si veda da cosa. */
+test("l'elenco musicisti filtra per genere, lettura, esperienza, zona e tag, con la logica del dominio", () => {
+  const pag = readFileSync(join(root, "orchestre/src/pages/musicisti.js"), "utf8");
+  assert.match(pag, /from "\.\.\/domain\/roster-filter\.js"/);
+  assert.match(pag, /const rows = filtra\(all, F\);/, "la lista è quella del dominio");
+  assert.doesNotMatch(pag, /all\.filter\(/, "niente seconda logica dei filtri nella pagina");
+  for (const id of ["gen", "let", "esp", "zona", "tag"]) assert.match(pag, new RegExp(`<select id="${id}">`), "manca il filtro " + id);
+  assert.match(pag, /if \(altriAttivi\(F\)\) app\.querySelector\("#altri"\)\.open = true;/, "un filtro nascosto ma acceso si mostra");
+  assert.match(pag, /history\.replaceState\(null, "", location\.pathname \+ \(qs \? "\?" \+ qs : ""\)\)/, "i filtri restano nell'indirizzo");
+});
