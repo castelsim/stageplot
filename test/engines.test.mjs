@@ -2343,15 +2343,27 @@ t("una funzione SQL a cui si toglie l'execute lo ridà alla service_role", () =>
      Il pattern giusto è quello della 0025 (feedback_throttle_hit): revoke, poi grant. */
   const dir = join(root, "supabase/migrations");
   const mancanti = [];
-  for (const f of readdirSync(dir).filter((x) => /\.sql$/.test(x))) {
+  const file = readdirSync(dir).filter((x) => /\.sql$/.test(x)).sort();
+  /* Chi è una funzione TRIGGER si decide leggendo TUTTE le migrazioni, non solo quella che toglie
+     l'execute: `orc_roles_sync_slots` è dichiarata nella 0044 e il permesso glielo toglie la 0067,
+     e cercando la dichiarazione nel solo file corrente l'eccezione non la trovava — main rosso, e
+     il deploy fermo dalle 13:44 dell'11/09. Vince l'ULTIMA dichiarazione: una funzione può smettere
+     di essere un trigger, e allora la regola torna a valere. */
+  const eTrigger = {};
+  for (const f of file) {
+    const sql = readFileSync(join(dir, f), "utf8");
+    for (const d of sql.matchAll(/create\s+(?:or replace\s+)?function\s+([\w.]+)\s*\([^)]*\)\s*returns\s+(\w+)/gi)) {
+      eTrigger[d[1]] = d[2].toLowerCase() === "trigger";
+    }
+  }
+  for (const f of file) {
     const sql = readFileSync(join(dir, f), "utf8");
     /* i nomi delle funzioni a cui questa migrazione toglie l'execute */
     for (const m of sql.matchAll(/revoke\s+(?:all|execute)\s+on\s+function\s+([\w.]+)\s*\([^)]*\)[\s\S]{0,120}?from[^;]*;/gi)) {
       const fn = m[1];
       /* Le funzioni TRIGGER non c'entrano: le esegue il trigger per conto dell'owner, e nessuno le
          chiama via RPC. Toglier loro l'execute a tutti è anzi giusto — è il caso della 0023. */
-      const decl = new RegExp("create (?:or replace )?function\\s+" + fn.replace(".", "\\.") + "\\s*\\([^)]*\\)\\s*returns\\s+trigger", "i");
-      if (decl.test(sql)) continue;
+      if (eTrigger[fn]) continue;
       const ridato = new RegExp("grant\\s+execute\\s+on\\s+function\\s+" + fn.replace(".", "\\.") + "\\s*\\([^)]*\\)[\\s\\S]{0,120}?to[^;]*service_role", "i");
       if (!ridato.test(sql)) mancanti.push(f + " → " + fn);
     }
