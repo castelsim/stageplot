@@ -1676,7 +1676,10 @@ var SEARCH_ALIAS = {
   trombone:"tromba a coulisse coulisse trombonista tbn trb tbone", musTrombone:"tromba a coulisse coulisse trombonista",
   /* monitor e microfoni */
   wedge:"spia spie monitor da terra floor monitor mon mons",
-  topattivo:"cassa casse diffusore diffusori altoparlante speaker top satellite pa attiva attivo amplificata stativo treppiede fbt evomaxx rcf qsc",
+  /* La ricerca confronta la FRASE intera come sottostringa (searchMatches): con le sole parole
+     sciolte «cassa attiva» non trovava niente — visto nel browser il 12/09. Le frasi che uno
+     digita davvero vanno scritte per intero. */
+  topattivo:"cassa attiva casse attive cassa amplificata diffusore attivo diffusori attivi altoparlante speaker top satellite pa attiva su stativo treppiede fbt evomaxx rcf qsc",
   iem:"in ear inear auricolare auricolari earphone radiotrasmettitore mon mons",
   iemant:"in ear inear auricolari",
   wireless:"radiomicrofono radiomicrofoni radiomic gelato palmare",
@@ -2014,6 +2017,12 @@ function equipCatsFor(it){
   if(it.type==="stagebox") return null;   /* unificato 18/07: il modello è il campo hw (STAGEBOX_DB), non un campo separato */
   if(it.type==="hearback"||it.type==="mixhub"||it.type==="mixerino") return null;   /* unificato 28/07: il modello è il campo pm (PM_DB), nel blocco «Personal monitor» */
   if(typeof lightModelApplies==="function" && lightModelApplies(it)) return null;   /* unificato 29/07: sulle luci continue il modello è il campo lm (LIGHT_MODEL_DB), nel blocco «Modello della luce» — stessa scelta di stage box (18/07) e personal monitor (28/07): un solo campo per la stessa cosa */
+  /* unificato 12/09: se l'elemento ha già il selettore dei modelli reali di AMP_DB (il diffusore
+     attivo su stativo), non gliene servono DUE. Il primo era ereditato dalla categoria «PA e
+     diffusione», che offre line array e sub da service: su una cassa da matrimonio non c'entrano.
+     Visto nel browser, non dedotto: il pannello mostrava «Modello diffusore / ampli» e «Modello del
+     backline» uno sotto l'altro. */
+  if(typeof ampModelApplies==="function" && ampModelApplies(it)) return null;
   if(EQUIP_CATS_BY_TYPE[it.type]) return EQUIP_CATS_BY_TYPE[it.type];
   var c=EQUIP_CATS_BY_CATALOG[TYPES[it.type].cat];
   return (c&&c.length)?c:null; }
@@ -2353,10 +2362,13 @@ function topStandDraw(it){
   var W=it&&it.w||90, D=it&&it.d||90;
   var r2=function(v){ return Math.round(v*100)/100; };
   var rg=Math.min(W,D)/2;                      /* raggio del treppiede aperto */
-  var g='';
+  /* Il cerchio d'ingombro: tenue, ma c'è. Senza, le gambe spuntano appena da sotto la cassa e lo
+     spazio che il treppiede toglie al palco — l'unica ragione per cui l'elemento è largo 90 cm e non
+     48 — non si vede. Guardato nel browser il 12/09 prima di metterlo. */
+  var g='<circle cx="0" cy="0" r="'+r2(rg)+'" fill="none" stroke="#6b7280" stroke-width="0.9" stroke-dasharray="3 3" opacity=".45"/>';
   for(var i=0;i<3;i++){                        /* tre gambe a 120°, una verso il pubblico */
     var a=(90+i*120)*Math.PI/180;
-    g+='<line x1="0" y1="0" x2="'+r2(Math.cos(a)*rg)+'" y2="'+r2(Math.sin(a)*rg)+'" stroke="#6b7280" stroke-width="2.2" stroke-linecap="round"/>';
+    g+='<line x1="0" y1="0" x2="'+r2(Math.cos(a)*rg)+'" y2="'+r2(Math.sin(a)*rg)+'" stroke="#6b7280" stroke-width="2.8" stroke-linecap="round"/>';
   }
   var cw=Math.min(48, W*0.56), cd=Math.min(40, D*0.46);   /* la cassa, in scala se l'elemento è stato ridimensionato */
   return g
@@ -8787,6 +8799,11 @@ function pmFillProps(it){
 function bmFillProps(it){
   var bSel=document.getElementById("pBmBrand"), mSel=document.getElementById("pBmModel");
   if(!bSel||!mSel) return;
+  /* La tabella dei modelli reali non è più solo backline: su una cassa attiva «Modello del
+     backline» è la parola sbagliata, e chi legge il pannello si chiede se ha sbagliato elemento
+     (visto nel browser il 12/09). Il nome segue quello che si sta guardando. */
+  var lab=document.getElementById("pBmLabel");
+  if(lab && lab.firstChild) lab.firstChild.nodeValue=(it && it.type==="topattivo" ? "Modello del diffusore " : "Modello del backline ");
   var cur=ampModelOf(it), curBrand=cur?cur.brand:"";
   /* si offrono SOLO i modelli che coprono questo tipo: su un ampli basso non compaiono le tastiere */
   var chiavi=Object.keys(AMP_DB).filter(function(k){ return AMP_DB[k].per.indexOf(it.type)>=0; });
