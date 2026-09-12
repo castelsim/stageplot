@@ -1597,6 +1597,14 @@ var TYPES = {
     draw:function(it){ return drawLibFit("sub218",it,134,90); }},
   frontfill: {nome:"Front fill", dim:"40×35", cat:"PA e diffusione", sub:"Fill e rack", w:40,d:35,
     draw:function(it){ return drawLibFit("frontfill",it,40,35); }},
+  /* L'impianto piccolo mancava. Il catalogo PA era tutto da service — line array, sub 2×18, delay
+     tower — e chi lavora a matrimoni, feste e piccoli live ha due casse attive sui treppiedi ai lati.
+     Senza questo elemento quel palco si disegnava con un «front fill» (che sta a terra e si chiama in
+     un altro modo nel rider) e i suoi watt non entravano nel piano elettrico.
+     L'ingombro in pianta è quello del TREPPIEDE aperto (~90 cm), non della cassa: è lo spazio che
+     l'impianto toglie davvero al palco, ed è la misura che serve a chi decide dove sta la gente. */
+  topattivo: {nome:"Diffusore attivo su stativo", dim:"Ø90 treppiede", cat:"PA e diffusione", sub:"Impianto piccolo", w:90,d:90, defLabel:"PA",
+    draw:function(it){ return topStandDraw(it); }},
   amprack: {nome:"Amp/drive rack", dim:"60×80", cat:"PA e diffusione", sub:"Fill e rack", w:60,d:80,
     draw:function(it){ return drawLibFit("amprack",it,60,80); }},
   delaytower: {nome:"Delay tower", dim:"220×220", cat:"PA e diffusione", sub:"Torri", w:220,d:220,
@@ -1668,6 +1676,7 @@ var SEARCH_ALIAS = {
   trombone:"tromba a coulisse coulisse trombonista tbn trb tbone", musTrombone:"tromba a coulisse coulisse trombonista",
   /* monitor e microfoni */
   wedge:"spia spie monitor da terra floor monitor mon mons",
+  topattivo:"cassa casse diffusore diffusori altoparlante speaker top satellite pa attiva attivo amplificata stativo treppiede fbt evomaxx rcf qsc",
   iem:"in ear inear auricolare auricolari earphone radiotrasmettitore mon mons",
   iemant:"in ear inear auricolari",
   wireless:"radiomicrofono radiomicrofoni radiomic gelato palmare",
@@ -1732,7 +1741,7 @@ var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Au
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,astagigante:1,wireless:1,dimono:1,distereo:1,
-  wedge:1,sidefill:1,iem:1,hearback:1, mixer:1,stagebox:1,foh:1,arraylarge:1,sub218:1,frontfill:1,amprack:1,
+  wedge:1,sidefill:1,iem:1,hearback:1, mixer:1,stagebox:1,foh:1,arraylarge:1,sub218:1,frontfill:1,amprack:1, topattivo:1,
   parluci:1,testamobile:1,sagomatore:1,farope:1,fresnel:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
   /* video e studio: essenziali le sorgenti LED che si montano ogni giorno; HMI, Fresnel LED e
      open-face restano sotto «Mostra tutti» (set più strutturati, non il kit di tutti i giorni) */
@@ -1816,6 +1825,11 @@ var WATT = {
      Prima erano a 0 → il piano elettrico sottostimava i carichi più pesanti (L1, 08/07). Se il sistema
      è passivo, la potenza sta nell'amp rack (amprack:2500), non qui: valori come default sensato. */
   arraylarge:1000, arraymid:700, sub218:1500, delaytower:1200, frontfill:300,
+  /* Diffusore attivo su stativo: 250 W è il programma tipico di un 15" biamplificato di classe D
+     (gli ampli dichiarano 400+100 W RMS, ma quella è potenza d'USCITA e non si assorbe mai tutta
+     insieme). Chi sceglie il modello reale nel pannello prende il suo numero di targa: l'FBT
+     EvoMaxX 6A dichiara 450 VA di richiesta a rete, ed è quello che finisce nel piano elettrico. */
+  topattivo:250,
   wedge:400, sidefill:700, drumfill:500, sub18:800, iemant:60, mixhub:60
   /* NB: ledwallmod/schermo NON qui — hanno potenza area-based in WATT_BY_AREA (wattOf la usa prima). */
 };
@@ -1875,7 +1889,21 @@ var AMP_DB = {
   "yamaha_cp73":   {brand:"Yamaha", model:"CP73", per:["stagepiano"], watt:null, kg:13.1, v:true},
   /* — Hammond (hammondorganco.com) — */
   "hammond_skxpro":{brand:"Hammond", model:"SkxPro", per:["organohammond","doppiatastiera"], watt:22, kg:16.9, v:true,
-                    note:"e' l'Hammond PORTATILE: un B3 vintage pesa piu' di dieci volte tanto e non si sposta in due"}
+                    note:"e' l'Hammond PORTATILE: un B3 vintage pesa piu' di dieci volte tanto e non si sposta in due"},
+  /* — PA ATTIVA DI TAGLIO PICCOLO — la tabella non e' piu' solo backline: un diffusore attivo e'
+       un apparecchio che assorbe, e il piano elettrico ha lo stesso bisogno di sapere quanto.
+       ⚠️ Qui `watt` e' la RICHIESTA DI RETE dichiarata (VA), non il programma medio: e' il numero
+       che deve reggere la presa, ed e' l'unico che il costruttore pubblica. `out` resta la potenza
+       AUDIO, che non diventa mai un carico.
+       ⚠️ E `kg` comprende il TREPPIEDE (~5 kg), perche' l'elemento del catalogo e' la coppia
+       cassa+stativo: il diffusore da solo pesa quello scritto nella nota. Il peso serve a chi carica
+       il furgone, e il furgone si porta dietro anche i treppiedi.
+       FBT (fbt.it): dati letti il 12/09/2026 sulla scheda AV-iQ del costruttore e su quella
+       dell'importatore ufficiale UK (fbtaudio.co.uk). */
+  "fbt_evomaxx6a": {brand:"FBT", model:"EvoMaxX 6A", per:["topattivo"], watt:450, out:500, kg:26, v:true,
+                    note:"15\u2033+1\u2033 biamplificato, 400+100 W RMS, 757\u00d7482\u00d7399 mm, 450 VA. Il diffusore pesa 21 kg: qui 26 col treppiede"},
+  "fbt_evo2maxx6a":{brand:"FBT", model:"Evo2MaxX 6A", per:["topattivo"], watt:450, out:500, kg:29, v:true,
+                    note:"la seconda serie: stesse misure e stessa richiesta di rete, ma il diffusore pesa 24,4 kg (qui 29 col treppiede)"}
 };
 /* Su quali elementi si puo' scegliere un modello di backline: quelli che AMP_DB dichiara di coprire.
    Niente elenco di tipi scritto a parte, che invecchierebbe da solo appena si aggiunge una riga. */
@@ -2041,6 +2069,9 @@ var WEIGHT = {
      niente; e chi sceglie il modello reale nel pannello ora si prende il suo peso esatto. */
   arraylarge:60, arraymid:26, sub218:90, delaytower:90, frontfill:12,
   /* monitor */
+  /* 26 = un 15" attivo (~21 kg) più il suo treppiede (~5): l'elemento è la coppia, ed è quello
+     che qualcuno deve caricare in furgone. Col modello reale scelto vale il peso di targa. */
+  topattivo:26,
   wedge:22, sidefill:45, drumfill:30, sub18:45, iemant:12, hearback:2,
   /* regia/console */
   /* CONSOLE — pesi di targa, verificati sui documenti ufficiali il 29/08 (vedi WATT sopra). Erano
@@ -2312,6 +2343,29 @@ function sbLod(it){   /* 2 = XLR con pin · 1 = pastiglie · 0 = barre di riempi
   if(!isFinite(pxPerCm) || pxPerCm<=0) return 2;   /* misura non disponibile: meglio il dettaglio pieno che una barra */
   var wpx=(it.w||58)*pxPerCm;   /* larghezza della box in pixel di schermo */
   return wpx>=110 ? 2 : (wpx>=30 ? 1 : 0);   /* soglie sulle misure REALI: una stage box e' larga 33-54 cm, non 58 */
+}
+/* Diffusore attivo su stativo, visto dall'alto: le tre gambe del treppiede e la cassa sopra.
+   Disegnato a codice e non con un'icona d'archivio perché le due misure che contano sono diverse e
+   devono restare vere insieme: il TREPPIEDE occupa il palco (~90 cm di apertura), la CASSA è quella
+   che si vede (48×40 cm, la misura di targa di un 15" come l'FBT EvoMaxX 6A). La palette è quella
+   della stagebox, così l'elemento resta fratello degli altri. */
+function topStandDraw(it){
+  var W=it&&it.w||90, D=it&&it.d||90;
+  var r2=function(v){ return Math.round(v*100)/100; };
+  var rg=Math.min(W,D)/2;                      /* raggio del treppiede aperto */
+  var g='';
+  for(var i=0;i<3;i++){                        /* tre gambe a 120°, una verso il pubblico */
+    var a=(90+i*120)*Math.PI/180;
+    g+='<line x1="0" y1="0" x2="'+r2(Math.cos(a)*rg)+'" y2="'+r2(Math.sin(a)*rg)+'" stroke="#6b7280" stroke-width="2.2" stroke-linecap="round"/>';
+  }
+  var cw=Math.min(48, W*0.56), cd=Math.min(40, D*0.46);   /* la cassa, in scala se l'elemento è stato ridimensionato */
+  return g
+    + '<circle cx="0" cy="0" r="'+r2(rg*0.16)+'" fill="#6b7280"/>'
+    + '<rect x="'+r2(-cw/2)+'" y="'+r2(-cd/2)+'" width="'+r2(cw)+'" height="'+r2(cd)+'" rx="2" fill="#101214"/>'
+    + '<rect x="'+r2(-cw/2+1)+'" y="'+r2(-cd/2+1)+'" width="'+r2(cw-2)+'" height="'+r2(cd-2)+'" rx="1.6" fill="#1d2024"/>'
+    /* il fronte (verso il pubblico, y>0): la griglia si vede da qui */
+    + '<rect x="'+r2(-cw/2+3)+'" y="'+r2(cd/2-4.2)+'" width="'+r2(cw-6)+'" height="2.6" rx="1.3" fill="#2b3138"/>'
+    + '<rect x="'+r2(-cw/2+2)+'" y="'+r2(-cd/2+1.6)+'" width="'+r2(cw-4)+'" height="0.6" rx=".3" fill="#fff" opacity=".07"/>';
 }
 function sbDraw(it){
   var L=sbLayout(it), W=it.w||L.w, D=it.d||L.d, lod=sbLod(it);
@@ -2678,7 +2732,7 @@ var DEFAULT_LABELS = {
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
   astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", astagigante:"Boom XL", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Podio relatore", cantante:"Voce", corista:"Coro",
-  wedge:"MIX", sidefill:"SIDE", drumfill:"DRUM FILL", iem:"IEM", iemant:"TX IEM", hearback:"PM",
+  wedge:"MIX", sidefill:"SIDE", drumfill:"DRUM FILL", iem:"IEM", iemant:"TX IEM", hearback:"PM", topattivo:"PA",
   dimono:"DI", distereo:"DI st", stagebox:"STAGEBOX", splitter:"SPLIT", multicore:"SUB", corrente:"220V", ciabatta:"Power",
   quadro:"POWER", foh:"FOH", monmix:"MON MIX", laptop:"MAC", audiointerface:"I/O",
   schermo:"SCREEN", proiettore:"PJ", camera:"CAM"
@@ -12538,7 +12592,7 @@ function findFreeSpotFor(it,x,y){
 /* strumenti/persone con nome progressivo automatico (Flauto 1, Tromba 2, …) */
 /* hardware numerato + cascata (Simone 08/07 sera): monitor, DI, multiprese, distro, aste →
    Wedge 1/2, DI 1/2, Multipresa 1/2… con re-flow quando ne cancelli uno. */
-var NUMBERED_HW = { wedge:1, sidefill:1, drumfill:1, iem:1, sub18:1,
+var NUMBERED_HW = { wedge:1, sidefill:1, drumfill:1, iem:1, sub18:1, topattivo:1,
   dimono:1, distereo:1, ciabatta:1, distro63:1, distro32:1, distro125:1, quadro:1,
   astamic:1, giraffa:1, astabassa:1, astagigante:1 };
 function autoNumbered(type){ var t=TYPES[type]; if(!t) return false;
@@ -12563,7 +12617,7 @@ var INSTR_BASE = {
   piatto:"Piatto", piatticoppia:"Piatti", campane:"Campane", tamtam:"Tam-tam",
   marimba:"Marimba", timpani3:"Timpani", timpani2:"Timpani", spdsx:"SPD-SX",
   /* hardware numerato */
-  wedge:"Wedge", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", sub18:"Sub",
+  wedge:"Wedge", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", sub18:"Sub", topattivo:"Diffusore",
   dimono:"DI", distereo:"DI stereo", ciabatta:"Multipresa",
   distro63:"Distro", distro32:"Distro", distro125:"Quadro", quadro:"Quadro",
   astamic:"Asta", giraffa:"Giraffa", astabassa:"Asta bassa", astagigante:"Asta gigante"
@@ -21630,7 +21684,7 @@ function resetCatalogView(){
    regole di render e validazione. Le coordinate dei components sono RELATIVE al
    centro dell'item padre (relative_to_parent). */
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
-var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120,
+var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
@@ -21670,6 +21724,7 @@ var DESC3D={ pedana:"black stage riser/platform", podio:"square conductor podium
   astabassa:"short/low microphone stand", coppiast:"stereo microphone pair on single stand with stereo bar",
   podiosp:"wooden speaker lectern with gooseneck mic", corista:"backing vocal microphone position with straight mic stand, no person",
   wedge:"black floor wedge monitor", sidefill:"side fill monitor stack",
+  topattivo:"powered PA speaker on a black tripod stand, 15 inch two-way box",
   drumfill:"drum fill monitor", iemant:"IEM transmitter rack with antennas", hearback:"small personal monitor mixer for headphone/in-ear mix control, with knobs and headphone output",
   dimono:"passive DI box", distereo:"stereo DI box", stagebox:"digital stagebox", splitter:"audio splitter rack 3U",
   multicore:"sub-snake box with multicore cable", quadro:"power distribution board", foh:"front-of-house mixing desk position",
