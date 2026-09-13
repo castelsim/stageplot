@@ -1905,25 +1905,32 @@ svg.names-hidden .orc-name{display:none}
     body.stage-edit main,body.evento-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
     /* In «Punti di ripristino» resta solo la lista delle versioni, come fa già «Area stampa». */
     body.vers-edit #selProps,body.vers-edit #noSel,body.vers-edit #groupProps,body.vers-edit #eventoSec{display:none !important}
-    /* selezione COLLASSATA (default) = solo barra peek: canvas quasi pieno */
-    body.m-has-sel:not(.props-expanded) main{bottom:calc(52px + 53px + env(safe-area-inset-bottom,0px))}
-    /* barra peek: nome + azioni rapide + espandi */
-    #mPeek{display:none;position:fixed;left:0;right:0;top:auto;bottom:calc(53px + env(safe-area-inset-bottom,0px));z-index:31;height:52px;
-      align-items:center;gap:6px;padding:7px 10px 7px 14px;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(0,0,0,.08)}
-    body.m-has-sel:not(.props-expanded) #mPeek{display:flex}
-    #mPeek .mpk-dot{width:9px;height:9px;border-radius:999px;background:var(--accent);flex:0 0 auto}
-    #mPeek .mpk-name{flex:1;min-width:0;text-align:left;border:none;background:none;font:600 15px var(--font-ui);color:var(--text);
+    /* LA TESTA DEL FOGLIO DELL'ELEMENTO (13/09): nome e misure, sotto quattro azioni scritte da 52 px.
+       Resta in vista anche col pannello aperto, appoggiata sopra di lui. Altezze in due token, così
+       palco, testa e cassetto fanno i conti con lo stesso numero. */
+    :root{--peek-h:118px;--drawer-h:42vh}
+    body.m-has-sel:not(.props-expanded) main{bottom:calc(var(--peek-h) + 53px + env(safe-area-inset-bottom,0px))}
+    #mPeek{display:none;position:fixed;left:0;right:0;top:auto;bottom:calc(53px + env(safe-area-inset-bottom,0px));z-index:31;height:var(--peek-h);box-sizing:border-box;
+      flex-direction:column;gap:6px;padding:4px 12px 10px;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;box-shadow:0 -6px 20px rgba(0,0,0,.1)}
+    body.m-has-sel #mPeek{display:flex}
+    body.m-has-sel.props-expanded #mPeek{bottom:calc(var(--drawer-h) + 53px + env(safe-area-inset-bottom,0px))}
+    #mPeek .mpk-top{display:flex;align-items:center;gap:8px;min-height:44px}
+    #mPeek .mpk-dot{width:10px;height:10px;border-radius:999px;background:var(--accent);flex:0 0 auto}
+    #mPeek .mpk-name{flex:1;min-width:0;min-height:44px;text-align:left;border:none;background:none;font:700 17px var(--font-ui);color:var(--text);
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:0}
-    #mPeek button:not(.mpk-name){flex:0 0 auto;width:38px;height:38px;border:none;background:none;border-radius:9px;color:var(--text-2);
-      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s var(--ease)}
-    #mPeek button:active{background:var(--n-100)}
-    #mPeek .mpk-del{color:var(--danger)}
-    #mPeek .mpk-exp{color:var(--accent)}
-    #mPeek svg{width:19px;height:19px}
-    body.m-multi #mPeek .mpk-rot,body.m-multi #mPeek .mpk-dup,body.m-multi #mPeek .mpk-del{display:none}
+    #mPeek .mpk-dim{flex:0 0 auto;font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
+    #mPeek .mpk-exp{flex:0 0 auto;width:44px;height:44px;padding:0;border:none;background:none;border-radius:10px;color:var(--accent);
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    #mPeek .mpk-exp svg{transition:transform .2s var(--ease)}
+    body.props-expanded #mPeek .mpk-exp svg{transform:rotate(180deg)}
+    #mPeek .mpk-acts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    #mPeek .mpk-acts button{min-height:52px;margin:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+      border:1px solid var(--border);border-radius:12px;background:var(--bg);font:600 12px var(--font-ui);color:var(--text);cursor:pointer}
+    #mPeek .mpk-acts button:active{background:var(--n-100)}
+    #mPeek .mpk-acts .mpk-del{color:var(--danger);background:var(--danger-bg);border-color:transparent}
+    #mPeek svg{width:20px;height:20px}
     body.dark #mPeek{background:#1b2327;border-top-color:#2c3a3f}
-    body.dark #mPeek .mpk-name{color:#e5e7eb} body.dark #mPeek button:not(.mpk-name){color:#cbd5e1}
-    body.dark #mPeek button:active{background:#222b38}
+    body.dark #mPeek .mpk-name{color:#e5e7eb}
     /* maniglia per ridurre il pannello espanso a peek */
     #propsGrab{display:none}
     body.tech-open #propsGrab,
@@ -3141,4 +3148,31 @@ body.dark .ask-all .btn{background:transparent}
   #catalog .cat-body button,#catalog #catPinned button,#catalog #catResults button{min-height:56px;padding:6px 12px;font-size:15px}
   #catalog .cat-body .mini,#catalog #catPinned .mini,#catalog #catResults .mini{width:40px;height:40px}
   body.dark #catalog #catWrap .cat-head:not(.open){background:#20292e;color:#e5e7eb}
+}
+
+/* ── IL PANNELLO DELL'ELEMENTO, SUL TELEFONO (13/09) ──────────────────────────────────────────────
+   Misurato prima: cassetto da 396 px con 910 px di pannello dentro, 18 controlli su 21 sotto i 44 px
+   (Intero/Sigla/Nascosto a 26, le tendine a 32), e il palco ridotto a 325 px con l'elemento scelto
+   illeggibile. Ora: la testa (#mPeek) resta sopra, il cassetto mostra UN gruppo alla volta sotto una
+   fila di schede, i controlli sono da dito, e la vista inquadra l'elemento. Tutto con `#props
+   #selProps` davanti e in fondo al file: dentro #props ogni regola più corta ha già perso otto volte. */
+.ptabs{display:none}
+@media (max-width:880px){
+  body.m-has-sel.props-expanded #props{height:var(--drawer-h);padding-top:0}
+  body.m-has-sel.props-expanded main{bottom:calc(var(--drawer-h) + var(--peek-h) + 53px + env(safe-area-inset-bottom,0px))}
+  body.m-has-sel.props-expanded:not(.tech-open) #propsGrab{display:none}
+  body.m-has-sel.props-expanded #props #selProps #selNome{display:none}
+  #props #selProps .ptabs{display:flex;position:sticky;top:0;z-index:3;margin:0 -14px 12px;padding:0 6px;overflow-x:auto;
+    background:var(--surface);border-bottom:1px solid var(--border);scrollbar-width:none}
+  #props #selProps .ptabs::-webkit-scrollbar{display:none}
+  #props #selProps .ptabs button{flex:0 0 auto;width:auto;min-height:48px;margin:0;padding:0 12px;border:0;border-bottom:2px solid transparent;border-radius:0;
+    background:none;font:600 15px var(--font-ui);color:var(--text-2);white-space:nowrap;cursor:pointer}
+  #props #selProps .ptabs button[aria-selected="true"]{color:var(--accent-strong);border-bottom-color:var(--accent)}
+  #props #selProps .pgrp.tab-off{display:none !important}
+  #props #selProps .pgrp .pgh{display:none}
+  #props #selProps .btn,#props #selProps select,
+  #props #selProps input:not([type=range]):not([type=checkbox]):not([type=radio]){min-height:44px}
+  #props #selProps #pLblFull,#props #selProps #pLblAbbr,#props #selProps #pLblHidden{font-size:15px !important;padding:0 4px !important}
+  #props #selProps .chk{min-height:44px}
+  body.dark #props #selProps .ptabs{background:#1b2327}
 }

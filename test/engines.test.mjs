@@ -14095,6 +14095,79 @@ t("sul telefono il catalogo parte dalla ricerca e dalle categorie a riquadri", (
   ok(/class="cat-sheet-close danger"/.test(appjs), "la X resta rossa");
 });
 
+t("col pannello aperto, il telefono inquadra l'elemento scelto", () => {
+  /* 13/09 — col cassetto aperto il palco scendeva a 325 px con dentro tutto il palco: l'elemento
+     scelto era un francobollo. */
+  reset();
+  const a = add("batteria", 500, 400); a.w = 150; a.d = 140;
+  A.selectOne(a.id);
+  const z = A.selZoomBounds();
+  ok(z.x0 <= a.x - 75 && z.x1 >= a.x + 75 && z.y0 <= a.y - 70 && z.y1 >= a.y + 70, "l'elemento ci sta tutto");
+  ok(z.x1 - z.x0 >= 320 && z.y1 - z.y0 >= 320, "e si vede anche cosa c'e' intorno: 3,2 m almeno");
+  ok(Math.abs((z.x0 + z.x1) / 2 - a.x) < 1 && Math.abs((z.y0 + z.y1) / 2 - a.y) < 1, "centrato sull'elemento");
+  /* ruotato di 45°, l'ingombro cresce: il raggio del lato maggiore lo contiene comunque */
+  const b = add("pedana", 1100, 300); b.w = 300; b.d = 60; b.rot = 45;
+  A.selectOne(b.id);
+  const zb = A.selZoomBounds();
+  /* ruotato di 45°, 300×60 occupa ~255 cm per lato: col raggio del lato maggiore (150) ci sta */
+  ok(zb.x0 <= b.x - 150 && zb.x1 >= b.x + 150 && zb.y0 <= b.y - 150 && zb.y1 >= b.y + 150, "un elemento lungo e ruotato non esce dall'inquadratura");
+  /* e conta il lato MAGGIORE, qualunque sia: un elemento profondo e stretto */
+  const c = add("pedana", 300, 900); c.w = 60; c.d = 500;
+  A.selectOne(c.id);
+  const zc = A.selZoomBounds();
+  ok(zc.y0 <= c.y - 250 && zc.y1 >= c.y + 250, "profondo e stretto, ci sta in altezza: " + JSON.stringify(zc));
+  A.selectMany([a.id, b.id]);
+  const zz = A.selZoomBounds();
+  A.selItems().forEach((it) => {
+    const r = Math.max(it.w, it.d) / 2;
+    ok(zz.x0 <= it.x - r && zz.x1 >= it.x + r && zz.y0 <= it.y - r && zz.y1 >= it.y + r, "con due elementi, li inquadra tutti e due: " + it.type);
+  });
+  eq(A.selItems().length, 2, "e la scelta e' davvero di due");
+  A.clearSelection();
+  eq(A.selZoomBounds(), null, "senza scelta non inquadra niente");
+  /* ...e la vista non si butta via al primo ritocco: ensureVisible rifaceva tutto il palco */
+  ok(/function ensureVisible\(\)\{ if\(isMobile\(\) && !\(zoomSel && zoomSel\.on\)\) fitStage\(\); \}/.test(appjs), "col pannello aperto un ritocco non riallarga la vista");
+  /* syncPanelGroups gira anche nel boot, prima dell'assegnazione di zoomSel: senza guardia l'app si ferma */
+  ok(/function syncZoomSel\(\)\{[\s\S]{0,300}if\(!zoomSel\) return;/.test(appjs), "la guardia per il boot c'e'");
+  ok(/new MutationObserver\(function\(\)\{ syncZoomSel\(\); \}\)\.observe\(document\.body, \{attributes:true, attributeFilter:\["class"\]\}\)/.test(appjs),
+     "si accende e si spegne con il pannello, da qualunque punto lo si apra");
+  const szs = appjs.slice(appjs.indexOf("function syncZoomSel(){"), appjs.indexOf("if(typeof MutationObserver!==\"undefined\")", appjs.indexOf("function syncZoomSel(){")));
+  ok(/b\.classList\.contains\("props-expanded"\)/.test(szs) && /fitTo\(z\.x0, z\.y0, z\.x1, z\.y1\)/.test(szs) && /fitStage\(\)/.test(szs),
+     "aperto inquadra la scelta, chiuso torna a tutto il palco");
+  reset();
+});
+
+t("sul telefono il pannello dell'elemento e' a schede, con una testa che resta in vista", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const peek = html.slice(html.indexOf('<div id="mPeek">'), html.indexOf("<!-- Qui stavano #fabCat"));
+  ["mPeekRot", "mPeekDup", "mPeekCopy", "mPeekDel"].forEach((id) => ok(peek.includes('id="' + id + '"'), "la testa ha l'azione " + id));
+  ok(/>Ruota<\/button>/.test(peek) && />Copia<\/button>/.test(peek), "le azioni hanno il nome scritto, non solo l'icona");
+  const pj = appjs.slice(appjs.indexOf('var cop=document.getElementById("mPeekCopy")'), appjs.indexOf('var cop=document.getElementById("mPeekCopy")') + 200);
+  ok(/copySel\(\)/.test(pj), "«Copia» copia davvero");
+  ok(/proxyClick\(multi\(\) \? "grpDup" : "pDup"\)/.test(appjs) && /proxyClick\(multi\(\) \? "grpDel" : "pDel"\)/.test(appjs),
+     "con piu' elementi, duplica ed elimina sono quelli della selezione");
+  ok(/if\(multi\(\)\)\{ rotateSel\(45\); return; \}/.test(appjs), "e ruota il gruppo intero");
+  /* le schede: dopo syncPanelGroups, dai gruppi che esistono davvero */
+  ok(/g\.style\.display = vis \? "" : "none";\n  \}\n  \/\*[^*]*\*\/\n  syncPanelTabs\(\); syncPeekExtra\(\); syncZoomSel\(\);/.test(appjs), "le schede si rifanno dopo aver deciso i gruppi");
+  const spt = appjs.slice(appjs.indexOf("function syncPanelTabs(){"), appjs.indexOf("function syncPeekExtra(){"));
+  ok(/getComputedStyle\(g\)\.display!=="none"/.test(spt), "leggono lo stile calcolato, che sa delle opzioni tecniche spente");
+  ok(/if\(!isMobile\(\)\)\{ bar\.innerHTML=""; return; \}/.test(spt) && spt.indexOf('classList.remove("tab-off")') < spt.indexOf("if(!isMobile())"),
+     "col mouse nessun gruppo resta nascosto");
+  ok(/if\(ids\.indexOf\(panelTab\)<0\) panelTab=ids\[0\];/.test(spt), "una scheda che per questo elemento non esiste lascia il posto alla prima");
+  ok(/gs\.forEach\(function\(g\)\{ if\(g\.getAttribute\("data-grp"\)!==panelTab\) g\.classList\.add\("tab-off"\); \}\);/.test(spt),
+     "e i gruppi delle altre schede si fanno da parte davvero");
+  /* in una scheda non in primo piano i fotogrammi non arrivano: la vista non si spostava mai (provato nel browser) */
+  const szs2 = appjs.slice(appjs.indexOf("function syncZoomSel(){"), appjs.indexOf("function syncZoomSel(){") + 1500);
+  ok(!/requestAnimationFrame\(/.test(szs2) && /setTimeout\(function\(\)\{ var z=selZoomBounds\(\);/.test(szs2), "l'inquadratura parte con un timer, non coi fotogrammi");
+  const s = stylesCss.replace(/\n\s*/g, "");
+  ok(/#props #selProps \.pgrp\.tab-off\{display:none !important\}/.test(s), "le altre schede si nascondono con una classe, non in linea");
+  ok(/body\.m-has-sel #mPeek\{display:flex\}/.test(s), "la testa resta in vista anche col pannello aperto");
+  ok(/body\.m-has-sel\.props-expanded main\{bottom:calc\(var\(--drawer-h\) \+ var\(--peek-h\) \+ 53px/.test(s), "e il palco finisce sopra la testa, non sotto");
+  ok(/#mPeek \.mpk-acts button\{min-height:52px/.test(s), "azioni da 52 px");
+  ok(/#props #selProps #pLblFull,#props #selProps #pLblAbbr,#props #selProps #pLblHidden\{font-size:15px !important/.test(s), "Intero, Sigla, Nascosto si leggono");
+  ok(stylesCss.lastIndexOf("#props #selProps .btn,#props #selProps select") > stylesCss.lastIndexOf("#props .btns .btn{"), "e i 44 px vengono dopo le regole che li rimpicciolivano");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();
@@ -14241,7 +14314,9 @@ t("quando premi un bottone del palco, qualcosa si muove", () => {
      E aprire il cassetto rimpicciolisce il disegno senza generare un resize, quindi nessuno rifa'
      l'inquadratura. (02/09) */
   ok(!/function ensureVisible\(\)\{\}/.test(appjs), "non e' piu' vuota");
-  ok(/function ensureVisible\(\)\{ if\(isMobile\(\)\) fitStage\(\); \}/.test(appjs),
+  /* Dal 13/09 con un'eccezione: col pannello dell'elemento aperto la vista inquadra l'elemento, e
+     rifarla su tutto il palco a ogni ritocco la butterebbe via. */
+  ok(/function ensureVisible\(\)\{ if\(isMobile\(\) && !\(zoomSel && zoomSel\.on\)\) fitStage\(\); \}/.test(appjs),
      "rifa' l'inquadratura, ma solo col dito");
   /* Col mouse l'inquadratura e' dell'utente: non gliela si sposta sotto. */
   const iAdd = appjs.indexOf("function addStageBlock");
