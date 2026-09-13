@@ -14047,6 +14047,54 @@ t("l'elenco del telefono si apre dal dock, e ogni comando della barra fa quello 
   ok(/#mList \.ml-bar-acts button\{min-height:44px/.test(s), "e la barra da dito");
 });
 
+t("il catalogo ricorda gli ultimi sei elementi presi, senza doppioni", () => {
+  /* 13/09 — sul telefono ogni elemento costava tre tocchi (categoria, sottocategoria, elemento). */
+  const mem = {};
+  const ls0 = A.localStorage;
+  A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+  try {
+    eq(A.catalogRecenti(), [], "all'inizio non c'e' niente");
+    ["cantante", "batteria", "wedge", "basso", "tastiera", "chitarra", "stagebox"].filter((k) => A.TYPES[k]).forEach((k) => A.ricordaRecenteCatalogo(k, A.TYPES[k].nome, null));
+    const r = A.catalogRecenti();
+    ok(r.length <= 6, "al massimo sei: " + r.length);
+    const ultimo = ["stagebox", "chitarra", "tastiera"].find((k) => A.TYPES[k]);
+    eq(r[0].k, ultimo, "il piu' recente per primo");
+    A.ricordaRecenteCatalogo(r[2].k, r[2].nome, null);
+    const r2 = A.catalogRecenti();
+    eq(r2[0].k, r[2].k, "ripreso, torna in cima");
+    eq(r2.filter((x) => x.k === r[2].k && x.nome === r[2].nome).length, 1, "e non si duplica");
+    A.ricordaRecenteCatalogo("corista", "Uomo", { donna: false }); A.ricordaRecenteCatalogo("corista", "Donna", { donna: true });
+    eq(A.catalogRecenti().slice(0, 2).map((x) => x.nome), ["Donna", "Uomo"], "stesso tipo, due voci diverse: restano tutte e due");
+    eq(A.catalogRecenti()[0].over, { donna: true }, "con le loro varianti");
+    /* il limite vale anche in LETTURA: un salvataggio di un'altra versione puo' averne di piu' */
+    mem.sp_catRecenti = JSON.stringify(Array.from({ length: 9 }, (_, i) => ({ k: "cantante", nome: "Voce " + i })));
+    eq(A.catalogRecenti().length, 6, "anche se il dispositivo ne ha salvati nove");
+    mem.sp_catRecenti = JSON.stringify([{ k: "nonesiste", nome: "X" }, { k: "wedge", nome: "Wedge" }, "rotto"]);
+    eq(A.catalogRecenti().map((x) => x.k), A.TYPES.wedge ? ["wedge"] : [], "un salvataggio vecchio o rotto non rompe il catalogo");
+    mem.sp_catRecenti = "{non json";
+    eq(A.catalogRecenti(), [], "neanche se non si legge");
+  } finally { A.localStorage = ls0; }
+});
+
+t("sul telefono il catalogo parte dalla ricerca e dalle categorie a riquadri", () => {
+  const s = stylesCss.replace(/\n\s*/g, "");
+  ok(/#catalog #catSearch\{min-height:50px/.test(s), "la ricerca e' grande");
+  ok(/#catWrap:not\(\.drill\)\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(s), "le categorie su due colonne");
+  ok(/#catalog #catWrap \.cat-head\{min-height:60px/.test(s), "riquadri da 60 px");
+  ok(/#catWrap\.drill \.cat-head:not\(\.open\)\{display:none\}/.test(s), "aperta una, le altre si fanno da parte");
+  ok(/wrap\.classList\.toggle\("drill", willOpen\)/.test(appjs), "e si richiudono tornando indietro");
+  /* gli usati di recente: solo sul telefono, e aggiornati da OGNI elemento preso dal catalogo */
+  ok(/#catRecenti\{display:none\}/.test(stylesCss.slice(0, stylesCss.lastIndexOf("@media (max-width:880px){"))), "col mouse non si vedono");
+  ok(/addItem\(k, over\?JSON\.parse\(JSON\.stringify\(over\)\):undefined\); ricordaRecenteCatalogo\(k, nome, over\);/.test(appjs), "ogni elemento preso si ricorda");
+  ok(/function openCatalog\(\)\{ closeAll\(\); if\(window\.__renderRecenti\) window\.__renderRecenti\(\);/.test(appjs), "e riaprendo il catalogo si vedono");
+  const riapri = appjs.slice(appjs.indexOf("window.__renderRecenti=function(){"), appjs.indexOf("window.__renderRecenti=function(){") + 400);
+  ok(/\.cat-head\.open,\.cat-body\.open/.test(riapri) && /wrap\.classList\.remove\("drill"\)/.test(riapri),
+     "riaprendo si riparte dai riquadri, non dall'ultima categoria");
+  ok(/rec\.style\.display="none"; results\.style\.display="block"/.test(appjs), "cercando si fanno da parte");
+  /* la X resta rossa, come chiesto il 02/09 */
+  ok(/class="cat-sheet-close danger"/.test(appjs), "la X resta rossa");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();
