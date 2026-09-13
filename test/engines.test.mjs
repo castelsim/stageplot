@@ -13195,6 +13195,60 @@ t("la potenza d'USCITA non diventa mai un carico elettrico", () => {
   ok(svt.watt > svt.out, "SVT-CL: 460 W assorbiti per 300 di uscita");
 });
 
+/* ═══ IMPIANTO PICCOLO (12/09) ══════════════════════════════════════════════════════════════════
+   Il catalogo PA era tutto da service — line array, sub 2×18, delay tower — e chi lavora a
+   matrimoni e piccoli live ha due casse attive sui treppiedi. Senza l'elemento, quel palco si
+   disegnava con un «front fill» (che sta a terra e nel rider si chiama in un altro modo) e i suoi
+   watt restavano fuori dal piano elettrico. */
+t("il diffusore attivo si trova cercandolo come lo si chiama", () => {
+  /* ⚠️ La ricerca confronta la FRASE intera come sottostringa (searchMatches), non le parole una per
+     una: con l'alias fatto di sole parole sciolte «cassa attiva» non trovava NIENTE. Visto nel
+     browser il 12/09, non dedotto — e nessun test lo avrebbe preso, perché l'elemento c'era. */
+  ["cassa attiva", "casse attive", "cassa amplificata", "diffusore attivo", "top", "stativo", "fbt", "speaker"]
+    .forEach((q) => ok(searchKeys(q).indexOf("topattivo") > -1, "cercando «" + q + "» deve uscire il diffusore"));
+});
+
+t("il diffusore attivo su stativo: in catalogo, e occupa il TREPPIEDE", () => {
+  const T = A.TYPES.topattivo;
+  ok(T, "c'è in catalogo");
+  eq(T.cat, "PA e diffusione");
+  eq(T.sub, "Impianto piccolo");
+  /* la misura che serve a chi decide dove sta la gente è l'apertura del treppiede (~90 cm),
+     non i 48 cm della cassa: è lo spazio che l'impianto toglie davvero al palco */
+  eq(T.w, 90); eq(T.d, 90);
+  const svg = T.draw({ w: 90, d: 90 });
+  eq((svg.match(/<line /g) || []).length, 3, "tre gambe");
+  ok(/<rect /.test(svg), "e la cassa sopra");
+  ok(A.ESSENTIAL.topattivo, "sempre in vista: per un impianto piccolo è l'elemento di tutti i giorni");
+  ok(A.NUMBERED_HW.topattivo, "si numera come i wedge: PA 1, PA 2");
+  ok(A.H3D.topattivo > A.H3D.wedge, "in 3D sta in alto, su uno stativo, non per terra");
+});
+
+t("il diffusore attivo porta i suoi watt nel piano elettrico", () => {
+  eq(A.wattOf({ type: "topattivo" }), 250, "senza modello: stima di famiglia per un 15\" biamplificato");
+  eq(A.wattFonte({ type: "topattivo" }), "stima");
+  /* col modello reale vale il numero del costruttore — e per l'FBT è la RICHIESTA DI RETE (450 VA),
+     l'unico dato che pubblica: è quello che deve reggere la presa. */
+  const fbt = { type: "topattivo", bm: "fbt_evomaxx6a" };
+  eq(A.wattOf(fbt), 450, "FBT EvoMaxX 6A: 450 VA dichiarati");
+  eq(A.wattFonte(fbt), "targa");
+  eq(A.weightOf(fbt), 26, "21 kg il diffusore, più il treppiede: l'elemento è la coppia");
+  /* la trappola di sempre: 400+100 W RMS è potenza d'USCITA e non diventa mai un carico */
+  eq(A.AMP_DB.fbt_evomaxx6a.out, 500);
+  ok(A.AMP_DB.fbt_evomaxx6a.watt < A.AMP_DB.fbt_evomaxx6a.out, "assorbe meno di quanto esce: è classe D");
+  ok(A.ampModelApplies({ type: "topattivo" }), "il pannello offre marca e modello, come per il backline");
+  eq(A.wattOf({ type: "topattivo", bm: "roland_jc120" }), 250,
+     "un modello che non copre questo tipo non conta: resta la stima");
+});
+
+t("due diffusori su stativo fanno 900 VA nel totale del palco", () => {
+  reset();
+  add("topattivo", -400, 200, { bm: "fbt_evomaxx6a" });
+  add("topattivo", 400, 200, { bm: "fbt_evomaxx6a" });
+  eq(A.powerTotalW(), 900, "il suo impianto da matrimonio: 2 × 450 VA");
+  reset();
+});
+
 t("una cassa passiva assorbe zero, e lo dice", () => {
   /* watt:0 non e' «dato mancante»: e' un fatto, e va distinto. Se lo trattassimo come assente,
      l'8x10 tornerebbe a portare i 400 W della stima di categoria — che pero' li assorbe la
