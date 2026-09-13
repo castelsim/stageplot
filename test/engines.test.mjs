@@ -14126,7 +14126,7 @@ t("col pannello aperto, il telefono inquadra l'elemento scelto", () => {
   A.clearSelection();
   eq(A.selZoomBounds(), null, "senza scelta non inquadra niente");
   /* ...e la vista non si butta via al primo ritocco: ensureVisible rifaceva tutto il palco */
-  ok(/function ensureVisible\(\)\{ if\(isMobile\(\) && !\(zoomSel && zoomSel\.on\)\) fitStage\(\); \}/.test(appjs), "col pannello aperto un ritocco non riallarga la vista");
+  ok(/function ensureVisible\(\)\{\n  if\(!isMobile\(\) \|\| \(zoomSel && zoomSel\.on\)\) return;/.test(appjs), "col pannello aperto un ritocco non riallarga la vista");
   /* syncPanelGroups gira anche nel boot, prima dell'assegnazione di zoomSel: senza guardia l'app si ferma */
   ok(/function syncZoomSel\(\)\{[\s\S]{0,300}if\(!zoomSel\) return;/.test(appjs), "la guardia per il boot c'e'");
   ok(/new MutationObserver\(function\(\)\{ syncZoomSel\(\); \}\)\.observe\(document\.body, \{attributes:true, attributeFilter:\["class"\]\}\)/.test(appjs),
@@ -14166,6 +14166,101 @@ t("sul telefono il pannello dell'elemento e' a schede, con una testa che resta i
   ok(/#mPeek \.mpk-acts button\{min-height:52px/.test(s), "azioni da 52 px");
   ok(/#props #selProps #pLblFull,#props #selProps #pLblAbbr,#props #selProps #pLblHidden\{font-size:15px !important/.test(s), "Intero, Sigla, Nascosto si leggono");
   ok(stylesCss.lastIndexOf("#props #selProps .btn,#props #selProps select") > stylesCss.lastIndexOf("#props .btns .btn{"), "e i 44 px vengono dopo le regole che li rimpicciolivano");
+});
+
+t("sul telefono il palco largo si gira, e il documento resta dritto", () => {
+  /* 13/09 — Simone sui mockup: «A di default». Un palco 16×6,5 su un telefono in verticale era una
+     striscia al centro, con gli elementi da 18 px. */
+  reset();
+  const s0 = { m: A.isMobile, iw: A.innerWidth, ih: A.innerHeight, ls: A.localStorage };
+  const mem = {};
+  A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+  try {
+    A.isMobile = () => true; A.innerWidth = 402; A.innerHeight = 874;
+    A.state.stage = { w: 1600, d: 650, blocks: [{ x: 0, y: 0, w: 1600, d: 650 }] };
+    ok(A.vistaDaRuotare(), "palco largo, telefono in verticale: si gira");
+    A.innerWidth = 874; A.innerHeight = 402;
+    ok(!A.vistaDaRuotare(), "telefono in orizzontale: resta dritto");
+    A.innerWidth = 402; A.innerHeight = 874;
+    A.state.stage = { w: 800, d: 760, blocks: [{ x: 0, y: 0, w: 800, d: 760 }] };
+    ok(!A.vistaDaRuotare(), "palco quasi quadrato: resta dritto");
+    A.state.stage = { w: 1600, d: 650, blocks: [{ x: 0, y: 0, w: 1600, d: 650 }] };
+    A.isMobile = () => false;
+    ok(!A.vistaDaRuotare(), "col mouse, mai");
+    A.isMobile = () => true; mem.sp_vistaRuotata = "off";
+    ok(!A.vistaDaRuotare(), "chi l'ha spenta la ritrova spenta");
+    delete mem.sp_vistaRuotata;
+    /* le conversioni: il pubblico (y grande) va a DESTRA (X grande), il fondo palco a sinistra */
+    A.viewRot = 90;
+    const w = { x: 1200, y: 600 }, v = { x: w.y, y: -w.x };
+    eq(A.v2w(v), w, "dalla vista al palco, e ritorno");
+    eq(A.w2vBounds(0, 0, 1600, 650), { x0: 0, y0: -1600, x1: 650, y1: 0 }, "il palco girato: 6,5 m di larghezza, 16 di altezza");
+    /* i nomi si raddrizzano sullo schermo, ma SOLO dentro render(): l'export non passa di li' */
+    const it = add("cantante", 400, 300); it.label = "Voce"; it.rot = 30;
+    A._sceneRuota = 90;
+    const girato = A.itemMarkup(it);
+    A._sceneRuota = 0;
+    const dritto = A.itemMarkup(it);
+    ok(/<text class="lbl" y="[0-9.-]+" transform="rotate\(60 0 [0-9.-]+\)" style="font-size:[0-9.]+px;text-anchor:start;dominant-baseline:central">Voce/.test(girato),
+       "girata la vista, il nome ruota del contrario (90 - 30) e parte dal bordo, verso destra");
+    /* girato verso il fondo (180°), il nome sta a sinistra dell'elemento: deve finire a sinistra, non attraversarlo */
+    it.rot = 180; A._sceneRuota = 90;
+    const rovescio = A.itemMarkup(it); A._sceneRuota = 0;
+    ok(/transform="rotate\(-90 0 [0-9.-]+\)" style="font-size:[0-9.]+px;text-anchor:end;/.test(rovescio), "girato di 180°, il nome finisce verso sinistra");
+    it.rot = 90; A._sceneRuota = 90;
+    const traverso = A.itemMarkup(it); A._sceneRuota = 0;
+    ok(/transform="rotate\(0 0 [0-9.-]+\)" style="font-size:[0-9.]+px;text-anchor:middle;/.test(traverso), "di traverso, centrato sotto o sopra");
+    it.rot = 30;
+    ok(!/transform="rotate\(60 0 /.test(dritto) && />Voce/.test(dritto), "nel documento il nome e' quello di sempre");
+  } finally {
+    A.viewRot = 0; A._sceneRuota = 0; A.isMobile = s0.m; A.innerWidth = s0.iw; A.innerHeight = s0.ih; A.localStorage = s0.ls;
+  }
+  /* render e' l'unico posto che accende _sceneRuota, e lo spegne anche se la scena fallisce */
+  ok(/_sceneRuota=viewRot;\n  var _scena; try\{ _scena=sceneMarkup\(\); \} finally \{ _sceneRuota=0; \}\n  svg\.innerHTML = viewRot \? '<g id="vrot" transform="rotate\(-90\)">'\+_scena\+'<\/g>' : _scena;/.test(appjs),
+     "la scena si gira dentro un gruppo, solo a schermo");
+  eq((appjs.match(/_sceneRuota=viewRot/g) || []).length, 1, "e _sceneRuota si accende in un punto solo");
+  /* il PDF e il PNG nascono da stageSceneSvg e buildExportSvg: non devono sapere niente della vista girata */
+  ["function stageSceneSvg(", "function buildExportSvg("].forEach((f) => {
+    const i = appjs.indexOf(f); ok(i > 0, f + " esiste");
+    const corpo = appjs.slice(i, appjs.indexOf("\nfunction ", i + 10));
+    ok(corpo.length > 200 && !/viewRot|_sceneRuota|svgPoint\(/.test(corpo), f + " non legge la vista girata");
+  });
+  reset();
+});
+
+t("col pizzico la vista resta dove la si lascia, e una mappa dice dove si e'", () => {
+  /* 13/09 — «B col pizzico». Il pizzico c'era, ma dopo ogni ritocco — e dopo ogni trascinamento del
+     palco — ensureVisible rifaceva tutto il palco: ingrandire serviva per un gesto solo. */
+  ok(/vistaUtente=true; syncMinimap\(\);   \/\* B:/.test(appjs), "il pizzico rende la vista dell'utente");
+  ok(/if\(Math\.hypot\(e\.clientX-drag\.px, e\.clientY-drag\.py\)>4\)\{ vistaUtente=true; syncMinimap\(\); \}/.test(appjs), "anche trascinare il palco, ma non un tocco fermo");
+  ok(/function fitTo\(x0,y0,x1,y1\)\{ fitVb\(x0,y0,x1,y1\); vistaUtente=false; render\(\); \}/.test(appjs), "«Adatta» la restituisce");
+  /* pizzico e rotella muovono vb: devono ragionare nella VISTA, non nel palco, o con la vista girata lo zoom scappa di lato */
+  ok(/mid0:svgPointView\(\{clientX:mx, clientY:my\}\)/.test(appjs), "il pizzico tiene fermo il punto nella vista");
+  ok(/var sp=svgPointView\(e\);   \/\* nella VISTA/.test(appjs), "e la rotella pure");
+  ok(/function svgPoint\(e\)\{ return v2w\(svgPointView\(e\)\); \}/.test(appjs), "tutti gli altri ricevono coordinate del palco");
+  ok(/var _cv=v2w\(\{x:vb\.x\+vb\.w\/2, y:vb\.y\+vb\.h\/2\}\);/.test(appjs), "un elemento nuovo nasce al centro di quello che si vede, anche girato");
+  eq((appjs.match(/(?<!scenaSvg\(\)\.)\bsvg\.appendChild\(/g) || []).length, 0, "guide e rettangoli si disegnano dentro la scena girata");
+  /* tieniInVista: con la vista dell'utente, un elemento finito fuori torna al centro, lo zoom resta */
+  reset();
+  const r0 = A.render; let ridisegni = 0;
+  A.render = () => { ridisegni++; };
+  try {
+    const it = add("batteria", 1500, 700);
+    A.selectOne(it.id);
+    A.vb = { x: 0, y: 0, w: 400, h: 600 };
+    A.viewRot = 0;
+    A.tieniInVista();
+    eq([A.vb.x + A.vb.w / 2, A.vb.y + A.vb.h / 2, A.vb.w], [1500, 700, 400], "fuori dallo schermo: al centro, stesso zoom");
+    const prima = ridisegni; A.tieniInVista();
+    eq(ridisegni, prima, "gia' in vista: non si tocca niente");
+    A.viewRot = 90; A.vb = { x: 0, y: 0, w: 400, h: 600 };
+    A.tieniInVista();
+    eq([A.vb.x + A.vb.w / 2, A.vb.y + A.vb.h / 2], [700, -1500], "con la vista girata, al centro nelle coordinate della vista");
+  } finally { A.render = r0; A.viewRot = 0; reset(); }
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="mMini"/.test(html) && /id="mRotChip"/.test(html) && /data-act="rot"/.test(html), "mappa, avviso e interruttore nel menu ci sono");
+  ok(/getElementById\("mMini"\); if\(m\) m\.addEventListener\("click", function\(\)\{ fitStage\(\); \}\)/.test(appjs), "la mappa rimette tutto il palco");
+  ok(/impostaVistaRuotata\(false\);/.test(appjs), "l'avviso raddrizza la vista");
 });
 
 t("le maniglie dell'area di stampa si prendono col dito", () => {
@@ -14316,7 +14411,7 @@ t("quando premi un bottone del palco, qualcosa si muove", () => {
   ok(!/function ensureVisible\(\)\{\}/.test(appjs), "non e' piu' vuota");
   /* Dal 13/09 con un'eccezione: col pannello dell'elemento aperto la vista inquadra l'elemento, e
      rifarla su tutto il palco a ogni ritocco la butterebbe via. */
-  ok(/function ensureVisible\(\)\{ if\(isMobile\(\) && !\(zoomSel && zoomSel\.on\)\) fitStage\(\); \}/.test(appjs),
+  ok(/function ensureVisible\(\)\{\n  if\(!isMobile\(\) \|\| \(zoomSel && zoomSel\.on\)\) return;\n  if\(vistaUtente\)\{ tieniInVista\(\); return; \}\n  fitStage\(\);\n\}/.test(appjs),
      "rifa' l'inquadratura, ma solo col dito");
   /* Col mouse l'inquadratura e' dell'utente: non gliela si sposta sotto. */
   const iAdd = appjs.indexOf("function addStageBlock");

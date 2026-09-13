@@ -5625,7 +5625,7 @@ function normalizeStageBBox(){
     state.items.forEach(function(it){ it.x+=ox; it.y+=oy; });
     if(state.venue){ state.venue.x=(state.venue.x||0)+ox; state.venue.y=(state.venue.y||0)+oy; }
     if(state.printFrame){ state.printFrame.x=(state.printFrame.x||0)+ox; state.printFrame.y=(state.printFrame.y||0)+oy; }
-    if(typeof vb!=="undefined" && vb){ vb.x+=ox; vb.y+=oy; }
+    if(typeof vb!=="undefined" && vb){ if(viewRot){ vb.x+=oy; vb.y-=ox; } else { vb.x+=ox; vb.y+=oy; } }   /* con la vista ruotata lo spostamento del palco è girato anche lui */
   }
   var W=0, D=0;
   b.forEach(function(r){ blockCorners(r).forEach(function(p){ W=Math.max(W,p[0]); D=Math.max(D,p[1]); }); });
@@ -5888,6 +5888,10 @@ function itemMarkup(it){
   if(!t.innerLabel && !GAZ_TYPES[it.type] && fsz0>0){   /* coperture: etichetta unica gestita a parte (nome+dim, lato scelto) */
     var fsz = fsz0;                             /* dimensione etichetta regolabile (cm reali) */
     var fst = ' style="font-size:'+fsz+'px"';
+    /* VISTA RUOTATA DEL TELEFONO (13/09): la scena gira di -90°, e ogni nome girerebbe con lei. Qui si
+       raddrizza sullo schermo, ruotando del contrario meno la rotazione dell'elemento. Vale solo
+       dentro render() (`_sceneRuota`): nel PDF e nel PNG i nomi restano come sono sempre stati. */
+    var _rc = _sceneRuota ? (_sceneRuota - (it.rot||0)) : 0;
     /* postazioni con sedia: etichetta sopra allo schienale di default (ruota con l'elemento) */
     var lblAbove = !!POSTAZ[it.type] && optSedia(it) && it.lblAbove !== false;
     var benchExtra = (KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* piano/tastiere con sgabello: nome sotto lo sgabello, non sopra */
@@ -5911,14 +5915,24 @@ function itemMarkup(it){
        più spesso — lo strumento e la DI che genera stanno a mezzo metro l'uno dall'altra. */
     var _nudge = (!lblAbove && window.__lblNudge && window.__lblNudge[it.id]) ? window.__lblNudge[it.id] : 0;
     ly += _nudge;
+    /* raddrizzato, il nome parte dal suo lato dell'elemento e va verso l'esterno: centrato, metà
+       parola ci tornerebbe sopra. Il perno è lo stesso per il nome e per la riga del montaggio sotto,
+       così restano uno sotto l'altro anche girati. */
+    /* «verso l'esterno» dipende da come è girato l'elemento: la direzione del nome (sotto = +y, sopra =
+       −y) girata dell'elemento e della vista finisce sullo schermo con X = s·cos(rot). Un wedge girato
+       verso il musicista ha il nome a SINISTRA: con l'ancora fissa a «start» ci si scriveva sopra. */
+    var _cr = Math.cos((it.rot||0)*Math.PI/180) * (lblAbove ? -1 : 1);
+    var _anc = _cr > 0.3 ? 'start' : (_cr < -0.3 ? 'end' : 'middle');
+    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' 0 '+ly+')"' : '';
+    var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:'+_anc+';dominant-baseline:central"' : fst;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
       var tilt=12;                              /* le sedute della doppia convergono di ±12°: l'etichetta segue lo schienale */
-      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(-tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
-      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+tilt+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
+      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       /* DI generata da uno strumento (audit 27/07): il suo posto è sotto lo strumento, quindi la sua
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
@@ -5926,17 +5940,17 @@ function itemMarkup(it){
          esce di lato, dove non c'è nient'altro. */
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
-      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
-      else s += '<text class="lbl" y="'+ly+'"'+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      else s += '<text class="lbl" y="'+ly+'"'+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
          alcun segno sul disegno, e resterebbe scritta solo in una lista che nessuno sa di aprire. */
-      s += '<text class="lbl" y="'+ly+'"'+fst+'>'+noteDot(it).replace(" •","•")+'</text>';
+      s += '<text class="lbl" y="'+ly+'"'+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
     var _mn = mountNote(it);
-    if(_mn) s += '<text class="lbl sub" y="'+(ly+fszK*0.95)+'" style="font-size:'+(fsz*0.8)+'px">'+esc(_mn)+'</text>';
+    if(_mn) s += '<text class="lbl sub" y="'+(ly+fszK*0.95)+'"'+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:'+_anc+';dominant-baseline:central' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
@@ -9784,14 +9798,21 @@ function render(){
   pruneSolo();   /* niente solo fantasma su layer disattivati */
   diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
   if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
+  /* la vista si è girata (o raddrizzata): `vb` stava nelle coordinate dell'altra, si rifà sul palco */
+  if(aggiornaRotazione()){ recalcStageBBox(); var _dr=stageDecorBounds(); fitVb(_dr.x0,_dr.y0,_dr.x1,_dr.y1); vistaUtente=false; }
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
-  svg.innerHTML = sceneMarkup();
+  /* `_sceneRuota` vale SOLO dentro questa chiamata: le etichette si raddrizzano sullo schermo, mai
+     nell'export (che chiama sceneMarkup/itemMarkup per conto suo, con `_sceneRuota` a zero) */
+  _sceneRuota=viewRot;
+  var _scena; try{ _scena=sceneMarkup(); } finally { _sceneRuota=0; }
+  svg.innerHTML = viewRot ? '<g id="vrot" transform="rotate(-90)">'+_scena+'</g>' : _scena;
   reindexItemNodes();
   renderProps();
   renderAccessoriCount();
   renderVenuePanel();
   renderFramePanel();
   renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
+  syncVistaRuotata();   /* telefono: l'avviso della vista ruotata e la mappa */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
@@ -12261,7 +12282,7 @@ function objectSnap(dragItems, ddx, ddy){
 function renderSnapGuides(guides){
   var NS='http://www.w3.org/2000/svg';
   var g=document.getElementById('snapGuides');
-  if(!g){g=document.createElementNS(NS,'g');g.id='snapGuides';svg.appendChild(g);}
+  if(!g){g=document.createElementNS(NS,'g');g.id='snapGuides';scenaSvg().appendChild(g);}
   while(g.firstChild) g.removeChild(g.firstChild);
   guides.forEach(function(ln){
     var el=document.createElementNS(NS,'line');
@@ -12831,7 +12852,8 @@ function instrSeats(type){ var base=instrBase(type), n=0;
 function addItem(type, over){
   if(window.__projLocked) return null;   /* BLOCCO progetti: nessuna aggiunta di elementi (backstop di TUTTI i path: catalogo, quick-add, drag-drop, fix audit, auto-add cablaggio) */
   var t=TYPES[type];
-  var it={ id:uid(), type:type, x:Math.round(vb.x+vb.w/2+addCascade), y:Math.round(vb.y+vb.h/2+addCascade),
+  var _cv=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2});   /* il centro di quello che si vede, nelle coordinate del palco (anche con la vista ruotata) */
+  var it={ id:uid(), type:type, x:Math.round(_cv.x+addCascade), y:Math.round(_cv.y+addCascade),
            rot:0, w:t.w, d:t.d, label:defaultLabel(type) };
   if(t.riser) it.h=t.h||40;
   if(KEYS_BENCH[type]) it.panca=true;   /* tastiere/piano: sgabello di default */
@@ -13326,6 +13348,11 @@ function renderMobileList(){
   document.getElementById("mUndo").addEventListener("click", undo);
   document.getElementById("mRedo").addEventListener("click", redo);
   (function(){ var f=document.getElementById("mFit"); if(f) f.addEventListener("click", function(){ document.getElementById("bFit").click(); }); })();
+  (function(){ var c=document.getElementById("mRotChip"); if(c) c.addEventListener("click", function(){
+    impostaVistaRuotata(false);
+    if(window.__toast) window.__toast("Vista dritta: la rigiri dal Menu, in «Palco»");
+  }); })();
+  (function(){ var m=document.getElementById("mMini"); if(m) m.addEventListener("click", function(){ fitStage(); }); })();
   /* azioni nel pannello-hub (nessuna selezione): Aggiungi elemento + voci di menu */
   function proxy(id){ var b=document.getElementById(id); if(b) b.click(); }
   /* A′: #mActions è un bottom-sheet a UN livello (aperto da dock "Menu" o ⋯ in alto) */
@@ -13339,6 +13366,8 @@ function renderMobileList(){
     txt("mMenuStage", misurePalco());
     var th=document.getElementById("mThemeRow");
     if(th) th.setAttribute("aria-checked", document.body.classList.contains("dark") ? "true" : "false");
+    var rr=document.getElementById("mRotRow");
+    if(rr) rr.setAttribute("aria-checked", vistaRuotataPref() ? "true" : "false");
     syncSnapSelects();
   }
   window.renderMobileMenu=renderMobileMenu;
@@ -13351,6 +13380,7 @@ function renderMobileList(){
       var a=b.getAttribute("data-act"); if(!a) return;
       /* il tema si cambia restando nel menu: l'interruttore mostra subito lo stato nuovo */
       if(a==="theme"){ proxy("bTheme"); renderMobileMenu(); return; }
+      if(a==="rot"){ impostaVistaRuotata(!vistaRuotataPref()); renderMobileMenu(); return; }   /* anche questo resta nel menu: si vede lo stato nuovo */
       setTimeout(function(){
         toggleMobileMenu(false);
         /* il cassetto ricorda dove lo si era lasciato: un pannello aperto dal menu parte dall'inizio */
@@ -13395,9 +13425,66 @@ function defaultLabel(type){
 }
 
 /* ============ INTERAZIONE (drag / pan / zoom) ============ */
-function svgPoint(e){
+/* ── VISTA RUOTATA SUL TELEFONO (13/09, Simone: «A di default e B col pizzico») ──────────────────
+   Un palco da 16×6,5 m su un telefono tenuto in verticale era una striscia al centro dello schermo,
+   con due terzi di schermo vuoti e gli elementi da 18 px. Se il palco è più largo che profondo e il
+   telefono è in verticale, la VISTA gira di 90°: fondo palco a sinistra, pubblico a destra — cioè
+   come lo si vede girando il telefono in senso orario. Gira solo lo schermo: il documento, il PDF e
+   il PNG restano dritti (non passano da qui, non leggono `vb` né `viewRot`).
+   La scena si disegna dentro `<g id="vrot" transform="rotate(-90)">`; `vb` vive nelle coordinate
+   ruotate, e `svgPoint` riporta ogni tocco alle coordinate del palco, così i trascinamenti non
+   cambiano. Mondo (x,y) → vista (X=y, Y=−x); vista → mondo (x=−Y, y=X). */
+var viewRot=0, _sceneRuota=0, vistaUtente=false;
+function vistaRuotataPref(){ try{ return localStorage.getItem("sp_vistaRuotata")!=="off"; }catch(e){ return true; } }
+function impostaVistaRuotata(on){
+  try{ if(on) localStorage.removeItem("sp_vistaRuotata"); else localStorage.setItem("sp_vistaRuotata","off"); }catch(e){}
+  render();
+}
+function vistaDaRuotare(){
+  if(!isMobile() || !vistaRuotataPref()) return false;
+  var W=+(state.stage&&state.stage.w)||0, D=+(state.stage&&state.stage.d)||0;
+  /* l'orientamento del TELEFONO, non del palco a schermo: aprendo un cassetto il palco diventa
+     basso e largo, e la vista non deve rigirarsi a ogni pannello */
+  var iw=+window.innerWidth||0, ih=+window.innerHeight||0;
+  return W > D*1.15 && ih > iw;
+}
+function aggiornaRotazione(){ var r=vistaDaRuotare() ? 90 : 0; if(r===viewRot) return false; viewRot=r; return true; }
+function v2w(p){ return viewRot ? {x:-p.y, y:p.x} : {x:p.x, y:p.y}; }
+function w2vBounds(x0,y0,x1,y1){ return viewRot ? {x0:y0, y0:-x1, x1:y1, y1:-x0} : {x0:x0, y0:y0, x1:x1, y1:y1}; }
+/* il punto sotto il dito nelle coordinate della VISTA: serve a chi muove `vb` (pizzico, rotella) */
+/* Guide dell'aggancio, rettangoli di selezione, lente della planimetria: disegnati in coordinate del
+   PALCO, vanno nello stesso gruppo della scena — con la vista ruotata, fuori da #vrot finirebbero altrove. */
+function scenaSvg(){ return document.getElementById("vrot") || svg; }
+function svgPointView(e){
   var p=svg.createSVGPoint(); p.x=e.clientX; p.y=e.clientY;
   return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+/* …e in quelle del PALCO: serve a tutti gli altri */
+function svgPoint(e){ return v2w(svgPointView(e)); }
+/* con la vista dell'utente (pizzico o trascinamento), un elemento appena toccato che resta fuori
+   dallo schermo ci torna al centro — senza cambiare lo zoom che l'utente ha scelto */
+function tieniInVista(){
+  var its=selItems(); if(!its.length) return;
+  var it=its[its.length-1], p=viewRot ? {x:it.y, y:-it.x} : {x:it.x, y:it.y};
+  if(p.x<vb.x || p.x>vb.x+vb.w || p.y<vb.y || p.y>vb.y+vb.h){ vb.x=p.x-vb.w/2; vb.y=p.y-vb.h/2; render(); }
+}
+/* LA MAPPA (B): quando si è ingranditi, un riquadro in basso a sinistra mostra il palco e cosa si sta
+   guardando. Toccarla rimette tutto il palco in vista. */
+function syncMinimap(){
+  var box=document.getElementById("mMini"), s=document.getElementById("mMiniSvg"); if(!box || !s) return;
+  if(!isMobile() || !vistaUtente){ box.hidden=true; return; }
+  recalcStageBBox();
+  var d=stageDecorBounds(), b=w2vBounds(d.x0,d.y0,d.x1,d.y1), bw=b.x1-b.x0, bh=b.y1-b.y0;
+  if(vb.x<=b.x0 && vb.y<=b.y0 && vb.x+vb.w>=b.x1 && vb.y+vb.h>=b.y1){ box.hidden=true; return; }   /* si vede già tutto */
+  var pad=Math.max(bw,bh)*0.06, st=w2vBounds(0,0,state.stage.w||0,state.stage.d||0);
+  s.setAttribute("viewBox", (b.x0-pad)+" "+(b.y0-pad)+" "+(bw+2*pad)+" "+(bh+2*pad));
+  s.innerHTML='<rect class="mm-palco" x="'+st.x0+'" y="'+st.y0+'" width="'+(st.x1-st.x0)+'" height="'+(st.y1-st.y0)+'"/>'+
+    '<rect class="mm-vista" x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'"/>';
+  box.hidden=false;
+}
+function syncVistaRuotata(){
+  var c=document.getElementById("mRotChip"); if(c) c.hidden=!viewRot;
+  syncMinimap();
 }
 var drag=null, pointers={}, pinch=null, lastDown=null, spacebarPan=false;
 /* ── C3 · declutter stile Max: passi il mouse su un elemento → i cavi NON collegati a lui sfumano ──
@@ -13465,7 +13552,7 @@ svg.addEventListener("pointerdown", function(e){
     drag=null; svg.classList.remove("dragging"); lastDown=null;
     var ids=Object.keys(pointers), pa=pointers[ids[0]], pb=pointers[ids[1]];
     var mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
-    pinch={ d0:Math.hypot(pb.x-pa.x, pb.y-pa.y), mid0:svgPoint({clientX:mx, clientY:my}), startW:vb.w, ratio:vb.h/vb.w };
+    pinch={ d0:Math.hypot(pb.x-pa.x, pb.y-pa.y), mid0:svgPointView({clientX:mx, clientY:my}), startW:vb.w, ratio:vb.h/vb.w };   /* nella VISTA: si muove vb, non il palco */
     svg.setPointerCapture(e.pointerId); return;
   }
   /* spacebar pan: trascina il canvas ovunque (priorità su tutto tranne il pinch) */
@@ -13621,7 +13708,7 @@ svg.addEventListener("pointerdown", function(e){
       gl.setAttribute("class","port-ghost");
       gl.setAttribute("style","stroke:"+({audio:LAYER_COLORS.audioIn, mon:LAYER_COLORS.monitor, pow:LAYER_COLORS.elettrico, dig:"#c026d3"}[pk]||"#888"));
       gl.setAttribute("x1",drag.x0); gl.setAttribute("y1",drag.y0); gl.setAttribute("x2",drag.x0); gl.setAttribute("y2",drag.y0);
-      svg.appendChild(gl); drag.el=gl;
+      scenaSvg().appendChild(gl); drag.el=gl;
       svg.setPointerCapture(e.pointerId); return;
     }
   }
@@ -13709,7 +13796,7 @@ svg.addEventListener("pointerdown", function(e){
     var pr=document.createElementNS("http://www.w3.org/2000/svg","rect");
     pr.setAttribute("id","newblk-preview"); pr.setAttribute("fill","rgba(37,99,235,.18)");
     pr.setAttribute("stroke","#2563eb"); pr.setAttribute("stroke-width","2"); pr.setAttribute("stroke-dasharray","8 5");
-    svg.appendChild(pr); drag.el=pr;
+    scenaSvg().appendChild(pr); drag.el=pr;
     svg.setPointerCapture(e.pointerId); return;
   }
   if(stageEdit){                            /* modalità forma palco: trascina i blocchi / i lati per ridimensionare */
@@ -13818,13 +13905,13 @@ svg.addEventListener("pointerdown", function(e){
     var rc=document.createElementNS("http://www.w3.org/2000/svg","rect");
     rc.setAttribute("id","marquee"); rc.setAttribute("fill","rgba(13,148,136,.08)");
     rc.setAttribute("stroke","#0d9488"); rc.setAttribute("stroke-width","1.5"); rc.setAttribute("stroke-dasharray","8 5");
-    svg.appendChild(rc); drag.el=rc;
+    scenaSvg().appendChild(rc); drag.el=rc;
   } else if(e.shiftKey){                  /* shift-drag su sfondo: rettangolo di selezione */
     drag = {mode:"marquee", x0:sp.x, y0:sp.y};
     var r=document.createElementNS("http://www.w3.org/2000/svg","rect");
     r.setAttribute("id","marquee"); r.setAttribute("fill","rgba(37,99,235,.08)");
     r.setAttribute("stroke","#2563eb"); r.setAttribute("stroke-width","1.5"); r.setAttribute("stroke-dasharray","8 5");
-    svg.appendChild(r); drag.el=r;
+    scenaSvg().appendChild(r); drag.el=r;
   } else {
     drag = {mode:"pan", px:e.clientX, py:e.clientY, vx:vb.x, vy:vb.y};
     svg.classList.add("dragging");
@@ -13844,6 +13931,7 @@ svg.addEventListener("pointermove", function(e){
     vb.x=pinch.mid0.x - (mx-rect.left)/rect.width*nw;
     vb.y=pinch.mid0.y - (my-rect.top)/rect.height*nh;
     svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+    vistaUtente=true; syncMinimap();   /* B: da qui la vista è dell'utente, e resta dove la lascia */
     return;
   }
   if(!drag) return;
@@ -14112,6 +14200,7 @@ svg.addEventListener("pointermove", function(e){
     vb.x = drag.vx-(e.clientX-drag.px)*kx;
     vb.y = drag.vy-(e.clientY-drag.py)*ky;
     svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+    if(Math.hypot(e.clientX-drag.px, e.clientY-drag.py)>4){ vistaUtente=true; syncMinimap(); }   /* un tocco fermo resta un tocco */
   }
 });
 svg.addEventListener("pointerup", function(e){
@@ -14357,7 +14446,7 @@ svg.addEventListener("pointercancel", function(e){   /* touch interrotto (2° di
 });
 svg.addEventListener("wheel", function(e){
   e.preventDefault();
-  var sp=svgPoint(e);
+  var sp=svgPointView(e);   /* nella VISTA: la rotella muove vb */
   /* passo proporzionale all'entità dello scroll: fluido sul trackpad, max ~6%/evento → zoom controllato */
   var unit = e.deltaMode===1 ? 16 : (e.deltaMode===2 ? 100 : 1);
   var d = e.deltaY*unit, mag = Math.min(Math.abs(d), 120)/120;
@@ -14368,6 +14457,7 @@ svg.addEventListener("wheel", function(e){
   f=nw/vb.w;
   vb.x = sp.x-(sp.x-vb.x)*f; vb.y = sp.y-(sp.y-vb.y)*f; vb.w*=f; vb.h*=f;
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+  vistaUtente=true; syncMinimap();
 }, {passive:false});
 /* drag-and-drop dal catalogo: rilascia l'elemento dove vuoi sul palco (desktop) */
 svg.addEventListener("dragover", function(e){
@@ -14436,12 +14526,16 @@ function contentBounds(){
    visibile, anche su palchi molto piccoli dove il 5% varrebbe una decina di centimetri. */
 function fitMargin(){ var big=Math.max(state.stage.w||0, state.stage.d||0, 300); return Math.max(30, Math.round(big*(isMobile()?0.05:0.055))); }
 /* larghezza viewBox che mostra TUTTO (= massimo zoom-out consentito) */
-function fitTo(x0,y0,x1,y1){
+/* `fitVb` calcola la vista senza ridisegnare (serve a render quando la vista si gira); i limiti
+   arrivano sempre in coordinate del PALCO, e qui si portano in quelle della vista. */
+function fitTo(x0,y0,x1,y1){ fitVb(x0,y0,x1,y1); vistaUtente=false; render(); }
+function fitVb(x0,y0,x1,y1){
+  aggiornaRotazione();
+  if(viewRot){ var _b=w2vBounds(x0,y0,x1,y1); x0=_b.x0; y0=_b.y0; x1=_b.x1; y1=_b.y1; }
   var m=fitMargin();
   var W=(x1-x0)+2*m, D=(y1-y0)+2*m, ar=svg.clientWidth/svg.clientHeight;
   if(W/D>ar){ var h=W/ar; vb={x:x0-m, y:y0-m-(h-D)/2, w:W, h:h}; }   /* centra in verticale lo spazio in eccesso (mobile: palco largo su viewport alta) */
   else { vb={x:x0-m-(D*ar-W)/2, y:y0-m, w:D*ar, h:D}; }
-  render();
 }
 function fit(){ var b=contentBounds(); fitTo(b.x0,b.y0,b.x1,b.y1); }
 /* adatta al solo palco (nuovo documento, cambio misure): niente elementi, ma le scritte FONDO PALCO
@@ -14451,8 +14545,15 @@ function fitStage(){ recalcStageBBox(); var d=stageDecorBounds(); fitTo(d.x0,d.y
    un angolo non lo vedi, e aprire il cassetto rimpicciolisce il disegno senza generare un resize —
    quindi nessuno rifà l'inquadratura. Questa funzione era vuota, e chiamata in 19 punti. (02/09)
    Solo col dito: sul desktop l'inquadratura è dell'utente e non gliela si sposta sotto il mouse. */
-/* col pannello dell'elemento aperto la vista inquadra l'elemento (syncZoomSel): rifarla su tutto il palco dopo ogni ritocco la buttava via */
-function ensureVisible(){ if(isMobile() && !(zoomSel && zoomSel.on)) fitStage(); }
+/* Sul telefono, dopo un'azione, si rifà l'inquadratura su tutto il palco. Con due eccezioni (13/09):
+   col pannello dell'elemento aperto la vista inquadra l'elemento (syncZoomSel), e dopo un pizzico o
+   un trascinamento la vista è dell'utente — rifarla a ogni ritocco (e dopo ogni trascinamento del
+   palco!) rendeva inutile ingrandire. Lì si riporta al centro solo un elemento finito fuori. */
+function ensureVisible(){
+  if(!isMobile() || (zoomSel && zoomSel.on)) return;
+  if(vistaUtente){ tieniInVista(); return; }
+  fitStage();
+}
 /* ===== Modifica palco (forma a blocchi) ===== */
 function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
@@ -21722,7 +21823,7 @@ function venueLensUpdate(e){
   var lx=sp.x, ly=sp.y + ((e.clientY<210) ? off : -off);   /* vicino al bordo alto: lente sotto il cursore */
   var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return;
   var g=document.getElementById("venueLens");
-  if(!g){ g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.setAttribute("id","venueLens"); svg.appendChild(g); }
+  if(!g){ g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.setAttribute("id","venueLens"); scenaSvg().appendChild(g); }
   var hw=v.w/2, hh=v.h/2;
   var img='<image href="'+durl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+v.w+'" height="'+v.h+'" transform="translate('+v.x+','+v.y+') rotate('+(v.rot||0)+')"/>';
   var out='';
