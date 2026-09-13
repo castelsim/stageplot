@@ -3176,3 +3176,19 @@ body.dark .ask-all .btn{background:transparent}
   #props #selProps .chk{min-height:44px}
   body.dark #props #selProps .ptabs{background:#1b2327}
 }
+
+/* ── VISTA GIRATA E MAPPA, SUL TELEFONO (13/09) ───────────────────────────────────────────────────
+   L'avviso sta in alto a sinistra e dice da che parte è il pubblico: senza, una vista girata sembra
+   un palco sbagliato. La mappa compare solo ingrandendo, in basso a sinistra, lontano da «Adatta». */
+.m-rotchip,.m-mini{display:none}
+@media (max-width:880px){
+  main .m-rotchip:not([hidden]){display:inline-flex;position:absolute;left:12px;top:12px;z-index:5;align-items:center;gap:6px;min-height:36px;margin:0;
+    padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 13px var(--font-ui);color:var(--text);
+    box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer}
+  main .m-rotchip svg{width:16px;height:16px;flex:0 0 auto;color:var(--accent)}
+  main .m-mini:not([hidden]){display:block;position:absolute;left:12px;bottom:12px;z-index:5;margin:0;padding:4px;border:1px solid var(--border);
+    border-radius:10px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.12);cursor:pointer}
+  main .m-mini svg{display:block;width:120px;height:64px}
+  #mMiniSvg .mm-palco{fill:var(--n-100);stroke:var(--n-600);stroke-width:1.2;vector-effect:non-scaling-stroke}
+  #mMiniSvg .mm-vista{fill:rgba(13,148,136,.14);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}
+}
