@@ -1266,13 +1266,22 @@
 </aside>
 
 <!-- Mobile: barra "peek" dell'elemento selezionato (specifiche a scomparsa, canvas grande) -->
+<!-- 13/09 — La testa del foglio dell'elemento: nome e misure, sotto quattro azioni da 52 px con la
+     parola scritta (erano icone da 38 senza nome, e mancava «Copia»). Resta in vista anche col
+     pannello aperto: è la stessa testa, e la freccia lo richiude. -->
 <div id="mPeek">
-  <span class="mpk-dot" aria-hidden="true"></span>
-  <button type="button" class="mpk-name" id="mPeekName">Elemento</button>
-  <button type="button" class="mpk-rot" id="mPeekRot" aria-label="Ruota 45°" title="Ruota 45°"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg></button>
-  <button type="button" class="mpk-dup" id="mPeekDup" aria-label="Duplica" title="Duplica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-  <button type="button" class="mpk-del" id="mPeekDel" aria-label="Elimina" title="Elimina"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-  <button type="button" class="mpk-exp" id="mPeekExp" aria-label="Mostra tutte le specifiche" title="Specifiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
+  <div class="mpk-top">
+    <span class="mpk-dot" aria-hidden="true"></span>
+    <button type="button" class="mpk-name" id="mPeekName">Elemento</button>
+    <span class="mpk-dim" id="mPeekDim"></span>
+    <button type="button" class="mpk-exp" id="mPeekExp" aria-label="Mostra tutte le specifiche" aria-expanded="false" title="Specifiche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
+  </div>
+  <div class="mpk-acts">
+    <button type="button" class="mpk-rot" id="mPeekRot" title="Ruota di 45°"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>Ruota</button>
+    <button type="button" class="mpk-dup" id="mPeekDup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplica</button>
+    <button type="button" class="mpk-copy" id="mPeekCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="13" height="15" rx="2"/><path d="M4 7v12a2 2 0 0 0 2 2h9"/></svg>Copia</button>
+    <button type="button" class="mpk-del" id="mPeekDel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Elimina</button>
+  </div>
 </div>
 
 <!-- Qui stavano #fabCat e #fabProps, i due bottoni tondi del vecchio mobile. Erano FANTASMI:
@@ -5722,14 +5731,25 @@ window.renderAccountBtn=renderAccountBtn;
 function setPeekName(s){ var e=document.getElementById("mPeekName"); if(e) e.textContent=s||"Elemento"; }
 window.setPeekName=setPeekName;
 (function(){
-  function expand(){ document.body.classList.add("props-expanded"); }
+  /* la testa resta in vista col pannello aperto: nome e freccia lo aprono E lo richiudono */
+  function toggle(){
+    var on=document.body.classList.toggle("props-expanded");
+    var ex=document.getElementById("mPeekExp"); if(ex) ex.setAttribute("aria-expanded", on ? "true" : "false");
+  }
   function proxyClick(id){ var b=document.getElementById(id); if(b) b.click(); }
+  /* con più elementi scelti le azioni sono quelle del pannello della selezione, non del singolo */
+  function multi(){ return selIds().length>1; }
   var name=document.getElementById("mPeekName"), exp=document.getElementById("mPeekExp");
-  if(name) name.addEventListener("click", expand);
-  if(exp)  exp.addEventListener("click", expand);
-  var dup=document.getElementById("mPeekDup"); if(dup) dup.addEventListener("click", function(){ proxyClick("pDup"); });
-  var del=document.getElementById("mPeekDel"); if(del) del.addEventListener("click", function(){ proxyClick("pDel"); });
+  if(name) name.addEventListener("click", toggle);
+  if(exp)  exp.addEventListener("click", toggle);
+  var dup=document.getElementById("mPeekDup"); if(dup) dup.addEventListener("click", function(){ proxyClick(multi() ? "grpDup" : "pDup"); });
+  var del=document.getElementById("mPeekDel"); if(del) del.addEventListener("click", function(){ proxyClick(multi() ? "grpDel" : "pDel"); });
+  var cop=document.getElementById("mPeekCopy"); if(cop) cop.addEventListener("click", function(){
+    copySel();
+    if(window.__toast) window.__toast("Copiato: lo incolli da «Aggiungi» o da «Elementi»");
+  });
   var rot=document.getElementById("mPeekRot"); if(rot) rot.addEventListener("click", function(){
+    if(multi()){ rotateSel(45); return; }
     var r=document.getElementById("pRot"); if(!r) return;
     var v=(parseFloat(r.value)||0)+45; if(v>180) v-=360;
     r.value=v; r.dispatchEvent(new Event("input",{bubbles:true}));
@@ -13592,6 +13612,14 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
      suona attraversava quattro comandi di tipografia prima di arrivarci.
      «Etichetta» tiene ora l'IDENTITÀ (come si chiama); l'aspetto del nome scende in «Disegno»,
      dove stanno già forma, misure e rotazione — e dove nessuno lo cerca per sbaglio. */
+  /* la fila delle schede del telefono, prima del primo gruppo (13/09): la riempie syncPanelTabs */
+  var tabs=document.createElement("div"); tabs.id="pTabs"; tabs.className="ptabs"; tabs.setAttribute("role","tablist"); tabs.setAttribute("aria-label","Parti del pannello");
+  sp.appendChild(tabs);
+  tabs.addEventListener("click", function(e){
+    var t=e.target.closest("[data-tab]"); if(!t) return;
+    panelTab=t.getAttribute("data-tab"); syncPanelTabs();
+    var p=document.getElementById("props"); if(p) p.scrollTop=0;
+  });
   group("Etichetta", null, ["pLblModeWrap","pLabelWrap","pAbbrWrap","pLabel2Wrap"]);
   /* …e una stage box non è un microfono. Modello, ingressi, uscite e porte fisiche stavano sotto
      l'intestazione «Microfono» perché il gruppo era nato per tutto ciò che riguarda la ripresa:
@@ -13655,7 +13683,74 @@ function syncPanelGroups(){
     }
     g.style.display = vis ? "" : "none";
   }
+  /* sul telefono, dopo aver deciso quali gruppi esistono: le schede, la testa del foglio, l'inquadratura */
+  syncPanelTabs(); syncPeekExtra(); syncZoomSel();
 }
+/* ── SCHEDE DEL PANNELLO, SUL TELEFONO (13/09) ─────────────────────────────────────────────────
+   Nel cassetto alto 46vh c'erano 910 px di pannello da scorrere: Etichetta, Microfono, Accessori,
+   Nota, Disegno uno sotto l'altro. Ora ogni gruppo è una scheda e se ne vede uno alla volta. Le
+   schede sono i gruppi che esistono DAVVERO per quell'elemento, letti dopo syncPanelGroups: un
+   wedge non ha «Microfono», e la scheda non c'è. Col mouse non cambia niente. */
+var panelTab="etichetta";
+function syncPanelTabs(){
+  var sp=document.getElementById("selProps"), bar=document.getElementById("pTabs"); if(!sp || !bar) return;
+  var gs=Array.prototype.slice.call(sp.querySelectorAll(".pgrp"));
+  gs.forEach(function(g){ g.classList.remove("tab-off"); });
+  if(!isMobile()){ bar.innerHTML=""; return; }
+  /* computed, non inline: «Ascolto» e «Dettagli tecnici» li nasconde il foglio di stile finché le opzioni tecniche sono spente */
+  var vis=gs.filter(function(g){ return getComputedStyle(g).display!=="none"; });
+  if(!vis.length){ bar.innerHTML=""; return; }
+  var ids=vis.map(function(g){ return g.getAttribute("data-grp"); });
+  if(ids.indexOf(panelTab)<0) panelTab=ids[0];
+  gs.forEach(function(g){ if(g.getAttribute("data-grp")!==panelTab) g.classList.add("tab-off"); });
+  bar.innerHTML=vis.map(function(g){
+    var id=g.getAttribute("data-grp"), h=g.querySelector(".pgh"), t=(h && h.firstChild) ? h.firstChild.textContent : id;
+    return '<button type="button" role="tab" data-tab="'+esc(id)+'" aria-selected="'+(id===panelTab?"true":"false")+'">'+esc(t)+'</button>';
+  }).join("");
+}
+/* le misure accanto al nome, nella testa del foglio */
+function syncPeekExtra(){
+  var d=document.getElementById("mPeekDim"); if(!d) return;
+  var its=selItems();
+  d.textContent = (its.length===1 && +its[0].w && +its[0].d) ? Math.round(its[0].w)+" × "+Math.round(its[0].d)+" cm" : "";
+  var ex=document.getElementById("mPeekExp");
+  if(ex) ex.setAttribute("aria-expanded", document.body.classList.contains("props-expanded") ? "true" : "false");
+}
+/* ── ZOOM SULL'ELEMENTO SCELTO (13/09) ─────────────────────────────────────────────────────────
+   Aprendo il pannello, il palco si riduceva a 325 px con dentro TUTTO il palco: l'elemento che si
+   stava modificando diventava un francobollo da 14 px. Ora, col pannello aperto, la vista inquadra
+   la scelta; chiudendolo si torna a tutto il palco. */
+function selZoomBounds(){
+  var its=selItems(); if(!its.length) return null;
+  var x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  its.forEach(function(it){
+    var r=Math.max(+it.w||0, +it.d||0, 40)/2;   /* il raggio del lato maggiore: ruotato, ci sta comunque */
+    x0=Math.min(x0, it.x-r); y0=Math.min(y0, it.y-r); x1=Math.max(x1, it.x+r); y1=Math.max(y1, it.y+r);
+  });
+  var MIN=320, cx=(x0+x1)/2, cy=(y0+y1)/2, w=Math.max(MIN, x1-x0), h=Math.max(MIN, y1-y0);   /* 3,2 m almeno: si vede anche cosa c'è intorno */
+  return {x0:cx-w/2, y0:cy-h/2, x1:cx+w/2, y1:cy+h/2};
+}
+var zoomSel={on:false, key:""};
+function syncZoomSel(){
+  /* syncPanelGroups gira anche durante il boot (le opzioni tecniche ripristinate), PRIMA che la riga
+     qui sopra sia eseguita: `zoomSel` esiste già ma vale undefined, e leggerne `.on` fermerebbe l'app. */
+  if(!zoomSel) return;
+  var b=document.body;
+  var want=isMobile() && b.classList.contains("m-has-sel") && b.classList.contains("props-expanded") && selIds().length>0;
+  var key=want ? selIds().slice().sort().join(",") : "";
+  if(want && (!zoomSel.on || key!==zoomSel.key)){
+    zoomSel.on=true; zoomSel.key=key;
+    /* Subito DOPO questo giro, non dentro: syncZoomSel si chiama anche da renderProps, e fitTo
+       ridisegna — un render dentro il render. Un timer, non requestAnimationFrame: in una scheda non
+       in primo piano i fotogrammi non arrivano, e la vista non si spostava mai. fitTo legge
+       l'altezza del palco al momento, e la classe del cassetto a quel punto è già applicata. */
+    setTimeout(function(){ var z=selZoomBounds(); if(z && zoomSel.on) fitTo(z.x0, z.y0, z.x1, z.y1); }, 0);
+  } else if(!want && zoomSel.on){
+    zoomSel.on=false; zoomSel.key="";
+    setTimeout(function(){ if(isMobile() && !zoomSel.on) fitStage(); }, 0);
+  }
+}
+if(typeof MutationObserver!=="undefined") new MutationObserver(function(){ syncZoomSel(); }).observe(document.body, {attributes:true, attributeFilter:["class"]});
 /* ===== EQUIPMENT INTELLIGENCE: campo "modello reale" nel pannello =====
    Regole (feedback Simone 17/07): (1) il campo appare SOLO sugli elementi tecnici pertinenti
    (equipCatsFor: aste/mic, console, PA, stagebox, personal mixer) — mai su musicisti/direttore/arredo;
@@ -16338,7 +16433,8 @@ function fitStage(){ recalcStageBBox(); var d=stageDecorBounds(); fitTo(d.x0,d.y
    un angolo non lo vedi, e aprire il cassetto rimpicciolisce il disegno senza generare un resize —
    quindi nessuno rifà l'inquadratura. Questa funzione era vuota, e chiamata in 19 punti. (02/09)
    Solo col dito: sul desktop l'inquadratura è dell'utente e non gliela si sposta sotto il mouse. */
-function ensureVisible(){ if(isMobile()) fitStage(); }
+/* col pannello dell'elemento aperto la vista inquadra l'elemento (syncZoomSel): rifarla su tutto il palco dopo ogni ritocco la buttava via */
+function ensureVisible(){ if(isMobile() && !(zoomSel && zoomSel.on)) fitStage(); }
 /* ===== Modifica palco (forma a blocchi) ===== */
 function renderStagePanel(){
   var panel=document.getElementById("stageEditPanel");
