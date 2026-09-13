@@ -14263,6 +14263,35 @@ t("col pizzico la vista resta dove la si lascia, e una mappa dice dove si e'", (
   ok(/impostaVistaRuotata\(false\);/.test(appjs), "l'avviso raddrizza la vista");
 });
 
+t("sul telefono il primo avvio e' una schermata sola", () => {
+  /* 13/09 — misurato: Benvenuto → «Chi sale sul palco?» → «Abbiamo ipotizzato questo», tre finestre
+     prima di vedere il palco, e la terza lo copriva. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const iWl = html.indexOf('<div class="modal" id="welcome"');
+  const wl = html.slice(iWl, html.indexOf('id="wlVuoto"', iWl) + 60);
+  ok(iWl > 0 && wl.length > 500, "il benvenuto si delimita");
+  ["wlRuoli", "wlPalcoMis", "wlVuoto"].forEach((id) => ok(wl.includes('id="' + id + '"'), "nel benvenuto c'e' " + id));
+  /* nella vetrina del benvenuto, col dito, un modello si SCEGLIE: non apre la seconda finestra */
+  const fm = appjs.slice(appjs.indexOf("function fillMods(host, after)"), appjs.indexOf("function fillMods(host, after)") + 1400);
+  ok(/if\(host\.id==="wlMods" && isMobile\(\) && window\.__wlScegli\)\{ window\.__wlScegli\(m\[0\]\); return; \}/.test(fm), "col dito la formazione si sceglie");
+  ok(fm.indexOf("window.__wlScegli(m[0])") < fm.indexOf("chiediOrganico(m[0]"), "prima che si apra la finestra dell'organico");
+  /* le righe dell'organico sono UNA funzione, per la finestra e per il telefono */
+  ok(/var org=righeOrganico\(cfg, host\);/.test(appjs) && /if\(cfg\) wlOrg=righeOrganico\(cfg, host\);/.test(appjs), "le stesse righe in tutti e due i posti");
+  eq((appjs.match(/className="bs-pm"; meno\.textContent="−"/g) || []).length, 1, "scritte una volta sola");
+  /* «Crea il palco» posa il modello coi numeri scelti, SENZA la terza finestra */
+  ok(/startFromTemplate\(wlScelta, \{formazione:\(wlOrg \|\| undefined\), senzaIpotesi:true\}\);/.test(appjs), "crea col numero di persone scelto, senza riepilogo");
+  ok(/if\(!options\.senzaIpotesi\) setTimeout\(function\(\)\{ try\{ mostraAssunzioni\(false, _gia\); \}/.test(appjs), "il riepilogo si salta solo se lo si chiede");
+  ok(/addEventListener\("click", function\(\)\{ if\(isMobile\(\)\) wlCrea\(\); else close\(\); \}\)/.test(appjs), "col mouse il bottone fa quello di sempre");
+  ok(/getElementById\("wlVuoto"\); if\(v\) v\.addEventListener\("click", close\)/.test(appjs), "«palco vuoto» chiude e chiede le misure, come prima");
+  /* il riepilogo resta raggiungibile */
+  ok(/data-act="ipotesi"/.test(html) && /a==="ipotesi"\)\{[\s\S]{0,120}mostraAssunzioni\(true\);/.test(appjs), "«Cosa abbiamo ipotizzato» sta nel Menu");
+  eq(A.misurePalco(1600, 650), "16 × 6,5 m", "la misura di un modello si scrive come quella del palco aperto");
+  const s = stylesCss.replace(/\n\s*/g, "");
+  ok(/#welcome \.wl-ruoli \.bs-pm\{width:44px;height:44px/.test(s) && /#welcome \.wl-mods button\{min-height:44px/.test(s), "tutto da dito");
+  ok(/#welcome \.wl-foot\{position:sticky;bottom:0/.test(s), "e «Crea il palco» resta in vista mentre si scorre");
+  ok(/\.wl-mob-setup,\.wl-vuoto\{display:none\}/.test(s), "col mouse le parti del telefono non si vedono");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();
