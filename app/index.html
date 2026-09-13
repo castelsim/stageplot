@@ -3150,6 +3150,45 @@ body.dark .ask-all .btn{background:transparent}
   #versList .ver-btn{min-height:44px;min-width:44px;font-size:14px;padding:0 12px}
   #versPanel{position:relative;padding-top:26px}
 }
+
+/* ── ELENCO DEGLI ELEMENTI, SUL TELEFONO (13/09) ──────────────────────────────────────────────────
+   Dal dock «Elementi». Righe da 60 px: il quadrato a sinistra sceglie, il nome porta sul palco. Due
+   bersagli diversi nella stessa riga, ciascuno largo abbastanza da non sbagliare. */
+#mList{display:none}
+@media (max-width:880px){
+  #mList{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;max-height:88vh;box-sizing:border-box;
+    padding:26px 0 0;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.22);
+    transform:translateY(103%);transition:transform .26s ease}
+  #mList.open{transform:none}
+  #mList .ml-head{display:flex;align-items:center;gap:2px;padding:0 6px 2px 16px}
+  #mList .ml-title{flex:1;min-width:0;font-size:20px;font-weight:700;color:var(--text)}
+  #mList #mListCount{margin-left:8px;font-size:15px;font-weight:400;color:var(--text-3)}
+  #mList .ml-link{min-height:44px;padding:0 10px;border:0;background:none;font:600 15px var(--font-ui);color:var(--accent-strong);cursor:pointer}
+  #mList .ml-link[hidden]{display:none}
+  #mList .ml-hint{margin:0;padding:0 16px 10px;font-size:13px;line-height:1.4;color:var(--text-2)}
+  #mListBody{flex:1 1 auto;min-height:0;overflow-y:auto;border-top:1px solid var(--border);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  #mList .ml-row{display:flex;align-items:stretch;border-bottom:1px solid var(--border)}
+  #mList .ml-row.on{background:var(--accent-tint)}
+  #mList .ml-chk{position:relative;flex:0 0 auto;width:60px;min-height:60px;margin:0;padding:0;border:0;background:none;cursor:pointer}
+  #mList .ml-chk::before{content:"";position:absolute;left:18px;top:50%;width:24px;height:24px;margin-top:-12px;box-sizing:border-box;
+    border:2px solid var(--border-strong);border-radius:7px;background:var(--surface)}
+  #mList .ml-chk[aria-checked="true"]::before{border-color:var(--accent);background:var(--accent)}
+  #mList .ml-chk[aria-checked="true"]::after{content:"";position:absolute;left:30px;top:50%;width:6px;height:12px;box-sizing:border-box;
+    border:solid #fff;border-width:0 2.5px 2.5px 0;transform:translate(-50%,-62%) rotate(45deg)}
+  #mList .ml-main{flex:1;min-width:0;min-height:60px;display:flex;flex-direction:column;justify-content:center;gap:2px;margin:0;
+    padding:6px 16px 6px 0;border:0;background:none;text-align:left;cursor:pointer}
+  #mList .ml-nome{font-size:16px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mList .ml-sub{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mList .ml-vuoto{margin:0;padding:24px 16px;font-size:15px;color:var(--text-2)}
+  #mList .ml-bar{display:flex;flex-direction:column;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));background:#292620;color:#fff}
+  #mList .ml-bar[hidden]{display:none}
+  #mList #mListSelN{padding:0 4px;font-size:14px;font-weight:650}
+  #mList .ml-bar-acts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  #mList .ml-bar-acts button{min-height:44px;margin:0;padding:0 4px;border:0;border-radius:10px;background:rgba(255,255,255,.13);color:#fff;font:600 14px var(--font-ui);cursor:pointer}
+  #mList .ml-bar-acts button.danger{color:#fca5a5}
+  #mList .ml-bar-acts button:disabled{opacity:.4;cursor:default}
+  body.viewmode #mList{display:none!important}
+}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -4359,8 +4398,10 @@ body.dark .ask-all .btn{background:transparent}
 <!-- Mobile A′: dock azioni primarie (sempre visibile ≤880px) + menu a un livello -->
 <nav id="mDock" aria-label="Azioni principali">
   <button data-dock="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Aggiungi</button>
+  <!-- «Elementi» al posto di «Condividi», che è nel Menu (13/09): dal telefono non c'era modo di
+       vedere cosa c'è sul palco se non stringendo gli occhi sul disegno, né di sceglierne più di uno. -->
+  <button data-dock="elementi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><rect x="3" y="5" width="2.4" height="2.4" rx="1.2" fill="currentColor" stroke="none"/><rect x="3" y="10.8" width="2.4" height="2.4" rx="1.2" fill="currentColor" stroke="none"/><rect x="3" y="16.6" width="2.4" height="2.4" rx="1.2" fill="currentColor" stroke="none"/></svg>Elementi</button>
   <button data-dock="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta</button>
-  <button data-dock="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
   <button data-dock="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/></svg>Menu</button>
 </nav>
 <!-- 13/09 — Il menu del telefono è un ELENCO a gruppi, non una griglia di bottoni. Ogni riga dice
@@ -4412,6 +4453,28 @@ body.dark .ask-all .btn{background:transparent}
   </div>
   <!-- «Consulenza tecnica →» tolta col tasto in header (10/09): stessa decisione, stesso ritorno. -->
   <a href="/orchestre/richiedi/" class="mact-consul" id="mactRichiedi">Richiedi musicisti →</a>
+</div>
+<!-- 13/09 — ELENCO DEGLI ELEMENTI, dal dock. Un nome si tocca per trovarlo sul palco; il quadrato
+     accanto per sceglierne più di uno, che col dito sul disegno non si poteva (lo shift non c'è).
+     Con una scelta multipla compare la barra: in fila, copia, sposta, elimina. -->
+<div id="mList" role="dialog" aria-label="Elementi sul palco">
+  <div class="ml-head">
+    <span class="ml-title">Sul palco<span id="mListCount">0</span></span>
+    <button type="button" class="ml-link" id="mListPaste" hidden>Incolla</button>
+    <button type="button" class="ml-link" id="mListAll">Tutti</button>
+    <button type="button" class="ml-link" id="mListDone">Fine</button>
+  </div>
+  <p class="ml-hint">Tocca un nome per vederlo sul palco, il quadrato per sceglierne più di uno.</p>
+  <div id="mListBody"></div>
+  <div class="ml-bar" id="mListBar" hidden>
+    <span id="mListSelN">0 selezionati</span>
+    <div class="ml-bar-acts">
+      <button type="button" id="mListAlign">In fila</button>
+      <button type="button" id="mListCopy">Copia</button>
+      <button type="button" id="mListMove">Sposta</button>
+      <button type="button" id="mListDel" class="danger">Elimina</button>
+    </div>
+  </div>
 </div>
 
 <!-- pannello Esporta: overlay fixed, a livello body (su mobile #props può essere nascosto) -->

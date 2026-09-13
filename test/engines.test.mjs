@@ -14005,6 +14005,48 @@ t("i punti di ripristino si aprono dal telefono, e si chiudono", () => {
   ok(/#versList \.ver-btn\{min-height:44px/.test(stylesCss), "e col telefono sono da dito");
 });
 
+t("l'elenco del telefono mostra quello che si puo' prendere sul palco, col nome che si legge", () => {
+  /* 13/09 — dock «Elementi». Dal telefono non c'era modo di scegliere piu' di un elemento: la scelta
+     multipla vuole lo shift, o un riquadro tirato con lo shift. */
+  reset();
+  const v = add("cantante", 300, 300); v.label = "Voce";
+  const b = add("batteria", 600, 200); b.label = "";
+  const r = add("cantante", 900, 300); r.label = "Cori"; r.rackId = "rack1";   /* dentro un rack: non si prende dal disegno */
+  const rows = A.mobileListRows();
+  const tipoV = A.TYPES.cantante.nome, tipoB = A.TYPES.batteria.nome;
+  eq(rows.map((x) => x.nome), ["Voce", tipoB], "il nome sul palco, o il tipo se non ce n'e' uno; niente elementi dentro un rack");
+  eq(rows[0].sub, tipoV, "sotto il nome, cos'e'");
+  eq(rows[1].sub, "", "e niente doppione quando il nome e' gia' il tipo");
+  A.selectMany([v.id, b.id]);
+  eq(A.mobileListRows().map((x) => x.scelto), [true, true], "le caselle dicono la scelta vera");
+  reset();
+});
+
+t("l'elenco del telefono si apre dal dock, e ogni comando della barra fa quello che dice", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const dock = html.slice(html.indexOf('<nav id="mDock"'), html.indexOf("</nav>", html.indexOf('<nav id="mDock"')));
+  eq([...dock.matchAll(/data-dock="([a-z]+)"/g)].map((m) => m[1]), ["add", "elementi", "export", "menu"], "il dock e' Aggiungi · Elementi · Esporta · Menu");
+  ok(/data-act="share"/.test(html.slice(html.indexOf('<div id="mActions">'))), "Condividi non sparisce: e' nel Menu");
+  ok(/a==="elementi"\)\{ toggleMobileMenu\(false\); openList\(\); \}/.test(appjs), "«Elementi» apre l'elenco");
+  ok(/document\.getElementById\("mList"\)\]\.forEach/.test(appjs), "chiuso, l'elenco e' inerte come gli altri fogli");
+  ok(/var ml=document\.getElementById\("mList"\); if\(ml\) ml\.classList\.remove\("open"\)/.test(appjs), "e si chiude con gli altri");
+  ok(/chiudiTrascinando\(ml, ml, closeAll, null, 44\)/.test(appjs), "si butta giu' dalla striscia in cima: l'elenco scorre");
+  const cablaggio = {
+    mListAlign: "distributeSelInLine()", mListCopy: "copySel()", mListPaste: "pasteClip()",
+    mListDel: "deleteSelGuarded()", mListDone: "closeAll",
+  };
+  Object.entries(cablaggio).forEach(([id, fn]) => {
+    const i = appjs.indexOf('on("' + id + '"');
+    ok(i > 0 && appjs.slice(i, i + 120).includes(fn), id + " chiama " + fn);
+  });
+  /* il nome porta sul palco (selezione del gruppo, come col dito sul disegno); il quadrato sceglie */
+  ok(/if\(c\)\{ toggleSelId\(c\.getAttribute\("data-chk"\)\)/.test(appjs), "il quadrato aggiunge o toglie");
+  ok(/if\(g\)\{ selectClick\(g\.getAttribute\("data-go"\)\); closeAll\(\)/.test(appjs), "il nome sceglie e chiude");
+  const s = stylesCss.replace(/\n\s*/g, "");
+  ok(/#mList \.ml-chk\{[^}]*width:60px;min-height:60px/.test(s) && /#mList \.ml-main\{[^}]*min-height:60px/.test(s), "righe e caselle da 60 px");
+  ok(/#mList \.ml-bar-acts button\{min-height:44px/.test(s), "e la barra da dito");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();
