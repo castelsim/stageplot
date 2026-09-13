@@ -1901,38 +1901,30 @@ svg.names-hidden .orc-name{display:none}
   /* ===== drawer mobile ===== */
   #mobBackdrop{display:none;position:fixed;inset:0;background:rgba(17,24,39,.42);z-index:55}
   /* ===== CHROME MOBILE (visibile solo < 880px) ===== */
-  #mTop{display:none;position:fixed;top:0;left:0;right:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--border);padding:7px 12px 8px}
-  .mtop-r1{display:flex;align-items:center;gap:7px}
-  #mTitle{flex:1;min-width:0;border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:15px;font-weight:600;color:var(--text)}
-  #mTitle:focus{outline:none;border-color:var(--accent)}
-  .mtbtn{flex:0 0 auto;width:34px;height:34px;border:none;border-radius:9px;background:none;font-size:16px;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;transition:background .12s var(--ease)}
-  .mtbtn svg{width:19px;height:19px}
+  /* Una riga da 56 px (13/09): nome del progetto, sotto le misure e lo stato del salvataggio, poi
+     annulla e ripeti. Il nome è un campo che non sembra un campo finché non lo tocchi. */
+  #mTop{display:none;position:fixed;top:0;left:0;right:0;z-index:50;height:56px;box-sizing:border-box;background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px 0 14px}
+  .mtop-r1{display:flex;align-items:center;gap:2px;height:100%}
+  .mtop-id{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  #mTitle{width:100%;min-width:0;box-sizing:border-box;margin-left:-7px;border:1px solid transparent;border-radius:8px;padding:0 6px;background:none;font-size:16px;font-weight:650;line-height:1.25;color:var(--text);text-overflow:ellipsis}
+  #mTitle:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+  .mtop-sub{display:flex;align-items:center;gap:4px;min-width:0;margin-top:-4px;font-size:12px;line-height:16px;color:var(--text-2);white-space:nowrap;overflow:hidden}
+  .mtop-sub #mStageSum{flex:0 0 auto}
+  .mtop-sub .doc-chip-m:not([hidden]){display:inline-flex;align-items:center;gap:3px;flex:0 1 auto;min-width:0;max-width:none;margin:0;padding:0;border:0;border-radius:0;background:none;font-size:12px;font-weight:400;color:inherit;overflow:hidden;text-overflow:ellipsis}
+  .mtop-sub .doc-chip-m::before{content:"·";margin-right:2px}
+  .mtop-sub .doc-chip-m svg{width:12px;height:12px;flex:0 0 auto}
+  .mtop-sub .doc-chip-m.warn{color:var(--danger);font-weight:600}
+  .mtbtn{flex:0 0 auto;width:44px;height:44px;border:none;border-radius:9px;background:none;font-size:16px;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;transition:background .12s var(--ease)}
+  .mtbtn svg{width:22px;height:22px}
   .mtbtn:active{background:var(--n-100)}
+  .mtbtn:disabled{color:var(--border-strong)}
   .avatar-btn-m{height:36px;min-width:36px;font-size:13px}
   .avatar-btn-m.logged{width:36px;min-width:36px}
-  .mtop-r2{display:flex;align-items:center;gap:9px;margin-top:7px}
-  .mtop-r2 .mlab{font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text-3)}
-  .mtop-r2 label{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text-2)}
-  .mtop-r2 input{width:50px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px}
-  .mtop-r2 select{border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;background:var(--surface)}
   /* A′: dock azioni primarie + menu-sheet a un livello — visibili solo ≤880px */
   #mActions{display:none}
   #mDock{display:none}
-  .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-  .mact-grid button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
-  .mact-grid button svg{width:18px;height:18px;flex:0 0 auto}
-  .mact-grid button.danger{color:var(--danger)}
-  /* Un bottone rimasto solo su una riga prende tutta la larghezza, invece di restare a metà con un
-     buco accanto: succede a «Area stampa» e a «Tema», e dopo aver tolto Planimetria e Channel list
-     succedeva due volte su tre gruppi. (02/09) */
-  .mact-grid button:last-child:nth-child(odd){grid-column:1 / -1}
-  /* Alti come un bersaglio, e con lo stesso respiro fra i gruppi: sono l'unico menu del telefono.
-     Con `min-height:48px` e basta perdeva contro la riga generica dei 44 px scritta più in basso
-     (stessa specificità, vince l'ultima): il commento diceva 48, il browser faceva 44. (02/09) */
-  #mActions .mact-grid button{min-height:48px}
-  #mActions .mact-var{margin-bottom:8px}
-  #mActions .mact-var select{width:100%;min-height:48px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;color:var(--text)}
-  #mActions .sh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding:8px 2px 6px}
+  /* La griglia di bottoni del menu (`.mact-grid`) è diventata un elenco il 13/09: le regole stanno in
+     fondo al file, nel blocco «BARRA ALTA, MENU E PANNELLI DEL TELEFONO». */
   .mact-consul{display:block;text-align:center;color:var(--accent);font-weight:600;font-size:13px;text-decoration:none;padding:10px;margin-top:4px}
   .mact-consul:hover{text-decoration:underline}
   /* Export come modale centrato (#framePanel diventa overlay) */
@@ -1969,7 +1961,7 @@ svg.names-hidden .orc-name{display:none}
     body{display:block;height:100%}
     #mTop{display:block}
     /* A′: bande = barra alta (titolo+chip+? · palco+↶↷⤢) | palco a tutta altezza | dock */
-    main{position:fixed;top:86px;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));background:var(--canvas-bg)}
+    main{position:fixed;top:56px;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));background:var(--canvas-bg)}
     /* PANNELLO-HUB: nascosto di default (canvas pieno); appare con selezione o pannelli (palco/evento/channel list) */
     /* `body #props` e non `#props`: più in basso nel file c'è `#props{display:flex}` (riga ~2310),
        senza media query e con la stessa specificità — e a parità vince l'ultima scritta. Risultato:
@@ -2054,12 +2046,12 @@ svg.names-hidden .orc-name{display:none}
     body.dark #mDock button:first-child{color:var(--accent-bright)}
     body:has(#svg.dragging) #mDock{transform:translateY(120%);transition:transform 160ms var(--ease)}
     /* menu-sheet a un livello (aperto da dock "Menu" o ⋯) */
-    #mActions{display:block;position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;background:var(--surface);border-radius:16px 16px 0 0;
+    /* Il menu è un elenco a gruppi su fondo neutro, e SCORRE (13/09): la maniglia per buttarlo giù è
+       la striscia in cima (`.sheet-hand`), non più lo pseudo-elemento — trascinare le righe scorre. */
+    #mActions{display:block;position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;background:var(--bg);border-radius:16px 16px 0 0;
       transform:translateY(103%);transition:transform .26s ease;box-shadow:0 -8px 30px rgba(0,0,0,.22);
-      max-height:80vh;overflow-y:auto;padding:12px 14px calc(20px + env(safe-area-inset-bottom,0px))}
+      max-height:88vh;overflow-y:auto;padding:26px 16px calc(24px + env(safe-area-inset-bottom,0px))}
     #mActions.open{transform:none}
-    #mActions::before{content:"";display:block;width:38px;height:4px;border-radius:3px;background:var(--border-strong);margin:0 auto 12px}
-    .doc-chip-m{font-size:10px;padding:3px 7px;max-width:34vw;overflow:hidden;text-overflow:ellipsis}
     body.viewmode #mDock,body.viewmode #mActions,body.viewmode #mPeek{display:none!important}
     /* CATALOGO = bottom sheet (overlay) aperto da "Aggiungi" */
     #catalog{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;height:auto;max-height:80vh;display:block;
@@ -2166,7 +2158,6 @@ svg.names-hidden .orc-name{display:none}
   body.dark #mobBackdrop{background:rgba(0,0,0,.6)}
   body.dark #mTop{background:#1b2327;border-color:#2c3a3f}
   body.dark #mTitle,body.dark .mtop-r2 input,body.dark .mtop-r2 select{background:#141a1d;border-color:#314046;color:#e5e7eb}
-  body.dark .mact-grid button{background:#222b38;border-color:#314046;color:#e5e7eb}
   body.dark .mtbtn{color:#cbd5e1}
   body.dark .mtbtn:active{background:#222b38}
   body.dark #catalog,body.dark #props{background:#1b2327}
@@ -3109,6 +3100,56 @@ body.dark .ask-all .btn{background:transparent}
   .lite-btn{width:44px;height:44px}
   #props .btn.cnt-b{width:44px;height:44px;min-width:44px}   /* i +/− dei contatori: si premono a ripetizione */
 }
+
+/* ── BARRA ALTA, MENU E PANNELLI DEL TELEFONO (13/09) ─────────────────────────────────────────────
+   Simone: «analizza la versione mobile e prova a farmi dei mockup», poi «procedi con tutte».
+   Misurato prima: barra alta 94 px con nove comandi, menu a griglia senza i valori, «Punti di
+   ripristino» irraggiungibile e senza uscita, «Area di stampa» con bottoni da 28 px che al ritorno
+   apriva Esporta. Scritto IN FONDO e con un id davanti: dentro #props e #mActions a parità di peso
+   vince l'ultima regola, e questa trappola è già scattata otto volte. */
+.m-fit{display:none}
+#frameBox .fr-acts{margin-top:10px}
+#frameBox .fr-acts .btn{flex:1;font-size:12px}
+#frameBox .fr-wide{width:100%;margin-top:6px;font-size:12px}
+#areaEditPanel #areaDone,#versPanel #versDone{width:100%;margin-top:12px;padding:10px;font-size:13px}
+#versList .ver-btn{font-size:11px;padding:3px 7px}
+@media (max-width:880px){
+  main .m-fit{display:flex;position:absolute;right:12px;bottom:12px;z-index:5;width:48px;height:48px;align-items:center;justify-content:center;
+    padding:0;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.12);cursor:pointer}
+  main .m-fit svg{width:22px;height:22px}
+  main .m-fit:active{background:var(--n-100)}
+  #mActions .sh{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);padding:14px 4px 6px}
+  #mActions .mlist{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  #mActions .mrow{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;box-sizing:border-box;margin:0;padding:0 16px;
+    border:0;border-top:1px solid var(--border);border-radius:0;background:none;font:600 16px/1.25 var(--font-ui);color:var(--text);text-align:left;cursor:pointer}
+  #mActions .mlist>.mrow:first-child{border-top:0}
+  #mActions .mrow[hidden]{display:none}
+  #mActions button.mrow:active{background:var(--n-100)}
+  #mActions .mrow-t{flex:1;min-width:0}
+  #mActions .mrow-v{flex:0 1 auto;min-width:0;max-width:58%;font-weight:400;font-size:15px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mActions .mrow-var select{flex:0 1 auto;min-width:0;max-width:60%;min-height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:0 10px;font-weight:600;color:var(--text)}
+  #mActions .mrow-acts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--border)}
+  #mActions .mrow-acts button{min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);font:600 14px var(--font-ui);color:var(--text);cursor:pointer}
+  #mActions .mrow-acts button.danger{color:var(--danger)}
+  #mActions .mrow-acts button[hidden]{display:none}
+  #mActions .mrow-col{flex-direction:column;align-items:stretch;gap:8px;padding:12px 16px;cursor:default}
+  #mActions .mseg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+  #mActions .mseg button{min-height:44px;margin:0;padding:0 2px;border:0;border-left:1px solid var(--border-strong);border-radius:0;background:var(--surface);font:600 14px var(--font-ui);color:var(--text);cursor:pointer}
+  #mActions .mseg button:first-child{border-left:0}
+  #mActions .mseg button.on{background:var(--accent);color:#fff}
+  #mActions .mswitch{flex:0 0 auto;position:relative;width:48px;height:28px;border-radius:999px;background:var(--border-strong);transition:background .15s var(--ease)}
+  #mActions .mswitch::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s var(--ease)}
+  #mActions .mrow[aria-checked="true"] .mswitch{background:var(--accent)}
+  #mActions .mrow[aria-checked="true"] .mswitch::after{transform:translateX(20px)}
+  #mActions .mact-consul{display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:10px;font-size:15px}
+  #stageDimsM{display:flex;gap:10px;margin-bottom:12px}
+  #stageDimsM label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;margin:0;font-size:14px;color:var(--text-2)}
+  #props #stageDimsM input{flex:1;width:100%;min-width:0;min-height:44px;box-sizing:border-box;padding:0 8px}
+  #frameBox .fr-acts .btn,#frameBox .fr-wide{min-height:44px;font-size:14px}
+  #areaEditPanel #areaDone,#versPanel #versDone{min-height:48px;font-size:15px}
+  #versList .ver-btn{min-height:44px;min-width:44px;font-size:14px;padding:0 12px}
+  #versPanel{position:relative;padding-top:26px}
+}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -3133,20 +3174,16 @@ body.dark .ask-all .btn{background:transparent}
 </div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
+  <!-- 13/09 — UNA riga da 56 px, non due da 94. Resta quello che si guarda o si tocca di continuo:
+       il nome, le misure con lo stato del salvataggio, annulla e ripeti. Guida, account e le misure
+       del palco stanno nel Menu; «Adatta» è un bottone sul palco, dove serve. -->
   <div class="mtop-r1">
-    <input aria-label="Titolo del progetto" type="text" id="mTitle" placeholder="Senza titolo">
-    <span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span>
-    <button class="mtbtn" id="bLearnM" aria-label="Guida e feedback" title="Guida e feedback" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg></button>
-    <button class="avatar-btn avatar-btn-m" id="accountBtnM" title="Accedi per salvare online">Accedi</button>
-  </div>
-  <div class="mtop-r2">
-    <span class="mlab">PALCO</span>
-    <label>L<input type="number" id="mW" min="1" max="60" step="0.5"><span>m</span></label>
-    <label>P<input type="number" id="mD" min="1" max="40" step="0.5"><span>m</span></label>
-    <span style="flex:1"></span>
+    <div class="mtop-id">
+      <input aria-label="Titolo del progetto" type="text" id="mTitle" placeholder="Senza titolo">
+      <div class="mtop-sub"><span id="mStageSum">Palco</span><span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span></div>
+    </div>
     <button class="mtbtn" id="mUndo" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
     <button class="mtbtn" id="mRedo" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
-    <button class="mtbtn" id="mFit" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><path d="M21 3l-7 7M3 21l7-7"/></svg></button>
   </div>
 </div>
 <header>
@@ -3254,6 +3291,9 @@ body.dark .ask-all .btn{background:transparent}
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
+<!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
+     che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
+<button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <div id="venueCalibPop" hidden>
@@ -3322,14 +3362,16 @@ body.dark .ask-all .btn{background:transparent}
         <div><label for="frameX">X (m)</label><input type="number" id="frameX" step="0.1"></div>
         <div><label for="frameY">Y (m)</label><input type="number" id="frameY" step="0.1"></div>
       </div>
-      <div class="frame-row" style="margin-top:10px">
-        <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
-        <button class="btn" id="frameAll" style="flex:1;font-size:12px">Tutto + planimetria</button>
+      <!-- Misure dei bottoni nel foglio di stile, non in linea: uno `style=` batte ogni regola, e
+           sul telefono questi quattro restavano a 28 px sotto il dito. (13/09) -->
+      <div class="frame-row fr-acts">
+        <button class="btn" id="frameStage">= Palco</button>
+        <button class="btn" id="frameAll">Tutto + planimetria</button>
       </div>
-      <button class="btn" id="frameCenter" style="width:100%;margin-top:6px;font-size:12px">⊕ Centra palco nell'area</button>
-      <button class="btn danger" id="frameClear" style="width:100%;margin-top:6px;font-size:12px">Reimposta (usa il palco)</button>
+      <button class="btn fr-wide" id="frameCenter">⊕ Centra palco nell'area</button>
+      <button class="btn danger fr-wide" id="frameClear">Reimposta (usa il palco)</button>
     </div>
-    <button class="btn primary" id="areaDone" style="width:100%;margin-top:12px;padding:10px;font-size:13px">Torna a Esporta</button>
+    <button class="btn primary" id="areaDone">Torna a Esporta</button>
   </div>
   <div class="sec" id="stageEditPanel" hidden>
     <div id="stageBlocksSec">
@@ -3337,18 +3379,12 @@ body.dark .ask-all .btn{background:transparent}
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
     <div class="hint desk-hint" id="stageDragHint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
     <div class="hint mob-hint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola la misura con + / −, poi scegli dove metterlo.</div>
-    <!-- Aggancio: sull'header c'è da sempre, ma l'header su mobile è display:none — da telefono
-         restava inchiodato a 25 cm senza modo di cambiarlo. Qui perché è la stessa domanda del
-         palco: come si posizionano le cose sopra. (02/09) -->
-    <div class="mob-hint" id="snapRowM" style="margin-bottom:10px">
-      <label>Aggancio <small class="lbl-note">— come si posizionano gli elementi</small></label>
-      <select id="snapSelM" aria-label="Aggancio alla griglia">
-        <option value="0">Libero</option>
-        <option value="25" selected>25 cm</option>
-        <option value="50">50 cm</option>
-        <option value="100">1 m</option>
-        <option value="obj">Oggetti</option>
-      </select>
+    <!-- Le misure del palco, sul telefono. Stavano nella barra alta, sempre in vista: due campi da
+         toccare una volta sola, in cambio di 38 px di disegno in meno per sempre. Qui sono accanto
+         alla forma, che è la stessa domanda. L'aggancio, che stava qui, è nel Menu. (13/09) -->
+    <div class="mob-hint mstage-dims" id="stageDimsM">
+      <label>Larghezza<input type="number" id="mW" min="1" max="60" step="0.5"><span>m</span></label>
+      <label>Profondità<input type="number" id="mD" min="1" max="40" step="0.5"><span>m</span></label>
     </div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock">+ Blocco</button>
@@ -4203,6 +4239,9 @@ body.dark .ask-all .btn{background:transparent}
       </div>
       <div id="versList"></div>
     </div>
+    <!-- Il pannello si apriva e non si chiudeva: niente bottone, niente maniglia, Esc solo da
+         tastiera. Dal telefono ne usciva solo selezionando un elemento. (13/09) -->
+    <button class="btn primary" id="versDone" type="button">Fatto</button>
   </div>
   <!-- Channel list (input patch / monitor): si apre col pulsante Channel list (audit/roadmap 1B).
        NON e' riservata alla consulenza — lo diceva questo commento, ed era falso: si apre a chiunque,
@@ -4324,31 +4363,52 @@ body.dark .ask-all .btn{background:transparent}
   <button data-dock="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
   <button data-dock="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/></svg>Menu</button>
 </nav>
+<!-- 13/09 — Il menu del telefono è un ELENCO a gruppi, non una griglia di bottoni. Ogni riga dice
+     cosa apre e, dove c'è, il valore che c'è già scritto (luogo, data, misure): si capisce cosa
+     manca senza aprire niente. Qui arriva anche quello che dal telefono non si raggiungeva: i punti
+     di ripristino, l'aggancio alla griglia, la guida, l'account. -->
 <div id="mActions">
   <div class="sh">Progetto</div>
-  <div class="mact-grid">
-    <button data-act="new" class="danger">Nuovo</button>
-    <button data-act="cloud">I miei progetti…</button>
+  <div class="mlist">
+    <button class="mrow" data-act="cloud"><span class="mrow-t">I miei progetti</span></button>
+    <!-- Varianti (13/09). Sul telefono l'header è nascosto per intero, e con lui la barra delle
+         varianti e la voce «Nuova variante» del menu File. -->
+    <div class="mrow mrow-var" id="mVarRow" hidden><span class="mrow-t" id="mVarHead">Variante</span><select id="mVariantSel" aria-label="Variante attiva"></select></div>
+    <div class="mrow-acts" id="mVarGrid">
+      <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
+      <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
+      <button data-act="var-new">+ Nuova variante</button>
+    </div>
+    <button class="mrow" data-act="share"><span class="mrow-t">Condividi</span></button>
+    <button class="mrow" data-act="new"><span class="mrow-t">Nuovo progetto</span></button>
+  </div>
+  <div class="sh">Evento</div>
+  <div class="mlist">
+    <button class="mrow" data-act="evento"><span class="mrow-t">Luogo</span><span class="mrow-v" id="mMenuLuogo"></span></button>
+    <button class="mrow" data-act="evento"><span class="mrow-t">Data e ora</span><span class="mrow-v" id="mMenuData"></span></button>
   </div>
   <div class="sh">Palco</div>
-  <div class="mact-grid">
-    <button data-act="palco">Palco</button>
-    <button data-act="evento">Evento</button>
-    <button data-act="frame">Area stampa</button>
-  </div>
-  <!-- Varianti (13/09). Sul telefono l'header è nascosto per intero, e con lui la barra delle varianti e
-       la voce «Nuova variante» del menu File: da qui non si vedevano, non si cambiavano e non se ne
-       creava una. Era già scritto nell'analisi mobile del 02/09 e mai chiuso. -->
-  <div class="sh" id="mVarHead">Varianti</div>
-  <div class="mact-var" id="mVarRow" hidden><select id="mVariantSel" aria-label="Variante attiva"></select></div>
-  <div class="mact-grid" id="mVarGrid">
-    <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
-    <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
-    <button data-act="var-new">Nuova variante</button>
+  <div class="mlist">
+    <button class="mrow" data-act="palco"><span class="mrow-t">Misure e forma</span><span class="mrow-v" id="mMenuStage"></span></button>
+    <div class="mrow mrow-col">
+      <span class="mrow-t" id="mSnapLbl">Aggancio alla griglia</span>
+      <div class="mseg" id="mSnap" role="radiogroup" aria-labelledby="mSnapLbl">
+        <button type="button" role="radio" data-snap="0">Libero</button>
+        <button type="button" role="radio" data-snap="25">25 cm</button>
+        <button type="button" role="radio" data-snap="50">50 cm</button>
+        <button type="button" role="radio" data-snap="100">1 m</button>
+        <button type="button" role="radio" data-snap="obj">Oggetti</button>
+      </div>
+    </div>
+    <button class="mrow" data-act="frame"><span class="mrow-t">Area di stampa</span></button>
+    <button class="mrow" data-act="vers"><span class="mrow-t">Punti di ripristino</span></button>
   </div>
   <div class="sh">App</div>
-  <div class="mact-grid">
-    <button data-act="theme">Tema chiaro/scuro</button>
+  <div class="mlist">
+    <button class="mrow" data-act="theme" role="switch" aria-checked="false" id="mThemeRow"><span class="mrow-t">Tema scuro</span><span class="mswitch" aria-hidden="true"></span></button>
+    <button class="mrow" data-act="guida"><span class="mrow-t">Guida: cos'è uno stage plot</span></button>
+    <button class="mrow" data-act="feedback"><span class="mrow-t">Cosa manca? Scrivici</span></button>
+    <button class="mrow" data-act="account" id="accountBtnM"><span class="mrow-t">Accedi</span><span class="mrow-v">per salvare online</span></button>
   </div>
   <!-- «Consulenza tecnica →» tolta col tasto in header (10/09): stessa decisione, stesso ritorno. -->
   <a href="/orchestre/richiedi/" class="mact-consul" id="mactRichiedi">Richiedi musicisti →</a>
