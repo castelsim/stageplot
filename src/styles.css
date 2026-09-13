@@ -3111,3 +3111,34 @@ body.dark .ask-all .btn{background:transparent}
   #mList .ml-bar-acts button:disabled{opacity:.4;cursor:default}
   body.viewmode #mList{display:none!important}
 }
+
+/* ── IL CATALOGO, SUL TELEFONO (13/09) ────────────────────────────────────────────────────────────
+   Misurato prima: undici intestazioni da 28 px in fila, la ricerca a 34, e ogni elemento a tre tocchi.
+   Ora: la ricerca grande in cima, gli usati di recente a un tocco, le categorie come riquadri da
+   60 px su due colonne. Aperta una categoria, le altre si fanno da parte (`#catWrap.drill`). */
+#catRecenti{display:none}
+@media (max-width:880px){
+  #catalog{max-height:88vh}
+  #catalog .cat-sheet-title{font-size:20px}
+  #catalog .cat-sheet-close{width:44px;height:44px}
+  #catalog #catSearch{min-height:50px;margin:2px 0 12px;padding:0 14px;border:1.5px solid var(--border-strong);border-radius:12px;background:var(--surface)}
+  #catalog #catSearch:focus{border-color:var(--accent)}
+  #catalog #catRecenti:not([hidden]){display:block;margin:0 0 14px}
+  #catalog .cat-rec-h,#catalog .cat-grid-h{margin:0 2px 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+  #catalog .cat-rec{display:flex;flex-wrap:wrap;gap:8px}
+  #catalog .cat-rec button{width:auto;min-height:40px;margin:0;padding:0 14px;border:0;border-radius:999px;background:var(--accent-tint);color:var(--accent-strong);font:600 14px var(--font-ui)}
+  #catalog .cat-rec button.cat-rec-paste{background:var(--accent);color:#fff}
+  #catWrap:not(.drill){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  #catalog #catWrap .cat-head{min-height:60px;margin:0;padding:0 14px;border-radius:12px;background:var(--n-50);font-size:15px;font-weight:650;color:var(--text)}
+  #catalog #catWrap .cat-head .caret{display:none}
+  #catalog #catWrap .cat-head .count{background:none;font-size:13px;font-weight:500;color:var(--text-3)}
+  #catWrap:not(.drill) .cat-head:nth-last-child(2):nth-child(4n+1){grid-column:1 / -1}
+  /* aperta una categoria: resta solo la sua intestazione, che fa da «indietro» */
+  #catWrap.drill .cat-head:not(.open){display:none}
+  #catalog #catWrap.drill .cat-head.open{min-height:48px;margin-bottom:4px;background:var(--accent);color:#fff}
+  #catalog #catWrap.drill .cat-head.open::before{content:"‹";font-size:24px;line-height:1;margin-right:4px}
+  #catalog #catWrap.drill .cat-head.open .count{color:rgba(255,255,255,.8)}
+  #catalog .cat-body button,#catalog #catPinned button,#catalog #catResults button{min-height:56px;padding:6px 12px;font-size:15px}
+  #catalog .cat-body .mini,#catalog #catPinned .mini,#catalog #catResults .mini{width:40px;height:40px}
+  body.dark #catalog #catWrap .cat-head:not(.open){background:#20292e;color:#e5e7eb}
+}
