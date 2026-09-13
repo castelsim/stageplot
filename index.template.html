@@ -14218,6 +14218,21 @@ function refreshCatalogArt(){
     }
   }catch(_e){}
 }
+/* Gli ultimi sei elementi presi dal catalogo, il più recente per primo, senza doppioni (stesso tipo e
+   stesso nome: «Uomo» e «Donna» sono due voci diverse dello stesso tipo). Salvati sul dispositivo. */
+var CAT_RECENTI_KEY="sp_catRecenti";
+function catalogRecenti(){
+  var a=[];
+  try{ a=JSON.parse(localStorage.getItem(CAT_RECENTI_KEY)||"[]"); }catch(e){ a=[]; }
+  if(!Array.isArray(a)) return [];
+  return a.filter(function(r){ return r && typeof r.k==="string" && TYPES[r.k] && typeof r.nome==="string"; }).slice(0,6);
+}
+function ricordaRecenteCatalogo(k, nome, over){
+  if(!TYPES[k]) return;
+  var a=catalogRecenti().filter(function(r){ return !(r.k===k && r.nome===nome); });
+  a.unshift({k:k, nome:String(nome||TYPES[k].nome), over:over||null});
+  try{ localStorage.setItem(CAT_RECENTI_KEY, JSON.stringify(a.slice(0,6))); }catch(e){}
+}
 (function buildCatalog(){
   var el = document.getElementById("catalog"), cats={};
   CAT_ORDER.forEach(function(c){ cats[c]=[]; });
@@ -14229,7 +14244,7 @@ function refreshCatalogArt(){
     b.dataset.miniK=k;                                            /* per rigenerare l'anteprima quando arrivano le illustrazioni */
     if(over) b.dataset.miniOver=JSON.stringify(over);
     b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small>'+esc(shownDim)+'</small>':'')+'</span>';
-    b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); catCompactSoon(); });
+    b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); ricordaRecenteCatalogo(k, nome, over); renderRecenti(); catCompactSoon(); });
     b.draggable=true;   /* desktop: trascina sul palco per posizionarlo dove vuoi */
     b.addEventListener("dragstart", function(e){
       catIdleCancel();   /* mai richiudere il catalogo a metà drag: Chrome abortirebbe il trascinamento */
@@ -14250,16 +14265,45 @@ function refreshCatalogArt(){
 
   /* mobile: intestazione sticky del bottom-sheet (titolo + chiudi) */
   var mHead=document.createElement("div"); mHead.className="cat-sheet-head";
-  mHead.innerHTML='<span class="cat-sheet-title">Aggiungi elemento</span><button type="button" class="cat-sheet-close danger" aria-label="Chiudi">✕</button>';
+  mHead.innerHTML='<span class="cat-sheet-title">Aggiungi</span><button type="button" class="cat-sheet-close danger" aria-label="Chiudi">✕</button>';
   el.appendChild(mHead);
   mHead.querySelector(".cat-sheet-close").addEventListener("click", closeMobileDrawers);
   chiudiTrascinando(document.getElementById("catalog"), mHead, closeMobileDrawers, ".cat-sheet-close");
 
   // campo di ricerca + contenitori (accordion / risultati)
   var search=document.createElement("input");
-  search.type="search"; search.id="catSearch"; search.placeholder="Cerca elemento…";
+  search.type="search"; search.id="catSearch"; search.placeholder="Cerca: chitarra, wedge, cassa attiva…";
   search.setAttribute("aria-label","Cerca elemento nel catalogo");
   el.appendChild(search);
+  /* USATI DI RECENTE (13/09, telefono). Chi disegna una band mette quattro wedge e due voci: rifare
+     ogni volta categoria → sottocategoria → elemento sono tre tocchi su bersagli da cercare. Qui gli
+     ultimi sei, un tocco. Col mouse non si vede: là il catalogo è una colonna sempre aperta. */
+  var rec=document.createElement("div"); rec.id="catRecenti"; el.appendChild(rec);
+  function renderRecenti(){
+    var rr=catalogRecenti();
+    var paste=(typeof clipboard!=="undefined" && clipboard.length) ? clipboard.length : 0;
+    rec.hidden = !rr.length && !paste;
+    rec.innerHTML = rec.hidden ? "" : '<div class="cat-rec-h">Usati di recente</div><div class="cat-rec">'
+      + (paste ? '<button type="button" class="cat-rec-paste" data-paste="1">Incolla ('+paste+')</button>' : '')
+      + rr.map(function(r, i){ return '<button type="button" data-rec="'+i+'">'+esc(r.nome)+'</button>'; }).join("") + '</div>';
+  }
+  rec.addEventListener("click", function(e){
+    var p=e.target.closest("[data-paste]"); if(p){ closeMobileDrawers(); pasteClip(); return; }
+    var b=e.target.closest("[data-rec]"); if(!b) return;
+    var r=catalogRecenti()[+b.getAttribute("data-rec")]; if(!r) return;
+    addItem(r.k, r.over ? JSON.parse(JSON.stringify(r.over)) : undefined);
+    ricordaRecenteCatalogo(r.k, r.nome, r.over); renderRecenti();
+  });
+  renderRecenti();
+  /* Riaprendo il catalogo si riparte dall'inizio: usati di recente e riquadri delle categorie. Si
+     tornava dentro l'ultima categoria aperta, e i recenti — la ragione per riaprirlo — restavano sopra
+     un elenco che non c'entrava. */
+  window.__renderRecenti=function(){
+    renderRecenti();
+    if(!isMobile()) return;
+    wrap.querySelectorAll(".cat-head.open,.cat-body.open,.sub-head.open,.sub-body.open").forEach(function(x){ x.classList.remove("open"); });
+    wrap.classList.remove("drill");
+  };
   var wrap=document.createElement("div"); wrap.id="catWrap"; el.appendChild(wrap);
   var results=document.createElement("div"); results.id="catResults"; el.appendChild(results);
 
@@ -14396,6 +14440,10 @@ function refreshCatalogArt(){
       wrap.querySelectorAll(".cat-head.open,.cat-body.open,.sub-head.open,.sub-body.open").forEach(function(el){ el.classList.remove("open"); });
       if(willOpen){ body.classList.add("open"); head.classList.add("open"); catCompactSoon(); }   /* 2s di inutilizzo → torna al default (chiuso) */
       else catIdleCancel();
+      /* Sul telefono le categorie sono una griglia di riquadri: aprendone una le altre si fanno da
+         parte e la sua intestazione diventa il «‹ indietro». Col mouse la classe non cambia niente. */
+      wrap.classList.toggle("drill", willOpen);
+      if(willOpen && isMobile()){ var sc=document.getElementById("catalog"); if(sc) sc.scrollTop=0; }
     });
     sections.push({head:head, body:body});
     wrap.appendChild(head); wrap.appendChild(body);
@@ -14470,8 +14518,8 @@ function refreshCatalogArt(){
     var q=this.value.trim().toLowerCase();
     clearTimeout(__noResTimer);
     results.innerHTML="";
-    if(!q){ wrap.style.display=""; pin.style.display=""; results.style.display="none"; return; }
-    wrap.style.display="none"; pin.style.display="none"; results.style.display="block";   /* le azioni pinnate ricompaiono nei risultati se pertinenti (niente doppione) */
+    if(!q){ wrap.style.display=""; pin.style.display=""; rec.style.display=""; results.style.display="none"; return; }
+    wrap.style.display="none"; pin.style.display="none"; rec.style.display="none"; results.style.display="block";   /* le azioni pinnate ricompaiono nei risultati se pertinenti (niente doppione) */
     if(q==="json"){   /* escape-hatch tecnica: solo con "json" ESATTO. Non è una categoria né un elemento del palco. */
       results.innerHTML='<div class="json-tools">'
         +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
@@ -15134,7 +15182,7 @@ function renderMobileList(){
      punto, scorrere l'elenco lo chiudeva. La presa torna la striscia in cima, come per gli altri fogli. */
   (function(){ var ms=document.getElementById("mActions");
     if(ms) chiudiTrascinando(ms, ms, closeAll, null, 44); })();
-  function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
+  function openCatalog(){ closeAll(); if(window.__renderRecenti) window.__renderRecenti(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
   /* elenco degli elementi (dock «Elementi»): si apre sempre rifatto, e ogni comando lo rifà */
