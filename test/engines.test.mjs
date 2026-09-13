@@ -13927,6 +13927,35 @@ t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
   ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
 });
 
+t("le varianti si vedono e si gestiscono anche dal telefono", () => {
+  /* Simone, 13/09: «nell'app mobile non vedo le varianti di progetto». Sul telefono l'header è
+     nascosto per intero, e con lui la barra delle varianti e la voce «Nuova variante» del menu File:
+     non si vedevano, non si cambiavano, non se ne creava una. Era nell'analisi mobile del 02/09
+     («varianti non gestibili») e non era mai stato chiuso. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const iMenu = html.indexOf('<div id="mActions">');
+  const iFine = html.indexOf('<div class="sh">App</div>', iMenu);
+  ok(iMenu > 0 && iFine > iMenu, "il menu del telefono si delimita");
+  const menu = html.slice(iMenu, iFine);
+  ok(/id="mVariantSel"/.test(menu), "c'è il selettore della variante attiva");
+  ["var-new", "var-ren", "var-del"].forEach((a) => ok(menu.indexOf('data-act="' + a + '"') > -1, "c'è il comando " + a));
+  /* «Nuova variante» per ULTIMO: la regola «l'ultimo bottone dispari prende tutta la riga» conta
+     anche i bottoni nascosti, e con una sola variante Rinomina ed Elimina sono nascosti */
+  const grid = menu.slice(menu.indexOf('id="mVarGrid"'));
+  ok(grid.indexOf('data-act="var-new"') > grid.indexOf('data-act="var-del"'), "Nuova variante è l'ultimo della griglia");
+  /* ogni comando chiama la STESSA funzione della barra desktop, non una copia */
+  const menuJs = appjs.slice(appjs.indexOf('var a=b.getAttribute("data-act"); if(!a) return;'), appjs.indexOf("/* dock azioni primarie */"));
+  ok(/a==="var-new"\)\{ createVariant\(\)/.test(menuJs), "Nuova → createVariant");
+  ok(/a==="var-ren"\)\{ promptRenameVariant\(activeVar\)/.test(menuJs), "Rinomina → promptRenameVariant");
+  ok(/a==="var-del"\)\{ confirmDeleteVariant\(activeVar\)/.test(menuJs), "Elimina → confirmDeleteVariant, con la conferma");
+  /* e si ridisegna dentro renderVariantBar, che ogni cambio di variante già chiama */
+  const rvb = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function renderVariantBar(){") + 200);
+  ok(/renderVariantMobile\(\)/.test(rvb), "la barra desktop ridisegna anche quella del telefono");
+  const rvm = appjs.slice(appjs.indexOf("function renderVariantMobile(){"), appjs.indexOf("function promptRenameVariant("));
+  ok(/VARIANTS\.length>1/.test(rvm) && /viewmode/.test(rvm), "selettore solo con due o più varianti, e mai in viewer");
+  ok(/#mActions \.mact-var select\{width:100%;min-height:48px/.test(stylesCss), "il selettore è alto come un dito");
+});
+
 t("ruotando il telefono il pannello palco si rifà", () => {
   /* Ruotando cambia anche COSA si vede, non solo quanto è largo: la griglia 3x3 compare solo
      `if(isMobile())`, e `isMobile()` si legge al render. L'unico listener di resize chiamava
