@@ -3727,11 +3727,18 @@ window.__markCloudClean=markCloudClean;
 window.__cloudNeedsFlush=function(){ var C=window.__cloud; return _cloudDirty||_cloudSaving||!!(C&&C.isWriting&&C.isWriting()); };
 function renderAccountBtn(){
   var C=window.__cloud, u=C&&C.user(), em=u&&(u.email||"?");
-  ["accountBtn","accountBtnM"].forEach(function(id){
-    var b=document.getElementById(id); if(!b) return;
-    if(u){ b.textContent=em.slice(0,2).toUpperCase(); b.classList.add("logged"); b.title=em; }
-    else { b.textContent="Accedi"; b.classList.remove("logged"); b.title="Accedi per salvare online"; }
-  });
+  var bd=document.getElementById("accountBtn");
+  if(bd){
+    if(u){ bd.textContent=em.slice(0,2).toUpperCase(); bd.classList.add("logged"); bd.title=em; }
+    else { bd.textContent="Accedi"; bd.classList.remove("logged"); bd.title="Accedi per salvare online"; }
+  }
+  /* sul telefono è una riga del Menu: il nome e, accanto, a chi è intestato o perché accedere */
+  var bm=document.getElementById("accountBtnM");
+  if(bm){
+    var tt=bm.querySelector(".mrow-t"), vv=bm.querySelector(".mrow-v");
+    if(tt) tt.textContent = u ? "Account" : "Accedi";
+    if(vv) vv.textContent = u ? em : "per salvare online";
+  }
   if(window.__docLoadBlocked) setDocState("blocked");
   else if(window.__localStorageUnavailable && !u) setDocState("local-error");
   else if(u) setDocState((_cloudDirty||_cloudSaving||window.__bootCloudPending)?"saving":(C.currentId()?"online":"local"));
@@ -11359,12 +11366,20 @@ document.getElementById("pTastLeg2").addEventListener("change", function(){ mutS
 function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   if(a) a.value=snapMode; if(b) b.value=snapMode;
+  /* sul telefono l'aggancio è una fila di cinque bottoni nel Menu (13/09): stesso stato, un solo punto che li allinea */
+  Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
+    var on=x.getAttribute("data-snap")===snapMode;
+    x.classList.toggle("on", on); x.setAttribute("aria-checked", on ? "true" : "false");
+  });
 }
 (function(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   function set(v){ snapMode=v; syncSnapSelects(); }
   if(a) a.addEventListener("change", function(){ set(this.value); });
   if(b) b.addEventListener("change", function(){ set(this.value); });
+  Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
+    x.addEventListener("click", function(){ set(x.getAttribute("data-snap")); });
+  });
   syncSnapSelects();
 })();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
@@ -11988,6 +12003,20 @@ function updateHeaderStage(){
   var b0=stageBlocks()[0];
   ["stW","mW"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.w/100; });
   ["stD","mD"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.d/100; });
+  var ss=document.getElementById("mStageSum"); if(ss) ss.textContent="Palco "+misurePalco();
+}
+/* «16 × 6,5 m»: le misure dell'ingombro totale, con l'unità una volta sola (barra alta e menu del telefono) */
+function misurePalco(){
+  function n(cm){ return ((+cm||0)/100).toLocaleString("it-IT",{maximumFractionDigits:1}); }
+  return n(state.stage.w)+" × "+n(state.stage.d)+" m";
+}
+/* «sab 3 ott · 21:00»: la data dell'evento come si dice a voce, per la riga del menu */
+function dataEventoBreve(){
+  if(!state.evDate) return state.evTime||"";
+  var d=new Date(state.evDate+"T12:00:00");
+  if(!isFinite(d.getTime())) return state.evDate;
+  var s=d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"});
+  return s+(state.evTime ? " · "+state.evTime : "");
 }
 /* Titolo/Luogo: campi nell'header (desktop) + pannello Evento (mobile), sincronizzati con lo stato */
 /* I campi che mostrano il nome del progetto: header (desktop), pannello Evento (mobile), finestra
@@ -13071,7 +13100,7 @@ function pannelliChiudibiliColDito(){
      annidate nella stessa striscia significavano due chiusure in fila — la seconda riapriva quello
      che la prima aveva chiuso, e il foglio scendeva del doppio del dito. Una maniglia sola, che
      preme il «Fatto» della vista aperta. (02/09) */
-  [["eventoSec","bEventoDone"],["stageEditPanel",null],["areaEditPanel","areaDone"]]
+  [["eventoSec","bEventoDone"],["stageEditPanel",null],["areaEditPanel","areaDone"],["versPanel","versDone"]]
     .forEach(function(par){
       var sec=document.getElementById(par[0]); if(!sec || sec.__grab) return;
       sec.__grab=1;
@@ -13103,8 +13132,10 @@ function closeMobileDrawers(){
      pseudo-elemento non riceve eventi: il gesto si aggancia al menu intero, ma parte solo se il
      dito scende nei primi 44 px — la fascia della maniglia. Più giù ci sono le voci, e trascinarle
      non deve chiudere niente. */
+  /* Dal 13/09 il menu SCORRE (quattro gruppi di righe, più alti dello schermo): preso da qualunque
+     punto, scorrere l'elenco lo chiudeva. La presa torna la striscia in cima, come per gli altri fogli. */
   (function(){ var ms=document.getElementById("mActions");
-    if(ms) chiudiTrascinando(ms, ms, closeAll); })();   /* da qualunque punto: le voci non scorrono */
+    if(ms) chiudiTrascinando(ms, ms, closeAll, null, 44); })();
   function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
@@ -13116,26 +13147,46 @@ function closeMobileDrawers(){
   function proxy(id){ var b=document.getElementById(id); if(b) b.click(); }
   /* A′: #mActions è un bottom-sheet a UN livello (aperto da dock "Menu" o ⋯ in alto) */
   var mSheet=document.getElementById("mActions");
-  function toggleMobileMenu(on){ if(!mSheet) return; mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); syncDrawerA11y(); }
+  /* Le righe del menu dicono il valore che c'è già (luogo, data, misure, tema): si riempiono ogni
+     volta che il menu si apre, così non serve ricordarsi di aggiornarle da venti punti diversi. */
+  function renderMobileMenu(){
+    function txt(id, v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+    txt("mMenuLuogo", state.luogo || "da scrivere");
+    txt("mMenuData", dataEventoBreve() || "da scrivere");
+    txt("mMenuStage", misurePalco());
+    var th=document.getElementById("mThemeRow");
+    if(th) th.setAttribute("aria-checked", document.body.classList.contains("dark") ? "true" : "false");
+    syncSnapSelects();
+  }
+  window.renderMobileMenu=renderMobileMenu;
+  function toggleMobileMenu(on){ if(!mSheet) return; if(on) renderMobileMenu(); mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); syncDrawerA11y(); }
   window.toggleMobileMenu=toggleMobileMenu;
   window.addEventListener("resize", syncDrawerA11y);   /* passaggio mobile↔desktop: risincronizza l'inert dei drawer */
   syncDrawerA11y();   /* stato iniziale: su mobile i drawer partono chiusi → inert */
   Array.prototype.forEach.call(document.querySelectorAll("#mActions button"), function(b){
     b.addEventListener("click", function(){
       var a=b.getAttribute("data-act"); if(!a) return;
-      setTimeout(function(){ toggleMobileMenu(false); },0);
+      /* il tema si cambia restando nel menu: l'interruttore mostra subito lo stato nuovo */
+      if(a==="theme"){ proxy("bTheme"); renderMobileMenu(); return; }
+      setTimeout(function(){
+        toggleMobileMenu(false);
+        /* il cassetto ricorda dove lo si era lasciato: un pannello aperto dal menu parte dall'inizio */
+        var pr=document.getElementById("props"); if(pr) pr.scrollTop=0;
+      },0);
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
+      if(a==="vers"){ toggleVersionEdit(); return; }
       if(a==="var-new"){ createVariant(); return; }
       if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
       if(a==="import") document.getElementById("bHdrImport").click();
       else if(a==="download") proxy("saveJson");
-      else if(a==="cloud") proxy("bCloud");
-      else if(a==="theme") proxy("bTheme");
+      else if(a==="cloud" || a==="account") proxy("bCloud");
+      else if(a==="share") proxy("bShare");
+      else if(a==="guida" || a==="feedback"){ var h=document.querySelector('#helpMenu [data-help="'+(a==="guida"?"learn":"feedback")+'"]'); if(h) h.click(); }
       else if(a==="new"){ if(window.openNewDialog) window.openNewDialog(); else proxy("bNew"); }   /* stessa finestra a due strade del menu File */
     });
   });
@@ -21189,15 +21240,19 @@ function frameContentRect(){
   return {x:Math.round(x0-m), y:Math.round(y0-m), w:Math.round(x1-x0+2*m), h:Math.round(y1-y0+2*m)};
 }
 function ensurePrintFrame(){ if(!state.printFrame) state.printFrame=frameStageRect(); }
-function toggleFrameEdit(){ frameEdit=!frameEdit; if(frameEdit){ exitHubModes("frame"); clearSelection(); ensurePrintFrame(); } renderFramePanel(); render(); }
+/* DA DOVE si è arrivati all'area di stampa (13/09). Dal Menu del telefono il bottone in fondo diceva
+   «Torna a Esporta» e apriva la finestra Esporta, dove nessuno era mai stato: si voleva solo
+   sistemare l'area. Adesso torna da dove si è partiti. */
+var frameEditFrom="export";
+function toggleFrameEdit(){ frameEdit=!frameEdit; if(frameEdit){ frameEditFrom="menu"; exitHubModes("frame"); clearSelection(); ensurePrintFrame(); } renderFramePanel(); render(); }
 function fmtMnum(cm){ return (cm/100).toFixed(2).replace(/\.?0+$/,""); }
-function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; saveAsOpen=false; clearSelection(); ensurePrintFrame(); renderFramePanel(); render(); } }
+function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; frameEditFrom="export"; saveAsOpen=false; clearSelection(); ensurePrintFrame(); renderFramePanel(); render(); } }
 /* fine della scelta: si torna alla finestra Esporta, da dove si era partiti */
 /* «Torna a Esporta» tornava a un'ALTRA cosa: il pannello laterale Esporta, cioè proprio il passaggio
    intermedio che il 31/07 era stato tolto dall'andata — sopravviveva sulla via del ritorno. E con Esc
    non si tornava affatto: niente finestra, niente pannello, in mezzo al canvas (06/08). */
-function finishFrameEdit(){ frameEdit=false; saveAsOpen=false; renderFramePanel(); render();
-  if(typeof window.openPdfExportModal==="function") window.openPdfExportModal(); }
+function finishFrameEdit(){ var tornaEsporta=frameEditFrom!=="menu"; frameEdit=false; saveAsOpen=false; renderFramePanel(); render();
+  if(tornaEsporta && typeof window.openPdfExportModal==="function") window.openPdfExportModal(); }
 /* riassunto dell'area nella finestra Esporta: dice sempre cosa verrà stampato */
 function frameSummaryText(){
   var f=state.printFrame;
@@ -21218,6 +21273,8 @@ function renderFramePanel(){
   document.body.classList.toggle("export-menu", saveAsOpen && !frameEdit);
   var ap=document.getElementById("areaEditPanel");
   if(ap) ap.hidden=!frameEdit;
+  var ad=document.getElementById("areaDone");
+  if(ad) ad.textContent = frameEditFrom==="menu" ? "Fatto" : "Torna a Esporta";   /* il bottone dice dove porta */
   document.body.classList.toggle("area-edit", frameEdit);
   var sm=document.getElementById("frameSummaryTxt");
   if(sm) sm.textContent=frameSummaryText();
@@ -21332,8 +21389,8 @@ function renderVersionPanel(){
     if(dt && isFinite(dt.getTime()))
       ds=dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     return '<div class="ver-row"><span class="ver-name">'+esc(v.name)+'</span><span class="ver-date">'+ds+'</span>'+
-      '<button class="btn" style="font-size:11px;padding:3px 7px" onclick="restoreVersion('+i+')">Ripristina</button>'+
-      '<button class="btn danger" style="font-size:11px;padding:3px 7px" onclick="deleteVersion('+i+')">✕</button></div>';
+      '<button class="btn ver-btn" onclick="restoreVersion('+i+')">Ripristina</button>'+
+      '<button class="btn danger ver-btn" aria-label="Elimina la versione" onclick="deleteVersion('+i+')">✕</button></div>';
   }).join('');
 }
 function toggleVersionEdit(){
@@ -21345,11 +21402,14 @@ function toggleVersionEdit(){
   document.body.classList.toggle("vers-edit", versEdit);
   renderVersionPanel(); render();
 }
+(function(){ var b=document.getElementById("versDone"); if(b) b.addEventListener("click", function(){ if(versEdit) toggleVersionEdit(); }); })();
 /* ===== SVG Export ===== */
 /* ===== Stampa ===== */
 function frameMarkup(){
   if(!frameEdit || !state.printFrame) return '';
-  var f=state.printFrame, H=14;
+  /* Maniglie: 14 cm di mondo sono 4 px quando il telefono mostra tutto il palco. Col dito servono
+     44 px di schermo, quindi lì la misura si prende in pixel (hSize), come per le maniglie di selezione. */
+  var f=state.printFrame, H=isMobile() ? Math.max(14, hSize(22)) : 14;
   var s='<g data-frame="1">';
   s+='<rect class="frame-rect" data-frame-body="1" x="'+f.x+'" y="'+f.y+'" width="'+f.w+'" height="'+f.h+'"/>';
   s+='<text class="frame-lbl" x="'+(f.x+f.w/2)+'" y="'+(f.y-12)+'" text-anchor="middle" font-size="22">AREA STAMPA · '+(f.w/100)+'×'+(f.h/100)+' m</text>';
@@ -22152,7 +22212,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   document.getElementById("bShare").addEventListener("click", openShare);
   /* header A′: Condividi visibile + account (avatar) → modal account/progetti */
   (function(){ var b=document.getElementById("bShareHdr"); if(b) b.addEventListener("click", openShare); })();
-  (function(){ ["accountBtn","accountBtnM"].forEach(function(id){ var a=document.getElementById(id); if(a) a.addEventListener("click", function(){ document.getElementById("bCloud").click(); }); }); })();
+  /* `accountBtnM` non è qui: è una riga del menu del telefono, e la apre il gestore del menu, che la chiude anche */
+  (function(){ ["accountBtn"].forEach(function(id){ var a=document.getElementById(id); if(a) a.addEventListener("click", function(){ document.getElementById("bCloud").click(); }); }); })();
   /* ===== Menu File / "?" (UI/UX A′): dropdown → proxy nascosti ===== */
   function bindMenu(btnId, menuId){
     var b=document.getElementById(btnId), m=document.getElementById(menuId);
