@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.09.12";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.09.13";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1930,6 +1930,8 @@ svg.names-hidden .orc-name{display:none}
      Con `min-height:48px` e basta perdeva contro la riga generica dei 44 px scritta più in basso
      (stessa specificità, vince l'ultima): il commento diceva 48, il browser faceva 44. (02/09) */
   #mActions .mact-grid button{min-height:48px}
+  #mActions .mact-var{margin-bottom:8px}
+  #mActions .mact-var select{width:100%;min-height:48px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;color:var(--text)}
   #mActions .sh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding:8px 2px 6px}
   .mact-consul{display:block;text-align:center;color:var(--accent);font-weight:600;font-size:13px;text-decoration:none;padding:10px;margin-top:4px}
   .mact-consul:hover{text-decoration:underline}
@@ -4333,6 +4335,16 @@ body.dark .ask-all .btn{background:transparent}
     <button data-act="palco">Palco</button>
     <button data-act="evento">Evento</button>
     <button data-act="frame">Area stampa</button>
+  </div>
+  <!-- Varianti (13/09). Sul telefono l'header è nascosto per intero, e con lui la barra delle varianti e
+       la voce «Nuova variante» del menu File: da qui non si vedevano, non si cambiavano e non se ne
+       creava una. Era già scritto nell'analisi mobile del 02/09 e mai chiuso. -->
+  <div class="sh" id="mVarHead">Varianti</div>
+  <div class="mact-var" id="mVarRow" hidden><select id="mVariantSel" aria-label="Variante attiva"></select></div>
+  <div class="mact-grid" id="mVarGrid">
+    <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
+    <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
+    <button data-act="var-new">Nuova variante</button>
   </div>
   <div class="sh">App</div>
   <div class="mact-grid">

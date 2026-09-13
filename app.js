@@ -3237,11 +3237,30 @@ function deleteVariant(id){ if(VARIANTS.length<=1) return false;   /* guardia: m
 /* Barra varianti: il viewer resta sulla sola variante pubblicata; il consulente editor deve invece
    poter navigare e salvare tutte le varianti del documento completo. */
 function renderVariantBar(){
+  renderVariantMobile();
   var bar=document.getElementById("variantBar"); if(!bar) return;
   var multi=VARIANTS.length>1;
   bar.hidden = !multi || document.body.classList.contains("viewmode") || document.body.classList.contains("consult-viewer");
   if(!multi) return;
   var sel=document.getElementById("variantSel"); if(!sel) return;
+  var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
+    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+'</option>'; }
+  sel.innerHTML=html; sel.value=activeVar;
+}
+/* La stessa barra, nel menu del telefono. Si ridisegna DENTRO renderVariantBar, che ogni cambio di
+   variante già chiama: un secondo aggancio da tenere allineato a mano prima o poi si dimentica.
+   «Nuova variante» c'è sempre (sul telefono non esiste un'altra strada per crearla); selettore,
+   Rinomina ed Elimina solo con almeno due varianti, come sul desktop. Mai in viewer. */
+function renderVariantMobile(){
+  var head=document.getElementById("mVarHead"), row=document.getElementById("mVarRow"),
+      grid=document.getElementById("mVarGrid"), sel=document.getElementById("mVariantSel"),
+      ren=document.getElementById("mVarRen"), del=document.getElementById("mVarDel");
+  if(!grid) return;
+  var ospite=document.body.classList.contains("viewmode") || document.body.classList.contains("consult-viewer");
+  if(head) head.hidden=ospite; grid.hidden=ospite;
+  var multi=!ospite && VARIANTS.length>1;
+  if(row) row.hidden=!multi; if(ren) ren.hidden=!multi; if(del) del.hidden=!multi;
+  if(ospite || !sel) return;
   var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
     html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+'</option>'; }
   sel.innerHTML=html; sel.value=activeVar;
@@ -3276,6 +3295,8 @@ function confirmDeleteVariant(id){
 }
 (function(){
   var sel=document.getElementById("variantSel"); if(sel) sel.addEventListener("change", function(){ switchVariant(this.value); });
+  var msel=document.getElementById("mVariantSel");
+  if(msel) msel.addEventListener("change", function(){ switchVariant(this.value); if(window.toggleMobileMenu) window.toggleMobileMenu(false); });
   var bn=document.getElementById("variantNew"); if(bn) bn.addEventListener("click", function(){ createVariant(); });
   var br=document.getElementById("variantRen"); if(br) br.addEventListener("click", function(){ promptRenameVariant(activeVar); });
   var bd=document.getElementById("variantDel"); if(bd) bd.addEventListener("click", function(){ confirmDeleteVariant(activeVar); });
@@ -13108,6 +13129,9 @@ function closeMobileDrawers(){
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
+      if(a==="var-new"){ createVariant(); return; }
+      if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
+      if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
       if(a==="import") document.getElementById("bHdrImport").click();
       else if(a==="download") proxy("saveJson");
       else if(a==="cloud") proxy("bCloud");

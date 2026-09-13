@@ -1852,6 +1852,8 @@ svg.names-hidden .orc-name{display:none}
      Con `min-height:48px` e basta perdeva contro la riga generica dei 44 px scritta più in basso
      (stessa specificità, vince l'ultima): il commento diceva 48, il browser faceva 44. (02/09) */
   #mActions .mact-grid button{min-height:48px}
+  #mActions .mact-var{margin-bottom:8px}
+  #mActions .mact-var select{width:100%;min-height:48px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;color:var(--text)}
   #mActions .sh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding:8px 2px 6px}
   .mact-consul{display:block;text-align:center;color:var(--accent);font-weight:600;font-size:13px;text-decoration:none;padding:10px;margin-top:4px}
   .mact-consul:hover{text-decoration:underline}
