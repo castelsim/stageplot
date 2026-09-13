@@ -3072,3 +3072,42 @@ body.dark .ask-all .btn{background:transparent}
   #versList .ver-btn{min-height:44px;min-width:44px;font-size:14px;padding:0 12px}
   #versPanel{position:relative;padding-top:26px}
 }
+
+/* ── ELENCO DEGLI ELEMENTI, SUL TELEFONO (13/09) ──────────────────────────────────────────────────
+   Dal dock «Elementi». Righe da 60 px: il quadrato a sinistra sceglie, il nome porta sul palco. Due
+   bersagli diversi nella stessa riga, ciascuno largo abbastanza da non sbagliare. */
+#mList{display:none}
+@media (max-width:880px){
+  #mList{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;max-height:88vh;box-sizing:border-box;
+    padding:26px 0 0;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.22);
+    transform:translateY(103%);transition:transform .26s ease}
+  #mList.open{transform:none}
+  #mList .ml-head{display:flex;align-items:center;gap:2px;padding:0 6px 2px 16px}
+  #mList .ml-title{flex:1;min-width:0;font-size:20px;font-weight:700;color:var(--text)}
+  #mList #mListCount{margin-left:8px;font-size:15px;font-weight:400;color:var(--text-3)}
+  #mList .ml-link{min-height:44px;padding:0 10px;border:0;background:none;font:600 15px var(--font-ui);color:var(--accent-strong);cursor:pointer}
+  #mList .ml-link[hidden]{display:none}
+  #mList .ml-hint{margin:0;padding:0 16px 10px;font-size:13px;line-height:1.4;color:var(--text-2)}
+  #mListBody{flex:1 1 auto;min-height:0;overflow-y:auto;border-top:1px solid var(--border);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  #mList .ml-row{display:flex;align-items:stretch;border-bottom:1px solid var(--border)}
+  #mList .ml-row.on{background:var(--accent-tint)}
+  #mList .ml-chk{position:relative;flex:0 0 auto;width:60px;min-height:60px;margin:0;padding:0;border:0;background:none;cursor:pointer}
+  #mList .ml-chk::before{content:"";position:absolute;left:18px;top:50%;width:24px;height:24px;margin-top:-12px;box-sizing:border-box;
+    border:2px solid var(--border-strong);border-radius:7px;background:var(--surface)}
+  #mList .ml-chk[aria-checked="true"]::before{border-color:var(--accent);background:var(--accent)}
+  #mList .ml-chk[aria-checked="true"]::after{content:"";position:absolute;left:30px;top:50%;width:6px;height:12px;box-sizing:border-box;
+    border:solid #fff;border-width:0 2.5px 2.5px 0;transform:translate(-50%,-62%) rotate(45deg)}
+  #mList .ml-main{flex:1;min-width:0;min-height:60px;display:flex;flex-direction:column;justify-content:center;gap:2px;margin:0;
+    padding:6px 16px 6px 0;border:0;background:none;text-align:left;cursor:pointer}
+  #mList .ml-nome{font-size:16px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mList .ml-sub{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mList .ml-vuoto{margin:0;padding:24px 16px;font-size:15px;color:var(--text-2)}
+  #mList .ml-bar{display:flex;flex-direction:column;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));background:#292620;color:#fff}
+  #mList .ml-bar[hidden]{display:none}
+  #mList #mListSelN{padding:0 4px;font-size:14px;font-weight:650}
+  #mList .ml-bar-acts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  #mList .ml-bar-acts button{min-height:44px;margin:0;padding:0 4px;border:0;border-radius:10px;background:rgba(255,255,255,.13);color:#fff;font:600 14px var(--font-ui);cursor:pointer}
+  #mList .ml-bar-acts button.danger{color:#fca5a5}
+  #mList .ml-bar-acts button:disabled{opacity:.4;cursor:default}
+  body.viewmode #mList{display:none!important}
+}
