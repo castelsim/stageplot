@@ -3192,3 +3192,37 @@ body.dark .ask-all .btn{background:transparent}
   #mMiniSvg .mm-palco{fill:var(--n-100);stroke:var(--n-600);stroke-width:1.2;vector-effect:non-scaling-stroke}
   #mMiniSvg .mm-vista{fill:rgba(13,148,136,.14);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}
 }
+
+/* ── PRIMO AVVIO, SUL TELEFONO (13/09) ────────────────────────────────────────────────────────────
+   Una schermata intera, non tre finestre di fila: formazione a pastiglie da 44 px, persone con
+   − e + da 44, la misura del palco, «Crea il palco» in fondo e sempre in vista. */
+.wl-mob-setup,.wl-vuoto{display:none}
+@media (max-width:880px){
+  #welcome.modal{padding:0;align-items:stretch;justify-content:stretch}
+  #welcome .wl-card{width:100%;max-width:none;height:100%;max-height:none;border-radius:0;background:var(--bg);display:flex;flex-direction:column}
+  #welcome .wl-head{padding:24px 20px 10px;background:none;border-bottom:0}
+  #welcome .wl-badge{background:none;padding:0;color:var(--accent-strong);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  #welcome .wl-title{font-size:26px;line-height:1.15}
+  #welcome .wl-tag{font-size:15px;line-height:1.45;color:var(--text-2)}
+  #welcome .wl-body{flex:1 1 auto;display:flex;flex-direction:column;padding:0 20px}
+  #welcome .wl-steps,#welcome .wl-mods-lbl,#welcome .wl-skip{display:none}
+  #welcome .wl-mods{justify-content:flex-start;gap:8px;margin:6px 0 16px}
+  #welcome .wl-mods button{min-height:44px;padding:0 16px;font-size:15px;border-radius:999px}
+  #welcome .wl-mods button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  #welcome .wl-mob-setup{display:flex;flex-direction:column;gap:12px}
+  #welcome .wl-ruoli{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0 8px 0 16px}
+  #welcome .wl-ruoli .bs-riga{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:8px;min-height:56px;border-top:1px solid var(--border)}
+  #welcome .wl-ruoli .bs-riga:first-child{border-top:0}
+  #welcome .wl-ruoli .bs-nome{font-size:16px;font-weight:600;color:var(--text)}
+  #welcome .wl-ruoli .bs-pm{width:44px;height:44px;margin:0;padding:0;border:1px solid var(--border);border-radius:10px;background:var(--bg);font-size:20px;line-height:1;color:var(--text);cursor:pointer}
+  #welcome .wl-ruoli .bs-num{min-width:24px;text-align:center;font-size:16px;font-weight:650;font-variant-numeric:tabular-nums}
+  #welcome .wl-ruoli .bs-zero .bs-nome,#welcome .wl-ruoli .bs-zero .bs-num{color:var(--text-3)}
+  #welcome .wl-senza{margin:14px 8px 14px 0;font-size:15px;line-height:1.45;color:var(--text-2)}
+  #welcome .wl-palco{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:6px 16px;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:15px}
+  #welcome .wl-palco small{display:block;font-size:12px;font-weight:400;color:var(--text-2)}
+  #welcome #wlPalcoMis{flex:0 0 auto;font-weight:650;font-variant-numeric:tabular-nums}
+  #welcome .wl-foot{position:sticky;bottom:0;margin-top:auto;flex-direction:column;align-items:stretch;gap:6px;padding:14px 0 calc(16px + env(safe-area-inset-bottom,0px));background:var(--bg)}
+  #welcome .wl-cta{min-height:54px;font-size:17px;border-radius:12px}
+  #welcome .wl-vuoto{display:block;min-height:44px;margin:0;border:0;background:none;font:600 15px var(--font-ui);color:var(--accent-strong);cursor:pointer}
+  body.dark #welcome .wl-card{background:var(--bg)}
+}
