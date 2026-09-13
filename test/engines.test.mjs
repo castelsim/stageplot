@@ -13814,9 +13814,12 @@ t("i fogli che salgono dal basso si chiudono trascinandoli giu'", () => {
   ok(/function chiudiTrascinando\(foglio, maniglia, chiudi, escludi, fascia\)/.test(appjs),
      "il gesto e' una funzione sola, non copiata due volte");
   ok(/chiudiTrascinando\(document\.getElementById\("catalog"\)/.test(appjs), "il catalogo lo usa");
-  /* Il menu si prende da QUALUNQUE punto (Simone, 02/09: «anche se lo scroll inizia in un punto a
-     caso della finestra»): le sue voci non scorrono, quindi non c'e' niente da confondere. */
-  ok(/chiudiTrascinando\(ms, ms, closeAll\);/.test(appjs), "il menu si prende da ovunque");
+  /* Il menu si prendeva da QUALUNQUE punto (Simone, 02/09) perche' le sue voci non scorrevano. Dal
+     13/09 e' un elenco a gruppi piu' alto dello schermo, e SCORRE: preso da ovunque, scorrere lo
+     chiudeva. La presa torna la striscia in cima, come per ogni foglio che scorre. */
+  ok(/chiudiTrascinando\(ms, ms, closeAll, null, 44\);/.test(appjs), "il menu si prende dalla striscia in cima");
+  ok(!/chiudiTrascinando\(ms, ms, closeAll\);/.test(appjs), "non piu' da ovunque: scorrerlo lo chiuderebbe");
+  ok(/#mActions\{display:block;[^}]*overflow-y:auto/.test(stylesCss.replace(/\n\s*/g, "")), "ed e' davvero un foglio che scorre");
   /* Quello che evita di rubare i clic non e' piu' la fascia, ma la SOGLIA: il gesto si sveglia solo
      dopo 12 px di dito. Sotto, un tocco resta un tocco e il bottone funziona. */
   ok(/var SVEGLIA=12, attivo=false;/.test(appjs), "il gesto si sveglia dopo 12 px");
@@ -13828,9 +13831,9 @@ t("i fogli che salgono dal basso si chiudono trascinandoli giu'", () => {
   /* Solo dalla maniglia: dal corpo, scorrere l'elenco degli strumenti chiuderebbe il foglio. */
   ok(/if\(attivo && dy>70\) chiudi\(\)/.test(appjs), "sotto i 70 px torna su: uno scatto, non un tocco storto");
   ok(/dy=Math\.max\(0, e\.clientY-y0\)/.test(appjs), "e si trascina solo verso il basso");
-  /* La barretta del menu esisteva GIA' come pseudo-elemento: il div che avevo aggiunto era un
-     doppione, ed e' stato tolto. */
-  ok(/#mActions::before\{content:""/.test(stylesCss), "la maniglia del menu e' quella che c'era gia'");
+  /* La barretta del menu era uno pseudo-elemento; con la striscia vera (`.sheet-hand`) sarebbero
+     due barrette una sopra l'altra: lo pseudo-elemento se ne va. (13/09) */
+  ok(!/#mActions::before\{content:""/.test(stylesCss), "una barretta sola sul menu, quella della striscia");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(!/<div class="sheet-grab"/.test(html), "e non ce n'e' una seconda");
 });
@@ -13859,11 +13862,11 @@ t("dal telefono spariscono le due voci che non si usano in piedi", () => {
      molto piu' su, e la slice veniva vuota — un test che guardava il nulla e restava verde. */
   const iMenu = html.indexOf('<div id="mActions">');
   ok(iMenu > 0, "il menu mobile esiste nel markup");
-  /* ⚠️ Il confine era `mact-consul`, cioe' il link «Consulenza tecnica». Tolto quel link (10/09) la
-     classe resta su «Richiedi musicisti» e il blocco si allunga: il test continua a passare, ma su
-     un pezzo diverso da quello che crede di guardare. Ora il confine e' la griglia stessa. */
-  const iFine = html.indexOf("</div>", html.indexOf("mact-grid", iMenu));
-  ok(iFine > iMenu, "la griglia delle azioni mobili non si delimita piu': ricontrollare");
+  /* ⚠️ Il confine e' cambiato due volte: prima `mact-consul` (tolto il link il 10/09), poi la griglia
+     `mact-grid` (il menu e' diventato un elenco il 13/09) — e ogni volta il test restava in piedi su un
+     pezzo diverso da quello che credeva. Ora il confine e' l'ultima cosa del menu, «Richiedi musicisti». */
+  const iFine = html.indexOf('id="mactRichiedi"', iMenu);
+  ok(iFine > iMenu, "il menu del telefono non si delimita piu': ricontrollare");
   const menu = html.slice(iMenu, iFine);
   ok(menu.length > 100 && /data-act="new"/.test(menu), "e il blocco letto e' davvero il menu: " + menu.length + " caratteri");
   ok(!/data-act="venue"/.test(menu), "planimetria via dal menu mobile");
@@ -13910,21 +13913,109 @@ t("ogni finestra si chiude buttandola giu', non solo il catalogo", () => {
      "e il foglio le lascia lo spazio");
 });
 
-t("il menu mobile non ha buchi, e il bottone solo si allarga", () => {
-  /* Togliendo Planimetria e Channel list erano rimaste due righe vuote e due bottoni orfani a
-     mezza larghezza — «Area stampa» e «Tema» — con un buco accanto. (Simone, 02/09) */
+t("il menu del telefono e' un elenco: ogni riga fa quello che dice, e dice cosa c'e' gia'", () => {
+  /* 13/09 — Da griglia di bottoni a elenco a gruppi (Progetto, Evento, Palco, App). La griglia
+     aveva un difetto che si ripeteva: il bottone rimasto solo, a mezza riga con un buco accanto.
+     L'elenco non ce l'ha per costruzione. Il rischio nuovo e' un altro: una riga senza il suo ramo
+     nel gestore, che si preme e non fa niente — la «promessa smentita» di questo progetto. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const iMenu = html.indexOf('<div id="mActions">');
-  /* ⚠️ Il confine era `mact-consul`, cioe' il link «Consulenza tecnica». Tolto quel link (10/09) la
-     classe resta su «Richiedi musicisti» e il blocco si allunga: il test continua a passare, ma su
-     un pezzo diverso da quello che crede di guardare. Ora il confine e' la griglia stessa. */
-  const iFine = html.indexOf("</div>", html.indexOf("mact-grid", iMenu));
-  ok(iFine > iMenu, "la griglia delle azioni mobili non si delimita piu': ricontrollare");
+  const iFine = html.indexOf('id="mactRichiedi"', iMenu);
+  ok(iMenu > 0 && iFine > iMenu, "il menu del telefono si delimita");
   const menu = html.slice(iMenu, iFine);
   ok(!/<\/button>\s*\n\s*\n\s*<button/.test(menu), "niente righe vuote fra i bottoni");
-  ok(/\.mact-grid button:last-child:nth-child\(odd\)\{grid-column:1 \/ -1\}/.test(stylesCss),
-     "il bottone rimasto solo prende tutta la riga");
-  ok(/\.mact-grid button\{min-height:48px\}/.test(stylesCss), "e sono alti come un bersaglio");
+  const atti = [...new Set([...menu.matchAll(/data-act="([a-z-]+)"/g)].map((m) => m[1]))];
+  ok(atti.length >= 12, "le voci ci sono tutte: " + atti.join(", "));
+  const gestore = appjs.slice(appjs.indexOf('var a=b.getAttribute("data-act"); if(!a) return;'), appjs.indexOf("/* dock azioni primarie */"));
+  ok(gestore.length > 300, "il gestore del menu si trova");
+  atti.forEach((a) => ok(gestore.includes('a==="' + a + '"'), "la voce «" + a + "» non ha un ramo nel gestore: si preme e non fa niente"));
+  /* le quattro voci che dal telefono NON si raggiungevano */
+  ["vers", "guida", "feedback", "account"].forEach((a) => ok(atti.includes(a), "manca la voce " + a));
+  /* i valori scritti accanto si rifanno a ogni apertura, non da venti punti del codice */
+  ok(/function toggleMobileMenu\(on\)\{ if\(!mSheet\) return; if\(on\) renderMobileMenu\(\);/.test(appjs), "il menu si riempie quando si apre");
+  const rmm = appjs.slice(appjs.indexOf("function renderMobileMenu(){"), appjs.indexOf("window.renderMobileMenu=renderMobileMenu;"));
+  ["mMenuLuogo", "mMenuData", "mMenuStage", "mThemeRow"].forEach((id) => {
+    ok(new RegExp('id="' + id + '"').test(menu), "la riga " + id + " c'e' nel menu");
+    ok(rmm.includes('"' + id + '"'), "e renderMobileMenu la riempie: " + id);
+  });
+  /* il tema si cambia RESTANDO nel menu, prima che parta la chiusura */
+  ok(gestore.indexOf('if(a==="theme")') < gestore.indexOf("setTimeout("), "il tema non chiude il menu");
+  ok(/#mActions \.mrow\{[^}]*min-height:52px/.test(stylesCss.replace(/\n\s*/g, "")), "le righe sono alte come un bersaglio");
+});
+
+t("la barra alta del telefono e' una riga sola, e il resto ha trovato casa", () => {
+  /* 13/09 — misurata 94 px con nove comandi: il titolo, la pastiglia del salvataggio, la guida,
+     Accedi, larghezza e profondita', annulla, ripeti, adatta. Si usano annulla e ripeti; il resto
+     si tocca una volta per progetto. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const i = html.indexOf('<div id="mTop">'), f = html.indexOf("<header>", i);
+  ok(i > 0 && f > i, "la barra alta si delimita");
+  const top = html.slice(i, f);
+  ["mTitle", "mStageSum", "docStateM", "mUndo", "mRedo"].forEach((id) => ok(top.includes('id="' + id + '"'), "resta in barra: " + id));
+  ["mW", "mD", "bLearnM", "accountBtnM", "mFit"].forEach((id) => ok(!top.includes('id="' + id + '"'), "non sta piu' in barra: " + id));
+  /* ...e ognuno e' ancora raggiungibile, altrove */
+  const pal = html.slice(html.indexOf('id="stageEditPanel"'), html.indexOf('id="blkList"'));
+  ok(/id="mW"/.test(pal) && /id="mD"/.test(pal), "le misure stanno nel pannello del palco");
+  const main = html.slice(html.indexOf("<main>"), html.indexOf('id="venueCalibBanner"'));
+  ok(/id="mFit"/.test(main), "«Adatta» sta sul palco");
+  ok(/id="accountBtnM"/.test(html.slice(html.indexOf('<div id="mActions">'))), "l'account nel menu");
+  /* La barra e il palco devono dire la stessa altezza, o il disegno ci finisce sotto. */
+  const s = stylesCss.replace(/\n\s*/g, "");
+  ok(/#mTop\{[^}]*height:56px/.test(s), "la barra e' alta 56");
+  ok(/main\{position:fixed;top:56px;/.test(s), "e il palco parte a 56");
+  /* la riga dell'account non si riscrive col testo dell'avatar: ha due parti */
+  const rab = appjs.slice(appjs.indexOf("function renderAccountBtn(){"), appjs.indexOf("window.renderAccountBtn=renderAccountBtn;"));
+  ok(/bm\.querySelector\("\.mrow-t"\)/.test(rab) && !/\["accountBtn","accountBtnM"\]/.test(rab), "l'avatar e la riga si scrivono ciascuno a modo suo");
+  A.state.stage = { w: 1600, d: 650, blocks: [{ x: 0, y: 0, w: 1600, d: 650 }] };
+  eq(A.misurePalco(), "16 × 6,5 m", "le misure si dicono come a voce");
+  A.state.evDate = "2026-10-03"; A.state.evTime = "21:00";
+  eq(A.dataEventoBreve(), "sab 3 ott · 21:00", "e la data pure");
+  A.state.evDate = ""; A.state.evTime = "";
+  eq(A.dataEventoBreve(), "", "senza data la riga dice «da scrivere», non una data inventata");
+  reset();
+});
+
+t("dal menu del telefono, l'area di stampa torna da dove si e' partiti", () => {
+  /* 13/09 — Aperta dal Menu, il bottone in fondo diceva «Torna a Esporta» e apriva la finestra
+     Esporta, dove nessuno era stato. Aperta da Esporta, deve tornarci. */
+  reset();
+  let aperta = 0;
+  A.openPdfExportModal = () => { aperta++; };
+  A.toggleFrameEdit(); A.finishFrameEdit();
+  eq(aperta, 0, "dal Menu non apre Esporta");
+  A.activateFrameEdit(); A.finishFrameEdit();
+  eq(aperta, 1, "da Esporta ci torna");
+  const rfp = appjs.slice(appjs.indexOf("function renderFramePanel(){"), appjs.indexOf("function renderFramePanel(){") + 900);
+  ok(/frameEditFrom==="menu" \? "Fatto" : "Torna a Esporta"/.test(rfp), "e il bottone dice dove porta");
+  A.state.printFrame = null;
+});
+
+t("i punti di ripristino si aprono dal telefono, e si chiudono", () => {
+  /* 13/09 — nessuna voce del menu li apriva (solo un link dentro «I miei progetti»), e una volta
+     aperti non c'era un bottone per uscire: niente «Fatto», niente maniglia, Esc solo da tastiera. */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/data-act="vers"/.test(html), "c'e' la voce nel menu");
+  ok(/a==="vers"\)\{ toggleVersionEdit\(\)/.test(appjs), "e apre il pannello vero");
+  const vp = html.slice(html.indexOf('<div id="versPanel"'), html.indexOf("<!-- Channel list"));
+  ok(/id="versDone"/.test(vp), "il pannello ha il suo «Fatto»");
+  ok(/getElementById\("versDone"\); if\(b\) b\.addEventListener\("click", function\(\)\{ if\(versEdit\) toggleVersionEdit\(\); \}\)/.test(appjs), "che chiude davvero");
+  ok(/\["versPanel","versDone"\]/.test(appjs), "e si butta giu' col dito come gli altri pannelli");
+  /* i due bottoni di ogni versione erano a 3 px di padding in linea: sotto il dito, 22 px */
+  ok(!/onclick="restoreVersion\('\+i\+'\)"[^>]*style=/.test(appjs) && !/style="font-size:11px;padding:3px 7px" onclick="restoreVersion/.test(appjs), "niente misure in linea sui bottoni");
+  ok(/#versList \.ver-btn\{min-height:44px/.test(stylesCss), "e col telefono sono da dito");
+});
+
+t("le maniglie dell'area di stampa si prendono col dito", () => {
+  /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
+  reset();
+  const salvaM = A.isMobile;
+  A.state.printFrame = { x: 0, y: 0, w: 1200, h: 800 }; A.frameEdit = true;
+  const lato = (s) => +(/class="frame-h"[^>]*width="([0-9.]+)"/.exec(s) || [])[1];
+  A.isMobile = () => false;
+  eq(lato(A.frameMarkup()), 28, "col mouse restano quelle di sempre");
+  A.isMobile = () => true;
+  ok(Math.abs(lato(A.frameMarkup()) - Math.max(28, A.hSize(44))) < 0.01, "col dito sono 44 px di schermo: " + lato(A.frameMarkup()) + " contro " + A.hSize(44));
+  A.isMobile = salvaM; A.frameEdit = false; A.state.printFrame = null;
 });
 
 t("le varianti si vedono e si gestiscono anche dal telefono", () => {
@@ -13953,7 +14044,8 @@ t("le varianti si vedono e si gestiscono anche dal telefono", () => {
   ok(/renderVariantMobile\(\)/.test(rvb), "la barra desktop ridisegna anche quella del telefono");
   const rvm = appjs.slice(appjs.indexOf("function renderVariantMobile(){"), appjs.indexOf("function promptRenameVariant("));
   ok(/VARIANTS\.length>1/.test(rvm) && /viewmode/.test(rvm), "selettore solo con due o più varianti, e mai in viewer");
-  ok(/#mActions \.mact-var select\{width:100%;min-height:48px/.test(stylesCss), "il selettore è alto come un dito");
+  ok(/#mActions \.mrow-var select\{[^}]*min-height:40px/.test(stylesCss), "il selettore sta nella sua riga, alto abbastanza da prenderlo");
+  ok(/#mActions \.mrow-acts button\{min-height:44px/.test(stylesCss), "e i tre comandi sono da dito");
 });
 
 t("ruotando il telefono il pannello palco si rifà", () => {
@@ -14096,18 +14188,17 @@ t("l'area di stampa: la forma sta nel CSS, non negli attributi style", () => {
   /* E adesso la regola del telefono vince, perche' non ha piu' un inline davanti. */
 });
 
-t("i bottoni del menu del telefono sono alti quanto dice il commento", () => {
-  /* `.mact-grid button{min-height:48px}` perdeva contro la riga generica dei 44 px scritta piu' in
-     basso: stessa specificita' (0,1,1), vince l'ultima. Il commento diceva 48, il browser faceva
-     44. Sesta volta in un giorno che una regola nuova perde per ordine. (02/09) */
-  const i48 = stylesCss.indexOf("#mActions .mact-grid button{min-height:48px}");
-  ok(i48 > 0, "i 48 px sono scritti con un id davanti");
-  const i44 = stylesCss.indexOf(".mact-grid button,");
-  const i44b = i44 > 0 ? i44 : stylesCss.indexOf(".mact-grid button{min-height:44px}");
-  const genericaDopo = stylesCss.indexOf("min-height:44px}", i48);
-  ok(genericaDopo > i48, "e la riga generica dei 44 viene DOPO: e' per questo che serve l'id");
-  ok(!/\n\s*\.mact-grid button\{min-height:48px\}/.test(stylesCss),
-     "nessuna copia senza id, che perderebbe di nuovo");
+t("le righe del menu del telefono sono alte quanto dice il commento", () => {
+  /* Il 02/09 `.mact-grid button{min-height:48px}` perdeva contro la riga generica dei 44 px scritta
+     piu' in basso: stessa specificita', vince l'ultima. Il commento diceva 48, il browser faceva 44.
+     Dal 13/09 il menu e' un elenco: le righe (52) e i segmenti dell'aggancio (44) hanno un id davanti
+     e stanno in fondo al file, dopo ogni regola generica che potrebbe batterli. */
+  const iRow = stylesCss.indexOf("#mActions .mrow{");
+  ok(iRow > 0, "le righe sono scritte con un id davanti");
+  ok(iRow > stylesCss.lastIndexOf("@media (pointer:coarse){"), "e dopo l'ultimo blocco dei bersagli generici");
+  ok(/#mActions \.mseg button\{min-height:44px/.test(stylesCss), "i segmenti dell'aggancio sono da dito");
+  /* la griglia vecchia se n'e' andata anche dal foglio di stile: regole morte fanno credere il contrario */
+  ok(!/\.mact-grid button:last-child:nth-child\(odd\)/.test(stylesCss), "nessuna regola della griglia che non c'e' piu'");
 });
 
 t("l'altezza del dock e' dichiarata, non indovinata", () => {
@@ -14340,7 +14431,13 @@ t("da telefono si possono scrivere data, ora e aggancio", () => {
      mobile finiscono in `state.evDate`/`evTime` e nel chip dell'evento. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="evDateM"/.test(html) && /id="evTimeM"/.test(html), "data e orario ci sono nel pannello Evento");
-  ok(/id="snapSelM"/.test(html), "e l'aggancio nel pannello Palco");
+  /* Dal 13/09 l'aggancio sta nel Menu, come fila di bottoni: le stesse cinque scelte del select
+     dell'header, nello stesso ordine — non una copia che diverge. */
+  const opzHeader = [...html.slice(html.indexOf('id="snapSel"'), html.indexOf("</select>", html.indexOf('id="snapSel"'))).matchAll(/value="([^"]+)"/g)].map((m) => m[1]);
+  const menuSnap = html.slice(html.indexOf('id="mSnap"'), html.indexOf("</div>", html.indexOf('id="mSnap"')));
+  eq([...menuSnap.matchAll(/data-snap="([^"]+)"/g)].map((m) => m[1]), opzHeader, "l'aggancio del Menu ha le scelte dell'header");
+  ok(/querySelectorAll\("#mSnap \[data-snap\]"\)[\s\S]{0,160}classList\.toggle\("on", on\)/.test(appjs.slice(appjs.indexOf("function syncSnapSelects"), appjs.indexOf("function syncSnapSelects") + 600)),
+     "e si riallinea nello stesso punto dei due select");
   /* Lo stesso dato, non due copie che divergono. */
   ok(/function setData\(v\)\{ state\.evDate=v\|\|"";[\s\S]{0,120}edM\.value=state\.evDate/.test(appjs),
      "scrivono nello stesso stato e riallineano l'altro campo");
@@ -14355,7 +14452,7 @@ t("da telefono si possono scrivere data, ora e aggancio", () => {
   /* E all'apertura mostrano quello che c'e' gia' salvato. */
   ok(/\["evDate","evDateM"\]\.forEach/.test(appjs), "all'apertura mostrano il valore salvato");
   /* Il campo dell'aggancio si vede solo col dito: col mouse c'e' gia' nell'header. */
-  ok(/class="mob-hint" id="snapRowM"/.test(html), "e col mouse non si duplica");
+  ok(/id="mSnap"/.test(html.slice(html.indexOf('<div id="mActions">'))), "e col mouse non si duplica: sta nel menu del telefono");
 });
 
 t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
