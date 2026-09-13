@@ -12987,7 +12987,7 @@ function isMobile(){ return window.matchMedia("(max-width:880px)").matches; }
    sempre attiva: non lo tocco, e non interferisco con l'inert delle modali (marco il mio con data-attr). */
 function syncDrawerA11y(){
   var mob=isMobile();
-  [document.getElementById("catalog"), document.getElementById("mActions")].forEach(function(el){
+  [document.getElementById("catalog"), document.getElementById("mActions"), document.getElementById("mList")].forEach(function(el){
     if(!el) return;
     var closed = mob && !el.classList.contains("open");
     if(closed){ el.setAttribute("inert",""); el.setAttribute("aria-hidden","true"); el.setAttribute("data-drawer-inert",""); }
@@ -13125,9 +13125,34 @@ function closeMobileDrawers(){
   document.getElementById("mobBackdrop").classList.remove("show");
   syncDrawerA11y();
 }
+/* Le righe dell'elenco del telefono: gli stessi elementi che si possono prendere sul disegno
+   (`itemPickable`: niente elementi dentro un rack, niente layer spenti), col nome che si legge sul
+   palco e, sotto, cos'è — «Voce» dice poco se non si sa che è un cantante con l'asta. */
+function mobileListRows(){
+  return (state.items||[]).filter(function(it){ return TYPES[it.type] && itemPickable(it); }).map(function(it){
+    var t=TYPES[it.type], tipo=t.nome||it.type;
+    var nome=String(it.label||"").replace(/\s+/g," ").trim() || tipo;
+    return { id:it.id, nome:nome, sub:(nome!==tipo ? tipo : ""), scelto:!!selSet[it.id] };
+  });
+}
+function renderMobileList(){
+  var body=document.getElementById("mListBody"); if(!body) return;
+  var rows=mobileListRows(), n=selIds().length;
+  var cnt=document.getElementById("mListCount"); if(cnt) cnt.textContent=rows.length;
+  body.innerHTML = rows.length ? rows.map(function(r){
+    return '<div class="ml-row'+(r.scelto?' on':'')+'">'+
+      '<button type="button" class="ml-chk" role="checkbox" aria-checked="'+(r.scelto?'true':'false')+'" aria-label="Scegli '+esc(r.nome)+'" data-chk="'+esc(r.id)+'"></button>'+
+      '<button type="button" class="ml-main" data-go="'+esc(r.id)+'"><span class="ml-nome">'+esc(r.nome)+'</span>'+(r.sub?'<span class="ml-sub">'+esc(r.sub)+'</span>':'')+'</button></div>';
+  }).join("") : '<p class="ml-vuoto">Il palco è vuoto: premi «Aggiungi» per mettere il primo elemento.</p>';
+  var bar=document.getElementById("mListBar"); if(bar) bar.hidden = n===0;
+  var bn=document.getElementById("mListSelN"); if(bn) bn.textContent = n===1 ? "1 selezionato" : n+" selezionati";
+  var al=document.getElementById("mListAlign"); if(al) al.disabled = n<2;   /* in fila si mette almeno una coppia */
+  var inc=document.getElementById("mListPaste"); if(inc){ inc.hidden = !clipboard.length; inc.textContent = "Incolla ("+clipboard.length+")"; }
+  var tutti=document.getElementById("mListAll"); if(tutti) tutti.textContent = (rows.length && n>=rows.length) ? "Nessuno" : "Tutti";
+}
 (function(){
   var cat=document.getElementById("catalog"), bd=document.getElementById("mobBackdrop");
-  function closeAll(){ cat.classList.remove("open"); var ms=document.getElementById("mActions"); if(ms) ms.classList.remove("open"); bd.classList.remove("show"); syncDrawerA11y(); }
+  function closeAll(){ cat.classList.remove("open"); var ms=document.getElementById("mActions"); if(ms) ms.classList.remove("open"); var ml=document.getElementById("mList"); if(ml) ml.classList.remove("open"); bd.classList.remove("show"); syncDrawerA11y(); }
   /* Anche il menu si butta giù. La maniglia c'è già come `#mActions::before` (styles.css) e uno
      pseudo-elemento non riceve eventi: il gesto si aggancia al menu intero, ma parte solo se il
      dito scende nei primi 44 px — la fascia della maniglia. Più giù ci sono le voci, e trascinarle
@@ -13139,6 +13164,30 @@ function closeMobileDrawers(){
   function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
+  /* elenco degli elementi (dock «Elementi»): si apre sempre rifatto, e ogni comando lo rifà */
+  function openList(){ var ml=document.getElementById("mList"); if(!ml) return; closeAll(); renderMobileList(); ml.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
+  (function(){
+    var ml=document.getElementById("mList"); if(!ml) return;
+    chiudiTrascinando(ml, ml, closeAll, null, 44);   /* l'elenco scorre: la presa è la striscia in cima */
+    function toast(s){ if(window.__toast) window.__toast(s); }
+    ml.addEventListener("click", function(e){
+      var c=e.target.closest("[data-chk]"), g=e.target.closest("[data-go]");
+      if(c){ toggleSelId(c.getAttribute("data-chk")); render(); renderMobileList(); return; }
+      if(g){ selectClick(g.getAttribute("data-go")); closeAll(); render(); }   /* il nome porta sul palco: la barra sotto lo mostra */
+    });
+    function on(id, fn){ var b=document.getElementById(id); if(b) b.addEventListener("click", fn); }
+    on("mListDone", closeAll);
+    on("mListAll", function(){
+      var rows=mobileListRows();
+      if(rows.length && selIds().length>=rows.length) clearSelection(); else selectMany(rows.map(function(r){ return r.id; }));
+      render(); renderMobileList();
+    });
+    on("mListAlign", function(){ distributeSelInLine(); renderMobileList(); toast("In fila, alla stessa distanza"); });
+    on("mListCopy", function(){ copySel(); renderMobileList(); toast("Copiati: «Incolla» ne mette una copia sul palco"); });
+    on("mListPaste", function(){ pasteClip(); closeAll(); });
+    on("mListMove", function(){ closeAll(); toast("Trascina uno degli elementi scelti: si spostano tutti insieme"); });
+    on("mListDel", function(){ deleteSelGuarded().then(function(){ renderMobileList(); }); });
+  })();
   /* barra hub: ↶ ↷ ⤢ (sempre visibile in basso) */
   document.getElementById("mUndo").addEventListener("click", undo);
   document.getElementById("mRedo").addEventListener("click", redo);
@@ -13198,7 +13247,7 @@ function closeMobileDrawers(){
         var a=b.getAttribute("data-dock");
         if(a==="add"){ toggleMobileMenu(false); openCatalog(); }
         else if(a==="export"){ toggleMobileMenu(false); proxy("bHdrPdf"); }
-        else if(a==="share"){ toggleMobileMenu(false); proxy("bShare"); }
+        else if(a==="elementi"){ toggleMobileMenu(false); openList(); }
         else if(a==="menu"){ toggleMobileMenu(!mSheet.classList.contains("open")); }
       });
     });
