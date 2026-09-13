@@ -1823,38 +1823,30 @@ svg.names-hidden .orc-name{display:none}
   /* ===== drawer mobile ===== */
   #mobBackdrop{display:none;position:fixed;inset:0;background:rgba(17,24,39,.42);z-index:55}
   /* ===== CHROME MOBILE (visibile solo < 880px) ===== */
-  #mTop{display:none;position:fixed;top:0;left:0;right:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--border);padding:7px 12px 8px}
-  .mtop-r1{display:flex;align-items:center;gap:7px}
-  #mTitle{flex:1;min-width:0;border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:15px;font-weight:600;color:var(--text)}
-  #mTitle:focus{outline:none;border-color:var(--accent)}
-  .mtbtn{flex:0 0 auto;width:34px;height:34px;border:none;border-radius:9px;background:none;font-size:16px;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;transition:background .12s var(--ease)}
-  .mtbtn svg{width:19px;height:19px}
+  /* Una riga da 56 px (13/09): nome del progetto, sotto le misure e lo stato del salvataggio, poi
+     annulla e ripeti. Il nome è un campo che non sembra un campo finché non lo tocchi. */
+  #mTop{display:none;position:fixed;top:0;left:0;right:0;z-index:50;height:56px;box-sizing:border-box;background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px 0 14px}
+  .mtop-r1{display:flex;align-items:center;gap:2px;height:100%}
+  .mtop-id{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  #mTitle{width:100%;min-width:0;box-sizing:border-box;margin-left:-7px;border:1px solid transparent;border-radius:8px;padding:0 6px;background:none;font-size:16px;font-weight:650;line-height:1.25;color:var(--text);text-overflow:ellipsis}
+  #mTitle:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+  .mtop-sub{display:flex;align-items:center;gap:4px;min-width:0;margin-top:-4px;font-size:12px;line-height:16px;color:var(--text-2);white-space:nowrap;overflow:hidden}
+  .mtop-sub #mStageSum{flex:0 0 auto}
+  .mtop-sub .doc-chip-m:not([hidden]){display:inline-flex;align-items:center;gap:3px;flex:0 1 auto;min-width:0;max-width:none;margin:0;padding:0;border:0;border-radius:0;background:none;font-size:12px;font-weight:400;color:inherit;overflow:hidden;text-overflow:ellipsis}
+  .mtop-sub .doc-chip-m::before{content:"·";margin-right:2px}
+  .mtop-sub .doc-chip-m svg{width:12px;height:12px;flex:0 0 auto}
+  .mtop-sub .doc-chip-m.warn{color:var(--danger);font-weight:600}
+  .mtbtn{flex:0 0 auto;width:44px;height:44px;border:none;border-radius:9px;background:none;font-size:16px;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;transition:background .12s var(--ease)}
+  .mtbtn svg{width:22px;height:22px}
   .mtbtn:active{background:var(--n-100)}
+  .mtbtn:disabled{color:var(--border-strong)}
   .avatar-btn-m{height:36px;min-width:36px;font-size:13px}
   .avatar-btn-m.logged{width:36px;min-width:36px}
-  .mtop-r2{display:flex;align-items:center;gap:9px;margin-top:7px}
-  .mtop-r2 .mlab{font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text-3)}
-  .mtop-r2 label{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text-2)}
-  .mtop-r2 input{width:50px;border:1px solid var(--border);border-radius:7px;padding:4px 6px;font-size:13px}
-  .mtop-r2 select{border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;background:var(--surface)}
   /* A′: dock azioni primarie + menu-sheet a un livello — visibili solo ≤880px */
   #mActions{display:none}
   #mDock{display:none}
-  .mact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-  .mact-grid button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:11px 8px;font-size:13px;cursor:pointer;color:var(--text)}
-  .mact-grid button svg{width:18px;height:18px;flex:0 0 auto}
-  .mact-grid button.danger{color:var(--danger)}
-  /* Un bottone rimasto solo su una riga prende tutta la larghezza, invece di restare a metà con un
-     buco accanto: succede a «Area stampa» e a «Tema», e dopo aver tolto Planimetria e Channel list
-     succedeva due volte su tre gruppi. (02/09) */
-  .mact-grid button:last-child:nth-child(odd){grid-column:1 / -1}
-  /* Alti come un bersaglio, e con lo stesso respiro fra i gruppi: sono l'unico menu del telefono.
-     Con `min-height:48px` e basta perdeva contro la riga generica dei 44 px scritta più in basso
-     (stessa specificità, vince l'ultima): il commento diceva 48, il browser faceva 44. (02/09) */
-  #mActions .mact-grid button{min-height:48px}
-  #mActions .mact-var{margin-bottom:8px}
-  #mActions .mact-var select{width:100%;min-height:48px;border:1px solid var(--border);background:var(--n-100);border-radius:10px;padding:0 12px;font-size:15px;font-weight:600;color:var(--text)}
-  #mActions .sh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding:8px 2px 6px}
+  /* La griglia di bottoni del menu (`.mact-grid`) è diventata un elenco il 13/09: le regole stanno in
+     fondo al file, nel blocco «BARRA ALTA, MENU E PANNELLI DEL TELEFONO». */
   .mact-consul{display:block;text-align:center;color:var(--accent);font-weight:600;font-size:13px;text-decoration:none;padding:10px;margin-top:4px}
   .mact-consul:hover{text-decoration:underline}
   /* Export come modale centrato (#framePanel diventa overlay) */
@@ -1891,7 +1883,7 @@ svg.names-hidden .orc-name{display:none}
     body{display:block;height:100%}
     #mTop{display:block}
     /* A′: bande = barra alta (titolo+chip+? · palco+↶↷⤢) | palco a tutta altezza | dock */
-    main{position:fixed;top:86px;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));background:var(--canvas-bg)}
+    main{position:fixed;top:56px;left:0;right:0;bottom:calc(53px + env(safe-area-inset-bottom,0px));background:var(--canvas-bg)}
     /* PANNELLO-HUB: nascosto di default (canvas pieno); appare con selezione o pannelli (palco/evento/channel list) */
     /* `body #props` e non `#props`: più in basso nel file c'è `#props{display:flex}` (riga ~2310),
        senza media query e con la stessa specificità — e a parità vince l'ultima scritta. Risultato:
@@ -1976,12 +1968,12 @@ svg.names-hidden .orc-name{display:none}
     body.dark #mDock button:first-child{color:var(--accent-bright)}
     body:has(#svg.dragging) #mDock{transform:translateY(120%);transition:transform 160ms var(--ease)}
     /* menu-sheet a un livello (aperto da dock "Menu" o ⋯) */
-    #mActions{display:block;position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;background:var(--surface);border-radius:16px 16px 0 0;
+    /* Il menu è un elenco a gruppi su fondo neutro, e SCORRE (13/09): la maniglia per buttarlo giù è
+       la striscia in cima (`.sheet-hand`), non più lo pseudo-elemento — trascinare le righe scorre. */
+    #mActions{display:block;position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;background:var(--bg);border-radius:16px 16px 0 0;
       transform:translateY(103%);transition:transform .26s ease;box-shadow:0 -8px 30px rgba(0,0,0,.22);
-      max-height:80vh;overflow-y:auto;padding:12px 14px calc(20px + env(safe-area-inset-bottom,0px))}
+      max-height:88vh;overflow-y:auto;padding:26px 16px calc(24px + env(safe-area-inset-bottom,0px))}
     #mActions.open{transform:none}
-    #mActions::before{content:"";display:block;width:38px;height:4px;border-radius:3px;background:var(--border-strong);margin:0 auto 12px}
-    .doc-chip-m{font-size:10px;padding:3px 7px;max-width:34vw;overflow:hidden;text-overflow:ellipsis}
     body.viewmode #mDock,body.viewmode #mActions,body.viewmode #mPeek{display:none!important}
     /* CATALOGO = bottom sheet (overlay) aperto da "Aggiungi" */
     #catalog{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;height:auto;max-height:80vh;display:block;
@@ -2088,7 +2080,6 @@ svg.names-hidden .orc-name{display:none}
   body.dark #mobBackdrop{background:rgba(0,0,0,.6)}
   body.dark #mTop{background:#1b2327;border-color:#2c3a3f}
   body.dark #mTitle,body.dark .mtop-r2 input,body.dark .mtop-r2 select{background:#141a1d;border-color:#314046;color:#e5e7eb}
-  body.dark .mact-grid button{background:#222b38;border-color:#314046;color:#e5e7eb}
   body.dark .mtbtn{color:#cbd5e1}
   body.dark .mtbtn:active{background:#222b38}
   body.dark #catalog,body.dark #props{background:#1b2327}
@@ -3030,4 +3021,54 @@ body.dark .ask-all .btn{background:transparent}
   .learn-card .learn-close{width:44px;height:44px}
   .lite-btn{width:44px;height:44px}
   #props .btn.cnt-b{width:44px;height:44px;min-width:44px}   /* i +/− dei contatori: si premono a ripetizione */
+}
+
+/* ── BARRA ALTA, MENU E PANNELLI DEL TELEFONO (13/09) ─────────────────────────────────────────────
+   Simone: «analizza la versione mobile e prova a farmi dei mockup», poi «procedi con tutte».
+   Misurato prima: barra alta 94 px con nove comandi, menu a griglia senza i valori, «Punti di
+   ripristino» irraggiungibile e senza uscita, «Area di stampa» con bottoni da 28 px che al ritorno
+   apriva Esporta. Scritto IN FONDO e con un id davanti: dentro #props e #mActions a parità di peso
+   vince l'ultima regola, e questa trappola è già scattata otto volte. */
+.m-fit{display:none}
+#frameBox .fr-acts{margin-top:10px}
+#frameBox .fr-acts .btn{flex:1;font-size:12px}
+#frameBox .fr-wide{width:100%;margin-top:6px;font-size:12px}
+#areaEditPanel #areaDone,#versPanel #versDone{width:100%;margin-top:12px;padding:10px;font-size:13px}
+#versList .ver-btn{font-size:11px;padding:3px 7px}
+@media (max-width:880px){
+  main .m-fit{display:flex;position:absolute;right:12px;bottom:12px;z-index:5;width:48px;height:48px;align-items:center;justify-content:center;
+    padding:0;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.12);cursor:pointer}
+  main .m-fit svg{width:22px;height:22px}
+  main .m-fit:active{background:var(--n-100)}
+  #mActions .sh{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);padding:14px 4px 6px}
+  #mActions .mlist{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  #mActions .mrow{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;box-sizing:border-box;margin:0;padding:0 16px;
+    border:0;border-top:1px solid var(--border);border-radius:0;background:none;font:600 16px/1.25 var(--font-ui);color:var(--text);text-align:left;cursor:pointer}
+  #mActions .mlist>.mrow:first-child{border-top:0}
+  #mActions .mrow[hidden]{display:none}
+  #mActions button.mrow:active{background:var(--n-100)}
+  #mActions .mrow-t{flex:1;min-width:0}
+  #mActions .mrow-v{flex:0 1 auto;min-width:0;max-width:58%;font-weight:400;font-size:15px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mActions .mrow-var select{flex:0 1 auto;min-width:0;max-width:60%;min-height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:0 10px;font-weight:600;color:var(--text)}
+  #mActions .mrow-acts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--border)}
+  #mActions .mrow-acts button{min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);font:600 14px var(--font-ui);color:var(--text);cursor:pointer}
+  #mActions .mrow-acts button.danger{color:var(--danger)}
+  #mActions .mrow-acts button[hidden]{display:none}
+  #mActions .mrow-col{flex-direction:column;align-items:stretch;gap:8px;padding:12px 16px;cursor:default}
+  #mActions .mseg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+  #mActions .mseg button{min-height:44px;margin:0;padding:0 2px;border:0;border-left:1px solid var(--border-strong);border-radius:0;background:var(--surface);font:600 14px var(--font-ui);color:var(--text);cursor:pointer}
+  #mActions .mseg button:first-child{border-left:0}
+  #mActions .mseg button.on{background:var(--accent);color:#fff}
+  #mActions .mswitch{flex:0 0 auto;position:relative;width:48px;height:28px;border-radius:999px;background:var(--border-strong);transition:background .15s var(--ease)}
+  #mActions .mswitch::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s var(--ease)}
+  #mActions .mrow[aria-checked="true"] .mswitch{background:var(--accent)}
+  #mActions .mrow[aria-checked="true"] .mswitch::after{transform:translateX(20px)}
+  #mActions .mact-consul{display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:10px;font-size:15px}
+  #stageDimsM{display:flex;gap:10px;margin-bottom:12px}
+  #stageDimsM label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;margin:0;font-size:14px;color:var(--text-2)}
+  #props #stageDimsM input{flex:1;width:100%;min-width:0;min-height:44px;box-sizing:border-box;padding:0 8px}
+  #frameBox .fr-acts .btn,#frameBox .fr-wide{min-height:44px;font-size:14px}
+  #areaEditPanel #areaDone,#versPanel #versDone{min-height:48px;font-size:15px}
+  #versList .ver-btn{min-height:44px;min-width:44px;font-size:14px;padding:0 12px}
+  #versPanel{position:relative;padding-top:26px}
 }

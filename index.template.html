@@ -100,20 +100,16 @@
 </div>
 <svg id="defs-master" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 <div id="mTop">
+  <!-- 13/09 — UNA riga da 56 px, non due da 94. Resta quello che si guarda o si tocca di continuo:
+       il nome, le misure con lo stato del salvataggio, annulla e ripeti. Guida, account e le misure
+       del palco stanno nel Menu; «Adatta» è un bottone sul palco, dove serve. -->
   <div class="mtop-r1">
-    <input aria-label="Titolo del progetto" type="text" id="mTitle" placeholder="Senza titolo">
-    <span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span>
-    <button class="mtbtn" id="bLearnM" aria-label="Guida e feedback" title="Guida e feedback" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a3 3 0 0 1 5.6 1c0 2-2.8 2.5-2.8 3.5"/><path d="M12 17h.01"/></svg></button>
-    <button class="avatar-btn avatar-btn-m" id="accountBtnM" title="Accedi per salvare online">Accedi</button>
-  </div>
-  <div class="mtop-r2">
-    <span class="mlab">PALCO</span>
-    <label>L<input type="number" id="mW" min="1" max="60" step="0.5"><span>m</span></label>
-    <label>P<input type="number" id="mD" min="1" max="40" step="0.5"><span>m</span></label>
-    <span style="flex:1"></span>
+    <div class="mtop-id">
+      <input aria-label="Titolo del progetto" type="text" id="mTitle" placeholder="Senza titolo">
+      <div class="mtop-sub"><span id="mStageSum">Palco</span><span class="doc-chip doc-chip-m" id="docStateM" role="status" hidden></span></div>
+    </div>
     <button class="mtbtn" id="mUndo" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
     <button class="mtbtn" id="mRedo" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
-    <button class="mtbtn" id="mFit" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><path d="M21 3l-7 7M3 21l7-7"/></svg></button>
   </div>
 </div>
 <header>
@@ -221,6 +217,9 @@
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
   aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
+<!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
+     che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
+<button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <div id="venueCalibPop" hidden>
@@ -289,14 +288,16 @@
         <div><label for="frameX">X (m)</label><input type="number" id="frameX" step="0.1"></div>
         <div><label for="frameY">Y (m)</label><input type="number" id="frameY" step="0.1"></div>
       </div>
-      <div class="frame-row" style="margin-top:10px">
-        <button class="btn" id="frameStage" style="flex:1;font-size:12px">= Palco</button>
-        <button class="btn" id="frameAll" style="flex:1;font-size:12px">Tutto + planimetria</button>
+      <!-- Misure dei bottoni nel foglio di stile, non in linea: uno `style=` batte ogni regola, e
+           sul telefono questi quattro restavano a 28 px sotto il dito. (13/09) -->
+      <div class="frame-row fr-acts">
+        <button class="btn" id="frameStage">= Palco</button>
+        <button class="btn" id="frameAll">Tutto + planimetria</button>
       </div>
-      <button class="btn" id="frameCenter" style="width:100%;margin-top:6px;font-size:12px">⊕ Centra palco nell'area</button>
-      <button class="btn danger" id="frameClear" style="width:100%;margin-top:6px;font-size:12px">Reimposta (usa il palco)</button>
+      <button class="btn fr-wide" id="frameCenter">⊕ Centra palco nell'area</button>
+      <button class="btn danger fr-wide" id="frameClear">Reimposta (usa il palco)</button>
     </div>
-    <button class="btn primary" id="areaDone" style="width:100%;margin-top:12px;padding:10px;font-size:13px">Torna a Esporta</button>
+    <button class="btn primary" id="areaDone">Torna a Esporta</button>
   </div>
   <div class="sec" id="stageEditPanel" hidden>
     <div id="stageBlocksSec">
@@ -304,18 +305,12 @@
     <div class="hint" style="font-size:12px;color:var(--text-2);margin-bottom:9px">Totale palco: <b id="stageTotal">—</b></div>
     <div class="hint desk-hint" id="stageDragHint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Il palco si compone a blocchi: aggiungi, <b>trascina</b>, dai a ciascuno la sua altezza. <b>Option/Alt + trascina</b> per disegnare un nuovo blocco. Le pedane sono elementi a sé: si prendono dal catalogo.</div>
     <div class="hint mob-hint" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Aggiungi un blocco, regola la misura con + / −, poi scegli dove metterlo.</div>
-    <!-- Aggancio: sull'header c'è da sempre, ma l'header su mobile è display:none — da telefono
-         restava inchiodato a 25 cm senza modo di cambiarlo. Qui perché è la stessa domanda del
-         palco: come si posizionano le cose sopra. (02/09) -->
-    <div class="mob-hint" id="snapRowM" style="margin-bottom:10px">
-      <label>Aggancio <small class="lbl-note">— come si posizionano gli elementi</small></label>
-      <select id="snapSelM" aria-label="Aggancio alla griglia">
-        <option value="0">Libero</option>
-        <option value="25" selected>25 cm</option>
-        <option value="50">50 cm</option>
-        <option value="100">1 m</option>
-        <option value="obj">Oggetti</option>
-      </select>
+    <!-- Le misure del palco, sul telefono. Stavano nella barra alta, sempre in vista: due campi da
+         toccare una volta sola, in cambio di 38 px di disegno in meno per sempre. Qui sono accanto
+         alla forma, che è la stessa domanda. L'aggancio, che stava qui, è nel Menu. (13/09) -->
+    <div class="mob-hint mstage-dims" id="stageDimsM">
+      <label>Larghezza<input type="number" id="mW" min="1" max="60" step="0.5"><span>m</span></label>
+      <label>Profondità<input type="number" id="mD" min="1" max="40" step="0.5"><span>m</span></label>
     </div>
     <div class="row" style="gap:8px">
       <button class="btn" id="bAddBlock">+ Blocco</button>
@@ -1170,6 +1165,9 @@
       </div>
       <div id="versList"></div>
     </div>
+    <!-- Il pannello si apriva e non si chiudeva: niente bottone, niente maniglia, Esc solo da
+         tastiera. Dal telefono ne usciva solo selezionando un elemento. (13/09) -->
+    <button class="btn primary" id="versDone" type="button">Fatto</button>
   </div>
   <!-- Channel list (input patch / monitor): si apre col pulsante Channel list (audit/roadmap 1B).
        NON e' riservata alla consulenza — lo diceva questo commento, ed era falso: si apre a chiunque,
@@ -1291,31 +1289,52 @@
   <button data-dock="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Condividi</button>
   <button data-dock="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/></svg>Menu</button>
 </nav>
+<!-- 13/09 — Il menu del telefono è un ELENCO a gruppi, non una griglia di bottoni. Ogni riga dice
+     cosa apre e, dove c'è, il valore che c'è già scritto (luogo, data, misure): si capisce cosa
+     manca senza aprire niente. Qui arriva anche quello che dal telefono non si raggiungeva: i punti
+     di ripristino, l'aggancio alla griglia, la guida, l'account. -->
 <div id="mActions">
   <div class="sh">Progetto</div>
-  <div class="mact-grid">
-    <button data-act="new" class="danger">Nuovo</button>
-    <button data-act="cloud">I miei progetti…</button>
+  <div class="mlist">
+    <button class="mrow" data-act="cloud"><span class="mrow-t">I miei progetti</span></button>
+    <!-- Varianti (13/09). Sul telefono l'header è nascosto per intero, e con lui la barra delle
+         varianti e la voce «Nuova variante» del menu File. -->
+    <div class="mrow mrow-var" id="mVarRow" hidden><span class="mrow-t" id="mVarHead">Variante</span><select id="mVariantSel" aria-label="Variante attiva"></select></div>
+    <div class="mrow-acts" id="mVarGrid">
+      <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
+      <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
+      <button data-act="var-new">+ Nuova variante</button>
+    </div>
+    <button class="mrow" data-act="share"><span class="mrow-t">Condividi</span></button>
+    <button class="mrow" data-act="new"><span class="mrow-t">Nuovo progetto</span></button>
+  </div>
+  <div class="sh">Evento</div>
+  <div class="mlist">
+    <button class="mrow" data-act="evento"><span class="mrow-t">Luogo</span><span class="mrow-v" id="mMenuLuogo"></span></button>
+    <button class="mrow" data-act="evento"><span class="mrow-t">Data e ora</span><span class="mrow-v" id="mMenuData"></span></button>
   </div>
   <div class="sh">Palco</div>
-  <div class="mact-grid">
-    <button data-act="palco">Palco</button>
-    <button data-act="evento">Evento</button>
-    <button data-act="frame">Area stampa</button>
-  </div>
-  <!-- Varianti (13/09). Sul telefono l'header è nascosto per intero, e con lui la barra delle varianti e
-       la voce «Nuova variante» del menu File: da qui non si vedevano, non si cambiavano e non se ne
-       creava una. Era già scritto nell'analisi mobile del 02/09 e mai chiuso. -->
-  <div class="sh" id="mVarHead">Varianti</div>
-  <div class="mact-var" id="mVarRow" hidden><select id="mVariantSel" aria-label="Variante attiva"></select></div>
-  <div class="mact-grid" id="mVarGrid">
-    <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
-    <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
-    <button data-act="var-new">Nuova variante</button>
+  <div class="mlist">
+    <button class="mrow" data-act="palco"><span class="mrow-t">Misure e forma</span><span class="mrow-v" id="mMenuStage"></span></button>
+    <div class="mrow mrow-col">
+      <span class="mrow-t" id="mSnapLbl">Aggancio alla griglia</span>
+      <div class="mseg" id="mSnap" role="radiogroup" aria-labelledby="mSnapLbl">
+        <button type="button" role="radio" data-snap="0">Libero</button>
+        <button type="button" role="radio" data-snap="25">25 cm</button>
+        <button type="button" role="radio" data-snap="50">50 cm</button>
+        <button type="button" role="radio" data-snap="100">1 m</button>
+        <button type="button" role="radio" data-snap="obj">Oggetti</button>
+      </div>
+    </div>
+    <button class="mrow" data-act="frame"><span class="mrow-t">Area di stampa</span></button>
+    <button class="mrow" data-act="vers"><span class="mrow-t">Punti di ripristino</span></button>
   </div>
   <div class="sh">App</div>
-  <div class="mact-grid">
-    <button data-act="theme">Tema chiaro/scuro</button>
+  <div class="mlist">
+    <button class="mrow" data-act="theme" role="switch" aria-checked="false" id="mThemeRow"><span class="mrow-t">Tema scuro</span><span class="mswitch" aria-hidden="true"></span></button>
+    <button class="mrow" data-act="guida"><span class="mrow-t">Guida: cos'è uno stage plot</span></button>
+    <button class="mrow" data-act="feedback"><span class="mrow-t">Cosa manca? Scrivici</span></button>
+    <button class="mrow" data-act="account" id="accountBtnM"><span class="mrow-t">Accedi</span><span class="mrow-v">per salvare online</span></button>
   </div>
   <!-- «Consulenza tecnica →» tolta col tasto in header (10/09): stessa decisione, stesso ritorno. -->
   <a href="/orchestre/richiedi/" class="mact-consul" id="mactRichiedi">Richiedi musicisti →</a>
@@ -5657,11 +5676,18 @@ window.__markCloudClean=markCloudClean;
 window.__cloudNeedsFlush=function(){ var C=window.__cloud; return _cloudDirty||_cloudSaving||!!(C&&C.isWriting&&C.isWriting()); };
 function renderAccountBtn(){
   var C=window.__cloud, u=C&&C.user(), em=u&&(u.email||"?");
-  ["accountBtn","accountBtnM"].forEach(function(id){
-    var b=document.getElementById(id); if(!b) return;
-    if(u){ b.textContent=em.slice(0,2).toUpperCase(); b.classList.add("logged"); b.title=em; }
-    else { b.textContent="Accedi"; b.classList.remove("logged"); b.title="Accedi per salvare online"; }
-  });
+  var bd=document.getElementById("accountBtn");
+  if(bd){
+    if(u){ bd.textContent=em.slice(0,2).toUpperCase(); bd.classList.add("logged"); bd.title=em; }
+    else { bd.textContent="Accedi"; bd.classList.remove("logged"); bd.title="Accedi per salvare online"; }
+  }
+  /* sul telefono è una riga del Menu: il nome e, accanto, a chi è intestato o perché accedere */
+  var bm=document.getElementById("accountBtnM");
+  if(bm){
+    var tt=bm.querySelector(".mrow-t"), vv=bm.querySelector(".mrow-v");
+    if(tt) tt.textContent = u ? "Account" : "Accedi";
+    if(vv) vv.textContent = u ? em : "per salvare online";
+  }
   if(window.__docLoadBlocked) setDocState("blocked");
   else if(window.__localStorageUnavailable && !u) setDocState("local-error");
   else if(u) setDocState((_cloudDirty||_cloudSaving||window.__bootCloudPending)?"saving":(C.currentId()?"online":"local"));
@@ -13289,12 +13315,20 @@ document.getElementById("pTastLeg2").addEventListener("change", function(){ mutS
 function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   if(a) a.value=snapMode; if(b) b.value=snapMode;
+  /* sul telefono l'aggancio è una fila di cinque bottoni nel Menu (13/09): stesso stato, un solo punto che li allinea */
+  Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
+    var on=x.getAttribute("data-snap")===snapMode;
+    x.classList.toggle("on", on); x.setAttribute("aria-checked", on ? "true" : "false");
+  });
 }
 (function(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   function set(v){ snapMode=v; syncSnapSelects(); }
   if(a) a.addEventListener("change", function(){ set(this.value); });
   if(b) b.addEventListener("change", function(){ set(this.value); });
+  Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
+    x.addEventListener("click", function(){ set(x.getAttribute("data-snap")); });
+  });
   syncSnapSelects();
 })();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
@@ -13918,6 +13952,20 @@ function updateHeaderStage(){
   var b0=stageBlocks()[0];
   ["stW","mW"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.w/100; });
   ["stD","mD"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.d/100; });
+  var ss=document.getElementById("mStageSum"); if(ss) ss.textContent="Palco "+misurePalco();
+}
+/* «16 × 6,5 m»: le misure dell'ingombro totale, con l'unità una volta sola (barra alta e menu del telefono) */
+function misurePalco(){
+  function n(cm){ return ((+cm||0)/100).toLocaleString("it-IT",{maximumFractionDigits:1}); }
+  return n(state.stage.w)+" × "+n(state.stage.d)+" m";
+}
+/* «sab 3 ott · 21:00»: la data dell'evento come si dice a voce, per la riga del menu */
+function dataEventoBreve(){
+  if(!state.evDate) return state.evTime||"";
+  var d=new Date(state.evDate+"T12:00:00");
+  if(!isFinite(d.getTime())) return state.evDate;
+  var s=d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"});
+  return s+(state.evTime ? " · "+state.evTime : "");
 }
 /* Titolo/Luogo: campi nell'header (desktop) + pannello Evento (mobile), sincronizzati con lo stato */
 /* I campi che mostrano il nome del progetto: header (desktop), pannello Evento (mobile), finestra
@@ -15001,7 +15049,7 @@ function pannelliChiudibiliColDito(){
      annidate nella stessa striscia significavano due chiusure in fila — la seconda riapriva quello
      che la prima aveva chiuso, e il foglio scendeva del doppio del dito. Una maniglia sola, che
      preme il «Fatto» della vista aperta. (02/09) */
-  [["eventoSec","bEventoDone"],["stageEditPanel",null],["areaEditPanel","areaDone"]]
+  [["eventoSec","bEventoDone"],["stageEditPanel",null],["areaEditPanel","areaDone"],["versPanel","versDone"]]
     .forEach(function(par){
       var sec=document.getElementById(par[0]); if(!sec || sec.__grab) return;
       sec.__grab=1;
@@ -15033,8 +15081,10 @@ function closeMobileDrawers(){
      pseudo-elemento non riceve eventi: il gesto si aggancia al menu intero, ma parte solo se il
      dito scende nei primi 44 px — la fascia della maniglia. Più giù ci sono le voci, e trascinarle
      non deve chiudere niente. */
+  /* Dal 13/09 il menu SCORRE (quattro gruppi di righe, più alti dello schermo): preso da qualunque
+     punto, scorrere l'elenco lo chiudeva. La presa torna la striscia in cima, come per gli altri fogli. */
   (function(){ var ms=document.getElementById("mActions");
-    if(ms) chiudiTrascinando(ms, ms, closeAll); })();   /* da qualunque punto: le voci non scorrono */
+    if(ms) chiudiTrascinando(ms, ms, closeAll, null, 44); })();
   function openCatalog(){ closeAll(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
@@ -15046,26 +15096,46 @@ function closeMobileDrawers(){
   function proxy(id){ var b=document.getElementById(id); if(b) b.click(); }
   /* A′: #mActions è un bottom-sheet a UN livello (aperto da dock "Menu" o ⋯ in alto) */
   var mSheet=document.getElementById("mActions");
-  function toggleMobileMenu(on){ if(!mSheet) return; mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); syncDrawerA11y(); }
+  /* Le righe del menu dicono il valore che c'è già (luogo, data, misure, tema): si riempiono ogni
+     volta che il menu si apre, così non serve ricordarsi di aggiornarle da venti punti diversi. */
+  function renderMobileMenu(){
+    function txt(id, v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+    txt("mMenuLuogo", state.luogo || "da scrivere");
+    txt("mMenuData", dataEventoBreve() || "da scrivere");
+    txt("mMenuStage", misurePalco());
+    var th=document.getElementById("mThemeRow");
+    if(th) th.setAttribute("aria-checked", document.body.classList.contains("dark") ? "true" : "false");
+    syncSnapSelects();
+  }
+  window.renderMobileMenu=renderMobileMenu;
+  function toggleMobileMenu(on){ if(!mSheet) return; if(on) renderMobileMenu(); mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); syncDrawerA11y(); }
   window.toggleMobileMenu=toggleMobileMenu;
   window.addEventListener("resize", syncDrawerA11y);   /* passaggio mobile↔desktop: risincronizza l'inert dei drawer */
   syncDrawerA11y();   /* stato iniziale: su mobile i drawer partono chiusi → inert */
   Array.prototype.forEach.call(document.querySelectorAll("#mActions button"), function(b){
     b.addEventListener("click", function(){
       var a=b.getAttribute("data-act"); if(!a) return;
-      setTimeout(function(){ toggleMobileMenu(false); },0);
+      /* il tema si cambia restando nel menu: l'interruttore mostra subito lo stato nuovo */
+      if(a==="theme"){ proxy("bTheme"); renderMobileMenu(); return; }
+      setTimeout(function(){
+        toggleMobileMenu(false);
+        /* il cassetto ricorda dove lo si era lasciato: un pannello aperto dal menu parte dall'inizio */
+        var pr=document.getElementById("props"); if(pr) pr.scrollTop=0;
+      },0);
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
+      if(a==="vers"){ toggleVersionEdit(); return; }
       if(a==="var-new"){ createVariant(); return; }
       if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
       if(a==="import") document.getElementById("bHdrImport").click();
       else if(a==="download") proxy("saveJson");
-      else if(a==="cloud") proxy("bCloud");
-      else if(a==="theme") proxy("bTheme");
+      else if(a==="cloud" || a==="account") proxy("bCloud");
+      else if(a==="share") proxy("bShare");
+      else if(a==="guida" || a==="feedback"){ var h=document.querySelector('#helpMenu [data-help="'+(a==="guida"?"learn":"feedback")+'"]'); if(h) h.click(); }
       else if(a==="new"){ if(window.openNewDialog) window.openNewDialog(); else proxy("bNew"); }   /* stessa finestra a due strade del menu File */
     });
   });
@@ -23119,15 +23189,19 @@ function frameContentRect(){
   return {x:Math.round(x0-m), y:Math.round(y0-m), w:Math.round(x1-x0+2*m), h:Math.round(y1-y0+2*m)};
 }
 function ensurePrintFrame(){ if(!state.printFrame) state.printFrame=frameStageRect(); }
-function toggleFrameEdit(){ frameEdit=!frameEdit; if(frameEdit){ exitHubModes("frame"); clearSelection(); ensurePrintFrame(); } renderFramePanel(); render(); }
+/* DA DOVE si è arrivati all'area di stampa (13/09). Dal Menu del telefono il bottone in fondo diceva
+   «Torna a Esporta» e apriva la finestra Esporta, dove nessuno era mai stato: si voleva solo
+   sistemare l'area. Adesso torna da dove si è partiti. */
+var frameEditFrom="export";
+function toggleFrameEdit(){ frameEdit=!frameEdit; if(frameEdit){ frameEditFrom="menu"; exitHubModes("frame"); clearSelection(); ensurePrintFrame(); } renderFramePanel(); render(); }
 function fmtMnum(cm){ return (cm/100).toFixed(2).replace(/\.?0+$/,""); }
-function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; saveAsOpen=false; clearSelection(); ensurePrintFrame(); renderFramePanel(); render(); } }
+function activateFrameEdit(){ if(!frameEdit){ frameEdit=true; frameEditFrom="export"; saveAsOpen=false; clearSelection(); ensurePrintFrame(); renderFramePanel(); render(); } }
 /* fine della scelta: si torna alla finestra Esporta, da dove si era partiti */
 /* «Torna a Esporta» tornava a un'ALTRA cosa: il pannello laterale Esporta, cioè proprio il passaggio
    intermedio che il 31/07 era stato tolto dall'andata — sopravviveva sulla via del ritorno. E con Esc
    non si tornava affatto: niente finestra, niente pannello, in mezzo al canvas (06/08). */
-function finishFrameEdit(){ frameEdit=false; saveAsOpen=false; renderFramePanel(); render();
-  if(typeof window.openPdfExportModal==="function") window.openPdfExportModal(); }
+function finishFrameEdit(){ var tornaEsporta=frameEditFrom!=="menu"; frameEdit=false; saveAsOpen=false; renderFramePanel(); render();
+  if(tornaEsporta && typeof window.openPdfExportModal==="function") window.openPdfExportModal(); }
 /* riassunto dell'area nella finestra Esporta: dice sempre cosa verrà stampato */
 function frameSummaryText(){
   var f=state.printFrame;
@@ -23148,6 +23222,8 @@ function renderFramePanel(){
   document.body.classList.toggle("export-menu", saveAsOpen && !frameEdit);
   var ap=document.getElementById("areaEditPanel");
   if(ap) ap.hidden=!frameEdit;
+  var ad=document.getElementById("areaDone");
+  if(ad) ad.textContent = frameEditFrom==="menu" ? "Fatto" : "Torna a Esporta";   /* il bottone dice dove porta */
   document.body.classList.toggle("area-edit", frameEdit);
   var sm=document.getElementById("frameSummaryTxt");
   if(sm) sm.textContent=frameSummaryText();
@@ -23262,8 +23338,8 @@ function renderVersionPanel(){
     if(dt && isFinite(dt.getTime()))
       ds=dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     return '<div class="ver-row"><span class="ver-name">'+esc(v.name)+'</span><span class="ver-date">'+ds+'</span>'+
-      '<button class="btn" style="font-size:11px;padding:3px 7px" onclick="restoreVersion('+i+')">Ripristina</button>'+
-      '<button class="btn danger" style="font-size:11px;padding:3px 7px" onclick="deleteVersion('+i+')">✕</button></div>';
+      '<button class="btn ver-btn" onclick="restoreVersion('+i+')">Ripristina</button>'+
+      '<button class="btn danger ver-btn" aria-label="Elimina la versione" onclick="deleteVersion('+i+')">✕</button></div>';
   }).join('');
 }
 function toggleVersionEdit(){
@@ -23275,11 +23351,14 @@ function toggleVersionEdit(){
   document.body.classList.toggle("vers-edit", versEdit);
   renderVersionPanel(); render();
 }
+(function(){ var b=document.getElementById("versDone"); if(b) b.addEventListener("click", function(){ if(versEdit) toggleVersionEdit(); }); })();
 /* ===== SVG Export ===== */
 /* ===== Stampa ===== */
 function frameMarkup(){
   if(!frameEdit || !state.printFrame) return '';
-  var f=state.printFrame, H=14;
+  /* Maniglie: 14 cm di mondo sono 4 px quando il telefono mostra tutto il palco. Col dito servono
+     44 px di schermo, quindi lì la misura si prende in pixel (hSize), come per le maniglie di selezione. */
+  var f=state.printFrame, H=isMobile() ? Math.max(14, hSize(22)) : 14;
   var s='<g data-frame="1">';
   s+='<rect class="frame-rect" data-frame-body="1" x="'+f.x+'" y="'+f.y+'" width="'+f.w+'" height="'+f.h+'"/>';
   s+='<text class="frame-lbl" x="'+(f.x+f.w/2)+'" y="'+(f.y-12)+'" text-anchor="middle" font-size="22">AREA STAMPA · '+(f.w/100)+'×'+(f.h/100)+' m</text>';
@@ -24082,7 +24161,8 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   document.getElementById("bShare").addEventListener("click", openShare);
   /* header A′: Condividi visibile + account (avatar) → modal account/progetti */
   (function(){ var b=document.getElementById("bShareHdr"); if(b) b.addEventListener("click", openShare); })();
-  (function(){ ["accountBtn","accountBtnM"].forEach(function(id){ var a=document.getElementById(id); if(a) a.addEventListener("click", function(){ document.getElementById("bCloud").click(); }); }); })();
+  /* `accountBtnM` non è qui: è una riga del menu del telefono, e la apre il gestore del menu, che la chiude anche */
+  (function(){ ["accountBtn"].forEach(function(id){ var a=document.getElementById(id); if(a) a.addEventListener("click", function(){ document.getElementById("bCloud").click(); }); }); })();
   /* ===== Menu File / "?" (UI/UX A′): dropdown → proxy nascosti ===== */
   function bindMenu(btnId, menuId){
     var b=document.getElementById(btnId), m=document.getElementById(menuId);
