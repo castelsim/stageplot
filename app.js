@@ -12113,9 +12113,10 @@ function updateHeaderStage(){
   var ss=document.getElementById("mStageSum"); if(ss) ss.textContent="Palco "+misurePalco();
 }
 /* «16 × 6,5 m»: le misure dell'ingombro totale, con l'unità una volta sola (barra alta e menu del telefono) */
-function misurePalco(){
+function misurePalco(w, d){
   function n(cm){ return ((+cm||0)/100).toLocaleString("it-IT",{maximumFractionDigits:1}); }
-  return n(state.stage.w)+" × "+n(state.stage.d)+" m";
+  if(w==null){ w=state.stage.w; d=state.stage.d; }   /* senza argomenti, quello aperto; con, quello di un modello */
+  return n(w)+" × "+n(d)+" m";
 }
 /* «sab 3 ott · 21:00»: la data dell'evento come si dice a voce, per la riga del menu */
 function dataEventoBreve(){
@@ -13392,6 +13393,12 @@ function renderMobileList(){
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
       if(a==="vers"){ toggleVersionEdit(); return; }
+      if(a==="ipotesi"){   /* a richiesta anche per chi aveva detto «non mostrarlo più»: lo sta chiedendo */
+        mostraAssunzioni(true);
+        var ab=document.getElementById("assunzioni");
+        if(ab && ab.hidden && window.__toast) window.__toast("Per questo palco non c'è niente di ipotizzato da controllare");
+        return;
+      }
       if(a==="var-new"){ createVariant(); return; }
       if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
@@ -16409,11 +16416,32 @@ function chiediOrganico(chiave, dopo){
   var cfg = ORGANICI[chiave];
   var m=document.getElementById("bandSetup"), host=document.getElementById("bsRuoli");
   if(!cfg || !m || !host){ dopo(null); return; }
-  var org={};
-  var ruoli = (typeof cfg.ruoli==="function") ? cfg.ruoli() : cfg.ruoli;
   document.getElementById("bsTitolo").textContent = cfg.titolo;
   document.getElementById("bsNota").textContent = cfg.nota;
   document.getElementById("bsStd").textContent = cfg.standard;
+  var org=righeOrganico(cfg, host);
+  /* il benvenuto si toglie di mezzo: la vetrina dei modelli sta dentro di lui, e questa finestra gli
+     nascerebbe dietro. Se l'utente esce senza scegliere torna dov'era. */
+  var wl=document.getElementById("welcome"), wlEraAperto = wl && !wl.hidden;
+  if(wlEraAperto) wl.hidden=true;
+  function chiudi(annullato){
+    m.hidden=true; m.onclick=null; document.removeEventListener("keydown", esc);
+    if(annullato && wlEraAperto && wl) wl.hidden=false;
+  }
+  function esc(ev){ if(ev.key==="Escape"){ chiudi(true); } }
+  document.getElementById("bsGo").onclick=function(){ chiudi(); dopo(org); };
+  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = i valori di partenza */
+  m.onclick=function(ev){ if(ev.target===m) chiudi(true); };
+  document.addEventListener("keydown", esc);
+  m.hidden=false;
+}
+
+/* Le righe «− numero +» di un organico, dentro `host`. Restituisce l'oggetto dei numeri, che le righe
+   tengono aggiornato. Una funzione sola per la finestra «Chi sale sul palco?» e per il primo avvio del
+   telefono, che le mostra direttamente (13/09): due copie delle stesse righe divergono sempre. */
+function righeOrganico(cfg, host){
+  var org={};
+  var ruoli = (typeof cfg.ruoli==="function") ? cfg.ruoli() : cfg.ruoli;
   host.textContent="";
   ruoli.forEach(function(r){
     org[r[0]]=r[2];
@@ -16444,20 +16472,7 @@ function chiediOrganico(chiave, dopo){
     riga.classList.toggle("bs-zero", r[2]===0);
     host.appendChild(riga);
   });
-  /* il benvenuto si toglie di mezzo: la vetrina dei modelli sta dentro di lui, e questa finestra gli
-     nascerebbe dietro. Se l'utente esce senza scegliere torna dov'era. */
-  var wl=document.getElementById("welcome"), wlEraAperto = wl && !wl.hidden;
-  if(wlEraAperto) wl.hidden=true;
-  function chiudi(annullato){
-    m.hidden=true; m.onclick=null; document.removeEventListener("keydown", esc);
-    if(annullato && wlEraAperto && wl) wl.hidden=false;
-  }
-  function esc(ev){ if(ev.key==="Escape"){ chiudi(true); } }
-  document.getElementById("bsGo").onclick=function(){ chiudi(); dopo(org); };
-  document.getElementById("bsStd").onclick=function(){ chiudi(); dopo(null); };   /* null = i valori di partenza */
-  m.onclick=function(ev){ if(ev.target===m) chiudi(true); };
-  document.addEventListener("keydown", esc);
-  m.hidden=false;
+  return org;
 }
 
 function startFromTemplate(f,options){
@@ -16486,7 +16501,9 @@ function startFromTemplate(f,options){
        programma ha deciso da solo (side fill, stagebox, chi è attrezzatura e chi persona). */
     var _gia = options.formazione ? {voci:true, ascolto:true} : {};
     if(qd.stage) _gia.palco={w:_sg.w,d:_sg.d};   /* SP-03: la misura imposta dal modello si dichiara, non si subisce */
-    setTimeout(function(){ try{ mostraAssunzioni(false, _gia); }catch(_e){} }, 350);
+    /* dal primo avvio del telefono no (13/09): era la terza finestra di fila prima di vedere il palco,
+       e copriva il palco appena creato. Resta a portata di mano nel Menu, «Cosa abbiamo ipotizzato». */
+    if(!options.senzaIpotesi) setTimeout(function(){ try{ mostraAssunzioni(false, _gia); }catch(_e){} }, 350);
   });
   return true;
 }
@@ -26883,8 +26900,9 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     if(!host || typeof START_MODELS==="undefined") return;
     host.innerHTML="";
     START_MODELS.forEach(function(m){
-      var b=document.createElement("button"); b.type="button"; b.textContent=m[1];
+      var b=document.createElement("button"); b.type="button"; b.textContent=m[1]; b.dataset.k=m[0];
       b.addEventListener("click", function(){
+        if(host.id==="wlMods" && isMobile() && window.__wlScegli){ window.__wlScegli(m[0]); return; }   /* telefono: si sceglie, si crea col bottone */
         /* «Band» è l'unico modello che oggi sa fare domande: per gli altri il palco parte com'era.
            Gli altri modelli arriveranno riesumando i generatori per organico (voiceModal & co.). */
         /* i modelli che sanno fare domande sono quelli in ORGANICI: per gli altri il palco parte
@@ -27021,8 +27039,38 @@ function maybeAskStageSize(explicit){
     wl.hidden=true;
     maybeAskStageSize(false);   /* dopo il benvenuto, chiedi le misure del palco (se ancora nuovo/vuoto) */
   }
+  /* telefono: la formazione si sceglie qui, e «Crea il palco» la posa (13/09) */
+  var wlScelta="band", wlOrg=null;
+  function wlRender(){
+    Array.prototype.forEach.call(document.querySelectorAll("#wlMods button"), function(b){
+      var on=b.dataset.k===wlScelta; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    var host=document.getElementById("wlRuoli"), cfg=(typeof ORGANICI!=="undefined") ? ORGANICI[wlScelta] : null;
+    if(host){
+      if(cfg) wlOrg=righeOrganico(cfg, host);
+      else { wlOrg=null; host.innerHTML='<p class="wl-senza">Questo modello parte con la sua formazione: poi sposti, togli o aggiungi quello che serve.</p>'; }
+    }
+    var qd=null; try{ qd=formationData(wlScelta, null); }catch(_e){}
+    var mis=document.getElementById("wlPalcoMis"), nota=document.getElementById("wlPalcoNota");
+    if(mis) mis.textContent = (qd && qd.stage) ? misurePalco(qd.stage.w, qd.stage.d) : "su misura";
+    if(nota) nota.textContent = (qd && qd.stage) ? "misura tipica: la cambi dopo" : "si adatta a chi c'è sul palco";
+  }
+  window.__wlScegli=function(k){ wlScelta=k; wlRender(); };
+  function wlCrea(){
+    startFromTemplate(wlScelta, {formazione:(wlOrg || undefined), senzaIpotesi:true});
+  }
+  function wlPreparaTelefono(){
+    var bd=wl.querySelector(".wl-badge"), ti=document.getElementById("wlTitle"), tg=wl.querySelector(".wl-tag"), go=document.getElementById("wlGo");
+    if(bd) bd.textContent="Nuovo palco";
+    if(ti) ti.textContent="Chi suona stasera?";
+    if(tg) tg.textContent="Scegli la formazione: il palco si disegna in scala, e poi sposti quello che non torna.";
+    if(go) go.textContent="Crea il palco";
+    wlRender();
+  }
   if(!deep && !seen){
-    document.getElementById("wlGo").addEventListener("click", close);
+    document.getElementById("wlGo").addEventListener("click", function(){ if(isMobile()) wlCrea(); else close(); });
+    (function(){ var v=document.getElementById("wlVuoto"); if(v) v.addEventListener("click", close); })();
+    if(isMobile()) wlPreparaTelefono();
     wl.addEventListener("click", function(ev){ if(ev.target===wl) close(); });
     document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !wl.hidden) close(); });
     wl.hidden=false;
