@@ -3254,6 +3254,22 @@ body.dark .ask-all .btn{background:transparent}
   #props #selProps .chk{min-height:44px}
   body.dark #props #selProps .ptabs{background:#1b2327}
 }
+
+/* ── VISTA GIRATA E MAPPA, SUL TELEFONO (13/09) ───────────────────────────────────────────────────
+   L'avviso sta in alto a sinistra e dice da che parte è il pubblico: senza, una vista girata sembra
+   un palco sbagliato. La mappa compare solo ingrandendo, in basso a sinistra, lontano da «Adatta». */
+.m-rotchip,.m-mini{display:none}
+@media (max-width:880px){
+  main .m-rotchip:not([hidden]){display:inline-flex;position:absolute;left:12px;top:12px;z-index:5;align-items:center;gap:6px;min-height:36px;margin:0;
+    padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 13px var(--font-ui);color:var(--text);
+    box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer}
+  main .m-rotchip svg{width:16px;height:16px;flex:0 0 auto;color:var(--accent)}
+  main .m-mini:not([hidden]){display:block;position:absolute;left:12px;bottom:12px;z-index:5;margin:0;padding:4px;border:1px solid var(--border);
+    border-radius:10px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.12);cursor:pointer}
+  main .m-mini svg{display:block;width:120px;height:64px}
+  #mMiniSvg .mm-palco{fill:var(--n-100);stroke:var(--n-600);stroke-width:1.2;vector-effect:non-scaling-stroke}
+  #mMiniSvg .mm-vista{fill:rgba(13,148,136,.14);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}
+}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -3398,6 +3414,10 @@ body.dark .ask-all .btn{background:transparent}
 <!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
      che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
 <button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<!-- Vista ruotata e mappa, sul telefono (13/09): vedi `viewRot` e `syncMinimap`. L'avviso dice da che
+     parte è il pubblico, e toccato raddrizza la vista; la mappa, toccata, rimette tutto il palco. -->
+<button class="m-rotchip" id="mRotChip" type="button" hidden title="Tocca per raddrizzare la vista"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>Vista girata · pubblico a destra</button>
+<button class="m-mini" id="mMini" type="button" hidden aria-label="Mostra tutto il palco"><svg id="mMiniSvg" viewBox="0 0 100 60" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg></button>
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <div id="venueCalibPop" hidden>
@@ -4515,6 +4535,7 @@ body.dark .ask-all .btn{background:transparent}
         <button type="button" role="radio" data-snap="obj">Oggetti</button>
       </div>
     </div>
+    <button class="mrow" data-act="rot" role="switch" aria-checked="true" id="mRotRow"><span class="mrow-t">Gira il palco largo</span><span class="mswitch" aria-hidden="true"></span></button>
     <button class="mrow" data-act="frame"><span class="mrow-t">Area di stampa</span></button>
     <button class="mrow" data-act="vers"><span class="mrow-t">Punti di ripristino</span></button>
   </div>
