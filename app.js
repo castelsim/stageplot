@@ -9634,7 +9634,7 @@ function portDefs(it){
   return out;
 }
 function portsMarkup(){
-  /* in Semplice niente pallini delle connessioni: collegare è un lavoro da Completo (14/09) */
+  /* in Semplice niente pallini delle connessioni: collegare è un lavoro da Pro (14/09) */
   if(window.__cabStatic || isMobile() || !document.body.classList.contains("props-pro")) return '';
   if(!sel || Object.keys(selSet||{}).length>1) return '';
   var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0]; if(!it) return '';
