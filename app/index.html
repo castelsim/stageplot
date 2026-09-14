@@ -3128,6 +3128,7 @@ body.dark .ask-all .btn{background:transparent}
    apriva Esporta. Scritto IN FONDO e con un id davanti: dentro #props e #mActions a parità di peso
    vince l'ultima regola, e questa trappola è già scattata otto volte. */
 .m-fit{display:none}
+.sempl-hint{display:none}
 #frameBox .fr-acts{margin-top:10px}
 #frameBox .fr-acts .btn{flex:1;font-size:12px}
 #frameBox .fr-wide{width:100%;margin-top:6px;font-size:12px}
@@ -3370,7 +3371,15 @@ body.dark .hdr-livello button.on{background:#2a3138;color:#e5e7eb}
   body:not(.props-pro) #pdfHdrRow,
   body:not(.props-pro) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
-  #layerRows .liste-tecniche .lt-n{margin-left:auto;padding-left:8px;font-weight:400;font-size:11px;color:var(--text-3);text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di
+     destra non mostra liste — né Palco e Musicisti, né le tecniche, né i loro corpi. Si ritrovano in
+     Completo. Restano stato e progetto, che non sono liste. */
+  body:not(.props-pro) #layerSec,
+  body:not(.props-pro) #pmAccSec,
+  body:not(.props-pro) #musAccSec,
+  body:not(.props-pro) #coverAccSec,
+  body:not(.props-pro) #luciSec{display:none !important}
+  body:not(.props-pro) #noSel .sempl-hint{display:block;margin:6px 2px;font-size:13px;line-height:1.5;color:var(--text-2)}
 }
 
 /* In Semplice anche il richiamo al Controllo tecnico («N aspetti da definire») si fa da parte, sul
@@ -4363,6 +4372,9 @@ body:not(.props-pro) #prodInline{display:none !important}
     <div id="layerSec" style="display:none">
       <div id="layerBody"><div id="layerRows"></div></div>
     </div>
+    <!-- In Semplice le liste non ci sono (14/09): senza questa riga la colonna restava bianca, e una
+         colonna vuota sembra un difetto. Dice cosa si fa qui e dove sono le liste. -->
+    <p class="sempl-hint" id="semplHint">Seleziona un elemento sul palco per cambiarne nome, accessori e misure. Le liste tecniche sono in <b>Completo</b>.</p>
     <!-- Inspector B "lista piatta" (scelta Simone 08/07): STATO + PROGETTO a righe chiave-valore -->
     <div id="statoSec" style="display:none"></div>
     <div id="pmAccSec" style="display:none"></div>
