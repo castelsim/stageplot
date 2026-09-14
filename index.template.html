@@ -13644,6 +13644,7 @@ function proImposta(on){
   if(typeof syncPanelGroups==="function") syncPanelGroups();
   if(typeof renderStagePanel==="function" && typeof stageEdit!=="undefined" && stageEdit) renderStagePanel();
   if(typeof render==="function") render();
+  if(typeof renderLayerManager==="function") renderLayerManager();   /* le liste tecniche compaiono o si raccolgono */
 }
 /* Da che livello si parte, se l'utente non l'ha mai scelto (14/09, deciso da Simone): chi usa già i
    motori tecnici (cablaggio, elettrico, monitoraggio) parte in Completo, tutti gli altri in Semplice.
@@ -20599,6 +20600,18 @@ function renderLayerManager(){
   var AVANZATE={elec:1, luci:1, mond:1, miczone:1, cover:1};
   var base=LS.filter(function(L){ return !AVANZATE[L.id]; });
   var avanz=LS.filter(function(L){ return AVANZATE[L.id]; });
+  /* SEMPLICE (14/09, Simone: «aggiungi anche esporta e liste tecniche semplificate»). Col mouse e in
+     Semplice restano le liste del disegno (Palco, Musicisti, e quelle che nascono dagli elementi); le
+     tecniche — Input, Output e gli impianti — vanno dietro una riga sola. Stessa regola di sopra: una
+     lista col motore acceso o aperta resta dov'è, anche in Semplice. */
+  var nascoste=[];
+  if(!document.body.classList.contains("props-pro") && !isMobile()){
+    var TECNICHE={cabin:1, cabout:1};
+    var daNascondere=function(L){ return (TECNICHE[L.id] || AVANZATE[L.id]) && !L.engineOn && layerAccOpen!==L.id; };
+    nascoste=LS.filter(daNascondere);
+    base=base.filter(function(L){ return !daNascondere(L); });
+    avanz=avanz.filter(function(L){ return !daNascondere(L); });
+  }
   base.forEach(function(L){ renderLayerRow(L, rows); });
   if(avanz.length){
     /* in uso = motore acceso, oppure la lista è visibile/aperta: allora non si chiude niente */
@@ -20613,6 +20626,14 @@ function renderLayerManager(){
     if(aperto) avanz.forEach(function(L){ renderLayerRow(L, rows); });
     else { var n=document.createElement("div"); n.className="adv-quante";
       n.textContent = avanz.length===1 ? "1 lista" : avanz.length+" liste"; rows.appendChild(n); }
+  }
+  if(nascoste.length){
+    var lt=document.createElement("button");
+    lt.type="button"; lt.className="layer-group-label adv-head liste-tecniche";
+    lt.innerHTML='<span class="adv-caret" aria-hidden="true">▸</span>Liste tecniche<span class="lt-n">'+nascoste.map(function(L){ return esc(L.name); }).join(" · ")+'</span>';
+    lt.title="Input, Output, elettrico, luci e monitoraggio: si aprono passando a Completo";
+    lt.addEventListener("click", function(){ proImposta(true); });
+    rows.appendChild(lt);
   }
   renderStatoRider(rows);
   renderPmAccList();
@@ -23716,6 +23737,8 @@ function renderFramePanel(){
   document.body.classList.toggle("area-edit", frameEdit);
   var sm=document.getElementById("frameSummaryTxt");
   if(sm) sm.textContent=frameSummaryText();
+  /* un'area di stampa scelta a mano cambia il PDF: in Semplice la sua riga non si nasconde (14/09) */
+  var _ar=document.getElementById("pdfAreaRow"); if(_ar) _ar.classList.toggle("in-uso", !!state.printFrame);
   if(!(saveAsOpen||frameEdit)) return;
   {
     /* i quattro campi vanno riempiti SEMPRE che il pannello sia visibile: aperti dal menu Esporta

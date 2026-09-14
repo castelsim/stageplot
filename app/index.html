@@ -3355,6 +3355,23 @@ body.dark .hdr-livello button.on{background:#2a3138;color:#e5e7eb}
   #props #selProps .p-tutte small{font-weight:400;font-size:11px;color:var(--text-3)}
   #props #selProps .p-tutte:hover{background:var(--accent-tint)}
 }
+
+
+/* ── SEMPLICE, COL MOUSE: ESPORTA E LISTE (14/09) ─────────────────────────────────────────────────
+   La finestra Esporta in Semplice è quella del telefono: anteprima, nome, formato, orientamento e
+   «Scarica». Le pagine tecniche (che partono comunque spente), l'area di stampa, la scala e
+   l'intestazione stanno dietro «Altre opzioni», cioè la stessa preferenza. Un'area di stampa scelta a
+   mano cambia il PDF, quindi la sua riga resta (`.in-uso`). */
+@media (min-width:881px){
+  body:not(.props-pro) #pdfTechBox,
+  body:not(.props-pro) #pdfAreaRow:not(.in-uso),
+  body:not(.props-pro) #pdfScaleRow,
+  body:not(.props-pro) #pdfScaleCustomRow,
+  body:not(.props-pro) #pdfHdrRow,
+  body:not(.props-pro) #pdfTechRow{display:none !important}
+  #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
+  #layerRows .liste-tecniche .lt-n{margin-left:auto;padding-left:8px;font-weight:400;font-size:11px;color:var(--text-3);text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
