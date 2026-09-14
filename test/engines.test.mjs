@@ -14315,6 +14315,37 @@ t("sul telefono il primo avvio e' una schermata sola", () => {
   ok(/\.wl-mob-setup,\.wl-vuoto\{display:none\}/.test(s), "col mouse le parti del telefono non si vedono");
 });
 
+t("le varianti sono schede sempre in vista, anche con una variante sola", () => {
+  /* 14/09 — Simone: la barra delle varianti compariva solo dalla seconda, «dovrebbe essere sempre lì,
+     magari in modo più elegante». Scelta la B (schede) fra tre proposte nell'intestazione vera. */
+  const v0 = A.VARIANTS, a0 = A.activeVar;
+  try {
+    A.VARIANTS = [{ id: "v1", name: "Piena" }]; A.activeVar = "v1";
+    const una = A.variantTabsHtml();
+    eq((una.match(/class="vtab[ "]/g) || []).length, 1, "una variante, una scheda");
+    ok(/aria-selected="true" data-var="v1"/.test(una), "ed e' quella attiva");
+    ok(/>\+ Variante<\/button>$/.test(una), "con una sola variante il «+» dice cosa fa");
+    A.VARIANTS = [{ id: "v1", name: "Piena" }, { id: "v2", name: "<Ridotta>" }, { id: "v3", name: "" }]; A.activeVar = "v2";
+    const tre = A.variantTabsHtml();
+    eq((tre.match(/role="tab"/g) || []).length, 3, "tre varianti, tre schede");
+    ok(/class="vtab on" role="tab" aria-selected="true" data-var="v2"/.test(tre) && /class="vtab" role="tab" aria-selected="false" data-var="v1"/.test(tre), "attiva in rilievo, le altre no");
+    ok(/&lt;Ridotta&gt;/.test(tre) && !/<Ridotta>/.test(tre), "il nome si scrive come testo, non come markup");
+    ok(/>Variante 3<\/button>/.test(tre), "senza nome si chiama col suo numero");
+    ok(/>\+<\/button>$/.test(tre), "con piu' varianti il «+» e' solo un +");
+  } finally { A.VARIANTS = v0; A.activeVar = a0; }
+  const rvb = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function variantTabsHtml(){"));
+  ok(/bar\.hidden=ospite;/.test(rvb) && !/VARIANTS\.length>1/.test(rvb), "sempre in vista, fuori dal viewer: non piu' solo dalla seconda");
+  const gest = appjs.slice(appjs.indexOf('var bar=document.getElementById("variantBar"), menu=document.getElementById("variantMenu");'), appjs.indexOf("/* In viewer condiviso e sessione consulenza (?view=)"));
+  ok(gest.length > 400, "i gestori delle schede si trovano");
+  ok(/if\(id!==activeVar\)\{ chiudiMenu\(\); switchVariant\(id\); return; \}/.test(gest), "un'altra scheda: ci si passa");
+  ok(/del\.hidden = VARIANTS\.length<=1;/.test(gest), "l'ultima variante non offre «Elimina»");
+  ok(/addEventListener\("dblclick"[\s\S]{0,160}promptRenameVariant\(t\.getAttribute\("data-var"\)\)/.test(gest), "doppio clic rinomina");
+  ok(/if\(a==="ren"\) promptRenameVariant\(activeVar\);\s*else if\(a==="new"\) createVariant\(\);\s*else if\(a==="del"\) confirmDeleteVariant\(activeVar\);/.test(gest), "i tre comandi chiamano le funzioni di sempre");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(!/id="variantSel"/.test(html), "il vecchio selettore non resta nascosto a far credere che serva");
+  ok(/\.hdr-variants \.vtab\.on\{background:var\(--surface\)/.test(stylesCss), "la scheda attiva e' in rilievo");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();

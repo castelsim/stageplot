@@ -3239,13 +3239,23 @@ function deleteVariant(id){ if(VARIANTS.length<=1) return false;   /* guardia: m
 function renderVariantBar(){
   renderVariantMobile();
   var bar=document.getElementById("variantBar"); if(!bar) return;
-  var multi=VARIANTS.length>1;
-  bar.hidden = !multi || document.body.classList.contains("viewmode") || document.body.classList.contains("consult-viewer");
-  if(!multi) return;
-  var sel=document.getElementById("variantSel"); if(!sel) return;
-  var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
-    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+'</option>'; }
-  sel.innerHTML=html; sel.value=activeVar;
+  /* sempre in vista, anche con una variante sola (14/09): si vede che esistono. Mai in viewer. */
+  var ospite=document.body.classList.contains("viewmode") || document.body.classList.contains("consult-viewer");
+  bar.hidden=ospite;
+  if(ospite){ var vm=document.getElementById("variantMenu"); if(vm) vm.hidden=true; return; }
+  bar.innerHTML=variantTabsHtml();
+}
+/* Le schede delle varianti, come testo: una funzione pura, così si prova senza DOM. */
+function variantTabsHtml(){
+  var html="";
+  for(var i=0;i<VARIANTS.length;i++){
+    var v=VARIANTS[i], on=(v.id===activeVar), nome=v.name||("Variante "+(i+1));
+    html+='<button type="button" class="vtab'+(on?' on':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" data-var="'+esc(v.id)+'" title="'+
+      (on ? 'Variante attiva — tocca per rinominarla, duplicarla o eliminarla' : 'Passa alla variante «'+esc(nome)+'»')+'">'+esc(nome)+'</button>';
+  }
+  /* con una sola variante il «+» dice cosa fa; con più varianti le schede lo spiegano già */
+  html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+ Variante')+'</button>';
+  return html;
 }
 /* La stessa barra, nel menu del telefono. Si ridisegna DENTRO renderVariantBar, che ogni cambio di
    variante già chiama: un secondo aggancio da tenere allineato a mano prima o poi si dimentica.
@@ -3294,12 +3304,36 @@ function confirmDeleteVariant(id){
   } else deleteVariant(id);
 }
 (function(){
-  var sel=document.getElementById("variantSel"); if(sel) sel.addEventListener("change", function(){ switchVariant(this.value); });
+  var bar=document.getElementById("variantBar"), menu=document.getElementById("variantMenu");
+  function chiudiMenu(){ if(menu) menu.hidden=true; }
+  if(bar) bar.addEventListener("click", function(e){
+    if(e.target.closest(".vtab-add")){ chiudiMenu(); createVariant(); return; }
+    var t=e.target.closest(".vtab"); if(!t) return;
+    var id=t.getAttribute("data-var");
+    if(id!==activeVar){ chiudiMenu(); switchVariant(id); return; }   /* un'altra scheda: ci si passa */
+    if(!menu) return;
+    if(!menu.hidden){ chiudiMenu(); return; }                        /* la scheda attiva: apre e chiude i comandi */
+    document.querySelectorAll(".hdrmenu").forEach(function(x){ x.hidden=true; });
+    var del=menu.querySelector('[data-vm="del"]'); if(del) del.hidden = VARIANTS.length<=1;   /* l'ultima non si elimina */
+    var r=t.getBoundingClientRect();
+    menu.style.top=(r.bottom+6)+"px"; menu.style.left=Math.max(8, Math.min(r.left, innerWidth-250))+"px";
+    menu.hidden=false;
+  });
+  if(bar) bar.addEventListener("dblclick", function(e){
+    var t=e.target.closest(".vtab"); if(!t) return;
+    chiudiMenu(); promptRenameVariant(t.getAttribute("data-var"));
+  });
+  if(menu) menu.addEventListener("click", function(e){
+    var b=e.target.closest("[data-vm]"); if(!b) return;
+    var a=b.getAttribute("data-vm"); chiudiMenu();
+    if(a==="ren") promptRenameVariant(activeVar);
+    else if(a==="new") createVariant();
+    else if(a==="del") confirmDeleteVariant(activeVar);
+  });
+  document.addEventListener("click", function(e){ if(menu && !menu.hidden && !e.target.closest("#variantMenu") && !e.target.closest("#variantBar")) chiudiMenu(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") chiudiMenu(); });
   var msel=document.getElementById("mVariantSel");
   if(msel) msel.addEventListener("change", function(){ switchVariant(this.value); if(window.toggleMobileMenu) window.toggleMobileMenu(false); });
-  var bn=document.getElementById("variantNew"); if(bn) bn.addEventListener("click", function(){ createVariant(); });
-  var br=document.getElementById("variantRen"); if(br) br.addEventListener("click", function(){ promptRenameVariant(activeVar); });
-  var bd=document.getElementById("variantDel"); if(bd) bd.addEventListener("click", function(){ confirmDeleteVariant(activeVar); });
 })();
 /* In viewer condiviso e sessione consulenza (?view=) lo stato mostrato è il documento di QUALCUN ALTRO:
    non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
