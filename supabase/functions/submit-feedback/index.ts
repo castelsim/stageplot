@@ -6,6 +6,7 @@ import { buildFeedbackEmail, feedbackAttachment } from "../_shared/feedback-prom
 import { sendEmail } from "../_shared/email.ts";
 import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
+import { insertFeedbackRow } from "../_shared/feedback-insert.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -85,15 +86,20 @@ Deno.serve(async (req) => {
     } catch (e) { console.error("schermata non caricata:", String(e)); }
   }
 
-  const { data: row, error } = await supabase.from("feedback").insert({
+  // Il progetto a cui la segnalazione è legata può non esistere più nel database: in quel caso la
+  // riga si salva senza (vedi _shared/feedback-insert.ts, 14/09). Prima il vincolo faceva 500 e il
+  // messaggio si perdeva.
+  const saved = await insertFeedbackRow(supabase, {
     message: f.message, hint: f.hint,
     user_id: f.user_id, user_email: f.user_email, project_id: f.project_id,
     app_version: f.meta.app_version ?? null, page_url: f.meta.page_url ?? null,
     user_agent: f.meta.user_agent ?? null, viewport: f.meta.viewport ?? null, language: f.meta.language ?? null,
     tech_context: f.tech_context, project_snapshot: f.project_snapshot,
     screenshot_path: screenshotPath,
-  }).select("id").single();
-  if (error) { console.error("insert feedback:", error.message); return json({ error: "errore interno" }, 500); }
+  });
+  if (saved.error) { console.error("insert feedback:", saved.error); return json({ error: "errore interno" }, 500); }
+  if (saved.projectDropped) console.warn("feedback salvato senza project_id: il progetto non esiste più");
+  const row = { id: saved.id };
 
   // Email best-effort col prompt Claude (se fallisce, la riga è già salvata)
   try {
