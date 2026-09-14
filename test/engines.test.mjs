@@ -12686,7 +12686,7 @@ t("dopo un modello il riepilogo delle ipotesi si calcola dal palco, non è un te
   /* se le frasi fossero scritte a mano, il riepilogo potrebbe dire una cosa mentre il palco ne dice
      un'altra: è il difetto che stiamo correggendo, non uno da introdurre */
   ok(/corista/.test(f) && /canHeadMic/.test(f) && /iem/.test(f), "e copre voci, chi può cantare e l'ascolto");
-  ok(/mostraAssunzioni\(false, _gia\)/.test(appjs.slice(appjs.indexOf("function startFromTemplate"), appjs.indexOf("function startFromTemplate") + 2400)),
+  ok(/mostraAssunzioni\(false, _gia\)/.test(appjs.slice(appjs.indexOf("function startFromTemplate"), appjs.indexOf("var VENUE_MODELS"))),
      "il riepilogo si apre dopo aver posato un modello");
   ok(/sp_noAssunzioni/.test(appjs), "e «non mostrarlo più» viene ricordato");
 });
@@ -14201,15 +14201,22 @@ t("sul telefono il palco largo si gira, e il documento resta dritto", () => {
     const girato = A.itemMarkup(it);
     A._sceneRuota = 0;
     const dritto = A.itemMarkup(it);
-    ok(/<text class="lbl" y="[0-9.-]+" transform="rotate\(60 0 [0-9.-]+\)" style="font-size:[0-9.]+px;text-anchor:start;dominant-baseline:central">Voce/.test(girato),
-       "girata la vista, il nome ruota del contrario (90 - 30) e parte dal bordo, verso destra");
-    /* girato verso il fondo (180°), il nome sta a sinistra dell'elemento: deve finire a sinistra, non attraversarlo */
+    /* il punto del nome: sotto l'elemento SULLO SCHERMO, cioè (−R·cos rot, R·sin rot) nelle sue coordinate */
+    const punto = (m) => { const r = /<text class="lbl" x="([0-9.-]+)" y="([0-9.-]+)" transform="rotate\((-?[0-9.]+) ([0-9.-]+) ([0-9.-]+)\)" style="font-size:[0-9.]+px;text-anchor:middle;dominant-baseline:hanging">Voce/.exec(m); return r ? r.slice(1, 6).map(Number) : null; };
+    const p30 = punto(girato);
+    ok(p30, "girata la vista, il nome ha un punto suo e ruota su quello: " + (girato.match(/<text class="lbl"[^>]*>Voce/) || [""])[0]);
+    eq(p30[2], 60, "ruota del contrario: 90 - 30");
+    ok(p30[0] === p30[3] && p30[1] === p30[4], "e ruota attorno al suo punto");
+    ok(p30[0] < 0 && p30[1] > 0, "verso il lato giusto");
+    it.rot = 0; A._sceneRuota = 90;
+    const p0 = punto(A.itemMarkup(it)); A._sceneRuota = 0;
+    ok(p0 && p0[0] < 0 && Math.abs(p0[1]) < 0.5, "dritto: il punto e' a −x, che sullo schermo girato e' sotto");
     it.rot = 180; A._sceneRuota = 90;
-    const rovescio = A.itemMarkup(it); A._sceneRuota = 0;
-    ok(/transform="rotate\(-90 0 [0-9.-]+\)" style="font-size:[0-9.]+px;text-anchor:end;/.test(rovescio), "girato di 180°, il nome finisce verso sinistra");
+    const p180 = punto(A.itemMarkup(it)); A._sceneRuota = 0;
+    ok(p180 && p180[0] > 0 && Math.abs(p180[1]) < 0.5, "girato di 180°: il punto passa a +x, e sullo schermo resta sotto");
     it.rot = 90; A._sceneRuota = 90;
-    const traverso = A.itemMarkup(it); A._sceneRuota = 0;
-    ok(/transform="rotate\(0 0 [0-9.-]+\)" style="font-size:[0-9.]+px;text-anchor:middle;/.test(traverso), "di traverso, centrato sotto o sopra");
+    const p90 = punto(A.itemMarkup(it)); A._sceneRuota = 0;
+    ok(p90 && Math.abs(p90[0]) < 0.5 && p90[1] > 0 && p90[2] === 0, "di traverso: +y, senza bisogno di ruotare");
     it.rot = 30;
     ok(!/transform="rotate\(60 0 /.test(dritto) && />Voce/.test(dritto), "nel documento il nome e' quello di sempre");
   } finally {
@@ -14261,6 +14268,11 @@ t("col pizzico la vista resta dove la si lascia, e una mappa dice dove si e'", (
   ok(/id="mMini"/.test(html) && /id="mRotChip"/.test(html) && /data-act="rot"/.test(html), "mappa, avviso e interruttore nel menu ci sono");
   ok(/getElementById\("mMini"\); if\(m\) m\.addEventListener\("click", function\(\)\{ fitStage\(\); \}\)/.test(appjs), "la mappa rimette tutto il palco");
   ok(/impostaVistaRuotata\(false\);/.test(appjs), "l'avviso raddrizza la vista");
+});
+
+t("un palco creato da un modello si chiama col suo nome anche nella barra del telefono", () => {
+  const f = appjs.slice(appjs.indexOf("function startFromTemplate(f,options){"), appjs.indexOf("function startFromTemplate(f,options){") + 2600);
+  ok(/if\(typeof setEventInputs==="function"\) setEventInputs\(\);/.test(f), "il modello riallinea tutti i campi del titolo");
 });
 
 t("sul telefono il primo avvio e' una schermata sola", () => {
