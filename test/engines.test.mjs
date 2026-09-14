@@ -14405,6 +14405,15 @@ t("in Semplice, col mouse, Esporta chiede poco e le liste tecniche stanno dietro
   ok(/renderLayerManager\(\)/.test(pi), "e cambiando livello le liste si ridisegnano");
 });
 
+t("in Semplice il richiamo al Controllo tecnico si fa da parte, l'avviso fuori palco no", () => {
+  /* 14/09 — Simone: «nascondi anche il richiamo al controllo tecnico». */
+  ok(/body:not\(\.props-pro\) #prodNudge,\s*body:not\(\.props-pro\) #prodInline\{display:none !important\}/.test(stylesCss), "richiamo e tendine nascosti in Semplice");
+  const i = stylesCss.lastIndexOf("body:not(.props-pro) #prodNudge");
+  const prima = stylesCss.slice(0, i);
+  eq((prima.match(/\{/g) || []).length - (prima.match(/\}/g) || []).length, 0, "fuori da ogni @media: vale col mouse e col dito");
+  ok(!/props-pro\) #pdfFuoriPalco/.test(stylesCss), "l'avviso degli elementi fuori dal palco resta sempre");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();
