@@ -14376,14 +14376,33 @@ t("Semplice o Completo: una preferenza sola, e le complicazioni si aprono volont
     ok(stylesCss.includes('body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "in Semplice dietro il bottone: " + g));
   ["etichetta", "accessori", "nota", "disegno"].forEach((g) =>
     ok(!stylesCss.includes('props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "in Semplice resta: " + g));
-  const desk = stylesCss.slice(stylesCss.lastIndexOf("@media (min-width:881px){"));
-  ok(/props-tutte\) #selProps \.pgrp\[data-grp="microfono"\]/.test(desk), "e vale solo col mouse: il telefono ha le sue regole");
+  const desk = stylesCss.slice(stylesCss.indexOf("SEMPLICE · COMPLETO, COL MOUSE"), stylesCss.indexOf("SEMPLICE, COL MOUSE: ESPORTA E LISTE"));
+  ok(desk.length > 500, "il blocco del mouse si delimita");
+  ok(/@media \(min-width:881px\)\{[\s\S]*props-tutte\) #selProps \.pgrp\[data-grp="microfono"\]/.test(desk), "e vale solo col mouse: il telefono ha le sue regole");
   /* il bottone si vede SOLO in Semplice e prima di premerlo: senza una regola con l'id davanti,
      `#props .btn{display:flex}` lo mostrava sempre (misurato nel browser il 14/09) */
   const iNascosto = stylesCss.lastIndexOf("#props #selProps .p-tutte{display:none}");
   ok(iNascosto > stylesCss.lastIndexOf("#props .btn,#grpProps .btn{"), "nascosto con lo stesso peso di #props .btn, e dopo");
   ok(/tutte\.addEventListener\("click", function\(\)\{\s*document\.body\.classList\.add\("props-tutte"\); window\.__tutteSel=sel;/.test(appjs), "«Mostra tutte le opzioni» apre per l'elemento scelto");
   ok(/if\(document\.body\.classList\.contains\("props-tutte"\) && window\.__tutteSel!==sel\) document\.body\.classList\.remove\("props-tutte"\);/.test(appjs), "e cambiando elemento si richiude, senza toccare la preferenza");
+});
+
+t("in Semplice, col mouse, Esporta chiede poco e le liste tecniche stanno dietro una riga", () => {
+  /* 14/09 — Simone: «aggiungi anche esporta e liste tecniche semplificate». */
+  const desk = stylesCss.slice(stylesCss.lastIndexOf("SEMPLICE, COL MOUSE: ESPORTA E LISTE"));
+  ["#pdfTechBox", "#pdfAreaRow:not(.in-uso)", "#pdfScaleRow", "#pdfScaleCustomRow", "#pdfHdrRow", "#pdfTechRow"].forEach((sel) =>
+    ok(desk.includes("body:not(.props-pro) " + sel), "in Semplice dietro «Altre opzioni»: " + sel));
+  ok(/@media \(min-width:881px\)\{\s*body:not\(\.props-pro\) #pdfTechBox/.test(desk), "e vale col mouse (il telefono ha gia' le sue)");
+  ok(/#pdfModal \.exp-pro\{display:block/.test(desk), "col mouse il bottone «Altre opzioni» si vede");
+  ["pdfPreview", "pdfGo"].forEach((id) => ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre"));
+  ok(/_ar\.classList\.toggle\("in-uso", !!state\.printFrame\)/.test(appjs), "un'area scelta a mano non si nasconde");
+  const rlm = appjs.slice(appjs.indexOf("function renderLayerManager(){"), appjs.indexOf("function renderStatoRider(rows){"));
+  ok(/if\(!document\.body\.classList\.contains\("props-pro"\) && !isMobile\(\)\)\{/.test(rlm), "solo in Semplice e col mouse");
+  ok(/var daNascondere=function\(L\)\{ return \(TECNICHE\[L\.id\] \|\| AVANZATE\[L\.id\]\) && !L\.engineOn && layerAccOpen!==L\.id; \};/.test(rlm), "una lista col motore acceso o aperta non si nasconde");
+  ok(/var TECNICHE=\{cabin:1, cabout:1\};/.test(rlm), "Input e Output sono tecniche; Palco e Musicisti no");
+  ok(/lt\.addEventListener\("click", function\(\)\{ proImposta\(true\); \}\);/.test(rlm), "la riga porta a Completo");
+  const pi = appjs.slice(appjs.indexOf("function proImposta(on){"), appjs.indexOf("function livelloEsperto(){"));
+  ok(/renderLayerManager\(\)/.test(pi), "e cambiando livello le liste si ridisegnano");
 });
 
 t("le maniglie dell'area di stampa si prendono col dito", () => {
