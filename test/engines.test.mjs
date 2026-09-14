@@ -13814,11 +13814,22 @@ t("i fogli che salgono dal basso si chiudono trascinandoli giu'", () => {
   ok(/function chiudiTrascinando\(foglio, maniglia, chiudi, escludi, fascia\)/.test(appjs),
      "il gesto e' una funzione sola, non copiata due volte");
   ok(/chiudiTrascinando\(document\.getElementById\("catalog"\)/.test(appjs), "il catalogo lo usa");
+  ok(/chiudiTrascinandoCheScorre\(document\.getElementById\("catalog"\), closeMobileDrawers\)/.test(appjs), "e col dito anche da ovunque");
   /* Il menu si prendeva da QUALUNQUE punto (Simone, 02/09) perche' le sue voci non scorrevano. Dal
      13/09 e' un elenco a gruppi piu' alto dello schermo, e SCORRE: preso da ovunque, scorrere lo
      chiudeva. La presa torna la striscia in cima, come per ogni foglio che scorre. */
-  ok(/chiudiTrascinando\(ms, ms, closeAll, null, 44\);/.test(appjs), "il menu si prende dalla striscia in cima");
-  ok(!/chiudiTrascinando\(ms, ms, closeAll\);/.test(appjs), "non piu' da ovunque: scorrerlo lo chiuderebbe");
+  /* 14/09 — Simone: «apro il menu […] non riesco a chiuderla trascinando verso il basso». Il 13/09 la
+     presa era stata ristretta alla barretta in cima (140×26 px): la richiesta del 02/09 era «da un
+     punto a caso». Ora da ovunque, e se il contenuto e' scorso prima torna in cima. */
+  ok(/chiudiTrascinandoCheScorre\(ms, closeAll\);/.test(appjs), "il menu si prende da ovunque");
+  ok(!/chiudiTrascinando\(ms, ms, closeAll, null, 44\)/.test(appjs), "non piu' dalla sola barretta");
+  const cs = appjs.slice(appjs.indexOf("function chiudiTrascinandoCheScorre"), appjs.indexOf("function fogliChiudibiliColDito"));
+  ok(/addEventListener\("touchmove", function\(e\)\{[\s\S]*\}, \{passive:false\}\)/.test(cs), "touchmove non passivo: puo' fermare lo scorrimento prima che parta");
+  ok(/if\(sc && sc\.scrollTop>0\)\{ y0=null; return; \}/.test(cs), "col contenuto scorso il gesto lo lascia scorrere");
+  ok(/if\(d<=0\)\{ if\(d<0\) y0=null; return; \}/.test(cs), "verso l'alto non si ferma niente");
+  ok(cs.indexOf("e.preventDefault()") > cs.indexOf("sc.scrollTop>0"), "e si blocca lo scorrimento solo dopo aver visto che si e' in cima");
+  ok(/if\(attivo\)\{[^}]*if\(dy>70\) chiudi\(\); \}/.test(cs), "stessa soglia di 70 px degli altri fogli");
+  ok(/overscroll-behavior:contain/.test(stylesCss), "e il rimbalzo del foglio non porta via la pagina");
   ok(/#mActions\{display:block;[^}]*overflow-y:auto/.test(stylesCss.replace(/\n\s*/g, "")), "ed e' davvero un foglio che scorre");
   /* Quello che evita di rubare i clic non e' piu' la fascia, ma la SOGLIA: il gesto si sveglia solo
      dopo 12 px di dito. Sotto, un tocco resta un tocco e il bottone funziona. */
@@ -14030,7 +14041,7 @@ t("l'elenco del telefono si apre dal dock, e ogni comando della barra fa quello 
   ok(/a==="elementi"\)\{ toggleMobileMenu\(false\); openList\(\); \}/.test(appjs), "«Elementi» apre l'elenco");
   ok(/document\.getElementById\("mList"\)\]\.forEach/.test(appjs), "chiuso, l'elenco e' inerte come gli altri fogli");
   ok(/var ml=document\.getElementById\("mList"\); if\(ml\) ml\.classList\.remove\("open"\)/.test(appjs), "e si chiude con gli altri");
-  ok(/chiudiTrascinando\(ml, ml, closeAll, null, 44\)/.test(appjs), "si butta giu' dalla striscia in cima: l'elenco scorre");
+  ok(/chiudiTrascinandoCheScorre\(ml, closeAll\)/.test(appjs), "si butta giu' da ovunque, e se l'elenco e' scorso prima torna in cima");
   const cablaggio = {
     mListAlign: "distributeSelInLine()", mListCopy: "copySel()", mListPaste: "pasteClip()",
     mListDel: "deleteSelGuarded()", mListDone: "closeAll",
