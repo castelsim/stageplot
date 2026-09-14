@@ -2137,6 +2137,7 @@ svg.names-hidden .orc-name{display:none}
     header select, #snapSel{min-height:44px}
     .layer-ico{min-width:44px}
     #evChip{min-height:44px}          /* «📅 Data e ora»: 102×23 */
+    .hdr-livello{height:auto} .hdr-livello button{min-height:44px}   /* Semplice · Completo (14/09) */
     #fbHead{min-height:44px}          /* «Cosa manca? Bug? Idea?»: 227×39 */
     /* RESTA FUORI `.layer-solo` (17×17), e non per dimenticanza: ce n'è uno per ogni fetta di ogni
        riga del pannello layer, e portarli a 44 raddoppierebbe l'altezza di quel pannello. È un
@@ -3243,4 +3244,36 @@ body.dark .ask-all .btn{background:transparent}
    passa alla pagina — altrimenti su iOS il gesto verso il basso trascina tutta l'app. */
 @media (max-width:880px){
   #mActions,#catalog,#mListBody{overscroll-behavior:contain}
+}
+
+
+/* ── SEMPLICE · COMPLETO, COL MOUSE (14/09) ───────────────────────────────────────────────────────
+   Simone: «l'utente deve poter accedere alle complicazioni volontariamente». In Semplice la colonna
+   di destra mostra quello che cambia il disegno (Etichetta, Accessori, Nota, Disegno); microfono,
+   ascolto, installazione, dettagli tecnici, responsabile e ordine stanno dietro «Mostra tutte le
+   opzioni». Il telefono ha già le sue regole (Opzioni tecniche): qui solo sopra gli 880 px. */
+.hdr-livello{display:inline-flex;align-items:center;gap:2px;height:32px;box-sizing:border-box;margin-left:4px;padding:3px;border-radius:10px;background:var(--n-100);flex:0 0 auto}
+.hdr-livello button{height:26px;margin:0;padding:0 12px;border:0;border-radius:7px;background:none;font:600 13px var(--font-ui);color:var(--text-2);white-space:nowrap;cursor:pointer}
+.hdr-livello button:hover{color:var(--text)}
+.hdr-livello button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.hdr-livello button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+body.dark .hdr-livello{background:#141a1d}
+body.dark .hdr-livello button.on{background:#2a3138;color:#e5e7eb}
+.p-tutte{display:none}
+/* con la sola classe perdeva contro `#props .btn{display:flex}`: il bottone restava in Completo, dopo
+   averlo premuto e sul telefono (misurato nel browser, 14/09). Stesso peso E dopo di lei. */
+#props #selProps .p-tutte{display:none}
+@media (min-width:881px){
+  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="microfono"],
+  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="stage-box"],
+  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="ascolto"],
+  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="installazione"],
+  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="dettagli-tecnici"],
+  body:not(.props-pro):not(.props-tutte) #selProps .pdetails,
+  body:not(.props-pro):not(.props-tutte) #selProps #pOrderRow{display:none !important}
+  body:not(.props-pro):not(.props-tutte) #props #selProps .p-tutte{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-height:40px;
+    margin:12px 0 4px;padding:8px 10px;border:1px dashed var(--border-strong);border-radius:10px;background:none;
+    font:600 13px var(--font-ui);color:var(--accent-strong);white-space:normal;cursor:pointer}
+  #props #selProps .p-tutte small{font-weight:400;font-size:11px;color:var(--text-3)}
+  #props #selProps .p-tutte:hover{background:var(--accent-tint)}
 }

@@ -14346,6 +14346,46 @@ t("le varianti sono schede sempre in vista, anche con una variante sola", () => 
   ok(/\.hdr-variants \.vtab\.on\{background:var\(--surface\)/.test(stylesCss), "la scheda attiva e' in rilievo");
 });
 
+t("Semplice o Completo: una preferenza sola, e le complicazioni si aprono volontariamente", () => {
+  /* 14/09 — Simone: «ci sono utenti che vogliono semplicemente posizionare palco pedane e musicisti
+     […] senza vedere i pallini delle connessioni e tutte le opzioni sulla colonna di destra». */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="livelloSel"/.test(html) && /data-livello="semplice"/.test(html) && /data-livello="completo"/.test(html), "l'interruttore c'e' nell'intestazione");
+  /* un punto solo cambia livello, e i bottoni del telefono ci passano */
+  ok(/function proImposta\(on\)\{/.test(appjs), "c'e' il punto unico");
+  ok(/b\.addEventListener\("click", function\(\)\{ proImposta\(!document\.body\.classList\.contains\("props-pro"\)\); \}\);/.test(appjs), "«Opzioni tecniche» del telefono passa di li'");
+  ok(/proImposta\(x\.getAttribute\("data-livello"\)==="completo"\)/.test(appjs), "e l'interruttore pure");
+  const pi = appjs.slice(appjs.indexOf("function proImposta(on){"), appjs.indexOf("function livelloEsperto(){"));
+  ok(/localStorage\.setItem\("sp_props_pro"/.test(pi) && /render\(\)/.test(pi), "ricorda la scelta e ridisegna i pallini");
+  /* in Semplice niente pallini delle connessioni */
+  ok(/if\(window\.__cabStatic \|\| isMobile\(\) \|\| !document\.body\.classList\.contains\("props-pro"\)\) return '';/.test(appjs), "i pallini solo in Completo");
+  /* chi parte da dove: esperti in Completo, gli altri in Semplice, e SOLO se non ha mai scelto */
+  const s0 = { cab: A.state.cab.on, elec: A.state.elec.on, mond: A.state.mond.on };
+  try {
+    A.state.cab.on = false; A.state.elec.on = false; A.state.mond.on = false;
+    eq(A.livelloEsperto(), false, "un progetto senza motori tecnici e' da Semplice");
+    A.state.cab.on = true; eq(A.livelloEsperto(), true, "col cablaggio acceso, da Completo");
+    A.state.cab.on = false; A.state.elec.on = true; eq(A.livelloEsperto(), true, "anche con l'elettrico");
+    A.state.elec.on = false; A.state.mond.on = true; eq(A.livelloEsperto(), true, "o col monitoraggio");
+  } finally { A.state.cab.on = s0.cab; A.state.elec.on = s0.elec; A.state.mond.on = s0.mond; }
+  const ldp = appjs.slice(appjs.indexOf("function livelloDiPartenza(){"), appjs.indexOf("function livelloDiPartenza(){") + 300);
+  ok(/if\(v===null\) document\.body\.classList\.toggle\("props-pro", livelloEsperto\(\)\);/.test(ldp), "la partenza automatica non scavalca una scelta fatta");
+  ok(appjs.indexOf("livelloDiPartenza();   /* Semplice o Completo") > appjs.indexOf("!localBootDone) load();"), "e si decide col progetto gia' caricato");
+  /* la colonna di destra: i gruppi tecnici dietro il bottone, col mouse; quelli del disegno sempre */
+  ["microfono", "stage-box", "ascolto", "installazione", "dettagli-tecnici"].forEach((g) =>
+    ok(stylesCss.includes('body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "in Semplice dietro il bottone: " + g));
+  ["etichetta", "accessori", "nota", "disegno"].forEach((g) =>
+    ok(!stylesCss.includes('props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "in Semplice resta: " + g));
+  const desk = stylesCss.slice(stylesCss.lastIndexOf("@media (min-width:881px){"));
+  ok(/props-tutte\) #selProps \.pgrp\[data-grp="microfono"\]/.test(desk), "e vale solo col mouse: il telefono ha le sue regole");
+  /* il bottone si vede SOLO in Semplice e prima di premerlo: senza una regola con l'id davanti,
+     `#props .btn{display:flex}` lo mostrava sempre (misurato nel browser il 14/09) */
+  const iNascosto = stylesCss.lastIndexOf("#props #selProps .p-tutte{display:none}");
+  ok(iNascosto > stylesCss.lastIndexOf("#props .btn,#grpProps .btn{"), "nascosto con lo stesso peso di #props .btn, e dopo");
+  ok(/tutte\.addEventListener\("click", function\(\)\{\s*document\.body\.classList\.add\("props-tutte"\); window\.__tutteSel=sel;/.test(appjs), "«Mostra tutte le opzioni» apre per l'elemento scelto");
+  ok(/if\(document\.body\.classList\.contains\("props-tutte"\) && window\.__tutteSel!==sel\) document\.body\.classList\.remove\("props-tutte"\);/.test(appjs), "e cambiando elemento si richiude, senza toccare la preferenza");
+});
+
 t("le maniglie dell'area di stampa si prendono col dito", () => {
   /* 14 cm di mondo: alla vista «tutto il palco» del telefono sono 4 px. */
   reset();

@@ -9634,7 +9634,8 @@ function portDefs(it){
   return out;
 }
 function portsMarkup(){
-  if(window.__cabStatic || isMobile()) return '';
+  /* in Semplice niente pallini delle connessioni: collegare è un lavoro da Completo (14/09) */
+  if(window.__cabStatic || isMobile() || !document.body.classList.contains("props-pro")) return '';
   if(!sel || Object.keys(selSet||{}).length>1) return '';
   var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0]; if(!it) return '';
   var defs=portDefs(it); if(!defs.length) return '';
@@ -11617,21 +11618,45 @@ function proSyncTesti(){
   if(!PRO_BOTTONI) PRO_BOTTONI=[];
   var on=document.body.classList.contains("props-pro");
   PRO_BOTTONI.forEach(function(b){ b.textContent = on ? b.getAttribute("data-pro-on") : b.getAttribute("data-pro-off"); });
+  Array.prototype.forEach.call(document.querySelectorAll("#livelloSel [data-livello]"), function(x){
+    var si=((x.getAttribute("data-livello")==="completo")===on);
+    x.classList.toggle("on", si); x.setAttribute("aria-checked", si ? "true" : "false");
+  });
+}
+/* Il punto UNICO che cambia livello: i bottoni «Opzioni tecniche» del telefono e l'interruttore
+   Semplice · Completo del computer passano tutti da qui. Ridisegna, perché in Semplice i pallini
+   delle connessioni non si disegnano. */
+function proImposta(on){
+  document.body.classList.toggle("props-pro", !!on);
+  document.body.classList.remove("props-tutte");
+  try{ localStorage.setItem("sp_props_pro", on ? "1" : "0"); }catch(e){}
+  proSyncTesti();
+  if(typeof syncPanelGroups==="function") syncPanelGroups();
+  if(typeof renderStagePanel==="function" && typeof stageEdit!=="undefined" && stageEdit) renderStagePanel();
+  if(typeof render==="function") render();
+}
+/* Da che livello si parte, se l'utente non l'ha mai scelto (14/09, deciso da Simone): chi usa già i
+   motori tecnici (cablaggio, elettrico, monitoraggio) parte in Completo, tutti gli altri in Semplice.
+   Si guarda il progetto aperto: per questo gira DOPO il caricamento, non qui in cima. */
+function livelloEsperto(){
+  try{ var s=state||{}; return !!((s.cab&&s.cab.on) || (s.elec&&s.elec.on) || (s.mond&&s.mond.on)); }catch(e){ return false; }
+}
+function livelloDiPartenza(){
+  var v=null; try{ v=localStorage.getItem("sp_props_pro"); }catch(e){}
+  if(v===null) document.body.classList.toggle("props-pro", livelloEsperto());
+  proSyncTesti();
 }
 function proRegistra(b, testoAcceso, testoSpento){
   if(!b || b.__pro) return; b.__pro=1;
   if(!PRO_BOTTONI) PRO_BOTTONI=[];   /* `arrangePanel` può registrare il suo bottone prima di qui */
   b.setAttribute("data-pro-on", testoAcceso); b.setAttribute("data-pro-off", testoSpento);
   PRO_BOTTONI.push(b);
-  b.addEventListener("click", function(){
-    var on=document.body.classList.toggle("props-pro");
-    try{ localStorage.setItem("sp_props_pro", on?"1":"0"); }catch(e){}
-    proSyncTesti();
-    if(typeof syncPanelGroups==="function") syncPanelGroups();
-    if(typeof renderStagePanel==="function" && stageEdit) renderStagePanel();
-  });
+  b.addEventListener("click", function(){ proImposta(!document.body.classList.contains("props-pro")); });
   proSyncTesti();
 }
+Array.prototype.forEach.call(document.querySelectorAll("#livelloSel [data-livello]"), function(x){
+  x.addEventListener("click", function(){ proImposta(x.getAttribute("data-livello")==="completo"); });
+});
 proRegistra(document.getElementById("pdfProBtn"), "Meno opzioni", "Altre opzioni");
 proRegistra(document.getElementById("stageAdvMob"), "Nascondi le opzioni tecniche", "Opzioni tecniche");
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
@@ -11724,6 +11749,16 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
      e sono decisioni che si prendono davanti alla console.
      Nascosto NON vuol dire tolto: il bottone è lì sotto, e una volta aperto RESTA aperto — chi
      lavora in modo professionale lo apre una volta e non ci pensa più. */
+  /* In Semplice, col mouse, i gruppi tecnici stanno dietro questo bottone. Li apre per l'elemento
+     scelto e basta: cambiando elemento si torna a Semplice, senza cambiare la preferenza (14/09). */
+  var tutte=document.createElement("button");
+  tutte.type="button"; tutte.id="pTutte"; tutte.className="btn p-tutte";
+  tutte.innerHTML='Mostra tutte le opzioni<small>microfono, ascolto, dettagli tecnici</small>';
+  tutte.addEventListener("click", function(){
+    document.body.classList.add("props-tutte"); window.__tutteSel=sel;
+    if(typeof syncPanelGroups==="function") syncPanelGroups();
+  });
+  sp.insertBefore(tutte, sp.querySelector('.pgrp[data-grp="nota"]'));
   var adv=document.createElement("button");
   adv.type="button"; adv.id="pAdvMob"; adv.className="btn adv-mob";
   proRegistra(adv, "Nascondi le opzioni tecniche", "Opzioni tecniche");
@@ -11752,6 +11787,8 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
 })();
 /* Un'intestazione di gruppo senza controlli visibili sotto è rumore: il gruppo sparisce con essa. */
 function syncPanelGroups(){
+  /* «Mostra tutte le opzioni» vale per l'elemento su cui è stato premuto */
+  if(document.body.classList.contains("props-tutte") && window.__tutteSel!==sel) document.body.classList.remove("props-tutte");
   var gs=document.querySelectorAll("#selProps .pgrp, #selProps .pdetails, #selProps .pnest");
   for(var i=0;i<gs.length;i++){
     var g=gs[i], vis=false, kids=g.children;
@@ -26784,6 +26821,7 @@ var sharedLoaded=!/[?&]view=/.test(location.search) && loadFromHash();   /* ?vie
    Il foglio pulito ora è un gesto esplicito: File → Nuovo. Niente ripristino per link condivisi (#p=)
    e sessioni consulenza (?view=), che portano il proprio stato. */
 if(!sharedLoaded && !/[?&]view=/.test(location.search) && !localBootDone) load();
+if(typeof livelloDiPartenza==="function") livelloDiPartenza();   /* Semplice o Completo: col progetto già caricato */
 /* Documento caricato: ora si sa quali planimetrie sono vive e si possono buttare quelle che nessuno
    referenzia più. Prima del load NON si può: si cancellerebbe la bitmap che sta per essere letta. */
 try{ var _vSwept=sweepVenueBlobs(); if(_vSwept) console.info("[planimetrie] rimossi "+_vSwept+" blob non più referenziati"); }catch(_e){}
