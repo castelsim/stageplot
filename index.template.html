@@ -7917,10 +7917,16 @@ function itemMarkup(it){
     /* «verso l'esterno» dipende da come è girato l'elemento: la direzione del nome (sotto = +y, sopra =
        −y) girata dell'elemento e della vista finisce sullo schermo con X = s·cos(rot). Un wedge girato
        verso il musicista ha il nome a SINISTRA: con l'ancora fissa a «start» ci si scriveva sopra. */
-    var _cr = Math.cos((it.rot||0)*Math.PI/180) * (lblAbove ? -1 : 1);
-    var _anc = _cr > 0.3 ? 'start' : (_cr < -0.3 ? 'end' : 'middle');
-    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' 0 '+ly+')"' : '';
-    var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:'+_anc+';dominant-baseline:central"' : fst;
+    /* Girato, il nome va SOTTO l'elemento sullo schermo, non accanto (14/09, visto nel browser): accanto
+       vuol dire verso il pubblico, cioè addosso al wedge che sta davanti al musicista, e i due nomi si
+       stampavano uno sull'altro («rra 1Chitarra 1»). Sotto, sullo schermo, c'è il lato del palco, dove
+       i musicisti sono distanti. Il punto sotto l'elemento di R sullo schermo, nelle coordinate
+       dell'elemento: (−R·cos rot, R·sin rot). */
+    var _rr = (it.rot||0)*Math.PI/180, _Rd = Math.max(+it.w||0, +it.d||0)/2 + Math.max(6, _ld);
+    var _lxR = Math.round(-_Rd*Math.cos(_rr)*10)/10, _lyR = Math.round(_Rd*Math.sin(_rr)*10)/10;
+    var _xy = _sceneRuota ? ' x="'+_lxR+'" y="'+_lyR+'"' : ' y="'+ly+'"';
+    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : '';
+    var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:middle;dominant-baseline:hanging"' : fst;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
@@ -7937,16 +7943,16 @@ function itemMarkup(it){
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
       if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
-      else s += '<text class="lbl" y="'+ly+'"'+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
+      else s += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
          alcun segno sul disegno, e resterebbe scritta solo in una lista che nessuno sa di aprire. */
-      s += '<text class="lbl" y="'+ly+'"'+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
+      s += '<text class="lbl"'+_xy+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
     var _mn = mountNote(it);
-    if(_mn) s += '<text class="lbl sub" y="'+(ly+fszK*0.95)+'"'+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:'+_anc+';dominant-baseline:central' : '')+'">'+esc(_mn)+'</text>';
+    if(_mn) s += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
@@ -18487,7 +18493,9 @@ function startFromTemplate(f,options){
     /* se la formazione ha dichiarato il suo palco NON si riadatta: la misura è una scelta del
        modello, e ricalcolarla dal contenuto la butterebbe via. */
     placeOut(qd.out, !qd.stage, true, true);
-    var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo;
+    /* tutti i campi del titolo, non solo quello dell'intestazione: sul telefono la barra alta restava
+       «Senza titolo» sopra un palco che si chiamava «Tributo / cover» (14/09, visto nel browser) */
+    if(typeof setEventInputs==="function") setEventInputs(); else { var ti=document.getElementById("titolo"); if(ti) ti.value=state.titolo; }
     try{ localStorage.setItem("sp_onboarded","1"); }catch(_e){}
     var wl=document.getElementById("welcome"); if(wl) wl.hidden=true;   /* se parte dal welcome, chiudilo */
     render(); if(typeof fitStage==="function") fitStage(); render();
