@@ -3226,3 +3226,9 @@ body.dark .ask-all .btn{background:transparent}
   #welcome .wl-vuoto{display:block;min-height:44px;margin:0;border:0;background:none;font:600 15px var(--font-ui);color:var(--accent-strong);cursor:pointer}
   body.dark #welcome .wl-card{background:var(--bg)}
 }
+
+/* I fogli che si buttano giù da ovunque (14/09): arrivati in cima, il rimbalzo resta nel foglio e non
+   passa alla pagina — altrimenti su iOS il gesto verso il basso trascina tutta l'app. */
+@media (max-width:880px){
+  #mActions,#catalog,#mListBody{overscroll-behavior:contain}
+}

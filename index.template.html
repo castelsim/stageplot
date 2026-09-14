@@ -14406,6 +14406,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   el.appendChild(mHead);
   mHead.querySelector(".cat-sheet-close").addEventListener("click", closeMobileDrawers);
   chiudiTrascinando(document.getElementById("catalog"), mHead, closeMobileDrawers, ".cat-sheet-close");
+  chiudiTrascinandoCheScorre(document.getElementById("catalog"), closeMobileDrawers);   /* e da ovunque, col dito (14/09) */
 
   // campo di ricerca + contenitori (accordion / risultati)
   var search=document.createElement("input");
@@ -15213,6 +15214,52 @@ function chiudiTrascinando(foglio, maniglia, chiudi, escludi, fascia){
   maniglia.addEventListener("pointerup", fine);
   maniglia.addEventListener("pointercancel", fine);
 }
+/* FOGLI CHE SCORRONO, PRESI DA QUALUNQUE PUNTO (14/09). Simone dal telefono: «apro il menu […] ma poi
+   non riesco a chiuderla trascinando verso il basso». Il 02/09 aveva chiesto che il menu si chiudesse
+   «anche se lo scroll inizia in un punto a caso della finestra»; il 13/09, diventato più lungo dello
+   schermo, la presa era stata ristretta alla barretta in cima — 140×26 px, che col pollice non si trova.
+   Qui la regola dei fogli di iOS: si prende da ovunque; se il contenuto sotto il dito è scorso, il
+   gesto verso il basso lo riporta in cima, e SOLO da in cima trascina giù il foglio.
+   Eventi touch e non pointer, apposta: quando il browser comincia a scorrere manda `pointercancel`
+   e il gesto muore; con `touchmove` non passivo si può dire «questo lo gestisco io» (preventDefault)
+   prima che lo scorrimento parta — ma solo quando si è in cima e il dito va giù. */
+function chiudiTrascinandoCheScorre(foglio, chiudi){
+  if(!foglio || foglio.__giuOvunque) return;
+  foglio.__giuOvunque=1;
+  manigliaDelFoglio(foglio);   /* la barretta resta: dice che il foglio si butta giù */
+  var y0=null, dy=0, attivo=false, sc=null, SVEGLIA=12;
+  function scorrevole(el){   /* il contenitore che scorre sotto il dito, dentro il foglio */
+    for(var n=el; n && n.nodeType===1; n=n.parentNode){
+      if(n.scrollHeight > n.clientHeight+1){ var o=getComputedStyle(n).overflowY; if(o==="auto" || o==="scroll") return n; }
+      if(n===foglio) break;
+    }
+    return null;
+  }
+  foglio.addEventListener("touchstart", function(e){
+    y0=null; attivo=false; dy=0;
+    if(e.touches.length!==1 || (e.target.closest && e.target.closest("input,select,textarea"))) return;
+    sc=scorrevole(e.target); y0=e.touches[0].clientY;
+  }, {passive:true});
+  foglio.addEventListener("touchmove", function(e){
+    if(y0===null) return;
+    var d=e.touches[0].clientY-y0;
+    if(!attivo){
+      if(d<=0){ if(d<0) y0=null; return; }                 /* verso l'alto: è uno scorrimento */
+      if(sc && sc.scrollTop>0){ y0=null; return; }        /* il contenuto è scorso: prima torna in cima */
+      if(e.cancelable) e.preventDefault();                /* in cima e verso il basso: il gesto è nostro */
+      if(d<SVEGLIA) return;                               /* ancora un tocco, non un trascinamento */
+      attivo=true; foglio.style.transition="none";
+    }
+    if(e.cancelable) e.preventDefault();
+    dy=Math.max(0, d); foglio.style.transform="translateY("+dy+"px)";
+  }, {passive:false});
+  function fine(){
+    if(attivo){ foglio.style.transition=""; foglio.style.transform=""; if(dy>70) chiudi(); }
+    y0=null; dy=0; attivo=false;
+  }
+  foglio.addEventListener("touchend", fine);
+  foglio.addEventListener("touchcancel", fine);
+}
 /* OGNI finestra si chiude buttandola giù (Simone, 02/09: «tutte le finestre devono chiudersi con
    trascinamento verso il basso»). Sono 22 modali, e attaccare il gesto a mano su ognuno vuol dire
    dimenticarsene al 23°: qui si aggancia a tutti in un giro solo, alla card.
@@ -15319,7 +15366,7 @@ function renderMobileList(){
   /* Dal 13/09 il menu SCORRE (quattro gruppi di righe, più alti dello schermo): preso da qualunque
      punto, scorrere l'elenco lo chiudeva. La presa torna la striscia in cima, come per gli altri fogli. */
   (function(){ var ms=document.getElementById("mActions");
-    if(ms) chiudiTrascinando(ms, ms, closeAll, null, 44); })();
+    if(ms) chiudiTrascinandoCheScorre(ms, closeAll); })();   /* da ovunque, come chiesto il 02/09 (14/09) */
   function openCatalog(){ closeAll(); if(window.__renderRecenti) window.__renderRecenti(); cat.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   bd.addEventListener("click", closeAll);
   window.openDrawer=function(which){ if(which==="cat") openCatalog(); else closeAll(); };
@@ -15327,7 +15374,7 @@ function renderMobileList(){
   function openList(){ var ml=document.getElementById("mList"); if(!ml) return; closeAll(); renderMobileList(); ml.classList.add("open"); bd.classList.add("show"); syncDrawerA11y(); }
   (function(){
     var ml=document.getElementById("mList"); if(!ml) return;
-    chiudiTrascinando(ml, ml, closeAll, null, 44);   /* l'elenco scorre: la presa è la striscia in cima */
+    chiudiTrascinandoCheScorre(ml, closeAll);   /* da ovunque: se l'elenco è scorso, prima torna in cima */
     function toast(s){ if(window.__toast) window.__toast(s); }
     ml.addEventListener("click", function(e){
       var c=e.target.closest("[data-chk]"), g=e.target.closest("[data-go]");
