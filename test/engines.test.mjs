@@ -12066,9 +12066,11 @@ t("il menu File resta essenziale, e ogni voce ha la sua azione", () => {
   /* Il 13/08 questo menu è passato da 17 voci a 5, e il numero era il punto. Il 18/08 Simone ha
      chiesto Produzione qui dentro: sono sei, e la sesta si giustifica da sola — l'app diceva GIÀ
      «assegnalo in File → Produzione» mentre il comando stava nell'header. Il numero resta bloccato
-     perché è quello che tiene lontane le altre sedici. */
-  eq(voci.length, 6, "sei voci, non una di più: " + voci.join(", "));
-  ["new", "projects", "produzione", "rubrica", "save", "variant-new"].forEach(v =>
+     perché è quello che tiene lontane le altre sedici.
+     Il 14/09 Simone ha chiesto qui «Funzioni avanzate…», sul modello di Logic: la settima è
+     un'impostazione, non un comando, e sta sotto una riga sua. */
+  eq(voci.length, 7, "sette voci, non una di più: " + voci.join(", "));
+  ["new", "projects", "produzione", "rubrica", "save", "variant-new", "funzioni"].forEach(v =>
     ok(voci.indexOf(v) > -1, "c'è la voce «" + v + "»"));
   /* Il difetto storico di questo menu è la voce che resta scritta e perde il suo comando
      (stageplot_menu_file_comandi_persi): qui si pretende che ogni data-file compaia nella mappa
@@ -13738,17 +13740,17 @@ t("sul telefono il pannello mostra quello che si vede, e il resto sta dietro un 
   /* L'aggancio: il .pgrp nasceva senza id ne' attributi, quindi da CSS non lo si raggiungeva. */
   ok(/g\.setAttribute\("data-grp"/.test(appjs), "i gruppi portano un aggancio per il CSS");
   const coarse880 = stylesCss.slice(stylesCss.indexOf("@media(max-width:880px)"));
-  ok(/body:not\(\.props-pro\) #selProps \.pgrp\[data-grp="ascolto"\]/.test(stylesCss),
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="ascolto"\]/.test(stylesCss),
      "«Ascolto» sta dietro il bottone");
-  ok(/body:not\(\.props-pro\) #selProps \.pgrp\[data-grp="dettagli-tecnici"\]/.test(stylesCss),
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="dettagli-tecnici"\]/.test(stylesCss),
      "e «Dettagli tecnici» pure");
   /* Ma NON i gruppi che descrivono il disegno. */
   ["etichetta", "accessori", "nota", "disegno", "microfono"].forEach((g) => {
-    ok(!new RegExp('props-pro\\) #selProps \\.pgrp\\[data-grp="' + g + '"\\]').test(stylesCss),
+    ok(!new RegExp('f-opzioni\\) #selProps \\.pgrp\\[data-grp="' + g + '"\\]').test(stylesCss),
        "«" + g + "» resta in vista: descrive quello che si vede");
   });
   /* Via CSS e non inline: syncPanelGroups riscrive lo style a ogni render (13191). */
-  const regola = (stylesCss.match(/body:not\(\.props-pro\) #selProps[^}]*\}/) || [""])[0];
+  const regola = (stylesCss.match(/body:not\(\.f-opzioni\) #selProps[^}]*\}/) || [""])[0];
   ok(/!important/.test(regola), "con !important, o syncPanelGroups lo riapre");
   /* La regola dev'essere ALMENO specifica quanto `#props .btn{display:flex}`, che gia' esiste:
      con la sola classe il bottone compariva anche col mouse. Misurato nel browser il 02/09 — ed e'
@@ -14346,81 +14348,105 @@ t("le varianti sono schede sempre in vista, anche con una variante sola", () => 
   ok(/\.hdr-variants \.vtab\.on\{background:var\(--surface\)/.test(stylesCss), "la scheda attiva e' in rilievo");
 });
 
-t("Semplice o Completo: una preferenza sola, e le complicazioni si aprono volontariamente", () => {
+t("Funzioni avanzate: si parte dall'essenziale e ogni funzione si accende da File", () => {
   /* 14/09 — Simone: «ci sono utenti che vogliono semplicemente posizionare palco pedane e musicisti
-     […] senza vedere i pallini delle connessioni e tutte le opzioni sulla colonna di destra». */
+     […] l'utente deve poter accedere alle complicazioni volontariamente». Poi, la sera: «il software si
+     apre sempre nella versione base […] dentro file trova enable advance feature e si apre una finestra
+     con funzioni da selezionare». Scelta B: interruttore generale + cinque funzioni. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="livelloSel"/.test(html) && /data-livello="semplice"/.test(html) && /data-livello="completo"/.test(html), "l'interruttore c'e' nell'intestazione");
-  /* 14/09 — Simone: «al posto di completo mettiamo pro?». Il nome si vede nell'interruttore e nella riga di Semplice */
-  ok(/data-livello="completo"[^>]*>Pro<\/button>/.test(html) && !/>Completo</.test(html), "il secondo livello si chiama Pro");
-  /* 14/09 — Simone: «base e pro». Dentro resta `semplice`; si vede solo il nome */
-  ok(/data-livello="semplice"[^>]*>Base<\/button>/.test(html) && !/>Semplice</.test(html), "il primo livello si chiama Base");
-  ok(/Le liste tecniche sono in <b>Pro<\/b>/.test(html), "e la riga di Semplice rimanda a Pro");
-  /* un punto solo cambia livello, e i bottoni del telefono ci passano */
-  ok(/function proImposta\(on\)\{/.test(appjs), "c'e' il punto unico");
-  ok(/b\.addEventListener\("click", function\(\)\{ proImposta\(!document\.body\.classList\.contains\("props-pro"\)\); \}\);/.test(appjs), "«Opzioni tecniche» del telefono passa di li'");
-  ok(/proImposta\(x\.getAttribute\("data-livello"\)==="completo"\)/.test(appjs), "e l'interruttore pure");
-  const pi = appjs.slice(appjs.indexOf("function proImposta(on){"), appjs.indexOf("function livelloEsperto(){"));
-  ok(/localStorage\.setItem\("sp_props_pro"/.test(pi) && /render\(\)/.test(pi), "ricorda la scelta e ridisegna i pallini");
-  /* in Semplice niente pallini delle connessioni */
-  ok(/if\(window\.__cabStatic \|\| isMobile\(\) \|\| !document\.body\.classList\.contains\("props-pro"\)\) return '';/.test(appjs), "i pallini solo in Completo");
-  /* chi parte da dove: esperti in Completo, gli altri in Semplice, e SOLO se non ha mai scelto */
-  const s0 = { cab: A.state.cab.on, elec: A.state.elec.on, mond: A.state.mond.on };
-  try {
-    A.state.cab.on = false; A.state.elec.on = false; A.state.mond.on = false;
-    eq(A.livelloEsperto(), false, "un progetto senza motori tecnici e' da Semplice");
-    A.state.cab.on = true; eq(A.livelloEsperto(), true, "col cablaggio acceso, da Completo");
-    A.state.cab.on = false; A.state.elec.on = true; eq(A.livelloEsperto(), true, "anche con l'elettrico");
-    A.state.elec.on = false; A.state.mond.on = true; eq(A.livelloEsperto(), true, "o col monitoraggio");
-  } finally { A.state.cab.on = s0.cab; A.state.elec.on = s0.elec; A.state.mond.on = s0.mond; }
-  const ldp = appjs.slice(appjs.indexOf("function livelloDiPartenza(){"), appjs.indexOf("function livelloDiPartenza(){") + 300);
-  ok(/if\(v===null\) document\.body\.classList\.toggle\("props-pro", livelloEsperto\(\)\);/.test(ldp), "la partenza automatica non scavalca una scelta fatta");
-  ok(appjs.indexOf("livelloDiPartenza();   /* Semplice o Completo") > appjs.indexOf("!localBootDone) load();"), "e si decide col progetto gia' caricato");
-  /* la colonna di destra: i gruppi tecnici dietro il bottone, col mouse; quelli del disegno sempre */
+  ok(!/id="livelloSel"/.test(html) && !/hdr-livello/.test(stylesCss), "l'interruttore Base · Pro nell'intestazione non c'e' piu'");
+  ok(/data-file="funzioni"><svg[^>]*>[\s\S]*?<\/svg>Funzioni avanzate…<\/button>/.test(html), "File → Funzioni avanzate…");
+  ok(/"funzioni":function\(\)\{ funzApriFinestra\(\); \}/.test(appjs), "e la voce apre la finestra");
+  ok(/data-act="funzioni"/.test(html.slice(html.indexOf('<div id="mActions">'))) && /if\(a==="funzioni"\)\{ funzApriFinestra\(\); return; \}/.test(appjs), "anche dal menu del telefono");
+  eq(JSON.parse(JSON.stringify(A.FUNZIONI.map((f) => f.id))), ["conn", "liste", "opzioni", "esporta", "controllo"], "le cinque funzioni della tavola");
+  /* da dove si parte */
+  const N = (o, v) => JSON.parse(JSON.stringify(A.funzNormalizza(o, v)));
+  const tutte = (b) => ({ conn: b, liste: b, opzioni: b, esporta: b, controllo: b });
+  eq(N(null, null), tutte(false), "chi non ha mai scelto parte con tutto spento");
+  eq(N(null, "1"), tutte(true), "chi aveva acceso Pro ritrova tutto acceso");
+  eq(N(null, "0"), tutte(false), "chi aveva scelto Base, tutto spento");
+  eq(N({ liste: true, conn: "si", altro: true }, "1"), { conn: false, liste: true, opzioni: false, esporta: false, controllo: false },
+     "una scelta salvata vince sul vecchio Pro; vale solo true, e le chiavi sconosciute cadono");
+  const iPrimo = appjs.indexOf("funzApplicaClassi(funzLeggiLocale());");
+  ok(iPrimo > 0 && iPrimo < appjs.indexOf("function proSyncTesti(){"), "la scelta si ripristina prima di ogni etichetta");
+  /* quali funzioni usa un progetto: l'avviso le nomina se sono spente */
+  const U = (st) => JSON.parse(JSON.stringify(A.funzUsateDalProgetto(st)));
+  eq(U({ cab: { on: false }, elec: { on: false }, mond: { on: false } }), [], "un progetto senza motori tecnici non chiede niente");
+  eq(U({ cab: { on: true } }), ["conn", "liste"], "col cablaggio: connessioni e liste");
+  eq(U({ elec: { on: true } }), ["conn", "liste"], "anche con l'elettrico");
+  eq(U({ mond: { on: true } }), ["conn", "liste"], "o col monitoraggio");
+  eq(U(null), [], "e senza progetto niente");
+  ok(!/props-pro/.test(stylesCss), "nel CSS la vecchia classe unica non c'e' piu'");
+  ok(!/classList\.(contains|toggle|add|remove)\("props-pro"/.test(appjs), "e nemmeno nel codice");
+  /* Connessioni */
+  ok(/if\(window\.__cabStatic \|\| isMobile\(\) \|\| !document\.body\.classList\.contains\("f-conn"\)\) return '';/.test(appjs), "i pallini solo con Connessioni");
+  /* Opzioni complete dell'elemento: i gruppi tecnici dietro il bottone, col mouse; quelli del disegno sempre */
   ["microfono", "stage-box", "ascolto", "installazione", "dettagli-tecnici"].forEach((g) =>
-    ok(stylesCss.includes('body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "in Semplice dietro il bottone: " + g));
+    ok(stylesCss.includes('body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "senza Opzioni complete, dietro il bottone: " + g));
   ["etichetta", "accessori", "nota", "disegno"].forEach((g) =>
-    ok(!stylesCss.includes('props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "in Semplice resta: " + g));
+    ok(!stylesCss.includes('props-tutte) #selProps .pgrp[data-grp="' + g + '"]'), "resta sempre: " + g));
   const desk = stylesCss.slice(stylesCss.indexOf("SEMPLICE · COMPLETO, COL MOUSE"), stylesCss.indexOf("SEMPLICE, COL MOUSE: ESPORTA E LISTE"));
   ok(desk.length > 500, "il blocco del mouse si delimita");
   ok(/@media \(min-width:881px\)\{[\s\S]*props-tutte\) #selProps \.pgrp\[data-grp="microfono"\]/.test(desk), "e vale solo col mouse: il telefono ha le sue regole");
-  /* il bottone si vede SOLO in Semplice e prima di premerlo: senza una regola con l'id davanti,
+  /* il bottone si vede SOLO a opzioni spente e prima di premerlo: senza una regola con l'id davanti,
      `#props .btn{display:flex}` lo mostrava sempre (misurato nel browser il 14/09) */
   const iNascosto = stylesCss.lastIndexOf("#props #selProps .p-tutte{display:none}");
   ok(iNascosto > stylesCss.lastIndexOf("#props .btn,#grpProps .btn{"), "nascosto con lo stesso peso di #props .btn, e dopo");
   ok(/tutte\.addEventListener\("click", function\(\)\{\s*document\.body\.classList\.add\("props-tutte"\); window\.__tutteSel=sel;/.test(appjs), "«Mostra tutte le opzioni» apre per l'elemento scelto");
   ok(/if\(document\.body\.classList\.contains\("props-tutte"\) && window\.__tutteSel!==sel\) document\.body\.classList\.remove\("props-tutte"\);/.test(appjs), "e cambiando elemento si richiude, senza toccare la preferenza");
+  /* un punto solo cambia le funzioni */
+  const fi = appjs.slice(appjs.indexOf("function funzImposta(cambi, opts){"), appjs.indexOf("function funzUsateDalProgetto("));
+  ok(fi.length > 300, "c'e' il punto unico");
+  ok(/localStorage\.setItem\("sp_funzioni", JSON\.stringify\(dopo\)\)/.test(fi) && /render\(\)/.test(fi), "ricorda la scelta e ridisegna");
+  ok(/if\(!\(opts&&opts\.daAccount\) && window\.__cloud && typeof window\.__cloud\.salvaFunzioni==="function"\) window\.__cloud\.salvaFunzioni\(dopo\);/.test(fi), "da collegati va nell'account, ma non se arriva proprio dall'account");
+  ok(/b\.addEventListener\("click", function\(\)\{ var c=\{\}; c\[funz\]=!funzOn\(funz\); funzImposta\(c\); \}\);/.test(appjs), "i bottoni del telefono accendono la loro funzione");
+  ok(/proRegistra\(document\.getElementById\("pdfProBtn"\), "esporta",/.test(appjs) && /proRegistra\(adv, "opzioni",/.test(appjs)
+     && /proRegistra\(document\.getElementById\("stageAdvMob"\), "opzioni",/.test(appjs), "ognuno la sua: Esporta avanzato e Opzioni complete");
+  /* la finestra: il generale le accende tutte, e segna le scelte a meta' */
+  const fr = appjs.slice(appjs.indexOf("function funzRenderFinestra(){"), appjs.indexOf("function funzChiudiFinestra(){"));
+  ok(/t\.checked = n===FUNZIONI\.length; t\.indeterminate = n>0 && n<FUNZIONI\.length;/.test(fr), "il generale e' pieno, vuoto o a meta'");
+  ok(/#funzModal \.funz-master, #funzModal \.funz-voce\{display:flex/.test(stylesCss), "le righe da spuntare battono `.mcard label` con l'id davanti");
+  /* l'account */
+  ok(/sb\.auth\.updateUser\(\{data:\{sp_funzioni:o\}\}\)/.test(appjs) && /salvaFunzioni: salvaFunzioniAccount,/.test(appjs), "si salva nei metadati dell'account");
+  const scu = appjs.slice(appjs.indexOf("function setCloudUser(next){"), appjs.indexOf("function setCloudUser(next){") + 1500);
+  ok(/cloudUser=next\|\|null;\s*funzioniDallAccount\(cloudUser\);/.test(scu), "al login si riprende la scelta dell'account");
+  /* l'avviso */
+  ok(/<div id="funzBanner" hidden/.test(html), "c'e' la riga sopra il palco");
+  ok(/renderVistaBanner\(\);[^\n]*\n\s*funzRenderAvviso\(\);/.test(appjs), "si ricalcola a ogni ridisegno, dopo quella della vista");
+  const fa = appjs.slice(appjs.indexOf("function funzRenderAvviso(){"), appjs.indexOf("function funzApriFinestra(){"));
+  ok(/isMobile\(\)/.test(fa) && /vista && !vista\.hidden/.test(fa), "non sul telefono, e mai insieme alla vista attiva");
+  ok(/window\.__funzAvvisoNo=\(window\.__docEpoch\|\|0\)/.test(fa), "«Non ora» vale per il documento aperto");
 });
 
-t("in Semplice, col mouse, Esporta chiede poco e le liste non ci sono", () => {
-  /* 14/09 — Simone: «aggiungi anche esporta e liste tecniche semplificate». */
+t("in Base, col mouse, Esporta chiede poco e le liste non ci sono", () => {
+  /* 14/09 — Simone: «aggiungi anche esporta e liste tecniche semplificate», poi «la versione
+     semplificata non ha liste». Dalla sera del 14/09 sono due funzioni a se': Esporta avanzato e Liste tecniche. */
   const desk = stylesCss.slice(stylesCss.lastIndexOf("SEMPLICE, COL MOUSE: ESPORTA E LISTE"));
   ["#pdfTechBox", "#pdfAreaRow:not(.in-uso)", "#pdfScaleRow", "#pdfScaleCustomRow", "#pdfHdrRow", "#pdfTechRow"].forEach((sel) =>
-    ok(desk.includes("body:not(.props-pro) " + sel), "in Semplice dietro «Altre opzioni»: " + sel));
-  ok(/@media \(min-width:881px\)\{\s*body:not\(\.props-pro\) #pdfTechBox/.test(desk), "e vale col mouse (il telefono ha gia' le sue)");
+    ok(desk.includes("body:not(.f-esporta) " + sel), "senza Esporta avanzato, dietro «Altre opzioni»: " + sel));
+  ok(/@media \(min-width:881px\)\{\s*body:not\(\.f-esporta\) #pdfTechBox/.test(desk), "e vale col mouse (il telefono ha gia' le sue)");
   ok(/#pdfModal \.exp-pro\{display:block/.test(desk), "col mouse il bottone «Altre opzioni» si vede");
-  ["pdfPreview", "pdfGo"].forEach((id) => ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre"));
+  ["pdfPreview", "pdfGo"].forEach((id) => ok(!new RegExp("f-esporta\\) #" + id).test(stylesCss), id + " resta sempre"));
   ok(/_ar\.classList\.toggle\("in-uso", !!state\.printFrame\)/.test(appjs), "un'area scelta a mano non si nasconde");
-  /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): niente liste in Semplice */
   ["#layerSec", "#pmAccSec", "#musAccSec", "#coverAccSec", "#luciSec"].forEach((id) =>
-    ok(new RegExp("body:not\\(\\.props-pro\\) " + id + "[,{]").test(desk), "in Semplice nessuna lista: " + id));   /* col confine: «#layerSecX» contiene «#layerSec» (mutazione rimasta verde) */
+    ok(new RegExp("body:not\\(\\.f-liste\\) " + id + "[,{]").test(desk), "senza Liste tecniche nessuna lista: " + id));   /* col confine: «#layerSecX» contiene «#layerSec» (mutazione rimasta verde) */
   ok(!/#progSec|#statoSec/.test(desk.slice(desk.indexOf("non ha liste"))), "stato e progetto non sono liste: restano");
   ok(!/liste-tecniche/.test(appjs), "la riga «Liste tecniche» non c'e' piu': non avrebbe dove stare");
-  /* senza liste la colonna restava bianca: una riga dice cosa si fa li' e dove sono le liste */
-  ok(/id="semplHint"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "c'e' la riga che spiega");
-  ok(/\.sempl-hint\{display:none\}/.test(stylesCss) && desk.includes("body:not(.props-pro) #noSel .sempl-hint{display:block"), "e si vede solo in Semplice, col mouse");
-  ok(/if\(!on && typeof inListMode==="function" && inListMode\(\) && typeof exitListMode==="function"\) exitListMode\(\);/.test(appjs), "passando a Semplice una lista aperta si chiude");
-  const pi = appjs.slice(appjs.indexOf("function proImposta(on){"), appjs.indexOf("function livelloEsperto(){"));
-  ok(/renderLayerManager\(\)/.test(pi), "e cambiando livello le liste si ridisegnano");
+  /* senza liste la colonna restava bianca: una riga dice cosa si fa li' e dove si accendono le liste */
+  ok(/id="semplHint">[^<]*<b>File → Funzioni avanzate<\/b>/.test(readFileSync(join(root, "app/index.html"), "utf8")), "c'e' la riga che spiega, e dice dove si accendono");
+  ok(/\.sempl-hint\{display:none\}/.test(stylesCss) && desk.includes("body:not(.f-liste) #noSel .sempl-hint{display:block"), "e si vede solo a liste spente, col mouse");
+  ok(/if\(prima\.liste && !dopo\.liste && typeof inListMode==="function" && inListMode\(\) && typeof exitListMode==="function"\) exitListMode\(\);/.test(appjs), "spegnendo le liste una lista aperta si chiude");
+  const fi = appjs.slice(appjs.indexOf("function funzImposta(cambi, opts){"), appjs.indexOf("function funzUsateDalProgetto("));
+  ok(/renderLayerManager\(\)/.test(fi), "e cambiando funzioni le liste si ridisegnano");
 });
 
 t("in Semplice il richiamo al Controllo tecnico si fa da parte, l'avviso fuori palco no", () => {
   /* 14/09 — Simone: «nascondi anche il richiamo al controllo tecnico». */
-  ok(/body:not\(\.props-pro\) #prodNudge,\s*body:not\(\.props-pro\) #prodInline\{display:none !important\}/.test(stylesCss), "richiamo e tendine nascosti in Semplice");
-  const i = stylesCss.lastIndexOf("body:not(.props-pro) #prodNudge");
+  ok(/body:not\(\.f-controllo\) #prodNudge,\s*body:not\(\.f-controllo\) #prodInline\{display:none !important\}/.test(stylesCss), "richiamo e tendine nascosti in Semplice");
+  const i = stylesCss.lastIndexOf("body:not(.f-controllo) #prodNudge");
   const prima = stylesCss.slice(0, i);
   eq((prima.match(/\{/g) || []).length - (prima.match(/\}/g) || []).length, 0, "fuori da ogni @media: vale col mouse e col dito");
-  ok(!/props-pro\) #pdfFuoriPalco/.test(stylesCss), "l'avviso degli elementi fuori dal palco resta sempre");
+  ok(!/f-controllo\) #pdfFuoriPalco/.test(stylesCss), "l'avviso degli elementi fuori dal palco resta sempre");
 });
 
 t("le maniglie dell'area di stampa si prendono col dito", () => {
@@ -14681,16 +14707,16 @@ t("la forma del palco, sul telefono, chiede tre cose invece di trentatre", () =>
      restano il totale, «+ Blocco», misura e posizione. Dietro «Opzioni tecniche» vanno semicerchio,
      lato curvo e ALTEZZA dei blocchi — che è rigging, si decide col service. */
   ["#bAddSemi", "#blkHWrap", "#blkFlatWrap"].forEach((sel) => {
-    ok(new RegExp("body:not\\(\\.props-pro\\) #stageEditPanel " + sel.replace("#", "#")).test(stylesCss),
+    ok(new RegExp("body:not\\(\\.f-opzioni\\) #stageEditPanel " + sel.replace("#", "#")).test(stylesCss),
        sel + " sta dietro le opzioni tecniche");
   });
   /* Quello che resta NON si tocca. */
   ["bAddBlock", "blkW", "blkD", "blkPosGrid", "stageTotal"].forEach((id) => {
-    ok(!new RegExp("props-pro\\) #stageEditPanel #" + id + "\\b").test(stylesCss),
+    ok(!new RegExp("f-opzioni\\) #stageEditPanel #" + id + "\\b").test(stylesCss),
        id + " resta sempre in vista: e' il minimo per fare un palco");
   });
   /* Col semicerchio nascosto «+ Blocco» resta solo: prende tutta la riga invece di mezza. */
-  ok(/body:not\(\.props-pro\) #stageEditPanel \.row #bAddBlock\{flex:1 1 100%\}/.test(stylesCss),
+  ok(/body:not\(\.f-opzioni\) #stageEditPanel \.row #bAddBlock\{flex:1 1 100%\}/.test(stylesCss),
      "e il bottone rimasto solo si allarga");
   /* L'altezza dei blocchi ha un id, o dal CSS non la si raggiunge. */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
@@ -14699,7 +14725,7 @@ t("la forma del palco, sul telefono, chiede tre cose invece di trentatre", () =>
      «regola misura e ALTEZZA con + / −» accanto a un pannello dove l'altezza era nascosta. */
   /* «Palco base» compariva DUE volte: chip verde selezionato nella lista, e titolo subito sotto.
      Visto sul simulatore iPhone il 02/09 — dal codice sembravano due cose diverse. */
-  ok(/body:not\(\.props-pro\) #stageEditPanel #blkTitle\{display:none\}/.test(stylesCss),
+  ok(/body:not\(\.f-opzioni\) #stageEditPanel #blkTitle\{display:none\}/.test(stylesCss),
      "il titolo del blocco non ripete il chip gia' selezionato");
   const html2 = readFileSync(join(root, "app/index.html"), "utf8");
   const mob = (html2.match(/class="hint mob-hint"[^>]*>([^<]*)</) || ["", ""])[1];
@@ -14880,7 +14906,7 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
      formato e l'orientamento; il resto sta dietro la STESSA preferenza del pannello elemento —
      chi accende «tecnico» lo accende una volta, non due. */
   ["pdfTechBox", "pdfAreaRow", "pdfScaleRow", "pdfHdrRow", "pdfTechRow"].forEach((id) => {
-    ok(new RegExp("body:not\\(\\.props-pro\\) #" + id).test(stylesCss), id + " sta dietro il bottone");
+    ok(new RegExp("body:not\\(\\.f-esporta\\) #" + id).test(stylesCss), id + " sta dietro il bottone");
   });
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   /* I due contenitori non avevano un id: senza, dal CSS non si potevano raggiungere. */
@@ -14900,7 +14926,7 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   eq(aperte, 0, "ed e' dichiarata fuori da ogni @media");
   /* L'anteprima e il bottone che scarica NON si toccano mai. */
   ["pdfPreview", "pdfGo"].forEach((id) => {
-    ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre: e' il senso della finestra");
+    ok(!new RegExp("f-esporta\\) #" + id).test(stylesCss), id + " resta sempre: e' il senso della finestra");
   });
   /* UNA preferenza, TRE bottoni: pannello elemento, finestra Esporta e — dal 02/09 — «Forma del
      palco», dove il CSS nasconde dietro `props-pro` altezza, semicerchio e lato curvo e non c'era
@@ -14914,7 +14940,7 @@ t("sul telefono la finestra Esporta chiede tre cose, non trenta", () => {
   ok(/proRegistra\(adv, /.test(appjs), "e il terzo e' quello del pannello elemento");
   /* L'etichetta si leggeva PRIMA del ripristino da localStorage: chi aveva acceso la preferenza
      rientrava con le opzioni gia' aperte e il bottone che diceva «Altre opzioni». */
-  const iRipristino = appjs.indexOf('localStorage.getItem("sp_props_pro")');
+  const iRipristino = appjs.indexOf('funzApplicaClassi(funzLeggiLocale());');
   const iPrimoUso = appjs.indexOf("proRegistra(document.getElementById");
   ok(iRipristino > 0 && iRipristino < iPrimoUso, "il ripristino viene prima di ogni etichetta");
 });
