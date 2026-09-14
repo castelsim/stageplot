@@ -2408,12 +2408,24 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 /* T5 — controllo stato nell'header dell'editor + badge nel link condiviso */
 .hdr-status{ font-size:12px; font-weight:700; padding:3px 9px 3px 8px; border:1.5px solid #6b7280; border-radius:14px; background:transparent; color:#6b7280; cursor:pointer; -webkit-appearance:none; appearance:none; }
 .hdr-approver{ width:130px; font-size:12px; padding:4px 8px; border:1px solid var(--border,#e5e7eb); border-radius:8px; background:#fff; color:#111; }
-/* T6 — barra varianti/scene (visibile solo con ≥2 varianti) */
-.hdr-variants{ display:inline-flex; align-items:center; gap:4px; padding:2px 4px 2px 8px; border:1px solid var(--border,#e5e7eb); border-radius:12px; color:var(--text-2,#475569); }
-.hdr-variants select#variantSel{ font-size:13px; font-weight:600; max-width:180px; border:none; background:transparent; color:var(--text,#111); padding:4px 4px; -webkit-appearance:none; appearance:none; cursor:pointer; }
-.hdr-variants select#variantSel:focus{ outline:none; }
-.hdr-variants .tbar-ico{ width:26px; height:26px; }
-body.dark .hdr-variants{ border-color:var(--border); color:var(--text-2); }
+/* T6 — varianti/scene: SCHEDE sempre in vista accanto al titolo (14/09; prima una barra con select,
+   visibile solo con ≥2 varianti). La scheda attiva è in rilievo; «+» ne crea una copia. */
+.hdr-variants{display:inline-flex;align-items:center;gap:2px;height:32px;box-sizing:border-box;padding:3px;border-radius:10px;
+  background:var(--n-100);max-width:42vw;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}   /* non si stringe: nell'intestazione piena cede la pastiglia del salvataggio, che ha già i puntini */
+.hdr-variants[hidden]{display:none}
+.hdr-variants::-webkit-scrollbar{display:none}
+.hdr-variants .vtab,.hdr-variants .vtab-add{flex:0 0 auto;height:26px;margin:0;padding:0 12px;border:0;border-radius:7px;background:none;
+  font:600 13px var(--font-ui);color:var(--text-2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.hdr-variants .vtab:hover{color:var(--text)}
+.hdr-variants .vtab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.hdr-variants .vtab-add{padding:0 9px;color:var(--accent-strong)}
+.hdr-variants .vtab-add:hover{background:var(--accent-tint)}
+.hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+.var-menu .mi-danger{color:var(--danger)}
+.var-menu .mi[hidden]{display:none}
+body.dark .hdr-variants{background:#141a1d}
+body.dark .hdr-variants .vtab.on{background:#2a3138;color:#e5e7eb}
+@media (pointer:coarse){ .hdr-variants{height:auto} .hdr-variants .vtab,.hdr-variants .vtab-add{min-height:44px} }
 .vb-status{ font-size:11px; font-weight:700; padding:2px 9px; border-radius:11px; color:#fff; background:#6b7280; }
 /* T3 — liste tecniche nel link condiviso normale: tab su una lista → nascondi il canvas, mostra le tabelle a piena pagina */
 #viewLists{ display:none; }
