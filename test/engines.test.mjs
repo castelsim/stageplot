@@ -14351,6 +14351,9 @@ t("Semplice o Completo: una preferenza sola, e le complicazioni si aprono volont
      […] senza vedere i pallini delle connessioni e tutte le opzioni sulla colonna di destra». */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="livelloSel"/.test(html) && /data-livello="semplice"/.test(html) && /data-livello="completo"/.test(html), "l'interruttore c'e' nell'intestazione");
+  /* 14/09 — Simone: «al posto di completo mettiamo pro?». Il nome si vede nell'interruttore e nella riga di Semplice */
+  ok(/data-livello="completo"[^>]*>Pro<\/button>/.test(html) && !/>Completo</.test(html), "il secondo livello si chiama Pro");
+  ok(/Le liste tecniche sono in <b>Pro<\/b>/.test(html), "e la riga di Semplice rimanda a Pro");
   /* un punto solo cambia livello, e i bottoni del telefono ci passano */
   ok(/function proImposta\(on\)\{/.test(appjs), "c'e' il punto unico");
   ok(/b\.addEventListener\("click", function\(\)\{ proImposta\(!document\.body\.classList\.contains\("props-pro"\)\); \}\);/.test(appjs), "«Opzioni tecniche» del telefono passa di li'");

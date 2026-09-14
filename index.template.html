@@ -125,7 +125,7 @@
        (`sp_props_pro`): una sola regola per tutti e due. -->
   <span class="hdr-livello" id="livelloSel" role="radiogroup" aria-label="Quante opzioni mostrare">
     <button type="button" role="radio" data-livello="semplice" title="Palco, pedane e musicisti: le opzioni che cambiano il disegno">Semplice</button>
-    <button type="button" role="radio" data-livello="completo" title="Anche microfoni, ascolto, connessioni e dettagli tecnici">Completo</button>
+    <button type="button" role="radio" data-livello="completo" title="Anche microfoni, ascolto, connessioni e dettagli tecnici">Pro</button>
   </span>
   <span class="tbdiv"></span>
   <input type="text" id="titolo" class="hdr-name" placeholder="Senza titolo" title="Nome del progetto (e oggetto della mail in condivisione)">
@@ -1063,7 +1063,7 @@
     </div>
     <!-- In Semplice le liste non ci sono (14/09): senza questa riga la colonna restava bianca, e una
          colonna vuota sembra un difetto. Dice cosa si fa qui e dove sono le liste. -->
-    <p class="sempl-hint" id="semplHint">Seleziona un elemento sul palco per cambiarne nome, accessori e misure. Le liste tecniche sono in <b>Completo</b>.</p>
+    <p class="sempl-hint" id="semplHint">Seleziona un elemento sul palco per cambiarne nome, accessori e misure. Le liste tecniche sono in <b>Pro</b>.</p>
     <!-- Inspector B "lista piatta" (scelta Simone 08/07): STATO + PROGETTO a righe chiave-valore -->
     <div id="statoSec" style="display:none"></div>
     <div id="pmAccSec" style="display:none"></div>
@@ -11647,7 +11647,7 @@ function portDefs(it){
   return out;
 }
 function portsMarkup(){
-  /* in Semplice niente pallini delle connessioni: collegare è un lavoro da Completo (14/09) */
+  /* in Semplice niente pallini delle connessioni: collegare è un lavoro da Pro (14/09) */
   if(window.__cabStatic || isMobile() || !document.body.classList.contains("props-pro")) return '';
   if(!sel || Object.keys(selSet||{}).length>1) return '';
   var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0]; if(!it) return '';
