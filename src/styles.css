@@ -841,20 +841,20 @@
 @media (max-width:880px){
   /* La classe sul BODY, e il display via CSS: syncPanelGroups riscrive lo style inline a ogni
      render (13191), quindi nascondere inline non terrebbe. */
-  body:not(.props-pro) #selProps .pgrp[data-grp="ascolto"],
-  body:not(.props-pro) #selProps .pgrp[data-grp="dettagli-tecnici"]{display:none !important}
+  body:not(.f-opzioni) #selProps .pgrp[data-grp="ascolto"],
+  body:not(.f-opzioni) #selProps .pgrp[data-grp="dettagli-tecnici"]{display:none !important}
 
   /* ── ESPORTA: trenta controlli, e su un telefono serve premere «Scarica» ──────────────────────
      Restano l'anteprima (vedere cosa esce), formato e orientamento, il nome del file e il bottone.
      Vanno dietro la stessa preferenza: le pagine tecniche da allegare, l'area di stampa (che su
      mobile per giunta NON funziona: apre uno stato che il CSS non conosce), la scala manuale — c'è
      «automatica» — e l'intestazione col contatto, che si scrive meglio da fermi. */
-  body:not(.props-pro) #pdfTechBox,
-  body:not(.props-pro) #pdfAreaRow,
-  body:not(.props-pro) #pdfScaleRow,
-  body:not(.props-pro) #pdfScaleCustomRow,
-  body:not(.props-pro) #pdfHdrRow,
-  body:not(.props-pro) #pdfTechRow{display:none !important}
+  body:not(.f-esporta) #pdfTechBox,
+  body:not(.f-esporta) #pdfAreaRow,
+  body:not(.f-esporta) #pdfScaleRow,
+  body:not(.f-esporta) #pdfScaleCustomRow,
+  body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
   body.dark .qa-inpwrap{border-bottom-color:#2a3138}
@@ -2137,7 +2137,6 @@ svg.names-hidden .orc-name{display:none}
     header select, #snapSel{min-height:44px}
     .layer-ico{min-width:44px}
     #evChip{min-height:44px}          /* «📅 Data e ora»: 102×23 */
-    .hdr-livello{height:auto} .hdr-livello button{min-height:44px}   /* Semplice · Completo (14/09) */
     #fbHead{min-height:44px}          /* «Cosa manca? Bug? Idea?»: 227×39 */
     /* RESTA FUORI `.layer-solo` (17×17), e non per dimenticanza: ce n'è uno per ogni fetta di ogni
        riga del pannello layer, e portarli a 44 raddoppierebbe l'altezza di quel pannello. È un
@@ -2713,6 +2712,21 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #vistaBanner .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
   #vistaBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   body.dark #vistaBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  /* Il progetto usa funzioni spente (14/09): stessa pastiglia della vista attiva, e mai insieme a lei */
+  #funzBanner{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:29;
+    display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);
+    background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+    border-radius:999px;padding:6px 8px 6px 16px;font-size:13px;line-height:1.35;
+    box-shadow:0 6px 20px rgba(38,33,24,.16)}
+  #funzBanner .vb-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+  #funzBanner .vb-txt b{color:var(--text)}
+  #funzBanner .vb-esci{flex:none;border:1px solid var(--border-strong);background:var(--surface);
+    color:var(--text);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;min-height:32px;white-space:nowrap}
+  #funzBanner .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
+  #funzBanner .vb-si{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+  #funzBanner .vb-si:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+  #funzBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  body.dark #funzBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
   /* Sul telefono: stessa specificità (#vistaBanner) e SUBITO DOPO la regola base, o non vince —
      è la lezione già pagata otto volte dentro #props. Il bottone resta un bersaglio da dito. */
   @media (max-width:880px){
@@ -2967,16 +2981,16 @@ body.dark .ask-all .btn{background:transparent}
    Dietro «Opzioni tecniche» vanno il semicerchio, il lato curvo e l'ALTEZZA dei blocchi — che è
    rigging, si decide col service e non serve a chi disegna in piedi. */
 @media (max-width:880px){
-  body:not(.props-pro) #stageEditPanel #bAddSemi,
-  body:not(.props-pro) #stageEditPanel #blkHWrap,
-  body:not(.props-pro) #stageEditPanel #blkFlatWrap{display:none !important}
+  body:not(.f-opzioni) #stageEditPanel #bAddSemi,
+  body:not(.f-opzioni) #stageEditPanel #blkHWrap,
+  body:not(.f-opzioni) #stageEditPanel #blkFlatWrap{display:none !important}
   /* Col semicerchio nascosto, «+ Blocco» resta solo: prende tutta la riga invece di mezza. */
-  body:not(.props-pro) #stageEditPanel .row #bAddBlock{flex:1 1 100%}
+  body:not(.f-opzioni) #stageEditPanel .row #bAddBlock{flex:1 1 100%}
   /* «Palco base» compariva DUE volte: come chip verde selezionato nella lista, e come titolo
      subito sotto. Sul telefono il chip basta — è lì e si vede che è quello scelto. Chi apre le
      opzioni tecniche (dove vivono semicerchio e lato curvo) si riprende anche il titolo, che lì
      porta le note «(semicerchio)» e «(deformato)». Visto sul simulatore iPhone il 02/09. */
-  body:not(.props-pro) #stageEditPanel #blkTitle{display:none}
+  body:not(.f-opzioni) #stageEditPanel #blkTitle{display:none}
 }
 
 /* ── FINESTRA EVENTO (02/09) ─────────────────────────────────────────────────────────────────────
@@ -3253,26 +3267,19 @@ body.dark .ask-all .btn{background:transparent}
    di destra mostra quello che cambia il disegno (Etichetta, Accessori, Nota, Disegno); microfono,
    ascolto, installazione, dettagli tecnici, responsabile e ordine stanno dietro «Mostra tutte le
    opzioni». Il telefono ha già le sue regole (Opzioni tecniche): qui solo sopra gli 880 px. */
-.hdr-livello{display:inline-flex;align-items:center;gap:2px;height:32px;box-sizing:border-box;margin-left:4px;padding:3px;border-radius:10px;background:var(--n-100);flex:0 0 auto}
-.hdr-livello button{height:26px;margin:0;padding:0 12px;border:0;border-radius:7px;background:none;font:600 13px var(--font-ui);color:var(--text-2);white-space:nowrap;cursor:pointer}
-.hdr-livello button:hover{color:var(--text)}
-.hdr-livello button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
-.hdr-livello button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
-body.dark .hdr-livello{background:#141a1d}
-body.dark .hdr-livello button.on{background:#2a3138;color:#e5e7eb}
 .p-tutte{display:none}
 /* con la sola classe perdeva contro `#props .btn{display:flex}`: il bottone restava in Completo, dopo
    averlo premuto e sul telefono (misurato nel browser, 14/09). Stesso peso E dopo di lei. */
 #props #selProps .p-tutte{display:none}
 @media (min-width:881px){
-  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="microfono"],
-  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="stage-box"],
-  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="ascolto"],
-  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="installazione"],
-  body:not(.props-pro):not(.props-tutte) #selProps .pgrp[data-grp="dettagli-tecnici"],
-  body:not(.props-pro):not(.props-tutte) #selProps .pdetails,
-  body:not(.props-pro):not(.props-tutte) #selProps #pOrderRow{display:none !important}
-  body:not(.props-pro):not(.props-tutte) #props #selProps .p-tutte{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-height:40px;
+  body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="microfono"],
+  body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="stage-box"],
+  body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="ascolto"],
+  body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="installazione"],
+  body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="dettagli-tecnici"],
+  body:not(.f-opzioni):not(.props-tutte) #selProps .pdetails,
+  body:not(.f-opzioni):not(.props-tutte) #selProps #pOrderRow{display:none !important}
+  body:not(.f-opzioni):not(.props-tutte) #props #selProps .p-tutte{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-height:40px;
     margin:12px 0 4px;padding:8px 10px;border:1px dashed var(--border-strong);border-radius:10px;background:none;
     font:600 13px var(--font-ui);color:var(--accent-strong);white-space:normal;cursor:pointer}
   #props #selProps .p-tutte small{font-weight:400;font-size:11px;color:var(--text-3)}
@@ -3286,26 +3293,54 @@ body.dark .hdr-livello button.on{background:#2a3138;color:#e5e7eb}
    l'intestazione stanno dietro «Altre opzioni», cioè la stessa preferenza. Un'area di stampa scelta a
    mano cambia il PDF, quindi la sua riga resta (`.in-uso`). */
 @media (min-width:881px){
-  body:not(.props-pro) #pdfTechBox,
-  body:not(.props-pro) #pdfAreaRow:not(.in-uso),
-  body:not(.props-pro) #pdfScaleRow,
-  body:not(.props-pro) #pdfScaleCustomRow,
-  body:not(.props-pro) #pdfHdrRow,
-  body:not(.props-pro) #pdfTechRow{display:none !important}
+  body:not(.f-esporta) #pdfTechBox,
+  body:not(.f-esporta) #pdfAreaRow:not(.in-uso),
+  body:not(.f-esporta) #pdfScaleRow,
+  body:not(.f-esporta) #pdfScaleCustomRow,
+  body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di
      destra non mostra liste — né Palco e Musicisti, né le tecniche, né i loro corpi. Si ritrovano in
      Completo. Restano stato e progetto, che non sono liste. */
-  body:not(.props-pro) #layerSec,
-  body:not(.props-pro) #pmAccSec,
-  body:not(.props-pro) #musAccSec,
-  body:not(.props-pro) #coverAccSec,
-  body:not(.props-pro) #luciSec{display:none !important}
-  body:not(.props-pro) #noSel .sempl-hint{display:block;margin:6px 2px;font-size:13px;line-height:1.5;color:var(--text-2)}
+  body:not(.f-liste) #layerSec,
+  body:not(.f-liste) #pmAccSec,
+  body:not(.f-liste) #musAccSec,
+  body:not(.f-liste) #coverAccSec,
+  body:not(.f-liste) #luciSec{display:none !important}
+  body:not(.f-liste) #noSel .sempl-hint{display:block;margin:6px 2px;font-size:13px;line-height:1.5;color:var(--text-2)}
 }
 
 /* In Semplice anche il richiamo al Controllo tecnico («N aspetti da definire») si fa da parte, sul
    computer e sul telefono (14/09, Simone). Resta in Completo; l'avviso degli elementi fuori dal
    palco invece resta sempre: riguarda il disegno, non la parte tecnica. */
-body:not(.props-pro) #prodNudge,
-body:not(.props-pro) #prodInline{display:none !important}
+body:not(.f-controllo) #prodNudge,
+body:not(.f-controllo) #prodInline{display:none !important}
+
+/* ── FUNZIONI AVANZATE: la finestra (14/09) ──────────────────────────────────────────────────────
+   Dentro `.mcard` le label sono etichette di campo (blocco, 12px, grigie, grassetto): qui sono righe
+   da spuntare. Con l'id davanti, o `.mcard label` vince. */
+#funzModal .funz-card{width:520px;max-width:calc(100vw - 32px)}
+#funzModal .funz-master, #funzModal .funz-voce{display:flex;gap:10px;align-items:flex-start;margin:0;font-size:13px;font-weight:400;color:var(--text);cursor:pointer}
+#funzModal .funz-master{padding:10px 12px;border:1px solid var(--border);border-radius:10px}
+#funzModal .funz-voci{margin-top:4px}
+#funzModal .funz-voce{padding:9px 12px;border-bottom:1px solid var(--n-100)}
+#funzModal .funz-voce:last-child{border-bottom:0}
+/* Le caselle dell'app sono interruttori (36×20 col pallino): qui si allineano, non si ridisegnano.
+   Il 16×16 della tavola li schiacciava in un tondo che copriva la prima lettera (visto nel browser). */
+#funzModal input[type=checkbox]{margin:0;flex:0 0 auto}
+/* il generale a metà: pallino al centro, pista tenue */
+#funzModal #funzTutte:indeterminate{background:var(--accent-soft)}
+#funzModal #funzTutte:indeterminate::after{left:10px}
+#funzModal .funz-master b, #funzModal .funz-voce b{display:block;font-size:13px;font-weight:600;color:var(--text)}
+#funzModal .funz-master b{font-size:14px}
+#funzModal .funz-master small, #funzModal .funz-voce small{display:block;margin-top:1px;font-size:12px;line-height:1.35;color:var(--text-2)}
+#funzModal .funz-pc{display:none;font-style:normal;font-weight:400;color:var(--text-3)}
+#funzModal .funz-nota{margin:12px 0 0;font-size:12px;line-height:1.4;color:var(--text-3)}
+#funzModal .funz-azioni{display:flex;justify-content:flex-end;margin-top:14px}
+body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
+@media (max-width:880px){
+  #funzModal .funz-pc{display:inline}   /* pallini e liste si nascondono solo col mouse: sul telefono lo si dice */
+  #funzModal .funz-master, #funzModal .funz-voce{min-height:44px}
+  #funzModal .funz-azioni .btn{min-height:44px}
+}
