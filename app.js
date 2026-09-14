@@ -11627,6 +11627,9 @@ function proSyncTesti(){
    Semplice · Completo del computer passano tutti da qui. Ridisegna, perché in Semplice i pallini
    delle connessioni non si disegnano. */
 function proImposta(on){
+  /* In Semplice non ci sono liste (14/09, Simone): una lista aperta si chiude, o il suo corpo e i suoi
+     cavi resterebbero accesi senza la riga da cui spegnerli. */
+  if(!on && typeof inListMode==="function" && inListMode() && typeof exitListMode==="function") exitListMode();
   document.body.classList.toggle("props-pro", !!on);
   document.body.classList.remove("props-tutte");
   try{ localStorage.setItem("sp_props_pro", on ? "1" : "0"); }catch(e){}
@@ -18590,18 +18593,6 @@ function renderLayerManager(){
   var AVANZATE={elec:1, luci:1, mond:1, miczone:1, cover:1};
   var base=LS.filter(function(L){ return !AVANZATE[L.id]; });
   var avanz=LS.filter(function(L){ return AVANZATE[L.id]; });
-  /* SEMPLICE (14/09, Simone: «aggiungi anche esporta e liste tecniche semplificate»). Col mouse e in
-     Semplice restano le liste del disegno (Palco, Musicisti, e quelle che nascono dagli elementi); le
-     tecniche — Input, Output e gli impianti — vanno dietro una riga sola. Stessa regola di sopra: una
-     lista col motore acceso o aperta resta dov'è, anche in Semplice. */
-  var nascoste=[];
-  if(!document.body.classList.contains("props-pro") && !isMobile()){
-    var TECNICHE={cabin:1, cabout:1};
-    var daNascondere=function(L){ return (TECNICHE[L.id] || AVANZATE[L.id]) && !L.engineOn && layerAccOpen!==L.id; };
-    nascoste=LS.filter(daNascondere);
-    base=base.filter(function(L){ return !daNascondere(L); });
-    avanz=avanz.filter(function(L){ return !daNascondere(L); });
-  }
   base.forEach(function(L){ renderLayerRow(L, rows); });
   if(avanz.length){
     /* in uso = motore acceso, oppure la lista è visibile/aperta: allora non si chiude niente */
@@ -18616,14 +18607,6 @@ function renderLayerManager(){
     if(aperto) avanz.forEach(function(L){ renderLayerRow(L, rows); });
     else { var n=document.createElement("div"); n.className="adv-quante";
       n.textContent = avanz.length===1 ? "1 lista" : avanz.length+" liste"; rows.appendChild(n); }
-  }
-  if(nascoste.length){
-    var lt=document.createElement("button");
-    lt.type="button"; lt.className="layer-group-label adv-head liste-tecniche";
-    lt.innerHTML='<span class="adv-caret" aria-hidden="true">▸</span>Liste tecniche<span class="lt-n">'+nascoste.map(function(L){ return esc(L.name); }).join(" · ")+'</span>';
-    lt.title="Input, Output, elettrico, luci e monitoraggio: si aprono passando a Completo";
-    lt.addEventListener("click", function(){ proImposta(true); });
-    rows.appendChild(lt);
   }
   renderStatoRider(rows);
   renderPmAccList();

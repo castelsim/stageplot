@@ -14387,7 +14387,7 @@ t("Semplice o Completo: una preferenza sola, e le complicazioni si aprono volont
   ok(/if\(document\.body\.classList\.contains\("props-tutte"\) && window\.__tutteSel!==sel\) document\.body\.classList\.remove\("props-tutte"\);/.test(appjs), "e cambiando elemento si richiude, senza toccare la preferenza");
 });
 
-t("in Semplice, col mouse, Esporta chiede poco e le liste tecniche stanno dietro una riga", () => {
+t("in Semplice, col mouse, Esporta chiede poco e le liste non ci sono", () => {
   /* 14/09 — Simone: «aggiungi anche esporta e liste tecniche semplificate». */
   const desk = stylesCss.slice(stylesCss.lastIndexOf("SEMPLICE, COL MOUSE: ESPORTA E LISTE"));
   ["#pdfTechBox", "#pdfAreaRow:not(.in-uso)", "#pdfScaleRow", "#pdfScaleCustomRow", "#pdfHdrRow", "#pdfTechRow"].forEach((sel) =>
@@ -14396,11 +14396,15 @@ t("in Semplice, col mouse, Esporta chiede poco e le liste tecniche stanno dietro
   ok(/#pdfModal \.exp-pro\{display:block/.test(desk), "col mouse il bottone «Altre opzioni» si vede");
   ["pdfPreview", "pdfGo"].forEach((id) => ok(!new RegExp("props-pro\\) #" + id).test(stylesCss), id + " resta sempre"));
   ok(/_ar\.classList\.toggle\("in-uso", !!state\.printFrame\)/.test(appjs), "un'area scelta a mano non si nasconde");
-  const rlm = appjs.slice(appjs.indexOf("function renderLayerManager(){"), appjs.indexOf("function renderStatoRider(rows){"));
-  ok(/if\(!document\.body\.classList\.contains\("props-pro"\) && !isMobile\(\)\)\{/.test(rlm), "solo in Semplice e col mouse");
-  ok(/var daNascondere=function\(L\)\{ return \(TECNICHE\[L\.id\] \|\| AVANZATE\[L\.id\]\) && !L\.engineOn && layerAccOpen!==L\.id; \};/.test(rlm), "una lista col motore acceso o aperta non si nasconde");
-  ok(/var TECNICHE=\{cabin:1, cabout:1\};/.test(rlm), "Input e Output sono tecniche; Palco e Musicisti no");
-  ok(/lt\.addEventListener\("click", function\(\)\{ proImposta\(true\); \}\);/.test(rlm), "la riga porta a Completo");
+  /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): niente liste in Semplice */
+  ["#layerSec", "#pmAccSec", "#musAccSec", "#coverAccSec", "#luciSec"].forEach((id) =>
+    ok(new RegExp("body:not\\(\\.props-pro\\) " + id + "[,{]").test(desk), "in Semplice nessuna lista: " + id));   /* col confine: «#layerSecX» contiene «#layerSec» (mutazione rimasta verde) */
+  ok(!/#progSec|#statoSec/.test(desk.slice(desk.indexOf("non ha liste"))), "stato e progetto non sono liste: restano");
+  ok(!/liste-tecniche/.test(appjs), "la riga «Liste tecniche» non c'e' piu': non avrebbe dove stare");
+  /* senza liste la colonna restava bianca: una riga dice cosa si fa li' e dove sono le liste */
+  ok(/id="semplHint"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "c'e' la riga che spiega");
+  ok(/\.sempl-hint\{display:none\}/.test(stylesCss) && desk.includes("body:not(.props-pro) #noSel .sempl-hint{display:block"), "e si vede solo in Semplice, col mouse");
+  ok(/if\(!on && typeof inListMode==="function" && inListMode\(\) && typeof exitListMode==="function"\) exitListMode\(\);/.test(appjs), "passando a Semplice una lista aperta si chiude");
   const pi = appjs.slice(appjs.indexOf("function proImposta(on){"), appjs.indexOf("function livelloEsperto(){"));
   ok(/renderLayerManager\(\)/.test(pi), "e cambiando livello le liste si ridisegnano");
 });
