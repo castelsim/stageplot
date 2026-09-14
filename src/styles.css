@@ -3294,3 +3294,9 @@ body.dark .hdr-livello button.on{background:#2a3138;color:#e5e7eb}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   #layerRows .liste-tecniche .lt-n{margin-left:auto;padding-left:8px;font-weight:400;font-size:11px;color:var(--text-3);text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 }
+
+/* In Semplice anche il richiamo al Controllo tecnico («N aspetti da definire») si fa da parte, sul
+   computer e sul telefono (14/09, Simone). Resta in Completo; l'avviso degli elementi fuori dal
+   palco invece resta sempre: riguarda il disegno, non la parte tecnica. */
+body:not(.props-pro) #prodNudge,
+body:not(.props-pro) #prodInline{display:none !important}
