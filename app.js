@@ -9634,8 +9634,8 @@ function portDefs(it){
   return out;
 }
 function portsMarkup(){
-  /* in Semplice niente pallini delle connessioni: collegare è un lavoro da Pro (14/09) */
-  if(window.__cabStatic || isMobile() || !document.body.classList.contains("props-pro")) return '';
+  /* senza la funzione «Connessioni» niente pallini: collegare è un lavoro da accendere (14/09) */
+  if(window.__cabStatic || isMobile() || !document.body.classList.contains("f-conn")) return '';
   if(!sel || Object.keys(selSet||{}).length>1) return '';
   var it=(state.items||[]).filter(function(x){ return x.id===sel; })[0]; if(!it) return '';
   var defs=portDefs(it); if(!defs.length) return '';
@@ -9853,6 +9853,7 @@ function render(){
   renderVenuePanel();
   renderFramePanel();
   renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
+  funzRenderAvviso();   /* il progetto usa funzioni spente: lo si dice (14/09) */
   syncVistaRuotata();   /* telefono: l'avviso della vista ruotata e la mappa */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
@@ -11604,65 +11605,148 @@ document.getElementById("pMountSafety").addEventListener("change", function(){
   mutSel(function(it){ if(isMountable(it)) mountSet(it, {safety:(v==="unspecified")?null:v}); });
   save();
 });
-/* «OPZIONI TECNICHE»: UNA preferenza, TRE bottoni (02/09, secondo giro).
-   Erano due copie della stessa logica che si aggiornavano a vicenda a mano, e nel pannello «Forma
-   del palco» il bottone non c'era affatto — mentre il CSS ci nasconde dietro `props-pro` altezza,
-   semicerchio e lato curvo. Da telefono quei blocchi si creavano su desktop e non si potevano più
-   correggere: si usciva dal palco, si selezionava un elemento a caso, si apriva lì, si tornava.
-   In più l'etichetta della finestra Esporta si leggeva PRIMA del ripristino da localStorage: chi
-   aveva acceso la preferenza rientrava con le opzioni aperte e il bottone che diceva «Altre
-   opzioni». Qui il ripristino è la prima cosa, e i testi si sincronizzano tutti insieme. */
+/* FUNZIONI AVANZATE (14/09). Simone: «il software si apre sempre nella versione base, quella più
+   facile, e se vuole l'utente dentro File trova enable advanced features e si apre una finestra con
+   funzioni da selezionare». Scelta B su una tavola a confronto: un interruttore generale e cinque
+   funzioni che si accendono anche da sole.
+   Prima c'era UNA classe, `props-pro`, con l'interruttore Base · Pro nell'intestazione. Ora ogni
+   funzione è una classe sul body (`f-conn`, `f-liste`, `f-opzioni`, `f-esporta`, `f-controllo`) e il
+   CSS nasconde per funzione. La scelta si ricorda sul dispositivo e, da collegati, nell'account.
+   Chi non ha mai scelto parte con tutto spento; chi aveva acceso Pro (`sp_props_pro`="1") ritrova
+   tutto acceso. Non c'è più una partenza «da esperto»: chi apre un progetto che usa funzioni spente
+   lo legge nell'avviso sopra il palco (`funzRenderAvviso`). */
+var FUNZIONI=[
+  {id:"conn", nome:"Connessioni", desc:"I pallini sugli elementi, per collegarli", pc:true},
+  {id:"liste", nome:"Liste tecniche", desc:"Input, Output, elettrico, monitoraggio, luci", pc:true},
+  {id:"opzioni", nome:"Opzioni complete dell'elemento", desc:"Microfono, ascolto, installazione, dettagli tecnici"},
+  {id:"esporta", nome:"Esporta avanzato", desc:"Pagine tecniche, area di stampa, scala, intestazione"},
+  {id:"controllo", nome:"Controllo tecnico", desc:"Il richiamo agli aspetti tecnici da definire"}
+];
+/* Da una scelta salvata (o dal vecchio Pro) a cinque sì/no. Vale solo `true`: un valore strano, da un
+   file o dall'account, non accende niente. */
+function funzNormalizza(o, vecchioPro){
+  var out={};
+  FUNZIONI.forEach(function(f){ out[f.id] = (o && typeof o==="object") ? o[f.id]===true : vecchioPro==="1"; });
+  return out;
+}
+function funzLeggiLocale(){
+  var raw=null, vecchio=null, o=null;
+  try{ raw=localStorage.getItem("sp_funzioni"); vecchio=localStorage.getItem("sp_props_pro"); }catch(e){}
+  if(raw){ try{ o=JSON.parse(raw); }catch(e){ o=null; } }
+  return funzNormalizza(o, vecchio);
+}
+function funzOn(id){ return document.body.classList.contains("f-"+id); }
+function funzStato(){ var o={}; FUNZIONI.forEach(function(f){ o[f.id]=funzOn(f.id); }); return o; }
+function funzApplicaClassi(o){ FUNZIONI.forEach(function(f){ document.body.classList.toggle("f-"+f.id, !!o[f.id]); }); }
+/* Il ripristino è la prima cosa: l'etichetta della finestra Esporta si leggeva PRIMA, e chi aveva
+   acceso la preferenza rientrava con le opzioni aperte e il bottone che diceva «Altre opzioni» (02/09). */
+funzApplicaClassi(funzLeggiLocale());
 var PRO_BOTTONI=[];
-try{ if(localStorage.getItem("sp_props_pro")==="1") document.body.classList.add("props-pro"); }catch(e){}
 function proSyncTesti(){
   if(!PRO_BOTTONI) PRO_BOTTONI=[];
-  var on=document.body.classList.contains("props-pro");
-  PRO_BOTTONI.forEach(function(b){ b.textContent = on ? b.getAttribute("data-pro-on") : b.getAttribute("data-pro-off"); });
-  Array.prototype.forEach.call(document.querySelectorAll("#livelloSel [data-livello]"), function(x){
-    var si=((x.getAttribute("data-livello")==="completo")===on);
-    x.classList.toggle("on", si); x.setAttribute("aria-checked", si ? "true" : "false");
-  });
+  PRO_BOTTONI.forEach(function(b){ b.textContent = funzOn(b.getAttribute("data-funz")) ? b.getAttribute("data-pro-on") : b.getAttribute("data-pro-off"); });
 }
-/* Il punto UNICO che cambia livello: i bottoni «Opzioni tecniche» del telefono e l'interruttore
-   Semplice · Completo del computer passano tutti da qui. Ridisegna, perché in Semplice i pallini
-   delle connessioni non si disegnano. */
-function proImposta(on){
-  /* In Semplice non ci sono liste (14/09, Simone): una lista aperta si chiude, o il suo corpo e i suoi
-     cavi resterebbero accesi senza la riga da cui spegnerli. */
-  if(!on && typeof inListMode==="function" && inListMode() && typeof exitListMode==="function") exitListMode();
-  document.body.classList.toggle("props-pro", !!on);
+/* Il punto UNICO che cambia le funzioni: finestra, bottoni del telefono, avviso e account passano da
+   qui. `cambi` nomina solo quelle che cambiano; le altre restano come sono. */
+function funzImposta(cambi, opts){
+  var prima=funzStato(), dopo=funzNormalizza(Object.assign({}, prima, cambi||{}));
+  /* Liste spente: una lista aperta si chiude, o il suo corpo e i suoi cavi resterebbero accesi senza
+     la riga da cui spegnerli (14/09). */
+  if(prima.liste && !dopo.liste && typeof inListMode==="function" && inListMode() && typeof exitListMode==="function") exitListMode();
+  funzApplicaClassi(dopo);
   document.body.classList.remove("props-tutte");
-  try{ localStorage.setItem("sp_props_pro", on ? "1" : "0"); }catch(e){}
+  try{ localStorage.setItem("sp_funzioni", JSON.stringify(dopo)); localStorage.removeItem("sp_props_pro"); }catch(e){}
+  if(!(opts&&opts.daAccount) && window.__cloud && typeof window.__cloud.salvaFunzioni==="function") window.__cloud.salvaFunzioni(dopo);
   proSyncTesti();
   if(typeof syncPanelGroups==="function") syncPanelGroups();
   if(typeof renderStagePanel==="function" && typeof stageEdit!=="undefined" && stageEdit) renderStagePanel();
-  if(typeof render==="function") render();
-  if(typeof renderLayerManager==="function") renderLayerManager();   /* le liste tecniche compaiono o si raccolgono */
+  if(typeof render==="function") render();   /* i pallini e l'avviso */
+  if(typeof renderLayerManager==="function") renderLayerManager();   /* le liste compaiono o si raccolgono */
+  funzRenderFinestra();
+  if(typeof window.renderMobileMenu==="function") window.renderMobileMenu();
 }
-/* Da che livello si parte, se l'utente non l'ha mai scelto (14/09, deciso da Simone): chi usa già i
-   motori tecnici (cablaggio, elettrico, monitoraggio) parte in Completo, tutti gli altri in Semplice.
-   Si guarda il progetto aperto: per questo gira DOPO il caricamento, non qui in cima. */
-function livelloEsperto(){
-  try{ var s=state||{}; return !!((s.cab&&s.cab.on) || (s.elec&&s.elec.on) || (s.mond&&s.mond.on)); }catch(e){ return false; }
+/* Quali funzioni usa il progetto aperto. Senza dirlo, chi parte dall'essenziale e apre il plot di un
+   collega col cablaggio non vede né pallini né liste, e pensa che non ci siano. */
+function funzUsateDalProgetto(s){
+  s=s||{};
+  var tecn=!!((s.cab&&s.cab.on) || (s.elec&&s.elec.on) || (s.mond&&s.mond.on));
+  return tecn ? ["conn","liste"] : [];
 }
-function livelloDiPartenza(){
-  var v=null; try{ v=localStorage.getItem("sp_props_pro"); }catch(e){}
-  if(v===null) document.body.classList.toggle("props-pro", livelloEsperto());
-  proSyncTesti();
+function funzRenderAvviso(){
+  var el=document.getElementById("funzBanner"); if(!el) return;
+  var vista=document.getElementById("vistaBanner");
+  var mancano=funzUsateDalProgetto(state).filter(function(id){ return !funzOn(id); });
+  /* Sul telefono no: lì pallini e liste non dipendono da queste funzioni. E una riga alla volta: se la
+     vista attiva si sta dichiarando, parla lei. */
+  var zitto = !mancano.length || isMobile() || (vista && !vista.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
+  if(zitto){ el.hidden=true; el.innerHTML=""; el.__k=""; return; }
+  var k=mancano.join(",");
+  if(el.__k!==k){
+    var nomi=mancano.map(function(id){ var n=""; FUNZIONI.forEach(function(f){ if(f.id===id) n="<b>"+esc(f.nome)+"</b>"; }); return n; });
+    el.innerHTML='<span class="vb-txt">Questo progetto usa '+nomi.join(" e ")+', che hai spento</span>'
+      + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Accendi</button>'
+      + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
+    el.__k=k;
+    el.querySelector("#funzAccendi").addEventListener("click", function(e){
+      e.stopPropagation(); var c={}; el.__k.split(",").forEach(function(id){ c[id]=true; }); funzImposta(c);
+    });
+    el.querySelector("#funzNonOra").addEventListener("click", function(e){
+      e.stopPropagation(); window.__funzAvvisoNo=(window.__docEpoch||0); funzRenderAvviso();   /* vale per il documento aperto */
+    });
+  }
+  el.hidden=false;
 }
-function proRegistra(b, testoAcceso, testoSpento){
+function funzApriFinestra(){
+  var ov=document.getElementById("funzModal");
+  if(!ov){
+    ov=document.createElement("div"); ov.className="modal"; ov.id="funzModal"; ov.hidden=true;
+    ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-labelledby","funzTitle");
+    ov.innerHTML='<div class="mcard funz-card"><h2 id="funzTitle">Funzioni avanzate</h2>'
+      + '<p class="hint">StagePlot parte con l\'essenziale: palco, pedane, musicisti ed esportazione. Qui accendi il resto, quando ti serve. La scelta resta salvata <span id="funzDove">su questo dispositivo</span>.</p>'
+      + '<label class="funz-master"><input type="checkbox" id="funzTutte"><span><b>Abilita tutte le funzioni</b><small>Oppure scegli solo quelle che ti servono:</small></span></label>'
+      + '<div class="funz-voci">'+FUNZIONI.map(function(f){
+          return '<label class="funz-voce"><input type="checkbox" data-funz="'+f.id+'"><span><b>'+esc(f.nome)+(f.pc?'<em class="funz-pc"> · sul computer</em>':'')+'</b><small>'+esc(f.desc)+'</small></span></label>';
+        }).join("")+'</div>'
+      + '<p class="funz-nota">Accendere una funzione la mostra: cablaggio ed elettrico si accendono ancora progetto per progetto, dalle liste.</p>'
+      + '<div class="funz-azioni"><button type="button" class="btn primary" id="funzFatto">Fatto</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function(e){ if(e.target===ov) funzChiudiFinestra(); });
+    ov.querySelector("#funzFatto").addEventListener("click", funzChiudiFinestra);
+    ov.querySelector("#funzTutte").addEventListener("change", function(e){
+      var c={}, on=e.target.checked; FUNZIONI.forEach(function(f){ c[f.id]=on; }); funzImposta(c);
+    });
+    Array.prototype.forEach.call(ov.querySelectorAll(".funz-voce [data-funz]"), function(x){
+      x.addEventListener("change", function(){ var c={}; c[x.getAttribute("data-funz")]=x.checked; funzImposta(c); });
+    });
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !ov.hidden) funzChiudiFinestra(); });
+  }
+  funzRenderFinestra();
+  ov.hidden=false;
+  setTimeout(function(){ var f=document.getElementById("funzTutte"); if(f) f.focus(); }, 30);
+}
+function funzRenderFinestra(){
+  var ov=document.getElementById("funzModal"); if(!ov) return;
+  var st=funzStato(), n=0;
+  Array.prototype.forEach.call(ov.querySelectorAll(".funz-voce [data-funz]"), function(x){ x.checked=!!st[x.getAttribute("data-funz")]; if(x.checked) n++; });
+  var t=document.getElementById("funzTutte");
+  if(t){ t.checked = n===FUNZIONI.length; t.indeterminate = n>0 && n<FUNZIONI.length; }
+  var dove=document.getElementById("funzDove"), C=window.__cloud;
+  if(dove) dove.textContent = (C && C.user && C.user()) ? "nel tuo account, su computer e telefono" : "su questo dispositivo (accedi per ritrovarla ovunque)";
+}
+function funzChiudiFinestra(){ var ov=document.getElementById("funzModal"); if(ov) ov.hidden=true; }
+/* I bottoni del telefono («Opzioni tecniche», «Altre opzioni») accendono la LORO funzione. Erano due
+   copie della stessa logica che si aggiornavano a vicenda a mano, e nel pannello «Forma del palco» il
+   bottone non c'era affatto (02/09): qui c'è un posto solo. */
+function proRegistra(b, funz, testoAcceso, testoSpento){
   if(!b || b.__pro) return; b.__pro=1;
   if(!PRO_BOTTONI) PRO_BOTTONI=[];   /* `arrangePanel` può registrare il suo bottone prima di qui */
-  b.setAttribute("data-pro-on", testoAcceso); b.setAttribute("data-pro-off", testoSpento);
+  b.setAttribute("data-funz", funz); b.setAttribute("data-pro-on", testoAcceso); b.setAttribute("data-pro-off", testoSpento);
   PRO_BOTTONI.push(b);
-  b.addEventListener("click", function(){ proImposta(!document.body.classList.contains("props-pro")); });
+  b.addEventListener("click", function(){ var c={}; c[funz]=!funzOn(funz); funzImposta(c); });
   proSyncTesti();
 }
-Array.prototype.forEach.call(document.querySelectorAll("#livelloSel [data-livello]"), function(x){
-  x.addEventListener("click", function(){ proImposta(x.getAttribute("data-livello")==="completo"); });
-});
-proRegistra(document.getElementById("pdfProBtn"), "Meno opzioni", "Altre opzioni");
-proRegistra(document.getElementById("stageAdvMob"), "Nascondi le opzioni tecniche", "Opzioni tecniche");
+proRegistra(document.getElementById("pdfProBtn"), "esporta", "Meno opzioni", "Altre opzioni");
+proRegistra(document.getElementById("stageAdvMob"), "opzioni", "Nascondi le opzioni tecniche", "Opzioni tecniche");
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
 document.getElementById("grpMirror").addEventListener("click", mirrorSel);
 /* Pannello elemento (Opzione 2): tutto in vista, riordinato, con Etichetta e Microfonazione in blocchetti.
@@ -11765,7 +11849,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   sp.insertBefore(tutte, sp.querySelector('.pgrp[data-grp="nota"]'));
   var adv=document.createElement("button");
   adv.type="button"; adv.id="pAdvMob"; adv.className="btn adv-mob";
-  proRegistra(adv, "Nascondi le opzioni tecniche", "Opzioni tecniche");
+  proRegistra(adv, "opzioni", "Nascondi le opzioni tecniche", "Opzioni tecniche");
   sp.appendChild(adv);
   var resp=get("pRespWrap"), cont=get("pContactBtn"), req=get("pReqWrap");
   if(resp || cont || req){
@@ -13493,6 +13577,8 @@ function renderMobileList(){
     txt("mMenuLuogo", state.luogo || "da scrivere");
     txt("mMenuData", dataEventoBreve() || "da scrivere");
     txt("mMenuStage", misurePalco());
+    var nf=FUNZIONI.filter(function(f){ return funzOn(f.id); }).length;
+    txt("mMenuFunz", nf===0 ? "spente" : nf===FUNZIONI.length ? "tutte accese" : (nf+" di "+FUNZIONI.length));
     var th=document.getElementById("mThemeRow");
     if(th) th.setAttribute("aria-checked", document.body.classList.contains("dark") ? "true" : "false");
     var rr=document.getElementById("mRotRow");
@@ -13527,6 +13613,7 @@ function renderMobileList(){
         if(ab && ab.hidden && window.__toast) window.__toast("Per questo palco non c'è niente di ipotizzato da controllare");
         return;
       }
+      if(a==="funzioni"){ funzApriFinestra(); return; }
       if(a==="var-new"){ createVariant(); return; }
       if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
@@ -22712,6 +22799,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
          stava altrove. Adesso è dove il prodotto dichiarava che fosse. */
       "produzione":function(){ if(window.openProdHub) window.openProdHub(); },
       "variant-new":function(){ if(typeof createVariant==="function") createVariant(); },
+      "funzioni":function(){ funzApriFinestra(); },
       "save":fileSaveCloud };
     document.querySelectorAll("#fileMenu .mi").forEach(function(x){ x.addEventListener("click", function(){ var f=acts[x.getAttribute("data-file")]; if(f) f(); }); });
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
@@ -26827,7 +26915,6 @@ var sharedLoaded=!/[?&]view=/.test(location.search) && loadFromHash();   /* ?vie
    Il foglio pulito ora è un gesto esplicito: File → Nuovo. Niente ripristino per link condivisi (#p=)
    e sessioni consulenza (?view=), che portano il proprio stato. */
 if(!sharedLoaded && !/[?&]view=/.test(location.search) && !localBootDone) load();
-if(typeof livelloDiPartenza==="function") livelloDiPartenza();   /* Semplice o Completo: col progetto già caricato */
 /* Documento caricato: ora si sa quali planimetrie sono vive e si possono buttare quelle che nessuno
    referenzia più. Prima del load NON si può: si cancellerebbe la bitmap che sta per essere letta. */
 try{ var _vSwept=sweepVenueBlobs(); if(_vSwept) console.info("[planimetrie] rimossi "+_vSwept+" blob non più referenziati"); }catch(_e){}
@@ -27230,6 +27317,25 @@ function maybeAskStageSize(explicit){
      Tre stati, non due: "attesa" finché la risposta non arriva, "errore" se non arriva. */
   var cloudProjectsStato="attesa";
   var authGeneration=0, authUserId=null;
+  /* Funzioni avanzate nell'account (14/09): la scelta segue la persona su computer e telefono. Sta nei
+     metadati dell'utente; Orchestre ne legge solo `full_name` e `name` (0041, 0048, 0055), quindi una
+     chiave in più non tocca identità né permessi. */
+  function salvaFunzioniAccount(o){
+    if(!sb || !cloudUser) return;
+    try{ sb.auth.updateUser({data:{sp_funzioni:o}}).then(function(r){ if(r && r.error) console.warn("[funzioni] non salvate nell'account:", r.error.message); }, function(){}); }catch(e){}
+  }
+  function funzioniDallAccount(u){
+    if(!u || typeof funzNormalizza!=="function" || typeof funzImposta!=="function") return;
+    var md=u.user_metadata||{};
+    if(!md.sp_funzioni || typeof md.sp_funzioni!=="object"){
+      /* account senza scelta: se su questo dispositivo una scelta c'è, la si porta nell'account */
+      var loc=null; try{ loc=localStorage.getItem("sp_funzioni"); }catch(e){}
+      if(loc) salvaFunzioniAccount(funzStato());
+      return;
+    }
+    var da=funzNormalizza(md.sp_funzioni);
+    if(JSON.stringify(da)!==JSON.stringify(funzStato())) funzImposta(da, {daAccount:true});
+  }
   function setCloudUser(next){
     var nextId=next&&next.id?String(next.id):null;
     if(nextId!==authUserId){
@@ -27243,6 +27349,7 @@ function maybeAskStageSize(explicit){
       window.__respLoadSeq=(window.__respLoadSeq||0)+1;
     }
     cloudUser=next||null;
+    funzioniDallAccount(cloudUser);
   }
   function authStill(userId,generation){
     return generation===authGeneration && !!cloudUser && cloudUser.id===userId;
@@ -28312,6 +28419,7 @@ function maybeAskStageSize(explicit){
     rubrica: { list:rubricaList, upsert:rubricaUpsert, remove:rubricaRemove, touch:rubricaTouch,
                importCandidates:rubricaImportCandidates, invalidate:function(){ rubCache=null; } },
     user: function(){ return cloudUser; },
+    salvaFunzioni: salvaFunzioniAccount,
     currentId: function(){ return cloudCurrentId; },
     currentRev: function(){ return cloudRev; },
     isWriting: function(){ return cloudWriteBusy||!!cloudWriteQueue.length; },
