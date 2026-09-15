@@ -222,6 +222,13 @@
   .doc-chip svg{width:12px;height:12px}
   .doc-chip.on{color:var(--success);background:var(--success-bg);border-color:var(--success-border)}
   .doc-chip.warn{color:var(--warning);background:var(--warning-bg);border-color:var(--warning-border);cursor:pointer}
+  .doc-chip.nudge{cursor:pointer}   /* da non collegati porta al login (15/09) */
+  .doc-chip.nudge:hover{color:var(--accent-strong);border-color:var(--accent)}
+  /* Condivisione senza account: l'invito ad accedere, sotto il testo della copia (15/09) */
+  #shareIntroTxt .share-login{margin-top:6px;padding:0;border:0;background:none;font:600 12px var(--font-ui);color:var(--accent-strong);
+    text-decoration:underline;text-underline-offset:2px;text-align:left;cursor:pointer}
+  #shareIntroTxt .share-login:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (pointer:coarse){ #shareIntroTxt .share-login{min-height:44px} }
   body.dark .doc-chip{background:#222b38;border-color:#314046;color:#96a5a1}
   body.dark .doc-chip.on{color:#4ade80;background:#0f2d1a;border-color:#166534}
   body.dark .doc-chip.warn{color:#fbbf24;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.30)}
