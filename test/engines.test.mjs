@@ -12423,6 +12423,16 @@ t("gli ampere del pannello dicono da dove viene il numero", () => {
   ok(/fonte:wattFonte\(/.test(appjs), "la riga porta con sé la provenienza");
 });
 
+t("la home porta a Orchestre, dal menu e dal piè di pagina", () => {
+  /* Audit esterno del 15/09: nella home non c'era nessun collegamento al servizio Orchestre. Il menu
+     sparisce sotto i 940 px, quindi il piè di pagina lo ripete: sul telefono resta raggiungibile. */
+  const landing = readFileSync(join(root, "index.html"), "utf8");
+  const nav = landing.slice(landing.indexOf('<div class="nav-links">'), landing.indexOf('<a class="nav-cta"'));
+  ok(/<a href="\/orchestre\/"[^>]*>Orchestre<\/a>/.test(nav), "nel menu");
+  const foot = landing.slice(landing.indexOf("<footer"), landing.indexOf("</footer>"));
+  ok(/<a href="\/orchestre\/">Orchestre — musicisti per il tuo evento<\/a>/.test(foot), "e nel piè di pagina, con cosa fa");
+});
+
 t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account dice a cosa serve", () => {
   /* Audit esterno del 15/09 e vincolo di Simone: «l'accesso deve essere il percorso naturale per
      conservare e ritrovare il proprio lavoro». Il JSON resta, ma solo da collegati. */
