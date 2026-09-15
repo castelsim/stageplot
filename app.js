@@ -3373,7 +3373,7 @@ function maybeLoginNudge(){
   if(loginNudgeShown || foreignDoc()) return;
   if(window.__cloud && window.__cloud.user && window.__cloud.user()) return;
   loginNudgeShown=true;
-  try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per averlo salvato online."); }catch(e){}
+  try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per ritrovarlo su computer e telefono."); }catch(e){}
 }
 window.maybeLoginNudge=maybeLoginNudge;
 /* Popup login al salvataggio esplicito (Cmd+S / menu Salva) se non loggato: una volta a sessione, non bloccante (il salvataggio locale è già avvenuto). Obiettivo: convertire al login/cloud senza forzare. */
@@ -3636,7 +3636,7 @@ function setDocState(mode){
   var cls="doc-chip", html="", htmlM="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
-  else if(mode==="offline-warn"){ html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per il cloud"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
+  else if(mode==="offline-warn"){ cls+=" nudge"; html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per ritrovarlo ovunque"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
   else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
@@ -3814,9 +3814,10 @@ window.setPeekName=setPeekName;
 })();
 (function(){
   var el=document.getElementById("docState");
-  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn")) document.getElementById("bCloud").click(); });
+  /* «nudge» (15/09): da non collegati la pastiglia che dice «Accedi per ritrovarlo ovunque» porta al login */
+  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn") || el.classList.contains("nudge")) document.getElementById("bCloud").click(); });
   var elM=document.getElementById("docStateM");
-  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn")) document.getElementById("bCloud").click(); });
+  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn") || elM.classList.contains("nudge")) document.getElementById("bCloud").click(); });
   try{ setDocState("local"); }catch(e){}   /* stato iniziale; l'auth callback lo aggiorna appena il modulo cloud parte */
 })();
 /* ===== Undo / Redo ===== */
@@ -4811,13 +4812,13 @@ function productionDepts(){
   if(netN) out.push({key:"rete", name:"Rete / Dante", color:DEPT_COLORS.rete, plot:true, detail:netN+" tratt"+(netN===1?"a":"e")});
   var Re=(typeof elecResult==="function")?elecResult(true):{loads:[],distros:[]};
   if(state.elec && state.elec.on && (Re.loads||[]).length)
-    out.push({key:"power", name:"Power", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
+    out.push({key:"power", name:"Elettrico", color:DEPT_COLORS.power, plot:true, detail:(Re.distros||[]).length+" distro · "+(Re.loads||[]).length+" carichi"});
   ((state.production&&state.production.depts)||[]).forEach(function(d){
     out.push({key:d.id, name:d.name, color:"#746e60", plot:false, extra:true, detail:""}); });
   return out;
 }
 /* Decisione 4A: a quale reparto TECNICO appartiene un elemento (per l'eredità del responsabile). */
-var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Power" };
+var DEPT_NAME={ audio:"Audio", monitor:"Monitor", rf:"RF", rete:"Rete / Dante", power:"Elettrico" };
 function elementDept(it){
   if(!it||!it.type) return null;
   if(it.type==="rxrf"||it.type==="rfant"||it.type==="rfsplit"||(typeof RF_TX!=="undefined"&&RF_TX[it.type])) return "rf";
@@ -8420,7 +8421,7 @@ function elecDeleteKey(key){
   __elecRes=null;
   return true;
 }
-/* Cestino sulla riga della lista Power: scollega UN carico e libera la sua linea sul quadro. */
+/* Cestino sulla riga della lista Elettrico: scollega UN carico e libera la sua linea sul quadro. */
 function elecUnlinkOne(loadId){ if(!elecDeleteKey(loadId)) return 0; save(); render(); return 1; }
 function elecMarkup(){
   if(!state.elec || !state.elec.on || !layerShown("elec")) return '';
@@ -9023,7 +9024,7 @@ function auditEngine(){
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
     "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
-    "Elettrico","Apri la lista Power, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
+    "Elettrico","Apri la lista Elettrico, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
      DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
      parte. Il nostro dato di targa e' quello della sola superficie — giusto, ma dice meta' del
@@ -12825,7 +12826,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       results.innerHTML='<div class="json-tools">'
         +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
         +'<button type="button" class="btn json-act" data-j="imp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><path d="M12 3v12"/></svg>Importa JSON</button>'
-        +'<div class="json-note">Funzione tecnica per backup, migrazione o supporto.</div></div>';
+        +'<div class="json-note">Funzione tecnica per backup, migrazione o supporto'+((window.__cloud && window.__cloud.user && window.__cloud.user()) ? '.' : ': serve l\'account.')+'</div></div>';
       results.querySelector('[data-j="exp"]').addEventListener("click", function(){ document.getElementById("saveJson").click(); });
       results.querySelector('[data-j="imp"]').addEventListener("click", function(){ document.getElementById("bHdrImport").click(); });
       return;
@@ -18239,12 +18240,12 @@ function layerRegistry(){
       setLocked:function(v){ if(state.mond) state.mond.locked=v; if(v) selMond=null; save(); render(); },
       removable:true, removeLabel:"Azzera percorsi P.M.", remove:function(){ if(state.mond) state.mond.manual={}; selMond=null; __mondRes=null; save(); render(); } },
     /* Elettrico (motore proprio) e Planimetria (sfondo). */
-    { id:"elec", name:"Power", color:LAYER_COLORS.elettrico,
+    { id:"elec", name:"Elettrico", color:LAYER_COLORS.elettrico,
       active:true, engineOn:!!state.elec.on,   /* D-L1A: core sempre in lista, clic attiva */
       activate:function(){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; __elecRes=null; save(); render(); },
       visible:state.elec.visible!==false, setVisible:function(v){ state.elec.visible=v; save(); render(); },
       lockable:true, locked:!!state.elec.locked, setLocked:function(v){ state.elec.locked=v; if(v) selElec=null; save(); render(); },
-      removable:true, removeLabel:"Azzera Power", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
+      removable:true, removeLabel:"Azzera elettrico", remove:function(){ state.elec.on=false; state.elec.manual={}; state.elec.uplinks={}; selElec=null; __elecRes=null; save(); render(); } },   /* cestino = da zero */
     /* Luci (blocco A): il reparto che prima non esisteva. Core come Power — sempre in lista,
        con la riga-invito quando il progetto non dice nulla (D-L1A): un rider senza luci è
        un rider muto su metà dello spettacolo, e l'invito è l'unico modo di dirlo senza urlare. */
@@ -21265,7 +21266,7 @@ function renderElecPanel(){
 /* toggleElecLayer rimosso (21/07): era codice morto — l'attivazione ora è il clic sulla riga layer (D-L1A) */
 (function(){
   /* pannello Cablaggio elettrico tolto: restano solo gli handler del box "Linea selezionata" */
-  /* stessa scrittura del cestino sulla riga della lista Power: elecDeleteKey è la fonte unica */
+  /* stessa scrittura del cestino sulla riga della lista Elettrico: elecDeleteKey è la fonte unica */
   document.getElementById("elecSelDelete").addEventListener("click", function(){ if(!selElec) return;
     elecDeleteKey(selElec); selElec=null; save(); render(); });
   document.getElementById("elecSelResetPath").addEventListener("click", function(){ if(!selElec) return;
@@ -22608,6 +22609,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var tx=document.getElementById("shareIntroTxt");
     if(tx) tx.innerHTML = (mode==="istantanea") ? SHARE_INTRO.istantanea : SHARE_INTRO.vivo;
     sharePermsPerModo(mode);
+    /* Senza account il link è una copia di oggi: l'invito dice che cosa cambia accedendo (audit esterno
+       15/09; Simone: «link sempre aggiornato, con l'account»). Sta fuori da SHARE_INTRO.istantanea, che
+       resta onesto su quello che il link fa adesso. */
+    if(tx && mode==="istantanea"){
+      var cta=document.createElement("button"); cta.type="button"; cta.id="shareLogin"; cta.className="share-login";
+      cta.textContent="Accedi: il link resta sempre aggiornato e in sola lettura";
+      cta.addEventListener("click", function(){ var c=document.getElementById("shareClose"); if(c) c.click(); var b=document.getElementById("bCloud"); if(b) b.click(); });
+      tx.appendChild(document.createElement("br")); tx.appendChild(cta);
+    }
     var el=document.getElementById("shareState"); if(!el) return;
     if(mode==="attivo"){ el.textContent="● Link attivo"; el.className="share-state on"; }
     else if(mode==="istantanea"){ el.textContent="Istantanea locale"; el.className="share-state"; }
@@ -22781,7 +22791,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       /* non loggato: al primo salvataggio della sessione mostra il popup login; poi ripiega sul toast soft */
       if(!(window.maybeLoginPromptOnSave && window.maybeLoginPromptOnSave(localOk)) && window.__toast){
         window.__toast(localOk
-          ?"Salvato su questo dispositivo. Accedi per salvarlo sul cloud."
+          ?"Salvato su questo dispositivo. Accedi per ritrovarlo su computer e telefono."
           :"Salvataggio sul dispositivo non riuscito. Esporta subito il progetto.",!localOk);
       }
     }
@@ -22915,7 +22925,18 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      un progetto rotto veniva rifiutato in silenzio assoluto. L'esito ora passa dal toast (06/08). */
   function io(m,err){ var el=document.getElementById("ioStatus"); if(el){ el.textContent=m||""; el.style.color=err?"#dc2626":"#16a34a"; }
     if(m && window.__toast) window.__toast(m,!!err); }
+  /* Il file del progetto, da scaricare o da aprire, è per chi ha l'account (15/09, Simone: «il json
+     tienilo solo da collegati»): conservare e ritrovare il lavoro passa dal login. PDF, PNG e CSV
+     restano per tutti: sono i documenti da usare, non il progetto da portarsi via. */
+  function jsonSoloCollegati(){
+    var C=window.__cloud; if(C && C.user && C.user()) return true;
+    if(window.__toast) window.__toast("Il file del progetto è per chi ha l'account: accedi e ritrovi i tuoi progetti su computer e telefono.");
+    var b=document.getElementById("bCloud"); if(b) b.click();
+    return false;
+  }
+  window.jsonSoloCollegati=jsonSoloCollegati;
   document.getElementById("saveJson").addEventListener("click", function(){
+    if(!window.jsonSoloCollegati()) return;
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
@@ -22931,7 +22952,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     track("export",{format:"stageplot"});
     maybeLoginNudge();
   });
-  document.getElementById("importJson").addEventListener("click", function(){ document.getElementById("importFile").click(); });
+  document.getElementById("importJson").addEventListener("click", function(){ if(!window.jsonSoloCollegati()) return; document.getElementById("importFile").click(); });
   document.getElementById("importFile").addEventListener("change", function(e){
     var f=e.target.files && e.target.files[0]; e.target.value="";
     if(!f) return;
