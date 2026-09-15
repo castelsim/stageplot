@@ -4563,7 +4563,7 @@ t("decisione 4A: elementDept mappa gli elementi al reparto tecnico", () => {
   eq(A.elementDept(add("testamobile", 240, 100)), "power", "carico (testa mobile) → power");
   eq(A.elementDept(add("sedia", 260, 100)), null, "sedia → nessun reparto");
   eq(A.elementDept(add("pedana", 280, 100)), null, "pedana → nessun reparto");
-  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Power", "nomi reparto");
+  ok(A.DEPT_NAME.audio === "Audio" && A.DEPT_NAME.power === "Elettrico", "nomi reparto");
 });
 
 t("layer Output: iemant (rack TX in-ear) fa parte della catena", () => {
@@ -7502,8 +7502,8 @@ t("l'audit manda a comandi che esistono davvero", () => {
   });
   /* e i nomi citati sono quelli veri: le liste nel pannello layer */
   ok(/apri la lista Input/.test(appjs), "il rimedio della stage box non nomina la lista Input");
-  ok(/Apri la lista Power/.test(appjs), "il rimedio del distro non nomina la lista Power");
-  ok(appjs.indexOf('name:"Input"') > -1 && appjs.indexOf('name:"Power"') > -1, "…e quelle liste si chiamano ancora cosi'");
+  ok(/Apri la lista Elettrico/.test(appjs), "il rimedio del distro non nomina la lista Elettrico");
+  ok(appjs.indexOf('name:"Input"') > -1 && appjs.indexOf('name:"Elettrico"') > -1, "…e quelle liste si chiamano cosi' (Power e' Elettrico dal 15/09)");
   ok(/id="clDlg"/.test(html) || appjs.indexOf("Channel list") > -1, "«Channel list», invece, esiste: quella citazione era giusta");
 });
 
@@ -12421,6 +12421,24 @@ t("gli ampere del pannello dicono da dove viene il numero", () => {
   ok(/return "stima"/.test(f), "il resto è una stima, e va detto");
   ok(/wattFonteTxt\(r\.fonte\)/.test(appjs), "e il pannello lo dice davvero");
   ok(/fonte:wattFonte\(/.test(appjs), "la riga porta con sé la provenienza");
+});
+
+t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account dice a cosa serve", () => {
+  /* Audit esterno del 15/09 e vincolo di Simone: «l'accesso deve essere il percorso naturale per
+     conservare e ritrovare il proprio lavoro». Il JSON resta, ma solo da collegati. */
+  const landing = readFileSync(join(root, "index.html"), "utf8");
+  const g = appjs.slice(appjs.indexOf("function jsonSoloCollegati(){"), appjs.indexOf("function jsonSoloCollegati(){") + 520);
+  ok(/if\(C && C\.user && C\.user\(\)\) return true;/.test(g) && /getElementById\("bCloud"\)/.test(g), "da collegati passa, altrimenti porta al login");
+  ok(/getElementById\("saveJson"\)\.addEventListener\("click", function\(\)\{\s*if\(!window\.jsonSoloCollegati\(\)\) return;/.test(appjs), "scaricare il progetto chiede l'account");
+  ok(/getElementById\("importJson"\)\.addEventListener\("click", function\(\)\{ if\(!window\.jsonSoloCollegati\(\)\) return;/.test(appjs), "e anche aprirlo");
+  const sb = appjs.slice(appjs.indexOf("function shareBadge(mode){"), appjs.indexOf("function shareBadge(mode){") + 1400);
+  ok(/if\(tx && mode==="istantanea"\)\{/.test(sb) && /cta\.id="shareLogin"/.test(sb), "senza account la condivisione invita ad accedere");
+  ok(/sempre aggiornato/.test(sb.slice(sb.indexOf('cta.id="shareLogin"'))), "e dice cosa cambia");
+  ok(/Salvato su questo dispositivo\. Accedi per ritrovarlo su computer e telefono\./.test(appjs), "il salvataggio locale dice il vantaggio");
+  ok(/mode==="offline-warn"\)\{ cls\+=" nudge";/.test(appjs) && /el\.classList\.contains\("nudge"\)\) document\.getElementById\("bCloud"\)\.click\(\)/.test(appjs), "e la pastiglia porta al login");
+  ok(appjs.indexOf('{ id:"elec", name:"Elettrico"') > -1 && appjs.indexOf('name:"Power"') === -1 && !/lista Power/.test(appjs), "la lista si chiama Elettrico, anche nei rimedi");
+  ok(!/<span>Link di sola lettura<\/span>/.test(landing) && /<span>Link sempre aggiornato, con l'account<\/span>/.test(landing), "la home dice che il link aggiornato è dell'account");
+  ok(/con l'account, un link di sola lettura sempre aggiornato/.test(landing) && /Il link no: con l'account,/.test(landing), "anche nelle domande frequenti e nella sezione Condivisione");
 });
 
 t("il link senza account non promette la sincronia che non ha", () => {
