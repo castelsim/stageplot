@@ -757,3 +757,14 @@ test("il compenso si scrive per ruolo, e le email mandano quello del ruolo", () 
   const d = readFileSync(join(root, "supabase/functions/_shared/orc-invite-dispatch.ts"), "utf8");
   assert.match(d, /production_fee_note: row\.orc_staffing_roles\?\.fee_note \|\| row\.orc_productions\.fee_note/, "l'email porta il compenso del ruolo");
 });
+
+/* Audit esterno del 15/09: da «Richiedi musicisti» il logo portava all'editor, dalla home di
+   Orchestre a Orchestre. Chi sta chiedendo un preventivo e tocca il logo usciva dal servizio. */
+test("il logo di Orchestre resta dentro Orchestre", () => {
+  for (const r of ROUTES) {
+    const html = readFileSync(join(root, r, "index.html"), "utf8");
+    const m = html.match(/<a class="o-brand" href="([^"]+)"/);
+    if (!m) continue;   /* admin/richieste non ha intestazione: niente logo, niente uscita */
+    assert.ok(m[1].startsWith("/orchestre/"), r + ": il logo porta a " + m[1]);
+  }
+});
