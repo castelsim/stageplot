@@ -24,8 +24,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
 
-  // Tetto al corpo PRIMA di leggerlo tutto (16/09): la funzione è pubblica
-  if (corpoTroppoGrande(Number(req.headers.get("content-length") ?? NaN))) return json({ error: "richiesta troppo grande" }, 413);
+  // Tetto al corpo (16/09): la funzione è pubblica. Si LEGGE prima e si misura dopo: rispondere senza aver
+  // consumato il corpo lasciava la connessione appesa, e in produzione il client riceveva un 503 dopo due
+  // minuti invece del 413 (provato il 16/09 con 4,7 MB).
   const raw = await req.text().catch(() => "");
   if (corpoTroppoGrande(new TextEncoder().encode(raw).length)) return json({ error: "richiesta troppo grande" }, 413);
   let payload: unknown = null;
