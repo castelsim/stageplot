@@ -11711,6 +11711,10 @@ function lightsLabelsMarkup(){
    eccezione (veto): il loro occhio le nasconde comunque — serve per lavorare sotto il gazebo. */
 function itemEyeShown(it){
   if(isCover(it)) return coverLayerUI.vis;
+  /* Anche l'occhio dei MUSICISTI è un veto (16/09, Simone: «qui c'è visibilità musicisti ma di fatto
+     non spariscono»). Col Palco acceso l'OR del 21/07 lo rendeva muto: il tooltip diceva «Nascondi
+     Musicisti nel disegno» e non nascondeva niente. A Palco spento l'occhio acceso li mostra ancora. */
+  if(!musLayerUI.vis && musLayerItem(it.type)) return false;
   if(stageLayerUI.vis) return true;   /* Palco = tutto */
   if(musLayerUI.vis && musLayerItem(it.type)) return true;
   var ids=["cabin","cabout","mond","elec"];
