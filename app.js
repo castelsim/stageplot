@@ -5032,7 +5032,7 @@ function normalizeLoadedItems(arr){
       "rxN","rxCh","swPorts","pmFeedCh","prese"].forEach(function(k){
       if(it[k]==null) return; n=Number(it[k]); if(isFinite(n)) it[k]=n; else delete it[k];
     });
-    if(it.lblSize!=null){ n=Number(it.lblSize); if(isFinite(n)) it.lblSize=Math.max(0,Math.min(34,n)); else delete it.lblSize; }
+    if(it.lblSize!=null){ n=Number(it.lblSize); if(isFinite(n)) it.lblSize=Math.max(0,Math.min(lblSizeMax(it.type),n)); else delete it.lblSize; }
     if(it.lblDist!=null){ n=Number(it.lblDist); if(isFinite(n)) it.lblDist=Math.max(0,Math.min(80,n)); else delete it.lblDist; }
     if(it.opacity!=null){ n=Number(it.opacity); if(isFinite(n)) it.opacity=Math.max(0,Math.min(100,n)); else delete it.opacity; }
     if(it.pts!=null){
@@ -10526,6 +10526,7 @@ function renderProps(){
   document.getElementById("pLabelWrap").style.display = inner ? "none" : "block";
   document.getElementById("pLblModeWrap").style.display = inner ? "none" : "block";
   document.getElementById("pLblSizeName").textContent = inner ? "Dimensione testo" : "Dimensione";
+  document.getElementById("pLblSize").max = lblSizeMax(it.type);   /* prima del valore: il browser taglierebbe al massimo vecchio */
   document.getElementById("pTxtColorWrap").style.display = (isTxt || it.type==="forma") ? "block" : "none";
   var alw=document.getElementById("pAlignWrap");   /* allineamento: testo libero e testo dentro la forma */
   if(alw){
@@ -10534,7 +10535,11 @@ function renderProps(){
     if(hasTxt){ var al=textAlignOf(it, isTxt?"left":"center");
       alw.querySelectorAll("[data-align]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-align")===al); }); }
   }
-  if(isTxt) document.getElementById("pTxtColor").value = it.txtColor || "#1f2937";
+  if(isTxt || it.type==="forma"){
+    var _tc=it.txtColor || "#1f2937", _ci=document.getElementById("pTxtColor");
+    if(document.activeElement!==_ci) _ci.value=_tc;   /* mentre il selettore è aperto non lo si riscrive (16/09) */
+    Array.prototype.forEach.call(document.querySelectorAll("#pTxtSwatches button"), function(b){ b.classList.toggle("on", b.getAttribute("data-col")===_tc.toLowerCase()); });
+  }
   /* Il numero di ingressi si dichiara anche sulle destinazioni locali (mixer generico, interfaccia):
      senza il campo, il default resterebbe l'unica verita' e non ci sarebbe modo di correggerlo —
      che e' proprio il difetto per cui le stage box generiche hanno sempre avuto questo campo. */
@@ -11204,6 +11209,11 @@ function lblText(raw, it, isPrimary){
    tutto. Metterlo qui invece che in ognuna è il modo per non doverselo ricordare la prossima
    volta che se ne aggiunge una. `mutSelSoon` NON si tocca: quella è la digitazione, ed è proprio
    lo snapshot che sta aspettando. */
+/* Il testo libero e il testo delle forme possono diventare MOLTO più grandi delle etichette (16/09, Simone:
+   «la dimensione del testo deve poter diventare molto più grande»): un titolo o un cartello sul palco, non
+   il nome di un elemento. Le etichette restano a 34. */
+var LBL_SIZE_MAX_TESTO=200;
+function lblSizeMax(type){ return (type==="testo" || type==="forma") ? LBL_SIZE_MAX_TESTO : 34; }
 function mutSel(fn){ primaDiAgire(); var it=getSel(); if(!it) return; fn(it); render(); save(); }
 /* Come mutSel, ma vale per TUTTA la selezione dello stesso tipo. Il pannello mostrava i campi anche
    con 24 coristi selezionati e poi ne cambiava uno solo: 72 gesti per mettere in panoramica un coro
@@ -11337,6 +11347,19 @@ document.getElementById("pLblDistAllYes").addEventListener("click", function(){
     mutSelSoon(function(it){ if(v>=100) delete it.opacity; else it.opacity=v; }); });
 })();
 document.getElementById("pTxtColor").addEventListener("input", function(){ var v=document.getElementById("pTxtColor").value; mutSelSoon(function(it){ it.txtColor=v; }); });
+document.getElementById("pTxtColor").addEventListener("change", function(){ var v=document.getElementById("pTxtColor").value; mutSel(function(it){ it.txtColor=v; }); });
+/* COLORI RAPIDI (16/09, Simone: «testo libero non riesco a fargli cambiare colore»). Il selettore del
+   sistema è una finestra a parte che non tutti trovano, e col dito è scomodo: un clic su un colore basta. */
+var TXT_COLORI=[["#1f2937","Nero"],["#6b7280","Grigio"],["#dc2626","Rosso"],["#ea580c","Arancione"],["#ca8a04","Giallo scuro"],["#16a34a","Verde"],["#2563eb","Blu"],["#7c3aed","Viola"],["#ffffff","Bianco"]];
+(function(){
+  var box=document.getElementById("pTxtSwatches"); if(!box) return;
+  TXT_COLORI.forEach(function(c){
+    var b=document.createElement("button"); b.type="button"; b.setAttribute("data-col", c[0]); b.title=c[1]; b.setAttribute("aria-label", "Colore testo: "+c[1]);
+    b.style.background=c[0];
+    b.addEventListener("click", function(){ mutSel(function(it){ it.txtColor=c[0]; }); var ci=document.getElementById("pTxtColor"); if(ci) ci.value=c[0]; });
+    box.appendChild(b);
+  });
+})();
 document.getElementById("pLblPosTop").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=true; }); renderProps(); });
 document.getElementById("pLblPosBot").addEventListener("click", function(){ mutSel(function(it){ it.lblAbove=false; }); renderProps(); });
 function _setLblMode(m){
@@ -12228,7 +12251,7 @@ function bumpItemLabels(c){
   if(c.label) reserved[c.label]=true;
   if(c.label2 && (auto || num.test(c.label2))){ c.label2=bumpLabel(c.label2, reserved); reserved[c.label2]=true; }
 }
-function duplicateSel(noOffset){
+function duplicateSel(noOffset, opts){
   primaDiAgire();
   var its=selItems(); if(!its.length) return;
   /* includi gli elementi che poggiano sulle pedane selezionate → la copia è completa e non "ruba" gli originali */
@@ -12250,7 +12273,11 @@ function duplicateSel(noOffset){
   /* pedana + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON aggancia gli originali */
   if(hasRiser){ var bg="g"+uid(); copies.forEach(function(c){ c.grp=bg; }); }
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
-  render(); save();
+  render();
+  /* Alt + trascina (16/09, Simone: «se sposto oggetti con alt e poi faccio cmd z si creano copie
+     sovrapposte»): la copia e lo spostamento sono UN gesto. Salvando qui, Annulla tornava al momento in mezzo,
+     con la copia ancora sopra l'originale; salva il rilascio, una volta sola. */
+  if(!(opts && opts.rinviaStoria)) save();
 }
 /* ===== Copia / Incolla (Cmd/Ctrl+C · Cmd/Ctrl+V) ===== */
 var clipboard=[], clipPastes=0;
@@ -14206,7 +14233,8 @@ svg.addEventListener("pointerdown", function(e){
     }
     var _giaSel=!!selSet[id];             /* già selezionato: un clic fermo passa a quello sotto (cicloSotto) */
     if(!selSet[id]) selectClick(id);      /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco) */
-    if(e.altKey){ e.preventDefault(); duplicateSel(true); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata */
+    var _dupIds=null, _selPrima=null;
+    if(e.altKey){ e.preventDefault(); _selPrima=Object.keys(selSet); duplicateSel(true, {rinviaStoria:true}); _dupIds=Object.keys(selSet); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata; la storia la registra il rilascio */
     var moving=selItems().slice().filter(itemEditable);   /* col lucchetto chiuso non si sposta, neanche dentro a un gruppo */
     moving.slice().forEach(function(it){      /* l'americana trascina i fari che le sono appesi */
       if(isHangStruct(it)) hangItemsOf(it).forEach(function(o){ if(moving.indexOf(o)===-1 && itemEditable(o)) moving.push(o); });
@@ -14225,6 +14253,7 @@ svg.addEventListener("pointerdown", function(e){
     drag = {mode:"item", sp0:{x:sp.x,y:sp.y},
             items:moving.map(function(i){ return {id:i.id, x0:i.x, y0:i.y}; }), moved:false};
     if(_giaSel) drag.ciclo={x:e.clientX, y:e.clientY, id:id};
+    if(_dupIds){ drag.dupIds=_dupIds; drag.selPrima=_selPrima; drag.ciclo=null; }
     render();
   } else if(e.altKey && state.cab && state.cab.on){   /* Alt/Option+drag su sfondo, layer cavi attivo: marquee CAVI */
     e.preventDefault(); selCabSet={};
@@ -14706,6 +14735,12 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="mzvtx"){ var _zz=state.items.find(function(i){ return i.id===drag.id; }); if(_zz) miczoneRecenter(_zz); save(); ensureVisible(); render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="item" && !drag.moved && drag.dupIds){   /* Alt+clic senza trascinare: la copia non serviva, via */
+    var _dup={}; drag.dupIds.forEach(function(x){ _dup[x]=1; });
+    state.items=state.items.filter(function(x){ return !_dup[x.id]; });
+    selSet={}; (drag.selPrima||[]).forEach(function(x){ selSet[x]=true; }); sel=(drag.selPrima||[]).slice(-1)[0]||null;
+    drag=null; render(); return;
+  }
   if(drag && drag.mode==="item" && !drag.moved && drag.ciclo && cicloSotto(drag.ciclo)){ drag=null; return; }   /* clic ripetuto: passa all'elemento sotto (16/09) */
   if(drag && drag.mode==="item" && drag.moved){
     if(e.shiftKey && selIds().length===1) cabTryInsertAt(svgPoint(e), getSel());   /* Shift al rilascio sopra un cavo = inserisci nel percorso (stile Max) */
