@@ -16796,6 +16796,37 @@ function righeOrganico(cfg, host){
   return org;
 }
 
+/* ANTEPRIME DEI MODELLI (16/09, Simone: «aggiungi le anteprime nella scelta dei modelli»; lo chiedeva
+   anche l'audit esterno del 15/09: «l'utente sceglie un modello senza doverlo aprire»). La pianta del
+   modello calcolata come la farebbe placeOut, ma SENZA toccare il progetto aperto: il palco in scala e
+   ogni elemento come sagoma alla sua posizione, colorata per tipo. Le illustrazioni vere, per otto
+   modelli da trenta elementi, sarebbero megabyte di SVG in una finestra. */
+var _anteprimeModelli={};
+var ANTEPRIMA_TECNICA={"Microfoni e DI":1,"Monitor da palco":1,"PA e diffusione":1,"Cablaggio e segnale":1,"Elettrico":1,"Regia e console":1,"Dispositivi":1,"Luci":1,"Video":1};
+function modelloAnteprima(f){
+  if(_anteprimeModelli[f]) return _anteprimeModelli[f];
+  var qd=(typeof formationData==="function") ? formationData(f) : null;
+  if(!qd || !qd.out || !qd.out.length) return null;
+  var m=measureOrchestraOut(qd.out), fp=frontPad(m), W, D;
+  if(qd.stage && qd.stage.w>0 && qd.stage.d>0){ W=qd.stage.w; D=qd.stage.d; }
+  else { W=Math.max(800, Math.ceil((2*m.maxX+160)/50)*50); D=Math.max(600, Math.ceil((-m.minY+fp+60)/50)*50); }   /* stessa misura di placeOut */
+  var C={x:W/2, y:D-fp}, persone=0, pedane="", resto="";
+  qd.out.forEach(function(o){
+    var t=TYPES[o.type]; if(!t) return;
+    var z=odim(o), x=Math.round(C.x+o.x), y=Math.round(C.y+o.y), r=Math.round((o.rot||0)/5)*5;
+    var cls = t.riser ? "mpv-riser"
+            : musLayerItem(o.type) ? "mpv-mus"
+            : ANTEPRIMA_TECNICA[t.cat] ? "mpv-tec" : "mpv-alt";
+    if(contactEligible(o.type) || t.gtr) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
+    var rect='<rect class="'+cls+'" x="'+(-z.w/2)+'" y="'+(-z.d/2)+'" width="'+z.w+'" height="'+z.d+'" rx="'+Math.min(12, z.w/4, z.d/4)+'" transform="translate('+x+' '+y+')'+(r?' rotate('+r+')':'')+'"/>';
+    if(t.riser) pedane+=rect; else resto+=rect;
+  });
+  var pad=60;
+  var svg='<svg viewBox="'+(-pad)+' '+(-pad)+' '+(W+2*pad)+' '+(D+2*pad)+'" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
+    +'<rect class="mpv-stage" x="0" y="0" width="'+W+'" height="'+D+'"/>'+pedane+resto+'</svg>';
+  var sub=(persone ? persone+(persone===1?" musicista":" musicisti")+" · " : "")+"palco "+misurePalco(W, D);
+  return (_anteprimeModelli[f]={svg:svg, persone:persone, w:W, d:D, sub:sub});
+}
 function startFromTemplate(f,options){
   options=options||{};
   var qd = (typeof formationData==="function") ? formationData(f, options.formazione) : null;
@@ -27284,13 +27315,20 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
           chiediOrganico(m[0], function(scelte){ startFromTemplate(m[0],{after:after, formazione:scelte}); });
         } else startFromTemplate(m[0],{after:after});
       });
+      /* nella finestra «Nuovo» ogni modello si vede prima di sceglierlo (16/09; dopo il clic: due test leggono l'ordine delle azioni qui sopra); il benvenuto resta a pastiglie */
+      if(host.id==="mpMods"){
+        var _ap=null; try{ _ap=modelloAnteprima(m[0]); }catch(_e){ _ap=null; }
+        if(_ap){ b.className="mp-card"; b.setAttribute("aria-label", m[1]+", "+_ap.sub);
+          b.innerHTML='<span class="mp-prev">'+_ap.svg+'</span><span class="mp-nome">'+esc(m[1])+'</span><span class="mp-sub">'+esc(_ap.sub)+'</span>'; }
+      }
       host.appendChild(b);
     });
   }
   fillMods(document.getElementById("wlMods"), null);   /* nel welcome: startFromTemplate chiude già il welcome */
   var mp=document.getElementById("modelPicker");
   if(mp){
-    fillMods(document.getElementById("mpMods"), function(){ mp.hidden=true; });
+    var _mpm=document.getElementById("mpMods"); if(_mpm) _mpm.classList.add("mp-grid");
+    fillMods(_mpm, function(){ mp.hidden=true; });
     /* NB: modelli "per tipo di sala" e "venue famose" tolti dal picker su richiesta (13/07): resta solo "per formazione".
        Le funzioni startFromVenue/startFromFamousVenue/makeVenueBackdrop/drawVenuePlan restano nel codice (dormienti) per riprendere l'argomento in futuro. */
     var mpc=document.getElementById("mpClose"); if(mpc) mpc.addEventListener("click", function(){ mp.hidden=true; });

@@ -3429,6 +3429,26 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   #funzModal .funz-master, #funzModal .funz-voce{min-height:44px}
   #funzModal .funz-azioni .btn{min-height:44px}
 }
+
+/* ── ANTEPRIME DEI MODELLI, nella finestra «Nuovo» (16/09) ──────────────────────────────────────────
+   Con l'id davanti: `.wl-mods` (flex, pastiglie) vale anche qui e altrimenti vincerebbe. */
+#mpMods.mp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#mpMods .mp-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;margin:0;padding:7px 7px 9px;
+  border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;
+  text-align:left;white-space:normal;cursor:pointer}
+#mpMods .mp-card:hover{border-color:var(--accent-soft);background:var(--accent-tint)}
+#mpMods .mp-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#mpMods .mp-prev{display:block;height:92px;border-radius:6px;background:var(--surface-raised);overflow:hidden;margin-bottom:5px}
+#mpMods .mp-prev svg{display:block;width:100%;height:100%}
+#mpMods .mp-nome{font-size:13px;font-weight:700;line-height:1.25}
+#mpMods .mp-sub{font-size:11px;font-weight:400;color:var(--text-2);line-height:1.3}
+.mpv-stage{fill:var(--surface);stroke:var(--border-strong);stroke-width:8}
+.mpv-riser{fill:var(--n-200);stroke:var(--n-400);stroke-width:4}
+.mpv-mus{fill:var(--accent-soft);stroke:var(--accent-strong);stroke-width:4}
+.mpv-tec{fill:#c7d7f5;stroke:#3b6fd4;stroke-width:4}
+.mpv-alt{fill:var(--n-100);stroke:var(--n-500);stroke-width:3}
+@media (max-width:880px){ #mpMods .mp-prev{height:78px} }
+
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -5127,7 +5147,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
      («Nuovo» o «Nuovo da modello…») e si scopriva solo dopo cosa comportava; ora la scelta è qui,
      con le due strade una accanto all'altra. -->
 <div class="modal" id="modelPicker" hidden>
-  <div class="mcard" style="width:440px;max-width:94vw">
+  <div class="mcard" style="width:560px;max-width:94vw">
     <h2>Nuovo stage plot</h2>
     <div class="hint">Il progetto aperto viene chiuso: se ha del lavoro dentro, ti verrà chiesto conferma e ne resta comunque un punto di ripristino. I progetti salvati non si toccano.</div>
     <button type="button" class="btn" id="mpEmpty" style="width:100%;margin:14px 0 4px;justify-content:flex-start;text-align:left;height:auto;padding:11px 13px;flex-direction:column;align-items:flex-start;gap:2px">
