@@ -5570,6 +5570,15 @@ t("la scelta del modello mostra la pianta di ogni modello, senza toccare il prog
   ok(/#mpMods\.mp-grid\{display:grid/.test(stylesCss), "a griglia, e con l'id davanti per battere .wl-mods");
 });
 
+t("all'avvio il selettore della griglia dice l'aggancio, non resta vuoto", () => {
+  /* 16/09 — segnalazione di Simone: «quando apro il software qui non compare l'impostazione della griglia».
+     syncSnapSelects() gira all'avvio: se snapMode è dichiarata dopo, vale undefined e il select resta vuoto. */
+  eq(A.snapMode, "25", "si parte da 25 cm");
+  const iVar = appjs.indexOf('var snapMode = "25";'), iPrimoSync = appjs.indexOf("  syncSnapSelects();\n})();");
+  ok(iVar > -1 && iPrimoSync > -1 && iVar < iPrimoSync, "il valore c'è prima che il selettore lo legga");
+  eq((appjs.match(/var snapMode *=/g) || []).length, 1, "dichiarata una volta sola");
+});
+
 t("testo libero: dimensione molto più grande, colori rapidi, e Alt + trascina si annulla in un colpo", () => {
   /* 16/09 — Simone: «testo libero non riesco a fargli cambiare colore e la dimensione del testo deve poter
      diventare molto più grande»; «se sposto oggetti con alt e poi faccio cmd z si creano copie sovrapposte». */

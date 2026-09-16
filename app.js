@@ -11550,6 +11550,11 @@ document.getElementById("pTastLeg2").addEventListener("change", function(){ mutS
 /* Due select per lo stesso aggancio: header (mouse) e pannello Palco (telefono). Si allineavano
    solo l'uno all'altro, e solo su `change`: quello del telefono partiva sempre da «25 cm» anche
    quando `snapMode` era altro — apri un progetto salvato su «Libero» e il pannello ti dice 25. */
+/* L'aggancio parte da 25 cm. Dichiarato QUI, prima del primo syncSnapSelects() che gira all'avvio (16/09,
+   segnalazione di Simone: «quando apro il software qui non compare l'impostazione della griglia»). Prima
+   stava mille righe più sotto: all'avvio valeva ancora `undefined`, nessuna opzione corrispondeva e il
+   selettore nell'intestazione restava vuoto finché non lo si cambiava a mano. */
+var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=oggetti */
 function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   if(a) a.value=snapMode; if(b) b.value=snapMode;
@@ -12470,7 +12475,7 @@ function renderEvChip(){
 renderEvChip();
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
 document.getElementById("mD").addEventListener("change", function(){ applyStageDepth(this.value); });
-var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=oggetti */
+/* `snapMode` è dichiarata più in alto, prima di syncSnapSelects (16/09) */
 function snapVal(){ var v=parseInt(snapMode,10); return (isNaN(v)||v<=0) ? 0 : v; }
 function snap(v){ var s=snapVal(); return s>0 ? Math.round(v/s)*s : Math.round(v); }
 function placeCoord(v,e){ return (e && (e.metaKey||e.ctrlKey)) ? Math.round(v) : snap(v); }
