@@ -5570,6 +5570,36 @@ t("la scelta del modello mostra la pianta di ogni modello, senza toccare il prog
   ok(/#mpMods\.mp-grid\{display:grid/.test(stylesCss), "a griglia, e con l'id davanti per battere .wl-mods");
 });
 
+t("testo libero: dimensione molto più grande, colori rapidi, e Alt + trascina si annulla in un colpo", () => {
+  /* 16/09 — Simone: «testo libero non riesco a fargli cambiare colore e la dimensione del testo deve poter
+     diventare molto più grande»; «se sposto oggetti con alt e poi faccio cmd z si creano copie sovrapposte». */
+  eq(A.lblSizeMax("testo"), 200, "il testo libero arriva a 200"); eq(A.lblSizeMax("forma"), 200, "anche il testo delle forme");
+  eq(A.lblSizeMax("wedge"), 34, "le etichette restano a 34");
+  reset();
+  const doc = { titolo: "", luogo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] },
+    items: [{ id: "t1", type: "testo", x: 100, y: 100, w: 300, d: 80, label: "Titolo", lblSize: 150 },
+            { id: "w1", type: "wedge", x: 300, y: 300, w: 60, d: 52, label: "MIX", lblSize: 150 }], inputs: [], outputs: [] };
+  A.loadDoc(JSON.parse(JSON.stringify(doc)));
+  eq(A.state.items.find((x) => x.id === "t1").lblSize, 150, "un testo a 150 resta a 150 riaprendo il progetto");
+  eq(A.state.items.find((x) => x.id === "w1").lblSize, 34, "un'etichetta resta tagliata a 34");
+  ok(/getElementById\("pLblSize"\)\.max = lblSizeMax\(it\.type\);/.test(appjs), "lo slider cambia massimo col tipo");
+  /* colore */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pTxtSwatches"/.test(html) && /var TXT_COLORI=\[/.test(appjs), "ci sono i colori rapidi");
+  ok(/if\(document\.activeElement!==_ci\) _ci\.value=_tc;/.test(appjs), "il selettore aperto non viene riscritto");
+  /* Alt + trascina = un passo di annulla */
+  reset(); A.resetHistory();
+  const w = add("wedge", 400, 400); A.resetHistory(); const n0 = A.state.items.length;
+  A.selectOne(w.id);
+  A.duplicateSel(true, { rinviaStoria: true });
+  eq(A.undoStack.length, 0, "la copia da sola non fa un passo di annulla");
+  const copia = A.state.items[A.state.items.length - 1]; copia.x += 120; A.save();   /* il rilascio */
+  eq(A.undoStack.length, 1, "copia + spostamento = un passo");
+  A.undo();
+  eq(A.state.items.length, n0, "un solo Annulla toglie la copia: niente doppione sovrapposto");
+  ok(/if\(drag && drag\.mode==="item" && !drag\.moved && drag\.dupIds\)\{/.test(appjs), "Alt+clic senza trascinare non lascia copie");
+});
+
 t("gli sgabelli hanno un tipo, e il cartiglio dice quali portare", () => {
   /* 16/09 — Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per contrabbassi, per
      batteria, per piano e tastiere», poi «aggiungi anche sgabello alto per chi canta seduto». */
