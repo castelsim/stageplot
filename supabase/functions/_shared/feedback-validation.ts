@@ -1,3 +1,5 @@
+import { metaPulito } from "./feedback-limits.ts";
+
 export type FeedbackMeta = {
   app_version?: string; page_url?: string; user_agent?: string; viewport?: string; language?: string;
 };
@@ -47,7 +49,7 @@ export function validateFeedback(payload: unknown): ValidationResult {
     value: {
       message, hint,
       tech_context: jsonSize(obj(p.tech_context)) > MAX_TECH_BYTES ? {} : obj(p.tech_context),
-      meta: obj(p.meta) as FeedbackMeta,
+      meta: metaPulito(p.meta) as FeedbackMeta,   // solo stringhe corte e note (16/09): finiscono nelle colonne e nella mail
       project_snapshot: (p.project_snapshot != null && jsonSize(p.project_snapshot) <= MAX_SNAPSHOT_BYTES)
         ? p.project_snapshot
         : null,
