@@ -26689,8 +26689,15 @@ function niceBarMeters(N){            /* barra di scala: ~25-40 mm sul foglio */
    esserci le informazioni essenziali — quanti leggii, quanti personal mixer…».
    Sono i numeri che servono a chi carica il camion e a chi allestisce, non una lista: canali,
    leggii, sedie, personal mixer, ascolti. Contati dagli elementi veri, non dichiarati a mano. */
-function pdfTotals(){
+/* Peso, U rack e canali sono dati tecnici: nel foglio escono solo con «Esporta avanzato» acceso
+   (16/09, Simone: «sto usando la versione base e non dovrebbero esserci»). Leggii, sedute e ascolti
+   restano: servono a chi allestisce. Fuori dall'editor (senza le funzioni) si stampa tutto. */
+function pdfDatiTecnici(){
+  try{ return typeof funzOn!=="function" || !!funzOn("esporta"); }catch(e){ return true; }
+}
+function pdfTotals(opts){
   var it=state.items||[], out=[];
+  var tecn=(opts && ("tecnici" in opts)) ? !!opts.tecnici : pdfDatiTecnici();
   function n(f){ var c=0; it.forEach(function(x){ if(f(x)) c++; }); return c; }
   var canali=0; it.forEach(function(x){ try{ canali+=cabItemInputs(x).length; }catch(e){} });
   /* leggii: elementi a sé + il leggio acceso su una postazione + le postazioni che lo hanno di serie */
@@ -26714,7 +26721,7 @@ function pdfTotals(){
   var hub=n(function(x){ return x.type==="mixhub"; });
   var wedge=n(function(x){ return x.type==="wedge"||x.type==="sidefill"; });
   var iem=n(function(x){ return x.type==="iem"; });
-  if(canali) out.push(canali+" canali");
+  if(canali && tecn) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
   if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
   if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
@@ -26737,8 +26744,9 @@ function pdfCartiglio(doc, L, N, header){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT"));
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
-  var _wt=totalWeightKg(); if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
-  var _ru=totalRackU(); if(_ru>0) sub.push(_ru+" U rack");
+  var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
+  var _wt=_tecn?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
+  var _ru=_tecn?totalRackU():0; if(_ru>0) sub.push(_ru+" U rack");
   var subStr=sub.join("  ·  ");
   var subL=doc.splitTextToSize(subStr, titleW);
   doc.text(subL.length>1 ? subL[0].replace(/\s+\S*$/,"")+"…" : subStr, M, y+14);
@@ -26808,7 +26816,8 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var cy=L.ph-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
-  var _pwt=totalWeightKg(); if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=totalRackU(); if(_pru>0) sub.push(_pru+" U rack");
+  var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
+  var _pwt=_ptecn?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var labels = A.custom ? '' :
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
