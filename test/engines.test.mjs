@@ -4633,10 +4633,13 @@ t("Layer v3: Palco = tutto, occhi in OR (viste)", () => {
   A.stageLayerUI.vis = true; A.musLayerUI.vis = true; A.state.cab.on = false;
   let mk = A.sceneMarkup();
   ok(!/display="none"/.test(mk.split("layItems")[1] || mk), "Palco acceso: tutto visibile");
-  // Palco acceso + Musicisti SPENTO: i musicisti restano (Palco = tutto — demo approvata)
+  // Palco acceso + Musicisti SPENTO: dal 16/09 i musicisti spariscono (Simone: «di fatto non spariscono»).
+  // Fino ad allora restavano per l'OR del 21/07, e l'occhio non faceva niente.
   A.musLayerUI.vis = false;
   mk = A.sceneMarkup();
-  ok(!/mus-item" display="none"/.test(mk), "Palco acceso mostra i musicisti anche con l'occhio Musicisti spento");
+  ok(/mus-item" display="none"/.test(mk), "l'occhio Musicisti spento li nasconde anche col Palco acceso");
+  ok(!/st-item" display="none"/.test(mk), "e il resto del palco resta");
+  eq(A.itemPickable(A.state.items.find(x => x.type === "vlnpost")), false, "e un musicista nascosto non si prende col mouse");
   A.musLayerUI.vis = true;
   // Palco SPENTO + solo Musicisti acceso: si vedono SOLO i musicisti
   A.stageLayerUI.vis = false; A.state.cab.on = false;
