@@ -5500,6 +5500,21 @@ t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () =
   ok(/1 personal mixer \(1 hub\)/.test(t2), "personal mixer con l'hub: " + t2);
   ok(/1 spia/.test(t2), "spie al singolare: " + t2);
 });
+t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () => {
+  /* 16/09 — Simone: «ho appena fatto un export pdf ed escono in basso a destra i kg e i canali, sto
+     usando la versione base e non dovrebbero esserci». */
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  add("stagebox", 900, 100); add("corista", 200, 300); add("leggio", 700, 300); add("wedge", 400, 500);
+  A.__cabRes = null;
+  const con = A.pdfTotals({ tecnici: true }).join(" · "), senza = A.pdfTotals({ tecnici: false }).join(" · ");
+  ok(/\d+ canali/.test(con), "con Esporta avanzato i canali ci sono: " + con);
+  ok(!/canali/.test(senza), "senza, no: " + senza);
+  ok(/leggi/.test(senza) && /spia/.test(senza), "leggii e spie restano: servono a chi allestisce: " + senza);
+  ok(/function pdfDatiTecnici\(\)\{\s*try\{ return typeof funzOn!=="function" \|\| !!funzOn\("esporta"\);/.test(appjs), "la regola è la funzione Esporta avanzato");
+  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=_tecn\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
+  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=_ptecn\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+});
+
 t("una postazione doppia conta due sedute e un leggio solo", () => {
   reset();
   const d = add("vln1x2", 300, 300);
