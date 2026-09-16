@@ -68,3 +68,10 @@ Deno.test("identità dal payload ignorata (audit S5: no spoofing)", () => {
     assertEquals(r.value.user_email, null);
   }
 });
+
+Deno.test("meta enorme o non stringa: tagliato e scartato (16/09)", () => {
+  const r = validateFeedback({ message: "messaggio vero", meta: { user_agent: "x".repeat(20_000_000), page_url: { a: 1 } } });
+  assertEquals(r.ok, true);
+  if (r.ok) { assertEquals(r.value.meta.user_agent?.length, 500); assertEquals(r.value.meta.page_url, undefined); }
+});
+
