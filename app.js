@@ -9805,7 +9805,7 @@ function sceneMarkup(opts){
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
   if(venueCalibMode>0){ _sceneArt=null; return '<g id="layVenue">'+venue+'</g>'; }
   /* SOLO attivo: elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto.
-     Il solo del Palco = vista d'insieme (tutto a fuoco: layerFgItem("stage") è sempre true). */
+     Il solo del Palco = palco e pedane (palcoStruttura, dal 16/09; prima era «tutto a fuoco»). */
   var soloSplit = anySolo();
   /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
@@ -18500,10 +18500,17 @@ function layerFgItem(id, it){
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
     case "luci":   return lightsIsGear(it.type) || it.type==="americana" || it.type==="consolaluci" || it.type==="dimmerluci";   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
-    case "stage":  return true;   /* Layer v3: Palco = TUTTO (fuoco Palco = vista d'insieme) */
+    /* Il SOLO del Palco mostra il palco e le pedane, non tutto (16/09, Simone: «lista palco in solo deve
+       mostrare solo palco e pedane»). Prima era true — «Palco = tutto» — e il solo non isolava niente.
+       L'occhio del Palco resta la vista d'insieme (itemEyeShown non passa di qui). */
+    case "stage":  return palcoStruttura(it);
   }
   return false;
 }
+/* Cosa è «palco e pedane»: le pedane (anche coro e riser) e ciò che fa la superficie e i suoi bordi.
+   Non sedie, leggii, sgabelli, musicisti, strumenti, tecnica, forme e testi. */
+var PALCO_STRUTTURA = {tappeto:1, scala:1, rampa:1, parapetto:1, fondale:1, quinta:1, truss:1, transenna:1, catwalk:1};
+function palcoStruttura(it){ return !!(it && (isRiser(it) || PALCO_STRUTTURA[it.type])); }
 function itemInSoloLayer(it){
   for(var id in layerSoloUI){ if(layerSoloUI[id] && layerFgItem(id, it)) return true; }
   return false;

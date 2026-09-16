@@ -4655,7 +4655,13 @@ t("Layer v3: Palco = tutto, occhi in OR (viste)", () => {
   A.musLayerUI.vis = true; A.stageLayerUI.vis = true;
   // fuoco Palco = vista d'insieme (tutto a fuoco)
   const v = A.state.items.find(x => x.type === "vlnpost");
-  eq(A.layerFgItem("stage", v), true, "Palco contiene tutto (anche i musicisti)");
+  /* 16/09 — Simone: «lista palco in solo deve mostrare solo palco e pedane». Prima: Palco = tutto anche in solo. */
+  eq(A.layerFgItem("stage", v), false, "il solo del Palco non mostra i musicisti");
+  eq(A.layerFgItem("stage", { type: "pedana" }), true, "mostra le pedane");
+  eq(A.layerFgItem("stage", { type: "pedanacoro" }), true, "anche quelle del coro");
+  eq(A.layerFgItem("stage", { type: "tappeto" }), true, "e ciò che fa la superficie");
+  ["sedia", "leggio", "sgabello", "astamic", "wedge", "forma"].forEach((k) =>
+    eq(A.layerFgItem("stage", { type: k }), false, "in solo Palco non c'è: " + k));
   // Ingressi = sorgenti + catena; Output = monitor
   eq(A.layerFgItem("cabin", mic), true, "mic = layer Ingressi");
   const w = add("wedge", 520, 320);
