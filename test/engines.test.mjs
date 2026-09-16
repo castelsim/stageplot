@@ -5524,6 +5524,31 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=_ptecn\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
 });
 
+t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta anche da sola", () => {
+  /* 16/09 — Simone: «trovo estremamente difficile spostare e modificare le pedane se ci sono elementi
+     sopra»; poi «procedi con A e sposta solo la pedana». */
+  reset(); A.layerSoloUI = {};
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400), mic = add("astamic", 600, 400);
+  A.selectOne(voce.id);
+  ok(A.cicloSotto({ id: voce.id, ids: [voce.id, ped.id] }), "c'è qualcosa sotto: cambia");
+  eq(A.sel, ped.id, "il secondo clic prende la pedana");
+  ok(A.cicloSotto({ id: ped.id, ids: [mic.id, voce.id, ped.id] }) && A.sel === mic.id, "dalla pedana ricomincia dall'alto");
+  eq(A.cicloSotto({ id: mic.id, ids: [mic.id] }), false, "da solo non c'è niente da ciclare: il clic resta un clic");
+  /* nel codice: il ciclo parte solo da un clic fermo su un elemento già selezionato */
+  ok(/var _giaSel=!!selSet\[id\];/.test(appjs) && /if\(_giaSel\) drag\.ciclo=\{x:e\.clientX, y:e\.clientY, id:id\};/.test(appjs), "si ricorda se era già selezionato");
+  ok(/if\(drag && drag\.mode==="item" && !drag\.moved && drag\.ciclo && cicloSotto\(drag\.ciclo\)\)\{ drag=null; return; \}/.test(appjs), "e al rilascio senza movimento passa sotto");
+  ok(appjs.indexOf("function cicloSotto(c){") > -1 && /if\(selSet\[nid\]\) continue;/.test(appjs), "gli elementi dello stesso blocco si saltano");
+  /* presa col clic ripetuto, la pedana si trascina anche dal punto coperto (visto provando nel browser) */
+  ok(/if\(g && !e\.shiftKey && sel && !selSet\[g\.getAttribute\("data-id"\)\] && document\.elementsFromPoint\)\{/.test(appjs)
+     && /if\(_selSotto\) g=_selSotto;/.test(appjs), "l'elemento selezionato vince anche se coperto");
+  /* Sposta solo la pedana */
+  ok(/if\(TYPES\[it\.type\] && TYPES\[it\.type\]\.riser && !pedanaSola\)\{/.test(appjs), "acceso, la pedana non porta il carico");
+  eq(A.pedanaSola, false, "parte spento, e non si salva");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pRiserSolo"/.test(html) && /"pSgabWrap","pRiserSoloWrap"/.test(appjs), "l'interruttore sta negli Accessori della pedana");
+  ok(/rsw\.style\.display = t\.riser \? "block" : "none";/.test(appjs), "e si vede solo sulle pedane");
+});
+
 t("gli sgabelli hanno un tipo, e il cartiglio dice quali portare", () => {
   /* 16/09 — Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per contrabbassi, per
      batteria, per piano e tastiere», poi «aggiungi anche sgabello alto per chi canta seduto». */

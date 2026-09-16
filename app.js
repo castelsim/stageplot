@@ -2795,6 +2795,36 @@ function applyOptAll(key, val){
 }
 function toggleSelId(id){ if(selSet[id]){ delete selSet[id]; if(sel===id) sel=selIds()[selIds().length-1]||null; } else { selSet[id]=true; sel=id; } }
 /* elementi che poggiano su una pedana (centro dentro al rettangolo, con rotazione) */
+/* PEDANE COPERTE (16/09, Simone: «trovo estremamente difficile spostare e modificare le pedane se ci sono
+   elementi sopra»; scelta A fra quattro prototipi). Un clic fermo su un elemento GIÀ selezionato passa
+   all'elemento che sta sotto nello stesso punto, fino alla pedana; poi ricomincia dall'alto. Funziona
+   uguale col dito. Il doppio clic resta doppio clic: il ciclo parte solo da un secondo clic lento. */
+function cicloSotto(c){
+  var ids=c.ids;
+  if(!ids){
+    ids=[];
+    (document.elementsFromPoint ? document.elementsFromPoint(c.x, c.y) : []).forEach(function(el){
+      var g=el.closest && el.closest("#svg .item"); if(!g) return;
+      var id=g.getAttribute("data-id"); if(ids.indexOf(id)<0) ids.push(id);
+    });
+  }
+  ids=ids.filter(function(id){ var it=(state.items||[]).filter(function(x){ return x.id===id; })[0]; return it && itemPickable(it); });
+  if(ids.length<2) return false;
+  var i=ids.indexOf(c.id), n=ids.length;
+  for(var k=1;k<n;k++){
+    var nid=ids[(i+k+n)%n];
+    if(selSet[nid]) continue;   /* stesso blocco: si salta, altrimenti il clic non cambierebbe niente */
+    selectClick(nid); render();
+    var it=(state.items||[]).filter(function(x){ return x.id===nid; })[0];
+    var nome=(it && (it.label || (TYPES[it.type]&&TYPES[it.type].nome))) || "elemento";
+    if(typeof showToast==="function") showToast("Preso: "+nome+(n>2 ? " · clic ancora per andare più sotto" : ""));
+    return true;
+  }
+  return false;
+}
+/* «Sposta solo la pedana»: acceso, trascinare una pedana non porta con sé quello che c'è sopra. Non si
+   salva: vale finché lo si spegne o si ricarica, così non resta acceso a sorpresa il giorno dopo. */
+var pedanaSola=false;
 function itemsOnRiser(r){
   var rot=(r.rot||0)*Math.PI/180, cos=Math.cos(-rot), sin=Math.sin(-rot), hw=r.w/2, hd=r.d/2;
   return state.items.filter(function(it){
@@ -10837,6 +10867,8 @@ function renderProps(){
   var illustrated = hasLookToggle(it) && it.look!=="schematico";
   document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
+  var rsw=document.getElementById("pRiserSoloWrap");
+  if(rsw){ rsw.style.display = t.riser ? "block" : "none"; if(t.riser) document.getElementById("pRiserSolo").checked=pedanaSola; }
   var sgw=document.getElementById("pSgabWrap");
   if(sgw){ var isSgab=(it.type==="sgabello"); sgw.style.display = isSgab ? "block" : "none";
     if(isSgab){ var sgs=document.getElementById("pSgabTipo");
@@ -11371,6 +11403,7 @@ document.getElementById("pDimSide").addEventListener("change", function(){ var v
 /* il select "pBy" non esiste più: «Fornito da» sta nella channel list (26/08) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
+document.getElementById("pRiserSolo").addEventListener("change", function(){ pedanaSola=document.getElementById("pRiserSolo").checked; });
 document.getElementById("pSgabTipo").addEventListener("change", function(){
   var v=document.getElementById("pSgabTipo").value;
   mutSel(function(it){
@@ -11876,7 +11909,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pZoneWrap"]);
   group("Stage box", null, ["pSbChWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
-  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
+  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pRiserSoloWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
@@ -14151,6 +14184,15 @@ svg.addEventListener("pointerdown", function(e){
     return;
   }
   var g = e.target.closest ? e.target.closest(".item") : null;
+  /* L'elemento GIÀ selezionato vince anche se coperto (16/09): presa la pedana col clic ripetuto, la si
+     trascina da dove la si vede. Senza questo, premere di nuovo sul punto coperto riprendeva la batteria
+     sopra e la pedana restava ferma (visto provando). Un clic fermo passa comunque a quello sotto. */
+  if(g && !e.shiftKey && sel && !selSet[g.getAttribute("data-id")] && document.elementsFromPoint){
+    var _selSotto=document.elementsFromPoint(e.clientX, e.clientY)
+      .map(function(el){ return el.closest ? el.closest("#svg .item") : null; })
+      .filter(function(x){ return x && selSet[x.getAttribute("data-id")]; })[0];
+    if(_selSotto) g=_selSotto;
+  }
   if(!g) collapseCats();   /* click a VUOTO sul palco (qui tutti gli handle hanno gia' fatto return) → richiude le categorie; selezionare un elemento NON le chiude */
   if(selCab){ selCab=null; }   /* click su elemento o sfondo (non su un cavo) → deseleziona il cavo */
   selCabSet={};                /* anche la selezione multipla dei cavi audio */
@@ -14162,6 +14204,7 @@ svg.addEventListener("pointerdown", function(e){
     if(e.shiftKey){                       /* shift-click: aggiungi/togli dalla selezione, senza drag */
       e.preventDefault(); toggleSelId(id); render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return;
     }
+    var _giaSel=!!selSet[id];             /* già selezionato: un clic fermo passa a quello sotto (cicloSotto) */
     if(!selSet[id]) selectClick(id);      /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco) */
     if(e.altKey){ e.preventDefault(); duplicateSel(true); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata */
     var moving=selItems().slice().filter(itemEditable);   /* col lucchetto chiuso non si sposta, neanche dentro a un gruppo */
@@ -14169,7 +14212,7 @@ svg.addEventListener("pointerdown", function(e){
       if(isHangStruct(it)) hangItemsOf(it).forEach(function(o){ if(moving.indexOf(o)===-1 && itemEditable(o)) moving.push(o); });
     });
     moving.slice().forEach(function(it){      /* le pedane trascinano gli elementi sopra */
-      if(TYPES[it.type] && TYPES[it.type].riser){
+      if(TYPES[it.type] && TYPES[it.type].riser && !pedanaSola){   /* «Sposta solo la pedana» (16/09): il carico resta dov'è */
         if(it.grp){                            /* pedana in un blocco (es. duplicata): porta i membri del blocco, non gli elementi geometrici (così non aggancia gli originali sotto) */
           state.items.forEach(function(o){ if(o.grp===it.grp && moving.indexOf(o)===-1) moving.push(o); });
         } else {                               /* pedana libera: porta gli elementi che ci poggiano sopra (geometrico) */
@@ -14181,6 +14224,7 @@ svg.addEventListener("pointerdown", function(e){
     });
     drag = {mode:"item", sp0:{x:sp.x,y:sp.y},
             items:moving.map(function(i){ return {id:i.id, x0:i.x, y0:i.y}; }), moved:false};
+    if(_giaSel) drag.ciclo={x:e.clientX, y:e.clientY, id:id};
     render();
   } else if(e.altKey && state.cab && state.cab.on){   /* Alt/Option+drag su sfondo, layer cavi attivo: marquee CAVI */
     e.preventDefault(); selCabSet={};
@@ -14662,6 +14706,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="mzvtx"){ var _zz=state.items.find(function(i){ return i.id===drag.id; }); if(_zz) miczoneRecenter(_zz); save(); ensureVisible(); render(); drag=null; return; }
   if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="item" && !drag.moved && drag.ciclo && cicloSotto(drag.ciclo)){ drag=null; return; }   /* clic ripetuto: passa all'elemento sotto (16/09) */
   if(drag && drag.mode==="item" && drag.moved){
     if(e.shiftKey && selIds().length===1) cabTryInsertAt(svgPoint(e), getSel());   /* Shift al rilascio sopra un cavo = inserisci nel percorso (stile Max) */
     (state.items||[]).forEach(function(x){ if(x.diFor && selSet[x.id]) diSaveOff(x); });   /* DI trascinata a mano: da ora sta li', anche quando lo strumento si sposta */
