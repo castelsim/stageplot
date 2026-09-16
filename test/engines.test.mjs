@@ -5549,6 +5549,27 @@ t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta 
   ok(/rsw\.style\.display = t\.riser \? "block" : "none";/.test(appjs), "e si vede solo sulle pedane");
 });
 
+t("la scelta del modello mostra la pianta di ogni modello, senza toccare il progetto aperto", () => {
+  /* 16/09 — Simone: «aggiungi le anteprime nella scelta dei modelli». */
+  reset(); add("sedia", 100, 100);
+  const prima = JSON.stringify(A.state);
+  A.START_MODELS.forEach((m) => {
+    const ap = A.modelloAnteprima(m[0]);
+    ok(ap && /^<svg /.test(ap.svg) && /class="mpv-stage"/.test(ap.svg), m[1] + ": c'è la pianta");
+    ok(/class="mpv-mus"|class="mpv-riser"/.test(ap.svg), m[1] + ": con musicisti o pedane");
+    ok(/palco [\d,]+ × [\d,]+ m$/.test(ap.sub), m[1] + ": dice quanto è grande il palco: " + ap.sub);
+    /* il Coro non ha elementi-persona: le voci stanno sulle pedane del coro, e un «0 musicisti» sarebbe falso */
+    if (m[0] !== "coro") ok(ap.persone > 0 && /musicist/.test(ap.sub), m[1] + ": dice quanti musicisti: " + ap.sub);
+    else ok(!/musicist/.test(ap.sub), "Coro: niente conteggio inventato: " + ap.sub);
+  });
+  eq(JSON.stringify(A.state), prima, "il progetto aperto non cambia");
+  /* la misura è quella che il modello avrà davvero */
+  const fd = A.formationData("band");
+  if (fd.stage) eq([A.modelloAnteprima("band").w, A.modelloAnteprima("band").d], [fd.stage.w, fd.stage.d], "il palco dichiarato dal modello");
+  ok(/if\(host\.id==="mpMods"\)\{/.test(appjs) && /b\.className="mp-card";/.test(appjs), "le schede stanno nella finestra «Nuovo»");
+  ok(/#mpMods\.mp-grid\{display:grid/.test(stylesCss), "a griglia, e con l'id davanti per battere .wl-mods");
+});
+
 t("gli sgabelli hanno un tipo, e il cartiglio dice quali portare", () => {
   /* 16/09 — Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per contrabbassi, per
      batteria, per piano e tastiere», poi «aggiungi anche sgabello alto per chi canta seduto». */
