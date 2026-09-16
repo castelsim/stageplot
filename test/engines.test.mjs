@@ -5522,6 +5522,21 @@ t("una postazione doppia conta due sedute e un leggio solo", () => {
   ok(/2 sedute/.test(tot), "due musicisti, due sedie: " + tot);
   ok(/1 leggio\b/.test(tot), "ma un leggio in due: " + tot);
 });
+t("stampando al 100% il cartiglio non finisce dove la stampante non arriva", () => {
+  /* 16/09 — Simone: «ho appena stampato con scala 100% e mi taglia il mio nome e mail in basso a
+     sinistra». Il cartiglio partiva da ph-cartH: l'ultima riga (il riferimento) cadeva a 3 mm dal fondo. */
+  const L = A.pdfLayout("a4", "landscape", 27);
+  ok(L.fondo >= 6, "c'è un margine di fondo per la stampante: " + L.fondo);
+  ok(/function pdfCartiglio\(doc, L, N, header\)\{\s*var y=L\.ph-L\.fondo-L\.cartH,/.test(appjs), "il PDF lo usa");
+  ok(/var cy=L\.ph-L\.fondo-L\.cartH;/.test(appjs), "e l'anteprima pure");
+  /* il riferimento sta a y+19 (+5 con la riga dei totali): con cartH 27 la sua riga deve restare ad almeno 6 mm dal fondo */
+  ok((L.ph - L.fondo - 27 + 24) <= L.ph - 6, "l'ultima riga resta dentro l'area stampabile");
+  /* il disegno non si rimpicciolisce: lo spazio era già riservato sotto */
+  eq(L.drawH, L.ph - L.M - 27 - 5 - (L.M + 7), "l'area del disegno è quella di prima");
+  ok((L.ph - L.M - 27 - 5) <= (L.ph - L.fondo - 27) - 5, "e fra disegno e cartiglio restano 5 mm per «PUBBLICO»");
+  ok(/doc\.text\("Creato con stageplot\.it", pw-10, ph-4\.5,/.test(appjs), "anche il credito si alza dal bordo");
+});
+
 t("il cartiglio si alza quando c'e' la riga dei totali", () => {
   reset();
   const vuoto = A.cartHFor("", "a4", "landscape");
