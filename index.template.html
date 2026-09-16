@@ -25339,7 +25339,12 @@ function pdfLayout(paperKey, orient, cartH){
   var p=PAPER[paperKey], pw=p.w, ph=p.h;
   if(orient==="portrait"){ pw=p.h; ph=p.w; }
   var M=10, topLbl=7, botLbl=5;
-  return { pw:pw, ph:ph, M:M, cartH:cartH, orient:orient||"landscape", paper:paperKey,
+  /* FONDO: il cartiglio stava attaccato al bordo e la sua ultima riga (il riferimento, nome e mail)
+     cadeva a 3 mm dal fondo del foglio, dove le stampanti non arrivano: stampando al 100% si tagliava
+     (Simone, 16/09). Il margine M sotto il disegno c'era già: il cartiglio ora ne usa 7 mm, e il
+     disegno resta grande com'era. */
+  var fondo=7;
+  return { pw:pw, ph:ph, M:M, fondo:fondo, cartH:cartH, orient:orient||"landscape", paper:paperKey,
     drawX:M+10, drawY:M+topLbl,
     drawW:pw-2*M-20, drawH:ph-M-cartH-botLbl-(M+topLbl) };
 }
@@ -26730,7 +26735,7 @@ function pdfTotals(opts){
   return out;
 }
 function pdfCartiglio(doc, L, N, header){
-  var y=L.ph-L.cartH, M=L.M, scW=90, titleW=L.pw-2*M-scW;
+  var y=L.ph-L.fondo-L.cartH, M=L.M, scW=90, titleW=L.pw-2*M-scW;
   doc.setDrawColor(31,41,55); doc.setLineWidth(0.4);
   doc.line(M, y, L.pw-M, y);
   doc.setTextColor(17,24,39);
@@ -26797,7 +26802,7 @@ function pdfCredit(doc){
     doc.setPage(i);
     var ps=doc.internal.pageSize, pw=ps.getWidth(), ph=ps.getHeight();
     doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(156,163,175);
-    doc.text("Creato con stageplot.it", pw-10, ph-2.8, {align:"right"});
+    doc.text("Creato con stageplot.it", pw-10, ph-4.5, {align:"right"});   /* a 2,8 mm dal bordo la stampante non arrivava */
   }
   doc.setPage(n);
 }
@@ -26813,7 +26818,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var scene = stageSceneSvg(box.vb, {focus:opts.focus||null, textK:pdfTextK(Ng),
       noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2})
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
-  var cy=L.ph-L.cartH;
+  var cy=L.ph-L.fondo-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
   var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
@@ -26842,7 +26847,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
     /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+13.5)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
-    '<text x="'+(L.pw-10)+'" y="'+(L.ph-2.8)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
+    '<text x="'+(L.pw-10)+'" y="'+(L.ph-4.5)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
     (opts.pageLabel ? '<text x="'+L.M+'" y="8.5" font-size="6.4" font-weight="800" letter-spacing="0.4" fill="#111827">'+esc(opts.pageLabel)+'</text>' : '')+
     '</svg>';
 }
