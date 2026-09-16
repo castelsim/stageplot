@@ -5518,6 +5518,39 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=_ptecn\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
 });
 
+t("gli sgabelli hanno un tipo, e il cartiglio dice quali portare", () => {
+  /* 16/09 — Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per contrabbassi, per
+     batteria, per piano e tastiere», poi «aggiungi anche sgabello alto per chi canta seduto». */
+  reset();
+  const s1 = add("sgabello", 100, 100); s1.sgabTipo = "voce";
+  const s2 = add("sgabello", 200, 100);
+  const s3 = add("sgabello", 300, 100); s3.sgabTipo = "piano";      /* il piano ha la panchetta: uno sgabello «piano» non esiste */
+  const s4 = add("sgabello", 400, 100); s4.sgabTipo = "<b>x";      /* valore strano da un file: non vale */
+  eq(A.sgabTipo(s1), "voce", "sgabello alto per chi canta"); eq(A.sgabTipo(s2), "generico", "senza tipo è generico");
+  eq(A.sgabTipo(s3), "generico", "«piano» non è un tipo di sgabello"); eq(A.sgabTipo(s4), "generico", "un valore sconosciuto non passa");
+  add("batteria", 600, 300); add("stagepiano", 900, 300); add("grancoda", 1100, 500);
+  add("contrabbasso", 300, 600); add("sedia", 800, 700);
+  const tot = A.pdfTotals({ tecnici: false }).join(" · ");
+  ok(/\b1 seduta\b/.test(tot), "la sedia è una seduta, il contrabbasso no: " + tot);
+  ok(/1 sgabello batteria/.test(tot), "lo sgabello della batteria, di serie: " + tot);
+  ok(/1 sgabello alto contrabbasso/.test(tot), "quello del contrabbasso: " + tot);
+  ok(/1 panca piano/.test(tot), "la panca del pianoforte: " + tot);
+  ok(/1 sgabello tastiere/.test(tot), "lo sgabello dello stage piano: " + tot);
+  ok(/1 sgabello alto per chi canta/.test(tot), "quello alto per chi canta: " + tot);
+  ok(/3 sgabelli\b/.test(tot), "e i generici: " + tot);
+  /* l'ordine: prima quelli legati a uno strumento, poi i generici */
+  ok(tot.indexOf("batteria") < tot.indexOf("alto contrabbasso") && tot.indexOf("per chi canta") < tot.indexOf("3 sgabelli"), "ordine stabile: " + tot);
+  /* il tipo sopravvive a salvataggio e riapertura */
+  const doc = JSON.parse(A.docToJSONFull()); A.loadDoc(doc);
+  const back = A.state.items.find((x) => x.type === "sgabello" && x.sgabTipo === "voce");
+  ok(back, "sgabTipo resta dopo il salvataggio");
+  /* pannello e ricerca */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pSgabTipo"/.test(html) && /"pKeysWrap","pSgabWrap"/.test(appjs), "c'è il Tipo nel gruppo Accessori");
+  ok(/if\(!it\.label \|\| it\.label===primo\) it\.label = \(v==="generico"\) \? "" : SGAB_TIPI\[v\]\.nome;/.test(appjs), "il nome segue il tipo, senza scavalcare quello scritto a mano");
+  ok(/entries\.push\(\{k:"sgabello", nome:SGAB_TIPI\[k\]\.nome, over:\{sgabTipo:k, label:SGAB_TIPI\[k\]\.nome\}/.test(appjs), "cercando, lo sgabello nasce col suo tipo");
+});
+
 t("una postazione doppia conta due sedute e un leggio solo", () => {
   reset();
   const d = add("vln1x2", 300, 300);

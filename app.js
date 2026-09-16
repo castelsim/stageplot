@@ -5843,6 +5843,43 @@ function stageBlocksOverlay(){
 }
 /* tastiere/pianoforti che hanno lo sgabello di default (togglabile con it.panca=false) */
 var KEYS_BENCH = { grancoda:1, mezzacoda:1, pianoverticale:1, stagepiano:1, doppiatastiera:1, celesta:1 };
+/* TIPI DI SGABELLO — qui, PRIMA del catalogo che li legge all'avvio (16/09, Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per
+   contrabbassi, per batteria, per piano e tastiere»; poi «aggiungi anche sgabello alto per chi canta
+   seduto»). Un solo elemento «Sgabello» col suo Tipo, non cinque voci di catalogo. Chi allestisce deve
+   sapere QUALI sgabelli portare: nel rider i totali si separano. Nessuna altezza scritta: le misure
+   vere vanno verificate prima di finire in un documento. Il pianoforte ha la sua «Panchetta piano». */
+var SGAB_TIPI = {
+  generico:    {nome:"Sgabello",                   uno:"sgabello",                    tanti:"sgabelli",                    scelta:"Generico"},
+  batteria:    {nome:"Sgabello batteria",          uno:"sgabello batteria",           tanti:"sgabelli batteria",           scelta:"Batteria",                kw:"sgabello batteria seggiolino trono batterista drum throne"},
+  contrabbasso:{nome:"Sgabello alto contrabbasso", uno:"sgabello alto contrabbasso",  tanti:"sgabelli alti contrabbasso",  scelta:"Contrabbasso (alto)",     kw:"sgabello contrabbasso sgabello alto contrabbassista"},
+  tastiere:    {nome:"Sgabello tastiere",          uno:"sgabello tastiere",           tanti:"sgabelli tastiere",           scelta:"Tastiere",                kw:"sgabello tastiere sgabello tastiera tastierista keyboard"},
+  voce:        {nome:"Sgabello alto voce",         uno:"sgabello alto per chi canta", tanti:"sgabelli alti per chi canta", scelta:"Alto, per chi canta seduto", kw:"sgabello alto voce sgabello cantante seduto sgabello da bar sgabello bar"},
+  piano:       {nome:"Panca piano",                uno:"panca piano",                 tanti:"panche piano"}
+};
+var SGAB_ORDINE = ["batteria","contrabbasso","piano","tastiere","voce","generico"];
+var SGAB_SCELTE = ["generico","batteria","contrabbasso","tastiere","voce"];   /* quelli che uno «Sgabello» può essere */
+var KEYS_PANCA_PIANO = {grancoda:1, mezzacoda:1, pianoverticale:1, celesta:1};   /* le altre tastiere hanno lo sgabello */
+function sgabTipo(it){ var v=it && it.sgabTipo; return (typeof v==="string" && SGAB_SCELTE.indexOf(v)>-1) ? v : "generico"; }
+/* Gli sgabelli che un elemento porta con sé, per tipo: quello scelto, o quello di serie dello strumento. */
+function sgabelliDi(it){
+  if(!it || !TYPES[it.type]) return [];
+  if(it.type==="sgabello") return [[sgabTipo(it),1]];
+  if(it.type==="panchetta") return [["piano",1]];
+  if(it.type==="stoolR") return [["batteria",1]];
+  if(KEYS_BENCH[it.type] && it.panca!==false) return [[KEYS_PANCA_PIANO[it.type] ? "piano" : "tastiere",1]];
+  if(STOOL_POSTAZ[it.type]!=null && optSedia(it)) return [["contrabbasso", STOOL_POSTAZ[it.type]]];
+  if(it.type==="batteria" && parts(it).stool!==false) return [["batteria",1]];
+  if(it.type==="direttore" && it.sgab===true) return [["generico",1]];
+  return [];
+}
+function sgabelliPerTipo(items){
+  var c={};
+  (items||state.items||[]).forEach(function(it){ sgabelliDi(it).forEach(function(p){ c[p[0]]=(c[p[0]]||0)+p[1]; }); });
+  return SGAB_ORDINE.filter(function(k){ return c[k]; }).map(function(k){ return [k, c[k]]; });
+}
+function sgabelliTesto(items){
+  return sgabelliPerTipo(items).map(function(p){ return p[1]+" "+(p[1]===1 ? SGAB_TIPI[p[0]].uno : SGAB_TIPI[p[0]].tanti); });
+}
 function pianoBench(it){
   var by=it.d/2+18, s=bar(0,by,72,30,'ic fBlack',6);
   [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(function(c){ s+=circ(c[0]*29, by+c[1]*10.5, 1.8,'dotS'); });
@@ -10800,6 +10837,11 @@ function renderProps(){
   var illustrated = hasLookToggle(it) && it.look!=="schematico";
   document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
+  var sgw=document.getElementById("pSgabWrap");
+  if(sgw){ var isSgab=(it.type==="sgabello"); sgw.style.display = isSgab ? "block" : "none";
+    if(isSgab){ var sgs=document.getElementById("pSgabTipo");
+      if(!sgs.options.length) sgs.innerHTML=SGAB_SCELTE.map(function(k){ return '<option value="'+k+'">'+esc(SGAB_TIPI[k].scelta)+'</option>'; }).join("");
+      sgs.value=sgabTipo(it); } }
   var rw=document.getElementById("pRampWrap");   /* passacavi: formato (Micro/Midi/XXL/Rampa terminale) */
   if(rw){ var isRamp=it.type==="cableramp"; rw.style.display=isRamp?"block":"none";
     if(isRamp){ var rsel=document.getElementById("pRamp");
@@ -11329,6 +11371,16 @@ document.getElementById("pDimSide").addEventListener("change", function(){ var v
 /* il select "pBy" non esiste più: «Fornito da» sta nella channel list (26/08) */
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
+document.getElementById("pSgabTipo").addEventListener("change", function(){
+  var v=document.getElementById("pSgabTipo").value;
+  mutSel(function(it){
+    if(it.type!=="sgabello") return;
+    /* il nome segue il tipo, finché l'utente non ne ha scritto uno suo */
+    var primo=SGAB_TIPI[sgabTipo(it)].nome;
+    if(!it.label || it.label===primo) it.label = (v==="generico") ? "" : SGAB_TIPI[v].nome;
+    if(v==="generico") delete it.sgabTipo; else it.sgabTipo=v;
+  });
+});
 document.getElementById("pPanca").addEventListener("change", function(){ var v=document.getElementById("pPanca").checked; mutSel(function(it){ it.panca=v; }); });
 document.getElementById("pLeggioGen").addEventListener("change", function(){ var v=document.getElementById("pLeggioGen").checked; mutSel(function(it){ it.leggio=v; }); });   /* leggio generico strumenti-musicista */
 document.getElementById("pLucetta").addEventListener("change", function(){ var v=document.getElementById("pLucetta").checked; mutSel(function(it){ it.lucetta=v; }); });   /* lucetta leggio (solo visiva) */
@@ -11824,7 +11876,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pZoneWrap"]);
   group("Stage box", null, ["pSbChWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
-  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
+  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
@@ -12667,6 +12719,10 @@ function ricordaRecenteCatalogo(k, nome, over){
         g[1].filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; }).forEach(function(k){
           addToGroup(g[0], makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
         });
+      });
+      /* gli sgabelli con il loro tipo: si trovano cercando, nel catalogo resta uno solo (16/09) */
+      if(TYPES.sgabello) SGAB_SCELTE.filter(function(k){ return k!=="generico"; }).forEach(function(k){
+        entries.push({k:"sgabello", nome:SGAB_TIPI[k].nome, over:{sgabTipo:k, label:SGAB_TIPI[k].nome}, dim:"Ø38", kw:SGAB_TIPI[k].kw});
       });
     }
     if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
@@ -24713,9 +24769,10 @@ function pdfTotals(opts){
   /* SEDUTE — sedie e sgabelli veri, più quelle incluse nelle postazioni: una doppia ne vuole due. */
   var sedie=0;
   it.forEach(function(x){
-    if(x.type==="sedia"||x.type==="sediabianca"||x.type==="sedialeggio"||x.type==="sgabello"||x.type==="panchetta"){ sedie++; return; }
+    if(x.type==="sedia"||x.type==="sediabianca"||x.type==="sedialeggio"){ sedie++; return; }
     if(!isPost(x) && !VOCE[x.type] && !(TYPES[x.type]&&TYPES[x.type].gtr)) return;
     if(optSedia(x)!==true) return;
+    if(STOOL_POSTAZ[x.type]!=null) return;   /* il contrabbasso sta su uno sgabello: si conta sotto, col suo tipo */
     sedie += (x.doppia===true || DOUBLE_TYPES[x.type]) ? 2 : 1;
   });
   var pm=n(function(x){ return x.type==="hearback"; });
@@ -24725,6 +24782,7 @@ function pdfTotals(opts){
   if(canali && tecn) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
   if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
+  sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
   if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
   if(wedge)  out.push(wedge+(wedge===1?" spia":" spie"));
   if(iem)    out.push(iem+" in-ear");
