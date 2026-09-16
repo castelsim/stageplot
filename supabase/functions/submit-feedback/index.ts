@@ -7,6 +7,7 @@ import { sendEmail } from "../_shared/email.ts";
 import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { insertFeedbackRow } from "../_shared/feedback-insert.ts";
+import { clientIp, corpoTroppoGrande, oraPiena } from "../_shared/feedback-limits.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -23,7 +24,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
 
-  const payload = await req.json().catch(() => null);
+  // Tetto al corpo PRIMA di leggerlo tutto (16/09): la funzione è pubblica
+  if (corpoTroppoGrande(Number(req.headers.get("content-length") ?? NaN))) return json({ error: "richiesta troppo grande" }, 413);
+  const raw = await req.text().catch(() => "");
+  if (corpoTroppoGrande(new TextEncoder().encode(raw).length)) return json({ error: "richiesta troppo grande" }, 413);
+  let payload: unknown = null;
+  try { payload = JSON.parse(raw); } catch { payload = null; }
   const v = validateFeedback(payload);
   if (!v.ok) {
     if (v.error === "spam") return json({ ok: true }); // honeypot: finto successo, nessun insert
@@ -46,9 +52,18 @@ Deno.serve(async (req) => {
     if (u?.user) { f.user_id = u.user.id; f.user_email = u.user.email ?? null; }
   }
 
-  // Rate-limit per IP hashato (best-effort: se manca IP o salt, si salta)
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  // Tetto GLOBALE (16/09): regge anche se l'IP è falsificato. Pochi invii al giorno sono la norma.
+  const { count: nellOra, error: cntErr } = await supabase.from("feedback")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+  if (cntErr) console.error("conteggio orario fallito:", cntErr.message);
+  else if (oraPiena(nellOra)) return json({ error: "troppi invii, riprova più tardi" }, 429);
+
+  // Rate-limit per IP hashato. L'IP viene dalla fonte che il client non scrive (clientIp). Senza salt il
+  // limite per IP non c'è: lo si dice nel log, e resta il tetto globale.
+  const ip = clientIp(req.headers);
   const salt = Deno.env.get("FEEDBACK_IP_SALT") || "";
+  if (!salt) console.error("FEEDBACK_IP_SALT assente: limite per IP spento, resta solo quello globale");
   if (ip && salt) {
     const h = await ipHash(ip, salt);
     const { data: count, error: rlErr } = await supabase.rpc("feedback_throttle_hit", { p_ip_hash: h });
