@@ -3,7 +3,7 @@
    posti che non sa coprire, descrive l'evento, rilegge e manda. Quello che parte è una copia funzionale del
    disegno, senza la sua rubrica: la costruisce `domain/client-request.js`. */
 import { BASE } from "../config.js";
-import { esc, el, toast, setState, errMsg, fmtDate } from "../ui.js";
+import { esc, el, toast, setState, errMsg, fmtDate, avvia } from "../ui.js";
 import { getSession, signIn } from "../auth.js";
 import { EVENT_KINDS, motivoNonPronta, stagePositions, snapshotOf, countNeeded, summaryLines } from "../domain/client-request.js";
 import { typeMapFrom, docVariants, isUuid } from "../domain/stageplot-import.js";
@@ -249,4 +249,4 @@ function paintFatto(subito) {
   if (progetto) app.appendChild(el(`<p class="small muted">Il progetto che continui a modificare non cambia la richiesta già mandata: quello che è arrivato resta com'era.</p>`));
 }
 
-main();
+avvia(main);

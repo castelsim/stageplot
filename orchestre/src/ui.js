@@ -118,3 +118,30 @@ export function setState(node, kind, msg) {
   node.className = kind;
   node.textContent = msg || { loading: "Un attimo…", empty: "Niente da mostrare.", err: "Qualcosa non ha risposto. Riprova." }[kind];
 }
+
+/* Avvio delle pagine (17/09, verifica di resilienza). Se il server non risponde o risponde con un errore,
+   la pagina lo DICE, con «Riprova». Prima dieci pagine dello staff restavano su «Un attimo…» per sempre:
+   l'errore finiva solo nella console e una chiamata appesa non aveva scadenza. Se la pagina ha già
+   disegnato qualcosa, l'errore arriva come avviso senza cancellarla. */
+export function avvia(main, { attesaMs = 20000 } = {}) {
+  const app = document.getElementById("app");
+  const inAttesa = () => !!app && (!app.children.length || !!app.querySelector(".loading"));
+  const mostra = (testo) => {
+    if (!app) return;
+    app.innerHTML = "";
+    const p = document.createElement("p"); p.className = "err"; p.textContent = testo;
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = "Riprova";
+    b.addEventListener("click", () => location.reload());
+    app.appendChild(p); app.appendChild(b);
+  };
+  const timer = setTimeout(() => {
+    if (inAttesa()) mostra("Il server non risponde. Controlla la connessione e riprova.");
+  }, attesaMs);
+  return Promise.resolve().then(main).then(() => clearTimeout(timer), (e) => {
+    clearTimeout(timer);
+    console.error(e);
+    if (inAttesa()) mostra("Qualcosa non ha risposto. Riprova.");
+    else toast(errMsg(e), { err: true });
+  });
+}
+

@@ -42,6 +42,9 @@ jobs:
             exit 1
           fi
       - name: Convocazioni Orchestre (orc-notify)
+        # 17/09: gira anche se il passo delle consulenze fallisce. Prima una sola notifica di pagamento
+        # fallita (dead letter) fermava per sempre convocazioni, richieste e scadenze degli inviti.
+        if: always()
         shell: bash
         run: |
           set -euo pipefail

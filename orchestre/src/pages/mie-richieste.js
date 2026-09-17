@@ -6,7 +6,7 @@
    musicisti (o «formazione da definire»), e uno stato tradotto — «ricevuta» / «in lavorazione». Le note
    interne, chi l'ha presa in carico e lo stato vero della lavorazione restano dell'organizzazione. */
 import { BASE } from "../config.js";
-import { el, toast, confirm, setState, errMsg, fmtDate } from "../ui.js";
+import { el, toast, confirm, setState, errMsg, fmtDate, avvia } from "../ui.js";
 import { getSession, signIn, barraAree } from "../auth.js";
 import { quantiLabel } from "../domain/client-request.js";
 import * as api from "../api/client-requests.js";
@@ -108,4 +108,4 @@ function schedaPreventivo(q) {
   return li;
 }
 
-main();
+avvia(main);

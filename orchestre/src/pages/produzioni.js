@@ -1,7 +1,7 @@
 /* Le produzioni dell'organizzazione: una card ciascuna con date, stato e posti coperti.
    ?p=<progetto StagePlot> arriva dal menu File dell'editor: porta alla produzione collegata, o propone di crearla. */
 import { BASE } from "../config.js";
-import { esc, el, setState, errMsg, fmtDate, toast } from "../ui.js";
+import { esc, el, setState, errMsg, fmtDate, toast, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND } from "../domain/staffing.js";
@@ -74,4 +74,4 @@ function paint() {
   }
 }
 
-main();
+avvia(main);

@@ -2,7 +2,7 @@
    inviti a cui rispondere senza token, incarichi confermati, privacy (consensi, export, cancellazione).
    Serve una sessione: chiunque abbia fatto login con Google, staff o no. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime } from "../ui.js";
+import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia } from "../ui.js";
 import { getSession, signOut, barraAree } from "../auth.js";
 import { STEPS, PASSI_PROFILO, GENRES, PARTI, PRIVACY_VERSION, PUBLIC_STATUS, missingFields, completion, FIELD_LABEL } from "../domain/applications.js";
 import { DATE_KIND, INV_STATUS, INV_PILL, PROD_STATUS } from "../domain/staffing.js";
@@ -474,4 +474,4 @@ async function manda(appId, orgId, save) {
   } catch (e) { toast(errMsg(e), { err: true }); }
 }
 
-main();
+avvia(main);

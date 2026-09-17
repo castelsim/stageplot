@@ -7369,6 +7369,7 @@ function load(){
       ensureItemIds();
     }catch(e){
       window.__docLoadBlocked={code:e&&e.code||"INVALID_DOCUMENT"};
+      window.__docLoadBlockedRaw=raw;   /* il testo originale: è l'unica copia, e «Nuovo» lo sovrascrive (17/09) */
       window.__bootCloudMeta=false; window.__bootVenueMeta=false; window.__bootCloudId=null; window.__bootCloudRev=null; window.__bootVenueSig=null; window.__bootVenueKey=null;
       window.__bootContentSig=null; window.__bootCloudSig=null; window.__bootCloudPending=false; window.__bootCloudSigKnown=false;
       window.__bootVenueUnavailable=false;
@@ -18385,7 +18386,23 @@ function hasMeaningfulDocument(){
 }
 /* Copia completa su file (documento intero, planimetria inclusa): stessa sostanza dell'export dal
    menu, richiamabile dai percorsi d'emergenza in cui lo storage locale non può più ospitare nulla. */
+/* Il progetto che non si apre (file rovinato o di una versione più nuova) si scarica COM'È (17/09, verifica
+   di resilienza): lo stato in memoria in quel caso è vuoto, e la «copia» scaricava un palco vuoto mentre
+   l'originale veniva poi sovrascritto da «Nuovo». Provato in locale: nessuna conferma, nessun ripristino. */
+function scaricaOriginaleBloccato(){
+  var raw=window.__docLoadBlockedRaw;
+  if(typeof raw!=="string" || !raw) return false;
+  try{
+    var d=new Date(), p=function(n){ return String(n).padStart(2,"0"); };
+    var name="stageplot-originale-"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+".json";
+    var url=URL.createObjectURL(new Blob([raw],{type:"application/json"}));
+    dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
+    if(window.__toast) window.__toast("Copia dell'originale scaricata: "+name);
+    return true;
+  }catch(e){ return false; }
+}
 function downloadProjectCopy(){
+  if(window.__docLoadBlocked && typeof window.__docLoadBlockedRaw==="string") return scaricaOriginaleBloccato();
   try{
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var url=URL.createObjectURL(new Blob([docToJSONFull()],{type:"application/json"}));
@@ -24451,7 +24468,19 @@ document.getElementById("bNew").addEventListener("click", function(){
      «verrà chiuso» parlava di un lavoro che non esisteva, e ora che «Nuovo…» è già una finestra di
      scelta sarebbero state due finestre di fila per non azzerare niente. */
   var chiedi = (typeof hasMeaningfulDocument==="function") ? hasMeaningfulDocument() : true;
-  (chiedi ? confirmDialog({
+  /* Progetto che non si apre (17/09): lo stato in memoria è vuoto, quindi `chiedi` era falso e l'originale
+     veniva sovrascritto senza domande e senza copia. Qui si chiede sempre, e si scarica l'originale prima. */
+  var bloccato = !!window.__docLoadBlocked && typeof window.__docLoadBlockedRaw==="string";
+  (bloccato ? confirmDialog({
+    icon:"warn", title:"Il progetto salvato non si apre",
+    message:"Il progetto salvato su questo dispositivo non si può aprire con questa versione di StagePlot. Ricominciando da un palco vuoto verrebbe sostituito: prima ne scarichiamo il file originale, così non si perde.",
+    confirmText:"Scarica l'originale e ricomincia"
+  }).then(function(ok){
+    if(!ok) return false;
+    if(scaricaOriginaleBloccato()) return true;
+    if(window.__toast) window.__toast("Non è stato possibile scaricare l'originale: il progetto non viene sostituito.",true);
+    return false;
+  }) : chiedi ? confirmDialog({
     icon:"warn", title:"Nuovo stage plot?",
     message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato, esportalo o salvalo prima: verrà chiuso.",
     confirmText:"Azzera e ricomincia"
