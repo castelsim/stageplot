@@ -1,7 +1,7 @@
 /* Scheda di una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · StagePlot · Storia.
    ?id= apre, ?new=1 crea (con ?p=<progetto> nasce già collegata a StagePlot), ?t= sceglie la scheda (così il refresh resta dove eri). */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime } from "../ui.js";
+import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, REP_KIND } from "../nav.js";
 import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, INV_STATUS, INV_PILL, INV_EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
@@ -825,4 +825,4 @@ async function paintStoria() {
   } catch (e) { setState(box, "err", errMsg(e)); }
 }
 
-main();
+avvia(main);

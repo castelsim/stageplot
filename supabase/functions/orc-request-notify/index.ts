@@ -15,6 +15,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { sendEmail } from "../_shared/email.ts";
+import { tentaInvio } from "../_shared/tenta-invio.ts";
 import { buildClientEmail, buildInternalEmail, type ClientRequestRow, isReservedAddress, requestKey } from "../_shared/orc-client-requests.ts";
 
 function json(b: unknown, s = 200) {
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
       const m = buildInternalEmail(data, base);
       let ok = false;
       if (mode === "log") { console.info("orc-request-notify [log] →", notifyTo, m.subject); ok = true; }
-      else ok = (await sendEmail({ apiKey: resendKey, to: notifyTo, subject: m.subject, html: m.html, idempotencyKey: requestKey(id, "internal", attempts) })).ok;
+      else ok = await tentaInvio(() => sendEmail({ apiKey: resendKey, to: notifyTo, subject: m.subject, html: m.html, idempotencyKey: requestKey(id, "internal", attempts) }));
       /* se non parte adesso torna «pending»: il worker riprova da solo, non si perde niente */
       await supabase.from("orc_client_requests").update({
         notification_status: ok ? "sent" : "pending", notification_attempts: attempts,
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
       const m = buildClientEmail(data);
       let ok = false;
       if (mode === "log") { console.info("orc-request-notify [log] conferma →", dest, m.subject); ok = true; }
-      else ok = (await sendEmail({ apiKey: resendKey, to: dest, subject: m.subject, html: m.html, idempotencyKey: requestKey(id, "client", attempts) })).ok;
+      else ok = await tentaInvio(() => sendEmail({ apiKey: resendKey, to: dest, subject: m.subject, html: m.html, idempotencyKey: requestKey(id, "client", attempts) }));
       await supabase.from("orc_client_requests").update({ ack_status: ok ? "sent" : "pending", ack_attempts: attempts }).eq("id", id);
       out.client = ok ? "sent" : "retry";
     }

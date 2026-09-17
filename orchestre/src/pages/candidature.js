@@ -1,6 +1,6 @@
 /* Le candidature ricevute dall'organizzazione: elenco con filtri per stato. */
 import { BASE } from "../config.js";
-import { esc, el, setState, errMsg, fmtDate } from "../ui.js";
+import { esc, el, setState, errMsg, fmtDate, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { APP_STATUS, APP_PILL } from "../domain/applications.js";
@@ -53,4 +53,4 @@ function paint() {
   }
 }
 
-main();
+avvia(main);
