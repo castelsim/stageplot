@@ -2,7 +2,7 @@
    genere, lettura a prima vista, esperienza, zona, tag — sta chiuso finché non serve, e si apre da solo
    se l'indirizzo ne porta uno. La logica dei filtri è in domain/roster-filter.js. */
 import { BASE } from "../config.js";
-import { esc, el, setState, errMsg, toast, confirm } from "../ui.js";
+import { esc, el, setState, errMsg, toast, confirm, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, STATUS_PILL, FAMILY } from "../nav.js";
 import { list } from "../api/musicians.js";
@@ -106,7 +106,7 @@ function paint() {
   }
 }
 
-main();
+avvia(main);
 
 
 /* ------------------------------------------------------------------ inviti personali

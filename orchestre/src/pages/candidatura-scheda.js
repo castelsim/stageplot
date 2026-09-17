@@ -1,6 +1,6 @@
 /* Una candidatura: il profilo dichiarato, i file, la storia, le valutazioni interne, il cambio di stato. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, errMsg, fmtDate, fmtDateTime, safeHttpUrl } from "../ui.js";
+import { esc, el, toast, confirm, errMsg, fmtDate, fmtDateTime, safeHttpUrl, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { APP_STATUS, APP_PILL, EVAL_KIND, EVAL_SCORES, publicStatus, PUBLIC_STATUS } from "../domain/applications.js";
@@ -174,4 +174,4 @@ function evalForm(ev) {
   return f;
 }
 
-main();
+avvia(main);

@@ -5570,6 +5570,18 @@ t("la scelta del modello mostra la pianta di ogni modello, senza toccare il prog
   ok(/#mpMods\.mp-grid\{display:grid/.test(stylesCss), "a griglia, e con l'id davanti per battere .wl-mods");
 });
 
+t("un progetto che non si apre non si perde premendo Nuovo", () => {
+  /* 17/09, verifica di resilienza, provato in locale: con un progetto bloccato (versione futura) «Nuovo» non
+     chiedeva conferma, non creava un punto di ripristino e sovrascriveva l'originale; la copia scaricava il vuoto. */
+  ok(/window\.__docLoadBlocked=\{code:e&&e\.code\|\|"INVALID_DOCUMENT"\};\s*window\.__docLoadBlockedRaw=raw;/.test(appjs), "il testo originale si tiene");
+  const f = appjs.slice(appjs.indexOf("function scaricaOriginaleBloccato(){"), appjs.indexOf("function downloadProjectCopy(){"));
+  ok(/new Blob\(\[raw\]/.test(f) && /stageplot-originale-/.test(f), "si scarica l'originale così com'è");
+  ok(/function downloadProjectCopy\(\)\{\s*if\(window\.__docLoadBlocked && typeof window\.__docLoadBlockedRaw==="string"\) return scaricaOriginaleBloccato\(\);/.test(appjs), "anche la «copia di emergenza» scarica l'originale");
+  const n = appjs.slice(appjs.indexOf('getElementById("bNew").addEventListener'), appjs.indexOf('getElementById("bNew").addEventListener') + 2600);
+  ok(/var bloccato = !!window\.__docLoadBlocked && typeof window\.__docLoadBlockedRaw==="string";/.test(n) && /\(bloccato \? confirmDialog\(/.test(n), "con un progetto bloccato si chiede sempre");
+  ok(/if\(scaricaOriginaleBloccato\(\)\) return true;/.test(n) && n.indexOf("if(scaricaOriginaleBloccato()) return true;") < n.indexOf("guardDocumentReplacement("), "e si scarica PRIMA di sostituirlo");
+});
+
 t("all'avvio il selettore della griglia dice l'aggancio, non resta vuoto", () => {
   /* 16/09 — segnalazione di Simone: «quando apro il software qui non compare l'impostazione della griglia».
      syncSnapSelects() gira all'avvio: se snapMode è dichiarata dopo, vale undefined e il select resta vuoto. */
@@ -12272,7 +12284,8 @@ t("«Nuovo…» apre la scelta, e non avvisa di un lavoro che non c'è", () => {
   ok(/Palco vuoto/.test(picker) && /id="mpMods"/.test(picker), "le due strade stanno una accanto all'altra");
   /* Prima la conferma di azzeramento partiva SEMPRE: su un palco ancora vuoto annunciava la perdita
      di un lavoro inesistente, e con la nuova finestra sarebbero state due finestre di fila. */
-  const nuovo = appjs.slice(appjs.indexOf('getElementById("bNew").addEventListener'), appjs.indexOf('getElementById("bNew").addEventListener') + 1200);
+  /* 2600 e non 1200 (17/09): prima della conferma normale ora c'è il ramo del progetto che non si apre */
+  const nuovo = appjs.slice(appjs.indexOf('getElementById("bNew").addEventListener'), appjs.indexOf('getElementById("bNew").addEventListener') + 2600);
   ok(/hasMeaningfulDocument\(\)/.test(nuovo), "la conferma è condizionata al documento");
   ok(/Promise\.resolve\(true\)/.test(nuovo), "e su un palco vuoto si prosegue diritti");
   ok(/Azzera e ricomincia/.test(nuovo), "quando invece c'è del lavoro, l'avviso resta");

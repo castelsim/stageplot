@@ -16,6 +16,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { sendEmail } from "../_shared/email.ts";
+import { tentaInvio } from "../_shared/tenta-invio.ts";
 import { isReservedAddress } from "../_shared/orc-client-requests.ts";
 import { buildQuoteEmail, quoteKey, type QuoteMailRow } from "../_shared/orc-quotes.ts";
 
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
   const mail = buildQuoteEmail(row, base);
   let ok = false;
   if (mode === "log") { console.info("orc-quote-notify [log] →", dest, mail.subject); ok = true; }
-  else ok = (await sendEmail({ apiKey: resendKey, to: dest, subject: mail.subject, html: mail.html, idempotencyKey: quoteKey(id, attempts) })).ok;
+  else ok = await tentaInvio(() => sendEmail({ apiKey: resendKey, to: dest, subject: mail.subject, html: mail.html, idempotencyKey: quoteKey(id, attempts) }));
   /* se non parte adesso torna «pending»: il worker riprova da solo, non si perde niente */
   await supabase.from("orc_quotes").update({ notify_status: ok ? "sent" : "pending", notify_attempts: attempts, notify_claimed_at: null }).eq("id", id);
   return json({ ok: true, client: ok ? "sent" : "retry" });

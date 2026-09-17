@@ -12,6 +12,7 @@ import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { outboxStatusAfterAttempt } from "../_shared/notification-outbox.ts";
 import { dispatchInvitations } from "../_shared/orc-invite-dispatch.ts";
 import { send } from "../_shared/orc-send.ts";
+import { tentaInvio } from "../_shared/tenta-invio.ts";
 import { buildClientEmail, buildInternalEmail, type ClientRequestRow, isReservedAddress as isReservedClient, requestKey } from "../_shared/orc-client-requests.ts";
 import { buildQuoteEmail, quoteKey, type QuoteMailRow } from "../_shared/orc-quotes.ts";
 
@@ -64,7 +65,7 @@ async function processClientRequests(supabase: SupabaseClient, resendKey: string
         let ok = false;
         if (!to) { ok = false; }
         else if (mode === "log") { console.info("orc-notify [log] richiesta →", to, m.subject); ok = true; }
-        else ok = (await send(resendKey, to, m.subject, m.html, m.text, requestKey(id, "internal", attempts))).ok;
+        else ok = await tentaInvio(() => send(resendKey, to, m.subject, m.html, m.text, requestKey(id, "internal", attempts)));   /* un errore lanciato non lascia la riga «sending» (17/09) */
         await supabase.from("orc_client_requests").update({
           notification_status: outboxStatusAfterAttempt(ok, attempts),
           notification_attempts: attempts, notification_claimed_at: null,
@@ -88,7 +89,7 @@ async function processClientRequests(supabase: SupabaseClient, resendKey: string
       }
       const m = buildClientEmail(row, base);
       if (mode === "log") { console.info("orc-notify [log] conferma →", dest, m.subject); ok = true; }
-      else ok = (await send(resendKey, dest, m.subject, m.html, m.text, requestKey(id, "client", attempts))).ok;
+      else ok = await tentaInvio(() => send(resendKey, dest, m.subject, m.html, m.text, requestKey(id, "client", attempts)));
       await supabase.from("orc_client_requests").update({
         ack_status: outboxStatusAfterAttempt(ok, attempts), ack_attempts: attempts,
       }).eq("id", id);
@@ -160,6 +161,10 @@ Deno.serve(async (req) => {
     if (stErr) throw new Error(stErr.message);
     await supabase.from("orc_quotes").update({ notify_status: "pending", notify_claimed_at: null })
       .eq("notify_status", "sending").or(`notify_claimed_at.is.null,notify_claimed_at.lt.${staleBefore}`);
+    /* anche le richieste dei clienti (17/09): mancavano, e una presa rimasta a metà non ripartiva mai */
+    await supabase.from("orc_client_requests")
+      .update({ notification_status: "pending", notification_claimed_at: null, notification_last_error: "stale_claim_recovered" })
+      .eq("notification_status", "sending").or(`notification_claimed_at.is.null,notification_claimed_at.lt.${staleBefore}`);
     const counts = await dispatchInvitations(supabase, { resendKey, mode, base, limit: BATCH_SIZE });
     const reqCounts = await processClientRequests(supabase, resendKey, mode, base, Deno.env.get("NOTIFY_EMAIL") ?? "");
     const quoteCounts = await processQuotes(supabase, resendKey, mode, base);

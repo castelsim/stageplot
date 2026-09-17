@@ -3,7 +3,7 @@
    occhi di chi organizza, che per giunta diceva «arrivera'» di cose gia' fatte (collaudo 10/09/2026). */
 import { BASE } from "../config.js";
 import { quantiLabel } from "../domain/client-request.js";
-import { esc, el, roleLabel, setState, errMsg } from "../ui.js";
+import { esc, el, roleLabel, setState, errMsg, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers } from "../api/org.js";
 import { list as listProductions } from "../api/productions.js";
@@ -114,4 +114,4 @@ async function main() {
   }
 }
 
-main();
+avvia(main);

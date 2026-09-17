@@ -1,7 +1,7 @@
 /* La risposta del musicista a una convocazione: dal link con token, senza account, in due tocchi.
    Parla solo con la Edge Function orc-respond (niente supabase-js, niente policy anonime). */
 import { SB_URL } from "../config.js";
-import { esc, el, setState, fmtDateTime, fmtDate } from "../ui.js";
+import { esc, el, setState, fmtDateTime, fmtDate, avvia } from "../ui.js";
 import { DATE_KIND } from "../domain/staffing.js";
 
 const FN = SB_URL + "/functions/v1/orc-respond";
@@ -114,4 +114,4 @@ function paint() {
 }
 
 setState(null, "");
-main();
+avvia(main);

@@ -2,7 +2,7 @@
    porta subito dove l'utente voleva andare (?next=) o all'area admin. */
 import { BASE, STAFF } from "../config.js";
 import { sb } from "../sb.js";
-import { el, setState, errMsg } from "../ui.js";
+import { el, setState, errMsg, avvia } from "../ui.js";
 import { getSession, signIn, ensureProfile, myMemberships, currentOrg, setCurrentOrg, nextUrl, mieAree } from "../auth.js";
 
 const app = document.getElementById("app");
@@ -79,4 +79,4 @@ function paintBivio(org) {
   app.appendChild(el(`<p class="small muted mid">Puoi passare dall'una all'altra quando vuoi, dalla barra in alto: non serve uscire.</p>`));
 }
 
-main();
+avvia(main);

@@ -768,3 +768,22 @@ test("il logo di Orchestre resta dentro Orchestre", () => {
     assert.ok(m[1].startsWith("/orchestre/"), r + ": il logo porta a " + m[1]);
   }
 });
+
+/* 17/09, verifica di resilienza: se Supabase non risponde, dieci pagine dello staff restavano su «Un attimo…»
+   per sempre; e una sola notifica di pagamento fallita fermava il passo di Orchestre nel workflow. */
+test("se il server non risponde la pagina lo dice, e Orchestre non dipende dalle consulenze", () => {
+  const ui = readFileSync(join(root, "orchestre/src/ui.js"), "utf8");
+  assert.match(ui, /export function avvia\(main, \{ attesaMs = 20000 \} = \{\}\)/, "c'è l'avvio con scadenza");
+  assert.match(ui, /Promise\.resolve\(\)\.then\(main\)\.then\(\(\) => clearTimeout\(timer\), \(e\) => \{/, "e l'errore si intercetta");
+  const dir = join(root, "orchestre/src/pages");
+  let n = 0;
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".js"))) {
+    const s = readFileSync(join(dir, f), "utf8");
+    assert.doesNotMatch(s, /^main\(\);$/m, f + ": main() lanciato senza avvia");
+    if (/^avvia\(main\);$/m.test(s)) { n++; assert.match(s, /import \{[^}]*\bavvia\b[^}]*\} from "\.\.\/ui\.js";/, f + ": importa avvia"); }
+  }
+  assert.ok(n >= 10, "le pagine passano da avvia: " + n);
+  const wf = readFileSync(join(root, ".github/workflows/consultation-notification-worker.yml"), "utf8");
+  assert.match(wf, /- name: Convocazioni Orchestre \(orc-notify\)\n(?:\s*#[^\n]*\n)*\s+if: always\(\)\n/, "il passo di Orchestre gira comunque");
+});
+
