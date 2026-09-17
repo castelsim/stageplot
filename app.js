@@ -27719,6 +27719,11 @@ function maybeAskStageSize(explicit){
      senza sessione preesistente al boot, oppure ritorno dal redirect OAuth (?code=). */
   var hadSessionAtBoot=false;
   var oauthReturn=/[?&#](code|access_token)=/.test(location.href);
+  /* Dal 17/09 il login passa da /accedi/google/: si torna qui con la sessione GIÀ salvata, senza ?code=
+     e magari senza SIGNED_IN. La pagina di ritorno lascia un segno, letto una volta sola. */
+  var accessoAppenaFatto=false;
+  try{ accessoAppenaFatto=sessionStorage.getItem("sp_accesso_google")==="1"; sessionStorage.removeItem("sp_accesso_google"); }catch(e){}
+  if(accessoAppenaFatto) oauthReturn=true;
   function analyticsSessionId(){
     var s=null;
     try{
@@ -27885,8 +27890,14 @@ function maybeAskStageSize(explicit){
     if(!sb) return;
     try{ sessionStorage.setItem("cloudReopen","1"); }catch(e){}
     try{ if(typeof save==="function") save(); }catch(e){}   /* persiste il lavoro corrente: ritrovato al ritorno dal login */
-    sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } })
-      .then(function(r){ if(r && r.error){ toast("Accesso non riuscito: "+r.error.message, true); } });
+    /* Prima l'accesso che passa da stageplot.it (accedi/google/avvio.js): Google mostra il nostro
+       dominio, non quello tecnico di Supabase (17/09). Se qui non si può, il login di prima. */
+    var g=window.spGoogle;
+    (g ? g.accedi(location.pathname+location.search) : Promise.resolve(false)).then(function(ok){
+      if(ok) return;
+      sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: location.origin+location.pathname } })
+        .then(function(r){ if(r && r.error){ toast("Accesso non riuscito: "+r.error.message, true); } });
+    });
   }
   function signOut(){
     if(!sb) return;
@@ -28790,6 +28801,7 @@ function maybeAskStageSize(explicit){
       setCloudUser((r && r.data && r.data.session)?r.data.session.user:null);
       window.__cloudAuthResolved=true;
       if(!oauthReturn) hadSessionAtBoot=!!cloudUser;
+      if(accessoAppenaFatto && cloudUser && !loginTracked){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       updateBtn();
       if(orcOpen){
         if(cloudUser){ try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} var _oid=orcOpen; orcOpen=null; openProject(_oid); return; }
