@@ -1,3 +1,4 @@
+import { RESEND_TIMEOUT_MS } from "./tenta-invio.ts";
 import type { Brief } from "./validation.ts";
 
 function esc(s: string | undefined): string {
@@ -56,6 +57,7 @@ export async function sendEmail(args: {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers,
+    signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),   // una chiamata appesa non tiene ferma la funzione (17/09)
     body: JSON.stringify({
       from: "StagePlot <feedback@stageplot.it>",
       to: [args.to],

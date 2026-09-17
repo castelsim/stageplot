@@ -1,7 +1,7 @@
 /* Scheda di un musicista: dati, strumenti, competenze, repertorio, tag, note private.
    ?id=<uuid> apre, ?new=1 crea. Ogni sezione salva da sola: niente modulo infinito. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, setState, errMsg, fmtDate } from "../ui.js";
+import { esc, el, toast, confirm, setState, errMsg, fmtDate, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, FAMILY, REP_KIND, REP_SOURCE } from "../nav.js";
 import * as api from "../api/musicians.js";
@@ -296,4 +296,4 @@ function paintNote() {
   setState(null, "");
 }
 
-main();
+avvia(main);

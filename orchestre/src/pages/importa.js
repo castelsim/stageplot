@@ -1,7 +1,7 @@
 /* Import del pool da CSV: scegli il file (o incolla il testo), vedi l'anteprima e gli errori,
    conferma. L'upsert è per email dentro l'organizzazione; lo fa una RPC in una transazione. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, errMsg } from "../ui.js";
+import { esc, el, toast, confirm, errMsg, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { csvToRows } from "../domain/csv.js";
@@ -96,4 +96,4 @@ function check() {
   out.appendChild(card);
 }
 
-main();
+avvia(main);

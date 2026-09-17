@@ -1,7 +1,7 @@
 /* Impostazioni dell'organizzazione: nome, membri e ruoli, registro delle azioni.
    Ogni scrittura passa da una RPC che ricontrolla il ruolo sul server. */
 import { ROLES } from "../config.js";
-import { esc, el, toast, confirm, setState, roleLabel, fmtDateTime, errMsg } from "../ui.js";
+import { esc, el, toast, confirm, setState, roleLabel, fmtDateTime, errMsg, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { listMembers, setRole, addByEmail, renameOrg, listAudit } from "../api/org.js";
 import { orgSettings, setAccepting } from "../api/applications.js";
@@ -189,4 +189,4 @@ function auditDetail(r) {
   return "";
 }
 
-main();
+avvia(main);

@@ -2,7 +2,7 @@
    Quello che è arrivato non si modifica (lo impedisce il database): qui si legge, si prende in carico e
    si chiude. Quando il cliente accetta, un tasto crea l'evento con i posti da coprire. */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, setState, errMsg, fmtDateTime } from "../ui.js";
+import { esc, el, toast, confirm, setState, errMsg, fmtDateTime, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs } from "../nav.js";
 import { EVENT_KINDS, quantiLabel } from "../domain/client-request.js";
@@ -276,4 +276,4 @@ function disegnaBozza(qbox, r, slots, q) {
   qbox.appendChild(az);
 }
 
-main();
+avvia(main);
