@@ -765,6 +765,7 @@
     <p class="od-msg" id="odMsg" role="status"></p>
   </aside>
 
+  <script src="/accedi/google/avvio.js"></script>
   <script src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4) -->
   <script>
   (function(){
@@ -820,7 +821,11 @@
 
     function startLogin(product){
       try { if (product) sessionStorage.setItem("pendingProduct", product); } catch(e){}
-      sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } });
+      /* Prima l'accesso da stageplot.it (vedi /accedi/google/avvio.js), poi quello di riserva. */
+      var g = window.spGoogle;
+      (g ? g.accedi(location.pathname) : Promise.resolve(false)).then(function(ok){
+        if (!ok) sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } });
+      });
     }
 
     function fillDrawer(product){
