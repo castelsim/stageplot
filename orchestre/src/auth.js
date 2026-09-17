@@ -20,9 +20,13 @@ export async function getSession() {
   return data.session || null;
 }
 
-export function signIn(next) {
-  const back = location.origin + BASE + "/login/?next=" + encodeURIComponent(nextUrl(next));
-  return sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: back } });
+/* Prima l'accesso che passa da stageplot.it (/accedi/google/avvio.js, caricato dalla pagina): Google
+   mostra il nostro dominio invece di quello tecnico di Supabase. Se manca o qui non si può, il login di prima. */
+export async function signIn(next) {
+  const back = BASE + "/login/?next=" + encodeURIComponent(nextUrl(next));
+  const g = globalThis.spGoogle;
+  if (g && await g.accedi(back)) return { data: {}, error: null };
+  return sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + back } });
 }
 
 export async function signOut() {
