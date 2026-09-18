@@ -17725,7 +17725,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
@@ -17827,7 +17827,13 @@ function buildBandOut(o){
   }
 
   /* FONDO — la batteria, che è il volume più grosso e sta al centro */
-  for(var b=0;b<batt;b++) posa("batteria", [[0,-300],[-300,-300],[300,-300]], {label:""});
+  /* la batteria ha la sua spia (18/09: era l'unica senza ascolto) */
+  for(var b=0;b<batt;b++){
+    var elB=posa("batteria", [[0,-300],[-300,-300],[300,-300]], {label:""}), nomeB=batt===1?"Batteria":"Batteria "+(b+1);
+    /* la spia del batterista sta di lato, girata verso di lui: davanti coprirebbe la cassa */
+    if(inEar) ascolto(elB, nomeB);
+    else out.push({type:"wedge", x:elB.x+175, y:elB.y+40, rot:-60, label:nomeB});   /* a destra: a sinistra ci sono le tastiere */
+  }
   /* LATO E CENTRO — basso e tastiere a sinistra, chitarre a destra: la disposizione classica di una
      band, quella che un fonico si aspetta di vedere aprendo il PDF. */
   for(var s2=0;s2<basso;s2++){
@@ -17858,7 +17864,7 @@ function buildBandOut(o){
   }
   for(var c=0;c<cori;c++){
     var nomeC = cori===1 ? "Cori" : "Cori "+(c+1);
-    var el6=posa("corista", [[190 + c*100, -60],[-190 - c*100, -60],[190 + c*100, -160],[-190 - c*100,-160]], {label:nomeC});
+    var el6=posa("corista", [[190 + c*100, -60],[-190 - c*100, -60],[190 + c*100, -160],[-190 - c*100,-160]], {label:nomeC, leggio:false});   /* un corista pop canta a mani libere */
     ascolto(el6, nomeC);
   }
   /* NIENTE allestimento tecnico: pedana, side fill, TX in-ear, stage box e prese dipendono dal
@@ -17941,22 +17947,20 @@ function buildTributoOut(){
   ];
 }
 function buildAcousticOut(){
+  /* Rifatto il 18/09 (Simone: «sono troppe e spesso fatte male»). Prima: microfono «Voce» senza
+     cantante, cajon senza chi lo suona, pianista storto, palco da 11 m per un trio. Ora ogni persona
+     ha strumento e spia, tutti dritti verso il pubblico; il palco si adatta al contenuto. */
   return [
-    {type:"tappeto", x:0, y:-150, w:650, d:360, label:""},
-    {type:"stagepiano", x:-260, y:-150, rot:18, label:"Piano"},
-    {type:"distereo", x:-330, y:-60, label:"DI piano"},
-    {type:"gtacustica", x:140, y:-145, rot:-8, label:"Chitarra acustica"},
-    {type:"dimono", x:205, y:-65, label:"DI chitarra"},
-    {type:"cajon", x:330, y:-170, label:"Cajon"},
-    {type:"astabassa", x:330, y:-118, rot:180, label:""},   /* mic del cajon: niente etichetta doppia */
-    {type:"astamic", x:0, y:-55, label:"Voce"},
-    {type:"coppiast", x:0, y:-225, label:"Ambienti L/R"},
-    {type:"wedge", x:0, y:42, label:"Voce"},
-    {type:"wedge", x:-245, y:25, rot:15, label:"Piano"},
-    {type:"wedge", x:210, y:30, rot:-15, label:"Chitarra"},
-    {type:"stagebox", x:430, y:-70, label:"Stage box"},
-    {type:"corrente", x:-390, y:-115, label:""},
-    {type:"corrente", x:430, y:-190, label:""}   /* presa spostata al fondo, non più sopra il DI chitarra */
+    {type:"cantante", x:0, y:-40, label:"Voce"},
+    {type:"wedge", x:0, y:70, label:"Voce"},
+    {type:"gtacustica", x:210, y:-70, label:"Chitarra"},
+    {type:"wedge", x:210, y:70, label:"Chitarra"},
+    {type:"stagepiano", x:-220, y:-80, label:"Piano"},
+    {type:"wedge", x:-220, y:70, label:"Piano"},
+    {type:"percussionistaR", x:0, y:-235, label:""},
+    {type:"cajon", x:0, y:-217, label:"Cajon"},
+    {type:"astabassa", x:0, y:-170, rot:180, label:""},   /* il microfono del cajon: niente etichetta doppia */
+    {type:"wedge", x:110, y:-190, rot:-35, label:"Cajon"}
   ];
 }
 function buildCoroOut(){
@@ -18020,22 +18024,20 @@ function buildBigBandOut(){
   return out;
 }
 function buildJazzComboOut(){
+  /* Rifatto il 18/09 (Simone: «troppe e spesso fatte male»). Prima: panchetta staccata dal pianista,
+     microfono «Voce» senza cantante, tutto obliquo. Quartetto classico: pianoforte a coda sul lato
+     DX del palco con la coda verso il centro (il coperchio si apre verso il pubblico e il pianista
+     vede la band), contrabbasso e batteria dietro, sax davanti. */
   return [
-    {type:"tappeto", x:0, y:-210, w:860, d:500, label:""},
-    {type:"batteria", x:300, y:-330, label:""},
-    {type:"wedge", x:150, y:-250, rot:-8, label:"Batteria"},
-    {type:"grancoda", x:-300, y:-265, rot:28, label:"Piano"},
-    {type:"panchetta", x:-210, y:-155, rot:28, label:""},
-    {type:"contrabbasso", x:250, y:-120, rot:-20, label:"Contrabbasso"},
-    {type:"bassamp", x:410, y:-145, label:"Ampli basso"},
-    {type:"saxalto", x:60, y:-90, rot:0, label:"Sax"},
-    {type:"astamic", x:-100, y:-60, label:"Voce"},
-    {type:"wedge", x:-100, y:42, label:"Voce"},
-    {type:"wedge", x:-300, y:12, rot:18, label:"Piano"},
-    {type:"wedge", x:160, y:35, rot:-12, label:"Sax"},
-    {type:"stagebox", x:455, y:-35, label:"Stage box"},
-    {type:"corrente", x:-455, y:-195, label:""},
-    {type:"corrente", x:460, y:-150, label:""}
+    {type:"grancoda", x:-280, y:-170, rot:-90, label:"Pianoforte"},
+    {type:"wedge", x:-400, y:-20, label:"Piano"},
+    {type:"contrabbasso", x:20, y:-290, leggio:false, label:"Contrabbasso"},
+    {type:"bassamp", x:125, y:-365, label:""},
+    {type:"wedge", x:-110, y:-345, rot:-60, label:"Contrabbasso"},
+    {type:"batteria", x:300, y:-270, label:"Batteria"},
+    {type:"wedge", x:300, y:-120, label:"Batteria"},
+    {type:"saxalto", x:40, y:-60, leggio:false, label:"Sax"},
+    {type:"wedge", x:40, y:85, label:"Sax"}
   ];
 }
 function buildOrchBandOut(){
@@ -18327,10 +18329,10 @@ function windTotal(c){ var s=0; for(var k in c) s+=c[k]||0; return s; }
 })();
 
 var FORM_TITLES = {
-  band:"Band pop/rock", acoustic:"Trio acustico", coro:"Coro e piano",
-  quartetto:"Quartetto d'archi", camera:"Orchestra da camera", sinfonica_ridotta:"Sinfonica ridotta",
+  band:"Band pop/rock", acoustic:"Acustico", coro:"Coro e pianoforte",
+  quartetto:"Quartetto d'archi", camera:"Orchestra", sinfonica_ridotta:"Sinfonica ridotta",
   sinfonica:"Sinfonica completa", orchband:"Orchestra e band", orchcoro:"Orchestra e coro",
-  jazzcombo:"Jazz combo", bigband:"Big band",
+  jazzcombo:"Quartetto jazz", bigband:"Big band",
   matrimonio:"Matrimonio", dj:"DJ set", tributo:"Tributo / cover",
   orchpop:"Orchestra pop"
 };
@@ -18343,8 +18345,10 @@ var FORM_TITLES = {
    cerca un organico da cui partire. L'ordine va dal piccolo al grande, così la lista si legge.
    Le funzioni buildMatrimonioOut/buildDjOut restano: i vecchi link /stage-plot/?model=… non si
    rompono, semplicemente non sono più in vetrina. */
-var START_MODELS = [["acoustic","Acustica"],["band","Band"],["tributo","Tributo"],["jazzcombo","Jazz combo"],
-  ["bigband","Big band"],["coro","Coro"],["camera","Orchestra da camera"],["orchpop","Orchestra pop"]];
+/* 18/09 — Simone: «questo va snellito e reso più professionale, sono troppe e spesso fatte male».
+   Da otto a cinque, rifatti e guardati a video uno per uno. Fuori Tributo (è una band), Big band e
+   Orchestra pop: i loro generatori restano, i vecchi link ?model= continuano ad aprirli. */
+var START_MODELS = [["acoustic","Acustico"],["band","Band"],["jazzcombo","Jazz"],["coro","Coro"],["camera","Orchestra"]];
 /* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
    NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
 function detachCloudDoc(epochAlreadyChanged){
@@ -18776,14 +18780,16 @@ var ORGANICI = {
      si genera da lì e i numeri di partenza dal preset del modello. Nessun elenco duplicato. */
   camera: {
     titolo: "Quanti in orchestra?",
-    nota: "Archi in file concentriche attorno al podio, fiati dietro. Una sezione a zero non compare.",
+    nota: "Archi a semicerchio attorno al direttore, legni e ottoni in file dietro. Una sezione a zero non compare.",
     standard: "Organico da camera",
     max: 30,
+    /* solo le sezioni che la disposizione sa mettere in ordine (18/09): prima erano 22 righe,
+       timpani e tam-tam compresi, per un modello da camera */
     ruoli: function(){
       var pre = (typeof presetCounts==="function") ? presetCounts("camera") : {};
-      return ORCH_DEF.map(function(sec){ return [sec.id, sec.nome, pre[sec.id]||0]; });
+      return ORCH_DEF.filter(function(sec){ return ORCH_ORDINATA[sec.id]; }).map(function(sec){ return [sec.id, sec.nome, pre[sec.id]||0]; });
     },
-    build: function(o){ return buildOrchestraOut(o); }
+    build: function(o){ return buildOrchestraOrdinata(o); }
   },
   coro: {
     titolo: "Quante voci per sezione?",
@@ -18793,7 +18799,7 @@ var ORGANICI = {
     ruoli: [["sop","Soprani",8],["con","Contralti",8],["ten","Tenori",6],["bas","Bassi",6]],
     /* il generatore per sezioni c'era già e disponeva le file: era rimasto senza un ingresso
        nell'interfaccia, raggiungibile solo con ?form= (16/08). */
-    build: function(o){ return buildVoiceOrganicoOut(o, {mics:true, director:true, riser:true}); }
+    build: function(o){ return coroCompleto(buildVoiceOrganicoOut(o, {mics:true, director:true, riser:true})); }
   }
 };
 
@@ -18872,6 +18878,9 @@ function righeOrganico(cfg, host){
    modelli da trenta elementi, sarebbero megabyte di SVG in una finestra. */
 var _anteprimeModelli={};
 var ANTEPRIMA_TECNICA={"Microfoni e DI":1,"Monitor da palco":1,"PA e diffusione":1,"Cablaggio e segnale":1,"Elettrico":1,"Regia e console":1,"Dispositivi":1,"Luci":1,"Video":1};
+/* chi siede a questi strumenti è disegnato con loro, ma non è un «contatto»: senza, il quartetto jazz
+   diceva «3 musicisti» (18/09, visto nella finestra Nuovo) */
+var ANTEPRIMA_PERSONA={grancoda:1, mezzacoda:1, percussionistaR:1, batteristaR:1};
 function modelloAnteprima(f){
   if(_anteprimeModelli[f]) return _anteprimeModelli[f];
   var qd=(typeof formationData==="function") ? formationData(f) : null;
@@ -18886,7 +18895,7 @@ function modelloAnteprima(f){
     var cls = t.riser ? "mpv-riser"
             : musLayerItem(o.type) ? "mpv-mus"
             : ANTEPRIMA_TECNICA[t.cat] ? "mpv-tec" : "mpv-alt";
-    if(contactEligible(o.type) || t.gtr) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
+    if(contactEligible(o.type) || t.gtr || ANTEPRIMA_PERSONA[o.type]) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
     var rect='<rect class="'+cls+'" x="'+(-z.w/2)+'" y="'+(-z.d/2)+'" width="'+z.w+'" height="'+z.d+'" rx="'+Math.min(12, z.w/4, z.d/4)+'" transform="translate('+x+' '+y+')'+(r?' rotate('+r+')':'')+'"/>';
     if(t.riser) pedane+=rect; else resto+=rect;
   });
@@ -20012,16 +20021,15 @@ function acousticInputs(){
     ch("Voce","Beta 58A"),
     ch("Chitarra acustica","DI"),
     ch("Piano L","DI"), ch("Piano R","DI"),
-    ch("Cajon","Beta 91A"),
-    ch("Ambiente L","KM184","coppia stereo",true,"opzionale / recording"),
-    ch("Ambiente R","KM184","coppia stereo",true,"opzionale / recording")
+    ch("Cajon","Beta 91A")
   ];
 }
 function acousticOutputs(){
   return [
     outch("Voce","wedge","fronte palco"),
-    outch("Piano","wedge","lato piano"),
-    outch("Chitarra/Cajon","wedge","lato chitarra")
+    outch("Piano","wedge","davanti al piano"),
+    outch("Chitarra","wedge","davanti alla chitarra"),
+    outch("Cajon","wedge","accanto al cajon")
   ];
 }
 function choirInputs(){ return [ ch("Coro L","KM184"), ch("Coro C","KM184"), ch("Coro R","KM184") ]; }
@@ -20070,16 +20078,15 @@ function jazzComboInputs(){
     ch("Contrabbasso","DPA 4099"),
     ch("Piano L","KM184"), ch("Piano R","KM184"),
     ch("Sax","DPA 4099"),
-    ch("Voce","Beta 58A"),
     ch("Talkback","SM58")
   ];
 }
 function jazzComboOutputs(){
   return [
-    outch("Voce","wedge","fronte palco"),
-    outch("Piano","wedge","lato piano"),
-    outch("Sax","wedge","centro"),
-    outch("Contrabbasso/Batteria","wedge","ritmica")
+    outch("Piano","wedge","accanto al piano"),
+    outch("Sax","wedge","fronte palco"),
+    outch("Contrabbasso","wedge","accanto al contrabbasso"),
+    outch("Batteria","wedge","davanti alla batteria")
   ];
 }
 /* Orchestra (LIVE PA): area/spot in base a cosa è presente, NON un mic per leggio */
@@ -20123,20 +20130,99 @@ function dentroIlPalco(out, w, d){
   });
   return out;
 }
+/* I valori di partenza di un organico (quelli che la finestra propone). */
+function valoriOrganico(k){
+  var cfg=ORGANICI[k]; if(!cfg) return {};
+  var r=(typeof cfg.ruoli==="function") ? cfg.ruoli() : cfg.ruoli, o={};
+  r.forEach(function(x){ o[x[0]]=x[2]; });
+  return o;
+}
+/* Il palco che contiene una formazione, con la stessa regola di placeOut, mai più profondo che largo. */
+function palcoPer(out){
+  var m=measureOrchestraOut(out), fp=frontPad(m);
+  var w=Math.max(800, Math.ceil((2*m.maxX+160)/50)*50), d=Math.max(600, Math.ceil((-m.minY+fp+60)/50)*50);
+  return {w:Math.max(w,d), d:d};
+}
+/* Il coro per sezioni diventa «Coro e pianoforte» (18/09): prima le pedane restavano senza il
+   direttore sul podio e senza il pianoforte del titolo, e la misura delle pedane finiva sotto i nomi
+   dei coristi. Il pianoforte sta sul lato DX con la coda verso il coro; tutto si ricentra. */
+function coroCompleto(out){
+  var sx=0;
+  out.forEach(function(e){
+    if(TYPES[e.type] && TYPES[e.type].riser){ e.dimSide="right"; sx=Math.min(sx, e.x-(e.w||0)/2); }
+    if(e.type==="podio") e.label="Direttore";
+  });
+  var podio=out.filter(function(e){ return e.type==="podio"; })[0];
+  if(podio) out.push({type:"direttore", x:podio.x, y:podio.y, rot:180, label:""});   /* il nome sta sul podio: girato, si leggerebbe capovolto */
+  var px=sx-230;
+  out.push({type:"grancoda", x:px, y:-150, rot:-90, label:"Pianoforte"});
+  out.push({type:"wedge", x:px+220, y:-40, rot:-30, label:"Piano"});
+  var dx=Math.round(-(px-137)/2 - (-sx)/2);   /* ricentra: il pianoforte allarga solo a sinistra */
+  out.forEach(function(e){ e.x=Math.round(e.x+dx); });
+  return out;
+}
+/* ORCHESTRA ORDINATA (18/09). Archi a semicerchio attorno al podio — V1 a sinistra del direttore,
+   V2, viole, violoncelli a destra — ogni sezione nel suo spicchio, file successive verso il fondo,
+   tutti rivolti al podio; contrabbassi dietro ai violoncelli; legni in una fila dritta dietro gli
+   archi, corni e ottoni in quella dopo. Etichette brevi (Vl I 1, Vla 2…): quelle lunghe si
+   sovrapponevano nelle file fitte. */
+var ORCH_ORDINATA={v1:1,v2:1,vle:1,vc:1,cb:1,fl:1,ob:1,cl:1,fg:1,cor:1,tr:1,tbn:1};
+function buildOrchestraOrdinata(c){
+  c=c||{}; function n(k){ return Math.max(0, c[k]|0); }
+  function nome(tot, i, pieno, breve){ return tot===1 ? pieno : breve+" "+(i+1); }
+  var out=[], R0=300, DR=120, PASSO=112, A0=176, A1=4;
+  var archi=[["v1","vlnpost","Violino I","Vl I",{vsec:1}],["v2","vlnpost","Violino II","Vl II",{vsec:2}],
+             ["vle","violapost","Viola","Vla",{}],["vc","violoncello","Violoncello","Vc",{}]].filter(function(s){ return n(s[0])>0; });
+  var tot=archi.reduce(function(a,s){ return a+n(s[0]); },0), a=A0, maxR=R0;
+  archi.forEach(function(s){
+    var cnt=n(s[0]), aS=a, aE=a-(A0-A1)*cnt/tot, k=0, r=0;
+    while(k<cnt){
+      var R=R0+r*DR, cap=Math.max(1, Math.floor((aS-aE)*Math.PI/180*R/PASSO)), qui=Math.min(cap, cnt-k);
+      for(var j=0;j<qui;j++){
+        var ang=(aS-(aS-aE)*(j+0.5)/qui)*Math.PI/180, x=Math.round(R*Math.cos(ang)), y=Math.round(-R*Math.sin(ang));
+        var el={type:s[1], x:x, y:y, rot:Math.round(Math.atan2(x,-y)*180/Math.PI), label:nome(cnt,k,s[2],s[3])};
+        for(var q in s[4]) el[q]=s[4][q];
+        out.push(el); k++;
+      }
+      maxR=Math.max(maxR,R); r++;
+    }
+    a=aE;
+  });
+  for(var b=0;b<n("cb");b++){
+    var angb=(24+b*12)*Math.PI/180, Rb=maxR+DR+30, xb=Math.round(Rb*Math.cos(angb)), yb=Math.round(-Rb*Math.sin(angb));
+    out.push({type:"contrabbasso", x:xb, y:yb, rot:Math.round(Math.atan2(xb,-yb)*180/Math.PI), label:nome(n("cb"),b,"Contrabbasso","Cb")});
+  }
+  var file=[[["fl","flauto","Flauto","Fl"],["ob","oboe","Oboe","Ob"],["cl","clarinetto","Clarinetto","Cl"],["fg","fagotto","Fagotto","Fg"]],
+            [["cor","corno","Corno","Cor"],["tr","tromba","Tromba","Tr"],["tbn","trombone","Trombone","Tbn"]]];
+  var yF=-(maxR+DR+20);
+  file.forEach(function(fila){
+    var pos=[];
+    fila.forEach(function(s){ for(var i=0;i<n(s[0]);i++) pos.push({type:s[1], label:nome(n(s[0]),i,s[2],s[3])}); });
+    if(!pos.length) return;
+    var x0=-(pos.length-1)*PASSO/2;
+    pos.forEach(function(p,i){ out.push({type:p.type, x:Math.round(x0+i*PASSO), y:yF, label:p.label}); });
+    yF-=135;
+  });
+  out.push({type:"podio", x:0, y:0, label:"Direttore"});
+  out.push({type:"direttore", x:0, y:0, rot:180, label:""});   /* rivolto all'orchestra; il nome sta sul podio */
+  return out;
+}
 function formationData(f, opz){
   /* 16 × 6,5 m: la misura del modello di Simone, che è la proporzione di un palco da concerto —
      i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
   if(f==="band")  return { out:buildBandOut(opz),  inp:bandInputs(opz), outp:bandOutputs(opz), stage:{w:1600,d:650} };
   if(f==="acoustic") return { out:buildAcousticOut(), inp:acousticInputs(), outp:acousticOutputs() };
-  if(f==="coro")  return { out:(opz ? ORGANICI.coro.build(opz) : buildCoroOut()),  inp:coroInputs(), outp:coroOutputs() };
+  /* il Coro in vetrina è sempre quello per sezioni, anche con «Formazione tipica»: il vecchio
+     buildCoroOut aveva le pedane vuote e il podio senza direttore (18/09). */
+  if(f==="coro")  return { out:ORGANICI.coro.build(opz || valoriOrganico("coro")),  inp:coroInputs(), outp:coroOutputs() };
   if(f==="quartetto") return { out:buildQuartettoOut(), inp:quartettoInputs(), outp:quartettoOutputs() };
   /* «Orchestra da camera» in vetrina = il layout curato a mano (31/07). Il ventaglio generato
      resta la base di sinfonica/orchband/orchcoro, che dai conteggi non possono prescindere. */
-  if(f==="camera"){ var ca=opz||presetCounts("camera");
-    /* col ventaglio dichiarato dall'utente si usa il generatore per organico; senza, resta il layout
-       curato a mano che sta in vetrina da sempre. */
-    return { out:(opz ? dentroIlPalco(buildOrchestraOut(opz), 1450, 1200) : buildOrchCameraOut()),
-             inp:orchInputs(ca), outp:orchOutputs(), stage:{w:1450,d:1200} }; }
+  /* «Orchestra» in vetrina (18/09): una disposizione sola, ordinata, per l'organico tipico e per
+     quello dichiarato. Prima c'erano il layout a mano (fiati in colonna, podio vuoto) e il ventaglio
+     generato (fiati sovrapposti): tutti e due visti nel browser, tutti e due da rifare. */
+  if(f==="camera"){ var ca=opz||presetCounts("camera"), oc=buildOrchestraOrdinata(ca);
+    return { out:oc, inp:orchInputs(ca), outp:orchOutputs(), stage:palcoPer(oc) }; }
   if(f==="sinfonica_ridotta"){ var sr=presetCounts("ridotta"); return { out:buildOrchestraOut(sr), inp:orchInputs(sr), outp:orchOutputs() }; }
   if(f==="jazzcombo") return { out:buildJazzComboOut(), inp:jazzComboInputs(), outp:jazzComboOutputs() };
   if(f==="bigband") return { out:buildBigBandOut(), inp:bigbandInputs(), outp:bigbandOutputs() };
