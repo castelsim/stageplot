@@ -3284,7 +3284,7 @@ function variantTabsHtml(){
       (on ? 'Variante attiva — tocca per rinominarla, duplicarla o eliminarla' : 'Passa alla variante «'+esc(nome)+'»')+'">'+esc(nome)+'</button>';
   }
   /* con una sola variante il «+» dice cosa fa; con più varianti le schede lo spiegano già */
-  html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+ Variante')+'</button>';
+  html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Variante</span>')+'</button>';
   return html;
 }
 /* La stessa barra, nel menu del telefono. Si ridisegna DENTRO renderVariantBar, che ogni cambio di
@@ -12443,7 +12443,9 @@ function evChipLabel(){
 function renderEvChip(){
   var b=document.getElementById("evChip"); if(!b) return;
   var t=evChipLabel();
-  b.textContent = t ? "📅 "+t : "📅 Data e ora";
+  /* il testo sta in uno span: sui portatili stretti resta l'icona (18/09, barra che non ci stava) */
+  b.innerHTML = '📅<span class="hdr-lbl"> '+esc(t || "Data e ora")+'</span>';
+  b.setAttribute("aria-label", t ? "Evento: "+t : "Data e ora dell'evento");
   b.classList.toggle("set", !!t);
 }
 (function(){
@@ -23113,6 +23115,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     document.querySelectorAll("#helpMenu .mi").forEach(function(x){ x.addEventListener("click", function(){
       var a=x.getAttribute("data-help");
       if(a==="learn") proxyClick("bLearn");
+      else if(a==="theme") proxyClick("bTheme");   /* sui portatili stretti l'icona del tema sta qui (18/09) */
       else if(a==="feedback"){ if(typeof window.openFeedbackBox==="function") window.openFeedbackBox();   /* il pulsante galleggiante non esiste più: la card sta nella colonna */ }
     }); });
   })();
@@ -27402,9 +27405,13 @@ else {
     }
     returnFocus.set(m, trigger || null);
     openStack.push(m); setBgInert(true);
+    /* Se il fuoco è già dentro, la finestra l'ha messo dove serve: non si sposta sul primo elemento.
+       Il benvenuto dava il fuoco a «Crea il palco» e qui finiva su «Acustico», che si accendeva con
+       l'anello mentre il modello scelto era Band: sembravano scelti tutti e due (18/09). */
+    if(af && m.contains(af)) return;
     var f=focusables(m), target=f[0]||m;
     if(target===m && !m.hasAttribute("tabindex")) m.setAttribute("tabindex","-1");
-    setTimeout(function(){ try{ target.focus(); }catch(_){} }, 0);
+    setTimeout(function(){ try{ if(!m.contains(document.activeElement)) target.focus(); }catch(_){} }, 0);
   }
   function onClose(m){
     var i=openStack.indexOf(m); if(i<0) return;

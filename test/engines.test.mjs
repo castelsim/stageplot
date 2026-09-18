@@ -14585,7 +14585,8 @@ t("le varianti sono schede sempre in vista, anche con una variante sola", () => 
     const una = A.variantTabsHtml();
     eq((una.match(/class="vtab[ "]/g) || []).length, 1, "una variante, una scheda");
     ok(/aria-selected="true" data-var="v1"/.test(una), "ed e' quella attiva");
-    ok(/>\+ Variante<\/button>$/.test(una), "con una sola variante il «+» dice cosa fa");
+    /* dal 18/09 la parola sta in un'etichetta che sui portatili stretti cede (resta «+» con l'aria-label) */
+    ok(/>\+<span class="hdr-lbl"> Variante<\/span><\/button>$/.test(una), "con una sola variante il «+» dice cosa fa");
     A.VARIANTS = [{ id: "v1", name: "Piena" }, { id: "v2", name: "<Ridotta>" }, { id: "v3", name: "" }]; A.activeVar = "v2";
     const tre = A.variantTabsHtml();
     eq((tre.match(/role="tab"/g) || []).length, 3, "tre varianti, tre schede");
@@ -15979,6 +15980,61 @@ t("ogni pagina di Orchestre carica il frame-buster prima di qualsiasi altro scri
     eq(html.indexOf('<script src="/orchestre/src/frame.js"></script>'), primo, f.slice(root.length + 1) + ": il primo script è il frame-buster");
     ok(primo < html.indexOf("</head>"), f.slice(root.length + 1) + ": e sta nella <head>");
   }
+});
+
+/* ===== SCHERMI E BROWSER DIVERSI (18/09) ==========================================================
+   Verifica con Chromium, WebKit e Firefox a 320-1600 px: difetti misurati, poi corretti. */
+function profonditaCss(css, i) {   /* quante graffe sono aperte prima di i: 0 = regola di primo livello */
+  let d = 0; for (let k = 0; k < i; k++) { const c = css[k]; if (c === "{") d++; else if (c === "}") d--; }
+  return d;
+}
+t("la barra dell'editor ci sta sui portatili: le scritte cedono a gradini, «Esporta» resta", () => {
+  /* Il contenuto era largo 1622 px: sotto i 1536 la parte destra copriva Aiuto, Tema, Annulla, Ripeti,
+     Adatta e la griglia. ⚠️ Il primo tentativo era finito DENTRO la regola .tbar-ico (non chiusa sulla
+     stessa riga) e il browser lo leggeva come CSS annidato: nessun gradino funzionava. */
+  const i = stylesCss.indexOf("header .tbar-ico{flex:0 0 auto}");
+  ok(i > 0, "le icone non si schiacciano più (erano 18 px)");
+  eq(profonditaCss(stylesCss, i), 0, "e il blocco sta al primo livello, non dentro un'altra regola");
+  const gradini = stylesCss.slice(i, stylesCss.indexOf("\n", stylesCss.indexOf("max-width:1210px", i) + 400));
+  [1680, 1600, 1480, 1300, 1210].forEach((w) => ok(gradini.indexOf("(min-width:881px) and (max-width:" + w + "px)") > -1, "gradino a " + w + " px"));
+  ok(!/#bExportHdr[^{]*\{[^}]*display:none/.test(gradini), "«Esporta» tiene la sua parola a ogni larghezza (decisione del 06/08)");
+  ok(/#bShareHdr \.hdr-lbl/.test(gradini) && /#bFit \.hdr-lbl/.test(gradini), "cedono Condividi e Adatta");
+  ok(/#bTheme\{display:none\} #helpMenu \.mi-tema\{display:flex\}/.test(gradini), "il tema passa nel menu «?»");
+  const baseTema = stylesCss.indexOf("#helpMenu .mi-tema{display:none}");
+  ok(baseTema > 0 && baseTema < stylesCss.indexOf("#helpMenu .mi-tema{display:flex}"),
+    "la regola base viene prima del gradino, sennò vince sempre lei");
+  ok(/data-help="theme"/.test(readFileSync(join(root, "app/index.html"), "utf8")) && /else if\(a==="theme"\) proxyClick\("bTheme"\);/.test(appjs), "e la voce del menu cambia davvero il tema");
+  const appHtml = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<span class="hdr-lungo">Richiedi musicisti<\/span><span class="hdr-corto">Musicisti<\/span>/.test(appHtml) &&
+     /aria-label="Richiedi musicisti"/.test(appHtml), "«Richiedi musicisti» si accorcia, col nome intero per lo screen reader");
+  ok(/b\.innerHTML = '📅<span class="hdr-lbl"> '\+esc\(t \|\| "Data e ora"\)/.test(appjs), "la data resta icona, con il testo in un'etichetta");
+});
+
+t("il benvenuto sul telefono in orizzontale lascia spazio alla formazione", () => {
+  const i = stylesCss.indexOf("@media (max-width:880px) and (max-height:500px){");
+  ok(i > 0, "c'è il caso orizzontale");
+  eq(profonditaCss(stylesCss, i), 0, "al primo livello");
+  const b = stylesCss.slice(i, stylesCss.indexOf("\n}\n", i));
+  ok(/#welcome \.wl-tag\{display:none\}/.test(b) && /#welcome \.wl-foot\{flex-direction:row/.test(b), "testata stretta e piede su una riga");
+});
+
+t("la finestra che ha già messo il fuoco al posto giusto non se lo vede spostare", () => {
+  /* Il benvenuto dava il fuoco a «Crea il palco»; la trappola lo spostava sul primo bottone, «Acustico»,
+     che si accendeva con l'anello mentre il modello scelto era Band. */
+  const on = appjs.slice(appjs.indexOf("function onOpen(m){"), appjs.indexOf("function onClose(m){"));
+  const esce = on.indexOf("if(af && m.contains(af)) return;"), fuoco = on.indexOf("target.focus()");
+  ok(esce > 0 && esce < fuoco, "se il fuoco è già dentro, si esce prima di spostarlo");
+});
+
+t("privacy, guide e Orchestre in scuro: niente scorrimento di lato, link toccabili, errori leggibili", () => {
+  const priv = readFileSync(join(root, "privacy/index.html"), "utf8");
+  eq((priv.match(/<div class="tab-scorre"><table>/g) || []).length, (priv.match(/<table>/g) || []).length, "ogni tabella della privacy scorre nel suo riquadro");
+  ok(/\.tab-scorre\{ overflow-x:auto;/.test(priv), "e il riquadro scorre davvero");
+  const gcss = readFileSync(join(root, "guida/style.css"), "utf8");
+  ["\\.crumbs a", "\\.toc a", "footer a"].forEach((sel) => ok(new RegExp(sel + "\\{[^}]*display:inline-block;padding:4px 0").test(gcss), sel.replace(/\\\\/g, "") + ": alto almeno 24 px"));
+  const ocss = readFileSync(join(root, "orchestre/ui.css"), "utf8");
+  const scuro = ocss.slice(ocss.indexOf("@media (prefers-color-scheme:dark)"), ocss.indexOf("}}", ocss.indexOf("@media (prefers-color-scheme:dark)")));
+  ok(/--danger:#fca5a5;/.test(scuro), "in scuro il rosso degli errori è chiaro (era 2,47:1, ora 8,4:1)");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
