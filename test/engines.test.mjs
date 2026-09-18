@@ -5558,9 +5558,13 @@ t("la scelta del modello mostra la pianta di ogni modello, senza toccare il prog
     ok(ap && /^<svg /.test(ap.svg) && /class="mpv-stage"/.test(ap.svg), m[1] + ": c'è la pianta");
     ok(/class="mpv-mus"|class="mpv-riser"/.test(ap.svg), m[1] + ": con musicisti o pedane");
     ok(/palco [\d,]+ × [\d,]+ m$/.test(ap.sub), m[1] + ": dice quanto è grande il palco: " + ap.sub);
-    /* il Coro non ha elementi-persona: le voci stanno sulle pedane del coro, e un «0 musicisti» sarebbe falso */
-    if (m[0] !== "coro") ok(ap.persone > 0 && /musicist/.test(ap.sub), m[1] + ": dice quanti musicisti: " + ap.sub);
-    else ok(!/musicist/.test(ap.sub), "Coro: niente conteggio inventato: " + ap.sub);
+    /* dal 18/09 anche il Coro ha le sue persone (coristi, direttore, pianista): prima aveva le pedane vuote */
+    ok(ap.persone > 0 && /musicist/.test(ap.sub), m[1] + ": dice quanti musicisti: " + ap.sub);
+  });
+  /* e il conto torna: il pianista del pianoforte a coda e il percussionista contano (18/09: il jazz diceva 3) */
+  eq(A.modelloAnteprima("jazzcombo").persone, 4, "Jazz: quattro musicisti");
+  eq(A.modelloAnteprima("acoustic").persone, 4, "Acustico: quattro musicisti");
+  A.START_MODELS.forEach((m) => {
   });
   eq(JSON.stringify(A.state), prima, "il progetto aperto non cambia");
   /* la misura è quella che il modello avrà davvero */
@@ -10778,7 +10782,13 @@ t("in vetrina ci sono solo organici, non occasioni", () => {
   const chiavi = A.START_MODELS.map((m) => m[0]);
   ok(chiavi.indexOf("matrimonio") < 0, "niente Matrimonio: è un'occasione, non una formazione");
   ok(chiavi.indexOf("dj") < 0, "niente DJ set");
-  ok(chiavi.indexOf("orchpop") > -1, "c'è Orchestra pop");
+  /* 18/09 — Simone: «va snellito e reso più professionale, sono troppe e spesso fatte male». Scelti da lui. */
+  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera", "cinque modelli, dal più piccolo al più grande");
+  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra", "con nomi brevi");
+  ["tributo", "bigband", "orchpop"].forEach((k) => {
+    const fd = A.formationData(k);
+    ok(fd && fd.out && fd.out.length >= 8, k + ": fuori vetrina, ma si apre ancora da /stage-plot/?model=" + k);
+  });
 });
 
 t("i vecchi link non si rompono: matrimonio e DJ esistono ancora", () => {
@@ -10792,7 +10802,7 @@ t("OGNI modello in vetrina arriva completo: elementi, canali e uscite", () => {
   A.START_MODELS.forEach(function (m) {
     const fd = A.formationData(m[0]);
     ok(fd, m[1] + ": la formazione esiste");
-    ok(fd.out.length >= 10, m[1] + ": ha un palco vero (" + fd.out.length + " elementi)");
+    ok(fd.out.length >= 8, m[1] + ": ha un palco vero (" + fd.out.length + " elementi)");   /* 8 dal 18/09: il quartetto jazz ne ha 9, tutti necessari */
     ok(fd.inp.length > 0, m[1] + ": ha la sua channel list (era il buco del Tributo)");
     ok(fd.outp.length > 0, m[1] + ": e le sue uscite");
     ok(fd.out.every((it) => A.TYPES[it.type]), m[1] + ": nessun tipo inventato");
@@ -10813,15 +10823,63 @@ t("Orchestra pop: l'organico è quello del modello, senza nomi di persona", () =
   ok(!/cozza|valerio/i.test(etichette), "nessun nome di persona finito nel repo pubblico");
 });
 
-t("Orchestra da camera: il layout curato, non il ventaglio generato", () => {
-  const fd = A.formationData("camera");
-  const conta = (t) => fd.out.filter((i) => i.type === t).length;
-  eq(fd.out.length, 21, "21 elementi");
-  eq(conta("vlnpost"), 8, "otto violini, quattro per sezione");
-  eq(conta("podio"), 1, "il podio del direttore");
-  ok(fd.out.every((i) => !i.doppia), "postazioni singole: in un organico da camera ogni leggio è un musicista");
-  ok(fd.out.filter((i) => i.type === "vlnpost").every((i) => i.rot !== undefined || i.x === 0),
-    "le rotazioni sono quelle curate a mano");
+t("Acustico, Jazz, Band e Coro: ogni microfono ha chi lo usa, ogni persona il suo ascolto", () => {
+  /* 18/09 — i difetti visti nel browser, uno per riga */
+  const conta = (out, t) => out.filter((i) => i.type === t).length;
+  const ac = A.formationData("acoustic").out;
+  eq(conta(ac, "cantante"), 1, "Acustico: c'è il cantante, non solo il microfono «Voce»");
+  eq(conta(ac, "percussionistaR"), 1, "Acustico: e chi suona il cajon");
+  eq(conta(ac, "wedge"), 4, "Acustico: quattro spie, una a testa");
+  eq(conta(ac, "coppiast") + conta(ac, "astamic"), 0, "Acustico: niente microfoni senza persona");
+  ok(ac.filter((i) => i.type === "stagepiano" || i.type === "gtacustica" || i.type === "cantante").every((i) => !i.rot), "Acustico: niente musicisti storti");
+  const jz = A.formationData("jazzcombo");
+  eq(conta(jz.out, "astamic") + conta(jz.out, "panchetta"), 0, "Jazz: niente «Voce» senza cantante, niente panchetta staccata");
+  ok(!jz.inp.some((c) => /^Voce/.test(c.name || c.nome || c.src || "")), "Jazz: e niente canale Voce");
+  eq(conta(jz.out, "wedge"), 4, "Jazz: una spia per musicista");
+  const bd = A.buildBandOut();
+  const kit = bd.filter((i) => i.type === "batteria")[0], spia = bd.filter((i) => i.type === "wedge" && i.label === "Batteria")[0];
+  ok(spia, "Band: la batteria ha la sua spia");
+  ok(Math.abs(spia.x - kit.x) > 120 + 20, "Band: di lato, non sopra la cassa");
+  ok(bd.filter((i) => i.type === "corista").every((i) => i.leggio === false), "Band: i cori senza leggio");
+  const co = A.formationData("coro").out;
+  const podio = co.filter((i) => i.type === "podio")[0];
+  ok(co.some((i) => i.type === "direttore" && i.x === podio.x && i.y === podio.y), "Coro: il direttore sta sul podio");
+  eq(conta(co, "grancoda"), 1, "Coro: c'è il pianoforte del titolo");
+  ok(conta(co, "corista") >= 20, "Coro: le pedane hanno i coristi");
+  ok(co.filter((i) => A.TYPES[i.type].riser).every((i) => i.dimSide === "right"), "Coro: la misura delle pedane di lato, non sotto i nomi");
+  ok(/"outCh","dimSide"\]\.forEach/.test(appjs), "e placeOut la porta sul palco");
+  const xs = co.map((i) => i.x), sx = Math.min(...xs), dx = Math.max(...xs);
+  ok(Math.abs(sx + dx) < 250, "Coro: ricentrato col pianoforte (" + sx + " … " + dx + ")");
+});
+
+t("Orchestra: file ordinate, tutti rivolti al direttore, nessuno addosso a un altro", () => {
+  /* 18/09 — visti nel browser: il layout a mano aveva i fiati in colonna e il podio vuoto, il ventaglio
+     generato i fiati sovrapposti. Ora una disposizione sola per l'organico tipico e per quello dichiarato. */
+  [A.formationData("camera").out, A.buildOrchestraOrdinata({ v1: 8, v2: 6, vle: 4, vc: 4, cb: 2, fl: 2, ob: 2, cl: 2, fg: 2, cor: 2, tr: 2, tbn: 3 })].forEach((out, n) => {
+    const caso = n ? "organico grande" : "organico tipico";
+    const podio = out.filter((i) => i.type === "podio");
+    eq(podio.length, 1, caso + ": un podio");
+    ok(out.some((i) => i.type === "direttore" && i.x === podio[0].x && i.y === podio[0].y), caso + ": con il direttore sopra");
+    const ARCHI = { vlnpost: 1, violapost: 1, violoncello: 1 };
+    out.filter((i) => ARCHI[i.type]).forEach((i) => {
+      const verso = Math.round(Math.atan2(i.x - podio[0].x, -(i.y - podio[0].y)) * 180 / Math.PI);
+      ok(Math.abs(verso - i.rot) <= 1, caso + ": «" + i.label + "» guarda il podio (" + i.rot + " / " + verso + ")");
+    });
+    const FIATI = { flauto: 1, oboe: 1, clarinetto: 1, fagotto: 1, corno: 1, tromba: 1, trombone: 1 };
+    const fiati = out.filter((i) => FIATI[i.type]);
+    ok(fiati.length && fiati.every((i) => !i.rot), caso + ": i fiati dritti verso il pubblico");
+    ok(new Set(fiati.map((i) => i.y)).size <= 2, caso + ": in file dritte, non in colonna");
+    const archiY = Math.min(...out.filter((i) => ARCHI[i.type]).map((i) => i.y));
+    ok(fiati.every((i) => i.y < archiY), caso + ": dietro gli archi");
+    const pers = out.filter((i) => i.type !== "podio" && i.type !== "direttore");
+    for (let a = 0; a < pers.length; a++) for (let b = a + 1; b < pers.length; b++) {
+      const d = Math.hypot(pers[a].x - pers[b].x, pers[a].y - pers[b].y);
+      ok(d >= 95, caso + ": «" + pers[a].label + "» e «" + pers[b].label + "» a " + Math.round(d) + " cm");
+    }
+  });
+  const ruoli = A.ORGANICI.camera.ruoli().map((r) => r[0]);
+  ok(ruoli.indexOf("tim") < 0 && ruoli.indexOf("tam") < 0, "la finestra chiede solo le sezioni che sa disporre");
+  ok(ruoli.indexOf("v1") > -1 && ruoli.indexOf("tbn") > -1, "archi, legni e ottoni sì");
 });
 
 t("le formazioni possono dichiarare il loro palco, e non viene riadattato", () => {
@@ -13015,7 +13073,7 @@ t("un modello in più costa una riga, non un'altra finestra", () => {
   ok(/\["chitarra","Chitarra",2\]/.test(t), "il tributo parte da due chitarre");
   /* l'orchestra non duplica l'elenco delle sezioni: se lo generasse a mano, aggiungere uno
      strumento a ORCH_DEF lascerebbe la finestra indietro senza che nessuno se ne accorga */
-  ok(/ORCH_DEF\.map\(function\(sec\)\{ return \[sec\.id, sec\.nome/.test(t),
+  ok(/ORCH_DEF\.filter\(function\(sec\)\{ return ORCH_ORDINATA\[sec\.id\]; \}\)\.map\(function\(sec\)\{ return \[sec\.id, sec\.nome/.test(t),
      "le sezioni dell'orchestra vengono da ORCH_DEF, non riscritte");
   ok(/presetCounts\("camera"\)/.test(t), "e i numeri di partenza dal preset del modello");
   ok(/typeof cfg\.ruoli==="function"/.test(appjs), "i ruoli possono essere calcolati all'apertura");
@@ -13026,7 +13084,10 @@ t("il generatore orchestrale non lascia nessuno fuori dal palco", () => {
      cui è posato si calcola dagli archi, e con un organico insolito cade fuori. Visto nello
      screenshot, poi misurato. Un elemento accostato al bordo si sposta in due secondi, uno fuori no. */
   ok(/function dentroIlPalco\(out, w, d\)/.test(appjs), "esiste il rientro");
-  ok(/dentroIlPalco\(buildOrchestraOut\(opz\), 1450, 1200\)/.test(appjs), "e l'orchestra ci passa");
+  /* dal 18/09 l'Orchestra in vetrina si dà un palco che la contiene (palcoPer), invece di rientrare in uno fisso */
+  [A.formationData("camera"), A.formationData("camera", { v1: 2, vle: 1, vc: 1, cor: 4, tbn: 3 })].forEach((fd) => {
+    ok(fd.out.every((i) => Math.abs(i.x) + 80 <= fd.stage.w / 2), "l'orchestra sta nella larghezza del suo palco");
+  });
   const out = A.dentroIlPalco([
     { type: "grancoda", x: -740, y: 0, w: 156, d: 274 },   /* il caso vero: piano oltre il bordo */
     { type: "podio", x: 0, y: 0, w: 100, d: 100 }
