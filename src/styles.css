@@ -129,6 +129,22 @@
   .tbar-ico{width:32px;height:32px;padding:0;border:none;background:transparent;color:var(--text);
     border-radius:var(--r-md);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
     transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+  /* LA BARRA SUI PORTATILI (18/09, verifica schermi): il contenuto era largo 1622 px e sotto i 1536 la parte
+     destra copriva Aiuto, Tema, Annulla, Ripeti, Adatta e la griglia (a 1024 anche Varianti). Le icone si
+     schiacciavano a 18 px. Ora le icone non si stringono e le scritte cedono un gradino alla volta:
+     resta l'icona, con il nome nel title e nell'aria-label. */
+  header .tbar-ico{flex:0 0 auto}
+  header .hdr-corto{display:none}
+  #helpMenu .mi-tema{display:none}
+  /* «Esporta» resta scritto a ogni larghezza (decisione più sotto): cedono gli altri */
+  @media (min-width:881px) and (max-width:1680px){ header input#titolo{max-width:170px} #bFit .hdr-lbl{display:none} }
+  @media (min-width:881px) and (max-width:1600px){ #bRichiedi .hdr-lungo, #evChip .hdr-lbl{display:none} #bRichiedi .hdr-corto{display:inline} }
+  @media (min-width:881px) and (max-width:1480px){ header{gap:8px} header input#titolo{max-width:140px} #bShareHdr .hdr-lbl, .vtab-add .hdr-lbl{display:none} }
+  @media (min-width:881px) and (max-width:1300px){ header{gap:6px} header .snapwrap>svg{display:none}
+    #bTheme{display:none} #helpMenu .mi-tema{display:flex} }   /* il tema passa nel menu «?» */
+  @media (min-width:881px) and (max-width:1210px){ header{gap:4px} header input#titolo{max-width:90px}
+    header .brand{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:0}   /* il nome resta per chi legge con lo screen reader */
+    header .hdr-variants .vtab{max-width:100px;overflow:hidden;text-overflow:ellipsis} }
   .tbar-ico svg{width:18px;height:18px}   /* icona delicata, proporzionata al testo 13px */
   .tbar-ico:hover{background:var(--n-100);color:var(--text)}
   .tbar-ico:disabled{color:var(--text-3);background:transparent;cursor:not-allowed}
@@ -3266,6 +3282,18 @@ body.dark .ask-all .btn{background:transparent}
   #welcome .wl-cta{min-height:54px;font-size:17px;border-radius:12px}
   #welcome .wl-vuoto{display:block;min-height:44px;margin:0;border:0;background:none;font:600 15px var(--font-ui);color:var(--accent-strong);cursor:pointer}
   body.dark #welcome .wl-card{background:var(--bg)}
+}
+/* TELEFONO IN ORIZZONTALE (18/09, verifica schermi): a 667×375 testata e piede fisso lasciavano circa 30 px
+   alla lista dei ruoli, e si vedeva solo «Voce solista». Qui la testata si stringe e il piede sta su una
+   riga: resta sempre in vista, ma lascia il grosso dello schermo alla lista, che scorre. */
+@media (max-width:880px) and (max-height:500px){
+  #welcome .wl-head{padding:12px 20px 4px}
+  #welcome .wl-title{font-size:20px}
+  #welcome .wl-tag{display:none}
+  #welcome .wl-mods{margin:4px 0 10px}
+  #welcome .wl-foot{flex-direction:row;align-items:center;gap:12px;padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px))}
+  #welcome .wl-cta{flex:1 1 auto;min-height:44px;font-size:16px}
+  #welcome .wl-vuoto{flex:0 0 auto}
 }
 
 /* I fogli che si buttano giù da ovunque (14/09): arrivati in cima, il rimbalzo resta nel foglio e non
