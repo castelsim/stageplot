@@ -30,6 +30,10 @@
     li{ margin:5px 0; }
     .box{ background:#f7f9fb; border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:16px 0; }
     table{ border-collapse:collapse; width:100%; margin:12px 0; font-size:14.5px; }
+    /* 18/09: a 320 px la tabella dei fornitori era larga 327 e faceva scorrere di lato tutta la pagina */
+    .tab-scorre{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .tab-scorre table{ margin:0; }
+    .tab-scorre{ margin:12px 0; }
     th,td{ text-align:left; padding:9px 10px; border:1px solid var(--line); vertical-align:top; }
     th{ background:#f2f5f8; font-weight:600; }
     footer{ margin-top:46px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:14px; display:flex; gap:18px; flex-wrap:wrap; }
@@ -72,25 +76,25 @@
     <p><strong>Se richiedi una consulenza tecnica</strong> (servizio a pagamento): trattiamo nome ed email, il progetto che selezioni, i dettagli della richiesta (tipo di evento, data e luogo, organico, materiali tecnici, note) e gli eventuali allegati che carichi (immagini o PDF). Il pagamento è gestito da <strong>Stripe</strong> con checkout ospitato: i dati della tua carta non transitano né sono conservati da noi; da Stripe riceviamo solo la conferma del pagamento (email, importo, identificativo della transazione). Le email di notifica sono inviate tramite <strong>Resend</strong>.</p>
 
     <h2>3. Finalità e base giuridica</h2>
-    <table>
+    <div class="tab-scorre"><table>
       <tr><th>Finalità</th><th>Base giuridica</th></tr>
       <tr><td>Autenticarti tramite Google</td><td>Tuo consenso / esecuzione del servizio che richiedi (art. 6.1.a / 6.1.b GDPR)</td></tr>
       <tr><td>Salvare e ricaricare online i tuoi progetti</td><td>Esecuzione del servizio che richiedi (art. 6.1.b GDPR)</td></tr>
       <tr><td>Gestire e migliorare il servizio in base ai feedback</td><td>Legittimo interesse a migliorare lo strumento (art. 6.1.f GDPR)</td></tr>
       <tr><td>Capire l'utilizzo dello strumento (statistiche d'uso essenziali)</td><td>Legittimo interesse a migliorare lo strumento (art. 6.1.f GDPR)</td></tr>
       <tr><td>Erogare la consulenza tecnica acquistata e gestirne il pagamento</td><td>Esecuzione del contratto e obblighi legali/fiscali (art. 6.1.b / 6.1.c GDPR)</td></tr>
-    </table>
+    </table></div>
     <p>Il login è volontario: senza accesso non si attivano autenticazione, salvataggio cloud né gli eventi d'uso dell'app, che restano legati all'account. Fanno eccezione i conteggi aggregati della pagina iniziale descritti sopra, che non riguardano una persona identificabile. Il feedback viene trattato soltanto se scegli di inviarlo.</p>
 
     <h2>4. Fornitori che trattano i dati per nostro conto</h2>
-    <table>
+    <div class="tab-scorre"><table>
       <tr><th>Fornitore</th><th>Ruolo</th><th>Dove</th></tr>
       <tr><td>Supabase</td><td>Database, autenticazione ed Edge Functions (account, progetti cloud, feedback, richieste di consulenza ed eventi d'uso)</td><td>Unione Europea — Francoforte (Germania)</td></tr>
       <tr><td>Google</td><td>Accesso "Accedi con Google" (OAuth)</td><td>USA — aderente all'EU-US Data Privacy Framework</td></tr>
       <tr><td>GitHub Pages</td><td>Hosting del sito (pagine statiche)</td><td>USA — clausole contrattuali standard</td></tr>
       <tr><td>Stripe</td><td>Gestione dei pagamenti della consulenza</td><td>USA/UE — aderente all'EU-US Data Privacy Framework</td></tr>
       <tr><td>Resend</td><td>Invio delle email transazionali (feedback e consulenza)</td><td>USA — clausole contrattuali standard</td></tr>
-    </table>
+    </table></div>
 
     <h2>5. Conservazione</h2>
     <p>I progetti salvati online e i dati dell'account restano finché mantieni l'account o finché non li elimini. Puoi cancellare i singoli progetti dal pannello "Cloud" del tool. Per eliminare l'intero account e tutti i dati associati, scrivi a <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>: provvederemo senza ingiustificato ritardo.</p>
