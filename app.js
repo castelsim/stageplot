@@ -13017,10 +13017,14 @@ function ricordaRecenteCatalogo(k, nome, over){
   /* Comandi cercati per nome (25/09, dalle ricerche senza risultati degli utenti): «espo» e
      «freque» non trovavano niente. Chi scrive nella ricerca non sempre vuole un oggetto: a volte
      cerca una FUNZIONE, e se non la trova lì non sa dove altro guardarla. */
-  entries.push({nome:"Esporta", dim:"PDF, PNG, channel list per la console", noQuick:true,
+  /* niente «condividi» fra le parole: la ricerca è per sottostringa e «cond» (cercato davvero, per il
+     direttore) avrebbe tirato fuori Esporta. La condivisione ha già il suo pulsante nella barra. */
+  var EXPORT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4H9a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M19 4v6h6"/><path d="M16 14v9M12.5 19.5 16 23l3.5-3.5"/></svg>';
+  var RF_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 17v11"/><circle cx="16" cy="15" r="2"/><path d="M11.5 10.5a6.4 6.4 0 0 0 0 9M20.5 10.5a6.4 6.4 0 0 1 0 9M7.5 6.5a12 12 0 0 0 0 17M24.5 6.5a12 12 0 0 1 0 17"/></svg>';
+  entries.push({nome:"Esporta", dim:"PDF, PNG, channel list per la console", noQuick:true, iconHtml:EXPORT_ICON,
                 action:function(){ var b=document.getElementById("bExportHdr"); if(b) b.click(); },
-                kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare condividi"});
-  entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, action:openRfFreq,
+                kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare"});
+  entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   ["metro","testo"].forEach(function(k){
     pin.appendChild(makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
