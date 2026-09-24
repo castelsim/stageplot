@@ -6,6 +6,8 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **24/09 — Timpanista ridotto del 10%** (`drawTimpani`, `scale(0.9)` su `timpanistaPersona`): era più grosso di batterista e percussionista.
+
 - **#209-#210 (24/09) — Conferenze.** `state.tipoEvento` («Conferenza o convegno» da Data e ora):
   PDF «Scheda tecnica evento», niente «Richiedi musicisti», niente avviso monitor dei musicisti, testi
   di partenza da conferenza. Tipi `relatore` (lavalier) e `moderatore` (seduto, palmare) in `VOCE`;

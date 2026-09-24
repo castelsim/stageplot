@@ -4615,7 +4615,9 @@ function drawTimpani(it){
                      Lo sgabello sta INDIETRO (a nord, dietro il musicista), la persona più avanti verso i timpani (Simone). */
       var g='';
       if(pp.stool!==false) g += '<g transform="translate(0,-28)">'+libIcon("sgabellobatt")+'</g>';
-      if(pp.mus!==false)   g += '<g transform="translate(0,8)">'+libIcon("timpanistaPersona")+'</g>';
+      /* scala 0,9 (24/09, Simone: «il timpanista è grande rispetto a batterista e percussionista»): l'icona è
+         75×89, il batterista 65×81 — ridotta del 10% torna alla stessa corporatura (67×80) */
+      if(pp.mus!==false)   g += '<g transform="translate(0,8) scale(0.9)">'+libIcon("timpanistaPersona")+'</g>';
       if(pp.leggio===true) g += '<g transform="translate(0,34)">'+leggioGlyph(0)+'</g>';   /* leggio DAVANTI al timpanista, la mensola alta sta sopra il bordo dei timpani (18/07 v2) */
       s += pre+g+'</g>';
     } else s += pre+libIcon(t.icon)+'</g>';
