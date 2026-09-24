@@ -7019,6 +7019,26 @@ t("ricerca 'audit' e 'controlla' trovano l'Audit", () => {
   ok(A.__spSearch("controlla").some(r => r.nome === "Audit progetto"), "'controlla' (alias) non trova l'Audit");
 });
 
+/* 25/09 — le ricerche senza risultati degli utenti veri (analytics): «espo», «freque», «cond».
+   Le prime due cercavano una FUNZIONE, la terza il direttore di un'orchestra. */
+t("la ricerca trova le funzioni che gli utenti hanno cercato: Esporta e Frequenze RF", () => {
+  for (const q of ["espo", "export", "stampa", "pdf"]) ok(A.__spSearch(q).some((r) => r.nome === "Esporta"), "'" + q + "' non trova Esporta");
+  for (const q of ["freque", "radiofrequenza", "mhz"]) ok(A.__spSearch(q).some((r) => r.nome === "Frequenze radio (RF)"), "'" + q + "' non trova le Frequenze RF");
+  const e = (A.__catEntries || []).find((x) => x.nome === "Frequenze radio (RF)");
+  ok(e && e.action === A.openRfFreq && e.noQuick, "la voce Frequenze non apre openRfFreq o finisce nell'aggiunta rapida");
+});
+t("Frequenze RF apre il primo radiomic senza frequenza", () => {
+  reset();
+  const a = add("wireless", 200, 200), b = add("wireless", 400, 200);
+  a.rf = "606.400";
+  eq(A.openRfFreq().id, b.id, "deve aprire quello ancora da compilare, non il primo della fila");
+  eq(A.sel, b.id, "l'elemento non e' stato selezionato: il pannello con «Frequenza RF» non si apre");
+  reset(); eq(A.openRfFreq(), null, "senza radiomic sul palco non deve selezionare niente");
+});
+t("«cond», «conductor», «maestro» trovano il direttore", () => {
+  for (const q of ["cond", "conductor", "maestro"]) ok(A.__spSearch(q).some((r) => r.k === "direttore"), "'" + q + "' non trova il direttore");
+});
+
 /* ---- Undo: printFrame (area di stampa/export) escluso dalla cronologia (bug undo poco prevedibile) ---- */
 console.log("\nUndo / printFrame:");
 t("printFrame NON crea passi di undo (mutazione invisibile dell'export)", () => {
