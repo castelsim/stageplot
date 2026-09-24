@@ -9237,7 +9237,21 @@ function auditEngine(){
       "Audio","La DI è una tappa del cavo, non una sorgente: associala e i suoi canali tornano quelli dello strumento.",
       {label:"Associa allo strumento", run:function(){ auditFixDiAdopt(orfane); }}, "di-orfana");
   })();
-  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf; }).length;
+  /* RELATORE O MODERATORE SENZA MICROFONO (24/09): senza microfono suo e senza un microfono a portata
+     (podio, da tavolo, asta, palmare, archetto) a meno di un metro e mezzo, non lo sente nessuno. */
+  (function(){
+    var MIC_VICINO={podiosp:1, mictavolo:1, astamic:1, giraffa:1, wireless:1, headset:1, astabassa:1};
+    var muti=items.filter(function(p){
+      if(p.type!=="relatore" && p.type!=="moderatore") return false;
+      if(micModeOf(p)!=="pano") return false;
+      return !items.some(function(m){ return MIC_VICINO[m.type] && Math.hypot(m.x-p.x, m.y-p.y)<=150; });
+    });
+    if(!muti.length) return;
+    var nomi=muti.map(function(p){ return (p.label||"").trim()||TYPES[p.type].nome; });
+    add("warn", (muti.length===1 ? nomi[0]+" non ha un microfono" : muti.length+" persone non hanno un microfono ("+nomi.slice(0,3).join(", ")+")")+": nessun microfono suo e nessuno a portata.",
+      "Audio","Selezionalo e scegli il microfono nel pannello (lavalier, palmare, archetto), oppure metti un microfono da tavolo o il podio davanti a lui.",null,"voce-senza-mic");
+  })();
+  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf && !r.infra; }).length;   /* ricevitori, antenne e splitter non hanno una portante propria (24/09: contavano come «senza frequenza») */
   if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
   var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
   var hasPersonal=items.some(function(it){ return it.type==="iem"||it.type==="hearback"; });
@@ -10468,7 +10482,9 @@ function renderProps(){
 
   var rfWrap=document.getElementById("pRfWrap");   /* RF: frequenza + banda solo per radiomic/in-ear (#2) */
   if(rfWrap){ var isRfEl=(typeof isRf==="function") && isRf(it); rfWrap.style.display = isRfEl ? "block" : "none";
-    if(isRfEl){ document.getElementById("pRf").value = it.rf||""; document.getElementById("pBand").value = it.band||""; } }
+    if(isRfEl){ document.getElementById("pRf").value = it.rf||""; document.getElementById("pBand").value = it.band||"";
+      document.getElementById("pRfChi").value = it.rfChi||""; document.getElementById("pRfChi").placeholder = VOCE[it.type] ? "chi lo usa: "+rfChiOf(it) : "chi lo usa (es. pubblico)";
+      document.getElementById("pRfRiserva").checked = !!it.rfRiserva; } }
   var pmWrap=document.getElementById("pPmWrap");   /* personal monitor model-driven (B1): marca/modello da PM_DB */
   if(pmWrap){ var isPm=(it.type==="hearback"||it.type==="mixhub"); pmWrap.style.display = isPm ? "block" : "none";
     if(isPm) pmFillProps(it); }
@@ -11442,6 +11458,9 @@ document.getElementById("pLblApplyType").addEventListener("click", function(){ v
   render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
 /* il select "pBy" non esiste più: «Fornito da» sta nella channel list (26/08) */
+/* chi porta il radiomicrofono e se è la riserva (24/09, conferenze): finiscono nella Lista RF */
+document.getElementById("pRfChi").addEventListener("input", function(){ var v=this.value.trim(); mutSelSoon(function(it){ if(v) it.rfChi=v.slice(0,40); else delete it.rfChi; }); });
+document.getElementById("pRfRiserva").addEventListener("change", function(){ var v=this.checked; mutSel(function(it){ if(v) it.rfRiserva=true; else delete it.rfRiserva; }); });
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
 document.getElementById("pRiserSolo").addEventListener("change", function(){ pedanaSola=document.getElementById("pRiserSolo").checked; });
@@ -15748,7 +15767,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
@@ -16357,7 +16376,7 @@ var FORM_TITLES = {
   sinfonica:"Sinfonica completa", orchband:"Orchestra e band", orchcoro:"Orchestra e coro",
   jazzcombo:"Quartetto jazz", bigband:"Big band",
   matrimonio:"Matrimonio", dj:"DJ set", tributo:"Tributo / cover",
-  orchpop:"Orchestra pop"
+  orchpop:"Orchestra pop", conferenza:"Conferenza"
 };
 
 /* Modelli di partenza mostrati nella UI (ciclo 9, decisione C): [chiave formationData, etichetta utente].
@@ -16371,7 +16390,7 @@ var FORM_TITLES = {
 /* 18/09 — Simone: «questo va snellito e reso più professionale, sono troppe e spesso fatte male».
    Da otto a cinque, rifatti e guardati a video uno per uno. Fuori Tributo (è una band), Big band e
    Orchestra pop: i loro generatori restano, i vecchi link ?model= continuano ad aprirli. */
-var START_MODELS = [["acoustic","Acustico"],["band","Band"],["jazzcombo","Jazz"],["coro","Coro"],["camera","Orchestra"]];
+var START_MODELS = [["acoustic","Acustico"],["band","Band"],["jazzcombo","Jazz"],["coro","Coro"],["camera","Orchestra"],["conferenza","Conferenza"]];   /* 24/09: Conferenza, dall'audit per il servizio audio B2B */
 /* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
    NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
 function detachCloudDoc(epochAlreadyChanged){
@@ -16925,7 +16944,8 @@ function modelloAnteprima(f){
   var pad=60;
   var svg='<svg viewBox="'+(-pad)+' '+(-pad)+' '+(W+2*pad)+' '+(D+2*pad)+'" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
     +'<rect class="mpv-stage" x="0" y="0" width="'+W+'" height="'+D+'"/>'+pedane+resto+'</svg>';
-  var sub=(persone ? persone+(persone===1?" musicista":" musicisti")+" · " : "")+"palco "+misurePalco(W, D);
+  var chi=(f==="conferenza") ? (persone===1?" persona":" persone") : (persone===1?" musicista":" musicisti");   /* 24/09: in una conferenza non ci sono musicisti */
+  var sub=(persone ? persone+chi+" · " : "")+"palco "+misurePalco(W, D);
   return (_anteprimeModelli[f]={svg:svg, persone:persone, w:W, d:D, sub:sub});
 }
 function startFromTemplate(f,options){
@@ -16938,7 +16958,7 @@ function startFromTemplate(f,options){
     /* Il palco della formazione, quando lo dichiara: un modello sa su che misura è stato pensato, e
        i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
     var _sg=(qd.stage && qd.stage.w>0 && qd.stage.d>0) ? {w:qd.stage.w, d:qd.stage.d} : {w:1200, d:800};
-    if(!beginNewDocument({titolo:(FORM_TITLES[f]||""),luogo:"",stage:{w:_sg.w,d:_sg.d,blocks:[{x:0,y:0,w:_sg.w,d:_sg.d}]},items:[],inputs:[],outputs:[]},
+    if(!beginNewDocument({titolo:(FORM_TITLES[f]||""),luogo:"",tipoEvento:(f==="conferenza"?"conferenza":"concerto"),stage:{w:_sg.w,d:_sg.d,blocks:[{x:0,y:0,w:_sg.w,d:_sg.d}]},items:[],inputs:[],outputs:[]},
         {skipRecovery:true,reason:"modello "+title})) return;
     resetMetaLayersUI();   /* nuovo da modello: azzera visibilità/opacità/blocco dei layer Palco e Section Mic */
     /* se la formazione ha dichiarato il suo palco NON si riadatta: la misura è una scelta del
@@ -18230,6 +18250,38 @@ function buildOrchestraOrdinata(c){
   out.push({type:"direttore", x:0, y:0, rot:180, label:""});   /* rivolto all'orchestra; il nome sta sul podio */
   return out;
 }
+/* CONFERENZA (24/09). Il podio col relatore (lavalier per quando si muove, collo d'oca del podio come
+   riserva), il tavolo del panel con il moderatore (palmare) e tre relatori seduti col microfono da
+   tavolo, due palmari per le domande del pubblico sul loro ricevitore, schermo sul fondo, confidence
+   monitor per chi parla, due diffusori. La regia sta in sala: non si disegna sul palco. */
+function buildConferenzaOut(){
+  var out=[
+    {type:"schermo", x:0, y:-330, w:400, d:30, label:"Schermo"},
+    {type:"podiosp", x:-330, y:-110, label:"Podio"},
+    {type:"relatore", x:-330, y:-178, micMode:"lavalier", label:""},   /* il nome lo dà il canale («Relatore»): sul disegno coprirebbe il podio */
+    {type:"confidence", x:-200, y:-30, label:"Confidence"},
+    {type:"tavolo", x:150, y:-150, w:440, d:70, label:"Tavolo relatori"},
+    {type:"moderatore", x:0, y:-225, micMode:"mano", sedia:true, label:"Moderatore"}
+  ];
+  [100,200,300].forEach(function(x,i){
+    out.push({type:"relatore", x:x, y:-225, micMode:"pano", sedia:true, label:""});   /* il nome sta sul suo microfono: è lui il canale */
+    out.push({type:"mictavolo", x:x, y:-168, label:"Relatore "+(i+2)});
+  });
+  out.push({type:"wireless", x:40, y:-30, label:"Domande 1", rfChi:"pubblico"});
+  out.push({type:"wireless", x:160, y:-30, label:"Domande 2", rfChi:"pubblico"});
+  out.push({type:"rxrf", x:-460, y:-290, hw:"ulxd4d", label:"Ricevitore"});
+  out.push({type:"topattivo", x:-540, y:-40, label:"Sala L"});
+  out.push({type:"topattivo", x:540, y:-40, label:"Sala R"});
+  return out;
+}
+function conferenzaInputs(){
+  return [ ch("Relatore","TL47"), ch("Podio","SM58"), ch("Moderatore","SM58"),
+    ch("Relatore 2","MX412"), ch("Relatore 3","MX412"), ch("Relatore 4","MX412"),
+    ch("Domande 1","Beta 58A"), ch("Domande 2","Beta 58A"), ch("PC presentazioni L","DI"), ch("PC presentazioni R","DI") ];
+}
+function conferenzaOutputs(){
+  return [ outch("Registrazione","XLR","regia"), outch("Streaming","XLR","regia") ];
+}
 function formationData(f, opz){
   /* 16 × 6,5 m: la misura del modello di Simone, che è la proporzione di un palco da concerto —
      i 12 × 8 di default sono un quadrato che nessun service monta (31/07). */
@@ -18271,6 +18323,7 @@ function formationData(f, opz){
         outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")],
       stage:{w:1500,d:1150} };
   }
+  if(f==="conferenza"){ var cf=buildConferenzaOut(); return { out:cf, inp:conferenzaInputs(), outp:conferenzaOutputs(), stage:palcoPer(cf) }; }
   if(f==="tributo")    return { out:(opz ? buildBandOut(opz) : buildTributoOut()),    inp:tributoInputs(), outp:tributoOutputs() };
   return null;
 }
@@ -24658,7 +24711,9 @@ function rfChain(){
   return {links:links, issues:issues, ants:ants, spls:spls, rxs:rxs};
 }
 var RF_TYPES={ wireless:"Radiomic palmare", headset:"Headset (archetto)", iem:"IEM beltpack", iemant:"TX in-ear (rack)", rxrf:"Ricevitore" };
-function isRf(it){ return !!(it && RF_TYPES[it.type]); }
+/* Il lavalier di una voce è sempre un radiomicrofono (24/09): entra nella Lista RF, con frequenza e «chi». */
+function isRf(it){ return !!(it && (RF_TYPES[it.type] || (VOCE[it.type] && micModeOf(it)==="lavalier"))); }
+function rfChiOf(it){ var c=(it.rfChi||"").trim(); if(c) return c; return VOCE[it.type] ? ((it.label||"").trim()||TYPES[it.type].nome) : ""; }
 function rfList(){
   var rows=[], bands={};
   (state.items||[]).forEach(function(it){
@@ -24668,18 +24723,18 @@ function rfList(){
     var band=(it.band||"").trim();
     if(it.type==="rxrf"){   /* il ricevitore compare come riga infrastruttura: modello + canali */
       var _db=it.hw&&RX_DB[it.hw];
-      rows.push({ name:name, kind:"Ricevitore "+rxCapOf(it)+" ch"+(_db?" ("+_db.brand+" "+_db.model+")":""), rf:"", band:band, rx:"" });
+      rows.push({ infra:true, name:name, kind:"Ricevitore "+rxCapOf(it)+" ch"+(_db?" ("+_db.brand+" "+_db.model+")":""), rf:"", band:band, rx:"" });
       if(band) bands[band]=(bands[band]||0)+1; return; }
     var _as=rfAssign().byTx[it.id];
-    rows.push({ name:name, kind:RF_TYPES[it.type], rf:(it.rf||"").trim(), band:band,
+    rows.push({ name:name, kind:(RF_TYPES[it.type]||"Radiomicrofono lavalier")+(it.rfRiserva?" · riserva":""), chi:rfChiOf(it), riserva:!!it.rfRiserva, rf:(it.rf||"").trim(), band:band,
       rx:_as ? ((_as.rx.label&&_as.rx.label.trim())||"RX")+" ch "+_as.ch : "" });
     if(band) bands[band]=(bands[band]||0)+1;
   });
   (state.items||[]).forEach(function(it){   /* F3: infrastruttura RF in lista (antenne/splitter) */
     if(it.type==="rfant"){ var _adb=it.hw&&RF_ANT_DB[it.hw];
-      rows.push({ name:(it.label&&it.label.trim())||"Antenna RF",
+      rows.push({ infra:true, name:(it.label&&it.label.trim())||"Antenna RF",
         kind:"Antenna "+(antAngOf(it)===360?"omni":"direttiva "+antAngOf(it)+"°")+(_adb?" ("+_adb.brand+" "+_adb.model+")":"")+(it.antH?" · h "+it.antH+" m":""), rf:"", band:"", rx:"" }); }
-    if(it.type==="rfsplit") rows.push({ name:(it.label&&it.label.trim())||"Splitter antenna", kind:"Distribuzione RF 1:4", rf:"", band:"", rx:"" });
+    if(it.type==="rfsplit") rows.push({ infra:true, name:(it.label&&it.label.trim())||"Splitter antenna", kind:"Distribuzione RF 1:4", rf:"", band:"", rx:"" });
   });
   rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
   return { rows:rows, count:rows.length, bands:bands };
@@ -24688,7 +24743,7 @@ function rfListPdf(shared){
   var pl=rfList(); if(!pl.rows.length){ if(!shared) alert("Nessun radiomic o in-ear sul palco."); return; }
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
-    var M=16, y=22, cols=[M, M+66, M+104, M+148];
+    var M=16, y=22, cols=[M, M+44, M+80, M+116, M+156];
     doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
@@ -24698,10 +24753,10 @@ function rfListPdf(shared){
     var sommario = pl.count+" frequenz"+(pl.count===1?"a":"e")+" RF" + (bandKeys.length ? "   ·   "+bandKeys.map(function(b){ return b+": "+pl.bands[b]; }).join("  ·  ") : "");
     doc.text(sommario, M, y); y+=6;
     doc.setFontSize(8.5); doc.setTextColor("#9ca3af"); doc.text("Documentazione per il coordinamento frequenze (a cura del service).", M, y); y+=7;
-    function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.6; }
-    trow("DISPOSITIVO","TIPO","FREQUENZA / BANDA", "RICEVITORE", true, "#4338ca");
+    function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.6; }
+    trow("DISPOSITIVO","CHI LO USA","TIPO","FREQ. / BANDA", "RICEVITORE", true, "#4338ca");
     doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
-    pl.rows.forEach(function(r){ var fb=[r.rf, r.band].filter(Boolean).join(" · ")||"—"; trow(r.name, r.kind, fb, r.rx||"", false, r.rf||r.band?"#111827":"#9ca3af"); });
+    pl.rows.forEach(function(r){ var fb=[r.rf, r.band].filter(Boolean).join(" · ")||"—"; trow(r.name, r.chi||"—", r.kind, fb, r.rx||"", false, r.rf||r.band?"#111827":"#9ca3af"); });
     if(shared) return;
     pdfCredit(doc);
     pdfSave(doc, fileName()+"-lista-rf.pdf");
@@ -25261,7 +25316,7 @@ function pdfListConfig(){
       cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",f:function(r){return r.note;}}] },
     rf:{ title:"Lista RF", color:"#4f46e5", data:(typeof rfList==="function"?rfList:null),
       sub:function(d){ return d.count+" frequenz"+(d.count===1?"a":"e")+" RF"; },
-      cols:[{h:"Dispositivo",f:function(r){return r.name;}},{h:"Tipo",f:function(r){return r.kind;}},{h:"Freq / banda",f:function(r){return [r.rf,r.band].filter(Boolean).join(" · ")||"—";}},{h:"Ricevitore",f:function(r){return r.rx||"—";}}] }
+      cols:[{h:"Dispositivo",f:function(r){return r.name;}},{h:"Chi lo usa",f:function(r){return r.chi||"—";}},{h:"Tipo",f:function(r){return r.kind;}},{h:"Freq / banda",f:function(r){return [r.rf,r.band].filter(Boolean).join(" · ")||"—";}},{h:"Ricevitore",f:function(r){return r.rx||"—";}}] }
   };
 }
 function listPreviewHtml(key){

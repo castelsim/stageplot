@@ -5559,7 +5559,7 @@ t("la scelta del modello mostra la pianta di ogni modello, senza toccare il prog
     ok(/class="mpv-mus"|class="mpv-riser"/.test(ap.svg), m[1] + ": con musicisti o pedane");
     ok(/palco [\d,]+ × [\d,]+ m$/.test(ap.sub), m[1] + ": dice quanto è grande il palco: " + ap.sub);
     /* dal 18/09 anche il Coro ha le sue persone (coristi, direttore, pianista): prima aveva le pedane vuote */
-    ok(ap.persone > 0 && /musicist/.test(ap.sub), m[1] + ": dice quanti musicisti: " + ap.sub);
+    ok(ap.persone > 0 && /musicist|persone/.test(ap.sub), m[1] + ": dice quante persone: " + ap.sub);   /* la Conferenza dice «persone» */
   });
   /* e il conto torna: il pianista del pianoforte a coda e il percussionista contano (18/09: il jazz diceva 3) */
   eq(A.modelloAnteprima("jazzcombo").persone, 4, "Jazz: quattro musicisti");
@@ -10783,8 +10783,9 @@ t("in vetrina ci sono solo organici, non occasioni", () => {
   ok(chiavi.indexOf("matrimonio") < 0, "niente Matrimonio: è un'occasione, non una formazione");
   ok(chiavi.indexOf("dj") < 0, "niente DJ set");
   /* 18/09 — Simone: «va snellito e reso più professionale, sono troppe e spesso fatte male». Scelti da lui. */
-  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera", "cinque modelli, dal più piccolo al più grande");
-  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra", "con nomi brevi");
+  /* 24/09: più Conferenza, in fondo — per il servizio audio alle conferenze */
+  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera,conferenza", "cinque modelli musicali dal più piccolo al più grande, poi la conferenza");
+  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra,Conferenza", "con nomi brevi");
   ["tributo", "bigband", "orchpop"].forEach((k) => {
     const fd = A.formationData(k);
     ok(fd && fd.out && fd.out.length >= 8, k + ": fuori vetrina, ma si apre ancora da /stage-plot/?model=" + k);
@@ -10847,7 +10848,7 @@ t("Acustico, Jazz, Band e Coro: ogni microfono ha chi lo usa, ogni persona il su
   eq(conta(co, "grancoda"), 1, "Coro: c'è il pianoforte del titolo");
   ok(conta(co, "corista") >= 20, "Coro: le pedane hanno i coristi");
   ok(co.filter((i) => A.TYPES[i.type].riser).every((i) => i.dimSide === "right"), "Coro: la misura delle pedane di lato, non sotto i nomi");
-  ok(/"outCh","dimSide"\]\.forEach/.test(appjs), "e placeOut la porta sul palco");
+  ok(/"outCh","dimSide"/.test(appjs), "e placeOut la porta sul palco");
   const xs = co.map((i) => i.x), sx = Math.min(...xs), dx = Math.max(...xs);
   ok(Math.abs(sx + dx) < 250, "Coro: ricentrato col pianoforte (" + sx + " … " + dx + ")");
 });
@@ -16073,6 +16074,50 @@ t("relatore e moderatore: persone con il microfono delle conferenze e il loro ca
   ok(/data-v="lavalier">Lavalier</.test(readFileSync(join(root, "app/index.html"), "utf8")), "il lavalier si sceglie anche per il cantante");
   ok(A.__qaSearch("relatore").some((x) => x.k === "relatore") && A.__qaSearch("moderatore").some((x) => x.k === "moderatore"), "si trovano cercando");
   ok(A.__qaSearch("collo d'oca").some((x) => x.k === "mictavolo") && A.__qaSearch("confidence").some((x) => x.k === "confidence"), "anche il microfono da tavolo e il confidence monitor");
+});
+
+t("il modello Conferenza: podio, panel, domande dal pubblico, e il progetto nasce conferenza", () => {
+  const fd = A.formationData("conferenza"), out = fd.out;
+  const conta = (t) => out.filter((i) => i.type === t).length;
+  ok(conta("podiosp") === 1 && conta("tavolo") === 1 && conta("moderatore") === 1, "podio, tavolo del panel, moderatore");
+  eq(conta("relatore"), 4, "un relatore al podio e tre al tavolo");
+  eq(conta("mictavolo"), 3, "i tre al tavolo parlano nel microfono da tavolo");
+  eq(conta("wireless"), 2, "due palmari per le domande");
+  eq(conta("rxrf"), 1, "sul loro ricevitore");
+  ok(out.filter((i) => i.type === "wireless").every((i) => i.rfChi === "pubblico"), "e la Lista RF sa che li usa il pubblico");
+  ok(fd.stage.w >= fd.stage.d, "palco più largo che profondo");
+  ok(out.every((i) => Math.abs(i.x) + 60 <= fd.stage.w / 2), "tutto dentro il palco");
+  ok(/tipoEvento:\(f==="conferenza"\?"conferenza":"concerto"\)/.test(appjs), "il progetto nasce «Conferenza»: il PDF è una scheda tecnica");
+  /* nessuno nasce senza microfono: il controllo non deve scattare sul modello appena creato */
+  reset(); A.placeOut(out, false, true, true);
+  ok(!A.auditEngine().findings.some((f) => f.rule === "voce-senza-mic"), "nessun avviso «senza microfono» sul modello");
+  const rf = A.rfList().rows;
+  ok(rf.some((r) => r.name === "Domande 1" && r.chi === "pubblico"), "Domande 1: pubblico");
+  ok(rf.some((r) => r.name === "Relatore" && /lavalier/i.test(r.kind) && r.chi === "Relatore"), "il lavalier del relatore entra nella Lista RF, a nome suo");
+  const senza = A.auditEngine().findings.find((f) => /senza frequenza RF/.test(f.msg));
+  ok(senza && /^3 /.test(senza.msg), "senza frequenza: i due palmari e il lavalier, non il ricevitore — " + (senza && senza.msg));
+  ok(/5 persone/.test(A.modelloAnteprima("conferenza").sub), "l'anteprima conta persone, non musicisti: " + A.modelloAnteprima("conferenza").sub);
+});
+
+t("Lista RF: chi lo usa e la riserva; un relatore senza microfono si segnala", () => {
+  reset();
+  const w = add("wireless", 300, 300); w.rfChi = "Moderatore"; w.rfRiserva = true;
+  const r = A.rfList().rows.find((x) => x.name === (w.label || "Mic wireless") || x.chi === "Moderatore");
+  ok(r && r.chi === "Moderatore" && r.riserva && /riserva/.test(r.kind), "chi lo usa e riserva nella riga");
+  const cfg = A.pdfListConfig().rf;
+  ok(cfg.cols.some((c) => c.h === "Chi lo usa"), "la colonna c'è nella pagina del PDF");
+  ok(/trow\("DISPOSITIVO","CHI LO USA","TIPO"/.test(appjs), "e nel PDF della sola Lista RF");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pRfChi"/.test(html) && /id="pRfRiserva"/.test(html), "si compilano dal pannello");
+  reset();
+  const p = add("relatore", 300, 300); p.micMode = "pano";
+  ok(A.auditEngine().findings.some((f) => f.rule === "voce-senza-mic"), "relatore senza microfono: avviso");
+  add("mictavolo", 300, 370);
+  ok(!A.auditEngine().findings.some((f) => f.rule === "voce-senza-mic"), "con un microfono da tavolo davanti: niente avviso");
+  reset();
+  const q = add("relatore", 300, 300); q.micMode = "lavalier";
+  ok(!A.auditEngine().findings.some((f) => f.rule === "voce-senza-mic"), "col suo lavalier: niente avviso");
+  eq(A.cabItemInputs(q).length, 1, "e il lavalier resta UN canale, anche se è in Lista RF");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
