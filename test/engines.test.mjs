@@ -3017,6 +3017,41 @@ t("audit L8: il fix piazza un radiomic col nome del cantante e spegne l'avviso",
   ok(w && w.label === "Vocalist 2", "radiomic col nome del cantante; items: " + A.state.items.map((i) => i.type).join(","));
   ok(!hasMsg(/senza microfono/), "dopo il fix: " + auditMsgs().join(" | "));
 });
+/* 25/09 — «Pooh History – Treviso»: 50 coristi in panoramica, nessuna zona, nessun microfono
+   d'insieme. Nella channel list il coro non aveva un canale e l'audit taceva. */
+function coroPano(n, y0) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(add("corista", 300 + (i % 10) * 65, (y0 || 200) + Math.floor(i / 10) * 110, { micMode: "pano" }));
+  return out;
+}
+t("coro in panoramica senza microfoni: avviso, e il fix gli da' dei canali", () => {
+  reset(); coroPano(24); A.__cabRes = null;
+  const coroInLista = () => A.patchList().rows.filter((r) => /coro/i.test(r.name || "")).length;
+  eq(coroInLista(), 0, "premessa: il coro in panoramica senza microfoni non ha canali");
+  const f = A.auditEngine().findings.find((x) => /coristi in panoramica non sono ripresi/.test(x.msg));
+  ok(f, "nessun avviso sul coro muto; findings: " + auditMsgs().join(" | "));
+  ok(/24 coristi/.test(f.msg), "il conteggio non dice quanti sono: " + f.msg);
+  try { f.act.run(); } catch (e) { /* render/save toccano il DOM stub */ }
+  A.__cabRes = null;
+  const mic = A.state.items.filter((i) => i.type === "micchoir");
+  eq(mic.length, 3, "24 voci = 3 microfoni coro (uno ogni 8)");
+  eq(mic.map((m) => m.label), ["Coro 1", "Coro 2", "Coro 3"], "nomi distinti, o il patch e' ambiguo");
+  ok(mic.every((m) => m.y > 200 + 2 * 110 && m.y <= A.state.stage.d - 30), "i microfoni devono stare davanti al coro e dentro il palco");
+  eq(coroInLista(), 3, "dopo il fix il coro deve avere i suoi canali in channel list");
+  ok(!hasMsg(/non sono ripresi/), "dopo il fix l'avviso resta: " + auditMsgs().join(" | "));
+});
+t("coro in panoramica gia' ripreso (asta d'insieme o zona): nessun avviso", () => {
+  reset(); coroPano(12); add("giraffa", 592, 420); A.__cabRes = null;   /* centrata sul coro, davanti: il corista piu' lontano e' a 3,7 m */
+  ok(!hasMsg(/non sono ripresi|non è ripreso/), "con l'asta d'insieme davanti: " + auditMsgs().join(" | "));
+  reset(); const cs = coroPano(3); A.__cabRes = null;
+  const z = add("miczone", 365, 200); z.w = 400; z.d = 200; delete z.pts; A.__cabRes = null;
+  ok(cs.every((c) => A.itemInMicZone(c)), "premessa: i coristi devono stare nella zona");
+  ok(!hasMsg(/non sono ripresi|non è ripreso/), "dentro la zona: " + auditMsgs().join(" | "));
+});
+t("il corista col suo microfono non e' un coro muto", () => {
+  reset(); for (let i = 0; i < 6; i++) add("corista", 300 + i * 70, 200); A.__cabRes = null;
+  ok(!hasMsg(/non sono ripresi|non è ripreso/), "coristi con mic proprio: " + auditMsgs().join(" | "));
+});
 t("audit B4: due canali con lo stesso nome → avviso doppione", () => {
   reset(); const w1 = add("wireless", 300, 300); w1.label = "VOX LEAD 1"; const w2 = add("wireless", 700, 300); w2.label = "VOX LEAD 1"; A.__cabRes = null;
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
@@ -6984,6 +7019,27 @@ t("ricerca 'audit' e 'controlla' trovano l'Audit", () => {
   ok(A.__spSearch("controlla").some(r => r.nome === "Audit progetto"), "'controlla' (alias) non trova l'Audit");
 });
 
+/* 25/09 — le ricerche senza risultati degli utenti veri (analytics): «espo», «freque», «cond».
+   Le prime due cercavano una FUNZIONE, la terza il direttore di un'orchestra. */
+t("la ricerca trova le funzioni che gli utenti hanno cercato: Esporta e Frequenze RF", () => {
+  for (const q of ["espo", "export", "stampa", "pdf"]) ok(A.__spSearch(q).some((r) => r.nome === "Esporta"), "'" + q + "' non trova Esporta");
+  for (const q of ["freque", "radiofrequenza", "mhz"]) ok(A.__spSearch(q).some((r) => r.nome === "Frequenze radio (RF)"), "'" + q + "' non trova le Frequenze RF");
+  const e = (A.__catEntries || []).find((x) => x.nome === "Frequenze radio (RF)");
+  ok(e && e.action === A.openRfFreq && e.noQuick, "la voce Frequenze non apre openRfFreq o finisce nell'aggiunta rapida");
+});
+t("Frequenze RF apre il primo radiomic senza frequenza", () => {
+  reset();
+  const a = add("wireless", 200, 200), b = add("wireless", 400, 200);
+  a.rf = "606.400";
+  eq(A.openRfFreq().id, b.id, "deve aprire quello ancora da compilare, non il primo della fila");
+  eq(A.sel, b.id, "l'elemento non e' stato selezionato: il pannello con «Frequenza RF» non si apre");
+  reset(); eq(A.openRfFreq(), null, "senza radiomic sul palco non deve selezionare niente");
+});
+t("«cond», «conductor», «maestro» trovano il direttore", () => {
+  for (const q of ["cond", "conductor", "maestro"]) ok(A.__spSearch(q).some((r) => r.k === "direttore"), "'" + q + "' non trova il direttore");
+  ok(!A.__spSearch("cond").some((r) => r.nome === "Esporta"), "'cond' tira fuori Esporta: una parola chiave la contiene per sottostringa");
+});
+
 /* ---- Undo: printFrame (area di stampa/export) escluso dalla cronologia (bug undo poco prevedibile) ---- */
 console.log("\nUndo / printFrame:");
 t("printFrame NON crea passi di undo (mutazione invisibile dell'export)", () => {
@@ -7939,6 +7995,55 @@ t("i nomi dei canali si contano solo su quelli che stanno sul palco", () => {
   A.__cabRes = null;
   ok(A.auditEngine().findings.some((x) => /si chiamano/.test(x.msg || "")),
      "l'avviso sui doppioni veri e' sparito: il filtro taglia troppo");
+});
+
+/* 25/09 — dai 12 progetti che Simone ha scelto come esempio. Il filtro qui sopra toglieva l'avviso
+   falso, ma le righe restavano nel documento: la Input list le mostra e finiscono nella tabella del
+   PNG e nel PDF della consulenza. «Stevie Biondi Trio» ne aveva 7 su 14, «morricone 99» 57 su 94. */
+t("cancellato un elemento, i suoi canali se ne vanno; l'Annulla li riporta", () => {
+  reset();
+  const voce = add("cantante", 100, 100), mon = add("wedge", 100, 250), resta = add("cantante", 400, 100);
+  A.state.inputs = [
+    { src: "Voce", mic: "SM58", linked_item_id: voce.id, notes: "scelta a mano" },
+    { src: "Voce 2", mic: "SM58", linked_item_id: resta.id },
+    { src: "Talkback", mic: "SM58" },                          /* scritta a mano: senza elemento, deve restare */
+  ];
+  A.state.outputs = [{ src: "Mix voce", linked_item_id: mon.id }, { src: "Spare" }];
+  A.resetHistory(); A.save();
+  /* deleteSel ridisegna PRIMA di salvare: quello che la Input list mostra e' lo stato al momento del
+     render, non dopo il save. Si guarda li', altrimenti la pulizia del save copre la mancanza. */
+  const renderVero = A.render; let visteAlRender = null;
+  A.render = function () { if (visteAlRender === null) visteAlRender = A.state.inputs.map((r) => r.src); return renderVero.apply(this, arguments); };
+  try { A.selectMany([voce.id, mon.id]); A.deleteSel(); } finally { A.render = renderVero; }
+  eq(visteAlRender, ["Voce 2", "Talkback"], "la Input list ridisegnata dopo la cancellazione mostra ancora il canale tolto");
+  eq(A.state.inputs.map((r) => r.src), ["Voce 2", "Talkback"], "i canali dell'elemento cancellato sono rimasti");
+  eq(A.state.outputs.map((r) => r.src), ["Spare"], "il mix del monitor cancellato e' rimasto");
+  A.undo();
+  eq(A.state.inputs.map((r) => r.src), ["Voce", "Voce 2", "Talkback"], "l'Annulla non ha riportato i canali");
+  eq(A.state.inputs[0].notes, "scelta a mano", "l'Annulla ha riportato il canale ma non le scelte fatte a mano");
+});
+
+t("un progetto con righe orfane si apre gia' pulito", () => {
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "i1", type: "cantante", x: 100, y: 100 }],
+    inputs: [
+      { src: "Voce", mic: "SM58", linked_item_id: "i1" },
+      { src: "Kick", mic: "D6", linked_item_id: "i77" },      /* la batteria non c'e' piu' */
+      { src: "Talkback", mic: "SM58" },
+    ],
+    outputs: [{ src: "Wedge", linked_item_id: "i88" }] });
+  eq(s.inputs.map((r) => r.src), ["Voce", "Talkback"], "la riga del kick senza batteria e' sopravvissuta all'apertura");
+  eq(s.outputs.length, 0, "il mix del monitor che non c'e' e' sopravvissuto all'apertura");
+});
+
+t("togliere un elemento da un'altra strada (monitor cambiato) non lascia righe al salvataggio", () => {
+  reset();
+  const v = add("cantante", 300, 300);
+  A.setAscolto(v, "wedge");
+  const w = A.state.items.find((i) => i.id === v.ascoltoId);
+  ok(w, "il monitor non e' stato creato: il test non prova niente");
+  A.state.outputs = [{ src: "Mix voce", linked_item_id: w.id }];
+  A.setAscolto(v, "iem");                                       /* il wedge se ne va, arriva un in-ear */
+  ok(!A.state.outputs.some((r) => r.linked_item_id === w.id), "il mix del wedge tolto e' rimasto dopo il salvataggio");
 });
 
 t("le righe scritte a mano, senza elemento, restano valide", () => {
@@ -10784,9 +10889,10 @@ t("in vetrina ci sono solo organici, non occasioni", () => {
   ok(chiavi.indexOf("dj") < 0, "niente DJ set");
   /* 18/09 — Simone: «va snellito e reso più professionale, sono troppe e spesso fatte male». Scelti da lui. */
   /* 24/09: più Conferenza, in fondo — per il servizio audio alle conferenze */
-  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera,conferenza", "cinque modelli musicali dal più piccolo al più grande, poi la conferenza");
-  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra,Conferenza", "con nomi brevi");
-  ["tributo", "bigband", "orchpop"].forEach((k) => {
+  /* 25/09: Orchestra pop di nuovo in vetrina, dopo l'Orchestra — ci partono 8 dei 9 progetti scelti come esempio */
+  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera,orchpop,conferenza", "sei modelli musicali dal più piccolo al più grande, poi la conferenza");
+  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra,Orchestra pop,Conferenza", "con nomi brevi");
+  ["tributo", "bigband"].forEach((k) => {
     const fd = A.formationData(k);
     ok(fd && fd.out && fd.out.length >= 8, k + ": fuori vetrina, ma si apre ancora da /stage-plot/?model=" + k);
   });
@@ -10809,6 +10915,19 @@ t("OGNI modello in vetrina arriva completo: elementi, canali e uscite", () => {
     ok(fd.out.every((it) => A.TYPES[it.type]), m[1] + ": nessun tipo inventato");
     ok(A.FORM_TITLES[m[0]], m[1] + ": ha un titolo");
   });
+});
+
+t("nessun modello in vetrina nasce con un'etichetta capovolta", () => {
+  /* 25/09 — rimettendo Orchestra pop in vetrina: la sua «Scala» era a 180° e l'etichetta gira con
+     l'elemento, quindi si leggeva a testa in giù. Stesso difetto già tolto dal coro (rot 0, non 180). */
+  const storti = [];
+  A.START_MODELS.forEach((m) => {
+    A.formationData(m[0]).out.forEach((it) => {
+      const r = (((it.rot || 0) % 360) + 360) % 360;
+      if ((it.label || "").trim() && r > 90 && r < 270) storti.push(m[1] + ": " + it.label + " a " + r + "°");
+    });
+  });
+  eq(storti, [], "etichette capovolte");
 });
 
 t("Orchestra pop: l'organico è quello del modello, senza nomi di persona", () => {

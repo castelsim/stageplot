@@ -6,6 +6,14 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **25/09 — Dai progetti scelti come esempio** (branch `esempi-utenti`, 4 commit, 1180 test). Simone ha scelto 12
+  progetti dalla galleria; analisi in `../analisi/esempi-2026-09-24.md` (fuori dal repo). `dropOrphanRows()`: le righe
+  di input/monitor con `linked_item_id` verso un elemento che non c'è più si tolgono all'apertura (`normalizeState`),
+  a ogni `save()` e in `deleteSel` prima del render. Audit `coromuto`: coristi in panoramica fuori da zone e senza
+  microfono d'insieme entro 4,5 m, fix `auditFixChoirMics` (un mic coro ogni 8 voci). Ricerca: voci-comando «Esporta»
+  e «Frequenze radio (RF)» (`openRfFreq`), alias del direttore. Da decidere:
+  campo «musicista». **Orchestra pop di nuovo in vetrina** (decisione di Simone), ripulita: scala a rot 0, pedane
+  senza nome, tastiera e chitarra spostate, ottoni 25 cm indietro; test «nessun modello con etichetta capovolta».
 - **24/09 — Timpanista ridotto del 10%** (`drawTimpani`, `scale(0.9)` su `timpanistaPersona`): era più grosso di batterista e percussionista.
 
 - **#209-#210 (24/09) — Conferenze.** `state.tipoEvento` («Conferenza o convegno» da Data e ora):
