@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.09.18";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.09.24";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -214,6 +214,7 @@
   header .tbar-ico{flex:0 0 auto}
   header .hdr-corto{display:none}
   #helpMenu .mi-tema{display:none}
+  body.ev-conferenza #bRichiedi, body.ev-conferenza #mactRichiedi{display:none}   /* 24/09: in una conferenza non si cercano musicisti */
   /* «Esporta» resta scritto a ogni larghezza (decisione più sotto): cedono gli altri */
   @media (min-width:881px) and (max-width:1680px){ header input#titolo{max-width:170px} #bFit .hdr-lbl{display:none} }
   @media (min-width:881px) and (max-width:1600px){ #bRichiedi .hdr-lungo, #evChip .hdr-lbl{display:none} #bRichiedi .hdr-corto{display:inline} }
@@ -3531,6 +3532,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   <div id="evPop" class="hdrmenu ev-pop" hidden>
     <label for="evDate" class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
     <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
+    <label for="evTipo" class="ev-l">Tipo</label><select id="evTipo" class="ev-i"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
     <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
     <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
   </div>
@@ -3848,6 +3850,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
     <h3>Evento</h3>
     <p class="ev-intro">Quello che scrivi qui esce nell'intestazione del rider.</p>
     <label for="titoloEv">Titolo</label><input type="text" id="titoloEv" placeholder="Es. Concerto in villa">
+    <label for="evTipoM">Tipo di evento</label><select id="evTipoM"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
     <label for="luogoEv">Luogo</label><input type="text" id="luogoEv" placeholder="Es. Teatro Comunale, Vicenza">
     <div class="ev-datetime">
       <div><label for="evDateM">Data</label><input type="date" id="evDateM"></div>
@@ -4282,9 +4285,10 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
           <button type="button" data-v="giraffa">Giraffa</button>
           <button type="button" data-v="mano">In mano</button>
           <button type="button" data-v="archetto">Archetto</button>
+          <button type="button" data-v="lavalier">Lavalier</button>
           <button type="button" data-v="pano">Panoramico</button>
         </div>
-        <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="archetto">archetto</option><option value="pano">panoramico</option></select>
+        <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="archetto">archetto</option><option value="lavalier">lavalier</option><option value="pano">panoramico</option></select>
       </div>
       <label class="chk"><input type="checkbox" id="pLeggioV"> Leggio</label>
       <label class="chk" id="pSediaVWrap"><input type="checkbox" id="pSediaV"> Sedia</label>
