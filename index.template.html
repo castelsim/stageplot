@@ -3706,6 +3706,7 @@ var SEARCH_ALIAS = {
   batteria:"drummer batterista batteristi kick cassa charleston hi hat hihat piatti tom tamburo dr drs drms drum kit drumkit bd sn snr sd hh ft oh cym crash ride",
   batteristaR:"drummer batteristi dr drs drms", musBatteria:"drummer batterista batteristi",
   tastiera:"tastierista tastieristi keyboardist kb kys keys", doppiatastiera:"tastierista tastieristi keyboardist",
+  direttore:"conductor maestro concertatore",   /* 25/09: «cond» dava solo il Moderatore (conduttore), chi disegnava un'orchestra non trovava il direttore */
   stagepiano:"tastierista tastieristi pianista pianisti pianoforte kb kys keys pno",
   grancoda:"pianista pianisti pianoforte pno", mezzacoda:"pianista pianisti pianoforte",
   pianoverticale:"pianista pianisti pianoforte pno",
@@ -15033,6 +15034,14 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"palco stage forma blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
   entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
   entries.push({nome:"Audit progetto", dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
+  /* Comandi cercati per nome (25/09, dalle ricerche senza risultati degli utenti): «espo» e
+     «freque» non trovavano niente. Chi scrive nella ricerca non sempre vuole un oggetto: a volte
+     cerca una FUNZIONE, e se non la trova lì non sa dove altro guardarla. */
+  entries.push({nome:"Esporta", dim:"PDF, PNG, channel list per la console", noQuick:true,
+                action:function(){ var b=document.getElementById("bExportHdr"); if(b) b.click(); },
+                kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare condividi"});
+  entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, action:openRfFreq,
+                kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   ["metro","testo"].forEach(function(k){
     pin.appendChild(makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
   });
@@ -26794,6 +26803,19 @@ function rfChain(){
 var RF_TYPES={ wireless:"Radiomic palmare", headset:"Headset (archetto)", iem:"IEM beltpack", iemant:"TX in-ear (rack)", rxrf:"Ricevitore" };
 /* Il lavalier di una voce è sempre un radiomicrofono (24/09): entra nella Lista RF, con frequenza e «chi». */
 function isRf(it){ return !!(it && (RF_TYPES[it.type] || (VOCE[it.type] && micModeOf(it)==="lavalier"))); }
+/* «Frequenze radio (RF)» dalla ricerca (25/09: un utente ha cercato «freque» e non ha trovato niente).
+   La frequenza non vive in una pagina a sé: si scrive su ogni radiomic e in-ear, e da lì va nella
+   Lista RF. Quindi si apre il pannello del primo che ne è senza — o del primo in assoluto — e se
+   sul palco non ce n'è nessuno si spiega dove si scrive, invece di non fare niente. */
+function openRfFreq(){
+  var rf=(state.items||[]).filter(isRf);
+  if(!rf.length){ if(window.__toast) window.__toast("La frequenza si scrive su ogni radiomicrofono o in-ear: aggiungine uno dal catalogo, poi compila «Frequenza RF» nel suo pannello.", false); return null; }
+  var senza=rf.filter(function(it){ return !it.rf; }), it=senza[0]||rf[0];
+  selectMany([it.id]); render(); if(typeof renderProps==="function") renderProps();
+  if(window.__toast) window.__toast((senza.length ? senza.length+" su "+rf.length+" senza frequenza. " : "")+"Si scrive in «Frequenza RF», nel pannello dell'elemento: finisce nella Lista RF del rider.", false);
+  setTimeout(function(){ var f=document.getElementById("pRf"); if(f && f.focus) try{ f.focus(); }catch(e){} }, 60);
+  return it;
+}
 function rfChiOf(it){ var c=(it.rfChi||"").trim(); if(c) return c; return VOCE[it.type] ? ((it.label||"").trim()||TYPES[it.type].nome) : ""; }
 function rfList(){
   var rows=[], bands={};
