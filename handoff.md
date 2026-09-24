@@ -1,3 +1,40 @@
+# STATO AL 24/09/2026 — da leggere prima di tutto
+
+Tutto in produzione, nessuna PR aperta. Test: 1170 editor · 124 Orchestre · 137 Deno.
+Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
+sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
+
+## Settembre in una pagina (PR su `main`)
+
+- **#209-#210 (24/09) — Conferenze.** `state.tipoEvento` («Conferenza o convegno» da Data e ora):
+  PDF «Scheda tecnica evento», niente «Richiedi musicisti», niente avviso monitor dei musicisti, testi
+  di partenza da conferenza. Tipi `relatore` (lavalier) e `moderatore` (seduto, palmare) in `VOCE`;
+  micMode `lavalier` (TL47); `mictavolo` (MX412) e `confidence`. Modello «Conferenza» (`buildConferenzaOut`).
+  Lista RF: `rfChi` («Chi lo usa»), `rfRiserva`, lavalier delle voci inclusi (restano un canale),
+  ricevitori/antenne fuori dal conteggio «senza frequenza». Avviso `voce-senza-mic`.
+  Fuori per scelta: run of show, checklist, client view, vista signal flow.
+- **#208 (18/09) — Schermi e browser.** Barra dell'editor a gradini (1680/1600/1480/1300/1210 px), tema
+  nel menu «?» sotto 1300; rosso degli errori di Orchestre leggibile in scuro; benvenuto in orizzontale;
+  tabella della privacy che scorre; il gestore delle finestre non sposta il fuoco già messo; link delle guide ≥ 24 px.
+- **#207 (18/09) — Modelli.** Da otto a cinque, rifatti: Acustico, Band, Jazz, Coro (`coroCompleto`),
+  Orchestra (`buildOrchestraOrdinata`). Fuori vetrina Tributo, Big band, Orchestra pop.
+- **#206 (17/09) — Accesso Google da stageplot.it.** `/accedi/google/` (id_token + nonce/state →
+  `signInWithIdToken`), login di prima come riserva. Client OAuth con origini `https://stageplot.it` e
+  `http://localhost:8931` (le prove locali del login solo su quella porta).
+- **#205 (17/09) — Resilienza.** «Nuovo» su un progetto che non si apre ne scarica prima l'originale;
+  timeout 15 s verso Resend e `tentaInvio`; orc-notify indipendente dal worker delle consulenze; pagine
+  di Orchestre con `avvia(main)` (errore + «Riprova»).
+- **#195-#204 (16/09).** PDF: dati tecnici solo con Esporta avanzato, cartiglio staccato dal bordo;
+  Musicisti nascosti davvero; sgabelli per tipo; Solo Palco = pedane; pedane coperte (clic ripetuto,
+  «Sposta solo la pedana»); anteprime dei modelli; testo libero più grande; Alt+trascina in un annulla;
+  limiti delle segnalazioni; griglia all'avvio.
+- **#186-#194 (14-15/09).** Funzioni avanzate da File (`f-conn`, `f-liste`, `f-opzioni`, `f-esporta`,
+  `f-controllo`) al posto di Base/Pro; varianti come schede; audit esterno 15/09; link a Orchestre dalla home.
+- **#176-#185 (13-14/09).** Telefono ridisegnato: barra a una riga, menu a elenco, «Elementi», catalogo,
+  palco girato col pizzico, primo avvio in una schermata.
+
+---
+
 # SESSIONE 27/07 — Catena d'uscita · Richieste setup ai musicisti (R1)
 
 **1. Catena d'uscita** (`496b4cc`) — microfonazione, pedaliera e uscita bilanciata erano tre controlli scollegati: ora sono una **catena disegnata e cliccabile** nel pannello di chitarre, basso e acustica (variante C, scelta sui mockup in `docs/mockup/uscita.html`). Regole reali: strumento sempre jack sbilanciato; pedaliera jack o XLR (se jack la DI va DOPO di lei); dall'ampli si prende mic, DI out o entrambi. Modello: anelli (`pedaliera`/`ampli`) + prelievi (`tapLine`/`ampMic`/`ampDi`/`strMic`, `pedXlr`); un prelievo = un canale; la DI non si sceglie, e' una conseguenza. `chainMigrate` porta i progetti vecchi nella catena senza perdite.

@@ -26,37 +26,33 @@ right-sized per la realtà del progetto, non un framework enterprise. Leggilo pr
 - Prima di un merge/commit di release: `node build.mjs --check` deve passare (shell allineata ai sorgenti).
 - Finché un modulo non è ancora estratto, vive ancora dentro `index.template.html` (modularizzazione incrementale).
 
-## 3. Rami (Git)
+## 3. Rami (Git) — come si lavora oggi (aggiornato 24/09/2026)
 
-| Ramo | Uso |
-|------|-----|
-| `main` | Stabile. **È ciò che viene pubblicato.** Solo merge, mai sviluppo diretto. |
-| `tool` | Lavoro sul tool: `index.template.html` + `src/` (UI/stili **e** logica — un solo fronte per il single-file). |
-| `seo` | Contenuti e indicizzazione: `guida/`, `stage-plot/`, `sitemap.xml`, `llms.txt`, meta. |
+- `main` è ciò che è pubblicato: **ogni merge su `main` va online** su stageplot.it (workflow `pages.yml`).
+- Si lavora su un ramo di lavoro (da settembre 2026 il worktree `.claude/worktrees/telefono-nuovo`,
+  ramo `telefono-nuovo`) e si porta su `main` con **una PR per lotto**, poi merge.
+- Prima di ogni commit: `git fetch && git merge --ff-only origin/main` (o merge normale se il ramo ha
+  lavoro suo) e verifica di branch e HEAD: più sessioni e agenti lavorano sullo stesso repository.
+- Mai `git stash` nudo: la pila è condivisa fra i worktree. Meglio un commit temporaneo.
+- I vecchi rami `tool` / `seo` descritti nelle versioni precedenti di questo file non si usano più.
 
-Rami temporanei, sopra a quelli sopra, quando serve isolare un intervento:
-`feature/<nome>`, `fix/<nome>`, `refactor/<nome>`, `experiment/<nome>`.
+## 4. Un lotto, dall'inizio alla fine
 
-**Regola d'oro: un file → un ramo.** Non aprire due rami che modificano lo stesso file in parallelo
-(es. due rami che toccano `src/styles.css`): è la causa #1 di conflitti.
-
-## 4. Workflow (worker → integratore)
-
-```
-agente worker  →  lavora su un ramo (tool/seo/feature-*), committa lì
-                  ↓
-integratore    →  git switch main → git merge <ramo> → node build.mjs --check
-                  ↓
-TU             →  approvi il push (pubblicazione)
-```
-
-- I **commit e i merge sono liberi** (locali, reversibili, sul ramo di lavoro).
-- Il **push lo decide l'utente**: un hook globale (`~/.claude/settings.json`) chiede conferma su ogni
-  `git push`. Nessun agente pubblica di iniziativa.
-- **A turni nella stessa cartella**: il worker deve committare sul suo ramo *prima* di passare la mano,
-  così lo `switch` dell'integratore non gli sposta modifiche non committate sotto i piedi.
-- Per worker **simultanei sullo stesso file** servono i **git worktree** (cartelle separate). Per ora,
-  a turni, non servono.
+1. Aggiornare il ramo (sopra) e leggere `handoff.md` in cima: dice cosa è cambiato di recente.
+2. Modificare `index.template.html` / `src/` (mai `app/index.html`), poi `node build.mjs`.
+3. **Ogni correzione ha il suo test** in `test/engines.test.mjs` (o `orchestre/test/`), e il test va
+   provato **con mutazioni**: base verde, si rompe il codice apposta, il test deve diventare rosso,
+   si rimette e la base torna verde. Un test che resta verde sul codice rotto non protegge niente.
+4. Le suite: `node build.mjs --check` · `node test/engines.test.mjs` · `node --test orchestre/test/*.test.mjs`
+   · `deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts`.
+5. **Scelte visive e flussi: guardarli nel browser** su un server locale (`python3 -m http.server <porta>`),
+   con una **porta nuova a ogni prova** (il service worker serve il codice vecchio) oppure con
+   unregister del SW + `caches.delete()`.
+6. Commit con il perché, PR, merge; poi **verificare in produzione** che il codice nuovo sia su
+   stageplot.it (es. `curl https://stageplot.it/app.js | grep <funzione nuova>`). Si dice «fatto» solo dopo.
+7. Edge Function toccate (anche solo un modulo in `_shared/`): ridistribuire tutte quelle che lo importano
+   con `supabase functions deploy <nome> --project-ref vsodplqkuvnsdiikvmjb --use-api`.
+8. Fine sessione: una sezione nuova **in cima** a `handoff.md`.
 
 ## 5. Commit (Conventional Commits)
 
@@ -89,6 +85,30 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
 - Non modificare `app/index.html` a mano (è generato — perderesti le modifiche al prossimo build).
   L'`index.html` in radice è invece la landing: quello si modifica a mano ed è il build a non toccarlo.
 - Non committare `app/index.html` disallineato dai sorgenti (gira `node build.mjs` prima).
-- Non pushare/pubblicare senza l'OK dell'utente.
+- Pubblicare solo ciò che l'utente ha chiesto o approvato in quella sessione (la richiesta vale come OK).
+- Database di produzione: **solo lettura**; le modifiche passano da migrazioni in `supabase/migrations/`.
+- Niente dati reali di clienti, musicisti o fornitori nel repo: è pubblico.
 - Non cambiare la logica di business mentre fai lavoro UI (e viceversa).
 - In dubbio su una scelta architetturale: fermati, spiega i trade-off, chiedi.
+
+## 8. Trappole note (costate ore: leggerle prima)
+
+- **CSS, regole annidate per sbaglio**: `.tbar-ico{` in `src/styles.css` non si chiude sulla sua riga;
+  una regola inserita dopo la prima riga finisce annidata e il browser la ignora. Inserire dopo la `}`.
+- **CSS, ordine**: a parità di specificità vince l'ultima scritta; una regola base scritta *dopo* un
+  gradino `@media` lo annulla. Dentro `#props` ogni regola nuova va scritta almeno `#props .x`.
+- **Boot**: una `var` definita più in basso nel file è `undefined` per il codice di avvio sopra di lei.
+- **PDF**: molte funzioni `*Pdf` hanno un `function trow(...)` identico: sostituire dentro la funzione
+  giusta, mai la prima occorrenza nel file.
+- **Ricerca del catalogo**: un nome nuovo che contiene «mic» o «monitor» ruba i risultati ad aste e wedge;
+  si usa `qaCede` sul tipo nuovo.
+- **Modelli**: ogni modello ha due strade — con la finestra dell'organico e con «Formazione tipica»
+  (`formazione` nullo). Vanno provate tutte e due.
+- **Voci**: `VOCE` è il punto di aggancio per chiunque parli o canti (cantante, corista, relatore,
+  moderatore): microfono dal pannello, canale, sedia, leggio. Un tipo nuovo di persona va aggiunto lì.
+- **Tipo di evento**: `state.tipoEvento` (`concerto`/`conferenza`, per variante) cambia parole del PDF,
+  avvisi e testi di partenza tramite `eventoConferenza()` / `nomeDocumento()`, non il disegno.
+- **Edge Function**: non rispondere prima di aver letto il corpo della richiesta (causa 503 dopo due minuti).
+- **Prove multi-browser**: Playwright (Chromium, WebKit, Firefox) su una copia `git archive origin/main`
+  servita in locale, con la rete verso l'esterno bloccata (`ctx.route`) per non toccare dati veri.
+
