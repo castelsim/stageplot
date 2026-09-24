@@ -10889,9 +10889,10 @@ t("in vetrina ci sono solo organici, non occasioni", () => {
   ok(chiavi.indexOf("dj") < 0, "niente DJ set");
   /* 18/09 — Simone: «va snellito e reso più professionale, sono troppe e spesso fatte male». Scelti da lui. */
   /* 24/09: più Conferenza, in fondo — per il servizio audio alle conferenze */
-  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera,conferenza", "cinque modelli musicali dal più piccolo al più grande, poi la conferenza");
-  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra,Conferenza", "con nomi brevi");
-  ["tributo", "bigband", "orchpop"].forEach((k) => {
+  /* 25/09: Orchestra pop di nuovo in vetrina, dopo l'Orchestra — ci partono 8 dei 9 progetti scelti come esempio */
+  eq(chiavi.join(","), "acoustic,band,jazzcombo,coro,camera,orchpop,conferenza", "sei modelli musicali dal più piccolo al più grande, poi la conferenza");
+  eq(A.START_MODELS.map((m) => m[1]).join(","), "Acustico,Band,Jazz,Coro,Orchestra,Orchestra pop,Conferenza", "con nomi brevi");
+  ["tributo", "bigband"].forEach((k) => {
     const fd = A.formationData(k);
     ok(fd && fd.out && fd.out.length >= 8, k + ": fuori vetrina, ma si apre ancora da /stage-plot/?model=" + k);
   });
@@ -10914,6 +10915,19 @@ t("OGNI modello in vetrina arriva completo: elementi, canali e uscite", () => {
     ok(fd.out.every((it) => A.TYPES[it.type]), m[1] + ": nessun tipo inventato");
     ok(A.FORM_TITLES[m[0]], m[1] + ": ha un titolo");
   });
+});
+
+t("nessun modello in vetrina nasce con un'etichetta capovolta", () => {
+  /* 25/09 — rimettendo Orchestra pop in vetrina: la sua «Scala» era a 180° e l'etichetta gira con
+     l'elemento, quindi si leggeva a testa in giù. Stesso difetto già tolto dal coro (rot 0, non 180). */
+  const storti = [];
+  A.START_MODELS.forEach((m) => {
+    A.formationData(m[0]).out.forEach((it) => {
+      const r = (((it.rot || 0) % 360) + 360) % 360;
+      if ((it.label || "").trim() && r > 90 && r < 270) storti.push(m[1] + ": " + it.label + " a " + r + "°");
+    });
+  });
+  eq(storti, [], "etichette capovolte");
 });
 
 t("Orchestra pop: l'organico è quello del modello, senza nomi di persona", () => {
