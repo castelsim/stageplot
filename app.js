@@ -9202,6 +9202,19 @@ function auditEngine(){
     && !(typeof cabItemInputs==="function" && cabItemInputs(it).length)
     && !items.some(function(m){ return AUDIT_VOICE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<150; }); });
   if(voxless.length) add("warn", voxless.length+(voxless.length===1?" cantante è":" cantanti sono")+" senza microfono: la voce non entra nella channel list.","Audio","Ogni voce ha bisogno di un mic accanto (radiomic, asta o headset) oppure di una zona mic.",{label:"Aggiungi radiomic",run:function(){ auditFixAddVoiceMics(voxless); }});
+  /* CORO SENZA RIPRESA (25/09, dai 12 progetti scelti come esempio). Il corista in PANORAMICA ha
+     dichiarato di non avere un microfono suo: lo riprendono aste d'insieme o una zona. Qui sopra lo
+     si escludeva dando per scontato che ci fossero — «Pooh History – Treviso» ha 50 coristi in
+     panoramica, nessuna zona e nessun microfono d'insieme: nella channel list consegnata il coro
+     non ha nemmeno un canale, in silenzio. In «morricone 99» 16 su 30 stanno fuori dalle sue due zone.
+     Ripreso = dentro una zona, oppure con un microfono d'insieme entro 4,5 m (un overhead da coro
+     copre più file; oltre, è un microfono di qualcos'altro). */
+  var AUDIT_ENSEMBLE_MICS={micchoir:1,micover:1,giraffa:1,astagigante:1,coppiast:1,astamic:1};
+  var coroMuto=items.filter(function(it){ return it.type==="corista" && micModeOf(it)==="pano" && !itemInMicZone(it)
+    && !items.some(function(m){ return AUDIT_ENSEMBLE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<450; }); });
+  if(coroMuto.length) add("warn", coroMuto.length+(coroMuto.length===1?" corista in panoramica non è ripreso":" coristi in panoramica non sono ripresi")+" da nessun microfono: nella channel list il coro non ha canali.","Audio",
+    "In panoramica il corista non ha un microfono suo: servono microfoni d'insieme davanti al coro, oppure una zona microfonica che lo copra.",
+    {label:"Aggiungi microfoni coro",run:function(){ auditFixChoirMics(coroMuto); }}, "coromuto");
   /* Un chitarrista con la sua postazione (che porta già il canale «mic ampli») più un combo posato
      dal catalogo accanto: due SM57 in channel list per una chitarra sola. Sul palco può essere vero
      (due ampli), ma nel documento consegnato è quasi sempre una svista. (06/08) */
@@ -9488,6 +9501,29 @@ function auditFixAddVoiceMics(list){
     var t=TYPES.wireless;
     state.items.push({ id:uid(), type:"wireless", x:Math.min(state.stage.w-20, it.x+45), y:it.y, rot:0, w:t.w, d:t.d, label:(it.label||"Voce") }); });
   __cabRes=null; save(); render();
+}
+/* Microfoni d'insieme davanti ai coristi rimasti senza ripresa: uno ogni 8 voci, almeno 2, al
+   massimo 8, distribuiti sulla larghezza del coro e un metro davanti alla sua prima fila (lato
+   pubblico = y maggiore), dentro il palco. Nomi distinti «Coro 1…N»: tre righe «Coro» uguali sono
+   il patch ambiguo che l'audit stesso segnala. */
+function auditFixChoirMics(list){
+  var cs=(list||[]).map(function(v){ return state.items.find(function(i){ return i.id===v.id; }); }).filter(Boolean);
+  if(!cs.length) return 0;
+  if(typeof primaDiAgire==="function") primaDiAgire();
+  var xs=cs.map(function(c){ return c.x; }), ys=cs.map(function(c){ return c.y; });
+  var x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs);
+  var y=Math.min(state.stage.d-30, Math.max.apply(null,ys)+100);
+  var n=Math.max(2, Math.min(8, Math.ceil(cs.length/8)));
+  if(x1-x0<120) n=Math.min(n,2);   /* un gruppetto stretto non regge otto aste in fila */
+  var t=TYPES.micchoir, gia=0;
+  (state.items||[]).forEach(function(i){ var m=/^Coro\s+(\d+)$/.exec(i.label||""); if(m) gia=Math.max(gia,+m[1]); });
+  for(var k=0;k<n;k++){
+    var x = n===1 ? (x0+x1)/2 : x0+(x1-x0)*(k+0.5)/n;
+    state.items.push({ id:uid(), type:"micchoir", x:Math.round(x), y:Math.round(y), rot:0, w:t.w, d:t.d, label:"Coro "+(gia+k+1) });
+  }
+  __cabRes=null; save(); render();
+  if(window.__toast) window.__toast(n+" microfoni coro aggiunti davanti al coro: spostali dove vanno davvero.", false);
+  return n;
 }
 function auditFixAddDistro(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; }

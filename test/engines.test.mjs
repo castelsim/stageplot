@@ -3017,6 +3017,41 @@ t("audit L8: il fix piazza un radiomic col nome del cantante e spegne l'avviso",
   ok(w && w.label === "Vocalist 2", "radiomic col nome del cantante; items: " + A.state.items.map((i) => i.type).join(","));
   ok(!hasMsg(/senza microfono/), "dopo il fix: " + auditMsgs().join(" | "));
 });
+/* 25/09 — «Pooh History – Treviso»: 50 coristi in panoramica, nessuna zona, nessun microfono
+   d'insieme. Nella channel list il coro non aveva un canale e l'audit taceva. */
+function coroPano(n, y0) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(add("corista", 300 + (i % 10) * 65, (y0 || 200) + Math.floor(i / 10) * 110, { micMode: "pano" }));
+  return out;
+}
+t("coro in panoramica senza microfoni: avviso, e il fix gli da' dei canali", () => {
+  reset(); coroPano(24); A.__cabRes = null;
+  const coroInLista = () => A.patchList().rows.filter((r) => /coro/i.test(r.name || "")).length;
+  eq(coroInLista(), 0, "premessa: il coro in panoramica senza microfoni non ha canali");
+  const f = A.auditEngine().findings.find((x) => /coristi in panoramica non sono ripresi/.test(x.msg));
+  ok(f, "nessun avviso sul coro muto; findings: " + auditMsgs().join(" | "));
+  ok(/24 coristi/.test(f.msg), "il conteggio non dice quanti sono: " + f.msg);
+  try { f.act.run(); } catch (e) { /* render/save toccano il DOM stub */ }
+  A.__cabRes = null;
+  const mic = A.state.items.filter((i) => i.type === "micchoir");
+  eq(mic.length, 3, "24 voci = 3 microfoni coro (uno ogni 8)");
+  eq(mic.map((m) => m.label), ["Coro 1", "Coro 2", "Coro 3"], "nomi distinti, o il patch e' ambiguo");
+  ok(mic.every((m) => m.y > 200 + 2 * 110 && m.y <= A.state.stage.d - 30), "i microfoni devono stare davanti al coro e dentro il palco");
+  eq(coroInLista(), 3, "dopo il fix il coro deve avere i suoi canali in channel list");
+  ok(!hasMsg(/non sono ripresi/), "dopo il fix l'avviso resta: " + auditMsgs().join(" | "));
+});
+t("coro in panoramica gia' ripreso (asta d'insieme o zona): nessun avviso", () => {
+  reset(); coroPano(12); add("giraffa", 592, 420); A.__cabRes = null;   /* centrata sul coro, davanti: il corista piu' lontano e' a 3,7 m */
+  ok(!hasMsg(/non sono ripresi|non è ripreso/), "con l'asta d'insieme davanti: " + auditMsgs().join(" | "));
+  reset(); const cs = coroPano(3); A.__cabRes = null;
+  const z = add("miczone", 365, 200); z.w = 400; z.d = 200; delete z.pts; A.__cabRes = null;
+  ok(cs.every((c) => A.itemInMicZone(c)), "premessa: i coristi devono stare nella zona");
+  ok(!hasMsg(/non sono ripresi|non è ripreso/), "dentro la zona: " + auditMsgs().join(" | "));
+});
+t("il corista col suo microfono non e' un coro muto", () => {
+  reset(); for (let i = 0; i < 6; i++) add("corista", 300 + i * 70, 200); A.__cabRes = null;
+  ok(!hasMsg(/non sono ripresi|non è ripreso/), "coristi con mic proprio: " + auditMsgs().join(" | "));
+});
 t("audit B4: due canali con lo stesso nome → avviso doppione", () => {
   reset(); const w1 = add("wireless", 300, 300); w1.label = "VOX LEAD 1"; const w2 = add("wireless", 700, 300); w2.label = "VOX LEAD 1"; A.__cabRes = null;
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
