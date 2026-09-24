@@ -7037,6 +7037,7 @@ t("Frequenze RF apre il primo radiomic senza frequenza", () => {
 });
 t("«cond», «conductor», «maestro» trovano il direttore", () => {
   for (const q of ["cond", "conductor", "maestro"]) ok(A.__spSearch(q).some((r) => r.k === "direttore"), "'" + q + "' non trova il direttore");
+  ok(!A.__spSearch("cond").some((r) => r.nome === "Esporta"), "'cond' tira fuori Esporta: una parola chiave la contiene per sottostringa");
 });
 
 /* ---- Undo: printFrame (area di stampa/export) escluso dalla cronologia (bug undo poco prevedibile) ---- */
