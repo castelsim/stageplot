@@ -16120,5 +16120,10 @@ t("Lista RF: chi lo usa e la riserva; un relatore senza microfono si segnala", (
   eq(A.cabItemInputs(q).length, 1, "e il lavalier resta UN canale, anche se è in Lista RF");
 });
 
+t("il timpanista ha la corporatura del batterista, non più grande", () => {
+  /* 24/09 — Simone: «il timpanista è grande rispetto a batterista e percussionista, fallo un 10% più piccolo» */
+  ok(/translate\(0,8\) scale\(0\.9\)">'\+libIcon\("timpanistaPersona"\)/.test(appjs), "la persona fra i timpani è ridotta del 10%");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
