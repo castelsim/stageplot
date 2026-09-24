@@ -16037,5 +16037,43 @@ t("privacy, guide e Orchestre in scuro: niente scorrimento di lato, link toccabi
   ok(/--danger:#fca5a5;/.test(scuro), "in scuro il rosso degli errori è chiaro (era 2,47:1, ora 8,4:1)");
 });
 
+/* ===== CONFERENZE (24/09, audit «StagePlot per le conferenze», punti 1 e 2) ===================== */
+t("il progetto sa se è una conferenza, e il PDF parla da conferenza", () => {
+  const n = A.normalizeState({ items: [], stage: { w: 1000, d: 600 }, tipoEvento: "conferenza" });
+  eq(n.tipoEvento, "conferenza", "la scelta si salva nel progetto");
+  eq(A.normalizeState({ items: [], stage: { w: 1000, d: 600 }, tipoEvento: "boh" }).tipoEvento, "concerto", "un valore strano torna concerto");
+  eq(A.normalizeState({ items: [], stage: { w: 1000, d: 600 } }).tipoEvento, "concerto", "i progetti di prima restano concerti");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="evTipo"[^>]*>.*value="conferenza">Conferenza o convegno/.test(html) && /id="evTipoM"/.test(html), "si sceglie da Data e ora, e dal pannello Evento sul telefono");
+  ok(/doc\.text\(eventoConferenza\(\) \? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico"/.test(appjs), "l'intestazione del PDF");
+  eq((appjs.match(/key:"rider", (title|label):nomeDocumento\(\)/g) || []).length, 2, "il nome della pagina, nell'export e nel link");
+  ok(/body\.ev-conferenza #bRichiedi, body\.ev-conferenza #mactRichiedi\{display:none\}/.test(stylesCss), "niente «Richiedi musicisti»");
+  ok(/monitors===0 && !eventoConferenza\(\)\) add\("warn","Nessun monitor sul palco/.test(appjs), "niente «i musicisti non si sentono»");
+  const s0 = A.state.tipoEvento;
+  try {
+    A.state.tipoEvento = "conferenza";
+    eq(A.nomeDocumento(), "Scheda tecnica", "si chiama Scheda tecnica");
+    const d = A.riderDefaults();
+    ok(/parlato/.test(d.sistema) && /relatori/.test(d.luci) && /tecnico audio/.test(d.personale), "i testi di partenza parlano di relatori, non di musicisti");
+    A.state.tipoEvento = "concerto";
+    eq(A.nomeDocumento(), "Rider tecnico", "e il concerto resta com'era");
+  } finally { A.state.tipoEvento = s0; }
+});
+
+t("relatore e moderatore: persone con il microfono delle conferenze e il loro canale", () => {
+  reset();
+  const r = add("relatore", 300, 300), m = add("moderatore", 500, 300), tv = add("mictavolo", 600, 300), cm = add("confidence", 400, 500);
+  eq(A.micModeOf(r), "lavalier", "il relatore nasce col lavalier");
+  eq(A.micModeOf(m), "mano", "il moderatore col palmare");
+  ok(m.sedia === true && r.sedia !== true, "il moderatore nasce seduto");
+  eq(A.cabItemInputs(r).map((c) => c.mic).join(), "TL47", "il lavalier dà un canale col suo modello");
+  eq(A.cabItemInputs(m).map((c) => c.mic).join(), "SM58", "il palmare il suo");
+  eq(A.cabItemInputs(tv).map((c) => c.mic).join(), "MX412", "il microfono da tavolo un collo d'oca");
+  eq(A.cabItemInputs(cm).length, 0, "il confidence monitor non è un ingresso");
+  ok(/data-v="lavalier">Lavalier</.test(readFileSync(join(root, "app/index.html"), "utf8")), "il lavalier si sceglie anche per il cantante");
+  ok(A.__qaSearch("relatore").some((x) => x.k === "relatore") && A.__qaSearch("moderatore").some((x) => x.k === "moderatore"), "si trovano cercando");
+  ok(A.__qaSearch("collo d'oca").some((x) => x.k === "mictavolo") && A.__qaSearch("confidence").some((x) => x.k === "confidence"), "anche il microfono da tavolo e il confidence monitor");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
