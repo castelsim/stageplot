@@ -4212,6 +4212,10 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
         <span><input aria-label="Frequenza RF in MHz" type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
         <span><input aria-label="Banda RF" type="text" id="pBand" placeholder="banda (UHF…)" list="rfBandList"></span>
       </div>
+      <div class="row">
+        <span><input aria-label="Chi lo usa" type="text" id="pRfChi" placeholder="chi lo usa (es. pubblico)" maxlength="40"></span>
+        <span><label class="chk"><input type="checkbox" id="pRfRiserva"> Di riserva</label></span>
+      </div>
       <datalist id="rfBandList"><option value="UHF"></option><option value="VHF"></option><option value="1.8 GHz"></option><option value="2.4 GHz"></option><option value="DECT"></option></datalist>
     </div>
     <div id="pPmWrap" style="display:none"><label title="Marca e modello: il sistema applica da solo protocollo, topologie consentite e alimentazione">Personal monitor</label>
