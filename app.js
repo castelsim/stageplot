@@ -283,7 +283,8 @@ function leggioGlyph(y){
    (nessun mic personale). Fonte unica; legge it.micMode, con fallback ai vecchi flag it.mano/it.nomic. */
 function micModeOf(it){
   var m=it&&it.micMode;
-  if(m==="tonda"||m==="giraffa"||m==="mano"||m==="pano"||m==="archetto") return m;   /* archetto = headset indossato (27/07) */
+  if(m==="tonda"||m==="giraffa"||m==="mano"||m==="pano"||m==="archetto"||m==="lavalier") return m;   /* lavalier = a clip sul petto (conferenze, 24/09) */
+  var _t=it&&TYPES[it.type]; if(_t && _t.micDef && !(it.mano||it.nomic)) return _t.micDef;   /* archetto = headset indossato (27/07) */
   if(it&&it.mano) return "mano";
   if(it&&it.nomic) return "pano";
   return "tonda";   /* anche il corista nasce col SUO microfono (Simone 27/07): nella band i cori hanno un SM58 a testa. I coristi creati in massa dal generatore coro nascono panoramici, perché lì la ripresa è d'insieme (micMode:"pano" esplicito). */
@@ -333,7 +334,8 @@ function singer(it){
      catalogo × la scala scelta; in PDF un glifo geometrico equivalente (svg2pdf non digerisce le
      icone dettagliate). Valori (cm reali, origine = centro cantante, +y = pubblico). */
   var legY=30;
-  if(mm==="archetto"){ s+='<g transform="translate(0,-19)">'+headMicGlyph()+'</g>'; legY=34; }   /* indossato: niente asta, niente ingombro davanti */
+  if(mm==="archetto"){ s+='<g transform="translate(0,-19)">'+headMicGlyph()+'</g>'; legY=34; }
+  else if(mm==="lavalier"){ s+='<circle cx="7" cy="6" r="2.6" fill="#2b2e31" stroke="#fff" stroke-width="1.2"/>'; legY=34; }   /* capsula sul bavero */   /* indossato: niente asta, niente ingombro davanti */
   else if(mm==="mano"){
     s+='<g transform="translate(35.7,32.1) rotate(-28)"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
     legY=48;
@@ -1237,12 +1239,23 @@ var TYPES = {
                '<g transform="translate(32,0) rotate(20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'; }},
   wireless: {nome:"Mic wireless", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:34,d:34, defLabel:"WL",
              draw:function(it){ return drawLibFit("radiomic",it,4,14); }},
+  mictavolo:{nome:"Microfono da tavolo", dim:"collo d'oca con base", cat:"Microfoni e DI", sub:"Aste e microfoni", w:24,d:40, defLabel:"Tavolo", qaCede:"mic",   /* «mic» resta di aste e overhead: questo si trova con «tavolo», «collo d'oca», «microfono» */
+             alias:"collo d'oca gooseneck tavolo relatori panel conferenza",
+             draw:function(){ return bar(0,10,20,14,'ic fBlack',4)+'<path class="ic thin" fill="none" d="M 0,4 C 0,-6 -3,-12 0,-18"/>'+circ(0,-19,3,'ic fill'); }},
   headset:  {nome:"Archetto (headset)", dim:"DPA 4066 · 4088", cat:"Microfoni e DI", sub:"Aste e microfoni", w:32,d:32, defLabel:"HS",
              draw:function(it){ return drawLibFit("headsetclip",it,12,12); }},
   podiosp:  {nome:"Podio speaker", dim:"60×45", cat:"Palco e strutture", catalog:false, w:62,d:48,
              draw:function(){ return '<path class="ic fWoodL" d="M -30,22 L 30,22 L 21,-22 L -21,-22 Z"/>'+
                '<path class="ic thin" fill="none" d="M -24,16 L 24,16 L 17,-16 L -17,-16 Z"/>'+
                circ(0,-8,2.5,'ic fill')+lin(0,-8,0,0,'ic thin'); }},
+  /* CONFERENZE (24/09): relatore e moderatore sono voci come il cantante — stessa figura, stesso
+     microfono scelto dal pannello, stesso canale — ma nascono con il microfono delle conferenze. */
+  relatore: {nome:"Relatore", dim:"conferenza", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Relatore", micDef:"lavalier",
+             alias:"relatore relatrice relatori speaker oratore oratrice presentatore presentatrice keynote conferenza convegno persona",
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, type:"relatore"}); }},
+  moderatore: {nome:"Moderatore", dim:"conferenza, seduto", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Moderatore", micDef:"mano", sediaDef:true,
+             alias:"moderatore moderatrice conduttore conduttrice presentatore panel tavola rotonda conferenza convegno persona",
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, type:"moderatore"}); }},
   cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
   /* Si chiama «Voce» perché è la figura generica della voce: il catalogo la offre come Uomo/Donna sotto
@@ -1394,6 +1407,9 @@ var TYPES = {
   proiettore:{nome:"Proiettore", dim:"45×35", cat:"Video", w:48,d:38, defLabel:"PJ",
              draw:function(){ return bar(0,0,44,32,'ic fGrey',4)+circ(11,0,8,'ic thin fBlack')+
                '<path class="ic dash" d="M 23,-7 L 62,-22 M 23,7 L 62,22"/>'; }},
+  confidence:{nome:"Confidence monitor", dim:"schermo a pavimento per il relatore", cat:"Video", w:80,d:40, defLabel:"Confidence", qaCede:"monitor",   /* «monitor» resta dei wedge */
+             alias:"schermo spia ritorno slide relatore conferenza",
+             draw:function(){ return bar(0,4,76,30,'ic fBlack',3)+bar(0,2,66,20,'ic thin fGrey',1)+lin(-30,19,30,19,'ic thin'); }},
   camera:   {nome:"Camera", dim:"su treppiede", cat:"Video", w:72,d:72, defLabel:"CAM",
              draw:function(){ return bar(0,-10,34,20,'ic fBlack',3)+bar(25,-10,16,12,'ic fGrey',2)+
                lin(0,2,-22,28,'ic thin')+lin(0,2,22,28,'ic thin')+lin(0,2,0,32,'ic thin')+circ(0,2,3,'ic fill'); }},
@@ -2220,7 +2236,7 @@ function sepCfg(it){
   return null;
 }
 function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /* larghezza ingombro dalla distanza */
-var VOCE = { cantante:1, corista:1 };   /* postazioni voce: opzioni mic in mano / leggio */
+var VOCE = { cantante:1, corista:1, relatore:1, moderatore:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 /* ===== MICROFONO VOCE DELLO STRUMENTISTA (Simone 27/07: «negli strumenti idonei l'opzione per
    aggiungere il microfono ad archetto in testa») =====
    Idonei = chi suona con le MANI OCCUPATE e canta lo stesso: chitarre e basso, tastiere, batteria,
@@ -5192,6 +5208,7 @@ function normalizeState(s){
   s.titolo=s.titolo||""; s.luogo=s.luogo||""; s.techContact=s.techContact||"";   /* M5: contatto tecnico per il rider PDF */
   s.evDate=(typeof s.evDate==="string" && /^\d{4}-\d{2}-\d{2}$/.test(s.evDate)) ? s.evDate : "";   /* evento: giorno e orario (header, 17/07) — facoltativi */
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
+  s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
@@ -7346,7 +7363,7 @@ function cabItemInputs(it){
   if(VOCE[it.type]){   /* voci (cantante/corista): il canale lo decide la modalità mic — panoramico = 0 (coperto dal mic di sezione) */
     var _vm=micModeOf(it);
     if(_vm==="pano") return [];
-    return [{name:(it.label||TYPES[it.type].defLabel||TYPES[it.type].nome), mic:(_vm==="archetto"?"DPA 4088":"SM58")}];
+    return [{name:(it.label||TYPES[it.type].defLabel||TYPES[it.type].nome), mic:(_vm==="archetto"?"DPA 4088":(_vm==="lavalier"?"TL47":"SM58"))}];
   }
   /* F3: radiomic/headset con ricevitore → 0 canali qui; il ricevitore diventa la sorgente (XLR out) */
   if(RF_TX[it.type] && rfAssign().byTx[it.id]) return [];
@@ -9119,10 +9136,10 @@ function auditEngine(){
      corrente. Il documento consegnato diceva risolto un impianto inesistente (06/08). */
   if((Re.distros||[]).length && !(Re.feeds||[]).length && Re.totW>AUDIT_MIN_W)
     add("err","I quadri sul palco non hanno alimentazione a monte: la Lista carichi esce come se tutto fosse alimentato.","Elettrico","Collega il quadro alla presa di rete o al generatore, e le ciabatte al quadro: trascina il pallino ambra del distro sulla sorgente.",null,"nofeed");
-  if(audioSrc>AUDIT_MIN_CH && monitors===0) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
+  if(audioSrc>AUDIT_MIN_CH && monitors===0 && !eventoConferenza()) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
-  if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del rider.","Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
+  if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del"+(eventoConferenza()?"la scheda tecnica.":" rider."),"Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
   /* "Mixer FOH non specificato" rimosso: il mixer è un dato opzionale (per ora fuori dal pannello) */
   /* T1 — controlli residui: la lista derivata previene già doppioni/numerazione/48V-default; qui gli errori che
      l'utente può ancora introdurre nella channel list MANUALE (state.inputs) o dimenticando frequenze/monitor. */
@@ -9152,7 +9169,7 @@ function auditEngine(){
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
      entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (nei casi reali analizzati mancavano fino a 11 canali voce).
      Solo "cantante": il corista vive tipicamente nel mic di sezione/coro o in una zona. */
-  var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,astagigante:1,podiosp:1};
+  var AUDIT_VOICE_MICS={astamic:1,wireless:1,headset:1,giraffa:1,astabassa:1,astagigante:1,podiosp:1,mictavolo:1};
   /* La prima domanda è la più semplice e mancava: questa voce PRODUCE GIÀ un canale? Il cantante in
      modalità «tonda»/«mano» porta il suo microfono con sé, quindi era in channel list mentre l'audit
      scriveva «la voce non entra nella channel list» — un allarme falsificato dalla lista che l'audit
@@ -12420,6 +12437,11 @@ function dataEventoBreve(){
    avrebbe dovuto essere ricordato in tutti e cinque — è esattamente il modo in cui due copie della
    stessa regola divergono (già visto con l'ordine delle pagine PDF). */
 var TITLE_INPUTS=["titolo","titoloEv","mTitle","pdfTitolo"];
+/* TIPO DI EVENTO (24/09, audit conferenze). Il disegno, le liste e la lista RF servono uguali a una
+   conferenza; cambiano le parole: il PDF si chiama «Scheda tecnica», non si propone «Richiedi
+   musicisti», non si avvisa che «i musicisti non si sentono». Una scelta sola, nel progetto. */
+function eventoConferenza(){ return !!(state && state.tipoEvento==="conferenza"); }
+function nomeDocumento(){ return eventoConferenza() ? "Scheda tecnica" : "Rider tecnico"; }
 function setEventInputs(){
   TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
   /* come si chiamerà il file: la stessa `fileName()` che usa l'export, così la promessa è verificabile */
@@ -12428,10 +12450,14 @@ function setEventInputs(){
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
   ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
   ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
+  ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=eventoConferenza()?"conferenza":"concerto"; });
+  if(document.body) document.body.classList.toggle("ev-conferenza", eventoConferenza());
   if(typeof renderEvChip==="function") renderEvChip();
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
+["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
+  state.tipoEvento=(this.value==="conferenza")?"conferenza":"concerto"; setEventInputs(); saveSoon(); if(typeof render==="function") render(); }); });
 /* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
 function evChipLabel(){
   var parts=[];
@@ -12813,6 +12839,11 @@ function ricordaRecenteCatalogo(k, nome, over){
       entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce"});
       body.appendChild(makeBtn("corista","Donna", corD, "voce")); n++;
       entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce"});
+      /* conferenze (24/09): il relatore col lavalier, il moderatore seduto col palmare */
+      ["relatore","moderatore"].forEach(function(k){
+        body.appendChild(makeBtn(k, TYPES[k].nome, null, TYPES[k].dim)); n++;
+        entries.push({k:k, nome:TYPES[k].nome, dim:TYPES[k].dim, kw:TYPES[k].alias});
+      });
     }
     if(c==="Audio"){   /* varianti stage box (i LAYER audio calcolati sono in "Layer tecnici") */
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
@@ -12827,7 +12858,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(k==="stagebox") return;  /* gestita sopra come varianti 8/16/24 canali */
       if(k==="vlnpost") return;   /* violini gestiti sopra (Violino I / II con nome progressivo) */
       if(k==="direttore") return; /* gestito sopra */
-      if(k==="cantante"||k==="corista") return; /* gestiti sopra come varianti uomo/donna */
+      if(k==="cantante"||k==="corista"||k==="relatore"||k==="moderatore") return; /* gestiti sopra */
       var sub=subOf(k)||null;
       var target=body, group=null;
       if(sub){ group=rhythmGroup(sub); target=group.body; }   /* ogni sottocategoria = menu a scomparsa, uniforme in tutte le categorie */
@@ -13164,7 +13195,9 @@ function addItem(type, over){
     it.label=base0+" "+(seats0+1);
     if(DOUBLE_TYPES[type]) it.label2=base0+" "+(seats0+2);
   }
-  if(VOCE[type]){ it.mano=false; it.leggio=(type==="corista"); it.donna=false; }   /* cantante: mic su asta, no leggio · corista: leggio */
+  if(VOCE[type]){ it.mano=false; it.leggio=(type==="corista"); it.donna=false;
+    if(TYPES[type].micDef) it.micMode=TYPES[type].micDef;
+    if(TYPES[type].sediaDef) it.sedia=true; }   /* cantante: mic su asta, no leggio · corista: leggio */
   /* Voce inserita a mano dal catalogo: nasce con un nome, come ogni strumento (audit 27/07 — prima
      restava una figura anonima sul palco e un pallino senza didascalia nella vista Ingressi).
      I coristi creati in massa dal generatore coro passano il LORO label in `over` e non toccano questo. */
@@ -17268,7 +17301,7 @@ var STAND_SUGGEST = ["asta dritta","asta giraffa","asta gigante","asta bassa","c
 var STAND_BY_TYPE = { astamic:"asta dritta", giraffa:"asta giraffa", astagigante:"asta gigante", astabassa:"asta bassa" };
 var IN_SRC = {
   /* voci e microfoni */
-  astamic:"SM58", giraffa:"KM184", astagigante:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184",
+  astamic:"SM58", giraffa:"KM184", astagigante:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184", mictavolo:"MX412",
   /* archi (mic a clip) */
   vlnpost:"DPA 4099", violapost:"DPA 4099", violoncello:"DPA 4099", contrabbasso:"DPA 4099", archi2leggio:"DPA 4099", arpa:"DPA 4099",
   /* legni (mic a clip) */
@@ -24102,7 +24135,7 @@ function riderPdf(shared){
     if(shared) doc.addPage("a4","portrait");
     var M=16, W=210, y=22;
     doc.setFillColor("#4338ca"); doc.rect(0,0,W,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rider tecnico", M, 9);
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(eventoConferenza() ? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
     if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=7; }
     (function(){ var si=statusInfo(d.status); var sign=(d.status==="approvato" && (d.approvedBy||d.approvedAt)) ? "  ·  firmato"+(d.approvedBy?" da "+d.approvedBy:"")+(d.approvedAt?" il "+new Date(d.approvedAt).toLocaleDateString("it-IT"):"") : "";
@@ -25247,7 +25280,7 @@ function listPreviewHtml(key){
 /* T3 — liste disponibili nel link condiviso (solo quelle con dati). Riusa pdfListConfig → tabelle reali. */
 function availableViewerLists(){
   var order=["inputlist","monitorlist","loadlist","backline","rf","notelist"], cfg=pdfListConfig(), out=[];
-  if((state.items||[]).length) out.push({key:"rider", title:"Rider tecnico"});   /* T2: il rider (riepilogo derivato) apre il pacchetto */
+  if((state.items||[]).length) out.push({key:"rider", title:nomeDocumento()});   /* T2: il rider (riepilogo derivato) apre il pacchetto */
   order.forEach(function(k){ var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
     if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
   return out;
@@ -25283,6 +25316,15 @@ function riderDefaults(){
   var lucitxt = orchestrale
     ? RIDER_DEFAULTS.luci
     : "Piazzato bianco diffuso sul palco per soundcheck e cambio palco; il disegno luci dello spettacolo si concorda con il responsabile luci.";
+  if(eventoConferenza()){
+    /* Conferenza: quello che conta è la parola, non la musica — copertura e intelligibilità, luce sui
+       relatori, e il tecnico video se c'è qualcosa da proiettare o riprendere. */
+    var video = items.some(function(it){ var T=TYPES[it.type]; return T && (/^Video/i.test(T.cat||"") || it.type==="confidence"); });
+    return {
+      sistema:"Impianto di diffusione per il parlato: copertura uniforme e buona intelligibilità in tutta la sala, anche in fondo; nessun rientro sui microfoni dei relatori.",
+      luci:"Luce frontale uniforme sui relatori, adatta alle riprese se previste; luce di sala regolabile per la proiezione.",
+      personale:"1 tecnico audio"+(video?" · 1 tecnico video":"")+".", orchestrale:false };
+  }
   var p=["1 fonico di sala"];
   if(outCh>=6 || inCh>=24 || orchestrale) p.push("1 fonico di palco");
   if(inCh>32 || orchestrale) p.push("2 tecnici microfonisti");
@@ -25375,7 +25417,7 @@ function riderData(){
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
     /* Chi sta sul palco è metà del lavoro del service (gradoni, sedie, leggii): un coro da 24 non
        compariva da nessuna parte nel documento consegnato, mentre il pannello dei layer lo contava. */
-    persone: cnt("corista")+cnt("cantante"), leggii: cnt("leggio")+cnt("sedialeggio"),
+    persone: cnt("corista")+cnt("cantante")+cnt("relatore")+cnt("moderatore"), leggii: cnt("leggio")+cnt("sedialeggio"),
     pesoKg: (typeof totalWeightKg==="function") ? totalWeightKg() : 0,
     /* Quanta corrente serve è una domanda che il service fa SEMPRE, e il rider non la nominava mai:
        i watt erano solo nella Lista carichi, una pagina tecnica separata e facoltativa (06/08). */
@@ -25462,7 +25504,7 @@ function riderHtml(){
   function sec(t,body,auto){ return '<div class="pdf-rider-sec"><div class="pdf-rider-h">'+esc(t)+(auto?' <span class="pdf-rider-auto">dai dati</span>':'')+'</div><div class="pdf-rider-b">'+body+'</div></div>'; }
   var mic = d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):"");
   return '<div class="pdf-list-sheet pdf-rider-sheet">'+
-    '<div class="pdf-list-hd" style="background:#4338ca">Rider tecnico<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
+    '<div class="pdf-list-hd" style="background:#4338ca">'+nomeDocumento()+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
     (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
     '<div class="pdf-rider-status" style="background:'+statusInfo(d.status).color+'">'+esc(statusInfo(d.status).label.toUpperCase())+
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
@@ -26434,7 +26476,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(state.elec && state.elec.on){ pages.push({key:"view-elec", label:"Vista: Elettrico"}); }
     if((state.items||[]).some(function(x){return x.type==="miczone";})){ pages.push({key:"view-sectionmic", label:"Vista: Mic zone"}); }
     if(((state.lights&&state.lights.rows)||[]).length){ pages.push({key:"view-luci", label:"Vista: Luci"}); }
-    if((state.items||[]).length){ pages.push({key:"rider", label:"Rider tecnico"}); }   /* T2: rider generato dai dati */
+    if((state.items||[]).length){ pages.push({key:"rider", label:nomeDocumento()}); }   /* T2: rider generato dai dati */
     try{ var rd=window.currentRespData?window.currentRespData():null; if(rd && rd.assigns && typeof productionDepts==="function"){
       var hasResp=productionDepts().some(function(d){ return (rd.assigns[d.key]||[]).some(function(a){ return a.role==="__azienda__"; }); });
       if(hasResp) pages.push({key:"responsabilita", label:"Responsabilità (produzione)"});
