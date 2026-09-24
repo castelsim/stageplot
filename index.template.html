@@ -18237,15 +18237,15 @@ function buildOrchCameraOut(){
    Le etichette sono di ruolo, mai di persona (regola sul repo pubblico). */
 function buildOrchestraPopOut(){
   return [
-    /* — fondo: ottoni sulla pedana alta (40 cm) — */
-    {type:"pedana", x:175, y:-735, w:600, d:100, h:40, label:"Pedana ottoni"},
-    {type:"tromba",   x:-72, y:-745, label:"Tromba 1"},
-    {type:"tromba",   x:48,  y:-745, label:"Tromba 2"},
-    {type:"trombone", x:168, y:-745, label:"Trombone 1"},
-    {type:"trombone", x:288, y:-745, label:"Trombone 2"},
-    {type:"trombone", x:408, y:-745, label:"Trombone 3"},
+    /* — fondo: ottoni sulla pedana alta (40 cm). 25/09: 25 cm più indietro, i nomi dei corni si scrivevano sul suo bordo — */
+    {type:"pedana", x:175, y:-760, w:600, d:100, h:40, label:""},   /* 25/09: senza nome, come negli altri modelli — «Pedana ottoni» si scriveva sopra i nomi dei corni */
+    {type:"tromba",   x:-72, y:-770, label:"Tromba 1"},
+    {type:"tromba",   x:48,  y:-770, label:"Tromba 2"},
+    {type:"trombone", x:168, y:-770, label:"Trombone 1"},
+    {type:"trombone", x:288, y:-770, label:"Trombone 2"},
+    {type:"trombone", x:408, y:-770, label:"Trombone 3"},
     /* — pedana bassa (20 cm): corni, clarinetti, fagotti — */
-    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:"Pedana legni"},
+    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:""},   /* idem: «Pedana legni» copriva Oboe 1 e Oboe 2 */
     {type:"corno",      x:-77, y:-617, label:"Corno 1"},
     {type:"corno",      x:23,  y:-617, label:"Corno 2"},
     {type:"clarinetto", x:123, y:-617, label:"Clarinetto 1"},
@@ -18258,8 +18258,8 @@ function buildOrchestraPopOut(){
     {type:"oboe",   x:134, y:-475, label:"Oboe 1"},
     {type:"oboe",   x:225, y:-475, label:"Oboe 2"},
     {type:"timpani", x:500, y:-475, rot:45, label:"Timpani"},
-    {type:"stagepiano", x:-330, y:-511, rot:325, label:"Tastiere"},
-    {type:"gtstand", x:350, y:-425, rot:45, label:"Chitarra"},
+    {type:"stagepiano", x:-420, y:-575, rot:325, label:"Tastiere"},   /* 25/09: più in là, il nome si scriveva sopra «Violino 2 5» */
+    {type:"gtstand", x:365, y:-500, rot:45, label:"Chitarra"},   /* 25/09: più su, il nome finiva su «Viola 3» */
     {type:"batteria", x:475, y:-300, rot:55, label:"Batteria"},
     {type:"arpa", x:-485, y:-359, rot:355, label:"Arpa"},
     /* — archi, a ventaglio attorno al direttore — */
@@ -18277,7 +18277,7 @@ function buildOrchestraPopOut(){
     /* — direttore, fronte palco — */
     {type:"direttore", x:0, y:-100, label:"Direttore"},
     /* — accesso al palco — */
-    {type:"scala", x:-450, y:-850, rot:180, label:"Scala"}
+    {type:"scala", x:-450, y:-850, rot:0, label:"Scala"}   /* 25/09: rot 0 e non 180 — a 180 l'etichetta usciva capovolta (stesso difetto già tolto dal coro) */
   ];
 }
 function buildOrchCoroOut(){
@@ -18484,7 +18484,10 @@ var FORM_TITLES = {
 /* 18/09 — Simone: «questo va snellito e reso più professionale, sono troppe e spesso fatte male».
    Da otto a cinque, rifatti e guardati a video uno per uno. Fuori Tributo (è una band), Big band e
    Orchestra pop: i loro generatori restano, i vecchi link ?model= continuano ad aprirli. */
-var START_MODELS = [["acoustic","Acustico"],["band","Band"],["jazzcombo","Jazz"],["coro","Coro"],["camera","Orchestra"],["conferenza","Conferenza"]];   /* 24/09: Conferenza, dall'audit per il servizio audio B2B */
+/* 25/09 — Simone la rimette in vetrina: dei 12 progetti che ha scelto come esempio dalla galleria, 8 su 9
+   (tolte le copie) sono orchestra + sezione ritmica + coro e partono proprio da questo modello — stesse
+   rotazioni dei leggii, stesse pedane. Era il più usato da chi lavora davvero. */
+var START_MODELS = [["acoustic","Acustico"],["band","Band"],["jazzcombo","Jazz"],["coro","Coro"],["camera","Orchestra"],["orchpop","Orchestra pop"],["conferenza","Conferenza"]];   /* 24/09: Conferenza, dall'audit per il servizio audio B2B */
 /* Stacca il documento corrente dal progetto cloud aperto: serve quando si parte da un modello (documento
    NUOVO) così l'autosave non sovrascrive il progetto cloud che era aperto. Stessa logica di "Nuovo" (bNew). */
 function detachCloudDoc(epochAlreadyChanged){
