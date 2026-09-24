@@ -7941,6 +7941,55 @@ t("i nomi dei canali si contano solo su quelli che stanno sul palco", () => {
      "l'avviso sui doppioni veri e' sparito: il filtro taglia troppo");
 });
 
+/* 25/09 — dai 12 progetti che Simone ha scelto come esempio. Il filtro qui sopra toglieva l'avviso
+   falso, ma le righe restavano nel documento: la Input list le mostra e finiscono nella tabella del
+   PNG e nel PDF della consulenza. «Stevie Biondi Trio» ne aveva 7 su 14, «morricone 99» 57 su 94. */
+t("cancellato un elemento, i suoi canali se ne vanno; l'Annulla li riporta", () => {
+  reset();
+  const voce = add("cantante", 100, 100), mon = add("wedge", 100, 250), resta = add("cantante", 400, 100);
+  A.state.inputs = [
+    { src: "Voce", mic: "SM58", linked_item_id: voce.id, notes: "scelta a mano" },
+    { src: "Voce 2", mic: "SM58", linked_item_id: resta.id },
+    { src: "Talkback", mic: "SM58" },                          /* scritta a mano: senza elemento, deve restare */
+  ];
+  A.state.outputs = [{ src: "Mix voce", linked_item_id: mon.id }, { src: "Spare" }];
+  A.resetHistory(); A.save();
+  /* deleteSel ridisegna PRIMA di salvare: quello che la Input list mostra e' lo stato al momento del
+     render, non dopo il save. Si guarda li', altrimenti la pulizia del save copre la mancanza. */
+  const renderVero = A.render; let visteAlRender = null;
+  A.render = function () { if (visteAlRender === null) visteAlRender = A.state.inputs.map((r) => r.src); return renderVero.apply(this, arguments); };
+  try { A.selectMany([voce.id, mon.id]); A.deleteSel(); } finally { A.render = renderVero; }
+  eq(visteAlRender, ["Voce 2", "Talkback"], "la Input list ridisegnata dopo la cancellazione mostra ancora il canale tolto");
+  eq(A.state.inputs.map((r) => r.src), ["Voce 2", "Talkback"], "i canali dell'elemento cancellato sono rimasti");
+  eq(A.state.outputs.map((r) => r.src), ["Spare"], "il mix del monitor cancellato e' rimasto");
+  A.undo();
+  eq(A.state.inputs.map((r) => r.src), ["Voce", "Voce 2", "Talkback"], "l'Annulla non ha riportato i canali");
+  eq(A.state.inputs[0].notes, "scelta a mano", "l'Annulla ha riportato il canale ma non le scelte fatte a mano");
+});
+
+t("un progetto con righe orfane si apre gia' pulito", () => {
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "i1", type: "cantante", x: 100, y: 100 }],
+    inputs: [
+      { src: "Voce", mic: "SM58", linked_item_id: "i1" },
+      { src: "Kick", mic: "D6", linked_item_id: "i77" },      /* la batteria non c'e' piu' */
+      { src: "Talkback", mic: "SM58" },
+    ],
+    outputs: [{ src: "Wedge", linked_item_id: "i88" }] });
+  eq(s.inputs.map((r) => r.src), ["Voce", "Talkback"], "la riga del kick senza batteria e' sopravvissuta all'apertura");
+  eq(s.outputs.length, 0, "il mix del monitor che non c'e' e' sopravvissuto all'apertura");
+});
+
+t("togliere un elemento da un'altra strada (monitor cambiato) non lascia righe al salvataggio", () => {
+  reset();
+  const v = add("cantante", 300, 300);
+  A.setAscolto(v, "wedge");
+  const w = A.state.items.find((i) => i.id === v.ascoltoId);
+  ok(w, "il monitor non e' stato creato: il test non prova niente");
+  A.state.outputs = [{ src: "Mix voce", linked_item_id: w.id }];
+  A.setAscolto(v, "iem");                                       /* il wedge se ne va, arriva un in-ear */
+  ok(!A.state.outputs.some((r) => r.linked_item_id === w.id), "il mix del wedge tolto e' rimasto dopo il salvataggio");
+});
+
 t("le righe scritte a mano, senza elemento, restano valide", () => {
   /* Una riga senza `linked_item_id` e' una riga che il fonico ha scritto lui: non e' orfana,
      e' semplicemente non collegata a niente sul palco. Non va tolta. */

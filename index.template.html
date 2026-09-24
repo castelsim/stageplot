@@ -5654,7 +5654,28 @@ function clearVenueImg(){
   window.__bootVenueUnavailable=false;   /* gesto esplicito: la rimozione deve poter propagare anche al cloud */
   return true;   /* il prossimo persistLocalState committa bundle+pointer senza distruggere lo slot precedente */
 }
+/* RIGHE ORFANE (25/09, dai progetti scelti come esempio). Ogni riga della input/monitor list che
+   nasce da un elemento del palco lo ricorda in `linked_item_id`. Quando l'elemento se ne va —
+   cancellato, sostituito, variante svuotata e rifatta — la riga restava: 7 su 14 in «Stevie Biondi
+   Trio», 57 su 94 in «morricone 99», e 94 su 94 nelle sue varianti di sole luci e sedie. Non erano
+   innocue: la Input list le mostra, e finiscono nella tabella del PNG esportato e nel PDF della
+   consulenza — un kick e un rullante nel foglio di un palco che una batteria non ce l'ha.
+   Si toglie SOLO la riga che punta a un elemento che non c'è più. Una riga senza `linked_item_id`
+   è scritta a mano dal fonico: non è orfana, resta. Ritorna quante righe ha tolto. */
+function dropOrphanRows(s){
+  s=s||state;
+  if(!s || !Array.isArray(s.items)) return 0;
+  var ids=Object.create(null), n=0;
+  s.items.forEach(function(it){ if(it && it.id!=null) ids[String(it.id)]=1; });
+  ["inputs","outputs"].forEach(function(k){
+    if(!Array.isArray(s[k])) return;
+    var keep=s[k].filter(function(r){ return !r || r.linked_item_id==null || r.linked_item_id==="" || ids[String(r.linked_item_id)]; });
+    n+=s[k].length-keep.length; s[k]=keep;
+  });
+  return n;
+}
 function save(){
+  dropOrphanRows(state);   /* qualunque strada abbia tolto un elemento, la sua riga non sopravvive al salvataggio */
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();   /* arma il pending durevole prima del commit locale */
   var localOk=persistLocalState();
   if(window.__consultDirty) window.__consultDirty();   /* indipendente dal debounce history e dal base64 escluso dagli snapshot undo */
@@ -7273,6 +7294,7 @@ function normalizeState(s){
      quando il progetto viene aperto fuori dalla modalità consulenza. */
   s.inputs=Array.isArray(s.inputs)?s.inputs:[];
   s.outputs=Array.isArray(s.outputs)?s.outputs:[];
+  dropOrphanRows(s);   /* chi apre un progetto con righe rimaste senza elemento lo trova già pulito */
   if(s.venue){ s.venue=normalizeVenue(s.venue); }   /* retrocompat: venue opzionale */
   s.zones = Array.isArray(s.zones) ? s.zones.map(function(z,i){
     var kind = z.kind==="power" ? "power" : "audio";
@@ -14429,6 +14451,7 @@ function deleteSel(){
   });
   state.items.forEach(function(i){ if(i.diFor && _delIds[i.diFor]) _delIds[i.id]=1; });
   state.items = state.items.filter(function(i){ return !_delIds[i.id]; });
+  dropOrphanRows(state);   /* qui il render viene PRIMA del save: senza, la Input list mostrerebbe per un giro le righe dell'elemento appena tolto */
   Object.keys(vsecs).forEach(function(s){ renumberViolins(+s); });
   Object.keys(bases).forEach(function(b){ renumberInstr(b); });
   clearSelection(); render(); save();
