@@ -5072,6 +5072,18 @@ t("le liste hanno un nome solo: Channel list e Monitor list", () => {
   }
   ok(/pages\.push\(\{key:"inputlist", label:"Channel list"\}\)/.test(appjs) && /pages\.push\(\{key:"monitorlist", label:"Monitor list"\}\)/.test(appjs), "pagine del PDF");
 });
+/* Revisione 25/09: la home prometteva «otto formazioni», con un «tributo» che nell'app non c'è. */
+t("la home conta i modelli che la vetrina ha davvero", () => {
+  const m = appjs.match(/var START_MODELS = (\[[^;]*\]);/);
+  ok(m, "START_MODELS non trovato");
+  const n = JSON.parse(m[1]).length;
+  const parole = ["zero","uno","due","tre","quattro","cinque","sei","sette","otto","nove","dieci"];
+  const home = readFileSync(join(root, "index.html"), "utf8");
+  const dette = [...home.matchAll(/\b(\w+) (?:modelli|formazioni) pront/gi)].map((x) => x[1].toLowerCase());
+  ok(dette.length >= 2, "la home dice quanti modelli ci sono");
+  dette.forEach((d) => eq(d, parole[n], "la home dice «" + d + "», la vetrina ne ha " + n));
+  ok(!/tributo/i.test(home.match(/modelli pronti[^<]*/gi).join(" ")), "nessun modello che non esiste");
+});
 /* Revisione 25/09: le ricerche degli utenti che davano il risultato sbagliato per primo o niente. */
 t("ricerca: voce e cantante al cantante, basso al bassista", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome, primoQa = (q) => (A.__qaSearch(q)[0] || {}).nome;
