@@ -80,6 +80,7 @@ function throws(fn, code) {
   throw new Error("eccezione attesa" + (code ? " (" + code + ")" : ""));
 }
 function reset() {
+  A.__consultMode = false;   /* revisione 25/09: la lista manuale conta solo in consulenza; un test che la accende non deve sporcare i successivi */
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
@@ -1175,7 +1176,7 @@ t("pagine tecniche: l'elenco spuntato viene riordinato come sarà stampato", () 
     { key: "view-luci", label: "Vista: Luci" },
     { key: "racklist", label: "Lista rack" },
     { key: "lightslist", label: "Lista luci" },
-    { key: "inputlist", label: "Lista ingressi" },
+    { key: "inputlist", label: "Channel list" },
   ];
   eq(A.pdfSortTechPages(pagine).map((p) => p.key),
     ["view-cabin", "view-luci", "inputlist", "lightslist", "racklist"],
@@ -1271,6 +1272,29 @@ function docConScene(A, scene, extra) {
   if (extra) Object.keys(extra).forEach((k) => { doc[k] = extra[k]; });
   return doc;
 }
+/* Revisione 25/09: titolo, luogo, data e contatti sono del documento. Cambiati in una scena, le
+   altre restavano indietro (3 progetti su 8 con più scene nel database). */
+t("titolo, luogo, data e contatti valgono per tutte le varianti", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [{ id: "s1" }, { id: "s2" }]));
+    A.state.titolo = "Concerto di Natale"; A.state.luogo = "Duomo"; A.state.evDate = "2026-12-24";
+    A.state.contacts = [{ role: "Fonico", name: "Anna", contact: "a@example.test", note: "" }];
+    A.switchVariant("s2");
+    eq(A.state.titolo, "Concerto di Natale", "il titolo segue nella variante 2");
+    eq(A.state.luogo, "Duomo"); eq(A.state.evDate, "2026-12-24");
+    eq(A.state.contacts[0].name, "Anna", "i contatti seguono");
+    A.state.titolo = "Concerto di Natale 2026";
+    A.createVariant();
+    ok(A.VARIANTS.every((v) => v.state.titolo === "Concerto di Natale 2026"), "tutte le varianti hanno l'ultimo titolo");
+    A.state.items.push({ id: "solo-qui", type: "cantante", x: 100, y: 100, w: 70, d: 90 });
+    A.syncActiveVariant();
+    eq(A.VARIANTS.filter((v) => v.state.items.some((i) => i.id === "solo-qui")).length, 1, "il palco resta della sua variante");
+    const vecchio = docConScene(A, [{ id: "s1" }, { id: "s2" }]);   /* titoli diversi, come nei progetti salvati */
+    A.loadDoc(vecchio); A.syncActiveVariant();
+    ok(A.VARIANTS.every((v) => v.state.titolo === "s1"), "un documento vecchio si allinea alla variante aperta");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("permessi del link: sono del documento, non della scena attiva", () => {
   const before = A.docToJSON();
   try {
@@ -2181,7 +2205,7 @@ t("i rilievi usano categorie che esistono davvero", () => {
 });
 
 t("48V forzato su mic dinamico (SM58) → avviso", () => {
-  reset(); add("astamic", 400, 400);
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */ add("astamic", 400, 400);
   A.state.inputs = [{ src: "Voce", mic: "SM58", p48: true }];
   ok(hasMsg(/48V/), "atteso avviso 48V; findings: " + auditMsgs().join(" | "));
 });
@@ -2191,7 +2215,7 @@ t("48V su condensatore (KM184) → nessun avviso 48V", () => {
   ok(!hasMsg(/48V/), "48V atteso corretto (condensatore); findings: " + auditMsgs().join(" | "));
 });
 t("ingresso manuale con sorgente ma senza mic/DI → avviso", () => {
-  reset(); add("astamic", 400, 400);
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */ add("astamic", 400, 400);
   A.state.inputs = [{ src: "Chitarra", mic: "" }];
   ok(hasMsg(/senza mic/), "findings: " + auditMsgs().join(" | "));
 });
@@ -2518,7 +2542,7 @@ t("sorgente + wedge → Monitor list disponibile", () => {
 t("listPreviewHtml('inputlist') → tabella HTML con dati reali", () => {
   reset(); A.state.cab.on = true; add("astamic", 400, 400); A.__cabRes = null;
   const h = A.listPreviewHtml("inputlist");
-  ok(h && /pdf-list-tbl/.test(h) && /Input list/.test(h), "html: " + String(h).slice(0, 90));
+  ok(h && /pdf-list-tbl/.test(h) && /Channel list/.test(h), "html: " + String(h).slice(0, 90));
 });
 
 console.log("\nMusicisti illustrati (icone top-down) — cablaggio tecnico:");
@@ -2661,7 +2685,8 @@ t("switchVariant: congela l'attiva e ripristina la target (modifiche indipendent
     { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
   A.state.titolo = "Piena EDIT"; add("batteria", 400, 400);
   A.switchVariant("vB");
-  eq(A.activeVar, "vB"); eq(A.state.titolo, "Ridotta"); eq(A.state.items.length, 0, "vB non eredita gli item di vA");
+  eq(A.activeVar, "vB"); eq(A.state.items.length, 0, "vB non eredita gli item di vA");
+  eq(A.state.titolo, "Piena EDIT", "il titolo è del documento (25/09): segue in tutte le varianti");
   A.switchVariant("vA");
   eq(A.state.titolo, "Piena EDIT", "modifica di vA congelata"); eq(A.state.items.length, 1, "item di vA preservato");
 });
@@ -2681,10 +2706,11 @@ t("deleteVariant: guardia — non elimina l'ultima variante", () => {
 });
 t("deleteVariant: elimina l'attiva → passa a un'altra", () => {
   A.loadDoc({ _doc: 1, active: "vB", variants: [
-    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [{ id: "solo-vA", type: "cantante", x: 100, y: 100, w: 70, d: 90 }], inputs: [], outputs: [] } },
     { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
   A.deleteVariant("vB");
-  eq(A.VARIANTS.length, 1); eq(A.VARIANTS[0].id, "vA"); eq(A.activeVar, "vA"); eq(A.state.titolo, "Piena");
+  eq(A.VARIANTS.length, 1); eq(A.VARIANTS[0].id, "vA"); eq(A.activeVar, "vA");
+  ok(A.state.items.some((i) => i.id === "solo-vA"), "si passa al palco di vA");
 });
 t("renameVariant: aggiorna il nome nel doc", () => {
   A.loadDoc({ _doc: 1, active: "vA", variants: [
@@ -2746,6 +2772,9 @@ t("item ID opaco: markup SVG/HTML codificato e lookup senza selector interpolato
   const markup = A.itemMarkup(it);
   ok(markup.includes("data-id=\"audit&quot; data-audit-marker=&quot;present\""), "ID codificato nell'attributo");
   ok(!markup.includes('" data-audit-marker="'), "nessun secondo attributo iniettato");
+  /* il contenitore del nome (livello #layLbl) porta lo stesso ID: anche lì codificato */
+  A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  ok(lb.includes('data-for="audit&quot; data-audit-marker=&quot;present"') && !lb.includes('" data-audit-marker="'), "ID codificato anche nel contenitore del nome");
   const dot = A.sectionDotMarkup({ id, type: "cantante", x: 20, y: 30, rot: 0, w: 90, d: 90, label: "Voce" });
   ok(dot.includes("data-id=\"audit&quot; data-audit-marker=&quot;present\""), "section dot codificato");
   const oldSvg = A.svg;
@@ -2754,6 +2783,8 @@ t("item ID opaco: markup SVG/HTML codificato e lookup senza selector interpolato
   let scans = 0;
   try {
     A.svg = { querySelectorAll: (selector) => {
+      /* dal 25/09 l'indice raccoglie anche i nomi (#layLbl): un secondo selettore, anch'esso statico */
+      if (selector === ".item-lbls[data-for]") return [];
       eq(selector, ".item[data-id]", "selector statico");
       scans++;
       return [{ getAttribute: () => "other" }, expected];
@@ -3061,7 +3092,7 @@ t("audit B4: spare dichiarato nel nome → nessun avviso doppione", () => {
   ok(!hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
 });
 t("audit B4: doppione nella lista manuale (state.inputs) → avviso", () => {
-  reset(); add("astamic", 300, 300);
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */ add("astamic", 300, 300);
   A.state.inputs = [{ src: "VOX LEAD 1", mic: "935" }, { src: "VOX LEAD 1", mic: "SM58" }];
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
 });
@@ -5030,6 +5061,58 @@ t("le 3 varianti di stage box restano tutte raggiungibili con una parola sola", 
 t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
   const r = A.__qaSearch("tastiera"); ok(r.length > 0);
   ok(A._deacc(r[0].nome).indexOf("tastiera") > -1, "primo risultato non sul nome: " + r[0].nome);
+});
+/* Revisione 25/09: la stessa lista si chiamava Input list, Lista ingressi e Channel list a seconda di
+   dove la si guardava (pannello, pagine del PDF, ricerca). Un nome solo per lista. */
+t("le liste hanno un nome solo: Channel list e Monitor list", () => {
+  const vis = (appjs + "\n" + readFileSync(join(root, "app/index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "")).split("\n").map((l) => l.replace(/\/\*.*?\*\//g, "")).filter((l) => !/^\s*(\/\*|\*|\/\/)/.test(l)).join("\n");
+  for (const vecchio of [/"[^"\n]*\bInput list\b[^"\n]*"/, /"[^"\n]*\binput list\b(?! lista)[^"\n]*"/, /"Lista ingressi"/, /"Lista monitor"/, /<b>Input list<\/b>/, /Chiudi l'input list/]) {
+    const m = vis.match(vecchio);
+    ok(!m || /kw:|channel list input list/.test(m[0]), "nome vecchio ancora visibile: " + (m && m[0]));
+  }
+  ok(/pages\.push\(\{key:"inputlist", label:"Channel list"\}\)/.test(appjs) && /pages\.push\(\{key:"monitorlist", label:"Monitor list"\}\)/.test(appjs), "pagine del PDF");
+});
+/* Revisione 25/09: col corpo minimo via CSS (origine al centro del testo) i nomi ruotati con
+   rotate(a cx cy) giravano attorno a un punto spostato: nella vista girata del telefono finivano lontani. */
+t("a schermo i nomi ruotati girano attorno al proprio centro, nell'export no", () => {
+  eq(A.lblRotazioniAlCentro('<text transform="rotate(90 12.5 -3)">x</text><text transform="rotate(-8 -20 44)">y</text>'),
+     '<text transform="rotate(90)">x</text><text transform="rotate(-8)">y</text>');
+  ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) tiene le rotazioni com'erano");
+  ok(/\(_lblSchermo \? lblRotazioniAlCentro\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo usa la rotazione al centro");
+  ok(/_lblSchermo=true; _lblSink=\[\];/.test(appjs), "anche il ridisegno del singolo elemento (trascinamento) è a schermo");
+  ok(/#svg #layLbl text\.lbl\{transform-box:fill-box;transform-origin:center/.test(stylesCss), "il CSS che rende necessaria la regola");
+});
+/* Revisione 25/09: la home prometteva «otto formazioni», con un «tributo» che nell'app non c'è. */
+t("la home conta i modelli che la vetrina ha davvero", () => {
+  const m = appjs.match(/var START_MODELS = (\[[^;]*\]);/);
+  ok(m, "START_MODELS non trovato");
+  const n = JSON.parse(m[1]).length;
+  const parole = ["zero","uno","due","tre","quattro","cinque","sei","sette","otto","nove","dieci"];
+  const home = readFileSync(join(root, "index.html"), "utf8");
+  const dette = [...home.matchAll(/\b(\w+) (?:modelli|formazioni) pront/gi)].map((x) => x[1].toLowerCase());
+  ok(dette.length >= 2, "la home dice quanti modelli ci sono");
+  dette.forEach((d) => eq(d, parole[n], "la home dice «" + d + "», la vetrina ne ha " + n));
+  ok(!/tributo/i.test(home.match(/modelli pronti[^<]*/gi).join(" ")), "nessun modello che non esiste");
+});
+/* Revisione 25/09: le ricerche degli utenti che davano il risultato sbagliato per primo o niente. */
+t("ricerca: voce e cantante al cantante, basso al bassista", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).nome, primoQa = (q) => (A.__qaSearch(q)[0] || {}).nome;
+  ok(["Uomo","Donna"].includes(primo("voce")) && ["Uomo","Donna"].includes(primoQa("voce")), "«voce» deve dare il cantante: " + primo("voce") + " / " + primoQa("voce"));
+  ok(["Uomo","Donna"].includes(A.__spSearch("cantante")[1].nome), "«cantante»: i due cantanti prima dello sgabello");
+  eq(primo("basso"), "Postazione basso elettrico", "«basso» nella barra");
+  eq(primoQa("basso"), "Postazione basso elettrico", "«basso» nella finestrella");
+  ok(A.__spSearch("basso").some((e) => e.nome === "Ampli basso"), "l'ampli resta fra i risultati");
+  eq(primo("ampli basso"), "Ampli basso");
+});
+t("ricerca: liste e varianti si trovano per nome", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
+  for (const q of ["channel list", "input list", "lista canali", "channel"]) eq(primo(q), "Channel list", q);
+  eq(primo("monitor list"), "Monitor list"); eq(primo("lista monitor"), "Monitor list");
+  ok(primo("monitor") !== "Monitor list", "«monitor» resta dei wedge");
+  eq(primo("nuova variante"), "Nuova variante"); eq(primo("variante"), "Nuova variante");
+  ok(!A.__qaSearch("channel list").length, "la finestrella del doppio clic resta per gli elementi");
+  ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
+  ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
 });
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
@@ -7000,6 +7083,37 @@ t("applyStageSize: rettangolo singolo centrato con le misure (m→cm)", () => {
   ok(!A.state.stage._provisional);
 });
 t("applyStageSize provvisorio: marca _provisional (dimensioni da confermare)", () => { reset(); A.applyStageSize(8, 6, true); ok(A.state.stage._provisional === true); });
+/* Revisione 25/09: dopo aver mandato il PDF non si sapeva se il progetto era cambiato. */
+t("Esporta dice se il progetto è cambiato dopo l'ultimo PDF", () => {
+  reset(); add("cantante", 300, 300);
+  eq(A.pdfUltimoTesto(A.state), "", "senza export non c'è nota");
+  A.segnaPdfEsportato();
+  ok(/^Ultimo PDF: .*nessuna modifica dopo/.test(A.pdfUltimoTesto(A.state)), "subito dopo l'export la nota non deve dire «modificato»: " + A.pdfUltimoTesto(A.state));
+  const st = JSON.parse(JSON.stringify(A.state));
+  ok(/nessuna modifica dopo/.test(A.pdfUltimoTesto(st)), "la nota deve sopravvivere al salvataggio");
+  const riaperto = A.normalizeState(JSON.parse(A.stateToJSON()));
+  ok(/nessuna modifica dopo/.test(A.pdfUltimoTesto(riaperto)), "riaprire il progetto non è una modifica: " + A.pdfUltimoTesto(riaperto));
+  A.state.items[0].x += 50;
+  ok(/^Modificato dopo l'ultimo PDF/.test(A.pdfUltimoTesto(A.state)), "spostato un elemento, la nota deve dirlo");
+  ok(/pdfSave\(doc, fileName\(\)\+"\.pdf"\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
+  ok(/renderFuoriPalco\(\);\s*renderPdfUltimo\(\);/.test(appjs), "la nota va mostrata all'apertura di Esporta");
+});
+/* Revisione 25/09: il PDF «solo palco» lasciava fuori la channel list senza dirlo. */
+t("Esporta avvisa se la channel list resta fuori dal PDF", () => {
+  const f = appjs.slice(appjs.indexOf("function pdfAvvisoIngressi(){"), appjs.indexOf("function pdfRenderPills(){"));
+  ok(/var mostra=disp && n>0 && !_pdfPillSel\.inputlist;/.test(f), "l'avviso compare solo se la lista esiste e non è scelta");
+  ok(/_pdfPillSel\.inputlist=true; pdfRenderPills\(\); pdfUpdateTechNote\(\);/.test(f), "«Aggiungi» deve mettere la lista nel PDF");
+  ok(/pdfAvvisoIngressi\(\);\s*renderPreview\(\);/.test(appjs), "l'avviso va aggiornato a ogni cambio di pagine");
+});
+/* Revisione 25/09: i gusci «Senza titolo» nel cloud avevano solo il palco ridimensionato. */
+t("l'autosave nel cloud non crea un progetto con le sole misure del palco", () => {
+  reset(); A.applyStageSize(9, 5, false);
+  ok(A.hasMeaningfulDocument() === true, "per le conferme di sovrascrittura il palco misurato resta lavoro");
+  ok(A.hasMeaningfulDocument(true) === false, "per l'autosave le sole misure non sono un progetto");
+  add("cantante", 300, 300);
+  ok(A.hasMeaningfulDocument(true) === true, "con un elemento il progetto va salvato");
+  ok(/if\(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument\(true\)\)/.test(appjs), "l'autosave deve ignorare le misure");
+});
 t("stateHasMeaningfulWork: false su default, true dopo un palco custom", () => {
   reset(); ok(A.stateHasMeaningfulWork(A.state) === false); A.applyStageSize(9, 5, false); ok(A.stateHasMeaningfulWork(A.state) === true);
 });
@@ -7977,7 +8091,7 @@ console.log("\n— L'audit non parla di canali che non ci sono —");
    sole luci avvisava «2 canali si chiamano "corno 2": patch ambiguo per il service» — un corno
    che sul palco non c'e'. Misurato: 1 avviso falso e 6 punti di punteggio in meno per variante. */
 t("i nomi dei canali si contano solo su quelli che stanno sul palco", () => {
-  reset();
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */
   const a = add("cantante", 100, 100), b = add("cantante", 300, 100);
   /* due righe manuali omonime, ma una punta a un elemento che non esiste piu' */
   A.state.inputs = [
@@ -8049,7 +8163,7 @@ t("togliere un elemento da un'altra strada (monitor cambiato) non lascia righe a
 t("le righe scritte a mano, senza elemento, restano valide", () => {
   /* Una riga senza `linked_item_id` e' una riga che il fonico ha scritto lui: non e' orfana,
      e' semplicemente non collegata a niente sul palco. Non va tolta. */
-  reset();
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */
   add("cantante", 100, 100);
   A.state.inputs = [
     { src: "Talkback", mic: "SM58" },
@@ -8058,6 +8172,159 @@ t("le righe scritte a mano, senza elemento, restano valide", () => {
   A.__cabRes = null;
   ok(A.auditEngine().findings.some((x) => /si chiamano/.test(x.msg || "")),
      "due righe manuali omonime devono continuare a fare avviso");
+});
+
+/* Revisione 25/09 (agente funzionamento e logica). Aprire Esporta riempiva la lista MANUALE con un
+   generatore suo, il primo save() la salvava, e da lì l'audit dei doppioni leggeva lei invece del palco:
+   due «Chitarra» davano l'avviso prima di aprire Esporta e nessun avviso dopo. */
+t("fuori dalla consulenza, una lista manuale vecchia non zittisce l'avviso sui doppioni veri", () => {
+  reset();
+  const g1 = add("gtstand", 300, 300), g2 = add("gtstand", 700, 300);
+  g1.label = "Chitarra"; g2.label = "Chitarra"; A.__cabRes = null;
+  ok(hasMsg(/si chiamano|compaiono più volte/), "premessa: due chitarre omonime devono dare l'avviso");
+  A.state.inputs = [{ src: "Chitarra A", mic: "SM57", linked_item_id: g1.id }, { src: "Chitarra B", mic: "SM57", linked_item_id: g2.id }];
+  A.__cabRes = null;
+  ok(hasMsg(/si chiamano|compaiono più volte/), "con una lista manuale diversa dal palco l'avviso sui doppioni veri sparisce");
+});
+t("aprire Esporta fuori dalla consulenza non riempie la lista manuale", () => {
+  const i = appjs.indexOf('getElementById("bHdrPdf").addEventListener("click"');
+  const corpo = appjs.slice(i, i + 2600);
+  ok(/if\(window\.__consultMode\)\{\s*try\{ if\(!state\.inputs\.length\) autoInputs\(true\);/.test(corpo), "la generazione della lista manuale all'apertura di Esporta non è più limitata alla consulenza");
+});
+t("«Auto» genera la stessa lista che va nel PDF", () => {
+  for (const m of ["coro", "conferenza", "band"]) {
+    reset();
+    const fd = A.formationData(m);
+    A.state.items = JSON.parse(JSON.stringify(fd.out)).map((it, k) => Object.assign({ id: "i" + (k + 1) }, it));
+    A.__cabRes = null;
+    A.autoInputs(true);
+    const pdf = A.patchList().rows.map((r) => r.name);
+    eq(A.state.inputs.map((r) => r.src), pdf, m + ": la lista di «Auto» non coincide con quella del PDF");
+  }
+});
+
+/* Revisione 25/09: l'avviso «due ampli» leggeva `it.miking`, che la migrazione alla catena cancella —
+   valeva sempre «ampli». Un basso solo linea accanto al suo ampli risultava «col microfono sull'ampli»,
+   e togliere l'ampli dalla catena (il rimedio suggerito) non spegneva l'avviso. */
+t("avviso «due ampli»: si basa sulla catena d'uscita, e si spegne seguendo il rimedio", () => {
+  const dueAmpli = () => A.auditEngine().findings.filter((f) => /microfono sull'ampli/.test(f.msg || ""));
+  reset();
+  const g = add("gtstand", 300, 300); add("comboamp", 380, 300);
+  const b = add("bassstand", 800, 300); add("bassamp", 880, 300);
+  A.__cabRes = null;
+  const f = dueAmpli();
+  eq(f.length, 1, "atteso un avviso");
+  ok(/Una postazione/.test(f[0].msg), "il basso solo linea non ha il microfono sull'ampli: " + f[0].msg);
+  eq(f[0].rule, "dueampli", "la regola deve avere la sua chiave, non finire nell'azione");
+  A.chainToggle(g, "ampmic"); A.__cabRes = null;
+  eq(dueAmpli().length, 0, "spento il mic sull'ampli dalla catena, l'avviso deve sparire");
+});
+
+/* Revisione 25/09: il PDF stampava sempre il giorno dell'esportazione, mai quello dell'evento —
+   «Teatro Prova · 24/09/2026» per un evento del 15/10 alle 21:30. */
+t("i documenti portano la data e l'ora dell'evento, se ci sono", () => {
+  reset();
+  A.state.evDate = "2026-10-15"; A.state.evTime = "21:30";
+  eq(A.dataDocumento(), "15/10/2026 · 21:30", "data dell'evento");
+  A.state.evTime = "";
+  eq(A.dataDocumento(), "15/10/2026", "senza ora");
+  A.state.evDate = "";
+  eq(A.dataDocumento(), new Date().toLocaleDateString("it-IT"), "senza data dell'evento resta quella di oggi");
+  const i = appjs.indexOf("function dataDocumento(){");
+  const fuori = (appjs.slice(0, i) + appjs.slice(appjs.indexOf("}", appjs.indexOf("return new Date().toLocaleDateString", i)) ))
+    .split("\n").filter((r) => /doc\.text\(new Date\(\)\.toLocaleDateString|sub\.push\(new Date\(\)\.toLocaleDateString|pdf-list-date">'\+esc\(new Date/.test(r));
+  eq(fuori.length, 0, "restano pagine del PDF con la data dell'esportazione");
+});
+
+/* Revisione 25/09: in conferenza il PDF è già «Scheda tecnica», ma l'editor diceva ancora rider e Musicisti;
+   e il messaggio sul contatto del service non diceva dove si aggiunge. */
+t("in conferenza l'editor parla di scheda e persone; il contatto del service ha dove andare", () => {
+  reset(); A.state.tipoEvento = "conferenza"; add("relatore", 400, 300); A.__cabRes = null;
+  const f = A.auditEngine().findings.find((x) => /Service locale/.test(x.msg || ""));
+  ok(f && /scheda tecnica/.test(f.msg) && !/rider/.test(f.msg), "in conferenza il messaggio parla ancora di rider: " + (f && f.msg));
+  ok(f.act && f.act.label === "Apri Contatti e ruoli" && f.act.run === A.auditFixOpenContacts, "il messaggio non porta a Contatti e ruoli");
+  eq(A.layerRegistry().find((L) => L.id === "mus").name, "Persone", "in conferenza la lista si chiama Persone");
+  A.state.tipoEvento = "";
+  ok(/ rider/.test(A.auditEngine().findings.find((x) => /Service locale/.test(x.msg || "")).msg), "fuori dalla conferenza resta il rider");
+  eq(A.layerRegistry().find((L) => L.id === "mus").name, "Musicisti", "e i Musicisti");
+});
+
+/* Revisione 25/09 (agente colori): in tema scuro i pulsanti primari erano 3,02:1, l'anello di focus 1,8:1,
+   --text-3 4,07:1 sul pannello; «Progetta il tuo palco» 3,74:1 anche in chiaro. Il test calcola il
+   rapporto WCAG sui valori scritti nel CSS: riportarne uno sotto soglia fa diventare rosso qui. */
+function contrasto(a, b) {
+  const lum = (h) => { const n = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0); };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05);
+}
+t("contrasti misurati sui valori del CSS: tema scuro e pulsante del benvenuto", () => {
+  const dark = stylesCss.slice(stylesCss.indexOf("body.dark{"), stylesCss.indexOf("}", stylesCss.indexOf("body.dark{")));
+  const t3 = /--text-3:(#[0-9a-f]{6})/i.exec(dark)[1];
+  ok(contrasto(t3, "#20292e") >= 4.5 && contrasto(t3, "#1b2327") >= 4.5, "--text-3 scuro sotto 4,5:1 su pannello/superficie: " + t3);
+  const fr = /--focus-ring:rgba\(20,184,166,\.(\d+)\)/.exec(dark);
+  ok(fr && +("0." + fr[1]) >= 0.8, "l'anello di focus scuro è troppo trasparente (era .32 = 1,8:1)");
+  const prim = /body\.dark \.btn\.primary\{background:(#[0-9a-f]{6});color:#fff\}/i.exec(stylesCss);
+  ok(prim && contrasto(prim[1], "#ffffff") >= 4.5, "pulsante primario scuro: testo bianco sotto 4,5:1");
+  ok(/\.wl-cta\{[^}]*background:var\(--accent-strong\)/.test(stylesCss), "«Progetta il tuo palco» su --accent (3,74:1) invece di --accent-strong");
+  ok(/body\.dark input::placeholder,body\.dark textarea::placeholder\{color:#96a5a1\}/.test(stylesCss), "segnaposto scuri col grigio del browser (3,81:1)");
+  ok(/#props input\[type=range\]:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss), "i cursori del pannello non mostrano il focus");
+});
+t("l'audit dice la gravità a parole, e non dice «pronto» a un palco vuoto", () => {
+  ok(/var lv=x\.lvl==="err"\?"Errore":\(x\.lvl==="todef"\?"Da definire":"Avviso"\);/.test(appjs) && /● '\+lv\+'</.test(appjs), "la gravità dei rilievi è data solo dal colore");
+  ok(/if\(!probs\.length && !\(state\.items\|\|\[\]\)\.length\)\{ host\.innerHTML='<div[^>]*>Palco vuoto/.test(appjs), "sul palco vuoto l'audit dice ancora «il rider sembra pronto»");
+});
+t("da tastiera si entra nel pannello proprietà (Invio) e si torna al palco (Esc)", () => {
+  ok(/if\(e\.key==="Enter" && document\.activeElement===_svg && sel/.test(appjs) && /_primo\.focus\(\)/.test(appjs), "Invio sul palco non porta al pannello proprietà");
+  ok(/if\(e\.key==="Escape" && sel && [^\n]*closest\("#props"\)\)\{\s*e\.preventDefault\(\); _svg\.focus\(\);/.test(appjs), "Esc dal pannello non riporta al palco");
+});
+
+/* Revisione 25/09: dentro il gruppo dell'elemento il nome finiva sotto a chi veniva dopo nell'ordine
+   (Orchestra 5 nomi coperti su 21, Band 5 su 11, Coro 6). Nella scena i nomi vanno in #layLbl, sopra
+   tutti gli elementi; fuori dalla scena (miniature) restano nel gruppo. */
+t("nella scena i nomi stanno sopra tutti gli elementi", () => {
+  reset();
+  const a = add("cantante", 300, 300), b = add("wedge", 300, 380); a.label = "Voce A"; b.label = "Mix 1";
+  const sc = A.sceneMarkup();
+  const iItems = sc.indexOf('<g id="layItems">'), iLbl = sc.indexOf('<g id="layLbl"');
+  ok(iItems > -1 && iLbl > iItems, "il livello dei nomi deve venire DOPO quello degli elementi");
+  const items = sc.slice(iItems, iLbl), lbls = sc.slice(iLbl);
+  ok(!/class="lbl"/.test(items), "un nome è rimasto dentro il gruppo del suo elemento");
+  ok(/>Voce A</.test(lbls) && />Mix 1</.test(lbls), "i nomi non sono nel livello sopra");
+  ok(/<g id="layLbl" style="pointer-events:none">/.test(sc), "il livello dei nomi deve lasciar passare i clic all'elemento sotto");
+  ok(/class="item-lbls[^"]*" data-for="[^"]+" transform="translate\(300 300\)"><g transform="rotate\(0\)">/.test(lbls), "il nome deve avere la stessa traslazione e rotazione del suo elemento");
+  ok(/>Voce A</.test(A.itemMarkup(a)), "fuori dalla scena (miniature, anteprime) il nome resta nel gruppo");
+});
+t("trascinare e ruotare spostano anche il nome, che sta in un altro livello", () => {
+  /* nel sandbox il DOM non si muove: si controlla che ogni aggiornamento parziale chiami syncItemLbl */
+  ok(/if\(g\) g\.setAttribute\("transform","translate\("\+it\.x\+" "\+it\.y\+"\)"\);\s*syncItemLbl\(it\);/.test(appjs), "trascinando, il nome resta indietro");
+  ok(/gi\.setAttribute\("transform","rotate\("\+it\.rot\+"\)"\); \}\s*syncItemLbl\(it\); \}\);/.test(appjs), "ruotando un gruppo, il nome resta indietro");
+  ok(/function rotateItemNode\(it\)\{[^\n]*syncItemLbl\(it\)/.test(appjs), "ruotando un elemento, il nome resta indietro");
+  ok(/function redrawItemNode\(it\)\{[\s\S]{0,400}_lblSink=\[\]/.test(appjs), "ridisegnando un elemento, il nome finirebbe doppio");
+});
+t("a schermo i nomi non scendono sotto 9 px, e non spariscono su un portatile", () => {
+  ok(/svg\.style\.setProperty\("--lblK", Math\.max\(1, 9\/\(14\*ppm\/100\)\)/.test(appjs), "manca il corpo minimo a schermo");
+  ok(/#svg #layLbl text\.lbl\{[^}]*scale:var\(--lblK,1\)/.test(stylesCss), "il corpo minimo deve valere solo nel palco dell'editor (#svg), non nel PDF");
+  ok(/nMode==='auto' && ppm<30\)/.test(appjs), "la soglia dei nomi nascosti è tornata sopra 30 px/m: il Band a 1280 (44 px/m) nasce senza nomi");
+});
+t("il nome del musicista non si ripete sulla sua spia", () => {
+  reset();
+  const m = add("bassstand", 300, 300), w = add("wedge", 300, 392); m.label = "Basso"; w.label = "Basso";
+  ok(A.nomeGiaSullaSpia(m), "spia con lo stesso nome a 92 cm: il nome del musicista va tolto");
+  const lbls = A.sceneMarkup().split('<g id="layLbl"')[1];
+  eq((lbls.match(/>Basso</g) || []).length, 1, "«Basso» deve comparire una volta sola");
+  w.label = "Mix basso"; ok(!A.nomeGiaSullaSpia(m), "con un nome diverso la spia non toglie niente");
+  w.label = "Basso"; w.y = 600; ok(!A.nomeGiaSullaSpia(m), "una spia lontana non è la sua");
+});
+
+/* Revisione 25/09: «Crea una copia» dal link creava la copia e lasciava la pagina com'era — chi voleva
+   lavorarci ripremeva il pulsante: 5 copie dello stesso progetto in 6 minuti (dato reale). */
+t("la copia da link si offre di aprirsi e non si duplica", () => {
+  const f = appjs.slice(appjs.indexOf("function completeCopyFromToken(token){"), appjs.indexOf("function loadProjects(){"));
+  ok(/giaFatta=sessionStorage\.getItem\("copiaDi:"\+token\)/.test(f) && /if\(giaFatta\)\{[\s\S]{0,300}toast\("Hai già una copia/.test(f), "un secondo clic crea un'altra copia invece di offrire quella fatta");
+  ok(/sessionStorage\.setItem\("copiaDi:"\+token, r\.data\.id\)/.test(f), "la copia fatta non viene ricordata");
+  ok(/label:"Apri la copia", neutra:true, run:function\(\)\{ apriCopia\(r\.data\.id\); \}/.test(f), "il messaggio non offre di aprire la copia");
+  ok(/function apriCopia\(id\)\{[^\n]*location\.href="\/app\/\?p="\+encodeURIComponent\(id\)/.test(appjs), "la copia si apre con /app/?p= (le protezioni di openProject)");
+  ok(/var giaCopia=cp\.getAttribute\("data-copia"\); if\(giaCopia && window\.__apriCopia\)/.test(appjs), "dopo la copia il pulsante del link deve aprirla, non rifarla");
 });
 
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
@@ -11831,14 +12098,20 @@ t("le scritte del disegno restano leggibili a ogni scala", () => {
      fattore — è una manopola (CORPO_RIF) e può cambiare — ma la proprietà che deve valere sempre:
      raddoppiando la scala raddoppia il fattore, così sulla carta il corpo resta lo stesso. */
   eq(A.pdfTextK(200) / A.pdfTextK(100), 2, "da 1:100 a 1:200 il fattore deve raddoppiare");
-  eq(A.pdfTextK(100) / A.pdfTextK(50), 2, "e da 1:50 a 1:100 pure");
+  /* 25/09 (revisione, decisione di Simone): sotto 1:80 il fattore resta 1 invece di scendere. Prima a 1:50
+     — l'A3 di un palco che in A4 va a 1:100 — i nomi si rimpicciolivano fino a restare 1,75 mm come in A4,
+     e il formato più grande non serviva a leggerli. Ora sotto 1:80 il testo non si rimpicciolisce più. */
+  eq(A.pdfTextK(50), 1, "a 1:50 il testo non deve rimpicciolirsi (A3 = nomi più grandi sulla carta)");
+  ok(A.pdfTextK(50) * 140 / 50 > A.pdfTextK(100) * 140 / 100, "a 1:50 i nomi sulla carta devono essere più grandi che a 1:100");
   eq(A.pdfTextK(500), A.pdfTextK(250), "oltre 1:250 si ferma: sarebbe più grande di ciò che nomina");
   ok(A.pdfTextK(250) >= A.pdfTextK(100), "il fattore non può calare al crescere della scala");
   [0, -3, NaN, null, undefined, "boh"].forEach((v) => eq(A.pdfTextK(v), 1, "valore inutilizzabile: " + v));
   /* il corpo sulla CARTA, che è ciò che conta davvero */
   const mmSulFoglio = (corpo, N) => corpo * A.pdfTextK(N) * 10 / N;
-  const misure = [50, 100, 200, 250].map((N) => +mmSulFoglio(14, N).toFixed(3));
-  eq(new Set(misure).size, 1, "il corpo sulla carta deve essere lo STESSO a ogni scala: " + misure);
+  /* da 1:80 in su il corpo sulla carta è costante; sotto 1:80 (dal 25/09) non si rimpicciolisce e cresce col disegno */
+  const misure = [80, 100, 200, 250].map((N) => +mmSulFoglio(14, N).toFixed(3));
+  eq(new Set(misure).size, 1, "da 1:80 in su il corpo sulla carta deve essere lo STESSO: " + misure);
+  ok(mmSulFoglio(14, 50) > mmSulFoglio(14, 100), "a 1:50 il corpo sulla carta deve crescere, non restare quello dell'A4");
   /* e deve stare nella fascia in cui un nome si legge davvero su un foglio stampato: sotto 1,2 mm
      si perde, sopra 2,5 mm i nomi si scansano tanto da non dire più di chi sono */
   misure.forEach((mm) => ok(mm >= 1.2 && mm <= 2.5, "corpo sul foglio: " + mm + " mm"));
@@ -12793,7 +13066,12 @@ t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account di
   ok(/if\(tx && mode==="istantanea"\)\{/.test(sb) && /cta\.id="shareLogin"/.test(sb), "senza account la condivisione invita ad accedere");
   ok(/sempre aggiornato/.test(sb.slice(sb.indexOf('cta.id="shareLogin"'))), "e dice cosa cambia");
   ok(/Salvato su questo dispositivo\. Accedi per ritrovarlo su computer e telefono\./.test(appjs), "il salvataggio locale dice il vantaggio");
-  ok(/mode==="offline-warn"\)\{ cls\+=" nudge";/.test(appjs) && /el\.classList\.contains\("nudge"\)\) document\.getElementById\("bCloud"\)\.click\(\)/.test(appjs), "e la pastiglia porta al login");
+  ok(/mode==="offline-warn"\)\{ cls\+=" invito";/.test(appjs) && /el\.classList\.contains\("invito"\)\) document\.getElementById\("bCloud"\)\.click\(\)/.test(appjs), "e la pastiglia porta al login");
+  /* revisione 25/09: con «nudge» la pastiglia ereditava lo stile del riquadro Produzione (.nudge: margine
+     12, padding 8×11) e diventava 398×33 px — la barra sbordava di 378 px a 1512 e copriva Annulla,
+     Ripeti, Adatta. La classe dello stato non deve essere quella di un altro componente. */
+  ok(!/\n\s*\.nudge\{/.test(stylesCss) || !/cls\+=" nudge"/.test(appjs), "la pastiglia usa di nuovo una classe che è già di un altro componente");
+  ok(/\.doc-chip\{[^}]*max-width:\s*\d+px[^}]*text-overflow:ellipsis/.test(stylesCss), "la pastiglia deve avere una larghezza massima: un testo lungo allarga la barra e copre i comandi");
   ok(appjs.indexOf('{ id:"elec", name:"Elettrico"') > -1 && appjs.indexOf('name:"Power"') === -1 && !/lista Power/.test(appjs), "la lista si chiama Elettrico, anche nei rimedi");
   ok(!/<span>Link di sola lettura<\/span>/.test(landing) && /<span>Link sempre aggiornato, con l'account<\/span>/.test(landing), "la home dice che il link aggiornato è dell'account");
   ok(/con l'account, un link di sola lettura sempre aggiornato/.test(landing) && /Il link no: con l'account,/.test(landing), "anche nelle domande frequenti e nella sezione Condivisione");
@@ -14235,7 +14513,7 @@ t("il messaggio dopo un'eliminazione ha due bottoni, non uno", () => {
      annulla, secondo me dovrebbe esserci anche l'ok oltre che l'annulla e l'annulla dovrebbe essere
      in rosso». Prima c'era solo «Annulla»: chi voleva davvero eliminare non aveva niente da
      premere e restava a guardare il messaggio finché spariva da solo. */
-  ok(/b\.className="toast-act toast-undo"/.test(appjs), "«Annulla» c'e' ancora");
+  ok(/b\.className="toast-act "\+\(azione\.neutra\?"toast-go":"toast-undo"\)/.test(appjs), "«Annulla» c'e' ancora (rosso, salvo le azioni neutre come «Apri la copia», dal 25/09)");
   ok(/ok\.className="toast-act toast-ok"; ok\.textContent="OK"/.test(appjs), "e adesso c'e' anche «OK»");
   ok(/ok\.addEventListener\("click", function\(\)\{ toastEl\.hidden=true;[^}]*\}\)/.test(appjs),
      "che chiude e basta, senza disfare niente");

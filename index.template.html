@@ -127,7 +127,7 @@
     <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
     <label for="evTipo" class="ev-l">Tipo</label><select id="evTipo" class="ev-i"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
     <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
-    <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
+    <div class="ev-hint">Facoltativi — se li scrivi, finiscono nell'intestazione del PDF e su ogni lista.</div>
   </div>
   <!-- 14/09 — Le varianti come SCHEDE, sempre in vista. Segnalazione di Simone: la barra compariva
        solo dalla seconda variante («secondo me dovrebbe essere sempre lì, magari in modo più
@@ -226,7 +226,7 @@
 <!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
-  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
+  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, Invio per modificarne le proprietà, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
      che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
 <button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -1017,7 +1017,7 @@
       <div class="prop-card__head">Microfonazione panoramica</div>
       <input aria-label="Microfono della zona" type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
       <button class="btn" id="bGrpZone" style="width:100%;margin-top:6px">Crea zona microfonazione</button>
-      <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella input list.</div>
+      <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella channel list.</div>
     </div>
     <div id="grpLblWrap" style="display:none;margin-bottom:8px">
       <label for="grpLblSize" style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
@@ -1101,7 +1101,7 @@
       <div class="cab-sechead" id="auditSecHead">
         <span class="caret" id="auditCaret">▾</span>
         <span class="cab-sectitle"><b>Audit progetto</b></span>
-        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="auditBody" style="margin-top:8px">
         <div id="auditScore"></div>
@@ -1141,8 +1141,8 @@
     <div id="patchSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <div class="cab-sechead" id="patchSecHead">
         <span class="caret" id="patchCaret">▾</span>
-        <span class="cab-sectitle"><b>Input list</b></span>
-        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi l'input list" aria-label="Chiudi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <span class="cab-sectitle"><b>Channel list</b></span>
+        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi la channel list" aria-label="Chiudi la channel list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="patchBody" style="margin-top:8px">
         <div id="patchSummary" hidden></div>
@@ -1155,7 +1155,7 @@
       <div class="cab-sechead" id="monSecHead">
         <span class="caret" id="monCaret">▾</span>
         <span class="cab-sectitle"><b>Monitor list</b></span>
-        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="monBody" style="margin-top:8px">
         <div id="monSummary" style="font-size:12px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
@@ -1171,7 +1171,7 @@
       <div class="cab-sechead" id="loadSecHead">
         <span class="caret" id="loadCaret">▾</span>
         <span class="cab-sectitle"><b>Lista carichi</b></span>
-        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <!-- 29/07: via il riepilogo a frase (#loadSummary) e la didascalia in piede — la barra in cima a
            #loadRows dice a che punto sei e quanto è carica la fase più carica, e ogni riga porta la sua
@@ -1719,7 +1719,7 @@
       <div class="wl-steps">
         <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Cerca</strong> lo strumento nel catalogo a sinistra, o aprilo per categoria: un clic lo posa sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
-        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + lista ingressi, monitor e carichi</span></div>
+        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + channel list, monitor list e carichi</span></div>
       </div>
       <div class="wl-mods-lbl">oppure parti da un modello</div>
       <div class="wl-mods" id="wlMods"></div>
@@ -1915,9 +1915,10 @@
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
              tre file con lo stesso nome. Qui è il momento giusto per chiederlo: è lo stesso
              `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
-        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del rider e nome del file</span></label>
+        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
         <div class="hdr-saved" id="pdfFileName"></div>
+        <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->
@@ -3213,7 +3214,7 @@ var TYPES = {
              draw:function(it){ return guitarDraw(it,"el"); }},
   gtacustica:{nome:"Chitarra acustica", dim:"sedia · leggio · ampli", cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:110, gtr:"ac",
              draw:function(it){ return guitarDraw(it,"ac"); }},
-  bassstand:{nome:"Basso elettrico", dim:"sedia · leggio · ampli", cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:120, gtr:"bass",
+  bassstand:{nome:"Basso elettrico", dim:"sedia · leggio · ampli", qaPrimo:"basso",   /* revisione 25/09: «basso» dava per primo l'Ampli basso (alfabetico), chi scrive «basso» cerca il bassista */ cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:120, gtr:"bass",
              draw:function(it){ return guitarDraw(it,"bass"); }},
   pedaliera:{nome:"Pedaliera", dim:"50×30", cat:"Band e backline", sub:"Chitarre e bassi", w:52,d:32, defLabel:"Pedalboard",
              draw:function(it){ return drawLibFit("pedalierafx",it,62,32); }},
@@ -3904,11 +3905,11 @@ var AMP_DB = {
   "boss_katana100":{brand:"Boss", model:"Katana-100 MkII", per:["comboamp"], watt:77, out:100, kg:14.8, v:true},
   "boss_katana50": {brand:"Boss", model:"Katana-50 MkII", per:["comboamp"], watt:47, out:50, kg:11.6, v:true},
   "roland_kc600":  {brand:"Roland", model:"KC-600", per:["keysamp"], watt:50, out:200, kg:29, v:true,
-                    note:"200 W di uscita audio ma 50 assorbiti: e' l'esempio che smonta la regola del «doppio dell'uscita»"},
+                    note:"200 W di uscita audio ma 50 assorbiti: è l'esempio che smonta la regola del «doppio dell'uscita»"},
   "roland_kc400":  {brand:"Roland", model:"KC-400", per:["keysamp"], watt:40, out:150, kg:22, v:true},
   "roland_rd2000": {brand:"Roland", model:"RD-2000", per:["stagepiano","doppiatastiera"], watt:23, kg:21.7, v:true},
   "roland_td27":   {brand:"Roland", model:"TD-27", ruolo:"modulo", per:["edrums"], watt:null, kg:1.1, v:true,
-                    note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso e' del SOLO modulo, senza rack ne' pad, quindi il tipo resta sulla sua stima per il kit"},
+                    note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso è del SOLO modulo, senza rack né pad, quindi il tipo resta sulla sua stima per il kit"},
   /* — Ampeg (ampeg.com + Owner's Manual) — */
   "ampeg_svtcl":   {brand:"Ampeg", model:"SVT-CL", ruolo:"testata", per:["bassamp"], watt:460, out:300, kg:36.3, v:true,
                     note:"valvolare: 460 W assorbiti per 300 W di uscita. Il manuale li dichiara per tutte le tensioni, EU compresa"},
@@ -3929,7 +3930,7 @@ var AMP_DB = {
   "yamaha_cp73":   {brand:"Yamaha", model:"CP73", per:["stagepiano"], watt:null, kg:13.1, v:true},
   /* — Hammond (hammondorganco.com) — */
   "hammond_skxpro":{brand:"Hammond", model:"SkxPro", per:["organohammond","doppiatastiera"], watt:22, kg:16.9, v:true,
-                    note:"e' l'Hammond PORTATILE: un B3 vintage pesa piu' di dieci volte tanto e non si sposta in due"},
+                    note:"è l'Hammond PORTATILE: un B3 vintage pesa più di dieci volte tanto e non si sposta in due"},
   /* — PA ATTIVA DI TAGLIO PICCOLO — la tabella non e' piu' solo backline: un diffusore attivo e'
        un apparecchio che assorbe, e il piano elettrico ha lo stesso bisogno di sapere quanto.
        ⚠️ Qui `watt` e' la RICHIESTA DI RETE dichiarata (VA), non il programma medio: e' il numero
@@ -5094,7 +5095,25 @@ function ensureVariants(){ if(!VARIANTS.length){ var id=newVarId(); VARIANTS=[{i
   else if(!activeVarObj()){ activeVar=VARIANTS[0].id; } }
 function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Variante\s+(\d+)$/.exec(v.name||""); if(m) n=Math.max(n, +m[1]); }); return "Variante "+(n+1||VARIANTS.length+1); }
 /* congela lo state vivo nella slot della variante attiva (snapshot piatto, immagine planimetria strippata) */
-function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); } }
+/* Campi del DOCUMENTO, non della scena (revisione 25/09): titolo, luogo, data, contatti e tipo di
+   evento sono gli stessi per tutte le varianti. Vivevano in ogni variante, e cambiarli in una
+   lasciava le altre col vecchio valore: nel database 3 progetti su 8 con più varianti avevano
+   titoli diversi fra le varianti, tutti per sbaglio (la «(copia)» rinominava solo la prima); luogo,
+   data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
+   già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
+   nelle altre. */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader"];
+function propagaCampiDocumento(v){
+  var src=v&&v.state; if(!src) return;
+  VARIANTS.forEach(function(o){
+    if(o===v || !o.state) return;
+    CAMPI_DOCUMENTO.forEach(function(k){
+      if(src[k]===undefined) delete o.state[k];
+      else o.state[k]=JSON.parse(JSON.stringify(src[k]));
+    });
+  });
+}
+function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); propagaCampiDocumento(v); } }
 function documentEnvelope(active,variants,extra){
   var out={}; Object.keys(extra||DOC_EXTRA||{}).forEach(function(k){ out[k]=(extra||DOC_EXTRA)[k]; });
   out._doc=1; out.active=active; out.variants=variants; return out;
@@ -5661,8 +5680,9 @@ function clearVenueImg(){
    nasce da un elemento del palco lo ricorda in `linked_item_id`. Quando l'elemento se ne va —
    cancellato, sostituito, variante svuotata e rifatta — la riga restava: 7 su 14 in «Stevie Biondi
    Trio», 57 su 94 in «morricone 99», e 94 su 94 nelle sue varianti di sole luci e sedie. Non erano
-   innocue: la Input list le mostra, e finiscono nella tabella del PNG esportato e nel PDF della
-   consulenza — un kick e un rullante nel foglio di un palco che una batteria non ce l'ha.
+   innocue: la lista manuale le mostra e finiscono nel PDF della consulenza — un kick e un rullante
+   nel foglio di un palco che una batteria non ce l'ha. (Il PNG vero non ha la tabella canali:
+   buildExportSvg serve solo alla pagina di QA ?export=1 — corretto il 25/09 dalla revisione.)
    Si toglie SOLO la riga che punta a un elemento che non c'è più. Una riga senza `linked_item_id`
    è scritta a mano dal fonico: non è orfana, resta. Ritorna quante righe ha tolto. */
 function dropOrphanRows(s){
@@ -5725,17 +5745,19 @@ function setDocState(mode){
   if(window.__localConflict && mode!=="conflict" && mode!=="blocked") mode="conflict";
   else if(window.__localStorageUnavailable && (mode==="local"||mode==="offline-warn"||!mode)) mode="local-error";
   var el=document.getElementById("docState"), elM=document.getElementById("docStateM");
-  var cls="doc-chip", html="", htmlM="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
+  var cls="doc-chip", html="", htmlM="", tip="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
-  else if(mode==="offline-warn"){ cls+=" nudge"; html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per ritrovarlo ovunque"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
+  else if(mode==="offline-warn"){ cls+=" invito"; html=CHIP_SVG.ok+"Solo su questo dispositivo · Accedi"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; tip="Salvato su questo dispositivo. Accedi per ritrovarlo ovunque."; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
   else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
   else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Aperto in un'altra scheda — salvataggio sospeso, scarica il progetto o ricarica"; htmlM=CHIP_SVG.warn+"Altra scheda — non salvo"; }   /* «scegli come continuare» prometteva una scelta che non compare da nessuna parte: la pastiglia dice le due vie vere (06/08) */
   else if(mode==="locked"){ cls+=" warn"; html=CHIP_SVG.warn+"Progetto bloccato — le modifiche restano su questo dispositivo"; htmlM=CHIP_SVG.warn+"Bloccato — non salvo online"; }   /* il lucchetto ferma l'autosave: senza questo la pastiglia restava su «Salvataggio…» per sempre */
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
-  if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
+  /* il testo in uno <span> suo: quando la barra è stretta la pastiglia si restringe (flex-shrink) e deve
+     sparire prima il testo, con i puntini, lasciando intera l'icona — non il contrario (revisione 25/09) */
+  if(el){ el.className=cls; el.innerHTML=html.replace(/^(<svg[\s\S]*?<\/svg>)?([\s\S]*)$/, function(_,s,tx){ return (s||"")+(tx?'<span class="dc-t">'+tx+'</span>':""); }); el.hidden=false; el.title=tip||el.textContent||""; }   /* la pastiglia ha una larghezza massima: la frase intera sta nel title */
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
 }
 window.setDocState=setDocState;
@@ -5907,9 +5929,9 @@ window.setPeekName=setPeekName;
 (function(){
   var el=document.getElementById("docState");
   /* «nudge» (15/09): da non collegati la pastiglia che dice «Accedi per ritrovarlo ovunque» porta al login */
-  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn") || el.classList.contains("nudge")) document.getElementById("bCloud").click(); });
+  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn") || el.classList.contains("invito")) document.getElementById("bCloud").click(); });
   var elM=document.getElementById("docStateM");
-  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn") || elM.classList.contains("nudge")) document.getElementById("bCloud").click(); });
+  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn") || elM.classList.contains("invito")) document.getElementById("bCloud").click(); });
   try{ setDocState("local"); }catch(e){}   /* stato iniziale; l'auth callback lo aggiorna appena il modulo cloud parte */
 })();
 /* ===== Undo / Redo ===== */
@@ -7263,6 +7285,11 @@ function normalizeState(s){
      `delete` e non `= null`: un campo che vale null è comunque un campo, e finirebbe nel salvataggio
      come i riferimenti orfani che ci portiamo dietro da mesi. */
   delete s.pdfPages;
+  if(s.pdfEsportato){   /* «Modificato dopo l'ultimo PDF» (25/09): solo quando e l'impronta, entrambe stringhe */
+    var _pe=s.pdfEsportato;
+    if(_pe && typeof _pe.at==="string" && typeof _pe.firma==="string" && _pe.at.length<40 && _pe.firma.length<40) s.pdfEsportato={at:_pe.at, firma:_pe.firma};
+    else delete s.pdfEsportato;
+  }
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
@@ -7989,8 +8016,22 @@ function riserDimSide(it){
   ["bottom","top","right","left"].forEach(function(k){ if(m[k]>bv+1){ bv=m[k]; best=k; } });
   return best;
 }
+/* Il musicista con la SUA spia davanti, che porta lo stesso nome: il nome del musicista cade proprio
+   sulla spia e quello della spia subito sotto — «Basso» due volte. Finché i nomi stavano dentro il
+   gruppo dell'elemento, quello del musicista finiva nascosto sotto la spia e il problema non si
+   vedeva; col livello dei nomi sopra tutto (revisione 25/09) se ne scrive uno solo, quello della spia,
+   che sta sotto il gruppo. Solo se la spia è sua, vicina (entro 1,2 m) e con lo stesso nome. */
+function nomeGiaSullaSpia(it){
+  var nome=String((it && it.label)||"").trim(); if(!nome || it.type==="wedge") return false;
+  /* la sua spia: quella collegata (ascoltoId) o, nei modelli, una spia col suo stesso nome a meno di 1,2 m */
+  return (state.items||[]).some(function(a){
+    return a.type==="wedge" && a.id!==it.id && String(a.label||"").trim()===nome
+      && (a.id===it.ascoltoId || Math.hypot((a.x||0)-(it.x||0), (a.y||0)-(it.y||0)) <= 120);
+  });
+}
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
+  var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
   _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
   var hw = Math.max(it.w,70)/2 + 8, hd = Math.max(it.d,30)/2 + 8;   /* area di click generosa */
   var bw = it.w/2 + 6, bh = it.d/2 + 6;                             /* riquadro selezione aderente all'ingombro reale */
@@ -8048,7 +8089,7 @@ function itemMarkup(it){
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rtr=' transform="rotate(-90 '+rdx+' 0)"'; }   /* ruotata, legge lungo il lato sx */
     else { rdx=(it.w/2)+roff; ranc='middle'; rtr=' transform="rotate(90 '+rdx+' 0)"'; }                       /* ruotata, lato dx */
-    s += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
+    lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
   var _hid = (it.labelMode==='hidden');
   var fsz0 = _hid ? 0 : ((it.lblSize==null) ? 14 : it.lblSize);   /* 0 = nascosta; 'hidden' = nome nascosto per questo elemento */
@@ -8104,8 +8145,8 @@ function itemMarkup(it){
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
       var tilt=12;                              /* le sedute della doppia convergono di ±12°: l'etichetta segue lo schienale */
-      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
-      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
+      if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       /* DI generata da uno strumento (audit 27/07): il suo posto è sotto lo strumento, quindi la sua
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
@@ -8113,17 +8154,17 @@ function itemMarkup(it){
          esce di lato, dove non c'è nient'altro. */
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
-      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
-      else s += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
+      if(it.diFor) lb += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      else if(!nomeGiaSullaSpia(it)) lb += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
          alcun segno sul disegno, e resterebbe scritta solo in una lista che nessuno sa di aprire. */
-      s += '<text class="lbl"'+_xy+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
+      lb += '<text class="lbl"'+_xy+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
     var _mn = mountNote(it);
-    if(_mn) s += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
+    if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
@@ -8134,12 +8175,19 @@ function itemMarkup(it){
       else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
       else if(gzs==='left'){ gdx=-(it.w/2)-goff; gtr=' transform="rotate(-90 '+gdx+' 0)"'; }
       else { gdx=(it.w/2)+goff; gtr=' transform="rotate(90 '+gdx+' 0)"'; }
-      s += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
+      lb += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
   /* Le MANIGLIE dell'elemento selezionato NON stanno qui: vivono nel layer sopra tutto
      (selHandlesMarkup / layHandles). Dentro il gruppo dell'elemento finivano sotto al disegno
      di chi viene dopo nell'ordine — due pedane vicine e il lucchetto di quella «sotto» spariva. */
+  /* NOMI SOPRA TUTTO (revisione 25/09). Dentro il gruppo dell'elemento il nome finiva sotto a chi viene
+     dopo nell'ordine: il leggio della fila dietro sui primi violini, la spia sul nome del musicista (Band 5
+     nomi coperti su 11, Coro 6, Orchestra 5 su 21). Nella scena i nomi vanno nel livello #layLbl, con la
+     stessa traslazione e rotazione dell'elemento; chi chiama itemMarkup fuori dalla scena (miniature,
+     anteprime) li ritrova dentro il gruppo come prima. */
+  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+(_lblSchermo ? lblRotazioniAlCentro(lb) : lb)+'</g></g>'); }
+  else s += lb;
   s += '</g>';
   s += '</g>';
   return s;
@@ -9055,7 +9103,7 @@ function autoConnectNeeds(id){
     var srcOut=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }).length;
     if(id==="cabin" && !srcIn) return {title:"Non c'è ancora niente da collegare",
       msg:"Il cablaggio degli ingressi parte dagli strumenti e dalle voci sul palco: al momento non ce ne sono.",
-      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi collega i canali dalla Input list, col fulmine \u26a1 sulla riga"]};
+      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi collega i canali dalla Channel list, col fulmine \u26a1 sulla riga"]};
     if(id==="cabout" && !srcOut) return {title:"Non ci sono ascolti da collegare",
       msg:"Le uscite collegano monitor, spie e sidefill alla stage box: al momento non ce ne sono sul palco.",
       steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi collega ogni monitor dalla Monitor list, col fulmine \u26a1 sulla riga"]};
@@ -11190,7 +11238,8 @@ function auditEngine(){
   /* "Mixer FOH non specificato" rimosso: il mixer è un dato opzionale (per ora fuori dal pannello) */
   /* T1 — controlli residui: la lista derivata previene già doppioni/numerazione/48V-default; qui gli errori che
      l'utente può ancora introdurre nella channel list MANUALE (state.inputs) o dimenticando frequenze/monitor. */
-  var badP48=(state.inputs||[]).filter(function(r){ return r && r.p48 && r.src && String(r.src).trim() && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48; });
+  var _manuale=window.__consultMode ? (state.inputs||[]) : [];   /* revisione 25/09: fuori dalla consulenza il documento consegnato usa i canali ricavati; la lista manuale non va giudicata al loro posto */
+  var badP48=_manuale.filter(function(r){ return r && r.p48 && r.src && String(r.src).trim() && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48; });
   if(badP48.length) add("warn", badP48.length+(badP48.length===1?" canale ha":" canali hanno")+" il +48V su un mic/DI che non lo richiede (dinamico o wireless).","Audio","Il phantom è inutile e su alcuni radiomicrofoni può essere dannoso: rimuovilo.",{label:"Togli 48V",run:auditFix48V});
   /* EQUIPMENT INTELLIGENCE: ribbon PASSIVO dal modello (es. Royer R-121, dato ribbon_danger dal datasheet)
      → il +48V può danneggiare il nastro. Promemoria forte, indipendente dalla channel list. */
@@ -11207,11 +11256,11 @@ function auditEngine(){
       if(!r || !r.p48 || !r.mic) return false;
       var d=MIC_DB[r.mic]; return !!(d && d.type==="nastro" && !d.p48); });
     ribCh.forEach(function(r){
-      add("err", "Canale "+r.n+" ("+r.name+"): +48V acceso su "+r.mic+", che e' un nastro PASSIVO.","Audio",
-        "Il phantom su un microfono a nastro passivo puo' danneggiare il nastro: spegni il 48V su questa riga.",
+      add("err", "Canale "+r.n+" ("+r.name+"): +48V acceso su "+r.mic+", che è un nastro PASSIVO.","Audio",
+        "Il phantom su un microfono a nastro passivo può danneggiare il nastro: spegni il 48V su questa riga.",
         {label:"Apri Channel list",run:auditFixOpenChan}, "rib48:"+r.key); });
   }catch(e){ /* motore cablaggio non pronto: l'audit non deve mai far cadere il pannello */ }
-  var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
+  var noMic=_manuale.filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
      entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (nei casi reali analizzati mancavano fino a 11 canali voce).
@@ -11244,14 +11293,16 @@ function auditEngine(){
   var AMPLI_STAND={gtstand:"chitarra", bassstand:"basso"}, AMPLI_REALI={comboamp:1, stack:1, bassamp:1, keysamp:1, leslie:1};
   var _doppioAmpli=items.filter(function(it){
     if(!AMPLI_STAND[it.type]) return false;
-    var mk=micModeOf?null:null; var m=(it.miking||"ampli");
-    if(String(m).indexOf("ampli")<0) return false;             /* la postazione non porta il mic sul cono */
+    /* revisione 25/09: si legge la CATENA d'uscita. `it.miking` lo cancella chainMigrate, quindi valeva
+       sempre «ampli»: un basso solo linea/DI accanto al suo ampli risultava «col microfono sull'ampli»,
+       e togliere l'ampli dalla catena (il rimedio) non spegneva l'avviso. */
+    if(!(typeof chainOf==="function" && chainOf(it).ampMic)) return false;   /* la postazione non porta il mic sul cono */
     return items.some(function(a){ return AMPLI_REALI[a.type] && Math.hypot(a.x-it.x, a.y-it.y)<200; });
   });
   if(_doppioAmpli.length) add("warn", _doppioAmpli.length===1
       ? "Una postazione «"+(TYPES[_doppioAmpli[0].type].nome)+"» ha già il microfono sull'ampli e accanto c'è un ampli dal catalogo: in lista escono due canali per lo stesso strumento."
       : _doppioAmpli.length+" postazioni hanno il microfono sull'ampli con un altro ampli accanto: in lista escono due canali per lo stesso strumento.",
-    "Audio","Se l'ampli è uno solo: sul pannello della postazione scegli «DI» al posto di «Mic ampli», oppure togli l'ampli del catalogo. Se sono due davvero, rinominali (es. «Gtr ampli A» / «Gtr ampli B»).","dueampli");
+    "Audio","Se l'ampli è uno solo: nella catena della postazione spegni il «mic» sull'ampli, oppure togli l'ampli del catalogo. Se sono due davvero, rinominali (es. «Gtr ampli A» / «Gtr ampli B»).",null,"dueampli");   /* 25/09: «dueampli» finiva come azione, non come regola */
   /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
      la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
      altrimenti quella derivata dagli elementi. */
@@ -11263,7 +11314,7 @@ function auditEngine(){
      "corno 2"» in una variante fatta di sole luci, dove un corno non c'e'.
      Una riga SENZA `linked_item_id` invece e' scritta a mano dal fonico: non e' orfana, e resta. */
   var _vivo=function(r){ return !r || !r.linked_item_id || (state.items||[]).some(function(it){ return it.id===r.linked_item_id; }); };
-  var _righe=(state.inputs||[]).filter(_vivo);
+  var _righe=_manuale.filter(_vivo);
   if(_righe.some(function(r){ return r && r.src && String(r.src).trim(); }))
     _righe.forEach(function(r){ var k=String((r&&r.src)||"").trim(); if(k) chNames.push(k); });
   else items.forEach(function(it){ (cabItemInputs(it)||[]).forEach(function(ch){ var k=String(ch.name||"").trim(); if(k) chNames.push(k); }); });
@@ -11321,7 +11372,8 @@ function auditEngine(){
   }
   /* T4 — contatto del Service: lezione dei casi reali (il collo era «girami un numero del service») */
   if(audioSrc>0 && !(state.contacts||[]).some(function(c){ return /service/i.test(c.role||"") && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }))
-    add("info","Nessun contatto per il Service locale nella rubrica del rider: serve per coordinare la data.","Contatti");
+    add("info","Nessun contatto per il Service locale nel"+(eventoConferenza()?"la scheda tecnica":" rider")+": serve per coordinare la data.","Contatti",
+      "Aggiungilo in «Contatti e ruoli»: viaggia con il link e con il PDF.",{label:"Apri Contatti e ruoli",run:auditFixOpenContacts});   /* revisione 25/09: prima non diceva dove */
   /* T5 — stato: un documento ancora in bozza non è pronto da inviare */
   /* «segnato come da confermare» era una promessa che nessuno manteneva: _provisional veniva scritto
      e mai più letto da nessuna parte — passati i 3 secondi del toast, l'informazione era persa e il
@@ -11570,6 +11622,10 @@ function auditFixAdattaPalco(){
 }
 function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
 function auditFixStereoOdd(on){ if(!state.cab) state.cab={}; state.cab.stereoOdd=!!on; __cabRes=null; save(); render(); }   /* attiva/disattiva la convenzione L=dispari/R=pari */
+function auditFixOpenContacts(){   /* «Contatti e ruoli» sta nel pannello Channel list (chanEdit): lo si apre e ci si porta sopra */
+  if(typeof chanEdit!=="undefined" && !chanEdit && typeof toggleChan==="function") toggleChan();
+  setTimeout(function(){ var el=document.getElementById("contactRows"); if(el && el.scrollIntoView) try{ el.scrollIntoView({block:"center"}); }catch(e){} }, 60);
+}
 function auditFixOpenChan(){ var b=document.getElementById("bChanList"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
 /* PALCO VUOTO: dire cosa fare (01/09). Chiudendo il benvenuto senza scegliere un modello si resta
    davanti a un rettangolo con scritto FONDO PALCO e PUBBLICO, e nient'altro: il catalogo e' li' a
@@ -11945,6 +12001,7 @@ function itemPickable(it){
 function sceneMarkup(opts){
   /* `opts.espandi` = export: niente <use>, il markup deve reggere da solo fuori da questo documento. */
   _sceneArt = (opts && opts.espandi) ? null : {};
+  _lblSchermo = !(opts && opts.espandi);
   recalcStageBBox();
   var venue = (state.venue && layerShown("venue") ? venueMarkup() : '');   /* layer 0: planimetria (partecipa al solo) */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
@@ -11954,7 +12011,7 @@ function sceneMarkup(opts){
   var soloSplit = anySolo();
   /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
-  var items='', zones='', bgItems='';
+  var items='', zones='', bgItems='', lbls='', bgLbls='';
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
   if(!coverLayerUI.vis && !(state.items||[]).some(isCover)) coverLayerUI.vis=true;   /* niente coperture → riporta la vista a visibile (evita che una nuova copertura nasca nascosta) */
   sortedItems().forEach(function(it){
@@ -11962,20 +12019,24 @@ function sceneMarkup(opts){
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var _dotId=techDotSoloId();
+    _lblSink=[];
     var m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
+    var _lbm=_lblSink.join(''); _lblSink=null;
     var showAttr=(anySolo() || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
+    if(_lbm && !isCover(it)) _lbm=_lbm.replace('<g class="item-lbls','<g'+showAttr+' class="item-lbls');
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
     else if(TYPES[it.type] && TYPES[it.type].riser) m='<g class="riser-item"'+showAttr+'>'+m+'</g>';   /* pedane: parte del palco, si toccano solo in modalità "Palco e pedane" */
     else m='<g class="st-item"'+showAttr+'>'+m+'</g>';
-    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
-    else items += m;
+    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; bgLbls += _lbm; }   /* S = isolamento: il resto sparisce */
+    else { items += m; lbls += _lbm; }
   });
   /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
      a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
      sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
      chiaramente dietro ai punti del layer su cui si sta lavorando. */
   if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
+  if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:.42">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -11986,6 +12047,7 @@ function sceneMarkup(opts){
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
+         '<g id="layLbl" style="pointer-events:none">'+lbls+'</g>'+   /* i nomi sopra tutti gli elementi (revisione 25/09); trasparenti ai clic */
          (function(){ var m=(opts && opts.espandi) ? '' : orcSeatsMarkup(); return m ? '<g id="layOrcSeats">'+m+'</g>' : ''; })()+   /* Orchestre: chi c'è sul posto (solo schermo, solo staff); in stampa/export il layer non esiste */
          '<g id="layOverlay">'+overlayLayerMarkup()+'</g>'+
          '<g id="layHandles">'+selHandlesMarkup()+'</g>';   /* ULTIMO: le maniglie di ciò che è selezionato stanno sopra a tutto (anche ai blocchi del palco) */
@@ -12013,15 +12075,39 @@ function redrawSelHandles(){
 }
 /* Indice DOM per ID opachi: evita sia selector costruiti con dati del documento sia scansioni O(n)
    per ogni elemento durante drag/rotate di gruppi grandi. Ricostruito dopo ogni render completo. */
-var itemNodeIndex=new Map();
+var itemNodeIndex=new Map(), itemLblIndex=new Map();
+var _lblSink=null;   /* attivo solo mentre la scena disegna un elemento: raccoglie il suo nome per #layLbl */
+/* A SCHERMO i nomi hanno il corpo minimo via CSS (`scale` con origine al centro del testo, --lblK).
+   Quell'origine vale anche per il `transform` scritto sul testo: `rotate(a cx cy)` girerebbe attorno a
+   un punto spostato, e nella vista girata del telefono — dove ogni nome è ruotato per stare dritto —
+   i nomi finivano a mezzo elemento di distanza. A schermo quindi il testo ruota attorno al proprio
+   centro (`rotate(a)`, con l'origine del CSS); nell'export, che non ha quel CSS, resta com'era. */
+var _lblSchermo=false;
+function lblRotazioniAlCentro(s){ return s.replace(/transform="rotate\((-?[\d.e+-]+) -?[\d.e+-]+ -?[\d.e+-]+\)"/g, 'transform="rotate($1)"'); }
 function reindexItemNodes(){
-  itemNodeIndex=new Map();
+  itemNodeIndex=new Map(); itemLblIndex=new Map();
   var nodes=svg.querySelectorAll(".item[data-id]");
   for(var i=0;i<nodes.length;i++){
     var key=nodes[i].getAttribute("data-id");
     if(!itemNodeIndex.has(key)) itemNodeIndex.set(key,nodes[i]);
   }
+  var lbs=svg.querySelectorAll(".item-lbls[data-for]");
+  for(var j=0;j<lbs.length;j++){ var k2=lbs[j].getAttribute("data-for"); if(!itemLblIndex.has(k2)) itemLblIndex.set(k2,lbs[j]); }
 }
+function itemLblNode(id){
+  var wanted=String(id), n=itemLblIndex.get(wanted);
+  if(n && n.parentNode) return n;
+  reindexItemNodes();
+  return itemLblIndex.get(wanted)||null;
+}
+/* il nome sta in un altro livello: negli aggiornamenti parziali (trascina, ruota) va spostato insieme */
+function syncItemLbl(it){
+  var n=itemLblNode(it.id); if(!n) return;
+  n.setAttribute("transform","translate("+it.x+" "+it.y+")");
+  var gi=n.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+(it.rot||0)+")");
+}
+/* visibilità del nome = quella del suo elemento (occhio del layer), come in sceneMarkup */
+function lblShowAttr(it){ return isCover(it) ? '' : ((anySolo() || itemEyeShown(it)) ? '' : ' display="none"'); }
 function render(){
   pruneSolo();   /* niente solo fantasma su layer disattivati */
   diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
@@ -12044,7 +12130,14 @@ function render(){
   syncVistaRuotata();   /* telefono: l'avviso della vista ruotata e la mappa */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
-  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
+  /* 46 → 30 px/m (revisione 25/09): col corpo minimo qui sotto i nomi si leggono anche da più lontano, e a 46
+     il Band aperto su un portatile da 1280 (44 px/m) nasceva senza nemmeno un nome sul palco */
+  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
+  /* CORPO MINIMO A SCHERMO (revisione 25/09): i nomi sono 14 cm di palco, e a zoom «adatta» uscivano a
+     6–8 px — il testo più piccolo della schermata, ed è il contenuto principale. Solo qui, nel palco
+     dell'editor, si ingrandiscono attorno al loro centro fino a 9 px; il testo in sé non cambia, quindi
+     PDF e PNG (che hanno un loro SVG e la loro scala, pdfTextK) restano come sono. */
+  try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
@@ -12064,12 +12157,20 @@ function itemNode(id){
   reindexItemNodes();
   return itemNodeIndex.get(wanted)||null;
 }
-function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); redrawSelHandles(); renderProps(); } else render(); }
+function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); syncItemLbl(it); redrawSelHandles(); renderProps(); } else render(); }
 function redrawItemNode(it){
   var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
-  var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=itemMarkup(it);   /* parsing in namespace SVG (come svg.innerHTML) */
+  _lblSchermo=true; _lblSink=[]; var _mk=itemMarkup(it), _lb=_lblSink; _lblSink=null;   /* il nome va nel suo livello, non nel gruppo */
+  var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=_mk;   /* parsing in namespace SVG (come svg.innerHTML) */
   var nw=tmp.firstElementChild;
-  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw); redrawSelHandles(); renderProps(); } else render();
+  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw);
+    var oldL=itemLblNode(it.id), lay=document.getElementById("layLbl"), nwL=null;
+    if(_lb.length){ var tl=document.createElementNS("http://www.w3.org/2000/svg","svg"); tl.innerHTML=_lb[0].replace('<g class="item-lbls','<g'+lblShowAttr(it)+' class="item-lbls'); nwL=tl.firstElementChild; }
+    if(oldL && nwL) oldL.parentNode.replaceChild(nwL, oldL);
+    else if(oldL) oldL.parentNode.removeChild(oldL);
+    else if(nwL && lay) lay.appendChild(nwL);
+    if(nwL) itemLblIndex.set(String(it.id), nwL); else itemLblIndex.delete(String(it.id));
+    redrawSelHandles(); renderProps(); } else render();
 }
 
 /* ============ PANNELLO PROPRIETÀ ============ */
@@ -14526,6 +14627,17 @@ function misurePalco(w, d){
   if(w==null){ w=state.stage.w; d=state.stage.d; }   /* senza argomenti, quello aperto; con, quello di un modello */
   return n(w)+" × "+n(d)+" m";
 }
+/* La data sui DOCUMENTI (revisione 25/09): quella dell'evento, con l'ora, se è stata scritta in «Data e
+   ora»; altrimenti quella di oggi, come prima. Il PDF stampava sempre il giorno dell'esportazione — in
+   intestazione, nel cartiglio e su ogni lista — mentre la finestra prometteva «finiranno su rider e
+   documenti». Per le conferenze la consegna è link + PDF: il cliente leggeva una data sbagliata. */
+function dataDocumento(){
+  if(state && state.evDate){
+    var d=new Date(state.evDate+"T12:00:00");
+    if(isFinite(d.getTime())) return d.toLocaleDateString("it-IT")+(state.evTime ? " · "+state.evTime : "");
+  }
+  return new Date().toLocaleDateString("it-IT");
+}
 /* «sab 3 ott · 21:00»: la data dell'evento come si dice a voce, per la riga del menu */
 function dataEventoBreve(){
   if(!state.evDate) return state.evTime||"";
@@ -14919,7 +15031,8 @@ function ricordaRecenteCatalogo(k, nome, over){
       });
       /* gli sgabelli con il loro tipo: si trovano cercando, nel catalogo resta uno solo (16/09) */
       if(TYPES.sgabello) SGAB_SCELTE.filter(function(k){ return k!=="generico"; }).forEach(function(k){
-        entries.push({k:"sgabello", nome:SGAB_TIPI[k].nome, over:{sgabTipo:k, label:SGAB_TIPI[k].nome}, dim:"Ø38", kw:SGAB_TIPI[k].kw});
+        entries.push({k:"sgabello", nome:SGAB_TIPI[k].nome, over:{sgabTipo:k, label:SGAB_TIPI[k].nome}, dim:"Ø38", kw:SGAB_TIPI[k].kw,
+          qaCede:(k==="voce" ? "voce cantante" : null)});   /* 25/09: «voce» e «cantante» sono del cantante (Uomo/Donna), non dello sgabello */
       });
     }
     if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
@@ -15043,9 +15156,20 @@ function ricordaRecenteCatalogo(k, nome, over){
      direttore) avrebbe tirato fuori Esporta. La condivisione ha già il suo pulsante nella barra. */
   var EXPORT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4H9a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M19 4v6h6"/><path d="M16 14v9M12.5 19.5 16 23l3.5-3.5"/></svg>';
   var RF_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 17v11"/><circle cx="16" cy="15" r="2"/><path d="M11.5 10.5a6.4 6.4 0 0 0 0 9M20.5 10.5a6.4 6.4 0 0 1 0 9M7.5 6.5a12 12 0 0 0 0 17M24.5 6.5a12 12 0 0 1 0 17"/></svg>';
-  entries.push({nome:"Esporta", dim:"PDF, PNG, channel list per la console", noQuick:true, iconHtml:EXPORT_ICON,
+  entries.push({nome:"Esporta", dim:"PDF, PNG, CSV per la console", noQuick:true, iconHtml:EXPORT_ICON,
                 action:function(){ var b=document.getElementById("bExportHdr"); if(b) b.click(); },
                 kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare"});
+  /* Le liste e le varianti cercate per nome (revisione 25/09): «channel list», «input list», «lista
+     canali» davano Esporta o niente, e la lista vive dentro un layer che nell'avvio base è spento.
+     «monitor» resta dei wedge (qaCede): la Monitor list si trova con «monitor list», «lista monitor». */
+  var LISTA_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 9h14M11 16h14M11 23h14"/><circle cx="6.5" cy="9" r="1.2"/><circle cx="6.5" cy="16" r="1.2"/><circle cx="6.5" cy="23" r="1.2"/></svg>';
+  var VAR_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="18" y="4" width="10" height="10" rx="1.5"/><rect x="11" y="18" width="10" height="10" rx="1.5"/></svg>';
+  entries.push({nome:"Channel list", dim:"gli ingressi, per il service", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabin"); },
+                kw:"channel list input list lista canali lista ingressi ingressi canali patch list"});
+  entries.push({nome:"Monitor list", dim:"le mandate degli ascolti", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabout"); },
+                kw:"monitor list output list lista monitor lista uscite mandate mix ascolti", qaCede:"monitor"});
+  entries.push({nome:"Nuova variante", dim:"copia della scena attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
+                kw:"variante varianti scena scene versione alternativa seconda formazione"});
   entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   ["metro","testo"].forEach(function(k){
@@ -15064,7 +15188,8 @@ function ricordaRecenteCatalogo(k, nome, over){
     e._nname=_deacc(e.nome);
     e._kwStrong=_deacc(strong.filter(Boolean).join(" "));
     e._kw=_deacc(strong.concat(weak).filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi */
-    e._cede=(t&&t.qaCede) ? _deacc(t.qaCede) : null;   /* query che questo elemento lascia a chi le aveva già */
+    e._cede=qaCedeDi(e,t);     /* query che questo elemento lascia a chi le aveva già */
+    e._primo=qaPrimoDi(e,t);   /* query esatta che questo elemento prende davanti a tutti */
   });
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
@@ -15082,7 +15207,8 @@ function ricordaRecenteCatalogo(k, nome, over){
          della finestrella del doppio clic, e invece una query ceduta là continuava a essere vinta
          qui. Si vedeva su «monitor»: nel quick-add usciva il wedge, nella barra l'Hub monitoraggio
          (11/08). Due copie della stessa regola divergono sempre: ora la seconda copia c'è. */
-      if(e._cede && (" "+e._cede+" ").indexOf(" "+nq+" ")>-1) e._rank=6;
+      if(qaHaParola(e._cede,nq)) e._rank=6;
+      if(qaHaParola(e._primo,nq)) e._rank=-1;
     });
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     return m;
@@ -15118,6 +15244,15 @@ function ricordaRecenteCatalogo(k, nome, over){
     matched.forEach(function(e){
       results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
     });
+  });
+  /* Invio = il primo risultato (revisione 25/09): chi scriveva «batteria» e premeva Invio non otteneva
+     niente, e doveva andare col mouse sul risultato che aveva già sotto gli occhi. */
+  search.addEventListener("keydown", function(ev){
+    if(ev.key!=="Enter" || ev.isComposing) return;
+    if(results.style.display==="none") return;
+    var primo=results.querySelector("button:not(.json-act)");
+    if(!primo) return;
+    ev.preventDefault(); primo.click();
   });
   window.__catEntries=entries;   /* stesso indice per la ricerca rapida (quick-add): include Violino I/II, varianti stagebox, pedane… */
 })();
@@ -15408,7 +15543,13 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPrimo=null, _qaSrc=false;
+/* `qaCede` e `qaPrimo` stanno sul tipo o sulla singola voce di catalogo (uno sgabello ha cinque voci,
+   una sola cede «voce»). `qaPrimo` è il contrario di `qaCede`: la query esatta che l'elemento PRENDE
+   davanti a tutti (rango -1), per quando il nome giusto perde col tie-break alfabetico. */
+function qaCedeDi(e,t){ var v=(e&&e.qaCede)||(t&&t.qaCede); return v ? _deacc(v) : null; }
+function qaPrimoDi(e,t){ var v=(e&&e.qaPrimo)||(t&&t.qaPrimo); return v ? _deacc(v) : null; }
+function qaHaParola(lista,q){ return !!lista && (" "+lista+" ").indexOf(" "+q+" ")>-1; }
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
@@ -15416,7 +15557,7 @@ function qaIndex(){
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
-  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
@@ -15425,7 +15566,8 @@ function qaIndex(){
     _qaName.push(nome);
     _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
     _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
-    _qaCede.push(t&&t.qaCede ? _deacc(t.qaCede) : null);
+    _qaCede.push(qaCedeDi(e,t));
+    _qaPrimo.push(qaPrimoDi(e,t));
   });
 }
 /* la query cade all'inizio di una parola? "mic" sta a inizio parola in "Mic coro" e "microfoniche",
@@ -15458,7 +15600,8 @@ function qaSearch(q){
        per categoria) e non declassato di qualche gradino: pareggiare non basta, perché a parità
        di rango il tie-break manda avanti le categorie musicali. Resta comunque nei risultati,
        e le query più lunghe non sono toccate — "flexa" continua a dare il Flexaton per primo. */
-    if(_qaCede[i] && (" "+_qaCede[i]+" ").indexOf(" "+q+" ")>-1) r=6;
+    if(qaHaParola(_qaCede[i],q)) r=6;
+    if(qaHaParola(_qaPrimo[i],q)) r=-1;
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
@@ -16023,9 +16166,13 @@ function cabHoverTip(e){
   __cabTip.style.left=Math.min(e.clientX+14, window.innerWidth-260)+"px";
   __cabTip.style.top=Math.max(8, e.clientY-34)+"px";
 }
+var _hovLbl=null;   /* il nome dell'elemento sotto il puntatore: in «nomi nascosti» si mostra (prima bastava .item:hover) */
 svg.addEventListener("pointerover", function(e){
   if(isMobile() || drag) return;
   var g=e.target.closest ? e.target.closest(".item") : null;
+  var _nl=g ? itemLblNode(g.getAttribute("data-id")) : null;
+  if(_hovLbl && _hovLbl!==_nl) _hovLbl.classList.remove("hov");
+  if(_nl) _nl.classList.add("hov"); _hovLbl=_nl;
   cabFocus(g ? g.getAttribute("data-id") : null);
   cabHoverTip(e);
 });
@@ -16536,6 +16683,7 @@ svg.addEventListener("pointermove", function(e){
       }
       var g=itemNode(it.id);
       if(g) g.setAttribute("transform","translate("+it.x+" "+it.y+")");
+      syncItemLbl(it);   /* il nome sta in #layLbl: segue a mano */
     });
     redrawSelHandles();   /* le maniglie stanno in un layer a parte: seguono l'elemento solo se le ridisegni */
   } else if(drag.mode==="rotate"){
@@ -16553,7 +16701,8 @@ svg.addEventListener("pointermove", function(e){
       /* R-b1 (audit): aggiornamento parziale come item/rotate invece di render() pieno per frame →
          niente scatti ruotando selezioni grandi (render pieno solo al rilascio, pointerup grouprot 6497). */
       var g=itemNode(it.id);
-      if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); } });
+      if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); }
+      syncItemLbl(it); });
     drag.moved=true;
   } else if(drag.mode==="mzmic"){           /* ZONA: trascina il pallino del microfono (frame locale, considera la rotazione) */
     sp=svgPoint(e); var zmit=state.items.find(function(i){ return i.id===drag.id; });
@@ -17325,7 +17474,7 @@ function askThenRun(hasContent, title, message, confirmText, run){
     .then(function(ok){ if(ok) run(); });
 }
 document.getElementById("inClear").addEventListener("click", function(){
-  askThenRun(state.inputs.length, "Svuotare la input list?", "Le righe vengono cancellate. Puoi rigenerarle dai mic e dalle DI sul palco con «Auto».", "Svuota",
+  askThenRun(state.inputs.length, "Svuotare la channel list?", "Le righe vengono cancellate. Puoi rigenerarle dai mic e dalle DI sul palco con «Auto».", "Svuota",
     function(){ state.inputs=[]; save(); renderChannels(); });
 });
 document.getElementById("outClear").addEventListener("click", function(){
@@ -17333,7 +17482,7 @@ document.getElementById("outClear").addEventListener("click", function(){
     function(){ state.outputs=[]; save(); renderChannels(); });
 });
 document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation();
-  askThenRun(state.inputs.some(function(r){return r.src||r.mic;}), "Rigenerare la input list?",
+  askThenRun(state.inputs.some(function(r){return r.src||r.mic;}), "Rigenerare la channel list?",
     "Viene ricostruita dai mic e dalle DI sul palco, e sostituisce quella attuale.", "Rigenera",
     function(){ autoInputs(); ensureClOpen("in"); });
 });
@@ -17429,6 +17578,19 @@ document.addEventListener("keydown", function(e){
         clearSelection(); render();   /* prima del primo: esci */
       }
     }
+  }
+  /* Revisione 25/09: da tastiera si selezionava, spostava e cancellava, ma non si arrivava MAI al pannello
+     delle proprietà (nome, microfono, accessori): il Tab oltre l'ultimo elemento toglieva la selezione e
+     il pannello si svuotava prima di entrarci. Invio sul palco porta al primo campo del pannello, Esc
+     dal pannello riporta al palco con la stessa selezione. */
+  if(e.key==="Enter" && document.activeElement===_svg && sel && !e.metaKey && !e.ctrlKey && !e.altKey){
+    var _pp=document.getElementById("props");
+    var _primo=_pp && [].slice.call(_pp.querySelectorAll('input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled])'))
+      .filter(function(el){ return el.getClientRects().length; })[0];
+    if(_primo){ e.preventDefault(); _primo.focus(); a11yAnnounce("Proprietà di "+a11yDesc(getSel())+". Esc per tornare al palco."); return; }
+  }
+  if(e.key==="Escape" && sel && document.activeElement && document.activeElement!==_svg && document.activeElement.closest && document.activeElement.closest("#props")){
+    e.preventDefault(); _svg.focus(); a11yAnnounce("Palco. "+a11yDesc(getSel())); return;
   }
   /* SOLA LETTURA — progetto bloccato (__projLocked) OPPURE documento di qualcun altro aperto da link
      condiviso / consulenza lato cliente (body.viewmode). Il viewer si difendeva col solo
@@ -18237,17 +18399,20 @@ function buildOrchCameraOut(){
    incontra più spesso, e nessuna formazione lo copriva: buildOrchBandOut mette una band rock DAVANTI
    a un'orchestra da camera, che è un'altra cosa.
    Le etichette sono di ruolo, mai di persona (regola sul repo pubblico). */
+/* dal fondo verso il pubblico, come buildOrchestraOrdinata (revisione 25/09): la fila dietro si disegna
+   prima e non copre i nomi di quella davanti. Stabile a pari y. */
+function perFile(out){ return out.map(function(o,i){ return {o:o,i:i}; }).sort(function(p,q){ return (p.o.y-q.o.y) || (p.i-q.i); }).map(function(p){ return p.o; }); }
 function buildOrchestraPopOut(){
-  return [
+  return perFile([
     /* — fondo: ottoni sulla pedana alta (40 cm). 25/09: 25 cm più indietro, i nomi dei corni si scrivevano sul suo bordo — */
-    {type:"pedana", x:175, y:-760, w:600, d:100, h:40, label:""},   /* 25/09: senza nome, come negli altri modelli — «Pedana ottoni» si scriveva sopra i nomi dei corni */
+    {type:"pedana", x:175, y:-760, w:600, d:100, h:40, label:"", dimSide:"left"},   /* 25/09: senza nome, come negli altri modelli — «Pedana ottoni» si scriveva sopra i nomi dei corni */
     {type:"tromba",   x:-72, y:-770, label:"Tromba 1"},
     {type:"tromba",   x:48,  y:-770, label:"Tromba 2"},
     {type:"trombone", x:168, y:-770, label:"Trombone 1"},
     {type:"trombone", x:288, y:-770, label:"Trombone 2"},
     {type:"trombone", x:408, y:-770, label:"Trombone 3"},
     /* — pedana bassa (20 cm): corni, clarinetti, fagotti — */
-    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:""},   /* idem: «Pedana legni» copriva Oboe 1 e Oboe 2 */
+    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:"", dimSide:"left"},   /* 25/09: la misura sotto la pedana finiva sui nomi di clarinetti e oboi — a sinistra c'è spazio fino alla tastiera */   /* idem: «Pedana legni» copriva Oboe 1 e Oboe 2 */
     {type:"corno",      x:-77, y:-617, label:"Corno 1"},
     {type:"corno",      x:23,  y:-617, label:"Corno 2"},
     {type:"clarinetto", x:123, y:-617, label:"Clarinetto 1"},
@@ -18280,7 +18445,7 @@ function buildOrchestraPopOut(){
     {type:"direttore", x:0, y:-100, label:"Direttore"},
     /* — accesso al palco — */
     {type:"scala", x:-450, y:-850, rot:0, label:"Scala"}   /* 25/09: rot 0 e non 180 — a 180 l'etichetta usciva capovolta (stesso difetto già tolto dal coro) */
-  ];
+  ]);
 }
 function buildOrchCoroOut(){
   var out=buildOrchestraOut(presetCounts("ridotta"));
@@ -18499,7 +18664,7 @@ function detachCloudDoc(epochAlreadyChanged){
   try{ localStorage.removeItem(LS_KEY+"_cloudid"); localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(_e){}
   try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(_e){}
 }
-function stateHasMeaningfulWork(s){
+function stateHasMeaningfulWork(s, ignoraPalco){
   if(!s || typeof s!=="object") return false;
   if(String(s.titolo||"").trim() || String(s.luogo||"").trim() || String(s.techContact||"").trim()) return true;
   if(["items","inputs","outputs","contacts","zones"].some(function(k){ return Array.isArray(s[k])&&s[k].length; })) return true;
@@ -18509,6 +18674,7 @@ function stateHasMeaningfulWork(s){
   if(s.cab&&s.cab.manual&&Object.keys(s.cab.manual).length) return true;
   if(s.elec&&((s.elec.manual&&Object.keys(s.elec.manual).length)||(s.elec.uplinks&&Object.keys(s.elec.uplinks).length))) return true;
   if(s.mond&&s.mond.manual&&Object.keys(s.mond.manual).length) return true;
+  if(ignoraPalco) return false;
   var st=s.stage||{}, blocks=Array.isArray(st.blocks)?st.blocks:[];
   return Number(st.w)!==1200 || Number(st.d)!==800 || blocks.length!==1 ||
     Number(blocks[0]&&blocks[0].x)!==0 || Number(blocks[0]&&blocks[0].y)!==0 ||
@@ -18523,11 +18689,15 @@ var DOC_EXTRA_SERVIZIO={shareOpts:1};
 function docExtraHasWork(){
   return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
 }
-function hasMeaningfulDocument(){
+/* ignoraPalco: le sole misure del palco non bastano (solo per l'autosave nel cloud: revisione 25/09,
+   i gusci «Senza titolo» rimasti nell'elenco avevano il palco ridimensionato e nient'altro, perché
+   la finestra delle misure compare a ogni progetto nuovo). Per le conferme di sovrascrittura resta
+   lavoro da proteggere. */
+function hasMeaningfulDocument(ignoraPalco){
   try{
     syncActiveVariant();
     if(docExtraHasWork() || VARIANTS.length>1) return true;
-    return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state); });
+    return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state, ignoraPalco); });
   }catch(e){ return true; }   /* se non riusciamo a classificare il documento, trattalo come lavoro da proteggere */
 }
 /* Copia completa su file (documento intero, planimetria inclusa): stessa sostanza dell'export dal
@@ -19849,7 +20019,7 @@ var MIC_DB = {
   "PCC 160":    {brand:"AKG", model:"PCC160", type:"condensatore", caps:"electret diaframma piccolo (boundary)", pol:"semi-supercardioide", p48:true, stand:"interno/terra", uso:"boundary da teatro, ribalta", alias:"pcc160 crown pcc"},
   /* — aggiunte 12/08: i cutsheet AKG si scaricano, le pagine prodotto no (403). Cadono cosi' quattro
      dei microfoni «famosi ma non verificabili» che il 29/07 erano rimasti fuori. — */
-  "C414 XLII":  {brand:"AKG", model:"C414 XLII", type:"condensatore", caps:"diaframma grande 1\"", pol:"multipattern (9 figure)", p48:true, stand:"asta giraffa", uso:"voce, panoramico (curva a presenza: e' questa la differenza dalla XLS)", alias:"c414xlii c 414 xlii"},
+  "C414 XLII":  {brand:"AKG", model:"C414 XLII", type:"condensatore", caps:"diaframma grande 1\"", pol:"multipattern (9 figure)", p48:true, stand:"asta giraffa", uso:"voce, panoramico (curva a presenza: è questa la differenza dalla XLS)", alias:"c414xlii c 414 xlii"},
   "C314":       {brand:"AKG", model:"C314", type:"condensatore", caps:"diaframma grande (doppio)", pol:"commutabile: cardioide / supercardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"panoramico, overhead, studio"},
   "D12 VR":     {brand:"AKG", model:"D12 VR", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa (il +48V accende solo i filtri attivi: senza, suona lo stesso)", alias:"d12vr d 12 vr"},
   "C1000 S":    {brand:"AKG", model:"C1000 S", type:"condensatore", caps:"electret diaframma piccolo", pol:"commutabile: cardioide / ipercardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici, coro (va anche a pile)", alias:"c1000s c 1000"},
@@ -20360,7 +20530,11 @@ function buildOrchestraOrdinata(c){
   });
   out.push({type:"podio", x:0, y:0, label:"Direttore"});
   out.push({type:"direttore", x:0, y:0, rot:180, label:""});   /* rivolto all'orchestra; il nome sta sul podio */
-  return out;
+  /* dal fondo verso il pubblico (revisione 25/09): a parità di livello si disegna in ordine d'inserimento,
+     e il nome di un leggio sta dalla parte del fondo — il leggio della fila dietro, inserito dopo, lo
+     copriva (5 nomi su 21: Vl I 1-2, Vl II 1-2, Vc 1). Ordinando per y crescente la fila dietro si
+     disegna prima e i nomi davanti le passano sopra. Ordinamento stabile: a pari y resta l'ordine. */
+  return out.map(function(o,i){ return {o:o,i:i}; }).sort(function(p,q){ return (p.o.y-q.o.y) || (p.i-q.i); }).map(function(p){ return p.o; });
 }
 /* CONFERENZA (24/09). Il podio col relatore (lavalier per quando si muove, collo d'oca del podio come
    riserva), il tavolo del panel con il moderatore (palmare) e tre relatori seduti col microfono da
@@ -20681,7 +20855,7 @@ function layerRegistry(){
   if(!state.cab || !state.elec || !state.mond) return [];   /* stato non ancora normalizzato (es. addItem prima del load completo): niente layer, evita il crash su state.cab.on */
   return [
     /* Musicisti (17/07): meta-layer sulle persone (stesso set del bottone Contatto). Subito dopo Palco. */
-    { id:"mus", name:"Musicisti", color:"#16a34a", active:(state.items||[]).some(function(x){ return musLayerItem(x.type); }),
+    { id:"mus", name:(eventoConferenza()?"Persone":"Musicisti"), color:"#16a34a",   /* in conferenza sul palco ci sono relatori e moderatori (revisione 25/09) */ active:(state.items||[]).some(function(x){ return musLayerItem(x.type); }),
       visible:musLayerUI.vis, setVisible:function(v){ musLayerUI.vis=v; render(); },
       lockable:true, locked:musLayerUI.lock, setLocked:function(v){ musLayerUI.lock=v; document.body.classList.toggle("mus-lock",v); if(v){ sel=null; selSet={}; } render(); } },
     /* Layer v3 (21/07, Simone): Ingressi / Output / P.M. = TRE layer separati, ognuno = cavi +
@@ -20970,6 +21144,17 @@ var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
 /* Apre un layer: fuoco sul layer E la sua lista aperta. Prima le due cose erano scollegate, e
    bastava aver chiuso una volta il cappello perche' il layer si riaprisse con la sola intestazione
    e il bottone «Azzera percorsi» — chi guardava credeva di aver perso i canali. */
+/* Dalla ricerca: accende le Liste tecniche se servono, poi apre il layer con la sua lista (e il
+   motore, la prima volta, come il clic sulla riga «attiva»). */
+function apriListaDaRicerca(id){
+  if(typeof funzOn==="function" && !funzOn("liste") && typeof funzImposta==="function") funzImposta({liste:true});
+  var L=layerRegistry().filter(function(l){ return l.id===id; })[0];
+  if(typeof clearSelection==="function") clearSelection();   /* con un elemento selezionato il pannello mostra lui, non la lista */
+  apriLayer(id);
+  if(L && L.engineOn===false && typeof L.activate==="function") L.activate();
+  render();
+  var lm=document.getElementById("layerSec"); if(lm && lm.scrollIntoView) try{ lm.scrollIntoView({block:"nearest"}); }catch(_e){}
+}
 function apriLayer(id){
   layerAccOpen=id; layerSoloUI={}; layerSoloUI[id]=true; layerSoloMode="focus";
   if(ACC_DEL_LAYER[id] && typeof techAccordionOpen==="function") techAccordionOpen(ACC_DEL_LAYER[id]);
@@ -21175,7 +21360,7 @@ function renderLayerManager(){
     var t=document.createElement("button");
     t.type="button"; t.className="layer-group-label adv-head"; t.setAttribute("aria-expanded", String(aperto));
     t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Impianti tecnici';
-    t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un rider";
+    t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un "+(eventoConferenza()?"documento base":"rider");
     t.addEventListener("click", function(){ advAperta(!aperto); renderLayerManager(); });
     rows.appendChild(t);
     if(aperto) avanz.forEach(function(L){ renderLayerRow(L, rows); });
@@ -21208,7 +21393,7 @@ function renderStatoRider(rows){
   b.classList.add("sr-"+stato);
   var testo = A.errs>0 ? (A.errs===1 ? "1 errore da sistemare" : A.errs+" errori da sistemare")
     : (quante>0 ? (quante===1 ? "1 cosa da guardare" : quante+" cose da guardare")
-    : "Rider pronto");
+    : (eventoConferenza() ? "Scheda pronta" : "Rider pronto"));   /* revisione 25/09: in conferenza il documento è la scheda tecnica */
   b.innerHTML='<span class="sr-pallino" aria-hidden="true"></span><span class="sr-txt">'+esc(testo)+'</span>'+
               '<span class="sr-score">'+A.score+'</span>';
   b.title = "Apri il controllo del progetto: ogni voce dice cosa manca, e molte si sistemano con un clic";
@@ -23780,13 +23965,18 @@ function renderAuditPanel(){
   var host=document.getElementById("auditFindings");
   host.innerHTML="";
   var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"||x.lvl==="todef"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score */
-  if(!probs.length){ host.innerHTML='<div style="color:var(--accent);font-size:12px">✓ Nessuna criticità: il rider sembra pronto.</div>'; return; }
+  /* palco vuoto: «il rider sembra pronto» sotto un voto «Vuoto · 0» era il contrario del vero (revisione 25/09) */
+  if(!probs.length && !(state.items||[]).length){ host.innerHTML='<div style="color:var(--text-2);font-size:12px">Palco vuoto: aggiungi strumenti, voci o microfoni dal catalogo, poi torna qui.</div>'; return; }
+  if(!probs.length){ host.innerHTML='<div style="color:var(--accent-strong);font-size:12px">✓ Nessuna criticità: '+(eventoConferenza()?"la scheda sembra pronta.":"il rider sembra pronto.")+'</div>'; return; }
   var ORD={err:0,warn:1,todef:2};
   probs.sort(function(a,b){ return (ORD[a.lvl]||3)-(ORD[b.lvl]||3); });
   probs.forEach(function(x){
-    var c=x.lvl==="err"?"var(--danger,#dc2626)":(x.lvl==="todef"?"#2563eb":"#b45309");
+    /* la gravità si dice anche a parole, non solo col colore del pallino (WCAG 1.4.1), e i colori vengono dai
+       token: gli esadecimali scritti a mano restavano quelli del tema chiaro anche in scuro (3,1–3,3:1) — revisione 25/09 */
+    var c=x.lvl==="err"?"var(--danger)":(x.lvl==="todef"?"var(--info)":"var(--warning)");
+    var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":"Avviso");
     var row=document.createElement("div"); row.className="audit-find";
-    row.innerHTML='<div class="audit-find-txt"><span style="color:'+c+'">●</span> <b>'+esc(x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
+    row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> · <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
     if(x.act && typeof x.act.run==="function"){
       var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=x.act.label;
       b.addEventListener("click", function(){ x.act.run(); });   /* la fix persiste e ridisegna da sé */
@@ -24042,41 +24232,19 @@ function clBank(type){
 }
 /* La conferma di sovrascrittura vive nei click handler (#inAuto/#outAuto) via confirmDialog: qui dentro
    era un confirm() NATIVO, e al secondo click bloccava del tutto la finestra (audit 27/07). */
-function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in memoria SENZA salvare — M-04 */
+function autoInputs(silent){   /* silent=true: genera in memoria SENZA salvare — M-04 */
+  /* Revisione 25/09: dalla STESSA fonte del PDF e del CSV (patchList), non da una logica sua. Il
+     vecchio generatore contava diverso: Coro 33 righe (un SM58 per corista in panoramica, microfoni
+     che non esistono) contro 5 canali veri; Conferenza senza Relatore e Moderatore; Band e Acustico
+     senza «Voce». «Auto» ora dà la lista che il service riceve, con i mic scelti nella channel list. */
   var rows=[];
-  function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
-  /* M3: ordina gli strumenti per banco (stabile: parità → ordine di inserimento) prima di numerare i canali */
-  var ordered = state.items.map(function(it,idx){ return {it:it, idx:idx}; })
-    .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type)) || (a.idx-b.idx); })
-    .map(function(o){ return o.it; });
-  ordered.forEach(function(it){
-    var t=TYPES[it.type]; if(!t) return;
-    if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return;   /* coperto da una zona (effOwnMic = ownMic esplicito o default close-obligato) */
-    if(it.type==="miczone"){ rows.push(linkTo(rowFromMic(micZoneLabel(it), micZoneMic(it)),it)); return; }
-    if(it.type==="coppiast"){
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"KM184"),it,"mic_L"));
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"R"),"KM184"),it,"mic_R"));
-      return;
-    }
-    if(MIKING[it.type]){   /* microfonazione scelta (archi/cori/fiati): panoramico può dare 0 canali */
-      MIKING[it.type].chans(it.miking||MIKING[it.type].def, it).forEach(function(k){
-        rows.push(linkTo(rowFromMic(k[0]?labelPrefix(it,k[0]):(it.label||t.nome), k[1]),it));
-      });
-      return;
-    }
-    if(IN_MULTI[it.type]){
-      inMultiList(it).forEach(function(k){
-        rows.push(linkTo(rowFromMic(labelPrefix(it,k[0]), k[1], k[2], k[3], k[4]),it));
-      });
-      return;
-    }
-    if(it.type==="distereo"){
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"DI"),it));
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"R"),"DI"),it));
-      return;
-    }
-    if(IN_SRC[it.type]!=null){ rows.push(linkTo(rowFromMic(it.label || t.nome, IN_SRC[it.type]),it)); }
-  });
+  try{
+    patchList().rows.forEach(function(r){
+      var row=rowFromMic(r.name, r.micOff ? "" : r.mic, r.stand||"", !!r.p48, "");
+      if(r.itemId!=null && r.itemId!=="") row.linked_item_id=r.itemId;
+      rows.push(row);
+    });
+  }catch(e){}
   state.inputs=rows; if(!silent) save(); renderChannels();
 }
 function autoOutputs(silent){   /* silent=true dall'apertura Esporta: niente save — M-04 (conferma nel click) */
@@ -25337,8 +25505,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       /* C (ciclo primo-PDF-completo): se la channel list è VUOTA, generala dagli strumenti sul palco
          (instrument-driven, come "Auto" — NON attiva il cablaggio/cavi). Così il PDF non esce mai senza
          input/monitor list. Una lista già compilata a mano non viene toccata (autoInputs esce se piena). */
-      try{ if(!state.inputs.length) autoInputs(true); }catch(e){}   /* M-04: genera per l'anteprima SENZA salvare (niente persistenza silenziosa all'apertura) */
-      try{ if(!state.outputs.length) autoOutputs(true); }catch(e){}
+      /* Revisione 25/09: SOLO in consulenza. Fuori, le pagine del PDF e il CSV leggono le liste ricavate
+         (patchList/monitorList): qui si riempiva la lista MANUALE, il primo save() la salvava di nascosto
+         e da quel momento restava ferma — e l'audit dei doppioni leggeva lei invece del palco (due
+         «Chitarra» davano l'avviso prima di aprire Esporta, e niente dopo). In consulenza la lista
+         manuale È la fonte del PDF: lì generarla serve ancora. */
+      if(window.__consultMode){
+        try{ if(!state.inputs.length) autoInputs(true); }catch(e){}   /* M-04: genera per l'anteprima SENZA salvare */
+        try{ if(!state.outputs.length) autoOutputs(true); }catch(e){}
+      }
       preloadRespData();
     }
     renderFramePanel(); render();
@@ -25784,7 +25959,7 @@ function buildExportSvg(){
   var css = document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
   var titolo = esc(state.titolo||"Stage plot");
   var luogo = esc(state.luogo||"");
-  var oggi = new Date().toLocaleDateString("it-IT");
+  var oggi = dataDocumento();
   var vbW = W+2*m+tableW, vbH = Math.max(D+2*m+head, tableH);
   var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+(-m)+' '+(-m-head)+' '+vbW+' '+vbH+'">'+
     '<style>'+css+'</style>'+DEFS+
@@ -25892,7 +26067,11 @@ function pdfStageBox(N, paperKey, orient, cartH){
 var CORPO_RIF=80;
 function pdfTextK(N){
   var n=+N; if(!isFinite(n) || n<=0) return 1;
-  return Math.min(n, 250)/CORPO_RIF;
+  /* mai sotto 1 (revisione 25/09): a 1:50 — l'A3 di un palco che in A4 va a 1:100 — il fattore 0,625
+     RIMPICCIOLIVA i nomi, e sulla carta restavano 1,75 mm come in A4: passare all'A3, il rimedio che uno si
+     aspetta, non cambiava niente. Con 1 i nomi sono 14 cm nel mondo (2,8 mm a 1:50), meno dei 17,5 cm su
+     cui la passata anti-collisione è tarata a 1:100: più aria fra i nomi, non meno. */
+  return Math.max(1, Math.min(n, 250)/CORPO_RIF);
 }
 function autoScale(paperKey, orient, cartH){
   for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH)) return SCALES[i]; }
@@ -26135,7 +26314,7 @@ function cabReportPdf(shared){
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold");
     doc.text("STAGE PLOT — Report cablaggio audio", M, 9);
     doc.setFontSize(9); doc.setFont("helvetica","normal");
-    doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    doc.text(dataDocumento(), W-M, 9, {align:"right"});
     y=22;
     if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: le lunghezze sono stime sul percorso ortogonale, da verificare in loco. */
@@ -26195,8 +26374,8 @@ function patchListPdf(shared){
     if(shared) doc.addPage("a4","portrait");
     var M=16, y=22, cols=[M, M+10, M+62, M+100, M+136, M+158];   /* #, SORGENTE, FOH, MIC/DI, ASTA, PATCH */
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Channel list", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
@@ -26240,7 +26419,7 @@ function todefinePdf(shared){
     var M=16, W=210, y=22;
     doc.setFillColor("#475569"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Criticità e aspetti da definire", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     function heading(t,col){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(col||"#475569"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
     function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
       lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=2.2; }
@@ -26278,7 +26457,7 @@ function responsabilitaPdf(shared){
     var M=16, y=22, cols=[M, M+50, M+118];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Responsabilità", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function trow(a,b,c,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.8; }
     trow("REPARTO","AZIENDA / SERVICE","REFERENTE (se pubblicato)", true, "#0b7a70");
@@ -26301,7 +26480,7 @@ function riderPdf(shared){
     var M=16, W=210, y=22;
     doc.setFillColor("#4338ca"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(eventoConferenza() ? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=7; }
     (function(){ var si=statusInfo(d.status); var sign=(d.status==="approvato" && (d.approvedBy||d.approvedAt)) ? "  ·  firmato"+(d.approvedBy?" da "+d.approvedBy:"")+(d.approvedAt?" il "+new Date(d.approvedAt).toLocaleDateString("it-IT"):"") : "";
       doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(si.color); doc.text(si.label.toUpperCase()+sign, M, y); y+=7; doc.setTextColor("#111827"); })();
@@ -26341,7 +26520,7 @@ function monitorListPdf(shared){
     var M=16, y=22, cols=[M, M+14, M+70, M+120, M+160];
     doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Monitor list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     /* «5 / 0» con nessuna stage box dichiarata sembrava un errore: la capacità si scrive solo se c'è */
@@ -26367,7 +26546,7 @@ function loadListPdf(shared){
     var M=16, y=22, cols=[M, M+14, M+92, M+124, M+150];
     doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista carichi", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     doc.text("Totale: "+elecKW(R.totW)+" · "+R.totA.toFixed(0)+" A   ·   "+(R.distros.length ? "Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  ") : "nessun quadro dichiarato: lo fornisce il service"), M, y); y+=8;
@@ -26440,7 +26619,7 @@ function dantePatchPdf(shared){
     var M=16, y=22, cols=[M, M+26, M+92, M+124, M+150, M+172];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Patch stage box", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     if(R.mixer&&MIXER_DB[R.mixer]){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=7; }
     function trow(a,b,c,d,e,f,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
@@ -26473,7 +26652,7 @@ function netListPdf(shared){
     var M=16, y=22, cols=[M, M+58, M+96, M+134, M+164];
     doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rete", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var head = N.sw ? "Topologia a stella sullo switch "+(N.sw.label||"rete")+" ("+N.swUsed+"/"+N.swPorts+" porte"+(N.red?", Primary+Secondary":"")+")" : "Tratte dirette box → console (nessuno switch)";
@@ -26511,7 +26690,7 @@ function elecLinesPdf(shared){
     var M=16, y=22, cols=[M, M+22, M+52, M+72, M+160];
     doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Alimentazioni", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
     distros.forEach(function(d){
@@ -26545,7 +26724,7 @@ function outputListPdf(shared){
     var M=16, y=22, cols=[M, M+26, M+108, M+134];
     doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Output list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
     var all=(L.auto||[]).concat(L.rows.filter(function(r){ return r.box; }));
@@ -26590,7 +26769,7 @@ function rackListPdf(shared){
     var M=16, y=22;
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista rack", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=9; }
     var letters={}; try{ (cabResult().boxes||[]).forEach(function(b){ if(b.id) letters[b.id]=b.letter; }); }catch(_e){}
     racks.forEach(function(rk){
@@ -26625,7 +26804,7 @@ function backlineListPdf(shared){
     var M=16, y=22, cols=[M, M+16, M+130];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Backline", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     doc.text(pl.totItems+" element"+(pl.totItems===1?"o":"i")+" di backline"+(pl.byService?"   ·   "+pl.byService+" da fornire (Service)":""), M, y); y+=8;
@@ -26654,7 +26833,7 @@ function pdfListGeneric(doc, key, shared){
   doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
   doc.text("STAGE PLOT \u2014 "+cfg.title, M, 9);
   doc.setFont("helvetica","normal"); doc.setFontSize(9);
-  doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+  doc.text(dataDocumento(), 194, 9, {align:"right"});
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12);
     doc.text((state.titolo||"")+(state.luogo?" \u2014 "+state.luogo:""), M, y); y+=8; }
   var sub=cfg.sub?cfg.sub(d):"";
@@ -26871,7 +27050,7 @@ function rfListPdf(shared){
     var M=16, y=22, cols=[M, M+44, M+80, M+116, M+156];
     doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var bandKeys=Object.keys(pl.bands);
@@ -26901,7 +27080,7 @@ function pmListPdf(shared){
     var M=16, y=22;
     doc.setFillColor("#c026d3"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Personal monitor", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||9.5); doc.setFont("helvetica",bold?"bold":"normal"); doc.setTextColor(color||"#111827"); doc.text(String(txt),M,y); y+=(dy||5.4); }
     var R=monDigEngine();   /* fresh: la distinta deve riflettere lo stato reale, non la cache */
@@ -26948,7 +27127,7 @@ function elecReportPdf(shared){
     function line(txt, size, bold, color, dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
     doc.setFillColor("#d97706"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Piano elettrico", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
     y=22;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: i valori sono STIME preliminari, non un progetto esecutivo. Assunzioni esplicite. */
@@ -26987,7 +27166,7 @@ function auditReportPdf(shared){
     function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage("a4","portrait"); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
     doc.setFillColor(col); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Audit progetto", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
     y=24;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Prontezza: "+A.score+"/100  —  "+A.grade, 15, true, col, 8);
@@ -27255,7 +27434,7 @@ function pdfCartiglio(doc, L, N, header){
   /* luogo · data · palco — stessa logica */
   doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(75,85,99);
   var sub=[]; if(state.luogo) sub.push(state.luogo);
-  sub.push(new Date().toLocaleDateString("it-IT"));
+  sub.push(dataDocumento());
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
   var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
   var _wt=_tecn?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
@@ -27328,7 +27507,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   var cy=L.ph-L.fondo-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
-  sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
+  sub.push(dataDocumento()); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
   var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
   var _pwt=_ptecn?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
@@ -27417,7 +27596,7 @@ function pdfListConfig(){
             {h:"Colore",f:function(r){return r.color||"—";},warn:function(r){return !r.color;}},
             {h:"Posizione",f:function(r){return r.pos||"—";}},
             {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
-    inputlist:{ title:"Input list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
+    inputlist:{ title:"Channel list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
       sub:function(d){ return d.R&&d.R.boxes?("Stage box: "+d.R.boxes.map(function(b){return b.letter;}).join(", ")):""; },
       /* Il numero DEVE essere quello che il fonico troverà al banco: col FOH disponibile (più stage
          box, o un Device ID) è il canale FOH, esattamente come in patchListPdf e nel CSV. Qui si
@@ -27452,7 +27631,7 @@ function listPreviewHtml(key){
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
   var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
   return '<div class="pdf-list-sheet">'+
-    '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
+    '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (state.titolo?'<div class="pdf-list-tt">'+esc(state.titolo+(state.luogo?" — "+state.luogo:""))+'</div>':'')+
     (cfg.sub?'<div class="pdf-list-sub">'+esc(cfg.sub(d)||"")+'</div>':'')+
     '<table class="pdf-list-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>';
@@ -27684,7 +27863,7 @@ function riderHtml(){
   function sec(t,body,auto){ return '<div class="pdf-rider-sec"><div class="pdf-rider-h">'+esc(t)+(auto?' <span class="pdf-rider-auto">dai dati</span>':'')+'</div><div class="pdf-rider-b">'+body+'</div></div>'; }
   var mic = d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):"");
   return '<div class="pdf-list-sheet pdf-rider-sheet">'+
-    '<div class="pdf-list-hd" style="background:#4338ca">'+nomeDocumento()+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
+    '<div class="pdf-list-hd" style="background:#4338ca">'+nomeDocumento()+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
     '<div class="pdf-rider-status" style="background:'+statusInfo(d.status).color+'">'+esc(statusInfo(d.status).label.toUpperCase())+
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
@@ -28294,6 +28473,45 @@ function buildPdfDoc(paperKey, N, orient, header){
 /* consegna il PDF: se è stata scelta una destinazione (handle) la scrive lì;
    su mobile apre il foglio di condivisione; altrimenti scarica.
    Ritorna "saved" | "share" | "download" | "abort". */
+/* «Modificato dopo l'ultimo PDF» (revisione 25/09). Chi ha mandato il PDF al service e poi sposta un
+   monitor non ha modo di sapere se il foglio in giro è ancora quello giusto. All'export si scrive
+   quando e un'impronta dello stato; alla riapertura di Esporta si confronta. L'impronta esclude la
+   nota stessa, così scriverla non la rende subito «vecchia». Una per variante: il PDF è della variante. */
+function firmaPdf(s){
+  /* Sulla forma NORMALIZZATA e a chiavi ordinate: riaprire il progetto (normalizeState aggiunge i
+     campi mancanti, in coda) cambia l'ordine delle chiavi ma non il contenuto, e non è una modifica. */
+  var c=JSON.parse(JSON.stringify(s||{}));
+  try{ var n=normalizeState(c); if(n) c=n; }catch(_e){}
+  var j=JSON.stringify(c, function(k,v){
+    if(k==="pdfEsportato") return undefined;
+    if(v && typeof v==="object" && !Array.isArray(v)){ var o={}; Object.keys(v).sort().forEach(function(kk){ o[kk]=v[kk]; }); return o; }
+    return v;
+  })||"";
+  var h=5381; for(var i=0;i<j.length;i++){ h=((h<<5)+h+j.charCodeAt(i))|0; }
+  return (h>>>0).toString(36)+"."+j.length;
+}
+function segnaPdfEsportato(){
+  try{
+    dropOrphanRows(state);   /* lo fa save(): va fatto prima dell'impronta, o la nota nasce già vecchia */
+    state.pdfEsportato={at:new Date().toISOString()};
+    state.pdfEsportato.firma=firmaPdf(state);
+    save();
+  }catch(_e){}
+}
+function pdfUltimoTesto(s){
+  var e=s&&s.pdfEsportato; if(!e||!e.at||!e.firma) return "";
+  var d=new Date(e.at); if(isNaN(d)) return "";
+  var p=function(n){ return String(n).padStart(2,"0"); };
+  var quando=p(d.getDate())+"/"+p(d.getMonth()+1)+" alle "+p(d.getHours())+":"+p(d.getMinutes());
+  return firmaPdf(s)===e.firma ? "Ultimo PDF: "+quando+", nessuna modifica dopo."
+                               : "Modificato dopo l'ultimo PDF ("+quando+"): chi ha il file ha una versione vecchia.";
+}
+function renderPdfUltimo(){
+  var el=document.getElementById("pdfUltimo"); if(!el) return;
+  var tx=pdfUltimoTesto(state);
+  el.textContent=tx; el.hidden=!tx;
+  el.classList.toggle("vecchio", /^Modificato/.test(tx));
+}
 function exportPdf(paperKey, scaleSel, orient, header){
   var info=document.getElementById("pdfInfo");
   /* M-04: il gate sugli errori CRITICI vive nel click di #pdfGo, non più qui — perché lì può usare la
@@ -28312,6 +28530,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
      svg2pdf era ancora sul main thread — due clic, due file, due passate. */
   return buildPdfDoc(paperKey, N, orient, header).then(function(doc){
     pdfSave(doc, fileName()+".pdf");
+    if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
     /* dire la verità a valle: il ritaglio e le pagine non disegnate non devono sparire dietro un "✓" */
     var _avvisi=[];
     if(_boxChk.cropped) _avvisi.push("stampata solo la parte centrale che ci sta nel foglio");
@@ -28431,7 +28650,7 @@ function pdfChannelPage(doc, L, paperKey){
   var M=L.M, x=M, y=M+8, pw=L.pw, colW=(pw-2*M);
   /* Intestazione rider (M5): artista/evento in grande, data, sottotitolo, luogo, contatto tecnico. */
   function oneLine(s,w){ var l=doc.splitTextToSize(String(s||""), w); return l.length>1 ? l[0].replace(/\s+\S*$/,"")+"…" : (l[0]||""); }
-  var dateStr=new Date().toLocaleDateString("it-IT");
+  var dateStr=dataDocumento();
   doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(17,24,39);
   doc.text(oneLine(state.titolo||"Stage plot", pw-2*M-55), x, y);
   doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120);
@@ -28607,7 +28826,7 @@ function pdfChannelPage(doc, L, paperKey){
       var b=document.createElement("b"); b.textContent=st.todef+(st.todef===1?" aspetto da definire":" aspetti da definire");
       nud.appendChild(b);
       var hints=(typeof productionElementHints==="function")?productionElementHints(state):[];
-      nud.appendChild(document.createTextNode(" — "+(hints.length?hints[0]+" Rispondi qui ":"rispondi al Controllo tecnico per un rider più completo ")));
+      nud.appendChild(document.createTextNode(" — "+(hints.length?hints[0]+" Rispondi qui ":"rispondi al Controllo tecnico per un"+(eventoConferenza()?"a scheda più completa ":" rider più completo "))));
     } else {
       nud.appendChild(document.createTextNode("Controllo tecnico completo ✓ — rivedi "));
     }
@@ -28662,8 +28881,8 @@ function pdfChannelPage(doc, L, paperKey){
       if(hasResp) pages.push({key:"responsabilita", label:"Responsabilità (produzione)"});
     } }catch(_e){}
     var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
-    if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
-    if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
+    if(Rc.totIn){ pages.push({key:"inputlist", label:"Channel list"}); }
+    if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Monitor list"}); }
     var Re=(typeof elecResult==="function")?elecResult(true):{loads:[]};
     if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
     try{ if((Re.loadLinks||[]).length) pages.push({key:"eleclines", label:"Alimentazioni (linee del distro)"}); }catch(_e){}
@@ -28716,7 +28935,29 @@ function pdfChannelPage(doc, L, paperKey){
     if(note){ var n=Object.keys(window.__pdfPages).length;
       note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
                            : "Solo palco (1 pagina). Aggiungi qui sopra le pagine tecniche da allegare."; }
+    pdfAvvisoIngressi();
     renderPreview();   /* le pagine spuntate compaiono subito nell'anteprima */
+  }
+  /* Revisione 25/09: chi esporta il PDF «solo palco» lascia fuori la lista ingressi senza saperlo — ed
+     è il foglio che il service chiede per primo. Le pagine restano spente per scelta (16/08): qui si
+     dice solo cosa manca, con il comando per metterla. */
+  function pdfAvvisoIngressi(){
+    var host=document.getElementById("pdfPills"); if(!host) return;
+    var el=document.getElementById("pdfInMissing");
+    var disp=_pdfTechPages.some(function(p){ return p.key==="inputlist"; });
+    var n=0; try{ n=(typeof cabResult==="function")?(cabResult(true).totIn||0):0; }catch(_e){}
+    var mostra=disp && n>0 && !_pdfPillSel.inputlist;
+    if(!mostra){ if(el) el.hidden=true; return; }
+    /* Sopra «Altre opzioni», non fra le pillole: nell'Esporta base le pillole sono nascoste, e chi
+       esporta dalla base è proprio chi non sa di dover aggiungere la lista. */
+    if(!el){ el=document.createElement("div"); el.id="pdfInMissing"; el.className="pdf-inmissing";
+      var pro=document.getElementById("pdfProBtn");
+      if(pro && pro.parentNode) pro.parentNode.insertBefore(el, pro); else host.parentNode.insertBefore(el, host.nextSibling); }
+    el.innerHTML=""; el.hidden=false;
+    var sp=document.createElement("span"); sp.textContent="Channel list ("+n+" canal"+(n===1?"e":"i")+") non inclusa.";
+    var b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Aggiungi";
+    b.addEventListener("click", function(){ _pdfPillSel.inputlist=true; pdfRenderPills(); pdfUpdateTechNote(); });
+    el.appendChild(sp); el.appendChild(b);
   }
   function pdfRenderPills(){
     /* Pagine come pillole: TUTTE le disponibili (attivate dagli elementi del progetto) sono visibili —
@@ -28904,6 +29145,7 @@ function pdfChannelPage(doc, L, paperKey){
     pdfRenderPills();
     renderProdInline();
     renderFuoriPalco();
+    renderPdfUltimo();
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();
@@ -29206,6 +29448,7 @@ function gallery(){
     var cp=document.getElementById("viewCopy"); if(!cp) return;
     cp.hidden = !!(state.shareOpts && state.shareOpts.copy===false);   /* copia disattivabile dal proprietario */
     cp.addEventListener("click", function(){
+      var giaCopia=cp.getAttribute("data-copia"); if(giaCopia && window.__apriCopia){ window.__apriCopia(giaCopia); return; }   /* dopo la copia il pulsante apre quella */
       var C=window.__cloud;
       if(C && C.user()){
         if(C.copySharedToken) C.copySharedToken(token);   /* INSERT remoto isolato: non tocca binding/mirror/slot locale */
@@ -30196,7 +30439,7 @@ function maybeAskStageSize(explicit){
          è appena successo — e «OK» chiude e basta. Prima c'era solo «Annulla»: chi voleva davvero
          eliminare non aveva niente da premere e restava a guardare il messaggio finché spariva. */
       var b=document.createElement("button");
-      b.type="button"; b.className="toast-act toast-undo"; b.textContent=azione.label||"Annulla";
+      b.type="button"; b.className="toast-act "+(azione.neutra?"toast-go":"toast-undo"); b.textContent=azione.label||"Annulla";   /* neutra: un'azione che porta avanti («Apri la copia»), non rossa come chi disfa */
       b.addEventListener("click", function(){ toastEl.hidden=true; if(toastT) clearTimeout(toastT); azione.run(); });
       toastEl.appendChild(b);
       var ok=document.createElement("button");
@@ -30392,7 +30635,7 @@ function maybeAskStageSize(explicit){
        27/07 — sei «Senza titolo» accumulati in un pomeriggio, indistinguibili tra loro). Appena si
        posa qualcosa, il salvataggio successivo crea la riga. Il salvataggio ESPLICITO crea sempre:
        se l'utente preme Salva, il progetto lo vuole anche vuoto. */
-    if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument()){
+    if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument(true)){
       try{ setDocState("local"); }catch(_e){}   /* «Salvato sul dispositivo»: è la verità finché è vuoto */
       done(null, "empty"); return;
     }
@@ -30500,9 +30743,19 @@ function maybeAskStageSize(explicit){
     } catch(e){ if(!saved){ saved=true; doSave(null); } }
   }
 
+  /* apre la copia nell'editor con /app/?p=<id>: la stessa strada di Orchestre, con tutte le protezioni di openProject */
+  function apriCopia(id){ if(!/^[0-9a-f-]{36}$/i.test(String(id||""))) return; location.href="/app/?p="+encodeURIComponent(id); }
+  function segnaCopiaFatta(id){ var cp=document.getElementById("viewCopy"); if(cp){ cp.textContent="Apri la copia"; cp.setAttribute("data-copia", id); } }
+  try{ window.__apriCopia=apriCopia; }catch(e){}
   function completeCopyFromToken(token){
     var copyUserId=cloudUser&&cloudUser.id, copyAuth=authGeneration;
     if(!copyUserId){ toast("Accedi per completare la copia.",true); return; }
+    var giaFatta=null; try{ giaFatta=sessionStorage.getItem("copiaDi:"+token); }catch(e){}
+    if(giaFatta){   /* seconda pressione sullo stesso link: niente doppione, si offre quella già fatta */
+      try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}
+      toast("Hai già una copia di questo progetto nel tuo account.", false, {label:"Apri la copia", neutra:true, run:function(){ apriCopia(giaFatta); }});
+      segnaCopiaFatta(giaFatta); return;
+    }
     fetch(SUPABASE_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(token))
       .then(function(r){ return r.json(); })
       .then(function(d){
@@ -30530,7 +30783,13 @@ function maybeAskStageSize(explicit){
           if(!authStill(copyUserId,copyAuth)) return;
           if(r.error||!r.data||!r.data.id){ toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); return; }
           try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}   /* non ritentare un insert già riuscito */
-          toast("✓ Copia creata nel cloud. Il progetto locale corrente è rimasto aperto.");
+          try{ sessionStorage.setItem("copiaDi:"+token, r.data.id); }catch(e){}
+          /* Revisione 25/09: prima diceva solo «il progetto locale è rimasto aperto» e lasciava la pagina com'era;
+             chi voleva lavorare sulla copia ripremeva il pulsante — 5 copie in 6 minuti, dato reale. La copia NON
+             si apre da sola (l'unico slot locale può avere modifiche non ancora nel cloud, vedi sopra): si offre
+             di aprirla, e il pulsante diventa «Apri la copia». */
+          toast("✓ Copia creata nel tuo account.", false, {label:"Apri la copia", neutra:true, run:function(){ apriCopia(r.data.id); }});
+          segnaCopiaFatta(r.data.id);
           loadProjects();
         }, function(){ if(authStill(copyUserId,copyAuth)) toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); });
       })
