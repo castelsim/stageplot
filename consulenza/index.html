@@ -124,12 +124,13 @@
       transition: background .12s ease, border-color .12s ease, transform .12s ease;
     }
 
+    /* bianco su --accent = 3,74:1: i pulsanti pieni usano --accent-strong (5,21:1) — revisione 25/09 */
     .btn.primary {
-      border-color: var(--accent);
-      background: var(--accent);
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
       color: #fff;
     }
-    .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+    .btn.primary:hover { background: #096a61; border-color: #096a61; }
 
     .btn.small { min-height: 38px; padding: 8px 14px; font-size: 14px; }
 
@@ -253,12 +254,12 @@
       border-radius: var(--r-pill);
       padding: 4px 11px;
       background: var(--accent-soft);
-      color: var(--accent);
+      color: var(--accent-strong);   /* «Essenziale» era 3,26:1 */
       font-size: 12px;
       font-weight: 700;
       letter-spacing: .02em;
     }
-    .card.featured .tag { background: var(--accent); color: #fff; }
+    .card.featured .tag { background: var(--accent-strong); color: #fff; }
 
     .card h3 { margin: 14px 0 0; font-size: 21px; }
     .price { margin: 6px 0 4px; font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
@@ -376,7 +377,7 @@
       width: 30px;
       height: 30px;
       border-radius: 8px;
-      background: var(--accent);
+      background: var(--accent-strong);
       color: #fff;
       font-weight: 800;
       font-size: 14px;

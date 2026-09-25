@@ -15432,6 +15432,19 @@ document.addEventListener("keydown", function(e){
       }
     }
   }
+  /* Revisione 25/09: da tastiera si selezionava, spostava e cancellava, ma non si arrivava MAI al pannello
+     delle proprietà (nome, microfono, accessori): il Tab oltre l'ultimo elemento toglieva la selezione e
+     il pannello si svuotava prima di entrarci. Invio sul palco porta al primo campo del pannello, Esc
+     dal pannello riporta al palco con la stessa selezione. */
+  if(e.key==="Enter" && document.activeElement===_svg && sel && !e.metaKey && !e.ctrlKey && !e.altKey){
+    var _pp=document.getElementById("props");
+    var _primo=_pp && [].slice.call(_pp.querySelectorAll('input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled])'))
+      .filter(function(el){ return el.getClientRects().length; })[0];
+    if(_primo){ e.preventDefault(); _primo.focus(); a11yAnnounce("Proprietà di "+a11yDesc(getSel())+". Esc per tornare al palco."); return; }
+  }
+  if(e.key==="Escape" && sel && document.activeElement && document.activeElement!==_svg && document.activeElement.closest && document.activeElement.closest("#props")){
+    e.preventDefault(); _svg.focus(); a11yAnnounce("Palco. "+a11yDesc(getSel())); return;
+  }
   /* SOLA LETTURA — progetto bloccato (__projLocked) OPPURE documento di qualcun altro aperto da link
      condiviso / consulenza lato cliente (body.viewmode). Il viewer si difendeva col solo
      `pointer-events:none` sul palco: il mouse non lo toccava, la TASTIERA sì — Tab dava il fuoco
@@ -21782,13 +21795,18 @@ function renderAuditPanel(){
   var host=document.getElementById("auditFindings");
   host.innerHTML="";
   var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"||x.lvl==="todef"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score */
-  if(!probs.length){ host.innerHTML='<div style="color:var(--accent);font-size:12px">✓ Nessuna criticità: il rider sembra pronto.</div>'; return; }
+  /* palco vuoto: «il rider sembra pronto» sotto un voto «Vuoto · 0» era il contrario del vero (revisione 25/09) */
+  if(!probs.length && !(state.items||[]).length){ host.innerHTML='<div style="color:var(--text-2);font-size:12px">Palco vuoto: aggiungi strumenti, voci o microfoni dal catalogo, poi torna qui.</div>'; return; }
+  if(!probs.length){ host.innerHTML='<div style="color:var(--accent-strong);font-size:12px">✓ Nessuna criticità: '+(eventoConferenza()?"la scheda sembra pronta.":"il rider sembra pronto.")+'</div>'; return; }
   var ORD={err:0,warn:1,todef:2};
   probs.sort(function(a,b){ return (ORD[a.lvl]||3)-(ORD[b.lvl]||3); });
   probs.forEach(function(x){
-    var c=x.lvl==="err"?"var(--danger,#dc2626)":(x.lvl==="todef"?"#2563eb":"#b45309");
+    /* la gravità si dice anche a parole, non solo col colore del pallino (WCAG 1.4.1), e i colori vengono dai
+       token: gli esadecimali scritti a mano restavano quelli del tema chiaro anche in scuro (3,1–3,3:1) — revisione 25/09 */
+    var c=x.lvl==="err"?"var(--danger)":(x.lvl==="todef"?"var(--info)":"var(--warning)");
+    var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":"Avviso");
     var row=document.createElement("div"); row.className="audit-find";
-    row.innerHTML='<div class="audit-find-txt"><span style="color:'+c+'">●</span> <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
+    row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> · <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
     if(x.act && typeof x.act.run==="function"){
       var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=x.act.label;
       b.addEventListener("click", function(){ x.act.run(); });   /* la fix persiste e ridisegna da sé */
