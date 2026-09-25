@@ -8123,6 +8123,19 @@ t("i documenti portano la data e l'ora dell'evento, se ci sono", () => {
   eq(fuori.length, 0, "restano pagine del PDF con la data dell'esportazione");
 });
 
+/* Revisione 25/09: in conferenza il PDF è già «Scheda tecnica», ma l'editor diceva ancora rider e Musicisti;
+   e il messaggio sul contatto del service non diceva dove si aggiunge. */
+t("in conferenza l'editor parla di scheda e persone; il contatto del service ha dove andare", () => {
+  reset(); A.state.tipoEvento = "conferenza"; add("relatore", 400, 300); A.__cabRes = null;
+  const f = A.auditEngine().findings.find((x) => /Service locale/.test(x.msg || ""));
+  ok(f && /scheda tecnica/.test(f.msg) && !/rider/.test(f.msg), "in conferenza il messaggio parla ancora di rider: " + (f && f.msg));
+  ok(f.act && f.act.label === "Apri Contatti e ruoli" && f.act.run === A.auditFixOpenContacts, "il messaggio non porta a Contatti e ruoli");
+  eq(A.layerRegistry().find((L) => L.id === "mus").name, "Persone", "in conferenza la lista si chiama Persone");
+  A.state.tipoEvento = "";
+  ok(/ rider/.test(A.auditEngine().findings.find((x) => /Service locale/.test(x.msg || "")).msg), "fuori dalla conferenza resta il rider");
+  eq(A.layerRegistry().find((L) => L.id === "mus").name, "Musicisti", "e i Musicisti");
+});
+
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
