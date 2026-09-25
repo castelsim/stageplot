@@ -8136,6 +8136,35 @@ t("in conferenza l'editor parla di scheda e persone; il contatto del service ha 
   eq(A.layerRegistry().find((L) => L.id === "mus").name, "Musicisti", "e i Musicisti");
 });
 
+/* Revisione 25/09 (agente colori): in tema scuro i pulsanti primari erano 3,02:1, l'anello di focus 1,8:1,
+   --text-3 4,07:1 sul pannello; «Progetta il tuo palco» 3,74:1 anche in chiaro. Il test calcola il
+   rapporto WCAG sui valori scritti nel CSS: riportarne uno sotto soglia fa diventare rosso qui. */
+function contrasto(a, b) {
+  const lum = (h) => { const n = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0); };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05);
+}
+t("contrasti misurati sui valori del CSS: tema scuro e pulsante del benvenuto", () => {
+  const dark = stylesCss.slice(stylesCss.indexOf("body.dark{"), stylesCss.indexOf("}", stylesCss.indexOf("body.dark{")));
+  const t3 = /--text-3:(#[0-9a-f]{6})/i.exec(dark)[1];
+  ok(contrasto(t3, "#20292e") >= 4.5 && contrasto(t3, "#1b2327") >= 4.5, "--text-3 scuro sotto 4,5:1 su pannello/superficie: " + t3);
+  const fr = /--focus-ring:rgba\(20,184,166,\.(\d+)\)/.exec(dark);
+  ok(fr && +("0." + fr[1]) >= 0.8, "l'anello di focus scuro è troppo trasparente (era .32 = 1,8:1)");
+  const prim = /body\.dark \.btn\.primary\{background:(#[0-9a-f]{6});color:#fff\}/i.exec(stylesCss);
+  ok(prim && contrasto(prim[1], "#ffffff") >= 4.5, "pulsante primario scuro: testo bianco sotto 4,5:1");
+  ok(/\.wl-cta\{[^}]*background:var\(--accent-strong\)/.test(stylesCss), "«Progetta il tuo palco» su --accent (3,74:1) invece di --accent-strong");
+  ok(/body\.dark input::placeholder,body\.dark textarea::placeholder\{color:#96a5a1\}/.test(stylesCss), "segnaposto scuri col grigio del browser (3,81:1)");
+  ok(/#props input\[type=range\]:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss), "i cursori del pannello non mostrano il focus");
+});
+t("l'audit dice la gravità a parole, e non dice «pronto» a un palco vuoto", () => {
+  ok(/var lv=x\.lvl==="err"\?"Errore":\(x\.lvl==="todef"\?"Da definire":"Avviso"\);/.test(appjs) && /● '\+lv\+'</.test(appjs), "la gravità dei rilievi è data solo dal colore");
+  ok(/if\(!probs\.length && !\(state\.items\|\|\[\]\)\.length\)\{ host\.innerHTML='<div[^>]*>Palco vuoto/.test(appjs), "sul palco vuoto l'audit dice ancora «il rider sembra pronto»");
+});
+t("da tastiera si entra nel pannello proprietà (Invio) e si torna al palco (Esc)", () => {
+  ok(/if\(e\.key==="Enter" && document\.activeElement===_svg && sel/.test(appjs) && /_primo\.focus\(\)/.test(appjs), "Invio sul palco non porta al pannello proprietà");
+  ok(/if\(e\.key==="Escape" && sel && [^\n]*closest\("#props"\)\)\{\s*e\.preventDefault\(\); _svg\.focus\(\);/.test(appjs), "Esc dal pannello non riporta al palco");
+});
+
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,

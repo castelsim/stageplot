@@ -102,6 +102,7 @@
     --success:#15803d;--success-bg:#f0fdf4;--success-border:#bbf7d0;
     --warning:#b45309;--warning-bg:#fffbeb;--warning-border:#fde68a;
     --danger:#b91c1c;--danger-solid:#dc2626;--danger-bg:#fee2e2;
+    --info:#1d4ed8;   /* «da definire» nell'audit: 6,7:1 su bianco (revisione 25/09) */
     /* superfici & overlay (chrome) */
     --bg:var(--n-50);--surface:#fff;--surface-raised:var(--n-100);--border:var(--n-200);--border-strong:var(--n-300);
     /* --surface-2/-3 erano USATE (intestazioni del pannello consulenza) senza essere mai dichiarate:
@@ -304,6 +305,8 @@
   header input.hdr-name:hover{border-color:var(--border)}
   header input.hdr-name:focus{outline:none;border-color:var(--accent);box-shadow:none}
   header input.hdr-name::placeholder{color:var(--text-3);font-weight:400}
+  /* in scuro gli altri segnaposto usavano il grigio del browser, #757575 = 3,81:1 (ricerca del catalogo, note) — revisione 25/09 */
+  body.dark input::placeholder,body.dark textarea::placeholder{color:#96a5a1}
   body.dark header input.hdr-name{background:transparent;border-color:transparent}
   body.dark header input.hdr-name:hover{border-color:var(--border)}
   body.dark header input.hdr-name:focus{border-color:var(--accent)}
@@ -641,7 +644,8 @@
   #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:#c9c5bb;border-radius:999px}   /* v2.2: pillola piena come il prototipo — senza radius esplicito vinceva #props input{border-radius:8px} (id>attr) */
   #props .chk input:checked{background:var(--accent)}
   body.dark #props .chk input{background:var(--border-strong)}
-  #props input[type=range],body.dark #props input[type=range]{border:none;padding:0;background:transparent;box-shadow:none}   /* v2.2: slider nativo puro come il prototipo — senza scatola, il cursore arriva a inizio/fine corsa */
+  #props input[type=range],body.dark #props input[type=range]{border:none;padding:0;background:transparent;box-shadow:none}
+  #props input[type=range]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-radius:4px}   /* il box-shadow:none sopra toglieva l'anello di focus ai cursori (revisione 25/09) */   /* v2.2: slider nativo puro come il prototipo — senza scatola, il cursore arriva a inizio/fine corsa */
   body.dark #props .chk input:checked{background:var(--accent)}
   #props .chk input:disabled{opacity:.4} #props .chk:has(input:disabled){color:var(--text-3)}
   #props .cnt-row{display:flex;align-items:center;gap:8px;margin:6px 0}
@@ -1185,6 +1189,7 @@
   .audit-find{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:12px;line-height:1.4}
   .audit-find-txt{flex:1 1 auto;min-width:0}
   .audit-find-txt b{color:var(--text-2)}
+  .audit-lv{font-weight:700;white-space:nowrap}
   .audit-hint{color:var(--text-3);margin-left:14px}
   .audit-fix{flex:0 0 auto;align-self:center;border:1px solid var(--accent);background:var(--surface);color:var(--accent);
     font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;line-height:1.3}
@@ -1853,7 +1858,7 @@ svg.names-hidden .orc-name{display:none}
   .wl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .wl-skip{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-3);cursor:pointer;user-select:none}
   .wl-skip input{accent-color:var(--accent);width:14px;height:14px;margin:0}
-  .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
+  .wl-cta{appearance:none;border:0;background:var(--accent-strong);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
   .wl-cta:hover{background:var(--accent-strong)}
   .wl-mob{display:none}
   /* Popup dimensioni palco (#stageSize): riusa .wl-card/.wl-head/.wl-body/.wl-cta */
@@ -2111,9 +2116,9 @@ svg.names-hidden .orc-name{display:none}
   body.dark{
     --bg:#12181b;--surface:#1b2327;--surface-raised:#20292e;--surface-2:#20292e;--surface-3:#253036;
     --border:#2c3a3f;--border-strong:#314046;
-    --text:#e5e7eb;--text-2:#96a5a1;--text-3:#7d8794;   /* era #6b7280 = 3,30:1 sul fondo scuro; ora 4,38:1 e resta distinto da --text-2 */
+    --text:#e5e7eb;--text-2:#96a5a1;--text-3:#8a94a0;   /* era #6b7280 = 3,30:1; poi #7d8794 = 4,38:1 su --surface e 4,07:1 su --surface-raised (testo dei rilievi dell'audit). #8a94a0 = 5,18:1 e 4,81:1 (revisione 25/09); resta distinto da --text-2 */
     --canvas-bg:#0e1214;--sheet:#fff;
-    --focus-ring:rgba(20,184,166,.32);   /* glow accent-bright per il focus su scuro */
+    --focus-ring:rgba(20,184,166,.86);   /* era .32 = 1,8:1 sul fondo scuro, sotto il 3:1 dei componenti (revisione 25/09): il tema chiaro l'aveva già portato a .92 per lo stesso motivo */
     /* SUPERFICI «TINTA» (04/08): erano dichiarate solo in :root e restavano quasi bianche in tema
        scuro, col testo chiaro sopra. La riga SELEZIONATA della channel list dava 1,08:1 — il nome
        del canale spariva — e la barra «Sala oscurabile» del pannello Luci 1,43:1, un interruttore
@@ -2129,12 +2134,13 @@ svg.names-hidden .orc-name{display:none}
        2,84:1: si vede che c'è scritto qualcosa, non cosa. Qui si schiariscono; i punti in cui le
        stesse variabili fanno da SFONDO con testo bianco sopra sono rimappati subito sotto. */
     --danger:#f87171;--danger-bg:#3a1d1f;
+    --info:#93c5fd;
     --success:#4ade80;--success-bg:#0f2d1a;--success-border:#166534;
     --accent-strong:#5eead4;
     background:var(--bg);color:var(--text)}
   /* gli sfondi che usavano il teal scuro: in scuro passano ad --accent/--accent-deep, che col bianco
      sopra restano leggibili (--accent-strong ora è chiaro e servirebbe testo scuro) */
-  body.dark #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  body.dark #selProps .btn.primary{background:#0b7a70;border-color:#0b7a70;color:#fff}   /* come sopra: var(--accent) col bianco = 3,74:1 */
   body.dark #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
   body.dark .adv-btn.on:hover,body.dark .wl-cta:hover,body.dark #viewBar #viewCopy:hover,
   body.dark #conflictBar #cbLoad:hover,body.dark #updToast #updGo:hover,
@@ -2157,8 +2163,8 @@ svg.names-hidden .orc-name{display:none}
   body.dark .btn{background:#222b38;color:#e5e7eb}
   body.dark .btn:hover{background:#2c3848}
   /* le varianti vanno ri-dichiarate in dark: `body.dark .btn` (0,2,1) batte `.btn.primary` (0,2,0) */
-  body.dark .btn.primary{background:var(--accent)}                 /* teal, non grigio */
-  body.dark .btn.primary:hover{background:var(--accent-deep)}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
+  body.dark .btn.primary{background:#0b7a70;color:#fff}   /* teal scuro: testo bianco 5,21:1. Era var(--accent) col testo #e5e7eb = 3,02:1 su Crea il palco, Condividi, Report PDF (revisione 25/09) */
+  body.dark .btn.primary:hover{background:#096a61}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}
   body.dark #catalog{background:#1b2327;border-right-color:#2c3a3f}
   body.dark #catalog .cat-head{background:#20292e;border-color:#314046;color:#cbd5e1}
@@ -3637,7 +3643,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 <!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
-  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
+  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, Invio per modificarne le proprietà, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
      che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
 <button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
