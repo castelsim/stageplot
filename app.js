@@ -6165,7 +6165,7 @@ function itemMarkup(it){
      nomi coperti su 11, Coro 6, Orchestra 5 su 21). Nella scena i nomi vanno nel livello #layLbl, con la
      stessa traslazione e rotazione dell'elemento; chi chiama itemMarkup fuori dalla scena (miniature,
      anteprime) li ritrova dentro il gruppo come prima. */
-  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+lb+'</g></g>'); }
+  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+(_lblSchermo ? lblRotazioniAlCentro(lb) : lb)+'</g></g>'); }
   else s += lb;
   s += '</g>';
   s += '</g>';
@@ -9980,6 +9980,7 @@ function itemPickable(it){
 function sceneMarkup(opts){
   /* `opts.espandi` = export: niente <use>, il markup deve reggere da solo fuori da questo documento. */
   _sceneArt = (opts && opts.espandi) ? null : {};
+  _lblSchermo = !(opts && opts.espandi);
   recalcStageBBox();
   var venue = (state.venue && layerShown("venue") ? venueMarkup() : '');   /* layer 0: planimetria (partecipa al solo) */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
@@ -10055,6 +10056,13 @@ function redrawSelHandles(){
    per ogni elemento durante drag/rotate di gruppi grandi. Ricostruito dopo ogni render completo. */
 var itemNodeIndex=new Map(), itemLblIndex=new Map();
 var _lblSink=null;   /* attivo solo mentre la scena disegna un elemento: raccoglie il suo nome per #layLbl */
+/* A SCHERMO i nomi hanno il corpo minimo via CSS (`scale` con origine al centro del testo, --lblK).
+   Quell'origine vale anche per il `transform` scritto sul testo: `rotate(a cx cy)` girerebbe attorno a
+   un punto spostato, e nella vista girata del telefono — dove ogni nome è ruotato per stare dritto —
+   i nomi finivano a mezzo elemento di distanza. A schermo quindi il testo ruota attorno al proprio
+   centro (`rotate(a)`, con l'origine del CSS); nell'export, che non ha quel CSS, resta com'era. */
+var _lblSchermo=false;
+function lblRotazioniAlCentro(s){ return s.replace(/transform="rotate\((-?[\d.e+-]+) -?[\d.e+-]+ -?[\d.e+-]+\)"/g, 'transform="rotate($1)"'); }
 function reindexItemNodes(){
   itemNodeIndex=new Map(); itemLblIndex=new Map();
   var nodes=svg.querySelectorAll(".item[data-id]");
@@ -10131,7 +10139,7 @@ function itemNode(id){
 function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); syncItemLbl(it); redrawSelHandles(); renderProps(); } else render(); }
 function redrawItemNode(it){
   var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
-  _lblSink=[]; var _mk=itemMarkup(it), _lb=_lblSink; _lblSink=null;   /* il nome va nel suo livello, non nel gruppo */
+  _lblSchermo=true; _lblSink=[]; var _mk=itemMarkup(it), _lb=_lblSink; _lblSink=null;   /* il nome va nel suo livello, non nel gruppo */
   var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=_mk;   /* parsing in namespace SVG (come svg.innerHTML) */
   var nw=tmp.firstElementChild;
   if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw);

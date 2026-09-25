@@ -5072,6 +5072,16 @@ t("le liste hanno un nome solo: Channel list e Monitor list", () => {
   }
   ok(/pages\.push\(\{key:"inputlist", label:"Channel list"\}\)/.test(appjs) && /pages\.push\(\{key:"monitorlist", label:"Monitor list"\}\)/.test(appjs), "pagine del PDF");
 });
+/* Revisione 25/09: col corpo minimo via CSS (origine al centro del testo) i nomi ruotati con
+   rotate(a cx cy) giravano attorno a un punto spostato: nella vista girata del telefono finivano lontani. */
+t("a schermo i nomi ruotati girano attorno al proprio centro, nell'export no", () => {
+  eq(A.lblRotazioniAlCentro('<text transform="rotate(90 12.5 -3)">x</text><text transform="rotate(-8 -20 44)">y</text>'),
+     '<text transform="rotate(90)">x</text><text transform="rotate(-8)">y</text>');
+  ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) tiene le rotazioni com'erano");
+  ok(/\(_lblSchermo \? lblRotazioniAlCentro\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo usa la rotazione al centro");
+  ok(/_lblSchermo=true; _lblSink=\[\];/.test(appjs), "anche il ridisegno del singolo elemento (trascinamento) è a schermo");
+  ok(/#svg #layLbl text\.lbl\{transform-box:fill-box;transform-origin:center/.test(stylesCss), "il CSS che rende necessaria la regola");
+});
 /* Revisione 25/09: la home prometteva «otto formazioni», con un «tributo» che nell'app non c'è. */
 t("la home conta i modelli che la vetrina ha davvero", () => {
   const m = appjs.match(/var START_MODELS = (\[[^;]*\]);/);
