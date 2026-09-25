@@ -11936,14 +11936,20 @@ t("le scritte del disegno restano leggibili a ogni scala", () => {
      fattore — è una manopola (CORPO_RIF) e può cambiare — ma la proprietà che deve valere sempre:
      raddoppiando la scala raddoppia il fattore, così sulla carta il corpo resta lo stesso. */
   eq(A.pdfTextK(200) / A.pdfTextK(100), 2, "da 1:100 a 1:200 il fattore deve raddoppiare");
-  eq(A.pdfTextK(100) / A.pdfTextK(50), 2, "e da 1:50 a 1:100 pure");
+  /* 25/09 (revisione, decisione di Simone): sotto 1:80 il fattore resta 1 invece di scendere. Prima a 1:50
+     — l'A3 di un palco che in A4 va a 1:100 — i nomi si rimpicciolivano fino a restare 1,75 mm come in A4,
+     e il formato più grande non serviva a leggerli. Ora sotto 1:80 il testo non si rimpicciolisce più. */
+  eq(A.pdfTextK(50), 1, "a 1:50 il testo non deve rimpicciolirsi (A3 = nomi più grandi sulla carta)");
+  ok(A.pdfTextK(50) * 140 / 50 > A.pdfTextK(100) * 140 / 100, "a 1:50 i nomi sulla carta devono essere più grandi che a 1:100");
   eq(A.pdfTextK(500), A.pdfTextK(250), "oltre 1:250 si ferma: sarebbe più grande di ciò che nomina");
   ok(A.pdfTextK(250) >= A.pdfTextK(100), "il fattore non può calare al crescere della scala");
   [0, -3, NaN, null, undefined, "boh"].forEach((v) => eq(A.pdfTextK(v), 1, "valore inutilizzabile: " + v));
   /* il corpo sulla CARTA, che è ciò che conta davvero */
   const mmSulFoglio = (corpo, N) => corpo * A.pdfTextK(N) * 10 / N;
-  const misure = [50, 100, 200, 250].map((N) => +mmSulFoglio(14, N).toFixed(3));
-  eq(new Set(misure).size, 1, "il corpo sulla carta deve essere lo STESSO a ogni scala: " + misure);
+  /* da 1:80 in su il corpo sulla carta è costante; sotto 1:80 (dal 25/09) non si rimpicciolisce e cresce col disegno */
+  const misure = [80, 100, 200, 250].map((N) => +mmSulFoglio(14, N).toFixed(3));
+  eq(new Set(misure).size, 1, "da 1:80 in su il corpo sulla carta deve essere lo STESSO: " + misure);
+  ok(mmSulFoglio(14, 50) > mmSulFoglio(14, 100), "a 1:50 il corpo sulla carta deve crescere, non restare quello dell'A4");
   /* e deve stare nella fascia in cui un nome si legge davvero su un foglio stampato: sotto 1,2 mm
      si perde, sopra 2,5 mm i nomi si scansano tanto da non dire più di chi sono */
   misure.forEach((mm) => ok(mm >= 1.2 && mm <= 2.5, "corpo sul foglio: " + mm + " mm"));

@@ -25917,7 +25917,11 @@ function pdfStageBox(N, paperKey, orient, cartH){
 var CORPO_RIF=80;
 function pdfTextK(N){
   var n=+N; if(!isFinite(n) || n<=0) return 1;
-  return Math.min(n, 250)/CORPO_RIF;
+  /* mai sotto 1 (revisione 25/09): a 1:50 — l'A3 di un palco che in A4 va a 1:100 — il fattore 0,625
+     RIMPICCIOLIVA i nomi, e sulla carta restavano 1,75 mm come in A4: passare all'A3, il rimedio che uno si
+     aspetta, non cambiava niente. Con 1 i nomi sono 14 cm nel mondo (2,8 mm a 1:50), meno dei 17,5 cm su
+     cui la passata anti-collisione è tarata a 1:100: più aria fra i nomi, non meno. */
+  return Math.max(1, Math.min(n, 250)/CORPO_RIF);
 }
 function autoScale(paperKey, orient, cartH){
   for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH)) return SCALES[i]; }
