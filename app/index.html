@@ -471,7 +471,7 @@
     #conflictBar button{width:100%}
   }
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
-  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
+  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:4px 6px;margin:-4px -6px -4px 0;flex:none}
   /* «Abbiamo ipotizzato questo»: sta sul palco senza bloccarlo — chi ha già capito lo chiude e va
      avanti, chi no lo legge riga per riga. Non è un modale: bloccare qui vorrebbe dire fermare
      qualcuno che ha appena fatto due clic per vedere un palco. */
@@ -598,7 +598,7 @@
   #props #selProps .pgrp{margin:0 0 2px}
   #props #selProps .pgrp>.pgh{font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:13px 0 5px}
   #props #selProps .pgrp:first-of-type>.pgh{margin-top:2px}
-  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
+  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-caption)}
   /* dentro un gruppo intitolato, il riquadro è un doppio incapsulamento: resta il contenuto */
   #props #selProps .prop-flat{border:none;background:none;padding:0;margin:0}
   /* Responsabile e contatto: in fondo e chiuso — è il concetto più avanzato del prodotto e stava
@@ -628,9 +628,9 @@
   #props .prop-card:hover{border-color:var(--border-strong)}
   #props .prop-card>label:first-child{margin-top:0}
   #props .prop-card__head{font-size:var(--t-caption);font-weight:700;color:var(--text);margin:0 0 8px;display:flex;align-items:baseline;gap:6px}
-  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
-  #props .prop-hint{font-size:var(--t-micro);color:var(--text-3);margin-top:6px;line-height:1.35}
-  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
+  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-caption)}
+  #props .prop-hint{font-size:var(--t-label);color:var(--text-3);margin-top:6px;line-height:1.35}
+  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-caption)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
   /* Colonna destra ridimensionabile (280-560px): i figli di una .row devono poter STRINGERSI e, se
      non ci stanno, andare a capo. Senza min-width:0 il flex non scende sotto la min-content del
      contenuto e la riga sfonda il pannello — era la causa degli elementi che uscivano dallo schermo. */
@@ -2291,6 +2291,7 @@ svg.names-hidden .orc-name{display:none}
        campo «Ingressi» nuovo: era un difetto di famiglia, non suo. */
     #props select{min-height:44px}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
+    #dragHint button{min-width:44px;min-height:44px;margin:-10px -8px -10px 0}   /* la ✕ del suggerimento: 14 px di bersaglio sotto il dito (revisione 25/09) */
     .pdf-navbtn{width:44px;height:44px}
     #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
     .cat-sheet-close{min-width:44px}
@@ -2734,7 +2735,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Slider con nome a fianco e valore */
   .sldrow{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
-  .sldrow label{flex:0 0 auto;color:var(--text-2)}
+  .sldrow label{flex:0 0 auto;min-width:76px;color:var(--text-2)}   /* stessa colonna: gli slider partono tutti allo stesso punto (revisione 25/09) */
   .sldrow input[type="range"]{flex:1;min-width:0}
   .sldrow output{min-width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
   /* Chips: scelte esclusive 2-4 opzioni */
@@ -4529,7 +4530,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="auditSecHead">
         <span class="caret" id="auditCaret">▾</span>
         <span class="cab-sectitle"><b>Audit progetto</b></span>
-        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="auditBody" style="margin-top:8px">
         <div id="auditScore"></div>
@@ -4570,7 +4571,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="patchSecHead">
         <span class="caret" id="patchCaret">▾</span>
         <span class="cab-sectitle"><b>Channel list</b></span>
-        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi la channel list" aria-label="Chiudi la channel list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi la channel list" aria-label="Chiudi la channel list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="patchBody" style="margin-top:8px">
         <div id="patchSummary" hidden></div>
@@ -4583,7 +4584,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="monSecHead">
         <span class="caret" id="monCaret">▾</span>
         <span class="cab-sectitle"><b>Monitor list</b></span>
-        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="monBody" style="margin-top:8px">
         <div id="monSummary" style="font-size:12px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
@@ -4599,7 +4600,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="loadSecHead">
         <span class="caret" id="loadCaret">▾</span>
         <span class="cab-sectitle"><b>Lista carichi</b></span>
-        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <!-- 29/07: via il riepilogo a frase (#loadSummary) e la didascalia in piede — la barra in cima a
            #loadRows dice a che punto sei e quanto è carica la fase più carica, e ogni riga porta la sua

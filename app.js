@@ -1884,11 +1884,11 @@ var AMP_DB = {
   "boss_katana100":{brand:"Boss", model:"Katana-100 MkII", per:["comboamp"], watt:77, out:100, kg:14.8, v:true},
   "boss_katana50": {brand:"Boss", model:"Katana-50 MkII", per:["comboamp"], watt:47, out:50, kg:11.6, v:true},
   "roland_kc600":  {brand:"Roland", model:"KC-600", per:["keysamp"], watt:50, out:200, kg:29, v:true,
-                    note:"200 W di uscita audio ma 50 assorbiti: e' l'esempio che smonta la regola del «doppio dell'uscita»"},
+                    note:"200 W di uscita audio ma 50 assorbiti: è l'esempio che smonta la regola del «doppio dell'uscita»"},
   "roland_kc400":  {brand:"Roland", model:"KC-400", per:["keysamp"], watt:40, out:150, kg:22, v:true},
   "roland_rd2000": {brand:"Roland", model:"RD-2000", per:["stagepiano","doppiatastiera"], watt:23, kg:21.7, v:true},
   "roland_td27":   {brand:"Roland", model:"TD-27", ruolo:"modulo", per:["edrums"], watt:null, kg:1.1, v:true,
-                    note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso e' del SOLO modulo, senza rack ne' pad, quindi il tipo resta sulla sua stima per il kit"},
+                    note:"il costruttore dichiara la corrente DC (770 mA a 9 V) e non l'assorbimento a rete: il peso è del SOLO modulo, senza rack né pad, quindi il tipo resta sulla sua stima per il kit"},
   /* — Ampeg (ampeg.com + Owner's Manual) — */
   "ampeg_svtcl":   {brand:"Ampeg", model:"SVT-CL", ruolo:"testata", per:["bassamp"], watt:460, out:300, kg:36.3, v:true,
                     note:"valvolare: 460 W assorbiti per 300 W di uscita. Il manuale li dichiara per tutte le tensioni, EU compresa"},
@@ -1909,7 +1909,7 @@ var AMP_DB = {
   "yamaha_cp73":   {brand:"Yamaha", model:"CP73", per:["stagepiano"], watt:null, kg:13.1, v:true},
   /* — Hammond (hammondorganco.com) — */
   "hammond_skxpro":{brand:"Hammond", model:"SkxPro", per:["organohammond","doppiatastiera"], watt:22, kg:16.9, v:true,
-                    note:"e' l'Hammond PORTATILE: un B3 vintage pesa piu' di dieci volte tanto e non si sposta in due"},
+                    note:"è l'Hammond PORTATILE: un B3 vintage pesa più di dieci volte tanto e non si sposta in due"},
   /* — PA ATTIVA DI TAGLIO PICCOLO — la tabella non e' piu' solo backline: un diffusore attivo e'
        un apparecchio che assorbe, e il piano elettrico ha lo stesso bisogno di sapere quanto.
        ⚠️ Qui `watt` e' la RICHIESTA DI RETE dichiarata (VA), non il programma medio: e' il numero
@@ -9235,8 +9235,8 @@ function auditEngine(){
       if(!r || !r.p48 || !r.mic) return false;
       var d=MIC_DB[r.mic]; return !!(d && d.type==="nastro" && !d.p48); });
     ribCh.forEach(function(r){
-      add("err", "Canale "+r.n+" ("+r.name+"): +48V acceso su "+r.mic+", che e' un nastro PASSIVO.","Audio",
-        "Il phantom su un microfono a nastro passivo puo' danneggiare il nastro: spegni il 48V su questa riga.",
+      add("err", "Canale "+r.n+" ("+r.name+"): +48V acceso su "+r.mic+", che è un nastro PASSIVO.","Audio",
+        "Il phantom su un microfono a nastro passivo può danneggiare il nastro: spegni il 48V su questa riga.",
         {label:"Apri Channel list",run:auditFixOpenChan}, "rib48:"+r.key); });
   }catch(e){ /* motore cablaggio non pronto: l'audit non deve mai far cadere il pannello */ }
   var noMic=_manuale.filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
@@ -17990,7 +17990,7 @@ var MIC_DB = {
   "PCC 160":    {brand:"AKG", model:"PCC160", type:"condensatore", caps:"electret diaframma piccolo (boundary)", pol:"semi-supercardioide", p48:true, stand:"interno/terra", uso:"boundary da teatro, ribalta", alias:"pcc160 crown pcc"},
   /* — aggiunte 12/08: i cutsheet AKG si scaricano, le pagine prodotto no (403). Cadono cosi' quattro
      dei microfoni «famosi ma non verificabili» che il 29/07 erano rimasti fuori. — */
-  "C414 XLII":  {brand:"AKG", model:"C414 XLII", type:"condensatore", caps:"diaframma grande 1\"", pol:"multipattern (9 figure)", p48:true, stand:"asta giraffa", uso:"voce, panoramico (curva a presenza: e' questa la differenza dalla XLS)", alias:"c414xlii c 414 xlii"},
+  "C414 XLII":  {brand:"AKG", model:"C414 XLII", type:"condensatore", caps:"diaframma grande 1\"", pol:"multipattern (9 figure)", p48:true, stand:"asta giraffa", uso:"voce, panoramico (curva a presenza: è questa la differenza dalla XLS)", alias:"c414xlii c 414 xlii"},
   "C314":       {brand:"AKG", model:"C314", type:"condensatore", caps:"diaframma grande (doppio)", pol:"commutabile: cardioide / supercardioide / omni / figura di 8", p48:true, stand:"asta giraffa", uso:"panoramico, overhead, studio"},
   "D12 VR":     {brand:"AKG", model:"D12 VR", type:"dinamico", pol:"cardioide", p48:false, stand:"asta bassa", uso:"cassa (il +48V accende solo i filtri attivi: senza, suona lo stesso)", alias:"d12vr d 12 vr"},
   "C1000 S":    {brand:"AKG", model:"C1000 S", type:"condensatore", caps:"electret diaframma piccolo", pol:"commutabile: cardioide / ipercardioide", p48:true, stand:"asta giraffa", uso:"overhead, acustici, coro (va anche a pile)", alias:"c1000s c 1000"},

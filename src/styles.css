@@ -393,7 +393,7 @@
     #conflictBar button{width:100%}
   }
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
-  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
+  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:4px 6px;margin:-4px -6px -4px 0;flex:none}
   /* «Abbiamo ipotizzato questo»: sta sul palco senza bloccarlo — chi ha già capito lo chiude e va
      avanti, chi no lo legge riga per riga. Non è un modale: bloccare qui vorrebbe dire fermare
      qualcuno che ha appena fatto due clic per vedere un palco. */
@@ -520,7 +520,7 @@
   #props #selProps .pgrp{margin:0 0 2px}
   #props #selProps .pgrp>.pgh{font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:13px 0 5px}
   #props #selProps .pgrp:first-of-type>.pgh{margin-top:2px}
-  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
+  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-caption)}
   /* dentro un gruppo intitolato, il riquadro è un doppio incapsulamento: resta il contenuto */
   #props #selProps .prop-flat{border:none;background:none;padding:0;margin:0}
   /* Responsabile e contatto: in fondo e chiuso — è il concetto più avanzato del prodotto e stava
@@ -550,9 +550,9 @@
   #props .prop-card:hover{border-color:var(--border-strong)}
   #props .prop-card>label:first-child{margin-top:0}
   #props .prop-card__head{font-size:var(--t-caption);font-weight:700;color:var(--text);margin:0 0 8px;display:flex;align-items:baseline;gap:6px}
-  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
-  #props .prop-hint{font-size:var(--t-micro);color:var(--text-3);margin-top:6px;line-height:1.35}
-  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
+  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-caption)}
+  #props .prop-hint{font-size:var(--t-label);color:var(--text-3);margin-top:6px;line-height:1.35}
+  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-caption)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
   /* Colonna destra ridimensionabile (280-560px): i figli di una .row devono poter STRINGERSI e, se
      non ci stanno, andare a capo. Senza min-width:0 il flex non scende sotto la min-content del
      contenuto e la riga sfonda il pannello — era la causa degli elementi che uscivano dallo schermo. */
@@ -2213,6 +2213,7 @@ svg.names-hidden .orc-name{display:none}
        campo «Ingressi» nuovo: era un difetto di famiglia, non suo. */
     #props select{min-height:44px}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
+    #dragHint button{min-width:44px;min-height:44px;margin:-10px -8px -10px 0}   /* la ✕ del suggerimento: 14 px di bersaglio sotto il dito (revisione 25/09) */
     .pdf-navbtn{width:44px;height:44px}
     #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
     .cat-sheet-close{min-width:44px}
@@ -2656,7 +2657,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Slider con nome a fianco e valore */
   .sldrow{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
-  .sldrow label{flex:0 0 auto;color:var(--text-2)}
+  .sldrow label{flex:0 0 auto;min-width:76px;color:var(--text-2)}   /* stessa colonna: gli slider partono tutti allo stesso punto (revisione 25/09) */
   .sldrow input[type="range"]{flex:1;min-width:0}
   .sldrow output{min-width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
   /* Chips: scelte esclusive 2-4 opzioni */
