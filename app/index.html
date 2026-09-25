@@ -102,6 +102,7 @@
     --success:#15803d;--success-bg:#f0fdf4;--success-border:#bbf7d0;
     --warning:#b45309;--warning-bg:#fffbeb;--warning-border:#fde68a;
     --danger:#b91c1c;--danger-solid:#dc2626;--danger-bg:#fee2e2;
+    --info:#1d4ed8;   /* «da definire» nell'audit: 6,7:1 su bianco (revisione 25/09) */
     /* superfici & overlay (chrome) */
     --bg:var(--n-50);--surface:#fff;--surface-raised:var(--n-100);--border:var(--n-200);--border-strong:var(--n-300);
     /* --surface-2/-3 erano USATE (intestazioni del pannello consulenza) senza essere mai dichiarate:
@@ -304,6 +305,8 @@
   header input.hdr-name:hover{border-color:var(--border)}
   header input.hdr-name:focus{outline:none;border-color:var(--accent);box-shadow:none}
   header input.hdr-name::placeholder{color:var(--text-3);font-weight:400}
+  /* in scuro gli altri segnaposto usavano il grigio del browser, #757575 = 3,81:1 (ricerca del catalogo, note) — revisione 25/09 */
+  body.dark input::placeholder,body.dark textarea::placeholder{color:#96a5a1}
   body.dark header input.hdr-name{background:transparent;border-color:transparent}
   body.dark header input.hdr-name:hover{border-color:var(--border)}
   body.dark header input.hdr-name:focus{border-color:var(--accent)}
@@ -313,12 +316,16 @@
   body.dark .avatar-btn{background:#222b38;border-color:#314046;color:#e5e7eb}
   body.dark .avatar-btn.logged{background:var(--accent);border-color:var(--accent);color:#fff}
   .doc-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:999px;
-    padding:3px 9px;white-space:nowrap;border:1px solid var(--border);color:var(--text-2);background:var(--surface-raised);flex:0 0 auto;cursor:default}
-  .doc-chip svg{width:12px;height:12px}
+    padding:3px 9px;white-space:nowrap;border:1px solid var(--border);color:var(--text-2);background:var(--surface-raised);flex:0 1 auto;min-width:28px;cursor:default;
+    max-width:260px;overflow:hidden;text-overflow:ellipsis}   /* 25/09: una pastiglia lunga allargava la barra fino a coprire Annulla, Ripeti e Adatta; la frase intera resta nel title */
+  .doc-chip svg{width:12px;height:12px;flex:0 0 auto}
+  .doc-chip .dc-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .doc-chip.on{color:var(--success);background:var(--success-bg);border-color:var(--success-border)}
   .doc-chip.warn{color:var(--warning);background:var(--warning-bg);border-color:var(--warning-border);cursor:pointer}
-  .doc-chip.nudge{cursor:pointer}   /* da non collegati porta al login (15/09) */
-  .doc-chip.nudge:hover{color:var(--accent-strong);border-color:var(--accent)}
+  /* «invito» e non «nudge»: .nudge è il riquadro Produzione dell'Esporta (margine 12, padding 8×11, 12 px, blu) e la
+     pastiglia lo ereditava tutto — 398×33 px nella barra, che sbordava di 378 px a 1512 (revisione 25/09) */
+  .doc-chip.invito{cursor:pointer}   /* da non collegati porta al login (15/09) */
+  .doc-chip.invito:hover{color:var(--accent-strong);border-color:var(--accent)}
   /* Condivisione senza account: l'invito ad accedere, sotto il testo della copia (15/09) */
   #shareIntroTxt .share-login{margin-top:6px;padding:0;border:0;background:none;font:600 12px var(--font-ui);color:var(--accent-strong);
     text-decoration:underline;text-underline-offset:2px;text-align:left;cursor:pointer}
@@ -436,6 +443,7 @@
      rosso è quello chiaro, o non si legge. */
   .toast-act.toast-undo{border-color:rgba(248,113,113,.75);color:#fca5a5}
   .toast-act.toast-ok{border-color:rgba(255,255,255,.45);color:#fff}
+  .toast-act.toast-go{background:#0b7a70;border-color:#0b7a70;color:#fff;font-weight:700}
   @media (pointer:coarse){ .toast-act{min-height:44px;padding:8px 16px} }
   /* Dove sta il messaggio. Il «bottom» era scritto inline nell'HTML, dove nessuna media query
      poteva toccarlo: su telefono l'avviso finiva SOPRA il dock, coprendo per 27 px i quattro
@@ -463,7 +471,7 @@
     #conflictBar button{width:100%}
   }
   #dragHint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#f3f4f6;font-size:13px;line-height:1.35;padding:9px 12px;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:30;display:flex;align-items:center;gap:10px;max-width:92%}
-  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:0;flex:none}
+  #dragHint button{background:none;border:0;color:#9aa3b0;cursor:pointer;font-size:14px;line-height:1;padding:4px 6px;margin:-4px -6px -4px 0;flex:none}
   /* «Abbiamo ipotizzato questo»: sta sul palco senza bloccarlo — chi ha già capito lo chiude e va
      avanti, chi no lo legge riga per riga. Non è un modale: bloccare qui vorrebbe dire fermare
      qualcuno che ha appena fatto due clic per vedere un palco. */
@@ -590,7 +598,7 @@
   #props #selProps .pgrp{margin:0 0 2px}
   #props #selProps .pgrp>.pgh{font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.2px;margin:13px 0 5px}
   #props #selProps .pgrp:first-of-type>.pgh{margin-top:2px}
-  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
+  #props #selProps .pgh-note{font-weight:400;color:var(--text-3);font-size:var(--t-caption)}
   /* dentro un gruppo intitolato, il riquadro è un doppio incapsulamento: resta il contenuto */
   #props #selProps .prop-flat{border:none;background:none;padding:0;margin:0}
   /* Responsabile e contatto: in fondo e chiuso — è il concetto più avanzato del prodotto e stava
@@ -620,9 +628,9 @@
   #props .prop-card:hover{border-color:var(--border-strong)}
   #props .prop-card>label:first-child{margin-top:0}
   #props .prop-card__head{font-size:var(--t-caption);font-weight:700;color:var(--text);margin:0 0 8px;display:flex;align-items:baseline;gap:6px}
-  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-micro)}
-  #props .prop-hint{font-size:var(--t-micro);color:var(--text-3);margin-top:6px;line-height:1.35}
-  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-micro)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
+  #props .prop-card__head .muted{font-weight:400;color:var(--text-3);font-size:var(--t-caption)}
+  #props .prop-hint{font-size:var(--t-label);color:var(--text-3);margin-top:6px;line-height:1.35}
+  #props .lbl-note{color:var(--text-3);font-weight:400;font-size:var(--t-caption)}   /* nota grigia inline (— cosa fa / connettore / sigla) — sostituisce gli <small style> sparsi */
   /* Colonna destra ridimensionabile (280-560px): i figli di una .row devono poter STRINGERSI e, se
      non ci stanno, andare a capo. Senza min-width:0 il flex non scende sotto la min-content del
      contenuto e la riga sfonda il pannello — era la causa degli elementi che uscivano dallo schermo. */
@@ -637,7 +645,8 @@
   #props .chk input{flex:0 0 auto;width:36px;height:20px;border:none;padding:0;background:#c9c5bb;border-radius:999px}   /* v2.2: pillola piena come il prototipo — senza radius esplicito vinceva #props input{border-radius:8px} (id>attr) */
   #props .chk input:checked{background:var(--accent)}
   body.dark #props .chk input{background:var(--border-strong)}
-  #props input[type=range],body.dark #props input[type=range]{border:none;padding:0;background:transparent;box-shadow:none}   /* v2.2: slider nativo puro come il prototipo — senza scatola, il cursore arriva a inizio/fine corsa */
+  #props input[type=range],body.dark #props input[type=range]{border:none;padding:0;background:transparent;box-shadow:none}
+  #props input[type=range]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-radius:4px}   /* il box-shadow:none sopra toglieva l'anello di focus ai cursori (revisione 25/09) */   /* v2.2: slider nativo puro come il prototipo — senza scatola, il cursore arriva a inizio/fine corsa */
   body.dark #props .chk input:checked{background:var(--accent)}
   #props .chk input:disabled{opacity:.4} #props .chk:has(input:disabled){color:var(--text-3)}
   #props .cnt-row{display:flex;align-items:center;gap:8px;margin:6px 0}
@@ -1181,6 +1190,7 @@
   .audit-find{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:12px;line-height:1.4}
   .audit-find-txt{flex:1 1 auto;min-width:0}
   .audit-find-txt b{color:var(--text-2)}
+  .audit-lv{font-weight:700;white-space:nowrap}
   .audit-hint{color:var(--text-3);margin-left:14px}
   .audit-fix{flex:0 0 auto;align-self:center;border:1px solid var(--accent);background:var(--surface);color:var(--accent);
     font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;line-height:1.3}
@@ -1461,6 +1471,10 @@ svg.names-hidden .orc-name{display:none}
      rimpicciolito o l'utente li spegne; il selezionato e quello sotto il mouse restano leggibili */
   svg.names-hidden .item .lbl:not(.sub){display:none}
   svg.names-hidden .item.selected .lbl,svg.names-hidden .item:hover .lbl{display:inline}
+  /* dal 25/09 i nomi stanno nel livello #layLbl, fuori dal gruppo dell'elemento: stesse regole sul contenitore del nome */
+  #svg #layLbl text.lbl{transform-box:fill-box;transform-origin:center;scale:var(--lblK,1)}   /* corpo minimo a schermo: vedi render() */
+  svg.names-hidden .item-lbls .lbl:not(.sub){display:none}
+  svg.names-hidden .item-lbls.selected .lbl,svg.names-hidden .item-lbls.hov .lbl{display:inline}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
   /* Testo libero (box di testo): righe con wrapping; il fill (colore) è inline per-elemento.
      Alone bianco leggero come le etichette per restare leggibile sopra la griglia; sempre visibile
@@ -1849,7 +1863,7 @@ svg.names-hidden .orc-name{display:none}
   .wl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .wl-skip{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-3);cursor:pointer;user-select:none}
   .wl-skip input{accent-color:var(--accent);width:14px;height:14px;margin:0}
-  .wl-cta{appearance:none;border:0;background:var(--accent);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
+  .wl-cta{appearance:none;border:0;background:var(--accent-strong);color:var(--text-on-accent);font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;transition:background var(--dur-fast)}
   .wl-cta:hover{background:var(--accent-strong)}
   .wl-mob{display:none}
   /* Popup dimensioni palco (#stageSize): riusa .wl-card/.wl-head/.wl-body/.wl-cta */
@@ -2107,9 +2121,9 @@ svg.names-hidden .orc-name{display:none}
   body.dark{
     --bg:#12181b;--surface:#1b2327;--surface-raised:#20292e;--surface-2:#20292e;--surface-3:#253036;
     --border:#2c3a3f;--border-strong:#314046;
-    --text:#e5e7eb;--text-2:#96a5a1;--text-3:#7d8794;   /* era #6b7280 = 3,30:1 sul fondo scuro; ora 4,38:1 e resta distinto da --text-2 */
+    --text:#e5e7eb;--text-2:#96a5a1;--text-3:#8a94a0;   /* era #6b7280 = 3,30:1; poi #7d8794 = 4,38:1 su --surface e 4,07:1 su --surface-raised (testo dei rilievi dell'audit). #8a94a0 = 5,18:1 e 4,81:1 (revisione 25/09); resta distinto da --text-2 */
     --canvas-bg:#0e1214;--sheet:#fff;
-    --focus-ring:rgba(20,184,166,.32);   /* glow accent-bright per il focus su scuro */
+    --focus-ring:rgba(20,184,166,.86);   /* era .32 = 1,8:1 sul fondo scuro, sotto il 3:1 dei componenti (revisione 25/09): il tema chiaro l'aveva già portato a .92 per lo stesso motivo */
     /* SUPERFICI «TINTA» (04/08): erano dichiarate solo in :root e restavano quasi bianche in tema
        scuro, col testo chiaro sopra. La riga SELEZIONATA della channel list dava 1,08:1 — il nome
        del canale spariva — e la barra «Sala oscurabile» del pannello Luci 1,43:1, un interruttore
@@ -2125,12 +2139,13 @@ svg.names-hidden .orc-name{display:none}
        2,84:1: si vede che c'è scritto qualcosa, non cosa. Qui si schiariscono; i punti in cui le
        stesse variabili fanno da SFONDO con testo bianco sopra sono rimappati subito sotto. */
     --danger:#f87171;--danger-bg:#3a1d1f;
+    --info:#93c5fd;
     --success:#4ade80;--success-bg:#0f2d1a;--success-border:#166534;
     --accent-strong:#5eead4;
     background:var(--bg);color:var(--text)}
   /* gli sfondi che usavano il teal scuro: in scuro passano ad --accent/--accent-deep, che col bianco
      sopra restano leggibili (--accent-strong ora è chiaro e servirebbe testo scuro) */
-  body.dark #selProps .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  body.dark #selProps .btn.primary{background:#0b7a70;border-color:#0b7a70;color:#fff}   /* come sopra: var(--accent) col bianco = 3,74:1 */
   body.dark #selProps .btn.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
   body.dark .adv-btn.on:hover,body.dark .wl-cta:hover,body.dark #viewBar #viewCopy:hover,
   body.dark #conflictBar #cbLoad:hover,body.dark #updToast #updGo:hover,
@@ -2153,8 +2168,8 @@ svg.names-hidden .orc-name{display:none}
   body.dark .btn{background:#222b38;color:#e5e7eb}
   body.dark .btn:hover{background:#2c3848}
   /* le varianti vanno ri-dichiarate in dark: `body.dark .btn` (0,2,1) batte `.btn.primary` (0,2,0) */
-  body.dark .btn.primary{background:var(--accent)}                 /* teal, non grigio */
-  body.dark .btn.primary:hover{background:var(--accent-deep)}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
+  body.dark .btn.primary{background:#0b7a70;color:#fff}   /* teal scuro: testo bianco 5,21:1. Era var(--accent) col testo #e5e7eb = 3,02:1 su Crea il palco, Condividi, Report PDF (revisione 25/09) */
+  body.dark .btn.primary:hover{background:#096a61}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}
   body.dark #catalog{background:#1b2327;border-right-color:#2c3a3f}
   body.dark #catalog .cat-head{background:#20292e;border-color:#314046;color:#cbd5e1}
@@ -2276,6 +2291,7 @@ svg.names-hidden .orc-name{display:none}
        campo «Ingressi» nuovo: era un difetto di famiglia, non suo. */
     #props select{min-height:44px}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
+    #dragHint button{min-width:44px;min-height:44px;margin:-10px -8px -10px 0}   /* la ✕ del suggerimento: 14 px di bersaglio sotto il dito (revisione 25/09) */
     .pdf-navbtn{width:44px;height:44px}
     #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
     .cat-sheet-close{min-width:44px}
@@ -2719,7 +2735,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   /* Slider con nome a fianco e valore */
   .sldrow{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 0;
     border-bottom:1px dashed var(--border)}
-  .sldrow label{flex:0 0 auto;color:var(--text-2)}
+  .sldrow label{flex:0 0 auto;min-width:76px;color:var(--text-2)}   /* stessa colonna: gli slider partono tutti allo stesso punto (revisione 25/09) */
   .sldrow input[type="range"]{flex:1;min-width:0}
   .sldrow output{min-width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
   /* Chips: scelte esclusive 2-4 opzioni */
@@ -3483,6 +3499,12 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .mpv-tec{fill:#c7d7f5;stroke:#3b6fd4;stroke-width:4}
 .mpv-alt{fill:var(--n-100);stroke:var(--n-500);stroke-width:3}
 @media (max-width:880px){ #mpMods .mp-prev{height:78px} }
+
+/* Lista ingressi lasciata fuori dal PDF (revisione 25/09) */
+.pdf-inmissing{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text);font-size:13px}
+.pdf-inmissing[hidden]{display:none}
+.pdf-inmissing .btn{min-height:32px;padding:4px 12px}
+#pdfUltimo.vecchio{color:var(--warning);font-weight:600}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -3534,7 +3556,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
     <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
     <label for="evTipo" class="ev-l">Tipo</label><select id="evTipo" class="ev-i"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
     <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
-    <div class="ev-hint">Facoltativi — finiranno su rider e documenti nei prossimi passi.</div>
+    <div class="ev-hint">Facoltativi — se li scrivi, finiscono nell'intestazione del PDF e su ogni lista.</div>
   </div>
   <!-- 14/09 — Le varianti come SCHEDE, sempre in vista. Segnalazione di Simone: la barra compariva
        solo dalla seconda variante («secondo me dovrebbe essere sempre lì, magari in modo più
@@ -3633,7 +3655,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 <!-- audit H-10: regione di annunci per screen reader (fuori da <main> così non viene resa inert dalle modali) -->
 <div id="a11yLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="application" tabindex="0"
-  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
+  aria-label="Area di lavoro del palco. Premi Tab per scorrere gli elementi, Invio per modificarne le proprietà, le frecce per spostare l'elemento selezionato, R per ruotare, D per duplicare, Canc per eliminare, Esc per deselezionare."></svg>
 <!-- «Adatta» sul palco, in basso a destra: stava nella barra alta, lontano dal pollice e dal disegno
      che rimette in vista. Solo col telefono; col mouse c'è #bFit nella barra degli strumenti. -->
 <button class="m-fit" id="mFit" type="button" aria-label="Adatta lo zoom al palco" title="Adatta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -4424,7 +4446,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="prop-card__head">Microfonazione panoramica</div>
       <input aria-label="Microfono della zona" type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
       <button class="btn" id="bGrpZone" style="width:100%;margin-top:6px">Crea zona microfonazione</button>
-      <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella input list.</div>
+      <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella channel list.</div>
     </div>
     <div id="grpLblWrap" style="display:none;margin-bottom:8px">
       <label for="grpLblSize" style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
@@ -4508,7 +4530,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="auditSecHead">
         <span class="caret" id="auditCaret">▾</span>
         <span class="cab-sectitle"><b>Audit progetto</b></span>
-        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="auditTrash" title="Chiudi l'audit" aria-label="Chiudi l'audit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="auditBody" style="margin-top:8px">
         <div id="auditScore"></div>
@@ -4548,8 +4570,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
     <div id="patchSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <div class="cab-sechead" id="patchSecHead">
         <span class="caret" id="patchCaret">▾</span>
-        <span class="cab-sectitle"><b>Input list</b></span>
-        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi l'input list" aria-label="Chiudi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <span class="cab-sectitle"><b>Channel list</b></span>
+        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi la channel list" aria-label="Chiudi la channel list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="patchBody" style="margin-top:8px">
         <div id="patchSummary" hidden></div>
@@ -4562,7 +4584,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="monSecHead">
         <span class="caret" id="monCaret">▾</span>
         <span class="cab-sectitle"><b>Monitor list</b></span>
-        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="monTrash" title="Chiudi la monitor list" aria-label="Chiudi la monitor list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="monBody" style="margin-top:8px">
         <div id="monSummary" style="font-size:12px;color:var(--text-2);line-height:1.5;margin:0 0 8px"></div>
@@ -4578,7 +4600,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="cab-sechead" id="loadSecHead">
         <span class="caret" id="loadCaret">▾</span>
         <span class="cab-sectitle"><b>Lista carichi</b></span>
-        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button type="button" class="cab-trash" id="loadTrash" title="Chiudi la lista carichi" aria-label="Chiudi la lista carichi"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <!-- 29/07: via il riepilogo a frase (#loadSummary) e la didascalia in piede — la barra in cima a
            #loadRows dice a che punto sei e quanto è carica la fase più carica, e ogni riga porta la sua
@@ -5126,7 +5148,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="wl-steps">
         <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Cerca</strong> lo strumento nel catalogo a sinistra, o aprilo per categoria: un clic lo posa sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
-        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + lista ingressi, monitor e carichi</span></div>
+        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + channel list, monitor list e carichi</span></div>
       </div>
       <div class="wl-mods-lbl">oppure parti da un modello</div>
       <div class="wl-mods" id="wlMods"></div>
@@ -5322,9 +5344,10 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
              tre file con lo stesso nome. Qui è il momento giusto per chiederlo: è lo stesso
              `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
-        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del rider e nome del file</span></label>
+        <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
         <div class="hdr-saved" id="pdfFileName"></div>
+        <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->
