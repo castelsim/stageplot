@@ -7006,6 +7006,21 @@ t("applyStageSize: rettangolo singolo centrato con le misure (m→cm)", () => {
   ok(!A.state.stage._provisional);
 });
 t("applyStageSize provvisorio: marca _provisional (dimensioni da confermare)", () => { reset(); A.applyStageSize(8, 6, true); ok(A.state.stage._provisional === true); });
+/* Revisione 25/09: dopo aver mandato il PDF non si sapeva se il progetto era cambiato. */
+t("Esporta dice se il progetto è cambiato dopo l'ultimo PDF", () => {
+  reset(); add("cantante", 300, 300);
+  eq(A.pdfUltimoTesto(A.state), "", "senza export non c'è nota");
+  A.segnaPdfEsportato();
+  ok(/^Ultimo PDF: .*nessuna modifica dopo/.test(A.pdfUltimoTesto(A.state)), "subito dopo l'export la nota non deve dire «modificato»: " + A.pdfUltimoTesto(A.state));
+  const st = JSON.parse(JSON.stringify(A.state));
+  ok(/nessuna modifica dopo/.test(A.pdfUltimoTesto(st)), "la nota deve sopravvivere al salvataggio");
+  const riaperto = A.normalizeState(JSON.parse(A.stateToJSON()));
+  ok(/nessuna modifica dopo/.test(A.pdfUltimoTesto(riaperto)), "riaprire il progetto non è una modifica: " + A.pdfUltimoTesto(riaperto));
+  A.state.items[0].x += 50;
+  ok(/^Modificato dopo l'ultimo PDF/.test(A.pdfUltimoTesto(A.state)), "spostato un elemento, la nota deve dirlo");
+  ok(/pdfSave\(doc, fileName\(\)\+"\.pdf"\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
+  ok(/renderFuoriPalco\(\);\s*renderPdfUltimo\(\);/.test(appjs), "la nota va mostrata all'apertura di Esporta");
+});
 /* Revisione 25/09: il PDF «solo palco» lasciava fuori la channel list senza dirlo. */
 t("Esporta avvisa se la channel list resta fuori dal PDF", () => {
   const f = appjs.slice(appjs.indexOf("function pdfAvvisoIngressi(){"), appjs.indexOf("function pdfRenderPills(){"));

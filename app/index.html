@@ -3503,6 +3503,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .pdf-inmissing{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text);font-size:13px}
 .pdf-inmissing[hidden]{display:none}
 .pdf-inmissing .btn{min-height:32px;padding:4px 12px}
+#pdfUltimo.vecchio{color:var(--warning);font-weight:600}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -5345,6 +5346,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
         <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
         <div class="hdr-saved" id="pdfFileName"></div>
+        <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->

@@ -5246,6 +5246,11 @@ function normalizeState(s){
      `delete` e non `= null`: un campo che vale null è comunque un campo, e finirebbe nel salvataggio
      come i riferimenti orfani che ci portiamo dietro da mesi. */
   delete s.pdfPages;
+  if(s.pdfEsportato){   /* «Modificato dopo l'ultimo PDF» (25/09): solo quando e l'impronta, entrambe stringhe */
+    var _pe=s.pdfEsportato;
+    if(_pe && typeof _pe.at==="string" && typeof _pe.firma==="string" && _pe.at.length<40 && _pe.firma.length<40) s.pdfEsportato={at:_pe.at, firma:_pe.firma};
+    else delete s.pdfEsportato;
+  }
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
@@ -26379,6 +26384,45 @@ function buildPdfDoc(paperKey, N, orient, header){
 /* consegna il PDF: se è stata scelta una destinazione (handle) la scrive lì;
    su mobile apre il foglio di condivisione; altrimenti scarica.
    Ritorna "saved" | "share" | "download" | "abort". */
+/* «Modificato dopo l'ultimo PDF» (revisione 25/09). Chi ha mandato il PDF al service e poi sposta un
+   monitor non ha modo di sapere se il foglio in giro è ancora quello giusto. All'export si scrive
+   quando e un'impronta dello stato; alla riapertura di Esporta si confronta. L'impronta esclude la
+   nota stessa, così scriverla non la rende subito «vecchia». Una per variante: il PDF è della variante. */
+function firmaPdf(s){
+  /* Sulla forma NORMALIZZATA e a chiavi ordinate: riaprire il progetto (normalizeState aggiunge i
+     campi mancanti, in coda) cambia l'ordine delle chiavi ma non il contenuto, e non è una modifica. */
+  var c=JSON.parse(JSON.stringify(s||{}));
+  try{ var n=normalizeState(c); if(n) c=n; }catch(_e){}
+  var j=JSON.stringify(c, function(k,v){
+    if(k==="pdfEsportato") return undefined;
+    if(v && typeof v==="object" && !Array.isArray(v)){ var o={}; Object.keys(v).sort().forEach(function(kk){ o[kk]=v[kk]; }); return o; }
+    return v;
+  })||"";
+  var h=5381; for(var i=0;i<j.length;i++){ h=((h<<5)+h+j.charCodeAt(i))|0; }
+  return (h>>>0).toString(36)+"."+j.length;
+}
+function segnaPdfEsportato(){
+  try{
+    dropOrphanRows(state);   /* lo fa save(): va fatto prima dell'impronta, o la nota nasce già vecchia */
+    state.pdfEsportato={at:new Date().toISOString()};
+    state.pdfEsportato.firma=firmaPdf(state);
+    save();
+  }catch(_e){}
+}
+function pdfUltimoTesto(s){
+  var e=s&&s.pdfEsportato; if(!e||!e.at||!e.firma) return "";
+  var d=new Date(e.at); if(isNaN(d)) return "";
+  var p=function(n){ return String(n).padStart(2,"0"); };
+  var quando=p(d.getDate())+"/"+p(d.getMonth()+1)+" alle "+p(d.getHours())+":"+p(d.getMinutes());
+  return firmaPdf(s)===e.firma ? "Ultimo PDF: "+quando+", nessuna modifica dopo."
+                               : "Modificato dopo l'ultimo PDF ("+quando+"): chi ha il file ha una versione vecchia.";
+}
+function renderPdfUltimo(){
+  var el=document.getElementById("pdfUltimo"); if(!el) return;
+  var tx=pdfUltimoTesto(state);
+  el.textContent=tx; el.hidden=!tx;
+  el.classList.toggle("vecchio", /^Modificato/.test(tx));
+}
 function exportPdf(paperKey, scaleSel, orient, header){
   var info=document.getElementById("pdfInfo");
   /* M-04: il gate sugli errori CRITICI vive nel click di #pdfGo, non più qui — perché lì può usare la
@@ -26397,6 +26441,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
      svg2pdf era ancora sul main thread — due clic, due file, due passate. */
   return buildPdfDoc(paperKey, N, orient, header).then(function(doc){
     pdfSave(doc, fileName()+".pdf");
+    if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
     /* dire la verità a valle: il ritaglio e le pagine non disegnate non devono sparire dietro un "✓" */
     var _avvisi=[];
     if(_boxChk.cropped) _avvisi.push("stampata solo la parte centrale che ci sta nel foglio");
@@ -27008,6 +27053,7 @@ function pdfChannelPage(doc, L, paperKey){
     pdfRenderPills();
     renderProdInline();
     renderFuoriPalco();
+    renderPdfUltimo();
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();
