@@ -365,6 +365,7 @@
      rosso è quello chiaro, o non si legge. */
   .toast-act.toast-undo{border-color:rgba(248,113,113,.75);color:#fca5a5}
   .toast-act.toast-ok{border-color:rgba(255,255,255,.45);color:#fff}
+  .toast-act.toast-go{background:#0b7a70;border-color:#0b7a70;color:#fff;font-weight:700}
   @media (pointer:coarse){ .toast-act{min-height:44px;padding:8px 16px} }
   /* Dove sta il messaggio. Il «bottom» era scritto inline nell'HTML, dove nessuna media query
      poteva toccarlo: su telefono l'avviso finiva SOPRA il dock, coprendo per 27 px i quattro
