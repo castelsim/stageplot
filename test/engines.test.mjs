@@ -5037,6 +5037,26 @@ t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
   const r = A.__qaSearch("tastiera"); ok(r.length > 0);
   ok(A._deacc(r[0].nome).indexOf("tastiera") > -1, "primo risultato non sul nome: " + r[0].nome);
 });
+/* Revisione 25/09: le ricerche degli utenti che davano il risultato sbagliato per primo o niente. */
+t("ricerca: voce e cantante al cantante, basso al bassista", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).nome, primoQa = (q) => (A.__qaSearch(q)[0] || {}).nome;
+  ok(["Uomo","Donna"].includes(primo("voce")) && ["Uomo","Donna"].includes(primoQa("voce")), "«voce» deve dare il cantante: " + primo("voce") + " / " + primoQa("voce"));
+  ok(["Uomo","Donna"].includes(A.__spSearch("cantante")[1].nome), "«cantante»: i due cantanti prima dello sgabello");
+  eq(primo("basso"), "Postazione basso elettrico", "«basso» nella barra");
+  eq(primoQa("basso"), "Postazione basso elettrico", "«basso» nella finestrella");
+  ok(A.__spSearch("basso").some((e) => e.nome === "Ampli basso"), "l'ampli resta fra i risultati");
+  eq(primo("ampli basso"), "Ampli basso");
+});
+t("ricerca: liste e varianti si trovano per nome", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
+  for (const q of ["channel list", "input list", "lista canali", "channel"]) eq(primo(q), "Channel list", q);
+  eq(primo("monitor list"), "Monitor list"); eq(primo("lista monitor"), "Monitor list");
+  ok(primo("monitor") !== "Monitor list", "«monitor» resta dei wedge");
+  eq(primo("nuova variante"), "Nuova variante"); eq(primo("variante"), "Nuova variante");
+  ok(!A.__qaSearch("channel list").length, "la finestrella del doppio clic resta per gli elementi");
+  ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
+  ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
+});
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
 

@@ -1193,7 +1193,7 @@ var TYPES = {
              draw:function(it){ return guitarDraw(it,"el"); }},
   gtacustica:{nome:"Chitarra acustica", dim:"sedia · leggio · ampli", cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:110, gtr:"ac",
              draw:function(it){ return guitarDraw(it,"ac"); }},
-  bassstand:{nome:"Basso elettrico", dim:"sedia · leggio · ampli", cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:120, gtr:"bass",
+  bassstand:{nome:"Basso elettrico", dim:"sedia · leggio · ampli", qaPrimo:"basso",   /* revisione 25/09: «basso» dava per primo l'Ampli basso (alfabetico), chi scrive «basso» cerca il bassista */ cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:120, gtr:"bass",
              draw:function(it){ return guitarDraw(it,"bass"); }},
   pedaliera:{nome:"Pedaliera", dim:"50×30", cat:"Band e backline", sub:"Chitarre e bassi", w:52,d:32, defLabel:"Pedalboard",
              draw:function(it){ return drawLibFit("pedalierafx",it,62,32); }},
@@ -12984,7 +12984,8 @@ function ricordaRecenteCatalogo(k, nome, over){
       });
       /* gli sgabelli con il loro tipo: si trovano cercando, nel catalogo resta uno solo (16/09) */
       if(TYPES.sgabello) SGAB_SCELTE.filter(function(k){ return k!=="generico"; }).forEach(function(k){
-        entries.push({k:"sgabello", nome:SGAB_TIPI[k].nome, over:{sgabTipo:k, label:SGAB_TIPI[k].nome}, dim:"Ø38", kw:SGAB_TIPI[k].kw});
+        entries.push({k:"sgabello", nome:SGAB_TIPI[k].nome, over:{sgabTipo:k, label:SGAB_TIPI[k].nome}, dim:"Ø38", kw:SGAB_TIPI[k].kw,
+          qaCede:(k==="voce" ? "voce cantante" : null)});   /* 25/09: «voce» e «cantante» sono del cantante (Uomo/Donna), non dello sgabello */
       });
     }
     if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
@@ -13108,9 +13109,20 @@ function ricordaRecenteCatalogo(k, nome, over){
      direttore) avrebbe tirato fuori Esporta. La condivisione ha già il suo pulsante nella barra. */
   var EXPORT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4H9a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M19 4v6h6"/><path d="M16 14v9M12.5 19.5 16 23l3.5-3.5"/></svg>';
   var RF_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 17v11"/><circle cx="16" cy="15" r="2"/><path d="M11.5 10.5a6.4 6.4 0 0 0 0 9M20.5 10.5a6.4 6.4 0 0 1 0 9M7.5 6.5a12 12 0 0 0 0 17M24.5 6.5a12 12 0 0 1 0 17"/></svg>';
-  entries.push({nome:"Esporta", dim:"PDF, PNG, channel list per la console", noQuick:true, iconHtml:EXPORT_ICON,
+  entries.push({nome:"Esporta", dim:"PDF, PNG, CSV per la console", noQuick:true, iconHtml:EXPORT_ICON,
                 action:function(){ var b=document.getElementById("bExportHdr"); if(b) b.click(); },
                 kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare"});
+  /* Le liste e le varianti cercate per nome (revisione 25/09): «channel list», «input list», «lista
+     canali» davano Esporta o niente, e la lista vive dentro un layer che nell'avvio base è spento.
+     «monitor» resta dei wedge (qaCede): la Monitor list si trova con «monitor list», «lista monitor». */
+  var LISTA_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 9h14M11 16h14M11 23h14"/><circle cx="6.5" cy="9" r="1.2"/><circle cx="6.5" cy="16" r="1.2"/><circle cx="6.5" cy="23" r="1.2"/></svg>';
+  var VAR_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="18" y="4" width="10" height="10" rx="1.5"/><rect x="11" y="18" width="10" height="10" rx="1.5"/></svg>';
+  entries.push({nome:"Channel list", dim:"gli ingressi, per il service", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabin"); },
+                kw:"channel list input list lista canali lista ingressi ingressi canali patch list"});
+  entries.push({nome:"Monitor list", dim:"le mandate degli ascolti", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabout"); },
+                kw:"monitor list output list lista monitor lista uscite mandate mix ascolti", qaCede:"monitor"});
+  entries.push({nome:"Nuova variante", dim:"copia della scena attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
+                kw:"variante varianti scena scene versione alternativa seconda formazione"});
   entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   ["metro","testo"].forEach(function(k){
@@ -13129,7 +13141,8 @@ function ricordaRecenteCatalogo(k, nome, over){
     e._nname=_deacc(e.nome);
     e._kwStrong=_deacc(strong.filter(Boolean).join(" "));
     e._kw=_deacc(strong.concat(weak).filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi */
-    e._cede=(t&&t.qaCede) ? _deacc(t.qaCede) : null;   /* query che questo elemento lascia a chi le aveva già */
+    e._cede=qaCedeDi(e,t);     /* query che questo elemento lascia a chi le aveva già */
+    e._primo=qaPrimoDi(e,t);   /* query esatta che questo elemento prende davanti a tutti */
   });
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
@@ -13147,7 +13160,8 @@ function ricordaRecenteCatalogo(k, nome, over){
          della finestrella del doppio clic, e invece una query ceduta là continuava a essere vinta
          qui. Si vedeva su «monitor»: nel quick-add usciva il wedge, nella barra l'Hub monitoraggio
          (11/08). Due copie della stessa regola divergono sempre: ora la seconda copia c'è. */
-      if(e._cede && (" "+e._cede+" ").indexOf(" "+nq+" ")>-1) e._rank=6;
+      if(qaHaParola(e._cede,nq)) e._rank=6;
+      if(qaHaParola(e._primo,nq)) e._rank=-1;
     });
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     return m;
@@ -13183,6 +13197,15 @@ function ricordaRecenteCatalogo(k, nome, over){
     matched.forEach(function(e){
       results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
     });
+  });
+  /* Invio = il primo risultato (revisione 25/09): chi scriveva «batteria» e premeva Invio non otteneva
+     niente, e doveva andare col mouse sul risultato che aveva già sotto gli occhi. */
+  search.addEventListener("keydown", function(ev){
+    if(ev.key!=="Enter" || ev.isComposing) return;
+    if(results.style.display==="none") return;
+    var primo=results.querySelector("button:not(.json-act)");
+    if(!primo) return;
+    ev.preventDefault(); primo.click();
   });
   window.__catEntries=entries;   /* stesso indice per la ricerca rapida (quick-add): include Violino I/II, varianti stagebox, pedane… */
 })();
@@ -13473,7 +13496,13 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPrimo=null, _qaSrc=false;
+/* `qaCede` e `qaPrimo` stanno sul tipo o sulla singola voce di catalogo (uno sgabello ha cinque voci,
+   una sola cede «voce»). `qaPrimo` è il contrario di `qaCede`: la query esatta che l'elemento PRENDE
+   davanti a tutti (rango -1), per quando il nome giusto perde col tie-break alfabetico. */
+function qaCedeDi(e,t){ var v=(e&&e.qaCede)||(t&&t.qaCede); return v ? _deacc(v) : null; }
+function qaPrimoDi(e,t){ var v=(e&&e.qaPrimo)||(t&&t.qaPrimo); return v ? _deacc(v) : null; }
+function qaHaParola(lista,q){ return !!lista && (" "+lista+" ").indexOf(" "+q+" ")>-1; }
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
@@ -13481,7 +13510,7 @@ function qaIndex(){
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
-  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
@@ -13490,7 +13519,8 @@ function qaIndex(){
     _qaName.push(nome);
     _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
     _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
-    _qaCede.push(t&&t.qaCede ? _deacc(t.qaCede) : null);
+    _qaCede.push(qaCedeDi(e,t));
+    _qaPrimo.push(qaPrimoDi(e,t));
   });
 }
 /* la query cade all'inizio di una parola? "mic" sta a inizio parola in "Mic coro" e "microfoniche",
@@ -13523,7 +13553,8 @@ function qaSearch(q){
        per categoria) e non declassato di qualche gradino: pareggiare non basta, perché a parità
        di rango il tie-break manda avanti le categorie musicali. Resta comunque nei risultati,
        e le query più lunghe non sono toccate — "flexa" continua a dare il Flexaton per primo. */
-    if(_qaCede[i] && (" "+_qaCede[i]+" ").indexOf(" "+q+" ")>-1) r=6;
+    if(qaHaParola(_qaCede[i],q)) r=6;
+    if(qaHaParola(_qaPrimo[i],q)) r=-1;
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
@@ -19066,6 +19097,17 @@ var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
 /* Apre un layer: fuoco sul layer E la sua lista aperta. Prima le due cose erano scollegate, e
    bastava aver chiuso una volta il cappello perche' il layer si riaprisse con la sola intestazione
    e il bottone «Azzera percorsi» — chi guardava credeva di aver perso i canali. */
+/* Dalla ricerca: accende le Liste tecniche se servono, poi apre il layer con la sua lista (e il
+   motore, la prima volta, come il clic sulla riga «attiva»). */
+function apriListaDaRicerca(id){
+  if(typeof funzOn==="function" && !funzOn("liste") && typeof funzImposta==="function") funzImposta({liste:true});
+  var L=layerRegistry().filter(function(l){ return l.id===id; })[0];
+  if(typeof clearSelection==="function") clearSelection();   /* con un elemento selezionato il pannello mostra lui, non la lista */
+  apriLayer(id);
+  if(L && L.engineOn===false && typeof L.activate==="function") L.activate();
+  render();
+  var lm=document.getElementById("layerSec"); if(lm && lm.scrollIntoView) try{ lm.scrollIntoView({block:"nearest"}); }catch(_e){}
+}
 function apriLayer(id){
   layerAccOpen=id; layerSoloUI={}; layerSoloUI[id]=true; layerSoloMode="focus";
   if(ACC_DEL_LAYER[id] && typeof techAccordionOpen==="function") techAccordionOpen(ACC_DEL_LAYER[id]);
