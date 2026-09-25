@@ -12793,7 +12793,12 @@ t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account di
   ok(/if\(tx && mode==="istantanea"\)\{/.test(sb) && /cta\.id="shareLogin"/.test(sb), "senza account la condivisione invita ad accedere");
   ok(/sempre aggiornato/.test(sb.slice(sb.indexOf('cta.id="shareLogin"'))), "e dice cosa cambia");
   ok(/Salvato su questo dispositivo\. Accedi per ritrovarlo su computer e telefono\./.test(appjs), "il salvataggio locale dice il vantaggio");
-  ok(/mode==="offline-warn"\)\{ cls\+=" nudge";/.test(appjs) && /el\.classList\.contains\("nudge"\)\) document\.getElementById\("bCloud"\)\.click\(\)/.test(appjs), "e la pastiglia porta al login");
+  ok(/mode==="offline-warn"\)\{ cls\+=" invito";/.test(appjs) && /el\.classList\.contains\("invito"\)\) document\.getElementById\("bCloud"\)\.click\(\)/.test(appjs), "e la pastiglia porta al login");
+  /* revisione 25/09: con «nudge» la pastiglia ereditava lo stile del riquadro Produzione (.nudge: margine
+     12, padding 8×11) e diventava 398×33 px — la barra sbordava di 378 px a 1512 e copriva Annulla,
+     Ripeti, Adatta. La classe dello stato non deve essere quella di un altro componente. */
+  ok(!/\n\s*\.nudge\{/.test(stylesCss) || !/cls\+=" nudge"/.test(appjs), "la pastiglia usa di nuovo una classe che è già di un altro componente");
+  ok(/\.doc-chip\{[^}]*max-width:\s*\d+px[^}]*text-overflow:ellipsis/.test(stylesCss), "la pastiglia deve avere una larghezza massima: un testo lungo allarga la barra e copre i comandi");
   ok(appjs.indexOf('{ id:"elec", name:"Elettrico"') > -1 && appjs.indexOf('name:"Power"') === -1 && !/lista Power/.test(appjs), "la lista si chiama Elettrico, anche nei rimedi");
   ok(!/<span>Link di sola lettura<\/span>/.test(landing) && /<span>Link sempre aggiornato, con l'account<\/span>/.test(landing), "la home dice che il link aggiornato è dell'account");
   ok(/con l'account, un link di sola lettura sempre aggiornato/.test(landing) && /Il link no: con l'account,/.test(landing), "anche nelle domande frequenti e nella sezione Condivisione");

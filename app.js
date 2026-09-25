@@ -3705,17 +3705,19 @@ function setDocState(mode){
   if(window.__localConflict && mode!=="conflict" && mode!=="blocked") mode="conflict";
   else if(window.__localStorageUnavailable && (mode==="local"||mode==="offline-warn"||!mode)) mode="local-error";
   var el=document.getElementById("docState"), elM=document.getElementById("docStateM");
-  var cls="doc-chip", html="", htmlM="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
+  var cls="doc-chip", html="", htmlM="", tip="";   /* mobile: testi più corti (spazio ridotto, evita troncamenti) */
   if(mode==="online"){ cls+=" on"; var d=new Date(), hh=String(d.getHours()).padStart(2,"0"), mm=String(d.getMinutes()).padStart(2,"0"); html=CHIP_SVG.cloud+"Salvato online · "+hh+":"+mm; htmlM=CHIP_SVG.cloud+"Online · "+hh+":"+mm; }
   else if(mode==="saving"){ html="Salvataggio…"; htmlM="Salvataggio…"; }
-  else if(mode==="offline-warn"){ cls+=" nudge"; html=CHIP_SVG.ok+"Salvato su questo dispositivo · Accedi per ritrovarlo ovunque"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
+  else if(mode==="offline-warn"){ cls+=" invito"; html=CHIP_SVG.ok+"Solo su questo dispositivo · Accedi"; htmlM=CHIP_SVG.ok+"Su questo dispositivo"; tip="Salvato su questo dispositivo. Accedi per ritrovarlo ovunque."; }   /* non loggato: dire la verità (è salvato in locale), non allarmare — nudge soft (ciclo #3, A) */
   else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
   else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Aperto in un'altra scheda — salvataggio sospeso, scarica il progetto o ricarica"; htmlM=CHIP_SVG.warn+"Altra scheda — non salvo"; }   /* «scegli come continuare» prometteva una scelta che non compare da nessuna parte: la pastiglia dice le due vie vere (06/08) */
   else if(mode==="locked"){ cls+=" warn"; html=CHIP_SVG.warn+"Progetto bloccato — le modifiche restano su questo dispositivo"; htmlM=CHIP_SVG.warn+"Bloccato — non salvo online"; }   /* il lucchetto ferma l'autosave: senza questo la pastiglia restava su «Salvataggio…» per sempre */
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
-  if(el){ el.className=cls; el.innerHTML=html; el.hidden=false; }
+  /* il testo in uno <span> suo: quando la barra è stretta la pastiglia si restringe (flex-shrink) e deve
+     sparire prima il testo, con i puntini, lasciando intera l'icona — non il contrario (revisione 25/09) */
+  if(el){ el.className=cls; el.innerHTML=html.replace(/^(<svg[\s\S]*?<\/svg>)?([\s\S]*)$/, function(_,s,tx){ return (s||"")+(tx?'<span class="dc-t">'+tx+'</span>':""); }); el.hidden=false; el.title=tip||el.textContent||""; }   /* la pastiglia ha una larghezza massima: la frase intera sta nel title */
   if(elM){ elM.className=cls+" doc-chip-m"; elM.innerHTML=htmlM; elM.hidden=false; }
 }
 window.setDocState=setDocState;
@@ -3887,9 +3889,9 @@ window.setPeekName=setPeekName;
 (function(){
   var el=document.getElementById("docState");
   /* «nudge» (15/09): da non collegati la pastiglia che dice «Accedi per ritrovarlo ovunque» porta al login */
-  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn") || el.classList.contains("nudge")) document.getElementById("bCloud").click(); });
+  if(el) el.addEventListener("click", function(){ if(el.classList.contains("warn") || el.classList.contains("invito")) document.getElementById("bCloud").click(); });
   var elM=document.getElementById("docStateM");
-  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn") || elM.classList.contains("nudge")) document.getElementById("bCloud").click(); });
+  if(elM) elM.addEventListener("click", function(){ if(elM.classList.contains("warn") || elM.classList.contains("invito")) document.getElementById("bCloud").click(); });
   try{ setDocState("local"); }catch(e){}   /* stato iniziale; l'auth callback lo aggiorna appena il modulo cloud parte */
 })();
 /* ===== Undo / Redo ===== */
