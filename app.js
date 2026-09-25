@@ -9307,7 +9307,8 @@ function auditEngine(){
   }
   /* T4 — contatto del Service: lezione dei casi reali (il collo era «girami un numero del service») */
   if(audioSrc>0 && !(state.contacts||[]).some(function(c){ return /service/i.test(c.role||"") && ((c.name&&c.name.trim())||(c.contact&&c.contact.trim())); }))
-    add("info","Nessun contatto per il Service locale nella rubrica del rider: serve per coordinare la data.","Contatti");
+    add("info","Nessun contatto per il Service locale nel"+(eventoConferenza()?"la scheda tecnica":" rider")+": serve per coordinare la data.","Contatti",
+      "Aggiungilo in «Contatti e ruoli»: viaggia con il link e con il PDF.",{label:"Apri Contatti e ruoli",run:auditFixOpenContacts});   /* revisione 25/09: prima non diceva dove */
   /* T5 — stato: un documento ancora in bozza non è pronto da inviare */
   /* «segnato come da confermare» era una promessa che nessuno manteneva: _provisional veniva scritto
      e mai più letto da nessuna parte — passati i 3 secondi del toast, l'informazione era persa e il
@@ -9556,6 +9557,10 @@ function auditFixAdattaPalco(){
 }
 function auditFix48V(){ (state.inputs||[]).forEach(function(r){ if(r && r.p48 && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48) r.p48=false; }); save(); render(); }   /* T1: toglie il phantom dove non serve */
 function auditFixStereoOdd(on){ if(!state.cab) state.cab={}; state.cab.stereoOdd=!!on; __cabRes=null; save(); render(); }   /* attiva/disattiva la convenzione L=dispari/R=pari */
+function auditFixOpenContacts(){   /* «Contatti e ruoli» sta nel pannello Channel list (chanEdit): lo si apre e ci si porta sopra */
+  if(typeof chanEdit!=="undefined" && !chanEdit && typeof toggleChan==="function") toggleChan();
+  setTimeout(function(){ var el=document.getElementById("contactRows"); if(el && el.scrollIntoView) try{ el.scrollIntoView({block:"center"}); }catch(e){} }, 60);
+}
 function auditFixOpenChan(){ var b=document.getElementById("bChanList"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
 /* PALCO VUOTO: dire cosa fare (01/09). Chiudendo il benvenuto senza scegliere un modello si resta
    davanti a un rettangolo con scritto FONDO PALCO e PUBBLICO, e nient'altro: il catalogo e' li' a
@@ -18678,7 +18683,7 @@ function layerRegistry(){
   if(!state.cab || !state.elec || !state.mond) return [];   /* stato non ancora normalizzato (es. addItem prima del load completo): niente layer, evita il crash su state.cab.on */
   return [
     /* Musicisti (17/07): meta-layer sulle persone (stesso set del bottone Contatto). Subito dopo Palco. */
-    { id:"mus", name:"Musicisti", color:"#16a34a", active:(state.items||[]).some(function(x){ return musLayerItem(x.type); }),
+    { id:"mus", name:(eventoConferenza()?"Persone":"Musicisti"), color:"#16a34a",   /* in conferenza sul palco ci sono relatori e moderatori (revisione 25/09) */ active:(state.items||[]).some(function(x){ return musLayerItem(x.type); }),
       visible:musLayerUI.vis, setVisible:function(v){ musLayerUI.vis=v; render(); },
       lockable:true, locked:musLayerUI.lock, setLocked:function(v){ musLayerUI.lock=v; document.body.classList.toggle("mus-lock",v); if(v){ sel=null; selSet={}; } render(); } },
     /* Layer v3 (21/07, Simone): Ingressi / Output / P.M. = TRE layer separati, ognuno = cavi +
@@ -19172,7 +19177,7 @@ function renderLayerManager(){
     var t=document.createElement("button");
     t.type="button"; t.className="layer-group-label adv-head"; t.setAttribute("aria-expanded", String(aperto));
     t.innerHTML='<span class="adv-caret" aria-hidden="true">'+(aperto?"▾":"▸")+'</span>Impianti tecnici';
-    t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un rider";
+    t.title = aperto ? "Nascondi elettrico, luci e monitoraggio digitale" : "Elettrico, luci, monitoraggio digitale: ci sono, non servono per fare un "+(eventoConferenza()?"documento base":"rider");
     t.addEventListener("click", function(){ advAperta(!aperto); renderLayerManager(); });
     rows.appendChild(t);
     if(aperto) avanz.forEach(function(L){ renderLayerRow(L, rows); });
@@ -19205,7 +19210,7 @@ function renderStatoRider(rows){
   b.classList.add("sr-"+stato);
   var testo = A.errs>0 ? (A.errs===1 ? "1 errore da sistemare" : A.errs+" errori da sistemare")
     : (quante>0 ? (quante===1 ? "1 cosa da guardare" : quante+" cose da guardare")
-    : "Rider pronto");
+    : (eventoConferenza() ? "Scheda pronta" : "Rider pronto"));   /* revisione 25/09: in conferenza il documento è la scheda tecnica */
   b.innerHTML='<span class="sr-pallino" aria-hidden="true"></span><span class="sr-txt">'+esc(testo)+'</span>'+
               '<span class="sr-score">'+A.score+'</span>';
   b.title = "Apri il controllo del progetto: ogni voce dice cosa manca, e molte si sistemano con un clic";
@@ -21783,7 +21788,7 @@ function renderAuditPanel(){
   probs.forEach(function(x){
     var c=x.lvl==="err"?"var(--danger,#dc2626)":(x.lvl==="todef"?"#2563eb":"#b45309");
     var row=document.createElement("div"); row.className="audit-find";
-    row.innerHTML='<div class="audit-find-txt"><span style="color:'+c+'">●</span> <b>'+esc(x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
+    row.innerHTML='<div class="audit-find-txt"><span style="color:'+c+'">●</span> <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
     if(x.act && typeof x.act.run==="function"){
       var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=x.act.label;
       b.addEventListener("click", function(){ x.act.run(); });   /* la fix persiste e ridisegna da sé */
@@ -26589,7 +26594,7 @@ function pdfChannelPage(doc, L, paperKey){
       var b=document.createElement("b"); b.textContent=st.todef+(st.todef===1?" aspetto da definire":" aspetti da definire");
       nud.appendChild(b);
       var hints=(typeof productionElementHints==="function")?productionElementHints(state):[];
-      nud.appendChild(document.createTextNode(" — "+(hints.length?hints[0]+" Rispondi qui ":"rispondi al Controllo tecnico per un rider più completo ")));
+      nud.appendChild(document.createTextNode(" — "+(hints.length?hints[0]+" Rispondi qui ":"rispondi al Controllo tecnico per un"+(eventoConferenza()?"a scheda più completa ":" rider più completo "))));
     } else {
       nud.appendChild(document.createTextNode("Controllo tecnico completo ✓ — rivedi "));
     }
