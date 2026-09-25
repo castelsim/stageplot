@@ -26919,8 +26919,11 @@ function pdfChannelPage(doc, L, paperKey){
     var n=0; try{ n=(typeof cabResult==="function")?(cabResult(true).totIn||0):0; }catch(_e){}
     var mostra=disp && n>0 && !_pdfPillSel.inputlist;
     if(!mostra){ if(el) el.hidden=true; return; }
+    /* Sopra «Altre opzioni», non fra le pillole: nell'Esporta base le pillole sono nascoste, e chi
+       esporta dalla base è proprio chi non sa di dover aggiungere la lista. */
     if(!el){ el=document.createElement("div"); el.id="pdfInMissing"; el.className="pdf-inmissing";
-      var hint=document.getElementById("pdfPillsHint"); host.parentNode.insertBefore(el, (hint||host).nextSibling); }
+      var pro=document.getElementById("pdfProBtn");
+      if(pro && pro.parentNode) pro.parentNode.insertBefore(el, pro); else host.parentNode.insertBefore(el, host.nextSibling); }
     el.innerHTML=""; el.hidden=false;
     var sp=document.createElement("span"); sp.textContent="Channel list ("+n+" canal"+(n===1?"e":"i")+") non inclusa.";
     var b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Aggiungi";
