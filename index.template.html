@@ -12098,7 +12098,14 @@ function render(){
   syncVistaRuotata();   /* telefono: l'avviso della vista ruotata e la mappa */
   var ppm = svg.clientWidth / vb.w * 100;
   var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
-  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<46));
+  /* 46 → 30 px/m (revisione 25/09): col corpo minimo qui sotto i nomi si leggono anche da più lontano, e a 46
+     il Band aperto su un portatile da 1280 (44 px/m) nasceva senza nemmeno un nome sul palco */
+  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
+  /* CORPO MINIMO A SCHERMO (revisione 25/09): i nomi sono 14 cm di palco, e a zoom «adatta» uscivano a
+     6–8 px — il testo più piccolo della schermata, ed è il contenuto principale. Solo qui, nel palco
+     dell'editor, si ingrandiscono attorno al loro centro fino a 9 px; il testo in sé non cambia, quindi
+     PDF e PNG (che hanno un loro SVG e la loro scala, pdfTextK) restano come sono. */
+  try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
