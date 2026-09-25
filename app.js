@@ -2730,7 +2730,9 @@ var COMP = {
                {key:"stool",label:"Sgabello",type:"toggle"},
                {key:"leggio",label:"Leggio",type:"toggle"},
                {key:"lefty",label:"Mancino",type:"toggle"} ],
-    reduced:["mus","stool","leggio"],   /* pannello: Musicista/Sgabello/Leggio; il kit su misura si fa con "Dividi in elementi" */
+    /* 25/09 — niente più pannello ridotto: un utente segnalava «mancano kit componibili di batteria». I pezzi
+       c'erano, ma si componevano solo con «Dividi». Ora tom, piatti e doppia cassa si scelgono dal pannello,
+       e la microfonazione «Completa» mette un microfono per ogni pezzo montato (drumChansFor). */
     draw:drawBatteria, size:sizeBatteria, explode:explodeBatteria },
 };
 (function(){
@@ -7413,7 +7415,7 @@ function cabItemInputs(it){
     return [{name:(it.label||TYPES[it.type].nome),mic:scfg.mic}].concat(headMicInputs(it));   /* mono = 1 canale */
   }
   var base;
-  if(MIKING[it.type]) base = MIKING[it.type].chans(it.miking||MIKING[it.type].def).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
+  if(MIKING[it.type]) base = MIKING[it.type].chans(it.miking||MIKING[it.type].def, it).map(function(k){ return {name: k[0]?labelPrefix(it,k[0]):(it.label||TYPES[it.type].nome), mic:k[1]}; });
   else if(IN_MULTI[it.type]) base = (compChans(it)||IN_MULTI[it.type]).map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; });
   else if(IN_SRC[it.type]!=null) base = [{name:(it.label||TYPES[it.type].nome), mic:IN_SRC[it.type]}];
   else return [];
@@ -11060,8 +11062,8 @@ function renderProps(){
     document.getElementById("pTastLeg2").checked = it.leggio2===true;
   }
   var pc=document.getElementById("pComp"), comp=COMP[it.type];
-  /* Batteria (scelta Simone 15/07): NIENTE configuratore pezzi kit — semplicità. Il kit su misura si fa con
-     "Dividi in elementi". In pannello mostro SOLO Musicista/Sgabello (come il timpanista), via comp.reduced. */
+  /* comp.reduced = pannello con i soli controlli elencati. La batteria l'ha avuto dal 15/07 al 25/09 (kit solo
+     con «Dividi»): tolto dopo la segnalazione di un utente che non trovava come comporre il kit. */
   var reduced = comp && comp.reduced;
   document.getElementById("selProps").classList.toggle("comp-first", !!comp && !reduced);   /* configuratore in alto solo per i configurabili completi */
   /* Aspetto ILLUSTRATO (altri COMP configurabili, es. timpani): i controlli non si riflettono sull'illustrazione
@@ -17536,16 +17538,29 @@ MIKING.tavolopercussioni={ options:[["no","Nessuno — è solo un piano d'appogg
 MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI (pickup)"],["dimic","DI + mic"]], def:"mic", grp:"Mic / DI", zona:false,
   chans:function(m){ if(m==="dimic") return [["DI","DI"],["mic","KM184"]]; return m==="di" ? [["","DI"]] : [["","KM184"]]; } };
 /* Batteria: configurazioni tipiche (il tecnico può comunque "Dividere in elementi" per il controllo pezzo-per-pezzo). */
-MIKING.batteria={ options:[["full","Completa (8 mic)"],["reduced","Ridotta (kick + rullante + 2 OH)"],["oh","Solo overhead (2)"]], def:"full", grp:"Configurazione", zona:false,
-  chans:function(m){
+/* Un microfono per pezzo montato: cassa (due con la doppia cassa), rullante sopra e sotto, hi-hat se c'è,
+   un tom per tom, il floor se c'è, due overhead per i piatti. Senza l'elemento torna il kit fisso. */
+function drumChansFor(it){
+  if(!it) return DRUM_KIT;
+  var p=parts(it), n=Math.max(0, p.toms|0), out=[];
+  if(p.kick2===true) out.push(["Kick 1","D6"],["Kick 2","D6"]); else out.push(["Kick","D6"]);
+  out.push(["Rullante top","SM57"],["Rullante btm","e904"]);
+  if(p.hihat!==false) out.push(["Hi-Hat","SM81"]);
+  for(var i=1;i<=n;i++) out.push(["Tom "+i,"e904"]);
+  if(p.floor!==false) out.push(["Tom floor","e904"]);
+  out.push(["Overhead L","KM184"],["Overhead R","KM184"]);
+  return out;
+}
+MIKING.batteria={ options:[["full","Completa (un mic per pezzo)"],["reduced","Ridotta (kick + rullante + 2 OH)"],["oh","Solo overhead (2)"]], def:"full", grp:"Configurazione", zona:false,
+  chans:function(m, it){
     if(m==="reduced") return [["Kick","D6"],["Rullante","SM57"],["Overhead L","KM184"],["Overhead R","KM184"]];
     if(m==="oh") return [["Overhead L","KM184"],["Overhead R","KM184"]];
-    return DRUM_KIT;   /* Completa = gli 8 mic (IN_MULTI.batteria) */
+    return drumChansFor(it);   /* Completa = un microfono per pezzo montato (25/09) */
   } };
 /* "Nessun microfono": scelta esplicita → 0 canali, nessun errore nella input list. Applicata a TUTTE le microfonazioni. */
-Object.keys(MIKING).forEach(function(t){ var mk=MIKING[t], orig=mk.chans; mk.chans=function(m){ return m==="__nomic__" ? [] : orig(m); }; });
+Object.keys(MIKING).forEach(function(t){ var mk=MIKING[t], orig=mk.chans; mk.chans=function(m, it){ return m==="__nomic__" ? [] : orig(m, it); }; });   /* it: la batteria legge i suoi pezzi */
 /* sorgente canali di un elemento multi-input: se ha una microfonazione scelta usa quella, altrimenti IN_MULTI fisso */
-function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def);
+function inMultiList(it){ var mk=MIKING[it.type]; if(mk) return mk.chans(it.miking||mk.def, it);
   var cc=compChans(it); if(cc) return cc;
   return IN_MULTI[it.type]; }
 /* Componibile con canali che seguono i pezzi montati (set percussioni): la lista non promette
@@ -22024,7 +22039,7 @@ function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in
       return;
     }
     if(MIKING[it.type]){   /* microfonazione scelta (archi/cori/fiati): panoramico può dare 0 canali */
-      MIKING[it.type].chans(it.miking||MIKING[it.type].def).forEach(function(k){
+      MIKING[it.type].chans(it.miking||MIKING[it.type].def, it).forEach(function(k){
         rows.push(linkTo(rowFromMic(k[0]?labelPrefix(it,k[0]):(it.label||t.nome), k[1]),it));
       });
       return;
