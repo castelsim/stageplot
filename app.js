@@ -12512,6 +12512,17 @@ function misurePalco(w, d){
   if(w==null){ w=state.stage.w; d=state.stage.d; }   /* senza argomenti, quello aperto; con, quello di un modello */
   return n(w)+" × "+n(d)+" m";
 }
+/* La data sui DOCUMENTI (revisione 25/09): quella dell'evento, con l'ora, se è stata scritta in «Data e
+   ora»; altrimenti quella di oggi, come prima. Il PDF stampava sempre il giorno dell'esportazione — in
+   intestazione, nel cartiglio e su ogni lista — mentre la finestra prometteva «finiranno su rider e
+   documenti». Per le conferenze la consegna è link + PDF: il cliente leggeva una data sbagliata. */
+function dataDocumento(){
+  if(state && state.evDate){
+    var d=new Date(state.evDate+"T12:00:00");
+    if(isFinite(d.getTime())) return d.toLocaleDateString("it-IT")+(state.evTime ? " · "+state.evTime : "");
+  }
+  return new Date().toLocaleDateString("it-IT");
+}
 /* «sab 3 ott · 21:00»: la data dell'evento come si dice a voce, per la riga del menu */
 function dataEventoBreve(){
   if(!state.evDate) return state.evTime||"";
@@ -23755,7 +23766,7 @@ function buildExportSvg(){
   var css = document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
   var titolo = esc(state.titolo||"Stage plot");
   var luogo = esc(state.luogo||"");
-  var oggi = new Date().toLocaleDateString("it-IT");
+  var oggi = dataDocumento();
   var vbW = W+2*m+tableW, vbH = Math.max(D+2*m+head, tableH);
   var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+(-m)+' '+(-m-head)+' '+vbW+' '+vbH+'">'+
     '<style>'+css+'</style>'+DEFS+
@@ -24106,7 +24117,7 @@ function cabReportPdf(shared){
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold");
     doc.text("STAGE PLOT — Report cablaggio audio", M, 9);
     doc.setFontSize(9); doc.setFont("helvetica","normal");
-    doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    doc.text(dataDocumento(), W-M, 9, {align:"right"});
     y=22;
     if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: le lunghezze sono stime sul percorso ortogonale, da verificare in loco. */
@@ -24167,7 +24178,7 @@ function patchListPdf(shared){
     var M=16, y=22, cols=[M, M+10, M+62, M+100, M+136, M+158];   /* #, SORGENTE, FOH, MIC/DI, ASTA, PATCH */
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
@@ -24211,7 +24222,7 @@ function todefinePdf(shared){
     var M=16, W=210, y=22;
     doc.setFillColor("#475569"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Criticità e aspetti da definire", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     function heading(t,col){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor(col||"#475569"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
     function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
       lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=2.2; }
@@ -24249,7 +24260,7 @@ function responsabilitaPdf(shared){
     var M=16, y=22, cols=[M, M+50, M+118];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Responsabilità", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function trow(a,b,c,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.8; }
     trow("REPARTO","AZIENDA / SERVICE","REFERENTE (se pubblicato)", true, "#0b7a70");
@@ -24272,7 +24283,7 @@ function riderPdf(shared){
     var M=16, W=210, y=22;
     doc.setFillColor("#4338ca"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(eventoConferenza() ? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(d.titolo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(d.titolo+(d.luogo?" — "+d.luogo:""), M, y); y+=7; }
     (function(){ var si=statusInfo(d.status); var sign=(d.status==="approvato" && (d.approvedBy||d.approvedAt)) ? "  ·  firmato"+(d.approvedBy?" da "+d.approvedBy:"")+(d.approvedAt?" il "+new Date(d.approvedAt).toLocaleDateString("it-IT"):"") : "";
       doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(si.color); doc.text(si.label.toUpperCase()+sign, M, y); y+=7; doc.setTextColor("#111827"); })();
@@ -24312,7 +24323,7 @@ function monitorListPdf(shared){
     var M=16, y=22, cols=[M, M+14, M+70, M+120, M+160];
     doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Monitor list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     /* «5 / 0» con nessuna stage box dichiarata sembrava un errore: la capacità si scrive solo se c'è */
@@ -24338,7 +24349,7 @@ function loadListPdf(shared){
     var M=16, y=22, cols=[M, M+14, M+92, M+124, M+150];
     doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista carichi", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     doc.text("Totale: "+elecKW(R.totW)+" · "+R.totA.toFixed(0)+" A   ·   "+(R.distros.length ? "Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  ") : "nessun quadro dichiarato: lo fornisce il service"), M, y); y+=8;
@@ -24411,7 +24422,7 @@ function dantePatchPdf(shared){
     var M=16, y=22, cols=[M, M+26, M+92, M+124, M+150, M+172];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Patch stage box", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     if(R.mixer&&MIXER_DB[R.mixer]){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=7; }
     function trow(a,b,c,d,e,f,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); doc.text(String(f),cols[5],y); y+=5.4; }
@@ -24444,7 +24455,7 @@ function netListPdf(shared){
     var M=16, y=22, cols=[M, M+58, M+96, M+134, M+164];
     doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Rete", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var head = N.sw ? "Topologia a stella sullo switch "+(N.sw.label||"rete")+" ("+N.swUsed+"/"+N.swPorts+" porte"+(N.red?", Primary+Secondary":"")+")" : "Tratte dirette box → console (nessuno switch)";
@@ -24482,7 +24493,7 @@ function elecLinesPdf(shared){
     var M=16, y=22, cols=[M, M+22, M+52, M+72, M+160];
     doc.setFillColor("#d97706"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Alimentazioni", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.4; }
     distros.forEach(function(d){
@@ -24516,7 +24527,7 @@ function outputListPdf(shared){
     var M=16, y=22, cols=[M, M+26, M+108, M+134];
     doc.setFillColor("#0891b2"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Output list", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function trow(a,b,c,d,bold,color){ if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); y+=5.4; }
     var all=(L.auto||[]).concat(L.rows.filter(function(r){ return r.box; }));
@@ -24561,7 +24572,7 @@ function rackListPdf(shared){
     var M=16, y=22;
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista rack", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=9; }
     var letters={}; try{ (cabResult().boxes||[]).forEach(function(b){ if(b.id) letters[b.id]=b.letter; }); }catch(_e){}
     racks.forEach(function(rk){
@@ -24596,7 +24607,7 @@ function backlineListPdf(shared){
     var M=16, y=22, cols=[M, M+16, M+130];
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Backline", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     doc.text(pl.totItems+" element"+(pl.totItems===1?"o":"i")+" di backline"+(pl.byService?"   ·   "+pl.byService+" da fornire (Service)":""), M, y); y+=8;
@@ -24625,7 +24636,7 @@ function pdfListGeneric(doc, key, shared){
   doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
   doc.text("STAGE PLOT \u2014 "+cfg.title, M, 9);
   doc.setFont("helvetica","normal"); doc.setFontSize(9);
-  doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+  doc.text(dataDocumento(), 194, 9, {align:"right"});
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12);
     doc.text((state.titolo||"")+(state.luogo?" \u2014 "+state.luogo:""), M, y); y+=8; }
   var sub=cfg.sub?cfg.sub(d):"";
@@ -24842,7 +24853,7 @@ function rfListPdf(shared){
     var M=16, y=22, cols=[M, M+44, M+80, M+116, M+156];
     doc.setFillColor("#4f46e5"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista RF (radiomicrofoni / in-ear)", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var bandKeys=Object.keys(pl.bands);
@@ -24872,7 +24883,7 @@ function pmListPdf(shared){
     var M=16, y=22;
     doc.setFillColor("#c026d3"); doc.rect(0,0,210,14,"F");
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Personal monitor", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("it-IT"), 194, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||9.5); doc.setFont("helvetica",bold?"bold":"normal"); doc.setTextColor(color||"#111827"); doc.text(String(txt),M,y); y+=(dy||5.4); }
     var R=monDigEngine();   /* fresh: la distinta deve riflettere lo stato reale, non la cache */
@@ -24919,7 +24930,7 @@ function elecReportPdf(shared){
     function line(txt, size, bold, color, dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
     doc.setFillColor("#d97706"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Piano elettrico", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
     y=22;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: i valori sono STIME preliminari, non un progetto esecutivo. Assunzioni esplicite. */
@@ -24958,7 +24969,7 @@ function auditReportPdf(shared){
     function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage("a4","portrait"); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
     doc.setFillColor(col); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Audit progetto", M, 9);
-    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(new Date().toLocaleDateString("it-IT"), W-M, 9, {align:"right"});
+    doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
     y=24;
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Prontezza: "+A.score+"/100  —  "+A.grade, 15, true, col, 8);
@@ -25226,7 +25237,7 @@ function pdfCartiglio(doc, L, N, header){
   /* luogo · data · palco — stessa logica */
   doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(75,85,99);
   var sub=[]; if(state.luogo) sub.push(state.luogo);
-  sub.push(new Date().toLocaleDateString("it-IT"));
+  sub.push(dataDocumento());
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
   var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
   var _wt=_tecn?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
@@ -25299,7 +25310,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   var cy=L.ph-L.fondo-L.cartH;
   var sub=[]; if(state.luogo) sub.push(state.luogo);
-  sub.push(new Date().toLocaleDateString("it-IT")); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
+  sub.push(dataDocumento()); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
   var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
   var _pwt=_ptecn?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
@@ -25423,7 +25434,7 @@ function listPreviewHtml(key){
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
   var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
   return '<div class="pdf-list-sheet">'+
-    '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
+    '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (state.titolo?'<div class="pdf-list-tt">'+esc(state.titolo+(state.luogo?" — "+state.luogo:""))+'</div>':'')+
     (cfg.sub?'<div class="pdf-list-sub">'+esc(cfg.sub(d)||"")+'</div>':'')+
     '<table class="pdf-list-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>';
@@ -25655,7 +25666,7 @@ function riderHtml(){
   function sec(t,body,auto){ return '<div class="pdf-rider-sec"><div class="pdf-rider-h">'+esc(t)+(auto?' <span class="pdf-rider-auto">dai dati</span>':'')+'</div><div class="pdf-rider-b">'+body+'</div></div>'; }
   var mic = d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):"");
   return '<div class="pdf-list-sheet pdf-rider-sheet">'+
-    '<div class="pdf-list-hd" style="background:#4338ca">'+nomeDocumento()+'<span class="pdf-list-date">'+esc(new Date().toLocaleDateString("it-IT"))+'</span></div>'+
+    '<div class="pdf-list-hd" style="background:#4338ca">'+nomeDocumento()+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
     '<div class="pdf-rider-status" style="background:'+statusInfo(d.status).color+'">'+esc(statusInfo(d.status).label.toUpperCase())+
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
@@ -26402,7 +26413,7 @@ function pdfChannelPage(doc, L, paperKey){
   var M=L.M, x=M, y=M+8, pw=L.pw, colW=(pw-2*M);
   /* Intestazione rider (M5): artista/evento in grande, data, sottotitolo, luogo, contatto tecnico. */
   function oneLine(s,w){ var l=doc.splitTextToSize(String(s||""), w); return l.length>1 ? l[0].replace(/\s+\S*$/,"")+"…" : (l[0]||""); }
-  var dateStr=new Date().toLocaleDateString("it-IT");
+  var dateStr=dataDocumento();
   doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(17,24,39);
   doc.text(oneLine(state.titolo||"Stage plot", pw-2*M-55), x, y);
   doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(120,120,120);
