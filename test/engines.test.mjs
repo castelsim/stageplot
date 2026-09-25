@@ -109,7 +109,7 @@ function chans(it) { return A.cabItemInputs(it); }
 console.log("StagePlot — test motori\n");
 
 console.log("Microfonazione / cabItemInputs:");
-t("batteria = 8 canali (generica)", () => { reset(); const b = add("batteria", 400, 400); eq(chans(b).length, 8); });
+t("batteria = 9 canali (un mic per pezzo del kit di partenza)", () => { /* 25/09: «Completa» = un mic per pezzo; il kit di partenza ha 2 tom + floor → 9 (prima la lista fissa ne dava 8 e ignorava il secondo tom) */ reset(); const b = add("batteria", 400, 400); eq(chans(b).length, 9); });
 t("archi vln1x2 default (archetto) = 2 canali DPA", () => { reset(); const v = add("vln1x2", 300, 300); eq(chans(v).length, 2); eq(chans(v)[0].mic, "DPA 4099"); });
 t("archi vln1x2 miking pan1 = 1 canale, pan2 = 2", () => { reset(); const v = add("vln1x2", 300, 300); v.miking = "pan1"; A.__cabRes = null; eq(chans(v).length, 1); v.miking = "pan2"; eq(chans(v).length, 2); });
 t("corista: nasce col SUO microfono (SM58); panoramico = 0", () => { reset(); const c = add("corista", 200, 300); eq(chans(c).length, 1, "un corista aggiunto a mano ha il suo mic"); eq(chans(c)[0].mic, "SM58"); c.micMode = "pano"; eq(chans(c).length, 0, "panoramico: lo copre il mic di sezione"); });
@@ -430,11 +430,11 @@ t("i motori puri (audio/elec/mond/audit) non chiamano save() né render()", () =
 });
 
 console.log("\nCavo unico (audioCablingEngine):");
-t("batteria + box: 8 canali ma 1 sola KEY (un cavo)", () => {
+t("batteria + box: 9 canali ma 1 sola KEY (un cavo)", () => {
   reset(); const b = add("batteria", 400, 500); const box = add("stagebox", 600, 250);
   A.state.cab.on = true; A.state.cab.mode = "manual"; A.cabSetItemBox(b, box.id); A.__cabRes = null;
   const R = A.audioCablingEngine(); const bl = R.links.filter((l) => l.s.it.id === b.id);
-  eq(bl.length, 8, "canali"); eq(new Set(bl.map((l) => l.key)).size, 1, "chiavi distinte"); ok(bl[0].bundleN === 8, "bundleN");
+  eq(bl.length, 9, "canali"); eq(new Set(bl.map((l) => l.key)).size, 1, "chiavi distinte"); ok(bl[0].bundleN === 9, "bundleN");
 });
 t("microfono singolo: cavo per-canale (key id#0, non grp)", () => {
   reset(); const mic = add("astamic", 200, 400); const box = add("stagebox", 600, 250);
@@ -544,8 +544,8 @@ t("hub = carico elettrico (WATT), mixerino no", () => {
   const loads = A.electricEngine().loads.map((l) => l.it.type);
   ok(loads.indexOf("mixhub") > -1, "hub carico"); ok(loads.indexOf("hearback") === -1, "mixerino non carico");
 });
-t("itemChannels coerente: batteria 8, corista 1, zona 1", () => {
-  reset(); const b = add("batteria", 400, 400); eq(A.itemChannels(b), 8);
+t("itemChannels coerente: batteria 9, corista 1, zona 1", () => {
+  reset(); const b = add("batteria", 400, 400); eq(A.itemChannels(b), 9);
   reset(); const c = add("corista", 200, 300); c.micMode = "tonda"; eq(A.itemChannels(c), 1);
   reset(); const z = add("miczone", 300, 300); eq(A.itemChannels(z), 1);
 });
@@ -3443,9 +3443,9 @@ t("il fulmine dichiara quanti canali muove davvero", () => {
   const rows = A.patchList().rows;
   const kick = rows.filter((r) => r.itemId === bat.id)[0];
   const solo = rows.filter((r) => r.itemId === voc.id)[0];
-  eq(A.cabZapScope(kick, rows), 8, "la batteria muove otto canali");
+  eq(A.cabZapScope(kick, rows), 9, "la batteria muove nove canali");
   eq(A.cabZapScope(solo, rows), 1, "il cantante ne muove uno");
-  ok(/8 canali insieme/.test(A.cabZapTitle(kick, rows)), "il tooltip non dice quanti sono: " + A.cabZapTitle(kick, rows));
+  ok(/9 canali insieme/.test(A.cabZapTitle(kick, rows)), "il tooltip non dice quanti sono: " + A.cabZapTitle(kick, rows));
   ok(/Batteria/.test(A.cabZapTitle(kick, rows)), "il tooltip non nomina la sorgente: " + A.cabZapTitle(kick, rows));
   eq(A.cabZapTitle(solo, rows), "Collega questo canale", "su una sorgente mono il testo resta quello semplice");
 });
@@ -3460,7 +3460,7 @@ t("i canali già collegati non si contano nell'annuncio del fulmine", () => {
   const rows = A.patchList().rows.map((r) => Object.assign({}, r));
   rows.forEach((r, i) => { if (r.itemId === bat.id && i < 6) r.box = { id: "b1" }; });
   const libera = rows.filter((r) => r.itemId === bat.id && !r.box)[0];
-  eq(A.cabZapScope(libera, rows), 2, "conta anche quelli già in porta");
+  eq(A.cabZapScope(libera, rows), 3, "conta anche quelli già in porta");   /* 9 del kit, 6 già in porta */
 });
 t("la Monitor list resta a due livelli (là il nome si troncava)", () => {
   ok(stylesCss.indexOf(".patch-row.editable>.psrc{grid-area:1/2/2/3}") > -1, "nome sulla prima riga");
@@ -3533,7 +3533,7 @@ t("batteria: come il timpanista — NON in LOOK_ART, niente toggle Aspetto; batt
   ok(!A.hasLookToggle({ type: "batteria" }));         /* niente Aspetto */
   const ctl = A.COMP.batteria.controls.map((c) => c.key);
   ok(ctl.includes("mus") && ctl.includes("stool"));   /* toggle indipendenti Musicista + Sgabello */
-  eq(A.COMP.batteria.reduced.join(","), "mus,stool,leggio"); /* pannello ridotto: solo questi due (il kit su misura è "Dividi") */
+  ok(!A.COMP.batteria.reduced, "dal 25/09 il kit si compone dal pannello: niente pannello ridotto");
 });
 t("batteria seat slot: c'è se Musicista O Sgabello; sparisce se entrambi off", () => {
   const seat = (p) => A.drumSlots(p).some((s) => s.seat);
@@ -3574,10 +3574,10 @@ t("hasLookToggle: Fase 1 (vlnpost) sì; batteria/direttore e non mappati no", ()
   ok(A.hasLookToggle({ type: "vlnpost" }));
   ok(!A.hasLookToggle({ type: "batteria" })); ok(!A.hasLookToggle({ type: "direttore" })); ok(!A.hasLookToggle({ type: "astamic" }));
 });
-t("Musicista/Sgabello NON cambiano i canali: batteria = 8 con e senza persona/sgabello", () => {
+t("Musicista/Sgabello NON cambiano i canali: batteria = 9 con e senza persona/sgabello", () => {
   reset(); const a = add("batteria", 400, 400); const nA = chans(a).length;
   reset(); const b = add("batteria", 400, 400); const p = A.parts(b); p.mus = false; p.stool = false; A.__cabRes = null; const nB = chans(b).length;
-  eq(nA, nB); eq(nA, 8);
+  eq(nA, nB); eq(nA, 9);
 });
 t("migrazione Fase 2: musBatteria→batteria, musDirettore→direttore, musChitElettrica→gtstand; senza twin resta", () => {
   const s = { _v: 2, items: [{ type: "musBatteria" }, { type: "musDirettore" }, { type: "musChitElettrica" }, { type: "musChitClassica" }, { type: "musFisarmonica" }], inputs: [], outputs: [] };
@@ -5735,12 +5735,12 @@ console.log("\nAste microfoniche (conteggio):");
 t("la batteria non produce un'asta per microfono: i tom vanno a clip", () => {
   reset();
   const dr = add("batteria", 500, 300);
-  eq(A.cabItemInputs(dr).length, 8, "il kit di riferimento e' a 8 canali");
+  eq(A.cabItemInputs(dr).length, 9, "il kit di riferimento (2 tom + floor) è a 9 canali");
   const n = A.standNeeds();
   eq(n.giraffa.tot, 3, "hi-hat + 2 overhead vogliono una giraffa ciascuno");
   eq(n.bassa.tot, 2, "cassa e rullante top vanno su asta bassa");
-  eq(n.clip.tot, 3, "rullante btm e i due tom vanno a clip, non su asta");
-  eq(A.standTotal(n), 5, "8 canali di batteria = 5 aste vere, non 8");
+  eq(n.clip.tot, 4, "rullante btm, i due tom e il floor vanno a clip, non su asta");
+  eq(A.standTotal(n), 5, "9 canali di batteria = 5 aste vere, non 9");
 });
 t("microfonazione ridotta e soli overhead: le aste calano di conseguenza", () => {
   reset();
@@ -9188,9 +9188,9 @@ t("il CSV della channel list produce righe, non un file vuoto", () => {
   add("stagebox", 200, 700);
   A.__cabRes = null;
   const r = A.channelListCsv();
-  eq(r.count, 9, "9 canali: 1 voce + 8 microfoni della batteria");
+  eq(r.count, 10, "10 canali: 1 voce + 9 microfoni della batteria (un mic per pezzo, dal 25/09)");
   const righe = r.csv.trim().split(/\r?\n/);
-  eq(righe.length, 10, "intestazione + 9 righe");
+  eq(righe.length, 11, "intestazione + 10 righe");
   ok(righe[0].indexOf("Canale") > -1, "manca l'intestazione");
   ok(righe[1].indexOf("Kick") > -1 || righe[1].indexOf("Voce") > -1, "prima riga vuota: " + righe[1]);
 });
@@ -9517,7 +9517,7 @@ t("il multipolare entra su porte consecutive dalla porta scelta", () => {
   const { bat } = batteriaEVoce();
   A.cabSetPort(bat.id + "#2", 3);
   const p = porte();
-  eq([p["Batteria 1 - Kick"], p["Batteria 1 - Overhead R"]], ["A·3", "A·10"], "il blocco non è consecutivo");
+  eq([p["Batteria 1 - Kick"], p["Batteria 1 - Overhead R"]], ["A·3", "A·11"], "il blocco non è consecutivo");   /* 9 canali di batteria dal 25/09 */
   eq(p["Cantante 1"], "A·1", "la voce non ha preso la prima porta rimasta libera");
   eq(duplicate().length, 0, JSON.stringify(duplicate()));
 });
@@ -16242,6 +16242,24 @@ t("Lista RF: chi lo usa e la riserva; un relatore senza microfono si segnala", (
 t("il timpanista ha la corporatura del batterista, non più grande", () => {
   /* 24/09 — Simone: «il timpanista è grande rispetto a batterista e percussionista, fallo un 10% più piccolo» */
   ok(/translate\(0,8\) scale\(0\.9\)">'\+libIcon\("timpanistaPersona"\)/.test(appjs), "la persona fra i timpani è ridotta del 10%");
+});
+
+t("il kit di batteria si compone dal pannello, e i microfoni seguono i pezzi", () => {
+  /* 25/09 — segnalazione di un utente: «Mancano kit componibili di batteria». I pezzi c'erano, nascosti. */
+  reset();
+  const b = add("batteria", 400, 400);
+  const mics = () => A.cabItemInputs(b).map((c) => c.name.replace(/^.* - /, ""));
+  b.parts = Object.assign({}, b.parts, { toms: 3, kick2: true, hihat: false, floor: false });
+  const m = mics();
+  ok(m.includes("Kick 1") && m.includes("Kick 2"), "doppia cassa: due microfoni di cassa");
+  ok(m.includes("Tom 3") && !m.includes("Tom floor") && !m.includes("Hi-Hat"), "tre tom, niente floor né hi-hat");
+  eq(m.length, 9, "2 kick + rullante sopra/sotto + 3 tom + 2 overhead");
+  b.parts = Object.assign({}, b.parts, { toms: 0, kick2: false, hihat: true, floor: true });
+  eq(mics().join(","), "Kick,Rullante top,Rullante btm,Hi-Hat,Tom floor,Overhead L,Overhead R", "kit essenziale");
+  b.miking = "oh"; eq(A.cabItemInputs(b).length, 2, "le altre microfonazioni non cambiano");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pDivide"[^>]*>⇱ Dividi in pezzi singoli</.test(html), "«Dividi» dice cosa fa");
+  ok(/\["full","Completa \(un mic per pezzo\)"\]/.test(appjs), "e la microfonazione dice cosa fa");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
